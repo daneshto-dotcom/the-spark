@@ -172,6 +172,23 @@ export class Controls {
     if (e.button === 0 && this.state.kind === 'AttractDrag') {
       const spark = this.world.freeSparks.get(this.state.sparkId);
       if (spark !== undefined && spark.state.kind === 'Free') {
+        // S7 P1: snap spark.pos to cursor BEFORE the in-zone check + dispatch.
+        // Rationale: AttractDrag uses spring-with-distance-softening on prevPos
+        // (see applyPerSubstep) so spark.pos lags the cursor with non-zero
+        // inertia. Pre-S7, makePrimitiveFromSpark used spark.pos for placement
+        // while pickPrimitiveInRange measured from cursor — the bond length was
+        // dist(spark.pos→cursor) + dist(cursor→target.pos), which can span the
+        // canvas when the player flicks the cursor. Snapping unifies the source
+        // of truth on cursor: placement = cursor, auto-bond range = from cursor,
+        // so bond length ≤ AUTO_BOND_RADIUS by construction.
+        //
+        // Side effect (intentional): dragging the cursor back into the zone now
+        // cancels the place — spark stays Free wherever the cursor settled.
+        // Aligns with the mental model "release where you point."
+        spark.pos.x = this.cursor.x;
+        spark.pos.y = this.cursor.y;
+        spark.prevPos.x = this.cursor.x;
+        spark.prevPos.y = this.cursor.y;
         const inZone = this.isInsideSpawnerZone(spark.pos);
         if (!inZone) {
           // S5 hot-fix: single-action place. PICKUP then immediately PLACE so

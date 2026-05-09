@@ -1,0 +1,53 @@
+{
+  "tool_calls_session_total": 12,
+  "session": 7,
+  "title": "Connection-Range Gate + Per-Combo Persistent Bond Visuals",
+  "tier": "Standard",
+  "started_at": "2026-05-09",
+  "pdr_approved": true,
+  "deliberation_completed": true,
+  "unlock_source": "user",
+  "approved_at": "2026-05-09",
+  "priorities": [
+    {
+      "id": "P1",
+      "title": "Connection-range gate (snap spark to cursor at LMB-up)",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false,
+      "checkpoint_commit": null
+    },
+    {
+      "id": "P2",
+      "title": "Per-combo persistent bond visuals",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false,
+      "checkpoint_commit": null
+    },
+    {
+      "id": "P3",
+      "title": "BACKLOG.md hygiene + reflexion",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false,
+      "checkpoint_commit": null
+    },
+    {
+      "id": "P4",
+      "title": "Handoff + dev server",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false,
+      "checkpoint_commit": null
+    }
+  ]
+}
