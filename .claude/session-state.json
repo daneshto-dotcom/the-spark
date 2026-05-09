@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 12,
+  "tool_calls_session_total": 43,
   "session": 7,
   "title": "Connection-Range Gate + Per-Combo Persistent Bond Visuals",
   "tier": "Standard",
@@ -12,22 +12,24 @@
     {
       "id": "P1",
       "title": "Connection-range gate (snap spark to cursor at LMB-up)",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "Static trace of controls.ts:onUp confirmed snap-to-cursor at the new lines unifies placement + auto-bond-range source of truth on cursor. 3 new vitest tests (session7.test.ts) prove the invariant: (a) snap-then-place + pick-from-cursor produces bond length <= AUTO_BOND_RADIUS=60; (b) regression-doc test confirms pre-fix scenario produced length ~1100 (canvas-spanning); (c) cancel-place test confirms cursor-into-zone after attract-drag aborts placement. All 107/107 vitest tests pass. Typecheck clean (tsc -b --noEmit).",
+      "checkpoint_commit": "4d82b8b"
     },
     {
       "id": "P2",
       "title": "Per-combo persistent bond visuals",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "Static review of bondVisualRenderer.ts confirmed all 12 magic combos route through dedicated silhouettes (filament, cable, bracket, diamond, wheel, star, orbital, lattice, capsule, vortex, whip, warped) with a default-line fallback for the 24 functional combos. 35 new vitest tests in bondVisualRenderer.test.ts cover: per-id stroke dispatch, exact draw counts for cable/diamond/capsule/filament, degenerate-bond fallback (no NaN), tick-driven animation differentiation for wheel/vortex/orbital, and immutability for cable. Browser-verified by mutating __SPARK__.world to plant a 12-combo grid (24 primitives, 12 bonds) and screenshotting at both 110px and gameplay-realistic 60px bond lengths - all silhouettes legible, no console errors. structureRenderer.ts inherits stress tint + width and passes them to drawBondVisual; the >0.7 stress red-overlay pulse remains as an additive layer on top. 142/142 tests pass; typecheck clean.",
+      "checkpoint_commit": "83140e0"
     },
     {
       "id": "P3",

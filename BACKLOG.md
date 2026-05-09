@@ -6,6 +6,77 @@
 
 ---
 
+## Session 7 — Connection-Range Gate + Per-Combo Persistent Bond Visuals [COMPLETED] (2026-05-09)
+
+**Triggered by post-S6 user playtest.** Two issues surfaced in real play:
+(a) bonds spanning the canvas (user: "you can connect from any part of the
+map, which doesn't make sense"); (b) all bonds rendering as the same line
+even though the 36 combos differ in stiffness/area/effectId (user: "every
+shape you connect to the structure it changes the structure shape
+mathematically right? ... for now it just makes a line, which is not bad
+for session 6 but still not really any interesting").
+
+**P1 — Connection-range gate (Micro).** Root cause was cursor↔spark-pos
+divergence in AttractDrag: `pickPrimitiveInRange` measured from cursor while
+placement used the lagged `spark.pos`. Bond length = dist(spark→cursor) +
+60, unbounded. Fixed by snapping `spark.pos = cursor` at LMB-up before
+PICKUP/PLACE so all three (placement, in-zone test, auto-bond range) share
+cursor as source-of-truth. Bond length ≤ AUTO_BOND_RADIUS=60 by
+construction. Side effect (intentional UX): cursor-into-zone now cancels
+the place. 3 new vitest tests in `session7.test.ts`.
+
+**P2 — Per-combo persistent bond visuals (Standard).** New module
+`bondVisualRenderer.ts` (~290 LOC, under 500 charter). 12 magic combos
+render their named silhouette stretched/anchored between bond endpoints
+(filament, cable, bracket, diamond, wheel, star, orbital, lattice,
+capsule, vortex, whip, warped); the 24 functional combos keep the default
+straight line. Animation tied to `world.tick` (pauses with physics) for
+wheel rotation, vortex phase, orbital pulse. Stress-tint + width still
+applied at the structureRenderer layer — silhouettes inherit the lerped
+color, near-break red-overlay pulse remains an additive top layer. 35 new
+vitest tests covering dispatch + degenerate-bond fallback + animation
+differentiation. Browser-verified at 110px and 60px bond lengths.
+
+**P3 — BACKLOG.md hygiene** (this entry + S6 retro-entry). **P4 — handoff +
+dev server up for next-day playtest.**
+
+**Exit gate:** 142/142 tests, typecheck clean, browser-verified grid of all
+12 magic combos. Per-priority commits (4d82b8b, 83140e0).
+
+---
+
+## Session 6 — Polish Pass + Git + Carry-Forwards [COMPLETED] (2026-05-09)
+
+**P0 — Git initialization.** Project ran 5 sessions without a git repo;
+initial commit (`bc89a53`) captured the full post-S5 state. Subsequent
+session-6 commits per priority on top.
+
+**P1 — Bond stiffness tier defensive refactor (S3 carry-forward).** Static
+trace disproved the "tier=MID for Dot→Line" hypothesis from the original
+handoff (the actual code path keeps the spark in `freeSparks` after
+PICKUP_SPARK, so the lookup succeeded). Defensive refactor applied anyway:
+`computeStiffnessTier` now takes `SparkType` directly, captured BEFORE
+`PICKUP_SPARK` dispatch — code-clarity win even if the bug wasn't real.
+
+**P2 — Effects-list hard count cap (S3 carry-forward).** New constant
+`MAX_ACTIVE_EFFECTS=64`. Belt-and-braces over the existing lifetime ageing.
+
+**P3 — 12 per-combo placeholder silhouettes (S3 carry-forward).** Plumbed
+`visualEffectId` through PLACE_PRIMITIVE → BOND_COMMIT effect; renderer
+switches per id to draw distinct ephemeral flair (filament starburst,
+cable parallels, bracket triangle, diamond, wheel, star, orbital, lattice,
+capsule, vortex, whip, warped + default ring for the 24 functional). All
+silhouettes are ephemeral one-shot pops at the bond-commit moment —
+became persistent in S7 P2.
+
+**P4 — Browser verification + screenshots.** 13-effect probe grid via
+`__SPARK__.world` mutation (Pixi pauses ticking when Claude Preview tab is
+hidden, so static state-mutation + manual render is the way).
+
+**Exit gate:** 104/104 tests, typecheck clean, 4 commits on master.
+
+---
+
 ## Session 5 — Playability Pass [TOP PRIORITY] (2026-05-09)
 
 **Why first:** Session 4 made the game spec-correct (distinct shapes, colorless free, player-color placed, no-build zone) but a hands-on attempt revealed the game is still unplayable due to physics tuning + input fidelity issues. None of these are spec-locked numbers — they're playability defaults that S1-S3 picked without playtest data.
@@ -42,15 +113,17 @@
 | Sess | Theme | Goal | Exit gate |
 |---|---|---|---|
 | **0** | Plan + scaffold | (DONE) Locked decisions + Vite/Pixi project booting | typecheck clean, dev server starts |
-| **1** | Physics foundation | Verlet + spawner + spark rendering — **the gating session** | 6 spark types bouncing in spawner, 60s no NaN, dev stats overlay green |
-| **2** | Core interaction | Mouse + Carry-1 FSM + first bond | Grab spark, drag back, bond commits, structure renders |
-| **3** | Game logic | 36-combo lookup + structure + self-sever (BFS) + energy stub | Build 5-spark structure with 3 combos, sever splits correctly |
-| **4** | Game state loop | Win condition + state machine + save/load (WorldSnapshot) | SETUP→PLAYING→WIN→POSTGAME with JSON save |
-| **5** | **Playability pass** [NEXT] | Spark drift speed, spawn rate, cursor alignment, drag reliability | Hands-on play feels good — see "Session 5" section below |
-| **6** | User playtest | User-driven iteration | User confirms playability |
-| **7-9** | Buffer / Phase 2 prep | Reserved for tuning or Phase 2 design | — |
+| **1** | Physics foundation | (DONE) Verlet + spawner + spark rendering | 6 spark types bouncing in spawner, 60s no NaN, dev stats overlay green |
+| **2** | Core interaction | (DONE) Mouse + Carry-1 FSM + first bond | Grab spark, drag back, bond commits, structure renders |
+| **3** | Game logic | (DONE) 36-combo lookup + structure + self-sever (BFS) + energy stub | Build 5-spark structure with 3 combos, sever splits correctly |
+| **4** | Game state loop | (DONE) Win condition + state machine + save/load (WorldSnapshot) | SETUP→PLAYING→WIN→POSTGAME with JSON save |
+| **5** | Playability pass | (DONE 2026-05-09) Drift speed, spawn rate, cursor alignment, drag reliability, single-action place | 50 sparks drifting cleanly; auto-bond on release-outside-zone within 60 px |
+| **6** | Polish + git + carry-forwards | (DONE 2026-05-09) git init + bond-tier defensive refactor + effects-list cap + 12 ephemeral combo silhouettes | 4 commits on master, 104/104 tests, browser-verified probe grid |
+| **7** | Connection-range gate + per-combo persistent bond visuals | (DONE 2026-05-09) snap-to-cursor + bondVisualRenderer for 12 magic combos | 142/142 tests, browser-verified 12-combo grid at 60px and 110px |
+| **8** | **User playtest tuning** [NEXT] | User confirms post-S7 build feels right; tune AUTO_BOND_RADIUS / ATTRACT_STRENGTH / strain thresholds; audio if Suno track lands | User says "yes, this works, ship Phase 2" |
+| **9-10** | Buffer / Phase 2 prep | Reserved for remaining tuning + Phase 2 design (fog, local-MP, full disruption) | — |
 
-If Sessions 5 or 6 close all gates early → Sessions 7-9 begin Phase 2 design (fog, local-MP, full disruption).
+If Session 8 closes all gates early → Sessions 9-10 begin Phase 2 design (fog, local-MP, full disruption: Inject Spiral + Steal).
 
 ---
 
@@ -145,17 +218,25 @@ If Sessions 5 or 6 close all gates early → Sessions 7-9 begin Phase 2 design (
 
 ---
 
-## Session 6 — User playtest
+## Session 8 — User playtest tuning [NEXT]
 
-User drives. Claude assists with quick iteration on whatever feels off.
+User drives. Claude assists with quick iteration on whatever feels off in
+the post-S7 build (snap-to-cursor placement + per-combo persistent bond
+visuals).
+
+**Likely tuning targets (gated on user input):**
+- `AUTO_BOND_RADIUS` (60) — tighten or relax based on play feel
+- `ATTRACT_STRENGTH` (60_000) — likewise
+- Strain auto-sever thresholds (LOCKED_DECISIONS § 11.4 STRAIN_BREAK_BY_TIER)
+- Bond visual polish — whip wave drift, lattice cross-hatch contrast at small bond lengths, star size
 
 **Exit gate:** user explicitly says "yes, this works, ship Phase 2."
 
-If issues remain → continues into Sessions 7-9.
+If issues remain → continues into Sessions 9-10.
 
 ---
 
-## Sessions 7-9 — Buffer
+## Sessions 9-10 — Buffer
 
 Reserved for:
 - Tuning/iteration on user feedback
