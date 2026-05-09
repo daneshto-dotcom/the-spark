@@ -35,6 +35,7 @@ import type { Primitive } from '../game/primitive.ts';
 import type { World } from '../state/world.ts';
 import type { ControlState } from '../input/controls.ts';
 import type { PrimitiveId } from '../types.ts';
+import { drawBondVisual } from './bondVisualRenderer.ts';
 import { makeShapeTextures, destroyShapeTextures, type ShapeTextures } from './shapes.ts';
 
 const PLACED_PRIMITIVE_SCALE = 1.0;
@@ -63,7 +64,7 @@ export class StructureRenderer {
 
   sync(world: World, controls: ControlState): void {
     this.syncPrimitives(world);
-    this.drawBonds(world.bonds);
+    this.drawBonds(world.bonds, world.tick);
     this.drawPreview(world, controls);
     this.drawCarryHalo(world);
   }
@@ -98,7 +99,7 @@ export class StructureRenderer {
     }
   }
 
-  private drawBonds(bonds: ReadonlyMap<unknown, Bond>): void {
+  private drawBonds(bonds: ReadonlyMap<unknown, Bond>, tick: number): void {
     const g = this.bondGraphics;
     g.clear();
     for (const bond of bonds.values()) {
@@ -107,29 +108,42 @@ export class StructureRenderer {
       // gradient — the call site is identical. The cast is safe: bond.a /
       // bond.b are always Primitives at runtime (the PhysicsBody type is
       // a structural subset to keep the solver narrow).
-      const baseTint = mixTints(
-        (bond.a as Primitive).ownerColor,
-        (bond.b as Primitive).ownerColor,
-      );
-      const dx = bond.b.pos.x - bond.a.pos.x;
-      const dy = bond.b.pos.y - bond.a.pos.y;
+      const a = bond.a as Primitive;
+      const b = bond.b as Primitive;
+      const baseTint = mixTints(a.ownerColor, b.ownerColor);
+      const dx = b.pos.x - a.pos.x;
+      const dy = b.pos.y - a.pos.y;
       const dist = Math.hypot(dx, dy);
       const ratio = dist / bond.restLength;
       const breakAt = STRAIN_BREAK_BY_TIER[bond.stiffnessTier];
       const stress = Math.max(0, Math.min(1, (ratio - 1) / (breakAt - 1)));
       const tint = stress > 0.05 ? lerpTint(baseTint, 0xff3030, stress * 0.85) : baseTint;
       const width = stiffnessToWidth(bond.stiffnessTier) + (stress > 0.5 ? (stress - 0.5) * 2 : 0);
-      g.moveTo(bond.a.pos.x, bond.a.pos.y)
-        .lineTo(bond.b.pos.x, bond.b.pos.y)
-        .stroke({
-          width,
-          color: tint,
-          alpha: 0.85,
-        });
+
+      // S7 P2: per-combo persistent silhouette. Direction is a→b matching the
+      // PLACE_PRIMITIVE dispatch order (carried→target). The 24 functional
+      // combos resolve to fx.bond.default and render as a plain line; the 12
+      // magic combos render their named silhouette stretched between
+      // endpoints. Stress tint + width are applied here so the silhouette
+      // inherits stress feedback uniformly.
+      drawBondVisual(g, {
+        ax: a.pos.x,
+        ay: a.pos.y,
+        bx: b.pos.x,
+        by: b.pos.y,
+        visualEffectId: lookupCombo(a.type, b.type).visualEffectId,
+        color: tint,
+        alpha: 0.85,
+        width,
+        tick,
+      });
+
       if (stress > 0.7) {
+        // Red overlay pulse on near-break stress — drawn over the silhouette
+        // so it's still visible even on busy combos (lattice, vortex, star).
         const pulse = (stress - 0.7) / 0.3;
-        g.moveTo(bond.a.pos.x, bond.a.pos.y)
-          .lineTo(bond.b.pos.x, bond.b.pos.y)
+        g.moveTo(a.pos.x, a.pos.y)
+          .lineTo(b.pos.x, b.pos.y)
           .stroke({
             width: 1,
             color: 0xff8080,
