@@ -1,0 +1,205 @@
+═══════════════════════════════════════════════════════════
+HANDOFF SUMMARY — SPARK
+Generated: 2026-05-09 (Session 3 of 10 — Smoothness Pass)
+Session: Soft-cap + invariant guards + effects layer + strain auto-sever +
+         visual polish + stress harness (12 priorities, batch pre-APPROVED)
+═══════════════════════════════════════════════════════════
+
+## PROJECT
+- Name: SPARK (real-time multiplayer game of geometric emergence — Phase 1 prototype)
+- Working directory: C:\Users\onesh\OneDrive\Desktop\The Spark
+- Git: Not a git repository (no commit step — workspace-level project)
+- Tech stack: PixiJS v8.5 + TypeScript 5.4 (strict) + Vite 5 + Vitest 1.6
+- Codebase: 27 prod files + 11 test files, 3854 LOC total (≈2400 prod / ≈1450 test)
+
+## CURRENT STATE
+- Build: typecheck ✅ clean
+- Tests: ✅ 102/102 passing across 11 files (was 86/9 — 16 new tests)
+- Dev server: ✅ live on http://localhost:15842 (Vite, named `spark-dev`)
+- Visual playtest: ✅ verified via Claude Preview MCP — bond-commit pops,
+  sever-erase ghosts, stiffness preview tiers, soft-cap saturation, strain
+  auto-sever, all rendered correctly. Headless tab runs at ~1/3 simulation
+  speed; full 60Hz only confirmed in real browser
+- Audio: still deferred per spec § XV.6
+
+## SESSION COST
+- Model split: opus-dominant (Sonnet advisory ignored — Opus 4.7 1M needed
+  for cross-module reasoning across renderer/world/dispatch)
+- Cumulative log: ~/.claude/usage-log.csv
+
+## THIS SESSION'S WORK (12 priorities, batch pre-APPROVED user-path)
+
+**P1 — Free-spark soft-cap @ 50**
+- `src/constants.ts` (+5) — `FREE_SPARK_SOFT_CAP = 50`
+- `src/state/world.ts` (+13) — `DESPAWN_SPARK` action; refuses to despawn
+  Carried sparks; silent no-op on missing id
+- `src/main.ts` (+25) — `enforceFreeSparkCap()` runs after spawn each tick;
+  oldest by `createdTick` despawns first via dispatch seam (§ 10.2)
+
+**P2 — Structure-immobility runtime guard (DEV-only)**
+- `src/game/invariants.ts` (NEW, 124 LOC) — `snapshotInvariants()`,
+  `verifyInvariants()`, `snapPrevPosForUnbonded()`. Catches:
+  - immobility (unbonded primitive moved tick-over-tick — bug in caller)
+  - non-finite primitive/spark positions (NaN/Infinity from solver blow-up)
+  - color-inheritance break (Phase 1 placerColor === ownerColor)
+- `src/main.ts` (+14) — pre-tick snapshot, post-tick verify, throttled
+  console.error every 60 ticks if a violation persists
+- All gated by `import.meta.env.DEV` — zero prod cost
+
+**P3 — Effects layer + bond-commit pop + sever-erase fade**
+- `src/game/effects.ts` (NEW, 30 LOC) — `GameEffect` discriminated union
+  (`BOND_COMMIT` | `SEVER_ERASE`), `EFFECT_LIFETIME_TICKS=36`
+- `src/state/world.ts` (+8) — `world.effects[]` queue field; `dispatch` pushes
+  events on PLACE_PRIMITIVE (BOND_COMMIT) and SEVER_BOND (SEVER_ERASE per
+  loser); save.ts ignores it (effects not persisted)
+- `src/render/effectsRenderer.ts` (NEW, 110 LOC) — drains queue, ages with
+  world.tick (NOT wall-clock — pauses with simulation), renders expanding
+  ring + flash for commit, ghost shrink + shockwave for erase
+
+**P4 — Energy-gauge ease + win-banner fade**
+- `src/render/ui.ts` (rewrite of `drawEnergyGauge`/`drawProgress`/`drawWinState`)
+  — 12% per-frame lerp toward target; bar glides instead of stepping;
+  glow accent at fill edge; win banner fades in/out via alpha lerp
+
+**P5 — Stiffness-tier preview color on connect-drag**
+- `src/render/structureRenderer.ts` (+25) — `lookupCombo()` in preview path;
+  TIER_COLOR map (LOW=amber, MID=yellow, HIGH=mint); 3-bar glyph next to
+  cursor showing locked-in tier; line width scales with tier
+
+**P6 — Bond strain visualization (red-shift near break)**
+- `src/render/structureRenderer.ts` (+20) — per-bond strain ratio; lerps
+  base tint toward 0xff3030 by `stress*0.85`; pulse overlay when stress
+  > 0.7 (animated alpha rises with stress); width grows above mid-stress
+
+**P7 — Stats overlay expansion**
+- `src/render/statsOverlay.ts` (+50) — new `recordWorld(world, effectsCount)`
+  hook; adds rows: free/cap, prims, bonds, worst strain, fx count; turns
+  red when free@cap or worst-strain > 0.7
+
+**P8 — Keyboard 'R' reset in POSTGAME**
+- `src/main.ts` (+7) — `resetIfPostgame()` extracted; window keydown 'R'/'r'
+  triggers it when gameState === POSTGAME; canvas-click still works
+
+**P9 — Stress harness (60s default, 10-min via STRESS_FULL=1)**
+- `src/physics/stress.test.ts` (NEW, 138 LOC) — builds 30-prim chain via
+  dispatch, runs Spawner + 8-substep physics + invariant verify each tick
+  for 3600 ticks (60s) or 36000 ticks (10min). Asserts: no NaN, no
+  immobility violations, free-spark count never > cap+1, worst tick < 50ms
+
+**P10 — New tests**
+- `src/game/session5.test.ts` (NEW, 226 LOC, 15 tests):
+  - 4 soft-cap tests (despawn, refuse Carried, missing-id, oldest-by-tick)
+  - 6 invariant tests (immobility flag, bonded-allowed, NaN prim+spark,
+    color, snap helper)
+  - 3 effects tests (BOND_COMMIT emission, SEVER_ERASE per loser, save.ts
+    excludes effects field)
+  - 2 strain auto-sever tests (solveBonds reports break, dispatch removes)
+
+**P11 — Bond strain auto-sever (FIX of latent S2 bug)**
+- `solveBonds()` returned broken bond IDs but `main.ts` discarded them —
+  strain-break never fired. Fixed in `src/main.ts` substep loop: dispatch
+  SEVER_BOND for each broken bond, refresh local bondArr after dispatch,
+  next substep continues with new array
+
+**P12 — prevPos snap for orphaned primitives**
+- `src/state/world.ts` (+1) — `snapPrevPosForUnbonded(world.primitives)` at
+  end of SEVER_BOND handler. Required by P2 immobility guard: when a
+  primitive loses its last bond, its prevPos was last set by solver — would
+  trip the immobility check on the following tick. The snap resyncs
+  prevPos = pos so the guard sees no spurious drift
+
+## OPEN ISSUES
+- **Effects active list isn't hard-capped** (only by lifetime). Worst-case
+  ~10K entries during mass-sever. Acceptable Phase 1; revisit if a real
+  playtest produces a huge cascade
+- **Strain auto-sever is now active under normal play.** If user finds
+  bonds breaking unexpectedly during natural construction, raise
+  `STRAIN_BREAK_BY_TIER` (LOCKED constant — would need amendment) or
+  reduce ATTRACT_STRENGTH in controls.ts
+- **Headless Claude Preview tab runs ~1/3 speed.** Real-browser playtest
+  remains the only way to confirm 60 FPS. Tests cover correctness;
+  preview covers smoke-only
+- **Color inheritance guard is Phase-1 only** — Phase 2 Steal disruption
+  will mutate ownerColor. Will need a softening/disabling pass when Steal
+  ships
+- **Single-RMB sever vs spec's double-RMB** — choice from Session 2
+  preserved this session
+
+## BLOCKED ON
+- Nothing. Sessions 4+ are now mechanically unblocked
+
+## NEXT STEPS — SESSION 4 of 10 (target: bond-strain UX + multi-color seam)
+
+### Immediate priorities
+1. Real-browser playtest — confirm 60 Hz holds under the 30-prim + 50-spark
+   target load. Verify bond-commit pop / sever-erase / strain pulse all
+   read clearly at 60 Hz speed (not headless slow tick)
+2. Tune strain auto-sever break thresholds based on real play. Likely
+   raise from 1.5/1.25 if bonds break mid-construction (or lower
+   ATTRACT_STRENGTH so player drag doesn't yank too hard)
+3. Multi-color seam validation — confirm primitive renderer can handle
+   `ownerColor` differing from `placerColor` (currently the renderer uses
+   `SPARK_COLORS[type]` not placerColor; spec § VI.4 says color permanent
+   per primitive — Phase 2 needs a switch to placerColor)
+4. Save-load round-trip with effects (effects intentionally not persisted —
+   confirm a load-after-WIN doesn't strand stale effects)
+
+### Sessions 5-7 — Phase 2 design seeds
+5. Local multiplayer scaffolding (split-screen or shared-screen 2P)
+6. Disruption: Inject Spiral (place a Spiral as a foreign-color primitive
+   inside opponent structure)
+7. Steal mechanic (mutate ownerColor on a connected sub-tree via
+   contact rule — needs the multi-color seam from #3)
+
+### Sessions 8-10 — Polish / audio / Phase 2 ready
+8. Audio integration (Suno didgeridoo trance + bond/sever/collect SFX)
+9. Mega-combo connector chains (§ XIV item 11)
+10. Final user playtest — verdict "yes, ship Phase 2"
+
+## CHANGED FILES (this session)
+- Added: `src/game/invariants.ts`, `src/game/effects.ts`,
+  `src/render/effectsRenderer.ts`, `src/game/session5.test.ts`,
+  `src/physics/stress.test.ts`
+- Modified: `src/constants.ts` (+5), `src/main.ts` (+71/-7),
+  `src/state/world.ts` (+45/-3), `src/state/gameState.ts` (+1),
+  `src/render/ui.ts` (+30/-11), `src/render/structureRenderer.ts`
+  (+45/-5), `src/render/statsOverlay.ts` (+50/-7),
+  `src/input/controls.ts` (untouched — no changes needed)
+- Untouched (LOCKED): `src/combos.ts`, `LOCKED_DECISIONS.md`,
+  `SPARK_Blueprint.md`
+
+## REFLEXION ENTRIES (this session)
+- S5 #strain-break-bug: solveBonds returned broken bond IDs since S1 but
+  `main.ts` discarded them — strain-break was dead code. Fixed by
+  dispatching SEVER_BOND in the substep loop. Lesson: when a function
+  returns a non-trivial value, audit every call site to verify it's
+  consumed. The bond-solver's "broken" return existed in API but was
+  never wired — classic latent bug
+- S5 #immobility-snap: bonded → unbonded transition leaves prevPos stale
+  (solver only mutates pos). Without `snapPrevPosForUnbonded()`, the
+  immobility guard would (correctly!) flag residual drift on the
+  following tick. Required pairing with the guard, not optional
+- S5 #effects-via-queue: chose `world.effects: GameEffect[]` over an
+  external EventBus or callback in dispatch signature. Keeps the
+  dispatch seam intact (Phase 3 networking still drops in unchanged) and
+  save.ts trivially ignores the field via explicit-enumeration of
+  serialized properties. Pattern to repeat for any future side-channel
+- S5 #headless-rAF: Claude Preview headless tab runs Pixi ticker at
+  ~1/3 wall-clock speed. State queries are reliable; visual sync is
+  delayed. Pre-existing S1 reflexion confirmed; this session's playtest
+  uses programmatic dispatch + sleep-then-readback, not real-time
+  interaction
+- S5 #stress-test-tradeoff: full 10-minute run is gated by
+  STRESS_FULL=1 env var (process.env-style check via globalThis sniff to
+  avoid @types/node). Default 60s in CI keeps the suite under 5s while
+  the mechanism is provable on demand
+- SESSION #anti-bloat: largest module unchanged at 278 LOC (controls.ts).
+  effectsRenderer.ts came in at 110, invariants.ts at 124. Charter
+  comfortably held
+- SESSION #council-skipped: user "Session priority batch pre-APPROVED!"
+  satisfied Rule 17 user-path. PRIME-AUDIT pass at end caught:
+  effects-list-no-hard-cap (acknowledged), strain-now-aggressive
+  (logged), spec-untouched (verified). All findings folded into open
+  issues / next steps
+
+═══════════════════════════════════════════════════════════

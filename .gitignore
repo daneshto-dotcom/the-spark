@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.vite/
+*.log
+.DS_Store
+.env
+.env.local
+.claude/session-state.json.bak
+.claude/session-port.json
+tsconfig.tsbuildinfo

@@ -1,0 +1,41 @@
+# SPARK — Reflexion Log
+
+Cross-session learnings. Most recent at top. Entries pruned when total >50.
+
+## 2026-05-09 — Session 5 of 10 (Playability Pass)
+- S5 #single-action-place: Original design (per legend) was 2-action: LMB out-of-zone → Carrying state, RMB elsewhere → place. User playtest immediately rejected it — "they get attached to the cursor rather than stay in the place where you leave them". Changed LMB-up-outside-zone to PICKUP+PLACE in one shot, with auto-bond to any primitive within `AUTO_BOND_RADIUS=60` (forgiving — bigger than the precise PICK_RADIUS=28 used for grabbing). RMB connect-drag still works for explicit targeting. **Lesson: 2-action placement is theoretically more flexible but breaks first-time discoverability — when there's no existing primitive, RMB-on-nothing as the placement gesture has no affordance signal.**
+- S5 #max-speed-clamp-broke-attract: First S5 attempt added `SPARK_MAX_SPEED_PX_PER_SEC = 30` to dampen 50-population blur. User playtest immediately exposed the regression — clamp made AttractDrag impossibly slow (sparks crawl toward cursor at <30 px/sec) AND prevented escaping the spawner zone. Reverted same session. **Lesson: when a clamp lives in the per-substep physics path, it touches EVERY interaction that depends on velocity — not just the "drift" you intended to bound. Either gate the clamp on spark state or skip it entirely.**
+- S5 #attract-needs-momentum-or-strength: Pre-S5 sparks had 20-80 px/sec initial velocity — the player had momentum to redirect via attract. Post-S5 with 5-20 initial, attract had to accelerate from rest, which the existing `ATTRACT_STRENGTH=12 000` couldn't do fast enough. 5× boost (→ 60 000) restores responsive feel. **Lesson: tuning numbers couple — changing initial velocity rebalances every interaction that assumed it.**
+- S5 #spawner-bounds-blocks-pickup: Even after the clamp revert + attract boost, `enforceSpawnerBounds` reflected the actively-attracted spark back into the zone every substep. The PICKUP dispatch only fires on LMB-up if the spark is outside `SPAWNER_RADIUS`, but reflection always pushes it back inside. Pre-S5 likely worked because the old high initial velocity gave sparks enough momentum that they crossed the rim during a single substep before reflection caught up. The right fix is structural: make the AttractDrag target exempt from reflection, plumbed via `controls.state.sparkId` → `enforceSpawnerBounds(sparks, cfg, exemptSparkId)`. **Lesson: physics confinement and player-driven extraction are mutually exclusive; one of them must yield, and the cleanest seam is a per-spark exempt.**
+- S5 #headless-test-contamination: Synthetic browser tests via `preview_eval` accumulate state across runs — leftover sparks from prior probes collided into new probes, masking the actual fix-effect. Always `world.freeSparks.clear()` AND reset player to Idle before a fresh probe. **Lesson: write probes to be hermetic, not "additive".**
+- S5 #dpr-double-bug: Old `cursor.x = (clientX - left) * (canvas.width / rect.width)` double-counted DPR — `canvas.width` already = `rectW × dpr` under `autoDensity:true`, so the multiplier is `dpr · stageW/rectW` instead of just `stageW/rectW`. **Lesson: when Pixi has `autoDensity:true`, scale by stage→CSS-rect ONLY, never by backbuffer→CSS-rect.**
+- S5 #naive-fix-incomplete: First "drop the scale" attempt worked at DPR=1 with rect.width==stageWidth, BUT failed when CSS scaled the canvas (preview tab: 747 CSS-px wide, stage 1920). Right answer is `STAGE_W / rect.width` — handles both DPR and external CSS scale. **Lesson: verify cursor mapping in a CSS-shrunk container, not just at native size.**
+- S5 #pointer-capture-auto-release: Browser auto-releases capture on `pointerup` and fires `lostpointercapture` BEFORE our `onUp` runs. Our explicit `releasePointerCapture()` is no-op'd by the `capturedPointerId === null` guard set in `onLostCapture`. Working as intended — capture cleanup is "first one wins."
+- S5 #spawn-rate-test-coupling: 3 tests broke from the rate change (`SPAWN_RATE_PER_SECOND` 1.5→0.15) because test windows were sized for the old rate. Fixed two by computing window from rate (preserves Poisson-CI math); fixed `integration.test.ts` by overriding the spawner's rate to 1.5 — that test stresses physics under load, NOT the playability default. **Lesson: tests that hard-code constants from `constants.ts` into expectations are coupled by reference. Either compute thresholds from the constant or override the config.**
+- S5 #max-speed-clamp-location: Clamping speed in `enforceSpawnerBounds` (after the boundary reflection, same loop) is the cleanest seam — it's already per-substep, already iterates Free sparks, already manipulates `prevPos`. Avoids touching `verlet.ts` (which is purely the integrator).
+- SESSION #user-path-go-skip-deliberation: User pre-approved "run top priority session batch (especially the four fixes I told you about last session)" satisfied Rule 17 user-path again — Council waived. The BACKLOG.md "Session 5" entry effectively WAS the deliberation: priorities pre-triaged, root causes pre-hypothesized, fix candidates pre-listed. **Lesson: A well-written carry-forward block is its own deliberation log.**
+
+## 2026-05-09 — Session 4 of 10 (Spec-Alignment Pass)
+- S4 #spec-drift: "all colored circles" wasn't cosmetic — latent v0.5 violations across renderer, color rule, and zone guard. User pushback caught what 3 prior sessions missed. **Lesson: when user asks "are you on track?", verify against spec section-by-section, not by re-reading our own session notes.**
+- S4 #color-as-ownership: § IV amended to "free=colorless, placed=player-color" — visual channels now orthogonal (shape=type, color=ownership). Cleaner than v0.5's color-changes-on-place.
+- S4 #pixi-particle-container: ParticleContainer in Pixi v8 assumes a single shared texture per container; per-type shapes forced switch to plain Sprite. Auto-batched in v8 — perf fine at Phase-1 scale (≤80 entities).
+- S4 #boundary-strict-vs-equal: zone-check uses strict `<` (not `<=`). Placing exactly on the ring is allowed (liminal); inside is rejected. Matches `enforceSpawnerBounds` pattern.
+- S4 #stress-test-fixture-broke: stress chain grew INTO the (now-blocked) zone; fixed by extending leftward. **Lesson: new rules can break old test fixtures — always re-run full suite after dispatch-layer changes.**
+- SESSION #spec-correct-vs-playable: S4 fixed the "right thing" but S5 priorities (drift, spawn rate, alignment, drag) are all numbers needing playtest data, not spec study. Sessions 5+ are user-driven tuning by design.
+
+## 2026-05-09 — Session 3 of 10 (Smoothness Pass)
+- S3 #strain-break-bug: solveBonds returned broken IDs since S1 but main.ts discarded them — strain-break was dead code. Fixed by dispatching SEVER_BOND in substep loop. **Lesson: audit every call site for non-trivial return values.**
+- S3 #immobility-snap: bonded → unbonded transition leaves prevPos stale. snapPrevPosForUnbonded() pairing required with the immobility guard.
+- S3 #effects-via-queue: chose `world.effects: GameEffect[]` over event bus or dispatch-callback. Keeps Phase-3 dispatch seam intact, save.ts ignores via explicit-field-enumeration.
+- S3 #headless-rAF: Claude Preview headless tab runs Pixi ticker at ~1/3 wall-clock. State queries reliable; visuals delayed. Real browser only for 60 Hz confirmation.
+- S3 #stress-test-gating: full 10-min run gated by STRESS_FULL=1; default 60s keeps CI fast.
+- SESSION #anti-bloat: largest module still controls.ts at 278 LOC.
+- SESSION #council-skipped: user pre-APPROVED satisfied Rule 17 user-path; PRIME-AUDIT caught effects-list-no-hard-cap and strain-now-aggressive, both folded into open issues.
+
+## 2026-05-09 — Sessions 1-2 batch (foundation)
+- S1 #verlet: Pixi v8 ticker + headless rAF mismatch — confirmed again S5.
+- S1 #poisson-tolerance: 1.5σ outlier widened test window to 300 s ±15%.
+- S2 #dispatch-shape: GameAction Extract<...> narrows beautifully — keep for Phase 3 networking.
+- S2 #bond-refs: Bond carries IDs + direct refs (IDs for save/BFS, refs for solver hot path).
+- S3 #sever-tiebreaker: greater max(createdTick) loses → "newest cut" (named S3 in code, but landed earlier).
+- S2 #save-restore: primitives → bonds → players ordering required.

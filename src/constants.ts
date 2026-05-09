@@ -1,0 +1,131 @@
+/**
+ * SPARK — canonical constants.
+ * Source of truth for tunable numbers + locked enums.
+ * Cross-reference: LOCKED_DECISIONS.md + SPARK_Blueprint.md v0.5.
+ */
+
+// Spec § IV — LOCKED. Do NOT rename.
+export enum SparkType {
+  Dot = 0,
+  Line = 1,
+  Triangle = 2,
+  Square = 3,
+  Circle = 4,
+  Spiral = 5,
+}
+
+export const ALL_SPARK_TYPES: readonly SparkType[] = [
+  SparkType.Dot,
+  SparkType.Line,
+  SparkType.Triangle,
+  SparkType.Square,
+  SparkType.Circle,
+  SparkType.Spiral,
+];
+
+export const SPARK_TYPE_NAMES: Record<SparkType, string> = {
+  [SparkType.Dot]: 'Dot',
+  [SparkType.Line]: 'Line',
+  [SparkType.Triangle]: 'Triangle',
+  [SparkType.Square]: 'Square',
+  [SparkType.Circle]: 'Circle',
+  [SparkType.Spiral]: 'Spiral',
+};
+
+// Spec § IV color codes — LOCKED.
+export const SPARK_COLORS: Record<SparkType, number> = {
+  [SparkType.Dot]: 0xffffff,
+  [SparkType.Line]: 0xffe066,
+  [SparkType.Triangle]: 0xff3b3b,
+  [SparkType.Square]: 0x3b5bff,
+  [SparkType.Circle]: 0x3bff7a,
+  [SparkType.Spiral]: 0xa23bff,
+};
+
+export const SPARK_VISUAL_SIZE: Record<SparkType, number> = {
+  [SparkType.Dot]: 4,
+  [SparkType.Line]: 24,
+  [SparkType.Triangle]: 16,
+  [SparkType.Square]: 14,
+  [SparkType.Circle]: 18,
+  [SparkType.Spiral]: 20,
+};
+
+// Player palette — 6 distinct, max-saturation, color-blind-aware.
+export const PLAYER_COLORS = [
+  0xff3b6b, // P1 Crimson
+  0x3bd7ff, // P2 Cyan
+  0x9bff3b, // P3 Lime
+  0xffb13b, // P4 Amber
+  0xd73bff, // P5 Magenta
+  0x3bffb1, // P6 Mint
+] as const;
+
+// === Canvas, Spawner, Vision ===
+export const CANVAS_WIDTH = 1920;
+export const CANVAS_HEIGHT = 1080;
+export const SPAWNER_RADIUS = 250;
+export const SPAWNER_CENTER_X = CANVAS_WIDTH / 2;
+export const SPAWNER_CENTER_Y = CANVAS_HEIGHT / 2;
+export const SPAWN_RATE_PER_SECOND = 0.15;
+
+// Phase-2 vision (placeholders — unused in Phase 1)
+export const R_PERSONAL = 300;
+export const R_BEACON = 80;
+export const VISION_FADE_PX = 40;
+
+// === Physics ===
+export const PHYSICS_HZ = 60;
+export const PHYSICS_SUBSTEPS = 8;
+export const VELOCITY_DAMPING = 0.998;
+export const POSITION_CORRECTION_CLAMP_RATIO = 0.5;
+export const COLLISION_ITERATIONS = 8;
+
+export type StiffnessTier = 'LOW' | 'MID' | 'HIGH';
+
+// Verlet position-based dynamics — coefficient (NOT Hooke's k).
+export const STIFFNESS_BY_TIER: Record<StiffnessTier, number> = {
+  LOW: 0.2,
+  MID: 0.5,
+  HIGH: 0.8,
+};
+
+// Strain ratio at which a bond breaks (current_length / rest_length).
+export const STRAIN_BREAK_BY_TIER: Record<StiffnessTier, number> = {
+  LOW: 2.0,
+  MID: 1.5,
+  HIGH: 1.25,
+};
+
+// === Energy & Claim ===
+export const ENERGY_PER_SECOND_FLAT = 5.0;
+export const AREA_CLAIM_BASE = 1.0;
+export const AREA_CLAIM_PER_NEIGHBOR = 0.1;
+export const AREA_CLAIM_CAP = 2.0;
+export const MEGA_COMBO_MULTIPLIER = 1.75;
+
+// === Disruption ===
+export const BUILD_ACTIONS_PER_CHARGE = 5;
+export const MAX_DISRUPTION_CHARGES = 2;
+
+// === Win condition ===
+export const TERRITORY_WIN_THRESHOLD = 0.51;
+// Phase 1 single-player placeholder: trigger WIN at N primitives instead of % canvas.
+export const PHASE_1_WIN_PRIMITIVE_COUNT = 30;
+
+// === Spawner physics ===
+export const SPAWNER_BOUNCE_DAMPING = 0.92;
+export const SPARK_INITIAL_VELOCITY_MIN = 5;
+export const SPARK_INITIAL_VELOCITY_MAX = 20;
+
+// Phase-1 soft-cap. Despawn-on-overflow keeps the spawner zone playable
+// during long sandbox sessions. Oldest Free sparks despawn first; Carried
+// sparks never despawn (they belong to the player FSM).
+export const FREE_SPARK_SOFT_CAP = 50;
+
+// === Bond rendering ===
+export const BOND_LINE_WIDTH = 2;
+export const BOND_GLOW_INTENSITY = 0.6;
+
+// === Audio ===
+export const AUDIO_MASTER_VOLUME_DB = -6;
