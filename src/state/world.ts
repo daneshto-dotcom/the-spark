@@ -9,6 +9,7 @@
  * structural immutability.
  */
 
+import { lookupCombo } from '../combos.ts';
 import {
   ENERGY_PER_SECOND_FLAT,
   SPAWNER_CENTER_X,
@@ -260,12 +261,18 @@ function placePrimitive(
     world.bonds.set(bond.id, bond);
     prim.bonds.add(bond.id);
     target.bonds.add(bond.id);
+    // S6 P3: combo signature drives distinct placeholder flair in the
+    // effects renderer. Direction is carried→target (matches order-dependent
+    // combo table § V.1).
+    const combo = lookupCombo(prim.type, target.type);
     world.effects.push({
       kind: 'BOND_COMMIT',
       tick: world.tick,
       pos: { x: prim.pos.x, y: prim.pos.y },
       color: prim.placerColor,
       radius: prim.radius,
+      visualEffectId: combo.visualEffectId,
+      otherPos: { x: target.pos.x, y: target.pos.y },
     });
   }
 

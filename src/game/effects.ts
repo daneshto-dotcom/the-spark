@@ -20,6 +20,16 @@ export type GameEffect =
       readonly pos: Vec2;
       readonly color: number;
       readonly radius: number;
+      /**
+       * S6 P3: combo signature (from combos.ts ComboOutcome.visualEffectId)
+       * so the renderer can pick distinct placeholder flair per magic combo.
+       * Generic 24/36 combos use 'fx.bond.default' = the original ring pop.
+       * Spec § V.2 calls these "polish placeholders" — full Phase-2 effects
+       * land later.
+       */
+      readonly visualEffectId: string;
+      /** Endpoint of the new bond (other end is `pos`). Used for line-based effects. */
+      readonly otherPos: Vec2;
     }
   | {
       readonly kind: 'SEVER_ERASE';
@@ -31,3 +41,11 @@ export type GameEffect =
 
 /** Soft cap on the queue — anything older than this many ticks is dropped. */
 export const EFFECT_LIFETIME_TICKS = 36; // 0.6s at 60Hz
+
+/**
+ * Hard cap on the renderer's active list. Lifetime alone is enough under
+ * normal play (worst-case ~30 simultaneous), but a pathological burst
+ * (spam-place + spam-sever) could outpace ageing for one frame. When over
+ * cap, the renderer drops oldest first. Set well above any natural usage.
+ */
+export const MAX_ACTIVE_EFFECTS = 64;
