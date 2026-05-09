@@ -22,6 +22,7 @@ import {
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
+  type SparkType,
   type StiffnessTier,
 } from '../constants.ts';
 import { lookupCombo } from '../combos.ts';
@@ -179,6 +180,13 @@ export class Controls {
           // primitive within AUTO_BOND_RADIUS of the release point so chained
           // construction feels natural — RMB drag is still available for
           // precise targeting.
+          //
+          // S6 P1: capture spark.type BEFORE dispatch — defensive against any
+          // future change that might transform/remove the spark inside
+          // PICKUP_SPARK. Combo lookup then takes a SparkType directly,
+          // eliminating the post-dispatch Map re-lookup that prompted the
+          // S5-end "tier defaulted to MID" investigation.
+          const carriedType = spark.type;
           dispatch(this.world, {
             type: 'PICKUP_SPARK',
             sparkId: spark.id,
@@ -188,7 +196,7 @@ export class Controls {
           const target = targetId !== null
             ? this.world.primitives.get(targetId) ?? null
             : null;
-          const tier = computeStiffnessTier(this.world, spark.id, target);
+          const tier = computeStiffnessTier(carriedType, target);
           dispatch(this.world, {
             type: 'PLACE_PRIMITIVE',
             playerId: this.playerId,
@@ -202,10 +210,15 @@ export class Controls {
     } else if (e.button === 2 && this.state.kind === 'ConnectDrag') {
       const player = this.world.players.get(this.playerId);
       if (player?.kind === 'Carrying') {
+        const carried = this.world.freeSparks.get(player.carriedSparkId);
         const target = this.state.targetPrimitiveId !== null
           ? this.world.primitives.get(this.state.targetPrimitiveId) ?? null
           : null;
-        const tier = computeStiffnessTier(this.world, player.carriedSparkId, target);
+        // Carried spark always exists at this point (FSM invariant); fall
+        // through to MID only if a future code path violates that.
+        const tier = carried !== undefined
+          ? computeStiffnessTier(carried.type, target)
+          : 'MID';
         dispatch(this.world, {
           type: 'PLACE_PRIMITIVE',
           playerId: this.playerId,
@@ -333,15 +346,16 @@ function distToSegment(
 /**
  * Pick the stiffness tier for a new bond. If a target primitive exists, the
  * combo table decides (carried.type → target.type). If no target (anchor),
- * default MID. Wired in Session 3 — but the lookup path is in place now.
+ * default MID.
+ *
+ * S6 P1: takes SparkType directly (was: SparkId + World re-lookup). Caller
+ * captures the carried type BEFORE PICKUP_SPARK dispatch so this function
+ * can't be foiled by mid-flight state mutation.
  */
 function computeStiffnessTier(
-  world: World,
-  carriedSparkId: SparkId,
+  carriedType: SparkType,
   target: Primitive | null,
 ): StiffnessTier {
   if (target === null) return 'MID';
-  const carried = world.freeSparks.get(carriedSparkId);
-  if (carried === undefined) return 'MID';
-  return lookupCombo(carried.type, target.type).stiffnessTier;
+  return lookupCombo(carriedType, target.type).stiffnessTier;
 }
