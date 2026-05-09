@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 43,
+  "tool_calls_session_total": 48,
   "session": 7,
   "title": "Connection-Range Gate + Per-Combo Persistent Bond Visuals",
   "tier": "Standard",
@@ -34,12 +34,13 @@
     {
       "id": "P3",
       "title": "BACKLOG.md hygiene + reflexion",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "BACKLOG.md now has Session 6 + Session 7 entries (closes the gap noted in S6 close where latest entry was Session 5). Session map table updated to reflect actual completion through S7 with S8 = user playtest tuning as next. reflexion_log.md prepended with 7 S7 lessons (cursor-vs-pos source of truth, ephemeral-to-persistent silhouette rewrite, PDCA deliberation skip rationale, Pixi tab-pause workaround, zone-aware test coords, structureRenderer tick plumbing, user-path batch approval with discretion). Verified by reading both files post-edit; all prior entries preserved. Committed at e32c19a.",
+      "checkpoint_commit": "e32c19a"
     },
     {
       "id": "P4",
