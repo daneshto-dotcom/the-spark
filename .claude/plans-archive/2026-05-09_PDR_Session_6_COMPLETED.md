@@ -6,8 +6,11 @@ pdr_approved: true
 deliberation_completed: true
 unlock_source: user
 approved_at: 2026-05-09
-status: IN_PROGRESS
+status: COMPLETED
+completed_at: 2026-05-09
 ---
+
+> **STATUS: COMPLETED** — All 4 priorities + git infra + browser verification shipped. Per-priority commits: `bc89a53` (initial), `cc1e0c7` (P1 bond-tier defensive fix), `ed9e879` (P2 effects cap + P3 12 magic-combo placeholders). 104/104 tests pass; typecheck clean. Browser-verified via Pixi grid render of all 13 visualEffects (12 magic + default).
 
 # PDR — Session 6 (Polish Pass + Git + Carry-Forwards)
 

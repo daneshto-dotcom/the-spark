@@ -1,22 +1,36 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-05-09 | Session: 5 of 10 — Playability Pass
+Generated: 2026-05-09 (post-Session-6) | Session: 6 of 10 — Polish Pass + Git + Carry-Forwards
 
 ## Next Steps
-1. Hands-on user playtest of the full game loop now that drag/place/bond all work end-to-end
-2. Tune strain auto-sever thresholds with real playtest data (S3 carry-forward — was waiting on S5 input fixes)
-3. Investigate latent: bond tier defaulted to MID for Dot→Line in S5 verification (expected HIGH per "Filament" combo) — likely combo lookup not finding spark after PICKUP_SPARK in single-action place flow
-4. Effects-list hard count cap (S3 carry-forward — lifetime-bounded only)
-5. Render combo `visualEffectId` placeholders (S3 carry-forward — Filament/Cable/etc currently look identical)
+1. **User playtest** (TOP PRIORITY) — full game loop: pull spark → drop → bond → 5-spark structure → sever → win. Validates S5 (drift, spawn, DPR, drag, single-action place) AND S6 (combo silhouettes, defensive bond-tier).
+2. Confirm magic-combo silhouettes read at game speed — 12 distinct shapes (filament, cable, bracket, diamond, wheel, star, orbital, lattice, capsule, vortex, whip, warped) plus default ring for the 24 functional combos
+3. Tune AUTO_BOND_RADIUS=60 / ATTRACT_STRENGTH=60 000 if user finds them off (S5 numbers)
+4. Tune strain auto-sever thresholds with playtest data (S3 carry-forward)
 
 ## Blockers
-None. All Session 5 goals shipped + iterated on user feedback.
+User playtest of post-S6 build. Render-correct in static probe; play-feel unverified.
 
 ## Pending Backlog
-- [ ] Session 6 — User playtest + remaining tuning
-- [ ] Session 7-9 — Audio (Suno track), combo visual effects, Phase 2 prep
-- [ ] Session 10 — Final user playtest + Phase 2 ship verdict
+- [ ] Session 7 — User playtest + S5/S6-output tuning
+- [ ] Session 8 — Audio integration (Suno track upload pending) + remaining tuning
+- [ ] Session 9-10 — Phase 2 prep (multi-player, fog, Inject Spiral, Steal) gated on user playtest sign-off
+
+## Git
+Repo initialized this session. Branch: `master`. 3 session-6 commits on top of initial.
+- ed9e879 — S6 P2+P3: effects-list count cap + per-combo visualEffect placeholders
+- cc1e0c7 — S6 P1: bond-tier latent bug — capture carried SparkType before dispatch
+- bc89a53 — Initial commit: SPARK Phase-1 prototype post-Session-5
 
 ## Recent Reflexion (last 2 sessions)
+## 2026-05-09 — Session 6 of 10 (Polish Pass + Git + Carry-Forwards)
+- S6 #git-init-late: 5 sessions ran without a repo. Initial commit captures full post-S5 state. Lesson: even with `.handoff-archive/` durable record, no git = no per-priority diffs or revert points.
+- S6 #defensive-fix-for-non-bug: handoff "tier=MID for Dot→Line" hypothesis didn't match the actual code path (PICKUP_SPARK keeps spark in freeSparks). Defensive refactor applied anyway — `computeStiffnessTier` now takes SparkType captured before dispatch. Code clarity win even if the bug wasn't real. Lesson: static-trace before fixing handoff-claimed bugs.
+- S6 #effects-cap-belt-and-braces: MAX_ACTIVE_EFFECTS=64 is belt-and-braces — lifetime ageing already holds in steady state, but the cap documents intent and protects against future burst patterns.
+- S6 #per-combo-effects-cheap: 12 distinct silhouettes (~280 LOC, no state, no interaction) cover the magic-12 combos. Particle systems and audio can wait for Phase 2 polish budget.
+- S6 #headless-tab-pauses-ticker: Pixi pauses when `visibilityState='hidden'` (always true in Claude Preview). Verify by mutating `__SPARK__.world` directly and pushing effects with `bornTick = world.tick - mid_life`.
+- S6 #endpoint-info-needed-for-line-effects: BOND_COMMIT.otherPos addition is cheap because effects aren't persisted.
+- SESSION #user-path-batch-approval: single upfront "APPROVED!!" satisfied Rule 17 for the full priority batch.
+
 ## 2026-05-09 — Session 5 of 10 (Playability Pass)
 - S5 #single-action-place: 2-action LMB-then-RMB place rejected on first user playtest. Switched to LMB-up-outside-zone = PICKUP+PLACE in one action, with auto-bond within 60 px. Lesson: 2-action placement breaks first-time discoverability when no primitive exists.
 - S5 #max-speed-clamp-broke-attract: 30 px/sec clamp killed attract-drag (couldn't pull sparks past rim). Reverted same session. Lesson: per-substep velocity clamps touch every interaction depending on velocity — gate by spark state or skip entirely.
@@ -24,16 +38,7 @@ None. All Session 5 goals shipped + iterated on user feedback.
 - S5 #spawner-bounds-blocks-pickup: enforceSpawnerBounds reflected attracted spark every substep; PICKUP fires only if spark outside zone, so the action could never complete. Fixed by exempting controls.state.sparkId from reflection.
 - S5 #headless-test-contamination: preview_eval probes accumulate state — always world.freeSparks.clear() + reset player to Idle before fresh probes.
 - S5 #dpr-double-bug: Pixi `autoDensity:true` makes canvas.width = rectW × dpr, so canvas.width / rect.width = dpr × stageW/rectW. Right scale is stageW/rectW directly.
-- S5 #naive-fix-incomplete: First DPR fix worked at native CSS size but broke when canvas was CSS-shrunk (preview pane). Universal fix uses STAGE_W / rect.width.
-- S5 #pointer-capture-auto-release: Browser auto-releases capture on pointerup before our onUp; lostpointercapture fires first. Our explicit release is a no-op via the capturedPointerId guard. Working as intended.
-- S5 #spawn-rate-test-coupling: 3 tests broke when SPAWN_RATE_PER_SECOND changed. Two scaled their windows with the rate; integration exit-gate test now overrides config to 1.5/sec for stress. Lesson: tests reading constants via import couple by reference.
-- S5 #max-speed-clamp-location: max-speed-clamp belonged in enforceSpawnerBounds (already per-substep, already iterating Free sparks) — not verlet.ts. Then it got removed entirely.
+- S5 #naive-fix-incomplete: First DPR fix worked at native CSS size but broke when canvas was CSS-shrunk. Universal fix uses STAGE_W / rect.width.
+- S5 #pointer-capture-auto-release: Browser auto-releases capture on pointerup; lostpointercapture fires first.
+- S5 #spawn-rate-test-coupling: 3 tests broke when SPAWN_RATE_PER_SECOND changed. Lesson: tests reading constants via import couple by reference.
 - SESSION #user-path-go-skip-deliberation: Well-written backlog carry-forward block IS its own deliberation log.
-
-## 2026-05-09 — Session 4 of 10 (Spec-Alignment Pass)
-- S4 #spec-drift: "all colored circles" wasn't cosmetic — latent v0.5 violations across renderer, color rule, zone guard. User pushback caught what 3 prior sessions missed.
-- S4 #color-as-ownership: § IV amended to "free=colorless, placed=player-color" — visual channels now orthogonal (shape=type, color=ownership).
-- S4 #pixi-particle-container: ParticleContainer assumes one shared texture per container; per-type shapes forced switch to plain Sprite. Pixi v8 auto-batches.
-- S4 #boundary-strict-vs-equal: zone-check uses strict `<`. Placing exactly on the ring is allowed; inside is rejected.
-- S4 #stress-test-fixture-broke: stress chain grew INTO blocked zone; fixed by extending leftward.
-- SESSION #spec-correct-vs-playable: S4 fixed the "right thing" but S5 priorities were all numbers needing playtest data, not spec study.
