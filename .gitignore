@@ -8,3 +8,10 @@ dist/
 .claude/session-state.json.bak
 .claude/session-port.json
 tsconfig.tsbuildinfo
+
+# Per-session transient artifacts (S106 .gitignore extension 2026-05-10)
+.claude/session-summary.md
+.claude/state-hash.tmp
+.claude/pdr-user-responded
+.claude/budget-reported-*
+.claude/pdr-deliberation-*
