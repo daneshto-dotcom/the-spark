@@ -1,14 +1,87 @@
 {
-  "tool_calls_session_total": 13,
+  "tool_calls_session_total": 15,
   "session_start": "2026-05-11T12:11:52Z",
+  "session_id": "S8",
   "budget_total": 150000,
   "budget_overhead": 30000,
   "budget_per_priority": 0,
-  "priorities": [],
+  "pdr_approved": true,
+  "deliberation_completed": true,
+  "unlock_source": "user",
+  "tier": "Standard",
+  "council_waived": true,
+  "council_waiver_reason": "S7 precedent — bounded design space (closing S7 PRIME-AUDIT delta + sister defect) + user-discretion grant. PRIME-AUDIT runs after each priority before commit.",
+  "active_pdr": ".claude/plans/2026-05-11_PDR_Session_8.md",
+  "priorities": [
+    {
+      "id": "P1",
+      "title": "Whip wave drift (tick-driven sin phase)",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "PRIME-AUDIT pass: (1) read drawWhip diff — driftPhase = tick * 0.022 added, applied inside Math.sin term, no other behavior change; (2) typecheck clean (tsc -b --noEmit, no output); (3) 143/143 vitest tests pass — including new 'S8 P1 — fx.whip wave drift — output differs at tick=0 vs tick=120' regression test confirming the change actually animates; (4) edge cases: zero-length bond still falls through to default-line via existing guard (len<1), large tick value bounded by Math.sin domain; (5) materially better than no-fix: whip now meaningfully animates where it was static.",
+      "checkpoint_commit": "e85342da6dfe9f8fa5706a74d24e895e92b8427c"
+    },
+    {
+      "id": "P2",
+      "title": "Lattice cross-hatch contrast (scale width with bond width)",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "PRIME-AUDIT pass: (1) read drawLattice diff — crossWidth/crossAlpha locals introduced with Math.max floor 1.2 and 0.55 ratio to p.width, alpha bumped 0.5→0.65; (2) typecheck clean; (3) 37/37 tests pass — including new 'S8 P2 — fx.lattice emits 3 strokes' regression guard (1 outline + 2 cross-hatch); (4) edge cases: at HIGH (p.width=3) cross=1.65 vs outline=2.4 — meaningful contrast bump from prior 1.0; at LOW (p.width=1.5) floor=1.2 vs outline=1.2 — same width but alpha differentiation (0.5525 vs 0.85) keeps it distinguishable, plus geometry differs; SQ→SQ combo is HIGH-locked per LOCKED_DECISIONS §6 so LOW case is purely defensive; (5) materially better: the fade-at-small-bond issue from S7 PRIME-AUDIT delta is closed.",
+      "checkpoint_commit": "9b0fed861216a28feec5365a732934482a9ec348"
+    },
+    {
+      "id": "P3",
+      "title": "Warped 3-fold ring rotation + breathing (sister to whip)",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "PRIME-AUDIT pass: (1) read drawWarped diff — rotPhase (tick * 0.008, ~13s/turn) added inside sin(a*3 + rotPhase) lobe term; breatheAmp (0.3 + sin(tick * 0.025) * 0.08) replaces the flat 0.3 multiplier; (2) typecheck clean; (3) 38/38 tests pass — including new fx.warped tick-diff regression; (4) backward-compat: at tick=0, rotPhase=0 and breatheAmp=0.3 — matches the original flat-0.3 behavior exactly (no visual jolt on first render); (5) edge cases: zero-length bond fallthrough preserved at existing guard; large tick safe under Math.sin; (6) materially better: warped now actually warps — sister defect to whip closed, both LOW-tier combos with motion-implying names are now animated.",
+      "checkpoint_commit": "9550000e6d68cd67eb578bc8b580398ae55e1e77"
+    },
+    {
+      "id": "P4",
+      "title": "Filament starburst shimmer (alpha modulation) + mock extension",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "PRIME-AUDIT pass: (1) read drawFilament diff — rayAlpha = p.alpha * (0.55 + sin(tick*0.04)*0.15) computed once before loop, applied to all 6 ray strokes; main bond stroke unchanged; (2) GraphicsMock.stroke() extended to capture [width, color, alpha] — backward-compatibility verified by full suite (146/146 pass, including cable static-equality which would fail if extension broke tick-independent serialization); (3) typecheck clean; (4) filament-diff test passes — at tick=0 rayAlpha=0.4675, at tick=40 rayAlpha≈0.595 (near shimmer peak, sin(1.6)≈0.9996); (5) edge cases: zero-length bond fallthrough preserved; large tick safe; (6) materially better: filament rays now pulse — completes the LOW+HIGH-tier animated set (whip, warped, filament), structural MID combos stay static.",
+      "checkpoint_commit": "816f965d1af1888b5116a0b29e34fc9a4b80df3f"
+    },
+    {
+      "id": "P5",
+      "title": "Static-equality test consolidation for 6 static silhouettes",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "PRIME-AUDIT pass: (1) read each of the 6 static silhouette draw functions (drawCable, drawBracket, drawDiamond, drawStar, drawLattice, drawCapsule) and grepped for p.tick — confirmed zero references in all 6; (2) typecheck clean; (3) 151/151 tests pass — including all 6 new it.each entries; (4) the 12 magic silhouettes now formally split 6 animated (wheel, vortex, orbital, whip, warped, filament — all have tick-diff regression tests) + 6 static (with static-equality regression tests); (5) materially better: the opposite regression class (sloppy refactor wires tick into a structural silhouette) is now caught at test time.",
+      "checkpoint_commit": "0b9eaf45c06d6f004361eacfe04aeb7c30155270"
+    },
+    {
+      "id": "P6",
+      "title": "Closeout — BACKLOG + reflexion + handoff + boot snapshot + archive",
+      "status": "in_progress",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false
+    }
+  ],
   "totals": {
     "turns": 0,
     "estimated_tokens": 0,
     "budget_remaining": 150000,
-    "budget_status": "statusline_dead"
+    "budget_status": "GREEN"
   }
 }

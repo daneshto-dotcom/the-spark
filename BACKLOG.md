@@ -6,6 +6,63 @@
 
 ---
 
+## Session 8 — Bond-Visual Polish + PRIME-AUDIT Delta Closure [COMPLETED] (2026-05-11)
+
+**Triggered by S7 PRIME-AUDIT delta + close re-read of `bondVisualRenderer.ts`.**
+S7 PRIME-AUDIT flagged whip wave static + lattice cross-hatch fading at
+small bond lengths; close re-read against the wheel/vortex/orbital pattern
+surfaced a sister defect (drawWarped also static despite the name) and
+one creative-coherent add (filament starburst should shimmer with energy).
+**No physics tuning** — AUTO_BOND_RADIUS / ATTRACT_STRENGTH / strain
+thresholds are playtest-gated per the S7 carry-forward and stayed
+deferred.
+
+**P1 — Whip wave drift (Micro).** Added `driftPhase = p.tick * 0.022`
+inside the wave's sin term so the wave propagates A→B at one wavelength
+every ~2.4s. Closes whip half of S7 PRIME-AUDIT delta.
+
+**P2 — Lattice cross-hatch contrast (Micro).** Replaced `width: 1,
+alpha: 0.5` constants with `crossWidth = Math.max(1.2, p.width * 0.55)`
+and `crossAlpha = p.alpha * 0.65`. HIGH-tier cross-hatch jumps from
+1.0px to 1.65px vs outline 2.4px — visible 70% weight (was 42%). Closes
+lattice half of S7 PRIME-AUDIT delta.
+
+**P3 — Warped 3-fold rotation + breathing (Micro, sister fix).** Added
+`rotPhase = p.tick * 0.008` inside `sin(a*3 + rotPhase)` (full turn
+~13s) and `breatheAmp = 0.3 + sin(tick*0.025)*0.08` (0.22–0.38 extent,
+period ~4.2s) replacing the static 0.3 multiplier. At tick=0 breatheAmp
+reads 0.3 — backward-compat with prior visual baseline.
+
+**P4 — Filament starburst shimmer (Micro, creative add).** Ray alpha
+modulates `0.40–0.70` of `p.alpha` over ~2.6s via `sin(p.tick * 0.04)`.
+Main bond stroke unchanged. GraphicsMock extended to capture
+`[width, color, alpha]` so alpha-only animations show up in serialize-
+comparison tests; verified safe across the existing 35 S7 tests.
+
+**P5 — Static-equality test consolidation (Micro).** Replaced the
+singleton `non-animated fx.cable is identical` test with `it.each` over
+the 6 silhouettes that must NOT introduce tick dependence (cable,
+bracket, diamond, star, lattice, capsule). Guards the OPPOSITE regression
+class — a future refactor accidentally wiring `p.tick` into a structural
+silhouette.
+
+After S8 the 12 magic silhouettes formally split: **6 ANIMATED** (wheel,
+vortex, orbital — pre-existing; whip, warped, filament — added in S8) +
+**6 STATIC** (cable, bracket, diamond, star, lattice, capsule). The split
+matches combo tier semantics: LOW-tier unstable + HIGH-tier energetic
+animate; MID-tier structural stay frame-stable. Each silhouette now has
+a paired regression test (animated → tick-diff; static → tick-equality).
+
+**P6 — Process closeout.**
+
+**Exit gate:** 151/151 tests (was 142 + 9 net new), typecheck clean,
+browser-verified at 60px bond length (pixel-hash diff at tick=0 vs
+tick=120 for whip/warped/filament; identical hash for lattice — static-
+silhouette signature confirmed). 5 priority commits + 1 closeout commit
+on master.
+
+---
+
 ## Session 7 — Connection-Range Gate + Per-Combo Persistent Bond Visuals [COMPLETED] (2026-05-09)
 
 **Triggered by post-S6 user playtest.** Two issues surfaced in real play:
@@ -120,10 +177,11 @@ hidden, so static state-mutation + manual render is the way).
 | **5** | Playability pass | (DONE 2026-05-09) Drift speed, spawn rate, cursor alignment, drag reliability, single-action place | 50 sparks drifting cleanly; auto-bond on release-outside-zone within 60 px |
 | **6** | Polish + git + carry-forwards | (DONE 2026-05-09) git init + bond-tier defensive refactor + effects-list cap + 12 ephemeral combo silhouettes | 4 commits on master, 104/104 tests, browser-verified probe grid |
 | **7** | Connection-range gate + per-combo persistent bond visuals | (DONE 2026-05-09) snap-to-cursor + bondVisualRenderer for 12 magic combos | 142/142 tests, browser-verified 12-combo grid at 60px and 110px |
-| **8** | **User playtest tuning** [NEXT] | User confirms post-S7 build feels right; tune AUTO_BOND_RADIUS / ATTRACT_STRENGTH / strain thresholds; audio if Suno track lands | User says "yes, this works, ship Phase 2" |
-| **9-10** | Buffer / Phase 2 prep | Reserved for remaining tuning + Phase 2 design (fog, local-MP, full disruption) | — |
+| **8** | Bond-visual polish + PRIME-AUDIT delta closure | (DONE 2026-05-11) whip drift + lattice contrast + warped rotation + filament shimmer + animated/static regression-test pair | 151/151 tests, browser-verified all 4 visual fixes via pixel-hash diff |
+| **9** | **User playtest tuning** [NEXT] | User confirms post-S8 build; tune AUTO_BOND_RADIUS / ATTRACT_STRENGTH / strain thresholds; audio if Suno track lands | User says "yes, this works, ship Phase 2" |
+| **10** | Buffer / Phase 2 prep | Reserved for remaining tuning + Phase 2 design (fog, local-MP, full disruption) | — |
 
-If Session 8 closes all gates early → Sessions 9-10 begin Phase 2 design (fog, local-MP, full disruption: Inject Spiral + Steal).
+If Session 9 closes all gates early → Session 10 begins Phase 2 design (fog, local-MP, full disruption: Inject Spiral + Steal).
 
 ---
 
