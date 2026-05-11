@@ -44,6 +44,13 @@ const AUTO_BOND_RADIUS = 60;
 // must accelerate from near-rest, so bump 5×. This makes carried/attracted
 // sparks track the cursor instead of crawling.
 const ATTRACT_STRENGTH = 60_000;
+// S9 P1: max distance cursor can be from spark.pos at LMB-up for the place
+// to commit. Replaces S7's snap-to-cursor — without this gate the user could
+// pickup a spark, flick cursor across the canvas, release, and have the
+// spark teleport to wherever the cursor was. Now the spark has to physically
+// catch up. 120px ≈ 2× AUTO_BOND_RADIUS — generous enough that normal play
+// feels permissive, tight enough that a flick fails fast.
+const MAX_RELEASE_REACH = 120;
 const PHYSICS_DT = 1 / PHYSICS_HZ;
 
 export type ControlState =
@@ -172,44 +179,39 @@ export class Controls {
     if (e.button === 0 && this.state.kind === 'AttractDrag') {
       const spark = this.world.freeSparks.get(this.state.sparkId);
       if (spark !== undefined && spark.state.kind === 'Free') {
-        // S7 P1: snap spark.pos to cursor BEFORE the in-zone check + dispatch.
-        // Rationale: AttractDrag uses spring-with-distance-softening on prevPos
-        // (see applyPerSubstep) so spark.pos lags the cursor with non-zero
-        // inertia. Pre-S7, makePrimitiveFromSpark used spark.pos for placement
-        // while pickPrimitiveInRange measured from cursor — the bond length was
-        // dist(spark.pos→cursor) + dist(cursor→target.pos), which can span the
-        // canvas when the player flicks the cursor. Snapping unifies the source
-        // of truth on cursor: placement = cursor, auto-bond range = from cursor,
-        // so bond length ≤ AUTO_BOND_RADIUS by construction.
-        //
-        // Side effect (intentional): dragging the cursor back into the zone now
-        // cancels the place — spark stays Free wherever the cursor settled.
-        // Aligns with the mental model "release where you point."
-        spark.pos.x = this.cursor.x;
-        spark.pos.y = this.cursor.y;
-        spark.prevPos.x = this.cursor.x;
-        spark.prevPos.y = this.cursor.y;
+        // S9 P1: reachability gate. spark.pos lags the cursor because
+        // AttractDrag uses softened impulses on prevPos in applyPerSubstep —
+        // so a fast cursor flick lets the player effectively teleport the
+        // spark by releasing far from where it physically is. S7 hid this by
+        // snapping spark.pos = cursor on release; S9 removes the snap and
+        // gates instead: if the spark hasn't caught up to within
+        // MAX_RELEASE_REACH of the cursor, reject the place — spark stays
+        // Free where its physics put it, player can try again. Bond length
+        // is bounded by spark.pos (placement coord) → target.pos via
+        // pickPrimitiveInRange measuring from spark.pos.
+        const reachDx = this.cursor.x - spark.pos.x;
+        const reachDy = this.cursor.y - spark.pos.y;
+        const reachable =
+          reachDx * reachDx + reachDy * reachDy <=
+          MAX_RELEASE_REACH * MAX_RELEASE_REACH;
         const inZone = this.isInsideSpawnerZone(spark.pos);
-        if (!inZone) {
+        if (reachable && !inZone) {
           // S5 hot-fix: single-action place. PICKUP then immediately PLACE so
-          // the released spark lands where the player let go (instead of
-          // following the cursor in Carrying state). Auto-bonds to any
-          // primitive within AUTO_BOND_RADIUS of the release point so chained
+          // the released spark lands where it physically is. Auto-bonds to
+          // any primitive within AUTO_BOND_RADIUS of spark.pos so chained
           // construction feels natural — RMB drag is still available for
           // precise targeting.
           //
           // S6 P1: capture spark.type BEFORE dispatch — defensive against any
           // future change that might transform/remove the spark inside
-          // PICKUP_SPARK. Combo lookup then takes a SparkType directly,
-          // eliminating the post-dispatch Map re-lookup that prompted the
-          // S5-end "tier defaulted to MID" investigation.
+          // PICKUP_SPARK.
           const carriedType = spark.type;
           dispatch(this.world, {
             type: 'PICKUP_SPARK',
             sparkId: spark.id,
             playerId: this.playerId,
           });
-          const targetId = this.pickPrimitiveInRange(AUTO_BOND_RADIUS);
+          const targetId = this.pickPrimitiveInRange(AUTO_BOND_RADIUS, spark.pos);
           const target = targetId !== null
             ? this.world.primitives.get(targetId) ?? null
             : null;
@@ -307,12 +309,14 @@ export class Controls {
     return this.pickPrimitiveInRange(PICK_RADIUS);
   }
 
-  private pickPrimitiveInRange(radius: number): PrimitiveId | null {
+  private pickPrimitiveInRange(radius: number, center?: Vec2): PrimitiveId | null {
+    const cx = center?.x ?? this.cursor.x;
+    const cy = center?.y ?? this.cursor.y;
     let best: Primitive | null = null;
     let bestDistSq = radius * radius;
     for (const p of this.world.primitives.values()) {
-      const dx = p.pos.x - this.cursor.x;
-      const dy = p.pos.y - this.cursor.y;
+      const dx = p.pos.x - cx;
+      const dy = p.pos.y - cy;
       const d2 = dx * dx + dy * dy;
       if (d2 < bestDistSq) {
         best = p;
