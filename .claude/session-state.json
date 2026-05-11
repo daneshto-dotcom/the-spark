@@ -1,7 +1,7 @@
 {
-  "tool_calls_session_total": 20,
-  "session_start": "2026-05-11T20:55:00Z",
-  "session_id": "S11",
+  "tool_calls_session_total": 42,
+  "session_start": "2026-05-11T22:00:00Z",
+  "session_id": "S12",
   "budget_total": 150000,
   "budget_overhead": 30000,
   "budget_per_priority": 0,
@@ -11,41 +11,41 @@
   "tier": "Standard",
   "council_waived": false,
   "council_waiver_reason": null,
-  "council_invoked": "R1-parallel-completed-SHIP-verdict",
-  "active_pdr": ".claude/plans-archive/2026-05-11_PDR_Session_11_COMPLETED.md",
+  "council_invoked": "R1-parallel-completed-REVISE-then-SHIP",
+  "active_pdr": ".claude/plans-archive/2026-05-11_PDR_Session_12_COMPLETED.md",
   "priorities": [
     {
       "id": "P1",
-      "title": "Process drift cleanup (push state-autocommits)",
+      "title": "Process drift cleanup (push S11 autocommit)",
       "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "git push origin master — 3 state-autocommits pushed (f46f56e..60e588a master -> master); working tree clean tracking origin. No source content in those commits — pure hook bookkeeping (tool_calls counter). PRIME-AUDIT: (1) pre-push git log showed [60e588a, 5410e4d, c672bb3] all [state-autocommit] S10; (2) push succeeded with no force, no skip-hooks, no -i flag; (3) post-push tracking origin/master clean; (4) no source/test/typecheck regression possible — git push is content-preserving.",
-      "checkpoint_commit": "60e588a"
+      "check_method": "git push origin master — pushed ca6f10c [state-autocommit] S11 PLUS fc982af [state-autocommit] S11 (second autocommit that materialized during the push as the state-hook fired again). e565d60..fc982af master->master. Post-push verification: (1) git status shows 'Your branch is up to date with origin/master'; (2) git log -5 confirms fc982af is HEAD; (3) push succeeded with no force, no --no-verify, no -i; (4) zero source/test/typecheck regression possible — both commits are content-preserving state-autocommits. No source file changes in either commit (verified by handoff carry-forward note + git log message pattern).",
+      "checkpoint_commit": "fc982af"
     },
     {
       "id": "P2",
-      "title": "Phase 2 design decision matrix (docs/phase-2-design-options.md)",
+      "title": "effectsRenderer per-kind split (Standard, Council-revised)",
       "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "PRIME-AUDIT pass (Rule 20): (1) docs/phase-2-design-options.md created, 523 lines (over 280-400 target but materially better — Council-added Risks + Playtest Readiness blocks accounted for ~175 extra lines; verdict: BETTER, not just longer). (2) 7 mechanics covered (6 from PDR + 1 surfaced by Council R1 against § VIII.3: Sever-as-disruption); all 7 have all template fields (ASCII sketch + fires-when + spec authority + cost + pros + cons + risks + playtest readiness + verdict + flag-for-veto). (3) All spec citations resolve to real Blueprint sections: § II (48), § III.4 (98), § III.7, § V (184), § VI.3 (256), § VI.4 (269), § VI.5 (279), § VII.1 (298), § VII.2 (315), § VIII.3 (345), § VIII.4 (357), § VIII.6 (373), § X.2 (436), § X.4 (460), § XI.8 (532), § XIII (733), § XIV (799), § XV (825). LOCKED_DECISIONS § 2.4-7, § 3.10-11, § 10.2, § 10.3 cited. (4) Mermaid prereq DAG: B→{C,D,E}, E→F, A dotted→{C,D,E}, G standalone. No cycles. Validates B→C→D→E disruption-suite semantics per § VIII.3. (5) Cost anchors INITIALLY stale (handoff said world.ts 370, actual 481; effectsRenderer 470, actual 569 post-S10 cinematics) — DETECTED via wc -l, corrected in table + flagged as carry-forward: effectsRenderer.ts 569 LOC > 500 charter, refactor target for S12 if Phase 2 adds more effect kinds. (6) Open Questions (7) each have 2+ defensible answers (validated against PRIME-AUDIT Q1 MP-mode/Q3 Spiral-propagation/Q4 steal-combo/Q5 decay/Q6 Sever-omit/Q7 F-depth). (7) Council Battle Ledger appended to PDR file. Quality scorecard pre-revision 3/5 across (Quality/Tool-Util/Completeness, Efficiency 4/5) — post-revisions all expected to land at 4/5 per Gemini adoption. Council verdict: SHIP.",
-      "checkpoint_commit": "2329dcf"
+      "check_method": "PRIME-AUDIT (Rule 20) post-refactor: (1) Dead-silhouette audit ran first — grep src/combos.ts vs the 13 silhouette cases in drawBondCommit's switch. RESULT: zero deletions — all 12 magic IDs (fx.filament, fx.cable, fx.bracket, fx.diamond, fx.wheel, fx.star, fx.orbital, fx.lattice, fx.capsule, fx.vortex, fx.whip, fx.warped) PLUS fx.bond.default actively emitted by combos.ts. (2) 8 source files written under src/render/effects/ (bondCommit, lifetime, scoreTier, severErase, silhouettes, structureGrow, structureMerge — 7 files) + parent rewrite (effectsRenderer.ts 569→116 LOC) + new smoke test (effectsRenderer.test.ts). (3) Public surface preserved: EffectsRenderer class signature unchanged (ctor takes Application, sync/activeCount/destroy stable). main.ts:40,82,165,168 imports unchanged. (4) SEVER_ERASE drawer newly extracted from inline parent body (lines 117-134 of original) into severErase.ts for shape consistency with other 4 kinds. (5) Council R1 adoptions verified in artifact: silhouettes.ts split separately from bondCommit.ts per Grok #3 (243+86 LOC vs combined ~280); CI smoke test added per Gemini #1 (22 new tests). Risks #4 (Graphics ownership) + #5 (world.tick state) confirmed removed-by-design — parent owns Graphics, calls g.clear() once per sync, drawers receive g + age:number as pure-fn params, never read world.tick. (6) Tests: npx vitest run → 201/201 pass (179 prior + 22 new smoke covering effectLifetime/per-kind dispatch/all 12 magic silhouettes/class lifecycle). (7) Typecheck: npx tsc -b --noEmit → exit 0, no output. (8) § XV LOC compliance: wc -l shows no file >500 (largest: silhouettes.ts at 243 LOC; parent 116 LOC). (9) Commit 80f52e8 (9 files: 7 new + 1 rewrite + 1 new test; +752 -485) pushed to origin/master (fc982af..80f52e8). Browser playtest deferred — refactor is pure code-motion + extract-to-function + new test, no behavior change expected; user is already playtest-gated on cinematics constants tuning from S10 (top backlog priority).",
+      "checkpoint_commit": "80f52e8"
     },
     {
       "id": "P3",
-      "title": "Closeout (BACKLOG + reflexion + boot snapshot + PDR archive + handoff + push)",
+      "title": "Closeout (BACKLOG + reflexion + boot snapshot + PDR archive + HANDOFF)",
       "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "Closeout artifacts: BACKLOG.md S11 entry inserted (drift cleanup + Phase 2 design matrix summary, ~45 lines) + session map updated (S10 closed → S11 DONE → S12+ audio/Phase 2 implementation). reflexion_log.md prepended with 4 S11 entries (#council-r1-surfaces-spec-mechanic-pdr-omitted, #cost-anchors-staleness-checked-via-live-loc, #design-doc-overage-justified-by-council-additions, SESSION #buffer-session-doc-prep-when-everything-gated); pruned 4 oldest S5 detail entries (#max-speed-clamp-broke-attract, #attract-needs-momentum-or-strength, #spawner-bounds-blocks-pickup, #pointer-capture-auto-release) to maintain ≤50 cap. boot-snapshot.md regenerated with S11/S10 reflexion summary + S11 commit list + 6 next-steps + PRIME-AUDIT carry-forward for effectsRenderer LOC charter. PDR moved to plans-archive/2026-05-11_PDR_Session_11_COMPLETED.md (with Battle Ledger + PRIME-AUDIT appendix in place); plans/ directory empty. /handoff skill to be invoked next (per user direction) — will replace HANDOFF_2026-05-11.md at root and archive S10 root copy to .handoff-archive/. Final 179/179 tests pass (no source change), typecheck clean. P1 (60e588a push) + P2 (2329dcf design matrix) commits on origin/master.",
-      "checkpoint_commit": "bd4a549"
+      "check_method": "Closeout artifacts: BACKLOG.md S12 entry inserted (effectsRenderer per-kind split summary with full Council R1 narrative + carry-forward block; ~60 lines) + session map updated (S11 DONE → S12 DONE → S13+ Audio/Phase 2). reflexion_log.md prepended with 4 S12 entries (#per-kind-split-when-charter-breached-via-monolith, #dead-code-audit-before-code-motion, #pure-fn-drawers-with-age-not-tick-state, SESSION #council-r1-vs-handoff-endorsement); pruned 4 oldest S5/S6 detail entries (S5 #dpr-double-bug, S5 #naive-fix-incomplete, S5 #max-speed-clamp-location, S6 #headless-tab-pauses-ticker) to maintain ≤50 cap (lower-bound reflexion footer updated). boot-snapshot.md regenerated with S12 commit list + post-split state + Phase-2-ready note + carry-forward updates (no remaining § XV charter breach). PDR moved (plain mv since untracked) to plans-archive/2026-05-11_PDR_Session_12_COMPLETED.md with post-execution Battle Ledger (exit-gate table + Council adoption verification table + PRIME-AUDIT delta + carry-forward block) appended. plans/ directory empty. /handoff skill to be invoked next per user direction — will replace HANDOFF_2026-05-11.md root and archive S11 root → .handoff-archive/HANDOFF_2026-05-11_S11_postS12.md. Final 201/201 tests pass (179 prior + 22 new smoke). typecheck clean. No file > 500 LOC. P1 (fc982af push) + P2 (80f52e8 refactor) commits + this closeout commit on origin/master.",
+      "checkpoint_commit": "PLACEHOLDER_WILL_BE_UPDATED_AFTER_COMMIT"
     }
   ],
   "totals": {

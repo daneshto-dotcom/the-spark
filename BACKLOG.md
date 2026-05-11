@@ -6,6 +6,66 @@
 
 ---
 
+## Session 12 — effectsRenderer Per-Kind Split [COMPLETED] (2026-05-11)
+
+**Triggered by S11 PRIME-AUDIT carry-forward.** `effectsRenderer.ts` at 569 LOC
+breached the § XV soft charter (500-LOC cap); Phase 2 will add more effect
+kinds, so refactoring along the per-kind axis NOW prevents the monolith from
+growing worse. All three S11-eligible backlog items (cinematics tuning /
+audio / Phase 2 implementation) remained user-gated; the renderer refactor
+was the only un-gated path. Standard tier, Council R1 ON.
+
+**P1 — Process drift cleanup (Micro).** Pushed `ca6f10c [state-autocommit] S11`
+plus a fresh `fc982af` autocommit (state-hook fired again during push) to
+`origin/master` (e565d60..fc982af). Working tree tracking clean. No source change.
+
+**P2 — effectsRenderer per-kind split (Standard, Council-revised).** Council
+R1 ran in parallel (Grok DISRUPTOR returned VETO with 5 challenges; Gemini
+AUDITOR returned REVISE with Q:2/E:4/T:2/C:3 + 3 concerns); synthesized
+adoption was 6 of 7 challenges. Rejected #1 (defer to post-Phase 2) on
+charter authority — § XV breach is current; per-kind seam is the additive
+axis itself. Dead-silhouette audit ran FIRST per Grok #2 (grep combos.ts
+visualEffectId vs 13 drawBondCommit cases) — yielded **zero deletions**;
+all 12 magic IDs + fx.bond.default actively emitted. 7 new files written
+under `src/render/effects/` (lifetime, silhouettes, bondCommit, severErase,
+structureGrow, structureMerge, scoreTier) + parent rewrite (569→116 LOC,
+class only) + new smoke test (`effectsRenderer.test.ts`, 22 tests covering
+lifetime + all 5 per-kind drawers + all 12 magic silhouettes + class
+lifecycle). SEVER_ERASE drawer newly extracted from inline parent body
+for shape consistency with the other 4 kinds. Risks #4 (Graphics ownership)
++ #5 (world.tick state) — Gemini-flagged — resolved by design: parent owns
+Graphics + clears once per sync, drawers receive `(g, effect, age:number)`
+as pure-fn params, never read `world.tick` directly. § XV LOC compliance
+restored — largest file `silhouettes.ts` at 243 LOC, parent at 116 LOC.
+Tests: 201/201 (179 prior + 22 new). Typecheck clean. Battle Ledger
+appended to PDR.
+
+**P3 — Closeout.** Per-priority commit + push (S9 rule). BACKLOG S12 entry
++ session map update. Reflexion log: prepend 4 S12 entries + prune 4 oldest
+S5/S6 detail entries (50-cap maintained). Boot-snapshot regenerated. PDR
+moved to `.claude/plans-archive/2026-05-11_PDR_Session_12_COMPLETED.md`
+with post-execution Battle Ledger + PRIME-AUDIT delta. HANDOFF root
+replaced (S11 root → `.handoff-archive/`).
+
+**Exit gate:** 201/201 tests, typecheck clean, no file > 500 LOC,
+EffectsRenderer public surface unchanged (main.ts imports intact),
+2 priority commits (`fc982af` push + `80f52e8` refactor) + closeout
+commit on master, all pushed.
+
+**Carry-forward to S13+:**
+- PLAYTEST-GATED (still): cinematics constants tuning (ATTRACT_FOLLOW_RATE,
+  STRUCTURE_GROW_HOP_TICKS, STRUCTURE_FLASH_TICKS, MERGE_IMPULSE_MAGNITUDE,
+  SCORE_TIER_STEP) + carry-overs (AUTO_BOND_RADIUS, MAX_RELEASE_REACH,
+  PHASE_1_WIN_SCORE, strain thresholds).
+- ASSET-GATED (still): Audio integration (Suno track pending).
+- PHASE-2-GATED (still): Phase 2 implementation per
+  `docs/phase-2-design-options.md` user pick. Refactored renderer is
+  Phase-2-ready — new effect kinds (e.g., STEAL_FLASH, SPIRAL_INFECT,
+  VISION_REVEAL) plug in as new files in `src/render/effects/` in the
+  same shape as the 5 current kinds.
+
+---
+
 ## Session 11 — Buffer: Drift Cleanup + Phase 2 Design Matrix [COMPLETED] (2026-05-11)
 
 **Triggered by S10 handoff carry-forward.** All three S11-eligible backlog items
@@ -359,9 +419,10 @@ hidden, so static state-mutation + manual render is the way).
 | **9** | Playtest bug fixes + cinematics brainstorm | (DONE 2026-05-11) release teleport fix + cross-structure auto-merge + complexity-weighted scoring + cinematics options doc | 161/161 tests, browser HMR clean across priorities, 3 bugs closed |
 | **10** | Tuning + cinematics implementation | (DONE 2026-05-11) AttractDrag follow-lerp tuning + STRUCTURE_GROW outward pulse + STRUCTURE_MERGE verlet impulse + SCORE_TIER every-15 corner pulse + C-key debug toggle | 179/179 tests, browser HMR clean, all 4 cinematics + tuning callout closed |
 | **11** | Buffer: drift cleanup + Phase 2 design matrix | (DONE 2026-05-11) Push state-autocommits + `docs/phase-2-design-options.md` (7 mechanics × full template, Mermaid prereq DAG, tiered rollout recommendation, Council R1 deliberated) | 179/179 tests, Phase 2 conversation has decision-ready artifact when user signs off Phase 1 |
-| **12+** | **Audio / Phase 2 implementation** [NEXT] | Audio (when Suno track lands); Phase 2 implementation per `docs/phase-2-design-options.md` user pick (recommended Tier-0 first = B.2 Hotseat + A Fog); any post-playtest tuning of cinematics constants + carry-overs | User picks from Phase 2 matrix + "ship Phase 2" |
+| **12** | effectsRenderer per-kind split (§ XV charter compliance) | (DONE 2026-05-11) Dead-silhouette audit (zero deletions) + 7 new files under `src/render/effects/` + parent rewrite (569→116 LOC) + new smoke test, Council R1 (Grok VETO + Gemini REVISE) adopted 6 of 7 | 201/201 tests (179 + 22 new), typecheck clean, no file >500 LOC, Phase-2-ready seam |
+| **13+** | **Audio / Phase 2 implementation** [NEXT] | Audio (when Suno track lands); Phase 2 implementation per `docs/phase-2-design-options.md` user pick (recommended Tier-0 first = B.2 Hotseat + A Fog); any post-playtest tuning of cinematics constants + carry-overs | User picks from Phase 2 matrix + "ship Phase 2" |
 
-If Session 11 closes all gates early → Phase 2 implementation begins (foundation tier: B.2 hotseat + A fog of war).
+If Session 12 closes all gates early → Phase 2 implementation begins (foundation tier: B.2 hotseat + A fog of war).
 
 ---
 
