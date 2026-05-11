@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 77,
+  "tool_calls_session_total": 91,
   "session_start": "2026-05-11T14:30:00Z",
   "session_id": "S9",
   "budget_total": 150000,
@@ -65,7 +65,8 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "Closeout artifacts: BACKLOG.md S9 entry + session map updated. reflexion_log.md prepended with 9 S9 entries. boot-snapshot.md regenerated. PDR moved to plans-archive/2026-05-11_PDR_Session_9_COMPLETED.md. HANDOFF_2026-05-11.md at root replaced (S8 already archived). Archive copy at .handoff-archive/HANDOFF_2026-05-11_S9.md. Final 161/161 tests pass. All S9 priority commits pushed per new handoff-push rule throughout session. session-state.json (this entry) gets final close commit + push."
+      "check_method": "Closeout artifacts: BACKLOG.md S9 entry + session map updated. reflexion_log.md prepended with 9 S9 entries (later pruned of S3 + S1-2 to keep ≤50 cap at /handoff). boot-snapshot.md regenerated. PDR moved to plans-archive/2026-05-11_PDR_Session_9_COMPLETED.md. HANDOFF_2026-05-11.md at root replaced (S8 already archived). Archive copy at .handoff-archive/HANDOFF_2026-05-11_S9.md. Final 161/161 tests pass. All S9 priority commits pushed.",
+      "checkpoint_commit": "8686281"
     }
   ],
   "totals": {

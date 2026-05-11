@@ -62,19 +62,6 @@ Cross-session learnings. Most recent at top. Entries pruned when total >50.
 - S4 #stress-test-fixture-broke: stress chain grew INTO the (now-blocked) zone; fixed by extending leftward. **Lesson: new rules can break old test fixtures — always re-run full suite after dispatch-layer changes.**
 - SESSION #spec-correct-vs-playable: S4 fixed the "right thing" but S5 priorities (drift, spawn rate, alignment, drag) are all numbers needing playtest data, not spec study. Sessions 5+ are user-driven tuning by design.
 
-## 2026-05-09 — Session 3 of 10 (Smoothness Pass)
-- S3 #strain-break-bug: solveBonds returned broken IDs since S1 but main.ts discarded them — strain-break was dead code. Fixed by dispatching SEVER_BOND in substep loop. **Lesson: audit every call site for non-trivial return values.**
-- S3 #immobility-snap: bonded → unbonded transition leaves prevPos stale. snapPrevPosForUnbonded() pairing required with the immobility guard.
-- S3 #effects-via-queue: chose `world.effects: GameEffect[]` over event bus or dispatch-callback. Keeps Phase-3 dispatch seam intact, save.ts ignores via explicit-field-enumeration.
-- S3 #headless-rAF: Claude Preview headless tab runs Pixi ticker at ~1/3 wall-clock. State queries reliable; visuals delayed. Real browser only for 60 Hz confirmation.
-- S3 #stress-test-gating: full 10-min run gated by STRESS_FULL=1; default 60s keeps CI fast.
-- SESSION #anti-bloat: largest module still controls.ts at 278 LOC.
-- SESSION #council-skipped: user pre-APPROVED satisfied Rule 17 user-path; PRIME-AUDIT caught effects-list-no-hard-cap and strain-now-aggressive, both folded into open issues.
+<!-- S3 + S1-2 session blocks pruned at S9 handoff to keep total ≤50 entries.
+     Originals preserved in archived handoff docs under .handoff-archive/. -->
 
-## 2026-05-09 — Sessions 1-2 batch (foundation)
-- S1 #verlet: Pixi v8 ticker + headless rAF mismatch — confirmed again S5.
-- S1 #poisson-tolerance: 1.5σ outlier widened test window to 300 s ±15%.
-- S2 #dispatch-shape: GameAction Extract<...> narrows beautifully — keep for Phase 3 networking.
-- S2 #bond-refs: Bond carries IDs + direct refs (IDs for save/BFS, refs for solver hot path).
-- S3 #sever-tiebreaker: greater max(createdTick) loses → "newest cut" (named S3 in code, but landed earlier).
-- S2 #save-restore: primitives → bonds → players ordering required.
