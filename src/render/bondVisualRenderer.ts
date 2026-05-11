@@ -326,7 +326,7 @@ function drawVortex(g: Graphics, p: BondVisualParams): void {
   g.stroke({ width: p.width * 0.85, color: p.color, alpha: p.alpha });
 }
 
-/** Whip (Spiral→Line, LOW): sine wave from A to B. */
+/** Whip (Spiral→Line, LOW): sine wave from A to B; phase drifts A→B with tick. */
 function drawWhip(g: Graphics, p: BondVisualParams): void {
   const dx = p.bx - p.ax;
   const dy = p.by - p.ay;
@@ -340,12 +340,14 @@ function drawWhip(g: Graphics, p: BondVisualParams): void {
   const amp = Math.min(8, len * 0.18);
   const cycles = 3;
   const steps = 24;
+  // ~one wavelength every ~2.4s at 60Hz, propagating from A toward B.
+  const driftPhase = p.tick * 0.022;
 
   let first = true;
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
     const dist = t * len;
-    const wave = Math.sin(t * cycles * Math.PI * 2) * amp;
+    const wave = Math.sin((t * cycles + driftPhase) * Math.PI * 2) * amp;
     const px = p.ax + tx * dist + nx * wave;
     const py = p.ay + ty * dist + ny * wave;
     if (first) { g.moveTo(px, py); first = false; }

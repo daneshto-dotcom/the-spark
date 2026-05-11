@@ -169,6 +169,12 @@ describe('S7 P2 — tick-driven animation', () => {
     expect(aCircles[0].args[2]).not.toEqual(bCircles[0].args[2]); // r1 differs
   });
 
+  it('S8 P1 — fx.whip wave drift — output differs at tick=0 vs tick=120', () => {
+    const a = calls('fx.whip', 0);
+    const b = calls('fx.whip', 120);
+    expect(serialize(a)).not.toEqual(serialize(b));
+  });
+
   it('non-animated fx.cable is identical at tick=0 and tick=999', () => {
     const a = calls('fx.cable', 0);
     const b = calls('fx.cable', 999);
