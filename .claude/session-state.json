@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 7,
+  "tool_calls_session_total": 13,
   "session_start": "2026-05-11T12:11:52Z",
   "budget_total": 150000,
   "budget_overhead": 30000,
@@ -9,6 +9,6 @@
     "turns": 0,
     "estimated_tokens": 0,
     "budget_remaining": 150000,
-    "budget_status": "GREEN"
+    "budget_status": "statusline_dead"
   }
 }
