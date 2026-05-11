@@ -1,7 +1,7 @@
 {
-  "tool_calls_session_total": 20,
-  "session_start": "2026-05-11T18:00:00Z",
-  "session_id": "S10",
+  "tool_calls_session_total": 0,
+  "session_start": "2026-05-11T20:55:00Z",
+  "session_id": "S11",
   "budget_total": 150000,
   "budget_overhead": 30000,
   "budget_per_priority": 0,
@@ -9,75 +9,43 @@
   "deliberation_completed": true,
   "unlock_source": "user",
   "tier": "Standard",
-  "council_waived": true,
-  "council_waiver_reason": "S7/S8/S9 precedent + cinematics doc was the deliberation artifact + user provided unambiguous answers to all 4 open questions ('approved' + outward-from-new-prim + real-verlet-impulse + every-15 + include-debug-toggle). AttractDrag tuning is a well-understood algorithm swap. PRIME-AUDIT runs per priority before commit.",
-  "active_pdr": ".claude/plans-archive/2026-05-11_PDR_Session_10_COMPLETED.md",
+  "council_waived": false,
+  "council_waiver_reason": null,
+  "council_invoked": "R1-parallel-completed",
+  "active_pdr": ".claude/plans/2026-05-11_PDR_Session_11.md",
   "priorities": [
     {
       "id": "P1",
-      "title": "AttractDrag follow tuning (replace impulse-on-prevPos with position-lerp)",
+      "title": "Process drift cleanup (push state-autocommits)",
       "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "PRIME-AUDIT pass: (1) constants.ts adds ATTRACT_FOLLOW_RATE=0.06 with rationale comment + STRUCTURE_GROW_HOP_TICKS=4 / STRUCTURE_FLASH_TICKS=18 / MERGE_IMPULSE_MAGNITUDE=1.2 / SCORE_TIER_STEP=15 for P2-P4 (pre-staged). controls.ts removes ATTRACT_STRENGTH local const and PHYSICS_HZ/PHYSICS_DT imports (no longer needed by AttractDrag branch); imports ATTRACT_FOLLOW_RATE; AttractDrag branch in applyPerSubstep replaced with stepAttractLerp(spark.pos, spark.prevPos, this.state.cursor, ATTRACT_FOLLOW_RATE) call; new exported pure helper stepAttractLerp lerps pos toward cursor and restores prevPos = oldPos so residual velocity = lerp delta. (2) typecheck clean. (3) 166/166 tests pass — 5 new in session10.test.ts: one-step closure equals rate × dist, prevPos restored to pre-lerp pos (junk overwrite test), 4-step geometric closure matches (1-r)^N model within 1px, 50-step bounded approach never overshoots cursor coords on either axis and converges to <5% residual, SparkType sentinel import probe. (4) edge cases: dist=0 (cursor at spark) → no movement, no NaN; rate=0 → no movement, prevPos still restored. (5) Browser HMR'd cleanly across all 4 edits (vite logs show 'page reload src/constants.ts' then 3× 'page reload src/input/controls.ts' with zero errors); preview server fe06f71b alive on 15842. (6) materially better: closes 'stupid magnet slowly swinging' bug; spark.pos now tracks cursor by ~38% closure per frame at 60Hz (8 substeps × 6% lerp); at LMB-up spark within ~5px of cursor so S9 reachability gate becomes a real-flick cheese-prevent rather than a normal-play hurdle.",
-      "checkpoint_commit": "3f599b5"
+      "check_method": "git push origin master — 3 state-autocommits pushed (f46f56e..60e588a master -> master); working tree clean tracking origin. No source content in those commits — pure hook bookkeeping (tool_calls counter). PRIME-AUDIT: (1) pre-push git log showed [60e588a, 5410e4d, c672bb3] all [state-autocommit] S10; (2) push succeeded with no force, no skip-hooks, no -i flag; (3) post-push tracking origin/master clean; (4) no source/test/typecheck regression possible — git push is content-preserving.",
+      "checkpoint_commit": "60e588a"
     },
     {
       "id": "P2",
-      "title": "Cinematic B: STRUCTURE_GROW outward pulse with BFS hop timing",
+      "title": "Phase 2 design decision matrix (docs/phase-2-design-options.md)",
       "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "PRIME-AUDIT pass: (1) effects.ts gains STRUCTURE_GROW/STRUCTURE_MERGE/SCORE_TIER kinds (P2 wires GROW only; P3/P4 wire the rest). structure.ts gains bfsHopMap(seed, prims, bonds) returning hopByPrimId + hopByBondId + maxHop — primitives BFS from origin, bonds get max(a-hop, b-hop) so bond highlight reaches once both endpoints lit. world.placePrimitive emits STRUCTURE_GROW after all bond logic with post-merge component's hop maps. effectsRenderer: new effectLifetime() helper per kind; draw() refactored to (effect, age, lifetime, world) so renderer can look up live primitive/bond positions; new drawStructureGrow iterates hop maps with sine-envelope per-entry timing (0→1→0 over STRUCTURE_FLASH_TICKS, primitives draw growing rings, bonds draw highlighted strokes, severed-mid-effect IDs silently skipped). (2) typecheck clean. (3) 169/169 tests pass — 3 new in session10.test.ts: single-anchor emits {origin:0} with empty bond map; 4-chain emits hops 0..3 with bond hops [1,2,3]; cross-structure merge place emits union of 6 prims + 5 bonds. session5.test.ts 1 test updated to filter by kind (effects queue now contains STRUCTURE_GROW per place). (4) edge cases: anchor placement → maxHop=0 lifetime=STRUCTURE_FLASH_TICKS (~300ms) — natural minimum; bond severed between emit and draw → world.bonds.get undefined → skip; primitive severed → world.primitives.get undefined → skip. (5) Browser HMR'd cleanly across 5 edits (effects/structure/world/effectsRenderer/constants); preview-server logs show all 'page reload' entries no error. (6) materially better: user's 'show the shape grow / become more complicated' is closed — every place fires a wave outward from new prim across the connected component, scales with structure size (deeper = longer cascade = inherent reward feedback). STRUCTURE_MERGE/SCORE_TIER scaffolded in renderer with no-op branches awaiting P3/P4.",
-      "checkpoint_commit": "479fb5a"
+      "check_method": "PRIME-AUDIT pass (Rule 20): (1) docs/phase-2-design-options.md created, 523 lines (over 280-400 target but materially better — Council-added Risks + Playtest Readiness blocks accounted for ~175 extra lines; verdict: BETTER, not just longer). (2) 7 mechanics covered (6 from PDR + 1 surfaced by Council R1 against § VIII.3: Sever-as-disruption); all 7 have all template fields (ASCII sketch + fires-when + spec authority + cost + pros + cons + risks + playtest readiness + verdict + flag-for-veto). (3) All spec citations resolve to real Blueprint sections: § II (48), § III.4 (98), § III.7, § V (184), § VI.3 (256), § VI.4 (269), § VI.5 (279), § VII.1 (298), § VII.2 (315), § VIII.3 (345), § VIII.4 (357), § VIII.6 (373), § X.2 (436), § X.4 (460), § XI.8 (532), § XIII (733), § XIV (799), § XV (825). LOCKED_DECISIONS § 2.4-7, § 3.10-11, § 10.2, § 10.3 cited. (4) Mermaid prereq DAG: B→{C,D,E}, E→F, A dotted→{C,D,E}, G standalone. No cycles. Validates B→C→D→E disruption-suite semantics per § VIII.3. (5) Cost anchors INITIALLY stale (handoff said world.ts 370, actual 481; effectsRenderer 470, actual 569 post-S10 cinematics) — DETECTED via wc -l, corrected in table + flagged as carry-forward: effectsRenderer.ts 569 LOC > 500 charter, refactor target for S12 if Phase 2 adds more effect kinds. (6) Open Questions (7) each have 2+ defensible answers (validated against PRIME-AUDIT Q1 MP-mode/Q3 Spiral-propagation/Q4 steal-combo/Q5 decay/Q6 Sever-omit/Q7 F-depth). (7) Council Battle Ledger appended to PDR file (.claude/plans/2026-05-11_PDR_Session_11.md). Quality scorecard pre-revision 3/5 across (Quality/Tool-Util/Completeness, Efficiency 4/5) — post-revisions all expected to land at 4/5 per Gemini adoption. Council verdict: SHIP.",
+      "checkpoint_commit": null
     },
     {
       "id": "P3",
-      "title": "Cinematic C: STRUCTURE_MERGE with real verlet impulse on candidate component",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "PRIME-AUDIT pass: (1) world.placePrimitive merge sweep: per merge bond, before mergedComponents.add(candComp), apply verlet impulse to each prim in candComp.primitiveIds (prevPos pushed away from new prim by MERGE_IMPULSE_MAGNITUDE=1.2px along the unit vector cand→prim, NaN-safe at idist<1); then emit STRUCTURE_MERGE with unionPrimIds snapshot = [...mergedComponents, ...candComp.primitiveIds] (BEFORE add — captures exactly the pre-this-merge union). effectsRenderer: drawStructureMerge after MERGE_LEAD_IN_TICKS=4 delay, sine-envelope flash over STRUCTURE_FLASH_TICKS=18 across all union primitives — synchronized 'snap' vs STRUCTURE_GROW's BFS-timed 'wave'. (2) typecheck clean. (3) 172/172 tests pass — 3 new P3 tests: 2-component merge emits 1 STRUCTURE_MERGE with unionPrimIds size 4 (bridge+a0+a1+b0); verlet impulse direction verified — b0.prevPos.x shifted +MERGE_IMPULSE_MAGNITUDE from x=300 (axis is cand→prim = (-1,0), pushed away = +x), and (pos - prevPos) instantaneous velocity = -MAG (toward bridge); 3-component cascade emits 2 STRUCTURE_MERGEs with growing union sizes [3, 4]. (4) edge cases: idist<1 → skip (co-located prims, no NaN); single-prim component → still impulsed if dist≥1; severed-mid-effect → renderer's world.primitives.get undefined → skip. (5) safety: 1.2px / 60px bond = 2% strain delta, well under LOW-tier 2.0× break threshold; cascade-3 effective impulse ≤3.6px decays in <5sec via 0.998 damping with bond constraints absorbing most. (6) materially better: closes 'real verlet impulse not visual-only' user pick — cross-structure merges now have a felt physical event (drawn-in nudge) layered on the visual flash, distinguishing them from single-bond places.",
-      "checkpoint_commit": "2d3e4e7"
-    },
-    {
-      "id": "P4",
-      "title": "Cinematic D-lite: SCORE_TIER corner pulse at every-15 score boundary",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "PRIME-AUDIT pass: (1) world.placePrimitive snapshots oldScore = world.scoreProgress at function entry (after mergedComponents init, before any score-increment paths); after all primary + merge score increments, emits one SCORE_TIER per crossed multiple of SCORE_TIER_STEP=15 via for (t = oldTier+1; t <= newTier; t++) loop. player.color carried through scope (Player.Idle/Carrying both have color). effectsRenderer drawScoreTier: corner-pulse at (12+80/2, CANVAS_HEIGHT-60) — co-located with HUD progress bar layout; soft filled bloom 28→56px + sharp leading ring 18→68px, sine envelope over SCORE_TIER_DURATION_TICKS=30 (~500ms); renderer-only (no world lookup). (2) typecheck clean. (3) 175/175 tests pass — 3 new P4 tests: magic Line→Line chain emits SCORE_TIER tier=1 at the 5th bond crossing scoreProgress=16; functional Dot→Dot 5-prim chain (max score 5) emits 0 events; multi-merge place with pre-seeded scoreProgress=14 and 4 magic bonds crosses 15 boundary once (delta=12, 14→26). (4) edge cases: oldTier == newTier → no emission; threshold-exact (scoreProgress = 15) → Math.floor(15/15) = 1 > 0 → emits tier=1; multi-tier crossings (theoretical at large per-place delta) → multiple events in order tier=1, tier=2, .... (5) Phase 1 expectation: 3 tier events total before WIN at threshold 50 (crossings at 15, 30, 45). (6) materially better: closes 'every 15 score' user pick — progress legibility through corner pulses scales with the player's accumulating structure; complements the structure-grow + merge-wave with a peripheral 'you're moving toward the goal' signal.",
-      "checkpoint_commit": "79c0e0c"
-    },
-    {
-      "id": "P5",
-      "title": "Cinematics debug toggle (world.cinematicsEnabled + C keybind)",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "PRIME-AUDIT pass: (1) world.ts adds cinematicsEnabled:boolean to World interface, init true in makeWorld, NOT in save.ts WorldSnapshot (debug-only, no persistence). placePrimitive gates 3 emission sites — STRUCTURE_GROW (post-bond unconditional emit), STRUCTURE_MERGE (per merge bond inside sweep loop), SCORE_TIER (tier crossing loop) — each wrapped in `if (world.cinematicsEnabled) { ... }`. BOND_COMMIT and SEVER_ERASE remain unconditional (bond-level combat feedback, not cinematics). S10 P3 verlet impulse on candidate component stays unconditional (user chose physics-over-visual; toggling visuals off shouldn't undo the constructive physics half). main.ts: keydown handler gains C/c branch that flips world.cinematicsEnabled. Legend hint gains 'C cinematics' suffix for discoverability. (2) typecheck clean. (3) 179/179 tests pass — 4 new P5 tests: cinematicsEnabled=false suppresses STRUCTURE_GROW but emits BOND_COMMIT; toggle off + merge → no STRUCTURE_MERGE but verlet impulse still applies (prevPos.x shifted +MERGE_IMPULSE_MAGNITUDE); toggle off + magic chain crossing scoreProgress=16 → no SCORE_TIER; default true in makeWorld and toggle is reversible mid-game (re-enable mid-build → next place emits STRUCTURE_GROW again). (4) edge cases: toggling mid-pulse — existing active effects continue draining via the renderer's effects-list (renderer doesn't read cinematicsEnabled, only the world.effects emission is gated); save/restore — cinematicsEnabled NOT in WorldSnapshot so restored world defaults true (debug-only). (5) materially better: user's 'don't skip debug toggle' is closed — playtest can isolate physics from cinematics by pressing C; structure cinematics scope cleanly separated from bond-level feedback so toggle doesn't hide combat-essential pop/erase.",
-      "checkpoint_commit": "02e5308"
-    },
-    {
-      "id": "P6",
       "title": "Closeout (BACKLOG + reflexion + boot snapshot + PDR archive + handoff + push)",
-      "status": "completed",
+      "status": "in_progress",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "Closeout artifacts: BACKLOG.md S10 entry inserted + session map updated (S10 DONE → S11+ buffer/audio/Phase 2). reflexion_log.md prepended with 7 S10 entries + 1 SESSION line; pruned S4 detail entries (5) + S5 #spawn-rate-test-coupling (1) to keep total = 50 at the cap. boot-snapshot.md regenerated with S10/S9 reflexion summary + S10 commit list. PDR moved to plans-archive/2026-05-11_PDR_Session_10_COMPLETED.md. HANDOFF_2026-05-11.md at root replaced (S9 already archived at .handoff-archive/HANDOFF_2026-05-11_S9.md); archive copy at .handoff-archive/HANDOFF_2026-05-11_S10.md. Final 179/179 tests pass, typecheck clean. All S10 priority commits pushed (3f599b5, 479fb5a, 2d3e4e7, 79c0e0c, 02e5308).",
-      "checkpoint_commit": "f9fb8ad"
+      "check_completed": false,
+      "check_method": null,
+      "checkpoint_commit": null
     }
   ],
   "totals": {
