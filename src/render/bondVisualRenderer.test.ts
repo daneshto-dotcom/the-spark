@@ -111,6 +111,12 @@ describe('S7 P2 — drawBondVisual dispatches per visualEffectId', () => {
     // 1 main bond + 6 rays = 7 strokes minimum
     expect(g.calls.filter((c) => c.op === 'stroke').length).toBeGreaterThanOrEqual(7);
   });
+
+  it('S8 P2 — fx.lattice emits 3 strokes (outline + 2 cross-hatch lines)', () => {
+    const g = new GraphicsMock();
+    drawBondVisual(g as unknown as Parameters<typeof drawBondVisual>[0], makeParams({ visualEffectId: 'fx.lattice' }));
+    expect(g.calls.filter((c) => c.op === 'stroke')).toHaveLength(3);
+  });
 });
 
 describe('S7 P2 — degenerate (zero-length) bonds', () => {

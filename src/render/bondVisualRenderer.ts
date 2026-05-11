@@ -269,13 +269,17 @@ function drawLattice(g: Graphics, p: BondVisualParams): void {
     .lineTo(p.ax, p.ay)
     .stroke({ width: p.width * 0.8, color: p.color, alpha: p.alpha });
 
-  // Cross-hatch — connect midpoints of opposite sides.
+  // Cross-hatch — connect midpoints of opposite sides. Width scales with the
+  // bond's overall stroke width so the hatch stays legible at HIGH tier
+  // (outline ~2.4px would drown a 1px hatch). Floor at 1.2 keeps it crisp at LOW.
+  const crossWidth = Math.max(1.2, p.width * 0.55);
+  const crossAlpha = p.alpha * 0.65;
   g.moveTo((p.ax + cx) / 2, (p.ay + cy) / 2)
     .lineTo((p.bx + dx2) / 2, (p.by + dy2) / 2)
-    .stroke({ width: 1, color: p.color, alpha: p.alpha * 0.5 });
+    .stroke({ width: crossWidth, color: p.color, alpha: crossAlpha });
   g.moveTo((cx + p.bx) / 2, (cy + p.by) / 2)
     .lineTo((dx2 + p.ax) / 2, (dy2 + p.ay) / 2)
-    .stroke({ width: 1, color: p.color, alpha: p.alpha * 0.5 });
+    .stroke({ width: crossWidth, color: p.color, alpha: crossAlpha });
 }
 
 /** Capsule (Square→Circle, MID): pill — twin parallels + end-cap circles. */
