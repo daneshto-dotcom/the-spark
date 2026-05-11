@@ -216,11 +216,19 @@ export class Controls {
             ? this.world.primitives.get(targetId) ?? null
             : null;
           const tier = computeStiffnessTier(carriedType, target);
+          // S9 P2: collect ALL primitives within AUTO_BOND_RADIUS of
+          // spark.pos so placePrimitive can merge adjacent structures. The
+          // primary target above remains the bond that carries the
+          // caller-authored stiffness tier; the dispatch dedups by
+          // connected component so each surrounding structure gets one
+          // merge bond (no double-bonding within the primary's component).
+          const mergeCandidateIds = this.allPrimitivesInRange(AUTO_BOND_RADIUS, spark.pos);
           dispatch(this.world, {
             type: 'PLACE_PRIMITIVE',
             playerId: this.playerId,
             targetPrimitiveId: target?.id ?? null,
             stiffnessTier: tier,
+            mergeCandidateIds,
           });
         }
       }
@@ -324,6 +332,23 @@ export class Controls {
       }
     }
     return best?.id ?? null;
+  }
+
+  /**
+   * S9 P2: collect every primitive within `radius` of `center` (in any
+   * order). Used by the LMB-up auto-bond path to feed placePrimitive's
+   * cross-structure merge sweep. Single-target pickPrimitiveInRange returns
+   * the nearest one — this returns the full set.
+   */
+  private allPrimitivesInRange(radius: number, center: Vec2): PrimitiveId[] {
+    const r2 = radius * radius;
+    const ids: PrimitiveId[] = [];
+    for (const p of this.world.primitives.values()) {
+      const dx = p.pos.x - center.x;
+      const dy = p.pos.y - center.y;
+      if (dx * dx + dy * dy <= r2) ids.push(p.id);
+    }
+    return ids;
   }
 
   private pickBond(): BondId | null {

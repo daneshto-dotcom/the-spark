@@ -20,7 +20,7 @@ import {
 import { type GameEffect } from '../game/effects.ts';
 import { snapPrevPosForUnbonded } from '../game/invariants.ts';
 import { makePrimitiveFromSpark, type Primitive } from '../game/primitive.ts';
-import { severSplit } from '../game/structure.ts';
+import { componentOf, severSplit } from '../game/structure.ts';
 import {
   CarryViolation,
   drop as fsmDrop,
@@ -79,6 +79,16 @@ export type GameAction =
       readonly playerId: PlayerId;
       readonly targetPrimitiveId: PrimitiveId | null;
       readonly stiffnessTier: StiffnessTier;
+      /**
+       * S9 P2: nearby primitives the placement should also auto-bond to,
+       * one bond per *other* connected component (the primary target's
+       * component is already merged via targetPrimitiveId). Caller passes
+       * all primitives within AUTO_BOND_RADIUS of spark.pos; placePrimitive
+       * dedups by component so each surrounding structure gets exactly one
+       * merge bond. Closes the post-S8 playtest report that distinct
+       * structures never interconnected.
+       */
+      readonly mergeCandidateIds?: ReadonlyArray<PrimitiveId>;
     }
   | { readonly type: 'SEVER_BOND'; readonly bondId: BondId }
   | { readonly type: 'TICK_ENERGY'; readonly playerId: PlayerId; readonly deltaSec: number }
@@ -254,6 +264,11 @@ function placePrimitive(
   // Spark is consumed by the placement.
   world.freeSparks.delete(sparkId);
 
+  // Track which components are already bonded to this new primitive so the
+  // P2 sweep below doesn't double-bond into a component the primary target
+  // already pulled in.
+  const mergedComponents = new Set<PrimitiveId>();
+
   if (action.targetPrimitiveId !== null) {
     const target = world.primitives.get(action.targetPrimitiveId);
     if (target === undefined) throw new Error(`target primitive ${action.targetPrimitiveId} missing`);
@@ -274,6 +289,48 @@ function placePrimitive(
       visualEffectId: combo.visualEffectId,
       otherPos: { x: target.pos.x, y: target.pos.y },
     });
+    // Track the primary target's entire component so the sweep skips it.
+    for (const id of componentOf(target, world.primitives, world.bonds).primitiveIds) {
+      mergedComponents.add(id);
+    }
+  }
+
+  // S9 P2: cross-structure merge sweep. For each candidate within range,
+  // bond if it belongs to a component we haven't already merged into.
+  // Stiffness tier per merge bond comes from the carried→candidate combo
+  // lookup (the action's stiffnessTier applies only to the primary bond,
+  // which was authored by the caller). Each merge bond emits its own
+  // BOND_COMMIT effect so the visual reads.
+  for (const candId of action.mergeCandidateIds ?? []) {
+    if (candId === prim.id) continue;
+    if (mergedComponents.has(candId)) continue;
+    const cand = world.primitives.get(candId);
+    if (cand === undefined) continue;
+    const candComp = componentOf(cand, world.primitives, world.bonds);
+    // Skip if any primitive in the candidate's component is already merged
+    // (cheaper than a full set intersection — at least one id collision
+    // means the whole component is covered).
+    let alreadyMerged = false;
+    for (const id of candComp.primitiveIds) {
+      if (mergedComponents.has(id)) { alreadyMerged = true; break; }
+    }
+    if (alreadyMerged) continue;
+    const mergeTier = lookupCombo(prim.type, cand.type).stiffnessTier;
+    const mergeBond = makeBond(world, prim, cand, mergeTier);
+    world.bonds.set(mergeBond.id, mergeBond);
+    prim.bonds.add(mergeBond.id);
+    cand.bonds.add(mergeBond.id);
+    const combo = lookupCombo(prim.type, cand.type);
+    world.effects.push({
+      kind: 'BOND_COMMIT',
+      tick: world.tick,
+      pos: { x: prim.pos.x, y: prim.pos.y },
+      color: prim.placerColor,
+      radius: prim.radius,
+      visualEffectId: combo.visualEffectId,
+      otherPos: { x: cand.pos.x, y: cand.pos.y },
+    });
+    for (const id of candComp.primitiveIds) mergedComponents.add(id);
   }
 
   // Carry-1 reset.
