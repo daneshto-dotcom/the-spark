@@ -111,7 +111,25 @@ export const MAX_DISRUPTION_CHARGES = 2;
 // === Win condition ===
 export const TERRITORY_WIN_THRESHOLD = 0.51;
 // Phase 1 single-player placeholder: trigger WIN at N primitives instead of % canvas.
+// S9 P3: kept for back-compat / fallback tooling but unused in the WIN check —
+// scoreProgress + PHASE_1_WIN_SCORE drive WIN now.
 export const PHASE_1_WIN_PRIMITIVE_COUNT = 30;
+
+// === Scoring (S9 P3) ===
+// Replaces flat primitive-count progress with a combo-weighted accumulator.
+// Closes the post-S8 playtest report that "every combination of shapes ...
+// gives the same amount of points toward victory."
+//
+// Magic combos (the 12 from § V.1) are worth 3×; Functional placeholders
+// 1×; anchor placements (no target = no bond) 1×. WIN fires at 50 points —
+// a ~30-primitive all-functional structure (29 functional bonds + 1 anchor =
+// 30 score) won't win, but a ~17-primitive all-magic chain (16 magic bonds
+// × 3 + 1 anchor = 49) is right at the gate, and any mid-build mix scales
+// between. Threshold is one playtest constant; expect S10 tuning.
+export const SCORE_ANCHOR = 1;
+export const SCORE_FUNCTIONAL_BOND = 1;
+export const SCORE_MAGIC_BOND = 3;
+export const PHASE_1_WIN_SCORE = 50;
 
 // === Spawner physics ===
 export const SPAWNER_BOUNCE_DAMPING = 0.92;

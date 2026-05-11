@@ -12,6 +12,9 @@
 import { lookupCombo } from '../combos.ts';
 import {
   ENERGY_PER_SECOND_FLAT,
+  SCORE_ANCHOR,
+  SCORE_FUNCTIONAL_BOND,
+  SCORE_MAGIC_BOND,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
@@ -67,6 +70,16 @@ export interface World {
    * worst-case it grows for one POSTGAME pause then drains.
    */
   effects: GameEffect[];
+  /**
+   * S9 P3: combo-weighted progress toward WIN. Anchors and functional bonds
+   * add SCORE_ANCHOR / SCORE_FUNCTIONAL_BOND (=1 each); the 12 magic combos
+   * add SCORE_MAGIC_BOND (=3). gameState.ts compares against
+   * PHASE_1_WIN_SCORE; ui.ts draws the progress bar as scoreProgress /
+   * PHASE_1_WIN_SCORE. Replaces the flat primitives.size / 30 placeholder
+   * that made every combination weigh the same. Persisted via save.ts so
+   * mid-game saves don't reset progress.
+   */
+  scoreProgress: number;
 }
 
 export type GameAction =
@@ -107,6 +120,7 @@ export function makeWorld(rngSeed: number): World {
     nextBondId: 0,
     lastWinnerId: null,
     effects: [],
+    scoreProgress: 0,
   };
   // Phase 1: solo player, P1 only.
   const p1 = makeIdlePlayer(asPlayerId(0), 0xff3b6b);
@@ -289,10 +303,15 @@ function placePrimitive(
       visualEffectId: combo.visualEffectId,
       otherPos: { x: target.pos.x, y: target.pos.y },
     });
+    // S9 P3: weight progress by combo magic-ness.
+    world.scoreProgress += combo.isMagical ? SCORE_MAGIC_BOND : SCORE_FUNCTIONAL_BOND;
     // Track the primary target's entire component so the sweep skips it.
     for (const id of componentOf(target, world.primitives, world.bonds).primitiveIds) {
       mergedComponents.add(id);
     }
+  } else {
+    // S9 P3: anchor placement (no bond) earns one progress point.
+    world.scoreProgress += SCORE_ANCHOR;
   }
 
   // S9 P2: cross-structure merge sweep. For each candidate within range,
@@ -315,12 +334,11 @@ function placePrimitive(
       if (mergedComponents.has(id)) { alreadyMerged = true; break; }
     }
     if (alreadyMerged) continue;
-    const mergeTier = lookupCombo(prim.type, cand.type).stiffnessTier;
-    const mergeBond = makeBond(world, prim, cand, mergeTier);
+    const combo = lookupCombo(prim.type, cand.type);
+    const mergeBond = makeBond(world, prim, cand, combo.stiffnessTier);
     world.bonds.set(mergeBond.id, mergeBond);
     prim.bonds.add(mergeBond.id);
     cand.bonds.add(mergeBond.id);
-    const combo = lookupCombo(prim.type, cand.type);
     world.effects.push({
       kind: 'BOND_COMMIT',
       tick: world.tick,
@@ -330,6 +348,8 @@ function placePrimitive(
       visualEffectId: combo.visualEffectId,
       otherPos: { x: cand.pos.x, y: cand.pos.y },
     });
+    // S9 P3: merge bonds also contribute to progress (same weighting).
+    world.scoreProgress += combo.isMagical ? SCORE_MAGIC_BOND : SCORE_FUNCTIONAL_BOND;
     for (const id of candComp.primitiveIds) mergedComponents.add(id);
   }
 

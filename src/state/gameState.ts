@@ -12,7 +12,7 @@
  * by elapsed-tick dwell (so a "WIN" banner shows briefly before save).
  */
 
-import { PHASE_1_WIN_PRIMITIVE_COUNT, PHYSICS_HZ } from '../constants.ts';
+import { PHASE_1_WIN_SCORE, PHYSICS_HZ } from '../constants.ts';
 import { dispatch } from './world.ts';
 import type { GameState, World } from './world.ts';
 import type { PlayerId } from '../types.ts';
@@ -34,7 +34,9 @@ export function tickGameState(
 ): GameState {
   switch (world.gameState) {
     case 'PLAYING':
-      if (world.primitives.size >= PHASE_1_WIN_PRIMITIVE_COUNT) {
+      // S9 P3: WIN by score, not by raw primitive count. Magic combos count
+      // 3x, functional 1x, anchor 1x — see constants.ts.
+      if (world.scoreProgress >= PHASE_1_WIN_SCORE) {
         dispatch(world, { type: 'WIN_TRIGGER', winnerId: primaryPlayerId });
         extras.winEnteredTick = world.tick;
       }
@@ -64,6 +66,7 @@ export function softReset(world: World, extras: GameStateExtras): void {
   world.nextPrimitiveId = 0;
   world.nextBondId = 0;
   world.effects.length = 0;
+  world.scoreProgress = 0;
   for (const player of world.players.values()) {
     player.energy = 0;
     player.buildActions = 0;

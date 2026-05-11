@@ -11,7 +11,7 @@ import { Application, Graphics, Text, TextStyle } from 'pixi.js';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
-  PHASE_1_WIN_PRIMITIVE_COUNT,
+  PHASE_1_WIN_SCORE,
 } from '../constants.ts';
 import type { World } from '../state/world.ts';
 
@@ -103,7 +103,8 @@ export class HUD {
   }
 
   private drawProgress(world: World): void {
-    const target = Math.min(1, world.primitives.size / PHASE_1_WIN_PRIMITIVE_COUNT);
+    // S9 P3: progress is weighted by combo complexity — Magic combos count 3x.
+    const target = Math.min(1, world.scoreProgress / PHASE_1_WIN_SCORE);
     this.displayProgress += (target - this.displayProgress) * 0.18;
     const g = this.progress;
     g.clear();

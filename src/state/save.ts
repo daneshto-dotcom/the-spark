@@ -47,6 +47,10 @@ export interface WorldSnapshot {
   primitives: SerializedPrimitive[];
   bonds: SerializedBond[];
   players: SerializedPlayer[];
+  // S9 P3: persisted so mid-game save/restore preserves progress.
+  // Optional in the serialized form for back-compat with pre-S9 saves —
+  // restore defaults to 0 when absent.
+  scoreProgress?: number;
 }
 
 interface SerializedSpark {
@@ -106,6 +110,7 @@ export function snapshot(world: World): WorldSnapshot {
     primitives: [...world.primitives.values()].map(serializePrimitive),
     bonds: [...world.bonds.values()].map(serializeBond),
     players: [...world.players.values()].map(serializePlayer),
+    scoreProgress: world.scoreProgress,
   };
 }
 
@@ -119,6 +124,7 @@ export function restore(snap: WorldSnapshot, world: World): void {
   world.lastWinnerId = snap.lastWinnerId;
   world.nextPrimitiveId = snap.nextPrimitiveId;
   world.nextBondId = snap.nextBondId;
+  world.scoreProgress = snap.scoreProgress ?? 0;
 
   world.freeSparks.clear();
   world.primitives.clear();

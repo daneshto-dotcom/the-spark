@@ -10,7 +10,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { PHYSICS_HZ, SparkType } from '../constants.ts';
+import {
+  PHYSICS_HZ,
+  SCORE_ANCHOR,
+  SCORE_FUNCTIONAL_BOND,
+  SCORE_MAGIC_BOND,
+  SparkType,
+} from '../constants.ts';
 import { makeFreeSpark } from './spark.ts';
 import { componentOf } from './structure.ts';
 import { dispatch, makeWorld } from '../state/world.ts';
@@ -195,5 +201,98 @@ describe('S9 P2 — cross-structure auto-merge on PLACE_PRIMITIVE', () => {
     const bondCommits = newEffects.filter((e) => e.kind === 'BOND_COMMIT');
     // Primary bond + merge bond = 2 BOND_COMMIT effects.
     expect(bondCommits.length).toBe(2);
+  });
+});
+
+describe('S9 P3 — complexity-weighted scoreProgress', () => {
+  it('anchor placement increments scoreProgress by SCORE_ANCHOR', () => {
+    const world = makeWorld(0);
+    expect(world.scoreProgress).toBe(0);
+    placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
+    expect(world.scoreProgress).toBe(SCORE_ANCHOR);
+    placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 240, y: 200 }, targetId: null });
+    expect(world.scoreProgress).toBe(SCORE_ANCHOR * 2);
+  });
+
+  it('Functional combo bond increments by SCORE_FUNCTIONAL_BOND', () => {
+    const world = makeWorld(0);
+    // Dot.Dot is NOT in the Magic-12 → Functional placeholder.
+    const a = placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
+    placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 220, y: 200 }, targetId: a });
+    // Anchor (1) + functional bond (1) = 2.
+    expect(world.scoreProgress).toBe(SCORE_ANCHOR + SCORE_FUNCTIONAL_BOND);
+  });
+
+  it('Magic combo bond increments by SCORE_MAGIC_BOND (Dot→Line = Filament)', () => {
+    const world = makeWorld(0);
+    // Dot anchor + Line bonded to it → Dot→Line = Filament (magical).
+    const a = placeAt(world, { sparkRawId: 1, type: SparkType.Line, pos: { x: 200, y: 200 }, targetId: null });
+    placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 220, y: 200 }, targetId: a });
+    // Note: order is carried→target, so prim2 (Dot) → prim1 (Line) ⇒ key Dot.Line → Filament magic.
+    expect(world.scoreProgress).toBe(SCORE_ANCHOR + SCORE_MAGIC_BOND);
+  });
+
+  it('all-magic chain accrues 3x per bond — Magic > Functional at same length', () => {
+    // Build two chains side by side: one all-magic (Dot→Line repeating), one
+    // all-functional (Dot→Dot repeating). 1 anchor + 4 bonds in each = 5 prims.
+    const wMagic = makeWorld(0);
+    // anchor Line, then 4 Dots each bonded to the prior (Dot→Line / Dot→Dot...
+    // wait, target is the previous primitive). Let me make a strict chain:
+    // each new prim of type Dot bonded to a Line anchor — only first bond is
+    // magic. So switch: anchor + 4 alternations.
+    //
+    // Simpler: anchor Spiral, then 4 Lines each bonded to previous-Line ...
+    // no, simpler still: use Magic combo Line→Line (Cable, isMagical=true).
+    // Anchor: Line. Then each next prim is Line bonded to last Line.
+    // Bond direction = carried→target = Line→Line = Cable (magic).
+    const aMagic = placeAt(wMagic, { sparkRawId: 0, type: SparkType.Line, pos: { x: 200, y: 200 }, targetId: null });
+    let prevMagic = aMagic;
+    for (let i = 1; i <= 4; i++) {
+      prevMagic = placeAt(wMagic, {
+        sparkRawId: i,
+        type: SparkType.Line,
+        pos: { x: 200 + i * 20, y: 200 },
+        targetId: prevMagic,
+      });
+    }
+    // Anchor 1 + 4 Magic bonds = 1 + 12 = 13.
+    expect(wMagic.scoreProgress).toBe(SCORE_ANCHOR + 4 * SCORE_MAGIC_BOND);
+
+    const wFunc = makeWorld(0);
+    // Dot→Dot is functional (not in Magic-12).
+    const aFunc = placeAt(wFunc, { sparkRawId: 0, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
+    let prevFunc = aFunc;
+    for (let i = 1; i <= 4; i++) {
+      prevFunc = placeAt(wFunc, {
+        sparkRawId: i,
+        type: SparkType.Dot,
+        pos: { x: 200 + i * 20, y: 200 },
+        targetId: prevFunc,
+      });
+    }
+    // Anchor 1 + 4 Functional bonds = 1 + 4 = 5.
+    expect(wFunc.scoreProgress).toBe(SCORE_ANCHOR + 4 * SCORE_FUNCTIONAL_BOND);
+
+    // Magic structure scores meaningfully more per equal length.
+    expect(wMagic.scoreProgress).toBeGreaterThan(wFunc.scoreProgress);
+  });
+
+  it('P2 merge bonds also contribute to scoreProgress', () => {
+    const world = makeWorld(0);
+    // Two single-primitive Line anchors. Bridge with Line; primary + merge
+    // bonds are both Line→Line = Cable (magic).
+    const a = placeAt(world, { sparkRawId: 1, type: SparkType.Line, pos: { x: 200, y: 200 }, targetId: null });
+    const b = placeAt(world, { sparkRawId: 2, type: SparkType.Line, pos: { x: 280, y: 200 }, targetId: null });
+    expect(world.scoreProgress).toBe(SCORE_ANCHOR * 2);
+
+    placeAt(world, {
+      sparkRawId: 3,
+      type: SparkType.Line,
+      pos: { x: 240, y: 200 },
+      targetId: a,
+      mergeCandidateIds: [a, b],
+    });
+    // 2 anchors (2) + 1 primary magic bond (3) + 1 merge magic bond (3) = 8.
+    expect(world.scoreProgress).toBe(SCORE_ANCHOR * 2 + SCORE_MAGIC_BOND * 2);
   });
 });
