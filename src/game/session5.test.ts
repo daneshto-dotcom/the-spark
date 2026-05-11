@@ -180,11 +180,15 @@ describe('effects emission', () => {
     const world = makeWorld(0);
     const a = spawnFree(world, 1, 0, { x: 100, y: 100 });
     placePrimitive(world, a, null);
-    expect(world.effects.length, 'first place — no bond, no effect').toBe(0);
+    // S10 P2: every placement (including anchor) emits STRUCTURE_GROW for
+    // the new prim's component. Anchor places emit zero BOND_COMMITs.
+    expect(world.effects.filter((e) => e.kind === 'BOND_COMMIT').length, 'anchor place — no bond, no BOND_COMMIT').toBe(0);
+    expect(world.effects.filter((e) => e.kind === 'STRUCTURE_GROW').length).toBe(1);
     const b = spawnFree(world, 2, 1, { x: 150, y: 100 });
     placePrimitive(world, b, asPrimitiveId(0));
-    expect(world.effects.length).toBe(1);
-    expect(world.effects[0].kind).toBe('BOND_COMMIT');
+    const bondCommits = world.effects.filter((e) => e.kind === 'BOND_COMMIT');
+    expect(bondCommits.length).toBe(1);
+    expect(bondCommits[0].kind).toBe('BOND_COMMIT');
   });
 
   it('SEVER_BOND emits one SEVER_ERASE per loser primitive', () => {

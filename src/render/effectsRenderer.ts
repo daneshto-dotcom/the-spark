@@ -17,10 +17,15 @@
 
 import { Application, Graphics } from 'pixi.js';
 import {
+  STRUCTURE_FLASH_TICKS,
+  STRUCTURE_GROW_HOP_TICKS,
+} from '../constants.ts';
+import {
   EFFECT_LIFETIME_TICKS,
   MAX_ACTIVE_EFFECTS,
   type GameEffect,
 } from '../game/effects.ts';
+import type { Primitive } from '../game/primitive.ts';
 import type { World } from '../state/world.ts';
 
 interface ActiveEffect {
@@ -30,6 +35,28 @@ interface ActiveEffect {
 
 const COMMIT_DURATION_TICKS = 24; // 0.4s @ 60Hz
 const ERASE_DURATION_TICKS = 30; // 0.5s @ 60Hz
+const MERGE_LEAD_IN_TICKS = 4;   // delay before union flash begins
+const SCORE_TIER_DURATION_TICKS = 30; // ~500ms corner pulse
+
+/**
+ * Per-kind lifetime. STRUCTURE_GROW depends on the effect's maxHop —
+ * deeper components linger longer so the trailing wave can finish. All
+ * other kinds are constant per kind.
+ */
+function effectLifetime(effect: GameEffect): number {
+  switch (effect.kind) {
+    case 'BOND_COMMIT':
+      return COMMIT_DURATION_TICKS;
+    case 'SEVER_ERASE':
+      return ERASE_DURATION_TICKS;
+    case 'STRUCTURE_GROW':
+      return effect.maxHop * STRUCTURE_GROW_HOP_TICKS + STRUCTURE_FLASH_TICKS;
+    case 'STRUCTURE_MERGE':
+      return MERGE_LEAD_IN_TICKS + STRUCTURE_FLASH_TICKS;
+    case 'SCORE_TIER':
+      return SCORE_TIER_DURATION_TICKS;
+  }
+}
 
 export class EffectsRenderer {
   private readonly graphics: Graphics;
@@ -63,24 +90,26 @@ export class EffectsRenderer {
     for (let i = this.active.length - 1; i >= 0; i--) {
       const a = this.active[i];
       const age = world.tick - a.bornTick;
-      const lifetime =
-        a.effect.kind === 'BOND_COMMIT' ? COMMIT_DURATION_TICKS : ERASE_DURATION_TICKS;
+      const lifetime = effectLifetime(a.effect);
       if (age < 0 || age > Math.max(lifetime, EFFECT_LIFETIME_TICKS)) {
         // Past lifetime or rewound below birth (softReset/load) — drop.
         this.active.splice(i, 1);
         continue;
       }
-      const t = Math.min(1, age / lifetime);
-      this.draw(a.effect, t);
+      this.draw(a.effect, age, lifetime, world);
     }
   }
 
-  private draw(effect: GameEffect, t: number): void {
+  private draw(effect: GameEffect, age: number, lifetime: number, world: World): void {
     const g = this.graphics;
     if (effect.kind === 'BOND_COMMIT') {
+      const t = Math.min(1, age / lifetime);
       drawBondCommit(g, effect, t);
-    } else {
-      // SEVER_ERASE: shrinks + fades, with a faint outward shockwave.
+      return;
+    }
+    if (effect.kind === 'SEVER_ERASE') {
+      const t = Math.min(1, age / lifetime);
+      // shrinks + fades, with a faint outward shockwave.
       const eased = t * t; // quadratic ease-in
       const ghostR = effect.radius * (1 - 0.4 * eased);
       const ghostAlpha = (1 - eased) * 0.7;
@@ -95,7 +124,13 @@ export class EffectsRenderer {
         color: effect.color,
         alpha: shockAlpha,
       });
+      return;
     }
+    if (effect.kind === 'STRUCTURE_GROW') {
+      drawStructureGrow(g, effect, age, world);
+      return;
+    }
+    // STRUCTURE_MERGE and SCORE_TIER land in P3/P4 — no-op until then.
   }
 
   /** For tests + stats overlay. */
@@ -178,6 +213,55 @@ function drawBondCommit(
     default:
       drawDefaultRing(g, x, y, effect.radius, effect.color, eased, alpha);
       break;
+  }
+}
+
+/**
+ * S10 P2: outward structure pulse. Each entry in the hop maps flashes when
+ * the wavefront (age / HOP_TICKS) reaches its hop distance. Primitives and
+ * bonds whose IDs vanished between emit and draw (severed mid-effect) are
+ * silently skipped — keeps the effect robust against P2-merge-then-sever
+ * sequences without state in the renderer.
+ */
+function drawStructureGrow(
+  g: Graphics,
+  effect: Extract<GameEffect, { kind: 'STRUCTURE_GROW' }>,
+  age: number,
+  world: World,
+): void {
+  for (const [primId, hop] of effect.hopByPrimId) {
+    const arrival = hop * STRUCTURE_GROW_HOP_TICKS;
+    const flashEnd = arrival + STRUCTURE_FLASH_TICKS;
+    if (age < arrival || age > flashEnd) continue;
+    const prim = world.primitives.get(primId);
+    if (prim === undefined) continue; // severed mid-effect
+    const t = (age - arrival) / STRUCTURE_FLASH_TICKS;
+    // Sine envelope: 0 → 1 → 0 over the flash window. Peak alpha 0.7.
+    const env = Math.sin(t * Math.PI);
+    const radius = prim.radius * (1.5 + t * 1.4);
+    g.circle(prim.pos.x, prim.pos.y, radius).stroke({
+      width: 2.5 * (1 - t * 0.4),
+      color: effect.color,
+      alpha: 0.7 * env,
+    });
+  }
+  for (const [bondId, hop] of effect.hopByBondId) {
+    const arrival = hop * STRUCTURE_GROW_HOP_TICKS;
+    const flashEnd = arrival + STRUCTURE_FLASH_TICKS;
+    if (age < arrival || age > flashEnd) continue;
+    const bond = world.bonds.get(bondId);
+    if (bond === undefined) continue;
+    const t = (age - arrival) / STRUCTURE_FLASH_TICKS;
+    const env = Math.sin(t * Math.PI);
+    const a = bond.a as Primitive;
+    const b = bond.b as Primitive;
+    g.moveTo(a.pos.x, a.pos.y)
+      .lineTo(b.pos.x, b.pos.y)
+      .stroke({
+        width: 3 * (1 - t * 0.4),
+        color: effect.color,
+        alpha: 0.55 * env,
+      });
   }
 }
 

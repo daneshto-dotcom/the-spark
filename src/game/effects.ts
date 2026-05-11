@@ -11,7 +11,7 @@
  * pause matches the simulation pause exactly.
  */
 
-import type { Vec2 } from '../types.ts';
+import type { BondId, PrimitiveId, Vec2 } from '../types.ts';
 
 export type GameEffect =
   | {
@@ -37,6 +37,48 @@ export type GameEffect =
       readonly pos: Vec2;
       readonly color: number;
       readonly radius: number;
+    }
+  | {
+      /**
+       * S10 P2 — structure-wide pulse outward from a newly-placed primitive.
+       * BFS hop maps are precomputed at emit time; the renderer ages the
+       * effect and flashes each primitive when the wavefront reaches it.
+       * Maps are NOT JSON-serialisable, but effects are not persisted.
+       */
+      readonly kind: 'STRUCTURE_GROW';
+      readonly tick: number;
+      readonly originPrimId: PrimitiveId;
+      readonly hopByPrimId: ReadonlyMap<PrimitiveId, number>;
+      /** Bond hop = max(hop a, hop b) — highlights after both endpoints lit. */
+      readonly hopByBondId: ReadonlyMap<BondId, number>;
+      readonly color: number;
+      /** Cached so the renderer can compute total lifetime without iterating the map. */
+      readonly maxHop: number;
+    }
+  | {
+      /**
+       * S10 P3 — merge cinematic. Fires once per merge bond. Renderer flashes
+       * every primitive in the union (both pre-merge components) on a single
+       * synchronized window. Verlet impulse on the candidate component is
+       * applied in placePrimitive before this effect is emitted (the impulse
+       * is the *physics* half; this effect is the *visual* half).
+       */
+      readonly kind: 'STRUCTURE_MERGE';
+      readonly tick: number;
+      readonly originPos: Vec2;
+      readonly unionPrimIds: ReadonlyArray<PrimitiveId>;
+      readonly color: number;
+    }
+  | {
+      /**
+       * S10 P4 — score tier crossing. Emitted once per multiple of
+       * SCORE_TIER_STEP that scoreProgress crossed during the placement.
+       * Renderer draws a corner bloom near the progress bar.
+       */
+      readonly kind: 'SCORE_TIER';
+      readonly tick: number;
+      readonly tier: number;
+      readonly color: number;
     };
 
 /** Soft cap on the queue — anything older than this many ticks is dropped. */

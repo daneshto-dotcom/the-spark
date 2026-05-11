@@ -23,7 +23,7 @@ import {
 import { type GameEffect } from '../game/effects.ts';
 import { snapPrevPosForUnbonded } from '../game/invariants.ts';
 import { makePrimitiveFromSpark, type Primitive } from '../game/primitive.ts';
-import { componentOf, severSplit } from '../game/structure.ts';
+import { bfsHopMap, componentOf, severSplit } from '../game/structure.ts';
 import {
   CarryViolation,
   drop as fsmDrop,
@@ -352,6 +352,23 @@ function placePrimitive(
     world.scoreProgress += combo.isMagical ? SCORE_MAGIC_BOND : SCORE_FUNCTIONAL_BOND;
     for (const id of candComp.primitiveIds) mergedComponents.add(id);
   }
+
+  // S10 P2: STRUCTURE_GROW outward pulse from the newly-placed primitive.
+  // BFS at emit time over the post-merge component so the wave reaches
+  // every primitive connected through any bond, including the just-added
+  // merge bonds. Single-anchor placements (no bonds) emit with just the
+  // origin in the hop map → renderer flashes only the new prim, no cascade
+  // — natural minimum-event for "the structure has one element."
+  const hopMap = bfsHopMap(prim, world.primitives, world.bonds);
+  world.effects.push({
+    kind: 'STRUCTURE_GROW',
+    tick: world.tick,
+    originPrimId: prim.id,
+    hopByPrimId: hopMap.hopByPrimId,
+    hopByBondId: hopMap.hopByBondId,
+    color: prim.placerColor,
+    maxHop: hopMap.maxHop,
+  });
 
   // Carry-1 reset.
   world.players.set(player.id, fsmDrop(player));

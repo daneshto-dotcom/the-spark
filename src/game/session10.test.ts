@@ -11,9 +11,56 @@
 import { describe, expect, it } from 'vitest';
 import {
   ATTRACT_FOLLOW_RATE,
+  PHYSICS_HZ,
   SparkType,
 } from '../constants.ts';
 import { stepAttractLerp } from '../input/controls.ts';
+import { makeFreeSpark } from './spark.ts';
+import { dispatch, makeWorld } from '../state/world.ts';
+import {
+  asPlayerId,
+  asSparkId,
+  type PrimitiveId,
+} from '../types.ts';
+
+const P1_ID = asPlayerId(0);
+const PHYSICS_DT = 1 / PHYSICS_HZ;
+
+function placeAt(
+  world: ReturnType<typeof makeWorld>,
+  opts: {
+    sparkRawId: number;
+    type: SparkType;
+    pos: { x: number; y: number };
+    targetId: PrimitiveId | null;
+    mergeCandidateIds?: ReadonlyArray<PrimitiveId>;
+  },
+): PrimitiveId {
+  const sparkId = asSparkId(opts.sparkRawId);
+  dispatch(world, {
+    type: 'SPAWN_SPARK',
+    spark: makeFreeSpark({
+      id: sparkId,
+      type: opts.type,
+      pos: opts.pos,
+      velocity: { x: 0, y: 0 },
+      dt: PHYSICS_DT,
+      createdTick: world.tick,
+    }),
+  });
+  dispatch(world, { type: 'PICKUP_SPARK', sparkId, playerId: P1_ID });
+  const beforeIds = new Set([...world.primitives.keys()]);
+  dispatch(world, {
+    type: 'PLACE_PRIMITIVE',
+    playerId: P1_ID,
+    targetPrimitiveId: opts.targetId,
+    stiffnessTier: 'MID',
+    mergeCandidateIds: opts.mergeCandidateIds,
+  });
+  const placedId = [...world.primitives.keys()].find((id) => !beforeIds.has(id));
+  expect(placedId).toBeDefined();
+  return placedId!;
+}
 
 describe('S10 P1 — AttractDrag position-lerp follow', () => {
   it('one lerp step closes ATTRACT_FOLLOW_RATE × dist of the gap toward cursor', () => {
@@ -90,5 +137,87 @@ describe('S10 P1 — AttractDrag position-lerp follow', () => {
   // doesn't accidentally drop the constants import in future trims.
   it('SparkType.Dot exists (sentinel import probe)', () => {
     expect(SparkType.Dot).toBe(0);
+  });
+});
+
+describe('S10 P2 — STRUCTURE_GROW outward pulse emission', () => {
+  it('single-anchor placement emits STRUCTURE_GROW with origin only (hop 0)', () => {
+    const world = makeWorld(0);
+    placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
+
+    const grow = world.effects.find((e) => e.kind === 'STRUCTURE_GROW');
+    expect(grow).toBeDefined();
+    if (grow?.kind !== 'STRUCTURE_GROW') throw new Error('typeguard');
+    expect(grow.hopByPrimId.size).toBe(1);
+    expect([...grow.hopByPrimId.values()][0]).toBe(0);
+    expect(grow.hopByBondId.size).toBe(0);
+    expect(grow.maxHop).toBe(0);
+  });
+
+  it('4-prim chain placement emits STRUCTURE_GROW spanning hops 0..3 with all bonds mapped', () => {
+    const world = makeWorld(0);
+    // Build chain: a (anchor) — b — c — d, each bonded to the prior.
+    const a = placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
+    const b = placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 220, y: 200 }, targetId: a });
+    const c = placeAt(world, { sparkRawId: 3, type: SparkType.Dot, pos: { x: 240, y: 200 }, targetId: b });
+    // Snapshot effects length to find the d placement's STRUCTURE_GROW.
+    const effectsBefore = world.effects.length;
+    const d = placeAt(world, { sparkRawId: 4, type: SparkType.Dot, pos: { x: 260, y: 200 }, targetId: c });
+
+    const grow = world.effects.slice(effectsBefore).find((e) => e.kind === 'STRUCTURE_GROW');
+    expect(grow).toBeDefined();
+    if (grow?.kind !== 'STRUCTURE_GROW') throw new Error('typeguard');
+    expect(grow.originPrimId).toBe(d);
+
+    // hopByPrimId: d=0, c=1, b=2, a=3.
+    expect(grow.hopByPrimId.size).toBe(4);
+    expect(grow.hopByPrimId.get(d)).toBe(0);
+    expect(grow.hopByPrimId.get(c)).toBe(1);
+    expect(grow.hopByPrimId.get(b)).toBe(2);
+    expect(grow.hopByPrimId.get(a)).toBe(3);
+    expect(grow.maxHop).toBe(3);
+
+    // hopByBondId: 3 bonds total. Each bond's hop = max(hop a, hop b).
+    expect(grow.hopByBondId.size).toBe(3);
+    // d↔c bond (between hop 0 and hop 1) should be 1.
+    // c↔b bond (between hop 1 and hop 2) should be 2.
+    // b↔a bond (between hop 2 and hop 3) should be 3.
+    const sortedBondHops = [...grow.hopByBondId.values()].sort((x, y) => x - y);
+    expect(sortedBondHops).toEqual([1, 2, 3]);
+  });
+
+  it('STRUCTURE_GROW for a place that triggers cross-structure merge covers the union component', () => {
+    const world = makeWorld(0);
+    // Two separate components: alpha (3 prims) and beta (2 prims).
+    const a0 = placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
+    const a1 = placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 220, y: 200 }, targetId: a0 });
+    const a2 = placeAt(world, { sparkRawId: 3, type: SparkType.Dot, pos: { x: 240, y: 200 }, targetId: a1 });
+    const b0 = placeAt(world, { sparkRawId: 4, type: SparkType.Dot, pos: { x: 320, y: 200 }, targetId: null });
+    const b1 = placeAt(world, { sparkRawId: 5, type: SparkType.Dot, pos: { x: 340, y: 200 }, targetId: b0 });
+
+    const effectsBefore = world.effects.length;
+    // Bridge: primary into a2, merge candidate b0 → merges β into α via the
+    // new bridge primitive.
+    const bridge = placeAt(world, {
+      sparkRawId: 6,
+      type: SparkType.Dot,
+      pos: { x: 280, y: 200 },
+      targetId: a2,
+      mergeCandidateIds: [a2, b0],
+    });
+    void bridge;
+
+    const grow = world.effects.slice(effectsBefore).find((e) => e.kind === 'STRUCTURE_GROW');
+    expect(grow).toBeDefined();
+    if (grow?.kind !== 'STRUCTURE_GROW') throw new Error('typeguard');
+    // Union: bridge + alpha (3) + beta (2) = 6 primitives in hop map.
+    expect(grow.hopByPrimId.size).toBe(6);
+    // All originally-disjoint primitives must be reachable.
+    expect(grow.hopByPrimId.has(a0)).toBe(true);
+    expect(grow.hopByPrimId.has(b1)).toBe(true);
+    // Bond count: 5 bonds (3 alpha pre-existing + 2 beta pre-existing... wait
+    // beta = b0 + b1 = 1 bond pre-existing). Pre-existing: 2 in α + 1 in β = 3.
+    // New: primary bridge↔a2 + merge bridge↔b0 = 2. Total = 5 bonds in union.
+    expect(grow.hopByBondId.size).toBe(5);
   });
 });

@@ -46,6 +46,54 @@ export function componentOf(
   return { primitiveIds: seenPrim, bondIds: seenBond };
 }
 
+/**
+ * S10 P2: BFS from `seed` returning per-primitive and per-bond hop
+ * distances from the seed. Used by STRUCTURE_GROW to time the outward
+ * pulse: each primitive flashes at `hop * HOP_TICKS`; each bond at
+ * `max(a-hop, b-hop) * HOP_TICKS` so the highlight reaches the bond once
+ * both endpoints have lit. Hop 0 = seed; only primitives reachable
+ * through bonds are included (single-anchor placements yield {seed: 0}
+ * and an empty bond map).
+ */
+export function bfsHopMap(
+  seed: Primitive,
+  primitives: ReadonlyMap<PrimitiveId, Primitive>,
+  bonds: ReadonlyMap<BondId, Bond>,
+): {
+  hopByPrimId: Map<PrimitiveId, number>;
+  hopByBondId: Map<BondId, number>;
+  maxHop: number;
+} {
+  const hopByPrimId = new Map<PrimitiveId, number>([[seed.id, 0]]);
+  const hopByBondId = new Map<BondId, number>();
+  const queue: Primitive[] = [seed];
+  let maxHop = 0;
+  while (queue.length > 0) {
+    const cur = queue.shift()!;
+    const curHop = hopByPrimId.get(cur.id)!;
+    for (const bondId of cur.bonds) {
+      const bond = bonds.get(bondId);
+      if (bond === undefined) continue;
+      const otherId = bond.aId === cur.id ? bond.bId : bond.aId;
+      const other = primitives.get(otherId);
+      if (other === undefined) continue;
+      if (!hopByPrimId.has(otherId)) {
+        const nextHop = curHop + 1;
+        hopByPrimId.set(otherId, nextHop);
+        if (nextHop > maxHop) maxHop = nextHop;
+        queue.push(other);
+      }
+      const otherHop = hopByPrimId.get(otherId)!;
+      const bondHop = Math.max(curHop, otherHop);
+      const prev = hopByBondId.get(bondId);
+      if (prev === undefined || prev < bondHop) {
+        hopByBondId.set(bondId, bondHop);
+      }
+    }
+  }
+  return { hopByPrimId, hopByBondId, maxHop };
+}
+
 /** True if both primitives are in the same connected component. */
 export function isSameStructure(
   a: Primitive,
