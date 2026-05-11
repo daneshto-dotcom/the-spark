@@ -6,6 +6,64 @@
 
 ---
 
+## Session 9 — Playtest Bug Fixes + Cinematics Brainstorm [COMPLETED] (2026-05-11)
+
+**Triggered by post-S8 user playtest.** Four observations + four process directives.
+Three playtest-confirmed bugs closed; cinematics brainstorm doc landed for S10 pick.
+**No physics tuning** — AUTO_BOND_RADIUS / ATTRACT_STRENGTH / strain thresholds
+stay deferred for post-S9 playtest.
+
+**P1 — Release teleport fix (Micro).** Removed S7 P1's snap-to-cursor at LMB-up
+(`spark.pos/prevPos = cursor`). Replaced with reachability gate: if
+`dist(spark.pos, cursor) > MAX_RELEASE_REACH=120` at release, the place is
+rejected — spark stays Free where physics put it. When reachable + outside
+zone, PICKUP+PLACE proceeds at `spark.pos`, and `pickPrimitiveInRange`
+measures from `spark.pos`. Bond-length-bounded invariant preserved via
+spark-physics range, not via cursor snap. Closes the user-reported "you can
+literally have it teleport to the end point" bug. 3 tests in session7.test.ts
+rewritten to match.
+
+**P2 — Cross-structure auto-merge (Micro).** PLACE_PRIMITIVE action gains
+optional `mergeCandidateIds: ReadonlyArray<PrimitiveId>`. After primary bond,
+`placePrimitive` sweeps candidates and adds one bond per *other* connected
+component (dedup via `mergedComponents: Set<PrimitiveId>` seeded from
+primary's `componentOf`, per-candidate alreadyMerged early-exit). Each merge
+bond emits BOND_COMMIT. `controls.ts` onUp now gathers all primitives within
+AUTO_BOND_RADIUS=60 of spark.pos via new `allPrimitivesInRange` helper and
+passes them as candidates. Closes the user report that distinct structures
+never interconnect despite proximity. 5 new tests in session9.test.ts.
+
+**P3 — Complexity-weighted scoring (Micro).** Replaces flat
+`primitives.size / 30` with `world.scoreProgress` accumulator. Magic combos
+contribute SCORE_MAGIC_BOND=3, Functional placeholders SCORE_FUNCTIONAL_BOND=1,
+anchors SCORE_ANCHOR=1. WIN at PHASE_1_WIN_SCORE=50. P2 merge bonds also
+weighted. `gameState.tickGameState` uses scoreProgress; `softReset` zeros it;
+`ui.HUD.drawProgress` reads it; `save.WorldSnapshot` persists optionally
+(?? 0 fallback for pre-S9 saves). Closes user report that all combinations
+score equally. gameState.test.ts + 5 new P3 tests in session9.test.ts.
+
+**P4 — Cinematics options brainstorm (design doc only).** Created
+`docs/structure-cinematics-options.md` (~280 lines): 5 options A-E with ASCII
+sketches, fires-when, intensity scaling, implementation cost (S/M), pros/cons,
+verdicts. Recommendation for S10: B (structure-wide pulse along bonds from
+new primitive) + C (merge-wave for P2 cross-structure events) + D-lite
+(corner pulse every 10 score). 4 open questions for user pick before S10:
+pulse direction, merge-wave force (visual vs physics), tier frequency,
+skip-cinematic debug toggle. No code changes.
+
+**P5 — Closeout.** Per-priority commit + push (new rule from S9 boot: push
+at every commit, not deferred to handoff). Updated BACKLOG.md, prepended
+reflexion_log.md S9 block (9 entries), regenerated boot-snapshot.md, archived
+PDR to plans-archive/, wrote HANDOFF_2026-05-11.md at root replacing S8
+version (S8 archived to .handoff-archive/HANDOFF_2026-05-11_S8.md).
+
+**Exit gate:** 161/161 tests (was 151 + 10 new across session7/session9/
+gameState), typecheck clean, browser HMR'd cleanly between priorities (no
+console errors, world.scoreProgress exposed at 0 on fresh init). 4 priority
+commits + 1 closeout commit on master, all pushed.
+
+---
+
 ## Session 8 — Bond-Visual Polish + PRIME-AUDIT Delta Closure [COMPLETED] (2026-05-11)
 
 **Triggered by S7 PRIME-AUDIT delta + close re-read of `bondVisualRenderer.ts`.**
@@ -178,10 +236,10 @@ hidden, so static state-mutation + manual render is the way).
 | **6** | Polish + git + carry-forwards | (DONE 2026-05-09) git init + bond-tier defensive refactor + effects-list cap + 12 ephemeral combo silhouettes | 4 commits on master, 104/104 tests, browser-verified probe grid |
 | **7** | Connection-range gate + per-combo persistent bond visuals | (DONE 2026-05-09) snap-to-cursor + bondVisualRenderer for 12 magic combos | 142/142 tests, browser-verified 12-combo grid at 60px and 110px |
 | **8** | Bond-visual polish + PRIME-AUDIT delta closure | (DONE 2026-05-11) whip drift + lattice contrast + warped rotation + filament shimmer + animated/static regression-test pair | 151/151 tests, browser-verified all 4 visual fixes via pixel-hash diff |
-| **9** | **User playtest tuning** [NEXT] | User confirms post-S8 build; tune AUTO_BOND_RADIUS / ATTRACT_STRENGTH / strain thresholds; audio if Suno track lands | User says "yes, this works, ship Phase 2" |
-| **10** | Buffer / Phase 2 prep | Reserved for remaining tuning + Phase 2 design (fog, local-MP, full disruption) | — |
+| **9** | Playtest bug fixes + cinematics brainstorm | (DONE 2026-05-11) release teleport fix + cross-structure auto-merge + complexity-weighted scoring + cinematics options doc | 161/161 tests, browser HMR clean across priorities, 3 bugs closed |
+| **10** | **User playtest + tuning + cinematics implementation** [NEXT] | User confirms post-S9 build; cinematic option pick from `docs/structure-cinematics-options.md` (recommended B+C+D-lite); tune AUTO_BOND_RADIUS / MAX_RELEASE_REACH / PHASE_1_WIN_SCORE / strain thresholds based on play feedback; audio if Suno track lands | User says "yes, this works, ship Phase 2" |
 
-If Session 9 closes all gates early → Session 10 begins Phase 2 design (fog, local-MP, full disruption: Inject Spiral + Steal).
+If Session 10 closes all gates early → Phase 2 design begins (fog, local-MP, full disruption: Inject Spiral + Steal).
 
 ---
 

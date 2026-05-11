@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 11,
+  "tool_calls_session_total": 74,
   "session_start": "2026-05-11T14:30:00Z",
   "session_id": "S9",
   "budget_total": 150000,
@@ -16,47 +16,56 @@
     {
       "id": "P1",
       "title": "Fix release teleport (remove LMB-up cursor snap, add reachability gate)",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "check_method": "PRIME-AUDIT pass: (1) read controls.ts diff — MAX_RELEASE_REACH=120 added; LMB-up onUp branch: removed 4 spark.pos/prevPos = cursor snap lines; added reachable check via squared-distance to avoid sqrt; in-zone check still on spark.pos (not cursor); auto-bond pickPrimitiveInRange now passed spark.pos as center; pickPrimitiveInRange signature gained optional center param defaulting to this.cursor for back-compat with RMB hover pick. (2) typecheck clean. (3) 151/151 tests pass — session7.test.ts rewritten with 3 tests covering: reachable+outside-zone places at spark.pos with bond≤AUTO_BOND_RADIUS, unreachable cursor rejects place + spark stays Free, spark.pos in zone cancels place. (4) edge cases: cursor exactly at MAX_RELEASE_REACH distance — squared-distance uses <= so boundary passes (consistent with AUTO_BOND_RADIUS pick at line 312); zero-distance reachable; spark just inside spawner ring fails in-zone (strict inequality preserves liminal-ring-allowed semantics from world.ts placePrimitive). (5) Browser HMR'd cleanly, no console errors, world re-init OK at PLAYING/tick=0. (6) materially better: closes user's 'teleport to end point' bug; placement = where spark actually is; bond-length-bounded invariant preserved via spark-physics range, not via cursor snap.",
+      "checkpoint_commit": "58cb2be"
     },
     {
       "id": "P2",
       "title": "Cross-structure auto-merge on place (post-place sweep)",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "check_method": "PRIME-AUDIT pass: (1) read world.ts + controls.ts diffs — PLACE_PRIMITIVE action gains optional readonly mergeCandidateIds; placePrimitive tracks mergedComponents Set seeded from primary target's componentOf, then iterates mergeCandidateIds with per-candidate alreadyMerged early-exit; each merge bond emits BOND_COMMIT; stiffness tier per merge bond comes from lookupCombo(prim.type, cand.type); controls.ts onUp passes allPrimitivesInRange(AUTO_BOND_RADIUS, spark.pos). (2) typecheck clean. (3) 156/156 tests pass — 5 new in session9.test.ts cover: 2-component bridge to 5-prim component with 2 bonds; 3-component Y to 4-prim component with 3 bonds; primary-component dedup; undefined mergeCandidateIds preserves legacy; BOND_COMMIT count = 2 per merge. (4) edge cases: candidate === prim.id filtered; Map.get undefined skipped; same-component re-entry early-exits; deterministic Map insertion order. (5) Browser HMR'd cleanly, no console errors. (6) materially better: disconnected-structures-despite-proximity is structurally impossible at AUTO_BOND_RADIUS now.",
+      "checkpoint_commit": "a0b24ab"
     },
     {
       "id": "P3",
       "title": "Complexity-weighted scoring (Magic x3 / Functional x1 / anchor x1, threshold 50)",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "check_method": "PRIME-AUDIT pass: (1) constants.ts adds SCORE_ANCHOR=1, SCORE_FUNCTIONAL_BOND=1, SCORE_MAGIC_BOND=3, PHASE_1_WIN_SCORE=50; PHASE_1_WIN_PRIMITIVE_COUNT kept for back-compat tooling. world.ts adds scoreProgress to World interface, init 0 in makeWorld, increment in placePrimitive (primary bond + each merge bond + anchor branch). gameState.tickGameState WIN check uses scoreProgress >= PHASE_1_WIN_SCORE. softReset zeros scoreProgress. ui.HUD.drawProgress uses scoreProgress / PHASE_1_WIN_SCORE. save.ts WorldSnapshot adds optional scoreProgress (?? 0 in restore for back-compat with pre-S9 saves). (2) typecheck clean. (3) 161/161 tests pass — 5 new P3 tests in session9.test.ts: anchor +1, functional Dot→Dot bond +1, magic Dot→Line=Filament bond +3, all-magic Line→Line chain (16 = anchor+4×3) > all-functional Dot→Dot chain (5 = anchor+4×1) at equal 5-prim length, P2 merge bonds also weighted (Line→Line=Cable magic, primary + merge both +3). gameState.test.ts updated: WIN threshold = PHASE_1_WIN_SCORE / SCORE_ANCHOR anchors; softReset zeroes scoreProgress. (4) edge cases: order-dependent combo lookup respected (carried→target = prim.type→target.type, matches existing placePrimitive direction); merge bond combo lookup uses prim.type→cand.type (same direction); optional snapshot field with ?? 0 fallback. (5) Browser HMR'd cleanly, no console errors, window.__SPARK__.world.scoreProgress reads 0 at fresh init. (6) materially better: post-S8 'every combination weighs the same' is closed — all-magic 5-prim chain scores 16/50 = 32% vs all-functional 5/50 = 10%, threshold balanced so all-functional 50-anchor wall still wins but all-magic 17-prim chain (1 anchor + 16×3 = 49) is at the gate.",
+      "checkpoint_commit": "a7a5958"
     },
     {
       "id": "P4",
       "title": "Cinematics options brainstorm (design doc only, no code)",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "check_method": "Design doc only — no source edits, no test changes. PRIME-AUDIT: (1) docs/structure-cinematics-options.md created (~280 lines); covers current state (S8/S9 leaves bond-level effects rich but structure-level silent), design constraints (charter §XV, world.effects seam, no audio dep, cheap renderer-only), and 5 options A-E each with ASCII sketch + fires-when + intensity scaling + cost S/M + pros/cons + verdict. (2) Recommendation block: B (structure-wide pulse) + C (merge-wave for S9 P2 events) + D-lite (corner pulse at every 10 score) for S10 land. (3) 4 open questions for user pick before S10: pulse direction, merge-wave force (visual vs physics), tier frequency, skip-cinematic toggle. (4) 161/161 tests pass, typecheck clean — design-doc-only commit. (5) materially better: P2 cross-structure-merge now has a visual playbook for S10; user's 'we need to brainstorm exactly how it shows' is closed with a decision matrix rather than a single proposal.",
+      "checkpoint_commit": "98a0380"
     },
     {
       "id": "P5",
       "title": "Closeout (BACKLOG + reflexion + boot snapshot + PDR archive + handoff + push)",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "check_method": "Closeout artifacts: BACKLOG.md S9 entry + session map updated. reflexion_log.md prepended with 9 S9 entries. boot-snapshot.md regenerated. PDR moved to plans-archive/2026-05-11_PDR_Session_9_COMPLETED.md. HANDOFF_2026-05-11.md at root replaced (S8 already archived). Archive copy at .handoff-archive/HANDOFF_2026-05-11_S9.md. Final 161/161 tests pass. All S9 priority commits pushed per new handoff-push rule throughout session. session-state.json (this entry) gets final close commit + push."
     }
   ],
   "totals": {
