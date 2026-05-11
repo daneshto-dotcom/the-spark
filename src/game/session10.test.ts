@@ -11,6 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ATTRACT_FOLLOW_RATE,
+  MERGE_IMPULSE_MAGNITUDE,
   PHYSICS_HZ,
   SparkType,
 } from '../constants.ts';
@@ -186,7 +187,7 @@ describe('S10 P2 — STRUCTURE_GROW outward pulse emission', () => {
     expect(sortedBondHops).toEqual([1, 2, 3]);
   });
 
-  it('STRUCTURE_GROW for a place that triggers cross-structure merge covers the union component', () => {
+  it('STRUCTURE_GROW for a place that triggers cross-structure merge covers the union component (named for P2 setup; verifies same emit path used by P3 below)', () => {
     const world = makeWorld(0);
     // Two separate components: alpha (3 prims) and beta (2 prims).
     const a0 = placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
@@ -219,5 +220,101 @@ describe('S10 P2 — STRUCTURE_GROW outward pulse emission', () => {
     // beta = b0 + b1 = 1 bond pre-existing). Pre-existing: 2 in α + 1 in β = 3.
     // New: primary bridge↔a2 + merge bridge↔b0 = 2. Total = 5 bonds in union.
     expect(grow.hopByBondId.size).toBe(5);
+  });
+});
+
+describe('S10 P3 — STRUCTURE_MERGE with verlet impulse on candidate component', () => {
+  it('cross-structure place emits STRUCTURE_MERGE with unionPrimIds = primary growing component + candidate component', () => {
+    const world = makeWorld(0);
+    // Alpha = 2 prims; Beta = 1 prim (anchor).
+    const a0 = placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
+    const a1 = placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 220, y: 200 }, targetId: a0 });
+    const b0 = placeAt(world, { sparkRawId: 3, type: SparkType.Dot, pos: { x: 300, y: 200 }, targetId: null });
+
+    const effectsBefore = world.effects.length;
+    // Bridge: primary into a1, merge into b0. Expect 1 merge bond → 1
+    // STRUCTURE_MERGE event.
+    const bridge = placeAt(world, {
+      sparkRawId: 4,
+      type: SparkType.Dot,
+      pos: { x: 260, y: 200 },
+      targetId: a1,
+      mergeCandidateIds: [a1, b0],
+    });
+
+    const merges = world.effects.slice(effectsBefore).filter((e) => e.kind === 'STRUCTURE_MERGE');
+    expect(merges.length).toBe(1);
+    if (merges[0].kind !== 'STRUCTURE_MERGE') throw new Error('typeguard');
+    const merge = merges[0];
+
+    // unionPrimIds at this merge: primary component (bridge + a0 + a1 = 3) +
+    // candidate β component (b0 = 1). Total 4 ids.
+    expect(merge.unionPrimIds.length).toBe(4);
+    expect(merge.unionPrimIds).toContain(bridge);
+    expect(merge.unionPrimIds).toContain(a0);
+    expect(merge.unionPrimIds).toContain(a1);
+    expect(merge.unionPrimIds).toContain(b0);
+  });
+
+  it('verlet impulse applied to each prim in candidate component — prevPos shifted away from new prim by ~MERGE_IMPULSE_MAGNITUDE', () => {
+    const world = makeWorld(0);
+    // Anchor α at (200, 200). Anchor β at (300, 200). Bridge at (260, 200).
+    // Candidate β's single prim is at (300, 200); bridge at (260, 200).
+    // Impulse axis: from (300,200) toward (260,200) = (-40, 0), normalised
+    // (-1, 0). prevPos shifted AWAY from bridge: (300 + MAG, 200).
+    const a0 = placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
+    const b0 = placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 300, y: 200 }, targetId: null });
+    const b0Prim = world.primitives.get(b0)!;
+    // Pre-merge: prevPos == pos (primitives are placed at rest).
+    expect(b0Prim.prevPos.x).toBeCloseTo(300, 1);
+    expect(b0Prim.prevPos.y).toBeCloseTo(200, 1);
+
+    placeAt(world, {
+      sparkRawId: 3,
+      type: SparkType.Dot,
+      pos: { x: 260, y: 200 },
+      targetId: a0,
+      mergeCandidateIds: [a0, b0],
+    });
+
+    // After merge: b0's prevPos shifted by +MERGE_IMPULSE_MAGNITUDE along
+    // the (cand→prim) axis projected; for x: away from 260 = +MAG.
+    const shift = b0Prim.prevPos.x - 300;
+    expect(shift).toBeCloseTo(MERGE_IMPULSE_MAGNITUDE, 2);
+    expect(b0Prim.prevPos.y).toBeCloseTo(200, 2);
+    // Instantaneous velocity = (pos - prevPos) = (-MAG, 0) → next verlet
+    // step moves b0 toward bridge.
+    expect(b0Prim.pos.x - b0Prim.prevPos.x).toBeCloseTo(-MERGE_IMPULSE_MAGNITUDE, 2);
+  });
+
+  it('cascade 3-component place emits 2 STRUCTURE_MERGE events, one per merge bond', () => {
+    const world = makeWorld(0);
+    // Three single-prim components.
+    const a = placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 220, y: 200 }, targetId: null });
+    const b = placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 320, y: 200 }, targetId: null });
+    const c = placeAt(world, { sparkRawId: 3, type: SparkType.Dot, pos: { x: 270, y: 250 }, targetId: null });
+
+    const effectsBefore = world.effects.length;
+    placeAt(world, {
+      sparkRawId: 4,
+      type: SparkType.Dot,
+      pos: { x: 270, y: 200 },
+      targetId: a,
+      mergeCandidateIds: [a, b, c],
+    });
+
+    const merges = world.effects.slice(effectsBefore).filter((e) => e.kind === 'STRUCTURE_MERGE');
+    // Primary = into a's component (just a). Two disjoint candidates (b and c)
+    // → 2 STRUCTURE_MERGEs.
+    expect(merges.length).toBe(2);
+
+    // First merge union: hub + a + first-candidate's component (b OR c).
+    // Second merge union: previous union + second-candidate's component.
+    // Sizes should be 3 then 4 (deterministic by mergeCandidateIds order).
+    if (merges[0].kind !== 'STRUCTURE_MERGE' || merges[1].kind !== 'STRUCTURE_MERGE') {
+      throw new Error('typeguard');
+    }
+    const sizes = [merges[0].unionPrimIds.length, merges[1].unionPrimIds.length].sort((x, y) => x - y);
+    expect(sizes).toEqual([3, 4]);
   });
 });

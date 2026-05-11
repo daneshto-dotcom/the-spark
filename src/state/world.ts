@@ -12,6 +12,7 @@
 import { lookupCombo } from '../combos.ts';
 import {
   ENERGY_PER_SECOND_FLAT,
+  MERGE_IMPULSE_MAGNITUDE,
   SCORE_ANCHOR,
   SCORE_FUNCTIONAL_BOND,
   SCORE_MAGIC_BOND,
@@ -350,6 +351,44 @@ function placePrimitive(
     });
     // S9 P3: merge bonds also contribute to progress (same weighting).
     world.scoreProgress += combo.isMagical ? SCORE_MAGIC_BOND : SCORE_FUNCTIONAL_BOND;
+
+    // S10 P3: real verlet impulse on the candidate's component. Each prim
+    // in candComp gets prevPos pushed AWAY from the new prim's pos →
+    // verlet next-step velocity = (pos - prevPos) propels TOWARD the new
+    // prim. 1.2 px on a 60-px bond ≈ 2% strain delta — well under LOW-tier
+    // break threshold (2.0×). Decays via VELOCITY_DAMPING (0.998) in
+    // ~5 sec; bond constraints absorb most of it within the first 60
+    // ticks. Visual: "satisfying click" rather than "wobble" as long as
+    // magnitude stays conservative.
+    for (const candPrimId of candComp.primitiveIds) {
+      const candPrim = world.primitives.get(candPrimId);
+      if (candPrim === undefined) continue;
+      const idx = prim.pos.x - candPrim.pos.x;
+      const idy = prim.pos.y - candPrim.pos.y;
+      const idist = Math.hypot(idx, idy);
+      if (idist < 1) continue; // co-located → skip (NaN-safe)
+      const inv = MERGE_IMPULSE_MAGNITUDE / idist;
+      // Push prevPos away from new prim along the (cand→prim) axis →
+      // (pos - prevPos) points toward new prim → instantaneous velocity
+      // = MERGE_IMPULSE_MAGNITUDE px in the toward-new-prim direction.
+      candPrim.prevPos.x -= idx * inv;
+      candPrim.prevPos.y -= idy * inv;
+    }
+
+    // S10 P3: STRUCTURE_MERGE union flash. unionPrimIds = primary growing
+    // component (current mergedComponents — NOT yet including candidate)
+    // ∪ candidate's full component. Snapshotted BEFORE the candidate is
+    // added below, so the emit captures exactly the pre-this-merge union.
+    const unionPrimIds: PrimitiveId[] = [...mergedComponents];
+    for (const id of candComp.primitiveIds) unionPrimIds.push(id);
+    world.effects.push({
+      kind: 'STRUCTURE_MERGE',
+      tick: world.tick,
+      originPos: { x: prim.pos.x, y: prim.pos.y },
+      unionPrimIds,
+      color: prim.placerColor,
+    });
+
     for (const id of candComp.primitiveIds) mergedComponents.add(id);
   }
 
