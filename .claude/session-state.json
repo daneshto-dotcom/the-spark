@@ -1,57 +1,14 @@
 {
-  "tool_calls_session_total": 67,
-  "session": 7,
-  "title": "Connection-Range Gate + Per-Combo Persistent Bond Visuals",
-  "tier": "Standard",
-  "started_at": "2026-05-09",
-  "pdr_approved": true,
-  "deliberation_completed": true,
-  "unlock_source": "user",
-  "approved_at": "2026-05-09",
-  "priorities": [
-    {
-      "id": "P1",
-      "title": "Connection-range gate (snap spark to cursor at LMB-up)",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "Static trace of controls.ts:onUp confirmed snap-to-cursor at the new lines unifies placement + auto-bond-range source of truth on cursor. 3 new vitest tests (session7.test.ts) prove the invariant: (a) snap-then-place + pick-from-cursor produces bond length <= AUTO_BOND_RADIUS=60; (b) regression-doc test confirms pre-fix scenario produced length ~1100 (canvas-spanning); (c) cancel-place test confirms cursor-into-zone after attract-drag aborts placement. All 107/107 vitest tests pass. Typecheck clean (tsc -b --noEmit).",
-      "checkpoint_commit": "4d82b8b"
-    },
-    {
-      "id": "P2",
-      "title": "Per-combo persistent bond visuals",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "Static review of bondVisualRenderer.ts confirmed all 12 magic combos route through dedicated silhouettes (filament, cable, bracket, diamond, wheel, star, orbital, lattice, capsule, vortex, whip, warped) with a default-line fallback for the 24 functional combos. 35 new vitest tests in bondVisualRenderer.test.ts cover: per-id stroke dispatch, exact draw counts for cable/diamond/capsule/filament, degenerate-bond fallback (no NaN), tick-driven animation differentiation for wheel/vortex/orbital, and immutability for cable. Browser-verified by mutating __SPARK__.world to plant a 12-combo grid (24 primitives, 12 bonds) and screenshotting at both 110px and gameplay-realistic 60px bond lengths - all silhouettes legible, no console errors. structureRenderer.ts inherits stress tint + width and passes them to drawBondVisual; the >0.7 stress red-overlay pulse remains as an additive layer on top. 142/142 tests pass; typecheck clean.",
-      "checkpoint_commit": "83140e0"
-    },
-    {
-      "id": "P3",
-      "title": "BACKLOG.md hygiene + reflexion",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "BACKLOG.md now has Session 6 + Session 7 entries (closes the gap noted in S6 close where latest entry was Session 5). Session map table updated to reflect actual completion through S7 with S8 = user playtest tuning as next. reflexion_log.md prepended with 7 S7 lessons (cursor-vs-pos source of truth, ephemeral-to-persistent silhouette rewrite, PDCA deliberation skip rationale, Pixi tab-pause workaround, zone-aware test coords, structureRenderer tick plumbing, user-path batch approval with discretion). Verified by reading both files post-edit; all prior entries preserved. Committed at e32c19a.",
-      "checkpoint_commit": "e32c19a"
-    },
-    {
-      "id": "P4",
-      "title": "Handoff + dev server",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "S7 PDR archived (.claude/plans-archive/2026-05-09_PDR_Session_7_COMPLETED.md), active .claude/plans/ cleared. boot-snapshot.md regenerated with next-steps + last-2-sessions reflexion. HANDOFF_2026-05-09.md written + archived to .handoff-archive/HANDOFF_2026-05-09_S7.md. Dev server confirmed alive on port 15842 (kept running per user request for wakeup playtest; diverged from $SESSION_PORT=10197 protocol intentionally — documented in handoff OPEN ISSUES). 142/142 tests pass; typecheck clean; working tree clean post-close-commit. Reflexion log: 44 entries (under 50-prune threshold). Drift count: 1 'scope' mention (under 2-pattern threshold).",
-      "checkpoint_commit": "(close commit — see HEAD after this turn)"
-    }
-  ]
+  "tool_calls_session_total": 7,
+  "session_start": "2026-05-11T12:11:52Z",
+  "budget_total": 150000,
+  "budget_overhead": 30000,
+  "budget_per_priority": 0,
+  "priorities": [],
+  "totals": {
+    "turns": 0,
+    "estimated_tokens": 0,
+    "budget_remaining": 150000,
+    "budget_status": "GREEN"
+  }
 }
