@@ -16,6 +16,7 @@ import {
   SCORE_ANCHOR,
   SCORE_FUNCTIONAL_BOND,
   SCORE_MAGIC_BOND,
+  SCORE_TIER_STEP,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
@@ -284,6 +285,11 @@ function placePrimitive(
   // already pulled in.
   const mergedComponents = new Set<PrimitiveId>();
 
+  // S10 P4: snapshot scoreProgress so the tier-crossing emission can fire
+  // exactly one SCORE_TIER per multiple of SCORE_TIER_STEP crossed during
+  // this placement. Captured BEFORE any bond/merge score increments.
+  const oldScore = world.scoreProgress;
+
   if (action.targetPrimitiveId !== null) {
     const target = world.primitives.get(action.targetPrimitiveId);
     if (target === undefined) throw new Error(`target primitive ${action.targetPrimitiveId} missing`);
@@ -390,6 +396,22 @@ function placePrimitive(
     });
 
     for (const id of candComp.primitiveIds) mergedComponents.add(id);
+  }
+
+  // S10 P4: emit one SCORE_TIER per crossed multiple of SCORE_TIER_STEP.
+  // Multi-tier crossings (e.g. 14 → 31 via primary magic + multiple magic
+  // merges) fire one event per band so the renderer can stagger pulses
+  // — though in practice a single place crosses at most 1 band in
+  // Phase 1 (max ~10 score delta per place).
+  const oldTier = Math.floor(oldScore / SCORE_TIER_STEP);
+  const newTier = Math.floor(world.scoreProgress / SCORE_TIER_STEP);
+  for (let t = oldTier + 1; t <= newTier; t++) {
+    world.effects.push({
+      kind: 'SCORE_TIER',
+      tick: world.tick,
+      tier: t,
+      color: player.color,
+    });
   }
 
   // S10 P2: STRUCTURE_GROW outward pulse from the newly-placed primitive.
