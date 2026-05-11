@@ -141,6 +141,35 @@ export const SPARK_INITIAL_VELOCITY_MAX = 20;
 // sparks never despawn (they belong to the player FSM).
 export const FREE_SPARK_SOFT_CAP = 50;
 
+// === AttractDrag follow (S10 P1) ===
+// Replaces S5's impulse-on-prevPos model (which produced a damped pendulum
+// under verlet damping 0.998 → user-reported "stupid magnet slowly swinging
+// back and forward"). Position-lerps spark.pos toward cursor per substep;
+// prevPos is restored to the pre-lerp pos so residual velocity ≈ lerp delta,
+// not a momentum accumulator. At 8 substeps/frame this closes ~38% of the
+// gap per frame → halves remaining distance in ~30ms. Snappy follow, no
+// overshoot. ATTRACT_STRENGTH (S5-era) removed.
+export const ATTRACT_FOLLOW_RATE = 0.06;
+
+// === Structure cinematics (S10) ===
+// Pulse timing for STRUCTURE_GROW: each bond hop delays the next primitive's
+// flash by HOP_TICKS; the flash lasts FLASH_TICKS. Total effect lifetime
+// ≈ maxHop * HOP_TICKS + FLASH_TICKS. At 60Hz: 4 ticks ≈ 67ms hop, 18 ticks
+// ≈ 300ms flash. A 10-deep component finishes in ~700ms.
+export const STRUCTURE_GROW_HOP_TICKS = 4;
+export const STRUCTURE_FLASH_TICKS = 18;
+
+// Per-primitive verlet impulse for STRUCTURE_MERGE: each prim in the
+// candidate's component gets a prevPos nudge toward the new prim.
+// 1.2 px on a 60-px bond ≈ 2% strain delta — well under LOW-tier break
+// threshold (2.0×). Single application; decays via VELOCITY_DAMPING.
+export const MERGE_IMPULSE_MAGNITUDE = 1.2;
+
+// Tier-gated corner pulse boundary. scoreProgress crossing each multiple
+// of SCORE_TIER_STEP fires one SCORE_TIER effect. At 15 + threshold 50:
+// 3 tier events before WIN.
+export const SCORE_TIER_STEP = 15;
+
 // === Bond rendering ===
 export const BOND_LINE_WIDTH = 2;
 export const BOND_GLOW_INTENSITY = 0.6;

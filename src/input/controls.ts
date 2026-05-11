@@ -16,9 +16,9 @@
 
 import type { Application } from 'pixi.js';
 import {
+  ATTRACT_FOLLOW_RATE,
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
-  PHYSICS_HZ,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
@@ -39,19 +39,15 @@ const BOND_PICK_DIST = 8;
 // snaps cleanly. Bigger than PICK_RADIUS because PICK_RADIUS is for grabbing
 // (precise) and this is for connecting (forgiving).
 const AUTO_BOND_RADIUS = 60;
-// S5 hot-fix: was 12_000 — paired with 20-80 initial velocity sparks already
-// had momentum the player redirected; with the new 5-20 initial range attract
-// must accelerate from near-rest, so bump 5×. This makes carried/attracted
-// sparks track the cursor instead of crawling.
-const ATTRACT_STRENGTH = 60_000;
 // S9 P1: max distance cursor can be from spark.pos at LMB-up for the place
 // to commit. Replaces S7's snap-to-cursor — without this gate the user could
 // pickup a spark, flick cursor across the canvas, release, and have the
 // spark teleport to wherever the cursor was. Now the spark has to physically
 // catch up. 120px ≈ 2× AUTO_BOND_RADIUS — generous enough that normal play
-// feels permissive, tight enough that a flick fails fast.
+// feels permissive, tight enough that a flick fails fast. S10 P1's position-
+// lerp follow keeps spark.pos within a few px of cursor at LMB-up so this
+// gate now fires only on real cursor flicks (intentional cheese-prevention).
 const MAX_RELEASE_REACH = 120;
-const PHYSICS_DT = 1 / PHYSICS_HZ;
 
 export type ControlState =
   | { readonly kind: 'Idle' }
@@ -101,15 +97,18 @@ export class Controls {
         this.state = { kind: 'Idle' };
         return;
       }
-      const dx = this.state.cursor.x - spark.pos.x;
-      const dy = this.state.cursor.y - spark.pos.y;
-      const dist = Math.hypot(dx, dy);
-      if (dist < 1) return;
-      const k = ATTRACT_STRENGTH / Math.max(dist, 60); // softens at distance
-      // Apply impulse via prevPos (this substep moves more than the previous).
-      const subDt = PHYSICS_DT / 8;
-      spark.prevPos.x -= (dx / dist) * k * subDt * subDt;
-      spark.prevPos.y -= (dy / dist) * k * subDt * subDt;
+      // S10 P1: position-lerp follow. Replaces S5-era impulse-on-prevPos
+      // (k = ATTRACT_STRENGTH / max(dist, 60), pushed against prevPos under
+      // verlet damping 0.998) which produced a slow pendulum: the spark
+      // built momentum toward the cursor, overshot, swung back. User read
+      // this as "stupid magnet slowly swinging back and forward."
+      //
+      // Lerping spark.pos directly and restoring prevPos = old pos keeps
+      // residual velocity = lerp delta (not impulse-accumulated), so verlet
+      // still gives the spark a tiny "alive" feel during follow but cannot
+      // overshoot. Snappy, no swing. Pure position math = no force/dt
+      // coupling either.
+      stepAttractLerp(spark.pos, spark.prevPos, this.state.cursor, ATTRACT_FOLLOW_RATE);
     }
 
     if (player.kind === 'Carrying') {
@@ -373,6 +372,25 @@ export class Controls {
     const dy = p.y - SPAWNER_CENTER_Y;
     return dx * dx + dy * dy <= SPAWNER_RADIUS * SPAWNER_RADIUS;
   }
+}
+
+/**
+ * S10 P1: one position-lerp step for AttractDrag. Pure function, exported so
+ * the controls.test.ts equivalent can validate the math without spinning up
+ * a Pixi Application + DOM. Mutates `pos` and `prevPos` in place to match
+ * the on-spark mutation contract used by applyPerSubstep.
+ */
+export function stepAttractLerp(
+  pos: { x: number; y: number },
+  prevPos: { x: number; y: number },
+  cursor: { x: number; y: number },
+  rate: number,
+): void {
+  const oldX = pos.x, oldY = pos.y;
+  pos.x = oldX + (cursor.x - oldX) * rate;
+  pos.y = oldY + (cursor.y - oldY) * rate;
+  prevPos.x = oldX;
+  prevPos.y = oldY;
 }
 
 function distToSegment(
