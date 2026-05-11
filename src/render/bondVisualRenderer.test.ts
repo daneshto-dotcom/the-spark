@@ -207,9 +207,21 @@ describe('S7 P2 — tick-driven animation', () => {
     expect(serialize(a)).not.toEqual(serialize(b));
   });
 
-  it('non-animated fx.cable is identical at tick=0 and tick=999', () => {
-    const a = calls('fx.cable', 0);
-    const b = calls('fx.cable', 999);
+  // S8 P5 — after P1/P3/P4 the 12 magic silhouettes split 6 animated
+  // (wheel, vortex, orbital, whip, warped, filament) + 6 static. This
+  // guards the OPPOSITE regression class: a future refactor accidentally
+  // wiring p.tick into a silhouette that should stay frame-stable.
+  const STATIC_SILHOUETTES = [
+    'fx.cable',
+    'fx.bracket',
+    'fx.diamond',
+    'fx.star',
+    'fx.lattice',
+    'fx.capsule',
+  ] as const;
+  it.each(STATIC_SILHOUETTES)('S8 P5 — non-animated %s is identical at tick=0 and tick=999', (visualEffectId) => {
+    const a = calls(visualEffectId, 0);
+    const b = calls(visualEffectId, 999);
     expect(serialize(a)).toEqual(serialize(b));
   });
 });
