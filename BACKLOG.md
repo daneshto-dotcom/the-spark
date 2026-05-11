@@ -6,6 +6,84 @@
 
 ---
 
+## Session 10 — Tuning + Cinematics Implementation [COMPLETED] (2026-05-11)
+
+**Triggered by S9 handoff carry-forward.** User playtested post-S9 build:
+P1 (release teleport) and P2 (cross-structure merge) confirmed working;
+P3 (scoring) implicitly accepted. New tuning callout on AttractDrag feel
+("stupid magnet slowly swinging"). User picked cinematics options B + C +
+D-lite from `docs/structure-cinematics-options.md` with explicit answers
+to all 4 open questions (outward-from-new-prim, real-verlet-impulse,
+every-15, include-debug-toggle). Standard-tier batch — Council waived per
+S7/S8/S9 precedent; PRIME-AUDIT per priority. 5 implementation priorities
++ closeout; ~480 LOC across constants.ts, controls.ts, world.ts,
+effects.ts, structure.ts, effectsRenderer.ts, main.ts + 14 new tests.
+
+**P1 — AttractDrag follow tuning (Micro).** Replaced S5-era impulse-on-
+prevPos (k = ATTRACT_STRENGTH / dist pushed against prevPos under verlet
+damping 0.998 = damped pendulum) with position-lerp:
+`spark.pos += (cursor - spark.pos) * ATTRACT_FOLLOW_RATE; spark.prevPos
+= oldPos`. At 8 substeps/frame × rate 0.06, ~38% gap-closure per frame.
+Pure position math — no force/dt coupling, no overshoot. Side effect
+(intentional): at LMB-up spark is within ~5px of cursor, so S9's
+MAX_RELEASE_REACH=120 gate fires only on real flicks. Extracted as pure
+helper `stepAttractLerp` for unit testing. ATTRACT_STRENGTH removed.
+5 new tests. Closes "stupid magnet slowly swinging" user report.
+
+**P2 — Cinematic B: STRUCTURE_GROW outward pulse (Micro).** New effect
+kind carrying precomputed BFS hop maps (`Map<PrimitiveId, hop>` +
+`Map<BondId, hop>` + maxHop) from `bfsHopMap(seed, prims, bonds)` in
+`structure.ts`. Emitted at end of `placePrimitive` for the new prim's
+post-merge component. Renderer's `drawStructureGrow` iterates hop maps,
+flashing each primitive when wavefront arrives at `hop ×
+STRUCTURE_GROW_HOP_TICKS=4`, sine envelope over STRUCTURE_FLASH_TICKS=18.
+Bonds highlight on the later endpoint's hop. Live primitive positions
+looked up from world per frame (severed-mid-effect skipped). Anchor
+placements emit `{origin: 0}` minimum-event. effectsRenderer refactored
+to per-kind `effectLifetime()` helper + draw signature `(effect, age,
+lifetime, world)`. 3 new tests. session5.test.ts 1 test updated.
+
+**P3 — Cinematic C: STRUCTURE_MERGE with real verlet impulse (Micro).**
+Per merge bond inside the sweep loop: (1) apply verlet impulse — for each
+prim in `candComp.primitiveIds`, push prevPos AWAY from new prim by
+MERGE_IMPULSE_MAGNITUDE=1.2px along unit (cand→prim). Next-step velocity
+= (pos - prevPos) propels TOWARD new prim. Magnitude conservative — 2%
+strain at LOW-tier worst case, well under 2.0× break threshold. (2) Emit
+STRUCTURE_MERGE with `unionPrimIds = [...mergedComponents,
+...candComp.primitiveIds]` snapshotted BEFORE the candidate is added.
+Renderer's `drawStructureMerge` flashes union after MERGE_LEAD_IN_TICKS=4
+delay — synchronized "snap" vs STRUCTURE_GROW's BFS-timed "wave."
+3 new tests.
+
+**P4 — Cinematic D-lite: SCORE_TIER corner pulse every-15 (Micro).**
+`placePrimitive` snapshots `oldScore` at entry; after all increments,
+emits one `SCORE_TIER` per crossed multiple of SCORE_TIER_STEP=15 via
+`for (t = oldTier+1; t <= newTier; t++)` loop. Renderer's
+`drawScoreTier` draws bloom + leading ring at (PROGRESS_X+40,
+CANVAS_HEIGHT-60) — co-located with HUD progress bar. Renderer-only,
+sine envelope over SCORE_TIER_DURATION_TICKS=30 (~500ms). At threshold
+50, expect 3 tier events before WIN (15, 30, 45). 3 new tests.
+
+**P5 — Cinematics debug toggle (Micro).** World gains
+`cinematicsEnabled: boolean = true` (not persisted in save.ts —
+debug-only). 3 emission sites gated on this flag. P3 verlet impulse
+stays UNCONDITIONAL — user picked physics-over-visual, so physics half
+is a designed mechanic. BOND_COMMIT and SEVER_ERASE remain unconditional
+(bond-level combat feedback). main.ts `C`/`c` keydown handler flips
+toggle. Legend hint gains "C cinematics" suffix. 4 new tests.
+
+**P6 — Closeout.** Per-priority commit + push (S9 rule). BACKLOG +
+reflexion (≤50 cap maintained, 7 S10 entries + S4 detail prune + 1 S5
+entry prune) + boot-snapshot + PDR archive + handoff + push.
+
+**Exit gate:** 179/179 tests (was 161 + 18 net new in session10.test.ts
++ 1 P2-impact rewrite in session5.test.ts), typecheck clean, browser
+HMR clean across all S10 commits (vite logs show 13+ page reloads zero
+errors). 5 priority commits (3f599b5, 479fb5a, 2d3e4e7, 79c0e0c,
+02e5308) + 1 closeout commit on master, all pushed.
+
+---
+
 ## Session 9 — Playtest Bug Fixes + Cinematics Brainstorm [COMPLETED] (2026-05-11)
 
 **Triggered by post-S8 user playtest.** Four observations + four process directives.
@@ -237,7 +315,8 @@ hidden, so static state-mutation + manual render is the way).
 | **7** | Connection-range gate + per-combo persistent bond visuals | (DONE 2026-05-09) snap-to-cursor + bondVisualRenderer for 12 magic combos | 142/142 tests, browser-verified 12-combo grid at 60px and 110px |
 | **8** | Bond-visual polish + PRIME-AUDIT delta closure | (DONE 2026-05-11) whip drift + lattice contrast + warped rotation + filament shimmer + animated/static regression-test pair | 151/151 tests, browser-verified all 4 visual fixes via pixel-hash diff |
 | **9** | Playtest bug fixes + cinematics brainstorm | (DONE 2026-05-11) release teleport fix + cross-structure auto-merge + complexity-weighted scoring + cinematics options doc | 161/161 tests, browser HMR clean across priorities, 3 bugs closed |
-| **10** | **User playtest + tuning + cinematics implementation** [NEXT] | User confirms post-S9 build; cinematic option pick from `docs/structure-cinematics-options.md` (recommended B+C+D-lite); tune AUTO_BOND_RADIUS / MAX_RELEASE_REACH / PHASE_1_WIN_SCORE / strain thresholds based on play feedback; audio if Suno track lands | User says "yes, this works, ship Phase 2" |
+| **10** | Tuning + cinematics implementation | (DONE 2026-05-11) AttractDrag follow-lerp tuning + STRUCTURE_GROW outward pulse + STRUCTURE_MERGE verlet impulse + SCORE_TIER every-15 corner pulse + C-key debug toggle | 179/179 tests, browser HMR clean, all 4 cinematics + tuning callout closed |
+| **11+** | **Buffer / Audio / Phase 2 design** [NEXT] | Audio (when Suno track lands); Phase 2 design (fog, local-MP, Inject Spiral, Steal); any post-playtest tuning of AUTO_BOND_RADIUS / MAX_RELEASE_REACH / PHASE_1_WIN_SCORE / strain thresholds / new cinematics constants | User says "yes, this works, ship Phase 2" |
 
 If Session 10 closes all gates early → Phase 2 design begins (fog, local-MP, full disruption: Inject Spiral + Steal).
 
