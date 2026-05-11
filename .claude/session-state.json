@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1,
+  "tool_calls_session_total": 2,
   "session_start": "2026-05-11T18:00:00Z",
   "session_id": "S10",
   "budget_total": 150000,
@@ -77,7 +77,7 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "Closeout artifacts: BACKLOG.md S10 entry inserted + session map updated (S10 DONE → S11+ buffer/audio/Phase 2). reflexion_log.md prepended with 7 S10 entries + 1 SESSION line; pruned S4 detail entries (5) + S5 #spawn-rate-test-coupling (1) to keep total = 50 at the cap. boot-snapshot.md regenerated with S10/S9 reflexion summary + S10 commit list. PDR moved to plans-archive/2026-05-11_PDR_Session_10_COMPLETED.md. HANDOFF_2026-05-11.md at root replaced (S9 already archived at .handoff-archive/HANDOFF_2026-05-11_S9.md); archive copy at .handoff-archive/HANDOFF_2026-05-11_S10.md. Final 179/179 tests pass, typecheck clean. All S10 priority commits pushed (3f599b5, 479fb5a, 2d3e4e7, 79c0e0c, 02e5308).",
-      "checkpoint_commit": "TBD (closeout commit hash, fills in after commit)"
+      "checkpoint_commit": "f9fb8ad"
     }
   ],
   "totals": {
