@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 15,
+  "tool_calls_session_total": 16,
   "session_start": "2026-05-11T12:11:52Z",
   "session_id": "S8",
   "budget_total": 150000,
@@ -71,13 +71,31 @@
     {
       "id": "P6",
       "title": "Closeout — BACKLOG + reflexion + handoff + boot snapshot + archive",
-      "status": "in_progress",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "check_method": "Closeout artifacts staged + committed in a single S8-close commit: (1) BACKLOG.md S8 entry inserted with full priority breakdown + session map updated (S8 DONE, S9 = playtest tuning, S10 = buffer); (2) reflexion_log.md S8 block prepended (8 entries: 7 priority-derived lessons + 1 session-level); (3) boot-snapshot.md regenerated with S8 commit SHAs + post-S8 next steps; (4) PDR moved from .claude/plans/ to .claude/plans-archive/2026-05-11_PDR_Session_8_COMPLETED.md with status:COMPLETED + commits map; (5) HANDOFF_2026-05-11.md written at root with full S8 work summary + handoff prompt for next session; archive copy in .handoff-archive/HANDOFF_2026-05-11_S8.md; previous root HANDOFF_2026-05-09.md deleted (already archived as HANDOFF_2026-05-09_S7.md per S7 close); (6) ephemeral .claude/plans/ now empty.",
+      "checkpoint_commit": "b32aa3873a7f837945110a85e964862d9993efd1"
     }
   ],
+  "session_close": {
+    "all_priorities_completed": true,
+    "exit_gate_passed": true,
+    "tests": "151/151",
+    "typecheck": "clean",
+    "browser_verified": "pixel-hash diff via app.renderer.extract + ImageData sampling; preview_screenshot tool timed out (rAF throttled in hidden tab) — workaround documented in reflexion S8 #pixel-hash-distinguishes-animation-classes",
+    "commits": [
+      "e85342d (P1 whip drift)",
+      "9b0fed8 (P2 lattice contrast)",
+      "9550000 (P3 warped rotation + breathing)",
+      "816f965 (P4 filament shimmer + mock extension)",
+      "0b9eaf4 (P5 static-equality consolidation)",
+      "b32aa38 (P6 close: handoff + BACKLOG + reflexion + boot snapshot + PDR archive)"
+    ],
+    "remote_push_status": "deferred — branch is 8 commits ahead of origin/master at S8 close, user to decide whether to push"
+  },
   "totals": {
     "turns": 0,
     "estimated_tokens": 0,
