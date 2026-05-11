@@ -6,6 +6,48 @@
 
 ---
 
+## Session 11 — Buffer: Drift Cleanup + Phase 2 Design Matrix [COMPLETED] (2026-05-11)
+
+**Triggered by S10 handoff carry-forward.** All three S11-eligible backlog items
+(cinematics tuning / audio / Phase 2 implementation) are user-gated. Only un-gated
+high-leverage work is design-doc prep for the Phase 2 conversation when user signs
+off Phase 1. Standard-tier batch, Council R1 ON per user "APPROVED per your best
+recommendations" approval. 2 work priorities + closeout.
+
+**P1 — Process drift cleanup (Micro).** Pushed 3 pending state-autocommits
+(`f46f56e..60e588a`) to `origin/master`. No source change — pure hook bookkeeping.
+Working tree clean tracking origin.
+
+**P2 — Phase 2 design decision matrix (Standard).** Produced
+`docs/phase-2-design-options.md` (523 lines, decision-ready matrix). 7 mechanics
+covered (6 original from PDR + 1 surfaced by Council R1 against spec § VIII.3:
+**Sever-as-disruption**, which Phase 1's self-sever already half-implements). All
+7 options have ASCII sketch + fires-when + spec citation + cost (S/M/L anchored
+to S1-S10 live LOC) + pros + cons + risks + playtest readiness + verdict +
+flag-for-veto. Mermaid prereq DAG: B→{C,D,E}, E→F, A→{C,D,E} dotted, G standalone.
+Tier groupings (foundation / disruption suite / render / richness). 7 open
+questions, tiered rollout recommendation (S12-S15 sequencing if "ship Phase 2
+minimal"). Pattern matches S9 P4's `docs/structure-cinematics-options.md`.
+Council R1: Grok DISRUPTOR + Gemini AUDITOR both REVISE; all adopted Council
+changes synthesized (per-option risks, playtest-readiness, rationale paragraph,
+cost-anchor grounding, Mermaid graph). Battle Ledger appended to PDR.
+
+**P3 — Closeout.** Per-priority commit + push. BACKLOG S11 entry + session map.
+Reflexion log: prepend S11 (4 entries) + prune 4 oldest S5 entries to maintain
+50-cap. Boot-snapshot regenerated. PDR archived to
+`.claude/plans-archive/2026-05-11_PDR_Session_11_COMPLETED.md`.
+HANDOFF_2026-05-11.md root replaced; S10 root → `.handoff-archive/`.
+
+**Exit gate:** 179/179 tests still pass (no source change), typecheck clean,
+2 priority commits (`60e588a` push + `2329dcf` P2) + 1 closeout commit on master,
+all pushed to origin.
+
+**PRIME-AUDIT carry-forward:** `effectsRenderer.ts` at 569 LOC exceeds 500-LOC
+soft charter (`§ XV`). Refactor candidate for S12+ when Phase 2 adds more effect
+kinds — split per-kind drawers into separate files.
+
+---
+
 ## Session 10 — Tuning + Cinematics Implementation [COMPLETED] (2026-05-11)
 
 **Triggered by S9 handoff carry-forward.** User playtested post-S9 build:
@@ -316,9 +358,10 @@ hidden, so static state-mutation + manual render is the way).
 | **8** | Bond-visual polish + PRIME-AUDIT delta closure | (DONE 2026-05-11) whip drift + lattice contrast + warped rotation + filament shimmer + animated/static regression-test pair | 151/151 tests, browser-verified all 4 visual fixes via pixel-hash diff |
 | **9** | Playtest bug fixes + cinematics brainstorm | (DONE 2026-05-11) release teleport fix + cross-structure auto-merge + complexity-weighted scoring + cinematics options doc | 161/161 tests, browser HMR clean across priorities, 3 bugs closed |
 | **10** | Tuning + cinematics implementation | (DONE 2026-05-11) AttractDrag follow-lerp tuning + STRUCTURE_GROW outward pulse + STRUCTURE_MERGE verlet impulse + SCORE_TIER every-15 corner pulse + C-key debug toggle | 179/179 tests, browser HMR clean, all 4 cinematics + tuning callout closed |
-| **11+** | **Buffer / Audio / Phase 2 design** [NEXT] | Audio (when Suno track lands); Phase 2 design (fog, local-MP, Inject Spiral, Steal); any post-playtest tuning of AUTO_BOND_RADIUS / MAX_RELEASE_REACH / PHASE_1_WIN_SCORE / strain thresholds / new cinematics constants | User says "yes, this works, ship Phase 2" |
+| **11** | Buffer: drift cleanup + Phase 2 design matrix | (DONE 2026-05-11) Push state-autocommits + `docs/phase-2-design-options.md` (7 mechanics × full template, Mermaid prereq DAG, tiered rollout recommendation, Council R1 deliberated) | 179/179 tests, Phase 2 conversation has decision-ready artifact when user signs off Phase 1 |
+| **12+** | **Audio / Phase 2 implementation** [NEXT] | Audio (when Suno track lands); Phase 2 implementation per `docs/phase-2-design-options.md` user pick (recommended Tier-0 first = B.2 Hotseat + A Fog); any post-playtest tuning of cinematics constants + carry-overs | User picks from Phase 2 matrix + "ship Phase 2" |
 
-If Session 10 closes all gates early → Phase 2 design begins (fog, local-MP, full disruption: Inject Spiral + Steal).
+If Session 11 closes all gates early → Phase 2 implementation begins (foundation tier: B.2 hotseat + A fog of war).
 
 ---
 

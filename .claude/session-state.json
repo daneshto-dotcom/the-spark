@@ -11,8 +11,8 @@
   "tier": "Standard",
   "council_waived": false,
   "council_waiver_reason": null,
-  "council_invoked": "R1-parallel-completed",
-  "active_pdr": ".claude/plans/2026-05-11_PDR_Session_11.md",
+  "council_invoked": "R1-parallel-completed-SHIP-verdict",
+  "active_pdr": ".claude/plans-archive/2026-05-11_PDR_Session_11_COMPLETED.md",
   "priorities": [
     {
       "id": "P1",
@@ -33,19 +33,19 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "PRIME-AUDIT pass (Rule 20): (1) docs/phase-2-design-options.md created, 523 lines (over 280-400 target but materially better — Council-added Risks + Playtest Readiness blocks accounted for ~175 extra lines; verdict: BETTER, not just longer). (2) 7 mechanics covered (6 from PDR + 1 surfaced by Council R1 against § VIII.3: Sever-as-disruption); all 7 have all template fields (ASCII sketch + fires-when + spec authority + cost + pros + cons + risks + playtest readiness + verdict + flag-for-veto). (3) All spec citations resolve to real Blueprint sections: § II (48), § III.4 (98), § III.7, § V (184), § VI.3 (256), § VI.4 (269), § VI.5 (279), § VII.1 (298), § VII.2 (315), § VIII.3 (345), § VIII.4 (357), § VIII.6 (373), § X.2 (436), § X.4 (460), § XI.8 (532), § XIII (733), § XIV (799), § XV (825). LOCKED_DECISIONS § 2.4-7, § 3.10-11, § 10.2, § 10.3 cited. (4) Mermaid prereq DAG: B→{C,D,E}, E→F, A dotted→{C,D,E}, G standalone. No cycles. Validates B→C→D→E disruption-suite semantics per § VIII.3. (5) Cost anchors INITIALLY stale (handoff said world.ts 370, actual 481; effectsRenderer 470, actual 569 post-S10 cinematics) — DETECTED via wc -l, corrected in table + flagged as carry-forward: effectsRenderer.ts 569 LOC > 500 charter, refactor target for S12 if Phase 2 adds more effect kinds. (6) Open Questions (7) each have 2+ defensible answers (validated against PRIME-AUDIT Q1 MP-mode/Q3 Spiral-propagation/Q4 steal-combo/Q5 decay/Q6 Sever-omit/Q7 F-depth). (7) Council Battle Ledger appended to PDR file (.claude/plans/2026-05-11_PDR_Session_11.md). Quality scorecard pre-revision 3/5 across (Quality/Tool-Util/Completeness, Efficiency 4/5) — post-revisions all expected to land at 4/5 per Gemini adoption. Council verdict: SHIP.",
-      "checkpoint_commit": null
+      "check_method": "PRIME-AUDIT pass (Rule 20): (1) docs/phase-2-design-options.md created, 523 lines (over 280-400 target but materially better — Council-added Risks + Playtest Readiness blocks accounted for ~175 extra lines; verdict: BETTER, not just longer). (2) 7 mechanics covered (6 from PDR + 1 surfaced by Council R1 against § VIII.3: Sever-as-disruption); all 7 have all template fields (ASCII sketch + fires-when + spec authority + cost + pros + cons + risks + playtest readiness + verdict + flag-for-veto). (3) All spec citations resolve to real Blueprint sections: § II (48), § III.4 (98), § III.7, § V (184), § VI.3 (256), § VI.4 (269), § VI.5 (279), § VII.1 (298), § VII.2 (315), § VIII.3 (345), § VIII.4 (357), § VIII.6 (373), § X.2 (436), § X.4 (460), § XI.8 (532), § XIII (733), § XIV (799), § XV (825). LOCKED_DECISIONS § 2.4-7, § 3.10-11, § 10.2, § 10.3 cited. (4) Mermaid prereq DAG: B→{C,D,E}, E→F, A dotted→{C,D,E}, G standalone. No cycles. Validates B→C→D→E disruption-suite semantics per § VIII.3. (5) Cost anchors INITIALLY stale (handoff said world.ts 370, actual 481; effectsRenderer 470, actual 569 post-S10 cinematics) — DETECTED via wc -l, corrected in table + flagged as carry-forward: effectsRenderer.ts 569 LOC > 500 charter, refactor target for S12 if Phase 2 adds more effect kinds. (6) Open Questions (7) each have 2+ defensible answers (validated against PRIME-AUDIT Q1 MP-mode/Q3 Spiral-propagation/Q4 steal-combo/Q5 decay/Q6 Sever-omit/Q7 F-depth). (7) Council Battle Ledger appended to PDR file. Quality scorecard pre-revision 3/5 across (Quality/Tool-Util/Completeness, Efficiency 4/5) — post-revisions all expected to land at 4/5 per Gemini adoption. Council verdict: SHIP.",
+      "checkpoint_commit": "2329dcf"
     },
     {
       "id": "P3",
       "title": "Closeout (BACKLOG + reflexion + boot snapshot + PDR archive + handoff + push)",
-      "status": "in_progress",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "Closeout artifacts: BACKLOG.md S11 entry inserted (drift cleanup + Phase 2 design matrix summary, ~45 lines) + session map updated (S10 closed → S11 DONE → S12+ audio/Phase 2 implementation). reflexion_log.md prepended with 4 S11 entries (#council-r1-surfaces-spec-mechanic-pdr-omitted, #cost-anchors-staleness-checked-via-live-loc, #design-doc-overage-justified-by-council-additions, SESSION #buffer-session-doc-prep-when-everything-gated); pruned 4 oldest S5 detail entries (#max-speed-clamp-broke-attract, #attract-needs-momentum-or-strength, #spawner-bounds-blocks-pickup, #pointer-capture-auto-release) to maintain ≤50 cap. boot-snapshot.md regenerated with S11/S10 reflexion summary + S11 commit list + 6 next-steps + PRIME-AUDIT carry-forward for effectsRenderer LOC charter. PDR moved to plans-archive/2026-05-11_PDR_Session_11_COMPLETED.md (with Battle Ledger + PRIME-AUDIT appendix in place); plans/ directory empty. /handoff skill to be invoked next (per user direction) — will replace HANDOFF_2026-05-11.md at root and archive S10 root copy to .handoff-archive/. Final 179/179 tests pass (no source change), typecheck clean. P1 (60e588a push) + P2 (2329dcf design matrix) commits on origin/master.",
+      "checkpoint_commit": "pending-this-commit"
     }
   ],
   "totals": {
