@@ -181,6 +181,12 @@ describe('S7 P2 — tick-driven animation', () => {
     expect(serialize(a)).not.toEqual(serialize(b));
   });
 
+  it('S8 P3 — fx.warped 3-fold ring rotates + breathes — output differs at tick=0 vs tick=120', () => {
+    const a = calls('fx.warped', 0);
+    const b = calls('fx.warped', 120);
+    expect(serialize(a)).not.toEqual(serialize(b));
+  });
+
   it('non-animated fx.cable is identical at tick=0 and tick=999', () => {
     const a = calls('fx.cable', 0);
     const b = calls('fx.cable', 999);

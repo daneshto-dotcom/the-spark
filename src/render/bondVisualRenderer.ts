@@ -360,7 +360,7 @@ function drawWhip(g: Graphics, p: BondVisualParams): void {
   g.stroke({ width: p.width, color: p.color, alpha: p.alpha });
 }
 
-/** Warped (Triangle→Spiral, LOW): wobbly 3-fold ring at midpoint, sized by half bond. */
+/** Warped (Triangle→Spiral, LOW): 3-fold ring at midpoint. Lobes rotate + breathe over time. */
 function drawWarped(g: Graphics, p: BondVisualParams): void {
   const dx = p.bx - p.ax;
   const dy = p.by - p.ay;
@@ -375,11 +375,15 @@ function drawWarped(g: Graphics, p: BondVisualParams): void {
   const my = (p.ay + p.by) / 2;
   const baseR = Math.min(len / 2 * 0.8, 16);
   const steps = 32;
+  // Slow lobe rotation + breathing amplitude — combined, the 3-fold ring
+  // morphs rather than sitting frozen (sister to the S8 whip drift fix).
+  const rotPhase = p.tick * 0.008;                            // full turn ~13s at 60Hz
+  const breatheAmp = 0.3 + Math.sin(p.tick * 0.025) * 0.08;   // 0.22–0.38, period ~4.2s
 
   let first = true;
   for (let i = 0; i <= steps; i++) {
     const a = (i / steps) * Math.PI * 2;
-    const r = baseR + Math.sin(a * 3) * baseR * 0.3;
+    const r = baseR + Math.sin(a * 3 + rotPhase) * baseR * breatheAmp;
     const px = mx + Math.cos(a) * r;
     const py = my + Math.sin(a) * r;
     if (first) { g.moveTo(px, py); first = false; }
