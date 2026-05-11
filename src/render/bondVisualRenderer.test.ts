@@ -24,7 +24,17 @@ class GraphicsMock {
   moveTo(x: number, y: number): this { this.calls.push({ op: 'moveTo', args: [x, y] }); return this; }
   lineTo(x: number, y: number): this { this.calls.push({ op: 'lineTo', args: [x, y] }); return this; }
   circle(x: number, y: number, r: number): this { this.calls.push({ op: 'circle', args: [x, y, r] }); return this; }
-  stroke(_opts: unknown): this { this.calls.push({ op: 'stroke', args: [] }); return this; }
+  // S8 P4: capture [width, color, alpha] so alpha-only animations (filament
+  // shimmer) show up in serialize-comparison tests. Safe for prior tests:
+  // tick-independent silhouettes (cable etc.) emit identical args at any
+  // tick, and existing .not.toEqual coord-diff tests still differ in coords.
+  stroke(opts: { width?: number; color?: number; alpha?: number }): this {
+    const w = opts.width ?? 0;
+    const c = opts.color ?? 0;
+    const a = opts.alpha ?? 1;
+    this.calls.push({ op: 'stroke', args: [w, c, a] });
+    return this;
+  }
   // Unused but silences "may be missing" if Pixi adds methods we forgot to mock.
   rect(): this { return this; }
   roundRect(): this { return this; }
@@ -184,6 +194,16 @@ describe('S7 P2 — tick-driven animation', () => {
   it('S8 P3 — fx.warped 3-fold ring rotates + breathes — output differs at tick=0 vs tick=120', () => {
     const a = calls('fx.warped', 0);
     const b = calls('fx.warped', 120);
+    expect(serialize(a)).not.toEqual(serialize(b));
+  });
+
+  it('S8 P4 — fx.filament starburst shimmer — ray-stroke alpha differs at tick=0 vs tick=40', () => {
+    // Filament rays don't move (fixed angles, fixed positions) — only their
+    // alpha modulates. With the P4 mock extension capturing stroke args,
+    // serialize differs ONLY via the alpha column. Tick=40 ≈ quarter cycle
+    // of 0.04 rad/tick → sin(1.6) ≈ 0.9996, near shimmer peak.
+    const a = calls('fx.filament', 0);
+    const b = calls('fx.filament', 40);
     expect(serialize(a)).not.toEqual(serialize(b));
   });
 

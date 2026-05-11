@@ -83,14 +83,18 @@ function drawFilament(g: Graphics, p: BondVisualParams): void {
   });
 
   // 6-ray starburst at midpoint — short rays so they don't drown the bond.
+  // Ray alpha shimmers with tick (0.40–0.70 of p.alpha, ~2.6s cycle) so the
+  // "filament humming with energy" feel reads at game speed without changing
+  // the structural silhouette.
   const mx = (p.ax + p.bx) / 2;
   const my = (p.ay + p.by) / 2;
   const rayLen = Math.min(12, len * 0.25);
+  const rayAlpha = p.alpha * (0.55 + Math.sin(p.tick * 0.04) * 0.15);
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2;
     g.moveTo(mx, my)
       .lineTo(mx + Math.cos(a) * rayLen, my + Math.sin(a) * rayLen)
-      .stroke({ width: 1, color: p.color, alpha: p.alpha * 0.7 });
+      .stroke({ width: 1, color: p.color, alpha: rayAlpha });
   }
 }
 
