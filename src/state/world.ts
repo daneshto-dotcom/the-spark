@@ -82,6 +82,15 @@ export interface World {
    * mid-game saves don't reset progress.
    */
   scoreProgress: number;
+  /**
+   * S10 P5: debug toggle for the structure cinematics — STRUCTURE_GROW,
+   * STRUCTURE_MERGE, SCORE_TIER. BOND_COMMIT and SEVER_ERASE remain
+   * unconditional (bond-level visuals are not "structure cinematics" and
+   * the user wants them as core combat feedback). Default true; flipped
+   * by main.ts's `C` keybind. NOT persisted in save.ts — debug-only,
+   * defaults true on each fresh load.
+   */
+  cinematicsEnabled: boolean;
 }
 
 export type GameAction =
@@ -123,6 +132,7 @@ export function makeWorld(rngSeed: number): World {
     lastWinnerId: null,
     effects: [],
     scoreProgress: 0,
+    cinematicsEnabled: true,
   };
   // Phase 1: solo player, P1 only.
   const p1 = makeIdlePlayer(asPlayerId(0), 0xff3b6b);
@@ -385,51 +395,60 @@ function placePrimitive(
     // component (current mergedComponents — NOT yet including candidate)
     // ∪ candidate's full component. Snapshotted BEFORE the candidate is
     // added below, so the emit captures exactly the pre-this-merge union.
-    const unionPrimIds: PrimitiveId[] = [...mergedComponents];
-    for (const id of candComp.primitiveIds) unionPrimIds.push(id);
-    world.effects.push({
-      kind: 'STRUCTURE_MERGE',
-      tick: world.tick,
-      originPos: { x: prim.pos.x, y: prim.pos.y },
-      unionPrimIds,
-      color: prim.placerColor,
-    });
+    // S10 P5: gate on world.cinematicsEnabled — the verlet impulse above
+    // stays unconditional (it's a constructive physics event, not a
+    // visual one; user explicitly chose physics over visual-only).
+    if (world.cinematicsEnabled) {
+      const unionPrimIds: PrimitiveId[] = [...mergedComponents];
+      for (const id of candComp.primitiveIds) unionPrimIds.push(id);
+      world.effects.push({
+        kind: 'STRUCTURE_MERGE',
+        tick: world.tick,
+        originPos: { x: prim.pos.x, y: prim.pos.y },
+        unionPrimIds,
+        color: prim.placerColor,
+      });
+    }
 
     for (const id of candComp.primitiveIds) mergedComponents.add(id);
   }
 
-  // S10 P4: emit one SCORE_TIER per crossed multiple of SCORE_TIER_STEP.
-  // Multi-tier crossings (e.g. 14 → 31 via primary magic + multiple magic
-  // merges) fire one event per band so the renderer can stagger pulses
-  // — though in practice a single place crosses at most 1 band in
-  // Phase 1 (max ~10 score delta per place).
-  const oldTier = Math.floor(oldScore / SCORE_TIER_STEP);
-  const newTier = Math.floor(world.scoreProgress / SCORE_TIER_STEP);
-  for (let t = oldTier + 1; t <= newTier; t++) {
-    world.effects.push({
-      kind: 'SCORE_TIER',
-      tick: world.tick,
-      tier: t,
-      color: player.color,
-    });
+  // S10 P4+P5: emit one SCORE_TIER per crossed multiple of SCORE_TIER_STEP,
+  // gated on cinematicsEnabled. Multi-tier crossings (e.g. 14 → 31 via
+  // primary magic + multiple magic merges) fire one event per band — in
+  // practice a Phase 1 place crosses at most 1 band (max ~10 score delta).
+  if (world.cinematicsEnabled) {
+    const oldTier = Math.floor(oldScore / SCORE_TIER_STEP);
+    const newTier = Math.floor(world.scoreProgress / SCORE_TIER_STEP);
+    for (let t = oldTier + 1; t <= newTier; t++) {
+      world.effects.push({
+        kind: 'SCORE_TIER',
+        tick: world.tick,
+        tier: t,
+        color: player.color,
+      });
+    }
   }
 
-  // S10 P2: STRUCTURE_GROW outward pulse from the newly-placed primitive.
-  // BFS at emit time over the post-merge component so the wave reaches
-  // every primitive connected through any bond, including the just-added
-  // merge bonds. Single-anchor placements (no bonds) emit with just the
-  // origin in the hop map → renderer flashes only the new prim, no cascade
-  // — natural minimum-event for "the structure has one element."
-  const hopMap = bfsHopMap(prim, world.primitives, world.bonds);
-  world.effects.push({
-    kind: 'STRUCTURE_GROW',
-    tick: world.tick,
-    originPrimId: prim.id,
-    hopByPrimId: hopMap.hopByPrimId,
-    hopByBondId: hopMap.hopByBondId,
-    color: prim.placerColor,
-    maxHop: hopMap.maxHop,
-  });
+  // S10 P2+P5: STRUCTURE_GROW outward pulse from the newly-placed primitive,
+  // gated on cinematicsEnabled. BFS at emit time over the post-merge
+  // component so the wave reaches every primitive connected through any
+  // bond, including the just-added merge bonds. Single-anchor placements
+  // (no bonds) emit with just the origin in the hop map → renderer flashes
+  // only the new prim, no cascade — natural minimum-event for "the
+  // structure has one element."
+  if (world.cinematicsEnabled) {
+    const hopMap = bfsHopMap(prim, world.primitives, world.bonds);
+    world.effects.push({
+      kind: 'STRUCTURE_GROW',
+      tick: world.tick,
+      originPrimId: prim.id,
+      hopByPrimId: hopMap.hopByPrimId,
+      hopByBondId: hopMap.hopByBondId,
+      color: prim.placerColor,
+      maxHop: hopMap.maxHop,
+    });
+  }
 
   // Carry-1 reset.
   world.players.set(player.id, fsmDrop(player));

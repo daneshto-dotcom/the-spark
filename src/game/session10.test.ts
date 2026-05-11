@@ -430,3 +430,72 @@ describe('S10 P4 — SCORE_TIER corner pulse at every SCORE_TIER_STEP boundary',
     expect(world.scoreProgress).toBe(26);
   });
 });
+
+describe('S10 P5 — cinematicsEnabled gates STRUCTURE_GROW / STRUCTURE_MERGE / SCORE_TIER', () => {
+  it('cinematicsEnabled=false suppresses STRUCTURE_GROW but keeps BOND_COMMIT', () => {
+    const world = makeWorld(0);
+    expect(world.cinematicsEnabled).toBe(true); // default
+    world.cinematicsEnabled = false;
+    const a = placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
+    placeAt(world, { sparkRawId: 2, type: SparkType.Line, pos: { x: 220, y: 200 }, targetId: a });
+
+    expect(world.effects.filter((e) => e.kind === 'STRUCTURE_GROW').length).toBe(0);
+    expect(world.effects.filter((e) => e.kind === 'BOND_COMMIT').length).toBe(1);
+  });
+
+  it('cinematicsEnabled=false suppresses STRUCTURE_MERGE but verlet impulse still applies (P3 design intent)', () => {
+    const world = makeWorld(0);
+    const a0 = placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
+    const b0 = placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 300, y: 200 }, targetId: null });
+    const b0Prim = world.primitives.get(b0)!;
+    expect(b0Prim.prevPos.x).toBeCloseTo(300, 1);
+
+    world.cinematicsEnabled = false;
+
+    placeAt(world, {
+      sparkRawId: 3,
+      type: SparkType.Dot,
+      pos: { x: 260, y: 200 },
+      targetId: a0,
+      mergeCandidateIds: [a0, b0],
+    });
+
+    // No STRUCTURE_MERGE effect emitted.
+    expect(world.effects.filter((e) => e.kind === 'STRUCTURE_MERGE').length).toBe(0);
+    // But verlet impulse still applied — physics half stays unconditional.
+    expect(b0Prim.prevPos.x).toBeCloseTo(300 + MERGE_IMPULSE_MAGNITUDE, 2);
+  });
+
+  it('cinematicsEnabled=false suppresses SCORE_TIER events at tier boundaries', () => {
+    const world = makeWorld(0);
+    world.cinematicsEnabled = false;
+    // Build all-magic chain that would otherwise cross SCORE_TIER_STEP.
+    const anchor = placeAt(world, { sparkRawId: 0, type: SparkType.Line, pos: { x: 200, y: 200 }, targetId: null });
+    let prev = anchor;
+    for (let i = 1; i <= 5; i++) {
+      prev = placeAt(world, {
+        sparkRawId: i,
+        type: SparkType.Line,
+        pos: { x: 200 + i * 18, y: 200 },
+        targetId: prev,
+      });
+    }
+    expect(world.scoreProgress).toBeGreaterThanOrEqual(SCORE_TIER_STEP);
+    expect(world.effects.filter((e) => e.kind === 'SCORE_TIER').length).toBe(0);
+  });
+
+  it('cinematicsEnabled defaults true in makeWorld; flipping is reversible', () => {
+    const w1 = makeWorld(0);
+    expect(w1.cinematicsEnabled).toBe(true);
+
+    const w2 = makeWorld(0);
+    w2.cinematicsEnabled = false;
+    placeAt(w2, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
+    expect(w2.effects.filter((e) => e.kind === 'STRUCTURE_GROW').length).toBe(0);
+
+    // Re-enable mid-game → next place emits structure cinematics again.
+    w2.cinematicsEnabled = true;
+    placeAt(w2, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 250, y: 200 }, targetId: null });
+    expect(w2.effects.filter((e) => e.kind === 'STRUCTURE_GROW').length).toBe(1);
+  });
+});

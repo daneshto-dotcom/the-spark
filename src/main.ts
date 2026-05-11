@@ -86,7 +86,7 @@ async function bootstrap(): Promise<void> {
   const grid = new SpatialGrid(SPATIAL_CELL_SIZE);
 
   const hint = new Text({
-    text: 'LMB drag spark out of zone → carry · RMB drag onto a primitive → bond · ~ stats',
+    text: 'LMB drag spark out of zone → carry · RMB drag onto a primitive → bond · ~ stats · C cinematics',
     style: new TextStyle({ fontFamily: 'monospace', fontSize: 11, fill: 0x444444 }),
   });
   hint.position.set(10, CANVAS_HEIGHT - 22);
@@ -111,6 +111,12 @@ async function bootstrap(): Promise<void> {
     // 'R' or 'r' resets in POSTGAME — keyboard alternative to clicking.
     if ((e.key === 'r' || e.key === 'R') && world.gameState === 'POSTGAME') {
       resetIfPostgame();
+    }
+    // S10 P5: 'C' toggles structure cinematics (STRUCTURE_GROW, STRUCTURE_MERGE,
+    // SCORE_TIER). Bond-level effects (BOND_COMMIT pop, SEVER_ERASE fade)
+    // remain on — those are core combat feedback, not "cinematics."
+    if (e.key === 'c' || e.key === 'C') {
+      world.cinematicsEnabled = !world.cinematicsEnabled;
     }
   });
 
