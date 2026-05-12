@@ -15,7 +15,8 @@
 | Language | **TypeScript 5.x strict** | Type-level invariants for carry-1, color, immobility |
 | Bundler | **Vite 5** | HMR is the iteration multiplier |
 | Audio | **Deferred** (see § 9) | Phase 1 ships silent per spec § XV.6 |
-| Phase-3 net | Colyseus or Geckos.io (later) | Web-native server-authoritative |
+| Phase-2 net | **Trystero (^0.20)** [v3 amendment 2026-05-12, S15 P2] | WebRTC + Nostr signaling, ~40KB bundle, zero infra. For 1v1 friends-only play. See § 13. |
+| Phase-3 net | Colyseus or Geckos.io (later) | Web-native server-authoritative — reserved for >2-player scalability + matchmaking |
 | Test runner | Vitest | Same Vite stack |
 | Lint/format | ESLint + Prettier defaults | Don't bikeshed |
 
@@ -169,16 +170,24 @@ spark/
 │   │   ├── spawner.ts           // Confined zone, ticker, bounce
 │   │   └── player.ts            // Carry-1 FSM, energy, build counter
 │   ├── input/
-│   │   └── controls.ts          // Mouse-only: attract drag, connect drag, sever
+│   │   ├── controls.ts          // Mouse + Space-key: attract drag, connect drag, sever, END_TURN
+│   │   └── redundantBondTargets.ts // S15 P1: pure geometric pickers (extracted from controls.ts)
 │   ├── render/
 │   │   ├── renderer.ts          // Pixi.Application, scene graph, frame budget
 │   │   ├── effects.ts           // Bloom filter, glow, particle bursts
 │   │   ├── statsOverlay.ts      // Dev FPS + physics ms + counts (toggle ~)
-│   │   └── ui.ts                // Carry indicator, energy gauge
+│   │   ├── ui.ts                // Carry indicator, energy gauge, S15 P2 1v1 HUD (turn badge, per-player score, connection dot)
+│   │   ├── titleScreen.ts       // S15 P2: 1 Player / 1v1 mode select
+│   │   └── lobbyScreen.ts       // S15 P2: host/join panes + connection-lost overlay
+│   ├── net/                     // S15 P2 (LOCKED § 13 NEW): Phase-2 1v1 networked play
+│   │   ├── transport.ts         // Trystero/Nostr WebRTC adapter
+│   │   ├── protocol.ts          // Typed envelopes (Hello/Intent/NetSnapshot/EndGame), room code gen/parse
+│   │   ├── sync.ts              // HostSync seq emit + ClientSync seq receive + lerp interpolation
+│   │   └── lerp.ts              // clamp utility for lerp coefficients
 │   └── state/
-│       ├── world.ts             // Single state-mutation seam (dispatch pattern)
-│       ├── gameState.ts         // FSM: SETUP→PLAYING→WIN→POSTGAME
-│       └── save.ts              // WorldSnapshot JSON serializer
+│       ├── world.ts             // Single state-mutation seam (dispatch pattern); S15 P2 1v1 fields + actions
+│       ├── gameState.ts         // FSM: TITLE→LOBBY→PLAYING→WIN→POSTGAME→TITLE (S15 P2 extension)
+│       └── save.ts              // WorldSnapshot JSON serializer + S15 P2 NetSnapshot wire variant
 └── public/  (no assets — all procedural)
 ```
 
@@ -250,6 +259,19 @@ export function dispatch(world: World, action: GameAction): World;
 Phase 1: every input handler / spawner tick / energy tick calls `dispatch()` locally.
 Phase 3: `dispatch()` becomes `await dispatchOverNetwork(action)` — same call sites, no rewrite.
 
+**S15 P2 amendment (§ 13 NEW):** Phase-2 1v1 plugs in via dispatcher injection,
+not via `dispatch()` rewrite. `Controls` constructor takes a `ControlsDispatchFn`
+(`makeLocalDispatcher` default; client path wraps each action as an Intent
+envelope and sends over Trystero). Host receives Intent envelopes via
+`NetTransport.on()` and calls `dispatch(world, msg.action)` authoritatively. The
+single-seam invariant is preserved: all world mutation still routes through
+`dispatch()`, only the call-site indirection changed.
+
+**Input sanitization (Gemini R1 BLOCKER):** Host's reducer rejects
+`PICKUP_SPARK`, `DROP_SPARK`, `PLACE_PRIMITIVE` when `gameMode === '1v1'` AND
+`action.playerId !== world.currentPlayerId`. Defense-in-depth even when client
+controls layer should not have sent the action.
+
 ### 10.3 Render seam (Phase 2 fog)
 
 ```typescript
@@ -278,6 +300,17 @@ interface WorldSnapshot {
 ```
 
 JSON-serializable. Phase 1 uses for save/load; Phase 3 uses same shape for server snapshots + replay scrubbing.
+
+**S15 P2 amendment:** `WorldSnapshot` extended (additive, optional fields for
+pre-S15 compat): `gameMode: 'solo' | '1v1'`, `currentPlayerId: PlayerId`,
+`scoreByPlayer: Array<[PlayerId, number]>`. `SerializedPlayer` gains
+`avatarPos: Vec2`.
+
+`NetSnapshot` is the wire variant for Phase-2 host→client sync at 10 Hz
+(`NET_SNAPSHOT_HZ`). Council R2 + PRIME-AUDIT consolidated retain-list:
+`NetSnapshot = Omit<WorldSnapshot, 'savedAt' | 'rngSeed' | 'nextPrimitiveId' | 'nextBondId'>`.
+Stripped fields are host-only (timestamp not needed, RNG deterministic on
+host, monotonic ID counters host-authoritative).
 
 ### 10.5 Determinism (Phase 3 prerequisite)
 
@@ -332,4 +365,105 @@ Runtime asserts gated by `if (import.meta.env.DEV)` — zero cost in production 
 
 ---
 
-## End — All Phase 1 implementation decisions are locked. Phase 2+ extensions plug into seams documented in § 10.
+## 13 · Phase-2 Networked Play v1 (S15, 2026-05-12)
+
+**Authority:** User-authorized LOCKED § 1 amendment ("not same machine hotseat
+because my friend is in a different country"). Council R1+R2 closed
+(grok-4.20-0309-reasoning DISRUPTOR + gemini-2.5-pro AUDITOR). Trystero
+chosen over PeerJS (multi-strategy fallback negates rate-limit concern);
+"Connection lost" UI overlay v1 chosen over mandatory host-migration stub
+(deferred to S16 if playtest shows transient-drop annoyance).
+
+### 13.1 Transport
+- **Library:** [`trystero`](https://github.com/dmotz/trystero) ^0.20 (~40KB bundle)
+- **Strategy:** Nostr-primary (`import { joinRoom } from 'trystero/nostr'`).
+  PRIME-AUDIT #1: BitTorrent tracker default rejected (Grok R1 rate-limit
+  concern); Nostr decentralized signaling with multi-relay fallback.
+- **Wire:** WebRTC DataChannel (peer-to-peer) after Nostr signaling.
+  No relay server for in-game traffic.
+- **API surface (src/net/transport.ts):** `connect(roomCode)`, `send(msg)`,
+  `on(handler)`, `peerCount()`, `disconnect()`.
+
+### 13.2 Authority model
+- **Host = first joiner = P1 (red, PLAYER_COLORS[0]).** Runs full Verlet sim
+  authoritatively. Snapshot emit every `SNAPSHOT_INTERVAL_TICKS = PHYSICS_HZ /
+  NET_SNAPSHOT_HZ = 60/10 = 6` physics ticks.
+- **Client = second joiner = P2 (blue, PLAYER_COLORS[1]).** Does NOT step
+  physics (`stepPhysics` gated on `!isClient`). Renders interpolated
+  snapshots; sends Intent envelopes (`ClientSync.wrapIntent` + per-direction
+  `intentSeq`).
+- **Reducer auth gate (Gemini R1 BLOCKER):** Host's `dispatch()` silently
+  rejects `PICKUP_SPARK` / `DROP_SPARK` / `PLACE_PRIMITIVE` when
+  `world.gameMode === '1v1' && action.playerId !== world.currentPlayerId`.
+
+### 13.3 Sync protocol
+- **Per-direction sequence numbers** (Council R2 + PRIME-AUDIT #2): host
+  emits `snapshotSeq` monotonic; client receives validates
+  `msg.snapshotSeq > lastSeq` (out-of-order rejected). Client→host
+  intents use independent `intentSeq` counter.
+- **Linear lerp interpolation** (Council R2 — non-negotiable): client
+  maintains `prevSnap` + `currentSnap`; render frame computes
+  `t = elapsed / NET_INTERPOLATION_MS = 100ms`; positions = lerp(prev,
+  curr, t). Non-position state (gameState, scoreProgress, players,
+  bonds adjacency) snaps to currentSnap once per new snapshot via
+  `applyNetSnapshot()` flag (PRIME-AUDIT perf: avoids per-render
+  Map rebuilds).
+- **Envelopes (src/net/protocol.ts):** `HELLO` (handshake),
+  `INTENT { intentSeq, action: GameAction }` (client→host),
+  `NETSNAPSHOT { snapshotSeq, snapshot: NetSnapshot }` (host→client),
+  `ENDGAME { winnerId }`.
+
+### 13.4 Lobby
+- **Room codes:** 6-character alphanumeric, no-confusion alphabet
+  (`23456789ABCDEFGHJKLMNPQRSTUVWXYZ` — drops `0/O/1/I` for verbal sharing).
+  `generateRoomCode()` / `parseRoomCode()` in `src/net/protocol.ts`.
+- **UI (src/render/lobbyScreen.ts):** host pane generates code + waits
+  for joiner + "Begin Match" button; join pane keyboard input + "Connect";
+  "Back to Title" cancel; "Connection lost" full-screen overlay when
+  `peerCount === 0` during PLAYING.
+
+### 13.5 Game-state FSM extension
+- **Solo path:** `TITLE → PLAYING → WIN → POSTGAME → TITLE`.
+- **1v1 path:** `TITLE → LOBBY → PLAYING → WIN → POSTGAME → TITLE`.
+- New actions: `START_GAME { mode, isHost }`, `END_TURN`, `RETURN_TO_TITLE`,
+  `UPDATE_AVATAR_POS`.
+- `RETURN_TO_TITLE` clears world (primitives, bonds, freeSparks, effects)
+  AND drops P2 AND resets scoreProgress + scoreByPlayer.
+
+### 13.6 Per-player scoring
+- `scoreByPlayer: Map<PlayerId, number>` added to World.
+- `addScore(world, playerId, delta)` helper:
+  - **Solo:** additive `world.scoreProgress += delta` (preserves test
+    contract; gameState.test.ts L51, session13.test.ts directly mutates
+    scoreProgress).
+  - **1v1:** `scoreByPlayer[playerId] += delta`;
+    `scoreProgress = max(scoreByPlayer.values())` (leader's score drives
+    `PHASE_1_WIN_SCORE` gate; ensures WIN fires when ANY player crosses
+    threshold first, not when summed totals do).
+- `tickGameState` in 1v1: attribution scans `scoreByPlayer` for max,
+  passes that PlayerId to `WIN_TRIGGER.winnerId`.
+
+### 13.7 Known v1 limitations (documented for playtest expectations)
+- **AttractDrag client latency** (~RTT/2 sluggish). Client doesn't run
+  physics — local cursor + spark visuals lag until host snapshot returns.
+  S16 prediction work plan.
+- **No host-migration.** Connection drop → "Connection lost" overlay →
+  both players must return to title + reconnect with new room code.
+  Grok R2 advocated mandatory one-line stub; Gemini R2 (adopted) deferred.
+- **Tab-hidden host pause.** Pixi animation pauses when host's tab
+  hides → sim freezes → client sees stale snapshots until tab refocused.
+- **Save format break.** Pre-S15 saves rejected gracefully (gameMode +
+  currentPlayerId + scoreByPlayer + avatarPos are optional in restore
+  but solo defaults applied — pre-S15 mid-game saves replay correctly
+  but won't deserialize per-player score state that didn't exist).
+- **No reconnect.** Session ends on disconnect.
+
+### 13.8 Constants (src/constants.ts)
+- `NET_SNAPSHOT_HZ = 10`
+- `NET_INTERPOLATION_MS = 100`
+- `NET_ROOM_CODE_LENGTH = 6`
+- `NET_CONNECTION_TIMEOUT_MS = 30000` (reserved for future)
+
+---
+
+## End — All Phase 1 + Phase-2 Tier-0 (1v1 networked) implementation decisions are locked. Phase 2+ disruption suite (Sever-as-disruption, Inject Spiral, Steal) + Multi-color rendering + Mega-combos extend per `docs/phase-2-design-options.md`. Phase 3 net (Colyseus / Geckos.io) reserved for >2-player scalability.

@@ -6,6 +6,162 @@
 
 ---
 
+## Session 15 — S14 Charter Extraction + Phase-2 1v1 Networked Play [COMPLETED] (2026-05-12)
+
+**Triggered by user request "present top recommended priority session batch
+following full pipeline flow." Standard tier escalated to Full tier mid-session
+on user amendment 2 ("not same machine hotseat because my friend is in a
+different country") which authorized breaking LOCKED § 1 Phase-2/3 boundary
+for Phase-2 networked play.**
+
+User amended scope twice in-session:
+1. Original PDR proposed Tier-0 Hotseat + Fog of war (~450 LOC). Council R1
+   returned REVISE/REVISE.
+2. User playtest of S14 build: "looks a lot better, well done! no need for fog
+   of war yet. lets just work on making another player." Hotseat → re-Council
+   carry-forward, scope reduced to lobby + hotseat (~330 LOC).
+3. User cross-country amendment: "not same machine hotseat because my friend
+   is in a different country, so lets make it a lobby host or something."
+   Council R1+R2 deliberation (Trystero vs PeerJS resolved by R2 convergence
+   on Trystero/Nostr; host-migration deferred to S16 via Gemini's "Connection
+   lost" overlay v1). PRIME-AUDIT applied 6 leak-throughs.
+
+User approval gate: "approved! be most technical, pedantic, logical and
+thorough!"
+
+**P1 — Charter extraction (Micro, commit `b9c4b20`).** Mechanical extraction
+of `pickRedundantBondTargets` + `angularDistance` from controls.ts
+(:449-534 pre-S15) to new `src/input/redundantBondTargets.ts`. Zero behavior
+change. controls.ts 565 → 479 LOC (under § XV soft charter; closes S14
+PRIME-AUDIT carry-forward documented in HANDOFF). redundantBondTargets.ts
+at 102 LOC. 252/252 regression preserved. Same Micro pattern as S14 P2.0
+(world.ts → placePrimitive.ts).
+
+**P2 — Networked 1v1 MVP (Full tier core, commit `add497f`).** Six new
+files + 8 modified + Trystero ^0.20 dep (+~40KB bundle):
+- `src/net/transport.ts` (103 LOC): NetTransport wrapping `trystero/nostr`
+  joinRoom; Nostr-primary signaling per PRIME-AUDIT #1 (BitTorrent default
+  rejected via Grok R1 rate-limit concern); auto-fallback multi-strategy.
+- `src/net/protocol.ts` (83 LOC): typed discriminated-union envelopes
+  Hello/Intent/NETSNAPSHOT/EndGame; generateRoomCode (32-char no-confusion
+  alphabet `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`) + parseRoomCode.
+- `src/net/sync.ts` (146 LOC): HostSync emits snapshotSeq-numbered NetSnapshot
+  every NET_SNAPSHOT_HZ=10 (every 6 physics ticks); ClientSync.receive
+  validates seq>lastSeq (out-of-order rejected); interpolateInto lerps
+  primitive + freeSpark positions between prev + current over
+  NET_INTERPOLATION_MS=100 (linear lerp Council R2 + needsFullApply flag
+  PRIME-AUDIT perf avoids per-render Map rebuild).
+- `src/net/lerp.ts` (15 LOC): lerp01 clamp utility.
+- `src/render/titleScreen.ts` (144 LOC): "SPARK" title + "1 Player" / "1v1
+  (2 Player)" buttons.
+- `src/render/lobbyScreen.ts` (289 LOC): host pane (generates code +
+  "Waiting for Player 2" → "Begin Match") / join pane (text input + Connect)
+  / "Connection lost" full-screen overlay / Back to Title.
+
+Schema additions:
+- `Player` interface gains `avatarPos: Vec2` (Council R1 Grok BLOCKER #2
+  carry-forward).
+- `World` gains `gameMode: 'solo' | '1v1'`, `currentPlayerId: PlayerId`,
+  `scoreByPlayer: Map<PlayerId, number>`, `isHost: boolean`. GameState
+  union extended with `'TITLE' | 'LOBBY'`. New actions: `START_GAME`,
+  `END_TURN`, `RETURN_TO_TITLE`, `UPDATE_AVATAR_POS`.
+- `PICKUP_SPARK`, `DROP_SPARK`, `PLACE_PRIMITIVE` silently reject when
+  `gameMode === '1v1' && action.playerId !== currentPlayerId` (Gemini R1
+  BLOCKER input sanitization).
+- `addScore(world, playerId, delta)` helper: solo additive (preserves test
+  contract — gameState.test.ts L51, session10/session13 SCORE_TIER tests
+  directly mutate scoreProgress); 1v1 per-player + scoreProgress =
+  max(scoreByPlayer.values()) for WIN gate.
+- `WorldSnapshot` extended (additive, optional fields for pre-S15 compat):
+  gameMode, currentPlayerId, scoreByPlayer, avatarPos. New exports
+  `netSnapshot()` (NetSnapshot = WorldSnapshot - {savedAt, rngSeed,
+  nextPrimitiveId, nextBondId} per Council R2 retain-list) +
+  `applyNetSnapshot()`.
+
+Input layer:
+- `controls.ts` dispatcher injection via `ControlsDispatchFn`; default
+  `makeLocalDispatcher` preserves back-compat. Solo / host: local dispatch.
+  Client: net-routed via ClientSync.wrapIntent + NetTransport.send.
+  Space key handler: END_TURN in 1v1 PLAYING; auto-release on AttractDrag
+  (drop to Idle) or ConnectDrag (DROP_SPARK at cursor) per PRIME-AUDIT #4.
+  `setPlayerId(1)` for client joiner.
+
+Entry + render pipeline:
+- `main.ts`: boots gameState='TITLE'; TitleScreen + LobbyScreen lifecycle
+  via callbacks (onHostStart generates code + on(INTENT)→dispatch;
+  onJoinAttempt setPlayerId(1) + on(NETSNAPSHOT)→clientSync.receive;
+  onBeginMatch dispatches START_GAME(1v1)). Snapshot emission gated on
+  host PLAYING every SNAPSHOT_INTERVAL_TICKS=6. Client physics skipped
+  (host authoritative); client interpolation runs every render frame.
+  Connection-lost overlay shows when 1v1 PLAYING + peerCount=0.
+- `ui.ts` (HUD): turn indicator badge (active player color + "SPACE to
+  end"), per-player score readouts (RED / BLUE vs 50), connection status
+  dot (green=connected, red=disconnected). Energy gauge tracks
+  currentPlayerId. WIN banner uses winner's player color.
+
+Spec amendments (LOCKED_DECISIONS.md, P3 closeout):
+- § 1 row split: Phase-2 net (Trystero ^0.20) + Phase-3 net (Colyseus
+  reserved for scalability).
+- § 7 module map: src/net/ block added; gameState FSM TITLE→...→TITLE.
+- § 10.2: dispatcher injection note + input-sanitization gate.
+- § 10.4: NetSnapshot wire variant note.
+- NEW § 13: Phase-2 Networked Play v1 (8 subsections — transport,
+  authority, sync, lobby, FSM, per-player scoring, known v1 limits,
+  constants).
+
+Council R1+R2 deliberation (Full tier mandatory):
+- Grok DISRUPTOR (grok-4.20-0309-reasoning): R1 PeerJS-better; R2
+  CONCEDED Trystero (multi-strategy Nostr fallback negates rate-limit
+  concern). R2 host-migration mandatory-stub deferred to S16.
+- Gemini AUDITOR (gemini-2.5-pro): R1 Trystero better (zero-infra);
+  R1 ADOPT-LIST entity-interpolation (lerp), batch SPLIT, formal § 1
+  amendment text, NetSnapshot audit. R2 host-migration "Connection
+  lost" overlay v1 (adopted).
+- PRIME-AUDIT delta (6 catches): Trystero/Nostr explicit import (not
+  default BitTorrent); per-direction seq numbers; npm install scope;
+  net/ in module-map; AttractDrag latency known-limit doc;
+  scoreProgress reset on RETURN_TO_TITLE.
+
+**P3 — Closeout (this commit).** Per-priority commits + push (P1
+`b9c4b20`, P2 `add497f`, P3 closeout). session-state per priority
+(status, check_completed, check_method verbose per
+INTEGRITY-WARNING PROTOCOL, checkpoint_commit). reflexion +5 S15 /
+prune 5 S7 to maintain ≤50 cap. boot-snapshot regen. PDR archived to
+`.claude/plans-archive/2026-05-12_PDR_Session_15_COMPLETED.md` (full
+Battle Ledger R1+R2 + PRIME-AUDIT delta + adopt-list). HANDOFF_2026-05-12
+replaced (S14 version archived to `.handoff-archive/HANDOFF_2026-05-12_S14_postS15.md`).
+BACKLOG.md S15 entry inserted above S14. LOCKED_DECISIONS amendments
+applied per Council adopt-list.
+
+Verification:
+- `npx tsc -b --noEmit` exit 0
+- `npx vitest run` → 291/291 (252 prior + 39 new across protocol.test
+  9, sync.test 16, session15.test 14)
+- LOC delta: +~490 added; -120 moved (P1 extract); +~80 doc/comments
+- world.ts at 357 LOC over the 280 trip-wire — S16 carry-forward
+  (extract dispatch handlers + addScore to gameMode.ts, ~80 LOC moved)
+- transport+protocol+sync+lerp = 347 LOC (over the 160 combined
+  trip-wire; bandwidth from adding lerp utility + room-code parsing;
+  not split — feature-coherent module)
+
+S16 carry-forward block:
+- CHARTER (S15 P2 PRIME-AUDIT): world.ts → gameMode.ts extraction
+  (~80 LOC moved; brings world.ts to ~280; same Micro pattern as
+  S14 P2.0 / S15 P1).
+- PLAYTEST-GATED: NET_SNAPSHOT_HZ + NET_INTERPOLATION_MS feel tuning;
+  S14 carry-overs (AVATAR_PULSE_*, REDUNDANT_BOND_*); S13 carry-overs
+  (cinematics constants).
+- NET ENHANCEMENT: client-side AttractDrag prediction + reconciliation
+  buffer (~150 LOC, Grok R1 ask); delta-encoded NetSnapshot for
+  bandwidth (Council R1 nice-to-have); host-migration stub if playtest
+  shows transient-drop annoyance (Grok R2 ask); live cursor-move sync
+  for remote avatar (~50 LOC).
+- ASSET-GATED: Audio (Suno track upload pending since S5).
+- PHASE-2 TIER-1+: Sever-as-disruption / Inject Spiral / Steal /
+  Multi-color rendering / Mega-combos per `docs/phase-2-design-options.md`.
+
+---
+
 ## Session 14 — Avatar Disambiguation + Multi-Endpoint Redundant Bonding [COMPLETED] (2026-05-12)
 
 **Triggered by post-S13 playtest user report (same session day, follow-up batch).**
