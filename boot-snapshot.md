@@ -1,78 +1,114 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-05-12 (post-Session-15) | Session: 15 of 10+ — S14 § XV charter extraction + Phase-2 1v1 networked play (Trystero/Nostr)
+Generated: 2026-05-12 (post-Session-16) | Session: 16 of 10+ — Cross-network playtest blockers fixed; live at github.io
 
 ## Next Steps
-S16 is pre-scoped post-S15-playtest. User flagged two CRITICAL gaps after viewing the lobby screen (screenshot captured):
-1. **BLOCKER — Lobby JOIN pane has no usable input field.** The keyboard-buffer hack in [lobbyScreen.ts](src/render/lobbyScreen.ts) is invisible to the user (no caret, no click-to-focus, no HTML input). Friend on the other machine cannot enter the host's code → cross-network play impossible until fixed.
-2. **BLOCKER — Cross-network play impossible: dev server is localhost only.** `localhost:31183` is loopback-only. Friend cannot load the app. Need either (a) deploy to a public URL (GitHub Pages recommended), or (b) tunnel localhost via ngrok (same-day test path only).
+S16 closed: cross-network playtest infrastructure complete. The 2 BLOCKERS
+flagged in S15 post-playtest review are gone:
+1. ✅ **Lobby JOIN UX FIXED.** Real HTML `<input>` overlay with all the
+   native affordances (caret, focus, paste, click-to-focus, mobile-keyboard
+   guards, full a11y attrs). Council R1 adopted.
+2. ✅ **App publicly accessible.** Deployed at
+   **https://daneshto-dotcom.github.io/the-spark/** via GitHub's official
+   Pages Actions pipeline (actions/upload-pages-artifact@v3 +
+   actions/deploy-pages@v4). HTTP 200, HSTS enforced, ready for cross-
+   country friend playtest TODAY.
 
-**S16 recommended batch (Standard tier, in execution order):**
+Plus charter cleanup + BETA badge + LOCKED amendments.
 
-- **P0 (Micro) — Charter extraction (S15 carry-forward).** Move S15 new dispatch handlers (START_GAME, END_TURN, RETURN_TO_TITLE, UPDATE_AVATAR_POS) + addScore helper from `world.ts` (357 LOC) to new `src/state/gameMode.ts`. ~80 LOC moved → world.ts back to ~280. Same mechanical pattern as S14 P2.0 / S15 P1. 291/291 regression preserved.
+**S17 ready-to-ship priorities** (queued for user-controlled execution):
 
-- **P1 (Micro) — Lobby JOIN UX fix.** Replace the invisible Pixi-text mock with an HTML `<input type="text">` overlay (CSS-positioned over the JOIN pane rect). 6-char maxLength, uppercase auto-transform, cyan border, native focus + caret + paste. Click JOIN pane → `input.focus()`. Connect button enables when 6 valid chars. Clear "Click here, then enter the code your friend shared" hint so affordance is unmissable. ~80 LOC + 3-5 input-validation tests.
+- **P0 (Micro) — spark-online.space custom-domain swap.** Step 2 of the
+  S16 P2 plan, deferred per Amendment #2 because same-session commit
+  would break the github.io fallback URL during DNS propagation. User
+  flow: (a) Squarespace DNS Custom Records add 4 A records (Host=`@`,
+  values=`185.199.108.153` / `.109.153` / `.110.153` / `.111.153`) +
+  CNAME (Host=`www`, value=`daneshto-dotcom.github.io.`); (b)
+  `dig +short spark-online.space @8.8.8.8` confirms resolution; (c)
+  Settings → Pages → Custom domain = `spark-online.space` + Enforce
+  HTTPS (Let's Encrypt auto-issues ~15min); (d) push the ~3-line ready-
+  to-ship commit (vite.config base='/' + public/CNAME=spark-online.space).
+  Optional: Cloudflare DNS migration (nameserver swap to CF) — user
+  prefers CF UI; 24-48h propagation so do AFTER first playtest.
 
-- **P2 (Standard) — GitHub Pages deploy + custom-domain swap path. User-chosen domain: `spark-online.space`.** Two-step:
-  - **Step 1 (initial, S16 P2 ships):** `vite.config.ts` `base: '/the-spark/'`; `.github/workflows/deploy.yml` (push: master → npm ci + npm run build → publishes dist/ to gh-pages via peaceiris/actions-gh-pages@v3 + built-in GITHUB_TOKEN); Settings → Pages → Source: gh-pages / (root); verify `https://daneshto-dotcom.github.io/the-spark/` loads + Trystero WebRTC works (HTTPS default).
-  - **Step 2 (~2-line PR, ready to ship alongside Step 1):** `spark-online.space` purchased + WHOIS verified at Squarespace Domains 2026-05-12 (5yr, exp 2029-05-12). Change `base: '/'` + create `public/CNAME` containing `spark-online.space`; Squarespace DNS panel → Custom Records → add 4 A records (Host `@`, values `185.199.108.153 / .109.153 / .110.153 / .111.153`) + optional CNAME `www` → `daneshto-dotcom.github.io`; GitHub Settings → Pages → Custom domain `spark-online.space` + Enforce HTTPS (Let's Encrypt auto-issued ~15 min once DNS resolves).
-  - **Why two-step:** validate the deploy + Trystero P2P on github.io first (no DNS wait), then swap to branded domain at user convenience. Both small commits, no rework.
+- **P1 (Micro, playtest-gated) — NET feel tuning.** After cross-network
+  playtest, tune `NET_SNAPSHOT_HZ` (10), `NET_INTERPOLATION_MS` (100),
+  `AVATAR_PULSE_HZ` (1.2), `REDUNDANT_BOND_K` (3), `MIN_ANGLE_RAD` (25°)
+  to playtest signal. If transient-drop annoyance shows, evaluate Grok R2's
+  mandatory host-migration stub.
 
-- **P3 (Micro, optional) — Lobby visual polish.** Hide `makeSpawnerRing` + `makeLegend` containers when gameState ∈ {TITLE, LOBBY}. Eliminates spawner-ring artifact bleeding through the lobby panes (visible in user's S15 screenshot).
+- **P2 (Standard, playtest-signal-gated) — NET enhancements per S15 carry.**
+  Client-side AttractDrag prediction + reconciliation buffer (~150 LOC,
+  Grok R1 ask); delta-encoded NetSnapshot for bandwidth (Council R1
+  nice-to-have); host-migration stub (Grok R2 ask if needed); live cursor
+  sync (~50 LOC, currently avatarPos updates only on commit).
 
-- **P4 — Closeout** (LOCKED § 13 deploy-URL amendment, BACKLOG, reflexion, boot-snapshot, PDR archive, HANDOFF).
+- **P3 (Standard) — Phase-2 Tier-1+ disruption suite.** Per
+  `docs/phase-2-design-options.md`, recommended next pair is C
+  (Sever-as-disruption) + F (Multi-color rendering), ~220 LOC.
 
-**Same-day playtest path (before P2 deploys):** `npx ngrok http 31183` → temporary public URL → send to friend → validates Trystero WebRTC + lobby flow end-to-end. Free ngrok tier has random URL per session; your laptop + Vite + ngrok must stay running.
-
-**Tune feel constants post-playtest:** `NET_SNAPSHOT_HZ` (10), `NET_INTERPOLATION_MS` (100); S14 carry-overs (AVATAR_PULSE_HZ=1.2, REDUNDANT_BOND_K=3, MIN_ANGLE_RAD=25°); S13 cinematics constants.
-
-**Optional S16+ enhancements (per playtest signal):**
-- Client-side AttractDrag prediction + reconciliation buffer (~150 LOC, Grok R1 ask).
-- Delta-encoded NetSnapshot for bandwidth (Council R1 nice-to-have).
-- Host-migration stub if transient disconnects feel intrusive (Grok R2 ask).
-- Live cursor-move sync for remote avatar (~50 LOC; currently avatarPos updates only on commit).
-
-**Known v1 limitations** (LOCKED § 13.7): AttractDrag on P2 lags ~RTT/2; no host-migration; tab-hidden host pauses sim; save format break (pre-S15 → solo defaults applied); no reconnect.
-
-**Phase-2 Tier-1+ deferred:** `docs/phase-2-design-options.md` — recommended next pair C (Sever-as-disruption) + F (Multi-color rendering), ~220 LOC.
-
-**Audio:** Suno track upload pending since S5.
+- **P4 (asset-gated) — Audio.** Suno didgeridoo trance track upload still
+  pending since S5.
 
 ## Blockers
-**Two BLOCKERS for cross-network playtest** (both in S16 P1 + P2):
-- JOIN pane input field non-functional — friend cannot enter code.
-- App not publicly accessible — friend cannot load the page.
-
-Both must land before any real friend-in-different-country playtest. After both deploy, the verification path is: friend opens `https://daneshto-dotcom.github.io/the-spark/` → 1v1 → JOIN → types code from your host screen → Connect → "Begin Match" (you click on host) → both see same world → SPACE to end turn → first to 50 wins.
+None for cross-network playtest. github.io URL is live. Friend can open
+it and enter a 6-char code in the JOIN input. Test path: friend opens
+https://daneshto-dotcom.github.io/the-spark/ → click "1v1 (2 Player)" →
+JOIN pane → type host's 6-char code into the cyan-border input → Connect →
+host (you) clicks "Begin Match" → both see same world → SPACE ends turn →
+first to PHASE_1_WIN_SCORE wins.
 
 ## Pending Backlog
-- [ ] Session 16+ — S15 P2 PRIME-AUDIT carry-forward (world.ts → gameMode.ts extraction); S15 client-side prediction + delta encoding + host-migration stub (per playtest signal); Phase-2 Tier-1+ disruption suite (Sever-as-disruption / Inject Spiral / Steal / Multi-color rendering / Mega-combos per `docs/phase-2-design-options.md`); Audio (Suno track upload); any post-S15-playtest re-tuning of `NET_SNAPSHOT_HZ`, `NET_INTERPOLATION_MS`.
+- [ ] Session 17+ — S16 P2 Step 2 (spark-online.space custom-domain swap,
+  ready-to-ship after user does DNS + Pages Custom Domain toggle);
+  optional Cloudflare DNS migration; post-playtest NET-feel tuning; NET
+  enhancements per playtest signal (prediction / delta / host-migration /
+  live cursor); Phase-2 Tier-1+ disruption suite (per
+  `docs/phase-2-design-options.md`); Audio (Suno track upload).
 
 ## Git
-Branch: `master`. Origin: `https://github.com/daneshto-dotcom/the-spark.git`. All S15 commits pushed.
-- (S15 closeout commit at end of P3)
-- add497f — S15 P2: networked 1v1 multiplayer MVP (Trystero/Nostr WebRTC, host-authoritative 10Hz NetSnapshot + lerp + per-direction seq, title + lobby, solo preserved)
-- b9c4b20 — S15 P1: extract pickRedundantBondTargets + angularDistance from controls.ts to src/input/redundantBondTargets.ts
-- 8daafc6 — [state-autocommit] S14
-- 1764900 — S14 /handoff: archive copy of root HANDOFF to .handoff-archive/
-- 8d08e58 — S14 /handoff: state churn (1 line)
-- b8a236f — [state-autocommit] S14
-- f430710 — S14: session-state — P3 completed + active_pdr -> archive
-- 05c5d72 — S14 P3: closeout — BACKLOG + reflexion + boot snapshot + PDR archive + HANDOFF
-- ab40447 — S14 P2.1: multi-endpoint redundant bonding (K=3, 25° spread, no-score)
-- 9bb784e — S14 P2.0: extract placePrimitive from world.ts to src/state/placePrimitive.ts
-- 0ccb3fe — S14 P1: avatar disambiguation — anti-phase outer/inner alpha pulse
+Branch: `master`. Origin: `https://github.com/daneshto-dotcom/the-spark.git`.
+All S16 commits pushed.
+- (S16 closeout commit at end of P4)
+- 9d9d9ee — S16 P3: BETA badge + hide spawner ring/legend in TITLE/LOBBY
+  (also re-triggered the deploy after Pages was enabled via gh API)
+- 4011862 — S16 P2 Step 1 + 1.5: GitHub Pages deploy + favicon/robots/OG
+- 5ff7865 — S16 P1: HTML <input> overlay replaces Pixi+keydown lobby JOIN hack
+- b2979fc — S16 P0: extract gameMode dispatch handlers + addScore from world.ts
+- ef681a6 — S15 /handoff: WHOIS verification complete (user confirmed)
+- e4f512f — S15 /handoff: domain finalized to spark-online.space
+- add497f — S15 P2: networked 1v1 multiplayer MVP (Trystero/Nostr WebRTC)
+- b9c4b20 — S15 P1: extract pickRedundantBondTargets + angularDistance
 
-## Recent Reflexion (last 2 sessions)
+## Live URLs
+- **Game:** https://daneshto-dotcom.github.io/the-spark/ (HTTP 200, HSTS)
+- **Favicon:** https://daneshto-dotcom.github.io/the-spark/favicon.svg
+- **Robots:** https://daneshto-dotcom.github.io/the-spark/robots.txt
+- **Repo:** https://github.com/daneshto-dotcom/the-spark
+- **Pages settings:** https://github.com/daneshto-dotcom/the-spark/settings/pages
+  (Source = "GitHub Actions"; build_type=workflow enabled S16 P3)
+
+## § XV LOC charter status (post-S16)
+- world.ts: 357 → 290 LOC (S16 P0 — target 280, 3.5% over, accepted)
+- gameMode.ts: 169 LOC NEW
+- placePrimitive.ts: 492 LOC (unchanged from S14)
+- controls.ts: 542 LOC (unchanged; under 600 trip-wire)
+- redundantBondTargets.ts: 102 LOC (unchanged from S15)
+- lobbyScreen.ts: 289 → ~440 LOC (S16 P1 — under 500 soft charter)
+- net layer (transport+protocol+sync+lerp): 347 LOC (unchanged from S15)
+- main.ts: +~25 LOC (P3 BETA badge + ring/legend visibility)
+- Tests: 291 → 307 (S16 P1 added 16 in lobbyScreen.test.ts)
+
+## Recent Reflexion (last 2 sessions — full log in reflexion_log.md)
+## 2026-05-12 — Session 16 of 10+ (Cross-network playtest blockers)
+- S16 #council-dual-dissent-overrides-implementation-feasibility-domain: §3.4 authority is a DEFAULT bias not a veto — 2 dissenters in non-primary domains aggregate past authority. Don't ratify your own preference just because the decision sits in your authority lane.
+- S16 #prime-audit-catches-deploy-pages-v4-required-workflow-elements: When Council recommends a tool/action switch, PRIME-AUDIT MUST verify the spec of the new tool, not just the swap. ~5 min audit prevents 2-min deploy-fail loop AND keeps the diff clean.
+- S16 #scope-amendment-mid-execution-when-original-plan-breaks-product-promise: Scope amendments aren't only triggered by user requests — they're triggered ANY time mid-execution discovery shows the original plan contradicts the user's stated goal. Document the amendment so gate flags + PDR-archive narrative match what shipped.
+- S16 #headless-preview-rAF-throttle-blocks-screenshot-not-implementation: When the preview verification path is blocked by environment, switch to alternative proofs (eval, DOM inspection, network response) that don't depend on the blocked path. Implementation correctness and visual-proof-of-life are different claims.
+- SESSION #gh-cli-as-pages-enablement-shortcut: Default to checking `gh api` first for any "user must click X in GitHub UI" step before documenting the manual path — keeps the deploy spec self-contained + auditable.
+
 ## 2026-05-12 — Session 15 of 10+ (S14 Charter Extraction + Phase-2 1v1 Networked Play)
-- S15 #user-amendment-mid-session-as-2nd-council-cycle: User amended scope twice in-session (original "Hotseat + Fog Tier-0" → "drop fog + add lobby same-machine hotseat" → "friend in different country, networked"). Each amendment fired its own deliberation cycle: R1 on original; R1 amend on hotseat+lobby (carry-forward applied); R1+R2 on networked. **Lesson: user amendments are LEGITIMATE PDR-cycle re-entry points, not papering-over. The pipeline (draft → Council → PRIME-AUDIT → user gate) re-runs cleanly per amendment; carry-forward findings from prior rounds compose with new ones.**
-- S15 #locked-decision-amendment-via-user-authority: User authorized breaking LOCKED § 1 ("Phase-3 net: Colyseus or Geckos.io later") for Phase-2 1v1 ("friend in different country"). Amendment documented in same session (LOCKED § 1 row split into Phase-2 net + Phase-3 net + new § 13 Networked Play v1). **Lesson: LOCKED_DECISIONS sections are USER-AUTHORITY-amendable not implementation-frozen. When user authorizes amendment, document it in the same session (don't defer the doc update) so future sessions don't act on stale lock.**
-- S15 #council-r2-converges-disagreements-not-restarts: R1 returned REVISE/REVISE with Trystero vs PeerJS as the major disagreement. R2 closed cleanly: Grok conceded Trystero on Gemini's specific counter (multi-strategy fallback + PeerJS-broker-is-only-for-signaling distinction). Host-migration split persisted (Gemini won "Connection lost overlay"; Grok mandatory stub deferred to S16). **Lesson: R2 is a CONVERGENCE round, not a fresh deliberation. Frame R2 prompts as "defend or concede your R1 stance against the other member's counter" — the AI peers act symmetrically (each gets the other's R1) and the disagreement either resolves via concrete data or persists with documented carry-forward.**
-- S15 #test-contract-as-implementation-surface: addScore helper initially broke 3 tests (session10 SCORE_TIER, session13 SCORE_TIER, gameState.test.ts indirectly) because they directly mutate `world.scoreProgress` as part of their fixture setup. First fix attempt (reset scoreProgress = scoreByPlayer.get(playerId)) preserved 1v1 semantics but broke solo. Resolution: branch on `gameMode` — solo path stays ADDITIVE (`world.scoreProgress += delta`; test contract preserved); 1v1 path uses max-of-scoreByPlayer (winner attribution semantics). **Lesson: existing test contracts are PART of the implementation surface, not external to it. New features must preserve them (additive new path while keeping old path identical) OR explicitly amend the tests with rationale. Don't treat tests as collateral damage of a refactor.**
-- SESSION #trip-wire-as-judgment-signal-not-hard-gate: world.ts at 357 LOC vs 280 trip-wire in PDR. Decision: ship + log carry-forward (S16 extraction), not split. Rationale: ~80 LOC of growth is documentation/comments (new fields + actions are well-documented); splitting would require two more commits to half-finish integration; the work is coherent + complete + tested. **Lesson: trip-wires from the PDR are SIGNALS for "stop and reconsider," not hard gates. When the over-trip is mostly documentation and the integration is at a clean stopping point, ship + log > fragment. When the over-trip is genuine logic creep, split.**
-
-## 2026-05-12 — Session 14 of 10+ (Avatar Disambiguation + Multi-Endpoint Redundant Bonding)
-- S14 #council-led-restructuring-as-prerequisite: Both Grok #7 and Gemini § 7.1 independently flagged "refactor first, feature second" for world.ts charter compliance. Restructured P2 → P2.0 (mechanical extract; world.ts 587→228 LOC) + P2.1 (feature in new file). **Lesson: when two Council members independently flag a sequencing issue, that's high-signal AGAINST deferring instinct. Restructure-before-feature.**
-- S14 #no-score-for-redundancy-clean-frame: Council G5/G8 challenged the scoring-of-redundancy-bonds + threshold-bump combo. Adopted: zero score for redundancy bonds, keep PHASE_1_WIN_SCORE=50. **Lesson: one concern per feature; one knob per concern. Threshold bumps that compensate for feature additions indicate the feature is doing too much.**
-- S14 #pure-function-extraction-for-class-method-testability: `pickRedundantBondTargets` extracted as top-level pure function so 10 unit tests cover the geometric algorithm without Pixi/DOM mock. **Lesson: when a class method has nontrivial geometry/math, extract as a pure function taking a parameter struct. Test surface grows; class method becomes a 5-line wrapper.**
-- S14 #verify-council-claim-with-source-not-narrative: Grok G4 used force-domain Σk framing on a Verlet position-domain solver. Verified bonds.ts:58 (extension-only break) + clamp ratio; rejected the framing while adopting the test mitigation. **Lesson: verify which solver model Council is reasoning in before adopting OR rejecting — force-domain vs position-domain produce wildly different safety analyses.**
-- SESSION #prime-audit-as-revision-gate-not-decoration: PRIME-AUDIT caught 3 material findings (save/load test, BOND_COMMIT visualEffectId explicit assertion, anchor-place S10 regression check). **Lesson: PRIME-AUDIT is the last revision-gate where "did I miss anything" produces concrete diffs. Empty PRIME-AUDIT = rubber-stamp, not run.**
+- S15 #user-amendment-mid-session-as-2nd-council-cycle: User amendments are LEGITIMATE PDR-cycle re-entry points, not paper-over moments. Carry-forward Council findings compose with new findings; resist "just adjust" mid-flight.
+- S15 #locked-decision-amendment-via-user-authority: LOCKED_DECISIONS sections are USER-AUTHORITY-amendable not implementation-frozen. Document amendments in the SAME session so future sessions don't act on stale lock.
+- S15 #council-r2-converges-disagreements-not-restarts: R2 is a CONVERGENCE round. Frame prompts symmetrically: "defend or concede your R1 stance against the other member's counter; cite concrete data."
+- S15 #test-contract-as-implementation-surface: Existing test contracts are PART of the implementation surface. New features must preserve them OR explicitly amend with rationale.
+- SESSION #trip-wire-as-judgment-signal-not-hard-gate: Trip-wires from the PDR are SIGNALS for "stop and reconsider," not hard gates. When over-trip is mostly documentation + integration is at a clean stopping point, ship + log carry-forward beats fragmenting.

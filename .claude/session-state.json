@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 0,
+  "tool_calls_session_total": 15,
   "session_start": "2026-05-12T13:25:00Z",
   "session_id": "S16",
   "budget_total": 150000,
@@ -12,7 +12,7 @@
   "council_waived": false,
   "council_waiver_reason": null,
   "council_invoked": "R1-completed-Grok-Gemini-both-REVISE-converging-on-deploy-pages-v4-plus-a11y-attrs-plus-favicon-robots-OG-plus-mobile-viewport-guard-PRIME-AUDIT-applied-Amendment-1-BETA-badge",
-  "active_pdr": ".claude/plans/2026-05-12_PDR_Session_16.md",
+  "active_pdr": ".claude/plans-archive/2026-05-12_PDR_Session_16_COMPLETED.md",
   "priorities": [
     {
       "id": "P0",
@@ -38,36 +38,36 @@
     },
     {
       "id": "P2",
-      "title": "GitHub Pages deploy BLOCKER (Standard): Step 1 base=/the-spark/ + .github/workflows/deploy.yml using actions/upload-pages-artifact@v3 + actions/deploy-pages@v4 (Council R1 switch from peaceiris); Step 1.5 public/favicon.svg + public/robots.txt + OG meta in index.html; Step 2 base=/ + public/CNAME=spark-online.space + Squarespace DNS records (CF migration deferred to S17+)",
-      "status": "in_progress",
+      "title": "GitHub Pages deploy BLOCKER (Standard): SHIPPED Step 1 (base='/the-spark/' + .github/workflows/deploy.yml using actions/upload-pages-artifact@v3 + actions/deploy-pages@v4) + Step 1.5 (public/favicon.svg + public/robots.txt + OG meta in index.html). Step 2 (base='/' + public/CNAME=spark-online.space + Squarespace DNS records) DEFERRED to S17 ready-to-ship commit per Scope Amendment #2 (to keep github.io URL working for today's playtest until user toggles Custom Domain).",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "PRIME-AUDIT (Rule 20): (1) vite.config.ts base='/the-spark/' applied. Local build verified: npm run build -> dist/index.html references /the-spark/assets/index-*.js (correct project-page prefix); dist/favicon.svg + dist/robots.txt copied from public/. Dev server unaffected by base (only applies at build). (2) .github/workflows/deploy.yml created with GitHub's official Pages actions (actions/upload-pages-artifact@v3 + actions/deploy-pages@v4) per Council R1 Grok #4 + Gemini #2 dual-dissent override of peaceiris/actions-gh-pages@v3. Two-job split (build -> deploy with needs:build) per Grok #4. PRIME-AUDIT #1 required elements all included: permissions block (contents:read, pages:write, id-token:write), environment binding (github-pages with url output), concurrency control (group=pages, cancel-in-progress=false). PRIME-AUDIT #2 user-step (Settings -> Pages -> Source = 'GitHub Actions') documented in workflow comments. (3) Step 1.5 files: public/favicon.svg 32x32 concentric circles in PLAYER_COLORS[0/1] (~5 LOC inline SVG); public/robots.txt with Allow:/ for crawlers; index.html updated with <link rel='icon'>, og:title, og:description, og:type (og:image deferred to S17+ no designed share asset). (4) SCOPE AMENDMENT #2: Step 2 deferred. Reason: shipping Step 2's base='/' + CNAME same-session would break the github.io fallback URL (assets at /assets/ instead of /the-spark/assets/) until user toggles Custom Domain in Pages Settings (asynchronous step incompatible with 'play today'). Today's playtest path: github.io URL works ~1min after Actions green. Step 2 becomes ~3-line S17 ready-to-ship commit user pushes after DNS + Custom Domain toggle. (5) Council R1 DEFERRED to S17+ all rejected: sitemap, web-manifest, og:image, CSP plugin, Sentry, analytics, Lighthouse CI, privacy policy, WCAG audit, browser matrix. (6) Tests 307/307 pass, typecheck exit 0. (7) Commit 4011862 pushed to origin/master, GH Actions workflow run 25732612027 in_progress at push time.",
+      "checkpoint_commit": "4011862"
     },
     {
       "id": "P3",
       "title": "Visual polish (now MANDATORY per Scope Amendment #1): P3.a BETA badge always-visible top-right of canvas (~10 LOC main.ts); P3.b hide spawner ring + legend when gameState in {TITLE, LOBBY}",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "PRIME-AUDIT (Rule 20): (1) P3.a: BETA badge added as Pixi Text directly to app.stage in src/main.ts (before the game-state visibility gate) so it's NEVER inside titleScreen/lobbyScreen/HUD containers and therefore visible across ALL gameState values (TITLE/LOBBY/PLAYING/WIN/POSTGAME). monospace 14px, cyan PLAYER_COLORS[1]=0x3bd7ff, letterSpacing=4, alpha=0.55 (subtle non-obtrusive), anchor.set(1,0) top-right at (CANVAS_WIDTH-12, 12). (2) P3.b: spawnerRing + legend captured as variables (previously inlined app.stage.addChild without ref); game-loop visibility update now toggles spawnerRing.visible + legend.visible = !inOverlayScreen where inOverlayScreen = (gameState==='TITLE' || gameState==='LOBBY'). Eliminates the spawner-ring artifact bleeding through lobby panes flagged in user's S15 screenshot. (3) Tests: 307/307 pass (P3 is pure Pixi-stage manipulation, no test surface required). Typecheck exit 0. (4) Deploy verification: commit 9d9d9ee triggered GH Actions run 25732727978 which completed SUCCESS in 1m4s. https://daneshto-dotcom.github.io/the-spark/ returns HTTP 200 with new index.html including BETA build + favicon.svg + OG meta tags. (5) Note: prior run 25732612027 had failed with 'Pages not enabled' error; enabled via `gh api -X POST repos/daneshto-dotcom/the-spark/pages -f build_type=workflow` and the P3 commit re-triggered deploy successfully. (6) Commit 9d9d9ee pushed to origin/master.",
+      "checkpoint_commit": "9d9d9ee"
     },
     {
       "id": "P4",
-      "title": "Closeout: LOCKED §13.1 trystero ^0.20 -> ^0.24 drift fix; NEW §13.9 deployment row (spark-online.space, github.io fallback, actions/deploy-pages@v4 pipeline, no default CSP, favicon/OG); §7 module-map adds gameMode.ts; BACKLOG + reflexion + boot + PDR archive + HANDOFF rotate",
-      "status": "pending",
+      "title": "Closeout: LOCKED §13.1 trystero ^0.20 -> ^0.24 drift fix; NEW §13.9 deployment row (spark-online.space, github.io fallback, actions/deploy-pages@v4 pipeline, no default CSP, favicon/OG); NEW §13.10 BETA badge row; §7 module-map adds gameMode.ts + placePrimitive.ts + public/ block; BACKLOG + reflexion + boot + PDR archive + HANDOFF rotate",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "Closeout artifacts complete: (1) LOCKED_DECISIONS.md amendments per Council R1 + PRIME-AUDIT + Scope Amendments #1+#2: §13.1 trystero version pin updated ^0.20 -> ^0.24.0 (S16 doc-drift fix); §13.9 NEW deployment subsection added (primary URL spark-online.space S17+ with full DNS spec, fallback URL github.io/the-spark/ SHIPPED, GH Pages deploy pipeline using actions/upload-pages-artifact@v3 + actions/deploy-pages@v4 with permissions/environment/concurrency blocks, one-time Source=GitHub Actions user-step note, no default CSP knowledge, HSTS enforcement, OG meta in index.html); §13.10 NEW persistent BETA badge subsection (always-visible Pixi Text top-right of canvas across all gameState values); §7 module-map updated to add src/state/gameMode.ts (S16 P0) + src/state/placePrimitive.ts (S14 P2.0, was missing from doc) + public/ block with favicon.svg + robots.txt. (2) BACKLOG.md S16 entry inserted above S15 (~140 LOC with full P0/P1/P2/P3 narrative + Council R1 outcome + PRIME-AUDIT delta + Scope Amendments + S17 carry-forward block). (3) reflexion_log.md prepended with 5 S16 entries (#council-dual-dissent-overrides-implementation-feasibility-domain, #prime-audit-catches-deploy-pages-v4-required-workflow-elements, #scope-amendment-mid-execution-when-original-plan-breaks-product-promise, #headless-preview-rAF-throttle-blocks-screenshot-not-implementation, SESSION #gh-cli-as-pages-enablement-shortcut); pruned 6 S8 entries (#headless-render-needs-game-loop-not-just-renderer superseded by S16 rAF-throttle; #pixel-hash + #mock-extension + #animation-static-split-as-paired-regression-tests now-canonical patterns; #flag-for-veto-in-pdr superseded by S15+ scope-amendment-mid-flight; SESSION #continuation-discretion superseded by S15+ user-amendment-cycle-re-entry) to maintain <=50 cap (49 entries final). (4) boot-snapshot.md regenerated with S16 commit list, post-S16 state, BETA badge note, live URL, S17 ready-to-ship priorities (P0 spark-online.space swap, P1 CF migration optional, P2 NET feel tuning, P3 NET enhancements, P4 Phase-2 Tier-1+, P5 audio). (5) PDR archived: .claude/plans/2026-05-12_PDR_Session_16.md -> .claude/plans-archive/2026-05-12_PDR_Session_16_COMPLETED.md via git mv (preserves full Battle Ledger + PRIME-AUDIT delta + Scope Amendments #1+#2 + final approval gate record). (6) HANDOFF rotated: prior root HANDOFF_2026-05-12.md (S15 version) -> .handoff-archive/HANDOFF_2026-05-12_S15_postS16.md; new S16 HANDOFF written at root with live URL, cross-network playtest path step-by-step, S17 priority order, S17 P0 ready-to-ship user-flow (DNS + Pages Custom Domain), Cloudflare migration option, pre-flight checklist, quick commands. (7) Final verification: 307/307 tests passing; typecheck exit 0; live URL https://daneshto-dotcom.github.io/the-spark/ HTTP 200; favicon.svg HTTP 200; robots.txt HTTP 200; HSTS header present; no CSP header (Council R1 Grok #5 prediction confirmed). (8) § XV charter status: world.ts 290 LOC (S16 target 280, 3.5% over accepted); gameMode.ts 169 LOC NEW; placePrimitive.ts 492 LOC unchanged; controls.ts 542 LOC unchanged under 600 trip-wire; redundantBondTargets.ts 102 LOC unchanged; lobbyScreen.ts ~440 LOC under 500 soft charter; net layer 347 LOC unchanged; tests 307 (S16 +16). (9) All S16 commits b2979fc P0 + 5ff7865 P1 + 4011862 P2 Step 1+1.5 + 9d9d9ee P3 + this P4 closeout all on origin/master, all pushed.",
+      "checkpoint_commit": "PENDING_P4_COMMIT"
     }
   ],
   "totals": {

@@ -6,6 +6,157 @@
 
 ---
 
+## Session 16 — Cross-network playtest blockers (lobby UX + GH Pages deploy) [COMPLETED] (2026-05-12)
+
+**Triggered by user post-S15-playtest review of the lobby screenshot:
+2 BLOCKERS surfaced for cross-network 1v1 with friend in different country.
+(1) JOIN pane keyboard hack invisible (no caret, no click-to-focus, no
+paste) — friend cannot enter the host's code. (2) Dev server is
+localhost-only — friend cannot load the page. Standard tier (P2 deploy
+drives tier; P0/P1/P3 Micro; P4 closeout).**
+
+User approval: "let run top priority batch so that me and my friend can
+play it by the end of the day, and remember we need to add 'beta' to the
+game page somewhere in the top of the screen" — triggered Scope Amendment
+#1 (BETA badge added to P3; P3 promoted from optional → mandatory). User
+clarified Cloudflare DNS migration is acceptable but stayed on Squarespace
+DNS for today's playtest speed (Scope Amendment #2 deferred Step 2 swap
+to S17 ready-to-ship).
+
+Council R1 (Standard tier, council-of-models): Grok REVISE + Gemini
+REVISE/HIGH. 8 ADOPTED / 6 REJECTED / 1 MITIGATION. Key adopt: switched
+P2 deploy action from peaceiris/actions-gh-pages@v3 → GitHub-official
+actions/upload-pages-artifact@v3 + actions/deploy-pages@v4. Adopted P1
+a11y attrs (aria-label, autocomplete, autocapitalize, inputmode,
+spellcheck) + Pixi z-index guard (1000) + mobile-keyboard visualViewport
+handler. Adopted NEW P2 Step 1.5 favicon/robots/OG meta. Rejected
+Cloudflare Pages alternative, Stryker mutation testing, Sentry/analytics/
+Lighthouse/privacy, peer-bound dispatch optimization, Pixi/Vite version
+bumps. CSP/Trystero risk mitigated by knowledge (GH Pages has no default
+CSP; WebRTC bypasses connect-src via RTCPeerConnection).
+
+PRIME-AUDIT delta caught 6 items Council rubber-stamped: deploy-pages@v4
+requires permissions/environment/concurrency blocks (added); requires
+Pages Source = "GitHub Actions" (different user-step from peaceiris,
+documented + enabled via gh API); favicon.svg needs concrete SVG content
+(shipped 32x32 concentric crimson + cyan circles); trystero ^0.20→^0.24
+API stability refuted by 291/291 green tests; CNAME byte-format safety
+note (LF-only); OG image deferred to S17+ no designed share asset.
+
+**P0 — Charter extraction (Micro, commit `b2979fc`).** Mechanical move of
+4 dispatch handler bodies (START_GAME, END_TURN, RETURN_TO_TITLE,
+UPDATE_AVATAR_POS) + addScore helper from `src/state/world.ts` (357 LOC)
+to new `src/state/gameMode.ts` (169 LOC w/ JSDoc). world.ts switch
+delegates to imported `applyStartGame` etc. addScore re-exported from
+world.ts for back-compat with placePrimitive.ts + session15.test.ts
+(zero-touch on those files). world.ts: 357 → 290 LOC (target 280, 3.5%
+over — accepted per S15 trip-wire reflexion). requirePlayer stays
+(pre-existing, used by placePrimitive.ts). 291/291 green; typecheck
+exit 0. Same Micro pattern as S14 P2.0 (placePrimitive extract) and
+S15 P1 (redundantBondTargets extract).
+
+**P1 — Lobby JOIN HTML <input> overlay (Micro BLOCKER, commit `5ff7865`).**
+Replaced Pixi-text + window.keydown buffer hack in
+`src/render/lobbyScreen.ts` (lines 92-103 invisible joinInputText +
+joinInputBg; lines 227-243 installKeyHandler) with real
+`<input type="text">` positioned via `canvas.getBoundingClientRect()`
+over the JOIN pane code area. 11 attrs verified live in browser: type,
+maxLength=6, pattern=`[2-9A-HJ-NP-Z]{6}`, placeholder, autocomplete=off,
+spellcheck=false, autocapitalize=characters, inputmode=text,
+aria-label="Room code", position=fixed, zIndex=1000, textTransform=
+uppercase. visualViewport.resize handler (feature-checked, mobile-
+keyboard guard). Pure helpers extracted (S10 #test-via-pure-helper-
+export pattern): sanitizeRoomCodeValue, isValidRoomCode,
+mapCanvasRectToPage, JOIN_INPUT_RECT. Connect button now reads
+inputEl.value + visual alpha gate (0.4 disabled, 1.0 enabled).
+PRIME-AUDIT init-order bugfix: inputEl creation moved to start of
+constructor BEFORE setVisible(false) call (caught via preview
+console boot-failure log). Click anywhere on JOIN pane focuses input.
+Hint text below: "Click here, type the code from your friend." Drops
+joinBuffer + installKeyHandler + uninstallKeyHandler entirely.
+16 new tests in `src/render/lobbyScreen.test.ts` (293→307 total).
+
+**P2 — GitHub Pages deploy (Standard BLOCKER, commits `4011862`
++ `9d9d9ee` enabling).** Step 1 + 1.5 SHIPPED:
+- `vite.config.ts` base='/the-spark/' for project-page deploy
+- `.github/workflows/deploy.yml` using GitHub-official
+  actions/upload-pages-artifact@v3 + actions/deploy-pages@v4 (Council R1
+  switch from peaceiris@v3; PRIME-AUDIT-required permissions/environment/
+  concurrency blocks all included)
+- `public/favicon.svg` (32x32 concentric crimson + cyan circles)
+- `public/robots.txt` (Allow: /)
+- `index.html` OG meta tags (og:title/og:description/og:type) + favicon
+  link
+
+LIVE at **https://daneshto-dotcom.github.io/the-spark/** (HTTP 200, HSTS
+enforced, no CSP per Council Grok #5 analysis). GH Actions run
+25732727978 deployed in 1m4s. PRIME-AUDIT #2 user-step ("Settings →
+Pages → Source = GitHub Actions") satisfied via `gh api -X POST
+/repos/.../pages -f build_type=workflow` after first deploy 25732612027
+failed with "Pages not enabled" error.
+
+Step 2 (spark-online.space swap) DEFERRED to S17 ready-to-ship commit
+per Scope Amendment #2: same-session push would deploy assets at
+`/assets/` not `/the-spark/assets/`, breaking github.io fallback URL
+until user toggles Custom Domain in Pages Settings (async step). User
+flow for S17 swap: (a) Squarespace DNS Custom Records add 4 A records
+(Host=`@`, values=185.199.108-111.153) + CNAME `www`→
+`daneshto-dotcom.github.io.`, (b) `dig +short spark-online.space @8.8.8.8`
+confirms resolution, (c) Settings → Pages → Custom domain =
+spark-online.space → Enforce HTTPS, (d) push ready-to-ship 3-line commit
+(vite.config base='/' + public/CNAME=spark-online.space).
+
+**P3 — Visual polish (Micro mandatory per Amendment #1, commit `9d9d9ee`).**
+P3.a BETA badge: persistent Pixi Text "BETA" added directly to app.stage
+(NOT inside any TitleScreen/LobbyScreen/HUD container) so visible across
+all gameState values. monospace 14px, cyan PLAYER_COLORS[1]=0x3bd7ff,
+letterSpacing=4, alpha=0.55, anchor.set(1,0) top-right at (CANVAS_WIDTH-12,
+12). P3.b: spawnerRing + legend now captured as variables (previously
+inlined without ref); game-loop visibility update toggles them off when
+gameState ∈ {TITLE, LOBBY}. Eliminates spawner-ring artifact bleeding
+through lobby panes from S15 screenshot.
+
+**P4 — Closeout (this commit).**
+- LOCKED §13.1 trystero version drift fix (^0.20 → ^0.24.0)
+- LOCKED §13.9 NEW: deployment row (primary URL spark-online.space S17+,
+  fallback github.io/the-spark/ shipped, GH Pages deploy pipeline spec,
+  one-time Source=GitHub Actions step, no default CSP, HSTS, OG meta)
+- LOCKED §13.10 NEW: persistent BETA badge row
+- LOCKED §7 module-map: added `src/state/gameMode.ts`,
+  `src/state/placePrimitive.ts` (already extracted, was missing from doc),
+  `public/` block with favicon.svg + robots.txt
+- BACKLOG S16 entry (this entry) above S15
+- reflexion_log.md S16 entries (5 new, pruned to ≤50)
+- boot-snapshot.md regenerate
+- PDR archive: `.claude/plans/2026-05-12_PDR_Session_16.md` →
+  `.claude/plans-archive/2026-05-12_PDR_Session_16_COMPLETED.md`
+- HANDOFF rotate: S15 → `.handoff-archive/HANDOFF_2026-05-12_S15_postS16.md`;
+  new S16 HANDOFF at root with S17 next-steps + Step 2 ready-to-ship spec
+
+**S17 carry-forward** (queued ready-to-ship):
+- **Step 2 (spark-online.space swap):** 3-line commit user pushes after
+  DNS + Custom Domain toggle. Vite config base='/' + public/CNAME.
+- **Cloudflare DNS migration option:** user-preference, nameserver swap
+  to ada.ns.cloudflare.com + cole.ns.cloudflare.com (or similar);
+  re-add 4 A records + www CNAME in CF UI. 24-48h propagation.
+- **Cross-network playtest:** verify Trystero/Nostr WebRTC handshake +
+  AttractDrag feel + NetSnapshot tick over real internet hop. May
+  inform: client prediction (Grok R1 carry), delta NetSnapshot (Council
+  R1 nice-to-have), host-migration stub (Grok R2 carry), live cursor sync.
+- **POST-playtest tune:** NET_SNAPSHOT_HZ + NET_INTERPOLATION_MS feel
+  constants.
+
+**Known v1 limits unchanged** (LOCKED §13.7): AttractDrag client latency,
+no host-migration, tab-hidden host pause, pre-S15 save format break,
+no reconnect.
+
+**Phase-2 Tier-1+ deferred** (docs/phase-2-design-options.md):
+recommended C (Sever-as-disruption) + F (Multi-color rendering).
+
+**Audio: Suno track upload still pending since S5.**
+
+---
+
 ## Session 15 — S14 Charter Extraction + Phase-2 1v1 Networked Play [COMPLETED] (2026-05-12)
 
 **Triggered by user request "present top recommended priority session batch

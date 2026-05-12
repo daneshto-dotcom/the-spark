@@ -1,0 +1,162 @@
+═══════════════════════════════════════════════════════════
+HANDOFF SUMMARY — SPARK
+Generated: 2026-05-12 (post-Session-15)
+Session: 15 of 10+ — S14 § XV Charter Extraction + Phase-2 1v1 Networked Play (Trystero/Nostr)
+═══════════════════════════════════════════════════════════
+
+## PROJECT
+- Name: SPARK (Phase-1 prototype + Phase-2 1v1 networked play, S15 amendment)
+- Working directory: C:\Users\onesh\OneDrive\Desktop\The Spark
+- Git branch: master (origin: https://github.com/daneshto-dotcom/the-spark.git — all S15 commits pushed)
+- Latest commit: `<closeout>` — S15 P3: closeout (LOCKED amendments + BACKLOG + reflexion + boot snapshot + PDR archive + HANDOFF)
+- Tech stack: TypeScript 5.4, Vite 5.2, Pixi v8 (^8.5), Vitest 1.5, **Trystero ^0.20 (NEW — WebRTC + Nostr signaling for Phase-2 1v1)**
+- Codebase: ~5.5K LOC across 58 .ts source files (+15 test files). New `src/net/` subsystem (4 files); new `src/render/{titleScreen,lobbyScreen}.ts`; new `src/input/redundantBondTargets.ts`. **§ XV CHARTER STATE**: `world.ts` 357 LOC (over 280 trip-wire — S16 carry-forward), `controls.ts` 479 LOC (S15 P1 closed S14 PRIME-AUDIT carry-forward; under 500 soft charter), all net/ files under 150 LOC.
+
+## CURRENT STATE
+- Build: typecheck clean (`tsc -b --noEmit` → exit 0); no full vite build run
+- Tests: **291/291 passing** (252 prior + 9 protocol.test.ts + 16 sync.test.ts + 14 session15.test.ts)
+- Deployment: dev server NOT verified at handoff (was running pre-S15; user may have killed it or it survives — verify with `curl localhost:31183` or relaunch via `npx vite --port 31183 --strictPort`)
+- Database: n/a (in-memory world + localStorage WorldSnapshot save; pre-S15 saves load gracefully but lose per-player scoreByPlayer state)
+
+## SESSION COST
+- Council R1+R2 invoked: 4 total calls (2 Grok grok-4.20-0309-reasoning DISRUPTOR R1+R2, 2 Gemini gemini-2.5-pro AUDITOR R1+R2 — parallel within each round)
+- PRIME-AUDIT ran post-synthesis (Rule 20) BEFORE user gate; 6 material findings produced concrete diffs (Trystero/Nostr explicit import, per-direction seq, npm scope, net/ in module-map, AttractDrag latency known-limit, scoreProgress reset on RETURN_TO_TITLE)
+- Statusline dead → real-token UI counter is authoritative
+- Cumulative log: `~/.claude/usage-log.csv`
+
+## THIS SESSION'S WORK
+
+User pasted the S14 handoff prompt and requested top-recommended priority batch via full pipeline flow. Three deliberation cycles fired across the session due to user-driven scope amendments:
+
+> Cycle 1 — Original PDR: Hotseat + Fog of war Tier-0 (~450 LOC). Council R1 returned REVISE/REVISE (Grok BLOCKER #1 vision-strategy conflict, Grok BLOCKER #2 Player.avatarPos missing, Gemini BLOCKER inactive-player reject tests, scope split S15/S16).
+
+> Cycle 2 — User playtest of S14 + amendment 1: "looks a lot better, well done! no need for fog of war yet. lets just work on making another player." Scope reduced (~330 LOC, same-machine hotseat + lobby fiction). Council R1 carry-forward applied; Player.avatarPos + non-active reject tests + save format risk + win condition preserved. Fog-specific findings dropped.
+
+> Cycle 3 — User cross-country amendment 2: "not same machine hotseat because my friend is in a different country, so lets make it a lobby host or something." Promoted batch to Full tier (LOCKED § 1 boundary breach authorized; networking is architecturally significant). Council R1+R2 parallel deliberation closed:
+>   - R1 Trystero vs PeerJS disagreement; R2 Grok CONCEDED Trystero on Gemini's concrete counter (multi-strategy Nostr fallback + PeerJS-broker-is-only-for-signaling distinction).
+>   - R2 host-migration: Gemini's "Connection lost" overlay v1 chosen over Grok's mandatory one-line stub (deferred to S16 if playtest shows transient-drop annoyance).
+>   - Lerp interpolation + per-direction sequence numbers: BOTH non-negotiable (Council unanimous).
+
+User approval: "approved! be most technical, pedantic, logical and thorough!" — gate flags written (pdr_approved: true + deliberation_completed: true + unlock_source: user at top-level AND per-priority in session-state.json).
+
+**P1 — Charter Extraction (Micro, commit `b9c4b20`).** Mechanical extraction of `pickRedundantBondTargets` + `angularDistance` from controls.ts to new `src/input/redundantBondTargets.ts` (~120 LOC moved). Zero behavior change. controls.ts dropped 565 → 479 LOC (under 500 § XV soft charter; closes S14 PRIME-AUDIT carry-forward documented in S14 handoff). redundantBondTargets.ts at 102 LOC. 252/252 regression preserved. Same Micro pattern as S14 P2.0 (world.ts → placePrimitive.ts).
+
+**P2 — Networked 1v1 MVP (Full tier core, commit `add497f`).** End-to-end playable Phase-2 1v1 multiplayer:
+- **Transport** (`src/net/transport.ts` 103 LOC): NetTransport wrapping `trystero/nostr` joinRoom; Nostr-primary signaling (PRIME-AUDIT #1 — BitTorrent default rejected per Grok R1 rate-limit concern); auto-fallback across Nostr relays.
+- **Protocol** (`src/net/protocol.ts` 83 LOC): typed discriminated-union envelopes Hello/Intent/NETSNAPSHOT/EndGame; generateRoomCode (6-char alphabet `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`, drops 0/O/1/I for verbal sharing) + parseRoomCode (case-norm + trim + alphabet validate).
+- **Sync** (`src/net/sync.ts` 146 LOC): HostSync emits snapshotSeq-numbered NetSnapshot at NET_SNAPSHOT_HZ=10 (every 6 physics ticks); ClientSync.receive validates seq>lastSeq (out-of-order rejected); interpolateInto lerps positions over NET_INTERPOLATION_MS=100 (linear lerp Council R2 non-negotiable; needsFullApply flag PRIME-AUDIT perf — avoids per-render Map rebuilds).
+- **Lobby** (`src/render/titleScreen.ts` 144 LOC + `src/render/lobbyScreen.ts` 289 LOC): "SPARK" title with "1 Player" / "1v1 (2 Player)" mode select → 1v1 path opens lobby with host pane (generates code + Waiting → Begin Match) + join pane (text input + Connect) + "Connection lost" full-screen overlay + Back to Title.
+- **Schema** (player.ts + world.ts + save.ts): Player.avatarPos (Grok R1 BLOCKER #2); World.{gameMode, currentPlayerId, scoreByPlayer, isHost}; GameState extends 'TITLE' | 'LOBBY'; new actions START_GAME / END_TURN / RETURN_TO_TITLE / UPDATE_AVATAR_POS. PICKUP_SPARK + DROP_SPARK + PLACE_PRIMITIVE silently reject when 1v1 + action.playerId !== currentPlayerId (Gemini R1 BLOCKER input sanitization).
+- **Scoring**: addScore helper — solo additive (preserves test contract); 1v1 per-player + scoreProgress = max(scoreByPlayer.values()). WIN_TRIGGER attribution scans scoreByPlayer for max in 1v1.
+- **Controls**: dispatcher injection (ControlsDispatchFn); default makeLocalDispatcher preserves back-compat. Client mode wraps each action as Intent envelope. Space key → END_TURN with auto-release on AttractDrag (drop to Idle) or ConnectDrag (DROP_SPARK at cursor) per PRIME-AUDIT #4. setPlayerId(1) for client joiner.
+- **Entry**: main.ts boots gameState='TITLE'; render dispatched by gameState (TITLE→titleScreen, LOBBY→lobbyScreen, PLAYING→existing). Snapshot emission gated on host PLAYING every SNAPSHOT_INTERVAL_TICKS=6. Client physics skipped; interpolation runs every render frame. Connection-lost overlay when 1v1 PLAYING + peerCount=0.
+- **HUD**: turn indicator badge (active player color + "SPACE to end"), per-player score readouts (RED / BLUE vs 50), connection status dot (green/red). Energy gauge follows currentPlayerId. WIN banner uses winner's player color.
+- **Tests** (39 new, overshot target 25 for better coverage): protocol.test.ts 9 (room code gen/parse/roundtrip), sync.test.ts 16 (seq monotonic, out-of-order reject, intent wrap, lerp01 boundaries, interpolatePositions t=0/0.5/1), session15.test.ts 14 (FSM extension, hotseat reject solo/1v1, END_TURN flip + guards, addScore solo additive + 1v1 max, winner attribution, RETURN_TO_TITLE clears + drops P2, save roundtrip + pre-S15 backwards-compat).
+
+**P3 — Closeout (this commit).** Per-priority commits + push. session-state per priority with verbose check_method (INTEGRITY-WARNING PROTOCOL). reflexion +5 S15 / pruned 5 S7 entries (≤50 cap). boot-snapshot regen. PDR archived to `.claude/plans-archive/2026-05-12_PDR_Session_15_COMPLETED.md`. HANDOFF S14 version archived to `.handoff-archive/HANDOFF_2026-05-12_S14_postS15.md`. BACKLOG.md S15 entry inserted above S14. **LOCKED_DECISIONS amendments**: § 1 row split (Phase-2 Trystero + Phase-3 Colyseus reserved); § 7 module-map adds src/net/ + new screens + redundantBondTargets.ts; § 10.2 dispatcher injection + input-sanitization note; § 10.4 NetSnapshot variant note; new § 13 "Phase-2 Networked Play v1" (8 subsections covering transport, authority, sync, lobby, FSM, per-player scoring, known v1 limits, constants).
+
+## OPEN ISSUES
+- **BLOCKER — Lobby JOIN pane has no usable input field (user-reported post-handoff):** The `joinBuffer` keyboard handler in [lobbyScreen.ts:178-197](src/render/lobbyScreen.ts) is window-level + only fires while `mode === 'select'`. There is no visible caret, no "click to focus" affordance, no HTML `<input>` overlay — the JOIN side is keyboard-only without telling the user keys are being captured. After clicking "Host New Room", `mode` flips to `'hosting'` which dims JOIN to alpha 0.3 + disables the keyboard handler entirely. **Friend on the other machine cannot enter the code.** This blocks any cross-network playtest. **S16 P1 (Micro): replace the Pixi-text input mock with an HTML `<input type="text">` overlaid on the canvas (CSS positioning matched to the JOIN pane rect; cyan border; uppercase-only; 6-char maxLength; native focus + caret + paste). On click of JOIN pane → `input.focus()`. On 6 valid chars → enable Connect button. On Connect → dispatch `onJoinAttempt(input.value)`.**
+- **BLOCKER — Cross-network play impossible: dev server is localhost only (user-reported post-handoff):** Vite at `localhost:31183` is loopback-only. Friend in another country has nowhere to load the SPARK app from. Trystero handles the actual P2P sync once both peers load the app, but the app-loading step is gated on a public URL. **S16 P2 (Standard): deploy to GitHub Pages + custom-domain swap path.** User-chosen domain: **`spark-online.space`** (to be purchased post-S16-P2). Two-step plan documented in NEXT STEPS / P2 below — Step 1 ships github.io URL for immediate validation; Step 2 swaps to `spark-online.space` after user buys + DNS resolves (no rework, ~2-line PR). Quick same-day test alternative for validating P1 before P2 lands: `npx ngrok http 31183` exposes localhost to a temporary public URL.
+- **NON-BLOCKING — Lobby + Title screens leak in-game stage artifacts (user-visible):** Screenshot shows the spawner ring (`makeSpawnerRing` in [main.ts](src/main.ts)) bleeding through the JOIN pane's semi-transparent (alpha 0.85) background. The in-game renderers (spark + structure + effects + avatar) are still subscribed to the ticker during TITLE/LOBBY — they just have empty world data so they don't draw anything substantive, but the spawner ring + legend stay on stage. **S16 P3 (Micro): toggle the spawner ring + legend visibility based on gameState (visible only in PLAYING / WIN / POSTGAME).**
+- **NON-BLOCKING — § XV PRIME-AUDIT carry-forward:** `world.ts` grew 228 → 357 LOC (+129; over 280 trip-wire). **S16 P0 (Micro):** extract S15 new dispatch handlers (START_GAME, END_TURN, RETURN_TO_TITLE, UPDATE_AVATAR_POS) + addScore helper to `src/state/gameMode.ts` (~80 LOC moved). Same Micro pattern as S14 P2.0 / S15 P1.
+- **NON-BLOCKING — Trystero bundle size:** +~40KB minified (LOCKED § 13.8 acknowledges). No production `vite build` run yet — P2 will surface real bundle size on the first deploy build.
+- **CLOSED — S14 § XV PRIME-AUDIT carry-forward (controls.ts 565 LOC):** addressed by S15 P1 extraction. controls.ts now at 542 LOC final, under 600 trip-wire.
+
+## BLOCKED ON
+- **User cross-network playtest** of the post-S15 build (top priority for S16). Reload `localhost:31183`. Pick "1v1 (2 Player)" → host gets code → friend on different network joins → verify connection establishment + turn flow + per-player scoring + WIN attribution + connection-lost overlay.
+- **User pick from `docs/phase-2-design-options.md` Tier-1+** (Sever-as-disruption / Inject Spiral / Steal / Multi-color rendering / Mega-combos) before next gameplay-mechanic implementation begins.
+
+## NEXT STEPS (priority order)
+
+**Immediate (Session 16 — recommended batch, Standard tier):**
+
+S16 batch is ALREADY scoped + ordered post-S15-playtest:
+
+- **P0 (Micro) — Charter extraction (S15 carry-forward).** `world.ts` 357 → ~280 LOC by moving START_GAME/END_TURN/RETURN_TO_TITLE/UPDATE_AVATAR_POS dispatch cases + addScore helper to new `src/state/gameMode.ts`. Same mechanical pattern as S14 P2.0 / S15 P1. Zero behavior change. 291/291 regression preserved.
+- **P1 (Micro) — Lobby JOIN UX fix.** Replace the invisible Pixi-text-mock input with an HTML `<input type="text">` element overlaid on the canvas, positioned to match the JOIN pane rect via CSS (`position: absolute; left: ...; top: ...`). Cyan border to match accent color. `maxLength=6`, `style.textTransform: uppercase`, `inputMode: text`. Click JOIN pane → `input.focus()` → user types → 6 valid chars → "Connect" enables → click → `onJoinAttempt(input.value)`. ALSO: clear hint text "Click here, then enter the code your friend shared" so the affordance is unmissable. Cleanup: hide the input element when gameState !== 'LOBBY'. Estimate ~80 LOC + 3-5 new tests for input validation.
+- **P2 (Standard) — GitHub Pages deploy + custom-domain swap path.** User-chosen domain: **`spark-online.space`** (purchased post-S16 by user; deploy plan accommodates the swap). Two-step landing:
+  - **Step 1 (initial deploy, S16 P2 ships):**
+    1. Edit `vite.config.ts`: add `base: '/the-spark/'` (matches repo name; works at github.io subpath URL).
+    2. New `.github/workflows/deploy.yml`: triggers on `push: branches: [master]`; runs `npm ci && npm run build`; publishes `dist/` to `gh-pages` branch via `peaceiris/actions-gh-pages@v3` with `github_token: ${{ secrets.GITHUB_TOKEN }}` (no PAT setup; built-in token has Pages write permission).
+    3. On GitHub: repo Settings → Pages → Source: "Deploy from a branch" → Branch: `gh-pages` / `(root)`.
+    4. Verify `https://daneshto-dotcom.github.io/the-spark/` loads cleanly. Trystero/Nostr/WebRTC works under HTTPS (GitHub Pages = HTTPS by default).
+    5. Send friend the github.io URL. Friend opens → 1v1 → JOIN → enter code → Begin Match. Real cross-country playtest unlocked.
+  - **Step 2 (custom-domain swap, ready to ship S16 P2 alongside Step 1):**
+    1. ✓ WHOIS verification clicked by user 2026-05-12 (no pre-step needed).
+    2. In repo: edit `vite.config.ts` → `base: '/'`; create `public/CNAME` containing the single line `spark-online.space`. (Vite copies `public/*` to `dist/` on build; GitHub Pages reads `CNAME` to serve the custom domain.)
+    3. **Squarespace DNS** (Domains → click `spark-online.space` → DNS tab → Custom Records → Add Record): add 4 A records (Host `@`, value `185.199.108.153` / `185.199.109.153` / `185.199.110.153` / `185.199.111.153`, default TTL). Optional: CNAME record (Host `www`, value `daneshto-dotcom.github.io`) so `www.spark-online.space` also resolves. A-records-at-apex is the right approach (CNAME at apex breaks RFC 1034; some DNS providers technically allow it but with caveats).
+    4. On GitHub: repo Settings → Pages → Custom domain: `spark-online.space` + check "Enforce HTTPS" (auto-issues Let's Encrypt within ~15 min once DNS resolves; if it grays out, wait for DNS propagation then refresh).
+    5. Wait 5-60 min for DNS propagation. Verify `https://spark-online.space` loads. Send friend the new URL.
+  - **Why two-step:** lets you validate the deploy + Trystero P2P with friend on the github.io URL first (no DNS wait), then swap to the branded domain at your convenience. Both steps are small commits; no rework.
+  - **Registrar info:** Squarespace Domains (formerly Google Domains, acquired 2023). Expiration 2029-05-12 (5-year initial term). Renewal at Squarespace's standard `.space` rate (verify before auto-renew kicks in late 2028).
+- **P3 (Micro, optional) — Lobby visual polish.** Toggle visibility of `makeSpawnerRing(...)` + `makeLegend(...)` containers in [main.ts](src/main.ts) based on gameState. Visible only in `'PLAYING' | 'WIN' | 'POSTGAME'`. Eliminates the spawner-ring artifact bleeding through the TITLE / LOBBY panes (visible in user's S15 screenshot).
+- **P4 — Closeout.** Per-priority commits + push; LOCKED § 13 amendment with deploy URL; BACKLOG S16 entry; reflexion +5 / prune ≤50; boot-snapshot regen; PDR archive; HANDOFF replace + archive.
+
+**Same-day playtest path (before S16 P2 deploys), if user wants to test cross-network TODAY:**
+- `npx ngrok http 31183` → ngrok prints a public `https://<random>.ngrok-free.app` URL. Send to friend. Friend opens URL → loads same app from your machine. This validates Trystero WebRTC + the lobby flow end-to-end, but requires your laptop + Vite + ngrok stay running. Free ngrok tier has random URL per session.
+
+**Short-term (post-S16-deploy + playtest):**
+6. Tune feel constants per playtest: `NET_SNAPSHOT_HZ` (10), `NET_INTERPOLATION_MS` (100); S14 carry-overs (AVATAR_PULSE_*, REDUNDANT_BOND_*); S13 cinematics constants.
+7. Net enhancements per playtest signal: client-side AttractDrag prediction + reconciliation buffer (Grok R1 ask, ~150 LOC); delta-encoded NetSnapshot (Council R1 nice-to-have); host-migration stub if disconnects feel intrusive (Grok R2 ask); live cursor-move sync for remote avatar (~50 LOC; currently avatarPos only updates on commit).
+8. Pick from [docs/phase-2-design-options.md](docs/phase-2-design-options.md) Tier 1+ matrix. Recommended next pair: C (Sever-as-disruption) + F (Multi-color rendering), ~220 LOC.
+
+**Medium-term:**
+9. **Phase 2 Tier-1+ implementation:** disruption suite (C / D / E) + multi-color rendering (F) + mega-combos (G).
+10. Audio integration when Suno didgeridoo trance track lands.
+
+## CHANGED FILES (S15 net diff vs S14 close)
+```
+.claude/plans-archive/2026-05-12_PDR_Session_15_COMPLETED.md   new (~300 LOC, full Battle Ledger R1+R2 + PRIME-AUDIT delta)
+.claude/session-state.json                                     replaced (S14 → S15 priorities)
+.handoff-archive/HANDOFF_2026-05-12_S14_postS15.md             new (S14 root archive copy via git mv)
+HANDOFF_2026-05-12.md                                          replaced (this file; S14 version archived)
+LOCKED_DECISIONS.md                                            +~165 (§1 amendment, §7 src/net/ block, §10.2 + §10.4 notes, new §13)
+BACKLOG.md                                                     +~140 (S15 entry inserted above S14)
+boot-snapshot.md                                               regen (S15 commit list + S15 reflexion summary + S16 PRIME-AUDIT carry-forward)
+reflexion_log.md                                               +5 S15 / -5 S7 entries (≤50 cap maintained); footer prune note updated
+package.json                                                   +1 dep (trystero ^0.20)
+package-lock.json                                              +trystero + transitive deps
+src/constants.ts                                               +9 (NET_SNAPSHOT_HZ, NET_INTERPOLATION_MS, NET_ROOM_CODE_LENGTH, NET_CONNECTION_TIMEOUT_MS + comment block)
+src/game/player.ts                                             +14 -8 (PlayerCommon.avatarPos field; makeIdlePlayer + pickup + drop preserve avatarPos)
+src/input/controls.ts                                          +63 -16 (post-P1 479 LOC; +ControlsDispatchFn + makeLocalDispatcher + Space handler + setPlayerId/getPlayerId + dispatchFn replaces dispatch calls; final 542 LOC)
+src/input/redundantBondTargets.ts                              new (102 LOC; S15 P1 extraction from controls.ts)
+src/main.ts                                                    +137 -0 (TitleScreen + LobbyScreen lifecycle; NetTransport/HostSync/ClientSync state; gameState-aware rendering; snapshot emit cadence; connection-lost overlay gate)
+src/net/lerp.ts                                                new (15 LOC; lerp01 clamp utility)
+src/net/protocol.ts                                            new (83 LOC; envelopes + room code gen/parse)
+src/net/protocol.test.ts                                       new (9 tests)
+src/net/sync.test.ts                                           new (16 tests)
+src/net/sync.ts                                                new (146 LOC; HostSync + ClientSync + interpolatePositions)
+src/net/transport.ts                                           new (103 LOC; Trystero/Nostr wrapper)
+src/render/lobbyScreen.ts                                      new (289 LOC; host/join panes + connection-lost overlay)
+src/render/titleScreen.ts                                      new (144 LOC; 1P/1v1 mode select)
+src/render/ui.ts                                               +90 -14 (turn indicator + per-player score + connection dot + WIN banner color)
+src/state/gameState.ts                                         +25 -8 (TITLE/LOBBY cases; 1v1 winner attribution via scoreByPlayer; softReset clears per-player scores)
+src/state/placePrimitive.ts                                    +6 -3 (3 score sites use addScore helper)
+src/state/save.ts                                              +103 -34 (gameMode/currentPlayerId/scoreByPlayer in WorldSnapshot; SerializedPlayer.avatarPos; netSnapshot + applyNetSnapshot exports; applySnapshotCore extracted)
+src/state/world.ts                                             +148 -5 (gameMode/currentPlayerId/scoreByPlayer/isHost fields; START_GAME/END_TURN/RETURN_TO_TITLE/UPDATE_AVATAR_POS actions; per-action 1v1 input gates; addScore helper export)
+src/game/session14.test.ts                                     +1 -1 (import path: ../input/controls.ts → ../input/redundantBondTargets.ts for S15 P1)
+src/game/session15.test.ts                                     new (14 tests across 6 groups)
+```
+
+## SESSION PIPELINE REPORT
+Pipeline: Session PDCA v2 | Priorities: 2 work + 1 closeout complete | Full tier (Council R1+R2 ON, parallel Grok + Gemini both rounds)
+- P1 Charter extraction (S14 § XV carry-forward) — completed — `b9c4b20`
+- P2 Networked 1v1 MVP (Trystero/Nostr) — completed — `add497f`
+- P3 Closeout — completed — `<this commit>`
+
+## REFLEXION ENTRIES (this session)
+- S15 #user-amendment-mid-session-as-2nd-council-cycle — user amended scope 2× in-session; each amendment fired its own deliberation cycle, not paper-over.
+- S15 #locked-decision-amendment-via-user-authority — LOCKED § 1 amended in-session per user authority; documented immediately.
+- S15 #council-r2-converges-disagreements-not-restarts — R2 closed Trystero vs PeerJS via Grok concession; host-migration disagreement persisted as documented carry-forward.
+- S15 #test-contract-as-implementation-surface — addScore branched on gameMode to preserve solo test contract (additive scalar) while adding 1v1 per-player semantics.
+- SESSION #trip-wire-as-judgment-signal-not-hard-gate — world.ts 357 LOC over 280 trip-wire; shipped + S16 carry-forward when over-trip is mostly documentation + integration is clean.
+
+## CARRY-FORWARD PRIORITIES
+- **CHARTER (NEW S16 PRIME-AUDIT):** `world.ts` at 357 LOC, over the 280 trip-wire from S15 PDR. Recommended S16 Micro priority: extract S15 new dispatch handlers (`START_GAME`, `END_TURN`, `RETURN_TO_TITLE`, `UPDATE_AVATAR_POS`) + `addScore` helper to `src/state/gameMode.ts`. ~80 LOC moved; brings world.ts back under 280.
+- **PLAYTEST-GATED (top S16 priority):** post-S15 cross-network 1v1 playtest validates Trystero/Nostr connection robustness + lerp interpolation feel + turn flow. Re-tune NET_SNAPSHOT_HZ + NET_INTERPOLATION_MS per playtest feedback. Also S14 carry-overs (AVATAR_PULSE_*, REDUNDANT_BOND_*) + S13 cinematics constants.
+- **NET ENHANCEMENT (S16 if playtest signals):** client-side AttractDrag prediction + reconciliation buffer (Grok R1 ask, ~150 LOC); delta-encoded NetSnapshot for bandwidth optimization (Council R1 nice-to-have); host-migration stub if transient-drop disconnects annoy (Grok R2 ask); live cursor-move sync for remote avatar position (~50 LOC; currently avatarPos updates only on commit actions).
+- **ASSET-GATED:** Audio integration (Suno didgeridoo trance track upload pending since S5).
+- **PHASE-2 TIER-1+:** Phase-2 disruption suite + multi-color rendering + mega-combos per `docs/phase-2-design-options.md` user pick. Recommended pairing: C (Sever-as-disruption) + F (Multi-color rendering) for the cheapest disruption-feel + visual-ownership round (~220 LOC, 1 Standard session).
+
+═══════════════════════════════════════════════════════════

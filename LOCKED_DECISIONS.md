@@ -186,9 +186,13 @@ spark/
 │   │   └── lerp.ts              // clamp utility for lerp coefficients
 │   └── state/
 │       ├── world.ts             // Single state-mutation seam (dispatch pattern); S15 P2 1v1 fields + actions
+│       ├── gameMode.ts          // S16 P0: START_GAME/END_TURN/RETURN_TO_TITLE/UPDATE_AVATAR_POS handlers + addScore (extracted from world.ts)
+│       ├── placePrimitive.ts    // S14 P2.0: PLACE_PRIMITIVE handler (extracted from world.ts)
 │       ├── gameState.ts         // FSM: TITLE→LOBBY→PLAYING→WIN→POSTGAME→TITLE (S15 P2 extension)
 │       └── save.ts              // WorldSnapshot JSON serializer + S15 P2 NetSnapshot wire variant
-└── public/  (no assets — all procedural)
+└── public/                      // S16 P2 Step 1.5: favicon.svg + robots.txt
+    ├── favicon.svg              // 32x32 concentric spark glyph (PLAYER_COLORS[0/1])
+    └── robots.txt               // User-agent: * / Allow: /
 ```
 
 `audio/` directory deliberately omitted — see § 9.
@@ -375,7 +379,7 @@ chosen over PeerJS (multi-strategy fallback negates rate-limit concern);
 (deferred to S16 if playtest shows transient-drop annoyance).
 
 ### 13.1 Transport
-- **Library:** [`trystero`](https://github.com/dmotz/trystero) ^0.20 (~40KB bundle)
+- **Library:** [`trystero`](https://github.com/dmotz/trystero) ^0.24.0 (~40KB bundle, S16 doc-drift fix from ^0.20)
 - **Strategy:** Nostr-primary (`import { joinRoom } from 'trystero/nostr'`).
   PRIME-AUDIT #1: BitTorrent tracker default rejected (Grok R1 rate-limit
   concern); Nostr decentralized signaling with multi-relay fallback.
@@ -463,6 +467,47 @@ chosen over PeerJS (multi-strategy fallback negates rate-limit concern);
 - `NET_INTERPOLATION_MS = 100`
 - `NET_ROOM_CODE_LENGTH = 6`
 - `NET_CONNECTION_TIMEOUT_MS = 30000` (reserved for future)
+
+### 13.9 Deployment (S16 P2 NEW)
+- **Primary URL (S17+, deferred):** `https://spark-online.space/` — domain
+  registered at Squarespace Domains (5yr, exp 2029-05-12). DNS records to
+  add at Squarespace: 4 A records (Host=`@`, values=`185.199.108.153` /
+  `.109.153` / `.110.153` / `.111.153`), 1 CNAME (Host=`www`,
+  value=`daneshto-dotcom.github.io.`). Custom Domain toggled in Settings →
+  Pages after DNS resolves. Cloudflare DNS migration optional carry-forward
+  (user prefers CF UI; nameserver swap adds 24-48h propagation so deferred
+  past today's playtest).
+- **Fallback URL (S16 P2 Step 1 SHIPPED):**
+  `https://daneshto-dotcom.github.io/the-spark/` — project-page deploy with
+  `vite.config.ts base='/the-spark/'`.
+- **CI:** `.github/workflows/deploy.yml` on push:master via GitHub's
+  official Pages actions: `actions/upload-pages-artifact@v3` (after
+  `npm ci` + `npm run build`) + `actions/deploy-pages@v4`. Required
+  workflow elements: `permissions: { contents:read, pages:write,
+  id-token:write }`, `environment: github-pages`, `concurrency:
+  { group: pages, cancel-in-progress: false }`. Switched from
+  `peaceiris/actions-gh-pages@v3` per Council R1 Grok #4 + Gemini #2
+  (audited modern path).
+- **One-time user-step:** Settings → Pages → Source = "GitHub Actions"
+  (NOT "Deploy from a branch"). Enabled S16 P3 via `gh api -X POST
+  /repos/.../pages -f build_type=workflow` after first deploy failed
+  with 'Pages not enabled' error.
+- **CSP:** GitHub Pages has NO default CSP set (Council R1 Grok #5 risk
+  defused). Trystero WebRTC bypasses `connect-src` via `RTCPeerConnection`
+  anyway; Nostr signaling uses WSS to public relays which is also
+  unblocked at default GH Pages.
+- **HTTPS:** github.io enforces HTTPS at github.com cert; custom domain
+  will use Let's Encrypt auto-issued ~15min after DNS resolves.
+- **OG meta:** `index.html` includes `<link rel='icon' href='favicon.svg'>`,
+  `og:title`, `og:description`, `og:type`. og:image deferred to S17+
+  (no designed share asset).
+
+### 13.10 Persistent BETA badge (S16 P3.a)
+- Persistent "BETA" Pixi `Text` added directly to `app.stage` (not inside
+  any TitleScreen / LobbyScreen / HUD container) so it's visible across
+  all gameState values until v1.0.
+- Visual: monospace 14px, cyan `PLAYER_COLORS[1]`, letterSpacing 4,
+  alpha 0.55, anchored top-right `(CANVAS_WIDTH - 12, 12)`.
 
 ---
 
