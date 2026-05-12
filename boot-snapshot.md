@@ -1,50 +1,56 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-05-12 (post-S19 + P4 urgent fix) | Session: S19 | Last commit: 12de8cd
+Generated: 2026-05-12 (post-S20 close) | Session: S20 | Last commit: c4ae96f
 
 ## Live URL
-**https://spark-online.space/** (custom domain SHIPPED S18 P0; HTTPS via Let's Encrypt cert exp 2026-08-10 auto-renew)
+**https://spark-online.space/** (HTTPS via Let's Encrypt cert exp 2026-08-10 auto-renew)
 
 ## Next Steps
-1. **S20 P0 — TOP PRIORITY: 1v1 connect BLOCKER (still unresolved)**. S19 P4 relay-pin fix shipped (`12de8cd`) but did NOT resolve. Host shows "Waiting for Player 2..." with code displayed; client (same code) shows "Connecting..." forever. Both directions fail. Next diagnosis steps:
-   (a) **Capture console errors** F12 → Console while clicking Host AND Join — look for `wss://`, WebSocket close codes, ICE candidate gathering failures, peer connection state transitions
-   (b) **Verify Trystero 0.24 API wrapper still correct** — `room.makeAction('msg')` signature may have changed since 0.20; cast pattern in `src/net/transport.ts:54-56` could be silently broken
-   (c) **Check ICE/TURN** — Trystero 0.24 uses Google STUN defaults; if both networks are symmetric NAT (common on mobile hotspots, corporate networks), need TURN server. Free options: Cloudflare TURN (open beta), Twilio (1 GB/mo free), or self-host coturn
-   (d) **A/B test against Trystero 0.20** — downgrade temporarily to confirm whether the 0.24 bump itself broke peer handshake (independent of relay choice). `npm install trystero@0.20.0` then rebuild + retest
-   (e) **Try a different strategy** — Trystero ships `trystero/torrent`, `trystero/firebase`, `trystero/mqtt`, `trystero/supabase`. Council R1 originally chose Nostr for "zero infra" but if Nostr signaling is genuinely broken in 0.24, MQTT free public brokers are next-cheapest
-2. **P0' Manual playtest audio + gradient** (deferred until P0 connect works): ⚙ icon → settings panel → music slider 50%; SFX toggle off → claves silent; ESC closes; reload → 4 settings persist; 'M' global mute preserves per-channel; cross-player bond → magic silhouette gradient visible.
-2. **P9 Audio polish** (Standard candidate): OGG compression for mobile (10MB→~2MB), PannerNode + auto-duck (Grok#5 deferred S18).
-3. **P4-extension** anti-bloat: `bondVisualRenderer.ts` 536 LOC (extract magic silhouettes), `lobbyScreen.ts` 551 LOC, `world.ts` 311 LOC (worldFsm extraction).
-4. **P5 Phase-2 next mechanic** (user picks): D Inject Spiral / E Steal / A Fog / G Mega-combos.
-5. **P2 NET feel tuning** (playtest-gated, cross-network with friend).
-6. **P7 Bond-hover cost preview** (Standard — needs new hit-test infra; `bondHover` symbol doesn't exist yet).
+1. **S21 P0 — 1v1 BLOCKER user retest (gated on user + brother playtest).** S20 P0 deployed comprehensive Trystero 0.24 fix (callbacks + rtcConfig + diagnostic [net] logging + ICE poll + type fix). Outcome classifier:
+   - **GREEN:** peer connects → mark resolved, move to NET-feel tuning (P2 NET carry-forward)
+   - **YELLOW:** still stuck; F12 console `[net]` log names the failure layer → S21 P0.1 evidence-gated amendment with concrete next move
+   - **RED:** still stuck AND no `[net]` console output → wrapper hooks not firing → A/B downgrade `trystero@0.20.0` per RED-path carry-forward in `.claude/plans-archive/2026-05-12_PDR_Session_20_Council_P0_BattleLedger.md`
+2. **S21 P1 — transport.ts anti-bloat §XV NEW violation** (Standard): P0 grew transport.ts 124→317 LOC (13% over 280 charter). Extract diagnostic-logging + ICE-poll into `src/net/transport-debug.ts` OR accept charter relaxation for net-layer essentials.
+3. **S21 P2 — lobbyScreen.ts anti-bloat §XV** (Standard, deferred from S20): 565 LOC, 13% over 500 charter. Extract input-overlay + connection-lost overlay into sub-modules.
+4. **Manual playtest verification (after P0 resolves)**: ⚙ → audio settings overlay; 'M' global mute; cross-player bond → per-silhouette gradient visible; 1v1 NET feel + interpolation quality.
+5. **P9 OGG compression** (Micro, deferred S18/S19/S20): 10MB MP3 → ~2MB OGG via ffmpeg (verify availability first).
+6. **P5 Phase-2 next mechanic** (design-gated, user picks): D Inject Spiral / E Steal / A Fog / G Mega-combos.
+7. **P7 Bond-hover cost preview** (Standard, needs hit-test infra).
+8. **PannerNode + auto-duck** (audio polish, S18 Grok#5 deferred).
 
 ## Blockers
-- HTTP-80 redirect on spark-online.space may still 404 (GH internal propagation; non-blocking since browsers default HTTPS).
+- HTTP-80 redirect on spark-online.space may still 404 (non-blocking; browsers default HTTPS)
+- 1v1 P0 user retest pending — RED-path triage (A/B downgrade) documented but not pre-emptively executed
 
 ## Pending Backlog
-- bondVisualRenderer.ts extraction (anti-bloat §XV — 536 LOC, 7% over 500)
-- lobbyScreen.ts extraction (anti-bloat §XV — 551 LOC, 10% over 500)
-- world.ts further extraction (anti-bloat §XV — 311 LOC, 11% over 280)
-- P7 bond-hover cost preview (Standard, needs hit-test infra)
-- P9 OGG compression + PannerNode (S20 audio polish, lock §13.14 if amended)
-- P2 NET feel tuning + P3 NET enhancements (playtest-gated)
-- P5 Phase-2 next mechanic (D/E/A/G — user picks)
-- Cloudflare DNS migration (user preference, optional, Squarespace working)
+- P0' Manual playtest audio + gradient (P0-gated)
+- P2 NET feel tuning (cross-network with friend, P0-gated)
+- P3 NET enhancements (Standard, playtest-signal-gated)
+- P5 Phase-2 next mechanic (design-gated)
+- P7 bond-hover cost preview (Standard, hit-test infra)
+- P9 OGG compression (Micro, ffmpeg availability TBD)
+- PannerNode + auto-duck (Grok#5 audio polish)
+- transport.ts §XV extraction (NEW violation S20 P0)
+- lobbyScreen.ts §XV extraction (carry-forward)
 
 ## Recent Reflexion (last 2 sessions)
 
-### Session 19 (2026-05-12)
-- S19 #per-channel-gain-as-children-of-master-pause: master GainNode kept as 'M' target; musicGain + sfxGain layered as children. Legacy `spark_audio_muted` retained; 4 new `audio.*` keys added. 'M' preserves per-channel state.
-- S19 #node-test-env-lacks-localstorage-skip-persistence-tests-trust-trycatch: vitest default node env has no `window.localStorage`. Try/catch falls back to in-memory defaults. Dropped 2 persistence unit tests; manual playtest covers it.
-- S19 #council-convergent-effect-ordering-blocker-orchestrator-owns-effects: Grok #4 + Gemini #1 BLOCKER converged — effect ORDER is load-bearing for audio. Helpers compute payloads + apply state; orchestrator owns effect emission sequence (SEVER_ERASE pre-mutation, BOND_SEVERED post-mutation).
-- S19 #a0-state-discovery-flags-handoff-loc-drift: Pre-PDR A.0 caught 3 stale-handoff claims: world.ts 311→359 LOC, bondHover doesn't exist (P7 ~30 LOC ⇒ Standard), lobbyScreen.ts under 500 → 551. All moved into PDR DELTA before user `go`.
-- S19 #shared-helper-extraction-when-refactor-pushes-file-over-charter: P3 first pass +97 LOC; extracted `strokePathLerp` shared between vortex + whip (nearly-identical 8-segment loops) → final +89 LOC.
-- SESSION #refactor-before-feature-S14-lesson-replayed-for-anti-bloat-debt: world.ts charter overage compounded from S15 (11%) → S18 (28%). Three "ship + log carry-forward" deferrals silently downgraded the §XV gate.
-- S19 P4 #silent-npm-bump-trystero-0.20-to-0.24-broke-relay-defaults: BLOCKER — both peers stuck at "connecting" because `trystero ^0.20 → ^0.24` silent npm bump changed Nostr default relay list (55 entries, 5 picked deterministically per appId). Default mix of personal/dead relays made it possible for both peers to pick the same dead set. Fix: pin 6 known-reliable relays via `relayConfig.urls` + `redundancy = 6`. **Lesson: LOCKED version pins must be enforced at package-manager level not doc level. Pin BEHAVIOR (explicit resource config) not just version, especially when library defaults depend on external infrastructure.**
+### Session 20 (2026-05-12)
+- S20 P0 #a0-of-library-types-finds-three-api-gaps-in-one-pass: Read `node_modules/<pkg>/dist/*.d.ts` directly when a library upgrade resolves a problem partially. A single 100-line type-file read often reveals more gaps than a multi-hour wrapper bug-hunt.
+- S20 P0 #observability-before-third-shot-fix-when-second-shot-missed: BUNDLE observability with the fix in shot #2. Marginal cost of diagnostic logging is small; value if fix misses is huge (next iteration evidence-gated).
+- S20 P0 #prime-audit-2-finds-app-layer-protocol-already-version-checked: Run a SECOND PRIME-AUDIT pass searching `src/` for existing fields with similar semantics. Catches duplicate-mechanism additions.
+- S20 P0 #joinroom-typed-as-string-channel-eliminates-typesystem-fight: When "proper typed" hits TS variance/index-signature rules for discriminated unions, JSON-string the channel and stringify/parse at the boundary.
+- S20 P1 #a0-level-2-pivot-after-pdr-lock-saves-bogus-extraction: A.0 has two levels. Level-1 pre-PDR-lock; Level-2 pre-implementation. When Level-2 finds stale handoff claim, PIVOT within user-approved intent.
+- S20 P1 #shared-helper-extraction-when-three-call-sites-duplicate-same-predicate: Threshold for shared-helper extraction is 3 inline sites, not 2. 2-site duplications often coincidental; 3 is structural.
+- S20 P1 #council-r1-pivots-cleanly-when-the-pivot-fits-original-intent: Distinguish SCOPE EXPANSION (Rule 16 amendment) from SCOPE MECHANISM CHANGE (different mechanism within same intent — doesn't require re-approval if rigorously documented).
+- S20 P3 #council-shrinks-over-fragmentation-12-files-to-3-archetypes: When extraction granularity is "1 function per file" with functions <30 LOC, that's past the cohesion-vs-isolation knee. Group by archetype.
+- S20 P3 #vite-tree-shakes-restructured-modules-to-byte-identical-bundle: Pure refactors where every exported symbol has a static caller from a barrel-or-dispatcher cost zero KB.
+- S20 P3 #dag-safety-by-moving-fallback-to-shared-not-dispatcher: When extracting a dispatcher's shared fallback, the fallback belongs in shared library, NOT dispatcher. Primitives go in shared.
 
-### Session 18 (2026-05-12)
-- S18 #gh-api-binds-pages-custom-domain-faster-than-ui-toggle: 2 `gh api` calls bound custom domain + HTTPS in ~30s vs documented UI clicks.
-- S18 #effect-array-bridge-keeps-purity-in-audio-subsystem: audio subscribes to `world.effects` like the visual renderer — reducer stays pure.
-- S18 #replay-safe-audio-via-tick-cursor-not-effect-id: monotonic `lastDrainedTick` cursor is O(1) memory; tick monotonicity is the natural ordering key.
-- S18 #council-convergent-blockers-skip-debate: Grok + Gemini convergence on the same BLOCKER from independent reasoning = high-confidence signal.
-- SESSION #state-discovery-finds-forward-compat-discriminator-unused: A.0 probe revealed physics-cause SEVER_BOND is dead in production (only test fixture exercises it).
+### Session 19 (2026-05-12)
+- S19 #per-channel-gain-as-children-of-master-pause: layer per-channel gains as CHILDREN of original master rather than replacing master with a mixer; preserves UX semantics + back-compat.
+- S19 #council-convergent-effect-ordering-blocker-orchestrator-owns-effects: when DISRUPTOR + AUDITOR independently flag the same issue, skip "is this real" debate.
+- S19 #a0-state-discovery-flags-handoff-loc-drift: Rule 21 A.0 is cheap (3-4 reads + 2 greps); catches scope-defining claims from a stale snapshot before user `go`.
+- S19 #shared-helper-extraction-when-refactor-pushes-file-over-charter: when refactor pushes file over charter, look for shared structure in NEW code before accepting overage as carry-forward.
+- SESSION #refactor-before-feature-S14-lesson-replayed-for-anti-bloat-debt: trip-wire deferrals have a half-life. When file over-charter for ≥2 sessions, escalate extraction to Standard-tier priority.
+- S19 P4 #silent-npm-bump-trystero-0.20-to-0.24-broke-relay-defaults: LOCKED version pins must be enforced at package-manager level not just doc level. Pin BEHAVIOR (explicit resource config) not just version.
+- S19 P4-retro #fix-first-hypothesis-can-be-wrong-even-when-it-fits-the-evidence: in urgency mode, attach diagnostic logging to actual failure path BEFORE proposing a fix; post-deploy retest produces actionable signal whether fix landed or not.
