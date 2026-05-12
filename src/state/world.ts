@@ -17,6 +17,11 @@
  * PICKUP_SPARK + PLACE_PRIMITIVE silently reject in 1v1 when action.playerId
  * !== currentPlayerId (Gemini R1 BLOCKER — input sanitization on host;
  * defense-in-depth even when controls layer guards locally).
+ *
+ * S16 P0: START_GAME / END_TURN / RETURN_TO_TITLE / UPDATE_AVATAR_POS handler
+ * bodies + addScore helper extracted to src/state/gameMode.ts (mechanical, zero
+ * behavior change; closes S15 § XV PRIME-AUDIT carry-forward). Dispatch
+ * switch retains the case labels and delegates to imported pure functions.
  */
 
 import { ENERGY_PER_SECOND_FLAT, PLAYER_COLORS, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS } from '../constants.ts';
@@ -42,7 +47,21 @@ import {
   type SparkId,
   type Vec2,
 } from '../types.ts';
+import {
+  applyEndTurn,
+  applyReturnToTitle,
+  applyStartGame,
+  applyUpdateAvatarPos,
+  type EndTurnAction,
+  type ReturnToTitleAction,
+  type StartGameAction,
+  type UpdateAvatarPosAction,
+} from './gameMode.ts';
 import { placePrimitive, type PlacePrimitiveAction } from './placePrimitive.ts';
+
+// Re-export addScore from gameMode.ts for back-compat with placePrimitive.ts
+// and session15.test.ts (S16 P0 extraction preserved external import paths).
+export { addScore } from './gameMode.ts';
 
 /**
  * S15 P2: extended FSM. Solo path TITLE→PLAYING→WIN→POSTGAME→TITLE. 1v1
@@ -115,10 +134,10 @@ export type GameAction =
   | { readonly type: 'SEVER_BOND'; readonly bondId: BondId }
   | { readonly type: 'TICK_ENERGY'; readonly playerId: PlayerId; readonly deltaSec: number }
   | { readonly type: 'WIN_TRIGGER'; readonly winnerId: PlayerId }
-  | { readonly type: 'START_GAME'; readonly mode: GameMode; readonly isHost: boolean }
-  | { readonly type: 'END_TURN' }
-  | { readonly type: 'RETURN_TO_TITLE' }
-  | { readonly type: 'UPDATE_AVATAR_POS'; readonly playerId: PlayerId; readonly pos: Vec2 };
+  | StartGameAction
+  | EndTurnAction
+  | ReturnToTitleAction
+  | UpdateAvatarPosAction;
 
 export function makeWorld(rngSeed: number): World {
   const w: World = {
@@ -245,74 +264,17 @@ export function dispatch(world: World, action: GameAction): World {
       world.lastWinnerId = action.winnerId;
       return world;
 
-    case 'START_GAME': {
-      world.gameMode = action.mode;
-      world.isHost = action.isHost;
-      world.gameState = 'PLAYING';
-      world.currentPlayerId = asPlayerId(0);
-      if (action.mode === '1v1') {
-        // Ensure P2 exists with cyan color at spawner-rim right.
-        const p2Id = asPlayerId(1);
-        if (!world.players.has(p2Id)) {
-          const p2 = makeIdlePlayer(p2Id, PLAYER_COLORS[1], {
-            x: SPAWNER_CENTER_X + SPAWNER_RADIUS + 40,
-            y: SPAWNER_CENTER_Y,
-          });
-          world.players.set(p2.id, p2);
-          world.scoreByPlayer.set(p2.id, 0);
-        }
-      }
-      return world;
-    }
+    case 'START_GAME':
+      return applyStartGame(world, action);
 
-    case 'END_TURN': {
-      if (world.gameMode !== '1v1') return world;
-      if (world.gameState !== 'PLAYING') return world;
-      const next = world.currentPlayerId === asPlayerId(0) ? asPlayerId(1) : asPlayerId(0);
-      world.currentPlayerId = next;
-      return world;
-    }
+    case 'END_TURN':
+      return applyEndTurn(world);
 
-    case 'RETURN_TO_TITLE': {
-      world.gameState = 'TITLE';
-      world.gameMode = 'solo';
-      world.currentPlayerId = asPlayerId(0);
-      world.primitives.clear();
-      world.bonds.clear();
-      world.freeSparks.clear();
-      world.effects.length = 0;
-      world.lastWinnerId = null;
-      world.nextPrimitiveId = 0;
-      world.nextBondId = 0;
-      world.scoreProgress = 0;
-      world.scoreByPlayer.clear();
-      // Keep P1 only; drop P2 if present.
-      const survivors: PlayerId[] = [];
-      for (const pid of world.players.keys()) {
-        if (pid !== asPlayerId(0)) survivors.push(pid);
-      }
-      for (const pid of survivors) world.players.delete(pid);
-      // Reset P1's per-game state.
-      const p1 = world.players.get(asPlayerId(0));
-      if (p1 !== undefined) {
-        p1.energy = 0;
-        p1.buildActions = 0;
-        p1.disruptionCharges = 0;
-        if (p1.kind === 'Carrying') {
-          world.players.set(p1.id, { ...p1, kind: 'Idle' as const } as never);
-        }
-      }
-      world.scoreByPlayer.set(asPlayerId(0), 0);
-      return world;
-    }
+    case 'RETURN_TO_TITLE':
+      return applyReturnToTitle(world);
 
-    case 'UPDATE_AVATAR_POS': {
-      const player = world.players.get(action.playerId);
-      if (player === undefined) return world;
-      player.avatarPos.x = action.pos.x;
-      player.avatarPos.y = action.pos.y;
-      return world;
-    }
+    case 'UPDATE_AVATAR_POS':
+      return applyUpdateAvatarPos(world, action);
   }
 }
 
@@ -326,32 +288,3 @@ export function requirePlayer(world: World, id: PlayerId): Player {
   return p;
 }
 
-/**
- * S15 P2 — per-player score helper.
- *
- * Solo: scoreProgress is the scalar leader (additive). scoreByPlayer also
- * tracks for future-proofing but solo gameplay never reads it. Test
- * contracts that DIRECTLY mutate world.scoreProgress (session10.test.ts
- * scoreProgress=14 pre-bake, session13.test.ts likewise) remain valid
- * because solo path is additive (scoreProgress += delta).
- *
- * 1v1: scoreProgress = max(scoreByPlayer.values()) — the leader's score
- * drives the PHASE_1_WIN_SCORE gate in gameState.ts. Each player's
- * personal score lives in scoreByPlayer for HUD display + winner
- * attribution. The leader-max ensures WIN fires when ANY player crosses
- * the threshold first, not when summed totals do.
- */
-export function addScore(world: World, playerId: PlayerId, delta: number): void {
-  const prev = world.scoreByPlayer.get(playerId) ?? 0;
-  const next = prev + delta;
-  world.scoreByPlayer.set(playerId, next);
-  if (world.gameMode === '1v1') {
-    let max = next;
-    for (const v of world.scoreByPlayer.values()) if (v > max) max = v;
-    world.scoreProgress = max;
-  } else {
-    // Solo additive — preserves test contract where world.scoreProgress
-    // is the source of truth and may be set directly by callers.
-    world.scoreProgress += delta;
-  }
-}
