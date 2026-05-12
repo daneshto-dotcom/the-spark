@@ -6,6 +6,109 @@
 
 ---
 
+## Session 13 — Playtest Feedback Batch [COMPLETED] (2026-05-12)
+
+**Triggered by post-S12 user playtest.** User reported one bug (merge
+inconsistency: placing in the middle of three close-but-separate
+structures only merges with one) + three cinematics-visibility gaps:
+STRUCTURE_GROW visual flash great but "doesn't actually grow
+physically," MERGE_IMPULSE 1.2 px "can't see any difference,"
+SCORE_TIER corner pulse "not sure." Standard-tier batch, Council R1 ON
+per user "thoroughly… creative technical, coherent" approval. 4 work
+priorities + closeout.
+
+**P1+P3 — Merge reach fix + MERGE_IMPULSE tuning (Standard, Council-
+revised, commit `8e58cd2`).** Council R1 ran in parallel (Grok DISRUPTOR
++ Gemini AUDITOR both REVISE). Adopted Gemini #1 (short-bond clamp),
+Gemini #2 (explicit nearest-pick map), Gemini #3 (cross-ref comments);
+rejected Grok #1 (spatial-index claim — verified `spatial.ts` indexes
+Sparks only), Grok #3 (constraint amplification — verified `bonds.ts`
+strictly dissipative), Grok #4 (off-center dedup — independent
+components dedup-safe). Battle Ledger + PRIME-AUDIT in archived PDR.
+
+Code changes: new `MERGE_REACH_RADIUS=100` in constants.ts (separate from
+controls.ts-local `AUTO_BOND_RADIUS=60` which stays for primary picking);
+controls.ts:onUp passes wider candidate set to placePrimitive; world.ts
+merge sweep refactored to two-phase `Map<componentRoot, {cand, distSq,
+comp}>` — Phase 1 groups candidates by component picking nearest-to-new-
+prim, Phase 2 iterates one merge bond per chosen-nearest cand. Replaces
+S9's implicit "first-iterated cand wins." `MERGE_IMPULSE_MAGNITUDE`
+1.2→3.0 px (5% strain on 60-px bond, 5× headroom; compression-only since
+bonds break on extension per `physics/bonds.ts:58`). New
+`MIN_BOND_LENGTH_FOR_IMPULSE=25`: short-bond scale `min(1, rest_length /
+MIN)` prevents impulse-teleport-through-new-prim on tight placements.
+
+**P2 — STRUCTURE_GROW outward verlet impulse (Micro, Council-revised,
+commit `72caa22`).** Adopted Grok #2's centroid-outward revision (was:
+origin-outward, which reads as "recoil from new prim" not "grow"). After
+existing STRUCTURE_GROW visual emit (cinematicsEnabled-gated), iterate
+primary's pre-existing component primitives (snapshotted from
+`componentOf(target).primitiveIds` minus new prim) and apply `prevPos
+-= unit(centroid → p) × STRUCTURE_GROW_IMPULSE=0.8`. Centroid = post-bond
+component (pre-existing + new prim) so 2-prim structures produce non-zero
+outward direction. Bonds resist; net effect = brief outward "puff." Cand
+components excluded (they get inward MERGE_IMPULSE instead): visual
+signature split on a cross-structure merge is "existing puffs OUT,
+absorbed snaps IN." Gated on cinematicsEnabled (paired with the visual
+emit) unlike MERGE_IMPULSE's S10 unconditional pattern — single mental
+model for the C-keybind toggle.
+
+**P4 — SCORE_TIER center pulse at placement (Standard, Council-revised,
+commit `8b5ad3e`).** Adopted Grok #5 partial (single pulse, not dual).
+SCORE_TIER effect gains required `pos: Vec2` field; emit-site in world.ts
+captures `prim.pos` so the renderer draws AT the new primitive on tier
+crossing. Corner-pulse code removed from `scoreTier.ts` entirely. HUD
+progress bar still fills continuously as running indicator. Renderer
+scale-up: bloom 28→60 (start) / 56→100 (end); ring 18→40 (start) / 68→100
+(end); stroke width 2→3; duration 30→48 ticks (~500ms → ~800ms) for
+longer foveal-attention coverage. 3 effectsRenderer.test.ts SCORE_TIER
+fixtures updated for required pos field.
+
+**P5 — Closeout.** Per-priority commit + push (S9 rule). BACKLOG S13
+entry + session map (S13 DONE → S14+ Phase 2 implementation). Reflexion
+log: prepend 5 S13 entries + prune oldest S5 detail entries to maintain
+≤50 cap. Boot-snapshot regenerated with S13 commit list + post-S13 state
++ § XV charter PRIME-AUDIT carry-forward note. PDR archived to
+`.claude/plans-archive/2026-05-12_PDR_Session_13_COMPLETED.md` with
+post-execution Battle Ledger + Council adoption table + PRIME-AUDIT
+delta. HANDOFF_2026-05-12.md written at root; S12 root archived to
+`.handoff-archive/HANDOFF_2026-05-11_S12_postS13.md`.
+
+**Exit gate:** 216/216 tests passing (was 201; +15 new across P1/P2/P3/
+P4: 3-structure merge @ 90 px, nearest-pick per component, separate-
+components, MERGE_IMPULSE=3.0 verification, short-bond clamp formula,
+sentinel constants, STRUCTURE_GROW outward direction validation on 2-
+prim and 3-prim chain primaries, cinematicsEnabled gate, cand-component
+exclusion, SCORE_TIER.pos co-location, multi-tier crossing pos-tagging).
+Typecheck clean (`npx tsc -b --noEmit` exit 0). 3 priority commits
+(`8e58cd2` P1+P3, `72caa22` P2, `8b5ad3e` P4) + this closeout commit on
+master, all pushed to origin.
+
+**PRIME-AUDIT carry-forward:** `world.ts` grew from 481 LOC (S12 close)
+to 587 LOC across S13's three additions in placePrimitive — 17% over the
+§ XV 500-LOC soft charter. Recommended S14 fix: extract `placePrimitive`
+into its own file (`src/state/placePrimitive.ts`, similar pattern to
+S12's per-kind effect-renderer split). Leaves world.ts at ~340 LOC.
+Not blocking S14 playtest — charter is soft, breach is 17% (vs S12's
+14% before refactor), and the additions are cohesive single-function
+growth, not architectural drift.
+
+**Carry-forward to S14+:**
+- PLAYTEST-GATED: cinematics constants tuning (ATTRACT_FOLLOW_RATE,
+  STRUCTURE_GROW_HOP_TICKS, STRUCTURE_FLASH_TICKS, MERGE_IMPULSE_MAGNITUDE
+  at new 3.0, SCORE_TIER_STEP, **NEW** STRUCTURE_GROW_IMPULSE,
+  **NEW** MERGE_REACH_RADIUS) + S5-S9 carry-overs (AUTO_BOND_RADIUS,
+  MAX_RELEASE_REACH, PHASE_1_WIN_SCORE, strain thresholds). User
+  re-playtests post-S13 build to validate the 4 fixes feel right.
+- ASSET-GATED (still): Audio integration (Suno track pending).
+- PHASE-2-GATED (still): Phase 2 implementation per
+  `docs/phase-2-design-options.md` user pick (recommended Tier-0 first =
+  B.2 Hotseat + A Fog, ~450 LOC).
+- CHARTER (S13 PRIME-AUDIT): `world.ts` placePrimitive extraction
+  refactor — small S14 priority if user agrees, else carry to S15+.
+
+---
+
 ## Session 12 — effectsRenderer Per-Kind Split [COMPLETED] (2026-05-11)
 
 **Triggered by S11 PRIME-AUDIT carry-forward.** `effectsRenderer.ts` at 569 LOC
@@ -420,7 +523,8 @@ hidden, so static state-mutation + manual render is the way).
 | **10** | Tuning + cinematics implementation | (DONE 2026-05-11) AttractDrag follow-lerp tuning + STRUCTURE_GROW outward pulse + STRUCTURE_MERGE verlet impulse + SCORE_TIER every-15 corner pulse + C-key debug toggle | 179/179 tests, browser HMR clean, all 4 cinematics + tuning callout closed |
 | **11** | Buffer: drift cleanup + Phase 2 design matrix | (DONE 2026-05-11) Push state-autocommits + `docs/phase-2-design-options.md` (7 mechanics × full template, Mermaid prereq DAG, tiered rollout recommendation, Council R1 deliberated) | 179/179 tests, Phase 2 conversation has decision-ready artifact when user signs off Phase 1 |
 | **12** | effectsRenderer per-kind split (§ XV charter compliance) | (DONE 2026-05-11) Dead-silhouette audit (zero deletions) + 7 new files under `src/render/effects/` + parent rewrite (569→116 LOC) + new smoke test, Council R1 (Grok VETO + Gemini REVISE) adopted 6 of 7 | 201/201 tests (179 + 22 new), typecheck clean, no file >500 LOC, Phase-2-ready seam |
-| **13+** | **Audio / Phase 2 implementation** [NEXT] | Audio (when Suno track lands); Phase 2 implementation per `docs/phase-2-design-options.md` user pick (recommended Tier-0 first = B.2 Hotseat + A Fog); any post-playtest tuning of cinematics constants + carry-overs | User picks from Phase 2 matrix + "ship Phase 2" |
+| **13** | Playtest feedback batch — merge bug fix + cinematics tuning | (DONE 2026-05-12) MERGE_REACH_RADIUS=100 + nearest-pick map (multi-structure merge), STRUCTURE_GROW centroid-outward impulse, MERGE_IMPULSE 1.2→3.0 + short-bond clamp, SCORE_TIER center pulse at placement. Council R1 (Grok DISRUPTOR + Gemini AUDITOR both REVISE) adopted 6 of 10 findings | 216/216 tests (201 + 15 new), typecheck clean, all 4 playtest items closed |
+| **14+** | **Audio / Phase 2 implementation** [NEXT] | User re-playtest post-S13 build; then: Audio (when Suno track lands); Phase 2 implementation per `docs/phase-2-design-options.md` user pick (recommended Tier-0 first = B.2 Hotseat + A Fog); placePrimitive extraction (S13 PRIME-AUDIT carry-forward); any post-playtest re-tuning | User picks from Phase 2 matrix + "ship Phase 2" |
 
 If Session 12 closes all gates early → Phase 2 implementation begins (foundation tier: B.2 hotseat + A fog of war).
 
