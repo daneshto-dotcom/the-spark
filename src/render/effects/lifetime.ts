@@ -13,7 +13,10 @@ import type { GameEffect } from '../../game/effects.ts';
 export const COMMIT_DURATION_TICKS = 24; // 0.4s @ 60Hz
 export const ERASE_DURATION_TICKS = 30; // 0.5s @ 60Hz
 export const MERGE_LEAD_IN_TICKS = 4;   // delay before union flash begins
-export const SCORE_TIER_DURATION_TICKS = 30; // ~500ms corner pulse
+// S13 P4: 30 → 48 ticks (~800ms) for visibility. Now co-located with the
+// placement cursor (was: fixed HUD corner), so the pulse spends a longer
+// portion of the player's foveal-attention window.
+export const SCORE_TIER_DURATION_TICKS = 48;
 
 export function effectLifetime(effect: GameEffect): number {
   switch (effect.kind) {

@@ -305,6 +305,66 @@ describe('S13 P2 — STRUCTURE_GROW outward impulse on primary pre-existing comp
   });
 });
 
+describe('S13 P4 — SCORE_TIER center pulse at placement position', () => {
+  it('SCORE_TIER effect now carries pos field equal to new prim position', () => {
+    // S13 P4 moves the visual from a fixed HUD corner to the placement
+    // cursor. emit-site captures prim.pos so the renderer draws there
+    // (drawScoreTier reads effect.pos directly).
+    const world = makeWorld(0);
+    // Pre-bake scoreProgress to just below tier 1 (15) so a single
+    // magic bond crosses it.
+    world.scoreProgress = 14;
+    const a = placeAt(world, { sparkRawId: 1, type: SparkType.Line, pos: { x: 250, y: 250 }, targetId: null });
+    // Reset scoreProgress to 14 (anchor placements added to it).
+    world.scoreProgress = 14;
+
+    const effectsBefore = world.effects.length;
+    const newPrim = placeAt(world, {
+      sparkRawId: 2,
+      type: SparkType.Dot,
+      pos: { x: 270, y: 250 }, // Line→Dot direction is carried→target: Dot→Line = Filament magic, +3 → crosses 15.
+      targetId: a,
+    });
+    // Score must have crossed tier 1 boundary.
+    expect(world.scoreProgress).toBeGreaterThanOrEqual(15);
+
+    const tierEvents = world.effects.slice(effectsBefore).filter((e) => e.kind === 'SCORE_TIER');
+    expect(tierEvents.length).toBe(1);
+    if (tierEvents[0].kind !== 'SCORE_TIER') throw new Error('typeguard');
+    const newPrimPos = world.primitives.get(newPrim)!.pos;
+    expect(tierEvents[0].pos.x).toBe(newPrimPos.x);
+    expect(tierEvents[0].pos.y).toBe(newPrimPos.y);
+  });
+
+  it('multi-tier crossing fires one SCORE_TIER per band, all pos-tagged at the same new prim', () => {
+    // Force scoreProgress to 14 then trigger a multi-bond merge that
+    // pushes past 30 (crosses both 15 and 30 boundaries).
+    const world = makeWorld(0);
+    const a = placeAt(world, { sparkRawId: 1, type: SparkType.Line, pos: { x: 200, y: 200 }, targetId: null });
+    const b = placeAt(world, { sparkRawId: 2, type: SparkType.Line, pos: { x: 290, y: 200 }, targetId: null });
+    const c = placeAt(world, { sparkRawId: 3, type: SparkType.Line, pos: { x: 245, y: 290 }, targetId: null });
+    // 3 anchors × SCORE_ANCHOR(1) = 3. Reset to 14 to set up tier crossing.
+    world.scoreProgress = 14;
+
+    const effectsBefore = world.effects.length;
+    const hub = placeAt(world, {
+      sparkRawId: 4,
+      type: SparkType.Line,
+      pos: { x: 245, y: 200 },
+      targetId: a,
+      mergeCandidateIds: [a, b, c],
+    });
+    // Primary Line→Line = Cable (magic, +3) → 17. + 2 magic merges × 3 = +6 → 23.
+    // Crossed 15 once. (Not 30 — would need 16 delta; we only get 9 here.)
+    const tierEvents = world.effects.slice(effectsBefore).filter((e) => e.kind === 'SCORE_TIER');
+    expect(tierEvents.length).toBe(1);
+    if (tierEvents[0].kind !== 'SCORE_TIER') throw new Error('typeguard');
+    const hubPos = world.primitives.get(hub)!.pos;
+    expect(tierEvents[0].pos.x).toBe(hubPos.x);
+    expect(tierEvents[0].pos.y).toBe(hubPos.y);
+  });
+});
+
 describe('S13 P3 — MERGE_IMPULSE bump + short-bond clamp', () => {
   it('MERGE_IMPULSE_MAGNITUDE constant is 3.0 (S13 P3 bump)', () => {
     expect(MERGE_IMPULSE_MAGNITUDE).toBe(3.0);

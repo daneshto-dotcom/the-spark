@@ -1,21 +1,20 @@
 /**
- * S10 P4: corner pulse near the progress bar at every SCORE_TIER_STEP
- * boundary crossing. Soft fill + sharp leading ring, sine-envelope over
- * SCORE_TIER_DURATION_TICKS. Renderer-only (no world lookup needed) so
- * it draws cleanly even if a tier event lands during a load/restore.
+ * S10 P4 / S13 P4 — score-tier-crossing pulse at the placement position.
  *
- * Corner anchor is co-located with HUD progress-bar layout in ui.ts
- * (PROGRESS_X=12, PROGRESS_WIDTH=80, PROGRESS_Y vertical track at
- * CANVAS_HEIGHT-80..-40). If those values move in ui.ts, update here too.
+ * S10 design (corner anchor near HUD progress bar) replaced in S13 P4
+ * with a center pulse at effect.pos — typically the new primitive's
+ * world position. The HUD progress bar itself still fills continuously
+ * as the running indicator; this pulse is the *moment* of tier crossing,
+ * co-located with the player's foveal attention at the placement cursor.
+ *
+ * Geometry: soft outer bloom + sharp leading ring, both sine-enveloped
+ * over SCORE_TIER_DURATION_TICKS. Scaled up from S10's corner sizes for
+ * visibility against an open canvas.
  */
 
 import { Graphics } from 'pixi.js';
-import { CANVAS_HEIGHT } from '../../constants.ts';
 import type { GameEffect } from '../../game/effects.ts';
 import { SCORE_TIER_DURATION_TICKS } from './lifetime.ts';
-
-const SCORE_TIER_CENTER_X = 12 + 80 / 2;
-const SCORE_TIER_CENTER_Y = CANVAS_HEIGHT - 60;
 
 export function drawScoreTier(
   g: Graphics,
@@ -25,16 +24,20 @@ export function drawScoreTier(
   const t = age / SCORE_TIER_DURATION_TICKS;
   if (t > 1) return;
   const env = Math.sin(t * Math.PI);
-  // Soft outer bloom — filled disc, generous radius.
-  const bloomR = 28 + t * 28;
-  g.circle(SCORE_TIER_CENTER_X, SCORE_TIER_CENTER_Y, bloomR).fill({
+  const cx = effect.pos.x;
+  const cy = effect.pos.y;
+  // Soft outer bloom — fills behind the ring. Starts at 60 (S10 was 28
+  // at corner; doubled for visibility in open canvas) and grows to 100.
+  const bloomR = 60 + t * 40;
+  g.circle(cx, cy, bloomR).fill({
     color: effect.color,
     alpha: 0.38 * env,
   });
-  // Sharp leading ring — expands faster than the bloom.
-  const ringR = 18 + t * 50;
-  g.circle(SCORE_TIER_CENTER_X, SCORE_TIER_CENTER_Y, ringR).stroke({
-    width: 2,
+  // Sharp leading ring — expands faster than the bloom for a "pop" feel.
+  // 40 → 100 px over the duration; 3 px stroke width vs S10's 2.
+  const ringR = 40 + t * 60;
+  g.circle(cx, cy, ringR).stroke({
+    width: 3,
     color: effect.color,
     alpha: 0.7 * env,
   });

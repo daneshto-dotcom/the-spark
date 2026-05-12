@@ -71,14 +71,19 @@ export type GameEffect =
     }
   | {
       /**
-       * S10 P4 — score tier crossing. Emitted once per multiple of
-       * SCORE_TIER_STEP that scoreProgress crossed during the placement.
-       * Renderer draws a corner bloom near the progress bar.
+       * S10 P4 / S13 P4 — score tier crossing. Emitted once per multiple
+       * of SCORE_TIER_STEP that scoreProgress crossed during the
+       * placement. S13 P4 moves the visual from a fixed HUD corner to
+       * the placement position (effect.pos) so the pulse lands where
+       * the player's eyes already are. The HUD progress bar itself
+       * still fills continuously as the running indicator.
        */
       readonly kind: 'SCORE_TIER';
       readonly tick: number;
       readonly tier: number;
       readonly color: number;
+      /** S13 P4: world position to render the pulse at — the new prim's pos. */
+      readonly pos: Vec2;
     };
 
 /** Soft cap on the queue — anything older than this many ticks is dropped. */

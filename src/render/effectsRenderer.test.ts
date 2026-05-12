@@ -71,7 +71,7 @@ describe('S12 — effectLifetime', () => {
       { kind: 'SEVER_ERASE', tick: 0, pos: { x: 0, y: 0 }, color: 0xffffff, radius: 5 },
       { kind: 'STRUCTURE_GROW', tick: 0, originPrimId: asPrimitiveId(1), hopByPrimId: new Map(), hopByBondId: new Map(), color: 0xffffff, maxHop: 0 },
       { kind: 'STRUCTURE_MERGE', tick: 0, originPos: { x: 0, y: 0 }, unionPrimIds: [], color: 0xffffff },
-      { kind: 'SCORE_TIER', tick: 0, tier: 1, color: 0xffffff },
+      { kind: 'SCORE_TIER', tick: 0, tier: 1, color: 0xffffff, pos: { x: 0, y: 0 } },
     ];
     for (const eff of cases) {
       expect(effectLifetime(eff), `${eff.kind} should have positive lifetime`).toBeGreaterThan(0);
@@ -153,7 +153,7 @@ describe('S12 — per-kind drawers dispatch without throw', () => {
     const g = new GraphicsMock();
     drawScoreTier(
       g as never,
-      { kind: 'SCORE_TIER', tick: 0, tier: 1, color: 0xffffff },
+      { kind: 'SCORE_TIER', tick: 0, tier: 1, color: 0xffffff, pos: { x: 0, y: 0 } },
       10,
     );
     expect(g.calls.some((c) => c.op === 'fill')).toBe(true);
@@ -175,7 +175,7 @@ describe('S12 — EffectsRenderer class lifecycle', () => {
     w.effects.push(
       { kind: 'BOND_COMMIT', tick: 0, pos: { x: 0, y: 0 }, color: 0xffffff, radius: 4, visualEffectId: 'fx.bond.default', otherPos: { x: 10, y: 0 } },
       { kind: 'SEVER_ERASE', tick: 0, pos: { x: 0, y: 0 }, color: 0xffffff, radius: 5 },
-      { kind: 'SCORE_TIER', tick: 0, tier: 1, color: 0xffffff },
+      { kind: 'SCORE_TIER', tick: 0, tier: 1, color: 0xffffff, pos: { x: 0, y: 0 } },
     );
     renderer.sync(w);
     expect(w.effects.length).toBe(0);

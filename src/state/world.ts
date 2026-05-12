@@ -467,10 +467,15 @@ function placePrimitive(
     for (const id of candComp.primitiveIds) mergedComponents.add(id);
   }
 
-  // S10 P4+P5: emit one SCORE_TIER per crossed multiple of SCORE_TIER_STEP,
-  // gated on cinematicsEnabled. Multi-tier crossings (e.g. 14 → 31 via
-  // primary magic + multiple magic merges) fire one event per band — in
-  // practice a Phase 1 place crosses at most 1 band (max ~10 score delta).
+  // S10 P4+P5 / S13 P4: emit one SCORE_TIER per crossed multiple of
+  // SCORE_TIER_STEP, gated on cinematicsEnabled. Multi-tier crossings
+  // (e.g. 14 → 31 via primary magic + multiple magic merges) fire one
+  // event per band — in practice a Phase 1 place crosses at most 1 band
+  // (max ~10 score delta).
+  //
+  // S13 P4: pos = new prim's position so the pulse co-locates with the
+  // placement (was: fixed HUD corner). User attention is at the
+  // placement cursor; corner anchor was peripheral.
   if (world.cinematicsEnabled) {
     const oldTier = Math.floor(oldScore / SCORE_TIER_STEP);
     const newTier = Math.floor(world.scoreProgress / SCORE_TIER_STEP);
@@ -480,6 +485,7 @@ function placePrimitive(
         tick: world.tick,
         tier: t,
         color: player.color,
+        pos: { x: prim.pos.x, y: prim.pos.y },
       });
     }
   }
