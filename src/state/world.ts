@@ -26,9 +26,14 @@
 
 import { ENERGY_PER_SECOND_FLAT, PLAYER_COLORS, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS } from '../constants.ts';
 import { type GameEffect } from '../game/effects.ts';
-import { snapPrevPosForUnbonded } from '../game/invariants.ts';
 import { type Primitive } from '../game/primitive.ts';
 import { severSplit } from '../game/structure.ts';
+import {
+  applySeverTopology,
+  canSeverBond,
+  computeBaseCharge,
+  computeSeverEraseEffects,
+} from './disruptionManager.ts';
 import {
   CarryViolation,
   drop as fsmDrop,
@@ -231,87 +236,34 @@ export function dispatch(world: World, action: GameAction): World {
       return placePrimitive(world, action);
 
     case 'SEVER_BOND': {
-      // S17 P1 Phase-2 §VIII.3 row 1: cross-player Sever costs 1 charge.
-      // §VIII.4 self-sever (both endpoints share actor's placerColor) free.
-      // Physics-auto-sever (overstretch breakage from physics/bonds solver)
-      // bypasses auth + charge — it's the constraint solver firing, not a
-      // disruption action by an actor.
-      // PRIME-AUDIT B: cycle-bond sever (severSplit returns empty del per
-      // §VIII.4 "cycle = no-op") does NOT consume a charge; bond removal
-      // still applies (pre-existing behavior — see severSplit cycle case).
+      // S17 §13.11 LOCKED; S19 P2 orchestrator over disruptionManager helpers.
+      // Effect ordering (Council R1 Grok#4 + Gemini#1 BLOCKER): SEVER_ERASE
+      // effects emit BEFORE topology mutation (need live prims for pos/color
+      // /radius); BOND_SEVERED emits AFTER (end-of-operation marker for audio).
       const bond = world.bonds.get(action.bondId);
       if (bond === undefined) return world;
 
-      // S18 P1 — capture sever position BEFORE deletion for BOND_SEVERED audio
-      // effect. bond.a is a Primitive reference (live or already-removed-from-
-      // world.primitives, the object identity persists).
-      const severPos = { x: bond.a.pos.x, y: bond.a.pos.y };
+      const primA = world.primitives.get(bond.aId);
+      const primB = world.primitives.get(bond.bId);
+      if (primA === undefined || primB === undefined) return world;
 
-      let chargeToConsume = 0;
+      // Capture sever pos before any mutation (audio drain payload).
+      const severPos = { x: primA.pos.x, y: primA.pos.y };
 
-      if (action.cause === 'player') {
-        // 1v1 input gate (Council R1 Gemini #3 pattern, mirrors PICKUP_SPARK).
-        if (world.gameMode === '1v1' && action.playerId !== world.currentPlayerId) return world;
+      if (!canSeverBond(world, action, primA, primB)) return world;
 
-        const player = requirePlayer(world, action.playerId);
-        const primA = world.primitives.get(bond.aId);
-        const primB = world.primitives.get(bond.bId);
-        if (primA === undefined || primB === undefined) return world;
-
-        // Auth rule (Council R1 Gemini #3): bond is HOSTILE if EITHER endpoint's
-        // placerColor differs from actor's color. Self-sever (both endpoints
-        // share actor's color) preserves Phase-1 §VIII.4 zero-cost path. Uses
-        // placerColor (immutable, §VI.4) — actor's contribution history is the
-        // auth signal, NOT transient ownerColor (which mutates on Phase-2 Steal).
-        const isHostile = primA.placerColor !== player.color || primB.placerColor !== player.color;
-
-        if (isHostile && player.disruptionCharges < 1) return world;  // §VIII.2 silent reject
-        if (isHostile) chargeToConsume = 1;
-      }
-
-      // Compute sever AFTER auth so cycle-no-consume PRIME-AUDIT B can apply
-      // without prematurely consuming.
       const split = severSplit(bond, world.primitives, world.bonds);
-      if (split.del.size === 0) {
-        // Cycle case (§VIII.4 no-op for prims): no charge consumed even when
-        // hostile. Bond still removed below (pre-existing behavior).
-        chargeToConsume = 0;
-      }
-
+      // Cycle-no-consume (§VIII.4): hostile sever that produces zero deletions
+      // (closed-cycle bond) keeps charge; bond is still removed.
+      const chargeToConsume = split.del.size === 0
+        ? 0
+        : computeBaseCharge(world, action, primA, primB);
       if (chargeToConsume > 0) {
-        // Same player.color comparison succeeded above; requirePlayer cannot fail here.
         requirePlayer(world, action.playerId).disruptionCharges -= chargeToConsume;
       }
 
-      for (const primId of split.del) {
-        const p = world.primitives.get(primId);
-        if (p === undefined) continue;
-        world.effects.push({
-          kind: 'SEVER_ERASE',
-          tick: world.tick,
-          pos: { x: p.pos.x, y: p.pos.y },
-          color: p.placerColor,
-          radius: p.radius,
-        });
-      }
-      const a = world.primitives.get(bond.aId);
-      const b = world.primitives.get(bond.bId);
-      a?.bonds.delete(bond.id);
-      b?.bonds.delete(bond.id);
-      world.bonds.delete(bond.id);
-      for (const bondId of split.delBonds) {
-        const lost = world.bonds.get(bondId);
-        if (lost === undefined) continue;
-        world.primitives.get(lost.aId)?.bonds.delete(bondId);
-        world.primitives.get(lost.bId)?.bonds.delete(bondId);
-        world.bonds.delete(bondId);
-      }
-      for (const primId of split.del) world.primitives.delete(primId);
-      snapPrevPosForUnbonded(world.primitives);
-
-      // S18 P1 — audio: emit BOND_SEVERED. Audio drain filters cause==='player'
-      // for the fart SFX (physics-overstretch is silent). Visual SEVER_ERASE
-      // effects above are independent (per-deleted-prim, S17 P1).
+      for (const e of computeSeverEraseEffects(world, split, world.tick)) world.effects.push(e);
+      applySeverTopology(world, bond, split);
       world.effects.push({
         kind: 'BOND_SEVERED',
         tick: world.tick,
