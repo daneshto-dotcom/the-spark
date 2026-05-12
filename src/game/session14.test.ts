@@ -29,7 +29,7 @@ import {
 import {
   angularDistance,
   pickRedundantBondTargets,
-} from '../input/controls.ts';
+} from '../input/redundantBondTargets.ts';
 import { makeFreeSpark } from './spark.ts';
 import { componentOf } from './structure.ts';
 import { dispatch, makeWorld } from '../state/world.ts';
