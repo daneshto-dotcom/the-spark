@@ -6,6 +6,113 @@
 
 ---
 
+## Session 14 — Avatar Disambiguation + Multi-Endpoint Redundant Bonding [COMPLETED] (2026-05-12)
+
+**Triggered by post-S13 playtest user report (same session day, follow-up batch).**
+Two distinct findings: (a) the "highlighted cruiser" on the left that "is stuck
+and is not the main cruiser" — diagnosed as a placed Dot primitive in player
+color (0xff3b6b crimson) which visually collides with the avatar (also a
+crimson dot at the cursor); (b) "if I put a new shape near existing structure
+and end points, it only connects to the nearest endpoint. however it needs to
+connect to all nearest endpoints… building backup lines so that your structure
+doesn't get deleted from raiding." Standard-tier batch, Council R1 ON, user
+pre-approved "top priority recommended batch following full pipeline flow."
+
+**P1 — Avatar disambiguation (Micro, commit `0ccb3fe`).** Anti-phase outer/inner
+alpha pulse via `performance.now()` so the avatar visibly "breathes" relative
+to a static Dot primitive in the same color. Constants: `AVATAR_PULSE_HZ=1.2`
+(sub-heartbeat, well under PEAT's 3 Hz threshold), `AVATAR_PULSE_DEPTH=0.20`
+(±20% outer, ±10% anti-phase inner). Pure `computeAvatarAlphas(t, baseOuter,
+baseInner, hz, depth)` exported for unit-testability (S10
+#test-via-pure-helper-export pattern). 7 unit tests covering t=0 base,
+quarter-period (+1), three-quarter-period (-1 with inner clamp), wide-t
+boundedness, extreme-depth clamp on both outer and inner, period closure.
+Council R1: Grok #6 chevron alternative REJECTED — chevron only fires under
+motion; user complaint was about indistinguishability at rest.
+
+**P2.0 — Mechanical extraction `placePrimitive → src/state/placePrimitive.ts`
+(Micro, commit `9bb784e`).** Zero behavior change. world.ts drops 587→228 LOC
+(closes S13 PRIME-AUDIT carry-forward; now under 500-LOC § XV soft charter).
+placePrimitive.ts at 382 LOC pre-P2.1 (also within charter; sized to absorb
+P2.1's ~80 LOC). Moved verbatim: 304-LOC placePrimitive function + 17-LOC
+makeBond helper. `PlacePrimitiveAction` type defined + exported in
+placePrimitive.ts; world.ts composes GameAction with it (JSON shape
+unchanged — Phase 3 dispatchOverNetwork seam intact). `requirePlayer()`
+promoted to export in world.ts (shared throw-on-missing semantics). Council
+R1: Grok #7 + Gemini § 7.1 both independently flagged "refactor first,
+feature second" (adopted — my original PDR said "safer post-feature," Council
+inverted it).
+
+**P2.1 — Multi-endpoint redundant bonding (Standard core, commit `ab40447`).**
+New placements with a primary target create up to `REDUNDANT_BOND_K=3` total
+bonds into the primary's connected component, subject to ≥25° angular spread
+filter (5π/36 rad). Redundancy bonds emit `BOND_COMMIT` but DO NOT contribute
+to `scoreProgress` (Council G5/G8 ADOPTED — keeps `PHASE_1_WIN_SCORE=50`,
+frames redundancy as defense not score-velocity). Algorithm: distance-sorted
+greedy angular-spread picker, capped at `REDUNDANT_BOND_MAX_CANDIDATES=16` for
+O(N) cost bound. New `pickRedundantBondTargets()` exported pure function;
+`angularDistance()` wrapped-arc helper also exported. `PlacePrimitiveAction`
+gains optional `extraBondTargetIds`; placePrimitive.ts validates each in DEV
+(self-id / primary-id / duplicate / missing / not-in-component all skipped
+with console.error) and skips silently in production. 29 new tests across 5
+groups: (A) pickRedundantBondTargets pure-function 10 cases including K=0/1
+boundary, no in-range cand, K=3 well-spread vs sparse, AUTO_BOND_RADIUS=59-
+in/61-out boundary, colinear-degeneracy, MAX_CANDIDATES=17→16 truncation;
+(B) angularDistance 5 cases (zero, π/2, π, wrap, modulo); (C) end-to-end
+placePrimitive 6 cases including scoreProgress no-contribution for redundancy
++ magic-primary correctness; (D) severSplit interaction 2 cases — cycle
+preserves on redundancy sever (the entire point) + non-cycle chain still
+amputates; (E) DEV invariant validation 5 cases.
+
+Council R1 disposition (Battle Ledger in archived PDR):
+  Grok REVISE — 8 challenges + ports alternative.
+    Adopted: G3 (25° spread vs 30°), G4 strain-cascade test, G5/G8 no-score,
+    G7 extract-first (shipped as P2.0).
+    Rejected: G1 "all-within-radius" literal (defeats raid-resistance via
+    colinear redundancy), G2 per-type maxDegree (Phase-2 candidate), G6
+    avatar chevron (wrong for static-cursor case), GA ports (Phase 2).
+  Gemini REVISE — 6 invariant stresses + 8 edge cases + perf audit.
+    All applicable concerns adopted. Test count grew 11 → 29.
+
+**P3 — Closeout.** Per-priority commit + push (S9 rule). BACKLOG S14 entry +
+session map update. reflexion log: +5 S14 entries (#council-led-restructuring-
+as-prerequisite, #no-score-for-redundancy-clean-frame, #pure-function-
+extraction-for-class-method-testability, #verify-council-claim-with-source-
+not-narrative, SESSION #prime-audit-as-revision-gate-not-decoration) - prune
+to stay ≤50 cap. boot-snapshot regenerated. PDR archived to
+`.claude/plans-archive/2026-05-12_PDR_Session_14_COMPLETED.md` with Battle
+Ledger + Council adoption tables + PRIME-AUDIT delta. HANDOFF_2026-05-12.md
+replaced (S13 root archived to `.handoff-archive/HANDOFF_2026-05-12_S13_postS14.md`).
+
+**Exit gate:** 252/252 tests passing (was 216 from S13, +36 new: 7 avatar +
+29 session14). Typecheck clean (`npx tsc -b --noEmit` exit 0). 3 priority
+commits (`0ccb3fe` P1, `9bb784e` P2.0, `ab40447` P2.1) + this closeout commit
+on master, all pushed.
+
+**Carry-forward to S15+:**
+- PLAYTEST-GATED (highest priority for S15): user playtests the post-S14
+  build. Verify: (a) avatar visibly distinct from placed Dot primitives
+  (pulse at 1.2 Hz reads as "alive"); (b) placing near multiple endpoints
+  creates up to 3 bonds visibly (triangulated cell, not single edge);
+  (c) raids on triangle-redundancy cell can't amputate via single sever;
+  (d) no spurious physics breaks from STRUCTURE_GROW + multi-bond
+  triangulation under typical play.
+- TUNE if needed: `REDUNDANT_BOND_K` (default 3 — drop to 2 if "too rigid"
+  or back to 1 for pre-S14 behavior); `REDUNDANT_BOND_MIN_ANGLE_RAD`
+  (default 25°); `AVATAR_PULSE_HZ` (default 1.2 — drop to 0.6 if "too
+  anxious"); `AVATAR_PULSE_DEPTH` (default 0.20).
+- CHARTER (S14 PRIME-AUDIT): `controls.ts` grew 436 → 565 LOC (+129 from
+  pure-function extraction). 13% over § XV charter. Recommended S15 fix:
+  extract `pickRedundantBondTargets` + `angularDistance` to
+  `src/input/redundantBondTargets.ts`. ~120 LOC moved; brings controls.ts
+  back to ~445 LOC. Not blocking; charter is soft.
+- ASSET-GATED (still): Audio integration (Suno track pending).
+- PHASE-2-GATED (still): Phase 2 implementation per
+  `docs/phase-2-design-options.md` user pick (recommended Tier-0 first
+  = B.2 Hotseat + A Fog, ~450 LOC).
+
+---
+
 ## Session 13 — Playtest Feedback Batch [COMPLETED] (2026-05-12)
 
 **Triggered by post-S12 user playtest.** User reported one bug (merge
