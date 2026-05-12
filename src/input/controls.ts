@@ -19,6 +19,7 @@ import {
   ATTRACT_FOLLOW_RATE,
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  MERGE_REACH_RADIUS,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
@@ -38,6 +39,13 @@ const BOND_PICK_DIST = 8;
 // this radius of the release point. Generous so dropping "near" a structure
 // snaps cleanly. Bigger than PICK_RADIUS because PICK_RADIUS is for grabbing
 // (precise) and this is for connecting (forgiving).
+//
+// S13 P1: AUTO_BOND_RADIUS now governs PRIMARY target picking only. The
+// cross-structure merge sweep uses the wider MERGE_REACH_RADIUS from
+// constants.ts. Split rationale: primary precision (which structure you
+// "really" meant to land on) vs merge reach (which OTHER structures get
+// pulled into the new connection). Closes the post-S12 playtest report
+// that placing in the middle of three structures only merges with one.
 const AUTO_BOND_RADIUS = 60;
 // S9 P1: max distance cursor can be from spark.pos at LMB-up for the place
 // to commit. Replaces S7's snap-to-cursor — without this gate the user could
@@ -215,13 +223,16 @@ export class Controls {
             ? this.world.primitives.get(targetId) ?? null
             : null;
           const tier = computeStiffnessTier(carriedType, target);
-          // S9 P2: collect ALL primitives within AUTO_BOND_RADIUS of
-          // spark.pos so placePrimitive can merge adjacent structures. The
-          // primary target above remains the bond that carries the
-          // caller-authored stiffness tier; the dispatch dedups by
-          // connected component so each surrounding structure gets one
-          // merge bond (no double-bonding within the primary's component).
-          const mergeCandidateIds = this.allPrimitivesInRange(AUTO_BOND_RADIUS, spark.pos);
+          // S9 P2 → S13 P1: collect every primitive within
+          // MERGE_REACH_RADIUS (wider than AUTO_BOND_RADIUS) so
+          // placePrimitive can merge adjacent structures even when the
+          // primary target is the only one strictly within picking
+          // distance. The primary target above remains the bond that
+          // carries the caller-authored stiffness tier; dispatch dedups
+          // by connected component AND picks the nearest primitive per
+          // component (S13 P1) so each surrounding structure gets one
+          // merge bond at the shortest reachable hop.
+          const mergeCandidateIds = this.allPrimitivesInRange(MERGE_REACH_RADIUS, spark.pos);
           dispatch(this.world, {
             type: 'PLACE_PRIMITIVE',
             playerId: this.playerId,

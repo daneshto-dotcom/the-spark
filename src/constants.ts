@@ -163,7 +163,31 @@ export const STRUCTURE_FLASH_TICKS = 18;
 // candidate's component gets a prevPos nudge toward the new prim.
 // 1.2 px on a 60-px bond ≈ 2% strain delta — well under LOW-tier break
 // threshold (2.0×). Single application; decays via VELOCITY_DAMPING.
-export const MERGE_IMPULSE_MAGNITUDE = 1.2;
+// S13 P3 bump: 1.2 → 3.0 px for playtest visibility (user reported "can't
+// see any difference" at 1.2). 5% strain on a 60-px bond — still 5×
+// headroom against HIGH-tier 25% break. Compression-only (impulse is
+// INWARD on cand component); bonds break on extension only per
+// physics/bonds.ts:58, so compression is intrinsically safe.
+export const MERGE_IMPULSE_MAGNITUDE = 3.0;
+
+// S13 P3 short-bond safety clamp. When the merge bond's rest_length is
+// below this threshold, MERGE_IMPULSE is scaled by (rest_length / MIN).
+// At rest_length=10 → scale=0.4 → 1.2 px impulse (preserves S10 visual
+// magnitude on tight placements). Primary protection is against the
+// impulse exceeding the bond length (which would teleport the cand
+// through the new prim and flip the bond's direction).
+export const MIN_BOND_LENGTH_FOR_IMPULSE = 25;
+
+// S13 P1 — cross-structure merge reach. Separate from AUTO_BOND_RADIUS
+// (60, primary target picking precision, defined locally in controls.ts).
+// 100 px is wide enough that three structures arranged ~90 px apart
+// around a placement point all enter the merge sweep, but not so wide
+// that distant unrelated structures get pulled in unintentionally.
+// Closes the user-reported "place at center of 3 structures and only one
+// merges" bug — root cause was AUTO_BOND_RADIUS=60 doubling as both
+// primary-pick radius AND merge-sweep radius. S13 P1 splits them.
+export const MERGE_REACH_RADIUS = 100;
+
 
 // Tier-gated corner pulse boundary. scoreProgress crossing each multiple
 // of SCORE_TIER_STEP fires one SCORE_TIER effect. At 15 + threshold 50:

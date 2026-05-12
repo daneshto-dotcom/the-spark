@@ -13,6 +13,7 @@ import { lookupCombo } from '../combos.ts';
 import {
   ENERGY_PER_SECOND_FLAT,
   MERGE_IMPULSE_MAGNITUDE,
+  MIN_BOND_LENGTH_FOR_IMPULSE,
   SCORE_ANCHOR,
   SCORE_FUNCTIONAL_BOND,
   SCORE_MAGIC_BOND,
@@ -25,7 +26,7 @@ import {
 import { type GameEffect } from '../game/effects.ts';
 import { snapPrevPosForUnbonded } from '../game/invariants.ts';
 import { makePrimitiveFromSpark, type Primitive } from '../game/primitive.ts';
-import { bfsHopMap, componentOf, severSplit } from '../game/structure.ts';
+import { bfsHopMap, componentOf, severSplit, type Structure } from '../game/structure.ts';
 import {
   CarryViolation,
   drop as fsmDrop,
@@ -331,12 +332,19 @@ function placePrimitive(
     world.scoreProgress += SCORE_ANCHOR;
   }
 
-  // S9 P2: cross-structure merge sweep. For each candidate within range,
-  // bond if it belongs to a component we haven't already merged into.
-  // Stiffness tier per merge bond comes from the carried→candidate combo
-  // lookup (the action's stiffnessTier applies only to the primary bond,
-  // which was authored by the caller). Each merge bond emits its own
-  // BOND_COMMIT effect so the visual reads.
+  // S9 P2 + S13 P1: cross-structure merge sweep. Two-phase:
+  //   Phase 1 — group candidates by connected component, picking the
+  //             primitive nearest the new prim per component.
+  //   Phase 2 — iterate one merge per chosen-nearest cand.
+  // Replaces S9's implicit "first-iterated cand wins" pattern with an
+  // explicit nearest-pick map so the merge bond endpoint is always the
+  // shortest reachable hop into that component (Council Gemini #2:
+  // removes reliance on candidate iteration order). Combined with
+  // controls.ts using MERGE_REACH_RADIUS (=100, wider than the
+  // primary-pick AUTO_BOND_RADIUS=60), this fixes the post-S12 playtest
+  // bug "place at center of 3 structures, only one merges" — root cause
+  // was the merge sweep sharing the narrower primary-pick radius.
+  const candidatesByComp = new Map<PrimitiveId, { cand: Primitive; distSq: number; comp: Structure }>();
   for (const candId of action.mergeCandidateIds ?? []) {
     if (candId === prim.id) continue;
     if (mergedComponents.has(candId)) continue;
@@ -344,13 +352,30 @@ function placePrimitive(
     if (cand === undefined) continue;
     const candComp = componentOf(cand, world.primitives, world.bonds);
     // Skip if any primitive in the candidate's component is already merged
-    // (cheaper than a full set intersection — at least one id collision
-    // means the whole component is covered).
-    let alreadyMerged = false;
+    // (e.g., it's part of the primary's component, or a previous cand in
+    // the iteration already covered it).
+    let alreadyCovered = false;
     for (const id of candComp.primitiveIds) {
-      if (mergedComponents.has(id)) { alreadyMerged = true; break; }
+      if (mergedComponents.has(id)) { alreadyCovered = true; break; }
     }
-    if (alreadyMerged) continue;
+    if (alreadyCovered) continue;
+    // Component root key: smallest primitiveId in the component. Stable
+    // across BFS iteration order, used purely as Map key here.
+    let rootKey: PrimitiveId | null = null;
+    for (const id of candComp.primitiveIds) {
+      if (rootKey === null || id < rootKey) rootKey = id;
+    }
+    if (rootKey === null) continue;
+    const dx = cand.pos.x - prim.pos.x;
+    const dy = cand.pos.y - prim.pos.y;
+    const distSq = dx * dx + dy * dy;
+    const existing = candidatesByComp.get(rootKey);
+    if (existing === undefined || distSq < existing.distSq) {
+      candidatesByComp.set(rootKey, { cand, distSq, comp: candComp });
+    }
+  }
+
+  for (const { cand, comp: candComp } of candidatesByComp.values()) {
     const combo = lookupCombo(prim.type, cand.type);
     const mergeBond = makeBond(world, prim, cand, combo.stiffnessTier);
     world.bonds.set(mergeBond.id, mergeBond);
@@ -368,14 +393,32 @@ function placePrimitive(
     // S9 P3: merge bonds also contribute to progress (same weighting).
     world.scoreProgress += combo.isMagical ? SCORE_MAGIC_BOND : SCORE_FUNCTIONAL_BOND;
 
-    // S10 P3: real verlet impulse on the candidate's component. Each prim
-    // in candComp gets prevPos pushed AWAY from the new prim's pos →
-    // verlet next-step velocity = (pos - prevPos) propels TOWARD the new
-    // prim. 1.2 px on a 60-px bond ≈ 2% strain delta — well under LOW-tier
-    // break threshold (2.0×). Decays via VELOCITY_DAMPING (0.998) in
-    // ~5 sec; bond constraints absorb most of it within the first 60
-    // ticks. Visual: "satisfying click" rather than "wobble" as long as
-    // magnitude stays conservative.
+    // S10 P3 + S13 P3: real verlet impulse on the candidate's component.
+    // Each prim in candComp gets prevPos pushed AWAY from the new prim's
+    // pos → verlet next-step velocity = (pos - prevPos) propels TOWARD
+    // the new prim. S10 baseline: 1.2 px ≈ 2% strain on 60-px bond. S13
+    // bump to 3.0 px ≈ 5% strain — well under HIGH-tier 25% break, AND
+    // compression-only (impulse is INWARD; bonds break on extension per
+    // physics/bonds.ts:58 only).
+    //
+    // S13 P3 short-bond clamp: at idist < MIN_BOND_LENGTH_FOR_IMPULSE=25,
+    // scale impulse by (idist/25) so a 3.0-px impulse on a 10-px bond
+    // becomes 1.2 px — prevents the impulse from teleporting the cand
+    // through the new prim (which would flip the merge bond's direction).
+    //
+    // NOTE: counteracted on the OTHER side of the merge by STRUCTURE_GROW
+    // outward impulse (P2 below) applied to primary's pre-existing
+    // component. Net visual: cand sucks IN, existing puffs OUT — distinct
+    // signatures across the post-merge component on the same frame.
+    const mergeBondRestLength = Math.hypot(
+      prim.pos.x - cand.pos.x,
+      prim.pos.y - cand.pos.y,
+    );
+    const shortBondScale = Math.min(
+      1,
+      mergeBondRestLength / MIN_BOND_LENGTH_FOR_IMPULSE,
+    );
+    const effectiveMergeImpulse = MERGE_IMPULSE_MAGNITUDE * shortBondScale;
     for (const candPrimId of candComp.primitiveIds) {
       const candPrim = world.primitives.get(candPrimId);
       if (candPrim === undefined) continue;
@@ -383,10 +426,10 @@ function placePrimitive(
       const idy = prim.pos.y - candPrim.pos.y;
       const idist = Math.hypot(idx, idy);
       if (idist < 1) continue; // co-located → skip (NaN-safe)
-      const inv = MERGE_IMPULSE_MAGNITUDE / idist;
+      const inv = effectiveMergeImpulse / idist;
       // Push prevPos away from new prim along the (cand→prim) axis →
       // (pos - prevPos) points toward new prim → instantaneous velocity
-      // = MERGE_IMPULSE_MAGNITUDE px in the toward-new-prim direction.
+      // = effectiveMergeImpulse px in the toward-new-prim direction.
       candPrim.prevPos.x -= idx * inv;
       candPrim.prevPos.y -= idy * inv;
     }
