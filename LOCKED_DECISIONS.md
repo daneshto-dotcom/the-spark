@@ -468,18 +468,23 @@ chosen over PeerJS (multi-strategy fallback negates rate-limit concern);
 - `NET_ROOM_CODE_LENGTH = 6`
 - `NET_CONNECTION_TIMEOUT_MS = 30000` (reserved for future)
 
-### 13.9 Deployment (S16 P2 NEW)
-- **Primary URL (S17+, deferred):** `https://spark-online.space/` — domain
-  registered at Squarespace Domains (5yr, exp 2029-05-12). DNS records to
-  add at Squarespace: 4 A records (Host=`@`, values=`185.199.108.153` /
-  `.109.153` / `.110.153` / `.111.153`), 1 CNAME (Host=`www`,
-  value=`daneshto-dotcom.github.io.`). Custom Domain toggled in Settings →
-  Pages after DNS resolves. Cloudflare DNS migration optional carry-forward
-  (user prefers CF UI; nameserver swap adds 24-48h propagation so deferred
-  past today's playtest).
-- **Fallback URL (S16 P2 Step 1 SHIPPED):**
-  `https://daneshto-dotcom.github.io/the-spark/` — project-page deploy with
-  `vite.config.ts base='/the-spark/'`.
+### 13.9 Deployment (S16 P2 NEW; S18 P0 SHIPPED 2026-05-12)
+- **Primary URL (S18 P0 SHIPPED 2026-05-12):** `https://spark-online.space/`
+  — HTTP 200 LIVE, HTTPS enforced via Let's Encrypt cert (auto-issued
+  by GitHub Pages, expires 2026-08-10, auto-renews). Domain registered at
+  Squarespace Domains (5yr, exp 2029-05-12). DNS configured at Squarespace
+  (Squarespace Defaults preset deleted; 5 custom records added): 4 A records
+  (Host=`@`, values=`185.199.108.153` / `.109.153` / `.110.153` /
+  `.111.153`, TTL 1hr), 1 CNAME (Host=`www`, value=`daneshto-dotcom.github.io.`,
+  TTL 4hr Squarespace default). Custom Domain bound via `gh api -X PUT
+  repos/daneshto-dotcom/the-spark/pages -F cname=spark-online.space` then
+  `-F https_enforced=true` after cert approved. Cloudflare DNS migration
+  optional carry-forward (user preference; deferred indefinitely).
+- **Fallback URL (S16 P2 Step 1 SHIPPED, S18 P0 REPURPOSED):**
+  `https://daneshto-dotcom.github.io/the-spark/` — now 301-redirects to
+  `https://spark-online.space/` since custom domain bound at the Pages
+  level. `vite.config.ts base='/'` (was `'/the-spark/'` pre-S17 P0) so
+  assets serve from root path under the primary URL.
 - **CI:** `.github/workflows/deploy.yml` on push:master via GitHub's
   official Pages actions: `actions/upload-pages-artifact@v3` (after
   `npm ci` + `npm run build`) + `actions/deploy-pages@v4`. Required
