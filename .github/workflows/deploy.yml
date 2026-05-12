@@ -1,0 +1,64 @@
+# S16 P2 Step 1 — GitHub Pages deploy via the official Actions Pages path
+# (actions/upload-pages-artifact@v3 + actions/deploy-pages@v4). Council R1
+# Grok #4 + Gemini #2 adopted this over peaceiris/actions-gh-pages@v3 as
+# GitHub's audited modern path.
+#
+# REQUIRED ONE-TIME USER STEP (per PRIME-AUDIT #2):
+#   Settings → Pages → Source: select "GitHub Actions"
+#   (NOT "Deploy from a branch" / "gh-pages")
+#
+# Live URL after first green run: https://daneshto-dotcom.github.io/the-spark/
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# PRIME-AUDIT #1: deploy-pages@v4 requires these permissions
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Prevent overlapping deploys (don't cancel in-progress, just queue)
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (vite + tsc)
+        run: npm run build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    # PRIME-AUDIT #1: environment binding required for deploy-pages@v4
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

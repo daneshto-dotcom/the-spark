@@ -17,29 +17,29 @@
     {
       "id": "P0",
       "title": "Charter extraction: 4 dispatch handlers (START_GAME, END_TURN, RETURN_TO_TITLE, UPDATE_AVATAR_POS) + addScore helper from world.ts -> new src/state/gameMode.ts (S15 carry-forward, mechanical, zero behavior change; requirePlayer stays in world.ts)",
-      "status": "in_progress",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "PRIME-AUDIT (Rule 20): (1) Mechanical extract of 4 dispatch handler bodies (START_GAME world.ts:248, END_TURN :268, RETURN_TO_TITLE :276, UPDATE_AVATAR_POS :309) + addScore helper (:344) + 4 action type definitions to new src/state/gameMode.ts (169 LOC including JSDoc). (2) world.ts dispatch switch retains case labels and delegates to imported applyStartGame/applyEndTurn/applyReturnToTitle/applyUpdateAvatarPos pure functions. Zero behavior change. (3) world.ts LOC: 357 -> 290 (-67, target 280 - 3.5% over, accepted per S15 trip-wire-as-judgment-signal reflexion). (4) addScore re-exported from world.ts ('export { addScore } from ./gameMode.ts') for back-compat with placePrimitive.ts:41 + session15.test.ts:21 (zero touch on those files). (5) GameAction union in world.ts now references StartGameAction/EndTurnAction/ReturnToTitleAction/UpdateAvatarPosAction imported from gameMode.ts. (6) requirePlayer remains in world.ts per A.0 DELTA-9 (pre-existing infrastructure used by placePrimitive.ts and other state mutators - NOT in P0 scope). (7) Imports consolidated: PLAYER_COLORS/SPAWNER_* stay in world.ts (needed by makeWorld), gameMode.ts imports them from constants.ts independently. (8) typecheck: npx tsc -b --noEmit exit 0. (9) Tests: npx vitest run -> 291/291 pass (same count as S15 baseline ef681a6). session15.test.ts 17 tests pass (the 14 dispatch-handler tests + 3 a11y-helper tests), confirming Council R1 #1 synthesis that public dispatch surface is test boundary and internal delegation is invisible to existing tests. (10) Same mechanical pattern as S14 P2.0 (placePrimitive extract) and S15 P1 (redundantBondTargets extract). (11) Commit b2979fc pushed to origin/master.",
+      "checkpoint_commit": "b2979fc"
     },
     {
       "id": "P1",
       "title": "Lobby JOIN UX BLOCKER: replace Pixi-text + window.keydown hack with HTML <input> overlay (a11y attrs + zIndex + visualViewport guard per Council R1) in src/render/lobbyScreen.ts",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "PRIME-AUDIT (Rule 20): (1) Replaced Pixi-text + window.keydown buffer hack in src/render/lobbyScreen.ts with real HTML <input type='text'> positioned via canvas.getBoundingClientRect() over the JOIN pane code area. (2) Input attrs (11 total verified live in browser): type=text, maxLength=6, pattern=[2-9A-HJ-NP-Z]{6}, placeholder='ENTER CODE', autocomplete=off, spellcheck=false, autocapitalize=characters, inputmode=text, aria-label='Room code', position=fixed, zIndex=1000, textTransform=uppercase. (3) Council R1 adoptions: Gemini #1 (a11y attrs - aria-label/autocomplete/autocapitalize/inputmode/spellcheck) + Grok #2 (zIndex=1000 Pixi stacking guard) + Grok #3 (window.visualViewport.resize handler for iOS Safari mobile-keyboard viewport collapse, feature-checked). (4) Pure helpers extracted per S10 #test-via-pure-helper-export: sanitizeRoomCodeValue (uppercase + strip 0,O,1,I + strip non-alphanumeric + truncate to 6); isValidRoomCode (full-pattern boolean); mapCanvasRectToPage (canvas-space -> page-space via getBoundingClientRect scaling); JOIN_INPUT_RECT constant (canvas-space coords). (5) Lifecycle: inputEl created at start of constructor (PRIME-AUDIT init-order fix after preview boot-failure log); show/hide via setVisible -> updateInputVisibility gated on isShown && mode==='select'; window.resize + visualViewport.resize handlers update position; destroy() removes listeners + element. (6) Connect button now reads inputEl.value (no joinBuffer); visual alpha gate (0.4 disabled, 1.0 enabled) on length===6; isValidRoomCode rejects with explicit '0,O,1,I' hint. (7) Click anywhere on JOIN pane fires inputEl.focus() via pointertap. (8) Hint text 'Click here, type the code from your friend' below input area. (9) Dropped entirely: joinBuffer field, installKeyHandler, uninstallKeyHandler, joinInputText Pixi mock; Pixi joinInputBg border kept as visual frame under HTML input. (10) Tests: 16 new in src/render/lobbyScreen.test.ts covering sanitize/validate/positioning. 307/307 total (291 baseline + 16 new). Typecheck exit 0. (11) Browser smoke via preview: inputEl present in DOM with all 11 attrs correct; sanitize input event converts 'abc-def-g0OI1z' -> 'ABCDEF'; position math maps canvas (700,280,400,60) -> page (700,280,400,60) at 1:1 scale on 1280x720 viewport. (12) Preview ticker pause (rAF throttled by headless tab) blocked screenshot but did NOT invalidate implementation - production browser tab will run normally. (13) Commit 5ff7865 pushed to origin/master.",
+      "checkpoint_commit": "5ff7865"
     },
     {
       "id": "P2",
       "title": "GitHub Pages deploy BLOCKER (Standard): Step 1 base=/the-spark/ + .github/workflows/deploy.yml using actions/upload-pages-artifact@v3 + actions/deploy-pages@v4 (Council R1 switch from peaceiris); Step 1.5 public/favicon.svg + public/robots.txt + OG meta in index.html; Step 2 base=/ + public/CNAME=spark-online.space + Squarespace DNS records (CF migration deferred to S17+)",
-      "status": "pending",
+      "status": "in_progress",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
