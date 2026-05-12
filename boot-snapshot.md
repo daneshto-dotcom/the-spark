@@ -2,29 +2,49 @@
 Generated: 2026-05-12 (post-Session-15) | Session: 15 of 10+ — S14 § XV charter extraction + Phase-2 1v1 networked play (Trystero/Nostr)
 
 ## Next Steps
-1. **User playtest the post-S15 build** — Vite at localhost:31183 (already running per S14 close; restart with `npx vite --port 31183 --strictPort` if killed). Verification path for the new 1v1 multiplayer:
-   - **Title screen**: page load → "SPARK" + "1 Player" / "1v1 (2 Player)" buttons.
-   - **Solo mode (back-compat)**: click "1 Player" → identical post-S14 gameplay (avatar pulse, multi-endpoint bonding, all 36 combos).
-   - **1v1 host path**: click "1v1 (2 Player)" → lobby → click "Host New Room" → 6-char alphanumeric code displayed (no 0/O/1/I) → share code with friend.
-   - **1v1 join path**: from friend's machine (or second browser tab on different network), click "1v1" → lobby → type code → "Connect" → handshake completes → "Begin Match" enables on host.
-   - **In-game**: P1 (red) places primitive → P2 (blue) sees it within ~RTT/2 + 100ms (snapshot delay + lerp window) → P2 hits SPACE → END_TURN flips → P2's turn now → loop. Turn indicator badge top-center; per-player score readouts top-left (RED / BLUE vs 50).
-   - **Win**: first to PHASE_1_WIN_SCORE=50 → WIN banner in winner's color → POSTGAME → click/R returns to TITLE.
-   - **Connection lost**: kill one peer's tab → other peer sees full-screen "CONNECTION LOST" overlay → "Return to Title" button.
-2. **Known v1 limitations** (documented in LOCKED § 13.7):
-   - AttractDrag on P2 (client) lags ~RTT/2 — physics is host-authoritative; client renders interpolated snapshots only.
-   - No host-migration; transient disconnects end the session (S16 may add stub if playtest shows annoyance).
-   - Tab-hidden host pauses sim; clients see stale snapshots until tab refocused.
-   - Save format break: pre-S15 saves load but lose per-player score / gameMode state (solo defaults applied).
-3. **Tune feel constants if needed** (post-playtest):
-   - `NET_SNAPSHOT_HZ` (10) — raise to 15-20 if remote motion feels choppy at typical RTT; halves bandwidth headroom.
-   - `NET_INTERPOLATION_MS` (100) — match the snapshot interval; raising adds smoothness at the cost of perceived lag.
-   - Carry-overs from S14: `AVATAR_PULSE_HZ` (1.2), `REDUNDANT_BOND_K` (3), `REDUNDANT_BOND_MIN_ANGLE_RAD` (25°). Carry-overs from S13: `STRUCTURE_GROW_IMPULSE`, `MERGE_IMPULSE_MAGNITUDE`, `MERGE_REACH_RADIUS`, `SCORE_TIER_*`.
-4. **CHARTER (S15 P2 PRIME-AUDIT carry-forward)**: `world.ts` grew 228 → 357 LOC (+129) — over the 280 LOC trip-wire from PDR. Recommended S16 small priority: extract S15 new dispatch handlers (`START_GAME`, `END_TURN`, `RETURN_TO_TITLE`, `UPDATE_AVATAR_POS`) + `addScore` helper to `src/state/gameMode.ts`. ~80 LOC moved; brings world.ts back to ~280 LOC. Same Micro pattern as S14 P2.0 / S15 P1.
-5. **S16 carry-forward optional**: client-side AttractDrag prediction + reconciliation buffer (~150 LOC, Grok R1 ask); delta-encoded NetSnapshot for bandwidth (Council R1 nice-to-have); host-migration stub if disconnects feel intrusive (Grok R2 ask); live cursor-move sync for remote avatar (~50 LOC).
-6. **Audio integration** when Suno didgeridoo trance track lands (deferred since S5).
+S16 is pre-scoped post-S15-playtest. User flagged two CRITICAL gaps after viewing the lobby screen (screenshot captured):
+1. **BLOCKER — Lobby JOIN pane has no usable input field.** The keyboard-buffer hack in [lobbyScreen.ts](src/render/lobbyScreen.ts) is invisible to the user (no caret, no click-to-focus, no HTML input). Friend on the other machine cannot enter the host's code → cross-network play impossible until fixed.
+2. **BLOCKER — Cross-network play impossible: dev server is localhost only.** `localhost:31183` is loopback-only. Friend cannot load the app. Need either (a) deploy to a public URL (GitHub Pages recommended), or (b) tunnel localhost via ngrok (same-day test path only).
+
+**S16 recommended batch (Standard tier, in execution order):**
+
+- **P0 (Micro) — Charter extraction (S15 carry-forward).** Move S15 new dispatch handlers (START_GAME, END_TURN, RETURN_TO_TITLE, UPDATE_AVATAR_POS) + addScore helper from `world.ts` (357 LOC) to new `src/state/gameMode.ts`. ~80 LOC moved → world.ts back to ~280. Same mechanical pattern as S14 P2.0 / S15 P1. 291/291 regression preserved.
+
+- **P1 (Micro) — Lobby JOIN UX fix.** Replace the invisible Pixi-text mock with an HTML `<input type="text">` overlay (CSS-positioned over the JOIN pane rect). 6-char maxLength, uppercase auto-transform, cyan border, native focus + caret + paste. Click JOIN pane → `input.focus()`. Connect button enables when 6 valid chars. Clear "Click here, then enter the code your friend shared" hint so affordance is unmissable. ~80 LOC + 3-5 input-validation tests.
+
+- **P2 (Standard) — GitHub Pages deploy.** Concrete:
+  - `vite.config.ts`: add `base: '/the-spark/'`.
+  - `.github/workflows/deploy.yml`: triggers on `push: branches: [master]`; `npm ci && npm run build`; publishes `dist/` to `gh-pages` via `peaceiris/actions-gh-pages@v3` (uses built-in `GITHUB_TOKEN`).
+  - GitHub repo Settings → Pages → Source: `gh-pages` / `(root)`.
+  - Verify `https://daneshto-dotcom.github.io/the-spark/` loads cleanly + Trystero WebRTC works (HTTPS satisfied by GitHub Pages default).
+  - Send friend the URL → real cross-country playtest unlocked.
+
+- **P3 (Micro, optional) — Lobby visual polish.** Hide `makeSpawnerRing` + `makeLegend` containers when gameState ∈ {TITLE, LOBBY}. Eliminates spawner-ring artifact bleeding through the lobby panes (visible in user's S15 screenshot).
+
+- **P4 — Closeout** (LOCKED § 13 deploy-URL amendment, BACKLOG, reflexion, boot-snapshot, PDR archive, HANDOFF).
+
+**Same-day playtest path (before P2 deploys):** `npx ngrok http 31183` → temporary public URL → send to friend → validates Trystero WebRTC + lobby flow end-to-end. Free ngrok tier has random URL per session; your laptop + Vite + ngrok must stay running.
+
+**Tune feel constants post-playtest:** `NET_SNAPSHOT_HZ` (10), `NET_INTERPOLATION_MS` (100); S14 carry-overs (AVATAR_PULSE_HZ=1.2, REDUNDANT_BOND_K=3, MIN_ANGLE_RAD=25°); S13 cinematics constants.
+
+**Optional S16+ enhancements (per playtest signal):**
+- Client-side AttractDrag prediction + reconciliation buffer (~150 LOC, Grok R1 ask).
+- Delta-encoded NetSnapshot for bandwidth (Council R1 nice-to-have).
+- Host-migration stub if transient disconnects feel intrusive (Grok R2 ask).
+- Live cursor-move sync for remote avatar (~50 LOC; currently avatarPos updates only on commit).
+
+**Known v1 limitations** (LOCKED § 13.7): AttractDrag on P2 lags ~RTT/2; no host-migration; tab-hidden host pauses sim; save format break (pre-S15 → solo defaults applied); no reconnect.
+
+**Phase-2 Tier-1+ deferred:** `docs/phase-2-design-options.md` — recommended next pair C (Sever-as-disruption) + F (Multi-color rendering), ~220 LOC.
+
+**Audio:** Suno track upload pending since S5.
 
 ## Blockers
-**User playtest** of the post-S15 build — top S16 gate. Hosts the validation of: 1v1 connection establishment cross-network; turn flow with SPACE; per-player scoring + WIN attribution; "Connection lost" overlay UX; solo regression intact. **Friend in different country** needed for the cross-network test (or two devices on different networks).
+**Two BLOCKERS for cross-network playtest** (both in S16 P1 + P2):
+- JOIN pane input field non-functional — friend cannot enter code.
+- App not publicly accessible — friend cannot load the page.
+
+Both must land before any real friend-in-different-country playtest. After both deploy, the verification path is: friend opens `https://daneshto-dotcom.github.io/the-spark/` → 1v1 → JOIN → types code from your host screen → Connect → "Begin Match" (you click on host) → both see same world → SPACE to end turn → first to 50 wins.
 
 ## Pending Backlog
 - [ ] Session 16+ — S15 P2 PRIME-AUDIT carry-forward (world.ts → gameMode.ts extraction); S15 client-side prediction + delta encoding + host-migration stub (per playtest signal); Phase-2 Tier-1+ disruption suite (Sever-as-disruption / Inject Spiral / Steal / Multi-color rendering / Mega-combos per `docs/phase-2-design-options.md`); Audio (Suno track upload); any post-S15-playtest re-tuning of `NET_SNAPSHOT_HZ`, `NET_INTERPOLATION_MS`.
