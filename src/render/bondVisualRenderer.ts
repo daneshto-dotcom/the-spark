@@ -34,11 +34,39 @@ export interface BondVisualParams {
   readonly bx: number;
   readonly by: number;
   readonly visualEffectId: string;
-  readonly color: number;
+  /**
+   * S17 P2 — Phase-2 §VI.4/§X.2 multi-color contribution rendering.
+   * colorA = endpoint A's placerColor; colorB = endpoint B's placerColor
+   * (immutable contribution record per §VI.4, NOT transient ownerColor —
+   * Council R1 Gemini #1 BLOCKER fix). Both passed through stress-tint by
+   * caller (structureRenderer.ts). When colorA===colorB the default line
+   * renders as solid stroke (Phase-1 back-compat). When different,
+   * drawDefaultLine emits 4 lerped sub-segments to fake the A→B gradient
+   * (Pixi v8 has no native A→B endpoint gradient stroke API per Council R1
+   * Grok #6 + Gemini #5). The 12 magic silhouettes use colorA as primary
+   * stroke — per-silhouette accent-gradient upgrade deferred to S18 polish.
+   */
+  readonly colorA: number;
+  readonly colorB: number;
   readonly alpha: number;
   readonly width: number;
   /** world.tick — drives animation phase for wheel/vortex/orbital. */
   readonly tick: number;
+}
+
+/**
+ * S17 P2 — pure RGB lerp helper. Exported for vitest pixel-sample tests
+ * (S10 #test-via-pure-helper-export pattern). Channel-wise interpolation
+ * between two RGB-packed colors (0xRRGGBB) at parameter t∈[0,1]. Same
+ * interpolation as the multi-color stroke decomposition in drawDefaultLine.
+ */
+export function lerpColor(a: number, b: number, t: number): number {
+  const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
+  const br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
+  const r = Math.round(ar + (br - ar) * t);
+  const g = Math.round(ag + (bg - ag) * t);
+  const bl = Math.round(ab + (bb - ab) * t);
+  return ((r & 0xff) << 16) | ((g & 0xff) << 8) | (bl & 0xff);
 }
 
 export function drawBondVisual(g: Graphics, p: BondVisualParams): void {
@@ -59,11 +87,33 @@ export function drawBondVisual(g: Graphics, p: BondVisualParams): void {
   }
 }
 
-/** Plain line — used by the 24 functional combos and as the degenerate fallback. */
+/**
+ * Plain line — used by the 24 functional combos and as the degenerate fallback.
+ * S17 P2: stroke decomposition into 4 sub-segments when colorA !== colorB to
+ * simulate an A→B gradient. Pixi v8 Graphics has no native endpoint-color
+ * gradient stroke API (Council R1 Grok #6 + Gemini #5 confirmed); the cheapest
+ * spec-faithful path is mid-segment color lerp. Same-color bonds take the
+ * fast path (single stroke) for Phase-1 back-compat + zero perf cost.
+ */
 function drawDefaultLine(g: Graphics, p: BondVisualParams): void {
-  g.moveTo(p.ax, p.ay)
-    .lineTo(p.bx, p.by)
-    .stroke({ width: p.width, color: p.color, alpha: p.alpha });
+  if (p.colorA === p.colorB) {
+    g.moveTo(p.ax, p.ay)
+      .lineTo(p.bx, p.by)
+      .stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
+    return;
+  }
+  const segments = 4;
+  for (let i = 0; i < segments; i++) {
+    const t0 = i / segments;
+    const t1 = (i + 1) / segments;
+    const tMid = (t0 + t1) / 2;
+    const x0 = p.ax + (p.bx - p.ax) * t0;
+    const y0 = p.ay + (p.by - p.ay) * t0;
+    const x1 = p.ax + (p.bx - p.ax) * t1;
+    const y1 = p.ay + (p.by - p.ay) * t1;
+    const color = lerpColor(p.colorA, p.colorB, tMid);
+    g.moveTo(x0, y0).lineTo(x1, y1).stroke({ width: p.width, color, alpha: p.alpha });
+  }
 }
 
 // ========== Magic-12 silhouettes ==========
@@ -78,7 +128,7 @@ function drawFilament(g: Graphics, p: BondVisualParams): void {
   // Main bond, slightly thicker (filament = high-energy).
   g.moveTo(p.ax, p.ay).lineTo(p.bx, p.by).stroke({
     width: p.width * 1.3,
-    color: p.color,
+    color: p.colorA,
     alpha: p.alpha,
   });
 
@@ -94,7 +144,7 @@ function drawFilament(g: Graphics, p: BondVisualParams): void {
     const a = (i / 6) * Math.PI * 2;
     g.moveTo(mx, my)
       .lineTo(mx + Math.cos(a) * rayLen, my + Math.sin(a) * rayLen)
-      .stroke({ width: 1, color: p.color, alpha: rayAlpha });
+      .stroke({ width: 1, color: p.colorA, alpha: rayAlpha });
   }
 }
 
@@ -111,10 +161,10 @@ function drawCable(g: Graphics, p: BondVisualParams): void {
 
   g.moveTo(p.ax + nx * offset, p.ay + ny * offset)
     .lineTo(p.bx + nx * offset, p.by + ny * offset)
-    .stroke({ width: p.width, color: p.color, alpha: p.alpha });
+    .stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
   g.moveTo(p.ax - nx * offset, p.ay - ny * offset)
     .lineTo(p.bx - nx * offset, p.by - ny * offset)
-    .stroke({ width: p.width, color: p.color, alpha: p.alpha });
+    .stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
 }
 
 /** Bracket (Line→Triangle, HIGH): triangle with bond as base, apex perpendicular. */
@@ -134,11 +184,11 @@ function drawBracket(g: Graphics, p: BondVisualParams): void {
 
   // Base + two sides.
   g.moveTo(p.ax, p.ay).lineTo(p.bx, p.by)
-    .stroke({ width: p.width, color: p.color, alpha: p.alpha });
+    .stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
   g.moveTo(p.ax, p.ay).lineTo(apexX, apexY)
-    .stroke({ width: p.width * 0.85, color: p.color, alpha: p.alpha * 0.75 });
+    .stroke({ width: p.width * 0.85, color: p.colorA, alpha: p.alpha * 0.75 });
   g.moveTo(p.bx, p.by).lineTo(apexX, apexY)
-    .stroke({ width: p.width * 0.85, color: p.color, alpha: p.alpha * 0.75 });
+    .stroke({ width: p.width * 0.85, color: p.colorA, alpha: p.alpha * 0.75 });
 }
 
 /** Diamond (Triangle→Triangle, HIGH): rhombus with A,B as long-diagonal endpoints. */
@@ -164,7 +214,7 @@ function drawDiamond(g: Graphics, p: BondVisualParams): void {
     .lineTo(p.bx, p.by)
     .lineTo(lx, ly)
     .lineTo(p.ax, p.ay)
-    .stroke({ width: p.width, color: p.color, alpha: p.alpha });
+    .stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
 }
 
 /** Wheel (Triangle→Circle, MID): bond as one diameter + perpendicular spoke + circle, slowly rotating. */
@@ -180,9 +230,9 @@ function drawWheel(g: Graphics, p: BondVisualParams): void {
 
   // Bond diameter.
   g.moveTo(p.ax, p.ay).lineTo(p.bx, p.by)
-    .stroke({ width: p.width, color: p.color, alpha: p.alpha });
+    .stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
   // Outer circle.
-  g.circle(mx, my, r).stroke({ width: 1, color: p.color, alpha: p.alpha * 0.55 });
+  g.circle(mx, my, r).stroke({ width: 1, color: p.colorA, alpha: p.alpha * 0.55 });
   // Two extra rotating spokes, phase tied to tick (slow).
   const phase = (p.tick * 0.015) % (Math.PI / 2);
   for (const k of [0, 1]) {
@@ -190,7 +240,7 @@ function drawWheel(g: Graphics, p: BondVisualParams): void {
     const ex = mx + Math.cos(angle) * r;
     const ey = my + Math.sin(angle) * r;
     g.moveTo(mx, my).lineTo(ex, ey)
-      .stroke({ width: 1, color: p.color, alpha: p.alpha * 0.5 });
+      .stroke({ width: 1, color: p.colorA, alpha: p.alpha * 0.5 });
   }
 }
 
@@ -203,7 +253,7 @@ function drawStar(g: Graphics, p: BondVisualParams): void {
 
   // Faint underlay so the bond connection reads even with a busy star.
   g.moveTo(p.ax, p.ay).lineTo(p.bx, p.by)
-    .stroke({ width: p.width * 0.6, color: p.color, alpha: p.alpha * 0.45 });
+    .stroke({ width: p.width * 0.6, color: p.colorA, alpha: p.alpha * 0.45 });
 
   const mx = (p.ax + p.bx) / 2;
   const my = (p.ay + p.by) / 2;
@@ -221,7 +271,7 @@ function drawStar(g: Graphics, p: BondVisualParams): void {
     if (first) { g.moveTo(px, py); first = false; }
     else g.lineTo(px, py);
   }
-  g.stroke({ width: p.width * 0.75, color: p.color, alpha: p.alpha });
+  g.stroke({ width: p.width * 0.75, color: p.colorA, alpha: p.alpha });
 }
 
 /** Orbital (Circle→Circle, LOW): two concentric rings at midpoint, gentle radius pulse. */
@@ -233,7 +283,7 @@ function drawOrbital(g: Graphics, p: BondVisualParams): void {
 
   // Faint bond underlay.
   g.moveTo(p.ax, p.ay).lineTo(p.bx, p.by)
-    .stroke({ width: p.width * 0.5, color: p.color, alpha: p.alpha * 0.4 });
+    .stroke({ width: p.width * 0.5, color: p.colorA, alpha: p.alpha * 0.4 });
 
   const mx = (p.ax + p.bx) / 2;
   const my = (p.ay + p.by) / 2;
@@ -242,8 +292,8 @@ function drawOrbital(g: Graphics, p: BondVisualParams): void {
   const r1 = (len / 2) * pulse;
   const r2 = r1 * 0.55;
 
-  g.circle(mx, my, r1).stroke({ width: 1.25, color: p.color, alpha: p.alpha * 0.65 });
-  g.circle(mx, my, r2).stroke({ width: 1, color: p.color, alpha: p.alpha * 0.55 });
+  g.circle(mx, my, r1).stroke({ width: 1.25, color: p.colorA, alpha: p.alpha * 0.65 });
+  g.circle(mx, my, r2).stroke({ width: 1, color: p.colorA, alpha: p.alpha * 0.55 });
 }
 
 /** Lattice (Square→Square, HIGH): rotated square (A,B as opposite corners) + cross-hatch. */
@@ -271,7 +321,7 @@ function drawLattice(g: Graphics, p: BondVisualParams): void {
     .lineTo(p.bx, p.by)
     .lineTo(dx2, dy2)
     .lineTo(p.ax, p.ay)
-    .stroke({ width: p.width * 0.8, color: p.color, alpha: p.alpha });
+    .stroke({ width: p.width * 0.8, color: p.colorA, alpha: p.alpha });
 
   // Cross-hatch — connect midpoints of opposite sides. Width scales with the
   // bond's overall stroke width so the hatch stays legible at HIGH tier
@@ -280,10 +330,10 @@ function drawLattice(g: Graphics, p: BondVisualParams): void {
   const crossAlpha = p.alpha * 0.65;
   g.moveTo((p.ax + cx) / 2, (p.ay + cy) / 2)
     .lineTo((p.bx + dx2) / 2, (p.by + dy2) / 2)
-    .stroke({ width: crossWidth, color: p.color, alpha: crossAlpha });
+    .stroke({ width: crossWidth, color: p.colorA, alpha: crossAlpha });
   g.moveTo((cx + p.bx) / 2, (cy + p.by) / 2)
     .lineTo((dx2 + p.ax) / 2, (dy2 + p.ay) / 2)
-    .stroke({ width: crossWidth, color: p.color, alpha: crossAlpha });
+    .stroke({ width: crossWidth, color: p.colorA, alpha: crossAlpha });
 }
 
 /** Capsule (Square→Circle, MID): pill — twin parallels + end-cap circles. */
@@ -299,13 +349,13 @@ function drawCapsule(g: Graphics, p: BondVisualParams): void {
 
   g.moveTo(p.ax + nx * halfH, p.ay + ny * halfH)
     .lineTo(p.bx + nx * halfH, p.by + ny * halfH)
-    .stroke({ width: p.width, color: p.color, alpha: p.alpha });
+    .stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
   g.moveTo(p.ax - nx * halfH, p.ay - ny * halfH)
     .lineTo(p.bx - nx * halfH, p.by - ny * halfH)
-    .stroke({ width: p.width, color: p.color, alpha: p.alpha });
+    .stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
   // End caps — full circles read as half-caps under the parallel lines.
-  g.circle(p.ax, p.ay, halfH).stroke({ width: p.width, color: p.color, alpha: p.alpha });
-  g.circle(p.bx, p.by, halfH).stroke({ width: p.width, color: p.color, alpha: p.alpha });
+  g.circle(p.ax, p.ay, halfH).stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
+  g.circle(p.bx, p.by, halfH).stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
 }
 
 /** Vortex (Dot→Spiral, HIGH): archimedean spiral from A out to B; phase rotates with tick. */
@@ -331,7 +381,7 @@ function drawVortex(g: Graphics, p: BondVisualParams): void {
     if (first) { g.moveTo(px, py); first = false; }
     else g.lineTo(px, py);
   }
-  g.stroke({ width: p.width * 0.85, color: p.color, alpha: p.alpha });
+  g.stroke({ width: p.width * 0.85, color: p.colorA, alpha: p.alpha });
 }
 
 /** Whip (Spiral→Line, LOW): sine wave from A to B; phase drifts A→B with tick. */
@@ -361,7 +411,7 @@ function drawWhip(g: Graphics, p: BondVisualParams): void {
     if (first) { g.moveTo(px, py); first = false; }
     else g.lineTo(px, py);
   }
-  g.stroke({ width: p.width, color: p.color, alpha: p.alpha });
+  g.stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
 }
 
 /** Warped (Triangle→Spiral, LOW): 3-fold ring at midpoint. Lobes rotate + breathe over time. */
@@ -373,7 +423,7 @@ function drawWarped(g: Graphics, p: BondVisualParams): void {
 
   // Faint bond underlay so the topology stays legible.
   g.moveTo(p.ax, p.ay).lineTo(p.bx, p.by)
-    .stroke({ width: p.width * 0.5, color: p.color, alpha: p.alpha * 0.4 });
+    .stroke({ width: p.width * 0.5, color: p.colorA, alpha: p.alpha * 0.4 });
 
   const mx = (p.ax + p.bx) / 2;
   const my = (p.ay + p.by) / 2;
@@ -393,5 +443,5 @@ function drawWarped(g: Graphics, p: BondVisualParams): void {
     if (first) { g.moveTo(px, py); first = false; }
     else g.lineTo(px, py);
   }
-  g.stroke({ width: p.width * 0.75, color: p.color, alpha: p.alpha });
+  g.stroke({ width: p.width * 0.75, color: p.colorA, alpha: p.alpha });
 }

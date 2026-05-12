@@ -110,14 +110,20 @@ export class StructureRenderer {
       // a structural subset to keep the solver narrow).
       const a = bond.a as Primitive;
       const b = bond.b as Primitive;
-      const baseTint = mixTints(a.ownerColor, b.ownerColor);
       const dx = b.pos.x - a.pos.x;
       const dy = b.pos.y - a.pos.y;
       const dist = Math.hypot(dx, dy);
       const ratio = dist / bond.restLength;
       const breakAt = STRAIN_BREAK_BY_TIER[bond.stiffnessTier];
       const stress = Math.max(0, Math.min(1, (ratio - 1) / (breakAt - 1)));
-      const tint = stress > 0.05 ? lerpTint(baseTint, 0xff3030, stress * 0.85) : baseTint;
+      // S17 P2 — Phase-2 §VI.4 / §X.2: source per-endpoint placerColor
+      // (immutable contribution record per Council R1 Gemini #1 BLOCKER —
+      // NOT transient ownerColor which mutates on Steal). Stress tint applied
+      // per-endpoint so the bond turns red as it approaches break threshold
+      // even when endpoint colors differ. Single-color bonds (P1 self-built
+      // or solo) render solid via drawDefaultLine fast-path.
+      const stressedA = stress > 0.05 ? lerpTint(a.placerColor, 0xff3030, stress * 0.85) : a.placerColor;
+      const stressedB = stress > 0.05 ? lerpTint(b.placerColor, 0xff3030, stress * 0.85) : b.placerColor;
       const width = stiffnessToWidth(bond.stiffnessTier) + (stress > 0.5 ? (stress - 0.5) * 2 : 0);
 
       // S7 P2: per-combo persistent silhouette. Direction is a→b matching the
@@ -132,7 +138,8 @@ export class StructureRenderer {
         bx: b.pos.x,
         by: b.pos.y,
         visualEffectId: lookupCombo(a.type, b.type).visualEffectId,
-        color: tint,
+        colorA: stressedA,
+        colorB: stressedB,
         alpha: 0.85,
         width,
         tick,
@@ -230,11 +237,11 @@ function stiffnessToWidth(tier: StiffnessTier): number {
   return tier === 'HIGH' ? 3 : tier === 'MID' ? 2 : 1.5;
 }
 
-function mixTints(a: number, b: number): number {
-  const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
-  const br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
-  return (((ar + br) >> 1) << 16) | (((ag + bg) >> 1) << 8) | ((ab + bb) >> 1);
-}
+// S17 P2: mixTints (single-color mid-blend of endpoint ownerColors) removed;
+// drawBondVisual now consumes per-endpoint colorA + colorB and produces the
+// gradient via stroke-decomposition (Council R1 Grok #6 + Gemini #5). The
+// stress-tint path still uses lerpTint below — applied to each endpoint's
+// placerColor separately.
 
 function lerpTint(a: number, b: number, t: number): number {
   const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;

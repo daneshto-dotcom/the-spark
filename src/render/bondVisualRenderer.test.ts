@@ -12,7 +12,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { drawBondVisual, type BondVisualParams } from './bondVisualRenderer.ts';
+import { drawBondVisual, lerpColor, type BondVisualParams } from './bondVisualRenderer.ts';
 
 interface CallRecord {
   readonly op: 'moveTo' | 'lineTo' | 'circle' | 'stroke';
@@ -47,7 +47,10 @@ function makeParams(overrides: Partial<BondVisualParams> = {}): BondVisualParams
     bx: 200,
     by: 100,
     visualEffectId: 'fx.bond.default',
-    color: 0xffffff,
+    // S17 P2: per-endpoint colors. Defaults equal → solid back-compat (Phase-1
+    // single-color path); tests can override one or both for gradient cases.
+    colorA: 0xffffff,
+    colorB: 0xffffff,
     alpha: 0.85,
     width: 2,
     tick: 0,
@@ -229,3 +232,89 @@ describe('S7 P2 — tick-driven animation', () => {
 function serialize(calls: readonly CallRecord[]): string {
   return calls.map((c) => `${c.op}(${c.args.map((n) => n.toFixed(3)).join(',')})`).join('|');
 }
+
+/* ────────────────── S17 P2 — Phase-2 §VI.4/§X.2 multi-color rendering ──────────────────
+ * colorA / colorB sourced from endpoint placerColor (immutable per Gemini #1
+ * BLOCKER). Same-color bonds emit a single solid stroke (back-compat path);
+ * cross-color bonds emit 4 lerped sub-segments (stroke decomposition because
+ * Pixi v8 has no native A→B endpoint gradient stroke API per Council R1
+ * Grok #6 + Gemini #5).
+ */
+
+describe('S17 P2 — lerpColor pure helper', () => {
+  it('returns colorA exactly at t=0', () => {
+    expect(lerpColor(0xff0000, 0x0000ff, 0)).toBe(0xff0000);
+  });
+  it('returns colorB exactly at t=1', () => {
+    expect(lerpColor(0xff0000, 0x0000ff, 1)).toBe(0x0000ff);
+  });
+  it('midpoint t=0.5 averages each RGB channel', () => {
+    // (0xff + 0x00)/2 = 0x7f or 0x80 (rounding). 0xff/2 = 127.5 → round=128 = 0x80.
+    expect(lerpColor(0xff0000, 0x0000ff, 0.5)).toBe(0x800080);
+  });
+  it('endpoint-color preservation in pure-green-to-cyan gradient', () => {
+    // 0x00ff00 → 0x00ffff. R/G stay 00/ff; B goes 00 → ff. Midpoint = 0x00ff80.
+    expect(lerpColor(0x00ff00, 0x00ffff, 0.5)).toBe(0x00ff80);
+  });
+});
+
+describe("S17 P2 — drawDefaultLine renders solid for same-color (back-compat)", () => {
+  it('emits exactly one stroke when colorA === colorB', () => {
+    const g = new GraphicsMock();
+    drawBondVisual(
+      g as unknown as Parameters<typeof drawBondVisual>[0],
+      makeParams({ visualEffectId: 'fx.bond.default', colorA: 0xff3b6b, colorB: 0xff3b6b }),
+    );
+    const strokes = g.calls.filter((c) => c.op === 'stroke');
+    expect(strokes.length).toBe(1);
+    // Stroke records [width, color, alpha] → confirm color matches colorA.
+    expect(strokes[0].args[1]).toBe(0xff3b6b);
+  });
+});
+
+describe("S17 P2 — drawDefaultLine renders 4-segment gradient when colorA !== colorB", () => {
+  it('emits exactly 4 strokes between distinct endpoint colors', () => {
+    const g = new GraphicsMock();
+    drawBondVisual(
+      g as unknown as Parameters<typeof drawBondVisual>[0],
+      makeParams({ visualEffectId: 'fx.bond.default', colorA: 0xff0000, colorB: 0x0000ff }),
+    );
+    const strokes = g.calls.filter((c) => c.op === 'stroke');
+    expect(strokes.length).toBe(4);
+  });
+
+  it('sub-segment colors progress monotonically (R → B lerp)', () => {
+    const g = new GraphicsMock();
+    drawBondVisual(
+      g as unknown as Parameters<typeof drawBondVisual>[0],
+      makeParams({ visualEffectId: 'fx.bond.default', colorA: 0xff0000, colorB: 0x0000ff }),
+    );
+    const strokes = g.calls.filter((c) => c.op === 'stroke');
+    // Each stroke: args[1] = color. R channel decreases, B channel increases
+    // monotonically across the 4 sub-segments.
+    const rChannels = strokes.map((s) => ((s.args[1] as number) >> 16) & 0xff);
+    const bChannels = strokes.map((s) => (s.args[1] as number) & 0xff);
+    for (let i = 1; i < rChannels.length; i++) {
+      expect(rChannels[i]).toBeLessThan(rChannels[i - 1]);
+      expect(bChannels[i]).toBeGreaterThan(bChannels[i - 1]);
+    }
+  });
+
+  it('sub-segments span the full bond axis (first start = A, last end = B)', () => {
+    const g = new GraphicsMock();
+    drawBondVisual(
+      g as unknown as Parameters<typeof drawBondVisual>[0],
+      makeParams({
+        ax: 100, ay: 50, bx: 300, by: 150,
+        visualEffectId: 'fx.bond.default',
+        colorA: 0xff0000, colorB: 0x0000ff,
+      }),
+    );
+    const moves = g.calls.filter((c) => c.op === 'moveTo');
+    const lines = g.calls.filter((c) => c.op === 'lineTo');
+    // First moveTo should be at (ax, ay) = (100, 50).
+    expect(moves[0].args).toEqual([100, 50]);
+    // Last lineTo should be at (bx, by) = (300, 150).
+    expect(lines[lines.length - 1].args).toEqual([300, 150]);
+  });
+});
