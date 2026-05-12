@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 0,
+  "tool_calls_session_total": 1,
   "session_start": "2026-05-12T00:00:00Z",
   "session_id": "S14",
   "budget_total": 150000,
@@ -12,7 +12,7 @@
   "council_waived": false,
   "council_waiver_reason": null,
   "council_invoked": "R1-parallel-completed-Grok-REVISE-Gemini-REVISE-then-synthesis-PRIME-AUDIT-SHIP",
-  "active_pdr": ".claude/plans/2026-05-12_PDR_Session_14_IN-PROGRESS.md",
+  "active_pdr": ".claude/plans-archive/2026-05-12_PDR_Session_14_COMPLETED.md",
   "priorities": [
     {
       "id": "P1",
@@ -50,13 +50,13 @@
     {
       "id": "P3",
       "title": "Closeout (BACKLOG + reflexion + boot snapshot + PDR archive + HANDOFF)",
-      "status": "in_progress",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "Closeout artifacts complete: BACKLOG.md S14 entry inserted above S13 (~95 LOC with full P1/P2.0/P2.1/P3 narrative + Council R1 adoption summary + 3 carry-forward blocks: playtest-gated re-tune, new charter PRIME-AUDIT on controls.ts, asset/Phase-2 gates unchanged). reflexion_log.md prepended with 5 S14 entries (#council-led-restructuring-as-prerequisite, #no-score-for-redundancy-clean-frame, #pure-function-extraction-for-class-method-testability, #verify-council-claim-with-source-not-narrative, SESSION #prime-audit-as-revision-gate-not-decoration); pruned 4 S6 entries (effects-renderer minutiae superseded by S8 animation/static split + S12 per-kind effect-renderer split) to maintain ≤50 cap; footer pruning note updated. boot-snapshot.md regenerated with S14 commit list, post-S14 state, new § XV charter PRIME-AUDIT carry-forward (controls.ts 565 LOC), and S14+S13 reflexion summaries. PDR moved (plain mv since plans/ are ephemeral .gitignored) to .claude/plans-archive/2026-05-12_PDR_Session_14_COMPLETED.md with full Battle Ledger + Council adoption tables + PRIME-AUDIT delta. HANDOFF_2026-05-12.md (S13 version) git-mv'd to .handoff-archive/HANDOFF_2026-05-12_S13_postS14.md; new S14 HANDOFF written at root. Final state: 252/252 tests passing (216 prior + 7 new avatarRenderer.test.ts + 29 new session14.test.ts). Typecheck clean. § XV charter: world.ts 228 LOC (closed S13 carry-forward via P2.0), placePrimitive.ts 489 LOC, controls.ts 565 LOC (new S15 carry-forward — extract pickRedundantBondTargets + angularDistance to src/input/redundantBondTargets.ts). 3 priority commits (0ccb3fe P1, 9bb784e P2.0, ab40447 P2.1) + closeout commit (05c5d72) on origin/master, all pushed.",
+      "checkpoint_commit": "05c5d72"
     }
   ],
   "totals": {
