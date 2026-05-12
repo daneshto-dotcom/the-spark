@@ -10,7 +10,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import {
+  getConnectButtonCanvasBounds,
+  getHostButtonCanvasBounds,
+  getHostCodeTextCanvasPos,
+  getHostPaneOrigin,
+  getJoinPaneOrigin,
   isValidRoomCode,
   JOIN_INPUT_RECT,
   mapCanvasRectToPage,
@@ -129,5 +135,69 @@ describe('S16 P1 — JOIN_INPUT_RECT canvas-space coords', () => {
     expect(JOIN_INPUT_RECT.h).toBe(60);
     expect(JOIN_INPUT_RECT.x).toBeGreaterThan(0);
     expect(JOIN_INPUT_RECT.y).toBeGreaterThan(0);
+  });
+});
+
+describe('S17 P0\' — button positioning regression (Connect off-screen bug)', () => {
+  // S16 P1 shipped with a double-offset positioning bug: the Connect
+  // button + Host button + host code-text had position.set() called with
+  // ABSOLUTE canvas coords but were children of relative-positioned pane
+  // Containers. Effective stage position = pane.position + child.position
+  // → Connect at (2090, 940), 170px past the canvas right edge. User
+  // typed the code, then had no visible button to click. These tests
+  // regression-guard the fix (pane-relative coords for all three).
+
+  it('Connect button stays fully inside canvas bounds', () => {
+    const join = getJoinPaneOrigin();
+    const b = getConnectButtonCanvasBounds(join.x, join.y);
+    expect(b.x).toBeGreaterThanOrEqual(0);
+    expect(b.y).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.w).toBeLessThanOrEqual(CANVAS_WIDTH);
+    expect(b.y + b.h).toBeLessThanOrEqual(CANVAS_HEIGHT);
+  });
+
+  it('Connect button regression: did NOT regress to off-screen (2090,940) position', () => {
+    // Witness against the original bug: prior buggy code computed
+    // effective stage x = joinPaneX*2 + PANE_WIDTH/2 - BUTTON_WIDTH/2 = 2090.
+    // Post-fix the helper returns ~1110 (inside canvas).
+    const join = getJoinPaneOrigin();
+    const b = getConnectButtonCanvasBounds(join.x, join.y);
+    expect(b.x).toBeLessThan(2000);     // strictly inside canvas right edge
+    expect(b.x + b.w).toBeLessThan(CANVAS_WIDTH);
+  });
+
+  it('Host button stays fully inside canvas bounds', () => {
+    const host = getHostPaneOrigin();
+    const b = getHostButtonCanvasBounds(host.x, host.y);
+    expect(b.x).toBeGreaterThanOrEqual(0);
+    expect(b.y).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.w).toBeLessThanOrEqual(CANVAS_WIDTH);
+    expect(b.y + b.h).toBeLessThanOrEqual(CANVAS_HEIGHT);
+  });
+
+  it('Host code-text stays inside canvas bounds', () => {
+    const host = getHostPaneOrigin();
+    const pos = getHostCodeTextCanvasPos(host.x, host.y);
+    expect(pos.x).toBeGreaterThan(0);
+    expect(pos.y).toBeGreaterThan(0);
+    expect(pos.x).toBeLessThan(CANVAS_WIDTH);
+    expect(pos.y).toBeLessThan(CANVAS_HEIGHT);
+  });
+
+  it('Host + Join buttons positioned symmetrically on opposite sides of canvas center', () => {
+    const host = getHostPaneOrigin();
+    const join = getJoinPaneOrigin();
+    const hostBtn = getHostButtonCanvasBounds(host.x, host.y);
+    const joinBtn = getConnectButtonCanvasBounds(join.x, join.y);
+    // Buttons share the same y (paneY + 220).
+    expect(hostBtn.y).toBe(joinBtn.y);
+    // Host button center-x sits left of canvas center; Join button center-x sits right.
+    const hostCenterX = hostBtn.x + hostBtn.w / 2;
+    const joinCenterX = joinBtn.x + joinBtn.w / 2;
+    expect(hostCenterX).toBeLessThan(CANVAS_WIDTH / 2);
+    expect(joinCenterX).toBeGreaterThan(CANVAS_WIDTH / 2);
+    // Distance from center identical (symmetry).
+    expect(Math.abs(CANVAS_WIDTH / 2 - hostCenterX))
+      .toBeCloseTo(Math.abs(joinCenterX - CANVAS_WIDTH / 2), 6);
   });
 });

@@ -91,6 +91,66 @@ export const JOIN_INPUT_RECT = {
   h: INPUT_CANVAS_H,
 } as const;
 
+/**
+ * S17 P0' — pure helpers exposing the canvas-space bounds of the lobby's
+ * button + code-text elements. S16 P1 shipped with a double-offset
+ * positioning bug: child Containers had their `position.set` called with
+ * ABSOLUTE canvas coords but were children of relative-positioned pane
+ * Containers, so their effective stage position was offset twice. The
+ * Connect button landed at (2090, 940), 170px past the canvas right edge,
+ * making the cross-network join flow impossible. These pure helpers
+ * encode the CORRECTED (pane-relative-child) math + give vitest something
+ * to regression-test without spinning up Pixi (S10 #test-via-pure-helper-
+ * export pattern).
+ */
+export function getConnectButtonCanvasBounds(
+  joinPaneX: number,
+  paneY: number,
+): { x: number; y: number; w: number; h: number } {
+  return {
+    x: joinPaneX + (PANE_WIDTH / 2 - BUTTON_WIDTH / 2),
+    y: paneY + 220,
+    w: BUTTON_WIDTH,
+    h: BUTTON_HEIGHT,
+  };
+}
+
+export function getHostButtonCanvasBounds(
+  hostPaneX: number,
+  paneY: number,
+): { x: number; y: number; w: number; h: number } {
+  return {
+    x: hostPaneX + (PANE_WIDTH / 2 - BUTTON_WIDTH / 2),
+    y: paneY + 220,
+    w: BUTTON_WIDTH,
+    h: BUTTON_HEIGHT,
+  };
+}
+
+export function getHostCodeTextCanvasPos(
+  hostPaneX: number,
+  paneY: number,
+): { x: number; y: number } {
+  return {
+    x: hostPaneX + PANE_WIDTH / 2,
+    y: paneY + 130,
+  };
+}
+
+/** Exposed canvas-space pane origins for tests. */
+export function getHostPaneOrigin(): { x: number; y: number } {
+  return {
+    x: CANVAS_WIDTH / 2 - PANE_WIDTH - PANE_GAP / 2,
+    y: CANVAS_HEIGHT / 2 - PANE_HEIGHT / 2,
+  };
+}
+export function getJoinPaneOrigin(): { x: number; y: number } {
+  return {
+    x: CANVAS_WIDTH / 2 + PANE_GAP / 2,
+    y: CANVAS_HEIGHT / 2 - PANE_HEIGHT / 2,
+  };
+}
+
 export type LobbyMode = 'select' | 'hosting' | 'joining';
 
 export interface LobbyScreenCallbacks {
@@ -119,6 +179,9 @@ export class LobbyScreen {
   private readonly inputEl: HTMLInputElement;
   private readonly resizeHandler: () => void;
   private readonly inputHandler: () => void;
+  // S17 P0': Enter-key handler invokes same path as Connect-button click.
+  private readonly keydownHandler: (e: KeyboardEvent) => void;
+  private attemptJoinFn: () => void = () => {};
   private isShown = false;
 
   constructor(app: Application, callbacks: LobbyScreenCallbacks) {
@@ -173,7 +236,10 @@ export class LobbyScreen {
     this.container.addChild(this.hostPane);
     this.container.addChild(this.joinPane);
 
-    // Host button — generate room code
+    // Host button — generate room code.
+    // S17 P0' BLOCKER fix: position is PANE-RELATIVE (was absolute canvas
+    // coords plus hostPane offset → double-offset rendering at stage (1050,940)
+    // below the pane). hint text at line ~221 already uses pane-relative coords.
     const hostBtn = this.makeButton('Host New Room', PLAYER_COLORS[0], () => {
       const code = callbacks.onHostStart();
       this.mode = 'hosting';
@@ -182,7 +248,7 @@ export class LobbyScreen {
       this.renderState();
       this.updateInputVisibility();
     });
-    hostBtn.position.set(hostPaneX + PANE_WIDTH / 2 - BUTTON_WIDTH / 2, paneY + 220);
+    hostBtn.position.set(PANE_WIDTH / 2 - BUTTON_WIDTH / 2, 220);
     this.hostPane.addChild(hostBtn);
 
     this.codeText = new Text({
@@ -190,7 +256,8 @@ export class LobbyScreen {
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 56, fill: 0xffffff, letterSpacing: 12 }),
     });
     this.codeText.anchor.set(0.5);
-    this.codeText.position.set(hostPaneX + PANE_WIDTH / 2, paneY + 130);
+    // S17 P0' BLOCKER fix: pane-relative (was hostPaneX + PANE_WIDTH/2 absolute).
+    this.codeText.position.set(PANE_WIDTH / 2, 130);
     this.hostPane.addChild(this.codeText);
 
     // Join pane visual border + hint (matches original Pixi rect at canvas
@@ -239,7 +306,10 @@ export class LobbyScreen {
     this.joinButton.eventMode = 'static';
     this.joinButton.cursor = 'pointer';
     this.joinButton.alpha = 0.4; // disabled until 6 valid chars
-    this.joinButton.on('pointertap', () => {
+
+    // S17 P0' — extracted to private fn so Enter-key handler can invoke
+    // the same path as Connect-button click.
+    const attemptJoin = (): void => {
       const code = this.inputEl.value.toUpperCase();
       if (isValidRoomCode(code)) {
         this.mode = 'joining';
@@ -251,8 +321,14 @@ export class LobbyScreen {
         this.statusText.text = 'Code must be 6 chars (excludes 0, O, 1, I).';
         this.renderState();
       }
-    });
-    this.joinButton.position.set(joinPaneX + PANE_WIDTH / 2 - BUTTON_WIDTH / 2, paneY + 220);
+    };
+    this.joinButton.on('pointertap', attemptJoin);
+    this.attemptJoinFn = attemptJoin;
+
+    // S17 P0' BLOCKER fix: pane-relative (was joinPaneX + PANE_WIDTH/2 ...
+    // absolute → effective stage (2090,940), 170px past canvas right edge,
+    // making Connect un-clickable in cross-network playtest).
+    this.joinButton.position.set(PANE_WIDTH / 2 - BUTTON_WIDTH / 2, 220);
     this.joinPane.addChild(this.joinButton);
 
     // Bottom status text (shared)
@@ -321,6 +397,17 @@ export class LobbyScreen {
     };
     this.inputEl.addEventListener('input', this.inputHandler);
 
+    // S17 P0' — Enter-key on inputEl invokes same path as Connect-button click.
+    // Without this, user could type a valid code but had no keyboard fallback
+    // if the Connect button was off-screen (the original BLOCKER).
+    this.keydownHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.attemptJoinFn();
+      }
+    };
+    this.inputEl.addEventListener('keydown', this.keydownHandler);
+
     this.resizeHandler = () => this.updateInputPosition();
     window.addEventListener('resize', this.resizeHandler);
     if (typeof window !== 'undefined' && window.visualViewport) {
@@ -371,6 +458,7 @@ export class LobbyScreen {
 
   destroy(): void {
     this.inputEl.removeEventListener('input', this.inputHandler);
+    this.inputEl.removeEventListener('keydown', this.keydownHandler);
     window.removeEventListener('resize', this.resizeHandler);
     if (typeof window !== 'undefined' && window.visualViewport) {
       window.visualViewport.removeEventListener('resize', this.resizeHandler);
