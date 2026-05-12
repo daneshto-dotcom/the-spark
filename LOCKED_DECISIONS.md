@@ -300,7 +300,14 @@ spark/
 │   │   ├── statsOverlay.ts      // Dev FPS + physics ms + counts (toggle ~)
 │   │   ├── ui.ts                // Carry indicator, energy gauge, S15 P2 1v1 HUD (turn badge, per-player score, connection dot)
 │   │   ├── titleScreen.ts       // S15 P2: 1 Player / 1v1 mode select
-│   │   └── lobbyScreen.ts       // S15 P2: host/join panes + connection-lost overlay
+│   │   ├── lobbyScreen.ts       // S15 P2: host/join panes + connection-lost overlay; S20 P0 setErrorMessage for [net]-tagged signaling/ICE failures
+│   │   ├── bondVisualRenderer.ts // S7 P2 dispatcher; S20 P3 slim 536→73 LOC (12 silhouettes extracted to effects/silhouettes/)
+│   │   └── effects/silhouettes/  // S20 P3 (Council R1): 3 archetype files for 12 magic silhouettes + shared lib + barrel
+│   │       ├── shared.ts        // BondVisualParams + lerpColor + midColor + strokeAxisLerp + strokePathLerp + drawDefaultLine fallback
+│   │       ├── axisAligned.ts   // filament/cable/bracket/diamond/wheel/lattice/capsule (7 shapes whose primary stroke runs along the bond axis)
+│   │       ├── midpointOrnaments.ts // star/orbital/warped (3 ornaments centered at midpoint with faint axis underlay)
+│   │       ├── parametricPaths.ts   // vortex/whip (2 curves traced A→B parametrically)
+│   │       └── index.ts         // barrel re-export for dispatcher
 │   ├── net/                     // S15 P2 (LOCKED § 13 NEW): Phase-2 1v1 networked play
 │   │   ├── transport.ts         // Trystero/Nostr WebRTC adapter
 │   │   ├── protocol.ts          // Typed envelopes (Hello/Intent/NetSnapshot/EndGame), room code gen/parse

@@ -34,8 +34,8 @@
     },
     {
       "id": "P1",
-      "title": "world.ts → sparkLifecycle.ts + shared 1v1 auth gate (Standard, anti-bloat §XV) [PIVOTED 2026-05-12T19:13Z]: A.0-level-2 surfaced that gameState FSM transitions already delegate to gameMode.ts (S16 P0). PIVOT to extracting SPAWN_SPARK/DESPAWN_SPARK/PICKUP_SPARK/DROP_SPARK/TICK_ENERGY case bodies (5 helpers; NOT WIN_TRIGGER per Council R1 Grok#2/Gemini#4 — 3 LOC scalar mutation doesn't belong in sparkLifecycle) into NEW src/state/sparkLifecycle.ts. NEW src/state/authGate.ts with `requireActivePlayer(world, playerId): boolean` shared helper (Council R1 Grok#3+#10+Gemini#3+#9 convergent): de-duplicates the 1v1 active-player check across PICKUP_SPARK + DROP_SPARK + PLACE_PRIMITIVE. world.ts 311 → ~277 LOC (≤280 charter). Helpers return World (Gemini#1+#2). placePrimitive.ts inline gate also migrated to shared helper.",
-      "status": "in_progress",
+      "title": "world.ts → sparkLifecycle.ts + shared 1v1 auth gate (Standard, anti-bloat §XV) [PIVOTED]: A.0-level-2 surfaced FSM transitions already delegate to gameMode.ts (S16 P0). PIVOT to extracting SPAWN/DESPAWN/PICKUP/DROP/TICK_ENERGY case bodies into NEW src/state/sparkLifecycle.ts (5 helpers; NOT WIN_TRIGGER per Council Grok#2/Gemini#4). NEW src/state/authGate.ts requireActivePlayer shared helper. world.ts 311 → 275 LOC (≤280 charter).",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -43,18 +43,25 @@
       "council_waived": false,
       "council_waiver_reason": null,
       "council_invoked": "S20-P1-R1-completed-2026-05-12T19:14Z",
-      "council_battle_ledger": ".claude/plans/2026-05-12_PDR_Session_20_Council_P1_BattleLedger.md"
+      "council_battle_ledger": ".claude/plans/2026-05-12_PDR_Session_20_Council_P1_BattleLedger.md",
+      "check_completed": true,
+      "check_method": "A.0-level-2 PIVOT (pre-Council, post-PDR-lock): full re-read of world.ts revealed the originally-targeted FSM transition cases (START_GAME/END_TURN/RETURN_TO_TITLE/UPDATE_AVATAR_POS at lines 288-298) already delegate to gameMode.ts per S16 P0 file-comment line 21-24. PIVOTED scope to remaining inline case bodies + auth-gate duplication. Council R1 (Grok-4-1-fast-non-reasoning DISRUPTOR 12 challenges + Gemini-2.5-pro AUDITOR 10 findings; convergent themes: auth-gate de-duplication Grok#3+#10+Gemini#3+#9, WIN_TRIGGER cohesion-exclusion Grok#2+Gemini#4, World-return-signature pattern alignment Gemini#1+#2; ADOPT 10, REJECT 7, ADOPT-AS-TEST 4). PRIME-AUDIT delta verified: requirePlayer throw semantics preserved (auth-gate first, then lookup); type-only World import in sparkLifecycle.ts avoids circular risk; test fixture makeWorld(seed) untouched. Implementation: NEW authGate.ts 36 LOC (requireActivePlayer pure helper, leaf module type-only deps), NEW sparkLifecycle.ts 124 LOC (5 helpers returning World — applySpawnSpark, applyDespawnSpark, applyPickupSpark with requireActivePlayer guard, applyDropSpark with requireActivePlayer guard, applyTickEnergy; action shape interfaces colocated), world.ts 311 → 275 LOC (-36 LOC, under 280 charter ≤; dispatch cases collapse to 1-line delegates mirroring gameMode.ts pattern; PLACE_PRIMITIVE case swaps inline 1v1 gate for requireActivePlayer call; imports trimmed of moved deps). NEW sparkLifecycle.test.ts 197 LOC 15 tests (requireActivePlayer 2 cases solo/1v1; spawn 1; despawn 3 free-removal + missing-noop + non-free-noop; pickup 4 1v1-wrong-player-reject + missing-throw + non-Free-throw + happy-path-with-FSM-and-prevPos-snap; drop 3 1v1-wrong-player-reject + CarryViolation-if-not-Carrying + happy-path; tickEnergy 2 regen + missing-throw). LOCKED_DECISIONS.md §7 Module Architecture tree updated with sparkLifecycle.ts + authGate.ts + disruptionManager.ts entries + world.ts trimmed annotation. Tests 386 → 401 (+15). Typecheck exit 0. Build 397.52 → 397.65 KB (+0.13 KB; pure refactor confirms zero behavior change). Preview verified solo (canvas mounts, zero console errors). All 21 existing world.test.ts cases pass unchanged. Push commit 5050150 to origin/master.",
+      "checkpoint_commit": "5050150",
+      "real_context_tokens_at_close": 302685,
+      "real_context_pct_at_close": 30.27
     },
     {
       "id": "P3",
-      "title": "bondVisualRenderer.ts magic-silhouette extraction (Standard, anti-bloat §XV): 12 magic silhouette renderers split into per-shape files under src/render/effects/silhouettes/, shared helpers (midColor, strokeAxisLerp, strokePathLerp) in silhouettes/shared.ts. bondVisualRenderer.ts 536 → ~450 LOC (≤500 charter). S19 P3-introduced bloat addressed.",
-      "status": "queued",
+      "title": "bondVisualRenderer.ts magic-silhouette extraction (Standard, anti-bloat §XV) [Council-revised 2026-05-12T19:25Z]: Council R1 pushed back on per-file fragmentation; CONSOLIDATED scope from 12-per-shape files to 3 archetype files + shared.ts + barrel index.ts. NEW src/render/effects/silhouettes/{shared,axisAligned,midpointOrnaments,parametricPaths,index}.ts. bondVisualRenderer.ts retains drawBondVisual dispatch + re-exports BondVisualParams + lerpColor for test compatibility; shrinks 536 → ~60 LOC. External imports stable (bondVisualRenderer.test.ts + structureRenderer.ts both import only drawBondVisual + lerpColor + BondVisualParams).",
+      "status": "in_progress",
       "tier": "Standard",
       "pdr_approved": true,
-      "deliberation_completed": false,
+      "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
-      "council_waiver_reason": null
+      "council_waiver_reason": null,
+      "council_invoked": "S20-P3-R1-completed-2026-05-12T19:25Z",
+      "council_battle_ledger": ".claude/plans/2026-05-12_PDR_Session_20_Council_P3_BattleLedger.md"
     }
   ],
   "totals": {
