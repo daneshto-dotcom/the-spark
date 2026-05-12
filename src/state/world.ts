@@ -21,6 +21,7 @@ import {
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
+  STRUCTURE_GROW_IMPULSE,
   type StiffnessTier,
 } from '../constants.ts';
 import { type GameEffect } from '../game/effects.ts';
@@ -296,6 +297,13 @@ function placePrimitive(
   // already pulled in.
   const mergedComponents = new Set<PrimitiveId>();
 
+  // S13 P2: snapshot primary's pre-existing component (everything in
+  // primary's component EXCEPT the new prim) so STRUCTURE_GROW outward
+  // impulse can apply to those prims only. Cand components get inward
+  // MERGE_IMPULSE instead (S10 P3 above). Empty for anchor placements
+  // (no primary target → no pre-existing structure to "grow").
+  const primaryPreExistingPrims: PrimitiveId[] = [];
+
   // S10 P4: snapshot scoreProgress so the tier-crossing emission can fire
   // exactly one SCORE_TIER per multiple of SCORE_TIER_STEP crossed during
   // this placement. Captured BEFORE any bond/merge score increments.
@@ -324,8 +332,11 @@ function placePrimitive(
     // S9 P3: weight progress by combo magic-ness.
     world.scoreProgress += combo.isMagical ? SCORE_MAGIC_BOND : SCORE_FUNCTIONAL_BOND;
     // Track the primary target's entire component so the sweep skips it.
+    // Also snapshot the pre-existing IDs (component minus new prim) for
+    // the S13 P2 STRUCTURE_GROW outward impulse below.
     for (const id of componentOf(target, world.primitives, world.bonds).primitiveIds) {
       mergedComponents.add(id);
+      if (id !== prim.id) primaryPreExistingPrims.push(id);
     }
   } else {
     // S9 P3: anchor placement (no bond) earns one progress point.
@@ -480,6 +491,19 @@ function placePrimitive(
   // (no bonds) emit with just the origin in the hop map → renderer flashes
   // only the new prim, no cascade — natural minimum-event for "the
   // structure has one element."
+  //
+  // S13 P2: paired physical impulse. After the visual emit, push every
+  // prim in the primary's pre-existing component (the structure being
+  // grown) outward from the component's local centroid. Counteracted on
+  // cand components by S10 P3's inward MERGE_IMPULSE above; on a
+  // cross-structure merge, existing structure puffs OUT while absorbed
+  // components snap IN. Skipped on anchor placements (no pre-existing
+  // structure) and on single-prim primary structures (centroid coincides
+  // with the only prim → dmag=0 → no direction → loop skips).
+  //
+  // Gated on cinematicsEnabled WITH the visual emit (unlike MERGE_IMPULSE
+  // which is unconditional). Symmetric on/off: toggling C also disables
+  // the puff so the user gets a single mental model for the toggle.
   if (world.cinematicsEnabled) {
     const hopMap = bfsHopMap(prim, world.primitives, world.bonds);
     world.effects.push({
@@ -491,6 +515,39 @@ function placePrimitive(
       color: prim.placerColor,
       maxHop: hopMap.maxHop,
     });
+
+    if (primaryPreExistingPrims.length > 0) {
+      // Centroid of primary's full post-bond component (pre-existing prims
+      // + new prim). Including the new prim in the centroid makes a
+      // 2-prim structure (single anchor + new prim) produce a non-zero
+      // outward direction for the anchor — otherwise centroid=anchor.pos
+      // and the anchor gets no impulse.
+      let cx = prim.pos.x;
+      let cy = prim.pos.y;
+      for (const id of primaryPreExistingPrims) {
+        const p = world.primitives.get(id);
+        if (p === undefined) continue;
+        cx += p.pos.x;
+        cy += p.pos.y;
+      }
+      const n = primaryPreExistingPrims.length + 1;
+      cx /= n;
+      cy /= n;
+
+      for (const id of primaryPreExistingPrims) {
+        const p = world.primitives.get(id);
+        if (p === undefined) continue;
+        const dx = p.pos.x - cx;
+        const dy = p.pos.y - cy;
+        const dmag = Math.hypot(dx, dy);
+        if (dmag < 1) continue; // co-located with centroid → NaN-safe skip
+        const inv = STRUCTURE_GROW_IMPULSE / dmag;
+        // prevPos -= unit_outward × MAG → velocity = pos - prevPos =
+        // +unit_outward × MAG → primitive accelerates AWAY from centroid.
+        p.prevPos.x -= dx * inv;
+        p.prevPos.y -= dy * inv;
+      }
+    }
   }
 
   // Carry-1 reset.

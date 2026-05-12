@@ -194,6 +194,25 @@ export const MERGE_REACH_RADIUS = 100;
 // 3 tier events before WIN.
 export const SCORE_TIER_STEP = 15;
 
+// S13 P2 — outward verlet impulse for STRUCTURE_GROW. Applied to each
+// primitive in the *primary's pre-existing component* (the structure
+// being added to) on placement, pushing outward from the component's
+// local centroid. 0.8 px on a 30+ px bond ≈ 2.7% strain (well under
+// HIGH-tier 25% break threshold). Bonds resist; net effect = brief
+// outward "puff" the user sees as the structure physically growing.
+//
+// Counteracted on the OTHER side of a cross-structure merge by
+// MERGE_IMPULSE on cand components (INWARD). Net visual on a merge:
+// existing structure puffs out while absorbed components snap in —
+// distinct signatures across the post-merge component.
+//
+// Unlike MERGE_IMPULSE (S10 P3, unconditional physics), this is gated
+// on world.cinematicsEnabled: a NEW physics mechanic the user has not
+// designated physics-over-visual. If they toggle C off, both halves
+// (visual flash + physical puff) disappear together — cleaner mental
+// model for the debug toggle.
+export const STRUCTURE_GROW_IMPULSE = 0.8;
+
 // === Bond rendering ===
 export const BOND_LINE_WIDTH = 2;
 export const BOND_GLOW_INTENSITY = 0.6;
