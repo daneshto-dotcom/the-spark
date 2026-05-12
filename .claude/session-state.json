@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 65,
+  "tool_calls_session_total": 70,
   "session_start": "2026-05-12T14:33:00Z",
   "session_id": "S17",
   "budget_total": 150000,
@@ -67,7 +67,7 @@
       "unlock_source": "user",
       "check_completed": true,
       "check_method": "Closeout artifacts complete: (1) LOCKED_DECISIONS.md amended with 3 NEW subsections §13.11/§13.12/§13.13 codifying Phase-2 Tier-1 rules + §13.10 BETA text update + connectionDot relocation reasoning; (2) BACKLOG.md S17 entry inserted above S16 with full P0'/P0/P1/P2 narrative + Council R1 outcome + PRIME-AUDIT delta + Scope Amendment #1 + S18 carry-forward block; (3) reflexion_log.md prepended with 5 S17 entries (#a0-state-discovery-found-charge-accumulator-already-wired, #council-flagged-pixi-v8-gradient-api-myth-stroke-decomp-correct, #spec-faithful-rendering-sources-placerColor-not-ownerColor-per-VI.4-X.2, #hostile-if-either-endpoint-differs-mixed-ownership-edge-resolved, #lobby-double-offset-found-via-position-math-not-tests); pruned 4 oldest entries (S9 #s7-snap-cursor-undone-by-physics-gate superseded by S10 position-lerp; S9 #component-dedup-via-set tactical now-canonical; S9 #post-place-sweep-emit-effects now-canonical; S7 SESSION #user-path-batch-approval-with-discretion superseded by S15+ amendment-cycle) to maintain <=50 cap; (4) boot-snapshot.md regenerated with S17 commit list, post-S17 state, BETA badge text update, live URL, S18 priorities; (5) src/main.ts BETA badge text updated 'BETA' -> 'BETA · S17 PHASE-2'; (6) src/render/ui.ts connectionDot relocated from (CANVAS_WIDTH-24, 24) to (CANVAS_WIDTH-24, 48) per PRIME-AUDIT E layout discovery; (7) PDR archived .claude/plans/2026-05-12_PDR_Session_17.md -> .claude/plans-archive/2026-05-12_PDR_Session_17_COMPLETED.md via git mv (preserves full Battle Ledger + Council R1 synthesis + PRIME-AUDIT delta + Scope Amendment #1 + approval gate record); (8) HANDOFF rotated: prior root HANDOFF_2026-05-12.md (S16 version) -> .handoff-archive/HANDOFF_2026-05-12_S16_postS17.md via git mv; new S17 HANDOFF written at root with live URL, cross-network playtest path step-by-step, S18 priority order, S18 P0 push-when-DNS-ready flow, S18 P4 disruptionManager.ts extract; (9) Final verification: 330/330 tests passing; typecheck exit 0; live URL https://daneshto-dotcom.github.io/the-spark/ HTTP 200; §XV charter status documented (world.ts 308 LOC 10% over -> S18 extract). All S17 commits: fd016c2 P0' PUSHED, c6f636d P0 local, 629044a P1 local, 91e1e21 P2 local, this P3 closeout local. P0+P1+P2+P3 push-gated awaiting user DNS confirmation.",
-      "checkpoint_commit": "pending-after-P3-commit"
+      "checkpoint_commit": "e12d3ce"
     }
   ],
   "totals": {
