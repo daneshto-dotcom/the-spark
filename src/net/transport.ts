@@ -21,6 +21,27 @@ import type { NetMessage } from './protocol.ts';
 
 const APP_ID = 'spark-game-v1';
 
+/**
+ * S19 P4 — pinned Nostr relay set. Replaces Trystero 0.24's "5 random of 55"
+ * default behavior which causes signaling-layer stalls when the deterministic
+ * shuffle lands on dead / personal / geo-blocked relays (S19 playtest BLOCKER:
+ * both peers stuck at "connecting" because the appId-seeded shuffle picked
+ * relays that were unreachable from both user networks). These 6 are the
+ * most-deployed public Nostr relays — picked deterministically by both peers
+ * since the list is hard-coded, with redundancy=6 so all 6 are used (no
+ * sub-sampling). Order doesn't matter; relayManager parallel-connects all.
+ *
+ * LOCKED §13.1 codifies the choice + the version pin upgrade ^0.20 → ^0.24.
+ */
+const NOSTR_RELAYS = [
+  'wss://relay.damus.io',
+  'wss://nos.lol',
+  'wss://relay.mostr.pub',
+  'wss://purplerelay.com',
+  'wss://relay.nostr.band',
+  'wss://nostr.wine',
+];
+
 export type PeerChangeHandler = (peerId: string, kind: 'join' | 'leave') => void;
 export type MessageHandler = (msg: NetMessage, peerId: string) => void;
 
@@ -46,7 +67,16 @@ export class NetTransport {
     if (this.room !== null) {
       throw new Error('NetTransport already connected; call disconnect() first');
     }
-    this.room = joinRoom({ appId: APP_ID }, roomCode);
+    this.room = joinRoom(
+      {
+        appId: APP_ID,
+        relayConfig: {
+          urls: NOSTR_RELAYS,
+          redundancy: NOSTR_RELAYS.length,
+        },
+      },
+      roomCode,
+    );
     // Trystero's makeAction<T> requires T extends a JsonValue index-signature
     // record. NetMessage is a discriminated union — narrower than that
     // constraint allows but JSON-serializable. Cast through unknown to

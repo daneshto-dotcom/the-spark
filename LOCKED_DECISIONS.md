@@ -15,12 +15,44 @@
 | Language | **TypeScript 5.x strict** | Type-level invariants for carry-1, color, immobility |
 | Bundler | **Vite 5** | HMR is the iteration multiplier |
 | Audio | **Deferred** (see § 9) | Phase 1 ships silent per spec § XV.6 |
-| Phase-2 net | **Trystero (^0.20)** [v3 amendment 2026-05-12, S15 P2] | WebRTC + Nostr signaling, ~40KB bundle, zero infra. For 1v1 friends-only play. See § 13. |
+| Phase-2 net | **Trystero (^0.24)** [v4 amendment 2026-05-12, S19 P4] | WebRTC + Nostr signaling, ~40KB bundle, zero infra. For 1v1 friends-only play. Pinned relay set in `src/net/transport.ts` (see § 13.1 NOTE below). |
 | Phase-3 net | Colyseus or Geckos.io (later) | Web-native server-authoritative — reserved for >2-player scalability + matchmaking |
 | Test runner | Vitest | Same Vite stack |
 | Lint/format | ESLint + Prettier defaults | Don't bikeshed |
 
 **Engine path:** Spec § XII.1 listed Godot recommended + HTML5 alt. We chose Pixi+TS — engine choice is NOT in the LOCKED list, so this is allowed. Phase 3 networking via web-native libs.
+
+### NOTE (S19 P4, 2026-05-12) — Trystero relay pin
+
+S19 playtest BLOCKER: brother + user both stuck at "connecting" in 1v1 lobby
+across separate networks. Root cause: silent npm bump `^0.20 → ^0.24` since
+S15 P2 wiring + Trystero 0.24's Nostr module picks 5 random relays from 55
+defaults (`shuffle(defaults, strToNum(appId))` — deterministic per appId
+but the picked relays include many tiny / personal / geo-flaky endpoints).
+Both peers picked the same dead set → no signaling → no peer handshake.
+
+Pinned relay set in `src/net/transport.ts` `NOSTR_RELAYS`:
+
+| Relay | Why |
+|---|---|
+| `wss://relay.damus.io` | Most-used public Nostr relay |
+| `wss://nos.lol` | High-traffic community relay |
+| `wss://relay.mostr.pub` | ActivityPub bridge, high uptime |
+| `wss://purplerelay.com` | Public; in Trystero defaults |
+| `wss://relay.nostr.band` | Aggregator-backed, very stable |
+| `wss://nostr.wine` | Long-running paid+free relay |
+
+Trystero call site (`src/net/transport.ts:48`) passes `relayConfig.urls`
++ `relayConfig.redundancy = NOSTR_RELAYS.length` so ALL 6 relays connect
+(no sub-sampling). Both peers connect to the same 6 — first relay to
+deliver the WebRTC offer wins; the rest are redundancy.
+
+**Future Trystero bumps:** Run `npm install trystero@latest` audit before
+locking — relay list + package layout changed materially between 0.20
+and 0.24 (`trystero` package now re-exports from `@trystero-p2p/nostr`
++ `@trystero-p2p/core` scoped sub-packages). Re-run a 1v1 playtest
+after any version bump; the relay pin protects against random-shuffle
+regressions but not against API breaking changes.
 
 ---
 
