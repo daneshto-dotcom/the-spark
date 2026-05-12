@@ -3,12 +3,15 @@ import { defineConfig } from 'vite';
 const sessionPort = Number(process.env.SESSION_PORT);
 const port = Number.isFinite(sessionPort) && sessionPort > 0 ? sessionPort : 5173;
 
-// S16 P2 Step 1: base='/the-spark/' for GitHub Pages project-page deploy at
-// https://daneshto-dotcom.github.io/the-spark/. Step 2 (S17 ready-to-ship)
-// flips base='/' + adds public/CNAME for custom domain spark-online.space.
+// S17 P0: base='/' for custom-domain deploy at https://spark-online.space/.
+// Paired with public/CNAME so GH Pages serves the apex domain after user
+// configures Squarespace DNS (4 A records + www CNAME) + Settings → Pages →
+// Custom domain. S16 carry-forward (Scope Amendment #2) closed. The
+// github.io fallback URL https://daneshto-dotcom.github.io/the-spark/ will
+// 301-redirect to the custom domain once Pages Custom Domain is set.
 // Dev server is unaffected (base only applies at build time).
 export default defineConfig({
-  base: '/the-spark/',
+  base: '/',
   server: {
     port,
     strictPort: false,
