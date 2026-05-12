@@ -53,6 +53,7 @@ import { drainAudioEffects, initAudio, isMuted, playMusic, toggleMute } from './
 import { EffectsRenderer } from './render/effectsRenderer.ts';
 import { LobbyScreen } from './render/lobbyScreen.ts';
 import { SparkRenderer, makeLegend, makeSpawnerRing } from './render/renderer.ts';
+import { createSettingsOverlay } from './render/settingsOverlay.ts';
 import { StatsOverlay } from './render/statsOverlay.ts';
 import { StructureRenderer } from './render/structureRenderer.ts';
 import { TitleScreen } from './render/titleScreen.ts';
@@ -126,6 +127,31 @@ async function bootstrap(): Promise<void> {
   muteIndicator.position.set(CANVAS_WIDTH - 12, 30);
   muteIndicator.alpha = 0.55;
   app.stage.addChild(muteIndicator);
+
+  // S19 P1 — ⚙ settings icon at top-right next to ♪ glyph. Click opens
+  // HTML overlay (createSettingsOverlay) for per-channel mute + volume.
+  const settingsOverlay = createSettingsOverlay();
+  const settingsIcon = new Text({
+    text: '⚙',
+    style: new TextStyle({
+      fontFamily: 'monospace',
+      fontSize: 14,
+      fill: 0x3bd7ff,
+    }),
+  });
+  settingsIcon.anchor.set(1, 0);
+  settingsIcon.position.set(CANVAS_WIDTH - 32, 30);
+  settingsIcon.alpha = 0.55;
+  settingsIcon.eventMode = 'static';
+  settingsIcon.cursor = 'pointer';
+  settingsIcon.on('pointertap', () => {
+    // initAudio() makes the gear icon double as a user-gesture trigger,
+    // matching the pointerdown/keydown listeners below. Safe to call when
+    // already initialized.
+    initAudio();
+    settingsOverlay.toggle();
+  });
+  app.stage.addChild(settingsIcon);
 
   const SEED = 0xc0ffee;
   const world = makeWorld(SEED);

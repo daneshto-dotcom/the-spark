@@ -622,4 +622,88 @@ they decide whether the action runs, not what it does.
 
 ---
 
-## End — All Phase 1 + Phase-2 Tier-0 (1v1 networked) + Phase-2 Tier-1 (Sever-as-disruption + multi-color bond rendering) implementation decisions are locked. Phase 2+ remaining: Inject Spiral (D), Steal (E), Multi-color per-silhouette gradients (F polish), Fog of war (A), Mega-combos via connector chain (G). Phase 3 net (Colyseus / Geckos.io) reserved for >2-player scalability.
+### 13.14 Audio subsystem (S18 P1 NEW; S19 P1 per-channel controls)
+
+**Background music:** user-supplied Suno track "Blue Steppe Orbit" served
+from `public/audio/blue-steppe-orbit.mp3` (~10MB mp3, OGG compression
+deferred S20+). Lazy-loaded + decoded once on first user gesture; looped
+via `AudioBufferSourceNode.loop = true`. Music starts on transition into
+`gameState === 'PLAYING'` (covers solo + 1v1 host + 1v1 client paths).
+
+**SFX (procedural — no external assets):**
+- **Clave-tap** on bond-form: two sine oscillators @ 1200 Hz + 2400 Hz
+  with `exponentialRampToValueAtTime` envelope decay over 30 ms
+- **Descending pitch sweep** on player-cause sever: sawtooth oscillator
+  600 Hz → 180 Hz over 280 ms with lowpass biquad sweep 800 Hz → 120 Hz
+  (filter Q = 4) and envelope decay
+
+`placePrimitive.ts` emits exactly ONE `BOND_FORMED` per placement
+regardless of N bonds formed (Council Adoption-B). `world.ts SEVER_BOND`
+emits `BOND_SEVERED` with `cause` discriminator; audio drain filters
+`cause === 'player'` (physics-overstretch is silent).
+
+**Replay safety:** `drainAudioEffects()` uses a `lastDrainedTick` cursor.
+Effects with `tick <= cursor` are skipped on re-drain (save/load replay
++ NET reconciliation re-applies actions but cursor preserved → no
+double-fire). `resetAudioDrainCursor()` called on `RETURN_TO_TITLE`.
+
+**Audio graph (S19 P1):**
+
+```
+music source ──▶ musicGain ──┐
+                             ├──▶ masterGain ──▶ destination
+SFX envelope ─▶ sfxGain ─────┘
+```
+
+- **masterGain** — 'M' key target. `toggleMute()` flips it between 0 and
+  1, preserving per-channel state. Legacy `spark_audio_muted`
+  localStorage key drives this; pre-existing users keep their preference.
+- **musicGain** — per-channel volume + mute. Effective output =
+  `musicMuted ? 0 : clamp01(musicVolume)`. Default volume 0.25 (matches
+  pre-S19 hard-coded `MUSIC_GAIN`).
+- **sfxGain** — per-channel volume + mute. Effective output =
+  `sfxMuted ? 0 : clamp01(sfxVolume)`. Default volume 1.0.
+
+**Mute interactions:** `setMusicMuted` / `setSfxMuted` are independent
+of `toggleMute` (master). Master mute = 0 wins over per-channel
+non-zero. Volume sliders remain interactive while muted; the slider
+value is stored but does not unmute the channel.
+
+**localStorage schema (5 keys, namespace `audio.*` + legacy):**
+
+| Key | Type | Default | Owner |
+|---|---|---|---|
+| `spark_audio_muted` | `'true'` / `'false'` | `false` | `toggleMute()` master pause |
+| `audio.musicMuted` | `'true'` / `'false'` | `false` | `setMusicMuted()` |
+| `audio.sfxMuted` | `'true'` / `'false'` | `false` | `setSfxMuted()` |
+| `audio.musicVolume` | numeric `0..1` | `0.25` | `setMusicVolume()` |
+| `audio.sfxVolume` | numeric `0..1` | `1.0` | `setSfxVolume()` |
+
+Malformed values fall back to defaults (NaN / Infinity / `not a number`
+→ clamped to default per channel). All writes wrapped in `try/catch`
+for Safari private mode.
+
+**UI surfaces:**
+- **♪ glyph** at `(CANVAS_WIDTH-12, 30)`, alpha 0.55. Dims to `♪̸`
+  alpha 0.25 when `isMuted()` true ('M' global pause active).
+- **⚙ icon** at `(CANVAS_WIDTH-32, 30)`, alpha 0.55, Pixi
+  `eventMode='static'`. Pointertap opens HTML settings overlay.
+- **Settings overlay** (`src/render/settingsOverlay.ts`): HTML
+  `position:fixed`, top:60px, right:24px, z-index:1000. Two channel
+  rows (Music + SFX), each with on/off checkbox + 0..100 range slider.
+  Closes on ✕ button / ESC / outside-click. Keydown inside the overlay
+  stops propagation so typing/sliding does not bubble to canvas-bound
+  'M' handler (S19 PRIME-AUDIT #3).
+
+**'M' key gate:** Canvas-level keydown handler in `main.ts` checks
+`document.activeElement.tagName` — INPUT and TEXTAREA bypass the mute
+toggle so typing into the lobby room-code input doesn't flip mute.
+Settings overlay keydown stopPropagation provides defense-in-depth.
+
+**Pure helpers** (exported for unit tests, no AudioContext required):
+`claveEnvelope(t, duration)`, `fartFreq(t, duration, startHz, endHz)`,
+`clamp01(n)`.
+
+---
+
+## End — All Phase 1 + Phase-2 Tier-0 (1v1 networked) + Phase-2 Tier-1 (Sever-as-disruption + multi-color bond rendering) + Audio subsystem (Suno BGM + procedural SFX + per-channel controls) implementation decisions are locked. Phase 2+ remaining: Inject Spiral (D), Steal (E), Multi-color per-silhouette gradients (F polish), Fog of war (A), Mega-combos via connector chain (G). Audio polish remaining: OGG compression for mobile, PannerNode + auto-duck. Phase 3 net (Colyseus / Geckos.io) reserved for >2-player scalability.
