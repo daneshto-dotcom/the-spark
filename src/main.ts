@@ -208,6 +208,11 @@ async function bootstrap(): Promise<void> {
       netTransport = new NetTransport();
       hostSync = new HostSync();
       world.isHost = true;
+      // S20 P0 — surface NetTransport errors (signaling, ICE, send) to the
+      // lobby statusText in red so users see the failure layer rather than
+      // an indefinite "Waiting for Player 2..." stall (the S19 P4-unresolved
+      // BLOCKER root cause: zero error plumbing existed).
+      netTransport.onError = (errMsg) => lobbyScreen.setErrorMessage(errMsg);
       netTransport.connect(code);
       netTransport.on((msg) => {
         if (msg.kind === 'INTENT' && hostSync !== null) {
@@ -226,6 +231,8 @@ async function bootstrap(): Promise<void> {
       clientSync = new ClientSync();
       world.isHost = false;
       controls.setPlayerId(asPlayerId(1));
+      // S20 P0 — same onError wiring as host path (see comment above).
+      netTransport.onError = (errMsg) => lobbyScreen.setErrorMessage(errMsg);
       netTransport.connect(code);
       netTransport.on((msg) => {
         if (msg.kind === 'NETSNAPSHOT' && clientSync !== null) {

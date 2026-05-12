@@ -15,7 +15,7 @@
 | Language | **TypeScript 5.x strict** | Type-level invariants for carry-1, color, immobility |
 | Bundler | **Vite 5** | HMR is the iteration multiplier |
 | Audio | **Deferred** (see § 9) | Phase 1 ships silent per spec § XV.6 |
-| Phase-2 net | **Trystero (^0.24)** [v4 amendment 2026-05-12, S19 P4] | WebRTC + Nostr signaling, ~40KB bundle, zero infra. For 1v1 friends-only play. Pinned relay set in `src/net/transport.ts` (see § 13.1 NOTE below). |
+| Phase-2 net | **Trystero (^0.24)** [v5 amendment 2026-05-12, S20 P0] | WebRTC + Nostr signaling, ~40KB bundle, zero infra. For 1v1 friends-only play. v4 pinned 6 Nostr relays (§ 13.1 NOTE v4); v5 wires JoinRoomCallbacks (onJoinError, onPeerHandshake, handshakeTimeoutMs) + rtcConfig.iceServers (STUN x2 + free public TURN x3 via openrelay.metered.ca) for symmetric-NAT users + [net]-tagged diagnostic logging at every layer + 1Hz ICE-state poll via room.getPeers() (see § 13.1 NOTE v5). |
 | Phase-3 net | Colyseus or Geckos.io (later) | Web-native server-authoritative — reserved for >2-player scalability + matchmaking |
 | Test runner | Vitest | Same Vite stack |
 | Lint/format | ESLint + Prettier defaults | Don't bikeshed |
@@ -53,6 +53,96 @@ and 0.24 (`trystero` package now re-exports from `@trystero-p2p/nostr`
 + `@trystero-p2p/core` scoped sub-packages). Re-run a 1v1 playtest
 after any version bump; the relay pin protects against random-shuffle
 regressions but not against API breaking changes.
+
+### NOTE (S20 P0, 2026-05-12) — Trystero v5 amendment: JoinRoomCallbacks + rtcConfig + observability
+
+S19 P4's relay pin did NOT resolve the 1v1 BLOCKER (post-deploy retest
+2026-05-12 ~18:25 UTC: both peers still stuck at "Connecting..." /
+"Waiting for Player 2..."). A.0 state-discovery of Trystero 0.24's
+actual API surface from `node_modules/@trystero-p2p/core/dist/types.d.mts`
+revealed THREE additional gaps in our wrapper that the v4 amendment
+had not addressed:
+
+1. **`joinRoom(config, roomId, callbacks?)` 3rd arg unused.** `JoinRoomCallbacks`
+   includes `onJoinError` (signaling-layer failure events: relay rejection,
+   handshake timeout, peer mismatch), `onPeerHandshake` (per-peer connection
+   progress), and `handshakeTimeoutMs` (default implementation-defined). Without
+   these, any signaling failure was invisible — the user saw indefinite
+   "Connecting..." with zero F12 console output.
+
+2. **`JoinRoomConfig.rtcConfig` unset.** Trystero 0.24 defaults the underlying
+   `RTCPeerConnection` to Google STUN only. Symmetric-NAT users (mobile
+   hotspots, corporate networks, some ISP CGNATs) cannot establish ICE
+   via STUN alone and need TURN — the most-probable root cause of the
+   user/brother BLOCKER given mismatched network types.
+
+3. **`makeAction` cast was a type lie.** v4 declared the return as a 2-tuple
+   `[sendFn, recvFn]` with synchronous void sender. Trystero 0.24's actual
+   return is a 3-tuple `[ActionSender, ActionReceiver, ActionProgress]` with
+   `Promise<void[]>` sender. Unhandled rejections on send were silently
+   swallowed.
+
+**v5 codifies the following changes (all in `src/net/transport.ts`):**
+
+- `joinRoom` now passes 3rd-arg `JoinRoomCallbacks`:
+  - `onJoinError(details)` → `classifyJoinError(details.error)` → `onError`
+    handler → `lobbyScreen.setErrorMessage` (red statusText). Classifier
+    matches case-insensitive substrings: `timeout` → "Signaling timeout
+    — try again"; `rejected`/`invalid`/`denied` → "Connection rejected
+    — check the room code"; else "Signaling: ${raw}".
+  - `onPeerHandshake(peerId, send, receive, isInitiator)` → observability-
+    only `console.info('[net] onPeerHandshake ...')`. PRIME-AUDIT-2 revision
+    of Council R1 ADOPT-E: protocol.ts already encodes `HelloMsg.protoVersion`
+    at the application layer, so a duplicate handshake-layer version check
+    is redundant. The handshake callback fires after Trystero handshake
+    completes but before peer-join — useful for layer-naming in logs.
+  - `handshakeTimeoutMs: 30000` (explicit; was implementation-defined).
+
+- `rtcConfig.iceServers` ICE_SERVERS const passed to RTCPeerConnection:
+  - STUN x2: `stun:stun.l.google.com:19302`, `stun:stun1.l.google.com:19302`
+  - TURN x3 (openrelay.metered.ca public free creds `openrelayproject`/`openrelayproject`):
+    - `turn:openrelay.metered.ca:80` (UDP, fastest where allowed)
+    - `turn:openrelay.metered.ca:443?transport=tcp` (TCP fallback for restrictive firewalls)
+    - `turn:openrelay.metered.ca:443?transport=udp` (UDP/443 third option)
+  - `iceTransportPolicy: 'all'` (the RTCConfiguration default, made explicit)
+  - `trickleIce: true` (default, made explicit per Council Gemini #3)
+  - Replace `openrelay.metered.ca` with an org-owned coturn deployment if
+    rate-limiting or abuse becomes an issue (see https://www.metered.ca/tools/openrelay/).
+
+- `[net]`-tagged diagnostic console logging at every layer transition:
+  - `connect-entry` (roomCode, appId, relay count, ICE-server count)
+  - `relay sockets attached` (from `getRelaySockets()` defensive probe)
+  - `onPeerHandshake` (per-peer event)
+  - `onPeerJoin/Leave` (peerId + size delta)
+  - `ice-poll`: 1Hz `room.getPeers()` poll while `peerSet.size === 0`,
+    capped at 30 s. Per-peer log fields: `iceConnectionState`,
+    `iceGatheringState`, `connectionState`, `signalingState`. Stops on
+    first peer-join OR after the 30 s cap. Names the failure layer for
+    users who would otherwise see indefinite "Connecting..." with no
+    console output.
+  - `onJoinError` (full details envelope)
+  - `send failed` (Promise<void[]> .catch escalates to `onError`)
+
+- `makeAction` typed as `Room.makeAction<string>('msg')` (JSON-encoded
+  NetMessage as a single string). String is a `JsonPrimitive ⊂ DataPayload`
+  — no struct-vs-index-signature type fight. Wire-format change vs. v4 is
+  acceptable: both peers upgrade together via the deploy. Sender returns
+  `Promise<void[]>`; `.catch()` escalates to `onError` (Council ADOPT-F,
+  Grok #7).
+
+- `NetTransport.onError: ErrorHandler | null` public field. Set once in
+  `main.ts` after construction; routes signaling/ICE/send/parse failures
+  to `lobbyScreen.setErrorMessage(text)` for red-statusText display.
+
+**Battle Ledger:** `.claude/plans/2026-05-12_PDR_Session_20_Council_P0_BattleLedger.md`
+(Grok DISRUPTOR 12 challenges + Gemini AUDITOR 10 findings; ADOPT 8,
+REJECT 9, DEFER 1, VERIFY 2; PRIME-AUDIT delta added the carry-forward
+RED-path branch).
+
+**RED-path carry-forward:** If post-v5 deploy still shows NO `[net]` logs
+at all on user retest, the wrapper hooks themselves aren't firing or
+Trystero 0.24 internals don't trigger them — pivot to S20 P0.1 amendment:
+A/B downgrade `trystero@0.20.0` to isolate the version-bump impact.
 
 ---
 

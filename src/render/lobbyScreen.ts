@@ -442,6 +442,7 @@ export class LobbyScreen {
     this.mode = 'select';
     this.codeText.text = '';
     this.statusText.text = '';
+    this.statusText.style.fill = 0xaaaaaa;
     this.hostConnected = false;
     this.beginButton.visible = false;
     this.connectionLostOverlay.visible = false;
@@ -449,6 +450,19 @@ export class LobbyScreen {
     this.joinButton.alpha = 0.4;
     this.renderState();
     this.updateInputVisibility();
+  }
+
+  /**
+   * S20 P0 — error sink wired from NetTransport.onError. Renders the failure
+   * layer in red over the lobby status line so users see "Signaling timeout —
+   * try again (xxx)" or "Connection rejected — check the room code (xxx)"
+   * instead of an indefinite "Connecting..." stall. Color reset to grey
+   * happens in reset() when the user backs out to the title screen.
+   */
+  setErrorMessage(text: string): void {
+    this.statusText.text = text;
+    this.statusText.style.fill = 0xff3b6b;
+    this.renderState();
   }
 
   /** Test-only accessor + cleanup hook. */
