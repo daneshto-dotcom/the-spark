@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 43,
+  "tool_calls_session_total": 62,
   "session_start": "2026-05-12T18:00:00Z",
   "session_id": "S19",
   "budget_total": 1000000,
@@ -61,6 +61,22 @@
       "checkpoint_commit": "f293729",
       "real_context_tokens_at_close": 266581,
       "real_context_pct_at_close": 26.7
+    },
+    {
+      "id": "P4",
+      "title": "Scope Amendment urgent BLOCKER fix: pin Nostr relay set in NetTransport. Silent npm bump trystero ^0.20 → ^0.24 since S15 P2; 0.24 picks 5 random relays from 55-default list (appId-seeded shuffle deterministic so both peers same 5, but default list includes many dead / personal / geo-flaky endpoints; both peers stuck connecting). Fix: pin 6 most-deployed public Nostr relays in src/net/transport.ts NOSTR_RELAYS, pass via relayConfig.urls + redundancy = NOSTR_RELAYS.length. LOCKED §13.1 pin updated ^0.20 → ^0.24 + NOTE block codifies relay set + future-bump audit protocol.",
+      "status": "completed",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": true,
+      "council_waiver_reason": "Micro tier Scope Amendment for urgent playtest BLOCKER (1v1 lobby stuck at connecting). User explicit `go` after diagnosis presented. PRIME-AUDIT applied (relay-pin protects against future silent version bumps).",
+      "check_completed": true,
+      "check_method": "A.0 state-discovery via node_modules inspection: confirmed @trystero-p2p/nostr/dist/index.mjs picks 5 of 55 random default relays via shuffle(defaults, strToNum(config.appId)); JoinRoomConfig type definition confirmed relayConfig.urls + relayConfig.redundancy override path; 55 default relays include many personal / dead endpoints. Fix: NOSTR_RELAYS const with 6 known-reliable relays (relay.damus.io, nos.lol, relay.mostr.pub, purplerelay.com, relay.nostr.band, nostr.wine) passed via relayConfig.urls + redundancy = 6 so ALL 6 are used (no sub-sampling). Both peers now deterministically connect to same 6 known-reliable relays; first to deliver WebRTC offer wins, rest are redundancy. LOCKED §13.1 updated: Trystero pin ^0.20 → ^0.24 (matches reality) + new NOTE block documenting the relay set + future-bump audit (run `npm install trystero@latest` + 1v1 playtest before locking). Typecheck exit 0. Build 394.74 KB main bundle (+0.18 KB net). Network-layer change, no unit tests added — manual playtest verifies. Push commit 12de8cd to origin/master; GH Actions auto-deploy.",
+      "checkpoint_commit": "12de8cd",
+      "real_context_tokens_at_close": 358173,
+      "real_context_pct_at_close": 35.8
     }
   ],
   "totals": {
