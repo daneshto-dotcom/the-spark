@@ -5,8 +5,13 @@ Generated: 2026-05-12 (post-S19 + P4 urgent fix) | Session: S19 | Last commit: 1
 **https://spark-online.space/** (custom domain SHIPPED S18 P0; HTTPS via Let's Encrypt cert exp 2026-08-10 auto-renew)
 
 ## Next Steps
-1. **P0 MANUAL PLAYTEST — 1v1 lobby connect** (post-P4 deploy of `12de8cd`, ~60s after push): user + brother both open https://spark-online.space/ on separate networks → Host generates code → Brother joins → connection completes (no "stuck at connecting"). If still stuck: check console for `wss://` errors and report; may need ICE/TURN config next.
-2. **P0' Manual playtest audio + gradient** if not done last session: ⚙ icon → settings panel → music slider 50%; SFX toggle off → claves silent; ESC closes; reload → 4 settings persist; 'M' global mute preserves per-channel; cross-player bond → magic silhouette gradient visible.
+1. **S20 P0 — TOP PRIORITY: 1v1 connect BLOCKER (still unresolved)**. S19 P4 relay-pin fix shipped (`12de8cd`) but did NOT resolve. Host shows "Waiting for Player 2..." with code displayed; client (same code) shows "Connecting..." forever. Both directions fail. Next diagnosis steps:
+   (a) **Capture console errors** F12 → Console while clicking Host AND Join — look for `wss://`, WebSocket close codes, ICE candidate gathering failures, peer connection state transitions
+   (b) **Verify Trystero 0.24 API wrapper still correct** — `room.makeAction('msg')` signature may have changed since 0.20; cast pattern in `src/net/transport.ts:54-56` could be silently broken
+   (c) **Check ICE/TURN** — Trystero 0.24 uses Google STUN defaults; if both networks are symmetric NAT (common on mobile hotspots, corporate networks), need TURN server. Free options: Cloudflare TURN (open beta), Twilio (1 GB/mo free), or self-host coturn
+   (d) **A/B test against Trystero 0.20** — downgrade temporarily to confirm whether the 0.24 bump itself broke peer handshake (independent of relay choice). `npm install trystero@0.20.0` then rebuild + retest
+   (e) **Try a different strategy** — Trystero ships `trystero/torrent`, `trystero/firebase`, `trystero/mqtt`, `trystero/supabase`. Council R1 originally chose Nostr for "zero infra" but if Nostr signaling is genuinely broken in 0.24, MQTT free public brokers are next-cheapest
+2. **P0' Manual playtest audio + gradient** (deferred until P0 connect works): ⚙ icon → settings panel → music slider 50%; SFX toggle off → claves silent; ESC closes; reload → 4 settings persist; 'M' global mute preserves per-channel; cross-player bond → magic silhouette gradient visible.
 2. **P9 Audio polish** (Standard candidate): OGG compression for mobile (10MB→~2MB), PannerNode + auto-duck (Grok#5 deferred S18).
 3. **P4-extension** anti-bloat: `bondVisualRenderer.ts` 536 LOC (extract magic silhouettes), `lobbyScreen.ts` 551 LOC, `world.ts` 311 LOC (worldFsm extraction).
 4. **P5 Phase-2 next mechanic** (user picks): D Inject Spiral / E Steal / A Fog / G Mega-combos.

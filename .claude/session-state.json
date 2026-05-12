@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 64,
+  "tool_calls_session_total": 70,
   "session_start": "2026-05-12T18:00:00Z",
   "session_id": "S19",
   "budget_total": 1000000,
@@ -73,7 +73,7 @@
       "council_waived": true,
       "council_waiver_reason": "Micro tier Scope Amendment for urgent playtest BLOCKER (1v1 lobby stuck at connecting). User explicit `go` after diagnosis presented. PRIME-AUDIT applied (relay-pin protects against future silent version bumps).",
       "check_completed": true,
-      "check_method": "A.0 state-discovery via node_modules inspection: confirmed @trystero-p2p/nostr/dist/index.mjs picks 5 of 55 random default relays via shuffle(defaults, strToNum(config.appId)); JoinRoomConfig type definition confirmed relayConfig.urls + relayConfig.redundancy override path; 55 default relays include many personal / dead endpoints. Fix: NOSTR_RELAYS const with 6 known-reliable relays (relay.damus.io, nos.lol, relay.mostr.pub, purplerelay.com, relay.nostr.band, nostr.wine) passed via relayConfig.urls + redundancy = 6 so ALL 6 are used (no sub-sampling). Both peers now deterministically connect to same 6 known-reliable relays; first to deliver WebRTC offer wins, rest are redundancy. LOCKED §13.1 updated: Trystero pin ^0.20 → ^0.24 (matches reality) + new NOTE block documenting the relay set + future-bump audit (run `npm install trystero@latest` + 1v1 playtest before locking). Typecheck exit 0. Build 394.74 KB main bundle (+0.18 KB net). Network-layer change, no unit tests added — manual playtest verifies. Push commit 12de8cd to origin/master; GH Actions auto-deploy.",
+      "check_method": "A.0 state-discovery via node_modules inspection: confirmed @trystero-p2p/nostr/dist/index.mjs picks 5 of 55 random default relays via shuffle(defaults, strToNum(config.appId)); JoinRoomConfig type definition confirmed relayConfig.urls + relayConfig.redundancy override path. Hypothesis: dead default relay set was cause. Fix: NOSTR_RELAYS const with 6 known-reliable relays passed via relayConfig.urls + redundancy = 6. LOCKED §13.1 amended ^0.20 → ^0.24 + NOTE block. Typecheck exit 0. Build 394.74 KB (+0.18 KB). Push commit 12de8cd; GH Actions deploy success run 25753542269 in 1m1s. **POST-DEPLOY RETEST: FIX DID NOT RESOLVE BLOCKER.** User + brother retested ~18:25 UTC: host shows 'Waiting for Player 2...' with code X5PKK2; client (separate browser, same code) shows 'Connecting...' indefinitely. Same symptom as pre-P4. Relay pin alone insufficient; actual failure layer is downstream (peer handshake / WebRTC ICE / Trystero 0.24 API wrapper). S20 P0 = continue diagnosis: (1) F12 console error capture on host + client browsers, (2) audit transport.ts:54-56 makeAction wrapper vs 0.24 Room type, (3) ICE/TURN config (Google STUN default may fail for symmetric NAT), (4) A/B test downgrade trystero@0.20.0 to isolate version-bump impact, (5) strategy swap to trystero/mqtt or trystero/torrent if Nostr 0.24 confirmed broken.",
       "checkpoint_commit": "12de8cd",
       "real_context_tokens_at_close": 358173,
       "real_context_pct_at_close": 35.8
