@@ -502,13 +502,119 @@ chosen over PeerJS (multi-strategy fallback negates rate-limit concern);
   `og:title`, `og:description`, `og:type`. og:image deferred to S17+
   (no designed share asset).
 
-### 13.10 Persistent BETA badge (S16 P3.a)
-- Persistent "BETA" Pixi `Text` added directly to `app.stage` (not inside
+### 13.10 Persistent BETA badge (S16 P3.a, S17 P3 text update)
+- Persistent BETA Pixi `Text` added directly to `app.stage` (not inside
   any TitleScreen / LobbyScreen / HUD container) so it's visible across
   all gameState values until v1.0.
 - Visual: monospace 14px, cyan `PLAYER_COLORS[1]`, letterSpacing 4,
   alpha 0.55, anchored top-right `(CANVAS_WIDTH - 12, 12)`.
+- S17 P3 text update: `'BETA'` → `'BETA · S17 PHASE-2'` signaling Phase-2
+  Tier-1 (Sever-as-disruption + multi-color bonds) is LIVE. Connection
+  status dot relocated from `(CANVAS_WIDTH - 24, 24)` to
+  `(CANVAS_WIDTH - 24, 48)` to clear the longer badge (PRIME-AUDIT E
+  layout discovery).
 
 ---
 
-## End — All Phase 1 + Phase-2 Tier-0 (1v1 networked) implementation decisions are locked. Phase 2+ disruption suite (Sever-as-disruption, Inject Spiral, Steal) + Multi-color rendering + Mega-combos extend per `docs/phase-2-design-options.md`. Phase 3 net (Colyseus / Geckos.io) reserved for >2-player scalability.
+### 13.11 Phase-2 §VIII.3 row 1 — Sever-as-disruption (S17 P1 NEW)
+
+Cross-player Sever is the first member of the Phase-2 disruption suite
+(`docs/phase-2-design-options.md` Tier-1 pick C). Spec authority:
+**§VIII.3 row 1 LOCKED + §VIII.4 LOCKED + §VIII.1-2 LOCKED**.
+
+**Action shape:**
+```ts
+{ type: 'SEVER_BOND'; bondId: BondId; playerId: PlayerId; cause: 'player' | 'physics' }
+```
+
+- `cause='player'` — user RMB-clicks an enemy bond. Routes through host
+  auth + charge gate.
+- `cause='physics'` — constraint-solver overstretch breakage from
+  `physics/bonds.ts` `solveBonds()`. Bypasses both gates (it's the
+  solver firing, not a disruption action).
+
+**Auth rule (Council R1 Gemini #3):** bond is HOSTILE if EITHER endpoint's
+`placerColor` differs from actor's `color`. Self-sever (both endpoints
+share actor's `placerColor`) preserves Phase-1 §VIII.4 zero-cost path.
+Uses `placerColor` (immutable, §VI.4) — actor's contribution history is
+the auth signal, NOT transient `ownerColor` (which mutates on Phase-2
+Steal).
+
+**Charge consumption (§VIII.1-2):**
+- Cost = 1 charge per destructive hostile sever
+- Charges accumulate at 1 per `BUILD_ACTIONS_PER_CHARGE=5` successful
+  builds via `tickBuildAction` (already wired pre-S17 in
+  `placePrimitive.ts:468`)
+- Cap = `MAX_DISRUPTION_CHARGES=2`
+- §VIII.2 silent reject when actor has 0 charges (no error, no UI
+  feedback beyond hollow charge dot indicator)
+
+**PRIME-AUDIT B — cycle-bond no-consume:** if `severSplit` returns empty
+`del` set (§VIII.4 cycle case — bond cut but no primitives die because
+both sides remain connected through the cycle), no charge is consumed.
+The bond itself is still removed (pre-existing §VIII.4 behavior).
+Strategic balance: defender's cycle build investment costs build-actions
+but isn't a real defense; attacker's "free" cycle break consumes no
+charge but does no damage. Net-neutral gameplay.
+
+**Charge dots UI** (`src/render/ui.ts`): per-player 0/1/2 filled circles
+in the player's color next to per-player score readouts. Hollow ring
+when charge not yet earned. Visible only in 1v1 PLAYING.
+
+**Test coverage:** 10 new tests in `src/state/world.test.ts` S17 P1
+describe block (cross-player consume, 0-charge reject, self-sever free,
+wrong-turn reject, mixed-ownership auth, cycle-no-consume, charge cap,
+independent accumulation, save roundtrip, physics-cause bypass). 16
+pre-existing `SEVER_BOND` dispatch sites migrated to include `playerId`
++ `cause: 'physics'` (preserves their §VIII.4 topology-focused
+semantics).
+
+---
+
+### 13.12 Phase-2 §VI.4 — Multi-color bond rendering (S17 P2 NEW)
+
+Per-endpoint bond stroke gradient when adjacent primitives have
+different `placerColor`. Spec authority: **§VI.4 LOCKED + §X.2 LOCKED**
+("multi-color structures reveal contributions").
+
+**API change** (`src/render/bondVisualRenderer.ts`): `BondVisualParams`
+`color: number` → `colorA + colorB`. Caller (`structureRenderer.ts`
+`drawBonds`) sources `colorA = primitive.aId.placerColor` and `colorB =
+primitive.bId.placerColor` (Council R1 Gemini #1 BLOCKER: placerColor is
+immutable contribution record, NOT transient ownerColor). Stress-tint
+applied per-endpoint via `lerpTint(.., 0xff3030, stress * 0.85)`.
+
+**Implementation (stroke decomposition):** Pixi v8 Graphics has NO
+native A→B endpoint gradient stroke API (Council R1 Grok #6 + Gemini #5
+both confirmed). `drawDefaultLine` decomposes into 4 sub-segments with
+color lerped at `t ∈ {0.125, 0.375, 0.625, 0.875}` via the `lerpColor`
+pure helper (exported for test pixel-sampling).
+
+**Back-compat fast-path:** when `colorA === colorB` (Phase-1 single-player
+build, or solo mode), `drawDefaultLine` emits a single solid stroke —
+identical to S7-S16 behavior. Existing 22 bondVisualRenderer tests stay
+green.
+
+**Magic-12 silhouettes (filament, cable, bracket, diamond, wheel, star,
+orbital, lattice, capsule, vortex, whip, warped) use `colorA` as primary
+stroke** — per-silhouette gradient upgrade deferred to S18 polish.
+Phase-2 Tier-1 v1 ships with default-line gradient only.
+
+**Test coverage:** 8 new tests in `src/render/bondVisualRenderer.test.ts`
+S17 P2 describe blocks (lerpColor at t=0/0.5/1, green-cyan channel
+preservation, same-color back-compat, cross-color 4-segment count,
+monotonic R/B progression, axis-span boundary).
+
+---
+
+### 13.13 Phase-2 §VIII.4 — Sever topology preserved (S17 unchanged)
+
+The Phase-1 `severSplit` rule (smaller side erases; tiebreaker = newer
+max-`createdTick`; cycle = no primitives die but bond is still cut)
+remains unchanged for both cause='player' and cause='physics'. The
+charge accumulator + auth gate (§13.11) layer ON TOP of this topology;
+they decide whether the action runs, not what it does.
+
+---
+
+## End — All Phase 1 + Phase-2 Tier-0 (1v1 networked) + Phase-2 Tier-1 (Sever-as-disruption + multi-color bond rendering) implementation decisions are locked. Phase 2+ remaining: Inject Spiral (D), Steal (E), Multi-color per-silhouette gradients (F polish), Fog of war (A), Mega-combos via connector chain (G). Phase 3 net (Colyseus / Geckos.io) reserved for >2-player scalability.

@@ -93,7 +93,9 @@ async function bootstrap(): Promise<void> {
   // TITLE/LOBBY/WIN overlays. Cyan accent at low alpha for non-obtrusive
   // signaling that the build is not yet 1.0.
   const betaBadge = new Text({
-    text: 'BETA',
+    // S17 P3 — Phase-2 Tier-1 LIVE (Sever-as-disruption + multi-color bond
+    // rendering). Badge text signals the build is past Phase-1 minimal.
+    text: 'BETA · S17 PHASE-2',
     style: new TextStyle({
       fontFamily: 'monospace',
       fontSize: 14,

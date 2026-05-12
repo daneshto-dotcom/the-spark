@@ -220,11 +220,14 @@ export class HUD {
     }
 
     // Connection status dot — visible in any 1v1 gameState (PLAYING / LOBBY).
+    // S17 P3: moved from (CANVAS_WIDTH-24, 24) to (CANVAS_WIDTH-24, 48) to
+    // clear the longer "BETA · S17 PHASE-2" badge text in the top-right corner
+    // (PRIME-AUDIT E — badge width grew with the Phase-2 marker).
     const g = this.connectionDot;
     g.clear();
     if (world.gameMode === '1v1') {
       const color = this.connectedPeers > 0 ? 0x3bff7a : 0xff3b6b;
-      g.circle(CANVAS_WIDTH - 24, 24, 6).fill({ color, alpha: 0.85 });
+      g.circle(CANVAS_WIDTH - 24, 48, 6).fill({ color, alpha: 0.85 });
     }
 
     // S17 P1 — charge dots. Position to the right of each score readout

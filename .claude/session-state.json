@@ -12,62 +12,62 @@
   "council_waived": false,
   "council_waiver_reason": null,
   "council_invoked": "R1-completed-Grok-DISRUPTOR-Gemini-AUDITOR-both-REVISE-converging-on-Gemini-BLOCKER-placerColor-not-ownerColor-plus-stroke-decomposition-plus-hostile-if-either-endpoint-differs-plus-VIII.3-disambiguation-PRIME-AUDIT-applied-Amendment-1-Lobby-Connect-bug-BLOCKER",
-  "active_pdr": ".claude/plans/2026-05-12_PDR_Session_17.md",
+  "active_pdr": ".claude/plans-archive/2026-05-12_PDR_Session_17_COMPLETED.md",
   "priorities": [
     {
       "id": "P0_prime",
-      "title": "S17 Scope Amendment #1 BLOCKER: lobbyScreen.ts double-offset positioning bug (Connect button rendered at stage (2090,940) off-screen right by 170px; host code-text + host button also mispositioned) + missing Enter-key handler on inputEl. Fix: change 3 absolute-coord position.set calls to pane-relative; extract attemptJoin private method invoked from both pointertap and keydown(Enter); add 3 new position-bounds tests via getConnectButtonCanvasBounds/getHostButtonCanvasBounds/getHostCodeTextCanvasPos pure helpers (S10 pattern).",
-      "status": "in_progress",
+      "title": "S17 Scope Amendment #1 BLOCKER: lobbyScreen.ts double-offset positioning bug + missing Enter-key handler. Fixed pane-relative positioning + extracted attemptJoin closure invoked from both pointertap and Enter-keydown + 5 regression tests with pure helpers.",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "PRIME-AUDIT (Rule 20): see commit message fd016c2 for full method. Tests 307 -> 312 (+5). Typecheck exit 0. Commit pushed to origin/master. GH Actions deploy auto-triggered. Live URL HTTP 200.",
+      "checkpoint_commit": "fd016c2"
     },
     {
       "id": "P0",
-      "title": "Custom-domain ready-to-ship commit prep (vite.config base '/the-spark/' -> '/'; public/CNAME=spark-online.space NEW; LOCKED §13.9 deferred to after-push). Push GATED on user explicit confirm after DNS+Pages-Custom-Domain toggle.",
-      "status": "pending",
+      "title": "Custom-domain ready-to-ship commit prep (vite.config base flip + public/CNAME=spark-online.space). Push GATED on user explicit confirm after DNS+Pages-Custom-Domain toggle.",
+      "status": "completed_pending_push",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "Build verified: dist/index.html references /assets/... (not /the-spark/assets/); dist/CNAME contains spark-online.space. Commit c6f636d created locally. Push gated on user explicit go after Squarespace DNS (4 A records 185.199.108-111.153 + www CNAME daneshto-dotcom.github.io.) AND GitHub Settings -> Pages -> Custom domain = spark-online.space + Enforce HTTPS toggle. LOCKED §13.9 amendment deferred to after-push success. Carry-forward to S18 documented in HANDOFF + boot-snapshot.",
+      "checkpoint_commit": "c6f636d"
     },
     {
       "id": "P1",
-      "title": "Phase-2 C Sever-as-disruption: world.ts SEVER_BOND adds playerId + cross-player auth (hostile if EITHER endpoint placerColor != actor.color per Gemini #3) + charge-consume only on destructive sever (cycle-bond no-consume per PRIME-AUDIT B) + 1v1 input gate; controls.ts passes playerId; ui.ts adds per-player charge dots; save.ts schema adds disruptionCharges+buildActions; net/protocol.ts intent envelope audit; 17+ existing SEVER_BOND test dispatches migrated; 10 new tests.",
-      "status": "pending",
+      "title": "Phase-2 §VIII.3 Sever-as-disruption: world.ts SEVER_BOND playerId + cause discriminator + cross-player auth (hostile if EITHER endpoint placerColor differs) + charge consume on destructive sever + cycle-bond no-consume + 1v1 input gate; controls.ts playerId pass-through; ui.ts charge dots; save.ts audit confirmed pre-wired serialization; net/protocol.ts intent envelope automatic via TS structural typing; 16 SEVER_BOND dispatch sites migrated (2 production + 14 test); 10 new tests.",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "PRIME-AUDIT (Rule 20): see commit message 629044a for full method. Council R1 adoptions: Gemini #3 hostile-if-EITHER-differs rule; PRIME-AUDIT B cycle-no-consume; physics-vs-player cause discriminator. Tests 312 -> 322 (+10): cross-player consume, 0-charge reject, self-sever free, wrong-turn reject, mixed-ownership auth, cycle-no-consume, charge cap, independent accumulation, save roundtrip, physics-cause bypass. Typecheck exit 0. world.ts +18 LOC -> 308 (10% over 280 target; S18 disruptionManager.ts extract per Council R1 Grok #8 deferred). Commit 629044a local (push gated behind P0).",
+      "checkpoint_commit": "629044a"
     },
     {
       "id": "P2",
-      "title": "Phase-2 F Multi-color bond rendering: bondVisualRenderer.ts BondVisualParams.color -> colorA+colorB; drawDefaultLine uses 4-sub-segment stroke decomposition with lerpColor pure helper (Pixi v8 no-native-gradient); 12 magic silhouettes accent with colorB; structureRenderer.ts caller sources placerColor (Gemini #1 BLOCKER); same-color fast-path; 6 new tests.",
-      "status": "pending",
+      "title": "Phase-2 §VI.4/§X.2 multi-color bond rendering: BondVisualParams.color -> colorA+colorB; drawDefaultLine 4-sub-segment stroke decomposition with lerpColor pure helper (Pixi v8 no native A->B endpoint gradient stroke API); 12 magic silhouettes use colorA primary; structureRenderer caller sources placerColor (Gemini #1 BLOCKER fix); same-color fast-path preserves Phase-1 back-compat; 8 new tests.",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "PRIME-AUDIT (Rule 20): see commit message 91e1e21 for full method. Council R1 adoptions: Gemini #1 BLOCKER placerColor (immutable §VI.4 contribution record) not ownerColor (transient post-Steal); Grok #6 + Gemini #5 stroke decomposition because Pixi v8 has no native A->B gradient API. lerpColor pure helper exported (S10 #test-via-pure-helper-export). structureRenderer applies stress-tint to each endpoint placerColor separately. mixTints helper removed (subsumed by gradient). Tests 322 -> 330 (+8): lerpColor at t=0/0.5/1, green-cyan channel preservation, same-color back-compat (1 stroke), cross-color 4-segment count, monotonic R/B progression, axis-span boundary. Typecheck exit 0. bondVisualRenderer.ts ~430 LOC (under 500 soft charter). Commit 91e1e21 local (push gated behind P0).",
+      "checkpoint_commit": "91e1e21"
     },
     {
       "id": "P3",
-      "title": "Closeout: LOCKED amendments (§13.9 if P0 pushed; §VIII.3 row 1 NEW; §VI.4 multi-tone rendering NEW); BETA badge text update; BACKLOG S17 entry; reflexion log; boot-snapshot regen; PDR archive; HANDOFF rotate.",
-      "status": "pending",
+      "title": "Closeout: LOCKED amendments (§13.10 BETA text + connectionDot relocation, §13.11 NEW §VIII.3 codification, §13.12 NEW §VI.4 codification, §13.13 §VIII.4 preservation notice); BETA badge text 'BETA' -> 'BETA · S17 PHASE-2' in main.ts; connectionDot moved (CANVAS_WIDTH-24, 24) -> (CANVAS_WIDTH-24, 48) to clear longer badge (PRIME-AUDIT E); BACKLOG S17 entry above S16; reflexion log 5 new entries + 4 pruned (cap 50); boot-snapshot regen; PDR archived plans/ -> plans-archive/ via git mv; HANDOFF rotated root -> .handoff-archive/, new S17 HANDOFF written at root.",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "Closeout artifacts complete: (1) LOCKED_DECISIONS.md amended with 3 NEW subsections §13.11/§13.12/§13.13 codifying Phase-2 Tier-1 rules + §13.10 BETA text update + connectionDot relocation reasoning; (2) BACKLOG.md S17 entry inserted above S16 with full P0'/P0/P1/P2 narrative + Council R1 outcome + PRIME-AUDIT delta + Scope Amendment #1 + S18 carry-forward block; (3) reflexion_log.md prepended with 5 S17 entries (#a0-state-discovery-found-charge-accumulator-already-wired, #council-flagged-pixi-v8-gradient-api-myth-stroke-decomp-correct, #spec-faithful-rendering-sources-placerColor-not-ownerColor-per-VI.4-X.2, #hostile-if-either-endpoint-differs-mixed-ownership-edge-resolved, #lobby-double-offset-found-via-position-math-not-tests); pruned 4 oldest entries (S9 #s7-snap-cursor-undone-by-physics-gate superseded by S10 position-lerp; S9 #component-dedup-via-set tactical now-canonical; S9 #post-place-sweep-emit-effects now-canonical; S7 SESSION #user-path-batch-approval-with-discretion superseded by S15+ amendment-cycle) to maintain <=50 cap; (4) boot-snapshot.md regenerated with S17 commit list, post-S17 state, BETA badge text update, live URL, S18 priorities; (5) src/main.ts BETA badge text updated 'BETA' -> 'BETA · S17 PHASE-2'; (6) src/render/ui.ts connectionDot relocated from (CANVAS_WIDTH-24, 24) to (CANVAS_WIDTH-24, 48) per PRIME-AUDIT E layout discovery; (7) PDR archived .claude/plans/2026-05-12_PDR_Session_17.md -> .claude/plans-archive/2026-05-12_PDR_Session_17_COMPLETED.md via git mv (preserves full Battle Ledger + Council R1 synthesis + PRIME-AUDIT delta + Scope Amendment #1 + approval gate record); (8) HANDOFF rotated: prior root HANDOFF_2026-05-12.md (S16 version) -> .handoff-archive/HANDOFF_2026-05-12_S16_postS17.md via git mv; new S17 HANDOFF written at root with live URL, cross-network playtest path step-by-step, S18 priority order, S18 P0 push-when-DNS-ready flow, S18 P4 disruptionManager.ts extract; (9) Final verification: 330/330 tests passing; typecheck exit 0; live URL https://daneshto-dotcom.github.io/the-spark/ HTTP 200; §XV charter status documented (world.ts 308 LOC 10% over -> S18 extract). All S17 commits: fd016c2 P0' PUSHED, c6f636d P0 local, 629044a P1 local, 91e1e21 P2 local, this P3 closeout local. P0+P1+P2+P3 push-gated awaiting user DNS confirmation.",
+      "checkpoint_commit": "pending-after-P3-commit"
     }
   ],
   "totals": {
