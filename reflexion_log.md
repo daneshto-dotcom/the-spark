@@ -62,15 +62,10 @@ Cross-session learnings. Most recent at top. Entries pruned when total >50.
 - SESSION #user-path-batch-approval-with-discretion: Stronger than S5/S6's "APPROVED!!" — user explicitly granted discretion: "I approve this whole session batch you will decide to do with any additions and edits you will make ... if you need to deliberate feel free to do so on any occasion." Acted on it: chose priority order, skipped Council, made tuning calls (60px-bond as the gameplay-realistic verification scale).
 
 ## 2026-05-09 — Session 6 of 10 (Polish Pass + Git + Carry-Forwards)
-- S6 #git-init-late: Project ran 5 sessions without a git repo. Initial commit captures full post-S5 state including spec, locked decisions, BACKLOG, handoff archive, reflexion log, plans, and src tree. **Lesson: even with `.handoff-archive/` as a durable record, having no git means no per-priority diffs or revert points — adopt at session 0 next prototype.**
-- S6 #defensive-fix-for-non-bug: Investigated the S5-handoff "tier=MID for Dot→Line" claim. Static read of `dispatch(PICKUP_SPARK)` showed it doesn't remove the spark from `freeSparks` (only mutates `state.kind` to Carried), so the post-dispatch `freeSparks.get(carriedSparkId)` lookup actually works. The handoff's hypothesized cause was wrong. Applied the defensive refactor anyway — `computeStiffnessTier` now takes `SparkType` directly, captured BEFORE PICKUP_SPARK. **Lesson: when handoff says "likely cause: X", static-trace before fixing — sometimes the bug isn't where the hypothesis points. The defensive refactor is still worth it for code clarity, but don't assume the handoff is right about root cause.**
 - S6 #effects-cap-belt-and-braces: Lifetime ageing already prevents unbounded growth in practice (worst case: ~30 simultaneous during fast build). The hard cap (`MAX_ACTIVE_EFFECTS=64`) is belt-and-braces against single-frame bursts that outpace cull. Drop oldest first — same policy as the spawner soft-cap. **Lesson: even when invariants hold today, a single-line guard documents intent and protects against future code paths that change the burst pattern.**
 - S6 #per-combo-effects-cheap: 12 placeholder effects added ~280 LOC of pure draw logic (no state, no interaction). Each fires for 24 ticks (0.4s) and dies. Distinct silhouettes (filament starburst, cable parallel lines, bracket triangle, etc) read clearly even at low res. **Lesson: combo differentiation doesn't need particle systems or audio yet — a distinct silhouette per magic combo is sufficient for player to feel "I made a Filament" vs "I made a Diamond".**
 - S6 #endpoint-info-needed-for-line-effects: Cable, Whip, and bond-axis-relative effects need both endpoints. Added `otherPos: Vec2` to `BOND_COMMIT` schema (alongside the existing `pos`). Save-format ignores effects, so no migration concern. **Lesson: schema extensions to effects records are cheap because effects are write-only telemetry, never persisted.**
 - SESSION #user-path-batch-approval: User said "Priority batch and everything down the line this session is - APPROVED!!" — single approval for the full priority list. Same Rule-17 user-path mechanic, just upfront for the whole session. Per-priority commits make a clean git narrative even with single approval.
-
-## 2026-05-09 — Session 5 of 10 (Playability Pass)
-- SESSION #user-path-go-skip-deliberation: User pre-approved "run top priority session batch (especially the four fixes I told you about last session)" satisfied Rule 17 user-path again — Council waived. The BACKLOG.md "Session 5" entry effectively WAS the deliberation: priorities pre-triaged, root causes pre-hypothesized, fix candidates pre-listed. **Lesson: A well-written carry-forward block is its own deliberation log.**
 
 <!-- S4 technical entries (spec-drift, color-as-ownership, pixi-particle-container,
      boundary-strict-vs-equal, stress-test-fixture-broke) pruned at S10 handoff.
@@ -81,7 +76,10 @@ Cross-session learnings. Most recent at top. Entries pruned when total >50.
      + S6 #headless-tab-pauses-ticker pruned at S12 handoff (DPR fix is in code; ticker
      workaround superseded by S8 #headless-render-needs-game-loop).
      S4 SESSION block (#spec-correct-vs-playable) + S5 detail entries (#single-action-place,
-     #headless-test-contamination) pruned at S13 handoff (S5+ playability work superseded
+     #headless-test-contamination) pruned at S13 P5 closeout (S5+ playability work superseded
      by S7-S10 cursor/place/cinematics rework).
+     S5 SESSION block (#user-path-go-skip-deliberation) + S6 #git-init-late + S6
+     #defensive-fix-for-non-bug pruned at S13 /handoff to bring total to 50 cap
+     (handoff skill Step 2.8 enforced; S7+ user-path-approval entries supersede).
      S3 + S1-2 session blocks pruned at S9 handoff.
      Originals preserved in archived handoff docs under .handoff-archive/. -->
