@@ -12,12 +12,10 @@ S16 is pre-scoped post-S15-playtest. User flagged two CRITICAL gaps after viewin
 
 - **P1 (Micro) — Lobby JOIN UX fix.** Replace the invisible Pixi-text mock with an HTML `<input type="text">` overlay (CSS-positioned over the JOIN pane rect). 6-char maxLength, uppercase auto-transform, cyan border, native focus + caret + paste. Click JOIN pane → `input.focus()`. Connect button enables when 6 valid chars. Clear "Click here, then enter the code your friend shared" hint so affordance is unmissable. ~80 LOC + 3-5 input-validation tests.
 
-- **P2 (Standard) — GitHub Pages deploy.** Concrete:
-  - `vite.config.ts`: add `base: '/the-spark/'`.
-  - `.github/workflows/deploy.yml`: triggers on `push: branches: [master]`; `npm ci && npm run build`; publishes `dist/` to `gh-pages` via `peaceiris/actions-gh-pages@v3` (uses built-in `GITHUB_TOKEN`).
-  - GitHub repo Settings → Pages → Source: `gh-pages` / `(root)`.
-  - Verify `https://daneshto-dotcom.github.io/the-spark/` loads cleanly + Trystero WebRTC works (HTTPS satisfied by GitHub Pages default).
-  - Send friend the URL → real cross-country playtest unlocked.
+- **P2 (Standard) — GitHub Pages deploy + custom-domain swap path. User-chosen domain: `thespark.space`.** Two-step:
+  - **Step 1 (initial, S16 P2 ships):** `vite.config.ts` `base: '/the-spark/'`; `.github/workflows/deploy.yml` (push: master → npm ci + npm run build → publishes dist/ to gh-pages via peaceiris/actions-gh-pages@v3 + built-in GITHUB_TOKEN); Settings → Pages → Source: gh-pages / (root); verify `https://daneshto-dotcom.github.io/the-spark/` loads + Trystero WebRTC works (HTTPS default).
+  - **Step 2 (post-domain-purchase, ~2-line PR):** buy `thespark.space` (Cloudflare Registrar / Namecheap / Porkbun ~$9-12/yr); change `base: '/'` + create `public/CNAME` containing `thespark.space`; DNS: 4 A records to GitHub Pages IPs (185.199.108.153 / .109.153 / .110.153 / .111.153) OR CNAME → `daneshto-dotcom.github.io`; Settings → Pages → Custom domain `thespark.space` + Enforce HTTPS (Let's Encrypt auto-issued ~15 min).
+  - **Why two-step:** validate the deploy + Trystero P2P on github.io first (no DNS wait), then swap to branded domain at user convenience. Both small commits, no rework.
 
 - **P3 (Micro, optional) — Lobby visual polish.** Hide `makeSpawnerRing` + `makeLegend` containers when gameState ∈ {TITLE, LOBBY}. Eliminates spawner-ring artifact bleeding through the lobby panes (visible in user's S15 screenshot).
 
