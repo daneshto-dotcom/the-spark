@@ -516,7 +516,7 @@ describe('S14 P2.1 — severSplit interaction', () => {
     expect(bondToSeverId).toBeDefined();
 
     const primsBefore = world.primitives.size;
-    dispatch(world, { type: 'SEVER_BOND', bondId: bondToSeverId! as never });
+    dispatch(world, { type: 'SEVER_BOND', bondId: bondToSeverId! as never, playerId: asPlayerId(0), cause: 'physics' });
 
     // All 3 primitives should remain — the cut was on a cycle, both sides
     // are still connected via the c0 path. severSplit detects this and
@@ -542,7 +542,7 @@ describe('S14 P2.1 — severSplit interaction', () => {
     }
     expect(bondC0C1Id).toBeDefined();
 
-    dispatch(world, { type: 'SEVER_BOND', bondId: bondC0C1Id! as never });
+    dispatch(world, { type: 'SEVER_BOND', bondId: bondC0C1Id! as never, playerId: asPlayerId(0), cause: 'physics' });
 
     // c0 (single primitive on the cut side) should be erased.
     expect(world.primitives.has(c0)).toBe(false);

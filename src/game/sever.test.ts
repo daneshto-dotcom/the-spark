@@ -58,7 +58,7 @@ describe('§ VIII.4 sever rule', () => {
     const a = place(w, 0, null);
     const b = place(w, 1, a);
     expect(w.primitives.size).toBe(2);
-    dispatch(w, { type: 'SEVER_BOND', bondId: bondBetween(w, a, b) });
+    dispatch(w, { type: 'SEVER_BOND', bondId: bondBetween(w, a, b), playerId: asPlayerId(0), cause: 'physics' });
     expect(w.primitives.size).toBe(1);
     // Anchor (older) survives; b (newer single-prim limb) is gone.
     expect(w.primitives.has(a)).toBe(true);
@@ -72,7 +72,7 @@ describe('§ VIII.4 sever rule', () => {
     const c = place(w, 2, b);
     // Cut bond a-b. Side {a} max-tick = 0; side {b,c} max-tick = c.tick (largest).
     // Tie? No — sizes differ (1 vs 2). Single-prim side {a} loses.
-    dispatch(w, { type: 'SEVER_BOND', bondId: bondBetween(w, a, b) });
+    dispatch(w, { type: 'SEVER_BOND', bondId: bondBetween(w, a, b), playerId: asPlayerId(0), cause: 'physics' });
     expect(w.primitives.has(a)).toBe(false);
     expect(w.primitives.has(b)).toBe(true);
     expect(w.primitives.has(c)).toBe(true);
@@ -90,7 +90,7 @@ describe('§ VIII.4 sever rule', () => {
     const d = place(w, 2, b);
     const c = place(w, 3, a);
     // Cut a-c (bridge to single-prim limb).
-    dispatch(w, { type: 'SEVER_BOND', bondId: bondBetween(w, a, c) });
+    dispatch(w, { type: 'SEVER_BOND', bondId: bondBetween(w, a, c), playerId: asPlayerId(0), cause: 'physics' });
     expect(w.primitives.has(c)).toBe(false);
     expect(w.primitives.has(a)).toBe(true);
     expect(w.primitives.has(b)).toBe(true);
@@ -130,7 +130,7 @@ describe('§ VIII.4 sever rule', () => {
     // Now there's a cycle: a-b-c-fourth-a. Cut a-b → both sides still
     // connected via c-fourth-a. Nothing should be deleted.
     const before = w.primitives.size;
-    dispatch(w, { type: 'SEVER_BOND', bondId: bondBetween(w, a, b) });
+    dispatch(w, { type: 'SEVER_BOND', bondId: bondBetween(w, a, b), playerId: asPlayerId(0), cause: 'physics' });
     expect(w.primitives.size).toBe(before);
   });
 
@@ -142,7 +142,7 @@ describe('§ VIII.4 sever rule', () => {
     const b = place(w, 1, a);
     const c = place(w, 2, b);
     const d = place(w, 3, c);
-    dispatch(w, { type: 'SEVER_BOND', bondId: bondBetween(w, b, c) });
+    dispatch(w, { type: 'SEVER_BOND', bondId: bondBetween(w, b, c), playerId: asPlayerId(0), cause: 'physics' });
     expect(w.primitives.has(a)).toBe(true);
     expect(w.primitives.has(b)).toBe(true);
     expect(w.primitives.has(c)).toBe(false);
@@ -156,7 +156,7 @@ describe('§ VIII.4 sever rule', () => {
     const c = place(w, 2, b);
     place(w, 3, c); // d
     // Cut a-b. Side{a}=1; side{b,c,d}=3. Single-prim side {a} loses.
-    dispatch(w, { type: 'SEVER_BOND', bondId: bondBetween(w, a, b) });
+    dispatch(w, { type: 'SEVER_BOND', bondId: bondBetween(w, a, b), playerId: asPlayerId(0), cause: 'physics' });
     expect(w.primitives.has(a)).toBe(false);
     expect(w.primitives.size).toBe(3);
   });
@@ -168,7 +168,7 @@ describe('§ VIII.4 sever rule', () => {
     const b = place(w, 1, a);
     const c = place(w, 2, b);   // c bonds to b → bridge
     const d = place(w, 3, c);
-    dispatch(w, { type: 'SEVER_BOND', bondId: bondBetween(w, b, c) });
+    dispatch(w, { type: 'SEVER_BOND', bondId: bondBetween(w, b, c), playerId: asPlayerId(0), cause: 'physics' });
     // Sides {a,b} and {c,d} — both size 2, tie → newer side {c,d} loses.
     expect(w.primitives.has(a)).toBe(true);
     expect(w.primitives.has(b)).toBe(true);
@@ -185,7 +185,7 @@ describe('§ VIII.4 sever rule', () => {
     const c = place(w, 2, b);
     const d = place(w, 3, c);
     const e = place(w, 4, d);
-    dispatch(w, { type: 'SEVER_BOND', bondId: bondBetween(w, d, e) });
+    dispatch(w, { type: 'SEVER_BOND', bondId: bondBetween(w, d, e), playerId: asPlayerId(0), cause: 'physics' });
     expect(w.primitives.has(e)).toBe(false);
     expect(w.primitives.size).toBe(4);
   });

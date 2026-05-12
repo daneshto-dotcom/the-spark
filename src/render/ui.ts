@@ -15,6 +15,7 @@ import { Application, Graphics, Text, TextStyle } from 'pixi.js';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  MAX_DISRUPTION_CHARGES,
   PHASE_1_WIN_SCORE,
 } from '../constants.ts';
 import type { World } from '../state/world.ts';
@@ -39,6 +40,8 @@ export class HUD {
   private readonly p1ScoreText: Text;
   private readonly p2ScoreText: Text;
   private readonly connectionDot: Graphics;
+  /** S17 P1 — per-player disruption charge dots (Phase-2 §VIII.1-2). */
+  private readonly chargeDots: Graphics;
   private displayEnergy = 0;
   private displayProgress = 0;
   private winTextAlphaTarget = 0;
@@ -102,6 +105,12 @@ export class HUD {
     // S15 P2 — connection status dot (top-right).
     this.connectionDot = new Graphics();
     app.stage.addChild(this.connectionDot);
+
+    // S17 P1 — disruption charge dots (Phase-2 §VIII.1-2). Per-player filled
+    // dots next to each score readout. 0/1/2 charges → hollow rings / 1 filled
+    // / both filled. Player-colored, visible only in 1v1 PLAYING.
+    this.chargeDots = new Graphics();
+    app.stage.addChild(this.chargeDots);
   }
 
   /** S15 P2 — main.ts sets this from netTransport.peerCount() each frame. */
@@ -216,6 +225,35 @@ export class HUD {
     if (world.gameMode === '1v1') {
       const color = this.connectedPeers > 0 ? 0x3bff7a : 0xff3b6b;
       g.circle(CANVAS_WIDTH - 24, 24, 6).fill({ color, alpha: 0.85 });
+    }
+
+    // S17 P1 — charge dots. Position to the right of each score readout
+    // (p1 score at (12,12) ~120px wide; p2 score at (12,34)). Dots at
+    // x ∈ {140, 152}, y=20 for p1 / y=42 for p2. Filled circles when
+    // disruptionCharges > index, hollow rings otherwise. Player-colored.
+    const d = this.chargeDots;
+    d.clear();
+    if (show1v1) {
+      drawPlayerCharges(d, world.players.get(asPlayerId(0)), 20);
+      drawPlayerCharges(d, world.players.get(asPlayerId(1)), 42);
+    }
+  }
+}
+
+/**
+ * S17 P1 helper — render up to MAX_DISRUPTION_CHARGES dots horizontally for a
+ * player at the given y. Filled circles when player has that many charges;
+ * hollow stroke rings when not yet earned (Council R1 Grok #4 PARTIAL adoption
+ * — kept HUD dots; bond-hover cost preview deferred to S18 polish).
+ */
+function drawPlayerCharges(g: Graphics, player: { color: number; disruptionCharges: number } | undefined, y: number): void {
+  if (player === undefined) return;
+  for (let i = 0; i < MAX_DISRUPTION_CHARGES; i++) {
+    const cx = 140 + i * 12;
+    if (player.disruptionCharges > i) {
+      g.circle(cx, y, 4).fill({ color: player.color, alpha: 0.9 });
+    } else {
+      g.circle(cx, y, 4).stroke({ width: 1, color: player.color, alpha: 0.5 });
     }
   }
 }

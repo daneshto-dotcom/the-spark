@@ -131,7 +131,19 @@ export type GameAction =
   | { readonly type: 'PICKUP_SPARK'; readonly sparkId: SparkId; readonly playerId: PlayerId }
   | { readonly type: 'DROP_SPARK'; readonly playerId: PlayerId; readonly pos: Vec2 }
   | PlacePrimitiveAction
-  | { readonly type: 'SEVER_BOND'; readonly bondId: BondId }
+  // S17 P1 — Phase-2 §VIII.3 row 1: SEVER_BOND now carries playerId + cause.
+  // cause='player' → routes through auth gate (hostile-if-either-endpoint-
+  // placerColor-differs per Council R1 Gemini #3) + charge consumption
+  // (§VIII.1-2). cause='physics' → bypass both gates (constraint solver
+  // overstretch breakage is not a disruption action). PRIME-AUDIT B:
+  // cycle-bond sever (severSplit returns empty del per §VIII.4 no-op) does
+  // NOT consume charge; bond removal still applies (pre-existing behavior).
+  | {
+      readonly type: 'SEVER_BOND';
+      readonly bondId: BondId;
+      readonly playerId: PlayerId;
+      readonly cause: 'player' | 'physics';
+    }
   | { readonly type: 'TICK_ENERGY'; readonly playerId: PlayerId; readonly deltaSec: number }
   | { readonly type: 'WIN_TRIGGER'; readonly winnerId: PlayerId }
   | StartGameAction
@@ -219,12 +231,53 @@ export function dispatch(world: World, action: GameAction): World {
       return placePrimitive(world, action);
 
     case 'SEVER_BOND': {
-      // Note: SEVER_BOND has no playerId in current schema. Controls layer
-      // (controls.ts) gates by FSM Idle + active turn before dispatch. v1
-      // host trusts; S16 may add playerId for defense-in-depth.
+      // S17 P1 Phase-2 §VIII.3 row 1: cross-player Sever costs 1 charge.
+      // §VIII.4 self-sever (both endpoints share actor's placerColor) free.
+      // Physics-auto-sever (overstretch breakage from physics/bonds solver)
+      // bypasses auth + charge — it's the constraint solver firing, not a
+      // disruption action by an actor.
+      // PRIME-AUDIT B: cycle-bond sever (severSplit returns empty del per
+      // §VIII.4 "cycle = no-op") does NOT consume a charge; bond removal
+      // still applies (pre-existing behavior — see severSplit cycle case).
       const bond = world.bonds.get(action.bondId);
       if (bond === undefined) return world;
+
+      let chargeToConsume = 0;
+
+      if (action.cause === 'player') {
+        // 1v1 input gate (Council R1 Gemini #3 pattern, mirrors PICKUP_SPARK).
+        if (world.gameMode === '1v1' && action.playerId !== world.currentPlayerId) return world;
+
+        const player = requirePlayer(world, action.playerId);
+        const primA = world.primitives.get(bond.aId);
+        const primB = world.primitives.get(bond.bId);
+        if (primA === undefined || primB === undefined) return world;
+
+        // Auth rule (Council R1 Gemini #3): bond is HOSTILE if EITHER endpoint's
+        // placerColor differs from actor's color. Self-sever (both endpoints
+        // share actor's color) preserves Phase-1 §VIII.4 zero-cost path. Uses
+        // placerColor (immutable, §VI.4) — actor's contribution history is the
+        // auth signal, NOT transient ownerColor (which mutates on Phase-2 Steal).
+        const isHostile = primA.placerColor !== player.color || primB.placerColor !== player.color;
+
+        if (isHostile && player.disruptionCharges < 1) return world;  // §VIII.2 silent reject
+        if (isHostile) chargeToConsume = 1;
+      }
+
+      // Compute sever AFTER auth so cycle-no-consume PRIME-AUDIT B can apply
+      // without prematurely consuming.
       const split = severSplit(bond, world.primitives, world.bonds);
+      if (split.del.size === 0) {
+        // Cycle case (§VIII.4 no-op for prims): no charge consumed even when
+        // hostile. Bond still removed below (pre-existing behavior).
+        chargeToConsume = 0;
+      }
+
+      if (chargeToConsume > 0) {
+        // Same player.color comparison succeeded above; requirePlayer cannot fail here.
+        requirePlayer(world, action.playerId).disruptionCharges -= chargeToConsume;
+      }
+
       for (const primId of split.del) {
         const p = world.primitives.get(primId);
         if (p === undefined) continue;

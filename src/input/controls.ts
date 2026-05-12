@@ -206,7 +206,10 @@ export class Controls {
       } else {
         const bondId = this.pickBond();
         if (bondId !== null) {
-          this.dispatchFn({ type: 'SEVER_BOND', bondId });
+          // S17 P1 Phase-2 §VIII.3 row 1: player-cause cause runs through
+          // host auth + charge gate; physics-cause path is reserved for
+          // main.ts overstretch loop.
+          this.dispatchFn({ type: 'SEVER_BOND', bondId, playerId: this.playerId, cause: 'player' });
         }
       }
     }

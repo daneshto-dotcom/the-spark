@@ -207,7 +207,7 @@ describe('effects emission', () => {
     // matching size, the side with greater max(createdTick) is the
     // pair (2,3) since they were placed last; that side gets erased.
     const middleBondId = asBondId(1);
-    dispatch(world, { type: 'SEVER_BOND', bondId: middleBondId });
+    dispatch(world, { type: 'SEVER_BOND', bondId: middleBondId, playerId: asPlayerId(0), cause: 'physics' });
     const erases = world.effects.filter((e) => e.kind === 'SEVER_ERASE');
     expect(erases.length).toBe(2); // primitives 2 and 3 are wiped
   });
@@ -262,7 +262,7 @@ describe('strain auto-sever', () => {
     const broken = solveBonds(bondArr);
     expect(broken.length).toBe(1);
     for (const bId of broken) {
-      dispatch(world, { type: 'SEVER_BOND', bondId: bId });
+      dispatch(world, { type: 'SEVER_BOND', bondId: bId, playerId: asPlayerId(0), cause: 'physics' });
     }
     expect(world.bonds.has(bondId)).toBe(false);
   });

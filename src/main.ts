@@ -377,7 +377,17 @@ function stepPhysics(
       if (broken.length > 0) {
         for (const bondId of broken) {
           if (world.bonds.has(bondId)) {
-            dispatch(world, { type: 'SEVER_BOND', bondId });
+            // S17 P1 — physics-cause overstretch sever bypasses Phase-2
+            // §VIII.3 charge gate (this is the constraint solver firing,
+            // not a player disruption action). playerId is informational
+            // (the active player at the time of the overstrain) but the
+            // dispatch case ignores it for cause='physics'.
+            dispatch(world, {
+              type: 'SEVER_BOND',
+              bondId,
+              playerId: world.currentPlayerId,
+              cause: 'physics',
+            });
           }
         }
         bondArr = Array.from(world.bonds.values());

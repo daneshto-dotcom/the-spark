@@ -91,7 +91,7 @@ describe('stress', () => {
           const broken = solveBonds(bondArr);
           if (broken.length > 0) {
             for (const bondId of broken) {
-              if (world.bonds.has(bondId)) dispatch(world, { type: 'SEVER_BOND', bondId });
+              if (world.bonds.has(bondId)) dispatch(world, { type: 'SEVER_BOND', bondId, playerId: asPlayerId(0), cause: 'physics' });
             }
             bondArr = Array.from(world.bonds.values());
           }
