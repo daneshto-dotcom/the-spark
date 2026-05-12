@@ -307,9 +307,12 @@ spark/
 │   │   ├── sync.ts              // HostSync seq emit + ClientSync seq receive + lerp interpolation
 │   │   └── lerp.ts              // clamp utility for lerp coefficients
 │   └── state/
-│       ├── world.ts             // Single state-mutation seam (dispatch pattern); S15 P2 1v1 fields + actions
+│       ├── world.ts             // Single state-mutation seam (dispatch pattern); S15 P2 1v1 fields + actions; S20 P1 trimmed 311→275 LOC (≤280 charter)
 │       ├── gameMode.ts          // S16 P0: START_GAME/END_TURN/RETURN_TO_TITLE/UPDATE_AVATAR_POS handlers + addScore (extracted from world.ts)
 │       ├── placePrimitive.ts    // S14 P2.0: PLACE_PRIMITIVE handler (extracted from world.ts)
+│       ├── disruptionManager.ts // S19 P2: SEVER_BOND helpers (canSeverBond + computeBaseCharge + computeSeverEraseEffects + applySeverTopology)
+│       ├── sparkLifecycle.ts    // S20 P1: SPAWN/DESPAWN/PICKUP/DROP/TICK_ENERGY case-body helpers + action shapes (extracted from world.ts)
+│       ├── authGate.ts          // S20 P1: shared `requireActivePlayer(world, playerId)` 1v1 auth gate (eliminates inline duplication at 3 dispatch sites)
 │       ├── gameState.ts         // FSM: TITLE→LOBBY→PLAYING→WIN→POSTGAME→TITLE (S15 P2 extension)
 │       └── save.ts              // WorldSnapshot JSON serializer + S15 P2 NetSnapshot wire variant
 └── public/                      // S16 P2 Step 1.5: favicon.svg + robots.txt

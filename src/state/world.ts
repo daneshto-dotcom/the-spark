@@ -8,23 +8,19 @@
  * call-site ergonomics. The seam is the function-call boundary, not
  * structural immutability.
  *
- * S14 P2.0: PLACE_PRIMITIVE handler extracted to src/state/placePrimitive.ts
- * per § XV soft LOC charter.
- *
- * S15 P2 (§ 11 LOCKED amendment): extended gameState FSM with TITLE + LOBBY;
- * added gameMode ('solo' | '1v1'), currentPlayerId, isHost, scoreByPlayer
- * for 1v1 networked play. New actions: START_GAME, END_TURN, RETURN_TO_TITLE.
- * PICKUP_SPARK + PLACE_PRIMITIVE silently reject in 1v1 when action.playerId
- * !== currentPlayerId (Gemini R1 BLOCKER — input sanitization on host;
- * defense-in-depth even when controls layer guards locally).
- *
+ * S14 P2.0: PLACE_PRIMITIVE handler extracted to src/state/placePrimitive.ts.
  * S16 P0: START_GAME / END_TURN / RETURN_TO_TITLE / UPDATE_AVATAR_POS handler
- * bodies + addScore helper extracted to src/state/gameMode.ts (mechanical, zero
- * behavior change; closes S15 § XV PRIME-AUDIT carry-forward). Dispatch
- * switch retains the case labels and delegates to imported pure functions.
+ *         bodies + addScore extracted to src/state/gameMode.ts.
+ * S19 P2: SEVER_BOND helpers extracted to src/state/disruptionManager.ts.
+ * S20 P1: SPAWN_SPARK / DESPAWN_SPARK / PICKUP_SPARK / DROP_SPARK / TICK_ENERGY
+ *         case bodies extracted to src/state/sparkLifecycle.ts (Council R1).
+ *         1v1 active-player auth gate centralized in src/state/authGate.ts
+ *         (eliminates inline duplication at 3 dispatch sites). WIN_TRIGGER
+ *         stays inline (3 LOC scalar mutation, cohesion-mismatch for sparkLifecycle).
+ *         All §XV charter compliance work mechanical, zero behavior change.
  */
 
-import { ENERGY_PER_SECOND_FLAT, PLAYER_COLORS, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS } from '../constants.ts';
+import { PLAYER_COLORS, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS } from '../constants.ts';
 import { type GameEffect } from '../game/effects.ts';
 import { type Primitive } from '../game/primitive.ts';
 import { severSplit } from '../game/structure.ts';
@@ -34,14 +30,7 @@ import {
   computeBaseCharge,
   computeSeverEraseEffects,
 } from './disruptionManager.ts';
-import {
-  CarryViolation,
-  drop as fsmDrop,
-  makeIdlePlayer,
-  pickup as fsmPickup,
-  tickEnergy,
-  type Player,
-} from '../game/player.ts';
+import { makeIdlePlayer, type Player } from '../game/player.ts';
 import type { Spark } from '../game/spark.ts';
 import type { Bond } from '../physics/bonds.ts';
 import {
@@ -50,7 +39,6 @@ import {
   type PlayerId,
   type PrimitiveId,
   type SparkId,
-  type Vec2,
 } from '../types.ts';
 import {
   applyEndTurn,
@@ -63,6 +51,19 @@ import {
   type UpdateAvatarPosAction,
 } from './gameMode.ts';
 import { placePrimitive, type PlacePrimitiveAction } from './placePrimitive.ts';
+import { requireActivePlayer } from './authGate.ts';
+import {
+  applyDespawnSpark,
+  applyDropSpark,
+  applyPickupSpark,
+  applySpawnSpark,
+  applyTickEnergy,
+  type DespawnSparkAction,
+  type DropSparkAction,
+  type PickupSparkAction,
+  type SpawnSparkAction,
+  type TickEnergyAction,
+} from './sparkLifecycle.ts';
 
 // Re-export addScore from gameMode.ts for back-compat with placePrimitive.ts
 // and session15.test.ts (S16 P0 extraction preserved external import paths).
@@ -131,25 +132,22 @@ export interface World {
 }
 
 export type GameAction =
-  | { readonly type: 'SPAWN_SPARK'; readonly spark: Spark }
-  | { readonly type: 'DESPAWN_SPARK'; readonly sparkId: SparkId }
-  | { readonly type: 'PICKUP_SPARK'; readonly sparkId: SparkId; readonly playerId: PlayerId }
-  | { readonly type: 'DROP_SPARK'; readonly playerId: PlayerId; readonly pos: Vec2 }
+  | SpawnSparkAction
+  | DespawnSparkAction
+  | PickupSparkAction
+  | DropSparkAction
   | PlacePrimitiveAction
-  // S17 P1 — Phase-2 §VIII.3 row 1: SEVER_BOND now carries playerId + cause.
+  // S17 P1 — Phase-2 §VIII.3 row 1: SEVER_BOND carries playerId + cause.
   // cause='player' → routes through auth gate (hostile-if-either-endpoint-
   // placerColor-differs per Council R1 Gemini #3) + charge consumption
-  // (§VIII.1-2). cause='physics' → bypass both gates (constraint solver
-  // overstretch breakage is not a disruption action). PRIME-AUDIT B:
-  // cycle-bond sever (severSplit returns empty del per §VIII.4 no-op) does
-  // NOT consume charge; bond removal still applies (pre-existing behavior).
+  // (§VIII.1-2). cause='physics' → bypass both gates.
   | {
       readonly type: 'SEVER_BOND';
       readonly bondId: BondId;
       readonly playerId: PlayerId;
       readonly cause: 'player' | 'physics';
     }
-  | { readonly type: 'TICK_ENERGY'; readonly playerId: PlayerId; readonly deltaSec: number }
+  | TickEnergyAction
   | { readonly type: 'WIN_TRIGGER'; readonly winnerId: PlayerId }
   | StartGameAction
   | EndTurnAction
@@ -189,50 +187,19 @@ export function makeWorld(rngSeed: number): World {
 export function dispatch(world: World, action: GameAction): World {
   switch (action.type) {
     case 'SPAWN_SPARK':
-      world.freeSparks.set(action.spark.id, action.spark);
-      return world;
+      return applySpawnSpark(world, action);
 
-    case 'DESPAWN_SPARK': {
-      const s = world.freeSparks.get(action.sparkId);
-      if (s === undefined) return world;
-      if (s.state.kind !== 'Free') return world;
-      world.freeSparks.delete(action.sparkId);
-      return world;
-    }
+    case 'DESPAWN_SPARK':
+      return applyDespawnSpark(world, action);
 
-    case 'PICKUP_SPARK': {
-      // S15 P2 1v1 input sanitization (Gemini R1 BLOCKER): host silently
-      // rejects intents from the inactive player. Solo path always passes.
-      if (world.gameMode === '1v1' && action.playerId !== world.currentPlayerId) return world;
-      const player = requirePlayer(world, action.playerId);
-      const spark = world.freeSparks.get(action.sparkId);
-      if (spark === undefined) throw new Error(`spark ${action.sparkId} not free`);
-      if (spark.state.kind !== 'Free') throw new Error(`spark ${action.sparkId} not Free`);
-      const next = fsmPickup(player, action.sparkId);
-      world.players.set(next.id, next);
-      spark.state = { kind: 'Carried', carrierId: action.playerId };
-      spark.prevPos.x = spark.pos.x;
-      spark.prevPos.y = spark.pos.y;
-      return world;
-    }
+    case 'PICKUP_SPARK':
+      return applyPickupSpark(world, action);
 
-    case 'DROP_SPARK': {
-      if (world.gameMode === '1v1' && action.playerId !== world.currentPlayerId) return world;
-      const player = requirePlayer(world, action.playerId);
-      if (player.kind !== 'Carrying') throw new CarryViolation('not carrying');
-      const spark = world.freeSparks.get(player.carriedSparkId);
-      if (spark === undefined) throw new Error(`carried spark missing`);
-      spark.state = { kind: 'Free' };
-      spark.pos.x = action.pos.x;
-      spark.pos.y = action.pos.y;
-      spark.prevPos.x = action.pos.x;
-      spark.prevPos.y = action.pos.y;
-      world.players.set(player.id, fsmDrop(player));
-      return world;
-    }
+    case 'DROP_SPARK':
+      return applyDropSpark(world, action);
 
     case 'PLACE_PRIMITIVE':
-      if (world.gameMode === '1v1' && action.playerId !== world.currentPlayerId) return world;
+      if (!requireActivePlayer(world, action.playerId)) return world;
       return placePrimitive(world, action);
 
     case 'SEVER_BOND': {
@@ -274,11 +241,8 @@ export function dispatch(world: World, action: GameAction): World {
       return world;
     }
 
-    case 'TICK_ENERGY': {
-      const player = requirePlayer(world, action.playerId);
-      tickEnergy(player, action.deltaSec, ENERGY_PER_SECOND_FLAT);
-      return world;
-    }
+    case 'TICK_ENERGY':
+      return applyTickEnergy(world, action);
 
     case 'WIN_TRIGGER':
       world.gameState = 'WIN';

@@ -16,8 +16,8 @@
   "priorities": [
     {
       "id": "P0",
-      "title": "1v1 CONNECT BLOCKER continuation (Standard, urgent): wire Trystero 0.24 onJoinError + onPeerHandshake callbacks (currently zero wired), add rtcConfig with STUN + free TURN servers (openrelay.metered.ca) for symmetric-NAT cases, add [net]-tagged diagnostic console logging at every layer transition + 1Hz ICE-state polling via room.getPeers(), fix transport.ts:84-86 unknown-cast to proper Room.makeAction<JsonValue>('msg') typed call with .catch on sender. LOCKED §13.1 v5 amendment.",
-      "status": "in_progress",
+      "title": "1v1 CONNECT BLOCKER continuation (Standard, urgent): wire Trystero 0.24 onJoinError + onPeerHandshake callbacks (currently zero wired), add rtcConfig with STUN + free TURN servers (openrelay.metered.ca) for symmetric-NAT cases, add [net]-tagged diagnostic console logging at every layer transition + 1Hz ICE-state polling via room.getPeers(), fix transport.ts:84-86 unknown-cast to proper Room.makeAction<string>('msg') typed call with .catch on sender. LOCKED §13.1 v5 amendment.",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -25,18 +25,25 @@
       "council_waived": false,
       "council_waiver_reason": null,
       "council_invoked": "S20-P0-R1-completed-2026-05-12T19:00Z",
-      "council_battle_ledger": ".claude/plans/2026-05-12_PDR_Session_20_Council_P0_BattleLedger.md"
+      "council_battle_ledger": ".claude/plans/2026-05-12_PDR_Session_20_Council_P0_BattleLedger.md",
+      "check_completed": true,
+      "check_method": "Council R1 (Grok-4-1-fast-non-reasoning DISRUPTOR 12 challenges + Gemini-2.5-pro AUDITOR 10 findings) + PRIME-AUDIT delta + PRIME-AUDIT-2 revision (Council ADOPT-E HELLO_PROTO handshake-layer version check REVISED to observability-only logging because protocol.ts:35 already encodes HelloMsg.protoVersion at the application layer; duplicate handshake-layer check redundant). ADOPT 8: trickleIce explicit (Gemini #3), iceTransportPolicy 'all' explicit (Grok #5), third TURN endpoint UDP/443 (Gemini #8), onJoinError substring classifier with timeout->'try again' / rejected|invalid|denied->'check room code' / fallback (Gemini #4), onPeerHandshake observability log (Gemini #5 revised), ActionSender .catch escalates to onError handler not just console (Grok #7), getRelaySockets() defensive count log at connect-entry (Grok #10), per-peer ICE-poll fields {iceConnectionState, iceGatheringState, connectionState, signalingState} (Grok #3 + Gemini #1 clarification: poll covers pre-peer-join phase, onPeerJoin/Leave covers post-join presence — different phases). REJECT 9: Grok #2 (trim 6 relays — regresses S19 P4), Grok #4 (peer pubkey auth — out of scope friends-only), Grok #6 (room code collision — 2.1B namespace OK), Grok #8 (pre-connect NAT probe — diagnostic logging covers), Grok #11 (mobile bandwidth — 10Hz binary too light), Grok #12 (dev cross-origin — production single origin), Gemini #7 (receipt confirmation — out of scope), Gemini #9 (password field — same threat model as Grok #4). DEFER 1: Grok #1 (TURN cred rotation — post-ship telemetry). VERIFY 2 (both passed in-code): Grok #9 disconnect() room.leave() + null assignment present; Gemini #6 onPeerLeave chain wired to connectionLostOverlay path. Implementation: transport.ts 124 -> 244 LOC (callbacks + rtcConfig with 5 ICE servers + diagnostic [net] logging + 1Hz getPeers() ICE-state poll with 30s cap + Room.makeAction<string>('msg') typed call + Promise<void[]>.catch escalation + classifyJoinError exported pure helper + NetTransport.onError public field). main.ts +10 LOC (onError wiring on host + client paths). lobbyScreen.ts +14 LOC (setErrorMessage public method with 0xff3b6b red fill; reset() restores 0xaaaaaa grey). LOCKED_DECISIONS.md +71 LOC (§13.1 v5 NOTE block codifies callbacks + rtcConfig + observability + replacement protocol + RED-path carry-forward). transport.test.ts NEW 64 LOC (9 tests: classifyJoinError 4 cases for timeout/rejected/fallback/raw-embed + NetTransport 5 cases for onError null default, peerCount/isConnected 0/false on fresh instance, send() throws if pre-connect, disconnect() idempotent). Tests 377 -> 386 (+9). Typecheck exit 0 (FIXED the v4 type lie — makeAction<string> proper typed return). Build 394.74 -> 397.52 KB (+2.78 KB acceptable). Preview verified solo (zero console errors, canvas mounts, no premature [net] chatter on title screen — only fires on lobby Host/Join). Push commit ed090fd to origin/master; GH Actions deploy run 25756416032 in_progress. Outcome classifier ready for user retest: GREEN (peer connects) / YELLOW (still stuck but [net] logs name layer -> S20 P0.1 evidence-gated) / RED (still stuck AND no logs -> A/B downgrade trystero@0.20.0).",
+      "checkpoint_commit": "ed090fd",
+      "real_context_tokens_at_close": 212273,
+      "real_context_pct_at_close": 21.23
     },
     {
       "id": "P1",
-      "title": "world.ts → worldFsm extraction (Standard, anti-bloat §XV): extract gameState FSM transitions (START_GAME, END_TURN, RETURN_TO_TITLE, WIN_TRIGGER) at world.ts:284-297 into pure helpers in new src/state/worldFsm.ts. world.ts 311 → ~281 LOC (≤280 charter). Honors S19 SESSION reflexion #refactor-before-feature.",
-      "status": "queued",
+      "title": "world.ts → sparkLifecycle.ts + shared 1v1 auth gate (Standard, anti-bloat §XV) [PIVOTED 2026-05-12T19:13Z]: A.0-level-2 surfaced that gameState FSM transitions already delegate to gameMode.ts (S16 P0). PIVOT to extracting SPAWN_SPARK/DESPAWN_SPARK/PICKUP_SPARK/DROP_SPARK/TICK_ENERGY case bodies (5 helpers; NOT WIN_TRIGGER per Council R1 Grok#2/Gemini#4 — 3 LOC scalar mutation doesn't belong in sparkLifecycle) into NEW src/state/sparkLifecycle.ts. NEW src/state/authGate.ts with `requireActivePlayer(world, playerId): boolean` shared helper (Council R1 Grok#3+#10+Gemini#3+#9 convergent): de-duplicates the 1v1 active-player check across PICKUP_SPARK + DROP_SPARK + PLACE_PRIMITIVE. world.ts 311 → ~277 LOC (≤280 charter). Helpers return World (Gemini#1+#2). placePrimitive.ts inline gate also migrated to shared helper.",
+      "status": "in_progress",
       "tier": "Standard",
       "pdr_approved": true,
-      "deliberation_completed": false,
+      "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
-      "council_waiver_reason": null
+      "council_waiver_reason": null,
+      "council_invoked": "S20-P1-R1-completed-2026-05-12T19:14Z",
+      "council_battle_ledger": ".claude/plans/2026-05-12_PDR_Session_20_Council_P1_BattleLedger.md"
     },
     {
       "id": "P3",
