@@ -1,46 +1,43 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-05-12 (post-S18) | Session: S18
+Generated: 2026-05-12 (post-S19) | Session: S19
 
 ## Live URL
-**https://spark-online.space/** (custom domain SHIPPED S18 P0)
-Fallback (301-redirects): https://daneshto-dotcom.github.io/the-spark/
+**https://spark-online.space/** (custom domain SHIPPED S18 P0; HTTPS via Let's Encrypt cert exp 2026-08-10 auto-renew)
 
-## Next Steps (S19)
-1. Manual playtest audio verification on live URL: load → click 1 Player → music starts → place primitive → clave SFX → sever bond → fart SFX → press 'M' → mute glyph dims to ♪̸ → reload → mute state persists
-2. P2 NET feel tuning (Micro, playtest-gated — needs 1v1 cross-network with friend; tune NET_SNAPSHOT_HZ + NET_INTERPOLATION_MS + avatar pulse)
-3. P3 NET enhancements (Standard, playtest-signal-gated — client prediction + delta NetSnapshot + host migration stub + live cursor sync)
-4. P4 disruptionManager.ts extraction (Standard, §XV anti-bloat — world.ts 311 LOC, 11% over 280 target)
-5. P5 Phase-2 next mechanic (Standard — pick: D Inject Spiral / E Steal / A Fog / G Mega-combos)
-6. P6 Per-silhouette gradient polish (Micro, ~80 LOC — 12 magic silhouettes)
-7. P7 Bond-hover cost preview (Micro, ~30 LOC)
-8. P9 NEW Audio polish (Micro/Standard — OGG compression for mobile, PannerNode, full-screen music-state cue)
+## Next Steps
+1. **Manual playtest on live URL** after GH Actions deploy lands (~60s post-push of `f293729`): ⚙ icon next to ♪ → click → settings panel → music slider to 50% → music quieter; SFX toggle off → claves silent; ESC closes; reload → all 4 settings persist; 'M' global mute preserves per-channel; cross-player bond → gradient visible on magic silhouettes (vortex spiral + capsule end caps).
+2. **P9 Audio polish** (Standard candidate): OGG compression for mobile (10MB→~2MB), PannerNode + auto-duck (Grok#5 deferred S18).
+3. **P4-extension** anti-bloat: `bondVisualRenderer.ts` 536 LOC (extract magic silhouettes), `lobbyScreen.ts` 551 LOC, `world.ts` 311 LOC (worldFsm extraction).
+4. **P5 Phase-2 next mechanic** (user picks): D Inject Spiral / E Steal / A Fog / G Mega-combos.
+5. **P2 NET feel tuning** (playtest-gated, cross-network with friend).
+6. **P7 Bond-hover cost preview** (Standard — needs new hit-test infra; `bondHover` symbol doesn't exist yet).
 
 ## Blockers
-- HTTP-80 redirect on spark-online.space returns 404 (GH internal propagation lag at S18 close; browsers default HTTPS so non-blocking; should auto-resolve in 1-2hr)
-- Manual playtest required before any NET tuning (cross-country 1v1 with friend)
+- HTTP-80 redirect on spark-online.space may still 404 (GH internal propagation; non-blocking since browsers default HTTPS).
 
 ## Pending Backlog
-- [ ] Manual audio playtest on live URL (S19 P0 candidate)
-- [ ] disruptionManager.ts extraction (world.ts 311 LOC)
-- [ ] Phase-2 mechanic pick (D/E/A/G)
-- [ ] Per-silhouette gradient polish (12 magic combos)
-- [ ] Bond-hover cost preview
-- [ ] OGG compression / preload for mobile audio
-- [ ] LOCKED §13.14 audio codification (deferred from S18)
-- [ ] Cloudflare DNS migration (user preference, optional; Squarespace working fine)
+- bondVisualRenderer.ts extraction (anti-bloat §XV — 536 LOC, 7% over 500)
+- lobbyScreen.ts extraction (anti-bloat §XV — 551 LOC, 10% over 500)
+- world.ts further extraction (anti-bloat §XV — 311 LOC, 11% over 280)
+- P7 bond-hover cost preview (Standard, needs hit-test infra)
+- P9 OGG compression + PannerNode (S20 audio polish, lock §13.14 if amended)
+- P2 NET feel tuning + P3 NET enhancements (playtest-gated)
+- P5 Phase-2 next mechanic (D/E/A/G — user picks)
+- Cloudflare DNS migration (user preference, optional, Squarespace working)
 
 ## Recent Reflexion (last 2 sessions)
 
-### 2026-05-12 — Session 18 (Custom-domain push closeout + P8 audio)
-- S18 #gh-api-binds-pages-custom-domain-faster-than-ui-toggle: 2 API calls (cname + https_enforced) replace UI walk-through; cert auto-issues ~30s
-- S18 #effect-array-bridge-keeps-purity-in-audio-subsystem: Same effects-array seam serves visual AND audio observers of pure reducer
-- S18 #replay-safe-audio-via-tick-cursor-not-effect-id: Monotonic lastDrainedTick beats effect-ID-set for deterministic replay safety
-- S18 #council-convergent-blockers-skip-debate: Grok+Gemini independent finding = high-confidence; skip "is this real?" go to mitigation
-- SESSION #state-discovery-finds-forward-compat-discriminator-unused: physics SEVER_BOND dispatch ZERO in production; cause discriminator is forward-compat scaffold
+### Session 19 (2026-05-12)
+- S19 #per-channel-gain-as-children-of-master-pause: master GainNode kept as 'M' target; musicGain + sfxGain layered as children. Legacy `spark_audio_muted` retained; 4 new `audio.*` keys added. 'M' preserves per-channel state.
+- S19 #node-test-env-lacks-localstorage-skip-persistence-tests-trust-trycatch: vitest default node env has no `window.localStorage`. Try/catch falls back to in-memory defaults. Dropped 2 persistence unit tests; manual playtest covers it. Avoided adding jsdom dep for 2 tests across 24 test files.
+- S19 #council-convergent-effect-ordering-blocker-orchestrator-owns-effects: Grok #4 + Gemini #1 BLOCKER converged — effect ORDER is load-bearing for audio. Helpers compute payloads + apply state; orchestrator owns effect emission sequence (SEVER_ERASE pre-mutation, BOND_SEVERED post-mutation).
+- S19 #a0-state-discovery-flags-handoff-loc-drift: Pre-PDR A.0 caught 3 stale-handoff claims: world.ts 311→359 LOC, bondHover doesn't exist (P7 ~30 LOC ⇒ Standard), lobbyScreen.ts under 500 → 551. All moved into PDR DELTA before user `go`.
+- S19 #shared-helper-extraction-when-refactor-pushes-file-over-charter: P3 first pass +97 LOC; extracted `strokePathLerp` shared between vortex + whip (nearly-identical 8-segment loops) → final +89 LOC. Check for shared structure before accepting charter overage.
+- SESSION #refactor-before-feature-S14-lesson-replayed-for-anti-bloat-debt: world.ts charter overage compounded from S15 (11%) → S18 (28%). Three "ship + log carry-forward" deferrals silently downgraded the §XV gate. When file is over-charter ≥2 consecutive sessions, escalate extraction to Standard priority.
 
-### 2026-05-12 — Session 17 (Phase-2 Tier-1 disruption + custom-domain + lobby BLOCKER fix)
-- S17 #a0-state-discovery-found-charge-accumulator-already-wired: A.0 right-sizes priority; design docs over-estimate when prereqs landed in interim
-- S17 #council-flagged-pixi-v8-gradient-api-myth-stroke-decomp-correct: verify library API exists in pinned version before proposing usage
-- S17 #spec-faithful-rendering-sources-placerColor-not-ownerColor-per-VI.4-X.2: when two fields match shape, pick spec-semantic-justified one
-- S17 #hostile-if-either-endpoint-differs-mixed-ownership-edge-resolved: spec gaps for edge cases need explicit Council-time decision + LOCKED amendment
-- S17 #lobby-double-offset-found-via-position-math-not-tests: pure-helper unit tests don't catch Pixi Container child-positioning math; add bounds assertions
+### Session 18 (2026-05-12)
+- S18 #gh-api-binds-pages-custom-domain-faster-than-ui-toggle: 2 `gh api` calls bound custom domain + HTTPS in ~30s vs documented UI clicks.
+- S18 #effect-array-bridge-keeps-purity-in-audio-subsystem: audio subscribes to `world.effects` like the visual renderer — reducer stays pure.
+- S18 #replay-safe-audio-via-tick-cursor-not-effect-id: monotonic `lastDrainedTick` cursor is O(1) memory; tick monotonicity is the natural ordering key.
+- S18 #council-convergent-blockers-skip-debate: Grok + Gemini convergence on the same BLOCKER from independent reasoning = high-confidence signal.
+- SESSION #state-discovery-finds-forward-compat-discriminator-unused: A.0 probe revealed physics-cause SEVER_BOND is dead in production (only test fixture exercises it).
