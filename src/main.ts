@@ -83,8 +83,28 @@ async function bootstrap(): Promise<void> {
   if (!root) throw new Error('No #app element in DOM');
   root.appendChild(app.canvas);
 
-  app.stage.addChild(makeSpawnerRing(SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS));
-  app.stage.addChild(makeLegend(app));
+  const spawnerRing = makeSpawnerRing(SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS);
+  const legend = makeLegend(app);
+  app.stage.addChild(spawnerRing);
+  app.stage.addChild(legend);
+
+  // S16 P3.a — persistent BETA badge top-right of canvas. Added directly to
+  // app.stage (not inside any screen container) so it's never hidden by
+  // TITLE/LOBBY/WIN overlays. Cyan accent at low alpha for non-obtrusive
+  // signaling that the build is not yet 1.0.
+  const betaBadge = new Text({
+    text: 'BETA',
+    style: new TextStyle({
+      fontFamily: 'monospace',
+      fontSize: 14,
+      fill: 0x3bd7ff,
+      letterSpacing: 4,
+    }),
+  });
+  betaBadge.anchor.set(1, 0);
+  betaBadge.position.set(CANVAS_WIDTH - 12, 12);
+  betaBadge.alpha = 0.55;
+  app.stage.addChild(betaBadge);
 
   const SEED = 0xc0ffee;
   const world = makeWorld(SEED);
@@ -292,6 +312,12 @@ async function bootstrap(): Promise<void> {
     const showLobby = world.gameState === 'LOBBY';
     if (titleScreen.isVisible() !== showTitle) titleScreen.setVisible(showTitle);
     lobbyScreen.setVisible(showLobby);
+
+    // S16 P3.b — hide spawner ring + legend during TITLE/LOBBY so they don't
+    // bleed through the overlay panes (user-flagged after S15 screenshot review).
+    const inOverlayScreen = showTitle || showLobby;
+    spawnerRing.visible = !inOverlayScreen;
+    legend.visible = !inOverlayScreen;
 
     // S15 P2 — connection-lost overlay (1v1, PLAYING, no peers).
     const connectionLost = world.gameMode === '1v1'
