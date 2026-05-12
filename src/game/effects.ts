@@ -84,6 +84,40 @@ export type GameEffect =
       readonly color: number;
       /** S13 P4: world position to render the pulse at — the new prim's pos. */
       readonly pos: Vec2;
+    }
+  | {
+      /**
+       * S18 P1 — bond-formation audio event. Emitted ONCE per placePrimitive
+       * call (regardless of how many bonds the placement actually created
+       * — multi-adjacent merges, redundancy bonds, and primary bond all
+       * collapse to a single emit so the clave SFX doesn't stack per
+       * Council R1 Adoption-B / Gemini #4).
+       *
+       * Anchor placements (no bonds formed) do NOT emit this effect.
+       *
+       * Audio-only: renderer ignores this kind. Drained by audioManager
+       * via lastDrainedTick cursor for replay safety.
+       */
+      readonly kind: 'BOND_FORMED';
+      readonly tick: number;
+      readonly pos: Vec2;
+      /** Number of bonds formed in this placement (1+). Informational. */
+      readonly bondCount: number;
+    }
+  | {
+      /**
+       * S18 P1 — bond-severance audio event. Emitted ONCE per SEVER_BOND
+       * dispatch. The `cause` discriminator distinguishes player-raid
+       * (audible fart SFX) from physics-overstretch (silent — the
+       * constraint solver firing is not a disruption action).
+       *
+       * Audio-only: renderer ignores this kind. The visual SEVER_ERASE
+       * effect still emits per-deleted-primitive separately (S17 P1).
+       */
+      readonly kind: 'BOND_SEVERED';
+      readonly tick: number;
+      readonly pos: Vec2;
+      readonly cause: 'player' | 'physics';
     };
 
 /** Soft cap on the queue — anything older than this many ticks is dropped. */

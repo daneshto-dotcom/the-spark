@@ -106,6 +106,9 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
   // Spark is consumed by the placement.
   world.freeSparks.delete(sparkId);
 
+  // S18 P1 — snapshot bond count for BOND_FORMED audio aggregation.
+  const bondsAtStart = world.bonds.size;
+
   // Track which components are already bonded to this new primitive so the
   // P2 sweep below doesn't double-bond into a component the primary target
   // already pulled in.
@@ -459,6 +462,20 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
         p.prevPos.y -= dy * inv;
       }
     }
+  }
+
+  // S18 P1 — audio: emit ONE BOND_FORMED per placement if any bonds formed.
+  // Anchor placements (zero bonds) → no clave SFX. Multi-adjacent merges,
+  // redundancy bonds, and primary bond all collapse to a single emit per
+  // Council R1 Adoption-B / Gemini #4 (prevents N claves stacking).
+  const bondsFormedCount = world.bonds.size - bondsAtStart;
+  if (bondsFormedCount > 0) {
+    world.effects.push({
+      kind: 'BOND_FORMED',
+      tick: world.tick,
+      pos: { x: prim.pos.x, y: prim.pos.y },
+      bondCount: bondsFormedCount,
+    });
   }
 
   // Carry-1 reset.

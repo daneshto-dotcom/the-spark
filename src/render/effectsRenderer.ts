@@ -55,6 +55,10 @@ export class EffectsRenderer {
     // Drain new effects.
     if (world.effects.length > 0) {
       for (const e of world.effects) {
+        // S18 P1 — audio-only effects (BOND_FORMED, BOND_SEVERED) are drained
+        // by audioManager earlier in the frame; they have no visual drawer.
+        // Skip so they don't enter the active list as dead weight.
+        if (e.kind === 'BOND_FORMED' || e.kind === 'BOND_SEVERED') continue;
         this.active.push({ effect: e, bornTick: e.tick });
       }
       world.effects.length = 0;
@@ -100,6 +104,10 @@ export class EffectsRenderer {
         return;
       case 'SCORE_TIER':
         drawScoreTier(g, effect, age);
+        return;
+      case 'BOND_FORMED':
+      case 'BOND_SEVERED':
+        // S18 P1 — audio-only; filtered at drain. Defense-in-depth no-op.
         return;
     }
   }

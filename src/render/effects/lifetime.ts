@@ -30,5 +30,11 @@ export function effectLifetime(effect: GameEffect): number {
       return MERGE_LEAD_IN_TICKS + STRUCTURE_FLASH_TICKS;
     case 'SCORE_TIER':
       return SCORE_TIER_DURATION_TICKS;
+    case 'BOND_FORMED':
+    case 'BOND_SEVERED':
+      // S18 P1 — audio-only effects. Filtered out at drain time in
+      // effectsRenderer.sync so they never enter the active visual list;
+      // this branch exists purely for TS exhaustiveness on the union.
+      return 0;
   }
 }

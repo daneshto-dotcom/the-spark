@@ -242,6 +242,11 @@ export function dispatch(world: World, action: GameAction): World {
       const bond = world.bonds.get(action.bondId);
       if (bond === undefined) return world;
 
+      // S18 P1 — capture sever position BEFORE deletion for BOND_SEVERED audio
+      // effect. bond.a is a Primitive reference (live or already-removed-from-
+      // world.primitives, the object identity persists).
+      const severPos = { x: bond.a.pos.x, y: bond.a.pos.y };
+
       let chargeToConsume = 0;
 
       if (action.cause === 'player') {
@@ -303,6 +308,17 @@ export function dispatch(world: World, action: GameAction): World {
       }
       for (const primId of split.del) world.primitives.delete(primId);
       snapPrevPosForUnbonded(world.primitives);
+
+      // S18 P1 — audio: emit BOND_SEVERED. Audio drain filters cause==='player'
+      // for the fart SFX (physics-overstretch is silent). Visual SEVER_ERASE
+      // effects above are independent (per-deleted-prim, S17 P1).
+      world.effects.push({
+        kind: 'BOND_SEVERED',
+        tick: world.tick,
+        pos: severPos,
+        cause: action.cause,
+      });
+
       return world;
     }
 

@@ -49,6 +49,7 @@ import { solveBonds, type Bond } from './physics/bonds.ts';
 import { SpatialGrid } from './physics/spatial.ts';
 import { verletStepAll } from './physics/verlet.ts';
 import { AvatarRenderer } from './render/avatarRenderer.ts';
+import { drainAudioEffects, initAudio, isMuted, playMusic, toggleMute } from './render/audioManager.ts';
 import { EffectsRenderer } from './render/effectsRenderer.ts';
 import { LobbyScreen } from './render/lobbyScreen.ts';
 import { SparkRenderer, makeLegend, makeSpawnerRing } from './render/renderer.ts';
@@ -107,6 +108,24 @@ async function bootstrap(): Promise<void> {
   betaBadge.position.set(CANVAS_WIDTH - 12, 12);
   betaBadge.alpha = 0.55;
   app.stage.addChild(betaBadge);
+
+  // S18 P1 — mute indicator. Small ♪ glyph anchored top-right (y=30),
+  // between BETA badge (y=12) and connection dot (y=48). Added AFTER
+  // BETA so child-add-order naturally renders it on top (Council R1
+  // Grok #6 — no zIndex API needed). Dims when muted as visual feedback
+  // for 'M' keypress.
+  const muteIndicator = new Text({
+    text: '♪',
+    style: new TextStyle({
+      fontFamily: 'monospace',
+      fontSize: 14,
+      fill: 0x3bd7ff,
+    }),
+  });
+  muteIndicator.anchor.set(1, 0);
+  muteIndicator.position.set(CANVAS_WIDTH - 12, 30);
+  muteIndicator.alpha = 0.55;
+  app.stage.addChild(muteIndicator);
 
   const SEED = 0xc0ffee;
   const world = makeWorld(SEED);
@@ -245,12 +264,30 @@ async function bootstrap(): Promise<void> {
     }
   };
   app.canvas.addEventListener('click', resetIfPostgame);
+
+  // S18 P1 — audio: lazy-init AudioContext on first user gesture anywhere
+  // (canvas or window). Browser autoplay policy requires this to be inside
+  // a user-gesture handler. Idempotent — initAudio() is a no-op after the
+  // first call. Listener auto-removes (once: true).
+  const initAudioOnGesture = (): void => { initAudio(); };
+  window.addEventListener('pointerdown', initAudioOnGesture, { once: true });
+  window.addEventListener('keydown', initAudioOnGesture, { once: true });
+
   window.addEventListener('keydown', (e) => {
     if ((e.key === 'r' || e.key === 'R') && world.gameState === 'POSTGAME') {
       resetIfPostgame();
     }
     if (e.key === 'c' || e.key === 'C') {
       world.cinematicsEnabled = !world.cinematicsEnabled;
+    }
+    // S18 P1 — 'M' toggles audio mute. Gated on activeElement not being an
+    // input/textarea so typing 'M' into the lobby room-code input doesn't
+    // toggle mute (PRIME-AUDIT A).
+    if (e.key === 'm' || e.key === 'M') {
+      const focusedTag = document.activeElement?.tagName;
+      if (focusedTag !== 'INPUT' && focusedTag !== 'TEXTAREA') {
+        toggleMute();
+      }
     }
   });
 
@@ -298,6 +335,13 @@ async function bootstrap(): Promise<void> {
       if (world.gameState === 'POSTGAME' && lastGameState !== 'POSTGAME') {
         saveToLocalStorage(world);
       }
+      // S18 P1 — start background music on transition to PLAYING. Covers
+      // solo + 1v1 host + 1v1 client paths (client transitions via snapshot
+      // showing gameState='PLAYING'). Idempotent — playMusic() is no-op when
+      // already playing (Council Adoption-F).
+      if (world.gameState === 'PLAYING' && lastGameState !== 'PLAYING') {
+        void playMusic();
+      }
       lastGameState = world.gameState;
       physicsAccumulator -= PHYSICS_DT;
     }
@@ -336,10 +380,22 @@ async function bootstrap(): Promise<void> {
     // S15 P2 — HUD connection dot.
     hud.setConnectionPeers(netTransport !== null ? netTransport.peerCount() : 0);
 
+    // S18 P1 — mute indicator visual feedback (dim + slash glyph when muted).
+    if (isMuted()) {
+      muteIndicator.text = '♪̸';
+      muteIndicator.alpha = 0.25;
+    } else {
+      muteIndicator.text = '♪';
+      muteIndicator.alpha = 0.55;
+    }
+
     const renderStart = performance.now();
     const freeSparkArr = freeSparkArray(world.freeSparks);
     sparkRenderer.sync(freeSparkArr);
     structureRenderer.sync(world, controls.state);
+    // S18 P1 — drain audio effects BEFORE effectsRenderer (which wipes
+    // world.effects). Cursor-gated; replay-safe.
+    drainAudioEffects(world.effects, world.tick);
     effectsRenderer.sync(world);
     avatarRenderer.sync(world, controls);
     hud.sync(world);
