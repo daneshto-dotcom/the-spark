@@ -1,17 +1,26 @@
 /**
- * SPARK — Lobby screen (S15 P2).
+ * SPARK — Lobby screen (S15 P2, S16 P1 input-overlay revision).
  *
  * Two-pane UI:
  *   - Host pane: generates a 6-char room code; shows "Waiting for Player 2..."
  *     until a peer connects, then enables "Begin Match" button.
- *   - Join pane: text input for room code; "Connect" button initiates
- *     transport.connect(code); shows status / errors.
+ *   - Join pane: HTML <input type="text"> positioned via getBoundingClientRect()
+ *     over the JOIN pane code area; native focus / caret / paste / IME;
+ *     "Connect" button initiates transport.connect(code); shows status / errors.
  *
  * "Back to Title" button cancels.
  *
  * Visibility gated on world.gameState === 'LOBBY'. Connection-lost overlay
  * shows full-screen "Connection lost — Return to Title" when peers drop
  * (handled in this same module since it's the same fallback path).
+ *
+ * S16 P1 (Council R1 + PRIME-AUDIT applied): dropped Pixi-text + window.keydown
+ * hack (no caret / no click-to-focus / no paste) in favor of a real HTML
+ * <input> overlay. Mobile-keyboard viewport collapse handled via
+ * window.visualViewport.resize. zIndex=1000 guards against Pixi canvas
+ * stacking-context surprises (Council R1 Grok #2). A11y attrs (aria-label,
+ * autocomplete, autocapitalize, inputmode, spellcheck) per Council R1
+ * Gemini #1.
  */
 
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
@@ -22,6 +31,65 @@ const PANE_HEIGHT = 360;
 const PANE_GAP = 40;
 const BUTTON_WIDTH = 220;
 const BUTTON_HEIGHT = 48;
+
+// JOIN pane code-input rectangle in canvas-space (matches the Pixi rect at
+// joinInputBg position: joinPaneX+40, paneY+100, PANE_WIDTH-80, 60).
+const JOIN_PANE_X = CANVAS_WIDTH / 2 + PANE_GAP / 2;
+const JOIN_PANE_Y = CANVAS_HEIGHT / 2 - PANE_HEIGHT / 2;
+const INPUT_CANVAS_X = JOIN_PANE_X + 40;
+const INPUT_CANVAS_Y = JOIN_PANE_Y + 100;
+const INPUT_CANVAS_W = PANE_WIDTH - 80;
+const INPUT_CANVAS_H = 60;
+
+const ROOM_CODE_PATTERN = '[2-9A-HJ-NP-Z]{6}';
+const ROOM_CODE_CHAR_REGEX = /[^2-9A-HJ-NP-Z]/g;
+const ROOM_CODE_FULL_REGEX = new RegExp(`^${ROOM_CODE_PATTERN}$`);
+
+/**
+ * Pure helper: sanitize a raw input value into a room-code-safe string.
+ * Uppercases, strips invalid chars (0, O, 1, I — the protocol charset),
+ * truncates to 6. Exported for tests.
+ */
+export function sanitizeRoomCodeValue(raw: string): string {
+  return raw.toUpperCase().replace(ROOM_CODE_CHAR_REGEX, '').slice(0, 6);
+}
+
+/** Pure helper: full-pattern validity (length 6 + valid chars). Exported for tests. */
+export function isValidRoomCode(value: string): boolean {
+  return ROOM_CODE_FULL_REGEX.test(value);
+}
+
+/**
+ * Pure helper: map a canvas-space rect to page-space pixels for absolute
+ * HTML overlay positioning. canvasRect must come from
+ * `canvas.getBoundingClientRect()`. Exported for tests.
+ */
+export function mapCanvasRectToPage(
+  canvasRect: { left: number; top: number; width: number; height: number },
+  canvasW: number,
+  canvasH: number,
+  zoneX: number,
+  zoneY: number,
+  zoneW: number,
+  zoneH: number,
+): { left: number; top: number; width: number; height: number } {
+  const sx = canvasRect.width / canvasW;
+  const sy = canvasRect.height / canvasH;
+  return {
+    left: canvasRect.left + zoneX * sx,
+    top: canvasRect.top + zoneY * sy,
+    width: zoneW * sx,
+    height: zoneH * sy,
+  };
+}
+
+/** Exposed canvas-space coords of the JOIN code input rect — used by overlay positioning. */
+export const JOIN_INPUT_RECT = {
+  x: INPUT_CANVAS_X,
+  y: INPUT_CANVAS_Y,
+  w: INPUT_CANVAS_W,
+  h: INPUT_CANVAS_H,
+} as const;
 
 export type LobbyMode = 'select' | 'hosting' | 'joining';
 
@@ -38,17 +106,53 @@ export class LobbyScreen {
   private mode: LobbyMode = 'select';
   private statusText: Text;
   private codeText: Text;
-  private joinInputText: Text;
-  private joinBuffer = '';
   private hostPane: Container;
   private joinPane: Container;
+  private joinButton: Container;
+  private joinButtonBg: Graphics;
   private beginButton: Container;
   private connectionLostOverlay: Container;
   private hostConnected = false;
-  private keyHandler: ((e: KeyboardEvent) => void) | null = null;
+
+  // S16 P1: HTML input overlay
+  private readonly canvas: HTMLCanvasElement;
+  private readonly inputEl: HTMLInputElement;
+  private readonly resizeHandler: () => void;
+  private readonly inputHandler: () => void;
+  private isShown = false;
 
   constructor(app: Application, callbacks: LobbyScreenCallbacks) {
     this.container = new Container();
+    this.canvas = app.canvas as HTMLCanvasElement;
+
+    // ─────── S16 P1: HTML input overlay (created EARLY so setVisible can ──
+    // toggle its display before pane construction completes) ──────────────
+    this.inputEl = document.createElement('input');
+    this.inputEl.type = 'text';
+    this.inputEl.maxLength = 6;
+    this.inputEl.pattern = ROOM_CODE_PATTERN;
+    this.inputEl.placeholder = 'ENTER CODE';
+    this.inputEl.autocomplete = 'off';
+    this.inputEl.spellcheck = false;
+    this.inputEl.setAttribute('autocapitalize', 'characters');
+    this.inputEl.setAttribute('inputmode', 'text');
+    this.inputEl.setAttribute('aria-label', 'Room code');
+    this.inputEl.style.position = 'fixed';
+    this.inputEl.style.zIndex = '1000';
+    this.inputEl.style.display = 'none';
+    this.inputEl.style.fontFamily = 'monospace';
+    this.inputEl.style.textAlign = 'center';
+    this.inputEl.style.background = 'transparent';
+    this.inputEl.style.color = '#ffffff';
+    this.inputEl.style.border = `2px solid #${PLAYER_COLORS[1].toString(16).padStart(6, '0')}`;
+    this.inputEl.style.borderRadius = '6px';
+    this.inputEl.style.outline = 'none';
+    this.inputEl.style.padding = '0';
+    this.inputEl.style.margin = '0';
+    this.inputEl.style.letterSpacing = '0.4em';
+    this.inputEl.style.textTransform = 'uppercase';
+    this.inputEl.style.caretColor = `#${PLAYER_COLORS[1].toString(16).padStart(6, '0')}`;
+    document.body.appendChild(this.inputEl);
 
     // Title
     const title = new Text({
@@ -60,9 +164,9 @@ export class LobbyScreen {
     this.container.addChild(title);
 
     // Two panes side by side
-    const paneY = CANVAS_HEIGHT / 2 - PANE_HEIGHT / 2;
+    const paneY = JOIN_PANE_Y;
     const hostPaneX = CANVAS_WIDTH / 2 - PANE_WIDTH - PANE_GAP / 2;
-    const joinPaneX = CANVAS_WIDTH / 2 + PANE_GAP / 2;
+    const joinPaneX = JOIN_PANE_X;
 
     this.hostPane = this.makePane('HOST', PLAYER_COLORS[0], hostPaneX, paneY);
     this.joinPane = this.makePane('JOIN', PLAYER_COLORS[1], joinPaneX, paneY);
@@ -76,6 +180,7 @@ export class LobbyScreen {
       this.codeText.text = code;
       this.statusText.text = 'Waiting for Player 2...';
       this.renderState();
+      this.updateInputVisibility();
     });
     hostBtn.position.set(hostPaneX + PANE_WIDTH / 2 - BUTTON_WIDTH / 2, paneY + 220);
     this.hostPane.addChild(hostBtn);
@@ -88,33 +193,67 @@ export class LobbyScreen {
     this.codeText.position.set(hostPaneX + PANE_WIDTH / 2, paneY + 130);
     this.hostPane.addChild(this.codeText);
 
-    // Join input + button
-    this.joinInputText = new Text({
-      text: 'enter code...',
-      style: new TextStyle({ fontFamily: 'monospace', fontSize: 36, fill: 0x666666, letterSpacing: 8 }),
-    });
-    this.joinInputText.anchor.set(0.5);
-    this.joinInputText.position.set(joinPaneX + PANE_WIDTH / 2, paneY + 130);
-    this.joinPane.addChild(this.joinInputText);
-
+    // Join pane visual border + hint (matches original Pixi rect at canvas
+    // coords INPUT_CANVAS_X/Y/W/H — the HTML input sits over this).
     const joinInputBg = new Graphics();
-    joinInputBg.roundRect(joinPaneX + 40, paneY + 100, PANE_WIDTH - 80, 60, 6)
-      .stroke({ width: 1, color: 0x444444, alpha: 0.7 });
+    joinInputBg.roundRect(INPUT_CANVAS_X, INPUT_CANVAS_Y, INPUT_CANVAS_W, INPUT_CANVAS_H, 6)
+      .stroke({ width: 1, color: PLAYER_COLORS[1], alpha: 0.45 });
     this.joinPane.addChild(joinInputBg);
+    // joinPane is positioned at (joinPaneX, paneY), but joinInputBg uses
+    // ABSOLUTE canvas coords — so we need to draw relative to pane origin
+    // instead. Recompute relative.
+    joinInputBg.clear();
+    joinInputBg.roundRect(40, 100, PANE_WIDTH - 80, 60, 6)
+      .stroke({ width: 1, color: PLAYER_COLORS[1], alpha: 0.45 });
 
-    const joinBtn = this.makeButton('Connect', PLAYER_COLORS[1], () => {
-      if (this.joinBuffer.length === 6) {
+    // Click anywhere on JOIN pane focuses the HTML input.
+    this.joinPane.eventMode = 'static';
+    this.joinPane.cursor = 'text';
+    this.joinPane.on('pointertap', () => {
+      if (this.mode === 'select') this.inputEl.focus();
+    });
+
+    // Hint text below the input area
+    const hint = new Text({
+      text: 'Click here, type the code from your friend',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 14, fill: 0xaaaaaa, letterSpacing: 1 }),
+    });
+    hint.anchor.set(0.5);
+    hint.position.set(PANE_WIDTH / 2, 180);
+    this.joinPane.addChild(hint);
+
+    // Connect button — gates on inputEl.value.length === 6
+    this.joinButton = new Container();
+    this.joinButtonBg = new Graphics();
+    this.joinButtonBg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8)
+      .fill({ color: 0x222222, alpha: 0.9 })
+      .stroke({ width: 2, color: PLAYER_COLORS[1], alpha: 0.8 });
+    this.joinButton.addChild(this.joinButtonBg);
+    const joinBtnText = new Text({
+      text: 'Connect',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 18, fill: PLAYER_COLORS[1] }),
+    });
+    joinBtnText.anchor.set(0.5);
+    joinBtnText.position.set(BUTTON_WIDTH / 2, BUTTON_HEIGHT / 2);
+    this.joinButton.addChild(joinBtnText);
+    this.joinButton.eventMode = 'static';
+    this.joinButton.cursor = 'pointer';
+    this.joinButton.alpha = 0.4; // disabled until 6 valid chars
+    this.joinButton.on('pointertap', () => {
+      const code = this.inputEl.value.toUpperCase();
+      if (isValidRoomCode(code)) {
         this.mode = 'joining';
         this.statusText.text = 'Connecting...';
-        callbacks.onJoinAttempt(this.joinBuffer);
         this.renderState();
+        this.updateInputVisibility();
+        callbacks.onJoinAttempt(code);
       } else {
-        this.statusText.text = 'Code must be 6 characters.';
+        this.statusText.text = 'Code must be 6 chars (excludes 0, O, 1, I).';
         this.renderState();
       }
     });
-    joinBtn.position.set(joinPaneX + PANE_WIDTH / 2 - BUTTON_WIDTH / 2, paneY + 220);
-    this.joinPane.addChild(joinBtn);
+    this.joinButton.position.set(joinPaneX + PANE_WIDTH / 2 - BUTTON_WIDTH / 2, paneY + 220);
+    this.joinPane.addChild(this.joinButton);
 
     // Bottom status text (shared)
     this.statusText = new Text({
@@ -170,15 +309,29 @@ export class LobbyScreen {
 
     app.stage.addChild(this.container);
     this.setVisible(false);
+
+    // Wire input event + window/visualViewport resize handlers
+    this.inputHandler = () => {
+      // Force uppercase + strip invalid chars in real time.
+      const original = this.inputEl.value;
+      const cleaned = sanitizeRoomCodeValue(original);
+      if (cleaned !== original) this.inputEl.value = cleaned;
+      // Visual disabled-gate on Connect button.
+      this.joinButton.alpha = cleaned.length === 6 ? 1.0 : 0.4;
+    };
+    this.inputEl.addEventListener('input', this.inputHandler);
+
+    this.resizeHandler = () => this.updateInputPosition();
+    window.addEventListener('resize', this.resizeHandler);
+    if (typeof window !== 'undefined' && window.visualViewport) {
+      window.visualViewport.addEventListener('resize', this.resizeHandler);
+    }
   }
 
   setVisible(visible: boolean): void {
     this.container.visible = visible;
-    if (visible) {
-      this.installKeyHandler();
-    } else {
-      this.uninstallKeyHandler();
-    }
+    this.isShown = visible;
+    this.updateInputVisibility();
   }
 
   setConnectionLostVisible(visible: boolean): void {
@@ -201,13 +354,59 @@ export class LobbyScreen {
   reset(): void {
     this.mode = 'select';
     this.codeText.text = '';
-    this.joinInputText.text = 'enter code...';
-    this.joinBuffer = '';
     this.statusText.text = '';
     this.hostConnected = false;
     this.beginButton.visible = false;
     this.connectionLostOverlay.visible = false;
+    this.inputEl.value = '';
+    this.joinButton.alpha = 0.4;
     this.renderState();
+    this.updateInputVisibility();
+  }
+
+  /** Test-only accessor + cleanup hook. */
+  getInputElement(): HTMLInputElement {
+    return this.inputEl;
+  }
+
+  destroy(): void {
+    this.inputEl.removeEventListener('input', this.inputHandler);
+    window.removeEventListener('resize', this.resizeHandler);
+    if (typeof window !== 'undefined' && window.visualViewport) {
+      window.visualViewport.removeEventListener('resize', this.resizeHandler);
+    }
+    this.inputEl.remove();
+  }
+
+  /**
+   * Map the canvas-space rect (INPUT_CANVAS_X/Y/W/H) into page-space and
+   * absolutely-position the HTML input there. Called on show + on window
+   * resize + on visualViewport.resize (mobile keyboard).
+   */
+  private updateInputPosition(): void {
+    const rect = this.canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const mapped = mapCanvasRectToPage(
+      rect,
+      CANVAS_WIDTH,
+      CANVAS_HEIGHT,
+      INPUT_CANVAS_X,
+      INPUT_CANVAS_Y,
+      INPUT_CANVAS_W,
+      INPUT_CANVAS_H,
+    );
+    this.inputEl.style.left = `${mapped.left}px`;
+    this.inputEl.style.top = `${mapped.top}px`;
+    this.inputEl.style.width = `${mapped.width}px`;
+    this.inputEl.style.height = `${mapped.height}px`;
+    // Scale font to match the pane's letter-spacing/size visual.
+    this.inputEl.style.fontSize = `${36 * (rect.height / CANVAS_HEIGHT)}px`;
+  }
+
+  private updateInputVisibility(): void {
+    const shouldShow = this.isShown && this.mode === 'select';
+    this.inputEl.style.display = shouldShow ? 'block' : 'none';
+    if (shouldShow) this.updateInputPosition();
   }
 
   private renderState(): void {
@@ -221,31 +420,6 @@ export class LobbyScreen {
     } else {
       this.hostPane.alpha = 1;
       this.joinPane.alpha = 1;
-    }
-  }
-
-  private installKeyHandler(): void {
-    if (this.keyHandler !== null) return;
-    this.keyHandler = (e: KeyboardEvent) => {
-      if (this.mode !== 'select') return;
-      const k = e.key.toUpperCase();
-      if (k === 'BACKSPACE') {
-        this.joinBuffer = this.joinBuffer.slice(0, -1);
-      } else if (k.length === 1 && /[2-9A-Z]/.test(k) && !'0O1I'.includes(k) && this.joinBuffer.length < 6) {
-        this.joinBuffer += k;
-      } else {
-        return;
-      }
-      this.joinInputText.text = this.joinBuffer.length > 0 ? this.joinBuffer : 'enter code...';
-      this.joinInputText.style.fill = this.joinBuffer.length > 0 ? 0xffffff : 0x666666;
-    };
-    window.addEventListener('keydown', this.keyHandler);
-  }
-
-  private uninstallKeyHandler(): void {
-    if (this.keyHandler !== null) {
-      window.removeEventListener('keydown', this.keyHandler);
-      this.keyHandler = null;
     }
   }
 
