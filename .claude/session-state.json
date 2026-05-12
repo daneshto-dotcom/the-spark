@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 23,
+  "tool_calls_session_total": 94,
   "session_start": "2026-05-12T15:00:00Z",
   "session_id": "S18",
   "budget_total": 1000000,
@@ -8,32 +8,45 @@
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "tier": "Micro",
-  "council_waived": true,
-  "council_waiver_reason": "S18 P0 = pre-authorized closeout of S17 P0 (push-gated commit + §13.9 LOCKED amend deferred to post-push success). PDR + Council deliberation completed in S17 Round 1 (Grok-DISRUPTOR + Gemini-AUDITOR). User explicit 'go push' = unlock_source=user. No new scope. Micro tier (1 doc edit + operational push/verify).",
-  "council_invoked": "N/A-pre-authorized-from-S17",
-  "active_pdr": ".claude/plans-archive/2026-05-12_PDR_Session_17_COMPLETED.md",
+  "tier": "Standard",
+  "council_waived": false,
+  "council_waiver_reason": null,
+  "council_invoked": "S18-P1-R1-completed-Grok-DISRUPTOR-8-challenges-Gemini-AUDITOR-10-findings-2-BLOCKER-converged-on-replay-cursor-Adoption-A-plus-multi-bond-aggregation-Adoption-B-6-SHOULD-adopted-4-DEFERRED-to-SCOPE-OUT-with-rationale-PRIME-AUDIT-5-items-STATE-DISCOVERY-GATE-A0-verified-5-claims",
+  "active_pdr": ".claude/plans/2026-05-12_PDR_Session_18_P1_Audio.md",
   "priorities": [
     {
       "id": "P0",
-      "title": "S17 P0 push-gate resolution: ship 7-commit S17 queue (fd016c2..f73bc3a) + bind spark-online.space custom domain via gh api + enforce HTTPS + apply §13.9 LOCKED amendment (pre-authorized S17 P0 PDR).",
+      "title": "S17 P0 push-gate resolution: ship 7-commit S17 queue + bind spark-online.space custom domain + enforce HTTPS + apply §13.9 LOCKED amendment.",
       "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "(1) User confirmed Squarespace DNS migration: Squarespace Defaults preset deleted (4 A records 198.x.x.x + CNAME www ext-sq.squarespace.com + HTTPS @ removed) + 5 custom records added (4 A records @ 185.199.108-111.153 TTL 1hr + CNAME www daneshto-dotcom.github.io. TTL 4hr default). (2) nslookup spark-online.space @8.8.8.8 → 4 GitHub IPs only (zero Squarespace leftover). (3) git push origin master shipped 7 commits fd016c2..f73bc3a (c6f636d P0 custom-domain prep + 629044a P1 Sever + 91e1e21 P2 multi-color + e12d3ce P3 closeout + f996bd2/267de16/14a9d05 autocommit/handoff). (4) GH Actions deploy run 25741967555 'Deploy to GitHub Pages' completed success. (5) gh api -X PUT repos/daneshto-dotcom/the-spark/pages -F cname=spark-online.space bound custom domain (initial cname:null → cname:spark-online.space). (6) Let's Encrypt cert auto-issued ~30s later: https_certificate.state=approved, domains=[spark-online.space, www.spark-online.space], expires_at=2026-08-10. (7) gh api -F https_enforced=true flipped HTTPS enforcement. (8) curl -sI https://spark-online.space/ → HTTP 200 OK with HTML <title>SPARK</title>; asset /assets/index-DLe4m4Zo.js → 200 OK 385KB. (9) github.io fallback now 301-redirects to http://spark-online.space/ confirming custom-domain binding at Pages level. (10) HTTP-80 still 404 (GH propagation lag 1-2h, non-blocking since browsers default HTTPS). (11) LOCKED_DECISIONS.md §13.9 amended: 'S17+, deferred' → 'S18 P0 SHIPPED 2026-05-12'; added cert metadata, DNS config details, gh api commands, fallback URL redirect note. Commit f09e452.",
+      "check_method": "Push fd016c2..f73bc3a; gh api PUT cname=spark-online.space; Let's Encrypt cert approved exp 2026-08-10; https_enforced=true; HTTPS 200 verified; §13.9 amended commit f09e452.",
       "checkpoint_commit": "f09e452",
       "real_context_tokens_at_close": 104728,
       "real_context_pct_at_close": 10.47
+    },
+    {
+      "id": "P1",
+      "title": "P8 Audio: Suno track 'Blue Steppe Orbit' as background music + 2 synthesized SFX (clave-tap on bond-form, descending-pitch fart on player-cause sever). Web Audio API singleton audioManager.ts (~220 LOC), effect-array bridge (BOND_FORMED + BOND_SEVERED kinds), 'M' mute toggle with localStorage persist + Safari-safe try/catch, music-start on PLAYING transition (covers solo + 1v1 host + 1v1 client paths), mute glyph ♪ top-right y=30 dimming on mute. Replay-safe via lastDrainedTick cursor. Multi-bond aggregation (1 clave per placement). Plays SFX for both local and remote bond changes (1v1 awareness).",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "Council R1 + PRIME-AUDIT applied. STATE-DISCOVERY GATE A.0 verified 5 claims (bonds.delete only in SEVER_BOND, physics SEVER_BOND zero in prod, 'M' key conflict-free across 4 keydown handlers, effects not in save schema, no NET-protocol type clash). Tests 330 → 346 (+16): claveEnvelope monotonic decay at t=0/0.015/0.025/0.03; fartFreq exp ramp 600→180Hz monotonic with geometric-mean midpoint √(600*180); drain cursor advance (idempotent re-drain skips ticks ≤ cursor); non-audio effects (BOND_COMMIT, SEVER_ERASE) graceful no-op; replay safety via cursor; reset cursor allows re-fire. Typecheck exit 0 (added BOND_FORMED+BOND_SEVERED cases to lifetime.ts + effectsRenderer.draw() exhaustiveness; effectsRenderer.sync filters audio-only kinds at drain). Build success (777 modules, 388KB main bundle +3KB from audioManager; dist/audio/blue-steppe-orbit.mp3 10MB present). Push commit 105b276 to origin/master; GH Actions deploy run 25743852262 success in <60s. Live verification: curl spark-online.space HTTP 200; curl /audio/blue-steppe-orbit.mp3 200 OK Content-Length=10008775 Content-Type=audio/mp3; updated JS bundle index-CHS860hi.js. Preview eval verified stage children include BETA badge (1908,12,alpha=0.55) AND mute indicator ♪ (1908,30,alpha=0.55) — visual layer present. Audio playback NOT auto-tested (jsdom limit + headless autoplay policy); manual smoke test on live URL = user-gesture click → music starts; place primitive → clave; sever enemy bond → fart; 'M' → mute glyph dims to ♪̸ alpha=0.25.",
+      "checkpoint_commit": "105b276",
+      "real_context_tokens_at_close": 248409,
+      "real_context_pct_at_close": 24.84
     }
   ],
   "totals": {
     "turns": 0,
     "estimated_tokens_legacy_informational": 0,
-    "real_context_tokens_current": 104728,
-    "real_context_pct_current": 10.47,
-    "budget_remaining": 1000000,
+    "real_context_tokens_current": 248409,
+    "real_context_pct_current": 24.84,
+    "budget_remaining": 751591,
     "budget_status": "GREEN"
   }
 }

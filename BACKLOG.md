@@ -6,6 +6,30 @@
 
 ---
 
+## Session 18 — Custom-domain push closeout + P8 audio [COMPLETED] (2026-05-12)
+
+**Triggered by user resolving S17 P0 push-gate (Squarespace DNS migration done) + scope-amendment "first do P8 Audio ... and lets implement suno soundtrack that is attached. by the way we need little sounds affects when a new connection is made and a sound effect for when a connection is broken." Standard tier (Council R1 + PRIME-AUDIT). Two priorities shipped + handoff.**
+
+**P0 — S17 push-gate resolution (Micro pre-authorized; commit `f09e452`).** User confirmed Squarespace DNS migration (Squarespace Defaults preset deleted; 5 custom records added: 4 A `@` 185.199.108-111.153 + CNAME `www` daneshto-dotcom.github.io.). `git push origin master` shipped 7-commit S17 queue (fd016c2..f73bc3a). GH Actions deploy run 25741967555 success. `gh api -X PUT repos/.../pages -F cname=spark-online.space` bound custom domain (cname:null → cname:spark-online.space). Let's Encrypt cert auto-issued ~30s later (state=approved, domains=[spark-online.space, www.spark-online.space], exp=2026-08-10). `gh api -F https_enforced=true` flipped HTTPS enforcement. `curl -sI https://spark-online.space/` → HTTP 200 ✓. `<title>SPARK</title>`. github.io fallback now 301-redirects to primary. LOCKED §13.9 amended commit `f09e452`: "S17+, deferred" → "S18 P0 SHIPPED 2026-05-12" + cert metadata + DNS config details + `gh api` commands + fallback URL redirect note. **Live URL: https://spark-online.space/**
+
+**P1 — P8 Audio (Standard, commit `105b276`).** Suno track "Blue Steppe Orbit" (10MB mp3, user-supplied) ships as background music + 2 procedural SFX (clave-tap on bond-form, descending-pitch sweep on player-cause sever). Council R1 (Grok DISRUPTOR 8 challenges + Gemini AUDITOR 10 findings) + PRIME-AUDIT (5 items). 2 BLOCKERs converged: replay double-fire (Grok#2 + Gemini#1) → `lastDrainedTick` cursor; multi-bond stacking (Gemini#4) → 1-BOND_FORMED-per-placement aggregation. 6 SHOULDs adopted: localStorage try/catch (Safari private mode safe), AudioContext init on ANY user gesture + `ctx.resume()` on every play call, exp ramps for fart synth, mute glyph child-add-order layering, music-start covers solo + 1v1 paths, SFX fires for both local+remote bond changes. 4 DEFERRED (OGG compression, PannerNode, cross-tab storage, music loop gap). PRIME-AUDIT + STATE-DISCOVERY GATE A.0: 5 claims verified — bonds.delete only in SEVER_BOND ✓, physics SEVER_BOND zero in prod ✓, 'M' key conflict-free across 4 handlers ✓, effects not in save schema ✓, no NET-protocol type clash ✓.
+
+New: `public/audio/blue-steppe-orbit.mp3`, `src/render/audioManager.ts` (~220 LOC: singleton AudioContext lazy-init on user gesture, master GainNode mute, music via AudioBufferSourceNode loop fetched + decoded once, SFX synth — sine 1200+2400Hz clave 30ms / sawtooth 600→180Hz fart with LPF sweep 280ms, lastDrainedTick cursor, localStorage mute persist with try/catch, exported pure helpers `claveEnvelope` + `fartFreq` for unit tests), `src/render/audioManager.test.ts` (16 new tests). Modified: `src/game/effects.ts` (BOND_FORMED + BOND_SEVERED kinds added to GameEffect union), `src/state/placePrimitive.ts` (snapshot `bonds.size` at top; emit ONE BOND_FORMED at end if `bondsFormedCount > 0`), `src/state/world.ts` SEVER_BOND (capture `severPos` pre-delete; emit BOND_SEVERED at end with `action.cause`), `src/render/effects/lifetime.ts` + `src/render/effectsRenderer.ts` (TS exhaustiveness — audio-only kinds filtered at drain, no-op in draw), `src/main.ts` (import audioManager; lazy init on pointerdown/keydown gesture; 'M' key gated on activeElement not being INPUT/TEXTAREA; `drainAudioEffects` BEFORE `effectsRenderer.sync` since latter wipes `world.effects`; playMusic() on PLAYING transition covers all 3 entry paths; ♪ mute indicator top-right y=30, dims + slashes on mute). Tests 330 → 346 (+16). Typecheck exit 0. Build success (777 modules, 388KB main bundle +3KB from audioManager, `dist/audio/blue-steppe-orbit.mp3` 10MB verified). GH Actions run 25743852262 deploy success. Live: `curl -sI https://spark-online.space/audio/blue-steppe-orbit.mp3` → 200 OK Content-Length=10008775. Preview eval verified BETA badge + ♪ mute indicator both render at (1908, y) alpha=0.55.
+
+**Carry-forward for S19+:**
+- Manual playtest verification of audio on live URL (music starts on Begin Match, claves on bond, fart on sever, 'M' mutes, persist across reload)
+- P2 NET feel tuning (playtest-gated — was carry-forward from S17 too)
+- P3 NET enhancements (client prediction + delta NetSnapshot + host migration + live cursor sync — Standard tier)
+- P4 `disruptionManager.ts` extraction (anti-bloat §XV — world.ts 308 → 311 LOC after S18 P1 +3 LOC for BOND_SEVERED emit)
+- P5 Phase-2 next mechanic (pick: D Inject Spiral / E Steal / A Fog / G Mega-combos)
+- P6 Per-silhouette gradient polish (12 magic silhouettes use colorA primary — Council R1 Grok #4 deferred-PARTIAL)
+- P7 Bond-hover cost preview
+- P9 (NEW) Audio polish: OGG compression for mobile (Grok#4 DEFERRED), PannerNode + auto-duck (Grok#5), full-screen music-state cue on lobby (idea for design)
+- LOCKED §13.14 audio codification (not added this session — can add in S19 closeout if user requests)
+- HTTP-80 redirect on spark-online.space still 404 (GH propagation lag observed at S18 close; should auto-resolve in 1-2hr — non-blocking since browsers default HTTPS)
+
+---
+
 ## Session 17 — Phase-2 Tier-1 disruption + custom-domain ready-to-ship [COMPLETED] (2026-05-12)
 
 **Triggered by user approval of presented S17 PDR + mid-PDR Scope Amendment #1 BLOCKER report ("I can't join room when playing with friend... it lets you put the code in that my friend generated and then cant click enter"). Standard tier (5 priorities), Council R1 (Grok DISRUPTOR + Gemini AUDITOR) on the Phase-2 work, no Council re-invocation for the Lobby BLOCKER (pre-existing defect in S16 P1 module, no new architectural surface).**
