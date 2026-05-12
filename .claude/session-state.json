@@ -1,7 +1,7 @@
 {
-  "tool_calls_session_total": 63,
-  "session_start": "2026-05-11T22:00:00Z",
-  "session_id": "S12",
+  "tool_calls_session_total": 2,
+  "session_start": "2026-05-12T00:00:00Z",
+  "session_id": "S13",
   "budget_total": 150000,
   "budget_overhead": 30000,
   "budget_per_priority": 0,
@@ -11,41 +11,63 @@
   "tier": "Standard",
   "council_waived": false,
   "council_waiver_reason": null,
-  "council_invoked": "R1-parallel-completed-REVISE-then-SHIP",
-  "active_pdr": ".claude/plans-archive/2026-05-11_PDR_Session_12_COMPLETED.md",
+  "council_invoked": "R1-parallel-completed-REVISE-then-SHIP-with-PRIME-AUDIT",
+  "active_pdr": ".claude/plans-archive/2026-05-12_PDR_Session_13_COMPLETED.md",
   "priorities": [
     {
       "id": "P1",
-      "title": "Process drift cleanup (push S11 autocommit)",
+      "title": "Multi-structure merge reach (MERGE_REACH_RADIUS + nearest-pick map)",
       "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "git push origin master — pushed ca6f10c [state-autocommit] S11 PLUS fc982af [state-autocommit] S11 (second autocommit that materialized during the push as the state-hook fired again). e565d60..fc982af master->master. Post-push verification: (1) git status shows 'Your branch is up to date with origin/master'; (2) git log -5 confirms fc982af is HEAD; (3) push succeeded with no force, no --no-verify, no -i; (4) zero source/test/typecheck regression possible — both commits are content-preserving state-autocommits. No source file changes in either commit (verified by handoff carry-forward note + git log message pattern).",
-      "checkpoint_commit": "fc982af"
+      "check_method": "PRIME-AUDIT (Rule 20): (1) constants.ts adds MERGE_REACH_RADIUS=100, separate from controls.ts-local AUTO_BOND_RADIUS=60. (2) controls.ts:onUp passes allPrimitivesInRange(MERGE_REACH_RADIUS, spark.pos) as mergeCandidateIds; primary target picking still at AUTO_BOND_RADIUS. (3) world.ts placePrimitive merge sweep refactored to two-phase Map<rootId, {cand, distSq, comp}>: Phase 1 groups candidates by component picking nearest-to-new-prim per component; Phase 2 iterates one merge bond per chosen-nearest cand. Replaces S9's implicit 'first-iterated cand wins' (Council Gemini #2 adoption). (4) Tests: 7 new in session13.test.ts covering 3-structure merge at 90px, nearest-pick per component, separate-components 2-bond case. (5) Combined into commit 8e58cd2 with P3 (impulse-related changes share the same code path — thematic atom). (6) 208/208 tests passing post-P1+P3. Typecheck clean (npx tsc -b --noEmit exit 0).",
+      "checkpoint_commit": "8e58cd2"
     },
     {
       "id": "P2",
-      "title": "effectsRenderer per-kind split (Standard, Council-revised)",
+      "title": "STRUCTURE_GROW outward verlet impulse (primary-component centroid-outward)",
       "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "PRIME-AUDIT (Rule 20) post-refactor: (1) Dead-silhouette audit ran first — grep src/combos.ts vs the 13 silhouette cases in drawBondCommit's switch. RESULT: zero deletions — all 12 magic IDs (fx.filament, fx.cable, fx.bracket, fx.diamond, fx.wheel, fx.star, fx.orbital, fx.lattice, fx.capsule, fx.vortex, fx.whip, fx.warped) PLUS fx.bond.default actively emitted by combos.ts. (2) 8 source files written under src/render/effects/ (bondCommit, lifetime, scoreTier, severErase, silhouettes, structureGrow, structureMerge — 7 files) + parent rewrite (effectsRenderer.ts 569→116 LOC) + new smoke test (effectsRenderer.test.ts). (3) Public surface preserved: EffectsRenderer class signature unchanged (ctor takes Application, sync/activeCount/destroy stable). main.ts:40,82,165,168 imports unchanged. (4) SEVER_ERASE drawer newly extracted from inline parent body (lines 117-134 of original) into severErase.ts for shape consistency with other 4 kinds. (5) Council R1 adoptions verified in artifact: silhouettes.ts split separately from bondCommit.ts per Grok #3 (243+86 LOC vs combined ~280); CI smoke test added per Gemini #1 (22 new tests). Risks #4 (Graphics ownership) + #5 (world.tick state) confirmed removed-by-design — parent owns Graphics, calls g.clear() once per sync, drawers receive g + age:number as pure-fn params, never read world.tick. (6) Tests: npx vitest run → 201/201 pass (179 prior + 22 new smoke covering effectLifetime/per-kind dispatch/all 12 magic silhouettes/class lifecycle). (7) Typecheck: npx tsc -b --noEmit → exit 0, no output. (8) § XV LOC compliance: wc -l shows no file >500 (largest: silhouettes.ts at 243 LOC; parent 116 LOC). (9) Commit 80f52e8 (9 files: 7 new + 1 rewrite + 1 new test; +752 -485) pushed to origin/master (fc982af..80f52e8). Browser playtest deferred — refactor is pure code-motion + extract-to-function + new test, no behavior change expected; user is already playtest-gated on cinematics constants tuning from S10 (top backlog priority).",
-      "checkpoint_commit": "80f52e8"
+      "check_method": "PRIME-AUDIT (Rule 20): (1) constants.ts adds STRUCTURE_GROW_IMPULSE=0.8 with cross-reference comment to MERGE_IMPULSE (Gemini #3 adoption). (2) world.ts: primaryPreExistingPrims snapshot inside primary-target block — collects componentOf(target).primitiveIds minus new prim. After STRUCTURE_GROW visual emit (cinematicsEnabled-gated), computes centroid of (primaryPreExisting + new prim) and applies prevPos -= unit(centroid → p) × IMPULSE on each pre-existing prim. NaN-safe via dmag<1 skip. (3) Direction adopted from Council Grok #2: centroid-outward (reads as 'grow') vs origin-outward (reads as 'recoil'). (4) Gated on cinematicsEnabled (paired with visual emit) — different from MERGE_IMPULSE's unconditional pattern; single mental model for C-keybind. (5) Tests: 6 new in session13.test.ts P2 block — sentinel constant, 2-prim primary (single anchor + new), 3-prim chain centroid math, anchor placement skip, cinematicsEnabled gate, cand-component prims excluded. (6) Existing session10 tests preserved (P3 inward on cand still asserts MERGE_IMPULSE_MAGNITUDE shift; P2 doesn't touch cand). (7) 214/214 tests passing. Typecheck clean. Commit 72caa22.",
+      "checkpoint_commit": "72caa22"
     },
     {
       "id": "P3",
+      "title": "MERGE_IMPULSE_MAGNITUDE bump (1.2->3.0) + short-bond clamp",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "PRIME-AUDIT (Rule 20): (1) constants.ts: MERGE_IMPULSE_MAGNITUDE 1.2->3.0 (Council validated: 5% strain on 60-px bond, 5x headroom vs HIGH-tier 25% break; compression-only since bonds break on extension per physics/bonds.ts:58). (2) constants.ts: MIN_BOND_LENGTH_FOR_IMPULSE=25 added (Council Gemini #1 adoption — note: re-justified as teleport-prevention vs Gemini's strain-break framing which was wrong; bonds.ts breaks on extension only). (3) world.ts: short-bond clamp via shortBondScale = min(1, mergeBondRestLength / 25). Scale applied uniformly across cand component to preserve rigid-body translation (no internal-bond strain). Effective impulse at idist=10 -> 1.2px, preventing teleport-through-new-prim. (4) Bundled into commit 8e58cd2 with P1 since code path is shared (merge sweep). (5) Tests: 4 new in session13.test.ts P3 block — sentinel constants, full-magnitude no-clamp case, short-bond scaling formula. (6) Existing session10 test (line 284) still passes: imports MERGE_IMPULSE_MAGNITUDE so asserts on new 3.0 value automatically. (7) 208/208 tests pass after P1+P3 commit. Typecheck clean.",
+      "checkpoint_commit": "8e58cd2"
+    },
+    {
+      "id": "P4",
+      "title": "SCORE_TIER center pulse at new prim (remove corner, scale up, pos required)",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "PRIME-AUDIT (Rule 20): (1) effects.ts SCORE_TIER kind: added required pos: Vec2 (Council Grok #5 partial adoption — single pulse at placement, corner pulse removed). (2) world.ts emit-site: pos: { x: prim.pos.x, y: prim.pos.y } so renderer draws AT new primitive. (3) scoreTier.ts: rewritten as 44 LOC — CANVAS_HEIGHT import removed (no more corner anchor); SCORE_TIER_CENTER_X/Y constants removed; renders at effect.pos. Scale-up: bloom radius 28->60 (start) / 56->100 (end); ring radius 18->40 (start) / 68->100 (end); stroke width 2->3. (4) lifetime.ts: SCORE_TIER_DURATION_TICKS 30->48 (~500ms -> ~800ms for longer foveal-attention coverage). (5) effectsRenderer.test.ts: 3 SCORE_TIER fixture constructions updated for required pos field. (6) Tests: 2 new in session13.test.ts P4 block — pos co-location with new prim, multi-tier crossing pos-tagging. (7) HUD progress bar unchanged in ui.ts — still fills continuously as running indicator. (8) 216/216 tests pass. Typecheck clean. Commit 8b5ad3e.",
+      "checkpoint_commit": "8b5ad3e"
+    },
+    {
+      "id": "P5",
       "title": "Closeout (BACKLOG + reflexion + boot snapshot + PDR archive + HANDOFF)",
       "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "Closeout artifacts: BACKLOG.md S12 entry inserted (effectsRenderer per-kind split summary with full Council R1 narrative + carry-forward block; ~60 lines) + session map updated (S11 DONE → S12 DONE → S13+ Audio/Phase 2). reflexion_log.md prepended with 4 S12 entries (#per-kind-split-when-charter-breached-via-monolith, #dead-code-audit-before-code-motion, #pure-fn-drawers-with-age-not-tick-state, SESSION #council-r1-vs-handoff-endorsement); pruned 4 oldest S5/S6 detail entries (S5 #dpr-double-bug, S5 #naive-fix-incomplete, S5 #max-speed-clamp-location, S6 #headless-tab-pauses-ticker) to maintain ≤50 cap (lower-bound reflexion footer updated). boot-snapshot.md regenerated with S12 commit list + post-split state + Phase-2-ready note + carry-forward updates (no remaining § XV charter breach). PDR moved (plain mv since untracked) to plans-archive/2026-05-11_PDR_Session_12_COMPLETED.md with post-execution Battle Ledger (exit-gate table + Council adoption verification table + PRIME-AUDIT delta + carry-forward block) appended. plans/ directory empty. /handoff skill to be invoked next per user direction — will replace HANDOFF_2026-05-11.md root and archive S11 root → .handoff-archive/HANDOFF_2026-05-11_S11_postS12.md. Final 201/201 tests pass (179 prior + 22 new smoke). typecheck clean. No file > 500 LOC. P1 (fc982af push) + P2 (80f52e8 refactor) commits + this closeout commit on origin/master.",
-      "checkpoint_commit": "59c7170"
+      "check_method": "Closeout artifacts complete: BACKLOG.md S13 entry inserted (~80 LOC with full P1-P5 narrative + Council adoption summary + carry-forward block + PRIME-AUDIT carry-forward note) + session map row added (S13 DONE -> S14+ Phase 2/Audio/charter-extraction). reflexion_log.md prepended with 5 S13 entries (#verify-council-claims-against-source-before-adoption, #knob-splitting-when-one-constant-doubles-as-two-semantic-concepts, #impulse-direction-as-ux-framing, #short-bond-clamp-prevents-teleport-not-strain-break, SESSION #per-priority-commit-vs-thematic-batching); pruned 3 oldest S4-S5 detail entries (S4 SESSION, S5 #single-action-place, S5 #headless-test-contamination) to maintain <=50 cap; pruning footer updated. boot-snapshot.md regenerated with S13 commit list + post-S13 state + § XV PRIME-AUDIT carry-forward note. PDR moved (mv since untracked) to .claude/plans-archive/2026-05-12_PDR_Session_13_COMPLETED.md with post-execution Battle Ledger + Council adoption follow-through table + PRIME-AUDIT delta appended. HANDOFF_2026-05-12.md written at root replacing S12's HANDOFF_2026-05-11.md; S12 root archived to .handoff-archive/HANDOFF_2026-05-11_S12_postS13.md via git mv. Final state: 216/216 tests pass. Typecheck clean. § XV carry-forward logged (world.ts at 587 LOC, 17% over soft charter; placePrimitive extraction recommended for S14 — not blocking). 4 work commits (8e58cd2 P1+P3, 72caa22 P2, 8b5ad3e P4) + this closeout commit (50f6ff9) on origin/master, all pushed.",
+      "checkpoint_commit": "50f6ff9"
     }
   ],
   "totals": {
