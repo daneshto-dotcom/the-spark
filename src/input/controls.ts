@@ -35,9 +35,23 @@ import type { Spark } from '../game/spark.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { componentOf } from '../game/structure.ts';
 import { dispatch } from '../state/world.ts';
-import type { World } from '../state/world.ts';
+import type { GameAction, World } from '../state/world.ts';
 import type { BondId, PlayerId, PrimitiveId, SparkId, Vec2 } from '../types.ts';
 import { pickRedundantBondTargets } from './redundantBondTargets.ts';
+
+/**
+ * S15 P2 — dispatcher injection. Solo / host mode passes a fn that calls
+ * dispatch(world, action) locally. Client mode passes a fn that wraps the
+ * action as an Intent envelope and sends over the network transport (host
+ * applies authoritatively, snapshot returns ~RTT/2 later). controls.ts has
+ * no direct net dependency; main.ts decides the wiring.
+ */
+export type ControlsDispatchFn = (action: GameAction) => void;
+
+/** Default dispatcher: solo path. Equivalent to pre-S15 controls behavior. */
+export function makeLocalDispatcher(world: World): ControlsDispatchFn {
+  return (action) => { dispatch(world, action); };
+}
 
 const PICK_RADIUS = 28;
 const BOND_PICK_DIST = 8;
@@ -80,14 +94,23 @@ export type ControlState =
 export class Controls {
   state: ControlState = { kind: 'Idle' };
   cursor: Vec2 = { x: 0, y: 0 };
+  /**
+   * S15 P2 — mutable (was readonly). Solo / host stays at playerId 0; joiner
+   * client is set to playerId 1 by main.ts after lobby completes.
+   */
+  private playerId: PlayerId;
+  private readonly dispatchFn: ControlsDispatchFn;
 
   private capturedPointerId: number | null = null;
 
   constructor(
     private readonly app: Application,
     private readonly world: World,
-    private readonly playerId: PlayerId,
+    playerId: PlayerId,
+    dispatchFn?: ControlsDispatchFn,
   ) {
+    this.playerId = playerId;
+    this.dispatchFn = dispatchFn ?? makeLocalDispatcher(world);
     const canvas = app.canvas;
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     canvas.addEventListener('pointerdown', this.onDown);
@@ -98,6 +121,21 @@ export class Controls {
     // belt-and-braces guarantee for fast drags / lost capture.
     window.addEventListener('pointerup', this.onUp);
     canvas.addEventListener('lostpointercapture', this.onLostCapture);
+    // S15 P2 — Space key → END_TURN (1v1 only). Auto-releases carried
+    // spark on accept per PRIME-AUDIT #4.
+    window.addEventListener('keydown', this.onKeyDown);
+  }
+
+  /**
+   * S15 P2 — set the local player's id (used when client joins as P2).
+   * Has no effect on FSM state; only changes future action attribution.
+   */
+  setPlayerId(id: PlayerId): void {
+    this.playerId = id;
+  }
+
+  getPlayerId(): PlayerId {
+    return this.playerId;
   }
 
   /** Apply attract force / cursor-lock per substep. Called from main loop. */
@@ -168,7 +206,7 @@ export class Controls {
       } else {
         const bondId = this.pickBond();
         if (bondId !== null) {
-          dispatch(this.world, { type: 'SEVER_BOND', bondId });
+          this.dispatchFn({ type: 'SEVER_BOND', bondId });
         }
       }
     }
@@ -219,7 +257,7 @@ export class Controls {
           // future change that might transform/remove the spark inside
           // PICKUP_SPARK.
           const carriedType = spark.type;
-          dispatch(this.world, {
+          this.dispatchFn({
             type: 'PICKUP_SPARK',
             sparkId: spark.id,
             playerId: this.playerId,
@@ -248,7 +286,7 @@ export class Controls {
           const extraBondTargetIds: PrimitiveId[] = target !== null
             ? this.redundantBondTargetsInSameComponent(target, spark.pos)
             : [];
-          dispatch(this.world, {
+          this.dispatchFn({
             type: 'PLACE_PRIMITIVE',
             playerId: this.playerId,
             targetPrimitiveId: target?.id ?? null,
@@ -272,7 +310,7 @@ export class Controls {
         const tier = carried !== undefined
           ? computeStiffnessTier(carried.type, target)
           : 'MID';
-        dispatch(this.world, {
+        this.dispatchFn({
           type: 'PLACE_PRIMITIVE',
           playerId: this.playerId,
           targetPrimitiveId: target?.id ?? null,
@@ -290,6 +328,31 @@ export class Controls {
   private onLostCapture = (): void => {
     this.capturedPointerId = null;
     if (this.state.kind !== 'Idle') this.state = { kind: 'Idle' };
+  };
+
+  // S15 P2 — Space → END_TURN (1v1 only). Auto-releases mid-drag /
+  // mid-carry per PRIME-AUDIT #4: AttractDrag drops to Idle silently;
+  // ConnectDrag dispatches DROP_SPARK at cursor before flipping turn.
+  // No-op in solo or non-PLAYING gameState.
+  private onKeyDown = (e: KeyboardEvent): void => {
+    if (e.code !== 'Space' && e.key !== ' ') return;
+    if (this.world.gameMode !== '1v1') return;
+    if (this.world.gameState !== 'PLAYING') return;
+    if (this.state.kind === 'AttractDrag') {
+      // Spark stays Free where its physics put it.
+      this.state = { kind: 'Idle' };
+    } else if (this.state.kind === 'ConnectDrag') {
+      // Drop the carried spark at the current cursor position so the FSM
+      // returns to Idle before the turn flips.
+      this.dispatchFn({
+        type: 'DROP_SPARK',
+        playerId: this.playerId,
+        pos: { x: this.cursor.x, y: this.cursor.y },
+      });
+      this.state = { kind: 'Idle' };
+    }
+    this.dispatchFn({ type: 'END_TURN' });
+    e.preventDefault();
   };
 
   private acquirePointerCapture(e: PointerEvent): void {

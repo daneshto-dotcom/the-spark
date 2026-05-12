@@ -7,7 +7,7 @@
  */
 
 import { BUILD_ACTIONS_PER_CHARGE, MAX_DISRUPTION_CHARGES } from '../constants.ts';
-import type { PlayerId, SparkId } from '../types.ts';
+import type { PlayerId, SparkId, Vec2 } from '../types.ts';
 
 export interface PlayerCommon {
   readonly id: PlayerId;
@@ -15,6 +15,16 @@ export interface PlayerCommon {
   energy: number;
   buildActions: number;
   disruptionCharges: number;
+  /**
+   * S15 P2 — per-player cursor / avatar position. In solo (Phase 1) the
+   * cursor doubles as the single avatar (avatarRenderer.ts reads
+   * controls.cursor). In 1v1 networked play, each Player has their OWN
+   * avatarPos written by host on its own input + on client-Intent applied
+   * by host; clients render both via NetSnapshot. Council R1 BLOCKER #2
+   * (Grok): "personal-vision logic assumes every PlayerId has its own
+   * avatar position".
+   */
+  avatarPos: Vec2;
 }
 
 export type IdlePlayer = PlayerCommon & { readonly kind: 'Idle' };
@@ -24,7 +34,7 @@ export type CarryingPlayer = PlayerCommon & {
 };
 export type Player = IdlePlayer | CarryingPlayer;
 
-export function makeIdlePlayer(id: PlayerId, color: number): IdlePlayer {
+export function makeIdlePlayer(id: PlayerId, color: number, avatarPos: Vec2 = { x: 0, y: 0 }): IdlePlayer {
   return {
     id,
     color,
@@ -32,6 +42,7 @@ export function makeIdlePlayer(id: PlayerId, color: number): IdlePlayer {
     energy: 0,
     buildActions: 0,
     disruptionCharges: 0,
+    avatarPos: { x: avatarPos.x, y: avatarPos.y },
   };
 }
 
@@ -53,6 +64,7 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     energy: player.energy,
     buildActions: player.buildActions,
     disruptionCharges: player.disruptionCharges,
+    avatarPos: { x: player.avatarPos.x, y: player.avatarPos.y },
     kind: 'Carrying',
     carriedSparkId: sparkId,
   };
@@ -69,6 +81,7 @@ export function drop(player: Player): IdlePlayer {
     energy: player.energy,
     buildActions: player.buildActions,
     disruptionCharges: player.disruptionCharges,
+    avatarPos: { x: player.avatarPos.x, y: player.avatarPos.y },
     kind: 'Idle',
   };
 }

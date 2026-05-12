@@ -33,11 +33,31 @@ export function tickGameState(
   primaryPlayerId: PlayerId,
 ): GameState {
   switch (world.gameState) {
+    case 'TITLE':
+    case 'LOBBY':
+      // S15 P2 — no per-tick game logic in pre-PLAYING states; main.ts
+      // drives transitions via dispatch(START_GAME / RETURN_TO_TITLE).
+      return world.gameState;
+
     case 'PLAYING':
       // S9 P3: WIN by score, not by raw primitive count. Magic combos count
       // 3x, functional 1x, anchor 1x — see constants.ts.
+      // S15 P2: in 1v1, winner is the player whose score reached the
+      // threshold first; scoreProgress = max(scoreByPlayer) so the gate
+      // fires when any player crosses. Attribution scans scoreByPlayer
+      // for the max-scoring player.
       if (world.scoreProgress >= PHASE_1_WIN_SCORE) {
-        dispatch(world, { type: 'WIN_TRIGGER', winnerId: primaryPlayerId });
+        let winnerId: PlayerId = primaryPlayerId;
+        if (world.gameMode === '1v1') {
+          let maxScore = -1;
+          for (const [pid, score] of world.scoreByPlayer.entries()) {
+            if (score > maxScore) {
+              maxScore = score;
+              winnerId = pid;
+            }
+          }
+        }
+        dispatch(world, { type: 'WIN_TRIGGER', winnerId });
         extras.winEnteredTick = world.tick;
       }
       return world.gameState;
@@ -67,6 +87,9 @@ export function softReset(world: World, extras: GameStateExtras): void {
   world.nextBondId = 0;
   world.effects.length = 0;
   world.scoreProgress = 0;
+  // S15 P2: per-player score reset; keep keyed entries (player roster
+  // unchanged by softReset).
+  for (const pid of world.scoreByPlayer.keys()) world.scoreByPlayer.set(pid, 0);
   for (const player of world.players.values()) {
     player.energy = 0;
     player.buildActions = 0;

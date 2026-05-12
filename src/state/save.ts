@@ -1,11 +1,24 @@
 /**
- * SPARK — WorldSnapshot serializer + localStorage save/load.
- * § 10.4 LOCKED: schemaVersion: 1 — locked across Phase 1.
+ * SPARK — WorldSnapshot serializer + localStorage save/load + NetSnapshot
+ * wire variant for Phase-2 1v1 (§ 11 LOCKED amendment, S15 P2).
+ *
+ * § 10.4 LOCKED: schemaVersion: 1 — locked across Phase 1. S15 P2
+ * ADDITIVE: gameMode, currentPlayerId, scoreByPlayer; SerializedPlayer
+ * gains avatarPos. All new fields are OPTIONAL in serialized form so
+ * pre-S15 saves still parse (Council Gemini R1 MINOR — save format
+ * compat acknowledged; pre-S15 saves break the WIN-screen banner only,
+ * not loadability).
+ *
  * Sets are converted to arrays. Object refs (Bond.a/Bond.b) are dropped
  * — they're rebuilt from IDs on load.
  *
  * Phase 3 will reuse the same shape for server snapshots / replay scrubbing,
  * so we keep `rngSeed` and `tick` so determinism can be reconstructed.
+ *
+ * NetSnapshot (S15 P2): the wire shape sent host→client at NET_SNAPSHOT_HZ.
+ * Stripped fields (Council R2 + PRIME-AUDIT): savedAt (timestamp not needed),
+ * rngSeed (deterministic RNG not v1), nextPrimitiveId/nextBondId (host-only
+ * authority — clients never mint IDs).
  */
 
 import { type StiffnessTier } from '../constants.ts';
@@ -28,7 +41,7 @@ import {
   type SparkId,
   type Vec2,
 } from '../types.ts';
-import { type GameState, type World } from './world.ts';
+import { type GameMode, type GameState, type World } from './world.ts';
 import { type Player } from '../game/player.ts';
 
 const STORAGE_KEY = 'spark.snapshot.v1';
@@ -36,7 +49,7 @@ const PHYSICS_DT = 1 / 60;
 
 export interface WorldSnapshot {
   schemaVersion: 1;
-  savedAt: string; // ISO timestamp
+  savedAt: string;
   tick: number;
   rngSeed: number;
   gameState: GameState;
@@ -47,10 +60,13 @@ export interface WorldSnapshot {
   primitives: SerializedPrimitive[];
   bonds: SerializedBond[];
   players: SerializedPlayer[];
-  // S9 P3: persisted so mid-game save/restore preserves progress.
-  // Optional in the serialized form for back-compat with pre-S9 saves —
-  // restore defaults to 0 when absent.
   scoreProgress?: number;
+  /** S15 P2 — solo/1v1 distinction. Optional for pre-S15 compat. */
+  gameMode?: GameMode;
+  /** S15 P2 — active turn player. Optional for pre-S15 compat (defaults to 0). */
+  currentPlayerId?: PlayerId;
+  /** S15 P2 — per-player score tuples. Optional for pre-S15 compat. */
+  scoreByPlayer?: Array<readonly [PlayerId, number]>;
 }
 
 interface SerializedSpark {
@@ -71,7 +87,7 @@ interface SerializedPrimitive {
   createdTick: number;
   pos: Vec2;
   prevPos: Vec2;
-  bonds: BondId[]; // Set → array
+  bonds: BondId[];
   ownerColor: number;
   lastOwnershipChange: number;
   radius: number;
@@ -94,6 +110,8 @@ interface SerializedPlayer {
   energy: number;
   buildActions: number;
   disruptionCharges: number;
+  /** S15 P2 — per-player avatar position. Optional for pre-S15 compat. */
+  avatarPos?: Vec2;
 }
 
 export function snapshot(world: World): WorldSnapshot {
@@ -111,6 +129,9 @@ export function snapshot(world: World): WorldSnapshot {
     bonds: [...world.bonds.values()].map(serializeBond),
     players: [...world.players.values()].map(serializePlayer),
     scoreProgress: world.scoreProgress,
+    gameMode: world.gameMode,
+    currentPlayerId: world.currentPlayerId,
+    scoreByPlayer: [...world.scoreByPlayer.entries()],
   };
 }
 
@@ -118,13 +139,64 @@ export function restore(snap: WorldSnapshot, world: World): void {
   if (snap.schemaVersion !== 1) {
     throw new Error(`unsupported schemaVersion ${snap.schemaVersion}`);
   }
-  world.tick = snap.tick;
+  applySnapshotCore(snap, world);
+  // restore() owns host-only fields (savedAt is informational only; rngSeed
+  // + nextPrimitiveId/nextBondId are absent in NetSnapshot but present here).
   world.rngSeed = snap.rngSeed;
-  world.gameState = snap.gameState;
-  world.lastWinnerId = snap.lastWinnerId;
   world.nextPrimitiveId = snap.nextPrimitiveId;
   world.nextBondId = snap.nextBondId;
+}
+
+/**
+ * S15 P2 — NetSnapshot wire variant. Omits host-only fields (Council R2 +
+ * PRIME-AUDIT consolidated retain-list).
+ */
+export type NetSnapshot = Omit<
+  WorldSnapshot,
+  'savedAt' | 'rngSeed' | 'nextPrimitiveId' | 'nextBondId'
+>;
+
+/**
+ * Strip host-only fields from a full snapshot to produce a NetSnapshot.
+ * Used by HostSync.buildSnapshotMessage at NET_SNAPSHOT_HZ.
+ */
+export function netSnapshot(world: World): NetSnapshot {
+  const full = snapshot(world);
+  const {
+    savedAt: _savedAt,
+    rngSeed: _rngSeed,
+    nextPrimitiveId: _nextPrimitiveId,
+    nextBondId: _nextBondId,
+    ...rest
+  } = full;
+  void _savedAt; void _rngSeed; void _nextPrimitiveId; void _nextBondId;
+  return rest;
+}
+
+/**
+ * Apply a NetSnapshot to a client's local world. Same machinery as restore()
+ * but does not write host-only counters (rngSeed, nextPrimitiveId, nextBondId).
+ * Throws on unsupported schemaVersion.
+ */
+export function applyNetSnapshot(snap: NetSnapshot, world: World): void {
+  if (snap.schemaVersion !== 1) {
+    throw new Error(`unsupported schemaVersion ${snap.schemaVersion}`);
+  }
+  applySnapshotCore(snap, world);
+}
+
+/** Shared apply logic for restore() and applyNetSnapshot(). */
+function applySnapshotCore(snap: NetSnapshot, world: World): void {
+  world.tick = snap.tick;
+  world.gameState = snap.gameState;
+  world.lastWinnerId = snap.lastWinnerId;
   world.scoreProgress = snap.scoreProgress ?? 0;
+  world.gameMode = snap.gameMode ?? 'solo';
+  world.currentPlayerId = snap.currentPlayerId ?? asPlayerId(0);
+  world.scoreByPlayer.clear();
+  if (snap.scoreByPlayer !== undefined) {
+    for (const [pid, score] of snap.scoreByPlayer) world.scoreByPlayer.set(pid, score);
+  }
 
   world.freeSparks.clear();
   world.primitives.clear();
@@ -149,7 +221,6 @@ export function restore(snap: WorldSnapshot, world: World): void {
   }
 
   for (const p of snap.primitives) {
-    // Build a stub spark for makePrimitiveFromSpark, then overwrite.
     const stubSpark = makeFreeSpark({
       id: asSparkId(-1),
       type: p.type,
@@ -202,6 +273,9 @@ export function restore(snap: WorldSnapshot, world: World): void {
       energy: p.energy,
       buildActions: p.buildActions,
       disruptionCharges: p.disruptionCharges,
+      avatarPos: p.avatarPos !== undefined
+        ? { x: p.avatarPos.x, y: p.avatarPos.y }
+        : { x: 0, y: 0 },
     };
     const player: Player =
       p.kind === 'Carrying' && p.carriedSparkId !== null
@@ -259,6 +333,7 @@ function serializePlayer(p: Player): SerializedPlayer {
     energy: p.energy,
     buildActions: p.buildActions,
     disruptionCharges: p.disruptionCharges,
+    avatarPos: { x: p.avatarPos.x, y: p.avatarPos.y },
   };
 }
 

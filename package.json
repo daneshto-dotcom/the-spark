@@ -12,7 +12,8 @@
     "test": "vitest"
   },
   "dependencies": {
-    "pixi.js": "^8.5.0"
+    "pixi.js": "^8.5.0",
+    "trystero": "^0.24.0"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

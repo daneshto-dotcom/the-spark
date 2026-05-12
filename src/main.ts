@@ -4,7 +4,7 @@
  *
  * Frame loop (§ 10.6):
  *   accumulate dt → fixed-step physics ticks at 60 Hz → render
- *   per physics tick:
+ *   per physics tick (host or solo only):
  *     dispatch SPAWN_SPARK for each spawn this tick
  *     for substep in 0..8:
  *       controls.applyPerSubstep   (attract force / cursor lock)
@@ -12,6 +12,13 @@
  *       solveBonds
  *       enforceBounds              (only for Free sparks)
  *       resolveCollisions
+ *
+ * S15 P2 (§ 11 LOCKED): gameState FSM extended with TITLE + LOBBY screens
+ * for 1v1 networked play via Trystero. Boot enters TITLE; user picks
+ * "1 Player" (solo, identical to post-S14) or "1v1 (2 Player)" → LOBBY
+ * (host or join via 6-char room code) → PLAYING. Host runs authoritative
+ * Verlet sim + emits NetSnapshot at NET_SNAPSHOT_HZ. Client renders
+ * lerp-interpolated snapshots + sends INTENT envelopes.
  */
 
 import { Application, Text, TextStyle } from 'pixi.js';
@@ -19,6 +26,8 @@ import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   FREE_SPARK_SOFT_CAP,
+  NET_INTERPOLATION_MS,
+  NET_SNAPSHOT_HZ,
   PHYSICS_HZ,
   PHYSICS_SUBSTEPS,
   SPAWNER_CENTER_X,
@@ -31,19 +40,24 @@ import {
   verifyInvariants,
   type InvariantSnapshot,
 } from './game/invariants.ts';
-import { Controls } from './input/controls.ts';
+import { Controls, type ControlsDispatchFn } from './input/controls.ts';
+import { NetTransport } from './net/transport.ts';
+import { HostSync, ClientSync } from './net/sync.ts';
+import { generateRoomCode } from './net/protocol.ts';
 import { resolveCollisions } from './physics/collision.ts';
 import { solveBonds, type Bond } from './physics/bonds.ts';
 import { SpatialGrid } from './physics/spatial.ts';
 import { verletStepAll } from './physics/verlet.ts';
 import { AvatarRenderer } from './render/avatarRenderer.ts';
 import { EffectsRenderer } from './render/effectsRenderer.ts';
+import { LobbyScreen } from './render/lobbyScreen.ts';
 import { SparkRenderer, makeLegend, makeSpawnerRing } from './render/renderer.ts';
 import { StatsOverlay } from './render/statsOverlay.ts';
 import { StructureRenderer } from './render/structureRenderer.ts';
+import { TitleScreen } from './render/titleScreen.ts';
 import { HUD } from './render/ui.ts';
 import { mulberry32 } from './state/rng.ts';
-import { dispatch, makeWorld } from './state/world.ts';
+import { dispatch, makeWorld, type GameAction, type GameState } from './state/world.ts';
 import { makeGameStateExtras, softReset, tickGameState } from './state/gameState.ts';
 import { saveToLocalStorage } from './state/save.ts';
 import { asPlayerId } from './types.ts';
@@ -53,6 +67,7 @@ const PHYSICS_DT = 1 / PHYSICS_HZ;
 const SUBSTEP_DT = PHYSICS_DT / PHYSICS_SUBSTEPS;
 const SPATIAL_CELL_SIZE = 32;
 const P1 = asPlayerId(0);
+const SNAPSHOT_INTERVAL_TICKS = Math.max(1, Math.round(PHYSICS_HZ / NET_SNAPSHOT_HZ));
 
 async function bootstrap(): Promise<void> {
   const app = new Application();
@@ -73,10 +88,35 @@ async function bootstrap(): Promise<void> {
 
   const SEED = 0xc0ffee;
   const world = makeWorld(SEED);
+  // S15 P2 — boot at TITLE (not 'PLAYING' which is the default for tests).
+  world.gameState = 'TITLE';
   const rng = mulberry32(SEED);
   const spawner = new Spawner(DEFAULT_SPAWNER_CONFIG, rng);
   const gameStateExtras = makeGameStateExtras();
-  const controls = new Controls(app, world, P1);
+
+  // ===== S15 P2 — net session state (1v1 only) =====
+  let netTransport: NetTransport | null = null;
+  let hostSync: HostSync | null = null;
+  let clientSync: ClientSync | null = null;
+  let lastSnapshotTick = 0;
+
+  // S15 P2 — dispatcher injection. In solo or host mode, dispatch locally.
+  // In client mode, wrap as INTENT and send via transport (host applies
+  // authoritatively; snapshot returns ~RTT/2 later).
+  const dispatchFn: ControlsDispatchFn = (action: GameAction) => {
+    if (
+      world.gameMode === '1v1' &&
+      !world.isHost &&
+      clientSync !== null &&
+      netTransport !== null
+    ) {
+      netTransport.send(clientSync.wrapIntent(action));
+    } else {
+      dispatch(world, action);
+    }
+  };
+
+  const controls = new Controls(app, world, P1, dispatchFn);
   const sparkRenderer = new SparkRenderer(app);
   const structureRenderer = new StructureRenderer(app);
   const effectsRenderer = new EffectsRenderer(app);
@@ -85,8 +125,79 @@ async function bootstrap(): Promise<void> {
   const stats = new StatsOverlay(app);
   const grid = new SpatialGrid(SPATIAL_CELL_SIZE);
 
+  // ===== S15 P2 — title + lobby screens =====
+  const titleScreen = new TitleScreen(app, {
+    onSoloSelected: () => {
+      dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
+    },
+    on1v1Selected: () => {
+      world.gameState = 'LOBBY';
+    },
+  });
+
+  const lobbyScreen = new LobbyScreen(app, {
+    onHostStart: () => {
+      const code = generateRoomCode();
+      netTransport = new NetTransport();
+      hostSync = new HostSync();
+      world.isHost = true;
+      netTransport.connect(code);
+      netTransport.on((msg) => {
+        if (msg.kind === 'INTENT' && hostSync !== null) {
+          // S15 P2 — host applies client intent authoritatively. The
+          // reducer's per-action gate (gameMode=='1v1' + action.playerId
+          // === currentPlayerId) rejects intents from the inactive
+          // player silently — defense-in-depth even when client controls
+          // should not have sent them.
+          dispatch(world, msg.action);
+        }
+      });
+      return code;
+    },
+    onJoinAttempt: (code) => {
+      netTransport = new NetTransport();
+      clientSync = new ClientSync();
+      world.isHost = false;
+      controls.setPlayerId(asPlayerId(1));
+      netTransport.connect(code);
+      netTransport.on((msg) => {
+        if (msg.kind === 'NETSNAPSHOT' && clientSync !== null) {
+          clientSync.receive(msg, performance.now());
+        }
+      });
+    },
+    onBeginMatch: () => {
+      // Host triggers START_GAME. The first snapshot will carry
+      // gameState='PLAYING' + gameMode='1v1' to the client.
+      dispatch(world, { type: 'START_GAME', mode: '1v1', isHost: true });
+    },
+    onBackToTitle: () => {
+      teardownNet();
+      world.gameState = 'TITLE';
+    },
+    onReturnFromConnectionLost: () => {
+      teardownNet();
+      dispatch(world, { type: 'RETURN_TO_TITLE' });
+    },
+  });
+
+  function teardownNet(): void {
+    if (netTransport !== null) {
+      netTransport.disconnect();
+      netTransport = null;
+    }
+    hostSync = null;
+    if (clientSync !== null) {
+      clientSync.reset();
+      clientSync = null;
+    }
+    controls.setPlayerId(P1);
+    world.isHost = true;
+    lastSnapshotTick = 0;
+  }
+
   const hint = new Text({
-    text: 'LMB drag spark out of zone → carry · RMB drag onto a primitive → bond · ~ stats · C cinematics',
+    text: 'LMB drag spark out of zone → carry · RMB drag onto a primitive → bond · ~ stats · C cinematics · SPACE end turn (1v1)',
     style: new TextStyle({ fontFamily: 'monospace', fontSize: 11, fill: 0x444444 }),
   });
   hint.position.set(10, CANVAS_HEIGHT - 22);
@@ -96,35 +207,33 @@ async function bootstrap(): Promise<void> {
     (globalThis as { __SPARK__?: unknown }).__SPARK__ = {
       get world() { return world; },
       get controls() { return controls; },
+      get netTransport() { return netTransport; },
       app,
     };
   }
 
-  let lastGameState = world.gameState;
+  let lastGameState: GameState = world.gameState;
   const resetIfPostgame = (): void => {
     if (world.gameState === 'POSTGAME') {
-      softReset(world, gameStateExtras);
+      // S15 P2 — POSTGAME → TITLE flow clears scoreProgress + drops P2 on
+      // RETURN_TO_TITLE. Solo path: RETURN_TO_TITLE drops to TITLE; user
+      // re-selects 1 Player to play again (cleaner than implicit replay).
+      teardownNet();
+      dispatch(world, { type: 'RETURN_TO_TITLE' });
     }
   };
   app.canvas.addEventListener('click', resetIfPostgame);
   window.addEventListener('keydown', (e) => {
-    // 'R' or 'r' resets in POSTGAME — keyboard alternative to clicking.
     if ((e.key === 'r' || e.key === 'R') && world.gameState === 'POSTGAME') {
       resetIfPostgame();
     }
-    // S10 P5: 'C' toggles structure cinematics (STRUCTURE_GROW, STRUCTURE_MERGE,
-    // SCORE_TIER). Bond-level effects (BOND_COMMIT pop, SEVER_ERASE fade)
-    // remain on — those are core combat feedback, not "cinematics."
     if (e.key === 'c' || e.key === 'C') {
       world.cinematicsEnabled = !world.cinematicsEnabled;
     }
   });
 
-  // Invariant snapshot — compared post-tick in DEV to catch immobility /
-  // NaN / color-inheritance violations the tick they happen.
   let invariantSnap: InvariantSnapshot = snapshotInvariants(world.primitives);
   let lastViolationLogTick = -Infinity;
-
   let physicsAccumulator = 0;
 
   app.ticker.add((tickerObj) => {
@@ -133,23 +242,37 @@ async function bootstrap(): Promise<void> {
 
     const physStart = performance.now();
     while (physicsAccumulator >= PHYSICS_DT) {
-      if (world.gameState === 'PLAYING') {
+      const isClient = world.gameMode === '1v1' && !world.isHost;
+      if (world.gameState === 'PLAYING' && !isClient) {
         stepPhysics(world, spawner, grid, controls);
       } else {
         world.tick++;
       }
       tickGameState(world, gameStateExtras, P1);
-      if (import.meta.env.DEV) {
+
+      // S15 P2 — host emits NetSnapshot every SNAPSHOT_INTERVAL_TICKS
+      // (60Hz / 10Hz = 6 ticks). Only fires in 1v1 PLAYING; suppressed
+      // in TITLE/LOBBY (no snapshot to send pre-game) and in solo.
+      if (
+        world.gameState === 'PLAYING' &&
+        world.gameMode === '1v1' &&
+        world.isHost &&
+        hostSync !== null &&
+        netTransport !== null &&
+        world.tick - lastSnapshotTick >= SNAPSHOT_INTERVAL_TICKS
+      ) {
+        netTransport.send(hostSync.buildSnapshotMessage(world));
+        lastSnapshotTick = world.tick;
+      }
+
+      if (import.meta.env.DEV && world.gameState === 'PLAYING' && !isClient) {
         const violations = verifyInvariants(world.primitives, world.freeSparks, invariantSnap);
-        // Throttle the log so a stuck violation doesn't spam the console
-        // every tick — once per second is enough to investigate.
         if (violations.length > 0 && world.tick - lastViolationLogTick > 60) {
           console.error('[SPARK] invariant violation tick=' + world.tick, violations);
           lastViolationLogTick = world.tick;
         }
         invariantSnap = snapshotInvariants(world.primitives);
       }
-      // Snapshot to localStorage exactly once on entering POSTGAME.
       if (world.gameState === 'POSTGAME' && lastGameState !== 'POSTGAME') {
         saveToLocalStorage(world);
       }
@@ -157,6 +280,33 @@ async function bootstrap(): Promise<void> {
       physicsAccumulator -= PHYSICS_DT;
     }
     stats.recordPhysics(performance.now() - physStart);
+
+    // S15 P2 — client interpolation. Runs every render frame to lerp
+    // primitive + freeSpark positions between prev + current snapshot.
+    if (world.gameMode === '1v1' && !world.isHost && clientSync !== null) {
+      clientSync.interpolateInto(world, performance.now(), NET_INTERPOLATION_MS);
+    }
+
+    // S15 P2 — screen visibility gate (TITLE / LOBBY overlays).
+    const showTitle = world.gameState === 'TITLE';
+    const showLobby = world.gameState === 'LOBBY';
+    if (titleScreen.isVisible() !== showTitle) titleScreen.setVisible(showTitle);
+    lobbyScreen.setVisible(showLobby);
+
+    // S15 P2 — connection-lost overlay (1v1, PLAYING, no peers).
+    const connectionLost = world.gameMode === '1v1'
+      && world.gameState === 'PLAYING'
+      && netTransport !== null
+      && netTransport.peerCount() === 0;
+    lobbyScreen.setConnectionLostVisible(connectionLost);
+
+    // S15 P2 — update lobby peer status when waiting.
+    if (showLobby && netTransport !== null) {
+      lobbyScreen.updatePeerStatus(netTransport.peerCount());
+    }
+
+    // S15 P2 — HUD connection dot.
+    hud.setConnectionPeers(netTransport !== null ? netTransport.peerCount() : 0);
 
     const renderStart = performance.now();
     const freeSparkArr = freeSparkArray(world.freeSparks);
@@ -184,17 +334,13 @@ function stepPhysics(
 
   enforceFreeSparkCap(world);
 
-  // Energy passive accrual for each player.
   for (const player of world.players.values()) {
     dispatch(world, { type: 'TICK_ENERGY', playerId: player.id, deltaSec: PHYSICS_DT });
   }
 
-  // Snapshot list once per tick — Map iteration overhead is real.
   const sparkArr = freeSparkArray(world.freeSparks);
   let bondArr: Bond[] = Array.from(world.bonds.values());
 
-  // S5 hot-fix: spark currently being AttractDrag'd is exempt from boundary
-  // reflection so the player can yank it out of the spawner zone.
   const attractedId = controls.state.kind === 'AttractDrag' ? controls.state.sparkId : null;
 
   for (let s = 0; s < PHYSICS_SUBSTEPS; s++) {
@@ -203,13 +349,6 @@ function stepPhysics(
     if (bondArr.length > 0) {
       const broken = solveBonds(bondArr);
       if (broken.length > 0) {
-        // Strain-break: sever each over-stretched bond via the dispatch
-        // seam (so BFS topology rule + effects fire). Refresh the local
-        // bond array so subsequent substeps don't keep solving deleted
-        // bonds (Bond.a/Bond.b refs would still be valid but the bond
-        // itself is gone from world.bonds, and the BFS loser side of
-        // primitives may have been deleted too — Bond holds direct refs,
-        // not lookups).
         for (const bondId of broken) {
           if (world.bonds.has(bondId)) {
             dispatch(world, { type: 'SEVER_BOND', bondId });
@@ -228,11 +367,6 @@ function freeSparkArray(map: ReadonlyMap<unknown, Spark>): Spark[] {
   return Array.from(map.values());
 }
 
-/**
- * Soft-cap the Free spark population. Carried sparks live in `freeSparks`
- * but never count toward the cap (the player FSM owns those). Excess Free
- * sparks despawn oldest-first (lowest createdTick) via the dispatch seam.
- */
 function enforceFreeSparkCap(world: Parameters<typeof dispatch>[0]): void {
   let freeCount = 0;
   for (const s of world.freeSparks.values()) {
@@ -251,6 +385,9 @@ function enforceFreeSparkCap(world: Parameters<typeof dispatch>[0]): void {
     dispatch(world, { type: 'DESPAWN_SPARK', sparkId: candidates[i].id });
   }
 }
+
+// Suppress softReset unused-import warning (kept available for future hooks).
+void softReset;
 
 bootstrap().catch((err) => {
   console.error('SPARK boot failure:', err);

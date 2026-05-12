@@ -38,7 +38,7 @@ import { makePrimitiveFromSpark, type Primitive } from '../game/primitive.ts';
 import { bfsHopMap, componentOf, type Structure } from '../game/structure.ts';
 import type { Bond } from '../physics/bonds.ts';
 import { asBondId, asPrimitiveId, type PlayerId, type PrimitiveId } from '../types.ts';
-import { requirePlayer, type World } from './world.ts';
+import { addScore, requirePlayer, type World } from './world.ts';
 
 /** Action payload for PLACE_PRIMITIVE — exported so world.ts can compose GameAction. */
 export interface PlacePrimitiveAction {
@@ -144,7 +144,8 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
       otherPos: { x: target.pos.x, y: target.pos.y },
     });
     // S9 P3: weight progress by combo magic-ness.
-    world.scoreProgress += combo.isMagical ? SCORE_MAGIC_BOND : SCORE_FUNCTIONAL_BOND;
+    // S15 P2: addScore writes per-player + recomputes scoreProgress in 1v1.
+    addScore(world, action.playerId, combo.isMagical ? SCORE_MAGIC_BOND : SCORE_FUNCTIONAL_BOND);
     // Track the primary target's entire component so the sweep skips it.
     // Also snapshot the pre-existing IDs (component minus new prim) for
     // the S13 P2 STRUCTURE_GROW outward impulse below.
@@ -154,7 +155,8 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
     }
   } else {
     // S9 P3: anchor placement (no bond) earns one progress point.
-    world.scoreProgress += SCORE_ANCHOR;
+    // S15 P2: per-player tracking via addScore.
+    addScore(world, action.playerId, SCORE_ANCHOR);
   }
 
   // S14 P2.1: redundancy bonds — additional bonds to other primitives
@@ -304,7 +306,8 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
       otherPos: { x: cand.pos.x, y: cand.pos.y },
     });
     // S9 P3: merge bonds also contribute to progress (same weighting).
-    world.scoreProgress += combo.isMagical ? SCORE_MAGIC_BOND : SCORE_FUNCTIONAL_BOND;
+    // S15 P2: per-player tracking via addScore.
+    addScore(world, action.playerId, combo.isMagical ? SCORE_MAGIC_BOND : SCORE_FUNCTIONAL_BOND);
 
     // S10 P3 + S13 P3: real verlet impulse on the candidate's component.
     // Each prim in candComp gets prevPos pushed AWAY from the new prim's

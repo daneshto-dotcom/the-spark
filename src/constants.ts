@@ -259,3 +259,11 @@ export const BOND_GLOW_INTENSITY = 0.6;
 
 // === Audio ===
 export const AUDIO_MASTER_VOLUME_DB = -6;
+
+// === S15 P2 — Phase-2 1v1 networked play (§ 11 LOCKED amendment) ===
+// Trystero/Nostr WebRTC, host-authoritative. Council R2: 10 Hz snapshot
+// rate + 100ms lerp interpolation are both MVP-non-negotiable.
+export const NET_SNAPSHOT_HZ = 10;
+export const NET_INTERPOLATION_MS = 100;
+export const NET_ROOM_CODE_LENGTH = 6;
+export const NET_CONNECTION_TIMEOUT_MS = 30000;
