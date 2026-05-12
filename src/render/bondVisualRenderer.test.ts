@@ -318,3 +318,120 @@ describe("S17 P2 — drawDefaultLine renders 4-segment gradient when colorA !== 
     expect(lines[lines.length - 1].args).toEqual([300, 150]);
   });
 });
+
+/* ────────────────── S19 P3 — per-silhouette gradient extension ──────────────────
+ * The 12 magic silhouettes now extend the colorA→colorB gradient pattern.
+ * Bond-axis strokes lerp; ornaments at the midpoint use the mid color;
+ * endpoint-anchored elements (capsule caps, diamond/lattice sides touching
+ * a specific endpoint) use that endpoint's own placerColor.
+ */
+
+describe('S19 P3 — per-silhouette gradient (back-compat: same color = single solid)', () => {
+  it('fx.capsule with colorA===colorB emits 2 parallel strokes in colorA + 2 cap strokes in colorA', () => {
+    const g = new GraphicsMock();
+    drawBondVisual(
+      g as unknown as Parameters<typeof drawBondVisual>[0],
+      makeParams({ visualEffectId: 'fx.capsule', colorA: 0xff3b6b, colorB: 0xff3b6b }),
+    );
+    const strokes = g.calls.filter((c) => c.op === 'stroke');
+    // 2 parallels (single-stroke fast path) + 2 end-cap circle strokes = 4.
+    expect(strokes).toHaveLength(4);
+    for (const s of strokes) expect(s.args[1]).toBe(0xff3b6b);
+  });
+
+  it('fx.diamond with colorA===colorB emits exactly 1 outline stroke', () => {
+    const g = new GraphicsMock();
+    drawBondVisual(
+      g as unknown as Parameters<typeof drawBondVisual>[0],
+      makeParams({ visualEffectId: 'fx.diamond', colorA: 0xff3b6b, colorB: 0xff3b6b }),
+    );
+    const strokes = g.calls.filter((c) => c.op === 'stroke');
+    // Fast path: 1 stroke wraps the 4 lineTos.
+    expect(strokes).toHaveLength(1);
+    expect(strokes[0].args[1]).toBe(0xff3b6b);
+  });
+});
+
+describe('S19 P3 — per-silhouette gradient (cross-color: endpoint-anchored)', () => {
+  it('fx.capsule cross-color: end caps stroke in their endpoint colors', () => {
+    const g = new GraphicsMock();
+    drawBondVisual(
+      g as unknown as Parameters<typeof drawBondVisual>[0],
+      makeParams({ visualEffectId: 'fx.capsule', colorA: 0xff0000, colorB: 0x0000ff }),
+    );
+    const strokes = g.calls.filter((c) => c.op === 'stroke');
+    // 2 parallels each emit 4 lerp segments (8) + 2 cap circles (2) = 10 strokes.
+    expect(strokes).toHaveLength(10);
+    // Find the last 2 strokes — they're the cap circles.
+    const capA = strokes[strokes.length - 2];
+    const capB = strokes[strokes.length - 1];
+    expect(capA.args[1]).toBe(0xff0000); // A cap = colorA
+    expect(capB.args[1]).toBe(0x0000ff); // B cap = colorB
+  });
+
+  it('fx.diamond cross-color: 4 separate sides — sides touching A use colorA, sides touching B use colorB', () => {
+    const g = new GraphicsMock();
+    drawBondVisual(
+      g as unknown as Parameters<typeof drawBondVisual>[0],
+      makeParams({ visualEffectId: 'fx.diamond', colorA: 0xff0000, colorB: 0x0000ff }),
+    );
+    const strokes = g.calls.filter((c) => c.op === 'stroke');
+    // 4 sides, each its own stroke.
+    expect(strokes).toHaveLength(4);
+    // Two sides touching A → colorA; two sides touching B → colorB.
+    const colorCounts = new Map<number, number>();
+    for (const s of strokes) {
+      const c = s.args[1] as number;
+      colorCounts.set(c, (colorCounts.get(c) ?? 0) + 1);
+    }
+    expect(colorCounts.get(0xff0000)).toBe(2);
+    expect(colorCounts.get(0x0000ff)).toBe(2);
+  });
+
+  it('fx.vortex cross-color: spiral renders in 8 lerped segments (vs 1 for same-color)', () => {
+    const gSame = new GraphicsMock();
+    drawBondVisual(
+      gSame as unknown as Parameters<typeof drawBondVisual>[0],
+      makeParams({ visualEffectId: 'fx.vortex', colorA: 0xff0000, colorB: 0xff0000 }),
+    );
+    expect(gSame.calls.filter((c) => c.op === 'stroke')).toHaveLength(1);
+
+    const gDiff = new GraphicsMock();
+    drawBondVisual(
+      gDiff as unknown as Parameters<typeof drawBondVisual>[0],
+      makeParams({ visualEffectId: 'fx.vortex', colorA: 0xff0000, colorB: 0x0000ff }),
+    );
+    const strokes = gDiff.calls.filter((c) => c.op === 'stroke');
+    expect(strokes).toHaveLength(8);
+    // First segment near colorA (high R), last near colorB (high B).
+    const rFirst = ((strokes[0].args[1] as number) >> 16) & 0xff;
+    const rLast = ((strokes[strokes.length - 1].args[1] as number) >> 16) & 0xff;
+    expect(rFirst).toBeGreaterThan(rLast); // R fades A→B
+    const bFirst = (strokes[0].args[1] as number) & 0xff;
+    const bLast = (strokes[strokes.length - 1].args[1] as number) & 0xff;
+    expect(bLast).toBeGreaterThan(bFirst); // B grows A→B
+  });
+
+  it('fx.whip cross-color: sine wave renders in 8 lerped segments', () => {
+    const g = new GraphicsMock();
+    drawBondVisual(
+      g as unknown as Parameters<typeof drawBondVisual>[0],
+      makeParams({ visualEffectId: 'fx.whip', colorA: 0xff0000, colorB: 0x0000ff }),
+    );
+    expect(g.calls.filter((c) => c.op === 'stroke')).toHaveLength(8);
+  });
+
+  it('fx.bracket cross-color: base lerps (4 strokes) + 2 apex sides in respective endpoint colors', () => {
+    const g = new GraphicsMock();
+    drawBondVisual(
+      g as unknown as Parameters<typeof drawBondVisual>[0],
+      makeParams({ visualEffectId: 'fx.bracket', colorA: 0xff0000, colorB: 0x0000ff }),
+    );
+    const strokes = g.calls.filter((c) => c.op === 'stroke');
+    // 4 base-lerp segments + 2 apex sides = 6.
+    expect(strokes).toHaveLength(6);
+    // Last 2 strokes are apex sides: A-side in colorA, B-side in colorB.
+    expect(strokes[strokes.length - 2].args[1]).toBe(0xff0000);
+    expect(strokes[strokes.length - 1].args[1]).toBe(0x0000ff);
+  });
+});

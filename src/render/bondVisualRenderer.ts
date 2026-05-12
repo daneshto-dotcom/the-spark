@@ -43,8 +43,13 @@ export interface BondVisualParams {
    * renders as solid stroke (Phase-1 back-compat). When different,
    * drawDefaultLine emits 4 lerped sub-segments to fake the A→B gradient
    * (Pixi v8 has no native A→B endpoint gradient stroke API per Council R1
-   * Grok #6 + Gemini #5). The 12 magic silhouettes use colorA as primary
-   * stroke — per-silhouette accent-gradient upgrade deferred to S18 polish.
+   * Grok #6 + Gemini #5). S19 P3 — all 12 magic silhouettes now extend the
+   * gradient: bond-axis strokes lerp A→B; ornaments at the midpoint use
+   * the mid color (`midColor(p)`); endpoint-anchored elements (bracket
+   * sides, diamond sides, lattice sides, capsule end caps) use the
+   * respective endpoint's own placerColor — closer to spec §X.2 "reveal
+   * contributions". Vortex spiral + whip sine wave segment into 8 pieces
+   * along their parametric `t` so the gradient follows the curved path.
    */
   readonly colorA: number;
   readonly colorB: number;
@@ -67,6 +72,100 @@ export function lerpColor(a: number, b: number, t: number): number {
   const g = Math.round(ag + (bg - ag) * t);
   const bl = Math.round(ab + (bb - ab) * t);
   return ((r & 0xff) << 16) | ((g & 0xff) << 8) | (bl & 0xff);
+}
+
+/**
+ * S19 P3 — midpoint color for ornaments centered between A and B.
+ * Equivalent to `lerpColor(p.colorA, p.colorB, 0.5)` but reads better
+ * at silhouette call sites.
+ */
+function midColor(p: BondVisualParams): number {
+  return p.colorA === p.colorB ? p.colorA : lerpColor(p.colorA, p.colorB, 0.5);
+}
+
+/**
+ * S19 P3 — N-segment linear stroke between two endpoints with A→B color
+ * lerp. Same pattern as `drawDefaultLine`, factored for reuse by magic
+ * silhouettes whose primary stroke spans the bond axis (filament, cable,
+ * bracket base, diamond, wheel diameter, capsule parallels). Fast-path
+ * single stroke when colorA===colorB.
+ *
+ * `widthScale` + `alphaScale` allow callers to adjust stroke weight without
+ * mutating BondVisualParams.
+ */
+function strokeAxisLerp(
+  g: Graphics,
+  p: BondVisualParams,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  widthScale: number = 1,
+  alphaScale: number = 1,
+): void {
+  const width = p.width * widthScale;
+  const alpha = p.alpha * alphaScale;
+  if (p.colorA === p.colorB) {
+    g.moveTo(ax, ay).lineTo(bx, by).stroke({ width, color: p.colorA, alpha });
+    return;
+  }
+  const segments = 4;
+  for (let i = 0; i < segments; i++) {
+    const t0 = i / segments;
+    const t1 = (i + 1) / segments;
+    const tMid = (t0 + t1) / 2;
+    const x0 = ax + (bx - ax) * t0;
+    const y0 = ay + (by - ay) * t0;
+    const x1 = ax + (bx - ax) * t1;
+    const y1 = ay + (by - ay) * t1;
+    const color = lerpColor(p.colorA, p.colorB, tMid);
+    g.moveTo(x0, y0).lineTo(x1, y1).stroke({ width, color, alpha });
+  }
+}
+
+/**
+ * S19 P3 — parametric path stroke with A→B color lerp. Used by vortex
+ * (spiral) and whip (sine wave) where the path is curved but the
+ * parametric `t` corresponds to position along the bond. Fast-path
+ * single stroke when colorA===colorB; otherwise emit `colorSegments`
+ * polyline strokes, each in its own lerped color.
+ *
+ * `point(t)` returns the {x,y} along the path at parameter t∈[0,1].
+ */
+function strokePathLerp(
+  g: Graphics,
+  p: BondVisualParams,
+  steps: number,
+  point: (t: number) => { x: number; y: number },
+  widthScale: number,
+  alphaScale: number = 1,
+  colorSegments: number = 8,
+): void {
+  const width = p.width * widthScale;
+  const alpha = p.alpha * alphaScale;
+  if (p.colorA === p.colorB) {
+    let first = true;
+    for (let i = 0; i <= steps; i++) {
+      const pt = point(i / steps);
+      if (first) { g.moveTo(pt.x, pt.y); first = false; }
+      else g.lineTo(pt.x, pt.y);
+    }
+    g.stroke({ width, color: p.colorA, alpha });
+    return;
+  }
+  const stepsPerSeg = steps / colorSegments;
+  for (let s = 0; s < colorSegments; s++) {
+    const tMid = (s + 0.5) / colorSegments;
+    const color = lerpColor(p.colorA, p.colorB, tMid);
+    let first = true;
+    for (let i = 0; i <= stepsPerSeg; i++) {
+      const ii = s * stepsPerSeg + i;
+      const pt = point(ii / steps);
+      if (first) { g.moveTo(pt.x, pt.y); first = false; }
+      else g.lineTo(pt.x, pt.y);
+    }
+    g.stroke({ width, color, alpha });
+  }
 }
 
 export function drawBondVisual(g: Graphics, p: BondVisualParams): void {
@@ -125,26 +224,21 @@ function drawFilament(g: Graphics, p: BondVisualParams): void {
   const len = Math.hypot(dx, dy);
   if (len < 1) { drawDefaultLine(g, p); return; }
 
-  // Main bond, slightly thicker (filament = high-energy).
-  g.moveTo(p.ax, p.ay).lineTo(p.bx, p.by).stroke({
-    width: p.width * 1.3,
-    color: p.colorA,
-    alpha: p.alpha,
-  });
+  // Main bond, slightly thicker (filament = high-energy). S19 P3 — bond
+  // stroke uses A→B color lerp; the starburst rays at the midpoint use the
+  // mid-blend (single color for the symmetric 6-ray ornament).
+  strokeAxisLerp(g, p, p.ax, p.ay, p.bx, p.by, 1.3, 1);
 
-  // 6-ray starburst at midpoint — short rays so they don't drown the bond.
-  // Ray alpha shimmers with tick (0.40–0.70 of p.alpha, ~2.6s cycle) so the
-  // "filament humming with energy" feel reads at game speed without changing
-  // the structural silhouette.
   const mx = (p.ax + p.bx) / 2;
   const my = (p.ay + p.by) / 2;
   const rayLen = Math.min(12, len * 0.25);
   const rayAlpha = p.alpha * (0.55 + Math.sin(p.tick * 0.04) * 0.15);
+  const rayColor = midColor(p);
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2;
     g.moveTo(mx, my)
       .lineTo(mx + Math.cos(a) * rayLen, my + Math.sin(a) * rayLen)
-      .stroke({ width: 1, color: p.colorA, alpha: rayAlpha });
+      .stroke({ width: 1, color: rayColor, alpha: rayAlpha });
   }
 }
 
@@ -159,12 +253,9 @@ function drawCable(g: Graphics, p: BondVisualParams): void {
   const ny = dx / len;
   const offset = 3;
 
-  g.moveTo(p.ax + nx * offset, p.ay + ny * offset)
-    .lineTo(p.bx + nx * offset, p.by + ny * offset)
-    .stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
-  g.moveTo(p.ax - nx * offset, p.ay - ny * offset)
-    .lineTo(p.bx - nx * offset, p.by - ny * offset)
-    .stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
+  // S19 P3 — both parallels lerp A→B.
+  strokeAxisLerp(g, p, p.ax + nx * offset, p.ay + ny * offset, p.bx + nx * offset, p.by + ny * offset);
+  strokeAxisLerp(g, p, p.ax - nx * offset, p.ay - ny * offset, p.bx - nx * offset, p.by - ny * offset);
 }
 
 /** Bracket (Line→Triangle, HIGH): triangle with bond as base, apex perpendicular. */
@@ -182,13 +273,14 @@ function drawBracket(g: Graphics, p: BondVisualParams): void {
   const apexX = mx + nx * apexHeight;
   const apexY = my + ny * apexHeight;
 
-  // Base + two sides.
-  g.moveTo(p.ax, p.ay).lineTo(p.bx, p.by)
-    .stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
+  // S19 P3 — base lerps A→B; apex sides terminate at A and B respectively
+  // and use the matching endpoint's color (apex is "owned by both" so the
+  // sides reveal each endpoint's contribution).
+  strokeAxisLerp(g, p, p.ax, p.ay, p.bx, p.by);
   g.moveTo(p.ax, p.ay).lineTo(apexX, apexY)
     .stroke({ width: p.width * 0.85, color: p.colorA, alpha: p.alpha * 0.75 });
   g.moveTo(p.bx, p.by).lineTo(apexX, apexY)
-    .stroke({ width: p.width * 0.85, color: p.colorA, alpha: p.alpha * 0.75 });
+    .stroke({ width: p.width * 0.85, color: p.colorB, alpha: p.alpha * 0.75 });
 }
 
 /** Diamond (Triangle→Triangle, HIGH): rhombus with A,B as long-diagonal endpoints. */
@@ -209,12 +301,21 @@ function drawDiamond(g: Graphics, p: BondVisualParams): void {
   const lx = mx - nx * short;
   const ly = my - ny * short;
 
-  g.moveTo(p.ax, p.ay)
-    .lineTo(tx, ty)
-    .lineTo(p.bx, p.by)
-    .lineTo(lx, ly)
-    .lineTo(p.ax, p.ay)
-    .stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
+  // S19 P3 — 4-sided rhombus. Sides touching A use colorA, sides touching
+  // B use colorB. Fast path when colors match.
+  if (p.colorA === p.colorB) {
+    g.moveTo(p.ax, p.ay)
+      .lineTo(tx, ty)
+      .lineTo(p.bx, p.by)
+      .lineTo(lx, ly)
+      .lineTo(p.ax, p.ay)
+      .stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
+  } else {
+    g.moveTo(p.ax, p.ay).lineTo(tx, ty).stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
+    g.moveTo(tx, ty).lineTo(p.bx, p.by).stroke({ width: p.width, color: p.colorB, alpha: p.alpha });
+    g.moveTo(p.bx, p.by).lineTo(lx, ly).stroke({ width: p.width, color: p.colorB, alpha: p.alpha });
+    g.moveTo(lx, ly).lineTo(p.ax, p.ay).stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
+  }
 }
 
 /** Wheel (Triangle→Circle, MID): bond as one diameter + perpendicular spoke + circle, slowly rotating. */
@@ -228,19 +329,18 @@ function drawWheel(g: Graphics, p: BondVisualParams): void {
   const my = (p.ay + p.by) / 2;
   const r = len / 2;
 
-  // Bond diameter.
-  g.moveTo(p.ax, p.ay).lineTo(p.bx, p.by)
-    .stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
-  // Outer circle.
-  g.circle(mx, my, r).stroke({ width: 1, color: p.colorA, alpha: p.alpha * 0.55 });
-  // Two extra rotating spokes, phase tied to tick (slow).
+  // S19 P3 — diameter lerps A→B; concentric circle + rotating spokes share
+  // the mid color (they're ornaments centered at the midpoint).
+  strokeAxisLerp(g, p, p.ax, p.ay, p.bx, p.by);
+  const ringColor = midColor(p);
+  g.circle(mx, my, r).stroke({ width: 1, color: ringColor, alpha: p.alpha * 0.55 });
   const phase = (p.tick * 0.015) % (Math.PI / 2);
   for (const k of [0, 1]) {
     const angle = phase + (Math.PI / 4) + k * (Math.PI / 2);
     const ex = mx + Math.cos(angle) * r;
     const ey = my + Math.sin(angle) * r;
     g.moveTo(mx, my).lineTo(ex, ey)
-      .stroke({ width: 1, color: p.colorA, alpha: p.alpha * 0.5 });
+      .stroke({ width: 1, color: ringColor, alpha: p.alpha * 0.5 });
   }
 }
 
@@ -251,15 +351,13 @@ function drawStar(g: Graphics, p: BondVisualParams): void {
   const len = Math.hypot(dx, dy);
   if (len < 1) { drawDefaultLine(g, p); return; }
 
-  // Faint underlay so the bond connection reads even with a busy star.
-  g.moveTo(p.ax, p.ay).lineTo(p.bx, p.by)
-    .stroke({ width: p.width * 0.6, color: p.colorA, alpha: p.alpha * 0.45 });
+  // S19 P3 — faint underlay lerps A→B; star ornament at midpoint = mid color.
+  strokeAxisLerp(g, p, p.ax, p.ay, p.bx, p.by, 0.6, 0.45);
 
   const mx = (p.ax + p.bx) / 2;
   const my = (p.ay + p.by) / 2;
   const outer = Math.min(len / 2 * 0.85, 18);
   const inner = outer * 0.45;
-  // Orient: one point of the star faces along +bond axis.
   const baseAngle = Math.atan2(dy, dx) - Math.PI / 2;
 
   let first = true;
@@ -271,7 +369,7 @@ function drawStar(g: Graphics, p: BondVisualParams): void {
     if (first) { g.moveTo(px, py); first = false; }
     else g.lineTo(px, py);
   }
-  g.stroke({ width: p.width * 0.75, color: p.colorA, alpha: p.alpha });
+  g.stroke({ width: p.width * 0.75, color: midColor(p), alpha: p.alpha });
 }
 
 /** Orbital (Circle→Circle, LOW): two concentric rings at midpoint, gentle radius pulse. */
@@ -281,19 +379,18 @@ function drawOrbital(g: Graphics, p: BondVisualParams): void {
   const len = Math.hypot(dx, dy);
   if (len < 1) { drawDefaultLine(g, p); return; }
 
-  // Faint bond underlay.
-  g.moveTo(p.ax, p.ay).lineTo(p.bx, p.by)
-    .stroke({ width: p.width * 0.5, color: p.colorA, alpha: p.alpha * 0.4 });
+  // S19 P3 — faint bond underlay lerps A→B; rings at midpoint = mid color.
+  strokeAxisLerp(g, p, p.ax, p.ay, p.bx, p.by, 0.5, 0.4);
 
   const mx = (p.ax + p.bx) / 2;
   const my = (p.ay + p.by) / 2;
-  // Pulse: ~3-second cycle (180 ticks) at low amplitude — "breathing rings".
   const pulse = 1 + Math.sin(p.tick * 0.035) * 0.06;
   const r1 = (len / 2) * pulse;
   const r2 = r1 * 0.55;
+  const ringColor = midColor(p);
 
-  g.circle(mx, my, r1).stroke({ width: 1.25, color: p.colorA, alpha: p.alpha * 0.65 });
-  g.circle(mx, my, r2).stroke({ width: 1, color: p.colorA, alpha: p.alpha * 0.55 });
+  g.circle(mx, my, r1).stroke({ width: 1.25, color: ringColor, alpha: p.alpha * 0.65 });
+  g.circle(mx, my, r2).stroke({ width: 1, color: ringColor, alpha: p.alpha * 0.55 });
 }
 
 /** Lattice (Square→Square, HIGH): rotated square (A,B as opposite corners) + cross-hatch. */
@@ -309,31 +406,37 @@ function drawLattice(g: Graphics, p: BondVisualParams): void {
   const ny = dx / len;
   const half = len / 2;
 
-  // Square's other two corners — perpendicular to bond at midpoint.
   const cx = mx + nx * half;
   const cy = my + ny * half;
   const dx2 = mx - nx * half;
   const dy2 = my - ny * half;
 
-  // Outline.
-  g.moveTo(p.ax, p.ay)
-    .lineTo(cx, cy)
-    .lineTo(p.bx, p.by)
-    .lineTo(dx2, dy2)
-    .lineTo(p.ax, p.ay)
-    .stroke({ width: p.width * 0.8, color: p.colorA, alpha: p.alpha });
+  // S19 P3 — outline: sides touching A use colorA; sides touching B use
+  // colorB. Cross-hatch (centered between sides) uses mid color.
+  if (p.colorA === p.colorB) {
+    g.moveTo(p.ax, p.ay)
+      .lineTo(cx, cy)
+      .lineTo(p.bx, p.by)
+      .lineTo(dx2, dy2)
+      .lineTo(p.ax, p.ay)
+      .stroke({ width: p.width * 0.8, color: p.colorA, alpha: p.alpha });
+  } else {
+    const w = p.width * 0.8;
+    g.moveTo(p.ax, p.ay).lineTo(cx, cy).stroke({ width: w, color: p.colorA, alpha: p.alpha });
+    g.moveTo(cx, cy).lineTo(p.bx, p.by).stroke({ width: w, color: p.colorB, alpha: p.alpha });
+    g.moveTo(p.bx, p.by).lineTo(dx2, dy2).stroke({ width: w, color: p.colorB, alpha: p.alpha });
+    g.moveTo(dx2, dy2).lineTo(p.ax, p.ay).stroke({ width: w, color: p.colorA, alpha: p.alpha });
+  }
 
-  // Cross-hatch — connect midpoints of opposite sides. Width scales with the
-  // bond's overall stroke width so the hatch stays legible at HIGH tier
-  // (outline ~2.4px would drown a 1px hatch). Floor at 1.2 keeps it crisp at LOW.
   const crossWidth = Math.max(1.2, p.width * 0.55);
   const crossAlpha = p.alpha * 0.65;
+  const crossColor = midColor(p);
   g.moveTo((p.ax + cx) / 2, (p.ay + cy) / 2)
     .lineTo((p.bx + dx2) / 2, (p.by + dy2) / 2)
-    .stroke({ width: crossWidth, color: p.colorA, alpha: crossAlpha });
+    .stroke({ width: crossWidth, color: crossColor, alpha: crossAlpha });
   g.moveTo((cx + p.bx) / 2, (cy + p.by) / 2)
     .lineTo((dx2 + p.ax) / 2, (dy2 + p.ay) / 2)
-    .stroke({ width: crossWidth, color: p.colorA, alpha: crossAlpha });
+    .stroke({ width: crossWidth, color: crossColor, alpha: crossAlpha });
 }
 
 /** Capsule (Square→Circle, MID): pill — twin parallels + end-cap circles. */
@@ -347,15 +450,12 @@ function drawCapsule(g: Graphics, p: BondVisualParams): void {
   const ny = dx / len;
   const halfH = 6;
 
-  g.moveTo(p.ax + nx * halfH, p.ay + ny * halfH)
-    .lineTo(p.bx + nx * halfH, p.by + ny * halfH)
-    .stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
-  g.moveTo(p.ax - nx * halfH, p.ay - ny * halfH)
-    .lineTo(p.bx - nx * halfH, p.by - ny * halfH)
-    .stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
-  // End caps — full circles read as half-caps under the parallel lines.
+  // S19 P3 — parallels lerp A→B; end-cap circles take their endpoint's
+  // own placerColor (each cap belongs to one endpoint).
+  strokeAxisLerp(g, p, p.ax + nx * halfH, p.ay + ny * halfH, p.bx + nx * halfH, p.by + ny * halfH);
+  strokeAxisLerp(g, p, p.ax - nx * halfH, p.ay - ny * halfH, p.bx - nx * halfH, p.by - ny * halfH);
   g.circle(p.ax, p.ay, halfH).stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
-  g.circle(p.bx, p.by, halfH).stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
+  g.circle(p.bx, p.by, halfH).stroke({ width: p.width, color: p.colorB, alpha: p.alpha });
 }
 
 /** Vortex (Dot→Spiral, HIGH): archimedean spiral from A out to B; phase rotates with tick. */
@@ -366,22 +466,17 @@ function drawVortex(g: Graphics, p: BondVisualParams): void {
   if (len < 1) { drawDefaultLine(g, p); return; }
 
   const baseAngle = Math.atan2(dy, dx);
-  // Slow phase rotation — full turn ~30 seconds at 60Hz.
   const phase = (p.tick * 0.0035) % (Math.PI * 2);
   const turns = 1.5;
-  const steps = 28;
+  const steps = 32;  // Bumped from 28 → 32 (divisible by 8 colorSegments).
 
-  let first = true;
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
+  // S19 P3 — spiral's parametric t∈[0,1] = position A→B. strokePathLerp
+  // fast-paths single-color and segments into 8 sub-strokes for gradient.
+  strokePathLerp(g, p, steps, (t) => {
     const r = t * len;
     const a = baseAngle + phase + t * turns * Math.PI * 2;
-    const px = p.ax + Math.cos(a) * r;
-    const py = p.ay + Math.sin(a) * r;
-    if (first) { g.moveTo(px, py); first = false; }
-    else g.lineTo(px, py);
-  }
-  g.stroke({ width: p.width * 0.85, color: p.colorA, alpha: p.alpha });
+    return { x: p.ax + Math.cos(a) * r, y: p.ay + Math.sin(a) * r };
+  }, 0.85);
 }
 
 /** Whip (Spiral→Line, LOW): sine wave from A to B; phase drifts A→B with tick. */
@@ -398,20 +493,17 @@ function drawWhip(g: Graphics, p: BondVisualParams): void {
   const amp = Math.min(8, len * 0.18);
   const cycles = 3;
   const steps = 24;
-  // ~one wavelength every ~2.4s at 60Hz, propagating from A toward B.
   const driftPhase = p.tick * 0.022;
 
-  let first = true;
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
+  // S19 P3 — sine wave parametric t∈[0,1] = position A→B. Shared lerp helper.
+  strokePathLerp(g, p, steps, (t) => {
     const dist = t * len;
     const wave = Math.sin((t * cycles + driftPhase) * Math.PI * 2) * amp;
-    const px = p.ax + tx * dist + nx * wave;
-    const py = p.ay + ty * dist + ny * wave;
-    if (first) { g.moveTo(px, py); first = false; }
-    else g.lineTo(px, py);
-  }
-  g.stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
+    return {
+      x: p.ax + tx * dist + nx * wave,
+      y: p.ay + ty * dist + ny * wave,
+    };
+  }, 1);
 }
 
 /** Warped (Triangle→Spiral, LOW): 3-fold ring at midpoint. Lobes rotate + breathe over time. */
@@ -421,18 +513,15 @@ function drawWarped(g: Graphics, p: BondVisualParams): void {
   const len = Math.hypot(dx, dy);
   if (len < 1) { drawDefaultLine(g, p); return; }
 
-  // Faint bond underlay so the topology stays legible.
-  g.moveTo(p.ax, p.ay).lineTo(p.bx, p.by)
-    .stroke({ width: p.width * 0.5, color: p.colorA, alpha: p.alpha * 0.4 });
+  // S19 P3 — faint bond underlay lerps A→B; 3-fold ring at midpoint = mid color.
+  strokeAxisLerp(g, p, p.ax, p.ay, p.bx, p.by, 0.5, 0.4);
 
   const mx = (p.ax + p.bx) / 2;
   const my = (p.ay + p.by) / 2;
   const baseR = Math.min(len / 2 * 0.8, 16);
   const steps = 32;
-  // Slow lobe rotation + breathing amplitude — combined, the 3-fold ring
-  // morphs rather than sitting frozen (sister to the S8 whip drift fix).
-  const rotPhase = p.tick * 0.008;                            // full turn ~13s at 60Hz
-  const breatheAmp = 0.3 + Math.sin(p.tick * 0.025) * 0.08;   // 0.22–0.38, period ~4.2s
+  const rotPhase = p.tick * 0.008;
+  const breatheAmp = 0.3 + Math.sin(p.tick * 0.025) * 0.08;
 
   let first = true;
   for (let i = 0; i <= steps; i++) {
@@ -443,5 +532,5 @@ function drawWarped(g: Graphics, p: BondVisualParams): void {
     if (first) { g.moveTo(px, py); first = false; }
     else g.lineTo(px, py);
   }
-  g.stroke({ width: p.width * 0.75, color: p.colorA, alpha: p.alpha });
+  g.stroke({ width: p.width * 0.75, color: midColor(p), alpha: p.alpha });
 }
