@@ -55,6 +55,25 @@ export interface PlacePrimitiveAction {
    * (S13 P1) so each surrounding structure gets exactly one merge bond.
    */
   readonly mergeCandidateIds?: ReadonlyArray<PrimitiveId>;
+  /**
+   * S14 P2.1: in-same-component additional target IDs for redundancy
+   * bonds. Each id creates one extra bond from the new primitive to the
+   * target (raid-resistance: a single sever near the new prim no longer
+   * amputates if it's bonded to multiple neighbors in the same
+   * structure). Caller (controls.ts: redundantBondTargetsInSameComponent)
+   * has already filtered for primary's component + AUTO_BOND_RADIUS +
+   * angular spread. This handler treats the list as advisory + validates
+   * in DEV (drops malformed entries silently in production).
+   *
+   * Bonds in this list:
+   *   - Use combo-table stiffness via lookupCombo(new.type, target.type)
+   *   - Emit BOND_COMMIT per bond (visible structure growth)
+   *   - DO NOT increment scoreProgress (Council R1 G5/G8 adoption —
+   *     redundancy = defense, not score velocity)
+   *   - DO NOT receive verlet impulse (intra-component, would perturb
+   *     rigid-body equilibrium relative to the primary bond)
+   */
+  readonly extraBondTargetIds?: ReadonlyArray<PrimitiveId>;
 }
 
 export function placePrimitive(world: World, action: PlacePrimitiveAction): World {
@@ -136,6 +155,94 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
   } else {
     // S9 P3: anchor placement (no bond) earns one progress point.
     world.scoreProgress += SCORE_ANCHOR;
+  }
+
+  // S14 P2.1: redundancy bonds — additional bonds to other primitives
+  // in the primary's component (target is required for redundancy; anchor
+  // placements have no primary component → no redundancy). Created AFTER
+  // primary bond + mergedComponents populated, BEFORE merge sweep so the
+  // merge-sweep dedup (skips primary-component candidates) is unaffected.
+  //
+  // No score, no impulse: see PlacePrimitiveAction.extraBondTargetIds doc.
+  // BOND_COMMIT is emitted per bond so the renderer still pops the visual.
+  //
+  // DEV invariant checks (Gemini G3.3 adoption): caller (controls.ts)
+  // is the canonical source of extraBondTargetIds and should never emit
+  // malformed payloads, but the dispatch seam is the network boundary in
+  // Phase 3 (§ 10.2) so defensive validation matters here. In production
+  // any malformed entry is skipped silently to avoid game crashes on
+  // unexpected input.
+  if (
+    action.targetPrimitiveId !== null
+    && action.extraBondTargetIds !== undefined
+    && action.extraBondTargetIds.length > 0
+  ) {
+    const seenInThisPlace = new Set<PrimitiveId>([prim.id, action.targetPrimitiveId]);
+    for (const extraId of action.extraBondTargetIds) {
+      // Defensive validation — order matters: self-id, primary-id,
+      // duplicate, missing-from-world, not-in-primary-component.
+      if (extraId === prim.id) {
+        if (import.meta.env.DEV) {
+          console.error(`[S14 P2.1] extraBondTargetIds contains self-id ${prim.id}`);
+        }
+        continue;
+      }
+      if (extraId === action.targetPrimitiveId) {
+        if (import.meta.env.DEV) {
+          console.error(`[S14 P2.1] extraBondTargetIds duplicates primary target ${extraId}`);
+        }
+        continue;
+      }
+      if (seenInThisPlace.has(extraId)) {
+        if (import.meta.env.DEV) {
+          console.error(`[S14 P2.1] extraBondTargetIds contains duplicate ${extraId}`);
+        }
+        continue;
+      }
+      const extraTarget = world.primitives.get(extraId);
+      if (extraTarget === undefined) {
+        if (import.meta.env.DEV) {
+          console.error(`[S14 P2.1] extraBondTargetIds references missing primitive ${extraId}`);
+        }
+        continue;
+      }
+      if (!mergedComponents.has(extraId)) {
+        // Caller bug or stale id — extra target must be in primary's
+        // component (mergedComponents was populated from componentOf(target)
+        // above; if a target isn't in there, it doesn't belong to the
+        // primary's structure).
+        if (import.meta.env.DEV) {
+          console.error(
+            `[S14 P2.1] extraBondTargetIds contains ${extraId} not in primary's component`,
+          );
+        }
+        continue;
+      }
+      seenInThisPlace.add(extraId);
+
+      const extraCombo = lookupCombo(prim.type, extraTarget.type);
+      const extraBond = makeBond(world, prim, extraTarget, extraCombo.stiffnessTier);
+      world.bonds.set(extraBond.id, extraBond);
+      prim.bonds.add(extraBond.id);
+      extraTarget.bonds.add(extraBond.id);
+
+      world.effects.push({
+        kind: 'BOND_COMMIT',
+        tick: world.tick,
+        pos: { x: prim.pos.x, y: prim.pos.y },
+        color: prim.placerColor,
+        radius: prim.radius,
+        visualEffectId: extraCombo.visualEffectId,
+        otherPos: { x: extraTarget.pos.x, y: extraTarget.pos.y },
+      });
+      // DELIBERATE: no scoreProgress increment for redundancy bonds.
+      // DELIBERATE: no MERGE_IMPULSE / verlet impulse — intra-component
+      //             bond would perturb structure equilibrium relative
+      //             to the primary bond. STRUCTURE_GROW outward impulse
+      //             at function end will move the target outward as
+      //             part of primaryPreExistingPrims, which is correct
+      //             (entire structure puffs together on growth).
+    }
   }
 
   // S9 P2 + S13 P1: cross-structure merge sweep. Two-phase:

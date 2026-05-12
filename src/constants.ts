@@ -213,6 +213,46 @@ export const SCORE_TIER_STEP = 15;
 // model for the debug toggle.
 export const STRUCTURE_GROW_IMPULSE = 0.8;
 
+// === S14 P2.1 — multi-endpoint redundant bonding ===
+// Maximum total bonds a single placement can create to its primary's
+// connected component (primary bond + up to K-1 redundancy bonds).
+// 1 = pre-S14 behavior (primary only). 3 = primary + up to 2 redundancy
+// bonds. Capped to bound verlet cost growth (each bond is one constraint
+// per substep × 8 substeps/tick × 60 Hz).
+//
+// Cross-component merge bonds (governed by mergeCandidateIds + the merge
+// sweep in placePrimitive.ts) are NOT counted in this K — those are
+// bounded by component count within MERGE_REACH_RADIUS, a separate axis.
+//
+// Tunable: setting K=1 disables redundancy bonding entirely (the helper
+// in controls.ts short-circuits) — one-line revert without git history
+// rewrite if playtest finds raid-resistance too generous.
+export const REDUNDANT_BOND_K = 3;
+
+// Minimum angular separation between the primary-target axis and a
+// candidate redundancy bond (and between any two selected redundancy
+// bonds), measured from the new primitive's position. Prevents near-
+// colinear redundancy where 3 bonds along the same line provide no
+// raid-resistance (a single sever near the new prim still amputates the
+// whole spur). 25° (5π/36 rad) is the Council R1 (Grok #3) softened
+// default — 30° was the original PDR, lowered to admit more redundancy
+// formation in moderate-spread geometry. Tunable.
+export const REDUNDANT_BOND_MIN_ANGLE_RAD = (5 * Math.PI) / 36; // 25°
+
+// Floating-point tolerance for the angular-distance comparison so a
+// candidate exactly at MIN_ANGLE is not silently rejected due to
+// atan2/sin rounding. Council R1 (Gemini G3.8) adoption.
+export const REDUNDANT_BOND_ANGLE_EPSILON = 1e-6;
+
+// Hard cap on candidate iteration to bound the O(N) sweep cost in
+// pathologically dense components. 16 = safe upper bound on
+// "primitives within AUTO_BOND_RADIUS=60" given primitive soft-collision
+// radius ≥ 8 (so primitives don't overlap; ~16 is a hex-packed disc).
+// Council R1 (Gemini § 5 boundary case G3.5) noted: a slightly distant
+// 17th candidate with a perfect angular position is skipped — accepted
+// trade-off for bounded cost.
+export const REDUNDANT_BOND_MAX_CANDIDATES = 16;
+
 // === Bond rendering ===
 export const BOND_LINE_WIDTH = 2;
 export const BOND_GLOW_INTENSITY = 0.6;
