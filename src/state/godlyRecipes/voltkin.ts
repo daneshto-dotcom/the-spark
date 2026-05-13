@@ -129,17 +129,30 @@ export function findLongestVoltkinPartial(world: World): number {
   return maxDepth;
 }
 
+function isVoltkinDebug(): boolean {
+  try {
+    return typeof window !== 'undefined'
+      && window.location !== undefined
+      && window.location.search.includes('debug=1');
+  } catch { return false; }
+}
+
 export const voltkinPredicate: RecipePredicate = (world) => {
   const chain = findVoltkinChain(world);
-  if (chain === null) return null;
+  if (chain === null) {
+    if (isVoltkinDebug()) console.log('[voltkin] predicate: findVoltkinChain returned null');
+    return null;
+  }
 
   const colorCounts = new Map<number, number>();
+  const chainColors: string[] = [];
   let sumX = 0;
   let sumY = 0;
   for (const id of chain) {
     const p = world.primitives.get(id);
     if (p === undefined) continue;
     colorCounts.set(p.placerColor, (colorCounts.get(p.placerColor) ?? 0) + 1);
+    chainColors.push(`0x${p.placerColor.toString(16).padStart(6, '0')}`);
     sumX += p.pos.x;
     sumY += p.pos.y;
   }
@@ -151,9 +164,32 @@ export const voltkinPredicate: RecipePredicate = (world) => {
       topCount = n;
     }
   }
-  const triggerer = Array.from(world.players.values()).find(
+  // S23 P3 — fall back to ANY player (solo + 1v1 host both have triggerer
+  // available). Previous logic required strict `p.color === topColor` match
+  // which silently dropped matches when player.color and prim.placerColor
+  // diverged (e.g., color rotation, lobby color reassignment, or any other
+  // path where the player object's color mutates after placement). The chain
+  // existed in the bond graph; that's the user-visible signal. Triggerer
+  // derivation should not gate the cinematic on a fragile color invariant.
+  let triggerer = Array.from(world.players.values()).find(
     (p) => p.color === topColor,
   );
+  if (triggerer === undefined) {
+    // S23 P3 fallback — use the first player in the world. In solo this is
+    // unambiguously the local player. In 1v1, host-side matcher picks the
+    // first player iterated, which is deterministic per Map insertion order.
+    triggerer = Array.from(world.players.values())[0];
+  }
+  if (isVoltkinDebug()) {
+    const playerLog = Array.from(world.players.values()).map(
+      (p) => `P${p.id}=0x${p.color.toString(16).padStart(6, '0')}`,
+    ).join(',');
+    console.log(
+      `[voltkin] predicate: chain=${chain.length} prims, placerColors=[${chainColors.join(',')}], `
+      + `topColor=0x${topColor.toString(16).padStart(6, '0')}, players=[${playerLog}], `
+      + `triggerer=${triggerer === undefined ? 'NULL' : `P${triggerer.id}`}`,
+    );
+  }
   if (triggerer === undefined) return null;
 
   return {

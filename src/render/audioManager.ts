@@ -67,6 +67,14 @@ let sfxVolume = DEFAULT_SFX_VOLUME;
 let lastDrainedTick = -1;
 let initialized = false;
 
+// S23 P3 — diagnostic counters surfaced via inspectAudioChain for the debug
+// overlay. Increment at function entry / after gate passes so the overlay can
+// distinguish "never called" from "called but gate failed" from "synth ran".
+let claveCallsTotal = 0;
+let claveCallsSynthed = 0;
+let fartCallsTotal = 0;
+let fartCallsSynthed = 0;
+
 /** Clamp a number into [0, 1]. NaN and non-finite values become 0. */
 export function clamp01(n: number): number {
   if (!Number.isFinite(n)) return 0;
@@ -379,6 +387,11 @@ export interface AudioChainSnapshot {
   sfxOutputs: number | null;
   masterInputs: number | null;
   musicSourceActive: boolean;
+  /** S23 P3 — diagnostic call counters. */
+  claveCallsTotal: number;
+  claveCallsSynthed: number;
+  fartCallsTotal: number;
+  fartCallsSynthed: number;
   storageKeys: {
     masterMuted: string | null;
     musicMuted: string | null;
@@ -413,6 +426,10 @@ export function inspectAudioChain(): AudioChainSnapshot {
     sfxOutputs: sfxGainNode?.numberOfOutputs ?? null,
     masterInputs: masterGain?.numberOfInputs ?? null,
     musicSourceActive: musicSource !== null,
+    claveCallsTotal,
+    claveCallsSynthed,
+    fartCallsTotal,
+    fartCallsSynthed,
     storageKeys: storage,
   };
 }
@@ -443,6 +460,7 @@ export function _resetAudioForTest(): void {
 }
 
 export async function playClaveSFX(): Promise<void> {
+  claveCallsTotal += 1;
   if (audioContext === null || sfxGainNode === null) {
     if (isDebugRequested()) console.warn('[audio] playClaveSFX: ctx/gain null, audio not initialized');
     return;
@@ -482,9 +500,11 @@ export async function playClaveSFX(): Promise<void> {
     osc.start(now);
     osc.stop(now + CLAVE_DURATION);
   }
+  claveCallsSynthed += 1;
 }
 
 export async function playFartSFX(): Promise<void> {
+  fartCallsTotal += 1;
   if (audioContext === null || sfxGainNode === null) {
     if (isDebugRequested()) console.warn('[audio] playFartSFX: ctx/gain null, audio not initialized');
     return;
@@ -526,6 +546,7 @@ export async function playFartSFX(): Promise<void> {
   osc.connect(filter);
   osc.start(now);
   osc.stop(now + FART_DURATION);
+  fartCallsSynthed += 1;
 }
 
 /**
