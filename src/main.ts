@@ -49,7 +49,7 @@ import { solveBonds, type Bond } from './physics/bonds.ts';
 import { SpatialGrid } from './physics/spatial.ts';
 import { verletStepAll } from './physics/verlet.ts';
 import { AvatarRenderer } from './render/avatarRenderer.ts';
-import { drainAudioEffects, initAudio, isMuted, playMusic, toggleMute } from './render/audioManager.ts';
+import { drainAudioEffects, initAudio, isMuted, playMusic, playOneShot, toggleMute } from './render/audioManager.ts';
 import { EffectsRenderer } from './render/effectsRenderer.ts';
 import { LobbyScreen } from './render/lobbyScreen.ts';
 import { SparkRenderer, makeLegend, makeSpawnerRing } from './render/renderer.ts';
@@ -61,7 +61,9 @@ import { HUD } from './render/ui.ts';
 import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
 import { makeCinematicVignette } from './render/cinematicVignette.ts';
 import { CodexOverlay, unlockGodly, entryFromRecipe } from './render/codexOverlay.ts';
-import { findGodlyMatch, makeTriggerEvent, listRecipes } from './state/godlyRecipes/index.ts';
+import { findGodlyMatch, makeTriggerEvent, listRecipes, getRecipe } from './state/godlyRecipes/index.ts';
+// S22 P4 — side-effect import registers Voltkin recipe in the registry.
+import './state/godlyRecipes/voltkin.ts';
 import { mulberry32 } from './state/rng.ts';
 import { dispatch, makeWorld, type GameAction, type GameState } from './state/world.ts';
 import { makeGameStateExtras, softReset, tickGameState } from './state/gameState.ts';
@@ -408,23 +410,21 @@ async function bootstrap(): Promise<void> {
       return;
     }
     // Transition null → non-null: find the recipe + start the cinematic.
-    // We don't track the current event's godlyId on the world (intentional —
-    // single-slot serialization). Use the last queued event if present, else
-    // assume the matcher just dispatched (latest pendingCinematics is empty +
-    // there's an active owner). For v1, look up by listRecipes()[0] since
-    // there's only one (Voltkin in P4). Generalization: store godlyId on World.
-    const recipe = listRecipes()[0] ?? null;
-    if (recipe === null) {
-      console.warn('[godly] active cinematic but no recipe registered');
+    // S22 P4 — uses world.currentCinematicEvent (set by GODLY_TRIGGER reducer)
+    // to pick the right recipe + target pos. Generalizes for Anvil / Pac-Predator.
+    const event = world.currentCinematicEvent;
+    if (event === null) {
+      console.warn('[godly] active cinematic but no currentCinematicEvent on world');
+      return;
+    }
+    const recipe = getRecipe(event.godlyId);
+    if (recipe === undefined) {
+      console.warn('[godly] no recipe registered for id', event.godlyId);
       return;
     }
     const localPlayerId = controls.getPlayerId();
     if (owner !== localPlayerId) vignette.setVisible(true);
-    // Find the target pos from the queued event (best-effort — pendingCinematics
-    // is FIFO; for the currently-active one we approximate with the last
-    // BOND_FORMED pos. P4 wires this via a dedicated `currentCinematicEvent`
-    // field on World; for P3 foundation we use a fallback.).
-    const targetPos = world.pendingCinematics[0]?.targetPos ?? { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 };
+    const targetPos = event.targetPos;
     void cutsceneOverlay.play(recipe, {
       targetPos,
       onComplete: () => {
@@ -438,8 +438,7 @@ async function bootstrap(): Promise<void> {
         }
       },
       playVoice: (assetUrl: string) => {
-        // P4 wires this to audioManager; P3 stub logs.
-        console.info('[godly] playVoice:', assetUrl);
+        void playOneShot(assetUrl);
       },
     });
     cinematicTimer = setTimeout(() => {

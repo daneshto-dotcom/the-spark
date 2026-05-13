@@ -139,6 +139,13 @@ export interface World {
    */
   activeCinematicPlayerId: PlayerId | null;
   /**
+   * S22 P4 — currently-playing godly cinematic event (godlyId + targetPos
+   * + targetComponentPrimitiveIds + triggerTick). Used by the renderer to
+   * pick the right recipe for cutsceneOverlay.play(). Cleared on
+   * GODLY_COMPLETE / GODLY_ABORT.
+   */
+  currentCinematicEvent: GodlyTriggerEvent | null;
+  /**
    * S22 P3 — queue of pending godly triggers behind the active one. Host
    * processes one at a time. main.ts setTimeout (wall-clock cinematicMs +
    * sustainedEffectMs) shifts the next event and re-dispatches.
@@ -205,6 +212,7 @@ export function makeWorld(rngSeed: number): World {
     currentPlayerId: asPlayerId(0),
     isHost: true,
     activeCinematicPlayerId: null,
+    currentCinematicEvent: null,
     pendingCinematics: [],
   };
   // Phase 1 + solo default: P1 only at spawner-rim left.
@@ -306,6 +314,7 @@ export function dispatch(world: World, action: GameAction): World {
       const triggerer = world.players.get(event.triggererPlayerId);
       if (triggerer === undefined) return world;
       world.activeCinematicPlayerId = event.triggererPlayerId;
+      world.currentCinematicEvent = event;
       setCooldown(triggerer, world.tick);
       // Sustained effect: SEVER_BOND every bond connected to the target
       // component. Reuses existing severance machinery with cause='godly'.
@@ -338,6 +347,7 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'GODLY_COMPLETE': {
       world.activeCinematicPlayerId = null;
+      world.currentCinematicEvent = null;
       // No re-dispatch from inside the reducer (CQS — main.ts setTimeout
       // shifts next pending event and dispatches GODLY_TRIGGER for it).
       return world;
@@ -345,6 +355,7 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'GODLY_ABORT': {
       world.activeCinematicPlayerId = null;
+      world.currentCinematicEvent = null;
       world.pendingCinematics.length = 0;
       return world;
     }

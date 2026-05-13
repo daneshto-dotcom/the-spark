@@ -230,6 +230,49 @@ export function stopMusic(): void {
 }
 
 /**
+ * S22 P4 — one-shot OGG/audio sample playback through the SFX bus. Fetches +
+ * decodes + plays once. Caches the AudioBuffer per URL so repeated triggers
+ * (e.g. Voltkin voice on each cinematic) skip the fetch. Best-effort: silently
+ * no-ops if AudioContext unavailable, fetch fails, or decode throws.
+ */
+const oneShotBufferCache = new Map<string, AudioBuffer>();
+const oneShotInFlight = new Map<string, Promise<AudioBuffer | null>>();
+
+export async function playOneShot(url: string): Promise<void> {
+  const ctx = ensureAudio();
+  if (ctx === null || sfxGainNode === null) return;
+  await resumeIfSuspended();
+  let buffer = oneShotBufferCache.get(url) ?? null;
+  if (buffer === null) {
+    let pending = oneShotInFlight.get(url);
+    if (pending === undefined) {
+      pending = (async (): Promise<AudioBuffer | null> => {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`one-shot fetch ${res.status}`);
+          const ab = await res.arrayBuffer();
+          const decoded = await ctx.decodeAudioData(ab);
+          oneShotBufferCache.set(url, decoded);
+          return decoded;
+        } catch (err) {
+          console.warn(`[audio] one-shot load failed (${url}):`, err);
+          return null;
+        } finally {
+          oneShotInFlight.delete(url);
+        }
+      })();
+      oneShotInFlight.set(url, pending);
+    }
+    buffer = await pending;
+  }
+  if (buffer === null || audioContext === null || sfxGainNode === null) return;
+  const source = audioContext.createBufferSource();
+  source.buffer = buffer;
+  source.connect(sfxGainNode);
+  source.start();
+}
+
+/**
  * Toggle global mute (the 'M' key / legacy mute behavior). Flips masterGain
  * between 0 and 1, preserving per-channel state. Persists to legacy
  * localStorage key.
