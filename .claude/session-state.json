@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 0,
+  "tool_calls_session_total": 4,
   "session_start": "2026-05-13T14:00:00Z",
   "session_id": "S23",
   "budget_total": 1000000,
@@ -33,22 +33,24 @@
     {
       "id": "P1",
       "label": "Voltkin recipe: replace geometric heuristic with strict SQ4-TR4 typed chain",
-      "status": "in_progress",
+      "status": "completed",
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "voltkin.ts predicate rewritten: findVoltkinChain() does DFS path-finding from each Square prim, backtracking through bond graph to find a linear path of 8 prims matching SparkType.Square x4 then SparkType.Triangle x4. Removed findAllComponents+aspect-ratio classifier (no longer needed). VOLTKIN_RECIPE constants unchanged (cinematic mp4/voice ogg/sprite png paths, lumaKey threshold 0.88). Triggerer derivation unchanged (dominant placerColor across chain). voltkin.test.ts rewritten: 5 old tests -> 9 new covering empty world / only-squares / only-triangles / valid 8-chain / reverse-direction (bidirectional graph match, still triggers) / interleaved SQ-TR-SQ-TR null / Circle bridge null / branched topology with embedded chain match / multi-color triggerer dominance. typecheck exit 0; 425/425 tests pass (+4 from voltkin test rewrite); build green 447.90 KB (-0.30 KB from S22 baseline 448.20). Pushed to master, GH Actions auto-deploy in flight to spark-online.space. RALPH:PATROL inline self-check: predicate is pure read-only, registered via side-effect import unchanged, recipe contract unchanged, no integration changes needed. Bidirectional-match behavior validated by explicit reverse-direction test (the physical structure is symmetric — a TR4-SQ4 chain read from the other end is the same as SQ4-TR4).",
+      "checkpoint_commit": "95fc4967e2140ab207310d037dd150e80f0423e0",
+      "real_context_tokens_at_close": 136392,
+      "real_context_pct_at_close": 13.64
     }
   ],
   "totals": {
     "turns": 0,
     "estimated_tokens_legacy_informational": 0,
-    "real_context_tokens_current": 0,
-    "real_context_pct_current": 0,
-    "budget_remaining": 970000,
-    "budget_status": "statusline_dead"
+    "real_context_tokens_current": 136392,
+    "real_context_pct_current": 13.64,
+    "budget_remaining": 863608,
+    "budget_status": "statusline_dead_using_real_token_script"
   }
 }
