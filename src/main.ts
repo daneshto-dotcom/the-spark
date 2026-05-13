@@ -61,6 +61,10 @@ import { HUD } from './render/ui.ts';
 import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
 import { makeCinematicVignette } from './render/cinematicVignette.ts';
 import { CodexOverlay, unlockGodly, entryFromRecipe } from './render/codexOverlay.ts';
+// S23 P2 — debug overlay (toggleable via ?debug=1 URL param). Surfaces runtime
+// gates + audio chain + chain progress for in-vivo diagnosis when offline tests
+// pass but live trigger doesn't fire.
+import { createDebugOverlay, isDebugMode, type DebugOverlayHandle, type RuntimeProbes } from './render/debugOverlay.ts';
 import { findGodlyMatch, makeTriggerEvent, listRecipes, getRecipe } from './state/godlyRecipes/index.ts';
 // S22 P4 — side-effect import registers Voltkin recipe in the registry.
 import './state/godlyRecipes/voltkin.ts';
@@ -366,6 +370,19 @@ async function bootstrap(): Promise<void> {
   // so the matcher processes each emission exactly once even when render
   // frames out-pace physics ticks.
   let lastMatcherTick = -1;
+  // S23 P2 — debug overlay state. Tracked here so closure scope can expose to
+  // the overlay; only created when ?debug=1 is in the URL.
+  let debugOverlay: DebugOverlayHandle | null = null;
+  const debugProbes: RuntimeProbes = {
+    lastMatcherTick: -1,
+    lastBondFormedTick: -1,
+    bondFormedCount: 0,
+    matcherFiredEver: false,
+  };
+  if (isDebugMode()) {
+    debugOverlay = createDebugOverlay();
+    console.log('[debug] overlay enabled via ?debug=1 — copy snapshot by clicking panel');
+  }
   // Track the most-recent activeCinematicPlayerId observed so we know when
   // to KICK the cutsceneOverlay (transition null → non-null) vs ABORT
   // (transition non-null → null via GODLY_ABORT).
@@ -378,6 +395,13 @@ async function bootstrap(): Promise<void> {
     if (world.activeCinematicPlayerId !== null) return; // queue handled in reducer
     for (const eff of world.effects) {
       if (eff.kind !== 'BOND_FORMED') continue;
+      // S23 P2 — record BOND_FORMED observation for debug overlay BEFORE the
+      // stale-cursor skip so the probe surfaces every event even if matcher
+      // skips it for cursor reasons.
+      if (debugOverlay !== null && eff.tick > debugProbes.lastBondFormedTick) {
+        debugProbes.lastBondFormedTick = eff.tick;
+        debugProbes.bondFormedCount += 1;
+      }
       if (eff.tick <= lastMatcherTick) continue;
       const result = findGodlyMatch(world, eff.pos);
       if (result === null) continue;
@@ -389,10 +413,12 @@ async function bootstrap(): Promise<void> {
       dispatch(world, { type: 'GODLY_TRIGGER', event });
       // Codex unlock on host (mirrors client-side unlock on receipt).
       unlockGodly(event.godlyId);
+      debugProbes.matcherFiredEver = true;
       break; // single trigger per frame; queue handles concurrent
     }
     // Advance cursor to current tick after scan.
     lastMatcherTick = world.tick;
+    debugProbes.lastMatcherTick = world.tick;
   }
 
   function startCinematicIfNeeded(): void {
@@ -568,6 +594,9 @@ async function bootstrap(): Promise<void> {
     // S18 P1 — drain audio effects BEFORE effectsRenderer (which wipes
     // world.effects). Cursor-gated; replay-safe.
     drainAudioEffects(world.effects, world.tick);
+    // S23 P2 — debug overlay sync runs BEFORE effects wipe so chain-progress
+    // sees this frame's bonds. Cheap when null (no-op).
+    if (debugOverlay !== null) debugOverlay.sync(world, debugProbes);
     effectsRenderer.sync(world);
     avatarRenderer.sync(world, controls);
     hud.sync(world);

@@ -13,7 +13,7 @@ import { asPlayerId, type BondId, type PrimitiveId } from '../../types.ts';
 import { SparkType } from '../../constants.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import type { Bond } from '../../physics/bonds.ts';
-import { voltkinPredicate, findVoltkinChain } from './voltkin.ts';
+import { voltkinPredicate, findVoltkinChain, findLongestVoltkinPartial } from './voltkin.ts';
 
 function makePrim(
   id: number,
@@ -210,5 +210,101 @@ describe('voltkin predicate (typed chain)', () => {
     const match = voltkinPredicate(world, { x: 0, y: 0 });
     expect(match).not.toBeNull();
     expect(match!.triggererPlayerId).toBe(asPlayerId(0));
+  });
+
+  it('PRIME-AUDIT Δ1 — matches user S23 P2 screenshot topology (horizontal SQ4-TR4 chain laid out at arbitrary spatial positions)', () => {
+    // Mirrors user's actual in-game build per S23 P2 screenshot:
+    //   4 squares laid horizontally (lattice bonds rendered between them)
+    //   1 mixed SQ-TR bond at the junction
+    //   4 triangles continuing horizontally (diamond bonds rendered between them)
+    // Spatial positions are arbitrary — DFS is graph-based, not position-based.
+    // Test confirms the predicate matches the user's reported topology offline.
+    addPrim(world, makePrim(0, p0Color, 100, 200, SparkType.Square));
+    addPrim(world, makePrim(1, p0Color, 160, 210, SparkType.Square));
+    addPrim(world, makePrim(2, p0Color, 220, 200, SparkType.Square));
+    addPrim(world, makePrim(3, p0Color, 280, 215, SparkType.Square));
+    addPrim(world, makePrim(4, p0Color, 350, 205, SparkType.Triangle));
+    addPrim(world, makePrim(5, p0Color, 410, 200, SparkType.Triangle));
+    addPrim(world, makePrim(6, p0Color, 470, 210, SparkType.Triangle));
+    addPrim(world, makePrim(7, p0Color, 540, 200, SparkType.Triangle));
+    for (let i = 0; i < 7; i++) {
+      addBond(world, makeBond(i, i, i + 1));
+    }
+    const match = voltkinPredicate(world, { x: 280, y: 215 });
+    expect(match).not.toBeNull();
+    expect(match!.targetComponentPrimitiveIds.length).toBe(8);
+    expect(match!.triggererPlayerId).toBe(asPlayerId(0));
+  });
+
+  describe('findLongestVoltkinPartial (S23 P2 debug helper)', () => {
+    it('returns 0 on empty world', () => {
+      expect(findLongestVoltkinPartial(world)).toBe(0);
+    });
+
+    it('returns 4 when only the 4-square prefix is built', () => {
+      for (let i = 0; i < 4; i++) {
+        addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Square));
+      }
+      for (let i = 0; i < 3; i++) {
+        addBond(world, makeBond(i, i, i + 1));
+      }
+      expect(findLongestVoltkinPartial(world)).toBe(4);
+    });
+
+    it('returns 7 when chain is SQ4 + TR3 (one triangle short of fire)', () => {
+      for (let i = 0; i < 4; i++) {
+        addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Square));
+      }
+      for (let i = 4; i < 7; i++) {
+        addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Triangle));
+      }
+      for (let i = 0; i < 6; i++) {
+        addBond(world, makeBond(i, i, i + 1));
+      }
+      expect(findLongestVoltkinPartial(world)).toBe(7);
+    });
+
+    it('returns 8 on a full SQ4-TR4 chain', () => {
+      for (let i = 0; i < 4; i++) {
+        addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Square));
+      }
+      for (let i = 4; i < 8; i++) {
+        addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Triangle));
+      }
+      for (let i = 0; i < 7; i++) {
+        addBond(world, makeBond(i, i, i + 1));
+      }
+      expect(findLongestVoltkinPartial(world)).toBe(8);
+    });
+
+    it('returns 1 on interleaved SQ-TR-SQ-TR (no SQ-SQ run possible)', () => {
+      for (let i = 0; i < 8; i++) {
+        const type = i % 2 === 0 ? SparkType.Square : SparkType.Triangle;
+        addPrim(world, makePrim(i, p0Color, i * 50, 0, type));
+      }
+      for (let i = 0; i < 7; i++) {
+        addBond(world, makeBond(i, i, i + 1));
+      }
+      expect(findLongestVoltkinPartial(world)).toBe(1);
+    });
+  });
+
+  it('PRIME-AUDIT Δ1b — matches user S23 P2 screenshot topology in REVERSE (TR4-SQ4)', () => {
+    // Same as above but with prim types reversed. Bond graph is symmetric — same
+    // physical structure read from the other end. Predicate must match.
+    addPrim(world, makePrim(0, p0Color, 100, 200, SparkType.Triangle));
+    addPrim(world, makePrim(1, p0Color, 160, 210, SparkType.Triangle));
+    addPrim(world, makePrim(2, p0Color, 220, 200, SparkType.Triangle));
+    addPrim(world, makePrim(3, p0Color, 280, 215, SparkType.Triangle));
+    addPrim(world, makePrim(4, p0Color, 350, 205, SparkType.Square));
+    addPrim(world, makePrim(5, p0Color, 410, 200, SparkType.Square));
+    addPrim(world, makePrim(6, p0Color, 470, 210, SparkType.Square));
+    addPrim(world, makePrim(7, p0Color, 540, 200, SparkType.Square));
+    for (let i = 0; i < 7; i++) {
+      addBond(world, makeBond(i, i, i + 1));
+    }
+    const match = voltkinPredicate(world, { x: 280, y: 215 });
+    expect(match).not.toBeNull();
+    expect(match!.targetComponentPrimitiveIds.length).toBe(8);
   });
 });

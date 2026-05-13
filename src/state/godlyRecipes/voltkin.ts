@@ -85,6 +85,50 @@ export function findVoltkinChain(world: World): ReadonlyArray<PrimitiveId> | nul
   return null;
 }
 
+/**
+ * S23 P2 — diagnostic helper for the debug overlay. Returns the longest
+ * matching prefix of EXPECTED_CHAIN reachable in the bond graph (0–8).
+ * Pure read-only; same DFS shape as findVoltkinChain but tracks max depth
+ * instead of short-circuiting on first full match.
+ */
+export function findLongestVoltkinPartial(world: World): number {
+  const walk = (
+    currentId: PrimitiveId,
+    nextDepth: number,
+    visited: Set<PrimitiveId>,
+  ): number => {
+    let deepest = nextDepth;
+    if (nextDepth === EXPECTED_CHAIN.length) return nextDepth;
+    const current = world.primitives.get(currentId);
+    if (current === undefined) return deepest;
+    const expected = EXPECTED_CHAIN[nextDepth];
+    for (const bondId of current.bonds) {
+      const bond = world.bonds.get(bondId);
+      if (bond === undefined) continue;
+      const otherId = otherEndpoint(bond, currentId);
+      if (visited.has(otherId)) continue;
+      const other = world.primitives.get(otherId);
+      if (other === undefined) continue;
+      if (other.type !== expected) continue;
+      visited.add(otherId);
+      const sub = walk(otherId, nextDepth + 1, visited);
+      if (sub > deepest) deepest = sub;
+      visited.delete(otherId);
+    }
+    return deepest;
+  };
+
+  let maxDepth = 0;
+  for (const prim of world.primitives.values()) {
+    if (prim.type !== EXPECTED_CHAIN[0]) continue;
+    const visited = new Set<PrimitiveId>([prim.id]);
+    const depth = walk(prim.id, 1, visited);
+    if (depth > maxDepth) maxDepth = depth;
+    if (maxDepth === EXPECTED_CHAIN.length) break;
+  }
+  return maxDepth;
+}
+
 export const voltkinPredicate: RecipePredicate = (world) => {
   const chain = findVoltkinChain(world);
   if (chain === null) return null;

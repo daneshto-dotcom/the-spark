@@ -111,6 +111,40 @@ function loadSettingsFromStorage(): void {
   sfxMuted = readBool(STORAGE_KEY_SFX_MUTED, false);
   musicVolume = readNumber(STORAGE_KEY_MUSIC_VOLUME, DEFAULT_MUSIC_VOLUME);
   sfxVolume = readNumber(STORAGE_KEY_SFX_VOLUME, DEFAULT_SFX_VOLUME);
+  // S23 P2 (Defensive Fix 2 + 3) — surface state on init so debug=1 / DEV can
+  // distinguish "user muted intentionally" from "stale localStorage corruption".
+  // Always logs (cheap, infrequent — single fire per session). Critical for
+  // diagnosing the "music works but SFX silent" path the user reported.
+  const debugOn = isDebugRequested();
+  if (debugOn) {
+    console.log('[audio] loadSettings:', {
+      masterMuted, musicMuted, sfxMuted, musicVolume, sfxVolume,
+    });
+  }
+  if (masterMuted) {
+    console.warn(
+      '[audio] spark_audio_muted=true (legacy M-key master mute) is active — '
+      + 'this silences BOTH music and SFX regardless of per-channel toggles. '
+      + 'Press M in-game to toggle off, or window.localStorage.removeItem("spark_audio_muted").',
+    );
+  }
+  if (sfxMuted) {
+    console.warn('[audio] audio.sfxMuted=true — SFX bus muted via settings overlay.');
+  }
+  if (sfxVolume === 0 && !sfxMuted) {
+    console.warn('[audio] audio.sfxVolume=0 — SFX bus silent despite not being muted.');
+  }
+}
+
+/** S23 P2 — debug flag read from URL once per page-load. Guards verbose logs. */
+function isDebugRequested(): boolean {
+  try {
+    return typeof window !== 'undefined'
+      && window.location !== undefined
+      && window.location.search.includes('debug=1');
+  } catch {
+    return false;
+  }
 }
 
 function applyMusicGain(): void {
@@ -331,6 +365,59 @@ export function getAudioSettings(): AudioSettings {
 }
 
 /**
+ * S23 P2 — diagnostic surface for debug overlay. Returns the live wiring state
+ * of the audio graph: context state, gain values, and connection topology
+ * (numberOfOutputs / numberOfInputs). If the chain is broken (e.g.,
+ * sfxGain.numberOfOutputs===0 means SFX bus has nowhere to go), the overlay
+ * will surface it.
+ */
+export interface AudioChainSnapshot {
+  contextState: 'uninit' | 'running' | 'suspended' | 'closed' | 'interrupted';
+  masterGainValue: number | null;
+  musicGainValue: number | null;
+  sfxGainValue: number | null;
+  sfxOutputs: number | null;
+  masterInputs: number | null;
+  musicSourceActive: boolean;
+  storageKeys: {
+    masterMuted: string | null;
+    musicMuted: string | null;
+    sfxMuted: string | null;
+    musicVolume: string | null;
+    sfxVolume: string | null;
+  };
+}
+
+export function inspectAudioChain(): AudioChainSnapshot {
+  let storage: AudioChainSnapshot['storageKeys'] = {
+    masterMuted: null, musicMuted: null, sfxMuted: null,
+    musicVolume: null, sfxVolume: null,
+  };
+  try {
+    storage = {
+      masterMuted: window.localStorage.getItem(STORAGE_KEY_MASTER_MUTED),
+      musicMuted: window.localStorage.getItem(STORAGE_KEY_MUSIC_MUTED),
+      sfxMuted: window.localStorage.getItem(STORAGE_KEY_SFX_MUTED),
+      musicVolume: window.localStorage.getItem(STORAGE_KEY_MUSIC_VOLUME),
+      sfxVolume: window.localStorage.getItem(STORAGE_KEY_SFX_VOLUME),
+    };
+  } catch { /* private mode */ }
+
+  return {
+    contextState: audioContext === null
+      ? 'uninit'
+      : (audioContext.state as AudioChainSnapshot['contextState']),
+    masterGainValue: masterGain?.gain.value ?? null,
+    musicGainValue: musicGainNode?.gain.value ?? null,
+    sfxGainValue: sfxGainNode?.gain.value ?? null,
+    sfxOutputs: sfxGainNode?.numberOfOutputs ?? null,
+    masterInputs: masterGain?.numberOfInputs ?? null,
+    musicSourceActive: musicSource !== null,
+    storageKeys: storage,
+  };
+}
+
+/**
  * Reset audio module state. Used by tests for clean re-init. Does NOT
  * touch localStorage — call window.localStorage.clear() in tests for that.
  */
@@ -356,9 +443,28 @@ export function _resetAudioForTest(): void {
 }
 
 export async function playClaveSFX(): Promise<void> {
-  if (audioContext === null || sfxGainNode === null) return;
-  await resumeIfSuspended();
-  if (audioContext.state !== 'running') return;
+  if (audioContext === null || sfxGainNode === null) {
+    if (isDebugRequested()) console.warn('[audio] playClaveSFX: ctx/gain null, audio not initialized');
+    return;
+  }
+  // S23 P2 (Defensive Fix 1) — force explicit resume() with logging; previously
+  // resumeIfSuspended() silently swallowed errors. Browser autoplay policy
+  // requires resume() to be called within a user-gesture window; if SFX fires
+  // from rAF after the gesture token expired, resume() throws. Log so debug
+  // overlay + user can see the failure mode.
+  if (audioContext.state !== 'running') {
+    try {
+      await audioContext.resume();
+    } catch (e) {
+      if (isDebugRequested()) console.warn('[audio] playClaveSFX resume() threw:', e);
+    }
+  }
+  if (audioContext.state !== 'running') {
+    if (isDebugRequested()) {
+      console.warn(`[audio] playClaveSFX skip: ctx state=${audioContext.state} after resume attempt`);
+    }
+    return;
+  }
 
   const ctx = audioContext;
   const now = ctx.currentTime;
@@ -379,9 +485,24 @@ export async function playClaveSFX(): Promise<void> {
 }
 
 export async function playFartSFX(): Promise<void> {
-  if (audioContext === null || sfxGainNode === null) return;
-  await resumeIfSuspended();
-  if (audioContext.state !== 'running') return;
+  if (audioContext === null || sfxGainNode === null) {
+    if (isDebugRequested()) console.warn('[audio] playFartSFX: ctx/gain null, audio not initialized');
+    return;
+  }
+  // S23 P2 (Defensive Fix 1) — same explicit-resume + log path as playClaveSFX.
+  if (audioContext.state !== 'running') {
+    try {
+      await audioContext.resume();
+    } catch (e) {
+      if (isDebugRequested()) console.warn('[audio] playFartSFX resume() threw:', e);
+    }
+  }
+  if (audioContext.state !== 'running') {
+    if (isDebugRequested()) {
+      console.warn(`[audio] playFartSFX skip: ctx state=${audioContext.state} after resume attempt`);
+    }
+    return;
+  }
 
   const ctx = audioContext;
   const now = ctx.currentTime;

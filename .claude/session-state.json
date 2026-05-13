@@ -8,15 +8,15 @@
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "tier": "Micro",
-  "council_waived": true,
-  "council_waiver_reason": "Micro tier (single-file production + test rewrite, ~150 LOC); user explicit 'go' 2026-05-13. Council auto-waived per global Rule 17 Micro-on-user-path.",
-  "council_invoked": null,
+  "tier": "Full",
+  "council_waived": false,
+  "council_waiver_reason": null,
+  "council_invoked": "S23-P2-Full-tier-R1-Trident-Strike-QualityGate-R2-Synthesis-PRIME-AUDIT-completed-2026-05-13T18:50Z",
   "active_pdr": "inline:session-state.json:session_note",
-  "active_council_battle_ledger": null,
-  "active_prime_audit": null,
+  "active_council_battle_ledger": "inline:S23P2-deliberation-message-2026-05-13T18:45Z",
+  "active_prime_audit": "inline:S23P2-PRIME-AUDIT-message-2026-05-13T18:50Z",
   "session_kind": "execution",
-  "session_note": "S23: P0 (1v1 retest) deferred per user — has not yet tested with brother, will revisit after Voltkin works. P1 = Voltkin recipe rewrite. User playtest of S22 P4 geometric predicate revealed it's undiscoverable in natural play (200 px adjacency + aspect ratios with no visual feedback). User-driven spec: strict typed chain — linear bonded path of 8 prims SquareSquareSquareSquare->TriangleTriangleTriangleTriangle, first match in bond graph triggers, no filler prims allowed between consecutive chain entries (Circle/Line/Spiral/Dot bridges break the chain).",
+  "session_note": "S23 SCOPE AMENDMENT (Rule 16): user reported BOTH Voltkin trigger AND SFX (claves+farts) silent after S23 P1 deploy. Demanded full-tier deliberation. Council R1 (Grok-Disruptor + Gemini-Auditor parallel) + Quality Gate pass + R2 synthesis + PRIME-AUDIT applied. Δ1 preemptive vitest fixture (L-shape SQ4-TR4 + reverse) PASSED — predicate is correct offline (11/11 voltkin tests green). Bug is runtime, not predicate. P2 ships: (a) debug overlay (?debug=1 URL toggle) surfacing 7 runtime gates + audio chain wiring + live chain progress, (b) 3 defensive audio fixes per Grok hypotheses (force audioContext.resume + masterMuted warning + localStorage audit), (c) findLongestVoltkinPartial export for live HUD. User pastes overlay state at trigger moment → I diagnose definitively from data.",
   "priorities": [
     {
       "id": "P0",
@@ -28,6 +28,20 @@
       "unlock_source": "user",
       "check_completed": false,
       "check_method": "User has not yet attempted brother playtest of ed090fd. Deferred until Voltkin recipe ships and user has reason to spin up 1v1.",
+      "checkpoint_commit": null
+    },
+    {
+      "id": "P2",
+      "label": "Voltkin runtime diagnostic overlay + SFX defensive fixes (Full-tier Council deliberation, scope amendment Rule 16)",
+      "status": "in_progress",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": false,
+      "council_invoked": "S23-P2-Full-tier-R1-R2-QualityGate-PRIME-AUDIT-completed-2026-05-13T18:50Z",
+      "check_completed": false,
+      "check_method": null,
       "checkpoint_commit": null
     },
     {
