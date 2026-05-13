@@ -1,5 +1,5 @@
 # Boot Snapshot (auto-generated at S22 close)
-Generated: 2026-05-13 | Session closed: S22 → next: S23 | Last commit: aa72a47
+Generated: 2026-05-13 | Session closed: S22 → next: S23 | Last commit: 77afff0 (Codex z-order hotfix)
 
 ## Live URL
 **https://spark-online.space/** (HTTPS, cert exp 2026-08-10 auto-renew)
