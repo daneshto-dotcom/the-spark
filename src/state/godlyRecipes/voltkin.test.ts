@@ -1,10 +1,9 @@
 /**
- * SPARK — Voltkin recipe predicate (S22 P4).
+ * SPARK — Voltkin predicate tests (S23 P1 rewrite).
  *
- * Geometric heuristic: lightning-bolt-like component (elongated, ≥3 prims,
- * aspect ≥2.5) adjacent (centroid distance <200 px) to TV-frame-like
- * component (squarish, ≥4 prims, aspect 1.0-1.8). Triggerer = dominant
- * placerColor of the lightning component.
+ * Verifies the typed-chain predicate: a linear bonded path of exactly 8 prims
+ * matching Square x4 -> Triangle x4. No filler prims allowed between consecutive
+ * chain entries.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -14,17 +13,18 @@ import { asPlayerId, type BondId, type PrimitiveId } from '../../types.ts';
 import { SparkType } from '../../constants.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import type { Bond } from '../../physics/bonds.ts';
-import { voltkinPredicate, findAllComponents } from './voltkin.ts';
+import { voltkinPredicate, findVoltkinChain } from './voltkin.ts';
 
 function makePrim(
   id: number,
   placerColor: number,
   x: number,
   y: number,
+  type: SparkType = SparkType.Dot,
 ): Primitive {
   return {
     id: id as unknown as PrimitiveId,
-    type: SparkType.Dot,
+    type,
     placerColor,
     placedBy: asPlayerId(0),
     createdTick: 0,
@@ -54,108 +54,161 @@ function makeBond(id: number, aId: number, bId: number): Bond {
 
 function addPrim(world: World, prim: Primitive): void {
   world.primitives.set(prim.id, prim);
+  // mirror onto adjacency so findVoltkinChain can walk
+  for (const bondId of prim.bonds) {
+    const bond = world.bonds.get(bondId);
+    if (bond === undefined) continue;
+    const a = world.primitives.get(bond.aId);
+    const b = world.primitives.get(bond.bId);
+    a?.bonds.add(bond.id);
+    b?.bonds.add(bond.id);
+  }
 }
 
 function addBond(world: World, bond: Bond): void {
   world.bonds.set(bond.id, bond);
+  world.primitives.get(bond.aId)?.bonds.add(bond.id);
+  world.primitives.get(bond.bId)?.bonds.add(bond.id);
 }
 
-describe('voltkin predicate', () => {
+describe('voltkin predicate (typed chain)', () => {
   let world: World;
+  let p0Color: number;
 
   beforeEach(() => {
     world = makeWorld(1);
-    // ensure both players exist
     const p2 = makeIdlePlayer(asPlayerId(1), 0x00ff00);
     world.players.set(p2.id, p2);
-    // Player 0 already created at color PLAYER_COLORS[0]; check what that is by inspecting
+    p0Color = world.players.get(asPlayerId(0))!.color;
   });
 
   it('returns null on an empty world', () => {
     expect(voltkinPredicate(world, { x: 0, y: 0 })).toBeNull();
+    expect(findVoltkinChain(world)).toBeNull();
   });
 
-  it('returns null when only a lightning exists (no TV)', () => {
-    // P0 color: get from world.players
-    const p0 = world.players.get(asPlayerId(0))!;
-    // 4-prim horizontal line — high aspect (lightning)
-    addPrim(world, makePrim(0, p0.color, 0, 0));
-    addPrim(world, makePrim(1, p0.color, 50, 0));
-    addPrim(world, makePrim(2, p0.color, 100, 0));
-    addPrim(world, makePrim(3, p0.color, 150, 0));
-    addBond(world, makeBond(0, 0, 1));
-    addBond(world, makeBond(1, 1, 2));
-    addBond(world, makeBond(2, 2, 3));
-    const components = findAllComponents(world);
-    expect(components.length).toBe(1);
-    expect(components[0].aspect).toBeGreaterThanOrEqual(2.5);
+  it('returns null when only 4 squares are chained (no triangles)', () => {
+    for (let i = 0; i < 4; i++) {
+      addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Square));
+    }
+    for (let i = 0; i < 3; i++) {
+      addBond(world, makeBond(i, i, i + 1));
+    }
     expect(voltkinPredicate(world, { x: 0, y: 0 })).toBeNull();
   });
 
-  it('matches a lightning + TV pair within adjacency range', () => {
-    const p0 = world.players.get(asPlayerId(0))!;
-    // lightning: 4 prims, horizontal line, aspect ≈ 150
-    addPrim(world, makePrim(0, p0.color, 0, 0));
-    addPrim(world, makePrim(1, p0.color, 50, 0));
-    addPrim(world, makePrim(2, p0.color, 100, 0));
-    addPrim(world, makePrim(3, p0.color, 150, 0));
-    addBond(world, makeBond(0, 0, 1));
-    addBond(world, makeBond(1, 1, 2));
-    addBond(world, makeBond(2, 2, 3));
-    // TV: 4 prims in a roughly-square 60×60 box near the lightning
-    addPrim(world, makePrim(10, 0x00ff00, 200, 0));
-    addPrim(world, makePrim(11, 0x00ff00, 260, 0));
-    addPrim(world, makePrim(12, 0x00ff00, 200, 60));
-    addPrim(world, makePrim(13, 0x00ff00, 260, 60));
-    addBond(world, makeBond(10, 10, 11));
-    addBond(world, makeBond(11, 11, 13));
-    addBond(world, makeBond(12, 13, 12));
-    addBond(world, makeBond(13, 12, 10));
-    const match = voltkinPredicate(world, { x: 100, y: 0 });
+  it('returns null when only 4 triangles are chained (no squares)', () => {
+    for (let i = 0; i < 4; i++) {
+      addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Triangle));
+    }
+    for (let i = 0; i < 3; i++) {
+      addBond(world, makeBond(i, i, i + 1));
+    }
+    expect(voltkinPredicate(world, { x: 0, y: 0 })).toBeNull();
+  });
+
+  it('matches a linear SQ-SQ-SQ-SQ-TR-TR-TR-TR chain', () => {
+    // 8 prims in a horizontal line. 0-3 squares, 4-7 triangles.
+    for (let i = 0; i < 4; i++) {
+      addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Square));
+    }
+    for (let i = 4; i < 8; i++) {
+      addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Triangle));
+    }
+    for (let i = 0; i < 7; i++) {
+      addBond(world, makeBond(i, i, i + 1));
+    }
+    const match = voltkinPredicate(world, { x: 0, y: 0 });
     expect(match).not.toBeNull();
     expect(match!.triggererPlayerId).toBe(asPlayerId(0));
-    expect(match!.targetComponentPrimitiveIds.length).toBe(4);
+    expect(match!.targetComponentPrimitiveIds.length).toBe(8);
+    // centroid of evenly-spaced 0..350 line on y=0 is (175, 0)
+    expect(match!.targetPos.x).toBeCloseTo(175, 1);
+    expect(match!.targetPos.y).toBeCloseTo(0, 1);
   });
 
-  it('skips when lightning + TV are >200 px apart', () => {
-    const p0 = world.players.get(asPlayerId(0))!;
-    addPrim(world, makePrim(0, p0.color, 0, 0));
-    addPrim(world, makePrim(1, p0.color, 50, 0));
-    addPrim(world, makePrim(2, p0.color, 100, 0));
-    addPrim(world, makePrim(3, p0.color, 150, 0));
-    addBond(world, makeBond(0, 0, 1));
-    addBond(world, makeBond(1, 1, 2));
-    addBond(world, makeBond(2, 2, 3));
-    // TV far away (centroid distance ~500 px)
-    addPrim(world, makePrim(10, 0x00ff00, 600, 0));
-    addPrim(world, makePrim(11, 0x00ff00, 660, 0));
-    addPrim(world, makePrim(12, 0x00ff00, 600, 60));
-    addPrim(world, makePrim(13, 0x00ff00, 660, 60));
-    addBond(world, makeBond(10, 10, 11));
-    addBond(world, makeBond(11, 11, 13));
-    addBond(world, makeBond(12, 13, 12));
-    addBond(world, makeBond(13, 12, 10));
+  it('matches a TR-TR-TR-TR-SQ-SQ-SQ-SQ chain (bond graph is bidirectional — same structure as SQ4-TR4 viewed from the other end)', () => {
+    for (let i = 0; i < 4; i++) {
+      addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Triangle));
+    }
+    for (let i = 4; i < 8; i++) {
+      addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Square));
+    }
+    for (let i = 0; i < 7; i++) {
+      addBond(world, makeBond(i, i, i + 1));
+    }
+    const match = voltkinPredicate(world, { x: 0, y: 0 });
+    expect(match).not.toBeNull();
+    expect(match!.targetComponentPrimitiveIds.length).toBe(8);
+  });
+
+  it('returns null when squares and triangles are interleaved (SQ-TR-SQ-TR-SQ-TR-SQ-TR)', () => {
+    for (let i = 0; i < 8; i++) {
+      const type = i % 2 === 0 ? SparkType.Square : SparkType.Triangle;
+      addPrim(world, makePrim(i, p0Color, i * 50, 0, type));
+    }
+    for (let i = 0; i < 7; i++) {
+      addBond(world, makeBond(i, i, i + 1));
+    }
     expect(voltkinPredicate(world, { x: 0, y: 0 })).toBeNull();
   });
 
-  it('skips when shapes do not classify cleanly (low-aspect lightning candidate)', () => {
-    const p0 = world.players.get(asPlayerId(0))!;
-    // 3 prims in a roughly-square 60×60 arrangement — aspect ≈ 1
-    addPrim(world, makePrim(0, p0.color, 0, 0));
-    addPrim(world, makePrim(1, p0.color, 60, 0));
-    addPrim(world, makePrim(2, p0.color, 30, 60));
-    addBond(world, makeBond(0, 0, 1));
-    addBond(world, makeBond(1, 1, 2));
-    addBond(world, makeBond(2, 2, 0));
-    // TV pair adjacent
-    addPrim(world, makePrim(10, 0x00ff00, 200, 0));
-    addPrim(world, makePrim(11, 0x00ff00, 260, 0));
-    addPrim(world, makePrim(12, 0x00ff00, 200, 60));
-    addPrim(world, makePrim(13, 0x00ff00, 260, 60));
-    addBond(world, makeBond(10, 10, 11));
-    addBond(world, makeBond(11, 11, 13));
-    addBond(world, makeBond(12, 13, 12));
-    addBond(world, makeBond(13, 12, 10));
+  it('returns null when a non-typed prim (Circle) bridges squares and triangles', () => {
+    // SQ-SQ-SQ-SQ-CIRCLE-TR-TR-TR-TR (9 prims, circle breaks the chain)
+    for (let i = 0; i < 4; i++) {
+      addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Square));
+    }
+    addPrim(world, makePrim(4, p0Color, 200, 0, SparkType.Circle));
+    for (let i = 5; i < 9; i++) {
+      addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Triangle));
+    }
+    for (let i = 0; i < 8; i++) {
+      addBond(world, makeBond(i, i, i + 1));
+    }
     expect(voltkinPredicate(world, { x: 0, y: 0 })).toBeNull();
+  });
+
+  it('matches a valid 8-chain embedded in a branched topology', () => {
+    // Linear chain 0..7 (SQ4 then TR4), plus extra branch off prim 2 (square)
+    // to a Circle (prim 100) — DFS must backtrack from the circle branch and
+    // still find the valid chain through prim 3.
+    for (let i = 0; i < 4; i++) {
+      addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Square));
+    }
+    for (let i = 4; i < 8; i++) {
+      addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Triangle));
+    }
+    for (let i = 0; i < 7; i++) {
+      addBond(world, makeBond(i, i, i + 1));
+    }
+    // branch off prim 2: extra circle dangling
+    addPrim(world, makePrim(100, p0Color, 100, 80, SparkType.Circle));
+    addBond(world, makeBond(100, 2, 100));
+
+    const match = voltkinPredicate(world, { x: 0, y: 0 });
+    expect(match).not.toBeNull();
+    expect(match!.targetComponentPrimitiveIds.length).toBe(8);
+    // chain should NOT include the branch (prim 100)
+    expect(match!.targetComponentPrimitiveIds).not.toContain(100 as unknown as PrimitiveId);
+  });
+
+  it('triggerer is the dominant placerColor across the chain', () => {
+    // 5 prims placerColor=p0, 3 prims placerColor=0x00ff00 (player 1's color).
+    // p0 dominates → triggerer = player 0.
+    const p1Color = 0x00ff00;
+    addPrim(world, makePrim(0, p0Color, 0, 0, SparkType.Square));
+    addPrim(world, makePrim(1, p0Color, 50, 0, SparkType.Square));
+    addPrim(world, makePrim(2, p0Color, 100, 0, SparkType.Square));
+    addPrim(world, makePrim(3, p1Color, 150, 0, SparkType.Square));
+    addPrim(world, makePrim(4, p0Color, 200, 0, SparkType.Triangle));
+    addPrim(world, makePrim(5, p0Color, 250, 0, SparkType.Triangle));
+    addPrim(world, makePrim(6, p1Color, 300, 0, SparkType.Triangle));
+    addPrim(world, makePrim(7, p1Color, 350, 0, SparkType.Triangle));
+    for (let i = 0; i < 7; i++) {
+      addBond(world, makeBond(i, i, i + 1));
+    }
+    const match = voltkinPredicate(world, { x: 0, y: 0 });
+    expect(match).not.toBeNull();
+    expect(match!.triggererPlayerId).toBe(asPlayerId(0));
   });
 });
