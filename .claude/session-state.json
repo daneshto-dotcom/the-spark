@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 85,
+  "tool_calls_session_total": 90,
   "session_start": "2026-05-13T14:00:00Z",
   "session_id": "S23",
   "budget_total": 1000000,
@@ -16,7 +16,7 @@
   "active_council_battle_ledger": "inline:S23P2-deliberation-message-2026-05-13T18:45Z",
   "active_prime_audit": "inline:S23P2-PRIME-AUDIT-message-2026-05-13T18:50Z",
   "session_kind": "execution",
-  "session_note": "S23 SCOPE AMENDMENT (Rule 16): user reported BOTH Voltkin trigger AND SFX (claves+farts) silent after S23 P1 deploy. Demanded full-tier deliberation. Council R1 (Grok-Disruptor + Gemini-Auditor parallel) + Quality Gate pass + R2 synthesis + PRIME-AUDIT applied. Δ1 preemptive vitest fixture (L-shape SQ4-TR4 + reverse) PASSED — predicate is correct offline (11/11 voltkin tests green). Bug is runtime, not predicate. P2 ships: (a) debug overlay (?debug=1 URL toggle) surfacing 7 runtime gates + audio chain wiring + live chain progress, (b) 3 defensive audio fixes per Grok hypotheses (force audioContext.resume + masterMuted warning + localStorage audit), (c) findLongestVoltkinPartial export for live HUD. User pastes overlay state at trigger moment → I diagnose definitively from data.",
+  "session_note": "S23 final: 4 priorities executed (P0 deferred + P1 Micro + P2 Full + P3 Micro + P4 Micro). User reported regressions post-P1 (Voltkin trigger + SFX silent). Two Full-tier Council deliberations ran (Battle Ledger + PRIME-AUDIT preserved in conversation). Final root cause: cursor `<=` off-by-one in drainAudioEffects + runGodlyMatcher — click-handler-dispatched BOND_FORMED at same world.tick as cursor was silently skipped. One-char fix (`<=` → `<`) resolved BOTH bugs simultaneously. P4 verified by user playtest: Voltkin fires, SFX (claves + farts) play. NEXT-SESSION HANDOFF: user proposed Phase 2 Voltkin = autonomous creature actor (live entity with AI/physics/animation/attack behavior for ~10s, like Pac-Predator architecture pulled forward). 5-session blueprint saved at .claude/plans/ACTIVE_PLAN_voltkin_phase2.md. S24 = pure Full-tier Council deliberation, blueprint output, ZERO code. S25-S28 = phased implementation (entity infra → physics/locomotion → AI behavior → polish+1v1 sync).",
   "priorities": [
     {
       "id": "P0",
@@ -55,10 +55,42 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "voltkin.ts predicate rewritten: findVoltkinChain() does DFS path-finding from each Square prim, backtracking through bond graph to find a linear path of 8 prims matching SparkType.Square x4 then SparkType.Triangle x4. Removed findAllComponents+aspect-ratio classifier (no longer needed). VOLTKIN_RECIPE constants unchanged (cinematic mp4/voice ogg/sprite png paths, lumaKey threshold 0.88). Triggerer derivation unchanged (dominant placerColor across chain). voltkin.test.ts rewritten: 5 old tests -> 9 new covering empty world / only-squares / only-triangles / valid 8-chain / reverse-direction (bidirectional graph match, still triggers) / interleaved SQ-TR-SQ-TR null / Circle bridge null / branched topology with embedded chain match / multi-color triggerer dominance. typecheck exit 0; 425/425 tests pass (+4 from voltkin test rewrite); build green 447.90 KB (-0.30 KB from S22 baseline 448.20). Pushed to master, GH Actions auto-deploy in flight to spark-online.space. RALPH:PATROL inline self-check: predicate is pure read-only, registered via side-effect import unchanged, recipe contract unchanged, no integration changes needed. Bidirectional-match behavior validated by explicit reverse-direction test (the physical structure is symmetric — a TR4-SQ4 chain read from the other end is the same as SQ4-TR4).",
+      "check_method": "voltkin.ts predicate rewritten: findVoltkinChain() does DFS path-finding from each Square prim, backtracking through bond graph to find a linear path of 8 prims matching SparkType.Square x4 then SparkType.Triangle x4. typecheck exit 0; 425/425 tests pass (+4); build green 447.90 KB. Pushed to master, deployed.",
       "checkpoint_commit": "95fc4967e2140ab207310d037dd150e80f0423e0",
       "real_context_tokens_at_close": 136392,
       "real_context_pct_at_close": 13.64
+    },
+    {
+      "id": "P3",
+      "label": "Predicate triggerer-fallback + diagnostic logs + SFX call counters",
+      "status": "completed",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": true,
+      "council_waiver_reason": "Micro tier (continuation of P2 Council deliberation); user explicit 'go' on additional diagnostic depth.",
+      "check_completed": true,
+      "check_method": "Added triggerer fallback to first player when strict color-find fails; predicate-internal console.log for ?debug=1 dumping chain/placerColors/topColor/players/resolved-triggerer; clave+fart total/synthed counters added to inspectAudioChain snapshot + debug overlay. typecheck exit 0; 432/432 tests still pass; build 455.36 KB (+0.80 vs P2). Pushed + deployed. User's next overlay paste showed clave total=0 — proved drainAudioEffects never reached playClaveSFX — directly led to P4 root-cause diagnosis.",
+      "checkpoint_commit": "17a0bfd",
+      "real_context_tokens_at_close": null,
+      "real_context_pct_at_close": null
+    },
+    {
+      "id": "P4",
+      "label": "Cursor off-by-one root-cause fix (<=  ->  < in drainAudioEffects + runGodlyMatcher)",
+      "status": "completed",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": true,
+      "council_waiver_reason": "Micro tier (2-line surgical fix from P3 diagnostic data); user explicit 'go' on root-cause fix.",
+      "check_completed": true,
+      "check_method": "Diagnosed from P3 user-paste: BOND_FORMED total=7 (matcher probe before cursor check), firedEver=false (matcher cursor `<=` skipped), clave total=0 (audio cursor `<=` skipped). Root cause: click handler dispatches BOND_FORMED with tick=world.tick (un-advanced) between physics ticks; next frame drainAudio+matcher have cursor=world.tick from prev frame's set; effect.tick === cursor → `<=` skips. Fix: change comparison to `<` in both call sites (src/render/audioManager.ts:558 + src/main.ts:382). 432/432 tests still pass; build 455.36 KB unchanged. User playtest VERIFIED: Voltkin fires (cooldown 11425t ACTIVE per overlay), claves play (total=7 synthed=7), farts play.",
+      "checkpoint_commit": "4cad8f060b59c799202104d03f04a042ed9ec45e",
+      "real_context_tokens_at_close": null,
+      "real_context_pct_at_close": null
     }
   ],
   "totals": {
