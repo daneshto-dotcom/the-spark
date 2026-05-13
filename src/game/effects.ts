@@ -117,7 +117,8 @@ export type GameEffect =
       readonly kind: 'BOND_SEVERED';
       readonly tick: number;
       readonly pos: Vec2;
-      readonly cause: 'player' | 'physics';
+      /** S22 P3 — 'godly' added for SEVER_BOND cascades during godly sustained effects. */
+      readonly cause: 'player' | 'physics' | 'godly';
     };
 
 /** Soft cap on the queue — anything older than this many ticks is dropped. */

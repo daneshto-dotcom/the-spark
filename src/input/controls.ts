@@ -176,7 +176,19 @@ export class Controls {
 
   // === pointer handlers ===
 
+  /**
+   * S22 P3 D6 — asymmetric input-lock guard. During a godly cinematic, the
+   * triggering player's input is gated (they're watching the cinematic);
+   * the OPPONENT remains free to build counter-structures. Solo mode locks
+   * the only player. Returns true if input is currently locked for this
+   * Controls instance's playerId.
+   */
+  private isInputLocked(): boolean {
+    return this.world.activeCinematicPlayerId === this.playerId;
+  }
+
   private onDown = (e: PointerEvent): void => {
+    if (this.isInputLocked()) return;
     this.updateCursor(e);
     if (e.button === 0) {
       // LMB
@@ -229,6 +241,7 @@ export class Controls {
   };
 
   private onUp = (e: PointerEvent): void => {
+    if (this.isInputLocked()) return;
     this.updateCursor(e);
     if (e.button === 0 && this.state.kind === 'AttractDrag') {
       const spark = this.world.freeSparks.get(this.state.sparkId);
@@ -341,6 +354,7 @@ export class Controls {
     if (e.code !== 'Space' && e.key !== ' ') return;
     if (this.world.gameMode !== '1v1') return;
     if (this.world.gameState !== 'PLAYING') return;
+    if (this.isInputLocked()) return;
     if (this.state.kind === 'AttractDrag') {
       // Spark stays Free where its physics put it.
       this.state = { kind: 'Idle' };

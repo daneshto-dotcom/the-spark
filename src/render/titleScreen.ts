@@ -23,6 +23,8 @@ const BUTTON_RADIUS = 12;
 export interface TitleScreenCallbacks {
   onSoloSelected(): void;
   on1v1Selected(): void;
+  /** S22 P3 — open Codex (MK-style godly recipe gallery). */
+  onCodexSelected(): void;
 }
 
 export class TitleScreen {
@@ -78,6 +80,18 @@ export class TitleScreen {
       callbacks.on1v1Selected,
     );
     this.container.addChild(btn1v1);
+
+    // S22 P3 — CODEX entry button (third row). MK-style gallery of unlocked
+    // godly combos. Empty on first 1v1 (PRIME-AUDIT-S21 #4 no-spoilers).
+    const btnCodex = this.makeButton(
+      'CODEX',
+      'godly combos — discovered through play',
+      0xffd60a,
+      CANVAS_WIDTH / 2,
+      CANVAS_HEIGHT / 2 + 40 + (BUTTON_HEIGHT + BUTTON_GAP) * 2,
+      callbacks.onCodexSelected,
+    );
+    this.container.addChild(btnCodex);
 
     app.stage.addChild(this.container);
     this.setVisible(false);

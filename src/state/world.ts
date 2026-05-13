@@ -52,6 +52,8 @@ import {
 } from './gameMode.ts';
 import { placePrimitive, type PlacePrimitiveAction } from './placePrimitive.ts';
 import { requireActivePlayer } from './authGate.ts';
+import type { GodlyTriggerEvent } from './godlyRecipes/types.ts';
+import { setCooldown } from './godlyCooldown.ts';
 import {
   applyDespawnSpark,
   applyDropSpark,
@@ -129,6 +131,19 @@ export interface World {
    * solo, isHost is true (the local player IS the authority).
    */
   isHost: boolean;
+  /**
+   * S22 P3 — currently-playing godly cinematic owner. Null when no cinematic
+   * is active. Single-slot serialization (PRIME-AUDIT Δ2): concurrent
+   * GODLY_TRIGGER actions queue into pendingCinematics and fire one at a
+   * time so cinematics never overlap visually.
+   */
+  activeCinematicPlayerId: PlayerId | null;
+  /**
+   * S22 P3 — queue of pending godly triggers behind the active one. Host
+   * processes one at a time. main.ts setTimeout (wall-clock cinematicMs +
+   * sustainedEffectMs) shifts the next event and re-dispatches.
+   */
+  pendingCinematics: GodlyTriggerEvent[];
 }
 
 export type GameAction =
@@ -152,7 +167,23 @@ export type GameAction =
   | StartGameAction
   | EndTurnAction
   | ReturnToTitleAction
-  | UpdateAvatarPosAction;
+  | UpdateAvatarPosAction
+  // S22 P3 — godly-trigger action. Host dispatches locally on matcher match,
+  // client dispatches on receiving GodlyTriggerMsg over the network. Reducer
+  // sets activeCinematicPlayerId (or queues if one is already active), starts
+  // cooldown, and emits SEVER_BOND cascade on target component's bonds for
+  // the sustained effect.
+  | {
+      readonly type: 'GODLY_TRIGGER';
+      readonly event: GodlyTriggerEvent;
+    }
+  // S22 P3 — clear active cinematic + advance pendingCinematics queue.
+  // Dispatched by main.ts wall-clock timer after cinematicMs + sustainedEffectMs.
+  | { readonly type: 'GODLY_COMPLETE' }
+  // S22 P3 — abort active cinematic + drain queue. Dispatched on peer-drop
+  // (PRIME-AUDIT Δ3 — connectionLostOverlay calls this so audio/video can be
+  // stopped cleanly and no more godlies fire in a dead session).
+  | { readonly type: 'GODLY_ABORT' };
 
 export function makeWorld(rngSeed: number): World {
   const w: World = {
@@ -173,6 +204,8 @@ export function makeWorld(rngSeed: number): World {
     gameMode: 'solo',
     currentPlayerId: asPlayerId(0),
     isHost: true,
+    activeCinematicPlayerId: null,
+    pendingCinematics: [],
   };
   // Phase 1 + solo default: P1 only at spawner-rim left.
   const p1 = makeIdlePlayer(asPlayerId(0), PLAYER_COLORS[0], {
@@ -260,6 +293,61 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'UPDATE_AVATAR_POS':
       return applyUpdateAvatarPos(world, action);
+
+    case 'GODLY_TRIGGER': {
+      // S22 P3 — single-slot cinematic serialization (PRIME-AUDIT Δ2).
+      // If another cinematic is active, queue. Otherwise activate + start
+      // cooldown + cascade SEVER_BOND on target component's bonds.
+      const { event } = action;
+      if (world.activeCinematicPlayerId !== null) {
+        world.pendingCinematics.push(event);
+        return world;
+      }
+      const triggerer = world.players.get(event.triggererPlayerId);
+      if (triggerer === undefined) return world;
+      world.activeCinematicPlayerId = event.triggererPlayerId;
+      setCooldown(triggerer, world.tick);
+      // Sustained effect: SEVER_BOND every bond connected to the target
+      // component. Reuses existing severance machinery with cause='godly'.
+      const targetSet = new Set(event.targetComponentPrimitiveIds);
+      const targetBondIds: BondId[] = [];
+      for (const [bondId, bond] of world.bonds) {
+        if (targetSet.has(bond.aId) || targetSet.has(bond.bId)) {
+          targetBondIds.push(bondId);
+        }
+      }
+      for (const bondId of targetBondIds) {
+        const bond = world.bonds.get(bondId);
+        if (bond === undefined) continue;
+        const primA = world.primitives.get(bond.aId);
+        const primB = world.primitives.get(bond.bId);
+        if (primA === undefined || primB === undefined) continue;
+        // 'godly' bypasses auth + charge gates entirely (host-validated upstream).
+        const split = severSplit(bond, world.primitives, world.bonds);
+        for (const e of computeSeverEraseEffects(world, split, world.tick)) world.effects.push(e);
+        applySeverTopology(world, bond, split);
+        world.effects.push({
+          kind: 'BOND_SEVERED',
+          tick: world.tick,
+          pos: { x: primA.pos.x, y: primA.pos.y },
+          cause: 'godly',
+        });
+      }
+      return world;
+    }
+
+    case 'GODLY_COMPLETE': {
+      world.activeCinematicPlayerId = null;
+      // No re-dispatch from inside the reducer (CQS — main.ts setTimeout
+      // shifts next pending event and dispatches GODLY_TRIGGER for it).
+      return world;
+    }
+
+    case 'GODLY_ABORT': {
+      world.activeCinematicPlayerId = null;
+      world.pendingCinematics.length = 0;
+      return world;
+    }
   }
 }
 

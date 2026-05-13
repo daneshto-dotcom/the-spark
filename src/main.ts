@@ -58,6 +58,10 @@ import { StatsOverlay } from './render/statsOverlay.ts';
 import { StructureRenderer } from './render/structureRenderer.ts';
 import { TitleScreen } from './render/titleScreen.ts';
 import { HUD } from './render/ui.ts';
+import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
+import { makeCinematicVignette } from './render/cinematicVignette.ts';
+import { CodexOverlay, unlockGodly, entryFromRecipe } from './render/codexOverlay.ts';
+import { findGodlyMatch, makeTriggerEvent, listRecipes } from './state/godlyRecipes/index.ts';
 import { mulberry32 } from './state/rng.ts';
 import { dispatch, makeWorld, type GameAction, type GameState } from './state/world.ts';
 import { makeGameStateExtras, softReset, tickGameState } from './state/gameState.ts';
@@ -192,6 +196,23 @@ async function bootstrap(): Promise<void> {
   const stats = new StatsOverlay(app);
   const grid = new SpatialGrid(SPATIAL_CELL_SIZE);
 
+  // ===== S22 P3 — godly cinematic overlay + counter-window vignette + Codex =====
+  const recipeHint = (id: string): string => {
+    // v1 hints are purposefully cryptic to preserve discovery. S24+ may refine.
+    if (id === 'voltkin') return 'lightning meets a screen';
+    return '???';
+  };
+  const cutsceneOverlay = new CutsceneOverlay(app);
+  const vignette = makeCinematicVignette(app);
+  const codexEntries = listRecipes().map((recipe) => entryFromRecipe(
+    recipe,
+    recipe.id.toUpperCase(),
+    recipeHint(recipe.id),
+  ));
+  const codexOverlay = new CodexOverlay(app, codexEntries, () => {
+    codexOverlay.setVisible(false);
+  });
+
   // ===== S15 P2 — title + lobby screens =====
   const titleScreen = new TitleScreen(app, {
     onSoloSelected: () => {
@@ -199,6 +220,9 @@ async function bootstrap(): Promise<void> {
     },
     on1v1Selected: () => {
       world.gameState = 'LOBBY';
+    },
+    onCodexSelected: () => {
+      codexOverlay.setVisible(true);
     },
   });
 
@@ -223,6 +247,8 @@ async function bootstrap(): Promise<void> {
           // should not have sent them.
           dispatch(world, msg.action);
         }
+        // S22 P3 — clients never send GODLY_TRIGGER (host-only authority,
+        // Battle Ledger row 9). Defensive: drop GODLY_TRIGGER from clients silently.
       });
       return code;
     },
@@ -237,6 +263,12 @@ async function bootstrap(): Promise<void> {
       netTransport.on((msg) => {
         if (msg.kind === 'NETSNAPSHOT' && clientSync !== null) {
           clientSync.receive(msg, performance.now());
+        }
+        // S22 P3 — receive host-broadcast godly trigger; apply locally.
+        // Client NEVER runs the recipe predicate itself (anti-desync,
+        // Battle Ledger row 9). Predicate is host-only.
+        if (msg.kind === 'GODLY_TRIGGER') {
+          dispatch(world, { type: 'GODLY_TRIGGER', event: msg.event });
         }
       });
     },
@@ -328,6 +360,94 @@ async function bootstrap(): Promise<void> {
   let lastViolationLogTick = -Infinity;
   let physicsAccumulator = 0;
 
+  // S22 P3 — godly matcher cursor. Tracks the last BOND_FORMED tick scanned
+  // so the matcher processes each emission exactly once even when render
+  // frames out-pace physics ticks.
+  let lastMatcherTick = -1;
+  // Track the most-recent activeCinematicPlayerId observed so we know when
+  // to KICK the cutsceneOverlay (transition null → non-null) vs ABORT
+  // (transition non-null → null via GODLY_ABORT).
+  let lastCinematicOwner: number | null = null;
+  let cinematicTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastConnectionLost = false;
+
+  function runGodlyMatcher(): void {
+    if (!world.isHost) return;
+    if (world.activeCinematicPlayerId !== null) return; // queue handled in reducer
+    for (const eff of world.effects) {
+      if (eff.kind !== 'BOND_FORMED') continue;
+      if (eff.tick <= lastMatcherTick) continue;
+      const result = findGodlyMatch(world, eff.pos);
+      if (result === null) continue;
+      const event = makeTriggerEvent(result, world.tick);
+      // Broadcast first so client renders sooner (D4 standalone latency choice).
+      if (netTransport !== null && world.gameMode === '1v1') {
+        netTransport.send({ kind: 'GODLY_TRIGGER', event });
+      }
+      dispatch(world, { type: 'GODLY_TRIGGER', event });
+      // Codex unlock on host (mirrors client-side unlock on receipt).
+      unlockGodly(event.godlyId);
+      break; // single trigger per frame; queue handles concurrent
+    }
+    // Advance cursor to current tick after scan.
+    lastMatcherTick = world.tick;
+  }
+
+  function startCinematicIfNeeded(): void {
+    const owner = world.activeCinematicPlayerId;
+    if (owner === lastCinematicOwner) return;
+    lastCinematicOwner = owner;
+    if (owner === null) {
+      // Transition non-null → null: ABORT or natural completion handled by timer.
+      cutsceneOverlay.abort();
+      if (cinematicTimer !== null) {
+        clearTimeout(cinematicTimer);
+        cinematicTimer = null;
+      }
+      vignette.setVisible(false);
+      return;
+    }
+    // Transition null → non-null: find the recipe + start the cinematic.
+    // We don't track the current event's godlyId on the world (intentional —
+    // single-slot serialization). Use the last queued event if present, else
+    // assume the matcher just dispatched (latest pendingCinematics is empty +
+    // there's an active owner). For v1, look up by listRecipes()[0] since
+    // there's only one (Voltkin in P4). Generalization: store godlyId on World.
+    const recipe = listRecipes()[0] ?? null;
+    if (recipe === null) {
+      console.warn('[godly] active cinematic but no recipe registered');
+      return;
+    }
+    const localPlayerId = controls.getPlayerId();
+    if (owner !== localPlayerId) vignette.setVisible(true);
+    // Find the target pos from the queued event (best-effort — pendingCinematics
+    // is FIFO; for the currently-active one we approximate with the last
+    // BOND_FORMED pos. P4 wires this via a dedicated `currentCinematicEvent`
+    // field on World; for P3 foundation we use a fallback.).
+    const targetPos = world.pendingCinematics[0]?.targetPos ?? { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 };
+    void cutsceneOverlay.play(recipe, {
+      targetPos,
+      onComplete: () => {
+        // Idempotent — GODLY_COMPLETE clears activeCinematicPlayerId; next tick
+        // observes the transition + handles vignette + advances queue.
+        dispatch(world, { type: 'GODLY_COMPLETE' });
+        // Advance queue: if pendingCinematics has an event, fire it.
+        const next = world.pendingCinematics.shift();
+        if (next !== undefined) {
+          dispatch(world, { type: 'GODLY_TRIGGER', event: next });
+        }
+      },
+      playVoice: (assetUrl: string) => {
+        // P4 wires this to audioManager; P3 stub logs.
+        console.info('[godly] playVoice:', assetUrl);
+      },
+    });
+    cinematicTimer = setTimeout(() => {
+      dispatch(world, { type: 'GODLY_COMPLETE' });
+      cinematicTimer = null;
+    }, recipe.cinematicMs + recipe.sustainedEffectMs);
+  }
+
   app.ticker.add((tickerObj) => {
     const dtSec = Math.min(tickerObj.deltaMS / 1000, 0.05);
     physicsAccumulator += dtSec;
@@ -404,6 +524,26 @@ async function bootstrap(): Promise<void> {
       && netTransport !== null
       && netTransport.peerCount() === 0;
     lobbyScreen.setConnectionLostVisible(connectionLost);
+    // S22 P3 — PRIME-AUDIT Δ3: on peer-drop, abort any active cinematic
+    // and drain the godly queue cleanly. Transition-edge gated.
+    if (connectionLost && !lastConnectionLost) {
+      cutsceneOverlay.abort();
+      if (cinematicTimer !== null) {
+        clearTimeout(cinematicTimer);
+        cinematicTimer = null;
+      }
+      vignette.setVisible(false);
+      dispatch(world, { type: 'GODLY_ABORT' });
+      lastCinematicOwner = null;
+    }
+    lastConnectionLost = connectionLost;
+
+    // S22 P3 — godly matcher (host-only) + cinematic transition watcher.
+    // Matcher scans BOND_FORMED in world.effects before effectsRenderer wipes.
+    if (world.gameState === 'PLAYING') {
+      runGodlyMatcher();
+      startCinematicIfNeeded();
+    }
 
     // S15 P2 — update lobby peer status when waiting.
     if (showLobby && netTransport !== null) {

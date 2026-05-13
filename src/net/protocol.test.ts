@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { generateRoomCode, parseRoomCode } from './protocol.ts';
+import { generateRoomCode, parseRoomCode, parseNetMessage, PROTOCOL_VERSION } from './protocol.ts';
 import { NET_ROOM_CODE_LENGTH } from '../constants.ts';
 
 describe('S15 P2 — room code generation', () => {
@@ -60,5 +60,35 @@ describe('S15 P2 — room code parsing', () => {
 
   it('trims whitespace around the input', () => {
     expect(parseRoomCode('  ABC234  ')).toBe('ABC234');
+  });
+});
+
+describe('S22 P3 — parseNetMessage validator', () => {
+  it('PROTOCOL_VERSION is 2 (S22 P3 bump from 1)', () => {
+    expect(PROTOCOL_VERSION).toBe(2);
+  });
+
+  it('accepts a HELLO with current protoVersion', () => {
+    const msg = { kind: 'HELLO', playerId: 0, color: 0xff0000, protoVersion: 2 };
+    expect(parseNetMessage(msg)).toEqual(msg);
+  });
+
+  it('rejects a HELLO with protoVersion 1 (no back-compat)', () => {
+    const msg = { kind: 'HELLO', playerId: 0, color: 0xff0000, protoVersion: 1 };
+    expect(parseNetMessage(msg)).toBeNull();
+  });
+
+  it('accepts INTENT / NETSNAPSHOT / ENDGAME / GODLY_TRIGGER', () => {
+    expect(parseNetMessage({ kind: 'INTENT', intentSeq: 1, action: { type: 'END_TURN' } })).not.toBeNull();
+    expect(parseNetMessage({ kind: 'NETSNAPSHOT', snapshotSeq: 1, snapshot: {} })).not.toBeNull();
+    expect(parseNetMessage({ kind: 'ENDGAME', winnerId: 0 })).not.toBeNull();
+    expect(parseNetMessage({ kind: 'GODLY_TRIGGER', event: { godlyId: 'voltkin' } })).not.toBeNull();
+  });
+
+  it('rejects unknown kinds + non-object inputs', () => {
+    expect(parseNetMessage({ kind: 'WHATEVER' })).toBeNull();
+    expect(parseNetMessage(null)).toBeNull();
+    expect(parseNetMessage('string')).toBeNull();
+    expect(parseNetMessage(42)).toBeNull();
   });
 });

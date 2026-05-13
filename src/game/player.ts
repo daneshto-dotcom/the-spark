@@ -25,6 +25,12 @@ export interface PlayerCommon {
    * avatar position".
    */
   avatarPos: Vec2;
+  /**
+   * S22 P3 D7 — godly-trigger cooldown end tick (60s @ 60Hz = 3600 ticks
+   * after dispatch). null = never triggered. Authoritative tick-based per
+   * Battle Ledger row 4 Solomon split (UI converts to seconds for display).
+   */
+  godlyCooldownEndsAtTick: number | null;
 }
 
 export type IdlePlayer = PlayerCommon & { readonly kind: 'Idle' };
@@ -43,6 +49,7 @@ export function makeIdlePlayer(id: PlayerId, color: number, avatarPos: Vec2 = { 
     buildActions: 0,
     disruptionCharges: 0,
     avatarPos: { x: avatarPos.x, y: avatarPos.y },
+    godlyCooldownEndsAtTick: null,
   };
 }
 
@@ -65,6 +72,7 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     buildActions: player.buildActions,
     disruptionCharges: player.disruptionCharges,
     avatarPos: { x: player.avatarPos.x, y: player.avatarPos.y },
+    godlyCooldownEndsAtTick: player.godlyCooldownEndsAtTick,
     kind: 'Carrying',
     carriedSparkId: sparkId,
   };
@@ -82,6 +90,7 @@ export function drop(player: Player): IdlePlayer {
     buildActions: player.buildActions,
     disruptionCharges: player.disruptionCharges,
     avatarPos: { x: player.avatarPos.x, y: player.avatarPos.y },
+    godlyCooldownEndsAtTick: player.godlyCooldownEndsAtTick,
     kind: 'Idle',
   };
 }

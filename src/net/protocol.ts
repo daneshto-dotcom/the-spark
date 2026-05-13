@@ -6,33 +6,30 @@
  * PRIME-AUDIT #2: separate counters for host→client snapshots vs
  * client→host intents).
  *
- * Envelope = discriminated union over { HELLO, INTENT, NETSNAPSHOT, ENDGAME }.
- * Serialized over Trystero's DataChannel via room.makeAction('msg').
- *
- * NetSnapshot is a STRIPPED projection of save.ts's WorldSnapshot — the
- * fields the host computes locally (savedAt, rngSeed, nextPrimitiveId,
- * nextBondId) are absent. See save.ts:netSnapshot() for the producer side.
- *
- * Intents are dispatchable GameAction shapes (client computed target IDs
- * from its local snapshot view; host re-validates IDs + currentPlayerId
- * before dispatching). PRIME-AUDIT #7 / Grok R1 #5 input-sanitization.
+ * S22 P3 amendment: protoVersion bumped 1 → 2. Added GodlyTriggerMsg
+ * envelope for host-broadcast godly events. No back-compat shim — peers
+ * on protoVersion 1 are rejected at lobby; both peers always upgrade
+ * together via deploy. parseNetMessage validator added for R9 safety.
  */
 
 import type { GameAction } from '../state/world.ts';
 import type { NetSnapshot } from '../state/save.ts';
 import type { PlayerId } from '../types.ts';
+import type { GodlyTriggerEvent } from '../state/godlyRecipes/types.ts';
 
 // NetSnapshot is defined in save.ts (alongside its producer netSnapshot()
 // + consumer applyNetSnapshot()). Re-export so protocol callers can refer
 // to it without crossing the save.ts boundary directly.
 export type { NetSnapshot };
 
+export const PROTOCOL_VERSION = 2 as const;
+
 export interface HelloMsg {
   readonly kind: 'HELLO';
   readonly playerId: PlayerId;
   readonly color: number;
   /** Protocol version — bumped on wire-incompatible changes. */
-  readonly protoVersion: 1;
+  readonly protoVersion: 2;
 }
 
 export interface IntentMsg {
@@ -52,7 +49,19 @@ export interface EndGameMsg {
   readonly winnerId: PlayerId;
 }
 
-export type NetMessage = HelloMsg | IntentMsg | NetSnapshotMsg | EndGameMsg;
+/**
+ * S22 P3 — host-broadcast godly-cinematic-fire event. Sent standalone
+ * (not bundled with NetSnapshot) so the client renders the cinematic
+ * 0-100 ms sooner than next snapshot would arrive (D4 standalone choice).
+ * Client routes to local dispatch GODLY_TRIGGER; client NEVER runs the
+ * recipe predicate locally (Battle Ledger row 9 anti-desync clarification).
+ */
+export interface GodlyTriggerMsg {
+  readonly kind: 'GODLY_TRIGGER';
+  readonly event: GodlyTriggerEvent;
+}
+
+export type NetMessage = HelloMsg | IntentMsg | NetSnapshotMsg | EndGameMsg | GodlyTriggerMsg;
 
 /**
  * 6-character alphanumeric room code (uppercase letters + digits, dropping
@@ -80,4 +89,32 @@ export function parseRoomCode(input: string, length = 6): string | null {
     if (!ROOM_CODE_ALPHABET.includes(ch)) return null;
   }
   return trimmed;
+}
+
+/**
+ * S22 P3 (R9 safety) — parse + validate a peer-wire payload into a NetMessage.
+ * Returns null on unknown `kind` or on HELLO with mismatched protoVersion.
+ * Used by transport.ts recvFn for defense against malformed peers + by tests.
+ */
+export function parseNetMessage(raw: unknown): NetMessage | null {
+  if (raw === null || typeof raw !== 'object') return null;
+  const obj = raw as Record<string, unknown>;
+  switch (obj.kind) {
+    case 'HELLO':
+      return obj.protoVersion === PROTOCOL_VERSION ? (obj as unknown as HelloMsg) : null;
+    case 'INTENT':
+      return typeof obj.intentSeq === 'number' && obj.action !== undefined
+        ? (obj as unknown as IntentMsg)
+        : null;
+    case 'NETSNAPSHOT':
+      return typeof obj.snapshotSeq === 'number' && obj.snapshot !== undefined
+        ? (obj as unknown as NetSnapshotMsg)
+        : null;
+    case 'ENDGAME':
+      return typeof obj.winnerId === 'number' ? (obj as unknown as EndGameMsg) : null;
+    case 'GODLY_TRIGGER':
+      return obj.event !== undefined ? (obj as unknown as GodlyTriggerMsg) : null;
+    default:
+      return null;
+  }
 }

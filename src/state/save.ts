@@ -276,6 +276,10 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       avatarPos: p.avatarPos !== undefined
         ? { x: p.avatarPos.x, y: p.avatarPos.y }
         : { x: 0, y: 0 },
+      // S22 P3 — godly cooldown is not yet network-serialized (HostSync emits
+      // NetSnapshot subset; cooldown is host-authoritative anyway). Reconstruct
+      // as null on snapshot apply; cooldown re-applies via GODLY_TRIGGER reducer.
+      godlyCooldownEndsAtTick: null,
     };
     const player: Player =
       p.kind === 'Carrying' && p.carriedSparkId !== null
