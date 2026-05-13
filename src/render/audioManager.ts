@@ -554,8 +554,13 @@ export async function playFartSFX(): Promise<void> {
  * the cursor. Replay-safe: effects with tick <= cursor are skipped silently.
  */
 export function drainAudioEffects(effects: ReadonlyArray<GameEffect>, currentTick: number): void {
+  // S23 P4 — strict `<` not `<=`. Same-tick events emitted by click handlers
+  // between physics ticks (world.tick stable across the dispatch boundary)
+  // would otherwise hit `eff.tick === lastDrainedTick` and be silently
+  // skipped. The cursor still skips effects with tick BELOW it (replay
+  // protection for save/load round-trips); equality now passes through.
   for (const effect of effects) {
-    if (effect.tick <= lastDrainedTick) continue;
+    if (effect.tick < lastDrainedTick) continue;
 
     if (effect.kind === 'BOND_FORMED') {
       void playClaveSFX();

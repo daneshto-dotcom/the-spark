@@ -402,7 +402,14 @@ async function bootstrap(): Promise<void> {
         debugProbes.lastBondFormedTick = eff.tick;
         debugProbes.bondFormedCount += 1;
       }
-      if (eff.tick <= lastMatcherTick) continue;
+      // S23 P4 — strict `<` not `<=`. Click-handler dispatches between physics
+      // ticks emit BOND_FORMED with the current (un-advanced) world.tick;
+      // `<=` against a cursor that already equals world.tick silently skipped
+      // those. This is the root cause of "Voltkin never fires" — the final
+      // bond completes the chain via a click dispatch that the matcher then
+      // ignored. Equality now passes; only ticks BELOW cursor (stale replays)
+      // are skipped.
+      if (eff.tick < lastMatcherTick) continue;
       const result = findGodlyMatch(world, eff.pos);
       if (result === null) continue;
       const event = makeTriggerEvent(result, world.tick);
