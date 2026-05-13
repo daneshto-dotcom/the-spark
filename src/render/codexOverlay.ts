@@ -58,8 +58,10 @@ export function unlockGodly(id: GodlyId): void {
 export class CodexOverlay {
   readonly container: Container;
   private readonly entries: CodexEntry[];
+  private readonly app: Application;
 
   constructor(app: Application, entries: CodexEntry[], onClose: () => void) {
+    this.app = app;
     this.container = new Container();
     this.entries = entries;
 
@@ -190,7 +192,14 @@ export class CodexOverlay {
   }
 
   setVisible(visible: boolean): void {
-    if (visible) this.rebuildTiles();
+    if (visible) {
+      // S22 hotfix — re-parent to ensure topmost z-order. Codex container was
+      // constructed BEFORE titleScreen/lobbyScreen in main.ts boot order, so
+      // those screens render on top by default. Pixi's addChild on an existing
+      // child moves it to the end of the children array (= topmost in stack).
+      this.app.stage.addChild(this.container);
+      this.rebuildTiles();
+    }
     this.container.visible = visible;
   }
 }
