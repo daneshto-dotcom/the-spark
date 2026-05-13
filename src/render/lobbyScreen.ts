@@ -1,30 +1,22 @@
 /**
- * SPARK — Lobby screen (S15 P2, S16 P1 input-overlay revision).
+ * SPARK — Lobby screen (S15 P2 / S16 P1 HTML-input overlay revision).
  *
- * Two-pane UI:
- *   - Host pane: generates a 6-char room code; shows "Waiting for Player 2..."
- *     until a peer connects, then enables "Begin Match" button.
- *   - Join pane: HTML <input type="text"> positioned via getBoundingClientRect()
- *     over the JOIN pane code area; native focus / caret / paste / IME;
- *     "Connect" button initiates transport.connect(code); shows status / errors.
+ * Two-pane UI: Host pane (generates 6-char room code, "Begin Match" on peer-join)
+ * + Join pane (HTML <input> positioned via getBoundingClientRect() for native
+ * focus/caret/paste/IME). Visibility gated on world.gameState === 'LOBBY'.
+ * Connection-lost overlay extracted to connectionLostOverlay.ts (S22 P2).
  *
- * "Back to Title" button cancels.
- *
- * Visibility gated on world.gameState === 'LOBBY'. Connection-lost overlay
- * shows full-screen "Connection lost — Return to Title" when peers drop
- * (handled in this same module since it's the same fallback path).
- *
- * S16 P1 (Council R1 + PRIME-AUDIT applied): dropped Pixi-text + window.keydown
- * hack (no caret / no click-to-focus / no paste) in favor of a real HTML
- * <input> overlay. Mobile-keyboard viewport collapse handled via
- * window.visualViewport.resize. zIndex=1000 guards against Pixi canvas
- * stacking-context surprises (Council R1 Grok #2). A11y attrs (aria-label,
- * autocomplete, autocapitalize, inputmode, spellcheck) per Council R1
- * Gemini #1.
+ * S16 P1 dropped a Pixi-text + window.keydown hack (no caret / no paste) in favor
+ * of an HTML <input> overlay. visualViewport.resize handles mobile-keyboard
+ * collapse. zIndex=1000 guards Pixi stacking. A11y attrs per Council R1 Gemini #1.
  */
 
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, PLAYER_COLORS } from '../constants.ts';
+import {
+  makeConnectionLostOverlay,
+  type ConnectionLostOverlayHandle,
+} from './connectionLostOverlay.ts';
 
 const PANE_WIDTH = 480;
 const PANE_HEIGHT = 360;
@@ -91,18 +83,7 @@ export const JOIN_INPUT_RECT = {
   h: INPUT_CANVAS_H,
 } as const;
 
-/**
- * S17 P0' — pure helpers exposing the canvas-space bounds of the lobby's
- * button + code-text elements. S16 P1 shipped with a double-offset
- * positioning bug: child Containers had their `position.set` called with
- * ABSOLUTE canvas coords but were children of relative-positioned pane
- * Containers, so their effective stage position was offset twice. The
- * Connect button landed at (2090, 940), 170px past the canvas right edge,
- * making the cross-network join flow impossible. These pure helpers
- * encode the CORRECTED (pane-relative-child) math + give vitest something
- * to regression-test without spinning up Pixi (S10 #test-via-pure-helper-
- * export pattern).
- */
+/** S17 P0' — pure helpers exposing pane-relative button/code bounds for vitest regression coverage of the double-offset bug fix. */
 export function getConnectButtonCanvasBounds(
   joinPaneX: number,
   paneY: number,
@@ -171,7 +152,7 @@ export class LobbyScreen {
   private joinButton: Container;
   private joinButtonBg: Graphics;
   private beginButton: Container;
-  private connectionLostOverlay: Container;
+  private readonly connectionLostHandle: ConnectionLostOverlayHandle;
   private hostConnected = false;
 
   // S16 P1: HTML input overlay
@@ -236,10 +217,7 @@ export class LobbyScreen {
     this.container.addChild(this.hostPane);
     this.container.addChild(this.joinPane);
 
-    // Host button — generate room code.
-    // S17 P0' BLOCKER fix: position is PANE-RELATIVE (was absolute canvas
-    // coords plus hostPane offset → double-offset rendering at stage (1050,940)
-    // below the pane). hint text at line ~221 already uses pane-relative coords.
+    // Host button — generate room code. Positions are pane-relative (S17 P0').
     const hostBtn = this.makeButton('Host New Room', PLAYER_COLORS[0], () => {
       const code = callbacks.onHostStart();
       this.mode = 'hosting';
@@ -256,22 +234,14 @@ export class LobbyScreen {
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 56, fill: 0xffffff, letterSpacing: 12 }),
     });
     this.codeText.anchor.set(0.5);
-    // S17 P0' BLOCKER fix: pane-relative (was hostPaneX + PANE_WIDTH/2 absolute).
     this.codeText.position.set(PANE_WIDTH / 2, 130);
     this.hostPane.addChild(this.codeText);
 
-    // Join pane visual border + hint (matches original Pixi rect at canvas
-    // coords INPUT_CANVAS_X/Y/W/H — the HTML input sits over this).
+    // Join pane visual border (pane-relative; HTML input overlays this rect).
     const joinInputBg = new Graphics();
-    joinInputBg.roundRect(INPUT_CANVAS_X, INPUT_CANVAS_Y, INPUT_CANVAS_W, INPUT_CANVAS_H, 6)
-      .stroke({ width: 1, color: PLAYER_COLORS[1], alpha: 0.45 });
-    this.joinPane.addChild(joinInputBg);
-    // joinPane is positioned at (joinPaneX, paneY), but joinInputBg uses
-    // ABSOLUTE canvas coords — so we need to draw relative to pane origin
-    // instead. Recompute relative.
-    joinInputBg.clear();
     joinInputBg.roundRect(40, 100, PANE_WIDTH - 80, 60, 6)
       .stroke({ width: 1, color: PLAYER_COLORS[1], alpha: 0.45 });
+    this.joinPane.addChild(joinInputBg);
 
     // Click anywhere on JOIN pane focuses the HTML input.
     this.joinPane.eventMode = 'static';
@@ -307,8 +277,7 @@ export class LobbyScreen {
     this.joinButton.cursor = 'pointer';
     this.joinButton.alpha = 0.4; // disabled until 6 valid chars
 
-    // S17 P0' — extracted to private fn so Enter-key handler can invoke
-    // the same path as Connect-button click.
+    // S17 P0' — Enter-key handler invokes the same path as Connect-button click.
     const attemptJoin = (): void => {
       const code = this.inputEl.value.toUpperCase();
       if (isValidRoomCode(code)) {
@@ -325,9 +294,6 @@ export class LobbyScreen {
     this.joinButton.on('pointertap', attemptJoin);
     this.attemptJoinFn = attemptJoin;
 
-    // S17 P0' BLOCKER fix: pane-relative (was joinPaneX + PANE_WIDTH/2 ...
-    // absolute → effective stage (2090,940), 170px past canvas right edge,
-    // making Connect un-clickable in cross-network playtest).
     this.joinButton.position.set(PANE_WIDTH / 2 - BUTTON_WIDTH / 2, 220);
     this.joinPane.addChild(this.joinButton);
 
@@ -354,34 +320,11 @@ export class LobbyScreen {
     backBtn.position.set(40, CANVAS_HEIGHT - 80);
     this.container.addChild(backBtn);
 
-    // Connection-lost overlay (full-screen)
-    this.connectionLostOverlay = new Container();
-    const overlayBg = new Graphics();
-    overlayBg.rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT).fill({ color: 0x000000, alpha: 0.88 });
-    this.connectionLostOverlay.addChild(overlayBg);
-
-    const lostText = new Text({
-      text: 'CONNECTION LOST',
-      style: new TextStyle({ fontFamily: 'monospace', fontSize: 56, fill: 0xff3b6b, letterSpacing: 8 }),
-    });
-    lostText.anchor.set(0.5);
-    lostText.position.set(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40);
-    this.connectionLostOverlay.addChild(lostText);
-
-    const lostHelp = new Text({
-      text: 'peer dropped — return to title to retry',
-      style: new TextStyle({ fontFamily: 'monospace', fontSize: 16, fill: 0xcccccc }),
-    });
-    lostHelp.anchor.set(0.5);
-    lostHelp.position.set(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
-    this.connectionLostOverlay.addChild(lostHelp);
-
-    const returnBtn = this.makeButton('Return to Title', 0x888888, callbacks.onReturnFromConnectionLost);
-    returnBtn.position.set(CANVAS_WIDTH / 2 - BUTTON_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
-    this.connectionLostOverlay.addChild(returnBtn);
-
-    this.connectionLostOverlay.visible = false;
-    app.stage.addChild(this.connectionLostOverlay);
+    // S22 P2 — connection-lost overlay extracted to connectionLostOverlay.ts.
+    this.connectionLostHandle = makeConnectionLostOverlay(
+      app,
+      callbacks.onReturnFromConnectionLost,
+    );
 
     app.stage.addChild(this.container);
     this.setVisible(false);
@@ -422,7 +365,7 @@ export class LobbyScreen {
   }
 
   setConnectionLostVisible(visible: boolean): void {
-    this.connectionLostOverlay.visible = visible;
+    this.connectionLostHandle.setVisible(visible);
   }
 
   /** Called by main.ts every frame; updates "Begin Match" + status based on peer count. */
@@ -445,20 +388,14 @@ export class LobbyScreen {
     this.statusText.style.fill = 0xaaaaaa;
     this.hostConnected = false;
     this.beginButton.visible = false;
-    this.connectionLostOverlay.visible = false;
+    this.connectionLostHandle.setVisible(false);
     this.inputEl.value = '';
     this.joinButton.alpha = 0.4;
     this.renderState();
     this.updateInputVisibility();
   }
 
-  /**
-   * S20 P0 — error sink wired from NetTransport.onError. Renders the failure
-   * layer in red over the lobby status line so users see "Signaling timeout —
-   * try again (xxx)" or "Connection rejected — check the room code (xxx)"
-   * instead of an indefinite "Connecting..." stall. Color reset to grey
-   * happens in reset() when the user backs out to the title screen.
-   */
+  /** S20 P0 — error sink from NetTransport.onError; renders failure layer in red over the status line (resets to grey in reset()). */
   setErrorMessage(text: string): void {
     this.statusText.text = text;
     this.statusText.style.fill = 0xff3b6b;
@@ -512,17 +449,8 @@ export class LobbyScreen {
   }
 
   private renderState(): void {
-    // Hide non-active pane elements visually based on mode.
-    if (this.mode === 'hosting') {
-      this.joinPane.alpha = 0.3;
-      this.hostPane.alpha = 1;
-    } else if (this.mode === 'joining') {
-      this.hostPane.alpha = 0.3;
-      this.joinPane.alpha = 1;
-    } else {
-      this.hostPane.alpha = 1;
-      this.joinPane.alpha = 1;
-    }
+    this.hostPane.alpha = this.mode === 'joining' ? 0.3 : 1;
+    this.joinPane.alpha = this.mode === 'hosting' ? 0.3 : 1;
   }
 
   private makePane(label: string, accentColor: number, x: number, y: number): Container {
