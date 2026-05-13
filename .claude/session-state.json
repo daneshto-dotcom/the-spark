@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 68,
+  "tool_calls_session_total": 72,
   "session_start": "2026-05-13T08:30:00Z",
   "session_id": "S22",
   "budget_total": 1000000,
@@ -73,6 +73,6 @@
     "real_context_tokens_current": 0,
     "real_context_pct_current": 0,
     "budget_remaining": 970000,
-    "budget_status": "approved_executing"
+    "budget_status": "statusline_dead"
   }
 }
