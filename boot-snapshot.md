@@ -1,29 +1,26 @@
-# Boot Snapshot (auto-generated at S23 close)
-Generated: 2026-05-13 | Session closed: S23 → next: S24 | Last commit: f7ca55e (S23 handoff close)
+# Boot Snapshot (auto-generated at S23 final close)
+Generated: 2026-05-13 | Session closed: S23 → next: S24 | Last commit: e0d2a2c (S23 handoff close)
 
 ## Live URL
 **https://spark-online.space/** (HTTPS, cert exp 2026-08-10 auto-renew)
+**https://spark-online.space/?debug=1** (toggleable diagnostic overlay)
 
 ## Next Steps
-1. **S24 P0** — Voltkin trigger diagnostic: add temporary `console.log` to `voltkinPredicate` dumping (squares count / triangles count / chain found Y/N / longest partial chain) on every BOND_FORMED call. Redeploy → user plays → user pastes console output. Determines if predicate is being called, what world state it sees, and where matching fails. Carries-forward from S23 because user reported NEW typed-chain Voltkin recipe still doesn't fire on what user claims is a valid SQ4-TR4 L-shaped chain after deploy.
-2. **S24 P1 (carry from S23)** — 1v1 CONNECT user retest on ed090fd. STILL OPEN from S20→S21→S22→S23. User has not played with brother yet.
-3. **S24 P2** — Bond UX issue: user reported "can't make a square because it only connects to the nearest one. rather to the two legs." RMB-drag-bond gesture targets ONE primitive; assembling closed polygons (square frames) is awkward. Needs investigation: which file owns the bond placement logic, what would multi-target bonding look like.
-4. **S24** — Anvil ship (full destruction Option A per S21 D1 ordering, deferred again from S23)
-5. **S24+** — Voltkin v2 asset pack (side session: walk + attack + idle matched to Round-Zap canonical, strict consistency gate)
-6. **S25+** — Pac-Predator (autonomous AI entity, biggest build)
+1. **S24 P0** — Full-tier Council deliberation on Voltkin Phase 2 (autonomous creature actor). ZERO CODE this session. Output: blueprint design doc. See `.claude/plans/ACTIVE_PLAN_voltkin_phase2.md`.
+2. **S25-S28** — Phased implementation per blueprint (entity infra → physics/locomotion → AI behavior → polish+1v1 sync).
+3. **S24 P1 (carry-over)** — 1v1 CONNECT retest with brother on ed090fd. Has carried 4 sessions; user said will revisit once Phase 1 stable. Phase 1 IS stable now (Voltkin fires, SFX plays).
+4. **Backlog** — Anvil (after Voltkin Phase 2 architecture proven), Pac-Predator, bond UX (multi-target RMB), 1v1 NetSnapshot enhancements.
 
 ## Blockers
-- S24 P0 trigger diagnostic must complete before any further Voltkin polish work. User playtest shows new typed-chain recipe (shipped + deployed) still doesn't fire — cause unknown (cache? actual prim-type mismatch? predicate bug?).
+- None for S24. ACTIVE_PLAN must be read before any work.
 
 ## Pending Backlog
-- [ ] Voltkin trigger diagnostic (S24 P0)
-- [ ] 1v1 CONNECT retest classifier (S24 P1 carry)
-- [ ] Bond UX: RMB-drag multi-target for polygon frames (S24 P2)
-- [ ] Anvil ship (S24)
-- [ ] Voltkin v2 asset pack (S24 side session)
-- [ ] Pac-Predator (S25+)
-- [ ] Voltkin polish v1.1 (Imagen pre/post sprite sheets, Imagen Codex button, WaveNet voice if needed)
-- [ ] Counter-recipe execution (Triangle-arc → redirect/trampoline)
+- [ ] **Voltkin Phase 2: autonomous creature actor** (S24 blueprint + S25-S28 impl) — 5-session series
+- [ ] 1v1 CONNECT retest (S24 P1 carry, 4-session carry)
+- [ ] Bond UX: RMB-drag multi-target for polygon frames (deferred from S23 P2)
+- [ ] Anvil (after Voltkin Phase 2 architecture is proven and reusable)
+- [ ] Voltkin v2 asset pack side session (only if blueprint decides per-frame PNG approach)
+- [ ] Pac-Predator (after Anvil)
 - [ ] P3 NET enhancements (client prediction + delta NetSnapshot + host migration + live cursor)
 - [ ] P5 Phase-2 next mechanic (D/E/A/G)
 - [ ] P7 Bond-hover cost preview
@@ -32,14 +29,14 @@ Generated: 2026-05-13 | Session closed: S23 → next: S24 | Last commit: f7ca55e
 
 ## Recent Reflexion (last 2 sessions)
 
-### 2026-05-13 — Session 23 (Micro PDR P1 — Voltkin recipe rewrite to typed chain)
-- S23 #continuous-threshold-predicates-are-undiscoverable-without-HUD: S22 P4 geometric Voltkin predicate shipped + tested but unfireable in natural play. Any predicate built on continuous-parameter thresholds (aspect ratio, adjacency distance) needs PAIRED debug HUD shipped in the same session. Discrete typed-prim predicates self-document via the play action; continuous predicates require external feedback.
-- S23 #bond-graphs-are-bidirectional-the-spec-is-not: DFS path-finder over bond graph matches a SQ4-TR4 chain in either walking direction (start from SQ-end OR TR-end). User spec's "order" describes mental build sequence; physical structure is symmetric. Bidirectional match is correct UX. Discriminating invalid cases are interleaved (SQ-TR-SQ-TR null) + filler bridges (SQ4-Circle-TR4 null), not direction reversal.
-- S23 #micro-tier-PDR-with-user-explicit-go-skips-Council-cleanly: Single production file + test rewrite, ~150 LOC, contracts unchanged, user explicit "go." Council auto-waived per Rule 17. PDR inline in session-state.json session_note. Total cycle from spec lock to push: ~10 min. The discipline to NOT escalate is as important as the discipline to escalate when needed.
+### 2026-05-13 — Session 23 (P1 chain rewrite + P2 debug overlay + P3 instr + P4 cursor fix)
+- S23 #cursor-equality-bug-in-effect-drain: drainAudioEffects + runGodlyMatcher both used `<=` cursor; click-handler-dispatched BOND_FORMED at same world.tick was silently skipped → simultaneously broke Voltkin trigger + SFX. Fix: `<=` → `<`. Audit all cursor patterns with `<=` against tick-driven event streams.
+- S23 #debug-overlay-as-root-cause-discovery-instrument: ?debug=1 panel surfacing 7 runtime gates + audio chain + chain progress + call counters collapsed multi-hour blind hunt into 5-min paste-and-fix.
+- S23 #prime-audit-Δ1-preemptive-vitest-fixture: writing user's exact reproduction as a unit test before deploying diagnostic is the cheapest highest-confidence step.
+- S23 #scope-amendment-rule-16-fired-twice-in-one-session: scope amendments arrive at user's pace; finish executing one and immediately face another. Don't roll into closing summary — formally amend each.
+- S23 #ship-cinematic-stamp-as-phase-1-defer-creature-actor-to-phase-2: Phase 1 minimum-viable trigger ships first; Phase 2 upgrades payoff. Phase 1 surfaces trigger bugs (like S23 cursor) before Phase 2's surface area hides them.
 
-### 2026-05-13 — Session 22 (Full-tier batch PDR P1+P2+P3+P4 — Voltkin LIVE)
-- S22 #full-tier-batch-PDR-with-mid-stream-user-amendments: pre-execution user feedback adds Battle Ledger rows + flips gate on confirmation; no Council re-run needed
-- S22 #prime-audit-delta-1-fallback-when-infra-claim-fails-A0: silhouettes/shared.ts was bond-rendering only; Plan B (recipe-specific classifier) preserved user-visible feature
-- S22 #consistency-gate-before-shipping-AI-generated-asset-pack: 4 of 6 side-session sprites were off-model; user-driven canonical-only ship prevented mismatched identity
-- S22 #custom-pixi-filter-for-mp4-bg-keying-beats-asset-re-roll: ~80 LOC WebGL luma-key shader preserves shipped cinematic + handles all future godlies
-- S22 #side-effect-import-for-recipe-registration: `import './voltkin.ts'` at main.ts registers via module-load side-effect — clean extension for Anvil/Pac-Predator
+### 2026-05-13 — Session 23 (Micro PDR P1 — Voltkin recipe rewrite to typed chain)
+- S23 #continuous-threshold-predicates-are-undiscoverable-without-HUD: any predicate built on continuous-parameter thresholds (aspect, adjacency distance) needs PAIRED debug HUD shipped in the same session.
+- S23 #bond-graphs-are-bidirectional-the-spec-is-not: DFS over bond graph matches chain in either direction; mental build sequence ≠ structural symmetry.
+- S23 #micro-tier-PDR-with-user-explicit-go-skips-Council-cleanly: ~150 LOC single-file rewrite + user-go = Micro auto-waive, ~10 min cycle.
