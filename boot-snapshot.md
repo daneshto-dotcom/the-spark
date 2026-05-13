@@ -1,49 +1,49 @@
-# Boot Snapshot (auto-generated at S21 handoff)
-Generated: 2026-05-13 | Session closed: S21 → next: S22 | Last commit: f641b38
+# Boot Snapshot (auto-generated at S22 close)
+Generated: 2026-05-13 | Session closed: S22 → next: S23 | Last commit: aa72a47
 
 ## Live URL
 **https://spark-online.space/** (HTTPS, cert exp 2026-08-10 auto-renew)
 
 ## Next Steps
-1. S22 P0 — 1v1 CONNECT user retest (GATED on brother playtest, classify GREEN/YELLOW/RED)
-2. S22 P1 — transport.ts §XV extraction (Standard, 317→≤280 LOC, carry from S20)
-3. S22 P2 — lobbyScreen.ts §XV extraction (Standard, 565→≤500 LOC, carry from S19)
-4. S22 P3 — Godly infrastructure (godlyRecipes/, cutsceneOverlay, GODLY_TRIGGER, cooldown, input-lock, codexOverlay)
-5. S23 — Voltkin ship (GATED on assets-source/godly-voltkin/READY.md)
-6. S24 — Anvil ship (full destruction Option A, ACME aesthetic, after Voltkin)
-7. S25+ — Pac-Predator (largest build, autonomous AI entity)
+1. **S23 P0** — 1v1 CONNECT user retest (GATED on brother playtest, classify GREEN/YELLOW/RED) — STILL OPEN from S21+S22 boots
+2. **S23 P1** — Voltkin in-game testing (solo OR 1v1): build lightning-bolt structure ≥3 prims aspect ≥2.5 next to TV-frame ≥4 prims aspect 1.0-1.8 within 200 px → should trigger cinematic
+3. **S23 P2** — recipe threshold tuning (200 px adjacency, aspect 2.5/1.8) based on real playtest builds
+4. **S23 P3** — luma-key threshold preview-verify at 0.88 (Voltkin yellow body should stay visible, white bg gone)
+5. **S24** — Voltkin v2 asset pack (side session: walk + attack + idle + matched victory/hurt, strict consistency gate to Round-Zap canonical)
+6. **S24** — Anvil ship (full destruction Option A per S21 D1 ordering)
+7. **S25+** — Pac-Predator (autonomous AI entity, biggest build)
 
 ## Blockers
-- S22 P0 retest still pending from S21 boot (brother had not playtested yet)
-- S23 Voltkin gated on parallel side session delivering assets (`READY.md` signal)
+- S23 P0 retest still pending (brother had not playtested in S20 deploy `ed090fd` window through S21 + S22)
 
 ## Pending Backlog
-- [ ] 1v1 CONNECT retest classifier (S22 P0)
-- [ ] transport.ts §XV (S22 P1)
-- [ ] lobbyScreen.ts §XV (S22 P2)
-- [ ] Godly infrastructure batch (S22 P3)
-- [ ] Voltkin integration (S23, gated)
+- [ ] 1v1 CONNECT retest classifier (S23 P0)
+- [ ] Voltkin live playtest (S23 P1)
+- [ ] Recipe threshold tune (S23 P2)
+- [ ] Luma-key threshold verify (S23 P3)
+- [ ] Voltkin v2 asset pack (S24 side session)
 - [ ] Anvil ship (S24)
 - [ ] Pac-Predator (S25+)
+- [ ] Voltkin polish v1.1 (Imagen pre/post sprite sheets, Imagen Codex button, WaveNet voice if needed)
+- [ ] Counter-recipe execution (Triangle-arc → redirect/trampoline)
 - [ ] P3 NET enhancements (client prediction + delta NetSnapshot + host migration + live cursor)
-- [ ] P5 Phase-2 next mechanic (D Inject Spiral / E Steal / A Fog / G Mega-combos)
+- [ ] P5 Phase-2 next mechanic (D/E/A/G)
 - [ ] P7 Bond-hover cost preview
 - [ ] P9 OGG compression (10MB → ~2MB)
 - [ ] PannerNode + auto-duck audio polish
 
 ## Recent Reflexion (last 2 sessions)
 
-### 2026-05-13 — Session 21 (Full-tier Council deliberation: godly combo blueprint + parallel-session scaffold)
-- S21 #full-tier-council-deliberation-without-pdca-priority-execution: pure-deliberation sessions are valid; empty priorities[] is OK
-- S21 #user-veto-on-domain-weighted-vote-is-supreme: Council voting is recommendation, user is supreme — flag override paths in Battle Ledger
-- S21 #parallel-sessions-with-disjoint-paths-and-single-writer-state: workable when (a) disjoint paths (b) one writer per state file (c) side pushes once at end
-- S21 #gen-ai-asset-pipeline-promoted-to-in-scope-tooling: Imagen/Veo/TTS are now first-class tools when feature involves art/audio
-- S21 #ip-safe-character-design-needs-upfront-anti-checklist-not-deferred-legal-review: anti-checklist in DESIGN_BRIEF.md upstream of generation, not post-hoc filter
+### 2026-05-13 — Session 22 (Full-tier batch PDR P1+P2+P3+P4, all shipped)
+- S22 #full-tier-batch-PDR-with-mid-stream-user-amendments: pre-execution user feedback adds Battle Ledger rows + flips gate on confirmation; no Council re-run needed
+- S22 #prime-audit-delta-1-fallback-when-infra-claim-fails-A0: silhouettes/shared.ts was bond-rendering only; Plan B (recipe-specific classifier) preserved user-visible feature
+- S22 #consistency-gate-before-shipping-AI-generated-asset-pack: 4 of 6 side-session sprites were off-model; user-driven canonical-only ship prevented mismatched identity
+- S22 #custom-pixi-filter-for-mp4-bg-keying-beats-asset-re-roll: ~80 LOC WebGL luma-key shader preserves shipped cinematic + handles all future godlies
+- S22 #side-effect-import-for-recipe-registration: `import './voltkin.ts'` at main.ts registers via module-load side-effect — clean extension for Anvil/Pac-Predator
 
-### 2026-05-12 — Session 20 (1v1 CONNECT BLOCKER continuation + anti-bloat extraction)
-- S20 P0 #a0-of-library-types-finds-three-api-gaps-in-one-pass: read installed type files, not docs
-- S20 P0 #observability-before-third-shot-fix-when-second-shot-missed: bundle diagnostic logging with speculative fixes
-- S20 P0 #prime-audit-2-finds-app-layer-protocol-already-version-checked: run a 2nd PRIME-AUDIT for existing-mechanism duplication
-- S20 P1 #a0-level-2-pivot-after-pdr-lock-saves-bogus-extraction: re-read target at pre-implementation; PIVOT within user-approved intent
-- S20 P3 #council-shrinks-over-fragmentation-12-files-to-3-archetypes: archetype-grouping > per-function-file for small functions
-- S20 P3 #vite-tree-shakes-restructured-modules-to-byte-identical-bundle: pure refactors don't bloat bundle
+### 2026-05-13 — Session 21 (Full-tier Council deliberation: godly combo blueprint + parallel-session scaffold)
+- S21 #full-tier-council-deliberation-without-pdca-priority-execution: pure-deliberation sessions valid; empty priorities[] OK
+- S21 #user-veto-on-domain-weighted-vote-is-supreme: Council voting is recommendation, user is supreme — flag override paths
+- S21 #parallel-sessions-with-disjoint-paths-and-single-writer-state: workable
+- S21 #gen-ai-asset-pipeline-promoted-to-in-scope-tooling: Imagen/Veo/TTS first-class
+- S21 #ip-safe-character-design-needs-upfront-anti-checklist-not-deferred-legal-review
