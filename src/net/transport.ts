@@ -28,90 +28,23 @@
 
 import { joinRoom, getRelaySockets, type Room } from 'trystero/nostr';
 import type { NetMessage } from './protocol.ts';
+import {
+  APP_ID,
+  HANDSHAKE_TIMEOUT_MS,
+  ICE_POLL_INTERVAL_MS,
+  ICE_POLL_MAX_DURATION_MS,
+  ICE_SERVERS,
+  NOSTR_RELAYS,
+  classifyJoinError,
+} from './iceConfig.ts';
 
-const APP_ID = 'spark-game-v1';
-
-/**
- * S19 P4 — pinned Nostr relay set. Replaces Trystero 0.24's "5 random of 55"
- * default behavior which causes signaling-layer stalls when the deterministic
- * shuffle lands on dead / personal / geo-blocked relays. These 6 are the
- * most-deployed public Nostr relays — picked deterministically by both peers
- * since the list is hard-coded, with redundancy=NOSTR_RELAYS.length so all 6
- * are used (no sub-sampling). Order doesn't matter; relayManager parallel-
- * connects all.
- *
- * LOCKED §13.1 v4 codifies the choice + the version pin upgrade ^0.20 → ^0.24.
- */
-const NOSTR_RELAYS = [
-  'wss://relay.damus.io',
-  'wss://nos.lol',
-  'wss://relay.mostr.pub',
-  'wss://purplerelay.com',
-  'wss://relay.nostr.band',
-  'wss://nostr.wine',
-];
-
-/**
- * S20 P0 — ICE servers passed to RTCPeerConnection via Trystero rtcConfig.
- * Google STUN x2 for fast direct-NAT cases + openrelay.metered.ca free TURN
- * x3 (UDP/80, TCP/443, UDP/443) for symmetric-NAT users (mobile hotspot,
- * corporate, some ISP CGNATs) who cannot ICE-connect on STUN alone — the
- * primary suspect for the S19 P4-unresolved 1v1 BLOCKER.
- *
- * openrelay.metered.ca creds are publicly documented stable shared creds
- * (https://www.metered.ca/tools/openrelay/). Replace with an org-owned
- * coturn deployment if abuse becomes an issue. iceTransportPolicy 'all'
- * is the RTCConfiguration default but made explicit for predictability.
- */
-const ICE_SERVERS: RTCIceServer[] = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  {
-    urls: 'turn:openrelay.metered.ca:80',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
-  {
-    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
-  {
-    urls: 'turn:openrelay.metered.ca:443?transport=udp',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
-];
-
-/** S20 P0 — joinRoom 3rd-arg handshakeTimeoutMs. After 30 s of stuck
- *  handshake, Trystero fires onJoinError with a timeout-flavored error. */
-const HANDSHAKE_TIMEOUT_MS = 30000;
-
-/** S20 P0 — 1Hz ICE-state poll while peerSet empty, capped at 30 s = max 30 log lines.
- *  Stops on first onPeerJoin OR after cap. Names the failure layer for users who
- *  would otherwise see indefinite "Connecting..." with no console output. */
-const ICE_POLL_INTERVAL_MS = 1000;
-const ICE_POLL_MAX_DURATION_MS = 30000;
+// classifyJoinError re-exported for callers that imported it from transport.ts
+// before the S22 P1 §XV extraction. Pure pass-through — no behavior change.
+export { classifyJoinError };
 
 export type PeerChangeHandler = (peerId: string, kind: 'join' | 'leave') => void;
 export type MessageHandler = (msg: NetMessage, peerId: string) => void;
 export type ErrorHandler = (msg: string) => void;
-
-/**
- * S20 P0 — classify a `details.error` string from Trystero's onJoinError into
- * a user-friendly UX hint. Substring-matched (case-insensitive). Falls back
- * to the raw error if no pattern matches (Council R1 Gemini #4).
- */
-export function classifyJoinError(rawError: string): string {
-  const lower = rawError.toLowerCase();
-  if (lower.includes('timeout')) {
-    return `Signaling timeout — try again (${rawError})`;
-  }
-  if (lower.includes('rejected') || lower.includes('invalid') || lower.includes('denied')) {
-    return `Connection rejected — check the room code (${rawError})`;
-  }
-  return `Signaling: ${rawError}`;
-}
 
 /**
  * One-shot adapter wrapping a single Trystero room. Construct via host or
