@@ -1,8 +1,10 @@
 # ACTIVE PLAN — Voltkin Phase 2 (Autonomous Creature Actor)
 
-**STATUS: IN-PROGRESS** — created 2026-05-13 at S23 close. Executes S24 (blueprint) + S25–S28 (implementation).
+**STATUS: IN-PROGRESS** — created 2026-05-13 at S23 close. Executes S24 (blueprint DONE) + S25–S28 (implementation pending).
 
-**READ THIS FILE AT S24 BOOT.** Do not start work until it's been re-read.
+**S24 BLUEPRINT COMPLETE** — read `.claude/plans/voltkin_phase2_blueprint_v1.md` for the approved architecture. Full-tier Council (R1 parallel → Quality Gate → R2 ACCEPT ALL → PRIME-AUDIT 8 deltas). All 10 open questions answered with DECISION/RATIONALE/ALTERNATIVES/RISK/SKETCH. Cumulative bundle budget +25 KB code + 14 KB asset (~6 KB headroom). 3 user-facing open questions remain (solo targeting, despawn audio source, spritesheet timing — recommended answers in blueprint).
+
+**READ AT S25 BOOT**: `.claude/plans/voltkin_phase2_blueprint_v1.md` first, then this file for plan structure.
 
 ---
 
@@ -24,8 +26,10 @@ This is the **Pac-Predator architecture** (previously slated for S25+ as "the bi
 
 ## 5-SESSION STRUCTURE
 
-### S24 — DELIBERATION + BLUEPRINT (zero code)
-**Full-tier Council** (Claude + Grok + Gemini, 2 rounds + Quality Gate + R2 synthesis + PRIME-AUDIT). Output: comprehensive design doc covering:
+### S24 — DELIBERATION + BLUEPRINT (zero code) — ✅ COMPLETE 2026-05-14
+**Full-tier Council** (Claude + Grok + Gemini, 2 rounds + Quality Gate + R2 synthesis + PRIME-AUDIT). Output: `.claude/plans/voltkin_phase2_blueprint_v1.md`. Council ran clean: R1 parallel (~14K tokens model output), Quality Gate (5 disagreements + 5 gaps surfaced, including Grok blind spot on per-player cooldown), R2 refinement (both ACCEPT ALL), PRIME-AUDIT (8 additive deltas → blueprint §s).
+
+Original scope covered:
 
 - **Entity model**: `Creature` interface (id, position, velocity, hp, behavior state, target, animation frame, lifespan ticks). New `world.creatures: Map<CreatureId, Creature>`.
 - **Spawn flow**: cinematic ends → spawn creature at target structure's centroid → 10s lifecycle starts.
