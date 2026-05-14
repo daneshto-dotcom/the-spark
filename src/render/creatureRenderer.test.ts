@@ -22,6 +22,7 @@ import {
 } from '../state/creatures/creature.ts';
 import {
   WINDUP_TINT_EASE,
+  computeCreatureRotation,
   computeCreatureScale,
   computeCreatureTint,
   lerpHex,
@@ -177,5 +178,76 @@ describe('computeCreatureScale (per-state procedural scale multiplier)', () => {
 
   it('DESPAWNING beyond despawn boundary clamps at 0.8 (no over-shrink)', () => {
     expect(computeCreatureScale('DESPAWNING', CREATURE_DESPAWNING_TICKS + 100)).toBeCloseTo(0.8, 6);
+  });
+});
+
+describe('computeCreatureRotation (S30 P0d procedural lean toward target)', () => {
+  const creaturePos = { x: 100, y: 100 };
+  const targetRight = { x: 200, y: 100 }; // pure +x
+  const targetLeft = { x: 0, y: 100 }; // pure -x
+  const targetAbove = { x: 100, y: 0 }; // pure -y (directly above)
+  const targetBelow = { x: 100, y: 200 }; // pure +y (directly below)
+
+  it('SPAWNING returns 0 regardless of target direction (rotation conflicts with scale-pulse)', () => {
+    expect(computeCreatureRotation('SPAWNING', 0, creaturePos, targetRight)).toBe(0);
+    expect(computeCreatureRotation('SPAWNING', 30, creaturePos, targetLeft)).toBe(0);
+    expect(computeCreatureRotation('SPAWNING', 59, creaturePos, targetBelow)).toBe(0);
+  });
+
+  it('DESPAWNING returns 0 regardless of target direction (sprite in shrink-fade)', () => {
+    expect(computeCreatureRotation('DESPAWNING', 0, creaturePos, targetRight)).toBe(0);
+    expect(computeCreatureRotation('DESPAWNING', 30, creaturePos, targetLeft)).toBe(0);
+  });
+
+  it('SEEKING with target straight right → +SEEKING_LEAN_MAX_RAD (~0.262 rad / 15° clockwise)', () => {
+    expect(computeCreatureRotation('SEEKING', 0, creaturePos, targetRight)).toBeCloseTo(0.262, 3);
+  });
+
+  it('SEEKING with target straight left → -SEEKING_LEAN_MAX_RAD (~-0.262 rad)', () => {
+    expect(computeCreatureRotation('SEEKING', 0, creaturePos, targetLeft)).toBeCloseTo(-0.262, 3);
+  });
+
+  it('SEEKING with target directly above → 0 (leanFactor=dx/dist=0 since dx=0)', () => {
+    expect(computeCreatureRotation('SEEKING', 0, creaturePos, targetAbove)).toBeCloseTo(0, 6);
+  });
+
+  it('SEEKING with target directly below → 0 (leanFactor=0)', () => {
+    expect(computeCreatureRotation('SEEKING', 0, creaturePos, targetBelow)).toBeCloseTo(0, 6);
+  });
+
+  it('SEEKING with degenerate target == creature.pos → 0 (no direction, no lean)', () => {
+    expect(computeCreatureRotation('SEEKING', 0, creaturePos, creaturePos)).toBe(0);
+  });
+
+  it('ATTACKING wind-up at ticksInState=0 returns SEEKING-lean (smooth handoff from SEEKING)', () => {
+    expect(computeCreatureRotation('ATTACKING', 0, creaturePos, targetRight)).toBeCloseTo(0.262, 3);
+  });
+
+  it('ATTACKING wind-up at FIRE_TICK reaches peak lean ~0.436 rad (25°)', () => {
+    expect(computeCreatureRotation('ATTACKING', VOLTKIN_ATTACK_FIRE_TICK, creaturePos, targetRight)).toBeCloseTo(0.436, 3);
+  });
+
+  it('ATTACKING wind-up halfway (FIRE_TICK/2) lerps to midpoint between SEEKING and peak lean', () => {
+    const halfway = Math.floor(VOLTKIN_ATTACK_FIRE_TICK / 2);
+    const r = computeCreatureRotation('ATTACKING', halfway, creaturePos, targetRight);
+    // Linear interp: 0.262 + (0.436 - 0.262) * (15/30) = 0.262 + 0.087 = 0.349
+    expect(r).toBeCloseTo(0.349, 2);
+  });
+
+  it('ATTACKING last visible tick (CADENCE-1) returns SEEKING-lean (clean handoff back to SEEKING)', () => {
+    const r = computeCreatureRotation('ATTACKING', VOLTKIN_ATTACK_CADENCE_TICKS - 1, creaturePos, targetRight);
+    expect(r).toBeCloseTo(0.262, 3);
+  });
+
+  it('rotation is sign-symmetric — target on opposite side mirrors rotation', () => {
+    const r = computeCreatureRotation('ATTACKING', VOLTKIN_ATTACK_FIRE_TICK, creaturePos, targetRight);
+    const rMirror = computeCreatureRotation('ATTACKING', VOLTKIN_ATTACK_FIRE_TICK, creaturePos, targetLeft);
+    expect(rMirror).toBeCloseTo(-r, 6);
+  });
+
+  it('determinism: same inputs always produce same output (replay-safe / 1v1-safe)', () => {
+    const a = computeCreatureRotation('ATTACKING', 15, creaturePos, { x: 167, y: 142 });
+    const b = computeCreatureRotation('ATTACKING', 15, creaturePos, { x: 167, y: 142 });
+    expect(a).toBe(b);
   });
 });

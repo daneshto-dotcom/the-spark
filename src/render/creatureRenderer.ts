@@ -38,6 +38,7 @@
 
 import { Application, Assets, Container, Sprite, type Texture } from 'pixi.js';
 import type { World } from '../state/world.ts';
+import type { Vec2 } from '../types.ts';
 import {
   CREATURE_DESPAWNING_TICKS,
   CREATURE_FADE_TICKS,
@@ -75,6 +76,14 @@ const WINDUP_TINT_NEUTRAL = 0xFFFFFF;
 
 /** ATTACKING wind-up tint at t=VOLTKIN_ATTACK_FIRE_TICK-1 (warm charged yellow). */
 const WINDUP_TINT_CHARGED = 0xFFEE66;
+
+// S30 P0d — procedural alive-rotation constants.
+
+/** SEEKING max lean magnitude in radians. 0.262 rad ≈ 15°. */
+const SEEKING_LEAN_MAX_RAD = 0.262;
+
+/** ATTACKING peak lean magnitude in radians. 0.436 rad ≈ 25°. */
+const ATTACKING_LEAN_PEAK_RAD = 0.436;
 
 /**
  * S28 P0 — Council Q3 COMPROMISE B ease-in curve (Gemini minority over Claude
@@ -159,6 +168,18 @@ export class CreatureRenderer {
       const dynScale = computeCreatureScale(creature.state, creature.ticksInState);
       sprite.scale.set(CREATURE_SPRITE_SCALE * dynScale);
       sprite.tint = computeCreatureTint(creature.state, creature.ticksInState);
+      // S30 P0d — procedural rotation: lean toward target (SEEKING/ATTACKING)
+      // for alive responsiveness. Per Grok pre-mortem DG4 ticker-ordering:
+      // creatureRenderer.sync() runs AFTER creatureLifecycle FSM ticks within
+      // the same frame (main.ts ordering: stepPhysics → CREATURE_TICK fan-out
+      // → render frame → creatureRenderer.sync), so we read FSM-fresh
+      // (state, ticksInState, targetPos) here.
+      sprite.rotation = computeCreatureRotation(
+        creature.state,
+        creature.ticksInState,
+        creature.pos,
+        creature.targetPos,
+      );
     }
 
     // Remove sprites whose creatures despawned.
@@ -266,6 +287,79 @@ export function computeCreatureTint(state: CreatureState, ticksInState: number):
     return lerpHex(WINDUP_TINT_NEUTRAL, WINDUP_TINT_CHARGED, eased);
   }
   return WINDUP_TINT_NEUTRAL;
+}
+
+/**
+ * S30 P0d — per-state procedural rotation in radians. Sells "alive + attentive"
+ * by leaning the creature toward its target (targetPos = targetBondId mid OR
+ * stub destination). Tick-deterministic (no springs, no wall-clock); 1v1-safe.
+ *
+ * Rotation semantics: the sprite has anchor (0.5, 0.5). Positive rotation
+ * tilts CLOCKWISE (Pixi convention). We compute lean from the horizontal
+ * direction to target:
+ *   - target to the right (dx > 0) → positive lean (tilt clockwise)
+ *   - target to the left  (dx < 0) → negative lean (tilt counter-clockwise)
+ * Magnitude scales with |dx|/distance (0 when target is directly above/below,
+ * peak when target is horizontal). Avoids "spinning" when target is straight
+ * up/down which would feel awkward on a symmetric-pose creature.
+ *
+ * Per-state curves:
+ *   - SPAWNING / DESPAWNING: return 0 (no rotation — sprite is mid-spawn or
+ *     mid-despawn animation, rotation would compete with scale-pulse).
+ *   - SEEKING: lean magnitude ±SEEKING_LEAN_MAX_RAD (~15°), proportional to
+ *     horizontal direction.
+ *   - ATTACKING wind-up (ticksInState < FIRE_TICK): linear ramp from
+ *     SEEKING-lean to ATTACKING_LEAN_PEAK_RAD (~25°). Conveys "building
+ *     attack pose" alongside the existing tint warm-up.
+ *   - ATTACKING fire-tick (== FIRE_TICK): peak lean. Combines with the
+ *     ATTACKING_FIRE_SCALE 1.20× scale punch (computeCreatureScale).
+ *   - ATTACKING recovery (> FIRE_TICK, < CADENCE-1): linear lerp peak → SEEKING.
+ *   - ATTACKING boundary tick (CADENCE-1): back to SEEKING-lean (clean handoff).
+ *
+ * Pure function — takes only (state, ticksInState, creaturePos, targetPos).
+ * No Pixi/Creature dependency in tests. Mirrors Council Q5 UNANIMOUS A
+ * pattern from S28 P0 (computeCreatureScale/Tint/Alpha).
+ */
+export function computeCreatureRotation(
+  state: CreatureState,
+  ticksInState: number,
+  creaturePos: Vec2,
+  targetPos: Vec2,
+): number {
+  if (state === 'SPAWNING' || state === 'DESPAWNING') return 0;
+  const dx = targetPos.x - creaturePos.x;
+  const dy = targetPos.y - creaturePos.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist < 1e-6) return 0;
+  // leanFactor is the normalized horizontal component: -1 (target far left)
+  // → +1 (target far right). When target is directly above/below, leanFactor
+  // is 0 (no lean — sprite stays upright).
+  const leanFactor = dx / dist;
+  if (state === 'SEEKING') {
+    return leanFactor * SEEKING_LEAN_MAX_RAD;
+  }
+  if (state === 'ATTACKING') {
+    const seekingLean = leanFactor * SEEKING_LEAN_MAX_RAD;
+    const peakLean = leanFactor * ATTACKING_LEAN_PEAK_RAD;
+    if (ticksInState < VOLTKIN_ATTACK_FIRE_TICK) {
+      // Wind-up: ramp from SEEKING lean to peak lean over wind-up ticks.
+      const t = ticksInState / VOLTKIN_ATTACK_FIRE_TICK;
+      return seekingLean + (peakLean - seekingLean) * t;
+    }
+    if (ticksInState === VOLTKIN_ATTACK_FIRE_TICK) {
+      return peakLean;
+    }
+    // Recovery: lerp peak → SEEKING lean over remaining ticks.
+    const recoveryStart = VOLTKIN_ATTACK_FIRE_TICK + 1;
+    const recoverySpan = VOLTKIN_ATTACK_CADENCE_TICKS - 1 - recoveryStart;
+    if (recoverySpan <= 0) return seekingLean;
+    const progress = Math.max(
+      0,
+      Math.min(1, (ticksInState - recoveryStart) / recoverySpan),
+    );
+    return peakLean + (seekingLean - peakLean) * progress;
+  }
+  return 0;
 }
 
 /**
