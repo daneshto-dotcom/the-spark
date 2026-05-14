@@ -39,6 +39,19 @@ const ARC_HALO_COLOR = 0x66dddd;
 /** Core color (bright white-cyan, near-white). */
 const ARC_CORE_COLOR = 0xeaffff;
 
+// S30 P0e — radial spark burst at the arc origin (creature center).
+
+/** Number of spark rays radiating outward from start point. */
+const SPARK_COUNT = 14;
+/** Min spark length in px. */
+const SPARK_LEN_MIN = 12;
+/** Max spark length in px. */
+const SPARK_LEN_MAX = 26;
+/** Spark stroke width in px. */
+const SPARK_WIDTH = 2.0;
+/** Spark color (matches core for cohesion). */
+const SPARK_COLOR = 0xeaffff;
+
 /**
  * Deterministic pseudo-random [-1, 1] from an integer seed. mulberry32-ish
  * single-step — replay-safe (same seed + same vertex index → same jitter offset
@@ -109,6 +122,32 @@ export function drawArcFlash(
   }
   xs.push(ex);
   ys.push(ey);
+
+  // S30 P0e — Pass -1: radial spark burst from the arc origin (creature
+  // center). SPARK_COUNT short rays emit at evenly-spaced angles around
+  // start. Each ray length is deterministically random in [SPARK_LEN_MIN,
+  // SPARK_LEN_MAX] from the same seed. Drawn FIRST so the main arc renders
+  // on top, sparks fading "behind" the bolt impact. Front-loaded brightness:
+  // fades faster than the arc (alpha² curve) so sparks are intense early
+  // then dim, while the arc itself holds visibility longer.
+  const sparkAlpha = alpha * alpha; // ease-out for snappier early burst
+  if (sparkAlpha > 0.02) {
+    for (let s = 0; s < SPARK_COUNT; s++) {
+      const angle = (s / SPARK_COUNT) * Math.PI * 2;
+      const rayLenRand = (pseudoRand(seed, s + 100) + 1) * 0.5; // [0, 1]
+      const rayLen = SPARK_LEN_MIN + (SPARK_LEN_MAX - SPARK_LEN_MIN) * rayLenRand;
+      const endXr = sx + Math.cos(angle) * rayLen;
+      const endYr = sy + Math.sin(angle) * rayLen;
+      g.moveTo(sx, sy);
+      g.lineTo(endXr, endYr);
+      g.stroke({
+        color: SPARK_COLOR,
+        width: SPARK_WIDTH,
+        alpha: 0.85 * sparkAlpha,
+        cap: 'round',
+      });
+    }
+  }
 
   // S30 P0c — Pass 0: outer corona (widest, lowest-alpha rim). Adds atmospheric
   // depth + makes the lightning look genuinely "electrical" against the play

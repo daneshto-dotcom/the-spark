@@ -76,6 +76,7 @@ import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
 import { makeCinematicVignette } from './render/cinematicVignette.ts';
 import { CodexOverlay, unlockGodly, entryFromRecipe } from './render/codexOverlay.ts';
 import { CreatureRenderer } from './render/creatureRenderer.ts';
+import { ScreenShake } from './render/screenShake.ts';
 // S23 P2 — debug overlay (toggleable via ?debug=1 URL param). Surfaces runtime
 // gates + audio chain + chain progress for in-vivo diagnosis when offline tests
 // pass but live trigger doesn't fire.
@@ -215,6 +216,10 @@ async function bootstrap(): Promise<void> {
   // render ABOVE prims (phase-through reads as overlap — blueprint Q1 z-order).
   const creatureRenderer = new CreatureRenderer(app);
   const effectsRenderer = new EffectsRenderer(app);
+  // S30 P0e — global screen-shake instance. Triggered on Voltkin fire-tick
+  // (when CREATURE_ATTACK successfully severs a bond → ARC_FLASH emitted).
+  // applyToStage runs every render frame to set/reset stage.position offset.
+  const screenShake = new ScreenShake();
   const avatarRenderer = new AvatarRenderer(app, P1);
   const hud = new HUD(app);
   const stats = new StatsOverlay(app);
@@ -617,11 +622,20 @@ async function bootstrap(): Promise<void> {
             after.ticksInState === VOLTKIN_ATTACK_FIRE_TICK &&
             after.targetBondId !== null
           ) {
+            const bondId = after.targetBondId;
             dispatch(world, {
               type: 'CREATURE_ATTACK',
               creatureId: id,
-              bondId: after.targetBondId,
+              bondId,
             });
+            // S30 P0e — trigger screen-shake when CREATURE_ATTACK successfully
+            // severs the bond (post-dispatch check: bond no longer in world.bonds
+            // means SEVER_BOND ran + ARC_FLASH was emitted in creatureAttack.ts).
+            // Tick-based trigger is replay-safe + 1v1-safe (same world.tick on
+            // host + client when reading shared effects stream).
+            if (!world.bonds.has(bondId)) {
+              screenShake.trigger(world.tick);
+            }
           }
         }
       }
@@ -727,6 +741,12 @@ async function bootstrap(): Promise<void> {
     }
 
     const renderStart = performance.now();
+    // S30 P0e — apply screen-shake offset to stage BEFORE renderers sync.
+    // Idempotent: when shake is inactive/expired, this sets stage.position back
+    // to (0, 0). Per-frame call so the offset decays smoothly through the
+    // shake duration (6 ticks). Stage offset is global — every Pixi child
+    // inherits the translation, giving the whole play-field the shake feel.
+    screenShake.applyToStage(app.stage, world.tick);
     const freeSparkArr = freeSparkArray(world.freeSparks);
     sparkRenderer.sync(freeSparkArr);
     structureRenderer.sync(world, controls.state);
