@@ -1,26 +1,27 @@
-# Boot Snapshot (auto-generated at S24 close)
-Generated: 2026-05-14 | Session closed: S24 → next: S25 | Last commit: 6337e34 (S24 P0 handoff prep)
+# Boot Snapshot (auto-generated at S25 close)
+Generated: 2026-05-14 | Session closed: S25 → next: S26 | Last commit: 9181b0b (S25 close: P1 lock 3 Qs + reflexion + state)
 
 ## Live URL
 **https://spark-online.space/** (HTTPS, cert exp 2026-08-10 auto-renew)
-**https://spark-online.space/?debug=1** (toggleable diagnostic overlay)
+**https://spark-online.space/?debug=1** (debug overlay now includes `=== CREATURES ===` section)
 
 ## Next Steps
-1. **S25 P0** — Voltkin Phase 2A creature scaffold. Standard-tier PDR (~15-20K). Implement per blueprint § "S25 acceptance criteria": Creature interface + world.creatures: Map + SPAWN/DESPAWN/CREATURE_TICK actions + plain Sprite renderer + ?debug=1 overlay extension for creatures. NO movement, NO AI, NO attack. Read `.claude/plans/voltkin_phase2_blueprint_v1.md` FIRST.
-2. **S25 P1** — Resolve 3 open user-facing questions from blueprint: (a) solo creature attacks own structures? (b) despawn audio source? (c) spritesheet generation timing?
-3. **S25 P2 (or S26)** — 1v1 CONNECT retest with brother (5-session carry-over, was S24 P1).
-4. **S26** — Phase 2B physics + locomotion per blueprint.
-5. **S27** — Phase 2C AI + attack per blueprint, includes synchronous SEVER_BOND cascade deletion (Gap A migration).
-6. **S28** — Phase 2D animation + 1v1 sync + polish, Imagen spritesheet side-session.
+1. **S26 P0** — Voltkin Phase 2B physics + locomotion (Standard-tier, ~15-20K). Read `.claude/plans/voltkin_phase2_blueprint_v1.md` §"S26 acceptance criteria" first. Implement `src/physics/creatureVerlet.ts`, steering behaviors (seek, arrive, spawner-zone repulsion), phase-through prims. Creature MOVES with stub target. Bundle target +5 KB. Cumulative budget: 458.30 → 463.30 KB.
+2. **S26 P1 (or later)** — 1v1 CONNECT brother retest (6-session carry-over; unblocked since S23, manual playthrough only).
+3. **S27 P0** — Phase 2C: AI + attack. FSM transitions wired (SEEKING/ATTACKING used), `CREATURE_ATTACK` action + `ARC_FLASH` effect, target selection. **CRITICAL**: includes synchronous `SEVER_BOND` cascade DELETION in `GODLY_TRIGGER` reducer (Gap A migration — blueprint § "S27 migration notes"). Test surgery: ~5-8 cascade tests REMOVED, ~12-15 attack tests ADDED. Bundle +8 KB.
+4. **S28 P0** — Phase 2D: spritesheet (Imagen side-session) + AnimatedSprite swap + NetSnapshot v2 + 1v1 net sync + polish. Bundle +4 KB code + 14 KB asset. Final projected: 494 KB / 500 KB (6 KB margin).
 
 ## Blockers
-- None for S25. Read blueprint, then PDR.
+- None for S26 start. Read blueprint § Q1 (Verlet body integration) and § "S26 acceptance criteria" first.
+
+## Manual Smoke Carry-Forward (AC11)
+- S25 P0 boot smoke verified (page loads, `world.creatures` Map initialized, debug panel mounted, no console errors). **User-side smoke deferred**: build SQ-SQ-SQ-SQ-TR-TR-TR-TR chain in solo → cinematic plays → at ~4s mark `?debug=1` overlay shows `=== CREATURES === count: 1 C0: type=voltkin owner=P0 state=SPAWNING …` → at ~11s state flips to `DESPAWNING` → at ~12s count back to 0.
 
 ## Pending Backlog
-- [ ] **S25-S28 Voltkin Phase 2 implementation** (4-session series, blueprint approved S24)
-- [ ] 1v1 CONNECT retest with brother (5-session carry-over)
+- [ ] S26-S28 Voltkin Phase 2 implementation (3 sessions remaining; blueprint LOCKED + APPROVED + S25 P0 DONE)
+- [ ] 1v1 CONNECT brother retest (6-session carry, unblocked)
 - [ ] Bond UX: RMB-drag multi-target for polygon frames (deferred from S23 P2)
-- [ ] Anvil (after Voltkin Phase 2 proven and architecture reusable)
+- [ ] Anvil (after Voltkin Phase 2 proven + architecture reusable in S29+)
 - [ ] Pac-Predator (after Anvil)
 - [ ] P3 NET enhancements (client prediction + delta NetSnapshot + host migration + live cursor)
 - [ ] P5 Phase-2 next mechanic (D/E/A/G)
@@ -30,17 +31,18 @@ Generated: 2026-05-14 | Session closed: S24 → next: S25 | Last commit: 6337e34
 
 ## Recent Reflexion (last 2 sessions)
 
-### 2026-05-14 — Session 24 (P0 Voltkin Phase 2 blueprint — Full-tier Council pure-deliberation)
-- S24 #full-tier-council-on-pure-deliberation-session: pure-deliberation Full-tier sessions are valid PDCA priorities — blueprint IS the deliverable. Cost of wrong-architecture S25+rewrite is 10x cost of S24 Council. Pattern: any feature spanning >3 sessions should open with pure-deliberation Council.
-- S24 #cross-model-factcheck-caught-grok-blind-spot-on-per-player-cooldown: 3-way Council value isn't redundancy of correct answers — it's that each model has DIFFERENT blind spots. Quality Gate's job is to fact-check disagreements against the codebase (Grok claimed "cooldown prevents overlap"; check `godlyCooldown.ts:21` → per-player. Cost <500 tokens, saved 1v1 bug-fix cycle).
-- S24 #quality-gate-surfaces-gaps-no-individual-R1-can-see: each R1 wrote about creature spawning + attack but NO R1 said "delete existing synchronous SEVER_BOND cascade." Cross-cutting concern only visible side-by-side. Schedule Quality Gate to ask "what existing code does this REPLACE?" not just "what does it ADD?"
-- S24 #prime-audit-additive-deltas-become-blueprint-sections: PRIME-AUDIT's most common output isn't "you got the decision wrong" — it's "the decision is right but under-specified, here are the gaps." Almost always (b) under-specified + (c) edge cases; rarely (a) decision wrong.
-- S24 #council-r2-accept-all-can-be-genuine-or-rubber-stamp-prime-audit-checks: when R2 ACCEPT ALL, PRIME-AUDIT MUST examine the most-emotionally-charged R1 disagreement to verify the model didn't just defer to consensus. Sometimes consensus IS correct; sometimes the model lost a battle. PRIME-AUDIT distinguishes them.
-- S24 #deliberation-output-format-decision-rationale-rejected-risk-sketch-scales-to-10-questions: for multi-question Council deliberations (>5), enforce STRICT per-question template (DECISION/RATIONALE/ALTERNATIVES-REJECTED/RISK/SKETCH). Cost paid back 10x in Quality Gate efficiency. Variable-format responses are unauditable.
+### 2026-05-14 — Session 25 (P0 Voltkin Phase 2A creature scaffold — Standard-tier Council CODE-EXECUTION)
+- S25 #standard-tier-council-on-code-shipping-priority-found-critical-1v1-bug: PRIME-AUDIT Δ1 host-gate on SPAWN_CREATURE would have shipped a 1v1 zombie-creature bug. Both Grok CH7 + Gemini CH7 surfaced from different angles. Never waive Council for any code priority touching multiplayer paths.
+- S25 #hallucinated-precedent-in-council-r1-fact-check-against-actual-codebase: Gemini R1 cited `godlyReducer.ts` precedent that doesn't exist. Always grep for cited files before adopting renames or "established conventions" from R1.
+- S25 #full-state-union-landed-in-s25-vs-subset-2of3-council-majority-overruled-claude: Claude proposed 2-state subset; Council unanimous for full 4-state union. Type widening for zero runtime cost is correct future-proofing for blueprint-spec'd unions.
+- S25 #pdr-explicit-out-of-scope-section-prevented-council-scope-creep: Explicit 9-item "out of scope" list deflected Council scope-expansion attempts (NetSnapshot v2, save.ts serialization deeper than minimum). Pattern: count carry-forward bullets; >5 = right-sized multi-session feature.
+- S25 #check-triumvirate-found-different-bugs-than-r1-not-redundant: CHECK pass on landed code found 3 issues R1 didn't (save.ts nextCreatureId reset, abort() docstring, AC7 test gap). R1 audits design; CHECK audits implementation.
+- S25 #vitest-dom-env-gap-pragmatic-skipif-vs-config-scope-creep: When Council recommends a tool the env can't run, `describe.skipIf` is the pragmatic gate vs scope-creeping the build config.
 
-### 2026-05-13 — Session 23 (P1 chain rewrite + P2 debug overlay + P3 instr + P4 cursor fix)
-- S23 #cursor-equality-bug-in-effect-drain: drainAudioEffects + runGodlyMatcher both used `<=` cursor; click-handler-dispatched BOND_FORMED at same world.tick was silently skipped → simultaneously broke Voltkin trigger + SFX. Fix: `<=` → `<`. AUDIT all cursor patterns with `<=` against tick-driven event streams.
-- S23 #debug-overlay-as-root-cause-discovery-instrument: ?debug=1 panel surfacing 7 runtime gates + audio chain + chain progress + call counters collapsed multi-hour blind hunt into 5-min paste-and-fix. Build overlay BEFORE the first user-reported runtime bug, not after.
-- S23 #prime-audit-Δ1-preemptive-vitest-fixture: writing user's exact reproduction as a unit test before deploying diagnostic is the cheapest highest-confidence step.
-- S23 #scope-amendment-rule-16-fired-twice-in-one-session: scope amendments arrive at user's pace; finish one and immediately face another. Don't roll into closing summary — formally amend each.
-- S23 #ship-cinematic-stamp-as-phase-1-defer-creature-actor-to-phase-2: Phase 1 minimum-viable trigger ships first; Phase 2 upgrades payoff. Phase 1 surfaces trigger bugs (S23 cursor) before Phase 2's surface hides them.
+### 2026-05-14 — Session 24 (P0 Voltkin Phase 2 blueprint — Full-tier Council pure-deliberation)
+- S24 #full-tier-council-on-pure-deliberation-session: pure-deliberation Full-tier sessions are valid PDCA priorities — blueprint IS the deliverable. 10x cheaper than wrong-architecture S25+rewrite.
+- S24 #cross-model-factcheck-caught-grok-blind-spot-on-per-player-cooldown: 3-way Council value isn't redundancy of correct answers — it's that each model has DIFFERENT blind spots. Quality Gate fact-checks disagreements against codebase.
+- S24 #quality-gate-surfaces-gaps-no-individual-R1-can-see: ask "what existing code does this REPLACE?" not just "what does it ADD?"
+- S24 #prime-audit-additive-deltas-become-blueprint-sections: usually under-specified + edge cases, rarely decision-wrong.
+- S24 #council-r2-accept-all-can-be-genuine-or-rubber-stamp-prime-audit-checks: examine emotional-investment R1 positions.
+- S24 #deliberation-output-format-decision-rationale-rejected-risk-sketch-scales-to-10-questions: STRICT template = auditability.
