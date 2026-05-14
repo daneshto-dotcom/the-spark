@@ -1,29 +1,30 @@
 /**
- * SPARK — creature lifecycle reducers (S25 P0, Voltkin Phase 2A scaffold).
+ * SPARK — creature lifecycle reducers (S25 P0 scaffold; S26 P0 wires SPAWNING →
+ * SEEKING transition + threads targetPos through SPAWN_CREATURE payload).
  *
  * Mirrors the `sparkLifecycle.ts` shape (S20 P1): pure case-body helpers consumed
  * by `world.ts` dispatch. Three actions:
  *   - SPAWN_CREATURE  — append a Voltkin creature to `world.creatures` at the
  *                       cinematic handoff moment (T+cinematicMs in cutsceneOverlay).
  *                       Enforces blueprint Q10 max-1-per-player invariant (silent no-op).
+ *                       S26 P0 — action carries `targetPos: Vec2` computed by the
+ *                       caller (`onCinematicHandoff` → `computeStubTargetPos`)
+ *                       per Council Q1 unanimous (host-pure reducer; deterministic
+ *                       payload; client mirror eventually receives via NetSnapshot v2
+ *                       in S28).
  *   - DESPAWN_CREATURE — remove a creature by id. Idempotent for missing ids
- *                       (matches `applyDespawnSpark` semantic). Exposed for
- *                       GODLY_ABORT cascade clarity + future S26+ external triggers.
+ *                       (matches `applyDespawnSpark` semantic).
  *   - CREATURE_TICK   — advance the creature one frame: increment `ticksInState`,
- *                       transition SPAWNING→DESPAWNING at `despawnAtTick - 60`,
- *                       AUTO-DELETE at `despawnAtTick` (blueprint Q5 lifecycle).
+ *                       transition SPAWNING → SEEKING at `ticksInState >= CREATURE_SPAWN_TICKS`
+ *                       (S26 P0, blueprint Q7), transition SPAWNING/SEEKING →
+ *                       DESPAWNING at `despawnAtTick - 60`, AUTO-DELETE at
+ *                       `despawnAtTick` (blueprint Q5 lifecycle).
  *
- * Auto-delete-in-tick is the Council R1 majority resolution (2-of-3 Claude + Gemini):
- * entity-self-lifecycle is the established pattern for ephemeral runtime entities
- * (animation tracks, particle systems). The CREATURE_TICK action IS the observable
- * trigger; the deletion is the meaningful work, not a hidden side-effect. Grok R1
- * dissented (preferred explicit DESPAWN dispatch); auto-delete defended on cohesion
- * grounds + recorded in Battle Ledger.
- *
- * Defense-in-depth `has()` guards in all 3 reducers (Council CH2 + CH5 unanimous):
- * the main.ts CREATURE_TICK fan-out iterates a snapshot of `world.creatures.keys()`,
- * but any in-tick auto-delete can stale subsequent ids in the same fan-out. Each
- * reducer returns early if the id is no longer in the map.
+ * Auto-delete-in-tick: Council R1 majority resolution from S25 (cohesion).
+ * Defense-in-depth `has()` guards in all 3 reducers — main.ts CREATURE_TICK fan-out
+ * iterates an Array.from snapshot of `world.creatures.keys()`, but any in-tick
+ * auto-delete could stale subsequent ids in the same fan-out. Each reducer returns
+ * early if the id is no longer in the map.
  */
 
 import type { World } from '../world.ts';
@@ -31,6 +32,7 @@ import type { PlayerId, Vec2 } from '../../types.ts';
 import {
   asCreatureId,
   CREATURE_DESPAWNING_TICKS,
+  CREATURE_SPAWN_TICKS,
   makeVoltkinCreature,
   type CreatureId,
   type CreatureType,
@@ -42,6 +44,9 @@ export interface SpawnCreatureAction {
   readonly creatureType: CreatureType;
   readonly ownerPlayerId: PlayerId;
   readonly pos: Vec2;
+  /** S26 P0 — destination for SEEKING-state steering. Caller-computed
+   *  (host-only, deterministic) per Council Q1 unanimous + Δ5. */
+  readonly targetPos: Vec2;
 }
 
 export interface DespawnCreatureAction {
@@ -71,6 +76,7 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
     id,
     ownerPlayerId: action.ownerPlayerId,
     pos: action.pos,
+    targetPos: action.targetPos,
     spawnedAtTick: world.tick,
   });
   world.creatures.set(id, creature);
@@ -88,25 +94,36 @@ export function applyDespawnCreature(world: World, action: DespawnCreatureAction
 }
 
 /**
- * Advance one frame for the given creature. Auto-deletes at `despawnAtTick`,
- * transitions SPAWNING→DESPAWNING at `despawnAtTick - CREATURE_DESPAWNING_TICKS`,
- * otherwise increments `ticksInState`. Defense-in-depth: returns early if the
- * id is no longer in the map (main.ts fan-out snapshot may include stale ids
- * after a prior tick auto-deleted).
+ * Advance one frame for the given creature. Order of operations matters — checks
+ * are evaluated top-down so the most-terminal state wins on a tick that satisfies
+ * multiple boundaries:
+ *
+ *   1. Auto-delete at `despawnAtTick` (Council R1 cohesion majority).
+ *   2. SPAWNING/SEEKING → DESPAWNING at `despawnAtTick - 60` (blueprint Q5/Q8).
+ *   3. SPAWNING → SEEKING at `ticksInState >= CREATURE_SPAWN_TICKS` (S26 P0,
+ *      blueprint Q7). Tested via ticksInState rather than world.tick so the
+ *      transition is invariant under host snapshot-apply (Δ4 cross-effect).
+ *   4. Otherwise increment `ticksInState`.
+ *
+ * Defense-in-depth: returns early if the id is no longer in the map (main.ts
+ * fan-out snapshot may include stale ids after a prior tick auto-deleted).
  */
 export function applyCreatureTick(world: World, action: CreatureTickAction): World {
   const creature = world.creatures.get(action.creatureId);
   if (creature === undefined) return world;
 
-  // Auto-delete at end-of-life (cohesion > observability — Council CH5 majority).
+  // 1. Auto-delete at end-of-life.
   if (world.tick >= creature.despawnAtTick) {
     world.creatures.delete(action.creatureId);
     return world;
   }
 
-  // SPAWNING → DESPAWNING transition at the last-second mark (blueprint Q5).
+  // 2. SPAWNING/SEEKING → DESPAWNING at the last-second mark (blueprint Q5/Q8).
+  //    Uses world.tick (not ticksInState) so a SPAWN_CREATURE fired near end-of-
+  //    life still routes directly through the despawn animation rather than
+  //    skipping it via SEEKING (degenerate edge: spawn inside the last 60 ticks).
   if (
-    creature.state === 'SPAWNING' &&
+    (creature.state === 'SPAWNING' || creature.state === 'SEEKING') &&
     world.tick >= creature.despawnAtTick - CREATURE_DESPAWNING_TICKS
   ) {
     creature.state = 'DESPAWNING';
@@ -114,6 +131,16 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
     return world;
   }
 
+  // 3. Advance the in-state counter THEN check the SPAWNING → SEEKING transition
+  //    (S26 P0, blueprint Q7). Increment-first ordering means "60th tick triggers"
+  //    is the user-observable semantic (more intuitive than the alternative
+  //    check-first ordering which transitions on the 61st call). Δ4: steering
+  //    activates the SAME tick the state flips; SPAWNING was force-free so the
+  //    first SEEKING substep starts from zero implicit velocity — clean kick-off.
   creature.ticksInState++;
+  if (creature.state === 'SPAWNING' && creature.ticksInState >= CREATURE_SPAWN_TICKS) {
+    creature.state = 'SEEKING';
+    creature.ticksInState = 0;
+  }
   return world;
 }

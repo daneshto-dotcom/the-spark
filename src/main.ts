@@ -48,6 +48,14 @@ import { resolveCollisions } from './physics/collision.ts';
 import { solveBonds, type Bond } from './physics/bonds.ts';
 import { SpatialGrid } from './physics/spatial.ts';
 import { verletStepAll } from './physics/verlet.ts';
+// S26 P0 — Voltkin Phase 2B: per-substep Verlet integration + steering forces for
+// creatures, plus deterministic stub target computation for onCinematicHandoff.
+// Host-only at the caller (stepPhysics is already gated by `!isClient` at line 509).
+import {
+  computeStubTargetPos,
+  computeSteeringAccel,
+  creatureVerletStep,
+} from './physics/creatureVerlet.ts';
 import { AvatarRenderer } from './render/avatarRenderer.ts';
 import { drainAudioEffects, initAudio, isMuted, playMusic, playOneShot, toggleMute } from './render/audioManager.ts';
 import { EffectsRenderer } from './render/effectsRenderer.ts';
@@ -483,13 +491,20 @@ async function bootstrap(): Promise<void> {
       // empty until S28 NetSnapshot v2 mirrors host state. Without this gate,
       // client + host both dispatch SPAWN_CREATURE locally on different ticks
       // (wall-clock setTimeout drift) → divergent world.creatures Maps.
+      //
+      // S26 P0 — caller computes deterministic stub targetPos from
+      // (world.tick, triggererPlayerId) per Council Q1 unanimous; reducer stays
+      // pure. ownerPlayerId·π offset (Δ5) prevents both 1v1 creatures from
+      // converging on the same target when simultaneously triggered.
       onCinematicHandoff: () => {
         if (!world.isHost) return;
+        const targetPos = computeStubTargetPos(world.tick, event.triggererPlayerId);
         dispatch(world, {
           type: 'SPAWN_CREATURE',
           creatureType: 'voltkin',
           ownerPlayerId: event.triggererPlayerId,
           pos: { x: event.targetPos.x, y: event.targetPos.y },
+          targetPos,
         });
       },
     });
@@ -693,6 +708,17 @@ function stepPhysics(
         }
         bondArr = Array.from(world.bonds.values());
       }
+    }
+    // S26 P0 — Voltkin Phase 2B: integrate creatures via Verlet per substep AFTER
+    // bond solver (so the constraint solver never sees creatures — phase-through
+    // by construction; creatures are NOT in sparkArr or bondArr) and BEFORE
+    // enforceSpawnerBounds + resolveCollisions (which operate on sparkArr only).
+    // Steering force returns ZERO_ACCEL during SPAWNING / DESPAWNING (Δ4), so
+    // creatures appear stationary during the 1s spawn animation + 1s despawn
+    // fade. Caller stepPhysics() is host-only-gated at line 509. Empty
+    // world.creatures Map iterates zero times — negligible overhead.
+    for (const c of world.creatures.values()) {
+      creatureVerletStep(c, SUBSTEP_DT, computeSteeringAccel(c));
     }
     enforceSpawnerBounds(sparkArr, undefined, attractedId);
     resolveCollisions(sparkArr, grid);

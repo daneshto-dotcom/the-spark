@@ -29,6 +29,7 @@ import {
 import {
   CREATURE_DESPAWNING_TICKS,
   CREATURE_FADE_TICKS,
+  CREATURE_SPAWN_TICKS,
   VOLTKIN_LIFETIME_TICKS,
   asCreatureId,
   makeVoltkinCreature,
@@ -39,6 +40,10 @@ import { makeIdlePlayer } from '../../game/player.ts';
 import { applyNetSnapshot, netSnapshot } from '../save.ts';
 
 const TARGET_POS = { x: 100, y: 200 };
+// S26 P0 — every SPAWN_CREATURE / makeVoltkinCreature now carries targetPos
+// (Council Q1 + Δ5 caller-computed). Using a fixed stub so tests are deterministic
+// and don't depend on `computeStubTargetPos` (which is exercised in creatureVerlet.test.ts).
+const STUB_TARGET = { x: 800, y: 600 };
 
 describe('applySpawnCreature', () => {
   let world: World;
@@ -54,6 +59,7 @@ describe('applySpawnCreature', () => {
       creatureType: 'voltkin',
       ownerPlayerId: asPlayerId(0),
       pos: TARGET_POS,
+      targetPos: STUB_TARGET,
     });
     expect(world.creatures.size).toBe(1);
     expect(world.nextCreatureId).toBe(1);
@@ -74,12 +80,14 @@ describe('applySpawnCreature', () => {
       creatureType: 'voltkin',
       ownerPlayerId: asPlayerId(0),
       pos: TARGET_POS,
+      targetPos: STUB_TARGET,
     });
     applySpawnCreature(world, {
       type: 'SPAWN_CREATURE',
       creatureType: 'voltkin',
       ownerPlayerId: asPlayerId(0),
       pos: { x: 999, y: 999 }, // would-be-different pos, ignored
+      targetPos: STUB_TARGET,
     });
     expect(world.creatures.size).toBe(1);
     // nextCreatureId not bumped on the rejected spawn — sole spawn took id 0.
@@ -93,12 +101,14 @@ describe('applySpawnCreature', () => {
       creatureType: 'voltkin',
       ownerPlayerId: asPlayerId(0),
       pos: TARGET_POS,
+      targetPos: STUB_TARGET,
     });
     applySpawnCreature(world, {
       type: 'SPAWN_CREATURE',
       creatureType: 'voltkin',
       ownerPlayerId: asPlayerId(1),
       pos: { x: 300, y: 400 },
+      targetPos: STUB_TARGET,
     });
     expect(world.creatures.size).toBe(2);
     const owners = Array.from(world.creatures.values()).map((c) => c.ownerPlayerId);
@@ -116,6 +126,7 @@ describe('applyCreatureTick', () => {
       creatureType: 'voltkin',
       ownerPlayerId: asPlayerId(0),
       pos: TARGET_POS,
+      targetPos: STUB_TARGET,
     });
   });
 
@@ -140,6 +151,44 @@ describe('applyCreatureTick', () => {
     applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId: id });
     expect(world.creatures.get(id)!.state).toBe('DESPAWNING');
     expect(world.creatures.get(id)!.ticksInState).toBe(0); // reset on transition
+  });
+
+  it('transitions SPAWNING → SEEKING at ticksInState >= CREATURE_SPAWN_TICKS (S26 P0)', () => {
+    const id = asCreatureId(0);
+    expect(world.creatures.get(id)!.state).toBe('SPAWNING');
+    expect(world.creatures.get(id)!.ticksInState).toBe(0);
+    // Call applyCreatureTick CREATURE_SPAWN_TICKS times. World.tick stays at 0
+    // throughout (applyCreatureTick doesn't advance world.tick — that's main.ts's
+    // job). On the 60th call, ticksInState increments to 60, the check fires,
+    // state flips to SEEKING and ticksInState resets to 0.
+    for (let i = 1; i < CREATURE_SPAWN_TICKS; i++) {
+      applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId: id });
+    }
+    // After 59 calls: still SPAWNING, ticksInState=59 (one less than threshold).
+    expect(world.creatures.get(id)!.state).toBe('SPAWNING');
+    expect(world.creatures.get(id)!.ticksInState).toBe(CREATURE_SPAWN_TICKS - 1);
+    // 60th call: increment to 60, transition fires.
+    applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId: id });
+    expect(world.creatures.get(id)!.state).toBe('SEEKING');
+    expect(world.creatures.get(id)!.ticksInState).toBe(0);
+    // Subsequent ticks in SEEKING just increment without further transition until
+    // the DESPAWNING boundary at world.tick >= despawnAtTick - 60.
+    applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId: id });
+    expect(world.creatures.get(id)!.state).toBe('SEEKING');
+    expect(world.creatures.get(id)!.ticksInState).toBe(1);
+  });
+
+  it('SEEKING → DESPAWNING transitions correctly (blueprint Q5/Q8 — SEEKING also routes through despawn window)', () => {
+    const id = asCreatureId(0);
+    const c = world.creatures.get(id)!;
+    // Manually promote to SEEKING (analogue of 60 SPAWNING ticks; covered by the
+    // dedicated test above). Then fast-forward to the DESPAWNING boundary.
+    c.state = 'SEEKING';
+    c.ticksInState = 0;
+    world.tick = c.despawnAtTick - CREATURE_DESPAWNING_TICKS;
+    applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId: id });
+    expect(world.creatures.get(id)!.state).toBe('DESPAWNING');
+    expect(world.creatures.get(id)!.ticksInState).toBe(0);
   });
 
   it('auto-deletes creature when world.tick >= despawnAtTick', () => {
@@ -168,6 +217,7 @@ describe('applyDespawnCreature', () => {
       creatureType: 'voltkin',
       ownerPlayerId: asPlayerId(0),
       pos: TARGET_POS,
+      targetPos: STUB_TARGET,
     });
   });
 
@@ -198,12 +248,14 @@ describe('GODLY_ABORT cascade', () => {
       creatureType: 'voltkin',
       ownerPlayerId: asPlayerId(0),
       pos: TARGET_POS,
+      targetPos: STUB_TARGET,
     });
     applySpawnCreature(world, {
       type: 'SPAWN_CREATURE',
       creatureType: 'voltkin',
       ownerPlayerId: asPlayerId(1),
       pos: { x: 300, y: 400 },
+      targetPos: STUB_TARGET,
     });
     expect(world.creatures.size).toBe(2);
     dispatch(world, { type: 'GODLY_ABORT' });
@@ -219,6 +271,7 @@ describe('computeCreatureAlpha (renderer fade-curve)', () => {
       id: asCreatureId(0),
       ownerPlayerId: asPlayerId(0),
       pos: TARGET_POS,
+      targetPos: STUB_TARGET,
       spawnedAtTick: 0,
     });
     expect(computeCreatureAlpha(c)).toBe(1.0);
@@ -231,6 +284,7 @@ describe('computeCreatureAlpha (renderer fade-curve)', () => {
       id: asCreatureId(0),
       ownerPlayerId: asPlayerId(0),
       pos: TARGET_POS,
+      targetPos: STUB_TARGET,
       spawnedAtTick: 0,
     });
     c.state = 'DESPAWNING';
@@ -245,6 +299,7 @@ describe('computeCreatureAlpha (renderer fade-curve)', () => {
       id: asCreatureId(0),
       ownerPlayerId: asPlayerId(0),
       pos: TARGET_POS,
+      targetPos: STUB_TARGET,
       spawnedAtTick: 0,
     });
     c.state = 'DESPAWNING';
@@ -262,6 +317,7 @@ describe('computeCreatureAlpha (renderer fade-curve)', () => {
       id: asCreatureId(0),
       ownerPlayerId: asPlayerId(0),
       pos: TARGET_POS,
+      targetPos: STUB_TARGET,
       spawnedAtTick: 0,
     });
     c.state = 'DESPAWNING';
@@ -280,6 +336,7 @@ describe('save.ts integration — applyNetSnapshot clears world.creatures', () =
       creatureType: 'voltkin',
       ownerPlayerId: asPlayerId(0),
       pos: TARGET_POS,
+      targetPos: STUB_TARGET,
     });
     expect(client.creatures.size).toBe(1);
     expect(client.nextCreatureId).toBe(1);
