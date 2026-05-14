@@ -1,14 +1,10 @@
 # ACTIVE PLAN — Voltkin Phase 2 (Autonomous Creature Actor)
 
-**STATUS: IN-PROGRESS** — created 2026-05-13 at S23 close. S24 ✓ blueprint + S25 ✓ entity infra + **S26 ✓ physics/locomotion**. S27 + S28 remain.
+**STATUS: IN-PROGRESS** — created 2026-05-13 at S23 close. Executes S24 (blueprint DONE) + S25–S28 (implementation pending).
 
-**S24 BLUEPRINT COMPLETE** — read `.claude/plans/voltkin_phase2_blueprint_v1.md` for the approved architecture. Full-tier Council (R1 parallel → Quality Gate → R2 ACCEPT ALL → PRIME-AUDIT 8 deltas). All 10 open questions answered. Cumulative bundle budget +25 KB code + 14 KB asset (~6 KB headroom). 3 open questions LOCKED at S25 P1.
+**S24 BLUEPRINT COMPLETE** — read `.claude/plans/voltkin_phase2_blueprint_v1.md` for the approved architecture. Full-tier Council (R1 parallel → Quality Gate → R2 ACCEPT ALL → PRIME-AUDIT 8 deltas). All 10 open questions answered with DECISION/RATIONALE/ALTERNATIVES/RISK/SKETCH. Cumulative bundle budget +25 KB code + 14 KB asset (~6 KB headroom). 3 user-facing open questions remain (solo targeting, despawn audio source, spritesheet timing — recommended answers in blueprint).
 
-**S25 ✓ COMPLETE 2026-05-14** (commit d191bf0): Voltkin Phase 2A entity scaffold. Creature interface + world.creatures Map + 3 reducers + plain-Sprite renderer + debug overlay. Bundle +3.30 KB.
-
-**S26 ✓ COMPLETE 2026-05-14** (commit 902e430): Voltkin Phase 2B physics + locomotion. NEW src/physics/creatureVerlet.ts (creatureVerletStep + computeSteeringAccel + seekForce + arriveForce + repulseForce + computeStubTargetPos + 4 constants). targetPos: Vec2 field added to Creature; SPAWNING → SEEKING transition at ticksInState >= 60; substep-loop physics integration host-gated. Bundle +1.18 KB (cumulative +4.48 KB; 40.52 KB headroom remaining).
-
-**READ AT S27 BOOT**: `.claude/plans/voltkin_phase2_blueprint_v1.md` § "S27 acceptance criteria" + § "S27 migration notes" (cascade DELETION migration) first, then this file.
+**READ AT S25 BOOT**: `.claude/plans/voltkin_phase2_blueprint_v1.md` first, then this file for plan structure.
 
 ---
 
