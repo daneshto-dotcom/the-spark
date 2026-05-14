@@ -11,6 +11,10 @@
  * Phase-2 §VIII.3 LOCKED semantics (§13.11) preserved bit-for-bit:
  *   - cause='player'  → 1v1 input gate + hostile auth + charge gate
  *   - cause='physics' → bypass all gates (constraint solver overstretch)
+ *   - cause='creature' → bypass all gates (S27 P0, autonomous creature actor;
+ *                        host-authoritative spawn upstream gates the mint;
+ *                        creature doesn't pay disruption charge — semantically
+ *                        equivalent to 'physics' from this helper's perspective)
  *   - hostile         = EITHER endpoint placerColor ≠ actor.color
  *   - cycle (split.del.size === 0) → no charge consumed, bond still removed
  *   - self-sever (both endpoints share actor's placerColor) → free
@@ -56,7 +60,11 @@ export function canSeverBond(
   primA: Primitive,
   primB: Primitive,
 ): boolean {
-  if (action.cause === 'physics') return true;
+  // S27 P0 — PRIME-AUDIT Δ1: 'creature' bypass folded into 'physics' branch.
+  // Both bypass all gates (host-authoritative spawn upstream gates the mint
+  // for 'creature'; constraint solver fires for 'physics'). computeBaseCharge
+  // at line 90 already returns 0 for non-'player' so no change needed there.
+  if (action.cause === 'physics' || action.cause === 'creature') return true;
 
   // 1v1 input gate (defense-in-depth — controls layer also guards).
   if (world.gameMode === '1v1' && action.playerId !== world.currentPlayerId) {

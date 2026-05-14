@@ -1,7 +1,7 @@
 {
-  "tool_calls_session_total": 66,
-  "session_start": "2026-05-14T00:00:00Z",
-  "session_id": "S26",
+  "tool_calls_session_total": 67,
+  "session_start": "2026-05-14T14:15:00Z",
+  "session_id": "S27",
   "budget_total": 1000000,
   "budget_overhead": 30000,
   "budget_per_priority": 0,
@@ -11,38 +11,35 @@
   "tier": "Standard",
   "council_waived": false,
   "council_waiver_reason": null,
-  "council_invoked": "S26-P0-Standard-tier-Council-R1-3way-Grok+Gemini-BattleLedger-PRIME-AUDIT-CHECK-Triumvirate-completed-2026-05-14",
-  "active_pdr": "inline:S26-batch-PDR-message-2026-05-14",
-  "active_council_battle_ledger": "inline:S26-Battle-Ledger-2-disagreements-Q2-Q4-compromise-applied-Q1-Q3-Q5-Q6-Q7-unanimous-2026-05-14",
-  "active_prime_audit": "inline:S26-PRIME-AUDIT-7-deltas-applied-Delta1-phase-through-structural-Delta2-per-behavior-helpers-EXPORTED-Delta3-8-atomic-tests-Delta4-ZERO_ACCEL-non-SEEKING-cross-resolves-both-R1-Q7-Delta5-ownerPlayerId-pi-offset-target-formula-Delta6-config-table-S29-deferral-Delta7-IEEE754-S28-NetSnapshot-deferral-2026-05-14",
-  "active_check_triumvirate": "inline:S26-CHECK-Triumvirate-RALPH+GROK-ANALYST+GEMINI-AUDITOR-6-concerns-analyzed-0-code-changes-1-trade-off-documented-2026-05-14",
+  "council_invoked": "S27-P0-Standard-tier-Council-R1-3way-Grok-grok-4.20-0309-reasoning+Gemini-gemini-2.5-pro-clean-first-pass-no-timeout-no-hallucinations-2026-05-14",
+  "active_pdr": "inline:S27-batch-PDR-message-2026-05-14",
+  "active_council_battle_ledger": "inline:S27-Battle-Ledger-Q1-UNANIMOUS-B-extend-SEVER_BOND-cause-Q2-COMPROMISE-tick30-tunable-constant-Q3-UNANIMOUS-A-every-tick-Q4-2of3-Grok-Claude-A-silent-S28-procedural-zap-carry-forward-Q5-UNANIMOUS-creature-only-Q6-UNANIMOUS-A-main-ts-post-tick-2026-05-14",
+  "active_prime_audit": "inline:S27-PRIME-AUDIT-7-deltas-Delta1-canSeverBond-creature-bypass-single-line-Delta2-target-selection-own-bonds-fallback-Delta3-multi-creature-target-conflict-documented-v1-limitation-Delta4-wind-up-bond-vanish-early-SEEKING-transition-Delta5-skip-cinematic-cascade-deletion-cleaner-UX-documented-Delta6-S28-procedural-zap-explicit-carry-forward-Delta7-S28-attack-animation-frames-explicit-carry-forward-2026-05-14",
+  "active_check_triumvirate": "pending:S27-CHECK-Triumvirate-post-implementation",
   "session_kind": "execution",
-  "session_note": "S26 batch shipped. P0 = Voltkin Phase 2B physics + locomotion (Standard-tier Council R1 + Battle Ledger + PRIME-AUDIT 7 deltas + Triumvirate CHECK 0 code changes 1 documented trade-off). Bundle 458.30 -> 459.48 KB (+1.18 KB, 23.6% of +5 KB target; 79% headroom remaining). Tests 447 baseline + 19 new = 466 passing + 3 DOM-gated-skipped. Cumulative Phase 2 budget: S25 +3.30 + S26 +1.18 = +4.48 KB of +25 KB total Phase 2 cap; 40.52 KB headroom for S27 + S28. Council resolutions: Q1 caller-payload unanimous, Q2 hardcoded CREATURE_SPAWN_TICKS=60 (2/3 over Gemini's config-table for S29+ Anvil — carry-forward), Q3 inside-substep-loop unanimous, Q4 COMPROMISE combined public computeSteeringAccel + 3 exported per-behavior helpers, Q5 deterministic geometry unanimous + Delta5 ownerPlayerId*pi offset, Q6 pure unit tests unanimous, Q7 BOTH R1s cross-resolved by Delta4 ZERO_ACCEL during SPAWNING+DESPAWNING. CHECK Triumvirate 6 concerns: 3 REJECTED (architectural correctness), 2 ACCEPTED-AS-COVERED (existing tests + S28 deferral), 1 ACCEPTED-AS-DOCUMENTED-TRADE-OFF (G2 SPAWNING-zone-overlap — repulse during SPAWNING would reintroduce Gemini R1 Q7 momentum trap). Real-context tokens at close: 325546 / 1000000 (32.55% GREEN). Commit 902e430 pushed origin/master.",
+  "session_note": "S27 boot. PDR drafted with A.0 State-Discovery Gate (15 probes, 1 delta surfaced: test-surgery count revised from blueprint's 5-8 removed + 12-15 added to 0 removed + 15-18 added since godlyReducer.test.ts has no cascade-assertion tests today). User approved with 'approved, go' after AC11 manual smoke validated S26 (CREATURES count 0->1, state=SEEKING, pos=(943.4,204.1) drifting from spawn). Tier: Standard. Council R1 pending (Grok grok-4.20-0309-reasoning + Gemini gemini-2.5-pro parallel on 6 questions: Q1 inline-severance vs SEVER_BOND.cause extension, Q2 attack-fire timing entry/middle/exit of ATTACKING state, Q3 target re-select cadence every-tick vs event-driven, Q4 BOND_SEVERED cause=creature audio routing, Q5 cascade pacing parity confirmation, Q6 main.ts post-tick dispatch vs in-reducer). PRIME-AUDIT + CHECK Triumvirate to follow. Bundle target +8 KB to 467.48 KB (cumulative Phase 2 +12.48 of +25 KB cap, 32.52 KB headroom for S28 spritesheet + code). Test target 480-485 passing.",
   "priorities": [
     {
       "id": "P0",
-      "label": "Voltkin Phase 2B physics + locomotion (creatureVerlet + steering + SEEKING transition + host-gated substep integration)",
-      "status": "completed",
+      "label": "Voltkin Phase 2C AI + attack (target selection + CREATURE_ATTACK + ARC_FLASH + SEEKING<->ATTACKING FSM + GODLY_TRIGGER cascade DELETION migration)",
+      "status": "in_progress",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
       "council_waiver_reason": null,
-      "council_invoked": "S26-P0-Standard-tier-Council-R1-3way-Grok+Gemini-BattleLedger-PRIME-AUDIT-CHECK-Triumvirate-completed-2026-05-14",
-      "check_completed": true,
-      "check_method": "Standard-tier Council pipeline executed end-to-end: (1) A.0 STATE-DISCOVERY GATE verified 10 PDR claims against current repo state (verlet.ts pattern, creature.ts + creatureLifecycle.ts S25 scaffold, main.ts substep loop @ 673-699, host-gate @ 486-494 + 509, spawner constants, mulberry32 rng location, baseline 447 tests + 3 skipped, baseline 458.30 KB bundle, creatureVerlet.ts non-existent, blueprint S26 acceptance criteria 6 items) — zero state-vs-claim deltas surfaced. (2) Standard-tier batch PDR drafted in 8-field template w/ 21 explicit out-of-scope items + 12 ACs + 9 tests planned + 10 risks. User approved with 'approved! make sure to work methodically, technically, and thoroughly'. (3) PDR GATE fields written to session-state.json: pdr_approved=true + deliberation_completed=false (pending), tier=Standard, unlock_source=user at both top-level + per-priority. (4) Council R1 parallel via grok_chat + gemini_chat MCP: Grok grok-4.20-0309-reasoning (first call timed out at 120s, retry succeeded with condensed prompt) + Gemini gemini-2.5-pro on 7 questions w/ STRICT DECISION/RATIONALE/ALTERNATIVES-REJECTED/RISK/SKETCH per-question template. Q1 Q3 Q5 Q6 Q7 unanimous; Q2 hardcoded CREATURE_SPAWN_TICKS=60 (Claude+Grok 2/3 over Gemini's per-type config table — Gemini's config-table approach noted as S29 carry-forward when Anvil ships); Q4 COMPROMISE (combined public computeSteeringAccel + 3 EXPORTED per-behavior helpers seekForce/arriveForce/repulseForce). Hallucination check: all R1-cited symbols verified against verified excerpts; 0 hallucinations. (5) Battle Ledger synthesized: 2 real disagreements (Q2, Q4) + 7 cross-checks; deliberation_completed=true written. (6) PRIME-AUDIT 5-question adversarial pass yielded 7 additive deltas: Delta1 phase-through verified structurally (architectural separation — creatures NEVER in sparkArr/bondArr; freeSparkArray @ main.ts:629+668 iterates world.freeSparks only; bondArr is Array.from(world.bonds.values())); Delta2 per-behavior helpers EXPORTED (not private) for atomic unit testability per Gemini Q4 + Grok Q4 compromise; Delta3 17 new tests in creatureVerlet.test.ts + 2 in creatureLifecycle.test.ts = 19 new total (target was 8-9, exceeded for coverage); Delta4 computeSteeringAccel returns ZERO_ACCEL when state !== 'SEEKING' — single rule cross-resolves BOTH R1 Q7 concerns (Gemini SPAWNING+repulse momentum trap + Grok DESPAWNING substep drift); Delta5 stub target formula `targetPos.x = clamp(SPAWNER_CENTER_X + 360·cos(spawnedAtTick·1.618 + ownerPlayerId·π), 80, 1920-80)` prevents 1v1 simultaneous-trigger same-target convergence + canvas clamping; Delta6 per-type CreatureConfig table deferred to S29 (Gemini Q2 carry-forward); Delta7 IEEE 754 cross-engine cos/sin determinism resolved by S28 NetSnapshot v2 serializing targetPos. (7) Implementation: 1 new file (creatureVerlet.ts ~150 LOC) + 1 new test file (creatureVerlet.test.ts ~225 LOC, 17 tests) + 4 edits (creature.ts targetPos field + CREATURE_SPAWN_TICKS=60; creatureLifecycle.ts SpawnCreatureAction.targetPos + applyCreatureTick refactored increment-then-check for SPAWNING→SEEKING + extended SEEKING→DESPAWNING; main.ts imports + onCinematicHandoff computes deterministic stub targetPos + substep loop integrates creature physics after solveBonds before enforceSpawnerBounds; creatureLifecycle.test.ts targetPos threaded through 10 SPAWN_CREATURE actions + 4 makeVoltkinCreature factory calls + 2 new tests SPAWNING→SEEKING transition + SEEKING→DESPAWNING). (8) Gates: typecheck clean via npx tsc --noEmit (empty output); vitest run 466 passed + 3 DOM-gated-skipped via npx vitest run (baseline 447 + 19 new); vite build 459.48 KB main bundle via npm run build (delta +1.18 KB vs 458.30 baseline, 23.6% of +5 KB target). (9) CHECK Triumvirate: RALPH:PATROL self-audit (re-read creatureRenderer.ts confirms sprite.position.set follows creature.pos.x/y per frame — no regression) + GROK-ANALYST + GEMINI-AUDITOR via grok_chat + gemini_chat. 6 concerns surfaced: Grok C1 ticksInState off-by-one + same-tick spawn+tick race (HIGH — REJECTED: same-tick race architecturally prevented by CREATURE_TICK fan-out at main.ts:521 running once/physics-tick OUTSIDE substep loop + SPAWN_CREATURE only fires from cinematic timer never same-tick as physics; computeStubTargetPos seed and spawnedAtTick use same world.tick value); Grok C2 live Map iteration in substep loop (MED — REJECTED: no Map mutation in substep loop; only pos/prevPos mutation; auto-delete happens outside substep; Array.from would be YAGNI for S26); Grok C3 zero-initial-velocity test gap (LOW — ACCEPTED-AS-COVERED: end-to-end smoke test exercises realistic spawn→SEEKING path); Gemini G1 client locomotion desync (HIGH — REJECTED: intentional per blueprint Q6; host-authoritative until S28 NetSnapshot v2; client world.creatures stays empty per S25 Delta1 host-gate; Gemini's fix would BREAK determinism); Gemini G2 SPAWNING-state spawner-zone overlap (MED — ACCEPTED-AS-DOCUMENTED-TRADE-OFF: applying repulse during SPAWNING would reintroduce Gemini's own R1 Q7 momentum trap; Delta4 is correct cross-resolve; rare in practice because event.targetPos = chain centroid built away from spawner; trade-off comment added to computeSteeringAccel docstring); Gemini G3 increment-then-check fragile (LOW — REJECTED: applyCreatureTick atomic from caller; no in-between consumer). Net: 0 actionable code changes, 1 documentation update. (10) Browser boot smoke via preview_start at port 15842 + preview_eval window.__SPARK__.world.creatures probe: page loaded, world.creatures Map initialized (size=0), world.nextCreatureId=0, world.tick=0, world.gameState='TITLE', no console errors (only vite HMR + debug overlay message). Full SQ4-TR4 trigger gameplay smoke (AC11) deferred to user manual playthrough — same carry-over as S25 P0 since creature spawn requires live cinematic trigger. (11) Committed 902e430 + pushed origin/master 99f55b0..902e430. Real-context tokens at close: 325546 / 1000000 (32.55% GREEN — well under 500K YELLOW threshold). Bundle headroom remaining: 40.52 KB for S27 (target +8 KB) + S28 (target +18 KB code + asset). Zero regressions in 447 baseline tests; zero behavior change to Phase 1 cinematic; additive physics + locomotion infrastructure only.",
-      "checkpoint_commit": "902e430",
-      "real_context_tokens_at_close": 325546,
-      "real_context_pct_at_close": 32.55
+      "council_invoked": "S27-P0-Standard-tier-Council-R1-3way-clean-first-pass-2026-05-14",
+      "check_completed": false,
+      "check_method": "pending"
     }
   ],
   "totals": {
     "turns": 0,
     "estimated_tokens_legacy_informational": 0,
-    "real_context_tokens_current": 325546,
-    "real_context_pct_current": 32.55,
-    "budget_remaining": 674454,
+    "real_context_tokens_current": 0,
+    "real_context_pct_current": 0,
+    "budget_remaining": 1000000,
     "budget_status": "statusline_dead"
   }
 }

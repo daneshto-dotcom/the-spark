@@ -117,8 +117,33 @@ export type GameEffect =
       readonly kind: 'BOND_SEVERED';
       readonly tick: number;
       readonly pos: Vec2;
-      /** S22 P3 — 'godly' added for SEVER_BOND cascades during godly sustained effects. */
-      readonly cause: 'player' | 'physics' | 'godly';
+      /**
+       * S22 P3 — 'godly' added for SEVER_BOND cascades during godly sustained effects.
+       * S27 P0 — 'creature' added for CREATURE_ATTACK severances (Council R1 Q1 UNANIMOUS B
+       * extend-SEVER_BOND-cause). Audio routing in S27 is SILENT for 'creature' (Council R1
+       * Q4 2/3 Grok+Claude A — S28 ships procedural Web Audio zap synth per blueprint Audio
+       * Plan, Gemini Q4 minority "reuse 'player' SFX" rejected on tonal-mismatch grounds:
+       * lightning creature ≠ fart SFX). 'godly' kept for back-compat (no emitter post-S27
+       * cascade DELETION but type union widening is free + safe).
+       */
+      readonly cause: 'player' | 'physics' | 'godly' | 'creature';
+    }
+  | {
+      /**
+       * S27 P0 — lightning arc visual emitted by CREATURE_ATTACK. Renderer draws a
+       * jittered polyline + glow from `start` (creature pos) to `end` (target bond
+       * midpoint) over ARC_FLASH_DURATION_TICKS (~300ms @ 60Hz) with alpha fade.
+       * Per-attack visual; one ARC_FLASH per CREATURE_ATTACK dispatch. Audio is
+       * deferred to S28 (procedural Web Audio zap synth — Δ6 carry-forward).
+       *
+       * Council R1 Q5 UNANIMOUS creature-only: this effect IS the user-vision
+       * "creature attacks/zaps enemy structures" feedback. Visual prominence
+       * compensates for S27-silent audio.
+       */
+      readonly kind: 'ARC_FLASH';
+      readonly tick: number;
+      readonly start: Vec2;
+      readonly end: Vec2;
     };
 
 /** Soft cap on the queue — anything older than this many ticks is dropped. */

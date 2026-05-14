@@ -18,7 +18,7 @@
  * selection (nearest enemy bond / fallback own).
  */
 
-import type { PlayerId, Vec2 } from '../../types.ts';
+import type { BondId, PlayerId, Vec2 } from '../../types.ts';
 import type { CreatureId } from '../../types.ts';
 
 export { asCreatureId, type CreatureId } from '../../types.ts';
@@ -51,6 +51,43 @@ export const CREATURE_SPAWN_TICKS = 60;
 export const CREATURE_FADE_TICKS = 30;
 
 /**
+ * S27 P0 — attack range for SEEKING → ATTACKING transition. When the creature's
+ * `targetBondId` resolves to a bond whose midpoint is within this distance of
+ * `creature.pos`, the FSM transitions SEEKING → ATTACKING. Locked by blueprint
+ * Q9 (180 px ≈ 3× prim radius — "ranged lightning arc", not melee touch). Squared
+ * comparisons in the AI module avoid sqrt — see VOLTKIN_ATTACK_RANGE_SQ.
+ */
+export const VOLTKIN_ATTACK_RANGE = 180;
+
+/**
+ * S27 P0 — pre-squared attack range for distSq comparisons. Avoids sqrt in the
+ * hot AI path (called once per CREATURE_TICK during SEEKING per Council R1 Q3
+ * UNANIMOUS A — every-tick re-selection, ~80 prims × 60Hz = 4800 checks/s).
+ */
+export const VOLTKIN_ATTACK_RANGE_SQ = VOLTKIN_ATTACK_RANGE * VOLTKIN_ATTACK_RANGE;
+
+/**
+ * S27 P0 — total duration of the ATTACKING state in ticks. The creature stays
+ * in ATTACKING for this many ticks then transitions back to SEEKING (Council
+ * R1 Q5 UNANIMOUS creature-only ⇒ ~7 attacks at 1/sec cadence over the 8s
+ * active window — `(VOLTKIN_LIFETIME_TICKS - CREATURE_DESPAWNING_TICKS - CREATURE_SPAWN_TICKS) / VOLTKIN_ATTACK_CADENCE_TICKS = (480-60-60)/60 = 6`
+ * full attack cycles, plus ~1 partial). 60 @ 60Hz = 1 second.
+ */
+export const VOLTKIN_ATTACK_CADENCE_TICKS = 60;
+
+/**
+ * S27 P0 — Council R1 Q2 COMPROMISE (Grok-A tick-0 vs Gemini-B tick-30) → middle
+ * (tick 30). The CREATURE_ATTACK action dispatches when ATTACKING.ticksInState ===
+ * VOLTKIN_ATTACK_FIRE_TICK (in main.ts post-CREATURE_TICK fan-out). Ticks 0-29 are
+ * wind-up (S28 will animate); tick 30 fires the zap (severs target bond + emits
+ * ARC_FLASH); ticks 31-59 are recovery (S28 will animate); tick 60 transitions
+ * back to SEEKING. Exposed as a constant so S28 animation retuning is single-LOC.
+ * Δ4 (PRIME-AUDIT): if `targetBondId` is invalid at tick FIRE_TICK, transition
+ * straight back to SEEKING instead of going through the recovery half.
+ */
+export const VOLTKIN_ATTACK_FIRE_TICK = 30;
+
+/**
  * S25 v1 creature type. S29+ will add `'anvil'` and `'pacPredator'`. The type discriminates
  * spritesheet, FSM transition table, attack range, etc. (see blueprint § "Creature type config").
  */
@@ -79,8 +116,21 @@ export interface Creature {
   pos: Vec2;
   prevPos: Vec2;
   /** S26 P0 — destination point in canvas space for SEEKING-state steering. Mutable
-   *  so S27 AI target selection can rewrite per tick when nearest-enemy-bond shifts. */
+   *  so S27 AI target selection rewrites per tick from nearest-bond midpoint
+   *  (Council R1 Q3 UNANIMOUS A — every-tick re-selection during SEEKING). */
   targetPos: Vec2;
+  /**
+   * S27 P0 — bond targeted by the AI for the next ATTACKING cycle. Mutable; set
+   * by `findNearestBondTarget` in `src/state/creatures/creatureAI.ts` during
+   * SEEKING fan-out (main.ts post-CREATURE_TICK loop). `null` when no targetable
+   * bond exists OR creature is in SPAWNING/DESPAWNING (no AI). Cleared on
+   * SEEKING ↔ ATTACKING transitions so the next state-entry re-selects fresh.
+   * NOT serialized in S27 — host-authoritative until S28 NetSnapshot v2.
+   * NetSnapshot v2 (S28) MAY include `targetBondId` so client renderer can draw
+   * a "lock-on" indicator; for S27 client.world.creatures stays empty so the
+   * field is host-only.
+   */
+  targetBondId: BondId | null;
   state: CreatureState;
   /** Ticks elapsed since entering current `state`. Resets on transition. */
   ticksInState: number;
@@ -111,6 +161,7 @@ export function makeVoltkinCreature(args: {
     pos: { x: args.pos.x, y: args.pos.y },
     prevPos: { x: args.pos.x, y: args.pos.y },
     targetPos: { x: args.targetPos.x, y: args.targetPos.y },
+    targetBondId: null,
     state: 'SPAWNING',
     ticksInState: 0,
     spawnedAtTick: args.spawnedAtTick,

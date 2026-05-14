@@ -33,10 +33,13 @@ import {
   asCreatureId,
   CREATURE_DESPAWNING_TICKS,
   CREATURE_SPAWN_TICKS,
+  VOLTKIN_ATTACK_CADENCE_TICKS,
+  VOLTKIN_ATTACK_FIRE_TICK,
   makeVoltkinCreature,
   type CreatureId,
   type CreatureType,
 } from './creature.ts';
+import { isWithinAttackRange } from './creatureAI.ts';
 
 /** Action shapes — exported so `world.ts` can compose `GameAction`. */
 export interface SpawnCreatureAction {
@@ -98,12 +101,27 @@ export function applyDespawnCreature(world: World, action: DespawnCreatureAction
  * are evaluated top-down so the most-terminal state wins on a tick that satisfies
  * multiple boundaries:
  *
- *   1. Auto-delete at `despawnAtTick` (Council R1 cohesion majority).
- *   2. SPAWNING/SEEKING → DESPAWNING at `despawnAtTick - 60` (blueprint Q5/Q8).
- *   3. SPAWNING → SEEKING at `ticksInState >= CREATURE_SPAWN_TICKS` (S26 P0,
- *      blueprint Q7). Tested via ticksInState rather than world.tick so the
- *      transition is invariant under host snapshot-apply (Δ4 cross-effect).
- *   4. Otherwise increment `ticksInState`.
+ *   1. Auto-delete at `despawnAtTick` (Council R1 S25 cohesion majority).
+ *   2. ANY-state → DESPAWNING at `despawnAtTick - 60` (blueprint Q5/Q8). S27 P0
+ *      extends this to include ATTACKING so a long wind-up doesn't escape the
+ *      despawn boundary. The last-second mark is invariant.
+ *   3. Advance `ticksInState`.
+ *   4. SPAWNING → SEEKING at `ticksInState >= CREATURE_SPAWN_TICKS` (S26 P0,
+ *      blueprint Q7). Increment-first ordering means "60th tick triggers".
+ *   5. S27 P0: SEEKING → ATTACKING when `targetBondId` is set AND the bond is
+ *      within attack range. `targetBondId` is refreshed by main.ts post-tick
+ *      fan-out (Council R1 Q3 UNANIMOUS A) BEFORE the next CREATURE_TICK so
+ *      this transition sees fresh AI input.
+ *   6. S27 P0: ATTACKING → SEEKING via two conditions (Δ4 + blueprint Q9):
+ *        a. Cadence elapsed (ticksInState >= VOLTKIN_ATTACK_CADENCE_TICKS): full
+ *           60-tick attack cycle complete, drop back to SEEKING + clear target
+ *           so next tick re-selects fresh.
+ *        b. Target invalidated DURING wind-up (Δ4): bond severed by another
+ *           actor between target selection and FIRE_TICK. Aborts the wind-up
+ *           early so the creature stays responsive. Only fires if
+ *           ticksInState < VOLTKIN_ATTACK_FIRE_TICK — after FIRE_TICK we honor
+ *           the recovery half regardless (blueprint Q9 1/sec rhythm preservation;
+ *           bond will naturally be gone post-attack and re-seek next tick).
  *
  * Defense-in-depth: returns early if the id is no longer in the map (main.ts
  * fan-out snapshot may include stale ids after a prior tick auto-deleted).
@@ -118,29 +136,71 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
     return world;
   }
 
-  // 2. SPAWNING/SEEKING → DESPAWNING at the last-second mark (blueprint Q5/Q8).
-  //    Uses world.tick (not ticksInState) so a SPAWN_CREATURE fired near end-of-
-  //    life still routes directly through the despawn animation rather than
-  //    skipping it via SEEKING (degenerate edge: spawn inside the last 60 ticks).
+  // 2. ANY-non-DESPAWNING → DESPAWNING at the last-second mark (blueprint Q5/Q8).
+  //    S27 P0: extended to include ATTACKING so a creature in the middle of an
+  //    attack cycle still routes through the despawn animation rather than
+  //    fighting past its own end-of-life. Uses world.tick (not ticksInState).
   if (
-    (creature.state === 'SPAWNING' || creature.state === 'SEEKING') &&
+    creature.state !== 'DESPAWNING' &&
     world.tick >= creature.despawnAtTick - CREATURE_DESPAWNING_TICKS
   ) {
     creature.state = 'DESPAWNING';
     creature.ticksInState = 0;
+    creature.targetBondId = null;
     return world;
   }
 
-  // 3. Advance the in-state counter THEN check the SPAWNING → SEEKING transition
-  //    (S26 P0, blueprint Q7). Increment-first ordering means "60th tick triggers"
-  //    is the user-observable semantic (more intuitive than the alternative
-  //    check-first ordering which transitions on the 61st call). Δ4: steering
-  //    activates the SAME tick the state flips; SPAWNING was force-free so the
-  //    first SEEKING substep starts from zero implicit velocity — clean kick-off.
+  // 3. Advance the in-state counter THEN check FSM transitions.
   creature.ticksInState++;
+
+  // 4. SPAWNING → SEEKING at the spawn window boundary (S26 P0, blueprint Q7).
+  //    Cleanup: targetBondId stays null on entry to SEEKING; main.ts will populate
+  //    it on the NEXT tick's pre-CREATURE_TICK re-selection step.
   if (creature.state === 'SPAWNING' && creature.ticksInState >= CREATURE_SPAWN_TICKS) {
     creature.state = 'SEEKING';
     creature.ticksInState = 0;
+    return world;
   }
+
+  // 5. S27 P0: SEEKING → ATTACKING when target is set and in range.
+  //    targetBondId is set by main.ts BEFORE this CREATURE_TICK call (every-tick
+  //    re-selection per Council R1 Q3 UNANIMOUS A). isWithinAttackRange does a
+  //    squared-distance compare against VOLTKIN_ATTACK_RANGE_SQ; returns false
+  //    if the bond is missing (defense-in-depth race-condition guard).
+  if (
+    creature.state === 'SEEKING' &&
+    creature.targetBondId !== null &&
+    isWithinAttackRange(world, creature, creature.targetBondId)
+  ) {
+    creature.state = 'ATTACKING';
+    creature.ticksInState = 0;
+    return world;
+  }
+
+  // 6. S27 P0: ATTACKING → SEEKING. Two exit conditions:
+  //    (a) cadence elapsed: full 60-tick attack cycle complete (blueprint Q9
+  //        1 attack per second rhythm — preserves the "ranged lightning canon"
+  //        feel even if the bond gets severed post-zap).
+  //    (b) Δ4 wind-up abort: bond invalidated AT OR BEFORE FIRE_TICK (ticks 0-30) →
+  //        no point continuing the wind-up animation toward a missing target.
+  //        Keeps the creature responsive; new target selected next physics tick.
+  //        CHECK Triumvirate Gemini G3 ACCEPTED: `<= FIRE_TICK` (not `<`) closes
+  //        the boundary edge case where ticksInState increments to 30 the same
+  //        tick the bond vanishes — without `<=` the FIRE_TICK fire dispatch
+  //        would no-op in applyCreatureAttack (benign but visually missing the
+  //        ARC_FLASH on a doomed attack); with `<=` we abort cleanly into SEEKING
+  //        and pick a fresh target next tick.
+  if (creature.state === 'ATTACKING') {
+    const cadenceElapsed = creature.ticksInState >= VOLTKIN_ATTACK_CADENCE_TICKS;
+    const targetGoneEarly =
+      creature.ticksInState <= VOLTKIN_ATTACK_FIRE_TICK &&
+      (creature.targetBondId === null || !world.bonds.has(creature.targetBondId));
+    if (cadenceElapsed || targetGoneEarly) {
+      creature.state = 'SEEKING';
+      creature.ticksInState = 0;
+      creature.targetBondId = null;
+    }
+  }
+
   return world;
 }

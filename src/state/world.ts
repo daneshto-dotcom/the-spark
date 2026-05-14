@@ -75,6 +75,10 @@ import {
   type DespawnCreatureAction,
   type SpawnCreatureAction,
 } from './creatures/creatureLifecycle.ts';
+import {
+  applyCreatureAttack,
+  type CreatureAttackAction,
+} from './creatures/creatureAttack.ts';
 import type { Creature } from './creatures/creature.ts';
 
 // Re-export addScore from gameMode.ts for back-compat with placePrimitive.ts
@@ -186,11 +190,17 @@ export type GameAction =
   // cause='player' → routes through auth gate (hostile-if-either-endpoint-
   // placerColor-differs per Council R1 Gemini #3) + charge consumption
   // (§VIII.1-2). cause='physics' → bypass both gates.
+  // S27 P0 (Council R1 Q1 UNANIMOUS B) — cause='creature' added for autonomous
+  // CREATURE_ATTACK severances. Auth gate bypassed (host-authoritative; creature
+  // mint requires SPAWN_CREATURE which is host-only per S25 PRIME-AUDIT Δ1
+  // host-gate at main.ts onCinematicHandoff:499) + charge bypassed (creature
+  // doesn't pay disruption charge — analogous to 'physics' bypass, semantics
+  // documented in disruptionManager.ts canSeverBond + computeBaseCharge).
   | {
       readonly type: 'SEVER_BOND';
       readonly bondId: BondId;
       readonly playerId: PlayerId;
-      readonly cause: 'player' | 'physics';
+      readonly cause: 'player' | 'physics' | 'creature';
     }
   | TickEnergyAction
   | { readonly type: 'WIN_TRIGGER'; readonly winnerId: PlayerId }
@@ -200,9 +210,11 @@ export type GameAction =
   | UpdateAvatarPosAction
   // S22 P3 — godly-trigger action. Host dispatches locally on matcher match,
   // client dispatches on receiving GodlyTriggerMsg over the network. Reducer
-  // sets activeCinematicPlayerId (or queues if one is already active), starts
-  // cooldown, and emits SEVER_BOND cascade on target component's bonds for
-  // the sustained effect.
+  // sets activeCinematicPlayerId (or queues if one is already active) and
+  // starts the godly cooldown. S27 P0 — DELETED the synchronous SEVER_BOND
+  // cascade that previously fired here; bond severance is now creature-driven
+  // (autonomous Voltkin actor severs ~7 bonds at 1/sec over its 8-second
+  // active window — see reducer body for full migration commentary).
   | {
       readonly type: 'GODLY_TRIGGER';
       readonly event: GodlyTriggerEvent;
@@ -218,7 +230,13 @@ export type GameAction =
   // S25 P0 — creature actor lifecycle (Voltkin Phase 2A scaffold).
   | SpawnCreatureAction
   | DespawnCreatureAction
-  | CreatureTickAction;
+  | CreatureTickAction
+  // S27 P0 — discrete creature attack (Voltkin Phase 2C). Dispatched from
+  // main.ts post-CREATURE_TICK fan-out when a creature reaches FIRE_TICK in
+  // ATTACKING state with a valid targetBondId. The reducer re-dispatches
+  // SEVER_BOND with cause='creature' (Council R1 Q1 UNANIMOUS B — central
+  // severance path) and emits an ARC_FLASH visual effect.
+  | CreatureAttackAction;
 
 export function makeWorld(rngSeed: number): World {
   const w: World = {
@@ -335,7 +353,25 @@ export function dispatch(world: World, action: GameAction): World {
     case 'GODLY_TRIGGER': {
       // S22 P3 — single-slot cinematic serialization (PRIME-AUDIT Δ2).
       // If another cinematic is active, queue. Otherwise activate + start
-      // cooldown + cascade SEVER_BOND on target component's bonds.
+      // cooldown. The cinematic plays in main.ts; the creature actor spawned
+      // at handoff (main.ts onCinematicHandoff) handles bond severance.
+      //
+      // S27 P0 — CASCADE DELETED (Council R1 Q5 UNANIMOUS creature-only;
+      // blueprint § "S27 migration notes" Gap A). Pre-S27 this case ran a
+      // 26-line synchronous SEVER_BOND cascade over the target component's
+      // bonds with cause='godly'. That instant destruction is replaced by
+      // the autonomous Voltkin creature actor (S25 + S26 + S27 pipeline):
+      //   - GODLY_TRIGGER sets cinematic + cooldown ONLY (this reducer body)
+      //   - cutsceneOverlay plays the 4-second cinematic
+      //   - onCinematicHandoff dispatches SPAWN_CREATURE at cinematic end
+      //   - applyCreatureTick FSM-drives the creature for 8s
+      //   - applyCreatureAttack severs target bonds at ~1/sec cadence via
+      //     SEVER_BOND{cause:'creature'} + emits ARC_FLASH per zap
+      //
+      // BOND_SEVERED.cause='godly' is now unreachable in production code but
+      // the union variant is preserved in effects.ts for type-system back-compat
+      // (no live emitter post-S27; future revival possible if a new "instant
+      // godly effect" recipe ships in S29+).
       const { event } = action;
       if (world.activeCinematicPlayerId !== null) {
         world.pendingCinematics.push(event);
@@ -346,32 +382,6 @@ export function dispatch(world: World, action: GameAction): World {
       world.activeCinematicPlayerId = event.triggererPlayerId;
       world.currentCinematicEvent = event;
       setCooldown(triggerer, world.tick);
-      // Sustained effect: SEVER_BOND every bond connected to the target
-      // component. Reuses existing severance machinery with cause='godly'.
-      const targetSet = new Set(event.targetComponentPrimitiveIds);
-      const targetBondIds: BondId[] = [];
-      for (const [bondId, bond] of world.bonds) {
-        if (targetSet.has(bond.aId) || targetSet.has(bond.bId)) {
-          targetBondIds.push(bondId);
-        }
-      }
-      for (const bondId of targetBondIds) {
-        const bond = world.bonds.get(bondId);
-        if (bond === undefined) continue;
-        const primA = world.primitives.get(bond.aId);
-        const primB = world.primitives.get(bond.bId);
-        if (primA === undefined || primB === undefined) continue;
-        // 'godly' bypasses auth + charge gates entirely (host-validated upstream).
-        const split = severSplit(bond, world.primitives, world.bonds);
-        for (const e of computeSeverEraseEffects(world, split, world.tick)) world.effects.push(e);
-        applySeverTopology(world, bond, split);
-        world.effects.push({
-          kind: 'BOND_SEVERED',
-          tick: world.tick,
-          pos: { x: primA.pos.x, y: primA.pos.y },
-          cause: 'godly',
-        });
-      }
       return world;
     }
 
@@ -401,6 +411,9 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'CREATURE_TICK':
       return applyCreatureTick(world, action);
+
+    case 'CREATURE_ATTACK':
+      return applyCreatureAttack(world, action);
   }
 }
 

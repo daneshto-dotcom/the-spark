@@ -30,12 +30,17 @@ import {
   CREATURE_DESPAWNING_TICKS,
   CREATURE_FADE_TICKS,
   CREATURE_SPAWN_TICKS,
+  VOLTKIN_ATTACK_CADENCE_TICKS,
+  VOLTKIN_ATTACK_RANGE,
   VOLTKIN_LIFETIME_TICKS,
   asCreatureId,
   makeVoltkinCreature,
 } from './creature.ts';
 import { computeCreatureAlpha } from '../../render/creatureRenderer.ts';
-import { asPlayerId } from '../../types.ts';
+import { asBondId, asPlayerId, asPrimitiveId } from '../../types.ts';
+import { PLAYER_COLORS, SparkType } from '../../constants.ts';
+import type { Bond } from '../../physics/bonds.ts';
+import type { Primitive } from '../../game/primitive.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
 import { applyNetSnapshot, netSnapshot } from '../save.ts';
 
@@ -205,6 +210,197 @@ describe('applyCreatureTick', () => {
       applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId: missing }),
     ).not.toThrow();
     expect(world.creatures.size).toBe(1); // unaffected
+  });
+});
+
+describe('applyCreatureTick — S27 P0 SEEKING ↔ ATTACKING transitions', () => {
+  // Helper: build a world with an enemy bond at a known midpoint, plus a creature
+  // in SEEKING state at controllable distance. Mirrors the disruptionManager.test.ts
+  // setup pattern. Distance from creature.pos to bond midpoint controls range gating.
+  function setupSeeking(opts: {
+    creatureX: number;
+    creatureY: number;
+    bondMidX: number;
+    bondMidY: number;
+    creatureState?: 'SEEKING' | 'ATTACKING';
+    targetBondSet?: boolean;
+  }): {
+    world: World;
+    creatureId: ReturnType<typeof asCreatureId>;
+    bondId: ReturnType<typeof asBondId>;
+  } {
+    const w = makeWorld(0);
+    w.players.clear();
+    w.players.set(asPlayerId(0), makeIdlePlayer(asPlayerId(0), PLAYER_COLORS[0]));
+    w.players.set(asPlayerId(1), makeIdlePlayer(asPlayerId(1), PLAYER_COLORS[1]));
+
+    // Enemy bond (P1's color) at the requested midpoint. Endpoints offset ±10 px
+    // so midpoint is exactly (bondMidX, bondMidY).
+    const primA: Primitive = {
+      id: asPrimitiveId(1),
+      type: SparkType.Dot,
+      placerColor: PLAYER_COLORS[1],
+      placedBy: asPlayerId(1),
+      createdTick: 0,
+      pos: { x: opts.bondMidX - 10, y: opts.bondMidY },
+      prevPos: { x: opts.bondMidX - 10, y: opts.bondMidY },
+      bonds: new Set(),
+      ownerColor: PLAYER_COLORS[1],
+      lastOwnershipChange: 0,
+      radius: 8,
+    };
+    const primB: Primitive = {
+      id: asPrimitiveId(2),
+      type: SparkType.Dot,
+      placerColor: PLAYER_COLORS[1],
+      placedBy: asPlayerId(1),
+      createdTick: 0,
+      pos: { x: opts.bondMidX + 10, y: opts.bondMidY },
+      prevPos: { x: opts.bondMidX + 10, y: opts.bondMidY },
+      bonds: new Set(),
+      ownerColor: PLAYER_COLORS[1],
+      lastOwnershipChange: 0,
+      radius: 8,
+    };
+    w.primitives.set(primA.id, primA);
+    w.primitives.set(primB.id, primB);
+    const bond: Bond = {
+      id: asBondId(1),
+      aId: primA.id,
+      bId: primB.id,
+      a: primA,
+      b: primB,
+      restLength: 32,
+      stiffnessTier: 'MID',
+      createdTick: 0,
+    };
+    w.bonds.set(bond.id, bond);
+    primA.bonds.add(bond.id);
+    primB.bonds.add(bond.id);
+
+    applySpawnCreature(w, {
+      type: 'SPAWN_CREATURE',
+      creatureType: 'voltkin',
+      ownerPlayerId: asPlayerId(0),
+      pos: { x: opts.creatureX, y: opts.creatureY },
+      targetPos: { x: opts.bondMidX, y: opts.bondMidY },
+    });
+    const creatureId = asCreatureId(0);
+    const c = w.creatures.get(creatureId)!;
+    c.state = opts.creatureState ?? 'SEEKING';
+    c.ticksInState = 0;
+    if (opts.targetBondSet !== false) {
+      c.targetBondId = bond.id;
+    }
+    return { world: w, creatureId, bondId: bond.id };
+  }
+
+  it('SEEKING → ATTACKING when targetBondId is set AND bond midpoint in range', () => {
+    const { world, creatureId } = setupSeeking({
+      creatureX: 0,
+      creatureY: 0,
+      bondMidX: VOLTKIN_ATTACK_RANGE - 50,
+      bondMidY: 0,
+    });
+    applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId });
+    expect(world.creatures.get(creatureId)!.state).toBe('ATTACKING');
+    expect(world.creatures.get(creatureId)!.ticksInState).toBe(0);
+  });
+
+  it('SEEKING stays SEEKING when bond is out of attack range', () => {
+    const { world, creatureId } = setupSeeking({
+      creatureX: 0,
+      creatureY: 0,
+      bondMidX: VOLTKIN_ATTACK_RANGE * 2, // way out of range
+      bondMidY: 0,
+    });
+    applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId });
+    expect(world.creatures.get(creatureId)!.state).toBe('SEEKING');
+    // ticksInState incremented but no transition.
+    expect(world.creatures.get(creatureId)!.ticksInState).toBe(1);
+  });
+
+  it('SEEKING stays SEEKING when targetBondId is null (no target available)', () => {
+    const { world, creatureId } = setupSeeking({
+      creatureX: 0,
+      creatureY: 0,
+      bondMidX: 1, // would be in range, but...
+      bondMidY: 0,
+      targetBondSet: false, // ...targetBondId stays null
+    });
+    applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId });
+    expect(world.creatures.get(creatureId)!.state).toBe('SEEKING');
+  });
+
+  it('ATTACKING → SEEKING after VOLTKIN_ATTACK_CADENCE_TICKS (Council Q5 blueprint Q9 1/sec rhythm)', () => {
+    const { world, creatureId } = setupSeeking({
+      creatureX: 0,
+      creatureY: 0,
+      bondMidX: 50,
+      bondMidY: 0,
+      creatureState: 'ATTACKING',
+    });
+    const c = world.creatures.get(creatureId)!;
+    // Fast-forward ticksInState to just before cadence.
+    c.ticksInState = VOLTKIN_ATTACK_CADENCE_TICKS - 1;
+    applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId });
+    // Increment + check: now ticksInState=60 → cadenceElapsed → SEEKING.
+    expect(world.creatures.get(creatureId)!.state).toBe('SEEKING');
+    expect(world.creatures.get(creatureId)!.ticksInState).toBe(0);
+    expect(world.creatures.get(creatureId)!.targetBondId).toBe(null);
+  });
+
+  it('Δ4: ATTACKING → SEEKING early when bond vanishes BEFORE FIRE_TICK (wind-up abort)', () => {
+    const { world, creatureId, bondId } = setupSeeking({
+      creatureX: 0,
+      creatureY: 0,
+      bondMidX: 50,
+      bondMidY: 0,
+      creatureState: 'ATTACKING',
+    });
+    const c = world.creatures.get(creatureId)!;
+    c.ticksInState = 10; // mid wind-up (< FIRE_TICK=30)
+    // Simulate concurrent severance.
+    world.bonds.delete(bondId);
+    applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId });
+    expect(world.creatures.get(creatureId)!.state).toBe('SEEKING');
+    expect(world.creatures.get(creatureId)!.targetBondId).toBe(null);
+  });
+
+  it('Δ4 boundary: ATTACKING stays ATTACKING through recovery even if bond gone POST-FIRE_TICK', () => {
+    const { world, creatureId, bondId } = setupSeeking({
+      creatureX: 0,
+      creatureY: 0,
+      bondMidX: 50,
+      bondMidY: 0,
+      creatureState: 'ATTACKING',
+    });
+    const c = world.creatures.get(creatureId)!;
+    c.ticksInState = 40; // post FIRE_TICK (30), still inside cadence (60)
+    // Bond severed by creature's earlier attack-fire (or by another actor).
+    world.bonds.delete(bondId);
+    applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId });
+    // Should NOT abort early — blueprint Q9 honors the full 60-tick cycle for
+    // rhythmic 1/sec pacing. Bond-gone-during-recovery is the EXPECTED state.
+    expect(world.creatures.get(creatureId)!.state).toBe('ATTACKING');
+    expect(world.creatures.get(creatureId)!.ticksInState).toBe(41);
+  });
+
+  it('ATTACKING → DESPAWNING at the despawn boundary (S27 extends step #2 to include ATTACKING)', () => {
+    const { world, creatureId } = setupSeeking({
+      creatureX: 0,
+      creatureY: 0,
+      bondMidX: 50,
+      bondMidY: 0,
+      creatureState: 'ATTACKING',
+    });
+    const c = world.creatures.get(creatureId)!;
+    world.tick = c.despawnAtTick - CREATURE_DESPAWNING_TICKS;
+    applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId });
+    expect(world.creatures.get(creatureId)!.state).toBe('DESPAWNING');
+    expect(world.creatures.get(creatureId)!.ticksInState).toBe(0);
+    // targetBondId cleared on transition.
+    expect(world.creatures.get(creatureId)!.targetBondId).toBe(null);
   });
 });
 

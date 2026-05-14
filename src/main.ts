@@ -56,6 +56,12 @@ import {
   computeSteeringAccel,
   creatureVerletStep,
 } from './physics/creatureVerlet.ts';
+// S27 P0 — Voltkin Phase 2C: AI target selection + attack-fire dispatch.
+// findNearestBondTarget runs every CREATURE_TICK during SEEKING (Council R1 Q3
+// UNANIMOUS A); bondMidpoint feeds the per-tick targetPos update so the
+// existing steering forces (seek/arrive) home in on the nearest bond's center.
+import { bondMidpoint, findNearestBondTarget } from './state/creatures/creatureAI.ts';
+import { VOLTKIN_ATTACK_FIRE_TICK } from './state/creatures/creature.ts';
 import { AvatarRenderer } from './render/avatarRenderer.ts';
 import { drainAudioEffects, initAudio, isMuted, playMusic, playOneShot, toggleMute } from './render/audioManager.ts';
 import { EffectsRenderer } from './render/effectsRenderer.ts';
@@ -531,12 +537,65 @@ async function bootstrap(): Promise<void> {
       // S25 P0 — fan-out CREATURE_TICK to every live creature. Host-only (client
       // never simulates; S28 will add NetSnapshot v2 host→client creature mirror).
       // Snapshot the keys BEFORE iterating because applyCreatureTick auto-deletes
-      // at despawnAtTick (Council R1 D5 majority: auto-delete inside reducer).
+      // at despawnAtTick (Council R1 S25 D5 majority: auto-delete inside reducer).
       // Without the snapshot, an in-loop delete would skip subsequent ids in V8.
+      //
+      // S27 P0 — Voltkin Phase 2C orchestration per creature (Council R1 Q3 + Q6):
+      //   1. PRE-TICK: if state==='SEEKING', re-select targetBondId via the AI
+      //      module (every-tick re-selection, Q3 UNANIMOUS A). Update targetPos
+      //      to the bond midpoint so existing seek/arrive steering homes in on
+      //      the AI-chosen target. When no bond exists, targetBondId stays null
+      //      and creature drifts toward its S26 stub targetPos (degenerate fallback).
+      //   2. TICK: dispatch CREATURE_TICK. applyCreatureTick reads the fresh
+      //      targetBondId to transition SEEKING → ATTACKING when in range
+      //      (isWithinAttackRange check). Also handles ATTACKING → SEEKING
+      //      transitions (cadence elapsed OR Δ4 wind-up bond-vanish abort).
+      //   3. POST-TICK: if state==='ATTACKING' && ticksInState===FIRE_TICK (30)
+      //      && targetBondId is set, dispatch CREATURE_ATTACK. The reducer
+      //      validates the bond, dispatches SEVER_BOND{cause:'creature'} (Q1
+      //      UNANIMOUS B central severance path), and emits ARC_FLASH visual.
+      //      Q6 UNANIMOUS A: dispatch lives in main.ts (NOT in applyCreatureTick),
+      //      preserving CQS "no-re-dispatch-in-reducer" for the CREATURE_TICK
+      //      action specifically (applyCreatureAttack's re-dispatch of
+      //      SEVER_BOND is a separate, Council-sanctioned exception).
       if (world.gameState === 'PLAYING' && !isClient && world.creatures.size > 0) {
         const creatureIds = Array.from(world.creatures.keys());
         for (const id of creatureIds) {
+          // Step 1: AI target re-selection BEFORE the tick. Only during SEEKING —
+          // SPAWNING is force-free, ATTACKING is locked to its current target for
+          // the cycle duration, DESPAWNING is fading out.
+          const creature = world.creatures.get(id);
+          if (creature !== undefined && creature.state === 'SEEKING') {
+            const nextTarget = findNearestBondTarget(world, creature);
+            creature.targetBondId = nextTarget;
+            if (nextTarget !== null) {
+              const targetBond = world.bonds.get(nextTarget);
+              if (targetBond !== undefined) {
+                const mid = bondMidpoint(targetBond);
+                creature.targetPos.x = mid.x;
+                creature.targetPos.y = mid.y;
+              }
+            }
+          }
+
+          // Step 2: FSM tick.
           dispatch(world, { type: 'CREATURE_TICK', creatureId: id });
+
+          // Step 3: post-tick attack fire check. Re-fetch creature (the tick may
+          // have transitioned state OR auto-deleted at despawnAtTick boundary).
+          const after = world.creatures.get(id);
+          if (
+            after !== undefined &&
+            after.state === 'ATTACKING' &&
+            after.ticksInState === VOLTKIN_ATTACK_FIRE_TICK &&
+            after.targetBondId !== null
+          ) {
+            dispatch(world, {
+              type: 'CREATURE_ATTACK',
+              creatureId: id,
+              bondId: after.targetBondId,
+            });
+          }
         }
       }
 

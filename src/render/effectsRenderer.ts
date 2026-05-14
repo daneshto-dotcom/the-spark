@@ -7,6 +7,7 @@
  *   STRUCTURE_GROW  → BFS-timed outward pulse (variable, ~maxHop ticks)
  *   STRUCTURE_MERGE → synchronized union flash (~MERGE_LEAD_IN + FLASH)
  *   SCORE_TIER      → corner bloom + leading ring (~500ms)
+ *   ARC_FLASH       → jittered lightning polyline + halo (~300ms, S27 P0)
  *
  * One Graphics for everything (clear + redraw per frame). Active list is
  * bounded by EFFECT_LIFETIME_TICKS — worst-case dozens of entries during
@@ -30,6 +31,7 @@ import {
 } from '../game/effects.ts';
 import type { World } from '../state/world.ts';
 import { drawBondCommit } from './effects/bondCommit.ts';
+import { drawArcFlash } from './effects/arcFlash.ts';
 import { effectLifetime } from './effects/lifetime.ts';
 import { drawScoreTier } from './effects/scoreTier.ts';
 import { drawSeverErase } from './effects/severErase.ts';
@@ -104,6 +106,9 @@ export class EffectsRenderer {
         return;
       case 'SCORE_TIER':
         drawScoreTier(g, effect, age);
+        return;
+      case 'ARC_FLASH':
+        drawArcFlash(g, effect, Math.min(1, age / lifetime));
         return;
       case 'BOND_FORMED':
       case 'BOND_SEVERED':
