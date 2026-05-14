@@ -39,10 +39,20 @@ void main(void) {
   vTextureCoord = filterTextureCoord();
 }`;
 
+// S29 P0 — fixed GLSL ES 300 fragment shader (Pixi v8 / WebGL 2). Previous
+// version mixed `in vec2` (300 ES syntax) with `gl_FragColor` (legacy GLSL 100
+// only, removed in 300 ES). Result: silent shader-compile failure under Pixi's
+// auto-300-version prelude → luma-key never applied → video sprite invisible.
+// Fix: declare `out vec4 finalColor;` per 300 ES spec and write to it. Matches
+// vertex-shader pattern above (also 300 ES syntax, no precision/version since
+// Pixi prepends them in GlProgram.from). Pre-mortem Grok-#5 caught this as the
+// silent root cause of cinematic-bug #1 (black screen instead of mp4).
 const FRAG = `in vec2 vTextureCoord;
 
 uniform sampler2D uTexture;
 uniform float uThreshold;
+
+out vec4 finalColor;
 
 void main(void) {
   vec4 c = texture(uTexture, vTextureCoord);
@@ -52,7 +62,7 @@ void main(void) {
   } else if (lum > uThreshold - 0.05) {
     c.a *= (uThreshold - lum) / 0.05;
   }
-  gl_FragColor = c;
+  finalColor = c;
 }`;
 
 export interface CinematicLumaKeyOptions {
