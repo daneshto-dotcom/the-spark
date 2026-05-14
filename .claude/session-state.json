@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 65,
+  "tool_calls_session_total": 68,
   "session_start": "2026-05-14T17:00:00Z",
   "session_id": "S29",
   "budget_total": 1000000,
@@ -20,9 +20,9 @@
   "session_note": "S29 P0 — Voltkin Visual Overhaul. Initial Council R2 locked skeletal rig + Imagen body-parts + tv-sprite cinematic pivot ~58K tokens. PRE-MORTEM Triumvirate audit (Grok-pre-mortem + Gemini-pre-mortem + RALPH-self-audit) flagged 11 CRITICAL/HIGH findings: 'rig pays back across godlies' is FALSE (Anvil+Pac-Predator non-humanoid); Imagen body-part consistency unverified theater (6 prior iteration failures = species warning); spring-jiggle non-deterministic in 1v1; no success metric; Verlet body coupling risks; per-FSM-state pose too coarse for ATTACKING; NetSnapshot v2 silence load-bearing; problem-definition risk ('alive' anchored as mechanical not emotional). User clarified reference: MapleStory mob — walk cycle + breathing + mouth + head tracking + attack articulation. REVISED PLAN locks Option B (manual GIMP slice + keyframe pose interpolation, Standard tier ~28K). DROPPED: skeletal rig (350 LOC over-engineered), springs (non-deterministic), Imagen body-parts (6 prior failures), rig-pays-back claim (Voltkin-specific accepted), cinematic burn-it-down (keep escape hatch). ADOPTED: 8-part manual GIMP slice from canonical (head/mouth/mohawk/torso/arm-l/arm-r/leg-l/leg-r), flat sprite hierarchy under single Container (Pixi batching preserved), integer-tick math + linear interpolation between 2-4 keyframe poses per FSM state, continuous overlays (breathing torso scale.y sine 2Hz / head tracking via atan2 toward targetBondId midpoint clamped ±30° / mohawk damped sine on head rotation velocity), shader-fix-first cinematic path (cinematicLumaKey.ts GLSL ES 300 fix preserves mp4 + tv-sprite fallback if shader can't recover mp4), Alive Gate success metric (15-sec gameplay clip vs MapleStory mob 1-10 rating, ship at 7+).",
   "priorities": [
     {
-      "id": "P0",
-      "label": "Voltkin Visual Overhaul — MapleStory mob pattern: cinematic shader fix + manual-slice + keyframe pose interp + continuous overlays + Alive Gate",
-      "status": "in_progress",
+      "id": "P0a",
+      "label": "Cinematic luma-key shader fix (GLSL ES 300) — resolves cinematic-bug #1 (black screen / no mp4) and likely #2 (no voice) — shippable subset of Voltkin Visual Overhaul",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -30,11 +30,30 @@
       "council_waived": false,
       "council_waiver_reason": null,
       "council_invoked": "S29-P0-Full-tier-Council-R2-revised-by-PRE-MORTEM-Triumvirate-audit-to-Standard-tier-execution-2026-05-14",
+      "check_completed": true,
+      "check_method": "Standard-tier Council pipeline executed end-to-end with user-requested PRE-MORTEM audit before scope lock: (1) Full Council R1 Trident Strike fired Grok-DISRUPTOR (grok-4.20-0309-reasoning) + Gemini-AUDITOR (gemini-2.5-pro) in parallel on Claude's R1 PDR Prime (skeletal rig + Imagen body-part split + tv-sprite cinematic pivot, est ~50K Full-tier). Quality Gate PASS (Grok 5 challenges + 1 ADD; Gemini 7-item quality scorecard with multi-dimensional scoring). (2) Claude R2 synthesis with domain-weighted voting produced Battle Ledger 10 decisions: 3 CONCEDED (Q1 asset-acquisition→Gemini-generate-not-split, Q3 cinematic→Gemini-bespoke-Imagen-keyframes, Q4 determinism→Grok-LUT-integer-tick), 1 SYNTHESIS (Q2 animation hybrid rig+procedural+flat-transforms), 3 ADDED (Q6 bundle regression test, Q7 Pixi batching constraint, Q10 active-window debug readout), 3 STANDS (Q5 voice-hook + tick log Claude wins; Q8 discrete FSM Claude wins; Q9 single PDR). PRIME-AUDIT 7 deltas surfaced including Δ6 voice trigger setTimeout still wall-clock not tick (MUST port). Token budget revised 58K. (3) User explicitly requested adversarial PRE-MORTEM audit pre-lock — Grok-pre-mortem (CRITICAL findings) + Gemini-pre-mortem (problem-definition + strategic alternatives) + RALPH:PATROL self-audit. 11 CRITICAL/HIGH findings: rig-pays-back-claim FALSE (Anvil+Pac-Predator non-humanoid — both Grok+Gemini independently raised); Imagen body-part reference-conditioning UNVERIFIED THEATER (6 prior failures = species warning, not retry budget); spring-jiggle non-deterministic in 1v1 (LUT only fixed easings not spring integration); no success metric (Gemini raised, critical flaw — can build right system delivering wrong feeling); Verlet body coupling silent; per-FSM-state pose too coarse for 60-tick ATTACKING wind-up/snap/recovery; NetSnapshot v2 silence load-bearing; problem-definition risk (alive anchored mechanical not emotional). User clarified reference: MapleStory mob — walk cycle + breathing + mouth open/close + head tracking + attack articulation. (4) PRE-MORTEM-driven REVISED PLAN locked Option B (manual GIMP slice + keyframe pose interpolation, Standard tier ~28K): DROPPED skeletal rig + springs + Imagen body-parts + rig-payback-claim + cinematic burn-it-down. ADOPTED 8-part manual slice from canonical (head/mouth-closed/mouth-open/mohawk/torso/arm-l/arm-r/leg-l/leg-r) + flat sprite hierarchy under single Container (Pixi batching preserved) + integer-tick math + linear interpolation + continuous overlays (breathing torso.scale.y sine 2Hz / head tracking via atan2 clamped ±30° / mohawk damped sine on head rotation velocity) + shader-fix-first cinematic + Alive Gate success metric (15-sec gameplay clip vs MapleStory mob 1-10 rating, ship at 7+). (5) EXECUTION P0a (shader fix, shippable subset): Edited src/render/cinematicLumaKey.ts FRAG shader: declared `out vec4 finalColor;` per GLSL ES 300 spec, replaced legacy `gl_FragColor = c;` with `finalColor = c;`. Root-cause prior cinematic-bug #1 (black screen instead of mp4) — shader mixed `in vec2` (300 ES) with `gl_FragColor` (legacy GLSL 100 only, removed in 300 ES), causing silent compile failure under Pixi v8 auto-300-version prelude. Added 8-line explanatory comment citing pre-mortem Grok-#5. (6) Verification gates: npx tsc --noEmit clean empty output; npx vitest run 537/537 passing (S28 baseline preserved); npx vite build 463.58 KB main bundle (+0.02 KB from comment only, 36.42 KB headroom of 500 KB cap). (7) Browser smoke verification via Claude Preview (port 18126 — session port via .claude/launch.json temp-bumped then reverted to user's 16489 default): manual rAF tick of app.ticker (page-hidden state had paused rAF naturally), GODLY_TRIGGER dispatched directly via window.__SPARK__.controls.dispatchFn, observed video DOM element created with src=/godly/voltkin/cinematic/voltkin-intro.mp4 + readyState=4 HAVE_ENOUGH_DATA + duration 4.01s + played to completion + zero shader-compile errors in console + CinematicLumaKeyFilter sprite mounted in stage at 1280x720 with parent container visible/alpha=1 (pre-fix this would have shown silent shader failure logged or no sprite visible). Pixi v8 logs shader compile failures to console — none observed = shader compiles cleanly under WebGL 2. (8) P0b (rig system + body-part assets) DEFERRED to S30 pending user-provided GIMP slice. A.0 state-discovery probe confirmed Imagen reference-image-conditioning (imagen_edit) NON-FUNCTIONAL per gcp-vertex MCP tool description ('Currently non-functional with API key auth') — would require Vertex AI service-account auth. Imagen text-only generation probe ($0.02, imagen-4.0-fast-generate-001) produced a visibly DIFFERENT voltkin from canonical (same style-drift problem as 6 prior rejected iterations). Grok pre-mortem #1+#2 empirically confirmed. Manual slice spec written to public/godly/voltkin/parts/SLICE_SPEC.md (8 named PNG specs with pivot points, ~45-60 min wall-clock for solo dev). (9) Committed 84d6ed4 + pushed origin master d94a7e2..84d6ed4 (7 commits total including 6 S28 state-autocommit drift). Cinematic-bug #1 (black screen) resolved at shader level. Cinematic-bug #2 (no voice) likely resolved as side-effect — prior failure path was: shader silent compile failure → video.play() abort or invisible render → potentially no onComplete cancellation of voice timer BUT voice setTimeout fires at 3500ms wall-clock regardless of video success, so voice was probably already firing through playOneShot — needs user verification in localhost:16489 dev server. Cinematic-bug #3 (5s perceived active window) confirmed-not-a-bug by lifecycle math (480 ticks total = 60 SPAWNING + 360 SEEKING/ATTACKING ~6s + 60 DESPAWNING) — debug overlay readout deferred to S30.",
+      "checkpoint_commit": "84d6ed4",
+      "real_context_tokens_at_close": 295958,
+      "real_context_pct_at_close": 29.6
+    },
+    {
+      "id": "P0b",
+      "label": "Voltkin rig system + body-part animation (godlyAnimator.ts + voltkin.ts poses + creatureRenderer refactor + Alive Gate) — DEFERRED to S30 pending user-provided GIMP slice of canonical into 8 transparent PNGs per public/godly/voltkin/parts/SLICE_SPEC.md",
+      "status": "deferred",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": false,
+      "council_waiver_reason": null,
+      "council_invoked": "S29-P0-Full-tier-Council-R2-revised-by-PRE-MORTEM-Triumvirate-audit-2026-05-14",
       "check_completed": false,
       "check_method": null,
       "checkpoint_commit": null,
       "real_context_tokens_at_close": null,
-      "real_context_pct_at_close": null
+      "real_context_pct_at_close": null,
+      "deferred_to": "S30",
+      "deferred_reason": "external asset prerequisite: 8 body-part PNG slices from canonical Voltkin (head/mouth-closed/mouth-open/mohawk/torso/arm-l/arm-r/leg-l/leg-r). Imagen reference-conditioning non-functional per gcp-vertex MCP. Imagen text-only generation fails style consistency (Grok pre-mortem empirically confirmed via $0.02 probe). Slice spec ready at public/godly/voltkin/parts/SLICE_SPEC.md. User signals 'parts ready' when files delivered; S30 P0 builds the animator + poses + integration + Alive Gate test, est ~25K Standard tier."
     }
   ],
   "totals": {
