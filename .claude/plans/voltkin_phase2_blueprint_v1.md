@@ -1,9 +1,10 @@
 # Voltkin Phase 2 — Architecture Blueprint v1
 
-**STATUS**: APPROVED (S24 P0 close, 2026-05-14)
+**STATUS**: APPROVED (S24 P0 close, 2026-05-14) — **S25 P0 IMPLEMENTED 2026-05-14** (commit d191bf0)
 **Council**: Full-tier 3-way (Claude + Grok + Gemini), R1 parallel → Quality Gate → R2 refinement (both ACCEPT ALL) → PRIME-AUDIT (8 audit deltas applied)
+**S25 Standard-tier Council** (2026-05-14): Claude + Grok + Gemini R1 parallel → Battle Ledger (5 disagreements + 5 gaps) → PRIME-AUDIT (8 deltas) → Triumvirate CHECK (3 follow-on fixes). Implemented per blueprint § "S25 acceptance criteria" with full union landing (S26 SEEKING+ATTACKING reserved), host-gate on SPAWN_CREATURE dispatch (PRIME-AUDIT Δ1 critical 1v1 fix), and save.ts cascade-clear (PRIME-AUDIT Δ4).
 **Reference**: `.claude/plans/ACTIVE_PLAN_voltkin_phase2.md` (5-session plan, this blueprint is the S24 output)
-**Implementation phase**: S25 (entity infra) → S26 (physics/locomotion) → S27 (AI + attack) → S28 (animation + 1v1 sync + polish)
+**Implementation phase**: S25 ✓ (entity infra LANDED) → S26 (physics/locomotion) → S27 (AI + attack) → S28 (animation + 1v1 sync + polish)
 
 ---
 
@@ -322,13 +323,15 @@ Voltkin is the reference impl. Anvil/PacPredator implementations register their 
 
 ---
 
-## OPEN QUESTIONS (FOR USER PRE-S25)
+## OPEN QUESTIONS — LOCKED AT S25 P1 (2026-05-14)
 
-1. **Solo targeting**: confirm creature attacks player's OWN structures in solo (consequence-of-summoning tax). Alternative: "idle wander" in solo. Recommendation: own-structure attacks (already in blueprint).
+User approved batch with implicit "as defined" — all 3 questions LOCKED to blueprint-recommended values via S25 batch PDR approval. Decisions recorded for traceability:
 
-2. **Despawn audio source**: confirm reuse of voltkin-voice tail at 50% vs procedural descending tone. Recommendation: tail reuse (zero asset cost).
+1. **Solo targeting** — LOCKED: creature attacks player's OWN structures (consequence-of-summoning tax). Alternative ("idle wander" in solo) rejected: undermines the "unleashed force" fantasy. Implementation lands in S27 P0 (CREATURE_ATTACK target selection); S25 scaffold is visual-only.
 
-3. **Spritesheet timing**: confirm S28 Imagen side-session is acceptable timing OR move sprite generation earlier (e.g., S26) for buffer. Recommendation: S28 (per current 5-session plan).
+2. **Despawn audio source** — LOCKED: reuse voltkin-voice.ogg tail at 50% volume + descending pitch via Web Audio param ramp. Procedural descending tone rejected: existing OGG palette consistency wins over new-character audio. Zero asset cost. Implementation lands in S28 P0 (alpha-fade polish window).
+
+3. **Spritesheet timing** — LOCKED: S28 P0 Imagen side-session. S25–S27 ship with plain `Sprite` using existing `voltkin-zap.png` as single-frame fallback (S25 P0 implements this). Earlier (S26) buffer rejected: forces visual decisions before AI + attack mechanics are proven; risks rework if FSM state set changes between S25 and S27.
 
 ---
 
