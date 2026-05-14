@@ -168,16 +168,26 @@ export interface World {
   /**
    * S25 P0 — autonomous creature actors (Voltkin Phase 2A). Host-authoritative;
    * spawned at cinematic handoff (T+cinematicMs), auto-removed at despawnAtTick
-   * (8s lifetime per blueprint Q5). 1v1 client mirroring is host→client via
-   * NetSnapshot v2 in S28; for S25 client's `creatures` stays empty (host gate
-   * in main.ts onCinematicHandoff dispatch). Cleared by GODLY_ABORT cascade.
-   * NOT serialized (ephemeral runtime state — applySnapshotCore clears).
+   * (8s lifetime per blueprint Q5). S28 P0 mirrors host→client via NetSnapshot
+   * v2 (additive-optional `creatures?` field on WorldSnapshot — Council Q1
+   * UNANIMOUS A S15 P2 pattern). Cleared by GODLY_ABORT cascade.
    */
   creatures: Map<CreatureId, Creature>;
   /**
    * S25 P0 — monotonic counter for creature IDs. Host-only mint authority.
    */
   nextCreatureId: number;
+  /**
+   * S28 P0 — tick-deterministic pending-spawn schedule (Council Q2 UNANIMOUS A
+   * single-slot). Replaces S25's wall-clock `setTimeout(handoff, cinematicMs)`
+   * in cutsceneOverlay.ts (S25 reflexion: never mutate world from wall-clock
+   * setTimeout — replay determinism breaks). Set by main.ts startCinematicIfNeeded
+   * after recipe lookup (host-only); polled in physics tick loop; dispatches
+   * SPAWN_CREATURE + clears self when `world.tick >= fireAtTick`. GODLY_ABORT
+   * MUST clear this (PRIME-AUDIT Δ5 enforced — otherwise zombie spawn fires
+   * after peer-drop abort, violating blueprint Edge Case #2).
+   */
+  pendingCreatureSpawn: { fireAtTick: number; event: GodlyTriggerEvent } | null;
 }
 
 export type GameAction =
@@ -262,6 +272,7 @@ export function makeWorld(rngSeed: number): World {
     pendingCinematics: [],
     creatures: new Map(),
     nextCreatureId: 0,
+    pendingCreatureSpawn: null,
   };
   // Phase 1 + solo default: P1 only at spawner-rim left.
   const p1 = makeIdlePlayer(asPlayerId(0), PLAYER_COLORS[0], {
@@ -400,6 +411,9 @@ export function dispatch(world: World, action: GameAction): World {
       // S25 P0 — cascade-clear creatures (blueprint Edge Case #2). Peer-drop or
       // explicit abort must remove all live actors so no zombie sprites persist.
       world.creatures.clear();
+      // S28 P0 — PRIME-AUDIT Δ5: clear pending creature spawn so a queued
+      // spawn cannot fire after abort (replay + 1v1 peer-drop both honored).
+      world.pendingCreatureSpawn = null;
       return world;
     }
 

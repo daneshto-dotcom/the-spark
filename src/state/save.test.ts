@@ -92,3 +92,145 @@ describe('WorldSnapshot save/load (§ 10.4)', () => {
     expect(() => restore(bad, w2)).toThrow(/schemaVersion/);
   });
 });
+
+// S28 P0 — Voltkin Phase 2D NetSnapshot v2 round-trip (Council Q1 UNANIMOUS A
+// additive-optional `creatures?` field on WorldSnapshot, Q4 2/3 B trimmed
+// render-only shape). Resolves S27 RALPH Δ8 1v1 client visual regression by
+// mirroring host's `world.creatures` to client via existing snapshot pipeline.
+describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
+  it('empty creatures map produces snapshot with creatures undefined (pre-S28 back-compat)', () => {
+    const w1 = makeWorld(0);
+    expect(w1.creatures.size).toBe(0);
+    const snap = snapshot(w1);
+    expect(snap.creatures).toBeUndefined();
+  });
+
+  it('round-trip rehydrates creatures with trimmed shape (id/type/pos/state/ticksInState)', () => {
+    const w1 = makeWorld(0);
+    // Manually inject a creature (testing the serialization path directly —
+    // SPAWN_CREATURE dispatch needs targetPos + ownerPlayerId + handoff orchestration,
+    // out of scope for a save round-trip unit test).
+    w1.creatures.set(
+      0 as unknown as import('../types.ts').CreatureId,
+      {
+        id: 0 as unknown as import('../types.ts').CreatureId,
+        type: 'voltkin',
+        ownerPlayerId: P1,
+        pos: { x: 123, y: 456 },
+        prevPos: { x: 100, y: 400 },
+        targetPos: { x: 200, y: 500 },
+        targetBondId: null,
+        state: 'SEEKING',
+        ticksInState: 42,
+        spawnedAtTick: 10,
+        despawnAtTick: 490,
+      },
+    );
+    const snap = snapshot(w1);
+    expect(snap.creatures).toBeDefined();
+    expect(snap.creatures?.length).toBe(1);
+    expect(snap.creatures?.[0].pos).toEqual({ x: 123, y: 456 });
+    expect(snap.creatures?.[0].state).toBe('SEEKING');
+    expect(snap.creatures?.[0].ticksInState).toBe(42);
+    expect(snap.creatures?.[0].type).toBe('voltkin');
+
+    const json = JSON.stringify(snap);
+    const reparsed = JSON.parse(json);
+    const w2 = makeWorld(0);
+    restore(reparsed, w2);
+    expect(w2.creatures.size).toBe(1);
+    const rehydrated = w2.creatures.get(0 as unknown as import('../types.ts').CreatureId)!;
+    expect(rehydrated.pos).toEqual({ x: 123, y: 456 });
+    expect(rehydrated.state).toBe('SEEKING');
+    expect(rehydrated.ticksInState).toBe(42);
+    // Trimmed-shape: sim-only fields default safely (PRIME-AUDIT Δ7 readonly
+    // + Council Q4 2/3 B "client never simulates, defaults are fine").
+    expect(rehydrated.targetBondId).toBe(null);
+    expect(rehydrated.prevPos).toEqual({ x: 123, y: 456 }); // snaps to pos
+  });
+
+  it('pre-S28 snapshot (no creatures field) still applies cleanly (Δ3 nullish guard)', () => {
+    const w1 = makeWorld(0);
+    placeChain(w1, 4); // populate primitives so restore has bodies to walk
+    const snap = snapshot(w1);
+    // Mutate the snapshot in-place to simulate a pre-S28 wire payload (creatures
+    // field absent on the wire, not undefined). JSON.parse round-trip drops
+    // undefined keys naturally.
+    const json = JSON.stringify(snap);
+    const reparsed = JSON.parse(json);
+    expect(reparsed.creatures).toBeUndefined();
+    const w2 = makeWorld(0);
+    expect(() => restore(reparsed, w2)).not.toThrow();
+    expect(w2.creatures.size).toBe(0);
+  });
+
+  // CHECK Triumvirate cross-Council UNANIMOUS Grok-C1 + Gemini-G1 P0 fix:
+  // advance world.nextCreatureId past max-loaded-id so host save-load doesn't
+  // re-mint colliding IDs on next SPAWN_CREATURE.
+  it('CHECK C1/G1 fix: nextCreatureId advances past max-loaded creature id', () => {
+    const w1 = makeWorld(0);
+    // Inject 2 creatures with non-contiguous IDs (simulating host that minted
+    // ids 0, 3, then 0+1 despawned mid-save).
+    w1.creatures.set(
+      0 as unknown as import('../types.ts').CreatureId,
+      {
+        id: 0 as unknown as import('../types.ts').CreatureId,
+        type: 'voltkin',
+        ownerPlayerId: P1,
+        pos: { x: 50, y: 50 },
+        prevPos: { x: 50, y: 50 },
+        targetPos: { x: 60, y: 60 },
+        targetBondId: null,
+        state: 'SPAWNING',
+        ticksInState: 5,
+        spawnedAtTick: 0,
+        despawnAtTick: 480,
+      },
+    );
+    w1.creatures.set(
+      3 as unknown as import('../types.ts').CreatureId,
+      {
+        id: 3 as unknown as import('../types.ts').CreatureId,
+        type: 'voltkin',
+        ownerPlayerId: P1,
+        pos: { x: 100, y: 100 },
+        prevPos: { x: 100, y: 100 },
+        targetPos: { x: 110, y: 110 },
+        targetBondId: null,
+        state: 'SEEKING',
+        ticksInState: 12,
+        spawnedAtTick: 100,
+        despawnAtTick: 580,
+      },
+    );
+    w1.nextCreatureId = 4;
+    const w2 = makeWorld(0);
+    expect(w2.nextCreatureId).toBe(0); // fresh world
+    restore(JSON.parse(JSON.stringify(snapshot(w1))), w2);
+    // After load: max-loaded-id is 3, so nextCreatureId must be 4 to avoid
+    // collision on next host SPAWN_CREATURE.
+    expect(w2.nextCreatureId).toBe(4);
+  });
+
+  // CHECK Triumvirate Grok-C3 P1 fix: applySnapshotCore clears pendingCreatureSpawn.
+  it('CHECK C3 fix: applySnapshotCore clears pendingCreatureSpawn (parity)', () => {
+    const w1 = makeWorld(0);
+    const snap = snapshot(w1);
+    const w2 = makeWorld(0);
+    // Simulate host that has a pending spawn queued pre-load. After loading
+    // the saved snapshot the pending must be cleared, mirroring creatures.clear().
+    w2.pendingCreatureSpawn = {
+      fireAtTick: 999,
+      event: {
+        godlyId: 'voltkin',
+        triggererPlayerId: P1,
+        targetComponentPrimitiveIds: [],
+        targetPos: { x: 0, y: 0 },
+        triggerTick: 0,
+      },
+    };
+    expect(w2.pendingCreatureSpawn).not.toBe(null);
+    restore(JSON.parse(JSON.stringify(snap)), w2);
+    expect(w2.pendingCreatureSpawn).toBe(null);
+  });
+});

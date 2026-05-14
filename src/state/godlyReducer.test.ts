@@ -92,6 +92,28 @@ describe('GODLY_TRIGGER reducer', () => {
     expect(world.tick).toBe(startTick);
   });
 
+  // S28 P0 — Voltkin Phase 2D PRIME-AUDIT Δ5: GODLY_ABORT MUST clear the
+  // pendingCreatureSpawn schedule so a queued spawn cannot fire after peer-
+  // drop abort (replay + 1v1 disconnect both honored). The schedule itself
+  // is set in main.ts startCinematicIfNeeded (host path); the reducer-side
+  // CLEAR is the regression-locked contract.
+  it('S28 migration: pendingCreatureSpawn starts null on fresh world', () => {
+    expect(world.pendingCreatureSpawn).toBe(null);
+  });
+
+  it('S28 migration: GODLY_ABORT clears pendingCreatureSpawn (PRIME-AUDIT Δ5)', () => {
+    // Simulate the host-side schedule (mirrors what main.ts startCinematic
+    // does post-recipe-lookup). Direct write is the established pattern for
+    // control-plane fields (see pendingCinematics in dispatch reducer body).
+    world.pendingCreatureSpawn = {
+      fireAtTick: world.tick + 240,
+      event: event(0),
+    };
+    expect(world.pendingCreatureSpawn).not.toBe(null);
+    dispatch(world, { type: 'GODLY_ABORT' });
+    expect(world.pendingCreatureSpawn).toBe(null);
+  });
+
   // S27 P0 — cascade DELETION migration regression (Council R1 Q5 UNANIMOUS
   // creature-only + blueprint § "S27 migration notes" Gap A). Pre-S27 this
   // reducer ran a 26-line synchronous SEVER_BOND cascade on the target

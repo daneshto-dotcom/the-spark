@@ -88,6 +88,18 @@ export const VOLTKIN_ATTACK_CADENCE_TICKS = 60;
 export const VOLTKIN_ATTACK_FIRE_TICK = 30;
 
 /**
+ * S28 P0 — convert wall-clock cinematic duration (ms) to a tick count for the
+ * tick-deterministic pending-spawn schedule (replaces S25's wall-clock setTimeout
+ * in cutsceneOverlay.ts:152 — Council Q2 UNANIMOUS A single-slot pending). Uses
+ * `Math.round` (PRIME-AUDIT Δ4) for closest-fit at non-multiple-of-60 cinematic
+ * durations: 4000→240, 4017→241, 4008→240. PHYSICS_DT is fixed 1/60s so 60 ticks
+ * per second. Pure function; trivially unit-testable.
+ */
+export function cinematicMsToTicks(ms: number): number {
+  return Math.round(ms / 1000 * 60);
+}
+
+/**
  * S25 v1 creature type. S29+ will add `'anvil'` and `'pacPredator'`. The type discriminates
  * spritesheet, FSM transition table, attack range, etc. (see blueprint § "Creature type config").
  */

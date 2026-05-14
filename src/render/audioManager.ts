@@ -44,6 +44,16 @@ const FART_GAIN = 0.35;
 const CLAVE_DURATION = 0.03;
 const FART_DURATION = 0.28;
 
+/**
+ * S28 P0 — Voltkin Phase 2D zap audio. Recorded lightning-crackle.ogg (18 KB)
+ * deployed from assets-source/godly-voltkin/audio/ at S28 boot (Council scope-Q2
+ * USER-LOCKED option-a: recorded SFX over procedural Web Audio synth). Replaces
+ * S27 Δ6 carry-forward silent BOND_SEVERED cause='creature'. Routed via the
+ * existing playOneShot() → sfxGainNode bus so the M-key master mute + SFX
+ * channel mute both respect it.
+ */
+const LIGHTNING_CRACKLE_URL = '/godly/voltkin/audio/lightning-crackle.ogg';
+
 const STORAGE_KEY_MASTER_MUTED = 'spark_audio_muted';
 const STORAGE_KEY_MUSIC_MUTED = 'audio.musicMuted';
 const STORAGE_KEY_SFX_MUTED = 'audio.sfxMuted';
@@ -566,6 +576,11 @@ export function drainAudioEffects(effects: ReadonlyArray<GameEffect>, currentTic
       void playClaveSFX();
     } else if (effect.kind === 'BOND_SEVERED' && effect.cause === 'player') {
       void playFartSFX();
+    } else if (effect.kind === 'BOND_SEVERED' && effect.cause === 'creature') {
+      // S28 P0 — Voltkin lightning zap on creature-driven sever (Council scope-Q2
+      // USER-LOCKED option-a: recorded lightning-crackle.ogg over procedural Web
+      // Audio synth — see LIGHTNING_CRACKLE_URL constant rationale).
+      void playOneShot(LIGHTNING_CRACKLE_URL);
     }
   }
   lastDrainedTick = currentTick;

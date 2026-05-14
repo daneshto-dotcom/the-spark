@@ -35,7 +35,9 @@ import {
   asPlayerId,
   asPrimitiveId,
   asSparkId,
+  asCreatureId,
   type BondId,
+  type CreatureId,
   type PlayerId,
   type PrimitiveId,
   type SparkId,
@@ -43,6 +45,7 @@ import {
 } from '../types.ts';
 import { type GameMode, type GameState, type World } from './world.ts';
 import { type Player } from '../game/player.ts';
+import type { Creature, CreatureState, CreatureType } from './creatures/creature.ts';
 
 const STORAGE_KEY = 'spark.snapshot.v1';
 const PHYSICS_DT = 1 / 60;
@@ -67,6 +70,18 @@ export interface WorldSnapshot {
   currentPlayerId?: PlayerId;
   /** S15 P2 — per-player score tuples. Optional for pre-S15 compat. */
   scoreByPlayer?: Array<readonly [PlayerId, number]>;
+  /**
+   * S28 P0 — Voltkin Phase 2D NetSnapshot v2 (Council Q1 UNANIMOUS A additive-
+   * optional pattern; no schemaVersion bump per S15 P2 precedent). Host
+   * serializes live creatures so 1v1 clients can render the mirror (resolves
+   * S27 RALPH Δ8 visual regression where client saw bonds vanish without
+   * visible creature/ARC_FLASH). Council Q4 2/3 B trimmed render-only shape:
+   * client doesn't simulate AI so targetBondId/targetPos/prevPos/spawnedAtTick/
+   * despawnAtTick/ownerPlayerId all omitted (~36 B/creature × max 2 = ~72 B per
+   * snapshot — negligible vs prims/bonds payload). Pre-S28 saves omit this
+   * field; applySnapshotCore handles `undefined` via nullish-coalescing (Δ3).
+   */
+  creatures?: SerializedCreature[];
 }
 
 interface SerializedSpark {
@@ -114,6 +129,21 @@ interface SerializedPlayer {
   avatarPos?: Vec2;
 }
 
+/**
+ * S28 P0 — Voltkin Phase 2D Council Q4 2/3 B trimmed render-only shape (~36 B).
+ * Client renderer derives scale/tint/alpha from (state, ticksInState) via the
+ * pure helpers in creatureRenderer.ts — no AI fields (targetBondId, targetPos)
+ * needed since client never simulates. PRIME-AUDIT Δ7: readonly to guard
+ * against accidental client-side mutation post-applyNetSnapshot.
+ */
+export interface SerializedCreature {
+  readonly id: CreatureId;
+  readonly type: CreatureType;
+  readonly pos: Vec2;
+  readonly state: CreatureState;
+  readonly ticksInState: number;
+}
+
 export function snapshot(world: World): WorldSnapshot {
   return {
     schemaVersion: 1,
@@ -132,6 +162,13 @@ export function snapshot(world: World): WorldSnapshot {
     gameMode: world.gameMode,
     currentPlayerId: world.currentPlayerId,
     scoreByPlayer: [...world.scoreByPlayer.entries()],
+    // S28 P0 — NetSnapshot v2: only emit `creatures` when non-empty so pre-S28
+    // saves stay byte-identical (the field stays `undefined` and is dropped by
+    // JSON.stringify). Host always emits; clients never read this for serialize
+    // (host-authoritative — see netSnapshot consumer in applySnapshotCore).
+    creatures: world.creatures.size > 0
+      ? [...world.creatures.values()].map(serializeCreature)
+      : undefined,
   };
 }
 
@@ -202,14 +239,27 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   world.primitives.clear();
   world.bonds.clear();
   world.players.clear();
-  // S25 P0 — creatures are ephemeral runtime state (8s lifetime, never serialized).
-  // Clear on snapshot apply for parity with other collection-typed fields so a
-  // mid-cinematic load/applyNetSnapshot can't leave zombie creatures alive. Also
-  // reset `nextCreatureId` to 0 — host-only mint authority, but a stale value
-  // could produce a giant id gap on host-restore (Council CHECK Grok CH3 finding).
-  // Client never mints (host-gated dispatch in main.ts) so reset is harmless there.
+  // S25 P0 → S28 P0 — creatures cleared for parity, then rehydrated from
+  // snap.creatures if present (NetSnapshot v2 host→client mirror). PRIME-AUDIT
+  // Δ3: nullish-coalescing guard so pre-S28 saves (no `creatures` field) stay
+  // back-compat — no TypeError. `nextCreatureId` reset to 0 by default; CHECK
+  // Triumvirate cross-Council UNANIMOUS Grok-C1 + Gemini-G1 ACCEPTED fix:
+  // advance counter past max-loaded-id so host save-load with live creatures
+  // doesn't mint colliding IDs on next SPAWN_CREATURE. Client never mints, so
+  // this is a no-op on the 1v1 client path. CHECK Grok-C3 ACCEPTED: also clear
+  // `pendingCreatureSpawn` for parity (host save mid-cinematic could otherwise
+  // re-fire the schedule on load).
   world.creatures.clear();
   world.nextCreatureId = 0;
+  world.pendingCreatureSpawn = null;
+  if (snap.creatures !== undefined) {
+    let maxId = -1;
+    for (const c of snap.creatures) {
+      world.creatures.set(c.id, deserializeCreature(c));
+      if ((c.id as number) > maxId) maxId = c.id as number;
+    }
+    if (maxId >= 0) world.nextCreatureId = maxId + 1;
+  }
 
   for (const s of snap.freeSparks) {
     const spark: Spark = {
@@ -349,8 +399,48 @@ function serializePlayer(p: Player): SerializedPlayer {
   };
 }
 
+/**
+ * S28 P0 — Voltkin Phase 2D Council Q4 2/3 B trimmed shape: only fields the
+ * client renderer needs (id/type/pos/state/ticksInState). All AI + lifecycle
+ * fields (targetBondId, targetPos, prevPos, spawnedAtTick, despawnAtTick,
+ * ownerPlayerId) intentionally omitted — host runs FSM, client only renders.
+ */
+function serializeCreature(c: Creature): SerializedCreature {
+  return {
+    id: c.id,
+    type: c.type,
+    pos: { x: c.pos.x, y: c.pos.y },
+    state: c.state,
+    ticksInState: c.ticksInState,
+  };
+}
+
+/**
+ * S28 P0 — rehydrate a SerializedCreature on the client side. Sim-only fields
+ * (prevPos, targetPos, targetBondId, ownerPlayerId, spawnedAtTick, despawnAtTick)
+ * are reconstructed with neutral defaults: prevPos snaps to pos (zero implicit
+ * velocity — client never integrates anyway), targetPos snaps to pos (no AI),
+ * targetBondId=null (no AI), ownerPlayerId=0 (renderer ignores), spawnedAtTick=0
+ * and despawnAtTick=0 (renderer ignores — host owns the despawn dispatch).
+ */
+function deserializeCreature(s: SerializedCreature): Creature {
+  return {
+    id: s.id,
+    type: s.type,
+    ownerPlayerId: asPlayerId(0),
+    pos: { x: s.pos.x, y: s.pos.y },
+    prevPos: { x: s.pos.x, y: s.pos.y },
+    targetPos: { x: s.pos.x, y: s.pos.y },
+    targetBondId: null,
+    state: s.state,
+    ticksInState: s.ticksInState,
+    spawnedAtTick: 0,
+    despawnAtTick: 0,
+  };
+}
+
 // Brand re-exports so save callers don't need to import types.ts.
-export const SaveBrands = { asPlayerId, asPrimitiveId, asBondId };
+export const SaveBrands = { asPlayerId, asPrimitiveId, asBondId, asCreatureId };
 
 export function saveToLocalStorage(world: World): WorldSnapshot {
   const snap = snapshot(world);

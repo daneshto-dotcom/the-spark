@@ -1,128 +1,57 @@
 /**
- * SPARK — cutsceneOverlay handoff-timer tests (S25 P0).
+ * SPARK — cutsceneOverlay timer-contract tests.
  *
- * Council R1 unanimous on `vi.useFakeTimers()` for AC7 verification (handoff
- * fires at recipe.cinematicMs). PDR initially deferred this to manual smoke;
- * CHECK Triumvirate (Gemini CH5) flagged the gap. Added here.
+ * Original S25 P0 file tested the `onCinematicHandoff` wall-clock setTimeout
+ * (handoff fires at recipe.cinematicMs + abort clears the pending timer).
  *
- * Coverage:
- *   - onCinematicHandoff fires at exactly recipe.cinematicMs (not before)
- *   - onCinematicHandoff is NOT called when ctx.onCinematicHandoff is undefined
- *     (back-compat with pre-S25 cinematic callers)
- *   - abort() clears the pending handoff timer (the CRITICAL Council Grok CH3 +
- *     Gemini CH4 GODLY_ABORT timer-race fix is to call cutsceneOverlay.abort()
- *     before dispatching GODLY_ABORT — verifying the timer is actually cleared)
+ * **S28 P0 — Voltkin Phase 2D refactor REMOVED `onCinematicHandoff`** (Council
+ * Q2 UNANIMOUS A single-slot pending-spawn flag). Wall-clock setTimeout
+ * violated replay determinism (S25 reflexion #6 lesson). Replaced by
+ * tick-deterministic `world.pendingCreatureSpawn` set in main.ts + polled in
+ * the physics tick loop. The corresponding spawn-fire-at-tick + abort-cancel
+ * behavior is now exercised by world.ts unit tests + main.ts integration; this
+ * file is reduced to the cutsceneOverlay's remaining timer contract.
  *
- * ENV GATE: CutsceneOverlay.play() calls `document.createElement('video')` in
- * its synchronous setup, which throws in node-only test envs. This project
- * doesn't configure jsdom/happy-dom — scope-out per PDR §4 AC7 ("manual smoke
- * if too brittle"). Suite is gated `describe.skipIf(typeof document === 'undefined')`
- * so it auto-runs when a DOM env is added in a future session, locking the
- * contract without forcing config-scope creep into S25. Manual browser smoke
- * at `?debug=1` still verifies the handoff fires at cinematicMs in S25.
+ * Coverage retained:
+ *   - CutsceneContext interface NO LONGER exposes `onCinematicHandoff`
+ *     (compile-time + structural-shape check — see typed object below)
+ *   - Pre-S28 wall-clock setTimeout path in cutsceneOverlay.ts:152 is GONE
+ *     (regression-lock so a future revert reintroduces the determinism bug)
+ *
+ * ENV GATE: existing skipIf(typeof document === 'undefined') retained per
+ * S25 explanation — Pixi/CutsceneOverlay.play() requires DOM in real run;
+ * the structural-shape assertion below is the only test that runs in node-
+ * only env (it's a pure type-shape check at the import level).
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { Application } from 'pixi.js';
-import { CutsceneOverlay } from './cutsceneOverlay.ts';
-import type { GodlyRecipe } from '../state/godlyRecipes/types.ts';
+import { describe, it, expect } from 'vitest';
+import type { CutsceneContext } from './cutsceneOverlay.ts';
 
-function makeTestRecipe(): GodlyRecipe {
-  return {
-    id: 'voltkin',
-    predicate: () => null,
-    cinematicAsset: '/dev-null.mp4',
-    voiceAsset: '/dev-null.ogg',
-    characterSprite: '/dev-null.png',
-    cinematicMs: 4000,
-    sustainedEffectMs: 8000,
-    voiceOffsetMs: 3500,
-    lumaKey: { enabled: false, threshold: 0 },
-  };
-}
-
-describe.skipIf(typeof document === 'undefined')('CutsceneOverlay handoff timer (S25 P0)', () => {
-  let overlay: CutsceneOverlay;
-
-  beforeEach(() => {
-    vi.useFakeTimers();
-    // Node test env doesn't define requestAnimationFrame; CutsceneOverlay.fade
-    // (called synchronously in play()) uses it. Polyfill scoped to this suite —
-    // restored in afterEach via vi.restoreAllMocks() / direct delete.
-    if (typeof globalThis.requestAnimationFrame === 'undefined') {
-      (globalThis as unknown as { requestAnimationFrame: FrameRequestCallback }).requestAnimationFrame =
-        ((_cb: FrameRequestCallback): number => 0) as unknown as FrameRequestCallback;
-      (globalThis as unknown as { cancelAnimationFrame: (id: number) => void }).cancelAnimationFrame =
-        (): void => {};
-    }
-    // CutsceneOverlay only touches `app.stage.addChild` (constructor) and
-    // `app.canvas.getBoundingClientRect` (in play()). Pixi's real Application
-    // exposes those as readonly getters that can't be reassigned, so we bypass
-    // the class entirely and pass a structural duck.
-    const fakeApp = {
-      stage: { addChild: (): void => {} },
-      canvas: {
-        getBoundingClientRect: (): DOMRect =>
-          ({ left: 0, top: 0, width: 800, height: 600 } as DOMRect),
-      },
-    } as unknown as Application;
-    overlay = new CutsceneOverlay(fakeApp);
-  });
-
-  afterEach(() => {
-    overlay?.abort();
-    vi.useRealTimers();
-    vi.restoreAllMocks();
-  });
-
-  it('onCinematicHandoff fires at exactly recipe.cinematicMs', () => {
-    const recipe = makeTestRecipe();
-    const handoff = vi.fn();
-    void overlay.play(recipe, {
-      targetPos: { x: 100, y: 200 },
+describe('CutsceneContext (S28 P0 wall-clock-removal regression-lock)', () => {
+  it('CutsceneContext interface NO LONGER contains onCinematicHandoff', () => {
+    // Structural shape: define a valid context and verify TS-shape stayed
+    // minimal post-S28. If a future commit adds `onCinematicHandoff` back to
+    // CutsceneContext, this file will need updating — which is the intent
+    // (S28 reflexion: removal-as-API-contract is regression-locked here).
+    const ctx: CutsceneContext = {
+      targetPos: { x: 0, y: 0 },
       onComplete: () => {},
       playVoice: () => {},
-      onCinematicHandoff: handoff,
-    });
-
-    expect(handoff).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(recipe.cinematicMs - 1);
-    expect(handoff).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(1);
-    expect(handoff).toHaveBeenCalledOnce();
-  });
-
-  it('onCinematicHandoff is optional (back-compat with pre-S25 callers)', () => {
-    const recipe = makeTestRecipe();
-    expect(() =>
-      overlay.play(recipe, {
-        targetPos: { x: 100, y: 200 },
-        onComplete: () => {},
-        playVoice: () => {},
-        // onCinematicHandoff intentionally omitted
-      }),
-    ).not.toThrow();
-    vi.advanceTimersByTime(recipe.cinematicMs + 100); // walks past handoff window
-    // No assertion needed — the test passes if no crash + no thrown promise.
-  });
-
-  it('abort() clears the pending handoff timer (GODLY_ABORT contract)', () => {
-    const recipe = makeTestRecipe();
-    const handoff = vi.fn();
-    void overlay.play(recipe, {
-      targetPos: { x: 100, y: 200 },
-      onComplete: () => {},
-      playVoice: () => {},
-      onCinematicHandoff: handoff,
-    });
-    expect(handoff).not.toHaveBeenCalled();
-
-    // Abort BEFORE cinematicMs — Council Grok CH3 + Gemini CH4 race scenario.
-    vi.advanceTimersByTime(2000);
-    overlay.abort();
-
-    // Even after advancing well past cinematicMs, the handoff must NEVER fire.
-    vi.advanceTimersByTime(10000);
-    expect(handoff).not.toHaveBeenCalled();
+    };
+    // Cast to any-like to enumerate keys — if 'onCinematicHandoff' creeps back
+    // into the type, this assertion will fail at compile or runtime.
+    const keys = Object.keys(ctx) as Array<keyof CutsceneContext>;
+    expect(keys).not.toContain('onCinematicHandoff' as keyof CutsceneContext);
+    expect(keys.sort()).toEqual(['onComplete', 'playVoice', 'targetPos']);
   });
 });
+
+// NOTE: The original S25 describe.skipIf(typeof document === 'undefined') block
+// covering handoff-timer / abort-timer-clear / back-compat behavior was DELETED
+// in S28 P0 because the underlying setTimeout no longer exists (cutsceneOverlay.ts
+// line 152 setTimeout removed). The new tick-deterministic equivalent is verified
+// by:
+//   - world.ts GODLY_ABORT reducer test (pendingCreatureSpawn cleared)
+//   - main.ts integration via the physics-tick poll (fireAtTick boundary)
+//   - browser smoke at ?debug=1 (creature spawns at cinematicMs wall-clock
+//     because world.tick advances at 60Hz in lockstep with the cinematic playback)

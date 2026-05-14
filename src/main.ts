@@ -61,7 +61,7 @@ import {
 // UNANIMOUS A); bondMidpoint feeds the per-tick targetPos update so the
 // existing steering forces (seek/arrive) home in on the nearest bond's center.
 import { bondMidpoint, findNearestBondTarget } from './state/creatures/creatureAI.ts';
-import { VOLTKIN_ATTACK_FIRE_TICK } from './state/creatures/creature.ts';
+import { cinematicMsToTicks, VOLTKIN_ATTACK_FIRE_TICK } from './state/creatures/creature.ts';
 import { AvatarRenderer } from './render/avatarRenderer.ts';
 import { drainAudioEffects, initAudio, isMuted, playMusic, playOneShot, toggleMute } from './render/audioManager.ts';
 import { EffectsRenderer } from './render/effectsRenderer.ts';
@@ -491,29 +491,30 @@ async function bootstrap(): Promise<void> {
       playVoice: (assetUrl: string) => {
         void playOneShot(assetUrl);
       },
-      // S25 P0 — creature spawn handoff at T+cinematicMs. HOST-ONLY dispatch
-      // (Council R1 Gap A fix): client also runs startCinematicIfNeeded but its
-      // handoff callback dispatches nothing — client's world.creatures stays
-      // empty until S28 NetSnapshot v2 mirrors host state. Without this gate,
-      // client + host both dispatch SPAWN_CREATURE locally on different ticks
-      // (wall-clock setTimeout drift) → divergent world.creatures Maps.
-      //
-      // S26 P0 — caller computes deterministic stub targetPos from
-      // (world.tick, triggererPlayerId) per Council Q1 unanimous; reducer stays
-      // pure. ownerPlayerId·π offset (Δ5) prevents both 1v1 creatures from
-      // converging on the same target when simultaneously triggered.
-      onCinematicHandoff: () => {
-        if (!world.isHost) return;
-        const targetPos = computeStubTargetPos(world.tick, event.triggererPlayerId);
-        dispatch(world, {
-          type: 'SPAWN_CREATURE',
-          creatureType: 'voltkin',
-          ownerPlayerId: event.triggererPlayerId,
-          pos: { x: event.targetPos.x, y: event.targetPos.y },
-          targetPos,
-        });
-      },
     });
+    // S28 P0 — REPLACE S25's wall-clock setTimeout-on-handoff (Council Q2
+    // UNANIMOUS A single-slot pending-spawn flag). Host-only schedule: the
+    // poll in the physics tick loop (Step 0 below) fires SPAWN_CREATURE at
+    // `world.tick >= fireAtTick`, replay-safe + deterministic. PRIME-AUDIT
+    // Δ6 single-slot overwrite guard: log a dev-mode warning if a previous
+    // spawn is still pending (should never fire — upstream activeCinematic
+    // serialization prevents two cinematics overlapping).
+    if (world.isHost) {
+      if (import.meta.env.DEV && world.pendingCreatureSpawn !== null) {
+        console.warn(
+          '[godly] startCinematic overwriting pending creature spawn',
+          {
+            existingFireAtTick: world.pendingCreatureSpawn.fireAtTick,
+            currentTick: world.tick,
+            newEvent: event.godlyId,
+          },
+        );
+      }
+      world.pendingCreatureSpawn = {
+        fireAtTick: world.tick + cinematicMsToTicks(recipe.cinematicMs),
+        event,
+      };
+    }
     cinematicTimer = setTimeout(() => {
       dispatch(world, { type: 'GODLY_COMPLETE' });
       cinematicTimer = null;
@@ -534,8 +535,34 @@ async function bootstrap(): Promise<void> {
       }
       tickGameState(world, gameStateExtras, P1);
 
+      // S28 P0 — Step 0 (tick-deterministic pending creature spawn poll).
+      // Replaces S25's `onCinematicHandoff` wall-clock setTimeout in
+      // cutsceneOverlay.ts (S25 reflexion #6 lesson: never mutate world from
+      // wall-clock setTimeout — replay breaks). Council Q2 UNANIMOUS A single-
+      // slot pendingCreatureSpawn. Host-only (client never holds a pending
+      // schedule — its creatures Map is rehydrated via NetSnapshot v2 inside
+      // applySnapshotCore). Boundary uses `>=` per S27 reflexion #6: integer-
+      // boundary checks must clear the equality case.
+      if (
+        world.gameState === 'PLAYING' &&
+        !isClient &&
+        world.pendingCreatureSpawn !== null &&
+        world.tick >= world.pendingCreatureSpawn.fireAtTick
+      ) {
+        const { event } = world.pendingCreatureSpawn;
+        world.pendingCreatureSpawn = null;
+        const spawnTargetPos = computeStubTargetPos(world.tick, event.triggererPlayerId);
+        dispatch(world, {
+          type: 'SPAWN_CREATURE',
+          creatureType: 'voltkin',
+          ownerPlayerId: event.triggererPlayerId,
+          pos: { x: event.targetPos.x, y: event.targetPos.y },
+          targetPos: spawnTargetPos,
+        });
+      }
+
       // S25 P0 — fan-out CREATURE_TICK to every live creature. Host-only (client
-      // never simulates; S28 will add NetSnapshot v2 host→client creature mirror).
+      // never simulates; S28 NetSnapshot v2 mirrors host→client creature state).
       // Snapshot the keys BEFORE iterating because applyCreatureTick auto-deletes
       // at despawnAtTick (Council R1 S25 D5 majority: auto-delete inside reducer).
       // Without the snapshot, an in-loop delete would skip subsequent ids in V8.

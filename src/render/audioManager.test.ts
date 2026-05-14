@@ -140,6 +140,23 @@ describe('audioManager — drainAudioEffects (cursor)', () => {
     expect(() => drainAudioEffects(effects, 3)).not.toThrow();
   });
 
+  // S28 P0 — Voltkin Phase 2D zap audio (Council scope-Q2 USER-LOCKED option-a:
+  // recorded lightning-crackle.ogg via playOneShot, NOT procedural Web Audio
+  // synth). Drain must accept the new cause='creature' variant without throw.
+  it('handles BOND_SEVERED cause=creature (S28 lightning-crackle hook)', () => {
+    const effects: GameEffect[] = [
+      { kind: 'BOND_SEVERED', tick: 10, pos: { x: 80, y: 80 }, cause: 'creature' },
+    ];
+    expect(() => drainAudioEffects(effects, 10)).not.toThrow();
+  });
+
+  it('handles BOND_SEVERED cause=godly without throw (legacy — unreachable post-S27)', () => {
+    const effects: GameEffect[] = [
+      { kind: 'BOND_SEVERED', tick: 11, pos: { x: 90, y: 90 }, cause: 'godly' },
+    ];
+    expect(() => drainAudioEffects(effects, 11)).not.toThrow();
+  });
+
   it('cursor advances; same-tick re-drain is a no-op (replay safety)', () => {
     const effects: GameEffect[] = [
       { kind: 'BOND_FORMED', tick: 5, pos: { x: 0, y: 0 }, bondCount: 2 },

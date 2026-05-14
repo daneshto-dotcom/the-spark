@@ -34,13 +34,10 @@ export interface CutsceneContext {
   onComplete(): void;
   /** Plays the recipe's voice clip at the scripted offset. audioManager hook. */
   playVoice(assetUrl: string): void;
-  /**
-   * S25 P0 — fires at `recipe.cinematicMs` after `play()` starts (the same moment the
-   * static character sprite would crossfade in). Main.ts dispatches SPAWN_CREATURE here
-   * gated on `world.isHost`. Optional for back-compat with pre-S25 callers. Cleared by
-   * `abort()` (timer is pushed onto `this.timers`, inherits free cleanup).
-   */
-  onCinematicHandoff?(): void;
+  // S28 P0 — `onCinematicHandoff` DELETED (Council Q2 UNANIMOUS A). Wall-clock
+  // setTimeout(handoff, cinematicMs) violated replay determinism (S25 reflexion
+  // #6). Replaced by `world.pendingCreatureSpawn` schedule polled in the
+  // physics tick loop (see main.ts startCinematicIfNeeded + tick Step 0).
 }
 
 export class CutsceneOverlay {
@@ -144,16 +141,10 @@ export class CutsceneOverlay {
     }, recipe.cinematicMs);
     this.timers.push(spriteTimer);
 
-    // S25 P0 — creature spawn handoff at cinematicMs. Parallel to spriteTimer so the
-    // handoff fires regardless of the static-sprite texture load result. Main.ts
-    // host-gates the SPAWN_CREATURE dispatch (1v1 client receives a no-op callback so
-    // the per-side world.creatures Maps don't diverge — Council R1 Gap A fix).
-    if (ctx.onCinematicHandoff !== undefined) {
-      const handoffTimer = setTimeout(() => {
-        ctx.onCinematicHandoff?.();
-      }, recipe.cinematicMs);
-      this.timers.push(handoffTimer);
-    }
+    // S28 P0 — wall-clock setTimeout for creature spawn handoff REMOVED
+    // (Council Q2 UNANIMOUS A). Spawn scheduling is now tick-deterministic via
+    // `world.pendingCreatureSpawn` set in main.ts startCinematicIfNeeded and
+    // polled in the physics tick loop. Replay-safe + 1v1 determinism preserved.
 
     // Final fade-out + onComplete after cinematicMs + sustainedEffectMs.
     const totalMs = recipe.cinematicMs + recipe.sustainedEffectMs;
@@ -168,10 +159,11 @@ export class CutsceneOverlay {
 
   /**
    * Cancel all wall-clock timers and tear down DOM/video. Idempotent on inactive
-   * overlay. CRITICAL contract: any code path that dispatches GODLY_ABORT MUST
-   * also call this so the S25 P0 onCinematicHandoff timer (which would dispatch
-   * SPAWN_CREATURE post-abort, violating world state) is cleared. Existing
-   * main.ts connection-lost handler honors this contract.
+   * overlay. S28 P0 — the S25 onCinematicHandoff wall-clock setTimeout was
+   * REMOVED in S28 (replaced by tick-deterministic `world.pendingCreatureSpawn`
+   * — see Council Q2 UNANIMOUS A + Δ5 GODLY_ABORT clear in world.ts). This
+   * abort() now only tears down DOM/video timers + RAF; the GODLY_ABORT
+   * reducer body handles the pending-spawn cancellation independently.
    */
   abort(): void {
     if (!this.active) return;

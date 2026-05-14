@@ -34,6 +34,7 @@ import {
   VOLTKIN_ATTACK_RANGE,
   VOLTKIN_LIFETIME_TICKS,
   asCreatureId,
+  cinematicMsToTicks,
   makeVoltkinCreature,
 } from './creature.ts';
 import { computeCreatureAlpha } from '../../render/creatureRenderer.ts';
@@ -544,11 +545,42 @@ describe('save.ts integration — applyNetSnapshot clears world.creatures', () =
     const snap = netSnapshot(host);
 
     // Client applies the snapshot. Even though `creatures` is not in the wire
-    // schema, applySnapshotCore must clear it for parity with primitives/bonds.
+    // schema for the empty-host case (additive-optional `creatures?` undefined),
+    // applySnapshotCore must clear the client's existing creatures Map for
+    // parity with primitives/bonds (S28 P0 NetSnapshot v2 Council Q1 A pattern).
     applyNetSnapshot(snap, client);
     expect(client.creatures.size).toBe(0);
     // Council CHECK Grok CH3: nextCreatureId must also reset so client-mint
     // collisions are impossible if behavior ever diverges from "host-only mint".
     expect(client.nextCreatureId).toBe(0);
+  });
+});
+
+// S28 P0 — Voltkin Phase 2D pure helper for tick-deterministic spawn schedule
+// (replaces S25 wall-clock setTimeout in cutsceneOverlay.ts:152). PRIME-AUDIT
+// Δ4: Math.round (not floor) for closest-fit at non-multiple-of-60 cinematic
+// durations. Tested at exact-multiple, just-above, and just-below boundaries.
+describe('cinematicMsToTicks (S28 P0 spawn scheduler)', () => {
+  it('4000 ms (the canonical Voltkin cinematic) maps to exactly 240 ticks at 60Hz', () => {
+    expect(cinematicMsToTicks(4000)).toBe(240);
+  });
+
+  it('0 ms maps to 0 ticks (degenerate but well-defined)', () => {
+    expect(cinematicMsToTicks(0)).toBe(0);
+  });
+
+  it('1000 ms maps to 60 ticks (one second)', () => {
+    expect(cinematicMsToTicks(1000)).toBe(60);
+  });
+
+  it('PRIME-AUDIT Δ4 round-up: 4008 ms → 240 (round-down), 4017 ms → 241 (round-up)', () => {
+    // 4008 / 1000 * 60 = 240.48 → round to 240
+    expect(cinematicMsToTicks(4008)).toBe(240);
+    // 4017 / 1000 * 60 = 241.02 → round to 241
+    expect(cinematicMsToTicks(4017)).toBe(241);
+  });
+
+  it('33 ms (~2 ticks at 60Hz) maps to 2 (round-up from 1.98)', () => {
+    expect(cinematicMsToTicks(33)).toBe(2);
   });
 });
