@@ -206,7 +206,20 @@ export const VOLTKIN_RECIPE: GodlyRecipe = {
   voiceAsset: '/godly/voltkin/audio/voltkin-voice.ogg',
   characterSprite: '/godly/voltkin/sprites/voltkin-zap.png',
   cinematicMs: 4000,
-  sustainedEffectMs: 8000,
+  // S30 P0b — REDUCED from 8000 to 500. Root cause: Voltkin creature spawns
+  // at `world.tick + cinematicMsToTicks(cinematicMs) = world.tick + 240`
+  // (4 sec into cinematic) and has a fixed 480-tick (8 sec) lifetime. Pre-S30
+  // the overlay covered the screen for cinematicMs(4000)+sustainedEffectMs(8000)
+  // = 12 SECONDS, which is EXACTLY the moment Voltkin despawns — the creature
+  // lived its entire life UNDER the opaque-black overlay. User saw the static
+  // character sprite (crossfadeCharacterSprite mount at t=cinematicMs) but
+  // never saw the actual creature move, attack, or fire its ARC_FLASH
+  // lightning. With sustainedEffectMs=500, overlay completes at t=4500ms,
+  // revealing the play area + creature for ~7 sec of visible gameplay before
+  // the creature despawns at t=12000ms. The cutsceneOverlay's character
+  // sprite crossfade is ALSO removed in S30 P0b (cutsceneOverlay.ts) so the
+  // ONLY visual handoff is the creature itself appearing at targetPos.
+  sustainedEffectMs: 500,
   voiceOffsetMs: 3500,
   lumaKey: { enabled: true, threshold: 0.88 },
 };

@@ -103,8 +103,32 @@ export class CreatureRenderer {
    * Drain `world.creatures` against the internal sprite map: add new, update existing,
    * remove despawned. Idempotent per frame. Applies S28 P0 procedural transforms
    * via pure helpers (computeCreatureAlpha/Scale/Tint) so curves are unit-testable.
+   * S30 P0b — ?debug=1 console.log every 60 ticks (~1 sec) for each live creature
+   * surfaces FSM state + targetBondId + pos so regression reports have actionable
+   * signal not just "creature doesn't move/attack". Gated by URL param so prod
+   * users see no logspam.
    */
   sync(world: World): void {
+    // S30 P0b — diagnostic logging (?debug=1 gated, once per second per creature)
+    if (
+      typeof window !== 'undefined'
+      && window.location.search.includes('debug=1')
+      && world.creatures.size > 0
+      && world.tick % 60 === 0
+    ) {
+      for (const c of world.creatures.values()) {
+        console.log('[creature] state', {
+          id: c.id,
+          state: c.state,
+          ticksInState: c.ticksInState,
+          targetBondId: c.targetBondId,
+          pos: { x: Math.round(c.pos.x), y: Math.round(c.pos.y) },
+          targetPos: { x: Math.round(c.targetPos.x), y: Math.round(c.targetPos.y) },
+          worldTick: world.tick,
+          despawnAtTick: c.despawnAtTick,
+        });
+      }
+    }
     if (this.texture === null && !this.textureLoading && !this.textureFailed) {
       this.textureLoading = true;
       void Assets.load(VOLTKIN_SPRITE_URL).then(

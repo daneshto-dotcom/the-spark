@@ -20,7 +20,7 @@
  * Voice playback is delegated to audioManager via a passed-in `playVoice` hook.
  */
 
-import { Application, Container, Graphics, Sprite, Assets, Texture } from 'pixi.js';
+import { Application, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import type { GodlyRecipe } from '../state/godlyRecipes/types.ts';
 import { CinematicLumaKeyFilter } from './cinematicLumaKey.ts';
@@ -199,11 +199,23 @@ export class CutsceneOverlay {
     }, recipe.voiceOffsetMs);
     this.timers.push(voiceTimer);
 
-    // Character sprite crossfade at cinematicMs (just before sustained window opens).
-    const spriteTimer = setTimeout(() => {
-      void this.crossfadeCharacterSprite(recipe.characterSprite, ctx.targetPos);
-    }, recipe.cinematicMs);
-    this.timers.push(spriteTimer);
+    // S30 P0b — REMOVED character sprite crossfade. Pre-S30 a static voltkin-zap
+    // PNG was mounted at targetPos at t=cinematicMs and held for the entire
+    // sustainedEffectMs window (8 sec). This was the "static voltkin stamp" the
+    // user reported seeing instead of motion/attack — the actual creature
+    // spawned at the same targetPos at t=cinematicMs and lived for 8 sec UNDER
+    // the opaque-black bg overlay. The static sprite was the only voltkin the
+    // user could see, and it never moved. Removing this mount + reducing
+    // recipe.sustainedEffectMs (voltkin.ts) from 8000→500 means the overlay
+    // clears within 800 ms of mp4 end, revealing the play area + the actual
+    // creature (creatureRenderer's voltkin-zap.png at creature.pos). The
+    // gameplay creature IS the visual handoff — no separate cutscene sprite
+    // needed.
+    // Original code (preserved for reference / restore-via-revert):
+    //   const spriteTimer = setTimeout(() => {
+    //     void this.crossfadeCharacterSprite(recipe.characterSprite, ctx.targetPos);
+    //   }, recipe.cinematicMs);
+    //   this.timers.push(spriteTimer);
 
     // S28 P0 — wall-clock setTimeout for creature spawn handoff REMOVED
     // (Council Q2 UNANIMOUS A). Spawn scheduling is now tick-deterministic via
@@ -359,29 +371,12 @@ export class CutsceneOverlay {
     }
   }
 
-  private async crossfadeCharacterSprite(
-    assetUrl: string,
-    targetPos: { x: number; y: number },
-  ): Promise<void> {
-    try {
-      const texture = await Assets.load(assetUrl);
-      const sprite = new Sprite(texture);
-      sprite.anchor.set(0.5);
-      sprite.position.set(targetPos.x, targetPos.y);
-      sprite.alpha = 0;
-      // Scale: zap sprite is 512×512; render at ~128 px on screen (1/4 size).
-      sprite.scale.set(0.25);
-      this.container.addChild(sprite);
-      // Fade-in over 200 ms (wall-clock).
-      const start = performance.now();
-      const step = (now: number): void => {
-        const t = Math.min(1, (now - start) / 200);
-        sprite.alpha = t;
-        if (t < 1) requestAnimationFrame(step);
-      };
-      requestAnimationFrame(step);
-    } catch (err) {
-      console.warn('[cutscene] character sprite load failed:', err);
-    }
-  }
+  // S30 P0b — DELETED `crossfadeCharacterSprite` method. Was the static voltkin
+  // sprite mount at targetPos during the sustainedEffect window — exactly the
+  // "static stamp" the user reported instead of motion/attack. The actual
+  // gameplay creature (creatureRenderer) renders at the same targetPos with
+  // FSM-driven motion + ARC_FLASH lightning; it's the rightful visual handoff.
+  // Removed alongside reducing recipe.sustainedEffectMs from 8000ms → 500ms so
+  // the overlay clears within 800 ms of mp4 end, revealing the creature for
+  // ~7 sec of visible gameplay before despawn.
 }
