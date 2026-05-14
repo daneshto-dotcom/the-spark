@@ -1,6 +1,6 @@
 # ACTIVE PLAN — Voltkin Phase 2 (Autonomous Creature Actor)
 
-**STATUS: IN-PROGRESS** — created 2026-05-13 at S23 close. S24 ✓ blueprint + S25 ✓ entity infra + **S26 ✓ physics/locomotion**. S27 + S28 remain.
+**STATUS: IN-PROGRESS** — created 2026-05-13 at S23 close. S24 ✓ blueprint + S25 ✓ entity infra + S26 ✓ physics/locomotion + **S27 ✓ AI + attack + cascade DELETION**. S28 remains.
 
 **S24 BLUEPRINT COMPLETE** — read `.claude/plans/voltkin_phase2_blueprint_v1.md` for the approved architecture. Full-tier Council (R1 parallel → Quality Gate → R2 ACCEPT ALL → PRIME-AUDIT 8 deltas). All 10 open questions answered. Cumulative bundle budget +25 KB code + 14 KB asset (~6 KB headroom). 3 open questions LOCKED at S25 P1.
 
@@ -8,7 +8,9 @@
 
 **S26 ✓ COMPLETE 2026-05-14** (commit 902e430): Voltkin Phase 2B physics + locomotion. NEW src/physics/creatureVerlet.ts (creatureVerletStep + computeSteeringAccel + seekForce + arriveForce + repulseForce + computeStubTargetPos + 4 constants). targetPos: Vec2 field added to Creature; SPAWNING → SEEKING transition at ticksInState >= 60; substep-loop physics integration host-gated. Bundle +1.18 KB (cumulative +4.48 KB; 40.52 KB headroom remaining).
 
-**READ AT S27 BOOT**: `.claude/plans/voltkin_phase2_blueprint_v1.md` § "S27 acceptance criteria" + § "S27 migration notes" (cascade DELETION migration) first, then this file.
+**S27 ✓ COMPLETE 2026-05-14** (commit ea4b459): Voltkin Phase 2C AI + attack + cascade DELETION migration. NEW src/state/creatures/creatureAI.ts (findNearestBondTarget + bondMidpoint + isWithinAttackRange + isEnemyBond + distSq) + src/state/creatures/creatureAttack.ts (applyCreatureAttack reducer re-dispatching SEVER_BOND with cause='creature' per Council Q1 B UNANIMOUS) + src/render/effects/arcFlash.ts (jittered polyline + halo + arcSeed determinism for multi-creature same-tick uniqueness per CHECK Triumvirate Grok C4 + Gemini G5 UNANIMOUS). targetBondId field added to Creature; SEEKING↔ATTACKING FSM transitions + Δ4 wind-up abort (`<=` boundary per CHECK G3); GODLY_TRIGGER cascade DELETED (26 LOC removed) — bond severance now creature-driven via ~7 attacks at 1/sec over 8s active window. ARC_FLASH visual feedback per attack. Bundle +2.39 KB (cumulative +6.77 KB; 38.13 KB headroom for S28).
+
+**READ AT S28 BOOT**: `.claude/plans/voltkin_phase2_blueprint_v1.md` § "S28 acceptance criteria" first, then this file. S28 ships spritesheet (Imagen side-session) + AnimatedSprite swap + NetSnapshot v2 (creatures: []) + 1v1 net sync + spawn scale-pulse + despawn power-down + procedural Web Audio zap synth (S27 Δ6 carry-forward) + attack wind-up animation frames (S27 Δ7 carry-forward) + wall-clock-state-mutation refactor → tick-deterministic pending-spawn flag.
 
 ---
 

@@ -1,11 +1,12 @@
 # Voltkin Phase 2 — Architecture Blueprint v1
 
-**STATUS**: APPROVED (S24 P0 close, 2026-05-14) — **S25 P0 + S26 P0 IMPLEMENTED 2026-05-14** (commits d191bf0 + 902e430)
+**STATUS**: APPROVED (S24 P0 close, 2026-05-14) — **S25 P0 + S26 P0 + S27 P0 IMPLEMENTED 2026-05-14** (commits d191bf0 + 902e430 + ea4b459)
 **Council**: Full-tier 3-way (Claude + Grok + Gemini), R1 parallel → Quality Gate → R2 refinement (both ACCEPT ALL) → PRIME-AUDIT (8 audit deltas applied)
 **S25 Standard-tier Council** (2026-05-14): R1 parallel → Battle Ledger (5 disagreements + 5 gaps) → PRIME-AUDIT (8 deltas) → Triumvirate CHECK (3 follow-on fixes). Full union landing + host-gate Δ1 + save.ts Δ4.
 **S26 Standard-tier Council** (2026-05-14): R1 parallel → Battle Ledger (2 disagreements Q2 Q4 + 5 unanimous + Q4 COMPROMISE compromise) → PRIME-AUDIT (7 deltas: Δ4 ZERO_ACCEL non-SEEKING cross-resolves both R1 Q7s, Δ5 ownerPlayerId·π offset target formula, Δ2 per-behavior helpers EXPORTED, Δ6 config-table deferred S29, Δ7 IEEE 754 deferred S28) → Triumvirate CHECK (0 actionable code changes, 1 documented trade-off). Per-substep Verlet integration + steering forces + SPAWNING→SEEKING transition.
+**S27 Standard-tier Council** (2026-05-14): R1 parallel clean-first-pass → Battle Ledger (4 unanimous Q1 Q3 Q5 Q6 + 1 COMPROMISE Q2 tunable constant + 1 2/3 Q4 silent audio) → PRIME-AUDIT (7 deltas: Δ1 canSeverBond 'creature' bypass single-line, Δ2 own-bonds fallback exercised in tests, Δ3 multi-creature target-conflict documented v1 limit, Δ4 wind-up abort early-SEEKING transition, Δ5 cinematic-skip + cascade-DELETION cleaner UX documented, Δ6 S28 procedural Web Audio zap synth carry-forward, Δ7 S28 attack animation frames carry-forward) → Triumvirate CHECK (2 fixes: arcSeed multi-creature determinism + Δ4 boundary `<=` from `<`; 6 REJECTED Council-sanctioned; 1 RALPH Δ8 1v1 client visual regression S28 carry-forward). AI target selection + CREATURE_ATTACK reducer (re-dispatch SEVER_BOND cause='creature') + ARC_FLASH effect + SEEKING↔ATTACKING FSM + synchronous GODLY_TRIGGER cascade 26-line DELETED.
 **Reference**: `.claude/plans/ACTIVE_PLAN_voltkin_phase2.md` (5-session plan, this blueprint is the S24 output)
-**Implementation phase**: S25 ✓ entity infra → S26 ✓ physics/locomotion → S27 (AI + attack) → S28 (animation + 1v1 sync + polish)
+**Implementation phase**: S25 ✓ entity infra → S26 ✓ physics/locomotion → S27 ✓ AI + attack + cascade DELETION → S28 (animation + 1v1 sync + polish)
 
 ---
 
