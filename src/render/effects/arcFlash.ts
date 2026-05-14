@@ -23,12 +23,17 @@ import type { GameEffect } from '../../game/effects.ts';
 
 /** Number of jitter segments between start and end. 5 → 6 polyline vertices total. */
 const ARC_JITTER_SEGMENTS = 5;
-/** Max perpendicular jitter amplitude in px. */
-const ARC_JITTER_AMP_PX = 14;
-/** Halo (outer) stroke width in px. */
-const ARC_HALO_WIDTH = 8;
-/** Core (inner) stroke width in px. */
-const ARC_CORE_WIDTH = 2.5;
+/** Max perpendicular jitter amplitude in px. S30 P0c — bumped 14 → 20 px for more chaotic "zap" feel. */
+const ARC_JITTER_AMP_PX = 20;
+/** S30 P0c — NEW outer-corona stroke width (the widest, lowest-alpha rim that
+ *  conveys "this is electrically charged"). Drawn beneath halo + core. */
+const ARC_CORONA_WIDTH = 18;
+/** Halo (outer) stroke width in px. S30 P0c — bumped 8 → 12 for more visible glow. */
+const ARC_HALO_WIDTH = 12;
+/** Core (inner) stroke width in px. S30 P0c — bumped 2.5 → 3.5 for thicker bright line. */
+const ARC_CORE_WIDTH = 3.5;
+/** S30 P0c — Outer-corona color: deeper cyan with hint of blue for atmospheric depth. */
+const ARC_CORONA_COLOR = 0x33aacc;
 /** Halo color (pale cyan glow). */
 const ARC_HALO_COLOR = 0x66dddd;
 /** Core color (bright white-cyan, near-white). */
@@ -105,13 +110,26 @@ export function drawArcFlash(
   xs.push(ex);
   ys.push(ey);
 
+  // S30 P0c — Pass 0: outer corona (widest, lowest-alpha rim). Adds atmospheric
+  // depth + makes the lightning look genuinely "electrical" against the play
+  // field. Drawn FIRST so halo + core layer on top.
+  g.moveTo(xs[0], ys[0]);
+  for (let i = 1; i < xs.length; i++) g.lineTo(xs[i], ys[i]);
+  g.stroke({
+    color: ARC_CORONA_COLOR,
+    width: ARC_CORONA_WIDTH,
+    alpha: 0.18 * alpha,
+    cap: 'round',
+    join: 'round',
+  });
+
   // Pass 1: outer halo (thick, low-alpha glow).
   g.moveTo(xs[0], ys[0]);
   for (let i = 1; i < xs.length; i++) g.lineTo(xs[i], ys[i]);
   g.stroke({
     color: ARC_HALO_COLOR,
     width: ARC_HALO_WIDTH,
-    alpha: 0.35 * alpha,
+    alpha: 0.45 * alpha,
     cap: 'round',
     join: 'round',
   });

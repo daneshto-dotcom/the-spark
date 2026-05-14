@@ -17,13 +17,16 @@ export const MERGE_LEAD_IN_TICKS = 4;   // delay before union flash begins
 // placement cursor (was: fixed HUD corner), so the pulse spends a longer
 // portion of the player's foveal-attention window.
 export const SCORE_TIER_DURATION_TICKS = 48;
-// S27 P0 — Voltkin per-attack lightning arc. 18 ticks ≈ 300 ms at 60 Hz —
-// short enough to feel like a discrete "zap" event, long enough that the eye
-// registers the jittered polyline before it fades. Council R1 Q5 UNANIMOUS
-// creature-only: this is THE per-attack feedback (audio S28-deferred per Q4),
-// so the visual must be prominent. Renderer fades alpha 1.0 → 0.0 linearly
-// across the lifetime.
-export const ARC_FLASH_DURATION_TICKS = 18;
+// S27 P0 — Voltkin per-attack lightning arc base duration.
+// S30 P0c — BUMPED 18 → 24 ticks (~400 ms). S29 P0b fixed overlay-timing so the
+// lightning is now actually visible (creature was hidden during pre-S30
+// 12-sec cinematic overlay). Bumping from 300→400 ms gives the eye time to
+// register the jittered polyline against the play-field clutter (bonds,
+// prims, score). Still short enough to feel like a discrete "zap" event.
+// Council R1 Q5 UNANIMOUS creature-only: this is THE per-attack feedback
+// (audio S28-deferred per Q4), so the visual must be prominent. Renderer
+// fades alpha 1.0 → 0.0 linearly across the lifetime.
+export const ARC_FLASH_DURATION_TICKS = 24;
 
 export function effectLifetime(effect: GameEffect): number {
   switch (effect.kind) {
