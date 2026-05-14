@@ -36,6 +36,7 @@ import type { Bond } from '../physics/bonds.ts';
 import {
   asPlayerId,
   type BondId,
+  type CreatureId,
   type PlayerId,
   type PrimitiveId,
   type SparkId,
@@ -66,6 +67,15 @@ import {
   type SpawnSparkAction,
   type TickEnergyAction,
 } from './sparkLifecycle.ts';
+import {
+  applyCreatureTick,
+  applyDespawnCreature,
+  applySpawnCreature,
+  type CreatureTickAction,
+  type DespawnCreatureAction,
+  type SpawnCreatureAction,
+} from './creatures/creatureLifecycle.ts';
+import type { Creature } from './creatures/creature.ts';
 
 // Re-export addScore from gameMode.ts for back-compat with placePrimitive.ts
 // and session15.test.ts (S16 P0 extraction preserved external import paths).
@@ -151,6 +161,19 @@ export interface World {
    * sustainedEffectMs) shifts the next event and re-dispatches.
    */
   pendingCinematics: GodlyTriggerEvent[];
+  /**
+   * S25 P0 — autonomous creature actors (Voltkin Phase 2A). Host-authoritative;
+   * spawned at cinematic handoff (T+cinematicMs), auto-removed at despawnAtTick
+   * (8s lifetime per blueprint Q5). 1v1 client mirroring is host→client via
+   * NetSnapshot v2 in S28; for S25 client's `creatures` stays empty (host gate
+   * in main.ts onCinematicHandoff dispatch). Cleared by GODLY_ABORT cascade.
+   * NOT serialized (ephemeral runtime state — applySnapshotCore clears).
+   */
+  creatures: Map<CreatureId, Creature>;
+  /**
+   * S25 P0 — monotonic counter for creature IDs. Host-only mint authority.
+   */
+  nextCreatureId: number;
 }
 
 export type GameAction =
@@ -190,7 +213,12 @@ export type GameAction =
   // S22 P3 — abort active cinematic + drain queue. Dispatched on peer-drop
   // (PRIME-AUDIT Δ3 — connectionLostOverlay calls this so audio/video can be
   // stopped cleanly and no more godlies fire in a dead session).
-  | { readonly type: 'GODLY_ABORT' };
+  // S25 P0 — also cascade-clears `world.creatures` (blueprint Edge Case #2).
+  | { readonly type: 'GODLY_ABORT' }
+  // S25 P0 — creature actor lifecycle (Voltkin Phase 2A scaffold).
+  | SpawnCreatureAction
+  | DespawnCreatureAction
+  | CreatureTickAction;
 
 export function makeWorld(rngSeed: number): World {
   const w: World = {
@@ -214,6 +242,8 @@ export function makeWorld(rngSeed: number): World {
     activeCinematicPlayerId: null,
     currentCinematicEvent: null,
     pendingCinematics: [],
+    creatures: new Map(),
+    nextCreatureId: 0,
   };
   // Phase 1 + solo default: P1 only at spawner-rim left.
   const p1 = makeIdlePlayer(asPlayerId(0), PLAYER_COLORS[0], {
@@ -357,8 +387,20 @@ export function dispatch(world: World, action: GameAction): World {
       world.activeCinematicPlayerId = null;
       world.currentCinematicEvent = null;
       world.pendingCinematics.length = 0;
+      // S25 P0 — cascade-clear creatures (blueprint Edge Case #2). Peer-drop or
+      // explicit abort must remove all live actors so no zombie sprites persist.
+      world.creatures.clear();
       return world;
     }
+
+    case 'SPAWN_CREATURE':
+      return applySpawnCreature(world, action);
+
+    case 'DESPAWN_CREATURE':
+      return applyDespawnCreature(world, action);
+
+    case 'CREATURE_TICK':
+      return applyCreatureTick(world, action);
   }
 }
 

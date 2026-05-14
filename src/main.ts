@@ -61,6 +61,7 @@ import { HUD } from './render/ui.ts';
 import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
 import { makeCinematicVignette } from './render/cinematicVignette.ts';
 import { CodexOverlay, unlockGodly, entryFromRecipe } from './render/codexOverlay.ts';
+import { CreatureRenderer } from './render/creatureRenderer.ts';
 // S23 P2 — debug overlay (toggleable via ?debug=1 URL param). Surfaces runtime
 // gates + audio chain + chain progress for in-vivo diagnosis when offline tests
 // pass but live trigger doesn't fire.
@@ -196,6 +197,9 @@ async function bootstrap(): Promise<void> {
   const controls = new Controls(app, world, P1, dispatchFn);
   const sparkRenderer = new SparkRenderer(app);
   const structureRenderer = new StructureRenderer(app);
+  // S25 P0 — creatureRenderer attached AFTER structureRenderer so creatures
+  // render ABOVE prims (phase-through reads as overlap — blueprint Q1 z-order).
+  const creatureRenderer = new CreatureRenderer(app);
   const effectsRenderer = new EffectsRenderer(app);
   const avatarRenderer = new AvatarRenderer(app, P1);
   const hud = new HUD(app);
@@ -473,6 +477,21 @@ async function bootstrap(): Promise<void> {
       playVoice: (assetUrl: string) => {
         void playOneShot(assetUrl);
       },
+      // S25 P0 — creature spawn handoff at T+cinematicMs. HOST-ONLY dispatch
+      // (Council R1 Gap A fix): client also runs startCinematicIfNeeded but its
+      // handoff callback dispatches nothing — client's world.creatures stays
+      // empty until S28 NetSnapshot v2 mirrors host state. Without this gate,
+      // client + host both dispatch SPAWN_CREATURE locally on different ticks
+      // (wall-clock setTimeout drift) → divergent world.creatures Maps.
+      onCinematicHandoff: () => {
+        if (!world.isHost) return;
+        dispatch(world, {
+          type: 'SPAWN_CREATURE',
+          creatureType: 'voltkin',
+          ownerPlayerId: event.triggererPlayerId,
+          pos: { x: event.targetPos.x, y: event.targetPos.y },
+        });
+      },
     });
     cinematicTimer = setTimeout(() => {
       dispatch(world, { type: 'GODLY_COMPLETE' });
@@ -493,6 +512,18 @@ async function bootstrap(): Promise<void> {
         world.tick++;
       }
       tickGameState(world, gameStateExtras, P1);
+
+      // S25 P0 — fan-out CREATURE_TICK to every live creature. Host-only (client
+      // never simulates; S28 will add NetSnapshot v2 host→client creature mirror).
+      // Snapshot the keys BEFORE iterating because applyCreatureTick auto-deletes
+      // at despawnAtTick (Council R1 D5 majority: auto-delete inside reducer).
+      // Without the snapshot, an in-loop delete would skip subsequent ids in V8.
+      if (world.gameState === 'PLAYING' && !isClient && world.creatures.size > 0) {
+        const creatureIds = Array.from(world.creatures.keys());
+        for (const id of creatureIds) {
+          dispatch(world, { type: 'CREATURE_TICK', creatureId: id });
+        }
+      }
 
       // S15 P2 — host emits NetSnapshot every SNAPSHOT_INTERVAL_TICKS
       // (60Hz / 10Hz = 6 ticks). Only fires in 1v1 PLAYING; suppressed
@@ -598,6 +629,10 @@ async function bootstrap(): Promise<void> {
     const freeSparkArr = freeSparkArray(world.freeSparks);
     sparkRenderer.sync(freeSparkArr);
     structureRenderer.sync(world, controls.state);
+    // S25 P0 — creature sprite sync. After structureRenderer (z-order: above
+    // prims, blueprint Q1) and before effectsRenderer (so ARC_FLASH effects
+    // can stack above creatures in S27). Cheap when world.creatures empty.
+    creatureRenderer.sync(world);
     // S18 P1 — drain audio effects BEFORE effectsRenderer (which wipes
     // world.effects). Cursor-gated; replay-safe.
     drainAudioEffects(world.effects, world.tick);

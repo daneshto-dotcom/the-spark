@@ -126,6 +126,19 @@ export function createDebugOverlay(): DebugOverlayHandle {
       matcherReasons.push(`cinematic=${world.activeCinematicPlayerId}`);
     }
 
+    // S25 P0 — creatures section (Voltkin Phase 2A scaffold). Lists every live
+    // creature so the user can paste a snapshot at SPAWN, mid-life, and DESPAWN
+    // moments + verify lifecycle.
+    const creatureLines: string[] = [];
+    for (const c of world.creatures.values()) {
+      const ticksLeft = Math.max(0, c.despawnAtTick - world.tick);
+      creatureLines.push(
+        `  C${c.id}: type=${c.type} owner=P${c.ownerPlayerId} state=${c.state} `
+        + `pos=(${c.pos.x.toFixed(1)},${c.pos.y.toFixed(1)}) `
+        + `ticksInState=${c.ticksInState} ticksLeft=${ticksLeft}`,
+      );
+    }
+
     return [
       `=== GAME STATE ===`,
       `tick:           ${world.tick}`,
@@ -152,6 +165,10 @@ export function createDebugOverlay(): DebugOverlayHandle {
       ``,
       `=== PLAYERS ===`,
       ...playerLines,
+      ``,
+      `=== CREATURES ===`,
+      `count:          ${world.creatures.size}`,
+      ...creatureLines,
       ``,
       `=== AUDIO ===`,
       `ctxState:       ${audio.contextState}${audio.contextState === 'running' ? '' : '  !!!'}`,

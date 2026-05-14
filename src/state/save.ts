@@ -202,6 +202,14 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   world.primitives.clear();
   world.bonds.clear();
   world.players.clear();
+  // S25 P0 — creatures are ephemeral runtime state (8s lifetime, never serialized).
+  // Clear on snapshot apply for parity with other collection-typed fields so a
+  // mid-cinematic load/applyNetSnapshot can't leave zombie creatures alive. Also
+  // reset `nextCreatureId` to 0 — host-only mint authority, but a stale value
+  // could produce a giant id gap on host-restore (Council CHECK Grok CH3 finding).
+  // Client never mints (host-gated dispatch in main.ts) so reset is harmless there.
+  world.creatures.clear();
+  world.nextCreatureId = 0;
 
   for (const s of snap.freeSparks) {
     const spark: Spark = {
