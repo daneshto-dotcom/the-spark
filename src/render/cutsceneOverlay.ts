@@ -49,6 +49,10 @@ export class CutsceneOverlay {
   private timers: ReturnType<typeof setTimeout>[] = [];
   private rafId: number | null = null;
   private active = false;
+  // S30 P0a — per-tick texture update ticker hook reference. Set in
+  // mountVideoViaShader after loadeddata fires (when texture is bound to a
+  // valid first frame). Removed in cleanup() to prevent leaks across cinematics.
+  private videoTickerFn: (() => void) | null = null;
 
   constructor(app: Application) {
     this.app = app;
@@ -80,9 +84,50 @@ export class CutsceneOverlay {
     // Build + mount video DOM element on top of canvas.
     const video = document.createElement('video');
     video.src = recipe.cinematicAsset;
-    video.crossOrigin = 'anonymous';
+    // S30 P0a — REMOVED `video.crossOrigin = 'anonymous'`. Same-origin GH Pages
+    // serves the mp4; CORS preflight was not required and was potentially
+    // causing silent WebGL texture-taint where Pixi's VideoSource would
+    // degrade to a black/empty frame despite the shader compiling cleanly
+    // (S29 P0a shader fix verified at engine level but user saw static voltkin
+    // in real Chrome — Grok pre-mortem H3 hypothesis).
     video.playsInline = true;
-    video.muted = false;
+    // S30 P0a — muted=true for Chrome autoplay-policy compliance. The cinematic
+    // voice clip is delegated to audioManager.playOneShot via recipe.voiceAsset
+    // (.ogg) at voiceOffsetMs; the mp4 audio track is unused. Pre-S30
+    // `muted=false` caused video.play() to silently reject in real Chrome when
+    // the gesture-to-play latency exceeded the user-activation window, leaving
+    // Pixi's texture bound to a never-advanced first frame.
+    video.muted = true;
+    // S30 P0a — explicit preload hint so metadata + first frame fetch starts
+    // immediately, not deferred until play() is called.
+    video.preload = 'auto';
+    // S30 P0a — diagnostic event logger gated by ?debug=1 URL param. Surfaces
+    // every video pipeline event (load, decode, play, error) so the next bug
+    // report has actionable signal not just "black screen". Removed automatically
+    // when the video element is destroyed by cleanup().
+    const isDebug = typeof window !== 'undefined'
+      && window.location.search.includes('debug=1');
+    const debugLog = (event: string): void => {
+      if (!isDebug) return;
+      console.log(`[cinematic] video.${event}`, {
+        readyState: video.readyState,
+        currentTime: video.currentTime,
+        duration: video.duration,
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        paused: video.paused,
+        muted: video.muted,
+        error: video.error?.message ?? null,
+      });
+    };
+    const videoEvents = [
+      'loadstart', 'loadedmetadata', 'loadeddata',
+      'canplay', 'canplaythrough', 'play', 'playing',
+      'pause', 'ended', 'error', 'stalled', 'suspend', 'waiting',
+    ] as const;
+    for (const evt of videoEvents) {
+      video.addEventListener(evt, () => debugLog(evt));
+    }
     video.style.position = 'fixed';
     video.style.zIndex = '2000';
     // Match canvas pixel rect for cinematic-fills-game-area feel.
@@ -109,6 +154,14 @@ export class CutsceneOverlay {
       document.body.appendChild(video);
     }
 
+    // S30 P0a — explicit video.load() to kick off metadata + initial-frame
+    // fetch BEFORE the texture binding. GH Pages serves mp4 with content-type
+    // video/mp4, but without explicit load() Chrome can defer the fetch until
+    // play() is called, leaving the first frame undecoded when Pixi tries to
+    // bind. Per Grok pre-mortem DG1, explicit load() ensures readyState
+    // progression begins immediately.
+    video.load();
+
     // Load timeout (Battle Ledger row 7 mitigation).
     const loadTimeout = setTimeout(() => {
       console.warn('[cutscene] video load timeout — falling back to instant SEVER_BOND');
@@ -117,9 +170,20 @@ export class CutsceneOverlay {
     }, VIDEO_LOAD_TIMEOUT_MS);
     this.timers.push(loadTimeout);
 
-    // canplay clears the load-timeout + starts playback.
-    video.addEventListener('canplay', () => {
+    // S30 P0a — switched event from `canplay` to `loadeddata`. loadeddata fires
+    // when the first frame has been decoded (readyState>=HAVE_CURRENT_DATA),
+    // giving Pixi's Texture.from(video) a real frame to bind to GPU. `canplay`
+    // (readyState>=HAVE_FUTURE_DATA) can fire before the actual current frame
+    // is GPU-uploadable on some Chrome versions, which silently produces a
+    // black/empty texture under the luma-key shader (lum < 0.88 threshold →
+    // opaque-black instead of transparent). Per Grok pre-mortem DG1, also
+    // nudge currentTime to 0.001 to force the decoder to actually extract a
+    // visible first frame (browsers sometimes lazy-extract until seek).
+    video.addEventListener('loadeddata', () => {
       clearTimeout(loadTimeout);
+      if (video.currentTime < 0.001) {
+        video.currentTime = 0.001;
+      }
       void video.play().catch((err: unknown) => {
         console.warn('[cutscene] video.play() rejected:', err);
         this.cleanup(video);
@@ -188,6 +252,13 @@ export class CutsceneOverlay {
   }
 
   private cleanup(video: HTMLVideoElement): void {
+    // S30 P0a — remove per-tick texture update ticker hook (added in
+    // mountVideoViaShader.setup after loadeddata fires). Must run before video
+    // teardown so the ticker doesn't briefly point at a removed texture.
+    if (this.videoTickerFn !== null) {
+      this.app.ticker.remove(this.videoTickerFn);
+      this.videoTickerFn = null;
+    }
     try {
       video.pause();
       video.src = '';
@@ -222,21 +293,70 @@ export class CutsceneOverlay {
   }
 
   private mountVideoViaShader(video: HTMLVideoElement, threshold: number): void {
-    // For v1 simplicity: append the video to body with a luma-key CSS approach
-    // is not supported (no native CSS chroma-key). Instead, render the video
-    // as a Pixi Sprite-from-texture with our custom CinematicLumaKeyFilter.
-    // This requires the video to be off-DOM (hidden) and updated via texture.
+    // Render the video as a Pixi Sprite-from-texture with our custom
+    // CinematicLumaKeyFilter. Video lives off-DOM (left:-9999px) so the DOM
+    // compositor doesn't paint it; only the Pixi-rendered luma-keyed sprite
+    // is visible to the user.
     video.style.position = 'absolute';
     video.style.left = '-9999px';
     document.body.appendChild(video);
-    // PixiJS v8 supports Texture.from(HTMLVideoElement) for live video textures.
-    const texture = Texture.from(video);
-    const sprite = new Sprite(texture);
-    sprite.width = CANVAS_WIDTH;
-    sprite.height = CANVAS_HEIGHT;
-    sprite.filters = [new CinematicLumaKeyFilter({ threshold })];
-    this.container.addChild(sprite);
-    this.characterSprite = sprite; // tracked for cleanup, even though it's the video not character
+
+    // S30 P0a — defer Texture.from(video) until first frame is decoded.
+    // Previously this fired immediately, binding the texture to a pre-load
+    // video element with videoWidth/Height === 0. Pixi's VideoSource
+    // autoUpdate should pump frames after binding, but if the binding happens
+    // BEFORE there's any frame data, the texture caches an empty/black source
+    // and rVFC (requestVideoFrameCallback) may never refresh it properly
+    // (Pixi v8 autoUpdate fires on video-frame-callback NOT on tick, so a
+    // video that "plays" but never produces a frame for the GPU stays black).
+    //
+    // After loadeddata: video.videoWidth/Height are known, first frame is
+    // GPU-uploadable, autoUpdate has something real to update. This addresses
+    // the core failure of S29 P0a — shader fix was correct but useless if the
+    // texture is bound to nothing.
+    const setup = (): void => {
+      if (typeof window !== 'undefined'
+        && window.location.search.includes('debug=1')) {
+        console.log('[cinematic] mountVideoViaShader.setup', {
+          videoWidth: video.videoWidth,
+          videoHeight: video.videoHeight,
+          readyState: video.readyState,
+        });
+      }
+      const texture = Texture.from(video);
+      // S30 P0a — defensively pin autoUpdate=true on the VideoSource (default
+      // should be true in Pixi v8, but explicit-set protects against future
+      // API drift + makes intent visible in diff review).
+      const src = texture.source as unknown as { autoUpdate?: boolean };
+      if ('autoUpdate' in src) src.autoUpdate = true;
+      const sprite = new Sprite(texture);
+      sprite.width = CANVAS_WIDTH;
+      sprite.height = CANVAS_HEIGHT;
+      sprite.filters = [new CinematicLumaKeyFilter({ threshold })];
+      this.container.addChild(sprite);
+      this.characterSprite = sprite;
+
+      // S30 P0a — defensive per-tick texture.source.update() via Pixi
+      // app.ticker. Belt-and-suspenders for VideoSource autoUpdate. If
+      // autoUpdate misses a frame (tab visibility, rVFC not firing, browser
+      // throttling), this manual update() call pulls the latest video frame
+      // to the GPU every render tick. Removed in cleanup().
+      const tickerFn = (): void => {
+        const s = texture.source as unknown as { update?: () => void };
+        if (typeof s.update === 'function') {
+          try { s.update(); } catch { /* defensive — never throw on ticker */ }
+        }
+      };
+      this.app.ticker.add(tickerFn);
+      this.videoTickerFn = tickerFn;
+    };
+    if (video.readyState >= 2) {
+      // HAVE_CURRENT_DATA already — first frame is decoded — set up now.
+      setup();
+    } else {
+      // Wait for first frame to be decoded before binding texture.
+      video.addEventListener('loadeddata', setup, { once: true });
+    }
   }
 
   private async crossfadeCharacterSprite(
