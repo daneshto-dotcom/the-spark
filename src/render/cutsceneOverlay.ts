@@ -8,8 +8,13 @@
  * Lifecycle (wall-clock ms):
  *   t=0       — fade-in 300 ms (black overlay alpha 0 → 1)
  *   t=300     — video.play() — visible, luma-keyed if recipe.lumaKey.enabled
- *   t=cinematicMs+300 — video paused; characterSprite crossfades over targetPos
  *   t=cinematicMs+sustainedEffectMs+300 — fade-out 300 ms → onComplete()
+ *
+ * S30 P0b removed the post-video characterSprite crossfade — the actual
+ * gameplay creature (creatureRenderer at creature.pos) IS the visual
+ * handoff. S33 P1-13 renamed the remaining private `characterSprite`
+ * field to `videoSprite` since it now holds the video-textured Pixi
+ * sprite, not a character PNG.
  *
  * Aborts cleanly via abort() — used by main.ts on peer-drop (PRIME-AUDIT Δ3).
  *
@@ -57,7 +62,12 @@ export class CutsceneOverlay {
   private readonly bg: Graphics;
   private readonly app: Application;
   private videoEl: HTMLVideoElement | null = null;
-  private characterSprite: Sprite | null = null;
+  // S33 P1-13 — renamed from `characterSprite`. After S30 P0b dropped
+  // the character-PNG crossfade, this field holds the video-textured
+  // Pixi sprite (mounted in mountVideoViaShader's setup closure). Note:
+  // recipe data field `recipe.characterSprite` (PNG path used by codex)
+  // is intentionally LEFT named characterSprite — different concept.
+  private videoSprite: Sprite | null = null;
   private timers: ReturnType<typeof setTimeout>[] = [];
   private rafId: number | null = null;
   private active = false;
@@ -235,11 +245,8 @@ export class CutsceneOverlay {
     // creature (creatureRenderer's voltkin-zap.png at creature.pos). The
     // gameplay creature IS the visual handoff — no separate cutscene sprite
     // needed.
-    // Original code (preserved for reference / restore-via-revert):
-    //   const spriteTimer = setTimeout(() => {
-    //     void this.crossfadeCharacterSprite(recipe.characterSprite, ctx.targetPos);
-    //   }, recipe.cinematicMs);
-    //   this.timers.push(spriteTimer);
+    // S33 P1-13 — pre-S30 commented-out crossfadeCharacterSprite call removed.
+    // Restore via `git show 5a654e7^:src/render/cutsceneOverlay.ts` if needed.
 
     // S28 P0 — wall-clock setTimeout for creature spawn handoff REMOVED
     // (Council Q2 UNANIMOUS A). Spawn scheduling is now tick-deterministic via
@@ -303,10 +310,10 @@ export class CutsceneOverlay {
     } catch {
       // best-effort
     }
-    if (this.characterSprite !== null) {
-      this.container.removeChild(this.characterSprite);
-      this.characterSprite.destroy();
-      this.characterSprite = null;
+    if (this.videoSprite !== null) {
+      this.container.removeChild(this.videoSprite);
+      this.videoSprite.destroy();
+      this.videoSprite = null;
     }
     this.container.visible = false;
     this.videoEl = null;
@@ -370,7 +377,7 @@ export class CutsceneOverlay {
       sprite.height = CANVAS_HEIGHT;
       sprite.filters = [new CinematicLumaKeyFilter({ threshold })];
       this.container.addChild(sprite);
-      this.characterSprite = sprite;
+      this.videoSprite = sprite;
 
       // S30 P0a — defensive per-tick texture.source.update() via Pixi
       // app.ticker. Belt-and-suspenders for VideoSource autoUpdate. If
