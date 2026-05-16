@@ -61,13 +61,23 @@ const SPARK_COLOR = 0xeaffff;
  * arcs by origin. Floor-to-int via `| 0` keeps the seed integer-stable across
  * sub-pixel pos drift between host snapshot ticks.
  *
- * Combine effect tick + origin coordinates into a single seed integer. Each
- * (tick, sx, sy) tuple maps to a unique seed so multi-creature simultaneous
- * attacks render with distinct jitter patterns. Replay-safe because both
- * inputs are reproducible from world state.
+ * S33 P1-11 — extended to mix `creatureId` so two creatures attacking on the
+ * SAME tick from int-truncated-equal positions render distinct jitter. The
+ * creatureId is OPTIONAL on the effect type (legacy pre-S33 emissions omit
+ * it); `(creatureId | 0)` coerces `undefined → NaN → 0` so legacy data
+ * gracefully degrades to the pre-S33 jitter pattern (additive-optional
+ * precedent S15 P2 / S28 P0 / S31 P0-3 — NO schemaVersion bump).
+ *
+ * Combine effect tick + origin coordinates + creature ID into a single seed
+ * integer. Replay-safe because all inputs are reproducible from world state.
  */
-function arcSeed(tick: number, sx: number, sy: number): number {
-  return ((tick | 0) ^ Math.imul(sx | 0, 374761393) ^ Math.imul(sy | 0, 668265263)) | 0;
+function arcSeed(tick: number, sx: number, sy: number, creatureId: number | undefined): number {
+  return (
+    (tick | 0)
+    ^ Math.imul(sx | 0, 374761393)
+    ^ Math.imul(sy | 0, 668265263)
+    ^ Math.imul((creatureId as number) | 0, 2246822507)
+  ) | 0;
 }
 
 export function drawArcFlash(
@@ -95,7 +105,7 @@ export function drawArcFlash(
   // Build the jittered polyline vertices once; both halo + core passes share.
   // Seed incorporates start coordinates so simultaneous-tick arcs from
   // different creatures produce distinct patterns (CHECK Triumvirate fix).
-  const seed = arcSeed(effect.tick, sx, sy);
+  const seed = arcSeed(effect.tick, sx, sy, effect.creatureId);
   const xs: number[] = [sx];
   const ys: number[] = [sy];
   for (let i = 1; i < ARC_JITTER_SEGMENTS + 1; i++) {

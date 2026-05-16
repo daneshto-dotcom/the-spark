@@ -324,6 +324,58 @@ describe('WorldSnapshot effects field (S31 P0-3)', () => {
     }
   });
 
+  // S33 P1-11 — creatureId additive-optional field. Pre-S33 emissions
+  // (this test, line above) omit creatureId; rehydrated GameEffect has
+  // creatureId === undefined which arcSeed coerces to 0 via `(x | 0)`.
+  // Post-S33 emissions set creatureId; round-trip preserves it.
+  it('round-trip preserves ARC_FLASH.creatureId when present (S33 P1-11)', () => {
+    const w1 = makeWorld(0);
+    w1.effects.push({
+      kind: 'ARC_FLASH',
+      tick: 99,
+      start: { x: 10, y: 20 },
+      end: { x: 30, y: 40 },
+      creatureId: 7 as unknown as import('../types.ts').CreatureId,
+    });
+    const json = JSON.stringify(snapshot(w1));
+    const w2 = makeWorld(0);
+    restore(JSON.parse(json), w2);
+    expect(w2.effects.length).toBe(1);
+    const e = w2.effects[0];
+    if (e.kind === 'ARC_FLASH') {
+      expect(e.creatureId).toBe(7);
+    }
+  });
+
+  it('legacy ARC_FLASH (no creatureId) rehydrates with creatureId undefined (S33 P1-11 back-compat)', () => {
+    // Simulate a pre-S33 wire payload: ARC_FLASH JSON missing creatureId.
+    const legacySnap = {
+      schemaVersion: 1 as const,
+      savedAt: new Date().toISOString(),
+      tick: 0,
+      rngSeed: 0,
+      gameState: 'PLAYING' as const,
+      lastWinnerId: null,
+      nextPrimitiveId: 0,
+      nextBondId: 0,
+      freeSparks: [],
+      primitives: [],
+      bonds: [],
+      players: [{ id: 0 as never, color: 0, energy: 0, score: 0, avatarPos: { x: 0, y: 0 } }],
+      effects: [
+        { kind: 'ARC_FLASH' as const, tick: 5, start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },
+      ],
+    };
+    const json = JSON.stringify(legacySnap);
+    const w2 = makeWorld(0);
+    restore(JSON.parse(json), w2);
+    expect(w2.effects.length).toBe(1);
+    const e = w2.effects[0];
+    if (e.kind === 'ARC_FLASH') {
+      expect(e.creatureId).toBeUndefined();
+    }
+  });
+
   it('round-trip preserves BOND_FORMED + BOND_SEVERED with cause discriminator', () => {
     const w1 = makeWorld(0);
     w1.effects.push(

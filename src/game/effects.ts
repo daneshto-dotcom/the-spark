@@ -144,6 +144,16 @@ export type GameEffect =
       readonly tick: number;
       readonly start: Vec2;
       readonly end: Vec2;
+      /**
+       * S33 P1-11 — emitter creature ID. Mixed into arcSeed (arcFlash.ts) so
+       * two creatures attacking on the SAME tick from int-truncated-identical
+       * positions render distinct jitter patterns. OPTIONAL: legacy snapshots
+       * (pre-S33 ARC_FLASH emissions and pre-S33 NetSnapshot wire payloads)
+       * omit this field. arcSeed coerces `undefined | 0 === 0` via bitwise OR,
+       * degrading to the pre-S33 jitter pattern for legacy data — additive-
+       * optional precedent S15 P2 / S28 P0 / S31 P0-3 (NO schemaVersion bump).
+       */
+      readonly creatureId?: import('../types.ts').CreatureId;
     };
 
 /** Soft cap on the queue — anything older than this many ticks is dropped. */

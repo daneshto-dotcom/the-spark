@@ -172,6 +172,15 @@ export type SerializedEffect =
       readonly tick: number;
       readonly start: Vec2;
       readonly end: Vec2;
+      /**
+       * S33 P1-11 — emitter creature ID. Optional for pre-S33 wire compat:
+       * legacy NetSnapshots and legacy localStorage saves omit this field;
+       * deserializeEffect rehydrates without it; arcFlash.arcSeed coerces
+       * `undefined | 0 === 0` so legacy data renders the pre-S33 jitter
+       * pattern. Additive-optional precedent (S15 P2 / S28 P0 / S31 P0-3) —
+       * NO schemaVersion bump (save.ts:55 stays at 1).
+       */
+      readonly creatureId?: CreatureId;
     }
   | {
       readonly kind: 'BOND_FORMED';
@@ -520,6 +529,10 @@ function serializeEffect(e: GameEffect): SerializedEffect | null {
         tick: e.tick,
         start: { x: e.start.x, y: e.start.y },
         end: { x: e.end.x, y: e.end.y },
+        // S33 P1-11 — pass-through; undefined for legacy pre-S33 effects.
+        // JSON.stringify drops `undefined` properties so wire stays clean
+        // for pre-S33-emit ARC_FLASH (additive-optional precedent).
+        creatureId: e.creatureId,
       };
     case 'BOND_FORMED':
       return {
@@ -559,6 +572,10 @@ function deserializeEffect(s: SerializedEffect): GameEffect {
         tick: s.tick,
         start: { x: s.start.x, y: s.start.y },
         end: { x: s.end.x, y: s.end.y },
+        // S33 P1-11 — pass-through. Pre-S33 wire payloads have no
+        // creatureId field; rehydrated GameEffect omits it; arcSeed
+        // coerces undefined → 0 so legacy data renders pre-S33 jitter.
+        creatureId: s.creatureId,
       };
     case 'BOND_FORMED':
       return {

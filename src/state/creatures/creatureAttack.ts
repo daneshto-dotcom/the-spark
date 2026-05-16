@@ -113,6 +113,10 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
       tick: world.tick,
       start: arcStart,
       end: arcEnd,
+      // S33 P1-11 — emitter ID so simultaneous same-tick attacks from
+      // multiple creatures at int-truncated-equal positions don't render
+      // identical jitter (latent at S33, breaks at Anvil multi-creature).
+      creatureId: creature.id,
     });
   }
 
