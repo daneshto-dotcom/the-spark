@@ -431,6 +431,17 @@ async function bootstrap(): Promise<void> {
   // tracks the same field transition that the overlay-driven dispatch
   // resolves.
   let lastConnectionLost = false;
+  // S31 P0-3 — client-side cursor for ARC_FLASH-triggered screen-shake. Host
+  // triggers shake locally inside the `!isClient` block in the tick loop;
+  // client peer must mirror that feedback or 1v1 plays as visually & kinesthe-
+  // tically silent on Voltkin attacks. Cursor tracks the highest ARC_FLASH
+  // tick already shaken-for so subsequent snapshots that re-deliver the same
+  // (still-alive) effect don't re-trigger the shake every frame. Reset to
+  // -Infinity on PLAYING→TITLE transition (P0-2 watcher below) so re-entering
+  // PLAYING starts fresh. Implicit-detection per PRIME-AUDIT Δ2 (Council Q3
+  // ruled explicit SCREEN_SHAKE NetMessage; overridden per YAGNI — refactor
+  // when Anvil ships a non-ARC_FLASH shake source).
+  let clientLastShakeArcFlashTick = -Infinity;
 
   function runGodlyMatcher(): void {
     if (!world.isHost) return;
@@ -727,6 +738,11 @@ async function bootstrap(): Promise<void> {
         cutsceneOverlay.abort();
         screenShake.reset();
         lastCinematicOwner = null;
+        // S31 P0-3 — reset client shake cursor on TITLE transition so re-
+        // entering PLAYING doesn't carry forward a stale tick threshold that
+        // would suppress shake on the next ARC_FLASH if the new session's
+        // host happens to be at a tick < clientLastShakeArcFlashTick.
+        clientLastShakeArcFlashTick = -Infinity;
       }
       lastGameState = world.gameState;
       physicsAccumulator -= PHYSICS_DT;
@@ -737,6 +753,23 @@ async function bootstrap(): Promise<void> {
     // primitive + freeSpark positions between prev + current snapshot.
     if (world.gameMode === '1v1' && !world.isHost && clientSync !== null) {
       clientSync.interpolateInto(world, performance.now(), NET_INTERPOLATION_MS);
+      // S31 P0-3 — implicit shake trigger on mirrored ARC_FLASH. Scan the
+      // just-rehydrated world.effects (replaced by applySnapshotCore inside
+      // interpolateInto when needsFullApply) for any ARC_FLASH whose host
+      // emit-tick is newer than the cursor; trigger shake at that tick and
+      // advance the cursor. Multiple ARC_FLASHes in one snapshot collapse
+      // to one shake at the latest tick (matches host behavior: ScreenShake.
+      // trigger replaces existing shake, no stacking).
+      let latestArcFlashTick = clientLastShakeArcFlashTick;
+      for (const e of world.effects) {
+        if (e.kind === 'ARC_FLASH' && e.tick > latestArcFlashTick) {
+          latestArcFlashTick = e.tick;
+        }
+      }
+      if (latestArcFlashTick > clientLastShakeArcFlashTick) {
+        screenShake.trigger(latestArcFlashTick);
+        clientLastShakeArcFlashTick = latestArcFlashTick;
+      }
     }
 
     // S15 P2 — screen visibility gate (TITLE / LOBBY overlays).

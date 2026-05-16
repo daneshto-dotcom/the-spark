@@ -212,18 +212,42 @@ describe('effects emission', () => {
     expect(erases.length).toBe(2); // primitives 2 and 3 are wiped
   });
 
-  it('effects accumulate independently of save serialization', async () => {
+  it('S31 P0-3 — save.ts filters effects: host-local visual kinds dropped, NET-relevant kept', async () => {
+    // Pre-S31 the snapshot OMITTED `effects` entirely (transient telemetry
+    // from dispatch to renderer). S31 P0-3 introduces a filtered effects
+    // serializer for the 1v1 client mirror: ARC_FLASH + BOND_FORMED +
+    // BOND_SEVERED preserved on the wire; BOND_COMMIT + SEVER_ERASE +
+    // STRUCTURE_GROW + STRUCTURE_MERGE + SCORE_TIER dropped as host-local
+    // visual flair (renderer-only, no client-visible gain).
+    //
+    // This test inherits the original spirit (effects don't blindly persist)
+    // while asserting the new filtered-subset contract: a bond placement
+    // emits BOTH BOND_COMMIT (visual ring pop → drop) AND BOND_FORMED
+    // (audio clave event → keep), so the post-filter snapshot has exactly
+    // the BOND_FORMED entry and not the BOND_COMMIT entries.
     const world = makeWorld(0);
     const a = spawnFree(world, 1, 0, { x: 100, y: 100 });
     placePrimitive(world, a, null);
     const b = spawnFree(world, 2, 1, { x: 150, y: 100 });
     placePrimitive(world, b, asPrimitiveId(0));
     expect(world.effects.length).toBeGreaterThan(0);
-    // save.ts only enumerates explicit fields — effects must not appear
-    // in the serialized snapshot.
+
     const { snapshot } = await import('../state/save.ts');
-    const snap = snapshot(world) as unknown as Record<string, unknown>;
-    expect('effects' in snap).toBe(false);
+    const snap = snapshot(world);
+
+    // Filtered effects exist (BOND_FORMED was emitted on the second placement
+    // which formed a bond). The first placement was an anchor (no bond) so it
+    // emitted no BOND_FORMED; only BOND_COMMIT (dropped). The second placement
+    // formed a bond → 1 BOND_COMMIT (dropped) + 1 BOND_FORMED (kept).
+    expect(snap.effects).toBeDefined();
+    expect(snap.effects?.length).toBe(1);
+    expect(snap.effects?.[0].kind).toBe('BOND_FORMED');
+
+    // Host-local visual kinds MUST NOT appear on the wire.
+    const droppedKinds = ['BOND_COMMIT', 'SEVER_ERASE', 'STRUCTURE_GROW', 'STRUCTURE_MERGE', 'SCORE_TIER'];
+    for (const e of snap.effects ?? []) {
+      expect(droppedKinds).not.toContain(e.kind);
+    }
   });
 });
 

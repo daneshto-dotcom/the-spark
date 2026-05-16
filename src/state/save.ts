@@ -22,6 +22,7 @@
  */
 
 import { type StiffnessTier } from '../constants.ts';
+import { type GameEffect } from '../game/effects.ts';
 import { makePrimitiveFromSpark, type Primitive } from '../game/primitive.ts';
 import {
   makeFreeSpark,
@@ -82,6 +83,24 @@ export interface WorldSnapshot {
    * field; applySnapshotCore handles `undefined` via nullish-coalescing (Δ3).
    */
   creatures?: SerializedCreature[];
+  /**
+   * S31 P0-3 — filtered effects array for 1v1 client mirror. Pre-S31 the
+   * snapshot omitted `world.effects` entirely; 1v1 client saw creatures walk
+   * + bonds vanish with no visible attack feedback (no ARC_FLASH lightning),
+   * no audio (no BOND_FORMED clave / BOND_SEVERED sever), and no shake
+   * feedback (host-only `!isClient` gate). Filtered to 3 NET-relevant kinds
+   * (ARC_FLASH + BOND_FORMED + BOND_SEVERED) per Council R1 Q2 CONVERGENT
+   * + PRIME-AUDIT: STRUCTURE_GROW/MERGE/SCORE_TIER/SEVER_ERASE/BOND_COMMIT
+   * are host-local visual flair (placement + score + structure feedback) —
+   * adding them to the wire would 5x payload with no client-visible gain.
+   * Each effect carries the host `tick` field already (effects.ts existing
+   * type surface); client renderer computes age as `(world.tick - effect.tick)`
+   * which makes replay deterministic across the network (Gemini Q-01 AUDIT
+   * concern satisfied — see PRIME-AUDIT Δ6). Pre-S31 saves omit this field;
+   * applySnapshotCore handles `undefined` by clearing world.effects (empty
+   * post-restore) for back-compat.
+   */
+  effects?: SerializedEffect[];
 }
 
 interface SerializedSpark {
@@ -130,6 +149,44 @@ interface SerializedPlayer {
 }
 
 /**
+ * S31 P0-3 — discriminated-union subset of GameEffect for the wire. Only
+ * the 3 NET-relevant kinds (ARC_FLASH visual, BOND_FORMED clave audio,
+ * BOND_SEVERED sever audio + visual cue) are serialized; the other 5 kinds
+ * (BOND_COMMIT, SEVER_ERASE, STRUCTURE_GROW, STRUCTURE_MERGE, SCORE_TIER)
+ * are host-local visual flair for placement / structure / score feedback
+ * and not propagated to client peers. Council R1 Q2 (Grok+Gemini CONVERGENT
+ * BLOCKER): filtered serialization is the only acceptable shape — full
+ * `world.effects` payload would balloon NetSnapshot from <1 KB to >3 KB and
+ * trip Trystero/Nostr bandwidth budgets under jitter.
+ *
+ * Each variant mirrors its GameEffect counterpart bit-for-bit. The `tick`
+ * field is preserved across the wire so effectsRenderer ages effects
+ * deterministically (`world.tick - effect.tick`) regardless of snapshot
+ * latency (Gemini Q-01 AUDIT mandate).
+ *
+ * Readonly mirrors GameEffect's readonly semantics; client must not mutate.
+ */
+export type SerializedEffect =
+  | {
+      readonly kind: 'ARC_FLASH';
+      readonly tick: number;
+      readonly start: Vec2;
+      readonly end: Vec2;
+    }
+  | {
+      readonly kind: 'BOND_FORMED';
+      readonly tick: number;
+      readonly pos: Vec2;
+      readonly bondCount: number;
+    }
+  | {
+      readonly kind: 'BOND_SEVERED';
+      readonly tick: number;
+      readonly pos: Vec2;
+      readonly cause: 'player' | 'physics' | 'godly' | 'creature';
+    };
+
+/**
  * S28 P0 — Voltkin Phase 2D Council Q4 2/3 B trimmed render-only shape (~36 B).
  * Client renderer derives scale/tint/alpha from (state, ticksInState) via the
  * pure helpers in creatureRenderer.ts — no AI fields (targetBondId, targetPos)
@@ -169,6 +226,22 @@ export function snapshot(world: World): WorldSnapshot {
     creatures: world.creatures.size > 0
       ? [...world.creatures.values()].map(serializeCreature)
       : undefined,
+    // S31 P0-3 — filtered effects for 1v1 client mirror. Map+filter pattern
+    // drops the 5 host-local visual kinds (BOND_COMMIT/SEVER_ERASE/
+    // STRUCTURE_GROW/STRUCTURE_MERGE/SCORE_TIER) and keeps only the 3 wire
+    // kinds (ARC_FLASH/BOND_FORMED/BOND_SEVERED). Empty `effects` array OR
+    // all-host-only emission yields `undefined` so pre-S31 save back-compat
+    // is preserved (the field absent on the wire round-trips through
+    // JSON.stringify→parse as missing → applySnapshotCore clears effects).
+    effects: ((): SerializedEffect[] | undefined => {
+      if (world.effects.length === 0) return undefined;
+      const out: SerializedEffect[] = [];
+      for (const e of world.effects) {
+        const se = serializeEffect(e);
+        if (se !== null) out.push(se);
+      }
+      return out.length > 0 ? out : undefined;
+    })(),
   };
 }
 
@@ -259,6 +332,21 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       if ((c.id as number) > maxId) maxId = c.id as number;
     }
     if (maxId >= 0) world.nextCreatureId = maxId + 1;
+  }
+
+  // S31 P0-3 — replace effects array contents from snap.effects. effects are
+  // short-lived (max ~30 ticks each) and the host-side effectsRenderer.sync()
+  // wipes `world.effects` to length=0 after draining; so the snapshot's effects
+  // array is always a SMALL recent-frame subset (typically 0-3 entries).
+  // Client-side renderer + audio + (P0-3 implicit) shake-trigger consume the
+  // mirrored array. Pre-S31 saves (no `effects` field) → array cleared, world
+  // stays valid. Replacement (not append) prevents stale-effect accumulation
+  // on the client even if a snapshot is dropped/replayed.
+  world.effects.length = 0;
+  if (snap.effects !== undefined) {
+    for (const se of snap.effects) {
+      world.effects.push(deserializeEffect(se));
+    }
   }
 
   for (const s of snap.freeSparks) {
@@ -413,6 +501,80 @@ function serializeCreature(c: Creature): SerializedCreature {
     state: c.state,
     ticksInState: c.ticksInState,
   };
+}
+
+/**
+ * S31 P0-3 — drop host-local visual effects (BOND_COMMIT, SEVER_ERASE,
+ * STRUCTURE_GROW, STRUCTURE_MERGE, SCORE_TIER) and preserve the 3 NET-relevant
+ * kinds. Pure: returns the trimmed wire-shape variant or null to signal drop.
+ *
+ * The shape mirrors GameEffect bit-for-bit for the kept variants. JSON
+ * stringification flattens Vec2 / readonly down to plain objects; deserializer
+ * reinflates via spread to defensive-copy.
+ */
+function serializeEffect(e: GameEffect): SerializedEffect | null {
+  switch (e.kind) {
+    case 'ARC_FLASH':
+      return {
+        kind: 'ARC_FLASH',
+        tick: e.tick,
+        start: { x: e.start.x, y: e.start.y },
+        end: { x: e.end.x, y: e.end.y },
+      };
+    case 'BOND_FORMED':
+      return {
+        kind: 'BOND_FORMED',
+        tick: e.tick,
+        pos: { x: e.pos.x, y: e.pos.y },
+        bondCount: e.bondCount,
+      };
+    case 'BOND_SEVERED':
+      return {
+        kind: 'BOND_SEVERED',
+        tick: e.tick,
+        pos: { x: e.pos.x, y: e.pos.y },
+        cause: e.cause,
+      };
+    // Host-local visual flair — not sent to client. Renderer-only.
+    case 'BOND_COMMIT':
+    case 'SEVER_ERASE':
+    case 'STRUCTURE_GROW':
+    case 'STRUCTURE_MERGE':
+    case 'SCORE_TIER':
+      return null;
+  }
+}
+
+/**
+ * S31 P0-3 — rehydrate a SerializedEffect into a GameEffect. The discriminated
+ * union variants in SerializedEffect match GameEffect's wire-relevant subset
+ * bit-for-bit; TS narrows via `kind` and we reconstruct with defensive Vec2
+ * spreads so caller doesn't share refs with the snapshot.
+ */
+function deserializeEffect(s: SerializedEffect): GameEffect {
+  switch (s.kind) {
+    case 'ARC_FLASH':
+      return {
+        kind: 'ARC_FLASH',
+        tick: s.tick,
+        start: { x: s.start.x, y: s.start.y },
+        end: { x: s.end.x, y: s.end.y },
+      };
+    case 'BOND_FORMED':
+      return {
+        kind: 'BOND_FORMED',
+        tick: s.tick,
+        pos: { x: s.pos.x, y: s.pos.y },
+        bondCount: s.bondCount,
+      };
+    case 'BOND_SEVERED':
+      return {
+        kind: 'BOND_SEVERED',
+        tick: s.tick,
+        pos: { x: s.pos.x, y: s.pos.y },
+        cause: s.cause,
+      };
+  }
 }
 
 /**

@@ -234,3 +234,178 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
     expect(w2.pendingCreatureSpawn).toBe(null);
   });
 });
+
+// S31 P0-3 — NetSnapshot filtered effects array. Council R1 Q2 CONVERGENT
+// BLOCKER (Grok + Gemini): wire shape must drop host-local visual effects
+// (BOND_COMMIT, SEVER_ERASE, STRUCTURE_GROW, STRUCTURE_MERGE, SCORE_TIER) and
+// keep only the 3 NET-relevant kinds (ARC_FLASH, BOND_FORMED, BOND_SEVERED).
+// Gemini Q-01: each effect carries the host `tick` field so client renderer
+// computes age as `(world.tick - effect.tick)`, preserving replay determinism
+// across snapshot latency.
+describe('WorldSnapshot effects field (S31 P0-3)', () => {
+  it('empty world.effects produces snapshot with effects undefined (pre-S31 back-compat)', () => {
+    const w1 = makeWorld(0);
+    expect(w1.effects.length).toBe(0);
+    const snap = snapshot(w1);
+    expect(snap.effects).toBeUndefined();
+  });
+
+  it('host-local visual effects (BOND_COMMIT, SEVER_ERASE, STRUCTURE_GROW, STRUCTURE_MERGE, SCORE_TIER) are dropped on the wire', () => {
+    const w1 = makeWorld(0);
+    // Inject 1 of each host-local kind directly into world.effects.
+    w1.effects.push(
+      { kind: 'BOND_COMMIT', tick: 10, pos: { x: 1, y: 2 }, color: 0xff0000, radius: 8, visualEffectId: 'fx.bond.default', otherPos: { x: 10, y: 20 } },
+      { kind: 'SEVER_ERASE', tick: 11, pos: { x: 3, y: 4 }, color: 0x00ff00, radius: 10 },
+      {
+        kind: 'STRUCTURE_GROW',
+        tick: 12,
+        originPrimId: 0 as never,
+        hopByPrimId: new Map(),
+        hopByBondId: new Map(),
+        color: 0x0000ff,
+        maxHop: 3,
+      },
+      { kind: 'STRUCTURE_MERGE', tick: 13, originPos: { x: 5, y: 6 }, unionPrimIds: [], color: 0xffff00 },
+      { kind: 'SCORE_TIER', tick: 14, tier: 1, color: 0xff00ff, pos: { x: 7, y: 8 } },
+    );
+    const snap = snapshot(w1);
+    expect(snap.effects).toBeUndefined();
+  });
+
+  it('NET-relevant effects (ARC_FLASH, BOND_FORMED, BOND_SEVERED) are kept on the wire', () => {
+    const w1 = makeWorld(0);
+    w1.effects.push(
+      { kind: 'ARC_FLASH', tick: 100, start: { x: 50, y: 60 }, end: { x: 200, y: 220 } },
+      { kind: 'BOND_FORMED', tick: 101, pos: { x: 11, y: 12 }, bondCount: 1 },
+      { kind: 'BOND_SEVERED', tick: 102, pos: { x: 13, y: 14 }, cause: 'creature' },
+    );
+    const snap = snapshot(w1);
+    expect(snap.effects).toBeDefined();
+    expect(snap.effects?.length).toBe(3);
+    const kinds = snap.effects?.map((e) => e.kind).sort();
+    expect(kinds).toEqual(['ARC_FLASH', 'BOND_FORMED', 'BOND_SEVERED']);
+  });
+
+  it('mixed effects produce filtered snapshot (3 kept of 8 emitted)', () => {
+    const w1 = makeWorld(0);
+    w1.effects.push(
+      { kind: 'BOND_COMMIT', tick: 1, pos: { x: 0, y: 0 }, color: 0, radius: 8, visualEffectId: 'fx.bond.default', otherPos: { x: 0, y: 0 } },
+      { kind: 'ARC_FLASH', tick: 2, start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },
+      { kind: 'SEVER_ERASE', tick: 3, pos: { x: 0, y: 0 }, color: 0, radius: 8 },
+      { kind: 'BOND_FORMED', tick: 4, pos: { x: 0, y: 0 }, bondCount: 1 },
+      { kind: 'STRUCTURE_GROW', tick: 5, originPrimId: 0 as never, hopByPrimId: new Map(), hopByBondId: new Map(), color: 0, maxHop: 1 },
+      { kind: 'BOND_SEVERED', tick: 6, pos: { x: 0, y: 0 }, cause: 'player' },
+      { kind: 'STRUCTURE_MERGE', tick: 7, originPos: { x: 0, y: 0 }, unionPrimIds: [], color: 0 },
+      { kind: 'SCORE_TIER', tick: 8, tier: 1, color: 0, pos: { x: 0, y: 0 } },
+    );
+    const snap = snapshot(w1);
+    expect(snap.effects?.length).toBe(3);
+  });
+
+  it('round-trip preserves ARC_FLASH field-for-field (tick, start, end)', () => {
+    const w1 = makeWorld(0);
+    w1.effects.push({
+      kind: 'ARC_FLASH',
+      tick: 42,
+      start: { x: 100, y: 200 },
+      end: { x: 300, y: 400 },
+    });
+    const json = JSON.stringify(snapshot(w1));
+    const reparsed = JSON.parse(json);
+    const w2 = makeWorld(0);
+    restore(reparsed, w2);
+    expect(w2.effects.length).toBe(1);
+    const e = w2.effects[0];
+    expect(e.kind).toBe('ARC_FLASH');
+    if (e.kind === 'ARC_FLASH') {
+      expect(e.tick).toBe(42);
+      expect(e.start).toEqual({ x: 100, y: 200 });
+      expect(e.end).toEqual({ x: 300, y: 400 });
+    }
+  });
+
+  it('round-trip preserves BOND_FORMED + BOND_SEVERED with cause discriminator', () => {
+    const w1 = makeWorld(0);
+    w1.effects.push(
+      { kind: 'BOND_FORMED', tick: 50, pos: { x: 1, y: 2 }, bondCount: 3 },
+      { kind: 'BOND_SEVERED', tick: 51, pos: { x: 4, y: 5 }, cause: 'physics' },
+      { kind: 'BOND_SEVERED', tick: 52, pos: { x: 6, y: 7 }, cause: 'creature' },
+    );
+    const json = JSON.stringify(snapshot(w1));
+    const w2 = makeWorld(0);
+    restore(JSON.parse(json), w2);
+    expect(w2.effects.length).toBe(3);
+    // Effects rehydrate in original order.
+    expect(w2.effects[0].kind).toBe('BOND_FORMED');
+    if (w2.effects[0].kind === 'BOND_FORMED') {
+      expect(w2.effects[0].bondCount).toBe(3);
+    }
+    expect(w2.effects[1].kind).toBe('BOND_SEVERED');
+    if (w2.effects[1].kind === 'BOND_SEVERED') {
+      expect(w2.effects[1].cause).toBe('physics');
+    }
+    expect(w2.effects[2].kind).toBe('BOND_SEVERED');
+    if (w2.effects[2].kind === 'BOND_SEVERED') {
+      expect(w2.effects[2].cause).toBe('creature');
+    }
+  });
+
+  it('Gemini Q-01 — effect.tick preserved across roundtrip for replay-deterministic age computation', () => {
+    // Effects renderer computes age as `world.tick - effect.tick`. If snapshot
+    // doesn't preserve emit-tick, client renders effects at age=0 starting
+    // from whatever tick the snapshot arrived — losing k-tick latency window
+    // (client sees shorter visual duration than host). Round-trip MUST keep
+    // the host emit-tick so age math is deterministic regardless of snapshot
+    // arrival timing.
+    const HOST_EMIT_TICK = 1234;
+    const w1 = makeWorld(0);
+    w1.tick = 1240; // host is 6 ticks past emit (one 10Hz snapshot window)
+    w1.effects.push({
+      kind: 'ARC_FLASH',
+      tick: HOST_EMIT_TICK,
+      start: { x: 0, y: 0 },
+      end: { x: 100, y: 100 },
+    });
+    const json = JSON.stringify(snapshot(w1));
+    const w2 = makeWorld(0);
+    restore(JSON.parse(json), w2);
+    // After applying snapshot, world.tick === host snap tick. Effect retains
+    // emit-tick, so client renderer computes age = world.tick - 1234 = 6,
+    // matching host's render age at the same wall-clock moment.
+    expect(w2.tick).toBe(1240);
+    expect(w2.effects[0].tick).toBe(HOST_EMIT_TICK);
+    expect(w2.tick - w2.effects[0].tick).toBe(6);
+  });
+
+  it('pre-S31 snapshot (no effects field) → restored world has empty effects (Δ3 back-compat)', () => {
+    const w1 = makeWorld(0);
+    placeChain(w1, 4); // populate primitives + bonds so restore has bodies to walk
+    w1.effects.length = 0; // and ensure no effects emitted
+    const json = JSON.stringify(snapshot(w1));
+    const reparsed = JSON.parse(json);
+    // Simulate pre-S31 wire payload: strip the `effects` key entirely.
+    delete reparsed.effects;
+    const w2 = makeWorld(0);
+    // Pre-populate w2.effects to verify restore CLEARS them (replacement, not
+    // append) — important so client doesn't accumulate stale effects from
+    // dropped/replayed snapshots.
+    w2.effects.push({ kind: 'BOND_FORMED', tick: 999, pos: { x: 0, y: 0 }, bondCount: 1 });
+    restore(reparsed, w2);
+    expect(w2.effects.length).toBe(0);
+  });
+
+  it('applySnapshotCore REPLACES (not appends) effects to prevent stale accumulation', () => {
+    const w1 = makeWorld(0);
+    w1.effects.push({ kind: 'ARC_FLASH', tick: 10, start: { x: 0, y: 0 }, end: { x: 1, y: 1 } });
+    const snap1 = JSON.parse(JSON.stringify(snapshot(w1)));
+
+    const w2 = makeWorld(0);
+    // Client has stale effect from a prior snapshot.
+    w2.effects.push({ kind: 'ARC_FLASH', tick: 5, start: { x: 0, y: 0 }, end: { x: 99, y: 99 } });
+    expect(w2.effects.length).toBe(1);
+    restore(snap1, w2);
+    expect(w2.effects.length).toBe(1);
+    // Stale effect (tick=5) wiped; replaced with snap1's (tick=10).
+    expect(w2.effects[0].tick).toBe(10);
+  });
+});
