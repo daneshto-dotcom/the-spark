@@ -20,35 +20,53 @@
 
 import type { BondId, PlayerId, Vec2 } from '../../types.ts';
 import type { CreatureId } from '../../types.ts';
+import { VOLTKIN_CONFIG } from './voltkin-config.ts';
 
 export { asCreatureId, type CreatureId } from '../../types.ts';
 
 /**
- * Lifetime: total ticks a creature exists in `world.creatures` after SPAWN_CREATURE.
- * 480 @ 60Hz = 8 seconds. Locked by blueprint Q5.
+ * S34 P2-20 — per-type constants moved to `voltkin-config.ts` (Gemini Q2
+ * carry-forward from S26+S27+S28, deferred until Anvil prereq). All exports
+ * below are now derived from `VOLTKIN_CONFIG.*` to preserve the existing
+ * call-site API (8 importing files unchanged). Future creatures consume the
+ * same surface via `CREATURE_CONFIGS[type].*` or `getCreatureConfig(type).*`.
+ *
+ * **Byte-exact preservation:** literal values were 480 / 60 / 60 / 30 / 180 /
+ * 60 / 30; VOLTKIN_CONFIG is constructed with those same literals; therefore
+ * `VOLTKIN_CONFIG.lifetimeTicks === 480` etc. by construction. The S33 P1-12
+ * replay-determinism test (`save.replay.test.ts`) is the empirical guard.
  */
-export const VOLTKIN_LIFETIME_TICKS = 480;
+
+/**
+ * Lifetime: total ticks a creature exists in `world.creatures` after SPAWN_CREATURE.
+ * 480 @ 60Hz = 8 seconds. Locked by blueprint Q5; sourced from VOLTKIN_CONFIG.
+ */
+export const VOLTKIN_LIFETIME_TICKS = VOLTKIN_CONFIG.lifetimeTicks;
 
 /**
  * DESPAWNING-state duration: how many ticks before `despawnAtTick` the creature
  * enters DESPAWNING. 60 @ 60Hz = 1 second. Locked by blueprint Q5 + Q8.
+ *
+ * Note: this constant CURRENTLY equals `VOLTKIN_CONFIG.despawningTicks` because
+ * only Voltkin exists. If S35+ Anvil ships with a different despawn duration,
+ * callers should switch to `getCreatureConfig(creature.type).despawningTicks`.
  */
-export const CREATURE_DESPAWNING_TICKS = 60;
+export const CREATURE_DESPAWNING_TICKS = VOLTKIN_CONFIG.despawningTicks;
 
 /**
  * SPAWNING-state duration before SEEKING activates. 60 @ 60Hz = 1 second of
  * "materializing" animation window during which the creature is force-free
  * (computeSteeringAccel returns ZERO_ACCEL — Council R1 + PRIME-AUDIT Δ4).
- * Locked by blueprint Q7. S29+ Anvil / PacPredator may need a per-type config
- * table (Gemini Q2 carry-forward); deferred since only Voltkin exists in S26.
+ * Locked by blueprint Q7. S35+ Anvil may need a different SPAWN_TICKS — at
+ * that point callers should switch to per-type `getCreatureConfig(...).spawnTicks`.
  */
-export const CREATURE_SPAWN_TICKS = 60;
+export const CREATURE_SPAWN_TICKS = VOLTKIN_CONFIG.spawnTicks;
 
 /**
  * Alpha-fade window inside DESPAWNING: the last N ticks of DESPAWNING tween alpha
  * 1.0 → 0.0. 30 @ 60Hz = 500 ms. Locked by blueprint Q8. Must be ≤ CREATURE_DESPAWNING_TICKS.
  */
-export const CREATURE_FADE_TICKS = 30;
+export const CREATURE_FADE_TICKS = VOLTKIN_CONFIG.fadeTicks;
 
 /**
  * S27 P0 — attack range for SEEKING → ATTACKING transition. When the creature's
@@ -57,14 +75,17 @@ export const CREATURE_FADE_TICKS = 30;
  * Q9 (180 px ≈ 3× prim radius — "ranged lightning arc", not melee touch). Squared
  * comparisons in the AI module avoid sqrt — see VOLTKIN_ATTACK_RANGE_SQ.
  */
-export const VOLTKIN_ATTACK_RANGE = 180;
+export const VOLTKIN_ATTACK_RANGE = VOLTKIN_CONFIG.attackRange;
 
 /**
  * S27 P0 — pre-squared attack range for distSq comparisons. Avoids sqrt in the
  * hot AI path (called once per CREATURE_TICK during SEEKING per Council R1 Q3
  * UNANIMOUS A — every-tick re-selection, ~80 prims × 60Hz = 4800 checks/s).
+ *
+ * PRIME-AUDIT Δ2 (S34 P2-20): NOT a field on CreatureConfig — derived here
+ * to prevent drift between attackRange and attackRangeSq.
  */
-export const VOLTKIN_ATTACK_RANGE_SQ = VOLTKIN_ATTACK_RANGE * VOLTKIN_ATTACK_RANGE;
+export const VOLTKIN_ATTACK_RANGE_SQ = VOLTKIN_CONFIG.attackRange * VOLTKIN_CONFIG.attackRange;
 
 /**
  * S27 P0 — total duration of the ATTACKING state in ticks. The creature stays
@@ -73,7 +94,7 @@ export const VOLTKIN_ATTACK_RANGE_SQ = VOLTKIN_ATTACK_RANGE * VOLTKIN_ATTACK_RAN
  * active window — `(VOLTKIN_LIFETIME_TICKS - CREATURE_DESPAWNING_TICKS - CREATURE_SPAWN_TICKS) / VOLTKIN_ATTACK_CADENCE_TICKS = (480-60-60)/60 = 6`
  * full attack cycles, plus ~1 partial). 60 @ 60Hz = 1 second.
  */
-export const VOLTKIN_ATTACK_CADENCE_TICKS = 60;
+export const VOLTKIN_ATTACK_CADENCE_TICKS = VOLTKIN_CONFIG.attackCadenceTicks;
 
 /**
  * S27 P0 — Council R1 Q2 COMPROMISE (Grok-A tick-0 vs Gemini-B tick-30) → middle
@@ -85,7 +106,11 @@ export const VOLTKIN_ATTACK_CADENCE_TICKS = 60;
  * Δ4 (PRIME-AUDIT): if `targetBondId` is invalid at tick FIRE_TICK, transition
  * straight back to SEEKING instead of going through the recovery half.
  */
-export const VOLTKIN_ATTACK_FIRE_TICK = 30;
+export const VOLTKIN_ATTACK_FIRE_TICK = VOLTKIN_CONFIG.attackFireTick;
+
+// Re-export the config + accessor so the canonical entry point lives next to
+// the existing API. New creature types should consume via getCreatureConfig.
+export { VOLTKIN_CONFIG, CREATURE_CONFIGS, getCreatureConfig, type CreatureConfig } from './voltkin-config.ts';
 
 /**
  * S28 P0 — convert wall-clock cinematic duration (ms) to a tick count for the
