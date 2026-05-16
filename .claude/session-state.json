@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 263,
+  "tool_calls_session_total": 280,
   "_S34_NOTE": "S34 P2 batch — S30 audit P2 findings #16-#24 carry-forward from S33 (which shipped only P1 batch). 8 priorities in execution order (smallest/safest first → largest/riskiest last). P2-18 DROPPED per S33 PRIME-AUDIT pattern #audit-finding-can-be-false-positive-when-existing-comment-documents-intent — 'godly' BOND_SEVERED.cause already documented intentional back-compat at effects.ts:121-128 + world.ts:382 + audioManager.test.ts:155 type-shape retention. Standard tier Council R1 ran 2026-05-16 (Grok-4-1-fast DISRUPTOR + Gemini-2.5-flash AUDITOR). 4 Battle Ledger CLAUDE wins (P2-16 method, P2-18 dispo, P2-20 shape, P2-22b fix, P2-23 single delete) + 1 GROK adopt (P2-24 add integration test as stretch goal) + 2 UNANIMOUS (P2-21 defensive, P2-19 LOCKED doc). PRIME-AUDIT Δ1 integration-test feasibility caveat (stretch only, jsdom+Pixi mock infeasible without high cost), Δ2 drop attackRangeSq derived field from CreatureConfig (derive inline), Δ3 document P2-16 clear() one-frame-orphan rationale, Δ4 reaffirm P2-18 no-future-delete (Nostr snapshot consumers).",
   "session_start": "2026-05-16T00:00:00Z",
   "session_id": "S34",
