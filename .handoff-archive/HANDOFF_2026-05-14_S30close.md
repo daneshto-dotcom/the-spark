@@ -90,7 +90,7 @@ HANDOFF_2026-05-14_S30close.md            | NEW
 boot-snapshot.md                          | regenerated
 reflexion_log.md                          | +8 S30 entries, -8 S23 pruned
 src/main.ts                               | +ScreenShake import + instance + trigger + applyToStage
-src/render/arcFlash.ts                    | +outer-corona pass + radial spark burst + bumped widths
+src/render/effects/arcFlash.ts            | +outer-corona pass + radial spark burst + bumped widths
 src/render/creatureRenderer.ts            | +computeCreatureRotation + ?debug=1 logging + Vec2 import + 13 tests
 src/render/creatureRenderer.test.ts       | +13 computeCreatureRotation tests
 src/render/cutsceneOverlay.ts             | defensive video pipeline + removed crossfadeCharacterSprite
