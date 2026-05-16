@@ -76,7 +76,7 @@ import { CutsceneOverlay, FADE_MS } from './render/cutsceneOverlay.ts';
 import { makeCinematicVignette } from './render/cinematicVignette.ts';
 import { CodexOverlay, unlockGodly, entryFromRecipe } from './render/codexOverlay.ts';
 import { CreatureRenderer } from './render/creatureRenderer.ts';
-import { ScreenShake } from './render/screenShake.ts';
+import { ScreenShake, shouldTriggerShakeForArcFlash } from './render/screenShake.ts';
 // S23 P2 — debug overlay (toggleable via ?debug=1 URL param). Surfaces runtime
 // gates + audio chain + chain progress for in-vivo diagnosis when offline tests
 // pass but live trigger doesn't fire.
@@ -675,12 +675,16 @@ async function bootstrap(): Promise<void> {
               creatureId: id,
               bondId,
             });
-            // S30 P0e — trigger screen-shake when CREATURE_ATTACK successfully
-            // severs the bond (post-dispatch check: bond no longer in world.bonds
-            // means SEVER_BOND ran + ARC_FLASH was emitted in creatureAttack.ts).
-            // Tick-based trigger is replay-safe + 1v1-safe (same world.tick on
-            // host + client when reading shared effects stream).
-            if (!world.bonds.has(bondId)) {
+            // S30 P0e — trigger screen-shake when CREATURE_ATTACK emits an
+            // ARC_FLASH this tick. S33 P1-6 replaced the prior
+            // `!world.bonds.has(bondId)` gate with an explicit ARC_FLASH
+            // predicate (shouldTriggerShakeForArcFlash) — functionally
+            // identical today (creatureAttack.ts only emits ARC_FLASH on
+            // successful sever) but forward-defended for Anvil cleave/AOE
+            // that may sever bonds without ARC_FLASH or emit ARC_FLASH
+            // without bond delta. Replay-safe + 1v1-safe (host + client
+            // read the same effects stream).
+            if (shouldTriggerShakeForArcFlash(world.effects, world.tick)) {
               screenShake.trigger(world.tick);
             }
           }

@@ -21,7 +21,35 @@
  */
 
 import type { Container } from 'pixi.js';
+import type { GameEffect } from '../game/effects.ts';
 import { pseudoRand } from '../state/rng.ts';
+
+/**
+ * S33 P1-6 — pure gate predicate for host-side shake trigger.
+ *
+ * Pre-S33 main.ts gated shake on `!world.bonds.has(bondId)` after the
+ * CREATURE_ATTACK dispatch — functionally equivalent to "ARC_FLASH was
+ * emitted this tick" because creatureAttack.ts only emits ARC_FLASH on
+ * successful sever. The new gate ties the invariant directly to the
+ * effect rather than to the bond-disappearance side-effect.
+ *
+ * Forward-defense: future creature kinds (e.g. Anvil cleave/AOE) may
+ * sever bonds WITHOUT emitting ARC_FLASH (visual-quiet) OR emit
+ * ARC_FLASH WITHOUT severing a bond (visual-only flash). The new gate
+ * stays tied to the visual signal — shake follows ARC_FLASH, not bond
+ * delta — which is the intuitive "weapon impact felt" invariant.
+ *
+ * Replay-safe + 1v1-safe: both host and client read the same
+ * world.effects stream; same effects this tick → same shake decision.
+ * Already exploited by client mirror in main.ts (implicit detection
+ * post-applyNetSnapshot, S31 P0-3).
+ */
+export function shouldTriggerShakeForArcFlash(
+  effects: readonly GameEffect[],
+  currentTick: number,
+): boolean {
+  return effects.some((e) => e.kind === 'ARC_FLASH' && e.tick === currentTick);
+}
 
 /** Default shake duration in ticks. 6 @ 60Hz = ~100ms. */
 const DEFAULT_DURATION_TICKS = 6;

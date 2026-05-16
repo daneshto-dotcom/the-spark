@@ -5,7 +5,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { ScreenShake } from './screenShake.ts';
+import type { GameEffect } from '../game/effects.ts';
+import { ScreenShake, shouldTriggerShakeForArcFlash } from './screenShake.ts';
 
 describe('ScreenShake (S30 P0e — global tick-decayed screen-shake)', () => {
   it('inactive shake — isActive returns false before any trigger', () => {
@@ -89,5 +90,57 @@ describe('ScreenShake (S30 P0e — global tick-decayed screen-shake)', () => {
     ss.reset();
     expect(ss.isActive(100)).toBe(false);
     expect(ss.isActive(102)).toBe(false);
+  });
+});
+
+// S33 P1-6 — phantom-shake gate predicate. Pre-S33 main.ts gated shake on
+// `!world.bonds.has(bondId)` after CREATURE_ATTACK; the new gate ties
+// directly to the ARC_FLASH-this-tick invariant, forward-defending Anvil
+// cleave/AOE creatures that may sever without ARC_FLASH or flash without
+// severing.
+describe('shouldTriggerShakeForArcFlash (S33 P1-6 — explicit ARC_FLASH gate)', () => {
+  it('returns false on empty effects array', () => {
+    expect(shouldTriggerShakeForArcFlash([], 42)).toBe(false);
+  });
+
+  it('returns true when ARC_FLASH at currentTick is present', () => {
+    const effects: GameEffect[] = [
+      { kind: 'ARC_FLASH', tick: 42, start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },
+    ];
+    expect(shouldTriggerShakeForArcFlash(effects, 42)).toBe(true);
+  });
+
+  it('returns false when ARC_FLASH tick !== currentTick (stale effect from prior tick)', () => {
+    const effects: GameEffect[] = [
+      { kind: 'ARC_FLASH', tick: 41, start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },
+    ];
+    expect(shouldTriggerShakeForArcFlash(effects, 42)).toBe(false);
+  });
+
+  it('ignores non-ARC_FLASH effects (BOND_FORMED, BOND_SEVERED, etc.)', () => {
+    const effects: GameEffect[] = [
+      { kind: 'BOND_FORMED', tick: 42, pos: { x: 0, y: 0 }, bondCount: 1 },
+      { kind: 'BOND_SEVERED', tick: 42, pos: { x: 0, y: 0 }, cause: 'creature' },
+    ];
+    expect(shouldTriggerShakeForArcFlash(effects, 42)).toBe(false);
+  });
+
+  it('returns true when one of multiple effects is ARC_FLASH at currentTick', () => {
+    const effects: GameEffect[] = [
+      { kind: 'BOND_FORMED', tick: 42, pos: { x: 0, y: 0 }, bondCount: 1 },
+      { kind: 'ARC_FLASH', tick: 42, start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },
+      { kind: 'BOND_SEVERED', tick: 42, pos: { x: 0, y: 0 }, cause: 'creature' },
+    ];
+    expect(shouldTriggerShakeForArcFlash(effects, 42)).toBe(true);
+  });
+
+  it('forward-defense: BOND_SEVERED without ARC_FLASH at currentTick does NOT trigger shake (Anvil-style cleave)', () => {
+    // Simulates a future Anvil/AOE creature that severs without ARC_FLASH —
+    // pre-S33 the `!bonds.has(bondId)` gate would have triggered shake here
+    // anyway; new gate correctly suppresses (no visual impact to "feel").
+    const effects: GameEffect[] = [
+      { kind: 'BOND_SEVERED', tick: 42, pos: { x: 0, y: 0 }, cause: 'creature' },
+    ];
+    expect(shouldTriggerShakeForArcFlash(effects, 42)).toBe(false);
   });
 });
