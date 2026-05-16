@@ -410,7 +410,20 @@ async function bootstrap(): Promise<void> {
   // to KICK the cutsceneOverlay (transition null → non-null) vs ABORT
   // (transition non-null → null via GODLY_ABORT).
   let lastCinematicOwner: number | null = null;
-  let cinematicTimer: ReturnType<typeof setTimeout> | null = null;
+  // S31 P0-4 — `cinematicTimer` REMOVED. Previously this main.ts-scoped
+  // setTimeout fired GODLY_COMPLETE at `cinematicMs + sustainedEffectMs`
+  // (e.g. 4500ms for Voltkin); cutsceneOverlay.completeTimer ALSO fires
+  // GODLY_COMPLETE via its onComplete callback at the same offset + FADE_MS
+  // (4800ms for Voltkin). Two dispatches 300ms apart — idempotent today
+  // (second was a no-op against null `activeCinematicPlayerId`) but a
+  // latent break-day for any non-idempotent side-effect added later. Single
+  // dispatch path now goes through `cutsceneOverlay.onComplete` (set inside
+  // `startCinematicIfNeeded` below) which dispatches GODLY_COMPLETE and
+  // shifts `world.pendingCinematics`. PRIME-AUDIT investigation confirmed
+  // the 300ms shift is safe: `pendingCreatureSpawn` is single-slot, matcher
+  // is gated on `activeCinematicPlayerId !== null`, and `lastCinematicOwner`
+  // tracks the same field transition that the overlay-driven dispatch
+  // resolves.
   let lastConnectionLost = false;
 
   function runGodlyMatcher(): void {
@@ -456,12 +469,14 @@ async function bootstrap(): Promise<void> {
     if (owner === lastCinematicOwner) return;
     lastCinematicOwner = owner;
     if (owner === null) {
-      // Transition non-null → null: ABORT or natural completion handled by timer.
+      // Transition non-null → null: ABORT or natural completion. The
+      // cutsceneOverlay.onComplete callback (registered in cutsceneOverlay.play
+      // below) is the sole driver of GODLY_COMPLETE dispatch + pendingCinematics
+      // queue advancement at fade-end. This branch only tears down the visual
+      // overlay / vignette on the abort path. Idempotent if already cleaned up
+      // (overlay.abort() bails on inactive overlay; vignette.setVisible(false)
+      // is a Pixi flag set).
       cutsceneOverlay.abort();
-      if (cinematicTimer !== null) {
-        clearTimeout(cinematicTimer);
-        cinematicTimer = null;
-      }
       vignette.setVisible(false);
       return;
     }
@@ -520,10 +535,11 @@ async function bootstrap(): Promise<void> {
         event,
       };
     }
-    cinematicTimer = setTimeout(() => {
-      dispatch(world, { type: 'GODLY_COMPLETE' });
-      cinematicTimer = null;
-    }, recipe.cinematicMs + recipe.sustainedEffectMs);
+    // S31 P0-4 — cinematicTimer setTimeout REMOVED here. Pre-S31 this fired
+    // GODLY_COMPLETE at `recipe.cinematicMs + recipe.sustainedEffectMs` (Voltkin
+    // 4500ms). Duplicate of cutsceneOverlay.completeTimer → fade → onComplete
+    // path which fires GODLY_COMPLETE 300ms later at fade-end (4800ms). Single
+    // dispatch path via `cutsceneOverlay.onComplete` (line ~486-498 above).
   }
 
   app.ticker.add((tickerObj) => {
@@ -705,11 +721,11 @@ async function bootstrap(): Promise<void> {
     // S22 P3 — PRIME-AUDIT Δ3: on peer-drop, abort any active cinematic
     // and drain the godly queue cleanly. Transition-edge gated.
     if (connectionLost && !lastConnectionLost) {
+      // S31 P0-4 — cinematicTimer cleanup REMOVED (deleted alongside the
+      // setTimeout that created it). cutsceneOverlay.abort() internally
+      // clears all overlay-owned setTimeout handles via its `this.timers`
+      // sweep, so cinematic teardown remains complete on peer-drop.
       cutsceneOverlay.abort();
-      if (cinematicTimer !== null) {
-        clearTimeout(cinematicTimer);
-        cinematicTimer = null;
-      }
       vignette.setVisible(false);
       dispatch(world, { type: 'GODLY_ABORT' });
       lastCinematicOwner = null;
