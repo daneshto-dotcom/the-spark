@@ -150,6 +150,10 @@ export class CutsceneOverlay {
     video.style.height = `${rect.height}px`;
     video.style.objectFit = 'contain';
     video.style.background = 'transparent';
+    // S33 P1-8 — capture mountVideoViaShader's setup() closure (if the
+    // shader path is taken) so it can be invoked from the single
+    // loadeddata listener below instead of attaching a second listener.
+    let shaderSetup: (() => void) | null = null;
     if (recipe.lumaKey.enabled) {
       video.style.mixBlendMode = 'screen';
       // mix-blend-mode 'screen' on the DOM <video> over black canvas
@@ -161,7 +165,7 @@ export class CutsceneOverlay {
       // CinematicLumaKeyFilter applied (proper alpha keying via shader).
       // Toggle: leave mixBlendMode unset; mount the shader-keyed sprite path.
       video.style.mixBlendMode = '';
-      this.mountVideoViaShader(video, recipe.lumaKey.threshold);
+      shaderSetup = this.mountVideoViaShader(video, recipe.lumaKey.threshold);
     } else {
       document.body.appendChild(video);
     }
@@ -191,8 +195,16 @@ export class CutsceneOverlay {
     // opaque-black instead of transparent). Per Grok pre-mortem DG1, also
     // nudge currentTime to 0.001 to force the decoder to actually extract a
     // visible first frame (browsers sometimes lazy-extract until seek).
+    //
+    // S33 P1-8 — consolidated 2 prior `loadeddata` listeners into one:
+    // (1) clearTimeout + currentTime nudge + video.play() (was here pre-S33)
+    // (2) shaderSetup() invocation (was attached separately inside
+    //     mountVideoViaShader pre-S33; now returned from there and invoked
+    //     inside this single handler). Sequence: clear safety net → mount
+    //     Pixi sprite (so first frame renders) → nudge decoder → play.
     video.addEventListener('loadeddata', () => {
       clearTimeout(loadTimeout);
+      if (shaderSetup !== null) shaderSetup();
       if (video.currentTime < 0.001) {
         video.currentTime = 0.001;
       }
@@ -316,7 +328,7 @@ export class CutsceneOverlay {
     this.rafId = requestAnimationFrame(step);
   }
 
-  private mountVideoViaShader(video: HTMLVideoElement, threshold: number): void {
+  private mountVideoViaShader(video: HTMLVideoElement, threshold: number): () => void {
     // Render the video as a Pixi Sprite-from-texture with our custom
     // CinematicLumaKeyFilter. Video lives off-DOM (left:-9999px) so the DOM
     // compositor doesn't paint it; only the Pixi-rendered luma-keyed sprite
@@ -374,12 +386,11 @@ export class CutsceneOverlay {
       this.app.ticker.add(tickerFn);
       this.videoTickerFn = tickerFn;
     };
-    // S33 P1-9 — readyState>=2 fast-path removed (was always false here).
-    // Caller order: play() invokes mountVideoViaShader at line 164 BEFORE
-    // video.load() at line 175, so readyState is HAVE_NOTHING (0) at this
-    // point — the fast-path branch was provably unreachable (S30 audit
-    // finding #9).
-    video.addEventListener('loadeddata', setup, { once: true });
+    // S33 P1-8 — return setup() so the caller can invoke it from its own
+    // consolidated `loadeddata` listener (single listener attached at
+    // play(), instead of two: one here for setup() + one there for
+    // clearTimeout + video.play()). S30 audit finding #8.
+    return setup;
   }
 
   // S30 P0b — DELETED `crossfadeCharacterSprite` method. Was the static voltkin
