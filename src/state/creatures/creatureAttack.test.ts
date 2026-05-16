@@ -138,7 +138,11 @@ describe('applyCreatureAttack — happy path', () => {
     // limb) per §VIII.4 sever rule. severSplit returns split.del.size = 1 → one
     // SEVER_ERASE effect (the loser prim).
     const severs = world.effects.filter((e) => e.kind === 'SEVER_ERASE');
-    expect(severs.length).toBeGreaterThanOrEqual(1);
+    // S34 PB-9 — tightened from `>=1` weak assertion to exact count. The
+    // §VIII.4 sever rule says a two-prim chain sever drops the SMALLER side
+    // (single-prim limb) → split.del.size = 1 → exactly one SEVER_ERASE.
+    // Exact count catches mutations that produce 0 or 2+ (logic regression).
+    expect(severs).toHaveLength(1);
   });
 });
 

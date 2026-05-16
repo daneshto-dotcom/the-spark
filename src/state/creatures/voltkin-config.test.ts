@@ -48,8 +48,16 @@ describe('VOLTKIN_CONFIG (per-type config record)', () => {
     expect(VOLTKIN_CONFIG.fadeTicks).toBeLessThanOrEqual(VOLTKIN_CONFIG.despawningTicks);
   });
 
-  it('attackFireTick falls inside the attackCadenceTicks window', () => {
-    expect(VOLTKIN_CONFIG.attackFireTick).toBeGreaterThanOrEqual(0);
+  it('attackFireTick falls inside the attackCadenceTicks window (and > 0 so wind-up exists)', () => {
+    // S34 PB-8 — tightened from `>=0` to `>0` per Phase B PRIME-AUDIT.
+    // computeCreatureTint (creatureRenderer.ts) divides ticksInState by FIRE_TICK
+    // inside an `ATTACKING && ticksInState < FIRE_TICK` guard. With FIRE_TICK=0
+    // the guard's `< 0` condition can never hold (ticksInState is unsigned), so
+    // the division branch is unreachable — runtime is safe. The invariant
+    // tightens the test bar so a future Anvil config that sets FIRE_TICK=0
+    // surfaces here as a deliberate gameplay-spec decision (wind-up must exist),
+    // not a silent regression.
+    expect(VOLTKIN_CONFIG.attackFireTick).toBeGreaterThan(0);
     expect(VOLTKIN_CONFIG.attackFireTick).toBeLessThan(VOLTKIN_CONFIG.attackCadenceTicks);
   });
 });

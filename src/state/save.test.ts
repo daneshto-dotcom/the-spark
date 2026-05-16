@@ -321,6 +321,9 @@ describe('WorldSnapshot effects field (S31 P0-3)', () => {
       expect(e.tick).toBe(42);
       expect(e.start).toEqual({ x: 100, y: 200 });
       expect(e.end).toEqual({ x: 300, y: 400 });
+      // S34 PB-7 — pre-S33 emissions omit creatureId; rehydrated effect MUST
+      // have creatureId === undefined (additive-optional precedent S15/S28/S31).
+      expect(e.creatureId).toBe(undefined);
     }
   });
 
