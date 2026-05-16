@@ -4,6 +4,75 @@
 **Locked decisions:** [LOCKED_DECISIONS.md](LOCKED_DECISIONS.md).
 **Spec:** [SPARK_Blueprint.md](SPARK_Blueprint.md) v0.5.1.
 
+**BACKLOG STALENESS NOTE (S31 plan, 2026-05-16):** Entries S20–S30 are absent from this document; they shipped 2026-05-12 → 2026-05-14 across networking fixes, Phase-2 implementation (S24–S28 voltkin), and S30 regression repair. Authoritative session record is `HANDOFF_2026-05-14_S30close.md` and the `.handoff-archive/` series. Backfill of S20–S30 BACKLOG entries is scheduled into S32 (audit finding #14).
+
+---
+
+## Session 31 — S30 audit P0 batch (5 user-visible Voltkin bugs) [PLANNED 2026-05-16]
+
+**Triggered by S30 audit findings (4 parallel agents this session — code-quality / test-determinism / runtime-correctness / docs-drift — surfaced 24 findings). User decision: ship P0 (5 priorities) S31, P1 (10 priorities) S32, P2 (9 priorities) S33. Standard tier, Council R1 (Grok+Gemini) deliberated 2026-05-16 + PRIME-AUDIT (2 overrides Q1+Q3, 1 scope amendment).**
+
+**Pre-execution status:** PDR drafted, Council R1 complete, PRIME-AUDIT logged. Awaiting user `go`. See `.claude/plans/2026-05-16_PDR_Session_31_P0_Audit_Batch.md`.
+
+**5 priorities:**
+
+- **P0-1 — Voltkin spawn-pulse hidden under cinematic overlay.** `main.ts:519` schedules SPAWN_CREATURE at `cinematicMs` (tick 240) but overlay clears at `cinematicMs + sustainedEffectMs + FADE_MS` (tick 288). 48 of 60 SPAWNING animation ticks hidden under opaque overlay. Fix: delay `fireAtTick` by full overlay-clear time. Export `FADE_MS` from `cutsceneOverlay.ts`. Option A (spawn at fade-END, full pulse visible) adopted over Council Q1=B (PRIME-AUDIT override — spawn pulse visibility prioritized over "emerge through fade").
+
+- **P0-2 — Cinematic teardown leaks on RETURN_TO_TITLE / POSTGAME.** Reducer (`gameMode.ts:applyReturnToTitle`) doesn't clear `world.creatures`, `nextCreatureId`, `activeCinematicPlayerId`, `currentCinematicEvent`, `pendingCinematics`, `pendingCreatureSpawn`. Orchestration (`main.ts:teardownNet/resetIfPostgame`) doesn't call `cutsceneOverlay.abort()`, `screenShake.reset()`, `clearTimeout(cinematicTimer)`. Fix: reducer clears 6 fields; main.ts adds PLAYING→TITLE transition watcher; `main.ts:311` changed from direct `world.gameState='TITLE'` to `dispatch(RETURN_TO_TITLE)` (PRIME-AUDIT Δ5 scope amendment).
+
+- **P0-3 — 1v1 client never sees ARC_FLASH lightning or screen-shake.** `save.ts NetSnapshot` omits `world.effects`. Client mirror gets creatures+positions but no visual attack feedback, no audio, no shake. Fix: serialize ARC_FLASH+BOND_FORMED+BOND_SEVERED in NetSnapshot (filter; Council Q2 adopt); client-side implicit ARC_FLASH detection → `screenShake.trigger` (PRIME-AUDIT override of Council Q3=explicit — YAGNI); effect age computed as `currentTick - effect.tick` for replay determinism (Gemini Q-01 adopt).
+
+- **P0-4 — Duplicate cinematic-completion GODLY_COMPLETE dispatch.** `main.ts:523-526 cinematicTimer` fires at 4500ms; `cutsceneOverlay.completeTimer + onComplete` fires at 4800ms. Two dispatches 300ms apart. Reducer idempotent today, latent break-day. Fix: delete `cinematicTimer` entirely; rely on cutsceneOverlay.onComplete. Safety verified via PRIME-AUDIT investigation against Grok's "unsafe" Q4 claim — all cited failure modes refuted.
+
+- **P0-5 — Flip 5 stale STATUS:IN-PROGRESS plan-archive headers.** `.claude/plans-archive/voltkin_phase2_*.md` (5 files) still tagged IN-PROGRESS despite Phase-2 finale at S28. Pre-flight WARN fires every session. Fix: 5 line-3 edits.
+
+**Tests:** ~8-10 new (560 → ~568-570 baseline). E-01 invariant (no-overlap window post-P0-1A), T-01 peer-disconnect mid-cinematic, teardown integration test (Grok #4 partial adopt — full ReplayDriver deferred to S33+).
+
+**Estimate:** ~22K tokens, +70-90 LOC, -15 LOC, bundle +0.5KB max.
+
+**Carry-forward to S32:** P1 batch (audit findings #6-#15).
+
+---
+
+## Session 32 — S30 audit P1 batch (quality + correctness) [PLANNED]
+
+**Estimated 10 priorities from S30 audit:**
+
+- **P1-6** Phantom screen-shake on physics-severed bond same tick (gate shake on `world.effects.some(e=>e.kind==='ARC_FLASH'&&e.tick===world.tick)`)
+- **P1-7** Belt-and-suspenders video pumping (drop one of `texture.source.autoUpdate=true` or per-tick `source.update()`)
+- **P1-8** Two `loadeddata` listeners on same `<video>` element (consolidate)
+- **P1-9** Dead `readyState >= 2` fast-path in `mountVideoViaShader` (runs before `video.load()`, branch never taken)
+- **P1-10** Duplicated `pseudoRand` mulberry32 in `arcFlash.ts` + `screenShake.ts` (consolidate to shared `src/state/rng.ts`)
+- **P1-11** ARC_FLASH seed missing creature.id (actual: `(tick|0) ^ imul(sx,K1) ^ imul(sy,K2)`; two creatures at same int-truncated pos same tick produce identical jitter — safe today, breaks at Anvil)
+- **P1-12** Snapshot→simulate→snapshot replay-determinism test (highest-value missing test for catching future Math.random/Date.now creep)
+- **P1-13** `characterSprite` field name lies after S30 P0b (now holds video sprite — rename to `videoSprite`)
+- **P1-14** BACKLOG.md backfill S20–S30 entries (or mark BACKLOG deprecated in favor of session-state + handoffs)
+- **P1-15** 6 stale handoffs at root (byte-identical archives exist) → remove
+
+**Estimate:** Standard tier ~20-25K. 10 surgical fixes, each Micro scope.
+
+**Carry-forward to S33:** P2 batch (audit findings #16-#24).
+
+---
+
+## Session 33 — S30 audit P2 batch (future-tax + cleanup) [PLANNED]
+
+**Estimated 9 priorities:**
+
+- **P2-16** `ScreenShake.reset()` + `creatureRenderer.destroy()` wired into teardown (largely folded into S31 P0-2; verify carry-over completeness)
+- **P2-17** `seekForce` exported in `creatureVerlet.ts` but unused in prod (delete or annotate as test-only)
+- **P2-18** Dead `'godly'` variant in `BOND_SEVERED.cause` union (no live emitter post-S27)
+- **P2-19** LOCKED_DECISIONS §13.15+ codification of Phase-2 godly/creature system (lifetimes, FIRE_TICK 30, SEEKING_LEAN_MAX_RAD ≈0.262, sustainedEffectMs=500, ARC_FLASH_DURATION_TICKS=24, ScreenShake 6-tick decay ±2px)
+- **P2-20** `voltkin-config.ts` (Gemini Q2 carry from S26+S27+S28 — per-type CreatureConfig table; lift hardcoded constants from 6 files); prereq for Anvil ship
+- **P2-21** `pendingCreatureSpawn` clear on `START_GAME` (largely folded into S31 P0-2; verify)
+- **P2-22** Commented-out code at `cutsceneOverlay.ts:214-218` + handoff S30close `src/render/arcFlash.ts` path typo (actual: `src/render/effects/arcFlash.ts`)
+- **P2-23** Stale `.bak` files (`.handoff-archive/HANDOFF_2026-05-09_session3of10.md.bak`, `.claude/session-state.json.bak`)
+- **P2-24** Untested S25-S30 code paths (CreatureRenderer.sync 74 LOC, drawArcFlash 120 LOC, cutsceneOverlay cleanup paths) — add jsdom-gated lifecycle tests
+
+**Estimate:** Standard tier ~18-22K. Mostly cleanup + one Standard refactor (P2-20 voltkin-config).
+
+**S34 candidate (post-audit):** Anvil creature using consolidated voltkin-config base (S25-S28 architecture replay applied to second godly).
+
 ---
 
 ## Session 19 — Audio controls UI + disruptionManager extraction + per-silhouette gradient [COMPLETED] (2026-05-12)

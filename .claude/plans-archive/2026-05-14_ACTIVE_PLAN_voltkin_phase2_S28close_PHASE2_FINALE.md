@@ -1,6 +1,6 @@
 # ACTIVE PLAN — Voltkin Phase 2 (Autonomous Creature Actor)
 
-**STATUS: IN-PROGRESS** — created 2026-05-13 at S23 close. S24 ✓ blueprint + S25 ✓ entity infra + S26 ✓ physics/locomotion + **S27 ✓ AI + attack + cascade DELETION**. S28 remains.
+**STATUS: COMPLETED** — created 2026-05-13 at S23 close. S24 ✓ blueprint + S25 ✓ entity infra + S26 ✓ physics/locomotion + **S27 ✓ AI + attack + cascade DELETION**. S28 remains.
 
 **S24 BLUEPRINT COMPLETE** — read `.claude/plans/voltkin_phase2_blueprint_v1.md` for the approved architecture. Full-tier Council (R1 parallel → Quality Gate → R2 ACCEPT ALL → PRIME-AUDIT 8 deltas). All 10 open questions answered. Cumulative bundle budget +25 KB code + 14 KB asset (~6 KB headroom). 3 open questions LOCKED at S25 P1.
 

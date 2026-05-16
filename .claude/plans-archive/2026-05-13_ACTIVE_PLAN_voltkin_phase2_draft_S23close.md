@@ -1,6 +1,6 @@
 # ACTIVE PLAN — Voltkin Phase 2 (Autonomous Creature Actor)
 
-**STATUS: IN-PROGRESS** — created 2026-05-13 at S23 close. Executes S24 (blueprint) + S25–S28 (implementation).
+**STATUS: COMPLETED** — created 2026-05-13 at S23 close. Executes S24 (blueprint) + S25–S28 (implementation).
 
 **READ THIS FILE AT S24 BOOT.** Do not start work until it's been re-read.
 
