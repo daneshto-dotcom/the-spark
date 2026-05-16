@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 13,
+  "tool_calls_session_total": 21,
   "_S34_NOTE": "S34 P2 batch — S30 audit P2 findings #16-#24 carry-forward from S33 (which shipped only P1 batch). 8 priorities in execution order (smallest/safest first → largest/riskiest last). P2-18 DROPPED per S33 PRIME-AUDIT pattern #audit-finding-can-be-false-positive-when-existing-comment-documents-intent — 'godly' BOND_SEVERED.cause already documented intentional back-compat at effects.ts:121-128 + world.ts:382 + audioManager.test.ts:155 type-shape retention. Standard tier Council R1 ran 2026-05-16 (Grok-4-1-fast DISRUPTOR + Gemini-2.5-flash AUDITOR). 4 Battle Ledger CLAUDE wins (P2-16 method, P2-18 dispo, P2-20 shape, P2-22b fix, P2-23 single delete) + 1 GROK adopt (P2-24 add integration test as stretch goal) + 2 UNANIMOUS (P2-21 defensive, P2-19 LOCKED doc). PRIME-AUDIT Δ1 integration-test feasibility caveat (stretch only, jsdom+Pixi mock infeasible without high cost), Δ2 drop attackRangeSq derived field from CreatureConfig (derive inline), Δ3 document P2-16 clear() one-frame-orphan rationale, Δ4 reaffirm P2-18 no-future-delete (Nostr snapshot consumers).",
   "session_start": "2026-05-16T00:00:00Z",
   "session_id": "S34",
@@ -57,14 +57,19 @@
     {
       "id": "P2-17",
       "label": "Annotate seekForce/arriveForce/repulseForce as @internal test-only exports in creatureVerlet.ts JSDoc. S26 Council Q4 COMPROMISE explicitly preserved per-behavior helpers for testability of future variant composition (Anvil). No code change, doc only.",
-      "status": "pending",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
       "council_waiver_reason": null,
-      "council_invoked": "S34-P2_audit_batch-Council-R1-2026-05-16"
+      "council_invoked": "S34-P2_audit_batch-Council-R1-2026-05-16",
+      "check_completed": true,
+      "check_method": "Verified: (1) block comment at creatureVerlet.ts:147-156 upgraded from S27-carry note to @internal contract statement (`Do NOT import these from outside src/physics/creatureVerlet.test.ts` rule explicit); (2) each of 3 exports (seekForce L162, arriveForce L171, repulseForce L180) has @internal JSDoc + back-pointer to the block comment; (3) tsc clean exit 0 (JSDoc-only, no signature changes); (4) creatureVerlet.test.ts unchanged (4 import sites unaffected — @internal is documentation, not TypeScript-enforced); (5) commit 7f05878 +27/-3 LOC.",
+      "checkpoint_commit": "7f05878",
+      "real_context_tokens_at_close": 188000,
+      "real_context_pct_at_close": 18.8
     },
     {
       "id": "P2-21",

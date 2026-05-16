@@ -53,12 +53,23 @@ export type UpdateAvatarPosAction = {
  * START_GAME — transition from TITLE / LOBBY → PLAYING with chosen mode.
  * In 1v1 mode, ensures P2 exists at the spawner-rim right with cyan color.
  * Solo mode keeps P1 only.
+ *
+ * S34 P2-21 — defensive `pendingCreatureSpawn = null` belt-and-suspenders.
+ * Four other paths already clear this field on lifecycle transitions
+ * (applyReturnToTitle, GODLY_ABORT in world.ts, applySnapshotCore in save.ts,
+ * createWorld initializer); clearing again at game entry costs 1 LOC and
+ * forward-proofs against any future transition path (Anvil-driven S35+
+ * variants) that might skip those four. No production path is currently
+ * known to land in START_GAME with a non-null pendingCreatureSpawn, so the
+ * clear is a no-op in current flows.
  */
 export function applyStartGame(world: World, action: StartGameAction): World {
   world.gameMode = action.mode;
   world.isHost = action.isHost;
   world.gameState = 'PLAYING';
   world.currentPlayerId = asPlayerId(0);
+  // S34 P2-21 defensive clear (see JSDoc above).
+  world.pendingCreatureSpawn = null;
   if (action.mode === '1v1') {
     const p2Id = asPlayerId(1);
     if (!world.players.has(p2Id)) {

@@ -114,6 +114,21 @@ describe('GODLY_TRIGGER reducer', () => {
     expect(world.pendingCreatureSpawn).toBe(null);
   });
 
+  // S34 P2-21 — defensive clear in applyStartGame. Belt-and-suspenders for any
+  // future transition path that bypasses applyReturnToTitle/GODLY_ABORT/
+  // applySnapshotCore/createWorld and lands in START_GAME with stale state.
+  // No production path is currently known to do this, but the 1-LOC defensive
+  // clear is forward-proofing for S35+ Anvil-driven flows.
+  it('S34 P2-21: START_GAME clears pendingCreatureSpawn defensively', () => {
+    world.pendingCreatureSpawn = {
+      fireAtTick: world.tick + 240,
+      event: event(0),
+    };
+    expect(world.pendingCreatureSpawn).not.toBe(null);
+    dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
+    expect(world.pendingCreatureSpawn).toBe(null);
+  });
+
   // S27 P0 — cascade DELETION migration regression (Council R1 Q5 UNANIMOUS
   // creature-only + blueprint § "S27 migration notes" Gap A). Pre-S27 this
   // reducer ran a 26-line synchronous SEVER_BOND cascade on the target
