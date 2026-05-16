@@ -21,6 +21,7 @@
  */
 
 import type { Container } from 'pixi.js';
+import { pseudoRand } from '../state/rng.ts';
 
 /** Default shake duration in ticks. 6 @ 60Hz = ~100ms. */
 const DEFAULT_DURATION_TICKS = 6;
@@ -96,14 +97,8 @@ export class ScreenShake {
   }
 }
 
-/**
- * Deterministic pseudo-random in [-1, 1] from an integer seed. Same
- * mulberry32-ish step used in arcFlash.ts. Replay-safe.
- */
-function pseudoRand(seed: number): number {
-  let x = (seed | 0) >>> 0;
-  x = Math.imul(x ^ (x >>> 16), 2246822507);
-  x = Math.imul(x ^ (x >>> 13), 3266489909);
-  x = (x ^ (x >>> 16)) >>> 0;
-  return (x / 0x80000000) - 1;
-}
+// S33 P1-10 — local `pseudoRand` removed; now imported from `state/rng.ts`.
+// Math byte-exact: omitting the new `index` arg (defaults to 0) means
+// `((seed|0) ^ ((0|0)*K)) >>> 0` reduces to `(seed|0) >>> 0` — identical
+// first step to the prior local implementation. Replay-determinism preserved
+// (S33 P1-12 save.replay.test.ts guard).

@@ -20,6 +20,7 @@
 
 import { Graphics } from 'pixi.js';
 import type { GameEffect } from '../../game/effects.ts';
+import { pseudoRand } from '../../state/rng.ts';
 
 /** Number of jitter segments between start and end. 5 → 6 polyline vertices total. */
 const ARC_JITTER_SEGMENTS = 5;
@@ -53,28 +54,13 @@ const SPARK_WIDTH = 2.0;
 const SPARK_COLOR = 0xeaffff;
 
 /**
- * Deterministic pseudo-random [-1, 1] from an integer seed. mulberry32-ish
- * single-step — replay-safe (same seed + same vertex index → same jitter offset
- * across all clients).
- *
- * CHECK Triumvirate Grok C4 + Gemini G5 ACCEPTED: seed must mix in arc-origin
- * coordinates so two ARC_FLASH effects emitted on the SAME tick from DIFFERENT
- * creatures don't produce identical jitter patterns. The seed combiner below
+ * S33 P1-10 — local `pseudoRand` removed; now imported from `state/rng.ts`.
+ * The arcSeed combiner below (CHECK Triumvirate Grok C4 + Gemini G5 ACCEPTED)
  * folds (sx, sy) bit-patterns into the tick via XOR — preserves replay safety
  * (same world state → same pseudoRand sequence) while differentiating same-tick
  * arcs by origin. Floor-to-int via `| 0` keeps the seed integer-stable across
  * sub-pixel pos drift between host snapshot ticks.
- */
-function pseudoRand(seed: number, index: number): number {
-  let x = ((seed | 0) ^ ((index | 0) * 2654435761)) >>> 0;
-  x = Math.imul(x ^ (x >>> 16), 2246822507);
-  x = Math.imul(x ^ (x >>> 13), 3266489909);
-  x = (x ^ (x >>> 16)) >>> 0;
-  // Map [0, 2^32) → [-1, 1].
-  return (x / 0x80000000) - 1;
-}
-
-/**
+ *
  * Combine effect tick + origin coordinates into a single seed integer. Each
  * (tick, sx, sy) tuple maps to a unique seed so multi-creature simultaneous
  * attacks render with distinct jitter patterns. Replay-safe because both
