@@ -91,6 +91,29 @@ describe('S15 P2 — gameState FSM extension', () => {
     tickGameState(w, ex, P1);
     expect(w.gameState).toBe('LOBBY');
   });
+
+  // S34 PB-6 — direct coverage for applyUpdateAvatarPos reducer (1v1
+  // client→host net path: client dispatches UPDATE_AVATAR_POS each input
+  // frame; host applies + serializes via NetSnapshot). Previously only
+  // covered transitively through net-sync integration tests.
+  it('UPDATE_AVATAR_POS mutates target player avatarPos', () => {
+    const w = makeWorld(0);
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    const p1Before = w.players.get(P1)!.avatarPos;
+    expect(p1Before).toBeDefined();
+    dispatch(w, { type: 'UPDATE_AVATAR_POS', playerId: P1, pos: { x: 777, y: 888 } });
+    expect(w.players.get(P1)!.avatarPos).toEqual({ x: 777, y: 888 });
+  });
+
+  it('UPDATE_AVATAR_POS on missing player is a silent no-op (no crash)', () => {
+    const w = makeWorld(0);
+    dispatch(w, { type: 'START_GAME', mode: 'solo', isHost: true });
+    // P2 not present in solo mode. Reducer must silently skip.
+    const before = w.players.size;
+    dispatch(w, { type: 'UPDATE_AVATAR_POS', playerId: P2, pos: { x: 50, y: 50 } });
+    expect(w.players.size).toBe(before);
+    expect(w.players.has(P2)).toBe(false);
+  });
 });
 
 // ============================================================================
