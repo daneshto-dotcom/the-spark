@@ -838,4 +838,125 @@ Settings overlay keydown stopPropagation provides defense-in-depth.
 
 ---
 
-## End — All Phase 1 + Phase-2 Tier-0 (1v1 networked) + Phase-2 Tier-1 (Sever-as-disruption + multi-color bond rendering) + Audio subsystem (Suno BGM + procedural SFX + per-channel controls) implementation decisions are locked. Phase 2+ remaining: Inject Spiral (D), Steal (E), Multi-color per-silhouette gradients (F polish), Fog of war (A), Mega-combos via connector chain (G). Audio polish remaining: OGG compression for mobile, PannerNode + auto-duck. Phase 3 net (Colyseus / Geckos.io) reserved for >2-player scalability.
+### 13.15 Phase-2 godly/creature system (S22–S33 codification; locked S34 P2-19)
+
+This section codifies the live constants and architecture of the Phase-2 godly
+mechanic chain. Source-of-truth file paths are absolute paths under `src/`.
+All values are verbatim from current code at S34 commit `88b11b0` — any future
+divergence between this section and the code is a regression in one of the
+two; the code is canonical for runtime semantics, this section is canonical
+for design intent.
+
+#### Cinematic timing (`src/render/cutsceneOverlay.ts` + `src/state/godlyRecipes/voltkin.ts`)
+
+| Constant | Value | Purpose |
+|---|---|---|
+| `cinematicMs` | **4500** | Wall-clock duration of the mp4 video overlay |
+| `sustainedEffectMs` | **500** | Post-video opaque-bg hold before fade-out |
+| `FADE_MS` | **300** | Black-overlay fade-out duration |
+| `VIDEO_LOAD_TIMEOUT_MS` | **5000** | Fallback if `canplay` never fires (mp4 hardening) |
+
+**Spawn-delay math (S31 P0-1):** SPAWN_CREATURE fires at
+`fireAtTick = world.tick + cinematicMsToTicks(cinematicMs + sustainedEffectMs + FADE_MS)`
+so the creature's SPAWNING pulse is fully visible the moment overlay reaches
+alpha=0.
+
+#### Creature lifecycle (`src/state/creatures/creature.ts`)
+
+| Constant | Value | Purpose |
+|---|---|---|
+| `VOLTKIN_LIFETIME_TICKS` | **480** | 8 s @ 60 Hz — total creature life span |
+| `CREATURE_SPAWN_TICKS` | **60** | SPAWNING → SEEKING transition tick |
+| `CREATURE_DESPAWNING_TICKS` | **60** | Final-state duration before delete |
+| `CREATURE_FADE_TICKS` | **30** | Last-N-ticks alpha-out window within DESPAWNING |
+
+FSM: `SPAWNING` → `SEEKING` → `ATTACKING` (cadenced) → `DESPAWNING` → cleared.
+
+#### Combat (`src/state/creatures/creatureAttack.ts`)
+
+| Constant | Value | Purpose |
+|---|---|---|
+| `VOLTKIN_ATTACK_CADENCE_TICKS` | **60** | Tick-cycle period for one attack |
+| `VOLTKIN_ATTACK_FIRE_TICK` | **30** | Mid-cycle tick at which ARC_FLASH+SEVER_BOND fires |
+| `VOLTKIN_ATTACK_RANGE` | **180** px | Max distance from creature to target bond midpoint |
+| `VOLTKIN_ATTACK_RANGE_SQ` | derived | `VOLTKIN_ATTACK_RANGE²` for sqrt-free distance check (consumer-derived, not a config field per S34 PRIME-AUDIT Δ2) |
+
+#### Steering (`src/physics/creatureVerlet.ts`)
+
+| Constant | Value | Purpose |
+|---|---|---|
+| `SEEKING_LEAN_MAX_RAD` | **≈0.262** (~15°) | Rotation lean cap during SEEKING state |
+| `CREATURE_MAX_ACCEL` | (per-substep peak) | Top-speed gate via VELOCITY_DAMPING=0.998 |
+
+Per-behavior helpers `seekForce` / `arriveForce` / `repulseForce` are **`@internal`
+test-only exports** (S26 Council Q4 COMPROMISE Δ2, re-locked S34 P2-17).
+
+#### Visual effects (`src/render/effects/arcFlash.ts` + `src/render/effects/lifetime.ts`)
+
+| Constant | Value | Purpose |
+|---|---|---|
+| `ARC_FLASH_DURATION_TICKS` | **24** (~400 ms) | Lightning effect visible window (S30 P0c tune, was 18) |
+| `ARC_HALO_WIDTH` | **12** | Outer cyan halo line width |
+| `ARC_CORE_WIDTH` | **3.5** | Inner bright-cyan core line width |
+| `ARC_JITTER_AMP_PX` | **20** | Per-vertex perpendicular jitter amplitude |
+| `arcSeed(tick, sx, sy, creatureId)` | mulberry32 | Deterministic per-vertex jitter (S33 P1-11: `creatureId?` mixed in additively-optionally so two creatures at int-truncated same pos same tick produce DIFFERENT jitter; legacy snapshots without creatureId degrade to pre-S33 pattern via `(undefined \| 0) → 0`) |
+
+#### Screen shake (`src/render/screenShake.ts`)
+
+| Constant | Value | Purpose |
+|---|---|---|
+| Decay duration | **6 ticks** | Triangular envelope, peak-then-decay |
+| Amplitude | **±2 px** | Stage offset peak |
+| Gate | `shouldTriggerShakeForArcFlash(world.effects, world.tick)` | S33 P1-6 forward-defense: tied to ARC_FLASH emit (visual cause), NOT bond-delta (side-effect). Anvil-ready: cleave/AOE creatures may emit flash without severing OR sever without flashing. |
+
+#### NetSnapshot (`src/state/save.ts`)
+
+| Field | Schema posture | Notes |
+|---|---|---|
+| `world.effects` ARC_FLASH | serialized | host→client mirror (S31 P0-3) |
+| `world.effects` BOND_FORMED | serialized | host→client mirror (S31 P0-3) |
+| `world.effects` BOND_SEVERED | serialized w/ `cause` union | `'player' \| 'physics' \| 'godly' \| 'creature'` — `'godly'` is **dead-but-kept-for-back-compat** post-S27 (S34 P2-18 DROP-not-delete per audit-finding-can-be-false-positive-when-existing-comment-documents-intent pattern) |
+| ARC_FLASH `creatureId?: CreatureId` | additive-optional | S33 P1-11 — **NO SCHEMA_VERSION bump** per documented additive-optional precedent (S15 P2 / S28 P0 / S31 P0-3); legacy snapshots without creatureId rehydrate as `undefined` |
+| `pendingCreatureSpawn` | force-cleared on apply | save.ts:336 in applySnapshotCore — host save mid-cinematic must not spawn a queued creature on client restore |
+
+**Schema bump bar:** A new field that EXTENDS without changing existing rehydration semantics does NOT bump SCHEMA_VERSION. Schema bumps are reserved for shape-incompatible changes (e.g. removing a field, renaming, semantic flip). Reaffirmed S34.
+
+#### Teardown / state clearing
+
+Five paths clear cinematic + creature state (regression-locked S34 P2-16 / P2-21):
+
+1. `applyReturnToTitle` (`src/state/gameMode.ts:104`) — clears `world.creatures`, `nextCreatureId`, `activeCinematicPlayerId`, `currentCinematicEvent`, `pendingCinematics`, `pendingCreatureSpawn` on TITLE re-entry.
+2. `GODLY_ABORT` (`src/state/world.ts:407`) — same 6-field cascade on peer-drop.
+3. `applySnapshotCore` (`src/state/save.ts:336`) — clears `pendingCreatureSpawn` on snapshot restore.
+4. `createWorld` (`src/state/world.ts:275`) — initializes all six to null/empty.
+5. `applyStartGame` (`src/state/gameMode.ts:57`, S34 P2-21) — defensive `pendingCreatureSpawn = null` at game entry; no-op under known flows, forward-proofing for Anvil S35+.
+
+Orchestration side (in `main.ts:741-750` PLAYING→TITLE transition watcher):
+- `cutsceneOverlay.abort()` — kills active HTMLVideoElement + Pixi sprite + ticker callback
+- `screenShake.reset()` — zeroes stage offset cursor
+- `creatureRenderer.clear()` — sprite-Map empty (S34 P2-16; preserves container)
+- `lastCinematicOwner = null` — releases `startCinematicIfNeeded` gate
+- `clientLastShakeArcFlashTick = -Infinity` — resets shake tick threshold
+
+#### Anvil migration (S35+ — when second godly ships)
+
+Adding a second creature type after voltkin-config consolidation (S34 P2-20) is:
+- `+1 CreatureConfig` entry in `CREATURE_CONFIGS` (anvilConfig with own constants)
+- `+1 attack handler dispatch` in `creatureAttack.ts` (e.g. cleave-style instead of arc-zap)
+- `+1 voice/video asset pair` registered in recipes
+- `+1 ARC_FLASH variant OR new effect kind` (e.g. SHOCKWAVE) — additive-optional NetSnapshot field; **NO SCHEMA_VERSION bump** per the precedent above
+- `+P1-12 replay-determinism run` to verify byte-exact preservation across the second-creature path
+
+Open design Q (to be locked at Anvil PDR): does Anvil reuse Voltkin's
+SEEKING/ATTACKING FSM (per-state attack range from config) or introduce a
+new state (e.g. CHARGING for melee wind-up)? Either is config-extensible.
+
+#### Cross-references
+
+- Blueprint: § VI Voltkin spec, § VII godly recipes registry, § X.2 visual reveals
+- Handoff series: S22 P3 (godlyRecipes types) → S25–S28 implementation chain → S29–S30 polish → S31 P0 (5 user-visible bugs) → S33 P1 (10 quality fixes) → S34 P2 (this codification + voltkin-config refactor)
+- Reflexion: `#audit-finding-can-be-false-positive-when-existing-comment-documents-intent` (S33 P1-7 + S34 P2-18), `#council-reasons-from-generic-best-practice-prime-audit-brings-domain-evidence` (S33 PRIME-AUDIT Δ1)
+
+---
+
+## End — All Phase 1 + Phase-2 Tier-0 (1v1 networked) + Phase-2 Tier-1 (Sever-as-disruption + multi-color bond rendering) + Audio subsystem (Suno BGM + procedural SFX + per-channel controls) + Phase-2 godly/creature system (Voltkin lifecycle + combat + NetSnapshot semantics) implementation decisions are locked. Phase 2+ remaining: Inject Spiral (D), Steal (E), Multi-color per-silhouette gradients (F polish), Fog of war (A), Mega-combos via connector chain (G), Anvil second-creature (post-S34 P2-20 voltkin-config base). Audio polish remaining: OGG compression for mobile, PannerNode + auto-duck. Phase 3 net (Colyseus / Geckos.io) reserved for >2-player scalability.
