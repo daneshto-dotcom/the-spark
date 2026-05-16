@@ -251,3 +251,88 @@ describe('computeCreatureRotation (S30 P0d procedural lean toward target)', () =
     expect(a).toBe(b);
   });
 });
+
+// ============================================================================
+// S34 P2-24 — computeSpriteDelta pure-helper extraction tests
+//
+// Locks the sprite-lifecycle diff contract used by CreatureRenderer.sync()
+// without needing a Pixi Application surface. CreatureRenderer.sync() itself
+// is DOM-gated browser-smoke only; this helper covers the algorithmic side.
+// ============================================================================
+
+import { computeSpriteDelta } from './creatureRenderer.ts';
+import { asCreatureId, type CreatureId } from '../types.ts';
+
+describe('computeSpriteDelta (S34 P2-24)', () => {
+  it('empty → empty: no work', () => {
+    const r = computeSpriteDelta([], []);
+    expect(r.toCreate).toEqual([]);
+    expect(r.toRemove).toEqual([]);
+  });
+
+  it('empty current + N world: all N go to toCreate', () => {
+    const r = computeSpriteDelta([], [asCreatureId(1), asCreatureId(2), asCreatureId(3)]);
+    expect(r.toCreate).toEqual([asCreatureId(1), asCreatureId(2), asCreatureId(3)]);
+    expect(r.toRemove).toEqual([]);
+  });
+
+  it('N current + empty world: all N go to toRemove', () => {
+    const r = computeSpriteDelta([asCreatureId(5), asCreatureId(7)], []);
+    expect(r.toCreate).toEqual([]);
+    expect(r.toRemove).toEqual([asCreatureId(5), asCreatureId(7)]);
+  });
+
+  it('overlapping sets: diff is symmetric difference, intersection ignored', () => {
+    // current = {1, 2, 3}, world = {2, 3, 4} → create=[4], remove=[1]
+    const r = computeSpriteDelta(
+      [asCreatureId(1), asCreatureId(2), asCreatureId(3)],
+      [asCreatureId(2), asCreatureId(3), asCreatureId(4)],
+    );
+    expect(r.toCreate).toEqual([asCreatureId(4)]);
+    expect(r.toRemove).toEqual([asCreatureId(1)]);
+  });
+
+  it('identical sets: no diff', () => {
+    const ids = [asCreatureId(1), asCreatureId(2)];
+    const r = computeSpriteDelta(ids, ids);
+    expect(r.toCreate).toEqual([]);
+    expect(r.toRemove).toEqual([]);
+  });
+
+  it('preserves source insertion order in each array', () => {
+    // current iterates in [9, 1, 5] order, world iterates in [3, 8] order
+    const r = computeSpriteDelta(
+      [asCreatureId(9), asCreatureId(1), asCreatureId(5)],
+      [asCreatureId(3), asCreatureId(8)],
+    );
+    expect(r.toRemove).toEqual([asCreatureId(9), asCreatureId(1), asCreatureId(5)]);
+    expect(r.toCreate).toEqual([asCreatureId(3), asCreatureId(8)]);
+  });
+
+  it('accepts Map.keys() Iterators (renderer call pattern)', () => {
+    // CreatureRenderer.sync() passes this.sprites.keys() + world.creatures.keys() — both
+    // MapIterator<CreatureId>. Helper must work with Iterable, not just arrays.
+    const spritesMap = new Map<CreatureId, string>([
+      [asCreatureId(1), 'A'],
+      [asCreatureId(2), 'B'],
+    ]);
+    const worldMap = new Map<CreatureId, string>([
+      [asCreatureId(2), 'B'],
+      [asCreatureId(3), 'C'],
+    ]);
+    const r = computeSpriteDelta(spritesMap.keys(), worldMap.keys());
+    expect(r.toCreate).toEqual([asCreatureId(3)]);
+    expect(r.toRemove).toEqual([asCreatureId(1)]);
+  });
+
+  it('duplicates in input are deduplicated by Set semantics', () => {
+    // Production won't produce duplicates (Map.keys() is unique), but the
+    // helper signature accepts Iterable so it should defensively handle dupes.
+    const r = computeSpriteDelta(
+      [asCreatureId(1), asCreatureId(1), asCreatureId(2)],
+      [asCreatureId(2)],
+    );
+    expect(r.toRemove).toEqual([asCreatureId(1)]); // 1 appears once in remove
+    expect(r.toCreate).toEqual([]);
+  });
+});

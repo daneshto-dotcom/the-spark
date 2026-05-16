@@ -80,6 +80,58 @@ function arcSeed(tick: number, sx: number, sy: number, creatureId: number | unde
   ) | 0;
 }
 
+/**
+ * Pure helper: build the jittered polyline vertex arrays for an ARC_FLASH
+ * stroke. Extracted from `drawArcFlash` (S34 P2-24) so the algorithmic
+ * contract (segment count, endpoint preservation, perpendicular-displacement
+ * via deterministic `pseudoRand`, degenerate-line fallback) is unit-testable
+ * without a Pixi Graphics surface.
+ *
+ * Returns parallel `xs[]` + `ys[]` arrays of length `segments + 2`:
+ * `[startX, ...interior(segments), endX]` and same shape for ys.
+ *
+ * Endpoint preservation: `xs[0] === sx`, `ys[0] === sy`, `xs[xs.length-1] === ex`,
+ * `ys[ys.length-1] === ey` (interior jitter never displaces endpoints).
+ *
+ * Degenerate case: zero-length line (`sx === ex && sy === ey`) → all interior
+ * vertices coincide with start (perpendicular vector falls back to (0, 0)).
+ *
+ * Determinism: identical `seed` produces identical output. Used by the
+ * 3-pass stroke renderer (corona + halo + core) which shares one polyline
+ * across passes for visual cohesion.
+ *
+ * @internal Exported for unit testability. Production caller is
+ * `drawArcFlash` in this file.
+ */
+export function buildJitteredPolyline(
+  seed: number,
+  sx: number,
+  sy: number,
+  ex: number,
+  ey: number,
+  segments: number,
+  ampPx: number,
+): { xs: number[]; ys: number[] } {
+  const dx = ex - sx;
+  const dy = ey - sy;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  const perpX = len > 1e-6 ? -dy / len : 0;
+  const perpY = len > 1e-6 ? dx / len : 0;
+  const xs: number[] = [sx];
+  const ys: number[] = [sy];
+  for (let i = 1; i < segments + 1; i++) {
+    const tSeg = i / (segments + 1);
+    const baseX = sx + dx * tSeg;
+    const baseY = sy + dy * tSeg;
+    const offset = pseudoRand(seed, i) * ampPx;
+    xs.push(baseX + perpX * offset);
+    ys.push(baseY + perpY * offset);
+  }
+  xs.push(ex);
+  ys.push(ey);
+  return { xs, ys };
+}
+
 export function drawArcFlash(
   g: Graphics,
   effect: Extract<GameEffect, { kind: 'ARC_FLASH' }>,
@@ -94,30 +146,21 @@ export function drawArcFlash(
   const ex = effect.end.x;
   const ey = effect.end.y;
 
-  // Perpendicular unit vector for jitter displacement. Degenerate (zero-length
-  // line) falls back to (0, 0) — renders a single point pair, harmless.
-  const dx = ex - sx;
-  const dy = ey - sy;
-  const len = Math.sqrt(dx * dx + dy * dy);
-  const perpX = len > 1e-6 ? -dy / len : 0;
-  const perpY = len > 1e-6 ? dx / len : 0;
-
-  // Build the jittered polyline vertices once; both halo + core passes share.
-  // Seed incorporates start coordinates so simultaneous-tick arcs from
-  // different creatures produce distinct patterns (CHECK Triumvirate fix).
+  // S34 P2-24 — polyline build extracted to `buildJitteredPolyline` pure
+  // helper. Seed incorporates start coordinates + creatureId so simultaneous-
+  // tick arcs from different creatures produce distinct patterns (CHECK
+  // Triumvirate fix; S33 P1-11 creatureId mix). Both halo + core + corona
+  // passes share one polyline.
   const seed = arcSeed(effect.tick, sx, sy, effect.creatureId);
-  const xs: number[] = [sx];
-  const ys: number[] = [sy];
-  for (let i = 1; i < ARC_JITTER_SEGMENTS + 1; i++) {
-    const tSeg = i / (ARC_JITTER_SEGMENTS + 1);
-    const baseX = sx + dx * tSeg;
-    const baseY = sy + dy * tSeg;
-    const offset = pseudoRand(seed, i) * ARC_JITTER_AMP_PX;
-    xs.push(baseX + perpX * offset);
-    ys.push(baseY + perpY * offset);
-  }
-  xs.push(ex);
-  ys.push(ey);
+  const { xs, ys } = buildJitteredPolyline(
+    seed,
+    sx,
+    sy,
+    ex,
+    ey,
+    ARC_JITTER_SEGMENTS,
+    ARC_JITTER_AMP_PX,
+  );
 
   // S30 P0e — Pass -1: radial spark burst from the arc origin (creature
   // center). SPARK_COUNT short rays emit at evenly-spaced angles around

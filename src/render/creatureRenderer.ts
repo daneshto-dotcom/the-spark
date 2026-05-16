@@ -94,6 +94,39 @@ const ATTACKING_LEAN_PEAK_RAD = 0.436;
  */
 export const WINDUP_TINT_EASE = (t: number): number => t * t;
 
+// ===== Pure helpers (S34 P2-24 — extracted for testability) =====
+
+/**
+ * Compute the add/remove diff between current sprite IDs and current world
+ * creature IDs. Used by `CreatureRenderer.sync()` to drive sprite lifecycle.
+ *
+ * - `toCreate`: IDs present in `worldCreatureIds` but missing from `currentSpriteIds`
+ * - `toRemove`: IDs present in `currentSpriteIds` but missing from `worldCreatureIds`
+ *
+ * Order within each array is insertion order of the corresponding source set
+ * (`worldCreatureIds` for `toCreate`, `currentSpriteIds` for `toRemove`).
+ *
+ * @internal Exported for unit testability. Production caller is
+ * `CreatureRenderer.sync()` in this file. New consumers should NOT import
+ * this directly — orchestrate via the renderer.
+ */
+export function computeSpriteDelta(
+  currentSpriteIds: Iterable<CreatureId>,
+  worldCreatureIds: Iterable<CreatureId>,
+): { toCreate: CreatureId[]; toRemove: CreatureId[] } {
+  const current = new Set<CreatureId>(currentSpriteIds);
+  const world = new Set<CreatureId>(worldCreatureIds);
+  const toCreate: CreatureId[] = [];
+  const toRemove: CreatureId[] = [];
+  for (const id of world) {
+    if (!current.has(id)) toCreate.push(id);
+  }
+  for (const id of current) {
+    if (!world.has(id)) toRemove.push(id);
+  }
+  return { toCreate, toRemove };
+}
+
 // ===== Renderer class =====
 
 export class CreatureRenderer {
@@ -182,9 +215,12 @@ export class CreatureRenderer {
       );
     }
 
-    // Remove sprites whose creatures despawned.
-    for (const [id, sprite] of this.sprites) {
-      if (!world.creatures.has(id)) {
+    // Remove sprites whose creatures despawned. S34 P2-24 — orphan IDs
+    // pre-computed via `computeSpriteDelta` for testable lifecycle contract.
+    const { toRemove } = computeSpriteDelta(this.sprites.keys(), world.creatures.keys());
+    for (const id of toRemove) {
+      const sprite = this.sprites.get(id);
+      if (sprite !== undefined) {
         this.container.removeChild(sprite);
         sprite.destroy();
         this.sprites.delete(id);
