@@ -28,9 +28,9 @@ export function listRecipes(): GodlyRecipe[] {
   return Array.from(REGISTRY.values());
 }
 
-export function clearRegistry(): void {
-  REGISTRY.clear();
-}
+// S34 PB-4 (2026-05-16) — removed unused `clearRegistry()` export. Zero importers
+// across the whole repo (verified via repo-wide grep). If S35+ tests need
+// registry reset, add `__resetRegistryForTests` with explicit @internal JSDoc.
 
 export interface MatchResult {
   readonly recipe: GodlyRecipe;
