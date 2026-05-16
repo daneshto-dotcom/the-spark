@@ -1,6 +1,6 @@
 # SPARK — Locked Decisions (Pre-Build)
 
-**Status:** Frozen at end of Planning Session, 2026-05-09.
+**Status:** Frozen at end of S34 Phase A, 2026-05-16. §13.15 (Phase-2 godly/creature system) locked S34 P2-19 (commit `c64c94c`). Original planning session: 2026-05-09; subsequent locks documented per-section.
 **Source:** SPARK_Blueprint.md v0.5 + 3-way Council deliberation (Claude + Grok + Gemini).
 **Scope:** Phase-1 implementation decisions. Vision is per spec — this doc only fills HOW.
 **Authority:** Blueprint LOCKED rules > this document > session-level tuning.

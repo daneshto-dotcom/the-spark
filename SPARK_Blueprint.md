@@ -3,7 +3,7 @@
 ### A Real-Time Multiplayer Game of Geometric Emergence
 
 **Game Design Blueprint — Version 0.5.1**
-*May 2026 · Status: Phase 1 in progress · v0.5.1 amends color/no-build rules*
+*May 2026 · Status: Phase-1 complete + Phase-2 Tier-0 (1v1 Trystero/Nostr networked) + Phase-2 Tier-1 (Sever-as-disruption + multi-color bond rendering + audio + Voltkin godly) SHIPPED. Live at https://spark-online.space/. · v0.5.1 amends color/no-build rules*
 
 ### v0.5.1 Changes (Patch — Session 4)
 

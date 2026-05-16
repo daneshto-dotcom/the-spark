@@ -14,7 +14,27 @@ S30 audit at session close surfaced 24 findings split P0/P1/P2 across S31/S33 (s
 
 ---
 
-## Session 31 — S30 audit P0 batch (5 user-visible Voltkin bugs) [PLANNED 2026-05-16]
+## Session 34 — S30 audit P2 batch (Phase A) + fresh audit cleanup (Phase B) [COMPLETED 2026-05-16]
+
+**Phase A (S30 audit P2 batch — deferred from S33):** 8 priorities shipped, 9 commits `0df05d1..07b12b9`. P2-18 dropped per false-positive pattern (existing comment documents intentional back-compat). Standard tier Council R1 + PRIME-AUDIT 4 deltas. Tests 588 → 620 (+32). Bundle 467.46 → 468.14 KB (+0.68 KB).
+
+**Phase B (fresh 4-agent audit + cleanup):** 16 findings surfaced; PRIME-AUDIT rejected 3 false-positives (computeCreatureTint div-by-zero guarded by control flow; leanFactor 1e-6 epsilon adequate; atan2(0,0) deterministic). 9 actionable shipped (1 P0 doc, 6 P1, 2 P2). Council R1 + PRIME-AUDIT additional.
+
+---
+
+## Session 33 — S30 audit P1 batch (10 priorities) [COMPLETED 2026-05-16]
+
+P1-7 dropped per PRIME-AUDIT Δ2 false-positive. 9 commits `2f07f3f..45dbf18` + close `99e8b1a`. Standard tier Council R1 + PRIME-AUDIT 2 evidence-based overrides. Tests 576 → 588 (+12). Bundle ~unchanged.
+
+---
+
+## Session 32 — diagnostic-only (no code change) [COMPLETED 2026-05-16]
+
+User-reported "voltkin video + bg music gone" turned out to be browser cache. Empirical headless test in identical bundle confirmed code worked end-to-end. Hard refresh fixed user-side. S32 P1 batch deferred → executed S33.
+
+---
+
+## Session 31 — S30 audit P0 batch (5 user-visible Voltkin bugs) [COMPLETED 2026-05-13]
 
 **Triggered by S30 audit findings (4 parallel agents this session — code-quality / test-determinism / runtime-correctness / docs-drift — surfaced 24 findings). User decision: ship P0 (5 priorities) S31, P1 (10 priorities) S32, P2 (9 priorities) S33. Standard tier, Council R1 (Grok+Gemini) deliberated 2026-05-16 + PRIME-AUDIT (2 overrides Q1+Q3, 1 scope amendment).**
 
@@ -40,7 +60,7 @@ S30 audit at session close surfaced 24 findings split P0/P1/P2 across S31/S33 (s
 
 ---
 
-## Session 32 — S30 audit P1 batch (quality + correctness) [PLANNED]
+## Session 32 — S30 audit P1 batch (quality + correctness) [SUPERSEDED — deferred + shipped in S33]
 
 **Estimated 10 priorities from S30 audit:**
 
@@ -61,7 +81,7 @@ S30 audit at session close surfaced 24 findings split P0/P1/P2 across S31/S33 (s
 
 ---
 
-## Session 33 — S30 audit P2 batch (future-tax + cleanup) [PLANNED]
+## Session 33 — S30 audit P2 batch (future-tax + cleanup) [SUPERSEDED — deferred + shipped in S34 Phase A]
 
 **Estimated 9 priorities:**
 
