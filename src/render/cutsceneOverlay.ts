@@ -374,13 +374,12 @@ export class CutsceneOverlay {
       this.app.ticker.add(tickerFn);
       this.videoTickerFn = tickerFn;
     };
-    if (video.readyState >= 2) {
-      // HAVE_CURRENT_DATA already — first frame is decoded — set up now.
-      setup();
-    } else {
-      // Wait for first frame to be decoded before binding texture.
-      video.addEventListener('loadeddata', setup, { once: true });
-    }
+    // S33 P1-9 — readyState>=2 fast-path removed (was always false here).
+    // Caller order: play() invokes mountVideoViaShader at line 164 BEFORE
+    // video.load() at line 175, so readyState is HAVE_NOTHING (0) at this
+    // point — the fast-path branch was provably unreachable (S30 audit
+    // finding #9).
+    video.addEventListener('loadeddata', setup, { once: true });
   }
 
   // S30 P0b — DELETED `crossfadeCharacterSprite` method. Was the static voltkin
