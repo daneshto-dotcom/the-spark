@@ -1,6 +1,6 @@
 {
-  "tool_calls_session_total": 491,
-  "_S33_NOTE": "S33 P1 batch — 9 P1 audit findings (originally 10, P1-7 dropped per PRIME-AUDIT Δ2 as audit false-positive — existing cutsceneOverlay.ts:364 comment documents belt-and-suspenders intent). Standard tier Council R1 ran 2026-05-16 (Grok-4-1-fast-non-reasoning DISRUPTOR + Gemini-2.5-flash AUDITOR). PRIME-AUDIT 2 evidence-based overrides: Δ1 REVERSE Council Q1 keep no-SCHEMA_VERSION-bump (save.ts:75 documents S15 P2 / S28 P0 / S31 P0-3 additive-optional precedent; save.ts:249 throws on schemaVersion≠1 so bumping would break legacy clients), Δ2 DROP P1-7 (false-positive). Δ3/Δ4 refinements to P1-12 (use snapshot serializer) + P1-11 (JSDoc legacy fallback). Execution order: P1-12 first (replay baseline) → cutsceneOverlay non-math (P1-9, P1-8) → math touches (P1-10, P1-11) → renames + gates (P1-13, P1-6) → docs + cleanup (P1-14, P1-15).",
+  "tool_calls_session_total": 492,
+  "_S33_NOTE": "S33 P1 batch — 9 P1 audit findings COMPLETED (originally 10, P1-7 dropped per PRIME-AUDIT Δ2 as audit false-positive — existing cutsceneOverlay.ts:364 comment documents belt-and-suspenders intent). Standard tier Council R1 ran 2026-05-16 (Grok-4-1-fast-non-reasoning DISRUPTOR + Gemini-2.5-flash AUDITOR). PRIME-AUDIT 2 evidence-based overrides applied: Δ1 REVERSE Council Q1 keep no-SCHEMA_VERSION-bump (save.ts:75 documents S15 P2 / S28 P0 / S31 P0-3 additive-optional precedent; save.ts:249 throws on schemaVersion≠1 so bumping would break legacy clients), Δ2 DROP P1-7 (false-positive). Δ3/Δ4 refinements to P1-12 (use snapshot serializer) + P1-11 (JSDoc legacy fallback). Execution order: P1-12 first (replay baseline) → P1-9 → P1-8 → P1-10 → P1-11 → P1-13 → P1-6 → P1-14 → P1-15. 9 commits pushed to master (2f07f3f → 45dbf18). Net: +12 tests (576→588), bundle 467.41-467.46 KB (essentially unchanged, 32.5 KB headroom on 500 KB cap), tsc clean throughout.",
   "session_start": "2026-05-16T00:00:00Z",
   "session_id": "S33",
   "budget_total": 1000000,
@@ -18,12 +18,12 @@
   "active_prime_audit": ".claude/plans/2026-05-16_PDR_Session_33_S32_P1_Audit_Batch.md",
   "active_check_triumvirate": null,
   "session_kind": "execution",
-  "session_note": "S33 P1 batch — close S30 audit P1 findings (9 priorities; P1-7 dropped). Replay-determinism test first as baseline; subsequent math touches guarded by it.",
+  "session_note": "S33 P1 batch — closed S30 audit P1 findings. 9 commits, 588/588 green, bundle 467.46 KB. Ready for /handoff.",
   "priorities": [
     {
       "id": "P1-12",
-      "label": "Replay determinism test (BASELINE — runs first). New src/state/save.replay.test.ts: seed two worlds identically, run identical dispatch sequence + tick advancement, assert JSON.stringify(snapshot(w1)) === JSON.stringify(snapshot(w2)). Catches future Math.random/Date.now/performance.now creep in reducers. Uses existing save.ts WorldSnapshot serializer per PRIME-AUDIT Δ3 (catches all deterministic-field drift, not hand-picked slices).",
-      "status": "in_progress",
+      "label": "Replay determinism test (BASELINE). New src/state/save.replay.test.ts: seed two worlds identically, run identical dispatch sequence, assert JSON.stringify(snapshot(w1)) === JSON.stringify(snapshot(w2)) (savedAt stripped per intentional-metadata). Catches future Math.random/Date.now creep.",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -31,14 +31,14 @@
       "council_waived": false,
       "council_waiver_reason": null,
       "council_invoked": "S33-S32_P1_batch-Council-R1-2026-05-16",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "Verified: (1) `npx vitest run src/state/save.replay.test.ts` → 4/4 passing on FIRST run after stripping savedAt timestamp (the test caught its own nondeterminism trigger — proves the assertion has real signal); (2) full suite 580/580 (576 baseline + 4 new); (3) test design covers 1000-iter run, 250-iter run, sanity-check different-seed produces different snapshot, and primitive+bond counts after stress (vacuous-empty-world guard); (4) uses production save.ts WorldSnapshot serializer per PRIME-AUDIT Δ3 (catches all deterministic-field drift automatically, not hand-picked slices); (5) commit 2f07f3f +653/-54 LOC.",
+      "checkpoint_commit": "2f07f3f"
     },
     {
       "id": "P1-9",
-      "label": "Delete dead readyState>=2 fast-path in cutsceneOverlay.ts:377-385. Branch runs BEFORE video.load() per S31 audit trace; unreachable. -3 LOC.",
-      "status": "pending",
+      "label": "Delete dead readyState>=2 fast-path in cutsceneOverlay.ts:377. Branch runs BEFORE video.load() (caller order: play():164 mountVideoViaShader, play():175 video.load); readyState always 0 at gate.",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -46,14 +46,14 @@
       "council_waived": false,
       "council_waiver_reason": null,
       "council_invoked": "S33-S32_P1_batch-Council-R1-2026-05-16",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "Verified: (1) caller order traced in cutsceneOverlay.ts — line 164 calls mountVideoViaShader, line 175 calls video.load(); readyState is HAVE_NOTHING (0) at the if-check; (2) tsc clean exit 0; (3) cutsceneOverlay.test.ts passing; (4) full suite 580/580; (5) commit b8fc542 -3 LOC body / +5 LOC explanatory comment so future devs don't reintroduce.",
+      "checkpoint_commit": "b8fc542"
     },
     {
       "id": "P1-8",
-      "label": "Consolidate 2 dup loadeddata listeners in cutsceneOverlay.ts (lines 194 + 382) into one with {once:true}. Diagnostic-log fires BEFORE setup to keep console correlation. -8 LOC.",
-      "status": "pending",
+      "label": "Consolidate 2 dup loadeddata listeners. mountVideoViaShader refactored from listener-attaching to setup-returning. play() captures shaderSetup and invokes it inside its own loadeddata handler. Sequence: clearTimeout → shaderSetup() → currentTime nudge → video.play().",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -61,14 +61,14 @@
       "council_waived": false,
       "council_waiver_reason": null,
       "council_invoked": "S33-S32_P1_batch-Council-R1-2026-05-16",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "Verified: (1) tsc clean exit 0 (signature change `void → () => void` propagated correctly); (2) cutsceneOverlay.test.ts passing; (3) save.replay.test.ts still green (unrelated but proves no cross-file regression); (4) full suite 580/580; (5) commit 26d8176 +19/-8 LOC; (6) DOM-gated runtime behavior preserved by analysis: setup is sync, no race with subsequent video.play(), clearTimeout idempotent so reorder is safe. Browser smoke deferred to end-of-session preview.",
+      "checkpoint_commit": "26d8176"
     },
     {
       "id": "P1-10",
-      "label": "pseudoRand consolidation. Add one-shot pseudoRand(seed, index=0): number to src/state/rng.ts (NEW export, mulberry32 generator untouched). Refactor arcFlash.ts:68 + screenShake.ts:103 to use it. Byte-exact replay-determinism preserved (math algebraically equivalent: screenShake's seed^0===seed and 0*K1===0).",
-      "status": "pending",
+      "label": "pseudoRand consolidation. Added one-shot pseudoRand(seed, index=0) to src/state/rng.ts as NEW export (mulberry32 generator API untouched). Removed local copies from arcFlash.ts + screenShake.ts. Math byte-exact preserved (algebraic equivalence: screenShake's seed^0===seed and 0*K===0).",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -76,14 +76,14 @@
       "council_waived": false,
       "council_waiver_reason": null,
       "council_invoked": "S33-S32_P1_batch-Council-R1-2026-05-16",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "Verified: (1) save.replay.test.ts still 4/4 green AFTER consolidation — proves byte-exact math preservation across the refactor (this is what P1-12 was built to guard); (2) tsc clean (new import paths resolve from arcFlash.ts ../../state/rng.ts and screenShake.ts ../state/rng.ts); (3) full suite 580/580; (4) commit 2c3726e +36/-29 LOC; (5) algebraic equivalence documented in JSDoc on pseudoRand for future maintainers (seed^0===seed, 0*K===0 reduction).",
+      "checkpoint_commit": "2c3726e"
     },
     {
       "id": "P1-11",
-      "label": "Add creatureId: number to ARC_FLASH effect type in game/effects.ts. Emit from creatureAttack.ts:112. Mix into arcSeed(tick, sx, sy, creatureId) in arcFlash.ts:83. NetSnapshot pass-through in save.ts:519/558. NO SCHEMA_VERSION BUMP per PRIME-AUDIT Δ1 (S15 P2 / S28 P0 / S31 P0-3 additive-optional precedent; save.ts:249 throws on schemaVersion≠1 so bump would break legacy clients). JSDoc legacy-snapshot fallback: undefined creatureId coerces to 0 via bitwise OR, arcSeed degrades to old jitter for legacy data.",
-      "status": "pending",
+      "label": "Add creatureId?: CreatureId to ARC_FLASH effect type (game/effects.ts). Emitted from creatureAttack.ts:111. Mixed into arcSeed(tick, sx, sy, creatureId) in arcFlash.ts:83. NetSnapshot pass-through serialize+deserialize. PRIME-AUDIT Δ1: NO SCHEMA_VERSION BUMP (additive-optional precedent S15 P2 / S28 P0 / S31 P0-3). Legacy snapshots: (undefined | 0) → 0 via bitwise OR, jitter degrades to pre-S33 pattern.",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -91,14 +91,14 @@
       "council_waived": false,
       "council_waiver_reason": null,
       "council_invoked": "S33-S32_P1_batch-Council-R1-2026-05-16",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "Verified: (1) tsc clean — schema change propagates through 5 files (effects.ts type, creatureAttack.ts emit, arcFlash.ts arcSeed sig + call, save.ts SerializedEffect + serializeEffect + deserializeEffect); (2) save.test.ts 20/20 with +2 new tests covering creatureId round-trip AND legacy ARC_FLASH-without-creatureId rehydrates as undefined (PRIME-AUDIT Δ4 satisfied); (3) save.replay.test.ts still green (creatureId additive on existing schema, no determinism drift); (4) full suite 582/582 (580 prior + 2 new); (5) bundle 467.41 KB (slight DECREASE due to P1-8/P1-9 cumulative dead-code removal exceeding P1-11 additions); (6) commit 5a654e7 +100/-7 LOC; (7) Council Q1 originally voted bump 2v1 — PRIME-AUDIT Δ1 reversed based on save.ts:75 documented precedent (no bump) + save.ts:249 throw-on-mismatch evidence.",
+      "checkpoint_commit": "5a654e7"
     },
     {
       "id": "P1-13",
-      "label": "Rename cutsceneOverlay.ts private field characterSprite → videoSprite (S30 P0b: field now holds video, not character PNG). Scope: lines 11, 60, 228 (delete commented-out line entirely), 294-297, 361. RECIPE DATA FIELD UNTOUCHED: recipes/types.ts:41 + voltkin.ts:207 characterSprite STAYS (PNG path used by codex).",
-      "status": "pending",
+      "label": "Rename cutsceneOverlay.ts private characterSprite → videoSprite (post-S30 P0b: field now holds video, not character PNG). Scope FENCE: recipe data field characterSprite STAYS in types.ts + voltkin.ts (PNG path used by codex). Also dropped stale docstring claim about post-video crossfade + commented-out crossfadeCharacterSprite restore breadcrumb.",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -106,14 +106,14 @@
       "council_waived": false,
       "council_waiver_reason": null,
       "council_invoked": "S33-S32_P1_batch-Council-R1-2026-05-16",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "Verified: (1) tsc clean — private field rename + 7 call-site updates type-check; (2) grep `characterSprite` in cutsceneOverlay.ts shows only rename-history comments remain (5 refs, all in JSDoc/inline comments); (3) recipes/types.ts:41 + voltkin.ts:207 `characterSprite` data fields UNTOUCHED per scope fence; (4) full suite 582/582; (5) commit 3ed761c +19/-12 LOC.",
+      "checkpoint_commit": "3ed761c"
     },
     {
       "id": "P1-6",
-      "label": "Phantom-shake gate forward-defense. main.ts:683-685: replace `!world.bonds.has(bondId)` with explicit `world.effects.some(e=>e.kind==='ARC_FLASH' && e.tick===world.tick)`. Functionally equivalent today; forward-defense for Anvil cleave/AOE that may sever bonds without emitting ARC_FLASH. ADD regression test to screenShake.test.ts covering both gate paths.",
-      "status": "pending",
+      "label": "Phantom-shake gate forward-defense. main.ts:683-685 — replaced `!world.bonds.has(bondId)` with shouldTriggerShakeForArcFlash(world.effects, world.tick) pure helper exported from screenShake.ts. Tied to ARC_FLASH emit (visual signal) not bond delta (side-effect). Forward-defense for Anvil cleave/AOE creatures that may sever without ARC_FLASH or flash without severing.",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -121,14 +121,14 @@
       "council_waived": false,
       "council_waiver_reason": null,
       "council_invoked": "S33-S32_P1_batch-Council-R1-2026-05-16",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "Verified: (1) tsc clean — new helper exported from screenShake.ts, imported in main.ts; (2) screenShake.test.ts 16/16 (10 prior + 6 new gate-predicate tests covering empty, hit, stale-tick, non-ARC, multi-effect, forward-defense BOND_SEVERED-without-ARC_FLASH); (3) full suite 588/588 (582 prior + 6 new); (4) commit 0e39dce +93/-8 LOC; (5) functionally-equivalent invariant verified: today creatureAttack.ts only emits ARC_FLASH on successful sever so the new gate fires identically to the prior `!bonds.has` gate in current code paths; the forward-defense test `BOND_SEVERED without ARC_FLASH does NOT trigger shake` locks the new invariant for Anvil's arrival.",
+      "checkpoint_commit": "0e39dce"
     },
     {
       "id": "P1-14",
-      "label": "BACKLOG.md S20-S30 deprecation header (Council Q3=B unanimous, no full backfill). Replace line 7 staleness note with explicit redirect: 'Sessions 20-30 — authoritative record in .handoff-archive/HANDOFF_2026-05-1{2,3,4}_*.md; this file tracks plans S31+ only.' ~5 LOC change.",
-      "status": "pending",
+      "label": "BACKLOG.md S20-S30 deprecation header (Council Q3=B unanimous). Replaced line-7 staleness note with explicit redirect listing authoritative handoff files per session range (S20-S22 networking, S23, S24-S28 voltkin, S29-S30 polish). BACKLOG.md tracks plans S31+; session history in .handoff-archive/.",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -136,14 +136,14 @@
       "council_waived": false,
       "council_waiver_reason": null,
       "council_invoked": "S33-S32_P1_batch-Council-R1-2026-05-16",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "Verified: (1) BACKLOG.md line 7 now reads explicit deprecation header pointing at 5 specific handoff file groups; (2) no code/test impact (markdown only); (3) commit 2680ce3 +7/-1 LOC; (4) preserves audit traceability — S33 P1-14 noted inline so future reviewers see why backfill was rejected (Council Q3=B unanimous: deprecate-and-redirect over ~100 LOC of summary noise).",
+      "checkpoint_commit": "2680ce3"
     },
     {
       "id": "P1-15",
-      "label": "Handoff cleanup at root. (1) Remove 6 byte-IDENTICAL to archive: S24/S25/S27/S28/S29/S31close. (2) DIFFERS file HANDOFF_2026-05-13_S23close.md — diff root vs archive, keep longer/newer in archive, remove root. (3) NO-ARCHIVE file HANDOFF_2026-05-13.md — copy root → archive first, then remove root. (4) Keep S32diagnostic.md at root as current-handoff marker (Council Q5 OVERRULED 2v1 in favor of A=keep).",
-      "status": "pending",
+      "label": "Handoff cleanup at root. (1) Removed 6 byte-IDENTICAL to archive: S24/S25/S27/S28/S29/S31close. (2) DIFFERS file S23close — ROOT was newer (S23 FINAL close 125 lines, e0d2a2c, 432 tests) vs ARCHIVE older (S23 close mid-session 96 lines, f7ca55e, 425 tests) — ROOT overwrote ARCHIVE then ROOT removed. (3) NO-ARCHIVE file HANDOFF_2026-05-13.md — copied ROOT to ARCHIVE then ROOT removed. (4) S32diagnostic.md KEPT at root as current-handoff marker (Council Q5 OVERRULED 2v1).",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -151,17 +151,17 @@
       "council_waived": false,
       "council_waiver_reason": null,
       "council_invoked": "S33-S32_P1_batch-Council-R1-2026-05-16",
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "Verified: (1) post-cleanup ROOT contains only HANDOFF_2026-05-16_S32diagnostic.md (verified via `ls HANDOFF_*.md`); (2) archive count went 40 → 42 (S23close overwrite + S13 new entry); (3) DIFFERS file inspected before deletion via diff — ROOT was clearly the FINAL S23 close vs ARCHIVE was a mid-session snapshot, ROOT preserved; (4) NO-ARCHIVE file preserved in archive before removal; (5) commit 45dbf18 rename-100% for S13 plus deletes; (6) PRIME-AUDIT A.0 had pre-flagged scope delta (BACKLOG said 6, probe found 9) and dispatched mitigation in PDR before user `go`.",
+      "checkpoint_commit": "45dbf18"
     }
   ],
-  "batch_check_method": null,
+  "batch_check_method": "S33 P1 batch fully verified: 588/588 tests green (576 baseline + 12 new: P1-12 +4 replay, P1-11 +2 schema, P1-6 +6 gate predicate). Bundle 467.46 KB (within 32.54 KB of 500 KB hard cap; bundle essentially unchanged net of dead-code removal vs schema additions). tsc clean throughout. 9 commits pushed to origin/master (chain 2f07f3f → 45dbf18). Production deploy via GH Pages auto-deploy on push (HTTP 200 confirmed at session boot; post-batch live verification pending user playtest). 1v1 brother retest carry-forward — NetSnapshot creatureId additivity tested via save.test.ts legacy ARC_FLASH-no-creatureId rehydrates as undefined (PRIME-AUDIT Δ4 satisfied) but cross-network 2-peer playtest is out of scope for solo session.",
   "totals": {
     "turns": 0,
     "estimated_tokens_legacy_informational": 0,
-    "real_context_tokens_current": 0,
-    "real_context_pct_current": 0,
+    "real_context_tokens_current": 275699,
+    "real_context_pct_current": 27.6,
     "budget_remaining": 1000000,
     "budget_status": "statusline_dead"
   }
