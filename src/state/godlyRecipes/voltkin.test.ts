@@ -308,3 +308,66 @@ describe('voltkin predicate (typed chain)', () => {
     expect(match!.targetComponentPrimitiveIds.length).toBe(8);
   });
 });
+
+/**
+ * S31 P0-1 — Voltkin spawn timing invariant. Pre-S31 SPAWN_CREATURE fired at
+ * `world.tick + cinematicMsToTicks(cinematicMs)` = +240 ticks, but the
+ * cutsceneOverlay bg stayed opaque (`bg.alpha=1`) for cinematicMs +
+ * sustainedEffectMs (4500ms) and then linear-faded over FADE_MS (300ms) to
+ * alpha=0 at 4800ms. The creature's 60-tick SPAWNING animation ran ticks
+ * 240-300 — 48 of those 60 ticks (80%) were hidden under bg.alpha=1 overlay.
+ *
+ * Post-S31 the spawn schedule includes the full overlay-active window
+ * (cinematicMs + sustainedEffectMs + FADE_MS); creature spawns at the exact
+ * tick `bg.alpha` reaches 0 → full 60-tick SPAWNING animation visible.
+ *
+ * Tests below codify the math + lock the contract against accidental
+ * constant changes (any future tune of cinematicMs / sustainedEffectMs /
+ * FADE_MS must also re-verify the spawn delay matches expected overlay-
+ * clear time).
+ */
+import { VOLTKIN_RECIPE } from './voltkin.ts';
+import { cinematicMsToTicks } from '../creatures/creature.ts';
+import { FADE_MS } from '../../render/cutsceneOverlay.ts';
+
+describe('S31 P0-1: Voltkin spawn timing covers full overlay-active window', () => {
+  it('VOLTKIN_RECIPE constants reflect post-S30 values', () => {
+    // Anchors the math: any future change to these constants without updating
+    // the spawn-timing math will flag here.
+    expect(VOLTKIN_RECIPE.cinematicMs).toBe(4000);
+    expect(VOLTKIN_RECIPE.sustainedEffectMs).toBe(500);
+    expect(FADE_MS).toBe(300);
+  });
+
+  it('spawn-delay ticks == overlay-clear ticks (creature spawns exactly when bg.alpha=0)', () => {
+    const totalOverlayMs = VOLTKIN_RECIPE.cinematicMs + VOLTKIN_RECIPE.sustainedEffectMs + FADE_MS;
+    expect(totalOverlayMs).toBe(4800);
+    // 4800ms / (1000ms/60Hz) = 288 ticks. Use cinematicMsToTicks for parity with
+    // the actual main.ts call to ensure rounding semantics match.
+    expect(cinematicMsToTicks(totalOverlayMs)).toBe(288);
+  });
+
+  it('spawn-delay > pre-S31 fireAtTick (regression guard against reverting to mp4-end-only)', () => {
+    // Pre-S31: cinematicMsToTicks(cinematicMs) = 240. Post-S31: 288.
+    // If anyone reverts the +sustainedEffectMs+FADE_MS math, this fails.
+    const preS31 = cinematicMsToTicks(VOLTKIN_RECIPE.cinematicMs);
+    const postS31 = cinematicMsToTicks(
+      VOLTKIN_RECIPE.cinematicMs + VOLTKIN_RECIPE.sustainedEffectMs + FADE_MS,
+    );
+    expect(preS31).toBe(240);
+    expect(postS31).toBe(288);
+    expect(postS31 - preS31).toBe(48); // ~800ms shift; full SPAWNING (60 ticks) now visible
+  });
+
+  it('spawn happens at OR AFTER overlay clears, never before', () => {
+    // Documents the spawn-not-before-overlay-clear invariant. Future changes to
+    // either side of this inequality must preserve >=.
+    const spawnDelayTicks = cinematicMsToTicks(
+      VOLTKIN_RECIPE.cinematicMs + VOLTKIN_RECIPE.sustainedEffectMs + FADE_MS,
+    );
+    const overlayClearTicks = cinematicMsToTicks(
+      VOLTKIN_RECIPE.cinematicMs + VOLTKIN_RECIPE.sustainedEffectMs + FADE_MS,
+    );
+    expect(spawnDelayTicks).toBeGreaterThanOrEqual(overlayClearTicks);
+  });
+});

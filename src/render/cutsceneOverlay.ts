@@ -25,7 +25,19 @@ import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import type { GodlyRecipe } from '../state/godlyRecipes/types.ts';
 import { CinematicLumaKeyFilter } from './cinematicLumaKey.ts';
 
-const FADE_MS = 300;
+/**
+ * S31 P0-1 — EXPORTED so main.ts can include FADE_MS in the
+ * `pendingCreatureSpawn.fireAtTick` math. Pre-S31 fireAtTick was
+ * `world.tick + cinematicMsToTicks(cinematicMs)` which dispatches
+ * SPAWN_CREATURE the moment the mp4 cinematic ends — but the overlay
+ * `bg` is still opaque (`alpha=1`) for another `sustainedEffectMs` ms
+ * and then fades to alpha=0 over FADE_MS ms. The creature was rendered
+ * for ~48 of its 60 SPAWNING-state ticks UNDER the still-opaque overlay,
+ * hiding the entry pulse the spawn-fix is meant to expose. Including
+ * FADE_MS in the spawn-delay math means the creature spawns at the
+ * exact tick `bg.alpha` reaches 0 — full SPAWNING animation visible.
+ */
+export const FADE_MS = 300;
 const VIDEO_LOAD_TIMEOUT_MS = 5000;
 
 export interface CutsceneContext {

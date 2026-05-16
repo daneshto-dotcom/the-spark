@@ -72,7 +72,7 @@ import { StatsOverlay } from './render/statsOverlay.ts';
 import { StructureRenderer } from './render/structureRenderer.ts';
 import { TitleScreen } from './render/titleScreen.ts';
 import { HUD } from './render/ui.ts';
-import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
+import { CutsceneOverlay, FADE_MS } from './render/cutsceneOverlay.ts';
 import { makeCinematicVignette } from './render/cinematicVignette.ts';
 import { CodexOverlay, unlockGodly, entryFromRecipe } from './render/codexOverlay.ts';
 import { CreatureRenderer } from './render/creatureRenderer.ts';
@@ -530,8 +530,22 @@ async function bootstrap(): Promise<void> {
           },
         );
       }
+      // S31 P0-1 — fireAtTick delayed by `sustainedEffectMs + FADE_MS` ticks
+      // so SPAWN_CREATURE dispatches at the exact moment `bg.alpha` reaches 0
+      // (cutsceneOverlay completes its fade-out). Pre-S31 the creature spawned
+      // at `cinematicMs` (mp4-end), then ran ~48 of its 60-tick SPAWNING
+      // animation UNDER the still-opaque overlay (`bg.alpha=1` for
+      // sustainedEffectMs ms post-mp4, then linear fade over FADE_MS to 0).
+      // Council Q1 ruled fade-START (spawn at +sustainedEffectMs only); PRIME-
+      // AUDIT overrode to fade-END (+sustainedEffectMs + FADE_MS) because the
+      // first 18 ticks of SPAWNING under the fade-out lose ~30% of the entry
+      // pulse the fix is meant to expose. Spawn delay is now wall-clock
+      // (cinematicMs + sustainedEffectMs + FADE_MS) → ticks-deterministic via
+      // cinematicMsToTicks for replay safety.
       world.pendingCreatureSpawn = {
-        fireAtTick: world.tick + cinematicMsToTicks(recipe.cinematicMs),
+        fireAtTick: world.tick + cinematicMsToTicks(
+          recipe.cinematicMs + recipe.sustainedEffectMs + FADE_MS,
+        ),
         event,
       };
     }
