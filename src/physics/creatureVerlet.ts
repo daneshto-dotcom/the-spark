@@ -144,11 +144,22 @@ export function computeStubTargetPos(spawnedAtTick: number, ownerPlayerId: Playe
   };
 }
 
-// === Per-behavior steering helpers (Δ2). Exported so unit tests can isolate each
-// force; production composition lives in computeSteeringAccel above. S27 may lift
-// these as the FSM ATTACKING state composes differently from SEEKING. ===
+// === Per-behavior steering helpers (S26 Council Q4 COMPROMISE Δ2).
+//
+// @internal — exported for testability ONLY. Production composition lives in
+// `computeSteeringAccel` above; the three helpers below are imported solely
+// by `src/physics/creatureVerlet.test.ts` (4 sites). Future creatures (Anvil,
+// etc.) may compose differently per-FSM-state (S27 carry-forward) so the
+// helpers stay public-named to keep the regression-test isolation cheap.
+//
+// **Do NOT import these from outside src/physics/creatureVerlet.test.ts.**
+// S34 P2-17 (S30 audit follow-through) — annotation locks this contract.
+// ============================================================================
 
-/** Unit vector × CREATURE_MAX_ACCEL from creature toward target. ZERO at coincident pos. */
+/**
+ * @internal Test-only export. See block comment above.
+ * Unit vector × CREATURE_MAX_ACCEL from creature toward target. ZERO at coincident pos.
+ */
 export function seekForce(c: Creature, target: Vec2): Vec2 {
   const dx = target.x - c.pos.x;
   const dy = target.y - c.pos.y;
@@ -160,7 +171,10 @@ export function seekForce(c: Creature, target: Vec2): Vec2 {
   };
 }
 
-/** Seek with linear ramp-down inside arriveRadius — smooth approach, no oscillation. */
+/**
+ * @internal Test-only export. See block comment above seekForce.
+ * Seek with linear ramp-down inside arriveRadius — smooth approach, no oscillation.
+ */
 export function arriveForce(c: Creature, target: Vec2, arriveRadius: number): Vec2 {
   const dx = target.x - c.pos.x;
   const dy = target.y - c.pos.y;
@@ -173,7 +187,10 @@ export function arriveForce(c: Creature, target: Vec2, arriveRadius: number): Ve
   };
 }
 
-/** Linear-strength repulsion from `source` inside `radius`; zero outside. */
+/**
+ * @internal Test-only export. See block comment above seekForce.
+ * Linear-strength repulsion from `source` inside `radius`; zero outside.
+ */
 export function repulseForce(c: Creature, source: Vec2, radius: number): Vec2 {
   const dx = c.pos.x - source.x;
   const dy = c.pos.y - source.y;
