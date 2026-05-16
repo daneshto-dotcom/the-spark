@@ -192,6 +192,33 @@ export class CreatureRenderer {
     }
   }
 
+  /**
+   * Drain the sprite Map and remove each sprite from the container,
+   * **preserving the container itself** for next PLAYING-entry re-mounts.
+   *
+   * S34 P2-16 — wired into `main.ts` TITLE-transition watcher (alongside
+   * `cutsceneOverlay.abort()` + `screenShake.reset()`). PRIME-AUDIT Δ3
+   * rationale: the TITLE-transition watcher fires INSIDE the physics tick
+   * loop, BEFORE the next `sync()` call could prune orphan sprites whose
+   * creatures were just cleared from `world.creatures` by `applyReturnToTitle`.
+   * Without this explicit clear, one frame window could show orphan Pixi
+   * sprites attached to stage. Calling `clear()` in the transition watcher
+   * closes that window deterministically.
+   *
+   * Difference from `destroy()`: `destroy()` ALSO kills the container itself
+   * (full-app teardown semantics — currently unused in prod); `clear()` only
+   * drains the sprite Map + removes each sprite individually, leaving the
+   * container alive so next PLAYING entry can `addChild` new sprites without
+   * reconstructing the renderer.
+   */
+  clear(): void {
+    for (const sprite of this.sprites.values()) {
+      this.container.removeChild(sprite);
+      sprite.destroy();
+    }
+    this.sprites.clear();
+  }
+
   destroy(): void {
     for (const sprite of this.sprites.values()) sprite.destroy();
     this.sprites.clear();

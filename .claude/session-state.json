@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 26,
+  "tool_calls_session_total": 31,
   "_S34_NOTE": "S34 P2 batch — S30 audit P2 findings #16-#24 carry-forward from S33 (which shipped only P1 batch). 8 priorities in execution order (smallest/safest first → largest/riskiest last). P2-18 DROPPED per S33 PRIME-AUDIT pattern #audit-finding-can-be-false-positive-when-existing-comment-documents-intent — 'godly' BOND_SEVERED.cause already documented intentional back-compat at effects.ts:121-128 + world.ts:382 + audioManager.test.ts:155 type-shape retention. Standard tier Council R1 ran 2026-05-16 (Grok-4-1-fast DISRUPTOR + Gemini-2.5-flash AUDITOR). 4 Battle Ledger CLAUDE wins (P2-16 method, P2-18 dispo, P2-20 shape, P2-22b fix, P2-23 single delete) + 1 GROK adopt (P2-24 add integration test as stretch goal) + 2 UNANIMOUS (P2-21 defensive, P2-19 LOCKED doc). PRIME-AUDIT Δ1 integration-test feasibility caveat (stretch only, jsdom+Pixi mock infeasible without high cost), Δ2 drop attackRangeSq derived field from CreatureConfig (derive inline), Δ3 document P2-16 clear() one-frame-orphan rationale, Δ4 reaffirm P2-18 no-future-delete (Nostr snapshot consumers).",
   "session_start": "2026-05-16T00:00:00Z",
   "session_id": "S34",
@@ -91,14 +91,19 @@
     {
       "id": "P2-19",
       "label": "Add LOCKED_DECISIONS §13.15 Phase-2 godly/creature system codification. All constants verbatim from current code (VOLTKIN_LIFETIME_TICKS=480, CREATURE_SPAWN_TICKS=60, CREATURE_DESPAWNING_TICKS=60, CREATURE_FADE_TICKS=30, VOLTKIN_ATTACK_CADENCE_TICKS=60, VOLTKIN_ATTACK_FIRE_TICK=30, VOLTKIN_ATTACK_RANGE=180, SEEKING_LEAN_MAX_RAD≈0.262, cinematicMs=4500, sustainedEffectMs=500, FADE_MS=300, ARC_FLASH_DURATION_TICKS=24, ScreenShake 6-tick decay ±2px, NetSnapshot pass-through, NO SCHEMA_VERSION bumps per additive-optional precedent). +1-liner Anvil migration ref per Grok ADD.",
-      "status": "pending",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
       "council_waiver_reason": null,
-      "council_invoked": "S34-P2_audit_batch-Council-R1-2026-05-16"
+      "council_invoked": "S34-P2_audit_batch-Council-R1-2026-05-16",
+      "check_completed": true,
+      "check_method": "Verified: (1) LOCKED_DECISIONS.md 841 → 962 lines (+121, ~+120 LOC target met); (2) §13.15 added between §13.14 Audio and 'End' summary with 8 subsections (cinematic_timing, creature_lifecycle, combat, steering, visual_effects, screen_shake, netsnapshot, teardown) + 2 forward-looking subsections (anvil_migration, cross_references); (3) all constants verbatim from code at commit 88b11b0 — values pulled from src/state/creatures/creature.ts (4), creatureAttack.ts (constants embedded in handler), creatureVerlet.ts (lean cap), arcFlash.ts (4 visual constants), lifetime.ts (ARC_FLASH_DURATION_TICKS), cutsceneOverlay.ts (4 cinematic timings); (4) PRIME-AUDIT Δ2 attackRangeSq footnoted as consumer-derived NOT a config field; (5) Grok ADD adopted — Anvil migration subsection with checklist + open design Q; (6) 'End' summary updated to include Phase-2 godly system as locked + Anvil listed as remaining work; (7) no code or test impact (markdown only); (8) commit c64c94c +130/-4 LOC.",
+      "checkpoint_commit": "c64c94c",
+      "real_context_tokens_at_close": 232000,
+      "real_context_pct_at_close": 23.2
     },
     {
       "id": "P2-16",

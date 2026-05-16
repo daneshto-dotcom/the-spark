@@ -741,6 +741,13 @@ async function bootstrap(): Promise<void> {
       if (world.gameState === 'TITLE' && lastGameState !== 'TITLE') {
         cutsceneOverlay.abort();
         screenShake.reset();
+        // S34 P2-16 — explicit sprite cleanup. The reducer-side
+        // applyReturnToTitle clears world.creatures, but creatureRenderer's
+        // internal sprite Map is orchestration state; its sync() prune runs
+        // AFTER this transition watcher on the next render frame. clear()
+        // closes the one-frame orphan-sprite window (PRIME-AUDIT Δ3).
+        // Container preserved — next PLAYING entry can re-mount sprites.
+        creatureRenderer.clear();
         lastCinematicOwner = null;
         // S31 P0-3 — reset client shake cursor on TITLE transition so re-
         // entering PLAYING doesn't carry forward a stale tick threshold that
