@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 53,
+  "tool_calls_session_total": 57,
   "_S34_NOTE": "S34 P2 batch — S30 audit P2 findings #16-#24 carry-forward from S33 (which shipped only P1 batch). 8 priorities in execution order (smallest/safest first → largest/riskiest last). P2-18 DROPPED per S33 PRIME-AUDIT pattern #audit-finding-can-be-false-positive-when-existing-comment-documents-intent — 'godly' BOND_SEVERED.cause already documented intentional back-compat at effects.ts:121-128 + world.ts:382 + audioManager.test.ts:155 type-shape retention. Standard tier Council R1 ran 2026-05-16 (Grok-4-1-fast DISRUPTOR + Gemini-2.5-flash AUDITOR). 4 Battle Ledger CLAUDE wins (P2-16 method, P2-18 dispo, P2-20 shape, P2-22b fix, P2-23 single delete) + 1 GROK adopt (P2-24 add integration test as stretch goal) + 2 UNANIMOUS (P2-21 defensive, P2-19 LOCKED doc). PRIME-AUDIT Δ1 integration-test feasibility caveat (stretch only, jsdom+Pixi mock infeasible without high cost), Δ2 drop attackRangeSq derived field from CreatureConfig (derive inline), Δ3 document P2-16 clear() one-frame-orphan rationale, Δ4 reaffirm P2-18 no-future-delete (Nostr snapshot consumers).",
   "session_start": "2026-05-16T00:00:00Z",
   "session_id": "S34",
@@ -142,14 +142,19 @@
     {
       "id": "P2-24",
       "label": "Pure-helper extraction + tests for S25-S30 paths. Extract 3 helpers: (a) `computeSpriteDelta(currentIds, worldIds): {toCreate, toRemove}` from CreatureRenderer.sync, (b) `buildJitteredPolyline(seed, sx, sy, ex, ey, segments, ampPx): Vec2[]` from drawArcFlash, (c) `computeAbortCleanupSteps(active, hasVideo, hasTickerFn): AbortStep[]` from CutsceneOverlay.abort. +12-15 tests on helpers, 588→600-603. PRIME-AUDIT Δ1: Grok's full integration test (TITLE→PLAYING→TITLE) is STRETCH GOAL — attempt only if pure-helper extraction leaves obvious gap, otherwise defer to S35.",
-      "status": "pending",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
       "council_waiver_reason": null,
-      "council_invoked": "S34-P2_audit_batch-Council-R1-2026-05-16"
+      "council_invoked": "S34-P2_audit_batch-Council-R1-2026-05-16",
+      "check_completed": true,
+      "check_method": "Verified: (1) (a) computeSpriteDelta extracted to creatureRenderer.ts above the class — @internal pure function, ids in current Set diff against ids in world Set yields toCreate + toRemove arrays preserving source insertion order; sync() orphan-removal branch refactored to consume the helper (semantic equivalence — replay-determinism test P1-12 STAYS GREEN); (2) (b) buildJitteredPolyline extracted to arcFlash.ts above drawArcFlash — pure function, takes seed + endpoints + segments + ampPx, returns {xs, ys} parallel arrays; drawArcFlash refactored to call it (3-pass stroke renderer shares the one polyline); (3) (c) computeAbortCleanupSteps DEFERRED per PRIME-AUDIT Δ1 — CutsceneOverlay.abort does cleanup ACTIONS not COMPUTATION (kill timers, remove sprites, abort fades), nothing pure to extract; documented in commit message as S35 carry-forward; (4) +8 tests on computeSpriteDelta (empty/empty, populate, drop, symmetric-diff, identical, insertion-order, Map.keys() iterator, dedup) + +7 tests on buildJitteredPolyline (length, endpoint-preservation, zero-length degenerate, determinism, different-seed-different-output, zero-amplitude straight-line, amplitude bounds) = +15 tests; (5) full suite 605 → 620 (+15); (6) save.replay.test.ts P1-12 byte-exact replay-determinism STAYS GREEN — empirical proof both refactors preserved jitter math; (7) tsc clean exit 0; (8) bundle 467.83 → 468.14 KB (+0.31 KB; 31.86 KB headroom on 500 KB cap; session total +0.68 KB from 467.46 baseline); (9) commit 27b71b1 +285/-29 LOC.",
+      "checkpoint_commit": "27b71b1",
+      "real_context_tokens_at_close": 348000,
+      "real_context_pct_at_close": 34.8
     }
   ],
   "totals": {
