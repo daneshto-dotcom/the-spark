@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 339,
+  "tool_calls_session_total": 341,
   "_S31_NOTE": "S31 P0 batch — 5 fixes from S30 audit (4 parallel agents surfaced 24 items; user split P0/P1/P2 across S31/S32/S33). PDR Standard tier, Council R1 ran 2026-05-16 (Grok-4.20-0309-reasoning DISRUPTOR + Gemini-2.5-pro AUDITOR), PRIME-AUDIT overrode Council on Q1 (Option A spawn at fade-END for full pulse visibility) and Q3 (implicit ARC_FLASH→shake on client per YAGNI) plus 1 scope amendment (main.ts:311 onBackToTitle routes through dispatch RETURN_TO_TITLE). Execution order P0-5 → P0-4 → P0-1 → P0-2 → P0-3 (smallest-risk first).",
   "session_start": "2026-05-16T00:00:00Z",
   "session_id": "S31",
