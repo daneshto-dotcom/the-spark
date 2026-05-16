@@ -4,7 +4,13 @@
 **Locked decisions:** [LOCKED_DECISIONS.md](LOCKED_DECISIONS.md).
 **Spec:** [SPARK_Blueprint.md](SPARK_Blueprint.md) v0.5.1.
 
-**BACKLOG STALENESS NOTE (S31 plan, 2026-05-16):** Entries S20–S30 are absent from this document; they shipped 2026-05-12 → 2026-05-14 across networking fixes, Phase-2 implementation (S24–S28 voltkin), and S30 regression repair. Authoritative session record is `HANDOFF_2026-05-14_S30close.md` and the `.handoff-archive/` series. Backfill of S20–S30 BACKLOG entries is scheduled into S32 (audit finding #14).
+**SESSIONS 20–30 — DEPRECATED FROM THIS FILE (S33 P1-14, 2026-05-16):** Entries S20–S30 are intentionally absent from BACKLOG.md going forward. The authoritative session record is the handoff series:
+- S20–S22 networking fixes — `.handoff-archive/HANDOFF_2026-05-12_*.md`
+- S23 — `.handoff-archive/HANDOFF_2026-05-13_S23close.md`
+- S24–S28 Voltkin Phase-2 implementation — `.handoff-archive/HANDOFF_2026-05-14_S{24,25,27,28,29}close.md`
+- S29–S30 polish + regression repair — `.handoff-archive/HANDOFF_2026-05-14_S{29,30}close.md`
+
+S30 audit at session close surfaced 24 findings split P0/P1/P2 across S31/S33 (see §Session 31 / §Session 33 below). BACKLOG.md tracks plans from S31 onward only. Council R1 Q3=B unanimous + S33 P1-14 — explicit deprecation chosen over ~100 LOC backfill on the grounds that handoff series already preserves the authoritative narrative and BACKLOG is a forward-looking plan tracker, not a session history.
 
 ---
 
