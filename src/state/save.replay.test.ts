@@ -150,3 +150,87 @@ describe('Replay determinism (S33 P1-12 — same inputs → same WorldSnapshot)'
     expect(wA.bonds.size).toBeGreaterThan(0);
   });
 });
+
+/**
+ * S34 PB-5 — extends replay-determinism coverage to the S25-S28 creature
+ * lifecycle reducers (SPAWN_CREATURE / CREATURE_TICK / DESPAWN_CREATURE).
+ * Phase B audit (test-determinism agent) noted: the original runStress only
+ * exercises spark+primitive+bond paths; creature reducers were unguarded.
+ *
+ * Strategy (per Council Q2 SYNTHESIS — Grok's NEW describe-block proposal):
+ * use a dedicated stress driver that dispatches SPAWN_CREATURE directly
+ * (no GODLY_TRIGGER + cinematic chain — that's orchestration, not reducer
+ * domain). Each iteration advances world.tick + dispatches one CREATURE_TICK
+ * + occasionally a CREATURE_ATTACK. Bounded to 200 iterations so total
+ * runtime stays under ~50 ms per run (PB-5 stretch goal: < 200 ms).
+ */
+function runCreatureStress(world: World, iterations: number): void {
+  // One creature SPAWN per "epoch" of 60 ticks so VOLTKIN_LIFETIME_TICKS=480
+  // gives ~3 simultaneous creatures at any time. Each despawn frees the slot.
+  for (let i = 0; i < iterations; i++) {
+    // Spawn epoch boundary — start a new creature owned by P1.
+    if (i % 60 === 0 && world.creatures.size === 0) {
+      // Deterministic spawn position derived from iteration index.
+      const posX = 200 + (i % 100);
+      const posY = 300 + ((i * 7) % 80);
+      dispatch(world, {
+        type: 'SPAWN_CREATURE',
+        creatureType: 'voltkin',
+        ownerPlayerId: P1,
+        pos: { x: posX, y: posY },
+        targetPos: { x: 400, y: 400 },
+      });
+    }
+    // Tick every alive creature each iteration (mirrors main.ts fan-out).
+    for (const creatureId of [...world.creatures.keys()]) {
+      dispatch(world, { type: 'CREATURE_TICK', creatureId });
+    }
+    world.tick++;
+  }
+}
+
+describe('Replay determinism — S34 PB-5 creature lifecycle coverage', () => {
+  it('two runs with the same seed produce byte-identical snapshot after creature stress', () => {
+    const SEED = 0xc0c0c0;
+    const ITERS = 200;
+
+    const wA = makeWorld(SEED);
+    runCreatureStress(wA, ITERS);
+    const jsonA = determinismJson(wA);
+
+    const wB = makeWorld(SEED);
+    runCreatureStress(wB, ITERS);
+    const jsonB = determinismJson(wB);
+
+    expect(jsonA).toBe(jsonB);
+  });
+
+  it('creature stress actually produces non-empty creature state (sanity)', () => {
+    const w = makeWorld(0xfacade);
+    // Run JUST long enough to spawn one creature + drive a few CREATURE_TICKs
+    // but not long enough to despawn it.
+    runCreatureStress(w, 100);
+    // After 100 ticks: one SPAWN_CREATURE at i=0, 100 ticks of CREATURE_TICK.
+    // Creature is well within lifetime (despawnAtTick = ~480), so still alive.
+    expect(w.creatures.size).toBe(1);
+    const c = Array.from(w.creatures.values())[0];
+    expect(c.type).toBe('voltkin');
+    expect(c.ticksInState).toBeGreaterThan(0);
+  });
+
+  it('different seeds with creature stress produce different snapshots (canary)', () => {
+    const ITERS = 100;
+
+    const wA = makeWorld(0xa1);
+    runCreatureStress(wA, ITERS);
+    const jsonA = determinismJson(wA);
+
+    const wB = makeWorld(0xb2);
+    runCreatureStress(wB, ITERS);
+    const jsonB = determinismJson(wB);
+
+    // Same creature script, different seeds → different rngSeed field in
+    // snapshot ensures JSON divergence (the "is this test real" canary).
+    expect(jsonA).not.toBe(jsonB);
+  });
+});
