@@ -277,6 +277,111 @@ describe('S15 P2 — RETURN_TO_TITLE', () => {
     expect(w.scoreByPlayer.get(P1)).toBe(0);
     expect(w.scoreByPlayer.has(P2)).toBe(false);
   });
+
+  // S31 P0-2 — Phase-2 cinematic/creature state cleanup. Pre-S31 these 6
+  // fields were left untouched by applyReturnToTitle; mid-cinematic title-
+  // return (POSTGAME click, lobby back, peer-drop via onReturnFromConnectionLost)
+  // left orphaned creatures + stuck cinematic flags + queued spawn fires.
+  it('S31 P0-2 — clears all 6 Phase-2 cinematic/creature fields (creatures, nextCreatureId, activeCinematicPlayerId, currentCinematicEvent, pendingCinematics, pendingCreatureSpawn)', () => {
+    const w = makeWorld(0);
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+
+    const fakeEvent = {
+      godlyId: 'voltkin' as const,
+      triggererPlayerId: P1,
+      targetComponentPrimitiveIds: [],
+      targetPos: { x: 100, y: 100 },
+      triggerTick: w.tick,
+    };
+    // Populate cinematic state directly (would normally come from GODLY_TRIGGER
+    // matcher in main.ts). Tests target the reducer cleanup invariant in
+    // isolation from the trigger path.
+    w.activeCinematicPlayerId = P1;
+    w.currentCinematicEvent = fakeEvent;
+    w.pendingCinematics.push(fakeEvent);
+    w.pendingCreatureSpawn = { fireAtTick: w.tick + 288, event: fakeEvent };
+    dispatch(w, {
+      type: 'SPAWN_CREATURE',
+      creatureType: 'voltkin',
+      ownerPlayerId: P1,
+      pos: { x: 100, y: 100 },
+      targetPos: { x: 200, y: 200 },
+    });
+    expect(w.creatures.size).toBe(1);
+    expect(w.nextCreatureId).toBe(1);
+
+    dispatch(w, { type: 'RETURN_TO_TITLE' });
+
+    expect(w.creatures.size).toBe(0);
+    expect(w.nextCreatureId).toBe(0);
+    expect(w.activeCinematicPlayerId).toBeNull();
+    expect(w.currentCinematicEvent).toBeNull();
+    expect(w.pendingCinematics).toEqual([]);
+    expect(w.pendingCreatureSpawn).toBeNull();
+  });
+
+  // S31 P0-2 (Gemini E-01 INVARIANT — adopted per Council R1) — the
+  // "creature exists AND cinematic still active" state window is closed
+  // after RETURN_TO_TITLE. Codifies the post-clear invariant that PRIME-AUDIT
+  // verified during the P0-1A spawn-timing decision.
+  it('S31 P0-2 / E-01 — post-RETURN_TO_TITLE: creatures+activeCinematic overlap is FALSE', () => {
+    const w = makeWorld(0);
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    w.activeCinematicPlayerId = P1;
+    dispatch(w, {
+      type: 'SPAWN_CREATURE',
+      creatureType: 'voltkin',
+      ownerPlayerId: P1,
+      pos: { x: 100, y: 100 },
+      targetPos: { x: 200, y: 200 },
+    });
+    // Pre-clear: invariant violated (this is the buggy state we're cleaning).
+    expect(w.creatures.size > 0 && w.activeCinematicPlayerId !== null).toBe(true);
+
+    dispatch(w, { type: 'RETURN_TO_TITLE' });
+
+    // Post-clear: invariant restored.
+    expect(w.creatures.size > 0 && w.activeCinematicPlayerId !== null).toBe(false);
+  });
+
+  // S31 P0-2 (Gemini T-01 — adopted per Council R1) — peer-drop mid-cinematic
+  // via GODLY_ABORT also clears state. After P0-4 deleted main.ts cinematicTimer,
+  // the peer-drop path now relies solely on cutsceneOverlay.abort() (which
+  // sweeps overlay-owned timers) + dispatch(GODLY_ABORT) for state clear.
+  // This test confirms GODLY_ABORT still does the comprehensive clear (it
+  // already did pre-S31; this is a regression baseline that P0-4 didn't break it).
+  it('S31 P0-2 T-01 — GODLY_ABORT (peer-drop path) clears all cinematic + creature state', () => {
+    const w = makeWorld(0);
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+
+    const fakeEvent = {
+      godlyId: 'voltkin' as const,
+      triggererPlayerId: P1,
+      targetComponentPrimitiveIds: [],
+      targetPos: { x: 100, y: 100 },
+      triggerTick: w.tick,
+    };
+    w.activeCinematicPlayerId = P1;
+    w.currentCinematicEvent = fakeEvent;
+    w.pendingCinematics.push(fakeEvent);
+    w.pendingCreatureSpawn = { fireAtTick: w.tick + 288, event: fakeEvent };
+    dispatch(w, {
+      type: 'SPAWN_CREATURE',
+      creatureType: 'voltkin',
+      ownerPlayerId: P1,
+      pos: { x: 100, y: 100 },
+      targetPos: { x: 200, y: 200 },
+    });
+    expect(w.creatures.size).toBe(1);
+
+    dispatch(w, { type: 'GODLY_ABORT' });
+
+    expect(w.creatures.size).toBe(0);
+    expect(w.activeCinematicPlayerId).toBeNull();
+    expect(w.currentCinematicEvent).toBeNull();
+    expect(w.pendingCinematics).toEqual([]);
+    expect(w.pendingCreatureSpawn).toBeNull();
+  });
 });
 
 // ============================================================================

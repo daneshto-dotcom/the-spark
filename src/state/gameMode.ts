@@ -90,6 +90,16 @@ export function applyEndTurn(world: World): World {
  * (primitives, bonds, free sparks, effects, scores, last-winner), drops P2
  * if present, and resets P1's per-game state (energy, buildActions,
  * disruptionCharges, and forces Idle if Carrying).
+ *
+ * S31 P0-2 — also clears Phase-2 godly/creature cinematic state. Pre-S31
+ * the reducer left `world.creatures`, `nextCreatureId`,
+ * `activeCinematicPlayerId`, `currentCinematicEvent`, `pendingCinematics`,
+ * and `pendingCreatureSpawn` untouched, which caused stuck cinematic state
+ * after mid-cinematic title-return (POSTGAME click, lobby back, peer-drop
+ * via `onReturnFromConnectionLost`). Orchestration-side teardown
+ * (cutsceneOverlay.abort + screenShake.reset + cinematicTimer cleanup) is
+ * driven by main.ts's PLAYING→TITLE transition watcher; reducer owns the
+ * state half.
  */
 export function applyReturnToTitle(world: World): World {
   world.gameState = 'TITLE';
@@ -104,6 +114,19 @@ export function applyReturnToTitle(world: World): World {
   world.nextBondId = 0;
   world.scoreProgress = 0;
   world.scoreByPlayer.clear();
+  // S31 P0-2 — clear Phase-2 godly/creature cinematic state. Mirrors the
+  // GODLY_ABORT cascade (world.ts:407-418) but applied on title-return path
+  // instead of peer-drop path. Without these clears, an active Voltkin
+  // cinematic + live creature would persist through TITLE → re-enter PLAYING
+  // with stale state (orphaned creature in the new world, queued spawn
+  // firing at a tick the new world hasn't reached, cinematic flag stuck so
+  // matcher refuses to fire new godlies).
+  world.creatures.clear();
+  world.nextCreatureId = 0;
+  world.activeCinematicPlayerId = null;
+  world.currentCinematicEvent = null;
+  world.pendingCinematics.length = 0;
+  world.pendingCreatureSpawn = null;
   // Keep P1 only; drop P2 if present.
   const survivors: PlayerId[] = [];
   for (const pid of world.players.keys()) {

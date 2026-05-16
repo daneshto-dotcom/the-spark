@@ -307,8 +307,14 @@ async function bootstrap(): Promise<void> {
       dispatch(world, { type: 'START_GAME', mode: '1v1', isHost: true });
     },
     onBackToTitle: () => {
+      // S31 P0-2 (PRIME-AUDIT Δ5 scope amendment) — route through reducer
+      // dispatch so the new applyReturnToTitle cinematic-state-clear cleanup
+      // (world.creatures + nextCreatureId + activeCinematicPlayerId +
+      // currentCinematicEvent + pendingCinematics + pendingCreatureSpawn)
+      // applies on the lobby-back path too. Pre-S31 this set gameState
+      // directly which bypassed the reducer cleanup entirely.
       teardownNet();
-      world.gameState = 'TITLE';
+      dispatch(world, { type: 'RETURN_TO_TITLE' });
     },
     onReturnFromConnectionLost: () => {
       teardownNet();
@@ -702,6 +708,25 @@ async function bootstrap(): Promise<void> {
       // already playing (Council Adoption-F).
       if (world.gameState === 'PLAYING' && lastGameState !== 'PLAYING') {
         void playMusic();
+      }
+      // S31 P0-2 — *→TITLE transition orchestration cleanup. Mirrors the
+      // reducer-side cinematic-state-clear (gameMode.ts applyReturnToTitle)
+      // by tearing down ORCHESTRATION state that lives outside the world
+      // object: the HTMLVideoElement + Pixi sprite + ticker callback owned
+      // by cutsceneOverlay, the stage offset owned by screenShake, and the
+      // lastCinematicOwner watcher used to gate startCinematicIfNeeded.
+      // Fires on POSTGAME→TITLE (canvas click → resetIfPostgame → dispatch),
+      // lobby Back-to-Title (onBackToTitle → dispatch), and peer-drop via
+      // onReturnFromConnectionLost. Idempotent on no-cinematic-active path:
+      // cutsceneOverlay.abort bails when isActive() is false; screenShake.reset
+      // is plain field assignment; lastCinematicOwner=null is a noop when
+      // already null. Without this hook, mid-cinematic title-return would
+      // leave the HTMLVideoElement playing audio off-DOM, the ticker pumping
+      // a dead Texture, and the stage offset stuck at last-shake-amplitude.
+      if (world.gameState === 'TITLE' && lastGameState !== 'TITLE') {
+        cutsceneOverlay.abort();
+        screenShake.reset();
+        lastCinematicOwner = null;
       }
       lastGameState = world.gameState;
       physicsAccumulator -= PHYSICS_DT;
