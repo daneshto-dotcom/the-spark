@@ -108,6 +108,10 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
   // and protects against future cause-policy changes (e.g. S28 adds a "creature
   // can't sever its own structures during a certain GameState").
   if (!world.bonds.has(action.bondId)) {
+    // S36 P3 — increment kill counter. Drives the DESPAWNING victory/hurt frame
+    // branch (`voltkinFrames.currentFrameKey`). Tick-deterministic — same
+    // success guard as ARC_FLASH emission so the two stay in lockstep.
+    creature.killCount += 1;
     world.effects.push({
       kind: 'ARC_FLASH',
       tick: world.tick,

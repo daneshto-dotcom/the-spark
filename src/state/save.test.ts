@@ -122,6 +122,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         targetBondId: null,
         state: 'SEEKING',
         ticksInState: 42,
+        killCount: 0,
         spawnedAtTick: 10,
         despawnAtTick: 490,
       },
@@ -147,6 +148,65 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
     // + Council Q4 2/3 B "client never simulates, defaults are fine").
     expect(rehydrated.targetBondId).toBe(null);
     expect(rehydrated.prevPos).toEqual({ x: 123, y: 456 }); // snaps to pos
+  });
+
+  it('S36 P3 — killCount round-trips when > 0; omitted when 0 (additive-optional)', () => {
+    const w1 = makeWorld(0);
+    w1.creatures.set(
+      0 as unknown as import('../types.ts').CreatureId,
+      {
+        id: 0 as unknown as import('../types.ts').CreatureId,
+        type: 'voltkin',
+        ownerPlayerId: P1,
+        pos: { x: 100, y: 200 },
+        prevPos: { x: 100, y: 200 },
+        targetPos: { x: 110, y: 210 },
+        targetBondId: null,
+        state: 'DESPAWNING',
+        ticksInState: 0,
+        killCount: 3,
+        spawnedAtTick: 50,
+        despawnAtTick: 530,
+      },
+    );
+    const snap = snapshot(w1);
+    // Wire-emit only when > 0 (byte-identical pre-S36 saves for kill=0 case)
+    expect(snap.creatures?.[0].killCount).toBe(3);
+
+    const w2 = makeWorld(0);
+    restore(JSON.parse(JSON.stringify(snap)), w2);
+    const rehydrated = w2.creatures.get(0 as unknown as import('../types.ts').CreatureId)!;
+    expect(rehydrated.killCount).toBe(3);
+  });
+
+  it('S36 P3 — pre-S36 snapshots (no killCount field) rehydrate as 0', () => {
+    const w1 = makeWorld(0);
+    w1.creatures.set(
+      0 as unknown as import('../types.ts').CreatureId,
+      {
+        id: 0 as unknown as import('../types.ts').CreatureId,
+        type: 'voltkin',
+        ownerPlayerId: P1,
+        pos: { x: 100, y: 200 },
+        prevPos: { x: 100, y: 200 },
+        targetPos: { x: 110, y: 210 },
+        targetBondId: null,
+        state: 'DESPAWNING',
+        ticksInState: 0,
+        killCount: 0,
+        spawnedAtTick: 50,
+        despawnAtTick: 530,
+      },
+    );
+    const snap = snapshot(w1);
+    // killCount=0 emits no field (additive-optional pre-S36 byte-compat)
+    expect(snap.creatures?.[0].killCount).toBeUndefined();
+
+    const w2 = makeWorld(0);
+    restore(JSON.parse(JSON.stringify(snap)), w2);
+    const rehydrated = w2.creatures.get(0 as unknown as import('../types.ts').CreatureId)!;
+    // Nullish-coalesce default 0 on rehydrate.
+    expect(rehydrated.killCount).toBe(0);
   });
 
   it('pre-S28 snapshot (no creatures field) still applies cleanly (Δ3 nullish guard)', () => {
@@ -183,6 +243,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         targetBondId: null,
         state: 'SPAWNING',
         ticksInState: 5,
+        killCount: 0,
         spawnedAtTick: 0,
         despawnAtTick: 480,
       },
@@ -199,6 +260,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         targetBondId: null,
         state: 'SEEKING',
         ticksInState: 12,
+        killCount: 0,
         spawnedAtTick: 100,
         despawnAtTick: 580,
       },

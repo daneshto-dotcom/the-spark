@@ -208,6 +208,15 @@ export interface SerializedCreature {
   readonly pos: Vec2;
   readonly state: CreatureState;
   readonly ticksInState: number;
+  /**
+   * S36 P3 — successful-sever count. Additive-optional (pre-S36 saves +
+   * pre-S36 NetSnapshots omit the field; `deserializeCreature` rehydrates
+   * as 0 via nullish-coalescing). Drives the DESPAWNING victory/hurt frame
+   * branch in `voltkinFrames.currentFrameKey`. Wire cost: 1-3 bytes per
+   * creature × max 2 creatures = ≤6 B per NetSnapshot — negligible vs
+   * the ~3 KB primitives/bonds payload.
+   */
+  readonly killCount?: number;
 }
 
 export function snapshot(world: World): WorldSnapshot {
@@ -509,6 +518,11 @@ function serializeCreature(c: Creature): SerializedCreature {
     pos: { x: c.pos.x, y: c.pos.y },
     state: c.state,
     ticksInState: c.ticksInState,
+    // S36 P3 — emit only when > 0 so pre-S36 saves with no kills stay
+    // byte-identical on the wire (JSON.stringify drops `undefined` keys).
+    // Pre-S36 readers tolerate the missing field via deserializeCreature's
+    // nullish-coalescing default 0.
+    ...(c.killCount > 0 ? { killCount: c.killCount } : {}),
   };
 }
 
@@ -613,6 +627,11 @@ function deserializeCreature(s: SerializedCreature): Creature {
     targetBondId: null,
     state: s.state,
     ticksInState: s.ticksInState,
+    // S36 P3 — additive-optional rehydrate. Pre-S36 saves + pre-S36
+    // NetSnapshots omit the field; nullish-coalesce to 0 keeps old data
+    // valid and rehydrates as "creature never landed an attack" (hurt
+    // frame at DESPAWNING).
+    killCount: s.killCount ?? 0,
     spawnedAtTick: 0,
     despawnAtTick: 0,
   };

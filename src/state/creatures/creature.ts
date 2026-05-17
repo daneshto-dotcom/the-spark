@@ -171,6 +171,20 @@ export interface Creature {
   state: CreatureState;
   /** Ticks elapsed since entering current `state`. Resets on transition. */
   ticksInState: number;
+  /**
+   * S36 P3 — count of bonds this creature has successfully severed during
+   * its lifetime. Increments in `applyCreatureAttack` AFTER the
+   * `!world.bonds.has(action.bondId)` post-dispatch confirmation (true
+   * success path; defense-in-depth guards against a hypothetical future
+   * canSeverBond policy that rejects 'creature' severance). Drives the
+   * DESPAWNING victory/hurt frame branch in `voltkinFrames.currentFrameKey`:
+   * killCount > 0 → victory (chibi, triumphant); killCount === 0 → hurt
+   * (chibi, dazed — creature never connected). Tick-deterministic
+   * increment (dispatched from CREATURE_ATTACK in main.ts fan-out) so
+   * `save.replay.test.ts` byte-equivalence stays green. Mutable. Serialized
+   * additively in `save.ts` (pre-S36 saves rehydrate as 0).
+   */
+  killCount: number;
   /** Tick at which SPAWN_CREATURE was applied. Determines despawnAtTick. */
   readonly spawnedAtTick: number;
   /** Tick at which the creature is auto-removed from `world.creatures`. */
@@ -201,6 +215,7 @@ export function makeVoltkinCreature(args: {
     targetBondId: null,
     state: 'SPAWNING',
     ticksInState: 0,
+    killCount: 0,
     spawnedAtTick: args.spawnedAtTick,
     despawnAtTick: args.spawnedAtTick + VOLTKIN_LIFETIME_TICKS,
   };

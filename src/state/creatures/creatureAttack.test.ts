@@ -110,6 +110,13 @@ describe('applyCreatureAttack — happy path', () => {
     expect(world.bonds.has(bondId)).toBe(false);
   });
 
+  it('S36 P3 — increments creature.killCount on successful sever', () => {
+    const { world, creature, bondId } = setupWorld();
+    expect(creature.killCount).toBe(0); // factory init
+    applyCreatureAttack(world, { type: 'CREATURE_ATTACK', creatureId: creature.id, bondId });
+    expect(creature.killCount).toBe(1); // post-sever increment
+  });
+
   it("emits BOND_SEVERED audio event with cause='creature' (Council Q4 silent routing)", () => {
     const { world, creature, bondId } = setupWorld();
     applyCreatureAttack(world, { type: 'CREATURE_ATTACK', creatureId: creature.id, bondId });
@@ -169,6 +176,13 @@ describe('applyCreatureAttack — defense-in-depth guards', () => {
     applyCreatureAttack(world, { type: 'CREATURE_ATTACK', creatureId: creature.id, bondId });
     expect(world.bonds.has(bondId)).toBe(true);
     expect(world.effects.length).toBe(effectsBefore);
+  });
+
+  it('S36 P3 — does NOT increment killCount when target bond missing (race)', () => {
+    const { world, creature, bondId } = setupWorld();
+    world.bonds.delete(bondId); // simulate concurrent severance
+    applyCreatureAttack(world, { type: 'CREATURE_ATTACK', creatureId: creature.id, bondId });
+    expect(creature.killCount).toBe(0); // no kill counted — bond was already gone
   });
 
   it('no-op when target bond is missing (race: severed by physics or another actor)', () => {
