@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 0,
+  "tool_calls_session_total": 3,
   "_S35_NOTE": "S35 P0 — 1v1 join bootstrap deadlock fix. User-reported bug at S35 boot. Root cause: main.ts:onJoinAttempt sets world.isHost=false but not world.gameMode='1v1', causing render-loop gate at main.ts:765 to skip clientSync.interpolateInto forever (gate requires gameMode='1v1'). Joiner stuck in LOBBY while host transitions to PLAYING. PRIME-AUDIT pedantic pass swept all 11 gameMode==='1v1' sites — zero misfires in post-fix interim state. Git blame: gate at main.ts:765 introduced commit add497f (S15 P2) — bug ~20 sessions old, explains 'brother retest pending' carry items.",
   "session_start": "2026-05-17T00:00:00Z",
   "session_id": "S35",
@@ -23,7 +23,7 @@
     {
       "id": "P0",
       "label": "Fix 1v1 join bootstrap deadlock. Add `world.gameMode = '1v1';` after `world.isHost = false;` in main.ts onJoinAttempt callback. Symmetric to host's applyStartGame setup. +1 unit test in sync.test.ts for joiner-bootstrap end-to-end.",
-      "status": "in_progress",
+      "status": "completed",
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -31,11 +31,11 @@
       "council_waived": true,
       "council_waiver_reason": "Micro tier auto-waived on user explicit 'approved'. PRIME-AUDIT manual pass executed pre-execution.",
       "council_invoked": null,
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null,
-      "real_context_tokens_at_close": null,
-      "real_context_pct_at_close": null
+      "check_completed": true,
+      "check_method": "Verified S35 P0 1v1 join bootstrap deadlock fix: (1) main.ts edit applied at onJoinAttempt callback — 14-line JSDoc comment + 1 functional LOC `world.gameMode = '1v1';` added after `world.isHost = false;` and before `controls.setPlayerId(asPlayerId(1));`; (2) PRIME-AUDIT pedantic pass swept all 11 gameMode==='1v1' sites (main.ts:201, :470, :582, :699, :765, :799 + state/authGate.ts:34 + state/disruptionManager.ts:70 + state/gameState.ts:51 + state/gameMode.ts:194 + render/ui.ts:194) — confirmed zero misfires in post-fix interim state (gameMode='1v1' + gameState='LOBBY' on joiner). All 10 non-fix-site gates either gate-on-PLAYING (no-op in LOBBY) OR are host-only/unreachable from joiner-LOBBY path; only main.ts:201 dispatchFn intent-wrap activates earlier (benign — controls in LOBBY don't fire gameplay actions; any UPDATE_AVATAR_POS leak applies as host no-op); (3) git blame confirmed gate at main.ts:765 introduced commit add497f (S15 P2) ~20 sessions ago — explains pending '1v1 brother retest' carry items across S31/S32/S33/S34; (4) sync.test.ts +2 tests in NEW describe block 'S35 P0 — joiner bootstrap (1v1 join deadlock regression)': positive end-to-end using real applyStartGame on hostWorld + HostSync.buildSnapshotMessage + clientSync.receive + interpolateInto, asserts post-apply gameState='PLAYING' AND gameMode='1v1' AND both players seated; pre-fix repro semantics test documents that without interpolateInto running, world stays in LOBBY/solo; (5) tsc -b --noEmit clean exit 0; (6) full test suite 625 → 627 (+2; sync.test.ts 14 → 16); (7) bundle 468.14 KB → 468.15 KB (+0.01 KB; 31.85 KB headroom on 500 KB cap); (8) commit 1be5fce pushed to master (aa082f3..1be5fce). CANNOT run 2-peer manual smoke from this session (requires Trystero/Nostr cross-network with separate browser instances) — flagged as user-driven validation gate before next priority. Carry-forward: CF-1 (tighten main.ts:201 dispatchFn gate to require gameState==='PLAYING'), CF-2 (transport.ts:144 missing parseNetMessage validator on wire deserialize).",
+      "checkpoint_commit": "1be5fce",
+      "real_context_tokens_at_close": 182443,
+      "real_context_pct_at_close": 18.24
     }
   ],
   "totals": {
