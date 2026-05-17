@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 27,
+  "tool_calls_session_total": 32,
   "_S35_NOTE": "S35 P0 — 1v1 join bootstrap deadlock fix. User-reported bug at S35 boot. Root cause: main.ts:onJoinAttempt sets world.isHost=false but not world.gameMode='1v1', causing render-loop gate at main.ts:765 to skip clientSync.interpolateInto forever (gate requires gameMode='1v1'). Joiner stuck in LOBBY while host transitions to PLAYING. PRIME-AUDIT pedantic pass swept all 11 gameMode==='1v1' sites — zero misfires in post-fix interim state. Git blame: gate at main.ts:765 introduced commit add497f (S15 P2) — bug ~20 sessions old, explains 'brother retest pending' carry items.",
   "session_start": "2026-05-17T00:00:00Z",
   "session_id": "S35",
