@@ -96,6 +96,15 @@ const SEEKING_LEAN_MAX_RAD = 0.262;
 const ATTACKING_LEAN_PEAK_RAD = 0.436;
 
 /**
+ * S36 P6 — minimum |velocity.x| (px/tick) required to flip facing direction.
+ * Below this threshold the creature holds its prior facing — prevents
+ * jitter when the creature is approximately stationary (Verlet
+ * implicit-velocity noise from the bond solver). 1.5 px/tick = 90 px/sec
+ * = ~1/2 a prim radius per frame, comfortably above noise floor.
+ */
+const FACING_VELOCITY_THRESHOLD = 1.5;
+
+/**
  * S28 P0 — Council Q3 COMPROMISE B ease-in curve (Gemini minority over Claude
  * default A linear; game-feel argument). Quadratic `t²` builds tension slow-
  * then-fast into the zap moment. Single-LOC retune if user playtest hates the
@@ -159,6 +168,14 @@ export class CreatureRenderer {
    * documents intent: only swap when the frame actually changes).
    */
   private readonly spriteFrames: Map<CreatureId, VoltkinFrameKey> = new Map();
+  /**
+   * S36 P6 — per-sprite horizontal facing direction. +1 = right (no flip),
+   * -1 = left (mirrored via `sprite.scale.x = -|scale|`). Updated each
+   * tick based on `creature.pos.x - creature.prevPos.x` (implicit Verlet
+   * velocity) when |vx| > FACING_VELOCITY_THRESHOLD; else holds prior
+   * facing. Default +1 on sprite creation.
+   */
+  private readonly spriteFacings: Map<CreatureId, 1 | -1> = new Map();
   private textureLoading = false;
   private textureFailed = false;
 
@@ -268,7 +285,19 @@ export class CreatureRenderer {
 
       const dynScale = computeCreatureScale(creature.state, creature.ticksInState);
       const flashScale = 1 + FLASH_SCALE_AMPLITUDE * flash;
-      sprite.scale.set(CREATURE_SPRITE_SCALE * dynScale * flashScale);
+      const baseScale = CREATURE_SPRITE_SCALE * dynScale * flashScale;
+
+      // S36 P6 — directional facing flip on velocity.x. Read implicit Verlet
+      // velocity (pos - prevPos) and update facing only when |vx| crosses
+      // the threshold (no flutter on near-stationary creatures). Default
+      // facing +1 (right). The rotation lean already encodes direction
+      // intent (leanFactor = dx/dist) and composes correctly with a
+      // negative scale.x: a flipped sprite tilts "into" its leftward motion.
+      const velX = creature.pos.x - creature.prevPos.x;
+      const prevFacing = this.spriteFacings.get(creature.id) ?? 1;
+      const facing = computeFacing(prevFacing, velX, FACING_VELOCITY_THRESHOLD);
+      this.spriteFacings.set(creature.id, facing);
+      sprite.scale.set(facing * baseScale, baseScale);
 
       sprite.tint = flash > 0
         ? FLASH_TINT
@@ -298,6 +327,7 @@ export class CreatureRenderer {
         sprite.destroy();
         this.sprites.delete(id);
         this.spriteFrames.delete(id);
+        this.spriteFacings.delete(id);
       }
     }
   }
@@ -328,14 +358,43 @@ export class CreatureRenderer {
     }
     this.sprites.clear();
     this.spriteFrames.clear();
+    this.spriteFacings.clear();
   }
 
   destroy(): void {
     for (const sprite of this.sprites.values()) sprite.destroy();
     this.sprites.clear();
     this.spriteFrames.clear();
+    this.spriteFacings.clear();
     this.container.destroy({ children: true });
   }
+}
+
+// ===== S36 P6 — directional facing helper (exported for unit tests) =====
+
+/**
+ * Compute the next facing direction given the previous facing, current
+ * horizontal velocity, and a noise-floor threshold.
+ *
+ *   |vx| > threshold AND vx > 0  → +1 (face right)
+ *   |vx| > threshold AND vx < 0  → -1 (face left)
+ *   |vx| <= threshold            → prevFacing (hold prior facing — no flicker)
+ *
+ * Pure function. Unit-testable without Pixi or World state.
+ *
+ * Used by `CreatureRenderer.sync()` to set `sprite.scale.x = facing * scale`
+ * so the texture is horizontally mirrored when the creature moves leftward.
+ * Composes with the rotation lean (computeCreatureRotation): a flipped
+ * sprite tilting counter-clockwise reads as "leaning into leftward motion."
+ */
+export function computeFacing(
+  prevFacing: 1 | -1,
+  velocityX: number,
+  threshold: number,
+): 1 | -1 {
+  if (velocityX > threshold) return 1;
+  if (velocityX < -threshold) return -1;
+  return prevFacing;
 }
 
 // ===== S28 P0 pure transform helpers (Council Q5 UNANIMOUS A exported) =====

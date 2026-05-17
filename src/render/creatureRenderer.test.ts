@@ -25,6 +25,7 @@ import {
   computeCreatureRotation,
   computeCreatureScale,
   computeCreatureTint,
+  computeFacing,
   lerpHex,
 } from './creatureRenderer.ts';
 
@@ -334,5 +335,55 @@ describe('computeSpriteDelta (S34 P2-24)', () => {
     );
     expect(r.toRemove).toEqual([asCreatureId(1)]); // 1 appears once in remove
     expect(r.toCreate).toEqual([]);
+  });
+});
+
+describe('computeFacing (S36 P6 directional flip)', () => {
+  const THRESHOLD = 1.5;
+
+  it('returns +1 when velocity.x clearly positive', () => {
+    expect(computeFacing(1, 5, THRESHOLD)).toBe(1);
+    expect(computeFacing(-1, 5, THRESHOLD)).toBe(1); // flips from left to right
+  });
+
+  it('returns -1 when velocity.x clearly negative', () => {
+    expect(computeFacing(1, -5, THRESHOLD)).toBe(-1); // flips from right to left
+    expect(computeFacing(-1, -5, THRESHOLD)).toBe(-1);
+  });
+
+  it('holds prevFacing when |velocity.x| < threshold (debounce)', () => {
+    expect(computeFacing(1, 0, THRESHOLD)).toBe(1);
+    expect(computeFacing(-1, 0, THRESHOLD)).toBe(-1);
+    expect(computeFacing(1, 1.4, THRESHOLD)).toBe(1); // just below positive threshold
+    expect(computeFacing(-1, 1.4, THRESHOLD)).toBe(-1); // sub-threshold; hold
+    expect(computeFacing(1, -1.4, THRESHOLD)).toBe(1); // sub-threshold; hold
+    expect(computeFacing(-1, -1.4, THRESHOLD)).toBe(-1);
+  });
+
+  it('flips exactly at velocity.x > threshold (strict comparison)', () => {
+    expect(computeFacing(-1, 1.5, THRESHOLD)).toBe(-1); // not yet (==)
+    expect(computeFacing(-1, 1.51, THRESHOLD)).toBe(1); // crosses
+    expect(computeFacing(1, -1.5, THRESHOLD)).toBe(1); // not yet (==)
+    expect(computeFacing(1, -1.51, THRESHOLD)).toBe(-1); // crosses
+  });
+
+  it('handles micro-noise without flicker (Verlet implicit-velocity jitter)', () => {
+    // Simulate a sequence of ticks where the creature drifts slightly but
+    // is not really moving in either direction. Facing should hold.
+    let facing: 1 | -1 = 1;
+    const microNoise = [0.3, -0.5, 0.7, -0.2, 1.0, -0.9, 0.1];
+    for (const vx of microNoise) {
+      facing = computeFacing(facing, vx, THRESHOLD);
+    }
+    expect(facing).toBe(1); // never flipped
+  });
+
+  it('handles sustained leftward motion (cumulative flip)', () => {
+    let facing: 1 | -1 = 1;
+    const leftward = [-2, -2.5, -3, -1.8, -2.2];
+    for (const vx of leftward) {
+      facing = computeFacing(facing, vx, THRESHOLD);
+    }
+    expect(facing).toBe(-1);
   });
 });
