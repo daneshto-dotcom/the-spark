@@ -12,7 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import { HostSync, ClientSync, interpolatePositions } from './sync.ts';
 import { lerp01 } from './lerp.ts';
-import { makeWorld } from '../state/world.ts';
+import { dispatch, makeWorld } from '../state/world.ts';
 import { netSnapshot, type NetSnapshot } from '../state/save.ts';
 import type { NetSnapshotMsg } from './protocol.ts';
 import { asPlayerId } from '../types.ts';
@@ -113,6 +113,94 @@ describe('S15 P2 — lerp01', () => {
     expect(lerp01(NaN)).toBe(0);
     expect(lerp01(Infinity)).toBe(1);
     expect(lerp01(-Infinity)).toBe(0);
+  });
+});
+
+describe('S35 P0 — joiner bootstrap (1v1 join deadlock regression)', () => {
+  // Regression coverage for the S35 P0 fix at main.ts:onJoinAttempt.
+  //
+  // Bug (existed since S15 commit add497f): main.ts:onJoinAttempt did not
+  // set world.gameMode='1v1' on the joiner. The render-loop client-
+  // interpolation gate at main.ts's `if (world.gameMode === '1v1' && ...)`
+  // is the only path that calls clientSync.interpolateInto, and that's the
+  // only path that runs applyNetSnapshot. So host's NETSNAPSHOT (which
+  // carries gameMode='1v1' + gameState='PLAYING') was received but never
+  // applied — joiner stayed in LOBBY forever.
+  //
+  // This test cannot exercise the main.ts:765 gate directly (inline in a
+  // Pixi ticker callback). It exercises the next-best invariant: given the
+  // joiner state setup post-fix (isHost=false + gameMode='1v1' + clientSync
+  // wired), receiving and applying a real host-emitted snapshot DOES
+  // transition the client world to PLAYING/1v1. The host snapshot is
+  // generated via the real applyStartGame reducer to keep the wire payload
+  // byte-faithful to production. No Trystero mocking — pure in-memory.
+  it('mirror onJoinAttempt state → real host snapshot apply transitions client to PLAYING/1v1', () => {
+    // Host world: real applyStartGame produces the same snapshot a host would
+    // emit immediately after onBeginMatch.
+    const hostWorld = makeWorld(0);
+    dispatch(hostWorld, { type: 'START_GAME', mode: '1v1', isHost: true });
+    expect(hostWorld.gameState).toBe('PLAYING');
+    expect(hostWorld.gameMode).toBe('1v1');
+
+    // Client world: mirror the joiner state shape post-onJoinAttempt POST-FIX.
+    // Pre-fix this test fixture would have left gameMode='solo'; with the fix,
+    // main.ts explicitly sets gameMode='1v1' here. (We don't run main.ts; we
+    // assert the post-fix joiner state shape is sufficient to apply a snapshot.)
+    const clientWorld = makeWorld(0);
+    clientWorld.isHost = false;
+    clientWorld.gameMode = '1v1';
+    clientWorld.gameState = 'LOBBY';
+
+    // Wire the same path main.ts uses: HostSync.buildSnapshotMessage on host,
+    // ClientSync.receive then ClientSync.interpolateInto on client.
+    const host = new HostSync();
+    const client = new ClientSync();
+    const msg = host.buildSnapshotMessage(hostWorld);
+    expect(msg.kind).toBe('NETSNAPSHOT');
+    expect(msg.snapshot.gameState).toBe('PLAYING');
+    expect(msg.snapshot.gameMode).toBe('1v1');
+
+    const accepted = client.receive(msg, 1000);
+    expect(accepted).toBe(true);
+
+    // First interpolateInto call: needsFullApply=true → applyNetSnapshot runs.
+    // No prev snapshot yet so position-lerp early-returns (sync.ts:95). The
+    // non-position state (gameState, gameMode, currentPlayerId, players,
+    // scoreByPlayer) is snapped to current.
+    client.interpolateInto(clientWorld, 1000, 100);
+
+    // Client world has transitioned: LOBBY → PLAYING, solo → 1v1.
+    expect(clientWorld.gameState).toBe('PLAYING');
+    expect(clientWorld.gameMode).toBe('1v1');
+    // applyStartGame on a 1v1 host always seats P2 (gameMode.ts:73-83), and
+    // the snapshot serializes both players, so the client should mirror both.
+    expect(clientWorld.players.has(asPlayerId(0))).toBe(true);
+    expect(clientWorld.players.has(asPlayerId(1))).toBe(true);
+  });
+
+  it('joiner stays in LOBBY when interpolateInto is never called (pre-fix repro semantics)', () => {
+    // Documentation test: without the gate ever opening, clientSync.receive
+    // alone does NOT mutate world. This is what was happening pre-fix —
+    // receive() was called by the netTransport.on handler, but interpolateInto
+    // was never called because the main.ts:765 gate required gameMode='1v1'
+    // which was never set. We model that pre-fix state here and assert the
+    // client world stays in LOBBY.
+    const hostWorld = makeWorld(0);
+    dispatch(hostWorld, { type: 'START_GAME', mode: '1v1', isHost: true });
+
+    const clientWorld = makeWorld(0);
+    clientWorld.isHost = false;
+    // INTENTIONALLY left at 'solo' to model the PRE-FIX state.
+    clientWorld.gameState = 'LOBBY';
+
+    const host = new HostSync();
+    const client = new ClientSync();
+    client.receive(host.buildSnapshotMessage(hostWorld), 1000);
+
+    // interpolateInto deliberately NOT called — pre-fix main.ts:765 gate would
+    // have been false on this state.
+    expect(clientWorld.gameState).toBe('LOBBY'); // stuck — the bug.
+    expect(clientWorld.gameMode).toBe('solo');   // never updated.
   });
 });
 

@@ -285,6 +285,19 @@ async function bootstrap(): Promise<void> {
       netTransport = new NetTransport();
       clientSync = new ClientSync();
       world.isHost = false;
+      // S35 P0 — break 1v1 join bootstrap deadlock. The render-loop client-
+      // interpolation gate at this file's `if (world.gameMode === '1v1' && ...)`
+      // (call site below `app.ticker.add`) is the only path that runs
+      // clientSync.interpolateInto → applyNetSnapshot. Without setting gameMode
+      // here, the gate stays false because the joiner's world.gameMode stays
+      // at the makeWorld default 'solo' — so host's NETSNAPSHOT (which carries
+      // gameMode='1v1' + gameState='PLAYING') is RECEIVED but never APPLIED.
+      // Host avoids this trap because applyStartGame sets gameMode='1v1'
+      // synchronously on onBeginMatch. Setting it here at the joiner's setup-
+      // entry-point is symmetric. RETURN_TO_TITLE resets gameMode='solo' so
+      // back-out remains clean. Bug pre-dates S15 commit add497f (~20 sessions);
+      // explains pending "1v1 brother retest" carry items.
+      world.gameMode = '1v1';
       controls.setPlayerId(asPlayerId(1));
       // S20 P0 — same onError wiring as host path (see comment above).
       netTransport.onError = (errMsg) => lobbyScreen.setErrorMessage(errMsg);
