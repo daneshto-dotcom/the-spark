@@ -49,8 +49,18 @@ import {
   type CreatureId,
   type CreatureState,
 } from '../state/creatures/creature.ts';
+import {
+  ALL_FRAME_KEYS,
+  FLASH_SCALE_AMPLITUDE,
+  FLASH_TINT,
+  VOLTKIN_FRAME_URLS,
+  type VoltkinFrameKey,
+  currentFrameKey,
+  flashIntensity,
+} from './voltkinFrames.ts';
 
-const VOLTKIN_SPRITE_URL = '/godly/voltkin/sprites/voltkin-zap.png';
+// S36 P4 — VOLTKIN_SPRITE_URL deleted. Voltkin's 6-frame texture set lives
+// in `voltkinFrames.VOLTKIN_FRAME_URLS`; preloaded lazily on first sync().
 /** Match cutsceneOverlay's character-sprite scale so the handoff visual is continuous. */
 const CREATURE_SPRITE_SCALE = 0.25;
 
@@ -132,7 +142,23 @@ export function computeSpriteDelta(
 export class CreatureRenderer {
   readonly container: Container;
   private readonly sprites: Map<CreatureId, Sprite> = new Map();
-  private texture: Texture | null = null;
+  /**
+   * S36 P4 — preloaded textures, one entry per WINNER frame. Populated
+   * lazily on first `sync()` call (avoids ctor-time async + plays nice
+   * with vitest mocks that may not have Pixi Assets globally configured
+   * at module-import time). All 6 textures load in parallel via
+   * `Promise.allSettled` — frames that fail to load skip their swap
+   * branch in sync(); the renderer falls back to the most-recently-loaded
+   * texture for the affected creature (no crash, slight visual glitch).
+   */
+  private readonly textures: Map<VoltkinFrameKey, Texture> = new Map();
+  /**
+   * S36 P4 — per-sprite current frame key. Set when a sprite is created and
+   * updated each tick when `currentFrameKey` returns a different key. Used
+   * to skip redundant `sprite.texture` assignments (cheap branch but
+   * documents intent: only swap when the frame actually changes).
+   */
+  private readonly spriteFrames: Map<CreatureId, VoltkinFrameKey> = new Map();
   private textureLoading = false;
   private textureFailed = false;
 
@@ -142,13 +168,15 @@ export class CreatureRenderer {
   }
 
   /**
-   * Drain `world.creatures` against the internal sprite map: add new, update existing,
-   * remove despawned. Idempotent per frame. Applies S28 P0 procedural transforms
-   * via pure helpers (computeCreatureAlpha/Scale/Tint) so curves are unit-testable.
-   * S30 P0b — ?debug=1 console.log every 60 ticks (~1 sec) for each live creature
-   * surfaces FSM state + targetBondId + pos so regression reports have actionable
-   * signal not just "creature doesn't move/attack". Gated by URL param so prod
-   * users see no logspam.
+   * Drain `world.creatures` against the internal sprite map: add new, update
+   * existing, remove despawned. Idempotent per frame. Applies S28 P0
+   * procedural transforms (computeCreatureAlpha/Scale/Tint/Rotation) +
+   * S36 P4 multi-frame texture swap + S36 P5 transformation flash on
+   * form-swap ticks.
+   *
+   * S30 P0b — ?debug=1 console.log every 60 ticks (~1 sec) per creature
+   * surfaces FSM state + frame key + targetBondId + pos so regression
+   * reports have actionable signal.
    */
   sync(world: World): void {
     // S30 P0b — diagnostic logging (?debug=1 gated, once per second per creature)
@@ -163,6 +191,8 @@ export class CreatureRenderer {
           id: c.id,
           state: c.state,
           ticksInState: c.ticksInState,
+          killCount: c.killCount,
+          frameKey: currentFrameKey(c.state, c.ticksInState, c.killCount),
           targetBondId: c.targetBondId,
           pos: { x: Math.round(c.pos.x), y: Math.round(c.pos.y) },
           targetPos: { x: Math.round(c.targetPos.x), y: Math.round(c.targetPos.y) },
@@ -171,36 +201,79 @@ export class CreatureRenderer {
         });
       }
     }
-    if (this.texture === null && !this.textureLoading && !this.textureFailed) {
+
+    // S36 P4 — lazy parallel preload of all 6 frame textures. Idempotent
+    // (`textures.size === 0` gate fires once). Cinematic plays for ~4 s before
+    // the first creature spawns, giving plenty of time for ~1 MB of PNGs to
+    // load on broadband. Per-frame failures degrade gracefully: missing frame
+    // means renderer skips that swap branch and creature visually freezes on
+    // the last-loaded texture for that sprite (no crash).
+    if (this.textures.size === 0 && !this.textureLoading && !this.textureFailed) {
       this.textureLoading = true;
-      void Assets.load(VOLTKIN_SPRITE_URL).then(
-        (tex: Texture) => {
-          this.texture = tex;
-          this.textureLoading = false;
-        },
-        (err: unknown) => {
-          this.textureLoading = false;
-          this.textureFailed = true;
-          console.warn('[creatureRenderer] voltkin-zap.png load failed:', err);
-        },
+      const loads = ALL_FRAME_KEYS.map((key) =>
+        Assets.load<Texture>(VOLTKIN_FRAME_URLS[key]).then(
+          (tex: Texture) => { this.textures.set(key, tex); },
+          (err: unknown) => {
+            this.textureFailed = true;
+            console.warn(`[creatureRenderer] frame ${key} load failed:`, err);
+          },
+        ),
       );
+      void Promise.allSettled(loads).then(() => {
+        this.textureLoading = false;
+      });
     }
 
     // Add or update sprites for live creatures.
     for (const creature of world.creatures.values()) {
+      const desiredKey = currentFrameKey(
+        creature.state,
+        creature.ticksInState,
+        creature.killCount,
+      );
+      const desiredTexture = this.textures.get(desiredKey);
+
       let sprite = this.sprites.get(creature.id);
       if (sprite === undefined) {
-        if (this.texture === null) continue; // texture not loaded yet — render next frame
-        sprite = new Sprite(this.texture);
+        // No sprite yet — defer creation until the desired-frame texture
+        // is loaded. Earlier-loaded frames are usable too, but skipping a
+        // few render ticks during cinematic-to-creature handoff is fine.
+        if (desiredTexture === undefined) continue;
+        sprite = new Sprite(desiredTexture);
         sprite.anchor.set(0.5);
         this.sprites.set(creature.id, sprite);
+        this.spriteFrames.set(creature.id, desiredKey);
         this.container.addChild(sprite);
+      } else if (desiredTexture !== undefined) {
+        // S36 P4 — swap texture only when the frame key has actually
+        // changed. Avoids redundant Pixi `sprite.texture = tex` calls
+        // (cheap but documents intent: per-tick swap is a transition event,
+        // not a noop).
+        const currentKey = this.spriteFrames.get(creature.id);
+        if (currentKey !== desiredKey) {
+          sprite.texture = desiredTexture;
+          this.spriteFrames.set(creature.id, desiredKey);
+        }
       }
+
       sprite.position.set(creature.pos.x, creature.pos.y);
       sprite.alpha = computeCreatureAlpha(creature);
+
+      // S36 P5 — transformation flash modulation. Pure function reads
+      // (state, ticksInState) and returns 0 / 0.5 / 1.0 over a 2-tick
+      // window at form-swap moments (SPAWNING t=30, ATTACKING t=15 + t=45).
+      // Multiplies into the procedural scale and overrides the procedural
+      // tint with cyan FLASH_TINT during the window — punches the morph.
+      const flash = flashIntensity(creature.state, creature.ticksInState);
+
       const dynScale = computeCreatureScale(creature.state, creature.ticksInState);
-      sprite.scale.set(CREATURE_SPRITE_SCALE * dynScale);
-      sprite.tint = computeCreatureTint(creature.state, creature.ticksInState);
+      const flashScale = 1 + FLASH_SCALE_AMPLITUDE * flash;
+      sprite.scale.set(CREATURE_SPRITE_SCALE * dynScale * flashScale);
+
+      sprite.tint = flash > 0
+        ? FLASH_TINT
+        : computeCreatureTint(creature.state, creature.ticksInState);
+
       // S30 P0d — procedural rotation: lean toward target (SEEKING/ATTACKING)
       // for alive responsiveness. Per Grok pre-mortem DG4 ticker-ordering:
       // creatureRenderer.sync() runs AFTER creatureLifecycle FSM ticks within
@@ -224,6 +297,7 @@ export class CreatureRenderer {
         this.container.removeChild(sprite);
         sprite.destroy();
         this.sprites.delete(id);
+        this.spriteFrames.delete(id);
       }
     }
   }
@@ -253,11 +327,13 @@ export class CreatureRenderer {
       sprite.destroy();
     }
     this.sprites.clear();
+    this.spriteFrames.clear();
   }
 
   destroy(): void {
     for (const sprite of this.sprites.values()) sprite.destroy();
     this.sprites.clear();
+    this.spriteFrames.clear();
     this.container.destroy({ children: true });
   }
 }
