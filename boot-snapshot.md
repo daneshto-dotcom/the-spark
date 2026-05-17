@@ -1,34 +1,68 @@
-# Boot Snapshot (auto-generated at S35 close)
-Generated: 2026-05-17 | Session closed: S35 (P0 1v1 join bootstrap deadlock fix — 1 priority, 2 commits) | Last commit: 7879223
+# Boot Snapshot (auto-generated at S36 close)
+Generated: 2026-05-17 | Session closed: S36 (6 priorities shipped, 4 commits) | Last commit: af76b76
 
 ## Live URL
 **https://spark-online.space/** (HTTPS, GH Pages auto-deploy on push to master)
-**https://spark-online.space/?debug=1** (debug overlay + `[net]` + `[cinematic] video.*` + `[creature] state` logs)
+**https://spark-online.space/?debug=1** (debug overlay + `[net]` + `[cinematic] video.*` + `[creature] state` logs now including frameKey + killCount)
 
 ## Status
-S35 P0 shipped. 1 LOC fix in main.ts onJoinAttempt unblocks 1v1 join handshake — bug since S15 commit add497f (~20 sessions). **Awaiting user 2-peer manual smoke (cross-network) BEFORE next priority.**
+S36 shipped 6 of 20 priorities (Voltkin Multi-Frame Animation + Transformation Arc plan, S36+S37+S38). All in-game animation infrastructure for Voltkin is now live: 6-frame state-driven texture swap, lion↔chibi transformation arc, transformation flash on form-swap moments, sprite horizontal flip on velocity.x, killCount-driven victory/hurt DESPAWNING frame. **Awaiting user playtest** to validate visual feel + tune from feedback.
 
-**Tests:** 627/627 (+2: positive joiner-bootstrap end-to-end + pre-fix repro semantics; both in sync.test.ts new describe block)
-**Bundle:** 468.15 KB (+0.01 KB; 31.85 KB headroom on 500 KB hard cap)
-**Branch:** master, clean, in sync with origin (aa082f3..7879223, +autocommit 58961bf)
-**Context at close:** ~212K / 1M (21.3% GREEN)
+**Tests:** 680/680 (+53 from baseline 627: 43 voltkinFrames + 4 killCount + 6 computeFacing)
+**Bundle:** 469.66 KB (+1.51 KB from 468.15 KB; 30.34 KB headroom on 500 KB cap)
+**Public assets:** +1.18 MB (5 new voltkin frames — idle-1, idle-2, charge, hurt, victory)
+**Branch:** master, clean, in sync with origin (d73c036..af76b76, 4 new commits)
+**Context at close:** see session-state.json (~290K / 1M, ~29% GREEN)
 
-## Next Steps
-1. **USER GATE: 2-peer manual smoke** — open `https://spark-online.space/` on two devices (or your machine + brother's). **Hard refresh (Ctrl+Shift+R) both.** Host creates room → joiner enters code → host clicks Begin Match → both peers MUST transition to PLAYING simultaneously. Report "smoke passed" or paste F12 `[net]` logs from both peers if not.
-2. **Anvil creature** — voltkin-config.ts CreatureConfig table (S34 P2-20) is the prereq base. See LOCKED §13.15 Anvil migration checklist + open design Q (FSM reuse vs new CHARGING state).
-3. **1v1 brother retest** of S31 P0-3 NetSnapshot effects mirror + S33 P1-11 creatureId additivity — NOW UNBLOCKED by S35 P0 fix. Expect this to surface additional latent bugs in S20/S22/S31/S33 layers (untested cross-network since S15).
-4. **CF-1 (S35 follow-up):** Tighten main.ts:201 dispatchFn gate to additionally require `gameState === 'PLAYING'` — eliminates harmless LOBBY-INTENT chatter post-S35-P0-fix. Micro priority.
-5. **CF-2 (S35 follow-up):** transport.ts:144 wire deserialize uses direct `JSON.parse(data) as NetMessage` without invoking protocol.ts:99 `parseNetMessage` validator. Try/catch handles crashes but admits malformed kinds. Micro hardening.
-6. **Bond UX:** RMB-drag multi-target for polygon frames (S23 P2 carry).
+## What landed in S36
+
+| Priority | Description | Commit |
+|---|---|---|
+| P1 | Asset compression pipeline (Pillow Lanczos 512² + zlib-9; 5 WINNER frames → public/) | 0c8700a |
+| P2 | Pure frame selector `src/render/voltkinFrames.ts` (state→frame key, isLionForm, flashIntensity) | 0c8700a |
+| P3 | `Creature.killCount` field + applyCreatureAttack increment + save serializer (additive-optional) | 1799863 |
+| P4 | Renderer texture preload Map + per-tick swap (replaces single-texture pipeline) | 1a08162 |
+| P5 | Transformation flash on form-swap (2-tick scale+cyan-tint punch; SPAWNING t=30, ATTACKING t=15+45) | 1a08162 |
+| P6 | Sprite horizontal flip on velocity.x with debounce threshold (1.5 px/tick) | af76b76 |
+
+## Next Steps (S37 priorities + 2-peer smoke gate)
+
+**USER GATE 1: solo browser playtest** — Open `https://spark-online.space/?debug=1`, build SQ4-TR4 chain, trigger Voltkin. Expected visual:
+- Cinematic plays as before (mp4 + voice + bg fade)
+- Creature spawns in zap (lion form) during SPAWNING ticks 0-29
+- Cyan flash + scale punch at SPAWNING t=30 morph to idle-1 (chibi)
+- SEEKING: idle-1 ↔ idle-2 alternation every 1s, sprite flips horizontally based on motion direction
+- ATTACKING wind-up: cyan flash + scale punch at t=15 morph to charge (lion). Yellow tint warm-up ticks 15-29. Flash + scale punch at t=30 fire-moment (combined with ARC_FLASH lightning + screen shake)
+- ATTACKING recovery: charge held ticks 31-44, then cyan flash + chibi morph at t=45
+- DESPAWNING: victory (chibi triumphant) if creature landed any attacks, else hurt (chibi dazed)
+- Hard-refresh first (Ctrl+Shift+R) — GH Pages cache lesson from S32
+
+**USER GATE 2: 2-peer 1v1 smoke** (still gated from S35 P0) — open `https://spark-online.space/` on two devices, host creates room, joiner enters code, host clicks Begin Match. Verify both peers transition LOBBY→PLAYING (S35 P0 fix), then trigger Voltkin on both sides and verify the animation is the same on host and joiner (P3 killCount syncs over wire; renderer derives frame the same way on both sides).
+
+**S37 priorities** (next session, ~5):
+1. Web Audio rising-tone "charge" SFX during ATTACKING wind-up (ticks 0-29)
+2. Web Audio "FWOOSH" SFX on transformation morph (form-swap boundaries)
+3. Crystal-crown layered Pixi child sprite with alpha/scale pulse during ATTACKING wind-up
+4. 1v1 NetSnapshot v2 verify — joiner derives same frame (killCount already in wire from P3)
+5. 2-peer manual smoke + production playtest (covers S35 P0 1v1 fix AND new S36 animation pass)
+
+**S38 stretch** (optional carry):
+- Particle spark trail during SEEKING locomotion (Pixi Graphics line pool)
+- Sprite anchor eye-tracking toward target during ATTACKING wind-up
+- Death-particle burst on DESPAWNING entry
+- Extra camera shake on transformation morph
+- Final timing tune from user feedback
 
 ## Blockers
-**User gate (#1 above) blocks next priority.** Production HTTP 200 ✓; deploy carries the fix. Single-session validation impossible (Trystero P2P requires 2 separate browsers).
+- **GH Pages deploy 25991074840 stuck pending for 12+ min as of this snapshot** — sprites at 404 on production. May resolve on its own; if not, user can rerun the workflow manually.
+- **Single-session full visual validation impossible** — voltkin trigger requires interactive chain-build; preview server timed out on direct gameState mutation. User playtest is the canonical visual smoke.
 
 ## Pending Backlog (excerpt)
-- [ ] Anvil creature (apply voltkin-config + new attack handler) — voltkin-config base READY
-- [ ] CF-1: main.ts:201 dispatchFn gate tighten (NEW S35)
-- [ ] CF-2: transport.ts parseNetMessage wire validator integration (NEW S35)
-- [ ] Bond UX: RMB-drag multi-target for polygon frames (S23 P2 carry)
+- [ ] S37 P7-P11: audio synth + crown-pulse + 1v1 NetSnapshot verify + 2-peer smoke
+- [ ] S38 P16-P20: particle trail + eye anchor + death burst + extra shake + timing tune
+- [ ] CF-1 (S35): main.ts:201 dispatchFn gate tighten to require gameState==='PLAYING'
+- [ ] CF-2 (S35): transport.ts:144 wire deserialize via parseNetMessage validator
+- [ ] Bond UX RMB-drag multi-target (S23 P2 carry)
 - [ ] P3 NET enhancements (client prediction + delta NetSnapshot + host migration + live cursor)
 - [ ] P5 Phase-2 next mechanic (D Inject Spiral / E Steal / A Fog / G Mega-combos)
 - [ ] P7 Bond-hover cost preview
@@ -36,24 +70,19 @@ S35 P0 shipped. 1 LOC fix in main.ts onJoinAttempt unblocks 1v1 join handshake �
 - [ ] PannerNode + auto-duck audio polish
 - [ ] Host save-load with live creatures edge case (Gemini G3 documentational; low priority)
 - [ ] CutsceneOverlay.abort integration test (S34 P2-24 stretch deferred)
+- [ ] Existing voltkin-zap.png style-drift check vs new 5 frames — re-compress if user notices
+
+## Recent Reflexion (S36 highlights)
+
+- **#council-cancelled-mid-launch-via-parallel-tool-coupling**: Skill invocations should run in their OWN tool batch, never alongside Bash probes that could fail. PowerShell `&&` chain failure cascaded into Council cancellation; 20K+ tokens of intended deliberation lost. Fallback was strong-defaults PRE/PRIME-AUDIT under user explicit-go — documented exception, not new norm.
+
+- **#transformation-arc-from-style-mismatch-as-strongest-creative-interpretation**: When user-generated assets carry visible style contrast (chibi vs lion-form WINNERs), the strongest reading is that the contrast IS the design (Pokemon-style transformation). Map the contrast to a meaningful axis (rest vs combat) rather than normalize.
+
+- **#pure-frame-selector-as-side-of-render-coin**: Separating SELECTION (pure function) from RENDERING (Pixi-coupled class) gives 43 unit tests with zero Pixi mocks. Pattern carries to Anvil + future creatures — each gets its own `*Frames.ts` module.
+
+- **#empirical-sync-test-between-two-deterministic-functions**: When two pure functions (currentFrameKey + flashIntensity) must agree on a derived predicate, write a walk-the-domain test that asserts the cross-function consistency. ~20 LOC, catches drift forever, becomes the spec.
+
+- **#killCount-as-render-derived-state-not-display-flag**: Add the underlying measurable (count) not the display flag (boolean). Future-proof for kill-streak achievements, scoring derivatives, balance tuning — all become 1-line derivations.
 
 ## Manual Smoke (CHECK live — if running it again)
-Two devices on `https://spark-online.space/?debug=1` (solo or 1v1). **Hard refresh first.** Build SQ4-TR4 chain. Expected:
-- Lobby join handshake: joiner transitions LOBBY→PLAYING when host clicks Begin Match (S35 P0 fix)
-- Voltkin cinematic phase: mp4 + voice + bg fade + SPAWNING pulse fully visible (S31 P0-1)
-- Lightning attacks with cyan jagged bolts; jitter pattern varies per creature (S33 P1-11)
-- Screen shake on each fire-tick — ARC_FLASH-gated (S33 P1-6)
-- TITLE-transition cleanup intact (S34 P2-16)
-- 1v1 client mirrors host's ARC_FLASH + shake (S31 P0-3) — NEEDS RETEST POST-S35-FIX
-
-## Recent Reflexion (S35 highlights)
-
-- **#integration-blind-spot-since-S15-because-unit-tests-bypass-main-ts-inline-gates**: 1v1 join deadlock at main.ts:765 client-interpolation gate persisted 20 sessions because vitest unit tests exercise ClientSync directly — bypassing the inline render-loop gate. "1v1 brother retest pending" carry items across S31/S32/S33/S34 were the symptom: cross-network 2-peer playtest was IMPOSSIBLE because joiner never left LOBBY. Mitigation: explicit playtest gate in PDR execution order. Long-term: extract main.ts gate logic to pure helpers OR Playwright integration test for LOBBY→PLAYING.
-
-- **#asymmetric-host-joiner-setup-needs-symmetry-check**: Host gets world.gameMode='1v1' via reducer dispatch (applyStartGame); joiner is supposed to mirror via NETSNAPSHOT apply, BUT apply path is gated on gameMode='1v1' — Catch-22. Pattern carry-forward: any world.* field host sets via reducer must be checked for joiner-side parity in onJoinAttempt. Fields that GATE the snapshot-apply path can NEVER be bootstrapped from the snapshot.
-
-- **#prime-audit-all-gates-sweep-before-state-mutation-in-entry-point-handler**: PRIME-AUDIT swept all 11 `gameMode === '1v1'` references repo-wide before adding the 1-LOC fix. Took ~3 min, gave high-confidence safety. Pattern: any handler-side world-field mutation triggers a grep-all-gates audit BEFORE landing.
-
-- **#bootstrap-gate-catch-22-pattern-codified**: Any pattern `if (world.X === V) { ... mutates world.X to V ... }` is a deadlock unless world.X is set to V somewhere else first. Audit checklist: (1) is gate condition the output of the gated mutation? (2) is there an INDEPENDENT path to set the gate-condition?
-
-- **#user-driven-playtest-as-final-validation-gate**: When fix targets integration boundary unreachable by unit tests (cross-network, DOM-gated, hardware-gated), PDR must name human-loop validation as explicit step BEFORE next priority. 2-stage close: "fix landed pending smoke" → "fully validated after user playtest."
+Solo or 1v1 device on `https://spark-online.space/?debug=1`. **Hard refresh first.** Build SQ4-TR4 chain. Expected per "Next Steps" above — all 5 visual checkpoints (cinematic → SPAWNING morph → SEEKING walk-cycle → ATTACKING transformation arc → DESPAWNING victory/hurt). Open F12 console; `[creature] state` logs every 60 ticks include frameKey + killCount + state — actionable signal for any regression report.
