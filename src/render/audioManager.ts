@@ -45,6 +45,37 @@ const CLAVE_DURATION = 0.03;
 const FART_DURATION = 0.28;
 
 /**
+ * S37 P7 — procedural Voltkin lightning charge-up SFX, fired via `playChargeSFX`
+ * when `drainAudioEffects` sees a `CREATURE_CHARGE` effect (emitted by
+ * `applyCreatureTick` at ATTACKING.ticksInState===VOLTKIN_ATTACK_CHARGE_ENGAGE_TICK).
+ *
+ *   Duration         250 ms total
+ *   Waveform         sawtooth (electrical/buzzy character, matches lightning)
+ *   Freq sweep       150 Hz → 900 Hz exponential over 250 ms (2.6-octave rise)
+ *   Filter sweep     biquad lowpass cutoff 600 Hz → 4000 Hz exp, Q=1 (smooth)
+ *   Gain envelope    0 → 0.4 linear ramp over [0, 0.20] (swell), 0.4 hold over
+ *                    [0.20, 0.245] (peak), exp decay 0.4 → 0.001 over
+ *                    [0.245, 0.250] (5 ms click-free termination, clean
+ *                    baton-pass into lightning-crackle.ogg at FIRE tick).
+ *
+ * Council R1 D2 + PRIME-AUDIT Δ5: parameters are starting defaults; user
+ * playtest informs subjective tuning. Rollback ladder if grating: waveform
+ * swap (sine/triangle/square), reduce peak gain 0.4→0.25, or replace with
+ * recorded sample via playOneShot. See session-state.json
+ * `carry_forward_general` for the full S37 D9 ladder.
+ */
+const CHARGE_GAIN = 0.4;
+const CHARGE_DURATION = 0.25;
+const CHARGE_RAMP_END = 0.20;
+const CHARGE_DECAY_START = 0.245;
+const CHARGE_FREQ_START = 150;
+const CHARGE_FREQ_END = 900;
+const CHARGE_FILTER_START = 600;
+const CHARGE_FILTER_END = 4000;
+const CHARGE_FILTER_Q = 1;
+const CHARGE_DECAY_FLOOR = 0.001;
+
+/**
  * S28 P0 — Voltkin Phase 2D zap audio. Recorded lightning-crackle.ogg (18 KB)
  * deployed from assets-source/godly-voltkin/audio/ at S28 boot (Council scope-Q2
  * USER-LOCKED option-a: recorded SFX over procedural Web Audio synth). Replaces
@@ -84,6 +115,11 @@ let claveCallsTotal = 0;
 let claveCallsSynthed = 0;
 let fartCallsTotal = 0;
 let fartCallsSynthed = 0;
+// S37 P7 — diagnostic counters surfaced via inspectAudioChain for the debug
+// overlay. Same semantic as clave/fart counters: total = function entered,
+// synthed = oscillator+envelope actually scheduled (ctx running, gain wired).
+let chargeCallsTotal = 0;
+let chargeCallsSynthed = 0;
 
 /** Clamp a number into [0, 1]. NaN and non-finite values become 0. */
 export function clamp01(n: number): number {
@@ -402,6 +438,9 @@ export interface AudioChainSnapshot {
   claveCallsSynthed: number;
   fartCallsTotal: number;
   fartCallsSynthed: number;
+  /** S37 P7 — Voltkin lightning charge-up SFX diagnostic counters. */
+  chargeCallsTotal: number;
+  chargeCallsSynthed: number;
   storageKeys: {
     masterMuted: string | null;
     musicMuted: string | null;
@@ -440,6 +479,8 @@ export function inspectAudioChain(): AudioChainSnapshot {
     claveCallsSynthed,
     fartCallsTotal,
     fartCallsSynthed,
+    chargeCallsTotal,
+    chargeCallsSynthed,
     storageKeys: storage,
   };
 }
@@ -560,6 +601,74 @@ export async function playFartSFX(): Promise<void> {
 }
 
 /**
+ * S37 P7 — Voltkin lightning charge-up SFX. 250 ms procedural rising tone
+ * fired when `applyCreatureTick` emits `CREATURE_CHARGE` at
+ * ATTACKING.ticksInState===VOLTKIN_ATTACK_CHARGE_ENGAGE_TICK (=15). Climaxes
+ * just before the FIRE tick where the recorded `lightning-crackle.ogg`
+ * plays — sharp 5 ms exp decay tail ensures click-free baton-pass into the
+ * crackle.
+ *
+ * Audio graph: oscillator(sawtooth) → biquad lowpass → gain envelope →
+ * sfxGainNode → masterGain → destination.
+ *
+ * Defense-in-depth (mirrors playClaveSFX/playFartSFX S23 P2 pattern): explicit
+ * `ctx.resume()` with debug-only logging; skips synth if ctx unrunnable after
+ * resume attempt (tab-blur / autoplay-policy guard).
+ */
+export async function playChargeSFX(): Promise<void> {
+  chargeCallsTotal += 1;
+  if (audioContext === null || sfxGainNode === null) {
+    if (isDebugRequested()) console.warn('[audio] playChargeSFX: ctx/gain null, audio not initialized');
+    return;
+  }
+  if (audioContext.state !== 'running') {
+    try {
+      await audioContext.resume();
+    } catch (e) {
+      if (isDebugRequested()) console.warn('[audio] playChargeSFX resume() threw:', e);
+    }
+  }
+  if (audioContext.state !== 'running') {
+    if (isDebugRequested()) {
+      console.warn(`[audio] playChargeSFX skip: ctx state=${audioContext.state} after resume attempt`);
+    }
+    return;
+  }
+
+  const ctx = audioContext;
+  const now = ctx.currentTime;
+
+  // Gain envelope: 0 → peak (linear swell), hold at peak, exp decay tail.
+  // linearRampToValueAtTime to the same value = "hold" segment in Web Audio.
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(CHARGE_GAIN, now + CHARGE_RAMP_END);
+  gain.gain.linearRampToValueAtTime(CHARGE_GAIN, now + CHARGE_DECAY_START);
+  gain.gain.exponentialRampToValueAtTime(CHARGE_DECAY_FLOOR, now + CHARGE_DURATION);
+  gain.connect(sfxGainNode);
+
+  // Biquad lowpass cutoff exp sweep — opens up the high harmonics from a
+  // muffled-buzz to a piercing-arc feel by the end of the wind-up.
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(CHARGE_FILTER_START, now);
+  filter.frequency.exponentialRampToValueAtTime(CHARGE_FILTER_END, now + CHARGE_DURATION);
+  filter.Q.value = CHARGE_FILTER_Q;
+  filter.connect(gain);
+
+  // Sawtooth oscillator (electrical/buzzy harmonics suit lightning) with
+  // exp pitch rise — feels like energy gathering toward the strike.
+  const osc = ctx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(CHARGE_FREQ_START, now);
+  osc.frequency.exponentialRampToValueAtTime(CHARGE_FREQ_END, now + CHARGE_DURATION);
+  osc.connect(filter);
+  osc.start(now);
+  osc.stop(now + CHARGE_DURATION);
+  chargeCallsSynthed += 1;
+}
+
+/**
  * Drain effects for audio. Iterates effects, fires SFX for new ticks, advances
  * the cursor. Replay-safe: effects with tick <= cursor are skipped silently.
  */
@@ -581,6 +690,13 @@ export function drainAudioEffects(effects: ReadonlyArray<GameEffect>, currentTic
       // USER-LOCKED option-a: recorded lightning-crackle.ogg over procedural Web
       // Audio synth — see LIGHTNING_CRACKLE_URL constant rationale).
       void playOneShot(LIGHTNING_CRACKLE_URL);
+    } else if (effect.kind === 'CREATURE_CHARGE') {
+      // S37 P7 — Voltkin lightning charge-up rising tone, 250 ms procedural
+      // synth (sawtooth + biquad lowpass sweep + exp gain envelope). Climaxes
+      // just before lightning-crackle.ogg fires at the FIRE tick. Multi-creature
+      // concurrent calls are safe (each oscillator graph is one-shot
+      // independent; Web Audio is polyphonic by construction).
+      void playChargeSFX();
     }
   }
   lastDrainedTick = currentTick;
@@ -608,4 +724,60 @@ export function fartFreq(
   if (t >= duration) return endHz;
   const ratio = endHz / startHz;
   return startHz * Math.pow(ratio, t / duration);
+}
+
+/**
+ * S37 P7 — exponential frequency interpolation for the Voltkin charge SFX.
+ * Mirrors `fartFreq` shape (out-of-range clamp + exp interp) so the helper
+ * patterns stay symmetric. Pure; trivially unit-testable.
+ *
+ *   t            time within the 250 ms wind-up (seconds)
+ *   duration     total wind-up duration; default CHARGE_DURATION
+ *   startHz      starting pitch; default CHARGE_FREQ_START
+ *   endHz        ending pitch (at FIRE moment); default CHARGE_FREQ_END
+ *
+ * Default trajectory matches the live oscillator schedule:
+ *   chargeFreq(0)      === 150
+ *   chargeFreq(0.25)   === 900
+ *   chargeFreq(0.125)  ≈ 367.42  (geometric midpoint)
+ */
+export function chargeFreq(
+  t: number,
+  duration: number = CHARGE_DURATION,
+  startHz: number = CHARGE_FREQ_START,
+  endHz: number = CHARGE_FREQ_END,
+): number {
+  if (t < 0) return startHz;
+  if (t >= duration) return endHz;
+  const ratio = endHz / startHz;
+  return startHz * Math.pow(ratio, t / duration);
+}
+
+/**
+ * S37 P7 — gain envelope for the Voltkin charge SFX. Piecewise:
+ *   - silent before t<0 and after t>=duration (returns 0)
+ *   - linear ramp 0 → CHARGE_GAIN over [0, CHARGE_RAMP_END]
+ *   - hold at CHARGE_GAIN over [CHARGE_RAMP_END, CHARGE_DECAY_START]
+ *   - exponential decay CHARGE_GAIN → CHARGE_DECAY_FLOOR over
+ *     [CHARGE_DECAY_START, duration] (5 ms click-free tail)
+ *
+ * Matches the live `gain.gain` schedule in `playChargeSFX` analytically so
+ * unit tests can assert the envelope without running Web Audio. Pure.
+ */
+export function chargeEnvelope(
+  t: number,
+  duration: number = CHARGE_DURATION,
+): number {
+  if (t < 0 || t >= duration) return 0;
+  if (t < CHARGE_RAMP_END) {
+    return (t / CHARGE_RAMP_END) * CHARGE_GAIN;
+  }
+  if (t < CHARGE_DECAY_START) {
+    return CHARGE_GAIN;
+  }
+  // Exponential decay segment, mirroring `gain.exponentialRampToValueAtTime`.
+  // Formula: v(s) = v0 * (v1/v0)^(s/dt), where s = t - CHARGE_DECAY_START.
+  const decayElapsed = t - CHARGE_DECAY_START;
+  const decayDuration = duration - CHARGE_DECAY_START;
+  return CHARGE_GAIN * Math.pow(CHARGE_DECAY_FLOOR / CHARGE_GAIN, decayElapsed / decayDuration);
 }

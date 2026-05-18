@@ -44,7 +44,8 @@ export function effectLifetime(effect: GameEffect): number {
       return ARC_FLASH_DURATION_TICKS;
     case 'BOND_FORMED':
     case 'BOND_SEVERED':
-      // S18 P1 — audio-only effects. Filtered out at drain time in
+    case 'CREATURE_CHARGE':
+      // S18 P1 + S37 P7 — audio-only effects. Filtered out at drain time in
       // effectsRenderer.sync so they never enter the active visual list;
       // this branch exists purely for TS exhaustiveness on the union.
       return 0;

@@ -441,6 +441,70 @@ describe('WorldSnapshot effects field (S31 P0-3)', () => {
     }
   });
 
+  // S37 P7 — wire mirror of the Voltkin charge-up audio cue. Same additive-
+  // optional pattern as ARC_FLASH/BOND_*: serializeEffect/deserializeEffect
+  // round-trip bit-for-bit. Pre-S37 wire payloads + saves never carry this
+  // kind (host doesn't emit pre-S37); rehydrate succeeds without the variant.
+  it('S37 P7 — round-trip preserves CREATURE_CHARGE (kind, tick, pos)', () => {
+    const w1 = makeWorld(0);
+    w1.effects.push({
+      kind: 'CREATURE_CHARGE',
+      tick: 123,
+      pos: { x: 50, y: 75 },
+    });
+    const json = JSON.stringify(snapshot(w1));
+    const w2 = makeWorld(0);
+    restore(JSON.parse(json), w2);
+    expect(w2.effects.length).toBe(1);
+    const e = w2.effects[0];
+    expect(e.kind).toBe('CREATURE_CHARGE');
+    if (e.kind === 'CREATURE_CHARGE') {
+      expect(e.tick).toBe(123);
+      expect(e.pos).toEqual({ x: 50, y: 75 });
+    }
+  });
+
+  it('S37 P7 — CREATURE_CHARGE coexists with ARC_FLASH + BOND_* in mixed-emit round-trip', () => {
+    const w1 = makeWorld(0);
+    w1.effects.push(
+      { kind: 'CREATURE_CHARGE', tick: 100, pos: { x: 50, y: 50 } },
+      { kind: 'ARC_FLASH', tick: 130, start: { x: 50, y: 50 }, end: { x: 200, y: 200 } },
+      { kind: 'BOND_SEVERED', tick: 130, pos: { x: 200, y: 200 }, cause: 'creature' },
+      { kind: 'CREATURE_CHARGE', tick: 160, pos: { x: 60, y: 60 } },
+    );
+    const json = JSON.stringify(snapshot(w1));
+    const w2 = makeWorld(0);
+    restore(JSON.parse(json), w2);
+    expect(w2.effects.length).toBe(4);
+    // Order preserved; CHARGE bracketed by the FIRE-tick lightning trio.
+    expect(w2.effects[0].kind).toBe('CREATURE_CHARGE');
+    expect(w2.effects[1].kind).toBe('ARC_FLASH');
+    expect(w2.effects[2].kind).toBe('BOND_SEVERED');
+    expect(w2.effects[3].kind).toBe('CREATURE_CHARGE');
+  });
+
+  it('S37 P7 — defensive pos copy on serialize + deserialize (no shared refs)', () => {
+    const w1 = makeWorld(0);
+    const sharedPos = { x: 100, y: 200 };
+    w1.effects.push({ kind: 'CREATURE_CHARGE', tick: 50, pos: sharedPos });
+    const snap = snapshot(w1);
+    // Mutate original pos on host side; the serialized pos must be a defensive copy.
+    sharedPos.x = 999;
+    sharedPos.y = 999;
+    const serialized = snap.effects?.[0];
+    expect(serialized?.kind).toBe('CREATURE_CHARGE');
+    if (serialized?.kind === 'CREATURE_CHARGE') {
+      expect(serialized.pos).toEqual({ x: 100, y: 200 });
+    }
+    // Round-trip preserves the original snapshot values regardless.
+    const w2 = makeWorld(0);
+    restore(JSON.parse(JSON.stringify(snap)), w2);
+    const e = w2.effects[0];
+    if (e.kind === 'CREATURE_CHARGE') {
+      expect(e.pos).toEqual({ x: 100, y: 200 });
+    }
+  });
+
   it('round-trip preserves BOND_FORMED + BOND_SEVERED with cause discriminator', () => {
     const w1 = makeWorld(0);
     w1.effects.push(

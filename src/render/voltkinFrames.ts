@@ -64,6 +64,7 @@
 import {
   VOLTKIN_ATTACK_CADENCE_TICKS,
   VOLTKIN_ATTACK_FIRE_TICK,
+  VOLTKIN_ATTACK_CHARGE_ENGAGE_TICK,
   type CreatureState,
 } from '../state/creatures/creature.ts';
 
@@ -104,8 +105,14 @@ export const IDLE_CYCLE_TICKS = 60;
  * ATTACKING windup tick at which charge frame engages (lion materializes).
  * 15 = halfway through windup (ticks 0..29). idle1 holds ticks 0..14 then
  * charge appears ticks 15..29. Pairs with VOLTKIN_ATTACK_FIRE_TICK=30.
+ *
+ * S37 P7 — promoted to voltkin-config.attackChargeEngageTick so the
+ * state-layer `applyCreatureTick` emit of CREATURE_CHARGE shares the same
+ * source (Council R1 D1 DRY fix). Local alias retained for readability
+ * inside the schedule body; future Anvil creatures would consume
+ * `getCreatureConfig(type).attackChargeEngageTick` directly.
  */
-const ATTACKING_CHARGE_ENGAGE_TICK = 15;
+const ATTACKING_CHARGE_ENGAGE_TICK = VOLTKIN_ATTACK_CHARGE_ENGAGE_TICK;
 
 /**
  * ATTACKING recovery tick at which charge frame releases back to idle1.

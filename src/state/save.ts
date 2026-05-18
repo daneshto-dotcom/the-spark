@@ -193,6 +193,23 @@ export type SerializedEffect =
       readonly tick: number;
       readonly pos: Vec2;
       readonly cause: 'player' | 'physics' | 'godly' | 'creature';
+    }
+  | {
+      /**
+       * S37 P7 — wire mirror of the CREATURE_CHARGE GameEffect. Bit-for-bit
+       * mirror so the joiner's `drainAudioEffects` fires `playChargeSFX` at
+       * the same tick host did (CREATURE_CHARGE emit lives in
+       * `applyCreatureTick` at ATTACKING.ticksInState===15).
+       *
+       * Additive-optional: pre-S37 NetSnapshots + legacy localStorage saves
+       * never carry this kind (host doesn't emit pre-S37); `serializeEffect`
+       * + `deserializeEffect` handle the new variant additively without a
+       * schemaVersion bump (S15 P2 / S28 P0 / S31 P0-3 / S33 P1-11 / S36 P3
+       * additive-optional precedent chain).
+       */
+      readonly kind: 'CREATURE_CHARGE';
+      readonly tick: number;
+      readonly pos: Vec2;
     };
 
 /**
@@ -562,6 +579,15 @@ function serializeEffect(e: GameEffect): SerializedEffect | null {
         pos: { x: e.pos.x, y: e.pos.y },
         cause: e.cause,
       };
+    case 'CREATURE_CHARGE':
+      // S37 P7 — wire-mirror the lightning charge-up audio cue. Both host and
+      // joiner drain this and fire `playChargeSFX` at the same tick + sfx-bus
+      // settings, keeping the 250ms wind-up tone synced across 1v1 peers.
+      return {
+        kind: 'CREATURE_CHARGE',
+        tick: e.tick,
+        pos: { x: e.pos.x, y: e.pos.y },
+      };
     // Host-local visual flair — not sent to client. Renderer-only.
     case 'BOND_COMMIT':
     case 'SEVER_ERASE':
@@ -604,6 +630,12 @@ function deserializeEffect(s: SerializedEffect): GameEffect {
         tick: s.tick,
         pos: { x: s.pos.x, y: s.pos.y },
         cause: s.cause,
+      };
+    case 'CREATURE_CHARGE':
+      return {
+        kind: 'CREATURE_CHARGE',
+        tick: s.tick,
+        pos: { x: s.pos.x, y: s.pos.y },
       };
   }
 }

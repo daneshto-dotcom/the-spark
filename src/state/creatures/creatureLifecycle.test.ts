@@ -405,6 +405,141 @@ describe('applyCreatureTick — S27 P0 SEEKING ↔ ATTACKING transitions', () =>
   });
 });
 
+describe('applyCreatureTick — S37 P7 CREATURE_CHARGE emit', () => {
+  // The emit is documented inside applyCreatureTick: after `creature.ticksInState++`,
+  // if state is ATTACKING and the post-increment value equals
+  // VOLTKIN_ATTACK_CHARGE_ENGAGE_TICK (=15), push a CREATURE_CHARGE GameEffect
+  // to world.effects (pure audio cue; no game-state mutation; replay-safe;
+  // wire-mirrored via SerializedEffect so 1v1 joiner drains the same cue).
+  //
+  // These tests exercise the emit guard in isolation: state, ticksInState,
+  // pos snapshot, FSM-state exclusivity. Round-trip wire mirror coverage
+  // lives in save.test.ts; drain-dispatch coverage lives in audioManager.test.ts.
+
+  function setupAttackingAtTick(
+    ticksInState: number,
+    pos: { x: number; y: number },
+  ): { world: World; creatureId: ReturnType<typeof asCreatureId> } {
+    const w = makeWorld(0);
+    applySpawnCreature(w, {
+      type: 'SPAWN_CREATURE',
+      creatureType: 'voltkin',
+      ownerPlayerId: asPlayerId(0),
+      pos,
+      targetPos: { x: 200, y: 200 },
+    });
+    const creatureId = asCreatureId(0);
+    const c = w.creatures.get(creatureId)!;
+    c.state = 'ATTACKING';
+    c.ticksInState = ticksInState;
+    return { world: w, creatureId };
+  }
+
+  it('emits CREATURE_CHARGE on the tick the post-increment lands on VOLTKIN_ATTACK_CHARGE_ENGAGE_TICK (=15)', () => {
+    const { world, creatureId } = setupAttackingAtTick(14, { x: 50, y: 75 });
+    expect(world.effects.length).toBe(0);
+    world.tick = 100;
+    applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId });
+    // CHARGE emit happens between `ticksInState++` and the FSM transitions.
+    // The freshly-spawned creature has `targetBondId === null`, so applyCreatureTick
+    // step 6 sees `targetGoneEarly` at ticksInState=15 (15<=FIRE_TICK=30) and
+    // aborts ATTACKING→SEEKING, resetting ticksInState to 0. The CHARGE effect
+    // is still in world.effects (push happened before the reset) — the test
+    // asserts on the effect, not on the post-tick ticksInState value.
+    expect(world.effects.length).toBe(1);
+    const e = world.effects[0];
+    expect(e.kind).toBe('CREATURE_CHARGE');
+    if (e.kind === 'CREATURE_CHARGE') {
+      expect(e.tick).toBe(100);
+      expect(e.pos).toEqual({ x: 50, y: 75 });
+    }
+  });
+
+  it('does NOT emit at adjacent ATTACKING ticksInState boundaries (post-increment 14, 16, 30, 45, 59)', () => {
+    // startTick=13 → post=14 (one tick before engage)
+    // startTick=15 → post=16 (one tick after engage)
+    // startTick=29 → post=30 (FIRE_TICK; different cue, lightning-crackle handles it)
+    // startTick=44 → post=45 (IDLE_RELEASE_TICK; transformation flash only, no SFX)
+    // startTick=58 → post=59 (last ATTACKING tick before cadence elapses)
+    for (const startTick of [13, 15, 29, 44, 58]) {
+      const { world, creatureId } = setupAttackingAtTick(startTick, { x: 0, y: 0 });
+      applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId });
+      const chargeCount = world.effects.filter((e) => e.kind === 'CREATURE_CHARGE').length;
+      expect(chargeCount).toBe(0);
+    }
+  });
+
+  it('does NOT emit during SPAWNING / SEEKING / DESPAWNING even when ticksInState=14→15', () => {
+    for (const state of ['SPAWNING', 'SEEKING', 'DESPAWNING'] as const) {
+      const w = makeWorld(0);
+      applySpawnCreature(w, {
+        type: 'SPAWN_CREATURE',
+        creatureType: 'voltkin',
+        ownerPlayerId: asPlayerId(0),
+        pos: { x: 0, y: 0 },
+        targetPos: { x: 200, y: 200 },
+      });
+      const creatureId = asCreatureId(0);
+      const c = w.creatures.get(creatureId)!;
+      c.state = state;
+      c.ticksInState = 14;
+      applyCreatureTick(w, { type: 'CREATURE_TICK', creatureId });
+      const chargeCount = w.effects.filter((e) => e.kind === 'CREATURE_CHARGE').length;
+      expect(chargeCount).toBe(0);
+    }
+  });
+
+  it('captures creature.pos at emit time (defensive copy — post-emit mutation does not leak into effect)', () => {
+    const { world, creatureId } = setupAttackingAtTick(14, { x: 100, y: 200 });
+    applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId });
+    const e = world.effects[0];
+    if (e.kind !== 'CREATURE_CHARGE') throw new Error('expected CREATURE_CHARGE');
+    const c = world.creatures.get(creatureId)!;
+    c.pos.x = 999;
+    c.pos.y = 999;
+    expect(e.pos).toEqual({ x: 100, y: 200 });
+  });
+
+  it('two concurrent ATTACKING creatures both emit CREATURE_CHARGE on the same tick (polyphony)', () => {
+    const w = makeWorld(0);
+    w.players.set(asPlayerId(1), makeIdlePlayer(asPlayerId(1), PLAYER_COLORS[1]));
+    applySpawnCreature(w, {
+      type: 'SPAWN_CREATURE',
+      creatureType: 'voltkin',
+      ownerPlayerId: asPlayerId(0),
+      pos: { x: 10, y: 10 },
+      targetPos: { x: 100, y: 100 },
+    });
+    applySpawnCreature(w, {
+      type: 'SPAWN_CREATURE',
+      creatureType: 'voltkin',
+      ownerPlayerId: asPlayerId(1),
+      pos: { x: 90, y: 90 },
+      targetPos: { x: 200, y: 200 },
+    });
+    for (const c of w.creatures.values()) {
+      c.state = 'ATTACKING';
+      c.ticksInState = 14;
+    }
+    // Keep world.tick well below despawnAtTick (=480 since spawn-tick was 0)
+    // so step 1 auto-delete doesn't fire pre-emit. Both creatures see the
+    // same `targetGoneEarly` abort post-CHARGE-push at ticksInState=15
+    // (targetBondId===null), but the CHARGE effects have already been queued.
+    w.tick = 100;
+    for (const id of w.creatures.keys()) {
+      applyCreatureTick(w, { type: 'CREATURE_TICK', creatureId: id });
+    }
+    const charges = w.effects.filter((e) => e.kind === 'CREATURE_CHARGE');
+    expect(charges.length).toBe(2);
+    const positions = charges
+      .map((c) => (c.kind === 'CREATURE_CHARGE' ? c.pos : null))
+      .filter((p): p is { x: number; y: number } => p !== null);
+    // Both creatures' positions captured distinctly.
+    expect(positions).toContainEqual({ x: 10, y: 10 });
+    expect(positions).toContainEqual({ x: 90, y: 90 });
+  });
+});
+
 describe('applyDespawnCreature', () => {
   let world: World;
   beforeEach(() => {

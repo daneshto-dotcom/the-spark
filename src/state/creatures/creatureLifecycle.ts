@@ -35,6 +35,7 @@ import {
   CREATURE_SPAWN_TICKS,
   VOLTKIN_ATTACK_CADENCE_TICKS,
   VOLTKIN_ATTACK_FIRE_TICK,
+  VOLTKIN_ATTACK_CHARGE_ENGAGE_TICK,
   makeVoltkinCreature,
   type CreatureId,
   type CreatureType,
@@ -152,6 +153,32 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
 
   // 3. Advance the in-state counter THEN check FSM transitions.
   creature.ticksInState++;
+
+  // S37 P7 — emit CREATURE_CHARGE audio cue at the lion-form charge-engage
+  // tick. Pure audio cue (renderer ignores this effect kind); audioManager
+  // drains it on the next render frame and fires the procedural 250 ms
+  // rising-tone SFX climaxing at FIRE_TICK. Replay-safe (push happens
+  // in-reducer; `save.replay.test.ts` byte-equivalence preserved by tick-
+  // deterministic increment). Wire-mirrored via SerializedEffect so 1v1
+  // joiner gets the same CHARGE in their `world.effects` on next snapshot
+  // apply (Council R1 D1 + Δ6 drain-parity).
+  //
+  // Guard: emit only when state was ATTACKING coming into this tick AND the
+  // post-increment value equals the engage tick. If the FSM transitions out
+  // of ATTACKING in step 6 below (cadence elapsed / target gone early), that
+  // edit happens AFTER this push — the effect stays in the queue and drains
+  // normally. (The post-FSM ATTACKING→SEEKING path resets ticksInState to 0,
+  // so a freshly-entered SEEKING state cannot retro-trigger this branch.)
+  if (
+    creature.state === 'ATTACKING' &&
+    creature.ticksInState === VOLTKIN_ATTACK_CHARGE_ENGAGE_TICK
+  ) {
+    world.effects.push({
+      kind: 'CREATURE_CHARGE',
+      tick: world.tick,
+      pos: { x: creature.pos.x, y: creature.pos.y },
+    });
+  }
 
   // 4. SPAWNING → SEEKING at the spawn window boundary (S26 P0, blueprint Q7).
   //    Cleanup: targetBondId stays null on entry to SEEKING; main.ts will populate

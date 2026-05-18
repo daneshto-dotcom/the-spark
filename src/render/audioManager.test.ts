@@ -12,12 +12,15 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { asPrimitiveId } from '../types.ts';
 import type { GameEffect } from '../game/effects.ts';
 import {
+  chargeEnvelope,
+  chargeFreq,
   claveEnvelope,
   clamp01,
   drainAudioEffects,
   fartFreq,
   getAudioSettings,
   initAudio,
+  inspectAudioChain,
   isMuted,
   resetAudioDrainCursor,
   setMusicMuted,
@@ -73,6 +76,72 @@ describe('audioManager — fartFreq (pure)', () => {
     const samples = [0.05, 0.15, 0.25].map((t) => fartFreq(t, 0.28, 600, 180));
     expect(samples[0]).toBeGreaterThan(samples[1]);
     expect(samples[1]).toBeGreaterThan(samples[2]);
+  });
+});
+
+describe('audioManager — chargeFreq (S37 P7 pure)', () => {
+  it('starts at startHz at t=0', () => {
+    expect(chargeFreq(0, 0.25, 150, 900)).toBe(150);
+  });
+
+  it('ends at endHz at t=duration', () => {
+    expect(chargeFreq(0.25, 0.25, 150, 900)).toBeCloseTo(900, 5);
+  });
+
+  it('exponential midpoint equals geometric mean (≈367.42 Hz for 150→900)', () => {
+    expect(chargeFreq(0.125, 0.25, 150, 900)).toBeCloseTo(Math.sqrt(150 * 900), 1);
+  });
+
+  it('clamps outside [0, duration]', () => {
+    expect(chargeFreq(-1, 0.25, 150, 900)).toBe(150);
+    expect(chargeFreq(10, 0.25, 150, 900)).toBe(900);
+  });
+
+  it('is monotonically increasing (lightning charging up, not down)', () => {
+    const samples = [0.05, 0.15, 0.20].map((t) => chargeFreq(t, 0.25, 150, 900));
+    expect(samples[0]).toBeLessThan(samples[1]);
+    expect(samples[1]).toBeLessThan(samples[2]);
+  });
+
+  it('default args reproduce live oscillator schedule (150 → 900 Hz over 250 ms)', () => {
+    expect(chargeFreq(0)).toBe(150);
+    expect(chargeFreq(0.25)).toBeCloseTo(900, 5);
+  });
+});
+
+describe('audioManager — chargeEnvelope (S37 P7 pure)', () => {
+  it('silent at t=0 (envelope starts at 0)', () => {
+    expect(chargeEnvelope(0, 0.25)).toBe(0);
+  });
+
+  it('linear ramp up: value at t=0.10 is half of peak (CHARGE_GAIN=0.4)', () => {
+    // CHARGE_RAMP_END = 0.20; linear (t/0.20) * 0.4. At t=0.10 → 0.20.
+    expect(chargeEnvelope(0.10, 0.25)).toBeCloseTo(0.20, 5);
+  });
+
+  it('reaches peak gain (0.4) at CHARGE_RAMP_END (t=0.20)', () => {
+    expect(chargeEnvelope(0.20, 0.25)).toBeCloseTo(0.4, 5);
+  });
+
+  it('holds at peak gain during [0.20, 0.245]', () => {
+    expect(chargeEnvelope(0.22, 0.25)).toBeCloseTo(0.4, 5);
+    expect(chargeEnvelope(0.244, 0.25)).toBeCloseTo(0.4, 5);
+  });
+
+  it('exponential decay during [0.245, 0.25]: hits floor near t=duration', () => {
+    // Decay 0.4 → 0.001 over 5 ms. At end of window, value ≈ 0.001.
+    expect(chargeEnvelope(0.25 - 1e-6, 0.25)).toBeLessThan(0.01);
+  });
+
+  it('returns 0 outside [0, duration]', () => {
+    expect(chargeEnvelope(-0.001, 0.25)).toBe(0);
+    expect(chargeEnvelope(0.251, 0.25)).toBe(0);
+  });
+
+  it('default args reproduce live envelope schedule', () => {
+    expect(chargeEnvelope(0)).toBe(0);
+    expect(chargeEnvelope(0.20)).toBeCloseTo(0.4, 5);
+    expect(chargeEnvelope(0.22)).toBeCloseTo(0.4, 5); // hold
   });
 });
 
@@ -181,6 +250,42 @@ describe('audioManager — drainAudioEffects (cursor)', () => {
       { kind: 'BOND_FORMED', tick: 50, pos: { x: 0, y: 0 }, bondCount: 1 },
     ];
     expect(() => drainAudioEffects(effects, 50)).not.toThrow();
+  });
+
+  // S37 P7 — Voltkin lightning charge-up cue. Drain must dispatch
+  // playChargeSFX (counter increments) without throw under jsdom (no
+  // AudioContext available — playChargeSFX increments chargeCallsTotal
+  // before its ctx-null guard fires).
+  it('handles CREATURE_CHARGE drain — counter increments, no throw (S37 P7)', () => {
+    const before = inspectAudioChain().chargeCallsTotal;
+    const effects: GameEffect[] = [
+      { kind: 'CREATURE_CHARGE', tick: 200, pos: { x: 50, y: 50 } },
+    ];
+    expect(() => drainAudioEffects(effects, 200)).not.toThrow();
+    const after = inspectAudioChain().chargeCallsTotal;
+    expect(after - before).toBe(1);
+  });
+
+  it('two CREATURE_CHARGE effects at same tick dispatch playChargeSFX twice (polyphony)', () => {
+    const before = inspectAudioChain().chargeCallsTotal;
+    const effects: GameEffect[] = [
+      { kind: 'CREATURE_CHARGE', tick: 300, pos: { x: 10, y: 10 } },
+      { kind: 'CREATURE_CHARGE', tick: 300, pos: { x: 90, y: 90 } },
+    ];
+    drainAudioEffects(effects, 300);
+    const after = inspectAudioChain().chargeCallsTotal;
+    expect(after - before).toBe(2);
+  });
+
+  it('CREATURE_CHARGE respects the lastDrainedTick cursor (replay safety)', () => {
+    drainAudioEffects([], 500);
+    const stale: GameEffect[] = [
+      { kind: 'CREATURE_CHARGE', tick: 400, pos: { x: 0, y: 0 } },
+    ];
+    const before = inspectAudioChain().chargeCallsTotal;
+    drainAudioEffects(stale, 500);
+    const after = inspectAudioChain().chargeCallsTotal;
+    expect(after).toBe(before); // stale effect (tick < cursor) skipped
   });
 });
 

@@ -154,6 +154,27 @@ export type GameEffect =
        * optional precedent S15 P2 / S28 P0 / S31 P0-3 (NO schemaVersion bump).
        */
       readonly creatureId?: import('../types.ts').CreatureId;
+    }
+  | {
+      /**
+       * S37 P7 — Voltkin lightning charge-up audio cue. Emitted by
+       * `applyCreatureTick` when `state === 'ATTACKING' && ticksInState === 15`
+       * (the lion-form charge sprite engages — see voltkinFrames.ts
+       * ATTACKING_CHARGE_ENGAGE_TICK). Drives the procedural rising-tone SFX in
+       * `audioManager.playChargeSFX` (250 ms sawtooth + lowpass sweep + exp gain
+       * envelope, climaxing right before the FIRE-tick `lightning-crackle.ogg`).
+       *
+       * Pure audio cue; renderer ignores this kind (no visual). Replay-safe via
+       * `lastDrainedTick` cursor in audioManager. Wire-mirrored via SerializedEffect
+       * so 1v1 joiner drains the same CHARGE and fires the same SFX locally
+       * (Council R1 D1 + Δ6: pattern-consistent with BOND_FORMED/SEVERED/ARC_FLASH).
+       *
+       * `pos` is the creature position at emit time. Reserved for future positional
+       * audio (PannerNode); v1 routing is mono through sfxGainNode.
+       */
+      readonly kind: 'CREATURE_CHARGE';
+      readonly tick: number;
+      readonly pos: Vec2;
     };
 
 /** Soft cap on the queue — anything older than this many ticks is dropped. */

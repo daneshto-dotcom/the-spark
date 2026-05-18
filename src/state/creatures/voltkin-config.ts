@@ -98,6 +98,16 @@ export interface CreatureConfig {
    * tick-end recovery; Voltkin = 30 (middle of cadence).
    */
   readonly attackFireTick: number;
+  /**
+   * S37 P7 — wind-up tick at which the lion-form `charge` sprite engages and
+   * the procedural Web Audio CHARGE SFX fires (250 ms rising tone climaxing
+   * at attackFireTick). Promoted from voltkinFrames.ATTACKING_CHARGE_ENGAGE_TICK
+   * so both the render-layer sprite schedule and the state-layer
+   * applyCreatureTick emit site share a single source of truth (DRY —
+   * Council R1 D1 + PRIME-AUDIT Δ3 fallback documented). Voltkin = 15
+   * (halfway through the 30-tick wind-up).
+   */
+  readonly attackChargeEngageTick: number;
 }
 
 /**
@@ -113,6 +123,7 @@ export const VOLTKIN_CONFIG: CreatureConfig = {
   attackRange: 180,
   attackCadenceTicks: 60,
   attackFireTick: 30,
+  attackChargeEngageTick: 15,
 };
 
 /**

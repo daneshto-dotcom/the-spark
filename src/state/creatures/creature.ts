@@ -108,6 +108,18 @@ export const VOLTKIN_ATTACK_CADENCE_TICKS = VOLTKIN_CONFIG.attackCadenceTicks;
  */
 export const VOLTKIN_ATTACK_FIRE_TICK = VOLTKIN_CONFIG.attackFireTick;
 
+/**
+ * S37 P7 — wind-up tick at which the lion-form `charge` sprite engages AND
+ * the procedural Web Audio CHARGE SFX fires (`applyCreatureTick` emits
+ * `CREATURE_CHARGE` GameEffect at this tick boundary). Shared by:
+ *  - `voltkinFrames.currentFrameKey` — sprite swap chibi→lion
+ *  - `voltkinFrames.flashIntensity` — 2-tick transformation flash
+ *  - `applyCreatureTick` — CREATURE_CHARGE emit + audioManager drain → SFX
+ * Promoted from a render-local constant to voltkin-config so all three
+ * call-sites read the same source (Council R1 D1 DRY fix).
+ */
+export const VOLTKIN_ATTACK_CHARGE_ENGAGE_TICK = VOLTKIN_CONFIG.attackChargeEngageTick;
+
 // Re-export the config + accessor so the canonical entry point lives next to
 // the existing API. New creature types should consume via getCreatureConfig.
 export { VOLTKIN_CONFIG, CREATURE_CONFIGS, getCreatureConfig, type CreatureConfig } from './voltkin-config.ts';
