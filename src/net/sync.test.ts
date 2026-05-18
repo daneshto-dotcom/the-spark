@@ -13,9 +13,11 @@ import { describe, expect, it } from 'vitest';
 import { HostSync, ClientSync, interpolatePositions } from './sync.ts';
 import { lerp01 } from './lerp.ts';
 import { dispatch, makeWorld } from '../state/world.ts';
-import { netSnapshot, type NetSnapshot } from '../state/save.ts';
+import { applyNetSnapshot, netSnapshot, type NetSnapshot } from '../state/save.ts';
 import type { NetSnapshotMsg } from './protocol.ts';
-import { asPlayerId } from '../types.ts';
+import { asCreatureId, asPlayerId, type CreatureId } from '../types.ts';
+import { currentFrameKey, type VoltkinFrameKey } from '../render/voltkinFrames.ts';
+import type { CreatureState } from '../state/creatures/creature.ts';
 
 function mkSnapMsg(seq: number, snap: NetSnapshot): NetSnapshotMsg {
   return { kind: 'NETSNAPSHOT', snapshotSeq: seq, snapshot: snap };
@@ -201,6 +203,218 @@ describe('S35 P0 — joiner bootstrap (1v1 join deadlock regression)', () => {
     // have been false on this state.
     expect(clientWorld.gameState).toBe('LOBBY'); // stuck — the bug.
     expect(clientWorld.gameMode).toBe('solo');   // never updated.
+  });
+});
+
+// S37 P10 — empirical guard that joiner derives the SAME sprite frame as host
+// across all 4 Voltkin FSM states + every form-swap boundary. S36 P3 added
+// killCount to SerializedCreature (additive-optional wire field); this suite
+// asserts that the trimmed render-only payload + deserializeCreature defaults
+// reconstruct a creature shape where `currentFrameKey(state, ticksInState,
+// killCount)` returns the same key on both sides — the visible animation
+// stays locked between peers regardless of snapshot latency.
+//
+// Council R1 D3 (ADDED-Gemini): also include drain-parity for CREATURE_CHARGE
+// so the host's wind-up audio cue surfaces in client.world.effects post-apply
+// and the joiner's `drainAudioEffects` fires `playChargeSFX` locally with
+// matching tick + pos. Together: visual + audio parity end-to-end across the
+// wire for the new Voltkin animation+audio surface.
+describe('S37 P10 — NetSnapshot v2 frame-derivation parity', () => {
+  function setupHostWithCreature(opts: {
+    state: CreatureState;
+    ticksInState: number;
+    killCount?: number;
+  }): { host: ReturnType<typeof makeWorld>; creatureId: CreatureId } {
+    const host = makeWorld(0);
+    const id = asCreatureId(0);
+    host.creatures.set(id, {
+      id,
+      type: 'voltkin',
+      ownerPlayerId: asPlayerId(0),
+      pos: { x: 100, y: 100 },
+      prevPos: { x: 100, y: 100 },
+      targetPos: { x: 200, y: 200 },
+      targetBondId: null,
+      state: opts.state,
+      ticksInState: opts.ticksInState,
+      killCount: opts.killCount ?? 0,
+      spawnedAtTick: 0,
+      despawnAtTick: 480,
+    });
+    return { host, creatureId: id };
+  }
+
+  function assertFrameParity(
+    opts: { state: CreatureState; ticksInState: number; killCount?: number },
+    expectedFrame: VoltkinFrameKey,
+  ): void {
+    const { host, creatureId } = setupHostWithCreature(opts);
+    const snap = netSnapshot(host);
+    const client = makeWorld(0);
+    applyNetSnapshot(snap, client);
+
+    const hostC = host.creatures.get(creatureId)!;
+    const clientC = client.creatures.get(creatureId)!;
+
+    // 1. Wire-faithful state replication (SerializedCreature shape).
+    expect(clientC.state).toBe(hostC.state);
+    expect(clientC.ticksInState).toBe(hostC.ticksInState);
+    expect(clientC.killCount).toBe(hostC.killCount);
+
+    // 2. Frame derivation matches on both sides AND matches the expected key.
+    const hostFrame = currentFrameKey(hostC.state, hostC.ticksInState, hostC.killCount);
+    const clientFrame = currentFrameKey(clientC.state, clientC.ticksInState, clientC.killCount);
+    expect(hostFrame).toBe(expectedFrame);
+    expect(clientFrame).toBe(expectedFrame);
+  }
+
+  // SPAWNING state — lion→chibi morph at t=30
+  it.each([
+    { t: 0, expected: 'zap' as const },
+    { t: 29, expected: 'zap' as const },
+    { t: 30, expected: 'idle1' as const }, // morph boundary
+    { t: 59, expected: 'idle1' as const },
+  ])('SPAWNING t=$t derives $expected on both host and client', ({ t, expected }) => {
+    assertFrameParity({ state: 'SPAWNING', ticksInState: t }, expected);
+  });
+
+  // SEEKING state — idle1↔idle2 alternation every IDLE_CYCLE_TICKS=60
+  it.each([
+    { t: 0, expected: 'idle1' as const },
+    { t: 59, expected: 'idle1' as const },
+    { t: 60, expected: 'idle2' as const }, // alternation boundary
+    { t: 119, expected: 'idle2' as const },
+    { t: 120, expected: 'idle1' as const }, // cycle restart
+  ])('SEEKING t=$t derives $expected on both host and client', ({ t, expected }) => {
+    assertFrameParity({ state: 'SEEKING', ticksInState: t }, expected);
+  });
+
+  // ATTACKING state — chibi (0..14) → lion charge (15..29) → zap (30) →
+  // lion charge (31..44) → chibi (45..59). Form-swap boundaries: t=15, t=45.
+  // FIRE moment: t=30 (single-tick zap frame).
+  it.each([
+    { t: 0, expected: 'idle1' as const },
+    { t: 14, expected: 'idle1' as const }, // last chibi tick pre-windup
+    { t: 15, expected: 'charge' as const }, // ENGAGE — lion materializes
+    { t: 29, expected: 'charge' as const },
+    { t: 30, expected: 'zap' as const }, // FIRE — single tick
+    { t: 31, expected: 'charge' as const },
+    { t: 44, expected: 'charge' as const }, // last lion tick post-FIRE
+    { t: 45, expected: 'idle1' as const }, // RELEASE — chibi cooldown
+    { t: 59, expected: 'idle1' as const },
+  ])('ATTACKING t=$t derives $expected on both host and client', ({ t, expected }) => {
+    assertFrameParity({ state: 'ATTACKING', ticksInState: t }, expected);
+  });
+
+  // DESPAWNING state — killCount discriminator (S36 P3 added killCount to
+  // SerializedCreature). The whole point of P3's additive-optional wire
+  // field was to keep this branch in sync between peers.
+  it.each([
+    { kc: 0, expected: 'hurt' as const }, // never landed an attack — sad fade
+    { kc: 1, expected: 'victory' as const }, // landed at least one — triumphant
+    { kc: 5, expected: 'victory' as const }, // multi-kill — still victory
+  ])('DESPAWNING killCount=$kc derives $expected on both', ({ kc, expected }) => {
+    assertFrameParity({ state: 'DESPAWNING', ticksInState: 30, killCount: kc }, expected);
+  });
+
+  it('killCount field is wire-byte-faithful via additive-optional semantics (omitted when 0, present when > 0)', () => {
+    // Implicit: assertFrameParity above asserts clientC.killCount === hostC.killCount
+    // across kc=0 (wire-omits the field; deserializeCreature defaults to 0) and
+    // kc=1/5 (wire serializes the value). This guard test makes the contract explicit.
+    const { host: host0, creatureId: id0 } = setupHostWithCreature({
+      state: 'DESPAWNING', ticksInState: 30, killCount: 0,
+    });
+    const snap0 = netSnapshot(host0);
+    expect(snap0.creatures?.[0].killCount).toBeUndefined();
+
+    const { host: host3, creatureId: id3 } = setupHostWithCreature({
+      state: 'DESPAWNING', ticksInState: 30, killCount: 3,
+    });
+    const snap3 = netSnapshot(host3);
+    expect(snap3.creatures?.[0].killCount).toBe(3);
+
+    // Both round-trip cleanly to the matching client value.
+    const c0 = makeWorld(0);
+    applyNetSnapshot(snap0, c0);
+    expect(c0.creatures.get(id0)?.killCount).toBe(0);
+
+    const c3 = makeWorld(0);
+    applyNetSnapshot(snap3, c3);
+    expect(c3.creatures.get(id3)?.killCount).toBe(3);
+  });
+});
+
+// S37 P10 — Council R1 D3 ADDED-Gemini scope: in addition to frame-derivation
+// parity, the new CREATURE_CHARGE GameEffect must survive the NetSnapshot
+// wire so the joiner's `drainAudioEffects` fires `playChargeSFX` with the
+// same tick + pos as host's. This closes the audio half of the multiplayer
+// animation+audio surface (visual half above; audio half here).
+describe('S37 P10 — NetSnapshot drain-parity for CREATURE_CHARGE', () => {
+  it('host CREATURE_CHARGE in effects → client.world.effects has identical entry post-applyNetSnapshot', () => {
+    const host = makeWorld(0);
+    host.tick = 50;
+    host.effects.push({
+      kind: 'CREATURE_CHARGE',
+      tick: 50,
+      pos: { x: 75, y: 125 },
+    });
+
+    const client = makeWorld(0);
+    expect(client.effects.length).toBe(0);
+
+    const snap = netSnapshot(host);
+    applyNetSnapshot(snap, client);
+
+    expect(client.effects.length).toBe(1);
+    const e = client.effects[0];
+    expect(e.kind).toBe('CREATURE_CHARGE');
+    if (e.kind === 'CREATURE_CHARGE') {
+      expect(e.tick).toBe(50);
+      expect(e.pos).toEqual({ x: 75, y: 125 });
+    }
+  });
+
+  it('multiple CREATURE_CHARGE effects (polyphony) all round-trip via NetSnapshot', () => {
+    const host = makeWorld(0);
+    host.tick = 100;
+    host.effects.push(
+      { kind: 'CREATURE_CHARGE', tick: 100, pos: { x: 10, y: 10 } },
+      { kind: 'CREATURE_CHARGE', tick: 100, pos: { x: 90, y: 90 } },
+    );
+
+    const client = makeWorld(0);
+    const snap = netSnapshot(host);
+    applyNetSnapshot(snap, client);
+
+    const charges = client.effects.filter((e) => e.kind === 'CREATURE_CHARGE');
+    expect(charges.length).toBe(2);
+    const positions = charges
+      .map((e) => (e.kind === 'CREATURE_CHARGE' ? e.pos : null))
+      .filter((p): p is { x: number; y: number } => p !== null);
+    expect(positions).toContainEqual({ x: 10, y: 10 });
+    expect(positions).toContainEqual({ x: 90, y: 90 });
+  });
+
+  it('CREATURE_CHARGE coexists with ARC_FLASH + BOND_SEVERED on the wire (FIRE-tick lightning trio)', () => {
+    // At ATTACKING FIRE tick (t=30): CHARGE just ended (~16 ms earlier),
+    // ARC_FLASH visual emits, BOND_SEVERED cause='creature' triggers
+    // lightning-crackle audio. All three must reach the joiner cleanly.
+    const host = makeWorld(0);
+    host.tick = 30;
+    host.effects.push(
+      { kind: 'ARC_FLASH', tick: 30, start: { x: 50, y: 50 }, end: { x: 200, y: 200 } },
+      { kind: 'BOND_SEVERED', tick: 30, pos: { x: 200, y: 200 }, cause: 'creature' },
+    );
+    // The CHARGE at t=15 is still in the queue (tick < EFFECT_LIFETIME_TICKS=36)
+    host.effects.unshift({ kind: 'CREATURE_CHARGE', tick: 15, pos: { x: 50, y: 50 } });
+
+    const client = makeWorld(0);
+    const snap = netSnapshot(host);
+    applyNetSnapshot(snap, client);
+
+    expect(client.effects.length).toBe(3);
+    const kinds = client.effects.map((e) => e.kind).sort();
+    expect(kinds).toEqual(['ARC_FLASH', 'BOND_SEVERED', 'CREATURE_CHARGE']);
   });
 });
 
