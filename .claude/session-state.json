@@ -1,24 +1,24 @@
 {
-  "tool_calls_session_total": 47,
+  "tool_calls_session_total": 111,
   "_S36_NOTE": "S36 — Voltkin Multi-Frame Animation + Transformation Arc (S36+S37+S38 multi-session plan, 20 total priorities; S36 shipped 6). User confirmed Transformation Arc design: chibi-form (idle1/idle2/hurt/victory) at rest + lion-form (charge/zap) in combat, Pokemon-style. WINNER frames sourced from assets-source/godly-voltkin/notes/iterations/ (5 raw Imagen PNGs compressed via scripts/compress-voltkin-frames.py → public/godly/voltkin/sprites/; existing 379KB voltkin-zap kept as-is per PRIME-AUDIT Δ7). Pure frame selector in src/render/voltkinFrames.ts maps (state, ticksInState, killCount) → 1 of 6 frame keys. Renderer texture preload via Pixi Assets.allSettled; per-tick texture swap; 2-tick transformation flash on form-swap (lion↔chibi); sprite horizontal flip on velocity.x with debounce threshold. Bundle 468.15 → 469.66 KB (+1.51 KB; 30.34 KB headroom on 500 KB hard cap). Tests 627 → 680 (+53). PROTOCOL NOTE: S36 deliberation tier was Full (>30K, multi-session, multi-file). Council deliberation got cancelled mid-launch by parallel-tool error; proceeded with strong defaults + PRIME-AUDIT self-critique (Δ1-Δ7 documented inline) under user explicit-go + authorized rigor. Treating this as documented exception, not new norm — future Full PDRs should retry Council via separate turn if first attempt fails.",
-  "session_start": "2026-05-17T11:00:00Z",
-  "session_id": "S36",
+  "session_start": "2026-05-18T07:00:00Z",
+  "session_id": "S37",
   "budget_total": 1000000,
   "budget_overhead": 30000,
   "budget_per_priority": 0,
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "tier": "Full",
+  "tier": "Standard",
   "council_waived": false,
-  "council_waiver_reason": "Council launch cancelled mid-invocation by parallel-tool error (Bash chain with PowerShell '&&' failed, Skill call cancelled with it). Proceeded under user explicit-go ('lets run those priorities ... methodically, technically, creatively and pedantically') with strong defaults + PRIME-AUDIT self-critique (Δ1-Δ7) + per-priority tests + bundle verify + 680/680 tests green + production deploy.",
-  "council_invoked": null,
-  "active_pdr": "inline-in-session (PDR v0 presented + confirmed by user before P1)",
-  "active_council_battle_ledger": null,
-  "active_prime_audit": "inline-in-session (Δ1-Δ7 documented in PDR pre-execution)",
+  "council_waiver_reason": null,
+  "council_invoked": "2026-05-18 Council R1 (grok_chat + gemini_chat parallel, 1 round, Battle Ledger 9 decisions, no vetoes, HIGH confidence). PRIME-AUDIT delta-1..7 inline.",
+  "active_pdr": "inline-in-session (synthesized PDR + Battle Ledger + PRIME-AUDIT presented + user `approved` go)",
+  "active_council_battle_ledger": "inline-in-session (9 decisions: 3 CONCEDED->Claude impl, 2 SYNTHESIS, 2 ADDED-Grok, 1 ADDED-Gemini, 1 CONCEDED->Claude risk; HIGH confidence)",
+  "active_prime_audit": "inline-in-session (delta-1 synthesis-material-OK, delta-2 robustness-deferred, delta-3 D1-dissent-flagged-with-fallback, delta-4 resetAudioDrainCursor-not-blocker, delta-5 subjective-audio-fallback-ladder-added, delta-6 drain-parity-feasibility-verified, delta-7 replay-determinism-verified)",
   "active_check_triumvirate": null,
   "session_kind": "execution",
-  "session_note": "S36 — Voltkin animation pass S36 wave (P1-P6 of 20-priority multi-session plan).",
+  "session_note": "S37 - Path B Batch (P7 procedural charge SFX + P10 NetSnapshot frame-parity test). Sprite deploy still queue-stalled at session start; user playtests at session end + reports next session. P8/P9/P11 deferred.",
   "priorities": [
     {
       "id": "P1",
@@ -98,6 +98,36 @@
       "check_completed": true,
       "check_method": "+6 computeFacing tests (clear directions, threshold debounce, micro-noise immunity, sustained motion accumulation). 674 → 680. FACING_VELOCITY_THRESHOLD constant (1.5 px/tick = 90 px/s, comfortably above Verlet noise floor). Per-sprite spriteFacings Map cleared on remove/clear/destroy. Bundle 468.15 → 469.66 KB (+1.51 KB; 30.34 KB headroom). tsc clean. Production build successful. Commit af76b76 pushed to master.",
       "checkpoint_commit": "af76b76"
+    },
+    {
+      "id": "P7",
+      "label": "S37 P7 - Procedural Voltkin charge SFX. CREATURE_CHARGE GameEffect emitted in applyCreatureTick at ATTACKING.ticksInState===VOLTKIN_ATTACK_CHARGE_ENGAGE_TICK (=15) - wire-mirrored via SerializedEffect for 1v1 join parity. playChargeSFX procedural synth: sawtooth + biquad lowpass cutoff sweep 600->4000Hz exp + freq sweep 150->900Hz exp + gain envelope (0->0.4 linear ramp [0,0.20s] + hold [0.20,0.245s] + 5ms exp decay tail [0.245,0.25s] for click-free baton-pass to lightning-crackle.ogg at FIRE tick). Pure helpers chargeFreq + chargeEnvelope unit-tested. Promoted attackChargeEngageTick to voltkin-config.ts (DRY w/ voltkinFrames.ATTACKING_CHARGE_ENGAGE_TICK).",
+      "status": "completed",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": false,
+      "check_completed": true,
+      "check_method": "tsc -b --noEmit clean. Vitest 680 -> 704 (+24 tests passed across 41 files): chargeFreq pure helper (6 tests), chargeEnvelope pure helper (7 tests), drainAudioEffects CREATURE_CHARGE dispatch + polyphony + cursor (3 tests), applyCreatureTick CHARGE emit (5 tests: positive at t=15, negative adjacent boundaries, negative other states, defensive pos copy, 2x polyphony), save.ts SerializedEffect round-trip (3 tests including defensive pos copy + mixed-emit ordering). Build clean: bundle 469.66 -> 471.11 KB (+1.45 KB; 28.89 KB headroom on 500 KB cap). Commit f7f9f7c pushed.",
+      "checkpoint_commit": "f7f9f7c",
+      "real_context_tokens_at_close": 310003,
+      "real_context_pct_at_close": 31.0
+    },
+    {
+      "id": "P10",
+      "label": "S37 P10 - NetSnapshot v2 frame-derivation parity + CREATURE_CHARGE drain-parity. Empirical guard that joiner currentFrameKey(state, ticksInState, killCount) matches host across all 4 Voltkin FSM states + form-swap boundaries. Coverage via Vitest it.each: SPAWNING t=0/29/30/59, SEEKING t=0/59/60/119/120, ATTACKING t=0/14/15/29/30/31/44/45/59, DESPAWNING killCount=0/1/5. Wire byte-faithfulness check for killCount additive-optional semantics. Council R1 D3 ADDED-Gemini drain-parity for CREATURE_CHARGE: host emits effect, snapshot wire, client.world.effects mirror, polyphony case, FIRE-tick trio coexistence.",
+      "status": "completed",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": false,
+      "check_completed": true,
+      "check_method": "tsc -b --noEmit clean. Vitest 704 -> 729 (+25 tests passed): frame-derivation it.each tables (18 scenarios), DESPAWNING killCount it.each (3 scenarios), killCount wire byte-faithful guard test, drain-parity for single + polyphony CHARGE + FIRE-tick trio coexistence. Bundle unchanged (test-only file). Commit fe2c0e2 pushed.",
+      "checkpoint_commit": "fe2c0e2",
+      "real_context_tokens_at_close": 339576,
+      "real_context_pct_at_close": 33.96
     }
   ],
   "carry_forward_S37": [
@@ -110,16 +140,26 @@
   ],
   "carry_forward_general": [
     "User 2-peer manual smoke for S35 P0 1v1 deadlock fix (still gated)",
-    "Existing voltkin-zap.png style-drift check vs new 5 frames — re-compress from WINNER source if user notices inconsistency (PRIME-AUDIT Δ7 deferred)",
-    "Texture preload retry path if Promise.allSettled fails — currently logs warning, sprite stays on last-loaded texture",
-    "DESPAWNING victory/hurt visual NOT validated in browser this session (preview server screenshot timed out on direct gameState mutation; user smoke is canonical verification)"
+    "Existing voltkin-zap.png style-drift check vs new 5 frames (PRIME-AUDIT S36 delta-7 deferred)",
+    "Texture preload retry path if Promise.allSettled fails (currently logs warning, sprite stays on last-loaded texture)",
+    "DESPAWNING victory/hurt visual NOT validated in browser this session",
+    "S37 PRIME-AUDIT delta-4: verify resetAudioDrainCursor() is called on save-load path; add if missing (deferred non-blocker, latent since S18)",
+    "S37 PRIME-AUDIT delta-3 fallback: if applyCreatureTick reducer emit-site reveals complexity at scale, scope-amendment to render-side trigger in creatureRenderer.ts",
+    "S37 D9 rollback ladder if charge SFX subjectively grates: (i) waveform swap sine/triangle/sawtooth/square, (ii) replace with recorded /godly/voltkin/audio/charge.ogg via playOneShot, (iii) reduce gain peak 0.4->0.25",
+    "Investigate session-state.json counter hook vs Claude Edit conflict (S37 reflexion #counter-hook-on-session-state-prevents-direct-edit-write-pattern)"
   ],
   "totals": {
     "turns": 0,
     "estimated_tokens_legacy_informational": 0,
-    "real_context_tokens_current": 289748,
-    "real_context_pct_current": 28.97,
-    "budget_remaining": 710252,
+    "real_context_tokens_current": 339576,
+    "real_context_pct_current": 33.96,
+    "budget_remaining": 660424,
     "budget_status": "GREEN"
-  }
+  },
+  "_S37_NOTE": "S37 Path B - procedural Web Audio rising-tone charge SFX + NetSnapshot v2 frame-derivation parity test. User picked Path B (sprite-deploy-independent) over Path A (playtest-first) because GH Actions deploy queue is stalled. Standard-tier batch (~30K execution), full 3-way Council deliberation completed in R1 with 9-decision Battle Ledger + PRIME-AUDIT delta-1..7. Key resolutions: (a) emit CREATURE_CHARGE inside applyCreatureTick reducer at ATTACKING.ticksInState===15 (replay-safe, pattern-parallel with ARC_FLASH); (b) sawtooth osc + biquad lowpass sweep 600->4000Hz + freq sweep 150->900Hz over 250ms + gain envelope (linear ramp + hold + 5ms exp decay tail for click-free baton-pass to lightning-crackle.ogg at FIRE tick); (c) wire-mirror via SerializedEffect (additive-optional); (d) Grok-added concurrent multi-creature CHARGE polyphony test; (e) Grok-added rollback ladder (waveform swap, recorded sample, gain reduction); (f) Gemini-added drain-parity test for CREATURE_CHARGE in P10. Tests 680 -> 729 (+49). Bundle 469.66 -> 471.11 KB (+1.45 KB; 28.89 KB headroom). Real context 339K / 1M = 33.96% GREEN at close.",
+  "carry_forward_S37_remaining": [
+    "P8: Web Audio FWOOSH SFX on transformation morph (form-swap boundaries) - defer to S37 continuation or S38",
+    "P9: Crystal-crown layered child Pixi sprite with alpha/scale pulse during ATTACKING wind-up - needs visual playtest",
+    "P11: 2-peer manual smoke + production playtest (covers S35 P0 1v1 fix + S36 animation + S37 P7 audio) - needs deployed sprites + 2 humans"
+  ]
 }
