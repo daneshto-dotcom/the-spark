@@ -27,7 +27,7 @@
  */
 
 import { joinRoom, getRelaySockets, type Room } from 'trystero/nostr';
-import type { NetMessage } from './protocol.ts';
+import { parseNetMessage, type NetMessage } from './protocol.ts';
 import {
   APP_ID,
   HANDSHAKE_TIMEOUT_MS,
@@ -144,14 +144,33 @@ export class NetTransport {
     recvFn((data, peerId) => {
       // makeAction<string> narrows `data` to string; defensive parse here
       // anyway since a non-conforming peer could still wire arbitrary bytes.
+      //
+      // Audit Pass 1 fix d3f0e22b: route through parseNetMessage(...) — the
+      // protocol.ts validator that was defined for "defense against malformed
+      // peers" (S22 P3) but never previously wired here. Pre-fix this was a
+      // raw `JSON.parse(data) as NetMessage` cast that forwarded ANY shape
+      // matching the discriminant kind to handlers, including payloads that
+      // would throw inside applyNetSnapshot (bad schemaVersion) or land in the
+      // dispatcher's default branch (unknown action.type).
+      let parsed: unknown;
       try {
-        const msg = JSON.parse(data) as NetMessage;
-        for (const h of this.messageHandlers) h(msg, peerId);
+        parsed = JSON.parse(data);
       } catch (err) {
         this.emitError(
           `Malformed peer message from ${peerId}: ${err instanceof Error ? err.message : String(err)}`,
         );
+        return;
       }
+      const msg = parseNetMessage(parsed);
+      if (msg === null) {
+        // Don't let an attacker probe by spamming emitError into the UI; log
+        // once at console.warn for diagnosability and drop. emitError stays
+        // reserved for JSON-syntax failures (above) which signal real
+        // transport breakage rather than peer-misbehavior.
+        console.warn('[net] rejected malformed NetMessage from', peerId, parsed);
+        return;
+      }
+      for (const h of this.messageHandlers) h(msg, peerId);
     });
 
     this.room.onPeerJoin((peerId) => {

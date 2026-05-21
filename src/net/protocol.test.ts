@@ -92,3 +92,63 @@ describe('S22 P3 — parseNetMessage validator', () => {
     expect(parseNetMessage(42)).toBeNull();
   });
 });
+
+describe('Audit Pass 1 d3f0e22b + 561e37ce — strengthened parseNetMessage', () => {
+  it('HELLO requires numeric playerId and color', () => {
+    expect(parseNetMessage({ kind: 'HELLO', playerId: '0', color: 0xff0000, protoVersion: 2 })).toBeNull();
+    expect(parseNetMessage({ kind: 'HELLO', playerId: 0, color: 'red', protoVersion: 2 })).toBeNull();
+    expect(parseNetMessage({ kind: 'HELLO', protoVersion: 2 })).toBeNull();
+  });
+
+  it('INTENT requires action.type ∈ KNOWN_GAME_ACTION_TYPES', () => {
+    expect(parseNetMessage({ kind: 'INTENT', intentSeq: 1, action: { type: 'NUKE_THE_PLANET' } })).toBeNull();
+    expect(parseNetMessage({ kind: 'INTENT', intentSeq: 1, action: { type: 'rm -rf /' } })).toBeNull();
+    expect(parseNetMessage({ kind: 'INTENT', intentSeq: 1, action: {} })).toBeNull();
+    expect(parseNetMessage({ kind: 'INTENT', intentSeq: 1, action: null })).toBeNull();
+    expect(parseNetMessage({ kind: 'INTENT', intentSeq: 1, action: 'string' })).toBeNull();
+  });
+
+  it('INTENT accepts every known GameAction discriminant', () => {
+    const known = [
+      'SPAWN_SPARK', 'DESPAWN_SPARK', 'PICKUP_SPARK', 'DROP_SPARK',
+      'PLACE_PRIMITIVE', 'SEVER_BOND', 'TICK_ENERGY', 'WIN_TRIGGER',
+      'START_GAME', 'END_TURN', 'RETURN_TO_TITLE', 'UPDATE_AVATAR_POS',
+      'GODLY_TRIGGER', 'GODLY_COMPLETE', 'GODLY_ABORT',
+      'SPAWN_CREATURE', 'DESPAWN_CREATURE', 'CREATURE_TICK', 'CREATURE_ATTACK',
+    ];
+    for (const t of known) {
+      expect(parseNetMessage({ kind: 'INTENT', intentSeq: 1, action: { type: t } })).not.toBeNull();
+    }
+  });
+
+  it('NETSNAPSHOT rejects schemaVersion mismatch (e.g. peer on a future major)', () => {
+    expect(parseNetMessage({ kind: 'NETSNAPSHOT', snapshotSeq: 1, snapshot: { schemaVersion: 2 } })).toBeNull();
+    expect(parseNetMessage({ kind: 'NETSNAPSHOT', snapshotSeq: 1, snapshot: { schemaVersion: 99 } })).toBeNull();
+    expect(parseNetMessage({ kind: 'NETSNAPSHOT', snapshotSeq: 1, snapshot: { schemaVersion: 'one' } })).toBeNull();
+  });
+
+  it('NETSNAPSHOT accepts schemaVersion=1 OR omitted (test-double pattern)', () => {
+    expect(parseNetMessage({ kind: 'NETSNAPSHOT', snapshotSeq: 1, snapshot: { schemaVersion: 1 } })).not.toBeNull();
+    expect(parseNetMessage({ kind: 'NETSNAPSHOT', snapshotSeq: 1, snapshot: {} })).not.toBeNull();
+  });
+
+  it('NETSNAPSHOT rejects non-object snapshot', () => {
+    expect(parseNetMessage({ kind: 'NETSNAPSHOT', snapshotSeq: 1, snapshot: null })).toBeNull();
+    expect(parseNetMessage({ kind: 'NETSNAPSHOT', snapshotSeq: 1, snapshot: 'oops' })).toBeNull();
+    expect(parseNetMessage({ kind: 'NETSNAPSHOT', snapshotSeq: 1, snapshot: 42 })).toBeNull();
+  });
+
+  it('GODLY_TRIGGER requires event.godlyId to be a string', () => {
+    expect(parseNetMessage({ kind: 'GODLY_TRIGGER', event: { godlyId: 'voltkin' } })).not.toBeNull();
+    expect(parseNetMessage({ kind: 'GODLY_TRIGGER', event: { godlyId: 123 } })).toBeNull();
+    expect(parseNetMessage({ kind: 'GODLY_TRIGGER', event: {} })).toBeNull();
+    expect(parseNetMessage({ kind: 'GODLY_TRIGGER', event: null })).toBeNull();
+    expect(parseNetMessage({ kind: 'GODLY_TRIGGER', event: 'string' })).toBeNull();
+  });
+
+  it('ENDGAME rejects non-numeric winnerId', () => {
+    expect(parseNetMessage({ kind: 'ENDGAME', winnerId: 0 })).not.toBeNull();
+    expect(parseNetMessage({ kind: 'ENDGAME', winnerId: '0' })).toBeNull();
+    expect(parseNetMessage({ kind: 'ENDGAME' })).toBeNull();
+  });
+});

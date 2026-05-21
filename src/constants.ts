@@ -253,17 +253,17 @@ export const REDUNDANT_BOND_ANGLE_EPSILON = 1e-6;
 // trade-off for bounded cost.
 export const REDUNDANT_BOND_MAX_CANDIDATES = 16;
 
-// === Bond rendering ===
-export const BOND_LINE_WIDTH = 2;
-export const BOND_GLOW_INTENSITY = 0.6;
-
-// === Audio ===
-export const AUDIO_MASTER_VOLUME_DB = -6;
-
 // === S15 P2 — Phase-2 1v1 networked play (§ 11 LOCKED amendment) ===
 // Trystero/Nostr WebRTC, host-authoritative. Council R2: 10 Hz snapshot
 // rate + 100ms lerp interpolation are both MVP-non-negotiable.
+// Audit Pass 1 fix 5f1f62c8 + d0f4efc8: deleted speculative placeholder
+// constants (BOND_LINE_WIDTH, BOND_GLOW_INTENSITY, AUDIO_MASTER_VOLUME_DB,
+// NET_CONNECTION_TIMEOUT_MS) — all four were never imported; renderers and
+// audio use inline literals, and the connection timeout is owned by
+// iceConfig.ts:HANDSHAKE_TIMEOUT_MS. Chesterton's fence: initial commit
+// bc89a53 and S15 P2 add497f respectively introduced these as future-use
+// scaffolding; the wire-up never landed. If a future PR wants
+// configurable bond line width or master volume, reintroduce there.
 export const NET_SNAPSHOT_HZ = 10;
 export const NET_INTERPOLATION_MS = 100;
 export const NET_ROOM_CODE_LENGTH = 6;
-export const NET_CONNECTION_TIMEOUT_MS = 30000;

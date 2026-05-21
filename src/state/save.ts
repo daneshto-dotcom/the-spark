@@ -47,6 +47,14 @@ import {
 import { type GameMode, type GameState, type World } from './world.ts';
 import { type Player } from '../game/player.ts';
 import type { Creature, CreatureState, CreatureType } from './creatures/creature.ts';
+// Audit Pass 1 fix 3c8630d7 (Δ4): on restore, world.tick may jump backward
+// relative to the audio drain cursor (which tracks the highest tick already
+// drained). Without resetting the cursor, audio effects whose tick straddles
+// the cursor are silently dropped after a load. State→render dep edge is
+// deliberate and pinpointed: resetAudioDrainCursor() is a pure module-level
+// state reset with no AudioContext interaction, so it's safe to call from
+// test paths that never initialize audio.
+import { resetAudioDrainCursor } from '../render/audioManager.ts';
 
 const STORAGE_KEY = 'spark.snapshot.v1';
 const PHYSICS_DT = 1 / 60;
@@ -290,6 +298,12 @@ export function restore(snap: WorldSnapshot, world: World): void {
   world.rngSeed = snap.rngSeed;
   world.nextPrimitiveId = snap.nextPrimitiveId;
   world.nextBondId = snap.nextBondId;
+  // Audit Pass 1 fix 3c8630d7: see import comment. world.tick was just set
+  // by applySnapshotCore to the persisted value, which may be lower than the
+  // audio cursor's prior maximum. Reset so audio effects can replay.
+  // applyNetSnapshot does NOT call this — net path tick is host-driven
+  // monotonic, so the cursor stays valid across snapshots.
+  resetAudioDrainCursor();
 }
 
 /**

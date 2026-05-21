@@ -88,8 +88,32 @@ export class ClientSync {
     if (this.currentSnap === null) return;
 
     if (this.needsFullApply) {
-      applyNetSnapshot(this.currentSnap, world);
-      this.needsFullApply = false;
+      // Audit Pass 1 fix e698a17a: try/catch around applyNetSnapshot. Pre-fix
+      // this throw (`unsupported schemaVersion` or `bond X references missing
+      // primitive`, save.ts:328/435) propagated up through the Pixi ticker into
+      // an uncaught render-loop error. Combined with finding d3f0e22b's
+      // strengthened parseNetMessage wiring at transport.ts:recvFn, malformed
+      // snapshots are now pre-rejected at the wire — this guard is the
+      // defense-in-depth second layer for the host-malicious-or-buggy case
+      // (a peer that conforms to parseNetMessage's structural shape but emits
+      // an internally inconsistent snapshot, e.g. bond referencing a primitive
+      // that was dropped between serializer passes).
+      //
+      // On error: skip THIS apply, leave needsFullApply=true so the next
+      // snapshot retries. World may be in a partially-mutated intermediate
+      // state if the throw happened mid-bonds-loop (applySnapshotCore clears
+      // Maps before re-populating); subsequent snapshots will fully rebuild,
+      // so any visible glitch is single-frame.
+      try {
+        applyNetSnapshot(this.currentSnap, world);
+        this.needsFullApply = false;
+      } catch (err) {
+        console.error(
+          '[sync] applyNetSnapshot rejected snapshot:',
+          err instanceof Error ? err.message : String(err),
+        );
+        return;
+      }
     }
 
     if (this.prevSnap === null) return; // first snapshot — no lerp source.

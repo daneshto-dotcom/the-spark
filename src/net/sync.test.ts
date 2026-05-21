@@ -536,3 +536,41 @@ describe('S15 P2 — interpolatePositions', () => {
     expect(w.primitives.get(primId)!.pos).toEqual({ x: 50, y: 100 });
   });
 });
+
+describe('Audit Pass 1 e698a17a — interpolateInto guards applyNetSnapshot throw', () => {
+  it('swallows applyNetSnapshot throw on bond → missing primitive and leaves needsFullApply=true', () => {
+    const w = makeWorld(0);
+    const c = new ClientSync();
+    const base = netSnapshot(w);
+    // Construct an internally-inconsistent snapshot: a bond whose primitiveId
+    // is not in the primitives array. applyNetSnapshot throws at save.ts:435
+    // ('bond X references missing primitive'). Pre-fix the throw escaped into
+    // the render-loop callback; post-fix interpolateInto catches + skips.
+    const torn = {
+      ...base,
+      bonds: [
+        { id: 999 as never, aId: 1 as never, bId: 2 as never, restLength: 10, stiffnessTier: 'tier1' as never, createdTick: 0 },
+      ],
+      primitives: [],
+    } as unknown as NetSnapshot;
+    c.receive(mkSnapMsg(1, torn), 0);
+    // The fix is: interpolateInto MUST NOT throw, even when applyNetSnapshot does.
+    expect(() => c.interpolateInto(w, 100, 100)).not.toThrow();
+    // Post-failure the cursor stays armed so the next valid snapshot retries.
+    c.receive(mkSnapMsg(2, netSnapshot(w)), 100);
+    expect(() => c.interpolateInto(w, 200, 100)).not.toThrow();
+  });
+
+  it('swallows applyNetSnapshot throw on bad schemaVersion (defense-in-depth)', () => {
+    const w = makeWorld(0);
+    const c = new ClientSync();
+    const base = netSnapshot(w);
+    // Even though the wire validator now rejects schemaVersion!=1 (parseNetMessage),
+    // ClientSync.receive accepts NetSnapshotMsg objects regardless of where they
+    // came from — so a host-side bug or test fixture that bypasses parseNetMessage
+    // must still not crash interpolateInto.
+    const wrongVersion = { ...base, schemaVersion: 99 } as unknown as NetSnapshot;
+    c.receive(mkSnapMsg(1, wrongVersion), 0);
+    expect(() => c.interpolateInto(w, 100, 100)).not.toThrow();
+  });
+});

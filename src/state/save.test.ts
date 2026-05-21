@@ -590,3 +590,29 @@ describe('WorldSnapshot effects field (S31 P0-3)', () => {
     expect(w2.effects[0].tick).toBe(10);
   });
 });
+
+describe('Audit Pass 1 3c8630d7 — restore() resets audio drain cursor (Delta-4 carry-forward)', () => {
+  it('post-restore, an effect at a previously-drained tick still fires audio', async () => {
+    // Late import so test-suite collection order doesn't matter
+    // (drainAudioEffects mutates module-level state).
+    const audio = await import('../render/audioManager.ts');
+    const w1 = makeWorld(0);
+    w1.tick = 100;
+    // Advance the audio cursor past tick 50 by draining at tick 100.
+    audio.drainAudioEffects([], 100);
+    const before = audio.inspectAudioChain().claveCallsTotal;
+    // Now restore a saved state at tick 50. Without the fix, cursor stays at
+    // 100 and a fresh BOND_FORMED at tick 50 would be silently dropped.
+    const snap = snapshot(w1);
+    snap.tick = 50;
+    const w2 = makeWorld(0);
+    restore(snap, w2);
+    // After restore, the audio cursor should be reset so a tick-50 effect fires.
+    audio.drainAudioEffects(
+      [{ kind: 'BOND_FORMED', tick: 50, pos: { x: 0, y: 0 }, bondCount: 1 }],
+      50,
+    );
+    const after = audio.inspectAudioChain().claveCallsTotal;
+    expect(after - before).toBe(1);
+  });
+});

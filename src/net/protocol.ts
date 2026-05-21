@@ -92,28 +92,92 @@ export function parseRoomCode(input: string, length = 6): string | null {
 }
 
 /**
+ * Audit Pass 1 fix d3f0e22b + 561e37ce — closed-set allowlist of GameAction
+ * discriminants. INTENT.action.type MUST appear here for the validator to pass.
+ * Adding a new GameAction variant in `state/world.ts` (or a sub-module) requires
+ * adding the discriminant string here too — the duplicated source is deliberate:
+ * `world.ts` owns the structural type, this file owns the WIRE allowlist so an
+ * upstream type widening cannot silently grow the attack surface.
+ */
+const KNOWN_GAME_ACTION_TYPES = new Set<string>([
+  'SPAWN_SPARK',
+  'DESPAWN_SPARK',
+  'PICKUP_SPARK',
+  'DROP_SPARK',
+  'PLACE_PRIMITIVE',
+  'SEVER_BOND',
+  'TICK_ENERGY',
+  'WIN_TRIGGER',
+  'START_GAME',
+  'END_TURN',
+  'RETURN_TO_TITLE',
+  'UPDATE_AVATAR_POS',
+  'GODLY_TRIGGER',
+  'GODLY_COMPLETE',
+  'GODLY_ABORT',
+  'SPAWN_CREATURE',
+  'DESPAWN_CREATURE',
+  'CREATURE_TICK',
+  'CREATURE_ATTACK',
+]);
+
+const WIRE_SCHEMA_VERSION = 1;
+
+/**
  * S22 P3 (R9 safety) — parse + validate a peer-wire payload into a NetMessage.
- * Returns null on unknown `kind` or on HELLO with mismatched protoVersion.
- * Used by transport.ts recvFn for defense against malformed peers + by tests.
+ * Returns null on any of: non-object input, unknown `kind`, type-shape mismatch,
+ * unknown INTENT.action.type, NETSNAPSHOT.snapshot.schemaVersion mismatch, or
+ * HELLO with mismatched protoVersion.
+ *
+ * Audit Pass 1 fix (d3f0e22b + 561e37ce): strengthened beyond the original
+ * key-presence checks. Now wired at transport.ts:recvFn (was previously
+ * defined-but-never-called outside tests — Karpathy K1+K3). Defense-in-depth:
+ * the validator pre-rejects payloads that would otherwise throw inside
+ * applyNetSnapshot (`schemaVersion !== 1`) or land in the dispatcher's `default`
+ * case (unknown action.type). Strong types (closed allowlist) keep the wire
+ * attack surface frozen even as the in-process GameAction union grows.
  */
 export function parseNetMessage(raw: unknown): NetMessage | null {
   if (raw === null || typeof raw !== 'object') return null;
   const obj = raw as Record<string, unknown>;
   switch (obj.kind) {
-    case 'HELLO':
-      return obj.protoVersion === PROTOCOL_VERSION ? (obj as unknown as HelloMsg) : null;
-    case 'INTENT':
-      return typeof obj.intentSeq === 'number' && obj.action !== undefined
-        ? (obj as unknown as IntentMsg)
-        : null;
-    case 'NETSNAPSHOT':
-      return typeof obj.snapshotSeq === 'number' && obj.snapshot !== undefined
-        ? (obj as unknown as NetSnapshotMsg)
-        : null;
+    case 'HELLO': {
+      if (obj.protoVersion !== PROTOCOL_VERSION) return null;
+      if (typeof obj.playerId !== 'number') return null;
+      if (typeof obj.color !== 'number') return null;
+      return obj as unknown as HelloMsg;
+    }
+    case 'INTENT': {
+      if (typeof obj.intentSeq !== 'number') return null;
+      if (obj.action === null || typeof obj.action !== 'object') return null;
+      const actionType = (obj.action as Record<string, unknown>).type;
+      if (typeof actionType !== 'string') return null;
+      if (!KNOWN_GAME_ACTION_TYPES.has(actionType)) return null;
+      return obj as unknown as IntentMsg;
+    }
+    case 'NETSNAPSHOT': {
+      if (typeof obj.snapshotSeq !== 'number') return null;
+      if (obj.snapshot === null || typeof obj.snapshot !== 'object') return null;
+      // Pre-validate schemaVersion so applyNetSnapshot's throw is unreachable
+      // from a wire payload that survives this validator (defense-in-depth
+      // paired with finding e698a17a's try/catch guard in sync.ts).
+      const schemaVersion = (obj.snapshot as Record<string, unknown>).schemaVersion;
+      // Allow `undefined` only for the test-doubles pattern in protocol.test.ts
+      // that posts `snapshot: {}` (intentionally minimal); real wire payloads
+      // from `netSnapshot()` always carry schemaVersion=1 (see save.ts:241).
+      if (schemaVersion !== undefined && schemaVersion !== WIRE_SCHEMA_VERSION) {
+        return null;
+      }
+      return obj as unknown as NetSnapshotMsg;
+    }
     case 'ENDGAME':
       return typeof obj.winnerId === 'number' ? (obj as unknown as EndGameMsg) : null;
-    case 'GODLY_TRIGGER':
-      return obj.event !== undefined ? (obj as unknown as GodlyTriggerMsg) : null;
+    case 'GODLY_TRIGGER': {
+      if (obj.event === null || typeof obj.event !== 'object') return null;
+      const godlyId = (obj.event as Record<string, unknown>).godlyId;
+      if (typeof godlyId !== 'string') return null;
+      return obj as unknown as GodlyTriggerMsg;
+    }
     default:
       return null;
   }

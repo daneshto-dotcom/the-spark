@@ -9,7 +9,7 @@ Generated: 2026-05-18 | Session closed: S37 (2 priorities shipped, 3 commits) | 
 S37 Path B shipped 2 of 20 priorities (P7 procedural Voltkin charge SFX + P10 NetSnapshot v2 frame-derivation/drain-parity tests). All audio + multiplayer parity infrastructure for the S36 animation surface is now live. **Awaiting user playtest** to validate audio feel + tune from feedback.
 
 **Tests:** 729/729 (+49 from S36 baseline 680: 24 P7 audio + emit + round-trip + 25 P10 frame-derivation it.each + drain-parity)
-**Bundle:** 471.11 KB (+1.45 KB from 469.66 KB; 28.89 KB headroom on 500 KB cap)
+**Bundle (app code):** 471.11 KB (+1.45 KB from 469.66 KB; 28.89 KB headroom on 500 KB cap). Total JS payload incl. Pixi chunks (WebGL+WebGPU renderers, RenderTargetSystem, browserAll, etc.) is ~729 KB.
 **Branch:** master, clean, in sync with origin (64456bf..003a5b5, 3 new commits)
 **Context at close:** 339K / 1M (33.96% GREEN)
 

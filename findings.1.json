@@ -1,0 +1,588 @@
+{
+  "audit_meta": {
+    "pass": 1,
+    "date": "2026-05-21T10:00:00Z",
+    "project_root": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark",
+    "git_present": true,
+    "head_sha": "a9d07dd",
+    "head_summary": "[state-autocommit] S37",
+    "stack": {
+      "languages": ["TypeScript"],
+      "primary": "TypeScript",
+      "frameworks": ["Pixi.js 8.5", "Trystero 0.24 (Nostr)", "Vite 5.2", "Vitest 1.5"]
+    },
+    "tracked_files": 302,
+    "dirty_files": 1,
+    "test_files": 41,
+    "scoped_modules_count": 71,
+    "critical_paths": [
+      "src/main.ts",
+      "src/net/transport.ts",
+      "src/net/sync.ts",
+      "src/net/protocol.ts",
+      "src/state/save.ts"
+    ],
+    "tools_used": ["knip", "npm audit", "tsc -b --noEmit", "vitest run", "vite build", "git log/log -S/log --numstat"],
+    "tools_skipped": [
+      {"name": "vulture", "reason": "no python sources"},
+      {"name": "cargo-udeps", "reason": "no rust crates"},
+      {"name": "staticcheck", "reason": "no go sources"},
+      {"name": "pip-audit", "reason": "no python sources"},
+      {"name": "govulncheck", "reason": "no go sources"},
+      {"name": "cargo audit", "reason": "no rust crates"},
+      {"name": "dependency-cruiser graph", "reason": "TRACKED_FILES=302 below SCOPE_GRAPH_THRESHOLD=500; SCOPED_MODULES derived from critical-path import walk instead"}
+    ],
+    "test_baseline": {"tests": 729, "files": 41, "duration_s": 6.34, "all_passing": true},
+    "build_baseline": {"main_bundle_kb": 471.11, "gzip_kb": 151.90, "pixi_chunks_kb_sum": 257.62, "total_js_kb": 728.73}
+  },
+  "findings": [
+    {
+      "id": "d3f0e22b9bb78155",
+      "type": "SECURITY",
+      "severity": "HIGH",
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "file_path": "src/net/transport.ts",
+      "line_number": 148,
+      "symbol": "JSON.parse cast as NetMessage",
+      "description": "Peer-wire payload deserialized via raw type assertion; parseNetMessage validator exists but is never called outside tests.",
+      "details": "transport.ts:148 reads `JSON.parse(data) as NetMessage` inside recvFn and forwards the unvalidated object to messageHandlers. The protocol.ts:99 function parseNetMessage(raw) was added explicitly for 'defense against malformed peers' (see docstring + commit 318039f S22 P3) but the integration step was never made: grep across src finds only one call site (`protocol.test.ts`, 9 assertions). main.ts:270/305 then switch on `msg.kind` directly, trusting fields like INTENT.action, NETSNAPSHOT.snapshot, ENDGAME.winnerId without runtime validation. A peer can: (1) send protoVersion=1 HELLO that bypasses the documented version gate (none enforced at wire); (2) send malformed NETSNAPSHOT whose `applyNetSnapshot` then throws uncaught from the render loop (see finding e698a17a); (3) send any `kind: 'INTENT'` GameAction including ones the dispatcher does not safelist. Threat model: room codes are 6 chars over a 32-char alphabet (~10^9 combos), brute-forceable; shared links leak via screenshot or chat. Karpathy K1 (silent assumption that wire = NetMessage) + K3 (commit 318039f added the validator, touched protocol.ts only, did not wire transport.ts).",
+      "evidence": {
+        "commands_run": [
+          "grep -rn 'parseNetMessage' src/",
+          "git log -p -S 'parseNetMessage' -- src/net/protocol.ts",
+          "git log --diff-filter=AM -S 'parseNetMessage' --stat 318039f"
+        ],
+        "signals": [
+          "definition: src/net/protocol.ts:99",
+          "callers in src/ excluding tests: 0",
+          "callers in tests: 1 file, 9 assertions",
+          "transport.ts:148 raw cast: 'JSON.parse(data) as NetMessage'",
+          "introducing commit 318039f touched protocol.ts only; transport.ts untouched"
+        ]
+      },
+      "ralph": {
+        "hypothesis": "A peer sending `{\"kind\":\"NETSNAPSHOT\",\"snapshotSeq\":999999,\"snapshot\":{\"schemaVersion\":2}}` crashes the client render loop via applyNetSnapshot's `throw new Error('unsupported schemaVersion 2')` (save.ts:328) that propagates up through ClientSync.interpolateInto (sync.ts:91) which is called from the unguarded app.ticker callback.",
+        "minimal_repro": "Unit test: spin up two NetTransport instances over a Trystero room (or stub via existing transport.test.ts harness), have peer A `send(msg as any)` with the malformed object literal above; observe that peer B's messageHandler is invoked with a non-NetMessage object and that calling clientSync.receive + interpolateInto throws.",
+        "fix_design": "At transport.ts:148, replace `JSON.parse(data) as NetMessage` with `parseNetMessage(JSON.parse(data))`; if null, route to `emitError` and drop. Strengthen parseNetMessage to also validate INTENT.action.type against a closed allowlist of GameAction kinds (import the discriminant union) and to do a structural probe on NETSNAPSHOT.snapshot (schemaVersion===1, presence of freeSparks/primitives/bonds arrays). Add a regression test asserting that malformed wire payloads are rejected before reaching handlers.",
+        "verification_plan": "Add tests in src/net/transport.test.ts: (a) malformed JSON.parse-able-but-not-NetMessage object is dropped and emitError is called; (b) NETSNAPSHOT with schemaVersion=2 is rejected at transport, not at applyNetSnapshot. Run `npm test`; existing 729 tests stay green; new tests assert validator is wired."
+      },
+      "recommendation": {
+        "action": "DESIGN_FIX",
+        "description": "Wire parseNetMessage at transport.ts:148. Drop+log invalid payloads via emitError rather than crashing. Strengthen the validator to assert INTENT.action.type ∈ GameAction kinds and NETSNAPSHOT.snapshot.schemaVersion === 1. Standard-tier PDR; ~12-15K tokens."
+      },
+      "verification": {
+        "method": "test_pass",
+        "details": "New tests in src/net/transport.test.ts assert: malformed wire (unknown kind / wrong protoVersion / non-number winnerId / missing snapshot) is dropped via emitError, not forwarded to messageHandlers. Existing 729 tests stay green."
+      },
+      "cross_refs": ["e698a17aa05de43c", "561e37cede5d76bc"]
+    },
+    {
+      "id": "e698a17aa05de43c",
+      "type": "BUG",
+      "severity": "MEDIUM",
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "file_path": "src/net/sync.ts",
+      "line_number": 91,
+      "symbol": "ClientSync.interpolateInto → applyNetSnapshot",
+      "description": "applyNetSnapshot throws uncaught on bad schemaVersion or missing-primitive-referencing bonds; propagates up through the render loop with no try/catch.",
+      "details": "save.ts:328 `throw new Error('unsupported schemaVersion ${snap.schemaVersion}')`. save.ts:435 `throw new Error('bond ${b.id} references missing primitive')`. Both fire on malformed inputs. sync.ts:91 calls `applyNetSnapshot(this.currentSnap, world)` without try/catch. main.ts calls clientSync.interpolateInto from an `app.ticker.add(...)` callback (verified by grep of `interpolateInto` callers — present in main.ts render path with no surrounding try/catch). Pixi's ticker propagates thrown errors to console but the renderer state is left half-mutated (some prims cleared, others not — applySnapshotCore wipes Maps before re-populating them; if the throw fires mid-bonds-loop the world is in an inconsistent intermediate state with no rollback).",
+      "evidence": {
+        "commands_run": [
+          "grep -E 'try {.*applyNetSnapshot|applyNetSnapshot.*} catch' -r src/ (multiline)",
+          "grep -n 'throw new Error' src/state/save.ts",
+          "read src/net/sync.ts:88-102",
+          "read src/state/save.ts:326-447"
+        ],
+        "signals": [
+          "applyNetSnapshot throws at save.ts:328 (schemaVersion guard)",
+          "applyNetSnapshot throws at save.ts:435 (bond missing primitive)",
+          "no try/catch around applyNetSnapshot anywhere in src/",
+          "sync.ts:91 is inside interpolateInto called by main.ts ticker"
+        ]
+      },
+      "ralph": {
+        "hypothesis": "A peer-sent NetSnapshot with one bond referencing a primitiveId not in the snapshot's primitives array causes applyNetSnapshot to throw mid-apply, leaving world.freeSparks/primitives cleared+partially-rebuilt and world.bonds in pre-clear state — a torn render frame.",
+        "minimal_repro": "Construct a NetSnapshot with primitives=[{id:1,...}] and bonds=[{id:1,aId:1,bId:2,...}]. Call applyNetSnapshot(snap, world). Observe the throw at save.ts:435 and the half-mutated `world` state (primitives map has {1}, bonds map untouched-pre-clear).",
+        "fix_design": "Two-phase apply: build the new state into local Maps first (validate bond endpoints during build), only assign to world.* after validation succeeds. Alternatively, wrap the applyNetSnapshot call in sync.ts:91 in try/catch that routes errors to a 'snapshot-rejected' counter + emitError, leaving the previous frame intact.",
+        "verification_plan": "Add test src/net/sync.test.ts: malformed snapshot (bond → missing primitive) causes interpolateInto to NOT throw and world state to remain unchanged from prior snapshot. Existing tests stay green."
+      },
+      "recommendation": {
+        "action": "DESIGN_FIX",
+        "description": "Refactor applySnapshotCore to build new Maps locally and commit-or-abort atomically. Alternatively, guard the sync.ts:91 call site with try/catch routing to emitError. Pair with finding d3f0e22b (validator wiring) — together they form the trust-boundary defense layer."
+      },
+      "verification": {
+        "method": "test_pass",
+        "details": "Add malformed-snapshot tests in src/net/sync.test.ts asserting world state is unchanged when applyNetSnapshot is called with a torn payload; no throw escapes interpolateInto."
+      },
+      "cross_refs": ["d3f0e22b9bb78155"]
+    },
+    {
+      "id": "3c8630d76327c13e",
+      "type": "BUG",
+      "severity": "MEDIUM",
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "file_path": "src/render/audioManager.ts",
+      "line_number": 706,
+      "symbol": "resetAudioDrainCursor",
+      "description": "Cursor reset is defined and tested but never called from production save-load path. Latent since S18 P1 introduced the cursor pattern.",
+      "details": "audioManager.ts:706 exports `resetAudioDrainCursor()`. Grep finds 2 callers, both in audioManager.test.ts (lines 174, 248). Production code (main.ts save/load + RETURN_TO_TITLE teardown) never calls it. The drain cursor's strict `<` comparison protects against stale re-fire across sessions, so the blast radius is bounded; however, on save-load (where world.tick may reset to a prior value), audio effects whose ticks straddle the cursor cannot replay until enough new ticks pass. Affects ALL audio effects (CHARGE, clave, fart, lightning-crackle), not just S37 additions. Carry-forward documented as 'Δ4 audit' in HANDOFF_2026-05-18_S37close.md:56.",
+      "evidence": {
+        "commands_run": [
+          "grep -rn 'resetAudioDrainCursor' src/",
+          "read HANDOFF_2026-05-18_S37close.md:56"
+        ],
+        "signals": [
+          "definition: src/render/audioManager.ts:706",
+          "callers in src/: 0 production, 2 test (audioManager.test.ts:174, 248)",
+          "HANDOFF explicitly flags as deferred"
+        ]
+      },
+      "ralph": {
+        "hypothesis": "Calling restoreSavedState followed by gameplay that re-emits an audio effect at a tick lower than the cursor's prior maximum silently drops the SFX (no playback).",
+        "minimal_repro": "Save a world at tick 1000 (audio cursor advanced past 1000), restore at tick 500, dispatch a BOND_FORMED effect at tick 600; assert that audioManager's clave SFX counter (claveCallsSynthed) does NOT increment. Then call resetAudioDrainCursor() and re-emit; assert it DOES increment.",
+        "fix_design": "Call resetAudioDrainCursor() inside the existing save-load path. Two specific sites: (a) save.ts restore() — host-only path, after applySnapshotCore mutates world.tick; (b) RETURN_TO_TITLE reducer (or main.ts teardownNet at line 338) — both reset world to a fresh state. Single-line addition each.",
+        "verification_plan": "Add a save.replay.test.ts case asserting cursor reset on restore. Add an audioManager.test.ts case asserting cursor reset on RETURN_TO_TITLE dispatch."
+      },
+      "recommendation": {
+        "action": "DESIGN_FIX",
+        "description": "Wire resetAudioDrainCursor() into save.ts:restore() and into the RETURN_TO_TITLE reducer (or main.ts:338 teardownNet). Add regression tests. Micro-tier PDR; ~3-5K tokens."
+      },
+      "verification": {
+        "method": "test_pass",
+        "details": "Tests assert audio cursor is reset on restore + RETURN_TO_TITLE. Existing 729 tests stay green."
+      },
+      "cross_refs": []
+    },
+    {
+      "id": "acc5551a84e1b7d2",
+      "type": "DEP_CVE",
+      "severity": "MEDIUM",
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "file_path": "package-lock.json",
+      "line_number": 0,
+      "symbol": "esbuild <= 0.24.2",
+      "description": "esbuild dev-server CORS bypass (GHSA-67mh-4wv8-2f99, CVSS 5.3). Transitive via vite 5.2; affects local dev only, not production bundle.",
+      "details": "npm audit reports: 'esbuild enables any website to send any requests to the development server and read the response' (https://github.com/advisories/GHSA-67mh-4wv8-2f99). Range: <=0.24.2. Effects: vite. fixAvailable: vite@8.0.14 (semVerMajor). Local dev only — esbuild is not in the production GH Pages bundle. Still a developer-machine risk if running `npm run dev` while browsing untrusted sites.",
+      "evidence": {
+        "commands_run": ["npm audit --json"],
+        "signals": [
+          "advisory: GHSA-67mh-4wv8-2f99",
+          "CVSS:3.1 base 5.3 (AV:N/AC:H/PR:N/UI:R)",
+          "fixAvailable: vite@8.0.14 (semVerMajor)",
+          "isDirect: false (transitive)"
+        ]
+      },
+      "recommendation": {
+        "action": "UPGRADE",
+        "description": "Upgrade vite to 6.x or 7.x (the lowest that includes esbuild >= 0.25). Vitest 1.5 will need a coordinated bump to a vite-7-compatible version (vitest 2.x or 3.x). Test the 729-test suite still passes; verify vite.config.ts still parses (the file uses defineConfig + base/server/build options, all stable across vite 5→7)."
+      },
+      "verification": {
+        "method": "command",
+        "details": "npm audit --json | jq '.metadata.vulnerabilities.moderate' returns 0; npm test passes; npm run build produces dist/ with main bundle under 500 KB."
+      },
+      "cross_refs": ["2d797b0934868984", "97152f005818e89d"]
+    },
+    {
+      "id": "2d797b0934868984",
+      "type": "DEP_CVE",
+      "severity": "MEDIUM",
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "file_path": "package-lock.json",
+      "line_number": 0,
+      "symbol": "vite <= 6.4.1",
+      "description": "Vite path-traversal in optimized-deps .map handling (GHSA-4w7w-66w2-5vf9). Dev-server only.",
+      "details": "npm audit advisory GHSA-4w7w-66w2-5vf9. CWE-22 (Path Traversal) + CWE-200 (Information Exposure). Affects vite <=6.4.1. Same fixAvailable as the esbuild advisory (vite@8.0.14 semVerMajor). isDirect: true. Dev-server only; production bundle is static and not subject to the dev-server path-traversal vector.",
+      "evidence": {
+        "commands_run": ["npm audit --json"],
+        "signals": [
+          "advisory: GHSA-4w7w-66w2-5vf9",
+          "CWE-22, CWE-200",
+          "isDirect: true",
+          "range: <=6.4.1"
+        ]
+      },
+      "recommendation": {
+        "action": "UPGRADE",
+        "description": "Same upgrade path as finding acc5551a (vite + vitest coordinated bump). Single PDR can address both CVEs."
+      },
+      "verification": {
+        "method": "command",
+        "details": "npm audit --json reports zero moderate+ vulnerabilities."
+      },
+      "cross_refs": ["acc5551a84e1b7d2", "97152f005818e89d"]
+    },
+    {
+      "id": "97152f005818e89d",
+      "type": "DEP_STALE",
+      "severity": "LOW",
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "file_path": "package.json",
+      "line_number": 0,
+      "symbol": "vite ^5.2.0 / vitest ^1.5.0",
+      "description": "vite is at 5.x (current major: 7.x per npm-audit fixAvailable); vitest is at 1.x (current major: 4.x). Two majors behind each.",
+      "details": "package.json devDependencies: vite ^5.2.0, vitest ^1.5.0. npm audit reports fixAvailable.name=vite@8.0.14 (so current major chain is 7.x or 8.x). vitest fixAvailable=vitest@4.1.7. WEB_RESEARCH=off, so cannot verify last-published dates — but two-majors-behind on a fast-moving build toolchain is a maintainability signal. Pixi (^8.5.0) and Trystero (^0.24.0) are direct app deps and outside scope of this finding.",
+      "evidence": {
+        "commands_run": ["cat package.json", "npm audit --json | grep -A1 'fixAvailable'"],
+        "signals": [
+          "vite declared: ^5.2.0",
+          "vite fixAvailable: 8.0.14 (semVerMajor)",
+          "vitest declared: ^1.5.0",
+          "vitest fixAvailable: 4.1.7 (semVerMajor)"
+        ]
+      },
+      "recommendation": {
+        "action": "UPGRADE",
+        "description": "Coordinated bump of vite + vitest to current majors. Net positive vs. CVE-only patches because it (a) closes the two CVEs, (b) addresses the staleness, (c) keeps the toolchain on supported branches. Estimate: ~6-10K tokens, ~1-2 config tweaks, 0 production-code changes (only vite.config.ts + maybe vitest.config.ts)."
+      },
+      "verification": {
+        "method": "command",
+        "details": "npm run build clean; npm test passes 729+ tests; npm audit reports 0 vulnerabilities."
+      },
+      "cross_refs": ["acc5551a84e1b7d2", "2d797b0934868984"]
+    },
+    {
+      "id": "913e70466f01ba69",
+      "type": "HYPERTROPHY",
+      "severity": "HIGH",
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "file_path": "src/main.ts",
+      "line_number": 0,
+      "symbol": "bootstrap()",
+      "description": "main.ts is the most-churned production file (6090 line-events in 180d), 975 LOC, and has zero direct test coverage (no main.test.ts exists).",
+      "details": "Top-5 churn per critical path (180d): main.ts=6090, save.ts=2744, transport.ts=1207, sync.ts=192, protocol.ts=190. Repo-wide top: world.ts=1989, bondVisualRenderer.ts=1349, main.ts=1191 (path-scoped subset), effectsRenderer.ts=1151, audioManager.ts=931. The first measurement (6090) is the per-file numstat including renames+merges; the second (1191) is path-scoped under src/. Either way main.ts dominates. Test-file mirror lookup: find -name 'main.test.ts' returns nothing. main.ts contains: bootstrap, Pixi app setup, all overlay wiring, lobby callbacks, net transport message handlers, ticker loop, godly matcher, cinematic state machine, debug overlay wiring. ratio = 975 code / 0 test = ∞, well above HYPERTROPHY_RATIO=15. Karpathy K2 fires.",
+      "evidence": {
+        "commands_run": [
+          "git log --since='180 days ago' --numstat --no-merges -- src/main.ts",
+          "git log --since='180 days ago' --numstat --no-merges -- 'src/' | awk path-grouped",
+          "find src -name 'main.test.ts'",
+          "wc -l src/main.ts"
+        ],
+        "signals": [
+          "churn 180d (file scope): 6090",
+          "churn 180d (path scope): 1191",
+          "LOC: 975",
+          "main.test.ts: not present",
+          "code-to-test ratio: undefined (no test file)"
+        ]
+      },
+      "recommendation": {
+        "action": "REFACTOR",
+        "description": "Two-step strategy: (1) extract testable subsystems from main.ts into pure modules — netMessageRouter (the on() handler bodies at L270-281 + L305-315), godlyMatcher (L459-495), cinematicStateMachine, teardownNet — each with unit tests. main.ts becomes thinner wiring. (2) once extracted, add a smoke test src/main.test.ts that exercises bootstrap() against a jsdom DOM and asserts the app boots into TITLE state. Likely a multi-priority Standard-tier batch."
+      },
+      "verification": {
+        "method": "test_pass",
+        "details": "New test files cover the extracted subsystems; combined test count rises to ≥770; main.ts LOC drops below 500."
+      },
+      "cross_refs": ["8053a5045ffc787d"]
+    },
+    {
+      "id": "8053a5045ffc787d",
+      "type": "TEST_GAP",
+      "severity": "MEDIUM",
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "file_path": "src/main.ts",
+      "line_number": 0,
+      "symbol": "(file-level)",
+      "description": "The repo's highest-churn production file has no direct test file. Indirect coverage exists via session-test integration tests but no boundary lives at main.ts.",
+      "details": "find src -name 'main.test.ts' → empty. Indirect coverage exists through src/game/session*.test.ts and src/net/sync.test.ts (which exercises HostSync/ClientSync constructed similarly to how main.ts wires them) and src/render/*.test.ts (renderers). But no test directly bootstraps the app or unit-tests the lobby callbacks / netTransport.on handlers / godlyMatcher cursor logic — all of which contain non-trivial conditional logic that has shifted across S15-S37 (per commit log).",
+      "evidence": {
+        "commands_run": ["find src -name 'main.test.ts'", "wc -l src/main.ts"],
+        "signals": [
+          "main.test.ts: not present",
+          "main.ts LOC: 975",
+          "main.ts churn 180d: 1191 (path scope)"
+        ]
+      },
+      "recommendation": {
+        "action": "ADD_TEST",
+        "description": "Companion to finding 913e7046 (refactor). Once subsystems are extracted into pure modules, write unit tests against them. Smoke test for bootstrap() against jsdom optional but valuable for catching wire-up regressions."
+      },
+      "verification": {
+        "method": "test_pass",
+        "details": "src/main.test.ts exists with at least a smoke test that asserts bootstrap completes against jsdom + a default world. Extracted subsystem tests verify message-routing and matcher logic."
+      },
+      "cross_refs": ["913e70466f01ba69"]
+    },
+    {
+      "id": "9f242f92eb02646b",
+      "type": "DOC_DRIFT",
+      "severity": "MEDIUM",
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "file_path": "README.md",
+      "line_number": 0,
+      "symbol": "(file missing)",
+      "description": "No README.md at repo root. Onboarding requires reading 60 KB SPARK_Blueprint.md, 54 KB LOCKED_DECISIONS.md, BACKLOG.md, boot-snapshot.md, and CLAUDE.md.",
+      "details": "ls README* → empty. The repo has substantial top-level docs (BACKLOG.md 97 KB, LOCKED_DECISIONS.md 54 KB, SPARK_Blueprint.md 60 KB, reflexion_log.md 51 KB) but no quick-start entry point. A new contributor lands on the GitHub repo with no README rendered. CLAUDE.md is session-protocol oriented, not user-facing. docs/phase-2-design-options.md exists but is internal design.",
+      "evidence": {
+        "commands_run": ["ls README*", "ls -la *.md"],
+        "signals": [
+          "README.md: missing",
+          "README.rst / README.txt: missing",
+          "docs/ has internal design docs only, no overview"
+        ]
+      },
+      "recommendation": {
+        "action": "UPDATE_DOC",
+        "description": "Write a ~200-line README.md covering: (1) one-paragraph what-is-SPARK, (2) quick-start (npm install / npm run dev / npm test / npm run build), (3) link to https://spark-online.space, (4) high-level architecture diagram pointer (main.ts → net/transport/sync → state/world → render/*), (5) links to BACKLOG.md, SPARK_Blueprint.md, CLAUDE.md for deeper context. No new content required — pure synthesis of existing docs."
+      },
+      "verification": {
+        "method": "manual_check",
+        "details": "README.md exists at repo root; renders on GitHub repo home; contains quick-start commands matching package.json:scripts."
+      },
+      "cross_refs": []
+    },
+    {
+      "id": "5f1f62c8333c6745",
+      "type": "DEPRECATE_CANDIDATE",
+      "severity": "LOW",
+      "status": "VERIFIED",
+      "confidence": "MEDIUM",
+      "file_path": "src/constants.ts",
+      "line_number": 269,
+      "symbol": "NET_CONNECTION_TIMEOUT_MS",
+      "description": "Constant exported but never imported in production code. Functional equivalent (HANDSHAKE_TIMEOUT_MS) is imported from src/net/iceConfig.ts.",
+      "details": "Grep for NET_CONNECTION_TIMEOUT_MS returns only the definition line. Net code uses HANDSHAKE_TIMEOUT_MS and ICE_POLL_MAX_DURATION_MS from src/net/iceConfig.ts. The constants.ts symbol appears to be a stale planning constant from S15 P2 when the timeout machinery was first being scoped.",
+      "evidence": {
+        "commands_run": ["grep -rn 'NET_CONNECTION_TIMEOUT_MS' src/"],
+        "signals": [
+          "definition: src/constants.ts:269",
+          "imports/uses in src/: 0",
+          "test refs: 0",
+          "iceConfig.ts owns the functional equivalent"
+        ]
+      },
+      "chestertons_fence": "Added in commit add497f 'S15 P2: networked 1v1 multiplayer MVP'. Likely a planning constant from when timeout machinery was being scoped; the actual implementation moved to iceConfig.ts as HANDSHAKE_TIMEOUT_MS. Safe to remove or migrate iceConfig.ts to import from constants.ts (so the canonical value lives in one place).",
+      "recommendation": {
+        "action": "INVESTIGATE",
+        "description": "Either (a) delete NET_CONNECTION_TIMEOUT_MS from constants.ts (canonical value already lives in iceConfig.ts:HANDSHAKE_TIMEOUT_MS), or (b) flip iceConfig.ts to import HANDSHAKE_TIMEOUT_MS from constants.ts so constants.ts becomes the single source. Choice (b) preserves the design intent better. Either way, single-line change."
+      },
+      "verification": {
+        "method": "command",
+        "details": "Choice (a): `grep -rn 'NET_CONNECTION_TIMEOUT_MS' src/` returns 0 hits; npm test still green. Choice (b): grep shows iceConfig.ts imports from constants.ts; both files agree on the value."
+      },
+      "cross_refs": ["336929dc578e0027"]
+    },
+    {
+      "id": "d0f4efc83faf9066",
+      "type": "DEPRECATE_CANDIDATE",
+      "severity": "LOW",
+      "status": "VERIFIED",
+      "confidence": "MEDIUM",
+      "file_path": "src/constants.ts",
+      "line_number": 257,
+      "symbol": "BOND_LINE_WIDTH, BOND_GLOW_INTENSITY, AUDIO_MASTER_VOLUME_DB",
+      "description": "Three render/audio config constants exported but never imported. Bond renderer and audio chain use inline literals.",
+      "details": "Grep for each across src/ returns only the definition line in constants.ts. Bond rendering (src/render/bondVisualRenderer.ts) uses hard-coded line widths and alpha values inline. Audio (audioManager.ts) uses inline gainNode values. These constants appear to be planning-stage configurability that was never wired.",
+      "evidence": {
+        "commands_run": ["grep -rn 'BOND_LINE_WIDTH|BOND_GLOW_INTENSITY|AUDIO_MASTER_VOLUME_DB' src/"],
+        "signals": [
+          "BOND_LINE_WIDTH definition: src/constants.ts:257",
+          "BOND_GLOW_INTENSITY definition: src/constants.ts:258",
+          "AUDIO_MASTER_VOLUME_DB definition: src/constants.ts:261",
+          "all 3: 0 imports across src/"
+        ]
+      },
+      "chestertons_fence": "All three introduced in initial commit bc89a53 'Initial commit: SPARK Phase-1 prototype post-Session-5' (2026-05-09). Plausibly placeholder constants for then-future bond/audio rendering work that ended up using inline values. Recoverable intent: design-time configurability. Since the renderers ship with inline values, the constants are stale.",
+      "recommendation": {
+        "action": "INVESTIGATE",
+        "description": "Per-symbol decision: either wire the constant into the corresponding renderer (single import each — preserves the design-time configurability intent), or delete the unused symbols. Pair with knip output review (finding 336929dc) and constants.ts cleanup pass."
+      },
+      "verification": {
+        "method": "command",
+        "details": "knip --no-progress | grep 'src/constants.ts' returns fewer unused exports; OR the constants are removed and tests still pass."
+      },
+      "cross_refs": ["336929dc578e0027"]
+    },
+    {
+      "id": "835b5e0a06b982e3",
+      "type": "DEPRECATE_CANDIDATE",
+      "severity": "LOW",
+      "status": "VERIFIED",
+      "confidence": "MEDIUM",
+      "file_path": "src/state/save.ts",
+      "line_number": 683,
+      "symbol": "loadFromLocalStorage",
+      "description": "Save-load function exported but only called from save.test.ts. No production UI hook exists.",
+      "details": "Grep for loadFromLocalStorage finds: definition at save.ts:683, test references in save.test.ts and save.replay.test.ts. main.ts imports `saveToLocalStorage` but NOT `loadFromLocalStorage`. There is no 'Load Game' button in the lobby or title screens. The save path exists (saveToLocalStorage is called periodically), but no production code reads it back. This means user save state is written but never restored — a latent feature gap or a deferred design.",
+      "evidence": {
+        "commands_run": ["grep -rn 'loadFromLocalStorage' src/", "grep -n 'saveToLocalStorage' src/main.ts"],
+        "signals": [
+          "definition: src/state/save.ts:683",
+          "production callers: 0",
+          "test callers: 2 files (save.test.ts, save.replay.test.ts)"
+        ]
+      },
+      "chestertons_fence": "Introduced in initial commit bc89a53 (2026-05-09). The full save/load API was designed Phase 1 but only the save half was wired to production. Likely deferred behind feature priority (the multiplayer infrastructure took precedence). Save without load is genuinely useful (telemetry/forensics on crash) — but a 'Load' UI hook is the obvious next step.",
+      "recommendation": {
+        "action": "INVESTIGATE",
+        "description": "User-facing decision: (a) wire a 'Continue' button on the title screen calling loadFromLocalStorage → restore (uses existing infrastructure), or (b) explicitly document save-only-as-telemetry and remove the public export. Either action closes the knip flag."
+      },
+      "verification": {
+        "method": "manual_check",
+        "details": "Either a TitleScreen onContinueSelected callback wires loadFromLocalStorage + restore (and a test covers the round-trip), OR loadFromLocalStorage is moved to internal/test-only export."
+      },
+      "cross_refs": ["336929dc578e0027"]
+    },
+    {
+      "id": "561e37cede5d76bc",
+      "type": "TYPE_DEBT",
+      "severity": "LOW",
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "file_path": "src/net/protocol.ts",
+      "line_number": 99,
+      "symbol": "parseNetMessage",
+      "description": "Validator does kind-discriminant + 1-2 key-presence checks; does not assert INTENT.action is a valid GameAction or NETSNAPSHOT.snapshot is a valid WorldSnapshot shape.",
+      "details": "parseNetMessage(raw) checks: HELLO → protoVersion===2; INTENT → typeof intentSeq==='number' && action!==undefined; NETSNAPSHOT → typeof snapshotSeq==='number' && snapshot!==undefined; ENDGAME → typeof winnerId==='number'; GODLY_TRIGGER → event!==undefined. So a peer-sent INTENT with action={type:'NUKE_THE_PLANET'} passes the validator (because action is defined). The reducer in world.ts handles unknown action types via a switch default (presumably), but the validator's documented purpose is 'defense against malformed peers' — it should reject unknown action.type.",
+      "evidence": {
+        "commands_run": ["read src/net/protocol.ts:95-120"],
+        "signals": [
+          "checks per kind: 1-2",
+          "INTENT.action.type not validated against known GameAction kinds",
+          "NETSNAPSHOT.snapshot.schemaVersion not pre-validated (delegated to applyNetSnapshot which throws)",
+          "GODLY_TRIGGER.event.godlyId not validated"
+        ]
+      },
+      "recommendation": {
+        "action": "DESIGN_FIX",
+        "description": "Strengthen parseNetMessage: import the GameAction discriminant string-union type and validate action.type ∈ <closed set>; validate snap.schemaVersion === 1 inline (avoid throwing from applyNetSnapshot); validate event.godlyId ∈ known recipes. Pair with finding d3f0e22b (wiring); same PDR."
+      },
+      "verification": {
+        "method": "test_pass",
+        "details": "Tests assert: INTENT with unknown action.type returns null; NETSNAPSHOT with snap.schemaVersion=2 returns null; GODLY_TRIGGER with unknown godlyId returns null."
+      },
+      "cross_refs": ["d3f0e22b9bb78155"]
+    },
+    {
+      "id": "2dbca34be8a2bd04",
+      "type": "TODO_STALE",
+      "severity": "LOW",
+      "status": "VERIFIED",
+      "confidence": "MEDIUM",
+      "file_path": "assets-source/godly-voltkin/notes/integration-notes.md",
+      "line_number": 90,
+      "symbol": "TODOs for main session",
+      "description": "Asset-author notes file contains a 'What's missing / TODOs for main session' header. Outside of src/ — non-code, but visible in repo.",
+      "details": "git ls-files | xargs grep -nIE '(TODO|FIXME|XXX|HACK|BUG|DEPRECATED)' (filtered to non-archive paths) returned a single non-trivial hit in this asset-author notes file. The other hit (debugOverlay.ts:73 'DEBUG (click to copy)') is the UI string 'DEBUG', a false positive on the keyword scan. No code-level TODO/FIXME/HACK markers found in src/.",
+      "evidence": {
+        "commands_run": ["git ls-files | xargs grep -nIE '(TODO|FIXME|XXX|HACK|BUG|DEPRECATED)' filtered"],
+        "signals": [
+          "code-level TODO hits in src/: 0",
+          "non-code TODO hits: 1 (asset notes)",
+          "false-positive hits filtered: 1 (debugOverlay UI string)"
+        ]
+      },
+      "chestertons_fence": "Asset directories conventionally carry author/integration notes. This is a working document, not stale debt. Recoverable intent: handoff notes between asset author and integration sessions.",
+      "recommendation": {
+        "action": "NO_ACTION",
+        "description": "Likely live working notes. If the integration-notes.md has been static for the same N sessions as the asset has been integrated, mark as STALE and archive. Otherwise leave alone — it is the author's intended scratch pad."
+      },
+      "verification": {
+        "method": "manual_check",
+        "details": "Read integration-notes.md; if every TODO line corresponds to a shipped feature, move the file to archive."
+      },
+      "cross_refs": []
+    },
+    {
+      "id": "8e68eff101d6a56a",
+      "type": "ARCH_DRIFT",
+      "severity": "INFO",
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "file_path": "boot-snapshot.md",
+      "line_number": 12,
+      "symbol": "bundle-cap-framing",
+      "description": "Boot snapshot reports 'Bundle: 471.11 KB / 500 KB cap' which counts the app-code chunk only. Full JS payload (incl. Pixi chunks) is ~729 KB.",
+      "details": "vite build output: dist/assets/index-*.js 471.11 KB (app code), plus 9 Pixi chunks totaling 257.62 KB (WebGLRenderer 68.47 KB, RenderTargetSystem 46.35 KB, browserAll 43.07 KB, WebGPURenderer 38.22 KB, etc.). Total transferred-JS-on-cold-load: 728.73 KB. The '500 KB cap' is meaningful for the main app code (which Vite tree-shakes and grows linearly with feature additions); the Pixi chunks are external. This is a framing drift, not a metric drift — the 471 KB is real.",
+      "evidence": {
+        "commands_run": ["npx vite build", "read boot-snapshot.md:12"],
+        "signals": [
+          "dist/assets/index-*.js: 471.11 KB",
+          "dist/assets/<Pixi chunks>: 257.62 KB sum",
+          "total JS payload: 728.73 KB"
+        ]
+      },
+      "recommendation": {
+        "action": "UPDATE_DOC",
+        "description": "Boot-snapshot.md should clarify: 'Bundle (app code): 471.11 KB / 500 KB cap. Total JS payload incl. Pixi chunks: ~729 KB.' Single-line edit; no behavior change."
+      },
+      "verification": {
+        "method": "manual_check",
+        "details": "boot-snapshot.md text reflects both numbers."
+      },
+      "cross_refs": []
+    },
+    {
+      "id": "d8f9c8ae7f60b4c6",
+      "type": "COLLATERAL_CHANGE",
+      "severity": "INFO",
+      "status": "VERIFIED",
+      "confidence": "MEDIUM",
+      "file_path": "(commit-log workflow signal)",
+      "line_number": 0,
+      "symbol": "scope convention",
+      "description": "Commit-message convention is [S<N> P<N>] priority IDs (not module scopes). Mechanical K3 collateral detection cannot infer a per-commit module scope.",
+      "details": "Recent 100 commits: most subjects follow `[S<N> P<N>] <description>` (e.g. '[S37 P10] NetSnapshot v2 ...'). Many are `[state-autocommit] S<N>` (hook-generated, no semantic scope). Only ~10% follow conventional `feat(scope):`/`fix(scope):` patterns. K3 mechanical detection (commit-scope vs file-paths-touched) requires a per-priority lookup against BACKLOG.md/PDR archives, which is per-priority manual work. Confirmed K3 instance: S22 P3 commit 318039f added parseNetMessage validator but did NOT touch transport.ts where it was meant to be wired (see finding d3f0e22b).",
+      "evidence": {
+        "commands_run": [
+          "git log --since='180 days ago' --pretty=format:'%H|%s' --no-merges | head -100",
+          "git log -p -S 'parseNetMessage' --stat 318039f"
+        ],
+        "signals": [
+          "conventional-style commits: <10% of 100",
+          "priority-tag style: ~60%",
+          "autocommit-style: ~30%",
+          "confirmed K3: S22 P3 318039f (parseNetMessage added but not wired)"
+        ]
+      },
+      "recommendation": {
+        "action": "INVESTIGATE",
+        "description": "Pass 2 (or a session-internal RALPH:HUNT) sweep: re-read each S<N> priority's PDR + diff to confirm scope alignment. The S22 P3 example is verified; other priorities (especially Standard/Full tier batches that landed multiple files) deserve manual review for similar plumbing-not-wired regressions."
+      },
+      "verification": {
+        "method": "manual_check",
+        "details": "Per-priority PDR diff review identifies any other 'X added but not wired' patterns analogous to parseNetMessage."
+      },
+      "cross_refs": ["d3f0e22b9bb78155"]
+    },
+    {
+      "id": "336929dc578e0027",
+      "type": "DEPRECATE_CANDIDATE",
+      "severity": "LOW",
+      "status": "VERIFIED",
+      "confidence": "MEDIUM",
+      "file_path": "(repo-wide)",
+      "line_number": 0,
+      "symbol": "46 unused exports (knip)",
+      "description": "knip flags 46 unused exports across 17 source files. Each requires per-symbol Chesterton archaeology before delete; collective finding cross-references the specific subset already triaged (5f1f62c, d0f4efc, 835b5e0a).",
+      "details": "knip --reporter json output (truncated): src/constants.ts:13, src/render/audioManager.ts:5, src/state/save.ts:4, src/state/creatures/creature.ts:4, src/net/protocol.ts:3, src/render/effects/lifetime.ts:3, src/render/codexOverlay.ts:2, src/state/godlyRecipes/index.ts:2, src/game/spark.ts:2, plus 8 other files with 1 each. Many are type exports (likely public API for testability or future use), some are enum members (additive-future-use pattern), some are functions like stopMusic/isInitialized/playClaveSFX (audio chain singleton API surface — likely test-only public). Three top-confidence candidates already broken out into individual findings.",
+      "evidence": {
+        "commands_run": ["npx knip --no-progress --reporter json"],
+        "signals": [
+          "files with unused exports: 17",
+          "total unused exports flagged: 46",
+          "knip-recognized 'files' (file-level dead): 0"
+        ]
+      },
+      "chestertons_fence": "Initial commit bc89a53 + S15 P2 + S22 P3 each added speculatively-future-use surface area. Many constants/functions are referenced in design docs (Blueprint, LOCKED_DECISIONS, BACKLOG) but not yet wired to production callers. Per-symbol archaeology required; collective deletion would be reckless.",
+      "recommendation": {
+        "action": "INVESTIGATE",
+        "description": "Session-internal triage pass: for each unused export, run `git log -S '<symbol>' --oneline` + cross-reference Blueprint/BACKLOG to classify as (a) wire-up missed (action: wire), (b) speculative/abandoned (action: delete), (c) test-only public (action: move to test fixture or unexport). Aim for 5-10 deletions per session over 3-4 sessions, not a single massive sweep."
+      },
+      "verification": {
+        "method": "command",
+        "details": "After each triage session, `npx knip --no-progress --reporter json | jq '[.issues[].exports[]] | length'` drops; tests stay green."
+      },
+      "cross_refs": ["5f1f62c8333c6745", "d0f4efc83faf9066", "835b5e0a06b982e3"]
+    }
+  ]
+}
