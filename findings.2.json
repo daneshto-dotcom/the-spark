@@ -1,0 +1,390 @@
+{
+  "audit_meta": {
+    "pass": 2,
+    "date": "2026-05-21T10:40:00Z",
+    "project_root": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark",
+    "git_present": true,
+    "head_sha": "5750cd6",
+    "head_summary": "[audit P1-P5] Wire net trust boundary + audio cursor + README + cleanup",
+    "stack": {
+      "languages": ["TypeScript"],
+      "primary": "TypeScript",
+      "frameworks": ["Pixi.js 8.5", "Trystero 0.24 (Nostr)", "Vite 5.2", "Vitest 1.5"]
+    },
+    "tracked_files": 305,
+    "dirty_files": 1,
+    "test_files": 41,
+    "scoped_modules_count": 71,
+    "critical_paths": [
+      "src/main.ts",
+      "src/net/transport.ts",
+      "src/net/sync.ts",
+      "src/net/protocol.ts",
+      "src/state/save.ts"
+    ],
+    "tools_used": ["knip", "npm audit", "tsc -b --noEmit", "vitest run", "vite build", "git show --stat", "git log/log -S/log --numstat"],
+    "tools_skipped": [
+      {"name": "vulture", "reason": "no python sources"},
+      {"name": "cargo-udeps", "reason": "no rust crates"},
+      {"name": "staticcheck", "reason": "no go sources"},
+      {"name": "pip-audit", "reason": "no python sources"},
+      {"name": "govulncheck", "reason": "no go sources"},
+      {"name": "cargo audit", "reason": "no rust crates"},
+      {"name": "dependency-cruiser graph", "reason": "TRACKED_FILES=305 below SCOPE_GRAPH_THRESHOLD=500"}
+    ],
+    "test_baseline": {"tests": 740, "files": 41, "duration_s": 5.97, "all_passing": true},
+    "build_baseline": {"main_bundle_kb": 472.40, "gzip_kb": 152.34, "delta_from_pass1_kb": 1.29, "headroom_kb": 27.60},
+    "pass_1_findings_closed": [
+      {"id": "d3f0e22b9bb78155", "closed_in_commit": "5750cd6", "verification": "grep src/net/transport.ts:148 shows parseNetMessage(parsed) wired; protocol.test.ts +60 LOC of strengthening tests pass"},
+      {"id": "e698a17aa05de43c", "closed_in_commit": "5750cd6", "verification": "grep src/net/sync.ts:91-119 shows try/catch around applyNetSnapshot; sync.test.ts +38 LOC verifies no throw escapes interpolateInto for malformed snapshots"},
+      {"id": "3c8630d76327c13e", "closed_in_commit": "5750cd6", "verification": "grep src/state/save.ts:306 + src/main.ts:359 both call resetAudioDrainCursor; save.test.ts +26 LOC verifies post-restore audio cursor reset"},
+      {"id": "9f242f92eb02646b", "closed_in_commit": "5750cd6", "verification": "ls README.md → 5003 bytes; contains quick-start, architecture diagram, tech stack, doc index"},
+      {"id": "8e68eff101d6a56a", "closed_in_commit": "5750cd6", "verification": "boot-snapshot.md:12 grep shows both '500 KB cap' (app code) and '~729 KB' (incl Pixi)"},
+      {"id": "5f1f62c8333c6745", "closed_in_commit": "5750cd6", "verification": "grep NET_CONNECTION_TIMEOUT_MS in src/constants.ts returns 0 hits; knip total exports dropped 46→42"},
+      {"id": "d0f4efc83faf9066", "closed_in_commit": "5750cd6", "verification": "grep BOND_LINE_WIDTH/BOND_GLOW_INTENSITY/AUDIO_MASTER_VOLUME_DB in src/constants.ts returns 0 hits; knip total exports dropped 46→42"},
+      {"id": "561e37cede5d76bc", "closed_in_commit": "5750cd6", "verification": "src/net/protocol.ts:99-149 grep shows KNOWN_GAME_ACTION_TYPES allowlist + schemaVersion check + numeric playerId/color + string godlyId; protocol.test.ts adds 8 new strengthening test cases all passing"}
+    ],
+    "pass_1_findings_carried_forward": [
+      "acc5551a84e1b7d2", "2d797b0934868984", "97152f005818e89d",
+      "913e70466f01ba69", "8053a5045ffc787d",
+      "835b5e0a06b982e3", "336929dc578e0027",
+      "2dbca34be8a2bd04", "d8f9c8ae7f60b4c6"
+    ]
+  },
+  "findings": [
+    {
+      "id": "ce51b032691fe713",
+      "type": "TYPE_DEBT",
+      "severity": "LOW",
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "file_path": "src/net/protocol.ts",
+      "line_number": 100,
+      "symbol": "KNOWN_GAME_ACTION_TYPES",
+      "description": "Wire allowlist of GameAction discriminants is hand-maintained alongside the type union in world.ts; no compile-time guarantee they stay synchronized.",
+      "details": "Pass-1 fix `561e37ce` introduced `KNOWN_GAME_ACTION_TYPES` (19 string literals) in protocol.ts as a closed allowlist for `INTENT.action.type` validation. The structural source-of-truth lives in `src/state/world.ts:GameAction` (a discriminated union over 19 variants). If a future PR adds a new action variant to `GameAction` without updating the protocol.ts set, valid INTENT payloads from a correctly-typed peer are silently rejected — manifesting as 'peer's input dropped' with a console.warn that's easy to miss. The audit code comment frames this as 'deliberate' (wire-allowlist independent of in-process type widening), which is defensible but creates a maintainability trap. Karpathy K1 (silent assumption) — easy to add new GameAction without remembering the wire side.",
+      "evidence": {
+        "commands_run": ["grep -n 'KNOWN_GAME_ACTION_TYPES' src/net/protocol.ts", "read src/state/world.ts:193-249"],
+        "signals": [
+          "src/net/protocol.ts: 19 string literals in KNOWN_GAME_ACTION_TYPES",
+          "src/state/world.ts: 19 variants in GameAction union",
+          "no compile-time link between the two"
+        ]
+      },
+      "recommendation": {
+        "action": "REFACTOR",
+        "description": "Two viable patterns: (a) `as const` array in world.ts that derives the union type via `(typeof ARR)[number]['type']`, then protocol.ts imports the runtime array and converts to Set — single source. (b) Compile-time exhaustiveness check via a `satisfies` block that asserts `KNOWN_GAME_ACTION_TYPES` is a `Set<GameAction['type']>` — if union widens, the literal-typed set narrows and tsc errors. Pattern (b) is lower-risk (no runtime change). Either is Micro-tier (~5K tokens)."
+      },
+      "verification": {
+        "method": "test_pass",
+        "details": "Compile-time: introduce a deliberate stub GameAction variant in a test branch; expect tsc to fail at the protocol.ts allowlist check (pattern b) OR the protocol.ts import to widen automatically (pattern a). Revert the stub; existing 740 tests stay green."
+      },
+      "cross_refs": ["d3f0e22b9bb78155", "561e37cede5d76bc"]
+    },
+    {
+      "id": "622a7c7fccf8516e",
+      "type": "ARCH_DRIFT",
+      "severity": "INFO",
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "file_path": "src/state/save.ts",
+      "line_number": 57,
+      "symbol": "import { resetAudioDrainCursor } from '../render/audioManager.ts'",
+      "description": "Pass-1 fix 3c8630d7 introduced a state→render dependency edge. Pinpointed and documented but the only such edge in the codebase.",
+      "details": "Before Pass 1, all imports in `src/state/` referenced other `src/state/`, `src/game/`, `src/physics/`, `src/types.ts` modules — the state layer was render-agnostic by convention. The Pass-1 fix added `import { resetAudioDrainCursor } from '../render/audioManager.ts'` at save.ts:57. The audit fix comment frames this as 'deliberate and pinpointed' and notes the imported function is pure module-level state reset with no AudioContext involvement, so it's safe to call from test paths that never initialize audio. The architectural concern is precedent: future work may slip more render imports into state with this as cover.",
+      "evidence": {
+        "commands_run": [
+          "grep -rE \"from '../render/\" src/state/",
+          "git show 5750cd6 -- src/state/save.ts"
+        ],
+        "signals": [
+          "src/state/ → src/render/ imports before commit 5750cd6: 0",
+          "src/state/ → src/render/ imports after commit 5750cd6: 1 (save.ts:57)"
+        ]
+      },
+      "recommendation": {
+        "action": "INVESTIGATE",
+        "description": "Two cleanups possible: (1) move `resetAudioDrainCursor` (and the future-equivalent cursor reset on world.tick discontinuity) into a `src/state/audioCursor.ts` reset-event publisher; subscribers in render/audioManager register themselves at module init. Restores the state-render boundary. (2) Accept the precedent and codify it: document in CLAUDE.md or AGENTS.md that pure render-layer reset functions may be imported from state. Decision is project-style; not urgent."
+      },
+      "verification": {
+        "method": "manual_check",
+        "details": "If accepting precedent: add a one-line policy note. If reverting: a follow-up PR replaces direct imports with publisher/subscriber + adds a regression test that grep `'../render/'` in src/state/ returns 0."
+      },
+      "cross_refs": ["3c8630d76327c13e"]
+    },
+    {
+      "id": "d45419854c1dbeac",
+      "type": "TYPE_DEBT",
+      "severity": "LOW",
+      "status": "VERIFIED",
+      "confidence": "MEDIUM",
+      "file_path": "src/net/protocol.ts",
+      "line_number": 145,
+      "symbol": "parseNetMessage NETSNAPSHOT schemaVersion undefined permitted",
+      "description": "parseNetMessage accepts NETSNAPSHOT with snapshot.schemaVersion=undefined for the existing test-double pattern. Production payloads always carry schemaVersion=1, so a peer-sent `{snapshot:{}}` bypasses the version check.",
+      "details": "Pass-1 fix added schemaVersion validation to parseNetMessage at protocol.ts:140-146, with a deliberate carve-out: `if (schemaVersion !== undefined && schemaVersion !== WIRE_SCHEMA_VERSION)`. The undefined branch exists to keep existing protocol.test.ts cases compatible (`snapshot: {}` test fixtures). However, a peer can now send `{kind:'NETSNAPSHOT', snapshotSeq:1, snapshot:{}}` and bypass the version gate at the wire. Downstream, `applyNetSnapshot` throws on `schemaVersion !== 1` (save.ts:328); the Pass-1 try/catch guard in sync.ts catches the throw and skips the apply. Net blast radius: a malicious peer can cost the client one frame per malformed snapshot (visible as a momentary render glitch); cannot crash. Defense-in-depth still holds because of the e698a17a guard, but the wire validator's permissive carve-out is a latent gap.",
+      "evidence": {
+        "commands_run": ["read src/net/protocol.ts:135-150", "read src/net/protocol.test.ts:83-84"],
+        "signals": [
+          "permissive branch: `if (schemaVersion !== undefined && schemaVersion !== WIRE_SCHEMA_VERSION)`",
+          "test fixture pattern: `{ kind: 'NETSNAPSHOT', snapshotSeq: 1, snapshot: {} }` used at protocol.test.ts:83",
+          "applyNetSnapshot throw guarded by try/catch at sync.ts:107"
+        ]
+      },
+      "ralph": {
+        "hypothesis": "A peer sending `{kind:'NETSNAPSHOT', snapshotSeq:1, snapshot:{}}` bypasses parseNetMessage, then crashes-and-recovers via the sync.ts try/catch — one dropped frame per malformed message.",
+        "minimal_repro": "Construct the payload above. Assert parseNetMessage returns NOT-null. Assert ClientSync.receive accepts it. Assert interpolateInto does NOT throw (already covered by sync.test.ts new test). The chain works as designed but the validator is permissive.",
+        "fix_design": "Tighten the validator: require `schemaVersion === WIRE_SCHEMA_VERSION` (no undefined carve-out). Update the 1 existing protocol.test.ts case at line 83 from `snapshot: {}` to `snapshot: { schemaVersion: 1 }`. Both are single-line changes.",
+        "verification_plan": "After tightening, the wire-empty-snapshot test should return null (assertion flip). All other tests stay green."
+      },
+      "recommendation": {
+        "action": "DESIGN_FIX",
+        "description": "Remove the `schemaVersion !== undefined` carve-out at protocol.ts:145; update the protocol.test.ts NETSNAPSHOT fixture to include schemaVersion=1. Micro-tier; ~2K tokens. The defense-in-depth guard in sync.ts remains as belt-and-suspenders but the wire becomes properly tight."
+      },
+      "verification": {
+        "method": "test_pass",
+        "details": "Updated protocol.test.ts asserts `{kind:'NETSNAPSHOT', snapshotSeq:1, snapshot:{}}` returns null; `{kind:'NETSNAPSHOT', snapshotSeq:1, snapshot:{schemaVersion:1}}` returns NOT-null."
+      },
+      "cross_refs": ["d3f0e22b9bb78155", "e698a17aa05de43c", "561e37cede5d76bc"]
+    },
+    {
+      "id": "acc5551a84e1b7d2",
+      "type": "DEP_CVE",
+      "severity": "MEDIUM",
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "file_path": "package-lock.json",
+      "line_number": 0,
+      "symbol": "esbuild <= 0.24.2",
+      "description": "[CARRY-FORWARD] esbuild dev-server CORS bypass (GHSA-67mh-4wv8-2f99). Pass-1 finding unchanged — vite/vitest major bump deferred.",
+      "details": "Re-ran `npm audit --json` post-fix: 4 moderate vulnerabilities still present (esbuild, vite, vite-node, vitest). Same fixAvailable: vite@8.0.14 (semVerMajor). Dev-server only — production bundle unaffected. Deferred per Pass-1 recommendation pending dedicated session.",
+      "evidence": {
+        "commands_run": ["npm audit --json | python parse"],
+        "signals": [
+          "moderate count: 4 (same as Pass 1)",
+          "no upgrade between commits"
+        ]
+      },
+      "recommendation": {
+        "action": "UPGRADE",
+        "description": "Same recommendation as Pass 1: coordinated vite + vitest major bump. Single dedicated session for regression testing."
+      },
+      "verification": {
+        "method": "command",
+        "details": "npm audit --json shows zero moderate+ vulnerabilities; full 740-test suite stays green."
+      },
+      "cross_refs": ["2d797b0934868984", "97152f005818e89d"]
+    },
+    {
+      "id": "2d797b0934868984",
+      "type": "DEP_CVE",
+      "severity": "MEDIUM",
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "file_path": "package-lock.json",
+      "line_number": 0,
+      "symbol": "vite <= 6.4.1",
+      "description": "[CARRY-FORWARD] Vite path-traversal in optimized-deps .map handling (GHSA-4w7w-66w2-5vf9). Unchanged from Pass 1.",
+      "details": "Direct dep, dev-server only. Same upgrade path as acc5551a — single PDR addresses both.",
+      "evidence": {
+        "commands_run": ["npm audit --json"],
+        "signals": ["isDirect: true", "range: <=6.4.1", "vite installed: 5.2 (^5.2.0)"]
+      },
+      "recommendation": {
+        "action": "UPGRADE",
+        "description": "Coordinated bump with acc5551a + 97152f00."
+      },
+      "verification": {
+        "method": "command",
+        "details": "npm audit --json clean."
+      },
+      "cross_refs": ["acc5551a84e1b7d2", "97152f005818e89d"]
+    },
+    {
+      "id": "97152f005818e89d",
+      "type": "DEP_STALE",
+      "severity": "LOW",
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "file_path": "package.json",
+      "line_number": 0,
+      "symbol": "vite ^5.2.0 / vitest ^1.5.0",
+      "description": "[CARRY-FORWARD] vite 5.x / vitest 1.x, two majors behind. Unchanged from Pass 1.",
+      "details": "package.json unchanged between commits. Same recommendation.",
+      "evidence": {
+        "commands_run": ["cat package.json | grep -E 'vite|vitest'"],
+        "signals": ["vite: ^5.2.0", "vitest: ^1.5.0", "fixAvailable: vite@8.0.14 / vitest@4.1.7"]
+      },
+      "recommendation": {
+        "action": "UPGRADE",
+        "description": "Same coordinated bump as Pass 1."
+      },
+      "verification": {
+        "method": "command",
+        "details": "Same as Pass 1."
+      },
+      "cross_refs": ["acc5551a84e1b7d2", "2d797b0934868984"]
+    },
+    {
+      "id": "913e70466f01ba69",
+      "type": "HYPERTROPHY",
+      "severity": "HIGH",
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "file_path": "src/main.ts",
+      "line_number": 0,
+      "symbol": "bootstrap()",
+      "description": "[CARRY-FORWARD-WORSE] main.ts LOC went 975→984 (+9 from Pass-1 resetAudioDrainCursor wiring). Still no direct test file.",
+      "details": "Pass-1 fix added 9 LOC to main.ts (1 import addition + 8 lines of comment + call site in teardownNet). The hypertrophy finding is unchanged in kind; magnitude slightly worse. Refactor still deferred to dedicated multi-priority session per Pass-1 recommendation.",
+      "evidence": {
+        "commands_run": ["wc -l src/main.ts"],
+        "signals": ["LOC: 984 (Pass 1 baseline 975)", "main.test.ts: still not present", "ratio: still undefined"]
+      },
+      "recommendation": {
+        "action": "REFACTOR",
+        "description": "Same as Pass 1: extract netMessageRouter, godlyMatcher, cinematicStateMachine, teardownNet into pure modules with unit tests."
+      },
+      "verification": {
+        "method": "test_pass",
+        "details": "main.ts LOC drops below 500; new test files cover extracted subsystems."
+      },
+      "cross_refs": ["8053a5045ffc787d"]
+    },
+    {
+      "id": "8053a5045ffc787d",
+      "type": "TEST_GAP",
+      "severity": "MEDIUM",
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "file_path": "src/main.ts",
+      "line_number": 0,
+      "symbol": "(file-level)",
+      "description": "[CARRY-FORWARD] main.ts still has no direct test file. Companion to 913e7046.",
+      "details": "find src -name 'main.test.ts' returns empty. Unchanged from Pass 1.",
+      "evidence": {
+        "commands_run": ["find src -name 'main.test.ts'"],
+        "signals": ["main.test.ts: not present"]
+      },
+      "recommendation": {
+        "action": "ADD_TEST",
+        "description": "Same as Pass 1 — pair with refactor."
+      },
+      "verification": {
+        "method": "test_pass",
+        "details": "Same as Pass 1."
+      },
+      "cross_refs": ["913e70466f01ba69"]
+    },
+    {
+      "id": "835b5e0a06b982e3",
+      "type": "DEPRECATE_CANDIDATE",
+      "severity": "LOW",
+      "status": "VERIFIED",
+      "confidence": "MEDIUM",
+      "file_path": "src/state/save.ts",
+      "line_number": 683,
+      "symbol": "loadFromLocalStorage",
+      "description": "[CARRY-FORWARD] Still no production caller. Continue UI decision pending.",
+      "details": "Pass-1 finding unchanged. main.ts imports saveToLocalStorage but not loadFromLocalStorage. Audit notes user-facing product decision required.",
+      "evidence": {
+        "commands_run": ["grep -rn 'loadFromLocalStorage' src/"],
+        "signals": ["production callers: 0", "test callers: 2 files"]
+      },
+      "chestertons_fence": "Initial commit. Save-half wired Phase 1, load-half deferred. Audit Pass 1 already documented Chesterton's answer.",
+      "recommendation": {
+        "action": "INVESTIGATE",
+        "description": "Same as Pass 1 — user-product decision needed."
+      },
+      "verification": {
+        "method": "manual_check",
+        "details": "Same as Pass 1."
+      },
+      "cross_refs": ["336929dc578e0027"]
+    },
+    {
+      "id": "336929dc578e0027",
+      "type": "DEPRECATE_CANDIDATE",
+      "severity": "LOW",
+      "status": "VERIFIED",
+      "confidence": "MEDIUM",
+      "file_path": "(repo-wide)",
+      "line_number": 0,
+      "symbol": "42 unused exports (knip)",
+      "description": "[CARRY-FORWARD] Pass-1 P5 cleared 4 unused exports from constants.ts (46→42). Per-symbol triage of the remaining 42 still pending.",
+      "details": "knip --reporter json post-fix: 32 unused exports + 10 unused types across 17 files. Distribution: constants.ts:9 (was 13, -4 from P5), audioManager.ts:5, save.ts:2+2, creature.ts:3+1, lifetime.ts:3, codexOverlay.ts:2, godlyRecipes:2 types, spark.ts:2, plus 8 singles. Three Pass-1 individual candidates remain (835b5e0a loadFromLocalStorage).",
+      "evidence": {
+        "commands_run": ["npx knip --no-progress --reporter json | jq aggregate"],
+        "signals": [
+          "total unused exports: 32 (Pass-1: 36 after counting constants separately; net cleared: 4)",
+          "total unused types: 10 (Pass-1: 10; unchanged)",
+          "files with unused exports: 17 (Pass-1: 17)"
+        ]
+      },
+      "chestertons_fence": "Same as Pass 1 — initial commit + S15 P2 + S22 P3 future-use scaffolding.",
+      "recommendation": {
+        "action": "INVESTIGATE",
+        "description": "Continue per-symbol triage sessions per Pass 1 plan."
+      },
+      "verification": {
+        "method": "command",
+        "details": "Same as Pass 1."
+      },
+      "cross_refs": ["835b5e0a06b982e3"]
+    },
+    {
+      "id": "2dbca34be8a2bd04",
+      "type": "TODO_STALE",
+      "severity": "LOW",
+      "status": "VERIFIED",
+      "confidence": "MEDIUM",
+      "file_path": "assets-source/godly-voltkin/notes/integration-notes.md",
+      "line_number": 90,
+      "symbol": "TODOs for main session",
+      "description": "[CARRY-FORWARD] Only non-code TODO marker; asset-author notes (likely intentional working doc). Unchanged from Pass 1.",
+      "details": "Same finding as Pass 1.",
+      "evidence": {
+        "commands_run": ["git ls-files | xargs grep -nIE 'TODO|FIXME' filtered"],
+        "signals": ["code-level TODO hits in src/: 0", "non-code TODO hits: 1 (asset notes)"]
+      },
+      "chestertons_fence": "Asset working notes — recoverable intent is author scratch pad.",
+      "recommendation": {
+        "action": "NO_ACTION",
+        "description": "Same as Pass 1 — only act if user confirms all items are shipped."
+      },
+      "verification": {
+        "method": "manual_check",
+        "details": "Same as Pass 1."
+      },
+      "cross_refs": []
+    },
+    {
+      "id": "d8f9c8ae7f60b4c6",
+      "type": "COLLATERAL_CHANGE",
+      "severity": "INFO",
+      "status": "VERIFIED",
+      "confidence": "MEDIUM",
+      "file_path": "(commit-log workflow signal)",
+      "line_number": 0,
+      "symbol": "scope convention",
+      "description": "[CARRY-FORWARD] Pass-2 audit commit 5750cd6 itself touched 9 src/ + 4 root files — concentrated in net+state+render+root docs. K3 self-check passes for this commit.",
+      "details": "Pass-1 finding was the workflow-level observation. Self-check on the Pass-2 fix commit: scope was `[audit P1-P5]` (priority-tag style), files touched: src/net/* (transport.ts, protocol.ts, protocol.test.ts, sync.ts, sync.test.ts) + src/state/* (save.ts, save.test.ts) + src/main.ts + src/constants.ts + 4 root docs. Each file touch is justified in the commit body. No collateral creep — every file change traces to a Pass-1 finding ID. K3 sweep for other recent priorities still recommended per Pass 1.",
+      "evidence": {
+        "commands_run": ["git show --stat 5750cd6"],
+        "signals": [
+          "files touched: 13 (9 src + 4 root)",
+          "every file touch documented in commit body with finding ID cross-ref",
+          "files outside inferred 'audit fix' scope: 0"
+        ]
+      },
+      "recommendation": {
+        "action": "INVESTIGATE",
+        "description": "Same as Pass 1 — Pass-2 audit commit itself is scope-clean; broader sweep across S<N> priorities still recommended."
+      },
+      "verification": {
+        "method": "manual_check",
+        "details": "Same as Pass 1."
+      },
+      "cross_refs": []
+    }
+  ]
+}
