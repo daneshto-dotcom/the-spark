@@ -80,7 +80,9 @@ describe('S22 P3 — parseNetMessage validator', () => {
 
   it('accepts INTENT / NETSNAPSHOT / ENDGAME / GODLY_TRIGGER', () => {
     expect(parseNetMessage({ kind: 'INTENT', intentSeq: 1, action: { type: 'END_TURN' } })).not.toBeNull();
-    expect(parseNetMessage({ kind: 'NETSNAPSHOT', snapshotSeq: 1, snapshot: {} })).not.toBeNull();
+    // Audit Pass 2 fix d4541985: NETSNAPSHOT now requires schemaVersion=1
+    // (was permissive of undefined for test back-compat).
+    expect(parseNetMessage({ kind: 'NETSNAPSHOT', snapshotSeq: 1, snapshot: { schemaVersion: 1 } })).not.toBeNull();
     expect(parseNetMessage({ kind: 'ENDGAME', winnerId: 0 })).not.toBeNull();
     expect(parseNetMessage({ kind: 'GODLY_TRIGGER', event: { godlyId: 'voltkin' } })).not.toBeNull();
   });
@@ -127,9 +129,11 @@ describe('Audit Pass 1 d3f0e22b + 561e37ce — strengthened parseNetMessage', ()
     expect(parseNetMessage({ kind: 'NETSNAPSHOT', snapshotSeq: 1, snapshot: { schemaVersion: 'one' } })).toBeNull();
   });
 
-  it('NETSNAPSHOT accepts schemaVersion=1 OR omitted (test-double pattern)', () => {
+  it('Audit Pass 2 d4541985: NETSNAPSHOT requires schemaVersion=1 (strict; no undefined carve-out)', () => {
     expect(parseNetMessage({ kind: 'NETSNAPSHOT', snapshotSeq: 1, snapshot: { schemaVersion: 1 } })).not.toBeNull();
-    expect(parseNetMessage({ kind: 'NETSNAPSHOT', snapshotSeq: 1, snapshot: {} })).not.toBeNull();
+    // Pre-Pass-2 this was permissive (returned NetSnapshotMsg). Post-Pass-2:
+    // strict equality, omitted schemaVersion rejected at the wire.
+    expect(parseNetMessage({ kind: 'NETSNAPSHOT', snapshotSeq: 1, snapshot: {} })).toBeNull();
   });
 
   it('NETSNAPSHOT rejects non-object snapshot', () => {

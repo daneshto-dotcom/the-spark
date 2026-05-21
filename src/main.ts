@@ -63,7 +63,12 @@ import {
 import { bondMidpoint, findNearestBondTarget } from './state/creatures/creatureAI.ts';
 import { cinematicMsToTicks, VOLTKIN_ATTACK_FIRE_TICK } from './state/creatures/creature.ts';
 import { AvatarRenderer } from './render/avatarRenderer.ts';
-import { drainAudioEffects, initAudio, isMuted, playMusic, playOneShot, resetAudioDrainCursor, toggleMute } from './render/audioManager.ts';
+import { drainAudioEffects, initAudio, isMuted, playMusic, playOneShot, toggleMute } from './render/audioManager.ts';
+// Audit Pass 2 refactor 622a7c7f: replace direct `resetAudioDrainCursor`
+// import with the state-layer publisher seam. audioManager registers its
+// cursor-reset handler at module-init (side effect of the import above);
+// `triggerReset()` then fires it from inside the state lifecycle.
+import { triggerReset as triggerAudioCursorReset } from './state/audioCursor.ts';
 import { EffectsRenderer } from './render/effectsRenderer.ts';
 import { LobbyScreen } from './render/lobbyScreen.ts';
 import { SparkRenderer, makeLegend, makeSpawnerRing } from './render/renderer.ts';
@@ -348,15 +353,18 @@ async function bootstrap(): Promise<void> {
     controls.setPlayerId(P1);
     world.isHost = true;
     lastSnapshotTick = 0;
-    // Audit Pass 1 fix 3c8630d7 (Δ4 carry-forward): every production RTT
-    // path in main.ts calls teardownNet first (onBackToTitle / onReturnFrom-
-    // ConnectionLost / resetIfPostgame), so resetting the audio drain cursor
-    // here covers the full lifecycle. Without this, after a postgame→TITLE
-    // round-trip and a fresh PLAYING entry, audio cues whose `effect.tick`
-    // straddles the cursor's prior maximum silently drop (latent since
-    // S18 P1 introduced the cursor pattern; affects clave, sever-fart,
-    // lightning-crackle, and S37 CREATURE_CHARGE).
-    resetAudioDrainCursor();
+    // Audit Pass 1 fix 3c8630d7 (Δ4 carry-forward) + Pass 2 refactor 622a7c7f:
+    // every production RTT path in main.ts calls teardownNet first (onBackToTitle
+    // / onReturnFromConnectionLost / resetIfPostgame), so firing the cursor
+    // reset here covers the full lifecycle. Pre-Pass-2 this was a direct
+    // `resetAudioDrainCursor()` call (state→render dep edge — Pass-1 fix);
+    // post-Pass-2 it routes through the state-layer publisher, which dispatches
+    // to audioManager's registered handler. Without this, after a postgame→
+    // TITLE round-trip and a fresh PLAYING entry, audio cues whose `effect.tick`
+    // straddles the cursor's prior maximum silently drop (latent since S18 P1
+    // introduced the cursor pattern; affects clave, sever-fart, lightning-
+    // crackle, and S37 CREATURE_CHARGE).
+    triggerAudioCursorReset();
   }
 
   const hint = new Text({

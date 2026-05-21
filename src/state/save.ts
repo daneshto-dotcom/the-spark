@@ -47,14 +47,16 @@ import {
 import { type GameMode, type GameState, type World } from './world.ts';
 import { type Player } from '../game/player.ts';
 import type { Creature, CreatureState, CreatureType } from './creatures/creature.ts';
-// Audit Pass 1 fix 3c8630d7 (Δ4): on restore, world.tick may jump backward
-// relative to the audio drain cursor (which tracks the highest tick already
-// drained). Without resetting the cursor, audio effects whose tick straddles
-// the cursor are silently dropped after a load. State→render dep edge is
-// deliberate and pinpointed: resetAudioDrainCursor() is a pure module-level
-// state reset with no AudioContext interaction, so it's safe to call from
-// test paths that never initialize audio.
-import { resetAudioDrainCursor } from '../render/audioManager.ts';
+// Audit Pass 1 fix 3c8630d7 (Δ4) + Pass 2 refactor 622a7c7f: on restore,
+// world.tick may jump backward relative to the audio drain cursor. Without
+// resetting the cursor, audio effects whose tick straddles the cursor are
+// silently dropped after a load. The state→render dep that Pass-1 introduced
+// (direct import of resetAudioDrainCursor from render/audioManager) has been
+// replaced by a state-layer publisher: audioManager registers a handler at
+// module-init via `registerResetHandler`, save.ts fires `triggerReset()` here.
+// Test paths that never load audioManager treat triggerReset() as a no-op
+// (single-slot handler stays null), preserving the audit-safe semantics.
+import { triggerReset as triggerAudioCursorReset } from './audioCursor.ts';
 
 const STORAGE_KEY = 'spark.snapshot.v1';
 const PHYSICS_DT = 1 / 60;
@@ -298,12 +300,12 @@ export function restore(snap: WorldSnapshot, world: World): void {
   world.rngSeed = snap.rngSeed;
   world.nextPrimitiveId = snap.nextPrimitiveId;
   world.nextBondId = snap.nextBondId;
-  // Audit Pass 1 fix 3c8630d7: see import comment. world.tick was just set
-  // by applySnapshotCore to the persisted value, which may be lower than the
-  // audio cursor's prior maximum. Reset so audio effects can replay.
-  // applyNetSnapshot does NOT call this — net path tick is host-driven
-  // monotonic, so the cursor stays valid across snapshots.
-  resetAudioDrainCursor();
+  // Audit Pass 1 fix 3c8630d7 + Pass 2 refactor 622a7c7f: see import comment.
+  // world.tick was just set by applySnapshotCore to the persisted value, which
+  // may be lower than the audio cursor's prior maximum. Reset so audio effects
+  // can replay. applyNetSnapshot does NOT call this — net path tick is host-
+  // driven monotonic, so the cursor stays valid across snapshots.
+  triggerAudioCursorReset();
 }
 
 /**

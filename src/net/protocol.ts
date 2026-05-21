@@ -92,34 +92,43 @@ export function parseRoomCode(input: string, length = 6): string | null {
 }
 
 /**
- * Audit Pass 1 fix d3f0e22b + 561e37ce — closed-set allowlist of GameAction
- * discriminants. INTENT.action.type MUST appear here for the validator to pass.
- * Adding a new GameAction variant in `state/world.ts` (or a sub-module) requires
- * adding the discriminant string here too — the duplicated source is deliberate:
- * `world.ts` owns the structural type, this file owns the WIRE allowlist so an
- * upstream type widening cannot silently grow the attack surface.
+ * Audit Pass 1 fix d3f0e22b + 561e37ce + Pass 2 fix ce51b032 — closed-set
+ * allowlist of GameAction discriminants. The Record literal MUST list every
+ * `GameAction['type']` exactly once (tsc enforces both directions):
+ *   - Removing a kind from GameAction in world.ts → tsc errors here because
+ *     the property key is no longer a valid `keyof Record<GameAction['type'], true>`.
+ *   - Adding a kind to GameAction without adding the row here → tsc errors at
+ *     the type assignment because the literal is missing a required property.
+ * Pre-Pass-2 this was an untyped `Set<string>([...])` literal that gave neither
+ * direction of safety; the maintenance-trap finding ce51b032 surfaced after
+ * Pass 1 strengthened parseNetMessage. The Record-based form makes the wire
+ * allowlist a true compile-time mirror of the in-process action union, so the
+ * "wire silently rejects valid INTENT" failure mode is now caught at typecheck.
  */
-const KNOWN_GAME_ACTION_TYPES = new Set<string>([
-  'SPAWN_SPARK',
-  'DESPAWN_SPARK',
-  'PICKUP_SPARK',
-  'DROP_SPARK',
-  'PLACE_PRIMITIVE',
-  'SEVER_BOND',
-  'TICK_ENERGY',
-  'WIN_TRIGGER',
-  'START_GAME',
-  'END_TURN',
-  'RETURN_TO_TITLE',
-  'UPDATE_AVATAR_POS',
-  'GODLY_TRIGGER',
-  'GODLY_COMPLETE',
-  'GODLY_ABORT',
-  'SPAWN_CREATURE',
-  'DESPAWN_CREATURE',
-  'CREATURE_TICK',
-  'CREATURE_ATTACK',
-]);
+const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
+  SPAWN_SPARK: true,
+  DESPAWN_SPARK: true,
+  PICKUP_SPARK: true,
+  DROP_SPARK: true,
+  PLACE_PRIMITIVE: true,
+  SEVER_BOND: true,
+  TICK_ENERGY: true,
+  WIN_TRIGGER: true,
+  START_GAME: true,
+  END_TURN: true,
+  RETURN_TO_TITLE: true,
+  UPDATE_AVATAR_POS: true,
+  GODLY_TRIGGER: true,
+  GODLY_COMPLETE: true,
+  GODLY_ABORT: true,
+  SPAWN_CREATURE: true,
+  DESPAWN_CREATURE: true,
+  CREATURE_TICK: true,
+  CREATURE_ATTACK: true,
+};
+const KNOWN_GAME_ACTION_TYPES: ReadonlySet<string> = new Set(
+  Object.keys(KNOWN_GAME_ACTION_TYPES_RECORD),
+);
 
 const WIRE_SCHEMA_VERSION = 1;
 
@@ -158,16 +167,16 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
     case 'NETSNAPSHOT': {
       if (typeof obj.snapshotSeq !== 'number') return null;
       if (obj.snapshot === null || typeof obj.snapshot !== 'object') return null;
-      // Pre-validate schemaVersion so applyNetSnapshot's throw is unreachable
-      // from a wire payload that survives this validator (defense-in-depth
-      // paired with finding e698a17a's try/catch guard in sync.ts).
+      // Audit Pass 2 fix d4541985: tighten schemaVersion check. Pre-fix this
+      // was `if (schemaVersion !== undefined && schemaVersion !== WIRE_SCHEMA_VERSION)`
+      // — a deliberate carve-out for the protocol.test.ts test-double pattern
+      // `snapshot: {}`. The carve-out meant a peer could send `{snapshot:{}}`
+      // and bypass the version gate (downstream applyNetSnapshot would throw,
+      // caught by sync.ts:91 try/catch — bounded to one dropped frame, but
+      // the wire validator's leniency was a permissive gap). Strict equality
+      // now; test fixtures updated to include `schemaVersion: 1`.
       const schemaVersion = (obj.snapshot as Record<string, unknown>).schemaVersion;
-      // Allow `undefined` only for the test-doubles pattern in protocol.test.ts
-      // that posts `snapshot: {}` (intentionally minimal); real wire payloads
-      // from `netSnapshot()` always carry schemaVersion=1 (see save.ts:241).
-      if (schemaVersion !== undefined && schemaVersion !== WIRE_SCHEMA_VERSION) {
-        return null;
-      }
+      if (schemaVersion !== WIRE_SCHEMA_VERSION) return null;
       return obj as unknown as NetSnapshotMsg;
     }
     case 'ENDGAME':

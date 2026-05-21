@@ -35,6 +35,12 @@
  */
 
 import type { GameEffect } from '../game/effects.ts';
+// Audit Pass 2 fix 622a7c7f — register the cursor-reset handler with the
+// state-layer publisher. Replaces the pre-Pass-2 pattern where save.ts
+// directly imported `resetAudioDrainCursor` from this file (a state→render
+// dep edge). This file is already render-layer; importing audioCursor from
+// state/ stays inside the conventional render→state direction.
+import { registerResetHandler } from '../state/audioCursor.ts';
 
 const MUSIC_URL = '/audio/blue-steppe-orbit.mp3';
 const DEFAULT_MUSIC_VOLUME = 0.25;
@@ -706,6 +712,13 @@ export function drainAudioEffects(effects: ReadonlyArray<GameEffect>, currentTic
 export function resetAudioDrainCursor(): void {
   lastDrainedTick = -1;
 }
+
+// Audit Pass 2 fix 622a7c7f — register with the state-layer publisher at
+// module-init. State callers fire `triggerReset()` from `src/state/audioCursor`
+// on save-load tick-discontinuity (save.ts:restore) and on the RTT lifecycle
+// path (main.ts:teardownNet). Single-handler is intentional — there is only
+// ever one audio drain cursor in the codebase.
+registerResetHandler(resetAudioDrainCursor);
 
 // ===== Pure helpers exported for unit tests =====
 
