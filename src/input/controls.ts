@@ -34,6 +34,7 @@ import { lookupCombo } from '../combos.ts';
 import type { Spark } from '../game/spark.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { componentOf } from '../game/structure.ts';
+import { cssToCanvasCoords } from '../render/lobbyScreen.ts';
 import { dispatch } from '../state/world.ts';
 import type { GameAction, World } from '../state/world.ts';
 import type { BondId, PlayerId, PrimitiveId, SparkId, Vec2 } from '../types.ts';
@@ -388,19 +389,31 @@ export class Controls {
     }
   }
 
-  // S5 P3: Map client-px → stage-px. The previous formula used
-  // `canvas.width / rect.width`, which is `dpr × (stageW / rectW)` —
-  // double-counting DPR on HiDPI displays. The right scale is purely the
-  // stage-to-CSS-rect ratio: stage coord = (client - rectOrigin) × stageW/rectW.
-  // This works correctly when the canvas is shown at its native CSS size
-  // (then the ratio is 1) AND when external CSS scales it to a different
-  // visible size (e.g. a constrained container).
+  // S5 P3: Map client-px → stage-px. Previously used non-uniform
+  // `CANVAS_WIDTH/rect.width` for X and `CANVAS_HEIGHT/rect.height` for Y.
+  //
+  // S39 P2 (BUG-B fix): the canvas is rendered with `object-fit: contain`
+  // (Pixi default). At any viewport aspect that doesn't match the canvas
+  // aspect, the canvas content is letterboxed inside the CSS box — the
+  // visible canvas content occupies only a SUB-RECT of getBoundingClientRect.
+  // The pre-S39 non-uniform formula gave correct mapping ONLY at matched
+  // aspect; at any other aspect the cursor mapping diverged from the actual
+  // visual canvas content by up to the letterbox-bar size, with maximum drift
+  // at the visible canvas edges (the user-reported "cursor and avatar aren't
+  // aligned, especially around the edges"). cssToCanvasCoords (lobbyScreen.ts)
+  // computes the letterbox-aware uniform scale so the cursor is visually
+  // coincident with the OS cursor at every viewport aspect.
   private updateCursor(e: PointerEvent): void {
     const rect = this.app.canvas.getBoundingClientRect();
-    const sx = CANVAS_WIDTH / rect.width;
-    const sy = CANVAS_HEIGHT / rect.height;
-    this.cursor.x = (e.clientX - rect.left) * sx;
-    this.cursor.y = (e.clientY - rect.top) * sy;
+    const { x, y } = cssToCanvasCoords(
+      rect,
+      CANVAS_WIDTH,
+      CANVAS_HEIGHT,
+      e.clientX,
+      e.clientY,
+    );
+    this.cursor.x = x;
+    this.cursor.y = y;
   }
 
   private pickSpark(): Spark | null {

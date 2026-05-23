@@ -44,6 +44,23 @@ export interface NetSnapshotMsg {
   readonly snapshot: NetSnapshot;
 }
 
+/**
+ * S39 P1 — dedicated lobby-exit signal. Before S39 the peer transitioned
+ * out of LOBBY only when the FIRST NETSNAPSHOT (carrying gameState='PLAYING')
+ * arrived and successfully applied. After S38 audit Pass 1/2 added a try/catch
+ * around applyNetSnapshot + strict schemaVersion gate in parseNetMessage, any
+ * silent drop on the snapshot path leaves the peer stuck in lobby with no
+ * user-visible feedback. This envelope is broadcast by the host BEFORE its
+ * first snapshot — the peer dispatches a local START_GAME on receipt,
+ * decoupling lobby-exit from snapshot-delivery reliability. Subsequent
+ * NETSNAPSHOTs still carry authoritative state; this signal only kicks the
+ * peer's FSM into PLAYING so visuals start rendering immediately.
+ */
+export interface StartGameMsg {
+  readonly kind: 'START_GAME_SIGNAL';
+  readonly mode: '1v1';
+}
+
 export interface EndGameMsg {
   readonly kind: 'ENDGAME';
   readonly winnerId: PlayerId;
@@ -61,7 +78,13 @@ export interface GodlyTriggerMsg {
   readonly event: GodlyTriggerEvent;
 }
 
-export type NetMessage = HelloMsg | IntentMsg | NetSnapshotMsg | EndGameMsg | GodlyTriggerMsg;
+export type NetMessage =
+  | HelloMsg
+  | IntentMsg
+  | NetSnapshotMsg
+  | StartGameMsg
+  | EndGameMsg
+  | GodlyTriggerMsg;
 
 /**
  * 6-character alphanumeric room code (uppercase letters + digits, dropping
@@ -178,6 +201,13 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
       const schemaVersion = (obj.snapshot as Record<string, unknown>).schemaVersion;
       if (schemaVersion !== WIRE_SCHEMA_VERSION) return null;
       return obj as unknown as NetSnapshotMsg;
+    }
+    case 'START_GAME_SIGNAL': {
+      // S39 P1 — host→peer lobby-exit signal. Mode is fixed at '1v1' today
+      // (solo never broadcasts START_GAME), but checked at the wire so a future
+      // mode addition fails closed rather than silently mis-routing.
+      if (obj.mode !== '1v1') return null;
+      return obj as unknown as StartGameMsg;
     }
     case 'ENDGAME':
       return typeof obj.winnerId === 'number' ? (obj as unknown as EndGameMsg) : null;

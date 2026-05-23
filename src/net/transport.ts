@@ -52,6 +52,20 @@ export type ErrorHandler = (msg: string) => void;
  * calls — but we keep the distinction at the call site for lobby UI clarity
  * and to seed Hello{playerId} differently).
  */
+/**
+ * S39 P1 — wire diagnostics. Counters maintained by recvFn for visible-to-user
+ * surfacing in the lobby screen while joining (no `?debug=1` required). When
+ * the peer is stuck on "Waiting for host to begin", these numbers tell us
+ * whether snapshots are arriving, being rejected at the wire (parseNetMessage
+ * null), or arriving but failing applyNetSnapshot (incremented by ClientSync).
+ */
+export interface NetDiagnostics {
+  readonly accepted: number;
+  readonly rejected: number;
+  readonly lastSeq: number;
+  readonly lastKind: string | null;
+}
+
 export class NetTransport {
   private room: Room | null = null;
   private sendFn: ((msg: string) => Promise<void[]>) | null = null;
@@ -60,6 +74,10 @@ export class NetTransport {
   private peerSet: Set<string> = new Set();
   private icePollTimer: ReturnType<typeof setInterval> | null = null;
   private icePollStartMs = 0;
+  private acceptedCount = 0;
+  private rejectedCount = 0;
+  private lastSeq = 0;
+  private lastKind: string | null = null;
 
   /** S20 P0 — UI error sink; called for join errors, ICE failures, send
    *  rejections, malformed-peer-message parses. Set once after construction
@@ -167,9 +185,13 @@ export class NetTransport {
         // once at console.warn for diagnosability and drop. emitError stays
         // reserved for JSON-syntax failures (above) which signal real
         // transport breakage rather than peer-misbehavior.
+        this.rejectedCount++;
         console.warn('[net] rejected malformed NetMessage from', peerId, parsed);
         return;
       }
+      this.acceptedCount++;
+      this.lastKind = msg.kind;
+      if (msg.kind === 'NETSNAPSHOT') this.lastSeq = msg.snapshotSeq;
       for (const h of this.messageHandlers) h(msg, peerId);
     });
 
@@ -256,6 +278,16 @@ export class NetTransport {
     return this.room !== null && this.peerSet.size > 0;
   }
 
+  /** S39 P1 — visible-to-lobby diagnostics; see NetDiagnostics jsdoc. */
+  getDiagnostics(): NetDiagnostics {
+    return {
+      accepted: this.acceptedCount,
+      rejected: this.rejectedCount,
+      lastSeq: this.lastSeq,
+      lastKind: this.lastKind,
+    };
+  }
+
   disconnect(): void {
     this.stopIcePollIfRunning();
     if (this.room !== null) {
@@ -265,5 +297,9 @@ export class NetTransport {
       this.sendFn = null;
       this.peerSet.clear();
     }
+    this.acceptedCount = 0;
+    this.rejectedCount = 0;
+    this.lastSeq = 0;
+    this.lastKind = null;
   }
 }

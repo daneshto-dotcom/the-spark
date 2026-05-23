@@ -50,6 +50,8 @@ export class ClientSync {
   private intentSeq = 0;
   /** Set true on receive; cleared after applyNetSnapshot runs on next render frame. */
   private needsFullApply = false;
+  /** S39 P1 — count of applyNetSnapshot throws caught by interpolateInto. */
+  private applyErrorCount = 0;
 
   /**
    * Accept the snapshot if seq > lastSeq. Stale / out-of-order rejected.
@@ -108,6 +110,7 @@ export class ClientSync {
         applyNetSnapshot(this.currentSnap, world);
         this.needsFullApply = false;
       } catch (err) {
+        this.applyErrorCount++;
         console.error(
           '[sync] applyNetSnapshot rejected snapshot:',
           err instanceof Error ? err.message : String(err),
@@ -129,6 +132,11 @@ export class ClientSync {
     return this.lastSeq;
   }
 
+  /** S39 P1 — count of applyNetSnapshot throws caught by interpolateInto; surfaced in lobby diagnostics. */
+  applyErrors(): number {
+    return this.applyErrorCount;
+  }
+
   reset(): void {
     this.prevSnap = null;
     this.currentSnap = null;
@@ -136,6 +144,7 @@ export class ClientSync {
     this.lastSeq = 0;
     this.intentSeq = 0;
     this.needsFullApply = false;
+    this.applyErrorCount = 0;
   }
 }
 

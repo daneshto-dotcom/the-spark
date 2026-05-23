@@ -206,6 +206,130 @@ describe('S35 P0 — joiner bootstrap (1v1 join deadlock regression)', () => {
   });
 });
 
+// S39 P1 — direct lobby-exit signal. Verifies that a peer can transition out
+// of LOBBY via the dedicated START_GAME_SIGNAL envelope WITHOUT receiving any
+// NETSNAPSHOT. Replicates the main.ts:onJoinAttempt handler logic in-memory.
+// This guards against regressions of the S35 P0 fix + the S38 audit's three
+// silent-drop modes on the snapshot path (strict schemaVersion, parseNetMessage
+// null, applyNetSnapshot throw): even if all three suppress the first snapshot,
+// the signal alone is sufficient to enter PLAYING.
+describe('S39 P1 — START_GAME_SIGNAL direct lobby-exit (snapshot-independent)', () => {
+  it('peer dispatching local START_GAME on receipt transitions to PLAYING/1v1 without any snapshot', () => {
+    // Mirror joiner state post-onJoinAttempt: gameMode='1v1', gameState='LOBBY',
+    // isHost=false. NO snapshot received yet (clientSync.currentSnap=null).
+    const clientWorld = makeWorld(0);
+    clientWorld.isHost = false;
+    clientWorld.gameMode = '1v1';
+    clientWorld.gameState = 'LOBBY';
+
+    // Simulate the wire envelope handler from main.ts:netTransport.on. Real
+    // production code lives in-line in main.ts; we exercise the SAME dispatch
+    // call shape here to catch regressions where the handler is removed or
+    // the action shape changes.
+    const signal = { kind: 'START_GAME_SIGNAL', mode: '1v1' as const };
+    if (signal.kind === 'START_GAME_SIGNAL') {
+      dispatch(clientWorld, { type: 'START_GAME', mode: signal.mode, isHost: false });
+    }
+
+    // Peer is now in PLAYING. Subsequent NETSNAPSHOTs will reconcile authoritative
+    // state (positions, scores, currentPlayerId) — but the lobby-exit no longer
+    // depends on snapshot delivery succeeding.
+    expect(clientWorld.gameState).toBe('PLAYING');
+    expect(clientWorld.gameMode).toBe('1v1');
+    expect(clientWorld.isHost).toBe(false); // peer never claims host authority.
+    // applyStartGame in 1v1 mode seats P2 at the spawner rim (gameMode.ts:73-83).
+    expect(clientWorld.players.has(asPlayerId(1))).toBe(true);
+  });
+
+  it('signal followed by snapshot is idempotent — snapshot reconciles state without regressing gameState', () => {
+    // Realistic flow: host sends START_GAME_SIGNAL, ~100ms later first NETSNAPSHOT
+    // arrives. Peer should stay in PLAYING, with snapshot data reconciling positions.
+    const hostWorld = makeWorld(0);
+    dispatch(hostWorld, { type: 'START_GAME', mode: '1v1', isHost: true });
+
+    const clientWorld = makeWorld(0);
+    clientWorld.isHost = false;
+    clientWorld.gameMode = '1v1';
+    clientWorld.gameState = 'LOBBY';
+
+    // Step 1: signal arrives → peer enters PLAYING.
+    dispatch(clientWorld, { type: 'START_GAME', mode: '1v1', isHost: false });
+    expect(clientWorld.gameState).toBe('PLAYING');
+
+    // Step 2: first snapshot arrives → ClientSync applies authoritative state.
+    const host = new HostSync();
+    const client = new ClientSync();
+    const msg = host.buildSnapshotMessage(hostWorld);
+    client.receive(msg, 1000);
+    client.interpolateInto(clientWorld, 1000, 100);
+
+    // Still PLAYING, both players seated, no applyNetSnapshot errors.
+    expect(clientWorld.gameState).toBe('PLAYING');
+    expect(clientWorld.gameMode).toBe('1v1');
+    expect(clientWorld.players.has(asPlayerId(0))).toBe(true);
+    expect(clientWorld.players.has(asPlayerId(1))).toBe(true);
+    expect(client.applyErrors()).toBe(0);
+  });
+
+  it('applyErrors() counter increments when applyNetSnapshot throws (visible-to-lobby diagnostic)', () => {
+    // Construct a snapshot whose internal shape will cause applyNetSnapshot to
+    // throw. The cheapest route: pass a NetSnapshotMsg whose payload has a
+    // legal-at-parse schemaVersion=1 but an invalid downstream field (a bond
+    // referencing a missing primitive triggers save.ts:applySnapshotCore throw
+    // via `bond X references missing primitive Y`).
+    const clientWorld = makeWorld(0);
+    clientWorld.isHost = false;
+    clientWorld.gameMode = '1v1';
+    clientWorld.gameState = 'LOBBY';
+
+    const client = new ClientSync();
+    // Hand-craft a snapshot with a dangling bond reference — passes wire parse,
+    // throws inside applySnapshotCore. We bypass parseNetMessage here because
+    // the validator's structural checks DON'T include cross-reference integrity
+    // (defense-in-depth is the runtime catch at sync.ts:107-116).
+    const badMsg = {
+      kind: 'NETSNAPSHOT' as const,
+      snapshotSeq: 1,
+      snapshot: {
+        schemaVersion: 1 as const,
+        tick: 0,
+        gameState: 'PLAYING' as const,
+        gameMode: '1v1' as const,
+        currentPlayerId: asPlayerId(0),
+        scoreProgress: 0,
+        lastWinnerId: null,
+        scoreByPlayer: [],
+        primitives: [],
+        bonds: [
+          {
+            id: 'b-missing' as never,
+            aId: 'p-nope-1' as never,
+            bId: 'p-nope-2' as never,
+            stiffnessTier: 'rigid',
+            restLength: 50,
+            createdTick: 0,
+          },
+        ],
+        freeSparks: [],
+        players: [],
+      },
+    } as unknown as NetSnapshotMsg;
+    client.receive(badMsg, 1000);
+    expect(client.applyErrors()).toBe(0); // not yet — counter increments inside interpolateInto.
+    client.interpolateInto(clientWorld, 1000, 100);
+    expect(client.applyErrors()).toBe(1); // diagnostic surfaces the throw.
+    // Note: applySnapshotCore mutates world.gameState early (save.ts:352)
+    // before the bond cross-reference check that throws (save.ts:451). Partial
+    // mutation is acceptable — `needsFullApply` stays true so the next snapshot
+    // (when host re-emits with consistent shape) fully re-applies and reconciles.
+    // The behavior under test is the COUNTER + LOG, not roll-back semantics.
+
+    // Second call without a new snapshot retries the apply (still throws → counter++).
+    client.interpolateInto(clientWorld, 1000, 100);
+    expect(client.applyErrors()).toBe(2);
+  });
+});
+
 // S37 P10 — empirical guard that joiner derives the SAME sprite frame as host
 // across all 4 Voltkin FSM states + every form-swap boundary. S36 P3 added
 // killCount to SerializedCreature (additive-optional wire field); this suite

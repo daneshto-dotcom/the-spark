@@ -317,11 +317,34 @@ async function bootstrap(): Promise<void> {
         if (msg.kind === 'GODLY_TRIGGER') {
           dispatch(world, { type: 'GODLY_TRIGGER', event: msg.event });
         }
+        // S39 P1 — dedicated lobby-exit signal. Pre-S39 the peer exited
+        // LOBBY only when a NETSNAPSHOT arrived AND applied cleanly; after
+        // S38 audit Pass-1/2 added try/catch + strict schemaVersion gate,
+        // any silent drop on that path stranded the peer in lobby. This
+        // signal kicks the peer's FSM to PLAYING immediately (snapshots
+        // still drive authoritative state afterwards). isHost stays false
+        // — the peer never claims host authority. Idempotent: only fires
+        // when still in LOBBY so a late/duplicate signal (e.g. reconnect
+        // ordering, future retry path) can't reset world.currentPlayerId /
+        // pendingCreatureSpawn that snapshots may have already populated.
+        if (msg.kind === 'START_GAME_SIGNAL' && world.gameState === 'LOBBY') {
+          dispatch(world, { type: 'START_GAME', mode: msg.mode, isHost: false });
+        }
       });
     },
     onBeginMatch: () => {
       // Host triggers START_GAME. The first snapshot will carry
-      // gameState='PLAYING' + gameMode='1v1' to the client.
+      // gameState='PLAYING' + gameMode='1v1' to the client. S39 P1: also
+      // broadcast a dedicated START_GAME_SIGNAL envelope BEFORE the local
+      // dispatch so the peer's lobby-exit is decoupled from snapshot
+      // delivery reliability (S38 audit added 3 silent-drop points to the
+      // snapshot apply chain — strict schemaVersion at the wire, try/catch
+      // at applyNetSnapshot, JSON shape validation). Order matters: send
+      // first while world.gameState is still LOBBY so the peer learns of
+      // the transition at the earliest possible RTT.
+      if (netTransport !== null) {
+        netTransport.send({ kind: 'START_GAME_SIGNAL', mode: '1v1' });
+      }
       dispatch(world, { type: 'START_GAME', mode: '1v1', isHost: true });
     },
     onBackToTitle: () => {
@@ -855,6 +878,22 @@ async function bootstrap(): Promise<void> {
     // S15 P2 — update lobby peer status when waiting.
     if (showLobby && netTransport !== null) {
       lobbyScreen.updatePeerStatus(netTransport.peerCount());
+      // S39 P1 — visible-to-user wire diagnostics while joining + connected.
+      // Surfaces the three S38-audit silent-drop modes (rejected at parseNetMessage,
+      // applyNetSnapshot throw, snapshot never arriving) without requiring
+      // `?debug=1` console + live retest. Host pane doesn't show this strip
+      // (only the joiner is the one stuck waiting; host knows they pressed Begin).
+      if (!world.isHost && netTransport.peerCount() > 0) {
+        const td = netTransport.getDiagnostics();
+        const errs = clientSync !== null ? clientSync.applyErrors() : 0;
+        lobbyScreen.updateDiagnostics(
+          `sync ${td.accepted}/${td.accepted + td.rejected} ` +
+          `seq=${td.lastSeq} kind=${td.lastKind ?? '—'} ` +
+          `applyErr=${errs} gs=${world.gameState}`,
+        );
+      } else {
+        lobbyScreen.updateDiagnostics('');
+      }
     }
 
     // S15 P2 — HUD connection dot.

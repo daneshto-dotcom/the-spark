@@ -52,9 +52,51 @@ export function isValidRoomCode(value: string): boolean {
 }
 
 /**
+ * S39 P2 — shared object-fit:contain geometry. Returns the visible canvas
+ * sub-rect inside the CSS box (centered, letterboxed on whichever axis
+ * doesn't match the canvas aspect) and a uniform scale factor (CSS-px per
+ * canvas-unit). At matched aspect, the fitted rect equals the CSS box and
+ * offsets are zero — i.e. the original non-letterbox call sites still work.
+ *
+ * Used by both mapCanvasRectToPage (canvas→CSS for HTML input positioning)
+ * and cssToCanvasCoords (CSS→canvas for cursor input). The canvas element's
+ * computed style is `object-fit: contain` (Pixi's default), so all coordinate
+ * mappings between the two spaces MUST account for letterbox bars on the
+ * non-matching axis.
+ */
+function fitCanvasIntoRect(
+  boxW: number,
+  boxH: number,
+  canvasW: number,
+  canvasH: number,
+): { fittedW: number; fittedH: number; offsetX: number; offsetY: number; scale: number } {
+  const canvasAspect = canvasW / canvasH;
+  const boxAspect = boxH > 0 ? boxW / boxH : canvasAspect;
+  // Box wider than canvas → letterbox bars on left+right (canvas height fills box).
+  // Box taller than canvas → letterbox bars on top+bottom (canvas width fills box).
+  const fittedW = boxAspect > canvasAspect ? boxH * canvasAspect : boxW;
+  const fittedH = boxAspect > canvasAspect ? boxH : boxW / canvasAspect;
+  return {
+    fittedW,
+    fittedH,
+    offsetX: (boxW - fittedW) / 2,
+    offsetY: (boxH - fittedH) / 2,
+    scale: canvasW > 0 ? fittedW / canvasW : 1, // === fittedH / canvasH (uniform)
+  };
+}
+
+/**
  * Pure helper: map a canvas-space rect to page-space pixels for absolute
  * HTML overlay positioning. canvasRect must come from
  * `canvas.getBoundingClientRect()`. Exported for tests.
+ *
+ * S39 P2 — letterbox-aware. Pre-S39 used non-uniform `sx = rect.width/canvasW`,
+ * `sy = rect.height/canvasH` which is correct only when CSS box aspect ==
+ * canvas aspect. Under object-fit:contain at any other aspect, the canvas
+ * content occupies only a sub-rect of the CSS box (with letterbox bars) and
+ * the buggy non-uniform mapping placed HTML overlays at the wrong page
+ * coordinates by up to the letterbox-bar size. Post-S39 uses uniform scale
+ * via fitCanvasIntoRect.
  */
 export function mapCanvasRectToPage(
   canvasRect: { left: number; top: number; width: number; height: number },
@@ -65,13 +107,53 @@ export function mapCanvasRectToPage(
   zoneW: number,
   zoneH: number,
 ): { left: number; top: number; width: number; height: number } {
-  const sx = canvasRect.width / canvasW;
-  const sy = canvasRect.height / canvasH;
+  const { offsetX, offsetY, scale } = fitCanvasIntoRect(
+    canvasRect.width,
+    canvasRect.height,
+    canvasW,
+    canvasH,
+  );
   return {
-    left: canvasRect.left + zoneX * sx,
-    top: canvasRect.top + zoneY * sy,
-    width: zoneW * sx,
-    height: zoneH * sy,
+    left: canvasRect.left + offsetX + zoneX * scale,
+    top: canvasRect.top + offsetY + zoneY * scale,
+    width: zoneW * scale,
+    height: zoneH * scale,
+  };
+}
+
+/**
+ * S39 P2 — pure helper inverting mapCanvasRectToPage. Maps a CSS-space pointer
+ * position (typically `clientX`, `clientY` from a PointerEvent) into canvas-
+ * space coords under object-fit:contain. Used by controls.updateCursor() so
+ * the avatar (rendered at controls.cursor) is visually coincident with the
+ * OS cursor across all viewport aspect ratios.
+ *
+ * BUG-B (S39): pre-S39 controls.updateCursor used non-uniform `sx`/`sy`
+ * directly, which gave correct mapping ONLY when the CSS box matched the
+ * canvas aspect. At any other aspect the avatar appeared offset from the OS
+ * cursor by up to the letterbox-bar size, with the gap maximal at the visible
+ * canvas edges and zero at the visual center (where both formulas agree).
+ *
+ * Lives in lobbyScreen.ts (not a new module) to keep BUG-B's diff narrow per
+ * S39 PDR scope; a follow-up refactor can extract to src/render/canvasCoords.ts.
+ */
+export function cssToCanvasCoords(
+  canvasRect: { left: number; top: number; width: number; height: number },
+  canvasW: number,
+  canvasH: number,
+  cssX: number,
+  cssY: number,
+): { x: number; y: number } {
+  const { offsetX, offsetY, scale } = fitCanvasIntoRect(
+    canvasRect.width,
+    canvasRect.height,
+    canvasW,
+    canvasH,
+  );
+  if (scale === 0) return { x: 0, y: 0 };
+  return {
+    x: (cssX - canvasRect.left - offsetX) / scale,
+    y: (cssY - canvasRect.top - offsetY) / scale,
   };
 }
 
@@ -152,6 +234,13 @@ export class LobbyScreen {
   private joinButton: Container;
   private joinButtonBg: Graphics;
   private beginButton: Container;
+  // S39 P1 — visible-to-user wire diagnostics. Renders below statusText
+  // whenever the peer is joining + has a connected host. Without this, a
+  // peer stuck on "Waiting for host to begin" has no signal whether the
+  // wire is silent (host not broadcasting), busy-but-rejected (parseNetMessage
+  // null), or busy-but-throwing (applyNetSnapshot caught) — three distinct
+  // failure modes the S38 audit added to the snapshot delivery chain.
+  private diagnosticsText: Text;
   private readonly connectionLostHandle: ConnectionLostOverlayHandle;
   private hostConnected = false;
 
@@ -306,6 +395,18 @@ export class LobbyScreen {
     this.statusText.position.set(CANVAS_WIDTH / 2, paneY + PANE_HEIGHT + 40);
     this.container.addChild(this.statusText);
 
+    // S39 P1 — diagnostic text below status. Hidden by default; only shown
+    // when mode='joining' AND peerCount>0 (i.e. the "Waiting for host to begin"
+    // window). 13px grey, monospaced — informational, not alarming.
+    this.diagnosticsText = new Text({
+      text: '',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 13, fill: 0x777777 }),
+    });
+    this.diagnosticsText.anchor.set(0.5);
+    this.diagnosticsText.position.set(CANVAS_WIDTH / 2, paneY + PANE_HEIGHT + 62);
+    this.diagnosticsText.visible = false;
+    this.container.addChild(this.diagnosticsText);
+
     // Begin Match (revealed when peer joins on host side)
     this.beginButton = this.makeButton('Begin Match', 0x9bff3b, callbacks.onBeginMatch);
     this.beginButton.position.set(CANVAS_WIDTH / 2 - BUTTON_WIDTH / 2, paneY + PANE_HEIGHT + 70);
@@ -391,6 +492,8 @@ export class LobbyScreen {
     this.connectionLostHandle.setVisible(false);
     this.inputEl.value = '';
     this.joinButton.alpha = 0.4;
+    this.diagnosticsText.visible = false;
+    this.diagnosticsText.text = '';
     this.renderState();
     this.updateInputVisibility();
   }
@@ -400,6 +503,21 @@ export class LobbyScreen {
     this.statusText.text = text;
     this.statusText.style.fill = 0xff3b6b;
     this.renderState();
+  }
+
+  /**
+   * S39 P1 — update the diagnostic strip shown below the status line while a
+   * joiner is waiting for the host to begin. Caller is main.ts; called every
+   * render frame with the latest NetTransport + ClientSync diagnostics + the
+   * current world.gameState. Empty `text` hides the strip; non-empty shows it.
+   */
+  updateDiagnostics(text: string): void {
+    if (text === '') {
+      if (this.diagnosticsText.visible) this.diagnosticsText.visible = false;
+      return;
+    }
+    if (!this.diagnosticsText.visible) this.diagnosticsText.visible = true;
+    if (this.diagnosticsText.text !== text) this.diagnosticsText.text = text;
   }
 
   /** Test-only accessor + cleanup hook. */

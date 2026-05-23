@@ -12,6 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import {
+  cssToCanvasCoords,
   getConnectButtonCanvasBounds,
   getHostButtonCanvasBounds,
   getHostCodeTextCanvasPos,
@@ -115,15 +116,118 @@ describe('S16 P1 — mapCanvasRectToPage', () => {
     expect(out.height).toBe(80);
   });
 
-  it('asymmetric scale (letterboxed canvas)', () => {
-    // Canvas 1920x1080 rendered into 800x600 viewport (letterboxed). sx=0.4167, sy=0.5556
+  it('S39 P2 — letterboxed canvas uses UNIFORM scale (box narrower than canvas aspect)', () => {
+    // Canvas 1920x1080 (aspect 1.778) rendered into CSS 800x600 (aspect 1.333).
+    // Under object-fit:contain the canvas fits to the box's WIDTH (800) and
+    // letterboxes top+bottom: fittedH = 800/1.778 = 450, letterbox bars = 75px.
+    // Pre-S39 (buggy) used non-uniform sx=0.4167, sy=0.5556. Post-S39 uses
+    // uniform scale=0.4167 with 75px Y offset.
     const rect = { left: 10, top: 20, width: 800, height: 600 };
-    const out = mapCanvasRectToPage(rect, 1920, 1080, 960, 540, 100, 80);
-    // sx=800/1920≈0.4167; sy=600/1080≈0.5556
-    expect(out.left).toBeCloseTo(10 + 960 * (800 / 1920), 4);
-    expect(out.top).toBeCloseTo(20 + 540 * (600 / 1080), 4);
-    expect(out.width).toBeCloseTo(100 * (800 / 1920), 4);
-    expect(out.height).toBeCloseTo(80 * (600 / 1080), 4);
+    const out = mapCanvasRectToPage(rect, 1920, 1080, 40, 100, 200, 60);
+    const scale = 800 / 1920; // ≈ 0.4167 (uniform)
+    const letterboxY = (600 - 800 / (1920 / 1080)) / 2; // = (600 - 450)/2 = 75
+    expect(out.left).toBeCloseTo(10 + 0 + 40 * scale, 4);          // 26.67
+    expect(out.top).toBeCloseTo(20 + letterboxY + 100 * scale, 4); // 136.67 (was 75.56 pre-fix)
+    expect(out.width).toBeCloseTo(200 * scale, 4);                 // 83.33
+    expect(out.height).toBeCloseTo(60 * scale, 4);                 // 25.0   (was 33.33 pre-fix)
+  });
+
+  it('S39 P2 — letterboxed canvas (box wider than canvas aspect) uses uniform scale', () => {
+    // Canvas 1920x1080 (aspect 1.778) into CSS 2000x800 (aspect 2.500).
+    // Box wider → fits to HEIGHT (800), letterboxes left+right. fittedW = 800*1.778=1422,
+    // letterbox bars X = (2000-1422)/2 = 289. Uniform scale = 800/1080 ≈ 0.741.
+    const rect = { left: 0, top: 0, width: 2000, height: 800 };
+    const out = mapCanvasRectToPage(rect, 1920, 1080, 100, 100, 200, 60);
+    const scale = 800 / 1080;
+    const letterboxX = (2000 - 800 * (1920 / 1080)) / 2;
+    expect(out.left).toBeCloseTo(letterboxX + 100 * scale, 3);
+    expect(out.top).toBeCloseTo(100 * scale, 3);
+    expect(out.width).toBeCloseTo(200 * scale, 3);
+    expect(out.height).toBeCloseTo(60 * scale, 3);
+  });
+});
+
+describe('S39 P2 — cssToCanvasCoords (BUG-B fix: avatar↔cursor alignment at edges)', () => {
+  it('identity case (CSS box matches canvas size 1:1)', () => {
+    const rect = { left: 0, top: 0, width: 1920, height: 1080 };
+    expect(cssToCanvasCoords(rect, 1920, 1080, 0, 0)).toEqual({ x: 0, y: 0 });
+    expect(cssToCanvasCoords(rect, 1920, 1080, 960, 540)).toEqual({ x: 960, y: 540 });
+    expect(cssToCanvasCoords(rect, 1920, 1080, 1920, 1080)).toEqual({ x: 1920, y: 1080 });
+  });
+
+  it('uniform aspect match (CSS smaller, same ratio): scales linearly without letterbox', () => {
+    // 1280x720 CSS box, 1920x1080 canvas — aspect identical. No letterbox bars.
+    const rect = { left: 0, top: 0, width: 1280, height: 720 };
+    const center = cssToCanvasCoords(rect, 1920, 1080, 640, 360);
+    expect(center.x).toBeCloseTo(960, 4);
+    expect(center.y).toBeCloseTo(540, 4);
+    const corner = cssToCanvasCoords(rect, 1920, 1080, 1280, 720);
+    expect(corner.x).toBeCloseTo(1920, 4);
+    expect(corner.y).toBeCloseTo(1080, 4);
+  });
+
+  it('letterboxed (taller box): cursor at visible canvas top maps to canvas y=0; visible bottom maps to canvas y=canvasH', () => {
+    // The user-reported repro shape: 1280x900 viewport, 1920x1080 canvas.
+    // Visible canvas content sits at CSS y=[90, 810] (90px letterbox bars top+bottom).
+    const rect = { left: 0, top: 0, width: 1280, height: 900 };
+    // Top edge of visible canvas content:
+    const topEdge = cssToCanvasCoords(rect, 1920, 1080, 640, 90);
+    expect(topEdge.x).toBeCloseTo(960, 3); // horizontal center
+    expect(topEdge.y).toBeCloseTo(0, 3);   // top of canvas content
+    // Bottom edge of visible canvas content:
+    const botEdge = cssToCanvasCoords(rect, 1920, 1080, 640, 810);
+    expect(botEdge.x).toBeCloseTo(960, 3);
+    expect(botEdge.y).toBeCloseTo(1080, 3); // bottom of canvas content (was ~972 pre-fix — the bug)
+    // Visual center maps to canvas center under BOTH old and new formulas
+    // (the bug is invisible at center, max at the visible canvas edges).
+    const center = cssToCanvasCoords(rect, 1920, 1080, 640, 450);
+    expect(center.x).toBeCloseTo(960, 3);
+    expect(center.y).toBeCloseTo(540, 3);
+  });
+
+  it('letterboxed (wider box): cursor at visible canvas left maps to canvas x=0; right maps to canvas x=canvasW', () => {
+    // Reverse letterbox: 2000x800 box, 1920x1080 canvas. fittedW = 800 * 1920/1080 ≈ 1422.22,
+    // letterbox bars X ≈ 288.89 each side. Use the precise value to avoid integer-pixel rounding.
+    const rect = { left: 0, top: 0, width: 2000, height: 800 };
+    const letterboxX = (2000 - 800 * (1920 / 1080)) / 2;
+    const leftEdge = cssToCanvasCoords(rect, 1920, 1080, letterboxX, 400);
+    expect(leftEdge.x).toBeCloseTo(0, 4);
+    expect(leftEdge.y).toBeCloseTo(540, 4);
+    const rightEdge = cssToCanvasCoords(rect, 1920, 1080, 2000 - letterboxX, 400);
+    expect(rightEdge.x).toBeCloseTo(1920, 4);
+    expect(rightEdge.y).toBeCloseTo(540, 4);
+  });
+
+  it('roundtrip: mapCanvasRectToPage ∘ cssToCanvasCoords ≈ identity on canvas-space points', () => {
+    // Map a canvas-space point to CSS-space, then map back — must return the original
+    // canvas point under any aspect (matched OR letterboxed).
+    const cases: Array<{ rect: { left: number; top: number; width: number; height: number }; pts: [number, number][] }> = [
+      { rect: { left: 0, top: 0, width: 1280, height: 720 }, pts: [[0, 0], [960, 540], [1920, 1080], [100, 1000]] },     // matched aspect
+      { rect: { left: 50, top: 30, width: 800, height: 600 }, pts: [[0, 0], [960, 540], [1920, 1080], [100, 1000]] },   // letterbox top/bot
+      { rect: { left: 0, top: 0, width: 2000, height: 800 }, pts: [[0, 0], [960, 540], [1920, 1080], [100, 1000]] },     // letterbox left/right
+    ];
+    for (const { rect, pts } of cases) {
+      for (const [cx, cy] of pts) {
+        const css = mapCanvasRectToPage(rect, 1920, 1080, cx, cy, 0, 0);
+        const back = cssToCanvasCoords(rect, 1920, 1080, css.left, css.top);
+        expect(back.x).toBeCloseTo(cx, 3);
+        expect(back.y).toBeCloseTo(cy, 3);
+      }
+    }
+  });
+
+  it('subtracts canvas rect offset (left/top) from CSS coords', () => {
+    const rect = { left: 100, top: 50, width: 1920, height: 1080 };
+    const out = cssToCanvasCoords(rect, 1920, 1080, 100, 50); // top-left of canvas content
+    expect(out.x).toBeCloseTo(0, 4);
+    expect(out.y).toBeCloseTo(0, 4);
+  });
+
+  it('degenerate input: zero-width rect returns origin (no NaN)', () => {
+    const rect = { left: 0, top: 0, width: 0, height: 0 };
+    const out = cssToCanvasCoords(rect, 1920, 1080, 50, 50);
+    expect(out.x).toBe(0);
+    expect(out.y).toBe(0);
   });
 });
 

@@ -156,3 +156,23 @@ describe('Audit Pass 1 d3f0e22b + 561e37ce — strengthened parseNetMessage', ()
     expect(parseNetMessage({ kind: 'ENDGAME' })).toBeNull();
   });
 });
+
+describe('S39 P1 — START_GAME_SIGNAL envelope (lobby-exit decoupled from snapshot)', () => {
+  it('accepts a valid 1v1 signal', () => {
+    const msg = { kind: 'START_GAME_SIGNAL', mode: '1v1' };
+    expect(parseNetMessage(msg)).toEqual(msg);
+  });
+
+  it('rejects unknown / malformed mode (fail-closed — future modes must be added explicitly)', () => {
+    expect(parseNetMessage({ kind: 'START_GAME_SIGNAL', mode: 'solo' })).toBeNull();
+    expect(parseNetMessage({ kind: 'START_GAME_SIGNAL', mode: '2v2' })).toBeNull();
+    expect(parseNetMessage({ kind: 'START_GAME_SIGNAL', mode: null })).toBeNull();
+    expect(parseNetMessage({ kind: 'START_GAME_SIGNAL' })).toBeNull();
+  });
+
+  it('survives JSON round-trip (runtime wire fidelity, not just direct call)', () => {
+    const msg = { kind: 'START_GAME_SIGNAL', mode: '1v1' };
+    const wire = JSON.parse(JSON.stringify(msg));
+    expect(parseNetMessage(wire)).toEqual(msg);
+  });
+});
