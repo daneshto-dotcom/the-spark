@@ -11,9 +11,27 @@
 
 name: Deploy to GitHub Pages
 
+# S40 P2: paths filter so session-bookkeeping commits (.claude/, HANDOFF_*.md,
+# reflexion_log.md, boot-snapshot.md) DON'T trigger deploys. Eliminates the
+# cascade-cancel pattern where close/handoff/state-autocommit pushes within
+# minutes of a code push would cancel the in-flight code deploy via the
+# github-pages environment's built-in deployment concurrency (which overrides
+# the workflow-level cancel-in-progress: false). Path list = exact set of
+# files the `npm ci && npm run build` step reads: src/, public/, index.html,
+# vite.config.ts, tsconfig.json, package*.json, plus this workflow file
+# itself so changes here still trigger a verification deploy.
 on:
   push:
     branches: [master]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'vite.config.ts'
+      - 'tsconfig.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 # PRIME-AUDIT #1: deploy-pages@v4 requires these permissions
@@ -22,9 +40,16 @@ permissions:
   pages: write
   id-token: write
 
-# Prevent overlapping deploys (don't cancel in-progress, just queue)
+# S40 P1 defensive measure: rename concurrency group from "pages" to
+# "pages-deploy" in case stuck workflow-level concurrency state on the old
+# group name was preventing runner scheduling (a fresh workflow_dispatch on
+# unchanged code sat in pending for 14+ min with no jobs ever picked up,
+# even after clearing the phantom github-pages deployment via deployment
+# statuses API). cancel-in-progress remains false — we want session-close
+# pushes to queue not cancel each other, and the paths filter above is what
+# prevents non-code pushes from triggering at all.
 concurrency:
-  group: pages
+  group: pages-deploy
   cancel-in-progress: false
 
 jobs:
