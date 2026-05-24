@@ -1,17 +1,23 @@
 /**
  * SPARK — Session 15 tests:
  *   P2: Networked 1v1 (Trystero/Nostr) — FSM extension (TITLE/LOBBY),
- *       gameMode + currentPlayerId + scoreByPlayer + isHost, START_GAME /
- *       END_TURN / RETURN_TO_TITLE actions, host-side input sanitization
- *       (Gemini R1 BLOCKER), per-player score tracking + winner attribution.
+ *       gameMode + scoreByPlayer + isHost, START_GAME / RETURN_TO_TITLE
+ *       actions, per-player score tracking + winner attribution.
+ *
+ *   S42 — Turn-based hotseat semantics DELETED (blueprint mandates real-time):
+ *     - §B repurposed: both players can act in 1v1 (was: inactive-player gates)
+ *     - §C END_TURN block fully deleted (action no longer exists)
+ *     - §F save-format compat updated: WorldSnapshot.currentPlayerId kept as
+ *       ignored-optional slot for back-compat (Council R1 Battle Ledger row 2)
+ *     - §G new: real-time race coverage (PICKUP race + PLACE target-vanish race)
  *
  *   Test groups:
  *     A · gameState FSM extension (TITLE/LOBBY/PLAYING/POSTGAME→TITLE)
- *     B · 1v1 hotseat reducer gates (inactive player rejected)
- *     C · END_TURN flips currentPlayerId + guards
+ *     B · 1v1 real-time reducer: both players can act simultaneously
  *     D · scoreByPlayer per-player tracking + winner attribution
  *     E · RETURN_TO_TITLE clears state + drops P2
  *     F · Save format compat: scoreByPlayer + gameMode roundtrip
+ *     G · S42 real-time race resolution (first-Intent-wins + diagnostics counter)
  */
 
 import { describe, expect, it } from 'vitest';
@@ -55,8 +61,10 @@ describe('S15 P2 — gameState FSM extension', () => {
     const w = makeWorld(0);
     expect(w.gameState).toBe('PLAYING');
     expect(w.gameMode).toBe('solo');
-    expect(w.currentPlayerId).toBe(P1);
+    expect(w.localPlayerId).toBe(P1);
     expect(w.isHost).toBe(true);
+    // S42 — diagnostics counter init.
+    expect(w.diagnostics.raceRejects).toBe(0);
   });
 
   it('TITLE → solo PLAYING via START_GAME(mode=solo)', () => {
@@ -117,15 +125,13 @@ describe('S15 P2 — gameState FSM extension', () => {
 });
 
 // ============================================================================
-// B · 1v1 hotseat reducer gates (Gemini R1 BLOCKER)
+// B · 1v1 real-time reducer (S42 — replaces former hotseat gate tests)
 // ============================================================================
 
-describe('S15 P2 — 1v1 hotseat reducer gates', () => {
-  it('PICKUP_SPARK by inactive player is silently rejected', () => {
+describe('S42 — 1v1 real-time: both players can act simultaneously', () => {
+  it('PICKUP_SPARK by P1 succeeds in 1v1', () => {
     const w = makeWorld(0);
     dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
-    expect(w.currentPlayerId).toBe(P1);
-
     const s = makeFreeSpark({
       id: asSparkId(0),
       type: SparkType.Dot,
@@ -135,21 +141,14 @@ describe('S15 P2 — 1v1 hotseat reducer gates', () => {
       createdTick: 0,
     });
     dispatch(w, { type: 'SPAWN_SPARK', spark: s });
-
-    // P2 attempts to PICKUP during P1's turn → silently rejected (no throw).
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P2 });
-    expect(s.state.kind).toBe('Free'); // unchanged
-    expect(w.players.get(P2)!.kind).toBe('Idle'); // unchanged
-
-    // P1 (active) PICKUP succeeds.
     dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1 });
     expect(s.state.kind).toBe('Carried');
+    expect(w.players.get(P1)!.kind).toBe('Carrying');
   });
 
-  it('PLACE_PRIMITIVE by inactive player is silently rejected', () => {
+  it('PICKUP_SPARK by P2 succeeds in 1v1 (no active-player gate)', () => {
     const w = makeWorld(0);
     dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
-    // P1 picks up so we have a carried spark on P1's account.
     const s = makeFreeSpark({
       id: asSparkId(0),
       type: SparkType.Dot,
@@ -159,74 +158,35 @@ describe('S15 P2 — 1v1 hotseat reducer gates', () => {
       createdTick: 0,
     });
     dispatch(w, { type: 'SPAWN_SPARK', spark: s });
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1 });
+    // S42 — in pre-S42 turn-based world this would silently no-op
+    // (currentPlayerId=P1, P2 is inactive). Real-time accepts it.
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P2 });
+    expect(s.state.kind).toBe('Carried');
+    expect(w.players.get(P2)!.kind).toBe('Carrying');
+    expect(w.diagnostics.raceRejects).toBe(0); // no race — only one player tried
+  });
 
-    // Inactive-player PLACE rejected; no primitive created; P1 still carrying.
+  it('PLACE_PRIMITIVE by P2 succeeds in 1v1 (no active-player gate)', () => {
+    const w = makeWorld(0);
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    const s = makeFreeSpark({
+      id: asSparkId(0),
+      type: SparkType.Dot,
+      pos: { x: 700, y: 400 }, // outside spawner zone
+      velocity: { x: 0, y: 0 },
+      dt: PHYSICS_DT,
+      createdTick: 0,
+    });
+    dispatch(w, { type: 'SPAWN_SPARK', spark: s });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P2 });
     dispatch(w, {
       type: 'PLACE_PRIMITIVE',
       playerId: P2,
       targetPrimitiveId: null,
       stiffnessTier: 'MID',
     });
-    expect(w.primitives.size).toBe(0);
-    expect(w.players.get(P1)!.kind).toBe('Carrying');
-
-    // Active P1 PLACE succeeds.
-    dispatch(w, {
-      type: 'PLACE_PRIMITIVE',
-      playerId: P1,
-      targetPrimitiveId: null,
-      stiffnessTier: 'MID',
-    });
     expect(w.primitives.size).toBe(1);
-  });
-
-  it('solo mode does not enforce inactive-player gate (back-compat)', () => {
-    const w = makeWorld(0);
-    // solo init: gameMode='solo', currentPlayerId=P1.
-    const s = makeFreeSpark({
-      id: asSparkId(0),
-      type: SparkType.Dot,
-      pos: { x: 100, y: 100 },
-      velocity: { x: 0, y: 0 },
-      dt: PHYSICS_DT,
-      createdTick: 0,
-    });
-    dispatch(w, { type: 'SPAWN_SPARK', spark: s });
-    // Despite passing P1 (which IS the active player anyway), gate is bypassed.
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1 });
-    expect(s.state.kind).toBe('Carried');
-  });
-});
-
-// ============================================================================
-// C · END_TURN flips currentPlayerId + guards
-// ============================================================================
-
-describe('S15 P2 — END_TURN action', () => {
-  it('flips currentPlayerId 0 → 1 → 0 in 1v1 PLAYING', () => {
-    const w = makeWorld(0);
-    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
-    expect(w.currentPlayerId).toBe(P1);
-    dispatch(w, { type: 'END_TURN' });
-    expect(w.currentPlayerId).toBe(P2);
-    dispatch(w, { type: 'END_TURN' });
-    expect(w.currentPlayerId).toBe(P1);
-  });
-
-  it('is a no-op in solo mode', () => {
-    const w = makeWorld(0);
-    // solo default
-    dispatch(w, { type: 'END_TURN' });
-    expect(w.currentPlayerId).toBe(P1); // unchanged
-  });
-
-  it('is a no-op when gameState != PLAYING', () => {
-    const w = makeWorld(0);
-    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
-    w.gameState = 'WIN';
-    dispatch(w, { type: 'END_TURN' });
-    expect(w.currentPlayerId).toBe(P1); // unchanged
+    expect(w.players.get(P2)!.kind).toBe('Idle');
   });
 });
 
@@ -292,13 +252,14 @@ describe('S15 P2 — RETURN_TO_TITLE', () => {
     dispatch(w, { type: 'RETURN_TO_TITLE' });
     expect(w.gameState).toBe('TITLE');
     expect(w.gameMode).toBe('solo');
-    expect(w.currentPlayerId).toBe(P1);
     expect(w.primitives.size).toBe(0);
     expect(w.bonds.size).toBe(0);
     expect(w.players.size).toBe(1); // P2 removed
     expect(w.scoreProgress).toBe(0);
     expect(w.scoreByPlayer.get(P1)).toBe(0);
     expect(w.scoreByPlayer.has(P2)).toBe(false);
+    // S42 — diagnostics counter reset on return-to-title.
+    expect(w.diagnostics.raceRejects).toBe(0);
   });
 
   // S31 P0-2 — Phase-2 cinematic/creature state cleanup. Pre-S31 these 6
@@ -412,24 +373,37 @@ describe('S15 P2 — RETURN_TO_TITLE', () => {
 // ============================================================================
 
 describe('S15 P2 — save format', () => {
-  it('snapshot/restore preserves gameMode + currentPlayerId + scoreByPlayer', () => {
+  it('snapshot/restore preserves gameMode + scoreByPlayer (S42: currentPlayerId removed)', () => {
     const w1 = makeWorld(0);
     dispatch(w1, { type: 'START_GAME', mode: '1v1', isHost: true });
     addScore(w1, P1, 12);
     addScore(w1, P2, 8);
-    dispatch(w1, { type: 'END_TURN' });
 
     const snap = snapshot(w1);
     expect(snap.gameMode).toBe('1v1');
-    expect(snap.currentPlayerId).toBe(P2);
     expect(snap.scoreByPlayer).toEqual(expect.arrayContaining([[P1, 12], [P2, 8]]));
+    // S42 — currentPlayerId no longer emitted in new saves.
+    expect(snap.currentPlayerId).toBeUndefined();
 
     const w2 = makeWorld(0);
     restore(JSON.parse(JSON.stringify(snap)), w2);
     expect(w2.gameMode).toBe('1v1');
-    expect(w2.currentPlayerId).toBe(P2);
     expect(w2.scoreByPlayer.get(P1)).toBe(12);
     expect(w2.scoreByPlayer.get(P2)).toBe(8);
+  });
+
+  it('S42 — pre-S42 saves with currentPlayerId field still parse (back-compat ignored-slot)', () => {
+    // Synthesize a pre-S42 snapshot that includes currentPlayerId. The slot
+    // is retained on WorldSnapshot as ignored-optional (Council R1 Battle
+    // Ledger row 2 — zero-migration). Load should ignore it.
+    const w1 = makeWorld(0);
+    dispatch(w1, { type: 'START_GAME', mode: '1v1', isHost: true });
+    const snap = snapshot(w1);
+    // Inject as a pre-S42 save would carry it.
+    (snap as { currentPlayerId?: number }).currentPlayerId = 1;
+    const w2 = makeWorld(0);
+    expect(() => restore(JSON.parse(JSON.stringify(snap)), w2)).not.toThrow();
+    expect(w2.gameMode).toBe('1v1');
   });
 
   it('snapshot/restore preserves Player.avatarPos', () => {
@@ -443,18 +417,94 @@ describe('S15 P2 — save format', () => {
     expect(w2.players.get(P1)!.avatarPos).toEqual({ x: 555, y: 777 });
   });
 
-  it('pre-S15 save without gameMode/currentPlayerId/scoreByPlayer defaults to solo', () => {
+  it('pre-S15 save without gameMode/scoreByPlayer defaults to solo', () => {
     const w1 = makeWorld(0);
     const snap = snapshot(w1);
     // Strip the S15 fields to simulate pre-S15 save.
     const legacySnap = { ...snap } as Record<string, unknown>;
     delete legacySnap.gameMode;
-    delete legacySnap.currentPlayerId;
     delete legacySnap.scoreByPlayer;
     const w2 = makeWorld(0);
     restore(legacySnap as never, w2);
     expect(w2.gameMode).toBe('solo');
-    expect(w2.currentPlayerId).toBe(P1);
     expect(w2.scoreByPlayer.size).toBe(0); // no entries when field absent
+  });
+});
+
+// ============================================================================
+// G · S42 real-time race resolution
+// ============================================================================
+
+describe('S42 — real-time race resolution', () => {
+  it('PICKUP race: first Intent wins, second silently no-ops + counter ticks', () => {
+    const w = makeWorld(0);
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    const s = makeFreeSpark({
+      id: asSparkId(0),
+      type: SparkType.Dot,
+      pos: { x: 100, y: 100 },
+      velocity: { x: 0, y: 0 },
+      dt: PHYSICS_DT,
+      createdTick: 0,
+    });
+    dispatch(w, { type: 'SPAWN_SPARK', spark: s });
+
+    // P1's intent arrives at host first.
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1 });
+    expect(s.state.kind).toBe('Carried');
+    if (s.state.kind === 'Carried') expect(s.state.carrierId).toBe(P1);
+    expect(w.players.get(P1)!.kind).toBe('Carrying');
+    expect(w.diagnostics.raceRejects).toBe(0);
+
+    // P2's intent arrives second — spark no longer Free; silently no-op.
+    // Pre-S20 this PATH threw `spark X not Free` — that crashed the host
+    // dispatch loop under real-time. S42: silent + counter.
+    expect(() =>
+      dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P2 }),
+    ).not.toThrow();
+    expect(s.state.kind).toBe('Carried');
+    if (s.state.kind === 'Carried') expect(s.state.carrierId).toBe(P1); // unchanged
+    expect(w.players.get(P2)!.kind).toBe('Idle'); // P2 didn't transition
+    expect(w.diagnostics.raceRejects).toBe(1);
+  });
+
+  it('PICKUP of missing spark still throws (true invariant violation)', () => {
+    const w = makeWorld(0);
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    // No spark spawned; missing id is a caller bug or wire corruption, not a race.
+    expect(() =>
+      dispatch(w, { type: 'PICKUP_SPARK', sparkId: asSparkId(999), playerId: P1 }),
+    ).toThrow();
+    expect(w.diagnostics.raceRejects).toBe(0); // missing != race
+  });
+
+  it('PLACE race: target primitive vanished between input and dispatch — silent + counter', () => {
+    const w = makeWorld(0);
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    // P2 carries a spark intended to bond to a non-existent target.
+    const s = makeFreeSpark({
+      id: asSparkId(0),
+      type: SparkType.Dot,
+      pos: { x: 700, y: 400 }, // outside spawner zone
+      velocity: { x: 0, y: 0 },
+      dt: PHYSICS_DT,
+      createdTick: 0,
+    });
+    dispatch(w, { type: 'SPAWN_SPARK', spark: s });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P2 });
+    // Race: target primitive ID was severed by P1 between P2's cursor pick
+    // and host's dispatch. Pre-S42 this would throw and crash dispatch.
+    expect(() =>
+      dispatch(w, {
+        type: 'PLACE_PRIMITIVE',
+        playerId: P2,
+        targetPrimitiveId: 999 as never, // never existed
+        stiffnessTier: 'MID',
+      }),
+    ).not.toThrow();
+    expect(w.diagnostics.raceRejects).toBe(1);
+    // Player retains carry — they can try again with a different target.
+    expect(w.players.get(P2)!.kind).toBe('Carrying');
+    expect(w.primitives.size).toBe(0);
   });
 });

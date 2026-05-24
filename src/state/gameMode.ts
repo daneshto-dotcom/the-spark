@@ -3,18 +3,16 @@
  * from world.ts (S16 P0, S15 § XV carry-forward).
  *
  * S16 P0 — mechanical extraction (zero behavior change) per § XV soft LOC
- * charter compliance. world.ts breached 357 LOC at S15 close (28% over the
- * 280 soft cap created when S15's networking work landed). The 4 dispatch
- * case bodies for the FSM-extension actions (START_GAME, END_TURN,
- * RETURN_TO_TITLE, UPDATE_AVATAR_POS) plus the addScore per-player score
- * helper all live here now; world.ts's `dispatch` switch delegates to the
- * exported `apply*` functions, keeping the case labels (and therefore the
- * public `dispatch(world, action)` API) bit-identical.
+ * charter compliance. The 3 dispatch case bodies for the FSM-extension
+ * actions (START_GAME, RETURN_TO_TITLE, UPDATE_AVATAR_POS) plus the
+ * addScore per-player score helper all live here now; world.ts's
+ * `dispatch` switch delegates to the exported `apply*` functions.
  *
- * Council R1 (Standard tier) considered re-export vs switch-delegation;
- * adopted switch-delegation because session15.test.ts's 14 tests exercise
- * the public `dispatch` surface (not internal handler imports), so the
- * delegation is invisible to existing tests.
+ * S42 — END_TURN action + applyEndTurn helper DELETED. The 1v1 mode was
+ * incorrectly shipped as turn-based hotseat in S15 P2 (commit add497f)
+ * contradicting SPARK_Blueprint.md:3,36-56 mandate of real-time
+ * simultaneous play. currentPlayerId resets in applyStartGame +
+ * applyReturnToTitle also removed (field deleted from World interface).
  *
  * requirePlayer remains in world.ts (pre-existing infrastructure shared by
  * placePrimitive.ts and other state mutators).
@@ -31,10 +29,6 @@ export type StartGameAction = {
   readonly type: 'START_GAME';
   readonly mode: GameMode;
   readonly isHost: boolean;
-};
-
-export type EndTurnAction = {
-  readonly type: 'END_TURN';
 };
 
 export type ReturnToTitleAction = {
@@ -67,7 +61,9 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   world.gameMode = action.mode;
   world.isHost = action.isHost;
   world.gameState = 'PLAYING';
-  world.currentPlayerId = asPlayerId(0);
+  // S42 — reset diagnostics counter at game-start so per-match observability
+  // isn't polluted by lobby/title noise.
+  world.diagnostics.raceRejects = 0;
   // S34 P2-21 defensive clear (see JSDoc above).
   world.pendingCreatureSpawn = null;
   if (action.mode === '1v1') {
@@ -81,18 +77,6 @@ export function applyStartGame(world: World, action: StartGameAction): World {
       world.scoreByPlayer.set(p2.id, 0);
     }
   }
-  return world;
-}
-
-/**
- * END_TURN — flip currentPlayerId 0↔1 in 1v1 PLAYING state. No-op in solo
- * or non-PLAYING states (silently — preserves dispatch idempotence).
- */
-export function applyEndTurn(world: World): World {
-  if (world.gameMode !== '1v1') return world;
-  if (world.gameState !== 'PLAYING') return world;
-  const next = world.currentPlayerId === asPlayerId(0) ? asPlayerId(1) : asPlayerId(0);
-  world.currentPlayerId = next;
   return world;
 }
 
@@ -115,7 +99,10 @@ export function applyEndTurn(world: World): World {
 export function applyReturnToTitle(world: World): World {
   world.gameState = 'TITLE';
   world.gameMode = 'solo';
-  world.currentPlayerId = asPlayerId(0);
+  // S42 — localPlayerId is non-serialized convention; preserve across title
+  // returns so a client peer that backs out + re-enters lobby keeps its id=1
+  // until a fresh setPlayerId / new join attempt.
+  world.diagnostics.raceRejects = 0;
   world.primitives.clear();
   world.bonds.clear();
   world.freeSparks.clear();

@@ -79,9 +79,12 @@ describe('S15 P2 — ClientSync', () => {
   });
 
   it('intentSeq increments monotonically via wrapIntent', () => {
+    // S42 — END_TURN action removed; use UPDATE_AVATAR_POS as a representative
+    // GameAction for wrapping-semantics testing (the action shape doesn't
+    // matter to wrapIntent — it only attaches the seq).
     const c = new ClientSync();
-    const env1 = c.wrapIntent({ type: 'END_TURN' });
-    const env2 = c.wrapIntent({ type: 'END_TURN' });
+    const env1 = c.wrapIntent({ type: 'UPDATE_AVATAR_POS', playerId: asPlayerId(0), pos: { x: 0, y: 0 } });
+    const env2 = c.wrapIntent({ type: 'UPDATE_AVATAR_POS', playerId: asPlayerId(0), pos: { x: 0, y: 0 } });
     expect(env1.kind).toBe('INTENT');
     expect(env1.intentSeq).toBe(1);
     expect(env2.intentSeq).toBe(2);
@@ -91,7 +94,7 @@ describe('S15 P2 — ClientSync', () => {
     const w = makeWorld(0);
     const c = new ClientSync();
     c.receive(mkSnapMsg(7, netSnapshot(w)), 0);
-    c.wrapIntent({ type: 'END_TURN' });
+    c.wrapIntent({ type: 'UPDATE_AVATAR_POS', playerId: asPlayerId(0), pos: { x: 0, y: 0 } });
     c.reset();
     expect(c.lastSnapshotSeq()).toBe(0);
     // Post-reset, a new low seq should be accepted (no stale state).
@@ -295,7 +298,9 @@ describe('S39 P1 — START_GAME_SIGNAL direct lobby-exit (snapshot-independent)'
         tick: 0,
         gameState: 'PLAYING' as const,
         gameMode: '1v1' as const,
-        currentPlayerId: asPlayerId(0),
+        // S42 — currentPlayerId removed from new wire payloads (turn-based
+        // deleted). The slot remains optional on WorldSnapshot for save
+        // back-compat but isn't required for new fixtures.
         scoreProgress: 0,
         lastWinnerId: null,
         scoreByPlayer: [],

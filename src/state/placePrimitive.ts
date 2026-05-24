@@ -93,6 +93,20 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
     return world;
   }
 
+  // S42 — target-missing race check MUST happen BEFORE primitive creation +
+  // spark deletion so the carry slot is preserved (player retains the spark
+  // and can try again with a different target). Pre-S42 the check was
+  // inside the bonding block and threw AFTER the primitive was created —
+  // crashing the dispatch loop AND consuming the spark even on the throw
+  // path. Council R1 Battle Ledger row 5 + R2 sharpened (shared-resource
+  // race, not player-owned violation).
+  if (action.targetPrimitiveId !== null) {
+    if (!world.primitives.has(action.targetPrimitiveId)) {
+      world.diagnostics.raceRejects++;
+      return world;
+    }
+  }
+
   const primId = asPrimitiveId(world.nextPrimitiveId++);
   const prim = makePrimitiveFromSpark({
     id: primId,
@@ -127,8 +141,10 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
   const oldScore = world.scoreProgress;
 
   if (action.targetPrimitiveId !== null) {
-    const target = world.primitives.get(action.targetPrimitiveId);
-    if (target === undefined) throw new Error(`target primitive ${action.targetPrimitiveId} missing`);
+    // S42 — target was verified to exist at the top of this function (before
+    // primitive creation). `!` non-null assertion is safe here since the
+    // race check already early-returned for the undefined case.
+    const target = world.primitives.get(action.targetPrimitiveId)!;
     const bond = makeBond(world, prim, target, action.stiffnessTier);
     world.bonds.set(bond.id, bond);
     prim.bonds.add(bond.id);

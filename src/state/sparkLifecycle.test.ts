@@ -1,9 +1,13 @@
 /**
- * Unit tests for sparkLifecycle.ts pure helpers + authGate.ts.
+ * Unit tests for sparkLifecycle.ts pure helpers.
  *
  * S20 P1 Council R1 ADOPT-AS-TEST (Grok #4 + #8, Gemini #6 + #10): explicit
  * test coverage for the throw paths + happy paths that the inline case
  * bodies in world.ts had only via integration coverage.
+ *
+ * S42 — Removed `requireActivePlayer` describe + 2 hotseat-rejection tests
+ * (turn-based gating deleted). Added: applyPickupSpark "not Free" silent-
+ * return + diagnostics counter test (Council R1 Battle Ledger row 1).
  */
 
 import { describe, it, expect } from 'vitest';
@@ -14,7 +18,6 @@ import {
   applySpawnSpark,
   applyTickEnergy,
 } from './sparkLifecycle.ts';
-import { requireActivePlayer } from './authGate.ts';
 import { makeWorld } from './world.ts';
 import { makeFreeSpark } from '../game/spark.ts';
 import { SparkType } from '../constants.ts';
@@ -31,28 +34,6 @@ function makeTestSpark(idNum: number) {
     createdTick: 0,
   });
 }
-
-describe('requireActivePlayer (authGate)', () => {
-  it('always returns true in solo mode (no inactive player)', () => {
-    const world = makeWorld(1);
-    world.gameMode = 'solo';
-    world.currentPlayerId = asPlayerId(0);
-    expect(requireActivePlayer(world, asPlayerId(0))).toBe(true);
-    expect(requireActivePlayer(world, asPlayerId(1))).toBe(true); // would never happen in solo, but predicate is solo-permissive
-  });
-
-  it('in 1v1 returns true only when playerId matches currentPlayerId', () => {
-    const world = makeWorld(1);
-    world.gameMode = '1v1';
-    world.currentPlayerId = asPlayerId(0);
-    expect(requireActivePlayer(world, asPlayerId(0))).toBe(true);
-    expect(requireActivePlayer(world, asPlayerId(1))).toBe(false);
-
-    world.currentPlayerId = asPlayerId(1);
-    expect(requireActivePlayer(world, asPlayerId(0))).toBe(false);
-    expect(requireActivePlayer(world, asPlayerId(1))).toBe(true);
-  });
-});
 
 describe('applySpawnSpark', () => {
   it('inserts the spark into the freeSparks map keyed by id', () => {
@@ -90,21 +71,7 @@ describe('applyDespawnSpark', () => {
 });
 
 describe('applyPickupSpark', () => {
-  it('silently rejects in 1v1 when playerId !== currentPlayerId', () => {
-    const world = makeWorld(1);
-    world.gameMode = '1v1';
-    world.currentPlayerId = asPlayerId(0);
-    const spark = makeTestSpark(1);
-    world.freeSparks.set(spark.id, spark);
-    applyPickupSpark(world, {
-      type: 'PICKUP_SPARK',
-      sparkId: spark.id,
-      playerId: asPlayerId(1), // wrong player
-    });
-    expect(spark.state.kind).toBe('Free'); // unchanged
-  });
-
-  it('throws if spark is missing', () => {
+  it('throws if spark is missing (true invariant violation, not a race)', () => {
     const world = makeWorld(1);
     expect(() =>
       applyPickupSpark(world, {
@@ -115,7 +82,10 @@ describe('applyPickupSpark', () => {
     ).toThrowError(/spark 999 not free/);
   });
 
-  it('throws if spark is not in Free state', () => {
+  it('S42 — spark not in Free state silently returns + increments diagnostics.raceRejects', () => {
+    // Pre-S42 this threw `spark X not Free` and crashed dispatch. Under
+    // real-time 1v1 it's a legitimate race outcome (another player grabbed
+    // first) — silent + observable counter. Council R1 Battle Ledger row 1.
     const world = makeWorld(1);
     const spark = makeTestSpark(2);
     spark.state = { kind: 'Carried', carrierId: asPlayerId(1) };
@@ -126,7 +96,9 @@ describe('applyPickupSpark', () => {
         sparkId: spark.id,
         playerId: asPlayerId(0),
       }),
-    ).toThrowError(/not Free/);
+    ).not.toThrow();
+    expect(spark.state).toEqual({ kind: 'Carried', carrierId: asPlayerId(1) }); // unchanged
+    expect(world.diagnostics.raceRejects).toBe(1);
   });
 
   it('happy path: spark.state → Carried, player FSM transitions, prevPos snaps', () => {
@@ -150,19 +122,6 @@ describe('applyPickupSpark', () => {
 });
 
 describe('applyDropSpark', () => {
-  it('silently rejects in 1v1 when playerId !== currentPlayerId', () => {
-    const world = makeWorld(1);
-    world.gameMode = '1v1';
-    world.currentPlayerId = asPlayerId(0);
-    applyDropSpark(world, {
-      type: 'DROP_SPARK',
-      playerId: asPlayerId(1),
-      pos: { x: 0, y: 0 },
-    });
-    const p = world.players.get(asPlayerId(0))!;
-    expect(p.kind).toBe('Idle'); // unchanged
-  });
-
   it('throws CarryViolation if player is not in Carrying state', () => {
     const world = makeWorld(1);
     expect(() =>

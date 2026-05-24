@@ -42,17 +42,14 @@ import {
   type SparkId,
 } from '../types.ts';
 import {
-  applyEndTurn,
   applyReturnToTitle,
   applyStartGame,
   applyUpdateAvatarPos,
-  type EndTurnAction,
   type ReturnToTitleAction,
   type StartGameAction,
   type UpdateAvatarPosAction,
 } from './gameMode.ts';
 import { placePrimitive, type PlacePrimitiveAction } from './placePrimitive.ts';
-import { requireActivePlayer } from './authGate.ts';
 import type { GodlyTriggerEvent } from './godlyRecipes/types.ts';
 import { setCooldown } from './godlyCooldown.ts';
 import {
@@ -134,12 +131,6 @@ export interface World {
    */
   gameMode: GameMode;
   /**
-   * S15 P2 — active player. In solo always 0. In 1v1 flips between 0 and
-   * 1 on END_TURN. The reducer's per-action auth gate compares
-   * action.playerId === currentPlayerId for PICKUP_SPARK / PLACE_PRIMITIVE.
-   */
-  currentPlayerId: PlayerId;
-  /**
    * S15 P2 — host vs client flag for 1v1. Host runs the authoritative sim;
    * client renders interpolated snapshots and sends Intent envelopes. In
    * solo, isHost is true (the local player IS the authority).
@@ -188,6 +179,27 @@ export interface World {
    * after peer-drop abort, violating blueprint Edge Case #2).
    */
   pendingCreatureSpawn: { fireAtTick: number; event: GodlyTriggerEvent } | null;
+  /**
+   * S42 — host-side counter of "shared-resource race rejected" events.
+   * Increments when applyPickupSpark or placePrimitive silently no-ops
+   * because the targeted spark/primitive was claimed by the other player
+   * first under real-time race. Non-serialized (test-observable; per-session
+   * informational). Replaces the prior throw-on-race pattern (S20 invariant)
+   * which would crash dispatch under legitimate concurrent intents.
+   * Council R1+R2 Battle Ledger row 1 (CONVERGENT Grok-C1 + Gemini-#1) +
+   * row 5 (Gemini-#3 R2-sharpened — shared-resource vs player-owned).
+   */
+  diagnostics: { raceRejects: number };
+  /**
+   * S42 — local player id (non-serialized convention; client only mutates
+   * its own copy at join time). Default asPlayerId(0) covers solo + 1v1
+   * host. main.ts onJoinAttempt sets to asPlayerId(1) for the client peer.
+   * HUD reads this to render the LOCAL player's energy gauge in 1v1 (was
+   * previously reading world.currentPlayerId which only made sense in the
+   * removed turn-based model). Replaces Grok-C3 + Gemini-validated R2
+   * concern about HUD signature-threading.
+   */
+  localPlayerId: PlayerId;
 }
 
 export type GameAction =
@@ -215,7 +227,6 @@ export type GameAction =
   | TickEnergyAction
   | { readonly type: 'WIN_TRIGGER'; readonly winnerId: PlayerId }
   | StartGameAction
-  | EndTurnAction
   | ReturnToTitleAction
   | UpdateAvatarPosAction
   // S22 P3 — godly-trigger action. Host dispatches locally on matcher match,
@@ -265,7 +276,6 @@ export function makeWorld(rngSeed: number): World {
     scoreByPlayer: new Map(),
     cinematicsEnabled: true,
     gameMode: 'solo',
-    currentPlayerId: asPlayerId(0),
     isHost: true,
     activeCinematicPlayerId: null,
     currentCinematicEvent: null,
@@ -273,6 +283,10 @@ export function makeWorld(rngSeed: number): World {
     creatures: new Map(),
     nextCreatureId: 0,
     pendingCreatureSpawn: null,
+    // S42 — race-condition observability (real-time 1v1) + local-player
+    // convention (replaces removed currentPlayerId active-player concept).
+    diagnostics: { raceRejects: 0 },
+    localPlayerId: asPlayerId(0),
   };
   // Phase 1 + solo default: P1 only at spawner-rim left.
   const p1 = makeIdlePlayer(asPlayerId(0), PLAYER_COLORS[0], {
@@ -299,7 +313,6 @@ export function dispatch(world: World, action: GameAction): World {
       return applyDropSpark(world, action);
 
     case 'PLACE_PRIMITIVE':
-      if (!requireActivePlayer(world, action.playerId)) return world;
       return placePrimitive(world, action);
 
     case 'SEVER_BOND': {
@@ -351,9 +364,6 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'START_GAME':
       return applyStartGame(world, action);
-
-    case 'END_TURN':
-      return applyEndTurn(world);
 
     case 'RETURN_TO_TITLE':
       return applyReturnToTitle(world);

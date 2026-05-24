@@ -70,7 +70,6 @@ function makeBond(id: number, a: Primitive, b: Primitive): Bond {
 
 function setupWorld(opts: {
   gameMode?: 'solo' | '1v1';
-  currentPlayer?: number;
   p1Charges?: number;
   p2Charges?: number;
   primAColor?: number;
@@ -78,7 +77,7 @@ function setupWorld(opts: {
 }): { world: World; primA: Primitive; primB: Primitive; bond: Bond } {
   const world = makeWorld(0);
   world.gameMode = opts.gameMode ?? 'solo';
-  world.currentPlayerId = asPlayerId(opts.currentPlayer ?? 0);
+  // S42 — currentPlayer opt removed (active-player gate deleted).
   // Replace default players with fixtures whose disruptionCharges are exact.
   world.players.clear();
   const p1 = makeIdlePlayer(P1, RED);
@@ -102,17 +101,14 @@ function setupWorld(opts: {
 
 describe('disruptionManager — canSeverBond', () => {
   it('physics cause is always allowed (overstretch bypasses all gates)', () => {
-    const { world, primA, primB } = setupWorld({ gameMode: '1v1', currentPlayer: 1 });
+    const { world, primA, primB } = setupWorld({ gameMode: '1v1' });
     const action: GameAction = { type: 'SEVER_BOND', bondId: asBondId(1), playerId: P1, cause: 'physics' };
-    // Wrong-turn + 0 charges, but physics bypasses.
+    // 0 charges, but physics bypasses.
     expect(canSeverBond(world, action, primA, primB)).toBe(true);
   });
 
-  it("player cause + 1v1 wrong-turn = rejected (input gate)", () => {
-    const { world, primA, primB } = setupWorld({ gameMode: '1v1', currentPlayer: 1, p1Charges: 5 });
-    const action: GameAction = { type: 'SEVER_BOND', bondId: asBondId(1), playerId: P1, cause: 'player' };
-    expect(canSeverBond(world, action, primA, primB)).toBe(false);
-  });
+  // S42 — "player cause + 1v1 wrong-turn = rejected" test DELETED (active-
+  // player gate removed from canSeverBond; real-time gameplay per blueprint).
 
   it('player cause + hostile + 0 charges = rejected (silent §VIII.2)', () => {
     const { world, primA, primB } = setupWorld({ p1Charges: 0, primAColor: CYAN });

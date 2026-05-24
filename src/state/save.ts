@@ -77,7 +77,13 @@ export interface WorldSnapshot {
   scoreProgress?: number;
   /** S15 P2 — solo/1v1 distinction. Optional for pre-S15 compat. */
   gameMode?: GameMode;
-  /** S15 P2 — active turn player. Optional for pre-S15 compat (defaults to 0). */
+  /**
+   * S15 P2 — active turn player. S42: turn-based gameplay was removed
+   * (real-time per blueprint). Field kept as ignored-optional slot so
+   * existing localStorage saves (S15-S41) still parse cleanly — TypeScript
+   * struct typing tolerates the extra key on load. New saves omit it.
+   * Council R1 Battle Ledger row 2 (Gemini-#2 modified — zero-migration).
+   */
   currentPlayerId?: PlayerId;
   /** S15 P2 — per-player score tuples. Optional for pre-S15 compat. */
   scoreByPlayer?: Array<readonly [PlayerId, number]>;
@@ -262,7 +268,9 @@ export function snapshot(world: World): WorldSnapshot {
     players: [...world.players.values()].map(serializePlayer),
     scoreProgress: world.scoreProgress,
     gameMode: world.gameMode,
-    currentPlayerId: world.currentPlayerId,
+    // S42 — currentPlayerId field removed from World (turn-based gone).
+    // Slot retained on WorldSnapshot as ignored-optional for back-compat
+    // (Council R1 Battle Ledger row 2). New saves omit it entirely.
     scoreByPlayer: [...world.scoreByPlayer.entries()],
     // S28 P0 — NetSnapshot v2: only emit `creatures` when non-empty so pre-S28
     // saves stay byte-identical (the field stays `undefined` and is dropped by
@@ -353,7 +361,9 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   world.lastWinnerId = snap.lastWinnerId;
   world.scoreProgress = snap.scoreProgress ?? 0;
   world.gameMode = snap.gameMode ?? 'solo';
-  world.currentPlayerId = snap.currentPlayerId ?? asPlayerId(0);
+  // S42 PRIME-AUDIT Δ3 — DELETED `world.currentPlayerId = ...` line (was
+  // writing to a field no longer on the World interface). snap.currentPlayerId
+  // is ignored on load; new saves omit the field.
   world.scoreByPlayer.clear();
   if (snap.scoreByPlayer !== undefined) {
     for (const [pid, score] of snap.scoreByPlayer) world.scoreByPlayer.set(pid, score);

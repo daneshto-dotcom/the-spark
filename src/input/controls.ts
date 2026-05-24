@@ -122,9 +122,9 @@ export class Controls {
     // belt-and-braces guarantee for fast drags / lost capture.
     window.addEventListener('pointerup', this.onUp);
     canvas.addEventListener('lostpointercapture', this.onLostCapture);
-    // S15 P2 — Space key → END_TURN (1v1 only). Auto-releases carried
-    // spark on accept per PRIME-AUDIT #4.
-    window.addEventListener('keydown', this.onKeyDown);
+    // S42 — Space-key → END_TURN handler DELETED. The 1v1 mode was
+    // incorrectly shipped as turn-based hotseat (S15 P2). Real-time
+    // gameplay per blueprint requires no turn-flip input.
   }
 
   /**
@@ -347,31 +347,8 @@ export class Controls {
     if (this.state.kind !== 'Idle') this.state = { kind: 'Idle' };
   };
 
-  // S15 P2 — Space → END_TURN (1v1 only). Auto-releases mid-drag /
-  // mid-carry per PRIME-AUDIT #4: AttractDrag drops to Idle silently;
-  // ConnectDrag dispatches DROP_SPARK at cursor before flipping turn.
-  // No-op in solo or non-PLAYING gameState.
-  private onKeyDown = (e: KeyboardEvent): void => {
-    if (e.code !== 'Space' && e.key !== ' ') return;
-    if (this.world.gameMode !== '1v1') return;
-    if (this.world.gameState !== 'PLAYING') return;
-    if (this.isInputLocked()) return;
-    if (this.state.kind === 'AttractDrag') {
-      // Spark stays Free where its physics put it.
-      this.state = { kind: 'Idle' };
-    } else if (this.state.kind === 'ConnectDrag') {
-      // Drop the carried spark at the current cursor position so the FSM
-      // returns to Idle before the turn flips.
-      this.dispatchFn({
-        type: 'DROP_SPARK',
-        playerId: this.playerId,
-        pos: { x: this.cursor.x, y: this.cursor.y },
-      });
-      this.state = { kind: 'Idle' };
-    }
-    this.dispatchFn({ type: 'END_TURN' });
-    e.preventDefault();
-  };
+  // S42 — onKeyDown SPACE → END_TURN handler DELETED. See constructor
+  // comment. Real-time 1v1 has no turn-flip input.
 
   private acquirePointerCapture(e: PointerEvent): void {
     try {

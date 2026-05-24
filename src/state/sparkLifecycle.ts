@@ -7,24 +7,15 @@
  * (3 LOC scalar mutation) stays inline per Council R1 Grok#2 + Gemini#4
  * (cohesion-mismatch — gameState transition, not spark lifecycle).
  *
- * Cohesion: spark registry + player-spark carry FSM + player energy tick all
- * sit at the player-spark interaction layer. SPAWN/DESPAWN manage the free-
- * sparks Map; PICKUP/DROP transition the player FSM between Idle and Carrying
- * while flipping spark.state between Free and Carried; TICK_ENERGY refills
- * the player energy that PLACE_PRIMITIVE consumes (energy gates spark→prim
- * conversion in placePrimitive.ts). They cluster as the player-spark
- * resource-cycle layer.
- *
- * Mirrors the gameMode.ts pattern from S16 P0 — each helper returns the
- * World instance after in-place mutation (consistent with the rest of the
- * reducer's call ergonomics; Council R1 Gemini#1+#2 ADOPT).
- *
- * 1v1 input-sanitization (S15 P2 Gemini R1 BLOCKER) is now centralized in
- * authGate.ts; PICKUP and DROP helpers call requireActivePlayer first.
- * Pre-S20 the gate was inline at world.ts dispatch sites.
+ * S42 (Full, Council R1+R2): turn-based hotseat gating REMOVED — game is
+ * now real-time per SPARK_Blueprint.md:3,36-56. applyPickupSpark's
+ * "spark.state not Free" path was a throw (S20 invariant); under real-time
+ * it's a legitimate race outcome (P1 picked up before P2's intent arrived)
+ * so changed to silent-return + world.diagnostics.raceRejects++ counter
+ * (Battle Ledger row 1 CONVERGENT). The "spark missing" path remains a
+ * throw — that's a true invariant violation (caller bug or wire corruption).
  */
 
-import { requireActivePlayer } from './authGate.ts';
 import { CarryViolation, drop as fsmDrop, pickup as fsmPickup, tickEnergy } from '../game/player.ts';
 import { ENERGY_PER_SECOND_FLAT } from '../constants.ts';
 import { requirePlayer, type World } from './world.ts';
@@ -78,16 +69,19 @@ export function applyDespawnSpark(world: World, action: DespawnSparkAction): Wor
   return world;
 }
 
-/** Player picks up a free spark. 1v1 wrong-player intent silently rejected
- *  (defense-in-depth). Throws on spark missing or spark not in Free state —
- *  these are invariant violations from the controls/network layer, not user
- *  errors. */
+/** Player picks up a free spark. Throws on spark missing (true invariant
+ *  violation). On spark-not-Free (real-time race: another player grabbed it
+ *  first), silently returns + increments world.diagnostics.raceRejects so
+ *  the race is observable in tests without crashing the dispatch loop.
+ *  S42 Battle Ledger row 1 — Council R1 CONVERGENT (Grok-C1 + Gemini-#1). */
 export function applyPickupSpark(world: World, action: PickupSparkAction): World {
-  if (!requireActivePlayer(world, action.playerId)) return world;
   const player = requirePlayer(world, action.playerId);
   const spark = world.freeSparks.get(action.sparkId);
   if (spark === undefined) throw new Error(`spark ${action.sparkId} not free`);
-  if (spark.state.kind !== 'Free') throw new Error(`spark ${action.sparkId} not Free`);
+  if (spark.state.kind !== 'Free') {
+    world.diagnostics.raceRejects++;
+    return world;
+  }
   const next = fsmPickup(player, action.sparkId);
   world.players.set(next.id, next);
   spark.state = { kind: 'Carried', carrierId: action.playerId };
@@ -96,11 +90,11 @@ export function applyPickupSpark(world: World, action: PickupSparkAction): World
   return world;
 }
 
-/** Player drops the carried spark at a position. 1v1 wrong-player intent
- *  silently rejected. Throws CarryViolation if player isn't Carrying.
- *  Pre-pos snap to drop position kills any inherited carry-frame velocity. */
+/** Player drops the carried spark at a position. Throws CarryViolation if
+ *  player isn't Carrying (player owns their own carry slot — not a race).
+ *  Pre-pos snap to drop position kills any inherited carry-frame velocity.
+ *  S42 — turn-based gating removed. */
 export function applyDropSpark(world: World, action: DropSparkAction): World {
-  if (!requireActivePlayer(world, action.playerId)) return world;
   const player = requirePlayer(world, action.playerId);
   if (player.kind !== 'Carrying') throw new CarryViolation('not carrying');
   const spark = world.freeSparks.get(player.carriedSparkId);

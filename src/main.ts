@@ -274,11 +274,12 @@ async function bootstrap(): Promise<void> {
       netTransport.connect(code);
       netTransport.on((msg) => {
         if (msg.kind === 'INTENT' && hostSync !== null) {
-          // S15 P2 — host applies client intent authoritatively. The
-          // reducer's per-action gate (gameMode=='1v1' + action.playerId
-          // === currentPlayerId) rejects intents from the inactive
-          // player silently — defense-in-depth even when client controls
-          // should not have sent them.
+          // S15 P2 — host applies client intent authoritatively.
+          // S42 — turn-based active-player gate REMOVED (blueprint mandates
+          // real-time). Shared-resource race conditions (e.g. both players
+          // grab same spark) are resolved by first-Intent-wins host-receive
+          // order; loser's intent silently no-ops + increments
+          // world.diagnostics.raceRejects (observable for tests).
           dispatch(world, msg.action);
         }
         // S22 P3 — clients never send GODLY_TRIGGER (host-only authority,
@@ -304,6 +305,12 @@ async function bootstrap(): Promise<void> {
       // explains pending "1v1 brother retest" carry items.
       world.gameMode = '1v1';
       controls.setPlayerId(asPlayerId(1));
+      // S42 — non-serialized convention field; HUD energy gauge reads this
+      // to render the LOCAL player's energy (replaces removed currentPlayerId
+      // "active player" concept). Default asPlayerId(0) covers solo + 1v1
+      // host; this assignment covers the 1v1 client peer. Council R1 Battle
+      // Ledger row 3 (Grok-C3 ADOPT + Gemini-R2 validated).
+      world.localPlayerId = asPlayerId(1);
       // S20 P0 — same onError wiring as host path (see comment above).
       netTransport.onError = (errMsg) => lobbyScreen.setErrorMessage(errMsg);
       netTransport.connect(code);
@@ -325,8 +332,8 @@ async function bootstrap(): Promise<void> {
         // still drive authoritative state afterwards). isHost stays false
         // — the peer never claims host authority. Idempotent: only fires
         // when still in LOBBY so a late/duplicate signal (e.g. reconnect
-        // ordering, future retry path) can't reset world.currentPlayerId /
-        // pendingCreatureSpawn that snapshots may have already populated.
+        // ordering, future retry path) can't reset pendingCreatureSpawn
+        // that snapshots may have already populated.
         if (msg.kind === 'START_GAME_SIGNAL' && world.gameState === 'LOBBY') {
           dispatch(world, { type: 'START_GAME', mode: msg.mode, isHost: false });
         }
@@ -391,7 +398,7 @@ async function bootstrap(): Promise<void> {
   }
 
   const hint = new Text({
-    text: 'LMB drag spark out of zone → carry · RMB drag onto a primitive → bond · ~ stats · C cinematics · SPACE end turn (1v1)',
+    text: 'LMB drag spark out of zone → carry · RMB drag onto a primitive → bond · ~ stats · C cinematics',
     style: new TextStyle({ fontFamily: 'monospace', fontSize: 11, fill: 0x444444 }),
   });
   hint.position.set(10, CANVAS_HEIGHT - 22);
@@ -970,12 +977,14 @@ function stepPhysics(
             // S17 P1 — physics-cause overstretch sever bypasses Phase-2
             // §VIII.3 charge gate (this is the constraint solver firing,
             // not a player disruption action). playerId is informational
-            // (the active player at the time of the overstrain) but the
-            // dispatch case ignores it for cause='physics'.
+            // (the dispatch case ignores it for cause='physics').
+            // S42 — was `world.currentPlayerId` (turn-based artifact);
+            // hardcoded asPlayerId(0) since field is removed and playerId
+            // is unused on this dispatch path.
             dispatch(world, {
               type: 'SEVER_BOND',
               bondId,
-              playerId: world.currentPlayerId,
+              playerId: asPlayerId(0),
               cause: 'physics',
             });
           }

@@ -223,7 +223,8 @@ function setup1v1(): ReturnType<typeof makeWorld> {
   const w = makeWorld(0);
   w.gameMode = '1v1';
   w.gameState = 'PLAYING';
-  w.currentPlayerId = P1;
+  // S42 — currentPlayerId removed; real-time gameplay has no active-player
+  // gate. Tests no longer need to toggle the field.
   // P2 — cyan, spawner-rim right (matches applyStartGame init).
   const p2 = makeIdlePlayer(P2, PLAYER_COLORS[1], {
     x: SPAWNER_CENTER_X + SPAWNER_RADIUS + 40,
@@ -246,9 +247,7 @@ function placeFor(world: ReturnType<typeof makeWorld>, playerId: PlayerId, spark
     createdTick: world.tick,
   });
   dispatch(world, { type: 'SPAWN_SPARK', spark: s });
-  // Toggle currentPlayerId so 1v1 input gate allows the placer.
-  const saved = world.currentPlayerId;
-  world.currentPlayerId = playerId;
+  // S42 — currentPlayerId toggle removed (active-player gate deleted).
   dispatch(world, { type: 'PICKUP_SPARK', sparkId: s.id, playerId });
   dispatch(world, {
     type: 'PLACE_PRIMITIVE',
@@ -256,7 +255,6 @@ function placeFor(world: ReturnType<typeof makeWorld>, playerId: PlayerId, spark
     targetPrimitiveId: target as never,
     stiffnessTier: 'MID',
   });
-  world.currentPlayerId = saved;
   world.tick++;
   return [...world.primitives.keys()].at(-1)! as unknown as number;
 }
@@ -274,7 +272,6 @@ describe('S17 P1 — Phase-2 §VIII.3 cross-player Sever-as-disruption', () => {
     const bondId = firstBondId(w);
     // Grant P2 1 charge (bypassing the build-action accumulator for test isolation).
     w.players.get(P2)!.disruptionCharges = 1;
-    w.currentPlayerId = P2;
     const primsBefore = w.primitives.size;
     dispatch(w, { type: 'SEVER_BOND', bondId: bondId as never, playerId: P2, cause: 'player' });
     expect(w.players.get(P2)!.disruptionCharges).toBe(0);  // consumed
@@ -290,7 +287,6 @@ describe('S17 P1 — Phase-2 §VIII.3 cross-player Sever-as-disruption', () => {
     placeFor(w, P1, 1, a as unknown as number);
     const bondId = firstBondId(w);
     w.players.get(P2)!.disruptionCharges = 0;
-    w.currentPlayerId = P2;
     const primsBefore = w.primitives.size;
     const bondsBefore = w.bonds.size;
     dispatch(w, { type: 'SEVER_BOND', bondId: bondId as never, playerId: P2, cause: 'player' });
@@ -305,27 +301,14 @@ describe('S17 P1 — Phase-2 §VIII.3 cross-player Sever-as-disruption', () => {
     placeFor(w, P1, 1, a);
     const bondId = firstBondId(w);
     w.players.get(P1)!.disruptionCharges = 0;
-    w.currentPlayerId = P1;
     const primsBefore = w.primitives.size;
     dispatch(w, { type: 'SEVER_BOND', bondId: bondId as never, playerId: P1, cause: 'player' });
     expect(w.players.get(P1)!.disruptionCharges).toBe(0);  // not consumed (both endpoints P1.color)
     expect(w.primitives.size).toBeLessThan(primsBefore);    // self-sever still topologically active
   });
 
-  it('wrong-turn dispatch in 1v1 silently rejects (1v1 input gate)', () => {
-    const w = setup1v1();
-    placeFor(w, P1, 0, null);
-    const a = [...w.primitives.keys()].at(-1)!;
-    placeFor(w, P1, 1, a as unknown as number);
-    const bondId = firstBondId(w);
-    w.players.get(P1)!.disruptionCharges = 5;  // plenty
-    w.currentPlayerId = P2;  // P2's turn
-    const primsBefore = w.primitives.size;
-    // P1 tries to sever DURING P2's turn — must reject regardless of charges.
-    dispatch(w, { type: 'SEVER_BOND', bondId: bondId as never, playerId: P1, cause: 'player' });
-    expect(w.players.get(P1)!.disruptionCharges).toBe(5);  // unchanged
-    expect(w.primitives.size).toBe(primsBefore);            // no-op
-  });
+  // S42 — "wrong-turn dispatch silently rejects" test DELETED (turn-based
+  // 1v1 input gate removed; blueprint mandates real-time simultaneous play).
 
   it('mixed-ownership bond — hostile for BOTH players (Gemini #3 either-differs rule)', () => {
     const w = setup1v1();
@@ -335,7 +318,6 @@ describe('S17 P1 — Phase-2 §VIII.3 cross-player Sever-as-disruption', () => {
     const bondId = firstBondId(w);
     // P1 attempts sever: bond.primA.placerColor=red matches P1, but bond.primB.placerColor=cyan differs → HOSTILE.
     w.players.get(P1)!.disruptionCharges = 1;
-    w.currentPlayerId = P1;
     const before1 = w.players.get(P1)!.disruptionCharges;
     dispatch(w, { type: 'SEVER_BOND', bondId: bondId as never, playerId: P1, cause: 'player' });
     expect(w.players.get(P1)!.disruptionCharges).toBe(before1 - 1);  // consumed
@@ -365,7 +347,6 @@ describe('S17 P1 — Phase-2 §VIII.3 cross-player Sever-as-disruption', () => {
     // P2 (hostile) attempts to sever bond a-b — but it's now on a cycle.
     const abBond = [...w.bonds.values()].find((bd) => (bd.aId === a && bd.bId === b) || (bd.aId === b && bd.bId === a))!;
     w.players.get(P2)!.disruptionCharges = 1;
-    w.currentPlayerId = P2;
     const primsBefore = w.primitives.size;
     dispatch(w, { type: 'SEVER_BOND', bondId: abBond.id as never, playerId: P2, cause: 'player' });
     expect(w.players.get(P2)!.disruptionCharges).toBe(1);  // PRIME-AUDIT B: not consumed
@@ -415,7 +396,6 @@ describe('S17 P1 — Phase-2 §VIII.3 cross-player Sever-as-disruption', () => {
     const bondId = firstBondId(w);
     // P2 (hostile actor) has 0 charges — but cause='physics' bypasses gate.
     w.players.get(P2)!.disruptionCharges = 0;
-    w.currentPlayerId = P2;
     const primsBefore = w.primitives.size;
     dispatch(w, { type: 'SEVER_BOND', bondId: bondId as never, playerId: P2, cause: 'physics' });
     expect(w.primitives.size).toBeLessThan(primsBefore);  // physics path fired

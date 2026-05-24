@@ -138,7 +138,10 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   TICK_ENERGY: true,
   WIN_TRIGGER: true,
   START_GAME: true,
-  END_TURN: true,
+  // S42 — END_TURN removed: turn-based gameplay deleted (blueprint mandates
+  // real-time). Old browser-tab peers sending END_TURN get null from
+  // parseNetMessage = defensive no-op; no protoVersion bump needed because
+  // this is an allowlist tighten, not a structural message change.
   RETURN_TO_TITLE: true,
   UPDATE_AVATAR_POS: true,
   GODLY_TRIGGER: true,

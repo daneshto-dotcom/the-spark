@@ -1,14 +1,19 @@
 /**
- * SPARK — peripheral UI: energy gauge + win banner + (S15 P2) 1v1 HUD.
+ * SPARK — peripheral UI: energy gauge + win banner + 1v1 HUD.
  * § XIV.8 LOCKED — energy is a flat passive +5/sec in Phase 1.
  * The gauge is a thin vertical bar on the right edge — fills as energy
  * accrues. No numeric readout (per § XV anti-bloat).
  *
  * Win banner is dormant until Session 4 flips world.gameState='WIN'.
  *
- * S15 P2 additions (1v1 only): turn indicator badge (top-center, active
- * player color); per-player score readouts (top-left, both scores); net
- * connection status dot (top-right). Hidden in solo mode.
+ * 1v1-only HUD elements: per-player score readouts (top-left, both
+ * scores); net connection status dot (top-right). Hidden in solo mode.
+ *
+ * S42 — Turn-indicator badge ("PLAYER N'S TURN · SPACE to end") DELETED.
+ * The 1v1 mode was incorrectly shipped as turn-based hotseat (S15 P2);
+ * blueprint mandates real-time. Energy gauge now reads world.localPlayerId
+ * instead of the removed world.currentPlayerId (Council R1 Battle Ledger
+ * row 3 + Δ4 — drops fallback chain in favor of explicit guard).
  */
 
 import { Application, Graphics, Text, TextStyle } from 'pixi.js';
@@ -36,7 +41,6 @@ export class HUD {
   private readonly gauge: Graphics;
   private readonly progress: Graphics;
   private readonly winText: Text;
-  private readonly turnBadge: Text;
   private readonly p1ScoreText: Text;
   private readonly p2ScoreText: Text;
   private readonly connectionDot: Graphics;
@@ -70,20 +74,7 @@ export class HUD {
     this.winText.visible = false;
     app.stage.addChild(this.winText);
 
-    // S15 P2 — 1v1 turn indicator (top-center).
-    this.turnBadge = new Text({
-      text: '',
-      style: new TextStyle({
-        fontFamily: 'monospace',
-        fontSize: 24,
-        fill: 0xffffff,
-        letterSpacing: 4,
-      }),
-    });
-    this.turnBadge.anchor.set(0.5);
-    this.turnBadge.position.set(CANVAS_WIDTH / 2, 40);
-    this.turnBadge.visible = false;
-    app.stage.addChild(this.turnBadge);
+    // S42 — Turn indicator badge DELETED (was top-center "PLAYER N'S TURN").
 
     // S15 P2 — per-player score (top-left, vertical stack).
     this.p1ScoreText = new Text({
@@ -126,12 +117,16 @@ export class HUD {
   }
 
   private drawEnergyGauge(world: World): void {
-    // S15 P2: in 1v1 show the LOCAL active player's energy. Without an
-    // explicit "local player" handle we use currentPlayerId — flips on
-    // END_TURN. Solo behavior unchanged (player 0 always active).
-    const active = world.players.get(world.currentPlayerId) ?? [...world.players.values()][0];
-    if (active === undefined) return;
-    const target = Math.min(active.energy, ENERGY_GAUGE_FULL);
+    // S42 — read LOCAL player's energy via world.localPlayerId (replaces
+    // removed world.currentPlayerId turn-based artifact). Solo: id=0. 1v1
+    // host: id=0. 1v1 client: id=1. Guard handles the early-frame race
+    // where snapshot hasn't populated players[localPlayerId] yet — gauge
+    // skips this tick rather than crashing (Council R1 Battle Ledger row 3
+    // Grok-C3 ADOPT + Gemini-R2 confirmed). Pre-S42 fallback to
+    // [...players.values()][0] removed (PRIME-AUDIT Δ4 — unnecessary post-guard).
+    const local = world.players.get(world.localPlayerId);
+    if (local === undefined) return;
+    const target = Math.min(local.energy, ENERGY_GAUGE_FULL);
     this.displayEnergy += (target - this.displayEnergy) * 0.12;
     const fillRatio = this.displayEnergy / ENERGY_GAUGE_FULL;
     const gaugeHeight = GAUGE_Y_BOTTOM - GAUGE_Y_TOP;
@@ -146,14 +141,14 @@ export class HUD {
       GAUGE_Y_BOTTOM - fillHeight,
       GAUGE_WIDTH,
       fillHeight,
-    ).fill({ color: active.color, alpha: 0.8 });
+    ).fill({ color: local.color, alpha: 0.8 });
     if (fillRatio > 0.02) {
       g.rect(
         GAUGE_X - 2,
         GAUGE_Y_BOTTOM - fillHeight - 1,
         GAUGE_WIDTH + 4,
         2,
-      ).fill({ color: active.color, alpha: 0.5 });
+      ).fill({ color: local.color, alpha: 0.5 });
     }
   }
 
@@ -193,18 +188,9 @@ export class HUD {
   private drawMultiplayerHUD(world: World): void {
     const show1v1 = world.gameMode === '1v1' && world.gameState === 'PLAYING';
 
-    // Turn indicator badge.
-    if (show1v1) {
-      const active = world.players.get(world.currentPlayerId);
-      if (active !== undefined) {
-        const pNum = world.currentPlayerId + 1;
-        this.turnBadge.text = `PLAYER ${pNum}'S TURN  ·  SPACE to end`;
-        this.turnBadge.style.fill = active.color;
-        this.turnBadge.visible = true;
-      }
-    } else {
-      this.turnBadge.visible = false;
-    }
+    // S42 — Turn indicator badge block DELETED. Real-time gameplay has
+    // no "active player" concept; per-player score readouts below still
+    // show both players' progress.
 
     // Per-player score readouts.
     if (show1v1) {

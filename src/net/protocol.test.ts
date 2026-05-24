@@ -79,7 +79,9 @@ describe('S22 P3 — parseNetMessage validator', () => {
   });
 
   it('accepts INTENT / NETSNAPSHOT / ENDGAME / GODLY_TRIGGER', () => {
-    expect(parseNetMessage({ kind: 'INTENT', intentSeq: 1, action: { type: 'END_TURN' } })).not.toBeNull();
+    // S42 — END_TURN removed from allowlist (turn-based gameplay deleted);
+    // use SPAWN_SPARK as a representative valid action.
+    expect(parseNetMessage({ kind: 'INTENT', intentSeq: 1, action: { type: 'SPAWN_SPARK' } })).not.toBeNull();
     // Audit Pass 2 fix d4541985: NETSNAPSHOT now requires schemaVersion=1
     // (was permissive of undefined for test back-compat).
     expect(parseNetMessage({ kind: 'NETSNAPSHOT', snapshotSeq: 1, snapshot: { schemaVersion: 1 } })).not.toBeNull();
@@ -111,10 +113,11 @@ describe('Audit Pass 1 d3f0e22b + 561e37ce — strengthened parseNetMessage', ()
   });
 
   it('INTENT accepts every known GameAction discriminant', () => {
+    // S42 — END_TURN removed (turn-based gameplay deleted, blueprint mandates real-time).
     const known = [
       'SPAWN_SPARK', 'DESPAWN_SPARK', 'PICKUP_SPARK', 'DROP_SPARK',
       'PLACE_PRIMITIVE', 'SEVER_BOND', 'TICK_ENERGY', 'WIN_TRIGGER',
-      'START_GAME', 'END_TURN', 'RETURN_TO_TITLE', 'UPDATE_AVATAR_POS',
+      'START_GAME', 'RETURN_TO_TITLE', 'UPDATE_AVATAR_POS',
       'GODLY_TRIGGER', 'GODLY_COMPLETE', 'GODLY_ABORT',
       'SPAWN_CREATURE', 'DESPAWN_CREATURE', 'CREATURE_TICK', 'CREATURE_ATTACK',
     ];

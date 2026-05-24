@@ -46,13 +46,18 @@ type SeverSplit = ReturnType<typeof severSplit>;
  * Authorize a SEVER_BOND action. Pure. Inputs are pre-fetched by caller
  * (no map lookups inside) so caller can early-return on missing prims.
  *
- *   cause==='physics' → always allowed (physics-overstretch bypass)
- *   cause==='player'  → 1v1 input gate (currentPlayerId check) +
- *                       hostile-prereq charge check (silent-reject if <1)
+ *   cause==='physics'  → always allowed (physics-overstretch bypass)
+ *   cause==='creature' → always allowed (host-authoritative creature mint)
+ *   cause==='player'   → player-existence + hostile-prereq charge check
+ *                        (silent-reject if charges<1)
  *
  * Returns `true` iff the action should proceed to mutation. Note: this
  * does NOT consume charges — that happens in the orchestrator after the
  * split is computed (cycle-no-consume rule).
+ *
+ * S42 — turn-based 1v1 active-player gate REMOVED (Council R1+R2). The
+ * blueprint mandates real-time simultaneous play; either player can sever
+ * any bond they have charges for at any time.
  */
 export function canSeverBond(
   world: World,
@@ -65,11 +70,6 @@ export function canSeverBond(
   // for 'creature'; constraint solver fires for 'physics'). computeBaseCharge
   // at line 90 already returns 0 for non-'player' so no change needed there.
   if (action.cause === 'physics' || action.cause === 'creature') return true;
-
-  // 1v1 input gate (defense-in-depth — controls layer also guards).
-  if (world.gameMode === '1v1' && action.playerId !== world.currentPlayerId) {
-    return false;
-  }
 
   const player = world.players.get(action.playerId);
   if (player === undefined) return false;
