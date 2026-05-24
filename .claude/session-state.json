@@ -130,15 +130,16 @@
     {
       "id": "P10",
       "label": "S42 P10 — Reflexion + /handoff",
-      "status": "in_progress",
+      "status": "completed",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
       "council_waiver_reason": null,
-      "check_completed": false,
-      "check_method": "In progress (reflexion log appended +6 entries 37→43 total; boot-snapshot regeneration + handoff doc generation + bookkeeping commit + handoff prompt to user pending)."
+      "check_completed": true,
+      "check_method": "Reflexion log +6 entries (37→43, under 50 cap, no prune). Boot-snapshot.md regenerated for S42 close state. HANDOFF_2026-05-24_S42close.md created. Session-state.json all priorities marked completed with check_method verbose entries. Bookkeeping commit 9077c25 pushed to master (5 files, +296/-171 LOC). Path filter empirically validated: bookkeeping push did NOT trigger redundant deploy (last deploy run 26360989574 remains unchanged at gh run list --limit 1). Handoff prompt delivered to user in chat.",
+      "checkpoint_commit": "9077c25"
     }
   ],
   "carry_forward_S42": [
