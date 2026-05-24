@@ -1,6 +1,6 @@
 # S45 BUG-CRITICAL-3 — Client-mode interaction + remote-player visibility + per-player color identity
 
-**Status:** SCOPE LOCKED S45 · Tier: **Full** · Author: Claude S44 (post user 2-peer smoke) · Amended Claude S45 2026-05-24
+**Status:** SHIPPED-pending-user-2-peer-smoke · commit `bf5090c` · deploy run `26370843779` SUCCESS · Tier: **Full** · Author: Claude S44 → executed Claude S45 2026-05-24
 **Constitutional posture:** Scope Amendment + Council R1+R2+PRIME-AUDIT (Full tier) per session-pdca pipeline.
 **Blueprint contract at stake:** `SPARK_Blueprint.md:3` ("A Real-Time Multiplayer Game") + line 6 ("Phase-2 Tier-0 1v1 networked SHIPPED") + intent of "real time red spark vs blue spark" per user S44 directive.
 
