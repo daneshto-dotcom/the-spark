@@ -172,6 +172,34 @@
     {
       "id": "P11",
       "label": "S44 P11 — Reflexion + handoff + GATE on user 2-peer smoke",
+      "status": "completed",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": false,
+      "council_waiver_reason": null,
+      "check_completed": true,
+      "check_method": "USER 2-PEER SMOKE PASSED for BUG-CRITICAL-2 pairing — user reported via screenshot at tick 7140 that both players login, gameState=PLAYING, gameMode=1v1, scores update, BOND_FORMED currentBondsInWorld=1, VOLTKIN CHAIN progress visible to client. Multi-strategy P2P transport works as designed. Reflexion +8 entries (added user-smoke result + 3 new bugs surfaced). Boot-snapshot updated. S43 PDR archived to plans-archive/ as RESOLVED. BUG-CRITICAL-2 + S35-P11 carry CLOSED simultaneously.",
+      "checkpoint_commit": "dfd7f50"
+    },
+    {
+      "id": "P12",
+      "label": "S44 P12 — Draft BUG-CRITICAL-3 PDR for next session",
+      "status": "completed",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": false,
+      "council_waiver_reason": null,
+      "check_completed": true,
+      "check_method": "Drafted .claude/plans/IN-PROGRESS_S45_BUG-CRITICAL-3_client-interaction-and-remote-visibility.md. Documents 3 distinct symptoms (A: P2 cannot interact; B: P2 doesn't render remote avatar/spark = 'invisible force' — static-parse root cause confirmed at main.ts:228 single AvatarRenderer instance; C: per-player color identity for carried state + constructions). State-Discovery probe plan + 3 fix tiers (A: ~15K Sym A only; B: ~25-30K Sym A+B RECOMMENDED; C: ~40-50K Sym A+B+C full color identity with protoVersion bump). 5 preliminary challenges. Recommended Option B with 1-round Council. Pending next-session Council deliberation + user tier choice.",
+      "checkpoint_commit": null
+    },
+    {
+      "id": "P13",
+      "label": "S44 P13 — Archive resolved BUG-CRITICAL-2 + run /handoff",
       "status": "in_progress",
       "tier": "Full",
       "pdr_approved": true,
@@ -180,14 +208,16 @@
       "council_waived": false,
       "council_waiver_reason": null,
       "check_completed": false,
-      "check_method": "Reflexion log +7 entries (architectural-pivot-multi-broadcast / 0.25-API-breaking-change / runtime-verifiability-preview-eval / vite-inlines-static-true-dynamic-imports / bundle-shibboleth-distinguishes-upstream-defaults / user-urgency-verbatim-Scope-Amendment / SESSION-multi-strategy-shipped). Boot-snapshot.md regenerated for S44 close state with USER SMOKE INSTRUCTIONS verbatim block. PDR file status updated SHIPPED-pending-user-smoke. Bookkeeping commit pending. STATUS in_progress (NOT completed) because BUG-CRITICAL-2 closure is GATED on user-observable 2-peer pairing confirmation — multi-strategy CAN mask single-strategy failures from passive observation, so user smoke is structurally necessary as authoritative end-to-end gate.",
+      "check_method": null,
       "checkpoint_commit": null
     }
   ],
   "carry_forward_S44": [
-    "🔴 USER ACTION (UNBLOCKS S44 P11 + S35-P11 carry simultaneously): 2-peer 1v1 smoke on https://spark-online.space/?debug=1. Boot-snapshot.md has full instructions. Reports WORKS -> close both. Reports BROKEN -> escalate BUG-CRITICAL-3.",
-    "S44-NEW: Mid-session degraded-strategy explicit teardown-restart (Council R2 PRIME-AUDIT architectural follow-on; only meaningful if user reports mid-session disconnects post-smoke)",
-    "S44-NEW: NIP-78 functional probe script (currently HTTP-only; deferred per Council R2 S2β unless decay surface re-emerges)",
+    "🔴 S45 PRIORITY #1: BUG-CRITICAL-3 — joiner cannot interact + remote-player avatar/spark not rendered + per-player color identity. PDR at .claude/plans/IN-PROGRESS_S45_BUG-CRITICAL-3_client-interaction-and-remote-visibility.md. Three symptoms (A interaction / B render / C color). 3 fix tiers documented (A ~15K / B ~25-30K RECOMMENDED / C ~40-50K). Requires Council deliberation + user tier choice + State-Discovery probes (controls.ts + AvatarRenderer + sparkLifecycle silent-reject).",
+    "S44 BUG-CRITICAL-2: RESOLVED (multi-strategy P2P transport — user smoke confirmed pairing + snapshot sync work). PDR archived at .claude/plans-archive/2026-05-24_S44_BUG-CRITICAL-2_RESOLVED_p2p-signaling-fixed_multi-strategy.md",
+    "S35-P11 carry: RESOLVED (2-peer smoke executed S44, surfaced pairing PASS + 3 new bugs)",
+    "S44-NEW: Mid-session degraded-strategy explicit teardown-restart (Council R2 architectural follow-on; only meaningful if user reports mid-session disconnects)",
+    "S44-NEW: NIP-78 functional probe script (currently HTTP-only via npm run probe-relays; deferred per Council R2 S2β unless decay re-emerges)",
     "S44-NEW: Custom relay URL field for tournaments (Council R1 Grok G-NEW-3 deferred)",
     "vite/vitest CVE major bump (carry from S37; ~20K dedicated session)",
     "main.ts hypertrophy refactor (carry S37+S39; Standard batch ~30-40K with Council)",
@@ -196,7 +226,7 @@
     "FWOOSH form-swap SFX + crystal-crown sprite (carry S37 P8/P9)",
     "Audit Pass-3 candidates (carry S38)",
     "Node.js 20 deprecation in deploy.yml (carry S40; auto-forced 2026-06-02)",
-    "Client-side prediction rubber-banding UX polish (defer to playtest after BUG-CRITICAL-2 user-smoke unblocks)"
+    "Client-side prediction rubber-banding UX polish (defer to playtest after BUG-CRITICAL-3 ships)"
   ],
   "totals": {
     "turns": 5,
