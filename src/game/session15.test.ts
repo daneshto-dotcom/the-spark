@@ -122,6 +122,55 @@ describe('S15 P2 — gameState FSM extension', () => {
     expect(w.players.size).toBe(before);
     expect(w.players.has(P2)).toBe(false);
   });
+
+  // S45 BUG-CRITICAL-3 Sym A — applyUpdateAvatarPos now also syncs the
+  // carried spark when player.kind === 'Carrying'. This is the load-bearing
+  // coupling that lets joiner-built primitives land at the joiner's intended
+  // position rather than the stale host-authoritative spark.pos from
+  // pickup-time. Battle Ledger C1 + PRIME-AUDIT Δ4 expansion.
+  it('S45 — UPDATE_AVATAR_POS syncs carried spark.pos when player is Carrying', () => {
+    const w = makeWorld(0);
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    // Place a free spark, then pick it up.
+    const spark = makeFreeSpark({
+      id: asSparkId(123),
+      type: SparkType.Dot,
+      pos: { x: 100, y: 100 },
+      velocity: { x: 0, y: 0 },
+      dt: 1 / 60,
+      createdTick: 0,
+    });
+    w.freeSparks.set(spark.id, spark);
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: spark.id, playerId: P1 });
+    // Confirm P1 carrying.
+    expect(w.players.get(P1)!.kind).toBe('Carrying');
+    // Now dispatch UPDATE_AVATAR_POS — the carried spark must follow.
+    dispatch(w, { type: 'UPDATE_AVATAR_POS', playerId: P1, pos: { x: 444, y: 555 } });
+    expect(w.players.get(P1)!.avatarPos).toEqual({ x: 444, y: 555 });
+    expect(spark.pos).toEqual({ x: 444, y: 555 });
+    expect(spark.prevPos).toEqual({ x: 444, y: 555 });
+  });
+
+  it('S45 — UPDATE_AVATAR_POS does NOT touch any spark when player is Idle', () => {
+    const w = makeWorld(0);
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    // Add a free spark to the world.
+    const spark = makeFreeSpark({
+      id: asSparkId(999),
+      type: SparkType.Dot,
+      pos: { x: 100, y: 100 },
+      velocity: { x: 0, y: 0 },
+      dt: 1 / 60,
+      createdTick: 0,
+    });
+    w.freeSparks.set(spark.id, spark);
+    expect(w.players.get(P1)!.kind).toBe('Idle');
+    dispatch(w, { type: 'UPDATE_AVATAR_POS', playerId: P1, pos: { x: 777, y: 888 } });
+    // avatarPos updated.
+    expect(w.players.get(P1)!.avatarPos).toEqual({ x: 777, y: 888 });
+    // Spark untouched (Idle player has no carriedSparkId — no coupling).
+    expect(spark.pos).toEqual({ x: 100, y: 100 });
+  });
 });
 
 // ============================================================================

@@ -225,7 +225,12 @@ async function bootstrap(): Promise<void> {
   // (when CREATURE_ATTACK successfully severs a bond → ARC_FLASH emitted).
   // applyToStage runs every render frame to set/reset stage.position offset.
   const screenShake = new ScreenShake();
-  const avatarRenderer = new AvatarRenderer(app, P1);
+  // S45 BUG-CRITICAL-3 Sym B — AvatarRenderer now multi-player. Drops the
+  // single-player `P1` arg; reads world.players + controls.getPlayerId()
+  // internally to render each player's avatar at the right source (local =
+  // controls.cursor lag-free; remote = world.players[id].avatarPos snapshot-
+  // driven). Battle Ledger C3 + C10.
+  const avatarRenderer = new AvatarRenderer(app);
   const hud = new HUD(app);
   const stats = new StatsOverlay(app);
   const grid = new SpatialGrid(SPATIAL_CELL_SIZE);
@@ -633,6 +638,17 @@ async function bootstrap(): Promise<void> {
     // dispatch path via `cutsceneOverlay.onComplete` (line ~486-498 above).
   }
 
+  // S45 BUG-CRITICAL-3 Sym B — UPDATE_AVATAR_POS dispatch throttle state.
+  // Council R2 C2 + PRIME-AUDIT Δ2: throttle in main.ts game-loop at 10Hz +
+  // delta-skip (|dx|+|dy|<2px) to match snapshot cadence without intent-flood
+  // on the Nostr/torrent transport. State is closure-scoped so each session
+  // resets cleanly via game-mode transitions.
+  const AVATAR_POS_DISPATCH_MIN_INTERVAL_MS = 100; // 10 Hz cap
+  const AVATAR_POS_DISPATCH_MIN_DELTA_PX = 2;      // skip-jitter floor
+  let lastAvatarPosDispatchMs = 0;
+  let lastDispatchedCursorX = Number.NEGATIVE_INFINITY;
+  let lastDispatchedCursorY = Number.NEGATIVE_INFINITY;
+
   app.ticker.add((tickerObj) => {
     const dtSec = Math.min(tickerObj.deltaMS / 1000, 0.05);
     physicsAccumulator += dtSec;
@@ -929,6 +945,38 @@ async function bootstrap(): Promise<void> {
       muteIndicator.alpha = 0.55;
     }
 
+    // S45 BUG-CRITICAL-3 Sym B — dispatch throttled UPDATE_AVATAR_POS so both
+    // players' avatarPos field stays current in the snapshot stream. Host
+    // dispatches locally (world.players[hostId].avatarPos updates immediately
+    // → next snapshot to joiner). Joiner dispatches as INTENT (host receives
+    // → applies → next snapshot reflects joiner.avatarPos). The
+    // applyUpdateAvatarPos reducer (state/gameMode.ts:152) ALSO syncs the
+    // carrier's carried spark.pos when player.kind === 'Carrying' — this is
+    // the load-bearing Sym A coupling that makes joiner-built primitives land
+    // at the joiner's intended position instead of the stale pickup-time pos.
+    // Council Battle Ledger C2 (10Hz throttle) + Δ2 (in game-loop, not
+    // controls.ts). Gated on PLAYING + 1v1 — solo mode has no remote viewer
+    // so dispatch is wasted work + would also be a no-op (reducer would only
+    // update the local player's avatarPos for nobody to see).
+    if (world.gameState === 'PLAYING' && world.gameMode === '1v1') {
+      const nowMs = performance.now();
+      const dx = controls.cursor.x - lastDispatchedCursorX;
+      const dy = controls.cursor.y - lastDispatchedCursorY;
+      const enoughDelta = Math.abs(dx) + Math.abs(dy) >= AVATAR_POS_DISPATCH_MIN_DELTA_PX;
+      const enoughElapsed =
+        nowMs - lastAvatarPosDispatchMs >= AVATAR_POS_DISPATCH_MIN_INTERVAL_MS;
+      if (enoughDelta && enoughElapsed) {
+        dispatchFn({
+          type: 'UPDATE_AVATAR_POS',
+          playerId: controls.getPlayerId(),
+          pos: { x: controls.cursor.x, y: controls.cursor.y },
+        });
+        lastAvatarPosDispatchMs = nowMs;
+        lastDispatchedCursorX = controls.cursor.x;
+        lastDispatchedCursorY = controls.cursor.y;
+      }
+    }
+
     const renderStart = performance.now();
     // S30 P0e — apply screen-shake offset to stage BEFORE renderers sync.
     // Idempotent: when shake is inactive/expired, this sets stage.position back
@@ -937,7 +985,10 @@ async function bootstrap(): Promise<void> {
     // inherits the translation, giving the whole play-field the shake feel.
     screenShake.applyToStage(app.stage, world.tick);
     const freeSparkArr = freeSparkArray(world.freeSparks);
-    sparkRenderer.sync(freeSparkArr);
+    // S45 Sym C(a) — pass world for per-frame carrier-color tint resolution
+    // of Carried-state sparks. SparkRenderer falls back to FREE_SPARK_TINT
+    // defensively when world omitted or carrier missing (Battle Ledger C4).
+    sparkRenderer.sync(freeSparkArr, world);
     structureRenderer.sync(world, controls.state);
     // S25 P0 — creature sprite sync. After structureRenderer (z-order: above
     // prims, blueprint Q1) and before effectsRenderer (so ARC_FLASH effects

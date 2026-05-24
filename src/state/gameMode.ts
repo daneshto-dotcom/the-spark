@@ -148,12 +148,35 @@ export function applyReturnToTitle(world: World): World {
 /**
  * UPDATE_AVATAR_POS — client-driven net intent: update one player's
  * avatarPos vector. Silently ignores actions for missing players.
+ *
+ * S45 BUG-CRITICAL-3 Sym A — when player is Carrying, also sync the carried
+ * spark's position to the avatarPos. This is the load-bearing coupling that
+ * lets the joiner's carried spark follow their cursor on the authoritative
+ * side: host receives joiner's UPDATE_AVATAR_POS intents at the throttled
+ * dispatch rate, applies them here, and the joiner's carried spark.pos
+ * tracks their avatarPos. The subsequent PLACE_PRIMITIVE then lands at the
+ * joiner's intended position (spark.pos = avatarPos = joiner's cursor at
+ * dispatch time). Host's local Carrying state is identically coupled —
+ * host's controls.applyPerSubstep still drives host's spark.pos via cursor
+ * each substep, but the avatarPos→spark.pos sync here keeps the state
+ * authoritative and snapshot-coherent. Council R2 C1 (Sym A coupling) +
+ * PRIME-AUDIT Δ4 expansion.
  */
 export function applyUpdateAvatarPos(world: World, action: UpdateAvatarPosAction): World {
   const player = world.players.get(action.playerId);
   if (player === undefined) return world;
   player.avatarPos.x = action.pos.x;
   player.avatarPos.y = action.pos.y;
+  // S45 Sym A — carried-spark coupling to carrier's avatarPos.
+  if (player.kind === 'Carrying') {
+    const spark = world.freeSparks.get(player.carriedSparkId);
+    if (spark !== undefined && spark.state.kind === 'Carried') {
+      spark.pos.x = action.pos.x;
+      spark.pos.y = action.pos.y;
+      spark.prevPos.x = action.pos.x;
+      spark.prevPos.y = action.pos.y;
+    }
+  }
   return world;
 }
 

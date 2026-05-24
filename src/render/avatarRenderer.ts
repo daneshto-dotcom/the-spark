@@ -8,9 +8,6 @@
  * spark = building block — is now visually distinct: free building blocks
  * are colorless shapes, the player avatar is a colored glow.)
  *
- * Phase 1 = solo, only P1 visible. Phase 2 will iterate over all 6 players
- * but render only those visible through the local player's fog mask.
- *
  * S14 P1: anti-phase outer/inner alpha pulse so the avatar reads as
  * distinctly "alive" relative to a placed Dot primitive in the same
  * player color (post-S13 playtest report: the user could not tell their
@@ -18,6 +15,23 @@
  * the same color, ~same radius, ~same shape — modulating the avatar's
  * alpha at 1.2 Hz makes the avatar visually "breathe" without changing
  * the spec § I LOCKED "single glowing spark" shape.
+ *
+ * S45 BUG-CRITICAL-3 Sym B — multi-player render. Pre-S45 a single
+ * AvatarRenderer was instantiated with `(app, P1)` and only rendered ONE
+ * player's avatar using `controls.cursor`. In 1v1 the joiner saw no remote
+ * avatar at all ("invisible force" — Battle Ledger row C3, user S44 smoke
+ * report). Refactored to maintain one Graphics per player in world.players,
+ * with hybrid sourcing per Council R2 C3:
+ *   - Local player (id === controls.getPlayerId()): position = controls.cursor
+ *     (lag-free, immediate feedback).
+ *   - Remote players (other ids): position = player.avatarPos (snapshot-
+ *     driven; UPDATE_AVATAR_POS dispatch from carrier on the wire).
+ * Battle Ledger C10 ADOPT-LITE: when local player's controls.state.kind
+ * === 'AttractDrag', boost the pulse depth briefly as a local "intent sent"
+ * visual cue (Sym A perceptual-lag bridge — no new mechanism, just reads
+ * the existing FSM state). C11 ADOPT: pop-in prevented by player creation
+ * always supplying a real avatarPos (P1 at spawner-left, P2 at spawner-right,
+ * never (0,0) — see state/world.ts:292 and state/gameMode.ts:72).
  */
 
 import { Application, Container, Graphics } from 'pixi.js';
@@ -49,57 +63,95 @@ const AVATAR_OUTER_ALPHA = 0.35;
 const AVATAR_PULSE_HZ = 1.2;
 const AVATAR_PULSE_DEPTH = 0.20;
 
+// S45 Sym A C10 ADOPT-LITE — when local player is in AttractDrag, double the
+// pulse depth so the avatar "throbs" while dragging a spark. This is the
+// perceptual-lag bridge Gemini flagged: joiner clicks LMB, intent goes to
+// host, ~100ms later snapshot reflects pickup. During that window the player
+// needs a local-only cue that input was received. Reading the existing
+// AttractDrag FSM state needs no new mechanism (Council Battle Ledger C10).
+const AVATAR_ATTRACT_PULSE_BOOST = 2.0;
+
 export class AvatarRenderer {
   private readonly container: Container;
-  private readonly graphics: Graphics;
+  private readonly graphicsByPlayer: Map<PlayerId, Graphics> = new Map();
 
-  constructor(app: Application, private readonly playerId: PlayerId) {
+  constructor(app: Application) {
     this.container = new Container();
-    this.graphics = new Graphics();
-    this.container.addChild(this.graphics);
     app.stage.addChild(this.container);
   }
 
   /**
-   * Draw the local player's avatar at cursor position. Always visible —
-   * the avatar IS the player. Sits on top of the structure layer but below
-   * the HUD, so it never disappears behind a structure the player walks
-   * over.
+   * Draw every player's avatar. Local player follows controls.cursor for
+   * zero-lag feedback; remote players read world.players[id].avatarPos
+   * (which the host populates from received UPDATE_AVATAR_POS intents and
+   * from its own pointer-move dispatches). Hybrid sourcing per Council R2 C3.
    *
-   * S14 P1: pulse driven by performance.now() (NOT world.tick) so the
+   * S14 P1 pulse driven by performance.now() (NOT world.tick) so the
    * avatar keeps breathing during POSTGAME pause and tab-foreground
    * unpaused windows. world.tick would freeze the pulse in those states.
    */
   sync(world: World, controls: Controls): void {
-    const g = this.graphics;
-    g.clear();
-    const player = world.players.get(this.playerId);
-    if (player === undefined) return;
-    const { x, y } = controls.cursor;
-
+    const localPlayerId = controls.getPlayerId();
     const tSec = performance.now() / 1000;
-    const { outer, inner } = computeAvatarAlphas(
-      tSec,
-      AVATAR_OUTER_ALPHA,
-      AVATAR_INNER_ALPHA,
-      AVATAR_PULSE_HZ,
-      AVATAR_PULSE_DEPTH,
-    );
+    const present = new Set<PlayerId>();
 
-    // Outer glow halo.
-    g.circle(x, y, AVATAR_OUTER_RADIUS)
-      .fill({ color: player.color, alpha: outer });
-    // Mid ring — gives the spark some visual weight without bloom.
-    // Pulses with outer + 0.15 offset so brightness wave is coherent.
-    g.circle(x, y, (AVATAR_INNER_RADIUS + AVATAR_OUTER_RADIUS) / 2)
-      .fill({ color: player.color, alpha: Math.min(1, outer + 0.15) });
-    // Inner core.
-    g.circle(x, y, AVATAR_INNER_RADIUS)
-      .fill({ color: player.color, alpha: inner });
+    for (const player of world.players.values()) {
+      present.add(player.id);
+      let g = this.graphicsByPlayer.get(player.id);
+      if (g === undefined) {
+        g = new Graphics();
+        this.container.addChild(g);
+        this.graphicsByPlayer.set(player.id, g);
+      }
+      g.clear();
+
+      const isLocal = player.id === localPlayerId;
+      const x = isLocal ? controls.cursor.x : player.avatarPos.x;
+      const y = isLocal ? controls.cursor.y : player.avatarPos.y;
+
+      // S45 C10 — boost pulse depth while local player is AttractDragging
+      // a spark (perceptual-lag bridge for joiner intent feedback).
+      const depth = (isLocal && controls.state.kind === 'AttractDrag')
+        ? AVATAR_PULSE_DEPTH * AVATAR_ATTRACT_PULSE_BOOST
+        : AVATAR_PULSE_DEPTH;
+
+      const { outer, inner } = computeAvatarAlphas(
+        tSec,
+        AVATAR_OUTER_ALPHA,
+        AVATAR_INNER_ALPHA,
+        AVATAR_PULSE_HZ,
+        depth,
+      );
+
+      // Outer glow halo.
+      g.circle(x, y, AVATAR_OUTER_RADIUS)
+        .fill({ color: player.color, alpha: outer });
+      // Mid ring — gives the spark some visual weight without bloom.
+      // Pulses with outer + 0.15 offset so brightness wave is coherent.
+      g.circle(x, y, (AVATAR_INNER_RADIUS + AVATAR_OUTER_RADIUS) / 2)
+        .fill({ color: player.color, alpha: Math.min(1, outer + 0.15) });
+      // Inner core.
+      g.circle(x, y, AVATAR_INNER_RADIUS)
+        .fill({ color: player.color, alpha: inner });
+    }
+
+    // GC removed players (e.g. RETURN_TO_TITLE drops P2 — see state/gameMode.ts
+    // applyReturnToTitle survivor sweep). Without this, lingering Graphics
+    // would render a ghost avatar at the last-known position after a 1v1 → solo
+    // transition.
+    if (this.graphicsByPlayer.size > present.size) {
+      for (const [pid, g] of this.graphicsByPlayer) {
+        if (!present.has(pid)) {
+          g.destroy();
+          this.graphicsByPlayer.delete(pid);
+        }
+      }
+    }
   }
 
   destroy(): void {
     this.container.destroy({ children: true });
+    this.graphicsByPlayer.clear();
   }
 }
 

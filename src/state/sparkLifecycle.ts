@@ -73,7 +73,25 @@ export function applyDespawnSpark(world: World, action: DespawnSparkAction): Wor
  *  violation). On spark-not-Free (real-time race: another player grabbed it
  *  first), silently returns + increments world.diagnostics.raceRejects so
  *  the race is observable in tests without crashing the dispatch loop.
- *  S42 Battle Ledger row 1 — Council R1 CONVERGENT (Grok-C1 + Gemini-#1). */
+ *  S42 Battle Ledger row 1 — Council R1 CONVERGENT (Grok-C1 + Gemini-#1).
+ *
+ *  S45 BUG-CRITICAL-3 Sym A — for REMOTE carriers (1v1 mode + carrier !=
+ *  world.localPlayerId), snap spark.pos to the carrier's avatarPos at pickup
+ *  time. This captures the joiner's cursor-intent on the host's authoritative
+ *  side; without it, the joiner's same-tick PICKUP_SPARK + PLACE_PRIMITIVE
+ *  pair lands the primitive at host's stale spark.pos (spawner pulse value)
+ *  instead of where the joiner clicked. Continues to track via
+ *  applyUpdateAvatarPos's carrying-sync at the 10Hz throttled dispatch rate.
+ *
+ *  For LOCAL carriers (solo, or host's own pickups in 1v1), the snap is
+ *  skipped because controls.applyPerSubstep already snaps spark.pos to
+ *  controls.cursor each substep — and the LMB-up dispatches PICKUP then
+ *  PLACE atomically in the same tick, so the snap-to-avatarPos here would
+ *  clobber the local cursor-based position with a 100ms-stale avatarPos
+ *  value, breaking the single-action-place UX. Gated on remote-carrier so
+ *  pre-S45 single-player + host-mode behavior is byte-identical.
+ *
+ *  Council R2 C1 + PRIME-AUDIT Δ4 expansion. */
 export function applyPickupSpark(world: World, action: PickupSparkAction): World {
   const player = requirePlayer(world, action.playerId);
   const spark = world.freeSparks.get(action.sparkId);
@@ -85,8 +103,19 @@ export function applyPickupSpark(world: World, action: PickupSparkAction): World
   const next = fsmPickup(player, action.sparkId);
   world.players.set(next.id, next);
   spark.state = { kind: 'Carried', carrierId: action.playerId };
-  spark.prevPos.x = spark.pos.x;
-  spark.prevPos.y = spark.pos.y;
+  // S45 Sym A — snap only for remote carriers; local carriers preserve
+  // pre-S45 snap-prevPos-to-pos behavior (kills velocity, leaves pos alone).
+  const isRemoteCarrier =
+    world.gameMode === '1v1' && action.playerId !== world.localPlayerId;
+  if (isRemoteCarrier) {
+    spark.pos.x = next.avatarPos.x;
+    spark.pos.y = next.avatarPos.y;
+    spark.prevPos.x = next.avatarPos.x;
+    spark.prevPos.y = next.avatarPos.y;
+  } else {
+    spark.prevPos.x = spark.pos.x;
+    spark.prevPos.y = spark.pos.y;
+  }
   return world;
 }
 

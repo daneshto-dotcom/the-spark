@@ -15,6 +15,7 @@ import { Application, Container, Graphics, Sprite } from 'pixi.js';
 import { SPARK_COLORS, SparkType } from '../constants.ts';
 import type { Spark } from '../game/spark.ts';
 import type { SparkId } from '../types.ts';
+import type { World } from '../state/world.ts';
 import { destroyShapeTextures, makeShapeTextures, type ShapeTextures } from './shapes.ts';
 
 /**
@@ -23,6 +24,18 @@ import { destroyShapeTextures, makeShapeTextures, type ShapeTextures } from './s
  */
 const FREE_SPARK_TINT = 0xe6e6f0;
 const FREE_SPARK_ALPHA = 0.92;
+
+/**
+ * S45 BUG-CRITICAL-3 Sym C(a) — when a spark is in Carried state, its sprite
+ * tints to the carrier's player.color so the per-player color identity ("host
+ * always red, joiner always blue, and so are their constructions" — user S44
+ * verbatim) is visually expressed for in-flight building blocks. The placed-
+ * primitive creator-tint (Sym C(b/c)) is a schema-change deferred to a
+ * follow-up PDR per Battle Ledger lock. Carry-state colors fully alpha-
+ * opaque (1.0) vs the Free-state 0.92 so the carry visually "lights up"
+ * relative to other free sparks in the spawner zone.
+ */
+const CARRIED_SPARK_ALPHA = 1.0;
 
 export class SparkRenderer {
   private readonly container: Container;
@@ -35,8 +48,16 @@ export class SparkRenderer {
     app.stage.addChild(this.container);
   }
 
-  /** Sync sprites to current spark list. Idempotent — call once per frame. */
-  sync(freeSparks: readonly Spark[]): void {
+  /** Sync sprites to current spark list. Idempotent — call once per frame.
+   *
+   * S45 Sym C(a) — when `world` is supplied, sparks in Carried state tint
+   * to their carrier's player.color (via world.players[carrierId].color
+   * lookup). Falls back to FREE_SPARK_TINT defensively if carrier is missing
+   * (Battle Ledger C4 unanimous: defensive fallback, no throw — handles
+   * transient snapshot-ordering edges on joiner). world omitted = legacy
+   * call path (preserved for tests + back-compat).
+   */
+  sync(freeSparks: readonly Spark[], world?: World): void {
     const present = new Set<SparkId>();
     for (let i = 0; i < freeSparks.length; i++) {
       const s = freeSparks[i];
@@ -45,13 +66,30 @@ export class SparkRenderer {
       if (sprite === undefined) {
         sprite = new Sprite(this.textures[s.type]);
         sprite.anchor.set(0.5);
-        sprite.tint = FREE_SPARK_TINT;
-        sprite.alpha = FREE_SPARK_ALPHA;
         this.container.addChild(sprite);
         this.spriteBySpark.set(s.id, sprite);
       }
       sprite.x = s.pos.x;
       sprite.y = s.pos.y;
+      // S45 Sym C(a) — per-frame tint resolution. Branch on state.kind:
+      // Carried → carrier's color (with defensive fallback); Free → neutral.
+      if (s.state.kind === 'Carried' && world !== undefined) {
+        const carrier = world.players.get(s.state.carrierId);
+        if (carrier !== undefined) {
+          sprite.tint = carrier.color;
+          sprite.alpha = CARRIED_SPARK_ALPHA;
+        } else {
+          // Battle Ledger C4 defensive fallback — carrier id present in
+          // snapshot but player record missing (transient race on joiner
+          // during RETURN_TO_TITLE-while-carrying). Render as Free until
+          // next snapshot resolves the inconsistency.
+          sprite.tint = FREE_SPARK_TINT;
+          sprite.alpha = FREE_SPARK_ALPHA;
+        }
+      } else {
+        sprite.tint = FREE_SPARK_TINT;
+        sprite.alpha = FREE_SPARK_ALPHA;
+      }
     }
 
     if (this.spriteBySpark.size > present.size) {

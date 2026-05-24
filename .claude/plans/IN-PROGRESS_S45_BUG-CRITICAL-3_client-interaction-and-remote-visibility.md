@@ -1,8 +1,60 @@
 # S45 BUG-CRITICAL-3 — Client-mode interaction + remote-player visibility + per-player color identity
 
-**Status:** PENDING NEXT-SESSION DELIBERATION · Tier: TBD (likely Standard or Full) · Author: Claude S44 (post user 2-peer smoke)
-**Constitutional posture:** Will require Scope Amendment + Council R1 (Standard/Full tier) per session-pdca pipeline.
+**Status:** SCOPE LOCKED S45 · Tier: **Full** · Author: Claude S44 (post user 2-peer smoke) · Amended Claude S45 2026-05-24
+**Constitutional posture:** Scope Amendment + Council R1+R2+PRIME-AUDIT (Full tier) per session-pdca pipeline.
 **Blueprint contract at stake:** `SPARK_Blueprint.md:3` ("A Real-Time Multiplayer Game") + line 6 ("Phase-2 Tier-0 1v1 networked SHIPPED") + intent of "real time red spark vs blue spark" per user S44 directive.
+
+---
+
+## S45 SCOPE AMENDMENT (2026-05-24, Claude autonomous-mode under user authorization)
+
+### User verbatim authorization (anchor for Rule 16 audit)
+> "run full session priority batch! im going to sleep so try to get as much done and check your work thoroughly. if you need to decide anything keep the projects best interests in mind. work methodically pedantically creatively and technically and in the end finish with a thorough /handoff !"
+
+Per S44 reflexion `#user-urgency-N-exclamations-authorized-full-tier-without-explicit-option-c-naming`, exclamation marks + autonomous-sleep mandate = `go` signal for the most thorough viable option. "Project's best interest" delegates decision authority to Claude with explicit caveat to be thorough.
+
+### Locked tier: **Option B+** (Full-tier session, ~70-90K total)
+**Sym A + Sym B + Sym C(a) carry-spark tint** — defers Sym C(b/c) primitive/creature creator-tint (schema-touching change) to a follow-up PDR.
+
+**Rationale for B+ over full Option C:** Same-session schema bump (`createdByPlayerId` on Primitive + Bond) + protoVersion bump + back-compat snapshot handling, simultaneously with net-render layer refactor + AvatarRenderer multi-player refactor, is regression-compounding per CLAUDE.md Runtime-Verifiability rule. The "project's best interest" reading favors:
+1. **Ship the broken pairing-experience fix correctly** (Sym A + Sym B are the user-pain-blockers)
+2. **Defer schema-changing visual polish** (Sym C(b/c) tint by creator is craft-polish, not block-fix)
+3. **Carry-spark tint (Sym C(a))** is render-only (no schema), captures most of "and so are their constructions" user intent for sparks in flight, costs ~5 LOC, ships in same PDR
+
+If Council R1 challenges B+ in favor of full Option C, defer to domain-weighted voting.
+
+### State-Discovery findings (Rule 21 §A.0, executed S45 turn 1)
+
+1. **Sym A root cause CONFIRMED via static-parse:** [controls.ts:260-266](src/input/controls.ts:260) LMB-up reach gate compares `cursor` to `spark.pos`. On joiner: spark.pos is host-authoritative, constantly overwritten by snapshots → never moves toward joiner's cursor → reach gate fails → PICKUP_SPARK + PLACE_PRIMITIVE intents never dispatched → joiner cannot grab/place. Fix: client-mode bypass of reach gate (delegate validation to host).
+
+2. **Sym B infrastructure ALREADY WIRED — only dispatch + render-path missing:**
+   - `Player.avatarPos: Vec2` field exists ([player.ts:27](src/game/player.ts:27))
+   - `UPDATE_AVATAR_POS` action exists ([gameMode.ts:39-43](src/state/gameMode.ts:39), reducer line 155-156)
+   - Snapshot serializes `avatarPos` ([save.ts:547](src/state/save.ts:547))
+   - Net protocol whitelists `UPDATE_AVATAR_POS` ([protocol.ts:146](src/net/protocol.ts:146))
+   - Tests exist ([session15.test.ts:107](src/game/session15.test.ts:107))
+   - **Gap:** No production code dispatches UPDATE_AVATAR_POS (`grep src/main.ts` returns 0 hits). AvatarRenderer is single-player (reads `controls.cursor`, not `world.players[id].avatarPos`).
+   - Fix: (a) wire pointer-move → throttled UPDATE_AVATAR_POS dispatch in main.ts game-loop (~20Hz to avoid intent flood); (b) refactor AvatarRenderer to iterate `world.players` and render each at its `avatarPos` for remote / `controls.cursor` for local.
+
+3. **Sym C(a) carry-tint scope:** [renderer.ts:48](src/render/renderer.ts:48) sets sprite.tint = `FREE_SPARK_TINT=0xe6e6f0` for every spark. Need to branch on `s.state.kind === 'Carried'` and pull tint from `world.players[s.state.carrierId].color`. SparkRenderer.sync signature stays `(freeSparks: readonly Spark[])`. ~5 LOC change.
+
+4. **SparkLifecycle silent-reject path verified:** [sparkLifecycle.ts:81-84](src/state/sparkLifecycle.ts:81) increments `world.diagnostics.raceRejects` on non-Free spark — this is a real-time race counter from S42, NOT over-aggressive on joiner side. Sym A is upstream of this (joiner never even sends PICKUP_SPARK intent).
+
+5. **NetSnapshot schema:** No protoVersion bump needed for B+. `avatarPos` already serialized. SparkRenderer carry-tint is render-only. Bundle delta estimated +1-3 KB → still under 500 KB cap (currently 486.91 KB, 13.09 KB headroom).
+
+### Locked challenges (for Council R1)
+
+1. **Sym A optimistic-commit vs server-authoritative-only?** Joiner LMB-down → does the joiner *locally* show "I picked up the spark" (optimistic; render fix at ~50ms RTT) and reconcile on next snapshot? Or wait for host snapshot before showing any state change (deferred ~100ms RTT, snappier integrity)? Council should pick.
+2. **UPDATE_AVATAR_POS dispatch cadence:** every pointer-move (could be 60-120 Hz, intent flood) vs throttled 20 Hz vs piggybacked on next physics-tick (10 Hz, host snapshot rate)? Bandwidth + jitter tradeoff.
+3. **Own-player avatar source:** Local own-player avatar renders at `controls.cursor` (lag-free) vs `world.players[localId].avatarPos` (cursor + 50ms round-trip). Why does this matter — the local cursor reads FROM controls AND we ALSO dispatch UPDATE_AVATAR_POS. If we read from `controls.cursor` for own avatar, we're correct lag-free. If we read from world.players[localId].avatarPos for own avatar too, it lags by network RTT. Spec choice.
+4. **Carry-tint sourcing edge case:** What if `world.players[s.state.carrierId]` is `undefined`? (Snapshot ordering edge — should never happen but defensively guard or throw?)
+5. **Test coverage:** Without 2-browser fixture in test harness, multi-player render is hard to unit-test. Add structural test (AvatarRenderer instantiated 2x with different player IDs → 2 graphics in container) + runtime preview_eval probe after deploy. Adequate?
+
+### Rule 22 end-of-session-audit commitment
+Per CLAUDE.md Rule 22, end-of-session audit will scan commit diffs for unrendered placeholders + dead references + runtime-survival of mitigations + `gh issue/run list` for CI failures.
+
+### LOCKED execution plan (post-Council)
+P4 Sym A fix → P5 Sym B fix → P6 Sym C(a) → P7 build+test → P8 deploy+verify → (carry P9 vite/vitest if context allows) → P10 audit+handoff.
 
 ---
 

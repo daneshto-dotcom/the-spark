@@ -257,12 +257,26 @@ export class Controls {
         // Free where its physics put it, player can try again. Bond length
         // is bounded by spark.pos (placement coord) → target.pos via
         // pickPrimitiveInRange measuring from spark.pos.
+        //
+        // S45 BUG-CRITICAL-3 Sym A — client-mode (joiner) bypasses both
+        // gates and uses cursor as placement reference. Joiner's spark.pos
+        // is host-authoritative + constantly snapshot-overwritten, so the
+        // local reach + zone gates fire unreliably (Council R2 C1 root
+        // cause). Host validates intents authoritatively: PICKUP_SPARK
+        // checks spark.state==='Free'; PLACE_PRIMITIVE checks player.kind
+        // ==='Carrying' + spawner-zone gate via spark.pos (which the prior
+        // PICKUP_SPARK reducer has already snapped to carrier's avatarPos).
+        // Host's own non-1v1 / host-mode controls keep the gates — joiner
+        // bypass is the narrowest scope necessary to fix the regression.
+        const isClient = this.world.gameMode === '1v1' && !this.world.isHost;
+        const targetRefPos = isClient ? this.cursor : spark.pos;
         const reachDx = this.cursor.x - spark.pos.x;
         const reachDy = this.cursor.y - spark.pos.y;
-        const reachable =
-          reachDx * reachDx + reachDy * reachDy <=
-          MAX_RELEASE_REACH * MAX_RELEASE_REACH;
-        const inZone = this.isInsideSpawnerZone(spark.pos);
+        const reachable = isClient
+          ? true
+          : reachDx * reachDx + reachDy * reachDy <=
+            MAX_RELEASE_REACH * MAX_RELEASE_REACH;
+        const inZone = isClient ? false : this.isInsideSpawnerZone(spark.pos);
         if (reachable && !inZone) {
           // S5 hot-fix: single-action place. PICKUP then immediately PLACE so
           // the released spark lands where it physically is. Auto-bonds to
@@ -279,7 +293,10 @@ export class Controls {
             sparkId: spark.id,
             playerId: this.playerId,
           });
-          const targetId = this.pickPrimitiveInRange(AUTO_BOND_RADIUS, spark.pos);
+          // S45 Sym A — target picking uses targetRefPos (cursor in client
+          // mode, spark.pos in host/solo) so joiner's intent reflects where
+          // their cursor was at release, not their stale snapshot spark.pos.
+          const targetId = this.pickPrimitiveInRange(AUTO_BOND_RADIUS, targetRefPos);
           const target = targetId !== null
             ? this.world.primitives.get(targetId) ?? null
             : null;
@@ -293,7 +310,7 @@ export class Controls {
           // by connected component AND picks the nearest primitive per
           // component (S13 P1) so each surrounding structure gets one
           // merge bond at the shortest reachable hop.
-          const mergeCandidateIds = this.allPrimitivesInRange(MERGE_REACH_RADIUS, spark.pos);
+          const mergeCandidateIds = this.allPrimitivesInRange(MERGE_REACH_RADIUS, targetRefPos);
           // S14 P2.1: if we have a primary target, also look for up to K-1
           // additional bond targets in the same connected component within
           // AUTO_BOND_RADIUS — the "redundancy bonds" that make a placement
@@ -301,7 +318,7 @@ export class Controls {
           // Anchor placements (target === null) get no redundancy bonds —
           // there is no primary component to triangulate within.
           const extraBondTargetIds: PrimitiveId[] = target !== null
-            ? this.redundantBondTargetsInSameComponent(target, spark.pos)
+            ? this.redundantBondTargetsInSameComponent(target, targetRefPos)
             : [];
           this.dispatchFn({
             type: 'PLACE_PRIMITIVE',
