@@ -9,11 +9,15 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
-    "test": "vitest"
+    "test": "vitest",
+    "probe-relays": "node scripts/probe-relays.mjs"
   },
   "dependencies": {
-    "pixi.js": "^8.5.0",
-    "trystero": "^0.24.0"
+    "@trystero-p2p/core": "0.25.0",
+    "@trystero-p2p/mqtt": "0.25.0",
+    "@trystero-p2p/nostr": "0.25.0",
+    "@trystero-p2p/torrent": "0.25.0",
+    "pixi.js": "^8.5.0"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

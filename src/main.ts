@@ -893,10 +893,24 @@ async function bootstrap(): Promise<void> {
       if (!world.isHost && netTransport.peerCount() > 0) {
         const td = netTransport.getDiagnostics();
         const errs = clientSync !== null ? clientSync.applyErrors() : 0;
+        // S44 — surface multi-strategy health (Council G-NEW-2 / GE-NEW-2).
+        // Shows e.g. "nostr:6/7" = 6 of 7 relays connected. Failed strategies
+        // shown as "torrent:fail". Disabled strategies omitted from the strip.
+        const strategySummary = td.strategies
+          .filter((s) => s.state !== 'disabled')
+          .map((s) => {
+            if (s.state === 'failed') return `${s.name}:fail`;
+            if (s.state === 'starting') return `${s.name}:…`;
+            const ok = s.relays.filter((r) => r.connected).length;
+            const total = s.relays.length;
+            return total > 0 ? `${s.name}:${ok}/${total}` : `${s.name}:✓`;
+          })
+          .join(' ');
         lobbyScreen.updateDiagnostics(
           `sync ${td.accepted}/${td.accepted + td.rejected} ` +
           `seq=${td.lastSeq} kind=${td.lastKind ?? '—'} ` +
-          `applyErr=${errs} gs=${world.gameState}`,
+          `applyErr=${errs} gs=${world.gameState} ` +
+          `[${strategySummary}]`,
         );
       } else {
         lobbyScreen.updateDiagnostics('');

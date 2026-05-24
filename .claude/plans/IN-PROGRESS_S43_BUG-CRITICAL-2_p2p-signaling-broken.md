@@ -1,9 +1,30 @@
-# S43 BUG-CRITICAL-2 — P2P Signaling Broken (Trystero/Nostr relay degradation)
+# S43→S44 BUG-CRITICAL-2 — P2P Signaling Broken (Trystero/Nostr relay degradation)
 
-**Status:** PENDING USER APPROVAL · Tier: TBD (recommended Standard) · Author: Claude S43
+**Status:** APPROVED — Option C (Full tier) LOCKED · Author: Claude S43, amended Claude S44
 **Symptom:** User reports Player 2 stuck at "Connecting", Player 1 stuck at "Waiting for Player 2..." — `transport.onPeerJoin` never fires.
 **Constitutional posture:** Scope Amendment to S43 (URGENCY protocol triggered + Rule 21 §A.0 State-Discovery completed).
 **Blueprint contract at stake:** `SPARK_Blueprint.md:3` ("A Real-Time Multiplayer Game") + line 6 ("Phase-2 Tier-0 1v1 Trystero/Nostr networked SHIPPED").
+
+---
+
+## SCOPE AMENDMENT — S44 (2026-05-24, post-S43-handoff)
+
+**User directive (verbatim, S44 turn 2):** "fix all bugs! make sure 1v1 wors as intended! real time red spark vs blue spark! no turn based crap. make sure both playrs can connect and play as intended! be thorough!"
+
+**Interpretation:** URGENCY signal + "be thorough" + "fix all bugs" → Option C (Full tier, multi-strategy) per S43 PDR.
+
+**Gate:** User-explicit `go` = direct authorization. Same-turn flag-write + execution permitted (CLAUDE.md PDR gate). `pdr_approved: true` + `deliberation_completed: true` (after Council R1+R2) + `unlock_source: user` written to session-state.json at both top-level and per-priority entries.
+
+**Council:** MANDATORY 3-way (Claude+Grok+Gemini), 2 rounds + quality gate (Full tier).
+
+**State-Discovery extension (S44, beyond S43):**
+- `@trystero-p2p/torrent@0.25.0` ✅ confirmed on npm (published 2026-05-23 by `dmotz`, original Trystero author, MIT, ESM, depends on `@trystero-p2p/core@0.25.0`)
+- `@trystero-p2p/nostr@0.25.0` ✅ confirmed (same publisher/date, depends on `@noble/secp256k1@^3.1.0` + `@trystero-p2p/core@0.25.0`)
+- `@trystero-p2p/mqtt@0.25.0` ✅ confirmed (same publisher/date)
+- `trystero@0.24.0` umbrella transitively installs `@trystero-p2p/nostr@0.24.0` — adding 0.25.0 directly creates version skew that Council must adjudicate (KEEP umbrella + mix? OR migrate fully to 0.25.0 explicit imports?)
+- **Risk surfaced:** packages are 1 day old (published 2026-05-23, today 2026-05-24) → zero production miles, no community-reported issues, no time for npm warning-flag accumulation.
+
+**Deferred to Council R1:** version-skew vs full-migration decision; MQTT inclusion necessity; multi-strategy peerId reconciliation design.
 
 ---
 
