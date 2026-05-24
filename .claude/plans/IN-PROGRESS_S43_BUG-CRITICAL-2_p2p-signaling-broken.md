@@ -1,6 +1,9 @@
 # S43→S44 BUG-CRITICAL-2 — P2P Signaling Broken (Trystero/Nostr relay degradation)
 
-**Status:** APPROVED — Option C (Full tier) LOCKED · Author: Claude S43, amended Claude S44
+**Status:** SHIPPED — pending user 2-peer smoke for final close · Author: Claude S43, amended Claude S44
+**Deploy:** commit `6f412f3` → run `26367307504` SUCCESS → live at https://spark-online.space/ (Last-Modified `2026-05-24T16:59:53Z`)
+**Verification:** preview_eval in-browser confirms nostr 7/7 relays + torrent 3/3 trackers attached; 4-layer deploy verification 10/10 PASS; tests 754/754 unchanged; bundle 486.91 KB / 500 KB cap.
+**Close gate:** USER must run 2-peer smoke per boot-snapshot.md "Smoke instructions" — successful pairing closes BOTH this PDR and S35-P11 carry (now 8 sessions overdue). Reported broken → escalate to BUG-CRITICAL-3 (relay rotation didn't help means new root cause).
 **Symptom:** User reports Player 2 stuck at "Connecting", Player 1 stuck at "Waiting for Player 2..." — `transport.onPeerJoin` never fires.
 **Constitutional posture:** Scope Amendment to S43 (URGENCY protocol triggered + Rule 21 §A.0 State-Discovery completed).
 **Blueprint contract at stake:** `SPARK_Blueprint.md:3` ("A Real-Time Multiplayer Game") + line 6 ("Phase-2 Tier-0 1v1 Trystero/Nostr networked SHIPPED").
