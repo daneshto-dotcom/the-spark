@@ -17,6 +17,7 @@
 import type { Application } from 'pixi.js';
 import {
   ATTRACT_FOLLOW_RATE,
+  AUTO_BOND_RADIUS,
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   MERGE_REACH_RADIUS,
@@ -67,7 +68,9 @@ const BOND_PICK_DIST = 8;
 // "really" meant to land on) vs merge reach (which OTHER structures get
 // pulled into the new connection). Closes the post-S12 playtest report
 // that placing in the middle of three structures only merges with one.
-const AUTO_BOND_RADIUS = 60;
+// S48 P2 (Sym C fix) — constant promoted to constants.ts so host
+// placePrimitive can re-pick targets on remote-origin intents with
+// the same radius.
 // S9 P1: max distance cursor can be from spark.pos at LMB-up for the place
 // to commit. Replaces S7's snap-to-cursor — without this gate the user could
 // pickup a spark, flick cursor across the canvas, release, and have the
@@ -331,6 +334,13 @@ export class Controls {
             stiffnessTier: tier,
             mergeCandidateIds,
             extraBondTargetIds,
+            // S48 P2 (Sym C fix) — authoritative placement coord for host
+            // re-pick. Cursor is the source of truth for "where the player
+            // wanted to place"; joiner's local target picking may have
+            // missed a host-side primitive due to snapshot lag, so host
+            // re-derives target + merge candidates against its own world
+            // using this coord.
+            placementPos: { x: this.cursor.x, y: this.cursor.y },
           });
         }
       }
@@ -353,6 +363,8 @@ export class Controls {
           playerId: this.playerId,
           targetPrimitiveId: target?.id ?? null,
           stiffnessTier: tier,
+          // S48 P2 (Sym C fix) — see comment on LMB-up dispatch above.
+          placementPos: { x: this.cursor.x, y: this.cursor.y },
         });
       }
       this.releasePointerCapture(e);

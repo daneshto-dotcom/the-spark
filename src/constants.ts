@@ -188,7 +188,7 @@ export const MERGE_IMPULSE_MAGNITUDE = 3.0;
 export const MIN_BOND_LENGTH_FOR_IMPULSE = 25;
 
 // S13 P1 — cross-structure merge reach. Separate from AUTO_BOND_RADIUS
-// (60, primary target picking precision, defined locally in controls.ts).
+// (60, primary target picking precision).
 // 100 px is wide enough that three structures arranged ~90 px apart
 // around a placement point all enter the merge sweep, but not so wide
 // that distant unrelated structures get pulled in unintentionally.
@@ -196,6 +196,13 @@ export const MIN_BOND_LENGTH_FOR_IMPULSE = 25;
 // merges" bug — root cause was AUTO_BOND_RADIUS=60 doubling as both
 // primary-pick radius AND merge-sweep radius. S13 P1 splits them.
 export const MERGE_REACH_RADIUS = 100;
+
+// S48 P2 (Sym C fix) — primary target pick radius for auto-bond on
+// placement. Promoted from controls.ts module-local to shared constant
+// so the host's authoritative re-pick (placePrimitive.ts, when a remote
+// joiner's intent has a stale/null targetPrimitiveId due to snapshot
+// lag) uses the same radius as the client's optimistic pick.
+export const AUTO_BOND_RADIUS = 60;
 
 
 // Tier-gated corner pulse boundary. scoreProgress crossing each multiple

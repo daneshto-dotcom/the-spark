@@ -21,7 +21,9 @@
 
 import { lookupCombo } from '../combos.ts';
 import {
+  AUTO_BOND_RADIUS,
   MERGE_IMPULSE_MAGNITUDE,
+  MERGE_REACH_RADIUS,
   MIN_BOND_LENGTH_FOR_IMPULSE,
   SCORE_ANCHOR,
   SCORE_FUNCTIONAL_BOND,
@@ -37,7 +39,7 @@ import { CarryViolation, drop as fsmDrop, tickBuildAction } from '../game/player
 import { makePrimitiveFromSpark, type Primitive } from '../game/primitive.ts';
 import { bfsHopMap, componentOf, type Structure } from '../game/structure.ts';
 import type { Bond } from '../physics/bonds.ts';
-import { asBondId, asPrimitiveId, type PlayerId, type PrimitiveId } from '../types.ts';
+import { asBondId, asPrimitiveId, type PlayerId, type PrimitiveId, type Vec2 } from '../types.ts';
 import { addScore, requirePlayer, type World } from './world.ts';
 
 /** Action payload for PLACE_PRIMITIVE — exported so world.ts can compose GameAction. */
@@ -74,6 +76,30 @@ export interface PlacePrimitiveAction {
    *     rigid-body equilibrium relative to the primary bond)
    */
   readonly extraBondTargetIds?: ReadonlyArray<PrimitiveId>;
+  /**
+   * S48 P2 (Sym C fix) — authoritative placement coord (cursor at LMB-up
+   * or RMB-up). Optional for back-compat with pre-S48 callers + tests
+   * that synthesize PlacePrimitiveAction with target-id-only payloads.
+   *
+   * Purpose: when the dispatch comes from a REMOTE joiner in 1v1 (host
+   * is processing client INTENT), the joiner's `targetPrimitiveId` and
+   * `mergeCandidateIds` were derived from the JOINER'S LOCAL primitives
+   * map, which is snapshot-lagged by up to RTT/2. If the joiner placed
+   * a primitive moments earlier and immediately placed a second, the
+   * joiner's local map may not yet contain the first prim — target
+   * picking returns null, host applies as anchor, no bond forms. After
+   * several placements + snapshot RTT elapsed, joiner's view catches
+   * up and bonds start forming. User-reported as "first 4 didn't
+   * connect, 5th did."
+   *
+   * Fix: when remote-origin + placementPos provided, host RE-PICKS
+   * targetPrimitiveId AND RE-DERIVES mergeCandidateIds against its
+   * OWN authoritative world. Joiner's intent fields become hints, not
+   * authority. Local-origin dispatches (solo / host's own actions)
+   * skip the re-pick and use the action's fields as-is — pre-S48
+   * behavior preserved byte-for-byte.
+   */
+  readonly placementPos?: Vec2;
 }
 
 export function placePrimitive(world: World, action: PlacePrimitiveAction): World {
@@ -105,16 +131,64 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
   // silently demote to anchor placement (drop the bond, keep the primitive).
   // controls.ts already filters at the selection layer; this is defense in
   // depth against misbehaving or old clients.
+  //
+  // S48 P2 (Sym C fix) — race-reject preserved for the legacy "target
+  // missing" path so session15.test.ts's "P2 retains carry on race-reject"
+  // contract holds. The Sym C remote-origin re-pick lives in a SEPARATE
+  // branch below; it only fires when joiner explicitly sent
+  // targetPrimitiveId=null (snapshot-lagged target picking) AND placementPos
+  // is supplied. Never overrides a joiner-supplied id that the host happens
+  // to no longer have — that's still a legitimate race the spark should
+  // survive.
   let effectiveTargetId: PrimitiveId | null = action.targetPrimitiveId;
   if (effectiveTargetId !== null) {
     const target = world.primitives.get(effectiveTargetId);
     if (target === undefined) {
       world.diagnostics.raceRejects++;
-      return world;
+      return world; // S42 race-reject: preserve carry, no spark consumption
     }
     if (target.placerColor !== player.color) {
       effectiveTargetId = null; // demote to anchor — bond rejected, prim still places
     }
+  }
+
+  // S48 P2 (Sym C fix) — host-side authoritative target + merge-candidate
+  // re-pick for REMOTE-origin intents with explicit null target. When the
+  // joiner places primitive N+1 faster than snapshot RTT, the joiner's
+  // local primitives map doesn't contain primitive N yet, so the joiner's
+  // target picking returns null → joiner sends `targetPrimitiveId: null`
+  // → pre-S48 host applies as anchor (no bond). User-visible as
+  // "first 4 didn't connect, 5th did."
+  //
+  // Re-pick policy: ONLY activate when joiner explicitly sent null target
+  // — never override a joiner-supplied id (preserves intentional anchor
+  // placements AND the race-reject contract above). Search host's
+  // authoritative world for the nearest same-color primitive within
+  // AUTO_BOND_RADIUS of placementPos. Local-origin dispatches skip the
+  // re-pick entirely → pre-S48 behavior byte-identical for solo + host's
+  // own actions.
+  const isRemoteOrigin =
+    world.gameMode === '1v1' &&
+    world.isHost &&
+    action.playerId !== world.localPlayerId;
+  let effectiveMergeCandidateIds: ReadonlyArray<PrimitiveId> | undefined =
+    action.mergeCandidateIds;
+  if (isRemoteOrigin && action.placementPos !== undefined) {
+    if (effectiveTargetId === null && action.targetPrimitiveId === null) {
+      effectiveTargetId = pickHostTargetPrimitive(
+        world,
+        action.placementPos,
+        player.color,
+      );
+    }
+    // Re-derive merge candidates from host's world so stale joiner lists
+    // don't suppress merges that the host can see. Joiner's list is a hint;
+    // host is authoritative.
+    effectiveMergeCandidateIds = collectHostMergeCandidates(
+      world,
+      action.placementPos,
+      player.color,
+    );
   }
 
   const primId = asPrimitiveId(world.nextPrimitiveId++);
@@ -289,7 +363,7 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
   // bug "place at center of 3 structures, only one merges" — root cause
   // was the merge sweep sharing the narrower primary-pick radius.
   const candidatesByComp = new Map<PrimitiveId, { cand: Primitive; distSq: number; comp: Structure }>();
-  for (const candId of action.mergeCandidateIds ?? []) {
+  for (const candId of effectiveMergeCandidateIds ?? []) {
     if (candId === prim.id) continue;
     if (mergedComponents.has(candId)) continue;
     const cand = world.primitives.get(candId);
@@ -511,6 +585,66 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
   tickBuildAction(world.players.get(player.id)!);
 
   return world;
+}
+
+/**
+ * S48 P2 (Sym C fix) — host-side authoritative target pick for remote-
+ * origin PLACE_PRIMITIVE intents. Mirrors controls.ts pickPrimitiveInRange
+ * but operates on host's authoritative world.primitives map (vs joiner's
+ * snapshot-lagged local map).
+ *
+ * Filter: same-color only (matches Sym D color-segregation). Returns the
+ * nearest matching primitive within AUTO_BOND_RADIUS of placementPos, or
+ * null if none in range.
+ *
+ * Exported for vitest coverage of the snapshot-lag race scenarios.
+ */
+export function pickHostTargetPrimitive(
+  world: World,
+  placementPos: Vec2,
+  playerColor: number,
+): PrimitiveId | null {
+  let best: Primitive | null = null;
+  let bestDistSq = AUTO_BOND_RADIUS * AUTO_BOND_RADIUS;
+  for (const p of world.primitives.values()) {
+    if (p.placerColor !== playerColor) continue;
+    const dx = p.pos.x - placementPos.x;
+    const dy = p.pos.y - placementPos.y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < bestDistSq) {
+      best = p;
+      bestDistSq = d2;
+    }
+  }
+  return best?.id ?? null;
+}
+
+/**
+ * S48 P2 (Sym C fix) — host-side merge candidate sweep for remote-origin
+ * intents. Mirrors controls.ts allPrimitivesInRange (MERGE_REACH_RADIUS,
+ * same-color filter). Replaces joiner-supplied list to compensate for
+ * snapshot lag in the joiner's local view.
+ *
+ * The downstream merge sweep in placePrimitive() already dedups by
+ * connected component + picks the nearest cand per component, so an
+ * over-inclusive set (vs joiner's possibly-empty one) is corrected by
+ * that downstream logic — net behavior is "all reachable same-color
+ * components get exactly one merge bond at the nearest hop."
+ */
+export function collectHostMergeCandidates(
+  world: World,
+  placementPos: Vec2,
+  playerColor: number,
+): ReadonlyArray<PrimitiveId> {
+  const r2 = MERGE_REACH_RADIUS * MERGE_REACH_RADIUS;
+  const ids: PrimitiveId[] = [];
+  for (const p of world.primitives.values()) {
+    if (p.placerColor !== playerColor) continue;
+    const dx = p.pos.x - placementPos.x;
+    const dy = p.pos.y - placementPos.y;
+    if (dx * dx + dy * dy <= r2) ids.push(p.id);
+  }
+  return ids;
 }
 
 export function makeBond(
