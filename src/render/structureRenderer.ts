@@ -44,7 +44,18 @@ export class StructureRenderer {
   private readonly bondGraphics: Graphics;
   private readonly previewGraphics: Graphics;
   private readonly primitiveLayer: Container;
-  private readonly carryHalo: Graphics;
+  // S48 P5 (Sym B fix) — carryHalo REMOVED. Live S47 smoke: user reported
+  // an undesired colored ring appearing around the carried spark on the
+  // joiner side ("for every primitive player two chooses, [there's a
+  // circle around it]"). drawCarryHalo iterated ALL Carrying players + drew
+  // a 2px colored ring at carried.pos + 8 radius, no isLocal gate. Visible
+  // asymmetry vs host arose because joiner's client-prediction of
+  // PICKUP_SPARK (S46 C13) puts joiner-local state in Carrying while host
+  // sometimes rejected the pickup (Sym A) — joiner saw the halo, host
+  // didn't. User-preferred resolution per S47 directive ("i just want
+  // everything to work properly"): remove halo entirely. Carry state is
+  // still communicated by the spark-following-cursor motion + the avatar
+  // pulse boost from S45 C10 (avatarRenderer.ts:72,114).
   private readonly spriteByPrim: Map<PrimitiveId, Sprite> = new Map();
   private readonly textures: ShapeTextures;
 
@@ -54,19 +65,17 @@ export class StructureRenderer {
     this.bondGraphics = new Graphics();
     this.primitiveLayer = new Container();
     this.previewGraphics = new Graphics();
-    this.carryHalo = new Graphics();
 
     app.stage.addChild(this.bondGraphics);
     app.stage.addChild(this.primitiveLayer);
     app.stage.addChild(this.previewGraphics);
-    app.stage.addChild(this.carryHalo);
   }
 
   sync(world: World, controls: ControlState): void {
     this.syncPrimitives(world);
     this.drawBonds(world.bonds, world.tick);
     this.drawPreview(world, controls);
-    this.drawCarryHalo(world);
+    // S48 P5 (Sym B fix) — drawCarryHalo call removed; see field comment.
   }
 
   private syncPrimitives(world: World): void {
@@ -205,22 +214,13 @@ export class StructureRenderer {
     }
   }
 
-  private drawCarryHalo(world: World): void {
-    const g = this.carryHalo;
-    g.clear();
-    for (const player of world.players.values()) {
-      if (player.kind !== 'Carrying') continue;
-      const carried = world.freeSparks.get(player.carriedSparkId);
-      if (carried === undefined) continue;
-      g.circle(carried.pos.x, carried.pos.y, carried.radius + 8)
-        .stroke({ width: 2, color: player.color, alpha: 0.9 });
-    }
-  }
+  // S48 P5 (Sym B fix) — private drawCarryHalo(world) DELETED. See field
+  // comment for rationale; carry state is communicated by other visuals
+  // already (spark-cursor follow + avatar pulse boost).
 
   destroy(): void {
     this.bondGraphics.destroy();
     this.previewGraphics.destroy();
-    this.carryHalo.destroy();
     this.primitiveLayer.destroy({ children: true });
     destroyShapeTextures(this.textures);
     this.spriteByPrim.clear();
