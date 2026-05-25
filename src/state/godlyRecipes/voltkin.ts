@@ -144,6 +144,61 @@ export const voltkinPredicate: RecipePredicate = (world) => {
     return null;
   }
 
+  // S48 P4 (Sym G fix) — strict chain isolation enforcement.
+  //
+  // User-reported bug: 5 squares all bonded together as one structure +
+  // 4 triangles bonded to one of the squares → Voltkin fired. The DFS
+  // in findVoltkinChain finds a 4-Sq + 4-Tr path within that graph but
+  // doesn't verify the chain primitives are ISOLATED from off-chain
+  // primitives. The spec ("strict 4 squares followed by 4 triangles —
+  // if you accidentally connect anything else to the structure it
+  // shouldn't go off") demands that no chain primitive bond to any
+  // off-chain primitive.
+  //
+  // Check: walk every bond on every chain prim; reject if any bond's
+  // other endpoint is not in the chain set. Also enforces linear-path
+  // geometry: each chain prim's bonds.size must equal its in-chain-
+  // expected degree (endpoint=1 for chain[0] and chain[7]; middle=2
+  // for chain[1..6]) — rejects triangulated / loop-closed chains where
+  // chain prims have extra bonds AMONG themselves.
+  const chainSet = new Set(chain);
+  for (let i = 0; i < chain.length; i++) {
+    const id = chain[i];
+    const p = world.primitives.get(id);
+    if (p === undefined) {
+      if (isVoltkinDebug()) console.log(`[voltkin] predicate: chain prim ${id} missing`);
+      return null;
+    }
+    const expectedDegree = (i === 0 || i === chain.length - 1) ? 1 : 2;
+    if (p.bonds.size !== expectedDegree) {
+      if (isVoltkinDebug()) {
+        console.log(
+          `[voltkin] predicate: chain[${i}]=${id} degree ${p.bonds.size} != expected ${expectedDegree} `
+          + `(isolation/linearity check failed)`,
+        );
+      }
+      return null;
+    }
+    // Defense-in-depth: even when degree matches, verify each bond connects
+    // to an in-chain neighbor. Guards against the bizarre case where degree
+    // happens to equal expected but bonds point to off-chain prims via
+    // some race (e.g., chain prim has 1 in-chain bond + 1 off-chain bond
+    // while another in-chain neighbor is missing a back-bond).
+    for (const bondId of p.bonds) {
+      const bond = world.bonds.get(bondId);
+      if (bond === undefined) continue;
+      const otherEnd = bond.aId === id ? bond.bId : bond.aId;
+      if (!chainSet.has(otherEnd)) {
+        if (isVoltkinDebug()) {
+          console.log(
+            `[voltkin] predicate: chain[${i}]=${id} has off-chain bond to ${otherEnd}`,
+          );
+        }
+        return null;
+      }
+    }
+  }
+
   const colorCounts = new Map<number, number>();
   const chainColors: string[] = [];
   let sumX = 0;

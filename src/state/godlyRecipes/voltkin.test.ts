@@ -168,10 +168,19 @@ describe('voltkin predicate (typed chain)', () => {
     expect(voltkinPredicate(world, { x: 0, y: 0 })).toBeNull();
   });
 
-  it('matches a valid 8-chain embedded in a branched topology', () => {
-    // Linear chain 0..7 (SQ4 then TR4), plus extra branch off prim 2 (square)
-    // to a Circle (prim 100) — DFS must backtrack from the circle branch and
-    // still find the valid chain through prim 3.
+  it('S48 P4 (Sym G) — REJECTS a chain when any chain prim has an off-chain bond', () => {
+    // SPEC CHANGE in S48 P4: user-confirmed Voltkin recipe must enforce
+    // STRICT CHAIN ISOLATION — chain primitives may only bond to other
+    // chain primitives. Pre-S48 (S23 P1 rewrite), the DFS happily found
+    // an 8-prim chain embedded in a branched topology and matched. User-
+    // reported regression: "if you accidentally connect anything else to
+    // the structure it shouldn't go off." The 5-square blob + 4-triangle
+    // chain pattern that fired Voltkin in S47 live smoke is the canonical
+    // case; this test exercises the same isolation rule with a Circle
+    // branch off prim 2.
+    //
+    // Pre-S48 behavior (deleted): predicate matched, target chain
+    // excluded the off-chain branch. Post-S48: predicate returns null.
     for (let i = 0; i < 4; i++) {
       addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Square));
     }
@@ -181,15 +190,62 @@ describe('voltkin predicate (typed chain)', () => {
     for (let i = 0; i < 7; i++) {
       addBond(world, makeBond(i, i, i + 1));
     }
-    // branch off prim 2: extra circle dangling
+    // branch off prim 2: extra circle dangling — chain isolation violated.
     addPrim(world, makePrim(100, p0Color, 100, 80, SparkType.Circle));
     addBond(world, makeBond(100, 2, 100));
 
+    expect(voltkinPredicate(world, { x: 0, y: 0 })).toBeNull();
+  });
+
+  it('S48 P4 (Sym G) — REJECTS the user-reported "5 squares + 4 triangles blob" pattern', () => {
+    // Live reproduction of the S47 P4 user smoke: 5 squares all bonded
+    // together in a mesh, then 4 triangles bonded linearly to one of the
+    // squares. Pre-S48 the DFS found a 4-Sq + 4-Tr path within this blob
+    // and Voltkin fired; user marked this as wrong. Post-S48 the strict-
+    // isolation gate rejects because chain-square prims have off-chain
+    // bonds to the 5th (off-chain) square.
+    //
+    // Topology: squares 0-4 form a small mesh (0-1, 1-2, 2-3, 3-4, AND
+    // 0-4 closing the loop). Then linear triangles 5-6-7-8 bonded to
+    // square 0 via bond 5-0.
+    for (let i = 0; i < 5; i++) {
+      addPrim(world, makePrim(i, p0Color, i * 30, 0, SparkType.Square));
+    }
+    addBond(world, makeBond(0, 0, 1));
+    addBond(world, makeBond(1, 1, 2));
+    addBond(world, makeBond(2, 2, 3));
+    addBond(world, makeBond(3, 3, 4));
+    addBond(world, makeBond(4, 0, 4)); // mesh closing bond — square 0 now degree 2 in-mesh
+    for (let i = 5; i < 9; i++) {
+      addPrim(world, makePrim(i, p0Color, i * 30, 0, SparkType.Triangle));
+    }
+    // triangles linear chain 5-6-7-8
+    addBond(world, makeBond(5, 5, 6));
+    addBond(world, makeBond(6, 6, 7));
+    addBond(world, makeBond(7, 7, 8));
+    // square 0 → triangle 5 (bridge from square mesh to triangle line)
+    addBond(world, makeBond(8, 0, 5));
+
+    expect(voltkinPredicate(world, { x: 0, y: 0 })).toBeNull();
+  });
+
+  it('S48 P4 (Sym G) — MATCHES a clean linear 4Sq→4Tr chain (regression guard)', () => {
+    // Sanity: the strict-isolation gate must not over-reject. A pristine
+    // 4-square + 4-triangle linear chain with no extra bonds must still
+    // match. Endpoints (chain[0], chain[7]) have degree 1; middles
+    // (chain[1..6]) have degree 2; all bonds connect within chain.
+    for (let i = 0; i < 4; i++) {
+      addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Square));
+    }
+    for (let i = 4; i < 8; i++) {
+      addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Triangle));
+    }
+    for (let i = 0; i < 7; i++) {
+      addBond(world, makeBond(i, i, i + 1));
+    }
     const match = voltkinPredicate(world, { x: 0, y: 0 });
     expect(match).not.toBeNull();
     expect(match!.targetComponentPrimitiveIds.length).toBe(8);
-    // chain should NOT include the branch (prim 100)
-    expect(match!.targetComponentPrimitiveIds).not.toContain(100 as unknown as PrimitiveId);
   });
 
   it('triggerer is the dominant placerColor across the chain', () => {
