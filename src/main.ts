@@ -363,6 +363,21 @@ async function bootstrap(): Promise<void> {
         if (msg.kind === 'START_GAME_SIGNAL' && world.gameState === 'LOBBY') {
           dispatch(world, { type: 'START_GAME', mode: msg.mode, isHost: false });
         }
+        // S47 P1 (Sym I fix) — receive host-broadcast game-end envelope
+        // and dispatch WIN_TRIGGER locally so joiner's gameState flips to
+        // 'WIN' immediately. Pre-S47, the joiner had no handler for ENDGAME
+        // (only NETSNAPSHOT / GODLY_TRIGGER / START_GAME_SIGNAL were wired)
+        // AND host never sent it. Both halves now connected. The widened
+        // snapshot gate above (main.ts ~810) means subsequent NETSNAPSHOTs
+        // will carry the host's WIN→POSTGAME transition for state sync;
+        // this envelope guarantees the joiner sees the result even if
+        // the very first WIN-tick snapshot is dropped. Idempotent — re-
+        // dispatching WIN_TRIGGER while already in WIN/POSTGAME is a noop
+        // because the reducer is pure-assignment + the world is host-state-
+        // overwritten by the next snapshot.
+        if (msg.kind === 'ENDGAME') {
+          dispatch(world, { type: 'WIN_TRIGGER', winnerId: msg.winnerId });
+        }
       });
     },
     onBeginMatch: () => {
@@ -795,10 +810,21 @@ async function bootstrap(): Promise<void> {
       }
 
       // S15 P2 — host emits NetSnapshot every SNAPSHOT_INTERVAL_TICKS
-      // (60Hz / 10Hz = 6 ticks). Only fires in 1v1 PLAYING; suppressed
-      // in TITLE/LOBBY (no snapshot to send pre-game) and in solo.
+      // (60Hz / 10Hz = 6 ticks). Suppressed in TITLE/LOBBY (no snapshot
+      // to send pre-game) and in solo.
+      //
+      // S47 P1 (Sym I fix): gate WIDENED from `gameState === 'PLAYING'`
+      // to `PLAYING|WIN|POSTGAME`. Pre-fix, host stopped sending snapshots
+      // the instant it transitioned to WIN, leaving joiner stuck at the
+      // last PLAYING snapshot forever — joiner never saw the win and the
+      // game ended silently on the remote side. Defence-in-depth alongside
+      // the dedicated ENDGAME envelope below: snapshots keep flowing so the
+      // joiner gets continuous interpolation through the WIN dwell + POSTGAME
+      // freeze, AND a guaranteed ENDGAME envelope fires once on the transition.
       if (
-        world.gameState === 'PLAYING' &&
+        (world.gameState === 'PLAYING' ||
+          world.gameState === 'WIN' ||
+          world.gameState === 'POSTGAME') &&
         world.gameMode === '1v1' &&
         world.isHost &&
         hostSync !== null &&
@@ -819,6 +845,28 @@ async function bootstrap(): Promise<void> {
       }
       if (world.gameState === 'POSTGAME' && lastGameState !== 'POSTGAME') {
         saveToLocalStorage(world);
+      }
+      // S47 P1 (Sym I fix) — host broadcasts ENDGAME envelope on the
+      // PLAYING→WIN transition so the joiner is informed even if the
+      // accompanying snapshot is dropped on the wire. The envelope was
+      // defined in protocol.ts since at least S15 but NEVER wired —
+      // host never called netTransport.send({kind:'ENDGAME', ...}) and
+      // joiner had no recv handler. Same anti-pattern as parseNetMessage
+      // being defined-but-never-called pre-S38 audit.
+      //
+      // Transition guard: fire ONCE on the PLAYING→WIN edge, NOT every
+      // tick while in WIN. lastWinnerId is set synchronously by the
+      // WIN_TRIGGER reducer (world.ts:360-363) so it's authoritative at
+      // this point. 1v1-only — solo has no peer to notify.
+      if (
+        world.gameState === 'WIN' &&
+        lastGameState !== 'WIN' &&
+        world.gameMode === '1v1' &&
+        world.isHost &&
+        netTransport !== null &&
+        world.lastWinnerId !== null
+      ) {
+        netTransport.send({ kind: 'ENDGAME', winnerId: world.lastWinnerId });
       }
       // S18 P1 — start background music on transition to PLAYING. Covers
       // solo + 1v1 host + 1v1 client paths (client transitions via snapshot
