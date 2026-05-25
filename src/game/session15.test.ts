@@ -42,7 +42,7 @@ function placeAnchor(world: ReturnType<typeof makeWorld>, sparkRawId: number, pl
     createdTick: world.tick,
   });
   dispatch(world, { type: 'SPAWN_SPARK', spark: s });
-  dispatch(world, { type: 'PICKUP_SPARK', sparkId: s.id, playerId });
+  dispatch(world, { type: 'PICKUP_SPARK', sparkId: s.id, playerId, pos: { x: s.pos.x, y: s.pos.y } });
   dispatch(world, {
     type: 'PLACE_PRIMITIVE',
     playerId,
@@ -141,7 +141,7 @@ describe('S15 P2 — gameState FSM extension', () => {
       createdTick: 0,
     });
     w.freeSparks.set(spark.id, spark);
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: spark.id, playerId: P1 });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: spark.id, playerId: P1, pos: { x: spark.pos.x, y: spark.pos.y } });
     // Confirm P1 carrying.
     expect(w.players.get(P1)!.kind).toBe('Carrying');
     // Now dispatch UPDATE_AVATAR_POS — the carried spark must follow.
@@ -190,7 +190,7 @@ describe('S42 — 1v1 real-time: both players can act simultaneously', () => {
       createdTick: 0,
     });
     dispatch(w, { type: 'SPAWN_SPARK', spark: s });
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1 });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1, pos: { x: s.pos.x, y: s.pos.y } });
     expect(s.state.kind).toBe('Carried');
     expect(w.players.get(P1)!.kind).toBe('Carrying');
   });
@@ -207,9 +207,13 @@ describe('S42 — 1v1 real-time: both players can act simultaneously', () => {
       createdTick: 0,
     });
     dispatch(w, { type: 'SPAWN_SPARK', spark: s });
+    // S46 P2 Δ1 — bring P2's avatarPos near the spark so host re-validation
+    // accepts (production flow: UPDATE_AVATAR_POS dispatches at 10Hz before
+    // PICKUP, keeping avatarPos within REASONABLE_PICKUP_REACH=250 of cursor).
+    dispatch(w, { type: 'UPDATE_AVATAR_POS', playerId: P2, pos: { x: s.pos.x, y: s.pos.y } });
     // S42 — in pre-S42 turn-based world this would silently no-op
     // (currentPlayerId=P1, P2 is inactive). Real-time accepts it.
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P2 });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P2, pos: { x: s.pos.x, y: s.pos.y } });
     expect(s.state.kind).toBe('Carried');
     expect(w.players.get(P2)!.kind).toBe('Carrying');
     expect(w.diagnostics.raceRejects).toBe(0); // no race — only one player tried
@@ -227,7 +231,9 @@ describe('S42 — 1v1 real-time: both players can act simultaneously', () => {
       createdTick: 0,
     });
     dispatch(w, { type: 'SPAWN_SPARK', spark: s });
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P2 });
+    // S46 P2 Δ1 — sync P2 avatarPos before PICKUP (see prior test note).
+    dispatch(w, { type: 'UPDATE_AVATAR_POS', playerId: P2, pos: { x: s.pos.x, y: s.pos.y } });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P2, pos: { x: s.pos.x, y: s.pos.y } });
     dispatch(w, {
       type: 'PLACE_PRIMITIVE',
       playerId: P2,
@@ -499,7 +505,7 @@ describe('S42 — real-time race resolution', () => {
     dispatch(w, { type: 'SPAWN_SPARK', spark: s });
 
     // P1's intent arrives at host first.
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1 });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1, pos: { x: s.pos.x, y: s.pos.y } });
     expect(s.state.kind).toBe('Carried');
     if (s.state.kind === 'Carried') expect(s.state.carrierId).toBe(P1);
     expect(w.players.get(P1)!.kind).toBe('Carrying');
@@ -509,7 +515,7 @@ describe('S42 — real-time race resolution', () => {
     // Pre-S20 this PATH threw `spark X not Free` — that crashed the host
     // dispatch loop under real-time. S42: silent + counter.
     expect(() =>
-      dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P2 }),
+      dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P2, pos: { x: s.pos.x, y: s.pos.y } }),
     ).not.toThrow();
     expect(s.state.kind).toBe('Carried');
     if (s.state.kind === 'Carried') expect(s.state.carrierId).toBe(P1); // unchanged
@@ -522,7 +528,7 @@ describe('S42 — real-time race resolution', () => {
     dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
     // No spark spawned; missing id is a caller bug or wire corruption, not a race.
     expect(() =>
-      dispatch(w, { type: 'PICKUP_SPARK', sparkId: asSparkId(999), playerId: P1 }),
+      dispatch(w, { type: 'PICKUP_SPARK', sparkId: asSparkId(999), playerId: P1, pos: { x: 100, y: 100 } }),
     ).toThrow();
     expect(w.diagnostics.raceRejects).toBe(0); // missing != race
   });
@@ -540,7 +546,9 @@ describe('S42 — real-time race resolution', () => {
       createdTick: 0,
     });
     dispatch(w, { type: 'SPAWN_SPARK', spark: s });
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P2 });
+    // S46 P2 Δ1 — sync P2 avatarPos before PICKUP.
+    dispatch(w, { type: 'UPDATE_AVATAR_POS', playerId: P2, pos: { x: s.pos.x, y: s.pos.y } });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P2, pos: { x: s.pos.x, y: s.pos.y } });
     // Race: target primitive ID was severed by P1 between P2's cursor pick
     // and host's dispatch. Pre-S42 this would throw and crash dispatch.
     expect(() =>

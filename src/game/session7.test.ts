@@ -49,7 +49,8 @@ function spawnFreeAt(
 }
 
 function placeWithoutBond(world: ReturnType<typeof makeWorld>, sparkId: ReturnType<typeof asSparkId>) {
-  dispatch(world, { type: 'PICKUP_SPARK', sparkId, playerId: P1 });
+  const sp = world.freeSparks.get(sparkId);
+  dispatch(world, { type: 'PICKUP_SPARK', sparkId, playerId: P1, pos: sp ? { x: sp.pos.x, y: sp.pos.y } : { x: 0, y: 0 } });
   dispatch(world, {
     type: 'PLACE_PRIMITIVE',
     playerId: P1,
@@ -95,7 +96,8 @@ describe('S9 P1 — reachability gate for LMB-up-outside-zone place', () => {
     }
     expect(pickedPid, 'target at (1300,500) within 60 of spark (1280,500)').toBe(targetPid);
 
-    dispatch(world, { type: 'PICKUP_SPARK', sparkId: dSparkId, playerId: P1 });
+    const dSp = world.freeSparks.get(dSparkId);
+    dispatch(world, { type: 'PICKUP_SPARK', sparkId: dSparkId, playerId: P1, pos: dSp ? { x: dSp.pos.x, y: dSp.pos.y } : { x: 0, y: 0 } });
     dispatch(world, {
       type: 'PLACE_PRIMITIVE',
       playerId: P1,

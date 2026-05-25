@@ -50,7 +50,9 @@ function placeAt(
       createdTick: world.tick,
     }),
   });
-  dispatch(world, { type: 'PICKUP_SPARK', sparkId, playerId: P1_ID });
+  const _sp10 = world.freeSparks.get(sparkId);
+  // S46 P2 — mandatory pos field; spark's current pos = no-op snap.
+  dispatch(world, { type: 'PICKUP_SPARK', sparkId, playerId: P1_ID, pos: _sp10 ? { x: _sp10.pos.x, y: _sp10.pos.y } : { x: 0, y: 0 } });
   const beforeIds = new Set([...world.primitives.keys()]);
   dispatch(world, {
     type: 'PLACE_PRIMITIVE',

@@ -31,7 +31,7 @@ function place(world: World, sparkId: number, target: PrimitiveId | null): Primi
     createdTick: world.tick,
   });
   dispatch(world, { type: 'SPAWN_SPARK', spark: s });
-  dispatch(world, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1 });
+  dispatch(world, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1, pos: { x: s.pos.x, y: s.pos.y } });
   dispatch(world, {
     type: 'PLACE_PRIMITIVE',
     playerId: P1,

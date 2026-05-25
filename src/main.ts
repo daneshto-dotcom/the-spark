@@ -201,6 +201,18 @@ async function bootstrap(): Promise<void> {
   // S15 P2 — dispatcher injection. In solo or host mode, dispatch locally.
   // In client mode, wrap as INTENT and send via transport (host applies
   // authoritatively; snapshot returns ~RTT/2 later).
+  //
+  // S46 P2 C13 — client-side prediction for select actions. Joiner applies
+  // PICKUP_SPARK + UPDATE_AVATAR_POS locally BEFORE wrapping as INTENT so
+  // the carry + avatar-pos changes are visible at zero perceived latency.
+  // Host's authoritative snapshot arrives ~RTT/2 later and reconciles. NO
+  // prediction for PLACE_PRIMITIVE / SEVER_BOND (state mutations with
+  // downstream effects — primitive IDs would conflict with host's).
+  // Council Battle Ledger C13.
+  const PREDICTABLE_ACTIONS: ReadonlySet<GameAction['type']> = new Set([
+    'PICKUP_SPARK',
+    'UPDATE_AVATAR_POS',
+  ]);
   const dispatchFn: ControlsDispatchFn = (action: GameAction) => {
     if (
       world.gameMode === '1v1' &&
@@ -208,6 +220,15 @@ async function bootstrap(): Promise<void> {
       clientSync !== null &&
       netTransport !== null
     ) {
+      // S46 P2 — optimistic local apply for predictable actions.
+      if (PREDICTABLE_ACTIONS.has(action.type)) {
+        try {
+          dispatch(world, action);
+        } catch {
+          // Local prediction may legitimately fail (e.g. race with another
+          // joiner intent). Host snapshot will overwrite anyway — swallow.
+        }
+      }
       netTransport.send(clientSync.wrapIntent(action));
     } else {
       dispatch(world, action);

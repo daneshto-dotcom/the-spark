@@ -22,7 +22,7 @@ function placeChain(world: ReturnType<typeof makeWorld>, count: number): void {
       createdTick: world.tick,
     });
     dispatch(world, { type: 'SPAWN_SPARK', spark: s });
-    dispatch(world, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1 });
+    dispatch(world, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1, pos: { x: s.pos.x, y: s.pos.y } });
     const targetId = prev !== null ? ([...world.primitives.keys()][prev] ?? null) : null;
     dispatch(world, {
       type: 'PLACE_PRIMITIVE',

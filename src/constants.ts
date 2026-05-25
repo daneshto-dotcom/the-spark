@@ -69,6 +69,15 @@ export const SPAWNER_CENTER_X = CANVAS_WIDTH / 2;
 export const SPAWNER_CENTER_Y = CANVAS_HEIGHT / 2;
 export const SPAWN_RATE_PER_SECOND = 0.15;
 
+// S46 P2 Δ1 — host treats joiner's PICKUP_SPARK.pos as untrusted input;
+// validates plausibility within REASONABLE_PICKUP_REACH of joiner's last
+// authoritative avatarPos to prevent teleport exploit. Generous bound
+// (250 px ≈ wide cursor swing during sub-100ms transport latency burst)
+// — strict enough to block warp-anywhere exploits, loose enough to never
+// reject legitimate fast-flicking gameplay. Tunable based on observed
+// race-reject counter in production.
+export const REASONABLE_PICKUP_REACH = 250;
+
 // Phase-2 vision (placeholders — unused in Phase 1)
 export const R_PERSONAL = 300;
 export const R_BEACON = 80;

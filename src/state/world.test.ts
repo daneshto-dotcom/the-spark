@@ -41,7 +41,7 @@ describe('world dispatch seam (§ 10.2)', () => {
     const w = makeWorld(0);
     const s = spawnTestSpark(0);
     dispatch(w, { type: 'SPAWN_SPARK', spark: s });
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1 });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1, pos: { x: s.pos.x, y: s.pos.y } });
     const player = w.players.get(P1)!;
     expect(player.kind).toBe('Carrying');
     expect(s.state.kind).toBe('Carried');
@@ -53,9 +53,9 @@ describe('world dispatch seam (§ 10.2)', () => {
     const b = spawnTestSpark(1);
     dispatch(w, { type: 'SPAWN_SPARK', spark: a });
     dispatch(w, { type: 'SPAWN_SPARK', spark: b });
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: a.id, playerId: P1 });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: a.id, playerId: P1, pos: { x: a.pos.x, y: a.pos.y } });
     expect(() =>
-      dispatch(w, { type: 'PICKUP_SPARK', sparkId: b.id, playerId: P1 }),
+      dispatch(w, { type: 'PICKUP_SPARK', sparkId: b.id, playerId: P1, pos: { x: b.pos.x, y: b.pos.y } }),
     ).toThrow(CarryViolation);
   });
 
@@ -63,7 +63,7 @@ describe('world dispatch seam (§ 10.2)', () => {
     const w = makeWorld(0);
     const s = spawnTestSpark(0);
     dispatch(w, { type: 'SPAWN_SPARK', spark: s });
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1 });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1, pos: { x: s.pos.x, y: s.pos.y } });
     dispatch(w, { type: 'DROP_SPARK', playerId: P1, pos: { x: 500, y: 500 } });
     expect(s.state.kind).toBe('Free');
     expect(s.pos.x).toBe(500);
@@ -75,7 +75,7 @@ describe('world dispatch seam (§ 10.2)', () => {
     const w = makeWorld(0);
     const s = spawnTestSpark(0);
     dispatch(w, { type: 'SPAWN_SPARK', spark: s });
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1 });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1, pos: { x: s.pos.x, y: s.pos.y } });
     dispatch(w, {
       type: 'PLACE_PRIMITIVE',
       playerId: P1,
@@ -93,7 +93,7 @@ describe('world dispatch seam (§ 10.2)', () => {
     // Anchor.
     const s1 = spawnTestSpark(0);
     dispatch(w, { type: 'SPAWN_SPARK', spark: s1 });
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s1.id, playerId: P1 });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s1.id, playerId: P1, pos: { x: s1.pos.x, y: s1.pos.y } });
     dispatch(w, {
       type: 'PLACE_PRIMITIVE',
       playerId: P1,
@@ -107,7 +107,7 @@ describe('world dispatch seam (§ 10.2)', () => {
     s2.pos.x = 300;
     s2.pos.y = 300;
     dispatch(w, { type: 'SPAWN_SPARK', spark: s2 });
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s2.id, playerId: P1 });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s2.id, playerId: P1, pos: { x: s2.pos.x, y: s2.pos.y } });
     dispatch(w, {
       type: 'PLACE_PRIMITIVE',
       playerId: P1,
@@ -130,11 +130,11 @@ describe('world dispatch seam (§ 10.2)', () => {
     const s2 = spawnTestSpark(1);
     s2.pos.x = 300; s2.pos.y = 300;
     dispatch(w, { type: 'SPAWN_SPARK', spark: s1 });
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s1.id, playerId: P1 });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s1.id, playerId: P1, pos: { x: s1.pos.x, y: s1.pos.y } });
     dispatch(w, { type: 'PLACE_PRIMITIVE', playerId: P1, targetPrimitiveId: null, stiffnessTier: 'MID' });
     const anchorId = [...w.primitives.keys()][0];
     dispatch(w, { type: 'SPAWN_SPARK', spark: s2 });
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s2.id, playerId: P1 });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s2.id, playerId: P1, pos: { x: s2.pos.x, y: s2.pos.y } });
     dispatch(w, {
       type: 'PLACE_PRIMITIVE',
       playerId: P1,
@@ -172,7 +172,7 @@ describe('world dispatch seam (§ 10.2)', () => {
       createdTick: 0,
     });
     dispatch(w, { type: 'SPAWN_SPARK', spark: s });
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1 });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1, pos: { x: s.pos.x, y: s.pos.y } });
     dispatch(w, {
       type: 'PLACE_PRIMITIVE',
       playerId: P1,
@@ -194,7 +194,7 @@ describe('world dispatch seam (§ 10.2)', () => {
       createdTick: 0,
     });
     dispatch(w, { type: 'SPAWN_SPARK', spark: s });
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1 });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1, pos: { x: s.pos.x, y: s.pos.y } });
     dispatch(w, {
       type: 'PLACE_PRIMITIVE',
       playerId: P1,
@@ -248,7 +248,11 @@ function placeFor(world: ReturnType<typeof makeWorld>, playerId: PlayerId, spark
   });
   dispatch(world, { type: 'SPAWN_SPARK', spark: s });
   // S42 — currentPlayerId toggle removed (active-player gate deleted).
-  dispatch(world, { type: 'PICKUP_SPARK', sparkId: s.id, playerId });
+  // S46 P2 Δ1 — sync this player's avatarPos near spark so host re-validation
+  // accepts. Production flow: UPDATE_AVATAR_POS dispatches at 10Hz keep
+  // avatarPos within REASONABLE_PICKUP_REACH=250 of cursor.
+  dispatch(world, { type: 'UPDATE_AVATAR_POS', playerId, pos: { x: s.pos.x, y: s.pos.y } });
+  dispatch(world, { type: 'PICKUP_SPARK', sparkId: s.id, playerId, pos: { x: s.pos.x, y: s.pos.y } });
   dispatch(world, {
     type: 'PLACE_PRIMITIVE',
     playerId,

@@ -142,7 +142,7 @@ function buildChain(world: ReturnType<typeof makeWorld>, playerId: ReturnType<ty
       createdTick: 0,
     });
     dispatch(world, { type: 'SPAWN_SPARK', spark });
-    dispatch(world, { type: 'PICKUP_SPARK', sparkId, playerId });
+    dispatch(world, { type: 'PICKUP_SPARK', sparkId, playerId, pos: { x: spark.pos.x, y: spark.pos.y } });
     dispatch(world, {
       type: 'PLACE_PRIMITIVE',
       playerId,

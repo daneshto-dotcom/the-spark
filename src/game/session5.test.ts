@@ -48,7 +48,9 @@ function placePrimitive(
   sparkId: ReturnType<typeof asSparkId>,
   targetId: ReturnType<typeof asPrimitiveId> | null,
 ) {
-  dispatch(world, { type: 'PICKUP_SPARK', sparkId, playerId: P1 });
+  const sp = world.freeSparks.get(sparkId);
+  // S46 P2 — pass spark's current pos as authoritative cursor; snap is no-op.
+  dispatch(world, { type: 'PICKUP_SPARK', sparkId, playerId: P1, pos: sp ? { x: sp.pos.x, y: sp.pos.y } : { x: 0, y: 0 } });
   dispatch(world, {
     type: 'PLACE_PRIMITIVE',
     playerId: P1,
@@ -69,7 +71,8 @@ describe('soft-cap (DESPAWN_SPARK)', () => {
   it('refuses to despawn a Carried spark (player FSM owns it)', () => {
     const world = makeWorld(0);
     const id = spawnFree(world, 1, 0);
-    dispatch(world, { type: 'PICKUP_SPARK', sparkId: id, playerId: P1 });
+    const sp = world.freeSparks.get(id);
+    dispatch(world, { type: 'PICKUP_SPARK', sparkId: id, playerId: P1, pos: sp ? { x: sp.pos.x, y: sp.pos.y } : { x: 0, y: 0 } });
     dispatch(world, { type: 'DESPAWN_SPARK', sparkId: id });
     expect(world.freeSparks.has(id), 'Carried spark must not be despawned').toBe(true);
   });

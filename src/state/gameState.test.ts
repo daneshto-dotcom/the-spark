@@ -27,7 +27,7 @@ function placeOne(world: ReturnType<typeof makeWorld>, idx: number): void {
     createdTick: world.tick,
   });
   dispatch(world, { type: 'SPAWN_SPARK', spark: s });
-  dispatch(world, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1 });
+  dispatch(world, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1, pos: { x: s.pos.x, y: s.pos.y } });
   dispatch(world, {
     type: 'PLACE_PRIMITIVE',
     playerId: P1,

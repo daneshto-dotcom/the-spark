@@ -78,6 +78,7 @@ describe('applyPickupSpark', () => {
         type: 'PICKUP_SPARK',
         sparkId: asSparkId(999),
         playerId: asPlayerId(0),
+        pos: { x: 100, y: 100 },
       }),
     ).toThrowError(/spark 999 not free/);
   });
@@ -95,21 +96,22 @@ describe('applyPickupSpark', () => {
         type: 'PICKUP_SPARK',
         sparkId: spark.id,
         playerId: asPlayerId(0),
+        pos: { x: 100, y: 100 },
       }),
     ).not.toThrow();
     expect(spark.state).toEqual({ kind: 'Carried', carrierId: asPlayerId(1) }); // unchanged
     expect(world.diagnostics.raceRejects).toBe(1);
   });
 
-  it('happy path: spark.state → Carried, player FSM transitions, prevPos snaps (solo/host: pre-S45 behavior preserved)', () => {
-    // S45 BUG-CRITICAL-3 Sym A — applyPickupSpark snap-to-avatarPos is gated
-    // on REMOTE carriers only (1v1 + carrier != localPlayerId). For local
-    // carriers (solo, or 1v1 host's own pickups), pre-S45 behavior is byte-
-    // identical: spark.pos untouched, prevPos snaps to spark.pos to kill
-    // velocity. This preserves the "single-LMB-place lands at cursor" UX
-    // for solo/host since controls.applyPerSubstep already syncs spark.pos
-    // to cursor each substep, and the same-tick PICKUP+PLACE pair must
-    // observe that cursor-driven position rather than a stale avatarPos.
+  it('happy path: spark.state → Carried, player FSM transitions, spark.pos snaps to action.pos (S46 P2 unified snap)', () => {
+    // S46 P2 (BUG-CRITICAL-5 Sym A, Council R2 C1+C12+Δ1+Δ4) —
+    // applyPickupSpark now uses MANDATORY action.pos as the authoritative
+    // cursor position at LMB-up. Unified across solo + local + remote
+    // carriers: spark.pos := action.pos. For local carriers (solo, host's
+    // own pickups in 1v1), action.pos === controls.cursor === spark.pos
+    // already (controls.applyPerSubstep keeps them synced) — so the snap
+    // is functionally a no-op vs pre-S46. Test asserts the new explicit
+    // contract: caller passes pos, reducer snaps to that pos.
     const world = makeWorld(1);
     const spark = makeTestSpark(3);
     spark.pos = { x: 50, y: 60 };
@@ -120,52 +122,40 @@ describe('applyPickupSpark', () => {
       type: 'PICKUP_SPARK',
       sparkId: spark.id,
       playerId: asPlayerId(0),
+      pos: { x: 50, y: 60 },
     });
 
     expect(spark.state).toEqual({ kind: 'Carried', carrierId: asPlayerId(0) });
-    expect(spark.pos).toEqual({ x: 50, y: 60 });     // unchanged (no snap in solo)
-    expect(spark.prevPos).toEqual({ x: 50, y: 60 }); // snapped to pos (velocity killed)
+    expect(spark.pos).toEqual({ x: 50, y: 60 });     // snapped to action.pos (no-op since same)
+    expect(spark.prevPos).toEqual({ x: 50, y: 60 }); // snapped to action.pos (velocity killed)
     const p = world.players.get(asPlayerId(0))!;
     expect(p.kind).toBe('Carrying');
   });
 
-  it('S45 Sym A — REMOTE carrier (1v1 + carrier != localPlayerId): spark teleports to avatarPos', () => {
-    // The Sym A regression scenario in pure-reducer form: from HOST's
-    // perspective, spark was at (500, 300) host-authoritative; joiner's
-    // cursor (= joiner.avatarPos via prior UPDATE_AVATAR_POS dispatch) was
-    // at (700, 400) when LMB-up fired; joiner dispatched PICKUP_SPARK. Host
-    // applies → spark.pos snaps to joiner.avatarPos=(700, 400) so the
-    // subsequent PLACE_PRIMITIVE lands where joiner intended, not at the
-    // stale (500, 300). The continued avatarPos→spark.pos sync in
-    // applyUpdateAvatarPos keeps the carry tracking joiner's cursor at
-    // 100ms cadence after the initial snap.
+  it('S46 P2 — REMOTE carrier (1v1 + carrier != localPlayerId): spark snaps to action.pos (joiner cursor)', () => {
+    // S46 P2 replaces S45's avatarPos-snap with action.pos-snap. Scenario:
+    // from HOST's POV, spark was at (500, 300) host-authoritative; joiner's
+    // cursor was at (700, 400) when LMB-up fired and the INTENT envelope
+    // carries pos:{700,400}. Host applies → spark.pos snaps to action.pos
+    // = (700, 400) — the authoritative claim from joiner. action.pos is
+    // re-validated against joiner.avatarPos (must be within
+    // REASONABLE_PICKUP_REACH=250) so this scenario passes (cursor ahead
+    // of avatarPos by 0 — they're equal here for test simplicity).
     const world = makeWorld(1);
-    // Configure host's POV: 1v1 mode, isHost=true, localPlayerId = host = 0.
-    // Add P2 (joiner) — normally done by START_GAME but we want to exercise
-    // applyPickupSpark in isolation. Sets joiner's avatarPos to (700, 400)
-    // simulating where joiner's UPDATE_AVATAR_POS landed last.
     world.gameMode = '1v1';
     world.isHost = true;
     world.localPlayerId = asPlayerId(0);
     const joinerId = asPlayerId(1);
-    const joiner = world.players.get(joinerId) ?? null;
-    if (joiner === null) {
-      // Spin up P2 directly — bypasses START_GAME's other side-effects
-      // (cinematic state etc.) so the test stays focused.
-      world.players.set(joinerId, {
-        id: joinerId,
-        color: 0x3bd7ff,
-        kind: 'Idle',
-        energy: 0,
-        buildActions: 0,
-        disruptionCharges: 0,
-        avatarPos: { x: 700, y: 400 },
-        godlyCooldownEndsAtTick: null,
-      } as never);
-    } else {
-      joiner.avatarPos.x = 700;
-      joiner.avatarPos.y = 400;
-    }
+    world.players.set(joinerId, {
+      id: joinerId,
+      color: 0x3bd7ff,
+      kind: 'Idle',
+      energy: 0,
+      buildActions: 0,
+      disruptionCharges: 0,
+      avatarPos: { x: 700, y: 400 }, // joiner's authoritative avatarPos
+      godlyCooldownEndsAtTick: null,
+    } as never);
     const spark = makeTestSpark(7);
     spark.pos = { x: 500, y: 300 };
     spark.prevPos = { x: 498, y: 299 };
@@ -175,11 +165,75 @@ describe('applyPickupSpark', () => {
       type: 'PICKUP_SPARK',
       sparkId: spark.id,
       playerId: joinerId,
+      pos: { x: 700, y: 400 }, // joiner's cursor at LMB-up
     });
 
     expect(spark.pos).toEqual({ x: 700, y: 400 });
     expect(spark.prevPos).toEqual({ x: 700, y: 400 });
     expect(spark.state).toEqual({ kind: 'Carried', carrierId: joinerId });
+  });
+
+  it('S46 P2 Δ1 — REMOTE carrier with pos OUT-OF-BOUNDS: silently rejected + raceRejects++', () => {
+    const world = makeWorld(1);
+    world.gameMode = '1v1';
+    world.isHost = true;
+    world.localPlayerId = asPlayerId(0);
+    const joinerId = asPlayerId(1);
+    world.players.set(joinerId, {
+      id: joinerId, color: 0x3bd7ff, kind: 'Idle',
+      energy: 0, buildActions: 0, disruptionCharges: 0,
+      avatarPos: { x: 700, y: 400 },
+      godlyCooldownEndsAtTick: null,
+    } as never);
+    const spark = makeTestSpark(8);
+    world.freeSparks.set(spark.id, spark);
+    applyPickupSpark(world, {
+      type: 'PICKUP_SPARK',
+      sparkId: spark.id,
+      playerId: joinerId,
+      pos: { x: -50, y: 400 }, // off-canvas
+    });
+    expect(spark.state.kind).toBe('Free');
+    expect(world.diagnostics.raceRejects).toBe(1);
+  });
+
+  it('S46 P2 Δ1 — REMOTE carrier with pos TELEPORT-distance from avatarPos: rejected', () => {
+    const world = makeWorld(1);
+    world.gameMode = '1v1';
+    world.isHost = true;
+    world.localPlayerId = asPlayerId(0);
+    const joinerId = asPlayerId(1);
+    world.players.set(joinerId, {
+      id: joinerId, color: 0x3bd7ff, kind: 'Idle',
+      energy: 0, buildActions: 0, disruptionCharges: 0,
+      avatarPos: { x: 100, y: 100 },
+      godlyCooldownEndsAtTick: null,
+    } as never);
+    const spark = makeTestSpark(9);
+    world.freeSparks.set(spark.id, spark);
+    applyPickupSpark(world, {
+      type: 'PICKUP_SPARK',
+      sparkId: spark.id,
+      playerId: joinerId,
+      pos: { x: 1800, y: 1000 }, // 1700px+ from avatarPos — exploit
+    });
+    expect(spark.state.kind).toBe('Free');
+    expect(world.diagnostics.raceRejects).toBe(1);
+  });
+
+  it('S46 P2 Δ6 — malformed pos field (pre-S46 peer): silently rejected', () => {
+    const world = makeWorld(1);
+    const spark = makeTestSpark(10);
+    world.freeSparks.set(spark.id, spark);
+    // Simulate pre-S46 wire payload where pos is undefined / missing.
+    applyPickupSpark(world, {
+      type: 'PICKUP_SPARK',
+      sparkId: spark.id,
+      playerId: asPlayerId(0),
+      pos: undefined as unknown as { x: number; y: number },
+    });
+    expect(spark.state.kind).toBe('Free');
+    expect(world.diagnostics.raceRejects).toBe(1);
   });
 });
 

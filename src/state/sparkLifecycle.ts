@@ -17,7 +17,12 @@
  */
 
 import { CarryViolation, drop as fsmDrop, pickup as fsmPickup, tickEnergy } from '../game/player.ts';
-import { ENERGY_PER_SECOND_FLAT } from '../constants.ts';
+import {
+  CANVAS_HEIGHT,
+  CANVAS_WIDTH,
+  ENERGY_PER_SECOND_FLAT,
+  REASONABLE_PICKUP_REACH,
+} from '../constants.ts';
 import { requirePlayer, type World } from './world.ts';
 import type { PlayerId, SparkId, Vec2 } from '../types.ts';
 import type { Spark } from '../game/spark.ts';
@@ -33,10 +38,32 @@ export interface DespawnSparkAction {
   readonly sparkId: SparkId;
 }
 
+/**
+ * PICKUP_SPARK — pick up a free spark.
+ *
+ * S46 P2 (BUG-CRITICAL-5 Sym A): `pos` is now MANDATORY (Council C12).
+ * Represents the player's cursor at LMB-up — the authoritative claim of
+ * "this is where the spark should be at pickup time". Replaces S45's
+ * stale-avatarPos snap which broke joiner LMB-place (10Hz throttled
+ * avatarPos was often still inside spawner zone at LMB-up time, causing
+ * silent PLACE_PRIMITIVE rejection per spec §IX.5).
+ *
+ * The host treats `pos` as UNTRUSTED INPUT from remote joiners. Host
+ * re-validates against canvas bounds + plausibility (within
+ * REASONABLE_PICKUP_REACH of joiner's authoritative avatarPos) per
+ * Council Δ1. Solo + host-own pickups in 1v1 skip the check (action
+ * comes from local trusted controls).
+ *
+ * Network protocol amendment LOCKED §13.X (S46 P2): IntentMsg payload
+ * for PICKUP_SPARK now carries the pos field. BREAKING change vs S45;
+ * mid-deploy peers force-disconnect on first action dispatch then
+ * Trystero reconnect on next handshake (Δ6 accepted).
+ */
 export interface PickupSparkAction {
   readonly type: 'PICKUP_SPARK';
   readonly sparkId: SparkId;
   readonly playerId: PlayerId;
+  readonly pos: Vec2;
 }
 
 export interface DropSparkAction {
@@ -75,24 +102,32 @@ export function applyDespawnSpark(world: World, action: DespawnSparkAction): Wor
  *  the race is observable in tests without crashing the dispatch loop.
  *  S42 Battle Ledger row 1 — Council R1 CONVERGENT (Grok-C1 + Gemini-#1).
  *
- *  S45 BUG-CRITICAL-3 Sym A — for REMOTE carriers (1v1 mode + carrier !=
- *  world.localPlayerId), snap spark.pos to the carrier's avatarPos at pickup
- *  time. This captures the joiner's cursor-intent on the host's authoritative
- *  side; without it, the joiner's same-tick PICKUP_SPARK + PLACE_PRIMITIVE
- *  pair lands the primitive at host's stale spark.pos (spawner pulse value)
- *  instead of where the joiner clicked. Continues to track via
- *  applyUpdateAvatarPos's carrying-sync at the 10Hz throttled dispatch rate.
+ *  S46 P2 (BUG-CRITICAL-5 Sym A, Council R2 C1+C4+C12+Δ1+Δ4 expansion):
+ *  PickupSparkAction now carries mandatory `pos` (authoritative cursor at
+ *  LMB-up). Replaces S45's avatarPos-snap (stale 10Hz, often inside
+ *  spawner-zone at LMB-up causing silent PLACE rejection).
  *
- *  For LOCAL carriers (solo, or host's own pickups in 1v1), the snap is
- *  skipped because controls.applyPerSubstep already snaps spark.pos to
- *  controls.cursor each substep — and the LMB-up dispatches PICKUP then
- *  PLACE atomically in the same tick, so the snap-to-avatarPos here would
- *  clobber the local cursor-based position with a 100ms-stale avatarPos
- *  value, breaking the single-action-place UX. Gated on remote-carrier so
- *  pre-S45 single-player + host-mode behavior is byte-identical.
+ *  Host re-validates `action.pos` from REMOTE carriers as untrusted input:
+ *    - canvas bounds (0 ≤ x ≤ CANVAS_WIDTH, 0 ≤ y ≤ CANVAS_HEIGHT)
+ *    - plausibility (within REASONABLE_PICKUP_REACH=250 of joiner's last
+ *      authoritative avatarPos — prevents teleport-anywhere exploit)
+ *  Solo + host-own pickups in 1v1 are LOCAL/trusted; skip validation.
  *
- *  Council R2 C1 + PRIME-AUDIT Δ4 expansion. */
+ *  Snap is now unified for all carriers — spark.pos := action.pos. For
+ *  local carriers, action.pos == controls.cursor == spark.pos already
+ *  (controls.applyPerSubstep keeps them synced each substep), so the snap
+ *  is functionally a no-op; pre-S45 single-action-place UX is byte-
+ *  identical. For remote carriers, action.pos is the joiner's intended
+ *  cursor position at LMB-up. */
 export function applyPickupSpark(world: World, action: PickupSparkAction): World {
+  // S46 P2 Δ6 — defensive runtime shape check for wire-level pos. Pre-S46
+  // peers omit the field; reject silently rather than crashing on undefined
+  // deref. Trystero reconnect handles version mismatch + the in-process TS
+  // compiler already enforces shape on local dispatches.
+  if (!isPosShape(action.pos)) {
+    world.diagnostics.raceRejects++;
+    return world;
+  }
   const player = requirePlayer(world, action.playerId);
   const spark = world.freeSparks.get(action.sparkId);
   if (spark === undefined) throw new Error(`spark ${action.sparkId} not free`);
@@ -100,23 +135,56 @@ export function applyPickupSpark(world: World, action: PickupSparkAction): World
     world.diagnostics.raceRejects++;
     return world;
   }
+  // S46 P2 Δ1 — host re-validates remote carrier's untrusted pos input.
+  const isRemoteCarrier =
+    world.gameMode === '1v1' && action.playerId !== world.localPlayerId;
+  if (isRemoteCarrier && !isValidPickupPos(action.pos, player.avatarPos)) {
+    world.diagnostics.raceRejects++;
+    return world;
+  }
   const next = fsmPickup(player, action.sparkId);
   world.players.set(next.id, next);
   spark.state = { kind: 'Carried', carrierId: action.playerId };
-  // S45 Sym A — snap only for remote carriers; local carriers preserve
-  // pre-S45 snap-prevPos-to-pos behavior (kills velocity, leaves pos alone).
-  const isRemoteCarrier =
-    world.gameMode === '1v1' && action.playerId !== world.localPlayerId;
-  if (isRemoteCarrier) {
-    spark.pos.x = next.avatarPos.x;
-    spark.pos.y = next.avatarPos.y;
-    spark.prevPos.x = next.avatarPos.x;
-    spark.prevPos.y = next.avatarPos.y;
-  } else {
-    spark.prevPos.x = spark.pos.x;
-    spark.prevPos.y = spark.pos.y;
-  }
+  // S46 P2 — unified snap to action.pos (authoritative cursor at LMB-up).
+  // Pre-S45 behavior (kill velocity, leave pos) and S45 behavior (snap to
+  // avatarPos) both subsumed: action.pos === cursor === spark.pos for
+  // local carriers (no-op), and action.pos === joiner-cursor for remote
+  // carriers (authoritative claim, validated above).
+  spark.pos.x = action.pos.x;
+  spark.pos.y = action.pos.y;
+  spark.prevPos.x = action.pos.x;
+  spark.prevPos.y = action.pos.y;
   return world;
+}
+
+/**
+ * S46 P2 Δ1 — host-side validator for untrusted PICKUP_SPARK.pos from
+ * remote joiners. Returns true if pos passes (a) canvas bounds and (b)
+ * plausibility within REASONABLE_PICKUP_REACH of carrier's avatarPos.
+ *
+ * Solo + host-own pickups don't run this check — action comes from local
+ * trusted controls + already-validated cursor mapping (S39 P2 letterbox-
+ * aware cssToCanvasCoords).
+ */
+function isValidPickupPos(pos: Vec2, avatarPos: Vec2): boolean {
+  if (pos.x < 0 || pos.x > CANVAS_WIDTH) return false;
+  if (pos.y < 0 || pos.y > CANVAS_HEIGHT) return false;
+  const dx = pos.x - avatarPos.x;
+  const dy = pos.y - avatarPos.y;
+  return dx * dx + dy * dy <= REASONABLE_PICKUP_REACH * REASONABLE_PICKUP_REACH;
+}
+
+/**
+ * S46 P2 Δ6 — runtime shape check for wire-level pos field. Pre-S46
+ * clients omit the field, so any TypeScript-bypass via JSON.parse() may
+ * pass action.pos as undefined / non-object / NaN. Belt-and-suspenders
+ * over the in-process compile-time enforcement.
+ */
+function isPosShape(pos: unknown): pos is Vec2 {
+  if (typeof pos !== 'object' || pos === null) return false;
+  const p = pos as { x?: unknown; y?: unknown };
+  return typeof p.x === 'number' && Number.isFinite(p.x)
+    && typeof p.y === 'number' && Number.isFinite(p.y);
 }
 
 /** Player drops the carried spark at a position. Throws CarryViolation if

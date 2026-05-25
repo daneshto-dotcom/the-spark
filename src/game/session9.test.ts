@@ -57,9 +57,10 @@ function placeAt(
       createdTick: world.tick,
     }),
   });
-  dispatch(world, { type: 'PICKUP_SPARK', sparkId, playerId: P1 });
-  // PICKUP_SPARK zero-velocity-snaps prevPos but keeps pos. Placement coord
-  // = spark.pos = opts.pos. (S9 P1 no longer snaps to cursor.)
+  const sp = world.freeSparks.get(sparkId);
+  // S46 P2 — mandatory pos field; pass spark's current pos so snap is no-op.
+  dispatch(world, { type: 'PICKUP_SPARK', sparkId, playerId: P1, pos: sp ? { x: sp.pos.x, y: sp.pos.y } : { x: 0, y: 0 } });
+  // PICKUP_SPARK zero-velocity-snaps prevPos to action.pos = spark.pos.
   const beforeIds = new Set([...world.primitives.keys()]);
   dispatch(world, {
     type: 'PLACE_PRIMITIVE',

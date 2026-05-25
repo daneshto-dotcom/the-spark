@@ -57,7 +57,7 @@ function runStress(world: World, iterations: number): void {
       createdTick: world.tick,
     });
     dispatch(world, { type: 'SPAWN_SPARK', spark: s });
-    dispatch(world, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1 });
+    dispatch(world, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1, pos: { x: s.pos.x, y: s.pos.y } });
 
     // Every 3rd iteration place onto a prior primitive (chain growth);
     // otherwise place standalone. Mix of growing vs orphan branches.

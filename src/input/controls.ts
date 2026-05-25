@@ -288,10 +288,14 @@ export class Controls {
           // future change that might transform/remove the spark inside
           // PICKUP_SPARK.
           const carriedType = spark.type;
+          // S46 P2 — mandatory `pos` (Council C12 + Δ1). Cursor at LMB-up
+          // is the authoritative claim — host snaps spark.pos to action.pos
+          // and re-validates plausibility for remote carriers.
           this.dispatchFn({
             type: 'PICKUP_SPARK',
             sparkId: spark.id,
             playerId: this.playerId,
+            pos: { x: this.cursor.x, y: this.cursor.y },
           });
           // S45 Sym A — target picking uses targetRefPos (cursor in client
           // mode, spark.pos in host/solo) so joiner's intent reflects where

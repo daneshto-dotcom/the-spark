@@ -77,7 +77,8 @@ function placeAt(
       createdTick: world.tick,
     }),
   });
-  dispatch(world, { type: 'PICKUP_SPARK', sparkId, playerId: P1_ID });
+  const _sp14 = world.freeSparks.get(sparkId);
+  dispatch(world, { type: 'PICKUP_SPARK', sparkId, playerId: P1_ID, pos: _sp14 ? { x: _sp14.pos.x, y: _sp14.pos.y } : { x: 0, y: 0 } });
   const beforeIds = new Set([...world.primitives.keys()]);
   dispatch(world, {
     type: 'PLACE_PRIMITIVE',
