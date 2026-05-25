@@ -139,6 +139,11 @@ export function createDebugOverlay(): DebugOverlayHandle {
       );
     }
 
+    // S48 P3 (Sym A diagnostic) — surface per-reason intent rejection
+    // counters. raceRejects is the legacy aggregate; rejectReasons is the
+    // new bucket breakdown. Helps pinpoint silent-drop paths in live 2-peer
+    // smoke (e.g. "joiner LMB doesn't place" → check pickupReachFail).
+    const rr = world.diagnostics.rejectReasons;
     return [
       `=== GAME STATE ===`,
       `tick:           ${world.tick}`,
@@ -146,6 +151,13 @@ export function createDebugOverlay(): DebugOverlayHandle {
       `gameMode:       ${world.gameMode}`,
       `isHost:         ${world.isHost}`,
       `cinematicActive: ${world.activeCinematicPlayerId ?? 'null'}`,
+      ``,
+      `=== INTENT REJECTS (S48 P3) ===`,
+      `raceRejects (sum):     ${world.diagnostics.raceRejects}`,
+      `  pickupPosShape:      ${rr.pickupPosShape}`,
+      `  pickupSparkNotFree:  ${rr.pickupSparkNotFree}`,
+      `  pickupReachFail:     ${rr.pickupReachFail}`,
+      `  placeTargetMissing:  ${rr.placeTargetMissing}`,
       ``,
       `=== GODLY MATCHER ===`,
       `WILL_RUN:       ${matcherWillRun}${matcherReasons.length ? ` (BLOCKED: ${matcherReasons.join(', ')})` : ''}`,

@@ -63,7 +63,12 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   world.gameState = 'PLAYING';
   // S42 — reset diagnostics counter at game-start so per-match observability
   // isn't polluted by lobby/title noise.
+  // S48 P3 — also reset rejectReasons sub-buckets.
   world.diagnostics.raceRejects = 0;
+  world.diagnostics.rejectReasons.pickupPosShape = 0;
+  world.diagnostics.rejectReasons.pickupSparkNotFree = 0;
+  world.diagnostics.rejectReasons.pickupReachFail = 0;
+  world.diagnostics.rejectReasons.placeTargetMissing = 0;
   // S34 P2-21 defensive clear (see JSDoc above).
   world.pendingCreatureSpawn = null;
   if (action.mode === '1v1') {
@@ -103,6 +108,11 @@ export function applyReturnToTitle(world: World): World {
   // returns so a client peer that backs out + re-enters lobby keeps its id=1
   // until a fresh setPlayerId / new join attempt.
   world.diagnostics.raceRejects = 0;
+  // S48 P3 — also reset rejectReasons sub-buckets on RETURN_TO_TITLE.
+  world.diagnostics.rejectReasons.pickupPosShape = 0;
+  world.diagnostics.rejectReasons.pickupSparkNotFree = 0;
+  world.diagnostics.rejectReasons.pickupReachFail = 0;
+  world.diagnostics.rejectReasons.placeTargetMissing = 0;
   world.primitives.clear();
   world.bonds.clear();
   world.freeSparks.clear();

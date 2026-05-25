@@ -189,7 +189,35 @@ export interface World {
    * Council R1+R2 Battle Ledger row 1 (CONVERGENT Grok-C1 + Gemini-#1) +
    * row 5 (Gemini-#3 R2-sharpened — shared-resource vs player-owned).
    */
-  diagnostics: { raceRejects: number };
+  /**
+   * S48 P3 (Sym A diagnostic gap fix) — extended with rejectReasons
+   * sub-bucket so the joiner-side debug overlay can surface WHICH path
+   * silently rejected an intent. `raceRejects` remains the aggregate
+   * counter (back-compat with session15.test.ts + sparkLifecycle.test.ts
+   * assertions); rejectReasons is purely additive and incremented in
+   * parallel with `raceRejects` at each reject site:
+   *   - pickupPosShape: PICKUP_SPARK pos field malformed (wire corruption /
+   *     pre-S46 peer / TS-bypass via JSON.parse)
+   *   - pickupSparkNotFree: target spark already Carried by other player
+   *     under real-time race (S42 shared-resource race)
+   *   - pickupReachFail: remote carrier's pos failed isValidPickupPos
+   *     (canvas bounds OR REASONABLE_PICKUP_REACH plausibility from
+   *     avatarPos)
+   *   - placeTargetMissing: PLACE_PRIMITIVE references a primitive id that
+   *     no longer exists on host (race: host severed it between joiner
+   *     intent and host application)
+   * Surfaced in debugOverlay (?debug=1) so 2-peer smoke tests can pinpoint
+   * the rejection path in real time.
+   */
+  diagnostics: {
+    raceRejects: number;
+    rejectReasons: {
+      pickupPosShape: number;
+      pickupSparkNotFree: number;
+      pickupReachFail: number;
+      placeTargetMissing: number;
+    };
+  };
   /**
    * S42 — local player id (non-serialized convention; client only mutates
    * its own copy at join time). Default asPlayerId(0) covers solo + 1v1
@@ -285,7 +313,15 @@ export function makeWorld(rngSeed: number): World {
     pendingCreatureSpawn: null,
     // S42 — race-condition observability (real-time 1v1) + local-player
     // convention (replaces removed currentPlayerId active-player concept).
-    diagnostics: { raceRejects: 0 },
+    diagnostics: {
+      raceRejects: 0,
+      rejectReasons: {
+        pickupPosShape: 0,
+        pickupSparkNotFree: 0,
+        pickupReachFail: 0,
+        placeTargetMissing: 0,
+      },
+    },
     localPlayerId: asPlayerId(0),
   };
   // Phase 1 + solo default: P1 only at spawner-rim left.

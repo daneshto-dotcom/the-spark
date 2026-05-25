@@ -145,6 +145,7 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
     const target = world.primitives.get(effectiveTargetId);
     if (target === undefined) {
       world.diagnostics.raceRejects++;
+      world.diagnostics.rejectReasons.placeTargetMissing++; // S48 P3 diagnostic
       return world; // S42 race-reject: preserve carry, no spark consumption
     }
     if (target.placerColor !== player.color) {

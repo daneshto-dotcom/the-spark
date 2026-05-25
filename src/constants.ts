@@ -71,12 +71,24 @@ export const SPAWN_RATE_PER_SECOND = 0.15;
 
 // S46 P2 Δ1 — host treats joiner's PICKUP_SPARK.pos as untrusted input;
 // validates plausibility within REASONABLE_PICKUP_REACH of joiner's last
-// authoritative avatarPos to prevent teleport exploit. Generous bound
-// (250 px ≈ wide cursor swing during sub-100ms transport latency burst)
-// — strict enough to block warp-anywhere exploits, loose enough to never
-// reject legitimate fast-flicking gameplay. Tunable based on observed
-// race-reject counter in production.
-export const REASONABLE_PICKUP_REACH = 250;
+// authoritative avatarPos to prevent teleport exploit. Bound is the
+// max plausible cursor-to-avatar distance during a normal LMB-release;
+// strict enough to block warp-anywhere exploits, loose enough to never
+// reject legitimate fast-flicking gameplay.
+//
+// S48 P3 (Sym A targeted fix): RAISED 250 → 600. Live S47 smoke
+// reproduced joiner LMB-release silently dropping placements on host;
+// rejectReasons telemetry (introduced this priority) will confirm
+// pickupReachFail as the culprit. Root cause: avatarPos is 10Hz-
+// throttled (100ms staleness) while cursor can swing 400+ px during a
+// fast attract-drag-release at typical mouse speeds (500 px/sec × 100ms
+// = 50px, but a flick gesture can hit 3000+ px/sec → 300px in 100ms).
+// 250 was too tight; 600 is the cursor-displacement upper bound for a
+// 200ms-latency flick. Still well below CANVAS_WIDTH=1920 so off-canvas
+// teleport exploits remain blocked. If telemetry shows 600 also rejecting
+// legitimate plays in S49, consider switching to a "within-canvas only"
+// gate (drop reach check entirely).
+export const REASONABLE_PICKUP_REACH = 600;
 
 // Phase-2 vision (placeholders — unused in Phase 1)
 export const R_PERSONAL = 300;

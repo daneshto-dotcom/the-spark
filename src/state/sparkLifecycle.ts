@@ -126,6 +126,7 @@ export function applyPickupSpark(world: World, action: PickupSparkAction): World
   // compiler already enforces shape on local dispatches.
   if (!isPosShape(action.pos)) {
     world.diagnostics.raceRejects++;
+    world.diagnostics.rejectReasons.pickupPosShape++; // S48 P3 diagnostic
     return world;
   }
   const player = requirePlayer(world, action.playerId);
@@ -133,6 +134,7 @@ export function applyPickupSpark(world: World, action: PickupSparkAction): World
   if (spark === undefined) throw new Error(`spark ${action.sparkId} not free`);
   if (spark.state.kind !== 'Free') {
     world.diagnostics.raceRejects++;
+    world.diagnostics.rejectReasons.pickupSparkNotFree++; // S48 P3 diagnostic
     return world;
   }
   // S46 P2 Δ1 — host re-validates remote carrier's untrusted pos input.
@@ -140,6 +142,7 @@ export function applyPickupSpark(world: World, action: PickupSparkAction): World
     world.gameMode === '1v1' && action.playerId !== world.localPlayerId;
   if (isRemoteCarrier && !isValidPickupPos(action.pos, player.avatarPos)) {
     world.diagnostics.raceRejects++;
+    world.diagnostics.rejectReasons.pickupReachFail++; // S48 P3 diagnostic
     return world;
   }
   const next = fsmPickup(player, action.sparkId);
