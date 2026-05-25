@@ -314,17 +314,26 @@ describe('S17 P1 — Phase-2 §VIII.3 cross-player Sever-as-disruption', () => {
   // S42 — "wrong-turn dispatch silently rejects" test DELETED (turn-based
   // 1v1 input gate removed; blueprint mandates real-time simultaneous play).
 
-  it('mixed-ownership bond — hostile for BOTH players (Gemini #3 either-differs rule)', () => {
+  it('S46 P3 Sym D — mixed-ownership bond CANNOT form (color-segregated bonding)', () => {
+    // S46 P3 user-confirmed spec deletion of LOCKED §VI.4/§X.2 multi-color
+    // bond rendering: each player builds same-color structures only.
+    // Pre-S46 this test verified hostile-sever consumes charge; post-S46
+    // it verifies the cross-color bond is silently downgraded to an anchor
+    // placement (defense in depth at host applyPlacePrimitive). §VIII.3
+    // hostile-sever mechanic becomes unreachable; disruption charges
+    // pending repurpose in S47 Sym F territorial repulsion.
     const w = setup1v1();
-    // P1 places anchor; P2 places second prim bonded to P1's anchor (inter-player bond, spec §V/§VI.4).
     const a = placeFor(w, P1, 0, null);
-    placeFor(w, P2, 1, a);
-    const bondId = firstBondId(w);
-    // P1 attempts sever: bond.primA.placerColor=red matches P1, but bond.primB.placerColor=cyan differs → HOSTILE.
-    w.players.get(P1)!.disruptionCharges = 1;
-    const before1 = w.players.get(P1)!.disruptionCharges;
-    dispatch(w, { type: 'SEVER_BOND', bondId: bondId as never, playerId: P1, cause: 'player' });
-    expect(w.players.get(P1)!.disruptionCharges).toBe(before1 - 1);  // consumed
+    placeFor(w, P2, 1, a); // P2 attempts to bond to P1's anchor — must demote to anchor
+    // Assert: P2's primitive was placed (carry consumed) but NO cross-color bond exists.
+    expect(w.primitives.size).toBe(2); // both prims exist
+    expect(w.bonds.size).toBe(0); // cross-color bond rejected
+    // Both prims have their respective placerColor (no mutation).
+    const prims = [...w.primitives.values()];
+    const p1Prim = prims.find((p) => p.placerColor === PLAYER_COLORS[0]);
+    const p2Prim = prims.find((p) => p.placerColor === PLAYER_COLORS[1]);
+    expect(p1Prim).toBeDefined();
+    expect(p2Prim).toBeDefined();
   });
 
   it('cycle-bond sever does NOT consume charge (PRIME-AUDIT B §VIII.4)', () => {

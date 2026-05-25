@@ -434,12 +434,23 @@ export class Controls {
     return this.pickPrimitiveInRange(PICK_RADIUS);
   }
 
+  /**
+   * S46 P3 Sym D — color-segregated bonding (Council R2 BL row, user-confirmed
+   * spec deletion of LOCKED §VI.4/§X.2 multi-color bond rendering). Returns
+   * the nearest primitive within radius FILTERED to primitives whose
+   * placerColor matches the active player's color. Prevents cross-color
+   * bonds at the selection layer; host placePrimitive.ts validates again
+   * as defense in depth.
+   */
   private pickPrimitiveInRange(radius: number, center?: Vec2): PrimitiveId | null {
     const cx = center?.x ?? this.cursor.x;
     const cy = center?.y ?? this.cursor.y;
+    const myColor = this.world.players.get(this.playerId)?.color;
     let best: Primitive | null = null;
     let bestDistSq = radius * radius;
     for (const p of this.world.primitives.values()) {
+      // S46 P3 — same-color filter. myColor undefined = test edge case (no player); accept all.
+      if (myColor !== undefined && p.placerColor !== myColor) continue;
       const dx = p.pos.x - cx;
       const dy = p.pos.y - cy;
       const d2 = dx * dx + dy * dy;
@@ -456,11 +467,16 @@ export class Controls {
    * order). Used by the LMB-up auto-bond path to feed placePrimitive's
    * cross-structure merge sweep. Single-target pickPrimitiveInRange returns
    * the nearest one — this returns the full set.
+   *
+   * S46 P3 Sym D — same-color filter applied here too (merge sweep must not
+   * pull in enemy structures into your component).
    */
   private allPrimitivesInRange(radius: number, center: Vec2): PrimitiveId[] {
     const r2 = radius * radius;
+    const myColor = this.world.players.get(this.playerId)?.color;
     const ids: PrimitiveId[] = [];
     for (const p of this.world.primitives.values()) {
+      if (myColor !== undefined && p.placerColor !== myColor) continue;
       const dx = p.pos.x - center.x;
       const dy = p.pos.y - center.y;
       if (dx * dx + dy * dy <= r2) ids.push(p.id);

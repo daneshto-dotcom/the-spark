@@ -100,10 +100,20 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
   // crashing the dispatch loop AND consuming the spark even on the throw
   // path. Council R1 Battle Ledger row 5 + R2 sharpened (shared-resource
   // race, not player-owned violation).
-  if (action.targetPrimitiveId !== null) {
-    if (!world.primitives.has(action.targetPrimitiveId)) {
+  // S46 P3 Sym D — effective target ID. Resolves action.targetPrimitiveId
+  // through (a) existence check + (b) same-color filter. Cross-color targets
+  // silently demote to anchor placement (drop the bond, keep the primitive).
+  // controls.ts already filters at the selection layer; this is defense in
+  // depth against misbehaving or old clients.
+  let effectiveTargetId: PrimitiveId | null = action.targetPrimitiveId;
+  if (effectiveTargetId !== null) {
+    const target = world.primitives.get(effectiveTargetId);
+    if (target === undefined) {
       world.diagnostics.raceRejects++;
       return world;
+    }
+    if (target.placerColor !== player.color) {
+      effectiveTargetId = null; // demote to anchor — bond rejected, prim still places
     }
   }
 
@@ -140,11 +150,11 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
   // this placement. Captured BEFORE any bond/merge score increments.
   const oldScore = world.scoreProgress;
 
-  if (action.targetPrimitiveId !== null) {
+  if (effectiveTargetId !== null) {
     // S42 — target was verified to exist at the top of this function (before
     // primitive creation). `!` non-null assertion is safe here since the
     // race check already early-returned for the undefined case.
-    const target = world.primitives.get(action.targetPrimitiveId)!;
+    const target = world.primitives.get(effectiveTargetId)!;
     const bond = makeBond(world, prim, target, action.stiffnessTier);
     world.bonds.set(bond.id, bond);
     prim.bonds.add(bond.id);
@@ -194,11 +204,11 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
   // any malformed entry is skipped silently to avoid game crashes on
   // unexpected input.
   if (
-    action.targetPrimitiveId !== null
+    effectiveTargetId !== null
     && action.extraBondTargetIds !== undefined
     && action.extraBondTargetIds.length > 0
   ) {
-    const seenInThisPlace = new Set<PrimitiveId>([prim.id, action.targetPrimitiveId]);
+    const seenInThisPlace = new Set<PrimitiveId>([prim.id, effectiveTargetId]);
     for (const extraId of action.extraBondTargetIds) {
       // Defensive validation — order matters: self-id, primary-id,
       // duplicate, missing-from-world, not-in-primary-component.
@@ -208,7 +218,7 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
         }
         continue;
       }
-      if (extraId === action.targetPrimitiveId) {
+      if (extraId === effectiveTargetId) {
         if (import.meta.env.DEV) {
           console.error(`[S14 P2.1] extraBondTargetIds duplicates primary target ${extraId}`);
         }
