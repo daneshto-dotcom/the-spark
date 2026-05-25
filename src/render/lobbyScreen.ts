@@ -547,6 +547,15 @@ export class LobbyScreen {
   }
 
   /**
+   * S46 P1 — return the room code shown in the host pane (or empty string
+   * if not in hosting mode). Used by E2E harness to read the code after
+   * clicking "Host New Room" without OCR-ing the canvas.
+   */
+  getRoomCode(): string {
+    return this.codeText.text ?? '';
+  }
+
+  /**
    * S46 P1 Phase A.0 — update host-side diagnostic strip. Called per-frame
    * by main.ts when world.isHost && mode === 'hosting' && in LOBBY. Empty
    * text hides the strip (same idempotent pattern as updateDiagnostics).

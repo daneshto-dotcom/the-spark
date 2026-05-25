@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 
 const sessionPort = Number(process.env.SESSION_PORT);
@@ -20,5 +21,13 @@ export default defineConfig({
   build: {
     target: 'es2022',
     sourcemap: true,
+  },
+  // S46 P1 — exclude e2e/ from vitest collection. e2e/*.spec.ts is for
+  // Playwright (npm run e2e), not vitest unit tests. Without this, vitest
+  // discovers e2e specs (because vitest defaults to *.test.ts AND *.spec.ts)
+  // and imports them in Node, where @playwright/test fails to load.
+  test: {
+    include: ['src/**/*.test.ts'],
+    exclude: ['node_modules', 'dist', 'e2e'],
   },
 });

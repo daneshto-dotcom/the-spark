@@ -410,10 +410,16 @@ async function bootstrap(): Promise<void> {
   app.stage.addChild(hint);
 
   if (import.meta.env.DEV) {
+    // S46 P1 — exposed lobbyScreen + titleScreen for Playwright E2E harness
+    // (e2e/helpers.ts reads room code + clicks Pixi buttons via canvas coords).
+    // Council C6/Δ1 — read live state via __SPARK__ instead of fragile visual
+    // assertions. DEV-only; tree-shaken from production bundle.
     (globalThis as { __SPARK__?: unknown }).__SPARK__ = {
       get world() { return world; },
       get controls() { return controls; },
       get netTransport() { return netTransport; },
+      get lobbyScreen() { return lobbyScreen; },
+      get titleScreen() { return titleScreen; },
       app,
     };
   }
