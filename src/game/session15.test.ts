@@ -21,7 +21,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { PHASE_1_WIN_SCORE, PHYSICS_HZ, SCORE_ANCHOR, SparkType } from '../constants.ts';
+import { PHASE_1_WIN_SCORE, PHYSICS_HZ, PLAYER_COLORS, SCORE_ANCHOR, SparkType } from '../constants.ts';
 import { makeFreeSpark } from './spark.ts';
 import { asPlayerId, asSparkId, type PrimitiveId } from '../types.ts';
 import { addScore, dispatch, makeWorld } from '../state/world.ts';
@@ -242,6 +242,67 @@ describe('S42 — 1v1 real-time: both players can act simultaneously', () => {
     });
     expect(w.primitives.size).toBe(1);
     expect(w.players.get(P2)!.kind).toBe('Idle');
+  });
+
+  // S46 P4 (BUG-CRITICAL-5 Sym C verification) — joiner can self-bond.
+  // Sym C root cause was coupled to Sym A (stale avatarPos → silent PLACE
+  // rejection) + Sym D (cross-color picking). Both fixed in P2+P3. This
+  // test asserts the joint resolution: P2 places two prims close enough to
+  // auto-bond, AND the bond forms (verifies the same-color filter doesn't
+  // mistakenly block self-bonds).
+  it('S46 P4 Sym C — joiner places two same-color prims that auto-bond', () => {
+    const w = makeWorld(0);
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+
+    // First placement: P2 places a blue prim at (700, 400).
+    const s1 = makeFreeSpark({
+      id: asSparkId(1),
+      type: SparkType.Dot,
+      pos: { x: 700, y: 400 },
+      velocity: { x: 0, y: 0 },
+      dt: PHYSICS_DT,
+      createdTick: 0,
+    });
+    dispatch(w, { type: 'SPAWN_SPARK', spark: s1 });
+    dispatch(w, { type: 'UPDATE_AVATAR_POS', playerId: P2, pos: { x: 700, y: 400 } });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s1.id, playerId: P2, pos: { x: 700, y: 400 } });
+    dispatch(w, {
+      type: 'PLACE_PRIMITIVE',
+      playerId: P2,
+      targetPrimitiveId: null,
+      stiffnessTier: 'MID',
+    });
+    const firstPrimId = [...w.primitives.keys()][0];
+    expect(w.primitives.size).toBe(1);
+
+    // Second placement: P2 places a blue prim at (730, 410) — within
+    // AUTO_BOND_RADIUS=60 of (700, 400). Must bond same-color.
+    const s2 = makeFreeSpark({
+      id: asSparkId(2),
+      type: SparkType.Dot,
+      pos: { x: 730, y: 410 },
+      velocity: { x: 0, y: 0 },
+      dt: PHYSICS_DT,
+      createdTick: 0,
+    });
+    dispatch(w, { type: 'SPAWN_SPARK', spark: s2 });
+    dispatch(w, { type: 'UPDATE_AVATAR_POS', playerId: P2, pos: { x: 730, y: 410 } });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s2.id, playerId: P2, pos: { x: 730, y: 410 } });
+    dispatch(w, {
+      type: 'PLACE_PRIMITIVE',
+      playerId: P2,
+      targetPrimitiveId: firstPrimId,
+      stiffnessTier: 'MID',
+    });
+
+    expect(w.primitives.size).toBe(2);
+    expect(w.bonds.size).toBe(1); // joiner self-bond formed
+    const bond = [...w.bonds.values()][0];
+    const aPrim = w.primitives.get(bond.aId)!;
+    const bPrim = w.primitives.get(bond.bId)!;
+    // Both endpoints are P2's color (blue/cyan).
+    expect(aPrim.placerColor).toBe(bPrim.placerColor);
+    expect(aPrim.placerColor).toBe(PLAYER_COLORS[1]); // joiner = cyan
   });
 });
 

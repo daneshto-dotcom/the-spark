@@ -78,8 +78,8 @@ test.describe('S46 Baseline — lobby + match start (must pass after S46 P1 Phas
   });
 });
 
-test.describe('Sym A — joiner single-action LMB-place (RED until P2 lands)', () => {
-  test.fixme('Joiner LMB-drag-release places primitive at release position', async ({ browser }) => {
+test.describe('Sym A — joiner single-action LMB-place (GREEN post-S46 P2)', () => {
+  test('Joiner LMB-drag-release places primitive at release position', async ({ browser }) => {
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
       const code = await hostNewRoom(hostPage);
@@ -114,8 +114,8 @@ test.describe('Sym A — joiner single-action LMB-place (RED until P2 lands)', (
   });
 });
 
-test.describe('Sym C — joiner self-bond (RED until P2+P3 land)', () => {
-  test.fixme('Joiner can bond own primitives', async ({ browser }) => {
+test.describe('Sym C — joiner self-bond (GREEN post-S46 P2+P3+P4)', () => {
+  test('Joiner can bond own primitives', async ({ browser }) => {
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
       const code = await hostNewRoom(hostPage);
@@ -149,8 +149,8 @@ test.describe('Sym C — joiner self-bond (RED until P2+P3 land)', () => {
   });
 });
 
-test.describe('Sym D — color-segregated bonds (RED until P3 lands)', () => {
-  test.fixme('Cross-color bond attempt is silently rejected', async ({ browser }) => {
+test.describe('Sym D — color-segregated bonds (GREEN post-S46 P3)', () => {
+  test('Cross-color bond attempt is silently rejected', async ({ browser }) => {
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
       const code = await hostNewRoom(hostPage);
@@ -185,7 +185,7 @@ test.describe('Sym D — color-segregated bonds (RED until P3 lands)', () => {
   });
 });
 
-test.describe('Sym E — score display layout (RED until P6 lands)', () => {
+test.describe('Sym E — score display layout (placeholder — needs Pixi Graphics bounds inspection helper for full assertion)', () => {
   test.fixme('Both score readouts show "/50" without charge-dot collision', async ({ browser }) => {
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {

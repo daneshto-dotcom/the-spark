@@ -238,7 +238,11 @@ export class HUD {
 function drawPlayerCharges(g: Graphics, player: { color: number; disruptionCharges: number } | undefined, y: number): void {
   if (player === undefined) return;
   for (let i = 0; i < MAX_DISRUPTION_CHARGES; i++) {
-    const cx = 140 + i * 12;
+    // S46 P6 Sym E — moved from x=140+i*12 to x=210+i*12 to clear the
+    // "RED  XX / 50" score text (extends to ~x=195 at 3-digit scores).
+    // Pre-S46 the dots overlapped scoreText.text past 2-digit scores,
+    // visually occluding "/50" on whichever row had longer text.
+    const cx = 210 + i * 12;
     if (player.disruptionCharges > i) {
       g.circle(cx, y, 4).fill({ color: player.color, alpha: 0.9 });
     } else {
