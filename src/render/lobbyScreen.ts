@@ -241,6 +241,15 @@ export class LobbyScreen {
   // null), or busy-but-throwing (applyNetSnapshot caught) — three distinct
   // failure modes the S38 audit added to the snapshot delivery chain.
   private diagnosticsText: Text;
+  // S46 P1 Phase A.0 — host-side diagnostic strip. Mirrors the joiner-side
+  // strip pattern so the host can SEE peerCount + mode + hostConnected latch
+  // + NetTransport strategy state while waiting in lobby. Without this, a host
+  // stuck on "Waiting for Player 2..." has no signal whether (H1) peer never
+  // connected from host's POV (Trystero one-way), (H2) avatarRenderer or
+  // another ticker stage threw silently breaking updatePeerStatus call, or
+  // (H3) the hostConnected latch + beginButton.visible somehow drifted.
+  // BUG-CRITICAL-4 state-discovery instrumentation.
+  private hostDiagnosticsText: Text;
   private readonly connectionLostHandle: ConnectionLostOverlayHandle;
   private hostConnected = false;
 
@@ -407,6 +416,20 @@ export class LobbyScreen {
     this.diagnosticsText.visible = false;
     this.container.addChild(this.diagnosticsText);
 
+    // S46 P1 Phase A.0 — host-side diagnostic strip. Always visible while
+    // hosting in lobby (gated by main.ts caller, not here). Positioned below
+    // the joiner diagnostics line so both can show simultaneously during the
+    // 2-peer smoke. Yellow-orange (0xffaa44) to distinguish from grey joiner
+    // strip. 13px monospaced — same visual register.
+    this.hostDiagnosticsText = new Text({
+      text: '',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 13, fill: 0xffaa44 }),
+    });
+    this.hostDiagnosticsText.anchor.set(0.5);
+    this.hostDiagnosticsText.position.set(CANVAS_WIDTH / 2, paneY + PANE_HEIGHT + 82);
+    this.hostDiagnosticsText.visible = false;
+    this.container.addChild(this.hostDiagnosticsText);
+
     // Begin Match (revealed when peer joins on host side)
     this.beginButton = this.makeButton('Begin Match', 0x9bff3b, callbacks.onBeginMatch);
     this.beginButton.position.set(CANVAS_WIDTH / 2 - BUTTON_WIDTH / 2, paneY + PANE_HEIGHT + 70);
@@ -494,8 +517,47 @@ export class LobbyScreen {
     this.joinButton.alpha = 0.4;
     this.diagnosticsText.visible = false;
     this.diagnosticsText.text = '';
+    // S46 P1 Phase A.0 — reset host diagnostic strip too.
+    this.hostDiagnosticsText.visible = false;
+    this.hostDiagnosticsText.text = '';
     this.renderState();
     this.updateInputVisibility();
+  }
+
+  /**
+   * S46 P1 Phase A.0 — read-only accessor for the host-side diagnostic strip.
+   * Caller (main.ts) composes the diagnostic text from netTransport state +
+   * these LobbyScreen-internal fields. Surfaces the three values that are
+   * load-bearing for the "Begin Match never appears" hypothesis space:
+   *   - `mode`: must be 'hosting' for the updatePeerStatus latch to fire
+   *   - `hostConnected`: one-shot latch; once true, beginButton.visible stays
+   *     true. If false despite peerCount > 0, the latch never fired
+   *     (suggests updatePeerStatus skipped or mode drift).
+   *   - `beginButtonVisible`: the actual rendered visibility. If true but
+   *     not seen on screen, points to z-order / overlay occlusion bug.
+   *     If false despite hostConnected=true, points to a downstream visibility
+   *     mutation after the latch fired.
+   */
+  getDebugState(): { mode: LobbyMode; hostConnected: boolean; beginButtonVisible: boolean } {
+    return {
+      mode: this.mode,
+      hostConnected: this.hostConnected,
+      beginButtonVisible: this.beginButton.visible,
+    };
+  }
+
+  /**
+   * S46 P1 Phase A.0 — update host-side diagnostic strip. Called per-frame
+   * by main.ts when world.isHost && mode === 'hosting' && in LOBBY. Empty
+   * text hides the strip (same idempotent pattern as updateDiagnostics).
+   */
+  updateHostDiagnostics(text: string): void {
+    if (text === '') {
+      if (this.hostDiagnosticsText.visible) this.hostDiagnosticsText.visible = false;
+      return;
+    }
+    if (!this.hostDiagnosticsText.visible) this.hostDiagnosticsText.visible = true;
+    if (this.hostDiagnosticsText.text !== text) this.hostDiagnosticsText.text = text;
   }
 
   /** S20 P0 — error sink from NetTransport.onError; renders failure layer in red over the status line (resets to grey in reset()). */

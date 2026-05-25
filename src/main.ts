@@ -931,6 +931,35 @@ async function bootstrap(): Promise<void> {
       } else {
         lobbyScreen.updateDiagnostics('');
       }
+      // S46 P1 Phase A.0 — host-side diagnostic strip. Mirror joiner pattern
+      // so the host can SEE the load-bearing state for the BUG-CRITICAL-4
+      // "Begin Match never appears" regression. Three hypothesis spaces:
+      //   H1 — Trystero one-way: pc=0 on host while joiner says connected
+      //   H2 — Silent throw in ticker upstream: mode/hc/bv values inconsistent
+      //   H3 — Latch drift: hc=true but bv=false (or vice versa)
+      // User screenshots this strip during 2-peer smoke → empirical root cause.
+      if (world.isHost) {
+        const td = netTransport.getDiagnostics();
+        const ds = lobbyScreen.getDebugState();
+        const strategySummary = td.strategies
+          .filter((s) => s.state !== 'disabled')
+          .map((s) => {
+            if (s.state === 'failed') return `${s.name}:fail`;
+            if (s.state === 'starting') return `${s.name}:…`;
+            const ok = s.relays.filter((r) => r.connected).length;
+            const total = s.relays.length;
+            return total > 0 ? `${s.name}:${ok}/${total}` : `${s.name}:✓`;
+          })
+          .join(' ');
+        lobbyScreen.updateHostDiagnostics(
+          `host pc=${netTransport.peerCount()} mode=${ds.mode} ` +
+          `hc=${ds.hostConnected} bv=${ds.beginButtonVisible} ` +
+          `gm=${world.gameMode} gs=${world.gameState} ` +
+          `[${strategySummary}]`,
+        );
+      } else {
+        lobbyScreen.updateHostDiagnostics('');
+      }
     }
 
     // S15 P2 — HUD connection dot.
