@@ -22,14 +22,21 @@ import type { GodlyTriggerEvent } from '../state/godlyRecipes/types.ts';
 // to it without crossing the save.ts boundary directly.
 export type { NetSnapshot };
 
-export const PROTOCOL_VERSION = 2 as const;
+// S52 P1 — bumped 2→3 to add PLACE_FROM_FREE atomic LMB-up action (Council
+// R1 CONVERGENT BLOCKER C1 Grok#8+Gemini#1). Old peers running protoVersion=2
+// emit the legacy PICKUP_SPARK + PLACE_PRIMITIVE burst which the joiner side
+// still recognizes (legacy handlers preserved for the RMB ConnectDrag path),
+// but they cannot RECEIVE PLACE_FROM_FREE from a S52+ peer. parseNetMessage
+// HELLO check below rejects mismatched protoVersion at handshake so mid-deploy
+// peers fail closed with the existing Connection-lost overlay (S22 P3 pattern).
+export const PROTOCOL_VERSION = 3 as const;
 
 export interface HelloMsg {
   readonly kind: 'HELLO';
   readonly playerId: PlayerId;
   readonly color: number;
-  /** Protocol version — bumped on wire-incompatible changes. */
-  readonly protoVersion: 2;
+  /** Protocol version — bumped on wire-incompatible changes. S52 P1: 2→3. */
+  readonly protoVersion: 3;
 }
 
 export interface IntentMsg {
@@ -134,6 +141,10 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   PICKUP_SPARK: true,
   DROP_SPARK: true,
   PLACE_PRIMITIVE: true,
+  // S52 P1 — atomic LMB-up action replacing the legacy PICKUP+PLACE burst.
+  // PROTOCOL_VERSION bumped 2→3; old peers can't receive this but their
+  // HELLO will already have been rejected at handshake.
+  PLACE_FROM_FREE: true,
   SEVER_BOND: true,
   TICK_ENERGY: true,
   WIN_TRIGGER: true,

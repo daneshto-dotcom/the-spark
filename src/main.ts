@@ -667,8 +667,21 @@ async function bootstrap(): Promise<void> {
 
     // S15 P2 — client interpolation. Runs every render frame to lerp
     // primitive + freeSpark positions between prev + current snapshot.
+    //
+    // S52 P1 Council C4 — pass dragLockedSparkId so the spark currently
+    // being AttractDragged locally (or in the 300ms post-LMB-up window
+    // pendingPlaceFromFree) is skipped by the interpolation loop. Without
+    // this, the joiner's local stepAttractLerp writes are clobbered every
+    // 100ms by the host's stale "spark at spawn" snapshot — symptom user
+    // reported as "they stay at spawn point and then teleport to supposed
+    // leave point" + visual jitter during drag.
     if (world.gameMode === '1v1' && !world.isHost && session.clientSync !== null) {
-      session.clientSync.interpolateInto(world, performance.now(), NET_INTERPOLATION_MS);
+      session.clientSync.interpolateInto(
+        world,
+        performance.now(),
+        NET_INTERPOLATION_MS,
+        controls.getDragLockedSparkId() ?? undefined,
+      );
       // S31 P0-3 — implicit shake trigger on mirrored ARC_FLASH. Scan the
       // just-rehydrated world.effects (replaced by applySnapshotCore inside
       // interpolateInto when needsFullApply) for any ARC_FLASH whose host

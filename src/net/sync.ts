@@ -19,6 +19,7 @@ import type { NetSnapshot, NetSnapshotMsg, IntentMsg } from './protocol.ts';
 import type { GameAction, World } from '../state/world.ts';
 import { netSnapshot, applyNetSnapshot } from '../state/save.ts';
 import { lerp01 } from './lerp.ts';
+import type { SparkId } from '../types.ts';
 
 /** Server-side: emit snapshots at fixed rate, increment seq. */
 export class HostSync {
@@ -85,8 +86,21 @@ export class ClientSync {
    * players, bonds adjacency) is snapped to currentSnap ONCE per new
    * snapshot (PRIME-AUDIT perf note — avoid per-render Map rebuilds).
    * Positions then lerp every render frame.
+   *
+   * S52 P1 Council C4 — `dragLockedSparkId` (optional): when present, the
+   * snapshot lerp SKIPS that spark so a locally-dragged spark's position
+   * (controls.stepAttractLerp on joiner) isn't clobbered every frame by
+   * the host's stale "spark at spawn" snapshot. Lock is set during local
+   * AttractDrag and for ~300ms after LMB-up dispatches PLACE_FROM_FREE
+   * (closes the in-flight blink before the placement snapshot arrives).
+   * Closes Gemini #2 HIGH from Council R1.
    */
-  interpolateInto(world: World, now: number, interpolationMs: number): void {
+  interpolateInto(
+    world: World,
+    now: number,
+    interpolationMs: number,
+    dragLockedSparkId?: SparkId,
+  ): void {
     if (this.currentSnap === null) return;
 
     if (this.needsFullApply) {
@@ -125,7 +139,7 @@ export class ClientSync {
     const t = lerp01(elapsed / interpolationMs);
     // t=1 means we've reached the current snapshot; t=0 means we just got it.
     // Render-position = lerp(prev, current, t). At t=1, positions == current.
-    interpolatePositions(this.prevSnap, this.currentSnap, t, world);
+    interpolatePositions(this.prevSnap, this.currentSnap, t, world, dragLockedSparkId);
   }
 
   lastSnapshotSeq(): number {
@@ -152,6 +166,12 @@ export class ClientSync {
  * Lerp primitive + freeSpark positions. Bonds derive position from prims,
  * so no per-bond lerp needed.
  *
+ * S52 P1 Council C4 — `dragLockedSparkId` (optional): when set, the matching
+ * freeSpark is excluded from the lerp loop so the joiner's local AttractDrag
+ * (or post-LMB-up pendingPlaceFromFree TTL) position survives without
+ * snapshot clobber. Primitives are NEVER drag-locked — they're host-
+ * authoritative immutable after placement.
+ *
  * Exported for unit testing.
  */
 export function interpolatePositions(
@@ -159,6 +179,7 @@ export function interpolatePositions(
   curr: NetSnapshot,
   t: number,
   world: World,
+  dragLockedSparkId?: SparkId,
 ): void {
   const prevPrims = new Map(prev.primitives.map((p) => [p.id, p]));
   for (const cp of curr.primitives) {
@@ -170,6 +191,8 @@ export function interpolatePositions(
   }
   const prevSparks = new Map(prev.freeSparks.map((s) => [s.id, s]));
   for (const cs of curr.freeSparks) {
+    // S52 P1 Council C4 — skip the locally-dragged spark.
+    if (dragLockedSparkId !== undefined && cs.id === dragLockedSparkId) continue;
     const ps = prevSparks.get(cs.id);
     const spark = world.freeSparks.get(cs.id);
     if (spark === undefined || ps === undefined) continue;

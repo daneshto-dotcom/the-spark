@@ -82,6 +82,19 @@ const BOND_PICK_DIST = 8;
 // gate now fires only on real cursor flicks (intentional cheese-prevention).
 const MAX_RELEASE_REACH = 120;
 
+/**
+ * S52 P1 (Council C4 Gemini #2 HIGH) — after LMB-up dispatches PLACE_FROM_FREE,
+ * keep the spark dragLocked for this many ms so the joiner's local-cursor
+ * spark position isn't clobbered by snapshot interpolation in the brief
+ * window between intent send and host-snapshot arrival. Typical Trystero/Nostr
+ * RTT/2 is 50-100ms; 300ms covers worst-case slow networks. After TTL, the
+ * spark either no longer exists in the snapshot (host consumed it on placement
+ * commit) so the lerp is a no-op anyway, or the placement was rejected and
+ * the snapshot brings spark.pos back to its authoritative position — natural
+ * convergence either way.
+ */
+const PENDING_PLACE_DRAG_LOCK_MS = 300;
+
 export type ControlState =
   | { readonly kind: 'Idle' }
   | {
@@ -107,6 +120,15 @@ export class Controls {
   private readonly dispatchFn: ControlsDispatchFn;
 
   private capturedPointerId: number | null = null;
+
+  /**
+   * S52 P1 (Council C4) — transient dragLock state set after LMB-up dispatches
+   * PLACE_FROM_FREE. Read by main.ts via getDragLockedSparkId() and passed to
+   * clientSync.interpolateInto so the snapshot lerp skips this spark during
+   * the in-flight window between intent and host snapshot. Self-cleared on
+   * read after PENDING_PLACE_DRAG_LOCK_MS ms.
+   */
+  private pendingPlaceFromFree: { sparkId: SparkId; sentAt: number } | null = null;
 
   constructor(
     private readonly app: Application,
@@ -143,6 +165,28 @@ export class Controls {
 
   getPlayerId(): PlayerId {
     return this.playerId;
+  }
+
+  /**
+   * S52 P1 Council C4 — dragLock sparkId for the joiner's local-cursor spark
+   * during AttractDrag AND for PENDING_PLACE_DRAG_LOCK_MS after LMB-up
+   * dispatches PLACE_FROM_FREE. main.ts passes this to clientSync.interpolateInto
+   * so snapshot interpolation skips the locked spark and the joiner sees their
+   * own cursor-tracking spark position without snapshot clobber.
+   *
+   * Returns null when no spark is currently dragLocked (Idle state + no
+   * pending placement, or TTL elapsed). Self-clears the pending entry on TTL.
+   */
+  getDragLockedSparkId(): SparkId | null {
+    if (this.state.kind === 'AttractDrag') return this.state.sparkId;
+    if (this.pendingPlaceFromFree !== null) {
+      const elapsed = performance.now() - this.pendingPlaceFromFree.sentAt;
+      if (elapsed < PENDING_PLACE_DRAG_LOCK_MS) {
+        return this.pendingPlaceFromFree.sparkId;
+      }
+      this.pendingPlaceFromFree = null;
+    }
+    return null;
   }
 
   /** Apply attract force / cursor-lock per substep. Called from main loop. */
@@ -292,67 +336,62 @@ export class Controls {
           ? false
           : isInsideEnemyTerritory(spark.pos, this.playerId, this.world);
         if (reachable && !inZone && !inTerritory) {
-          // S5 hot-fix: single-action place. PICKUP then immediately PLACE so
-          // the released spark lands where it physically is. Auto-bonds to
-          // any primitive within AUTO_BOND_RADIUS of spark.pos so chained
-          // construction feels natural — RMB drag is still available for
-          // precise targeting.
+          // S52 P1 — atomic PLACE_FROM_FREE single intent replaces the S5-era
+          // PICKUP_SPARK+PLACE_PRIMITIVE burst. The burst pattern had a
+          // critical defect for the joiner: when PLACE_PRIMITIVE silently
+          // rejected (spawner-zone, target-missing race, territory hard
+          // block), the prior PICKUP_SPARK had already mutated player.kind=
+          // 'Carrying' + spark.state='Carried' — leaving the joiner stuck
+          // in Carrying with no DROP path (perceived as "click and you're
+          // glued to the spark; RMB to release"). PLACE_FROM_FREE validates
+          // EVERYTHING first; any reject leaves spark Free + player Idle.
+          // See src/state/placeFromFree.ts header for the full Council R1
+          // Battle Ledger context.
           //
-          // S6 P1: capture spark.type BEFORE dispatch — defensive against any
-          // future change that might transform/remove the spark inside
-          // PICKUP_SPARK.
+          // RMB ConnectDrag (carry-then-place precise targeting) still uses
+          // PICKUP_SPARK + PLACE_PRIMITIVE — that flow EXPECTS the Carrying
+          // state to persist between the two actions because the user holds
+          // the carry while aiming.
           const carriedType = spark.type;
-          // S46 P2 — mandatory `pos` (Council C12 + Δ1). Cursor at LMB-up
-          // is the authoritative claim — host snaps spark.pos to action.pos
-          // and re-validates plausibility for remote carriers.
-          this.dispatchFn({
-            type: 'PICKUP_SPARK',
-            sparkId: spark.id,
-            playerId: this.playerId,
-            pos: { x: this.cursor.x, y: this.cursor.y },
-          });
           // S45 Sym A — target picking uses targetRefPos (cursor in client
           // mode, spark.pos in host/solo) so joiner's intent reflects where
           // their cursor was at release, not their stale snapshot spark.pos.
+          // For remote-origin intents, host re-picks via placeFromFree.ts's
+          // pickHostTargetPrimitive (Council C2 Grok#1 BLOCKER — host ignores
+          // joiner-supplied targetPrimitiveId entirely under remote-origin).
           const targetId = this.pickPrimitiveInRange(AUTO_BOND_RADIUS, targetRefPos);
           const target = targetId !== null
             ? this.world.primitives.get(targetId) ?? null
             : null;
           const tier = computeStiffnessTier(carriedType, target);
-          // S9 P2 → S13 P1: collect every primitive within
-          // MERGE_REACH_RADIUS (wider than AUTO_BOND_RADIUS) so
-          // placePrimitive can merge adjacent structures even when the
-          // primary target is the only one strictly within picking
-          // distance. The primary target above remains the bond that
-          // carries the caller-authored stiffness tier; dispatch dedups
-          // by connected component AND picks the nearest primitive per
-          // component (S13 P1) so each surrounding structure gets one
-          // merge bond at the shortest reachable hop.
+          // S9 P2 → S13 P1 — merge candidate sweep (wider radius than the
+          // primary target pick). Host re-derives for remote-origin (Council
+          // C2); local-origin trusts the joiner's list.
           const mergeCandidateIds = this.allPrimitivesInRange(MERGE_REACH_RADIUS, targetRefPos);
-          // S14 P2.1: if we have a primary target, also look for up to K-1
-          // additional bond targets in the same connected component within
-          // AUTO_BOND_RADIUS — the "redundancy bonds" that make a placement
-          // form a small triangulated cell instead of a single edge.
-          // Anchor placements (target === null) get no redundancy bonds —
-          // there is no primary component to triangulate within.
+          // S14 P2.1 — redundancy bonds in the primary target's connected
+          // component. Anchor placements (target === null) get none.
           const extraBondTargetIds: PrimitiveId[] = target !== null
             ? this.redundantBondTargetsInSameComponent(target, targetRefPos)
             : [];
           this.dispatchFn({
-            type: 'PLACE_PRIMITIVE',
+            type: 'PLACE_FROM_FREE',
+            sparkId: spark.id,
             playerId: this.playerId,
-            targetPrimitiveId: target?.id ?? null,
+            placementPos: { x: this.cursor.x, y: this.cursor.y },
             stiffnessTier: tier,
+            targetPrimitiveId: target?.id ?? null,
             mergeCandidateIds,
             extraBondTargetIds,
-            // S48 P2 (Sym C fix) — authoritative placement coord for host
-            // re-pick. Cursor is the source of truth for "where the player
-            // wanted to place"; joiner's local target picking may have
-            // missed a host-side primitive due to snapshot lag, so host
-            // re-derives target + merge candidates against its own world
-            // using this coord.
-            placementPos: { x: this.cursor.x, y: this.cursor.y },
           });
+          // S52 P1 Council C4 — set pendingPlaceFromFree so the snapshot
+          // interpolation skips this spark for ~300ms while the placement
+          // intent travels host-ward and the placement-applied snapshot
+          // travels back. Closes the 1-frame blink between cursor-pos and
+          // pre-place snapshot pos that Gemini #2 HIGH flagged.
+          this.pendingPlaceFromFree = {
+            sparkId: spark.id,
+            sentAt: performance.now(),
+          };
         }
       }
       this.releasePointerCapture(e);

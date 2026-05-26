@@ -50,6 +50,7 @@ import {
   type UpdateAvatarPosAction,
 } from './gameMode.ts';
 import { placePrimitive, type PlacePrimitiveAction } from './placePrimitive.ts';
+import { applyPlaceFromFree, type PlaceFromFreeAction } from './placeFromFree.ts';
 import type { GodlyTriggerEvent } from './godlyRecipes/types.ts';
 import { setCooldown } from './godlyCooldown.ts';
 import {
@@ -242,6 +243,10 @@ export type GameAction =
   | PickupSparkAction
   | DropSparkAction
   | PlacePrimitiveAction
+  // S52 P1 — Atomic PLACE_FROM_FREE replaces the LMB-up PICKUP+PLACE burst
+  // (Council R1 CONVERGENT BLOCKER C1 Grok#8+Gemini#1; full doc in
+  // src/state/placeFromFree.ts). Wire protocol bumped 2→3.
+  | PlaceFromFreeAction
   // S17 P1 — Phase-2 §VIII.3 row 1: SEVER_BOND carries playerId + cause.
   // cause='player' → routes through auth gate (hostile-if-either-endpoint-
   // placerColor-differs per Council R1 Gemini #3) + charge consumption
@@ -363,6 +368,9 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'PLACE_PRIMITIVE':
       return placePrimitive(world, action);
+
+    case 'PLACE_FROM_FREE':
+      return applyPlaceFromFree(world, action);
 
     case 'SEVER_BOND': {
       // S17 §13.11 LOCKED; S19 P2 orchestrator over disruptionManager helpers.

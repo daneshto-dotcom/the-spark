@@ -15,8 +15,9 @@ import { lerp01 } from './lerp.ts';
 import { dispatch, makeWorld } from '../state/world.ts';
 import { applyNetSnapshot, netSnapshot, type NetSnapshot } from '../state/save.ts';
 import type { NetSnapshotMsg } from './protocol.ts';
-import { asCreatureId, asPlayerId, type CreatureId } from '../types.ts';
+import { asCreatureId, asPlayerId, asSparkId, type CreatureId } from '../types.ts';
 import { currentFrameKey, type VoltkinFrameKey } from '../render/voltkinFrames.ts';
+import { SparkType } from '../constants.ts';
 import type { CreatureState } from '../state/creatures/creature.ts';
 
 function mkSnapMsg(seq: number, snap: NetSnapshot): NetSnapshotMsg {
@@ -663,6 +664,116 @@ describe('S15 P2 — interpolatePositions', () => {
     });
     interpolatePositions(prev, current, 0.5, w);
     expect(w.primitives.get(primId)!.pos).toEqual({ x: 50, y: 100 });
+  });
+});
+
+describe('S52 P1 Council C4 — interpolatePositions dragLockedSparkId opt-out', () => {
+  it('locked spark is NOT lerped; its world.pos retains whatever the caller set', () => {
+    const w = makeWorld(0);
+    // Plant a free spark in world at (700, 700) — the joiner-side
+    // AttractDrag would have moved it here locally.
+    const sparkId = asSparkId(42);
+    w.freeSparks.set(sparkId, {
+      id: sparkId,
+      type: SparkType.Dot,
+      pos: { x: 700, y: 700 },
+      prevPos: { x: 700, y: 700 },
+      state: { kind: 'Free' },
+      radius: 8,
+      createdTick: 0,
+    });
+    // Snapshots say the spark is moving from (100,100) at prev to (200,200)
+    // at current — without the lock, interpolatePositions at t=0.5 would
+    // overwrite spark.pos to (150,150).
+    const baseSnap = netSnapshot(w);
+    const prev: NetSnapshot = {
+      ...baseSnap,
+      freeSparks: [{
+        id: sparkId,
+        type: SparkType.Dot,
+        pos: { x: 100, y: 100 },
+        prevPos: { x: 100, y: 100 },
+        state: { kind: 'Free' },
+        radius: 8,
+        createdTick: 0,
+      }],
+    };
+    const current: NetSnapshot = {
+      ...baseSnap,
+      freeSparks: [{
+        id: sparkId,
+        type: SparkType.Dot,
+        pos: { x: 200, y: 200 },
+        prevPos: { x: 200, y: 200 },
+        state: { kind: 'Free' },
+        radius: 8,
+        createdTick: 0,
+      }],
+    };
+
+    // Without lock — spark gets lerped to (150,150).
+    interpolatePositions(prev, current, 0.5, w);
+    expect(w.freeSparks.get(sparkId)!.pos).toEqual({ x: 150, y: 150 });
+
+    // Restore local-drag-position; now lock and lerp again.
+    w.freeSparks.get(sparkId)!.pos = { x: 700, y: 700 };
+    interpolatePositions(prev, current, 0.5, w, sparkId);
+    // Locked → world.pos unchanged.
+    expect(w.freeSparks.get(sparkId)!.pos).toEqual({ x: 700, y: 700 });
+  });
+
+  it('unlocked sparks (different ids) still lerp when dragLock is set', () => {
+    const w = makeWorld(0);
+    const lockedId = asSparkId(42);
+    const unlockedId = asSparkId(43);
+    w.freeSparks.set(lockedId, {
+      id: lockedId,
+      type: SparkType.Dot,
+      pos: { x: 700, y: 700 },
+      prevPos: { x: 700, y: 700 },
+      state: { kind: 'Free' },
+      radius: 8,
+      createdTick: 0,
+    });
+    w.freeSparks.set(unlockedId, {
+      id: unlockedId,
+      type: SparkType.Dot,
+      pos: { x: 0, y: 0 },
+      prevPos: { x: 0, y: 0 },
+      state: { kind: 'Free' },
+      radius: 8,
+      createdTick: 0,
+    });
+    const baseSnap = netSnapshot(w);
+    const mkSpark = (id: typeof lockedId, pos: { x: number; y: number }) => ({
+      id,
+      type: SparkType.Dot,
+      pos,
+      prevPos: pos,
+      state: { kind: 'Free' as const },
+      radius: 8,
+      createdTick: 0,
+    });
+    const prev: NetSnapshot = {
+      ...baseSnap,
+      freeSparks: [
+        mkSpark(lockedId, { x: 100, y: 100 }),
+        mkSpark(unlockedId, { x: 100, y: 100 }),
+      ],
+    };
+    const current: NetSnapshot = {
+      ...baseSnap,
+      freeSparks: [
+        mkSpark(lockedId, { x: 200, y: 200 }),
+        mkSpark(unlockedId, { x: 200, y: 200 }),
+      ],
+    };
+
+    interpolatePositions(prev, current, 0.5, w, lockedId);
+    // locked unchanged
+    expect(w.freeSparks.get(lockedId)!.pos).toEqual({ x: 700, y: 700 });
+    // unlocked still lerped
+    expect(w.freeSparks.get(unlockedId)!.pos).toEqual({ x: 150, y: 150 });
   });
 });
 

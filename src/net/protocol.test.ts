@@ -64,13 +64,18 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 2 (S22 P3 bump from 1)', () => {
-    expect(PROTOCOL_VERSION).toBe(2);
+  it('PROTOCOL_VERSION is 3 (S52 P1 bump from 2 — PLACE_FROM_FREE added)', () => {
+    expect(PROTOCOL_VERSION).toBe(3);
   });
 
   it('accepts a HELLO with current protoVersion', () => {
-    const msg = { kind: 'HELLO', playerId: 0, color: 0xff0000, protoVersion: 2 };
+    const msg = { kind: 'HELLO', playerId: 0, color: 0xff0000, protoVersion: 3 };
     expect(parseNetMessage(msg)).toEqual(msg);
+  });
+
+  it('rejects a HELLO with protoVersion 2 (no back-compat post-S52)', () => {
+    const msg = { kind: 'HELLO', playerId: 0, color: 0xff0000, protoVersion: 2 };
+    expect(parseNetMessage(msg)).toBeNull();
   });
 
   it('rejects a HELLO with protoVersion 1 (no back-compat)', () => {
@@ -99,9 +104,9 @@ describe('S22 P3 — parseNetMessage validator', () => {
 
 describe('Audit Pass 1 d3f0e22b + 561e37ce — strengthened parseNetMessage', () => {
   it('HELLO requires numeric playerId and color', () => {
-    expect(parseNetMessage({ kind: 'HELLO', playerId: '0', color: 0xff0000, protoVersion: 2 })).toBeNull();
-    expect(parseNetMessage({ kind: 'HELLO', playerId: 0, color: 'red', protoVersion: 2 })).toBeNull();
-    expect(parseNetMessage({ kind: 'HELLO', protoVersion: 2 })).toBeNull();
+    expect(parseNetMessage({ kind: 'HELLO', playerId: '0', color: 0xff0000, protoVersion: 3 })).toBeNull();
+    expect(parseNetMessage({ kind: 'HELLO', playerId: 0, color: 'red', protoVersion: 3 })).toBeNull();
+    expect(parseNetMessage({ kind: 'HELLO', protoVersion: 3 })).toBeNull();
   });
 
   it('INTENT requires action.type ∈ KNOWN_GAME_ACTION_TYPES', () => {
