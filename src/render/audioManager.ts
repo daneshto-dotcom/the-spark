@@ -34,7 +34,9 @@
  *   - clamp01(n)
  */
 
+import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import type { GameEffect } from '../game/effects.ts';
+import type { Vec2 } from '../types.ts';
 // Audit Pass 2 fix 622a7c7f — register the cursor-reset handler with the
 // state-layer publisher. Replaces the pre-Pass-2 pattern where save.ts
 // directly imported `resetAudioDrainCursor` from this file (a state→render
@@ -42,7 +44,17 @@ import type { GameEffect } from '../game/effects.ts';
 // state/ stays inside the conventional render→state direction.
 import { registerResetHandler } from '../state/audioCursor.ts';
 
-const MUSIC_URL = '/audio/blue-steppe-orbit.mp3';
+/**
+ * S51 P2.a — switched from blue-steppe-orbit.mp3 (10.0 MB) to .ogg (3.5 MB,
+ * Opus 64k VBR, peaks ~73 kb/s). 65% smaller for mobile/cold-load with
+ * near-transparent quality for instrumental music. The .mp3 is retained on
+ * disk and in git as the Safari pre-17 fallback (decodeAudioData would
+ * silently fail there and the music-fetch try/catch already handles graceful
+ * silent-music). Council Battle Ledger C5 ADOPT A — keep both. If mobile
+ * cold-load is the priority over Safari pre-17 compat, swap MUSIC_URL back
+ * to .mp3 in <1 LOC. ffmpeg encode: -c:a libopus -b:a 64k -application audio.
+ */
+const MUSIC_URL = '/audio/blue-steppe-orbit.ogg';
 const DEFAULT_MUSIC_VOLUME = 0.25;
 const DEFAULT_SFX_VOLUME = 1.0;
 const CLAVE_GAIN = 0.4;
@@ -113,6 +125,14 @@ let sfxVolume = DEFAULT_SFX_VOLUME;
 
 let lastDrainedTick = -1;
 let initialized = false;
+
+// S51 P2.c — auto-duck state. `duckEndCtxTime` tracks the AudioContext time
+// at which music should restore (extended by overlapping ducks per Council
+// PRIME-AUDIT Δ2 ADOPT REFINEMENT: max(currentEnd, candidate) so a 300 ms
+// CREATURE_CHARGE duck mid-flight through a 700 ms BOND_SEVERED-creature
+// duck never truncates the longer one). 0 = no active duck.
+let duckEndCtxTime = 0;
+let duckTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // S23 P3 — diagnostic counters surfaced via inspectAudioChain for the debug
 // overlay. Increment at function entry / after gate passes so the overlay can
@@ -224,6 +244,115 @@ function applyMasterGain(): void {
   masterGain.gain.setTargetAtTime(masterMuted ? 0 : 1, audioContext.currentTime, 0.005);
 }
 
+// ===== S51 P2.b — positional audio (PannerNode) =====
+
+/**
+ * Map a 2D canvas-space position to a Web Audio 3D PannerNode position.
+ * Canvas is top-down (no Y depth); we use X for left/right stereo and Z
+ * for "front/back" virtual depth so the equalpower panner still hears
+ * vertical-axis movement (subtle). Listener implicit at origin (0,0,0).
+ *
+ * Mapping is [-1, +1] for both axes relative to canvas center. Pure for
+ * unit testability. Center → (0,0,0); left edge → x=-1; right edge → x=+1;
+ * top → z=-1; bottom → z=+1.
+ *
+ * Exported for unit tests. The internal `createPanner` helper inserts the
+ * node between an osc/buffer-source's gain stage and the shared sfxGainNode,
+ * preserving the per-channel SFX mute/volume gate.
+ */
+export interface PanningPosition {
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+}
+
+export function mapPanningPosition(pos: Vec2): PanningPosition {
+  return {
+    x: (pos.x - CANVAS_WIDTH / 2) / (CANVAS_WIDTH / 2),
+    y: 0,
+    z: (pos.y - CANVAS_HEIGHT / 2) / (CANVAS_HEIGHT / 2),
+  };
+}
+
+function createPanner(pos: Vec2): PannerNode | null {
+  if (audioContext === null) return null;
+  const ctx = audioContext;
+  const panner = ctx.createPanner();
+  panner.panningModel = 'equalpower';
+  panner.distanceModel = 'linear';
+  panner.refDistance = 1;
+  panner.maxDistance = 2;
+  panner.rolloffFactor = 1;
+  const mapped = mapPanningPosition(pos);
+  panner.positionX.value = mapped.x;
+  panner.positionY.value = mapped.y;
+  panner.positionZ.value = mapped.z;
+  return panner;
+}
+
+// ===== S51 P2.c — music auto-duck =====
+
+/**
+ * Compute the new "duck end time" (in AudioContext seconds) given the
+ * currently-pending end + a new duck request's nowCtxTime + durationMs.
+ * Council PRIME-AUDIT Δ2 ADOPT REFINEMENT: max(currentEnd, candidate) so
+ * an overlapping shorter duck never truncates a longer one already active.
+ * Pure helper exported for unit tests.
+ */
+export function nextDuckEndCtxTime(
+  currentEndCtxTime: number,
+  nowCtxTime: number,
+  durationMs: number,
+): number {
+  const candidate = nowCtxTime + durationMs / 1000;
+  return Math.max(currentEndCtxTime, candidate);
+}
+
+/**
+ * Temporarily duck music volume by `depth` factor for `durationMs`. Used by
+ * the audio drain on CREATURE_CHARGE (300 ms wind-up duck) and BOND_SEVERED
+ * cause='creature' (700 ms duck overlapping the lightning-crackle.ogg
+ * playback). Overlapping calls extend the end-time via `nextDuckEndCtxTime`
+ * so a short event mid-flight through a long one never restores prematurely.
+ *
+ * Idempotent under no audio context (silent no-op pre-init / Safari private).
+ * Respects musicMuted (if music is muted, no audible change; gain stays 0).
+ */
+export function duckMusic(durationMs: number, depth: number = 0.25): void {
+  if (audioContext === null || musicGainNode === null) return;
+  const ctx = audioContext;
+  const now = ctx.currentTime;
+  const newEnd = nextDuckEndCtxTime(duckEndCtxTime, now, durationMs);
+
+  // Always apply (or re-apply) the ducked gain at call time. setTargetAtTime
+  // is idempotent; re-calling at the same target is a no-op in audible terms.
+  const target = clamp01(musicVolume) * clamp01(depth);
+  musicGainNode.gain.cancelScheduledValues(now);
+  musicGainNode.gain.setTargetAtTime(musicMuted ? 0 : target, now, 0.030);
+
+  // Only extend the restore timer when the new end is strictly later than
+  // the current pending end. Otherwise an in-flight long duck stays in
+  // charge of the restore moment (Δ2 idempotence).
+  if (newEnd <= duckEndCtxTime) return;
+  duckEndCtxTime = newEnd;
+
+  if (duckTimeout !== null) clearTimeout(duckTimeout);
+  duckTimeout = setTimeout(() => {
+    if (musicGainNode === null || audioContext === null) {
+      duckTimeout = null;
+      duckEndCtxTime = 0;
+      return;
+    }
+    musicGainNode.gain.setTargetAtTime(
+      musicMuted ? 0 : clamp01(musicVolume),
+      audioContext.currentTime,
+      0.150,
+    );
+    duckTimeout = null;
+    duckEndCtxTime = 0;
+  }, durationMs);
+}
+
 function ensureAudio(): AudioContext | null {
   if (audioContext !== null) return audioContext;
   try {
@@ -332,7 +461,7 @@ export function stopMusic(): void {
 const oneShotBufferCache = new Map<string, AudioBuffer>();
 const oneShotInFlight = new Map<string, Promise<AudioBuffer | null>>();
 
-export async function playOneShot(url: string): Promise<void> {
+export async function playOneShot(url: string, pos?: Vec2): Promise<void> {
   const ctx = ensureAudio();
   if (ctx === null || sfxGainNode === null) return;
   await resumeIfSuspended();
@@ -362,7 +491,15 @@ export async function playOneShot(url: string): Promise<void> {
   if (buffer === null || audioContext === null || sfxGainNode === null) return;
   const source = audioContext.createBufferSource();
   source.buffer = buffer;
-  source.connect(sfxGainNode);
+  // S51 P2.b — optional spatial routing via PannerNode. When pos absent,
+  // direct source → sfxGain (preserves byte-identical pre-S51 behavior).
+  const panner = pos !== undefined ? createPanner(pos) : null;
+  if (panner !== null) {
+    source.connect(panner);
+    panner.connect(sfxGainNode);
+  } else {
+    source.connect(sfxGainNode);
+  }
   source.start();
 }
 
@@ -516,7 +653,7 @@ export function _resetAudioForTest(): void {
   initialized = false;
 }
 
-export async function playClaveSFX(): Promise<void> {
+export async function playClaveSFX(pos?: Vec2): Promise<void> {
   claveCallsTotal += 1;
   if (audioContext === null || sfxGainNode === null) {
     if (isDebugRequested()) console.warn('[audio] playClaveSFX: ctx/gain null, audio not initialized');
@@ -547,7 +684,14 @@ export async function playClaveSFX(): Promise<void> {
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(CLAVE_GAIN, now);
   gain.gain.exponentialRampToValueAtTime(0.001, now + CLAVE_DURATION);
-  gain.connect(sfxGainNode);
+  // S51 P2.b — optional spatial routing; gain → panner → sfxGain when pos given.
+  const panner = pos !== undefined ? createPanner(pos) : null;
+  if (panner !== null) {
+    gain.connect(panner);
+    panner.connect(sfxGainNode);
+  } else {
+    gain.connect(sfxGainNode);
+  }
 
   for (const freq of [1200, 2400]) {
     const osc = ctx.createOscillator();
@@ -560,7 +704,7 @@ export async function playClaveSFX(): Promise<void> {
   claveCallsSynthed += 1;
 }
 
-export async function playFartSFX(): Promise<void> {
+export async function playFartSFX(pos?: Vec2): Promise<void> {
   fartCallsTotal += 1;
   if (audioContext === null || sfxGainNode === null) {
     if (isDebugRequested()) console.warn('[audio] playFartSFX: ctx/gain null, audio not initialized');
@@ -587,7 +731,14 @@ export async function playFartSFX(): Promise<void> {
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(FART_GAIN, now);
   gain.gain.exponentialRampToValueAtTime(0.001, now + FART_DURATION);
-  gain.connect(sfxGainNode);
+  // S51 P2.b — optional spatial routing; gain → panner → sfxGain when pos given.
+  const panner = pos !== undefined ? createPanner(pos) : null;
+  if (panner !== null) {
+    gain.connect(panner);
+    panner.connect(sfxGainNode);
+  } else {
+    gain.connect(sfxGainNode);
+  }
 
   const filter = ctx.createBiquadFilter();
   filter.type = 'lowpass';
@@ -621,7 +772,7 @@ export async function playFartSFX(): Promise<void> {
  * `ctx.resume()` with debug-only logging; skips synth if ctx unrunnable after
  * resume attempt (tab-blur / autoplay-policy guard).
  */
-export async function playChargeSFX(): Promise<void> {
+export async function playChargeSFX(pos?: Vec2): Promise<void> {
   chargeCallsTotal += 1;
   if (audioContext === null || sfxGainNode === null) {
     if (isDebugRequested()) console.warn('[audio] playChargeSFX: ctx/gain null, audio not initialized');
@@ -651,7 +802,14 @@ export async function playChargeSFX(): Promise<void> {
   gain.gain.linearRampToValueAtTime(CHARGE_GAIN, now + CHARGE_RAMP_END);
   gain.gain.linearRampToValueAtTime(CHARGE_GAIN, now + CHARGE_DECAY_START);
   gain.gain.exponentialRampToValueAtTime(CHARGE_DECAY_FLOOR, now + CHARGE_DURATION);
-  gain.connect(sfxGainNode);
+  // S51 P2.b — optional spatial routing; gain → panner → sfxGain when pos given.
+  const panner = pos !== undefined ? createPanner(pos) : null;
+  if (panner !== null) {
+    gain.connect(panner);
+    panner.connect(sfxGainNode);
+  } else {
+    gain.connect(sfxGainNode);
+  }
 
   // Biquad lowpass cutoff exp sweep — opens up the high harmonics from a
   // muffled-buzz to a piercing-arc feel by the end of the wind-up.
@@ -688,21 +846,28 @@ export function drainAudioEffects(effects: ReadonlyArray<GameEffect>, currentTic
     if (effect.tick < lastDrainedTick) continue;
 
     if (effect.kind === 'BOND_FORMED') {
-      void playClaveSFX();
+      // S51 P2.b — pass pos for spatial routing through PannerNode.
+      void playClaveSFX(effect.pos);
     } else if (effect.kind === 'BOND_SEVERED' && effect.cause === 'player') {
-      void playFartSFX();
+      void playFartSFX(effect.pos);
     } else if (effect.kind === 'BOND_SEVERED' && effect.cause === 'creature') {
       // S28 P0 — Voltkin lightning zap on creature-driven sever (Council scope-Q2
       // USER-LOCKED option-a: recorded lightning-crackle.ogg over procedural Web
       // Audio synth — see LIGHTNING_CRACKLE_URL constant rationale).
-      void playOneShot(LIGHTNING_CRACKLE_URL);
+      // S51 P2.b — positional; S51 P2.c — duck music for the ~700 ms crackle.
+      void playOneShot(LIGHTNING_CRACKLE_URL, effect.pos);
+      duckMusic(700);
     } else if (effect.kind === 'CREATURE_CHARGE') {
       // S37 P7 — Voltkin lightning charge-up rising tone, 250 ms procedural
       // synth (sawtooth + biquad lowpass sweep + exp gain envelope). Climaxes
       // just before lightning-crackle.ogg fires at the FIRE tick. Multi-creature
       // concurrent calls are safe (each oscillator graph is one-shot
       // independent; Web Audio is polyphonic by construction).
-      void playChargeSFX();
+      // S51 P2.b — positional; S51 P2.c — duck music for the 300 ms wind-up
+      // so the rising tone reads through the music bed. Overlaps with the
+      // subsequent BOND_SEVERED-creature 700 ms duck via Δ2 max-end-time.
+      void playChargeSFX(effect.pos);
+      duckMusic(300);
     }
   }
   lastDrainedTick = currentTick;

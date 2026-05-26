@@ -22,6 +22,8 @@ import {
   initAudio,
   inspectAudioChain,
   isMuted,
+  mapPanningPosition,
+  nextDuckEndCtxTime,
   resetAudioDrainCursor,
   setMusicMuted,
   setMusicVolume,
@@ -375,5 +377,92 @@ describe('integration — placePrimitive emits 1 BOND_FORMED per placement', () 
   it('aggregation handles multi-bond placements as single emit (asPrimitiveId imported for ID branding sanity)', () => {
     const id = asPrimitiveId(1);
     expect(typeof id).toBe('number');
+  });
+});
+
+// ===== S51 P2.b — mapPanningPosition (pure) =====
+
+describe('audioManager — mapPanningPosition (pure)', () => {
+  // CANVAS_WIDTH = 1920, CANVAS_HEIGHT = 1080 — center is (960, 540).
+
+  it('canvas center → origin (0, 0, 0)', () => {
+    const p = mapPanningPosition({ x: 960, y: 540 });
+    expect(p.x).toBeCloseTo(0, 5);
+    expect(p.y).toBe(0);
+    expect(p.z).toBeCloseTo(0, 5);
+  });
+
+  it('left edge → x = -1', () => {
+    const p = mapPanningPosition({ x: 0, y: 540 });
+    expect(p.x).toBeCloseTo(-1, 5);
+    expect(p.z).toBeCloseTo(0, 5);
+  });
+
+  it('right edge → x = +1', () => {
+    const p = mapPanningPosition({ x: 1920, y: 540 });
+    expect(p.x).toBeCloseTo(1, 5);
+    expect(p.z).toBeCloseTo(0, 5);
+  });
+
+  it('top edge → z = -1', () => {
+    const p = mapPanningPosition({ x: 960, y: 0 });
+    expect(p.x).toBeCloseTo(0, 5);
+    expect(p.z).toBeCloseTo(-1, 5);
+  });
+
+  it('bottom edge → z = +1', () => {
+    const p = mapPanningPosition({ x: 960, y: 1080 });
+    expect(p.x).toBeCloseTo(0, 5);
+    expect(p.z).toBeCloseTo(1, 5);
+  });
+
+  it('y axis is always 0 (canvas is top-down — Y not used for vertical depth)', () => {
+    expect(mapPanningPosition({ x: 0, y: 0 }).y).toBe(0);
+    expect(mapPanningPosition({ x: 1920, y: 1080 }).y).toBe(0);
+    expect(mapPanningPosition({ x: 500, y: 300 }).y).toBe(0);
+  });
+
+  it('quadrant signs are independent', () => {
+    const tl = mapPanningPosition({ x: 480, y: 270 });
+    expect(tl.x).toBeLessThan(0); expect(tl.z).toBeLessThan(0);
+    const tr = mapPanningPosition({ x: 1440, y: 270 });
+    expect(tr.x).toBeGreaterThan(0); expect(tr.z).toBeLessThan(0);
+    const bl = mapPanningPosition({ x: 480, y: 810 });
+    expect(bl.x).toBeLessThan(0); expect(bl.z).toBeGreaterThan(0);
+    const br = mapPanningPosition({ x: 1440, y: 810 });
+    expect(br.x).toBeGreaterThan(0); expect(br.z).toBeGreaterThan(0);
+  });
+});
+
+// ===== S51 P2.c — nextDuckEndCtxTime (pure) =====
+
+describe('audioManager — nextDuckEndCtxTime (pure)', () => {
+  it('first call (no active duck) sets end = now + dur', () => {
+    // currentEnd=0 (no duck), now=1.0s, durMs=300 → end = 1.0 + 0.3 = 1.3s
+    expect(nextDuckEndCtxTime(0, 1.0, 300)).toBeCloseTo(1.3, 5);
+  });
+
+  it('overlap with shorter event preserves the existing (longer) end', () => {
+    // currentEnd=2.0s (700 ms duck started at t=1.3), now=1.5s, new 300 ms → cand 1.8s
+    // max(2.0, 1.8) = 2.0 → don't shorten
+    expect(nextDuckEndCtxTime(2.0, 1.5, 300)).toBeCloseTo(2.0, 5);
+  });
+
+  it('overlap with longer event extends the end', () => {
+    // currentEnd=1.6s (300 ms duck started at t=1.3), now=1.5s, new 700 ms → cand 2.2s
+    // max(1.6, 2.2) = 2.2 → extend
+    expect(nextDuckEndCtxTime(1.6, 1.5, 700)).toBeCloseTo(2.2, 5);
+  });
+
+  it('exact-tie returns the same end value (idempotent)', () => {
+    expect(nextDuckEndCtxTime(1.5, 1.0, 500)).toBeCloseTo(1.5, 5);
+  });
+
+  it('zero-duration call returns the existing end when in-flight', () => {
+    expect(nextDuckEndCtxTime(2.0, 1.5, 0)).toBeCloseTo(2.0, 5);
+  });
+
+  it('zero-current with positive duration returns candidate (no negative-end regression)', () => {
+    expect(nextDuckEndCtxTime(0, 5.5, 100)).toBeCloseTo(5.6, 5);
   });
 });
