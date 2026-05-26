@@ -959,4 +959,118 @@ new state (e.g. CHARGING for melee wind-up)? Either is config-extensible.
 
 ---
 
-## End — All Phase 1 + Phase-2 Tier-0 (1v1 networked) + Phase-2 Tier-1 (Sever-as-disruption + multi-color bond rendering) + Audio subsystem (Suno BGM + procedural SFX + per-channel controls) + Phase-2 godly/creature system (Voltkin lifecycle + combat + NetSnapshot semantics) implementation decisions are locked. Phase 2+ remaining: Inject Spiral (D), Steal (E), Multi-color per-silhouette gradients (F polish), Fog of war (A), Mega-combos via connector chain (G), Anvil second-creature (post-S34 P2-20 voltkin-config base). Audio polish remaining: OGG compression for mobile, PannerNode + auto-duck. Phase 3 net (Colyseus / Geckos.io) reserved for >2-player scalability.
+### 13.16 Phase-2 Sym D — Color-segregated bonding (S46 P3 NEW)
+
+Spec authority: **§VI.4 LOCKED** (multi-color structures reveal contributions). Council R1 Grok #4 + Gemini #1 BLOCKER.
+
+**Invariant:** All bonds in the world have both endpoints with the same `placerColor`. Cross-color bonds cannot form. Enforced at two layers:
+
+1. **Host re-pick** (`src/state/placePrimitive.ts`): when a PLACE_PRIMITIVE intent arrives from a remote peer (`action.playerId !== localPlayerId`), the host discards the joiner-supplied `targetPrimitiveId` and re-derives the nearest same-color candidate within `AUTO_BOND_RADIUS = 60 px` from the authoritative world state. Re-pick fires ONLY for remote-origin intents — it never overrides an explicit same-color joiner-supplied target, never fires for local (host) placements.
+
+2. **Color gate** (`src/state/placePrimitive.ts`): after target selection, the host verifies `candidate.ownerColor === placer.color`. If the candidate belongs to a different player, the placement becomes an anchor (no bond formed). Auth uses `placerColor` (immutable per §VI.4, set at creation) — NOT transient `ownerColor` (which mutates on Phase-2 Steal).
+
+**Dead rendering code:** The S17 P2 + S19 P3 multi-color gradient branches in `drawDefaultLine`, `strokeAxisLerp`, `strokePathLerp` (shared.ts) and `drawDiamond`, `drawLattice` (axisAligned.ts) were removed in S49 P3 — ~51 LOC. The `colorA` / `colorB` fields remain in `BondVisualParams` and are passed through by the caller (`structureRenderer.ts`) but are now always equal. `lerpColor` and `midColor` helpers remain (used by midpoint ornaments and tested directly).
+
+**Geometric consequence with Sym F (§13.19):** `TERRITORY_BASE_RADIUS (60 px) = AUTO_BOND_RADIUS (60 px)`. It is geometrically impossible to be within auto-bond range of an enemy primitive without being inside enemy territory. Therefore the Sym D color gate is now defense-in-depth code that never fires in normal gameplay — territory rejection (§13.19) is the outer gate. If `AUTO_BOND_RADIUS` is ever raised above `TERRITORY_BASE_RADIUS`, this invariant weakens.
+
+---
+
+### 13.17 Phase-2 Sym G — Voltkin chain isolation (S48 P4 NEW)
+
+Spec authority: Phase-2 godly system (§13.15). S48 P4.
+
+The Voltkin 8-primitive recipe (`src/state/godlyRecipes/voltkin.ts`) requires a **strictly isolated linear chain** of exactly 4 squares + 4 triangles, bonded in a single line with no branches or cross-links to the rest of the board. Isolation is validated with two belt-and-suspenders checks applied to every candidate chain:
+
+1. **Degree check** — `bonds.size === expectedDegree`: each chain primitive must have exactly the expected bond count (interior nodes = 2, endpoint nodes = 1). A chain primitive that also bonds to a non-chain primitive has extra bonds → rejected.
+
+2. **Endpoint containment** — `every bond endpoint is in chainSet`: even if degree matches, all bond partners must be within the chain set. Guards against graph pathologies where off-chain prims happen to have the same degree.
+
+Either check failing → recipe match rejected, Voltkin does not spawn. This closes the gameplay loophole where a sprawling mesh with an embedded 4Sq-4Tr fragment would erroneously fire Voltkin.
+
+**Test coverage:** the pre-S48 "branched topology" test in `voltkin.test.ts` was inverted to verify rejection (S48 P4). Existing clean-chain tests remain GREEN.
+
+---
+
+### 13.18 Phase-2 Sym I — ENDGAME envelope wire (S48 P1 NEW)
+
+The `ENDGAME` NetMessage kind was defined in `src/net/protocol.ts` since S15 but never wired with a send call site or recv handler — same anti-pattern as `parseNetMessage` pre-S38 audit and `KNOWN_GAME_ACTION_TYPES` pre-Pass-2. Three instances identified; pattern codified as S48 reflexion entry.
+
+**Host-side send** (`main.ts`): on PLAYING→WIN edge transition, host now sends `{ type: 'ENDGAME', winnerId }` to all peers. Send is ordered BEFORE the standard snapshot emission so the client can gate snapshot application.
+
+**Client-side recv** (`main.ts`): new recv handler applies `dispatch(world, { type: 'WIN_TRIGGER', winnerId, tick: world.tick })` on receipt. The handler gates on `snapshotSeq` (current client snapshot sequence) to prevent double-application if the subsequent snapshot also carries WIN state.
+
+**Symptom fixed:** joiner remained stuck at PLAYING state after host transitioned to WIN/POSTGAME, requiring a manual page reload to see the result screen.
+
+**Pattern rule:** when adding a new NetMessage kind to `protocol.ts`, MUST verify BOTH halves before merging — the send call site AND the recv-side dispatch.
+
+---
+
+### 13.19 Phase-2 Sym F — Territorial repulsion (S49 P1 NEW; Full-tier Council deliberation)
+
+Spec authority: Phase-2 mechanic spec (user-confirmed design S46+S47 handoffs). Full-tier 3-way Council Battle Ledger.
+
+**Core mechanic:** each player's placed structures "own" space around them. Enemy placements inside that space are silently rejected (carry preserved). Enemy bonds inside that space are stiffness-penalised each physics tick.
+
+#### Complexity & radius formula
+
+```
+complexity(pid) = primCount + 0.5 × bondCount + 0.1 × componentCount
+R(pid) = TERRITORY_BASE_RADIUS + TERRITORY_RADIUS_SCALE × log₂(complexity + 1)
+```
+
+Constants (`src/constants.ts`):
+
+| Constant | Value | Purpose |
+|---|---|---|
+| `TERRITORY_BASE_RADIUS` | **60 px** | Minimum radius (matches `AUTO_BOND_RADIUS`; see §13.16 geometric note) |
+| `TERRITORY_RADIUS_SCALE` | **12 px** | log₂ scale factor per complexity unit |
+| `TERRITORY_ENGULF_STIFFNESS` | **0.3** | Bond stiffness multiplier inside enemy territory |
+| `TERRITORY_SHRINK_DURATION_TICKS` | **300** | 5 s @ 60 Hz — SHRINK_TERRITORY effect duration |
+
+#### Hard block (placement rejection)
+
+`isInsideEnemyTerritory(spark.pos, playerId, world)` in `src/state/territory.ts` returns `true` when `spark.pos` is within any enemy player's `R`. Called in `src/state/placePrimitive.ts` after the spawner-zone check, before bond formation. On rejection: `world.diagnostics.territoryBlockRejects++`; carry is preserved (spark stays held).
+
+#### Engulf-warp (bond stiffness penalty)
+
+`computeTerritorialInfluence(world)` in `src/state/territory.ts` iterates all bonds in the world and sets `bond.stiffnessMultiplier = TERRITORY_ENGULF_STIFFNESS (0.3)` for any enemy bond whose A or B endpoint is inside the local player's territory. Called ONCE per physics tick in `main.ts` **before** the 8-substep loop. `solveBonds` in `src/physics/bonds.ts` reads `bond.stiffnessMultiplier ?? 1.0` when computing the constraint correction.
+
+**§10.2 compliance:** `stiffnessMultiplier` is ephemeral — the field is reset (or left unset) every tick by `computeTerritorialInfluence`. It is NOT stored in `WorldSnapshot` / `NetSnapshot`, not serialized, and not part of game state. The field is declared as mutable (non-`readonly`) on the `Bond` interface exactly because it is a per-tick physics annotation, not a durable property.
+
+#### SHRINK_TERRITORY disruption
+
+```typescript
+{ type: 'SHRINK_TERRITORY'; playerId: PlayerId }
+```
+
+- **Trigger:** 'Q' key in `src/input/controls.ts`. Guarded by `gameMode === '1v1'`, `gameState === 'PLAYING'`, and `player.disruptionCharges >= 1`. Skipped when an INPUT/TEXTAREA has focus.
+- **Cost:** 1 disruption charge (`player.disruptionCharges--`).
+- **Effect:** all enemy players gain `territorialShrinkUntilTick = world.tick + TERRITORY_SHRINK_DURATION_TICKS`. While `world.tick < player.territorialShrinkUntilTick`, `computeTerritorialRadius` returns `R / 2`.
+- **1v1-only:** dispatch handler exits early when `world.gameMode !== '1v1'`; Q key handler guards the same condition before dispatching.
+- **Net:** `SHRINK_TERRITORY` registered in `KNOWN_GAME_ACTION_TYPES_RECORD` (`src/net/protocol.ts`). Host applies authoritatively; client sends as Intent envelope.
+
+#### Serialization
+
+`territorialShrinkUntilTick: number | null` added to `PlayerCommon` (`src/game/player.ts`). Serialized in `SerializedPlayer` as an additive-optional field (same pattern as S15/S28/S31/S33 precedents) — pre-S49 saves rehydrate as `null`. Cleared on `applyStartGame` + `applyReturnToTitle`.
+
+#### Files
+
+| File | Change |
+|---|---|
+| `src/state/territory.ts` | NEW — `computePlayerComplexity`, `computeTerritorialRadius`, `isInsideEnemyTerritory`, `computeTerritorialInfluence` |
+| `src/state/territory.test.ts` | NEW — 21 tests covering radius formula, hard block, engulf-warp, shrink effect |
+| `src/state/placePrimitive.ts` | territory hard block after spawner check |
+| `src/main.ts` | `computeTerritorialInfluence(world)` before substep loop in `stepPhysics` |
+| `src/physics/bonds.ts` | `Bond.stiffnessMultiplier?: number` (non-readonly); `solveBonds` applies `× (bond.stiffnessMultiplier ?? 1.0)` |
+| `src/game/player.ts` | `territorialShrinkUntilTick: number \| null` in PlayerCommon; FSM transitions carry it |
+| `src/state/world.ts` | `SHRINK_TERRITORY` action + dispatch; `diagnostics.territoryBlockRejects` counter |
+| `src/state/gameMode.ts` | reset `territoryBlockRejects` + `territorialShrinkUntilTick` on game start + title return |
+| `src/state/save.ts` | `territorialShrinkUntilTick?: number \| null` in `SerializedPlayer` |
+| `src/net/protocol.ts` | `SHRINK_TERRITORY: true` in `KNOWN_GAME_ACTION_TYPES_RECORD` |
+| `src/input/controls.ts` | Q-key handler + optimistic territory gate in LMB-up |
+| `src/render/debugOverlay.ts` | TERRITORY section (complexity, R, shrink countdown per player) |
+| `src/render/ui.ts` | `Q=ZONE` hint text (visible in 1v1 PLAYING) |
+
+---
+
+## End — All Phase 1 + Phase-2 Tier-0 (1v1 networked) + Phase-2 Tier-1 (Sever-as-disruption + multi-color bond rendering) + Audio subsystem (Suno BGM + procedural SFX + per-channel controls) + Phase-2 godly/creature system (Voltkin lifecycle + combat + NetSnapshot semantics) + Phase-2 Sym D (color-segregated bonding) + Sym G (Voltkin chain isolation) + Sym I (ENDGAME envelope) + Sym F (territorial repulsion) implementation decisions are locked. Phase 2+ remaining: Inject Spiral (D), Steal (E), Fog of war (A), Mega-combos via connector chain (G), Anvil second-creature (post-S34 P2-20 voltkin-config base). Audio polish remaining: OGG compression for mobile, PannerNode + auto-duck. Phase 3 net (Colyseus / Geckos.io) reserved for >2-player scalability.

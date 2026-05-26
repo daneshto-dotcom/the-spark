@@ -100,21 +100,12 @@ export function drawDiamond(g: Graphics, p: BondVisualParams): void {
   const lx = mx - nx * short;
   const ly = my - ny * short;
 
-  // S19 P3 — 4-sided rhombus. Sides touching A use colorA, sides touching
-  // B use colorB. Fast path when colors match.
-  if (p.colorA === p.colorB) {
-    g.moveTo(p.ax, p.ay)
-      .lineTo(tx, ty)
-      .lineTo(p.bx, p.by)
-      .lineTo(lx, ly)
-      .lineTo(p.ax, p.ay)
-      .stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
-  } else {
-    g.moveTo(p.ax, p.ay).lineTo(tx, ty).stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
-    g.moveTo(tx, ty).lineTo(p.bx, p.by).stroke({ width: p.width, color: p.colorB, alpha: p.alpha });
-    g.moveTo(p.bx, p.by).lineTo(lx, ly).stroke({ width: p.width, color: p.colorB, alpha: p.alpha });
-    g.moveTo(lx, ly).lineTo(p.ax, p.ay).stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
-  }
+  g.moveTo(p.ax, p.ay)
+    .lineTo(tx, ty)
+    .lineTo(p.bx, p.by)
+    .lineTo(lx, ly)
+    .lineTo(p.ax, p.ay)
+    .stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
 }
 
 /** Wheel (Triangle→Circle, MID): bond as one diameter + perpendicular spoke + circle, slowly rotating. */
@@ -161,22 +152,12 @@ export function drawLattice(g: Graphics, p: BondVisualParams): void {
   const dx2 = mx - nx * half;
   const dy2 = my - ny * half;
 
-  // S19 P3 — outline: sides touching A use colorA; sides touching B use
-  // colorB. Cross-hatch (centered between sides) uses mid color.
-  if (p.colorA === p.colorB) {
-    g.moveTo(p.ax, p.ay)
-      .lineTo(cx, cy)
-      .lineTo(p.bx, p.by)
-      .lineTo(dx2, dy2)
-      .lineTo(p.ax, p.ay)
-      .stroke({ width: p.width * 0.8, color: p.colorA, alpha: p.alpha });
-  } else {
-    const w = p.width * 0.8;
-    g.moveTo(p.ax, p.ay).lineTo(cx, cy).stroke({ width: w, color: p.colorA, alpha: p.alpha });
-    g.moveTo(cx, cy).lineTo(p.bx, p.by).stroke({ width: w, color: p.colorB, alpha: p.alpha });
-    g.moveTo(p.bx, p.by).lineTo(dx2, dy2).stroke({ width: w, color: p.colorB, alpha: p.alpha });
-    g.moveTo(dx2, dy2).lineTo(p.ax, p.ay).stroke({ width: w, color: p.colorA, alpha: p.alpha });
-  }
+  g.moveTo(p.ax, p.ay)
+    .lineTo(cx, cy)
+    .lineTo(p.bx, p.by)
+    .lineTo(dx2, dy2)
+    .lineTo(p.ax, p.ay)
+    .stroke({ width: p.width * 0.8, color: p.colorA, alpha: p.alpha });
 
   const crossWidth = Math.max(1.2, p.width * 0.55);
   const crossAlpha = p.alpha * 0.65;
