@@ -131,8 +131,17 @@ let initialized = false;
 // PRIME-AUDIT Δ2 ADOPT REFINEMENT: max(currentEnd, candidate) so a 300 ms
 // CREATURE_CHARGE duck mid-flight through a 700 ms BOND_SEVERED-creature
 // duck never truncates the longer one). 0 = no active duck.
+//
+// S52 P3 (Gemini CHECK #1 carry-forward fix) — `duckTimeout` REMOVED. The
+// pre-S52 implementation used setTimeout to fire restoreFn at wall-clock
+// (now + durationMs); when the AudioContext suspended (tab blur) the
+// setTimeout fired at wall-time but ctx.currentTime had frozen, producing
+// an abrupt restore at a stale ctx-time. Replaced with a Web Audio
+// scheduled setTargetAtTime(target, newEnd, 0.150) call inside duckMusic
+// — the automation queue is ctx-time relative and survives suspend/resume
+// correctly per W3C Web Audio spec §4.3.2.
 let duckEndCtxTime = 0;
-let duckTimeout: ReturnType<typeof setTimeout> | null = null;
+
 
 // S23 P3 — diagnostic counters surfaced via inspectAudioChain for the debug
 // overlay. Increment at function entry / after gate passes so the overlay can
@@ -317,6 +326,16 @@ export function nextDuckEndCtxTime(
  *
  * Idempotent under no audio context (silent no-op pre-init / Safari private).
  * Respects musicMuted (if music is muted, no audible change; gain stays 0).
+ *
+ * S52 P3 — Gemini CHECK #1 carry-forward fix. Restore is now scheduled via
+ * Web Audio `setTargetAtTime(target, newEnd, 0.150)` at the CALL site
+ * instead of setTimeout(restoreFn, durationMs). The setTimeout approach was
+ * wall-clock and read audioContext.currentTime at TIMEOUT-FIRE time — if the
+ * tab blurred mid-duck the timeout fired while ctx.currentTime had frozen,
+ * producing an abrupt restore at a stale ctx-time. Web Audio automation
+ * lands at `newEnd` (ctx-time, not wall-time) and the queue pauses with
+ * ctx suspend then resumes naturally. W3C spec §4.3.2 confirms the
+ * preserved automation semantic (Gemini AUDITOR #6 LOW with citation).
  */
 export function duckMusic(durationMs: number, depth: number = 0.25): void {
   if (audioContext === null || musicGainNode === null) return;
@@ -326,31 +345,30 @@ export function duckMusic(durationMs: number, depth: number = 0.25): void {
 
   // Always apply (or re-apply) the ducked gain at call time. setTargetAtTime
   // is idempotent; re-calling at the same target is a no-op in audible terms.
+  // cancelScheduledValues clears any prior queued restore (so the new
+  // schedule below replaces it cleanly).
   const target = clamp01(musicVolume) * clamp01(depth);
   musicGainNode.gain.cancelScheduledValues(now);
   musicGainNode.gain.setTargetAtTime(musicMuted ? 0 : target, now, 0.030);
 
-  // Only extend the restore timer when the new end is strictly later than
+  // Only extend the restore schedule when the new end is strictly later than
   // the current pending end. Otherwise an in-flight long duck stays in
-  // charge of the restore moment (Δ2 idempotence).
+  // charge of the restore moment (Δ2 idempotence, Council PRIME-AUDIT).
   if (newEnd <= duckEndCtxTime) return;
   duckEndCtxTime = newEnd;
 
-  if (duckTimeout !== null) clearTimeout(duckTimeout);
-  duckTimeout = setTimeout(() => {
-    if (musicGainNode === null || audioContext === null) {
-      duckTimeout = null;
-      duckEndCtxTime = 0;
-      return;
-    }
-    musicGainNode.gain.setTargetAtTime(
-      musicMuted ? 0 : clamp01(musicVolume),
-      audioContext.currentTime,
-      0.150,
-    );
-    duckTimeout = null;
-    duckEndCtxTime = 0;
-  }, durationMs);
+  // S52 P3 — Web Audio scheduled restore. setTargetAtTime queues an
+  // exponential approach to `restoreTarget` starting at ctx-time `newEnd`
+  // with a 150 ms time-constant. Survives tab-blur suspend correctly: the
+  // automation pauses with the AudioContext clock and resumes from the
+  // suspend point — no stale-ctx-time abrupt cut. If the music gets muted
+  // between the duck schedule and the restore moment, the queued target
+  // stays at the captured `musicVolume` (matches prior setTimeout behavior).
+  musicGainNode.gain.setTargetAtTime(
+    musicMuted ? 0 : clamp01(musicVolume),
+    newEnd,
+    0.150,
+  );
 }
 
 function ensureAudio(): AudioContext | null {
@@ -650,6 +668,9 @@ export function _resetAudioForTest(): void {
   musicVolume = DEFAULT_MUSIC_VOLUME;
   sfxVolume = DEFAULT_SFX_VOLUME;
   lastDrainedTick = -1;
+  // S52 P3 — clear duck schedule state. No setTimeout to clear post-S52
+  // (Web Audio automation queue is dropped when audioContext goes null).
+  duckEndCtxTime = 0;
   initialized = false;
 }
 
