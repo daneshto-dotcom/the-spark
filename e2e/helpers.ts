@@ -149,8 +149,15 @@ export async function hostNewRoom(page: Page): Promise<string> {
   await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE state on host page');
   // Click "1v1 (2 Player)" — text matched against canvas text via locator.
   // Pixi text isn't queryable via DOM, so we click by canvas coord.
-  // The title screen layout: 1v1 button at approx (CANVAS_W/2, CANVAS_H/2+40)
-  const oneVOne = await canvasToCss(page, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40);
+  // S50 P5 EOS audit fix: title screen layout (src/render/titleScreen.ts):
+  //   btnSolo  at (CANVAS_W/2, CANVAS_H/2 + 40)              = (960, 580)
+  //   btn1v1   at (CANVAS_W/2, CANVAS_H/2 + 40 + 72 + 24)    = (960, 676)
+  // Pre-S50, this clicked at y=580 (Solo button) — sent host to PLAYING/solo,
+  // not LOBBY, so every e2e baseline test was timing out post-S49 P3
+  // (which removed the masking continue-on-error gate). Constants
+  // BUTTON_HEIGHT=72, BUTTON_GAP=24 from titleScreen.ts; hardcoded here to
+  // avoid an import cycle (e2e/ is bundled separately from src/).
+  const oneVOne = await canvasToCss(page, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40 + 72 + 24);
   await page.mouse.click(oneVOne.x, oneVOne.y);
   await waitForWorld(page, (w) => w.gameState === 'LOBBY', 'LOBBY state on host page');
   // Click HOST button — host pane center, button at PANE_WIDTH/2 + paneX, paneY+220
@@ -190,7 +197,8 @@ export async function hostNewRoom(page: Page): Promise<string> {
 export async function joinRoom(page: Page, code: string): Promise<void> {
   await page.goto('/?debug=1');
   await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE state on joiner page');
-  const oneVOne = await canvasToCss(page, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40);
+  // S50 P5 EOS audit fix: same Solo-vs-1v1 button-coord bug as hostNewRoom.
+  const oneVOne = await canvasToCss(page, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40 + 72 + 24);
   await page.mouse.click(oneVOne.x, oneVOne.y);
   await waitForWorld(page, (w) => w.gameState === 'LOBBY', 'LOBBY state on joiner page');
   // Type the code into the HTML input overlay (S16 P1).
