@@ -11,8 +11,8 @@
   "prime_audit": "2 deltas. Δ1 NetSession reference identity — handlers MUST read session.transport per-invocation not per-creation to avoid stale captures on reconnect. Δ2 __TEST_WIN_SCORE__ env-override must be scoped to specific describe block via Playwright fixture isolation to prevent spurious WIN in unrelated tests.",
   "council_waived": false,
   "council_waiver_reason": null,
-  "real_context_tokens_at_close": null,
-  "real_context_pct_at_close": null,
+  "real_context_tokens_at_close": 151460,
+  "real_context_pct_at_close": 15.15,
   "priorities": [
     {
       "id": "P0",
