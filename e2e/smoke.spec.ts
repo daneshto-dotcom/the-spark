@@ -215,3 +215,148 @@ test.describe('Sym E — score display layout (placeholder — needs Pixi Graphi
     }
   });
 });
+
+test.describe('Sym F — territorial hard-block (S49 mechanic, S50 P4 e2e coverage)', () => {
+  test('Host placement inside joiner territory is silently rejected', async ({ browser }) => {
+    const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
+    try {
+      const code = await hostNewRoom(hostPage);
+      await joinRoom(joinerPage, code);
+      await waitForWorld(hostPage, (w) => w.peerCount >= 1, 'peers connected');
+      const beginBtn = await canvasToCss(hostPage, CANVAS_WIDTH / 2, 814);
+      await hostPage.mouse.click(beginBtn.x, beginBtn.y);
+      await waitForWorld(hostPage, (w) => w.gameState === 'PLAYING', 'PLAYING on host');
+      await waitForWorld(joinerPage, (w) => w.gameState === 'PLAYING', 'PLAYING on joiner');
+      await waitForWorld(joinerPage, (w) => w.freeSparks.length >= 8, 'sparks spawned');
+
+      // Joiner places 3 BLUE prims tightly clustered to establish territory.
+      // AUTO_BOND_RADIUS=60, so prims at (1500,400) (1530,410) (1490,380)
+      // will all be within bond range — forms a 3-prim same-color structure
+      // with bonds, giving complexity 3 + 0.5*3 + 0.1*1 = 4.6. Territory
+      // radius R = TERRITORY_BASE_RADIUS(60) + scale * log2(5.6) ≈ 80px
+      // around any joiner-placed prim.
+      await dragSparkTo(joinerPage, 1500, 400);
+      await waitForWorld(
+        joinerPage,
+        (w) => w.primitives.some((p) => p.placerColor === 0x3bd7ff && Math.abs(p.pos.x - 1500) < 50),
+        'joiner placed 1st blue prim',
+      );
+      await dragSparkTo(joinerPage, 1530, 410);
+      await dragSparkTo(joinerPage, 1490, 380);
+      await waitForWorld(
+        joinerPage,
+        (w) => w.primitives.filter((p) => p.placerColor === 0x3bd7ff).length >= 3,
+        'joiner has 3 blue prims',
+      );
+
+      // Wait for host to receive snapshot of all 3 joiner prims (territory
+      // hard-block runs on host-authoritative placePrimitive reducer, which
+      // needs the joiner prims to be in host's world.primitives).
+      await waitForWorld(
+        hostPage,
+        (w) => w.primitives.filter((p) => p.placerColor === 0x3bd7ff).length >= 3,
+        'host snapshot has 3 blue prims',
+        15_000,
+      );
+      const beforeHostState = await readWorldState(hostPage);
+      const beforeRedCount = beforeHostState.primitives.filter((p) => p.placerColor === 0xff3b6b).length;
+
+      // Host attempts to place RED prim AT (1500, 400) — exact center of
+      // joiner cluster, distance=0 from a joiner prim → well within R≈80.
+      // Sym F predicate at placePrimitive.ts host-authoritative path silently
+      // rejects (spark stays carried). diagnostics.territoryBlockRejects
+      // increments.
+      await dragSparkTo(hostPage, 1500, 400);
+
+      // Wait a beat for the (would-be) place attempt to propagate. If the
+      // mechanic works, no new RED prim appears.
+      await hostPage.waitForTimeout(800);
+
+      const afterHostState = await readWorldState(hostPage);
+      const afterRedCount = afterHostState.primitives.filter((p) => p.placerColor === 0xff3b6b).length;
+
+      // Assert: RED primitive count UNCHANGED — host's place attempt was
+      // hard-blocked by joiner's territory.
+      expect(afterRedCount).toBe(beforeRedCount);
+    } finally {
+      await hostCtx.close();
+      await joinerCtx.close();
+    }
+  });
+});
+
+test.describe('Sym I — win-condition + ENDGAME envelope (S47 wire, S50 P4 e2e coverage)', () => {
+  test('Host reaching WIN_SCORE triggers WIN on both peers (joiner via ENDGAME envelope)', async ({ browser }) => {
+    const hostCtx = await browser.newContext();
+    const joinerCtx = await browser.newContext();
+    try {
+      // PRIME-AUDIT Δ2 mitigation: scope __TEST_WIN_SCORE__ override to
+      // BOTH contexts of THIS test only. Playwright contexts are isolated,
+      // so the override does not leak to Sym A/C/D/E/F tests. addInitScript
+      // runs BEFORE bundled scripts (including constants.ts module load).
+      // Override value 3 chosen so 3 anchor placements (SCORE_ANCHOR=1
+      // each, non-bonding because >60px apart) reach the WIN gate quickly.
+      const TEST_WIN_SCORE = 3;
+      await hostCtx.addInitScript((winScore) => {
+        (window as { __TEST_WIN_SCORE__?: number }).__TEST_WIN_SCORE__ = winScore;
+      }, TEST_WIN_SCORE);
+      await joinerCtx.addInitScript((winScore) => {
+        (window as { __TEST_WIN_SCORE__?: number }).__TEST_WIN_SCORE__ = winScore;
+      }, TEST_WIN_SCORE);
+
+      const hostPage = await hostCtx.newPage();
+      const joinerPage = await joinerCtx.newPage();
+
+      const code = await hostNewRoom(hostPage);
+      await joinRoom(joinerPage, code);
+      await waitForWorld(hostPage, (w) => w.peerCount >= 1, 'peers connected');
+      const beginBtn = await canvasToCss(hostPage, CANVAS_WIDTH / 2, 814);
+      await hostPage.mouse.click(beginBtn.x, beginBtn.y);
+      await waitForWorld(hostPage, (w) => w.gameState === 'PLAYING', 'PLAYING on host');
+      await waitForWorld(joinerPage, (w) => w.gameState === 'PLAYING', 'PLAYING on joiner');
+      await waitForWorld(hostPage, (w) => w.freeSparks.length >= 8, 'sparks spawned on host');
+
+      // Host places 3 anchors (non-bonding placements, 200px apart > 60
+      // AUTO_BOND_RADIUS). SCORE_ANCHOR=1 each → score=3 → WIN gate fires.
+      await dragSparkTo(hostPage, 800, 400);
+      await waitForWorld(
+        hostPage,
+        (w) => w.primitives.some((p) => p.placerColor === 0xff3b6b && Math.abs(p.pos.x - 800) < 50 && Math.abs(p.pos.y - 400) < 50),
+        'host placed 1st anchor',
+      );
+      await dragSparkTo(hostPage, 800, 600);
+      await dragSparkTo(hostPage, 800, 800);
+
+      // Host should reach scoreByPlayer[0] === 3 → applyScore triggers
+      // WIN_TRIGGER → gameState='WIN' + lastWinnerId=0. Main.ts ticker's
+      // PLAYING→WIN transition guard then sends ENDGAME envelope to peer.
+      await waitForWorld(
+        hostPage,
+        (w) => w.gameState === 'WIN',
+        'host transitions to WIN',
+        15_000,
+      );
+
+      // Joiner receives ENDGAME envelope (clientHandlers.ts dispatches
+      // WIN_TRIGGER locally). Snapshot stream also carries the WIN state
+      // post-S47 (snapshot gate widened to PLAYING|WIN|POSTGAME) so this
+      // is defence-in-depth.
+      await waitForWorld(
+        joinerPage,
+        (w) => w.gameState === 'WIN',
+        'joiner transitions to WIN (via ENDGAME envelope)',
+        10_000,
+      );
+
+      // Final assertion: lastWinnerId reflects host (player 0, RED).
+      const joinerFinalState = await readWorldState(joinerPage);
+      const hostFinalState = await readWorldState(hostPage);
+      // Both peers should agree on the winner.
+      expect(hostFinalState.gameState).toBe('WIN');
+      expect(joinerFinalState.gameState).toBe('WIN');
+    } finally {
+      await hostCtx.close();
+      await joinerCtx.close();
+    }
+  });
+});

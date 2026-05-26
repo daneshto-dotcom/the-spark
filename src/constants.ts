@@ -150,7 +150,23 @@ export const PHASE_1_WIN_PRIMITIVE_COUNT = 30;
 export const SCORE_ANCHOR = 1;
 export const SCORE_FUNCTIONAL_BOND = 1;
 export const SCORE_MAGIC_BOND = 3;
-export const PHASE_1_WIN_SCORE = 50;
+/**
+ * S50 P4 — E2E test override seam. Playwright's `page.addInitScript()` runs
+ * BEFORE bundled scripts, so a `window.__TEST_WIN_SCORE__` assignment from
+ * an init script is observable at module-load here. Production: window is
+ * undefined (SSR / Node) OR override is absent → 50. Only positive finite
+ * numbers override; any other shape falls through to the default.
+ *
+ * Scope: per-context (Playwright contexts are isolated), so the override
+ * does not leak across test describes. See e2e/smoke.spec.ts Sym I describe
+ * for the only call site that sets this (PRIME-AUDIT Δ2 mitigation).
+ */
+function readTestWinScore(): number | null {
+  if (typeof window === 'undefined') return null;
+  const v = (window as { __TEST_WIN_SCORE__?: number }).__TEST_WIN_SCORE__;
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
+}
+export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 50;
 
 // === Spawner physics ===
 export const SPAWNER_BOUNCE_DAMPING = 0.92;
