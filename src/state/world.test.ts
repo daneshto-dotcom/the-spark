@@ -337,7 +337,7 @@ describe('S17 P1 — Phase-2 §VIII.3 cross-player Sever-as-disruption', () => {
     expect(p1Prim).toBeDefined();      // P1's anchor exists
   });
 
-  it('cycle-bond sever does NOT consume charge (PRIME-AUDIT B §VIII.4)', () => {
+  it('cycle-bond sever CONSUMES 1 charge (S52 P2 amendment — PRIME-AUDIT B cycle exception REMOVED)', () => {
     const w = setup1v1();
     // Build a triangle (cycle): a-b-c-a.
     const a = placeFor(w, P1, 0, null);
@@ -363,9 +363,14 @@ describe('S17 P1 — Phase-2 §VIII.3 cross-player Sever-as-disruption', () => {
     w.players.get(P2)!.disruptionCharges = 1;
     const primsBefore = w.primitives.size;
     dispatch(w, { type: 'SEVER_BOND', bondId: abBond.id as never, playerId: P2, cause: 'player' });
-    expect(w.players.get(P2)!.disruptionCharges).toBe(1);  // PRIME-AUDIT B: not consumed
-    expect(w.primitives.size).toBe(primsBefore);            // no prims die on cycle sever
-    expect(w.bonds.has(abBond.id)).toBe(false);             // bond still removed (pre-existing behavior)
+    // S52 P2 — cycle exception REMOVED. Every hostile sever consumes 1 charge
+    // regardless of whether prims die. Pre-S52 PRIME-AUDIT B granted 0-cost
+    // cycle severs; user mental model "each raid point = break 1 connection"
+    // makes that exception read as a bug. Self-sever (computeBaseCharge=0 for
+    // same-color both endpoints) is the only remaining 0-cost path.
+    expect(w.players.get(P2)!.disruptionCharges).toBe(0);  // S52 P2: consumed (was 1 pre-amendment)
+    expect(w.primitives.size).toBe(primsBefore);            // no prims die on cycle sever (topology unchanged)
+    expect(w.bonds.has(abBond.id)).toBe(false);             // bond still removed (pre-existing §VIII.4 behavior)
   });
 
   it('charge cap respected at MAX_DISRUPTION_CHARGES (§VIII.2) — tickBuildAction direct', () => {

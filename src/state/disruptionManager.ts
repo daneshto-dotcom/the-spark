@@ -16,7 +16,12 @@
  *                        creature doesn't pay disruption charge — semantically
  *                        equivalent to 'physics' from this helper's perspective)
  *   - hostile         = EITHER endpoint placerColor ≠ actor.color
- *   - cycle (split.del.size === 0) → no charge consumed, bond still removed
+ *   - cycle exception REMOVED (S52 P2 amendment, user-authorized): every
+ *                       hostile sever costs 1 charge regardless of split.del
+ *                       size. Pre-S52 PRIME-AUDIT B granted cycle severs
+ *                       a 0-cost path; user ask "each raid point = break 1
+ *                       connection" inverts that exception to a uniform rule.
+ *                       See LOCKED §13.11 amended block + world.ts:386-396.
  *   - self-sever (both endpoints share actor's placerColor) → free
  *
  * Helper boundary (post-Council):
@@ -80,14 +85,18 @@ export function canSeverBond(
 }
 
 /**
- * Compute the base charge cost for a player-cause sever, BEFORE the
- * cycle-no-consume rule is applied. Called AFTER severSplit so cycle
- * adjustment can layer on top in the orchestrator.
+ * Compute the base charge cost for a player-cause sever.
+ *
+ * S52 P2 (LOCKED §13.11 amended, user-authorized) — cycle-no-consume rule
+ * REMOVED in the orchestrator (world.ts:386-396). This helper's return is
+ * now the FINAL chargeToConsume value; caller no longer overrides on cycle.
  *
  * Returns:
  *   - 0 for cause='physics' (bypass)
+ *   - 0 for cause='creature' (bypass — host-authoritative spawn upstream)
  *   - 0 for cause='player' + self-sever (both endpoints share actor color)
- *   - 1 for cause='player' + hostile (caller will set to 0 if cycle)
+ *   - 1 for cause='player' + hostile (EVERY hostile sever costs 1 charge
+ *     post-S52, including cycle severs that don't delete any primitives)
  */
 export function computeBaseCharge(
   world: World,

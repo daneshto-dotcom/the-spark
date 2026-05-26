@@ -390,11 +390,17 @@ export function dispatch(world: World, action: GameAction): World {
       if (!canSeverBond(world, action, primA, primB)) return world;
 
       const split = severSplit(bond, world.primitives, world.bonds);
-      // Cycle-no-consume (§VIII.4): hostile sever that produces zero deletions
-      // (closed-cycle bond) keeps charge; bond is still removed.
-      const chargeToConsume = split.del.size === 0
-        ? 0
-        : computeBaseCharge(world, action, primA, primB);
+      // S52 P2 (LOCKED §13.11 amended — user-authorized) — cycle-no-consume
+      // rule REMOVED. Every hostile sever consumes 1 charge regardless of
+      // whether the topology split deletes primitives or just removes the
+      // bond. Pre-S52 PRIME-AUDIT B made cycle-bond severs cost 0 charges as
+      // a strategic-balance compensation for defensive cycle structures;
+      // user mental model is "each raid point = break 1 connection" (verbatim
+      // S52 ask), making the cycle exception read as buggy. Self-sever (both
+      // endpoints share actor color) still costs 0 via computeBaseCharge —
+      // that's a separate rule (zero-cost path for the actor's own structure)
+      // and out of scope of this amendment.
+      const chargeToConsume = computeBaseCharge(world, action, primA, primB);
       if (chargeToConsume > 0) {
         requirePlayer(world, action.playerId).disruptionCharges -= chargeToConsume;
       }

@@ -700,8 +700,9 @@ when charge not yet earned. Visible only in 1v1 PLAYING.
 
 **Test coverage:** 10 new tests in `src/state/world.test.ts` S17 P1
 describe block (cross-player consume, 0-charge reject, self-sever free,
-wrong-turn reject, mixed-ownership auth, cycle-no-consume, charge cap,
-independent accumulation, save roundtrip, physics-cause bypass). 16
+wrong-turn reject, mixed-ownership auth, **cycle-consume — S52 P2
+amendment renamed from cycle-no-consume**, charge cap, independent
+accumulation, save roundtrip, physics-cause bypass). 16
 pre-existing `SEVER_BOND` dispatch sites migrated to include `playerId`
 + `cause: 'physics'` (preserves their §VIII.4 topology-focused
 semantics).

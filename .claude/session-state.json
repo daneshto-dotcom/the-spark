@@ -1,21 +1,21 @@
 {
-  "tool_calls_session_total": 139,
-  "session_start": "2026-05-26T10:55:00Z",
-  "session_id": "S51",
+  "tool_calls_session_total": 70,
+  "session_start": "2026-05-26T16:55:00Z",
+  "session_id": "S52",
   "session_kind": "execution",
-  "session_note": "S51 \u2014 autonomous batch run approved by user. Standard-tier batch (2 priorities): P1 E2E spawner-rate test-override seam (+ Sym D / Sym I downstream fixes uncovered after spawner unblock) + P2 audio polish (OGG/Opus re-encode, PannerNode positional audio, music auto-duck). Council R1 deliberated (Battle Ledger 6 rows + 3 \u0394 rows). PRIME-AUDIT pass complete. User explicit go upfront for autonomous overnight execution.",
+  "session_note": "S52 — autonomous batch run approved upfront by user. Standard-tier batch (3 priorities + P0): P1 atomic PLACE_FROM_FREE action + dragLock interpolation (joiner input asymmetry fix), P2 raid charge cycle-no-consume amendment (LOCKED §13.11 amended per user ask), P3 duckMusic Web Audio scheduled restore (S51 Gemini CHECK #1 carry). Council R1 deliberated (Battle Ledger 7 rows + 6 Δ). PRIME-AUDIT pass complete. User explicit go upfront for autonomous overnight execution: 'I will approve your autonomous run because iil be heading to bed.'",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
   "tier": "Standard",
-  "council_battle_ledger": "6 rows + 3 \u0394. C1 ADOPT A (rate=1.5) over Grok B (0.5 fails math \u2014 at \u03bb=0.5 first wait is 7.69s, leaves Sym A with only 1 spark in 10s window). C2 ADOPT A per-Sym addInitScript (unanimous, mirrors PHASE_1_WIN_SCORE precedent). C3 ADOPT A optional pos? arg (unanimous, no regression). C4 ADOPT A drainAudioEffects event-coupling (unanimous, avoids state-coupling risks of CREATURE_TICK gate). C5 ADOPT A keep MP3 fallback over Gemini B (Safari pre-17 fallback cheap). C6 ADOPT B no LFS (unanimous, 3.5 MB OGG fine direct in git). \u03941 (Gemini) __TEST_RNG_SEED__ DEFERRED to S52 backlog. \u03942 (Gemini) duckMusic max-end-time semantics REFINEMENT ADOPTED \u2014 implemented as nextDuckEndCtxTime pure helper. \u03943 (Claude) audioManager.test.ts pre-flight confirmed pure-helper-only \u2014 no AudioContext mocking required for new tests.",
-  "prime_audit": "5 deltas surfaced + handled in-flight. (1) Module-eval timing of test seams \u2014 confirmed addInitScript fires BEFORE bundled scripts so constants.ts captures override at module-init, mirror of S50 P4 PHASE_1_WIN_SCORE precedent verified empirically by Sym A/C passing immediately after seam landed. (2) Determinism risk of changing seed-dependent spawner timing \u2014 production rate untouched, override is window-only, replay-determinism preserved. (3) FREE_SPARK_SOFT_CAP=50 vs \u03bb=1.5 steady-state \u2014 ~33s to reach cap, all e2e tests place within first 30s, no despawn pressure. (4) Sym D init-script function-form vs string-content \u2014 first attempt with TS arrow function failed (transient flake or TS-compiled-arrow capture issue); switched to {content: 'window....=0'} string form, test passes consistently across 2 confirming runs. (5) Sym I anchor positions (800,400)/(800,600) were INSIDE spawner zone (dist 213 < SPAWNER_RADIUS=250) \u2014 moved to (300,400)/(300,600)/(300,800) outside zone, real test design bug fixed.",
+  "council_battle_ledger": "7 rows + 6 Δ. C1 (Grok#8+Gemini#1 CONVERGENT BLOCKER) ADOPT — bump PROTOCOL_VERSION 2→3 + add PLACE_FROM_FREE to KNOWN_GAME_ACTION_TYPES_RECORD. Old peers fail HELLO same-deploy pattern (S22 P3 precedent). C2 (Grok#1 BLOCKER) ADOPT — remote-origin intents IGNORE joiner's targetPrimitiveId, host always re-picks via existing pickHostTargetPrimitive. C3 (Grok#2 BLOCKER) ADOPT — reducer order makePrimitiveFromSpark FIRST then world.freeSparks.delete + world.primitives.set. C4 (Gemini#2 HIGH) ADOPT — extend dragLock with pendingPlaceFromFree { sparkId, sentAt } 300ms TTL in controls; interpolation skips both AttractDrag and pendingCommit sparks (closes 1-frame blink). C5 (Gemini#3 HIGH) ADOPT — PLACE_FROM_FREE increments same rejectReasons buckets as 2-action path. C6 (Gemini#5 MED) ADOPT — extract shared validatePlacementPos helper used by both placeFromFree.ts and placePrimitive.ts (DRY). C7 (Gemini#4 MED) ADOPT — audit world.test.ts cycle-no-consume test topology; rewrite to use real geometric cycle if mocked. Rejected: Grok#5 (cycle-charge balance — user authorized override), Grok#6/9/10/11 (false positives — non-hostile cycle still 0 via computeBaseCharge; debugOverlay reads world directly no desync; stiffnessTier TS-typed; mid-drag save no regression). Δ1 RuntimeVerify Web Audio scheduled restore on suspend — W3C §4.3.2 ctx-time freezes during suspend, automation queue resumes correctly. Δ2 pendingCommit TTL=300ms vs typical RTT/2 50-100ms; cleared on snapshot or TTL. Δ3 mid-deploy old-host new-joiner surfaces as Connection-lost overlay; refresh required. Δ4 LMB-spam idempotent (race-reject). Δ5 spawner-zone uses action.placementPos (authoritative). Δ6 (Gemini#8 LOW DEFER) host visibility of joiner drag = ATTRACT_DRAG_POS wire message at 10Hz, S53+ carry.",
+  "prime_audit": "6 deltas surfaced + handled in PDR. (1) Web Audio behavior on tab-blur resume — W3C spec §4.3.2 confirms ctx.currentTime freezes during suspend; setTargetAtTime automation queue continues from suspend point on resume. Fix is correct (per Gemini #6 with spec citation). (2) pendingCommit lock cleanup — 300ms TTL OR cleared on first post-LMB-up snapshot, whichever earlier. Self-correcting if network drops. (3) Mid-deploy peer mismatch — Connection-lost overlay; refresh required. Acceptable (atomic GH Pages deploy). (4) LMB-spam — race-reject handles second/third clicks at same spark id. Diagnostics OK. (5) PlacementPos vs spark.pos — was already authoritative in S46 P2 amendment, unifying is byte-equivalent. (6) Cycle test topology — audit existing test fixture; if it's a mocked split, rewrite to construct real geometric cycle.",
   "council_waived": false,
   "council_waiver_reason": null,
   "priorities": [
     {
       "id": "P0",
-      "label": "S51 P0 \u2014 State discovery + Council R1 + PRIME-AUDIT",
+      "label": "S52 P0 — State discovery + Council R1 + PRIME-AUDIT",
       "status": "completed",
       "tier": "Micro",
       "pdr_approved": true,
@@ -24,12 +24,12 @@
       "council_waived": true,
       "council_waiver_reason": "Setup phase (state-discovery + plan drafting)",
       "check_completed": true,
-      "check_method": "Phase A.0 empirical state-discovery: gh run view 26440547587 (5 E2E failures, all sparks-spawned timeout pattern), Read e2e/smoke.spec.ts + helpers.ts (test contract understood), Read main.ts + physicsLoop.ts + net/session.ts + net/hostHandlers.ts + net/clientHandlers.ts (P2 refactor verified correct \u2014 extractions mechanical, no functional change), Read constants.ts (SPAWN_RATE_PER_SECOND=0.15 confirmed), Read LOCKED_DECISIONS.md line 155+167 (0.15 is intentional S5 amendment \u2014 CANNOT change production), simulated spawner via node -e (mulberry32(0xc0ffee).first()=0.0214 \u2192 25.71s first wait at \u03bb=0.15 \u2192 1 spawn in 30s; deterministic. Math: P(0 sparks at tick=1604 | \u03bb=0.15) \u2248 1.8% \u00d7 5 tests \u00d7 3 retries \u2192 P(all 15 zero) \u2248 10\u207b\u00b2\u2076, systematic not statistical). Audio inventory: public/audio/blue-steppe-orbit.mp3 = 10.0 MB. Audio code: audioManager.ts (515 LOC) + audioCursor.ts (57 LOC). ffmpeg 8.1 + libopus confirmed. Council R1 via parallel Grok + Gemini calls \u2014 Battle Ledger 6 rows + 3 \u0394 rows.",
-      "checkpoint_commit": "1941cbf"
+      "check_method": "Phase A.0 empirical state-discovery: gh notification (git-email source = S50 P4/P5 E2E failures, fixed by S51 — cross-project chateau-guardian/brain-command-center/mockingbird out-of-scope). gh run list confirmed latest E2E SUCCESS at 0c277a4. Read controls.ts/protocol.ts/sync.ts/placePrimitive.ts/world.ts/disruptionManager.ts/sparkLifecycle.ts/player.ts/audioManager.ts/main.ts/LOCKED_DECISIONS.md §13.11. Unit baseline 795/796 (1 pre-existing stress.test.ts flake environmental, not regression from S51). Council R1 dispatched parallel grok-4-1-fast + gemini-2.5-pro — 11 Grok + 8 Gemini findings. Battle Ledger 7 ADOPT + 4 REJECT + 6 Δ. Pre-execution gate satisfied via user's upfront 'go' approval; pdr_approved=deliberation_completed=true at top-level + each priority entry per Genesis S35 hook semantic.",
+      "checkpoint_commit": "ec00f3b"
     },
     {
       "id": "P1",
-      "label": "S51 P1 \u2014 E2E spawner-rate test-override + Sym D/I downstream fixes",
+      "label": "S52 P1 — Atomic PLACE_FROM_FREE + dragLock interpolation (input asymmetry fix)",
       "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
@@ -37,20 +37,33 @@
       "unlock_source": "user",
       "council_waived": false,
       "check_completed": true,
-      "check_method": "Three coordinated fixes for the 5 failing e2e tests (S50 P5 EOS-audit unmasked from continue-on-error + y=676 button-coord bug). (1) src/constants.ts: SPAWN_RATE_PER_SECOND test-override seam mirror of PHASE_1_WIN_SCORE \u2014 window.__TEST_SPAWN_RATE_PER_SECOND__ read at module-init, production 0.15 unchanged per LOCKED_DECISIONS Item 3 (S5 strategic-bet feel amendment). (2) e2e/smoke.spec.ts: applyTestSpawnRate helper applied per-Sym to A/C/D/F/I (rate=1.5 per Council C1 \u2014 at \u03bb=1.5 first spawn at 2.56s vs 25.71s at 0.15, same seed sequence preserved). (3) Sym D \u2014 __TEST_TERRITORY_BASE_RADIUS__=0 seam (Sym F territory radius \u226572 > AUTO_BOND_RADIUS=60 means cross-color bond test contract unreachable post-S49 P1; disable territory only in Sym D to test the color-seg invariant which is now defense-in-depth \u2014 used {content: 'window...=0'} string form after TS-arrow form intermittent issue). (4) Sym I \u2014 moved anchor X from 800 to 300 (800,400) and (800,600) were INSIDE SPAWNER_RADIUS=250 zone (dist 213px from center), causing silent rejection \u2014 (300,400)/(300,600)/(300,800) are 675+ px out, well outside zone. Council Battle Ledger C1-C2 + PRIME-AUDIT \u03944-\u03945 ADOPTED. Verification: npx tsc -b --noEmit clean. npm test 783 \u2192 796 GREEN (+13 panner/duck tests). npx playwright test 6/6 GREEN locally (1 skipped Sym E fixme) in 1.3 min. Bundle 496.28 \u2192 497.67 KB (within 500 KB charter, 2.33 KB headroom). e2e CI re-run pending push.",
-      "checkpoint_commit": null
+      "check_method": "Atomic NEW action src/state/placeFromFree.ts (210 LOC reducer) collapses the legacy LMB-up PICKUP_SPARK + PLACE_PRIMITIVE 2-intent burst into one. Validation FIRST (placementPos shape via isPosShape, spark.state==='Free' race-reject, player.kind==='Idle' race-reject, remote-origin isValidPlacementPos canvas-bounds + REASONABLE_PICKUP_REACH=600 reach plausibility, spawner-zone hard block, isInsideEnemyTerritory hard block, remote-origin host re-pick via pickHostTargetPrimitive + collectHostMergeCandidates IGNORING joiner's hint per Council C2 BLOCKER, local-origin target-existence + same-color demotion). Then ATOMIC commit: snap spark.pos to placementPos, fsmPickup Idle→Carrying, spark.state→Carried, delegate to placePrimitive (which cannot now reject — all preconditions pre-verified per Council C3 BLOCKER contract). PROTOCOL_VERSION bumped 2→3 in src/net/protocol.ts; KNOWN_GAME_ACTION_TYPES_RECORD adds PLACE_FROM_FREE (parseNetMessage HELLO check fails closed for mismatched peers — S22 P3 same-deploy pattern). src/input/controls.ts onUp LMB-up branch: PICKUP+PLACE 2-dispatch replaced with single PLACE_FROM_FREE dispatch + sets pendingPlaceFromFree { sparkId, sentAt } 300ms TTL state. NEW getDragLockedSparkId() returns active AttractDrag sparkId OR pendingPlaceFromFree sparkId within TTL OR null. src/net/sync.ts interpolatePositions accepts optional dragLockedSparkId; skips lerp for that spark. src/main.ts threads controls.getDragLockedSparkId() to clientSync.interpolateInto. Tests: src/state/placeFromFree.test.ts NEW (16 tests covering happy path anchor/bonded, all reject paths preserving rejectReasons buckets, remote-origin re-pick + stale-id ignored, atomicity contract — territory + spawner-zone rejects do NOT leave joiner in Carrying state); src/net/sync.test.ts +2 dragLock tests (locked spark not lerped, unlocked sparks still lerped); src/net/protocol.test.ts version updates. Verification: 815/815 unit tests GREEN (+20 from S52); previously-flaky stress.test.ts also GREEN. tsc -b --noEmit clean. npm run build → bundle 499.74 KB (+2.07 KB vs S51 close, 0.26 KB headroom under 500 KB charter). Push: 7c446a2 → origin/master. CI re-run pending; e2e regression preserved by KEEPING legacy PICKUP_SPARK + PLACE_PRIMITIVE handlers for RMB ConnectDrag flow.",
+      "checkpoint_commit": "7c446a2"
     },
     {
       "id": "P2",
-      "label": "S51 P2 \u2014 Audio polish (OGG/Opus + PannerNode + auto-duck)",
-      "status": "completed",
+      "label": "S52 P2 — Raid charge cycle-no-consume amendment (LOCKED §13.11)",
+      "status": "pending",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
-      "check_completed": true,
-      "check_method": "S18 P9 carry-forward shipped via 3 sub-tasks per Council Battle Ledger C3-C5: (a) ffmpeg -c:a libopus -b:a 64k -application audio re-encode blue-steppe-orbit.mp3 (10.0 MB) \u2192 blue-steppe-orbit.ogg (3.5 MB \u2014 65% size reduction; Council C5 ADOPT A keep MP3 on disk as Safari pre-17 fallback). Updated MUSIC_URL in audioManager.ts to /audio/blue-steppe-orbit.ogg. Note: PDR target was ~2 MB but 64k Opus is near-transparent for instrumental music vs 48k (~2.3 MB but audible quality loss); user can swap rate downward if mobile-cold-load priority outweighs quality. (b) Optional pos?:Vec2 arg added to playClaveSFX/playFartSFX/playChargeSFX/playOneShot. mapPanningPosition pure helper exported (canvas top-down \u2192 X=stereo, Z=front-back, Y=0). createPanner internal helper inserts PannerNode (equalpower model, refDistance=1, maxDistance=2, rolloffFactor=1) between osc/source gain and shared sfxGainNode. Listener implicit at origin. Wired into drainAudioEffects on BOND_FORMED/BOND_SEVERED/CREATURE_CHARGE \u2014 passes effect.pos. (c) duckMusic(durationMs, depth=0.25) \u2014 cancelScheduledValues + setTargetAtTime ramp down 30ms \u2192 hold \u2192 setTargetAtTime ramp up 150ms after duration. PRIME-AUDIT \u03942 REFINEMENT (Gemini): nextDuckEndCtxTime pure helper (exported for tests) implements max(currentEnd, candidate) semantics so a 300ms CREATURE_CHARGE duck mid-flight through a 700ms BOND_SEVERED-creature duck never truncates the longer one. Wired into drainAudioEffects: CREATURE_CHARGE \u2192 300ms duck, BOND_SEVERED cause='creature' \u2192 700ms duck. Verification: 13 new unit tests added (7 mapPanningPosition + 6 nextDuckEndCtxTime). npm test 796/796 GREEN. tsc -b --noEmit clean. vite build success, bundle 497.67 KB (+1.39 KB vs S50 close, within 500 KB charter, 2.33 KB headroom).",
+      "check_completed": false,
+      "check_method": null,
+      "checkpoint_commit": null
+    },
+    {
+      "id": "P3",
+      "label": "S52 P3 — duckMusic AudioContext suspend fix (S51 Gemini CHECK #1)",
+      "status": "pending",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": false,
+      "check_completed": false,
+      "check_method": null,
       "checkpoint_commit": null
     }
   ],
@@ -61,7 +74,7 @@
     "budget_status": "GREEN"
   },
   "auto_fill_applied": {
-    "ts": "2026-05-26T13:01:45.878072Z",
+    "ts": "2026-05-26T16:55:00Z",
     "fields": [
       "budget_total",
       "totals"
