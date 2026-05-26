@@ -1,53 +1,53 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-05-25 19:30 GMT | Session: S48
+Generated: 2026-05-26 | Session: S49
 
 ## Next Steps
 
-1. 🔴 **USER ACTION — 2-peer smoke** on https://spark-online.space/?debug=1. HARD REFRESH both browsers. Verify each Sym row PASS/FAIL:
-   - **Sym A:** Joiner LMB-drag-release places primitive in single action (no RMB workaround). If FAIL, click joiner's DEBUG panel — `INTENT REJECTS` section now shows which bucket incremented.
-   - **Sym B:** No colored ring around joiner's carried spark.
-   - **Sym C:** Joiner same-color prims bond on every attempt (no more "first 4 don't, 5th does").
-   - **Sym D:** Cross-color bonds still rejected (regression guard).
-   - **Sym G:** Place 5-Sq blob + 4-Tr line — Voltkin must NOT fire. Clean 4Sq+4Tr linear — fires.
-   - **Sym I 🔴 CRITICAL:** Run match to win — both browsers must show win/POSTGAME with correct winner.
+1. 🔴 **USER ACTION — 2-peer smoke on Sym F.** Hard-refresh https://spark-online.space/?debug=1 on both browsers after deploying S49. Verify the new territory mechanic:
+   - **Sym F Hard Block:** Build a structure (3+ prims). Enemy cannot place within the territory radius (DEBUG overlay shows R for your player). Attempt should be silently blocked (spark stays carried).
+   - **Sym F Engulf-warp:** Place enough enemy prims inside your territory to have a bond there. That bond should feel sluggish/limp compared to bonds outside territory (stiffnessMultiplier=0.3).
+   - **Sym F SHRINK (Q):** With 1 disruption charge, press Q in 1v1 PLAYING. Enemy radius halves for 5s (debug overlay shows "shrink until tN (Xt left)" for enemy). Verify charge consumed (dot goes hollow).
 
-2. If smoke PASSES → archive plan + remove `continue-on-error: true` from `.github/workflows/e2e.yml`.
+2. **Sym E — score "/50" occlusion** (user-deferred S47/S48). Charge dots + godly cooldown indicator crowd the score text on RED row. Pixi Graphics bounds needed for precise layout.
 
-3. If any smoke FAILS → state-discovery via new `INTENT REJECTS` debug overlay.
+3. **E2E harness stabilization (S50 recommend).** `continue-on-error: true` removed in S49 P3 — CI now blocks on E2E failures. Monitor first few deploys post-S49. If flaky, diagnose Trystero/Nostr WebRTC handshake in GH Actions networking vs test fixture. Playwright `test.fixme()` flips for Sym I (win-condition) and Sym F (territory hard-block) are next candidates.
 
-4. **S49 P1 (deferred from S47/S48 P6):** Sym F territorial repulsion (NEW MECHANIC, Full tier). User-confirmed design in handoff §WHAT TO DO NEXT.
+4. **main.ts hypertrophy refactor.** main.ts is growing beyond 500 LOC charter. Extract: `stepPhysics` + `computeTerritorialInfluence` loop → `src/physics/physicsLoop.ts`; network send/recv handlers → `src/net/hostHandlers.ts` + `src/net/clientHandlers.ts`. Standard tier.
 
-5. **Latent-bug audits** (S47 plan §2, deferred): SEVER_BOND validation (2.C), UPDATE_AVATAR_POS handler (2.D), effectsRenderer/bondVisualRenderer/creatureRenderer/ui.ts isLocal gating (2.B).
+5. **vite/vitest CVE major bump.** Carry-forward from S48 boot-snapshot. `npm audit` first to assess severity.
 
 ## Blockers
 
-None blocking. User smoke gates S48 close + Sym F start.
+None blocking. User 2-peer smoke gates S49 close.
 
 ## Pending Backlog
 
-(Carry-forward from S48 close — see handoff §CARRY-FORWARD for full list)
-- [ ] Sym F territorial repulsion (S49 P1)
-- [ ] Sym E score "/50" occlusion polish (user-deferred)
-- [ ] Latent audits 2.A-2.D
-- [ ] Multi-color renderer dead-code deletion (~3-5 KB savings)
-- [ ] Harness Playwright assertions for real-WebRTC paths (S46 reflexion)
-- [ ] `continue-on-error` removal from e2e.yml
-- [ ] Node.js 20 deprecation (auto-forced 2026-06-02)
+- [ ] Sym E score "/50" occlusion polish (user-deferred S47/S48/S49)
+- [ ] E2E harness: flip test.fixme() for Sym I + Sym F + real-WebRTC paths
+- [ ] main.ts hypertrophy refactor (~500+ LOC, charter = 500)
 - [ ] vite/vitest CVE major bump
-- [ ] main.ts hypertrophy refactor
-- [ ] LOCKED_DECISIONS.md amendment for Syms D / G / I
+- [ ] Phase-2 next mechanic: Inject Spiral (D), Steal (E), Fog (A), Mega-combos (G), Anvil second-creature
+- [ ] Audio polish: OGG compression for mobile (~10MB mp3 → ~2MB), PannerNode + auto-duck
+- [ ] Phase-3 net (Colyseus / Geckos.io) — reserved for >2-player scalability
 
 ## Recent Reflexion (last 2 sessions)
 
+## 2026-05-26 — Session 49 (S49 autonomous full-batch: P1 Sym F territorial repulsion NEW MECHANIC + P2 latent audits CLEAN + P3 housekeeping; 2 commits 463df39..ba54c3e + push)
+
+- S49 #territory-base-radius-equals-auto-bond-radius-creates-geometric-Sym-D-defense-in-depth: TERRITORY_BASE_RADIUS=60 = AUTO_BOND_RADIUS=60 means territory always gates before Sym D color gate fires. Document this in LOCKED_DECISIONS.md — future constant changes (raising AUTO_BOND_RADIUS above TERRITORY_BASE_RADIUS) would weaken the invariant.
+
+- S49 #dead-code-deletion-requires-test-audit-not-just-code-audit: Removing dead production code also means removing tests that specifically exercise those dead paths. Before deleting a branch, grep the test file for inputs that trigger it (e.g. `colorA !== colorB`) and remove those tests explicitly.
+
+- S49 #ephemeral-per-tick-physics-annotation-pattern-for-territory-engulf-warp: Non-readonly Bond field + `?? 1.0` fallback in solveBonds = ephemeral annotation without game-state persistence. Pattern reusable for future per-tick physics overlays (damping zones, acceleration fields, collision multipliers).
+
+- S49 #latent-audit-clean-sweep-saves-scope: Schedule latent audits BEFORE assuming fixes are needed. A clean audit saves session scope. The audioCursor.ts `lastDrainedTick` cursor was specifically designed for this — trust the existing architecture first.
+
+- SESSION #s49-autonomous-sym-f-territorial-repulsion-shipped-783-tests-green: 2 commits 463df39..ba54c3e + push. Bundle 492.22 → 494.45 KB (+2.23 KB, 5.55 KB headroom). Tests 770 → 783 (+13 net). Context 13.05% GREEN.
+
 ## 2026-05-25 — Session 48 (S47/S48 regression triage SHIPPED autonomous overnight RALPH:HUNT mode; P1-P5 fixed all 6 confirmed bugs from S47 live smoke — Sym A/B/C/G/I + Sym E deferred; 5 commits daa750d..3c615a6 + deploy run 26416265601)
 
-- S48 #wire-envelope-scaffolded-but-not-connected-is-now-3-instance-anti-pattern: Sym I CRITICAL — ENDGAME envelope existed in protocol.ts since S15 but NEVER had a `netTransport.send` site OR a recv handler. Same anti-pattern as parseNetMessage pre-S38 audit + KNOWN_GAME_ACTION_TYPES pre-Pass-2. Three instances of the same shape is a pattern. **Pattern: when adding a new NetMessage kind to protocol.ts, MUST verify BOTH halves before merging — send call site AND recv-side dispatch.**
-- S48 #per-reason-diagnostic-counters-beat-aggregate-counters-for-silent-drop-localization: Split `world.diagnostics.raceRejects` into named buckets (`rejectReasons.{pickupPosShape, pickupSparkNotFree, pickupReachFail, placeTargetMissing}`). Cost minimal; benefit immediate root-cause localization in live smoke.
-- S48 #autonomous-overnight-ralph-hunt-execution-viable-when-plan-is-pre-written-and-source-cited: PC rebooted mid-S48 — work survived because every priority was committed before moving to next. Preconditions for safe autonomy: pre-written plan with file:line citations, per-priority vitest gate, per-priority commit, 4-layer prod verify before /handoff.
-- SESSION #s48-autonomous-overnight-ralph-hunt-shipped-5-priorities-770-tests-green: 5 commits + close commit. Bundle 490.06 → 492.22 KB. Tests 768 → 770. 4-layer prod verify PASS. $0 API spend (Council user-waived).
+- S48 #wire-envelope-scaffolded-but-not-connected-is-now-3-instance-anti-pattern: ENDGAME envelope existed since S15 but never had send/recv sites. Pattern: when adding a new NetMessage kind to protocol.ts, verify BOTH send site AND recv-side dispatch before merging.
 
-## 2026-05-24 — Session 45 (BUG-CRITICAL-3 SHIPPED autonomous-mode Full tier; Sym A + Sym B + Sym C(a))
+- S48 #per-reason-diagnostic-counters-beat-aggregate-counters-for-silent-drop-localization: Split raceRejects into named buckets (pickupPosShape, pickupSparkNotFree, pickupReachFail, placeTargetMissing). One bucket per failure mode beats one bucket per category.
 
-- S45 #state-discovery-pre-empted-a-schema-bump-by-discovering-existing-wiring: PDR draft estimated Sym B at "snapshot schema delta + render refactor"; State-Discovery probe found infrastructure already wired end-to-end but ZERO production dispatch sites. Fix collapsed from "schema bump" to "wire the dispatch" — 30% scope reduction.
-- S45 #council-r2-c3-hybrid-sourcing-unanimous-instant-resolve-pattern: When all 3 Council voices converge on R1 with no dissent, that's the INSTANT-RESOLVE signal — skip R2 for that row.
-- S45 #prime-audit-delta-4-expansion-caught-deeper-coupling-than-PDR-scope: PRIME-AUDIT's role is "what coupling does the proposed fix imply that the PDR didn't surface?" Multiplayer state corrections often have multi-file ripples.
+- S48 #strict-spec-changes-INVERT-existing-tests-mark-them-explicitly: When a spec change inverts test expectations, REWRITE the test (renamed + new comment citing spec change + inverted assertion) rather than delete it — preserves the audit trail.
