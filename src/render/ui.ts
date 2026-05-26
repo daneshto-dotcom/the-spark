@@ -105,13 +105,15 @@ export class HUD {
     this.chargeDots = new Graphics();
     app.stage.addChild(this.chargeDots);
 
-    // S49 P1 (Sym F) — Q key hint. Positioned after the charge dots
-    // (max dot at x=222+4px radius; hint at x=240). Shown only in 1v1 PLAYING.
+    // S50 P3 (Sym E occlusion polish) — Q key hint shifted from x=240 to
+    // x=290 to clear the new charge-dot range. Council Battle Ledger C4:
+    // dots now at x=260+i*12 (max x=276 with radius), so qHint anchored
+    // left-justified at x=290 leaves a ~14px breathing gap.
     this.qHintText = new Text({
       text: 'Q=ZONE',
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 11, fill: 0xaaaaaa }),
     });
-    this.qHintText.position.set(240, 8);
+    this.qHintText.position.set(290, 8);
     this.qHintText.visible = false;
     app.stage.addChild(this.qHintText);
   }
@@ -253,11 +255,15 @@ export class HUD {
 function drawPlayerCharges(g: Graphics, player: { color: number; disruptionCharges: number } | undefined, y: number): void {
   if (player === undefined) return;
   for (let i = 0; i < MAX_DISRUPTION_CHARGES; i++) {
-    // S46 P6 Sym E — moved from x=140+i*12 to x=210+i*12 to clear the
-    // "RED  XX / 50" score text (extends to ~x=195 at 3-digit scores).
-    // Pre-S46 the dots overlapped scoreText.text past 2-digit scores,
-    // visually occluding "/50" on whichever row had longer text.
-    const cx = 210 + i * 12;
+    // S50 P3 (Sym E occlusion polish) — moved from x=210 to x=260 to fully
+    // clear the "RED  50 / 50" score text. Council Battle Ledger C4 over
+    // dynamic getBounds (rejected: async Pixi text-layout pitfall + no
+    // benefit at PHASE_1_WIN_SCORE=50 max 2-digit). Static numeric chosen
+    // for traceability in git blame. Pre-S46: x=140 (collided past 2-digit).
+    // S46: x=210 (still tight per user feedback across S46/S47/S48/S49).
+    // S50: x=260 (50px additional headroom — score text max ends x≈132 at
+    // 12-char "RED  50 / 50" at 9.6px/char monospace 16).
+    const cx = 260 + i * 12;
     if (player.disruptionCharges > i) {
       g.circle(cx, y, 4).fill({ color: player.color, alpha: 0.9 });
     } else {
