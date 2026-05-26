@@ -25,50 +25,50 @@ import { Application, Text, TextStyle } from 'pixi.js';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
-  FREE_SPARK_SOFT_CAP,
   NET_INTERPOLATION_MS,
   NET_SNAPSHOT_HZ,
   PHYSICS_HZ,
-  PHYSICS_SUBSTEPS,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
 } from './constants.ts';
-import { Spawner, DEFAULT_SPAWNER_CONFIG, enforceSpawnerBounds } from './game/spawner.ts';
+import { Spawner, DEFAULT_SPAWNER_CONFIG } from './game/spawner.ts';
 import {
   snapshotInvariants,
   verifyInvariants,
   type InvariantSnapshot,
 } from './game/invariants.ts';
 import { Controls, type ControlsDispatchFn } from './input/controls.ts';
-import { NetTransport } from './net/transport.ts';
-import { HostSync, ClientSync } from './net/sync.ts';
-import { generateRoomCode } from './net/protocol.ts';
-import { resolveCollisions } from './physics/collision.ts';
-import { solveBonds, type Bond } from './physics/bonds.ts';
+// S50 P2 — NetTransport / HostSync / ClientSync / generateRoomCode no longer
+// referenced directly from main.ts after lobby-callback extraction (Battle
+// Ledger C2). NetTransport type retained only for the __SPARK__ DEV accessor.
+import type { NetTransport } from './net/transport.ts';
+import { makeNetSession, teardownNet } from './net/session.ts';
+import { createHostStartHandler, createBeginMatchHandler } from './net/hostHandlers.ts';
+import { createJoinAttemptHandler } from './net/clientHandlers.ts';
 import { SpatialGrid } from './physics/spatial.ts';
-import { verletStepAll } from './physics/verlet.ts';
-// S26 P0 — Voltkin Phase 2B: per-substep Verlet integration + steering forces for
-// creatures, plus deterministic stub target computation for onCinematicHandoff.
-// Host-only at the caller (stepPhysics is already gated by `!isClient` at line 509).
-import {
-  computeStubTargetPos,
-  computeSteeringAccel,
-  creatureVerletStep,
-} from './physics/creatureVerlet.ts';
+// S50 P2 — physics tick orchestration extracted to physicsLoop.ts (Council
+// Standard-tier refactor, Battle Ledger C2). main.ts pre-S50 was 1221 LOC;
+// stepPhysics + enforceFreeSparkCap + freeSparkArray + PHYSICS_DT/SUBSTEP_DT
+// constants all lived at module scope here — mechanical extraction with
+// zero behavior change. PHYSICS_DT re-imported here for the outer ticker
+// accumulator (frame-rate-independent fixed-step loop).
+import { stepPhysics, freeSparkArray, PHYSICS_DT } from './physics/physicsLoop.ts';
+// S26 P0 — Voltkin Phase 2B: deterministic stub target computation for
+// onCinematicHandoff. Per-substep Verlet integration + steering forces for
+// creatures now live in physicsLoop.ts (consumed inside stepPhysics).
+import { computeStubTargetPos } from './physics/creatureVerlet.ts';
 // S27 P0 — Voltkin Phase 2C: AI target selection + attack-fire dispatch.
 // findNearestBondTarget runs every CREATURE_TICK during SEEKING (Council R1 Q3
 // UNANIMOUS A); bondMidpoint feeds the per-tick targetPos update so the
 // existing steering forces (seek/arrive) home in on the nearest bond's center.
 import { bondMidpoint, findNearestBondTarget } from './state/creatures/creatureAI.ts';
-import { cinematicMsToTicks, VOLTKIN_ATTACK_FIRE_TICK } from './state/creatures/creature.ts';
+import { VOLTKIN_ATTACK_FIRE_TICK } from './state/creatures/creature.ts';
 import { AvatarRenderer } from './render/avatarRenderer.ts';
-import { drainAudioEffects, initAudio, isMuted, playMusic, playOneShot, toggleMute } from './render/audioManager.ts';
-// Audit Pass 2 refactor 622a7c7f: replace direct `resetAudioDrainCursor`
-// import with the state-layer publisher seam. audioManager registers its
-// cursor-reset handler at module-init (side effect of the import above);
-// `triggerReset()` then fires it from inside the state lifecycle.
-import { triggerReset as triggerAudioCursorReset } from './state/audioCursor.ts';
+import { drainAudioEffects, initAudio, isMuted, playMusic, toggleMute } from './render/audioManager.ts';
+// S50 P2 — Audit Pass 2 refactor 622a7c7f: triggerReset is now called from
+// inside teardownNet (extracted to src/net/session.ts). No direct main.ts
+// import required.
 import { EffectsRenderer } from './render/effectsRenderer.ts';
 import { LobbyScreen } from './render/lobbyScreen.ts';
 import { SparkRenderer, makeLegend, makeSpawnerRing } from './render/renderer.ts';
@@ -77,28 +77,36 @@ import { StatsOverlay } from './render/statsOverlay.ts';
 import { StructureRenderer } from './render/structureRenderer.ts';
 import { TitleScreen } from './render/titleScreen.ts';
 import { HUD } from './render/ui.ts';
-import { CutsceneOverlay, FADE_MS } from './render/cutsceneOverlay.ts';
+import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
 import { makeCinematicVignette } from './render/cinematicVignette.ts';
-import { CodexOverlay, unlockGodly, entryFromRecipe } from './render/codexOverlay.ts';
+import { CodexOverlay, entryFromRecipe } from './render/codexOverlay.ts';
 import { CreatureRenderer } from './render/creatureRenderer.ts';
 import { ScreenShake, shouldTriggerShakeForArcFlash } from './render/screenShake.ts';
 // S23 P2 — debug overlay (toggleable via ?debug=1 URL param). Surfaces runtime
 // gates + audio chain + chain progress for in-vivo diagnosis when offline tests
 // pass but live trigger doesn't fire.
 import { createDebugOverlay, isDebugMode, type DebugOverlayHandle, type RuntimeProbes } from './render/debugOverlay.ts';
-import { findGodlyMatch, makeTriggerEvent, listRecipes, getRecipe } from './state/godlyRecipes/index.ts';
+import { listRecipes } from './state/godlyRecipes/index.ts';
 // S22 P4 — side-effect import registers Voltkin recipe in the registry.
 import './state/godlyRecipes/voltkin.ts';
+// S50 P2 — godly matcher + cinematic-lifecycle orchestration extracted to
+// godlyOrchestration.ts (Council Standard-tier refactor, Battle Ledger C2).
+// Pre-S50 these two functions (runGodlyMatcher + startCinematicIfNeeded)
+// lived inside the 1010-LOC bootstrap() closure. State migrated to a mutable
+// holder per PRIME-AUDIT Δ1 (per-invocation freshness on netTransport refs).
+import {
+  makeGodlyOrchestrationState,
+  runGodlyMatcher,
+  startCinematicIfNeeded,
+} from './state/godlyOrchestration.ts';
 import { mulberry32 } from './state/rng.ts';
 import { dispatch, makeWorld, type GameAction, type GameState } from './state/world.ts';
-import { computeTerritorialInfluence } from './state/territory.ts';
 import { makeGameStateExtras, softReset, tickGameState } from './state/gameState.ts';
 import { saveToLocalStorage } from './state/save.ts';
 import { asPlayerId } from './types.ts';
-import type { Spark } from './game/spark.ts';
 
-const PHYSICS_DT = 1 / PHYSICS_HZ;
-const SUBSTEP_DT = PHYSICS_DT / PHYSICS_SUBSTEPS;
+// S50 P2 — PHYSICS_DT / SUBSTEP_DT extracted to physicsLoop.ts; PHYSICS_DT
+// re-imported (above) for the outer ticker accumulator.
 const SPATIAL_CELL_SIZE = 32;
 const P1 = asPlayerId(0);
 const SNAPSHOT_INTERVAL_TICKS = Math.max(1, Math.round(PHYSICS_HZ / NET_SNAPSHOT_HZ));
@@ -193,11 +201,11 @@ async function bootstrap(): Promise<void> {
   const spawner = new Spawner(DEFAULT_SPAWNER_CONFIG, rng);
   const gameStateExtras = makeGameStateExtras();
 
-  // ===== S15 P2 — net session state (1v1 only) =====
-  let netTransport: NetTransport | null = null;
-  let hostSync: HostSync | null = null;
-  let clientSync: ClientSync | null = null;
-  let lastSnapshotTick = 0;
+  // ===== S15 P2 — net session state (1v1 only). S50 P2 — unified into
+  // NetSession state holder (Council Battle Ledger C3 ADOPT). Holder
+  // identity preserved across the tick loop + lobby callback factories
+  // so per-tick reads always see the latest reference. =====
+  const session = makeNetSession();
 
   // S15 P2 — dispatcher injection. In solo or host mode, dispatch locally.
   // In client mode, wrap as INTENT and send via transport (host applies
@@ -218,8 +226,8 @@ async function bootstrap(): Promise<void> {
     if (
       world.gameMode === '1v1' &&
       !world.isHost &&
-      clientSync !== null &&
-      netTransport !== null
+      session.clientSync !== null &&
+      session.netTransport !== null
     ) {
       // S46 P2 — optimistic local apply for predictable actions.
       if (PREDICTABLE_ACTIONS.has(action.type)) {
@@ -230,7 +238,7 @@ async function bootstrap(): Promise<void> {
           // joiner intent). Host snapshot will overwrite anyway — swallow.
         }
       }
-      netTransport.send(clientSync.wrapIntent(action));
+      session.netTransport.send(session.clientSync.wrapIntent(action));
     } else {
       dispatch(world, action);
     }
@@ -287,157 +295,40 @@ async function bootstrap(): Promise<void> {
     },
   });
 
-  const lobbyScreen = new LobbyScreen(app, {
-    onHostStart: () => {
-      const code = generateRoomCode();
-      netTransport = new NetTransport();
-      hostSync = new HostSync();
-      world.isHost = true;
-      // S20 P0 — surface NetTransport errors (signaling, ICE, send) to the
-      // lobby statusText in red so users see the failure layer rather than
-      // an indefinite "Waiting for Player 2..." stall (the S19 P4-unresolved
-      // BLOCKER root cause: zero error plumbing existed).
-      netTransport.onError = (errMsg) => lobbyScreen.setErrorMessage(errMsg);
-      netTransport.connect(code);
-      netTransport.on((msg) => {
-        if (msg.kind === 'INTENT' && hostSync !== null) {
-          // S15 P2 — host applies client intent authoritatively.
-          // S42 — turn-based active-player gate REMOVED (blueprint mandates
-          // real-time). Shared-resource race conditions (e.g. both players
-          // grab same spark) are resolved by first-Intent-wins host-receive
-          // order; loser's intent silently no-ops + increments
-          // world.diagnostics.raceRejects (observable for tests).
-          dispatch(world, msg.action);
-        }
-        // S22 P3 — clients never send GODLY_TRIGGER (host-only authority,
-        // Battle Ledger row 9). Defensive: drop GODLY_TRIGGER from clients silently.
-      });
-      return code;
-    },
-    onJoinAttempt: (code) => {
-      netTransport = new NetTransport();
-      clientSync = new ClientSync();
-      world.isHost = false;
-      // S35 P0 — break 1v1 join bootstrap deadlock. The render-loop client-
-      // interpolation gate at this file's `if (world.gameMode === '1v1' && ...)`
-      // (call site below `app.ticker.add`) is the only path that runs
-      // clientSync.interpolateInto → applyNetSnapshot. Without setting gameMode
-      // here, the gate stays false because the joiner's world.gameMode stays
-      // at the makeWorld default 'solo' — so host's NETSNAPSHOT (which carries
-      // gameMode='1v1' + gameState='PLAYING') is RECEIVED but never APPLIED.
-      // Host avoids this trap because applyStartGame sets gameMode='1v1'
-      // synchronously on onBeginMatch. Setting it here at the joiner's setup-
-      // entry-point is symmetric. RETURN_TO_TITLE resets gameMode='solo' so
-      // back-out remains clean. Bug pre-dates S15 commit add497f (~20 sessions);
-      // explains pending "1v1 brother retest" carry items.
-      world.gameMode = '1v1';
-      controls.setPlayerId(asPlayerId(1));
-      // S42 — non-serialized convention field; HUD energy gauge reads this
-      // to render the LOCAL player's energy (replaces removed currentPlayerId
-      // "active player" concept). Default asPlayerId(0) covers solo + 1v1
-      // host; this assignment covers the 1v1 client peer. Council R1 Battle
-      // Ledger row 3 (Grok-C3 ADOPT + Gemini-R2 validated).
-      world.localPlayerId = asPlayerId(1);
-      // S20 P0 — same onError wiring as host path (see comment above).
-      netTransport.onError = (errMsg) => lobbyScreen.setErrorMessage(errMsg);
-      netTransport.connect(code);
-      netTransport.on((msg) => {
-        if (msg.kind === 'NETSNAPSHOT' && clientSync !== null) {
-          clientSync.receive(msg, performance.now());
-        }
-        // S22 P3 — receive host-broadcast godly trigger; apply locally.
-        // Client NEVER runs the recipe predicate itself (anti-desync,
-        // Battle Ledger row 9). Predicate is host-only.
-        if (msg.kind === 'GODLY_TRIGGER') {
-          dispatch(world, { type: 'GODLY_TRIGGER', event: msg.event });
-        }
-        // S39 P1 — dedicated lobby-exit signal. Pre-S39 the peer exited
-        // LOBBY only when a NETSNAPSHOT arrived AND applied cleanly; after
-        // S38 audit Pass-1/2 added try/catch + strict schemaVersion gate,
-        // any silent drop on that path stranded the peer in lobby. This
-        // signal kicks the peer's FSM to PLAYING immediately (snapshots
-        // still drive authoritative state afterwards). isHost stays false
-        // — the peer never claims host authority. Idempotent: only fires
-        // when still in LOBBY so a late/duplicate signal (e.g. reconnect
-        // ordering, future retry path) can't reset pendingCreatureSpawn
-        // that snapshots may have already populated.
-        if (msg.kind === 'START_GAME_SIGNAL' && world.gameState === 'LOBBY') {
-          dispatch(world, { type: 'START_GAME', mode: msg.mode, isHost: false });
-        }
-        // S47 P1 (Sym I fix) — receive host-broadcast game-end envelope
-        // and dispatch WIN_TRIGGER locally so joiner's gameState flips to
-        // 'WIN' immediately. Pre-S47, the joiner had no handler for ENDGAME
-        // (only NETSNAPSHOT / GODLY_TRIGGER / START_GAME_SIGNAL were wired)
-        // AND host never sent it. Both halves now connected. The widened
-        // snapshot gate above (main.ts ~810) means subsequent NETSNAPSHOTs
-        // will carry the host's WIN→POSTGAME transition for state sync;
-        // this envelope guarantees the joiner sees the result even if
-        // the very first WIN-tick snapshot is dropped. Idempotent — re-
-        // dispatching WIN_TRIGGER while already in WIN/POSTGAME is a noop
-        // because the reducer is pure-assignment + the world is host-state-
-        // overwritten by the next snapshot.
-        if (msg.kind === 'ENDGAME') {
-          dispatch(world, { type: 'WIN_TRIGGER', winnerId: msg.winnerId });
-        }
-      });
-    },
-    onBeginMatch: () => {
-      // Host triggers START_GAME. The first snapshot will carry
-      // gameState='PLAYING' + gameMode='1v1' to the client. S39 P1: also
-      // broadcast a dedicated START_GAME_SIGNAL envelope BEFORE the local
-      // dispatch so the peer's lobby-exit is decoupled from snapshot
-      // delivery reliability (S38 audit added 3 silent-drop points to the
-      // snapshot apply chain — strict schemaVersion at the wire, try/catch
-      // at applyNetSnapshot, JSON shape validation). Order matters: send
-      // first while world.gameState is still LOBBY so the peer learns of
-      // the transition at the earliest possible RTT.
-      if (netTransport !== null) {
-        netTransport.send({ kind: 'START_GAME_SIGNAL', mode: '1v1' });
-      }
-      dispatch(world, { type: 'START_GAME', mode: '1v1', isHost: true });
-    },
+  // S50 P2 — lobby callbacks extracted to hostHandlers.ts + clientHandlers.ts.
+  // lobbyScreen forward-declared so onLobbyError can be defined as a thunk
+  // (late-bound) and passed to the factories before LobbyScreen exists.
+  // Avoids circular-init pain without sacrificing type safety.
+  let lobbyScreen: LobbyScreen;
+  const onLobbyError = (errMsg: string): void => {
+    lobbyScreen.setErrorMessage(errMsg);
+  };
+  const onHostStart = createHostStartHandler({ session, world, onLobbyError });
+  const onJoinAttempt = createJoinAttemptHandler({
+    session,
+    world,
+    controls,
+    onLobbyError,
+  });
+  const onBeginMatch = createBeginMatchHandler({ session, world });
+
+  lobbyScreen = new LobbyScreen(app, {
+    onHostStart,
+    onJoinAttempt,
+    onBeginMatch,
     onBackToTitle: () => {
       // S31 P0-2 (PRIME-AUDIT Δ5 scope amendment) — route through reducer
       // dispatch so the new applyReturnToTitle cinematic-state-clear cleanup
-      // (world.creatures + nextCreatureId + activeCinematicPlayerId +
-      // currentCinematicEvent + pendingCinematics + pendingCreatureSpawn)
       // applies on the lobby-back path too. Pre-S31 this set gameState
       // directly which bypassed the reducer cleanup entirely.
-      teardownNet();
+      teardownNet(session, world, controls, P1);
       dispatch(world, { type: 'RETURN_TO_TITLE' });
     },
     onReturnFromConnectionLost: () => {
-      teardownNet();
+      teardownNet(session, world, controls, P1);
       dispatch(world, { type: 'RETURN_TO_TITLE' });
     },
   });
-
-  function teardownNet(): void {
-    if (netTransport !== null) {
-      netTransport.disconnect();
-      netTransport = null;
-    }
-    hostSync = null;
-    if (clientSync !== null) {
-      clientSync.reset();
-      clientSync = null;
-    }
-    controls.setPlayerId(P1);
-    world.isHost = true;
-    lastSnapshotTick = 0;
-    // Audit Pass 1 fix 3c8630d7 (Δ4 carry-forward) + Pass 2 refactor 622a7c7f:
-    // every production RTT path in main.ts calls teardownNet first (onBackToTitle
-    // / onReturnFromConnectionLost / resetIfPostgame), so firing the cursor
-    // reset here covers the full lifecycle. Pre-Pass-2 this was a direct
-    // `resetAudioDrainCursor()` call (state→render dep edge — Pass-1 fix);
-    // post-Pass-2 it routes through the state-layer publisher, which dispatches
-    // to audioManager's registered handler. Without this, after a postgame→
-    // TITLE round-trip and a fresh PLAYING entry, audio cues whose `effect.tick`
-    // straddles the cursor's prior maximum silently drop (latent since S18 P1
-    // introduced the cursor pattern; affects clave, sever-fart, lightning-
-    // crackle, and S37 CREATURE_CHARGE).
-    triggerAudioCursorReset();
-  }
 
   const hint = new Text({
     text: 'LMB drag spark out of zone → carry · RMB drag onto a primitive → bond · ~ stats · C cinematics',
@@ -454,7 +345,7 @@ async function bootstrap(): Promise<void> {
     (globalThis as { __SPARK__?: unknown }).__SPARK__ = {
       get world() { return world; },
       get controls() { return controls; },
-      get netTransport() { return netTransport; },
+      get netTransport(): NetTransport | null { return session.netTransport; },
       get lobbyScreen() { return lobbyScreen; },
       get titleScreen() { return titleScreen; },
       app,
@@ -467,7 +358,7 @@ async function bootstrap(): Promise<void> {
       // S15 P2 — POSTGAME → TITLE flow clears scoreProgress + drops P2 on
       // RETURN_TO_TITLE. Solo path: RETURN_TO_TITLE drops to TITLE; user
       // re-selects 1 Player to play again (cleaner than implicit replay).
-      teardownNet();
+      teardownNet(session, world, controls, P1);
       dispatch(world, { type: 'RETURN_TO_TITLE' });
     }
   };
@@ -503,10 +394,10 @@ async function bootstrap(): Promise<void> {
   let lastViolationLogTick = -Infinity;
   let physicsAccumulator = 0;
 
-  // S22 P3 — godly matcher cursor. Tracks the last BOND_FORMED tick scanned
-  // so the matcher processes each emission exactly once even when render
-  // frames out-pace physics ticks.
-  let lastMatcherTick = -1;
+  // S50 P2 — godly orchestration state (lastMatcherTick + lastCinematicOwner)
+  // migrated to godlyOrchestration.ts (Battle Ledger C2 — closure state moved
+  // to mutable holder). Holder identity preserved across invocations.
+  const godlyState = makeGodlyOrchestrationState();
   // S23 P2 — debug overlay state. Tracked here so closure scope can expose to
   // the overlay; only created when ?debug=1 is in the URL.
   let debugOverlay: DebugOverlayHandle | null = null;
@@ -520,24 +411,13 @@ async function bootstrap(): Promise<void> {
     debugOverlay = createDebugOverlay();
     console.log('[debug] overlay enabled via ?debug=1 — copy snapshot by clicking panel');
   }
-  // Track the most-recent activeCinematicPlayerId observed so we know when
-  // to KICK the cutsceneOverlay (transition null → non-null) vs ABORT
-  // (transition non-null → null via GODLY_ABORT).
-  let lastCinematicOwner: number | null = null;
+  // S50 P2 — lastCinematicOwner migrated to godlyState (above).
   // S31 P0-4 — `cinematicTimer` REMOVED. Previously this main.ts-scoped
-  // setTimeout fired GODLY_COMPLETE at `cinematicMs + sustainedEffectMs`
-  // (e.g. 4500ms for Voltkin); cutsceneOverlay.completeTimer ALSO fires
-  // GODLY_COMPLETE via its onComplete callback at the same offset + FADE_MS
-  // (4800ms for Voltkin). Two dispatches 300ms apart — idempotent today
-  // (second was a no-op against null `activeCinematicPlayerId`) but a
-  // latent break-day for any non-idempotent side-effect added later. Single
-  // dispatch path now goes through `cutsceneOverlay.onComplete` (set inside
-  // `startCinematicIfNeeded` below) which dispatches GODLY_COMPLETE and
-  // shifts `world.pendingCinematics`. PRIME-AUDIT investigation confirmed
-  // the 300ms shift is safe: `pendingCreatureSpawn` is single-slot, matcher
-  // is gated on `activeCinematicPlayerId !== null`, and `lastCinematicOwner`
-  // tracks the same field transition that the overlay-driven dispatch
-  // resolves.
+  // setTimeout fired GODLY_COMPLETE at `cinematicMs + sustainedEffectMs`;
+  // cutsceneOverlay.completeTimer ALSO fires GODLY_COMPLETE via its
+  // onComplete callback at the same offset + FADE_MS. Single dispatch path
+  // now goes through `cutsceneOverlay.onComplete` (set inside
+  // `startCinematicIfNeeded` in godlyOrchestration.ts).
   let lastConnectionLost = false;
   // S31 P0-3 — client-side cursor for ARC_FLASH-triggered screen-shake. Host
   // triggers shake locally inside the `!isClient` block in the tick loop;
@@ -551,135 +431,8 @@ async function bootstrap(): Promise<void> {
   // when Anvil ships a non-ARC_FLASH shake source).
   let clientLastShakeArcFlashTick = -Infinity;
 
-  function runGodlyMatcher(): void {
-    if (!world.isHost) return;
-    if (world.activeCinematicPlayerId !== null) return; // queue handled in reducer
-    for (const eff of world.effects) {
-      if (eff.kind !== 'BOND_FORMED') continue;
-      // S23 P2 — record BOND_FORMED observation for debug overlay BEFORE the
-      // stale-cursor skip so the probe surfaces every event even if matcher
-      // skips it for cursor reasons.
-      if (debugOverlay !== null && eff.tick > debugProbes.lastBondFormedTick) {
-        debugProbes.lastBondFormedTick = eff.tick;
-        debugProbes.bondFormedCount += 1;
-      }
-      // S23 P4 — strict `<` not `<=`. Click-handler dispatches between physics
-      // ticks emit BOND_FORMED with the current (un-advanced) world.tick;
-      // `<=` against a cursor that already equals world.tick silently skipped
-      // those. This is the root cause of "Voltkin never fires" — the final
-      // bond completes the chain via a click dispatch that the matcher then
-      // ignored. Equality now passes; only ticks BELOW cursor (stale replays)
-      // are skipped.
-      if (eff.tick < lastMatcherTick) continue;
-      const result = findGodlyMatch(world, eff.pos);
-      if (result === null) continue;
-      const event = makeTriggerEvent(result, world.tick);
-      // Broadcast first so client renders sooner (D4 standalone latency choice).
-      if (netTransport !== null && world.gameMode === '1v1') {
-        netTransport.send({ kind: 'GODLY_TRIGGER', event });
-      }
-      dispatch(world, { type: 'GODLY_TRIGGER', event });
-      // Codex unlock on host (mirrors client-side unlock on receipt).
-      unlockGodly(event.godlyId);
-      debugProbes.matcherFiredEver = true;
-      break; // single trigger per frame; queue handles concurrent
-    }
-    // Advance cursor to current tick after scan.
-    lastMatcherTick = world.tick;
-    debugProbes.lastMatcherTick = world.tick;
-  }
-
-  function startCinematicIfNeeded(): void {
-    const owner = world.activeCinematicPlayerId;
-    if (owner === lastCinematicOwner) return;
-    lastCinematicOwner = owner;
-    if (owner === null) {
-      // Transition non-null → null: ABORT or natural completion. The
-      // cutsceneOverlay.onComplete callback (registered in cutsceneOverlay.play
-      // below) is the sole driver of GODLY_COMPLETE dispatch + pendingCinematics
-      // queue advancement at fade-end. This branch only tears down the visual
-      // overlay / vignette on the abort path. Idempotent if already cleaned up
-      // (overlay.abort() bails on inactive overlay; vignette.setVisible(false)
-      // is a Pixi flag set).
-      cutsceneOverlay.abort();
-      vignette.setVisible(false);
-      return;
-    }
-    // Transition null → non-null: find the recipe + start the cinematic.
-    // S22 P4 — uses world.currentCinematicEvent (set by GODLY_TRIGGER reducer)
-    // to pick the right recipe + target pos. Generalizes for Anvil / Pac-Predator.
-    const event = world.currentCinematicEvent;
-    if (event === null) {
-      console.warn('[godly] active cinematic but no currentCinematicEvent on world');
-      return;
-    }
-    const recipe = getRecipe(event.godlyId);
-    if (recipe === undefined) {
-      console.warn('[godly] no recipe registered for id', event.godlyId);
-      return;
-    }
-    const localPlayerId = controls.getPlayerId();
-    if (owner !== localPlayerId) vignette.setVisible(true);
-    const targetPos = event.targetPos;
-    void cutsceneOverlay.play(recipe, {
-      targetPos,
-      onComplete: () => {
-        // Idempotent — GODLY_COMPLETE clears activeCinematicPlayerId; next tick
-        // observes the transition + handles vignette + advances queue.
-        dispatch(world, { type: 'GODLY_COMPLETE' });
-        // Advance queue: if pendingCinematics has an event, fire it.
-        const next = world.pendingCinematics.shift();
-        if (next !== undefined) {
-          dispatch(world, { type: 'GODLY_TRIGGER', event: next });
-        }
-      },
-      playVoice: (assetUrl: string) => {
-        void playOneShot(assetUrl);
-      },
-    });
-    // S28 P0 — REPLACE S25's wall-clock setTimeout-on-handoff (Council Q2
-    // UNANIMOUS A single-slot pending-spawn flag). Host-only schedule: the
-    // poll in the physics tick loop (Step 0 below) fires SPAWN_CREATURE at
-    // `world.tick >= fireAtTick`, replay-safe + deterministic. PRIME-AUDIT
-    // Δ6 single-slot overwrite guard: log a dev-mode warning if a previous
-    // spawn is still pending (should never fire — upstream activeCinematic
-    // serialization prevents two cinematics overlapping).
-    if (world.isHost) {
-      if (import.meta.env.DEV && world.pendingCreatureSpawn !== null) {
-        console.warn(
-          '[godly] startCinematic overwriting pending creature spawn',
-          {
-            existingFireAtTick: world.pendingCreatureSpawn.fireAtTick,
-            currentTick: world.tick,
-            newEvent: event.godlyId,
-          },
-        );
-      }
-      // S31 P0-1 — fireAtTick delayed by `sustainedEffectMs + FADE_MS` ticks
-      // so SPAWN_CREATURE dispatches at the exact moment `bg.alpha` reaches 0
-      // (cutsceneOverlay completes its fade-out). Pre-S31 the creature spawned
-      // at `cinematicMs` (mp4-end), then ran ~48 of its 60-tick SPAWNING
-      // animation UNDER the still-opaque overlay (`bg.alpha=1` for
-      // sustainedEffectMs ms post-mp4, then linear fade over FADE_MS to 0).
-      // Council Q1 ruled fade-START (spawn at +sustainedEffectMs only); PRIME-
-      // AUDIT overrode to fade-END (+sustainedEffectMs + FADE_MS) because the
-      // first 18 ticks of SPAWNING under the fade-out lose ~30% of the entry
-      // pulse the fix is meant to expose. Spawn delay is now wall-clock
-      // (cinematicMs + sustainedEffectMs + FADE_MS) → ticks-deterministic via
-      // cinematicMsToTicks for replay safety.
-      world.pendingCreatureSpawn = {
-        fireAtTick: world.tick + cinematicMsToTicks(
-          recipe.cinematicMs + recipe.sustainedEffectMs + FADE_MS,
-        ),
-        event,
-      };
-    }
-    // S31 P0-4 — cinematicTimer setTimeout REMOVED here. Pre-S31 this fired
-    // GODLY_COMPLETE at `recipe.cinematicMs + recipe.sustainedEffectMs` (Voltkin
-    // 4500ms). Duplicate of cutsceneOverlay.completeTimer → fade → onComplete
-    // path which fires GODLY_COMPLETE 300ms later at fade-end (4800ms). Single
-    // dispatch path via `cutsceneOverlay.onComplete` (line ~486-498 above).
-  }
+  // S50 P2 — runGodlyMatcher + startCinematicIfNeeded extracted to
+  // src/state/godlyOrchestration.ts. Both invoked from the ticker (below).
 
   // S45 BUG-CRITICAL-3 Sym B — UPDATE_AVATAR_POS dispatch throttle state.
   // Council R2 C2 + PRIME-AUDIT Δ2: throttle in main.ts game-loop at 10Hz +
@@ -828,12 +581,12 @@ async function bootstrap(): Promise<void> {
           world.gameState === 'POSTGAME') &&
         world.gameMode === '1v1' &&
         world.isHost &&
-        hostSync !== null &&
-        netTransport !== null &&
-        world.tick - lastSnapshotTick >= SNAPSHOT_INTERVAL_TICKS
+        session.hostSync !== null &&
+        session.netTransport !== null &&
+        world.tick - session.lastSnapshotTick >= SNAPSHOT_INTERVAL_TICKS
       ) {
-        netTransport.send(hostSync.buildSnapshotMessage(world));
-        lastSnapshotTick = world.tick;
+        session.netTransport.send(session.hostSync.buildSnapshotMessage(world));
+        session.lastSnapshotTick = world.tick;
       }
 
       if (import.meta.env.DEV && world.gameState === 'PLAYING' && !isClient) {
@@ -864,10 +617,10 @@ async function bootstrap(): Promise<void> {
         lastGameState !== 'WIN' &&
         world.gameMode === '1v1' &&
         world.isHost &&
-        netTransport !== null &&
+        session.netTransport !== null &&
         world.lastWinnerId !== null
       ) {
-        netTransport.send({ kind: 'ENDGAME', winnerId: world.lastWinnerId });
+        session.netTransport.send({ kind: 'ENDGAME', winnerId: world.lastWinnerId });
       }
       // S18 P1 — start background music on transition to PLAYING. Covers
       // solo + 1v1 host + 1v1 client paths (client transitions via snapshot
@@ -900,7 +653,7 @@ async function bootstrap(): Promise<void> {
         // closes the one-frame orphan-sprite window (PRIME-AUDIT Δ3).
         // Container preserved — next PLAYING entry can re-mount sprites.
         creatureRenderer.clear();
-        lastCinematicOwner = null;
+        godlyState.lastCinematicOwner = null;
         // S31 P0-3 — reset client shake cursor on TITLE transition so re-
         // entering PLAYING doesn't carry forward a stale tick threshold that
         // would suppress shake on the next ARC_FLASH if the new session's
@@ -914,8 +667,8 @@ async function bootstrap(): Promise<void> {
 
     // S15 P2 — client interpolation. Runs every render frame to lerp
     // primitive + freeSpark positions between prev + current snapshot.
-    if (world.gameMode === '1v1' && !world.isHost && clientSync !== null) {
-      clientSync.interpolateInto(world, performance.now(), NET_INTERPOLATION_MS);
+    if (world.gameMode === '1v1' && !world.isHost && session.clientSync !== null) {
+      session.clientSync.interpolateInto(world, performance.now(), NET_INTERPOLATION_MS);
       // S31 P0-3 — implicit shake trigger on mirrored ARC_FLASH. Scan the
       // just-rehydrated world.effects (replaced by applySnapshotCore inside
       // interpolateInto when needsFullApply) for any ARC_FLASH whose host
@@ -950,8 +703,8 @@ async function bootstrap(): Promise<void> {
     // S15 P2 — connection-lost overlay (1v1, PLAYING, no peers).
     const connectionLost = world.gameMode === '1v1'
       && world.gameState === 'PLAYING'
-      && netTransport !== null
-      && netTransport.peerCount() === 0;
+      && session.netTransport !== null
+      && session.netTransport.peerCount() === 0;
     lobbyScreen.setConnectionLostVisible(connectionLost);
     // S22 P3 — PRIME-AUDIT Δ3: on peer-drop, abort any active cinematic
     // and drain the godly queue cleanly. Transition-edge gated.
@@ -963,28 +716,37 @@ async function bootstrap(): Promise<void> {
       cutsceneOverlay.abort();
       vignette.setVisible(false);
       dispatch(world, { type: 'GODLY_ABORT' });
-      lastCinematicOwner = null;
+      godlyState.lastCinematicOwner = null;
     }
     lastConnectionLost = connectionLost;
 
     // S22 P3 — godly matcher (host-only) + cinematic transition watcher.
     // Matcher scans BOND_FORMED in world.effects before effectsRenderer wipes.
+    // S50 P2 — ctx reconstructed per-frame so netTransport ref is fresh (Δ1).
     if (world.gameState === 'PLAYING') {
-      runGodlyMatcher();
-      startCinematicIfNeeded();
+      const godlyCtx = {
+        netTransport: session.netTransport,
+        debugOverlay,
+        debugProbes,
+        cutsceneOverlay,
+        vignette,
+        controls,
+      };
+      runGodlyMatcher(world, godlyState, godlyCtx);
+      startCinematicIfNeeded(world, godlyState, godlyCtx);
     }
 
     // S15 P2 — update lobby peer status when waiting.
-    if (showLobby && netTransport !== null) {
-      lobbyScreen.updatePeerStatus(netTransport.peerCount());
+    if (showLobby && session.netTransport !== null) {
+      lobbyScreen.updatePeerStatus(session.netTransport.peerCount());
       // S39 P1 — visible-to-user wire diagnostics while joining + connected.
       // Surfaces the three S38-audit silent-drop modes (rejected at parseNetMessage,
       // applyNetSnapshot throw, snapshot never arriving) without requiring
       // `?debug=1` console + live retest. Host pane doesn't show this strip
       // (only the joiner is the one stuck waiting; host knows they pressed Begin).
-      if (!world.isHost && netTransport.peerCount() > 0) {
-        const td = netTransport.getDiagnostics();
-        const errs = clientSync !== null ? clientSync.applyErrors() : 0;
+      if (!world.isHost && session.netTransport.peerCount() > 0) {
+        const td = session.netTransport.getDiagnostics();
+        const errs = session.clientSync !== null ? session.clientSync.applyErrors() : 0;
         // S44 — surface multi-strategy health (Council G-NEW-2 / GE-NEW-2).
         // Shows e.g. "nostr:6/7" = 6 of 7 relays connected. Failed strategies
         // shown as "torrent:fail". Disabled strategies omitted from the strip.
@@ -1015,7 +777,7 @@ async function bootstrap(): Promise<void> {
       //   H3 — Latch drift: hc=true but bv=false (or vice versa)
       // User screenshots this strip during 2-peer smoke → empirical root cause.
       if (world.isHost) {
-        const td = netTransport.getDiagnostics();
+        const td = session.netTransport.getDiagnostics();
         const ds = lobbyScreen.getDebugState();
         const strategySummary = td.strategies
           .filter((s) => s.state !== 'disabled')
@@ -1028,7 +790,7 @@ async function bootstrap(): Promise<void> {
           })
           .join(' ');
         lobbyScreen.updateHostDiagnostics(
-          `host pc=${netTransport.peerCount()} mode=${ds.mode} ` +
+          `host pc=${session.netTransport.peerCount()} mode=${ds.mode} ` +
           `hc=${ds.hostConnected} bv=${ds.beginButtonVisible} ` +
           `gm=${world.gameMode} gs=${world.gameState} ` +
           `[${strategySummary}]`,
@@ -1039,7 +801,7 @@ async function bootstrap(): Promise<void> {
     }
 
     // S15 P2 — HUD connection dot.
-    hud.setConnectionPeers(netTransport !== null ? netTransport.peerCount() : 0);
+    hud.setConnectionPeers(session.netTransport !== null ? session.netTransport.peerCount() : 0);
 
     // S18 P1 — mute indicator visual feedback (dim + slash glyph when muted).
     if (isMuted()) {
@@ -1114,103 +876,9 @@ async function bootstrap(): Promise<void> {
   });
 }
 
-function stepPhysics(
-  world: Parameters<typeof dispatch>[0],
-  spawner: Spawner,
-  grid: SpatialGrid,
-  controls: Controls,
-): void {
-  // SPAWN — dispatched as actions for the audit log seam (§ 10.2).
-  const spawned: Spark[] = [];
-  spawner.tick(PHYSICS_DT, world.tick, spawned);
-  for (const s of spawned) dispatch(world, { type: 'SPAWN_SPARK', spark: s });
-
-  enforceFreeSparkCap(world);
-
-  for (const player of world.players.values()) {
-    dispatch(world, { type: 'TICK_ENERGY', playerId: player.id, deltaSec: PHYSICS_DT });
-  }
-
-  const sparkArr = freeSparkArray(world.freeSparks);
-  let bondArr: Bond[] = Array.from(world.bonds.values());
-
-  const attractedId = controls.state.kind === 'AttractDrag' ? controls.state.sparkId : null;
-
-  // S49 P1 (Sym F) — territorial influence pass. Called ONCE per tick
-  // (not per substep) so the stiffnessMultiplier is set from current
-  // primitive positions before the substep integration loop runs. Phase 1
-  // resets all multipliers to 1.0; Phase 2 degrades enemy bonds inside
-  // territorial radii. All 8 substep solveBonds calls then see the same
-  // multipliers — correct because no bond creation happens inside the
-  // substep loop (only severance, which removes bonds from bondArr on
-  // the next substep iteration).
-  computeTerritorialInfluence(world);
-
-  for (let s = 0; s < PHYSICS_SUBSTEPS; s++) {
-    controls.applyPerSubstep();
-    verletStepAll(sparkArr, SUBSTEP_DT);
-    if (bondArr.length > 0) {
-      const broken = solveBonds(bondArr);
-      if (broken.length > 0) {
-        for (const bondId of broken) {
-          if (world.bonds.has(bondId)) {
-            // S17 P1 — physics-cause overstretch sever bypasses Phase-2
-            // §VIII.3 charge gate (this is the constraint solver firing,
-            // not a player disruption action). playerId is informational
-            // (the dispatch case ignores it for cause='physics').
-            // S42 — was `world.currentPlayerId` (turn-based artifact);
-            // hardcoded asPlayerId(0) since field is removed and playerId
-            // is unused on this dispatch path.
-            dispatch(world, {
-              type: 'SEVER_BOND',
-              bondId,
-              playerId: asPlayerId(0),
-              cause: 'physics',
-            });
-          }
-        }
-        bondArr = Array.from(world.bonds.values());
-      }
-    }
-    // S26 P0 — Voltkin Phase 2B: integrate creatures via Verlet per substep AFTER
-    // bond solver (so the constraint solver never sees creatures — phase-through
-    // by construction; creatures are NOT in sparkArr or bondArr) and BEFORE
-    // enforceSpawnerBounds + resolveCollisions (which operate on sparkArr only).
-    // Steering force returns ZERO_ACCEL during SPAWNING / DESPAWNING (Δ4), so
-    // creatures appear stationary during the 1s spawn animation + 1s despawn
-    // fade. Caller stepPhysics() is host-only-gated at line 509. Empty
-    // world.creatures Map iterates zero times — negligible overhead.
-    for (const c of world.creatures.values()) {
-      creatureVerletStep(c, SUBSTEP_DT, computeSteeringAccel(c));
-    }
-    enforceSpawnerBounds(sparkArr, undefined, attractedId);
-    resolveCollisions(sparkArr, grid);
-  }
-  world.tick++;
-}
-
-function freeSparkArray(map: ReadonlyMap<unknown, Spark>): Spark[] {
-  return Array.from(map.values());
-}
-
-function enforceFreeSparkCap(world: Parameters<typeof dispatch>[0]): void {
-  let freeCount = 0;
-  for (const s of world.freeSparks.values()) {
-    if (s.state.kind === 'Free') freeCount++;
-  }
-  if (freeCount <= FREE_SPARK_SOFT_CAP) return;
-
-  const candidates: Spark[] = [];
-  for (const s of world.freeSparks.values()) {
-    if (s.state.kind === 'Free') candidates.push(s);
-  }
-  candidates.sort((a, b) => a.createdTick - b.createdTick);
-
-  const excess = freeCount - FREE_SPARK_SOFT_CAP;
-  for (let i = 0; i < excess; i++) {
-    dispatch(world, { type: 'DESPAWN_SPARK', sparkId: candidates[i].id });
-  }
-}
+// S50 P2 — stepPhysics, freeSparkArray, enforceFreeSparkCap, PHYSICS_DT,
+// SUBSTEP_DT extracted to src/physics/physicsLoop.ts. Mechanical extraction;
+// no behavior change.
 
 // Suppress softReset unused-import warning (kept available for future hooks).
 void softReset;

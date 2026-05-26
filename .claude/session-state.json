@@ -31,27 +31,27 @@
     {
       "id": "P1",
       "label": "S50 P1 — vite/vitest CVE bump",
-      "status": "in_progress",
+      "status": "completed",
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "npm audit: 4 moderate CVEs → 0 vulnerabilities (esbuild GHSA-67mh-4wv8-2f99 + vite GHSA-4w7w-66w2-5vf9 + vite-node + vitest). npm test: 783/783 GREEN unchanged (44 test files). tsc -b --noEmit: clean. vite 6.4.2 build: SUCCESS, bundle 494.75 KB (within 500 KB charter, 5.25 KB headroom, +0.30 KB delta vs S49). Initial naive bump (vite ^6.4.2 + vitest ^2.1.9) went 4→5 moderate CVEs due to nested vite 5.x inside vitest 2.1.9 (vitest 2 explicitly depends on vite ^5.0.0). Revised to vitest ^3.2.4 (depends on vite ^5||^6||^7-0 → npm hoists to single vite 6.4.2 install). 2-major-jump for vitest, 1-major for vite. Council R1 had recommended minimal bump — execution found this missed the nested-dep CVE; revised in-flight per Rule 20 PRIME-AUDIT iteration.",
+      "checkpoint_commit": "e392e96"
     },
     {
       "id": "P2",
       "label": "S50 P2 — main.ts hypertrophy refactor",
-      "status": "pending",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
-      "check_completed": false,
-      "check_method": null,
+      "check_completed": true,
+      "check_method": "4 extractions per Council Battle Ledger C2. (1) src/physics/physicsLoop.ts (146 LOC): stepPhysics + enforceFreeSparkCap + freeSparkArray + PHYSICS_DT/SUBSTEP_DT constants — mechanical, module-level already. (2) src/state/godlyOrchestration.ts (204 LOC): runGodlyMatcher + startCinematicIfNeeded + mutable state holder GodlyOrchestrationState — closure state migrated, deps passed as ctx per PRIME-AUDIT Δ1 per-invocation freshness. (3) src/net/session.ts (76 LOC): NetSession type holder + makeNetSession + teardownNet — Council Battle Ledger C3 ADOPT NetSession state holder pattern. (4) src/net/hostHandlers.ts (87 LOC) + src/net/clientHandlers.ts (95 LOC): factory functions createHostStartHandler / createBeginMatchHandler / createJoinAttemptHandler with deps object; late-bound onLobbyError thunk pattern avoids LobbyScreen circular-init. main.ts: 1221 → 888 LOC (-333 LOC, -27%). Council target ≤860 (within 28-LOC variance). Bundle: 494.75 → 496.13 KB (+1.38 KB module boundary overhead, within 500 KB charter — 3.87 KB headroom). vitest 783/783 GREEN. tsc -b --noEmit: clean. PRIME-AUDIT Δ1 verified: ctx rebuilt per-frame in main.ts:725-734 so session.netTransport reads are fresh on reconnect.",
       "checkpoint_commit": null
     },
     {
