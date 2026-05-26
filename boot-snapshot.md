@@ -1,57 +1,54 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-05-26 | Session: S50
+Generated: 2026-05-26 | Session: S51
 
 ## Next Steps
 
-1. 🔴 **USER ACTION — 2-peer smoke on https://spark-online.space/?debug=1.** Verify NO regression from S50 toolchain + refactor work:
-   - **P1 CVE bump (vite 5.2→6.4.2 + vitest 1.5→3.2.4):** verify game boots, audio plays, P2P signaling works. Bundle 496.28 KB so any size regression already caught.
-   - **P2 main.ts refactor (1221→888 LOC, 4 extractions):** verify Sym A/B/C/D/G mechanics + lobby host/join + cinematic playback + ENDGAME envelope all still function — the netSession holder + factory handlers preserve all wire semantics, but live verification is the runtime-pass complement.
-   - **P3 Sym E score occlusion polish:** in 1v1 PLAYING, verify "RED XX / 50" + "BLUE XX / 50" are no longer crowded by charge dots. Q=ZONE hint should still be visible top-row.
-   - **S49 Sym F territory (already shipped) — pending user smoke from S49 close:** hard block, engulf-warp (sluggish bonds), SHRINK Q. This carries forward.
-
-2. **E2E CI monitor — run 26439874197 was IN_PROGRESS at S50 handoff write-time.** Check `gh run view 26439874197` to see if new Sym F + Sym I tests passed on first run. If they fail on WebRTC handshake, diagnose Trystero/Nostr networking in GH Actions vs test fixture; consider `test.fixme()` re-flip until env is stable.
-
-3. **Phase-2 next mechanic** — pick one: Inject Spiral (D), Steal (E), Fog (A), Mega-combos (G), Anvil second-creature. See `docs/phase-2-design-options.md` if it exists.
-
-4. **Audio polish:** OGG compression for mobile (~10MB mp3 → ~2MB), PannerNode + auto-duck. Carry from S18 P9.
-
-5. **Phase-3 net (Colyseus / Geckos.io)** — reserved for >2-player scalability. Not blocking 1v1 polish.
+1. **Verify CI still GREEN** — `gh run list --workflow="E2E (2-browser harness)" --limit 1` should show run `26444645703` SUCCESS at SHA `0c277a4`. First all-active-green e2e CI run since S46 P1 baseline.
+2. **USER 2-peer smoke** on https://spark-online.space/?debug=1 — verify (a) S49 Sym F territorial repulsion in real play, (b) S51 P2 audio polish: positional SFX panning, music duck on Voltkin events, OGG/Opus music loads + plays. 5-min smoke.
+3. **Phase-2 next mechanic** — Council pick from: D Inject Spiral / E Steal / A Fog / G Mega-combos / Anvil 2nd creature. User decision required.
+4. **Audio P2 follow-ups** — (a) Gemini CHECK #1: `duckMusic` + AudioContext suspend → restore-via-setTimeout uses stale `currentTime` on resume after long tab-blur — snapshot `audioContext.currentTime` at SCHEDULE time; (b) optionally drop music to 48k Opus (~2.3 MB) for mobile cold-load; (c) PannerNode tuning — current refDistance=1/maxDistance=2 with linear model + [-1,+1] mapping is subtle, could widen.
+5. **Deferred carry** — `__TEST_RNG_SEED__` test seam (Gemini Council Δ1 — root-cause robustness); vitest 4.x bump (S50 carry); Sym E placeholder rendering helper.
 
 ## Blockers
 
-None blocking. User 2-peer smoke gates verification of S49 Sym F + S50 toolchain regression scan.
+- **USER 2-peer smoke** carry-forward from S49 + S50 + S51 — multi-session deferral. Same 5-min gate.
 
 ## Pending Backlog
 
-- [ ] User 2-peer smoke on Sym F (carry from S49) + verify P1-P3 no-regression
-- [ ] E2E CI verify Sym F + Sym I pass first run
-- [ ] Phase-2 next mechanic (D Inject Spiral / E Steal / A Fog / G Mega-combos / Anvil)
-- [ ] Audio polish: OGG compression for mobile, PannerNode + auto-duck
-- [ ] Phase-3 net (Colyseus / Geckos.io) — reserved for >2-player scalability
-- [ ] vitest 4.x bump (deferred from S50; Council picked minimal 3.x to limit risk)
+- [ ] Phase-2 mechanic (one of D / E / A / G / Anvil) — user-direction needed.
+- [ ] Audio: address Gemini #1 `duckMusic` suspend-time edge case.
+- [ ] Audio (optional): 48k Opus re-encode for ~2 MB mobile target if quality drop acceptable.
+- [ ] `__TEST_RNG_SEED__` override seam — Gemini Council Δ1 — more robust than rate-only override.
+- [ ] vitest 4.x bump (S50 P1 carry — deferred, dedicated test-API session).
+- [ ] main.ts further extraction (controls/input handlers ~100 LOC) — diminishing returns per S50 P2 audit.
+- [ ] Sym E rendering bounds helper for `test.fixme` placeholder.
+- [ ] chateau-guardian CI audit (cross-project) — leverage point for shared Pro quota.
+- [ ] Phase-3 net (Colyseus / Geckos.io) for >2-player scalability — long-term.
 
 ## Recent Reflexion (last 2 sessions)
 
+## 2026-05-26 — Session 51 (S51 autonomous batch overnight: P1 e2e spawner-rate test-override seam + Sym D/I downstream fixes + P2 audio polish OGG/Opus + PannerNode + auto-duck; 2 commits a394612..0c277a4 + push, 6/6 e2e GREEN local in 1.3 min, unit 796/796, bundle 497.67 KB / 500 KB charter)
+
+- S51 #deterministic-seed-x-low-rate-causes-test-timeout-systematic-not-statistical: 5 e2e tests timed out on `waitForWorld(sparks spawned)` because `mulberry32(0xc0ffee).first()=0.0214` × `SPAWN_RATE_PER_SECOND=0.15` (LOCKED Item 3) = 25.71s first wait; tests time out at 10-30s. P(0 sparks at tick=1604 over 15 trials) ≈ 10⁻²⁶ — systematic, not flake. **Lesson: when "intermittent" tests fail with statistically-impossible patterns and the random source is deterministic, simulate the seed math BEFORE rerunning. `node -e "..."` finds the bug in seconds.**
+
+- S51 #sym-d-test-contract-obsolete-by-sym-f-mechanic-test-only-disable-seam-is-the-fix: S49 P1's territorial repulsion (min R=72 > AUTO_BOND_RADIUS=60) makes Sym D's cross-color bond test unreachable. Fix: add `__TEST_TERRITORY_BASE_RADIUS__` window seam; Sym D-only sets it to 0. Color-seg invariant becomes observable as defense-in-depth. **Lesson: when a new mechanic geometrically excludes a prior test's contract, add a test-only override seam — don't delete the test. Prior code path is defense-in-depth.**
+
+- S51 #spawner-zone-placement-rejection-silently-eats-anchors-test-must-account-for-it: Sym I anchors at (800,400)/(800,600) were INSIDE SPAWNER_RADIUS=250 zone — placePrimitive silently rejects. Fix: move to X=300 (dist 675+). **Lesson: e2e placement tests must compute distance-from-spawner-center BEFORE choosing coords. Add `safePlacementPos(...)` helper.**
+
+- S51 #playwright-addinitscript-content-form-beats-function-form-when-toplevel-vars-suffice: Function-form `addInitScript(disableTerritory)` had intermittent failures; `addInitScript({content:'window.__X__=0'})` was stable. **Lesson: for top-level window setters, prefer `{content:'...'}` over arrow-via-closure.**
+
+- S51 #duck-music-max-end-time-semantics-prevents-overlap-shortening: Naive `clearTimeout + new setTimeout` on duck pattern truncates a longer active duck with a shorter overlapping event. Fix: `max(currentEnd, newEnd)` semantics via `nextDuckEndCtxTime` pure helper. **Lesson: every "duck/highlight/flash for N ms" with multiple triggers needs `max(...)` end-time logic. Factor as a pure helper for unit testability.**
+
+- SESSION #s51-shipped-2-priorities-2-commits-6-of-6-e2e-green-bundle-under-charter: 2 commits `a394612..0c277a4` + push. P1: test-override seams + e2e fixes. P2: OGG/Opus 10MB→3.5MB, PannerNode, duckMusic. Bundle 496.28→497.67 KB. Tests 783→796 GREEN. CI E2E run `26444645703` SUCCESS. API spend $0.06.
+
 ## 2026-05-26 — Session 50 (S50 autonomous batch overnight: P1 vite/vitest CVE bump + P2 main.ts hypertrophy refactor 1221→888 LOC + P3 Sym E score occlusion polish + P4 e2e Sym I/F coverage; 5 commits e392e96..8484e7e + push)
 
-- S50 #npm-audit-fixavailable-can-overshoot-when-nested-deps-pin-old-major: npm audit's `fixAvailable: vitest 4.1.7` overshot by 2 majors. Actually-needed minimum was vitest 3.x because vitest 2.x has `dependencies.vite: ^5.0.0` (NOT a peer dep) which conflicts with project's vite ^6.4.2, causing npm to nest a vite 5.x copy under `node_modules/vitest/node_modules/vite/`. The naive minimal-bump (vite ^6.4.2 + vitest ^2.1.9 per Council R1) WORSENED audit from 4→5 moderate CVEs. vitest 3.2.4 widens vite range to `^5||^6||^7-0`, allowing npm to hoist to single vite 6.4.2 install.
+- S50 #npm-audit-fixavailable-can-overshoot-when-nested-deps-pin-old-major: vitest 2.x has `dependencies.vite: ^5.0.0` (NOT peer) → npm nests vite 5.x with CVE. Naive minimal bump worsened audit 4→5 CVEs. vitest 3.2.4 widens range, hoists single vite 6.4.2. **Lesson: after CVE bumps, scan `npm audit` `nodes` for nested `node_modules/X/node_modules/Y` paths.**
 
-- S50 #closure-state-mutable-holder-pattern-preserves-identity-across-factory-boundary: main.ts pre-refactor had 4 lifecycle-coupled `let` mutables (netTransport, hostSync, clientSync, lastSnapshotTick) referenced from BOTH lobby callbacks AND per-tick snapshot loop. Picked state holder pattern over factory closures and mutable record. Per-invocation `session.X` reads guarantee freshness on reconnect (PRIME-AUDIT Δ1). All 783 tests stay GREEN.
+- S50 #closure-state-mutable-holder-pattern-preserves-identity-across-factory-boundary: 4 closure mutables unified into `NetSession` typed holder. Per-invocation `session.X` reads guarantee reconnect freshness. **Lesson: explicit typed holder beats factory closures and `Record<string,unknown>` for shared lifecycle state.**
 
-- S50 #playwright-context-addinitscript-is-the-correct-test-only-feature-seam: For e2e Sym I (win-condition), used `__TEST_WIN_SCORE__` env-override read at PHASE_1_WIN_SCORE module load. Playwright's `context.addInitScript()` runs BEFORE bundled scripts so assignment is observable at constants.ts load time. Scope override to specific Sym I test's BOTH contexts via inline `addInitScript` calls — contexts isolated, no leak to A/C/D/E/F.
+- S50 #playwright-context-addinitscript-is-the-correct-test-only-feature-seam: `window.__TEST_WIN_SCORE__` read at module load + `context.addInitScript` injection. Production reads window (falls through to default). **Lesson: addInitScript + module-load read pattern beats direct world mutation (snapshots overwrite) and test-skip.**
 
-- S50 #rule-21-empirical-state-discovery-caught-handoff-claim-vs-reality-delta-in-under-1-minute: Boot snapshot said P4 should "flip test.fixme() for Sym I + Sym F" but Read on e2e/smoke.spec.ts at boot showed only Sym A/C/D/E describes exist — NO Sym F or Sym I describes. Rescoped P4 from "flip-fixme" to "author-new" before Council deliberation. Cost: 1 file Read. Saved: not building Council around fictitious task.
+- S50 #rule-21-empirical-state-discovery-caught-handoff-claim-vs-reality-delta-in-under-1-minute: Boot snapshot claimed P4 should "flip fixme" but `Read e2e/smoke.spec.ts` showed no Sym F/I describes existed. Rescoped to author-new in <1 min. **Lesson: Rule 21 STATE-DISCOVERY GATE is cheap enough to fire on every priority. Treat handoff text as a hint, not a contract.**
 
-- SESSION #s50-batch-shipped-4-priorities-5-commits-783-tests-green-bundle-under-charter: 5 commits e392e96..8484e7e + push. P1 vite 5.2→6.4.2 + vitest 1.5→3.2.4 (4 moderate CVEs → 0). P2 4 extractions main.ts 1221→888 LOC (-27%). P3 chargeDots 210→260 + qHintText 240→290. P4 e2e Sym I + Sym F describes + __TEST_WIN_SCORE__ env-override. Bundle 494.45 → 496.28 KB (+1.83 KB, 3.72 KB headroom). Council Standard-tier (3-way agent deliberation). API: 1 Council deliberation call (~38K tokens). User authorized autonomous overnight.
-
-## 2026-05-26 — Session 49 (S49 autonomous full-batch: P1 Sym F territorial repulsion NEW MECHANIC + P2 latent audits CLEAN + P3 housekeeping; 2 commits 463df39..ba54c3e + push)
-
-- S49 #territory-base-radius-equals-auto-bond-radius-creates-geometric-Sym-D-defense-in-depth: TERRITORY_BASE_RADIUS=60 = AUTO_BOND_RADIUS=60 means territory always gates before Sym D color gate fires. Document in LOCKED_DECISIONS.md.
-
-- S49 #dead-code-deletion-requires-test-audit-not-just-code-audit: Removing dead production code also means removing tests that specifically exercise those dead paths. Before deleting a branch, grep the test file for inputs that trigger it and remove those tests explicitly.
-
-- S49 #ephemeral-per-tick-physics-annotation-pattern-for-territory-engulf-warp: Non-readonly Bond field + `?? 1.0` fallback in solveBonds = ephemeral annotation without game-state persistence. Pattern reusable for future per-tick physics overlays.
-
-- S49 #latent-audit-clean-sweep-saves-scope: Schedule latent audits BEFORE assuming fixes are needed. A clean audit saves session scope.
-
-- SESSION #s49-autonomous-sym-f-territorial-repulsion-shipped-783-tests-green: 2 commits 463df39..ba54c3e + push. Bundle 492.22 → 494.45 KB (+2.23 KB). Tests 770 → 783 (+13 net). Context 13.05% GREEN.
+- SESSION #s50-batch-shipped-4-priorities-5-commits-783-tests-green-bundle-under-charter: 5 commits, main.ts 1221→888 LOC (-27%), bundle 494.45→496.28 KB, tests 783/783 GREEN.

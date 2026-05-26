@@ -1,49 +1,35 @@
 {
-  "session_start": "2026-05-26T09:15:00Z",
-  "session_id": "S50",
+  "tool_calls_session_total": 128,
+  "session_start": "2026-05-26T10:55:00Z",
+  "session_id": "S51",
   "session_kind": "execution",
-  "session_note": "S50 — autonomous batch run approved by user. Standard-tier batch (4 priorities): P1 vite/vitest CVE bump (minimal — vite ^6.4.2 + vitest ^2.1.0) + P2 main.ts hypertrophy refactor (4 extractions: physicsLoop / hostHandlers / clientHandlers / godlyOrchestration) + P3 Sym E score occlusion polish + P4 author new e2e tests for Sym I + Sym F. Council deliberated, PRIME-AUDIT pass complete. User explicit go.",
+  "session_note": "S51 — autonomous batch run approved by user. Standard-tier batch (2 priorities): P1 E2E spawner-rate test-override seam (+ Sym D / Sym I downstream fixes uncovered after spawner unblock) + P2 audio polish (OGG/Opus re-encode, PannerNode positional audio, music auto-duck). Council R1 deliberated (Battle Ledger 6 rows + 3 Δ rows). PRIME-AUDIT pass complete. User explicit go upfront for autonomous overnight execution.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
   "tier": "Standard",
-  "council_battle_ledger": "5 rows. C1 ADOPT vite ^6.4.2 + vitest ^2.1.0 (Claude+Gemini converge over Grok vite 7). C2 ADOPT 4 extractions inc godlyOrchestration. C3 ADOPT NetSession state holder pattern (option a) for closure state. C4 ADOPT static dot x bump (210→260) + qHintText 240→290. C5 ADOPT Gemini env-override __TEST_WIN_SCORE__ via page.addInitScript for Sym I e2e.",
-  "prime_audit": "2 deltas. Δ1 NetSession reference identity — handlers MUST read session.transport per-invocation not per-creation to avoid stale captures on reconnect. Δ2 __TEST_WIN_SCORE__ env-override must be scoped to specific describe block via Playwright fixture isolation to prevent spurious WIN in unrelated tests.",
+  "council_battle_ledger": "6 rows + 3 Δ. C1 ADOPT A (rate=1.5) over Grok B (0.5 fails math — at λ=0.5 first wait is 7.69s, leaves Sym A with only 1 spark in 10s window). C2 ADOPT A per-Sym addInitScript (unanimous, mirrors PHASE_1_WIN_SCORE precedent). C3 ADOPT A optional pos? arg (unanimous, no regression). C4 ADOPT A drainAudioEffects event-coupling (unanimous, avoids state-coupling risks of CREATURE_TICK gate). C5 ADOPT A keep MP3 fallback over Gemini B (Safari pre-17 fallback cheap). C6 ADOPT B no LFS (unanimous, 3.5 MB OGG fine direct in git). Δ1 (Gemini) __TEST_RNG_SEED__ DEFERRED to S52 backlog. Δ2 (Gemini) duckMusic max-end-time semantics REFINEMENT ADOPTED — implemented as nextDuckEndCtxTime pure helper. Δ3 (Claude) audioManager.test.ts pre-flight confirmed pure-helper-only — no AudioContext mocking required for new tests.",
+  "prime_audit": "5 deltas surfaced + handled in-flight. (1) Module-eval timing of test seams — confirmed addInitScript fires BEFORE bundled scripts so constants.ts captures override at module-init, mirror of S50 P4 PHASE_1_WIN_SCORE precedent verified empirically by Sym A/C passing immediately after seam landed. (2) Determinism risk of changing seed-dependent spawner timing — production rate untouched, override is window-only, replay-determinism preserved. (3) FREE_SPARK_SOFT_CAP=50 vs λ=1.5 steady-state — ~33s to reach cap, all e2e tests place within first 30s, no despawn pressure. (4) Sym D init-script function-form vs string-content — first attempt with TS arrow function failed (transient flake or TS-compiled-arrow capture issue); switched to {content: 'window....=0'} string form, test passes consistently across 2 confirming runs. (5) Sym I anchor positions (800,400)/(800,600) were INSIDE spawner zone (dist 213 < SPAWNER_RADIUS=250) — moved to (300,400)/(300,600)/(300,800) outside zone, real test design bug fixed.",
   "council_waived": false,
   "council_waiver_reason": null,
-  "real_context_tokens_at_close": 151460,
-  "real_context_pct_at_close": 15.15,
   "priorities": [
     {
       "id": "P0",
-      "label": "S50 P0 — State discovery + Council deliberation",
+      "label": "S51 P0 — State discovery + Council R1 + PRIME-AUDIT",
       "status": "completed",
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": true,
-      "council_waiver_reason": "Setup phase",
+      "council_waiver_reason": "Setup phase (state-discovery + plan drafting)",
       "check_completed": true,
-      "check_method": "Phase A.0 empirical state probes: npm audit (4 moderate CVEs confirmed in vite/vitest chain), wc -l src/main.ts (1221 LOC confirmed hypertrophy), Read e2e/smoke.spec.ts (only Sym A/C/D/E describes — Rule 21 DELTA found: no fixme for Sym F/I, rescoped P4 from flip-fixme to author-new), Read territory.ts (Sym F mechanic confirmed), npm test (783/783 baseline GREEN, 44 test files). Council synthesis via Agent — 3-way deliberation, Battle Ledger 5 rows, PRIME-AUDIT 2 deltas.",
-      "checkpoint_commit": "fa1851a"
+      "check_method": "Phase A.0 empirical state-discovery: gh run view 26440547587 (5 E2E failures, all sparks-spawned timeout pattern), Read e2e/smoke.spec.ts + helpers.ts (test contract understood), Read main.ts + physicsLoop.ts + net/session.ts + net/hostHandlers.ts + net/clientHandlers.ts (P2 refactor verified correct — extractions mechanical, no functional change), Read constants.ts (SPAWN_RATE_PER_SECOND=0.15 confirmed), Read LOCKED_DECISIONS.md line 155+167 (0.15 is intentional S5 amendment — CANNOT change production), simulated spawner via node -e (mulberry32(0xc0ffee).first()=0.0214 → 25.71s first wait at λ=0.15 → 1 spawn in 30s; deterministic. Math: P(0 sparks at tick=1604 | λ=0.15) ≈ 1.8% × 5 tests × 3 retries → P(all 15 zero) ≈ 10⁻²⁶, systematic not statistical). Audio inventory: public/audio/blue-steppe-orbit.mp3 = 10.0 MB. Audio code: audioManager.ts (515 LOC) + audioCursor.ts (57 LOC). ffmpeg 8.1 + libopus confirmed. Council R1 via parallel Grok + Gemini calls — Battle Ledger 6 rows + 3 Δ rows.",
+      "checkpoint_commit": "1941cbf"
     },
     {
       "id": "P1",
-      "label": "S50 P1 — vite/vitest CVE bump",
-      "status": "completed",
-      "tier": "Micro",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "council_waived": false,
-      "check_completed": true,
-      "check_method": "npm audit: 4 moderate CVEs → 0 vulnerabilities (esbuild GHSA-67mh-4wv8-2f99 + vite GHSA-4w7w-66w2-5vf9 + vite-node + vitest). npm test: 783/783 GREEN unchanged (44 test files). tsc -b --noEmit: clean. vite 6.4.2 build: SUCCESS, bundle 494.75 KB (within 500 KB charter, 5.25 KB headroom, +0.30 KB delta vs S49). Initial naive bump (vite ^6.4.2 + vitest ^2.1.9) went 4→5 moderate CVEs due to nested vite 5.x inside vitest 2.1.9 (vitest 2 explicitly depends on vite ^5.0.0). Revised to vitest ^3.2.4 (depends on vite ^5||^6||^7-0 → npm hoists to single vite 6.4.2 install). 2-major-jump for vitest, 1-major for vite. Council R1 had recommended minimal bump — execution found this missed the nested-dep CVE; revised in-flight per Rule 20 PRIME-AUDIT iteration.",
-      "checkpoint_commit": "e392e96"
-    },
-    {
-      "id": "P2",
-      "label": "S50 P2 — main.ts hypertrophy refactor",
+      "label": "S51 P1 — E2E spawner-rate test-override + Sym D/I downstream fixes",
       "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
@@ -51,34 +37,21 @@
       "unlock_source": "user",
       "council_waived": false,
       "check_completed": true,
-      "check_method": "4 extractions per Council Battle Ledger C2. (1) src/physics/physicsLoop.ts (146 LOC): stepPhysics + enforceFreeSparkCap + freeSparkArray + PHYSICS_DT/SUBSTEP_DT constants — mechanical, module-level already. (2) src/state/godlyOrchestration.ts (204 LOC): runGodlyMatcher + startCinematicIfNeeded + mutable state holder GodlyOrchestrationState — closure state migrated, deps passed as ctx per PRIME-AUDIT Δ1 per-invocation freshness. (3) src/net/session.ts (76 LOC): NetSession type holder + makeNetSession + teardownNet — Council Battle Ledger C3 ADOPT NetSession state holder pattern. (4) src/net/hostHandlers.ts (87 LOC) + src/net/clientHandlers.ts (95 LOC): factory functions createHostStartHandler / createBeginMatchHandler / createJoinAttemptHandler with deps object; late-bound onLobbyError thunk pattern avoids LobbyScreen circular-init. main.ts: 1221 → 888 LOC (-333 LOC, -27%). Council target ≤860 (within 28-LOC variance). Bundle: 494.75 → 496.13 KB (+1.38 KB module boundary overhead, within 500 KB charter — 3.87 KB headroom). vitest 783/783 GREEN. tsc -b --noEmit: clean. PRIME-AUDIT Δ1 verified: ctx rebuilt per-frame in main.ts:725-734 so session.netTransport reads are fresh on reconnect.",
-      "checkpoint_commit": "cf92255"
+      "check_method": "Three coordinated fixes for the 5 failing e2e tests (S50 P5 EOS-audit unmasked from continue-on-error + y=676 button-coord bug). (1) src/constants.ts: SPAWN_RATE_PER_SECOND test-override seam mirror of PHASE_1_WIN_SCORE — window.__TEST_SPAWN_RATE_PER_SECOND__ read at module-init, production 0.15 unchanged per LOCKED_DECISIONS Item 3 (S5 strategic-bet feel amendment). (2) e2e/smoke.spec.ts: applyTestSpawnRate helper applied per-Sym to A/C/D/F/I (rate=1.5 per Council C1 — at λ=1.5 first spawn at 2.56s vs 25.71s at 0.15, same seed sequence preserved). (3) Sym D — __TEST_TERRITORY_BASE_RADIUS__=0 seam (Sym F territory radius ≥72 > AUTO_BOND_RADIUS=60 means cross-color bond test contract unreachable post-S49 P1; disable territory only in Sym D to test the color-seg invariant which is now defense-in-depth — used {content: 'window...=0'} string form after TS-arrow form intermittent issue). (4) Sym I — moved anchor X from 800 to 300 (800,400) and (800,600) were INSIDE SPAWNER_RADIUS=250 zone (dist 213px from center), causing silent rejection — (300,400)/(300,600)/(300,800) are 675+ px out, well outside zone. Council Battle Ledger C1-C2 + PRIME-AUDIT Δ4-Δ5 ADOPTED. Verification: npx tsc -b --noEmit clean. npm test 783 → 796 GREEN (+13 panner/duck tests). npx playwright test 6/6 GREEN locally (1 skipped Sym E fixme) in 1.3 min. Bundle 496.28 → 497.67 KB (within 500 KB charter, 2.33 KB headroom). e2e CI re-run pending push.",
+      "checkpoint_commit": null
     },
     {
-      "id": "P3",
-      "label": "S50 P3 — Sym E score occlusion polish",
+      "id": "P2",
+      "label": "S51 P2 — Audio polish (OGG/Opus + PannerNode + auto-duck)",
       "status": "completed",
-      "tier": "Micro",
+      "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
       "check_completed": true,
-      "check_method": "Per Council Battle Ledger C4 ADOPT static dot bump over dynamic getBounds. src/render/ui.ts changes: (1) drawPlayerCharges helper — chargeDots base x: 210 → 260 (50px additional headroom over the 'RED  XX / 50' text which ends ~x=132 at 12-char monospace 16, 9.6px/char). (2) constructor qHintText position: x=240 → x=290 (clears new dot range max x=272+4=276 with 14px breathing gap). User-deferred 3 sessions running (S47/S48/S49 boot snapshots cited this issue). tsc -b --noEmit: clean. vitest 783/783 GREEN. No HUD behavior change.",
-      "checkpoint_commit": "b0eaba6"
-    },
-    {
-      "id": "P4",
-      "label": "S50 P4 — Author new e2e tests for Sym I + Sym F",
-      "status": "completed",
-      "tier": "Micro",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "council_waived": false,
-      "check_completed": true,
-      "check_method": "Per Council Battle Ledger C5 ADOPT Gemini env-override path. Rule 21 DELTA caught at boot: spec had no Sym F/I fixme to flip — rescoped to author-new. src/constants.ts: PHASE_1_WIN_SCORE seam reads window.__TEST_WIN_SCORE__ at module-load (browser only; Node returns null→50 default). Playwright's page.addInitScript runs BEFORE bundled scripts so the seam fires before constants.ts evaluates. e2e/smoke.spec.ts: 2 new describes appended. (1) Sym F: joiner places 3 BLUE prims clustered ≤60px (all bond → complexity ≈4.6 → R≈80px), host attempts RED place AT cluster center, assert RED count unchanged (silent block at placePrimitive.ts host-auth gate). (2) Sym I: __TEST_WIN_SCORE__=3 scoped to BOTH contexts of THIS test via context.addInitScript (PRIME-AUDIT Δ2 mitigation — Playwright contexts isolated, no leak to A/C/D/E/F). Host places 3 anchors (200px apart, non-bonding, SCORE_ANCHOR=1 each), asserts host WIN + joiner WIN within 10s (via ENDGAME envelope). tsc -b --noEmit: clean. npm test: 783/783 GREEN unchanged. npm run build: success, bundle 496.13 → 496.28 KB (+0.15 KB const-seam, 3.72 KB headroom under 500 KB charter).",
-      "checkpoint_commit": "9f2e89d"
+      "check_method": "S18 P9 carry-forward shipped via 3 sub-tasks per Council Battle Ledger C3-C5: (a) ffmpeg -c:a libopus -b:a 64k -application audio re-encode blue-steppe-orbit.mp3 (10.0 MB) → blue-steppe-orbit.ogg (3.5 MB — 65% size reduction; Council C5 ADOPT A keep MP3 on disk as Safari pre-17 fallback). Updated MUSIC_URL in audioManager.ts to /audio/blue-steppe-orbit.ogg. Note: PDR target was ~2 MB but 64k Opus is near-transparent for instrumental music vs 48k (~2.3 MB but audible quality loss); user can swap rate downward if mobile-cold-load priority outweighs quality. (b) Optional pos?:Vec2 arg added to playClaveSFX/playFartSFX/playChargeSFX/playOneShot. mapPanningPosition pure helper exported (canvas top-down → X=stereo, Z=front-back, Y=0). createPanner internal helper inserts PannerNode (equalpower model, refDistance=1, maxDistance=2, rolloffFactor=1) between osc/source gain and shared sfxGainNode. Listener implicit at origin. Wired into drainAudioEffects on BOND_FORMED/BOND_SEVERED/CREATURE_CHARGE — passes effect.pos. (c) duckMusic(durationMs, depth=0.25) — cancelScheduledValues + setTargetAtTime ramp down 30ms → hold → setTargetAtTime ramp up 150ms after duration. PRIME-AUDIT Δ2 REFINEMENT (Gemini): nextDuckEndCtxTime pure helper (exported for tests) implements max(currentEnd, candidate) semantics so a 300ms CREATURE_CHARGE duck mid-flight through a 700ms BOND_SEVERED-creature duck never truncates the longer one. Wired into drainAudioEffects: CREATURE_CHARGE → 300ms duck, BOND_SEVERED cause='creature' → 700ms duck. Verification: 13 new unit tests added (7 mapPanningPosition + 6 nextDuckEndCtxTime). npm test 796/796 GREEN. tsc -b --noEmit clean. vite build success, bundle 497.67 KB (+1.39 KB vs S50 close, within 500 KB charter, 2.33 KB headroom).",
+      "checkpoint_commit": null
     }
   ]
 }
