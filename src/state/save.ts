@@ -162,6 +162,12 @@ interface SerializedPlayer {
   disruptionCharges: number;
   /** S15 P2 — per-player avatar position. Optional for pre-S15 compat. */
   avatarPos?: Vec2;
+  /**
+   * S49 P1 (Sym F) — territorial shrink debuff expiry tick. Optional for
+   * pre-S49 compat; rehydrates as null via nullish-coalescing (additive-
+   * optional precedent from S15 P2 / S28 P0 / S31 P0-3 / S33 P1-11).
+   */
+  territorialShrinkUntilTick?: number | null;
 }
 
 /**
@@ -487,6 +493,8 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       // NetSnapshot subset; cooldown is host-authoritative anyway). Reconstruct
       // as null on snapshot apply; cooldown re-applies via GODLY_TRIGGER reducer.
       godlyCooldownEndsAtTick: null,
+      // S49 P1 (Sym F) — rehydrate debuff tick; null for pre-S49 saves.
+      territorialShrinkUntilTick: p.territorialShrinkUntilTick ?? null,
     };
     const player: Player =
       p.kind === 'Carrying' && p.carriedSparkId !== null
@@ -545,6 +553,12 @@ function serializePlayer(p: Player): SerializedPlayer {
     buildActions: p.buildActions,
     disruptionCharges: p.disruptionCharges,
     avatarPos: { x: p.avatarPos.x, y: p.avatarPos.y },
+    // S49 P1 (Sym F) — emit only when non-null so pre-S49 saves stay
+    // byte-identical on the wire (JSON.stringify drops `undefined` keys).
+    // Pre-S49 readers rehydrate as null via nullish-coalescing.
+    ...(p.territorialShrinkUntilTick !== null
+      ? { territorialShrinkUntilTick: p.territorialShrinkUntilTick }
+      : {}),
   };
 }
 

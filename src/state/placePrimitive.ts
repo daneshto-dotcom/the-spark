@@ -41,6 +41,7 @@ import { bfsHopMap, componentOf, type Structure } from '../game/structure.ts';
 import type { Bond } from '../physics/bonds.ts';
 import { asBondId, asPrimitiveId, type PlayerId, type PrimitiveId, type Vec2 } from '../types.ts';
 import { addScore, requirePlayer, type World } from './world.ts';
+import { isInsideEnemyTerritory } from './territory.ts';
 
 /** Action payload for PLACE_PRIMITIVE — exported so world.ts can compose GameAction. */
 export interface PlacePrimitiveAction {
@@ -116,6 +117,16 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
   const dx = spark.pos.x - SPAWNER_CENTER_X;
   const dy = spark.pos.y - SPAWNER_CENTER_Y;
   if (dx * dx + dy * dy < SPAWNER_RADIUS * SPAWNER_RADIUS) {
+    return world;
+  }
+
+  // S49 P1 (Sym F) — territorial hard block. Host-authoritative rejection
+  // when the carried spark's position is inside any enemy player's territorial
+  // radius. Carry is preserved (same pattern as spawner-zone rejection above).
+  // controls.ts LMB-up path does an optimistic client-side pre-check that
+  // mirrors this logic (snapshot-lagged); this is the authoritative backstop.
+  if (isInsideEnemyTerritory(spark.pos, action.playerId, world)) {
+    world.diagnostics.territoryBlockRejects++;
     return world;
   }
 

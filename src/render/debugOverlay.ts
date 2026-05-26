@@ -21,6 +21,7 @@ import { listRecipes } from '../state/godlyRecipes/index.ts';
 import { findLongestVoltkinPartial } from '../state/godlyRecipes/voltkin.ts';
 import { SparkType } from '../constants.ts';
 import type { World } from '../state/world.ts';
+import { computePlayerComplexity, computeTerritorialRadius } from '../state/territory.ts';
 
 export interface DebugOverlayHandle {
   sync(world: World, runtimeProbes: RuntimeProbes): void;
@@ -144,6 +145,20 @@ export function createDebugOverlay(): DebugOverlayHandle {
     // new bucket breakdown. Helps pinpoint silent-drop paths in live 2-peer
     // smoke (e.g. "joiner LMB doesn't place" → check pickupReachFail).
     const rr = world.diagnostics.rejectReasons;
+
+    // S49 P1 (Sym F) — per-player territory diagnostics.
+    const territoryLines: string[] = [];
+    for (const [pid, player] of world.players) {
+      const complexity = computePlayerComplexity(pid, world);
+      const R = computeTerritorialRadius(pid, world);
+      const shrink = player.territorialShrinkUntilTick !== null && world.tick < player.territorialShrinkUntilTick
+        ? `shrink until t${player.territorialShrinkUntilTick} (${player.territorialShrinkUntilTick - world.tick}t left)`
+        : 'none';
+      territoryLines.push(
+        `  P${pid}: complexity=${complexity.toFixed(1)}  R=${R.toFixed(1)}  shrink=${shrink}`,
+      );
+    }
+
     return [
       `=== GAME STATE ===`,
       `tick:           ${world.tick}`,
@@ -158,6 +173,10 @@ export function createDebugOverlay(): DebugOverlayHandle {
       `  pickupSparkNotFree:  ${rr.pickupSparkNotFree}`,
       `  pickupReachFail:     ${rr.pickupReachFail}`,
       `  placeTargetMissing:  ${rr.placeTargetMissing}`,
+      `  territoryBlock:      ${world.diagnostics.territoryBlockRejects}`,
+      ``,
+      `=== TERRITORY (S49 Sym F) ===`,
+      ...territoryLines,
       ``,
       `=== GODLY MATCHER ===`,
       `WILL_RUN:       ${matcherWillRun}${matcherReasons.length ? ` (BLOCKED: ${matcherReasons.join(', ')})` : ''}`,

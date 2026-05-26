@@ -33,6 +33,17 @@ export interface Bond {
   readonly restLength: number;
   readonly stiffnessTier: StiffnessTier;
   readonly createdTick: number;
+  /**
+   * S49 P1 (Sym F) — per-tick territorial engulf-warp multiplier. Set each
+   * physics tick by computeTerritorialInfluence() before solveBonds. Resets
+   * to 1.0 at the top of each influence pass (ephemeral derived quantity, NOT
+   * game state — same pattern as pos/prevPos mutations in verletStepAll).
+   * Values < 1.0 produce "sluggish" bond behaviour: reduced position correction
+   * makes the structure sag/oscillate inside enemy territory. 0.3 = 70% reduction
+   * (effective stiffness MID→0.15, LOW→0.06, HIGH→0.24). Non-readonly because it
+   * is intentionally mutated outside the dispatch cycle.
+   */
+  stiffnessMultiplier?: number;
 }
 
 const EPSILON = 1e-6;
@@ -61,7 +72,7 @@ export function solveBonds(bonds: readonly Bond[]): BondId[] {
     }
 
     const error = dist - bond.restLength;
-    const stiffness = STIFFNESS_BY_TIER[bond.stiffnessTier];
+    const stiffness = STIFFNESS_BY_TIER[bond.stiffnessTier] * (bond.stiffnessMultiplier ?? 1.0);
     let correction = (error / dist) * stiffness * 0.5;
     const maxCorrectionMagnitude = POSITION_CORRECTION_CLAMP_RATIO * bond.restLength;
     const moveMagnitude = Math.abs(correction * dist);

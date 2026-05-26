@@ -40,6 +40,7 @@ import { dispatch } from '../state/world.ts';
 import type { GameAction, World } from '../state/world.ts';
 import type { BondId, PlayerId, PrimitiveId, SparkId, Vec2 } from '../types.ts';
 import { pickRedundantBondTargets } from './redundantBondTargets.ts';
+import { isInsideEnemyTerritory } from '../state/territory.ts';
 
 /**
  * S15 P2 — dispatcher injection. Solo / host mode passes a fn that calls
@@ -128,6 +129,8 @@ export class Controls {
     // S42 — Space-key → END_TURN handler DELETED. The 1v1 mode was
     // incorrectly shipped as turn-based hotseat (S15 P2). Real-time
     // gameplay per blueprint requires no turn-flip input.
+    // S49 P1 (Sym F) — Q key → SHRINK_TERRITORY disruption (1v1 only).
+    window.addEventListener('keydown', this.onKeyDown);
   }
 
   /**
@@ -280,7 +283,15 @@ export class Controls {
           : reachDx * reachDx + reachDy * reachDy <=
             MAX_RELEASE_REACH * MAX_RELEASE_REACH;
         const inZone = isClient ? false : this.isInsideSpawnerZone(spark.pos);
-        if (reachable && !inZone) {
+        // S49 P1 (Sym F) — optimistic client-side territory gate. Mirrors
+        // placePrimitive.ts's host-authoritative block. Snapshot-lagged in
+        // client mode (joiner's world may lag by RTT/2), so joiner bypasses
+        // the gate here and lets the host's hard block decide — same pattern
+        // as the spawner-zone check above (isClient ? false : ...).
+        const inTerritory = isClient
+          ? false
+          : isInsideEnemyTerritory(spark.pos, this.playerId, this.world);
+        if (reachable && !inZone && !inTerritory) {
           // S5 hot-fix: single-action place. PICKUP then immediately PLACE so
           // the released spark lands where it physically is. Auto-bonds to
           // any primitive within AUTO_BOND_RADIUS of spark.pos so chained
@@ -378,6 +389,21 @@ export class Controls {
   private onLostCapture = (): void => {
     this.capturedPointerId = null;
     if (this.state.kind !== 'Idle') this.state = { kind: 'Idle' };
+  };
+
+  // S49 P1 (Sym F) — Q key → SHRINK_TERRITORY. Consumes 1 disruptionCharge;
+  // halves all enemy territorial radii for 5s. 1v1 PLAYING only; guard
+  // prevents charge drain in solo / LOBBY / WIN states and when typing into
+  // an input field.
+  private onKeyDown = (e: KeyboardEvent): void => {
+    if (e.key !== 'q' && e.key !== 'Q') return;
+    const focusedTag = document.activeElement?.tagName;
+    if (focusedTag === 'INPUT' || focusedTag === 'TEXTAREA') return;
+    if (this.world.gameMode !== '1v1') return;
+    if (this.world.gameState !== 'PLAYING') return;
+    const player = this.world.players.get(this.playerId);
+    if (player === undefined || player.disruptionCharges < 1) return;
+    this.dispatchFn({ type: 'SHRINK_TERRITORY', playerId: this.playerId });
   };
 
   // S42 — onKeyDown SPACE → END_TURN handler DELETED. See constructor

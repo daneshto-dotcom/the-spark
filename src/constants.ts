@@ -295,3 +295,14 @@ export const REDUNDANT_BOND_MAX_CANDIDATES = 16;
 export const NET_SNAPSHOT_HZ = 10;
 export const NET_INTERPOLATION_MS = 100;
 export const NET_ROOM_CODE_LENGTH = 6;
+
+// === Territorial Repulsion (Sym F, S49 P1) ===
+// R(complexity) = TERRITORY_BASE_RADIUS + TERRITORY_RADIUS_SCALE × log₂(complexity + 1)
+// Range in normal play: ~60px (0 prims) to ~140px (complexity ~100).
+// Territory is invisible (no ring rendered); hard-blocks enemy placement.
+// Engulf-warp: enemy bonds inside territory get stiffness × TERRITORY_ENGULF_STIFFNESS.
+// Shrink debuff: SHRINK_TERRITORY action halves enemy radius for TERRITORY_SHRINK_DURATION_TICKS.
+export const TERRITORY_BASE_RADIUS = 60;
+export const TERRITORY_RADIUS_SCALE = 12;
+export const TERRITORY_ENGULF_STIFFNESS = 0.3;
+export const TERRITORY_SHRINK_DURATION_TICKS = 300; // 5 seconds at 60 Hz

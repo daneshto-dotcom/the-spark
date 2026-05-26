@@ -314,26 +314,27 @@ describe('S17 P1 — Phase-2 §VIII.3 cross-player Sever-as-disruption', () => {
   // S42 — "wrong-turn dispatch silently rejects" test DELETED (turn-based
   // 1v1 input gate removed; blueprint mandates real-time simultaneous play).
 
-  it('S46 P3 Sym D — mixed-ownership bond CANNOT form (color-segregated bonding)', () => {
-    // S46 P3 user-confirmed spec deletion of LOCKED §VI.4/§X.2 multi-color
-    // bond rendering: each player builds same-color structures only.
-    // Pre-S46 this test verified hostile-sever consumes charge; post-S46
-    // it verifies the cross-color bond is silently downgraded to an anchor
-    // placement (defense in depth at host applyPlacePrimitive). §VIII.3
-    // hostile-sever mechanic becomes unreachable; disruption charges
-    // pending repurpose in S47 Sym F territorial repulsion.
+  it('S46 P3 Sym D + S49 Sym F — enemy cannot place inside P1 territory (no cross-color bond)', () => {
+    // S46 P3: color-segregated bonding — cross-color bonds are silently
+    // downgraded to anchor placements (defense-in-depth in placePrimitive.ts).
+    // S49 P1 Sym F: TERRITORY_BASE_RADIUS (60px) ≥ AUTO_BOND_RADIUS (60px),
+    // so P1's territory zone (R ≈ 73px with 1 prim) always contains the
+    // entire auto-bond catchment around P1's prim. Territory fires FIRST
+    // as the outer gate; Sym D cross-color rejection remains as inner
+    // defense-in-depth (still in code, never reached in normal gameplay).
+    //
+    // Net invariant: P2 cannot place a primitive inside P1's territory,
+    // so no cross-color bond can ever form in practice. P2's carry is
+    // preserved on territory rejection (same as spawner-zone rejection).
     const w = setup1v1();
     const a = placeFor(w, P1, 0, null);
-    placeFor(w, P2, 1, a); // P2 attempts to bond to P1's anchor — must demote to anchor
-    // Assert: P2's primitive was placed (carry consumed) but NO cross-color bond exists.
-    expect(w.primitives.size).toBe(2); // both prims exist
-    expect(w.bonds.size).toBe(0); // cross-color bond rejected
-    // Both prims have their respective placerColor (no mutation).
-    const prims = [...w.primitives.values()];
-    const p1Prim = prims.find((p) => p.placerColor === PLAYER_COLORS[0]);
-    const p2Prim = prims.find((p) => p.placerColor === PLAYER_COLORS[1]);
-    expect(p1Prim).toBeDefined();
-    expect(p2Prim).toBeDefined();
+    placeFor(w, P2, 1, a); // P2 spark at (240,208) — 40px from P1 prim at (200,200)
+                           // → inside P1's territory (R≈73px) → placement blocked
+    // Assert: only P1's primitive exists; P2's placement was blocked by territory.
+    expect(w.primitives.size).toBe(1); // territory rejected P2's placement; carry preserved
+    expect(w.bonds.size).toBe(0);      // no cross-color bond (blocked before bond logic)
+    const p1Prim = [...w.primitives.values()].find((p) => p.placerColor === PLAYER_COLORS[0]);
+    expect(p1Prim).toBeDefined();      // P1's anchor exists
   });
 
   it('cycle-bond sever does NOT consume charge (PRIME-AUDIT B §VIII.4)', () => {

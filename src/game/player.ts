@@ -31,6 +31,14 @@ export interface PlayerCommon {
    * Battle Ledger row 4 Solomon split (UI converts to seconds for display).
    */
   godlyCooldownEndsAtTick: number | null;
+  /**
+   * S49 P1 (Sym F) — territorial radius shrink debuff expiry tick. When
+   * SHRINK_TERRITORY targets this player, set to world.tick +
+   * TERRITORY_SHRINK_DURATION_TICKS (300 = 5s at 60Hz). While
+   * world.tick < territorialShrinkUntilTick, computeTerritorialRadius()
+   * halves this player's effective R. null = no active debuff.
+   */
+  territorialShrinkUntilTick: number | null;
 }
 
 export type IdlePlayer = PlayerCommon & { readonly kind: 'Idle' };
@@ -50,6 +58,7 @@ export function makeIdlePlayer(id: PlayerId, color: number, avatarPos: Vec2 = { 
     disruptionCharges: 0,
     avatarPos: { x: avatarPos.x, y: avatarPos.y },
     godlyCooldownEndsAtTick: null,
+    territorialShrinkUntilTick: null,
   };
 }
 
@@ -73,6 +82,7 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     disruptionCharges: player.disruptionCharges,
     avatarPos: { x: player.avatarPos.x, y: player.avatarPos.y },
     godlyCooldownEndsAtTick: player.godlyCooldownEndsAtTick,
+    territorialShrinkUntilTick: player.territorialShrinkUntilTick,
     kind: 'Carrying',
     carriedSparkId: sparkId,
   };
@@ -91,6 +101,7 @@ export function drop(player: Player): IdlePlayer {
     disruptionCharges: player.disruptionCharges,
     avatarPos: { x: player.avatarPos.x, y: player.avatarPos.y },
     godlyCooldownEndsAtTick: player.godlyCooldownEndsAtTick,
+    territorialShrinkUntilTick: player.territorialShrinkUntilTick,
     kind: 'Idle',
   };
 }

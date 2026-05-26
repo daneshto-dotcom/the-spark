@@ -46,6 +46,8 @@ export class HUD {
   private readonly connectionDot: Graphics;
   /** S17 P1 — per-player disruption charge dots (Phase-2 §VIII.1-2). */
   private readonly chargeDots: Graphics;
+  /** S49 P1 (Sym F) — "Q=ZONE" key hint near charge dots. 1v1 PLAYING only. */
+  private readonly qHintText: Text;
   private displayEnergy = 0;
   private displayProgress = 0;
   private winTextAlphaTarget = 0;
@@ -102,6 +104,16 @@ export class HUD {
     // / both filled. Player-colored, visible only in 1v1 PLAYING.
     this.chargeDots = new Graphics();
     app.stage.addChild(this.chargeDots);
+
+    // S49 P1 (Sym F) — Q key hint. Positioned after the charge dots
+    // (max dot at x=222+4px radius; hint at x=240). Shown only in 1v1 PLAYING.
+    this.qHintText = new Text({
+      text: 'Q=ZONE',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 11, fill: 0xaaaaaa }),
+    });
+    this.qHintText.position.set(240, 8);
+    this.qHintText.visible = false;
+    app.stage.addChild(this.qHintText);
   }
 
   /** S15 P2 — main.ts sets this from netTransport.peerCount() each frame. */
@@ -226,6 +238,9 @@ export class HUD {
       drawPlayerCharges(d, world.players.get(asPlayerId(0)), 20);
       drawPlayerCharges(d, world.players.get(asPlayerId(1)), 42);
     }
+
+    // S49 P1 (Sym F) — Q=ZONE key hint visibility.
+    this.qHintText.visible = show1v1;
   }
 }
 

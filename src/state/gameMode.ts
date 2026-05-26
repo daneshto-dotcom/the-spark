@@ -69,6 +69,12 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   world.diagnostics.rejectReasons.pickupSparkNotFree = 0;
   world.diagnostics.rejectReasons.pickupReachFail = 0;
   world.diagnostics.rejectReasons.placeTargetMissing = 0;
+  // S49 P1 (Sym F) — reset territory diagnostics + clear any active shrink
+  // debuffs from the previous match so a fresh game starts at full radii.
+  world.diagnostics.territoryBlockRejects = 0;
+  for (const player of world.players.values()) {
+    player.territorialShrinkUntilTick = null;
+  }
   // S34 P2-21 defensive clear (see JSDoc above).
   world.pendingCreatureSpawn = null;
   if (action.mode === '1v1') {
@@ -113,6 +119,8 @@ export function applyReturnToTitle(world: World): World {
   world.diagnostics.rejectReasons.pickupSparkNotFree = 0;
   world.diagnostics.rejectReasons.pickupReachFail = 0;
   world.diagnostics.rejectReasons.placeTargetMissing = 0;
+  // S49 P1 (Sym F) — reset territory block counter.
+  world.diagnostics.territoryBlockRejects = 0;
   world.primitives.clear();
   world.bonds.clear();
   world.freeSparks.clear();
@@ -147,6 +155,8 @@ export function applyReturnToTitle(world: World): World {
     p1.energy = 0;
     p1.buildActions = 0;
     p1.disruptionCharges = 0;
+    // S49 P1 (Sym F) — clear shrink debuff so P1 starts fresh.
+    p1.territorialShrinkUntilTick = null;
     if (p1.kind === 'Carrying') {
       world.players.set(p1.id, { ...p1, kind: 'Idle' as const } as never);
     }

@@ -91,6 +91,7 @@ import { findGodlyMatch, makeTriggerEvent, listRecipes, getRecipe } from './stat
 import './state/godlyRecipes/voltkin.ts';
 import { mulberry32 } from './state/rng.ts';
 import { dispatch, makeWorld, type GameAction, type GameState } from './state/world.ts';
+import { computeTerritorialInfluence } from './state/territory.ts';
 import { makeGameStateExtras, softReset, tickGameState } from './state/gameState.ts';
 import { saveToLocalStorage } from './state/save.ts';
 import { asPlayerId } from './types.ts';
@@ -1134,6 +1135,16 @@ function stepPhysics(
   let bondArr: Bond[] = Array.from(world.bonds.values());
 
   const attractedId = controls.state.kind === 'AttractDrag' ? controls.state.sparkId : null;
+
+  // S49 P1 (Sym F) — territorial influence pass. Called ONCE per tick
+  // (not per substep) so the stiffnessMultiplier is set from current
+  // primitive positions before the substep integration loop runs. Phase 1
+  // resets all multipliers to 1.0; Phase 2 degrades enemy bonds inside
+  // territorial radii. All 8 substep solveBonds calls then see the same
+  // multipliers — correct because no bond creation happens inside the
+  // substep loop (only severance, which removes bonds from bondArr on
+  // the next substep iteration).
+  computeTerritorialInfluence(world);
 
   for (let s = 0; s < PHYSICS_SUBSTEPS; s++) {
     controls.applyPerSubstep();

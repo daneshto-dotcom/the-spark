@@ -151,6 +151,9 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   DESPAWN_CREATURE: true,
   CREATURE_TICK: true,
   CREATURE_ATTACK: true,
+  // S49 P1 (Sym F) — territorial shrink disruption. Joiner can dispatch
+  // this as an INTENT; host applies authoritatively.
+  SHRINK_TERRITORY: true,
 };
 const KNOWN_GAME_ACTION_TYPES: ReadonlySet<string> = new Set(
   Object.keys(KNOWN_GAME_ACTION_TYPES_RECORD),

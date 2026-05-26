@@ -20,7 +20,7 @@
  *         All §XV charter compliance work mechanical, zero behavior change.
  */
 
-import { PLAYER_COLORS, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS } from '../constants.ts';
+import { PLAYER_COLORS, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, TERRITORY_SHRINK_DURATION_TICKS } from '../constants.ts';
 import { type GameEffect } from '../game/effects.ts';
 import { type Primitive } from '../game/primitive.ts';
 import { severSplit } from '../game/structure.ts';
@@ -217,6 +217,12 @@ export interface World {
       pickupReachFail: number;
       placeTargetMissing: number;
     };
+    /**
+     * S49 P1 (Sym F) — count of PLACE_PRIMITIVE attempts silently rejected
+     * by the host territorial hard-block (isInsideEnemyTerritory returned
+     * true). Carry preserved on each reject. Surfaced in debugOverlay.
+     */
+    territoryBlockRejects: number;
   };
   /**
    * S42 — local player id (non-serialized convention; client only mutates
@@ -285,7 +291,13 @@ export type GameAction =
   // ATTACKING state with a valid targetBondId. The reducer re-dispatches
   // SEVER_BOND with cause='creature' (Council R1 Q1 UNANIMOUS B — central
   // severance path) and emits an ARC_FLASH visual effect.
-  | CreatureAttackAction;
+  | CreatureAttackAction
+  // S49 P1 (Sym F) — territorial shrink disruption. Costs 1 disruptionCharge;
+  // halves all enemy territorial radii for TERRITORY_SHRINK_DURATION_TICKS
+  // (300 ticks = 5s at 60Hz). 1v1-only semantics (solo no-ops in dispatch;
+  // no enemies exist in world.players). Guard in controls.ts prevents the key
+  // from doing anything in solo mode.
+  | { readonly type: 'SHRINK_TERRITORY'; readonly playerId: PlayerId };
 
 export function makeWorld(rngSeed: number): World {
   const w: World = {
@@ -321,6 +333,7 @@ export function makeWorld(rngSeed: number): World {
         pickupReachFail: 0,
         placeTargetMissing: 0,
       },
+      territoryBlockRejects: 0,
     },
     localPlayerId: asPlayerId(0),
   };
@@ -474,6 +487,23 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'CREATURE_ATTACK':
       return applyCreatureAttack(world, action);
+
+    case 'SHRINK_TERRITORY': {
+      // 1v1-only: solo has no enemy, loop finds no targets → implicit no-op.
+      // Charge guard prevents charge loss on accidental trigger.
+      if (world.gameMode !== '1v1') return world;
+      const attacker = world.players.get(action.playerId);
+      if (attacker === undefined) return world;
+      if (attacker.disruptionCharges < 1) return world;
+      attacker.disruptionCharges--;
+      const until = world.tick + TERRITORY_SHRINK_DURATION_TICKS;
+      for (const [pid, enemy] of world.players) {
+        if (pid !== action.playerId) {
+          enemy.territorialShrinkUntilTick = until;
+        }
+      }
+      return world;
+    }
   }
 }
 
