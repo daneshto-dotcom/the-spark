@@ -28,7 +28,29 @@ import {
 /**
  * Open 2 independent browser contexts so each is its own WebRTC peer.
  * Helper returns { hostCtx, hostPage, joinerCtx, joinerPage }.
+ *
+ * S51 P1 — `applyTestSpawnRate` opt-in: when set, both contexts receive
+ * `window.__TEST_SPAWN_RATE_PER_SECOND__` BEFORE the bundled scripts load.
+ * The constant `SPAWN_RATE_PER_SECOND` in src/constants.ts reads this at
+ * module-eval and uses it instead of the LOCKED production 0.15/sec. The
+ * baseline + Sym E specs DO NOT call this; only Sym A/C/D/F/I (which wait
+ * for ≥3-8 sparks within 10-30s) opt in. Production replay-determinism is
+ * unaffected (seam is browser-window-only). See PDR S51 §2 and Council
+ * Battle Ledger C1+C2 ADOPT A.
  */
+async function applyTestSpawnRate(
+  hostCtx: BrowserContext,
+  joinerCtx: BrowserContext,
+  rate = 1.5,
+): Promise<void> {
+  const init = (r: number): void => {
+    (window as { __TEST_SPAWN_RATE_PER_SECOND__?: number })
+      .__TEST_SPAWN_RATE_PER_SECOND__ = r;
+  };
+  await hostCtx.addInitScript(init, rate);
+  await joinerCtx.addInitScript(init, rate);
+}
+
 async function open2Peers(browser: import('@playwright/test').Browser): Promise<{
   hostCtx: BrowserContext; hostPage: Page;
   joinerCtx: BrowserContext; joinerPage: Page;
@@ -82,6 +104,7 @@ test.describe('Sym A — joiner single-action LMB-place (GREEN post-S46 P2)', ()
   test('Joiner LMB-drag-release places primitive at release position', async ({ browser }) => {
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
+      await applyTestSpawnRate(hostCtx, joinerCtx);
       const code = await hostNewRoom(hostPage);
       await joinRoom(joinerPage, code);
       await waitForWorld(hostPage, (w) => w.peerCount >= 1, 'peers connected');
@@ -118,6 +141,7 @@ test.describe('Sym C — joiner self-bond (GREEN post-S46 P2+P3+P4)', () => {
   test('Joiner can bond own primitives', async ({ browser }) => {
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
+      await applyTestSpawnRate(hostCtx, joinerCtx);
       const code = await hostNewRoom(hostPage);
       await joinRoom(joinerPage, code);
       await waitForWorld(hostPage, (w) => w.peerCount >= 1, 'peers connected');
@@ -153,6 +177,18 @@ test.describe('Sym D — color-segregated bonds (GREEN post-S46 P3)', () => {
   test('Cross-color bond attempt is silently rejected', async ({ browser }) => {
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
+      await applyTestSpawnRate(hostCtx, joinerCtx);
+      // S51 P1 — disable territorial repulsion FOR THIS TEST ONLY. Sym D's
+      // contract (assert NO cross-color bond when red+blue at AUTO_BOND_RADIUS
+      // distance) is unreachable in normal play after S49 P1 shipped Sym F
+      // territory (min radius 72 > AUTO_BOND_RADIUS 60 → red hard-blocked
+      // before color-seg fires). Setting base radius to 0 lets the test see
+      // the actual color-seg invariant which is defense-in-depth post-S49.
+      // Sym F has its own dedicated test that does NOT disable territory.
+      // Use the string-content form of addInitScript — simplest possible
+      // serialization, zero function-capture surface area.
+      await hostCtx.addInitScript({ content: 'window.__TEST_TERRITORY_BASE_RADIUS__ = 0;' });
+      await joinerCtx.addInitScript({ content: 'window.__TEST_TERRITORY_BASE_RADIUS__ = 0;' });
       const code = await hostNewRoom(hostPage);
       await joinRoom(joinerPage, code);
       await waitForWorld(hostPage, (w) => w.peerCount >= 1, 'peers connected');
@@ -220,6 +256,7 @@ test.describe('Sym F — territorial hard-block (S49 mechanic, S50 P4 e2e covera
   test('Host placement inside joiner territory is silently rejected', async ({ browser }) => {
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
+      await applyTestSpawnRate(hostCtx, joinerCtx);
       const code = await hostNewRoom(hostPage);
       await joinRoom(joinerPage, code);
       await waitForWorld(hostPage, (w) => w.peerCount >= 1, 'peers connected');
@@ -303,6 +340,11 @@ test.describe('Sym I — win-condition + ENDGAME envelope (S47 wire, S50 P4 e2e 
       await joinerCtx.addInitScript((winScore) => {
         (window as { __TEST_WIN_SCORE__?: number }).__TEST_WIN_SCORE__ = winScore;
       }, TEST_WIN_SCORE);
+      // S51 P1 — spawn-rate override (rate 1.5 vs prod 0.15). Same context
+      // scoping as TEST_WIN_SCORE above. Sym I waits for ≥8 sparks → at 0.15
+      // first spark is 25.7s away (deterministic w/ seed 0xc0ffee); at 1.5
+      // it's 2.6s. addInitScript fires BEFORE constants.ts module-eval.
+      await applyTestSpawnRate(hostCtx, joinerCtx);
 
       const hostPage = await hostCtx.newPage();
       const joinerPage = await joinerCtx.newPage();
@@ -318,14 +360,21 @@ test.describe('Sym I — win-condition + ENDGAME envelope (S47 wire, S50 P4 e2e 
 
       // Host places 3 anchors (non-bonding placements, 200px apart > 60
       // AUTO_BOND_RADIUS). SCORE_ANCHOR=1 each → score=3 → WIN gate fires.
-      await dragSparkTo(hostPage, 800, 400);
+      //
+      // S51 P1 — X moved from 800 to 300. (800, 400) is at distance
+      // √(160² + 140²) = 213 px from spawner center (960, 540); SPAWNER_RADIUS
+      // is 250, so anchor placement at X=800 is silently rejected because
+      // placePrimitive's spawner-zone exit check fires (anchors only place
+      // OUTSIDE the spawner). (300, 400) is √(660² + 140²) = 675 px out —
+      // safely outside the zone. Same for (300, 600) and (300, 800).
+      await dragSparkTo(hostPage, 300, 400);
       await waitForWorld(
         hostPage,
-        (w) => w.primitives.some((p) => p.placerColor === 0xff3b6b && Math.abs(p.pos.x - 800) < 50 && Math.abs(p.pos.y - 400) < 50),
+        (w) => w.primitives.some((p) => p.placerColor === 0xff3b6b && Math.abs(p.pos.x - 300) < 50 && Math.abs(p.pos.y - 400) < 50),
         'host placed 1st anchor',
       );
-      await dragSparkTo(hostPage, 800, 600);
-      await dragSparkTo(hostPage, 800, 800);
+      await dragSparkTo(hostPage, 300, 600);
+      await dragSparkTo(hostPage, 300, 800);
 
       // Host should reach scoreByPlayer[0] === 3 → applyScore triggers
       // WIN_TRIGGER → gameState='WIN' + lastWinnerId=0. Main.ts ticker's

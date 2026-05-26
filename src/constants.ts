@@ -67,7 +67,29 @@ export const CANVAS_HEIGHT = 1080;
 export const SPAWNER_RADIUS = 250;
 export const SPAWNER_CENTER_X = CANVAS_WIDTH / 2;
 export const SPAWNER_CENTER_Y = CANVAS_HEIGHT / 2;
-export const SPAWN_RATE_PER_SECOND = 0.15;
+/**
+ * S51 P1 — E2E test override seam. Production gameplay rate stays at 0.15
+ * per LOCKED_DECISIONS Item 3 (S5 amendment: "strategic-bet feel — wait for
+ * the type you need"; raising it would violate the locked decision). The
+ * seam is mirror-of-`PHASE_1_WIN_SCORE`: Playwright `addInitScript` sets
+ * `window.__TEST_SPAWN_RATE_PER_SECOND__` BEFORE the bundled scripts load,
+ * so the constant captures the override at module-init. Production paths
+ * (SSR / Node tests / browser without addInitScript) fall through to 0.15.
+ *
+ * Root cause of S50→S51 e2e cascade failure: with deterministic seed
+ * `0xc0ffee` the spawner's first sampled interarrival at λ=0.15 is 25.71s
+ * (because mulberry32(0xc0ffee).first() = 0.0214 → -ln(0.0214)/0.15 = 25.71).
+ * Tests timed out at 10-30s waiting for sparks. The override at λ=1.5 in
+ * the e2e specs drops the first wait to 2.56s — same seed sequence, just
+ * faster pacing — so production replay-determinism is unaffected.
+ */
+function readTestSpawnRate(): number | null {
+  if (typeof window === 'undefined') return null;
+  const v = (window as { __TEST_SPAWN_RATE_PER_SECOND__?: number })
+    .__TEST_SPAWN_RATE_PER_SECOND__;
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
+}
+export const SPAWN_RATE_PER_SECOND = readTestSpawnRate() ?? 0.15;
 
 // S46 P2 Δ1 — host treats joiner's PICKUP_SPARK.pos as untrusted input;
 // validates plausibility within REASONABLE_PICKUP_REACH of joiner's last
@@ -318,7 +340,28 @@ export const NET_ROOM_CODE_LENGTH = 6;
 // Territory is invisible (no ring rendered); hard-blocks enemy placement.
 // Engulf-warp: enemy bonds inside territory get stiffness × TERRITORY_ENGULF_STIFFNESS.
 // Shrink debuff: SHRINK_TERRITORY action halves enemy radius for TERRITORY_SHRINK_DURATION_TICKS.
-export const TERRITORY_BASE_RADIUS = 60;
+/**
+ * S51 P1 — E2E test override seam (Sym D specifically). Sym D verifies the
+ * S46 P3 cross-color-bond-segregation invariant: place a BLUE prim, then
+ * attempt a RED prim within AUTO_BOND_RADIUS=60 → assert NO cross-color
+ * bond. After S49 P1 shipped the territory hard-block (min territory radius
+ * 60 + 12×log₂(2) = 72px > AUTO_BOND_RADIUS), placing RED within bond range
+ * of BLUE is impossible (Sym F mechanic intercepts at placePrimitive's host-
+ * auth gate, well before the color-seg check). Sym D's test contract is
+ * unreachable in normal play — the color-seg invariant is now defense-in-
+ * depth, only reachable if territory is bypassed. The seam lets Sym D set
+ * territory base radius to 0 (effectively disabling territory) so its
+ * actually-color-seg-targeting predicate becomes observable again.
+ * Mirror pattern: PHASE_1_WIN_SCORE / SPAWN_RATE_PER_SECOND. Production
+ * gameplay untouched.
+ */
+function readTestTerritoryBaseRadius(): number | null {
+  if (typeof window === 'undefined') return null;
+  const v = (window as { __TEST_TERRITORY_BASE_RADIUS__?: number })
+    .__TEST_TERRITORY_BASE_RADIUS__;
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null;
+}
+export const TERRITORY_BASE_RADIUS = readTestTerritoryBaseRadius() ?? 60;
 export const TERRITORY_RADIUS_SCALE = 12;
 export const TERRITORY_ENGULF_STIFFNESS = 0.3;
 export const TERRITORY_SHRINK_DURATION_TICKS = 300; // 5 seconds at 60 Hz
