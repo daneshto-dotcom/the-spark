@@ -182,28 +182,39 @@ export function applyPlaceFromFree(world: World, action: PlaceFromFreeAction): W
   // ===== ATOMIC COMMIT — all validation passed; placePrimitive's defensive
   //       checks below are now guaranteed to pass. Council C3 contract.
   //
-  // Step A: snap spark.pos to placementPos (legacy PICKUP_SPARK behavior,
-  //         S46 P2 mandatory pos). Verlet history reset to kill drag momentum.
+  // Defensive ordering (S52 CHECK Triumvirate Grok #1 + Gemini #1 CONVERGENT
+  // BLOCKER) — fallible operations FIRST, infallible mutations LAST so that
+  // an unexpected throw from fsmPickup or placePrimitive cannot leak partial
+  // spark.pos mutation. In practice fsmPickup CAN throw CarryViolation when
+  // player.kind === 'Carrying'; we pre-validated player.kind === 'Idle' at
+  // line ~78 so this throw is unreachable in JS's single-threaded reducer
+  // model. placePrimitive's three defensive throw conditions (player missing,
+  // player not Carrying, spark undefined) are likewise unreachable post pre-
+  // validation. Documented theoretical invariant: any future refactor adding
+  // async/await OR concurrent reducer execution MUST add a try/catch rollback
+  // here. PDR carry-forward to S53.
+  //
+  // Step A: fsmPickup (fallible IF player Carrying — unreachable).
+  const carrying = fsmPickup(player, action.sparkId);
+
+  // Step B: spark.pos snap (legacy PICKUP_SPARK behavior, S46 P2 mandatory
+  //         pos). Verlet history reset to kill drag momentum. Infallible.
   spark.pos.x = action.placementPos.x;
   spark.pos.y = action.placementPos.y;
   spark.prevPos.x = action.placementPos.x;
   spark.prevPos.y = action.placementPos.y;
 
-  // Step B: transition player Idle→Carrying via the canonical FSM helper.
-  //         spark.state := Carried (matches applyPickupSpark line 150).
-  const carrying = fsmPickup(player, action.sparkId);
+  // Step C: world.players.set + spark.state assignment. Infallible Map ops.
   world.players.set(carrying.id, carrying);
   spark.state = { kind: 'Carried', carrierId: action.playerId };
 
-  // Step C: delegate to placePrimitive. Because we've already validated all
+  // Step D: delegate to placePrimitive. Because we've already validated all
   //         of its preconditions (Carrying player, Free→Carried spark in
   //         freeSparks, placementPos NOT in spawner-zone, placementPos NOT
   //         in enemy territory, effectiveTargetId exists-or-null), every
   //         placePrimitive reject branch is unreachable. We pass the host-
   //         resolved targetPrimitiveId + mergeCandidateIds so the inner
-  //         re-pick logic at placePrimitive.ts:188-204 short-circuits (the
-  //         action's targetPrimitiveId is non-null already OR the re-pick
-  //         is already what we computed).
+  //         re-pick logic at placePrimitive.ts:188-204 short-circuits.
   return placePrimitive(world, {
     type: 'PLACE_PRIMITIVE',
     playerId: action.playerId,

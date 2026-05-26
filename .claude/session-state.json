@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 81,
+  "tool_calls_session_total": 89,
   "session_start": "2026-05-26T16:55:00Z",
   "session_id": "S52",
   "session_kind": "execution",
@@ -43,28 +43,28 @@
     {
       "id": "P2",
       "label": "S52 P2 — Raid charge cycle-no-consume amendment (LOCKED §13.11)",
-      "status": "pending",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "User-authorized LOCKED §13.11 PRIME-AUDIT B amendment. Pre-S52 cycle-bond severs cost 0 charges per the cycle-no-consume rule (split.del.size===0 → 0 charges); user verbatim ask 'each raid point = break 1 connection no 5' inverts the exception. Implementation: src/state/world.ts SEVER_BOND case (line 386-396) — removed ternary `chargeToConsume = split.del.size === 0 ? 0 : computeBaseCharge(...)` → uniform `chargeToConsume = computeBaseCharge(...)`. Self-sever (computeBaseCharge=0 for same-color both endpoints) remains the only 0-cost path. src/state/disruptionManager.ts header doc + computeBaseCharge JSDoc updated. LOCKED_DECISIONS.md §13.11 PRIME-AUDIT B block AMENDED with strikethrough-style historical-text preservation + S52 amendment block (cycle exception REMOVED, strategic-balance shift noted: attackers can no longer chip cycle bonds for free; defenders' triangulated cells now cost actual raid charges). Test-coverage line in §13.11 updated. src/state/world.test.ts cycle-bond test: assertion flipped (disruptionCharges).toBe(1)→.toBe(0); description renamed cycle-no-consume → cycle-consume (S52 amendment). Council C7 (Gemini #4 MED) audit confirmed: existing test uses a REAL geometric triangle (a-b-c-a closed with synthBond), NOT a mocked split — full integration test through dispatch+severSplit, satisfying Gemini's robust-topology requirement. Verification: 815/815 unit tests GREEN. world.test.ts 20/20. tsc -b --noEmit clean. npm run build → 499.74 → 499.73 KB (-0.01 KB; removed branch). Push: 20e0007 → origin/master.",
+      "checkpoint_commit": "20e0007"
     },
     {
       "id": "P3",
       "label": "S52 P3 — duckMusic AudioContext suspend fix (S51 Gemini CHECK #1)",
-      "status": "pending",
+      "status": "completed",
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
-      "check_completed": false,
-      "check_method": null,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "check_method": "S51 Gemini CHECK #1 carry-forward fix. Pre-S52 duckMusic used setTimeout(restoreFn, durationMs) wall-clock scheduling; restoreFn read audioContext.currentTime at TIMEOUT-FIRE time. If tab blurred mid-duck, ctx.currentTime froze during suspend, setTimeout fired at wall-time, restore landed at stale ctx-time → abrupt restore on tab refocus. Fix in src/render/audioManager.ts duckMusic: removed `duckTimeout` state variable, removed setTimeout closure (15 LOC); replaced with `musicGainNode.gain.setTargetAtTime(restoreTarget, newEnd, 0.150)` queued at SCHEDULE time via Web Audio automation. The Web Audio automation queue is ctx-time relative — pauses with ctx.suspend(), resumes on ctx.resume() — so the duck persists through suspend and restores at the originally-scheduled relative ctx-time without abrupt cuts. W3C Web Audio API §4.3.2 confirms currentTime freezes during suspend AND queued automation honors ctx-time (cited by Gemini AUDITOR #6 LOW). cancelScheduledValues(now) call site already clears any prior queued restore so new schedule replaces it cleanly. _resetAudioForTest amended to clear duckEndCtxTime (was previously left dangling). Verification: 815/815 unit tests GREEN (nextDuckEndCtxTime pure-helper tests unchanged — schedule-extension semantic preserved; only restore mechanism changed). tsc -b --noEmit clean. Bundle 499.73 → 499.60 KB (-0.13 KB; removed setTimeout closure + state). Council R1 PRIME-AUDIT Δ1 RuntimeVerify confirmed by spec citation; tab-blur smoke deferred to user 2-peer playtest carry-forward. Push: e529c4e → origin/master.",
+      "checkpoint_commit": "e529c4e"
     }
   ],
   "budget_total": 1000000,
