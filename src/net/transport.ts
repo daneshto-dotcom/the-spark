@@ -42,7 +42,7 @@ import {
   getRelaySockets as getNostrSockets,
 } from '@trystero-p2p/nostr';
 import type { MessageAction, Room } from '@trystero-p2p/core';
-import { parseNetMessage, type NetMessage } from './protocol.ts';
+import { parseNetMessage, PROTOCOL_VERSION, type NetMessage } from './protocol.ts';
 import {
   APP_ID,
   HANDSHAKE_TIMEOUT_MS,
@@ -102,6 +102,39 @@ type JoinFn = (
   callbacks?: Parameters<typeof joinNostr>[2],
 ) => Room;
 
+/**
+ * S53 P1 — pure helper detecting HELLO + protoVersion mismatch.
+ *
+ * Council R1 Battle Ledger (Gemini #4 ADOPT + Gemini #5 PARTIAL — inline
+ * type-guard for HELLO shape): loosened predicate. ANY non-PROTOCOL_VERSION
+ * value at `parsed.protoVersion` on a `kind:'HELLO'` message counts as a
+ * mismatch — including `undefined` (truly-ancient peer omitted the field),
+ * `null`, strings, or wrong numbers. Returns the offending value verbatim
+ * so the diagnostic UX can string-coerce it for the user-visible message.
+ *
+ * Exported for unit testing (S10 #test-via-pure-helper-export pattern) —
+ * the live `NetTransport.startStrategy` closure invokes this helper inside
+ * its per-strategy `action.onMessage` handler. Pure function = no mocks of
+ * Trystero rooms required to validate the predicate.
+ *
+ * Used by `NetTransport` to:
+ *   1. Drop the mismatched HELLO before parseNetMessage (which would also
+ *      null-reject, but with no diagnostic surface).
+ *   2. Add the sender peerId to `protocolMismatchPeers` so ALL subsequent
+ *      messages from that peer are dropped at the transport boundary
+ *      (Council R1 Grok #4 + Gemini #2 CONVERGENT BLOCKER resolution —
+ *      closes the v2-peer-INTENT-bypass-after-failed-HELLO gap).
+ */
+export function detectProtocolMismatch(
+  parsed: unknown,
+): { mismatch: true; version: unknown } | { mismatch: false } {
+  if (parsed === null || typeof parsed !== 'object') return { mismatch: false };
+  const obj = parsed as Record<string, unknown>;
+  if (obj.kind !== 'HELLO') return { mismatch: false };
+  if (obj.protoVersion === PROTOCOL_VERSION) return { mismatch: false };
+  return { mismatch: true, version: obj.protoVersion };
+}
+
 export class NetTransport {
   private strategies: Map<StrategyName, StrategyHandle> = new Map();
   private messageHandlers: MessageHandler[] = [];
@@ -115,9 +148,52 @@ export class NetTransport {
 
   public onError: ErrorHandler | null = null;
 
+  /**
+   * S53 P1 — Protocol-mismatch UX diagnostic callback. Fires once per peer
+   * (per-peer latch ensures idempotency across multi-strategy fan-out) when
+   * that peer's HELLO carries a protoVersion ≠ PROTOCOL_VERSION (current=3).
+   * `peerVersion` is the offending value verbatim (number / undefined / string
+   * / null) — UI string-coerces via `String(v)` for user display.
+   *
+   * Wired in main.ts to lobbyScreen.setErrorMessage with refresh-prompt text.
+   * Set to null = silent (default; preserves pre-S53 behavior).
+   */
+  public onProtocolMismatch: ((peerVersion: unknown) => void) | null = null;
+
+  /**
+   * S53 P1 — per-peer protocol-mismatch latch (Council R1 Grok #4 + Gemini #2
+   * CONVERGENT BLOCKER resolution). Once a peer's HELLO is rejected for
+   * protoVersion mismatch, that peer's peerId is added here; ALL subsequent
+   * messages from that peerId are dropped at the transport boundary
+   * (`rejectedCount` incremented, no further routing). Closes the
+   * v2-peer-INTENT-bypass gap where a stale-build peer could send
+   * INTENT(PICKUP_SPARK) after HELLO null-reject and the allowlist would
+   * still accept it (action type is in KNOWN_GAME_ACTION_TYPES_RECORD), then
+   * the host would apply → desync.
+   *
+   * Cleared on disconnect() (lifecycle = single NetTransport instance). A
+   * peer rejoining with a new peerId re-checks via fresh HELLO (correct);
+   * same peerId rejoining (rare Trystero behavior) inherits the ban (also
+   * correct — still stale build until they refresh).
+   */
+  private protocolMismatchPeers: Set<string> = new Set();
+
   private emitError(msg: string): void {
     console.error('[net] error:', msg);
     if (this.onError !== null) this.onError(msg);
+  }
+
+  private emitProtocolMismatch(peerId: string, peerVersion: unknown): void {
+    // Idempotency latch — only fire the callback ONCE per peer regardless of
+    // how many mismatched HELLOs the peer sends or how many strategies the
+    // duplicate-routed envelope landed on. UI text is set-not-toggle so the
+    // user sees a single stable error message.
+    if (this.protocolMismatchPeers.has(peerId)) return;
+    this.protocolMismatchPeers.add(peerId);
+    console.warn(
+      `[net] protocol mismatch peer=${peerId} peerVersion=${String(peerVersion)} local=v${PROTOCOL_VERSION}`,
+    );
+    if (this.onProtocolMismatch !== null) this.onProtocolMismatch(peerVersion);
   }
 
   connect(roomCode: string): void {
@@ -264,6 +340,28 @@ export class NetTransport {
           this.emitError(
             `Malformed peer message from ${ctx.peerId}: ${err instanceof Error ? err.message : String(err)}`,
           );
+          return;
+        }
+        // S53 P1 — per-peer protocol-mismatch latch (Council R1 Grok #4 +
+        // Gemini #2 CONVERGENT BLOCKER). Drop ALL subsequent messages from a
+        // peer once their HELLO failed the protoVersion check — including
+        // INTENTs whose action.type would otherwise pass the in-process
+        // KNOWN_GAME_ACTION_TYPES_RECORD allowlist. Closes the
+        // stale-build-peer-injection desync hazard.
+        if (this.protocolMismatchPeers.has(ctx.peerId)) {
+          this.rejectedCount++;
+          return;
+        }
+        // S53 P1 — HELLO protoVersion sniff BEFORE parseNetMessage (which
+        // also null-rejects but with no diagnostic surface). On detect: fire
+        // onProtocolMismatch + add peerId to latch + early-return. Gemini #3
+        // ADOPT (early-return instead of fall-through). Loosened predicate
+        // per Gemini #4 ADOPT — missing/wrong-type protoVersion ALSO counts
+        // as mismatch (catches truly-ancient peers).
+        const protoCheck = detectProtocolMismatch(parsed);
+        if (protoCheck.mismatch) {
+          this.emitProtocolMismatch(ctx.peerId, protoCheck.version);
+          this.rejectedCount++;
           return;
         }
         const msg = parseNetMessage(parsed);
@@ -500,6 +598,10 @@ export class NetTransport {
     }
     this.strategies.clear();
     this.peerSet.clear();
+    // S53 P1 — clear protocol-mismatch latch on disconnect. Lifetime of the
+    // ban set = lifetime of the NetTransport instance + active session.
+    // Reconnecting after disconnect (e.g. lobby Back → re-Host) starts fresh.
+    this.protocolMismatchPeers.clear();
     this.acceptedCount = 0;
     this.rejectedCount = 0;
     this.lastSeq = 0;

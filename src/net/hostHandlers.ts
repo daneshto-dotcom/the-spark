@@ -18,10 +18,31 @@
  */
 
 import { HostSync } from './sync.ts';
-import { generateRoomCode } from './protocol.ts';
+import { generateRoomCode, PROTOCOL_VERSION } from './protocol.ts';
 import type { NetSession } from './session.ts';
 import { NetTransport } from './transport.ts';
 import { dispatch, type World } from '../state/world.ts';
+
+/**
+ * S53 P1 — shared helper for symmetric protocol-mismatch UX text. Both
+ * host (hostHandlers.ts) and joiner (clientHandlers.ts) wire the same
+ * onProtocolMismatch callback; the message advises which side needs to
+ * refresh based on which has the older version.
+ */
+export function formatProtocolMismatchMessage(peerVersion: unknown): string {
+  const peerV = typeof peerVersion === 'number' ? peerVersion : NaN;
+  let advice: string;
+  if (Number.isFinite(peerV) && peerV < PROTOCOL_VERSION) {
+    advice = `Your friend's version is older. Ask them to refresh their browser.`;
+  } else if (Number.isFinite(peerV) && peerV > PROTOCOL_VERSION) {
+    advice = `Your version is older. Please refresh your browser.`;
+  } else {
+    // peerVersion is missing / wrong-type / NaN. Truly-ancient or corrupt;
+    // safest UX is to advise both sides to refresh.
+    advice = `Versions don't match. Both peers should refresh.`;
+  }
+  return `Protocol mismatch (peer v${String(peerVersion)}, you v${PROTOCOL_VERSION}). ${advice}`;
+}
 
 export interface HostStartDeps {
   session: NetSession;
@@ -46,6 +67,14 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
     // see the failure layer rather than an indefinite "Waiting for Player 2..."
     // stall (the S19 P4-unresolved BLOCKER root cause: zero error plumbing).
     transport.onError = (errMsg) => deps.onLobbyError(errMsg);
+    // S53 P1 — protocol-mismatch UX (S52 CHECK Triumvirate Grok #4 + Gemini #2
+    // CONVERGENT BLOCKER follow-up). Surfaces explicit refresh-prompt when an
+    // old-build peer's HELLO carries a non-current protoVersion. Per-peer
+    // latch in NetTransport drops ALL subsequent messages from the mismatched
+    // peer (closes the v2-peer-INTENT-bypass desync gap).
+    transport.onProtocolMismatch = (peerVersion) => {
+      deps.onLobbyError(formatProtocolMismatchMessage(peerVersion));
+    };
     transport.connect(code);
     transport.on((msg) => {
       // S15 P2 — host applies client intent authoritatively.

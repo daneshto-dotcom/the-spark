@@ -18,6 +18,7 @@ import { NetTransport } from './transport.ts';
 import type { Controls } from '../input/controls.ts';
 import { dispatch, type World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
+import { formatProtocolMismatchMessage } from './hostHandlers.ts';
 
 export interface JoinAttemptDeps {
   session: NetSession;
@@ -53,6 +54,12 @@ export function createJoinAttemptHandler(deps: JoinAttemptDeps): (code: string) 
     deps.world.localPlayerId = asPlayerId(1);
     // S20 P0 — same onError wiring as host path.
     transport.onError = (errMsg) => deps.onLobbyError(errMsg);
+    // S53 P1 — same onProtocolMismatch wiring as host path; shared
+    // formatProtocolMismatchMessage helper produces direction-aware advice
+    // (which side needs to refresh based on peer vs local PROTOCOL_VERSION).
+    transport.onProtocolMismatch = (peerVersion) => {
+      deps.onLobbyError(formatProtocolMismatchMessage(peerVersion));
+    };
     transport.connect(code);
     transport.on((msg) => {
       if (msg.kind === 'NETSNAPSHOT' && deps.session.clientSync !== null) {
