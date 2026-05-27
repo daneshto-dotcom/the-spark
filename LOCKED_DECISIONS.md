@@ -686,13 +686,31 @@ Steal).
 - §VIII.2 silent reject when actor has 0 charges (no error, no UI
   feedback beyond hollow charge dot indicator)
 
-**PRIME-AUDIT B — cycle-bond no-consume:** if `severSplit` returns empty
-`del` set (§VIII.4 cycle case — bond cut but no primitives die because
-both sides remain connected through the cycle), no charge is consumed.
-The bond itself is still removed (pre-existing §VIII.4 behavior).
-Strategic balance: defender's cycle build investment costs build-actions
-but isn't a real defense; attacker's "free" cycle break consumes no
-charge but does no damage. Net-neutral gameplay.
+**PRIME-AUDIT B — cycle-bond charge consumption** (S52 P2 AMENDED):
+
+~~_HISTORICAL pre-S52 P2 (2026-05-12 → 2026-05-26)_: if `severSplit` returns
+empty `del` set (§VIII.4 cycle case — bond cut but no primitives die because
+both sides remain connected through the cycle), no charge is consumed. The
+bond itself is still removed (pre-existing §VIII.4 behavior). Strategic
+balance: defender's cycle build investment costs build-actions but isn't a
+real defense; attacker's "free" cycle break consumes no charge but does no
+damage. Net-neutral gameplay.~~
+
+**S52 P2 AMENDMENT (2026-05-26, user-authorized verbatim "each raid point =
+break 1 connection no 5"):** the cycle-no-consume exception is REMOVED.
+Every hostile sever — including bonds that close cycles where `severSplit`
+returns empty `del` — now consumes 1 `disruptionCharge` via the same
+`computeBaseCharge` path. The bond is still removed (pre-existing §VIII.4
+topology behavior unchanged). Self-sever (both endpoints share actor's
+`placerColor`, `computeBaseCharge = 0`) remains the only 0-cost path.
+
+**Strategic balance shift:** attackers can no longer chip cycle bonds for
+free. Defenders' triangulated cells now cost actual raid charges to
+penetrate, restoring the defensive value of cycle build investment.
+`src/state/world.ts` SEVER_BOND case dropped the
+`chargeToConsume = split.del.size === 0 ? 0 : computeBaseCharge(...)`
+ternary in favor of a uniform `chargeToConsume = computeBaseCharge(...)`.
+`src/state/disruptionManager.ts` `computeBaseCharge` JSDoc updated.
 
 **Charge dots UI** (`src/render/ui.ts`): per-player 0/1/2 filled circles
 in the player's color next to per-player score readouts. Hollow ring
