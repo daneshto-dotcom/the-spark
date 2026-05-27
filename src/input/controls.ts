@@ -1,17 +1,27 @@
 /**
- * SPARK — mouse controls (Phase 1, P1 only).
+ * SPARK — mouse controls (Phase 1+2, networked 1v1).
  *
- * Interaction model:
- *   LMB-down on free spark in zone → AttractDrag (force toward cursor)
- *   LMB-up:
- *     - inside spawner zone  → release (spark stays free)
- *     - outside spawner zone → PICKUP_SPARK action (player → Carrying)
- *   While Carrying: cursor moves the carried spark directly.
- *   RMB-down while Carrying:
- *     - over an existing primitive → ConnectDrag, target highlighted
- *     - elsewhere                  → ConnectDrag, target=null (anchor place)
- *   RMB-up: PLACE_PRIMITIVE — carried spark commits as a Primitive,
- *           bonded to target (or as free-standing anchor if target=null).
+ * Interaction model (post-S52 P1 atomic LMB-up + S53 P2 ConnectDrag removal):
+ *   LMB-down on free spark in zone → AttractDrag (force-lerp toward cursor).
+ *   LMB-up outside spawner zone (and not in enemy territory + within reach):
+ *     atomic PLACE_FROM_FREE — spark commits in one transaction as a placed
+ *     Primitive at cursor, auto-bonded to nearest in-range same-color
+ *     primitive (or anchor if none). All preconditions validated BEFORE the
+ *     commit per Council R1 C3 (S52). No Carrying intermediate state exposed
+ *     to subsequent input handlers — frame-scoped atomic execution.
+ *   RMB-down on a bond → SEVER_BOND (player-cause; 1v1: gated on cross-color
+ *     + 1 disruptionCharge per §VIII.3, S52 P2 amendment: every hostile
+ *     sever costs 1 charge regardless of cycle topology).
+ *   Q key (1v1 PLAYING only) → SHRINK_TERRITORY disruption (1 charge,
+ *     S49 P1 Sym F).
+ *
+ * S53 P2 — RMB ConnectDrag (carry-then-aim-then-place precise targeting)
+ * removed. Post-S52 P1 there is no public path that puts player.kind into
+ * the 'Carrying' state (atomic PLACE_FROM_FREE commits transactionally
+ * within a single reducer call). The legacy RMB-down-while-Carrying ->
+ * ConnectDrag -> RMB-up -> PLACE_PRIMITIVE flow was unreachable. Removed:
+ * ConnectDrag ControlState variant + onDown/onMove/onUp ConnectDrag
+ * branches + pickPrimitive wrapper + structureRenderer.drawPreview.
  */
 
 import type { Application } from 'pixi.js';
@@ -101,13 +111,8 @@ export type ControlState =
       readonly kind: 'AttractDrag';
       readonly sparkId: SparkId;
       readonly cursor: Vec2;
-    }
-  | {
-      readonly kind: 'ConnectDrag';
-      readonly carriedSparkId: SparkId;
-      readonly cursor: Vec2;
-      readonly targetPrimitiveId: PrimitiveId | null;
     };
+// S53 P2 — ConnectDrag variant removed. See header docstring for rationale.
 
 export class Controls {
   state: ControlState = { kind: 'Idle' };
@@ -256,24 +261,19 @@ export class Controls {
         }
       }
     } else if (e.button === 2) {
-      // RMB — connect (if carrying) or sever (if idle and on a bond).
-      const player = this.world.players.get(this.playerId);
-      if (player?.kind === 'Carrying') {
-        this.state = {
-          kind: 'ConnectDrag',
-          carriedSparkId: player.carriedSparkId,
-          cursor: { ...this.cursor },
-          targetPrimitiveId: this.pickPrimitive(),
-        };
-        this.acquirePointerCapture(e);
-      } else {
-        const bondId = this.pickBond();
-        if (bondId !== null) {
-          // S17 P1 Phase-2 §VIII.3 row 1: player-cause cause runs through
-          // host auth + charge gate; physics-cause path is reserved for
-          // main.ts overstretch loop.
-          this.dispatchFn({ type: 'SEVER_BOND', bondId, playerId: this.playerId, cause: 'player' });
-        }
+      // RMB-down on a bond → SEVER_BOND (player-cause). S53 P2: simplified.
+      // Pre-S53 this branch ALSO entered ConnectDrag when player.kind was
+      // 'Carrying' — but post-S52 P1 atomic LMB-up, no public path reaches
+      // Carrying state, so the ConnectDrag branch was unreachable. Now
+      // SEVER_BOND is the sole RMB-down behavior, still gated on
+      // pickBond() returning a hit (else: silent no-op).
+      //
+      // S17 P1 §VIII.3: player-cause runs through host auth + charge gate
+      // (cross-color + 1 disruptionCharge in 1v1); physics-cause path is
+      // reserved for main.ts overstretch loop.
+      const bondId = this.pickBond();
+      if (bondId !== null) {
+        this.dispatchFn({ type: 'SEVER_BOND', bondId, playerId: this.playerId, cause: 'player' });
       }
     }
   };
@@ -282,13 +282,8 @@ export class Controls {
     this.updateCursor(e);
     if (this.state.kind === 'AttractDrag') {
       this.state = { ...this.state, cursor: { ...this.cursor } };
-    } else if (this.state.kind === 'ConnectDrag') {
-      this.state = {
-        ...this.state,
-        cursor: { ...this.cursor },
-        targetPrimitiveId: this.pickPrimitive(),
-      };
     }
+    // S53 P2 — ConnectDrag branch removed (unreachable state post-S52 P1).
   };
 
   private onUp = (e: PointerEvent): void => {
@@ -348,10 +343,14 @@ export class Controls {
           // See src/state/placeFromFree.ts header for the full Council R1
           // Battle Ledger context.
           //
-          // RMB ConnectDrag (carry-then-place precise targeting) still uses
-          // PICKUP_SPARK + PLACE_PRIMITIVE — that flow EXPECTS the Carrying
-          // state to persist between the two actions because the user holds
-          // the carry while aiming.
+          // S53 P2 — the legacy RMB ConnectDrag (carry-then-aim-then-place
+          // precise targeting) flow has been REMOVED — it expected
+          // player.kind='Carrying' to persist between LMB-up PICKUP_SPARK
+          // and RMB-up PLACE_PRIMITIVE, but no input path reaches Carrying
+          // post-S52 P1. PLACE_FROM_FREE is now the sole user-driven path.
+          // PICKUP_SPARK + PLACE_PRIMITIVE remain in the protocol allowlist
+          // (placeFromFree.ts's internal fsmPickup + placePrimitive delegation
+          // still use them within atomic execution).
           const carriedType = spark.type;
           // S45 Sym A — target picking uses targetRefPos (cursor in client
           // mode, spark.pos in host/solo) so joiner's intent reflects where
@@ -396,35 +395,16 @@ export class Controls {
       }
       this.releasePointerCapture(e);
       this.state = { kind: 'Idle' };
-    } else if (e.button === 2 && this.state.kind === 'ConnectDrag') {
-      const player = this.world.players.get(this.playerId);
-      if (player?.kind === 'Carrying') {
-        const carried = this.world.freeSparks.get(player.carriedSparkId);
-        const target = this.state.targetPrimitiveId !== null
-          ? this.world.primitives.get(this.state.targetPrimitiveId) ?? null
-          : null;
-        // Carried spark always exists at this point (FSM invariant); fall
-        // through to MID only if a future code path violates that.
-        const tier = carried !== undefined
-          ? computeStiffnessTier(carried.type, target)
-          : 'MID';
-        this.dispatchFn({
-          type: 'PLACE_PRIMITIVE',
-          playerId: this.playerId,
-          targetPrimitiveId: target?.id ?? null,
-          stiffnessTier: tier,
-          // S48 P2 (Sym C fix) — see comment on LMB-up dispatch above.
-          placementPos: { x: this.cursor.x, y: this.cursor.y },
-        });
-      }
-      this.releasePointerCapture(e);
-      this.state = { kind: 'Idle' };
     }
+    // S53 P2 — onUp RMB ConnectDrag branch removed (carried-then-aim-then-
+    // place flow unreachable post-S52 P1 atomic LMB-up). RMB-up is now a
+    // no-op (SEVER_BOND fires on RMB-DOWN, not RMB-up).
   };
 
   // S5 P4: capture lost (e.g. browser stole focus, alt-tab during drag) →
-  // safest action is to drop to Idle so a stuck AttractDrag/ConnectDrag
-  // doesn't linger after the gesture is gone.
+  // safest action is to drop to Idle so a stuck AttractDrag doesn't linger
+  // after the gesture is gone. S53 P2: ConnectDrag removed from the
+  // possibility space, only AttractDrag remains as a non-Idle state.
   private onLostCapture = (): void => {
     this.capturedPointerId = null;
     if (this.state.kind !== 'Idle') this.state = { kind: 'Idle' };
@@ -507,9 +487,10 @@ export class Controls {
     return best;
   }
 
-  private pickPrimitive(): PrimitiveId | null {
-    return this.pickPrimitiveInRange(PICK_RADIUS);
-  }
+  // S53 P2 — pickPrimitive() wrapper removed. Both call sites lived inside
+  // the now-removed RMB ConnectDrag onDown / onMove branches. The
+  // pickPrimitiveInRange method below remains (called by the LMB-up
+  // PLACE_FROM_FREE flow with explicit radius + center).
 
   /**
    * S46 P3 Sym D — color-segregated bonding (Council R2 BL row, user-confirmed

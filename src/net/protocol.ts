@@ -23,12 +23,21 @@ import type { GodlyTriggerEvent } from '../state/godlyRecipes/types.ts';
 export type { NetSnapshot };
 
 // S52 P1 — bumped 2→3 to add PLACE_FROM_FREE atomic LMB-up action (Council
-// R1 CONVERGENT BLOCKER C1 Grok#8+Gemini#1). Old peers running protoVersion=2
-// emit the legacy PICKUP_SPARK + PLACE_PRIMITIVE burst which the joiner side
-// still recognizes (legacy handlers preserved for the RMB ConnectDrag path),
-// but they cannot RECEIVE PLACE_FROM_FREE from a S52+ peer. parseNetMessage
-// HELLO check below rejects mismatched protoVersion at handshake so mid-deploy
-// peers fail closed with the existing Connection-lost overlay (S22 P3 pattern).
+// R1 CONVERGENT BLOCKER C1 Grok#8+Gemini#1). parseNetMessage HELLO check
+// below rejects mismatched protoVersion at handshake.
+//
+// S53 P1 — NetTransport now ALSO surfaces the mismatch as an explicit
+// "Protocol mismatch — please refresh" UX diagnostic via onProtocolMismatch
+// + per-peer protocolMismatchPeers latch that drops ALL subsequent messages
+// from a peer whose HELLO failed protoVersion (closes the v2-peer-INTENT-
+// bypass-after-failed-HELLO desync gap that Council Triumvirate flagged as
+// CONVERGENT BLOCKER). The PICKUP_SPARK + PLACE_PRIMITIVE allowlist entries
+// below remain — placeFromFree.ts's internal fsmPickup dispatches PICKUP_SPARK
+// during atomic execution + placePrimitive is the delegation target. Mid-
+// deploy peers still see "Protocol mismatch" plus the underlying Connection-
+// lost overlay (S22 P3 pattern preserved). S53 P2 — RMB ConnectDrag flow
+// removed; the legacy v2 carry-then-place external entry point no longer
+// exists locally even if a v2 peer slipped past the latch.
 export const PROTOCOL_VERSION = 3 as const;
 
 export interface HelloMsg {

@@ -39,9 +39,9 @@
  *      per-bucket diagnosis still works.
  *   C6 MED (Gemini#5) — reuse over duplication. Delegates to the existing
  *      placePrimitive function instead of duplicating ~350 LOC of bond
- *      formation logic. ConnectDrag RMB path (which still dispatches a
- *      classic PLACE_PRIMITIVE) is unaffected — byte-identical behavior
- *      for the legacy carry-then-place flow.
+ *      formation logic. (S53 P2: legacy ConnectDrag RMB carry-then-place
+ *      flow removed; placePrimitive is now only reached internally via
+ *      this atomic reducer's delegation step.)
  */
 
 import { CANVAS_HEIGHT, CANVAS_WIDTH, REASONABLE_PICKUP_REACH, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, type StiffnessTier } from '../constants.ts';
@@ -112,10 +112,12 @@ export function applyPlaceFromFree(world: World, action: PlaceFromFreeAction): W
     return world;
   }
 
-  // 3 — player must exist + be Idle. If they're already Carrying (e.g. they
-  //     used the RMB ConnectDrag path concurrently OR a duplicate intent
-  //     somehow leaked through), reject silently — the existing carry will
-  //     resolve via its own PLACE_PRIMITIVE.
+  // 3 — player must exist + be Idle. If they're already Carrying (e.g. a
+  //     duplicate intent somehow leaked through OR a back-compat v2-peer
+  //     INTENT(PICKUP_SPARK) arrived before the S53 P1 protocolMismatch
+  //     latch caught it), reject silently. S53 P2: legacy ConnectDrag RMB
+  //     carry-then-place flow no longer reaches this branch from local
+  //     input.
   const player = requirePlayer(world, action.playerId);
   if (player.kind !== 'Idle') {
     world.diagnostics.raceRejects++;

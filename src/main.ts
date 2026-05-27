@@ -331,7 +331,7 @@ async function bootstrap(): Promise<void> {
   });
 
   const hint = new Text({
-    text: 'LMB drag spark out of zone → carry · RMB drag onto a primitive → bond · ~ stats · C cinematics',
+    text: 'LMB drag spark → place · RMB click on bond → sever · Q shrink territory · ~ stats · C cinematics',
     style: new TextStyle({ fontFamily: 'monospace', fontSize: 11, fill: 0x444444 }),
   });
   hint.position.set(10, CANVAS_HEIGHT - 22);
@@ -869,7 +869,7 @@ async function bootstrap(): Promise<void> {
     // of Carried-state sparks. SparkRenderer falls back to FREE_SPARK_TINT
     // defensively when world omitted or carrier missing (Battle Ledger C4).
     sparkRenderer.sync(freeSparkArr, world);
-    structureRenderer.sync(world, controls.state);
+    structureRenderer.sync(world);
     // S25 P0 — creature sprite sync. After structureRenderer (z-order: above
     // prims, blueprint Q1) and before effectsRenderer (so ARC_FLASH effects
     // can stack above creatures in S27). Cheap when world.creatures empty.
