@@ -402,6 +402,15 @@ export class NetTransport {
         );
         if (!stillSeenElsewhere && this.peerSet.has(peerId)) {
           this.peerSet.delete(peerId);
+          // S53 P1 (CHECK Gemini M2 ADOPT) — defensive hygiene: clear the
+          // protocol-mismatch latch entry for a peer who has fully left the
+          // room (across all strategies). Trystero assigns a fresh peerId
+          // on browser refresh so the latch entry is effectively orphaned
+          // after onPeerLeave; this delete prevents unbounded growth across
+          // a long-lived session (e.g. host with many transient v2 joiners
+          // mid-deploy window). No functional impact on live paths — the
+          // mismatched peer cannot re-emerge with the same peerId.
+          this.protocolMismatchPeers.delete(peerId);
           for (const h of this.peerHandlers) h(peerId, 'leave');
         }
       };
