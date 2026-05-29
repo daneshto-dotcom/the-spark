@@ -65,7 +65,44 @@ export interface HelloMsg {
  * kind:'HELLO'); carried for a future identity/colour handshake and to keep
  * the envelope valid under parseNetMessage's numeric-field checks.
  */
+/**
+ * S55 P2 — DEV/E2E send-side protoVersion override seam. Mirrors the
+ * constants.ts `__TEST_*__` idiom (readTestSpawnRate / readTestWinScore /
+ * readTestTerritoryBaseRadius): a Playwright `addInitScript` sets
+ * `window.__TEST_PROTO_VERSION_OVERRIDE__` BEFORE the bundle loads, so a test
+ * peer can announce a NON-current protoVersion and exercise the RECEIVER's
+ * mismatch latch + UX over a real cross-browser wire — the only runtime
+ * coverage of the otherwise statically-tested S53/S54 mismatch system (see
+ * e2e/smoke.spec.ts "Protocol mismatch").
+ *
+ * Read PER-CALL (buildHello fires once per peer-join, not on a hot path) so the
+ * override is observed whenever it was set before the first join. Window-
+ * guarded: production (no window, or no override) returns null and buildHello
+ * stamps the local PROTOCOL_VERSION. Ships in the bundle as a ~6-line no-op.
+ * Worst-case abuse — a user setting this in their own devtools console — only
+ * causes THEIR OWN peer to be latched + dropped by the other side (self-DoS,
+ * no cross-peer attack), identical to the 3 existing shipped seams.
+ */
+function readTestProtoVersionOverride(): number | null {
+  if (typeof window === 'undefined') return null;
+  const v = (window as { __TEST_PROTO_VERSION_OVERRIDE__?: number })
+    .__TEST_PROTO_VERSION_OVERRIDE__;
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
 export function buildHello(playerId: PlayerId, color: number): HelloMsg {
+  const override = readTestProtoVersionOverride();
+  if (override !== null) {
+    // DEV/E2E ONLY (window.__TEST_PROTO_VERSION_OVERRIDE__ is undefined in
+    // production). The `as 3` cast is the SINGLE, quarantined point where the
+    // wire-contract literal is deliberately violated to simulate a stale-build
+    // peer; the receiver's detectProtocolMismatch is designed to reject it.
+    // The PRODUCTION return below stays `protoVersion: PROTOCOL_VERSION`, which
+    // preserves the version-bump lockstep tsc tripwire: raising
+    // PROTOCOL_VERSION without updating HelloMsg.protoVersion errors at that
+    // line. (Council R1 #1 — quarantine-cast over relaxing the type to number.)
+    return { kind: 'HELLO', playerId, color, protoVersion: override as 3 };
+  }
   return { kind: 'HELLO', playerId, color, protoVersion: PROTOCOL_VERSION };
 }
 

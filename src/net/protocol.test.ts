@@ -7,7 +7,7 @@
  *   - Envelope shape sanity (types compile; runtime structure).
  */
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   generateRoomCode,
   parseRoomCode,
@@ -220,10 +220,39 @@ describe('S54 P1 — buildHello producer (activates the dormant S53 mismatch sys
     expect(parseNetMessage(wire)).toEqual(msg);
   });
 
-  it('always announces the LOCAL version (cannot echo a remembered peer version)', () => {
-    // buildHello takes no protoVersion param — it structurally cannot emit
-    // anything but the current PROTOCOL_VERSION, regardless of playerId/color.
+  it('always announces the LOCAL version in production (cannot echo a remembered peer version)', () => {
+    // In production buildHello takes no protoVersion param and emits the
+    // current PROTOCOL_VERSION regardless of playerId/color. The DEV/E2E
+    // send-side override seam (window.__TEST_PROTO_VERSION_OVERRIDE__) is the
+    // sole exception, exercised in the seam describe below; here window is
+    // undefined in vitest's node env so the production path is taken.
     expect(buildHello(asPlayerId(0), 0x111111).protoVersion).toBe(PROTOCOL_VERSION);
     expect(buildHello(asPlayerId(1), 0x222222).protoVersion).toBe(PROTOCOL_VERSION);
+  });
+});
+
+describe('S55 P2 — buildHello send-side protoVersion override seam (DEV/E2E)', () => {
+  const g = globalThis as { window?: { __TEST_PROTO_VERSION_OVERRIDE__?: unknown } };
+  // The seam reads `window` (undefined in vitest's node env). Simulate the
+  // browser/E2E case by defining a minimal window stand-in, then remove it
+  // after each test so no other test in this file observes a defined window.
+  afterEach(() => {
+    delete g.window;
+  });
+
+  it('stamps a numeric override (simulates a stale-build peer announcing an older/newer version)', () => {
+    g.window = { __TEST_PROTO_VERSION_OVERRIDE__: 2 };
+    expect(buildHello(asPlayerId(1), PLAYER_COLORS[1]).protoVersion).toBe(2);
+    g.window = { __TEST_PROTO_VERSION_OVERRIDE__: 4 };
+    expect(buildHello(asPlayerId(1), PLAYER_COLORS[1]).protoVersion).toBe(4);
+  });
+
+  it('ignores a non-finite / non-number / absent override (production-safe fallthrough to PROTOCOL_VERSION)', () => {
+    g.window = { __TEST_PROTO_VERSION_OVERRIDE__: NaN };
+    expect(buildHello(asPlayerId(0), 0x111111).protoVersion).toBe(PROTOCOL_VERSION);
+    g.window = { __TEST_PROTO_VERSION_OVERRIDE__: 'old' };
+    expect(buildHello(asPlayerId(0), 0x111111).protoVersion).toBe(PROTOCOL_VERSION);
+    g.window = {}; // window present, override absent (the common DEV-without-seam case)
+    expect(buildHello(asPlayerId(0), 0x111111).protoVersion).toBe(PROTOCOL_VERSION);
   });
 });

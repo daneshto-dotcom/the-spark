@@ -21,7 +21,9 @@ import {
   dragSparkTo,
   placeFreeSparkAndConfirm,
   readWorldState,
+  readLobbyStatus,
   waitForWorld,
+  waitForRejected,
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
 } from './helpers';
@@ -404,6 +406,84 @@ test.describe('Sym I — win-condition + ENDGAME envelope (S47 wire, S50 P4 e2e 
       // Both peers should agree on the winner.
       expect(hostFinalState.gameState).toBe('WIN');
       expect(joinerFinalState.gameState).toBe('WIN');
+    } finally {
+      await hostCtx.close();
+      await joinerCtx.close();
+    }
+  });
+});
+
+test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch (S53/S54 system, S55 e2e coverage)', () => {
+  // S55 P2 — FIRST runtime coverage of the S54-activated HELLO -> mismatch
+  // chain over a real cross-browser wire (the S54 PRIME-AUDIT flagged it as
+  // having zero observable runtime behavior). A peer announces a non-current
+  // protoVersion via the send-side __TEST_PROTO_VERSION_OVERRIDE__ seam (set by
+  // addInitScript BEFORE bundle load, read by buildHello at peer-join). The
+  // seam is send-side only, so the overriding peer's RECEIVE path still uses
+  // its real PROTOCOL_VERSION. Detection is correctly asymmetric: the CURRENT-
+  // version peer detects the STALE peer (the real-world deploy-skew scenario),
+  // so all mismatch assertions are on the host (the current-version peer).
+
+  test('Older-version joiner (v2): host shows "other player older" + drops the HELLO; joiner stays clean', async ({ browser }) => {
+    const hostCtx = await browser.newContext();
+    const joinerCtx = await browser.newContext();
+    try {
+      // Joiner announces protoVersion 2 (< current 3). Host has no override → v3.
+      // String-content addInitScript (zero function-capture surface), matching
+      // the Sym D __TEST_TERRITORY_BASE_RADIUS__ precedent.
+      await joinerCtx.addInitScript({ content: 'window.__TEST_PROTO_VERSION_OVERRIDE__ = 2;' });
+      const hostPage = await hostCtx.newPage();
+      const joinerPage = await joinerCtx.newPage();
+
+      const code = await hostNewRoom(hostPage);
+      await joinRoom(joinerPage, code);
+
+      // Data channels open (peerCount=1) BEFORE any HELLO is processed.
+      await waitForWorld(hostPage, (w) => w.peerCount >= 1, 'host sees joiner connected', 60_000);
+      await waitForWorld(joinerPage, (w) => w.peerCount >= 1, 'joiner sees host connected', 60_000);
+
+      // Host receives joiner HELLO(v2) → detectProtocolMismatch (2≠3) →
+      // emitProtocolMismatch: rejectedCount++ + onProtocolMismatch UX. WAIT for
+      // the async HELLO to land (PRIME-AUDIT #2 — never assert synchronously).
+      await waitForRejected(hostPage, 1, 'host rejected the joiner v2 HELLO (mismatch latch fired)');
+
+      // UX-chain assertion (reliable via the S55 P2 error-sticky latch): the host
+      // lobby surfaces the direction-aware, version-stamped refresh prompt.
+      const hostStatus = await readLobbyStatus(hostPage);
+      expect(hostStatus).toContain('Protocol mismatch');
+      expect(hostStatus).toContain('v2'); // peer version rendered (describePeerVersion)
+      expect(hostStatus).toContain('v3'); // local PROTOCOL_VERSION rendered
+      expect(hostStatus.toLowerCase()).toContain('older'); // "The other player's version is older"
+
+      // Send-side-only + context-isolation: the joiner (still v3, saw host's
+      // matching HELLO(v3)) shows NO mismatch.
+      const joinerStatus = await readLobbyStatus(joinerPage);
+      expect(joinerStatus).not.toContain('Protocol mismatch');
+    } finally {
+      await hostCtx.close();
+      await joinerCtx.close();
+    }
+  });
+
+  test('Newer-version joiner (v4): host shows "your version is older" branch', async ({ browser }) => {
+    const hostCtx = await browser.newContext();
+    const joinerCtx = await browser.newContext();
+    try {
+      await joinerCtx.addInitScript({ content: 'window.__TEST_PROTO_VERSION_OVERRIDE__ = 4;' });
+      const hostPage = await hostCtx.newPage();
+      const joinerPage = await joinerCtx.newPage();
+
+      const code = await hostNewRoom(hostPage);
+      await joinRoom(joinerPage, code);
+      await waitForWorld(hostPage, (w) => w.peerCount >= 1, 'host sees joiner connected', 60_000);
+
+      await waitForRejected(hostPage, 1, 'host rejected the joiner v4 HELLO');
+
+      // peerV (4) > local (3) → the "your version is older" advice branch.
+      const hostStatus = await readLobbyStatus(hostPage);
+      expect(hostStatus).toContain('Protocol mismatch');
+      expect(hostStatus).toContain('v4');
+      expect(hostStatus.toLowerCase()).toContain('your version is older');
     } finally {
       await hostCtx.close();
       await joinerCtx.close();

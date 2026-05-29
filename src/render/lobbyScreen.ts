@@ -252,6 +252,13 @@ export class LobbyScreen {
   private hostDiagnosticsText: Text;
   private readonly connectionLostHandle: ConnectionLostOverlayHandle;
   private hostConnected = false;
+  // S55 P2 — once an error/diagnostic is surfaced via setErrorMessage
+  // (transport failure OR protocol mismatch), it is STICKY until reset():
+  // the routine per-frame updatePeerStatus must not clobber it. Without this,
+  // a mismatched-peer HELLO that arrives before the first post-connect frame
+  // was overwritten by 'Player 2 connected!' and the refresh-prompt UX was
+  // permanently hidden (PRIME-AUDIT Runtime-Verifiability finding, S55 P2).
+  private errorLatched = false;
 
   // S16 P1: HTML input overlay
   private readonly canvas: HTMLCanvasElement;
@@ -494,6 +501,9 @@ export class LobbyScreen {
 
   /** Called by main.ts every frame; updates "Begin Match" + status based on peer count. */
   updatePeerStatus(peerCount: number): void {
+    // S55 P2 — a surfaced error (protocol mismatch / transport failure) is
+    // sticky; routine peer-status must not overwrite it (see errorLatched).
+    if (this.errorLatched) return;
     if (this.mode === 'hosting' && peerCount > 0 && !this.hostConnected) {
       this.hostConnected = true;
       this.statusText.text = 'Player 2 connected! Press Begin Match.';
@@ -511,6 +521,7 @@ export class LobbyScreen {
     this.statusText.text = '';
     this.statusText.style.fill = 0xaaaaaa;
     this.hostConnected = false;
+    this.errorLatched = false;
     this.beginButton.visible = false;
     this.connectionLostHandle.setVisible(false);
     this.inputEl.value = '';
@@ -556,6 +567,18 @@ export class LobbyScreen {
   }
 
   /**
+   * S55 P2 — DEV/E2E read accessor for the shared status line (the surface
+   * setErrorMessage + updatePeerStatus write to). Lets the protocol-mismatch
+   * E2E assert the user-visible mismatch text WITHOUT OCR-ing the Pixi canvas,
+   * completing end-to-end verification of the onProtocolMismatch ->
+   * formatProtocolMismatchMessage -> onLobbyError -> setErrorMessage UX chain
+   * that the S54 PRIME-AUDIT flagged as having zero runtime coverage.
+   */
+  getStatusText(): string {
+    return this.statusText.text ?? '';
+  }
+
+  /**
    * S46 P1 Phase A.0 — update host-side diagnostic strip. Called per-frame
    * by main.ts when world.isHost && mode === 'hosting' && in LOBBY. Empty
    * text hides the strip (same idempotent pattern as updateDiagnostics).
@@ -569,10 +592,17 @@ export class LobbyScreen {
     if (this.hostDiagnosticsText.text !== text) this.hostDiagnosticsText.text = text;
   }
 
-  /** S20 P0 — error sink from NetTransport.onError; renders failure layer in red over the status line (resets to grey in reset()). */
+  /**
+   * S20 P0 — error sink from NetTransport.onError; renders failure layer in red
+   * over the status line (resets to grey in reset()).
+   * S55 P2 — latches errorLatched so the routine per-frame updatePeerStatus
+   * can't clobber a surfaced error (e.g. a protocol-mismatch HELLO arriving in
+   * the brief window before the first post-connect 'Player 2 connected' frame).
+   */
   setErrorMessage(text: string): void {
     this.statusText.text = text;
     this.statusText.style.fill = 0xff3b6b;
+    this.errorLatched = true;
     this.renderState();
   }
 

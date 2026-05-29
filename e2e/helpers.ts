@@ -323,3 +323,67 @@ export async function placeFreeSparkAndConfirm(
   );
   return sparkId;
 }
+
+/**
+ * S55 P2 — read NetTransport diagnostics via the DEV __SPARK__ accessor.
+ * Returns null before the transport exists (pre-host / pre-join).
+ */
+export async function readNetDiagnostics(
+  page: Page,
+): Promise<{ accepted: number; rejected: number; lastKind: string | null } | null> {
+  return await page.evaluate(() => {
+    const spark = (
+      window as {
+        __SPARK__?: {
+          netTransport: {
+            getDiagnostics: () => {
+              accepted: number;
+              rejected: number;
+              lastKind: string | null;
+            };
+          } | null;
+        };
+      }
+    ).__SPARK__;
+    const nt = spark?.netTransport ?? null;
+    return nt ? nt.getDiagnostics() : null;
+  });
+}
+
+/**
+ * S55 P2 — read the lobby's shared status-line text via the DEV __SPARK__
+ * accessor (lobbyScreen.getStatusText()). Empty string if unavailable.
+ */
+export async function readLobbyStatus(page: Page): Promise<string> {
+  return await page.evaluate(() => {
+    const spark = (
+      window as { __SPARK__?: { lobbyScreen?: { getStatusText?: () => string } } }
+    ).__SPARK__;
+    return spark?.lobbyScreen?.getStatusText?.() ?? '';
+  });
+}
+
+/**
+ * S55 P2 — poll until NetTransport.getDiagnostics().rejected >= n. The
+ * protocol-mismatch drop increments rejectedCount the instant the mismatched
+ * HELLO is processed (transport.ts handleRawMessage), so this is the
+ * deterministic signal that the host's receive-side mismatch latch fired —
+ * independent of any lobby-UI write ordering.
+ */
+export async function waitForRejected(
+  page: Page,
+  n: number,
+  description: string,
+  timeoutMs = 30_000,
+): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const d = await readNetDiagnostics(page).catch(() => null);
+    if (d !== null && d.rejected >= n) return;
+    await page.waitForTimeout(200);
+  }
+  const final = await readNetDiagnostics(page).catch(() => null);
+  throw new Error(
+    `waitForRejected timeout (${timeoutMs}ms): ${description}\nFinal diagnostics: ${JSON.stringify(final)}`,
+  );
+}
