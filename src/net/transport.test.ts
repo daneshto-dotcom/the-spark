@@ -164,8 +164,23 @@ describe('formatProtocolMismatchMessage (S53 P1 symmetric UX text)', () => {
     const msg = formatProtocolMismatchMessage(PROTOCOL_VERSION - 1);
     expect(msg).toMatch(/peer v\d+/);
     expect(msg).toMatch(new RegExp(`you v${PROTOCOL_VERSION}`));
-    expect(msg).toMatch(/Your friend's version is older/i);
+    // S54 P2 (M5) — neutral phrasing, not "your friend".
+    expect(msg).toMatch(/The other player's version is older/i);
     expect(msg).toMatch(/refresh/i);
+  });
+
+  it('uses neutral "other player" language, not "friend" (S54 P2 / M5 — matchmaking-future-proof)', () => {
+    const msg = formatProtocolMismatchMessage(PROTOCOL_VERSION - 1);
+    expect(msg).toMatch(/The other player's version is older/i);
+    expect(msg).not.toMatch(/friend/i);
+  });
+
+  it('sanitizes a non-primitive peer version (S54 P2 / G3 — no "[object Object]")', () => {
+    expect(formatProtocolMismatchMessage({})).toContain('peer v(object)');
+    expect(formatProtocolMismatchMessage({})).not.toContain('[object Object]');
+    expect(formatProtocolMismatchMessage([1, 2])).toContain('peer v(array)');
+    // Non-primitive falls through to the "both should refresh" advice branch.
+    expect(formatProtocolMismatchMessage({})).toMatch(/Both peers should refresh/i);
   });
 
   it('advises local to refresh when peer version is NEWER than local', () => {

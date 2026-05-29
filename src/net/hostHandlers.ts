@@ -31,11 +31,31 @@ import { PLAYER_COLORS } from '../constants.ts';
  * onProtocolMismatch callback; the message advises which side needs to
  * refresh based on which has the older version.
  */
+/**
+ * S54 P2 (G3) — render a peer's reported protoVersion safely for the
+ * diagnostic string. Primitives (number / string / undefined / null /
+ * boolean) render verbatim for diagnostic value; a non-primitive from a
+ * corrupt payload (object / array / function) would otherwise stringify to
+ * useless noise like "[object Object]", so collapse it to a stable label.
+ */
+function describePeerVersion(peerVersion: unknown): string {
+  if (
+    peerVersion !== null &&
+    (typeof peerVersion === 'object' || typeof peerVersion === 'function')
+  ) {
+    return Array.isArray(peerVersion) ? '(array)' : `(${typeof peerVersion})`;
+  }
+  return String(peerVersion);
+}
+
 export function formatProtocolMismatchMessage(peerVersion: unknown): string {
   const peerV = typeof peerVersion === 'number' ? peerVersion : NaN;
   let advice: string;
   if (Number.isFinite(peerV) && peerV < PROTOCOL_VERSION) {
-    advice = `Your friend's version is older. Ask them to refresh their browser.`;
+    // S54 P2 (M5) — neutral phrasing ("the other player" not "your friend"):
+    // forward-compatible with any future non-friend matchmaking, and accurate
+    // regardless of host/joiner asymmetry (Council R1 #3, unanimous).
+    advice = `The other player's version is older. Ask them to refresh their browser.`;
   } else if (Number.isFinite(peerV) && peerV > PROTOCOL_VERSION) {
     advice = `Your version is older. Please refresh your browser.`;
   } else {
@@ -43,7 +63,7 @@ export function formatProtocolMismatchMessage(peerVersion: unknown): string {
     // safest UX is to advise both sides to refresh.
     advice = `Versions don't match. Both peers should refresh.`;
   }
-  return `Protocol mismatch (peer v${String(peerVersion)}, you v${PROTOCOL_VERSION}). ${advice}`;
+  return `Protocol mismatch (peer v${describePeerVersion(peerVersion)}, you v${PROTOCOL_VERSION}). ${advice}`;
 }
 
 /**

@@ -125,14 +125,24 @@ type JoinFn = (
  *      (Council R1 Grok #4 + Gemini #2 CONVERGENT BLOCKER resolution —
  *      closes the v2-peer-INTENT-bypass-after-failed-HELLO gap).
  */
+/**
+ * S54 P2 (M4) — narrowing type-guard replacing the prior
+ * `parsed as Record<string, unknown>` cast in detectProtocolMismatch. A real
+ * guard makes the property reads below type-safe (no assertion) and documents
+ * the single shape assumption — any non-null object, incl. arrays (which
+ * correctly fall through as `kind !== 'HELLO'`).
+ */
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object';
+}
+
 export function detectProtocolMismatch(
   parsed: unknown,
 ): { mismatch: true; version: unknown } | { mismatch: false } {
-  if (parsed === null || typeof parsed !== 'object') return { mismatch: false };
-  const obj = parsed as Record<string, unknown>;
-  if (obj.kind !== 'HELLO') return { mismatch: false };
-  if (obj.protoVersion === PROTOCOL_VERSION) return { mismatch: false };
-  return { mismatch: true, version: obj.protoVersion };
+  if (!isObjectRecord(parsed)) return { mismatch: false };
+  if (parsed.kind !== 'HELLO') return { mismatch: false };
+  if (parsed.protoVersion === PROTOCOL_VERSION) return { mismatch: false };
+  return { mismatch: true, version: parsed.protoVersion };
 }
 
 export class NetTransport {
