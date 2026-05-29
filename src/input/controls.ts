@@ -317,20 +317,24 @@ export class Controls {
         const targetRefPos = isClient ? this.cursor : spark.pos;
         const reachDx = this.cursor.x - spark.pos.x;
         const reachDy = this.cursor.y - spark.pos.y;
-        const reachable = isClient
-          ? true
-          : reachDx * reachDx + reachDy * reachDy <=
-            MAX_RELEASE_REACH * MAX_RELEASE_REACH;
-        const inZone = isClient ? false : this.isInsideSpawnerZone(spark.pos);
-        // S49 P1 (Sym F) — optimistic client-side territory gate. Mirrors
-        // placePrimitive.ts's host-authoritative block. Snapshot-lagged in
-        // client mode (joiner's world may lag by RTT/2), so joiner bypasses
-        // the gate here and lets the host's hard block decide — same pattern
-        // as the spawner-zone check above (isClient ? false : ...).
-        const inTerritory = isClient
-          ? false
-          : isInsideEnemyTerritory(spark.pos, this.playerId, this.world);
-        if (reachable && !inZone && !inTerritory) {
+        // S55 P3 — gate composition extracted to the pure computeReleaseGates
+        // (testable without a Pixi Application / DOM). The isClient bypass
+        // (S45 BUG-CRITICAL-3 Sym A + S49 Sym F: a joiner trusts the host's
+        // authoritative reach / spawner-zone / enemy-territory checks because
+        // its snapshot-lagged world makes the local gates fire unreliably)
+        // lives inside the helper. Zone + territory are probed ONLY for the
+        // host here, preserving the original short-circuit — isInsideEnemyTerritory
+        // is never called in client mode.
+        const gates = computeReleaseGates({
+          isClient,
+          reachDistSq: reachDx * reachDx + reachDy * reachDy,
+          maxReleaseReachSq: MAX_RELEASE_REACH * MAX_RELEASE_REACH,
+          hostInZone: isClient ? false : this.isInsideSpawnerZone(spark.pos),
+          hostInTerritory: isClient
+            ? false
+            : isInsideEnemyTerritory(spark.pos, this.playerId, this.world),
+        });
+        if (gates.commit) {
           // S52 P1 — atomic PLACE_FROM_FREE single intent replaces the S5-era
           // PICKUP_SPARK+PLACE_PRIMITIVE burst. The burst pattern had a
           // critical defect for the joiner: when PLACE_PRIMITIVE silently
@@ -415,13 +419,21 @@ export class Controls {
   // prevents charge drain in solo / LOBBY / WIN states and when typing into
   // an input field.
   private onKeyDown = (e: KeyboardEvent): void => {
-    if (e.key !== 'q' && e.key !== 'Q') return;
-    const focusedTag = document.activeElement?.tagName;
-    if (focusedTag === 'INPUT' || focusedTag === 'TEXTAREA') return;
-    if (this.world.gameMode !== '1v1') return;
-    if (this.world.gameState !== 'PLAYING') return;
+    // S55 P3 — the full guard set is the pure decideKeyShrink (testable without
+    // a DOM / Pixi Application). Behavior-preserving: same five guards, same
+    // order, same dispatch.
     const player = this.world.players.get(this.playerId);
-    if (player === undefined || player.disruptionCharges < 1) return;
+    if (
+      !decideKeyShrink({
+        key: e.key,
+        focusedTag: document.activeElement?.tagName,
+        gameMode: this.world.gameMode,
+        gameState: this.world.gameState,
+        disruptionCharges: player?.disruptionCharges,
+      })
+    ) {
+      return;
+    }
     this.dispatchFn({ type: 'SHRINK_TERRITORY', playerId: this.playerId });
   };
 
@@ -612,7 +624,10 @@ export function stepAttractLerp(
   prevPos.y = oldY;
 }
 
-function distToSegment(
+// S55 P3 — exported for controls.test.ts (pure geometry; used by pickBond to
+// hit-test the cursor against a bond segment). Point-to-segment distance with
+// endpoint clamping.
+export function distToSegment(
   px: number, py: number,
   ax: number, ay: number,
   bx: number, by: number,
@@ -635,10 +650,68 @@ function distToSegment(
  * captures the carried type BEFORE PICKUP_SPARK dispatch so this function
  * can't be foiled by mid-flight state mutation.
  */
-function computeStiffnessTier(
+// S55 P3 — exported for controls.test.ts. Delegates to the combo table
+// (combos.test.ts covers lookupCombo itself); the controls-specific branch is
+// the anchor case (no target -> MID default).
+export function computeStiffnessTier(
   carriedType: SparkType,
   target: Primitive | null,
 ): StiffnessTier {
   if (target === null) return 'MID';
   return lookupCombo(carriedType, target.type).stiffnessTier;
+}
+
+/**
+ * S55 P3 — pure Q-key SHRINK_TERRITORY guard, extracted from Controls.onKeyDown
+ * so the full guard set is unit-testable without a DOM + Pixi Application
+ * (vitest runs in node; the live handler reads e.key + document.activeElement +
+ * world state). Returns true iff a SHRINK_TERRITORY intent should be dispatched.
+ * Behavior-preserving mirror of the pre-S55 inline guards (S49 P1 Sym F):
+ *   - key must be 'q' / 'Q'
+ *   - focus must NOT be in an INPUT/TEXTAREA (don't drain a charge while the
+ *     user is typing a room code)
+ *   - 1v1 PLAYING only (no charge drain in solo / LOBBY / WIN)
+ *   - the acting player must hold >= 1 disruption charge
+ */
+export function decideKeyShrink(params: {
+  key: string;
+  focusedTag: string | undefined;
+  gameMode: string;
+  gameState: string;
+  disruptionCharges: number | undefined;
+}): boolean {
+  if (params.key !== 'q' && params.key !== 'Q') return false;
+  if (params.focusedTag === 'INPUT' || params.focusedTag === 'TEXTAREA') return false;
+  if (params.gameMode !== '1v1') return false;
+  if (params.gameState !== 'PLAYING') return false;
+  if (params.disruptionCharges === undefined || params.disruptionCharges < 1) return false;
+  return true;
+}
+
+/**
+ * S55 P3 — pure LMB-up placement-gate composition, extracted from
+ * Controls.onUp. Captures the asymmetric client/host gating (deliberately NOT a
+ * trivial AND — the isClient branching is the load-bearing logic):
+ *   - HOST/solo: commit only if the spark physically caught up to the cursor
+ *     (reach gate, S9 P1 anti-flick), is OUTSIDE the spawner zone, and is NOT
+ *     in enemy territory (S49 Sym F).
+ *   - CLIENT (1v1 joiner): bypass ALL THREE local gates — reachable=true,
+ *     inZone=false, inTerritory=false — because the joiner's snapshot-lagged
+ *     world makes them fire unreliably; the host re-validates authoritatively
+ *     (S45 BUG-CRITICAL-3 Sym A + S49 Sym F client-bypass).
+ * The live caller probes zone/territory only for the host (short-circuit), so
+ * hostInZone/hostInTerritory are already false in client mode; the isClient
+ * branches here make the bypass explicit + independently testable.
+ */
+export function computeReleaseGates(params: {
+  isClient: boolean;
+  reachDistSq: number;
+  maxReleaseReachSq: number;
+  hostInZone: boolean;
+  hostInTerritory: boolean;
+}): { reachable: boolean; inZone: boolean; inTerritory: boolean; commit: boolean } {
+  const reachable = params.isClient ? true : params.reachDistSq <= params.maxReleaseReachSq;
+  const inZone = params.isClient ? false : params.hostInZone;
+  const inTerritory = params.isClient ? false : params.hostInTerritory;
+  return { reachable, inZone, inTerritory, commit: reachable && !inZone && !inTerritory };
 }
