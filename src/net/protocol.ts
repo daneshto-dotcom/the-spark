@@ -48,6 +48,27 @@ export interface HelloMsg {
   readonly protoVersion: 3;
 }
 
+/**
+ * S54 P1 — construct the HELLO handshake envelope a peer broadcasts at
+ * peer-join time to announce its protocol version (+ identity). This is the
+ * producer that was MISSING through S53: the receive-side machinery
+ * (detectProtocolMismatch + onProtocolMismatch + the per-peer drop latch,
+ * transport.ts) shipped + unit-tested in S53 P1 but never fired because no
+ * call site ever sent a HELLO. Wiring this at peer-join (see
+ * `wireHelloOnJoin` in hostHandlers.ts) activates that dormant system.
+ *
+ * ALWAYS stamps the LOCAL current PROTOCOL_VERSION — a peer announces its own
+ * version, never a remembered peer's. The receiver runs detectProtocolMismatch
+ * on this BEFORE parseNetMessage, so a peer on a different PROTOCOL_VERSION
+ * trips the mismatch UX + drop latch. `playerId`/`color` are informational
+ * today (no receiver reads them — host/client message handlers ignore
+ * kind:'HELLO'); carried for a future identity/colour handshake and to keep
+ * the envelope valid under parseNetMessage's numeric-field checks.
+ */
+export function buildHello(playerId: PlayerId, color: number): HelloMsg {
+  return { kind: 'HELLO', playerId, color, protoVersion: PROTOCOL_VERSION };
+}
+
 export interface IntentMsg {
   readonly kind: 'INTENT';
   readonly intentSeq: number;

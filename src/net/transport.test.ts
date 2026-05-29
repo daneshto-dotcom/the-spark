@@ -187,3 +187,103 @@ describe('formatProtocolMismatchMessage (S53 P1 symmetric UX text)', () => {
     expect(formatProtocolMismatchMessage(undefined)).toContain('peer vundefined');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// S54 P1 — receive-path INTEGRATION (handleRawMessage seam)
+//
+// Closes the Council R1 #6 gap (Grok R8 HIGH + Gemini ch.3 CONVERGENT): until
+// S54 the only mismatch coverage was the pure detectProtocolMismatch helper —
+// the actual onMessage → emitProtocolMismatch → latch → drop wiring shipped
+// UNTESTED (this file's header noted "No Trystero room is constructed"). The
+// S54 P1 extraction of handleRawMessage makes that path testable without a
+// live room. These tests prove the dormant S53 latch fires end-to-end once a
+// HELLO finally arrives — i.e. that wiring buildHello/wireHelloOnJoin in the
+// handlers genuinely activates the protocol-mismatch system.
+// ─────────────────────────────────────────────────────────────────────────
+
+describe('NetTransport.handleRawMessage — receive path + protocol-mismatch latch (S54 P1)', () => {
+  function wire() {
+    const t = new NetTransport();
+    const mismatches: unknown[] = [];
+    const received: Array<{ kind: string; peerId: string }> = [];
+    const errors: string[] = [];
+    t.onProtocolMismatch = (v) => mismatches.push(v);
+    t.onError = (m) => errors.push(m);
+    t.on((msg, peerId) => received.push({ kind: msg.kind, peerId }));
+    return { t, mismatches, received, errors };
+  }
+
+  const helloV3 = JSON.stringify({
+    kind: 'HELLO',
+    playerId: 0,
+    color: 0xff0000,
+    protoVersion: PROTOCOL_VERSION,
+  });
+  const helloV2 = JSON.stringify({ kind: 'HELLO', playerId: 0, color: 0xff0000, protoVersion: 2 });
+  const intent = JSON.stringify({ kind: 'INTENT', intentSeq: 1, action: { type: 'PICKUP_SPARK' } });
+
+  it('routes a same-version HELLO to handlers and fires NO mismatch (happy-path no-op)', () => {
+    const { t, mismatches, received } = wire();
+    t.handleRawMessage(helloV3, 'peerA');
+    expect(mismatches).toEqual([]);
+    expect(received).toEqual([{ kind: 'HELLO', peerId: 'peerA' }]);
+    expect(t.getDiagnostics().accepted).toBe(1);
+    expect(t.getDiagnostics().rejected).toBe(0);
+  });
+
+  it('fires onProtocolMismatch(version) + drops the HELLO when protoVersion differs', () => {
+    const { t, mismatches, received } = wire();
+    t.handleRawMessage(helloV2, 'peerOld');
+    expect(mismatches).toEqual([2]);
+    expect(received).toEqual([]); // a mismatched HELLO never reaches app handlers
+    expect(t.getDiagnostics().accepted).toBe(0);
+    expect(t.getDiagnostics().rejected).toBe(1);
+  });
+
+  it('LATCHES the peer — drops ALL subsequent messages incl. an allowlisted INTENT [v2-bypass closure]', () => {
+    const { t, mismatches, received } = wire();
+    t.handleRawMessage(helloV2, 'peerOld'); // trips the latch
+    t.handleRawMessage(intent, 'peerOld'); // would otherwise pass parseNetMessage's allowlist
+    expect(received).toEqual([]); // INTENT dropped at the transport boundary — never applied
+    expect(mismatches).toEqual([2]); // mismatch still fired only once
+    expect(t.getDiagnostics().rejected).toBe(2);
+  });
+
+  it('fires onProtocolMismatch only ONCE per peer (idempotent across repeat HELLOs / strategy fan-out)', () => {
+    const { t, mismatches } = wire();
+    t.handleRawMessage(helloV2, 'peerOld');
+    t.handleRawMessage(helloV2, 'peerOld'); // e.g. duplicate delivery via a second strategy
+    expect(mismatches).toEqual([2]); // not [2, 2]
+  });
+
+  it('does NOT latch other peers — a good peer routes normally alongside a latched bad one', () => {
+    const { t, received } = wire();
+    t.handleRawMessage(helloV2, 'peerOld'); // bad peer latched
+    t.handleRawMessage(intent, 'peerGood'); // different peerId — unaffected
+    expect(received).toEqual([{ kind: 'INTENT', peerId: 'peerGood' }]);
+  });
+
+  it('routes a valid INTENT from an unlatched peer to handlers', () => {
+    const { t, received } = wire();
+    t.handleRawMessage(intent, 'peerA');
+    expect(received).toEqual([{ kind: 'INTENT', peerId: 'peerA' }]);
+    expect(t.getDiagnostics().accepted).toBe(1);
+  });
+
+  it('emits an error (does not throw) on malformed JSON; nothing routed', () => {
+    const { t, received, errors } = wire();
+    expect(() => t.handleRawMessage('{not valid json', 'peerA')).not.toThrow();
+    expect(errors.length).toBe(1);
+    expect(errors[0]).toMatch(/Malformed peer message from peerA/);
+    expect(received).toEqual([]);
+  });
+
+  it('drops a structurally-invalid NetMessage (unknown action) as rejected, no mismatch fired', () => {
+    const { t, received, mismatches } = wire();
+    const badIntent = JSON.stringify({ kind: 'INTENT', intentSeq: 1, action: { type: 'NUKE' } });
+    t.handleRawMessage(badIntent, 'peerA');
+    expect(received).toEqual([]);
+    expect(mismatches).toEqual([]);
+    expect(t.getDiagnostics().rejected).toBe(1);
+  });
+});

@@ -18,10 +18,12 @@
  */
 
 import { HostSync } from './sync.ts';
-import { generateRoomCode, PROTOCOL_VERSION } from './protocol.ts';
+import { generateRoomCode, PROTOCOL_VERSION, buildHello } from './protocol.ts';
 import type { NetSession } from './session.ts';
 import { NetTransport } from './transport.ts';
 import { dispatch, type World } from '../state/world.ts';
+import { asPlayerId, type PlayerId } from '../types.ts';
+import { PLAYER_COLORS } from '../constants.ts';
 
 /**
  * S53 P1 — shared helper for symmetric protocol-mismatch UX text. Both
@@ -42,6 +44,49 @@ export function formatProtocolMismatchMessage(peerVersion: unknown): string {
     advice = `Versions don't match. Both peers should refresh.`;
   }
   return `Protocol mismatch (peer v${String(peerVersion)}, you v${PROTOCOL_VERSION}). ${advice}`;
+}
+
+/**
+ * S54 P1 — register the peer-join HELLO handshake on a transport. This is the
+ * producer that was missing through S53, leaving the protocol-mismatch system
+ * dormant. BOTH the host (playerId 0 / crimson) and the joiner (playerId 1 /
+ * cyan) call this so EACH side announces its PROTOCOL_VERSION to the other on
+ * connect — required for SYMMETRIC mismatch detection: the host-side drop
+ * latch needs the joiner's HELLO to close the v2-peer-INTENT-bypass desync gap
+ * (S53 CONVERGENT BLOCKER), and the joiner needs the host's to detect a stale
+ * host. Host-only is insufficient (Council R1 #2 — "host rejects on receipt"
+ * fails for a skewed peer's semantically-valid INTENTs, the exact gap the
+ * latch exists to close).
+ *
+ * Emission is on peer-JOIN, not at connect(): transport.send() broadcasts to
+ * *currently-connected* peers, so a HELLO sent at connect() time (peerCount=0)
+ * would be dropped. onPeerChange fires once per peerId (deduped across
+ * strategies) when the data channel opens. onPeerChange was previously unused
+ * API — main.ts polls peerCount() for the connection-lost overlay — so this
+ * registration is conflict-free.
+ *
+ * TIMING GUARANTEE (Council R1 #1 — race/ordering resolution): a join always
+ * happens in the LOBBY phase (host shares code → joiner connects → only THEN
+ * does the host click "Begin Match"). No NETSNAPSHOT / INTENT /
+ * START_GAME_SIGNAL flows before Begin Match, so the HELLO is provably the
+ * first app message a peer receives — no separate sendQueue/readiness flag
+ * needed.
+ *
+ * 1v1 NOTE (Council R1 #7 — broadcast vs targeted): send() broadcasts to all
+ * peers, but 1v1 caps the room at one remote peer, so broadcast == targeted
+ * here. A future >2-player Phase-3 transport (Colyseus / Geckos.io) must
+ * switch to a per-peer targeted send keyed off the peerId onPeerChange already
+ * provides. Re-sends on reconnect are harmless (HELLO is idempotent: a
+ * matching version is a no-op; a mismatch latches once per peerId).
+ */
+export function wireHelloOnJoin(
+  transport: NetTransport,
+  playerId: PlayerId,
+  color: number,
+): void {
+  transport.onPeerChange((_peerId, kind) => {
+    if (kind === 'join') transport.send(buildHello(playerId, color));
+  });
 }
 
 export interface HostStartDeps {
@@ -76,6 +121,10 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
       deps.onLobbyError(formatProtocolMismatchMessage(peerVersion));
     };
     transport.connect(code);
+    // S54 P1 — announce our PROTOCOL_VERSION to the joiner the moment it
+    // connects (host = playerId 0 / crimson). Activates the dormant S53
+    // protocol-mismatch latch + UX on the joiner's receive side.
+    wireHelloOnJoin(transport, asPlayerId(0), PLAYER_COLORS[0]);
     transport.on((msg) => {
       // S15 P2 — host applies client intent authoritatively.
       // S42 — turn-based active-player gate REMOVED (blueprint mandates

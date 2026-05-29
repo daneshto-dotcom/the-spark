@@ -8,8 +8,15 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { generateRoomCode, parseRoomCode, parseNetMessage, PROTOCOL_VERSION } from './protocol.ts';
-import { NET_ROOM_CODE_LENGTH } from '../constants.ts';
+import {
+  generateRoomCode,
+  parseRoomCode,
+  parseNetMessage,
+  PROTOCOL_VERSION,
+  buildHello,
+} from './protocol.ts';
+import { NET_ROOM_CODE_LENGTH, PLAYER_COLORS } from '../constants.ts';
+import { asPlayerId } from '../types.ts';
 
 describe('S15 P2 — room code generation', () => {
   it('generates a code of the configured length (default 6)', () => {
@@ -182,5 +189,41 @@ describe('S39 P1 — START_GAME_SIGNAL envelope (lobby-exit decoupled from snaps
     const msg = { kind: 'START_GAME_SIGNAL', mode: '1v1' };
     const wire = JSON.parse(JSON.stringify(msg));
     expect(parseNetMessage(wire)).toEqual(msg);
+  });
+});
+
+describe('S54 P1 — buildHello producer (activates the dormant S53 mismatch system)', () => {
+  it('stamps the current PROTOCOL_VERSION + given playerId/color (host = P0/crimson)', () => {
+    const msg = buildHello(asPlayerId(0), PLAYER_COLORS[0]);
+    expect(msg).toEqual({
+      kind: 'HELLO',
+      playerId: 0,
+      color: PLAYER_COLORS[0],
+      protoVersion: PROTOCOL_VERSION,
+    });
+  });
+
+  it('builds the joiner HELLO with playerId 1 / cyan', () => {
+    const msg = buildHello(asPlayerId(1), PLAYER_COLORS[1]);
+    expect(msg.playerId).toBe(1);
+    expect(msg.color).toBe(PLAYER_COLORS[1]);
+    expect(msg.protoVersion).toBe(PROTOCOL_VERSION);
+  });
+
+  it('produces a WIRE-VALID envelope (round-trips through parseNetMessage)', () => {
+    // The emitted HELLO must survive the receiver's own validator — proves the
+    // producer and parser agree on shape (numeric playerId/color +
+    // protoVersion === current). This is the contract that keeps a
+    // same-version HELLO a harmless no-op rather than a rejected message.
+    const msg = buildHello(asPlayerId(0), PLAYER_COLORS[0]);
+    const wire = JSON.parse(JSON.stringify(msg));
+    expect(parseNetMessage(wire)).toEqual(msg);
+  });
+
+  it('always announces the LOCAL version (cannot echo a remembered peer version)', () => {
+    // buildHello takes no protoVersion param — it structurally cannot emit
+    // anything but the current PROTOCOL_VERSION, regardless of playerId/color.
+    expect(buildHello(asPlayerId(0), 0x111111).protoVersion).toBe(PROTOCOL_VERSION);
+    expect(buildHello(asPlayerId(1), 0x222222).protoVersion).toBe(PROTOCOL_VERSION);
   });
 });

@@ -18,7 +18,8 @@ import { NetTransport } from './transport.ts';
 import type { Controls } from '../input/controls.ts';
 import { dispatch, type World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
-import { formatProtocolMismatchMessage } from './hostHandlers.ts';
+import { formatProtocolMismatchMessage, wireHelloOnJoin } from './hostHandlers.ts';
+import { PLAYER_COLORS } from '../constants.ts';
 
 export interface JoinAttemptDeps {
   session: NetSession;
@@ -61,6 +62,11 @@ export function createJoinAttemptHandler(deps: JoinAttemptDeps): (code: string) 
       deps.onLobbyError(formatProtocolMismatchMessage(peerVersion));
     };
     transport.connect(code);
+    // S54 P1 — announce our PROTOCOL_VERSION to the host the moment we connect
+    // (joiner = playerId 1 / cyan). Symmetric with the host path; activates
+    // the dormant S53 protocol-mismatch latch + UX on the host's receive side
+    // (closes the v2-peer-INTENT-bypass desync gap from the joiner direction).
+    wireHelloOnJoin(transport, asPlayerId(1), PLAYER_COLORS[1]);
     transport.on((msg) => {
       if (msg.kind === 'NETSNAPSHOT' && deps.session.clientSync !== null) {
         deps.session.clientSync.receive(msg, performance.now());

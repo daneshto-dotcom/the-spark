@@ -196,6 +196,71 @@ export class NetTransport {
     if (this.onProtocolMismatch !== null) this.onProtocolMismatch(peerVersion);
   }
 
+  /**
+   * S54 P1 — single inbound-message entry point, invoked by every strategy's
+   * `action.onMessage` closure. Extracted from the inline closure (Council R1
+   * #6: Grok R8 HIGH + Gemini ch.3 CONVERGENT) so the receive path — JSON
+   * parse → per-peer drop latch → protocol-mismatch sniff → parseNetMessage →
+   * handler fan-out — becomes unit-testable WITHOUT a live Trystero room (the
+   * file header's long-standing limitation). PURE REFACTOR: behavior is
+   * identical to the pre-S54 closure. `strategyName` is diagnostic-only (the
+   * rejected-message warn); defaults to '' so tests can omit it.
+   *
+   * This is the RECEIVE half of the S53/S54 protocol-mismatch system:
+   * detectProtocolMismatch runs BEFORE parseNetMessage so a different-version
+   * peer's HELLO (now actually SENT by buildHello/wireHelloOnJoin as of S54
+   * P1) fires onProtocolMismatch + latches the peer, dropping ALL of its
+   * subsequent messages.
+   */
+  handleRawMessage(data: string, peerId: string, strategyName = ''): void {
+    // Parse on the receive boundary so malformed peer messages don't
+    // poison handlers (Audit Pass-1 fix d3f0e22b preserved).
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(data);
+    } catch (err) {
+      this.emitError(
+        `Malformed peer message from ${peerId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return;
+    }
+    // S53 P1 — per-peer protocol-mismatch latch (Council R1 Grok #4 +
+    // Gemini #2 CONVERGENT BLOCKER). Drop ALL subsequent messages from a
+    // peer once their HELLO failed the protoVersion check — including
+    // INTENTs whose action.type would otherwise pass the in-process
+    // KNOWN_GAME_ACTION_TYPES_RECORD allowlist. Closes the
+    // stale-build-peer-injection desync hazard.
+    if (this.protocolMismatchPeers.has(peerId)) {
+      this.rejectedCount++;
+      return;
+    }
+    // S53 P1 — HELLO protoVersion sniff BEFORE parseNetMessage (which
+    // also null-rejects but with no diagnostic surface). On detect: fire
+    // onProtocolMismatch + add peerId to latch + early-return. Gemini #3
+    // ADOPT (early-return instead of fall-through). Loosened predicate
+    // per Gemini #4 ADOPT — missing/wrong-type protoVersion ALSO counts
+    // as mismatch (catches truly-ancient peers).
+    const protoCheck = detectProtocolMismatch(parsed);
+    if (protoCheck.mismatch) {
+      this.emitProtocolMismatch(peerId, protoCheck.version);
+      this.rejectedCount++;
+      return;
+    }
+    const msg = parseNetMessage(parsed);
+    if (msg === null) {
+      this.rejectedCount++;
+      console.warn('[net]', strategyName, 'rejected malformed NetMessage from', peerId, parsed);
+      return;
+    }
+    this.acceptedCount++;
+    this.lastKind = msg.kind;
+    if (msg.kind === 'NETSNAPSHOT') this.lastSeq = msg.snapshotSeq;
+    // App-layer dedup: NETSNAPSHOTs are idempotent (snapshotSeq monotonic),
+    // INTENTs are timestamped, HELLO is idempotent. Duplicate delivery from
+    // a second strategy is harmless. Routing through full handler list.
+    for (const h of this.messageHandlers) h(msg, peerId);
+  }
+
   connect(roomCode: string): void {
     if (this.connected) {
       throw new Error('NetTransport already connected; call disconnect() first');
@@ -330,54 +395,10 @@ export class NetTransport {
       // makeAction returns an object in 0.25 (was 3-tuple in 0.24).
       const action = room.makeAction<string>('msg') as MessageAction<string>;
       handle.action = action;
-      action.onMessage = (data, ctx) => {
-        // Parse on the receive boundary so malformed peer messages don't
-        // poison handlers (Audit Pass-1 fix d3f0e22b preserved).
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(data);
-        } catch (err) {
-          this.emitError(
-            `Malformed peer message from ${ctx.peerId}: ${err instanceof Error ? err.message : String(err)}`,
-          );
-          return;
-        }
-        // S53 P1 — per-peer protocol-mismatch latch (Council R1 Grok #4 +
-        // Gemini #2 CONVERGENT BLOCKER). Drop ALL subsequent messages from a
-        // peer once their HELLO failed the protoVersion check — including
-        // INTENTs whose action.type would otherwise pass the in-process
-        // KNOWN_GAME_ACTION_TYPES_RECORD allowlist. Closes the
-        // stale-build-peer-injection desync hazard.
-        if (this.protocolMismatchPeers.has(ctx.peerId)) {
-          this.rejectedCount++;
-          return;
-        }
-        // S53 P1 — HELLO protoVersion sniff BEFORE parseNetMessage (which
-        // also null-rejects but with no diagnostic surface). On detect: fire
-        // onProtocolMismatch + add peerId to latch + early-return. Gemini #3
-        // ADOPT (early-return instead of fall-through). Loosened predicate
-        // per Gemini #4 ADOPT — missing/wrong-type protoVersion ALSO counts
-        // as mismatch (catches truly-ancient peers).
-        const protoCheck = detectProtocolMismatch(parsed);
-        if (protoCheck.mismatch) {
-          this.emitProtocolMismatch(ctx.peerId, protoCheck.version);
-          this.rejectedCount++;
-          return;
-        }
-        const msg = parseNetMessage(parsed);
-        if (msg === null) {
-          this.rejectedCount++;
-          console.warn('[net]', name, 'rejected malformed NetMessage from', ctx.peerId, parsed);
-          return;
-        }
-        this.acceptedCount++;
-        this.lastKind = msg.kind;
-        if (msg.kind === 'NETSNAPSHOT') this.lastSeq = msg.snapshotSeq;
-        // App-layer dedup: NETSNAPSHOTs are idempotent (snapshotSeq monotonic),
-        // INTENTs are timestamped, HELLO is idempotent. Duplicate delivery from
-        // a second strategy is harmless. Routing through full handler list.
-        for (const h of this.messageHandlers) h(msg, ctx.peerId);
-      };
+      // S54 P1 — delegate to the extracted, unit-testable receive seam
+      // (handleRawMessage). The closure stays minimal: it only adapts
+      // Trystero's (data, ctx) shape to (data, peerId, strategyName).
+      action.onMessage = (data, ctx) => this.handleRawMessage(data, ctx.peerId, name);
 
       room.onPeerJoin = (peerId) => {
         console.info(`[net] ${name} onPeerJoin: ${peerId} strategyPeers=${handle.peers.size + 1}`);
