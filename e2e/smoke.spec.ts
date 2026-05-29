@@ -19,6 +19,7 @@ import {
   hostNewRoom,
   joinRoom,
   dragSparkTo,
+  placeFreeSparkAndConfirm,
   readWorldState,
   waitForWorld,
   CANVAS_WIDTH,
@@ -272,14 +273,14 @@ test.describe('Sym F — territorial hard-block (S49 mechanic, S50 P4 e2e covera
       // with bonds, giving complexity 3 + 0.5*3 + 0.1*1 = 4.6. Territory
       // radius R = TERRITORY_BASE_RADIUS(60) + scale * log2(5.6) ≈ 80px
       // around any joiner-placed prim.
-      await dragSparkTo(joinerPage, 1500, 400);
-      await waitForWorld(
-        joinerPage,
-        (w) => w.primitives.some((p) => p.placerColor === 0x3bd7ff && Math.abs(p.pos.x - 1500) < 50),
-        'joiner placed 1st blue prim',
-      );
-      await dragSparkTo(joinerPage, 1530, 410);
-      await dragSparkTo(joinerPage, 1490, 380);
+      // S55 P1 — each placement waits for an available in-zone spark AND
+      // confirms the primitive landed (host-authoritative round-trip) before
+      // the next. Replaces three unguarded back-to-back `dragSparkTo` calls
+      // whose spark-starvation race flaked this test in S53 + S54 (a null drag
+      // placed nothing → fewer than 3 prims → the `>=3` wait below timed out).
+      await placeFreeSparkAndConfirm(joinerPage, 1500, 400);
+      await placeFreeSparkAndConfirm(joinerPage, 1530, 410);
+      await placeFreeSparkAndConfirm(joinerPage, 1490, 380);
       await waitForWorld(
         joinerPage,
         (w) => w.primitives.filter((p) => p.placerColor === 0x3bd7ff).length >= 3,

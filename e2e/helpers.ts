@@ -249,3 +249,77 @@ export async function dragSparkTo(
   await page.mouse.up({ button: 'left' });
   return spawnerSpark.id;
 }
+
+/**
+ * S55 P1 — deterministic place-from-spawner with availability + landing
+ * confirmation. Closes the Sym F spark-starvation flake (recurred S53 + S54).
+ *
+ * Root cause of the flake: the bare `dragSparkTo` reads `freeSparks` and picks
+ * one inside the 200px spawner pick-zone AT CALL TIME; if no Free spark is in
+ * the zone at that instant it returns `null` and places nothing — silently.
+ * Sym F fired three `dragSparkTo` calls back-to-back with no availability-wait
+ * and no null-check on the 2nd/3rd, so it raced the spawner cadence: an empty
+ * pick-zone moment → fewer than 3 prims → the downstream `>=3 blue prims` wait
+ * timed out → intermittent RED that passed on retry.
+ *
+ * Fix sequence: (1) wait until a Free spark exists in the pick-zone; (2)
+ * snapshot the primitive count; (3) drag to (x,y); (4) if the pick found no
+ * spark (rare TOCTOU between the wait and the synchronous pick), re-wait +
+ * re-drag exactly ONCE (Council #4 bounded retry — fail loud, never silent);
+ * (5) wait until the primitive count increments, i.e. the placement actually
+ * landed (for a client/joiner this is the host-authoritative round-trip).
+ *
+ * Throws a descriptive Error on a genuine no-spark or non-landing condition,
+ * so a real regression surfaces as a clear failure rather than a flaky timeout.
+ * Returns the placed spark's id.
+ */
+export async function placeFreeSparkAndConfirm(
+  page: Page,
+  targetX: number,
+  targetY: number,
+  timeoutMs = 15_000,
+): Promise<number> {
+  const hasZoneSpark = (
+    w: Awaited<ReturnType<typeof readWorldState>>,
+  ): boolean =>
+    w.freeSparks.some((s) => {
+      const dx = s.pos.x - CANVAS_WIDTH / 2;
+      const dy = s.pos.y - CANVAS_HEIGHT / 2;
+      return s.state.kind === 'Free' && dx * dx + dy * dy < 200 * 200;
+    });
+
+  await waitForWorld(
+    page,
+    hasZoneSpark,
+    `Free spark available in spawner zone for place at (${targetX}, ${targetY})`,
+    timeoutMs,
+  );
+  const before = (await readWorldState(page)).primitives.length;
+
+  let sparkId = await dragSparkTo(page, targetX, targetY);
+  if (sparkId === null) {
+    // TOCTOU: the in-zone spark was consumed or drifted out of the pick-zone
+    // between the availability wait and dragSparkTo's synchronous pick.
+    // Re-wait + re-drag exactly once before giving up.
+    await waitForWorld(
+      page,
+      hasZoneSpark,
+      `Free spark re-available after null drag at (${targetX}, ${targetY})`,
+      timeoutMs,
+    );
+    sparkId = await dragSparkTo(page, targetX, targetY);
+  }
+  if (sparkId === null) {
+    throw new Error(
+      `placeFreeSparkAndConfirm: no Free spark to drag for (${targetX}, ${targetY}) after one retry`,
+    );
+  }
+
+  await waitForWorld(
+    page,
+    (w) => w.primitives.length >= before + 1,
+    `placement landed near (${targetX}, ${targetY}) (prims ${before} → >=${before + 1})`,
+    timeoutMs,
+  );
+  return sparkId;
+}
