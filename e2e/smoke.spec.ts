@@ -54,23 +54,31 @@ async function applyTestSpawnRate(
   await joinerCtx.addInitScript(init, rate);
 }
 
+/**
+ * S57/S58 — disable fog of war for a 2-peer context. Fog is a render-only layer
+ * (covered separately by e2e/fog.spec.ts); its extra per-frame render pass slows
+ * the software-WebGL (swiftshader) sim enough to perturb the spawn-timing windows
+ * the gameplay specs assert against. S58 P0: extracted to a shared helper because
+ * Sym I + the protocol-mismatch tests build their contexts by hand (per-context
+ * initscripts before page creation) and so bypassed open2Peers — leaving fog ON
+ * and red-ing the E2E gate (Sym I couldn't reach >=8 sparks in 30s). Call on
+ * EVERY manually-created peer context, before newPage (mirror of the
+ * __TEST_SPAWN_RATE__ / __TEST_WIN_SCORE__ seams).
+ */
+async function disableFogOn(ctx: BrowserContext): Promise<void> {
+  await ctx.addInitScript(() => {
+    (window as { __FOG_DISABLE__?: boolean }).__FOG_DISABLE__ = true;
+  });
+}
+
 async function open2Peers(browser: import('@playwright/test').Browser): Promise<{
   hostCtx: BrowserContext; hostPage: Page;
   joinerCtx: BrowserContext; joinerPage: Page;
 }> {
   const hostCtx = await browser.newContext();
   const joinerCtx = await browser.newContext();
-  // S57 — disable fog of war in the 2-peer gameplay smoke specs. Fog is a
-  // render-only layer (verified separately by e2e/fog.spec.ts); its extra
-  // per-frame render pass slows the software-WebGL (swiftshader) sim enough to
-  // perturb the spawn-timing windows these specs assert against. Mirror of the
-  // __TEST_SPAWN_RATE__ / __TEST_WIN_SCORE__ seams; must run before the bundle
-  // loads, hence addInitScript.
-  const disableFog = (): void => {
-    (window as { __FOG_DISABLE__?: boolean }).__FOG_DISABLE__ = true;
-  };
-  await hostCtx.addInitScript(disableFog);
-  await joinerCtx.addInitScript(disableFog);
+  await disableFogOn(hostCtx);
+  await disableFogOn(joinerCtx);
   const hostPage = await hostCtx.newPage();
   const joinerPage = await joinerCtx.newPage();
   return { hostCtx, hostPage, joinerCtx, joinerPage };
@@ -419,6 +427,12 @@ test.describe('Sym I — win-condition + ENDGAME envelope (S47 wire, S50 P4 e2e 
     const hostCtx = await browser.newContext();
     const joinerCtx = await browser.newContext();
     try {
+      // S58 P0 — disable fog: this test builds contexts by hand (bypassing
+      // open2Peers), so fog ran ON and halved the swiftshader sim — Sym I
+      // could not reach >=8 sparks in 30s (the E2E-gate regression). Must
+      // precede newPage.
+      await disableFogOn(hostCtx);
+      await disableFogOn(joinerCtx);
       // PRIME-AUDIT Δ2 mitigation: scope __TEST_WIN_SCORE__ override to
       // BOTH contexts of THIS test only. Playwright contexts are isolated,
       // so the override does not leak to Sym A/C/D/E/F tests. addInitScript
@@ -517,6 +531,9 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
     const hostCtx = await browser.newContext();
     const joinerCtx = await browser.newContext();
     try {
+      // S58 P0 — disable fog (manual contexts bypass open2Peers).
+      await disableFogOn(hostCtx);
+      await disableFogOn(joinerCtx);
       // Joiner announces protoVersion 2 (< current 3). Host has no override → v3.
       // String-content addInitScript (zero function-capture surface), matching
       // the Sym D __TEST_TERRITORY_BASE_RADIUS__ precedent.
