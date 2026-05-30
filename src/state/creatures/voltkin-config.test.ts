@@ -30,12 +30,11 @@ describe('VOLTKIN_CONFIG (per-type config record)', () => {
     expect(VOLTKIN_CONFIG.type).toBe('voltkin');
   });
 
-  // Byte-exact regression lock: these literals are the same values that lived
-  // as top-level constants in creature.ts pre-S34. If anyone tweaks the config,
-  // it should be a deliberate gameplay change with PDR + replay-determinism
-  // re-run, not an accidental drift.
+  // Byte-exact regression lock: deliberate gameplay changes update these literals
+  // WITH a PDR + replay-determinism re-run; accidental drift is caught here.
+  // S58 (#4): lifetimeTicks 480 → 1200 (2.5× longer summon, user playtest call).
   it('locks the 7 Voltkin tuning constants by literal value', () => {
-    expect(VOLTKIN_CONFIG.lifetimeTicks).toBe(480);
+    expect(VOLTKIN_CONFIG.lifetimeTicks).toBe(1200);
     expect(VOLTKIN_CONFIG.spawnTicks).toBe(60);
     expect(VOLTKIN_CONFIG.despawningTicks).toBe(60);
     expect(VOLTKIN_CONFIG.fadeTicks).toBe(30);
@@ -123,7 +122,7 @@ describe('getCreatureConfig accessor', () => {
     // Runtime check: the literal returned record should expose the documented
     // fields with their literal values. (TypeScript's `readonly` is erased at
     // runtime; this spot-check is just defense-in-depth on the contract.)
-    expect(cfg.lifetimeTicks).toBe(480);
+    expect(cfg.lifetimeTicks).toBe(1200);
     expect(cfg.type).toBe('voltkin');
   });
 });

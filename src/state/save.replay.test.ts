@@ -165,8 +165,13 @@ describe('Replay determinism (S33 P1-12 — same inputs → same WorldSnapshot)'
  * runtime stays under ~50 ms per run (PB-5 stretch goal: < 200 ms).
  */
 function runCreatureStress(world: World, iterations: number): void {
-  // One creature SPAWN per "epoch" of 60 ticks so VOLTKIN_LIFETIME_TICKS=480
-  // gives ~3 simultaneous creatures at any time. Each despawn frees the slot.
+  // One creature SPAWN per "epoch" of 60 ticks, gated on creatures.size===0.
+  // Over a 200-iter run world.tick only reaches 200 < VOLTKIN_LIFETIME_TICKS
+  // (1200 since S58 #4; was 480) so the first creature never despawns and the
+  // gate keeps a single creature alive for the whole run — this exercises the
+  // spawn + per-tick reducers under replay-determinism (the despawn path has
+  // its own dedicated coverage in creatureLifecycle.test.ts). Determinism is
+  // independent of the lifetime value: both runs use the same config.
   for (let i = 0; i < iterations; i++) {
     // Spawn epoch boundary — start a new creature owned by P1.
     if (i % 60 === 0 && world.creatures.size === 0) {
@@ -211,7 +216,7 @@ describe('Replay determinism — S34 PB-5 creature lifecycle coverage', () => {
     // but not long enough to despawn it.
     runCreatureStress(w, 100);
     // After 100 ticks: one SPAWN_CREATURE at i=0, 100 ticks of CREATURE_TICK.
-    // Creature is well within lifetime (despawnAtTick = ~480), so still alive.
+    // Creature is well within lifetime (despawnAtTick = 1200), so still alive.
     expect(w.creatures.size).toBe(1);
     const c = Array.from(w.creatures.values())[0];
     expect(c.type).toBe('voltkin');

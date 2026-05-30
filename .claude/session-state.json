@@ -43,14 +43,14 @@
     {
       "id": "P2",
       "label": "S58 P2 (#4) -- Voltkin duration 2.5x lifetimeTicks 480->1200",
-      "status": "in_progress",
+      "status": "completed",
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": true,
-      "check_completed": false,
-      "check_method": "",
+      "check_completed": true,
+      "check_method": "S58 P2 (#4) verified: VOLTKIN_CONFIG.lifetimeTicks 480->1200 (voltkin-config.ts:119) = 2.5x; active attack window (1200-spawn60-despawn60)/cadence60 = 18 full cycles (~18s @60Hz, was 6/~6s). Dependent test/doc updates: voltkin-config.test.ts 2 literal asserts (480->1200, lines 38+126); creature.ts cadence-doc math comment (480->1200, =18); creatureLifecycle.test.ts:524 + save.replay.test.ts:168,214 stale-value comments. EMPIRICAL CHECK (RALPH + replay-determinism guard): full creature/replay/serialization surface 304/304 green INCLUDING save.replay.test.ts byte-exact determinism (two same-seed runs identical -> the lifetime change did not perturb the deterministic sim; traced: over the 200-iter stress world.tick<=200 < both old(480) and new(1200) despawnAtTick, so the single persistent creature path is identical, determinism independent of the value). Full suite 913/913 green, tsc -b clean (exit 0). The two literal 480s in sync.test.ts:372 + save.test.ts:248 are independent serialization fixtures (not lifetime-coupled) -> stayed green untouched. GROK-ANALYST Lite: single gameplay-tuning constant, no logic change, determinism-guarded. checkpoint PENDING_COMMIT.",
       "checkpoint_commit": ""
     },
     {

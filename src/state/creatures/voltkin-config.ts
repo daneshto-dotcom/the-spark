@@ -62,6 +62,7 @@ export interface CreatureConfig {
    * Blueprint Q5; Voltkin = 480 (8 s @ 60 Hz).
    */
   readonly lifetimeTicks: number;
+  /* S58 (#4): Voltkin = 1200 (20 s @ 60 Hz) — 2.5× the original 480/8 s. */
   /**
    * Duration in ticks of the SPAWNING state before SEEKING activates.
    * During SPAWNING the creature is force-free (`computeSteeringAccel`
@@ -112,11 +113,13 @@ export interface CreatureConfig {
 
 /**
  * Voltkin — lightning godly (S22 P3 originator, S25–S28 implementation chain).
- * 8s lifetime, 180px ranged arc, 60-tick attack cycle firing at mid-tick.
+ * S58 (#4): 20s lifetime (was 8s — 2.5× for a longer, more powerful/epic
+ * summon per user playtest call), 180px ranged arc, 60-tick attack cycle
+ * firing at mid-tick → ~18 full attack cycles over the active window.
  */
 export const VOLTKIN_CONFIG: CreatureConfig = {
   type: 'voltkin',
-  lifetimeTicks: 480,
+  lifetimeTicks: 1200,
   spawnTicks: 60,
   despawningTicks: 60,
   fadeTicks: 30,

@@ -521,7 +521,7 @@ describe('applyCreatureTick — S37 P7 CREATURE_CHARGE emit', () => {
       c.state = 'ATTACKING';
       c.ticksInState = 14;
     }
-    // Keep world.tick well below despawnAtTick (=480 since spawn-tick was 0)
+    // Keep world.tick well below despawnAtTick (=1200 since spawn-tick was 0)
     // so step 1 auto-delete doesn't fire pre-emit. Both creatures see the
     // same `targetGoneEarly` abort post-CHARGE-push at ticksInState=15
     // (targetBondId===null), but the CHARGE effects have already been queued.

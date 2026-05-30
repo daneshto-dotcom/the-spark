@@ -90,9 +90,9 @@ export const VOLTKIN_ATTACK_RANGE_SQ = VOLTKIN_CONFIG.attackRange * VOLTKIN_CONF
 /**
  * S27 P0 — total duration of the ATTACKING state in ticks. The creature stays
  * in ATTACKING for this many ticks then transitions back to SEEKING (Council
- * R1 Q5 UNANIMOUS creature-only ⇒ ~7 attacks at 1/sec cadence over the 8s
- * active window — `(VOLTKIN_LIFETIME_TICKS - CREATURE_DESPAWNING_TICKS - CREATURE_SPAWN_TICKS) / VOLTKIN_ATTACK_CADENCE_TICKS = (480-60-60)/60 = 6`
- * full attack cycles, plus ~1 partial). 60 @ 60Hz = 1 second.
+ * R1 Q5 UNANIMOUS creature-only ⇒ ~18 attacks at 1/sec cadence over the 18s
+ * active window (S58 #4 — 2.5× lifetime) — `(VOLTKIN_LIFETIME_TICKS - CREATURE_DESPAWNING_TICKS - CREATURE_SPAWN_TICKS) / VOLTKIN_ATTACK_CADENCE_TICKS = (1200-60-60)/60 = 18`
+ * full attack cycles). 60 @ 60Hz = 1 second.
  */
 export const VOLTKIN_ATTACK_CADENCE_TICKS = VOLTKIN_CONFIG.attackCadenceTicks;
 
