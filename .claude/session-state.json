@@ -1,41 +1,87 @@
 {
-  "tool_calls_session_total": 90,
-  "session_start": "2026-05-30T08:14:00Z",
-  "session_id": "S57",
+  "tool_calls_session_total": 0,
+  "session_start": "2026-05-30T15:00:00Z",
+  "session_id": "S58",
   "session_kind": "execution",
-  "session_note": "S57 -- Fog of War MVP (user directive 'next important thing... fog of war... first thing we'll focus on' + 'work through it thoroughly', 2026-05-30). Standard tier. Client-side cosmetic fog for 1v1: vision = personal radius (R_PERSONAL=300) at LIVE cursor + per-own-primitive beacons (R_BEACON=80, emergent bigger-structure-sees-further) + always-visible spawner zone (r=250); enemy structures concealed until cruised over; fog lifts on WIN (gameState edge) so all see all. Render: Option A RenderTexture visibility mask (Council-converged) -- Canvas2D radial brush -> Texture.from, pooled erase-brush sprites -> RT (clear:true) over world layer, win = local alpha tween. NO new net messages (each peer already has full world.primitives via snapshot). Also raises bundle soft-cap 500->550 KB (resolves S56 P2 carry-forward). OUT: memory-fog (dimmed last-seen) + victory cinematic choreography + authoritative anti-cheat vision-filtering -> carry-forward.",
+  "session_note": "S58 -- batch (user-approved 2026-05-30): 4 fog/netcode fixes + E2E gate repair. P0 restore red E2E gate (Sym I + 2 protocol-mismatch tests build contexts manually and miss the __FOG_DISABLE__ seam open2Peers applies -> fog halves swiftshader sim -> Sym I can't reach freeSparks>=8 in 30s; extract disableFogOn helper). P1 (#1) spark vision radius halved R_PERSONAL 300->150. P2 (#4) Voltkin duration 2.5x lifetimeTicks 480->1200 (active attack ~6s->~18s). P3 (#3) own-creature fog vision: serialize ownerPlayerId in SerializedCreature (additive-optional, killCount precedent) + own-creature beacons in computeVisionSources. P4 (#2) spawner pickup CLAIM: re-activate dormant Carried-spark path (PICKUP_SPARK Free->Carried on LMB-down as authoritative intent + guaranteed release on reject/cancel/disconnect/timeout, the S52 'glued spark' guard) so opponent can't double-grab + sees it attached until it leaves the spawner zone into fog. Council (1 round) covers P3+P4 before their implementation.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
   "tier": "Standard",
-  "council_battle_ledger": "3-way Council R1 (Grok grok-4.20-reasoning t0.3 + Gemini gemini-2.5-pro t0.3) on fog render technique. CONVERGED on Option A (RenderTexture visibility mask) -- both VETO Option B (custom GLSL filter) citing the codebase CinematicLumaKeyFilter silent-compile history (cinematicLumaKey.ts S29 P0); both rank Option C (Graphics-only) poorly (per-frame tessellation/batching cost). CONVERGENT ADOPT: live cursor (not 10Hz avatarPos) for personal vision; mandatory brush-sprite object pool; clear:true non-negotiable (else vision-trail info leak); push testable logic into pure computeVisionSources (vitest), GPU path verified via preview/extract-pixels. PRIME-AUDIT deltas: D1 Gemini .mask polarity inverted as written -> use Grok erase-to-opaque-fog variant; D2 Gemini beginGradientFill/MSAA_QUALITY are Pixi v7 API -> use Canvas2D brush (version-proof); D3 blend-id conflict (BlendMode.ERASE vs BLEND_MODES.DST_OUT) -> EMPIRICALLY RESOLVED Pixi v8.18.1 uses string 'erase' (verified in node_modules/pixi.js/lib); D4 Grok shared-winTimestamp fade -> over-engineered, refuted (host ENDGAME+snapshot sync <~100ms, local tween suffices); D5 Grok spawner-reveals-enemy -> BY DESIGN (Blueprint IX.5 always-visible spawner). Full ledger in PDR.",
-  "prime_audit": "PRIME-AUDIT + Runtime-Verifiability: no rubber-stamp (models CONFLICTED on Pixi v8 API -> forced empirical verification not consensus-trust). D3 blend-mode resolved against installed pixi.js 8.18.1 ('erase' string confirmed). Render approach has a boot-then-smoke gate: 'erase'-in-RT-pass must be verified LIVE in preview (not just tsc) -- documented inverse-.mask fallback if it misbehaves. Vision math is pure+unit-tested (no GPU). Anti-cheat: MVP is cosmetic client-side (peer has full state in memory) -- acceptable per Blueprint XII (authoritative vision-filtering = Phase-3 server work); logged carry-forward. EOS audit pending post-implementation (re-scan unrendered own-prims, RT size/DPI, z-order, blendMode state restore).",
+  "council_battle_ledger": "PENDING -- 3-way Council (1 round) scheduled before P3/P4 implementation (focus: #2 release-semantics + client-prediction reconciliation; #3 creature beacon radius + wire-field).",
+  "prime_audit": "PENDING -- runs post-Council, before P4 implementation.",
   "council_waived": false,
   "council_waiver_reason": null,
-  "triumvirate_check": "Post-ship Triumvirate CHECK (RALPH:PATROL + Grok-analyst grok-4.20 + Gemini-auditor 2.5-pro, t0.3) on the shipped fog. VERDICT: PASS -- no material defects after PRIME-AUDIT vs real source. REFUTED the 2 highest-severity findings: (a) Grok HIGH 'world-vs-screen coord mismatch' -> no camera (world==screen, A.0-confirmed; runtime pixel-test placed beacons at prim.pos + hole at cursor, both correct) -- future-proof note only IF a camera is added; (b) Gemini BLOCKER + Grok MED 'unbounded pool leak across matches' -> correct BOUNDED object pool (reused/repositioned across matches, plateaus session-max ~<=52, surplus visible=false). Also refuted: Grok 'for..in loop' (artifact of summary shorthand; real code indexed for-loop) + Gemini H1 'no fog e2e' (fog.spec.ts tests fog ENABLED w/ pixel assertions). CARRY-FORWARD (all LOW, non-blocking): (1) polish: freeze/snap mask to full-reveal at WIN vs cutouts drifting during the 1s fade; (2) future-proof: vision.ts needs a world->screen transform IF a camera is added; (3) tidy: brush pool grows to session high-water (~<=52, bounded) -- could reset() on RETURN_TO_TITLE; (4) dev-only: destroy() unwired (fine for static single page). Lesson reinforced: verify audit claims against source -- both scariest findings dissolved on inspection.",
+  "triumvirate_check": "PENDING",
   "priorities": [
     {
-      "id": "P1",
-      "label": "S57 P1 -- Fog of War MVP (client-side cosmetic fog: personal+beacon+spawner vision, enemy concealment, fog-lift on win) + bundle soft-cap raise 500->550",
+      "id": "P0",
+      "label": "S58 P0 -- Restore red E2E gate (Sym I + 2 protocol-mismatch tests miss __FOG_DISABLE__; extract disableFogOn helper)",
       "status": "completed",
-      "tier": "Standard",
+      "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "council_waived": false,
+      "council_waived": true,
       "check_completed": true,
-      "check_method": "S57 P1 verified end-to-end (Runtime-Verifiability). VISION MATH (src/state/vision.ts) covered by 19 new unit tests: own-beacon-only enumeration (enemy placedBy excluded), spawner always present, host/client symmetry, personal-at-LIVE-cursor, isPointVisible concealment (enemy far-corner hidden, revealed on cruise-over, spawner-zone enemy visible BY DESIGN per IX.5), solo disabled, win-lift tween (snap-on/fade-off/clamp). 875->894 unit GREEN, tsc -b clean. RENDERER (src/render/fogRenderer.ts) is the un-unit-testable GPU half: RUNTIME-VERIFIED two ways -- (1) preview __SPARK__ pixel-extraction of maskRT: cursor/spawner/own-prim = transparent cutouts [0,0,0,0], enemy base = opaque FOG_COLOR [5,7,13,255], win-fade alpha 1->0.7@0.3s->0 then container.visible=false; (2) e2e/fog.spec.ts (real headless Chromium + swiftshader = same as CI) asserts the same pixel contract deterministically + solo=no-fog. Pixi v8.18.1 'erase' blend + render({container,target,clear}) signature verified against node_modules BEFORE coding (Council models CONFLICTED on the API id -> empirical not consensus-trust). Full e2e: 10 pass / 1 skip (Sym E placeholder) / 1 flaky-recovered (Sym I -- pre-existing 2-peer spark-timing flake, not fog). DEVIATION root-caused by A/B: per-frame full-screen RT pass HALVED the swiftshader sim (Sym A 0 sparks/10s); fixed with half-res mask (MASK_SCALE 0.5) + 20Hz throttle (MASK_RENDER_EVERY 3) [genuine prod perf wins -- mobile battery] + __FOG_DISABLE__ seam for gameplay smokes (fog tested separately by fog.spec). Build OK, bundle 499.99->502.69 KB (under raised 550 cap). Commit b09ac25; push triggers CI/Deploy (billing resolved this session -> fog ships live).",
-      "checkpoint_commit": "b09ac25",
-      "real_context_tokens_at_close": 366218,
-      "real_context_pct_at_close": 36.62
+      "check_method": "S58 P0 verified empirically via garble-proof JSON reporter (the OneDrive path was corrupting cat/tail display): smoke.spec.ts e2e = 11 passed / 0 failed / 1 skipped (Sym E fixme) / 12 total, 1.4m wall (was 6m47s red). Root cause confirmed in source: Sym I + both protocol-mismatch tests build Playwright contexts via browser.newContext() (they need per-context __TEST_WIN_SCORE__ / __TEST_PROTO_VERSION_OVERRIDE__ initscripts BEFORE newPage, which open2Peers cannot inject) -> bypassed open2Peers' __FOG_DISABLE__ seam -> fog rendered ON under swiftshader -> sim ~halved (CI final state tick 368/30s ~12tps vs 60Hz) -> host never reached freeSparks>=8 in 30s -> Sym I exhausted retries -> E2E gate red on master since the S57 fog commit (S57 handoff misattributed it to a pre-existing flake). Fix: extracted disableFogOn(ctx) shared helper; called at all 3 manual-context sites + refactored open2Peers to use it (behavior-identical; all its tests green). RALPH:PATROL PASS: refactor behavior-identical; addInitScript precedes newPage at every site; grep-confirmed these are the ONLY manual-context tests; Sym I assertions (WIN on both peers via ENDGAME) still execute and pass (fog-off only restores sim speed, doesn't weaken the test). tsc -b clean (exit 0). GROK-ANALYST Lite (pure test-harness seam, no app-logic/runtime risk). checkpoint 3f9c2e1.",
+      "checkpoint_commit": "3f9c2e1"
+    },
+    {
+      "id": "P1",
+      "label": "S58 P1 (#1) -- Spark vision radius halved R_PERSONAL 300->150",
+      "status": "in_progress",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": true,
+      "check_completed": false,
+      "check_method": "",
+      "checkpoint_commit": ""
+    },
+    {
+      "id": "P2",
+      "label": "S58 P2 (#4) -- Voltkin duration 2.5x lifetimeTicks 480->1200",
+      "status": "pending",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": true,
+      "check_completed": false,
+      "check_method": "",
+      "checkpoint_commit": ""
+    },
+    {
+      "id": "P3",
+      "label": "S58 P3 (#3) -- Own-creature fog vision (serialize ownerPlayerId + creature beacons in computeVisionSources)",
+      "status": "pending",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": false,
+      "unlock_source": "user",
+      "council_waived": false,
+      "check_completed": false,
+      "check_method": "",
+      "checkpoint_commit": ""
+    },
+    {
+      "id": "P4",
+      "label": "S58 P4 (#2) -- Spawner pickup claim (no double-grab + see-it-attached; re-activate Carried path with guaranteed release)",
+      "status": "pending",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": false,
+      "unlock_source": "user",
+      "council_waived": false,
+      "check_completed": false,
+      "check_method": "",
+      "checkpoint_commit": ""
     }
   ],
   "reflexion_entries_to_archive": [
-    "S57 #fog-render-pass-throttle-the-low-frequency-mask -- Fog of War MVP shipped (commit b09ac25): a client-side RenderTexture 'erase'-mask -- opaque dark base minus soft radial-gradient cutouts at the local player's vision sources (personal radius @ LIVE cursor + per-own-primitive beacons + always-visible spawner), composed offscreen each frame and shown over the world layer; WIN lifts it via an alpha tween. Two non-obvious lessons: (1) RUNTIME-VERIFY the GPU path, not just tsc -- the two Council models CONFLICTED on the Pixi v8 blend-mode id (BlendMode.ERASE vs BLEND_MODES.DST_OUT); the truth (string 'erase') came only from grepping node_modules/pixi.js, and the mask only proved correct via maskRT pixel-extraction (cursor=transparent, enemy=opaque FOG_COLOR [5,7,13]). Static parse != runtime. (2) A per-frame full-screen render-to-texture pass nearly HALVED the sim under software WebGL (swiftshader CI) -> the spawn-timing 2-peer smokes failed (Sym A: 0 sparks/10s). A/B (fog on->off flips it green) root-caused it. Fix = compose the LOW-FREQUENCY mask cheaply: half-res (0.5) + 20Hz throttle (every 3rd frame; alpha tween stays per-frame so win-lift is smooth) = ~12x less cost, a real win on mobile too; plus a __FOG_DISABLE__ e2e seam so gameplay smokes (which test gameplay, not fog) are isolated from render-layer cost, fog itself covered by e2e/fog.spec.ts. Lesson: a new always-on render layer must be (a) runtime-pixel-verified and (b) frequency/resolution-budgeted -- the swiftshader e2e harness is the canary for per-frame GPU cost that real-GPU dev never feels.",
-    "SESSION #s57-fog-of-war-mvp-shipped -- Resolved the S56 git block first (billing fixed by user -> pushed 7 commits, S56 P1 attract-drag deployed live, Deploy GREEN 47s). Then built Fog of War MVP (user's #1 ask): client-side cosmetic fog for 1v1; vision = personal radius @ live cursor + per-own-primitive beacons + always-visible spawner; enemy concealed until scouted; fog lifts on WIN (reveal-all). A.0 state-discovery via 4 parallel Explore agents de-risked it (no camera = world==screen coords; clients already hold full world.primitives -> zero net messages; WIN wired via ENDGAME; R_PERSONAL/R_BEACON/VISION_FADE_PX pre-stubbed). 3-way Council (Grok+Gemini t0.3) CONVERGED Option A (RenderTexture mask), both VETO Option B GLSL (CinematicLumaKeyFilter silent-compile history). PRIME-AUDIT resolved 5 deltas incl. empirical Pixi v8 'erase' verification + refuted Gemini's v7 Graphics-gradient API. Shipped src/state/vision.ts (+19 tests) + src/render/fogRenderer.ts + e2e/fog.spec.ts; 875->894 unit + full e2e (10 pass/1 skip/1 flaky-recovered) green; bundle 499.99->502.69 KB (cap raised 500->550, closing S56 P2 carry-forward). Perf deviation (swiftshader) handled with half-res + 20Hz throttle + __FOG_DISABLE__ test seam. Commit b09ac25. Context 36.6% GREEN. API ~$0.04.",
-    "S56 #client-prediction-was-never-run-not-just-clobbered -- the Player-2 'dragged shape frozen at spawn then teleports' bug was a TWO-gap half-wired mechanism, mirroring S55's errorLatched. The S52 dragLock (skip the dragged spark in snapshot interpolation) was built to PRESERVE a client-side AttractDrag prediction -- but the prediction was never PRODUCED: applyPerSubstep (stepAttractLerp) lived only inside stepPhysics, which is host/solo-gated, so the client never ran it (GAP1). And even once produced, applySnapshotCore's clear+rebuild resets the dragged spark every 10Hz because the dragLock only guarded interpolatePositions, not the full apply (GAP2). Lesson: when a guard/preserve mechanism exists but the symptom persists, check whether the value it guards is actually being PRODUCED end-to-end -- a preserve around a never-generated value is invisible to unit+tsc+Council; only the real-peer E2E proves the produce+preserve chain. Fix reused the host's exact applyPerSubstep (identical feel, zero dup) + completed the dragLock with a preserve/restore around applyNetSnapshot. Verified by a new 2-peer e2e (Sym G) asserting the held-drag spark tracks the cursor + 4 unit guards.",
-    "S56 #anti-bloat-extraction-breaches-the-cap-it-protects -- P2 (anti-bloat trim) DEFERRED after empirical discovery: the build sits at 499.99/500 KB and extraction ADDS ~0.3 KB module overhead (S19 precedent), so the planned trim would push the bundle OVER the soft cap it exists to protect. 'Anti-bloat trim' conflates two metrics -- per-file LOC (§XV, extraction helps) vs shipped bundle KB (only deletion helps). At-cap, extraction is counterproductive. Real headroom = a dedicated deletion/dependency pass when a feature needs it, or raise the soft cap. Lesson: verify which metric a 'trim' actually moves before executing -- the handoff's 'trim main.ts for headroom' framing was a category error (LOC vs KB), surfaced at session start and confirmed at-cap here.",
-    "SESSION #s56-shipped-p1-attract-drag-parity-deferred-p2 -- P1 (URGENT playtest bug) client AttractDrag self-view prediction SHIPPED + verified (commit e51124e; unit 871->875; new 2-peer e2e Sym G joiner-follow + full smoke 9pass/1skip; tsc clean; bundle 499.61->499.99 KB). Two-gap half-wired fix: the client never ran applyPerSubstep (stepPhysics is host-gated) AND the S52 dragLock didn't shield applySnapshotCore's 10Hz rebuild. 3-way Council (Grok+Gemini both REVISE->addressed); PRIME-AUDIT refuted 2 Grok claims (cadence-overshoot, prevPos-pop) with evidence. P2 (anti-bloat) DEFERRED -- extraction would breach the at-cap bundle. NOT pushed: GitHub Actions billing still blocks CI/Deploy (user action pending) -> P1 verified locally, not yet live. Context ~33% GREEN. API ~$0.04."
+    "S58 #manual-context-tests-bypass-shared-seam -- The S57 fog __FOG_DISABLE__ e2e seam was added inside open2Peers, but the 3 tests that build Playwright contexts by hand (Sym I + 2 protocol-mismatch -- they need per-context initscripts BEFORE newPage, which open2Peers cannot inject) silently bypassed it -> fog stayed ON under swiftshader -> sim ~halved -> Sym I red on master for the whole S57->S58 gap, while the S57 handoff/CHECK called it a 'pre-existing flake, not fog.' Lesson: a guard added to ONE setup path does not cover sibling paths that opt out of that path; when a seam exists but the symptom persists, enumerate ALL construction sites (grep browser.newContext), not just the shared helper. Same bug-class as S56 (a preserve mechanism wrapped around a value that was never produced). Fix = extract disableFogOn(ctx) shared helper called at every manual-context site. Two meta-lessons: (1) trust the CI signal over handoff prose -- gh run list showed E2E went red EXACTLY at the fog commit (green S51-S56), the mechanistic tell the handoff ignored; (2) the OneDrive working-dir path intermittently garbled cat/tail/grep output (showed 9 passed when 11 actually passed) -> use a JSON reporter parsed in node for garble-proof ground truth before committing a CHECK."
   ],
   "budget_total": 1000000,
   "totals": {
@@ -44,7 +90,7 @@
     "budget_status": "statusline_dead"
   },
   "auto_fill_applied": {
-    "ts": "2026-05-29T21:42:00Z",
+    "ts": "2026-05-30T15:00:00Z",
     "fields": [
       "budget_total",
       "totals"
