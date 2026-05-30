@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 76,
+  "tool_calls_session_total": 79,
   "session_start": "2026-05-30T15:00:00Z",
   "session_id": "S58",
   "session_kind": "execution",
@@ -63,8 +63,8 @@
       "unlock_source": "user",
       "council_waived": false,
       "check_completed": true,
-      "check_method": "S58 P3 (#3) verified: own creatures now reveal fog around them so the player can watch their Voltkin fight. Wire: added ownerPlayerId to SerializedCreature as additive-optional (always-emit since 0 is a valid owner; deserialize ??0 for pre-S58) -- the FIRST client-side consumer of creature ownership (was deliberately omitted \"host runs FSM, client renders\" since S28). vision.ts computeVisionSources now appends one R_CREATURE_VISION(120px, Council-converged) source per creature where ownerPlayerId===localPlayerId; enemy creatures excluded (concealment preserved). CHECK (RALPH + replay-determinism + Triumvirate-aligned): tsc -b clean; vision.test.ts 19->23 (+4: own-creature emitted, enemy excluded, roaming-reveal w/ radius boundary, player-1 symmetry); FULL SUITE 898/898 via JSON reporter (the list-reporter \"894\" was the documented OneDrive output-garble) INCLUDING save.replay.test.ts byte-exact determinism (D2 trap refuted -- two host snapshots both carry real ownerPlayerId, always-emit stays identical) + save.test.ts creature fixtures + sync.test.ts. Directly fixes the user scenario: host (playerId 0) summons Voltkin (ownerPlayerId 0) -> beacon added (0===localPlayerId 0) -> reveals as it marches into enemy territory. Determinism-safe, own-only (no fog-of-war integrity leak). checkpoint PENDING_COMMIT.",
-      "checkpoint_commit": "PENDING_COMMIT"
+      "check_method": "S58 P3 (#3) verified: own creatures now reveal fog around them so the player can watch their Voltkin fight. Wire: added ownerPlayerId to SerializedCreature as additive-optional (always-emit since 0 is a valid owner; deserialize ??0 for pre-S58) -- the FIRST client-side consumer of creature ownership (was deliberately omitted \"host runs FSM, client renders\" since S28). vision.ts computeVisionSources now appends one R_CREATURE_VISION(120px, Council-converged) source per creature where ownerPlayerId===localPlayerId; enemy creatures excluded (concealment preserved). CHECK (RALPH + replay-determinism + Triumvirate-aligned): tsc -b clean; vision.test.ts 19->23 (+4: own-creature emitted, enemy excluded, roaming-reveal w/ radius boundary, player-1 symmetry); FULL SUITE 898/898 via JSON reporter (the list-reporter \"894\" was the documented OneDrive output-garble) INCLUDING save.replay.test.ts byte-exact determinism (D2 trap refuted -- two host snapshots both carry real ownerPlayerId, always-emit stays identical) + save.test.ts creature fixtures + sync.test.ts. Directly fixes the user scenario: host (playerId 0) summons Voltkin (ownerPlayerId 0) -> beacon added (0===localPlayerId 0) -> reveals as it marches into enemy territory. Determinism-safe, own-only (no fog-of-war integrity leak). checkpoint 8a09f4e.",
+      "checkpoint_commit": "8a09f4e"
     },
     {
       "id": "P4",
