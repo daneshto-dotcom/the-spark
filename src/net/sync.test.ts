@@ -777,6 +777,80 @@ describe('S52 P1 Council C4 — interpolatePositions dragLockedSparkId opt-out',
   });
 });
 
+describe('S56 P1 — interpolateInto preserves the drag-locked spark across snapshot rebuild (GAP 2)', () => {
+  // The S52 dragLock above only opts the spark out of the position LERP
+  // (interpolatePositions). It does NOT shield applyNetSnapshot/applySnapshotCore,
+  // which does world.freeSparks.clear() + rebuild-each-spark-as-a-new-object-at-
+  // snapshot-pos on every needsFullApply. Without S56's preserve/restore, the
+  // joiner's locally-predicted dragged spark is reset to its host-authoritative
+  // spawn pos on every snapshot (10Hz) → sawtooth jitter. These tests pin the
+  // preserve/restore + the Council-mandated interruption guards (spark absent /
+  // no longer Free → no throw, no stale restore).
+  const SPARK = asSparkId(42);
+  const SPAWN = { x: 960, y: 540 };   // host-authoritative spawn pos
+  const DRAGGED = { x: 300, y: 200 }; // where the client's local prediction moved it
+
+  function seed(): { host: ReturnType<typeof makeWorld>; client: ReturnType<typeof makeWorld>; c: ClientSync } {
+    const host = makeWorld(0);
+    host.freeSparks.set(SPARK, {
+      id: SPARK,
+      type: SparkType.Dot,
+      pos: { ...SPAWN },
+      prevPos: { ...SPAWN },
+      state: { kind: 'Free' },
+      radius: 8,
+      createdTick: 0,
+    });
+    const client = makeWorld(0);
+    const c = new ClientSync();
+    // Apply the first snapshot so the client world holds the spark at spawn.
+    c.receive(mkSnapMsg(1, netSnapshot(host)), 0);
+    c.interpolateInto(client, 0, 100); // first apply, no lerp (prevSnap null)
+    return { host, client, c };
+  }
+
+  it('keeps the predicted pos when a fresh snapshot would otherwise reset it to spawn', () => {
+    const { host, client, c } = seed();
+    // Local prediction (applyPerSubstep on the client) moved it off spawn.
+    client.freeSparks.get(SPARK)!.pos = { ...DRAGGED };
+    client.freeSparks.get(SPARK)!.prevPos = { ...DRAGGED };
+    // Host emits another snapshot — spark STILL at spawn (host can't see the drag).
+    c.receive(mkSnapMsg(2, netSnapshot(host)), 16);
+    c.interpolateInto(client, 16, 100, SPARK); // dragLock set
+    expect(client.freeSparks.get(SPARK)!.pos).toEqual(DRAGGED);
+    expect(client.freeSparks.get(SPARK)!.prevPos).toEqual(DRAGGED);
+  });
+
+  it('WITHOUT the dragLock, the same snapshot resets the spark to spawn (witnesses the bug)', () => {
+    const { host, client, c } = seed();
+    client.freeSparks.get(SPARK)!.pos = { ...DRAGGED };
+    c.receive(mkSnapMsg(2, netSnapshot(host)), 16);
+    c.interpolateInto(client, 16, 100); // no dragLock → not shielded
+    expect(client.freeSparks.get(SPARK)!.pos).toEqual(SPAWN);
+  });
+
+  it('does not throw and ends the drag when the locked spark is ABSENT from the new snapshot (host despawn)', () => {
+    const { host, client, c } = seed();
+    client.freeSparks.get(SPARK)!.pos = { ...DRAGGED };
+    host.freeSparks.delete(SPARK); // host despawned it (free-spark cap)
+    c.receive(mkSnapMsg(2, netSnapshot(host)), 16);
+    expect(() => c.interpolateInto(client, 16, 100, SPARK)).not.toThrow();
+    // Gone from the client world too → the next applyPerSubstep null-check ends the drag.
+    expect(client.freeSparks.has(SPARK)).toBe(false);
+  });
+
+  it('does not restore (and does not throw) when the spark is no longer Free in the new snapshot (grabbed)', () => {
+    const { host, client, c } = seed();
+    client.freeSparks.get(SPARK)!.pos = { ...DRAGGED };
+    host.freeSparks.get(SPARK)!.state = { kind: 'Carried', carrierId: asPlayerId(0) };
+    c.receive(mkSnapMsg(2, netSnapshot(host)), 16);
+    expect(() => c.interpolateInto(client, 16, 100, SPARK)).not.toThrow();
+    const s = client.freeSparks.get(SPARK)!;
+    expect(s.state.kind).toBe('Carried');
+    expect(s.pos).toEqual(SPAWN); // not-Free → restore skipped → authoritative pos wins
+  });
+});
+
 describe('Audit Pass 1 e698a17a — interpolateInto guards applyNetSnapshot throw', () => {
   it('swallows applyNetSnapshot throw on bond → missing primitive and leaves needsFullApply=true', () => {
     const w = makeWorld(0);

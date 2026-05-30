@@ -120,6 +120,31 @@ export class ClientSync {
       // state if the throw happened mid-bonds-loop (applySnapshotCore clears
       // Maps before re-populating); subsequent snapshots will fully rebuild,
       // so any visible glitch is single-frame.
+      //
+      // S56 P1 (GAP 2) — preserve the locally-dragged spark across the full
+      // snapshot rebuild. applySnapshotCore does world.freeSparks.clear() then
+      // recreates EVERY spark as a NEW object at its snapshot (spawn) position
+      // (save.ts). The dragLock below only makes interpolatePositions SKIP the
+      // lerp — it does NOT shield this clear+rebuild, so without preservation
+      // the joiner's dragged spark snaps back to spawn on every snapshot (10Hz)
+      // → sawtooth jitter. Capture pos+prevPos before the rebuild, write them
+      // back after, so the dragged spark's position is fully client-owned for
+      // the gesture (completing S52 P1's dragLock intent). Restore is guarded:
+      // only if the spark is still present AND still Free in the new snapshot —
+      // if the host despawned / grabbed / consumed it, the restore is skipped
+      // and the next controls.applyPerSubstep null/!Free check ends the drag
+      // cleanly (Council Gemini-A/D → no crash). prevPos is render-inert on the
+      // client (no client verlet; Council GROK#6b refuted) but preserved for
+      // state hygiene.
+      let lockedPos: { x: number; y: number } | null = null;
+      let lockedPrev: { x: number; y: number } | null = null;
+      if (dragLockedSparkId !== undefined) {
+        const locked = world.freeSparks.get(dragLockedSparkId);
+        if (locked !== undefined) {
+          lockedPos = { x: locked.pos.x, y: locked.pos.y };
+          lockedPrev = { x: locked.prevPos.x, y: locked.prevPos.y };
+        }
+      }
       try {
         applyNetSnapshot(this.currentSnap, world);
         this.needsFullApply = false;
@@ -130,6 +155,15 @@ export class ClientSync {
           err instanceof Error ? err.message : String(err),
         );
         return;
+      }
+      if (lockedPos !== null && lockedPrev !== null && dragLockedSparkId !== undefined) {
+        const locked = world.freeSparks.get(dragLockedSparkId);
+        if (locked !== undefined && locked.state.kind === 'Free') {
+          locked.pos.x = lockedPos.x;
+          locked.pos.y = lockedPos.y;
+          locked.prevPos.x = lockedPrev.x;
+          locked.prevPos.y = lockedPrev.y;
+        }
       }
     }
 

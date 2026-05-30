@@ -28,6 +28,7 @@ import {
   NET_INTERPOLATION_MS,
   NET_SNAPSHOT_HZ,
   PHYSICS_HZ,
+  PHYSICS_SUBSTEPS,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
@@ -455,6 +456,24 @@ async function bootstrap(): Promise<void> {
       if (world.gameState === 'PLAYING' && !isClient) {
         stepPhysics(world, spawner, grid, controls);
       } else {
+        // S56 P1 (GAP 1) — client-side AttractDrag prediction. The client runs
+        // no authoritative physics, but it MUST run the local attract-follow so
+        // the joiner's dragged free spark tracks their cursor identically to the
+        // host. Root cause of the playtest "shape frozen at spawn then teleports
+        // on release" report: applyPerSubstep (the stepAttractLerp follow) lived
+        // ONLY inside stepPhysics(), which is !isClient-gated — so it never ran
+        // on the client. Mirror the host's PHYSICS_SUBSTEPS cadence INSIDE this
+        // same accumulator-bounded tick loop (dtSec is clamped to 0.05 above →
+        // ≤3 ticks/frame, identical to the host → no frame-rate overshoot;
+        // Council GROK#3 refuted via the clamp). applyPerSubstep is the exact
+        // host code path; its null/!Free spark guard (controls.ts) ends the drag
+        // cleanly if the host despawns/grabs/consumes the spark mid-gesture
+        // (Council edge R2 / Gemini-D). GAP 2 — the 10Hz snapshot rebuild
+        // resetting the dragged spark to spawn — is closed in
+        // ClientSync.interpolateInto (sync.ts preserve/restore).
+        if (world.gameState === 'PLAYING' && isClient) {
+          for (let i = 0; i < PHYSICS_SUBSTEPS; i++) controls.applyPerSubstep();
+        }
         world.tick++;
       }
       tickGameState(world, gameStateExtras, P1);

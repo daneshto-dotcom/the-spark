@@ -140,6 +140,84 @@ test.describe('Sym A — joiner single-action LMB-place (GREEN post-S46 P2)', ()
   });
 });
 
+test.describe('Sym G — joiner AttractDrag live-follow (S56 P1: client-prediction parity)', () => {
+  test('Joiner dragged spark tracks the cursor mid-drag (not frozen at spawn)', async ({ browser }) => {
+    const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
+    try {
+      await applyTestSpawnRate(hostCtx, joinerCtx);
+      const code = await hostNewRoom(hostPage);
+      await joinRoom(joinerPage, code);
+      await waitForWorld(hostPage, (w) => w.peerCount >= 1, 'peers connected');
+      const beginBtn = await canvasToCss(hostPage, CANVAS_WIDTH / 2, 814);
+      await hostPage.mouse.click(beginBtn.x, beginBtn.y);
+      await waitForWorld(hostPage, (w) => w.gameState === 'PLAYING', 'PLAYING on host');
+      await waitForWorld(joinerPage, (w) => w.gameState === 'PLAYING', 'PLAYING on joiner');
+
+      // Confirm the joiner really is the network client (the path that was broken).
+      const j0 = await readWorldState(joinerPage);
+      expect(j0.isHost).toBe(false);
+
+      // Find a Free spark inside the spawner pick-zone on the joiner.
+      await waitForWorld(joinerPage, (w) => w.freeSparks.length >= 3, 'sparks on joiner', 10_000);
+      const SPAWN_CX = CANVAS_WIDTH / 2;
+      const SPAWN_CY = CANVAS_HEIGHT / 2;
+      const picked = (await readWorldState(joinerPage)).freeSparks.find((s) => {
+        const dx = s.pos.x - SPAWN_CX;
+        const dy = s.pos.y - SPAWN_CY;
+        return s.state.kind === 'Free' && dx * dx + dy * dy < 200 * 200;
+      });
+      expect(picked, 'a Free spark exists in the joiner spawner zone').toBeTruthy();
+      const sparkId = picked!.id;
+
+      // Begin AttractDrag: press on the spark and drag toward (1500, 400)
+      // WITHOUT releasing. The proof is the held-state position.
+      const TARGET_X = 1500;
+      const TARGET_Y = 400;
+      const startCss = await canvasToCss(joinerPage, picked!.pos.x, picked!.pos.y);
+      const endCss = await canvasToCss(joinerPage, TARGET_X, TARGET_Y);
+      await joinerPage.mouse.move(startCss.x, startCss.y);
+      await joinerPage.mouse.down({ button: 'left' });
+      try {
+        for (let t = 1; t <= 10; t++) {
+          await joinerPage.mouse.move(
+            startCss.x + (endCss.x - startCss.x) * (t / 10),
+            startCss.y + (endCss.y - startCss.y) * (t / 10),
+          );
+          await joinerPage.waitForTimeout(20);
+        }
+        // THE PROOF (GAP 1): while still held, the joiner's predicted spark must
+        // have FOLLOWED the cursor to near the target. Pre-S56 the client never
+        // ran applyPerSubstep, so the spark stayed frozen at spawn-center and
+        // this poll would time out. (GAP 2 is exercised too: the dragLock +
+        // preserve/restore keep the predicted pos across the 10Hz snapshots.)
+        await waitForWorld(
+          joinerPage,
+          (w) => {
+            const s = w.freeSparks.find((fs) => fs.id === sparkId);
+            return (
+              s !== undefined &&
+              Math.abs(s.pos.x - TARGET_X) < 150 &&
+              Math.abs(s.pos.y - TARGET_Y) < 150
+            );
+          },
+          `joiner dragged spark ${sparkId} tracked the cursor to ~(${TARGET_X}, ${TARGET_Y})`,
+          6_000,
+        );
+        // And it is decisively AWAY from spawn-center (~558px to the target),
+        // i.e. not the frozen-at-spawn regression.
+        const held = await readWorldState(joinerPage);
+        const s = held.freeSparks.find((fs) => fs.id === sparkId)!;
+        expect(Math.hypot(s.pos.x - SPAWN_CX, s.pos.y - SPAWN_CY)).toBeGreaterThan(300);
+      } finally {
+        await joinerPage.mouse.up({ button: 'left' });
+      }
+    } finally {
+      await hostCtx.close();
+      await joinerCtx.close();
+    }
+  });
+});
+
 test.describe('Sym C — joiner self-bond (GREEN post-S46 P2+P3+P4)', () => {
   test('Joiner can bond own primitives', async ({ browser }) => {
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
