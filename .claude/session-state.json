@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 0,
+  "tool_calls_session_total": 8,
   "session_start": "2026-05-30T08:14:00Z",
   "session_id": "S56",
   "session_kind": "execution",
@@ -31,17 +31,20 @@
     {
       "id": "P2",
       "label": "S56 P2 -- anti-bloat per-file LOC trim (audioManager.ts 982 + main.ts ~921, behavior-preserving extraction)",
-      "status": "in_progress",
+      "status": "deferred",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
-      "check_completed": false
+      "check_completed": false,
+      "deferral_reason": "User-approved defer (2026-05-30). Empirical finding: build sits at 499.99/500 KB and extraction ADDS ~0.3 KB module overhead (S19 precedent), so the planned LOC-trim would push the bundle OVER the soft cap it exists to protect. Extraction helps per-file LOC (\u00a7XV) but is bundle-neutral-to-positive; only code DELETION reclaims KB, and the codebase was dead-code-audited 3x (S30/33/34) -> low yield. Carry-forward: a dedicated dead-code/dependency-deletion pass when a feature actually needs headroom, OR raise the soft cap; NOT a blind extraction at-cap."
     }
   ],
   "reflexion_entries_to_archive": [
-    "S56 #client-prediction-was-never-run-not-just-clobbered -- the Player-2 'dragged shape frozen at spawn then teleports' bug was a TWO-gap half-wired mechanism, mirroring S55's errorLatched. The S52 dragLock (skip the dragged spark in snapshot interpolation) was built to PRESERVE a client-side AttractDrag prediction -- but the prediction was never PRODUCED: applyPerSubstep (stepAttractLerp) lived only inside stepPhysics, which is host/solo-gated, so the client never ran it (GAP1). And even once produced, applySnapshotCore's clear+rebuild resets the dragged spark every 10Hz because the dragLock only guarded interpolatePositions, not the full apply (GAP2). Lesson: when a guard/preserve mechanism exists but the symptom persists, check whether the value it guards is actually being PRODUCED end-to-end -- a preserve around a never-generated value is invisible to unit+tsc+Council; only the real-peer E2E proves the produce+preserve chain. Fix reused the host's exact applyPerSubstep (identical feel, zero dup) + completed the dragLock with a preserve/restore around applyNetSnapshot. Verified by a new 2-peer e2e (Sym G) asserting the held-drag spark tracks the cursor + 4 unit guards."
+    "S56 #client-prediction-was-never-run-not-just-clobbered -- the Player-2 'dragged shape frozen at spawn then teleports' bug was a TWO-gap half-wired mechanism, mirroring S55's errorLatched. The S52 dragLock (skip the dragged spark in snapshot interpolation) was built to PRESERVE a client-side AttractDrag prediction -- but the prediction was never PRODUCED: applyPerSubstep (stepAttractLerp) lived only inside stepPhysics, which is host/solo-gated, so the client never ran it (GAP1). And even once produced, applySnapshotCore's clear+rebuild resets the dragged spark every 10Hz because the dragLock only guarded interpolatePositions, not the full apply (GAP2). Lesson: when a guard/preserve mechanism exists but the symptom persists, check whether the value it guards is actually being PRODUCED end-to-end -- a preserve around a never-generated value is invisible to unit+tsc+Council; only the real-peer E2E proves the produce+preserve chain. Fix reused the host's exact applyPerSubstep (identical feel, zero dup) + completed the dragLock with a preserve/restore around applyNetSnapshot. Verified by a new 2-peer e2e (Sym G) asserting the held-drag spark tracks the cursor + 4 unit guards.",
+    "S56 #anti-bloat-extraction-breaches-the-cap-it-protects -- P2 (anti-bloat trim) DEFERRED after empirical discovery: the build sits at 499.99/500 KB and extraction ADDS ~0.3 KB module overhead (S19 precedent), so the planned trim would push the bundle OVER the soft cap it exists to protect. 'Anti-bloat trim' conflates two metrics -- per-file LOC (\u00a7XV, extraction helps) vs shipped bundle KB (only deletion helps). At-cap, extraction is counterproductive. Real headroom = a dedicated deletion/dependency pass when a feature needs it, or raise the soft cap. Lesson: verify which metric a 'trim' actually moves before executing -- the handoff's 'trim main.ts for headroom' framing was a category error (LOC vs KB), surfaced at session start and confirmed at-cap here.",
+    "SESSION #s56-shipped-p1-attract-drag-parity-deferred-p2 -- P1 (URGENT playtest bug) client AttractDrag self-view prediction SHIPPED + verified (commit e51124e; unit 871->875; new 2-peer e2e Sym G joiner-follow + full smoke 9pass/1skip; tsc clean; bundle 499.61->499.99 KB). Two-gap half-wired fix: the client never ran applyPerSubstep (stepPhysics is host-gated) AND the S52 dragLock didn't shield applySnapshotCore's 10Hz rebuild. 3-way Council (Grok+Gemini both REVISE->addressed); PRIME-AUDIT refuted 2 Grok claims (cadence-overshoot, prevPos-pop) with evidence. P2 (anti-bloat) DEFERRED -- extraction would breach the at-cap bundle. NOT pushed: GitHub Actions billing still blocks CI/Deploy (user action pending) -> P1 verified locally, not yet live. Context ~33% GREEN. API ~$0.04."
   ],
   "budget_total": 1000000,
   "totals": {

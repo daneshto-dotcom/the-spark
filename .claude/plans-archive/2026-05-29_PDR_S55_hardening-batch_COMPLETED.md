@@ -1,5 +1,7 @@
 # PDR — S55 Hardening Batch (test/infra coverage for S52–S54 netcode)
 
+**STATUS: COMPLETED** — all 3 priorities shipped + verified (P1 fb11fc0, P2 975ba5a, P3 072ec44). Unit 842→871, bundle 499.61 KB, CHECK Triumvirate SHIP. NOTE: P3 CI/Deploy blocked by a GitHub account billing issue (P1+P2 CI GREEN; P3 verified locally, not deployed — behavior-preserving so no user impact).
+
 - **Session:** S55
 - **Date:** 2026-05-29
 - **Tier:** Standard (10–30K) — 1-round 3-way Council + Battle Ledger. **Escalation clause:** if R1 surfaces a convergent BLOCKER or fails to converge, escalate to Full (R2 + quality gate). Borderline estimate (~28–32K) justifies the clause; precedent = S54 (2-priority Standard 1-round, comparable surgical scope).
