@@ -71,6 +71,7 @@ import { drainAudioEffects, initAudio, isMuted, playMusic, toggleMute } from './
 // inside teardownNet (extracted to src/net/session.ts). No direct main.ts
 // import required.
 import { EffectsRenderer } from './render/effectsRenderer.ts';
+import { FogRenderer } from './render/fogRenderer.ts';
 import { LobbyScreen } from './render/lobbyScreen.ts';
 import { SparkRenderer, makeLegend, makeSpawnerRing } from './render/renderer.ts';
 import { createSettingsOverlay } from './render/settingsOverlay.ts';
@@ -262,6 +263,13 @@ async function bootstrap(): Promise<void> {
   // controls.cursor lag-free; remote = world.players[id].avatarPos snapshot-
   // driven). Battle Ledger C3 + C10.
   const avatarRenderer = new AvatarRenderer(app);
+  // S57 P1 — fog of war. Constructed AFTER avatarRenderer so its container sits
+  // ABOVE the avatars (the enemy avatar glow is fogged until scouted; the local
+  // avatar stays revealed at the centre of its own personal-vision cutout) and
+  // BEFORE the HUD (the HUD is never fogged). Active only in 1v1 PLAYING; lifts
+  // on WIN. Client-side cosmetic only — no network messages (each peer already
+  // holds the full world.primitives via snapshot).
+  const fogRenderer = new FogRenderer(app);
   const hud = new HUD(app);
   const stats = new StatsOverlay(app);
   const grid = new SpatialGrid(SPATIAL_CELL_SIZE);
@@ -349,6 +357,7 @@ async function bootstrap(): Promise<void> {
       get netTransport(): NetTransport | null { return session.netTransport; },
       get lobbyScreen() { return lobbyScreen; },
       get titleScreen() { return titleScreen; },
+      get fogRenderer() { return fogRenderer; },
       app,
     };
   }
@@ -901,6 +910,9 @@ async function bootstrap(): Promise<void> {
     if (debugOverlay !== null) debugOverlay.sync(world, debugProbes);
     effectsRenderer.sync(world);
     avatarRenderer.sync(world, controls);
+    // S57 P1 — fog mask. Live cursor = personal-vision centre (lag-free);
+    // ticker.deltaMS drives the win-lift fade. Cheap no-op in solo / once lifted.
+    fogRenderer.sync(world, controls.cursor, app.ticker.deltaMS / 1000);
     hud.sync(world);
     stats.recordWorld(world, effectsRenderer.activeCount);
     stats.recordFrame(world.freeSparks.size + world.primitives.size);

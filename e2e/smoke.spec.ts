@@ -60,6 +60,17 @@ async function open2Peers(browser: import('@playwright/test').Browser): Promise<
 }> {
   const hostCtx = await browser.newContext();
   const joinerCtx = await browser.newContext();
+  // S57 — disable fog of war in the 2-peer gameplay smoke specs. Fog is a
+  // render-only layer (verified separately by e2e/fog.spec.ts); its extra
+  // per-frame render pass slows the software-WebGL (swiftshader) sim enough to
+  // perturb the spawn-timing windows these specs assert against. Mirror of the
+  // __TEST_SPAWN_RATE__ / __TEST_WIN_SCORE__ seams; must run before the bundle
+  // loads, hence addInitScript.
+  const disableFog = (): void => {
+    (window as { __FOG_DISABLE__?: boolean }).__FOG_DISABLE__ = true;
+  };
+  await hostCtx.addInitScript(disableFog);
+  await joinerCtx.addInitScript(disableFog);
   const hostPage = await hostCtx.newPage();
   const joinerPage = await joinerCtx.newPage();
   return { hostCtx, hostPage, joinerCtx, joinerPage };
