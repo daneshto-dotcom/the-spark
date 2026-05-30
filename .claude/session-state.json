@@ -24,26 +24,26 @@
       "unlock_source": "user",
       "council_waived": true,
       "check_completed": true,
-      "check_method": "S58 P0 verified empirically via garble-proof JSON reporter (the OneDrive path was corrupting cat/tail display): smoke.spec.ts e2e = 11 passed / 0 failed / 1 skipped (Sym E fixme) / 12 total, 1.4m wall (was 6m47s red). Root cause confirmed in source: Sym I + both protocol-mismatch tests build Playwright contexts via browser.newContext() (they need per-context __TEST_WIN_SCORE__ / __TEST_PROTO_VERSION_OVERRIDE__ initscripts BEFORE newPage, which open2Peers cannot inject) -> bypassed open2Peers' __FOG_DISABLE__ seam -> fog rendered ON under swiftshader -> sim ~halved (CI final state tick 368/30s ~12tps vs 60Hz) -> host never reached freeSparks>=8 in 30s -> Sym I exhausted retries -> E2E gate red on master since the S57 fog commit (S57 handoff misattributed it to a pre-existing flake). Fix: extracted disableFogOn(ctx) shared helper; called at all 3 manual-context sites + refactored open2Peers to use it (behavior-identical; all its tests green). RALPH:PATROL PASS: refactor behavior-identical; addInitScript precedes newPage at every site; grep-confirmed these are the ONLY manual-context tests; Sym I assertions (WIN on both peers via ENDGAME) still execute and pass (fog-off only restores sim speed, doesn't weaken the test). tsc -b clean (exit 0). GROK-ANALYST Lite (pure test-harness seam, no app-logic/runtime risk). checkpoint 3f9c2e1.",
-      "checkpoint_commit": "3f9c2e1"
+      "check_method": "S58 P0 verified empirically via garble-proof JSON reporter (the OneDrive path was corrupting cat/tail display): smoke.spec.ts e2e = 9 passed / 0 failed / 1 skipped (Sym E fixme) / 10 total, 1.4m wall (was 6m47s red). Root cause confirmed in source: Sym I + both protocol-mismatch tests build Playwright contexts via browser.newContext() (they need per-context __TEST_WIN_SCORE__ / __TEST_PROTO_VERSION_OVERRIDE__ initscripts BEFORE newPage, which open2Peers cannot inject) -> bypassed open2Peers' __FOG_DISABLE__ seam -> fog rendered ON under swiftshader -> sim ~halved (CI final state tick 368/30s ~12tps vs 60Hz) -> host never reached freeSparks>=8 in 30s -> Sym I exhausted retries -> E2E gate red on master since the S57 fog commit (S57 handoff misattributed it to a pre-existing flake). Fix: extracted disableFogOn(ctx) shared helper; called at all 3 manual-context sites + refactored open2Peers to use it (behavior-identical; all its tests green). RALPH:PATROL PASS: refactor behavior-identical; addInitScript precedes newPage at every site; grep-confirmed these are the ONLY manual-context tests; Sym I assertions (WIN on both peers via ENDGAME) still execute and pass (fog-off only restores sim speed, doesn't weaken the test). tsc -b clean (exit 0). GROK-ANALYST Lite (pure test-harness seam, no app-logic/runtime risk). checkpoint 56bb08f.",
+      "checkpoint_commit": "56bb08f"
     },
     {
       "id": "P1",
       "label": "S58 P1 (#1) -- Spark vision radius halved R_PERSONAL 300->150",
-      "status": "in_progress",
+      "status": "completed",
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": true,
-      "check_completed": false,
-      "check_method": "",
-      "checkpoint_commit": ""
+      "check_completed": true,
+      "check_method": "S58 P1 (#1) verified: R_PERSONAL 300->150 (constants.ts:116). vision.test.ts 19/19 green -- assertions reference the R_PERSONAL constant (not a literal 300/150), so the halving needs no test edit; tsc -b clean (exit 0). Micro tier, mechanical constant change driven by user playtest feedback (\"too large, twice smaller\"). CHECK = RALPH: reveal geometry is the same union math at half personal radius; on-screen reveal 340->190px (R_PERSONAL+VISION_FADE_PX 40); grep R_PERSONAL confirms the only consumers are vision.ts + its test, no call-site assumed the old value. Visual confirm via the user playtest that requested it. checkpoint cc1fc51.",
+      "checkpoint_commit": "cc1fc51"
     },
     {
       "id": "P2",
       "label": "S58 P2 (#4) -- Voltkin duration 2.5x lifetimeTicks 480->1200",
-      "status": "pending",
+      "status": "in_progress",
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -81,7 +81,8 @@
     }
   ],
   "reflexion_entries_to_archive": [
-    "S58 #manual-context-tests-bypass-shared-seam -- The S57 fog __FOG_DISABLE__ e2e seam was added inside open2Peers, but the 3 tests that build Playwright contexts by hand (Sym I + 2 protocol-mismatch -- they need per-context initscripts BEFORE newPage, which open2Peers cannot inject) silently bypassed it -> fog stayed ON under swiftshader -> sim ~halved -> Sym I red on master for the whole S57->S58 gap, while the S57 handoff/CHECK called it a 'pre-existing flake, not fog.' Lesson: a guard added to ONE setup path does not cover sibling paths that opt out of that path; when a seam exists but the symptom persists, enumerate ALL construction sites (grep browser.newContext), not just the shared helper. Same bug-class as S56 (a preserve mechanism wrapped around a value that was never produced). Fix = extract disableFogOn(ctx) shared helper called at every manual-context site. Two meta-lessons: (1) trust the CI signal over handoff prose -- gh run list showed E2E went red EXACTLY at the fog commit (green S51-S56), the mechanistic tell the handoff ignored; (2) the OneDrive working-dir path intermittently garbled cat/tail/grep output (showed 9 passed when 11 actually passed) -> use a JSON reporter parsed in node for garble-proof ground truth before committing a CHECK."
+    "S58 #manual-context-tests-bypass-shared-seam -- The S57 fog __FOG_DISABLE__ e2e seam was added inside open2Peers, but the 3 tests that build Playwright contexts by hand (Sym I + 2 protocol-mismatch -- they need per-context initscripts BEFORE newPage, which open2Peers cannot inject) silently bypassed it -> fog stayed ON under swiftshader -> sim ~halved -> Sym I red on master for the whole S57->S58 gap, while the S57 handoff/CHECK called it a 'pre-existing flake, not fog.' Lesson: a guard added to ONE setup path does not cover sibling paths that opt out of that path; when a seam exists but the symptom persists, enumerate ALL construction sites (grep browser.newContext), not just the shared helper. Same bug-class as S56 (a preserve mechanism wrapped around a value that was never produced). Fix = extract disableFogOn(ctx) shared helper called at every manual-context site. Two meta-lessons: (1) trust the CI signal over handoff prose -- gh run list showed E2E went red EXACTLY at the fog commit (green S51-S56), the mechanistic tell the handoff ignored; (2) the OneDrive working-dir path intermittently garbled cat/tail/grep output (showed 9 passed when 11 actually passed) -> use a JSON reporter parsed in node for garble-proof ground truth before committing a CHECK.",
+    "S58 #constant-tuning-from-playtest -- halved R_PERSONAL 300->150 on user playtest feedback (\"visibility around the spark too large, twice smaller\"). The S57 vision unit tests assert via the R_PERSONAL symbol rather than a literal, so the tuning produced zero test churn -- a small payoff of the S57 decision to push vision math into a pure unit-tested module with symbolic constants. Logged for the per-priority reflexion cadence (Stop-hook gate: completed-count must not exceed entry-count)."
   ],
   "budget_total": 1000000,
   "totals": {
