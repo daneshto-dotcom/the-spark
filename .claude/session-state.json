@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 72,
+  "tool_calls_session_total": 80,
   "session_start": "2026-05-30T08:14:00Z",
   "session_id": "S57",
   "session_kind": "execution",
@@ -12,6 +12,7 @@
   "prime_audit": "PRIME-AUDIT + Runtime-Verifiability: no rubber-stamp (models CONFLICTED on Pixi v8 API -> forced empirical verification not consensus-trust). D3 blend-mode resolved against installed pixi.js 8.18.1 ('erase' string confirmed). Render approach has a boot-then-smoke gate: 'erase'-in-RT-pass must be verified LIVE in preview (not just tsc) -- documented inverse-.mask fallback if it misbehaves. Vision math is pure+unit-tested (no GPU). Anti-cheat: MVP is cosmetic client-side (peer has full state in memory) -- acceptable per Blueprint XII (authoritative vision-filtering = Phase-3 server work); logged carry-forward. EOS audit pending post-implementation (re-scan unrendered own-prims, RT size/DPI, z-order, blendMode state restore).",
   "council_waived": false,
   "council_waiver_reason": null,
+  "triumvirate_check": "Post-ship Triumvirate CHECK (RALPH:PATROL + Grok-analyst grok-4.20 + Gemini-auditor 2.5-pro, t0.3) on the shipped fog. VERDICT: PASS -- no material defects after PRIME-AUDIT vs real source. REFUTED the 2 highest-severity findings: (a) Grok HIGH 'world-vs-screen coord mismatch' -> no camera (world==screen, A.0-confirmed; runtime pixel-test placed beacons at prim.pos + hole at cursor, both correct) -- future-proof note only IF a camera is added; (b) Gemini BLOCKER + Grok MED 'unbounded pool leak across matches' -> correct BOUNDED object pool (reused/repositioned across matches, plateaus session-max ~<=52, surplus visible=false). Also refuted: Grok 'for..in loop' (artifact of summary shorthand; real code indexed for-loop) + Gemini H1 'no fog e2e' (fog.spec.ts tests fog ENABLED w/ pixel assertions). CARRY-FORWARD (all LOW, non-blocking): (1) polish: freeze/snap mask to full-reveal at WIN vs cutouts drifting during the 1s fade; (2) future-proof: vision.ts needs a world->screen transform IF a camera is added; (3) tidy: brush pool grows to session high-water (~<=52, bounded) -- could reset() on RETURN_TO_TITLE; (4) dev-only: destroy() unwired (fine for static single page). Lesson reinforced: verify audit claims against source -- both scariest findings dissolved on inspection.",
   "priorities": [
     {
       "id": "P1",
