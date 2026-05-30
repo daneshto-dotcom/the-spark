@@ -113,7 +113,7 @@ export const SPAWN_RATE_PER_SECOND = readTestSpawnRate() ?? 0.15;
 export const REASONABLE_PICKUP_REACH = 600;
 
 // Phase-2 vision (placeholders — unused in Phase 1)
-export const R_PERSONAL = 300;
+export const R_PERSONAL = 150; // S58 (#1) — halved from 300; the cursor-centred reveal read as too large in playtest.
 export const R_BEACON = 80;
 export const VISION_FADE_PX = 40;
 
