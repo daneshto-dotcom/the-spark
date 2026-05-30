@@ -516,6 +516,61 @@ test.describe('Sym I — win-condition + ENDGAME envelope (S47 wire, S50 P4 e2e 
   });
 });
 
+test.describe('Sym J — spawner pickup claim (S58 #2: no double-grab + opponent sees it carried)', () => {
+  test('Joiner grabbing a spawner spark claims it (Carried) on the host; release drops the claim', async ({ browser }) => {
+    const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
+    try {
+      await applyTestSpawnRate(hostCtx, joinerCtx);
+      const code = await hostNewRoom(hostPage);
+      await joinRoom(joinerPage, code);
+      await waitForWorld(hostPage, (w) => w.peerCount >= 1, 'peers connected');
+      const beginBtn = await canvasToCss(hostPage, CANVAS_WIDTH / 2, 814);
+      await hostPage.mouse.click(beginBtn.x, beginBtn.y);
+      await waitForWorld(hostPage, (w) => w.gameState === 'PLAYING', 'PLAYING on host');
+      await waitForWorld(joinerPage, (w) => w.gameState === 'PLAYING', 'PLAYING on joiner');
+      await waitForWorld(joinerPage, (w) => w.freeSparks.length >= 3, 'sparks on joiner', 10_000);
+
+      // Joiner grabs a spawner spark and HOLDS the gesture open (no release yet).
+      const sparkId = await dragSparkTo(joinerPage, 1400, 500, { holdAtTargetMs: 800 });
+      expect(sparkId).not.toBeNull();
+      try {
+        // THE PROOF (S58 #2): the host's AUTHORITATIVE world shows that spark
+        // CLAIMED (Carried) by the joiner (playerId 1). Because pickSpark skips
+        // non-Free sparks, the host can no longer grab it — the double-grab is
+        // gone. Pre-S58 the spark stayed Free for the whole drag and BOTH peers
+        // could grab + place it (the user-reported bug).
+        await waitForWorld(
+          hostPage,
+          (w) => {
+            const s = w.freeSparks.find((fs) => fs.id === sparkId);
+            return s !== undefined && s.state.kind === 'Carried' && s.state.carrierId === 1;
+          },
+          `host sees spark ${sparkId} Carried by the joiner (claim propagated)`,
+          6_000,
+        );
+      } finally {
+        await joinerPage.mouse.up({ button: 'left' });
+      }
+
+      // GUARANTEED RELEASE: after LMB-up the spark is no longer Carried on the
+      // host (placed as a primitive → removed from freeSparks, OR back to Free).
+      // This is the anti-"glued spark" (S52) assertion: the claim always exits.
+      await waitForWorld(
+        hostPage,
+        (w) => {
+          const s = w.freeSparks.find((fs) => fs.id === sparkId);
+          return s === undefined || s.state.kind !== 'Carried';
+        },
+        `spark ${sparkId} released on the host after LMB-up (no stuck claim)`,
+        6_000,
+      );
+    } finally {
+      await hostCtx.close();
+      await joinerCtx.close();
+    }
+  });
+});
+
 test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch (S53/S54 system, S55 e2e coverage)', () => {
   // S55 P2 — FIRST runtime coverage of the S54-activated HELLO -> mismatch
   // chain over a real cross-browser wire (the S54 PRIME-AUDIT flagged it as

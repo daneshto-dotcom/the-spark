@@ -224,6 +224,7 @@ export async function dragSparkTo(
   page: Page,
   targetX: number,
   targetY: number,
+  opts?: { holdAtTargetMs?: number },
 ): Promise<number | null> {
   // Read current free sparks; pick one inside spawner zone.
   const state = await readWorldState(page);
@@ -245,6 +246,13 @@ export async function dragSparkTo(
     const fy = startCss.y + (endCss.y - startCss.y) * (t / 10);
     await page.mouse.move(fx, fy);
     await page.waitForTimeout(20); // ~50fps trail, 200ms total — exceeds 100ms UPDATE_AVATAR_POS throttle
+  }
+  // S58 (#2) — `holdAtTargetMs` keeps the gesture OPEN (no mouse-up) so a caller
+  // can observe the in-flight CLAIM (spark Carried{carrier}) before releasing;
+  // the caller is then responsible for the mouse-up. Default: release (place).
+  if (opts?.holdAtTargetMs !== undefined) {
+    await page.waitForTimeout(opts.holdAtTargetMs);
+    return spawnerSpark.id;
   }
   await page.mouse.up({ button: 'left' });
   return spawnerSpark.id;

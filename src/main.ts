@@ -222,6 +222,12 @@ async function bootstrap(): Promise<void> {
   // Council Battle Ledger C13.
   const PREDICTABLE_ACTIONS: ReadonlySet<GameAction['type']> = new Set([
     'PICKUP_SPARK',
+    // S58 (#2) — the LMB-up release of a spawner-spark claim. Predicted so the
+    // joiner's spark returns to Free + player to Idle at zero perceived latency
+    // (the host's authoritative snapshot reconciles ~RTT/2 later). Safe to
+    // predict: applyDropSpark throws CarryViolation if not carrying, caught by
+    // the try/catch below.
+    'DROP_SPARK',
     'UPDATE_AVATAR_POS',
   ]);
   const dispatchFn: ControlsDispatchFn = (action: GameAction) => {

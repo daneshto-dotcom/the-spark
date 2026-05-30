@@ -839,15 +839,33 @@ describe('S56 P1 — interpolateInto preserves the drag-locked spark across snap
     expect(client.freeSparks.has(SPARK)).toBe(false);
   });
 
-  it('does not restore (and does not throw) when the spark is no longer Free in the new snapshot (grabbed)', () => {
+  it('does not restore (and does not throw) when the spark is grabbed by the OPPONENT in the new snapshot', () => {
     const { host, client, c } = seed();
+    // client.localPlayerId is 0 (makeWorld default); the OPPONENT is player 1.
     client.freeSparks.get(SPARK)!.pos = { ...DRAGGED };
-    host.freeSparks.get(SPARK)!.state = { kind: 'Carried', carrierId: asPlayerId(0) };
+    host.freeSparks.get(SPARK)!.state = { kind: 'Carried', carrierId: asPlayerId(1) };
     c.receive(mkSnapMsg(2, netSnapshot(host)), 16);
     expect(() => c.interpolateInto(client, 16, 100, SPARK)).not.toThrow();
     const s = client.freeSparks.get(SPARK)!;
     expect(s.state.kind).toBe('Carried');
-    expect(s.pos).toEqual(SPAWN); // not-Free → restore skipped → authoritative pos wins
+    // Carried by opponent → restore skipped → authoritative pos wins. The next
+    // controls.applyPerSubstep `mine` guard then ends the local drag (race lost).
+    expect(s.pos).toEqual(SPAWN);
+  });
+
+  it('S58 (#2) — DOES preserve the predicted pos when the spark is Carried by the LOCAL player (claim)', () => {
+    const { host, client, c } = seed();
+    // The LMB-down claim: spark is now Carried by the local player (id 0). The
+    // joiner keeps driving its predicted drag pos; without preserving the
+    // Carried-by-me case it would sawtooth back to the host's 10Hz-stale pos.
+    client.freeSparks.get(SPARK)!.pos = { ...DRAGGED };
+    client.freeSparks.get(SPARK)!.prevPos = { ...DRAGGED };
+    host.freeSparks.get(SPARK)!.state = { kind: 'Carried', carrierId: asPlayerId(0) };
+    c.receive(mkSnapMsg(2, netSnapshot(host)), 16);
+    c.interpolateInto(client, 16, 100, SPARK); // dragLock set, spark Carried by me
+    const s = client.freeSparks.get(SPARK)!;
+    expect(s.state.kind).toBe('Carried');
+    expect(s.pos).toEqual(DRAGGED); // Carried by me → predicted pos preserved
   });
 });
 

@@ -201,7 +201,16 @@ export class Controls {
 
     if (this.state.kind === 'AttractDrag') {
       const spark = this.world.freeSparks.get(this.state.sparkId);
-      if (!spark || spark.state.kind !== 'Free') {
+      // S58 (#2) — the spark is now CLAIMED (Carried{me}) on LMB-down, so the
+      // drag must keep driving a spark that is Free (pre-claim / solo / the
+      // 1-frame pre-host-confirm window) OR Carried by ME. It ends cleanly
+      // (state→Idle) only if the spark is gone, consumed (Bonded), or grabbed
+      // by the OPPONENT (Carried by them) — the race-lost reconciliation.
+      const mine =
+        spark !== undefined &&
+        (spark.state.kind === 'Free' ||
+          (spark.state.kind === 'Carried' && spark.state.carrierId === this.playerId));
+      if (!mine) {
         this.state = { kind: 'Idle' };
         return;
       }
@@ -219,7 +228,11 @@ export class Controls {
       stepAttractLerp(spark.pos, spark.prevPos, this.state.cursor, ATTRACT_FOLLOW_RATE);
     }
 
-    if (player.kind === 'Carrying') {
+    // S58 (#2) — when actively AttractDragging, the lerp above is the sole local
+    // driver (preserves the S10/S56 drag feel). This hard-snap branch only runs
+    // for a Carrying-without-gesture state (defensive fallback) so the carried
+    // spark still tracks the cursor if a drag ever ends while still Carrying.
+    if (player.kind === 'Carrying' && this.state.kind !== 'AttractDrag') {
       const carried = this.world.freeSparks.get(player.carriedSparkId);
       if (carried !== undefined) {
         carried.pos.x = this.cursor.x;
@@ -258,6 +271,22 @@ export class Controls {
             cursor: { ...this.cursor },
           };
           this.acquirePointerCapture(e);
+          // S58 (#2) — authoritative CLAIM on grab. Transitions the spark to
+          // Carried{me} (host-authoritative; predicted locally via
+          // PREDICTABLE_ACTIONS). The opponent then can't also grab it — their
+          // pickSpark skips non-Free sparks and their in-flight AttractDrag
+          // auto-cancels (applyPerSubstep `mine` guard) — and they SEE it
+          // attached in my colour (renderer.ts Carried tint + the S45
+          // avatarPos→carried-spark coupling propagates its position at 10Hz).
+          // The claim is GUARANTEED released on LMB-up / lost-capture (DROP
+          // below), so the S52 "glued spark" stuck-state cannot recur. pos =
+          // live cursor (authoritative claim point; host re-validates remote).
+          this.dispatchFn({
+            type: 'PICKUP_SPARK',
+            sparkId: spark.id,
+            playerId: this.playerId,
+            pos: { x: this.cursor.x, y: this.cursor.y },
+          });
         }
       }
     } else if (e.button === 2) {
@@ -291,7 +320,15 @@ export class Controls {
     this.updateCursor(e);
     if (e.button === 0 && this.state.kind === 'AttractDrag') {
       const spark = this.world.freeSparks.get(this.state.sparkId);
-      if (spark !== undefined && spark.state.kind === 'Free') {
+      // S58 (#2) — accept the spark whether still Free (solo / pre-host-confirm)
+      // or Carried by me (the LMB-down claim landed). A spark grabbed by the
+      // opponent in a race (Carried by them) fails `mine` → no place, and the
+      // releasePointerCapture + state→Idle below still run.
+      const mine =
+        spark !== undefined &&
+        (spark.state.kind === 'Free' ||
+          (spark.state.kind === 'Carried' && spark.state.carrierId === this.playerId));
+      if (spark !== undefined && mine) {
         // S9 P1: reachability gate. spark.pos lags the cursor because
         // AttractDrag uses softened impulses on prevPos in applyPerSubstep —
         // so a fast cursor flick lets the player effectively teleport the
@@ -334,6 +371,21 @@ export class Controls {
             ? false
             : isInsideEnemyTerritory(spark.pos, this.playerId, this.world),
         });
+        // S58 (#2) — release the LMB-down claim. DROP returns the spark to Free
+        // + player to Idle, which (a) GUARANTEES every LMB-up exits the claim
+        // (the S52 "glued spark" stuck-state cannot recur) and (b) restores the
+        // Free/Idle preconditions the UNCHANGED atomic PLACE_FROM_FREE below
+        // requires. Guarded on actually-carrying THIS spark so a race-lost claim
+        // (opponent grabbed first → I'm Idle) doesn't throw CarryViolation on
+        // the host's un-try/caught dispatch path.
+        const carrier = this.world.players.get(this.playerId);
+        if (carrier?.kind === 'Carrying' && carrier.carriedSparkId === spark.id) {
+          this.dispatchFn({
+            type: 'DROP_SPARK',
+            playerId: this.playerId,
+            pos: { x: this.cursor.x, y: this.cursor.y },
+          });
+        }
         if (gates.commit) {
           // S52 P1 — atomic PLACE_FROM_FREE single intent replaces the S5-era
           // PICKUP_SPARK+PLACE_PRIMITIVE burst. The burst pattern had a
@@ -411,6 +463,17 @@ export class Controls {
   // possibility space, only AttractDrag remains as a non-Idle state.
   private onLostCapture = (): void => {
     this.capturedPointerId = null;
+    // S58 (#2) — release any CLAIM on capture loss (alt-tab / focus steal mid-
+    // drag) so a claimed spark never stays stuck Carried after the gesture is
+    // gone. Guarded on actually-carrying (un-try/caught host dispatch path).
+    const player = this.world.players.get(this.playerId);
+    if (player?.kind === 'Carrying') {
+      this.dispatchFn({
+        type: 'DROP_SPARK',
+        playerId: this.playerId,
+        pos: { x: this.cursor.x, y: this.cursor.y },
+      });
+    }
     if (this.state.kind !== 'Idle') this.state = { kind: 'Idle' };
   };
 

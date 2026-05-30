@@ -158,7 +158,18 @@ export class ClientSync {
       }
       if (lockedPos !== null && lockedPrev !== null && dragLockedSparkId !== undefined) {
         const locked = world.freeSparks.get(dragLockedSparkId);
-        if (locked !== undefined && locked.state.kind === 'Free') {
+        // S58 (#2) — preserve the locally-predicted drag position for a spark
+        // that is Free (pre-S58 path) OR now Carried by the LOCAL player (the
+        // LMB-down claim). Without the Carried case, a claimed drag would snap
+        // to the host's 10Hz-stale pos every snapshot (the S56 GAP-2 sawtooth).
+        // A spark Carried by the OPPONENT (race-lost) fails the carrierId check
+        // → not preserved → the next applyPerSubstep `mine` guard ends the drag.
+        if (
+          locked !== undefined &&
+          (locked.state.kind === 'Free' ||
+            (locked.state.kind === 'Carried' &&
+              locked.state.carrierId === world.localPlayerId))
+        ) {
           locked.pos.x = lockedPos.x;
           locked.pos.y = lockedPos.y;
           locked.prevPos.x = lockedPrev.x;
