@@ -19,13 +19,15 @@ import {
 import {
   R_PERSONAL,
   R_BEACON,
+  R_CREATURE_VISION,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
   SparkType,
 } from '../constants.ts';
-import { asPlayerId, asPrimitiveId } from '../types.ts';
+import { asPlayerId, asPrimitiveId, asCreatureId } from '../types.ts';
 import type { Primitive } from '../game/primitive.ts';
+import { makeVoltkinCreature } from './creatures/creature.ts';
 
 // ─── test helpers ──────────────────────────────────────────────────────────
 
@@ -57,6 +59,23 @@ function addPrimAt(world: World, playerIndex: 0 | 1, x: number, y: number): Prim
   };
   world.primitives.set(primId, prim);
   return prim;
+}
+
+/** Insert a creature at (x, y) owned by `playerIndex`, bypassing dispatch.
+ *  computeVisionSources only reads `pos` + `ownerPlayerId`, so the factory's
+ *  defaults (SPAWNING state etc.) are irrelevant here. */
+function addCreatureAt(world: World, playerIndex: 0 | 1, x: number, y: number): void {
+  const id = asCreatureId(world.nextCreatureId++);
+  world.creatures.set(
+    id,
+    makeVoltkinCreature({
+      id,
+      ownerPlayerId: asPlayerId(playerIndex),
+      pos: { x, y },
+      targetPos: { x, y },
+      spawnedAtTick: 0,
+    }),
+  );
 }
 
 const cursor = (x: number, y: number) => ({ x, y });
@@ -129,6 +148,48 @@ describe('computeVisionSources', () => {
     addPrimAt(world, 0, 512, 678);
     const beacon = computeVisionSources(world, cursor(0, 0)).find((s) => s.radius === R_BEACON);
     expect(beacon).toEqual({ x: 512, y: 678, radius: R_BEACON });
+  });
+
+  // ─── S58 (#3) own-creature vision ──────────────────────────────────────────
+
+  it('emits one R_CREATURE_VISION source per OWN creature (watch your Voltkin)', () => {
+    const world = make1v1(0); // I am player 0
+    addCreatureAt(world, 0, 1700, 900); // my Voltkin deep in enemy territory
+    const creatureSources = computeVisionSources(world, cursor(100, 100)).filter(
+      (s) => s.radius === R_CREATURE_VISION,
+    );
+    expect(creatureSources).toHaveLength(1);
+    expect(creatureSources[0]).toMatchObject({ x: 1700, y: 900 });
+  });
+
+  it('EXCLUDES enemy creatures (their raider stays concealed)', () => {
+    const world = make1v1(0); // I am player 0
+    addCreatureAt(world, 1, 1700, 900); // enemy Voltkin
+    const creatureSources = computeVisionSources(world, cursor(100, 100)).filter(
+      (s) => s.radius === R_CREATURE_VISION,
+    );
+    expect(creatureSources).toHaveLength(0);
+  });
+
+  it('reveals the area around my roaming creature in enemy territory', () => {
+    const world = make1v1(0);
+    addCreatureAt(world, 0, 1700, 900); // my creature, cursor parked at home
+    const sources = computeVisionSources(world, cursor(100, 100));
+    // a point near my creature (far from cursor/spawner/structures) is visible
+    expect(isPointVisible(sources, 1740, 900)).toBe(true);
+    // a point just outside the creature's vision radius stays fogged
+    expect(isPointVisible(sources, 1700 + R_CREATURE_VISION + 5, 900)).toBe(false);
+  });
+
+  it('creature vision is symmetric from player 1', () => {
+    const world = make1v1(1); // I am player 1
+    addCreatureAt(world, 0, 300, 300); // enemy (host) creature
+    addCreatureAt(world, 1, 1600, 800); // mine
+    const creatureSources = computeVisionSources(world, cursor(100, 100)).filter(
+      (s) => s.radius === R_CREATURE_VISION,
+    );
+    expect(creatureSources).toHaveLength(1);
+    expect(creatureSources[0]).toMatchObject({ x: 1600, y: 800 });
   });
 });
 

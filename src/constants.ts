@@ -115,6 +115,11 @@ export const REASONABLE_PICKUP_REACH = 600;
 // Phase-2 vision (placeholders — unused in Phase 1)
 export const R_PERSONAL = 150; // S58 (#1) — halved from 300; the cursor-centred reveal read as too large in playtest.
 export const R_BEACON = 80;
+// S58 (#3) — vision radius around your OWN creatures (e.g. Voltkin) so you can
+// watch them fight in enemy territory instead of losing them to the fog. Larger
+// than a static R_BEACON (the unit roams + you want to see the whole engagement),
+// smaller than R_PERSONAL (it's a unit, not the hand). Tunable for balance.
+export const R_CREATURE_VISION = 120;
 export const VISION_FADE_PX = 40;
 
 // === Physics ===

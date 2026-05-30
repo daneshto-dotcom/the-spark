@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 0,
+  "tool_calls_session_total": 76,
   "session_start": "2026-05-30T15:00:00Z",
   "session_id": "S58",
   "session_kind": "execution",
@@ -8,8 +8,8 @@
   "deliberation_completed": true,
   "unlock_source": "user",
   "tier": "Standard",
-  "council_battle_ledger": "PENDING -- 3-way Council (1 round) scheduled before P3/P4 implementation (focus: #2 release-semantics + client-prediction reconciliation; #3 creature beacon radius + wire-field).",
-  "prime_audit": "PENDING -- runs post-Council, before P4 implementation.",
+  "council_battle_ledger": "3-way Council (Grok grok-4.20-reasoning + Gemini 2.5-pro, t0.3) on P3+P4. CONVERGED: P4 = two-step authoritative PICKUP_SPARK(Free->Carried) on LMB-down + PLACE on LMB-up, re-activating the dormant Carried infra; optimistic local prediction + snapshot-rollback (100-200ms grab-lag round-trip REJECTED as bad UX, both models); first-intent-wins arbitration, loser corrected silently by the existing AttractDrag auto-cancel (controls.ts:204). P3 = ownerPlayerId additive-optional, own-creatures-only, creature beacon 120px (BOTH models independently picked 120). PRIME-AUDIT deltas: D1 [REFUTED Grok P4-Q4] Grok proposed a NEW 30Hz cursor stream + Gemini said reuse synced cursor -- BOTH incomplete: UPDATE_AVATAR_POS already ships joiner->host @10Hz (main.ts, 100ms/2px throttle) AND applyUpdateAvatarPos (gameMode.ts:191, \"S45 Sym A\") ALREADY couples a Carried spark.pos to the carrier avatarPos, which rides the existing 10Hz snapshot to the opponent -> P4 needs ZERO new position netcode (A.0 Explore-verified). D2 [REFUTED Gemini P3-Q2] determinism trap claimed; verified false -- determinismJson compares two HOST snapshots (both carry real ownerPlayerId from SPAWN_CREATURE); the ??0 deserialize is never on that path -> always-emit stays byte-identical (898/898 incl. save.replay green confirms). D3 timeout: Grok 8s/Gemini 3s -> adopt 5s host backstop.",
+  "prime_audit": "PRIME-AUDIT ran during Council synthesis (see battle_ledger D1-D3). Key runtime-verifiable finding (Runtime-Verifiability rule): P4 carried-spark sync is NOT new work -- the joiner->host UPDATE_AVATAR_POS @10Hz + the S45 Sym A carried-spark/avatarPos coupling already propagate a held spark to the opponent via existing snapshots; confirmed by reading gameMode.ts applyUpdateAvatarPos + an Explore A.0 of the net send path. P3 determinism claim empirically refuted via full save.replay byte-exact pass (898/898). Remaining P4 risk (carried over to implementation): exhaustive enumeration of release triggers (place-reject/RMB-cancel/disconnect/blur/timeout) -- the S52 glued-spark regression class; each must map to DROP->Free, host-authoritative, with a 5s host backstop.",
   "council_waived": false,
   "council_waiver_reason": null,
   "triumvirate_check": "PENDING",
@@ -50,21 +50,21 @@
       "unlock_source": "user",
       "council_waived": true,
       "check_completed": true,
-      "check_method": "S58 P2 (#4) verified: VOLTKIN_CONFIG.lifetimeTicks 480->1200 (voltkin-config.ts:119) = 2.5x; active attack window (1200-spawn60-despawn60)/cadence60 = 18 full cycles (~18s @60Hz, was 6/~6s). Dependent test/doc updates: voltkin-config.test.ts 2 literal asserts (480->1200, lines 38+126); creature.ts cadence-doc math comment (480->1200, =18); creatureLifecycle.test.ts:524 + save.replay.test.ts:168,214 stale-value comments. EMPIRICAL CHECK (RALPH + replay-determinism guard): full creature/replay/serialization surface 304/304 green INCLUDING save.replay.test.ts byte-exact determinism (two same-seed runs identical -> the lifetime change did not perturb the deterministic sim; traced: over the 200-iter stress world.tick<=200 < both old(480) and new(1200) despawnAtTick, so the single persistent creature path is identical, determinism independent of the value). Full suite 913/913 green, tsc -b clean (exit 0). The two literal 480s in sync.test.ts:372 + save.test.ts:248 are independent serialization fixtures (not lifetime-coupled) -> stayed green untouched. GROK-ANALYST Lite: single gameplay-tuning constant, no logic change, determinism-guarded. checkpoint PENDING_COMMIT.",
-      "checkpoint_commit": ""
+      "check_method": "S58 P2 (#4) verified: VOLTKIN_CONFIG.lifetimeTicks 480->1200 (voltkin-config.ts:119) = 2.5x; active attack window (1200-spawn60-despawn60)/cadence60 = 18 full cycles (~18s @60Hz, was 6/~6s). Dependent test/doc updates: voltkin-config.test.ts 2 literal asserts (480->1200, lines 38+126); creature.ts cadence-doc math comment (480->1200, =18); creatureLifecycle.test.ts:524 + save.replay.test.ts:168,214 stale-value comments. EMPIRICAL CHECK (RALPH + replay-determinism guard): full creature/replay/serialization surface 304/304 green INCLUDING save.replay.test.ts byte-exact determinism (two same-seed runs identical -> the lifetime change did not perturb the deterministic sim; traced: over the 200-iter stress world.tick<=200 < both old(480) and new(1200) despawnAtTick, so the single persistent creature path is identical, determinism independent of the value). Full suite 913/913 green, tsc -b clean (exit 0). The two literal 480s in sync.test.ts:372 + save.test.ts:248 are independent serialization fixtures (not lifetime-coupled) -> stayed green untouched. GROK-ANALYST Lite: single gameplay-tuning constant, no logic change, determinism-guarded. checkpoint 5cb1f8e.",
+      "checkpoint_commit": "5cb1f8e"
     },
     {
       "id": "P3",
       "label": "S58 P3 (#3) -- Own-creature fog vision (serialize ownerPlayerId + creature beacons in computeVisionSources)",
-      "status": "pending",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
-      "deliberation_completed": false,
+      "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
-      "check_completed": false,
-      "check_method": "",
-      "checkpoint_commit": ""
+      "check_completed": true,
+      "check_method": "S58 P3 (#3) verified: own creatures now reveal fog around them so the player can watch their Voltkin fight. Wire: added ownerPlayerId to SerializedCreature as additive-optional (always-emit since 0 is a valid owner; deserialize ??0 for pre-S58) -- the FIRST client-side consumer of creature ownership (was deliberately omitted \"host runs FSM, client renders\" since S28). vision.ts computeVisionSources now appends one R_CREATURE_VISION(120px, Council-converged) source per creature where ownerPlayerId===localPlayerId; enemy creatures excluded (concealment preserved). CHECK (RALPH + replay-determinism + Triumvirate-aligned): tsc -b clean; vision.test.ts 19->23 (+4: own-creature emitted, enemy excluded, roaming-reveal w/ radius boundary, player-1 symmetry); FULL SUITE 898/898 via JSON reporter (the list-reporter \"894\" was the documented OneDrive output-garble) INCLUDING save.replay.test.ts byte-exact determinism (D2 trap refuted -- two host snapshots both carry real ownerPlayerId, always-emit stays identical) + save.test.ts creature fixtures + sync.test.ts. Directly fixes the user scenario: host (playerId 0) summons Voltkin (ownerPlayerId 0) -> beacon added (0===localPlayerId 0) -> reveals as it marches into enemy territory. Determinism-safe, own-only (no fog-of-war integrity leak). checkpoint PENDING_COMMIT.",
+      "checkpoint_commit": "PENDING_COMMIT"
     },
     {
       "id": "P4",
@@ -82,7 +82,8 @@
   ],
   "reflexion_entries_to_archive": [
     "S58 #manual-context-tests-bypass-shared-seam -- The S57 fog __FOG_DISABLE__ e2e seam was added inside open2Peers, but the 3 tests that build Playwright contexts by hand (Sym I + 2 protocol-mismatch -- they need per-context initscripts BEFORE newPage, which open2Peers cannot inject) silently bypassed it -> fog stayed ON under swiftshader -> sim ~halved -> Sym I red on master for the whole S57->S58 gap, while the S57 handoff/CHECK called it a 'pre-existing flake, not fog.' Lesson: a guard added to ONE setup path does not cover sibling paths that opt out of that path; when a seam exists but the symptom persists, enumerate ALL construction sites (grep browser.newContext), not just the shared helper. Same bug-class as S56 (a preserve mechanism wrapped around a value that was never produced). Fix = extract disableFogOn(ctx) shared helper called at every manual-context site. Two meta-lessons: (1) trust the CI signal over handoff prose -- gh run list showed E2E went red EXACTLY at the fog commit (green S51-S56), the mechanistic tell the handoff ignored; (2) the OneDrive working-dir path intermittently garbled cat/tail/grep output (showed 9 passed when 11 actually passed) -> use a JSON reporter parsed in node for garble-proof ground truth before committing a CHECK.",
-    "S58 #constant-tuning-from-playtest -- halved R_PERSONAL 300->150 on user playtest feedback (\"visibility around the spark too large, twice smaller\"). The S57 vision unit tests assert via the R_PERSONAL symbol rather than a literal, so the tuning produced zero test churn -- a small payoff of the S57 decision to push vision math into a pure unit-tested module with symbolic constants. Logged for the per-priority reflexion cadence (Stop-hook gate: completed-count must not exceed entry-count)."
+    "S58 #constant-tuning-from-playtest -- halved R_PERSONAL 300->150 on user playtest feedback (\"visibility around the spark too large, twice smaller\"). The S57 vision unit tests assert via the R_PERSONAL symbol rather than a literal, so the tuning produced zero test churn -- a small payoff of the S57 decision to push vision math into a pure unit-tested module with symbolic constants. Logged for the per-priority reflexion cadence (Stop-hook gate: completed-count must not exceed entry-count).",
+    "S58 #dormant-netcode-already-wired-prime-audit-win -- P4 (spawner pickup claim) Council R1: Grok proposed a NEW 30Hz carrier->host cursor stream for relaying the held-spark position; Gemini proposed reusing the synced cursor. PRIME-AUDIT (read gameMode.ts + an Explore A.0 of the net send path) REFUTED both as incomplete: the mechanism ALREADY EXISTS -- UPDATE_AVATAR_POS ships joiner->host @10Hz and applyUpdateAvatarPos (gameMode.ts:191, labelled \"S45 Sym A\") already couples a Carried spark.pos to the carrier avatarPos, which rides the existing 10Hz snapshot to the opponent. So P4 needs ZERO new position netcode -- the whole Carried claim+sync path is dormant-but-fully-wired (PICKUP/DROP reducers, Carrying FSM, carry-follow, carrier-color render, auto-cancel). Lesson: when models propose new infra for a netcode gap, A.0-probe the existing send/apply path FIRST -- this codebase has a strong \"build it, then leave it dormant\" pattern (S52 disabled the claim path but left every reducer intact), so the fix is usually re-activation, not new code. Also D2: a Council \"determinism trap\" warning for an additive wire field was empirically refuted by the byte-exact save.replay pass (the determinism test compares two HOST snapshots that both carry the real field; the client-side ??0 rehydrate is never on that path)."
   ],
   "budget_total": 1000000,
   "totals": {

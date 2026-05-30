@@ -12,15 +12,22 @@
  *   - one beacon (R_BEACON) per primitive the local player OWNS (placedBy)
  *     -> a bigger / more-complex structure has more primitives -> more
  *        overlapping beacons -> reveals a larger area (emergent, § X.4)
+ *   - one beacon (R_CREATURE_VISION) per creature the local player OWNS
+ *     (S58 #3) -> you can WATCH your Voltkin march into enemy territory and
+ *      fight, instead of it vanishing into the fog the moment it leaves your
+ *      structures. The creature roams, so its reveal travels with it.
  *   - the spawner zone, always visible to all players (§ IX.5)
  *
- * Enemy primitives contribute NOTHING -> their builds stay concealed until
- * the local player cruises over them (scouting). This is the whole point:
- * two-layer information asymmetry (no leaderboard + fogged board).
+ * Enemy primitives AND enemy creatures contribute NOTHING -> their builds and
+ * raiders stay concealed until the local player cruises over them or they enter
+ * an own beacon (e.g. an enemy creature attacking your base shows up because it
+ * walks into your structure beacons). This is the whole point: two-layer
+ * information asymmetry (no leaderboard + fogged board).
  */
 
 import {
   R_BEACON,
+  R_CREATURE_VISION,
   R_PERSONAL,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
@@ -53,6 +60,12 @@ export function computeVisionSources(world: World, localCursor: Vec2): VisionSou
   for (const prim of world.primitives.values()) {
     if (prim.placedBy !== me) continue;
     sources.push({ x: prim.pos.x, y: prim.pos.y, radius: R_BEACON });
+  }
+  // S58 (#3) — own creatures (e.g. Voltkin) reveal the fog around them so the
+  // player can watch the fight. Enemy creatures are excluded (concealment).
+  for (const creature of world.creatures.values()) {
+    if (creature.ownerPlayerId !== me) continue;
+    sources.push({ x: creature.pos.x, y: creature.pos.y, radius: R_CREATURE_VISION });
   }
   return sources;
 }

@@ -256,6 +256,15 @@ export interface SerializedCreature {
    * the ~3 KB primitives/bonds payload.
    */
   readonly killCount?: number;
+  /**
+   * S58 (#3) — owning player. Additive-optional (pre-S58 NetSnapshots omit it;
+   * `deserializeCreature` rehydrates as 0 via nullish-coalescing). Pre-S58 this
+   * was DELIBERATELY omitted ("host runs FSM, client only renders") — fog-of-war
+   * vision is the first CLIENT-side consumer of creature ownership: the joiner
+   * needs it to reveal the fog around its OWN creatures (computeVisionSources).
+   * Wire cost: 1 byte per creature × max 2 = ≤2 B per NetSnapshot — negligible.
+   */
+  readonly ownerPlayerId?: PlayerId;
 }
 
 export function snapshot(world: World): WorldSnapshot {
@@ -564,9 +573,11 @@ function serializePlayer(p: Player): SerializedPlayer {
 
 /**
  * S28 P0 — Voltkin Phase 2D Council Q4 2/3 B trimmed shape: only fields the
- * client renderer needs (id/type/pos/state/ticksInState). All AI + lifecycle
- * fields (targetBondId, targetPos, prevPos, spawnedAtTick, despawnAtTick,
- * ownerPlayerId) intentionally omitted — host runs FSM, client only renders.
+ * client renderer needs (id/type/pos/state/ticksInState). AI + lifecycle fields
+ * (targetBondId, targetPos, prevPos, spawnedAtTick, despawnAtTick) stay omitted
+ * — host runs FSM, client only renders.
+ * S58 (#3) — `ownerPlayerId` is now emitted: the client fog mask reveals around
+ * OWN creatures, so the joiner needs to know which creatures are its own.
  */
 function serializeCreature(c: Creature): SerializedCreature {
   return {
@@ -575,6 +586,10 @@ function serializeCreature(c: Creature): SerializedCreature {
     pos: { x: c.pos.x, y: c.pos.y },
     state: c.state,
     ticksInState: c.ticksInState,
+    // S58 (#3) — always emit (0 is a valid owner, so no omit-on-default like
+    // killCount). Determinism-safe: save.replay compares two host snapshots that
+    // both carry the same ownerPlayerId, so byte-equality holds.
+    ownerPlayerId: c.ownerPlayerId,
     // S36 P3 — emit only when > 0 so pre-S36 saves with no kills stay
     // byte-identical on the wire (JSON.stringify drops `undefined` keys).
     // Pre-S36 readers tolerate the missing field via deserializeCreature's
@@ -682,17 +697,20 @@ function deserializeEffect(s: SerializedEffect): GameEffect {
 
 /**
  * S28 P0 — rehydrate a SerializedCreature on the client side. Sim-only fields
- * (prevPos, targetPos, targetBondId, ownerPlayerId, spawnedAtTick, despawnAtTick)
- * are reconstructed with neutral defaults: prevPos snaps to pos (zero implicit
+ * (prevPos, targetPos, targetBondId, spawnedAtTick, despawnAtTick) are
+ * reconstructed with neutral defaults: prevPos snaps to pos (zero implicit
  * velocity — client never integrates anyway), targetPos snaps to pos (no AI),
- * targetBondId=null (no AI), ownerPlayerId=0 (renderer ignores), spawnedAtTick=0
- * and despawnAtTick=0 (renderer ignores — host owns the despawn dispatch).
+ * targetBondId=null (no AI), spawnedAtTick=0 and despawnAtTick=0 (renderer
+ * ignores — host owns the despawn dispatch).
+ * S58 (#3) — `ownerPlayerId` now rehydrates from the wire (was hardcoded 0);
+ * the client fog mask reveals around OWN creatures. Pre-S58 NetSnapshots omit
+ * the field → nullish-coalesce to 0 (old data stays valid).
  */
 function deserializeCreature(s: SerializedCreature): Creature {
   return {
     id: s.id,
     type: s.type,
-    ownerPlayerId: asPlayerId(0),
+    ownerPlayerId: asPlayerId(s.ownerPlayerId ?? 0),
     pos: { x: s.pos.x, y: s.pos.y },
     prevPos: { x: s.pos.x, y: s.pos.y },
     targetPos: { x: s.pos.x, y: s.pos.y },
