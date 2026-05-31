@@ -589,7 +589,7 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
       // S58 P0 — disable fog (manual contexts bypass open2Peers).
       await disableFogOn(hostCtx);
       await disableFogOn(joinerCtx);
-      // Joiner announces protoVersion 2 (< current 3). Host has no override → v3.
+      // Joiner announces protoVersion 2 (< current 4). Host has no override → v4.
       // String-content addInitScript (zero function-capture surface), matching
       // the Sym D __TEST_TERRITORY_BASE_RADIUS__ precedent.
       await joinerCtx.addInitScript({ content: 'window.__TEST_PROTO_VERSION_OVERRIDE__ = 2;' });
@@ -613,7 +613,7 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
       const hostStatus = await readLobbyStatus(hostPage);
       expect(hostStatus).toContain('Protocol mismatch');
       expect(hostStatus).toContain('v2'); // peer version rendered (describePeerVersion)
-      expect(hostStatus).toContain('v3'); // local PROTOCOL_VERSION rendered
+      expect(hostStatus).toContain('v4'); // local PROTOCOL_VERSION rendered (S62: 3→4)
       expect(hostStatus.toLowerCase()).toContain('older'); // "The other player's version is older"
 
       // Send-side-only + context-isolation: the joiner (still v3, saw host's
@@ -626,11 +626,12 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
     }
   });
 
-  test('Newer-version joiner (v4): host shows "your version is older" branch', async ({ browser }) => {
+  test('Newer-version joiner (v5): host shows "your version is older" branch', async ({ browser }) => {
     const hostCtx = await browser.newContext();
     const joinerCtx = await browser.newContext();
     try {
-      await joinerCtx.addInitScript({ content: 'window.__TEST_PROTO_VERSION_OVERRIDE__ = 4;' });
+      // S62 — host is now v4, so a v5 peer is the "newer peer" case (was v4 vs v3).
+      await joinerCtx.addInitScript({ content: 'window.__TEST_PROTO_VERSION_OVERRIDE__ = 5;' });
       const hostPage = await hostCtx.newPage();
       const joinerPage = await joinerCtx.newPage();
 
@@ -638,16 +639,110 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
       await joinRoom(joinerPage, code);
       await waitForWorld(hostPage, (w) => w.peerCount >= 1, 'host sees joiner connected', 60_000);
 
-      await waitForRejected(hostPage, 1, 'host rejected the joiner v4 HELLO');
+      await waitForRejected(hostPage, 1, 'host rejected the joiner v5 HELLO');
 
-      // peerV (4) > local (3) → the "your version is older" advice branch.
+      // peerV (5) > local (4) → the "your version is older" advice branch.
       const hostStatus = await readLobbyStatus(hostPage);
       expect(hostStatus).toContain('Protocol mismatch');
-      expect(hostStatus).toContain('v4');
+      expect(hostStatus).toContain('v5');
       expect(hostStatus.toLowerCase()).toContain('your version is older');
     } finally {
       await hostCtx.close();
       await joinerCtx.close();
+    }
+  });
+});
+
+test.describe('S62 - 3-player FFA (1v1v1): seat assignment + distinct colors + FFA win', () => {
+  test('host + 2 joiners get distinct seats/colors, all reach PLAYING, one wins FFA', async ({ browser }) => {
+    const ctxs = await Promise.all([browser.newContext(), browser.newContext(), browser.newContext()]);
+    const [hostCtx, aCtx, bCtx] = ctxs;
+    try {
+      // Fog off (swiftshader perf) + fast spawn + low win score (3) on all peers.
+      for (const c of ctxs) {
+        await disableFogOn(c);
+        await c.addInitScript({ content: 'window.__TEST_SPAWN_RATE_PER_SECOND__ = 1.5;' });
+        await c.addInitScript({ content: 'window.__TEST_WIN_SCORE__ = 3;' });
+      }
+      const [hostPage, aPage, bPage] = await Promise.all(ctxs.map((c) => c.newPage()));
+
+      // Host opens ONE room; BOTH joiners enter the same code.
+      const code = await hostNewRoom(hostPage);
+      await joinRoom(aPage, code);
+      await joinRoom(bPage, code);
+
+      // Host sees BOTH joiners connected (2 remote peers).
+      await waitForWorld(hostPage, (w) => w.peerCount >= 2, 'host sees 2 joiners connected', 60_000);
+
+      // Host begins -> all three seated from the authoritative ordered roster.
+      const beginBtn = await canvasToCss(hostPage, CANVAS_WIDTH / 2, 814);
+      await hostPage.mouse.click(beginBtn.x, beginBtn.y);
+
+      // All three reach PLAYING with exactly 3 players.
+      const labeled: Array<[Page, string]> = [
+        [hostPage, 'host'],
+        [aPage, 'joinerA'],
+        [bPage, 'joinerB'],
+      ];
+      for (const [page, who] of labeled) {
+        await waitForWorld(
+          page,
+          (w) => w.gameState === 'PLAYING' && w.gameMode === '1v1' && w.players.length === 3,
+          `${who} PLAYING + 3 players`,
+          30_000,
+        );
+      }
+
+      const [hostS, aS, bS] = await Promise.all([
+        readWorldState(hostPage),
+        readWorldState(aPage),
+        readWorldState(bPage),
+      ]);
+
+      // Seat identity: host is seat 0; the three peers cover distinct seats {0,1,2}.
+      expect(hostS.localPlayerId).toBe(0);
+      expect(new Set([hostS.localPlayerId, aS.localPlayerId, bS.localPlayerId])).toEqual(
+        new Set([0, 1, 2]),
+      );
+
+      // Every peer agrees on the SAME three colors = crimson / cyan / yellow.
+      const EXPECT_COLORS = [0xff3b6b, 0x3bd7ff, 0xffe23b].sort((x, y) => x - y);
+      const colorsOf = (s: typeof hostS): number[] => s.players.map((p) => p.color).sort((x, y) => x - y);
+      expect(colorsOf(hostS)).toEqual(EXPECT_COLORS);
+      expect(colorsOf(aS)).toEqual(EXPECT_COLORS);
+      expect(colorsOf(bS)).toEqual(EXPECT_COLORS);
+      // The 3rd player (seat 2) is YELLOW - the user's spec.
+      expect(hostS.players.find((p) => p.id === 2)?.color).toBe(0xffe23b);
+
+      // Cross-client determinism: each seat has the SAME color on every peer.
+      for (const seat of [0, 1, 2]) {
+        const c0 = hostS.players.find((p) => p.id === seat)?.color;
+        expect(aS.players.find((p) => p.id === seat)?.color).toBe(c0);
+        expect(bS.players.find((p) => p.id === seat)?.color).toBe(c0);
+      }
+
+      // FFA scoring -> one winner. Host places 3 non-bonding anchors (SCORE_ANCHOR=1
+      // each, 200px apart > AUTO_BOND_RADIUS) -> score 3 = __TEST_WIN_SCORE__ -> WIN.
+      await waitForWorld(hostPage, (w) => w.freeSparks.length >= 8, 'sparks spawned on host', 20_000);
+      await dragSparkTo(hostPage, 300, 400);
+      await dragSparkTo(hostPage, 300, 600);
+      await dragSparkTo(hostPage, 300, 800);
+      await waitForWorld(hostPage, (w) => w.gameState === 'WIN', 'host reaches FFA WIN', 20_000);
+
+      // Both other players see the game end (one winner, the other two lose).
+      for (const [page, who] of [
+        [aPage, 'joinerA'],
+        [bPage, 'joinerB'],
+      ] as Array<[Page, string]>) {
+        await waitForWorld(
+          page,
+          (w) => w.gameState === 'WIN' || w.gameState === 'POSTGAME',
+          `${who} sees the FFA game end`,
+          15_000,
+        );
+      }
+    } finally {
+      await Promise.all(ctxs.map((c) => c.close()));
     }
   });
 });

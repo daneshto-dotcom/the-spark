@@ -145,7 +145,7 @@ export class LobbyScreen {
 
     // Title
     const title = new Text({
-      text: '1v1 LOBBY',
+      text: 'MULTIPLAYER LOBBY',
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 48, fill: 0xffffff, letterSpacing: 6 }),
     });
     title.anchor.set(0.5);
@@ -167,7 +167,7 @@ export class LobbyScreen {
       const code = callbacks.onHostStart();
       this.mode = 'hosting';
       this.codeText.text = code;
-      this.statusText.text = 'Waiting for Player 2...';
+      this.statusText.text = 'Share the code — waiting for players...';
       this.renderState();
       this.updateInputVisibility();
     });
@@ -344,11 +344,19 @@ export class LobbyScreen {
     // S55 P2 — a surfaced error (protocol mismatch / transport failure) is
     // sticky; routine peer-status must not overwrite it (see errorLatched).
     if (this.errorLatched) return;
-    if (this.mode === 'hosting' && peerCount > 0 && !this.hostConnected) {
-      this.hostConnected = true;
-      this.statusText.text = 'Player 2 connected! Press Begin Match.';
-      this.beginButton.visible = true;
-      this.renderState();
+    if (this.mode === 'hosting' && peerCount > 0) {
+      // S62 — N-player: show the LIVE connected count (was a one-shot "Player 2
+      // connected" latch). The host can Begin with any 2..6 players. Re-render
+      // only when the text actually changes (peer count changed) to avoid
+      // per-frame churn.
+      const total = peerCount + 1; // + the host itself
+      const text = `${total} players connected — press Begin Match (up to 6).`;
+      if (!this.hostConnected || this.statusText.text !== text) {
+        this.hostConnected = true;
+        this.statusText.text = text;
+        this.beginButton.visible = true;
+        this.renderState();
+      }
     } else if (this.mode === 'joining' && peerCount > 0) {
       this.statusText.text = 'Connected. Waiting for host to begin...';
       this.renderState();
