@@ -1,0 +1,34 @@
+{
+  "session_id": "S63",
+  "schema_version": 1,
+  "verdicts": [
+    {
+      "priority_id": "P2",
+      "grok_verdict": "FAIL_RESOLVED",
+      "grok_findings": {
+        "critical": 1,
+        "important": 2,
+        "minor": 2,
+        "good": 0
+      },
+      "ralph_verdict": "CLEAN",
+      "gemini_verdict": "PASS",
+      "timestamp": "2026-05-31T19:54:22.228Z",
+      "notes": "Grok #1 false-pass render FIXED (extract.pixels arbiter); #4 drift FIXED (canary); #3 flake VERIFIED (4-peer 3/3 stable); #2 fiction + #5 determinism REJECTED with cause (separation-of-concerns; host-authoritative seating not concurrent)"
+    },
+    {
+      "priority_id": "P3",
+      "grok_verdict": "CONDITIONAL_PASS",
+      "grok_findings": {
+        "critical": 0,
+        "important": 1,
+        "minor": 3,
+        "good": 0
+      },
+      "ralph_verdict": "CLEAN",
+      "gemini_verdict": "CONDITIONAL_PASS",
+      "timestamp": "2026-05-31T20:08:14.053Z",
+      "notes": "Grok: constructor-not-exercised + tautology REJECTED (behavior-net is correct refactor guard; real trigger in 3/4-peer e2e); uncovered modes logged. Gemini Compl3: panes not asserted -> added scene-graph-populated check + logged pane-visibility/modes carry-forward."
+    }
+  ]
+}

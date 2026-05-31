@@ -1,31 +1,32 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-05-31 | Session: S62
+Generated: 2026-05-31 | Session: S63
 
 ## Next Steps
-1. **USER live 3-tab smoke (next session — user-planned "a"):** I spin up the dev server on `$SESSION_PORT`; open it in 3 tabs → Tab1 `1v1`→`Host New Room` (note the 6-char code); Tabs 2&3 `1v1`→type code→Enter; Tab1 shows "3 players connected — press Begin Match"→`Begin Match` → **red (host) / cyan (2nd) / yellow (3rd)** sparks. Eyeball + tune (HUD top-left spacing, colors).
-2. **Verify 4/5/6 players (next session — user-planned "b"):** config-only — the architecture is N-parametric (`MAX_PLAYERS=6`; palette + seating + netcode already handle 6). Join 4–6 peers, confirm green/orange/magenta seat correctly. Add a 4+ e2e + the CVD shape-icon polish (green/orange collide for color-blind — Gemini).
-3. **P5+ polish:** full N-seat lobby UX (per-seat color swatches / who's-in roster / room-full / ready states — the 548-LOC lobbyScreen refactor, coverage-first per Council); HUD top-left spacing (leaderboard + charge-dots + Q-hint share the corner).
-4. **Deferred infra:** host-migration (host-leave ends match today = matches 2p); reconnect-to-same-seat (seat released on leave today); 6-player snapshot delta-encoding (O(N) full-snapshot bandwidth watch-item); connection-lost client-side host-presence detection (3+p client losing only host won't see the overlay).
-5. **Pre-existing carry:** fog-feel live tuning · main.ts 942 hypertrophy · vite/vitest CVE bump · knip 42 unused-exports.
+1. **(USER eye) Live look — P1 fog + reveal:** refresh a 2–3 tab match on spark-online.space (or `$SESSION_PORT` dev). Confirm the fog is now **pure black** (no blue tint) in both unexplored AND explored areas, and the spark reveal is **~half the size**. Tune if needed: smaller reveal too soft → `VISION_FADE_PX 40→20` (1 line); miss the dim "explored" tier → raise `MEMORY_FOG_COLOR` off black (1 line). *(P1 shipped from the pre-AFK look but not yet eyeballed live.)*
+2. **(USER eye) Lobby VISUAL refactor — now UNBLOCKED** by the S63 P3 e2e net: full N-seat UX (per-seat colour swatches / who's-in roster / room-full / ready). Autonomous-safe alternative to start: extract the **pure LobbyStateMachine** (~80 LOC mode/Begin-gating logic, unit-testable) under the net — distinct from the visual work.
+3. **CVD shape-icon identity** (green/orange collide under deuteranopia — shape disambiguation) + **first-run visual-regression baselines** (`toHaveScreenshot`, user-approve once).
+4. **Net-extension (refactor session):** lobby pane-visibility-switching + joining/error/countdown modes + input focus/paste lifecycle + reset-detaches-listeners coverage.
+5. **Netcode infra (S62 logged):** connection-lost client-side host-presence detection · host-migration · reconnect-to-same-seat · 6p snapshot delta bandwidth · real-latency race/reconnect hardening.
+6. **Pre-existing:** main.ts 942 hypertrophy · vite/vitest CVE bump · knip 42 unused-exports.
 
 ## Blockers
-None code-side. 1v1v1 shipped + RUNTIME-VERIFIED (tsc clean, 946 unit, build 508.29 KB < 550, 16 e2e/1 skip incl the new 3-peer FFA arbiter PASS). (a) live smoke + (b) 4/5/6 need user input — next session.
+None code-side. S63 shipped 3/3 + runtime-verified (tsc clean, 956 unit, build 508.28 KB < 550, full e2e 20 pass/1 skip incl new 4-peer FFA + 6-player render + 2 lobby-construction). The top next-steps are EYE-DEPENDENT — they need the user's live look (deferred this autonomous session per scope-discipline).
 
 ## Pending Backlog
-BACKLOG.md is a historical session log (no forward `- [ ]` items). Forward work = Next Steps above + the handoff CARRY-FORWARD section.
+BACKLOG.md is a historical session log (no forward `- [ ]` items). Forward work = Next Steps above + the handoff CARRY-FORWARD / session-state `carry_forward`.
 
 ## Recent Reflexion (last 2 sessions)
-**S62** — 2→N-player FFA (1v1v1 shipped + verified):
-- P1 #nplayer-seat-assignment-host-authoritative #determinism-ordered-roster-not-map — cross-client determinism = host ships an ORDERED seat→color roster ARRAY (not a Map) + every client inserts players in seat order; host freezes peerId↔seat BEFORE broadcasting START (no pre-ack race); anti-spoof stamps INTENT.playerId by sender seat.
-- P2 #anti-bloat-isNetworked-predicate #radial-spawn-pure-fn-reproduces-binary — `isNetworked()=gameMode!=='solo'` for ~22 sites (behavior-identical); the per-site audit caught connection-lost as the one NOT to blanket-swap; radialSpawnPos reduces to the exact 2-player left/right at N=2.
-- P4 #3-peer-e2e-real-webrtc-arbiter #protocol-bump-breaks-version-e2e — a PROTOCOL_VERSION bump silently breaks version-mismatch e2e (they're outside `tsc -b`); must sweep e2e specs + RUN Playwright.
-- P5 #nplayer-leaderboard-hud-pool #screenshot-as-pixi-arbiter — for un-unit-testable Pixi render code, the e2e + a screenshot artifact IS the verification.
+**S63** — fog→black + N-player 4/5/6 verify + lobby net (autonomous):
+- P1 #fog-feel-tuning-live-user-eye #e2e-literal-sync-on-render-constant — fog blue→pure-black + R_PERSONAL halved; the standing "e2e-not-in-tsconfig" gotcha bit (fog.spec hardcodes the colour literal) → synced + RUN playwright; the spec's pixel-extract self-proves the new (0,0,0).
+- P2 #nplayer-verify-two-layer #extract-pixels-render-arbiter #adversarial-check-extracts-real-flaw — verified FFA to 6 = deterministic unit (applyStartGame N=4/5/6 + palette guard) + runtime e2e (4-peer real-WebRTC + N=6 deterministic render). Adversarial CHECK caught the N=6 render as a FALSE PASS (no-pageerror ≠ renderer drew) → FIXED with an `extract.pixels` colour-presence arbiter (the CI-grade Pixi render proof; a human screenshot is not CI).
+- P3 #lobby-construction-net #behavior-net-over-internals #cover-before-refactor — built the Playwright net the S61 Council required BEFORE the 548-LOC lobby refactor; a BEHAVIOR net (public-accessor assertions) is the correct refactor guard; uncovered modes logged for the refactor session.
+- SESSION #method — autonomy-pivot (defer eye-dependent, execute verification-safe; absent-user Council as the adversarial eye); pixel-arbiter-not-screenshot; council-cadence (lighter lane for test-only batches). Grok ANALYZE 8.7/10.
 
-**S61** — autonomous §XV batch (severBond extract + reducer→render guard + worldTypes split); see reflexion_log.md.
+**S62** — 2→N-player FFA (1v1v1 shipped + verified): seat identity (ordered roster + selfId + anti-spoof), un-hardcoded ~22 '1v1' gates, radial spawns, yellow/green/orange/magenta palette, N-player leaderboard HUD. See reflexion_log.md.
 
 ## Gotchas (carried)
-- **Pixi v8 sprite masks are BRIGHTNESS-weighted** (CPU `!isPointVisible` gate, not GPU mask).
-- `session-state.json` = atomic Node read-modify-write, never Edit.
-- **`e2e/` is NOT in tsconfig** → a PROTOCOL_VERSION/wire bump won't fail `tsc`; sweep `e2e/*.spec` for version literals + RUN Playwright (S62 P4 lesson).
-- Trystero `selfId` (re-exported via transport) = each client's stable id for roster self-match.
-- PS 5.1 mangles embedded `"` in `git commit -m`; use `-F <file>` for messages with quotes.
+- **`e2e/` is NOT in tsconfig** → a wire/colour/constant change passes `tsc` but silently fails Playwright; sweep `e2e/*.spec` for hardcoded literals of what you changed + RUN playwright. (Bit again in S63 P1.)
+- **For un-unit-testable Pixi render, the CI-grade arbiter = `app.renderer.extract.pixels()` colour-presence assertion**, NOT a human-only screenshot (S63 adversarial CHECK caught a screenshot-only proof as a false pass). e2e colour literals (e2e can't import src) need a src-pinning unit canary.
+- `session-state.json` = atomic Node read-modify-write, never Edit. PS 5.1 mangles embedded `"`/em-dash; use the Bash tool + ASCII for git/Node.
+- `pre-handoff-review.py` reads the GLOBAL/OS session-state (was a stale S157), not project-local — don't `--approve`/`--clear` it from a project session.
+- Real-WebRTC e2e: 4-peer is stable (3/3 local + retries:2 CI); 6-peer real was DROPPED for flake — N=6 is covered deterministically (unit + single-page render).
