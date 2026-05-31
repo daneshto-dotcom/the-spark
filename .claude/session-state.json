@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 316,
+  "tool_calls_session_total": 317,
   "session_start": "2026-05-31T07:25:41.993Z",
   "session_id": "S60",
   "session_kind": "execution",
@@ -106,15 +106,45 @@
     {
       "id": "P3",
       "label": "S59 P3 -- Fog polish: (a) WIN-fade freeze recompose when target==0; (c) fogRenderer.reset() on RETURN_TO_TITLE clears grid+Map+pool; (d) wire existing destroy()+free grid tex; (b) world->screen DEFERRED YAGNI.",
-      "status": "in_progress",
+      "status": "completed",
       "phase": "ACT",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
-      "check_completed": false,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "checkpoint_commit": "16d4c18",
+      "check_method": "S60 P3 (fog polish a/c/d; b deferred) verified. (a) FogRenderer.sync freezes the mask+memory recompose during the win-lift (if target===0 return, placed AFTER setting fog+memoryLayer alpha) -> uniform alpha dissolve, no cursor-hole drift; self-releases to normal recompose on the next PLAYING edge (counter zeroed by the alpha<=epsilon early-return). (c) FogRenderer.reset() (resetExploredGrid + resetMemory + hide brush pool + alpha 0 + hidden), wired into the EXISTING main.ts:680 *->TITLE teardown edge (covers lobby-Back, POSTGAME->title, peer-drop) -- frees memory sprites at title. (d) destroy() frees P1 gridTex (was leaked); destroy() remains dev/test-only (static SPA, no production teardown caller). (b) world->screen DEFERRED (no camera). EMPIRICAL: tsc -b exit 0; FULL unit 920/920; fog e2e 5/5 incl NEW P3(a) freeze test (a vision hole at (500,500) does NOT relocate when the cursor moves to (1500,900) mid-lift -> mask frozen) + P3(c) reset test (rememberedCount 1->0, container hidden, alpha 0); gameplay smoke 10 pass/1 skip (canary GREEN -- P3 sync freeze behind __FOG_DISABLE__; reset() safe/idempotent on the title-edge the smoke exercises); prod build clean, bundle 506.98 KB < 550 cap. CHECK: RALPH:PATROL clean (freeze self-releases on PLAYING edge; reset idempotent; gridTex free correct-when-called). External CHECK folds into the P2 Triumvirate (same fogRenderer surface, already Grok+Gemini reviewed). checkpoint 16d4c18.",
+      "real_context_tokens_at_close": 326163,
+      "real_context_pct_at_close": 32.62,
+      "verification": [
+        {
+          "check": "file_contains",
+          "path": "src/render/fogRenderer.ts",
+          "needle": "if (target === 0) return;"
+        },
+        {
+          "check": "file_contains",
+          "path": "src/render/fogRenderer.ts",
+          "needle": "reset(): void {"
+        },
+        {
+          "check": "file_contains",
+          "path": "src/render/fogRenderer.ts",
+          "needle": "this.gridTex.destroy(true)"
+        },
+        {
+          "check": "file_contains",
+          "path": "src/main.ts",
+          "needle": "fogRenderer.reset();"
+        },
+        {
+          "check": "file_contains",
+          "path": "e2e/fog.spec.ts",
+          "needle": "freezes the mask during the win-lift"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
@@ -122,7 +152,8 @@
     "SESSION #method-opaque-not-translucent-fog: in SCREEN-SPACE fog, a 'dim/remembered' tier MUST be an OPAQUE colour change over the dark base, never an alpha reduction -- alpha reduction makes the overlay translucent and leaks the live board (the rejected M1). Proof: source-over onto an opaque base keeps out.a = a_src + 1*(1-a_src) = 1 for any source alpha, so an opaque lighter colour gives dim-but-opaque. Caught my own partial-ERASE draft pre-commit by reasoning the blend math. Transferable: when a render tier must 'show less' without revealing what's beneath, change colour at full opacity; don't lower alpha.",
     "SESSION #method-prime-audit-refute-not-rubberstamp: PRIME-AUDIT independently REFUTED Gemini's inverted-layer composite recipe AND Grok's phantom 'bilinear leak' (both dissolved on blend-math), while keeping terrain-dim against a false R2 consensus on principled grounds (literal ask + zero-ghost-risk) AND a REAL centre-only grid-coverage bug got caught+fixed. The discipline 'for each adopted/flagged item, state what would falsify it INDEPENDENTLY of the claimant' caught 2 false + held 1 contested + surfaced 1 true. Earns its keep on every render/GPU feature where reviewers reason about compositing.",
     "SESSION #method-checkpoint-under-degraded-tooling: when the tool-output channel degrades mid-batch (delayed bursts, repeated empty probes), checkpoint at the nearest CLEAN priority boundary and carry forward the riskiest remaining work rather than grind it through broken tooling -- quality of the risky piece (P2 ghost state machine) > cramming the batch. Validated: P1 shipped clean + deployed; P2/P3 carried with full Council design intact.",
-    "P2 #memory-fog-cpu-gate-not-gpu-mask #pixel-e2e-caught-mask-attenuation: the S59-designed 'memoryLayer masked by Sprite(maskRT)' was empirically WRONG -- a Pixi v8 sprite mask attenuates the masked content by the mask's BRIGHTNESS, and the fog mask is near-black (MEMORY_FOG_COLOR 0x161b2e), so it crushed the ghost silhouettes to ~5% alpha (measured g=35 vs expected ~121 in the pixel e2e). Pivoted to a CPU per-sprite visibility gate (sprite.visible = !isPointVisible(sources, ghost.pos)), reusing the SAME vision predicate as the memory update -- simpler, no brightness coupling, and the GPU mask wasn't viable anyway (a fog shader is Council-vetoed in this codebase). Lesson: a render-compositing assumption from static design -- even a Council+PRIME-AUDIT-ratified 'sprite.mask=alpha' -- must be runtime-pixel-verified; 'sprite.mask=alpha' is FALSE for a dark mask (it's brightness-weighted). RALPH:PATROL separately caught a missing match-start ghost reset (match 2 would inherit match 1 ghosts). PRIME-AUDIT empirically REFUTED both GROK REALs (placedBy-immutable grep) + downgraded a GEMINI design-pref. Transferable: when a reviewer OR your own design asserts GPU-compositing behavior, the pixel e2e is the arbiter, not the reasoning."
+    "P2 #memory-fog-cpu-gate-not-gpu-mask #pixel-e2e-caught-mask-attenuation: the S59-designed 'memoryLayer masked by Sprite(maskRT)' was empirically WRONG -- a Pixi v8 sprite mask attenuates the masked content by the mask's BRIGHTNESS, and the fog mask is near-black (MEMORY_FOG_COLOR 0x161b2e), so it crushed the ghost silhouettes to ~5% alpha (measured g=35 vs expected ~121 in the pixel e2e). Pivoted to a CPU per-sprite visibility gate (sprite.visible = !isPointVisible(sources, ghost.pos)), reusing the SAME vision predicate as the memory update -- simpler, no brightness coupling, and the GPU mask wasn't viable anyway (a fog shader is Council-vetoed in this codebase). Lesson: a render-compositing assumption from static design -- even a Council+PRIME-AUDIT-ratified 'sprite.mask=alpha' -- must be runtime-pixel-verified; 'sprite.mask=alpha' is FALSE for a dark mask (it's brightness-weighted). RALPH:PATROL separately caught a missing match-start ghost reset (match 2 would inherit match 1 ghosts). PRIME-AUDIT empirically REFUTED both GROK REALs (placedBy-immutable grep) + downgraded a GEMINI design-pref. Transferable: when a reviewer OR your own design asserts GPU-compositing behavior, the pixel e2e is the arbiter, not the reasoning.",
+    "P3 #fog-polish-reuse-existing-state-edge: the win-lift FREEZE is a 1-line guard (if target===0 return) placed AFTER the alpha/visibility assignment but BEFORE the throttled recompose -> fog+ghosts fade via alpha over a FROZEN mask composition (uniform dissolve), and it self-releases because target>0 on the next PLAYING edge (no stuck-frozen risk; the win test still completes to alpha 0). reset() reused the EXISTING main.ts:680 *->TITLE teardown edge (already abort-cutscene/reset-shake/clear-creatures) rather than instrumenting all 3 RETURN_TO_TITLE dispatch sites -> one idempotent call covers lobby-Back + POSTGAME->title + peer-drop. Lesson: when adding teardown/reset for a NEW subsystem, find the existing state-transition edge that already orchestrates sibling teardown and co-locate there (single idempotent site) instead of touching every dispatch caller. Each polish item earned a dedicated e2e proof (freeze: a vision hole doesn't relocate mid-lift; reset: rememberedCount->0) -- runtime-verifying GPU/state behavior, not just tsc."
   ],
   "budget_total": 1000000,
   "totals": {
@@ -144,5 +175,5 @@
   "analyze_summary": "S59 ANALYZE: full pipeline (A.0 empirical discovery -> Full-tier batch PDR -> 2-round 3-way Council -> PRIME-AUDIT -> P1 execute -> per-priority CHECK) executed well; P1 shipped clean (17772b4). Efficiency was hit by a DEGRADED tool-output channel (results delivered in long-delayed bursts -> many empty probe round-trips) + heavy context, NOT by method. Wins: caught a translucent-fog live-board LEAK pre-commit via blend-math reasoning (source-over on opaque base keeps mask alpha=1 -> opaque dim, not alpha reduction); PRIME-AUDIT independently REFUTED 2 reviewer claims (Gemini inverted-layer recipe; Grok phantom bilinear-leak) + 1 false R2 consensus (drop terrain-dim) while a REAL centre-only coverage bug was caught+fixed. Checkpoint after P1 + carry P2/P3 (riskiest = enemy-structure ghost state machine) = sound under degraded tooling + context pressure. GROK-ANALYST ANALYZE call was fired but its result was lost to the channel lag; self-assessment stands.",
   "handoff_generated": "2026-05-31",
   "handoff_doc": "HANDOFF_2026-05-31_S59.md",
-  "session_status": "in-progress (S60 P2 shipped 1709d0d; P3 executing)"
+  "session_status": "S60 batch complete (P1 S59 + P2 1709d0d + P3 16d4c18) — ready for end-of-session audit + /handoff"
 }
