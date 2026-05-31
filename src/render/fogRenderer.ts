@@ -237,6 +237,12 @@ export class FogRenderer {
     this.memoryLayer.visible = true;
     this.memoryLayer.alpha = this.alpha;
 
+    // S60 P3(a) — during the win-lift (target 0, fog still fading > epsilon) FREEZE the
+    // mask + memory recompose: the holes and ghosts stay put while the alpha tween
+    // dissolves everything uniformly, so the reveal is an even fade with no cursor-hole
+    // drift. (Below epsilon the early-return above already hid + zeroed the counter.)
+    if (target === 0) return;
+
     // Throttle the expensive mask recompose (~20Hz). The alpha tween above runs
     // every frame, so this never affects win-lift smoothness. Frame 0 after
     // activation always composes (counter reset to 0 on hide).
@@ -355,6 +361,25 @@ export class FogRenderer {
     this.ghostSprites.clear();
   }
 
+  /**
+   * S60 P3(c) — explicit teardown for the *→TITLE transition (lobby Back, peer-drop,
+   * POSTGAME→title): forget exploration + ghost memory, hide the brush pool, and drop the
+   * fog to hidden so the title is clean and the NEXT match starts fresh. (The PLAYING edge
+   * already auto-resets at match start; this frees the memory sprites at title rather than
+   * holding them until the next game.)
+   */
+  reset(): void {
+    resetExploredGrid(this.grid);
+    this.gridNeedsRedraw = true;
+    this.resetMemory();
+    for (const brush of this.pool) brush.visible = false;
+    this.alpha = 0;
+    this.maskFrameCounter = 0;
+    this.wasActive = false;
+    this.container.visible = false;
+    this.memoryLayer.visible = false;
+  }
+
   /** DEV/test only — count of remembered enemy structures (drives the e2e memory assert). */
   get rememberedCount(): number {
     return this.memory.size;
@@ -373,9 +398,9 @@ export class FogRenderer {
   destroy(): void {
     this.maskRT.destroy(true);
     this.brushTex.destroy(true);
+    this.gridTex.destroy(true); // S60 P3(d) — free P1's explored-grid texture (was leaked)
     this.container.destroy({ children: true });
-    // S60 P2 — free the memory layer + its silhouette texture set. (P1's gridTex is
-    // freed in P3, alongside wiring destroy() into an actual teardown path.)
+    // S60 P2 — free the memory layer + its silhouette texture set.
     this.memoryLayer.destroy({ children: true });
     destroyShapeTextures(this.ghostTextures);
     this.ghostSprites.clear();

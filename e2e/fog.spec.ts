@@ -213,4 +213,74 @@ test.describe('S57 Fog of War — client-side render mask', () => {
     expect(r.alpha).toBe(0);
     expect(r.visible).toBe(false);
   });
+
+  test('P3(a) — freezes the mask during the win-lift so the reveal dissolves uniformly', async ({
+    page,
+  }) => {
+    await page.goto('/?debug=1');
+    await waitForSparkFog(page);
+    const r = await page.evaluate(() => {
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      const s = (window as any).__SPARK__;
+      const app = s.app;
+      const fog = s.fogRenderer;
+      const w = s.world;
+      w.gameMode = '1v1'; w.gameState = 'PLAYING'; w.localPlayerId = 0;
+      // Compose a fog mask with a personal-vision hole at (500,500) (outside the spawner).
+      s.controls.cursor.x = 500; s.controls.cursor.y = 500;
+      fog.sync(w, s.controls.cursor, 1 / 60);
+      const maskAlphaAt = (x: number, y: number): number => {
+        const out = app.renderer.extract.pixels(fog.maskTexture);
+        const rX = out.width / 1920, rY = out.height / 1080;
+        return out.pixels[(Math.round(y * rY) * out.width + Math.round(x * rX)) * 4 + 3];
+      };
+      const holeBeforeWin = maskAlphaAt(500, 500); // ~0 (transparent vision hole)
+      // Enter WIN (lift begins) and move the cursor far away. If the mask were still
+      // recomposing, the hole would relocate and (500,500) would fill in (opaque). The
+      // P3(a) freeze keeps the last PLAYING composition, so (500,500) stays a hole.
+      w.gameState = 'WIN';
+      s.controls.cursor.x = 1500; s.controls.cursor.y = 900;
+      for (let f = 0; f < 4; f++) fog.sync(w, s.controls.cursor, 1 / 60);
+      return { holeBeforeWin, holeDuringLift: maskAlphaAt(500, 500), midLiftAlpha: fog.currentAlpha };
+      /* eslint-enable @typescript-eslint/no-explicit-any */
+    });
+    expect(r.midLiftAlpha).toBeGreaterThan(0); // still mid-lift...
+    expect(r.midLiftAlpha).toBeLessThan(1);    // ...fog is fading, not yet fully gone
+    expect(r.holeBeforeWin).toBeLessThan(10);  // the vision hole at (500,500)
+    expect(r.holeDuringLift).toBeLessThan(10); // STILL a hole — mask frozen, not recomposed
+  });
+
+  test('P3(c) — reset() forgets exploration + ghost memory and hides the fog', async ({ page }) => {
+    await page.goto('/?debug=1');
+    await waitForSparkFog(page);
+    const r = await page.evaluate(() => {
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      const s = (window as any).__SPARK__;
+      const fog = s.fogRenderer;
+      const w = s.world;
+      const id = w.nextPrimitiveId++;
+      w.primitives.set(id, {
+        id, type: 3, placerColor: 0x3bd7ff, placedBy: 1, createdTick: w.tick,
+        pos: { x: 800, y: 500 }, prevPos: { x: 800, y: 500 }, bonds: new Set(),
+        ownerColor: 0x3bd7ff, lastOwnershipChange: 0, radius: 9,
+      });
+      w.gameMode = '1v1'; w.gameState = 'PLAYING'; w.localPlayerId = 0;
+      s.controls.cursor.x = 800; s.controls.cursor.y = 500;
+      for (let f = 0; f < 3; f++) fog.sync(w, s.controls.cursor, 1 / 60);
+      const beforeReset = { remembered: fog.rememberedCount, visible: fog.container.visible };
+      fog.reset();
+      const afterReset = {
+        remembered: fog.rememberedCount,
+        visible: fog.container.visible,
+        alpha: fog.currentAlpha,
+      };
+      return { beforeReset, afterReset };
+      /* eslint-enable @typescript-eslint/no-explicit-any */
+    });
+    expect(r.beforeReset.remembered).toBe(1); // enemy structure scouted + remembered
+    expect(r.beforeReset.visible).toBe(true);  // fog active
+    expect(r.afterReset.remembered).toBe(0);   // memory forgotten
+    expect(r.afterReset.visible).toBe(false);  // fog hidden
+    expect(r.afterReset.alpha).toBe(0);        // alpha zeroed
+  });
 });

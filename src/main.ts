@@ -693,6 +693,10 @@ async function bootstrap(): Promise<void> {
         // would suppress shake on the next ARC_FLASH if the new session's
         // host happens to be at a tick < clientLastShakeArcFlashTick.
         clientLastShakeArcFlashTick = -Infinity;
+        // S60 P3(c) — clear explored grid + ghost memory + hide the brush pool so the
+        // title is clean and the next match starts fresh (covers all *→TITLE paths:
+        // lobby Back, POSTGAME→title, peer-drop).
+        fogRenderer.reset();
       }
       lastGameState = world.gameState;
       physicsAccumulator -= PHYSICS_DT;
