@@ -102,7 +102,7 @@ import {
   startCinematicIfNeeded,
 } from './state/godlyOrchestration.ts';
 import { mulberry32 } from './state/rng.ts';
-import { dispatch, makeWorld, type GameAction, type GameState } from './state/world.ts';
+import { dispatch, isNetworked, makeWorld, type GameAction, type GameState } from './state/world.ts';
 import { makeGameStateExtras, softReset, tickGameState } from './state/gameState.ts';
 import { saveToLocalStorage } from './state/save.ts';
 import { asPlayerId } from './types.ts';
@@ -232,7 +232,7 @@ async function bootstrap(): Promise<void> {
   ]);
   const dispatchFn: ControlsDispatchFn = (action: GameAction) => {
     if (
-      world.gameMode === '1v1' &&
+      isNetworked(world) &&
       !world.isHost &&
       session.clientSync !== null &&
       session.netTransport !== null
@@ -467,7 +467,7 @@ async function bootstrap(): Promise<void> {
 
     const physStart = performance.now();
     while (physicsAccumulator >= PHYSICS_DT) {
-      const isClient = world.gameMode === '1v1' && !world.isHost;
+      const isClient = isNetworked(world) && !world.isHost;
       if (world.gameState === 'PLAYING' && !isClient) {
         stepPhysics(world, spawner, grid, controls);
       } else {
@@ -613,7 +613,7 @@ async function bootstrap(): Promise<void> {
         (world.gameState === 'PLAYING' ||
           world.gameState === 'WIN' ||
           world.gameState === 'POSTGAME') &&
-        world.gameMode === '1v1' &&
+        isNetworked(world) &&
         world.isHost &&
         session.hostSync !== null &&
         session.netTransport !== null &&
@@ -649,7 +649,7 @@ async function bootstrap(): Promise<void> {
       if (
         world.gameState === 'WIN' &&
         lastGameState !== 'WIN' &&
-        world.gameMode === '1v1' &&
+        isNetworked(world) &&
         world.isHost &&
         session.netTransport !== null &&
         world.lastWinnerId !== null
@@ -713,7 +713,7 @@ async function bootstrap(): Promise<void> {
     // 100ms by the host's stale "spark at spawn" snapshot — symptom user
     // reported as "they stay at spawn point and then teleport to supposed
     // leave point" + visual jitter during drag.
-    if (world.gameMode === '1v1' && !world.isHost && session.clientSync !== null) {
+    if (isNetworked(world) && !world.isHost && session.clientSync !== null) {
       session.clientSync.interpolateInto(
         world,
         performance.now(),
@@ -751,8 +751,14 @@ async function bootstrap(): Promise<void> {
     spawnerRing.visible = !inOverlayScreen;
     legend.visible = !inOverlayScreen;
 
-    // S15 P2 — connection-lost overlay (1v1, PLAYING, no peers).
-    const connectionLost = world.gameMode === '1v1'
+    // S15 P2 — connection-lost overlay (networked, PLAYING, no peers).
+    // S62 — generalized gameMode==='1v1' → isNetworked() but DELIBERATELY keeps
+    // peerCount()===0 (Council/PRIME-AUDIT: NOT a blanket swap). Correct for the
+    // host (all clients gone) and for 2-player. KNOWN GAP (logged carry-forward,
+    // P5): a 3+-player CLIENT that loses only the HOST but still sees another
+    // client has peerCount>0, so this won't fire — needs explicit client-side
+    // host-presence detection. No false-positive: never shows while peers remain.
+    const connectionLost = isNetworked(world)
       && world.gameState === 'PLAYING'
       && session.netTransport !== null
       && session.netTransport.peerCount() === 0;
@@ -876,7 +882,7 @@ async function bootstrap(): Promise<void> {
     // controls.ts). Gated on PLAYING + 1v1 — solo mode has no remote viewer
     // so dispatch is wasted work + would also be a no-op (reducer would only
     // update the local player's avatarPos for nobody to see).
-    if (world.gameState === 'PLAYING' && world.gameMode === '1v1') {
+    if (world.gameState === 'PLAYING' && isNetworked(world)) {
       const nowMs = performance.now();
       const dx = controls.cursor.x - lastDispatchedCursorX;
       const dy = controls.cursor.y - lastDispatchedCursorY;

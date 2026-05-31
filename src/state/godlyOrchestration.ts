@@ -30,7 +30,7 @@ import type { DebugOverlayHandle, RuntimeProbes } from '../render/debugOverlay.t
 import { playOneShot } from '../render/audioManager.ts';
 import { cinematicMsToTicks } from './creatures/creature.ts';
 import { findGodlyMatch, getRecipe, makeTriggerEvent } from './godlyRecipes/index.ts';
-import { dispatch, type World } from './world.ts';
+import { dispatch, isNetworked, type World } from './world.ts';
 
 export interface GodlyOrchestrationState {
   /** Last tick at which the matcher cursor advanced. Strict `<` skip (S23 P4). */
@@ -88,7 +88,7 @@ export function runGodlyMatcher(
     if (result === null) continue;
     const event = makeTriggerEvent(result, world.tick);
     // Broadcast first so client renders sooner (D4 standalone latency choice).
-    if (ctx.netTransport !== null && world.gameMode === '1v1') {
+    if (ctx.netTransport !== null && isNetworked(world)) {
       ctx.netTransport.send({ kind: 'GODLY_TRIGGER', event });
     }
     dispatch(world, { type: 'GODLY_TRIGGER', event });

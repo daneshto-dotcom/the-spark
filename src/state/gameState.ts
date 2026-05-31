@@ -13,7 +13,7 @@
  */
 
 import { PHASE_1_WIN_SCORE, PHYSICS_HZ } from '../constants.ts';
-import { dispatch } from './world.ts';
+import { dispatch, isNetworked } from './world.ts';
 import type { GameState, World } from './world.ts';
 import type { PlayerId } from '../types.ts';
 
@@ -48,7 +48,7 @@ export function tickGameState(
       // for the max-scoring player.
       if (world.scoreProgress >= PHASE_1_WIN_SCORE) {
         let winnerId: PlayerId = primaryPlayerId;
-        if (world.gameMode === '1v1') {
+        if (isNetworked(world)) {
           let maxScore = -1;
           for (const [pid, score] of world.scoreByPlayer.entries()) {
             if (score > maxScore) {

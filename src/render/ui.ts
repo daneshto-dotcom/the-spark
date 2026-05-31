@@ -23,7 +23,7 @@ import {
   MAX_DISRUPTION_CHARGES,
   PHASE_1_WIN_SCORE,
 } from '../constants.ts';
-import type { World } from '../state/world.ts';
+import { isNetworked, type World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
 
 const GAUGE_X = CANVAS_WIDTH - 24;
@@ -182,7 +182,7 @@ export class HUD {
     if (world.gameState === 'WIN' || world.gameState === 'POSTGAME') {
       const winnerPid = world.lastWinnerId ?? asPlayerId(0);
       const winner = world.players.get(winnerPid);
-      const winLabel = world.gameMode === '1v1' && winner !== undefined
+      const winLabel = isNetworked(world) && winner !== undefined
         ? `PLAYER ${winnerPid + 1} WINS`
         : 'WIN';
       this.winText.text = world.gameState === 'WIN'
@@ -200,7 +200,7 @@ export class HUD {
   }
 
   private drawMultiplayerHUD(world: World): void {
-    const show1v1 = world.gameMode === '1v1' && world.gameState === 'PLAYING';
+    const show1v1 = isNetworked(world) && world.gameState === 'PLAYING';
 
     // S42 — Turn indicator badge block DELETED. Real-time gameplay has
     // no "active player" concept; per-player score readouts below still
@@ -225,7 +225,7 @@ export class HUD {
     // (PRIME-AUDIT E — badge width grew with the Phase-2 marker).
     const g = this.connectionDot;
     g.clear();
-    if (world.gameMode === '1v1') {
+    if (isNetworked(world)) {
       const color = this.connectedPeers > 0 ? 0x3bff7a : 0xff3b6b;
       g.circle(CANVAS_WIDTH - 24, 48, 6).fill({ color, alpha: 0.85 });
     }

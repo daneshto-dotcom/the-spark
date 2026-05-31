@@ -40,7 +40,7 @@ import { makePrimitiveFromSpark, type Primitive } from '../game/primitive.ts';
 import { bfsHopMap, componentOf, type Structure } from '../game/structure.ts';
 import type { Bond } from '../physics/bonds.ts';
 import { asBondId, asPrimitiveId, type PlayerId, type PrimitiveId, type Vec2 } from '../types.ts';
-import { addScore, requirePlayer, type World } from './world.ts';
+import { addScore, isNetworked, requirePlayer, type World } from './world.ts';
 import { isInsideEnemyTerritory } from './territory.ts';
 
 /** Action payload for PLACE_PRIMITIVE — exported so world.ts can compose GameAction. */
@@ -180,7 +180,7 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
   // re-pick entirely → pre-S48 behavior byte-identical for solo + host's
   // own actions.
   const isRemoteOrigin =
-    world.gameMode === '1v1' &&
+    isNetworked(world) &&
     world.isHost &&
     action.playerId !== world.localPlayerId;
   let effectiveMergeCandidateIds: ReadonlyArray<PrimitiveId> | undefined =

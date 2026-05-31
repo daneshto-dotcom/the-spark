@@ -14,7 +14,7 @@
 
 import { ClientSync } from './sync.ts';
 import type { NetSession } from './session.ts';
-import { NetTransport } from './transport.ts';
+import { NetTransport, selfId } from './transport.ts';
 import type { Controls } from '../input/controls.ts';
 import { dispatch, type World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
@@ -46,13 +46,11 @@ export function createJoinAttemptHandler(deps: JoinAttemptDeps): (code: string) 
     // entry-point is symmetric. RETURN_TO_TITLE resets gameMode='solo' so
     // back-out remains clean. Bug pre-dates S15 commit add497f (~20 sessions).
     deps.world.gameMode = '1v1';
-    deps.controls.setPlayerId(asPlayerId(1));
-    // S42 — non-serialized convention field; HUD energy gauge reads this
-    // to render the LOCAL player's energy (replaces removed currentPlayerId
-    // "active player" concept). Default asPlayerId(0) covers solo + 1v1
-    // host; this assignment covers the 1v1 client peer. Council R1 Battle
-    // Ledger row 3 (Grok-C3 ADOPT + Gemini-R2 validated).
-    deps.world.localPlayerId = asPlayerId(1);
+    // S62 — the client's seat is NO LONGER hardcoded to 1. localPlayerId +
+    // controls playerId are set from the host's authoritative roster when
+    // START_GAME_SIGNAL arrives (below), so a 2nd/3rd client gets its own seat
+    // (1, 2, …) instead of every client claiming seat 1. gameMode is still set
+    // here because the snapshot-apply gate (main.ts) reads it before PLAYING.
     // S20 P0 — same onError wiring as host path.
     transport.onError = (errMsg) => deps.onLobbyError(errMsg);
     // S53 P1 — same onProtocolMismatch wiring as host path; shared
@@ -87,7 +85,20 @@ export function createJoinAttemptHandler(deps: JoinAttemptDeps): (code: string) 
       // when still in LOBBY so a late/duplicate signal can't reset
       // pendingCreatureSpawn that snapshots may have already populated.
       if (msg.kind === 'START_GAME_SIGNAL' && deps.world.gameState === 'LOBBY') {
-        dispatch(deps.world, { type: 'START_GAME', mode: msg.mode, isHost: false });
+        // S62 — adopt the seat the host assigned to THIS peer (match by selfId
+        // in the authoritative roster), then seat everyone deterministically
+        // from the same ordered roster. Fallback to seat 1 if (unexpectedly) not
+        // found, preserving the 2-player default.
+        const mine = msg.roster.find((e) => e.peerId === selfId);
+        const seat = mine !== undefined ? asPlayerId(mine.seat) : asPlayerId(1);
+        deps.world.localPlayerId = seat;
+        deps.controls.setPlayerId(seat);
+        dispatch(deps.world, {
+          type: 'START_GAME',
+          mode: msg.mode,
+          isHost: false,
+          roster: msg.roster.map((e) => ({ seat: e.seat, color: e.color })),
+        });
       }
       // S47 P1 (Sym I fix) — receive host-broadcast game-end envelope
       // and dispatch WIN_TRIGGER locally so joiner's gameState flips to

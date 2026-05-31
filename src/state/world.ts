@@ -31,6 +31,7 @@ import {
   applyReturnToTitle,
   applyStartGame,
   applyUpdateAvatarPos,
+  isNetworked,
   type ReturnToTitleAction,
   type StartGameAction,
   type UpdateAvatarPosAction,
@@ -66,7 +67,7 @@ import {
 
 // Re-export addScore from gameMode.ts for back-compat with placePrimitive.ts
 // and session15.test.ts (S16 P0 extraction preserved external import paths).
-export { addScore } from './gameMode.ts';
+export { addScore, isNetworked } from './gameMode.ts';
 
 // S61 P3 — World / GameState / GameMode moved to src/state/worldTypes.ts (§XV
 // de-hypertrophy): world.ts is the dispatch seam, worldTypes.ts the data shape.
@@ -257,7 +258,7 @@ export function dispatch(world: World, action: GameAction): World {
     case 'SHRINK_TERRITORY': {
       // 1v1-only: solo has no enemy, loop finds no targets → implicit no-op.
       // Charge guard prevents charge loss on accidental trigger.
-      if (world.gameMode !== '1v1') return world;
+      if (!isNetworked(world)) return world;
       const attacker = world.players.get(action.playerId);
       if (attacker === undefined) return world;
       if (attacker.disruptionCharges < 1) return world;

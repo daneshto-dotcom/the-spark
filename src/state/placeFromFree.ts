@@ -52,7 +52,7 @@ import {
   placePrimitive,
 } from './placePrimitive.ts';
 import { isInsideEnemyTerritory } from './territory.ts';
-import { requirePlayer, type World } from './world.ts';
+import { isNetworked, requirePlayer, type World } from './world.ts';
 import type { PlayerId, PrimitiveId, SparkId, Vec2 } from '../types.ts';
 
 /**
@@ -129,7 +129,7 @@ export function applyPlaceFromFree(world: World, action: PlaceFromFreeAction): W
   //     because action.placementPos == cursor == validated by S39 P2
   //     letterbox-aware cssToCanvasCoords already.
   const isRemoteCarrier =
-    world.gameMode === '1v1' && action.playerId !== world.localPlayerId;
+    isNetworked(world) && action.playerId !== world.localPlayerId;
   if (isRemoteCarrier && !isValidPlacementPos(action.placementPos, player.avatarPos)) {
     world.diagnostics.raceRejects++;
     world.diagnostics.rejectReasons.pickupReachFail++;
@@ -159,7 +159,7 @@ export function applyPlaceFromFree(world: World, action: PlaceFromFreeAction): W
   //     world. Local-origin trusts the action fields (S48 P2 path, byte-
   //     identical to PLACE_PRIMITIVE's existing logic).
   const isRemoteOrigin =
-    world.gameMode === '1v1' && world.isHost && action.playerId !== world.localPlayerId;
+    isNetworked(world) && world.isHost && action.playerId !== world.localPlayerId;
   let effectiveTargetId: PrimitiveId | null;
   let effectiveMergeIds: ReadonlyArray<PrimitiveId> | undefined;
   if (isRemoteOrigin) {

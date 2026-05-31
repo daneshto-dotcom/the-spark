@@ -51,15 +51,23 @@ export const SPARK_VISUAL_SIZE: Record<SparkType, number> = {
   [SparkType.Spiral]: 20,
 };
 
-// Player palette — 6 distinct, max-saturation, color-blind-aware.
+// Player palette — 6 distinct, max-saturation seats. Index = seat = playerId.
+// S62 — re-tuned P3..P6 to the N-player spec (yellow/green/orange/magenta).
+// The 3-player ship set (crimson/cyan/yellow) is CVD-safe; green/orange
+// collisions only appear at 4-6 players (carry-forward: shape-icon identity,
+// S62 Council/Gemini — color alone is not a unique id beyond 3 players).
 export const PLAYER_COLORS = [
   0xff3b6b, // P1 Crimson
   0x3bd7ff, // P2 Cyan
-  0x9bff3b, // P3 Lime
-  0xffb13b, // P4 Amber
-  0xd73bff, // P5 Magenta
-  0x3bffb1, // P6 Mint
+  0xffe23b, // P3 Yellow
+  0x44ff5e, // P4 Green
+  0xff8c1a, // P5 Orange
+  0xd73bff, // P6 Magenta
 ] as const;
+
+// S62 — max seats per FFA match. Seats are 0..MAX_PLAYERS-1; seat → PLAYER_COLORS[seat].
+// Ship target this session: 3 (1v1v1). 4-6 are config-only (more peers join).
+export const MAX_PLAYERS = 6;
 
 // === Canvas, Spawner, Vision ===
 export const CANVAS_WIDTH = 1920;

@@ -46,7 +46,7 @@ import type { Spark } from '../game/spark.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { componentOf } from '../game/structure.ts';
 import { cssToCanvasCoords } from '../render/lobbyScreen.ts';
-import { dispatch } from '../state/world.ts';
+import { dispatch, isNetworked } from '../state/world.ts';
 import type { GameAction, World } from '../state/world.ts';
 import type { BondId, PlayerId, PrimitiveId, SparkId, Vec2 } from '../types.ts';
 import { pickRedundantBondTargets } from './redundantBondTargets.ts';
@@ -350,7 +350,7 @@ export class Controls {
         // PICKUP_SPARK reducer has already snapped to carrier's avatarPos).
         // Host's own non-1v1 / host-mode controls keep the gates — joiner
         // bypass is the narrowest scope necessary to fix the regression.
-        const isClient = this.world.gameMode === '1v1' && !this.world.isHost;
+        const isClient = isNetworked(this.world) && !this.world.isHost;
         const targetRefPos = isClient ? this.cursor : spark.pos;
         const reachDx = this.cursor.x - spark.pos.x;
         const reachDy = this.cursor.y - spark.pos.y;
@@ -745,7 +745,7 @@ export function decideKeyShrink(params: {
 }): boolean {
   if (params.key !== 'q' && params.key !== 'Q') return false;
   if (params.focusedTag === 'INPUT' || params.focusedTag === 'TEXTAREA') return false;
-  if (params.gameMode !== '1v1') return false;
+  if (params.gameMode === 'solo') return false; // S62 — networked-only (any non-solo)
   if (params.gameState !== 'PLAYING') return false;
   if (params.disruptionCharges === undefined || params.disruptionCharges < 1) return false;
   return true;

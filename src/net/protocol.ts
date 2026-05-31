@@ -38,14 +38,17 @@ export type { NetSnapshot };
 // lost overlay (S22 P3 pattern preserved). S53 P2 — RMB ConnectDrag flow
 // removed; the legacy v2 carry-then-place external entry point no longer
 // exists locally even if a v2 peer slipped past the latch.
-export const PROTOCOL_VERSION = 3 as const;
+// S62 — bumped 3→4 for N-player: START_GAME_SIGNAL now carries the seat→color
+// roster (deterministic cross-client seating). A v3 peer is rejected at the
+// HELLO handshake (single-deploy, no stragglers) — same lockstep as prior bumps.
+export const PROTOCOL_VERSION = 4 as const;
 
 export interface HelloMsg {
   readonly kind: 'HELLO';
   readonly playerId: PlayerId;
   readonly color: number;
-  /** Protocol version — bumped on wire-incompatible changes. S52 P1: 2→3. */
-  readonly protoVersion: 3;
+  /** Protocol version — bumped on wire-incompatible changes. S62: 3→4. */
+  readonly protoVersion: 4;
 }
 
 /**
@@ -101,7 +104,7 @@ export function buildHello(playerId: PlayerId, color: number): HelloMsg {
     // preserves the version-bump lockstep tsc tripwire: raising
     // PROTOCOL_VERSION without updating HelloMsg.protoVersion errors at that
     // line. (Council R1 #1 — quarantine-cast over relaxing the type to number.)
-    return { kind: 'HELLO', playerId, color, protoVersion: override as 3 };
+    return { kind: 'HELLO', playerId, color, protoVersion: override as 4 };
   }
   return { kind: 'HELLO', playerId, color, protoVersion: PROTOCOL_VERSION };
 }
@@ -130,9 +133,27 @@ export interface NetSnapshotMsg {
  * NETSNAPSHOTs still carry authoritative state; this signal only kicks the
  * peer's FSM into PLAYING so visuals start rendering immediately.
  */
+/**
+ * S62 — a single authoritative seat assignment in the match roster. The host
+ * mints the roster (seat 0 = host; seats 1..N-1 = remote peers in join order),
+ * one entry per connected player, and ships the ORDERED array (by seat) so every
+ * client constructs a byte-identical initial world (Council determinism fix:
+ * ordered array, NOT a Map — iteration order can't diverge). Each client finds
+ * its OWN entry by matching `peerId === selfId` to learn its seat + color.
+ */
+export interface RosterEntry {
+  readonly seat: number;
+  readonly peerId: string;
+  readonly color: number;
+}
+
 export interface StartGameMsg {
   readonly kind: 'START_GAME_SIGNAL';
+  // Kept as the literal '1v1' value (the "networked mode" tag) for back-compat;
+  // the actual player count is roster.length (2..MAX_PLAYERS). S62.
   readonly mode: '1v1';
+  // S62 — seat→color roster for deterministic N-player seating. Ordered by seat.
+  readonly roster: readonly RosterEntry[];
 }
 
 export interface EndGameMsg {
@@ -287,10 +308,24 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
       return obj as unknown as NetSnapshotMsg;
     }
     case 'START_GAME_SIGNAL': {
-      // S39 P1 — host→peer lobby-exit signal. Mode is fixed at '1v1' today
-      // (solo never broadcasts START_GAME), but checked at the wire so a future
-      // mode addition fails closed rather than silently mis-routing.
+      // S39 P1 — host→peer lobby-exit signal. Mode tag fixed at '1v1' (the
+      // networked-mode marker); checked at the wire so a future mode addition
+      // fails closed. S62 — also validate the seat roster: a non-empty array of
+      // {seat:number, peerId:string, color:number}. A malformed roster nulls the
+      // whole message (fail-closed) so a corrupt peer can't desync seating.
       if (obj.mode !== '1v1') return null;
+      if (!Array.isArray(obj.roster) || obj.roster.length === 0) return null;
+      for (const e of obj.roster) {
+        if (e === null || typeof e !== 'object') return null;
+        const r = e as Record<string, unknown>;
+        if (
+          typeof r.seat !== 'number' ||
+          typeof r.peerId !== 'string' ||
+          typeof r.color !== 'number'
+        ) {
+          return null;
+        }
+      }
       return obj as unknown as StartGameMsg;
     }
     case 'ENDGAME':

@@ -29,6 +29,11 @@ export type StartGameAction = {
   readonly type: 'START_GAME';
   readonly mode: GameMode;
   readonly isHost: boolean;
+  // S62 — N-player seat roster (ordered by seat). Present for networked starts;
+  // omitted for solo and for legacy 2-player test dispatches (which fall back to
+  // the historical seat-P1-at-right path). State only needs seat+color; the wire
+  // RosterEntry's peerId is consumed net-side (client self-identification).
+  readonly roster?: readonly { readonly seat: number; readonly color: number }[];
 };
 
 export type ReturnToTitleAction = {
@@ -40,6 +45,36 @@ export type UpdateAvatarPosAction = {
   readonly playerId: PlayerId;
   readonly pos: Vec2;
 };
+
+/* ─────────────────────── N-player helpers (S62) ─────────────────────── */
+
+/**
+ * S62 — is this a networked multiplayer match (2..MAX_PLAYERS, FFA)? True for
+ * any non-solo mode. Replaces the ~17 scattered `gameMode === '1v1'` checks that
+ * all meant "are we networked"; makes the count-agnostic intent explicit and
+ * future-proof (a new mode value is networked by default). Behavior-identical
+ * today (GameMode is only 'solo' | '1v1').
+ */
+export function isNetworked(world: World): boolean {
+  return world.gameMode !== 'solo';
+}
+
+/**
+ * S62 — deterministic per-seat spawn on the spawner rim. Pure fn of (seat,total):
+ * seat 0 sits at angle π (left — reproduces the pre-S62 P0 position) and the rest
+ * distribute evenly around the central spawner so every player is equidistant
+ * from the contested spawn (FFA-fair). Rounded to integer pixels so N=2 reproduces
+ * the historical (670,540)/(1250,540) exactly and every client computes identical
+ * positions from roster.length (cross-client determinism — no float drift).
+ */
+export function radialSpawnPos(seat: number, total: number): Vec2 {
+  const angle = Math.PI + (seat / Math.max(1, total)) * 2 * Math.PI;
+  const r = SPAWNER_RADIUS + 40;
+  return {
+    x: Math.round(SPAWNER_CENTER_X + r * Math.cos(angle)),
+    y: Math.round(SPAWNER_CENTER_Y + r * Math.sin(angle)),
+  };
+}
 
 /* ─────────────────────────── Handlers ──────────────────────────────── */
 
@@ -77,7 +112,27 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   }
   // S34 P2-21 defensive clear (see JSDoc above).
   world.pendingCreatureSpawn = null;
-  if (action.mode === '1v1') {
+  if (action.roster !== undefined && action.roster.length > 0) {
+    // S62 — N-player seating from the host-minted ordered roster. Insert in
+    // SEAT ORDER so the players Map iterates identically on every client (same
+    // insertion order → same iteration order = cross-client determinism). Each
+    // seat's avatar spawns at its radial rim position; color comes from the
+    // roster entry (= PLAYER_COLORS[seat]). Idempotent: a player already present
+    // (the host's own seat-0 from makeWorld) is left in place — seat 0's radial
+    // position equals makeWorld's left-rim spawn, so this is consistent.
+    const total = action.roster.length;
+    for (const entry of action.roster) {
+      const pid = asPlayerId(entry.seat);
+      if (!world.players.has(pid)) {
+        const p = makeIdlePlayer(pid, entry.color, radialSpawnPos(entry.seat, total));
+        world.players.set(p.id, p);
+        world.scoreByPlayer.set(p.id, 0);
+      }
+    }
+  } else if (action.mode === '1v1') {
+    // Legacy/test 2-player path (no roster): seat P1 at the right rim as pre-S62.
+    // Preserved so existing 1v1 unit tests that dispatch START_GAME without a
+    // roster keep their 2-player contract.
     const p2Id = asPlayerId(1);
     if (!world.players.has(p2Id)) {
       const p2 = makeIdlePlayer(p2Id, PLAYER_COLORS[1], {
@@ -110,9 +165,12 @@ export function applyStartGame(world: World, action: StartGameAction): World {
 export function applyReturnToTitle(world: World): World {
   world.gameState = 'TITLE';
   world.gameMode = 'solo';
-  // S42 — localPlayerId is non-serialized convention; preserve across title
-  // returns so a client peer that backs out + re-enters lobby keeps its id=1
-  // until a fresh setPlayerId / new join attempt.
+  // S62 — reset to the solo identity (seat 0). Pre-S62 this preserved the
+  // client's id=1 across title-returns; with N-player the seat is re-assigned
+  // fresh from the roster on every game start, so a clean reset to 0 is correct
+  // and avoids localPlayerId dangling at a seat dropped below (e.g. a seat-2
+  // client returning to title).
+  world.localPlayerId = asPlayerId(0);
   world.diagnostics.raceRejects = 0;
   // S48 P3 — also reset rejectReasons sub-buckets on RETURN_TO_TITLE.
   world.diagnostics.rejectReasons.pickupPosShape = 0;
@@ -221,7 +279,7 @@ export function addScore(world: World, playerId: PlayerId, delta: number): void 
   const prev = world.scoreByPlayer.get(playerId) ?? 0;
   const next = prev + delta;
   world.scoreByPlayer.set(playerId, next);
-  if (world.gameMode === '1v1') {
+  if (isNetworked(world)) {
     let max = next;
     for (const v of world.scoreByPlayer.values()) if (v > max) max = v;
     world.scoreProgress = max;

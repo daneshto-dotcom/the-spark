@@ -28,6 +28,13 @@ export interface NetSession {
   clientSync: ClientSync | null;
   /** Last tick at which the host emitted a NETSNAPSHOT. 0 = none yet. */
   lastSnapshotTick: number;
+  /**
+   * S62 — host-side peerId→seat map, frozen at Begin Match. The host stamps
+   * each incoming INTENT's playerId from the sender's seat here (anti-collision
+   * / anti-spoof: a client can only drive its own seat). Empty on the client and
+   * before Begin. Cleared on teardown.
+   */
+  hostSeats: Map<string, PlayerId>;
 }
 
 export function makeNetSession(): NetSession {
@@ -36,6 +43,7 @@ export function makeNetSession(): NetSession {
     hostSync: null,
     clientSync: null,
     lastSnapshotTick: 0,
+    hostSeats: new Map(),
   };
 }
 
@@ -72,5 +80,6 @@ export function teardownNet(
   controls.setPlayerId(defaultPlayerId);
   world.isHost = true;
   session.lastSnapshotTick = 0;
+  session.hostSeats.clear();
   triggerAudioCursorReset();
 }

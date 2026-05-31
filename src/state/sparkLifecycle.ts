@@ -23,7 +23,7 @@ import {
   ENERGY_PER_SECOND_FLAT,
   REASONABLE_PICKUP_REACH,
 } from '../constants.ts';
-import { requirePlayer, type World } from './world.ts';
+import { isNetworked, requirePlayer, type World } from './world.ts';
 import type { PlayerId, SparkId, Vec2 } from '../types.ts';
 import type { Spark } from '../game/spark.ts';
 
@@ -139,7 +139,7 @@ export function applyPickupSpark(world: World, action: PickupSparkAction): World
   }
   // S46 P2 Δ1 — host re-validates remote carrier's untrusted pos input.
   const isRemoteCarrier =
-    world.gameMode === '1v1' && action.playerId !== world.localPlayerId;
+    isNetworked(world) && action.playerId !== world.localPlayerId;
   if (isRemoteCarrier && !isValidPickupPos(action.pos, player.avatarPos)) {
     world.diagnostics.raceRejects++;
     world.diagnostics.rejectReasons.pickupReachFail++; // S48 P3 diagnostic

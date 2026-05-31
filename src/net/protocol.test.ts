@@ -71,12 +71,12 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 3 (S52 P1 bump from 2 — PLACE_FROM_FREE added)', () => {
-    expect(PROTOCOL_VERSION).toBe(3);
+  it('PROTOCOL_VERSION is 4 (S62 bump from 3 — N-player START_GAME roster added)', () => {
+    expect(PROTOCOL_VERSION).toBe(4);
   });
 
   it('accepts a HELLO with current protoVersion', () => {
-    const msg = { kind: 'HELLO', playerId: 0, color: 0xff0000, protoVersion: 3 };
+    const msg = { kind: 'HELLO', playerId: 0, color: 0xff0000, protoVersion: 4 };
     expect(parseNetMessage(msg)).toEqual(msg);
   });
 
@@ -111,9 +111,9 @@ describe('S22 P3 — parseNetMessage validator', () => {
 
 describe('Audit Pass 1 d3f0e22b + 561e37ce — strengthened parseNetMessage', () => {
   it('HELLO requires numeric playerId and color', () => {
-    expect(parseNetMessage({ kind: 'HELLO', playerId: '0', color: 0xff0000, protoVersion: 3 })).toBeNull();
-    expect(parseNetMessage({ kind: 'HELLO', playerId: 0, color: 'red', protoVersion: 3 })).toBeNull();
-    expect(parseNetMessage({ kind: 'HELLO', protoVersion: 3 })).toBeNull();
+    expect(parseNetMessage({ kind: 'HELLO', playerId: '0', color: 0xff0000, protoVersion: 4 })).toBeNull();
+    expect(parseNetMessage({ kind: 'HELLO', playerId: 0, color: 'red', protoVersion: 4 })).toBeNull();
+    expect(parseNetMessage({ kind: 'HELLO', protoVersion: 4 })).toBeNull();
   });
 
   it('INTENT requires action.type ∈ KNOWN_GAME_ACTION_TYPES', () => {
@@ -174,7 +174,14 @@ describe('Audit Pass 1 d3f0e22b + 561e37ce — strengthened parseNetMessage', ()
 
 describe('S39 P1 — START_GAME_SIGNAL envelope (lobby-exit decoupled from snapshot)', () => {
   it('accepts a valid 1v1 signal', () => {
-    const msg = { kind: 'START_GAME_SIGNAL', mode: '1v1' };
+    const msg = {
+      kind: 'START_GAME_SIGNAL',
+      mode: '1v1',
+      roster: [
+        { seat: 0, peerId: 'host', color: 0xff3b6b },
+        { seat: 1, peerId: 'p1', color: 0x3bd7ff },
+      ],
+    };
     expect(parseNetMessage(msg)).toEqual(msg);
   });
 
@@ -185,8 +192,29 @@ describe('S39 P1 — START_GAME_SIGNAL envelope (lobby-exit decoupled from snaps
     expect(parseNetMessage({ kind: 'START_GAME_SIGNAL' })).toBeNull();
   });
 
+  it('S62 — rejects a START_GAME_SIGNAL with a missing/empty/malformed roster (fail-closed seating)', () => {
+    // No roster — the N-player contract requires it (was valid pre-S62).
+    expect(parseNetMessage({ kind: 'START_GAME_SIGNAL', mode: '1v1' })).toBeNull();
+    // Empty roster — a match always has ≥1 seat (the host).
+    expect(parseNetMessage({ kind: 'START_GAME_SIGNAL', mode: '1v1', roster: [] })).toBeNull();
+    // Entry missing required fields / wrong types.
+    expect(parseNetMessage({ kind: 'START_GAME_SIGNAL', mode: '1v1', roster: [{ seat: 0 }] })).toBeNull();
+    expect(
+      parseNetMessage({ kind: 'START_GAME_SIGNAL', mode: '1v1', roster: [{ seat: 0, peerId: 'h', color: 'red' }] }),
+    ).toBeNull();
+    // Roster not an array.
+    expect(parseNetMessage({ kind: 'START_GAME_SIGNAL', mode: '1v1', roster: 'nope' })).toBeNull();
+  });
+
   it('survives JSON round-trip (runtime wire fidelity, not just direct call)', () => {
-    const msg = { kind: 'START_GAME_SIGNAL', mode: '1v1' };
+    const msg = {
+      kind: 'START_GAME_SIGNAL',
+      mode: '1v1',
+      roster: [
+        { seat: 0, peerId: 'host', color: 0xff3b6b },
+        { seat: 1, peerId: 'p1', color: 0x3bd7ff },
+      ],
+    };
     const wire = JSON.parse(JSON.stringify(msg));
     expect(parseNetMessage(wire)).toEqual(msg);
   });

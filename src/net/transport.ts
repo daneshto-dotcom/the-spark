@@ -40,6 +40,7 @@
 import {
   joinRoom as joinNostr,
   getRelaySockets as getNostrSockets,
+  selfId,
 } from '@trystero-p2p/nostr';
 import type { MessageAction, Room } from '@trystero-p2p/core';
 import { parseNetMessage, PROTOCOL_VERSION, type NetMessage } from './protocol.ts';
@@ -57,6 +58,10 @@ import {
 } from './iceConfig.ts';
 
 export { classifyJoinError };
+// S62 — re-export Trystero's local peer id so net handlers can self-identify in
+// the broadcast roster (each client matches its own seat by peerId === selfId).
+// selfId is a stable per-page-load constant, identical across all strategies.
+export { selfId };
 
 export type PeerChangeHandler = (peerId: string, kind: 'join' | 'leave') => void;
 export type MessageHandler = (msg: NetMessage, peerId: string) => void;
@@ -575,6 +580,15 @@ export class NetTransport {
 
   peerCount(): number {
     return this.peerSet.size;
+  }
+
+  /**
+   * S62 — the connected remote peer ids in stable join order (Set insertion
+   * order). The host uses this at Begin Match to assign seats 1..N to remote
+   * peers (host = seat 0) and to build the authoritative ordered roster.
+   */
+  peerIds(): string[] {
+    return Array.from(this.peerSet);
   }
 
   isConnected(): boolean {

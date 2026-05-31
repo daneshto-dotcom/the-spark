@@ -18,12 +18,13 @@
  */
 
 import { HostSync } from './sync.ts';
-import { generateRoomCode, PROTOCOL_VERSION, buildHello } from './protocol.ts';
+import { generateRoomCode, PROTOCOL_VERSION, buildHello, type RosterEntry } from './protocol.ts';
 import type { NetSession } from './session.ts';
-import { NetTransport } from './transport.ts';
+import { NetTransport, selfId } from './transport.ts';
 import { dispatch, type World } from '../state/world.ts';
+import { stampSenderSeat } from './intentStamp.ts';
 import { asPlayerId, type PlayerId } from '../types.ts';
-import { PLAYER_COLORS } from '../constants.ts';
+import { PLAYER_COLORS, MAX_PLAYERS } from '../constants.ts';
 
 /**
  * S53 P1 — shared helper for symmetric protocol-mismatch UX text. Both
@@ -145,14 +146,21 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
     // connects (host = playerId 0 / crimson). Activates the dormant S53
     // protocol-mismatch latch + UX on the joiner's receive side.
     wireHelloOnJoin(transport, asPlayerId(0), PLAYER_COLORS[0]);
-    transport.on((msg) => {
+    transport.on((msg, peerId) => {
       // S15 P2 — host applies client intent authoritatively.
       // S42 — turn-based active-player gate REMOVED (blueprint mandates
       // real-time). Shared-resource race conditions resolved by first-Intent-
       // wins host-receive order; loser's intent silently no-ops + increments
       // world.diagnostics.raceRejects (observable for tests).
       if (msg.kind === 'INTENT' && deps.session.hostSync !== null) {
-        dispatch(deps.world, msg.action);
+        // S62 — stamp the intent's playerId from the SENDER's assigned seat
+        // (peerId→seat), overriding whatever the wire claimed. Anti-collision/
+        // anti-spoof: a client can only act as its own seat, so two clients
+        // can't both drive seat 1 and no client can move another player.
+        // Unknown peer (no seat yet / legacy 2-player) → apply as-is.
+        const seat = deps.session.hostSeats.get(peerId);
+        const action = seat !== undefined ? stampSenderSeat(msg.action, seat) : msg.action;
+        dispatch(deps.world, action);
       }
       // S22 P3 — clients never send GODLY_TRIGGER (host-only authority,
       // Battle Ledger row 9). Defensive: drop GODLY_TRIGGER from clients silently.
@@ -168,18 +176,40 @@ export interface BeginMatchDeps {
 
 export function createBeginMatchHandler(deps: BeginMatchDeps): () => void {
   return () => {
-    // Host triggers START_GAME. The first snapshot will carry
-    // gameState='PLAYING' + gameMode='1v1' to the client. S39 P1: also
-    // broadcast a dedicated START_GAME_SIGNAL envelope BEFORE the local
-    // dispatch so the peer's lobby-exit is decoupled from snapshot
-    // delivery reliability (S38 audit added 3 silent-drop points to the
-    // snapshot apply chain — strict schemaVersion at the wire, try/catch
-    // at applyNetSnapshot, JSON shape validation). Order matters: send
-    // first while world.gameState is still LOBBY so the peer learns of
-    // the transition at the earliest possible RTT.
-    if (deps.session.netTransport !== null) {
-      deps.session.netTransport.send({ kind: 'START_GAME_SIGNAL', mode: '1v1' });
+    // Host triggers START_GAME. The first snapshot will carry gameState=
+    // 'PLAYING' to the clients. S39 P1: also broadcast a dedicated
+    // START_GAME_SIGNAL envelope BEFORE the local dispatch so peers' lobby-exit
+    // is decoupled from snapshot delivery reliability (S38 audit added silent-
+    // drop points to the snapshot apply chain). Order matters: send first while
+    // world.gameState is still LOBBY so peers learn of the transition ASAP.
+    //
+    // S62 — mint the authoritative N-player roster: host = seat 0, remote peers
+    // = seats 1..N in join order (capped at MAX_PLAYERS). Freeze peerId→seat on
+    // the session FIRST so any INTENT arriving right after the signal is already
+    // stamp-able (no pre-ack race), THEN ship the ORDERED roster so every client
+    // builds a byte-identical initial world (Council determinism fix).
+    const transport = deps.session.netTransport;
+    const allPeers = transport !== null ? transport.peerIds() : [];
+    const peers = allPeers.slice(0, MAX_PLAYERS - 1);
+    if (allPeers.length > peers.length) {
+      console.warn(
+        `[net] Begin: ${allPeers.length} peers but MAX_PLAYERS=${MAX_PLAYERS}; seating first ${peers.length}, dropping ${allPeers.length - peers.length}.`,
+      );
     }
-    dispatch(deps.world, { type: 'START_GAME', mode: '1v1', isHost: true });
+    const roster: RosterEntry[] = [
+      { seat: 0, peerId: selfId, color: PLAYER_COLORS[0] },
+      ...peers.map((pid, i) => ({ seat: i + 1, peerId: pid, color: PLAYER_COLORS[i + 1] })),
+    ];
+    deps.session.hostSeats.clear();
+    peers.forEach((pid, i) => deps.session.hostSeats.set(pid, asPlayerId(i + 1)));
+    if (transport !== null) {
+      transport.send({ kind: 'START_GAME_SIGNAL', mode: '1v1', roster });
+    }
+    dispatch(deps.world, {
+      type: 'START_GAME',
+      mode: '1v1',
+      isHost: true,
+      roster: roster.map((e) => ({ seat: e.seat, color: e.color })),
+    });
   };
 }

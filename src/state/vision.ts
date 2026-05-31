@@ -35,6 +35,9 @@ import {
 } from '../constants.ts';
 import type { Vec2 } from '../types.ts';
 import type { World } from './world.ts';
+// S62 — sourced from gameMode (light leaf graph) to keep vision a pure
+// render-input leaf rather than pulling world.ts's full runtime graph.
+import { isNetworked } from './gameMode.ts';
 
 export interface VisionSource {
   readonly x: number;
@@ -95,7 +98,7 @@ export function isPointVisible(
  * show the board pre-match; WIN / POSTGAME lift the fog for the reveal.
  */
 export function fogActive(world: World): boolean {
-  return world.gameMode === '1v1' && world.gameState === 'PLAYING';
+  return isNetworked(world) && world.gameState === 'PLAYING';
 }
 
 /**
