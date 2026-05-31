@@ -101,6 +101,102 @@ test.describe('S57 Fog of War — client-side render mask', () => {
     expect(result.win.visible).toBe(false);
   });
 
+  test('remembers a scouted enemy structure as a ghost, conceals an unscouted one, drops it when razed', async ({
+    page,
+  }) => {
+    await page.goto('/?debug=1');
+    await waitForSparkFog(page);
+
+    const r = await page.evaluate(() => {
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      const s = (window as any).__SPARK__;
+      const app = s.app;
+      const fog = s.fogRenderer;
+      const w = s.world;
+      const COL_ENEMY = 0x3bd7ff; // cyan → strong green+blue channels when ghosted
+      const mkEnemy = (x: number, y: number): number => {
+        const id = w.nextPrimitiveId++;
+        w.primitives.set(id, {
+          id, type: 3, placerColor: COL_ENEMY, placedBy: 1, createdTick: w.tick,
+          pos: { x, y }, prevPos: { x, y }, bonds: new Set(),
+          ownerColor: COL_ENEMY, lastOwnershipChange: 0, radius: 9,
+        });
+        return id;
+      };
+      w.gameMode = '1v1';
+      w.gameState = 'PLAYING';
+      w.localPlayerId = 0;
+      const A = mkEnemy(1400, 700); // mid-board, will be scouted then left
+      mkEnemy(300, 200);            // control: never scouted
+
+      // 1) SCOUT A — cursor on it (A enters live vision → recorded into memory).
+      //    Before PLAYING every sync hit the early-return and zeroed the throttle
+      //    counter, so this first sync recomposes (records A); 3x is belt-and-braces.
+      s.controls.cursor.x = 1400; s.controls.cursor.y = 700;
+      for (let f = 0; f < 3; f++) fog.sync(w, s.controls.cursor, 1 / 60);
+      const afterScout = fog.rememberedCount;
+
+      // 2) LEAVE — cursor to spawner; A falls back into fog (>2x personal radius away).
+      //    6 syncs guarantees a throttled recompose at the settled cursor.
+      s.controls.cursor.x = 960; s.controls.cursor.y = 540;
+      for (let f = 0; f < 6; f++) fog.sync(w, s.controls.cursor, 1 / 60);
+      const afterLeave = fog.rememberedCount;
+
+      // Pixel proof on the fully-composited stage: A is fogged-but-remembered (a dim
+      // enemy-tinted silhouette painted OVER the opaque fog) → lifted G+B channels; B
+      // was never seen → plain near-black fog. The live fog mask stays OPAQUE at A, so
+      // the real board beneath the ghost is NOT revealed (no M1-style leak).
+      const stage = app.renderer.extract.pixels(app.stage);
+      const mask = app.renderer.extract.pixels(fog.maskTexture);
+      const read = (out: any, x: number, y: number): number[] => {
+        const rX = out.width / 1920, rY = out.height / 1080;
+        const i = (Math.round(y * rY) * out.width + Math.round(x * rX)) * 4;
+        return [out.pixels[i], out.pixels[i + 1], out.pixels[i + 2], out.pixels[i + 3]];
+      };
+      const ghostA = read(stage, 1400, 700);
+      const plainB = read(stage, 300, 200);
+      const maskA = read(mask, 1400, 700);
+
+      // 3) RAZE A while looking right at it → confirmed destroyed → forgotten.
+      w.primitives.delete(A);
+      s.controls.cursor.x = 1400; s.controls.cursor.y = 700;
+      for (let f = 0; f < 3; f++) fog.sync(w, s.controls.cursor, 1 / 60);
+      const afterRaze = fog.rememberedCount;
+
+      // 4) MATCH RESTART — a new match must NOT inherit ghosts. Re-place + scout a
+      //    structure, then bounce TITLE→PLAYING with the cursor parked far away: the
+      //    PLAYING edge wipes the memory and the parked cursor doesn't re-remember it.
+      mkEnemy(1400, 700);
+      s.controls.cursor.x = 1400; s.controls.cursor.y = 700;
+      for (let f = 0; f < 3; f++) fog.sync(w, s.controls.cursor, 1 / 60);
+      const beforeRestart = fog.rememberedCount;
+      s.controls.cursor.x = 960; s.controls.cursor.y = 540; // park far from the new structure
+      w.gameState = 'TITLE';
+      fog.sync(w, s.controls.cursor, 1 / 60); // fog inactive → clears the PLAYING latch
+      w.gameState = 'PLAYING';
+      for (let f = 0; f < 3; f++) fog.sync(w, s.controls.cursor, 1 / 60); // PLAYING edge → resetMemory()
+      const afterRestart = fog.rememberedCount;
+
+      return { afterScout, afterLeave, afterRaze, beforeRestart, afterRestart, ghostA, plainB, maskA };
+      /* eslint-enable @typescript-eslint/no-explicit-any */
+    });
+
+    // State machine, exercised through the REAL renderer (sync → updateGhostMemory →
+    // syncGhostSprites), not just the pure unit core.
+    expect(r.afterScout).toBe(1); // A recorded the moment it was scouted
+    expect(r.afterLeave).toBe(1); // ghost persists once A is back under fog
+    expect(r.afterRaze).toBe(0);  // re-scouting the razed spot confirms it gone → dropped
+    expect(r.beforeRestart).toBe(1); // a re-placed structure is remembered within the match
+    expect(r.afterRestart).toBe(0);  // the PLAYING edge wiped it — no cross-match ghost carry
+
+    // Pixel: the remembered ghost paints at A; the unseen structure stays concealed.
+    expect(r.ghostA[1]).toBeGreaterThan(50); // enemy-cyan ghost lifts the green channel
+    expect(r.ghostA[2]).toBeGreaterThan(50); // ...and the blue channel
+    expect(r.plainB[1]).toBeLessThan(20);    // B never seen → plain fog, no ghost
+    // No leak: the board under the ghost is still fully fogged (mask opaque at A).
+    expect(r.maskA[3]).toBeGreaterThan(245);
+  });
+
   test('renders NO fog in solo mode', async ({ page }) => {
     await page.goto('/?debug=1');
     await waitForSparkFog(page);

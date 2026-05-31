@@ -137,6 +137,14 @@ export const EXPLORED_GRID_ROWS = 27;
 // explored reads as dim-but-seen vs unexplored near-black. OPAQUE (the board stays
 // hidden → no live-movement leak). Tunable in preview.
 export const MEMORY_FOG_COLOR = 0x161b2e;
+// S60 P2 — last-seen ENEMY-structure "ghost" silhouettes (the StarCraft remembered-
+// building tier). A CPU last-seen Map (state/exploredMemory.ts) drives dim silhouette
+// sprites in a memoryLayer ABOVE the live fog, masked by the live fog mask so a ghost
+// shows ONLY in fogged (non-live) area; re-scouting reveals the real structure or
+// confirms it gone. This alpha dims the remembered silhouette so it reads as memory,
+// not a live unit. The silhouette is additive paint ABOVE the opaque fog (NOT a
+// transparency hole), so alpha < 1 here never leaks the live board. Tunable in preview.
+export const MEMORY_GHOST_ALPHA = 0.5;
 
 // === Physics ===
 export const PHYSICS_HZ = 60;

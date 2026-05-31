@@ -29,21 +29,29 @@ import {
   EXPLORED_GRID_COLS,
   EXPLORED_GRID_ROWS,
   MEMORY_FOG_COLOR,
+  MEMORY_GHOST_ALPHA,
   VISION_FADE_PX,
 } from '../constants.ts';
 import {
   computeVisionSources,
   fogTargetAlpha,
+  isPointVisible,
   stepFogAlpha,
+  type VisionSource,
 } from '../state/vision.ts';
 import {
   makeExploredGrid,
+  makeGhostMemory,
   markVisible,
   resetExploredGrid,
+  resetGhostMemory,
+  updateGhostMemory,
   type ExploredGrid,
+  type GhostMemory,
 } from '../state/exploredMemory.ts';
+import { destroyShapeTextures, makeShapeTextures, type ShapeTextures } from './shapes.ts';
 import type { World } from '../state/world.ts';
-import type { Vec2 } from '../types.ts';
+import type { PrimitiveId, Vec2 } from '../types.ts';
 
 /** Fogged-area colour. Near-black with a faint cool tint (reads as fog, not void). */
 const FOG_COLOR = 0x05070d;
@@ -111,6 +119,17 @@ export class FogRenderer {
   /** Tracks the PLAYING edge so remembered areas reset at the start of each match. */
   private wasActive = false;
 
+  // S60 P2 — last-seen ENEMY-structure memory. A CPU Map of where each enemy
+  // structure was last seen (state/exploredMemory.ts) drives dim silhouette sprites in
+  // `memoryLayer`, a Container added to the stage ABOVE the fog container. Each ghost is
+  // shown ONLY where its structure is currently OUT of live vision (a per-sprite
+  // isPointVisible gate); in vision the real structure shows through the erased fog. The
+  // layer's alpha mirrors the fog alpha so the silhouettes dissolve with the win-lift.
+  private readonly memory: GhostMemory = makeGhostMemory();
+  private readonly memoryLayer: Container;
+  private readonly ghostTextures: ShapeTextures;
+  private readonly ghostSprites: Map<PrimitiveId, Sprite> = new Map();
+
   constructor(app: Application) {
     this.renderer = app.renderer;
     this.disabled =
@@ -170,6 +189,19 @@ export class FogRenderer {
     this.container.visible = false;
     this.container.addChild(this.fogSprite);
     app.stage.addChild(this.container);
+
+    // S60 P2 — memory layer, added to the stage AFTER the fog container so it sits
+    // ABOVE it (and below the HUD, which main.ts constructs after FogRenderer). Whether
+    // a given ghost shows is gated per-sprite in syncGhostSprites (visible only where
+    // its structure is NOT in current live vision), reusing the same isPointVisible()
+    // as the memory update. (An earlier Sprite(maskRT) GPU mask was dropped: a Pixi
+    // sprite mask attenuates by the mask's brightness, and the fog mask is near-black,
+    // so it crushed the silhouettes to ~5% — caught by the pixel e2e.)
+    this.ghostTextures = makeShapeTextures(app);
+    this.memoryLayer = new Container();
+    this.memoryLayer.eventMode = 'none';
+    this.memoryLayer.visible = false;
+    app.stage.addChild(this.memoryLayer);
   }
 
   /**
@@ -184,6 +216,7 @@ export class FogRenderer {
     if (target > 0 && !this.wasActive) {
       resetExploredGrid(this.grid);
       this.gridNeedsRedraw = true;
+      this.resetMemory(); // S60 P2 — a new match must not inherit the last match's ghosts
     }
     this.wasActive = target > 0;
     const fadeStep =
@@ -193,11 +226,16 @@ export class FogRenderer {
     // Fully lifted / inactive → hide and skip the offscreen pass (zero cost in solo).
     if (this.alpha <= ALPHA_EPSILON) {
       this.container.visible = false;
+      this.memoryLayer.visible = false;
       this.maskFrameCounter = 0; // force an immediate recompose on re-activation
       return;
     }
     this.container.visible = true;
     this.fogSprite.alpha = this.alpha;
+    // S60 P2 — the memory layer rides the same fade as the fog so remembered
+    // silhouettes dissolve in lockstep on the win-lift (and snap on at match start).
+    this.memoryLayer.visible = true;
+    this.memoryLayer.alpha = this.alpha;
 
     // Throttle the expensive mask recompose (~20Hz). The alpha tween above runs
     // every frame, so this never affects win-lift smoothness. Frame 0 after
@@ -213,6 +251,10 @@ export class FogRenderer {
       this.redrawGridTexture();
       this.gridNeedsRedraw = false;
     }
+    // S60 P2 — advance the last-seen enemy-structure memory + reconcile its ghost
+    // sprites at the same ~20Hz cadence (cheap: O(structures + ghosts)).
+    updateGhostMemory(this.memory, world.primitives, sources, world.localPlayerId, world.tick);
+    this.syncGhostSprites(sources);
     this.ensurePool(sources.length);
     for (let i = 0; i < this.pool.length; i++) {
       const brush = this.pool[i];
@@ -268,6 +310,56 @@ export class FogRenderer {
     this.gridTex.source.update();
   }
 
+  /**
+   * S60 P2 — reconcile the dim silhouette sprite pool against the last-seen Map:
+   * spawn a sprite for a newly-remembered structure, keep its tint synced (Phase-2
+   * Steal recolours), reposition to the last-seen point, and drop sprites whose
+   * structure was forgotten. WHERE each ghost actually paints is gated by the
+   * memoryLayer's alpha mask (live holes hide it); this only maintains the pool.
+   */
+  private syncGhostSprites(sources: readonly VisionSource[]): void {
+    for (const ghost of this.memory.values()) {
+      let sprite = this.ghostSprites.get(ghost.id);
+      if (sprite === undefined) {
+        sprite = new Sprite(this.ghostTextures[ghost.type]);
+        sprite.anchor.set(0.5);
+        sprite.eventMode = 'none';
+        sprite.alpha = MEMORY_GHOST_ALPHA;
+        this.memoryLayer.addChild(sprite);
+        this.ghostSprites.set(ghost.id, sprite);
+      }
+      if (sprite.tint !== ghost.color) sprite.tint = ghost.color;
+      sprite.position.set(ghost.pos.x, ghost.pos.y);
+      // Show the silhouette ONLY where the structure is currently out of live vision;
+      // in vision the real structure shows (the fog is erased there), so hide the ghost.
+      sprite.visible = !isPointVisible(sources, ghost.pos.x, ghost.pos.y);
+    }
+    if (this.ghostSprites.size > this.memory.size) {
+      for (const [id, sprite] of this.ghostSprites) {
+        if (!this.memory.has(id)) {
+          sprite.destroy(); // shared ghostTextures NOT freed (no { texture: true })
+          this.ghostSprites.delete(id);
+        }
+      }
+    }
+  }
+
+  /**
+   * S60 P2 — forget all remembered structures + free their silhouettes. Called at the
+   * match-start (PLAYING) edge so a new game never inherits the prior match's ghosts;
+   * P3's explicit reset() (RETURN_TO_TITLE) will reuse this.
+   */
+  private resetMemory(): void {
+    resetGhostMemory(this.memory);
+    for (const sprite of this.ghostSprites.values()) sprite.destroy();
+    this.ghostSprites.clear();
+  }
+
+  /** DEV/test only — count of remembered enemy structures (drives the e2e memory assert). */
+  get rememberedCount(): number {
+    return this.memory.size;
+  }
+
   /** DEV/test only — the composed fog mask (opaque where fogged, transparent at vision sources). */
   get maskTexture(): RenderTexture {
     return this.maskRT;
@@ -282,6 +374,11 @@ export class FogRenderer {
     this.maskRT.destroy(true);
     this.brushTex.destroy(true);
     this.container.destroy({ children: true });
+    // S60 P2 — free the memory layer + its silhouette texture set. (P1's gridTex is
+    // freed in P3, alongside wiring destroy() into an actual teardown path.)
+    this.memoryLayer.destroy({ children: true });
+    destroyShapeTextures(this.ghostTextures);
+    this.ghostSprites.clear();
   }
 }
 
