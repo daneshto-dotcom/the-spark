@@ -1,25 +1,23 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-05-31 | Session: S59
+Generated: 2026-05-31 | Session: S60
 
 ## Next Steps
-1. **Re-confirm the carried P2+P3 PDR** (Rule 11 — they were Council-designed + PRIME-AUDITed in S59 but need a fresh `go`), then execute:
-   - **P2 — Last-seen STRUCTURE memory** (RISKIEST; the enemy-structure ghost-resolution state machine — Council #1 hazard). CPU last-seen `Map<PrimitiveId,…>` + a dim `memoryLayer` ABOVE `fogRenderer.container`, `.mask`=Sprite of `liveMaskRT`, gated by `isExplored && !live`. Exhaustive UNIT tests for the Map state machine + a dedicated memory pixel e2e.
-   - **P3 — Fog polish**: (a) WIN-fade freeze recompose when `fogTargetAlpha==0`; (c) `fogRenderer.reset()` on RETURN_TO_TITLE (clears grid+Map+pool); (d) wire `fogRenderer.destroy()` + free textures. (b) world→screen DEFERRED (no camera).
-2. **Verify P1 landed clean**: `gh run list` conclusion on `17772b4` (Deploy + E2E); run the FULL smoke/sim-rate e2e once (P1 is behind `__FOG_DISABLE__` so canary should be unaffected); re-measure bundle (<550).
-3. **USER live 2-peer smoke** (carried S58): 4 S58 fixes + lossy run (P4 TTL edge); eyeball the new remembered-areas dim tier + tune `MEMORY_FOG_COLOR`/grid res.
-4. Phase-2 next mechanic (D/E/A/G/Anvil) — design call. Opponent-view attract-drag parity (S52 Δ6) — still carried.
+1. **USER live 2-peer smoke (fog FEEL — needs your eye, NOT autonomous):** tune `MEMORY_GHOST_ALPHA` (0.5) / `MEMORY_FOG_COLOR` (0x161b2e) / grid res if the enemy-ghost or dim remembered tier reads off; 2 cosmetics to eyeball — a ≤40px ghost/real fade-band overlap at the live-vision edge + win-lift ghost fade-vs-persist (I chose fade = clean reveal); + the 4 S58 fixes + a lossy-network run for the P4 host-TTL edge.
+2. **Phase-2 next mechanic — DESIGN CALL (you pick):** D Inject-Spiral / E Steal / G Mega-combos / Anvil. Pick one and I execute it.
+3. **main.ts hypertrophy (942 LOC) — audit #1 HIGH, DEFERRED to a session WITH you:** extract netMessageRouter / cinematicStateMachine / teardownNet. Not autonomous-safe (the e2e covers only happy paths — cinematics/audio/settings uncovered).
+4. **Further §XV (safe, autonomous-OK next time):** world.ts 488 (>280 — SEVER_BOND orchestrator is the next clean extract) · lobbyScreen 548 (>500 — a pane builder). Audit carry: vite/vitest CVE bump (risky → dedicated session) · knip 42 unused-exports (Chesterton review) · state→render import-boundary guard (`622a7c7f`).
+5. Opponent-view attract-drag parity (S52 Δ6) — gameplay feel, needs your eye.
 
 ## Blockers
-None code-side. P1 shipped + pushed. P2/P3 are approved-design / awaiting re-`go`.
+None code-side. All shipped + CI-green (P2 `1709d0d`, P3 `16d4c18`, P4 `9746080`, P5 `1105b5c`). Fog FEEL-tune + the Phase-2 mechanic both need your input.
 
 ## Watch-outs
-- **Tool-output channel was degraded in S59** (delayed bursts). If it recurs: fewer/larger verification batches + node file-writes; JSON test reporters for ground truth.
-- OneDrive path garbles raw terminal text → use Node/JSON reporters (PowerShell shows CP-1252 mojibake but Read is clean).
-- `e2e/` is NOT in tsconfig → always run Playwright; tsc won't catch e2e arg errors.
-- `session-state.json` is rewritten by a counter hook → atomic Node read-modify-write, never Edit.
-- **Memory-fog rule (S59):** in screen-space fog a "dim" tier must be an OPAQUE colour change, never an alpha reduction (alpha reduction leaks the live board). P2's memory layer goes ABOVE the fog, masked by `liveMaskRT`.
+- **Pixi v8 sprite masks are BRIGHTNESS-weighted, not pure alpha** — do NOT reintroduce a `Sprite(maskRT)` mask for the memory layer; a near-black fog mask crushes masked content to ~5%. The CPU `!isPointVisible` per-sprite gate is the working approach (S60 P2).
+- AUDIT.md (2026-05-21) is STALE — its parseNetMessage/allowlist micros were already fixed; always A.0-verify audit findings against current code before acting.
+- `session-state.json` is rewritten by a counter hook → atomic Node read-modify-write, never Edit · `e2e/` not in tsconfig → run Playwright · OneDrive path can garble raw terminal text → Node/JSON reporters for ground truth.
 
-## Recent Reflexion (S59)
-- P1 #memory-fog-opaque-not-translucent — remembered-areas = opaque dim overlay over the dark base (source-over keeps mask alpha=1 → no leak); the partial-erase draft would have leaked.
-- SESSION #method-prime-audit-refute-not-rubberstamp — PRIME-AUDIT refuted 2 reviewer claims (Gemini inverted-layer, Grok phantom bilinear-leak) + 1 false consensus, while catching 1 real coverage bug.
-- SESSION #method-checkpoint-under-degraded-tooling — checkpoint at the clean priority boundary + carry the riskiest piece rather than grind through degraded tooling.
+## Recent Reflexion (this session — full log at .claude/reflexion_log.md)
+- P2 #memory-fog-cpu-gate-not-gpu-mask — Pixi sprite.mask is brightness-weighted (false "=alpha"); pixel e2e caught it → CPU gate pivot.
+- P3 #fog-polish-reuse-existing-state-edge — win-freeze 1-liner; reset() co-located on the existing `*→TITLE` teardown edge.
+- P4 #anti-bloat-reexport-facade — lobbyGeometry extract; re-export facade kept consumers unchanged; tsc as the consumer-check.
+- P5 #anti-bloat-reducer-cycle-refuted — godlyActions extract; PRIME-AUDIT 1-grep refuted Grok's cycle BLOCKER (setCooldown ∈ godlyCooldown.ts).
