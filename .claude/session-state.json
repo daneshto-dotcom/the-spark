@@ -1,9 +1,9 @@
 {
-  "tool_calls_session_total": 299,
-  "session_start": "2026-05-31T06:11:30.000Z",
-  "session_id": "S59",
+  "tool_calls_session_total": 316,
+  "session_start": "2026-05-31T07:25:41.993Z",
+  "session_id": "S60",
   "session_kind": "execution",
-  "session_note": "S59 Memory-fog (StarCraft remembered areas) full staged batch, user 'approved! work thoroughly!'. P1 terrain memory (pure exploredGrid + partial-erase into maskRT, 3-tier single overlay). P2 last-seen structure memory (CPU last-seen Map + masked memoryLayer above fog). P3 polish (a win-freeze, c reset, d destroy; b deferred YAGNI). 2-round 3-way Council ADOPT HYBRID + PRIME-AUDIT 3 deltas.",
+  "session_note": "S60 Memory-fog batch continuation, user 'approved! work thoroughly!'. Re-confirm of S59-carried P2+P3 (deliberation_completed already true; Rule-11 re-confirm + A.0 re-probe clean). P2 last-seen ENEMY-structure ghost memory: pure GhostMemory Map state machine in exploredMemory.ts + dim memoryLayer folded into FogRenderer (above fog container, masked by Sprite(maskRT)); reuse isPointVisible + makeShapeTextures; enemy gate placedBy!==localPlayerId. P3 polish a(win-freeze)/c(reset@TITLE-edge)/d(free gridTex); b deferred.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -63,23 +63,53 @@
     {
       "id": "P2",
       "label": "S59 P2 -- Last-seen STRUCTURE memory: CPU last-seen Map in exploredMemory.ts + dim memoryLayer above live fog masked by liveMaskRT, gated by isExplored && !live. Per-structure, no 2nd RT.",
-      "status": "pending",
-      "phase": "PLAN",
+      "status": "completed",
+      "phase": "ACT",
       "tier": "Standard",
-      "pdr_approved": false,
+      "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
-      "check_completed": false,
-      "checkpoint_commit": null
+      "check_completed": true,
+      "checkpoint_commit": "1709d0d",
+      "check_method": "S60 P2 (last-seen enemy-structure ghost memory) verified. Pure updateGhostMemory state machine in exploredMemory.ts (SEEN-ON-LIVE record/refresh; reconcile drop-on-confirmed-razed-while-visible vs keep-stale-destroyed-under-fog; never-drop-on-mere-fog; own-excluded via immutable placedBy gate; pos snapshot is a COPY) -- 12 exhaustive unit tests. FogRenderer: pooled dim silhouette sprites (by PrimitiveId) in a memoryLayer ABOVE the fog container; per-sprite visibility gate !isPointVisible (CPU, reuses vision math) after DROPPING an initial Sprite(maskRT) GPU mask the pixel e2e proved attenuates ghosts ~5% (Pixi v8 sprite mask weights by mask BRIGHTNESS; near-black fog crushed it: measured g=35 vs ~121 expected). Match-start (PLAYING-edge) resetMemory() added -- RALPH:PATROL found the missing ghost reset (match 2 would inherit match 1 ghosts); fixed + e2e match-restart assertion. EMPIRICAL: tsc -b exit 0; FULL unit 920/920 (was 908, +12); fog e2e 3/3 incl NEW memory pixel test (ghost paints over fog at scouted loc; unscouted concealed; maskTexture OPAQUE under ghost = NO board leak; scout->leave->raze->match-restart counts all correct); gameplay smoke 10 pass/1 skip (sim canary GREEN -- P2 behind __FOG_DISABLE__ early-return). CHECK Triumvirate + PRIME-AUDIT: RALPH found+fixed match-reset. GROK-ANALYST (grok-4.20-reasoning) 2 REALs both REFUTED: (#1 ownership-steal stale ghost) empirically refuted by grep -- placedBy is readonly + never reassigned in src (Steal mutates ownerColor only; gate consistent w/ vision.ts; ghost recolors on re-sighting); (#2 center-point gate) downgraded MINOR cosmetic (small single-primitive structures, per-primitive gate, <=40px fade-band, shader vetoed); sprite-churn REFUTED (already pooled by id). GEMINI-AUDITOR (gemini-2.5-pro) confirmed refutations sound; its 1 REAL (ghost fades w/ fog on win-lift) is a design choice (clean reveal vs cluttered persistent ghosts; game over at WIN) -> kept, noted for user smoke. 0 ship-stoppers, 0 surviving REAL bugs. checkpoint 1709d0d.",
+      "real_context_tokens_at_close": 278639,
+      "real_context_pct_at_close": 27.86,
+      "verification": [
+        {
+          "check": "file_contains",
+          "path": "src/state/exploredMemory.ts",
+          "needle": "export function updateGhostMemory"
+        },
+        {
+          "check": "file_contains",
+          "path": "src/state/exploredMemory.ts",
+          "needle": "export function resetGhostMemory"
+        },
+        {
+          "check": "file_contains",
+          "path": "src/render/fogRenderer.ts",
+          "needle": "private resetMemory"
+        },
+        {
+          "check": "file_contains",
+          "path": "src/render/fogRenderer.ts",
+          "needle": "!isPointVisible(sources, ghost.pos.x, ghost.pos.y)"
+        },
+        {
+          "check": "file_contains",
+          "path": "e2e/fog.spec.ts",
+          "needle": "remembers a scouted enemy structure as a ghost"
+        }
+      ]
     },
     {
       "id": "P3",
       "label": "S59 P3 -- Fog polish: (a) WIN-fade freeze recompose when target==0; (c) fogRenderer.reset() on RETURN_TO_TITLE clears grid+Map+pool; (d) wire existing destroy()+free grid tex; (b) world->screen DEFERRED YAGNI.",
-      "status": "pending",
-      "phase": "PLAN",
+      "status": "in_progress",
+      "phase": "ACT",
       "tier": "Standard",
-      "pdr_approved": false,
+      "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
@@ -91,7 +121,8 @@
     "P1 #memory-fog-opaque-not-translucent #grok-refute-and-fix: remembered-areas = an OPAQUE dim colour overlay over the dark base (source-over keeps mask alpha=1 -> NO live-board leak); a partial-ERASE approach (my first draft) WOULD have leaked (translucent fog reveals the live board) -- caught in self-review pre-commit. Council ADOPT HYBRID (pure unit-testable grid for explored state, proven RT for live fog). GROK-ANALYST refuted a phantom bilinear-leak (opaque base) and caught a real centre-only coverage gap (-> circle-rect overlap). Lesson: in screen-space fog, 'dim' must be an opaque colour change, never an alpha reduction, or it leaks the board.",
     "SESSION #method-opaque-not-translucent-fog: in SCREEN-SPACE fog, a 'dim/remembered' tier MUST be an OPAQUE colour change over the dark base, never an alpha reduction -- alpha reduction makes the overlay translucent and leaks the live board (the rejected M1). Proof: source-over onto an opaque base keeps out.a = a_src + 1*(1-a_src) = 1 for any source alpha, so an opaque lighter colour gives dim-but-opaque. Caught my own partial-ERASE draft pre-commit by reasoning the blend math. Transferable: when a render tier must 'show less' without revealing what's beneath, change colour at full opacity; don't lower alpha.",
     "SESSION #method-prime-audit-refute-not-rubberstamp: PRIME-AUDIT independently REFUTED Gemini's inverted-layer composite recipe AND Grok's phantom 'bilinear leak' (both dissolved on blend-math), while keeping terrain-dim against a false R2 consensus on principled grounds (literal ask + zero-ghost-risk) AND a REAL centre-only grid-coverage bug got caught+fixed. The discipline 'for each adopted/flagged item, state what would falsify it INDEPENDENTLY of the claimant' caught 2 false + held 1 contested + surfaced 1 true. Earns its keep on every render/GPU feature where reviewers reason about compositing.",
-    "SESSION #method-checkpoint-under-degraded-tooling: when the tool-output channel degrades mid-batch (delayed bursts, repeated empty probes), checkpoint at the nearest CLEAN priority boundary and carry forward the riskiest remaining work rather than grind it through broken tooling -- quality of the risky piece (P2 ghost state machine) > cramming the batch. Validated: P1 shipped clean + deployed; P2/P3 carried with full Council design intact."
+    "SESSION #method-checkpoint-under-degraded-tooling: when the tool-output channel degrades mid-batch (delayed bursts, repeated empty probes), checkpoint at the nearest CLEAN priority boundary and carry forward the riskiest remaining work rather than grind it through broken tooling -- quality of the risky piece (P2 ghost state machine) > cramming the batch. Validated: P1 shipped clean + deployed; P2/P3 carried with full Council design intact.",
+    "P2 #memory-fog-cpu-gate-not-gpu-mask #pixel-e2e-caught-mask-attenuation: the S59-designed 'memoryLayer masked by Sprite(maskRT)' was empirically WRONG -- a Pixi v8 sprite mask attenuates the masked content by the mask's BRIGHTNESS, and the fog mask is near-black (MEMORY_FOG_COLOR 0x161b2e), so it crushed the ghost silhouettes to ~5% alpha (measured g=35 vs expected ~121 in the pixel e2e). Pivoted to a CPU per-sprite visibility gate (sprite.visible = !isPointVisible(sources, ghost.pos)), reusing the SAME vision predicate as the memory update -- simpler, no brightness coupling, and the GPU mask wasn't viable anyway (a fog shader is Council-vetoed in this codebase). Lesson: a render-compositing assumption from static design -- even a Council+PRIME-AUDIT-ratified 'sprite.mask=alpha' -- must be runtime-pixel-verified; 'sprite.mask=alpha' is FALSE for a dark mask (it's brightness-weighted). RALPH:PATROL separately caught a missing match-start ghost reset (match 2 would inherit match 1 ghosts). PRIME-AUDIT empirically REFUTED both GROK REALs (placedBy-immutable grep) + downgraded a GEMINI design-pref. Transferable: when a reviewer OR your own design asserts GPU-compositing behavior, the pixel e2e is the arbiter, not the reasoning."
   ],
   "budget_total": 1000000,
   "totals": {
@@ -113,5 +144,5 @@
   "analyze_summary": "S59 ANALYZE: full pipeline (A.0 empirical discovery -> Full-tier batch PDR -> 2-round 3-way Council -> PRIME-AUDIT -> P1 execute -> per-priority CHECK) executed well; P1 shipped clean (17772b4). Efficiency was hit by a DEGRADED tool-output channel (results delivered in long-delayed bursts -> many empty probe round-trips) + heavy context, NOT by method. Wins: caught a translucent-fog live-board LEAK pre-commit via blend-math reasoning (source-over on opaque base keeps mask alpha=1 -> opaque dim, not alpha reduction); PRIME-AUDIT independently REFUTED 2 reviewer claims (Gemini inverted-layer recipe; Grok phantom bilinear-leak) + 1 false R2 consensus (drop terrain-dim) while a REAL centre-only coverage bug was caught+fixed. Checkpoint after P1 + carry P2/P3 (riskiest = enemy-structure ghost state machine) = sound under degraded tooling + context pressure. GROK-ANALYST ANALYZE call was fired but its result was lost to the channel lag; self-assessment stands.",
   "handoff_generated": "2026-05-31",
   "handoff_doc": "HANDOFF_2026-05-31_S59.md",
-  "session_status": "handoff-complete (P1 shipped; P2/P3 carry-forward)"
+  "session_status": "in-progress (S60 P2 shipped 1709d0d; P3 executing)"
 }
