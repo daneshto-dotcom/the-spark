@@ -18,18 +18,14 @@
  *         (eliminates inline duplication at 3 dispatch sites). WIN_TRIGGER
  *         stays inline (3 LOC scalar mutation, cohesion-mismatch for sparkLifecycle).
  *         All §XV charter compliance work mechanical, zero behavior change.
+ * S61 P1: SEVER_BOND orchestrator body extracted to src/state/severBond.ts
+ *         (applySeverBond) — dispatch() is now uniformly 1-line delegations.
  */
 
 import { PLAYER_COLORS, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, TERRITORY_SHRINK_DURATION_TICKS } from '../constants.ts';
 import { type GameEffect } from '../game/effects.ts';
 import { type Primitive } from '../game/primitive.ts';
-import { severSplit } from '../game/structure.ts';
-import {
-  applySeverTopology,
-  canSeverBond,
-  computeBaseCharge,
-  computeSeverEraseEffects,
-} from './disruptionManager.ts';
+import { applySeverBond } from './severBond.ts';
 import { makeIdlePlayer, type Player } from '../game/player.ts';
 import type { Spark } from '../game/spark.ts';
 import type { Bond } from '../physics/bonds.ts';
@@ -372,50 +368,11 @@ export function dispatch(world: World, action: GameAction): World {
     case 'PLACE_FROM_FREE':
       return applyPlaceFromFree(world, action);
 
-    case 'SEVER_BOND': {
-      // S17 §13.11 LOCKED; S19 P2 orchestrator over disruptionManager helpers.
-      // Effect ordering (Council R1 Grok#4 + Gemini#1 BLOCKER): SEVER_ERASE
-      // effects emit BEFORE topology mutation (need live prims for pos/color
-      // /radius); BOND_SEVERED emits AFTER (end-of-operation marker for audio).
-      const bond = world.bonds.get(action.bondId);
-      if (bond === undefined) return world;
-
-      const primA = world.primitives.get(bond.aId);
-      const primB = world.primitives.get(bond.bId);
-      if (primA === undefined || primB === undefined) return world;
-
-      // Capture sever pos before any mutation (audio drain payload).
-      const severPos = { x: primA.pos.x, y: primA.pos.y };
-
-      if (!canSeverBond(world, action, primA, primB)) return world;
-
-      const split = severSplit(bond, world.primitives, world.bonds);
-      // S52 P2 (LOCKED §13.11 amended — user-authorized) — cycle-no-consume
-      // rule REMOVED. Every hostile sever consumes 1 charge regardless of
-      // whether the topology split deletes primitives or just removes the
-      // bond. Pre-S52 PRIME-AUDIT B made cycle-bond severs cost 0 charges as
-      // a strategic-balance compensation for defensive cycle structures;
-      // user mental model is "each raid point = break 1 connection" (verbatim
-      // S52 ask), making the cycle exception read as buggy. Self-sever (both
-      // endpoints share actor color) still costs 0 via computeBaseCharge —
-      // that's a separate rule (zero-cost path for the actor's own structure)
-      // and out of scope of this amendment.
-      const chargeToConsume = computeBaseCharge(world, action, primA, primB);
-      if (chargeToConsume > 0) {
-        requirePlayer(world, action.playerId).disruptionCharges -= chargeToConsume;
-      }
-
-      for (const e of computeSeverEraseEffects(world, split, world.tick)) world.effects.push(e);
-      applySeverTopology(world, bond, split);
-      world.effects.push({
-        kind: 'BOND_SEVERED',
-        tick: world.tick,
-        pos: severPos,
-        cause: action.cause,
-      });
-
-      return world;
-    }
+    // S61 P1 — SEVER_BOND orchestrator extracted to severBond.ts (§XV
+    // de-hypertrophy). Effect ordering + charge semantics preserved verbatim;
+    // dispatch() is now uniformly 1-line delegations.
+    case 'SEVER_BOND':
+      return applySeverBond(world, action);
 
     case 'TICK_ENERGY':
       return applyTickEnergy(world, action);
