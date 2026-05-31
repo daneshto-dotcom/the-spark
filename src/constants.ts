@@ -121,7 +121,7 @@ export const SPAWN_RATE_PER_SECOND = readTestSpawnRate() ?? 0.15;
 export const REASONABLE_PICKUP_REACH = 600;
 
 // Phase-2 vision (placeholders — unused in Phase 1)
-export const R_PERSONAL = 150; // S58 (#1) — halved from 300; the cursor-centred reveal read as too large in playtest.
+export const R_PERSONAL = 75; // S63 — halved again 150→75 on live user feedback (reveal still too large around the spark). S58 (#1) had halved 300→150.
 export const R_BEACON = 80;
 // S58 (#3) — vision radius around your OWN creatures (e.g. Voltkin) so you can
 // watch them fight in enemy territory instead of losing them to the fog. Larger
@@ -141,10 +141,12 @@ export const VISION_FADE_PX = 40;
 // smooth RT, so the live edge is unaffected). Council S59 ADOPT HYBRID.
 export const EXPLORED_GRID_COLS = 48;
 export const EXPLORED_GRID_ROWS = 27;
-// The opaque "remembered area" fog shade — lighter than FOG_COLOR (0x05070d) so
-// explored reads as dim-but-seen vs unexplored near-black. OPAQUE (the board stays
-// hidden → no live-movement leak). Tunable in preview.
-export const MEMORY_FOG_COLOR = 0x161b2e;
+// The opaque "remembered area" fog shade. S63 user tuning: set to pure black
+// (0x000000 = FOG_COLOR = the app background) so the whole fog reads as uniform
+// darkness rather than a blue layer — this collapses the dim "remembered" tier into
+// black. Still OPAQUE (the board stays hidden → no live-movement leak). Tunable in
+// preview (raise back toward 0x161b2e to restore a visible dim explored tier).
+export const MEMORY_FOG_COLOR = 0x000000;
 // S60 P2 — last-seen ENEMY-structure "ghost" silhouettes (the StarCraft remembered-
 // building tier). A CPU last-seen Map (state/exploredMemory.ts) drives dim silhouette
 // sprites in a memoryLayer ABOVE the live fog, masked by the live fog mask so a ghost

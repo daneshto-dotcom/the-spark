@@ -19,8 +19,8 @@
  */
 import { test, expect, type Page } from '@playwright/test';
 
-// FOG_COLOR = 0x05070d in src/render/fogRenderer.ts
-const FOG = { r: 5, g: 7, b: 13 };
+// FOG_COLOR = 0x000000 in src/render/fogRenderer.ts (S63: pure black, no tint)
+const FOG = { r: 0, g: 0, b: 0 };
 
 async function waitForSparkFog(page: Page): Promise<void> {
   await page.waitForFunction(

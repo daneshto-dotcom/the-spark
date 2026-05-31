@@ -53,8 +53,8 @@ import { destroyShapeTextures, makeShapeTextures, type ShapeTextures } from './s
 import type { World } from '../state/world.ts';
 import type { PrimitiveId, Vec2 } from '../types.ts';
 
-/** Fogged-area colour. Near-black with a faint cool tint (reads as fog, not void). */
-const FOG_COLOR = 0x05070d;
+/** Fogged-area colour. Pure black (0x000000 = the app background), so fog reads as plain darkness, not a tinted layer (S63 user tuning — was 0x05070d). */
+const FOG_COLOR = 0x000000;
 /** Radius (px) of the one-time radial-gradient brush texture. */
 const BRUSH_TEX_RADIUS = 128;
 /**
