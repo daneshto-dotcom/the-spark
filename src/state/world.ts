@@ -52,7 +52,7 @@ import {
 import { placePrimitive, type PlacePrimitiveAction } from './placePrimitive.ts';
 import { applyPlaceFromFree, type PlaceFromFreeAction } from './placeFromFree.ts';
 import type { GodlyTriggerEvent } from './godlyRecipes/types.ts';
-import { setCooldown } from './godlyCooldown.ts';
+import { applyGodlyAbort, applyGodlyComplete, applyGodlyTrigger } from './godlyActions.ts';
 import {
   applyDespawnSpark,
   applyDropSpark,
@@ -434,61 +434,16 @@ export function dispatch(world: World, action: GameAction): World {
     case 'UPDATE_AVATAR_POS':
       return applyUpdateAvatarPos(world, action);
 
-    case 'GODLY_TRIGGER': {
-      // S22 P3 — single-slot cinematic serialization (PRIME-AUDIT Δ2).
-      // If another cinematic is active, queue. Otherwise activate + start
-      // cooldown. The cinematic plays in main.ts; the creature actor spawned
-      // at handoff (main.ts onCinematicHandoff) handles bond severance.
-      //
-      // S27 P0 — CASCADE DELETED (Council R1 Q5 UNANIMOUS creature-only;
-      // blueprint § "S27 migration notes" Gap A). Pre-S27 this case ran a
-      // 26-line synchronous SEVER_BOND cascade over the target component's
-      // bonds with cause='godly'. That instant destruction is replaced by
-      // the autonomous Voltkin creature actor (S25 + S26 + S27 pipeline):
-      //   - GODLY_TRIGGER sets cinematic + cooldown ONLY (this reducer body)
-      //   - cutsceneOverlay plays the 4-second cinematic
-      //   - onCinematicHandoff dispatches SPAWN_CREATURE at cinematic end
-      //   - applyCreatureTick FSM-drives the creature for 8s
-      //   - applyCreatureAttack severs target bonds at ~1/sec cadence via
-      //     SEVER_BOND{cause:'creature'} + emits ARC_FLASH per zap
-      //
-      // BOND_SEVERED.cause='godly' is now unreachable in production code but
-      // the union variant is preserved in effects.ts for type-system back-compat
-      // (no live emitter post-S27; future revival possible if a new "instant
-      // godly effect" recipe ships in S29+).
-      const { event } = action;
-      if (world.activeCinematicPlayerId !== null) {
-        world.pendingCinematics.push(event);
-        return world;
-      }
-      const triggerer = world.players.get(event.triggererPlayerId);
-      if (triggerer === undefined) return world;
-      world.activeCinematicPlayerId = event.triggererPlayerId;
-      world.currentCinematicEvent = event;
-      setCooldown(triggerer, world.tick);
-      return world;
-    }
+    // S60 P5 — the GODLY cinematic-state cluster extracted to godlyActions.ts
+    // (§XV de-hypertrophy). Behaviour + mutation order preserved verbatim.
+    case 'GODLY_TRIGGER':
+      return applyGodlyTrigger(world, action.event);
 
-    case 'GODLY_COMPLETE': {
-      world.activeCinematicPlayerId = null;
-      world.currentCinematicEvent = null;
-      // No re-dispatch from inside the reducer (CQS — main.ts setTimeout
-      // shifts next pending event and dispatches GODLY_TRIGGER for it).
-      return world;
-    }
+    case 'GODLY_COMPLETE':
+      return applyGodlyComplete(world);
 
-    case 'GODLY_ABORT': {
-      world.activeCinematicPlayerId = null;
-      world.currentCinematicEvent = null;
-      world.pendingCinematics.length = 0;
-      // S25 P0 — cascade-clear creatures (blueprint Edge Case #2). Peer-drop or
-      // explicit abort must remove all live actors so no zombie sprites persist.
-      world.creatures.clear();
-      // S28 P0 — PRIME-AUDIT Δ5: clear pending creature spawn so a queued
-      // spawn cannot fire after abort (replay + 1v1 peer-drop both honored).
-      world.pendingCreatureSpawn = null;
-      return world;
-    }
+    case 'GODLY_ABORT':
+      return applyGodlyAbort(world);
 
     case 'SPAWN_CREATURE':
       return applySpawnCreature(world, action);
