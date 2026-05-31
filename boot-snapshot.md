@@ -1,23 +1,25 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-05-30 | Session: S57
+Generated: 2026-05-31 | Session: S59
 
 ## Next Steps
-1. **USER — live 2-peer cross-network fog smoke** on https://spark-online.space/?debug=1: confirm each player sees only their own vision (cursor radius + own structures + spawner), the opponent's structures stay hidden until cruised over, and the fog lifts on win (reveal-all).
-2. **Memory-fog** — the natural next PDR: StarCraft-style dimmed "remembered" areas after scouting (extends `src/state/vision.ts` + adds a dimmed last-observed render layer below the live fog).
-3. **Fog CHECK carry-forwards (all LOW, non-blocking):** (a) freeze/snap the mask to full-reveal at WIN instead of letting cutouts drift during the 1s fade; (b) add a world→screen transform in `vision.ts` IF a camera/viewport is ever introduced (currently world==screen); (c) brush-pool `reset()` on RETURN_TO_TITLE (bounded ~≤52, tidy-only); (d) wire `fogRenderer.destroy()` (dev-only, static page so non-urgent).
-4. **Phase-2 next mechanic** (D Inject Spiral / E Steal / A fog-variant / G Mega-combos / Anvil) — design call.
-5. **Opponent-view attract-drag parity** (S52 Δ6) — host still sees P2's drag JUMP on placement (deferred from S56; needs a drag-stream intent + host handler).
+1. **Re-confirm the carried P2+P3 PDR** (Rule 11 — they were Council-designed + PRIME-AUDITed in S59 but need a fresh `go`), then execute:
+   - **P2 — Last-seen STRUCTURE memory** (RISKIEST; the enemy-structure ghost-resolution state machine — Council #1 hazard). CPU last-seen `Map<PrimitiveId,…>` + a dim `memoryLayer` ABOVE `fogRenderer.container`, `.mask`=Sprite of `liveMaskRT`, gated by `isExplored && !live`. Exhaustive UNIT tests for the Map state machine + a dedicated memory pixel e2e.
+   - **P3 — Fog polish**: (a) WIN-fade freeze recompose when `fogTargetAlpha==0`; (c) `fogRenderer.reset()` on RETURN_TO_TITLE (clears grid+Map+pool); (d) wire `fogRenderer.destroy()` + free textures. (b) world→screen DEFERRED (no camera).
+2. **Verify P1 landed clean**: `gh run list` conclusion on `17772b4` (Deploy + E2E); run the FULL smoke/sim-rate e2e once (P1 is behind `__FOG_DISABLE__` so canary should be unaffected); re-measure bundle (<550).
+3. **USER live 2-peer smoke** (carried S58): 4 S58 fixes + lossy run (P4 TTL edge); eyeball the new remembered-areas dim tier + tune `MEMORY_FOG_COLOR`/grid res.
+4. Phase-2 next mechanic (D/E/A/G/Anvil) — design call. Opponent-view attract-drag parity (S52 Δ6) — still carried.
 
 ## Blockers
-None. (GitHub Actions billing was resolved this session → CI + Deploy green; Fog of War + the S56 attract-drag fix are both LIVE.)
+None code-side. P1 shipped + pushed. P2/P3 are approved-design / awaiting re-`go`.
 
-## Pending Backlog
-BACKLOG.md is a historical completed-session log (no open checkboxes). Forward work = the Next Steps carry-forwards above.
+## Watch-outs
+- **Tool-output channel was degraded in S59** (delayed bursts). If it recurs: fewer/larger verification batches + node file-writes; JSON test reporters for ground truth.
+- OneDrive path garbles raw terminal text → use Node/JSON reporters (PowerShell shows CP-1252 mojibake but Read is clean).
+- `e2e/` is NOT in tsconfig → always run Playwright; tsc won't catch e2e arg errors.
+- `session-state.json` is rewritten by a counter hook → atomic Node read-modify-write, never Edit.
+- **Memory-fog rule (S59):** in screen-space fog a "dim" tier must be an OPAQUE colour change, never an alpha reduction (alpha reduction leaks the live board). P2's memory layer goes ABOVE the fog, masked by `liveMaskRT`.
 
-## Recent Reflexion (last 2 sessions)
-**S57 (Fog of War MVP):**
-- `#fog-render-pass-throttle-the-low-frequency-mask` — runtime-verify the GPU path (pixel-extraction, not tsc); a per-frame full-screen RT pass halved the swiftshader sim → fixed with half-res + 20Hz throttle + `__FOG_DISABLE__` e2e seam. Budget per-frame GPU cost for any new render layer.
-- `#check-verify-audit-claims-against-source` — the post-ship CHECK's 2 scariest findings (BLOCKER pool-leak, HIGH coord-mismatch) both dissolved on PRIME-AUDIT vs real source. Verify audit claims line-by-line; loose summaries manufacture phantoms.
-- `SESSION #s57-fog-of-war-mvp-shipped` — A.0 (4 parallel agents) + Council (Option A RenderTexture, VETO GLSL) + empirical Pixi v8 `'erase'`; 894 unit + e2e green; bundle 502.69 KB (cap 500→550). Shipped + deployed live.
-
-**S56 (AttractDrag parity):** `#client-prediction-was-never-run-not-just-clobbered` — a preserve around a never-produced value is invisible to unit+tsc+Council; only the real-peer E2E proves the produce+preserve chain.
+## Recent Reflexion (S59)
+- P1 #memory-fog-opaque-not-translucent — remembered-areas = opaque dim overlay over the dark base (source-over keeps mask alpha=1 → no leak); the partial-erase draft would have leaked.
+- SESSION #method-prime-audit-refute-not-rubberstamp — PRIME-AUDIT refuted 2 reviewer claims (Gemini inverted-layer, Grok phantom bilinear-leak) + 1 false consensus, while catching 1 real coverage bug.
+- SESSION #method-checkpoint-under-degraded-tooling — checkpoint at the clean priority boundary + carry the riskiest piece rather than grind through degraded tooling.
