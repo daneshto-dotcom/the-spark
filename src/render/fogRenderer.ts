@@ -23,12 +23,25 @@
  */
 
 import { Application, Container, RenderTexture, Sprite, Texture, type Renderer } from 'pixi.js';
-import { CANVAS_HEIGHT, CANVAS_WIDTH, VISION_FADE_PX } from '../constants.ts';
+import {
+  CANVAS_HEIGHT,
+  CANVAS_WIDTH,
+  EXPLORED_GRID_COLS,
+  EXPLORED_GRID_ROWS,
+  MEMORY_FOG_COLOR,
+  VISION_FADE_PX,
+} from '../constants.ts';
 import {
   computeVisionSources,
   fogTargetAlpha,
   stepFogAlpha,
 } from '../state/vision.ts';
+import {
+  makeExploredGrid,
+  markVisible,
+  resetExploredGrid,
+  type ExploredGrid,
+} from '../state/exploredMemory.ts';
 import type { World } from '../state/world.ts';
 import type { Vec2 } from '../types.ts';
 
@@ -83,6 +96,21 @@ export class FogRenderer {
   private alpha = 0;
   private maskFrameCounter = 0;
 
+  // S59 P1 — "remembered areas" memory. The coarse explored grid (pure, in
+  // state/exploredMemory.ts) is rasterized into a tiny canvas-backed texture and
+  // composited into the SAME mask as an OPAQUE lighter-colour overlay (normal
+  // blend) over explored cells, between the dark base and the full-erase live
+  // brushes → 3 tiers (dark / dim / clear) in one overlay, with NO live-board leak.
+  private readonly grid: ExploredGrid = makeExploredGrid();
+  private readonly gridCanvas: HTMLCanvasElement;
+  private readonly gridCtx: CanvasRenderingContext2D;
+  private readonly gridImageData: ImageData;
+  private readonly gridTex: Texture;
+  private readonly gridSprite: Sprite;
+  private gridNeedsRedraw = true;
+  /** Tracks the PLAYING edge so remembered areas reset at the start of each match. */
+  private wasActive = false;
+
   constructor(app: Application) {
     this.renderer = app.renderer;
     this.disabled =
@@ -109,6 +137,27 @@ export class FogRenderer {
     this.maskScene.scale.set(MASK_SCALE);
     this.maskScene.addChild(base);
 
+    // S59 P1 — the memory overlay, ABOVE the dark base and BELOW the live brushes
+    // (added later by ensurePool). A tiny cols×rows canvas (one texel per grid
+    // cell) is bilinear-upscaled to board size; explored texels carry the opaque
+    // MEMORY_FOG_COLOR (normal blend) so scouted areas read as a dim shade —
+    // OPAQUE, so the live board never shows through (no M1 leak). The live brushes
+    // erase fully on top, and live ⊆ explored, so they cleanly cut clear holes.
+    this.gridCanvas = document.createElement('canvas');
+    this.gridCanvas.width = EXPLORED_GRID_COLS;
+    this.gridCanvas.height = EXPLORED_GRID_ROWS;
+    const gridCtx = this.gridCanvas.getContext('2d');
+    if (gridCtx === null) throw new Error('FogRenderer: 2D context unavailable for memory grid');
+    this.gridCtx = gridCtx;
+    this.gridImageData = gridCtx.createImageData(EXPLORED_GRID_COLS, EXPLORED_GRID_ROWS);
+    this.gridTex = Texture.from(this.gridCanvas);
+    // (Pixi v8 default scaleMode is 'linear' → the tiny grid texture upscales
+    //  bilinearly, smoothing the coarse cells on the dim tier.)
+    this.gridSprite = new Sprite(this.gridTex);
+    this.gridSprite.width = CANVAS_WIDTH;
+    this.gridSprite.height = CANVAS_HEIGHT;
+    this.maskScene.addChild(this.gridSprite);
+
     // Displayed layer: the low-res mask upscaled to full screen (bilinear-smooth).
     // Alpha = fog strength (tweened for the win-lift).
     this.fogSprite = new Sprite(this.maskRT);
@@ -130,6 +179,13 @@ export class FogRenderer {
   sync(world: World, localCursor: Vec2, dtSeconds: number): void {
     if (this.disabled) return; // container stays hidden (E2E gameplay specs)
     const target = fogTargetAlpha(world);
+    // S59 P1 — wipe remembered areas at the start of each match (the PLAYING edge),
+    // so a new game never inherits the previous match's explored map.
+    if (target > 0 && !this.wasActive) {
+      resetExploredGrid(this.grid);
+      this.gridNeedsRedraw = true;
+    }
+    this.wasActive = target > 0;
     const fadeStep =
       FOG_FADE_PER_SECOND * Math.max(0, Math.min(dtSeconds, MAX_FRAME_DT_SECONDS));
     this.alpha = stepFogAlpha(this.alpha, target, fadeStep);
@@ -151,6 +207,12 @@ export class FogRenderer {
     if (!due) return;
 
     const sources = computeVisionSources(world, localCursor);
+    // S59 P1 — accumulate explored cells; only re-upload the grid texture when the
+    // explored set actually grew (most ticks it doesn't) — keeps the sim canary happy.
+    if (markVisible(this.grid, sources) || this.gridNeedsRedraw) {
+      this.redrawGridTexture();
+      this.gridNeedsRedraw = false;
+    }
     this.ensurePool(sources.length);
     for (let i = 0; i < this.pool.length; i++) {
       const brush = this.pool[i];
@@ -182,6 +244,28 @@ export class FogRenderer {
       this.pool.push(brush);
       this.maskScene.addChild(brush);
     }
+  }
+
+  /**
+   * S59 P1 — re-rasterize the explored grid into its texture: explored texels →
+   * opaque MEMORY_FOG_COLOR, unexplored → fully transparent (so the dark base
+   * shows). Bilinear upscale (linear scaleMode) smooths the coarse cells.
+   */
+  private redrawGridTexture(): void {
+    const cells = this.grid.cells;
+    const data = this.gridImageData.data;
+    const r = (MEMORY_FOG_COLOR >> 16) & 0xff;
+    const g = (MEMORY_FOG_COLOR >> 8) & 0xff;
+    const b = MEMORY_FOG_COLOR & 0xff;
+    for (let i = 0; i < cells.length; i++) {
+      const o = i * 4;
+      data[o] = r;
+      data[o + 1] = g;
+      data[o + 2] = b;
+      data[o + 3] = cells[i] === 1 ? 255 : 0;
+    }
+    this.gridCtx.putImageData(this.gridImageData, 0, 0);
+    this.gridTex.source.update();
   }
 
   /** DEV/test only — the composed fog mask (opaque where fogged, transparent at vision sources). */

@@ -122,6 +122,22 @@ export const R_BEACON = 80;
 export const R_CREATURE_VISION = 120;
 export const VISION_FADE_PX = 40;
 
+// === Fog-of-war MEMORY ("remembered areas", S59) ===
+// A coarse exploration grid (state/exploredMemory.ts) is rasterized + bilinear-
+// upscaled into the fog mask as an OPAQUE lighter-colour overlay over explored
+// cells — NOT a partial-transparency, which would reveal the live board beneath
+// (the rejected M1 "leak"). So scouted areas read as a dim "remembered" shade,
+// never-seen areas stay near-black, and live vision punches fully-clear holes.
+// Grid is resolution-independent (resize re-rasterizes); 48×27 = 40px square
+// cells, bilinear-smoothed so the dim tier isn't blocky (live vision keeps the
+// smooth RT, so the live edge is unaffected). Council S59 ADOPT HYBRID.
+export const EXPLORED_GRID_COLS = 48;
+export const EXPLORED_GRID_ROWS = 27;
+// The opaque "remembered area" fog shade — lighter than FOG_COLOR (0x05070d) so
+// explored reads as dim-but-seen vs unexplored near-black. OPAQUE (the board stays
+// hidden → no live-movement leak). Tunable in preview.
+export const MEMORY_FOG_COLOR = 0x161b2e;
+
 // === Physics ===
 export const PHYSICS_HZ = 60;
 export const PHYSICS_SUBSTEPS = 8;
