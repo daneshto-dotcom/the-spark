@@ -1,9 +1,9 @@
 {
-  "tool_calls_session_total": 317,
+  "tool_calls_session_total": 332,
   "session_start": "2026-05-31T07:25:41.993Z",
   "session_id": "S60",
   "session_kind": "execution",
-  "session_note": "S60 Memory-fog batch continuation, user 'approved! work thoroughly!'. Re-confirm of S59-carried P2+P3 (deliberation_completed already true; Rule-11 re-confirm + A.0 re-probe clean). P2 last-seen ENEMY-structure ghost memory: pure GhostMemory Map state machine in exploredMemory.ts + dim memoryLayer folded into FogRenderer (above fog container, masked by Sprite(maskRT)); reuse isPointVisible + makeShapeTextures; enemy gate placedBy!==localPlayerId. P3 polish a(win-freeze)/c(reset@TITLE-edge)/d(free gridTex); b deferred.",
+  "session_note": "S60 Memory-fog batch continuation, user 'approved! work thoroughly!'. Re-confirm of S59-carried P2+P3 (deliberation_completed already true; Rule-11 re-confirm + A.0 re-probe clean). P2 last-seen ENEMY-structure ghost memory: pure GhostMemory Map state machine in exploredMemory.ts + dim memoryLayer folded into FogRenderer (above fog container, masked by Sprite(maskRT)); reuse isPointVisible + makeShapeTextures; enemy gate placedBy!==localPlayerId. P3 polish a(win-freeze)/c(reset@TITLE-edge)/d(free gridTex); b deferred. | S60 AUTONOMOUS continuation (user away ~4h, 'work autonomously...highest quality...I approve entire pdr and priority batch'). A.0 found audit micros (parseNetMessage d4541985 + allowlist ce51b032) ALREADY fixed -> re-scoped to §XV anti-bloat. main.ts (942) DEFERRED per audit's own rec (not autonomous-safe). Council R1 (grok-4.20 + gemini-2.5-pro): P2-cycle BLOCKER REFUTED empirically (setCooldown in godlyCooldown.ts not world.ts); P1 constants-coupling SHOULD confirmed+actioned.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -145,6 +145,62 @@
           "needle": "freezes the mask during the win-lift"
         }
       ]
+    },
+    {
+      "id": "P4",
+      "label": "S60 P4 (autonomous) -- lobbyScreen.ts de-hypertrophy: extract pure geometry/validation helpers + their module-local constants (PANE_*/BUTTON_*/ROOM_CODE_*/INPUT_*) into src/render/lobbyGeometry.ts; one-directional import; update consumers (controls.ts cssToCanvasCoords + lobbyScreen.test.ts). Behavior-preserving.",
+      "status": "completed",
+      "phase": "ACT",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": false,
+      "check_completed": true,
+      "checkpoint_commit": "9746080",
+      "real_context_tokens_at_close": 497975,
+      "real_context_pct_at_close": 49.8,
+      "check_method": "S60 P4 (lobbyScreen de-hypertrophy) verified. Extracted ~190 LOC pure geometry/validation helpers + layout/validation constants (sanitize/isValid room code, fitCanvasIntoRect/mapCanvasRectToPage/cssToCanvasCoords object-fit:contain mappings, PANE_*/BUTTON_*/ROOM_CODE_*/INPUT_CANVAS_* + JOIN_INPUT_RECT + get*Bounds/Origin) into NEW src/render/lobbyGeometry.ts. lobbyScreen.ts imports the class-needed symbols + RE-EXPORTS the 10 public helpers (facade) so external consumers (controls.ts cssToCanvasCoords + lobbyScreen.test.ts) UNCHANGED. One-directional import (lobbyGeometry imports only constants.ts -> NO cycle). tsc caught the class ALSO uses INPUT_CANVAS_* (beyond first grep window) -> exported+imported the 4. EMPIRICAL: tsc -b exit 0; FULL unit 920/920 (incl 29 lobbyScreen + 27 controls = facade+consumer verified); smoke e2e 10 pass/1 skip (lobby host->join->begin-match canary GREEN). lobbyScreen 712->548 LOC (-164); lobbyGeometry 210. Verbatim move; RALPH:PATROL clean. checkpoint 9746080.",
+      "verification": [
+        {
+          "check": "file_contains",
+          "path": "src/render/lobbyGeometry.ts",
+          "needle": "export function sanitizeRoomCodeValue"
+        },
+        {
+          "check": "file_contains",
+          "path": "src/render/lobbyScreen.ts",
+          "needle": "} from './lobbyGeometry.ts';"
+        }
+      ]
+    },
+    {
+      "id": "P5",
+      "label": "S60 P5 (autonomous) -- world.ts de-hypertrophy: extract inline GODLY cluster (GODLY_TRIGGER/COMPLETE/ABORT) into src/state/godlyActions.ts (applyGodly*), cases become 1-line delegations. setCooldown from godlyCooldown.ts (no cycle). Determinism-preserving.",
+      "status": "completed",
+      "phase": "ACT",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": false,
+      "check_completed": true,
+      "checkpoint_commit": "1105b5c",
+      "real_context_tokens_at_close": 516575,
+      "real_context_pct_at_close": 51.66,
+      "check_method": "S60 P5 (world.ts godly-cluster de-hypertrophy) verified. Extracted inline GODLY cinematic-state cases (GODLY_TRIGGER/COMPLETE/ABORT) from dispatch() into NEW src/state/godlyActions.ts (applyGodly{Trigger,Complete,Abort}); 3 cases -> 1-line delegations. Mirrors gameMode.ts/placePrimitive.ts/disruptionManager.ts. setCooldown imported DIRECTLY from godlyCooldown.ts (value) + World/GodlyTriggerEvent type-only -> NO runtime cycle; world.ts's now-unused setCooldown import dropped (no unused-import error confirms GODLY-only use). Mutation order verbatim (Grok NIT). EMPIRICAL: tsc -b exit 0; FULL unit 920/920 incl godlyReducer.test.ts (GODLY dispatch) + save.replay.test.ts (snapshot->simulate->snapshot determinism). world.ts 533->488 LOC (-45); godlyActions.ts 72. CHECK: RALPH:PATROL clean (no cycle tsc-confirmed; determinism replay-green; behavior godlyReducer-green). PRIME-AUDIT empirically REFUTED Grok's cycle BLOCKER pre-lock (setCooldown in godlyCooldown.ts:25 not world.ts). checkpoint 1105b5c.",
+      "verification": [
+        {
+          "check": "file_contains",
+          "path": "src/state/godlyActions.ts",
+          "needle": "export function applyGodlyTrigger"
+        },
+        {
+          "check": "file_contains",
+          "path": "src/state/world.ts",
+          "needle": "return applyGodlyTrigger(world, action.event)"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
@@ -153,7 +209,9 @@
     "SESSION #method-prime-audit-refute-not-rubberstamp: PRIME-AUDIT independently REFUTED Gemini's inverted-layer composite recipe AND Grok's phantom 'bilinear leak' (both dissolved on blend-math), while keeping terrain-dim against a false R2 consensus on principled grounds (literal ask + zero-ghost-risk) AND a REAL centre-only grid-coverage bug got caught+fixed. The discipline 'for each adopted/flagged item, state what would falsify it INDEPENDENTLY of the claimant' caught 2 false + held 1 contested + surfaced 1 true. Earns its keep on every render/GPU feature where reviewers reason about compositing.",
     "SESSION #method-checkpoint-under-degraded-tooling: when the tool-output channel degrades mid-batch (delayed bursts, repeated empty probes), checkpoint at the nearest CLEAN priority boundary and carry forward the riskiest remaining work rather than grind it through broken tooling -- quality of the risky piece (P2 ghost state machine) > cramming the batch. Validated: P1 shipped clean + deployed; P2/P3 carried with full Council design intact.",
     "P2 #memory-fog-cpu-gate-not-gpu-mask #pixel-e2e-caught-mask-attenuation: the S59-designed 'memoryLayer masked by Sprite(maskRT)' was empirically WRONG -- a Pixi v8 sprite mask attenuates the masked content by the mask's BRIGHTNESS, and the fog mask is near-black (MEMORY_FOG_COLOR 0x161b2e), so it crushed the ghost silhouettes to ~5% alpha (measured g=35 vs expected ~121 in the pixel e2e). Pivoted to a CPU per-sprite visibility gate (sprite.visible = !isPointVisible(sources, ghost.pos)), reusing the SAME vision predicate as the memory update -- simpler, no brightness coupling, and the GPU mask wasn't viable anyway (a fog shader is Council-vetoed in this codebase). Lesson: a render-compositing assumption from static design -- even a Council+PRIME-AUDIT-ratified 'sprite.mask=alpha' -- must be runtime-pixel-verified; 'sprite.mask=alpha' is FALSE for a dark mask (it's brightness-weighted). RALPH:PATROL separately caught a missing match-start ghost reset (match 2 would inherit match 1 ghosts). PRIME-AUDIT empirically REFUTED both GROK REALs (placedBy-immutable grep) + downgraded a GEMINI design-pref. Transferable: when a reviewer OR your own design asserts GPU-compositing behavior, the pixel e2e is the arbiter, not the reasoning.",
-    "P3 #fog-polish-reuse-existing-state-edge: the win-lift FREEZE is a 1-line guard (if target===0 return) placed AFTER the alpha/visibility assignment but BEFORE the throttled recompose -> fog+ghosts fade via alpha over a FROZEN mask composition (uniform dissolve), and it self-releases because target>0 on the next PLAYING edge (no stuck-frozen risk; the win test still completes to alpha 0). reset() reused the EXISTING main.ts:680 *->TITLE teardown edge (already abort-cutscene/reset-shake/clear-creatures) rather than instrumenting all 3 RETURN_TO_TITLE dispatch sites -> one idempotent call covers lobby-Back + POSTGAME->title + peer-drop. Lesson: when adding teardown/reset for a NEW subsystem, find the existing state-transition edge that already orchestrates sibling teardown and co-locate there (single idempotent site) instead of touching every dispatch caller. Each polish item earned a dedicated e2e proof (freeze: a vision hole doesn't relocate mid-lift; reset: rememberedCount->0) -- runtime-verifying GPU/state behavior, not just tsc."
+    "P3 #fog-polish-reuse-existing-state-edge: the win-lift FREEZE is a 1-line guard (if target===0 return) placed AFTER the alpha/visibility assignment but BEFORE the throttled recompose -> fog+ghosts fade via alpha over a FROZEN mask composition (uniform dissolve), and it self-releases because target>0 on the next PLAYING edge (no stuck-frozen risk; the win test still completes to alpha 0). reset() reused the EXISTING main.ts:680 *->TITLE teardown edge (already abort-cutscene/reset-shake/clear-creatures) rather than instrumenting all 3 RETURN_TO_TITLE dispatch sites -> one idempotent call covers lobby-Back + POSTGAME->title + peer-drop. Lesson: when adding teardown/reset for a NEW subsystem, find the existing state-transition edge that already orchestrates sibling teardown and co-locate there (single idempotent site) instead of touching every dispatch caller. Each polish item earned a dedicated e2e proof (freeze: a vision hole doesn't relocate mid-lift; reset: rememberedCount->0) -- runtime-verifying GPU/state behavior, not just tsc.",
+    "P4 #anti-bloat-extract-with-reexport-facade: extracted lobbyScreen.ts's pure geometry/validation helpers (+ their module-local layout constants, which Council R1 Grok correctly flagged as coupled) into lobbyGeometry.ts, and RE-EXPORTED the public API from lobbyScreen.ts so external consumers (controls.ts) + the 29-test spec stayed UNCHANGED -- minimal blast radius (2 files), tsc as the exhaustive consumer-check (it caught INPUT_CANVAS_* beyond my grep window). Lesson: for an anti-bloat extraction with external consumers, a re-export facade beats hunting every import site; move module-local constants WITH the functions they feed (one-directional import) to avoid a reverse cycle. 712->548 LOC, behavior verbatim-preserved (tsc + 920 unit + lobby smoke canary).",
+    "P5 #anti-bloat-reducer-extract-cycle-refuted: extracted world.ts's inline GODLY cinematic-state cluster into godlyActions.ts (gameMode.ts pattern). Council R1 Grok raised a BLOCKER (godlyActions<->world cycle via setCooldown); PRIME-AUDIT empirically REFUTED it pre-lock with a 1-grep check -- setCooldown is DEFINED in godlyCooldown.ts:25 and merely IMPORTED by world.ts:55, so godlyActions imports it directly (+ World type-only) with no runtime cycle, as Gemini predicted. Lesson: a reviewer's cycle/coupling BLOCKER that rests on WHERE a symbol lives is a 10-second import-graph check, not a reason to defer scope. Determinism preserved by VERBATIM bodies + exact mutation order; save.replay.test.ts is the determinism arbiter for any reducer touch."
   ],
   "budget_total": 1000000,
   "totals": {
@@ -175,5 +233,5 @@
   "analyze_summary": "S59 ANALYZE: full pipeline (A.0 empirical discovery -> Full-tier batch PDR -> 2-round 3-way Council -> PRIME-AUDIT -> P1 execute -> per-priority CHECK) executed well; P1 shipped clean (17772b4). Efficiency was hit by a DEGRADED tool-output channel (results delivered in long-delayed bursts -> many empty probe round-trips) + heavy context, NOT by method. Wins: caught a translucent-fog live-board LEAK pre-commit via blend-math reasoning (source-over on opaque base keeps mask alpha=1 -> opaque dim, not alpha reduction); PRIME-AUDIT independently REFUTED 2 reviewer claims (Gemini inverted-layer recipe; Grok phantom bilinear-leak) + 1 false R2 consensus (drop terrain-dim) while a REAL centre-only coverage bug was caught+fixed. Checkpoint after P1 + carry P2/P3 (riskiest = enemy-structure ghost state machine) = sound under degraded tooling + context pressure. GROK-ANALYST ANALYZE call was fired but its result was lost to the channel lag; self-assessment stands.",
   "handoff_generated": "2026-05-31",
   "handoff_doc": "HANDOFF_2026-05-31_S59.md",
-  "session_status": "S60 batch complete (P1 S59 + P2 1709d0d + P3 16d4c18) — ready for end-of-session audit + /handoff"
+  "session_status": "S60 AUTONOMOUS batch complete (P4 9746080 + P5 1105b5c) -- end-of-session pipeline + /handoff"
 }
