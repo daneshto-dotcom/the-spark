@@ -721,6 +721,10 @@ test.describe('S62 - 3-player FFA (1v1v1): seat assignment + distinct colors + F
         expect(bS.players.find((p) => p.id === seat)?.color).toBe(c0);
       }
 
+      // S62 P5 — capture the N-player leaderboard HUD (3 rows RED/CYAN/YELLOW,
+      // the host's own row marked "<YOU") as a visual-verification artifact.
+      await hostPage.screenshot({ path: 'test-results/s62-3player-hud.png' });
+
       // FFA scoring -> one winner. Host places 3 non-bonding anchors (SCORE_ANCHOR=1
       // each, 200px apart > AUTO_BOND_RADIUS) -> score 3 = __TEST_WIN_SCORE__ -> WIN.
       await waitForWorld(hostPage, (w) => w.freeSparks.length >= 8, 'sparks spawned on host', 20_000);

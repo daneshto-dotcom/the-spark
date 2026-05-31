@@ -21,6 +21,7 @@ import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   MAX_DISRUPTION_CHARGES,
+  MAX_PLAYERS,
   PHASE_1_WIN_SCORE,
 } from '../constants.ts';
 import { isNetworked, type World } from '../state/world.ts';
@@ -37,12 +38,16 @@ const PROGRESS_Y_TOP = CANVAS_HEIGHT - 80;
 const PROGRESS_Y_BOTTOM = CANVAS_HEIGHT - 40;
 const PROGRESS_WIDTH = 80;
 
+// S62 — short per-seat labels for the N-player leaderboard. The row text is also
+// drawn in the player's color, so the label is a redundant (CVD-friendlier) cue.
+const PLAYER_LABELS = ['RED', 'CYAN', 'YELLOW', 'GREEN', 'ORANGE', 'MAGENTA'] as const;
+
 export class HUD {
   private readonly gauge: Graphics;
   private readonly progress: Graphics;
   private readonly winText: Text;
-  private readonly p1ScoreText: Text;
-  private readonly p2ScoreText: Text;
+  /** S62 — N-player leaderboard rows (pool of MAX_PLAYERS; shown/sorted per frame). */
+  private readonly scoreTexts: Text[];
   private readonly connectionDot: Graphics;
   /** S17 P1 — per-player disruption charge dots (Phase-2 §VIII.1-2). */
   private readonly chargeDots: Graphics;
@@ -78,22 +83,21 @@ export class HUD {
 
     // S42 — Turn indicator badge DELETED (was top-center "PLAYER N'S TURN").
 
-    // S15 P2 — per-player score (top-left, vertical stack).
-    this.p1ScoreText = new Text({
-      text: '',
-      style: new TextStyle({ fontFamily: 'monospace', fontSize: 16, fill: 0xff3b6b }),
-    });
-    this.p1ScoreText.position.set(12, 12);
-    this.p1ScoreText.visible = false;
-    app.stage.addChild(this.p1ScoreText);
-
-    this.p2ScoreText = new Text({
-      text: '',
-      style: new TextStyle({ fontFamily: 'monospace', fontSize: 16, fill: 0x3bd7ff }),
-    });
-    this.p2ScoreText.position.set(12, 34);
-    this.p2ScoreText.visible = false;
-    app.stage.addChild(this.p2ScoreText);
+    // S62 — per-player score LEADERBOARD (top-left, vertical stack). A pool of
+    // MAX_PLAYERS rows; drawMultiplayerHUD shows one per live player, sorted by
+    // score (leader on top), each in the player's color, the local player marked.
+    // Replaces the pre-S62 hardcoded 2-row RED/BLUE readout.
+    this.scoreTexts = [];
+    for (let i = 0; i < MAX_PLAYERS; i++) {
+      const t = new Text({
+        text: '',
+        style: new TextStyle({ fontFamily: 'monospace', fontSize: 16, fill: 0xffffff }),
+      });
+      t.position.set(12, 12 + i * 22);
+      t.visible = false;
+      app.stage.addChild(t);
+      this.scoreTexts.push(t);
+    }
 
     // S15 P2 — connection status dot (top-right).
     this.connectionDot = new Graphics();
@@ -202,27 +206,34 @@ export class HUD {
   private drawMultiplayerHUD(world: World): void {
     const show1v1 = isNetworked(world) && world.gameState === 'PLAYING';
 
-    // S42 — Turn indicator badge block DELETED. Real-time gameplay has
-    // no "active player" concept; per-player score readouts below still
-    // show both players' progress.
+    // S62 — N-player score LEADERBOARD. All live players ranked by score (leader
+    // on top); each row in the player's color; the LOCAL player marked "> … <YOU"
+    // so you read "who's winning" + "who am I" at a glance (Council/Gemini quality
+    // lift). Replaces the pre-S62 fixed RED/BLUE rows. ASCII markers for font
+    // safety. `ranked` is reused below for the aligned charge-dot rows.
+    const ranked = show1v1
+      ? [...world.players.values()].sort(
+          (a, b) =>
+            (world.scoreByPlayer.get(b.id) ?? 0) - (world.scoreByPlayer.get(a.id) ?? 0),
+        )
+      : [];
+    this.scoreTexts.forEach((t, i) => {
+      const p = ranked[i];
+      if (p === undefined) {
+        t.visible = false;
+        return;
+      }
+      const seat = p.id as unknown as number;
+      const name = PLAYER_LABELS[seat] ?? `P${seat + 1}`;
+      const score = world.scoreByPlayer.get(p.id) ?? 0;
+      const isLocal = p.id === world.localPlayerId;
+      t.text = `${isLocal ? '> ' : '  '}${name} ${score}/${PHASE_1_WIN_SCORE}${isLocal ? ' <YOU' : ''}`;
+      t.style.fill = p.color;
+      t.position.set(12, 12 + i * 22);
+      t.visible = true;
+    });
 
-    // Per-player score readouts.
-    if (show1v1) {
-      const p1Score = world.scoreByPlayer.get(asPlayerId(0)) ?? 0;
-      const p2Score = world.scoreByPlayer.get(asPlayerId(1)) ?? 0;
-      this.p1ScoreText.text = `RED  ${p1Score} / ${PHASE_1_WIN_SCORE}`;
-      this.p2ScoreText.text = `BLUE ${p2Score} / ${PHASE_1_WIN_SCORE}`;
-      this.p1ScoreText.visible = true;
-      this.p2ScoreText.visible = true;
-    } else {
-      this.p1ScoreText.visible = false;
-      this.p2ScoreText.visible = false;
-    }
-
-    // Connection status dot — visible in any 1v1 gameState (PLAYING / LOBBY).
-    // S17 P3: moved from (CANVAS_WIDTH-24, 24) to (CANVAS_WIDTH-24, 48) to
-    // clear the longer "BETA · S17 PHASE-2" badge text in the top-right corner
-    // (PRIME-AUDIT E — badge width grew with the Phase-2 marker).
+    // Connection status dot — visible in any networked gameState (PLAYING/LOBBY).
     const g = this.connectionDot;
     g.clear();
     if (isNetworked(world)) {
@@ -230,16 +241,11 @@ export class HUD {
       g.circle(CANVAS_WIDTH - 24, 48, 6).fill({ color, alpha: 0.85 });
     }
 
-    // S17 P1 — charge dots. Position to the right of each score readout
-    // (p1 score at (12,12) ~120px wide; p2 score at (12,34)). Dots at
-    // x ∈ {140, 152}, y=20 for p1 / y=42 for p2. Filled circles when
-    // disruptionCharges > index, hollow rings otherwise. Player-colored.
+    // S17 P1 — disruption charge dots, one row per ranked player (aligned to the
+    // leaderboard rows above). Filled when earned, hollow ring otherwise; colored.
     const d = this.chargeDots;
     d.clear();
-    if (show1v1) {
-      drawPlayerCharges(d, world.players.get(asPlayerId(0)), 20);
-      drawPlayerCharges(d, world.players.get(asPlayerId(1)), 42);
-    }
+    ranked.forEach((p, i) => drawPlayerCharges(d, p, 20 + i * 22));
 
     // S49 P1 (Sym F) — Q=ZONE key hint visibility.
     this.qHintText.visible = show1v1;
