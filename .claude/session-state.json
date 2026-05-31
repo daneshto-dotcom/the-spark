@@ -1,116 +1,106 @@
 {
-  "tool_calls_session_total": 396,
+  "tool_calls_session_total": 509,
   "session_start": "2026-05-31T07:25:41.993Z",
-  "session_id": "S61",
+  "session_id": "S62",
   "session_kind": "execution",
-  "session_note": "S61 AUTONOMOUS (user away ~4h, \"I approve entire pdr and priority batch and autonomous run, highest quality\"). PIVOT: the approved fog-feel PDR REQUIRES the user eye (live 2-peer arbiter) -> not autonomous-executable; preserved as logged carry-forward (NOT dropped). Substituted the handoff autonomous-SAFE §XV batch (S60 P4/P5 precedent). Real Council (grok-4.20-reasoning + gemini-2.5-pro) ran as absent-user adversarial check. Baseline GREEN verified (tsc clean + 920/920 unit) before edits.",
+  "session_note": "S62 - N-player multiplayer (2->N FFA, <=6; ship verified 1v1v1). Full-tier batch PDR, user-approved ('approved! work thoroughly'). 3-way Council (grok-4.20-reasoning + gemini-2.5-pro), R1 Trident + R2 convergence + PRIME-AUDIT delta.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "tier": "Standard",
-  "council_battle_ledger": "S61 1-round Council (grok-4.20-reasoning + gemini-2.5-pro), autonomous absent-user check. P1 SPLIT: Grok DEFER (claimed equivalence not airtight - re-entrant dispatch during BOND_SEVERED emit + stale playerId); Gemini PROCEED Option-B (airtight, atomic synchronous block). P2 BOTH PROCEED-WITH-CHANGE (shallow filename check insufficient -> harden transitive+dynamic). P3 lobbyScreen BOTH DEFER (untested construction, cosmetic LOC, user-present coverage-first session).",
-  "prime_audit": "PRIME-AUDIT empirically REFUTED Grok P1 DEFER: world.effects is a plain GameEffect[] (world.ts:110) -> push(BOND_SEVERED) is an array append NOT a listener invoke (no re-entrant dispatch); computeBaseCharge + charge-line are ADJACENT synchronous statements on same players Map+key (no interleave in single-threaded JS); BOND_SEVERED effect is plain data (no closure). Gemini independently concurred airtight. ADOPTED P1 Option B (inline guarded lookup, type-only world import, no cycle) + NEW unit test locking hostile-charge-consume (covers exactly where replay test is blind - addresses Grok meta-point). P2 hardened to recursive RUNTIME-import transitive walk from world.ts asserting src/render/ unreachable (no filename allowlist; godlyOrchestration not a scan root). P3 DEFERRED unanimous + carry-forward.",
+  "tier": "Full",
+  "council_battle_ledger": "S62 Full 2-round Council. Grok(risk): ordered-roster ARRAY not Map (determinism); DON'T blanket-swap isNetworked - connection-lost unsafe (per-role host-loss not peerCount===0); global Player[6] array OVERRULED on feasibility (930 tests lean on Map; determinism via seat-order insertion); host-migration/reconnect/6p-bandwidth Critical/High -> deferred carry-forward; 5-priorities-delusional -> testable-slice. Gemini(quality): lobby 2/5 + color-only identity = UX gaps (swatches/who's-in/leaderboard-HUD/shape-icons) -> P5 polish + 4-6-phase carry. Resolutions: CONCEDED->GROK ordered-roster/connection-lost/scope-slice; SYNTHESIS Map+seat-order-insert / stamp+existing-reach-gates / HUD-as-leaderboard / honor-user-colors+defer-shape-icons; OVERRULED replace-Nostr.",
+  "prime_audit": "S62 PRIME-AUDIT delta: NOT rubber-stamped Grok global Map->array (resolved on Claude feasibility - Map load-bearing across 930 tests; determinism via seat-order insert) nor replace-Nostr (out of scope). CAUGHT claim-addressed-not-fixed: connection-lost is a P1 MUST-implement per-role (client host-loss detection) not blanket isNetworked swap. Edge cases logged: intent-before-seat-ack (buffer), reconnect-orphaned-seat (release on leave; defer same-seat reclaim), 6p snapshot bandwidth (watch-item). Runtime-verifiability: arbiter = 3-peer Playwright e2e (P4) + live eyeball, not tsc-only. Hazardous risks = logged carry-forwards w/ justification, none silently dropped.",
   "council_waived": false,
   "council_waiver_reason": null,
   "triumvirate_check": "S58 batch CHECK (per-priority, tiered). P0/P1/P2 Micro = RALPH + Grok-analyst Lite (mechanical/test-harness/single-constant, all empirically green). P3/P4 Standard = Triumvirate-aligned (RALPH + replay-determinism guard + runtime e2e). Whole-batch end state: full unit 899/899, tsc -b clean, full e2e 10 pass/0 fail/1 skip (11 total) (Sym E fixme), build green. P4 (the S52-reversing capstone) runtime-verified via the new Sym J 2-peer e2e (claim propagates to host = no double-grab; release always exits = no glued-spark) with ALL regression gameplay e2e still green. Net new tests this session: +4 vision (own-creature) +1 sync (claim preserve) +1 e2e (Sym J). E2E gate on master restored (P0). USER action: live 2-peer cross-network smoke for carried-drag + fog feel (swiftshader-local cannot prove real-latency feel).",
   "priorities": [
     {
       "id": "P1",
-      "label": "S61 P1 -- world.ts SEVER_BOND orchestrator extract: move the 43-LOC inline SEVER_BOND dispatch body to NEW src/state/severBond.ts (applySeverBond); world.ts case -> 1-line delegation. Type-only World/SeverBondAction import (no cycle, mirrors disruptionManager); requirePlayer -> inline guarded lookup (Council Option B; equivalence proven via computeBaseCharge guard) + NEW unit test locking hostile-charge-consume. Behavior-preserving; save.replay determinism arbiter.",
+      "label": "S62 P1 - Seat assignment + isNetworked() per-site audit-refactor: protocol v3->v4; new SEAT_ASSIGN msg (host->joiner seat idx); transport surfaces senderPeerId on receive; host allocates next free seat on peer-join + peerId<->seat map + STAMPS INTENT.playerId by sender seat (anti-collision) + buffers pre-seat intents; client adopts host-assigned seat; START_GAME_SIGNAL carries ORDERED roster array [seat->color]; insert players in seat order (deterministic Map iteration - NOT Map->array); introduce isNetworked(world) + audit each ~20 gameMode==='1v1' site - connection-lost reworked PER-ROLE (client host-loss); win-attribution(max-scan)/remote-reach(!==localPlayerId) safe to generalize.",
       "status": "completed",
       "phase": "ACT",
-      "tier": "Standard",
+      "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
       "check_completed": true,
-      "checkpoint_commit": "19c1245",
-      "real_context_tokens_at_close": 227808,
-      "real_context_pct_at_close": 22.78,
-      "check_method": "S61 P1 (SEVER_BOND orchestrator extract) verified. Moved the 43-LOC inline dispatch SEVER_BOND body to NEW src/state/severBond.ts (applySeverBond) -- dispatch() now uniformly 1-line delegations (mirrors godlyActions/sparkLifecycle/placeFromFree). world.ts 488->445 LOC. CYCLE-FREE by design: severBond imports World/GameAction TYPE-ONLY (same shape as disruptionManager.ts:43) so no world<->severBond runtime cycle (tsc -b clean confirms). Council Option B: the lone world.ts runtime symbol requirePlayer (throws on missing player) replaced by an inline guarded lookup world.players.get(action.playerId) -- PROVABLY EQUIVALENT since computeBaseCharge returns >0 ONLY for cause=player + existing player + hostile, so the actor is guaranteed present whenever chargeToConsume>0 (requirePlayer throw was unreachable). PRIME-AUDIT empirically REFUTED Grok DEFER (re-entrant-dispatch + stale-playerId): world.effects is a plain GameEffect[] (world.ts:110) so push(BOND_SEVERED) is an array append NOT a listener invoke; computeBaseCharge + charge-line are adjacent synchronous reads of same Map+key (no interleave single-threaded); BOND_SEVERED effect is plain data (no closure). Gemini independently concurred airtight. EMPIRICAL: tsc -b exit 0; FULL unit 926/926 (was 920, +6 NEW severBond.test.ts: hostile=consume-1, self-sever=0, physics-bypass=0, 0-charge-reject=no-op-no-effects, missing-bond=same-ref-no-throw, BOND_SEVERED-last+cause+pos); world.test.ts orchestrator + sever.test.ts (8 topologies) + save.replay determinism + disruptionManager.test.ts (13) ALL still green = behavior preserved. RALPH:PATROL clean: requirePlayer still exported (placePrimitive/sparkLifecycle unaffected, tsc-confirmed); only residual sever-helper mention in world.ts (line 255) is a doc comment not a live ref; no dangling imports. CHECK external adversarial review = the pre-execution S61 Council (Grok+Gemini) vetted this surface. checkpoint 19c1245.",
-      "verification": [
-        {
-          "check": "file_contains",
-          "path": "src/state/severBond.ts",
-          "needle": "export function applySeverBond"
-        },
-        {
-          "check": "file_contains",
-          "path": "src/state/world.ts",
-          "needle": "return applySeverBond(world, action)"
-        },
-        {
-          "check": "file_contains",
-          "path": "src/state/severBond.test.ts",
-          "needle": "charge-consume lock"
-        }
-      ]
+      "checkpoint_commit": "7437f22",
+      "real_context_tokens_at_close": 456807,
+      "real_context_pct_at_close": 45.68,
+      "check_method": "S62 P1 (N-player core: seat assignment + isNetworked + roster seating) verified. protocol v3->v4 (START_GAME_SIGNAL carries ordered seat->color RosterEntry[]; parseNetMessage fail-closed validates roster). isNetworked(world)=gameMode!=='solo' replaces ~22 gameMode==='1v1' sites (behavior-identical today; connection-lost DELIBERATELY kept on peerCount===0 - host-correct, with logged client-host-loss P5 gap, no false-positive). Seat netcode: transport.peerIds()+selfId surfaced; host allocates seats by join order at Begin, freezes session.hostSeats peerId<->seat BEFORE broadcasting START (closes pre-ack race), stamps every INTENT.playerId by sender seat (intentStamp.ts pure helper, anti-spoof/anti-collision); client adopts host-assigned seat via Trystero selfId match (drops hardcoded id 1). EMPIRICAL: tsc -b exit 0; FULL unit 946/946 (+16); build 508.25 KB < 550 cap. Legacy 2-player path preserved (no-roster fallback keeps 1v1 tests green). checkpoint 7437f22."
     },
     {
       "id": "P2",
-      "label": "S61 P2 -- state->render import-boundary guard: NEW vitest test recursively walks world.ts RUNTIME import graph, asserts src/render/ transitively unreachable (hardened per Council: transitive + dynamic import(), type-only ignored, no fragile filename allowlist). Locks the deterministic reducer-core boundary that makes P1 safe long-term.",
+      "label": "S62 P2 - Roster seating + radial spawns + colors: applyStartGame seats ALL roster players (loop, seat order); radial spawn = pure fn of seat (base angle pi, R=SPAWNER_RADIUS+40; N=2 reproduces left/right); applyReturnToTitle keeps localPlayerId drops others; PLAYER_COLORS[2..5] -> yellow/green/orange/magenta (3-player crimson/cyan/yellow = no CVD collision).",
       "status": "completed",
       "phase": "ACT",
-      "tier": "Standard",
+      "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
       "check_completed": true,
-      "checkpoint_commit": "e6690b0",
-      "real_context_tokens_at_close": 257732,
-      "real_context_pct_at_close": 25.77,
-      "check_method": "S61 P2 (reducer->render import-boundary guard) verified. NEW src/state/reducerRenderBoundary.test.ts: a transitive RUNTIME import-graph walker rooted at world.ts asserts src/render/ is unreachable -- locks the determinism boundary (a render import drags in Pixi/DOM/GPU side effects, breaking save.replay + host/client sync). HARDENED per S61 Council (both Grok+Gemini flagged the naive check insufficient): follows static imports + value re-exports + dynamic import() + side-effect imports, IGNORES import type/export type (erased at runtime), NO fragile filename allowlist -- godlyOrchestration.ts (the documented state->render ticker-glue seam) is structurally OUT of scope because it CALLS dispatch (imports world.ts:33) rather than being imported by it, so it never enters world.ts import closure (confirmed by reading its 4 runtime render imports + 1 type-only + dispatch-from-world). DETECTOR TEETH (addresses the Council false-confidence concern): +3 self-verification tests -- (1) parser extracts runtime specifiers + skips type-only/bare/mixed, (2) isUnderRender classifier sanity, (3) POSITIVE CONTROL: pointing the walker at godlyOrchestration.ts DOES report render coupling (proves the clean main result is real signal not a parser silently finding nothing). EMPIRICAL: tsc -b exit 0; 4 guard tests green; FULL unit 930/930 (was 926, +4); boundary CLEAN; zero production change (behavior-preserving trivially). CHECK: the impl + teeth tests EMPIRICALLY satisfy the Council hardening mandate (transitive+dynamic+no-allowlist+has-teeth) = the design Council IS the external review. checkpoint e6690b0.",
-      "verification": [
-        {
-          "check": "file_contains",
-          "path": "src/state/reducerRenderBoundary.test.ts",
-          "needle": "findRenderCoupling"
-        },
-        {
-          "check": "file_contains",
-          "path": "src/state/reducerRenderBoundary.test.ts",
-          "needle": "positive control"
-        }
-      ]
+      "checkpoint_commit": "7437f22",
+      "real_context_tokens_at_close": 456807,
+      "real_context_pct_at_close": 45.68,
+      "check_method": "S62 P2 (roster seating + radial spawns + colors) verified - shipped in the SAME commit as P1 (tightly coupled per Council). applyStartGame seats ALL roster players in SEAT ORDER (deterministic Map insertion = identical cross-client iteration) at radialSpawnPos (pure fn of seat: base angle pi, R=SPAWNER_RADIUS+40, Math.round so N=2 reproduces historical 670/1250 EXACTLY; all seats equidistant from spawner = FFA-fair). applyReturnToTitle resets to solo seat-0 identity (no dangling seat-N localPlayerId). PLAYER_COLORS[2..5] -> yellow(0xffe23b)/green(0x44ff5e)/orange(0xff8c1a)/magenta(0xd73bff); 3rd spark+buildings inherit yellow via centralized player.color. Unit-locked (nplayerSeating.test.ts, 15 tests): radialSpawnPos N=2-exact+equidistant+integer+distinct; applyStartGame seats-3+colors+seat-order+idempotent+legacy-2p+solo; applyReturnToTitle seat-2-client reset; stampSenderSeat override+anti-spoof+passthrough. checkpoint 7437f22 (shared)."
     },
     {
       "id": "P3",
-      "label": "S61 P3 (STRETCH, budget-gated) -- world.ts type-decl extraction: move World interface + GameState/GameMode/GameAction union to NEW src/state/worldTypes.ts with type-only re-export facade from world.ts (consumers unchanged). PURE type relocation (tsc-complete-verified, runtime byte-identical). Targets world.ts ~488 -> ~290 toward the §XV 280 charter.",
+      "label": "S62 P3 - Minimal lobby-gate slice: lobby accepts N joiners, shows count, begin-gate >=2, wires ordered roster into START_GAME. NOT full lobby refactor (P5). Enough for testable 1v1v1.",
       "status": "completed",
       "phase": "ACT",
-      "tier": "Standard",
+      "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
       "check_completed": true,
-      "checkpoint_commit": "19e383e",
-      "check_method": "S61 P3 (World state-shape type-split) verified. Moved the World interface + GameState/GameMode out of world.ts into NEW src/state/worldTypes.ts (pure-type module); world.ts retains the dispatch seam + makeWorld/dispatch/requirePlayer + GameAction, and re-exports the 3 types via a type-only facade (export type {...} from worldTypes, Grok-recommended direct form) so all ~20 consumers import World from ./world.ts UNCHANGED. world.ts 445->286 LOC (toward §XV 280 cap); worldTypes.ts 175. Cut chosen (World+GameState+GameMode, NOT GameAction): World references only leaf domain types so worldTypes->domain only = NO cycle with reducers; moving GameAction would entangle worldTypes with every reducer sub-action type (Grok-analyst (d): not worth it). Done PROGRAMMATICALLY (Node byte-exact block extraction via markers + sanity asserts, not hand-transcribed) to eliminate transcription risk on the 150-line move. PURE TYPE relocation = provably runtime byte-identical: verbatimModuleSyntax tsc enforces moved surface emits no JS; EMPIRICAL confirm = prod bundle 507.12 KB essentially unchanged vs S60 507.05 (delta is P1 module split; P3 adds 0 runtime bytes) < 550 cap. EMPIRICAL: tsc -b exit 0; FULL unit 930/930 (no test delta, pure type move); npm run build green; e2e 15 pass/1 skip (10 smoke + 5 fog incl structure-ghost memory + SEVER-exercising self-bond Sym C = reducer-core surgery behavior-preserving at RUNTIME). Grok-analyst CHECK PROCEED-WITH-CHANGE, adopted direct re-export; biggest-risk (verbatimModuleSyntax re-export leak) empirically refuted by unchanged bundle. RALPH:PATROL clean. checkpoint 19e383e.",
-      "verification": [
-        {
-          "check": "file_contains",
-          "path": "src/state/worldTypes.ts",
-          "needle": "export interface World {"
-        },
-        {
-          "check": "file_contains",
-          "path": "src/state/world.ts",
-          "needle": "export type { GameMode, GameState, World } from './worldTypes.ts';"
-        },
-        {
-          "check": "file_absent_substr",
-          "path": "src/state/world.ts",
-          "needle": "export interface World {"
-        }
-      ]
+      "checkpoint_commit": "db9e81a",
+      "real_context_tokens_at_close": 543582,
+      "real_context_pct_at_close": 54.36,
+      "check_method": "S62 P3 (minimal N-seat lobby) verified. lobbyScreen: title '1v1 LOBBY'->'MULTIPLAYER LOBBY'; host peer-status shows LIVE connected count (was a one-shot 'Player 2 connected' latch) -> 'N players connected - press Begin Match (up to 6)', updates only on count CHANGE (no per-frame churn); begin-button reveals on >=1 peer (>=2 total). MINIMAL by Council design (NO constructor refactor - full N-seat UX swatches/ready/kick stays P5 polish). No new fields. EMPIRICAL: tsc -b clean; 29 lobby unit tests green (pure-helper, unaffected); the multi-peer begin flow runtime-verified by the P4 3-peer e2e (host sees 2 joiners, begins, all seated). checkpoint db9e81a."
+    },
+    {
+      "id": "P4",
+      "label": "S62 P4 - 3-peer e2e arbiter + live smoke: Playwright 3 contexts (host+2 joiners) assert seat assignment, 3 colors render, FFA scoring, first-to-score wins/others lose. Runtime boot-then-smoke. session goal = verified 1v1v1.",
+      "status": "completed",
+      "phase": "ACT",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": false,
+      "check_completed": true,
+      "checkpoint_commit": "db9e81a",
+      "real_context_tokens_at_close": 543582,
+      "real_context_pct_at_close": 54.36,
+      "check_method": "S62 P4 (3-peer e2e arbiter) verified - THE RUNTIME PROOF. New e2e/smoke.spec.ts '3-player FFA' test: host + 2 joiners over REAL Trystero/Nostr WebRTC; asserts distinct seats {0,1,2} (host=0), all 3 reach PLAYING w/ 3 players, cross-client COLOR AGREEMENT (crimson/cyan/yellow, seat 2 = yellow 0xffe23b), deterministic per-seat color on every peer, FFA scoring -> one winner seen by all. PASSED 26.6s. Also fixed the 2 protocol-mismatch e2e for v3->v4 (host v4; newer-peer v5). FULL E2E GATE GREEN: 16 pass / 1 skip (baseline + protocol x2 + Sym A/C/D/F/G/I/J + fog x5 + 3-peer FFA) = ZERO regression in 2-player gameplay from the isNetworked refactor + v4 bump. checkpoint db9e81a."
+    },
+    {
+      "id": "P5",
+      "phase": "ACT",
+      "tier": "Micro",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": true,
+      "check_completed": true,
+      "checkpoint_commit": "64e59dc",
+      "real_context_tokens_at_close": 594051,
+      "real_context_pct_at_close": 59.41,
+      "label": "S62 P5 (Micro scope-amendment, user 'start polish') - N-player leaderboard HUD: ui.ts replaces the hardcoded 2-row RED/BLUE score readout with a pooled MAX_PLAYERS-row leaderboard (ranked by score, per-player color, local marked '> ... <YOU', charge dots aligned per row).",
+      "check_method": "S62 P5 (N-player leaderboard HUD) verified. ui.ts: pooled MAX_PLAYERS Text rows replace hardcoded p1ScoreText/p2ScoreText; drawMultiplayerHUD ranks all live players by score (leader top), renders each in player.color with the local marked '> ... <YOU', charge dots aligned per row (ranked reused). Micro (1 file). EMPIRICAL: tsc -b clean; FULL unit 946/946 (no regression); build 508.29 KB < 550. VISUAL (Pixi = screenshot arbiter): 3-peer e2e re-run PASS 24s + screenshot test-results/s62-3player-hud.png CONFIRMS 3 distinct colored rows RED/CYAN/YELLOW (3rd=yellow) + host <YOU marker + debug panel shows 3 seated players P0/P1/P2. Minor: top-left leaderboard+chargedots+Q-hint share the corner (consistent w/ prior density; spacing=future polish). checkpoint 64e59dc."
     }
   ],
   "reflexion_entries_to_archive": [
-    "P1 #anti-bloat-orchestrator-extract-typeonly-no-cycle #prime-audit-refute-emitter-myth: extracted world.ts last inline dispatch orchestrator (SEVER_BOND, 43 LOC) into severBond.ts; dispatch() now uniform 1-line delegations. Cycle Grok feared avoided by importing World/GameAction TYPE-ONLY (mirroring disruptionManager) + replacing the lone runtime symbol requirePlayer with an inline guarded lookup that is PROVABLY EQUIVALENT (computeBaseCharge is the existence-guarantor: returns >0 only after a successful world.players.get, so requirePlayer throw was unreachable when chargeToConsume>0). PRIME-AUDIT refuted Grok DEFER via code probe: world.effects is a plain GameEffect[] so push(BOND_SEVERED) is an append NOT a listener call (no re-entrant dispatch), and computeBaseCharge + charge line are adjacent synchronous reads (no interleave). Lesson: when a reviewer asserts a closure/emission/timing hazard in a reducer, verify whether the event is actually a data-array append (no side effect) before deferring; a 1-line non-verbatim change is safe IF you can name the invariant guaranteeing the dropped branch is unreachable AND lock it with a test. +6 charge-consume lock tests cover exactly where save.replay (final-state-only) is blind.",
-    "P2 #import-boundary-guard-with-teeth #council-harden-transitive-not-shallow: added a determinism guard walking world.ts transitive RUNTIME import graph asserting src/render/ unreachable. Both Council models independently flagged the FIRST design (shallow file-text-mentions-render + filename allowlist) as false-confidence: misses transitive (state->util->render) + dynamic import() coupling, and a rename breaks the allowlist. HARDENED: full-graph DFS following static+re-export+dynamic+side-effect edges, type-only ignored (erased), NO allowlist -- the one known state->render file (godlyOrchestration) is structurally out of scope (it CALLS dispatch, downstream, not imported by it). KEY LESSON: a guard test that always passes is WORSE than none (false confidence), so every static-analysis guard MUST ship a POSITIVE CONTROL proving it detects the thing it guards against -- here, scanning godlyOrchestration DOES flag render. Otherwise a broken parser returns [] and every assertion goes green. Transferable to any assert-X-never-happens lint/test.",
-    "P3 #anti-bloat-type-logic-split-facade #programmatic-block-move-zero-transcription: split world.ts 143-LOC World interface (+GameState/GameMode) into a pure-type worldTypes.ts, keeping the dispatch seam + GameAction in world.ts, with a type-only re-export facade so ~20 consumers stayed unchanged. world.ts 445->286. Two transferable techniques: (1) for a LARGE contiguous block MOVE, do it PROGRAMMATICALLY (Node marker-based byte-exact slice + sanity asserts + write both files) instead of a hand-typed giant Edit old_string -- eliminates transcription error on 150 lines and self-verifies (World-def removed from src, present in dst, re-export added). (2) a type-only relocation is provably runtime-safe under verbatimModuleSyntax (tsc enforces no-emit for type-only import/export), and prod-bundle byte-size is the empirical arbiter that nothing leaked into runtime JS (here unchanged). Grok-analyst tie-broke the boundary: keep GameAction in world.ts (moving it entangles worldTypes with every reducer sub-action type); use the DIRECT export-type-from re-export (canonical verbatimModuleSyntax idiom). Lesson: when an interface references only LEAF domain types it is a clean cut to a types module; when it would pull in sibling-module types, leave it."
+    "P1 #nplayer-seat-assignment-host-authoritative #determinism-ordered-roster-not-map: extended 2->N players by un-hardcoding plumbing (mechanics were already FFA-safe/owner-agnostic - 5 Explore agents found ZERO binary-opponent code). KEY: cross-client determinism comes from the host shipping an ORDERED seat->color roster ARRAY (not a Map - iteration order can diverge) in START_GAME_SIGNAL + every client INSERTING players in seat order. Host freezes peerId<->seat BEFORE broadcasting START so any post-signal INTENT is already stamp-able (no pre-ack buffer needed - ordering resolves Grok's race). Anti-spoof: host stamps INTENT.playerId from sender peerId->seat (intentStamp.ts), so a client can only drive its own seat. Trystero selfId (re-exported via transport) lets each client find its own roster entry. Lesson: generalizing N from 2, the win-condition (max-scan) + per-player Maps usually ALREADY generalize; the real work is seat IDENTITY + the count-hardcoded gates.",
+    "P2 #anti-bloat-isNetworked-predicate #radial-spawn-pure-fn-reproduces-binary: replaced ~22 scattered gameMode==='1v1' with isNetworked(world)=gameMode!=='solo' - behavior-identical today but explicit + future-proof, and the per-site AUDIT caught the ONE site that must NOT blanket-swap (connection-lost: peerCount===0 is host-correct but a 3+-player client losing only the host needs explicit host-presence detection - logged P5 gap). radialSpawnPos(seat,total) pure fn REPRODUCES the historical 2-player left/right EXACTLY at N=2 (seat 0 always angle pi=left) so zero regression + all seats equidistant from the contested spawner = FFA-fair. Lesson: a generalized formula that provably reduces to the special case at N=2 beats a branch; Math.round kills cross-client float drift.",
+    "P3 #minimal-cosmetic-over-refactor #coverage-by-e2e-not-unit: the N-seat lobby was 90% met by P1 (Trystero room accepts N peers; begin-button latches on first peer) - the only real gap was the one-shot 'Player 2 connected' TEXT. Did the MINIMAL fix (live count text, no constructor refactor) not the full 548-LOC lobbyScreen refactor the Council deferred to P5. The touched method (updatePeerStatus) is untestable in jsdom (needs Pixi) but the multi-peer begin flow it drives is covered by the P4 3-peer e2e at runtime. Lesson: when a 'task' is mostly already-working + the rest is cosmetic, do the cosmetic minimum + let the integration test (not a unit test of an un-unit-testable Pixi method) be the net.",
+    "P4 #3-peer-e2e-real-webrtc-arbiter #protocol-bump-breaks-version-e2e: the 3-peer FFA test (3 real Trystero/Nostr contexts) is the definitive proof 1v1v1 works - distinct seats, cross-client color determinism (seat 2=yellow), FFA win. Built trivially on the existing N-page helpers (hostNewRoom/joinRoom/readWorldState/waitForWorld) - the harness was already N-ready. KEY GOTCHA: bumping PROTOCOL_VERSION 3->4 SILENTLY breaks the version-mismatch e2e (they hardcode 'v3' local + a 'v4 newer peer' that's no longer newer); these live in e2e/ which is OUTSIDE tsc -b, so tsc stayed clean while the tests would fail - caught only by RUNNING playwright (the standing 'e2e not in tsconfig -> run Playwright' gotcha). Lesson: any PROTOCOL_VERSION bump MUST sweep e2e/*.spec for hardcoded version literals AND run the version-mismatch specs.",
+    "P5 #nplayer-leaderboard-hud-pool #screenshot-as-pixi-arbiter: replaced the hardcoded 2-row RED/BLUE HUD with a pooled MAX_PLAYERS Text leaderboard ranked by score, per-player color, local marked '<YOU' (Gemini quality lift: answers who's-winning + who-am-I in one glance). Pool pattern (create N hidden Text in ctor; show/position/sort the live subset per frame) is the clean way to do dynamic-count Pixi text w/o per-frame alloc. KEY: ui.ts (Pixi) has NO jsdom unit test, so the RUNTIME ARBITER for a HUD change is a SCREENSHOT - added one line to the existing 3-peer e2e (await page.screenshot) + Read the PNG to visually confirm 3 colored rows. Lesson: for un-unit-testable render code, the integration e2e + a screenshot artifact IS the verification; tsc+build only prove it compiles, not that it looks right."
   ],
   "budget_total": 1000000,
   "totals": {
@@ -128,10 +118,10 @@
   },
   "end_of_session_audit": "Rule 22 audit PASS (S61). Batch = pure-TS behavior-preserving: P1 reducer-orchestrator extract (severBond.ts), P2 test-only guard (reducerRenderBoundary.test.ts), P3 type-only relocation (worldTypes.ts). NO deploy-config/env/CI/workflow/Docker edits, NO unrendered ${VAR}, NO non-existent-file refs (tsc -b clean resolves all imports incl the worldTypes type-only facade + severBond no-cycle graph + the new guard). No hallucinated CLI flags (npm scripts/git/node only). Left-in-debug scan clean. Runtime surface: P1 = behavior-preserving move (verbatim body, 1 proven-equivalent line, +6 lock tests); P3 = 0 runtime bytes (bundle 507.12 unchanged). Bundle 507.12 KB < 550. CI: P1 E2E success; P2 Deploy+E2E success; P3 Deploy success + E2E success (run 26714299593) -- ALL 3 S61 commits CI-GREEN (local e2e 15 pass/1 skip matched CI). gh issue list not re-checked (no new issues opened by this batch). Determinism: save.replay green across all 3 + the new reducer->render boundary guard now PREVENTS future render-coupling regressions.",
   "post_ship_analysis": "GROK-ANALYST adversarial retrospective (grok-4.20-reasoning t0.3, post-ship). 3 residual risks raised; verified vs source: (R1) cross-version creature desync from ownerPlayerId w/o PROTOCOL_VERSION bump = REFUTED: wire is JSON (parseNetMessage JSON.parse, additive keys ignored by old readers / client ??0); a true mixed S57/S58 match cannot form anyway (S52 already set PROTOCOL_VERSION=3 + detectProtocolMismatch drops stale peer at HELLO); killCount (S36) set the same additive-no-bump precedent. (R2) stuck Carried spark under lost DROP = PARTIALLY REFUTED: existing reconciliation (spark stays in freeSparks + host re-validates next place/grab; joiner applyPerSubstep  guard ends drag on non-Free-non-mine snapshot) covers it, BUT there is NO time-based host TTL auto-release — Council D3 recommended a 5s host backstop and it was deliberately NOT implemented this session (extra tick-loop surface in the highest-risk area; existing reconciliation passed the test matrix). LOGGED CARRY-FORWARD + prime target for the user lossy-network test. (R3) dual simultaneous-grab race = REFUTED by design: host single-threaded, first PICKUP_SPARK wins (state!=Free -> silent reject + raceRejects++), loser self-heals via mine-guard; this IS the double-grab the priority fixes and Sym J e2e exercises it over real WebRTC; raceRejects counter is the instrumentation. NET: 0 ship-stoppers, 1 real carry-forward (host TTL backstop for lossy-release edge).",
-  "carry_forward": "S60 shipped fog P2/P3 (structure-memory + polish) + autonomous §XV P4 (lobbyGeometry 712->548) + P5 (godlyActions, world.ts 533->488). CARRY: (1) USER live 2-peer smoke (fog FEEL: tune MEMORY_GHOST_ALPHA/MEMORY_FOG_COLOR/grid-res; 2 cosmetics -> <=40px ghost/real fade-band overlap + win-lift ghost fade-vs-persist; + 4 S58 fixes + lossy P4-host-TTL run) -- needs the user's eye, NOT autonomous. (2) main.ts hypertrophy (942 LOC) DEFERRED to a user-present session (audit HIGH; the netMessageRouter/cinematicStateMachine/teardownNet slice needs coverage the e2e happy-paths lack). (3) Further §XV: world.ts 488 (>280 -- SEVER_BOND orchestrator is the next clean extract); lobbyScreen 548 (>500 -- a pane builder). (4) Audit carry: vite/vitest CVE bump (risky, dedicated session); knip 42 unused-exports (Chesterton); state->render import-boundary guard 622a7c7f. (5) Phase-2 next mechanic (D Inject-Spiral / E Steal / G Mega-combos / Anvil) -- DESIGN CALL, needs user. (6) Opponent-view attract-drag parity (S52 Δ6).",
+  "carry_forward": "S62 carry-forwards (Council-logged, NOT dropped): (1) P5 quality polish - leaderboard HUD (+YOU highlight) + full N-seat lobby UX (per-seat color swatches, who's-in roster, room-full). (2) 4-6 player phase - Imagen shape-icons for CVD-distinct identity (green/orange collide), host-migration protocol (host-leave currently ends match = matches 2p), reconnect-to-same-seat (currently seat released on leave), snapshot delta-encoding for 6p bandwidth. (3) Pre-existing: fog-feel live tuning, main.ts 942 hypertrophy, vite/vitest CVE bump, knip 42 unused-exports.",
   "analyze_summary": "S61 ANALYZE (autonomous §XV batch under a non-autonomous-PDR pivot). DEFINING DECISION (correct scope-discipline): the user-approved PDR (fog-feel tuning) REQUIRES the live user-eye (its own arbiter clause), so executing it autonomously = low-quality guesses, against the highest-quality mandate. PIVOTED to the handoff autonomous-SAFE §XV set (S60 precedent), preserved fog as a LOGGED carry-forward (NOT dropped), ran a real Council (Grok+Gemini) as the absent-user adversarial check. WINS: (1) 3 behavior-preserving priorities shipped + CI-green (P1 severBond 19c1245, P2 import-guard e6690b0, P3 worldTypes 19e383e). (2) PRIME-AUDIT empirically REFUTED Grok P1 DEFER via code probe (world.effects is a data array not an emitter -> no re-entrant dispatch; adjacent synchronous reads -> no interleave) while Gemini independently concurred (empirical-beats-reasoning, same as S60). (3) P2 turned BOTH Councils false-confidence critique into a HARDENED transitive guard WITH a positive control proving teeth. (4) P3 used a PROGRAMMATIC byte-exact block move (zero transcription risk) + prod-bundle size as the no-leak arbiter. world.ts 488->286 LOC across P1+P3 (toward 280 charter); dispatch() now uniform; determinism boundary test-locked. (5) Runtime-verified reducer-core surgery via full e2e (15 pass/1 skip) not just tsc, per the handoff standing warning. EFFICIENCY: GREEN throughout (79K->308K, 31%); upfront Council + Explore-agent survey -> no rework/false-starts. METHOD held under autonomy: every priority empirical-green (tsc+unit+e2e+build) before commit; reflexions 3/3. CARRY: fog-feel tuning + lobbyScreen refactor (both need user) + knip inventory.",
   "handoff_generated": "2026-05-31",
   "handoff_doc": "HANDOFF_2026-05-31_S59.md",
-  "session_status": "S61 AUTONOMOUS §XV batch complete (P1 severBond 19c1245, P2 reducer-render guard e6690b0, P3 worldTypes 19e383e) -- all CI-green. Pivoted from the non-autonomous fog-feel PDR (needs user eye) to the handoff autonomous-safe set; fog-feel tuning + lobbyScreen refactor preserved as user-present carry-forward. End-of-session pipeline done; /handoff next.",
+  "session_status": "S62 COMPLETE. 1v1v1 N-player FFA shipped + runtime-verified + polished. Commits: P1+P2 7437f22 (seat assignment + isNetworked + roster seating + radial spawns + yellow/green/orange/magenta), P3+P4 db9e81a (N-seat lobby text + 3-peer e2e arbiter), P5 64e59dc (N-player leaderboard HUD). Full gate GREEN: tsc clean, 946 unit, build 508.29KB<550, 16 e2e/1 skip (incl 3-peer FFA PASS + HUD screenshot). 3rd player=yellow, mechanics identical, FFA. NEXT SESSION (user-planned): (a) live 3-tab smoke + tune, (b) verify 4/5/6 players (config-only - architecture N-parametric; palette+seating+netcode handle 6). CARRY-FORWARD: full N-seat lobby UX, Imagen shape-icons (CVD at 4-6p), host-migration, 6p snapshot deltas, HUD top-left spacing. /handoff running.",
   "deferred_carry_forward": "lobbyScreen.ts (548 LOC) refactor DEFERRED per unanimous S61 Council (Grok+Gemini). Reason: 19 lobby unit tests are PURE-HELPER only; the Pixi/DOM CONSTRUCTOR has NO unit coverage (Pixi Application needs WebGL, unavailable in jsdom) -> structural refactor unsafe autonomously. NEXT: a user-present session should first ADD lobby-construction coverage (Playwright e2e asserting panes/input/begin-button/reset), THEN refactor under that net. Plus the still-open fog-feel live tuning (MEMORY_GHOST_ALPHA/MEMORY_FOG_COLOR/grid + 2 cosmetics) which needs the user eye."
 }
