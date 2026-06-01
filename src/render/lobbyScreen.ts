@@ -233,6 +233,10 @@ export class LobbyScreen {
 
     // S17 P0' — Enter-key handler invokes the same path as Connect-button click.
     const attemptJoin = (): void => {
+      // S65 P2 mode-guard: ignore join taps outside select (the dimmed joinButton
+      // stays click-reachable while hosting/joining). Defense-in-depth with the
+      // reducer's own mode!=='select' guard.
+      if (this.state.mode !== 'select') return;
       const code = this.inputEl.value.toUpperCase();
       this.state = lobbyReduce(this.state, { type: 'JOIN_ATTEMPT', code });
       this.applyView();

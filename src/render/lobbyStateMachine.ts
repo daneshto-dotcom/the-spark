@@ -117,6 +117,15 @@ export function lobbyReduce(state: LobbyState, event: LobbyEvent): LobbyState {
       };
 
     case 'JOIN_ATTEMPT':
+      // S65 P2 mode-guard: a join attempt is only meaningful from the select
+      // screen. The UI only dispatches JOIN from select (the HTML code input is
+      // display:none outside select, and Enter is select-gated), but the dimmed
+      // joinButton stays eventMode='static' and is click-reachable while
+      // hosting/joining. A guarded no-op there prevents a wrong-mode red
+      // JOIN_INVALID status (the P1 CHECK residual) and prevents a stale valid
+      // code from abandoning an active host session. Same-ref => the shell's
+      // applyView idles.
+      if (state.mode !== 'select') return state;
       // Validation lives in the already-pure isValidRoomCode (lobbyGeometry); the
       // shell passes inputEl.value.toUpperCase() so the reducer stays pure.
       if (isValidRoomCode(event.code)) {

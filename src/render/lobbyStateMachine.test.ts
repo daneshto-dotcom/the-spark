@@ -158,6 +158,40 @@ describe('S65 — a fresh attempt clears prior error state (status colour + latc
   });
 });
 
+describe('S65 P2 — JOIN_ATTEMPT is mode-guarded (acts ONLY from select)', () => {
+  // The UI only dispatches JOIN from select, but the dimmed joinButton stays
+  // click-reachable while hosting/joining. A guarded no-op there prevents a
+  // wrong-mode red JOIN_INVALID status (the P1 CHECK residual) and prevents a
+  // stale valid code from abandoning an active host session.
+  it('invalid JOIN_ATTEMPT while hosting is a same-ref no-op (no wrong-mode red)', () => {
+    const hosting = lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: HOST_CODE });
+    const after = lobbyReduce(hosting, { type: 'JOIN_ATTEMPT', code: 'zz' });
+    expect(after).toBe(hosting); // same ref: nothing happened
+    expect(after.statusColor).toBe(STATUS_COLOR_NORMAL); // no wrong-mode red painted
+  });
+
+  it('valid JOIN_ATTEMPT while hosting is a same-ref no-op (does NOT abandon the host session)', () => {
+    const hosting = lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: HOST_CODE });
+    const after = lobbyReduce(hosting, { type: 'JOIN_ATTEMPT', code: VALID_CODE });
+    expect(after).toBe(hosting);
+    expect(after.mode).toBe('hosting'); // still hosting
+  });
+
+  it('JOIN_ATTEMPT while joining is a same-ref no-op', () => {
+    const joining = lobbyReduce(initialLobbyState(), { type: 'JOIN_ATTEMPT', code: VALID_CODE });
+    const after = lobbyReduce(joining, { type: 'JOIN_ATTEMPT', code: 'zz' });
+    expect(after).toBe(joining);
+  });
+
+  it('still acts normally from select (valid -> joining, invalid -> red JOIN_INVALID)', () => {
+    const valid = lobbyReduce(initialLobbyState(), { type: 'JOIN_ATTEMPT', code: VALID_CODE });
+    expect(valid.mode).toBe('joining');
+    const invalid = lobbyReduce(initialLobbyState(), { type: 'JOIN_ATTEMPT', code: 'zz' });
+    expect(invalid.status).toBe(LOBBY_STATUS.JOIN_INVALID);
+    expect(invalid.statusColor).toBe(STATUS_COLOR_ERROR);
+  });
+});
+
 describe('S64 P1 — PEER_STATUS (hosting)', () => {
   const hosting = lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: HOST_CODE });
 
