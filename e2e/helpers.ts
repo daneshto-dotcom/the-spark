@@ -336,7 +336,7 @@ export async function placeFreeSparkAndConfirm(
  * S55 P2 — read NetTransport diagnostics via the DEV __SPARK__ accessor.
  * Returns null before the transport exists (pre-host / pre-join).
  */
-export async function readNetDiagnostics(
+async function readNetDiagnostics(
   page: Page,
 ): Promise<{ accepted: number; rejected: number; lastKind: string | null } | null> {
   return await page.evaluate(() => {

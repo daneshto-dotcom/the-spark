@@ -337,7 +337,7 @@ export function nextDuckEndCtxTime(
  * ctx suspend then resumes naturally. W3C spec §4.3.2 confirms the
  * preserved automation semantic (Gemini AUDITOR #6 LOW with citation).
  */
-export function duckMusic(durationMs: number, depth: number = 0.25): void {
+function duckMusic(durationMs: number, depth: number = 0.25): void {
   if (audioContext === null || musicGainNode === null) return;
   const ctx = audioContext;
   const now = ctx.currentTime;
@@ -674,7 +674,7 @@ export function _resetAudioForTest(): void {
   initialized = false;
 }
 
-export async function playClaveSFX(pos?: Vec2): Promise<void> {
+async function playClaveSFX(pos?: Vec2): Promise<void> {
   claveCallsTotal += 1;
   if (audioContext === null || sfxGainNode === null) {
     if (isDebugRequested()) console.warn('[audio] playClaveSFX: ctx/gain null, audio not initialized');
@@ -725,7 +725,7 @@ export async function playClaveSFX(pos?: Vec2): Promise<void> {
   claveCallsSynthed += 1;
 }
 
-export async function playFartSFX(pos?: Vec2): Promise<void> {
+async function playFartSFX(pos?: Vec2): Promise<void> {
   fartCallsTotal += 1;
   if (audioContext === null || sfxGainNode === null) {
     if (isDebugRequested()) console.warn('[audio] playFartSFX: ctx/gain null, audio not initialized');
@@ -793,7 +793,7 @@ export async function playFartSFX(pos?: Vec2): Promise<void> {
  * `ctx.resume()` with debug-only logging; skips synth if ctx unrunnable after
  * resume attempt (tab-blur / autoplay-policy guard).
  */
-export async function playChargeSFX(pos?: Vec2): Promise<void> {
+async function playChargeSFX(pos?: Vec2): Promise<void> {
   chargeCallsTotal += 1;
   if (audioContext === null || sfxGainNode === null) {
     if (isDebugRequested()) console.warn('[audio] playChargeSFX: ctx/gain null, audio not initialized');
