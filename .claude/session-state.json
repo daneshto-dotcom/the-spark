@@ -1,151 +1,153 @@
 {
-  "tool_calls_session_total": 548,
-  "session_start": "2026-05-31T18:26:45.207Z",
-  "session_id": "S63",
+  "tool_calls_session_total": 601,
+  "session_start": "2026-06-01T04:24:35.808Z",
+  "session_id": "S64",
   "session_kind": "execution",
-  "session_note": "S63 autonomous batch (user APPROVED + AFK autonomy). P1 fog done. P2 N-player 4/5/6 verification. P3 lobby-construction e2e. Full-tier 3-way Council (Grok-4.20 + Gemini-2.5-pro R1) + PRIME-AUDIT. Eye-dependent items deferred.",
+  "session_note": "S64 autonomous batch (user AFK, full autonomy granted). P1 done (LobbyStateMachine). P2 lobby behavioral net-extension (e2e, closes S63 P3 CHECK carry-forward). P3 knip de-export safe subset (Grok deferred risky deletes). A.0 dropped stale CVE/countdown/audio-bug items. Standard Council + PRIME-AUDIT done. End-of-session: thorough Triumvirate CHECK + Council ANALYZE + fix + /handoff.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "tier": "Full",
-  "council_battle_ledger": "S63 Full Council. DP1 6-peer-real-e2e CONCEDED->GROK (risk authority; swiftshader flake) SYNTHESIS=4-peer real + N=6 deterministic single-page scene-scraper. DP2 two-layer AGREED. DP3 lobby-refactor OVERRULED Grok extract-now (2 dissenters + same-batch-net sequencing risk) ADOPTED as sharpened carry-forward (pure LobbyStateMachine ~80LOC = autonomous-safe FOLLOW-UP, distinct from eye-dependent visual refactor). DP4 parameterized ADOPTED. DP5 races/reconnect/memory logged carry-forward + ADOPTED Gemini palette-distinctness guard. DP6 scene-scraper ADOPTED; visual baselines DEFERRED. Confidence HIGH.",
-  "prime_audit": "S63 PRIME-AUDIT: NOT rubber-stamped Grok 30%-flake (conceded on cost-asymmetry; synthesis beats both pure positions). CAUGHT Gemini WCAG-contrast mis-target (real CVD risk = color-PAIR discriminability green-vs-orange, not contrast-vs-bg) -> refined to pairwise-distinct + conservative-min-separation guard (no dep, current palette passes). Independent on lobby (resolved by feasibility-authority+sequencing-risk not consensus). EDGE: N=6 deterministic depends on __SPARK__ in-page roster seam -> RISK logged, fallback unit(N=6)+4-peer(render>=4 incl green seat3)+per-seat-loop generalization. SHIP.",
+  "tier": "Standard",
+  "council_battle_ledger": "S64 batch Council (Grok-4.20 + Gemini-2.5-pro, Standard 1 round). A.0 dropped stale items: CVE (npm audit=0 vulns), countdown-mode (nonexistent per gameState.ts), audio-SFX-bug (wired via drainAudioEffects). P2 lobby-net-extension AGREED unanimous (test-only e2e closing S63 P3 CHECK carry-forward: pane-visibility/joinPane-focus/Enter-submit/joining-render; destroy=inspection-symmetric-logged; correct closure per Grok). P3 knip CHALLENGED by Grok (risk 1.75): DELETES too risky unattended (save/protocol/dynamic serialization traps that tsc+tests+e2e miss: SerializedEffect/SerializedCreature/v2/SaveBrands/loadFromLocalStorage/StartGameMsg/EndGameMsg/GodlyTriggerMsg) -> RESOLVED DE-EXPORT-ONLY safe subset (confirmed module-internal-use fns: audio SFX), DEFER all deletes+annotations+save/protocol (logged); Gemini APPROVE + string-literal-grep criterion + stage de-exports. DEFERRED: main.ts refactor, netcode features (need real play), eye-dependent visual/fog/CVD. Confidence HIGH.",
+  "prime_audit": "S64 batch PRIME-AUDIT. A.0 = hero: empirically killed 3 stale carry-forwards (CVE/countdown/audio-bug) before code - the State-Discovery gate's purpose. Rubber-stamp check: P2 AGREED by both -> audited the e2e scope genuinely maps to the S63 CHECK gaps (countdown nonexistent; joining/error already unit + protocol-mismatch-e2e covered; destroy inspection-symmetric 4:4) = real closure. P3 de-export safety: each pre-verified NO file imports the symbol (knip-unused-export + string-literal grep) and it stays used internally so audio behavior tests + full e2e re-prove it; deletes/save/protocol DEFERRED (Grok traps). Runtime-Verifiability: P2 = full Playwright boot-then-smoke; P3 = tsc + full unit + e2e re-green (de-export can only break an import, which tsc catches). Conservative: P3 signature-only, zero runtime bytes. SHIP P2 + minimal-safe P3; defer rest logged.",
   "council_waived": false,
   "council_waiver_reason": "Micro tier, user-path (explicit approval) auto-waives deliberation per CLAUDE.md.",
-  "triumvirate_check": "S58 batch CHECK (per-priority, tiered). P0/P1/P2 Micro = RALPH + Grok-analyst Lite (mechanical/test-harness/single-constant, all empirically green). P3/P4 Standard = Triumvirate-aligned (RALPH + replay-determinism guard + runtime e2e). Whole-batch end state: full unit 899/899, tsc -b clean, full e2e 10 pass/0 fail/1 skip (11 total) (Sym E fixme), build green. P4 (the S52-reversing capstone) runtime-verified via the new Sym J 2-peer e2e (claim propagates to host = no double-grab; release always exits = no glued-spark) with ALL regression gameplay e2e still green. Net new tests this session: +4 vision (own-creature) +1 sync (claim preserve) +1 e2e (Sym J). E2E gate on master restored (P0). USER action: live 2-peer cross-network smoke for carried-drag + fog feel (swiftshader-local cannot prove real-latency feel).",
+  "triumvirate_check": "S64 P1 CHECK (Standard adversarial Triumvirate, distinct lenses). RALPH:PATROL (spec-conformance) PASS: scope=exactly 3 files, all PDR invariants enforced, runtime-verified incl protocol-mismatch path. GROK-ANALYST (break-it) FAIL->FIXED: caught statusColor-reset divergence on HOST_START/valid-JOIN-after-error (original left fill untouched; refactor reset to grey) -> removed the reset + 3 witness tests; 5 other attacks (hosting churn-guard, joining same-ref, constructor-no-applyView, updateInputVisibility state.mode, errorLatched ordering) all confirmed behavior-equivalent. GEMINI-AUDITOR (correctness+quality-regression) PASS Fid5/Qual5/Tool5/Compl5 (called it textbook refactor-for-quality; agreed the pane-alpha-application gap is acceptable). VERDICT 2/3 PASS + 1 FAIL-fixed = FIX-THEN-SHIP -> SHIP. Re-verified post-fix: tsc clean, full unit 985, lobby e2e 2/2.",
   "priorities": [
     {
       "id": "P1",
-      "label": "S63 P1 (Micro) Fog-feel tuning: FOG_COLOR 0x05070d to 0x000000 (live/unexplored fog to pure black); MEMORY_FOG_COLOR 0x161b2e to 0x000000 (remembered-area tier to black, user not-visible ask); R_PERSONAL 150 to 75 (spark/cursor reveal halved); e2e/fog.spec.ts FOG literal {5,7,13} to {0,0,0} (e2e-not-in-tsconfig gotcha). Fog reads as plain darkness; reveal twice as small.",
+      "label": "S64 P1 (Standard) Extract pure LobbyStateMachine from lobbyScreen.ts: new src/render/lobbyStateMachine.ts (initialLobbyState + lobbyReduce + lobbyView + exported STATUS/COLOR consts); events HOST_START{code}/JOIN_ATTEMPT{code}/PEER_STATUS{peerCount}/ERROR{text}/RESET; flat state {mode,code,status,statusColor,beginVisible,hostConnected,errorLatched}; reducer returns same-ref on no-change. New lobbyStateMachine.test.ts (~20 tests). Rewire lobbyScreen.ts 5 sites to dispatch+applyView (shell keeps all Pixi/DOM, validation, diagnostics, connectionLost). Behavior-preserving under P3 e2e net. Gate: tsc + full unit 956->~976 + full Playwright incl lobby-construction.spec + build<550KB.",
       "status": "completed",
       "phase": "ACT",
-      "tier": "Micro",
+      "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "council_waived": true,
+      "council_waived": false,
       "check_completed": true,
-      "checkpoint_commit": "744d3d0",
-      "real_context_tokens_at_close": 192785,
-      "real_context_pct_at_close": 19.28,
-      "check_method": "S63 P1 (fog-feel tuning, Micro) verified. FOG_COLOR 0x05070d->0x000000 (fogRenderer.ts) + MEMORY_FOG_COLOR 0x161b2e->0x000000 (constants.ts): fog renders pure black = the 0x000000 app background, killing the blue tint (collapses the dim remembered tier into uniform black per user not-visible ask). R_PERSONAL 150->75 (constants.ts): cursor/spark reveal halved. e2e/fog.spec.ts FOG literal {5,7,13}->{0,0,0} synced (e2e outside tsconfig gotcha, would silently fail Playwright). EMPIRICAL: tsc -b clean; FULL unit 946/946 (zero churn, vision/exploredMemory assert R_PERSONAL symbolically); build 508.28 KB <550; fog e2e 5/5 PASS incl test 1 which now pixel-asserts concealed area = (0,0,0) [runtime proof fog renders pure black and stays opaque/concealing]; LIVE in-browser mask sample on dev build: enemyFog [0,0,0,255] (black+opaque), cursorHole [0,0,0,0] (transparent reveal), farFog [0,0,0,255], alpha 1. Preview screenshot tool hung on the continuously-rendering WebGL canvas (capture-readback limit; page healthy per instant eval), visual looks-right deferred to the user live look (designated arbiter for this YOU+me item). checkpoint 744d3d0.",
+      "checkpoint_commit": "2c77b74",
+      "real_context_tokens_at_close": 266076,
+      "real_context_pct_at_close": 26.61,
+      "check_method": "S64 P1 (LobbyStateMachine extraction, Standard) verified. Extracted the lobby mode/Begin-gating/status/latch logic from the LobbyScreen Pixi class into a PURE reducer src/render/lobbyStateMachine.ts (initialLobbyState + lobbyReduce + lobbyView + exported STATUS/COLOR consts). Events HOST_START/JOIN_ATTEMPT/PEER_STATUS/ERROR/RESET; flat readonly state; reducer returns SAME-REF on no-change so the shell if(next!==state) gate preserves the per-frame churn guard + avoids hot-path alloc. lobbyScreen.ts 5 transition sites rewired to dispatch+applyView; ALL Pixi/DOM side effects (HTML input, diagnostics, connection-lost) stay shell-owned (desync mitigation). EMPIRICAL: tsc -b clean; full unit 956->985 (the SM had ZERO unit coverage before; +28 reducer tests); build 509.20KB (<550); P3 lobby-construction e2e 2/2; FULL Playwright 20 pass/1 skip (CI-equivalent: fog x5 + lobby x2 + nplayer 4-peer + 6-render + smoke baseline/SymA,C,D,F,G,I,J + 2 protocol-mismatch + 3-peer FFA; the 2 protocol-mismatch specs exercise setErrorMessage + errorLatched-sticky = the exact path the reducer owns). CHECK adversarial Triumvirate: RALPH:PATROL PASS (spec-conformance; scope=3 files); GROK-ANALYST FAIL->FIXED (caught a real divergence - HOST_START/valid-JOIN reset statusColor to grey but the original left fill untouched so a stale error-red carried; removed the color reset, behavior-exact, +3 witness tests; his 5 other attacks all confirmed equivalent); GEMINI-AUDITOR PASS (Fid5/Qual5/Tool5/Compl5). Verdict SHIP. checkpoint 2c77b74.",
       "verification": [
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "R_PERSONAL = 75"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/lobbyStateMachine.ts",
+          "needle": "export function lobbyReduce(state: LobbyState, event: LobbyEvent): LobbyState"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/fogRenderer.ts",
-          "needle": "FOG_COLOR = 0x000000"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/lobbyStateMachine.ts",
+          "needle": "export function initialLobbyState(): LobbyState"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "MEMORY_FOG_COLOR = 0x000000"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/lobbyStateMachine.ts",
+          "needle": "export function lobbyView(state: LobbyState): LobbyView"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/fog.spec.ts",
-          "needle": "r: 0, g: 0, b: 0"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/lobbyScreen.ts",
+          "needle": "private state: LobbyState = initialLobbyState();"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/lobbyScreen.ts",
+          "needle": "private applyView(): void {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/lobbyScreen.ts",
+          "needle": "const next = lobbyReduce(this.state, { type: 'PEER_STATUS', peerCount });"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/lobbyStateMachine.test.ts",
+          "needle": "statusColor changes ONLY on ERROR / RESET"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/lobbyStateMachine.test.ts",
+          "needle": "literal CANARY"
         }
       ]
     },
     {
       "id": "P2",
-      "label": "S63 P2 (Full) N-player 4/5/6 verify: (a) UNIT extend nplayerSeating.test.ts test.each([4,5,6]) applyStartGame seats N players, color[seat]=PLAYER_COLORS[seat] incl green/orange/magenta, seat-order determinism, positions=radialSpawnPos(seat,N), idempotent + palette pairwise-distinct/min-separation guard. (b) E2E new e2e/nplayer.spec.ts: 4-peer real-WebRTC FFA (seats 0-3, byte-exact cross-client colors incl green@seat3, FFA win seen by all, scene-scraper tint per seat) + N=6 deterministic single-page scene-scraper render proof (if __SPARK__ seam allows; fallback documented). Mitigations FOG_DISABLE/spawn1.2/win3/45s-wait/90s-timeout.",
+      "label": "S64 P2 (Standard) Lobby behavioral net-extension (test-only e2e). Close S63 P3 CHECK carry-forward: Playwright cases via __SPARK__ + DOM (single-page deterministic): (A) pane-visibility - setVisible(false) hides container.visible + HTML input (display:none), setVisible(true) in LOBBY re-shows; (B) joinPane Pixi-tap focuses input (document.activeElement); (C) Enter-key submits (mode->joining + 'Connecting...') + joining render (input hidden). OUT: destroy()-cleanup (add/remove symmetric 4:4, inspection-logged); visual refactor (eye-dependent). Gate: full Playwright incl new cases + existing 20/1 unchanged; tsc; build<550.",
       "status": "completed",
       "phase": "ACT",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
-      "tier": "Full",
+      "tier": "Standard",
       "check_completed": true,
-      "checkpoint_commit": "78d2961",
-      "real_context_tokens_at_close": 429074,
-      "real_context_pct_at_close": 42.91,
+      "checkpoint_commit": "12f598e",
+      "real_context_tokens_at_close": 379615,
+      "real_context_pct_at_close": 37.96,
+      "check_method": "S64 P2 (lobby behavioral net-extension, test-only e2e) verified. Added 3 deterministic single-page Playwright cases to e2e/lobby-construction.spec.ts closing the S63 P3 CHECK net-extension carry-forward: (A) pane-visibility - Back-to-Title (RETURN_TO_TITLE) hides container.visible + the HTML input, driven via gameState since main.ts:746 re-asserts lobbyScreen.setVisible(gameState==='LOBBY') every frame (caught a manual-setVisible false-start, fixed to drive the real transition); (B) joinPane Pixi-tap focuses the HTML input (S16 click-to-focus); (C) Enter-key submits (mode->joining + Connecting... + input hidden). A.0 dropped the non-existent countdown-mode; joining/error already covered by P1 units + protocol-mismatch smoke; destroy()-cleanup add/remove-symmetric 4:4 by inspection (logged). EMPIRICAL: tsc -b clean; lobby spec 5/5; FULL Playwright 23 pass/1 skip (was 20/1, +3); full unit 985 unchanged; zero production src. CHECK RALPH:PATROL PASS (lighter test-only lane per S63 council-cadence; thorough adversarial pass deferred to the mandatory end-of-session Triumvirate). checkpoint 12f598e.",
       "verification": [
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/nplayerSeating.test.ts",
-          "needle": "FFA to MAX_PLAYERS"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/lobby-construction.spec.ts",
+          "needle": "lobby behavioral surfaces (net-extension"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/nplayerSeating.test.ts",
-          "needle": "matches the exact seat palette"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/lobby-construction.spec.ts",
+          "needle": "Back to Title leaves LOBBY"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/nplayerSeating.test.ts",
-          "needle": "distinctness regression guard"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/lobby-construction.spec.ts",
+          "needle": "joinPane Pixi-tap focuses the HTML code input"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/nplayer.spec.ts",
-          "needle": "4-player FFA"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/nplayer.spec.ts",
-          "needle": "6-player render"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/nplayer.spec.ts",
-          "needle": "extract.pixels"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/lobby-construction.spec.ts",
+          "needle": "Enter-key submits the join"
         }
-      ],
-      "check_method": "S63 P2 (N-player 4/5/6 verify) verified. UNIT: nplayerSeating.test.ts +10 tests - applyStartGame seats N=4/5/6 (size, seat-order keys, per-seat color=PLAYER_COLORS[seat] incl green/orange/magenta, avatarPos=radialSpawnPos(seat,N), idempotent), 6 distinct positions, palette distinctness guard (min pairwise RGB>50, current ~92), exact-palette canary. E2E nplayer.spec.ts: 4-peer real Trystero/Nostr FFA (distinct seats {0..3}, host=0, byte-exact cross-client colors incl green@seat3, FFA win seen by all) + N=6 deterministic render (extract.pixels arbiter asserts all 6 colors drawn on canvas + zero pageerror + screenshot CONFIRMS 6 avatars + 6-row ranked HUD). EMPIRICAL: tsc clean; full unit 956/956 (+10); build 508KB<550; e2e 2/2; 4-peer 3/3 stable local + retries:2 CI. CHECK: RALPH CLEAN, GEMINI PASS (Fid4/Qual5/Compl5), GROK FAIL->RESOLVED (#1 false-pass->extract.pixels arbiter added; #4 drift->canary; #3 flake->3/3; #2/#5 rejected: separation-of-concerns + host-authoritative-not-concurrent). MCV verification[] authored. checkpoint 78d2961."
+      ]
     },
     {
       "id": "P3",
-      "label": "S63 P3 (Full) Lobby-construction e2e (unblocks deferred 548-LOC refactor): new e2e/lobby-construction.spec.ts single-page deterministic - DOM input present+sanitizes, host->valid getRoomCode()+mode=hosting+status, begin-button gating via updatePeerStatus()->beginButtonVisible false->true at peerCount>=1, N-players-connected status, reset() clears state, container constructed.",
+      "label": "S64 P3 (Standard->minimal-safe per Grok) knip de-export ONLY confirmed module-internal-use exports (audio SFX playClaveSFX/playFartSFX/playChargeSFX used by drainAudioEffects; duckMusic/stopMusic/isInitialized IF grep-confirmed internal-use). Pre-verify each: knip-unused-export + string-literal grep + no test import. DEFER (logged) all DELETES + save/protocol/serialization types + game-design consts + annotations (Grok traps). Gate: tsc + full unit 985 + build<550 + full Playwright 20/1 ALL unchanged-green.",
       "status": "completed",
       "phase": "ACT",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": false,
-      "tier": "Full",
+      "tier": "Standard",
       "check_completed": true,
-      "checkpoint_commit": "c7eba1d",
-      "real_context_tokens_at_close": 477040,
-      "real_context_pct_at_close": 47.7,
+      "checkpoint_commit": "f58c640",
+      "real_context_tokens_at_close": 407898,
+      "real_context_pct_at_close": 40.79,
+      "check_method": "S64 P3 (knip de-export, conservative per Grok) verified. De-exported 5 module-internal-only fns (removed `export`): audioManager.ts playClaveSFX/playFartSFX/playChargeSFX/duckMusic (called internally by drainAudioEffects, drained by main.ts every tick; audio exercised via drainAudioEffects unit tests, none imported by name) + e2e/helpers.ts readNetDiagnostics (called internally by waitForRejected). knip unused exports 33->28 (-5). tsc noUnusedLocals is the SAFETY ORACLE: a truly-dead de-export would error, so green tsc PROVES each is still used internally. EMPIRICAL: tsc -b clean; full unit 985 unchanged; build 509.16KB (<550, signature-only zero-runtime); protocol-mismatch e2e 2/2 (readNetDiagnostics consumer). DEFERRED per Grok (risk authority) to attended session: all DELETES (stopMusic+isInitialized dead but deferred), save/protocol/serialization exports (dynamic usage tsc+tests+e2e miss), game-design consts, annotations - logged in carry_forward. CHECK RALPH:PATROL PASS. checkpoint f58c640.",
       "verification": [
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/lobby-construction.spec.ts",
-          "needle": "lobby construction coverage"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/audioManager.ts",
+          "needle": "async function playChargeSFX(pos?: Vec2): Promise<void>"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/lobby-construction.spec.ts",
-          "needle": "wires the sanitiser"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/audioManager.ts",
+          "needle": "function duckMusic(durationMs: number"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/lobby-construction.spec.ts",
-          "needle": "Begin-Match gates on peer count"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/lobby-construction.spec.ts",
-          "needle": "reset() clears the surface"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/helpers.ts",
+          "needle": "async function readNetDiagnostics("
         }
-      ],
-      "check_method": "S63 P3 (lobby-construction e2e net) verified. New e2e/lobby-construction.spec.ts (single-page deterministic, no real peers): TEST1 navigate TITLE->LOBBY, DOM input[maxlength=6] visible, fill(abcde2)->inputValue ABCDE2 (sanitiser-wiring proof via DOM .value not CSS), mode=select + Begin hidden, container scene-graph populated (children>0). TEST2 hostNewRoom real 1v1->LOBBY->HOST -> valid 6-char code + mode=hosting + Begin hidden; updatePeerStatus(1) via __SPARK__ -> beginButtonVisible true + hostConnected + players-connected status; reset() -> mode select + Begin hidden + code cleared. EMPIRICAL: full e2e suite 20 pass/1 skip (3.3m, CI-equivalent: fog x5 + lobby x2 + nplayer x2 + smoke baseline/SymA,C,D,F,G,I,J + protocol x2 + 3-peer; 4-peer 4th clean run; skip=known Sym E placeholder); lobby 2/2. Tests-only, zero production src. CHECK: RALPH CLEAN; GROK CONDITIONAL PASS (constructor-not-exercised/tautology REJECTED - behavior-net is the correct refactor guard, real trigger covered by 3/4-peer; holes logged); GEMINI CONDITIONAL PASS (Fid5/Qual5/Compl3 - panes). Conditions: pane visibility-switching + joining/error/countdown modes + input lifecycle + listener-cleanup = refactor-session net-extension carry-forward. MCV verification[] authored. checkpoint c7eba1d."
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
-    "P1 #fog-feel-tuning-live-user-eye #e2e-literal-sync-on-render-constant: the long-carried fog-feel tuning (waiting since S57 for the live user eye) resolved in one Micro pass once the user gave concrete direction during the 3-tab smoke: FOG_COLOR + MEMORY_FOG_COLOR to 0x000000 (pure black = bg, kill the blue tint) + R_PERSONAL 150->75 (halve the spark reveal). KEY GOTCHA (the standing e2e-outside-tsconfig warning bit exactly here): e2e/fog.spec.ts HARDCODES the fog color literal {r:5,g:7,b:13} and pixel-asserts it; tsc stayed green but Playwright would have silently failed; had to sweep + sync the literal to {0,0,0} and RUN playwright. The e2e became the runtime arbiter: test 1 extracts the mask pixel and now asserts concealed=(0,0,0), proving fog renders pure black AND stays opaque (concealment intact), stronger than a screenshot for a color question. Lesson: a render-constant change must sweep e2e specs for hardcoded literals of that constant; when an e2e already pixel-extracts what you changed, updating its literal makes it self-prove the new value. Also: preview_screenshot hangs on a continuously-rendering Pixi/WebGL canvas (eval stays instant), so rely on pixel-sample eval + e2e for objective proof and the user live look for aesthetic.",
-    "P2 #nplayer-verify-two-layer #extract-pixels-render-arbiter #adversarial-check-extracts-real-flaw: verified FFA to 6 in two layers - deterministic unit (applyStartGame N=4/5/6 + palette guard, the seating LOGIC) + runtime e2e (4-peer real-WebRTC netcode incl green@seat3, + N=6 single-page deterministic RENDER proof). KEY: Council DROPPED flaky 6-peer real (15 channels/swiftshader) for a deterministic N=6 render proof; the adversarial CHECK (Grok FAIL) then caught that my N=6 proof was a FALSE PASS (world-state + no-pageerror does not prove the renderer DREW the 6 colors) - FIXED by adding app.renderer.extract.pixels(stage) asserting all 6 palette colors appear on the canvas (same arbiter e2e/fog.spec uses). Lesson: for un-unit-testable Pixi, a screenshot is human-only; the CI-grade render proof is a pixel-extract color-presence assertion. Also: hardcoded e2e color literals (e2e cannot import src) need a src-pinning unit canary so a palette change fails loud.",
-    "P3 #lobby-construction-net #behavior-net-over-internals #cover-before-refactor: built the Playwright net the S61 Council required BEFORE the deferred 548-LOC lobbyScreen refactor - single-page deterministic coverage of the high-risk state machine (DOM input + sanitiser wiring, host->room-code, Begin-Match gating via updatePeerStatus, reset clears). KEY: a BEHAVIOR net (assert observable surfaces via __SPARK__ accessors + DOM) is the correct refactor guard - you refactor internals, the net catches behavior breakage - so Grok-ANALYST CONDITIONAL constructor-not-exercised was REJECTED (the constructor IS exercised via its outputs; reaching LOBBY + clickable HOST proves wiring). The real multi-peer Begin trigger is covered by the 3/4-peer e2e, so driving updatePeerStatus directly here is correct layering not tautology. Lesson: cover-then-refactor for an un-unit-testable Pixi/DOM component = a deterministic single-page e2e over the public accessors; log the uncovered modes (pane-switching, joining/error, listener cleanup) as the refactor session net-extension scope.",
-    "SESSION #method #worked #autonomy-pivot: on AFK+autonomy, defer EYE-DEPENDENT items (visual tweaks/refactor, CVD aesthetics) as logged carry-forwards and execute ONLY the verification-safe core; the absent-user adversarial Council/CHECK stands in for the missing eye (S61 precedent re-validated; Grok ANALYZE 8.7/10 - better to ship zero eye-dependent than low-confidence).",
-    "SESSION #method #worked #pixel-arbiter-not-screenshot: for un-unit-testable Pixi render, the CI-grade proof = app.renderer.extract.pixels color-presence assertion + a src-pinning unit canary for the duplicated e2e literals + N-run flake-stability; a human-only screenshot is NOT a CI proof (the adversarial CHECK caught a screenshot-only N=6 render as a FALSE PASS). Institutionalize.",
-    "SESSION #method #improve #council-cadence: full Council R1 on pure deterministic TEST-hardening added serial latency for mechanical work (Grok ANALYZE); reserve full Council for behavioral/architectural shifts, use a lighter PRIME-AUDIT + adversarial-CHECK lane for test-only batches. Tier rules are global so log as observation, not a unilateral change."
+    "P1 #lobby-state-machine-extract #pure-reducer-same-ref-churn-guard #adversarial-check-caught-color-divergence: extracted the lobby mode/Begin-gating/status/latch logic out of the LobbyScreen Pixi class into a PURE reducer (initialLobbyState/lobbyReduce/lobbyView) under the S63 P3 e2e net - closing the S61-flagged zero-unit-coverage gap (the SM had NO unit tests; now 28 deterministic, no Pixi/WebGL). KEY DESIGN (Council DP4 synthesis): the reducer returns the SAME state reference on a no-op so the shell if(next!==state) gate preserves the original per-frame churn guard AND kills hot-path allocation - one functional pattern solving churn + GC + diff-strategy at once. KEY CATCH: the adversarial Triumvirate CHECK earned its keep AGAIN (cf S63 N=6 false-pass) - GROK-ANALYST's break-it lens found a real behavior DIVERGENCE that RALPH (spec) and GEMINI (quality 5/5) both missed: the reducer reset statusColor to grey on HOST_START/valid-JOIN, but the original only ever wrote statusText.style.fill in setErrorMessage/reset, so a stale error-red CARRIED onto the next neutral status - an observable color difference unreachable by the tested e2e orders. FIXED by removing the color reset (carry the prior fill, behavior-exact) + 3 witness tests. LESSON: in a behavior-PRESERVING refactor a 'cleaner' value-reset the original did NOT do IS a divergence - preserve exactly + log the latent UX bug as a carry-forward, do not silently improve. Diverse adversarial lenses (spec/break-it/quality) catch what a single reviewer rubber-stamps; the break-it lens is the one that found it.",
+    "P2 #lobby-net-extension #gamestate-driven-visibility #a0-killed-stale-carryforwards: closed the S63 P3 CHECK net-extension carry-forward with 3 e2e cases (pane-visibility via Back-to-Title, joinPane-tap-focus, Enter-submit). KEY: my first pane-visibility test manually called setVisible(false) and FAILED - main.ts:746 re-asserts lobbyScreen.setVisible(gameState==='LOBBY') EVERY FRAME, reverting it next rAF; fixed by driving the REAL gameState transition (RETURN_TO_TITLE). Lesson: a value the render loop re-derives per-frame cannot be poked from outside - test via the upstream cause (gameState), not the symptom. KEY (A.0 as hero): the State-Discovery gate killed 3 stale carry-forwards before code - vite/vitest CVE (npm audit=0 vulns), countdown-mode (nonexistent), audio-SFX-bug (wired via drainAudioEffects). Lesson: empirically re-probe carry-forwards each session; stale handoff claims accumulate.",
+    "P3 #knip-de-export-conservative #noUnusedLocals-as-safety-oracle #council-deferred-risky-deletes: reduced knip unused-exports 33->28 by de-exporting 5 module-internal-only fns (audio SFX + duckMusic via drainAudioEffects; readNetDiagnostics via waitForRejected). KEY: the S64 Council (Grok, risk authority) CHALLENGED the broader knip purge for an unattended flawless run - save/protocol/serialization exports have dynamic usage tsc+tests+e2e silently miss, so DELETING risks a runtime break no guard catches; resolved de-export-only + DEFER deletes. KEY (elegant): tsc noUnusedLocals is the de-export SAFETY ORACLE - a de-export of a truly-dead fn ERRORS, so green tsc PROVES each de-exported fn is still used internally. Lesson: autonomous cleanup prefers signature-only de-exports (compiler-guarded) over deletes (un-guarded vs dynamic usage); let strict-mode be the oracle. A 'dead export' = wired-but-over-exported (de-export) | genuinely-dead (defer delete) | public-API (keep) - triage the category first."
   ],
   "budget_total": 1000000,
   "totals": {
@@ -161,12 +163,13 @@
     ],
     "validator_version": "s110-three-tier-v1"
   },
-  "end_of_session_audit": "Rule 22 audit PASS (S61). Batch = pure-TS behavior-preserving: P1 reducer-orchestrator extract (severBond.ts), P2 test-only guard (reducerRenderBoundary.test.ts), P3 type-only relocation (worldTypes.ts). NO deploy-config/env/CI/workflow/Docker edits, NO unrendered ${VAR}, NO non-existent-file refs (tsc -b clean resolves all imports incl the worldTypes type-only facade + severBond no-cycle graph + the new guard). No hallucinated CLI flags (npm scripts/git/node only). Left-in-debug scan clean. Runtime surface: P1 = behavior-preserving move (verbatim body, 1 proven-equivalent line, +6 lock tests); P3 = 0 runtime bytes (bundle 507.12 unchanged). Bundle 507.12 KB < 550. CI: P1 E2E success; P2 Deploy+E2E success; P3 Deploy success + E2E success (run 26714299593) -- ALL 3 S61 commits CI-GREEN (local e2e 15 pass/1 skip matched CI). gh issue list not re-checked (no new issues opened by this batch). Determinism: save.replay green across all 3 + the new reducer->render boundary guard now PREVENTS future render-coupling regressions.",
-  "post_ship_analysis": "GROK-ANALYST retrospective 8.7/10: autonomy pivot CORRECT; adversarial CHECK high-ROI (caught N=6 false-pass). REPEAT = adversarial Triumvirate + autonomy-pivot-to-verification-safe + pixel-arbiter/canary/stability for renderer tests. CHANGE = decouple Council cadence from deterministic test-hardening (full Council R1 added serial latency for mechanical test work; reserve full Council for behavioral/architectural shifts, lighter PRIME-AUDIT+adversarial-CHECK lane for test-only batches). GAP: eye-dependent vs autonomous-safe boundary still tacit -> visual-regression scaffolding (pixel-signature baselines) would let future autonomous runs safely absorb more visual surface.",
-  "carry_forward": "S63 carry-forwards (logged, NOT dropped). EYE-DEPENDENT (need user live look): fog fuzzy-edge (VISION_FADE 40->20 if the smaller reveal reads too soft) + memory-shade restore (MEMORY_FOG_COLOR if user misses the dim explored tier); lobby VISUAL refactor (548-LOC swatches/who-is-in/room-full/ready) - now UNBLOCKED by the P3 net; CVD shape-icon identity (green/orange collide under deuteranopia); first-run visual-regression baselines (toHaveScreenshot, user-approve). AUTONOMOUS-SAFE FOLLOW-UP (Grok DP3): extract the PURE LobbyStateMachine (~80 LOC mode/Begin-gating, unit-testable) under the P3 net, distinct from the visual refactor. NET-EXTENSION (refactor session): lobby pane-visibility-switching + joining/error/countdown modes + input focus/paste lifecycle + reset-detaches-listeners. NETCODE INFRA (S62): connection-lost client host-presence detection; host-migration; reconnect-to-same-seat; 6p snapshot delta bandwidth; real-latency race + reconnect hardening. PRE-EXISTING: main.ts 942 hypertrophy; vite/vitest CVE; knip 42. METHOD: consider a lighter deliberation lane for test-only batches.",
-  "analyze_summary": "S63 ANALYZE (autonomous batch, user APPROVED+AFK). DEFINING DECISION: on autonomy PIVOTED away from eye-dependent recommended items (fog tweaks, lobby VISUAL refactor, CVD icons) to the verification-safe core (S61 precedent) - correct per Grok (better to ship zero eye-dependent than low-confidence). WINS: (1) adversarial Triumvirate CHECK earned its keep - Grok caught P2 N=6 render as a FALSE PASS (no-pageerror+world-state != renderer drew) -> FIXED with extract.pixels colour-presence arbiter + palette canary + 3/3 flake-stability. (2) two-layer verification (deterministic unit backbone + real-netcode e2e) proven to 6 players; Council dropped flaky 6-peer real for a deterministic N=6 render proof. (3) MCV bound all 14 claims to disk (exit 0); full e2e gate 20 pass/1 skip (CI-equivalent). (4) lobby net unblocks the deferred 548-LOC refactor. EFFICIENCY: GREEN throughout (193K->477K); upfront 3-agent A.0 survey caught a harness-agent colour HALLUCINATION before it hit code. METHOD score (Grok) 8.7/10.",
+  "end_of_session_audit": "S64 END-OF-SESSION AUDIT (Rule 22). Batch = pure-TS behavior-preserving (P1 reducer extract) + test-only (P2 e2e + destroy CHECK-fix) + signature-only (P3 de-export). NO deploy-config/env/CI/Docker/workflow edits, NO unrendered VAR placeholders, NO non-existent-file refs (tsc -b clean resolves all imports), NO hallucinated CLI flags, left-in-debug scan clean. CI (gh run list): Deploy SUCCESS on all commits; E2E P2 SUCCESS, P3 in_progress, CHECK-fix fa0283c running. P1 E2E FAILED (run 26735746672) = the KNOWN-FLAKY 4-peer real-WebRTC test nplayer.spec.ts:57 (4-player FFA): Test-timeout-90000ms-exceeded + browserContext.close@134. NOT a P1 regression: (a) the test exercises N-player seating/FFA which P1 (lobby state machine) does not touch; (b) PROVEN transient by P2 E2E SUCCESS on a superset of the same code; (c) matches documented 4-peer flake (S63 handoff retries:2 CI; S63 P3 E2E also flaked). Re-run triggered. CARRY-FORWARD: the 4-peer real-WebRTC nplayer test is a recurring CI flake (90s timeout under CI network load) needing attended flake-hardening (timeout bump / deterministic-transport harness / non-gating quarantine) so CI-red == real-regression; out of the P2/P3 approved scope (Rule 16).",
+  "post_ship_analysis": "S64 retrospective. REPEAT: A.0 empirical re-probe of carry-forwards (killed 3 stale); diverse-lens adversarial CHECK (Grok caught the P1 color divergence + ran the end-of-session sweep); Council risk-authority de-scoping (P3 purge->de-export); compiler-as-safety-oracle (noUnusedLocals proves de-export safety); autonomy-pivot to verification-safe + defer-eye-dependent. IMPROVE: the 4-peer real-WebRTC nplayer CI test is a RECURRING flake (S63 P3 + S64 P1 both timed out at 90s) - the per-commit CI E2E gate is unreliable for the real-multi-peer tests; recommend (a) flake-harden or quarantine the 4-peer test (deterministic transport / timeout bump / separate non-gating job) so a CI red means a real regression, (b) keep local full-Playwright + the same-code-cross-commit-success check as the real signal. GAP: still no first-run visual-regression baselines (eye-dependent, user-approve) - would let future autonomous runs absorb more visual surface.",
+  "carry_forward": "S64 carry-forwards (logged, NOT dropped). === NEW from S64 === UX LANDMINES (eye-dependent, P1 CHECK, both PRESERVED behavior, 1-line reducer fixes when wanted): (1) JOIN_INVALID status renders neutral grey not error-red; (2) a stale error-red bleeds onto the next neutral status (HOST or valid-JOIN after an error) until reset(). KNIP REMAINDER (P3 deferred per Grok risk-authority -> attended session): all DELETES incl stopMusic + isInitialized (genuinely-dead audioManager fns) + dead consts; the save/protocol/serialization exports (SerializedEffect/SerializedCreature/v2/SaveBrands/loadFromLocalStorage/StartGameMsg/EndGameMsg/GodlyTriggerMsg = dynamic-usage traps - verify each via string-literal grep + save.replay before touching); 13 unused exported types; game-design constants (AREA_CLAIM_*/TERRITORY_WIN_THRESHOLD/MEGA_COMBO_MULTIPLIER/SPARK_TYPE_NAMES = keep + annotate intentional). knip now 28 unused exports + 13 types. CI FLAKE: the 4-peer real-WebRTC nplayer.spec.ts:57 test is a recurring CI timeout flake (S63 P3 + S64 P1) - flake-harden (timeout bump / deterministic-transport harness / non-gating quarantine) so CI-red == real-regression. === STILL OPEN (S63) === EYE-DEPENDENT: fog fuzzy-edge (VISION_FADE 40->20) + memory-shade (MEMORY_FOG_COLOR); lobby VISUAL refactor (548-LOC swatches/who-is-in/room-full/ready) - NOW FULLY NET-COVERED (P1 pure reducer + P2 behavioral e2e: visibility/focus/Enter/destroy), so the visual work can proceed under a complete net; CVD shape-icon identity (green/orange deuteranopia); first-run visual-regression baselines (toHaveScreenshot, user-approve). NETCODE INFRA (S62): connection-lost client host-presence; host-migration; reconnect-to-same-seat; 6p snapshot delta bandwidth; real-latency race + reconnect hardening (incl the 4-peer flake above). PRE-EXISTING: main.ts 942 hypertrophy (high blast radius - needs a characterization pass first, like the lobby net before its refactor); vite/vitest CVE = NONE (npm audit clean, item RETIRED by S64 A.0).",
+  "analyze_summary": "S64 ANALYZE (autonomous batch, user AFK full-autonomy). 3 priorities + 1 CHECK-fix shipped + pushed. P1 (Standard) pure LobbyStateMachine extraction behavior-preserving - the adversarial Triumvirate CHECK caught a real statusColor-reset divergence (Grok break-it lens; RALPH + Gemini missed it) -> fixed behavior-exact + 3 witness tests. P2 (Standard) lobby behavioral net-extension (3 e2e + destroy CHECK-fix) closing the S63 P3 carry-forward. P3 (minimal-safe) knip de-export 5 module-internal fns (Council deferred the risky deletes). DEFINING DECISIONS: (1) A.0 State-Discovery was the hero - empirically killed 3 STALE carry-forwards before any code (vite/vitest CVE=0-vulns, countdown-mode=nonexistent, audio-SFX-bug=wired-via-drainAudioEffects); stale handoff claims had accumulated. (2) Council risk-authority (Grok) correctly de-scoped P3 from a 46-item purge to a 5-item safe de-export (save/protocol deletes = dynamic-usage traps static analysis misses). (3) tsc noUnusedLocals as the de-export safety oracle. WINS: diverse-lens adversarial CHECK earned its keep AGAIN (color divergence, cf S63 N=6 false-pass); the Rule 22 audit caught the P1 E2E CI flake + I proved it transient (P2 success on same code) not a regression. EFFICIENCY: GREEN throughout (192K->~425K). FINAL: tsc clean, full unit 985 (was 956), full Playwright 24 pass/1 skip (was 20/1), build 509.16KB, knip 33->28. CI 4-peer-nplayer flake logged for attended hardening.",
   "handoff_generated": "2026-05-31",
   "handoff_doc": "HANDOFF_2026-05-31_S59.md",
   "session_status": "S63 COMPLETE (autonomous batch, user APPROVED+AFK). P1 fog->pure-black + spark-reveal-halved (744d3d0, from user live look). P2 N-player 4/5/6 verification (78d2961): unit applyStartGame N=4/5/6 + palette distinctness guard + exact-palette canary + 4-peer real-WebRTC FFA (green@seat3) + N=6 deterministic extract.pixels render proof. P3 lobby-construction e2e net (c7eba1d) unblocking the deferred 548-LOC refactor. Full-tier 3-way Council + PRIME-AUDIT + adversarial Triumvirate CHECK (Grok caught + I fixed a P2 N=6 false-pass via the pixel arbiter) + MCV (14 claims disk-bound, exit 0) + full e2e gate 20 pass/1 skip (CI-equivalent). Eye-dependent items (fog tweaks, lobby VISUAL refactor, CVD icons) DEFERRED as logged carry-forwards per autonomy scope-discipline. GREEN (193K->477K, 47.7%). All pushed to origin/master, CI runs. REVIEW: project-local satisfied inline (MCV exit 0); the global pre-handoff-review.py read a STALE S157 OS-session flag (NOT cleared - cross-workspace boundary).",
-  "deferred_carry_forward": "lobbyScreen.ts (548 LOC) refactor DEFERRED per unanimous S61 Council (Grok+Gemini). Reason: 19 lobby unit tests are PURE-HELPER only; the Pixi/DOM CONSTRUCTOR has NO unit coverage (Pixi Application needs WebGL, unavailable in jsdom) -> structural refactor unsafe autonomously. NEXT: a user-present session should first ADD lobby-construction coverage (Playwright e2e asserting panes/input/begin-button/reset), THEN refactor under that net. Plus the still-open fog-feel live tuning (MEMORY_GHOST_ALPHA/MEMORY_FOG_COLOR/grid + 2 cosmetics) which needs the user eye."
+  "deferred_carry_forward": "lobbyScreen.ts (548 LOC) refactor DEFERRED per unanimous S61 Council (Grok+Gemini). Reason: 19 lobby unit tests are PURE-HELPER only; the Pixi/DOM CONSTRUCTOR has NO unit coverage (Pixi Application needs WebGL, unavailable in jsdom) -> structural refactor unsafe autonomously. NEXT: a user-present session should first ADD lobby-construction coverage (Playwright e2e asserting panes/input/begin-button/reset), THEN refactor under that net. Plus the still-open fog-feel live tuning (MEMORY_GHOST_ALPHA/MEMORY_FOG_COLOR/grid + 2 cosmetics) which needs the user eye.",
+  "end_of_session_check": "S64 end-of-session adversarial Triumvirate CHECK (whole session P1+P2+P3). RALPH:PATROL PASS (scope-clean, all invariants, integrated tsc + 985 unit + full Playwright 23/1 + destroy-addendum lobby 6/6 = 24/1 + build green). GROK-ANALYST (break-it) attacked 5 vectors (color-fix completeness, same-ref beginVisible elision, P2 Enter-test flake, P3 dynamic reachability, cross-priority leak) - ALL HELD, REMAINING ISSUES NONE + SHIP. GEMINI-AUDITOR (completeness) Fid5/Qual5/Compl4 PASS, 1 gap: destroy()-cleanup inspection-only -> FIXED with a destroy() DOM-removal e2e (lobby 6/6, commit fa0283c). Verdict SHIP."
 }
