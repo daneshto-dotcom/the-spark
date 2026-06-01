@@ -210,4 +210,23 @@ test.describe('S64 - lobby behavioral surfaces (net-extension; unblocks the defe
     // joining mode hides the code input (updateInputVisibility: shown only in select).
     await expect(input).toBeHidden({ timeout: 5_000 });
   });
+
+  test('destroy() removes the HTML code input from the DOM (teardown cleanup)', async ({
+    page,
+  }) => {
+    await gotoLobbySelect(page);
+    const input = page.locator('input[type="text"][maxlength="6"]');
+    await expect(input).toHaveCount(1);
+    // destroy() detaches the 4 input/window resize listeners (add/remove are
+    // symmetric @ lobbyScreen 319-335 / 467-471) AND removes the absolutely-
+    // positioned <input> from document.body. e2e can assert the DOM removal
+    // directly; the listener detach stays inspection-verified (no leak-probe API).
+    await page.evaluate(() => {
+      const s = (
+        window as unknown as { __SPARK__?: { lobbyScreen: { destroy: () => void } } }
+      ).__SPARK__;
+      s?.lobbyScreen.destroy();
+    });
+    await expect(input).toHaveCount(0);
+  });
 });
