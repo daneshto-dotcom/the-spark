@@ -131,3 +131,83 @@ test.describe('S63 - lobby construction coverage (unblocks the deferred 548-LOC 
     expect(await roomCode(page)).toBe('');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// S64 P2 — lobby BEHAVIORAL surfaces not covered by P1's pure-reducer units
+// nor the construction net above. Closes the S63 P3 CHECK net-extension
+// carry-forward (minus the non-existent "countdown" mode and the joining/error
+// modes already covered by P1 units + the protocol-mismatch smoke specs). With
+// these the deferred lobby VISUAL refactor proceeds under a full behavioral net.
+// ─────────────────────────────────────────────────────────────────────────
+async function lobbyContainerVisible(page: Page): Promise<boolean> {
+  return await page.evaluate(() => {
+    const s = (
+      window as unknown as { __SPARK__?: { lobbyScreen: { container: { visible: boolean } } } }
+    ).__SPARK__;
+    return s?.lobbyScreen.container.visible ?? false;
+  });
+}
+async function gotoLobbySelect(page: Page): Promise<void> {
+  await page.goto('/?debug=1');
+  await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE on single page');
+  // Click "1v1 (2 Player)" → LOBBY (mirror of hostNewRoom's first half).
+  const oneVOne = await canvasToCss(page, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40 + 72 + 24);
+  await page.mouse.click(oneVOne.x, oneVOne.y);
+  await waitForWorld(page, (w) => w.gameState === 'LOBBY', 'LOBBY on single page');
+}
+
+test.describe('S64 - lobby behavioral surfaces (net-extension; unblocks the deferred visual refactor)', () => {
+  test('pane-visibility: leaving LOBBY (Back to Title) hides the container AND the HTML input', async ({
+    page,
+  }) => {
+    await gotoLobbySelect(page);
+    const input = page.locator('input[type="text"][maxlength="6"]');
+    await expect(input).toBeVisible({ timeout: 10_000 });
+    expect(await lobbyContainerVisible(page)).toBe(true);
+    expect(await input.evaluate((el) => (el as HTMLElement).style.display)).not.toBe('none');
+
+    // Click "Back to Title" (canvas button bottom-left, centre ~150,1024). It
+    // dispatches RETURN_TO_TITLE; the game loop's per-frame
+    // `lobbyScreen.setVisible(gameState === 'LOBBY')` then hides the container,
+    // and updateInputVisibility hides the absolutely-positioned HTML input.
+    // (Driving via gameState — not a manual setVisible — because the loop
+    // re-asserts visibility every frame.)
+    const back = await canvasToCss(page, 150, 1024);
+    await page.mouse.click(back.x, back.y);
+    await waitForWorld(page, (w) => w.gameState === 'TITLE', 'Back to Title leaves LOBBY');
+    expect(await lobbyContainerVisible(page)).toBe(false);
+    await expect(input).toBeHidden({ timeout: 5_000 });
+  });
+
+  test('joinPane Pixi-tap focuses the HTML code input (S16 click-to-focus wiring)', async ({
+    page,
+  }) => {
+    await gotoLobbySelect(page);
+    const input = page.locator('input[type="text"][maxlength="6"]');
+    await expect(input).toBeVisible();
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await expect(input).not.toBeFocused();
+    // Click the join-pane body ABOVE the input rect (canvas y<460) and BELOW the
+    // header — the pane's pointertap fires inputEl.focus() while mode==='select'.
+    const tap = await canvasToCss(page, 1100, 430);
+    await page.mouse.click(tap.x, tap.y);
+    await expect(input).toBeFocused({ timeout: 5_000 });
+  });
+
+  test('Enter-key submits the join: mode->joining, Connecting status, input hidden', async ({
+    page,
+  }) => {
+    await gotoLobbySelect(page);
+    const input = page.locator('input[type="text"][maxlength="6"]');
+    await expect(input).toBeVisible();
+    await input.click();
+    await input.fill('ABCDEF'); // valid [2-9A-HJ-NP-Z]{6}
+    await input.press('Enter'); // S17 keydown Enter -> attemptJoin (same path as Connect)
+    // attemptJoin flips state synchronously before the async transport join.
+    const ds = await lobbyDebug(page);
+    expect(ds.mode).toBe('joining');
+    expect(await statusText(page)).toContain('Connecting');
+    // joining mode hides the code input (updateInputVisibility: shown only in select).
+    await expect(input).toBeHidden({ timeout: 5_000 });
+  });
+});
