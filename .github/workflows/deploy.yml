@@ -75,6 +75,10 @@ jobs:
         uses: actions/upload-pages-artifact@v5
         with:
           path: ./dist
+          # v3->v5 bump: v4+ excludes hidden dotfiles by default (v3 included them).
+          # Keep v3 behavior so any future dotfile (.nojekyll, .well-known/, etc.)
+          # still ships. (.git/.github are excluded regardless.) Current dist/ has none.
+          include-hidden-files: true
 
   deploy:
     needs: build
