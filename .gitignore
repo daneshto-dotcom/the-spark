@@ -6,6 +6,7 @@ dist/
 .env
 .env.local
 .claude/session-state.json.bak
+.claude/session-state.json.tmp.*
 .claude/session-port.json
 tsconfig.tsbuildinfo
 
@@ -19,4 +20,5 @@ tsconfig.tsbuildinfo
 # S46 P1 — Playwright E2E artifacts
 playwright-report/
 test-results/
+test-results-quarantine/
 .playwright-cache/
