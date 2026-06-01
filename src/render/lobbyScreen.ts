@@ -17,6 +17,14 @@ import {
   makeConnectionLostOverlay,
   type ConnectionLostOverlayHandle,
 } from './connectionLostOverlay.ts';
+// S64 P1 — the pure mode/Begin-gating reducer extracted from this file.
+import {
+  initialLobbyState,
+  lobbyReduce,
+  lobbyView,
+  type LobbyMode,
+  type LobbyState,
+} from './lobbyStateMachine.ts';
 
 // S60 P4 — the pure geometry/validation helpers + layout/validation constants
 // moved to lobbyGeometry.ts (§XV de-hypertrophy). The class imports what it needs;
@@ -54,7 +62,8 @@ export {
   sanitizeRoomCodeValue,
 } from './lobbyGeometry.ts';
 
-export type LobbyMode = 'select' | 'hosting' | 'joining';
+// S64 P1 — single source of truth now lives in lobbyStateMachine.ts.
+export type { LobbyMode };
 
 export interface LobbyScreenCallbacks {
   onHostStart(): string;            // returns generated room code
@@ -66,7 +75,12 @@ export interface LobbyScreenCallbacks {
 
 export class LobbyScreen {
   readonly container: Container;
-  private mode: LobbyMode = 'select';
+  // S64 P1 — mode / Begin-gating / status / latches now live in a pure reducer
+  // (lobbyStateMachine.ts); this class is the Pixi/DOM shell that dispatches an
+  // event on each transition and applies the derived view. All OTHER side
+  // effects (HTML input overlay, diagnostic strips, connection-lost overlay)
+  // remain shell-owned.
+  private state: LobbyState = initialLobbyState();
   private statusText: Text;
   private codeText: Text;
   private hostPane: Container;
@@ -91,14 +105,11 @@ export class LobbyScreen {
   // BUG-CRITICAL-4 state-discovery instrumentation.
   private hostDiagnosticsText: Text;
   private readonly connectionLostHandle: ConnectionLostOverlayHandle;
-  private hostConnected = false;
-  // S55 P2 — once an error/diagnostic is surfaced via setErrorMessage
-  // (transport failure OR protocol mismatch), it is STICKY until reset():
-  // the routine per-frame updatePeerStatus must not clobber it. Without this,
-  // a mismatched-peer HELLO that arrives before the first post-connect frame
-  // was overwritten by 'Player 2 connected!' and the refresh-prompt UX was
-  // permanently hidden (PRIME-AUDIT Runtime-Verifiability finding, S55 P2).
-  private errorLatched = false;
+  // S55 P2 — the errorLatched sticky flag + the hostConnected latch + mode all
+  // live in `state` now: a surfaced error (transport failure / protocol
+  // mismatch) is sticky until reset() so the routine per-frame PEER_STATUS can't
+  // clobber it (was: a mismatched-peer HELLO overwritten by 'Player 2
+  // connected!', permanently hiding the refresh-prompt UX). The reducer enforces it.
 
   // S16 P1: HTML input overlay
   private readonly canvas: HTMLCanvasElement;
@@ -165,10 +176,8 @@ export class LobbyScreen {
     // Host button — generate room code. Positions are pane-relative (S17 P0').
     const hostBtn = this.makeButton('Host New Room', PLAYER_COLORS[0], () => {
       const code = callbacks.onHostStart();
-      this.mode = 'hosting';
-      this.codeText.text = code;
-      this.statusText.text = 'Share the code — waiting for players...';
-      this.renderState();
+      this.state = lobbyReduce(this.state, { type: 'HOST_START', code });
+      this.applyView();
       this.updateInputVisibility();
     });
     hostBtn.position.set(PANE_WIDTH / 2 - BUTTON_WIDTH / 2, 220);
@@ -192,7 +201,7 @@ export class LobbyScreen {
     this.joinPane.eventMode = 'static';
     this.joinPane.cursor = 'text';
     this.joinPane.on('pointertap', () => {
-      if (this.mode === 'select') this.inputEl.focus();
+      if (this.state.mode === 'select') this.inputEl.focus();
     });
 
     // Hint text below the input area
@@ -225,15 +234,13 @@ export class LobbyScreen {
     // S17 P0' — Enter-key handler invokes the same path as Connect-button click.
     const attemptJoin = (): void => {
       const code = this.inputEl.value.toUpperCase();
+      this.state = lobbyReduce(this.state, { type: 'JOIN_ATTEMPT', code });
+      this.applyView();
+      // updateInputVisibility + the join callback fire ONLY on the valid branch
+      // (behaviour-exact: the original gated both inside `if (isValidRoomCode)`).
       if (isValidRoomCode(code)) {
-        this.mode = 'joining';
-        this.statusText.text = 'Connecting...';
-        this.renderState();
         this.updateInputVisibility();
         callbacks.onJoinAttempt(code);
-      } else {
-        this.statusText.text = 'Code must be 6 chars (excludes 0, O, 1, I).';
-        this.renderState();
       }
     };
     this.joinButton.on('pointertap', attemptJoin);
@@ -341,36 +348,21 @@ export class LobbyScreen {
 
   /** Called by main.ts every frame; updates "Begin Match" + status based on peer count. */
   updatePeerStatus(peerCount: number): void {
-    // S55 P2 — a surfaced error (protocol mismatch / transport failure) is
-    // sticky; routine peer-status must not overwrite it (see errorLatched).
-    if (this.errorLatched) return;
-    if (this.mode === 'hosting' && peerCount > 0) {
-      // S62 — N-player: show the LIVE connected count (was a one-shot "Player 2
-      // connected" latch). The host can Begin with any 2..6 players. Re-render
-      // only when the text actually changes (peer count changed) to avoid
-      // per-frame churn.
-      const total = peerCount + 1; // + the host itself
-      const text = `${total} players connected — press Begin Match (up to 6).`;
-      if (!this.hostConnected || this.statusText.text !== text) {
-        this.hostConnected = true;
-        this.statusText.text = text;
-        this.beginButton.visible = true;
-        this.renderState();
-      }
-    } else if (this.mode === 'joining' && peerCount > 0) {
-      this.statusText.text = 'Connected. Waiting for host to begin...';
-      this.renderState();
-    }
+    // S64 P1 — the errorLatched short-circuit, the hostConnected latch, the live
+    // N-player count (S62), and the per-frame churn guard all live in the
+    // reducer, which returns the SAME state reference when nothing changed; the
+    // re-render (applyView) only runs on an actual transition.
+    const next = lobbyReduce(this.state, { type: 'PEER_STATUS', peerCount });
+    if (next === this.state) return;
+    this.state = next;
+    this.applyView();
   }
 
   reset(): void {
-    this.mode = 'select';
-    this.codeText.text = '';
-    this.statusText.text = '';
-    this.statusText.style.fill = 0xaaaaaa;
-    this.hostConnected = false;
-    this.errorLatched = false;
-    this.beginButton.visible = false;
+    // SM-owned surface (mode / status / colour / Begin / code / pane-alphas) via
+    // the view; everything else is shell-owned and cleared verbatim as before.
+    this.state = lobbyReduce(this.state, { type: 'RESET' });
+    this.applyView();
     this.connectionLostHandle.setVisible(false);
     this.inputEl.value = '';
     this.joinButton.alpha = 0.4;
@@ -379,7 +371,6 @@ export class LobbyScreen {
     // S46 P1 Phase A.0 — reset host diagnostic strip too.
     this.hostDiagnosticsText.visible = false;
     this.hostDiagnosticsText.text = '';
-    this.renderState();
     this.updateInputVisibility();
   }
 
@@ -399,8 +390,8 @@ export class LobbyScreen {
    */
   getDebugState(): { mode: LobbyMode; hostConnected: boolean; beginButtonVisible: boolean } {
     return {
-      mode: this.mode,
-      hostConnected: this.hostConnected,
+      mode: this.state.mode,
+      hostConnected: this.state.hostConnected,
       beginButtonVisible: this.beginButton.visible,
     };
   }
@@ -448,10 +439,8 @@ export class LobbyScreen {
    * the brief window before the first post-connect 'Player 2 connected' frame).
    */
   setErrorMessage(text: string): void {
-    this.statusText.text = text;
-    this.statusText.style.fill = 0xff3b6b;
-    this.errorLatched = true;
-    this.renderState();
+    this.state = lobbyReduce(this.state, { type: 'ERROR', text });
+    this.applyView();
   }
 
   /**
@@ -510,14 +499,26 @@ export class LobbyScreen {
   }
 
   private updateInputVisibility(): void {
-    const shouldShow = this.isShown && this.mode === 'select';
+    const shouldShow = this.isShown && this.state.mode === 'select';
     this.inputEl.style.display = shouldShow ? 'block' : 'none';
     if (shouldShow) this.updateInputPosition();
   }
 
-  private renderState(): void {
-    this.hostPane.alpha = this.mode === 'joining' ? 0.3 : 1;
-    this.joinPane.alpha = this.mode === 'hosting' ? 0.3 : 1;
+  /**
+   * S64 P1 — apply the reducer's derived view to the Pixi objects this class
+   * owns. Per-field diffs avoid redundant Pixi writes (belt-and-suspenders with
+   * the reducer's same-ref no-op gate). statusColor is set unconditionally:
+   * Pixi v8 TextStyle.fill has no reliable round-trip read, and applyView only
+   * runs on an actual transition, so re-asserting the (rare) colour is free.
+   */
+  private applyView(): void {
+    const v = lobbyView(this.state);
+    if (this.codeText.text !== v.code) this.codeText.text = v.code;
+    if (this.statusText.text !== v.status) this.statusText.text = v.status;
+    this.statusText.style.fill = v.statusColor;
+    if (this.beginButton.visible !== v.beginVisible) this.beginButton.visible = v.beginVisible;
+    if (this.hostPane.alpha !== v.hostPaneAlpha) this.hostPane.alpha = v.hostPaneAlpha;
+    if (this.joinPane.alpha !== v.joinPaneAlpha) this.joinPane.alpha = v.joinPaneAlpha;
   }
 
   private makePane(label: string, accentColor: number, x: number, y: number): Container {
