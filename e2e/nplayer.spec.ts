@@ -53,7 +53,13 @@ async function prepCtx(ctx: BrowserContext, spawnRate = 1.5, winScore = 3): Prom
   }, winScore);
 }
 
-test.describe('S63 - 4-player FFA: roster broadcast + distinct seats/colors + FFA win', () => {
+// @quarantine-flaky — S65 P3: this 4-peer real-WebRTC test is a recurring CI
+// timeout flake (90s under CI network load). e2e.yml runs it in a NON-GATING
+// lane via `--grep "@quarantine-flaky"`; the gating lane excludes it via
+// `--grep-invert`. Explicit opt-in: a test is quarantined ONLY if it carries
+// this tag, so new tests gate by default. Do NOT remove the tag without
+// flake-hardening (deterministic transport is rejected — see playwright.config C9).
+test.describe('S63 - 4-player FFA: roster broadcast + distinct seats/colors + FFA win @quarantine-flaky', () => {
   test('host + 3 joiners get distinct seats {0..3} incl green@seat3, all PLAYING, one wins', async ({
     browser,
   }) => {

@@ -14,6 +14,21 @@
 #
 # Path filter mirrors deploy.yml — skip e2e on session-bookkeeping commits
 # (.claude/, HANDOFF_*.md, etc) to avoid wasting CI minutes on docs.
+#
+# S65 P3 — flake quarantine: the Run-E2E step is split into a GATING lane
+# (--grep-invert "@quarantine-flaky"; a red here == a real regression) and a
+# NON-GATING lane (continue-on-error; --grep "@quarantine-flaky") for the
+# 4-peer real-WebRTC nplayer test, a recurring CI timeout flake (S63 P3 + S64
+# P1; 90s x retries under CI network load). The test carries the
+# @quarantine-flaky tag in its describe title — explicit opt-IN, so new tests
+# GATE by default (you must tag to quarantine). It still runs + is visible
+# (catches a CONSISTENT real regression) but cannot red the gate. The quarantine
+# lane uses a separate --output dir + --reporter=list so it never overwrites the
+# gating lane's HTML report / traces (the artifact on a real regression stays
+# correct) and its flakes emit no GitHub annotations. Deterministic transport is
+# rejected (playwright.config C9: real Trystero/Nostr P2P IS the surface under
+# test). N-player correctness stays gating via the nplayerSeating units + the
+# fast/stable 6-player-render e2e.
 
 name: E2E (2-browser harness)
 
@@ -61,8 +76,24 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run E2E
-        run: npm run e2e
+      # GATING lane — everything EXCEPT the flaky 4-peer real-WebRTC test.
+      # A failure here is a REAL regression and reds the job (the point of the
+      # quarantine: gating-CI-red == real regression).
+      - name: Run E2E (gating)
+        run: npm run e2e -- --grep-invert "@quarantine-flaky"
+        env:
+          CI: 'true'
+
+      # NON-GATING quarantine lane — the 4-peer real-WebRTC nplayer test only.
+      # continue-on-error keeps its recurring CI timeout flake from reding the
+      # job; if:always() runs it even when the gating lane failed (diagnostics).
+      - name: Run E2E (4-peer real-WebRTC - non-gating quarantine)
+        if: always()
+        continue-on-error: true
+        # Separate --output dir + list reporter so this lane NEVER overwrites the
+        # gating lane's playwright-report/ + test-results/ (the artifact on a real
+        # regression stays the gating one) and flakes don't emit GitHub annotations.
+        run: npm run e2e -- --grep "@quarantine-flaky" --output=test-results-quarantine --reporter=list
         env:
           CI: 'true'
 
