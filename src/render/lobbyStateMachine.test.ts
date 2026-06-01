@@ -2,7 +2,7 @@
  * S64 P1 — unit tests for the pure LobbyStateMachine extracted from
  * lobbyScreen.ts. Exhaustive: every event x every relevant mode, both latches
  * (hostConnected, errorLatched), the same-ref-on-no-change churn guard, the
- * JOIN_INVALID no-recolour invariant, pane-alpha derivation, RESET clears all,
+ * JOIN_INVALID error-recolour + fresh-attempt latch-clear (S65), pane-alpha derivation, RESET clears all,
  * purity (no input mutation), and a src-pinning literal CANARY (the e2e net
  * asserts a substring of these strings but cannot import src, so this canary is
  * what fails loud if a status/colour literal silently drifts).
@@ -76,35 +76,80 @@ describe('S64 P1 — JOIN_ATTEMPT', () => {
     }
   });
 
-  it('INVARIANT: invalid code does NOT recolour the status (fill left untouched)', () => {
-    // If the status was previously error-red (e.g. a stale ERROR), an invalid
-    // JOIN_ATTEMPT must NOT reset it to grey — the original never touched fill
-    // on this path. Witnesses the deliberately-preserved no-recolour behaviour.
+  it('S65 landmine #1 fix: an invalid code recolours the status to error-red', () => {
+    // From a fresh (grey) state an invalid JOIN_ATTEMPT must render the
+    // "Code must be 6 chars" message in error-red, not the neutral grey the
+    // original left untouched. errorLatched stays false (select-mode feedback).
+    const after = lobbyReduce(initialLobbyState(), { type: 'JOIN_ATTEMPT', code: 'zz' });
+    expect(after.mode).toBe('select');
+    expect(after.status).toBe(LOBBY_STATUS.JOIN_INVALID);
+    expect(after.statusColor).toBe(STATUS_COLOR_ERROR);
+    expect(after.errorLatched).toBe(false);
+  });
+
+  it('an invalid code after a surfaced ERROR stays error-red and still latched', () => {
+    // Recolour is idempotent on an already-red line; select-mode input feedback
+    // does not disturb a surfaced-error latch.
     const errored = lobbyReduce(initialLobbyState(), { type: 'ERROR', text: 'boom' });
     const after = lobbyReduce({ ...errored, mode: 'select' }, { type: 'JOIN_ATTEMPT', code: 'zz' });
     expect(after.status).toBe(LOBBY_STATUS.JOIN_INVALID);
-    expect(after.statusColor).toBe(STATUS_COLOR_ERROR); // unchanged, NOT reset to normal
+    expect(after.statusColor).toBe(STATUS_COLOR_ERROR);
+    expect(after.errorLatched).toBe(true);
   });
 });
 
-describe('S64 P1 — statusColor changes ONLY on ERROR / RESET (behaviour-preservation)', () => {
-  // The original wrote statusText.style.fill ONLY in setErrorMessage (red) and
-  // reset (grey); HOST_START / JOIN_ATTEMPT / PEER_STATUS never touched it. So a
-  // stale error-red must CARRY onto the next neutral status until an explicit
-  // reset. Witnesses the CHECK/Grok counterexample (an earlier draft reset the
-  // colour to grey on HOST_START / valid-join, an observable divergence).
-  it('HOST_START after an ERROR keeps the red fill (does NOT reset to grey)', () => {
+describe('S65 — a fresh attempt clears prior error state (status colour + latch)', () => {
+  // S64 preserved the original "fill untouched on HOST / valid-JOIN" behaviour and
+  // logged the resulting stale-red bleed (landmine #2) as a fix-when-wanted item.
+  // S65 makes HOST_START / valid JOIN_ATTEMPT a fresh start: neutral grey AND the
+  // error latch cleared, so a stale error-red can't carry onto the next neutral
+  // status, and Begin-gating works again after an error + re-attempt.
+  it('HOST_START after an ERROR resets to grey and clears the latch', () => {
     const errored = lobbyReduce(initialLobbyState(), { type: 'ERROR', text: 'boom' });
     const s = lobbyReduce(errored, { type: 'HOST_START', code: HOST_CODE });
     expect(s.status).toBe(LOBBY_STATUS.HOSTING_WAIT);
-    expect(s.statusColor).toBe(STATUS_COLOR_ERROR);
+    expect(s.statusColor).toBe(STATUS_COLOR_NORMAL);
+    expect(s.errorLatched).toBe(false);
   });
 
-  it('valid JOIN_ATTEMPT after an ERROR keeps the red fill', () => {
+  it('valid JOIN_ATTEMPT after an ERROR resets to grey and clears the latch', () => {
     const errored = lobbyReduce(initialLobbyState(), { type: 'ERROR', text: 'boom' });
     const s = lobbyReduce(errored, { type: 'JOIN_ATTEMPT', code: VALID_CODE });
     expect(s.status).toBe(LOBBY_STATUS.CONNECTING);
-    expect(s.statusColor).toBe(STATUS_COLOR_ERROR);
+    expect(s.statusColor).toBe(STATUS_COLOR_NORMAL);
+    expect(s.errorLatched).toBe(false);
+  });
+
+  it('clearing the latch on a fresh host attempt lets PEER_STATUS reveal Begin again', () => {
+    // The functional half of the landmine #2 fix: pre-S65 a stale errorLatched
+    // blocked PEER_STATUS forever, so re-hosting after an error never showed
+    // Begin. The fresh HOST_START now clears it.
+    const errored = lobbyReduce(initialLobbyState(), { type: 'ERROR', text: 'boom' });
+    const hosting = lobbyReduce(errored, { type: 'HOST_START', code: HOST_CODE });
+    const s = lobbyReduce(hosting, { type: 'PEER_STATUS', peerCount: 1 });
+    expect(s.beginVisible).toBe(true);
+    expect(s.hostConnected).toBe(true);
+    expect(s.statusColor).toBe(STATUS_COLOR_NORMAL);
+  });
+
+  it('CHECK-fix: HOST_START after a hosting+peer+ERROR retry resets the Begin/peer latches', () => {
+    // GROK-ANALYST counterexample: host a room, a peer joins (beginVisible +
+    // hostConnected latch true), an ERROR surfaces, then the user re-hosts a NEW
+    // room. The fresh HOST_START must NOT carry the stale Begin button /
+    // hostConnected onto the new code (which has no peers yet) — resetting only
+    // colour + latch left those stale-true.
+    let s = lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: HOST_CODE });
+    s = lobbyReduce(s, { type: 'PEER_STATUS', peerCount: 3 });
+    expect(s.beginVisible).toBe(true); // precondition: latched on the first room
+    expect(s.hostConnected).toBe(true);
+    s = lobbyReduce(s, { type: 'ERROR', text: 'transport lost' });
+    const fresh = lobbyReduce(s, { type: 'HOST_START', code: 'WXYZ99' });
+    expect(fresh.code).toBe('WXYZ99');
+    expect(fresh.status).toBe(LOBBY_STATUS.HOSTING_WAIT);
+    expect(fresh.statusColor).toBe(STATUS_COLOR_NORMAL);
+    expect(fresh.errorLatched).toBe(false);
+    expect(fresh.beginVisible).toBe(false); // the CHECK-fix: not stale-true
+    expect(fresh.hostConnected).toBe(false);
   });
 
   it('RESET restores the grey fill', () => {
