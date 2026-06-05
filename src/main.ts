@@ -47,6 +47,7 @@ import type { NetTransport } from './net/transport.ts';
 import { makeNetSession, teardownNet } from './net/session.ts';
 import { createHostStartHandler, createBeginMatchHandler } from './net/hostHandlers.ts';
 import { createJoinAttemptHandler } from './net/clientHandlers.ts';
+import { formatStrategySummary } from './net/strategySummary.ts';
 import { SpatialGrid } from './physics/spatial.ts';
 // S50 P2 — physics tick orchestration extracted to physicsLoop.ts (Council
 // Standard-tier refactor, Battle Ledger C2). main.ts pre-S50 was 1221 LOC;
@@ -807,16 +808,7 @@ async function bootstrap(): Promise<void> {
         // S44 — surface multi-strategy health (Council G-NEW-2 / GE-NEW-2).
         // Shows e.g. "nostr:6/7" = 6 of 7 relays connected. Failed strategies
         // shown as "torrent:fail". Disabled strategies omitted from the strip.
-        const strategySummary = td.strategies
-          .filter((s) => s.state !== 'disabled')
-          .map((s) => {
-            if (s.state === 'failed') return `${s.name}:fail`;
-            if (s.state === 'starting') return `${s.name}:…`;
-            const ok = s.relays.filter((r) => r.connected).length;
-            const total = s.relays.length;
-            return total > 0 ? `${s.name}:${ok}/${total}` : `${s.name}:✓`;
-          })
-          .join(' ');
+        const strategySummary = formatStrategySummary(td.strategies);
         lobbyScreen.updateDiagnostics(
           `sync ${td.accepted}/${td.accepted + td.rejected} ` +
           `seq=${td.lastSeq} kind=${td.lastKind ?? '—'} ` +
@@ -836,16 +828,7 @@ async function bootstrap(): Promise<void> {
       if (world.isHost) {
         const td = session.netTransport.getDiagnostics();
         const ds = lobbyScreen.getDebugState();
-        const strategySummary = td.strategies
-          .filter((s) => s.state !== 'disabled')
-          .map((s) => {
-            if (s.state === 'failed') return `${s.name}:fail`;
-            if (s.state === 'starting') return `${s.name}:…`;
-            const ok = s.relays.filter((r) => r.connected).length;
-            const total = s.relays.length;
-            return total > 0 ? `${s.name}:${ok}/${total}` : `${s.name}:✓`;
-          })
-          .join(' ');
+        const strategySummary = formatStrategySummary(td.strategies);
         lobbyScreen.updateHostDiagnostics(
           `host pc=${session.netTransport.peerCount()} mode=${ds.mode} ` +
           `hc=${ds.hostConnected} bv=${ds.beginButtonVisible} ` +
