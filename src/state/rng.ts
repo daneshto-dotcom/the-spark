@@ -19,7 +19,7 @@ export function mulberry32(seed: number): Rng {
 export const rngRange = (rng: Rng, min: number, max: number): number =>
   min + (max - min) * rng();
 
-export const rngInt = (rng: Rng, minInclusive: number, maxExclusive: number): number =>
+const rngInt = (rng: Rng, minInclusive: number, maxExclusive: number): number =>
   Math.floor(minInclusive + (maxExclusive - minInclusive) * rng());
 
 export const rngPick = <T>(rng: Rng, arr: readonly T[]): T => arr[rngInt(rng, 0, arr.length)];

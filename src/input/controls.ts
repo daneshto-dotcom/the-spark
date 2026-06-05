@@ -62,7 +62,7 @@ import { isInsideEnemyTerritory } from '../state/territory.ts';
 export type ControlsDispatchFn = (action: GameAction) => void;
 
 /** Default dispatcher: solo path. Equivalent to pre-S15 controls behavior. */
-export function makeLocalDispatcher(world: World): ControlsDispatchFn {
+function makeLocalDispatcher(world: World): ControlsDispatchFn {
   return (action) => { dispatch(world, action); };
 }
 

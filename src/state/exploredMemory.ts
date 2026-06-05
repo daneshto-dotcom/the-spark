@@ -152,7 +152,7 @@ export function resetExploredGrid(grid: ExploredGrid): void {
 type RememberablePrimitive = Pick<Primitive, 'id' | 'type' | 'placedBy' | 'pos' | 'ownerColor'>;
 
 /** A remembered enemy structure: a frozen snapshot of where/what it was last seen. */
-export interface GhostStructure {
+interface GhostStructure {
   readonly id: PrimitiveId;
   readonly type: SparkType;
   /** A COPY of the last-seen position — decoupled from the live prim (which the bond

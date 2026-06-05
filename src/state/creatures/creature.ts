@@ -120,10 +120,6 @@ export const VOLTKIN_ATTACK_FIRE_TICK = VOLTKIN_CONFIG.attackFireTick;
  */
 export const VOLTKIN_ATTACK_CHARGE_ENGAGE_TICK = VOLTKIN_CONFIG.attackChargeEngageTick;
 
-// Re-export the config + accessor so the canonical entry point lives next to
-// the existing API. New creature types should consume via getCreatureConfig.
-export { VOLTKIN_CONFIG, CREATURE_CONFIGS, getCreatureConfig, type CreatureConfig } from './voltkin-config.ts';
-
 /**
  * S28 P0 — convert wall-clock cinematic duration (ms) to a tick count for the
  * tick-deterministic pending-spawn schedule (replaces S25's wall-clock setTimeout

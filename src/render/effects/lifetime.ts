@@ -10,8 +10,8 @@ import {
 } from '../../constants.ts';
 import type { GameEffect } from '../../game/effects.ts';
 
-export const COMMIT_DURATION_TICKS = 24; // 0.4s @ 60Hz
-export const ERASE_DURATION_TICKS = 30; // 0.5s @ 60Hz
+const COMMIT_DURATION_TICKS = 24; // 0.4s @ 60Hz
+const ERASE_DURATION_TICKS = 30; // 0.5s @ 60Hz
 export const MERGE_LEAD_IN_TICKS = 4;   // delay before union flash begins
 // S13 P4: 30 → 48 ticks (~800ms) for visibility. Now co-located with the
 // placement cursor (was: fixed HUD corner), so the pulse spends a longer
@@ -26,7 +26,7 @@ export const SCORE_TIER_DURATION_TICKS = 48;
 // Council R1 Q5 UNANIMOUS creature-only: this is THE per-attack feedback
 // (audio S28-deferred per Q4), so the visual must be prominent. Renderer
 // fades alpha 1.0 → 0.0 linearly across the lifetime.
-export const ARC_FLASH_DURATION_TICKS = 24;
+const ARC_FLASH_DURATION_TICKS = 24;
 
 export function effectLifetime(effect: GameEffect): number {
   switch (effect.kind) {

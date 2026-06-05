@@ -27,7 +27,7 @@ export interface CodexEntry {
   readonly characterSprite: string;
 }
 
-export function loadUnlockedSet(): Set<GodlyId> {
+function loadUnlockedSet(): Set<GodlyId> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw === null) return new Set();
@@ -39,7 +39,7 @@ export function loadUnlockedSet(): Set<GodlyId> {
   }
 }
 
-export function persistUnlockedSet(set: Set<GodlyId>): void {
+function persistUnlockedSet(set: Set<GodlyId>): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(set)));
   } catch {

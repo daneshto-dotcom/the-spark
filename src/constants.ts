@@ -23,15 +23,6 @@ export const ALL_SPARK_TYPES: readonly SparkType[] = [
   SparkType.Spiral,
 ];
 
-export const SPARK_TYPE_NAMES: Record<SparkType, string> = {
-  [SparkType.Dot]: 'Dot',
-  [SparkType.Line]: 'Line',
-  [SparkType.Triangle]: 'Triangle',
-  [SparkType.Square]: 'Square',
-  [SparkType.Circle]: 'Circle',
-  [SparkType.Spiral]: 'Spiral',
-};
-
 // Spec § IV color codes — LOCKED.
 export const SPARK_COLORS: Record<SparkType, number> = {
   [SparkType.Dot]: 0xffffff,
@@ -181,17 +172,12 @@ export const STRAIN_BREAK_BY_TIER: Record<StiffnessTier, number> = {
 
 // === Energy & Claim ===
 export const ENERGY_PER_SECOND_FLAT = 5.0;
-export const AREA_CLAIM_BASE = 1.0;
-export const AREA_CLAIM_PER_NEIGHBOR = 0.1;
-export const AREA_CLAIM_CAP = 2.0;
-export const MEGA_COMBO_MULTIPLIER = 1.75;
 
 // === Disruption ===
 export const BUILD_ACTIONS_PER_CHARGE = 5;
 export const MAX_DISRUPTION_CHARGES = 2;
 
 // === Win condition ===
-export const TERRITORY_WIN_THRESHOLD = 0.51;
 // Phase 1 single-player placeholder: trigger WIN at N primitives instead of % canvas.
 // S9 P3: kept for back-compat / fallback tooling but unused in the WIN check —
 // scoreProgress + PHASE_1_WIN_SCORE drive WIN now.

@@ -41,7 +41,7 @@ import { dispatch } from '../state/world.ts';
 import { asPlayerId, type SparkId } from '../types.ts';
 
 export const PHYSICS_DT = 1 / PHYSICS_HZ;
-export const SUBSTEP_DT = PHYSICS_DT / PHYSICS_SUBSTEPS;
+const SUBSTEP_DT = PHYSICS_DT / PHYSICS_SUBSTEPS;
 
 /**
  * One fixed-step physics tick. Caller-gated to host or solo paths only
@@ -126,7 +126,7 @@ export function freeSparkArray(map: ReadonlyMap<SparkId, Spark>): Spark[] {
   return Array.from(map.values());
 }
 
-export function enforceFreeSparkCap(world: Parameters<typeof dispatch>[0]): void {
+function enforceFreeSparkCap(world: Parameters<typeof dispatch>[0]): void {
   let freeCount = 0;
   for (const s of world.freeSparks.values()) {
     if (s.state.kind === 'Free') freeCount++;

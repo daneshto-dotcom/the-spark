@@ -147,7 +147,7 @@ export interface RosterEntry {
   readonly color: number;
 }
 
-export interface StartGameMsg {
+interface StartGameMsg {
   readonly kind: 'START_GAME_SIGNAL';
   // Kept as the literal '1v1' value (the "networked mode" tag) for back-compat;
   // the actual player count is roster.length (2..MAX_PLAYERS). S62.
@@ -156,7 +156,7 @@ export interface StartGameMsg {
   readonly roster: readonly RosterEntry[];
 }
 
-export interface EndGameMsg {
+interface EndGameMsg {
   readonly kind: 'ENDGAME';
   readonly winnerId: PlayerId;
 }
@@ -168,7 +168,7 @@ export interface EndGameMsg {
  * Client routes to local dispatch GODLY_TRIGGER; client NEVER runs the
  * recipe predicate locally (Battle Ledger row 9 anti-desync clarification).
  */
-export interface GodlyTriggerMsg {
+interface GodlyTriggerMsg {
   readonly kind: 'GODLY_TRIGGER';
   readonly event: GodlyTriggerEvent;
 }

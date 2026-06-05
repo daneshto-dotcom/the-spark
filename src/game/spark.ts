@@ -32,7 +32,7 @@ export interface Spark {
   state: SparkState;
 }
 
-export const SPARK_BASE_RADIUS = 9;
+const SPARK_BASE_RADIUS = 9;
 
 export function makeFreeSpark(args: {
   id: SparkId;
@@ -58,4 +58,3 @@ export function makeFreeSpark(args: {
   };
 }
 
-export const isFree = (s: Spark): boolean => s.state.kind === 'Free';

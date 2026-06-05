@@ -124,7 +124,6 @@ let musicVolume = DEFAULT_MUSIC_VOLUME;
 let sfxVolume = DEFAULT_SFX_VOLUME;
 
 let lastDrainedTick = -1;
-let initialized = false;
 
 // S51 P2.c — auto-duck state. `duckEndCtxTime` tracks the AudioContext time
 // at which music should restore (extended by overlapping ducks per Council
@@ -141,7 +140,6 @@ let initialized = false;
 // — the automation queue is ctx-time relative and survives suspend/resume
 // correctly per W3C Web Audio spec §4.3.2.
 let duckEndCtxTime = 0;
-
 
 // S23 P3 — diagnostic counters surfaced via inspectAudioChain for the debug
 // overlay. Increment at function entry / after gate passes so the overlay can
@@ -390,8 +388,6 @@ function ensureAudio(): AudioContext | null {
     sfxGainNode = audioContext.createGain();
     sfxGainNode.gain.value = sfxMuted ? 0 : clamp01(sfxVolume);
     sfxGainNode.connect(masterGain);
-
-    initialized = true;
   } catch {
     audioContext = null;
     masterGain = null;
@@ -463,13 +459,6 @@ export async function playMusic(): Promise<void> {
   musicSource = source;
 }
 
-export function stopMusic(): void {
-  if (musicSource === null) return;
-  try { musicSource.stop(); } catch { /* already stopped */ }
-  musicSource.disconnect();
-  musicSource = null;
-}
-
 /**
  * S22 P4 — one-shot OGG/audio sample playback through the SFX bus. Fetches +
  * decodes + plays once. Caches the AudioBuffer per URL so repeated triggers
@@ -535,10 +524,6 @@ export function toggleMute(): boolean {
 
 export function isMuted(): boolean {
   return masterMuted;
-}
-
-export function isInitialized(): boolean {
-  return initialized;
 }
 
 // ===== S19 P1 per-channel controls =====
@@ -671,7 +656,6 @@ export function _resetAudioForTest(): void {
   // S52 P3 — clear duck schedule state. No setTimeout to clear post-S52
   // (Web Audio automation queue is dropped when audioContext goes null).
   duckEndCtxTime = 0;
-  initialized = false;
 }
 
 async function playClaveSFX(pos?: Vec2): Promise<void> {

@@ -659,7 +659,7 @@ export function collectHostMergeCandidates(
   return ids;
 }
 
-export function makeBond(
+function makeBond(
   world: World,
   a: Primitive,
   b: Primitive,

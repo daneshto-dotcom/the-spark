@@ -32,11 +32,8 @@ import {
 import { type Bond } from '../physics/bonds.ts';
 import { type SparkType } from '../constants.ts';
 import {
-  asBondId,
   asPlayerId,
-  asPrimitiveId,
   asSparkId,
-  asCreatureId,
   type BondId,
   type CreatureId,
   type PlayerId,
@@ -188,7 +185,7 @@ interface SerializedPlayer {
  *
  * Readonly mirrors GameEffect's readonly semantics; client must not mutate.
  */
-export type SerializedEffect =
+type SerializedEffect =
   | {
       readonly kind: 'ARC_FLASH';
       readonly tick: number;
@@ -241,7 +238,7 @@ export type SerializedEffect =
  * needed since client never simulates. PRIME-AUDIT Δ7: readonly to guard
  * against accidental client-side mutation post-applyNetSnapshot.
  */
-export interface SerializedCreature {
+interface SerializedCreature {
   readonly id: CreatureId;
   readonly type: CreatureType;
   readonly pos: Vec2;
@@ -727,9 +724,6 @@ function deserializeCreature(s: SerializedCreature): Creature {
   };
 }
 
-// Brand re-exports so save callers don't need to import types.ts.
-export const SaveBrands = { asPlayerId, asPrimitiveId, asBondId, asCreatureId };
-
 export function saveToLocalStorage(world: World): WorldSnapshot {
   const snap = snapshot(world);
   if (typeof localStorage !== 'undefined') {
@@ -738,11 +732,3 @@ export function saveToLocalStorage(world: World): WorldSnapshot {
   return snap;
 }
 
-export function loadFromLocalStorage(world: World): WorldSnapshot | null {
-  if (typeof localStorage === 'undefined') return null;
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (raw === null) return null;
-  const snap = JSON.parse(raw) as WorldSnapshot;
-  restore(snap, world);
-  return snap;
-}

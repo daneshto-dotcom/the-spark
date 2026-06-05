@@ -9,7 +9,7 @@
 import { BUILD_ACTIONS_PER_CHARGE, MAX_DISRUPTION_CHARGES } from '../constants.ts';
 import type { PlayerId, SparkId, Vec2 } from '../types.ts';
 
-export interface PlayerCommon {
+interface PlayerCommon {
   readonly id: PlayerId;
   readonly color: number;
   energy: number;

@@ -67,12 +67,12 @@ export type PeerChangeHandler = (peerId: string, kind: 'join' | 'leave') => void
 export type MessageHandler = (msg: NetMessage, peerId: string) => void;
 export type ErrorHandler = (msg: string) => void;
 
-export interface RelayDiagnostic {
+interface RelayDiagnostic {
   readonly url: string;
   readonly connected: boolean;
 }
 
-export interface StrategyDiagnostic {
+interface StrategyDiagnostic {
   readonly name: StrategyName;
   readonly state: 'starting' | 'ready' | 'failed' | 'disabled';
   readonly peerCount: number;

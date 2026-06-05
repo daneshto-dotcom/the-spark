@@ -18,7 +18,7 @@ import { VELOCITY_DAMPING } from '../constants.ts';
 import type { Spark } from '../game/spark.ts';
 import type { Vec2 } from '../types.ts';
 
-export const ZERO_ACCEL: Vec2 = { x: 0, y: 0 };
+const ZERO_ACCEL: Vec2 = { x: 0, y: 0 };
 
 /** Step a single body one substep. Mutates spark.pos / spark.prevPos in place. */
 export function verletStep(spark: Spark, dtSub: number, accel: Vec2 = ZERO_ACCEL): void {

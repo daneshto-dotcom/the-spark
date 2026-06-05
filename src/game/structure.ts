@@ -94,17 +94,6 @@ export function bfsHopMap(
   return { hopByPrimId, hopByBondId, maxHop };
 }
 
-/** True if both primitives are in the same connected component. */
-export function isSameStructure(
-  a: Primitive,
-  b: Primitive,
-  primitives: ReadonlyMap<PrimitiveId, Primitive>,
-  bonds: ReadonlyMap<BondId, Bond>,
-): boolean {
-  if (a.id === b.id) return true;
-  return componentOf(a, primitives, bonds).primitiveIds.has(b.id);
-}
-
 /**
  * § VIII.4 LOCKED — sever rule.
  * Cut `bond`, BFS each side excluding the cut bond. If both sides remain

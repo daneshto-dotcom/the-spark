@@ -69,4 +69,4 @@ export function makeTriggerEvent(result: MatchResult, currentTick: number): Godl
   };
 }
 
-export type { GodlyId, GodlyRecipe, GodlyMatch, GodlyTriggerEvent, RecipePredicate } from './types.ts';
+export type { GodlyId, GodlyRecipe, GodlyTriggerEvent } from './types.ts';

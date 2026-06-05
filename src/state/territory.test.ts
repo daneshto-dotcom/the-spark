@@ -24,6 +24,7 @@ import {
 } from '../constants.ts';
 import { asPlayerId, asPrimitiveId, asBondId } from '../types.ts';
 import type { Primitive } from '../game/primitive.ts';
+import type { PhysicsBody } from '../physics/bonds.ts';
 
 // ─── test helpers ──────────────────────────────────────────────────────────
 
@@ -61,8 +62,8 @@ function bondPrims(world: World, a: Primitive, b: Primitive): void {
     id: bondId,
     aId: a.id,
     bId: b.id,
-    a: a as unknown as import('../physics/bonds.ts').PhysicsBody & { id: never },
-    b: b as unknown as import('../physics/bonds.ts').PhysicsBody & { id: never },
+    a: a as unknown as PhysicsBody & { id: never },
+    b: b as unknown as PhysicsBody & { id: never },
     restLength: Math.max(20, Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y)),
     stiffnessTier: 'MID' as const,
     createdTick: world.tick,
