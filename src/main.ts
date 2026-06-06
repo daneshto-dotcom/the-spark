@@ -105,7 +105,6 @@ import {
 import { mulberry32 } from './state/rng.ts';
 import { dispatch, isNetworked, makeWorld, type GameAction, type GameState } from './state/world.ts';
 import { makeGameStateExtras, softReset, tickGameState } from './state/gameState.ts';
-import { saveToLocalStorage } from './state/save.ts';
 import { asPlayerId } from './types.ts';
 
 // S50 P2 — PHYSICS_DT / SUBSTEP_DT extracted to physicsLoop.ts; PHYSICS_DT
@@ -631,9 +630,6 @@ async function bootstrap(): Promise<void> {
           lastViolationLogTick = world.tick;
         }
         invariantSnap = snapshotInvariants(world.primitives);
-      }
-      if (world.gameState === 'POSTGAME' && lastGameState !== 'POSTGAME') {
-        saveToLocalStorage(world);
       }
       // S47 P1 (Sym I fix) — host broadcasts ENDGAME envelope on the
       // PLAYING→WIN transition so the joiner is informed even if the

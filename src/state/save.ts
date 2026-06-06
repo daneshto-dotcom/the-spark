@@ -1,5 +1,5 @@
 /**
- * SPARK — WorldSnapshot serializer + localStorage save/load + NetSnapshot
+ * SPARK — WorldSnapshot serializer + restore + NetSnapshot
  * wire variant for Phase-2 1v1 (§ 11 LOCKED amendment, S15 P2).
  *
  * § 10.4 LOCKED: schemaVersion: 1 — locked across Phase 1. S15 P2
@@ -55,7 +55,6 @@ import type { Creature, CreatureState, CreatureType } from './creatures/creature
 // (single-slot handler stays null), preserving the audit-safe semantics.
 import { triggerReset as triggerAudioCursorReset } from './audioCursor.ts';
 
-const STORAGE_KEY = 'spark.snapshot.v1';
 const PHYSICS_DT = 1 / 60;
 
 export interface WorldSnapshot {
@@ -722,13 +721,5 @@ function deserializeCreature(s: SerializedCreature): Creature {
     spawnedAtTick: 0,
     despawnAtTick: 0,
   };
-}
-
-export function saveToLocalStorage(world: World): WorldSnapshot {
-  const snap = snapshot(world);
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(snap));
-  }
-  return snap;
 }
 
