@@ -19,6 +19,18 @@ export const PANE_GAP = 40;
 export const BUTTON_WIDTH = 220;
 export const BUTTON_HEIGHT = 48;
 
+// S69 P2 — 6-seat lobby rack (2 rows x 3 cols, centered horizontally). Seat i ->
+// PLAYER_COLORS[i]. Pure layout; getSeatRect below derives per-seat canvas rects.
+// Only SEAT_W/SEAT_H are exported (seatRack.ts renders within those bounds); the
+// rest are module-private (consumed only by getSeatRect) to keep knip at zero.
+const SEAT_COLS = 3;
+export const SEAT_W = 380;
+export const SEAT_H = 150;
+const SEAT_GAP = 40;
+const SEAT_RACK_W = SEAT_COLS * SEAT_W + (SEAT_COLS - 1) * SEAT_GAP;
+const SEAT_RACK_X = (CANVAS_WIDTH - SEAT_RACK_W) / 2;
+const SEAT_RACK_Y = 340;
+
 // JOIN pane code-input rectangle in canvas-space (matches the Pixi rect at
 // joinInputBg position: joinPaneX+40, paneY+100, PANE_WIDTH-80, 60).
 export const JOIN_PANE_X = CANVAS_WIDTH / 2 + PANE_GAP / 2;
@@ -206,5 +218,21 @@ export function getJoinPaneOrigin(): { x: number; y: number } {
   return {
     x: CANVAS_WIDTH / 2 + PANE_GAP / 2,
     y: CANVAS_HEIGHT / 2 - PANE_HEIGHT / 2,
+  };
+}
+
+/**
+ * S69 P2 — canvas-space rect of seat `i` in the 2x3 rack (i in 0..MAX_PLAYERS-1).
+ * Pure; exported for seatRack.ts rendering AND vitest bounds/non-overlap coverage.
+ * Row-major: seats 0,1,2 on the top row; 3,4,5 on the bottom row.
+ */
+export function getSeatRect(i: number): { x: number; y: number; w: number; h: number } {
+  const col = i % SEAT_COLS;
+  const row = Math.floor(i / SEAT_COLS);
+  return {
+    x: SEAT_RACK_X + col * (SEAT_W + SEAT_GAP),
+    y: SEAT_RACK_Y + row * (SEAT_H + SEAT_GAP),
+    w: SEAT_W,
+    h: SEAT_H,
   };
 }

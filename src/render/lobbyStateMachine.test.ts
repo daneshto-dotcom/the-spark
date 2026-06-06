@@ -19,6 +19,7 @@ import {
   STATUS_COLOR_NORMAL,
   type LobbyState,
 } from './lobbyStateMachine.ts';
+import { MAX_PLAYERS, PLAYER_COLORS } from '../constants.ts';
 
 const VALID_CODE = 'ABCDEF'; // [2-9A-HJ-NP-Z]{6}
 const HOST_CODE = 'A2B3C4';
@@ -33,6 +34,7 @@ describe('S64 P1 — initialLobbyState', () => {
       beginVisible: false,
       hostConnected: false,
       errorLatched: false,
+      peerCount: 0,
     });
   });
 
@@ -225,6 +227,16 @@ describe('S64 P1 — PEER_STATUS (hosting)', () => {
   it('peerCount 0 is a no-op (same reference)', () => {
     expect(lobbyReduce(hosting, { type: 'PEER_STATUS', peerCount: 0 })).toBe(hosting);
   });
+
+  it('S69 P2: peerCount drop to 0 is a NO-OP (transient-drop resilience; rack keeps last count)', () => {
+    // The per-frame ticker passes the REAL peerCount; a transient WebRTC blip to 0
+    // must NOT flicker the rack back to lone-host. peerCount===0 is a deliberate
+    // no-op (CHECK Grok-1: reacting to 0 was tried + reverted — it broke this
+    // resilience AND the lobby-construction e2e's simulatePeerJoin persistence).
+    const s3 = lobbyReduce(hosting, { type: 'PEER_STATUS', peerCount: 3 });
+    const s0 = lobbyReduce(s3, { type: 'PEER_STATUS', peerCount: 0 });
+    expect(s0).toBe(s3); // same ref: the live count persists
+  });
 });
 
 describe('S64 P1 — PEER_STATUS (joining + select)', () => {
@@ -236,10 +248,22 @@ describe('S64 P1 — PEER_STATUS (joining + select)', () => {
     expect(s.mode).toBe('joining');
   });
 
-  it('CHURN GUARD: joining peer status is idempotent (same reference)', () => {
+  it('CHURN GUARD: joining peer status is idempotent for the SAME count (same reference)', () => {
     const joining = lobbyReduce(initialLobbyState(), { type: 'JOIN_ATTEMPT', code: VALID_CODE });
     const s1 = lobbyReduce(joining, { type: 'PEER_STATUS', peerCount: 1 });
-    expect(lobbyReduce(s1, { type: 'PEER_STATUS', peerCount: 2 })).toBe(s1);
+    expect(lobbyReduce(s1, { type: 'PEER_STATUS', peerCount: 1 })).toBe(s1);
+  });
+
+  it('S69 P2: a CHANGED joining count produces a new state (the joiner rack must update)', () => {
+    // Pre-S69 the joiner froze at its first-seen count (status stayed JOINED_WAIT,
+    // same-ref). Council A2: store the live count so the joiner's seat rack tracks
+    // players joining/leaving. The status STRING is unchanged; the count drives the rack.
+    const joining = lobbyReduce(initialLobbyState(), { type: 'JOIN_ATTEMPT', code: VALID_CODE });
+    const s1 = lobbyReduce(joining, { type: 'PEER_STATUS', peerCount: 1 });
+    const s2 = lobbyReduce(s1, { type: 'PEER_STATUS', peerCount: 2 });
+    expect(s2).not.toBe(s1);
+    expect(s2.peerCount).toBe(2);
+    expect(s2.status).toBe(LOBBY_STATUS.JOINED_WAIT);
   });
 
   it('select mode PEER_STATUS is a no-op (same reference)', () => {
@@ -304,6 +328,69 @@ describe('S64 P1 — lobbyView pane-alpha derivation', () => {
   });
 });
 
+describe('S69 P2 — lobbyView seat rack derivation', () => {
+  const hostingN = (peerCount: number) =>
+    lobbyView(
+      lobbyReduce(lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: HOST_CODE }), {
+        type: 'PEER_STATUS',
+        peerCount,
+      }),
+    );
+
+  it('select: MAX_PLAYERS seats, all empty, total 0, not full', () => {
+    const v = lobbyView(initialLobbyState());
+    expect(v.seats).toHaveLength(MAX_PLAYERS);
+    expect(v.seats.every((s) => !s.occupied)).toBe(true);
+    expect(v.totalPlayers).toBe(0);
+    expect(v.roomFull).toBe(false);
+  });
+
+  it('seat i maps to PLAYER_COLORS[i]', () => {
+    const v = lobbyView(initialLobbyState());
+    for (let i = 0; i < MAX_PLAYERS; i++) expect(v.seats[i].color).toBe(PLAYER_COLORS[i]);
+  });
+
+  it('hosting with 0 peers: only seat 0 occupied, marked host + you, total 1', () => {
+    const v = lobbyView(lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: HOST_CODE }));
+    expect(v.totalPlayers).toBe(1);
+    expect(v.seats[0]).toMatchObject({ occupied: true, isHost: true, isYou: true });
+    expect(v.seats[1].occupied).toBe(false);
+    expect(v.roomFull).toBe(false);
+  });
+
+  it('hosting with N peers: occupancy = peerCount + 1 in seat order', () => {
+    const v = hostingN(2); // 3 players
+    expect(v.totalPlayers).toBe(3);
+    expect(v.seats.map((s) => s.occupied)).toEqual([true, true, true, false, false, false]);
+  });
+
+  it('hosting full (peerCount 5): all 6 occupied, roomFull true', () => {
+    const v = hostingN(5);
+    expect(v.totalPlayers).toBe(MAX_PLAYERS);
+    expect(v.roomFull).toBe(true);
+    expect(v.seats.every((s) => s.occupied)).toBe(true);
+  });
+
+  it('S69 P2 CHECK clamp: an over-count (7th peer pre-Begin) caps total at MAX_PLAYERS', () => {
+    const v = hostingN(6); // 7 players attempted
+    expect(v.totalPlayers).toBe(MAX_PLAYERS);
+    expect(v.roomFull).toBe(true);
+    expect(v.seats.every((s) => s.occupied)).toBe(true);
+  });
+
+  it('joining: seat 0 is the host (NOT you); no seat is marked isYou (count-based)', () => {
+    const v = lobbyView(
+      lobbyReduce(lobbyReduce(initialLobbyState(), { type: 'JOIN_ATTEMPT', code: VALID_CODE }), {
+        type: 'PEER_STATUS',
+        peerCount: 1,
+      }),
+    );
+    expect(v.totalPlayers).toBe(2);
+    expect(v.seats[0]).toMatchObject({ occupied: true, isHost: true, isYou: false });
+    expect(v.seats.some((s) => s.isYou)).toBe(false);
+  });
+});
+
 describe('S64 P1 — purity', () => {
   it('lobbyReduce does not mutate its input state', () => {
     const before = lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: HOST_CODE });
@@ -324,6 +411,8 @@ describe('S64 P1 — literal CANARY (src-pinning; e2e asserts substrings of thes
     expect(hostingConnectedStatus(1)).toBe('2 players connected — press Begin Match (up to 6).');
     // The exact substring the P3 e2e net (lobby-construction.spec.ts) asserts:
     expect(hostingConnectedStatus(1)).toContain('players connected');
+    // S69 P2 CHECK (Grok-2): displayed count caps at MAX_PLAYERS (no "7 ... up to 6").
+    expect(hostingConnectedStatus(6)).toBe('6 players connected — press Begin Match (up to 6).');
   });
 
   it('status colours are the pinned values', () => {

@@ -34,6 +34,7 @@
  */
 
 import { isValidRoomCode } from './lobbyGeometry.ts';
+import { MAX_PLAYERS, PLAYER_COLORS } from '../constants.ts';
 
 export type LobbyMode = 'select' | 'hosting' | 'joining';
 
@@ -56,7 +57,11 @@ export const LOBBY_STATUS = {
 
 /** Host-side "N players connected" status. total = peerCount + 1 (incl. the host). */
 export function hostingConnectedStatus(peerCount: number): string {
-  return `${peerCount + 1} players connected — press Begin Match (up to 6).`;
+  // S69 P2 CHECK (Grok-2): cap the displayed count at MAX_PLAYERS. During the
+  // lobby a 7th+ peer can connect before the host's Begin drops it, which would
+  // otherwise render the self-contradictory "7 players ... (up to 6)".
+  const shown = Math.min(peerCount + 1, MAX_PLAYERS);
+  return `${shown} players connected — press Begin Match (up to 6).`;
 }
 
 export interface LobbyState {
@@ -67,6 +72,15 @@ export interface LobbyState {
   readonly beginVisible: boolean;
   readonly hostConnected: boolean;
   readonly errorLatched: boolean;
+  /**
+   * S69 P2 — live connected-peer count, stored so the 6-seat rack view can be
+   * derived from it (the status STRING embeds the number but must not be parsed).
+   * total players = peerCount + 1 (you) while in a room. Reset to 0 on
+   * HOST_START / JOIN_ATTEMPT / RESET. Hosting already re-rendered on count
+   * change via the status string; joining did NOT (froze the joiner rack) —
+   * storing the count makes a count delta observable in BOTH modes (Council A2).
+   */
+  readonly peerCount: number;
 }
 
 export type LobbyEvent =
@@ -85,6 +99,7 @@ export function initialLobbyState(): LobbyState {
     beginVisible: false,
     hostConnected: false,
     errorLatched: false,
+    peerCount: 0,
   };
 }
 
@@ -114,6 +129,7 @@ export function lobbyReduce(state: LobbyState, event: LobbyEvent): LobbyState {
         beginVisible: false,
         hostConnected: false,
         errorLatched: false,
+        peerCount: 0,
       };
 
     case 'JOIN_ATTEMPT':
@@ -143,6 +159,7 @@ export function lobbyReduce(state: LobbyState, event: LobbyEvent): LobbyState {
           beginVisible: false,
           hostConnected: false,
           errorLatched: false,
+          peerCount: 0,
         };
       }
       // S65 landmine #1 fix: an invalid code is an error, so it renders in
@@ -160,22 +177,30 @@ export function lobbyReduce(state: LobbyState, event: LobbyEvent): LobbyState {
 
       if (state.mode === 'hosting' && event.peerCount > 0) {
         const status = hostingConnectedStatus(event.peerCount);
-        // Original churn guard: re-render only when `!hostConnected || text
-        // changed`. (hostConnected === true implies beginVisible === true, since
-        // only RESET clears both, so this is the exact original condition.)
-        if (state.hostConnected && state.status === status) return state;
-        return { ...state, hostConnected: true, status, beginVisible: true };
+        // S69 P2: re-render on a count change (the seat rack derives from
+        // peerCount, not just the status string). hostConnected + beginVisible
+        // latch true (only RESET clears them).
+        if (state.hostConnected && state.peerCount === event.peerCount && state.status === status) {
+          return state;
+        }
+        return { ...state, peerCount: event.peerCount, hostConnected: true, status, beginVisible: true };
       }
 
       if (state.mode === 'joining' && event.peerCount > 0) {
-        // The original re-set this every frame; same-ref-on-no-change makes the
-        // joining path inherit the hosting path's churn guard — unobservable
-        // (identical status / alphas / visibility), just no per-frame alloc.
-        if (state.status === LOBBY_STATUS.JOINED_WAIT) return state;
-        return { ...state, status: LOBBY_STATUS.JOINED_WAIT };
+        // S69 P2 (Council A2): track the live count so the JOINER's rack updates as
+        // players join (was: same-ref after first peer, which froze the joiner rack).
+        if (state.peerCount === event.peerCount && state.status === LOBBY_STATUS.JOINED_WAIT) {
+          return state;
+        }
+        return { ...state, peerCount: event.peerCount, status: LOBBY_STATUS.JOINED_WAIT };
       }
 
-      // peerCount === 0, or select mode: nothing to do.
+      // peerCount === 0, or select mode: intentional NO-OP. The per-frame ticker
+      // passes the REAL peerCount, so a transient WebRTC blip to 0 must NOT flicker
+      // the rack back to lone-host; persistent drops are handled by the
+      // connection-lost overlay (PLAYING) + P3's accurate roster. (CHECK Grok-1:
+      // reacting to 0 was tried + reverted — it broke this resilience AND the
+      // lobby-construction e2e's simulatePeerJoin persistence contract.)
       return state;
     }
 
@@ -192,20 +217,62 @@ export function lobbyReduce(state: LobbyState, event: LobbyEvent): LobbyState {
   }
 }
 
+/**
+ * S69 P2 — one seat in the 6-slot lobby rack. PURE projection of LobbyState; the
+ * shell renders it via seatRack.ts. `isYou` is reliable only on the HOST (seat 0)
+ * in this count-based model — a joiner cannot know its own seat index until the
+ * host mints the roster at Begin (the per-seat presence broadcast is P3).
+ */
+export interface SeatView {
+  readonly index: number;
+  readonly color: number;
+  readonly occupied: boolean;
+  readonly isHost: boolean;
+  readonly isYou: boolean;
+}
+
 export interface LobbyView extends LobbyState {
   readonly hostPaneAlpha: number;
   readonly joinPaneAlpha: number;
+  /** MAX_PLAYERS seat slots, ordered 0..N-1 (seat i -> PLAYER_COLORS[i]). */
+  readonly seats: readonly SeatView[];
+  /** total players in the room (you + peers) while hosting/joining, else 0. */
+  readonly totalPlayers: number;
+  /** true once the room holds MAX_PLAYERS (the 7th peer is dropped host-side). */
+  readonly roomFull: boolean;
 }
 
 /**
- * Pure derivation of the renderable view — adds the two pane alphas (the
- * original renderState(): the inactive pane dims to 0.3 while the other mode is
- * committed). The shell applies these fields to its Pixi objects.
+ * Pure derivation of the renderable view — adds the two pane alphas (the inactive
+ * pane dims to 0.3 while the other mode is committed) and the S69 P2 seat rack.
+ *
+ * Seats are COUNT-based: occupied = index < (peerCount + 1) while in a room.
+ * This shows how many seats are filled, not WHO is in each (per-seat identity on
+ * joiners needs the host roster, broadcast only at Begin today — P3 closes that).
  */
 export function lobbyView(state: LobbyState): LobbyView {
+  const inRoom = state.mode !== 'select';
+  // S69 P2 CHECK (Grok-2): clamp to [1, MAX_PLAYERS] while in a room — guards a
+  // transient over-count (7th peer pre-Begin) from rendering "Room 7/6", and any
+  // spurious negative count from the transport.
+  const totalPlayers = inRoom ? Math.max(1, Math.min(state.peerCount + 1, MAX_PLAYERS)) : 0;
+  const seats: SeatView[] = [];
+  for (let i = 0; i < MAX_PLAYERS; i++) {
+    const occupied = inRoom && i < totalPlayers;
+    seats.push({
+      index: i,
+      color: PLAYER_COLORS[i],
+      occupied,
+      isHost: occupied && i === 0,
+      isYou: state.mode === 'hosting' && i === 0,
+    });
+  }
   return {
     ...state,
     hostPaneAlpha: state.mode === 'joining' ? 0.3 : 1,
     joinPaneAlpha: state.mode === 'hosting' ? 0.3 : 1,
+    seats,
+    totalPlayers,
+    roomFull: totalPlayers >= MAX_PLAYERS,
   };
 }

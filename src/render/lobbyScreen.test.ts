@@ -10,7 +10,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
+import { CANVAS_HEIGHT, CANVAS_WIDTH, MAX_PLAYERS } from '../constants.ts';
+import { getSeatRect } from './lobbyGeometry.ts';
 import {
   cssToCanvasCoords,
   getConnectButtonCanvasBounds,
@@ -303,5 +304,52 @@ describe('S17 P0\' — button positioning regression (Connect off-screen bug)', 
     // Distance from center identical (symmetry).
     expect(Math.abs(CANVAS_WIDTH / 2 - hostCenterX))
       .toBeCloseTo(Math.abs(joinCenterX - CANVAS_WIDTH / 2), 6);
+  });
+});
+
+describe('S69 P2 — getSeatRect (6-seat 2x3 rack layout)', () => {
+  const rects = Array.from({ length: MAX_PLAYERS }, (_, i) => getSeatRect(i));
+
+  it('produces MAX_PLAYERS in-bounds rects', () => {
+    expect(rects).toHaveLength(MAX_PLAYERS);
+    for (const r of rects) {
+      expect(r.x).toBeGreaterThanOrEqual(0);
+      expect(r.y).toBeGreaterThanOrEqual(0);
+      expect(r.x + r.w).toBeLessThanOrEqual(CANVAS_WIDTH);
+      expect(r.y + r.h).toBeLessThanOrEqual(CANVAS_HEIGHT);
+    }
+  });
+
+  it('no two seats overlap', () => {
+    for (let a = 0; a < rects.length; a++) {
+      for (let b = a + 1; b < rects.length; b++) {
+        const ra = rects[a];
+        const rb = rects[b];
+        const disjoint =
+          ra.x + ra.w <= rb.x ||
+          rb.x + rb.w <= ra.x ||
+          ra.y + ra.h <= rb.y ||
+          rb.y + rb.h <= ra.y;
+        expect(disjoint).toBe(true);
+      }
+    }
+  });
+
+  it('lays out row-major 2x3: seats 0-2 top row, 3-5 bottom row', () => {
+    expect(rects[0].y).toBe(rects[1].y);
+    expect(rects[1].y).toBe(rects[2].y);
+    expect(rects[3].y).toBe(rects[4].y);
+    expect(rects[4].y).toBe(rects[5].y);
+    expect(rects[3].y).toBeGreaterThan(rects[0].y);
+    expect(rects[0].x).toBeLessThan(rects[1].x);
+    expect(rects[1].x).toBeLessThan(rects[2].x);
+    expect(rects[0].x).toBe(rects[3].x); // same column across rows shares x
+  });
+
+  it('all seats share identical dimensions', () => {
+    for (const r of rects) {
+      expect(r.w).toBe(rects[0].w);
+      expect(r.h).toBe(rects[0].h);
+    }
   });
 });

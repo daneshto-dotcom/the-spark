@@ -12,7 +12,7 @@
  */
 
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
-import { CANVAS_HEIGHT, CANVAS_WIDTH, PLAYER_COLORS } from '../constants.ts';
+import { CANVAS_HEIGHT, CANVAS_WIDTH, MAX_PLAYERS, PLAYER_COLORS } from '../constants.ts';
 import {
   makeConnectionLostOverlay,
   type ConnectionLostOverlayHandle,
@@ -25,6 +25,8 @@ import {
   type LobbyMode,
   type LobbyState,
 } from './lobbyStateMachine.ts';
+// S69 P2 — the 6-seat rack renderer, extracted so this shell does not grow (Council A1).
+import { makeSeatRack, type SeatRackHandle } from './seatRack.ts';
 
 // S60 P4 — the pure geometry/validation helpers + layout/validation constants
 // moved to lobbyGeometry.ts (§XV de-hypertrophy). The class imports what it needs;
@@ -83,6 +85,9 @@ export class LobbyScreen {
   private state: LobbyState = initialLobbyState();
   private statusText: Text;
   private codeText: Text;
+  // S69 P2 — 6-seat rack (shown in-room) + "Room N/6" count line.
+  private readonly seatRack: SeatRackHandle;
+  private countText: Text;
   private hostPane: Container;
   private joinPane: Container;
   private joinButton: Container;
@@ -183,13 +188,32 @@ export class LobbyScreen {
     hostBtn.position.set(PANE_WIDTH / 2 - BUTTON_WIDTH / 2, 220);
     this.hostPane.addChild(hostBtn);
 
+    // S69 P2 — room code relocated OUT of the host pane to a standalone prominent
+    // position (panes hide once you enter a room; the seat rack takes the centre).
+    // getRoomCode() still reads this.codeText.text, so the e2e contract is intact.
     this.codeText = new Text({
       text: '',
-      style: new TextStyle({ fontFamily: 'monospace', fontSize: 56, fill: 0xffffff, letterSpacing: 12 }),
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 64, fill: 0xffffff, letterSpacing: 14 }),
     });
     this.codeText.anchor.set(0.5);
-    this.codeText.position.set(PANE_WIDTH / 2, 130);
-    this.hostPane.addChild(this.codeText);
+    this.codeText.position.set(CANVAS_WIDTH / 2, 250);
+    this.codeText.visible = false;
+    this.container.addChild(this.codeText);
+
+    // S69 P2 — the 6-seat rack (extracted to seatRack.ts). Visible once in a room.
+    this.seatRack = makeSeatRack();
+    this.seatRack.container.visible = false;
+    this.container.addChild(this.seatRack.container);
+
+    // S69 P2 — "Room N/6" (+ FULL) count line, below the rack, in-room only.
+    this.countText = new Text({
+      text: '',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 22, fill: 0xaaaaaa, letterSpacing: 2 }),
+    });
+    this.countText.anchor.set(0.5);
+    this.countText.position.set(CANVAS_WIDTH / 2, 710);
+    this.countText.visible = false;
+    this.container.addChild(this.countText);
 
     // Join pane visual border (pane-relative; HTML input overlays this rect).
     const joinInputBg = new Graphics();
@@ -521,8 +545,23 @@ export class LobbyScreen {
     if (this.statusText.text !== v.status) this.statusText.text = v.status;
     this.statusText.style.fill = v.statusColor;
     if (this.beginButton.visible !== v.beginVisible) this.beginButton.visible = v.beginVisible;
-    if (this.hostPane.alpha !== v.hostPaneAlpha) this.hostPane.alpha = v.hostPaneAlpha;
-    if (this.joinPane.alpha !== v.joinPaneAlpha) this.joinPane.alpha = v.joinPaneAlpha;
+
+    // S69 P2 — the SELECT screen shows the two entry panes; once in a room they
+    // hide and the 6-seat rack + room code + count line take over. The control
+    // buttons (Host / Connect / Begin / Back) keep FIXED positions so the e2e
+    // click coords stay stable regardless of seat fill (Council A3).
+    const inRoom = v.mode !== 'select';
+    if (this.hostPane.visible !== !inRoom) this.hostPane.visible = !inRoom;
+    if (this.joinPane.visible !== !inRoom) this.joinPane.visible = !inRoom;
+    if (this.seatRack.container.visible !== inRoom) this.seatRack.container.visible = inRoom;
+    const showCode = v.mode === 'hosting';
+    if (this.codeText.visible !== showCode) this.codeText.visible = showCode;
+    if (this.countText.visible !== inRoom) this.countText.visible = inRoom;
+    if (inRoom) {
+      this.seatRack.update(v.seats);
+      const countStr = `Room ${v.totalPlayers}/${MAX_PLAYERS}${v.roomFull ? ' — FULL' : ''}`;
+      if (this.countText.text !== countStr) this.countText.text = countStr;
+    }
   }
 
   private makePane(label: string, accentColor: number, x: number, y: number): Container {
