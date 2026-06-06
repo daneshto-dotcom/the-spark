@@ -18,6 +18,7 @@ import {
   STATUS_COLOR_ERROR,
   STATUS_COLOR_NORMAL,
   type LobbyState,
+  type SeatPresence,
 } from './lobbyStateMachine.ts';
 import { MAX_PLAYERS, PLAYER_COLORS } from '../constants.ts';
 
@@ -35,6 +36,7 @@ describe('S64 P1 — initialLobbyState', () => {
       hostConnected: false,
       errorLatched: false,
       peerCount: 0,
+      presenceRoster: null,
     });
   });
 
@@ -418,5 +420,157 @@ describe('S64 P1 — literal CANARY (src-pinning; e2e asserts substrings of thes
   it('status colours are the pinned values', () => {
     expect(STATUS_COLOR_NORMAL).toBe(0xaaaaaa);
     expect(STATUS_COLOR_ERROR).toBe(0xff3b6b);
+  });
+});
+
+describe('S70 P1 — PRESENCE event (roster store + churn-guard + gating)', () => {
+  const hosting = lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: HOST_CODE });
+  const joining = lobbyReduce(initialLobbyState(), { type: 'JOIN_ATTEMPT', code: VALID_CODE });
+  const roster2: SeatPresence[] = [
+    { seat: 0, color: PLAYER_COLORS[0], isYou: false },
+    { seat: 1, color: PLAYER_COLORS[1], isYou: true },
+  ];
+
+  it('stores the roster while in a room (hosting + joining)', () => {
+    const h = lobbyReduce(hosting, { type: 'PRESENCE', roster: roster2 });
+    expect(h).not.toBe(hosting);
+    expect(h.presenceRoster).toEqual(roster2);
+    expect(lobbyReduce(joining, { type: 'PRESENCE', roster: roster2 }).presenceRoster).toEqual(roster2);
+  });
+
+  it('CHURN GUARD: an identical roster (by content) returns the SAME reference', () => {
+    const s1 = lobbyReduce(hosting, { type: 'PRESENCE', roster: roster2 });
+    const sameContent: SeatPresence[] = [
+      { seat: 0, color: PLAYER_COLORS[0], isYou: false },
+      { seat: 1, color: PLAYER_COLORS[1], isYou: true },
+    ];
+    expect(lobbyReduce(s1, { type: 'PRESENCE', roster: sameContent })).toBe(s1);
+  });
+
+  it('a changed roster (peer added, or own-seat moved) produces a new state', () => {
+    const s1 = lobbyReduce(hosting, { type: 'PRESENCE', roster: roster2 });
+    const added: SeatPresence[] = [...roster2, { seat: 2, color: PLAYER_COLORS[2], isYou: false }];
+    expect(lobbyReduce(s1, { type: 'PRESENCE', roster: added })).not.toBe(s1);
+    const moved: SeatPresence[] = [
+      { seat: 0, color: PLAYER_COLORS[0], isYou: true },
+      { seat: 1, color: PLAYER_COLORS[1], isYou: false },
+    ];
+    expect(lobbyReduce(s1, { type: 'PRESENCE', roster: moved })).not.toBe(s1);
+  });
+
+  it('PRESENCE in select mode is a no-op (same ref) — defense-in-depth with the recv gate', () => {
+    const init = initialLobbyState();
+    expect(lobbyReduce(init, { type: 'PRESENCE', roster: roster2 })).toBe(init);
+  });
+
+  it('once errorLatched, PRESENCE cannot clobber the error (same ref)', () => {
+    const errored = lobbyReduce(hosting, { type: 'ERROR', text: 'mismatch' });
+    expect(lobbyReduce(errored, { type: 'PRESENCE', roster: roster2 })).toBe(errored);
+  });
+
+  it('HOST_START / JOIN_ATTEMPT / RESET clear a prior presence roster to null', () => {
+    const withRoster = lobbyReduce(hosting, { type: 'PRESENCE', roster: roster2 });
+    expect(withRoster.presenceRoster).not.toBeNull();
+    expect(lobbyReduce(withRoster, { type: 'HOST_START', code: HOST_CODE }).presenceRoster).toBeNull();
+    expect(
+      lobbyReduce({ ...withRoster, mode: 'select' }, { type: 'JOIN_ATTEMPT', code: VALID_CODE }).presenceRoster,
+    ).toBeNull();
+    expect(lobbyReduce(withRoster, { type: 'RESET' }).presenceRoster).toBeNull();
+  });
+
+  it('a null roster (teardown) is stored and re-enables count-based view', () => {
+    const s1 = lobbyReduce(hosting, { type: 'PRESENCE', roster: roster2 });
+    const s2 = lobbyReduce(s1, { type: 'PRESENCE', roster: null });
+    expect(s2).not.toBe(s1);
+    expect(s2.presenceRoster).toBeNull();
+  });
+
+  it('does not mutate its input state', () => {
+    const before = lobbyReduce(hosting, { type: 'PRESENCE', roster: roster2 });
+    const snapshot = { ...before, presenceRoster: [...(before.presenceRoster ?? [])] };
+    lobbyReduce(before, { type: 'PRESENCE', roster: [{ seat: 0, color: 1, isYou: false }] });
+    expect(before.presenceRoster).toEqual(snapshot.presenceRoster);
+  });
+});
+
+describe('S70 P1 — lobbyView roster-derived seats (joiner own-seat + drop-on-leave)', () => {
+  const joinWith = (roster: SeatPresence[] | null) => {
+    let s = lobbyReduce(initialLobbyState(), { type: 'JOIN_ATTEMPT', code: VALID_CODE });
+    s = lobbyReduce(s, { type: 'PEER_STATUS', peerCount: 1 });
+    if (roster !== null) s = lobbyReduce(s, { type: 'PRESENCE', roster });
+    return lobbyView(s);
+  };
+
+  it('the JOINER now sees its OWN seat (isYou on the roster seat, not just the host) — the P3 win', () => {
+    const v = joinWith([
+      { seat: 0, color: PLAYER_COLORS[0], isYou: false },
+      { seat: 1, color: PLAYER_COLORS[1], isYou: false },
+      { seat: 2, color: PLAYER_COLORS[2], isYou: true },
+    ]);
+    expect(v.seats[2]).toMatchObject({ occupied: true, isYou: true });
+    expect(v.seats[0]).toMatchObject({ occupied: true, isHost: true, isYou: false });
+    expect(v.seats.filter((x) => x.isYou)).toHaveLength(1);
+    expect(v.totalPlayers).toBe(3);
+  });
+
+  it('roster colour overrides per seat; empty seats keep their index colour', () => {
+    const v = joinWith([
+      { seat: 0, color: 0x111111, isYou: false },
+      { seat: 1, color: 0x222222, isYou: true },
+    ]);
+    expect(v.seats[0].color).toBe(0x111111);
+    expect(v.seats[1].color).toBe(0x222222);
+    expect(v.seats[2].color).toBe(PLAYER_COLORS[2]);
+  });
+
+  it('drop-on-leave: a shorter (re-broadcast) roster vacates the dropped seats accurately', () => {
+    const full = joinWith([
+      { seat: 0, color: PLAYER_COLORS[0], isYou: false },
+      { seat: 1, color: PLAYER_COLORS[1], isYou: false },
+      { seat: 2, color: PLAYER_COLORS[2], isYou: true },
+    ]);
+    expect(full.seats.map((x) => x.occupied)).toEqual([true, true, true, false, false, false]);
+    // The peer in seat 1 leaves → host re-broadcasts a compacted 2-seat roster
+    // (the joiner compacts seat 2→1, consistent with the Begin formula).
+    const afterLeave = joinWith([
+      { seat: 0, color: PLAYER_COLORS[0], isYou: false },
+      { seat: 1, color: PLAYER_COLORS[2], isYou: true },
+    ]);
+    expect(afterLeave.seats.map((x) => x.occupied)).toEqual([true, true, false, false, false, false]);
+    expect(afterLeave.totalPlayers).toBe(2);
+    expect(afterLeave.seats[1].isYou).toBe(true);
+  });
+
+  it('roster SUPERSEDES count: a stale higher peerCount does not over-fill a smaller roster', () => {
+    let s = lobbyReduce(initialLobbyState(), { type: 'JOIN_ATTEMPT', code: VALID_CODE });
+    s = lobbyReduce(s, { type: 'PEER_STATUS', peerCount: 5 }); // count-based would show 6
+    s = lobbyReduce(s, {
+      type: 'PRESENCE',
+      roster: [
+        { seat: 0, color: PLAYER_COLORS[0], isYou: false },
+        { seat: 1, color: PLAYER_COLORS[1], isYou: true },
+      ],
+    });
+    const v = lobbyView(s);
+    expect(v.totalPlayers).toBe(2);
+    expect(v.seats.map((x) => x.occupied)).toEqual([true, true, false, false, false, false]);
+  });
+
+  it('FALLBACK: with no roster yet the joiner stays count-based (no own-seat) — pre-beacon window', () => {
+    const v = joinWith(null);
+    expect(v.totalPlayers).toBe(2);
+    expect(v.seats.some((x) => x.isYou)).toBe(false);
+  });
+
+  it('roomFull derives from roster length (6/6) and own-seat survives a full room', () => {
+    const roster = Array.from({ length: MAX_PLAYERS }, (_, i) => ({
+      seat: i,
+      color: PLAYER_COLORS[i],
+      isYou: i === 3,
+    }));
+    const v = joinWith(roster);
+    expect(v.roomFull).toBe(true);
+    expect(v.seats.every((x) => x.occupied)).toBe(true);
+    expect(v.seats[3].isYou).toBe(true);
   });
 });

@@ -43,7 +43,8 @@ import { Controls, type ControlsDispatchFn } from './input/controls.ts';
 // S50 P2 — NetTransport / HostSync / ClientSync / generateRoomCode no longer
 // referenced directly from main.ts after lobby-callback extraction (Battle
 // Ledger C2). NetTransport type retained only for the __SPARK__ DEV accessor.
-import type { NetTransport } from './net/transport.ts';
+import { selfId, type NetTransport } from './net/transport.ts';
+import type { RosterEntry } from './net/protocol.ts';
 import { makeNetSession, teardownNet } from './net/session.ts';
 import { createHostStartHandler, createBeginMatchHandler } from './net/hostHandlers.ts';
 import { createJoinAttemptHandler } from './net/clientHandlers.ts';
@@ -318,12 +319,23 @@ async function bootstrap(): Promise<void> {
   const onLobbyError = (errMsg: string): void => {
     lobbyScreen.setErrorMessage(errMsg);
   };
-  const onHostStart = createHostStartHandler({ session, world, onLobbyError });
+  // S70 P1 — digest the net seat roster (the host on each peer join/leave; the
+  // joiner on each LOBBY_PRESENCE beacon) into the render-local SeatPresence shape
+  // at this composition root, computing isYou via peerId === selfId. This keeps
+  // BOTH the pure reducer AND lobbyScreen free of net/ imports (Council Fork C).
+  // Late-bound like onLobbyError so it can reference lobbyScreen before it exists.
+  const onPresence = (roster: readonly RosterEntry[]): void => {
+    lobbyScreen.updatePresence(
+      roster.map((e) => ({ seat: e.seat, color: e.color, isYou: e.peerId === selfId })),
+    );
+  };
+  const onHostStart = createHostStartHandler({ session, world, onLobbyError, onPresence });
   const onJoinAttempt = createJoinAttemptHandler({
     session,
     world,
     controls,
     onLobbyError,
+    onPresence,
   });
   const onBeginMatch = createBeginMatchHandler({ session, world });
 

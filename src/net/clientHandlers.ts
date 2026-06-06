@@ -14,6 +14,7 @@
 
 import { ClientSync } from './sync.ts';
 import type { NetSession } from './session.ts';
+import type { RosterEntry } from './protocol.ts';
 import { NetTransport, selfId } from './transport.ts';
 import type { Controls } from '../input/controls.ts';
 import { dispatch, type World } from '../state/world.ts';
@@ -27,6 +28,13 @@ export interface JoinAttemptDeps {
   controls: Controls;
   /** Forwarded to LobbyScreen.setErrorMessage. Late-bound thunk. */
   onLobbyError: (errMsg: string) => void;
+  /**
+   * S70 P1 — late-bound sink for the host's lobby presence roster (mirror of the
+   * host path's onPresence). The joiner forwards the received roster verbatim;
+   * main.ts digests it to the render shape, computing isYou via peerId === selfId
+   * — which is how this joiner finally learns WHICH seat is its own pre-Begin.
+   */
+  onPresence: (roster: readonly RosterEntry[]) => void;
 }
 
 export function createJoinAttemptHandler(deps: JoinAttemptDeps): (code: string) => void {
@@ -99,6 +107,16 @@ export function createJoinAttemptHandler(deps: JoinAttemptDeps): (code: string) 
           isHost: false,
           roster: msg.roster.map((e) => ({ seat: e.seat, color: e.color })),
         });
+      }
+      // S70 P1 — host lobby presence beacon. While still in LOBBY, forward the
+      // roster so the joiner's rack shows its OWN seat (peerId === selfId glow) +
+      // real per-seat colours + accurate drop-on-leave instead of count-based
+      // occupancy. Gated on gameState==='LOBBY' (mirrors START_GAME_SIGNAL): once
+      // PLAYING the rack is gone, so a late/duplicate beacon is ignored. Cosmetic —
+      // the AUTHORITATIVE seat still arrives via START_GAME_SIGNAL at Begin, so a
+      // dropped beacon only delays the live rack until the next join/leave re-broadcast.
+      if (msg.kind === 'LOBBY_PRESENCE' && deps.world.gameState === 'LOBBY') {
+        deps.onPresence(msg.roster);
       }
       // S47 P1 (Sym I fix) — receive host-broadcast game-end envelope
       // and dispatch WIN_TRIGGER locally so joiner's gameState flips to

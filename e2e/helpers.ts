@@ -395,3 +395,56 @@ export async function waitForRejected(
     `waitForRejected timeout (${timeoutMs}ms): ${description}\nFinal diagnostics: ${JSON.stringify(final)}`,
   );
 }
+
+/** S70 P1 — a single lobby seat as exposed by lobbyScreen.getSeats(). */
+export interface SeatViewSnapshot {
+  index: number;
+  color: number;
+  occupied: boolean;
+  isHost: boolean;
+  isYou: boolean;
+}
+
+/**
+ * S70 P1 — read the lobby seat rack (lobbyView seats) via the DEV
+ * __SPARK__.lobbyScreen.getSeats() accessor. Lets a spec assert per-seat
+ * occupancy / colour / own-seat (isYou) from the presence beacon WITHOUT
+ * OCR-ing the Pixi canvas. Empty array before the lobby exists.
+ */
+export async function readSeats(page: Page): Promise<SeatViewSnapshot[]> {
+  return await page.evaluate(() => {
+    const spark = (
+      window as { __SPARK__?: { lobbyScreen?: { getSeats?: () => unknown } } }
+    ).__SPARK__;
+    return (spark?.lobbyScreen?.getSeats?.() ?? []) as Array<{
+      index: number;
+      color: number;
+      occupied: boolean;
+      isHost: boolean;
+      isYou: boolean;
+    }>;
+  });
+}
+
+/**
+ * S70 P1 — poll until a predicate over the lobby seats holds. The seat-rack
+ * analogue of waitForWorld: the host's presence beacon arrives asynchronously
+ * over WebRTC, so a real-peer presence assertion must poll for it.
+ */
+export async function waitForSeats(
+  page: Page,
+  predicate: (seats: SeatViewSnapshot[]) => boolean,
+  description: string,
+  timeoutMs = 30_000,
+): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const seats = await readSeats(page).catch(() => [] as SeatViewSnapshot[]);
+    if (predicate(seats)) return;
+    await page.waitForTimeout(200);
+  }
+  const final = await readSeats(page).catch(() => null);
+  throw new Error(
+    `waitForSeats timeout (${timeoutMs}ms): ${description}\nFinal seats: ${JSON.stringify(final)}`,
+  );
+}

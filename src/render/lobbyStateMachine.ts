@@ -81,12 +81,23 @@ export interface LobbyState {
    * storing the count makes a count delta observable in BOTH modes (Council A2).
    */
   readonly peerCount: number;
+  /**
+   * S70 P1 — the live per-seat lobby roster from the host's presence broadcast,
+   * DIGESTED to SeatPresence in the wiring layer (null until the first beacon, and
+   * after HOST_START / JOIN_ATTEMPT / RESET). When non-null it SUPERSEDES the
+   * count-based seat derivation in lobbyView with real per-seat identity (own-seat
+   * glow, true colours, accurate drop-on-leave) — which count-based occupancy
+   * cannot show on a joiner. peerCount is still tracked in parallel: it drives
+   * Begin-gating + the count-based fallback for the windows before a beacon lands.
+   */
+  readonly presenceRoster: readonly SeatPresence[] | null;
 }
 
 export type LobbyEvent =
   | { type: 'HOST_START'; code: string }
   | { type: 'JOIN_ATTEMPT'; code: string }
   | { type: 'PEER_STATUS'; peerCount: number }
+  | { type: 'PRESENCE'; roster: readonly SeatPresence[] | null }
   | { type: 'ERROR'; text: string }
   | { type: 'RESET' };
 
@@ -100,7 +111,29 @@ export function initialLobbyState(): LobbyState {
     hostConnected: false,
     errorLatched: false,
     peerCount: 0,
+    presenceRoster: null,
   };
+}
+
+/**
+ * S70 P1 — content equality for the presence roster, powering the PRESENCE
+ * same-ref churn-guard. null === null (both "no beacon yet"); otherwise length +
+ * per-entry (seat/color/isYou) compare. ≤ MAX_PLAYERS entries, so this is
+ * trivially cheap relative to the Pixi re-render it prevents.
+ */
+function rostersEqual(
+  a: readonly SeatPresence[] | null,
+  b: readonly SeatPresence[] | null,
+): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].seat !== b[i].seat || a[i].color !== b[i].color || a[i].isYou !== b[i].isYou) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /**
@@ -130,6 +163,7 @@ export function lobbyReduce(state: LobbyState, event: LobbyEvent): LobbyState {
         hostConnected: false,
         errorLatched: false,
         peerCount: 0,
+        presenceRoster: null,
       };
 
     case 'JOIN_ATTEMPT':
@@ -160,6 +194,7 @@ export function lobbyReduce(state: LobbyState, event: LobbyEvent): LobbyState {
           hostConnected: false,
           errorLatched: false,
           peerCount: 0,
+          presenceRoster: null,
         };
       }
       // S65 landmine #1 fix: an invalid code is an error, so it renders in
@@ -204,6 +239,21 @@ export function lobbyReduce(state: LobbyState, event: LobbyEvent): LobbyState {
       return state;
     }
 
+    case 'PRESENCE': {
+      // A surfaced error is sticky (mirror of PEER_STATUS): a presence beacon must
+      // not clobber a protocol-mismatch / transport error.
+      if (state.errorLatched) return state;
+      // Presence is only meaningful in a room. A beacon received in select (e.g. a
+      // late receipt after RESET) is a no-op — defense-in-depth with the
+      // clientHandlers gameState==='LOBBY' gate.
+      if (state.mode === 'select') return state;
+      // Same-ref no-op on an unchanged roster so redundant identical broadcasts
+      // (every host join/leave re-broadcasts the full roster) don't churn the
+      // shell's applyView — Council R7: no debounce needed, the guard absorbs it.
+      if (rostersEqual(state.presenceRoster, event.roster)) return state;
+      return { ...state, presenceRoster: event.roster };
+    }
+
     case 'ERROR':
       return {
         ...state,
@@ -218,10 +268,25 @@ export function lobbyReduce(state: LobbyState, event: LobbyEvent): LobbyState {
 }
 
 /**
+ * S70 P1 — one occupied seat in the live lobby presence roster, DIGESTED from the
+ * net RosterEntry in the wiring layer (main.ts) so this pure reducer never imports
+ * net/ (Council Fork C). `isYou` is precomputed (peerId === selfId) at digest time,
+ * keeping peer-identity logic out of the reducer + view. isHost is derivable
+ * (seat === 0) and not stored.
+ */
+export interface SeatPresence {
+  readonly seat: number;
+  readonly color: number;
+  readonly isYou: boolean;
+}
+
+/**
  * S69 P2 — one seat in the 6-slot lobby rack. PURE projection of LobbyState; the
- * shell renders it via seatRack.ts. `isYou` is reliable only on the HOST (seat 0)
- * in this count-based model — a joiner cannot know its own seat index until the
- * host mints the roster at Begin (the per-seat presence broadcast is P3).
+ * shell renders it via seatRack.ts. S70 P1 — `isYou` is now reliable for JOINERS
+ * too once the host's presence roster arrives (lobbyView derives it from the
+ * digested per-seat identity); before the first beacon (and on the host-alone
+ * window) it falls back to the count-based model where only the host's seat 0
+ * carries isYou.
  */
 export interface SeatView {
   readonly index: number;
@@ -244,29 +309,53 @@ export interface LobbyView extends LobbyState {
 
 /**
  * Pure derivation of the renderable view — adds the two pane alphas (the inactive
- * pane dims to 0.3 while the other mode is committed) and the S69 P2 seat rack.
+ * pane dims to 0.3 while the other mode is committed) and the seat rack.
  *
- * Seats are COUNT-based: occupied = index < (peerCount + 1) while in a room.
- * This shows how many seats are filled, not WHO is in each (per-seat identity on
- * joiners needs the host roster, broadcast only at Begin today — P3 closes that).
+ * S70 P1 — when the host's presence roster is present (presenceRoster !== null) the
+ * seats are ROSTER-based: real per-seat occupancy / colour / own-seat, INCLUDING a
+ * joiner's own seat. Otherwise they fall back to the S69 P2 COUNT-based derivation
+ * (occupied = index < peerCount + 1) for the windows before a beacon arrives
+ * (host-alone, a joiner pre-first-beacon, or a peer that never received one).
  */
 export function lobbyView(state: LobbyState): LobbyView {
   const inRoom = state.mode !== 'select';
-  // S69 P2 CHECK (Grok-2): clamp to [1, MAX_PLAYERS] while in a room — guards a
-  // transient over-count (7th peer pre-Begin) from rendering "Room 7/6", and any
-  // spurious negative count from the transport.
-  const totalPlayers = inRoom ? Math.max(1, Math.min(state.peerCount + 1, MAX_PLAYERS)) : 0;
+  const roster = inRoom ? state.presenceRoster : null;
   const seats: SeatView[] = [];
-  for (let i = 0; i < MAX_PLAYERS; i++) {
-    const occupied = inRoom && i < totalPlayers;
-    seats.push({
-      index: i,
-      color: PLAYER_COLORS[i],
-      occupied,
-      isHost: occupied && i === 0,
-      isYou: state.mode === 'hosting' && i === 0,
-    });
+  let totalPlayers: number;
+
+  if (roster !== null) {
+    // Roster-based: index seats by their authoritative seat number so each cell
+    // shows real occupancy / colour / own-seat (isYou precomputed at digest time).
+    const bySeat = new Map(roster.map((e) => [e.seat, e]));
+    for (let i = 0; i < MAX_PLAYERS; i++) {
+      const entry = bySeat.get(i);
+      seats.push({
+        index: i,
+        color: entry !== undefined ? entry.color : PLAYER_COLORS[i],
+        occupied: entry !== undefined,
+        isHost: entry !== undefined && i === 0,
+        isYou: entry !== undefined && entry.isYou,
+      });
+    }
+    // roster.length = occupied-seat count (buildLobbyRoster already caps at MAX).
+    totalPlayers = Math.min(roster.length, MAX_PLAYERS);
+  } else {
+    // S69 P2 count-based fallback. CHECK (Grok-2): clamp to [1, MAX_PLAYERS] while
+    // in a room — guards a transient over-count (7th peer pre-Begin → "Room 7/6")
+    // and any spurious negative count from the transport.
+    totalPlayers = inRoom ? Math.max(1, Math.min(state.peerCount + 1, MAX_PLAYERS)) : 0;
+    for (let i = 0; i < MAX_PLAYERS; i++) {
+      const occupied = inRoom && i < totalPlayers;
+      seats.push({
+        index: i,
+        color: PLAYER_COLORS[i],
+        occupied,
+        isHost: occupied && i === 0,
+        isYou: state.mode === 'hosting' && i === 0,
+      });
+    }
   }
+
   return {
     ...state,
     hostPaneAlpha: state.mode === 'joining' ? 0.3 : 1,

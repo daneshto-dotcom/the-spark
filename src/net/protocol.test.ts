@@ -15,7 +15,7 @@ import {
   PROTOCOL_VERSION,
   buildHello,
 } from './protocol.ts';
-import { NET_ROOM_CODE_LENGTH, PLAYER_COLORS } from '../constants.ts';
+import { MAX_PLAYERS, NET_ROOM_CODE_LENGTH, PLAYER_COLORS } from '../constants.ts';
 import { asPlayerId } from '../types.ts';
 
 describe('S15 P2 — room code generation', () => {
@@ -217,6 +217,79 @@ describe('S39 P1 — START_GAME_SIGNAL envelope (lobby-exit decoupled from snaps
     };
     const wire = JSON.parse(JSON.stringify(msg));
     expect(parseNetMessage(wire)).toEqual(msg);
+  });
+});
+
+describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version bump)', () => {
+  it('accepts a valid presence roster (same RosterEntry shape as START_GAME_SIGNAL)', () => {
+    const msg = {
+      kind: 'LOBBY_PRESENCE',
+      roster: [
+        { seat: 0, peerId: 'host', color: 0xff3b6b },
+        { seat: 1, peerId: 'p1', color: 0x3bd7ff },
+      ],
+    };
+    expect(parseNetMessage(msg)).toEqual(msg);
+  });
+
+  it('accepts a host-alone roster (single seat-0 entry)', () => {
+    const msg = { kind: 'LOBBY_PRESENCE', roster: [{ seat: 0, peerId: 'host', color: 0xff3b6b }] };
+    expect(parseNetMessage(msg)).toEqual(msg);
+  });
+
+  it('rejects a missing/empty/non-array/malformed roster (fail-closed, shared isValidRoster)', () => {
+    expect(parseNetMessage({ kind: 'LOBBY_PRESENCE' })).toBeNull();
+    expect(parseNetMessage({ kind: 'LOBBY_PRESENCE', roster: [] })).toBeNull();
+    expect(parseNetMessage({ kind: 'LOBBY_PRESENCE', roster: 'nope' })).toBeNull();
+    expect(parseNetMessage({ kind: 'LOBBY_PRESENCE', roster: [{ seat: 0 }] })).toBeNull();
+    expect(
+      parseNetMessage({ kind: 'LOBBY_PRESENCE', roster: [{ seat: 0, peerId: 'h', color: 'red' }] }),
+    ).toBeNull();
+    expect(
+      parseNetMessage({ kind: 'LOBBY_PRESENCE', roster: [{ seat: '0', peerId: 'h', color: 1 }] }),
+    ).toBeNull();
+  });
+
+  it('survives JSON round-trip (runtime wire fidelity)', () => {
+    const msg = {
+      kind: 'LOBBY_PRESENCE',
+      roster: [
+        { seat: 0, peerId: 'host', color: 0xff3b6b },
+        { seat: 1, peerId: 'p1', color: 0x3bd7ff },
+        { seat: 2, peerId: 'p2', color: 0x9bff3b },
+      ],
+    };
+    expect(parseNetMessage(JSON.parse(JSON.stringify(msg)))).toEqual(msg);
+  });
+
+  it('CHECK GROK-ANALYST fix: rejects an OVER-CAP roster (> MAX_PLAYERS) for BOTH kinds (fail-closed length bound)', () => {
+    const tooMany = Array.from({ length: MAX_PLAYERS + 3 }, (_, i) => ({
+      seat: i,
+      peerId: `p${i}`,
+      color: 0x111111,
+    }));
+    expect(parseNetMessage({ kind: 'LOBBY_PRESENCE', roster: tooMany })).toBeNull();
+    expect(parseNetMessage({ kind: 'START_GAME_SIGNAL', mode: '1v1', roster: tooMany })).toBeNull();
+    // A roster of exactly MAX_PLAYERS is still valid (the cap is inclusive).
+    const exactlyMax = Array.from({ length: MAX_PLAYERS }, (_, i) => ({
+      seat: i,
+      peerId: `p${i}`,
+      color: 0x111111,
+    }));
+    expect(parseNetMessage({ kind: 'LOBBY_PRESENCE', roster: exactlyMax })).not.toBeNull();
+  });
+
+  it('NO version bump (Fork B): PROTOCOL_VERSION stays 4; an unknown future kind null-rejects gracefully', () => {
+    // The no-bump design rests on unknown kinds failing CLOSED (not throwing): a
+    // pre-S70 peer has no 'LOBBY_PRESENCE' case, so it falls through to default →
+    // null and degrades to the count-based rack, still able to play (the beacon is
+    // cosmetic; the authoritative roster ships at Begin). Assert the contract that
+    // makes that safe — an unknown kind returns null, not a throw — and that we did
+    // NOT bump (which would instead hard-reject the stale peer at the HELLO handshake).
+    expect(PROTOCOL_VERSION).toBe(4);
+    expect(
+      parseNetMessage({ kind: 'SOME_FUTURE_KIND', roster: [{ seat: 0, peerId: 'h', color: 1 }] }),
+    ).toBeNull();
   });
 });
 

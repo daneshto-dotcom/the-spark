@@ -19,6 +19,7 @@
 
 import { HostSync } from './sync.ts';
 import { generateRoomCode, PROTOCOL_VERSION, buildHello, type RosterEntry } from './protocol.ts';
+import { buildLobbyRoster } from './lobbyRoster.ts';
 import type { NetSession } from './session.ts';
 import { NetTransport, selfId } from './transport.ts';
 import { dispatch, type World } from '../state/world.ts';
@@ -120,6 +121,15 @@ export interface HostStartDeps {
    * after construction without circular-init pain.
    */
   onLobbyError: (errMsg: string) => void;
+  /**
+   * S70 P1 — late-bound sink for the live lobby seat roster (mirror of the
+   * onLobbyError thunk). The host calls this LOCALLY after building + broadcasting
+   * the roster on each peer join/leave: transport.send() broadcasts to PEERS only,
+   * so without a local self-dispatch the host would never update its OWN seat rack
+   * (Council R6 CRITICAL). main.ts wires it to lobbyScreen.updatePresence (which
+   * digests RosterEntry → the render-local SeatPresence shape).
+   */
+  onPresence: (roster: readonly RosterEntry[]) => void;
 }
 
 export function createHostStartHandler(deps: HostStartDeps): () => string {
@@ -146,6 +156,20 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
     // connects (host = playerId 0 / crimson). Activates the dormant S53
     // protocol-mismatch latch + UX on the joiner's receive side.
     wireHelloOnJoin(transport, asPlayerId(0), PLAYER_COLORS[0]);
+    // S70 P1 — lobby presence broadcast. On every peer join/leave, rebuild the
+    // current occupied-seat roster (the SAME buildLobbyRoster formula Begin uses,
+    // so a joiner's previewed seat == its Begin seat) and (1) broadcast it to peers
+    // so joiners paint the TRUE per-seat rack, and (2) dispatch it LOCALLY for the
+    // host's OWN rack — transport.send() goes to PEERS only, so the local call is
+    // what updates the host (Council R6 CRITICAL). peerIds() is accurate at handler
+    // time: the transport mutates peerSet BEFORE firing onPeerChange for both join
+    // (added) and leave (removed). No debounce — lobby join/leave is human-paced and
+    // the reducer's same-ref churn-guard absorbs any redundant identical roster.
+    transport.onPeerChange(() => {
+      const roster = buildLobbyRoster(transport.peerIds(), selfId);
+      transport.send({ kind: 'LOBBY_PRESENCE', roster });
+      deps.onPresence(roster);
+    });
     transport.on((msg, peerId) => {
       // S15 P2 — host applies client intent authoritatively.
       // S42 — turn-based active-player gate REMOVED (blueprint mandates
@@ -190,16 +214,18 @@ export function createBeginMatchHandler(deps: BeginMatchDeps): () => void {
     // builds a byte-identical initial world (Council determinism fix).
     const transport = deps.session.netTransport;
     const allPeers = transport !== null ? transport.peerIds() : [];
+    // S70 P1 — the authoritative Begin roster now shares the pure buildLobbyRoster
+    // builder with the lobby presence broadcast (DRY: byte-identical seat
+    // assignment, so a joiner's previewed lobby seat is the seat it receives here).
+    // buildLobbyRoster applies the MAX_PLAYERS cap internally; recompute the seated-
+    // peer slice for the hostSeats map + the over-capacity warn.
+    const roster = buildLobbyRoster(allPeers, selfId);
     const peers = allPeers.slice(0, MAX_PLAYERS - 1);
     if (allPeers.length > peers.length) {
       console.warn(
         `[net] Begin: ${allPeers.length} peers but MAX_PLAYERS=${MAX_PLAYERS}; seating first ${peers.length}, dropping ${allPeers.length - peers.length}.`,
       );
     }
-    const roster: RosterEntry[] = [
-      { seat: 0, peerId: selfId, color: PLAYER_COLORS[0] },
-      ...peers.map((pid, i) => ({ seat: i + 1, peerId: pid, color: PLAYER_COLORS[i + 1] })),
-    ];
     deps.session.hostSeats.clear();
     peers.forEach((pid, i) => deps.session.hostSeats.set(pid, asPlayerId(i + 1)));
     if (transport !== null) {

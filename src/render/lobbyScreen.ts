@@ -24,6 +24,8 @@ import {
   lobbyView,
   type LobbyMode,
   type LobbyState,
+  type SeatPresence,
+  type SeatView,
 } from './lobbyStateMachine.ts';
 // S69 P2 — the 6-seat rack renderer, extracted so this shell does not grow (Council A1).
 import { makeSeatRack, type SeatRackHandle } from './seatRack.ts';
@@ -386,6 +388,20 @@ export class LobbyScreen {
     this.applyView();
   }
 
+  /**
+   * S70 P1 — apply the host's live lobby presence roster (digested to SeatPresence
+   * in main.ts: isYou = peerId === selfId). Supersedes the count-based rack with
+   * real per-seat identity — the joiner finally sees ITS OWN seat. Same reducer
+   * churn-guard short-circuit as updatePeerStatus (applyView only on an actual
+   * roster change). null falls back to the count-based rack (e.g. teardown).
+   */
+  updatePresence(presence: readonly SeatPresence[] | null): void {
+    const next = lobbyReduce(this.state, { type: 'PRESENCE', roster: presence });
+    if (next === this.state) return;
+    this.state = next;
+    this.applyView();
+  }
+
   reset(): void {
     // SM-owned surface (mode / status / colour / Begin / code / pane-alphas) via
     // the view; everything else is shell-owned and cleared verbatim as before.
@@ -443,6 +459,16 @@ export class LobbyScreen {
    */
   getStatusText(): string {
     return this.statusText.text ?? '';
+  }
+
+  /**
+   * S70 P1 — DEV/E2E read accessor for the derived seat rack (lobbyView seats).
+   * Lets Playwright assert per-seat occupancy / colour / own-seat (isYou) after a
+   * presence beacon WITHOUT OCR-ing the Pixi canvas — the seat-rack analogue of
+   * getStatusText/getDebugState. Returns the same SeatView[] the rack renders.
+   */
+  getSeats(): readonly SeatView[] {
+    return lobbyView(this.state).seats;
   }
 
   /**

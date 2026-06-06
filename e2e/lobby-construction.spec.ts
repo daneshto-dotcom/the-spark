@@ -17,7 +17,7 @@
  * 'hosting' mode (peerCount>0 is false), so the simulated reveal persists.
  */
 import { test, expect, type Page } from '@playwright/test';
-import { hostNewRoom, waitForWorld, canvasToCss, CANVAS_WIDTH, CANVAS_HEIGHT } from './helpers';
+import { hostNewRoom, waitForWorld, canvasToCss, readSeats, CANVAS_WIDTH, CANVAS_HEIGHT } from './helpers';
 
 type LobbyDebug = { mode: string; hostConnected: boolean; beginButtonVisible: boolean };
 
@@ -228,5 +228,72 @@ test.describe('S64 - lobby behavioral surfaces (net-extension; unblocks the defe
       s?.lobbyScreen.destroy();
     });
     await expect(input).toHaveCount(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// S70 P1 — lobby PRESENCE rack: deterministic render path (gating). The real
+// host→peer broadcast over WebRTC is covered by the @quarantine-flaky 2-peer
+// test in nplayer.spec.ts (Council DP1: real-peer netcode is quarantined,
+// deterministic render proofs gate). This drives updatePresence() directly via
+// __SPARK__ so the reducer→applyView→seatRack path is proven flake-free.
+// ─────────────────────────────────────────────────────────────────────────
+async function applyPresence(
+  page: Page,
+  roster: Array<{ seat: number; color: number; isYou: boolean }>,
+): Promise<void> {
+  await page.evaluate((r) => {
+    const s = (
+      window as unknown as {
+        __SPARK__?: { lobbyScreen: { updatePresence: (r: unknown) => void } };
+      }
+    ).__SPARK__;
+    s?.lobbyScreen.updatePresence(r);
+  }, roster);
+}
+
+test.describe('S70 - lobby presence rack (deterministic render path; gating)', () => {
+  test('a presence roster paints the JOINER its OWN seat + accurate drop-on-leave', async ({
+    page,
+  }) => {
+    await gotoLobbySelect(page);
+    // Enter JOINING mode — the count-based path leaves a joiner with NO own-seat,
+    // so any isYou below must come from the presence roster (the P3 win).
+    const input = page.locator('input[type="text"][maxlength="6"]');
+    await expect(input).toBeVisible();
+    await input.click();
+    await input.fill('ABCDEF');
+    await input.press('Enter');
+    expect((await lobbyDebug(page)).mode).toBe('joining');
+
+    // Pre-beacon: count-based occupancy, the joiner cannot know its own seat yet.
+    await simulatePeerJoin(page, 1);
+    expect((await readSeats(page)).some((s) => s.isYou)).toBe(false);
+
+    // Host broadcasts a 3-seat roster; THIS joiner is seat 2.
+    await applyPresence(page, [
+      { seat: 0, color: 0xff3b6b, isYou: false },
+      { seat: 1, color: 0x3bd7ff, isYou: false },
+      { seat: 2, color: 0xffe23b, isYou: true },
+    ]);
+    let seats = await readSeats(page);
+    expect(seats.map((s) => s.occupied)).toEqual([true, true, true, false, false, false]);
+    expect(seats[2]).toMatchObject({ occupied: true, isYou: true, color: 0xffe23b });
+    expect(seats[0]).toMatchObject({ isHost: true, isYou: false });
+    expect(seats.filter((s) => s.isYou)).toHaveLength(1);
+
+    // A peer leaves → host re-broadcasts a compacted 2-seat roster; the joiner
+    // compacts seat 2→1 and its own-seat glow follows accurately (drop-on-leave).
+    await applyPresence(page, [
+      { seat: 0, color: 0xff3b6b, isYou: false },
+      { seat: 1, color: 0xffe23b, isYou: true },
+    ]);
+    seats = await readSeats(page);
+    expect(seats.map((s) => s.occupied)).toEqual([true, true, false, false, false, false]);
+    expect(seats[1].isYou).toBe(true);
+
+    // reset() clears the presence roster → back to count-based (no own-seat).
+    await resetLobby(page);
+    expect((await readSeats(page)).some((s) => s.isYou)).toBe(false);
   });
 });

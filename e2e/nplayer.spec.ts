@@ -31,7 +31,9 @@ import {
   joinRoom,
   dragSparkTo,
   readWorldState,
+  readSeats,
   waitForWorld,
+  waitForSeats,
   CANVAS_WIDTH,
 } from './helpers';
 
@@ -263,5 +265,59 @@ test.describe('S63 - 6-player render: MAX_PLAYERS seated + avatars/HUD render wi
 
     // The render loop ran over 6 players with no thrown error.
     expect(pageErrors, `pageerrors during 6-player render: ${pageErrors.join(' | ')}`).toEqual([]);
+  });
+});
+
+// @quarantine-flaky — S70 P1: real 2-peer WebRTC, same swiftshader timing flake
+// class as the 4-peer test → NON-GATING lane (the deterministic render path gates
+// via lobby-construction.spec.ts; this is the end-to-end wire proof the unit tests
+// cannot reach). Council DP1: real-peer netcode is quarantined, deterministic gates.
+test.describe('S70 - lobby presence: joiner sees its OWN seat over real WebRTC @quarantine-flaky', () => {
+  test('host + 1 joiner: the joiner learns its seat (1) from the presence beacon BEFORE Begin; host self-dispatch updates seat 0', async ({
+    browser,
+  }) => {
+    test.setTimeout(60_000);
+    const ctxs = await Promise.all([browser.newContext(), browser.newContext()]);
+    try {
+      for (const c of ctxs) await prepCtx(c);
+      const [hostPage, joinerPage] = await Promise.all(ctxs.map((c) => c.newPage()));
+
+      const code = await hostNewRoom(hostPage);
+      await joinRoom(joinerPage, code);
+
+      // Host sees the joiner connect → its onPeerChange handler broadcasts LOBBY_PRESENCE.
+      await waitForWorld(hostPage, (w) => w.peerCount >= 1, 'host sees the joiner connected', 45_000);
+
+      // THE P3 WIN: the joiner, STILL IN LOBBY (no Begin yet), receives the beacon
+      // and learns WHICH seat is its OWN (seat 1) — pre-S70 it knew this only at Begin.
+      await waitForSeats(
+        joinerPage,
+        (seats) => seats[1]?.occupied === true && seats[1]?.isYou === true,
+        'joiner learns its own seat (1) via the presence beacon',
+        30_000,
+      );
+      const jSeats = await readSeats(joinerPage);
+      expect(jSeats[0]).toMatchObject({ occupied: true, isHost: true, isYou: false });
+      expect(jSeats[1]).toMatchObject({ occupied: true, isYou: true });
+      expect(jSeats.filter((s) => s.isYou)).toHaveLength(1);
+
+      // The host's OWN rack updates via the LOCAL self-dispatch (transport.send()
+      // excludes self — Council R6 CRITICAL): seat 0 is the host (isYou), seat 1 the joiner.
+      await waitForSeats(
+        hostPage,
+        (seats) => seats[0]?.isYou === true && seats[1]?.occupied === true,
+        'host self-dispatch updates its own rack (seat 0 = you, seat 1 = joiner)',
+        15_000,
+      );
+      const hSeats = await readSeats(hostPage);
+      expect(hSeats[0]).toMatchObject({ occupied: true, isHost: true, isYou: true });
+      expect(hSeats[1].isYou).toBe(false);
+
+      // Presence is pre-Begin + cosmetic — both peers are STILL in LOBBY (not PLAYING).
+      expect((await readWorldState(joinerPage)).gameState).toBe('LOBBY');
+      expect((await readWorldState(hostPage)).gameState).toBe('LOBBY');
+    } finally {
+      await Promise.all(ctxs.map((c) => c.close()));
+    }
   });
 });

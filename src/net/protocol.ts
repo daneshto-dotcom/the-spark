@@ -16,6 +16,7 @@ import type { GameAction } from '../state/world.ts';
 import type { NetSnapshot } from '../state/save.ts';
 import type { PlayerId } from '../types.ts';
 import type { GodlyTriggerEvent } from '../state/godlyRecipes/types.ts';
+import { MAX_PLAYERS } from '../constants.ts';
 
 // NetSnapshot is defined in save.ts (alongside its producer netSnapshot()
 // + consumer applyNetSnapshot()). Re-export so protocol callers can refer
@@ -156,6 +157,27 @@ interface StartGameMsg {
   readonly roster: readonly RosterEntry[];
 }
 
+/**
+ * S70 P1 — lobby presence beacon. The host broadcasts the CURRENT occupied-seat
+ * roster (seat 0 = host, seats 1..N = connected peers in join order) on every
+ * peer join/leave during the LOBBY phase, so joiners render the TRUE per-seat
+ * rack — their own seat (peerId === selfId), real per-seat colours, and accurate
+ * drop-when-a-peer-leaves — instead of count-based occupancy.
+ *
+ * PURELY COSMETIC: the AUTHORITATIVE roster still ships only at Begin via
+ * START_GAME_SIGNAL, so a peer that never receives (or cannot parse) this just
+ * falls back to the count-based rack and plays normally. That is why NO
+ * PROTOCOL_VERSION bump is needed (Council S70 Fork B): unlike the gameplay
+ * envelopes (whose bumps prevent desync), a stale-build peer null-rejects this
+ * unknown kind in parseNetMessage and degrades gracefully, rather than being
+ * hard-rejected at the HELLO handshake for a non-gameplay message. Reuses the
+ * RosterEntry shape + isValidRoster validator (no new wire-validation surface).
+ */
+interface LobbyPresenceMsg {
+  readonly kind: 'LOBBY_PRESENCE';
+  readonly roster: readonly RosterEntry[];
+}
+
 interface EndGameMsg {
   readonly kind: 'ENDGAME';
   readonly winnerId: PlayerId;
@@ -179,7 +201,8 @@ export type NetMessage =
   | NetSnapshotMsg
   | StartGameMsg
   | EndGameMsg
-  | GodlyTriggerMsg;
+  | GodlyTriggerMsg
+  | LobbyPresenceMsg;
 
 /**
  * 6-character alphanumeric room code (uppercase letters + digits, dropping
@@ -261,6 +284,38 @@ const KNOWN_GAME_ACTION_TYPES: ReadonlySet<string> = new Set(
 const WIRE_SCHEMA_VERSION = 1;
 
 /**
+ * S70 P1 — shared seat-roster validator (extracted from the inline
+ * START_GAME_SIGNAL check, now reused by LOBBY_PRESENCE — Council DRY). Fail-
+ * closed: a non-array, empty array, an OVER-CAP array (> MAX_PLAYERS), or any
+ * malformed entry rejects the whole message, so a corrupt/hostile peer can
+ * neither desync the authoritative seating (START_GAME_SIGNAL) nor inject a bad
+ * lobby rack (LOBBY_PRESENCE). A valid roster is a NON-EMPTY, at-most-MAX_PLAYERS
+ * array of {seat:number, peerId:string, color:number}.
+ *
+ * S70 P1 CHECK (GROK-ANALYST): the ≤ MAX_PLAYERS cap is the fix for the "no length
+ * cap" finding — a roster is bounded by the player cap by definition (the host
+ * never builds a larger one), so an oversized array is malformed, and rejecting it
+ * at the wire bounds the receive-side Map-build work against a flooding peer.
+ */
+function isValidRoster(roster: unknown): roster is readonly RosterEntry[] {
+  if (!Array.isArray(roster) || roster.length === 0 || roster.length > MAX_PLAYERS) {
+    return false;
+  }
+  for (const e of roster) {
+    if (e === null || typeof e !== 'object') return false;
+    const r = e as Record<string, unknown>;
+    if (
+      typeof r.seat !== 'number' ||
+      typeof r.peerId !== 'string' ||
+      typeof r.color !== 'number'
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * S22 P3 (R9 safety) — parse + validate a peer-wire payload into a NetMessage.
  * Returns null on any of: non-object input, unknown `kind`, type-shape mismatch,
  * unknown INTENT.action.type, NETSNAPSHOT.snapshot.schemaVersion mismatch, or
@@ -310,23 +365,20 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
     case 'START_GAME_SIGNAL': {
       // S39 P1 — host→peer lobby-exit signal. Mode tag fixed at '1v1' (the
       // networked-mode marker); checked at the wire so a future mode addition
-      // fails closed. S62 — also validate the seat roster: a non-empty array of
-      // {seat:number, peerId:string, color:number}. A malformed roster nulls the
-      // whole message (fail-closed) so a corrupt peer can't desync seating.
+      // fails closed. S62 — also validate the seat roster (S70 P1: extracted to
+      // isValidRoster). A malformed roster nulls the whole message (fail-closed)
+      // so a corrupt peer can't desync seating.
       if (obj.mode !== '1v1') return null;
-      if (!Array.isArray(obj.roster) || obj.roster.length === 0) return null;
-      for (const e of obj.roster) {
-        if (e === null || typeof e !== 'object') return null;
-        const r = e as Record<string, unknown>;
-        if (
-          typeof r.seat !== 'number' ||
-          typeof r.peerId !== 'string' ||
-          typeof r.color !== 'number'
-        ) {
-          return null;
-        }
-      }
+      if (!isValidRoster(obj.roster)) return null;
       return obj as unknown as StartGameMsg;
+    }
+    case 'LOBBY_PRESENCE': {
+      // S70 P1 — cosmetic lobby seat roster (host→peer on join/leave). Same
+      // fail-closed roster validation as START_GAME_SIGNAL; no mode tag. A
+      // stale-build peer that predates this kind falls through to `default` →
+      // null (graceful degradation — the no-version-bump path, Council Fork B).
+      if (!isValidRoster(obj.roster)) return null;
+      return obj as unknown as LobbyPresenceMsg;
     }
     case 'ENDGAME':
       return typeof obj.winnerId === 'number' ? (obj as unknown as EndGameMsg) : null;
