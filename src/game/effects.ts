@@ -126,7 +126,7 @@ export type GameEffect =
        * lightning creature ≠ fart SFX). 'godly' kept for back-compat (no emitter post-S27
        * cascade DELETION but type union widening is free + safe).
        */
-      readonly cause: 'player' | 'physics' | 'godly' | 'creature';
+      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb';
     }
   | {
       /**
@@ -175,6 +175,20 @@ export type GameEffect =
       readonly kind: 'CREATURE_CHARGE';
       readonly tick: number;
       readonly pos: Vec2;
+    }
+  | {
+      /**
+       * S71 P1 — bomb detonation burst. Renderer draws an expanding ring +
+       * particle fade at `pos` (radius scales the burst) over its lifetime
+       * (severErase visual family). Emitted ONCE per TRIGGER_BOMB (never on
+       * dissipation). Visual-only — renderer draws it; audio routing is silent
+       * for the per-sever BOND_SEVERED{cause:'bomb'} so the blast reads as one
+       * event, not a fart-stack.
+       */
+      readonly kind: 'BOMB_EXPLODE';
+      readonly tick: number;
+      readonly pos: Vec2;
+      readonly radius: number;
     };
 
 /** Soft cap on the queue — anything older than this many ticks is dropped. */

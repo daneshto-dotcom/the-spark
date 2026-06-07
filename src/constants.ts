@@ -390,3 +390,31 @@ export const TERRITORY_BASE_RADIUS = readTestTerritoryBaseRadius() ?? 60;
 export const TERRITORY_RADIUS_SCALE = 12;
 export const TERRITORY_ENGULF_STIFFNESS = 0.3;
 export const TERRITORY_SHRINK_DURATION_TICKS = 300; // 5 seconds at 60 Hz
+
+// === S71 P1 — Bomb hazard (Council Full; Fork B leaf-first deterministic sever) ===
+// The host-only spawner drops a STATIONARY bomb into the spawn zone every
+// BOMB_SPAWN_MIN..MAX sparks (cadence counts SPARKS SPAWNED — user "every random
+// amount of shapes"; drawn from a SEPARATE seeded RNG stream so the spark sequence
+// is byte-unchanged). Max BOMB_MAX_ACTIVE live at once. Grabbing it (TRIGGER_BOMB
+// intent) is an INSTANT self-detonation severing ~BOMB_SEVER_FRACTION of the
+// PICKER's OWN bonds, chosen LEAF-FIRST (smallest §VIII.4 split first, tie → lowest
+// BondId) and capped at BOMB_PRIM_CAP_FRACTION of their structure (no catastrophic
+// wipe). Un-grabbed for BOMB_TTL_TICKS → dissipates harmlessly. All tick-based +
+// deterministic (host-authoritative; replay-safe).
+//
+// E2E seam: window.__TEST_BOMB_SPAWN_SPARKS__ forces both the min and max cadence
+// to a small fixed value so a Playwright run can trigger a bomb in a couple of
+// spawns (mirror of __TEST_SPAWN_RATE_PER_SECOND__ / __TEST_WIN_SCORE__).
+function readTestBombSpawnSparks(): number | null {
+  if (typeof window === 'undefined') return null;
+  const v = (window as { __TEST_BOMB_SPAWN_SPARKS__?: number }).__TEST_BOMB_SPAWN_SPARKS__;
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : null;
+}
+const _BOMB_TEST_CADENCE = readTestBombSpawnSparks();
+export const BOMB_SPAWN_MIN_SPARKS = _BOMB_TEST_CADENCE ?? 8;
+export const BOMB_SPAWN_MAX_SPARKS = _BOMB_TEST_CADENCE ?? 15;
+export const BOMB_TTL_TICKS = 15 * PHYSICS_HZ; // 900 ticks = 15s
+export const BOMB_SEVER_FRACTION = 0.25;
+export const BOMB_PRIM_CAP_FRACTION = 0.3;
+export const BOMB_MAX_ACTIVE = 1;
+export const BOMB_RADIUS = 22; // visual + pick radius — a distinct dark orb

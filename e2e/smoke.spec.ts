@@ -589,7 +589,7 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
       // S58 P0 — disable fog (manual contexts bypass open2Peers).
       await disableFogOn(hostCtx);
       await disableFogOn(joinerCtx);
-      // Joiner announces protoVersion 2 (< current 4). Host has no override → v4.
+      // Joiner announces protoVersion 2 (< current 5). Host has no override → v5.
       // String-content addInitScript (zero function-capture surface), matching
       // the Sym D __TEST_TERRITORY_BASE_RADIUS__ precedent.
       await joinerCtx.addInitScript({ content: 'window.__TEST_PROTO_VERSION_OVERRIDE__ = 2;' });
@@ -603,7 +603,7 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
       await waitForWorld(hostPage, (w) => w.peerCount >= 1, 'host sees joiner connected', 60_000);
       await waitForWorld(joinerPage, (w) => w.peerCount >= 1, 'joiner sees host connected', 60_000);
 
-      // Host receives joiner HELLO(v2) → detectProtocolMismatch (2≠3) →
+      // Host receives joiner HELLO(v2) → detectProtocolMismatch (2≠5) →
       // emitProtocolMismatch: rejectedCount++ + onProtocolMismatch UX. WAIT for
       // the async HELLO to land (PRIME-AUDIT #2 — never assert synchronously).
       await waitForRejected(hostPage, 1, 'host rejected the joiner v2 HELLO (mismatch latch fired)');
@@ -613,11 +613,12 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
       const hostStatus = await readLobbyStatus(hostPage);
       expect(hostStatus).toContain('Protocol mismatch');
       expect(hostStatus).toContain('v2'); // peer version rendered (describePeerVersion)
-      expect(hostStatus).toContain('v4'); // local PROTOCOL_VERSION rendered (S62: 3→4)
+      expect(hostStatus).toContain('v5'); // local PROTOCOL_VERSION rendered (S71: 4→5)
       expect(hostStatus.toLowerCase()).toContain('older'); // "The other player's version is older"
 
-      // Send-side-only + context-isolation: the joiner (still v3, saw host's
-      // matching HELLO(v3)) shows NO mismatch.
+      // Send-side-only + context-isolation: the joiner's REAL version is current
+      // (v5 — the override is send-side only), so it saw the host's matching
+      // HELLO(v5) and shows NO mismatch.
       const joinerStatus = await readLobbyStatus(joinerPage);
       expect(joinerStatus).not.toContain('Protocol mismatch');
     } finally {
@@ -626,12 +627,12 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
     }
   });
 
-  test('Newer-version joiner (v5): host shows "your version is older" branch', async ({ browser }) => {
+  test('Newer-version joiner (v6): host shows "your version is older" branch', async ({ browser }) => {
     const hostCtx = await browser.newContext();
     const joinerCtx = await browser.newContext();
     try {
-      // S62 — host is now v4, so a v5 peer is the "newer peer" case (was v4 vs v3).
-      await joinerCtx.addInitScript({ content: 'window.__TEST_PROTO_VERSION_OVERRIDE__ = 5;' });
+      // S71 — host is now v5, so a v6 peer is the "newer peer" case (was v5 vs v4).
+      await joinerCtx.addInitScript({ content: 'window.__TEST_PROTO_VERSION_OVERRIDE__ = 6;' });
       const hostPage = await hostCtx.newPage();
       const joinerPage = await joinerCtx.newPage();
 
@@ -639,12 +640,12 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
       await joinRoom(joinerPage, code);
       await waitForWorld(hostPage, (w) => w.peerCount >= 1, 'host sees joiner connected', 60_000);
 
-      await waitForRejected(hostPage, 1, 'host rejected the joiner v5 HELLO');
+      await waitForRejected(hostPage, 1, 'host rejected the joiner v6 HELLO');
 
-      // peerV (5) > local (4) → the "your version is older" advice branch.
+      // peerV (6) > local (5) → the "your version is older" advice branch.
       const hostStatus = await readLobbyStatus(hostPage);
       expect(hostStatus).toContain('Protocol mismatch');
-      expect(hostStatus).toContain('v5');
+      expect(hostStatus).toContain('v6');
       expect(hostStatus.toLowerCase()).toContain('your version is older');
     } finally {
       await hostCtx.close();

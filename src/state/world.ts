@@ -64,6 +64,14 @@ import {
   applyCreatureAttack,
   type CreatureAttackAction,
 } from './creatures/creatureAttack.ts';
+import {
+  applyDissipateBomb,
+  applySpawnBomb,
+  applyTriggerBomb,
+  type DissipateBombAction,
+  type SpawnBombAction,
+  type TriggerBombAction,
+} from './bombLifecycle.ts';
 
 // Re-export addScore from gameMode.ts for back-compat with placePrimitive.ts
 // and session15.test.ts (S16 P0 extraction preserved external import paths).
@@ -98,7 +106,9 @@ export type GameAction =
       readonly type: 'SEVER_BOND';
       readonly bondId: BondId;
       readonly playerId: PlayerId;
-      readonly cause: 'player' | 'physics' | 'creature';
+      // S71 P1 — 'bomb' added: bypasses charge + auth like 'creature'/'physics'
+      // (host-authoritative bomb detonation; the picker damages their OWN bonds).
+      readonly cause: 'player' | 'physics' | 'creature' | 'bomb';
     }
   | TickEnergyAction
   | { readonly type: 'WIN_TRIGGER'; readonly winnerId: PlayerId }
@@ -139,7 +149,13 @@ export type GameAction =
   // (300 ticks = 5s at 60Hz). 1v1-only semantics (solo no-ops in dispatch;
   // no enemies exist in world.players). Guard in controls.ts prevents the key
   // from doing anything in solo mode.
-  | { readonly type: 'SHRINK_TERRITORY'; readonly playerId: PlayerId };
+  | { readonly type: 'SHRINK_TERRITORY'; readonly playerId: PlayerId }
+  // S71 P1 — bomb hazard. SPAWN_BOMB + DISSIPATE_BOMB are host-internal (spawner
+  // cadence / TTL poll); TRIGGER_BOMB is a client→host intent (drives the v4→5
+  // PROTOCOL_VERSION bump). Reducers in bombLifecycle.ts.
+  | SpawnBombAction
+  | TriggerBombAction
+  | DissipateBombAction;
 
 export function makeWorld(rngSeed: number): World {
   const w: World = {
@@ -165,6 +181,8 @@ export function makeWorld(rngSeed: number): World {
     creatures: new Map(),
     nextCreatureId: 0,
     pendingCreatureSpawn: null,
+    bombs: new Map(),
+    nextBombId: 0,
     // S42 — race-condition observability (real-time 1v1) + local-player
     // convention (replaces removed currentPlayerId active-player concept).
     diagnostics: {
@@ -271,6 +289,16 @@ export function dispatch(world: World, action: GameAction): World {
       }
       return world;
     }
+
+    // S71 P1 — bomb hazard lifecycle (reducers in bombLifecycle.ts).
+    case 'SPAWN_BOMB':
+      return applySpawnBomb(world, action);
+
+    case 'TRIGGER_BOMB':
+      return applyTriggerBomb(world, action);
+
+    case 'DISSIPATE_BOMB':
+      return applyDissipateBomb(world, action);
   }
 }
 

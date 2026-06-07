@@ -42,14 +42,18 @@ export type { NetSnapshot };
 // S62 — bumped 3→4 for N-player: START_GAME_SIGNAL now carries the seat→color
 // roster (deterministic cross-client seating). A v3 peer is rejected at the
 // HELLO handshake (single-deploy, no stragglers) — same lockstep as prior bumps.
-export const PROTOCOL_VERSION = 4 as const;
+// S71 — bumped 4→5: new TRIGGER_BOMB client→host gameplay intent (Council
+// UNANIMOUS Fork A). Unlike the cosmetic LOBBY_PRESENCE (no bump), a stale v4
+// peer would desync on bomb-grabs + the bomb/hunter/potato snapshot state, so it
+// is hard-rejected at the HELLO handshake. (Single bump covers the P1/P2/P3 batch.)
+export const PROTOCOL_VERSION = 5 as const;
 
 export interface HelloMsg {
   readonly kind: 'HELLO';
   readonly playerId: PlayerId;
   readonly color: number;
-  /** Protocol version — bumped on wire-incompatible changes. S62: 3→4. */
-  readonly protoVersion: 4;
+  /** Protocol version — bumped on wire-incompatible changes. S71: 4→5. */
+  readonly protoVersion: 5;
 }
 
 /**
@@ -105,7 +109,7 @@ export function buildHello(playerId: PlayerId, color: number): HelloMsg {
     // preserves the version-bump lockstep tsc tripwire: raising
     // PROTOCOL_VERSION without updating HelloMsg.protoVersion errors at that
     // line. (Council R1 #1 — quarantine-cast over relaxing the type to number.)
-    return { kind: 'HELLO', playerId, color, protoVersion: override as 4 };
+    return { kind: 'HELLO', playerId, color, protoVersion: override as 5 };
   }
   return { kind: 'HELLO', playerId, color, protoVersion: PROTOCOL_VERSION };
 }
@@ -276,6 +280,13 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   // S49 P1 (Sym F) — territorial shrink disruption. Joiner can dispatch
   // this as an INTENT; host applies authoritatively.
   SHRINK_TERRITORY: true,
+  // S71 P1 — bomb hazard. TRIGGER_BOMB is the client→host intent (a joiner that
+  // grabs the bomb); SPAWN_BOMB + DISSIPATE_BOMB are host-internal (listed here
+  // only because this Record must mirror GameAction['type'] exhaustively — clients
+  // never originate them, so wire-allowing them is inert under the friends-only model).
+  SPAWN_BOMB: true,
+  TRIGGER_BOMB: true,
+  DISSIPATE_BOMB: true,
 };
 const KNOWN_GAME_ACTION_TYPES: ReadonlySet<string> = new Set(
   Object.keys(KNOWN_GAME_ACTION_TYPES_RECORD),

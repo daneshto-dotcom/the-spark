@@ -32,6 +32,7 @@ import {
 import type { World } from '../state/world.ts';
 import { drawBondCommit } from './effects/bondCommit.ts';
 import { drawArcFlash } from './effects/arcFlash.ts';
+import { drawBombExplode } from './effects/bombExplode.ts';
 import { effectLifetime } from './effects/lifetime.ts';
 import { drawScoreTier } from './effects/scoreTier.ts';
 import { drawSeverErase } from './effects/severErase.ts';
@@ -109,6 +110,9 @@ export class EffectsRenderer {
         return;
       case 'ARC_FLASH':
         drawArcFlash(g, effect, Math.min(1, age / lifetime));
+        return;
+      case 'BOMB_EXPLODE':
+        drawBombExplode(g, effect, Math.min(1, age / lifetime));
         return;
       case 'BOND_FORMED':
       case 'BOND_SEVERED':

@@ -34,6 +34,7 @@ import { type SparkType } from '../constants.ts';
 import {
   asPlayerId,
   asSparkId,
+  type BombId,
   type BondId,
   type CreatureId,
   type PlayerId,
@@ -43,6 +44,7 @@ import {
 } from '../types.ts';
 import { type GameMode, type GameState, type World } from './world.ts';
 import { type Player } from '../game/player.ts';
+import type { Bomb } from './bomb.ts';
 import type { Creature, CreatureState, CreatureType } from './creatures/creature.ts';
 // Audit Pass 1 fix 3c8630d7 (Δ4) + Pass 2 refactor 622a7c7f: on restore,
 // world.tick may jump backward relative to the audio drain cursor. Without
@@ -95,6 +97,12 @@ export interface WorldSnapshot {
    * field; applySnapshotCore handles `undefined` via nullish-coalescing (Δ3).
    */
   creatures?: SerializedCreature[];
+  /**
+   * S71 P1 — host-authoritative bombs for the 1v1 client mirror + host save/load.
+   * Additive-optional (creature precedent; NO schemaVersion bump). Emitted only
+   * when non-empty so pre-S71 saves stay byte-identical on the wire.
+   */
+  bombs?: SerializedBomb[];
   /**
    * S31 P0-3 — filtered effects array for 1v1 client mirror. Pre-S31 the
    * snapshot omitted `world.effects` entirely; 1v1 client saw creatures walk
@@ -210,7 +218,7 @@ type SerializedEffect =
       readonly kind: 'BOND_SEVERED';
       readonly tick: number;
       readonly pos: Vec2;
-      readonly cause: 'player' | 'physics' | 'godly' | 'creature';
+      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb';
     }
   | {
       /**
@@ -228,6 +236,17 @@ type SerializedEffect =
       readonly kind: 'CREATURE_CHARGE';
       readonly tick: number;
       readonly pos: Vec2;
+    }
+  | {
+      /**
+       * S71 P1 — bomb detonation burst, wire-mirrored so the 1v1 client sees the
+       * blast (rare event; max 1 bomb). Mirrors the ARC_FLASH precedent; the
+       * `radius` field scales the burst. Additive-optional kind → no schema bump.
+       */
+      readonly kind: 'BOMB_EXPLODE';
+      readonly tick: number;
+      readonly pos: Vec2;
+      readonly radius: number;
     };
 
 /**
@@ -263,6 +282,21 @@ interface SerializedCreature {
   readonly ownerPlayerId?: PlayerId;
 }
 
+/**
+ * S71 P1 — full bomb wire shape. Unlike the trimmed SerializedCreature, the bomb
+ * is tiny so we round-trip every field: `dissipateAtTick` MUST survive a HOST
+ * save/load so the TTL poll resumes correctly (a trimmed-to-0 value would make a
+ * loaded bomb insta-dissipate). The 1v1 client ignores dissipateAtTick (host-only
+ * poll) and just renders pos/radius. Additive-optional → no schemaVersion bump.
+ */
+interface SerializedBomb {
+  readonly id: BombId;
+  readonly pos: Vec2;
+  readonly radius: number;
+  readonly spawnedAtTick: number;
+  readonly dissipateAtTick: number;
+}
+
 export function snapshot(world: World): WorldSnapshot {
   return {
     schemaVersion: 1,
@@ -289,6 +323,11 @@ export function snapshot(world: World): WorldSnapshot {
     // (host-authoritative — see netSnapshot consumer in applySnapshotCore).
     creatures: world.creatures.size > 0
       ? [...world.creatures.values()].map(serializeCreature)
+      : undefined,
+    // S71 P1 — emit bombs only when present so pre-S71 saves stay byte-identical
+    // (the field stays undefined and JSON.stringify drops it).
+    bombs: world.bombs.size > 0
+      ? [...world.bombs.values()].map(serializeBomb)
       : undefined,
     // S31 P0-3 — filtered effects for 1v1 client mirror. Map+filter pattern
     // drops the 5 host-local visual kinds (BOND_COMMIT/SEVER_ERASE/
@@ -404,6 +443,20 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       if ((c.id as number) > maxId) maxId = c.id as number;
     }
     if (maxId >= 0) world.nextCreatureId = maxId + 1;
+  }
+
+  // S71 P1 — bombs: clear + rehydrate (mirror of the creature pattern). Reset the
+  // mint counter past the max loaded id so a host save-load with a live bomb does
+  // not mint a colliding id on the next SPAWN_BOMB. Client never mints (no-op there).
+  world.bombs.clear();
+  world.nextBombId = 0;
+  if (snap.bombs !== undefined) {
+    let maxBombId = -1;
+    for (const b of snap.bombs) {
+      world.bombs.set(b.id, deserializeBomb(b));
+      if ((b.id as number) > maxBombId) maxBombId = b.id as number;
+    }
+    if (maxBombId >= 0) world.nextBombId = maxBombId + 1;
   }
 
   // S31 P0-3 — replace effects array contents from snap.effects. effects are
@@ -639,6 +692,14 @@ function serializeEffect(e: GameEffect): SerializedEffect | null {
         tick: e.tick,
         pos: { x: e.pos.x, y: e.pos.y },
       };
+    case 'BOMB_EXPLODE':
+      // S71 P1 — wire-mirror the detonation burst so the client sees the boom.
+      return {
+        kind: 'BOMB_EXPLODE',
+        tick: e.tick,
+        pos: { x: e.pos.x, y: e.pos.y },
+        radius: e.radius,
+      };
     // Host-local visual flair — not sent to client. Renderer-only.
     case 'BOND_COMMIT':
     case 'SEVER_ERASE':
@@ -688,6 +749,13 @@ function deserializeEffect(s: SerializedEffect): GameEffect {
         tick: s.tick,
         pos: { x: s.pos.x, y: s.pos.y },
       };
+    case 'BOMB_EXPLODE':
+      return {
+        kind: 'BOMB_EXPLODE',
+        tick: s.tick,
+        pos: { x: s.pos.x, y: s.pos.y },
+        radius: s.radius,
+      };
   }
 }
 
@@ -720,6 +788,27 @@ function deserializeCreature(s: SerializedCreature): Creature {
     killCount: s.killCount ?? 0,
     spawnedAtTick: 0,
     despawnAtTick: 0,
+  };
+}
+
+/** S71 P1 — bomb wire round-trip (full shape; see SerializedBomb rationale). */
+function serializeBomb(b: Bomb): SerializedBomb {
+  return {
+    id: b.id,
+    pos: { x: b.pos.x, y: b.pos.y },
+    radius: b.radius,
+    spawnedAtTick: b.spawnedAtTick,
+    dissipateAtTick: b.dissipateAtTick,
+  };
+}
+
+function deserializeBomb(s: SerializedBomb): Bomb {
+  return {
+    id: s.id,
+    pos: { x: s.pos.x, y: s.pos.y },
+    radius: s.radius,
+    spawnedAtTick: s.spawnedAtTick,
+    dissipateAtTick: s.dissipateAtTick,
   };
 }
 

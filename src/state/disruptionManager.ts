@@ -74,7 +74,7 @@ export function canSeverBond(
   // Both bypass all gates (host-authoritative spawn upstream gates the mint
   // for 'creature'; constraint solver fires for 'physics'). computeBaseCharge
   // at line 90 already returns 0 for non-'player' so no change needed there.
-  if (action.cause === 'physics' || action.cause === 'creature') return true;
+  if (action.cause === 'physics' || action.cause === 'creature' || action.cause === 'bomb') return true;
 
   const player = world.players.get(action.playerId);
   if (player === undefined) return false;

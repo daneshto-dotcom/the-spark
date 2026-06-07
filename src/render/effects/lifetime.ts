@@ -27,6 +27,8 @@ export const SCORE_TIER_DURATION_TICKS = 48;
 // (audio S28-deferred per Q4), so the visual must be prominent. Renderer
 // fades alpha 1.0 → 0.0 linearly across the lifetime.
 const ARC_FLASH_DURATION_TICKS = 24;
+// S71 P1 — bomb detonation burst lifetime (~0.6s @ 60Hz).
+const BOMB_EXPLODE_DURATION_TICKS = 36;
 
 export function effectLifetime(effect: GameEffect): number {
   switch (effect.kind) {
@@ -42,6 +44,8 @@ export function effectLifetime(effect: GameEffect): number {
       return SCORE_TIER_DURATION_TICKS;
     case 'ARC_FLASH':
       return ARC_FLASH_DURATION_TICKS;
+    case 'BOMB_EXPLODE':
+      return BOMB_EXPLODE_DURATION_TICKS;
     case 'BOND_FORMED':
     case 'BOND_SEVERED':
     case 'CREATURE_CHARGE':

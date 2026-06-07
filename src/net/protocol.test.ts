@@ -71,12 +71,12 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 4 (S62 bump from 3 — N-player START_GAME roster added)', () => {
-    expect(PROTOCOL_VERSION).toBe(4);
+  it('PROTOCOL_VERSION is 5 (S71 bump from 4 — TRIGGER_BOMB client intent added)', () => {
+    expect(PROTOCOL_VERSION).toBe(5);
   });
 
   it('accepts a HELLO with current protoVersion', () => {
-    const msg = { kind: 'HELLO', playerId: 0, color: 0xff0000, protoVersion: 4 };
+    const msg = { kind: 'HELLO', playerId: 0, color: 0xff0000, protoVersion: 5 };
     expect(parseNetMessage(msg)).toEqual(msg);
   });
 
@@ -88,6 +88,11 @@ describe('S22 P3 — parseNetMessage validator', () => {
   it('rejects a HELLO with protoVersion 1 (no back-compat)', () => {
     const msg = { kind: 'HELLO', playerId: 0, color: 0xff0000, protoVersion: 1 };
     expect(parseNetMessage(msg)).toBeNull();
+  });
+
+  it('accepts an INTENT carrying the S71 TRIGGER_BOMB action (allowlist)', () => {
+    const msg = { kind: 'INTENT', intentSeq: 1, action: { type: 'TRIGGER_BOMB', bombId: 0, playerId: 0 } };
+    expect(parseNetMessage(msg)).toEqual(msg);
   });
 
   it('accepts INTENT / NETSNAPSHOT / ENDGAME / GODLY_TRIGGER', () => {
@@ -111,9 +116,12 @@ describe('S22 P3 — parseNetMessage validator', () => {
 
 describe('Audit Pass 1 d3f0e22b + 561e37ce — strengthened parseNetMessage', () => {
   it('HELLO requires numeric playerId and color', () => {
-    expect(parseNetMessage({ kind: 'HELLO', playerId: '0', color: 0xff0000, protoVersion: 4 })).toBeNull();
-    expect(parseNetMessage({ kind: 'HELLO', playerId: 0, color: 'red', protoVersion: 4 })).toBeNull();
-    expect(parseNetMessage({ kind: 'HELLO', protoVersion: 4 })).toBeNull();
+    // S71 — use the CURRENT protoVersion (5) so the validator reaches the
+    // playerId/color checks rather than short-circuiting on a version mismatch
+    // (which would make these pass for the wrong reason).
+    expect(parseNetMessage({ kind: 'HELLO', playerId: '0', color: 0xff0000, protoVersion: 5 })).toBeNull();
+    expect(parseNetMessage({ kind: 'HELLO', playerId: 0, color: 'red', protoVersion: 5 })).toBeNull();
+    expect(parseNetMessage({ kind: 'HELLO', protoVersion: 5 })).toBeNull();
   });
 
   it('INTENT requires action.type ∈ KNOWN_GAME_ACTION_TYPES', () => {
@@ -279,14 +287,15 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
     expect(parseNetMessage({ kind: 'LOBBY_PRESENCE', roster: exactlyMax })).not.toBeNull();
   });
 
-  it('NO version bump (Fork B): PROTOCOL_VERSION stays 4; an unknown future kind null-rejects gracefully', () => {
-    // The no-bump design rests on unknown kinds failing CLOSED (not throwing): a
-    // pre-S70 peer has no 'LOBBY_PRESENCE' case, so it falls through to default →
-    // null and degrades to the count-based rack, still able to play (the beacon is
-    // cosmetic; the authoritative roster ships at Begin). Assert the contract that
-    // makes that safe — an unknown kind returns null, not a throw — and that we did
-    // NOT bump (which would instead hard-reject the stale peer at the HELLO handshake).
-    expect(PROTOCOL_VERSION).toBe(4);
+  it('S70 graceful-degradation contract holds; PROTOCOL_VERSION is 5 after the S71 bomb-intent bump', () => {
+    // S70's LOBBY_PRESENCE was cosmetic and did NOT bump the version on its own:
+    // unknown kinds fail CLOSED (fall through parseNetMessage's default → null, not
+    // a throw), so a stale peer degrades to the count-based rack and can still play.
+    // That graceful-degradation contract is unchanged and still asserted below.
+    // S71 SEPARATELY bumped 4→5 because TRIGGER_BOMB is a NEW client→host GAMEPLAY
+    // intent (Council Fork A) — unlike a cosmetic beacon, a stale peer must be
+    // hard-rejected at the HELLO handshake rather than silently desync on bombs.
+    expect(PROTOCOL_VERSION).toBe(5);
     expect(
       parseNetMessage({ kind: 'SOME_FUTURE_KIND', roster: [{ seat: 0, peerId: 'h', color: 1 }] }),
     ).toBeNull();

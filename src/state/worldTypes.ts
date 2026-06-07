@@ -15,9 +15,10 @@ import type { Player } from '../game/player.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { Spark } from '../game/spark.ts';
 import type { Bond } from '../physics/bonds.ts';
+import type { Bomb } from './bomb.ts';
 import type { Creature } from './creatures/creature.ts';
 import type { GodlyTriggerEvent } from './godlyRecipes/types.ts';
-import type { BondId, CreatureId, PlayerId, PrimitiveId, SparkId } from '../types.ts';
+import type { BombId, BondId, CreatureId, PlayerId, PrimitiveId, SparkId } from '../types.ts';
 
 /**
  * S15 P2: extended FSM. Solo path TITLE→PLAYING→WIN→POSTGAME→TITLE. 1v1
@@ -116,6 +117,16 @@ export interface World {
    * after peer-drop abort, violating blueprint Edge Case #2).
    */
   pendingCreatureSpawn: { fireAtTick: number; event: GodlyTriggerEvent } | null;
+  /**
+   * S71 P1 — host-authoritative pickup-bomb hazards living in the spawn zone.
+   * Spawned by the spawner cadence (host-only); grab = INSTANT self-sever
+   * (bombLifecycle.applyTriggerBomb); auto-removed at dissipateAtTick if un-grabbed.
+   * Additive-optional `bombs[]` in NetSnapshot (creature precedent) so clients
+   * render them; clients never simulate (host-authoritative). Cleared on teardown.
+   */
+  bombs: Map<BombId, Bomb>;
+  /** S71 P1 — monotonic bomb id counter (host-only mint authority). */
+  nextBombId: number;
   /**
    * S42 — host-side counter of "shared-resource race rejected" events.
    * Increments when applyPickupSpark or placePrimitive silently no-ops

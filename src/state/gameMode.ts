@@ -197,6 +197,10 @@ export function applyReturnToTitle(world: World): World {
   // matcher refuses to fire new godlies).
   world.creatures.clear();
   world.nextCreatureId = 0;
+  // S71 P1 — clear bombs on title-return so a hazard never persists into the next
+  // match (mirror of the creatures cleanup above).
+  world.bombs.clear();
+  world.nextBombId = 0;
   world.activeCinematicPlayerId = null;
   world.currentCinematicEvent = null;
   world.pendingCinematics.length = 0;

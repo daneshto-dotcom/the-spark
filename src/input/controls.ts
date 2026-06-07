@@ -48,7 +48,7 @@ import { componentOf } from '../game/structure.ts';
 import { cssToCanvasCoords } from '../render/lobbyScreen.ts';
 import { dispatch, isNetworked } from '../state/world.ts';
 import type { GameAction, World } from '../state/world.ts';
-import type { BondId, PlayerId, PrimitiveId, SparkId, Vec2 } from '../types.ts';
+import type { BombId, BondId, PlayerId, PrimitiveId, SparkId, Vec2 } from '../types.ts';
 import { pickRedundantBondTargets } from './redundantBondTargets.ts';
 import { isInsideEnemyTerritory } from '../state/territory.ts';
 
@@ -263,6 +263,16 @@ export class Controls {
       // LMB
       const player = this.world.players.get(this.playerId);
       if (player?.kind === 'Idle') {
+        // S71 P1 — bomb hazard takes pickup priority within its radius: grabbing
+        // it is an INSTANT host-authoritative detonation (TRIGGER_BOMB), NOT a
+        // carry. No client prediction / pointer capture — the host applies and the
+        // severed bonds arrive in the next snapshot (~RTT/2). Rushing players who
+        // misclick the orb pay the price.
+        const bombId = this.pickBomb();
+        if (bombId !== null) {
+          this.dispatchFn({ type: 'TRIGGER_BOMB', bombId, playerId: this.playerId });
+          return;
+        }
         const spark = this.pickSpark();
         if (spark !== null) {
           this.state = {
@@ -560,6 +570,26 @@ export class Controls {
       }
     }
     return best;
+  }
+
+  /**
+   * S71 P1 — nearest bomb whose body is under the cursor (within its own radius).
+   * Used by onDown to give the bomb pickup priority over sparks (it's a hazard you
+   * "accidentally grab in the rush"). Returns null if the cursor is on no bomb.
+   */
+  private pickBomb(): BombId | null {
+    let bestId: BombId | null = null;
+    let bestDistSq = Infinity;
+    for (const b of this.world.bombs.values()) {
+      const dx = b.pos.x - this.cursor.x;
+      const dy = b.pos.y - this.cursor.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 <= b.radius * b.radius && d2 < bestDistSq) {
+        bestId = b.id;
+        bestDistSq = d2;
+      }
+    }
+    return bestId;
   }
 
   // S53 P2 — pickPrimitive() wrapper removed. Both call sites lived inside

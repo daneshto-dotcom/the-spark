@@ -8,7 +8,7 @@ import {
   SPAWNER_RADIUS,
 } from '../constants.ts';
 import { mulberry32 } from '../state/rng.ts';
-import { DEFAULT_SPAWNER_CONFIG, Spawner, enforceSpawnerBounds } from './spawner.ts';
+import { DEFAULT_SPAWNER_CONFIG, Spawner, enforceSpawnerBounds, type BombSpawnRequest } from './spawner.ts';
 import type { Spark } from './spark.ts';
 
 const DT = 1 / PHYSICS_HZ;
@@ -131,5 +131,51 @@ describe('enforceSpawnerBounds', () => {
       expect(dist).toBeLessThanOrEqual(SPAWNER_RADIUS + 0.01);
       expect(Number.isFinite(dist)).toBe(true);
     }
+  });
+});
+
+describe('Spawner — S71 P1 bomb cadence', () => {
+  // High rate so a few hundred ticks spawn enough sparks (≥8) to trigger bombs.
+  const FAST = { ...DEFAULT_SPAWNER_CONFIG, ratePerSecond: 5 };
+  const TICKS = 800;
+
+  it('adding a bombRng leaves the spark stream byte-identical (separate stream)', () => {
+    const sparksA: Spark[] = [];
+    const a = new Spawner(FAST, mulberry32(123));
+    for (let i = 0; i < TICKS; i++) a.tick(DT, i, sparksA);
+
+    const sparksB: Spark[] = [];
+    const bombs: BombSpawnRequest[] = [];
+    const b = new Spawner(FAST, mulberry32(123), mulberry32(999));
+    for (let i = 0; i < TICKS; i++) b.tick(DT, i, sparksB, bombs);
+
+    // Bombs DID fire, yet the spark sequence is identical → the separate bombRng
+    // never perturbs the spark rng stream (the whole point of the two-stream design).
+    expect(bombs.length).toBeGreaterThan(1);
+    expect(sparksB.length).toBe(sparksA.length);
+    for (let i = 0; i < sparksA.length; i++) {
+      expect(sparksB[i].type).toBe(sparksA[i].type);
+      expect(sparksB[i].pos).toEqual(sparksA[i].pos);
+    }
+  });
+
+  it('bomb spawns are deterministic for the same (rng, bombRng) seeds', () => {
+    const run = (): BombSpawnRequest[] => {
+      const sparks: Spark[] = [];
+      const bombs: BombSpawnRequest[] = [];
+      const s = new Spawner(FAST, mulberry32(5), mulberry32(7));
+      for (let i = 0; i < TICKS; i++) s.tick(DT, i, sparks, bombs);
+      return bombs;
+    };
+    expect(run()).toEqual(run());
+  });
+
+  it('emits NO bombs when constructed without a bombRng (disabled by default)', () => {
+    const sparks: Spark[] = [];
+    const bombs: BombSpawnRequest[] = [];
+    const s = new Spawner(FAST, mulberry32(1)); // no bombRng
+    for (let i = 0; i < TICKS; i++) s.tick(DT, i, sparks, bombs);
+    expect(bombs).toHaveLength(0);
+    expect(sparks.length).toBeGreaterThan(8); // plenty of sparks, just no bombs
   });
 });

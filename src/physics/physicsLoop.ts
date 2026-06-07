@@ -21,11 +21,12 @@
  */
 
 import {
+  BOMB_MAX_ACTIVE,
   FREE_SPARK_SOFT_CAP,
   PHYSICS_HZ,
   PHYSICS_SUBSTEPS,
 } from '../constants.ts';
-import { Spawner, enforceSpawnerBounds } from '../game/spawner.ts';
+import { Spawner, enforceSpawnerBounds, type BombSpawnRequest } from '../game/spawner.ts';
 import type { Spark } from '../game/spark.ts';
 import type { Controls } from '../input/controls.ts';
 import { solveBonds, type Bond } from './bonds.ts';
@@ -55,8 +56,16 @@ export function stepPhysics(
 ): void {
   // SPAWN — dispatched as actions for the audit log seam (§ 10.2).
   const spawned: Spark[] = [];
-  spawner.tick(PHYSICS_DT, world.tick, spawned);
+  const bombSpawns: BombSpawnRequest[] = [];
+  spawner.tick(PHYSICS_DT, world.tick, spawned, bombSpawns);
   for (const s of spawned) dispatch(world, { type: 'SPAWN_SPARK', spark: s });
+  // S71 P1 — bomb cadence: dispatch SPAWN_BOMB per request, gated on BOMB_MAX_ACTIVE
+  // (the spawner already redrew its countdown, so a capped fire is a clean skip).
+  for (const req of bombSpawns) {
+    if (world.bombs.size < BOMB_MAX_ACTIVE) {
+      dispatch(world, { type: 'SPAWN_BOMB', pos: req.pos });
+    }
+  }
 
   enforceFreeSparkCap(world);
 

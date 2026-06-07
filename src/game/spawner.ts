@@ -14,6 +14,8 @@
 
 import {
   ALL_SPARK_TYPES,
+  BOMB_SPAWN_MAX_SPARKS,
+  BOMB_SPAWN_MIN_SPARKS,
   PHYSICS_HZ,
   SPAWN_RATE_PER_SECOND,
   SPAWNER_BOUNCE_DAMPING,
@@ -27,7 +29,7 @@ import {
 import { rngPick, rngRange } from '../state/rng.ts';
 import type { Rng } from '../state/rng.ts';
 import { asSparkId } from '../types.ts';
-import type { SparkId } from '../types.ts';
+import type { SparkId, Vec2 } from '../types.ts';
 import type { Spark } from './spark.ts';
 import { makeFreeSpark } from './spark.ts';
 
@@ -47,28 +49,57 @@ export const DEFAULT_SPAWNER_CONFIG: SpawnerConfig = {
   types: ALL_SPARK_TYPES,
 };
 
+/**
+ * S71 P1 — a host-only request to mint a bomb at `pos`. The spawner pushes these
+ * into the `bombsOut` array passed to tick(); physicsLoop dispatches SPAWN_BOMB for
+ * each (gated on BOMB_MAX_ACTIVE). Mirrors the freeSparks out-array pattern so the
+ * spawner stays world-agnostic (the cap lives at the dispatch site).
+ */
+export interface BombSpawnRequest {
+  readonly pos: Vec2;
+}
+
 export class Spawner {
   private nextId = 0;
   private secondsUntilNextSpawn: number;
+  /**
+   * S71 P1 — sparks remaining until the next bomb (counts SPARKS SPAWNED, per the
+   * user's "every random amount of shapes"). Drawn from `bombRng` — a SEPARATE
+   * seeded stream from the spark `rng` — so adding bombs leaves the spark sequence
+   * byte-identical (zero existing-test perturbation). Infinity when bombs disabled.
+   */
+  private sparksUntilBomb: number;
 
   constructor(
     private readonly cfg: SpawnerConfig,
     private readonly rng: Rng,
+    /** Separate seeded stream for bomb cadence + position. null → bombs disabled. */
+    private readonly bombRng: Rng | null = null,
   ) {
     this.secondsUntilNextSpawn = this.sampleInterarrival();
+    this.sparksUntilBomb = this.sampleBombCountdown();
   }
 
   /**
    * Advance the spawner by `dtSec` of wall time and append any new sparks.
    * Returns the count spawned this frame (handy for stats overlay).
    */
-  tick(dtSec: number, tick: number, freeSparks: Spark[]): number {
+  tick(dtSec: number, tick: number, freeSparks: Spark[], bombsOut?: BombSpawnRequest[]): number {
     let n = 0;
     this.secondsUntilNextSpawn -= dtSec;
     while (this.secondsUntilNextSpawn <= 0) {
       freeSparks.push(this.spawnOne(tick));
       this.secondsUntilNextSpawn += this.sampleInterarrival();
       n++;
+      // S71 P1 — bomb cadence: one bomb every BOMB_SPAWN_MIN..MAX sparks. The
+      // counter decrement is RNG-free; only the next-countdown draw + bomb position
+      // consume the SEPARATE bombRng stream (host-only; spawner never runs on the
+      // client). BOMB_MAX_ACTIVE is enforced at the dispatch site, so the countdown
+      // still redraws here even when that spawn is skipped ("skip + redraw").
+      if (this.bombRng !== null && --this.sparksUntilBomb <= 0) {
+        if (bombsOut !== undefined) bombsOut.push({ pos: this.sampleBombPos() });
+        this.sparksUntilBomb = this.sampleBombCountdown();
+      }
     }
     return n;
   }
@@ -96,6 +127,24 @@ export class Spawner {
     // Exponential(λ): -ln(1-u)/λ.
     const u = Math.max(this.rng(), 1e-9);
     return -Math.log(u) / this.cfg.ratePerSecond;
+  }
+
+  /** S71 P1 — next bomb cadence in [MIN, MAX] sparks (bombRng; Infinity if disabled). */
+  private sampleBombCountdown(): number {
+    if (this.bombRng === null) return Number.POSITIVE_INFINITY;
+    const span = BOMB_SPAWN_MAX_SPARKS - BOMB_SPAWN_MIN_SPARKS + 1;
+    return BOMB_SPAWN_MIN_SPARKS + Math.floor(this.bombRng() * span);
+  }
+
+  /** S71 P1 — uniform point inside the spawn disk for a bomb (same law as sparks). */
+  private sampleBombPos(): Vec2 {
+    const rng = this.bombRng as Rng;
+    const r = this.cfg.radius * Math.sqrt(rng()) * 0.85;
+    const theta = 2 * Math.PI * rng();
+    return {
+      x: this.cfg.center.x + r * Math.cos(theta),
+      y: this.cfg.center.y + r * Math.sin(theta),
+    };
   }
 }
 

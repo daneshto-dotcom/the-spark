@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BOMB_TTL_TICKS,
   PHASE_1_WIN_PRIMITIVE_COUNT,
   SparkType,
 } from '../constants.ts';
@@ -7,6 +8,7 @@ import { makeFreeSpark } from '../game/spark.ts';
 import { asPlayerId, asSparkId } from '../types.ts';
 import { dispatch, makeWorld } from './world.ts';
 import { restore, snapshot } from './save.ts';
+import { applySpawnBomb } from './bombLifecycle.ts';
 
 const P1 = asPlayerId(0);
 
@@ -614,5 +616,31 @@ describe('Audit Pass 1 3c8630d7 — restore() resets audio drain cursor (Delta-4
     );
     const after = audio.inspectAudioChain().claveCallsTotal;
     expect(after - before).toBe(1);
+  });
+});
+
+describe('S71 P1 — bomb snapshot round-trip', () => {
+  it('roundtrips bombs via snapshot → JSON → restore (TTL preserved, id advanced)', () => {
+    const w1 = makeWorld(1);
+    w1.tick = 50;
+    applySpawnBomb(w1, { type: 'SPAWN_BOMB', pos: { x: 300, y: 400 } });
+    const snap = JSON.parse(JSON.stringify(snapshot(w1)));
+    const w2 = makeWorld(2);
+    restore(snap, w2);
+    expect(w2.bombs.size).toBe(1);
+    const bomb = [...w2.bombs.values()][0];
+    expect(bomb.pos).toEqual({ x: 300, y: 400 });
+    expect(bomb.dissipateAtTick).toBe(50 + BOMB_TTL_TICKS);
+    expect(w2.nextBombId).toBe(1); // advanced past the max loaded id (no collide on next mint)
+  });
+
+  it('a pre-bomb snapshot (no bombs field) clears bombs on restore (back-compat)', () => {
+    const w1 = makeWorld(1);
+    const snap = snapshot(w1);
+    expect(snap.bombs).toBeUndefined(); // no live bombs → field omitted (byte-identical wire)
+    const w2 = makeWorld(2);
+    applySpawnBomb(w2, { type: 'SPAWN_BOMB', pos: { x: 1, y: 1 } }); // stale bomb in w2
+    restore(JSON.parse(JSON.stringify(snap)), w2);
+    expect(w2.bombs.size).toBe(0); // restore replaced (cleared) the stale bomb
   });
 });
