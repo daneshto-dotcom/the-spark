@@ -64,6 +64,12 @@ async function waitForHunter(
 
 test.describe('S72 P2 — Pac-Man hunter (solo, gating)', () => {
   test('spawns once at the 75% trigger, chases the solo avatar, and catches → benches', async ({ page }) => {
+    // S75 P2 — the hunter is now 5x slower (MAX_SPEED 7->1.4), so the pure-pursuit catch of
+    // the held center avatar takes ~7s of sim time (~400 ticks, well within the 1800-tick HUNT
+    // window) and MORE wall-time under CI software-WebGL sim-clock slowdown (main.ts:496 dtSec
+    // clamp; S74 lesson). Extend the per-test budget + the catch wait — a STATIONARY target is
+    // always caught; only the wall-time grows.
+    test.setTimeout(120_000);
     // pageerror = uncaught JS exception = a real crash (renderer / sim wiring). The
     // single high-signal assertion; console noise (audio autoplay, etc.) is ignored.
     const pageErrors: string[] = [];
@@ -96,7 +102,7 @@ test.describe('S72 P2 — Pac-Man hunter (solo, gating)', () => {
     const hold = await canvasToCss(page, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     await page.mouse.move(hold.x, hold.y);
     await page.mouse.move(hold.x + 3, hold.y); // >2px nudge so UPDATE_AVATAR_POS dispatches
-    await waitForHunter(page, (h) => h.benched0 !== undefined, 'solo player benched by the hunter', 20_000);
+    await waitForHunter(page, (h) => h.benched0 !== undefined, 'solo player benched by the hunter', 90_000);
 
     expect(pageErrors, `uncaught errors during hunter life:\n${pageErrors.join('\n')}`).toEqual([]);
   });

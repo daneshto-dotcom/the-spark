@@ -450,8 +450,15 @@ export const HUNTER_DESPAWN_FADE_TICKS = 24; // ~0.4 s fade-out on a successful 
 export const HUNTER_RADIUS = 26; // visual wedge radius (Pac-Man mouth)
 // Per-tick momentum pursuit (tuned juke-able). MAX_SPEED is below a flicking cursor
 // so an alert player escapes; DAMPING retains momentum so sharp turns overshoot.
-export const HUNTER_MAX_SPEED = 7; // px/tick (~420 px/s)
-export const HUNTER_ACCEL = 0.6; // px/tick² of steering toward the avatar
+// S75 P2 — slowed ~5x on live 2-player feedback ("comes in WAY too fast, eats instantly").
+// MAX_SPEED 7->1.4 and ACCEL 0.6->0.12 are BOTH scaled by 1/5, so the terminal speed
+// (accel/(1-damping) = 10*accel = 1.2 px/tick, sitting just under the 1.4 cap exactly as the
+// old 6 sat under 7) drops 5x while the accel/maxspeed ratio — hence the momentum/overshoot
+// juke feel — is unchanged. The hunter is now continuously out-runnable by a moving cursor and
+// only catches a careless / cornered / stationary player within its 30s window (user intent).
+// Tunable: if too trivial next playtest, raise toward 2-2.5 px/tick (Council balance-dissent).
+export const HUNTER_MAX_SPEED = 1.4; // px/tick (~84 px/s); S75 P2: was 7
+export const HUNTER_ACCEL = 0.12; // px/tick² of steering toward the avatar; S75 P2: was 0.6
 export const HUNTER_DAMPING = 0.9; // per-tick velocity retention (momentum / overshoot)
 
 // === S72 P3 — Potato Bomb (Council Full; Fork E fuse FROM-SPAWN [user reading]) ===
