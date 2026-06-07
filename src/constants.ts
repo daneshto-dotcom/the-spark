@@ -418,3 +418,38 @@ export const BOMB_SEVER_FRACTION = 0.25;
 export const BOMB_PRIM_CAP_FRACTION = 0.3;
 export const BOMB_MAX_ACTIVE = 1;
 export const BOMB_RADIUS = 22; // visual + pick radius — a distinct dark orb
+
+// === S72 P2 — Pac-Man Hunter (Council Full; carried from the S71 PDR) ===
+// When the LEADING player FIRST reaches HUNTER_TRIGGER_SCORE (75% of the win
+// threshold), a single Pac-Man hunter spawns ONCE and chases that player's avatar
+// for HUNTER_HUNT_TICKS. Contact (within HUNTER_CATCH_RADIUS) "eats" them: the
+// victim is benched (avatar hidden + input locked) for HUNTER_BENCH_TICKS and drops
+// any carried spark (reuses DROP_SPARK). Survive the chase → it despawns. Juke-able:
+// Verlet momentum vs an instant cursor lets an attentive player lead it + lose it.
+// SEPARATE world.hunters Map (Voltkin §13.15 LOCKED + untouched; Council Fork C).
+// Host-authoritative, tick-based, deterministic (replay-safe); clients render the
+// additive-optional snapshot mirror.
+//
+// E2E seam: window.__TEST_HUNTER_TRIGGER_SCORE__ forces the trigger score low so a
+// Playwright run can spawn the hunter WITHOUT also ending the game (keep WIN at 50).
+// Mirror of __TEST_WIN_SCORE__ / __TEST_BOMB_SPAWN_SPARKS__.
+function readTestHunterTriggerScore(): number | null {
+  if (typeof window === 'undefined') return null;
+  const v = (window as { __TEST_HUNTER_TRIGGER_SCORE__?: number }).__TEST_HUNTER_TRIGGER_SCORE__;
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : null;
+}
+// Local — only feeds HUNTER_TRIGGER_SCORE below (not exported: nothing else reads it).
+const HUNTER_TRIGGER_FRACTION = 0.75;
+export const HUNTER_TRIGGER_SCORE =
+  readTestHunterTriggerScore() ?? Math.floor(PHASE_1_WIN_SCORE * HUNTER_TRIGGER_FRACTION);
+export const HUNTER_HUNT_TICKS = 30 * PHYSICS_HZ; // 1800 ticks = 30 s chase
+export const HUNTER_BENCH_TICKS = 30 * PHYSICS_HZ; // 1800 ticks = 30 s benched
+export const HUNTER_CATCH_RADIUS = 30; // px — contact distance for the "eat"
+export const HUNTER_CATCH_HOLD_TICKS = 24; // ~0.4 s chomp hold before the hunter despawns
+export const HUNTER_DESPAWN_FADE_TICKS = 24; // ~0.4 s fade-out on a successful escape
+export const HUNTER_RADIUS = 26; // visual wedge radius (Pac-Man mouth)
+// Per-tick momentum pursuit (tuned juke-able). MAX_SPEED is below a flicking cursor
+// so an alert player escapes; DAMPING retains momentum so sharp turns overshoot.
+export const HUNTER_MAX_SPEED = 7; // px/tick (~420 px/s)
+export const HUNTER_ACCEL = 0.6; // px/tick² of steering toward the avatar
+export const HUNTER_DAMPING = 0.9; // per-tick velocity retention (momentum / overshoot)

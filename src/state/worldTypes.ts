@@ -17,8 +17,9 @@ import type { Spark } from '../game/spark.ts';
 import type { Bond } from '../physics/bonds.ts';
 import type { Bomb } from './bomb.ts';
 import type { Creature } from './creatures/creature.ts';
+import type { Hunter } from './hunters/hunter.ts';
 import type { GodlyTriggerEvent } from './godlyRecipes/types.ts';
-import type { BombId, BondId, CreatureId, PlayerId, PrimitiveId, SparkId } from '../types.ts';
+import type { BombId, BondId, CreatureId, HunterId, PlayerId, PrimitiveId, SparkId } from '../types.ts';
 
 /**
  * S15 P2: extended FSM. Solo path TITLE→PLAYING→WIN→POSTGAME→TITLE. 1v1
@@ -127,6 +128,23 @@ export interface World {
   bombs: Map<BombId, Bomb>;
   /** S71 P1 — monotonic bomb id counter (host-only mint authority). */
   nextBombId: number;
+  /**
+   * S72 P2 — host-authoritative Pac-Man hunters (SEPARATE from Voltkin creatures;
+   * §13.15 LOCKED + untouched per Council Fork C). At most one lives at a time
+   * (once-per-game). Spawned by the main.ts 75%-score trigger; chases
+   * world.players[targetPlayerId].avatarPos; benches the victim on contact.
+   * Additive-optional `hunters[]` in NetSnapshot so clients render the mirror
+   * (they never simulate). Cleared on teardown (WIN / RETURN_TO_TITLE).
+   */
+  hunters: Map<HunterId, Hunter>;
+  /** S72 P2 — monotonic hunter id counter (host-only mint authority). */
+  nextHunterId: number;
+  /**
+   * S72 P2 — once-per-game guard. Set true by applySpawnHunter so the trigger
+   * fires exactly once; reset on teardown. Serialized additive-optional so a host
+   * save/load mid-game does not re-spawn a second hunter.
+   */
+  hunterSpawned: boolean;
   /**
    * S42 — host-side counter of "shared-resource race rejected" events.
    * Increments when applyPickupSpark or placePrimitive silently no-ops

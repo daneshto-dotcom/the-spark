@@ -287,6 +287,15 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   SPAWN_BOMB: true,
   TRIGGER_BOMB: true,
   DISSIPATE_BOMB: true,
+  // S72 P2 — Pac-Man hunter. ALL THREE are host-internal (host-authored + snapshot-
+  // replicated; NOT client INTENTs — see hunters/hunterLifecycle.ts). Listed here
+  // only because this Record must mirror GameAction['type'] exhaustively; clients
+  // never originate them, so wire-allowing them is inert under the friends-only model
+  // (a spoofed HUNTER_* would just advance host-authoritative deterministic state — no
+  // desync). No PROTOCOL_VERSION bump: no NEW client intent — the S71 v4→5 bump stands.
+  SPAWN_HUNTER: true,
+  HUNTER_TICK: true,
+  HUNTER_CATCH: true,
 };
 const KNOWN_GAME_ACTION_TYPES: ReadonlySet<string> = new Set(
   Object.keys(KNOWN_GAME_ACTION_TYPES_RECORD),

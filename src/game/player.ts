@@ -39,6 +39,16 @@ interface PlayerCommon {
    * halves this player's effective R. null = no active debuff.
    */
   territorialShrinkUntilTick: number | null;
+  /**
+   * S72 P2 — Pac-Man hunter bench expiry tick. When a hunter catches this
+   * player it is set to world.tick + HUNTER_BENCH_TICKS. While
+   * world.tick < benchedUntilTick the avatar is HIDDEN (avatarRenderer) AND
+   * input is LOCKED (controls.isInputLocked) — both gate on the tick comparison
+   * so the bench self-heals even if a clear is missed (Council R5). undefined =
+   * never benched / cleared. Mutable: set by applyHunterCatch, cleared by the
+   * main.ts bench-expiry sweep + teardownHunters. Additive-optional in save.ts.
+   */
+  benchedUntilTick?: number;
 }
 
 export type IdlePlayer = PlayerCommon & { readonly kind: 'Idle' };
@@ -83,6 +93,9 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     avatarPos: { x: player.avatarPos.x, y: player.avatarPos.y },
     godlyCooldownEndsAtTick: player.godlyCooldownEndsAtTick,
     territorialShrinkUntilTick: player.territorialShrinkUntilTick,
+    // S72 P2 — preserve the hunter bench across the carry-FSM reconstruction
+    // (a benched player can still be holding a spark when caught).
+    benchedUntilTick: player.benchedUntilTick,
     kind: 'Carrying',
     carriedSparkId: sparkId,
   };
@@ -102,6 +115,9 @@ export function drop(player: Player): IdlePlayer {
     avatarPos: { x: player.avatarPos.x, y: player.avatarPos.y },
     godlyCooldownEndsAtTick: player.godlyCooldownEndsAtTick,
     territorialShrinkUntilTick: player.territorialShrinkUntilTick,
+    // S72 P2 — preserve the hunter bench when the caught player drops their spark
+    // (applyHunterCatch sets benchedUntilTick BEFORE calling DROP_SPARK -> fsmDrop).
+    benchedUntilTick: player.benchedUntilTick,
     kind: 'Idle',
   };
 }

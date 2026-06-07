@@ -25,6 +25,7 @@ import { Application, Text, TextStyle } from 'pixi.js';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  HUNTER_TRIGGER_SCORE,
   NET_INTERPOLATION_MS,
   NET_SNAPSHOT_HZ,
   PHYSICS_HZ,
@@ -86,6 +87,7 @@ import { makeCinematicVignette } from './render/cinematicVignette.ts';
 import { CodexOverlay, entryFromRecipe } from './render/codexOverlay.ts';
 import { CreatureRenderer } from './render/creatureRenderer.ts';
 import { BombRenderer } from './render/bombRenderer.ts';
+import { HunterRenderer } from './render/hunterRenderer.ts';
 import { ScreenShake, shouldTriggerShakeForArcFlash } from './render/screenShake.ts';
 // S23 P2 — debug overlay (toggleable via ?debug=1 URL param). Surfaces runtime
 // gates + audio chain + chain progress for in-vivo diagnosis when offline tests
@@ -266,6 +268,9 @@ async function bootstrap(): Promise<void> {
   // S71 P1 — bomb renderer (above creatures, below effects so BOMB_EXPLODE stacks
   // over the orb). Cheap no-op when world.bombs is empty.
   const bombRenderer = new BombRenderer(app);
+  // S72 P2 — Pac-Man hunter renderer (above bombs, below effects). Cheap no-op when
+  // world.hunters is empty. Pure Pixi vector (no assets); renders host + client.
+  const hunterRenderer = new HunterRenderer(app);
   const effectsRenderer = new EffectsRenderer(app);
   // S30 P0e — global screen-shake instance. Triggered on Voltkin fire-tick
   // (when CREATURE_ATTACK successfully severs a bond → ARC_FLASH emitted).
@@ -629,6 +634,30 @@ async function bootstrap(): Promise<void> {
         }
       }
 
+      // S72 P2 — Pac-Man hunter orchestration (host-only). (a) Trigger ONCE when the
+      // leader first reaches 75% (HUNTER_TRIGGER_SCORE); applySpawnHunter sets
+      // world.hunterSpawned so it never re-fires this game. (b) Fan out HUNTER_TICK
+      // per hunter (after the creature loop) — applyHunterTick steers + runs the FSM
+      // + catches inline. Snapshot the keys first (a tick may delete on escape /
+      // chomp-end). (c) Bench-expiry sweep: clear benchedUntilTick once world.tick
+      // passes it (tidiness; isInputLocked + avatarRenderer already self-heal on the
+      // tick compare — Council R5).
+      if (world.gameState === 'PLAYING' && !isClient) {
+        if (!world.hunterSpawned && world.scoreProgress >= HUNTER_TRIGGER_SCORE) {
+          dispatch(world, { type: 'SPAWN_HUNTER' });
+        }
+        if (world.hunters.size > 0) {
+          for (const hid of Array.from(world.hunters.keys())) {
+            dispatch(world, { type: 'HUNTER_TICK', hunterId: hid });
+          }
+        }
+        for (const player of world.players.values()) {
+          if (player.benchedUntilTick !== undefined && world.tick >= player.benchedUntilTick) {
+            player.benchedUntilTick = undefined;
+          }
+        }
+      }
+
       // S15 P2 — host emits NetSnapshot every SNAPSHOT_INTERVAL_TICKS
       // (60Hz / 10Hz = 6 ticks). Suppressed in TITLE/LOBBY (no snapshot
       // to send pre-game) and in solo.
@@ -719,6 +748,8 @@ async function bootstrap(): Promise<void> {
         // S71 P1 — drop bomb sprites on title-return (the reducer applyReturnToTitle
         // clears world.bombs; this closes the one-frame orphan-sprite window).
         bombRenderer.clear();
+        // S72 P2 — drop the hunter graphic on title-return (reducer clears world.hunters).
+        hunterRenderer.clear();
         godlyState.lastCinematicOwner = null;
         // S31 P0-3 — reset client shake cursor on TITLE transition so re-
         // entering PLAYING doesn't carry forward a stale tick threshold that
@@ -893,10 +924,14 @@ async function bootstrap(): Promise<void> {
     // the load-bearing Sym A coupling that makes joiner-built primitives land
     // at the joiner's intended position instead of the stale pickup-time pos.
     // Council Battle Ledger C2 (10Hz throttle) + Δ2 (in game-loop, not
-    // controls.ts). Gated on PLAYING + 1v1 — solo mode has no remote viewer
-    // so dispatch is wasted work + would also be a no-op (reducer would only
-    // update the local player's avatarPos for nobody to see).
-    if (world.gameState === 'PLAYING' && isNetworked(world)) {
+    // controls.ts).
+    // S72 P2 — gate widened from `PLAYING && isNetworked` to just `PLAYING`: the
+    // Pac-Man hunter (host sim) chases world.players[target].avatarPos, so a SOLO
+    // player's avatarPos must now track the cursor too (pre-S72 nothing consumed a
+    // solo avatarPos so it was networked-only). The 10Hz + 2px throttle is unchanged;
+    // in solo the dispatch is local-only (no wire traffic). Networked behaviour is
+    // identical to before.
+    if (world.gameState === 'PLAYING') {
       const nowMs = performance.now();
       const dx = controls.cursor.x - lastDispatchedCursorX;
       const dy = controls.cursor.y - lastDispatchedCursorY;
@@ -934,6 +969,9 @@ async function bootstrap(): Promise<void> {
     creatureRenderer.sync(world);
     // S71 P1 — bomb sprites (after creatures, before the effects wipe).
     bombRenderer.sync(world);
+    // S72 P2 — hunter wedge (after bombs, before the effects wipe). Faces the chased
+    // player's avatar; chomp + catch-burst + escape-fade are FSM-driven from state.
+    hunterRenderer.sync(world);
     // S18 P1 — drain audio effects BEFORE effectsRenderer (which wipes
     // world.effects). Cursor-gated; replay-safe.
     drainAudioEffects(world.effects, world.tick);

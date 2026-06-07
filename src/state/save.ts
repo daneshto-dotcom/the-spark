@@ -37,6 +37,7 @@ import {
   type BombId,
   type BondId,
   type CreatureId,
+  type HunterId,
   type PlayerId,
   type PrimitiveId,
   type SparkId,
@@ -46,6 +47,7 @@ import { type GameMode, type GameState, type World } from './world.ts';
 import { type Player } from '../game/player.ts';
 import type { Bomb } from './bomb.ts';
 import type { Creature, CreatureState, CreatureType } from './creatures/creature.ts';
+import type { Hunter, HunterState } from './hunters/hunter.ts';
 // Audit Pass 1 fix 3c8630d7 (Δ4) + Pass 2 refactor 622a7c7f: on restore,
 // world.tick may jump backward relative to the audio drain cursor. Without
 // resetting the cursor, audio effects whose tick straddles the cursor are
@@ -103,6 +105,18 @@ export interface WorldSnapshot {
    * when non-empty so pre-S71 saves stay byte-identical on the wire.
    */
   bombs?: SerializedBomb[];
+  /**
+   * S72 P2 — host-authoritative Pac-Man hunters for the 1v1 client mirror + host
+   * save/load. Additive-optional (creature/bomb precedent; NO schemaVersion bump).
+   * Emitted only when non-empty so pre-S72 saves stay byte-identical on the wire.
+   */
+  hunters?: SerializedHunter[];
+  /**
+   * S72 P2 — once-per-game hunter-spawned guard. Additive-optional; emitted only
+   * when true so a host save/load mid-game does not re-spawn a second hunter on
+   * reload. Pre-S72 saves omit it → rehydrates false.
+   */
+  hunterSpawned?: boolean;
   /**
    * S31 P0-3 — filtered effects array for 1v1 client mirror. Pre-S31 the
    * snapshot omitted `world.effects` entirely; 1v1 client saw creatures walk
@@ -172,6 +186,11 @@ interface SerializedPlayer {
    * optional precedent from S15 P2 / S28 P0 / S31 P0-3 / S33 P1-11).
    */
   territorialShrinkUntilTick?: number | null;
+  /**
+   * S72 P2 — Pac-Man hunter bench expiry tick. Additive-optional; emitted only
+   * when set so pre-S72 saves stay byte-identical. Rehydrates as undefined.
+   */
+  benchedUntilTick?: number;
 }
 
 /**
@@ -297,6 +316,21 @@ interface SerializedBomb {
   readonly dissipateAtTick: number;
 }
 
+/**
+ * S72 P2 — render-trimmed hunter wire shape (mirrors the SerializedCreature
+ * approach). The client renderer derives the wedge facing + chomp from
+ * (state, ticksInState, targetPlayerId) and the target's avatarPos in the same
+ * snapshot — so prevPos / spawnedAtTick / despawnAtTick are host-only + omitted.
+ * Additive-optional → no schemaVersion bump.
+ */
+interface SerializedHunter {
+  readonly id: HunterId;
+  readonly pos: Vec2;
+  readonly state: HunterState;
+  readonly ticksInState: number;
+  readonly targetPlayerId: PlayerId;
+}
+
 export function snapshot(world: World): WorldSnapshot {
   return {
     schemaVersion: 1,
@@ -329,6 +363,13 @@ export function snapshot(world: World): WorldSnapshot {
     bombs: world.bombs.size > 0
       ? [...world.bombs.values()].map(serializeBomb)
       : undefined,
+    // S72 P2 — emit hunters only when present so pre-S72 saves stay byte-identical
+    // (the field stays undefined and JSON.stringify drops it).
+    hunters: world.hunters.size > 0
+      ? [...world.hunters.values()].map(serializeHunter)
+      : undefined,
+    // S72 P2 — emit the once-per-game guard only when true (byte-identical pre-S72).
+    hunterSpawned: world.hunterSpawned ? true : undefined,
     // S31 P0-3 — filtered effects for 1v1 client mirror. Map+filter pattern
     // drops the 5 host-local visual kinds (BOND_COMMIT/SEVER_ERASE/
     // STRUCTURE_GROW/STRUCTURE_MERGE/SCORE_TIER) and keeps only the 3 wire
@@ -459,6 +500,22 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
     if (maxBombId >= 0) world.nextBombId = maxBombId + 1;
   }
 
+  // S72 P2 — hunters: clear + rehydrate (mirror of the bomb/creature pattern). Reset
+  // the mint counter past the max loaded id so a host save/load with a live hunter
+  // does not mint a colliding id. Restore the once-per-game guard so a reloaded host
+  // does not re-spawn a second hunter. Client never mints (no-op there).
+  world.hunters.clear();
+  world.nextHunterId = 0;
+  world.hunterSpawned = snap.hunterSpawned ?? false;
+  if (snap.hunters !== undefined) {
+    let maxHunterId = -1;
+    for (const h of snap.hunters) {
+      world.hunters.set(h.id, deserializeHunter(h));
+      if ((h.id as number) > maxHunterId) maxHunterId = h.id as number;
+    }
+    if (maxHunterId >= 0) world.nextHunterId = maxHunterId + 1;
+  }
+
   // S31 P0-3 — replace effects array contents from snap.effects. effects are
   // short-lived (max ~30 ticks each) and the host-side effectsRenderer.sync()
   // wipes `world.effects` to length=0 after draining; so the snapshot's effects
@@ -553,6 +610,8 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       godlyCooldownEndsAtTick: null,
       // S49 P1 (Sym F) — rehydrate debuff tick; null for pre-S49 saves.
       territorialShrinkUntilTick: p.territorialShrinkUntilTick ?? null,
+      // S72 P2 — rehydrate the hunter bench; undefined for pre-S72 saves.
+      benchedUntilTick: p.benchedUntilTick,
     };
     const player: Player =
       p.kind === 'Carrying' && p.carriedSparkId !== null
@@ -616,6 +675,11 @@ function serializePlayer(p: Player): SerializedPlayer {
     // Pre-S49 readers rehydrate as null via nullish-coalescing.
     ...(p.territorialShrinkUntilTick !== null
       ? { territorialShrinkUntilTick: p.territorialShrinkUntilTick }
+      : {}),
+    // S72 P2 — emit the hunter bench only when set so pre-S72 saves stay
+    // byte-identical (JSON.stringify drops undefined keys).
+    ...(p.benchedUntilTick !== undefined
+      ? { benchedUntilTick: p.benchedUntilTick }
       : {}),
   };
 }
@@ -809,6 +873,40 @@ function deserializeBomb(s: SerializedBomb): Bomb {
     radius: s.radius,
     spawnedAtTick: s.spawnedAtTick,
     dissipateAtTick: s.dissipateAtTick,
+  };
+}
+
+/**
+ * S72 P2 — render-trimmed hunter serialize (mirrors serializeCreature). Sim-only
+ * fields (prevPos, spawnedAtTick, despawnAtTick) are host-only + omitted; the client
+ * renderer needs only id/pos/state/ticksInState/targetPlayerId.
+ */
+function serializeHunter(h: Hunter): SerializedHunter {
+  return {
+    id: h.id,
+    pos: { x: h.pos.x, y: h.pos.y },
+    state: h.state,
+    ticksInState: h.ticksInState,
+    targetPlayerId: h.targetPlayerId,
+  };
+}
+
+/**
+ * S72 P2 — rehydrate a SerializedHunter on the client. Sim-only fields get neutral
+ * defaults: prevPos snaps to pos (client never integrates), spawnedAtTick=0 +
+ * despawnAtTick=0 (renderer ignores; host owns the despawn). targetPlayerId carries
+ * so the renderer can face the wedge toward the chased player's avatar.
+ */
+function deserializeHunter(s: SerializedHunter): Hunter {
+  return {
+    id: s.id,
+    pos: { x: s.pos.x, y: s.pos.y },
+    prevPos: { x: s.pos.x, y: s.pos.y },
+    state: s.state,
+    ticksInState: s.ticksInState,
+    targetPlayerId: s.targetPlayerId,
+    spawnedAtTick: 0,
+    despawnAtTick: 0,
   };
 }
 

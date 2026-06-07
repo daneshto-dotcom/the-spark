@@ -48,6 +48,7 @@ import { componentOf } from '../game/structure.ts';
 import { cssToCanvasCoords } from '../render/lobbyScreen.ts';
 import { dispatch, isNetworked } from '../state/world.ts';
 import type { GameAction, World } from '../state/world.ts';
+import { isBenched } from '../state/hunters/hunter.ts';
 import type { BombId, BondId, PlayerId, PrimitiveId, SparkId, Vec2 } from '../types.ts';
 import { pickRedundantBondTargets } from './redundantBondTargets.ts';
 import { isInsideEnemyTerritory } from '../state/territory.ts';
@@ -253,7 +254,12 @@ export class Controls {
    * Controls instance's playerId.
    */
   private isInputLocked(): boolean {
-    return this.world.activeCinematicPlayerId === this.playerId;
+    if (this.world.activeCinematicPlayerId === this.playerId) return true;
+    // S72 P2 — a benched player (eaten by the Pac-Man hunter) is fully input-locked
+    // until benchedUntilTick. Tick compare self-heals if the clear is missed (R5).
+    const me = this.world.players.get(this.playerId);
+    if (me !== undefined && isBenched(me.benchedUntilTick, this.world.tick)) return true;
+    return false;
   }
 
   private onDown = (e: PointerEvent): void => {

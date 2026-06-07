@@ -109,7 +109,17 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   world.diagnostics.territoryBlockRejects = 0;
   for (const player of world.players.values()) {
     player.territorialShrinkUntilTick = null;
+    // S72 P2 (Triumvirate CHECK) — a fresh match starts with NO hunter bench. The
+    // START-OF-MATCH invariant complement to the RETURN_TO_TITLE exit-path clear
+    // (belt-and-suspenders; mirrors the bomb-clear carry-forward posture).
+    player.benchedUntilTick = undefined;
   }
+  // S72 P2 (Triumvirate CHECK) — clear any lingering hunter at match start so the
+  // once-per-game flag + Map can never bleed across matches (invariant: no hunter
+  // before the 75% trigger fires this match).
+  world.hunters.clear();
+  world.nextHunterId = 0;
+  world.hunterSpawned = false;
   // S34 P2-21 defensive clear (see JSDoc above).
   world.pendingCreatureSpawn = null;
   if (action.roster !== undefined && action.roster.length > 0) {
@@ -201,6 +211,12 @@ export function applyReturnToTitle(world: World): World {
   // match (mirror of the creatures cleanup above).
   world.bombs.clear();
   world.nextBombId = 0;
+  // S72 P2 — clear the Pac-Man hunter on title-return (mirror of bombs/creatures).
+  // benchedUntilTick is cleared on the surviving P1 below; dropped players (P2+)
+  // take their bench with them when removed.
+  world.hunters.clear();
+  world.nextHunterId = 0;
+  world.hunterSpawned = false;
   world.activeCinematicPlayerId = null;
   world.currentCinematicEvent = null;
   world.pendingCinematics.length = 0;
@@ -219,6 +235,8 @@ export function applyReturnToTitle(world: World): World {
     p1.disruptionCharges = 0;
     // S49 P1 (Sym F) — clear shrink debuff so P1 starts fresh.
     p1.territorialShrinkUntilTick = null;
+    // S72 P2 — clear any hunter bench so P1 never starts the next match benched.
+    p1.benchedUntilTick = undefined;
     if (p1.kind === 'Carrying') {
       world.players.set(p1.id, { ...p1, kind: 'Idle' as const } as never);
     }

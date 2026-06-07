@@ -37,6 +37,7 @@
 import { Application, Container, Graphics } from 'pixi.js';
 import type { Controls } from '../input/controls.ts';
 import type { World } from '../state/world.ts';
+import { isBenched } from '../state/hunters/hunter.ts';
 import type { PlayerId } from '../types.ts';
 
 const AVATAR_INNER_RADIUS = 4;
@@ -104,6 +105,12 @@ export class AvatarRenderer {
         this.graphicsByPlayer.set(player.id, g);
       }
       g.clear();
+
+      // S72 P2 — a benched player (eaten by the hunter) has NO avatar for the bench
+      // duration. g.clear() above already wiped last frame's draw; skip re-drawing.
+      // Tick-gated (self-heals on un-bench). Runs on host + client (benchedUntilTick
+      // is in the snapshot) so both peers see the victim vanish.
+      if (isBenched(player.benchedUntilTick, world.tick)) continue;
 
       const isLocal = player.id === localPlayerId;
       const x = isLocal ? controls.cursor.x : player.avatarPos.x;

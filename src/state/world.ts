@@ -72,6 +72,15 @@ import {
   type SpawnBombAction,
   type TriggerBombAction,
 } from './bombLifecycle.ts';
+import {
+  applyHunterCatch,
+  applyHunterTick,
+  applySpawnHunter,
+  teardownHunters,
+  type HunterCatchAction,
+  type HunterTickAction,
+  type SpawnHunterAction,
+} from './hunters/hunterLifecycle.ts';
 
 // Re-export addScore from gameMode.ts for back-compat with placePrimitive.ts
 // and session15.test.ts (S16 P0 extraction preserved external import paths).
@@ -155,7 +164,12 @@ export type GameAction =
   // PROTOCOL_VERSION bump). Reducers in bombLifecycle.ts.
   | SpawnBombAction
   | TriggerBombAction
-  | DissipateBombAction;
+  | DissipateBombAction
+  // S72 P2 — Pac-Man hunter (host-internal; NOT client INTENTs — host-authored +
+  // snapshot-replicated, so PROTOCOL_VERSION stays 5). Reducers in hunters/hunterLifecycle.ts.
+  | SpawnHunterAction
+  | HunterTickAction
+  | HunterCatchAction;
 
 export function makeWorld(rngSeed: number): World {
   const w: World = {
@@ -183,6 +197,9 @@ export function makeWorld(rngSeed: number): World {
     pendingCreatureSpawn: null,
     bombs: new Map(),
     nextBombId: 0,
+    hunters: new Map(),
+    nextHunterId: 0,
+    hunterSpawned: false,
     // S42 — race-condition observability (real-time 1v1) + local-player
     // convention (replaces removed currentPlayerId active-player concept).
     diagnostics: {
@@ -239,6 +256,9 @@ export function dispatch(world: World, action: GameAction): World {
     case 'WIN_TRIGGER':
       world.gameState = 'WIN';
       world.lastWinnerId = action.winnerId;
+      // S72 P2 — tear the hunter down on the PLAYING->WIN edge so it never lingers
+      // on the win screen + no player carries a bench into POSTGAME / the next match.
+      teardownHunters(world);
       return world;
 
     case 'START_GAME':
@@ -299,6 +319,16 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'DISSIPATE_BOMB':
       return applyDissipateBomb(world, action);
+
+    // S72 P2 — Pac-Man hunter lifecycle (reducers in hunters/hunterLifecycle.ts).
+    case 'SPAWN_HUNTER':
+      return applySpawnHunter(world, action);
+
+    case 'HUNTER_TICK':
+      return applyHunterTick(world, action);
+
+    case 'HUNTER_CATCH':
+      return applyHunterCatch(world, action);
   }
 }
 

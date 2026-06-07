@@ -5,10 +5,12 @@ import {
   SparkType,
 } from '../constants.ts';
 import { makeFreeSpark } from '../game/spark.ts';
+import { makeIdlePlayer } from '../game/player.ts';
 import { asPlayerId, asSparkId } from '../types.ts';
 import { dispatch, makeWorld } from './world.ts';
 import { restore, snapshot } from './save.ts';
 import { applySpawnBomb } from './bombLifecycle.ts';
+import { applySpawnHunter } from './hunters/hunterLifecycle.ts';
 
 const P1 = asPlayerId(0);
 
@@ -642,5 +644,52 @@ describe('S71 P1 — bomb snapshot round-trip', () => {
     applySpawnBomb(w2, { type: 'SPAWN_BOMB', pos: { x: 1, y: 1 } }); // stale bomb in w2
     restore(JSON.parse(JSON.stringify(snap)), w2);
     expect(w2.bombs.size).toBe(0); // restore replaced (cleared) the stale bomb
+  });
+});
+
+describe('S72 P2 — hunter snapshot round-trip', () => {
+  it('roundtrips hunters + hunterSpawned (render-trim; prevPos snaps to pos, id advanced)', () => {
+    const w1 = makeWorld(1);
+    w1.gameMode = '1v1';
+    w1.players.set(asPlayerId(1), makeIdlePlayer(asPlayerId(1), 0x3bd7ff, { x: 900, y: 500 }));
+    w1.scoreByPlayer.set(asPlayerId(1), 40);
+    w1.tick = 300;
+    applySpawnHunter(w1, { type: 'SPAWN_HUNTER' });
+    const hid = [...w1.hunters.keys()][0];
+    w1.hunters.get(hid)!.ticksInState = 12;
+    const snap = JSON.parse(JSON.stringify(snapshot(w1)));
+    const w2 = makeWorld(2);
+    restore(snap, w2);
+    expect(w2.hunters.size).toBe(1);
+    expect(w2.hunterSpawned).toBe(true);
+    expect(w2.nextHunterId).toBe(1); // advanced past max loaded id (no collide on next mint)
+    const h = [...w2.hunters.values()][0];
+    expect(h.state).toBe('SEEKING');
+    expect(h.ticksInState).toBe(12);
+    expect(h.targetPlayerId).toBe(asPlayerId(1));
+    expect(h.prevPos).toEqual(h.pos); // render-trim: client snaps prevPos to pos
+  });
+
+  it('roundtrips a player benchedUntilTick (additive-optional)', () => {
+    const w1 = makeWorld(1);
+    w1.players.get(asPlayerId(0))!.benchedUntilTick = 4242;
+    const w2 = makeWorld(2);
+    restore(JSON.parse(JSON.stringify(snapshot(w1))), w2);
+    expect(w2.players.get(asPlayerId(0))!.benchedUntilTick).toBe(4242);
+  });
+
+  it('pre-S72 snapshot (no hunters / hunterSpawned / bench) restores cleanly (back-compat)', () => {
+    const w1 = makeWorld(1);
+    const snap = snapshot(w1);
+    expect(snap.hunters).toBeUndefined();
+    expect(snap.hunterSpawned).toBeUndefined();
+    expect(snap.players[0].benchedUntilTick).toBeUndefined();
+    const w2 = makeWorld(2);
+    applySpawnHunter(w2, { type: 'SPAWN_HUNTER' }); // stale hunter + flag in w2
+    w2.players.get(asPlayerId(0))!.benchedUntilTick = 999;
+    restore(JSON.parse(JSON.stringify(snap)), w2);
+    expect(w2.hunters.size).toBe(0); // cleared
+    expect(w2.hunterSpawned).toBe(false);
+    expect(w2.players.get(asPlayerId(0))!.benchedUntilTick).toBeUndefined();
   });
 });
