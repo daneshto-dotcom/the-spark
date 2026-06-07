@@ -25,8 +25,9 @@ import {
   FREE_SPARK_SOFT_CAP,
   PHYSICS_HZ,
   PHYSICS_SUBSTEPS,
+  POTATO_MAX_ACTIVE,
 } from '../constants.ts';
-import { Spawner, enforceSpawnerBounds, type BombSpawnRequest } from '../game/spawner.ts';
+import { Spawner, enforceSpawnerBounds, type BombSpawnRequest, type PotatoSpawnRequest } from '../game/spawner.ts';
 import type { Spark } from '../game/spark.ts';
 import type { Controls } from '../input/controls.ts';
 import { solveBonds, type Bond } from './bonds.ts';
@@ -57,13 +58,21 @@ export function stepPhysics(
   // SPAWN — dispatched as actions for the audit log seam (§ 10.2).
   const spawned: Spark[] = [];
   const bombSpawns: BombSpawnRequest[] = [];
-  spawner.tick(PHYSICS_DT, world.tick, spawned, bombSpawns);
+  const potatoSpawns: PotatoSpawnRequest[] = [];
+  spawner.tick(PHYSICS_DT, world.tick, spawned, bombSpawns, potatoSpawns);
   for (const s of spawned) dispatch(world, { type: 'SPAWN_SPARK', spark: s });
   // S71 P1 — bomb cadence: dispatch SPAWN_BOMB per request, gated on BOMB_MAX_ACTIVE
   // (the spawner already redrew its countdown, so a capped fire is a clean skip).
   for (const req of bombSpawns) {
     if (world.bombs.size < BOMB_MAX_ACTIVE) {
       dispatch(world, { type: 'SPAWN_BOMB', pos: req.pos });
+    }
+  }
+  // S72 P3 — potato cadence: dispatch SPAWN_POTATO per request, gated on POTATO_MAX_ACTIVE
+  // (same skip-and-redraw posture as the bomb).
+  for (const req of potatoSpawns) {
+    if (world.potatoes.size < POTATO_MAX_ACTIVE) {
+      dispatch(world, { type: 'SPAWN_POTATO', pos: req.pos });
     }
   }
 

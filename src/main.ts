@@ -88,6 +88,7 @@ import { CodexOverlay, entryFromRecipe } from './render/codexOverlay.ts';
 import { CreatureRenderer } from './render/creatureRenderer.ts';
 import { BombRenderer } from './render/bombRenderer.ts';
 import { HunterRenderer } from './render/hunterRenderer.ts';
+import { PotatoRenderer } from './render/potatoRenderer.ts';
 import { ScreenShake, shouldTriggerShakeForArcFlash } from './render/screenShake.ts';
 // S23 P2 — debug overlay (toggleable via ?debug=1 URL param). Surfaces runtime
 // gates + audio chain + chain progress for in-vivo diagnosis when offline tests
@@ -207,7 +208,10 @@ async function bootstrap(): Promise<void> {
   // S71 P1 — bombs draw from a SEPARATE seeded stream (deterministic, host-only) so
   // the spark RNG sequence is byte-identical to pre-S71 (zero existing-test drift).
   const bombRng = mulberry32((SEED ^ 0x9e3779b9) >>> 0);
-  const spawner = new Spawner(DEFAULT_SPAWNER_CONFIG, rng, bombRng);
+  // S72 P3 — potatoes draw from a THIRD seeded stream (distinct xor constant from bombRng)
+  // so the spark AND bomb sequences both stay byte-identical (zero existing-test drift).
+  const potatoRng = mulberry32((SEED ^ 0x85ebca6b) >>> 0);
+  const spawner = new Spawner(DEFAULT_SPAWNER_CONFIG, rng, bombRng, potatoRng);
   const gameStateExtras = makeGameStateExtras();
 
   // ===== S15 P2 — net session state (1v1 only). S50 P2 — unified into
@@ -271,6 +275,9 @@ async function bootstrap(): Promise<void> {
   // S72 P2 — Pac-Man hunter renderer (above bombs, below effects). Cheap no-op when
   // world.hunters is empty. Pure Pixi vector (no assets); renders host + client.
   const hunterRenderer = new HunterRenderer(app);
+  // S72 P3 — potato renderer (FREE/CARRIED/ARMED + fuse-countdown VFX). Cheap no-op when
+  // world.potatoes is empty. Pure Pixi vector; renders host + client.
+  const potatoRenderer = new PotatoRenderer(app);
   const effectsRenderer = new EffectsRenderer(app);
   // S30 P0e — global screen-shake instance. Triggered on Voltkin fire-tick
   // (when CREATURE_ATTACK successfully severs a bond → ARC_FLASH emitted).
@@ -658,6 +665,29 @@ async function bootstrap(): Promise<void> {
         }
       }
 
+      // S72 P3 — potato poll (host-only, beside the bomb dissipate). For each potato:
+      // (a) CARRIED → sync pos to the carrier's avatar (the uniform blast center); if the
+      //     carrier vanished (disconnect / eliminate) → FORCE-DETONATE at the last pos
+      //     ("cooks off if its carrier vanishes" — no orphan; deterministic in-loop, no
+      //     net-handler hook). (b) tick >= detonateAtTick (from-SPAWN fuse) → DETONATE.
+      // Snapshot the entries first (DETONATE deletes from the Map).
+      if (world.gameState === 'PLAYING' && !isClient && world.potatoes.size > 0) {
+        for (const [potatoId, potato] of [...world.potatoes]) {
+          if (potato.state === 'CARRIED' && potato.carrierId !== null) {
+            const carrier = world.players.get(potato.carrierId);
+            if (carrier === undefined) {
+              dispatch(world, { type: 'POTATO_DETONATE', potatoId });
+              continue;
+            }
+            potato.pos.x = carrier.avatarPos.x;
+            potato.pos.y = carrier.avatarPos.y;
+          }
+          if (world.tick >= potato.detonateAtTick) {
+            dispatch(world, { type: 'POTATO_DETONATE', potatoId });
+          }
+        }
+      }
+
       // S15 P2 — host emits NetSnapshot every SNAPSHOT_INTERVAL_TICKS
       // (60Hz / 10Hz = 6 ticks). Suppressed in TITLE/LOBBY (no snapshot
       // to send pre-game) and in solo.
@@ -750,6 +780,8 @@ async function bootstrap(): Promise<void> {
         bombRenderer.clear();
         // S72 P2 — drop the hunter graphic on title-return (reducer clears world.hunters).
         hunterRenderer.clear();
+        // S72 P3 — drop the potato graphic on title-return (reducer clears world.potatoes).
+        potatoRenderer.clear();
         godlyState.lastCinematicOwner = null;
         // S31 P0-3 — reset client shake cursor on TITLE transition so re-
         // entering PLAYING doesn't carry forward a stale tick threshold that
@@ -972,6 +1004,8 @@ async function bootstrap(): Promise<void> {
     // S72 P2 — hunter wedge (after bombs, before the effects wipe). Faces the chased
     // player's avatar; chomp + catch-burst + escape-fade are FSM-driven from state.
     hunterRenderer.sync(world);
+    // S72 P3 — potato (FREE/CARRIED/ARMED + fuse-countdown VFX), before the effects wipe.
+    potatoRenderer.sync(world);
     // S18 P1 — drain audio effects BEFORE effectsRenderer (which wipes
     // world.effects). Cursor-gated; replay-safe.
     drainAudioEffects(world.effects, world.tick);

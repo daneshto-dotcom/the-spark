@@ -7,7 +7,7 @@
  */
 
 import { BUILD_ACTIONS_PER_CHARGE, MAX_DISRUPTION_CHARGES } from '../constants.ts';
-import type { PlayerId, SparkId, Vec2 } from '../types.ts';
+import type { PlayerId, PotatoId, SparkId, Vec2 } from '../types.ts';
 
 interface PlayerCommon {
   readonly id: PlayerId;
@@ -49,6 +49,13 @@ interface PlayerCommon {
    * main.ts bench-expiry sweep + teardownHunters. Additive-optional in save.ts.
    */
   benchedUntilTick?: number;
+  /**
+   * S72 P3 — id of the potato bomb this player is carrying, or undefined. MUTUALLY
+   * EXCLUSIVE with carriedSparkId (carry-1): the spark-pickup paths reject when this
+   * is set, and applyPickupPotato rejects when the player is Carrying a spark. Mutable;
+   * set by applyPickupPotato, cleared by place/drop/detonate. Additive-optional in save.
+   */
+  carriedPotatoId?: PotatoId;
 }
 
 export type IdlePlayer = PlayerCommon & { readonly kind: 'Idle' };
@@ -96,6 +103,9 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     // S72 P2 — preserve the hunter bench across the carry-FSM reconstruction
     // (a benched player can still be holding a spark when caught).
     benchedUntilTick: player.benchedUntilTick,
+    // S72 P3 — preserve the potato carry slot (undefined here by mutual exclusion —
+    // the spark-pickup paths reject while carrying a potato — but thread it for safety).
+    carriedPotatoId: player.carriedPotatoId,
     kind: 'Carrying',
     carriedSparkId: sparkId,
   };
@@ -118,6 +128,8 @@ export function drop(player: Player): IdlePlayer {
     // S72 P2 — preserve the hunter bench when the caught player drops their spark
     // (applyHunterCatch sets benchedUntilTick BEFORE calling DROP_SPARK -> fsmDrop).
     benchedUntilTick: player.benchedUntilTick,
+    // S72 P3 — preserve the potato carry slot across the carry-FSM reconstruction.
+    carriedPotatoId: player.carriedPotatoId,
     kind: 'Idle',
   };
 }

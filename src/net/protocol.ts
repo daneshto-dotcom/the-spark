@@ -296,6 +296,15 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   SPAWN_HUNTER: true,
   HUNTER_TICK: true,
   HUNTER_CATCH: true,
+  // S72 P3 — potato bomb. PICKUP/PLACE/DROP_POTATO are client INTENTs (a joiner can
+  // carry + plant a potato — wire-allowed); SPAWN_POTATO + POTATO_DETONATE are
+  // host-internal (listed for the exhaustive Record mirror; inert as client intents).
+  // NO PROTOCOL_VERSION bump — Council: the S71 v4->5 bump covers the P1/P2/P3 batch.
+  SPAWN_POTATO: true,
+  PICKUP_POTATO: true,
+  PLACE_POTATO: true,
+  DROP_POTATO: true,
+  POTATO_DETONATE: true,
 };
 const KNOWN_GAME_ACTION_TYPES: ReadonlySet<string> = new Set(
   Object.keys(KNOWN_GAME_ACTION_TYPES_RECORD),

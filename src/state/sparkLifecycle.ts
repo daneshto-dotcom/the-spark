@@ -130,6 +130,10 @@ export function applyPickupSpark(world: World, action: PickupSparkAction): World
     return world;
   }
   const player = requirePlayer(world, action.playerId);
+  // S72 P3 — carry-1 mutual exclusion: can't grab a spark while holding a potato bomb
+  // (the other direction is enforced in applyPickupPotato). Silent no-op, like the
+  // spark-not-Free race below.
+  if (player.carriedPotatoId !== undefined) return world;
   const spark = world.freeSparks.get(action.sparkId);
   if (spark === undefined) throw new Error(`spark ${action.sparkId} not free`);
   if (spark.state.kind !== 'Free') {

@@ -6,11 +6,12 @@ import {
 } from '../constants.ts';
 import { makeFreeSpark } from '../game/spark.ts';
 import { makeIdlePlayer } from '../game/player.ts';
-import { asPlayerId, asSparkId } from '../types.ts';
+import { asPlayerId, asPotatoId, asSparkId } from '../types.ts';
 import { dispatch, makeWorld } from './world.ts';
 import { restore, snapshot } from './save.ts';
 import { applySpawnBomb } from './bombLifecycle.ts';
 import { applySpawnHunter } from './hunters/hunterLifecycle.ts';
+import { applyPickupPotato, applySpawnPotato } from './potatoLifecycle.ts';
 
 const P1 = asPlayerId(0);
 
@@ -691,5 +692,46 @@ describe('S72 P2 — hunter snapshot round-trip', () => {
     expect(w2.hunters.size).toBe(0); // cleared
     expect(w2.hunterSpawned).toBe(false);
     expect(w2.players.get(asPlayerId(0))!.benchedUntilTick).toBeUndefined();
+  });
+});
+
+describe('S72 P3 — potato snapshot round-trip', () => {
+  it('roundtrips potatoes (detonateAtTick + state + carrierId preserved, id advanced)', () => {
+    const w1 = makeWorld(1);
+    w1.tick = 100;
+    applySpawnPotato(w1, { type: 'SPAWN_POTATO', pos: { x: 700, y: 300 } });
+    const po = [...w1.potatoes.values()][0];
+    po.state = 'ARMED';
+    const snap = JSON.parse(JSON.stringify(snapshot(w1)));
+    const w2 = makeWorld(2);
+    restore(snap, w2);
+    expect(w2.potatoes.size).toBe(1);
+    expect(w2.nextPotatoId).toBe(1); // advanced past the max loaded id
+    const r = [...w2.potatoes.values()][0];
+    expect(r.state).toBe('ARMED');
+    expect(r.pos).toEqual({ x: 700, y: 300 });
+    expect(r.carrierId).toBe(null);
+    expect(r.detonateAtTick).toBe(po.detonateAtTick); // fuse fire-tick survives host save/load
+    expect(r.prevPos).toEqual(r.pos); // render-trim: prevPos snaps to pos
+  });
+
+  it('roundtrips a player carriedPotatoId (additive-optional)', () => {
+    const w1 = makeWorld(1);
+    applySpawnPotato(w1, { type: 'SPAWN_POTATO', pos: { x: 500, y: 500 } });
+    applyPickupPotato(w1, { type: 'PICKUP_POTATO', potatoId: asPotatoId(0), playerId: asPlayerId(0) });
+    const w2 = makeWorld(2);
+    restore(JSON.parse(JSON.stringify(snapshot(w1))), w2);
+    expect(w2.players.get(asPlayerId(0))!.carriedPotatoId).toBe(asPotatoId(0));
+  });
+
+  it('pre-S72-P3 snapshot (no potatoes / carriedPotatoId) restores cleanly (back-compat)', () => {
+    const w1 = makeWorld(1);
+    const snap = snapshot(w1);
+    expect(snap.potatoes).toBeUndefined();
+    expect(snap.players[0].carriedPotatoId).toBeUndefined();
+    const w2 = makeWorld(2);
+    applySpawnPotato(w2, { type: 'SPAWN_POTATO', pos: { x: 1, y: 1 } }); // stale potato in w2
+    restore(JSON.parse(JSON.stringify(snap)), w2);
+    expect(w2.potatoes.size).toBe(0); // restore cleared it
   });
 });

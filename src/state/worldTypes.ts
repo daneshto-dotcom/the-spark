@@ -18,8 +18,9 @@ import type { Bond } from '../physics/bonds.ts';
 import type { Bomb } from './bomb.ts';
 import type { Creature } from './creatures/creature.ts';
 import type { Hunter } from './hunters/hunter.ts';
+import type { Potato } from './potato.ts';
 import type { GodlyTriggerEvent } from './godlyRecipes/types.ts';
-import type { BombId, BondId, CreatureId, HunterId, PlayerId, PrimitiveId, SparkId } from '../types.ts';
+import type { BombId, BondId, CreatureId, HunterId, PlayerId, PotatoId, PrimitiveId, SparkId } from '../types.ts';
 
 /**
  * S15 P2: extended FSM. Solo path TITLE→PLAYING→WIN→POSTGAME→TITLE. 1v1
@@ -145,6 +146,16 @@ export interface World {
    * save/load mid-game does not re-spawn a second hunter.
    */
   hunterSpawned: boolean;
+  /**
+   * S72 P3 — host-authoritative potato bombs (SEPARATE Map; Council Fork D UNANIMOUS,
+   * NOT the bombs Map — keeps each feature simple). Carryable (carry-slot exclusive with
+   * a spark); detonates on a from-SPAWN fuse with a deterministic position-based radial
+   * AoE. Additive-optional `potatoes[]` in NetSnapshot so clients render the mirror;
+   * cleared on teardown (WIN / RETURN_TO_TITLE / START_GAME).
+   */
+  potatoes: Map<PotatoId, Potato>;
+  /** S72 P3 — monotonic potato id counter (host-only mint authority). */
+  nextPotatoId: number;
   /**
    * S42 — host-side counter of "shared-resource race rejected" events.
    * Increments when applyPickupSpark or placePrimitive silently no-ops

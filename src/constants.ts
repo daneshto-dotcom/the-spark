@@ -453,3 +453,39 @@ export const HUNTER_RADIUS = 26; // visual wedge radius (Pac-Man mouth)
 export const HUNTER_MAX_SPEED = 7; // px/tick (~420 px/s)
 export const HUNTER_ACCEL = 0.6; // px/tick² of steering toward the avatar
 export const HUNTER_DAMPING = 0.9; // per-tick velocity retention (momentum / overshoot)
+
+// === S72 P3 — Potato Bomb (Council Full; Fork E fuse FROM-SPAWN [user reading]) ===
+// The host-only spawner drops a CARRYABLE potato in the spawn zone on its OWN seeded
+// cadence (SEPARATE potatoRng → the spark + bomb streams stay byte-identical). Grab it
+// (PICKUP_POTATO; carry-slot MUTUALLY EXCLUSIVE with a spark), carry it (it follows
+// your avatar), then PLACE it onto the board (PLACE_POTATO → ARMED) or DROP it. Its
+// fuse runs FROM SPAWN (Fork E, user "hot potato": a potato held too long cooks off in
+// your hand). On detonation: a DETERMINISTIC radial AoE deletes every primitive within
+// POTATO_BLAST_RADIUS (SQUARED distance, iterated in SORTED PrimitiveId order — replay-
+// safe, no sqrt) + their incident bonds; owner-AGNOSTIC + POSITION-based (area denial,
+// fires at the coord even if the structure there is already gone); NO chain reaction
+// (deletes prims/bonds only, not other bombs/potatoes). Host-authoritative + tick-based
+// (replay-safe); clients render the snapshot mirror. NO PROTOCOL_VERSION bump (Council:
+// the S71 v4→5 bump covers the P1/P2/P3 batch). Fuse-start is a one-line flip to
+// Council's from-PLACEMENT (see hunters/.. no — see makePotato + applyPlacePotato).
+//
+// E2E seam: window.__TEST_POTATO_SPAWN_SPARKS__ forces the cadence small (mirror bomb).
+function readTestPotatoSpawnSparks(): number | null {
+  if (typeof window === 'undefined') return null;
+  const v = (window as { __TEST_POTATO_SPAWN_SPARKS__?: number }).__TEST_POTATO_SPAWN_SPARKS__;
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : null;
+}
+const _POTATO_TEST_CADENCE = readTestPotatoSpawnSparks();
+export const POTATO_SPAWN_MIN_SPARKS = _POTATO_TEST_CADENCE ?? 10;
+export const POTATO_SPAWN_MAX_SPARKS = _POTATO_TEST_CADENCE ?? 18;
+// E2E seam: window.__TEST_POTATO_FUSE_TICKS__ shortens the fuse so a Playwright run can
+// observe a detonation in ~1-2 s instead of 23 s (mirror of the other __TEST_* seams).
+function readTestPotatoFuseTicks(): number | null {
+  if (typeof window === 'undefined') return null;
+  const v = (window as { __TEST_POTATO_FUSE_TICKS__?: number }).__TEST_POTATO_FUSE_TICKS__;
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : null;
+}
+export const POTATO_FUSE_TICKS = readTestPotatoFuseTicks() ?? 23 * PHYSICS_HZ; // 1380 ticks = 23 s (Fork E from-SPAWN; tunable)
+export const POTATO_BLAST_RADIUS = 110; // px — small radial AoE (clips a few primitives)
+export const POTATO_MAX_ACTIVE = 1;
+export const POTATO_RADIUS = 16; // visual + pick radius

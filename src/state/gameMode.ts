@@ -113,6 +113,8 @@ export function applyStartGame(world: World, action: StartGameAction): World {
     // START-OF-MATCH invariant complement to the RETURN_TO_TITLE exit-path clear
     // (belt-and-suspenders; mirrors the bomb-clear carry-forward posture).
     player.benchedUntilTick = undefined;
+    // S72 P3 — a fresh match starts with no carried potato (start-of-match invariant).
+    player.carriedPotatoId = undefined;
   }
   // S72 P2 (Triumvirate CHECK) — clear any lingering hunter at match start so the
   // once-per-game flag + Map can never bleed across matches (invariant: no hunter
@@ -120,6 +122,9 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   world.hunters.clear();
   world.nextHunterId = 0;
   world.hunterSpawned = false;
+  // S72 P3 — clear any lingering potato at match start (same invariant).
+  world.potatoes.clear();
+  world.nextPotatoId = 0;
   // S34 P2-21 defensive clear (see JSDoc above).
   world.pendingCreatureSpawn = null;
   if (action.roster !== undefined && action.roster.length > 0) {
@@ -217,6 +222,10 @@ export function applyReturnToTitle(world: World): World {
   world.hunters.clear();
   world.nextHunterId = 0;
   world.hunterSpawned = false;
+  // S72 P3 — clear potatoes on title-return (mirror of hunters/bombs/creatures).
+  // carriedPotatoId is cleared on the surviving P1 below; dropped players take theirs.
+  world.potatoes.clear();
+  world.nextPotatoId = 0;
   world.activeCinematicPlayerId = null;
   world.currentCinematicEvent = null;
   world.pendingCinematics.length = 0;
@@ -237,6 +246,8 @@ export function applyReturnToTitle(world: World): World {
     p1.territorialShrinkUntilTick = null;
     // S72 P2 — clear any hunter bench so P1 never starts the next match benched.
     p1.benchedUntilTick = undefined;
+    // S72 P3 — clear any carried potato slot so P1 starts the next match empty-handed.
+    p1.carriedPotatoId = undefined;
     if (p1.kind === 'Carrying') {
       world.players.set(p1.id, { ...p1, kind: 'Idle' as const } as never);
     }

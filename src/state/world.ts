@@ -81,6 +81,19 @@ import {
   type HunterTickAction,
   type SpawnHunterAction,
 } from './hunters/hunterLifecycle.ts';
+import {
+  applyDropPotato,
+  applyPickupPotato,
+  applyPlacePotato,
+  applyPotatoDetonate,
+  applySpawnPotato,
+  teardownPotatoes,
+  type DropPotatoAction,
+  type PickupPotatoAction,
+  type PlacePotatoAction,
+  type PotatoDetonateAction,
+  type SpawnPotatoAction,
+} from './potatoLifecycle.ts';
 
 // Re-export addScore from gameMode.ts for back-compat with placePrimitive.ts
 // and session15.test.ts (S16 P0 extraction preserved external import paths).
@@ -169,7 +182,15 @@ export type GameAction =
   // snapshot-replicated, so PROTOCOL_VERSION stays 5). Reducers in hunters/hunterLifecycle.ts.
   | SpawnHunterAction
   | HunterTickAction
-  | HunterCatchAction;
+  | HunterCatchAction
+  // S72 P3 — potato bomb. PICKUP/PLACE/DROP_POTATO are client INTENTs (a joiner can
+  // carry + plant a potato); SPAWN_POTATO + POTATO_DETONATE are host-internal (spawner
+  // cadence / fuse poll). NO PROTOCOL_VERSION bump — the S71 v4->5 covers the batch.
+  | SpawnPotatoAction
+  | PickupPotatoAction
+  | PlacePotatoAction
+  | DropPotatoAction
+  | PotatoDetonateAction;
 
 export function makeWorld(rngSeed: number): World {
   const w: World = {
@@ -200,6 +221,8 @@ export function makeWorld(rngSeed: number): World {
     hunters: new Map(),
     nextHunterId: 0,
     hunterSpawned: false,
+    potatoes: new Map(),
+    nextPotatoId: 0,
     // S42 — race-condition observability (real-time 1v1) + local-player
     // convention (replaces removed currentPlayerId active-player concept).
     diagnostics: {
@@ -259,6 +282,8 @@ export function dispatch(world: World, action: GameAction): World {
       // S72 P2 — tear the hunter down on the PLAYING->WIN edge so it never lingers
       // on the win screen + no player carries a bench into POSTGAME / the next match.
       teardownHunters(world);
+      // S72 P3 — same for potatoes (no armed potato / carry-slot persists past the win).
+      teardownPotatoes(world);
       return world;
 
     case 'START_GAME':
@@ -329,6 +354,22 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'HUNTER_CATCH':
       return applyHunterCatch(world, action);
+
+    // S72 P3 — potato bomb lifecycle (reducers in potatoLifecycle.ts).
+    case 'SPAWN_POTATO':
+      return applySpawnPotato(world, action);
+
+    case 'PICKUP_POTATO':
+      return applyPickupPotato(world, action);
+
+    case 'PLACE_POTATO':
+      return applyPlacePotato(world, action);
+
+    case 'DROP_POTATO':
+      return applyDropPotato(world, action);
+
+    case 'POTATO_DETONATE':
+      return applyPotatoDetonate(world, action);
   }
 }
 

@@ -17,6 +17,8 @@ import {
   BOMB_SPAWN_MAX_SPARKS,
   BOMB_SPAWN_MIN_SPARKS,
   PHYSICS_HZ,
+  POTATO_SPAWN_MAX_SPARKS,
+  POTATO_SPAWN_MIN_SPARKS,
   SPAWN_RATE_PER_SECOND,
   SPAWNER_BOUNCE_DAMPING,
   SPAWNER_CENTER_X,
@@ -59,6 +61,15 @@ export interface BombSpawnRequest {
   readonly pos: Vec2;
 }
 
+/**
+ * S72 P3 — a host-only request to mint a potato at `pos`. Pushed into the `potatoesOut`
+ * array passed to tick(); physicsLoop dispatches SPAWN_POTATO for each (gated on
+ * POTATO_MAX_ACTIVE). Mirrors BombSpawnRequest — the cap lives at the dispatch site.
+ */
+export interface PotatoSpawnRequest {
+  readonly pos: Vec2;
+}
+
 export class Spawner {
   private nextId = 0;
   private secondsUntilNextSpawn: number;
@@ -69,22 +80,38 @@ export class Spawner {
    * byte-identical (zero existing-test perturbation). Infinity when bombs disabled.
    */
   private sparksUntilBomb: number;
+  /**
+   * S72 P3 — sparks remaining until the next potato (counts SPARKS SPAWNED). Drawn from
+   * `potatoRng` — a THIRD seeded stream separate from spark `rng` AND `bombRng` — so
+   * adding potatoes leaves BOTH the spark + bomb sequences byte-identical. Infinity when
+   * potatoes are disabled.
+   */
+  private sparksUntilPotato: number;
 
   constructor(
     private readonly cfg: SpawnerConfig,
     private readonly rng: Rng,
     /** Separate seeded stream for bomb cadence + position. null → bombs disabled. */
     private readonly bombRng: Rng | null = null,
+    /** Separate seeded stream for potato cadence + position. null → potatoes disabled. */
+    private readonly potatoRng: Rng | null = null,
   ) {
     this.secondsUntilNextSpawn = this.sampleInterarrival();
     this.sparksUntilBomb = this.sampleBombCountdown();
+    this.sparksUntilPotato = this.samplePotatoCountdown();
   }
 
   /**
    * Advance the spawner by `dtSec` of wall time and append any new sparks.
    * Returns the count spawned this frame (handy for stats overlay).
    */
-  tick(dtSec: number, tick: number, freeSparks: Spark[], bombsOut?: BombSpawnRequest[]): number {
+  tick(
+    dtSec: number,
+    tick: number,
+    freeSparks: Spark[],
+    bombsOut?: BombSpawnRequest[],
+    potatoesOut?: PotatoSpawnRequest[],
+  ): number {
     let n = 0;
     this.secondsUntilNextSpawn -= dtSec;
     while (this.secondsUntilNextSpawn <= 0) {
@@ -99,6 +126,14 @@ export class Spawner {
       if (this.bombRng !== null && --this.sparksUntilBomb <= 0) {
         if (bombsOut !== undefined) bombsOut.push({ pos: this.sampleBombPos() });
         this.sparksUntilBomb = this.sampleBombCountdown();
+      }
+      // S72 P3 — potato cadence: one potato every POTATO_SPAWN_MIN..MAX sparks. Same
+      // shape as the bomb cadence but on the SEPARATE potatoRng stream (spark + bomb
+      // sequences byte-unchanged). POTATO_MAX_ACTIVE is enforced at the dispatch site,
+      // so a capped fire is a clean skip-and-redraw here too.
+      if (this.potatoRng !== null && --this.sparksUntilPotato <= 0) {
+        if (potatoesOut !== undefined) potatoesOut.push({ pos: this.samplePotatoPos() });
+        this.sparksUntilPotato = this.samplePotatoCountdown();
       }
     }
     return n;
@@ -139,6 +174,24 @@ export class Spawner {
   /** S71 P1 — uniform point inside the spawn disk for a bomb (same law as sparks). */
   private sampleBombPos(): Vec2 {
     const rng = this.bombRng as Rng;
+    const r = this.cfg.radius * Math.sqrt(rng()) * 0.85;
+    const theta = 2 * Math.PI * rng();
+    return {
+      x: this.cfg.center.x + r * Math.cos(theta),
+      y: this.cfg.center.y + r * Math.sin(theta),
+    };
+  }
+
+  /** S72 P3 — next potato cadence in [MIN, MAX] sparks (potatoRng; Infinity if disabled). */
+  private samplePotatoCountdown(): number {
+    if (this.potatoRng === null) return Number.POSITIVE_INFINITY;
+    const span = POTATO_SPAWN_MAX_SPARKS - POTATO_SPAWN_MIN_SPARKS + 1;
+    return POTATO_SPAWN_MIN_SPARKS + Math.floor(this.potatoRng() * span);
+  }
+
+  /** S72 P3 — uniform point inside the spawn disk for a potato (same law as sparks/bombs). */
+  private samplePotatoPos(): Vec2 {
+    const rng = this.potatoRng as Rng;
     const r = this.cfg.radius * Math.sqrt(rng()) * 0.85;
     const theta = 2 * Math.PI * rng();
     return {

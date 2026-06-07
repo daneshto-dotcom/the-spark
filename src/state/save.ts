@@ -39,6 +39,7 @@ import {
   type CreatureId,
   type HunterId,
   type PlayerId,
+  type PotatoId,
   type PrimitiveId,
   type SparkId,
   type Vec2,
@@ -48,6 +49,7 @@ import { type Player } from '../game/player.ts';
 import type { Bomb } from './bomb.ts';
 import type { Creature, CreatureState, CreatureType } from './creatures/creature.ts';
 import type { Hunter, HunterState } from './hunters/hunter.ts';
+import type { Potato, PotatoState } from './potato.ts';
 // Audit Pass 1 fix 3c8630d7 (Δ4) + Pass 2 refactor 622a7c7f: on restore,
 // world.tick may jump backward relative to the audio drain cursor. Without
 // resetting the cursor, audio effects whose tick straddles the cursor are
@@ -117,6 +119,11 @@ export interface WorldSnapshot {
    * reload. Pre-S72 saves omit it → rehydrates false.
    */
   hunterSpawned?: boolean;
+  /**
+   * S72 P3 — host-authoritative potato bombs for the 1v1 client mirror + host save/load.
+   * Additive-optional; emitted only when non-empty so pre-S72-P3 saves stay byte-identical.
+   */
+  potatoes?: SerializedPotato[];
   /**
    * S31 P0-3 — filtered effects array for 1v1 client mirror. Pre-S31 the
    * snapshot omitted `world.effects` entirely; 1v1 client saw creatures walk
@@ -191,6 +198,11 @@ interface SerializedPlayer {
    * when set so pre-S72 saves stay byte-identical. Rehydrates as undefined.
    */
   benchedUntilTick?: number;
+  /**
+   * S72 P3 — carried potato id. Additive-optional; emitted only when set. Rehydrates
+   * undefined (pre-S72-P3 byte-compat).
+   */
+  carriedPotatoId?: PotatoId;
 }
 
 /**
@@ -331,6 +343,19 @@ interface SerializedHunter {
   readonly targetPlayerId: PlayerId;
 }
 
+/**
+ * S72 P3 — potato wire shape. detonateAtTick MUST round-trip (a HOST save/load resumes
+ * the fuse poll from it; the client also reads it for the fuse-countdown VFX). prevPos
+ * + spawnedAtTick are host-only and omitted. Additive-optional → no schemaVersion bump.
+ */
+interface SerializedPotato {
+  readonly id: PotatoId;
+  readonly pos: Vec2;
+  readonly state: PotatoState;
+  readonly carrierId: PlayerId | null;
+  readonly detonateAtTick: number;
+}
+
 export function snapshot(world: World): WorldSnapshot {
   return {
     schemaVersion: 1,
@@ -370,6 +395,10 @@ export function snapshot(world: World): WorldSnapshot {
       : undefined,
     // S72 P2 — emit the once-per-game guard only when true (byte-identical pre-S72).
     hunterSpawned: world.hunterSpawned ? true : undefined,
+    // S72 P3 — emit potatoes only when present (byte-identical pre-S72-P3).
+    potatoes: world.potatoes.size > 0
+      ? [...world.potatoes.values()].map(serializePotato)
+      : undefined,
     // S31 P0-3 — filtered effects for 1v1 client mirror. Map+filter pattern
     // drops the 5 host-local visual kinds (BOND_COMMIT/SEVER_ERASE/
     // STRUCTURE_GROW/STRUCTURE_MERGE/SCORE_TIER) and keeps only the 3 wire
@@ -516,6 +545,19 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
     if (maxHunterId >= 0) world.nextHunterId = maxHunterId + 1;
   }
 
+  // S72 P3 — potatoes: clear + rehydrate (mirror of the bomb/hunter pattern). Reset the
+  // mint counter past the max loaded id. Client never mints (no-op there).
+  world.potatoes.clear();
+  world.nextPotatoId = 0;
+  if (snap.potatoes !== undefined) {
+    let maxPotatoId = -1;
+    for (const po of snap.potatoes) {
+      world.potatoes.set(po.id, deserializePotato(po));
+      if ((po.id as number) > maxPotatoId) maxPotatoId = po.id as number;
+    }
+    if (maxPotatoId >= 0) world.nextPotatoId = maxPotatoId + 1;
+  }
+
   // S31 P0-3 — replace effects array contents from snap.effects. effects are
   // short-lived (max ~30 ticks each) and the host-side effectsRenderer.sync()
   // wipes `world.effects` to length=0 after draining; so the snapshot's effects
@@ -612,6 +654,8 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       territorialShrinkUntilTick: p.territorialShrinkUntilTick ?? null,
       // S72 P2 — rehydrate the hunter bench; undefined for pre-S72 saves.
       benchedUntilTick: p.benchedUntilTick,
+      // S72 P3 — rehydrate the carried potato slot; undefined for pre-S72-P3 saves.
+      carriedPotatoId: p.carriedPotatoId,
     };
     const player: Player =
       p.kind === 'Carrying' && p.carriedSparkId !== null
@@ -680,6 +724,10 @@ function serializePlayer(p: Player): SerializedPlayer {
     // byte-identical (JSON.stringify drops undefined keys).
     ...(p.benchedUntilTick !== undefined
       ? { benchedUntilTick: p.benchedUntilTick }
+      : {}),
+    // S72 P3 — emit the carried potato id only when set (byte-identical pre-S72-P3).
+    ...(p.carriedPotatoId !== undefined
+      ? { carriedPotatoId: p.carriedPotatoId }
       : {}),
   };
 }
@@ -907,6 +955,31 @@ function deserializeHunter(s: SerializedHunter): Hunter {
     targetPlayerId: s.targetPlayerId,
     spawnedAtTick: 0,
     despawnAtTick: 0,
+  };
+}
+
+/** S72 P3 — potato serialize. prevPos + spawnedAtTick are host-only + omitted. */
+function serializePotato(po: Potato): SerializedPotato {
+  return {
+    id: po.id,
+    pos: { x: po.pos.x, y: po.pos.y },
+    state: po.state,
+    carrierId: po.carrierId,
+    detonateAtTick: po.detonateAtTick,
+  };
+}
+
+/** S72 P3 — rehydrate a potato. prevPos snaps to pos; spawnedAtTick=0 (host owns the
+ *  fuse poll via detonateAtTick, which round-trips). */
+function deserializePotato(s: SerializedPotato): Potato {
+  return {
+    id: s.id,
+    pos: { x: s.pos.x, y: s.pos.y },
+    prevPos: { x: s.pos.x, y: s.pos.y },
+    state: s.state,
+    carrierId: s.carrierId,
+    spawnedAtTick: 0,
+    detonateAtTick: s.detonateAtTick,
   };
 }
 
