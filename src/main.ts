@@ -89,6 +89,7 @@ import { CreatureRenderer } from './render/creatureRenderer.ts';
 import { BombRenderer } from './render/bombRenderer.ts';
 import { HunterRenderer } from './render/hunterRenderer.ts';
 import { PotatoRenderer } from './render/potatoRenderer.ts';
+import { RainbowRenderer } from './render/rainbowRenderer.ts';
 import { ScreenShake, shouldTriggerShakeForArcFlash } from './render/screenShake.ts';
 // S23 P2 — debug overlay (toggleable via ?debug=1 URL param). Surfaces runtime
 // gates + audio chain + chain progress for in-vivo diagnosis when offline tests
@@ -211,7 +212,10 @@ async function bootstrap(): Promise<void> {
   // S72 P3 — potatoes draw from a THIRD seeded stream (distinct xor constant from bombRng)
   // so the spark AND bomb sequences both stay byte-identical (zero existing-test drift).
   const potatoRng = mulberry32((SEED ^ 0x85ebca6b) >>> 0);
-  const spawner = new Spawner(DEFAULT_SPAWNER_CONFIG, rng, bombRng, potatoRng);
+  // S75 P3 — rainbows draw from a FOURTH seeded stream (distinct xor constant) so the spark,
+  // bomb AND potato sequences all stay byte-identical (zero existing-test drift).
+  const rainbowRng = mulberry32((SEED ^ 0xc2b2ae35) >>> 0);
+  const spawner = new Spawner(DEFAULT_SPAWNER_CONFIG, rng, bombRng, potatoRng, rainbowRng);
   const gameStateExtras = makeGameStateExtras();
 
   // ===== S15 P2 — net session state (1v1 only). S50 P2 — unified into
@@ -278,6 +282,9 @@ async function bootstrap(): Promise<void> {
   // S72 P3 — potato renderer (FREE/CARRIED/ARMED + fuse-countdown VFX). Cheap no-op when
   // world.potatoes is empty. Pure Pixi vector; renders host + client.
   const potatoRenderer = new PotatoRenderer(app);
+  // S75 P3 — rainbow renderer (dumb arc + tooth + bob). Cheap no-op when world.rainbows is
+  // empty. Pure Pixi vector; renders host + client.
+  const rainbowRenderer = new RainbowRenderer(app);
   const effectsRenderer = new EffectsRenderer(app);
   // S30 P0e — global screen-shake instance. Triggered on Voltkin fire-tick
   // (when CREATURE_ATTACK successfully severs a bond → ARC_FLASH emitted).
@@ -688,6 +695,17 @@ async function bootstrap(): Promise<void> {
         }
       }
 
+      // S75 P3 — rainbow dissipate poll (host-only; mirror the bomb dissipate). An un-clicked
+      // rainbow is removed HARMLESSLY when its TTL elapses (no colour-shuffle). Snapshot the
+      // entries first (DISSIPATE_RAINBOW deletes from the Map). Cheap no-op when none.
+      if (world.gameState === 'PLAYING' && !isClient && world.rainbows.size > 0) {
+        for (const [rainbowId, rainbow] of [...world.rainbows]) {
+          if (world.tick >= rainbow.dissipateAtTick) {
+            dispatch(world, { type: 'DISSIPATE_RAINBOW', rainbowId });
+          }
+        }
+      }
+
       // S15 P2 — host emits NetSnapshot every SNAPSHOT_INTERVAL_TICKS
       // (60Hz / 10Hz = 6 ticks). Suppressed in TITLE/LOBBY (no snapshot
       // to send pre-game) and in solo.
@@ -1006,6 +1024,8 @@ async function bootstrap(): Promise<void> {
     hunterRenderer.sync(world);
     // S72 P3 — potato (FREE/CARRIED/ARMED + fuse-countdown VFX), before the effects wipe.
     potatoRenderer.sync(world);
+    // S75 P3 — rainbow (dumb arc + tooth + bob), before the effects wipe.
+    rainbowRenderer.sync(world);
     // S18 P1 — drain audio effects BEFORE effectsRenderer (which wipes
     // world.effects). Cursor-gated; replay-safe.
     drainAudioEffects(world.effects, world.tick);

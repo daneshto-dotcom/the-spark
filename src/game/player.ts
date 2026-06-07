@@ -11,7 +11,12 @@ import type { PlayerId, PotatoId, SparkId, Vec2 } from '../types.ts';
 
 interface PlayerCommon {
   readonly id: PlayerId;
-  readonly color: number;
+  /**
+   * S75 P3 — MUTABLE (was readonly): the rainbow colour-shuffle remaps every player's identity
+   * colour in place (rainbowLifecycle.applyTriggerRainbow). Set once at construction otherwise;
+   * the shuffle is the only other writer. Player reconstruction (fsmDrop) copies the live value.
+   */
+  color: number;
   energy: number;
   buildActions: number;
   disruptionCharges: number;

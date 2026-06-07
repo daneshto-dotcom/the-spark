@@ -19,6 +19,8 @@ export type BombId = number & { readonly __brand: 'BombId' };
 export type HunterId = number & { readonly __brand: 'HunterId' };
 // S72 P3 — potato bomb entity id.
 export type PotatoId = number & { readonly __brand: 'PotatoId' };
+// S75 P3 — rainbow color-shuffle entity id.
+export type RainbowId = number & { readonly __brand: 'RainbowId' };
 
 export const asSparkId = (n: number): SparkId => n as SparkId;
 export const asPrimitiveId = (n: number): PrimitiveId => n as PrimitiveId;
@@ -28,5 +30,6 @@ export const asCreatureId = (n: number): CreatureId => n as CreatureId;
 export const asBombId = (n: number): BombId => n as BombId;
 export const asHunterId = (n: number): HunterId => n as HunterId;
 export const asPotatoId = (n: number): PotatoId => n as PotatoId;
+export const asRainbowId = (n: number): RainbowId => n as RainbowId;
 
 export const v2copy = (v: Vec2): Vec2 => ({ x: v.x, y: v.y });

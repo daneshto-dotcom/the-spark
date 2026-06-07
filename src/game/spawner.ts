@@ -19,6 +19,8 @@ import {
   PHYSICS_HZ,
   POTATO_SPAWN_MAX_SPARKS,
   POTATO_SPAWN_MIN_SPARKS,
+  RAINBOW_SPAWN_MAX_SPARKS,
+  RAINBOW_SPAWN_MIN_SPARKS,
   SPAWN_RATE_PER_SECOND,
   SPAWNER_BOUNCE_DAMPING,
   SPAWNER_CENTER_X,
@@ -70,6 +72,15 @@ export interface PotatoSpawnRequest {
   readonly pos: Vec2;
 }
 
+/**
+ * S75 P3 — a host-only request to mint a rainbow at `pos`. Pushed into the `rainbowsOut`
+ * array passed to tick(); physicsLoop dispatches SPAWN_RAINBOW for each (gated on
+ * RAINBOW_MAX_ACTIVE). Mirrors Bomb/PotatoSpawnRequest — the cap lives at the dispatch site.
+ */
+export interface RainbowSpawnRequest {
+  readonly pos: Vec2;
+}
+
 export class Spawner {
   private nextId = 0;
   private secondsUntilNextSpawn: number;
@@ -87,6 +98,12 @@ export class Spawner {
    * potatoes are disabled.
    */
   private sparksUntilPotato: number;
+  /**
+   * S75 P3 — sparks remaining until the next rainbow (counts SPARKS SPAWNED). Drawn from
+   * `rainbowRng` — a FOURTH seeded stream separate from spark `rng`, `bombRng` AND `potatoRng`
+   * — so adding rainbows leaves ALL THREE prior sequences byte-identical. Infinity when disabled.
+   */
+  private sparksUntilRainbow: number;
 
   constructor(
     private readonly cfg: SpawnerConfig,
@@ -95,10 +112,13 @@ export class Spawner {
     private readonly bombRng: Rng | null = null,
     /** Separate seeded stream for potato cadence + position. null → potatoes disabled. */
     private readonly potatoRng: Rng | null = null,
+    /** Separate seeded stream for rainbow cadence + position. null → rainbows disabled. */
+    private readonly rainbowRng: Rng | null = null,
   ) {
     this.secondsUntilNextSpawn = this.sampleInterarrival();
     this.sparksUntilBomb = this.sampleBombCountdown();
     this.sparksUntilPotato = this.samplePotatoCountdown();
+    this.sparksUntilRainbow = this.sampleRainbowCountdown();
   }
 
   /**
@@ -111,6 +131,7 @@ export class Spawner {
     freeSparks: Spark[],
     bombsOut?: BombSpawnRequest[],
     potatoesOut?: PotatoSpawnRequest[],
+    rainbowsOut?: RainbowSpawnRequest[],
   ): number {
     let n = 0;
     this.secondsUntilNextSpawn -= dtSec;
@@ -134,6 +155,13 @@ export class Spawner {
       if (this.potatoRng !== null && --this.sparksUntilPotato <= 0) {
         if (potatoesOut !== undefined) potatoesOut.push({ pos: this.samplePotatoPos() });
         this.sparksUntilPotato = this.samplePotatoCountdown();
+      }
+      // S75 P3 — rainbow cadence: one rainbow every RAINBOW_SPAWN_MIN..MAX sparks (rarer). Same
+      // skip-and-redraw shape as bomb/potato, on the SEPARATE rainbowRng stream (the spark + bomb
+      // + potato sequences all stay byte-identical). RAINBOW_MAX_ACTIVE is enforced at dispatch.
+      if (this.rainbowRng !== null && --this.sparksUntilRainbow <= 0) {
+        if (rainbowsOut !== undefined) rainbowsOut.push({ pos: this.sampleRainbowPos() });
+        this.sparksUntilRainbow = this.sampleRainbowCountdown();
       }
     }
     return n;
@@ -192,6 +220,24 @@ export class Spawner {
   /** S72 P3 — uniform point inside the spawn disk for a potato (same law as sparks/bombs). */
   private samplePotatoPos(): Vec2 {
     const rng = this.potatoRng as Rng;
+    const r = this.cfg.radius * Math.sqrt(rng()) * 0.85;
+    const theta = 2 * Math.PI * rng();
+    return {
+      x: this.cfg.center.x + r * Math.cos(theta),
+      y: this.cfg.center.y + r * Math.sin(theta),
+    };
+  }
+
+  /** S75 P3 — next rainbow cadence in [MIN, MAX] sparks (rainbowRng; Infinity if disabled). */
+  private sampleRainbowCountdown(): number {
+    if (this.rainbowRng === null) return Number.POSITIVE_INFINITY;
+    const span = RAINBOW_SPAWN_MAX_SPARKS - RAINBOW_SPAWN_MIN_SPARKS + 1;
+    return RAINBOW_SPAWN_MIN_SPARKS + Math.floor(this.rainbowRng() * span);
+  }
+
+  /** S75 P3 — uniform point inside the spawn disk for a rainbow (same law as sparks/bombs). */
+  private sampleRainbowPos(): Vec2 {
+    const rng = this.rainbowRng as Rng;
     const r = this.cfg.radius * Math.sqrt(rng()) * 0.85;
     const theta = 2 * Math.PI * rng();
     return {

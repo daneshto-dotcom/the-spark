@@ -17,7 +17,14 @@ import type { Spark } from './spark.ts';
 export interface Primitive {
   readonly id: PrimitiveId;
   readonly type: SparkType;
-  readonly placerColor: number;
+  /**
+   * S75 P3 — MUTABLE (was readonly): the rainbow colour-shuffle remaps a player's whole
+   * structure empire to a new colour (rainbowLifecycle.applyTriggerRainbow), exactly as
+   * ownerColor is mutable on a Steal. Set once at placement otherwise — no other writer.
+   * Territory + cross-colour bond segregation compare this to player.color, so it must
+   * track the owner's current colour after a shuffle.
+   */
+  placerColor: number;
   readonly placedBy: PlayerId;
   readonly createdTick: number;
   /** Mutable for bond physics; only the physics layer touches this. */

@@ -613,12 +613,12 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
       const hostStatus = await readLobbyStatus(hostPage);
       expect(hostStatus).toContain('Protocol mismatch');
       expect(hostStatus).toContain('v2'); // peer version rendered (describePeerVersion)
-      expect(hostStatus).toContain('v5'); // local PROTOCOL_VERSION rendered (S71: 4→5)
+      expect(hostStatus).toContain('v6'); // local PROTOCOL_VERSION rendered (S75: 5→6)
       expect(hostStatus.toLowerCase()).toContain('older'); // "The other player's version is older"
 
       // Send-side-only + context-isolation: the joiner's REAL version is current
-      // (v5 — the override is send-side only), so it saw the host's matching
-      // HELLO(v5) and shows NO mismatch.
+      // (v6 — the override is send-side only), so it saw the host's matching
+      // HELLO(v6) and shows NO mismatch.
       const joinerStatus = await readLobbyStatus(joinerPage);
       expect(joinerStatus).not.toContain('Protocol mismatch');
     } finally {
@@ -627,12 +627,12 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
     }
   });
 
-  test('Newer-version joiner (v6): host shows "your version is older" branch', async ({ browser }) => {
+  test('Newer-version joiner (v7): host shows "your version is older" branch', async ({ browser }) => {
     const hostCtx = await browser.newContext();
     const joinerCtx = await browser.newContext();
     try {
-      // S71 — host is now v5, so a v6 peer is the "newer peer" case (was v5 vs v4).
-      await joinerCtx.addInitScript({ content: 'window.__TEST_PROTO_VERSION_OVERRIDE__ = 6;' });
+      // S75 — host is now v6, so a v7 peer is the "newer peer" case (was v6 vs v5).
+      await joinerCtx.addInitScript({ content: 'window.__TEST_PROTO_VERSION_OVERRIDE__ = 7;' });
       const hostPage = await hostCtx.newPage();
       const joinerPage = await joinerCtx.newPage();
 
@@ -640,12 +640,12 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
       await joinRoom(joinerPage, code);
       await waitForWorld(hostPage, (w) => w.peerCount >= 1, 'host sees joiner connected', 60_000);
 
-      await waitForRejected(hostPage, 1, 'host rejected the joiner v6 HELLO');
+      await waitForRejected(hostPage, 1, 'host rejected the joiner v7 HELLO');
 
-      // peerV (6) > local (5) → the "your version is older" advice branch.
+      // peerV (7) > local (6) → the "your version is older" advice branch.
       const hostStatus = await readLobbyStatus(hostPage);
       expect(hostStatus).toContain('Protocol mismatch');
-      expect(hostStatus).toContain('v6');
+      expect(hostStatus).toContain('v7');
       expect(hostStatus.toLowerCase()).toContain('your version is older');
     } finally {
       await hostCtx.close();

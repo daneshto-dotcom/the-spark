@@ -8,7 +8,7 @@ import {
   SPAWNER_RADIUS,
 } from '../constants.ts';
 import { mulberry32 } from '../state/rng.ts';
-import { DEFAULT_SPAWNER_CONFIG, Spawner, enforceSpawnerBounds, type BombSpawnRequest } from './spawner.ts';
+import { DEFAULT_SPAWNER_CONFIG, Spawner, enforceSpawnerBounds, type BombSpawnRequest, type PotatoSpawnRequest, type RainbowSpawnRequest } from './spawner.ts';
 import type { Spark } from './spark.ts';
 
 const DT = 1 / PHYSICS_HZ;
@@ -177,5 +177,58 @@ describe('Spawner — S71 P1 bomb cadence', () => {
     for (let i = 0; i < TICKS; i++) s.tick(DT, i, sparks, bombs);
     expect(bombs).toHaveLength(0);
     expect(sparks.length).toBeGreaterThan(8); // plenty of sparks, just no bombs
+  });
+});
+
+describe('Spawner — S75 P3 rainbow cadence', () => {
+  // High rate + many ticks so the rare rainbow cadence (35-60 sparks) fires several times.
+  const FAST = { ...DEFAULT_SPAWNER_CONFIG, ratePerSecond: 5 };
+  const TICKS = 3000;
+
+  it('adding a rainbowRng leaves the spark + bomb + potato streams byte-identical (4th separate stream)', () => {
+    // Baseline: spark + bomb + potato streams, NO rainbow.
+    const sparksA: Spark[] = [];
+    const bombsA: BombSpawnRequest[] = [];
+    const potatoesA: PotatoSpawnRequest[] = [];
+    const a = new Spawner(FAST, mulberry32(123), mulberry32(999), mulberry32(555));
+    for (let i = 0; i < TICKS; i++) a.tick(DT, i, sparksA, bombsA, potatoesA);
+
+    // Same seeds, PLUS a rainbowRng.
+    const sparksB: Spark[] = [];
+    const bombsB: BombSpawnRequest[] = [];
+    const potatoesB: PotatoSpawnRequest[] = [];
+    const rainbowsB: RainbowSpawnRequest[] = [];
+    const b = new Spawner(FAST, mulberry32(123), mulberry32(999), mulberry32(555), mulberry32(777));
+    for (let i = 0; i < TICKS; i++) b.tick(DT, i, sparksB, bombsB, potatoesB, rainbowsB);
+
+    expect(rainbowsB.length).toBeGreaterThan(0); // rainbows DID fire...
+    // ...yet the spark + bomb + potato sequences are identical → the 4th rainbowRng stream
+    // never perturbs the prior three (the whole point of the separate-stream design).
+    expect(sparksB.length).toBe(sparksA.length);
+    for (let i = 0; i < sparksA.length; i++) {
+      expect(sparksB[i].type).toBe(sparksA[i].type);
+      expect(sparksB[i].pos).toEqual(sparksA[i].pos);
+    }
+    expect(bombsB).toEqual(bombsA);
+    expect(potatoesB).toEqual(potatoesA);
+  });
+
+  it('rainbow spawns are deterministic for the same seeds', () => {
+    const run = (): RainbowSpawnRequest[] => {
+      const sparks: Spark[] = [];
+      const rainbows: RainbowSpawnRequest[] = [];
+      const s = new Spawner(FAST, mulberry32(5), null, null, mulberry32(7));
+      for (let i = 0; i < TICKS; i++) s.tick(DT, i, sparks, undefined, undefined, rainbows);
+      return rainbows;
+    };
+    expect(run()).toEqual(run());
+  });
+
+  it('emits NO rainbows when constructed without a rainbowRng (disabled by default)', () => {
+    const sparks: Spark[] = [];
+    const rainbows: RainbowSpawnRequest[] = [];
+    const s = new Spawner(FAST, mulberry32(1)); // no rainbowRng
+    for (let i = 0; i < TICKS; i++) s.tick(DT, i, sparks, undefined, undefined, rainbows);
+    expect(rainbows).toHaveLength(0);
   });
 });

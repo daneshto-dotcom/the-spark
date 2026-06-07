@@ -95,6 +95,15 @@ import {
   type PotatoDetonateAction,
   type SpawnPotatoAction,
 } from './potatoLifecycle.ts';
+import {
+  applyDissipateRainbow,
+  applySpawnRainbow,
+  applyTriggerRainbow,
+  teardownRainbows,
+  type DissipateRainbowAction,
+  type SpawnRainbowAction,
+  type TriggerRainbowAction,
+} from './rainbowLifecycle.ts';
 
 // Re-export addScore from gameMode.ts for back-compat with placePrimitive.ts
 // and session15.test.ts (S16 P0 extraction preserved external import paths).
@@ -191,7 +200,12 @@ export type GameAction =
   | PickupPotatoAction
   | PlacePotatoAction
   | DropPotatoAction
-  | PotatoDetonateAction;
+  | PotatoDetonateAction
+  // S75 P3 — rainbow color-shuffle. TRIGGER_RAINBOW is a client INTENT (any player clicking it);
+  // SPAWN_RAINBOW + DISSIPATE_RAINBOW are host-internal (spawner cadence / TTL poll). PROTOCOL 5->6.
+  | SpawnRainbowAction
+  | TriggerRainbowAction
+  | DissipateRainbowAction;
 
 export function makeWorld(rngSeed: number): World {
   const w: World = {
@@ -224,6 +238,8 @@ export function makeWorld(rngSeed: number): World {
     hunterSpawned: false,
     potatoes: new Map(),
     nextPotatoId: 0,
+    rainbows: new Map(),
+    nextRainbowId: 0,
     // S42 — race-condition observability (real-time 1v1) + local-player
     // convention (replaces removed currentPlayerId active-player concept).
     diagnostics: {
@@ -288,6 +304,8 @@ export function dispatch(world: World, action: GameAction): World {
       // S73 P2 — and bombs (landing-audit parity fix): completes the all-three-hazards
       // teardown on the PLAYING->WIN edge so a bomb live at the win moment doesn't linger.
       teardownBombs(world);
+      // S75 P3 — and rainbows (completes the all-hazards teardown on the PLAYING->WIN edge).
+      teardownRainbows(world);
       return world;
 
     case 'START_GAME':
@@ -374,6 +392,16 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'POTATO_DETONATE':
       return applyPotatoDetonate(world, action);
+
+    // S75 P3 — rainbow color-shuffle lifecycle (reducers in rainbowLifecycle.ts).
+    case 'SPAWN_RAINBOW':
+      return applySpawnRainbow(world, action);
+
+    case 'TRIGGER_RAINBOW':
+      return applyTriggerRainbow(world, action);
+
+    case 'DISSIPATE_RAINBOW':
+      return applyDissipateRainbow(world, action);
   }
 }
 

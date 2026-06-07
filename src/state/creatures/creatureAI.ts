@@ -74,7 +74,13 @@ export function isEnemyBond(world: World, creature: Creature, bond: Bond): boole
   const primA = world.primitives.get(bond.aId);
   const primB = world.primitives.get(bond.bId);
   if (primA === undefined || primB === undefined) return false;
-  const ownerColor = PLAYER_COLORS[creature.ownerPlayerId as unknown as number];
+  // S75 P3 — read the owner's LIVE colour (single source of truth), NOT the static palette, so
+  // creature targeting stays coherent after a rainbow colour-shuffle remaps player.color +
+  // prim.placerColor. In normal play player.color === PLAYER_COLORS[seat], so this is behaviour-
+  // identical; the palette is only the fallback when the owner is somehow absent. Aligns with how
+  // disruptionManager + territory already read player.color live.
+  const owner = world.players.get(creature.ownerPlayerId);
+  const ownerColor = owner?.color ?? PLAYER_COLORS[creature.ownerPlayerId as unknown as number];
   return primA.placerColor !== ownerColor || primB.placerColor !== ownerColor;
 }
 

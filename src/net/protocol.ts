@@ -46,14 +46,18 @@ export type { NetSnapshot };
 // UNANIMOUS Fork A). Unlike the cosmetic LOBBY_PRESENCE (no bump), a stale v4
 // peer would desync on bomb-grabs + the bomb/hunter/potato snapshot state, so it
 // is hard-rejected at the HELLO handshake. (Single bump covers the P1/P2/P3 batch.)
-export const PROTOCOL_VERSION = 5 as const;
+// S75 — bumped 5→6: new TRIGGER_RAINBOW client→host gameplay intent (the rainbow colour-
+// shuffle). A stale v5 peer would desync on the global player/prim colour remap (+ the new
+// rainbows[] snapshot field), so it is hard-rejected at the HELLO handshake — same lockstep
+// as the S71 TRIGGER_BOMB bump.
+export const PROTOCOL_VERSION = 6 as const;
 
 export interface HelloMsg {
   readonly kind: 'HELLO';
   readonly playerId: PlayerId;
   readonly color: number;
-  /** Protocol version — bumped on wire-incompatible changes. S71: 4→5. */
-  readonly protoVersion: 5;
+  /** Protocol version — bumped on wire-incompatible changes. S75: 5→6. */
+  readonly protoVersion: 6;
 }
 
 /**
@@ -102,14 +106,14 @@ export function buildHello(playerId: PlayerId, color: number): HelloMsg {
   const override = readTestProtoVersionOverride();
   if (override !== null) {
     // DEV/E2E ONLY (window.__TEST_PROTO_VERSION_OVERRIDE__ is undefined in
-    // production). The `as 3` cast is the SINGLE, quarantined point where the
+    // production). The `as 6` cast is the SINGLE, quarantined point where the
     // wire-contract literal is deliberately violated to simulate a stale-build
     // peer; the receiver's detectProtocolMismatch is designed to reject it.
     // The PRODUCTION return below stays `protoVersion: PROTOCOL_VERSION`, which
     // preserves the version-bump lockstep tsc tripwire: raising
     // PROTOCOL_VERSION without updating HelloMsg.protoVersion errors at that
     // line. (Council R1 #1 — quarantine-cast over relaxing the type to number.)
-    return { kind: 'HELLO', playerId, color, protoVersion: override as 5 };
+    return { kind: 'HELLO', playerId, color, protoVersion: override as 6 };
   }
   return { kind: 'HELLO', playerId, color, protoVersion: PROTOCOL_VERSION };
 }
@@ -305,6 +309,13 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   PLACE_POTATO: true,
   DROP_POTATO: true,
   POTATO_DETONATE: true,
+  // S75 P3 — rainbow color-shuffle. TRIGGER_RAINBOW is the client→host intent (any player
+  // clicking the rainbow); SPAWN_RAINBOW + DISSIPATE_RAINBOW are host-internal (spawner cadence /
+  // TTL poll — listed for the exhaustive Record mirror; inert as client intents). PROTOCOL bumped
+  // 5→6: the new TRIGGER_RAINBOW intent + the global colour remap would desync a stale v5 peer.
+  SPAWN_RAINBOW: true,
+  TRIGGER_RAINBOW: true,
+  DISSIPATE_RAINBOW: true,
 };
 const KNOWN_GAME_ACTION_TYPES: ReadonlySet<string> = new Set(
   Object.keys(KNOWN_GAME_ACTION_TYPES_RECORD),

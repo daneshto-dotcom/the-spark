@@ -19,8 +19,9 @@ import type { Bomb } from './bomb.ts';
 import type { Creature } from './creatures/creature.ts';
 import type { Hunter } from './hunters/hunter.ts';
 import type { Potato } from './potato.ts';
+import type { Rainbow } from './rainbow.ts';
 import type { GodlyTriggerEvent } from './godlyRecipes/types.ts';
-import type { BombId, BondId, CreatureId, HunterId, PlayerId, PotatoId, PrimitiveId, SparkId } from '../types.ts';
+import type { BombId, BondId, CreatureId, HunterId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId } from '../types.ts';
 
 /**
  * S15 P2: extended FSM. Solo path TITLE→PLAYING→WIN→POSTGAME→TITLE. 1v1
@@ -156,6 +157,16 @@ export interface World {
   potatoes: Map<PotatoId, Potato>;
   /** S72 P3 — monotonic potato id counter (host-only mint authority). */
   nextPotatoId: number;
+  /**
+   * S75 P3 — host-authoritative rainbow color-shuffle pickups (SEPARATE Map, mirroring
+   * bombs/potatoes/hunters). At most one lives at a time. Spawned by the spawner cadence
+   * (RARER than bomb/potato); clicking it (TRIGGER_RAINBOW) runs a deterministic global colour
+   * derangement; un-clicked -> DISSIPATE at its TTL. Additive-optional `rainbows[]` in
+   * NetSnapshot so clients render the mirror (they never simulate). Cleared on teardown.
+   */
+  rainbows: Map<RainbowId, Rainbow>;
+  /** S75 P3 — monotonic rainbow id counter (host-only mint authority). */
+  nextRainbowId: number;
   /**
    * S42 — host-side counter of "shared-resource race rejected" events.
    * Increments when applyPickupSpark or placePrimitive silently no-ops

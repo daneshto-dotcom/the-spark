@@ -71,12 +71,12 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 5 (S71 bump from 4 — TRIGGER_BOMB client intent added)', () => {
-    expect(PROTOCOL_VERSION).toBe(5);
+  it('PROTOCOL_VERSION is 6 (S75 bump from 5 — TRIGGER_RAINBOW client intent added)', () => {
+    expect(PROTOCOL_VERSION).toBe(6);
   });
 
   it('accepts a HELLO with current protoVersion', () => {
-    const msg = { kind: 'HELLO', playerId: 0, color: 0xff0000, protoVersion: 5 };
+    const msg = { kind: 'HELLO', playerId: 0, color: 0xff0000, protoVersion: PROTOCOL_VERSION };
     expect(parseNetMessage(msg)).toEqual(msg);
   });
 
@@ -92,6 +92,11 @@ describe('S22 P3 — parseNetMessage validator', () => {
 
   it('accepts an INTENT carrying the S71 TRIGGER_BOMB action (allowlist)', () => {
     const msg = { kind: 'INTENT', intentSeq: 1, action: { type: 'TRIGGER_BOMB', bombId: 0, playerId: 0 } };
+    expect(parseNetMessage(msg)).toEqual(msg);
+  });
+
+  it('accepts an INTENT carrying the S75 TRIGGER_RAINBOW action (allowlist)', () => {
+    const msg = { kind: 'INTENT', intentSeq: 1, action: { type: 'TRIGGER_RAINBOW', rainbowId: 0, playerId: 0 } };
     expect(parseNetMessage(msg)).toEqual(msg);
   });
 
@@ -116,12 +121,12 @@ describe('S22 P3 — parseNetMessage validator', () => {
 
 describe('Audit Pass 1 d3f0e22b + 561e37ce — strengthened parseNetMessage', () => {
   it('HELLO requires numeric playerId and color', () => {
-    // S71 — use the CURRENT protoVersion (5) so the validator reaches the
+    // S75 — use the CURRENT protoVersion (PROTOCOL_VERSION) so the validator reaches the
     // playerId/color checks rather than short-circuiting on a version mismatch
     // (which would make these pass for the wrong reason).
-    expect(parseNetMessage({ kind: 'HELLO', playerId: '0', color: 0xff0000, protoVersion: 5 })).toBeNull();
-    expect(parseNetMessage({ kind: 'HELLO', playerId: 0, color: 'red', protoVersion: 5 })).toBeNull();
-    expect(parseNetMessage({ kind: 'HELLO', protoVersion: 5 })).toBeNull();
+    expect(parseNetMessage({ kind: 'HELLO', playerId: '0', color: 0xff0000, protoVersion: PROTOCOL_VERSION })).toBeNull();
+    expect(parseNetMessage({ kind: 'HELLO', playerId: 0, color: 'red', protoVersion: PROTOCOL_VERSION })).toBeNull();
+    expect(parseNetMessage({ kind: 'HELLO', protoVersion: PROTOCOL_VERSION })).toBeNull();
   });
 
   it('INTENT requires action.type ∈ KNOWN_GAME_ACTION_TYPES', () => {
@@ -287,7 +292,7 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
     expect(parseNetMessage({ kind: 'LOBBY_PRESENCE', roster: exactlyMax })).not.toBeNull();
   });
 
-  it('S70 graceful-degradation contract holds; PROTOCOL_VERSION is 5 after the S71 bomb-intent bump', () => {
+  it('S70 graceful-degradation contract holds; PROTOCOL_VERSION is 6 after the S75 rainbow-intent bump', () => {
     // S70's LOBBY_PRESENCE was cosmetic and did NOT bump the version on its own:
     // unknown kinds fail CLOSED (fall through parseNetMessage's default → null, not
     // a throw), so a stale peer degrades to the count-based rack and can still play.
@@ -295,7 +300,8 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
     // S71 SEPARATELY bumped 4→5 because TRIGGER_BOMB is a NEW client→host GAMEPLAY
     // intent (Council Fork A) — unlike a cosmetic beacon, a stale peer must be
     // hard-rejected at the HELLO handshake rather than silently desync on bombs.
-    expect(PROTOCOL_VERSION).toBe(5);
+    // S75 — bumped again 5→6 for the TRIGGER_RAINBOW colour-shuffle intent (same rationale).
+    expect(PROTOCOL_VERSION).toBe(6);
     expect(
       parseNetMessage({ kind: 'SOME_FUTURE_KIND', roster: [{ seat: 0, peerId: 'h', color: 1 }] }),
     ).toBeNull();

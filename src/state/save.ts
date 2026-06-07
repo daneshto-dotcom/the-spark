@@ -40,6 +40,7 @@ import {
   type HunterId,
   type PlayerId,
   type PotatoId,
+  type RainbowId,
   type PrimitiveId,
   type SparkId,
   type Vec2,
@@ -50,6 +51,7 @@ import type { Bomb } from './bomb.ts';
 import type { Creature, CreatureState, CreatureType } from './creatures/creature.ts';
 import type { Hunter, HunterState } from './hunters/hunter.ts';
 import type { Potato, PotatoState } from './potato.ts';
+import type { Rainbow } from './rainbow.ts';
 // Audit Pass 1 fix 3c8630d7 (Δ4) + Pass 2 refactor 622a7c7f: on restore,
 // world.tick may jump backward relative to the audio drain cursor. Without
 // resetting the cursor, audio effects whose tick straddles the cursor are
@@ -124,6 +126,12 @@ export interface WorldSnapshot {
    * Additive-optional; emitted only when non-empty so pre-S72-P3 saves stay byte-identical.
    */
   potatoes?: SerializedPotato[];
+  /**
+   * S75 P3 — host-authoritative rainbow color-shuffle pickups for the 1v1 client mirror +
+   * host save/load. Additive-optional; emitted only when non-empty so pre-S75 saves stay
+   * byte-identical. The shuffle RESULT (player/prim colours) rides the existing colour fields.
+   */
+  rainbows?: SerializedRainbow[];
   /**
    * S31 P0-3 — filtered effects array for 1v1 client mirror. Pre-S31 the
    * snapshot omitted `world.effects` entirely; 1v1 client saw creatures walk
@@ -356,6 +364,16 @@ interface SerializedPotato {
   readonly detonateAtTick: number;
 }
 
+/**
+ * S75 P3 — rainbow wire shape. dissipateAtTick round-trips (a HOST save/load resumes the TTL
+ * poll from it). spawnedAtTick is host-only + omitted (rehydrates 0). Additive-optional.
+ */
+interface SerializedRainbow {
+  readonly id: RainbowId;
+  readonly pos: Vec2;
+  readonly dissipateAtTick: number;
+}
+
 export function snapshot(world: World): WorldSnapshot {
   return {
     schemaVersion: 1,
@@ -398,6 +416,10 @@ export function snapshot(world: World): WorldSnapshot {
     // S72 P3 — emit potatoes only when present (byte-identical pre-S72-P3).
     potatoes: world.potatoes.size > 0
       ? [...world.potatoes.values()].map(serializePotato)
+      : undefined,
+    // S75 P3 — emit rainbows only when present (byte-identical pre-S75).
+    rainbows: world.rainbows.size > 0
+      ? [...world.rainbows.values()].map(serializeRainbow)
       : undefined,
     // S31 P0-3 — filtered effects for 1v1 client mirror. Map+filter pattern
     // drops the 5 host-local visual kinds (BOND_COMMIT/SEVER_ERASE/
@@ -556,6 +578,18 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       if ((po.id as number) > maxPotatoId) maxPotatoId = po.id as number;
     }
     if (maxPotatoId >= 0) world.nextPotatoId = maxPotatoId + 1;
+  }
+
+  // S75 P3 — rainbows: clear + rehydrate (mirror of the potato pattern). Client never mints.
+  world.rainbows.clear();
+  world.nextRainbowId = 0;
+  if (snap.rainbows !== undefined) {
+    let maxRainbowId = -1;
+    for (const rb of snap.rainbows) {
+      world.rainbows.set(rb.id, deserializeRainbow(rb));
+      if ((rb.id as number) > maxRainbowId) maxRainbowId = rb.id as number;
+    }
+    if (maxRainbowId >= 0) world.nextRainbowId = maxRainbowId + 1;
   }
 
   // S31 P0-3 — replace effects array contents from snap.effects. effects are
@@ -980,6 +1014,25 @@ function deserializePotato(s: SerializedPotato): Potato {
     carrierId: s.carrierId,
     spawnedAtTick: 0,
     detonateAtTick: s.detonateAtTick,
+  };
+}
+
+/** S75 P3 — rainbow serialize. spawnedAtTick is host-only + omitted (dissipateAtTick round-trips). */
+function serializeRainbow(rb: Rainbow): SerializedRainbow {
+  return {
+    id: rb.id,
+    pos: { x: rb.pos.x, y: rb.pos.y },
+    dissipateAtTick: rb.dissipateAtTick,
+  };
+}
+
+/** S75 P3 — rehydrate a rainbow. spawnedAtTick=0 (host owns the TTL poll via dissipateAtTick). */
+function deserializeRainbow(s: SerializedRainbow): Rainbow {
+  return {
+    id: s.id,
+    pos: { x: s.pos.x, y: s.pos.y },
+    spawnedAtTick: 0,
+    dissipateAtTick: s.dissipateAtTick,
   };
 }
 

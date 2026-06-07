@@ -130,6 +130,9 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   // start-of-match invariant for ALL THREE hazards: bomb, hunter, potato).
   world.bombs.clear();
   world.nextBombId = 0;
+  // S75 P3 — clear any lingering rainbow at match start (same all-hazards invariant).
+  world.rainbows.clear();
+  world.nextRainbowId = 0;
   // S34 P2-21 defensive clear (see JSDoc above).
   world.pendingCreatureSpawn = null;
   if (action.roster !== undefined && action.roster.length > 0) {
@@ -231,6 +234,9 @@ export function applyReturnToTitle(world: World): World {
   // carriedPotatoId is cleared on the surviving P1 below; dropped players take theirs.
   world.potatoes.clear();
   world.nextPotatoId = 0;
+  // S75 P3 — clear rainbows on title-return (mirror of potatoes/hunters/bombs/creatures).
+  world.rainbows.clear();
+  world.nextRainbowId = 0;
   world.activeCinematicPlayerId = null;
   world.currentCinematicEvent = null;
   world.pendingCinematics.length = 0;

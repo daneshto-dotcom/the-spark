@@ -501,3 +501,30 @@ export const POTATO_RADIUS = 16; // visual + pick radius
 // hunter bench infra) for this long. User-specified 15s (distinct from the 30s hunter
 // bench). ARMED/FREE detonations do NOT bench — only holding it too long is punished.
 export const POTATO_CARRIER_BENCH_TICKS = 15 * PHYSICS_HZ; // 900 ticks = 15s
+
+// === S75 P3 — Rainbow color-shuffle pickup (Council Full; protocol 5->6) ===
+// The host-only spawner drops a RARE rainbow into the spawn zone on its OWN seeded cadence
+// (SEPARATE rainbowRng -> the spark + bomb + potato streams stay byte-identical), much less
+// often than the bomb/potato. Clicking it (TRIGGER_RAINBOW client intent) runs an INSTANT global
+// colour-shuffle: a deterministic DERANGEMENT permutation of the 6-colour palette remaps every
+// player.color + every primitive.placerColor/ownerColor, so every player (even in a 2-player
+// game) gets a NEW, UNIQUE colour. Un-clicked for RAINBOW_TTL_TICKS -> dissipates harmlessly.
+// Host-authoritative + tick-based; the recoloured player/prim state rides the existing snapshot.
+//
+// E2E seam: window.__TEST_RAINBOW_SPAWN_SPARKS__ forces the cadence small (mirror bomb/potato).
+function readTestRainbowSpawnSparks(): number | null {
+  if (typeof window === 'undefined') return null;
+  const v = (window as { __TEST_RAINBOW_SPAWN_SPARKS__?: number }).__TEST_RAINBOW_SPAWN_SPARKS__;
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : null;
+}
+const _RAINBOW_TEST_CADENCE = readTestRainbowSpawnSparks();
+// Rarer than potato (10-18) + bomb (8-15): one rainbow every 35-60 sparks in production.
+export const RAINBOW_SPAWN_MIN_SPARKS = _RAINBOW_TEST_CADENCE ?? 35;
+export const RAINBOW_SPAWN_MAX_SPARKS = _RAINBOW_TEST_CADENCE ?? 60;
+export const RAINBOW_TTL_TICKS = 20 * PHYSICS_HZ; // 1200 ticks = 20s linger before a harmless dissipate
+export const RAINBOW_MAX_ACTIVE = 1;
+export const RAINBOW_RADIUS = 28; // visual + pick radius (a chunky, clearly-clickable arc)
+// Bounded re-roll cap for the derangement-over-active-colours shuffle (rainbowLifecycle). A fixed
+// point is rare for <=6 colours so this is seldom hit; the fallback (last unique permutation)
+// still guarantees the hard uniqueness constraint ("no two players the same colour"). Council DR5.
+export const RAINBOW_DERANGEMENT_MAX_REROLLS = 12;

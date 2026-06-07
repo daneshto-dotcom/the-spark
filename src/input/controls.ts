@@ -32,6 +32,7 @@ import {
   CANVAS_WIDTH,
   MERGE_REACH_RADIUS,
   POTATO_RADIUS,
+  RAINBOW_RADIUS,
   REDUNDANT_BOND_ANGLE_EPSILON,
   REDUNDANT_BOND_K,
   REDUNDANT_BOND_MAX_CANDIDATES,
@@ -50,7 +51,7 @@ import { cssToCanvasCoords } from '../render/lobbyScreen.ts';
 import { dispatch, isNetworked } from '../state/world.ts';
 import type { GameAction, World } from '../state/world.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
-import type { BombId, BondId, PlayerId, PotatoId, PrimitiveId, SparkId, Vec2 } from '../types.ts';
+import type { BombId, BondId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 } from '../types.ts';
 import { pickRedundantBondTargets } from './redundantBondTargets.ts';
 import { isInsideEnemyTerritory } from '../state/territory.ts';
 
@@ -278,6 +279,14 @@ export class Controls {
         const bombId = this.pickBomb();
         if (bombId !== null) {
           this.dispatchFn({ type: 'TRIGGER_BOMB', bombId, playerId: this.playerId });
+          return;
+        }
+        // S75 P3 — rainbow pickup priority (instant global colour-shuffle; below the bomb
+        // hazard, above the potato carry). Clicking it fires TRIGGER_RAINBOW — host-authoritative,
+        // no carry, no pointer capture; the recoloured world arrives in the next snapshot.
+        const rainbowId = this.pickRainbow();
+        if (rainbowId !== null) {
+          this.dispatchFn({ type: 'TRIGGER_RAINBOW', rainbowId, playerId: this.playerId });
           return;
         }
         // S72 P3 — potato pickup priority (above sparks, below the bomb hazard). Grabbing
@@ -642,6 +651,26 @@ export class Controls {
       const d2 = dx * dx + dy * dy;
       if (d2 <= POTATO_RADIUS * POTATO_RADIUS && d2 < bestDistSq) {
         bestId = p.id;
+        bestDistSq = d2;
+      }
+    }
+    return bestId;
+  }
+
+  /**
+   * S75 P3 — nearest rainbow whose body is under the cursor (within RAINBOW_RADIUS). Used by
+   * onDown to give the rainbow instant-trigger priority (below the bomb hazard, above the potato
+   * carry). Mirrors pickBomb; clicking fires TRIGGER_RAINBOW (host-authoritative colour-shuffle).
+   */
+  private pickRainbow(): RainbowId | null {
+    let bestId: RainbowId | null = null;
+    let bestDistSq = Infinity;
+    for (const r of this.world.rainbows.values()) {
+      const dx = r.pos.x - this.cursor.x;
+      const dy = r.pos.y - this.cursor.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 <= RAINBOW_RADIUS * RAINBOW_RADIUS && d2 < bestDistSq) {
+        bestId = r.id;
         bestDistSq = d2;
       }
     }
