@@ -20,7 +20,7 @@
  * receive the result (deleted prims/bonds + BOMB_EXPLODE burst) in the next NetSnapshot.
  */
 
-import { POTATO_BLAST_RADIUS } from '../constants.ts';
+import { POTATO_BLAST_RADIUS, POTATO_CARRIER_BENCH_TICKS } from '../constants.ts';
 import { snapPrevPosForUnbonded } from '../game/invariants.ts';
 import { asPotatoId, type BondId, type PlayerId, type PotatoId, type PrimitiveId, type Vec2 } from '../types.ts';
 import { makePotato } from './potato.ts';
@@ -60,14 +60,15 @@ export function applySpawnPotato(world: World, action: SpawnPotatoAction): World
 }
 
 /**
- * Grab a FREE potato. Rejects if: the potato is gone / not FREE (first-grab-wins race
- * — two same-tick grabs: the first to apply sets CARRIED, the second sees not-FREE and
- * no-ops); the player is gone; OR the player is already Carrying a spark / a potato
- * (carry-1 mutual exclusion, both directions).
+ * Grab a potato. S75 P1: accepts FREE *or* ARMED — a placed potato is RE-GRABBABLE so it can
+ * be passed around as a true hot-potato until the fuse fires. Rejects if: the potato is gone;
+ * the potato is CARRIED (already in a hand — first-grab-wins race: two same-tick grabs, the
+ * first sets CARRIED, the second sees CARRIED and no-ops); the player is gone; OR the player
+ * is already Carrying a spark / a potato (carry-1 mutual exclusion, both directions).
  */
 export function applyPickupPotato(world: World, action: PickupPotatoAction): World {
   const potato = world.potatoes.get(action.potatoId);
-  if (potato === undefined || potato.state !== 'FREE') return world;
+  if (potato === undefined || potato.state === 'CARRIED') return world;
   const player = world.players.get(action.playerId);
   if (player === undefined) return world;
   if (player.kind === 'Carrying' || player.carriedPotatoId !== undefined) return world;
@@ -133,10 +134,20 @@ export function applyPotatoDetonate(world: World, action: PotatoDetonateAction):
   // Burst visual — reuse BOMB_EXPLODE (wire-mirrored, so the 1v1 client sees the blast).
   world.effects.push({ kind: 'BOMB_EXPLODE', tick: world.tick, pos: { x: cx, y: cy }, radius: POTATO_BLAST_RADIUS });
 
-  // Free the carrier's slot if it cooked off in-hand / was force-detonated.
+  // S75 P1 — if the potato cooked off while still CARRIED (held too long, or force-detonated
+  // on carrier disconnect), free the carrier's slot AND bench them (avatar hidden + input
+  // locked, reusing the hunter bench infra; Math.max so a longer existing bench can't be
+  // shortened). A placed (ARMED) or un-grabbed (FREE) detonation has carrierId===null => no
+  // bench: only holding the potato to detonation is punished (the AoE already hit their base).
   if (potato.carrierId !== null) {
     const carrier = world.players.get(potato.carrierId);
-    if (carrier !== undefined) carrier.carriedPotatoId = undefined;
+    if (carrier !== undefined) {
+      carrier.carriedPotatoId = undefined;
+      carrier.benchedUntilTick = Math.max(
+        carrier.benchedUntilTick ?? 0,
+        world.tick + POTATO_CARRIER_BENCH_TICKS,
+      );
+    }
   }
   world.potatoes.delete(action.potatoId);
 

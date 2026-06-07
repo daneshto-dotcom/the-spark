@@ -17,6 +17,7 @@ interface PotatoView {
   firstState: string | null;
   firstPos: { x: number; y: number } | null;
   carried0: number | undefined;
+  benched0: number | undefined;
 }
 
 async function readPotatoes(page: Page): Promise<PotatoView> {
@@ -25,7 +26,7 @@ async function readPotatoes(page: Page): Promise<PotatoView> {
       __SPARK__?: {
         world: {
           potatoes: Map<number, { state: string; pos: { x: number; y: number } }>;
-          players: Map<number, { carriedPotatoId?: number }>;
+          players: Map<number, { carriedPotatoId?: number; benchedUntilTick?: number }>;
         };
       };
     }).__SPARK__!.world;
@@ -35,6 +36,7 @@ async function readPotatoes(page: Page): Promise<PotatoView> {
       firstState: ps.length > 0 ? ps[0].state : null,
       firstPos: ps.length > 0 ? { x: ps[0].pos.x, y: ps[0].pos.y } : null,
       carried0: w.players.get(0)?.carriedPotatoId,
+      benched0: w.players.get(0)?.benchedUntilTick,
     };
   });
 }
@@ -101,6 +103,71 @@ test.describe('S72 P3 — potato bomb (solo, gating)', () => {
     await page.mouse.move(drop.x, drop.y);
     await page.mouse.up({ button: 'left' }); // PLACE_POTATO → ARMED
     await waitForPotato(page, (p) => p.firstState === 'ARMED' && p.carried0 === undefined, 'potato placed (ARMED)');
+
+    expect(pageErrors, `uncaught errors:\n${pageErrors.join('\n')}`).toEqual([]);
+  });
+
+  test('S75: a placed (ARMED) potato is RE-GRABBABLE — true hot-potato', async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on('pageerror', (e) => pageErrors.push(String(e)));
+    await page.addInitScript({ content: 'window.__TEST_SPAWN_RATE_PER_SECOND__ = 2;' });
+    await page.addInitScript({ content: 'window.__TEST_POTATO_SPAWN_SPARKS__ = 2;' });
+    await page.addInitScript({ content: 'window.__TEST_WIN_SCORE__ = 999;' });
+    // default 23s fuse — no detonation race for grab → place → re-grab.
+    await startSolo(page);
+
+    await waitForPotato(page, (p) => p.firstState === 'FREE', 'FREE potato spawned');
+    const spawn = (await readPotatoes(page)).firstPos!;
+    let at = await canvasToCss(page, spawn.x, spawn.y);
+    await page.mouse.move(at.x, at.y);
+    await page.mouse.down({ button: 'left' }); // grab the FREE potato
+    await waitForPotato(page, (p) => p.firstState === 'CARRIED', 'grabbed (CARRIED)');
+    // Carry it out + plant it ARMED.
+    const plant = await canvasToCss(page, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 340);
+    await page.mouse.move(plant.x, plant.y);
+    await page.mouse.up({ button: 'left' }); // PLACE → ARMED
+    await waitForPotato(page, (p) => p.firstState === 'ARMED' && p.carried0 === undefined, 'placed (ARMED)');
+
+    // S75 — RE-GRAB the ARMED potato (rejected pre-S75; pickPotato now accepts ARMED).
+    const armed = (await readPotatoes(page)).firstPos!;
+    at = await canvasToCss(page, armed.x, armed.y);
+    await page.mouse.move(at.x, at.y);
+    await page.mouse.down({ button: 'left' }); // RE-PICKUP an ARMED potato
+    await waitForPotato(
+      page,
+      (p) => p.firstState === 'CARRIED' && p.carried0 !== undefined,
+      're-grabbed the placed potato (CARRIED)',
+    );
+    await page.mouse.up({ button: 'left' }); // tidy: re-plant so the gesture closes
+
+    expect(pageErrors, `uncaught errors:\n${pageErrors.join('\n')}`).toEqual([]);
+  });
+
+  test('S75: holding the potato to detonation benches the carrier', async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on('pageerror', (e) => pageErrors.push(String(e)));
+    await page.addInitScript({ content: 'window.__TEST_SPAWN_RATE_PER_SECOND__ = 2;' });
+    await page.addInitScript({ content: 'window.__TEST_POTATO_SPAWN_SPARKS__ = 2;' });
+    await page.addInitScript({ content: 'window.__TEST_POTATO_FUSE_TICKS__ = 180;' }); // ~3s — grab first, then it cooks off in-hand
+    await page.addInitScript({ content: 'window.__TEST_WIN_SCORE__ = 999;' });
+    await startSolo(page);
+
+    await waitForPotato(page, (p) => p.firstState === 'FREE', 'FREE potato spawned');
+    const spawn = (await readPotatoes(page)).firstPos!;
+    const at = await canvasToCss(page, spawn.x, spawn.y);
+    await page.mouse.move(at.x, at.y);
+    await page.mouse.down({ button: 'left' }); // grab + HOLD (never place)
+    await waitForPotato(page, (p) => p.firstState === 'CARRIED', 'grabbed + holding (CARRIED)');
+
+    // Hold through the fuse → detonates in-hand → carrier benched. The fuse is tick-based,
+    // so CI sim-clock slowdown only lengthens the wall-time (the grab always wins the race).
+    await waitForPotato(
+      page,
+      (p) => p.count === 0 && p.benched0 !== undefined,
+      'carrier benched on in-hand detonation',
+      30_000,
+    );
+    await page.mouse.up({ button: 'left' });
 
     expect(pageErrors, `uncaught errors:\n${pageErrors.join('\n')}`).toEqual([]);
   });

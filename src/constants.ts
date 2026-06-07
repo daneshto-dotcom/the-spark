@@ -489,3 +489,8 @@ export const POTATO_FUSE_TICKS = readTestPotatoFuseTicks() ?? 23 * PHYSICS_HZ; /
 export const POTATO_BLAST_RADIUS = 110; // px — small radial AoE (clips a few primitives)
 export const POTATO_MAX_ACTIVE = 1;
 export const POTATO_RADIUS = 16; // visual + pick radius
+// S75 P1 — carrier-bench-on-held-detonation. If a potato detonates while still CARRIED
+// (cooked off in hand), the carrier is benched (avatar hidden + input locked, reusing the
+// hunter bench infra) for this long. User-specified 15s (distinct from the 30s hunter
+// bench). ARMED/FREE detonations do NOT bench — only holding it too long is punished.
+export const POTATO_CARRIER_BENCH_TICKS = 15 * PHYSICS_HZ; // 900 ticks = 15s

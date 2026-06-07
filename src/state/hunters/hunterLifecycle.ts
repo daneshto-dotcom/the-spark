@@ -37,6 +37,7 @@ import {
 } from '../../constants.ts';
 import { asHunterId, type HunterId, type PlayerId } from '../../types.ts';
 import { applyDropSpark } from '../sparkLifecycle.ts';
+import { applyDropPotato } from '../potatoLifecycle.ts';
 import type { World } from '../worldTypes.ts';
 import { makeHunter } from './hunter.ts';
 import { huntDistSq, hunterPursue } from './hunterAI.ts';
@@ -201,6 +202,15 @@ export function applyHunterCatch(world: World, action: HunterCatchAction): World
     } catch (e) {
       console.error('[hunter] DROP_SPARK failed on catch (carry-1 invariant?):', e);
     }
+  }
+
+  // S75 P1 (Council D5 convergent) — if the victim was carrying a POTATO, drop it to ARMED at
+  // the catch position (reuse applyDropPotato, mirroring the DROP_SPARK reuse above). Without
+  // this a benched (hidden, input-locked) player keeps the potato, which then cooks off on
+  // their invisible avatar — the state inconsistency both reviewers flagged. Carry-1 means a
+  // player never holds a spark AND a potato, so at most one of these two drops ever fires.
+  if (victim.carriedPotatoId !== undefined) {
+    applyDropPotato(world, { type: 'DROP_POTATO', playerId: action.victimId });
   }
 
   hunter.state = 'CATCHING';

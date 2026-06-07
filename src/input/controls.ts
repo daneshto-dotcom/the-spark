@@ -627,15 +627,16 @@ export class Controls {
   }
 
   /**
-   * S72 P3 — nearest FREE potato whose body is under the cursor (within POTATO_RADIUS).
-   * Only FREE potatoes are grabbable (CARRIED follows someone; ARMED is committed).
+   * S72 P3 — nearest grabbable potato whose body is under the cursor (within POTATO_RADIUS).
+   * S75 P1 — a placed (ARMED) potato is now RE-GRABBABLE (true hot-potato: pass it around
+   * until it blows). Only a CARRIED potato (already in someone's hand) is un-grabbable.
    * Mirrors pickBomb; grabbing starts a host-authoritative carry (PICKUP_POTATO).
    */
   private pickPotato(): PotatoId | null {
     let bestId: PotatoId | null = null;
     let bestDistSq = Infinity;
     for (const p of this.world.potatoes.values()) {
-      if (p.state !== 'FREE') continue;
+      if (p.state === 'CARRIED') continue;
       const dx = p.pos.x - this.cursor.x;
       const dy = p.pos.y - this.cursor.y;
       const d2 = dx * dx + dy * dy;

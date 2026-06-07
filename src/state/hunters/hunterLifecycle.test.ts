@@ -19,8 +19,9 @@ import {
 } from '../../constants.ts';
 import { makeIdlePlayer, pickup } from '../../game/player.ts';
 import { makeFreeSpark } from '../../game/spark.ts';
-import { asHunterId, asPlayerId, asSparkId } from '../../types.ts';
+import { asHunterId, asPlayerId, asPotatoId, asSparkId } from '../../types.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
+import { applyPickupPotato, applySpawnPotato } from '../potatoLifecycle.ts';
 import { isBenched, makeHunter } from './hunter.ts';
 import { huntDistSq, hunterPursue } from './hunterAI.ts';
 import {
@@ -193,6 +194,27 @@ describe('hunterLifecycle — catch + bench', () => {
     expect(w.freeSparks.get(spark.id)!.state.kind).toBe('Free');
     // The bench survived the fsmDrop player-object reconstruction (set BEFORE drop).
     expect(victim.benchedUntilTick).toBe(5 + HUNTER_BENCH_TICKS);
+  });
+
+  it('S75: catch drops a carried POTATO to ARMED at the catch pos (no invisible carrier, no double-bench)', () => {
+    const w = duelWorld();
+    const target = w.players.get(P1)!;
+    target.avatarPos.x = 800;
+    target.avatarPos.y = 400;
+    // P1 is carrying a potato (carry-1: kind stays Idle, carriedPotatoId set).
+    applySpawnPotato(w, { type: 'SPAWN_POTATO', pos: { x: 800, y: 400 } });
+    applyPickupPotato(w, { type: 'PICKUP_POTATO', potatoId: asPotatoId(0), playerId: P1 });
+    expect(w.players.get(P1)!.carriedPotatoId).toBe(asPotatoId(0));
+    const id = asHunterId(0);
+    w.hunters.set(id, makeHunter({ id, targetPlayerId: P1, pos: { x: 800, y: 400 }, spawnedAtTick: 0 }));
+    w.tick = 12;
+    applyHunterTick(w, { type: 'HUNTER_TICK', hunterId: id });
+    // Benched once (no double-bench), potato dropped to ARMED, carry slot cleared.
+    expect(w.players.get(P1)!.benchedUntilTick).toBe(12 + HUNTER_BENCH_TICKS);
+    expect(w.players.get(P1)!.carriedPotatoId).toBeUndefined();
+    const po = w.potatoes.get(asPotatoId(0))!;
+    expect(po.state).toBe('ARMED');
+    expect(po.carrierId).toBe(null);
   });
 });
 

@@ -10,6 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  POTATO_CARRIER_BENCH_TICKS,
   POTATO_FUSE_TICKS,
   PLAYER_COLORS,
   SparkType,
@@ -170,6 +171,69 @@ describe('potatoLifecycle — place + drop (Fork E from-SPAWN fuse unchanged)', 
     applyDropPotato(w, { type: 'DROP_POTATO', playerId: P1 });
     expect(w.potatoes.get(asPotatoId(0))!.state).toBe('ARMED');
     expect(w.players.get(P1)!.carriedPotatoId).toBeUndefined();
+  });
+});
+
+describe('potatoLifecycle — S75 re-pickup + carrier bench', () => {
+  const P2 = asPlayerId(1);
+
+  it('re-grabs an ARMED (placed) potato: ARMED -> CARRIED, fuse UNCHANGED (hot-potato)', () => {
+    const w = baseWorld();
+    w.tick = 10;
+    applySpawnPotato(w, { type: 'SPAWN_POTATO', pos: { x: 500, y: 500 } });
+    const fuse = w.potatoes.get(asPotatoId(0))!.detonateAtTick;
+    applyPickupPotato(w, { type: 'PICKUP_POTATO', potatoId: asPotatoId(0), playerId: P1 });
+    applyPlacePotato(w, { type: 'PLACE_POTATO', playerId: P1, pos: { x: 700, y: 300 } });
+    expect(w.potatoes.get(asPotatoId(0))!.state).toBe('ARMED');
+    // A second player re-grabs the placed potato.
+    w.players.set(P2, makeIdlePlayer(P2, CYAN));
+    applyPickupPotato(w, { type: 'PICKUP_POTATO', potatoId: asPotatoId(0), playerId: P2 });
+    const po = w.potatoes.get(asPotatoId(0))!;
+    expect(po.state).toBe('CARRIED');
+    expect(po.carrierId).toBe(P2);
+    expect(w.players.get(P2)!.carriedPotatoId).toBe(asPotatoId(0));
+    expect(po.detonateAtTick).toBe(fuse); // fuse never resets across pickups
+  });
+
+  it('a CARRIED potato still cannot be grabbed by another player (no stealing from a hand)', () => {
+    const w = baseWorld();
+    w.players.set(P2, makeIdlePlayer(P2, CYAN));
+    applySpawnPotato(w, { type: 'SPAWN_POTATO', pos: { x: 500, y: 500 } });
+    applyPickupPotato(w, { type: 'PICKUP_POTATO', potatoId: asPotatoId(0), playerId: P1 });
+    applyPickupPotato(w, { type: 'PICKUP_POTATO', potatoId: asPotatoId(0), playerId: P2 });
+    expect(w.potatoes.get(asPotatoId(0))!.carrierId).toBe(P1); // P1 keeps it
+    expect(w.players.get(P2)!.carriedPotatoId).toBeUndefined();
+  });
+
+  it('benches the carrier for POTATO_CARRIER_BENCH_TICKS when it detonates in-hand', () => {
+    const w = baseWorld();
+    w.tick = 200;
+    applySpawnPotato(w, { type: 'SPAWN_POTATO', pos: { x: 500, y: 500 } });
+    applyPickupPotato(w, { type: 'PICKUP_POTATO', potatoId: asPotatoId(0), playerId: P1 });
+    applyPotatoDetonate(w, { type: 'POTATO_DETONATE', potatoId: asPotatoId(0) });
+    expect(w.players.get(P1)!.benchedUntilTick).toBe(200 + POTATO_CARRIER_BENCH_TICKS);
+    expect(w.players.get(P1)!.carriedPotatoId).toBeUndefined();
+  });
+
+  it('does NOT bench when an ARMED (placed) potato detonates — only holding is punished', () => {
+    const w = baseWorld();
+    w.tick = 50;
+    applySpawnPotato(w, { type: 'SPAWN_POTATO', pos: { x: 500, y: 500 } });
+    applyPickupPotato(w, { type: 'PICKUP_POTATO', potatoId: asPotatoId(0), playerId: P1 });
+    applyPlacePotato(w, { type: 'PLACE_POTATO', playerId: P1, pos: { x: 700, y: 300 } });
+    applyPotatoDetonate(w, { type: 'POTATO_DETONATE', potatoId: asPotatoId(0) });
+    expect(w.players.get(P1)!.benchedUntilTick).toBeUndefined(); // placed = no bench
+  });
+
+  it('bench-stacking: a 15s potato bench never shortens a longer existing bench (Math.max)', () => {
+    const w = baseWorld();
+    w.tick = 100;
+    // An existing longer bench (e.g. a 30s hunter catch already applied this match).
+    w.players.get(P1)!.benchedUntilTick = 100 + 30 * 60;
+    applySpawnPotato(w, { type: 'SPAWN_POTATO', pos: { x: 500, y: 500 } });
+    applyPickupPotato(w, { type: 'PICKUP_POTATO', potatoId: asPotatoId(0), playerId: P1 });
+    applyPotatoDetonate(w, { type: 'POTATO_DETONATE', potatoId: asPotatoId(0) });
+    expect(w.players.get(P1)!.benchedUntilTick).toBe(100 + 30 * 60); // longer bench preserved
   });
 });
 
