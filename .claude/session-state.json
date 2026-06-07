@@ -1,25 +1,25 @@
 {
-  "tool_calls_session_total": 208,
+  "tool_calls_session_total": 273,
   "session_start": "2026-06-07T05:32:36.502Z",
-  "session_id": "S72",
+  "session_id": "S73",
   "session_kind": "execution",
-  "session_note": "S72 (user GO -- full autonomous batch, highest quality). Executing carried S71 PDR P2 (Pac-Man hunter) + P3 (potato bomb, Fork E from-SPAWN) + P4 (CHECK carry-forward polish). PLAN carried from S71 Full Council; each priority DO -> Triumvirate CHECK -> commit/push/CI.",
+  "session_note": "S73 (user GO -- full autonomous batch, highest quality + full landing audit before playtest). P1 = #1 STABLE LOBBY SEATS (non-compacting), Standard PDR, 3-way Council ADOPT-WITH-CHANGES. Then a full Rule-22 + landing audit of all S71/S72 work (bomb/hunter/potato).",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
   "council_waived": false,
-  "tier": "Full",
-  "council_battle_ledger": "S71 Full 3-way Council (Claude+Grok-4.20-reasoning+Gemini-2.5-pro). P1/P2: Fork A bump 4->5 UNANIMOUS; Fork B SPLIT->synthesis (keep single §VIII.4 sever path, PIN deterministic all-topology leaf-first cost-ASC/BondId-ASC selection w/ prim-cap; Grok R3 CONVERGE); Fork C separate hunters Map UNANIMOUS. Adopted: bomb NOT carried (instant), hunter-target-disconnect immediate despawn (crash fix), once/game flag, DROP_SPARK reuse, tiebreak lowest PlayerId. P3 (amendment): Fork D separate potatoes Map UNANIMOUS (reversed shared-Map); Fork F radial-delete UNANIMOUS + determinism guards; Fork E ESCALATED-to-user (from-spawn chosen); carrier-disconnect force-detonate; carry-slot exclusive. See PDR doc.",
-  "prime_audit": "S71 PRIME-AUDIT: P1/P2 -- removed a host-crash class (hunter->disconnected target null avatarPos), the carried-bomb edge class (instant detonation), orphaned-bench (teardown clears benchedUntilTick); pinned Fork-B algo as a pure fn of frozen pre-state + (cost ASC, BondId ASC), loops handled (cycle bond cost 0), fraction-vs-cap defined (cap wins, empty->fizzle). P3 -- reversed Fork D to separate Map on a sound argument; AoE determinism fully closed (host-only computed + snapshot-replicated => no client divergence; squared-dist + sorted-ID guards are for replay only, consistent w/ §10.5 same-browser float determinism); from-spawn carried potato can self-detonate (the hot-potato risk, reinforces Fork-E user decision). Materially > R1 sketches. Confidence HIGH.",
+  "tier": "Standard",
+  "council_battle_ledger": "S73 P1 Standard 3-way Council (Claude+Grok-4.20-reasoning+Gemini-2.5-pro); both ADOPT-WITH-CHANGES. ADOPTED: stateful sequence-fold test (reconcile is PURE -> fold over join/join/leave-middle/back-fill/Begin; the real regression surface) + seat-uniqueness/host-0/seats-in-[1,MAX-1] invariant assertion (Grok G4) + no-hole stable==dense canary. PARTIAL: Grok G1 NEW-peer ordering -- REJECT the canonical peerId-sort (arrival-order = peerSet insertion order is the intuitive contract; lobby seating is NOT replayed by save.replay), adopt explicit doc-it. REJECT: Gemini Ge4 PROTOCOL_VERSION bump -- premise factual error (the roster is a COMPACT array of OCCUPIED seats with a non-contiguous seat FIELD, NOT a sparse/null array; isValidRoster protocol.ts:329 has no contiguity check; the client renders the RECEIVED roster via lobbyView bySeat.get(i) lobbyStateMachine.ts:329, never a local positional recompute; Begin START_GAME_SIGNAL stays dense) -> no-bump per the S70 cosmetic-presence precedent + friends-only single-deploy. CARRY-FORWARD #4: TOCTOU late-leave at Begin (PRE-EXISTING, not worsened -- clients seat from msg.roster not local peerIds), host-migration must init lobbySeats fresh, Option-2 sparse-in-game (spawn-by-ordinal). DECISIONS: Q1 1b single-source-of-truth (1a diverges on back-fill -- both reviewers concede); Q2 Option 1 dense Begin (Option 2 deferred); Q3 lowest-free fill; Q4 pure fold (no Pixi extraction).",
+  "prime_audit": "S73 PRIME-AUDIT: consensus-masking-disagreement SURFACED -- Gemini said BUMP, I refute NO-BUMP with 3 verified code facts (isValidRoster no-contiguity protocol.ts:329; client bySeat.get(i) renders RECEIVED roster lobbyStateMachine.ts:329; Begin stays dense). No-bump CONFIRMED. Runtime-verifiability: pure fns runtime-covered by vitest; host wiring by real-browser Playwright lobby/presence specs (the boot-then-smoke). Mtime N/A (no leak/regression-landing claim). Materially > R1 (adds stateful sequence fold + invariant + no-hole canary). Confidence HIGH.",
   "council_waiver_reason": "",
   "prime_audit_completed": true,
   "priorities": [
     {
       "id": "P1",
-      "label": "S71 P1 (Full) -- BOMB hazard. Spawner drops a stationary bomb in the spawn zone every random 8-15 sparks (deterministic, max 1 live); grab = INSTANT detonation severing ~25% of the PICKER own bonds, leaf-first (cost ASC, BondId ASC over frozen pre-state) with a prim blast-cap; un-grabbed 15s -> dissipate. SEPARATE world.bombs Map (NOT a 7th SparkType); new TRIGGER_BOMB client intent + PROTOCOL_VERSION 4->5; new SEVER_BOND cause \"bomb\" (bypass charge/auth); additive-optional bombs[] snapshot; BOMB_EXPLODE effect + BombRenderer. Files: worldTypes, constants, spawner, world.ts, bombLifecycle(new), severBond/disruptionManager, controls, protocol, save, effects, bombRenderer(new)+effects/bombExplode(new), effectsRenderer+lifetime, main.ts + tests + e2e. GATE: tsc + knip0 + vitest + save.replay + build<=550KB + boot-smoke + Playwright. CHECK Triumvirate + Rule22.",
+      "label": "S73 P1 (Standard) -- STABLE (non-compacting) LOBBY SEATS. When a player leaves the lobby, survivors KEEP their seat+color; the leaver seat shows empty; a new joiner fills the LOWEST empty seat. Root cause: seat = index in transport.peerIds() (a compacting Set). Fix (Option 1b, single source of truth): host holds session.lobbySeats Map<peerId,seat>; pure reconcileLobbySeats(prev,peerIds) keeps/drops/lowest-free-assigns; pure buildLobbyRoster(map,selfId) -> STABLE projection (holes ok) for LOBBY_PRESENCE; pure buildMatchRoster(map,selfId) -> DENSE contiguous 0..N-1 projection for START_GAME_SIGNAL + hostSeats (radialSpawnPos needs dense seats). PROTOCOL_VERSION stays 5 (no wire shape change). Render layer UNCHANGED (lobbyView bySeat.get(i) already handles holes). Files: net/lobbyRoster(+test), net/hostHandlers, net/session. GATE: tsc + knip0 + vitest + save.replay + build<=550KB + Playwright gating lane. CHECK Triumvirate + Rule22.",
       "status": "completed",
       "phase": "ACT",
-      "tier": "Full",
+      "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
@@ -30,168 +30,38 @@
       "verification": [
         {
           "type": "file_contains",
-          "path": "src/state/worldTypes.ts",
-          "needle": "bombs"
+          "path": "src/net/lobbyRoster.ts",
+          "needle": "reconcileLobbySeats"
         },
         {
           "type": "file_contains",
-          "path": "src/state/bombLifecycle.ts",
-          "needle": "applyTriggerBomb"
+          "path": "src/net/lobbyRoster.ts",
+          "needle": "buildMatchRoster"
         },
         {
           "type": "file_contains",
-          "path": "src/state/world.ts",
-          "needle": "TRIGGER_BOMB"
+          "path": "src/net/session.ts",
+          "needle": "lobbySeats"
         },
         {
           "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "TRIGGER_BOMB"
+          "path": "src/net/hostHandlers.ts",
+          "needle": "reconcileLobbySeats"
         },
         {
           "type": "file_contains",
-          "path": "src/game/spawner.ts",
-          "needle": "bomb"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/save.ts",
-          "needle": "bombs"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/bombRenderer.ts",
-          "needle": "export"
+          "path": "src/net/lobbyRoster.test.ts",
+          "needle": "reconcileLobbySeats"
         }
       ],
-      "check_method": "S71 P1 (bomb hazard) VERIFIED + SHIPPED f500b78. Host-only spawner drops a STATIONARY bomb every 8-15 sparks (SEPARATE seeded bombRng -> spark stream byte-identical, test-proven); grab = INSTANT self-sever of ~25% of the PICKER's OWN bonds, LEAF-FIRST (cost-ASC, BondId-ASC over the FROZEN pre-state, blast-capped) via the locked §VIII.4 SEVER_BOND path (new cause 'bomb' bypasses charge/auth like 'creature'); 15s tick-based dissipate; SEPARATE world.bombs entity (not a 7th SparkType); new TRIGGER_BOMB client intent -> PROTOCOL_VERSION 4->5; additive-optional bombs[] + BOMB_EXPLODE in NetSnapshot; teardown (applyReturnToTitle + main.ts) clears world.bombs + nextBombId + bombRenderer. GATES: tsc 0, knip 0, vitest 1054 (+15 new: bombLifecycle 9 incl. cost-beats-id / cycle-no-leaf-opens-ring / own-color-only / determinism, spawner cadence 3 incl. byte-identical-spark-stream proof, save roundtrip+back-compat 2, protocol allowlist 1), save.replay byte-equivalence GREEN (determinism preserved), vite build 516.83KB (<550 charter, +4.3KB), Playwright gating 24/24 (the 2 protocol-mismatch e2e updated for the v4->5 bump: older joiner v2, newer joiner v6). CHECK Triumvirate: RALPH:PATROL CLEAN (backpressure sweep green); GROK-ANALYST PASS (clean/deterministic/no-regression); GEMINI-AUDITOR CONDITIONAL PASS 5/4/4 -> all edges triaged + logged, NOT rubber-stamped: host-migration carrying bomb state = N/A in v1 (no migration, LOCKED §13.7, folds into netcode backlog); spawner bombRng not serialized = PRE-EXISTING spark-spawner posture (reconstructed from SEED), not bomb-introduced, save.replay green; teardown-on-RETURN_TO_TITLE matches the locked creature pattern; explosion SFX silent = deliberate visual-only v1 (deferred polish). NET SHIP (2/3 PASS + 1 CONDITIONAL, no blockers, FIX-THEN-SHIP not needed). Rule22 runtime audit CLEAN: pure TS game code + tests, no env-VAR placeholders / Docker / CLI flags / restart-survival paths; all imports resolve (tsc 0); real-browser Playwright IS the boot-then-smoke. Post-push CI (deploy + e2e) triggers on f500b78 -- confirm in the handoff Rule22 pass. checkpoint f500b78.",
-      "checkpoint_commit": "f500b78",
-      "real_context_tokens_at_close": 605667,
-      "real_context_pct_at_close": 60.57
+      "checkpoint_commit": "c9cf9be",
+      "real_context_tokens_at_close": 296640,
+      "real_context_pct_at_close": 29.66,
+      "check_method": "S73 P1 (stable non-compacting lobby seats) VERIFIED + SHIPPED c9cf9be. ROOT CAUSE: lobby seat = index in transport.peerIds() (a compacting JS Set) -> a mid-roster leave shifted every later peer down a seat + changed their colour. FIX (Council Option 1b, single source of truth): host holds session.lobbySeats Map<peerId,seat> (seats 1..MAX-1; host=0), reconciled on each onPeerChange via PURE reconcileLobbySeats (survivors KEEP their seat; departed peer frees a HOLE; new peer takes the LOWEST free seat; over-cap unseated), projected two ways -- buildLobbyRoster (STABLE, holes ok) -> LOBBY_PRESENCE + host rack; buildMatchRoster (DENSE contiguous 0..N-1, re-densified ascending-seat order) -> START_GAME_SIGNAL + hostSeats freeze (radialSpawnPos REQUIRES contiguous seats else avatars overlap: seat 3/total 3 == seat 0). NO PROTOCOL_VERSION bump (stays v5; wire shape unchanged -- a holed LOBBY_PRESENCE is a COMPACT array of occupied seats with a non-contiguous seat FIELD, valid under isValidRoster length<=MAX; client renders the RECEIVED roster via lobbyView bySeat.get(i), holes -> empty cells). Render layer (lobbyStateMachine/seatRack/lobbyScreen/main.ts digest) UNTOUCHED. teardownNet + a defensive host-start reset both clear lobbySeats. GATES: tsc 0, knip 0, vitest 1108 (+12 net over 1096: reconcile join-order/leave-frees-hole/back-fill-lowest/multi-hole-multi-join/cap-unseated/idempotent/invariant-across-churn, buildLobbyRoster holes-ordered, buildMatchRoster dense+colour+fills-MAX, no-hole stable==dense canary, fold-over-event-sequence), save.replay byte-equivalence GREEN (lobby seating is real-time presence, NOT replayed), vite build 529.66KB (<550 charter, +0.62KB), Playwright gating lane 27 pass + 1 pre-existing skip (S70 presence drop-on-leave, S62 3-player FFA seat/colour, S63 6-player, v2/v6 protocol-mismatch ALL green -> no-bump validated, zero regression). CHECK TRIUMVIRATE: RALPH:PATROL CLEAN (all gates green = backpressure sweep). GROK-ANALYST ADOPT (verified no off-by-one in lowest-free scan, sort determinism, leave+rejoin keeps seat, dup-PID idempotence, colour-OOB safe, hostSeats==START_GAME agreement by construction, no prev-mutation/aliasing). GEMINI-AUDITOR FIX-THEN-SHIP -> triaged against the ACTUAL code: (c) \"Play Again reuses stale lobbySeats\" = FALSE-POSITIVE bug (FSM has NO POSTGAME->LOBBY path; every re-Host routes POSTGAME->TITLE->teardownNet which clears) but ADOPTED the cheap defensive host-start clear (belt-and-suspenders, mirrors applyStartGame hazard-clears); (e) \"sort peerIds for determinism\" REJECTED (lobby seating is ARRIVAL-ordered = the intended first-to-join-lower-seat contract, NOT part of save.replay; a peerId-sort would make seats arbitrary + worse UX) -- same call as PLAN-phase Grok G1; (f) multi-hole/multi-join test gap ADOPTED. NET SHIP: 1 ADOPT + 1 FIX-THEN-SHIP whose blocker was a verified false-positive; 2 genuine improvements adopted (defensive clear + test), 1 reasoned reject. PRIME-AUDIT delta: SURFACED + REFUTED Gemini's must-bump disagreement with 3 verified code facts (isValidRoster no-contiguity protocol.ts:329; client bySeat.get(i) renders received roster lobbyStateMachine.ts:329; Begin stays dense). Rule22 runtime audit CLEAN: pure TS net/lobby logic + tests; no env-VAR placeholders / Docker / CLI flags / restart-survival paths; all imports resolve (tsc 0); the real-browser Playwright lobby/presence specs ARE the boot-then-smoke. Post-push CI (deploy + e2e) triggered on c9cf9be -> confirm green in the landing audit. checkpoint c9cf9be."
     },
     {
       "id": "P2",
-      "label": "S71 P2 (Full) -- PAC-MAN HUNTER. At leader-reaches-37/50 (75%), spawn once a hunter that chases the leading player avatarPos for 30s; catch (dist<CATCH_RADIUS) -> benchedUntilTick=tick+1800 (avatar hidden + input locked) + DROP_SPARK; no catch in 30s -> despawn (juke-able). SEPARATE world.hunters Map (Voltkin untouched; reuse pure arrive-steering). CRITICAL: target disconnect/eliminate -> immediate despawn, all avatarPos guarded. once/game non-resettable flag; teardown clears hunters+hunterSpawned+every benchedUntilTick. additive-optional hunters[]+benchedUntilTick snapshot. Files: worldTypes, constants, world.ts, hunters/hunterLifecycle+hunterAI(new), controls, avatarRenderer, hunterRenderer(new), save, main.ts + tests + e2e.",
-      "status": "completed",
-      "phase": "ACT",
-      "tier": "Full",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "council_waived": false,
-      "differential_test_required": false,
-      "hot_path_refactor": false,
-      "check_completed": true,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/worldTypes.ts",
-          "needle": "hunters"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hunters/hunterLifecycle.ts",
-          "needle": "applyHunterTick"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hunters/hunter.ts",
-          "needle": "isBenched"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/world.ts",
-          "needle": "HUNTER_TICK"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/game/player.ts",
-          "needle": "benchedUntilTick"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/hunterRenderer.ts",
-          "needle": "export"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/save.ts",
-          "needle": "SerializedHunter"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "SPAWN_HUNTER"
-        }
-      ],
-      "checkpoint_commit": "97e4616",
-      "real_context_tokens_at_close": 521860,
-      "real_context_pct_at_close": 52.19,
-      "check_method": "S72 P2 (Pac-Man hunter) VERIFIED + SHIPPED 97e4616. Leading player first reaching 75% (HUNTER_TRIGGER_SCORE=floor(50*0.75)=37) spawns ONCE a host-authoritative hunter (SEPARATE world.hunters Map; Voltkin §13.15 LOCKED+untouched, Council Fork C) chasing target.avatarPos via DETERMINISTIC per-tick momentum pursuit (hunterPursue: damped Verlet velocity + steer + capped HUNTER_MAX_SPEED=7, DAMPING=0.9 -> juke-able vs instant cursor); contact (HUNTER_CATCH_RADIUS=30, squared-dist gate) -> benchedUntilTick=tick+1800 (avatar HIDDEN via avatarRenderer + input LOCKED via controls.isInputLocked, both gate on isBenched tick-compare -> self-heal at expiry) + drop carried spark (REUSE DROP_SPARK; bench set BEFORE drop so it survives the fsmDrop player-object reconstruction); 30s uncaught -> DESPAWNING fade -> remove. CRITICAL crash-guard (Council Gemini #1): target disconnect/eliminate -> immediate world.hunters.delete + EVERY avatarPos read behind the player-missing guard. Host-internal actions (SPAWN_HUNTER/HUNTER_TICK/HUNTER_CATCH) -> NO PROTOCOL_VERSION bump (stays v5; the S71 v4->5 covers the batch) + KNOWN_GAME_ACTION_TYPES_RECORD tripwire updated (inert wire-allow, friends-only). Additive-optional hunters[]/hunterSpawned/benchedUntilTick in NetSnapshot (applySnapshotCore clears+rebuilds players+hunters each apply -> no stale bench; client renders the wedge facing the chased avatar + chomp from the serialized CATCHING state). SOLO avatarPos now tracks the cursor (gate widened PLAYING&&isNetworked -> PLAYING; the hunter is the first consumer of a solo avatarPos). Teardown: WIN_TRIGGER (teardownHunters) + applyReturnToTitle (inline) + applyStartGame (defensive start-of-match invariant, CHECK) clear hunters+nextHunterId+hunterSpawned+every benchedUntilTick. GATES: tsc 0, knip 0, vitest 1076 (+22: findLeadingPlayer+tiebreak, spawn-once guard, steer-toward-avatar, catch->bench+CATCHING-hold->despawn, drop-carried+bench-preserved, escape-on-timeout, CRITICAL target-disconnect-despawn, teardownHunters, WIN+START_GAME teardown-wiring via dispatch, isBenched, hunterPursue determinism/speed-cap/moves-toward, save hunters+hunterSpawned+benchedUntilTick roundtrip+back-compat). save.replay byte-equivalence GREEN (hunter has no RNG + empty in the replay world). vite build 521.66KB (<550 charter, +4.83KB). Playwright gating 25 pass + 1 pre-existing skip -- NEW solo hunter spec (spawn->chase->catch->bench, zero pageerror) + ALL 24 prior specs green (no regression; no protocol bump this time). CHECK Triumvirate: RALPH:PATROL CLEAN. GROK-ANALYST FIX-THEN-SHIP -> triaged: BLOCKER avatarPos-null-deref REJECTED (avatarPos is a REQUIRED always-init Vec2 -- makeIdlePlayer/pickup/drop/rehydrate all set it -- so the player-missing guard fully covers it); HIGH stale-bench-on-client REJECTED (applySnapshotCore clears+rebuilds players/hunters EVERY snapshot + the emit gate spans WIN so the host teardown propagates); MED silent try/catch ACCEPTED -> dev console.error; LOW prevPos contract REJECTED (already explicit in makeHunter+deserializeHunter). GEMINI-AUDITOR F3/Q3/C2 BLOCK -> triaged: HIGH teardown-completeness -> complete for the ACTUAL FSM (POSTGAME only reachable from WIN which clears) but ACCEPTED a defensive applyStartGame teardown invariant; MED bench-overwrite ACCEPTED -> Math.max; HIGH catch/WIN same-tick race REJECTED (both orderings yield the SAME correct end state -- WIN_TRIGGER teardown clears any bench, winner ends unbenched); LOW disconnect-fade REJECTED (PDR LOCKS immediate despawn as the #1 crash-fix). NET SHIP: both reviewers blockers verified FALSE POSITIVES against the actual code; 3 genuine defensive hardening adopted (applyStartGame invariant, Math.max bench, dev-log) + 2 tests added. Rule22 runtime audit CLEAN: pure TS game code + tests; no env-VAR placeholders / Docker / CLI flags / restart-survival paths; all imports resolve (tsc 0); the protocol Record tripwire is a static-validation update; the real-browser Playwright gating lane IS the boot-then-smoke. checkpoint 97e4616."
-    },
-    {
-      "id": "P3",
-      "label": "S71 P3 (Full; Scope Amendment) -- POTATO BOMB. Spawner drops a carryable potato; PICKUP_POTATO (carry-slot exclusive w/ spark) -> carry -> PLACE_POTATO onto a structure -> ARMED; ~23s fuse FROM SPAWN (user); POTATO_DETONATE = deterministic radial AoE (prims within R via dx*dx+dy*dy<=R*R squared-dist, iterated sorted-PrimitiveId, delete + incident bonds + cleanup); owner-agnostic, position-based area-denial, no chain reaction. SEPARATE world.potatoes Map; carrier-disconnect FORCE-DETONATE at last pos. DROP_POTATO. additive potatoes[]+carriedPotatoId snapshot. Files: worldTypes, constants, spawner, world.ts, potatoLifecycle(new), controls, net handlers, save, potatoRenderer(new), main.ts + tests + e2e.",
-      "status": "completed",
-      "phase": "ACT",
-      "tier": "Full",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "council_waived": false,
-      "differential_test_required": false,
-      "hot_path_refactor": false,
-      "check_completed": true,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/potato.ts",
-          "needle": "makePotato"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/potatoLifecycle.ts",
-          "needle": "applyPotatoDetonate"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/worldTypes.ts",
-          "needle": "potatoes"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/world.ts",
-          "needle": "POTATO_DETONATE"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/game/player.ts",
-          "needle": "carriedPotatoId"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/game/spawner.ts",
-          "needle": "potatoRng"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/save.ts",
-          "needle": "SerializedPotato"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/potatoRenderer.ts",
-          "needle": "export"
-        }
-      ],
-      "checkpoint_commit": "76af09a",
-      "real_context_tokens_at_close": 706812,
-      "real_context_pct_at_close": 70.68,
-      "check_method": "S72 P3 (potato bomb) VERIFIED + SHIPPED 76af09a. Host spawner drops a carryable potato in the spawn zone on its OWN seeded cadence (SEPARATE potatoRng — a THIRD stream after spark rng + bombRng; spark + bomb sequences byte-identical, test-proven). PICKUP_POTATO (carry-slot MUTUALLY EXCLUSIVE with a spark — applyPickupPotato rejects if Carrying/carriedPotatoId; applyPickupSpark rejects if carriedPotatoId; BOTH directions tested) -> CARRIED (follows the carrier avatar via the host poll) -> PLACE_POTATO (ARMED at cursor) or DROP_POTATO (ARMED at last pos); ~23s FROM-SPAWN fuse (Fork E user; one-line-flippable to from-placement) -> POTATO_DETONATE. AoE = DETERMINISTIC position-based radial (squared-dist NO sqrt + victims SORTED PrimitiveId + incident bonds SORTED BondId; owner-AGNOSTIC; POSITION-based area-denial fires on empty coord; NO chain reaction) deleting prims within POTATO_BLAST_RADIUS + incident bonds via the LOCKED snapPrevPosForUnbonded cleanup; reuses BOMB_EXPLODE (wire-mirrored) for the burst. SEPARATE world.potatoes Map (Council Fork D). NO PROTOCOL_VERSION bump (Council: the S71 v4->5 covers the P1/P2/P3 batch; POTATO client intents wire-allowed under v5; protocol-mismatch e2e v2/v6 unbroken); additive-optional potatoes[]/carriedPotatoId snapshot (client rebuilds each apply; renders FREE/CARRIED/ARMED + fuse-countdown VFX). Carrier-disconnect -> force-detonate at last-synced pos (deterministic sim-loop poll, NOT a net handler). Teardown: WIN_TRIGGER (teardownPotatoes) + applyReturnToTitle (inline) + applyStartGame (start-of-match invariant). GATES: tsc 0, knip 0, vitest 1093 (+17: spawn, pickup/place/drop, both-direction carry-exclusion, AoE deletes-in-R/spares-out/owner-agnostic/position-based-empty/no-chain/determinism, carrier-slot-clear-on-in-hand-detonate, teardown, save potatoes+carriedPotatoId roundtrip+back-compat). save.replay byte-equivalence GREEN (separate potatoRng + squared-dist + sorted-ID AoE = replay-safe). vite build 528.18KB (<550, +6.5KB). Playwright gating 27 pass + 1 pre-existing skip (2 NEW potato specs: auto-detonate-on-fuse via the host poll, grab->carry->place->ARMED via controls; ALL prior green incl. protocol-mismatch — no regression, no bump). CHECK Triumvirate: RALPH:PATROL CLEAN. GROK-ANALYST FIX-THEN-SHIP -> triaged: HIGH client-pos-object-identity REJECTED (no client code holds a potato.pos ref across frames — potatoRenderer reads fresh each sync like the shipped bomb/hunter/creature renderers; the clear+rebuild is the proven pattern); MED DROP-stale-prevPos ACCEPTED (hygiene: prevPos=pos on drop — vestigial in v1, forward-compat); LOW carrier-disconnect-continue REJECTED (dispatch is SYNCHRONOUS; the detonate fires this tick; the skipped fuse-check is moot). GEMINI-AUDITOR F5/Q4/C3 CONDITIONAL -> triaged: MED teardown-on-DRAW REJECTED (SPARK has NO DRAW state; POSTGAME only from WIN which clears; + the START_GAME start-of-match invariant IS the centralized safety net Gemini asked for); LOW no-bump cosmetic mixed-version gap ACCEPTED as a LOGGED known-issue (BOTH reviewers validated no-bump under friends-only). NET SHIP: blockers verified false-positive against the actual code; 1 hygiene fix applied. Rule22 runtime audit CLEAN: pure TS game code + tests; the protocol Record is a static-validation update (no version change); the real-browser Playwright gating lane IS the boot-then-smoke. checkpoint 76af09a."
-    },
-    {
-      "id": "P4",
-      "label": "S72 P4 (Micro; CHECK carry-forward polish) -- bomb/potato detonation BOOM SFX (playBoomSFX on BOMB_EXPLODE, covers both the S71 bomb + S72 potato) + defensive applyStartGame bomb-clear (start-of-match invariant for all 3 hazards). spawner-rng-not-serialized stays in netcode/save backlog (user note). Files: render/audioManager(+test), state/gameMode, state/bombLifecycle.test.",
+      "label": "S73 P2 (Micro; Scope Amendment, surfaced by the landing audit) -- BOMB WIN-edge TEARDOWN PARITY. WIN_TRIGGER clears world.hunters (teardownHunters) + world.potatoes (teardownPotatoes) but NOT world.bombs (asymmetry: a bomb live at WIN lingers ~2s on the win screen; cosmetic, cannot be grabbed/leak). Add teardownBombs() to bombLifecycle.ts (mirror the other two) + call it in the WIN_TRIGGER case of world.ts + a bombLifecycle.test WIN-clears-bombs case. Completes the all-three-hazards-teardown-on-every-PLAYING-exit invariant. Files: state/bombLifecycle(+test), state/world. GATE: tsc + knip0 + vitest + build + Playwright. CHECK Micro (RALPH + GROK-ANALYST).",
       "status": "completed",
       "phase": "ACT",
       "tier": "Micro",
@@ -199,48 +69,39 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": true,
-      "council_waiver_reason": "Micro-tier CHECK carry-forward polish (audio synth mirroring 3 proven SFX + a no-op-when-empty reducer clear); user pre-approved the full batch. CHECK = RALPH:PATROL + GROK-ANALYST (Micro), not full Triumvirate.",
+      "council_waiver_reason": "Micro-tier scope-amendment (3 LOC teardown helper exactly mirroring the already-reviewed teardownHunters/teardownPotatoes + 1 test); user pre-approved the full batch. CHECK = RALPH:PATROL + GROK-ANALYST (Micro), not full Triumvirate.",
       "differential_test_required": false,
       "hot_path_refactor": false,
       "check_completed": true,
-      "checkpoint_commit": "309024c",
-      "real_context_tokens_at_close": 760866,
-      "real_context_pct_at_close": 76.09,
       "verification": [
         {
           "type": "file_contains",
-          "path": "src/render/audioManager.ts",
-          "needle": "playBoomSFX"
+          "path": "src/state/bombLifecycle.ts",
+          "needle": "teardownBombs"
         },
         {
           "type": "file_contains",
-          "path": "src/render/audioManager.ts",
-          "needle": "boomFreq"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/gameMode.ts",
-          "needle": "world.bombs.clear()"
+          "path": "src/state/world.ts",
+          "needle": "teardownBombs"
         }
       ],
-      "check_method": "S72 P4 (CHECK carry-forward polish, Micro) VERIFIED + SHIPPED 309024c. (1) Bomb/potato detonation BOOM -- was SILENT visual-only in v1 (S71 deferred): playBoomSFX (procedural sine sub-bass 160->40Hz exp drop + lowpass + punchy exp-decay gain) fired on BOMB_EXPLODE, which BOTH the bomb (applyTriggerBomb) AND the potato (applyPotatoDetonate) emit -> ONE SFX covers both; mirrors playChargeSFX/playFartSFX (resume-guard, optional PannerNode, sfxGain bus, duckMusic 450ms); pure boomFreq helper + unit test. (2) Defensive applyStartGame bombs-clear (alongside the hunter+potato clears) -> completes the \"no hazard pre-game\" start-of-match invariant for all THREE hazards (RETURN_TO_TITLE already covered the exit path; no-op-when-empty). spawner-rng-not-serialized stays in the netcode/save backlog (user note). GATES: tsc 0, knip 0, vitest 1096 (+3: boomFreq x2 + START_GAME-clears-bomb), vite build 529.04KB (<550). CHECK Micro (RALPH:PATROL + GROK-ANALYST) PASS: audio is render-layer (replay-safe lastDrainedTick cursor untouched, no sim state); the bomb-clear is a no-op-when-empty line mirroring 2 proven clears. Rule22: pure TS + audio synth, no env/Docker/CLI/restart paths. checkpoint 309024c."
+      "checkpoint_commit": "90104b9",
+      "real_context_tokens_at_close": 367878,
+      "real_context_pct_at_close": 36.79,
+      "check_method": "S73 P2 (bomb WIN-edge teardown parity, Micro scope-amendment) VERIFIED + SHIPPED 90104b9. SURFACED BY the S73 landing audit (Rule 22): WIN_TRIGGER cleared world.hunters (teardownHunters) + world.potatoes (teardownPotatoes) but NOT world.bombs -> a bomb live at the win moment lingered ~2s on the win screen (cosmetic: cannot be grabbed once out of PLAYING, and START_GAME + RETURN_TO_TITLE already clear bombs before the next match). FIX: new teardownBombs(world) in bombLifecycle.ts (world.bombs.clear() + nextBombId=0; mirrors the already-shipped teardownHunters/teardownPotatoes; the bomb carries NO player-side state so there is no benchedUntilTick/carriedPotatoId analog) + called in the WIN_TRIGGER case of world.ts alongside the other two -> completes the all-three-hazards-teardown-on-every-PLAYING-exit invariant S72 P4 was building toward. GATES: tsc 0, knip 0, vitest 1110 (+2: teardownBombs clears Map+counter; dispatched WIN_TRIGGER clears a live bomb + sets gameState WIN), vite build 529.74KB (<550, +0.08KB), Playwright gating 27 pass + 1 pre-existing skip (Sym I WIN_TRIGGER+ENDGAME path GREEN -> the win-flow change verified no-regression in a real browser). CHECK Micro: RALPH:PATROL CLEAN (all gates green); GROK-ANALYST ADOPT. Self-verified the snapshot/replay concern (not just the bare ADOPT): post-WIN host snapshot carries empty bombs[], client rebuilds bombs each apply (clears in lockstep -> no desync), save.replay world has no bombs (vitest green incl. save.replay). Rule22 runtime audit CLEAN: pure TS reducer state-clear + tests; no env/Docker/CLI/restart paths; the real-browser Sym I e2e IS the boot-then-smoke for the WIN edge. checkpoint 90104b9."
     }
   ],
   "reflexion_entries_to_archive": [
-    "P1 #bomb-hazard #council-full #protocol-bump #deterministic-sever #fork-b-synthesis: shipped the pickup BOMB (f500b78) -- host spawner drops a stationary orb every 8-15 sparks (SEPARATE bombRng keeps the spark stream byte-identical), grab = INSTANT self-sever of ~25% of YOUR bonds via a Council-pinned DETERMINISTIC leaf-first (cost-ASC, BondId-ASC, frozen pre-state, blast-capped) selection through the locked §VIII.4 path (new cause 'bomb'). DEFINING MOVES: (1) Fork B was R1-SPLIT (Grok: lowest-BondId meaningless + cascade-catastrophic; Gemini: keep single semantic) -> synthesized a THIRD position (keep §VIII.4 BUT pin a deterministic blast-capped leaf-first selection) that BOTH converged on (Gemini R2 + Grok R3). (2) A SEPARATE bombRng stream = zero perturbation of the spark RNG -> save.replay byte-equivalence held + ZERO existing-test breakage (proven by a byte-identical-spark-stream test). (3) PROTOCOL_VERSION 4->5 for the new TRIGGER_BOMB intent (unanimous Fork A) broke 3 protocol.test + 2 e2e mismatch tests AS EXPECTED -> updated (v2-older / v6-newer). (4) CHECK Gemini CONDITIONAL findings triaged, not accepted wholesale. LESSON: a selection algorithm pinned over the FROZEN pre-state (not live-mutating counts) + an explicit total-order tiebreak (cost, then id) turns a 'sometimes you just lose' mechanic replay-safe; a SEPARATE RNG stream is the clean way to add stochastic content without perturbing existing determinism.",
-    "P2 #pac-man-hunter #council-full #separate-map #crash-guard #triumvirate-triage: shipped the Pac-Man hunter (97e4616) -- leader-reaches-75% spawns ONCE a host-authoritative hunter chasing target.avatarPos via deterministic capped-momentum pursuit (juke-able); catch -> 30s bench (avatar hidden + input locked, both via the isBenched tick-compare self-heal) + DROP_SPARK reuse; 30s escape -> despawn. SEPARATE world.hunters Map (Voltkin LOCKED untouched). NO PROTOCOL_VERSION bump (host-internal actions; the S71 v5 stands); additive snapshot. DEFINING MOVES: (1) the §13.15 \"do-not-import-outside-creatureVerlet.test\" LOCK on the steering helpers -> wrote a SELF-CONTAINED hunterAI.hunterPursue mirroring the proven Verlet math (zero Voltkin coupling, Fork C honored) instead of importing. (2) Rule-21 State-Discovery caught a SOLO avatarPos gap -- avatarPos was only dispatched in networked mode pre-S72, so the host-sim hunter would chase a FROZEN point in solo -> widened the gate to PLAYING (the hunter is the first consumer of a solo avatarPos); invisible to tsc+unit, only the design-trace + the solo e2e caught it. (3) Player is a readonly discriminated union -> threaded benchedUntilTick through pickup()/drop() so the bench survives the fsmDrop reconstruction when the caught player drops their spark (bench set BEFORE the drop). (4) the protocol KNOWN_GAME_ACTION_TYPES_RECORD tsc tripwire caught the union expansion -> added the 3 host-internal hunter actions. (5) CHECK: BOTH external reviewers returned blockers (Grok avatarPos null-deref; Gemini teardown-incompleteness) that I REJECTED as false positives after verifying against the actual code -- then adopted the 3 genuinely-valuable defensive hardening + 2 tests. LESSON: a reviewer \"BLOCKER\" is a hypothesis to verify against the code, not an order -- reject false positives WITH REASONING + adopt the real hardening; and a host-side sim entity that reads player state must audit EVERY mode that populates that state.",
-    "P3 #potato-bomb #council-full #fork-e-from-spawn #radial-aoe #separate-rng-stream #no-bump: shipped the carryable potato bomb (76af09a) — host spawner drops it on a SEPARATE potatoRng cadence (3rd stream; spark + bomb byte-identical); grab (carry-slot exclusive w/ spark, BOTH directions) -> carry (follows avatar) -> place/drop -> ~23s from-SPAWN fuse -> deterministic position-based radial AoE (squared-dist + sorted PrimitiveId/BondId; owner-agnostic; no chain reaction) via the locked snapPrevPosForUnbonded cleanup. SEPARATE world.potatoes Map. DEFINING MOVES: (1) NO PROTOCOL_VERSION bump for the new client intents — honored the S71 Council \"single v4->5 covers the batch\" + a bump would have broken the protocol-mismatch e2e (which hardcode v6) = the \"v5-bump-broke-2-e2e\" lesson in REVERSE; BOTH CHECK reviewers validated no-bump under friends-only. (2) carrier-disconnect handled in the main.ts sim-loop poll (carrier missing -> force-detonate at last pos), NOT a net handler — deterministic + covers more cases + zero netcode-file risk. (3) reused BOMB_EXPLODE (wire-mirrored) for the burst instead of a new effect kind -> no effects.ts/save churn. (4) the radial AoE deletes prims DIRECTLY (not via the topology-split applySeverBond) since it is position-based, reusing only the endpoint-set-removal + snapPrevPosForUnbonded cleanup primitives. (5) CHECK: both reviewers blockers REJECTED as false-positives against the actual code (no client pos-ref staleness; dispatch synchronous; no DRAW state) — same discipline as P2. LESSON: when an architect prior-PDR decision (single-bump-for-batch) collides with incremental-deploy reality, weigh the alternative cost (e2e churn + over-bump stranding) vs the risk (a cosmetic friends-only mixed-version gap), and let the adversarial reviewers VALIDATE the call rather than assume it.",
-    "P4 #check-carry-forward #bomb-sfx #start-of-match-invariant #effect-kind-reuse: shipped the detonation BOOM + the defensive applyStartGame bomb-clear (309024c). DEFINING MOVE: the boom fires on BOMB_EXPLODE, which BOTH the S71 bomb AND the S72 potato emit -> a single ~25-LOC procedural SFX (mirroring the 3 existing charge/fart/clave synths) gave BOTH hazards their detonation audio in one stroke. The bomb-clear completed the \"no hazard pre-game\" start-of-match invariant for all THREE hazards (bomb+hunter+potato) -- the belt-and-suspenders the S71 CHECK + this session P2/P3 CHECKs all converged on. LESSON: reusing a shared GameEffect kind (BOMB_EXPLODE) across two features means a single later polish pass lands for both -- effect-kind reuse compounds downstream."
+    "P1 #stable-lobby-seats #council-standard #single-source-of-truth #no-bump #stateful-pure-fold: shipped non-compacting lobby seats (c9cf9be) -- the host holds a persistent peerId->seat map reconciled on each peer join/leave (survivors keep their seat, a departed peer leaves a HOLE, a new joiner fills the LOWEST free seat), projected STABLE for the lobby preview (holes ok) and DENSE-compacted for the authoritative Begin roster (radialSpawnPos needs contiguous seats). DEFINING MOVES: (1) the SCOPE-DEFINING research finding -- radialSpawnPos(seat,total)=angle pi+(seat/total)*2pi OVERLAPS avatars on a holed roster (seat 3 with total 3 == seat 0 angle), so the GAME requires contiguous seats -> the lobby can be stable (holed) but Begin MUST compact, which bounded the whole PDR to net/lobby (zero determinism-core change) and deferred sparse-in-game-seats to #4. (2) caught a CORRECTNESS LANDMINE in design: \"stable lobby + positional Begin\" (Option 1a) DIVERGES -- a back-filled hole is assigned differently than peerSet insertion order -> a lobby<->game colour swap; the fix is ONE seat-map projected two ways (Option 1b), preserving S70's DRY preview==Begin unification. (3) NO PROTOCOL_VERSION bump -- Gemini (PLAN + CHECK) insisted on a bump on a FACTUAL MISREAD (\"sparse array with nulls\"); refuted with 3 verified code facts (isValidRoster no-contiguity, client renders received roster via bySeat.get(i), Begin stays dense) -- the roster is a COMPACT array whose seat FIELD is non-contiguous, not a sparse/null array. (4) the PURE reconcile let the stateful host loop be tested by FOLDING reconcile over a join/leave event sequence -- no Pixi extraction needed (resolved the Council test-strategy challenge elegantly). (5) CHECK discipline held: Gemini FIX-THEN-SHIP blocker (stale-lobbySeats) verified false-positive against the FSM, adopted the cheap defensive clear anyway, rejected the determinism-sort WITH reasoning. LESSON: when a \"stable\" UX request meets a determinism-critical core, find the SEAM (lobby-stable + dense-at-the-boundary) that fixes the UX without touching the core; and a reviewer's \"you must bump the protocol\" is a hypothesis to verify against the actual wire-validator + client render path, not an order.",
+    "P2 #audit-surfaced #hazard-teardown-parity #micro-amendment #invariant-completion: shipped the bomb WIN-edge teardown (90104b9) -- a Micro scope-amendment the S73 LANDING AUDIT surfaced. WIN_TRIGGER tore down hunters + potatoes but not bombs, so a bomb live at the win moment lingered ~2s on the win screen. Added teardownBombs() mirroring teardownHunters/teardownPotatoes + called it on the PLAYING->WIN edge. DEFINING MOVE: this is the AUDIT DOING ITS JOB -- a parallel deep-trace subagent (one per hazard: bomb/hunter/potato) caught an asymmetry that prior per-feature CHECKs missed, because each hazard was reviewed in isolation; only a CROSS-hazard parity sweep (does EACH exit edge clear ALL THREE?) surfaces it. The S72 P4 \"all three hazards start-of-match invariant\" completed START_GAME + RETURN_TO_TITLE for the bomb, but the WIN-edge teardown was added per-hazard (teardownHunters S72P2, teardownPotatoes S72P3) and the bomb -- shipped in S71 BEFORE those helpers existed -- was never retrofitted onto the WIN edge. LESSON: invariants built up feature-by-feature (\"all N hazards teardown everywhere\") need a periodic CROSS-CUTTING matrix audit (each entity x each exit edge), because incremental per-feature CHECKs verify the NEW feature's coverage of all edges but not the OLDER features' coverage of the NEW edge. Scope-amendment discipline held: a Micro PDR amendment was written + gated (P2 entry, council_waived user-path) BEFORE the 3-LOC edit -- not an ad-hoc urgency fix."
   ],
   "fork_decisions": {
-    "fork_A_protocol_version": "bump 4->5 (unanimous)",
-    "fork_B_bomb_damage": "reuse §VIII.4 sever + pinned leaf-first cost-ASC/BondId-ASC deterministic selection w/ prim-cap",
-    "fork_C_hunter_entity": "separate world.hunters Map (unanimous)",
-    "fork_D_potato_entity": "separate world.potatoes Map (unanimous; reversed shared-Map)",
-    "fork_E_potato_fuse": "from-SPAWN (user reading; Council preferred from-placement) -- TUNABLE",
-    "fork_F_potato_aoe": "radial-delete + squared-dist + sorted-PrimitiveId determinism guards (unanimous)"
+    "fork_1b_vs_1a": "1b single-source-of-truth stable seat-map (1a positional-Begin diverges on back-fill)",
+    "fork_option1_vs_2": "Option 1 (stable lobby preview + DENSE Begin roster); Option 2 sparse-in-game deferred to #4",
+    "fork_hole_fill": "lowest-free seat for new joiners (incumbents never move; rack stays compact)",
+    "fork_protocol_bump": "NO bump (stays v5) -- wire shape unchanged; holed LOBBY_PRESENCE is a valid <=MAX array; client renders received roster"
   },
-  "pdr_doc": ".claude/plans/2026-06-06_PDR_S71_bomb-hunter.md",
+  "pdr_doc": ".claude/plans/PDR_S73_stable-lobby-seats.md",
   "budget_total": 1000000,
   "totals": {
     "turns": 0,
@@ -248,7 +109,7 @@
     "budget_status": "GREEN"
   },
   "carry_forward": "=== RESOLVED S72 === P2 PAC-MAN HUNTER (97e4616): leader-reaches-75% spawns ONCE a host-authoritative hunter chasing the avatar via deterministic capped-momentum pursuit (juke-able); catch -> 30s bench (avatar hidden + input locked) + DROP_SPARK; 30s escape -> despawn. SEPARATE world.hunters Map; CRITICAL target-disconnect crash-guard; solo avatarPos fix; no protocol bump; additive snapshot. P3 POTATO BOMB (76af09a): carryable from-SPAWN-fuse (Fork E user) radial-AoE weapon; SEPARATE world.potatoes Map + separate potatoRng (spark+bomb byte-identical); carry-1 exclusive w/ spark (both directions); deterministic position-based AoE (squared-dist + sorted PrimitiveId/BondId; owner-agnostic; no chain reaction); carrier-disconnect force-detonate (sim-loop poll); NO protocol bump (Council batch-bump). P4 (309024c): detonation BOOM SFX (covers bomb+potato) + defensive applyStartGame bomb-clear. Teardown invariant for all 3 hazards on WIN/RETURN_TO_TITLE/START_GAME. === LOGGED CHECK CARRY-FORWARDS (S72, not dropped) === (a) NO-BUMP cosmetic mixed-version gap: a stale-v5 (P2-build) client joining a P3-build host sees prims vanish from a potato AoE without rendering the potato -- accepted friends-only trade-off (both CHECK reviewers validated no-bump); if a future feature needs cross-version safety, revisit the S52 new-client-intent->bump precedent. (b) Centralized PLAYING-exit teardown (Gemini P3): the current per-trigger (WIN_TRIGGER) + RETURN_TO_TITLE + START_GAME-invariant fully covers the actual FSM (no DRAW state), but a single PLAYING-exit teardown hook would be cleaner if the FSM grows. (c) spawner rng/bombRng/potatoRng not serialized -> save/load resets spawn cadence (PRE-EXISTING spark-spawner posture; folds into netcode/save-determinism backlog). (d) hunter disconnect-fade (PDR locks immediate despawn; optional polish). (e) Fork E potato fuse from-SPAWN is one-line-flippable to from-placement (makePotato + applyPlacePotato) if playtest prefers Council's. === CONFIRM AT NEXT BOOT (Rule 22) === P3 (76af09a) + P4 (309024c) post-push CI E2E were in-flight at handoff (local Playwright 27/27 green); confirm both green. === PRE-EXISTING BACKLOG (prioritized for next session; NOT started S72 -- ORANGE budget + each is multi-session) === 1. STABLE LOBBY SEATS (non-compacting) -- likely the most tractable + highest user-value next; bounded scope (lobby/seating). 2. CONTROL-MESSAGE SENDER-AUTH -- security hardening; bounded, raises the v1 threat model past friends-only. 3. EYES fog fuzzy-edge + CVD shape-icons -- render/accessibility feature; self-contained. 4. LIVE-PLAY NETCODE INFRA (host-migration / reconnect / 6p delta) -- LARGEST (genuinely multi-session); also the home for the spawner-rng-serialization + the no-bump cross-version work above. Recommend: tackle #1 or #3 as a single-priority Standard PDR next session; #4 needs its own multi-session plan. === OTHER (pre-existing) === main.ts Pixi/DOM shell hypertrophy (de-hypertrophy candidate).",
-  "checkpoint_commit": "309024c",
-  "triumvirate_check": "S71 P1 CHECK = Triumvirate. RALPH:PATROL CLEAN (tsc/knip0/vitest1054/build516.83KB/Playwright24 all green). GROK-ANALYST PASS (no correctness/determinism/regression bug; pre-state-frozen selection + pure severSplit + skip-if-missing all sound). GEMINI-AUDITOR CONDITIONAL PASS (Fidelity5/Quality4/Completeness4) -> edges triaged + logged (host-migration N/A v1; spawner-not-serialized pre-existing; teardown matches creature pattern; explosion-SFX deferred polish). NET SHIP 2/3 PASS, no blockers. Grok 1 call (CHECK) + Gemini 1 call (CHECK) this phase (~$0.10); plus 4 Council PLAN calls earlier (~$0.30).",
-  "session_status": "S72 COMPLETE -- all 4 priorities shipped + Triumvirate/Micro CHECK SHIP: P2 hunter (97e4616), P3 potato bomb (76af09a), P4 detonation-boom + bomb-clear (309024c) [P1 bomb was S71]. Gates green throughout (tsc/knip0/vitest1096/save.replay/build529.04KB/Playwright27). Token 760866/1M (76.09% ORANGE) -> finish+handoff. PRE-EXISTING backlog NOT started (ORANGE budget + multi-session scope + quality-first) -> prioritized plan in carry_forward for next session. CI Rule22: P2 fully green (deploy+e2e); P3 deploy green + E2E in-flight; P4 pushed (CI running) -> CONFIRM P3+P4 e2e green at next boot."
+  "checkpoint_commit": "90104b9",
+  "triumvirate_check": "S73 P1 CHECK = Triumvirate. RALPH:PATROL CLEAN (tsc 0 / knip 0 / vitest 1108 / save.replay byte-equiv / build 529.66KB / Playwright 27 pass+1 skip -- all green). GROK-ANALYST ADOPT (no correctness/determinism/regression bug; verified lowest-free scan, sort, leave+rejoin, dup-PID, colour-OOB, hostSeats==START_GAME, no aliasing). GEMINI-AUDITOR FIX-THEN-SHIP -> (c) stale-lobbySeats FALSE-POSITIVE (no POSTGAME->LOBBY path; teardownNet clears) + ADOPTED defensive host-start clear; (e) peerId-sort REJECTED (arrival-ordered, not replayed); (f) multi-hole test ADOPTED. NET SHIP 1 ADOPT + 1 FIX-THEN-SHIP(false-positive blocker), 2 improvements adopted. PRIME-AUDIT delta refuted the no-bump disagreement with 3 code facts. Grok 2 calls (PLAN+CHECK) + Gemini 2 calls (PLAN+CHECK) this session (~$0.20, premium reasoning models).",
+  "session_status": "S73 COMPLETE -- P1 stable lobby seats SHIPPED c9cf9be (CI GREEN: deploy + e2e 8m5s) + P2 bomb-WIN-teardown parity SHIPPED 90104b9 (CI running). Landing audit DONE: hunter + potato PASS no-concerns; bomb PASS + the one WIN-teardown asymmetry it found -> fixed in P2. Gates green throughout (tsc / knip0 / vitest 1110 / save.replay byte-equiv / build 529.74KB / Playwright 27 pass+1 skip). Token 367878/1M (36.79% GREEN). Bomb-e2e-spec gap (unit-only) spun off as a chip. NEXT: /handoff. User playtests after."
 }
