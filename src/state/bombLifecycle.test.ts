@@ -23,6 +23,7 @@ import {
   applyDissipateBomb,
   applySpawnBomb,
   applyTriggerBomb,
+  teardownBombs,
 } from './bombLifecycle.ts';
 
 const P1 = asPlayerId(0);
@@ -221,6 +222,28 @@ describe('bombLifecycle — START_GAME teardown (S72 P4 defensive invariant)', (
     applySpawnBomb(world, { type: 'SPAWN_BOMB', pos: { x: 1, y: 1 } });
     expect(world.bombs.size).toBe(1);
     dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
+    expect(world.bombs.size).toBe(0);
+    expect(world.nextBombId).toBe(0);
+  });
+});
+
+describe('bombLifecycle — WIN_TRIGGER teardown (S73 P2 hazard parity)', () => {
+  it('teardownBombs clears the bombs Map + resets the id counter', () => {
+    const world = baseWorld();
+    applySpawnBomb(world, { type: 'SPAWN_BOMB', pos: { x: 1, y: 1 } });
+    applySpawnBomb(world, { type: 'SPAWN_BOMB', pos: { x: 2, y: 2 } });
+    expect(world.bombs.size).toBe(2);
+    teardownBombs(world);
+    expect(world.bombs.size).toBe(0);
+    expect(world.nextBombId).toBe(0);
+  });
+
+  it('WIN_TRIGGER clears a live bomb so it never lingers on the win screen (parity with hunters + potatoes)', () => {
+    const world = baseWorld();
+    applySpawnBomb(world, { type: 'SPAWN_BOMB', pos: { x: 5, y: 5 } });
+    expect(world.bombs.size).toBe(1);
+    dispatch(world, { type: 'WIN_TRIGGER', winnerId: P1 });
+    expect(world.gameState).toBe('WIN');
     expect(world.bombs.size).toBe(0);
     expect(world.nextBombId).toBe(0);
   });

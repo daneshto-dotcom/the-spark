@@ -68,6 +68,7 @@ import {
   applyDissipateBomb,
   applySpawnBomb,
   applyTriggerBomb,
+  teardownBombs,
   type DissipateBombAction,
   type SpawnBombAction,
   type TriggerBombAction,
@@ -284,6 +285,9 @@ export function dispatch(world: World, action: GameAction): World {
       teardownHunters(world);
       // S72 P3 — same for potatoes (no armed potato / carry-slot persists past the win).
       teardownPotatoes(world);
+      // S73 P2 — and bombs (landing-audit parity fix): completes the all-three-hazards
+      // teardown on the PLAYING->WIN edge so a bomb live at the win moment doesn't linger.
+      teardownBombs(world);
       return world;
 
     case 'START_GAME':

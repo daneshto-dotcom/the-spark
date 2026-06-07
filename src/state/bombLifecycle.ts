@@ -147,3 +147,18 @@ export function applyTriggerBomb(world: World, action: TriggerBombAction): World
   }
   return world;
 }
+
+/**
+ * S73 P2 — clear all bombs at a PLAYING-exit edge. Mirror of teardownHunters /
+ * teardownPotatoes so WIN_TRIGGER tears down all THREE hazards symmetrically. The
+ * landing-audit parity fix: WIN_TRIGGER previously cleared hunters + potatoes but NOT
+ * bombs, so a bomb live at the win moment lingered on the win screen for the ~2s WIN
+ * dwell (cosmetic — it can't be grabbed once out of PLAYING, and START_GAME +
+ * RETURN_TO_TITLE already clear it before the next match — but inconsistent with the
+ * other two hazards). The bomb carries NO player-side state (unlike the hunter's
+ * benchedUntilTick / the potato's carriedPotatoId), so this is just the Map + counter.
+ */
+export function teardownBombs(world: World): void {
+  world.bombs.clear();
+  world.nextBombId = 0;
+}
