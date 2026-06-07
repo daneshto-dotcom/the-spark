@@ -19,7 +19,7 @@
 
 import { HostSync } from './sync.ts';
 import { generateRoomCode, PROTOCOL_VERSION, buildHello, type RosterEntry } from './protocol.ts';
-import { buildLobbyRoster } from './lobbyRoster.ts';
+import { reconcileLobbySeats, buildLobbyRoster, buildMatchRoster } from './lobbyRoster.ts';
 import type { NetSession } from './session.ts';
 import { NetTransport, selfId } from './transport.ts';
 import { dispatch, type World } from '../state/world.ts';
@@ -139,6 +139,13 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
     deps.session.netTransport = transport;
     deps.session.hostSync = new HostSync();
     deps.world.isHost = true;
+    // S73 P1 (CHECK Gemini c) — a fresh Host starts with NO inherited lobby seats.
+    // Defense-in-depth: every production path back to re-Host goes through teardownNet
+    // (which clears lobbySeats), but resetting here makes "fresh host = empty seat-map"
+    // an explicit host-start invariant independent of teardown ordering — mirrors the
+    // applyStartGame start-of-match hazard-clears (S72 belt-and-suspenders posture). A
+    // fresh transport has no peers yet, so this runs before any onPeerChange can fire.
+    deps.session.lobbySeats = new Map();
     // S20 P0 — surface NetTransport errors to the lobby statusText so users
     // see the failure layer rather than an indefinite "Waiting for Player 2..."
     // stall (the S19 P4-unresolved BLOCKER root cause: zero error plumbing).
@@ -156,17 +163,22 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
     // connects (host = playerId 0 / crimson). Activates the dormant S53
     // protocol-mismatch latch + UX on the joiner's receive side.
     wireHelloOnJoin(transport, asPlayerId(0), PLAYER_COLORS[0]);
-    // S70 P1 — lobby presence broadcast. On every peer join/leave, rebuild the
-    // current occupied-seat roster (the SAME buildLobbyRoster formula Begin uses,
-    // so a joiner's previewed seat == its Begin seat) and (1) broadcast it to peers
-    // so joiners paint the TRUE per-seat rack, and (2) dispatch it LOCALLY for the
-    // host's OWN rack — transport.send() goes to PEERS only, so the local call is
-    // what updates the host (Council R6 CRITICAL). peerIds() is accurate at handler
-    // time: the transport mutates peerSet BEFORE firing onPeerChange for both join
-    // (added) and leave (removed). No debounce — lobby join/leave is human-paced and
-    // the reducer's same-ref churn-guard absorbs any redundant identical roster.
+    // S70 P1 / S73 P1 — lobby presence broadcast with STABLE (non-compacting) seats.
+    // On every peer join/leave, reconcile the persistent peerId→seat map (survivors
+    // KEEP their seat; a departed peer leaves a HOLE; a new peer takes the lowest free
+    // seat), then project the STABLE roster (holes ok) and (1) broadcast it to peers so
+    // joiners paint the true per-seat rack, and (2) dispatch it LOCALLY for the host's
+    // OWN rack — transport.send() goes to PEERS only, so the local call is what updates
+    // the host (Council R6 CRITICAL). peerIds() is accurate at handler time: the
+    // transport mutates peerSet BEFORE firing onPeerChange for both join (added) and
+    // leave (removed). No debounce — lobby join/leave is human-paced and the reducer's
+    // same-ref churn-guard absorbs any redundant identical roster. The map persists on
+    // session.lobbySeats so Begin (buildMatchRoster) compacts the SAME assignment —
+    // ONE source of truth (Council S73 Option 1b: no positional re-derivation that
+    // could diverge from a back-filled hole).
     transport.onPeerChange(() => {
-      const roster = buildLobbyRoster(transport.peerIds(), selfId);
+      deps.session.lobbySeats = reconcileLobbySeats(deps.session.lobbySeats, transport.peerIds());
+      const roster = buildLobbyRoster(deps.session.lobbySeats, selfId);
       transport.send({ kind: 'LOBBY_PRESENCE', roster });
       deps.onPresence(roster);
     });
@@ -214,20 +226,26 @@ export function createBeginMatchHandler(deps: BeginMatchDeps): () => void {
     // builds a byte-identical initial world (Council determinism fix).
     const transport = deps.session.netTransport;
     const allPeers = transport !== null ? transport.peerIds() : [];
-    // S70 P1 — the authoritative Begin roster now shares the pure buildLobbyRoster
-    // builder with the lobby presence broadcast (DRY: byte-identical seat
-    // assignment, so a joiner's previewed lobby seat is the seat it receives here).
-    // buildLobbyRoster applies the MAX_PLAYERS cap internally; recompute the seated-
-    // peer slice for the hostSeats map + the over-capacity warn.
-    const roster = buildLobbyRoster(allPeers, selfId);
-    const peers = allPeers.slice(0, MAX_PLAYERS - 1);
-    if (allPeers.length > peers.length) {
+    // S73 P1 — final reconcile of the STABLE seat-map against the current peer set,
+    // then DENSE-compact it (buildMatchRoster) for the authoritative roster: the
+    // in-game radialSpawnPos(seat, total) requires CONTIGUOUS seats 0..N-1, so the
+    // lobby's possibly-holed stable seats are re-densified in ascending-seat order.
+    // This projects the ONE seat-map the lobby preview used (Council Option 1b — no
+    // positional re-derivation that could diverge from a back-filled hole) and is
+    // byte-identical to the preview when no hole persisted to Begin. hostSeats freezes
+    // from the DENSE roster so anti-spoof intent stamping keys peerId→in-game seat.
+    deps.session.lobbySeats = reconcileLobbySeats(deps.session.lobbySeats, allPeers);
+    const roster = buildMatchRoster(deps.session.lobbySeats, selfId);
+    const seatedRemotes = roster.length - 1;
+    if (allPeers.length > seatedRemotes) {
       console.warn(
-        `[net] Begin: ${allPeers.length} peers but MAX_PLAYERS=${MAX_PLAYERS}; seating first ${peers.length}, dropping ${allPeers.length - peers.length}.`,
+        `[net] Begin: ${allPeers.length} peers but seated ${seatedRemotes} (MAX_PLAYERS=${MAX_PLAYERS}); dropping ${allPeers.length - seatedRemotes}.`,
       );
     }
     deps.session.hostSeats.clear();
-    peers.forEach((pid, i) => deps.session.hostSeats.set(pid, asPlayerId(i + 1)));
+    for (const e of roster) {
+      if (e.seat > 0) deps.session.hostSeats.set(e.peerId, asPlayerId(e.seat));
+    }
     if (transport !== null) {
       transport.send({ kind: 'START_GAME_SIGNAL', mode: '1v1', roster });
     }

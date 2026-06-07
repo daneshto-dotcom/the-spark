@@ -35,6 +35,14 @@ export interface NetSession {
    * before Begin. Cleared on teardown.
    */
   hostSeats: Map<string, PlayerId>;
+  /**
+   * S73 P1 — host-side STABLE lobby seat-map (peerId→seat, seats 1..MAX_PLAYERS-1),
+   * accumulated across peer join/leave so survivors KEEP their seat when another peer
+   * leaves (non-compacting lobby). The SINGLE SOURCE OF TRUTH: the lobby preview
+   * projects it stable (holes allowed) and Begin compacts it dense (buildMatchRoster).
+   * Empty on the client + before any peer joins. Cleared on teardown.
+   */
+  lobbySeats: Map<string, number>;
 }
 
 export function makeNetSession(): NetSession {
@@ -44,6 +52,7 @@ export function makeNetSession(): NetSession {
     clientSync: null,
     lastSnapshotTick: 0,
     hostSeats: new Map(),
+    lobbySeats: new Map(),
   };
 }
 
@@ -81,5 +90,8 @@ export function teardownNet(
   world.isHost = true;
   session.lastSnapshotTick = 0;
   session.hostSeats.clear();
+  // S73 P1 — clear the stable lobby seat-map so a fresh Host/Join (after lobby Back /
+  // peer-drop / postgame) starts with no inherited seats (mirror of hostSeats.clear()).
+  session.lobbySeats.clear();
   triggerAudioCursorReset();
 }
