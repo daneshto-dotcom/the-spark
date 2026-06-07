@@ -22,3 +22,7 @@ playwright-report/
 test-results/
 test-results-quarantine/
 .playwright-cache/
+
+# S74 — root handoff docs are ephemeral; the permanent copy lives in .handoff-archive/
+# (tracked). Root-anchored (leading /) so .handoff-archive/HANDOFF_*.md is NOT ignored.
+/HANDOFF_*.md

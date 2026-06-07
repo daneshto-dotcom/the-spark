@@ -1,3 +1,5 @@
+> STATUS: CARRIED/DEFERRED (flagged S74 handoff) -- DRAFT, never gated/executed. Lobby LOGIC changed substantially since this draft (S70 presence rack, S73 stable non-compacting seats), so this VISUAL-refactor draft needs RE-VALIDATION against the current lobby before any Council/gate. Was orphaned in the ephemeral .claude/plans/; archived here to preserve it.
+
 ═══════════════════════════════════════════════════════════
     PRODUCTION DESIGN REPORT — S69 P2: Lobby seat-UX visual refactor
 ═══════════════════════════════════════════════════════════
