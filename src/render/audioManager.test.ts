@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { asPrimitiveId } from '../types.ts';
 import type { GameEffect } from '../game/effects.ts';
 import {
+  boomFreq,
   chargeEnvelope,
   chargeFreq,
   claveEnvelope,
@@ -32,6 +33,18 @@ import {
   toggleMute,
   _resetAudioForTest,
 } from './audioManager.ts';
+
+describe('audioManager — boomFreq (pure, S72 P4 detonation thump)', () => {
+  it('starts at 160 Hz, ends at 40 Hz, geometric in between', () => {
+    expect(boomFreq(0)).toBeCloseTo(160, 5);
+    expect(boomFreq(0.45)).toBeCloseTo(40, 5);
+    expect(boomFreq(0.225)).toBeCloseTo(Math.sqrt(160 * 40), 1); // geometric midpoint
+  });
+  it('clamps out-of-range t to the endpoints', () => {
+    expect(boomFreq(-1)).toBe(160);
+    expect(boomFreq(99)).toBe(40);
+  });
+});
 
 describe('audioManager — claveEnvelope (pure)', () => {
   it('starts at 1 at t=0', () => {

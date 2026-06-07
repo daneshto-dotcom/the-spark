@@ -125,6 +125,11 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   // S72 P3 — clear any lingering potato at match start (same invariant).
   world.potatoes.clear();
   world.nextPotatoId = 0;
+  // S72 P4 — defensive bomb-clear at match start (the S71 CHECK carry-forward; belt-and-
+  // suspenders — RETURN_TO_TITLE already clears, but this makes "no hazard pre-game" a
+  // start-of-match invariant for ALL THREE hazards: bomb, hunter, potato).
+  world.bombs.clear();
+  world.nextBombId = 0;
   // S34 P2-21 defensive clear (see JSDoc above).
   world.pendingCreatureSpawn = null;
   if (action.roster !== undefined && action.roster.length > 0) {

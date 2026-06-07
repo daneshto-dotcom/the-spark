@@ -93,6 +93,16 @@ const CHARGE_FILTER_END = 4000;
 const CHARGE_FILTER_Q = 1;
 const CHARGE_DECAY_FLOOR = 0.001;
 
+// S72 P4 — bomb/potato detonation BOOM. A short punchy low-frequency thump fired when
+// drainAudioEffects sees a BOMB_EXPLODE effect (emitted by BOTH applyTriggerBomb (S71
+// bomb) AND applyPotatoDetonate (S72 P3 potato) — one SFX covers both). Detonation was
+// SILENT visual-only in v1 (S71 deferred-polish carry-forward). Procedural sine sub-bass
+// (160 Hz → 40 Hz exp drop) through a lowpass with a punchy fast-attack/exp-decay gain.
+const BOOM_GAIN = 0.5;
+const BOOM_DURATION = 0.45;
+const BOOM_FREQ_START = 160;
+const BOOM_FREQ_END = 40;
+
 /**
  * S28 P0 — Voltkin Phase 2D zap audio. Recorded lightning-crackle.ogg (18 KB)
  * deployed from assets-source/godly-voltkin/audio/ at S28 boot (Council scope-Q2
@@ -838,6 +848,54 @@ async function playChargeSFX(pos?: Vec2): Promise<void> {
 }
 
 /**
+ * S72 P4 — bomb/potato detonation BOOM. Procedural deep thump: a sine sub-bass with an
+ * exponential pitch drop (160 Hz → 40 Hz) through a lowpass, with a punchy fast-attack /
+ * exp-decay gain envelope. Fired on BOMB_EXPLODE (the S71 bomb AND the S72 potato).
+ * Defense-in-depth resume guard mirrors playClaveSFX/playChargeSFX (tab-blur /
+ * autoplay-policy safe). Routed via sfxGainNode so master + SFX-channel mute both apply.
+ */
+async function playBoomSFX(pos?: Vec2): Promise<void> {
+  if (audioContext === null || sfxGainNode === null) return;
+  if (audioContext.state !== 'running') {
+    try {
+      await audioContext.resume();
+    } catch (e) {
+      if (isDebugRequested()) console.warn('[audio] playBoomSFX resume() threw:', e);
+    }
+  }
+  if (audioContext.state !== 'running') return;
+
+  const ctx = audioContext;
+  const now = ctx.currentTime;
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(BOOM_GAIN, now); // punchy attack
+  gain.gain.exponentialRampToValueAtTime(0.001, now + BOOM_DURATION);
+  const panner = pos !== undefined ? createPanner(pos) : null;
+  if (panner !== null) {
+    gain.connect(panner);
+    panner.connect(sfxGainNode);
+  } else {
+    gain.connect(sfxGainNode);
+  }
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(400, now);
+  filter.frequency.exponentialRampToValueAtTime(80, now + BOOM_DURATION);
+  filter.Q.value = 2;
+  filter.connect(gain);
+
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(BOOM_FREQ_START, now);
+  osc.frequency.exponentialRampToValueAtTime(BOOM_FREQ_END, now + BOOM_DURATION);
+  osc.connect(filter);
+  osc.start(now);
+  osc.stop(now + BOOM_DURATION);
+}
+
+/**
  * Drain effects for audio. Iterates effects, fires SFX for new ticks, advances
  * the cursor. Replay-safe: effects with tick <= cursor are skipped silently.
  */
@@ -873,6 +931,11 @@ export function drainAudioEffects(effects: ReadonlyArray<GameEffect>, currentTic
       // subsequent BOND_SEVERED-creature 700 ms duck via Δ2 max-end-time.
       void playChargeSFX(effect.pos);
       duckMusic(300);
+    } else if (effect.kind === 'BOMB_EXPLODE') {
+      // S72 P4 — detonation boom (the S71 bomb + the S72 potato both emit BOMB_EXPLODE).
+      // Positional; duck the music ~450 ms so the thump reads through the bed.
+      void playBoomSFX(effect.pos);
+      duckMusic(450);
     }
   }
   lastDrainedTick = currentTick;
@@ -963,4 +1026,21 @@ export function chargeEnvelope(
   const decayElapsed = t - CHARGE_DECAY_START;
   const decayDuration = duration - CHARGE_DECAY_START;
   return CHARGE_GAIN * Math.pow(CHARGE_DECAY_FLOOR / CHARGE_GAIN, decayElapsed / decayDuration);
+}
+
+/**
+ * S72 P4 — exponential pitch trajectory for the detonation boom (mirrors fartFreq /
+ * chargeFreq shape: out-of-range clamp + geometric interp). Pure; unit-testable.
+ *   boomFreq(0) === 160, boomFreq(BOOM_DURATION) === 40, geometric in between.
+ */
+export function boomFreq(
+  t: number,
+  duration: number = BOOM_DURATION,
+  startHz: number = BOOM_FREQ_START,
+  endHz: number = BOOM_FREQ_END,
+): number {
+  if (t < 0) return startHz;
+  if (t >= duration) return endHz;
+  const ratio = endHz / startHz;
+  return startHz * Math.pow(ratio, t / duration);
 }

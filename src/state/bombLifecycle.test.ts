@@ -18,7 +18,7 @@ import type { Bond } from '../physics/bonds.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import { asBombId, asBondId, asPlayerId, asPrimitiveId } from '../types.ts';
-import { makeWorld, type World } from './world.ts';
+import { dispatch, makeWorld, type World } from './world.ts';
 import {
   applyDissipateBomb,
   applySpawnBomb,
@@ -212,5 +212,16 @@ describe('bombLifecycle — applyTriggerBomb detonation', () => {
       return remainingBondIds(world);
     };
     expect(run()).toEqual(run());
+  });
+});
+
+describe('bombLifecycle — START_GAME teardown (S72 P4 defensive invariant)', () => {
+  it('clears any lingering bomb at match start', () => {
+    const world = baseWorld();
+    applySpawnBomb(world, { type: 'SPAWN_BOMB', pos: { x: 1, y: 1 } });
+    expect(world.bombs.size).toBe(1);
+    dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
+    expect(world.bombs.size).toBe(0);
+    expect(world.nextBombId).toBe(0);
   });
 });
