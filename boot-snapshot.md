@@ -1,6 +1,10 @@
 # Boot Snapshot (auto-generated at handoff)
 Generated: 2026-06-09 | Session: S76
 
+## ⭐ NEXT-SESSION FIXES (user-requested at S76 close — run these FIRST)
+1. **Rainbow 2× MORE common** — user wants ~2 appearances/game (sees ~1 now). S76 P2 already moved `RAINBOW_SPAWN_MIN/MAX_SPARKS` 35/60→15/28; if the CURRENT live build still shows ~1/game on playtest, halve again to ~**8/14** (`src/constants.ts`). NOTE: ~8/14 approaches the potato band (10-18) so it'd no longer be strictly the rarest hazard — fine per user intent (more chaos). Confirm against a playtest of the live 15/28 build first (the "~1/game" the user saw may be the pre-S76 35/60 build).
+2. **Global-reach entities fog-EXEMPT (visible to ALL players)** — the potato bomb + Voltkin (and **EVERY entity/effect that affects, or CAN affect, all players**) must render through the fog to everyone, not just the owner or players within vision radius. Audit all entities/effects for global/cross-player reach (potato AoE, Voltkin creature, rainbow shuffle, pickup-bomb, hunter) and make the reaching ones always-visible. Fog-rendering change — relates to backlog #3 (EYES fog); likely a Standard/Full PDR. **Rule of thumb: visible-to-all iff can-affect-all.**
+
 ## Next Steps
 1. **(Rule 22) Confirm CI E2E green on `16023ae`** (S76 P3 scoring) — **Deploy already ✓ green**; the **E2E (2-browser) run was IN-FLIGHT** at handoff (local full gating lane 32 pass + 1 pre-existing Sym-E skip). Verify with `gh run list`.
 2. **(#1 PLAYTEST TUNABLE — S76 P3 scoring)** After playing, tune `SCORE_INCOME_PER_COMPLEXITY_PER_SEC` (`src/constants.ts`, currently **0.15**; range 0.05 grindy .. 0.25 snappy). At 0.15: a complexity-20 structure wins in ~17s, complexity-5 in ~67s, a near-max structure in ~7s (a "defend your winning structure" window where opponents can bomb/hunt the leader). Also re-check the **hunter** at 3.5 px/tick (`HUNTER_MAX_SPEED`/`HUNTER_ACCEL` — keep the 0.0857 ratio) + **rainbow** cadence (`RAINBOW_SPAWN_MIN/MAX_SPARKS` 15/28).
