@@ -6,7 +6,7 @@ Generated: 2026-06-09 | Session: S78
    - **GAME LENGTH** — income rate 0.15→0.05 (3× slower). Does a game now last ~5-6 min instead of ~2? Knob: `SCORE_INCOME_PER_COMPLEXITY_PER_SEC` in `src/constants.ts`.
    - **RANDOM EXPLOSIONS** — a free (un-picked-up) potato now DISSIPATES harmlessly instead of blowing up the centre board. Confirm the random centre blasts are gone (CARRIED/ARMED potatoes still detonate = hot-potato intact).
    - **SEAGULL** — `SEAGULL_SPEED` 4.5→3.15 (−30%; crosses in ~10s). Right speed now?
-2. Confirm CI **E2E green on 1fe0d6e** (run 27229270275) — Rule 22. (baa33f2's E2E FAILED on a hunter.spec 15s timeout from the income cut; fixed in 1fe0d6e + local playwright pass 14.1s.)
+2. ✅ DONE — CI E2E **GREEN on 1fe0d6e** (run 27229270275); Rule 22 CLOSED. (baa33f2's E2E had failed on a hunter.spec timeout from the income cut; fixed in 1fe0d6e + local playwright pass 14.1s.)
 3. If the game STILL ends too fast: next lever is `PHASE_1_WIN_SCORE` 50→~150 + `SCORE_TIER_STEP` 15→~50 (audit rec for ~5-7min; `HUNTER_TRIGGER_SCORE` auto-scales). Seagull still off → `SEAGULL_SPEED` / `SEAGULL_SPAWN_MIN/MAX_SPARKS` (15/24, ~every 2min).
 
 ## Audit Findings To Fix (found S78, user deferred to "next session")
@@ -16,7 +16,7 @@ Generated: 2026-06-09 | Session: S78
 - **[LOW]** gameState.ts:7-8 + addScore stale docstrings; protocol DEV `as 7` cast; softReset omits fouled/hazard clears (inert).
 
 ## Blockers
-None blocking. CI NOTE: baa33f2's E2E **FAILED** (hunter.spec.ts:66 15s timeout — the income cut tripled the hunter's natural-accrual trigger time). **FIXED in 1fe0d6e** (hunter e2e now injects the host score → income-rate-independent, robust to future win-score tuning); verified locally (playwright hunter.spec 14.1s pass); CI re-run **27229270275** confirming green. Deploy GREEN throughout. NO protocol bump (still v7).
+None blocking. CI NOTE: baa33f2's E2E **FAILED** (hunter.spec.ts:66 15s timeout — the income cut tripled the hunter's natural-accrual trigger time). **FIXED in 1fe0d6e** (hunter e2e now injects the host score → income-rate-independent, robust to future win-score tuning); verified locally (playwright hunter.spec 14.1s pass); CI re-run **27229270275 GREEN ✓** (Rule 22 CLOSED). Deploy GREEN throughout. NO protocol bump (still v7).
 
 ## Pending Backlog
 #3 EYES fog fuzzy-edge + CVD shape-icons · #4 live-play netcode infra (host-migration/reconnect/6p; natural home for the spawner-RNG-serialization + sender-auth fixes). Deferred plan: S69 P2 lobby seat-UX visual refactor.
