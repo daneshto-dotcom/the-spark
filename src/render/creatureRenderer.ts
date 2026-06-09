@@ -179,9 +179,11 @@ export class CreatureRenderer {
   private textureLoading = false;
   private textureFailed = false;
 
-  constructor(app: Application) {
+  // S77 P2 — `parent` defaults to app.stage but main.ts passes aboveFogLayer so creatures
+  // (a Voltkin attacks any player's bonds — cross-player reach) render THROUGH the fog to all.
+  constructor(app: Application, parent: Container = app.stage) {
     this.container = new Container();
-    app.stage.addChild(this.container);
+    parent.addChild(this.container);
   }
 
   /**

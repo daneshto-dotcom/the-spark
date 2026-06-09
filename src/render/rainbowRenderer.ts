@@ -10,7 +10,7 @@
  * NetSnapshot field; they never simulate it).
  */
 
-import { Application, Graphics } from 'pixi.js';
+import { Application, Container, Graphics } from 'pixi.js';
 import { RAINBOW_RADIUS } from '../constants.ts';
 import type { World } from '../state/world.ts';
 
@@ -24,9 +24,11 @@ const BOB_HZ = 1.1; // gentle vertical bob, ~1×/sec
 export class RainbowRenderer {
   private readonly graphics: Graphics;
 
-  constructor(app: Application) {
+  // S77 P2 — `parent` defaults to app.stage but main.ts passes aboveFogLayer so the rainbow
+  // (global colour-shuffle) renders THROUGH the fog — any player can see + click it. Visible-to-all iff can-affect-all.
+  constructor(app: Application, parent: Container = app.stage) {
     this.graphics = new Graphics();
-    app.stage.addChild(this.graphics);
+    parent.addChild(this.graphics);
   }
 
   /** Clear + redraw every rainbow from world.rainbows. Cheap no-op when empty. */

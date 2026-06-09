@@ -11,7 +11,7 @@
  * NetSnapshot field; it never simulates). Faces the chased player's avatar.
  */
 
-import { Application, Graphics } from 'pixi.js';
+import { Application, Container, Graphics } from 'pixi.js';
 import { HUNTER_CATCH_HOLD_TICKS, HUNTER_DESPAWN_FADE_TICKS, HUNTER_RADIUS } from '../constants.ts';
 import type { World } from '../state/world.ts';
 
@@ -25,9 +25,11 @@ const MOUTH_MAX = 0.3 * Math.PI; // wide open
 export class HunterRenderer {
   private readonly graphics: Graphics;
 
-  constructor(app: Application) {
+  // S77 P2 — `parent` defaults to app.stage but main.ts passes aboveFogLayer so the hunter
+  // (board-wide chaser) renders THROUGH the fog to all players. Rule: visible-to-all iff can-affect-all.
+  constructor(app: Application, parent: Container = app.stage) {
     this.graphics = new Graphics();
-    app.stage.addChild(this.graphics);
+    parent.addChild(this.graphics);
   }
 
   /** Clear + redraw every hunter from world.hunters. Cheap no-op when empty. */

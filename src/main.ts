@@ -21,7 +21,7 @@
  * lerp-interpolated snapshots + sends INTENT envelopes.
  */
 
-import { Application, Text, TextStyle } from 'pixi.js';
+import { Application, Container, Text, TextStyle } from 'pixi.js';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
@@ -271,21 +271,29 @@ async function bootstrap(): Promise<void> {
   const controls = new Controls(app, world, P1, dispatchFn);
   const sparkRenderer = new SparkRenderer(app);
   const structureRenderer = new StructureRenderer(app);
-  // S25 P0 — creatureRenderer attached AFTER structureRenderer so creatures
-  // render ABOVE prims (phase-through reads as overlap — blueprint Q1 z-order).
-  const creatureRenderer = new CreatureRenderer(app);
-  // S71 P1 — bomb renderer (above creatures, below effects so BOMB_EXPLODE stacks
-  // over the orb). Cheap no-op when world.bombs is empty.
+  // S77 P2 — global-reach hazards (potato/rainbow/hunter/Voltkin) render THROUGH the fog to ALL
+  // players: they draw into aboveFogLayer, staged after the FogRenderer (below) so it sits ABOVE
+  // the fog + memory ghosts but BELOW the HUD. Rule: visible-to-all iff can-affect-all. Bomb is
+  // EXCLUDED (severs only the picker's OWN bonds — single-owner). The board BEHIND these sprites
+  // stays fogged; own-unit vision sources still reveal the board, so the scouting asymmetry holds.
+  // Created here (before the 4 renderers) so each can target it at construction.
+  const aboveFogLayer = new Container();
+  aboveFogLayer.eventMode = 'none';
+  // S25 P0 — creatureRenderer renders ABOVE prims; S77 P2 reparented to aboveFogLayer (a Voltkin
+  // attacks ANY player's bonds — cross-player reach — so it must be visible to all through fog).
+  const creatureRenderer = new CreatureRenderer(app, aboveFogLayer);
+  // S71 P1 — bomb renderer stays on app.stage (BELOW the fog): single-owner, NOT fog-exempt.
+  // Below effects so BOMB_EXPLODE stacks over the orb. Cheap no-op when world.bombs is empty.
   const bombRenderer = new BombRenderer(app);
-  // S72 P2 — Pac-Man hunter renderer (above bombs, below effects). Cheap no-op when
-  // world.hunters is empty. Pure Pixi vector (no assets); renders host + client.
-  const hunterRenderer = new HunterRenderer(app);
-  // S72 P3 — potato renderer (FREE/CARRIED/ARMED + fuse-countdown VFX). Cheap no-op when
-  // world.potatoes is empty. Pure Pixi vector; renders host + client.
-  const potatoRenderer = new PotatoRenderer(app);
-  // S75 P3 — rainbow renderer (dumb arc + tooth + bob). Cheap no-op when world.rainbows is
-  // empty. Pure Pixi vector; renders host + client.
-  const rainbowRenderer = new RainbowRenderer(app);
+  // S72 P2 — Pac-Man hunter; S77 P2 -> aboveFogLayer (a board-wide chaser, visible to all).
+  // Pure Pixi vector (no assets); renders host + client. Cheap no-op when world.hunters is empty.
+  const hunterRenderer = new HunterRenderer(app, aboveFogLayer);
+  // S72 P3 — potato (FREE/CARRIED/ARMED + fuse VFX); S77 P2 -> aboveFogLayer (owner-agnostic AoE,
+  // visible to all). Pure Pixi vector; renders host + client. Cheap no-op when world.potatoes empty.
+  const potatoRenderer = new PotatoRenderer(app, aboveFogLayer);
+  // S75 P3 — rainbow (dumb arc + tooth + bob); S77 P2 -> aboveFogLayer (global colour-shuffle,
+  // visible to all so any player can find + click it). Pure Pixi vector; host + client.
+  const rainbowRenderer = new RainbowRenderer(app, aboveFogLayer);
   const effectsRenderer = new EffectsRenderer(app);
   // S30 P0e — global screen-shake instance. Triggered on Voltkin fire-tick
   // (when CREATURE_ATTACK successfully severs a bond → ARC_FLASH emitted).
@@ -304,6 +312,9 @@ async function bootstrap(): Promise<void> {
   // on WIN. Client-side cosmetic only — no network messages (each peer already
   // holds the full world.primitives via snapshot).
   const fogRenderer = new FogRenderer(app);
+  // S77 P2 — stage the global-reach layer ABOVE the fog (+ memory ghosts) but BELOW the HUD, so
+  // potato/rainbow/hunter/Voltkin punch through the fog as bare threat sprites for ALL players.
+  app.stage.addChild(aboveFogLayer);
   const hud = new HUD(app);
   const stats = new StatsOverlay(app);
   const grid = new SpatialGrid(SPATIAL_CELL_SIZE);
@@ -403,6 +414,10 @@ async function bootstrap(): Promise<void> {
       get lobbyScreen() { return lobbyScreen; },
       get titleScreen() { return titleScreen; },
       get fogRenderer() { return fogRenderer; },
+      // S77 P2 — fog-exemption e2e: sync a global-reach entity + assert it renders
+      // through the fog (aboveFogLayer sits above the fog container).
+      get potatoRenderer() { return potatoRenderer; },
+      get aboveFogLayer() { return aboveFogLayer; },
       app,
     };
   }

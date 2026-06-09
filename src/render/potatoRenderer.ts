@@ -11,7 +11,7 @@
  * sees potatoes via the additive-optional potatoes[] NetSnapshot field; never simulates).
  */
 
-import { Application, Graphics } from 'pixi.js';
+import { Application, Container, Graphics } from 'pixi.js';
 import { POTATO_FUSE_TICKS, POTATO_RADIUS } from '../constants.ts';
 import type { World } from '../state/world.ts';
 
@@ -23,9 +23,11 @@ const ARMED_RING = 0xff4d4d; // red danger ring while ARMED / near detonation
 export class PotatoRenderer {
   private readonly graphics: Graphics;
 
-  constructor(app: Application) {
+  // S77 P2 — `parent` defaults to app.stage but main.ts passes aboveFogLayer so the potato
+  // (owner-agnostic AoE) renders THROUGH the fog to all players. Rule: visible-to-all iff can-affect-all.
+  constructor(app: Application, parent: Container = app.stage) {
     this.graphics = new Graphics();
-    app.stage.addChild(this.graphics);
+    parent.addChild(this.graphics);
   }
 
   /** Clear + redraw every potato from world.potatoes. Cheap no-op when empty. */

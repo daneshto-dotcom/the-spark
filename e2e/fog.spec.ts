@@ -101,6 +101,76 @@ test.describe('S57 Fog of War — client-side render mask', () => {
     expect(result.win.visible).toBe(false);
   });
 
+  test('S77 P2 — a global-reach entity (potato) renders THROUGH the fog; the board behind stays concealed', async ({
+    page,
+  }) => {
+    await page.goto('/?debug=1');
+    await waitForSparkFog(page);
+
+    const r = await page.evaluate(() => {
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      const s = (window as any).__SPARK__;
+      const app = s.app;
+      const fog = s.fogRenderer;
+      const w = s.world;
+      w.gameMode = '1v1';
+      w.gameState = 'PLAYING';
+      w.localPlayerId = 0;
+      // Own base by the cursor (revealed); the potato sits in a FAR fogged corner.
+      const mk = (placedBy: number, color: number, x: number, y: number): void => {
+        const id = w.nextPrimitiveId++;
+        w.primitives.set(id, {
+          id, type: 3, placerColor: color, placedBy, createdTick: w.tick,
+          pos: { x, y }, prevPos: { x, y }, bonds: new Set(),
+          ownerColor: color, lastOwnershipChange: 0, radius: 9,
+        });
+      };
+      mk(0, 0xff3b6b, 560, 380); mk(0, 0xff3b6b, 620, 380);
+      s.controls.cursor.x = 590; s.controls.cursor.y = 410;
+      // Owner-agnostic AoE => fog-exempt. Placed where NO vision source reaches (so it can only
+      // be visible by virtue of rendering ABOVE the fog, not because the area is revealed).
+      w.potatoes.set(1, { id: 1, pos: { x: 1400, y: 300 }, state: 'FREE', detonateAtTick: w.tick + 600 });
+
+      // Z-ORDER PROOF: aboveFogLayer is above the fog container, and all 4 global-reach
+      // renderers (creature/hunter/potato/rainbow) parented into it.
+      const stage = app.stage;
+      const aboveIdx = stage.getChildIndex(s.aboveFogLayer);
+      const fogIdx = stage.getChildIndex(fog.container);
+      const aboveFogChildren = s.aboveFogLayer.children.length;
+
+      // Draw the potato (into aboveFogLayer) + compose the fog — both synchronous (no rAF).
+      s.potatoRenderer.sync(w);
+      fog.sync(w, s.controls.cursor, 1 / 60);
+
+      const stagePx = app.renderer.extract.pixels(app.stage);
+      const maskPx = app.renderer.extract.pixels(fog.maskTexture);
+      const read = (out: any, x: number, y: number): number[] => {
+        const rX = out.width / 1920, rY = out.height / 1080;
+        const i = (Math.round(y * rY) * out.width + Math.round(x * rX)) * 4;
+        return [out.pixels[i], out.pixels[i + 1], out.pixels[i + 2], out.pixels[i + 3]];
+      };
+      return {
+        aboveIdx, fogIdx, aboveFogChildren,
+        potatoOnStage: read(stagePx, 1400, 300),    // potato center — brown body if it shows through
+        boardNearPotato: read(stagePx, 1560, 300),  // 160px away, no entity — fogged board
+        maskAtPotato: read(maskPx, 1400, 300),       // potato is NOT a vision source — mask stays opaque
+      };
+      /* eslint-enable @typescript-eslint/no-explicit-any */
+    });
+
+    // Z-order: the global-reach layer sits above the fog, with all 4 renderers routed into it.
+    expect(r.aboveIdx).toBeGreaterThan(r.fogIdx);
+    expect(r.aboveFogChildren).toBe(4);
+    // The potato punches THROUGH the fog — its brown body (BODY_COLOR 0xb5651d, r≈181) shows on the
+    // composited stage as a strong red channel, clearly not the fog's pure black.
+    expect(r.potatoOnStage[0]).toBeGreaterThan(90);                 // red channel present → visible
+    expect(r.potatoOnStage[0]).toBeGreaterThan(r.potatoOnStage[2]); // r > b → brown, not grey/fog
+    // ...yet the board NEXT TO it stays concealed (no terrain leak), and the fog mask at the potato
+    // is still OPAQUE — the entity reveals only itself, never the surrounding board.
+    expect(r.boardNearPotato[0]).toBeLessThan(20);  // fogged → near-black
+    expect(r.maskAtPotato[3]).toBeGreaterThan(245); // mask opaque at the potato → zero board reveal
+  });
+
   test('remembers a scouted enemy structure as a ghost, conceals an unscouted one, drops it when razed', async ({
     page,
   }) => {
