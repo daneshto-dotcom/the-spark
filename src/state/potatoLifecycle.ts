@@ -51,6 +51,10 @@ export interface PotatoDetonateAction {
   readonly type: 'POTATO_DETONATE';
   readonly potatoId: PotatoId;
 }
+export interface DissipatePotatoAction {
+  readonly type: 'DISSIPATE_POTATO';
+  readonly potatoId: PotatoId;
+}
 
 /** Host-only: mint a FREE potato at the spawner-chosen position. */
 export function applySpawnPotato(world: World, action: SpawnPotatoAction): World {
@@ -187,6 +191,18 @@ export function applyPotatoDetonate(world: World, action: PotatoDetonateAction):
   for (const pid of victims) world.primitives.delete(pid);
   snapPrevPosForUnbonded(world.primitives);
 
+  return world;
+}
+
+/**
+ * Host-only: a FREE (never-picked-up) potato's from-SPAWN fuse elapsed — remove it HARMLESSLY
+ * (no blast, no victims), mirroring applyDissipateBomb. S78 fix for "random explosions": a FREE
+ * potato used to DETONATE in the spawn-zone centre ~23s after spawning, deleting central structures
+ * nobody triggered. Now only a CARRIED (cooked-off-in-hand) or ARMED (planted) potato detonates;
+ * an un-engaged one quietly rots, freeing the POTATO_MAX_ACTIVE slot for the next spawn.
+ */
+export function applyDissipatePotato(world: World, action: DissipatePotatoAction): World {
+  world.potatoes.delete(action.potatoId);
   return world;
 }
 

@@ -66,7 +66,7 @@ async function startSolo(page: Page): Promise<void> {
 }
 
 test.describe('S72 P3 — potato bomb (solo, gating)', () => {
-  test('spawns on its cadence then AUTO-detonates on the from-SPAWN fuse (host poll wiring)', async ({ page }) => {
+  test('spawns on its cadence then a FREE potato AUTO-DISSIPATES harmlessly on the from-SPAWN fuse (S78 — no random blast; host poll wiring)', async ({ page }) => {
     const pageErrors: string[] = [];
     page.on('pageerror', (e) => pageErrors.push(String(e)));
     await page.addInitScript({ content: 'window.__TEST_SPAWN_RATE_PER_SECOND__ = 2;' });
@@ -76,8 +76,9 @@ test.describe('S72 P3 — potato bomb (solo, gating)', () => {
     await startSolo(page);
 
     await waitForPotato(page, (p) => p.count === 1, 'potato spawned');
-    // from-SPAWN fuse → the host poll dispatches POTATO_DETONATE ~1.5s after spawn.
-    await waitForPotato(page, (p) => p.count === 0, 'potato auto-detonated on its fuse', 10_000);
+    // S78 — a FREE potato is never picked up, so the host poll DISSIPATES it harmlessly (no blast)
+    // ~1.5s after spawn (was POTATO_DETONATE pre-S78). Either way the potato leaves the Map (count 0).
+    await waitForPotato(page, (p) => p.count === 0, 'free potato auto-dissipated on its fuse', 10_000);
 
     expect(pageErrors, `uncaught errors:\n${pageErrors.join('\n')}`).toEqual([]);
   });

@@ -730,7 +730,15 @@ async function bootstrap(): Promise<void> {
             potato.pos.y = carrier.avatarPos.y;
           }
           if (world.tick >= potato.detonateAtTick) {
-            dispatch(world, { type: 'POTATO_DETONATE', potatoId });
+            // S78 — a FREE (never-engaged) potato DISSIPATES harmlessly at fuse-time instead of
+            // detonating: it was clogging the spawn-zone centre with "random" explosions nobody
+            // triggered (user report). CARRIED (cooked-off-in-hand) + ARMED (planted) still detonate,
+            // so the hot-potato mechanic is intact; an un-touched one just quietly rots.
+            if (potato.state === 'FREE') {
+              dispatch(world, { type: 'DISSIPATE_POTATO', potatoId });
+            } else {
+              dispatch(world, { type: 'POTATO_DETONATE', potatoId });
+            }
           }
         }
       }

@@ -94,12 +94,14 @@ import {
   type SpawnSeagullAction,
 } from './seagulls/seagullLifecycle.ts';
 import {
+  applyDissipatePotato,
   applyDropPotato,
   applyPickupPotato,
   applyPlacePotato,
   applyPotatoDetonate,
   applySpawnPotato,
   teardownPotatoes,
+  type DissipatePotatoAction,
   type DropPotatoAction,
   type PickupPotatoAction,
   type PlacePotatoAction,
@@ -217,6 +219,7 @@ export type GameAction =
   | PlacePotatoAction
   | DropPotatoAction
   | PotatoDetonateAction
+  | DissipatePotatoAction
   // S75 P3 — rainbow color-shuffle. TRIGGER_RAINBOW is a client INTENT (any player clicking it);
   // SPAWN_RAINBOW + DISSIPATE_RAINBOW are host-internal (spawner cadence / TTL poll). PROTOCOL 5->6.
   | SpawnRainbowAction
@@ -429,6 +432,9 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'POTATO_DETONATE':
       return applyPotatoDetonate(world, action);
+
+    case 'DISSIPATE_POTATO':
+      return applyDissipatePotato(world, action);
 
     // S75 P3 — rainbow color-shuffle lifecycle (reducers in rainbowLifecycle.ts).
     case 'SPAWN_RAINBOW':

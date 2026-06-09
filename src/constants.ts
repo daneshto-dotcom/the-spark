@@ -206,11 +206,17 @@ export const SCORE_MAGIC_BOND = 3;
 // structures: build more / more-magic → gain faster; lose structure → gain slower; hold
 // complexity 0 → never progress. WIN still fires at PHASE_1_WIN_SCORE (floored).
 //
-// #1 PLAYTEST TUNABLE. At 0.15: complexity-5 wins in ~67s, complexity-20 in ~17s, a near-max
-// complexity-50 in ~7s — and that ~7s is a window where opponents can bomb / hunt the leader
-// (built-in anti-runaway + a "defend your winning structure" climax). Raise → snappier games;
-// lower → grindier. Sensible range to try: 0.05 .. 0.25. (Host-only; deterministic/replay-safe.)
-export const SCORE_INCOME_PER_COMPLEXITY_PER_SEC = 0.15;
+// #1 PLAYTEST TUNABLE. VERSION HISTORY:
+//   S76 P3  0.15  — shipped UN-playtested. complexity-20 wins in ~17s of accrual, complexity-50 in ~7s;
+//                   because score accrues DURING the build-up, WIN=50 is reached mid-ramp → games ended
+//                   in ~2 min and the bar "ticked too fast" (S78 user report).
+//   S78 P1  0.05  — 3× slower accrual → ~3× longer games (≈5-6 min by feel). Directly addresses the
+//                   "points tick too quick / over in 2 min" report. Lowest-risk lever: WIN stays 50 so
+//                   the HUD, SCORE_TIER cadence, hunter trigger + all tests are untouched.
+// If 0.05 still feels short on playtest, the NEXT lever is to RAISE PHASE_1_WIN_SCORE (50→~150) +
+// SCORE_TIER_STEP (15→~50) so the build-up is a smaller fraction of the game (HUNTER_TRIGGER_SCORE
+// auto-scales). Raise this rate → snappier; lower → grindier. (Host-only; deterministic/replay-safe.)
+export const SCORE_INCOME_PER_COMPLEXITY_PER_SEC = 0.05;
 /**
  * S50 P4 — E2E test override seam. Playwright's `page.addInitScript()` runs
  * BEFORE bundled scripts, so a `window.__TEST_WIN_SCORE__` assignment from
@@ -573,7 +579,7 @@ const _SEAGULL_TEST_CADENCE = readTestSeagullSpawnSparks();
 export const SEAGULL_SPAWN_MIN_SPARKS = _SEAGULL_TEST_CADENCE ?? 15;
 export const SEAGULL_SPAWN_MAX_SPARKS = _SEAGULL_TEST_CADENCE ?? 24;
 export const SEAGULL_MAX_ACTIVE = 1; // at most one gull in the sky at a time
-export const SEAGULL_SPEED = 4.5; // px/tick horizontal cruise (crosses ~1920px in ~7s)
+export const SEAGULL_SPEED = 3.15; // px/tick horizontal cruise; S78 4.5→3.15 (−30%, user "flies really quickly") ⇒ crosses ~1920px in ~10s
 export const SEAGULL_Y_MIN = 44; // top band the gull flies through (sim y; render adds a bob)
 export const SEAGULL_Y_MAX = 132;
 export const SEAGULL_RADIUS = 24; // body radius (render + the pre-drop "hunch" anchor)

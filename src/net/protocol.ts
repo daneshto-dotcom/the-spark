@@ -315,6 +315,7 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   PLACE_POTATO: true,
   DROP_POTATO: true,
   POTATO_DETONATE: true,
+  DISSIPATE_POTATO: true, // S78 — host-internal: a FREE potato's fuse elapsed → harmless removal (mirrors DISSIPATE_BOMB; inert as a client intent).
   // S75 P3 — rainbow color-shuffle. TRIGGER_RAINBOW is the client→host intent (any player
   // clicking the rainbow); SPAWN_RAINBOW + DISSIPATE_RAINBOW are host-internal (spawner cadence /
   // TTL poll — listed for the exhaustive Record mirror; inert as client intents). PROTOCOL bumped
