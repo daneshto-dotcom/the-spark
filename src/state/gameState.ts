@@ -46,7 +46,10 @@ export function tickGameState(
       // threshold first; scoreProgress = max(scoreByPlayer) so the gate
       // fires when any player crosses. Attribution scans scoreByPlayer
       // for the max-scoring player.
-      if (world.scoreProgress >= PHASE_1_WIN_SCORE) {
+      // S76 P3 (Δ3, float-safe) — scoreProgress is now a per-tick income float, so gate on
+      // Math.floor so a 49.9999 hover can't delay the win and the HUD's floored "50/50"
+      // reading coincides exactly with the win firing.
+      if (Math.floor(world.scoreProgress) >= PHASE_1_WIN_SCORE) {
         let winnerId: PlayerId = primaryPlayerId;
         if (isNetworked(world)) {
           let maxScore = -1;

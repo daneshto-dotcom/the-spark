@@ -22,6 +22,7 @@ import {
   REDUNDANT_BOND_K,
   REDUNDANT_BOND_MAX_CANDIDATES,
   REDUNDANT_BOND_MIN_ANGLE_RAD,
+  SCORE_ANCHOR,
   SCORE_FUNCTIONAL_BOND,
   SCORE_MAGIC_BOND,
   SparkType,
@@ -33,6 +34,7 @@ import {
 import { makeFreeSpark } from './spark.ts';
 import { componentOf } from './structure.ts';
 import { dispatch, makeWorld } from '../state/world.ts';
+import { computeComplexity } from '../state/scoring.ts';
 import {
   asPlayerId,
   asPrimitiveId,
@@ -411,50 +413,51 @@ describe('S14 P2.1 — placePrimitive end-to-end', () => {
     }
   });
 
-  it('scoreProgress: redundancy bonds DO NOT contribute (Council G5/G8 adoption)', () => {
+  it('S76: functional redundancy bonds add ZERO complexity (only the new prim counts)', () => {
+    // S14-S75 gave redundancy bonds zero SCORE (per-placement accumulator). S76 scores standing
+    // COMPLEXITY; functional bonds are complexity-neutral, so functional redundancy still adds
+    // nothing beyond the new primitive itself.
     const world = makeWorld(0);
     const c0 = placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 500, y: 500 }, targetId: null });
     const c1 = placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 470, y: 500 }, targetId: c0 });
     const c2 = placeAt(world, { sparkRawId: 3, type: SparkType.Dot, pos: { x: 530, y: 500 }, targetId: c0 });
-
-    // Score so far: 3 anchors + 2 functional Dot→Dot bonds = 3 + 2 = 5
-    // (Dot→Dot is NOT a magic combo per the Magic-12 — verify below)
-    const scoreBefore = world.scoreProgress;
+    const before = computeComplexity(world, P1_ID);
 
     placeAt(world, {
       sparkRawId: 4,
       type: SparkType.Dot,
       pos: { x: 500, y: 530 },
       targetId: c0,
-      extraBondTargetIds: [c1, c2], // 2 redundancy bonds
+      extraBondTargetIds: [c1, c2], // 2 functional (Dot→Dot) redundancy bonds
     });
 
-    // Score after: primary Dot→Dot adds +SCORE_FUNCTIONAL_BOND (=1)
-    // Redundancy bonds: ZERO contribution (P2.1 deliberate per synthesis)
-    const scoreAfter = world.scoreProgress;
-    expect(scoreAfter - scoreBefore).toBe(SCORE_FUNCTIONAL_BOND);
+    // +1 new primitive; all bonds (primary + redundancy) are functional → +0 magic premium.
+    expect(computeComplexity(world, P1_ID) - before).toBe(SCORE_ANCHOR);
   });
 
-  it('scoreProgress: magic primary bond + non-scoring redundancy', () => {
-    // Dot → Spiral is "Vortex" — magic per § V.1. Test that a magic primary
-    // scores +3 even when followed by 2 redundancy bonds (which don't score).
+  it('S76: standing MAGIC bonds count toward complexity, including redundancy (design change)', () => {
+    // S14-S75 deliberately excluded redundancy bonds from SCORE ("defense, not velocity").
+    // S76 scores standing complexity recomputed from live state, which cannot distinguish a
+    // primary from a redundancy bond — so EVERY standing magic bond counts. Bounded
+    // (REDUNDANT_BOND_K caps redundancy + geometry-gated) and arguably correct (the extra magic
+    // bonds are real structure). Here all 3 new bonds are Dot→Spiral (Vortex, magic).
+    const MAGIC_PREMIUM = SCORE_MAGIC_BOND - SCORE_FUNCTIONAL_BOND;
     const world = makeWorld(0);
     const seed = placeAt(world, { sparkRawId: 1, type: SparkType.Spiral, pos: { x: 500, y: 500 }, targetId: null });
     const a = placeAt(world, { sparkRawId: 2, type: SparkType.Spiral, pos: { x: 470, y: 500 }, targetId: seed });
     const b = placeAt(world, { sparkRawId: 3, type: SparkType.Spiral, pos: { x: 530, y: 500 }, targetId: seed });
+    const before = computeComplexity(world, P1_ID);
 
-    const scoreBefore = world.scoreProgress;
     placeAt(world, {
       sparkRawId: 4,
-      type: SparkType.Dot, // Dot → Spiral primary
+      type: SparkType.Dot, // Dot → Spiral primary + Dot → Spiral redundancy (all Vortex magic)
       pos: { x: 500, y: 530 },
       targetId: seed,
       extraBondTargetIds: [a, b],
     });
 
-    // primary = Dot→Spiral (Vortex, MAGIC) = +SCORE_MAGIC_BOND
-    // 2 redundancy bonds = +0
-    expect(world.scoreProgress - scoreBefore).toBe(SCORE_MAGIC_BOND);
+    // +1 new prim; +3 magic bonds (primary + 2 redundancy, all Dot→Spiral) × MAGIC_PREMIUM.
+    expect(computeComplexity(world, P1_ID) - before).toBe(SCORE_ANCHOR + 3 * MAGIC_PREMIUM);
   });
 
   it('cross-component independence: primary + redundancy + cross-component merge all coexist', () => {

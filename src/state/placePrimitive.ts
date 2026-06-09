@@ -25,10 +25,6 @@ import {
   MERGE_IMPULSE_MAGNITUDE,
   MERGE_REACH_RADIUS,
   MIN_BOND_LENGTH_FOR_IMPULSE,
-  SCORE_ANCHOR,
-  SCORE_FUNCTIONAL_BOND,
-  SCORE_MAGIC_BOND,
-  SCORE_TIER_STEP,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
@@ -40,7 +36,7 @@ import { makePrimitiveFromSpark, type Primitive } from '../game/primitive.ts';
 import { bfsHopMap, componentOf, type Structure } from '../game/structure.ts';
 import type { Bond } from '../physics/bonds.ts';
 import { asBondId, asPrimitiveId, type PlayerId, type PrimitiveId, type Vec2 } from '../types.ts';
-import { addScore, isNetworked, requirePlayer, type World } from './world.ts';
+import { isNetworked, requirePlayer, type World } from './world.ts';
 import { isInsideEnemyTerritory } from './territory.ts';
 
 /** Action payload for PLACE_PRIMITIVE — exported so world.ts can compose GameAction. */
@@ -231,11 +227,6 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
   // (no primary target → no pre-existing structure to "grow").
   const primaryPreExistingPrims: PrimitiveId[] = [];
 
-  // S10 P4: snapshot scoreProgress so the tier-crossing emission can fire
-  // exactly one SCORE_TIER per multiple of SCORE_TIER_STEP crossed during
-  // this placement. Captured BEFORE any bond/merge score increments.
-  const oldScore = world.scoreProgress;
-
   if (effectiveTargetId !== null) {
     // S42 — target was verified to exist at the top of this function (before
     // primitive creation). `!` non-null assertion is safe here since the
@@ -258,9 +249,6 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
       visualEffectId: combo.visualEffectId,
       otherPos: { x: target.pos.x, y: target.pos.y },
     });
-    // S9 P3: weight progress by combo magic-ness.
-    // S15 P2: addScore writes per-player + recomputes scoreProgress in 1v1.
-    addScore(world, action.playerId, combo.isMagical ? SCORE_MAGIC_BOND : SCORE_FUNCTIONAL_BOND);
     // Track the primary target's entire component so the sweep skips it.
     // Also snapshot the pre-existing IDs (component minus new prim) for
     // the S13 P2 STRUCTURE_GROW outward impulse below.
@@ -268,11 +256,12 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
       mergedComponents.add(id);
       if (id !== prim.id) primaryPreExistingPrims.push(id);
     }
-  } else {
-    // S9 P3: anchor placement (no bond) earns one progress point.
-    // S15 P2: per-player tracking via addScore.
-    addScore(world, action.playerId, SCORE_ANCHOR);
   }
+  // S76 P3 — placement no longer scores directly. The placed primitive (anchor) + any
+  // magic bond it forms simply RAISE this player's standing complexity, which
+  // state/scoring.ts:tickScoring converts into a per-tick income each host tick. So the
+  // former anchor-scoring `else` branch is gone (the anchor primitive is already created
+  // above regardless of whether a bond formed).
 
   // S14 P2.1: redundancy bonds — additional bonds to other primitives
   // in the primary's component (target is required for redundancy; anchor
@@ -420,10 +409,6 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
       visualEffectId: combo.visualEffectId,
       otherPos: { x: cand.pos.x, y: cand.pos.y },
     });
-    // S9 P3: merge bonds also contribute to progress (same weighting).
-    // S15 P2: per-player tracking via addScore.
-    addScore(world, action.playerId, combo.isMagical ? SCORE_MAGIC_BOND : SCORE_FUNCTIONAL_BOND);
-
     // S10 P3 + S13 P3: real verlet impulse on the candidate's component.
     // Each prim in candComp gets prevPos pushed AWAY from the new prim's
     // pos → verlet next-step velocity = (pos - prevPos) propels TOWARD
@@ -487,28 +472,9 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
     for (const id of candComp.primitiveIds) mergedComponents.add(id);
   }
 
-  // S10 P4+P5 / S13 P4: emit one SCORE_TIER per crossed multiple of
-  // SCORE_TIER_STEP, gated on cinematicsEnabled. Multi-tier crossings
-  // (e.g. 14 → 31 via primary magic + multiple magic merges) fire one
-  // event per band — in practice a Phase 1 place crosses at most 1 band
-  // (max ~10 score delta).
-  //
-  // S13 P4: pos = new prim's position so the pulse co-locates with the
-  // placement (was: fixed HUD corner). User attention is at the
-  // placement cursor; corner anchor was peripheral.
-  if (world.cinematicsEnabled) {
-    const oldTier = Math.floor(oldScore / SCORE_TIER_STEP);
-    const newTier = Math.floor(world.scoreProgress / SCORE_TIER_STEP);
-    for (let t = oldTier + 1; t <= newTier; t++) {
-      world.effects.push({
-        kind: 'SCORE_TIER',
-        tick: world.tick,
-        tier: t,
-        color: player.color,
-        pos: { x: prim.pos.x, y: prim.pos.y },
-      });
-    }
-  }
+  // S76 P3 — SCORE_TIER tier-up pulses moved to state/scoring.ts:tickScoring (scoreProgress
+  // now climbs via per-tick complexity-income, not at placement, so the tier-step crossing is
+  // detected there and pulsed at the leader's avatar).
 
   // S10 P2+P5: STRUCTURE_GROW outward pulse from the newly-placed primitive,
   // gated on cinematicsEnabled. BFS at emit time over the post-merge

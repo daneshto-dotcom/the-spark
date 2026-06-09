@@ -14,12 +14,14 @@ import {
   PHYSICS_HZ,
   SCORE_ANCHOR,
   SCORE_FUNCTIONAL_BOND,
+  SCORE_INCOME_PER_COMPLEXITY_PER_SEC,
   SCORE_MAGIC_BOND,
   SparkType,
 } from '../constants.ts';
 import { makeFreeSpark } from './spark.ts';
 import { componentOf } from './structure.ts';
 import { dispatch, makeWorld } from '../state/world.ts';
+import { computeComplexity, tickScoring } from '../state/scoring.ts';
 import {
   asPlayerId,
   asSparkId,
@@ -205,95 +207,90 @@ describe('S9 P2 — cross-structure auto-merge on PLACE_PRIMITIVE', () => {
   });
 });
 
-describe('S9 P3 — complexity-weighted scoreProgress', () => {
-  it('anchor placement increments scoreProgress by SCORE_ANCHOR', () => {
+// S76 P3 — the S9-S75 monotonic per-PLACEMENT accumulator was replaced by a complexity-
+// INCOME model (state/scoring.ts). Placement no longer mutates scoreProgress; it raises a
+// player's STANDING complexity = (#prims × SCORE_ANCHOR) + (#magicBonds × MAGIC_PREMIUM),
+// which tickScoring converts to per-tick income. computeComplexity reproduces the OLD
+// accumulator's value for a finished TREE (so the 50-pt gate stays meaningful), but it is
+// path-independent + recomputed from LIVE state, so destruction lowers it.
+const MAGIC_PREMIUM = SCORE_MAGIC_BOND - SCORE_FUNCTIONAL_BOND; // = 2
+
+describe('S9 P3 / S76 — standing complexity drives income scoring', () => {
+  it('anchor placement raises complexity by SCORE_ANCHOR (placement no longer scores directly)', () => {
     const world = makeWorld(0);
-    expect(world.scoreProgress).toBe(0);
+    expect(computeComplexity(world, P1)).toBe(0);
     placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
-    expect(world.scoreProgress).toBe(SCORE_ANCHOR);
+    expect(computeComplexity(world, P1)).toBe(SCORE_ANCHOR);
+    // scoreProgress is unchanged at placement — income only accrues on a host tick.
+    expect(world.scoreProgress).toBe(0);
     placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 240, y: 200 }, targetId: null });
-    expect(world.scoreProgress).toBe(SCORE_ANCHOR * 2);
+    expect(computeComplexity(world, P1)).toBe(SCORE_ANCHOR * 2);
   });
 
-  it('Functional combo bond increments by SCORE_FUNCTIONAL_BOND', () => {
+  it('a functional bond is complexity-NEUTRAL (no "don\'t connect" penalty)', () => {
     const world = makeWorld(0);
-    // Dot.Dot is NOT in the Magic-12 → Functional placeholder.
+    // Dot→Dot is NOT in the Magic-12 → functional. 2 prims + 0 magic = 2
+    // (== old accumulator anchor 1 + functional bond 1). Bonding never DROPS complexity.
     const a = placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
     placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 220, y: 200 }, targetId: a });
-    // Anchor (1) + functional bond (1) = 2.
-    expect(world.scoreProgress).toBe(SCORE_ANCHOR + SCORE_FUNCTIONAL_BOND);
+    expect(computeComplexity(world, P1)).toBe(SCORE_ANCHOR * 2);
   });
 
-  it('Magic combo bond increments by SCORE_MAGIC_BOND (Dot→Line = Filament)', () => {
+  it('a magic bond adds the magic premium (Dot→Line = Filament)', () => {
     const world = makeWorld(0);
-    // Dot anchor + Line bonded to it → Dot→Line = Filament (magical).
+    // 2 prims + 1 magic bond = 2 + MAGIC_PREMIUM = 4 (== old accumulator anchor 1 + magic 3).
     const a = placeAt(world, { sparkRawId: 1, type: SparkType.Line, pos: { x: 200, y: 200 }, targetId: null });
     placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 220, y: 200 }, targetId: a });
-    // Note: order is carried→target, so prim2 (Dot) → prim1 (Line) ⇒ key Dot.Line → Filament magic.
-    expect(world.scoreProgress).toBe(SCORE_ANCHOR + SCORE_MAGIC_BOND);
+    expect(computeComplexity(world, P1)).toBe(SCORE_ANCHOR * 2 + MAGIC_PREMIUM);
   });
 
-  it('all-magic chain accrues 3x per bond — Magic > Functional at same length', () => {
-    // Build two chains side by side: one all-magic (Dot→Line repeating), one
-    // all-functional (Dot→Dot repeating). 1 anchor + 4 bonds in each = 5 prims.
+  it('all-magic chain has higher complexity AND accrues income faster than functional at equal length', () => {
+    // All-magic Line→Line=Cable chain: 5 prims + 4 magic bonds = 5 + 8 = 13 (== old 1 + 4×3).
     const wMagic = makeWorld(0);
-    // anchor Line, then 4 Dots each bonded to the prior (Dot→Line / Dot→Dot...
-    // wait, target is the previous primitive). Let me make a strict chain:
-    // each new prim of type Dot bonded to a Line anchor — only first bond is
-    // magic. So switch: anchor + 4 alternations.
-    //
-    // Simpler: anchor Spiral, then 4 Lines each bonded to previous-Line ...
-    // no, simpler still: use Magic combo Line→Line (Cable, isMagical=true).
-    // Anchor: Line. Then each next prim is Line bonded to last Line.
-    // Bond direction = carried→target = Line→Line = Cable (magic).
-    const aMagic = placeAt(wMagic, { sparkRawId: 0, type: SparkType.Line, pos: { x: 200, y: 200 }, targetId: null });
-    let prevMagic = aMagic;
+    let prevMagic = placeAt(wMagic, { sparkRawId: 0, type: SparkType.Line, pos: { x: 200, y: 200 }, targetId: null });
     for (let i = 1; i <= 4; i++) {
-      prevMagic = placeAt(wMagic, {
-        sparkRawId: i,
-        type: SparkType.Line,
-        pos: { x: 200 + i * 20, y: 200 },
-        targetId: prevMagic,
-      });
+      prevMagic = placeAt(wMagic, { sparkRawId: i, type: SparkType.Line, pos: { x: 200 + i * 20, y: 200 }, targetId: prevMagic });
     }
-    // Anchor 1 + 4 Magic bonds = 1 + 12 = 13.
-    expect(wMagic.scoreProgress).toBe(SCORE_ANCHOR + 4 * SCORE_MAGIC_BOND);
+    expect(computeComplexity(wMagic, P1)).toBe(5 * SCORE_ANCHOR + 4 * MAGIC_PREMIUM); // 13
 
+    // All-functional Dot→Dot chain: 5 prims + 0 magic = 5 (== old 1 + 4×1).
     const wFunc = makeWorld(0);
-    // Dot→Dot is functional (not in Magic-12).
-    const aFunc = placeAt(wFunc, { sparkRawId: 0, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
-    let prevFunc = aFunc;
+    let prevFunc = placeAt(wFunc, { sparkRawId: 0, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
     for (let i = 1; i <= 4; i++) {
-      prevFunc = placeAt(wFunc, {
-        sparkRawId: i,
-        type: SparkType.Dot,
-        pos: { x: 200 + i * 20, y: 200 },
-        targetId: prevFunc,
-      });
+      prevFunc = placeAt(wFunc, { sparkRawId: i, type: SparkType.Dot, pos: { x: 200 + i * 20, y: 200 }, targetId: prevFunc });
     }
-    // Anchor 1 + 4 Functional bonds = 1 + 4 = 5.
-    expect(wFunc.scoreProgress).toBe(SCORE_ANCHOR + 4 * SCORE_FUNCTIONAL_BOND);
+    expect(computeComplexity(wFunc, P1)).toBe(5 * SCORE_ANCHOR); // 5
+    expect(computeComplexity(wMagic, P1)).toBeGreaterThan(computeComplexity(wFunc, P1));
 
-    // Magic structure scores meaningfully more per equal length.
+    // INCOME: one host tick accrues rate × complexity / PHYSICS_HZ; magic earns faster.
+    tickScoring(wMagic);
+    tickScoring(wFunc);
+    expect(wMagic.scoreProgress).toBeCloseTo(13 * SCORE_INCOME_PER_COMPLEXITY_PER_SEC / PHYSICS_HZ, 9);
     expect(wMagic.scoreProgress).toBeGreaterThan(wFunc.scoreProgress);
   });
 
-  it('P2 merge bonds also contribute to scoreProgress', () => {
+  it('merge bonds count toward complexity (path-independent: 3 prims + 2 magic = 7)', () => {
     const world = makeWorld(0);
-    // Two single-primitive Line anchors. Bridge with Line; primary + merge
-    // bonds are both Line→Line = Cable (magic).
     const a = placeAt(world, { sparkRawId: 1, type: SparkType.Line, pos: { x: 200, y: 200 }, targetId: null });
     const b = placeAt(world, { sparkRawId: 2, type: SparkType.Line, pos: { x: 280, y: 200 }, targetId: null });
-    expect(world.scoreProgress).toBe(SCORE_ANCHOR * 2);
+    expect(computeComplexity(world, P1)).toBe(2 * SCORE_ANCHOR); // two isolated Line anchors
 
-    placeAt(world, {
-      sparkRawId: 3,
-      type: SparkType.Line,
-      pos: { x: 240, y: 200 },
-      targetId: a,
-      mergeCandidateIds: [a, b],
-    });
-    // 2 anchors (2) + 1 primary magic bond (3) + 1 merge magic bond (3) = 8.
-    expect(world.scoreProgress).toBe(SCORE_ANCHOR * 2 + SCORE_MAGIC_BOND * 2);
+    placeAt(world, { sparkRawId: 3, type: SparkType.Line, pos: { x: 240, y: 200 }, targetId: a, mergeCandidateIds: [a, b] });
+    // 3 prims + 2 magic bonds (primary + merge, both Line→Line Cable) = 3 + 2×2 = 7.
+    // (The OLD path-DEPENDENT accumulator gave 8 — two separate anchor points were each
+    //  banked +1 before the merge. The new standing-complexity metric is path-INDEPENDENT
+    //  and reflects only the final 3-prim/2-magic shape, which is the point: score follows
+    //  the structure that's actually standing.)
+    expect(computeComplexity(world, P1)).toBe(3 * SCORE_ANCHOR + 2 * MAGIC_PREMIUM);
+  });
+
+  it('destroying a magic bond LOWERS complexity → income slows (the S76 intent)', () => {
+    const world = makeWorld(0);
+    const a = placeAt(world, { sparkRawId: 1, type: SparkType.Line, pos: { x: 200, y: 200 }, targetId: null });
+    placeAt(world, { sparkRawId: 2, type: SparkType.Line, pos: { x: 220, y: 200 }, targetId: a });
+    expect(computeComplexity(world, P1)).toBe(2 * SCORE_ANCHOR + MAGIC_PREMIUM); // 4
+    // A sever / potato / bomb removes the bond — complexity (hence income rate) drops.
+    world.bonds.clear();
+    expect(computeComplexity(world, P1)).toBe(2 * SCORE_ANCHOR); // 2 — gain rate halves
   });
 });

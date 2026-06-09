@@ -227,7 +227,7 @@ export class HUD {
       const name = PLAYER_LABELS[seat] ?? `P${seat + 1}`;
       const score = world.scoreByPlayer.get(p.id) ?? 0;
       const isLocal = p.id === world.localPlayerId;
-      t.text = `${isLocal ? '> ' : '  '}${name} ${score}/${PHASE_1_WIN_SCORE}${isLocal ? ' <YOU' : ''}`;
+      t.text = `${isLocal ? '> ' : '  '}${name} ${Math.floor(score)}/${PHASE_1_WIN_SCORE}${isLocal ? ' <YOU' : ''}`;
       t.style.fill = p.color;
       t.position.set(12, 12 + i * 22);
       t.visible = true;

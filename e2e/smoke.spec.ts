@@ -482,9 +482,18 @@ test.describe('Sym I — win-condition + ENDGAME envelope (S47 wire, S50 P4 e2e 
       await dragSparkTo(hostPage, 300, 600);
       await dragSparkTo(hostPage, 300, 800);
 
-      // Host should reach scoreByPlayer[0] === 3 → applyScore triggers
-      // WIN_TRIGGER → gameState='WIN' + lastWinnerId=0. Main.ts ticker's
-      // PLAYING→WIN transition guard then sends ENDGAME envelope to peer.
+      // S76 — placement now raises standing COMPLEXITY (income model); score accrues per-tick,
+      // so WIN is no longer instant on the 3rd anchor. This test verifies the WIN→ENDGAME→joiner
+      // PIPELINE (unchanged by S76), so inject the host's score past the gate deterministically.
+      // The build→complexity→income→WIN path is covered by scoring.test.ts + session9 + the solo
+      // hunter e2e (whose 75% trigger fires off real in-browser income).
+      await hostPage.evaluate(() => {
+        const w = (window as { __SPARK__?: { world: { scoreByPlayer: Map<number, number> } } }).__SPARK__?.world;
+        w?.scoreByPlayer.set(0, 999);
+      });
+
+      // Host crosses the WIN gate → WIN_TRIGGER → gameState='WIN' + lastWinnerId=0. Main.ts
+      // ticker's PLAYING→WIN transition guard then sends the ENDGAME envelope to the peer.
       await waitForWorld(
         hostPage,
         (w) => w.gameState === 'WIN',
@@ -732,6 +741,12 @@ test.describe('S62 - 3-player FFA (1v1v1): seat assignment + distinct colors + F
       await dragSparkTo(hostPage, 300, 400);
       await dragSparkTo(hostPage, 300, 600);
       await dragSparkTo(hostPage, 300, 800);
+      // S76 — income model: inject the host's score past the WIN gate (this is a pipeline test;
+      // the build→income→WIN path is covered by unit tests + the solo hunter e2e). See Sym I.
+      await hostPage.evaluate(() => {
+        const w = (window as { __SPARK__?: { world: { scoreByPlayer: Map<number, number> } } }).__SPARK__?.world;
+        w?.scoreByPlayer.set(0, 999);
+      });
       await waitForWorld(hostPage, (w) => w.gameState === 'WIN', 'host reaches FFA WIN', 20_000);
 
       // Both other players see the game end (one winner, the other two lose).

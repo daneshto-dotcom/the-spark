@@ -19,6 +19,7 @@ import {
 import { stepAttractLerp } from '../input/controls.ts';
 import { makeFreeSpark } from './spark.ts';
 import { dispatch, makeWorld } from '../state/world.ts';
+import { tickScoring } from '../state/scoring.ts';
 import {
   asPlayerId,
   asSparkId,
@@ -323,36 +324,22 @@ describe('S10 P3 — STRUCTURE_MERGE with verlet impulse on candidate component'
 });
 
 describe('S10 P4 — SCORE_TIER corner pulse at every SCORE_TIER_STEP boundary', () => {
-  it('placement that crosses scoreProgress from <step to >=step emits one SCORE_TIER tier=1', () => {
+  it('income crossing the first SCORE_TIER_STEP emits exactly one SCORE_TIER tier=1', () => {
     const world = makeWorld(0);
-    // Build all-magic chain Line→Line=Cable (isMagical=true, +3 per bond).
-    // Anchor (1) + bonds (3 each). After N=5 bonds: 1 + 5*3 = 16 — first
-    // crossing of SCORE_TIER_STEP=15.
-    const anchor = placeAt(world, { sparkRawId: 0, type: SparkType.Line, pos: { x: 200, y: 200 }, targetId: null });
-    let prev = anchor;
-    let crossed = false;
-    for (let i = 1; i <= 5; i++) {
-      const effectsBefore = world.effects.length;
-      prev = placeAt(world, {
-        sparkRawId: i,
-        type: SparkType.Line,
-        pos: { x: 200 + i * 18, y: 200 },
-        targetId: prev,
-      });
-      const tierEvents = world.effects.slice(effectsBefore).filter((e) => e.kind === 'SCORE_TIER');
-      if (i === 5) {
-        // 1 (anchor) + 4*3 + 3 = 16 — crosses 15. Should emit tier 1.
-        expect(tierEvents.length).toBe(1);
-        if (tierEvents[0].kind !== 'SCORE_TIER') throw new Error('typeguard');
-        expect(tierEvents[0].tier).toBe(1);
-        crossed = true;
-      } else {
-        // i=1..4 → scoreProgress = 1+3i, max = 13 (i=4), no crossing.
-        expect(tierEvents.length).toBe(0);
-      }
+    // S76: tier pulses fire in tickScoring as scoreProgress climbs via income, not at
+    // placement. Build an all-magic Line→Line=Cable chain (complexity 13), then accrue.
+    let prev = placeAt(world, { sparkRawId: 0, type: SparkType.Line, pos: { x: 200, y: 200 }, targetId: null });
+    for (let i = 1; i <= 4; i++) {
+      prev = placeAt(world, { sparkRawId: i, type: SparkType.Line, pos: { x: 200 + i * 18, y: 200 }, targetId: prev });
     }
-    expect(crossed).toBe(true);
+    const tiers: number[] = [];
+    for (let t = 0; t < 20000 && world.scoreProgress < SCORE_TIER_STEP; t++) {
+      const before = world.effects.length;
+      tickScoring(world);
+      for (const e of world.effects.slice(before)) if (e.kind === 'SCORE_TIER') tiers.push(e.tier);
+    }
     expect(world.scoreProgress).toBeGreaterThanOrEqual(SCORE_TIER_STEP);
+    expect(tiers).toEqual([1]);
   });
 
   it('placements within a single tier band emit zero SCORE_TIER events', () => {
@@ -375,61 +362,22 @@ describe('S10 P4 — SCORE_TIER corner pulse at every SCORE_TIER_STEP boundary',
     expect(world.scoreProgress).toBeLessThan(SCORE_TIER_STEP);
   });
 
-  it('multi-tier-crossing placement emits one SCORE_TIER per band crossed', () => {
+  it('income emits one SCORE_TIER per band crossed, in order (tier 1 then tier 2)', () => {
     const world = makeWorld(0);
-    // Pre-bake scoreProgress to 14 — just below the first tier boundary.
-    // Then do one magic merge cascade with 2 magic bonds (3+3=6) to push
-    // scoreProgress to 20 (crosses 15 boundary once).
-    // For 2-tier crossing in one place we need a delta ≥ 2 × 15 = 30 —
-    // requires 10 magic bonds in a single placement, structurally
-    // implausible in Phase 1 (max ~3-4 merge bonds). So we simulate
-    // by directly setting scoreProgress and emitting via a forced merge
-    // chain.
-    world.scoreProgress = 14;
-    // Three single-prim magic-paired anchors arranged so a hub place
-    // makes 3 magic merge bonds (anchor=Line, candidates also Line →
-    // Line→Line = Cable = magic = +3 per bond). Hub's primary into
-    // first anchor = 1 anchor place (+0 since not anchor) — wait, primary
-    // bond increments by combo weight, not by SCORE_ANCHOR.
-    // anchor=Line at (220, 200), bridge=Line into a, mergeCandidates =
-    // 3 other Line anchors at +50 in different dirs. delta = 4 magic
-    // bonds × 3 = 12. 14 + 12 = 26 → still crosses one (15) but not two.
-    //
-    // To force 2-tier crossing: set scoreProgress = 14, then do 3-merge
-    // place with 4 magic bonds (12) AND seed scoreProgress higher.
-    // Simpler: set scoreProgress = 29, expect 1 magic bond = 3 → 32,
-    // crosses 30 only once. To cross 15 + 30 in one place: start at 14,
-    // need delta ≥ 16 (to reach 30). With 6 magic bonds = 18. Need 6
-    // merge candidates: harder geometry. Use 5 anchors at 50px from hub
-    // + primary = 6 bonds total, but all-magic.
-    //
-    // Decision: just verify the loop emits N events when N tier
-    // boundaries are crossed in one PLACE_PRIMITIVE — directly invoke
-    // the emit-path via a forced scoreProgress jump.
-
-    // Setup 4 anchors of type Line at distance 50 from hub center (270,200).
-    const a = placeAt(world, { sparkRawId: 1, type: SparkType.Line, pos: { x: 220, y: 200 }, targetId: null });
-    const b = placeAt(world, { sparkRawId: 2, type: SparkType.Line, pos: { x: 320, y: 200 }, targetId: null });
-    const c = placeAt(world, { sparkRawId: 3, type: SparkType.Line, pos: { x: 270, y: 150 }, targetId: null });
-    const d = placeAt(world, { sparkRawId: 4, type: SparkType.Line, pos: { x: 270, y: 250 }, targetId: null });
-    // 4 anchors × SCORE_ANCHOR(1) = 4. Reset to 14 manually.
-    world.scoreProgress = 14;
-
-    const effectsBefore = world.effects.length;
-    placeAt(world, {
-      sparkRawId: 5,
-      type: SparkType.Line,
-      pos: { x: 270, y: 200 },
-      targetId: a,
-      mergeCandidateIds: [a, b, c, d],
-    });
-    // Primary Line→Line = Cable (magic, +3) → 17. + 3 merges × 3 = 9 → 26.
-    // Crossed 15 boundary once (14 → 26). No 30 crossing.
-    const tierEvents = world.effects.slice(effectsBefore).filter((e) => e.kind === 'SCORE_TIER');
-    expect(tierEvents.length).toBe(1);
-    if (tierEvents[0].kind !== 'SCORE_TIER') throw new Error('typeguard');
-    expect(tierEvents[0].tier).toBe(1);
-    expect(world.scoreProgress).toBe(26);
+    // All-magic chain (complexity 13). Income climbs steadily (a single tick adds far less
+    // than a full band), so each band 15/30/… is crossed on its own tick → one pulse per band.
+    let prev = placeAt(world, { sparkRawId: 0, type: SparkType.Line, pos: { x: 200, y: 200 }, targetId: null });
+    for (let i = 1; i <= 4; i++) {
+      prev = placeAt(world, { sparkRawId: i, type: SparkType.Line, pos: { x: 200 + i * 18, y: 200 }, targetId: prev });
+    }
+    const tiers: number[] = [];
+    for (let t = 0; t < 20000 && world.scoreProgress < 2 * SCORE_TIER_STEP; t++) {
+      const before = world.effects.length;
+      tickScoring(world);
+      for (const e of world.effects.slice(before)) if (e.kind === 'SCORE_TIER') tiers.push(e.tier);
+    }
+    expect(world.scoreProgress).toBeGreaterThanOrEqual(2 * SCORE_TIER_STEP);
+    expect(tiers).toEqual([1, 2]);
   });
 });
 
@@ -468,20 +416,17 @@ describe('S10 P5 — cinematicsEnabled gates STRUCTURE_GROW / STRUCTURE_MERGE / 
     expect(b0Prim.prevPos.x).toBeCloseTo(300 + MERGE_IMPULSE_MAGNITUDE, 2);
   });
 
-  it('cinematicsEnabled=false suppresses SCORE_TIER events at tier boundaries', () => {
+  it('cinematicsEnabled=false suppresses SCORE_TIER pulses even as income crosses a tier', () => {
     const world = makeWorld(0);
     world.cinematicsEnabled = false;
-    // Build all-magic chain that would otherwise cross SCORE_TIER_STEP.
-    const anchor = placeAt(world, { sparkRawId: 0, type: SparkType.Line, pos: { x: 200, y: 200 }, targetId: null });
-    let prev = anchor;
-    for (let i = 1; i <= 5; i++) {
-      prev = placeAt(world, {
-        sparkRawId: i,
-        type: SparkType.Line,
-        pos: { x: 200 + i * 18, y: 200 },
-        targetId: prev,
-      });
+    // All-magic chain (complexity 13), then accrue income past the first tier boundary.
+    let prev = placeAt(world, { sparkRawId: 0, type: SparkType.Line, pos: { x: 200, y: 200 }, targetId: null });
+    for (let i = 1; i <= 4; i++) {
+      prev = placeAt(world, { sparkRawId: i, type: SparkType.Line, pos: { x: 200 + i * 18, y: 200 }, targetId: prev });
     }
+    for (let t = 0; t < 20000 && world.scoreProgress < SCORE_TIER_STEP; t++) tickScoring(world);
+    // Income still accrues (the gate only suppresses the visual pulse, not scoring) —
+    // but no SCORE_TIER effect is emitted while cinematics are off.
     expect(world.scoreProgress).toBeGreaterThanOrEqual(SCORE_TIER_STEP);
     expect(world.effects.filter((e) => e.kind === 'SCORE_TIER').length).toBe(0);
   });

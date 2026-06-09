@@ -342,10 +342,13 @@ describe('S15 P2 — scoreByPlayer + winner attribution', () => {
   it('solo win attributes to primaryPlayerId (P1)', () => {
     const w = makeWorld(0);
     const ex = makeGameStateExtras();
-    // Reach threshold via direct anchors.
+    // S76: placement raises complexity (not score). Build a winning-size structure, then reach
+    // the threshold directly — income accrual is covered in session9 + scoring.test.ts. Solo
+    // attribution is primaryPlayerId regardless of how the score got there.
     for (let i = 0; i < PHASE_1_WIN_SCORE / SCORE_ANCHOR; i++) {
       placeAnchor(w, i, P1, 100 + i, 100);
     }
+    w.scoreProgress = PHASE_1_WIN_SCORE; // accrued-equivalent (income path tested elsewhere)
     tickGameState(w, ex, P1);
     expect(w.gameState).toBe('WIN');
     expect(w.lastWinnerId).toBe(P1);

@@ -183,20 +183,34 @@ export const MAX_DISRUPTION_CHARGES = 2;
 // scoreProgress + PHASE_1_WIN_SCORE drive WIN now.
 export const PHASE_1_WIN_PRIMITIVE_COUNT = 30;
 
-// === Scoring (S9 P3) ===
-// Replaces flat primitive-count progress with a combo-weighted accumulator.
-// Closes the post-S8 playtest report that "every combination of shapes ...
-// gives the same amount of points toward victory."
-//
-// Magic combos (the 12 from § V.1) are worth 3×; Functional placeholders
-// 1×; anchor placements (no target = no bond) 1×. WIN fires at 50 points —
-// a ~30-primitive all-functional structure (29 functional bonds + 1 anchor =
-// 30 score) won't win, but a ~17-primitive all-magic chain (16 magic bonds
-// × 3 + 1 anchor = 49) is right at the gate, and any mid-build mix scales
-// between. Threshold is one playtest constant; expect S10 tuning.
+// === Scoring weights (S9 P3 origin; S76 P3 repurposed as COMPLEXITY weights) ===
+// S9-S75 these weighted a monotonic per-PLACEMENT accumulator (anchor +1, functional
+// bond +1, magic bond +3 — banked once, never lost). S76 P3 REPLACED that model with a
+// complexity-INCOME model (see SCORE_INCOME_PER_COMPLEXITY_PER_SEC below + state/scoring.ts).
+// The SAME weights now define STANDING-structure complexity:
+//     complexity(p) = (#p's primitives × SCORE_ANCHOR)
+//                   + (#p's MAGIC bonds × (SCORE_MAGIC_BOND − SCORE_FUNCTIONAL_BOND))
+//                   = #prims + 2×#magicBonds
+// which reproduces the old accumulator's value for a finished TREE (so the 50-pt gate
+// stays meaningful) but is recomputed from LIVE state every tick — so destroying a
+// structure lowers it and you gain points slower (the user's intent). Counting every
+// primitive (not "isolated anchors only") keeps a functional bond complexity-NEUTRAL,
+// so connecting can never DROP your score (Council/Grok — closes a "don't-connect" exploit).
 export const SCORE_ANCHOR = 1;
 export const SCORE_FUNCTIONAL_BOND = 1;
 export const SCORE_MAGIC_BOND = 3;
+
+// === S76 P3 — complexity-INCOME rate ===
+// Each physics tick the host accrues, per player: scoreByPlayer[p] += this × complexity(p)
+// / PHYSICS_HZ. So your point-gain RATE ∝ the current total complexity of your standing
+// structures: build more / more-magic → gain faster; lose structure → gain slower; hold
+// complexity 0 → never progress. WIN still fires at PHASE_1_WIN_SCORE (floored).
+//
+// #1 PLAYTEST TUNABLE. At 0.15: complexity-5 wins in ~67s, complexity-20 in ~17s, a near-max
+// complexity-50 in ~7s — and that ~7s is a window where opponents can bomb / hunt the leader
+// (built-in anti-runaway + a "defend your winning structure" climax). Raise → snappier games;
+// lower → grindier. Sensible range to try: 0.05 .. 0.25. (Host-only; deterministic/replay-safe.)
+export const SCORE_INCOME_PER_COMPLEXITY_PER_SEC = 0.15;
 /**
  * S50 P4 — E2E test override seam. Playwright's `page.addInitScript()` runs
  * BEFORE bundled scripts, so a `window.__TEST_WIN_SCORE__` assignment from

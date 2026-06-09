@@ -1,0 +1,129 @@
+/**
+ * SPARK — complexity-INCOME scoring (S76 P3).
+ *
+ * REPLACES the S9-S75 monotonic per-placement accumulator (anchor/functional/magic points
+ * banked at placement, never lost — so destroying a structure had ZERO scoring effect, and
+ * the solo vs networked `addScore` split let player-1 score differently). The new model:
+ *
+ *   Each physics tick (HOST-ONLY, from main.ts, PLAYING + !isClient), every player earns
+ *   score proportional to the CURRENT total complexity of their standing structures:
+ *       scoreByPlayer[p] += SCORE_INCOME_PER_COMPLEXITY_PER_SEC × complexity(p) / PHYSICS_HZ
+ *   then scoreProgress = max(scoreByPlayer) for ALL modes (solo = the single value).
+ *
+ * Consequences (the user's intent, S76):
+ *   - Destroying a structure (bomb / potato / sever / disconnect) drops complexity → the
+ *     victim gains points SLOWER (their banked score is safe — it's a rate, not a clawback).
+ *   - Bigger / more-magic standing structures → faster gain.
+ *   - EVERY player scores by the identical path → player-1 consistency (fixes #3b).
+ *
+ * Determinism: pure function of (world state, tick), host-authoritative, result serialized
+ * to clients (who never compute it) — replay-safe, no cross-machine float divergence.
+ *
+ * Council R1 + PRIME-AUDIT deltas baked in:
+ *   Δ1 (Grok) complexity = #prims + 2×#magic (NOT "Σ bond-weights + isolated count", which
+ *      punished functional bonding 2→1 = a don't-connect exploit). Functional-neutral; matches
+ *      the old accumulator for a finished tree so PHASE_1_WIN_SCORE=50 stays meaningful.
+ *   Δ2 (Gemini) single-pass GLOBAL ownership attribution — a bond is credited to exactly ONE
+ *      owner (bond.a.placedBy); no double-count even if a cross-colour bond ever exists.
+ *   Δ5 (Grok) SCORE_TIER pulses retained (moved here from placePrimitive) so the leader still
+ *      gets tier-up feedback as the bar climbs.
+ */
+
+import { lookupCombo } from '../combos.ts';
+import {
+  PHYSICS_HZ,
+  SCORE_ANCHOR,
+  SCORE_FUNCTIONAL_BOND,
+  SCORE_INCOME_PER_COMPLEXITY_PER_SEC,
+  SCORE_MAGIC_BOND,
+  SCORE_TIER_STEP,
+} from '../constants.ts';
+import type { PlayerId } from '../types.ts';
+import type { World } from './worldTypes.ts';
+
+// Complexity weights derived from the per-element scoring weights so standing complexity
+// reproduces the old S9 accumulator for a finished tree (see constants.ts comment).
+const PRIM_WEIGHT = SCORE_ANCHOR; // 1 — every placed primitive is worth its anchor value
+const MAGIC_BONUS = SCORE_MAGIC_BOND - SCORE_FUNCTIONAL_BOND; // 2 — a magic bond's premium
+
+/**
+ * Standing structure complexity for one player. Pure fn of world state.
+ *   = (# primitives placed by p) × PRIM_WEIGHT + (# of p's MAGIC bonds) × MAGIC_BONUS.
+ *
+ * Ownership (Δ2): one pass over each global Map, crediting each element to exactly one
+ * owner — a primitive → its `placedBy`; a bond → its `aId` primitive's `placedBy` (both
+ * endpoints share one colour/player since cross-colour bonds are impossible, but crediting
+ * the aId-owner is correct AND double-count-safe if that invariant is ever violated).
+ * Magic-ness is re-derived via lookupCombo(aId.type, bId.type) — the SAME carried→target
+ * order placePrimitive.makeBond used, so it matches the bond's original magic classification.
+ * aId is deterministic (= the newly-placed prim in makeBond, host-authoritative), so attribution
+ * is replay-stable. (S76 CHECK / Gemini-AUDITOR flagged "a bond between two players' prims would
+ * credit only one owner non-deterministically" — REFUTED: cross-colour bonds cannot form
+ * [placePrimitive demotes a cross-colour target to anchor + same-colour-filters merge candidates]
+ * and placedBy is readonly, so a bond's endpoints ALWAYS share one owner. If a future cross-player
+ * bond feature [e.g. Steal] is ever added, revisit this single-owner rule.)
+ */
+export function computeComplexity(world: World, playerId: PlayerId): number {
+  let primCount = 0;
+  for (const prim of world.primitives.values()) {
+    if (prim.placedBy === playerId) primCount++;
+  }
+  let magicBonds = 0;
+  for (const bond of world.bonds.values()) {
+    // Resolve endpoints via id — bond.a/.b are PhysicsBody refs (pos only), not Primitives.
+    // Credit each bond to ONE owner: its aId primitive's placer (Δ2). Skip a bond that
+    // references a deleted primitive (defensive — keeps complexity well-defined mid-teardown).
+    const a = world.primitives.get(bond.aId);
+    if (a === undefined || a.placedBy !== playerId) continue;
+    const b = world.primitives.get(bond.bId);
+    if (b === undefined) continue;
+    if (lookupCombo(a.type, b.type).isMagical) magicBonds++;
+  }
+  return primCount * PRIM_WEIGHT + magicBonds * MAGIC_BONUS;
+}
+
+/**
+ * Host-only per-tick scoring accrual. Call once per physics tick BEFORE tickGameState
+ * (so the WIN check + the hunter 75% trigger see the freshly-accrued scoreProgress).
+ * Solo: world.isHost is true (local player IS the authority) → runs locally.
+ */
+export function tickScoring(world: World): void {
+  const perTickFactor = SCORE_INCOME_PER_COMPLEXITY_PER_SEC / PHYSICS_HZ;
+  const oldProgress = world.scoreProgress;
+
+  let leaderId: PlayerId | null = null;
+  let max = 0;
+  for (const player of world.players.values()) {
+    const complexity = computeComplexity(world, player.id);
+    const next = (world.scoreByPlayer.get(player.id) ?? 0) + complexity * perTickFactor;
+    world.scoreByPlayer.set(player.id, next);
+    if (leaderId === null || next > max) {
+      max = next;
+      leaderId = player.id;
+    }
+  }
+  world.scoreProgress = leaderId === null ? 0 : max;
+
+  // Δ5 — SCORE_TIER pulse: one per SCORE_TIER_STEP boundary the LEADER's scoreProgress
+  // crosses this tick, at the leader's avatar. Host-local visual flair (not serialized);
+  // gated on cinematicsEnabled like the other structure cinematics.
+  if (world.cinematicsEnabled && leaderId !== null && world.scoreProgress > oldProgress) {
+    const oldTier = Math.floor(oldProgress / SCORE_TIER_STEP);
+    const newTier = Math.floor(world.scoreProgress / SCORE_TIER_STEP);
+    if (newTier > oldTier) {
+      const leader = world.players.get(leaderId);
+      const pos = leader
+        ? { x: leader.avatarPos.x, y: leader.avatarPos.y }
+        : { x: 0, y: 0 };
+      for (let t = oldTier + 1; t <= newTier; t++) {
+        world.effects.push({
+          kind: 'SCORE_TIER',
+          tick: world.tick,
+          tier: t,
+          color: leader?.color ?? 0xffffff,
+          pos,
+        });
+      }
+    }
+  }
+}

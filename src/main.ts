@@ -111,6 +111,7 @@ import {
 import { mulberry32 } from './state/rng.ts';
 import { dispatch, isNetworked, makeWorld, type GameAction, type GameState } from './state/world.ts';
 import { makeGameStateExtras, softReset, tickGameState } from './state/gameState.ts';
+import { tickScoring } from './state/scoring.ts';
 import { asPlayerId } from './types.ts';
 
 // S50 P2 — PHYSICS_DT / SUBSTEP_DT extracted to physicsLoop.ts; PHYSICS_DT
@@ -529,6 +530,13 @@ async function bootstrap(): Promise<void> {
         }
         world.tick++;
       }
+      // S76 P3 — host-only complexity-income accrual. Runs BEFORE the WIN check
+      // (tickGameState) and the hunter 75% trigger below so both observe this tick's
+      // freshly-accrued scoreProgress. The client never accrues (host-authoritative); it
+      // reads scoreProgress from the NetSnapshot. Gated on PLAYING + !isClient.
+      if (world.gameState === 'PLAYING' && !isClient) {
+        tickScoring(world);
+      }
       tickGameState(world, gameStateExtras, P1);
 
       // S28 P0 — Step 0 (tick-deterministic pending creature spawn poll).
@@ -657,7 +665,7 @@ async function bootstrap(): Promise<void> {
       // passes it (tidiness; isInputLocked + avatarRenderer already self-heal on the
       // tick compare — Council R5).
       if (world.gameState === 'PLAYING' && !isClient) {
-        if (!world.hunterSpawned && world.scoreProgress >= HUNTER_TRIGGER_SCORE) {
+        if (!world.hunterSpawned && Math.floor(world.scoreProgress) >= HUNTER_TRIGGER_SCORE) {
           dispatch(world, { type: 'SPAWN_HUNTER' });
         }
         if (world.hunters.size > 0) {

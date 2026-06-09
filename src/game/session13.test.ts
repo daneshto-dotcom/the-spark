@@ -15,12 +15,14 @@ import {
   MERGE_IMPULSE_MAGNITUDE,
   MIN_BOND_LENGTH_FOR_IMPULSE,
   PHYSICS_HZ,
+  SCORE_TIER_STEP,
   SparkType,
   STRUCTURE_GROW_IMPULSE,
 } from '../constants.ts';
 import { makeFreeSpark } from './spark.ts';
 import { componentOf } from './structure.ts';
 import { dispatch, makeWorld } from '../state/world.ts';
+import { tickScoring } from '../state/scoring.ts';
 import { asPlayerId, asSparkId, type PrimitiveId } from '../types.ts';
 
 const P1_ID = asPlayerId(0);
@@ -306,63 +308,57 @@ describe('S13 P2 — STRUCTURE_GROW outward impulse on primary pre-existing comp
   });
 });
 
-describe('S13 P4 — SCORE_TIER center pulse at placement position', () => {
-  it('SCORE_TIER effect now carries pos field equal to new prim position', () => {
-    // S13 P4 moves the visual from a fixed HUD corner to the placement
-    // cursor. emit-site captures prim.pos so the renderer draws there
-    // (drawScoreTier reads effect.pos directly).
+describe('S13 P4 / S76 — SCORE_TIER pulse fires at the leader avatar as income crosses a tier', () => {
+  // S13 P4 tagged the tier pulse at the new prim's position. S76 moved emission from placement
+  // to tickScoring (scoreProgress climbs via income), so the crossing has no single placement
+  // position — the pulse is tagged at the LEADING player's avatar instead.
+  it('SCORE_TIER carries pos = the leading player avatar position', () => {
     const world = makeWorld(0);
-    // Pre-bake scoreProgress to just below tier 1 (15) so a single
-    // magic bond crosses it.
-    world.scoreProgress = 14;
-    const a = placeAt(world, { sparkRawId: 1, type: SparkType.Line, pos: { x: 250, y: 250 }, targetId: null });
-    // Reset scoreProgress to 14 (anchor placements added to it).
-    world.scoreProgress = 14;
-
-    const effectsBefore = world.effects.length;
-    const newPrim = placeAt(world, {
-      sparkRawId: 2,
-      type: SparkType.Dot,
-      pos: { x: 270, y: 250 }, // Line→Dot direction is carried→target: Dot→Line = Filament magic, +3 → crosses 15.
-      targetId: a,
-    });
-    // Score must have crossed tier 1 boundary.
-    expect(world.scoreProgress).toBeGreaterThanOrEqual(15);
-
-    const tierEvents = world.effects.slice(effectsBefore).filter((e) => e.kind === 'SCORE_TIER');
-    expect(tierEvents.length).toBe(1);
-    if (tierEvents[0].kind !== 'SCORE_TIER') throw new Error('typeguard');
-    const newPrimPos = world.primitives.get(newPrim)!.pos;
-    expect(tierEvents[0].pos.x).toBe(newPrimPos.x);
-    expect(tierEvents[0].pos.y).toBe(newPrimPos.y);
+    const p1 = world.players.get(P1_ID)!;
+    p1.avatarPos.x = 333;
+    p1.avatarPos.y = 444;
+    // All-magic Line→Line chain (complexity 13) so income crosses tier 1 in bounded ticks.
+    let prev = placeAt(world, { sparkRawId: 0, type: SparkType.Line, pos: { x: 250, y: 250 }, targetId: null });
+    for (let i = 1; i <= 4; i++) {
+      prev = placeAt(world, { sparkRawId: i, type: SparkType.Line, pos: { x: 250 + i * 18, y: 250 }, targetId: prev });
+    }
+    let tierEvent: { pos: { x: number; y: number }; tier: number } | null = null;
+    for (let t = 0; t < 20000 && world.scoreProgress < SCORE_TIER_STEP; t++) {
+      const before = world.effects.length;
+      tickScoring(world);
+      for (const e of world.effects.slice(before)) {
+        if (e.kind === 'SCORE_TIER') tierEvent = { pos: { x: e.pos.x, y: e.pos.y }, tier: e.tier };
+      }
+    }
+    expect(world.scoreProgress).toBeGreaterThanOrEqual(SCORE_TIER_STEP);
+    expect(tierEvent).not.toBeNull();
+    expect(tierEvent!.tier).toBe(1);
+    expect(tierEvent!.pos.x).toBe(333);
+    expect(tierEvent!.pos.y).toBe(444);
   });
 
-  it('multi-tier crossing fires one SCORE_TIER per band, all pos-tagged at the same new prim', () => {
-    // Force scoreProgress to 14 then trigger a multi-bond merge that
-    // pushes past 30 (crosses both 15 and 30 boundaries).
+  it('one SCORE_TIER per band crossed (tier 1 then 2), each tagged at the leader avatar', () => {
     const world = makeWorld(0);
-    const a = placeAt(world, { sparkRawId: 1, type: SparkType.Line, pos: { x: 200, y: 200 }, targetId: null });
-    const b = placeAt(world, { sparkRawId: 2, type: SparkType.Line, pos: { x: 290, y: 200 }, targetId: null });
-    const c = placeAt(world, { sparkRawId: 3, type: SparkType.Line, pos: { x: 245, y: 290 }, targetId: null });
-    // 3 anchors × SCORE_ANCHOR(1) = 3. Reset to 14 to set up tier crossing.
-    world.scoreProgress = 14;
-
-    const effectsBefore = world.effects.length;
-    const hub = placeAt(world, {
-      sparkRawId: 4,
-      type: SparkType.Line,
-      pos: { x: 245, y: 200 },
-      targetId: a,
-      mergeCandidateIds: [a, b, c],
-    });
-    // Primary Line→Line = Cable (magic, +3) → 17. + 2 magic merges × 3 = +6 → 23.
-    // Crossed 15 once. (Not 30 — would need 16 delta; we only get 9 here.)
-    const tierEvents = world.effects.slice(effectsBefore).filter((e) => e.kind === 'SCORE_TIER');
-    expect(tierEvents.length).toBe(1);
-    if (tierEvents[0].kind !== 'SCORE_TIER') throw new Error('typeguard');
-    const hubPos = world.primitives.get(hub)!.pos;
-    expect(tierEvents[0].pos.x).toBe(hubPos.x);
-    expect(tierEvents[0].pos.y).toBe(hubPos.y);
+    const p1 = world.players.get(P1_ID)!;
+    p1.avatarPos.x = 700;
+    p1.avatarPos.y = 510;
+    let prev = placeAt(world, { sparkRawId: 1, type: SparkType.Line, pos: { x: 250, y: 250 }, targetId: null });
+    for (let i = 2; i <= 5; i++) {
+      prev = placeAt(world, { sparkRawId: i, type: SparkType.Line, pos: { x: 250 + i * 18, y: 250 }, targetId: prev });
+    }
+    const tiers: number[] = [];
+    for (let t = 0; t < 20000 && world.scoreProgress < 2 * SCORE_TIER_STEP; t++) {
+      const before = world.effects.length;
+      tickScoring(world);
+      for (const e of world.effects.slice(before)) {
+        if (e.kind === 'SCORE_TIER') {
+          tiers.push(e.tier);
+          expect(e.pos.x).toBe(700);
+          expect(e.pos.y).toBe(510);
+        }
+      }
+    }
+    expect(tiers).toEqual([1, 2]);
   });
 });
 

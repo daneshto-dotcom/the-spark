@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   PHASE_1_WIN_SCORE,
   PHYSICS_HZ,
-  SCORE_ANCHOR,
   SparkType,
 } from '../constants.ts';
 import { makeFreeSpark } from '../game/spark.ts';
@@ -13,6 +12,7 @@ import {
   softReset,
   tickGameState,
 } from './gameState.ts';
+import { tickScoring } from './scoring.ts';
 
 const P1 = asPlayerId(0);
 
@@ -36,25 +36,26 @@ function placeOne(world: ReturnType<typeof makeWorld>, idx: number): void {
   });
 }
 
-// PHASE_1_WIN_SCORE / SCORE_ANCHOR placements of anchors → exactly score threshold.
-const ANCHORS_TO_WIN = PHASE_1_WIN_SCORE / SCORE_ANCHOR;
-
 describe('Game-state FSM (Phase 1 abridged)', () => {
-  it('starts in PLAYING and stays there until threshold reached', () => {
+  it('starts in PLAYING and stays there below the win threshold', () => {
     const w = makeWorld(0);
     const ex = makeGameStateExtras();
     expect(w.gameState).toBe('PLAYING');
-    for (let i = 0; i < 5; i++) placeOne(w, i);
+    for (let i = 0; i < 5; i++) placeOne(w, i); // complexity 5 (5 isolated anchors)
+    for (let t = 0; t < 20; t++) tickScoring(w); // a little income, well under threshold
     tickGameState(w, ex, P1);
     expect(w.gameState).toBe('PLAYING');
-    expect(w.scoreProgress).toBe(5);
+    expect(w.scoreProgress).toBeGreaterThan(0); // income is accruing
+    expect(Math.floor(w.scoreProgress)).toBeLessThan(PHASE_1_WIN_SCORE);
   });
 
-  it('PLAYING → WIN at PHASE_1_WIN_SCORE', () => {
+  it('PLAYING → WIN when income reaches PHASE_1_WIN_SCORE', () => {
     const w = makeWorld(0);
     const ex = makeGameStateExtras();
-    for (let i = 0; i < ANCHORS_TO_WIN; i++) placeOne(w, i);
-    expect(w.scoreProgress).toBeGreaterThanOrEqual(PHASE_1_WIN_SCORE);
+    for (let i = 0; i < 10; i++) placeOne(w, i); // complexity 10
+    // Accrue per-tick income until the floored threshold is reached.
+    for (let t = 0; t < 100000 && Math.floor(w.scoreProgress) < PHASE_1_WIN_SCORE; t++) tickScoring(w);
+    expect(Math.floor(w.scoreProgress)).toBeGreaterThanOrEqual(PHASE_1_WIN_SCORE);
     tickGameState(w, ex, P1);
     expect(w.gameState).toBe('WIN');
     expect(w.lastWinnerId).toBe(P1);
@@ -64,7 +65,9 @@ describe('Game-state FSM (Phase 1 abridged)', () => {
   it('WIN → POSTGAME after dwell ticks', () => {
     const w = makeWorld(0);
     const ex = makeGameStateExtras();
-    for (let i = 0; i < ANCHORS_TO_WIN; i++) placeOne(w, i);
+    // Reach the threshold directly — this test is about the WIN→POSTGAME dwell, not accrual.
+    w.scoreByPlayer.set(P1, PHASE_1_WIN_SCORE);
+    w.scoreProgress = PHASE_1_WIN_SCORE;
     tickGameState(w, ex, P1);
     expect(w.gameState).toBe('WIN');
     // Advance the simulated clock past the dwell.
@@ -77,8 +80,9 @@ describe('Game-state FSM (Phase 1 abridged)', () => {
     const w = makeWorld(0);
     const ex = makeGameStateExtras();
     for (let i = 0; i < 3; i++) placeOne(w, i);
+    for (let t = 0; t < 50; t++) tickScoring(w); // accrue some income
     expect(w.primitives.size).toBe(3);
-    expect(w.scoreProgress).toBe(3);
+    expect(w.scoreProgress).toBeGreaterThan(0);
     softReset(w, ex);
     expect(w.gameState).toBe('PLAYING');
     expect(w.primitives.size).toBe(0);

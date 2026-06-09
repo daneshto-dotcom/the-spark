@@ -20,6 +20,7 @@ import type { Spark } from '../game/spark.ts';
 import { asPlayerId, asPrimitiveId, asSparkId, type PrimitiveId } from '../types.ts';
 import { applyPlaceFromFree } from './placeFromFree.ts';
 import { makeWorld } from './world.ts';
+import { computeComplexity } from './scoring.ts';
 
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
@@ -84,8 +85,10 @@ describe('applyPlaceFromFree — happy path', () => {
     expect(world.primitives.size).toBe(1);
     // Atomic — from outside the reducer, player observed only Idle states.
     expect(world.players.get(P0)!.kind).toBe('Idle');
-    // Anchor score (1) credited.
-    expect(world.scoreProgress).toBe(1);
+    // S76: placement no longer scores directly — income accrues per-tick on standing complexity.
+    // The anchor raises P0's complexity to 1; scoreProgress stays 0 until a host tick runs.
+    expect(computeComplexity(world, P0)).toBe(1);
+    expect(world.scoreProgress).toBe(0);
     // buildAction credited (=1).
     expect(world.players.get(P0)!.buildActions).toBe(1);
   });

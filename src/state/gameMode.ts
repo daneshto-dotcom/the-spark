@@ -321,15 +321,21 @@ export function applyUpdateAvatarPos(world: World, action: UpdateAvatarPosAction
  */
 export function addScore(world: World, playerId: PlayerId, delta: number): void {
   const prev = world.scoreByPlayer.get(playerId) ?? 0;
-  const next = prev + delta;
-  world.scoreByPlayer.set(playerId, next);
-  if (isNetworked(world)) {
-    let max = next;
-    for (const v of world.scoreByPlayer.values()) if (v > max) max = v;
-    world.scoreProgress = max;
-  } else {
-    // Solo additive — preserves test contract where world.scoreProgress
-    // is the source of truth and may be set directly by callers.
-    world.scoreProgress += delta;
+  world.scoreByPlayer.set(playerId, prev + delta);
+  // S76 P3 — UNIFIED single path (was: solo `scoreProgress += delta` vs networked
+  // `scoreProgress = max(scoreByPlayer)` — the divergence that let player-1 score
+  // differently). scoreProgress is now ALWAYS the leader's score = max over scoreByPlayer;
+  // for solo that's just the single player's value. Every player scores by the identical
+  // rule, and this matches state/scoring.ts:tickScoring's per-tick recompute. addScore
+  // remains for tests + any manual one-shot adjustment; production point-gain accrues in
+  // tickScoring (complexity-income), not here.
+  let max = 0;
+  let any = false;
+  for (const v of world.scoreByPlayer.values()) {
+    if (!any || v > max) {
+      max = v;
+      any = true;
+    }
   }
+  world.scoreProgress = any ? max : 0;
 }
