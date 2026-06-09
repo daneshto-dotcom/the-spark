@@ -1,21 +1,26 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-06-09 | Session: S77
+Generated: 2026-06-09 | Session: S78
 
-## ⭐ NEXT-SESSION FIXES (playtest-driven — S77 shipped 3 priorities, all CI-green)
-1. **PLAYTEST S77 + tune by feel** — rainbow 8/14 (is it ~2/game now?); the NEW **seagull** (does it look epic/funny? is the income-halt too harsh? does it cross every ~2min?); fog-exemption (do potato/rainbow/hunter/Voltkin show THROUGH the fog to both players?). Tunables in `src/constants.ts`: SEAGULL_SPAWN_MIN/MAX_SPARKS (~2min cadence), SEAGULL_SPEED, POOP_DROP_INTERVAL_TICKS, POOP_SLOW_TICKS (15s), POOP_CLEAN_RADIUS; income-halt SCOPE is 1-line tunable (connected-component → single-prim or whole-player, in scoring.ts/seagullLifecycle.ts). S76 carry: SCORE_INCOME_PER_COMPLEXITY_PER_SEC 0.15, HUNTER_MAX_SPEED 3.5.
-2. **Bomb fog-exemption** — EXCLUDED this session (audit: the pickup-bomb severs only the picker's OWN bonds → fails the "visible iff can-affect-all" rule). If you want EVERY hazard visible through fog, it's a 1-line add (route bombRenderer into aboveFogLayer in main.ts).
+## ⭐ NEXT STEPS (S78 shipped 3 playtest fixes — all need YOUR feel-test)
+1. ⭐ **PLAYTEST the 3 fixes** on https://spark-online.space/ (live, baa33f2):
+   - **GAME LENGTH** — income rate 0.15→0.05 (3× slower). Does a game now last ~5-6 min instead of ~2? Knob: `SCORE_INCOME_PER_COMPLEXITY_PER_SEC` in `src/constants.ts`.
+   - **RANDOM EXPLOSIONS** — a free (un-picked-up) potato now DISSIPATES harmlessly instead of blowing up the centre board. Confirm the random centre blasts are gone (CARRIED/ARMED potatoes still detonate = hot-potato intact).
+   - **SEAGULL** — `SEAGULL_SPEED` 4.5→3.15 (−30%; crosses in ~10s). Right speed now?
+2. Confirm CI **E2E green on baa33f2** (run 27228104021) — Rule 22 (Deploy already green at close).
+3. If the game STILL ends too fast: next lever is `PHASE_1_WIN_SCORE` 50→~150 + `SCORE_TIER_STEP` 15→~50 (audit rec for ~5-7min; `HUNTER_TRIGGER_SCORE` auto-scales). Seagull still off → `SEAGULL_SPEED` / `SEAGULL_SPAWN_MIN/MAX_SPARKS` (15/24, ~every 2min).
 
-## Next Steps
-3. **Seagull polish (deferred):** screen-shake on a structure-FOUL (not per-poop — too noisy); blast-effect fog-exemption (P2 explicitly deferred transient effects); owner-tint legibility of through-fog entities (ties to backlog #3 CVD).
-4. **Pick ONE Standard PDR:** #2 control-message **sender-auth** (now MORE relevant — a spoofed v7 SEAGULL/TRIGGER_* is a grief vector) · #3 **EYES fog** fuzzy-edge + CVD shape-icons (ties to P2's through-fog owner-ID) · #4 **live-play netcode infra** (host-migration/reconnect/6p — multi-session).
-5. (Deferred) Re-validate + gate the S69 P2 lobby seat-UX visual refactor.
+## Audit Findings To Fix (found S78, user deferred to "next session")
+- **[HIGH]** `fouledPrimitives` leaks stale ids on sever/bomb/potato destroy paths → add `world.fouledPrimitives.delete(primId)` at disruptionManager.ts:165 + potatoLifecycle.ts:187; ALSO an un-cleanable income-stuck-at-0 state when a fouled structure is severed off its splat-anchor.
+- **[HIGH]** client-side sender-auth: clientHandlers.ts trusts ANY peer's GODLY_TRIGGER/NETSNAPSHOT/START_GAME_SIGNAL/ENDGAME → 1-line host-peerId gate (closes backlog #2 client-side; a spoofed snapshotSeq can WEDGE a victim).
+- **[MEDIUM]** spawner nextId+5 RNG streams not serialized (restore() can't resume; latent/test-only) · 3+player host-loss limbo (no overlay, no host-migration) · CREATURE_CHARGE not drain-filtered (effectsRenderer.ts:64) · worldTypes.ts:189-197 fouledPrimitives doc stale (code is correct).
+- **[LOW]** gameState.ts:7-8 + addScore stale docstrings; protocol DEV `as 7` cast; softReset omits fouled/hazard clears (inert).
 
 ## Blockers
-None. CI ALL GREEN (E2E 2-browser + Deploy on dd05c85/b986831/b9aff10). PROTOCOL_VERSION is now **7** (stale v6 peers hard-rejected at HELLO — everyone must refresh to the seagull build).
+None. CI E2E 27228104021 in-flight at close (Deploy 27228104376 GREEN). Confirm green next boot (Rule 22). NO protocol bump this session (still v7 — stale peers unaffected).
 
 ## Pending Backlog
-Pre-existing: #2 control-message sender-auth · #3 EYES fog fuzzy-edge + CVD shape-icons · #4 live-play netcode infra. Deferred plan: S69 P2 lobby seat-UX visual refactor (`.claude/plans-archive/2026-06-06_PDR_S69_P2_lobby-seat-ux_*.md`).
+#3 EYES fog fuzzy-edge + CVD shape-icons · #4 live-play netcode infra (host-migration/reconnect/6p; natural home for the spawner-RNG-serialization + sender-auth fixes). Deferred plan: S69 P2 lobby seat-UX visual refactor.
 
 ## Recent Reflexion (last 2 sessions)
-**S77** — rainbow 8/14 (P1 dd05c85) + global-reach fog-exempt (P2 b986831) + NEW seagull hazard (P3 b9aff10, FULL, PROTOCOL 6→7). Mirrored the proven hunter/potato pattern end-to-end (map every wiring site first → a 16-file Full feature landed tsc-clean on the 2nd try). Council scoped the income-halt to the hit STRUCTURE (component), not the whole player (both models flagged too-harsh). Avoided the Verlet implicit-velocity decay trap (poopy-slow = one-time impulse + carry-path scale, core untouched). The gating lane caught 3 self-inflicted test-drifts (aboveFogLayer 4→6 children; v6→v7/v7→v8 protocol literals) as routine maintenance.
-**S76** — hunter 2.5× faster + rainbow 35/60→15/28 + complexity-INCOME scoring (FULL). Income ∝ standing complexity so destruction slows gain + unifies the player-1 path. Council caught a perverse-incentive bug in the complexity formula pre-code.
+**S78** — 3 playtest fixes (baa33f2): income 0.15→0.05, FREE-potato harmless-dissipate, seagull −30%. Root-caused each before coding (random explosions = free-potato auto-detonate; short game = income crosses WIN=50 mid-build-ramp — verified once-per-tick, a balance issue not a code bug). Minimal-risk levers (rate-only keeping WIN=50; dissipate mirrors DISSIPATE_BOMB; no protocol bump). Caught the exhaustive KNOWN_GAME_ACTION_TYPES Record requiring the new key. PROCESS: the 3-agent parallel audit was thorough (found 2 HIGH + 4 MEDIUM) but slow (~48min) — user pushed back; lesson = under time pressure lead with direct root-cause reads of the NAMED symptoms, time-box the broad fan-out.
+**S77** — rainbow 8/14 (P1) + global-reach fog-exempt (P2) + NEW seagull hazard (P3, FULL, PROTOCOL 6→7). Mirrored the hunter/potato pattern end-to-end; Council scoped the income-halt to the hit structure (component); avoided the Verlet implicit-velocity decay trap.

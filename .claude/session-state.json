@@ -1,143 +1,64 @@
 {
-  "tool_calls_session_total": 75,
-  "session_start": "2026-06-09T13:53:00.000Z",
-  "session_id": "S77",
+  "tool_calls_session_total": 12,
+  "session_start": "2026-06-09T16:00:00.000Z",
+  "session_id": "S78",
   "session_kind": "execution",
-  "session_note": "S77 batch — USER-APPROVED full batch + AUTONOMOUS run (2026-06-09, explicit 'i approve full session priority batch and autonomous run'). P1 (Micro) rainbow 2x more common 15/28->8/14. P2 (Standard) global-reach entities fog-EXEMPT: potato/rainbow/hunter/Voltkin render ABOVE the fog to ALL players via a new aboveFogLayer; bomb EXCLUDED (single-owner per the 'visible iff can-affect-all' rule + audit). P3 (Full) NEW SEAGULL hazard: flies across the top ~every 2min dropping poop; poop-on-structure halts that player's income until a spark/avatar cleans it (host-detected mouse-over), poop-on-spark = 2x-slow 'poopy' debuff ~15s until it falls off; must look epic/funny. P2 Council R1 + PRIME-AUDIT done; P3 Council pending (Full, 2-round).",
+  "session_note": "S78 — USER-REPORTED playtest bugs + EXPLICIT go ('run all fixes ... committed and pushed and checked analyzed updated and then /handoff'). Three fixes batched as one priority, SHIPPED baa33f2: (1) game-too-short — SCORE_INCOME_PER_COMPLEXITY_PER_SEC 0.15->0.05 (3x longer games; the S76 P3 income model was shipped un-playtested and crosses WIN=50 during the build-up ramp). (2) random explosions — a FREE (never-picked-up) potato auto-detonated 23s after spawn in the spawn-zone centre, deleting central structures; FIX = a FREE potato DISSIPATES harmlessly at fuse-time (new DISSIPATE_POTATO action mirroring DISSIPATE_BOMB), CARRIED/ARMED still detonate (hot-potato intact). (3) seagull too fast — SEAGULL_SPEED 4.5->3.15 (-30%). Deliberation basis = 3 deep read-only audit subagents (scoring/netcode/render) already run this session = the adversarial analysis; user explicit go. NO protocol bump (all host-side; dissipate just removes the potato from the already-replicated potatoes[] snapshot).",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "council_waived": false,
-  "tier": "Full",
+  "council_waived": true,
+  "tier": "Standard",
   "prime_audit_completed": true,
   "priorities": [
     {
       "id": "P1",
-      "label": "S77 P1 (Micro) — RAINBOW 2x MORE COMMON. constants.ts: RAINBOW_SPAWN_MIN_SPARKS 15->8, RAINBOW_SPAWN_MAX_SPARKS 28->14 (the user's pre-sanctioned 8/14 fallback; ~delivers 2x the spawn frequency => ~2/game; now overlaps the potato band 10-18 per accepted intent 'more chaos'). Playtest-gated in the handoff but executed autonomously (cannot playtest a P2P game); 8/14 is the user-approved value. Test seam (_RAINBOW_TEST_CADENCE) insulates rainbow.spec. NO protocol bump. Update the constant's version-history comment.",
-      "status": "completed",
-      "phase": "ACT",
-      "tier": "Micro",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "council_waived": true,
-      "check_completed": true,
-      "check_method": "S77 P1 (rainbow 2x more common; Micro) SHIPPED dd05c85. constants.ts RAINBOW_SPAWN_MIN_SPARKS 15->8 + RAINBOW_SPAWN_MAX_SPARKS 28->14 (the user's pre-sanctioned 8/14 fallback). At the 0.15 spark/s base rate that is ~53-93s to the FIRST rainbow (~2x the S76 15/28 ~1.5-3min) => the requested '2x more common' (~2/game). Now OVERLAPS the potato band (10-18) so no longer strictly the rarest hazard -- accepted per user intent (more chaos). Comment updated with the full version arc (35-60 pre-S76 / 15-28 S76 P2 / 8-14 S77 P1). NO protocol bump (host-only spawner cadence). tsc -b EXIT 0. Tests insulated: rainbow.spec uses the _RAINBOW_TEST_CADENCE (__TEST_RAINBOW_SPAWN_SPARKS__) seam (no hardcoded 15/28); a src-wide grep confirms the only 15/28 test literals are scoring values in session15.test.ts, unrelated. NOTE: playtest-gated in the handoff but executed autonomously (cannot playtest a P2P game); 8/14 is the user's explicit value. Full Playwright gating lane deferred to batch-end (S76 pattern). Token ~196000/1M (~19.6% GREEN; true-up at batch-end).",
-      "checkpoint_commit": "dd05c85",
-      "real_context_tokens_at_close": 196000,
-      "real_context_pct_at_close": 19.6,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const RAINBOW_SPAWN_MIN_SPARKS = _RAINBOW_TEST_CADENCE ?? 8;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const RAINBOW_SPAWN_MAX_SPARKS = _RAINBOW_TEST_CADENCE ?? 14;"
-        }
-      ]
-    },
-    {
-      "id": "P2",
-      "label": "S77 P2 (Standard) — GLOBAL-REACH ENTITIES FOG-EXEMPT. main.ts: new aboveFogLayer Container added to stage AFTER the FogRenderer (above fog+memory, below hint); pass as `parent` arg to potato/rainbow/hunter/creature renderers. Each of the 4 renderers gains `parent: Container = app.stage` + parent.addChild(displayObject). Vision math UNCHANGED (own units still reveal the board; enemy entities show as bare sprites only). Bomb EXCLUDED (single-owner). Effects deferred. e2e/fog.spec.ts dual-pixel assert (entity visible AND adjacent enemy structure still fog-black) + layer-membership unit asserts in existing renderer tests. NO protocol bump (all entities already snapshot-replicated). Council R1 + PRIME-AUDIT done.",
+      "label": "S78 P1 — playtest bug-fix batch (game length + random explosions + seagull speed). (1) constants.ts SCORE_INCOME_PER_COMPLEXITY_PER_SEC 0.15->0.05. (2) FREE-potato harmless dissipate: new DissipatePotatoAction + applyDissipatePotato (mirror applyDissipateBomb), wired into world.ts + KNOWN_GAME_ACTION_TYPES Record + main.ts potato poll (state==='FREE' -> DISSIPATE_POTATO else POTATO_DETONATE); potato.spec.ts test renamed. (3) constants.ts SEAGULL_SPEED 4.5->3.15. NO protocol bump.",
       "status": "completed",
       "phase": "ACT",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "council_waived": false,
-      "pdr_doc": ".claude/plans/2026-06-09_PDR_S77_fog-exempt-global-reach.md",
+      "council_waived": true,
       "check_completed": true,
-      "check_method": "S77 P2 (global-reach fog-exempt; Standard) SHIPPED b986831. main.ts: new aboveFogLayer Container (eventMode none) created before the 4 global-reach renderers + passed as their `parent`; app.stage.addChild(aboveFogLayer) staged AFTER FogRenderer (above fog container + memory ghosts) but BEFORE the HUD. potato/rainbow/hunter/creature renderers gained `parent: Container = app.stage` + parent.addChild(...) (backward-compatible default). Bomb EXCLUDED (audit: bombLifecycle.ts severs only the picker's OWN bonds => fails the 'can-affect-all' rule). Vision math UNCHANGED (vision.ts untouched) -> own-unit board reveal preserved; enemy global-reach entities show as bare sprites only (no terrain leak). NO protocol bump (netSnapshot already serializes ALL primitives/creatures/hunters/potatoes/rainbows to every peer; fog is purely a client-side overlay). COUNCIL R1 (Claude+Grok-fast DISRUPTOR + Gemini-2.5-pro AUDITOR) + PRIME-AUDIT: bomb-exclusion unanimous; Voltkin info-leak escalated -> user INCLUDED it by listing it (option A); effects-deferral upheld (own primitives are vision beacons -> owner always sees own structure destroyed; no 'invisible death'); mechanism kept over Grok's zIndex/sortableChildren alt (matches the existing memoryLayer precedent; sortableChildren adds a per-frame full-stage sort this codebase's SW-WebGL perf doctrine avoids). PRIME-AUDIT correction: council's 'layer-membership UNIT test' superseded by the codebase doctrine (renderer classes are DOM-gated, verified in browser smoke, NOT vitest) -> proof moved to the e2e. GATES: tsc -b EXIT 0; vitest 1142 pass (backward-compatible param, zero regression); e2e/fog.spec.ts 6 pass (incl. NEW S77 P2 test: z-order aboveIdx>fogIdx + aboveFogLayer.children===4 + dual-pixel — potato brown shows on the composited stage [r>90, r>b] while the board 160px away is fog-black [r<20] and the mask stays opaque at the potato [a>245] = visible-through-fog with ZERO board reveal). Full Playwright gating lane + build-size charter deferred to batch-end. CVD/owner-ID logged as carry-forward (backlog #3). Token ~225000/1M (~22.5% GREEN).",
-      "checkpoint_commit": "b986831",
-      "real_context_tokens_at_close": 225000,
-      "real_context_pct_at_close": 22.5,
+      "check_method": "S78 P1 (3-fix playtest batch) SHIPPED baa33f2 (pushed; CI E2E run 27228104021 + Deploy 27228104376 IN-FLIGHT at close -> confirm green next boot per Rule 22; high confidence: local gates green + changes are e2e-low-risk). FIX 1 game-length: SCORE_INCOME_PER_COMPLEXITY_PER_SEC 0.15->0.05 in constants.ts (3x slower accrual; root cause = the S76 P3 income model accrues score DURING the build-up so WIN=50 is hit mid-ramp -> ~2min games + 'ticking too fast'; verified tickScoring runs ONCE per tick at main.ts:570 NOT per-substep, and computeComplexity has no double-count -> pure balance, not a code bug). WIN stays 50 so HUD/SCORE_TIER/hunter-trigger/all tests are untouched (zero ripple). FIX 2 random explosions: root-caused to the FREE-potato auto-detonate -- main.ts potato poll dispatched POTATO_DETONATE for ANY potato at tick>=detonateAtTick, and makePotato sets detonateAtTick=spawnedAtTick+POTATO_FUSE_TICKS (23s from-spawn, Fork E), so a never-picked-up potato exploded in the spawn-zone centre every spawn cycle, deleting central structures. FIX = new DissipatePotatoAction + applyDissipatePotato (bare world.potatoes.delete, mirrors applyDissipateBomb) in potatoLifecycle.ts; wired into world.ts (import + GameAction union + dispatch case) + protocol.ts KNOWN_GAME_ACTION_TYPES_RECORD (exhaustive Record<GameAction['type']> -> tsc REQUIRES the key); main.ts poll now dispatches DISSIPATE_POTATO when state==='FREE' at fuse-time, else POTATO_DETONATE (CARRIED cooked-off-in-hand + ARMED planted still detonate -> hot-potato intact). FIX 3 seagull: SEAGULL_SPEED 4.5->3.15 (-30%; consumed only in spawner.ts vx; tests reference the symbol -> no drift). GATES: tsc -b 0 errors; vitest 1149/1149 pass (60 files; unchanged count -- the e2e potato auto-dissipate test [potato.spec.ts, count===0] covers the new wiring, reducer is a trivial mirror of the already-covered applyDissipateBomb); vite build 543.36KB main (<550 charter, +0.18KB vs S77). No new unit test added (coverage via the existing e2e + the mirrored-reducer rationale). CI e2e NOT broken: potato.spec auto-detonate test asserts only count===0 (dissipate deletes the potato identically) + no page errors; fog.spec aboveFogLayer children===6 untouched; no protocol bump -> no mismatch-literal drift. Token 271969/1M (27.2% GREEN).",
+      "checkpoint_commit": "baa33f2",
+      "real_context_tokens_at_close": 271969,
+      "real_context_pct_at_close": 27.2,
       "verification": [
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "const aboveFogLayer = new Container();"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "app.stage.addChild(aboveFogLayer);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/potatoRenderer.ts",
-          "needle": "constructor(app: Application, parent: Container = app.stage)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/fog.spec.ts",
-          "needle": "renders THROUGH the fog"
-        }
-      ]
-    },
-    {
-      "id": "P3",
-      "label": "S77 P3 (Full) — NEW SEAGULL HAZARD. Host-authoritative seagull entity (world.seagulls) flies horizontally across the top ~every 2min (spawn cadence like hunter); drops poop projectiles (world.poops) every few px while flying (own seeded rng stream). Poop collision: vs a player's primitive => that player's income generation halts (scoring.ts reads a 'fouled' flag) until cleaned; vs a free/carried spark => spark 'poopy' debuff = 2x-slower for ~15s then auto-clears. Cleaning = host-detected avatar/spark proximity over the poop (no new client intent => candidate for no-bump, but a global income-affecting hazard => PROPOSE protocol bump v6->v7 like the rainbow; Council to decide). Rendering must be epic/funny/real (animated seagull, arcing poop, fouled-structure + poopy-spark visuals). Net: additive seagulls[]/poops[] snapshot fields + fouled-flag. Tests: unit (spawn/move/poop-collision/income-halt/clean/spark-slow/auto-clear/determinism) + e2e. Council R1+R2 (Full) PENDING.",
-      "status": "completed",
-      "phase": "ACT",
-      "tier": "Full",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "council_waived": false,
-      "pdr_doc": ".claude/plans/2026-06-09_PDR_S77_P3_seagull.md",
-      "check_completed": true,
-      "check_method": "S77 P3 (NEW seagull hazard; FULL) SHIPPED b9aff10 (pushed; Deploy CI green, E2E 2-browser in-flight -> confirm next boot per Rule 22). A seagull flies across the top ~every 2min (spawner cadence on a 5th seeded stream seagullRng, xor 0x5a4e28b8 -> spark/bomb/potato/rainbow byte-identical) dropping poop on a FIXED interval (no rng). Poop-on-structure FOULS the hit prim's whole connected COMPONENT (BFS) -> computeComplexity skips fouled prims so that structure earns 0 income until cleaned (any avatar within POOP_CLEAN_RADIUS -> host-detected CLEAN_POOP, no client intent); poop-on-free-spark sets poopyUntilTick=+15s + impulse-halves velocity, and controls.ts halves the carry-follow rate while poopy (the meaningful slow; verlet CORE untouched -> avoids the implicit-velocity decay trap). NEW state/seagulls/{seagull.ts,seagullLifecycle.ts}; world.seagulls/poops Maps + fouledPrimitives Set + GameAction (SPAWN_SEAGULL/SEAGULL_TICK/POOP_TICK/CLEAN_POOP) + dispatch + teardown (WIN/RETURN_TO_TITLE/START_GAME); spawner 5th stream; physicsLoop SPAWN_SEAGULL dispatch (gated SEAGULL_MAX_ACTIVE); main.ts sim block (SEAGULL_TICK+POOP_TICK fan-out + clean/orphan sweep) + seagull/poop renderers into aboveFogLayer (global-reach => through-fog) + sync. Net: additive seagulls[]/poops[]/fouledPrimitives + spark poopy flag; PROTOCOL 6->7 (HelloMsg literal + tripwire cast bumped; the global income-affecting foul would confuse a stale v6 peer -> hard-rejected at HELLO, rainbow precedent). RENDER: flapping gull + shadow + bob; teardrop poop + procedural multi-blob splat + drips + landing pop; poopy-spark brown tint. Council R1+R2 (Claude+Grok+Gemini-2.5-pro) + PRIME-AUDIT: income scoped to STRUCTURE not whole-player (both flagged too-harsh); poopy-slow on carry path (Grok substep-variation refuted: substeps LOCKED at 8); any-player cleaning (disconnect-safe, Gemini); edge cases wired (orphan-splat sweep when the anchor prim is destroyed; component-clean clears all). GATES: tsc -b 0; vitest 1149 pass (+7: 6 seagull units [spawn/flight/drop/foul->income-halt->clean/spark-slow/teardown] + 1 save round-trip DIFFERENTIAL guard); build 543.18KB main (<550 charter; +8.8KB vs S76); seagull e2e green (real host-loop: gull drops poop + a poop fouls a structure, NO page errors -> renderers run live); full Playwright gating lane GREEN after fixing 3 self-inflicted test-drifts (fog aboveFogLayer 4->6 children; smoke protocol-mismatch v6->v7 local + v7->v8 newer-peer). VISUAL: renderers verified no-crash via e2e + zero console errors; preview SCREENSHOT tool timed out twice (WebGL-capture hiccup, not a bug) -> user to visually playtest the gull/splat feel + tune. Token ~622000/1M (62.2% YELLOW).",
-      "checkpoint_commit": "b9aff10",
-      "real_context_tokens_at_close": 622000,
-      "real_context_pct_at_close": 62.2,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagullLifecycle.ts",
-          "needle": "export function applySeagullTick"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagull.ts",
-          "needle": "export interface Seagull"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const SCORE_INCOME_PER_COMPLEXITY_PER_SEC = 0.05;"
         },
         {
           "type": "file_contains",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const SEAGULL_SPAWN_MIN_SPARKS"
+          "needle": "export const SEAGULL_SPEED = 3.15;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/potatoLifecycle.ts",
+          "needle": "export function applyDissipatePotato"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "type: 'DISSIPATE_POTATO'"
         },
         {
           "type": "file_contains",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 7 as const;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/scoring.ts",
-          "needle": "world.fouledPrimitives.has(prim.id)"
+          "needle": "DISSIPATE_POTATO: true,"
         }
-      ],
-      "council_battle_ledger": "S77 P3 (seagull) Council R1+R2 (Claude+Grok-fast+Gemini-2.5-pro) + PRIME-AUDIT. CONVERGED: protocol BUMP v6->v7 (rainbow precedent; the bump gates stale peers at HELLO = mitigation for the income-state desync). SYNTHESES: income-halt scoped to the fouled prim's CONNECTED COMPONENT ('the whole structure stops' literally) via computeComplexity skip-fouled-prims (local/deterministic, tunable, NOT a whole-economy halt — addresses both models' too-harsh flag while honoring the user's explicit ask); poopy-slow at the CARRY-FOLLOW path (free sparks settle) with verlet CORE UNTOUCHED (Grok substep-variation risk refuted: substeps LOCKED at 8); cleaning by ANY player avatar proximity (disconnect-safe, Gemini). EDGE CASES wired (prim-deletion purges fouledPrimitives + deletes orphaned splat; component-clean clears all; carry+absolute-timer). DETERMINISM: fixed-interval poop drops (no rng), dedicated seagullRng (shared-stream REJECTED), sorted-id first-hit, sim-linear + render-side sine-bob. REJECTED: generic HAZARD_TICK action (consistency w/ 4 hazards), per-substep velocity multiply (verlet decay trap). JUICE (Gemini): shadow telegraph + flapping squash/stretch + ScreenShake on splat + procedural multi-circle splat + starburst + drips + caw/plop SFX."
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
-    "P1 #rainbow-rarity #micro #playtest-gated-executed-autonomously: shipped dd05c85. RAINBOW_SPAWN_MIN/MAX_SPARKS 15/28->8/14 (S76 had just moved 35/60->15/28). DEFINING MOVE: the handoff gated this on a live playtest ('if still ~1/game, halve to 8/14'), but under an autonomous mandate I CANNOT playtest a P2P multiplayer game -- so I executed the user's PRE-SANCTIONED fallback value (8/14) rather than stalling the priority, reasoning from the spawn math (0.15 spark/s => 8-14 sparks = ~53-93s to first rainbow = ~2x the S76 cadence = the literal '2x more common' ask). Logged the no-playtest decision explicitly. LESSON: when a user-listed priority is gated on an action only THEY can take (playtest) but they've also handed you autonomy + a pre-approved fallback, take the fallback and flag it -- do not leave the priority unfinished waiting on an impossible-for-the-agent step.",
-    "P2 #fog-exempt #render-zorder #standard #council-prime-audit #audit-corrected-the-ask: shipped b986831. Made global-reach hazards (potato/rainbow/hunter/Voltkin) render THROUGH the fog to all players. DEFINING MOVES: (1) the reach AUDIT corrected the user's literal candidate list -- the pickup-bomb severs only the PICKER's own bonds (bombLifecycle.ts:104) so by the user's OWN rule ('visible-to-all iff can-affect-all') it is EXCLUDED, not included; logged as 1-line-reversible. (2) Discovered the fog is a single full-screen OVERLAY that hides by PAINTING OVER (not culling) + the netSnapshot ALREADY replicates every entity to every peer => the whole feature is a CLIENT-SIDE Z-ORDER change, NO protocol bump -- this de-risked it from Full to Standard. (3) Reused the EXISTING memoryLayer precedent (a plain Container addChild'd after the fog) rather than Grok's zIndex/sortableChildren alt (which adds a per-frame full-stage sort the SW-WebGL perf doctrine avoids). (4) PRIME-AUDIT caught that the council's 'layer-membership UNIT test' fights the codebase doctrine (renderers are DOM-gated, browser-smoke-only) -> moved the proof to an e2e dual-pixel assertion (entity brown shows on the composited stage; board beside it stays fog-black; mask opaque at the entity = visible WITHOUT a board reveal). (5) kept vision.ts untouched so the scouting asymmetry (own units reveal the board; enemies show as bare sprites) is preserved. LESSON: when a user hands you a literal list AND the governing rule, AUDIT each item against the rule and correct the list with evidence (flagging the deviation) rather than rubber-stamping the enumeration; and verify the actual ARCHITECTURE (overlay-paints-over + snapshot-replicates-all) before sizing -- it collapsed a 'Full render+net' fear into a 6-file z-order change. Gates: tsc0 / vitest1142 / fog-e2e 6 pass.",
-    "P3 #seagull #new-hazard #full #council-scoped-the-ask #verlet-decay-trap #mirror-the-pattern: shipped b9aff10. A whole NEW recurring hazard (seagull flies across the top dropping poop; poop-on-structure HALTS that structure's income until cleaned; poop-on-spark = 2x-slow 15s). DEFINING MOVES: (1) MIRRORED the 4 existing hazards end-to-end (hunter/potato/rainbow) — entity+lifecycle leaf modules, a dedicated 5th seeded rng stream so the prior 4 hazards stay byte-identical, additive snapshot fields, teardown in all 3 exit paths, the spawner-cadence->out-array->physicsLoop-dispatch + the main.ts per-tick fan-out. An integration-map subagent + verifying every wiring site myself (Rule 21) made a 16-file Full feature land with tsc green on the 2nd try (only the intended protocol-version tripwire fired). (2) the income-halt: the user said 'the WHOLE structure stops' — Council (both models) flagged whole-PLAYER halt as too harsh; SYNTHESIS = foul the hit prim's connected COMPONENT (a 'structure' IS a component) via computeComplexity skip-fouled-prims -> literal 'whole structure' + local/deterministic + tunable, honoring the ask without the whole-economy halt. (3) the poopy-slow: recognised the Verlet implicit-velocity DECAY TRAP (per-substep scaling exponentially freezes a spark) -> applied a one-time impulse-halve + a carry-follow rate scale (controls.ts), verlet CORE untouched; refuted Grok's 'substep-variation' risk with the LOCKED-8-substeps invariant. (4) PROTOCOL 6->7 even with NO new client intent (cleaning is host-detected) — the global income-affecting foul would confuse a stale peer (rainbow precedent), so gate at HELLO. (5) the gating lane caught 3 SELF-INFLICTED test-drifts (aboveFogLayer 4->6 children from adding the gull/poop renderers; the v6->v7 + v7->v8 protocol-mismatch literals) — fixed as routine bump-maintenance. LESSON: for a big new feature, MIRROR the closest proven pattern exhaustively (map every integration site first); when the user's literal ask and the Council's balance concern conflict, find the scoping that satisfies BOTH (component, not whole-player); and know the engine's traps (Verlet velocity is implicit -> never scale it per-substep). Gates: tsc0 / vitest1149 / build543.18KB / seagull-e2e + full gating lane green. PROTOCOL 6->7."
+    "P1 #playtest-fixes #root-cause-before-fix #minimal-risk-lever #user-time-pressure: SHIPPED baa33f2. Three user-reported playtest bugs from the un-playtested S76/S77 batch. DEFINING MOVES: (1) ROOT-CAUSED each before touching code -- 'random explosions' = the FREE-potato auto-detonate (the Fork-E from-spawn fuse fires for ANY potato in the main.ts poll, so a never-picked-up potato blows up in the spawn-zone centre ~every cycle, deleting central structures); 'game over in 2min/ticks too fast' = the S76 complexity-income model accrues DURING the build-up so WIN=50 is crossed mid-ramp (and I VERIFIED tickScoring runs once-per-tick not per-substep + complexity has no double-count -> it's balance, not a bug). (2) chose the MINIMAL-RISK lever for each: rate-only cut 0.15->0.05 keeping WIN=50 (zero HUD/test/trigger ripple) over the audit's bigger win-score+tier rework (deferred as the next lever if 0.05 still feels short); a FREE potato DISSIPATES harmlessly (mirror applyDissipateBomb) rather than re-architecting the fuse -> kills the random blast while keeping hot-potato (CARRIED/ARMED still detonate); seagull one-constant -30%. (3) caught that GameAction's KNOWN_GAME_ACTION_TYPES_RECORD is an EXHAUSTIVE Record<GameAction['type']> so adding the union member REQUIRED the DISSIPATE_POTATO key or tsc fails -- verified every wiring site before building (tsc 0 / vitest 1149 / build 543.36KB first try). PROCESS LESSON: the 3-agent parallel deep-read audit was thorough (found the fouledPrimitives-leak + client sender-auth HIGHs) but cost ~48min/3x100K+ tokens and the user pushed back hard on the time -- for a 'find + fix these bugs' ask under time pressure, lead with direct root-cause reads of the NAMED symptoms (I had both headline bugs nailed from my own reads BEFORE the agents returned) and TIME-BOX or skip the broad fan-out unless the user asks for exhaustiveness; the user's 'run all fixes' is an explicit unlock -> execute, don't over-ceremony. Carried the audit's other findings (2 HIGH, 4 MEDIUM) to next session per the user's 'continue next session'. Gates: tsc0 / vitest1149 / build543.36KB; CI in-flight at close (e2e-low-risk; confirm next boot)."
   ],
-  "pdr_doc": ".claude/plans/2026-06-09_PDR_S77_fog-exempt-global-reach.md",
   "budget_total": 1000000,
-  "totals": {
-    "turns": 0,
-    "budget_remaining": 1000000,
-    "budget_status": "statusline_dead"
-  },
-  "carry_forward": "=== S77 IN-PROGRESS (USER-APPROVED BATCH + AUTONOMOUS, 2026-06-09) === P1 rainbow 8/14 (Micro) · P2 fog-exempt global-reach (Standard, Council'd) · P3 NEW seagull hazard (Full, Council pending). === DECISIONS LOGGED === (a) P2 BOMB EXCLUDED from fog-exempt despite the user's literal list — the audit shows the pickup-bomb severs ONLY the picker's own bonds (bombLifecycle.ts:104) => fails the user's own 'visible-to-all iff can-affect-all' rule. 1-line reversible if the user wants every hazard visible. (b) P2 VOLTKIN INCLUDED (option A, always-visible) per the user's explicit exempt-set list; Council flagged it removes enemy-creature stealth (a real balance change) — user accepted by listing it. (c) P2 CVD/owner-ID is pre-existing project-wide (ownership=colour everywhere) -> tracked as backlog #3 (EYES fog/CVD shape-icons); this PDR raises its value (enemy Voltkin now visible). (d) P3 seagull cleaning = host-detected proximity (deterministic, no new client intent); protocol bump v6->v7 proposed (global income-affecting hazard, rainbow precedent) — Council to confirm. (e) P1 executed without a playtest (cannot play a P2P game) at the user's pre-sanctioned 8/14. === PRE-EXISTING BACKLOG (forward) === #2 control-message sender-auth (security; now MORE relevant — spoofed v6/v7 TRIGGER_* grief vector) · #3 EYES fog fuzzy-edge + CVD shape-icons (render/a11y; ties to P2) · #4 live-play netcode infra (host-migration/reconnect/6p delta; multi-session; home for spawner-rng-serialization). === DEFERRED PLAN === re-validate + gate the S69 P2 lobby seat-UX visual refactor (archived .claude/plans-archive/2026-06-06_PDR_S69_P2_lobby-seat-ux_P2-SHIPPED_P3-carried.md). === RULE 22 === CI E2E + Deploy CONFIRMED GREEN on 16023ae (S76 P3) this boot (runs 27208353110 E2E + 27208352813 Deploy).",
-  "session_status": "S77 COMPLETE — all 3 user-approved priorities shipped + pushed (P1 dd05c85 rainbow 8/14 Micro; P2 b986831 fog-exempt global-reach Standard; P3 b9aff10 NEW seagull hazard Full, PROTOCOL 6->7). Council (P2 R1 + P3 R1+R2) + PRIME-AUDIT. Gates: tsc0 / vitest1149 / build543.18KB (<550) / Playwright gating lane green (incl. NEW seagull + fog-exempt e2e). Deploy CI green on b9aff10; E2E 2-browser IN-FLIGHT -> confirm next boot (Rule 22). Token ~622000/1M (62.2% YELLOW). NEXT: /handoff. User to PLAYTEST: rainbow frequency (8/14), seagull feel/visual + tune (SEAGULL_* / POOP_* constants), income-halt severity (component-scoped, 1-line tunable to single-prim or whole-player).",
-  "real_context_tokens_at_close": 622000,
-  "real_context_pct_at_close": 62.2
+  "carry_forward": "=== S78 SHIPPED baa33f2 (USER EXPLICIT GO 'run all fixes') === P1 batch: income 0.15->0.05 (3x longer games), FREE-potato harmless-dissipate (no more random center blasts), seagull 4.5->3.15 (-30%). NO protocol bump. CI E2E 27228104021 + Deploy 27228104376 in-flight at close -> confirm green next boot (Rule 22). === USER WILL PLAYTEST NEXT === then decide if more audits are needed. Tunables if game STILL too short: raise PHASE_1_WIN_SCORE 50->~150 + SCORE_TIER_STEP 15->~50 (audit rec ~5-7min; HUNTER_TRIGGER_SCORE auto-scales). If seagull still feels off: SEAGULL_SPEED (3.15) / SEAGULL_SPAWN_MIN/MAX_SPARKS (15/24 ~every 2min). === AUDIT FINDINGS CARRIED FORWARD (next session) === [HIGH] fouledPrimitives leaks stale ids on sever/bomb/potato destroy paths (only CLEAN_POOP deletes) -> add world.fouledPrimitives.delete(primId) at disruptionManager.ts:165 + potatoLifecycle.ts:187; ALSO an un-cleanable degenerate state when a fouled structure is severed off its splat-anchor (income stuck at 0 forever). [HIGH] client-side sender-auth: clientHandlers.ts trusts ANY peer's GODLY_TRIGGER / NETSNAPSHOT / START_GAME_SIGNAL / ENDGAME (ignores the peerId already plumbed through MessageHandler) -> 1-line host-peerId gate closes backlog #2 client-side; a spoofed high snapshotSeq can permanently WEDGE a victim. [MEDIUM] spawner nextId + 5 RNG streams NOT serialized -> restore() can't resume spawning (latent; restore is test-only today). [MEDIUM] 3+ player client that loses ONLY the host sits in limbo (peerCount>0 so no connection-lost overlay; no host-migration). [MEDIUM] CREATURE_CHARGE not drain-filtered in effectsRenderer.ts:64 despite the lifetime.ts contract -> inflates activeCount; add the skip + a default/assertNever to the draw switch. [MEDIUM] worldTypes.ts:189-197 says fouledPrimitives 'NOT serialized' but save.ts DOES (doc stale, code correct). [LOW] gameState.ts:7-8 stale win-condition docstring; addScore JSDoc stale; protocol DEV override 'as 7' cast rots on next bump; softReset omits fouledPrimitives/hazard Maps (inert, void-suppressed). === PRE-EXISTING BACKLOG === #2 control-message sender-auth (now PARTIALLY mapped above) · #3 EYES fog fuzzy-edge + CVD shape-icons · #4 live-play netcode infra. === DEFERRED PLAN === S69 P2 lobby seat-UX visual refactor.",
+  "session_status": "S78 COMPLETE — P1 (3-fix playtest batch) SHIPPED + pushed baa33f2 (income 0.15->0.05; FREE-potato harmless dissipate; seagull 4.5->3.15). Gates: tsc0 / vitest1149 / build543.36KB (<550). NO protocol bump. CI E2E 27228104021 + Deploy 27228104376 in-flight at close (e2e-low-risk -> confirm next boot, Rule 22). Token 271969/1M (27.2% GREEN). NEXT: /handoff, then USER PLAYTESTS + decides on more audits. Audit's other findings (2 HIGH + 4 MEDIUM) carried forward."
 }
