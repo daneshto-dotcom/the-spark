@@ -535,13 +535,16 @@ function readTestRainbowSpawnSparks(): number | null {
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : null;
 }
 const _RAINBOW_TEST_CADENCE = readTestRainbowSpawnSparks();
-// Still the rarest hazard (potato 10-18, bomb 8-15), but S76 P2 made it MORE common on live
-// feedback ("we didn't even see the rainbow this game"): one rainbow every 15-28 sparks in
-// production (was 35-60 -> at the 0.15 spark/s base rate that's the FIRST rainbow only ~4-7 min
-// in, longer than a typical match; 15-28 brings it to ~1.5-3 min in, so a match actually sees
-// one). Tunable: raise back toward 35-60 for rarer, or toward the potato band for near-every-match.
-export const RAINBOW_SPAWN_MIN_SPARKS = _RAINBOW_TEST_CADENCE ?? 15;
-export const RAINBOW_SPAWN_MAX_SPARKS = _RAINBOW_TEST_CADENCE ?? 28;
+// Rainbow spawn cadence (sparks-between-rainbows). VERSION HISTORY (each tune is a live-feedback
+// dial; at the 0.15 spark/s base rate, N sparks => ~N*6.7s to the FIRST rainbow):
+//   pre-S76  35-60  -> ~4-7 min   (FIRST rainbow longer than a typical match; "never saw it")
+//   S76 P2   15-28  -> ~1.5-3 min (a match sees one; still strictly rarer than potato 10-18)
+//   S77 P1    8-14  -> ~53-93 s   (~2x MORE frequent than S76 per the user's "2x more common" ask;
+//                                  now OVERLAPS the potato band 10-18 so it is no longer strictly
+//                                  the rarest hazard -- accepted per user intent "more chaos").
+// Tunable: raise back toward 15-28/35-60 for rarer, or lower toward 5-10 for near-every-match.
+export const RAINBOW_SPAWN_MIN_SPARKS = _RAINBOW_TEST_CADENCE ?? 8;
+export const RAINBOW_SPAWN_MAX_SPARKS = _RAINBOW_TEST_CADENCE ?? 14;
 export const RAINBOW_TTL_TICKS = 20 * PHYSICS_HZ; // 1200 ticks = 20s linger before a harmless dissipate
 export const RAINBOW_MAX_ACTIVE = 1;
 export const RAINBOW_RADIUS = 28; // visual + pick radius (a chunky, clearly-clickable arc)
