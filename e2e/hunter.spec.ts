@@ -87,8 +87,20 @@ test.describe('S72 P2 — Pac-Man hunter (solo, gating)', () => {
     await page.mouse.click(solo.x, solo.y);
     await waitForWorld(page, (w) => w.gameState === 'PLAYING' && w.gameMode === 'solo', 'PLAYING (solo)');
 
-    // Place one primitive outside the spawner zone → score >= 1 → hunter trigger.
+    // Place one primitive outside the spawner zone (exercises the place wiring + gives P0 complexity).
     await placeFreeSparkAndConfirm(page, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 360);
+
+    // S78 — the income rate was cut 3x (0.15->0.05) for game-length tuning, which tripled the SIM-time
+    // for natural accrual to cross the trigger (complexity-1 → score 1 is now ~20s sim, far worse under
+    // the CI sim-clock slowdown) and blew the 15s spawn-wait. This test covers the trigger WIRING, not
+    // the income RATE (the income→threshold mechanic is unit-tested in scoring.test.ts), so inject the
+    // host score over the trigger directly — mirrors the S76 win-pipeline e2e __SPARK__ score-injection
+    // — making the spawn robust to ANY future income/win-score tuning.
+    await page.evaluate(() => {
+      const w = (window as unknown as { __SPARK__: { world: { scoreByPlayer: Map<number, number> } } })
+        .__SPARK__.world;
+      w.scoreByPlayer.set(0, 5); // > __TEST_HUNTER_TRIGGER_SCORE__ (1), << __TEST_WIN_SCORE__ (999)
+    });
 
     // (a) main.ts 75% trigger fires once → exactly one hunter, SEEKING, targeting P0.
     await waitForHunter(page, (h) => h.count === 1, 'hunter spawned');
