@@ -50,14 +50,20 @@ export type { NetSnapshot };
 // shuffle). A stale v5 peer would desync on the global player/prim colour remap (+ the new
 // rainbows[] snapshot field), so it is hard-rejected at the HELLO handshake — same lockstep
 // as the S71 TRIGGER_BOMB bump.
-export const PROTOCOL_VERSION = 6 as const;
+// S77 P3 — bumped 6→7: the new SEAGULL hazard. Its actions are HOST-INTERNAL (no new client
+// intent — cleaning is host-detected avatar proximity), so by the hunter/potato precedent it
+// COULD be no-bump; but it is a GLOBAL income-affecting hazard (a poop fouls a structure →
+// that structure's income halts; a free spark is slowed) whose effects would be invisible/
+// confusing to a stale v6 peer (which can't render seagulls/poops or understand the foul).
+// Council CONVERGED on the rainbow precedent: bump so a stale peer is hard-rejected at HELLO.
+export const PROTOCOL_VERSION = 7 as const;
 
 export interface HelloMsg {
   readonly kind: 'HELLO';
   readonly playerId: PlayerId;
   readonly color: number;
-  /** Protocol version — bumped on wire-incompatible changes. S75: 5→6. */
-  readonly protoVersion: 6;
+  /** Protocol version — bumped on wire-incompatible changes. S75: 5→6; S77 P3: 6→7 (seagull). */
+  readonly protoVersion: 7;
 }
 
 /**
@@ -113,7 +119,7 @@ export function buildHello(playerId: PlayerId, color: number): HelloMsg {
     // preserves the version-bump lockstep tsc tripwire: raising
     // PROTOCOL_VERSION without updating HelloMsg.protoVersion errors at that
     // line. (Council R1 #1 — quarantine-cast over relaxing the type to number.)
-    return { kind: 'HELLO', playerId, color, protoVersion: override as 6 };
+    return { kind: 'HELLO', playerId, color, protoVersion: override as 7 };
   }
   return { kind: 'HELLO', playerId, color, protoVersion: PROTOCOL_VERSION };
 }
@@ -316,6 +322,15 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   SPAWN_RAINBOW: true,
   TRIGGER_RAINBOW: true,
   DISSIPATE_RAINBOW: true,
+  // S77 P3 — seagull hazard. ALL FOUR are HOST-INTERNAL (host-authored + snapshot-replicated;
+  // NOT client INTENTs — cleaning is host-detected avatar proximity, see seagulls/seagullLifecycle.ts).
+  // Listed here only because this Record must mirror GameAction['type'] exhaustively; clients never
+  // originate them, so wire-allowing them is inert under the friends-only model. PROTOCOL bumped 6→7:
+  // the global income-affecting foul would confuse a stale v6 peer (see PROTOCOL_VERSION comment).
+  SPAWN_SEAGULL: true,
+  SEAGULL_TICK: true,
+  POOP_TICK: true,
+  CLEAN_POOP: true,
 };
 const KNOWN_GAME_ACTION_TYPES: ReadonlySet<string> = new Set(
   Object.keys(KNOWN_GAME_ACTION_TYPES_RECORD),

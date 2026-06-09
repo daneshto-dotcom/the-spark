@@ -16,11 +16,18 @@ import {
   ALL_SPARK_TYPES,
   BOMB_SPAWN_MAX_SPARKS,
   BOMB_SPAWN_MIN_SPARKS,
+  CANVAS_WIDTH,
   PHYSICS_HZ,
   POTATO_SPAWN_MAX_SPARKS,
   POTATO_SPAWN_MIN_SPARKS,
   RAINBOW_SPAWN_MAX_SPARKS,
   RAINBOW_SPAWN_MIN_SPARKS,
+  SEAGULL_RADIUS,
+  SEAGULL_SPAWN_MAX_SPARKS,
+  SEAGULL_SPAWN_MIN_SPARKS,
+  SEAGULL_SPEED,
+  SEAGULL_Y_MAX,
+  SEAGULL_Y_MIN,
   SPAWN_RATE_PER_SECOND,
   SPAWNER_BOUNCE_DAMPING,
   SPAWNER_CENTER_X,
@@ -81,6 +88,16 @@ export interface RainbowSpawnRequest {
   readonly pos: Vec2;
 }
 
+/**
+ * S77 P3 — a host-only request to mint a seagull at an edge `pos` flying with horizontal `vx`.
+ * Pushed into the `seagullsOut` array passed to tick(); physicsLoop dispatches SPAWN_SEAGULL for
+ * each (gated on SEAGULL_MAX_ACTIVE). Mirrors the other hazards — the cap lives at the dispatch site.
+ */
+export interface SeagullSpawnRequest {
+  readonly pos: Vec2;
+  readonly vx: number;
+}
+
 export class Spawner {
   private nextId = 0;
   private secondsUntilNextSpawn: number;
@@ -104,6 +121,13 @@ export class Spawner {
    * — so adding rainbows leaves ALL THREE prior sequences byte-identical. Infinity when disabled.
    */
   private sparksUntilRainbow: number;
+  /**
+   * S77 P3 — sparks remaining until the next seagull (counts SPARKS SPAWNED). Drawn from
+   * `seagullRng` — a FIFTH seeded stream separate from spark `rng`, `bombRng`, `potatoRng` AND
+   * `rainbowRng` — so adding seagulls leaves ALL FOUR prior sequences byte-identical. Infinity
+   * when disabled.
+   */
+  private sparksUntilSeagull: number;
 
   constructor(
     private readonly cfg: SpawnerConfig,
@@ -114,11 +138,14 @@ export class Spawner {
     private readonly potatoRng: Rng | null = null,
     /** Separate seeded stream for rainbow cadence + position. null → rainbows disabled. */
     private readonly rainbowRng: Rng | null = null,
+    /** S77 P3 — separate seeded stream for seagull cadence + edge/dir. null → seagulls disabled. */
+    private readonly seagullRng: Rng | null = null,
   ) {
     this.secondsUntilNextSpawn = this.sampleInterarrival();
     this.sparksUntilBomb = this.sampleBombCountdown();
     this.sparksUntilPotato = this.samplePotatoCountdown();
     this.sparksUntilRainbow = this.sampleRainbowCountdown();
+    this.sparksUntilSeagull = this.sampleSeagullCountdown();
   }
 
   /**
@@ -132,6 +159,7 @@ export class Spawner {
     bombsOut?: BombSpawnRequest[],
     potatoesOut?: PotatoSpawnRequest[],
     rainbowsOut?: RainbowSpawnRequest[],
+    seagullsOut?: SeagullSpawnRequest[],
   ): number {
     let n = 0;
     this.secondsUntilNextSpawn -= dtSec;
@@ -162,6 +190,13 @@ export class Spawner {
       if (this.rainbowRng !== null && --this.sparksUntilRainbow <= 0) {
         if (rainbowsOut !== undefined) rainbowsOut.push({ pos: this.sampleRainbowPos() });
         this.sparksUntilRainbow = this.sampleRainbowCountdown();
+      }
+      // S77 P3 — seagull cadence: one gull every SEAGULL_SPAWN_MIN..MAX sparks (~2min), on the
+      // SEPARATE seagullRng stream so the spark/bomb/potato/rainbow sequences all stay byte-identical.
+      // SEAGULL_MAX_ACTIVE is enforced at the dispatch site (skip-and-redraw here too).
+      if (this.seagullRng !== null && --this.sparksUntilSeagull <= 0) {
+        if (seagullsOut !== undefined) seagullsOut.push(this.sampleSeagullSpawn());
+        this.sparksUntilSeagull = this.sampleSeagullCountdown();
       }
     }
     return n;
@@ -244,6 +279,26 @@ export class Spawner {
       x: this.cfg.center.x + r * Math.cos(theta),
       y: this.cfg.center.y + r * Math.sin(theta),
     };
+  }
+
+  /** S77 P3 — next seagull cadence in [MIN, MAX] sparks (seagullRng; Infinity if disabled). */
+  private sampleSeagullCountdown(): number {
+    if (this.seagullRng === null) return Number.POSITIVE_INFINITY;
+    const span = SEAGULL_SPAWN_MAX_SPARKS - SEAGULL_SPAWN_MIN_SPARKS + 1;
+    return SEAGULL_SPAWN_MIN_SPARKS + Math.floor(this.seagullRng() * span);
+  }
+
+  /**
+   * S77 P3 — a seagull entry: a random edge (left/right) + a random y in the top flight band,
+   * flying toward the far side at ±SEAGULL_SPEED. Starts just off-screen so it glides in.
+   */
+  private sampleSeagullSpawn(): SeagullSpawnRequest {
+    const rng = this.seagullRng as Rng;
+    const fromLeft = rng() < 0.5;
+    const y = SEAGULL_Y_MIN + rng() * (SEAGULL_Y_MAX - SEAGULL_Y_MIN);
+    return fromLeft
+      ? { pos: { x: -SEAGULL_RADIUS, y }, vx: SEAGULL_SPEED }
+      : { pos: { x: CANVAS_WIDTH + SEAGULL_RADIUS, y }, vx: -SEAGULL_SPEED };
   }
 }
 

@@ -24,6 +24,8 @@ import { destroyShapeTextures, makeShapeTextures, type ShapeTextures } from './s
  */
 const FREE_SPARK_TINT = 0xe6e6f0;
 const FREE_SPARK_ALPHA = 0.92;
+/** S77 P3 — a seagull-pooped ("poopy") spark tints brownish-green so its 2x-slow reads visually. */
+const POOPY_SPARK_TINT = 0x9aa15c;
 
 /**
  * S45 BUG-CRITICAL-3 Sym C(a) — when a spark is in Carried state, its sprite
@@ -89,6 +91,11 @@ export class SparkRenderer {
       } else {
         sprite.tint = FREE_SPARK_TINT;
         sprite.alpha = FREE_SPARK_ALPHA;
+      }
+      // S77 P3 — a seagull-pooped spark tints brownish-green until poopyUntilTick (overrides the
+      // free/carry tint above) so the half-speed "cruiser" debuff is visible to everyone.
+      if (world !== undefined && s.poopyUntilTick !== undefined && world.tick < s.poopyUntilTick) {
+        sprite.tint = POOPY_SPARK_TINT;
       }
     }
 

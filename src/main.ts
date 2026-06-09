@@ -26,6 +26,7 @@ import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   HUNTER_TRIGGER_SCORE,
+  POOP_CLEAN_RADIUS,
   NET_INTERPOLATION_MS,
   NET_SNAPSHOT_HZ,
   PHYSICS_HZ,
@@ -90,6 +91,8 @@ import { BombRenderer } from './render/bombRenderer.ts';
 import { HunterRenderer } from './render/hunterRenderer.ts';
 import { PotatoRenderer } from './render/potatoRenderer.ts';
 import { RainbowRenderer } from './render/rainbowRenderer.ts';
+import { SeagullRenderer } from './render/seagullRenderer.ts';
+import { PoopRenderer } from './render/poopRenderer.ts';
 import { ScreenShake, shouldTriggerShakeForArcFlash } from './render/screenShake.ts';
 // S23 P2 — debug overlay (toggleable via ?debug=1 URL param). Surfaces runtime
 // gates + audio chain + chain progress for in-vivo diagnosis when offline tests
@@ -216,7 +219,17 @@ async function bootstrap(): Promise<void> {
   // S75 P3 — rainbows draw from a FOURTH seeded stream (distinct xor constant) so the spark,
   // bomb AND potato sequences all stay byte-identical (zero existing-test drift).
   const rainbowRng = mulberry32((SEED ^ 0xc2b2ae35) >>> 0);
-  const spawner = new Spawner(DEFAULT_SPAWNER_CONFIG, rng, bombRng, potatoRng, rainbowRng);
+  // S77 P3 — seagulls draw from a FIFTH seeded stream (distinct xor constant) so the spark,
+  // bomb, potato AND rainbow sequences all stay byte-identical (zero existing-test drift).
+  const seagullRng = mulberry32((SEED ^ 0x5a4e28b8) >>> 0);
+  const spawner = new Spawner(
+    DEFAULT_SPAWNER_CONFIG,
+    rng,
+    bombRng,
+    potatoRng,
+    rainbowRng,
+    seagullRng,
+  );
   const gameStateExtras = makeGameStateExtras();
 
   // ===== S15 P2 — net session state (1v1 only). S50 P2 — unified into
@@ -294,6 +307,10 @@ async function bootstrap(): Promise<void> {
   // S75 P3 — rainbow (dumb arc + tooth + bob); S77 P2 -> aboveFogLayer (global colour-shuffle,
   // visible to all so any player can find + click it). Pure Pixi vector; host + client.
   const rainbowRenderer = new RainbowRenderer(app, aboveFogLayer);
+  // S77 P3 — seagull + poop; S77 -> aboveFogLayer (a global-reach hazard — it can poop on any
+  // player — so it renders through the fog to all). Poops render above the gull's body layer.
+  const seagullRenderer = new SeagullRenderer(app, aboveFogLayer);
+  const poopRenderer = new PoopRenderer(app, aboveFogLayer);
   const effectsRenderer = new EffectsRenderer(app);
   // S30 P0e — global screen-shake instance. Triggered on Voltkin fire-tick
   // (when CREATURE_ATTACK successfully severs a bond → ARC_FLASH emitted).
@@ -729,6 +746,35 @@ async function bootstrap(): Promise<void> {
         }
       }
 
+      // S77 P3 — seagull + poop orchestration (host-only). (a) fan out SEAGULL_TICK per gull
+      // (advance + drop poop + despawn off-screen); (b) fan out POOP_TICK per poop (fall +
+      // collide + TTL); (c) CLEAN a structure-splat when its anchor prim is gone (orphan sweep)
+      // OR any avatar is within POOP_CLEAN_RADIUS (host-detected — NO client intent). Snapshot
+      // the keys first (a tick may delete from the Map mid-iteration).
+      if (world.gameState === 'PLAYING' && !isClient) {
+        for (const sid of Array.from(world.seagulls.keys())) {
+          dispatch(world, { type: 'SEAGULL_TICK', seagullId: sid });
+        }
+        for (const pid of Array.from(world.poops.keys())) {
+          dispatch(world, { type: 'POOP_TICK', poopId: pid });
+        }
+        for (const [poopId, poop] of [...world.poops]) {
+          if (poop.state !== 'SPLAT_STRUCTURE') continue;
+          if (poop.fouledPrimId === undefined || !world.primitives.has(poop.fouledPrimId)) {
+            dispatch(world, { type: 'CLEAN_POOP', poopId }); // orphan: anchor prim was destroyed
+            continue;
+          }
+          for (const player of world.players.values()) {
+            const dx = player.avatarPos.x - poop.pos.x;
+            const dy = player.avatarPos.y - poop.pos.y;
+            if (dx * dx + dy * dy <= POOP_CLEAN_RADIUS * POOP_CLEAN_RADIUS) {
+              dispatch(world, { type: 'CLEAN_POOP', poopId });
+              break;
+            }
+          }
+        }
+      }
+
       // S15 P2 — host emits NetSnapshot every SNAPSHOT_INTERVAL_TICKS
       // (60Hz / 10Hz = 6 ticks). Suppressed in TITLE/LOBBY (no snapshot
       // to send pre-game) and in solo.
@@ -1049,6 +1095,9 @@ async function bootstrap(): Promise<void> {
     potatoRenderer.sync(world);
     // S75 P3 — rainbow (dumb arc + tooth + bob), before the effects wipe.
     rainbowRenderer.sync(world);
+    // S77 P3 — seagull (flapping gull + shadow) + poop (falling/splat), before the effects wipe.
+    seagullRenderer.sync(world);
+    poopRenderer.sync(world);
     // S18 P1 — drain audio effects BEFORE effectsRenderer (which wipes
     // world.effects). Cursor-gated; replay-safe.
     drainAudioEffects(world.effects, world.tick);

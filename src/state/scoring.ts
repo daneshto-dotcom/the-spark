@@ -66,7 +66,10 @@ const MAGIC_BONUS = SCORE_MAGIC_BOND - SCORE_FUNCTIONAL_BOND; // 2 — a magic b
 export function computeComplexity(world: World, playerId: PlayerId): number {
   let primCount = 0;
   for (const prim of world.primitives.values()) {
-    if (prim.placedBy === playerId) primCount++;
+    // S77 P3 — a poop-FOULED primitive earns nothing: a seagull poop fouls the whole connected
+    // structure, so that structure's income stops until cleaned ("the whole structure stops
+    // generating income"). O(1) Set check; the set is empty in the common (un-fouled) case.
+    if (prim.placedBy === playerId && !world.fouledPrimitives.has(prim.id)) primCount++;
   }
   let magicBonds = 0;
   for (const bond of world.bonds.values()) {
@@ -77,6 +80,9 @@ export function computeComplexity(world: World, playerId: PlayerId): number {
     if (a === undefined || a.placedBy !== playerId) continue;
     const b = world.primitives.get(bond.bId);
     if (b === undefined) continue;
+    // S77 P3 — skip a fouled structure's magic bonds too (either endpoint fouled), consistent
+    // with skipping its prims above, so a poop-fouled structure earns ZERO until cleaned.
+    if (world.fouledPrimitives.has(bond.aId) || world.fouledPrimitives.has(bond.bId)) continue;
     if (lookupCombo(a.type, b.type).isMagical) magicBonds++;
   }
   return primCount * PRIM_WEIGHT + magicBonds * MAGIC_BONUS;

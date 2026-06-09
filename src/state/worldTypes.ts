@@ -20,8 +20,9 @@ import type { Creature } from './creatures/creature.ts';
 import type { Hunter } from './hunters/hunter.ts';
 import type { Potato } from './potato.ts';
 import type { Rainbow } from './rainbow.ts';
+import type { Poop, Seagull } from './seagulls/seagull.ts';
 import type { GodlyTriggerEvent } from './godlyRecipes/types.ts';
-import type { BombId, BondId, CreatureId, HunterId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId } from '../types.ts';
+import type { BombId, BondId, CreatureId, HunterId, PlayerId, PoopId, PotatoId, PrimitiveId, RainbowId, SeagullId, SparkId } from '../types.ts';
 
 /**
  * S15 P2: extended FSM. Solo path TITLE→PLAYING→WIN→POSTGAME→TITLE. 1v1
@@ -167,6 +168,33 @@ export interface World {
   rainbows: Map<RainbowId, Rainbow>;
   /** S75 P3 — monotonic rainbow id counter (host-only mint authority). */
   nextRainbowId: number;
+  /**
+   * S77 P3 — host-authoritative seagulls (SEPARATE Map, mirroring the other hazards). A
+   * RECURRING hazard: the spawner cadence mints one ~every 2 min (gated SEAGULL_MAX_ACTIVE).
+   * Flies across the top dropping poop. Additive-optional `seagulls[]` in NetSnapshot so
+   * clients render the mirror; cleared on teardown (WIN / RETURN_TO_TITLE / START_GAME).
+   */
+  seagulls: Map<SeagullId, Seagull>;
+  /** S77 P3 — monotonic seagull id counter (host-only mint authority). */
+  nextSeagullId: number;
+  /**
+   * S77 P3 — host-authoritative poop projectiles dropped by seagulls. FALLING poops check
+   * collision vs primitives (foul → world.fouledPrimitives) + free sparks (poopy slow); a
+   * SPLAT_STRUCTURE poop persists until cleaned, a SPLAT_GROUND poop until its TTL.
+   * Additive-optional `poops[]` in NetSnapshot. Cleared on teardown.
+   */
+  poops: Map<PoopId, Poop>;
+  /** S77 P3 — monotonic poop id counter (host-only mint authority). */
+  nextPoopId: number;
+  /**
+   * S77 P3 — primitives currently FOULED by seagull poop. tickScoring zeroes the income of
+   * any player owning a fouled primitive ("the whole structure stops generating income" — a
+   * poop fouls the hit prim's whole connected component). HOST-ONLY (the client reads the
+   * resulting host-authoritative scoreProgress + renders the splat from poops[]); NOT
+   * serialized. A primitive is removed from this set when its splat is cleaned OR the prim is
+   * destroyed (bomb/potato/sever). Cleared on teardown.
+   */
+  fouledPrimitives: Set<PrimitiveId>;
   /**
    * S42 — host-side counter of "shared-resource race rejected" events.
    * Increments when applyPickupSpark or placePrimitive silently no-ops

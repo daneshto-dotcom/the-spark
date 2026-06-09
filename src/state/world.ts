@@ -83,6 +83,17 @@ import {
   type SpawnHunterAction,
 } from './hunters/hunterLifecycle.ts';
 import {
+  applyCleanPoop,
+  applyPoopTick,
+  applySeagullTick,
+  applySpawnSeagull,
+  teardownSeagulls,
+  type CleanPoopAction,
+  type PoopTickAction,
+  type SeagullTickAction,
+  type SpawnSeagullAction,
+} from './seagulls/seagullLifecycle.ts';
+import {
   applyDropPotato,
   applyPickupPotato,
   applyPlacePotato,
@@ -193,6 +204,11 @@ export type GameAction =
   | SpawnHunterAction
   | HunterTickAction
   | HunterCatchAction
+  // S77 P3 — seagull hazard (host-internal; reducers in seagulls/seagullLifecycle.ts).
+  | SpawnSeagullAction
+  | SeagullTickAction
+  | PoopTickAction
+  | CleanPoopAction
   // S72 P3 — potato bomb. PICKUP/PLACE/DROP_POTATO are client INTENTs (a joiner can
   // carry + plant a potato); SPAWN_POTATO + POTATO_DETONATE are host-internal (spawner
   // cadence / fuse poll). NO PROTOCOL_VERSION bump — the S71 v4->5 covers the batch.
@@ -240,6 +256,11 @@ export function makeWorld(rngSeed: number): World {
     nextPotatoId: 0,
     rainbows: new Map(),
     nextRainbowId: 0,
+    seagulls: new Map(),
+    nextSeagullId: 0,
+    poops: new Map(),
+    nextPoopId: 0,
+    fouledPrimitives: new Set(),
     // S42 — race-condition observability (real-time 1v1) + local-player
     // convention (replaces removed currentPlayerId active-player concept).
     diagnostics: {
@@ -306,6 +327,9 @@ export function dispatch(world: World, action: GameAction): World {
       teardownBombs(world);
       // S75 P3 — and rainbows (completes the all-hazards teardown on the PLAYING->WIN edge).
       teardownRainbows(world);
+      // S77 P3 — and seagulls/poops/fouled state (so no gull/poop/foul persists onto the win
+      // screen or into the next match — a fouled prim would otherwise halt income next game).
+      teardownSeagulls(world);
       return world;
 
     case 'START_GAME':
@@ -376,6 +400,19 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'HUNTER_CATCH':
       return applyHunterCatch(world, action);
+
+    // S77 P3 — seagull hazard lifecycle (reducers in seagulls/seagullLifecycle.ts).
+    case 'SPAWN_SEAGULL':
+      return applySpawnSeagull(world, action);
+
+    case 'SEAGULL_TICK':
+      return applySeagullTick(world, action);
+
+    case 'POOP_TICK':
+      return applyPoopTick(world, action);
+
+    case 'CLEAN_POOP':
+      return applyCleanPoop(world, action);
 
     // S72 P3 — potato bomb lifecycle (reducers in potatoLifecycle.ts).
     case 'SPAWN_POTATO':

@@ -71,8 +71,8 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 6 (S75 bump from 5 — TRIGGER_RAINBOW client intent added)', () => {
-    expect(PROTOCOL_VERSION).toBe(6);
+  it('PROTOCOL_VERSION is 7 (S77 P3 bump from 6 — seagull global income-affecting hazard)', () => {
+    expect(PROTOCOL_VERSION).toBe(7);
   });
 
   it('accepts a HELLO with current protoVersion', () => {
@@ -301,7 +301,10 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
     // intent (Council Fork A) — unlike a cosmetic beacon, a stale peer must be
     // hard-rejected at the HELLO handshake rather than silently desync on bombs.
     // S75 — bumped again 5→6 for the TRIGGER_RAINBOW colour-shuffle intent (same rationale).
-    expect(PROTOCOL_VERSION).toBe(6);
+    // S77 P3 — bumped 6→7 for the SEAGULL hazard: no new client intent (cleaning is host-detected),
+    // but its global income-affecting foul would confuse a stale v6 peer, so it is hard-rejected at
+    // HELLO (the rainbow precedent — Council CONVERGED).
+    expect(PROTOCOL_VERSION).toBe(7);
     expect(
       parseNetMessage({ kind: 'SOME_FUTURE_KIND', roster: [{ seat: 0, peerId: 'h', color: 1 }] }),
     ).toBeNull();

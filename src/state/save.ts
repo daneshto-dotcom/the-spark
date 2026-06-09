@@ -41,7 +41,9 @@ import {
   type PlayerId,
   type PotatoId,
   type RainbowId,
+  type PoopId,
   type PrimitiveId,
+  type SeagullId,
   type SparkId,
   type Vec2,
 } from '../types.ts';
@@ -52,6 +54,7 @@ import type { Creature, CreatureState, CreatureType } from './creatures/creature
 import type { Hunter, HunterState } from './hunters/hunter.ts';
 import type { Potato, PotatoState } from './potato.ts';
 import type { Rainbow } from './rainbow.ts';
+import type { Poop, PoopState, Seagull } from './seagulls/seagull.ts';
 // Audit Pass 1 fix 3c8630d7 (Δ4) + Pass 2 refactor 622a7c7f: on restore,
 // world.tick may jump backward relative to the audio drain cursor. Without
 // resetting the cursor, audio effects whose tick straddles the cursor are
@@ -133,6 +136,16 @@ export interface WorldSnapshot {
    */
   rainbows?: SerializedRainbow[];
   /**
+   * S77 P3 — host-authoritative seagulls + their poop projectiles for the 1v1 client mirror +
+   * host save/load. Additive-optional; emitted only when non-empty so pre-S77 saves stay
+   * byte-identical. `fouledPrimitives` round-trips the host income-halt set so a save/load (+
+   * replay) resumes the halt exactly; the client stores it but never computes income (it reads
+   * the host-authoritative scoreProgress), so it is inert on the client path.
+   */
+  seagulls?: SerializedSeagull[];
+  poops?: SerializedPoop[];
+  fouledPrimitives?: PrimitiveId[];
+  /**
    * S31 P0-3 — filtered effects array for 1v1 client mirror. Pre-S31 the
    * snapshot omitted `world.effects` entirely; 1v1 client saw creatures walk
    * + bonds vanish with no visible attack feedback (no ARC_FLASH lightning),
@@ -160,6 +173,8 @@ interface SerializedSpark {
   radius: number;
   createdTick: number;
   state: SparkState;
+  /** S77 P3 — "poopy" debuff expiry tick (clients render the brown tint). Omitted when un-poopy. */
+  poopyUntilTick?: number;
 }
 
 interface SerializedPrimitive {
@@ -374,6 +389,31 @@ interface SerializedRainbow {
   readonly dissipateAtTick: number;
 }
 
+/**
+ * S77 P3 — seagull wire shape. pos + vx (facing) + lastPoopTick round-trip (a HOST save/load
+ * resumes the drop schedule from lastPoopTick; the client derives facing from sign(vx) + bobs/
+ * flaps from world.tick). prevPos/baseY/spawnedAtTick are host-only/derived + omitted.
+ */
+interface SerializedSeagull {
+  readonly id: SeagullId;
+  readonly pos: Vec2;
+  readonly vx: number;
+  readonly lastPoopTick: number;
+}
+
+/**
+ * S77 P3 — poop wire shape. state + landedAtTick (splat-pop timing via world.tick - landedAtTick)
+ * + fouledPrimId (the foul anchor; host uses it for cleaning + the orphan sweep) round-trip;
+ * prevPos/spawnedAtTick are host-only + omitted.
+ */
+interface SerializedPoop {
+  readonly id: PoopId;
+  readonly pos: Vec2;
+  readonly state: PoopState;
+  readonly landedAtTick: number;
+  readonly fouledPrimId?: PrimitiveId;
+}
+
 export function snapshot(world: World): WorldSnapshot {
   return {
     schemaVersion: 1,
@@ -421,6 +461,12 @@ export function snapshot(world: World): WorldSnapshot {
     rainbows: world.rainbows.size > 0
       ? [...world.rainbows.values()].map(serializeRainbow)
       : undefined,
+    // S77 P3 — emit seagulls/poops/fouled-prims only when present (byte-identical pre-S77).
+    seagulls: world.seagulls.size > 0
+      ? [...world.seagulls.values()].map(serializeSeagull)
+      : undefined,
+    poops: world.poops.size > 0 ? [...world.poops.values()].map(serializePoop) : undefined,
+    fouledPrimitives: world.fouledPrimitives.size > 0 ? [...world.fouledPrimitives] : undefined,
     // S31 P0-3 — filtered effects for 1v1 client mirror. Map+filter pattern
     // drops the 5 host-local visual kinds (BOND_COMMIT/SEVER_ERASE/
     // STRUCTURE_GROW/STRUCTURE_MERGE/SCORE_TIER) and keeps only the 3 wire
@@ -592,6 +638,35 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
     if (maxRainbowId >= 0) world.nextRainbowId = maxRainbowId + 1;
   }
 
+  // S77 P3 — seagulls + poops: clear + rehydrate (mirror of the hunter/potato pattern). Reset
+  // the mint counters past the max loaded id (host save/load). Client never mints (no-op there).
+  world.seagulls.clear();
+  world.nextSeagullId = 0;
+  if (snap.seagulls !== undefined) {
+    let maxSeagullId = -1;
+    for (const g of snap.seagulls) {
+      world.seagulls.set(g.id, deserializeSeagull(g));
+      if ((g.id as number) > maxSeagullId) maxSeagullId = g.id as number;
+    }
+    if (maxSeagullId >= 0) world.nextSeagullId = maxSeagullId + 1;
+  }
+  world.poops.clear();
+  world.nextPoopId = 0;
+  if (snap.poops !== undefined) {
+    let maxPoopId = -1;
+    for (const p of snap.poops) {
+      world.poops.set(p.id, deserializePoop(p));
+      if ((p.id as number) > maxPoopId) maxPoopId = p.id as number;
+    }
+    if (maxPoopId >= 0) world.nextPoopId = maxPoopId + 1;
+  }
+  // S77 P3 — fouled-primitives (host income-halt set). Round-trips so a host save/load + replay
+  // resumes the income halt exactly; the client stores-but-ignores it (never computes income).
+  world.fouledPrimitives.clear();
+  if (snap.fouledPrimitives !== undefined) {
+    for (const pid of snap.fouledPrimitives) world.fouledPrimitives.add(pid);
+  }
+
   // S31 P0-3 — replace effects array contents from snap.effects. effects are
   // short-lived (max ~30 ticks each) and the host-side effectsRenderer.sync()
   // wipes `world.effects` to length=0 after draining; so the snapshot's effects
@@ -620,6 +695,7 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       pos: { ...s.pos },
       prevPos: { ...s.prevPos },
       state: s.state,
+      poopyUntilTick: s.poopyUntilTick, // S77 P3 — round-trip the "poopy" slow (clients tint it)
     };
     world.freeSparks.set(spark.id, spark);
   }
@@ -708,6 +784,7 @@ function serializeSpark(s: Spark): SerializedSpark {
     radius: s.radius,
     createdTick: s.createdTick,
     state: s.state,
+    poopyUntilTick: s.poopyUntilTick, // S77 P3 — "poopy" slow expiry (clients render the tint)
   };
 }
 
@@ -1023,6 +1100,53 @@ function serializeRainbow(rb: Rainbow): SerializedRainbow {
     id: rb.id,
     pos: { x: rb.pos.x, y: rb.pos.y },
     dissipateAtTick: rb.dissipateAtTick,
+  };
+}
+
+/** S77 P3 — seagull serialize. prevPos/baseY/spawnedAtTick host-only/derived + omitted. */
+function serializeSeagull(g: Seagull): SerializedSeagull {
+  return {
+    id: g.id,
+    pos: { x: g.pos.x, y: g.pos.y },
+    vx: g.vx,
+    lastPoopTick: g.lastPoopTick,
+  };
+}
+
+/** S77 P3 — rehydrate a seagull. baseY = pos.y; prevPos derived from vx; spawnedAtTick = 0. */
+function deserializeSeagull(s: SerializedSeagull): Seagull {
+  return {
+    id: s.id,
+    pos: { x: s.pos.x, y: s.pos.y },
+    prevPos: { x: s.pos.x - s.vx, y: s.pos.y },
+    vx: s.vx,
+    baseY: s.pos.y,
+    spawnedAtTick: 0,
+    lastPoopTick: s.lastPoopTick,
+  };
+}
+
+/** S77 P3 — poop serialize. prevPos/spawnedAtTick host-only + omitted. */
+function serializePoop(p: Poop): SerializedPoop {
+  return {
+    id: p.id,
+    pos: { x: p.pos.x, y: p.pos.y },
+    state: p.state,
+    landedAtTick: p.landedAtTick,
+    fouledPrimId: p.fouledPrimId,
+  };
+}
+
+/** S77 P3 — rehydrate a poop. prevPos snaps to pos; spawnedAtTick = 0. */
+function deserializePoop(s: SerializedPoop): Poop {
+  return {
+    id: s.id,
+    pos: { x: s.pos.x, y: s.pos.y },
+    prevPos: { x: s.pos.x, y: s.pos.y },
+    state: s.state,
+    spawnedAtTick: 0,
+    landedAtTick: s.landedAtTick,
+    fouledPrimId: s.fouledPrimId,
   };
 }
 

@@ -27,8 +27,9 @@ import {
   PHYSICS_SUBSTEPS,
   POTATO_MAX_ACTIVE,
   RAINBOW_MAX_ACTIVE,
+  SEAGULL_MAX_ACTIVE,
 } from '../constants.ts';
-import { Spawner, enforceSpawnerBounds, type BombSpawnRequest, type PotatoSpawnRequest, type RainbowSpawnRequest } from '../game/spawner.ts';
+import { Spawner, enforceSpawnerBounds, type BombSpawnRequest, type PotatoSpawnRequest, type RainbowSpawnRequest, type SeagullSpawnRequest } from '../game/spawner.ts';
 import type { Spark } from '../game/spark.ts';
 import type { Controls } from '../input/controls.ts';
 import { solveBonds, type Bond } from './bonds.ts';
@@ -61,7 +62,8 @@ export function stepPhysics(
   const bombSpawns: BombSpawnRequest[] = [];
   const potatoSpawns: PotatoSpawnRequest[] = [];
   const rainbowSpawns: RainbowSpawnRequest[] = [];
-  spawner.tick(PHYSICS_DT, world.tick, spawned, bombSpawns, potatoSpawns, rainbowSpawns);
+  const seagullSpawns: SeagullSpawnRequest[] = [];
+  spawner.tick(PHYSICS_DT, world.tick, spawned, bombSpawns, potatoSpawns, rainbowSpawns, seagullSpawns);
   for (const s of spawned) dispatch(world, { type: 'SPAWN_SPARK', spark: s });
   // S71 P1 — bomb cadence: dispatch SPAWN_BOMB per request, gated on BOMB_MAX_ACTIVE
   // (the spawner already redrew its countdown, so a capped fire is a clean skip).
@@ -82,6 +84,13 @@ export function stepPhysics(
   for (const req of rainbowSpawns) {
     if (world.rainbows.size < RAINBOW_MAX_ACTIVE) {
       dispatch(world, { type: 'SPAWN_RAINBOW', pos: req.pos });
+    }
+  }
+  // S77 P3 — seagull cadence: dispatch SPAWN_SEAGULL per request, gated on SEAGULL_MAX_ACTIVE
+  // (same skip-and-redraw posture as the other hazards).
+  for (const req of seagullSpawns) {
+    if (world.seagulls.size < SEAGULL_MAX_ACTIVE) {
+      dispatch(world, { type: 'SPAWN_SEAGULL', pos: req.pos, vx: req.vx });
     }
   }
 

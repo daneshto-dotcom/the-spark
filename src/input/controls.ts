@@ -27,6 +27,7 @@
 import type { Application } from 'pixi.js';
 import {
   ATTRACT_FOLLOW_RATE,
+  POOP_SLOW_MULTIPLIER,
   AUTO_BOND_RADIUS,
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
@@ -228,7 +229,13 @@ export class Controls {
       // still gives the spark a tiny "alive" feel during follow but cannot
       // overshoot. Snappy, no swing. Pure position math = no force/dt
       // coupling either.
-      stepAttractLerp(spark.pos, spark.prevPos, this.state.cursor, ATTRACT_FOLLOW_RATE);
+      // S77 P3 — a seagull-pooped ("poopy") spark drags at half speed ("cruiser speed") until
+      // its poopyUntilTick (the meaningful slow case — free sparks settle on their own anyway).
+      const followRate =
+        spark.poopyUntilTick !== undefined && this.world.tick < spark.poopyUntilTick
+          ? ATTRACT_FOLLOW_RATE * POOP_SLOW_MULTIPLIER
+          : ATTRACT_FOLLOW_RATE;
+      stepAttractLerp(spark.pos, spark.prevPos, this.state.cursor, followRate);
     }
 
     // S58 (#2) — when actively AttractDragging, the lerp above is the sole local

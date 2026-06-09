@@ -158,9 +158,10 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       /* eslint-enable @typescript-eslint/no-explicit-any */
     });
 
-    // Z-order: the global-reach layer sits above the fog, with all 4 renderers routed into it.
+    // Z-order: the global-reach layer sits above the fog, with all global-reach renderers routed
+    // into it — P2's 4 (creature/hunter/potato/rainbow) + P3's seagull + poop = 6.
     expect(r.aboveIdx).toBeGreaterThan(r.fogIdx);
-    expect(r.aboveFogChildren).toBe(4);
+    expect(r.aboveFogChildren).toBe(6);
     // The potato punches THROUGH the fog — its brown body (BODY_COLOR 0xb5651d, r≈181) shows on the
     // composited stage as a strong red channel, clearly not the fog's pure black.
     expect(r.potatoOnStage[0]).toBeGreaterThan(90);                 // red channel present → visible

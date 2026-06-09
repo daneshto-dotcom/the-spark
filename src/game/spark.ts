@@ -30,6 +30,13 @@ export interface Spark {
   readonly radius: number;
   readonly createdTick: number;
   state: SparkState;
+  /**
+   * S77 P3 — "poopy" debuff: tick until which a seagull-pooped spark moves at half speed
+   * ("cruiser speed"). undefined / past = not poopy (self-heals at expiry). Drives the
+   * carry-follow slow (the meaningful case — free sparks settle) + the brown render tint.
+   * Additive-optional on the wire so clients render the tint.
+   */
+  poopyUntilTick?: number;
 }
 
 const SPARK_BASE_RADIUS = 9;

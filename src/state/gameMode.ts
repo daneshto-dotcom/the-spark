@@ -133,6 +133,12 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   // S75 P3 — clear any lingering rainbow at match start (same all-hazards invariant).
   world.rainbows.clear();
   world.nextRainbowId = 0;
+  // S77 P3 — clear seagulls/poops/fouled-prims at match start (same all-hazards invariant).
+  world.seagulls.clear();
+  world.nextSeagullId = 0;
+  world.poops.clear();
+  world.nextPoopId = 0;
+  world.fouledPrimitives.clear();
   // S34 P2-21 defensive clear (see JSDoc above).
   world.pendingCreatureSpawn = null;
   if (action.roster !== undefined && action.roster.length > 0) {
@@ -237,6 +243,12 @@ export function applyReturnToTitle(world: World): World {
   // S75 P3 — clear rainbows on title-return (mirror of potatoes/hunters/bombs/creatures).
   world.rainbows.clear();
   world.nextRainbowId = 0;
+  // S77 P3 — clear seagulls/poops/fouled-prims on title-return (mirror of the other hazards).
+  world.seagulls.clear();
+  world.nextSeagullId = 0;
+  world.poops.clear();
+  world.nextPoopId = 0;
+  world.fouledPrimitives.clear();
   world.activeCinematicPlayerId = null;
   world.currentCinematicEvent = null;
   world.pendingCinematics.length = 0;

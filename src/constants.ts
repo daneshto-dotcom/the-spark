@@ -552,3 +552,40 @@ export const RAINBOW_RADIUS = 28; // visual + pick radius (a chunky, clearly-cli
 // point is rare for <=6 colours so this is seldom hit; the fallback (last unique permutation)
 // still guarantees the hard uniqueness constraint ("no two players the same colour"). Council DR5.
 export const RAINBOW_DERANGEMENT_MAX_REROLLS = 12;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S77 P3 — SEAGULL hazard (+ its poop projectiles). A seagull flies across the top
+// ~every 2 min dropping poop. Poop on a STRUCTURE fouls its whole connected component
+// (that structure stops earning income until any avatar passing over the splat cleans
+// it). Poop on a free SPARK makes it "poopy" — half-speed for 15s, then auto-clears.
+// Host-authoritative + deterministic (mirrors hunter/potato/rainbow); renders ABOVE the
+// fog (global-reach). Seagull/poop draw from a dedicated seagullRng so the spark/bomb/
+// potato/rainbow sequences stay byte-identical. Poop DROPS are a FIXED interval (no rng).
+// E2E seam: window.__TEST_SEAGULL_SPAWN_SPARKS__ forces the cadence small (mirror rainbow).
+function readTestSeagullSpawnSparks(): number | null {
+  if (typeof window === 'undefined') return null;
+  const v = (window as { __TEST_SEAGULL_SPAWN_SPARKS__?: number }).__TEST_SEAGULL_SPAWN_SPARKS__;
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : null;
+}
+const _SEAGULL_TEST_CADENCE = readTestSeagullSpawnSparks();
+// First seagull ~every 2 min: at the 0.15 spark/s base rate, 15-24 sparks ≈ 100-160s.
+// RECURRING (not once-per-game like the hunter) — gated on SEAGULL_MAX_ACTIVE.
+export const SEAGULL_SPAWN_MIN_SPARKS = _SEAGULL_TEST_CADENCE ?? 15;
+export const SEAGULL_SPAWN_MAX_SPARKS = _SEAGULL_TEST_CADENCE ?? 24;
+export const SEAGULL_MAX_ACTIVE = 1; // at most one gull in the sky at a time
+export const SEAGULL_SPEED = 4.5; // px/tick horizontal cruise (crosses ~1920px in ~7s)
+export const SEAGULL_Y_MIN = 44; // top band the gull flies through (sim y; render adds a bob)
+export const SEAGULL_Y_MAX = 132;
+export const SEAGULL_RADIUS = 24; // body radius (render + the pre-drop "hunch" anchor)
+export const SEAGULL_BOB_AMPLITUDE = 12; // RENDER-ONLY sine bob (the SIM y is constant → deterministic)
+export const SEAGULL_DEPART_MARGIN = 90; // px past the far edge before the gull despawns
+// Poop drop cadence: one poop every N ticks while FLYING — FIXED (no rng → determinism-trivial).
+export const POOP_DROP_INTERVAL_TICKS = Math.round(0.55 * PHYSICS_HZ); // ~33 ticks ≈ every ~150px
+export const POOP_FALL_SPEED = 7; // px/tick downward (constant; gravity-free for determinism)
+export const POOP_RADIUS = 7; // visual/collision core radius
+export const POOP_HIT_RADIUS = 19; // poop-vs-(primitive|spark) collision radius (squared internally)
+export const POOP_GROUND_TTL_TICKS = 4 * PHYSICS_HZ; // a floor splat lingers ~4s then dissipates
+export const POOP_SLOW_TICKS = 15 * PHYSICS_HZ; // "poopy" spark: half-speed for 15s ("cruiser speed")
+export const POOP_SLOW_MULTIPLIER = 0.5; // 2x slower
+export const POOP_CLEAN_RADIUS = 44; // an avatar within this of a structure-splat cleans it
+export const POOP_MAX_LIVE = 24; // safety cap on concurrent poops (snapshot-size guard)
