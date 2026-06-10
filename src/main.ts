@@ -28,6 +28,8 @@ import {
   HUNTER_TRIGGER_SCORE,
   NET_INTERPOLATION_MS,
   NET_SNAPSHOT_HZ,
+  PEER_DROP_BENCH_TICKS,
+  PEER_DROP_GRACE_TICKS,
   PHYSICS_HZ,
   PHYSICS_SUBSTEPS,
   SPAWNER_CENTER_X,
@@ -48,7 +50,8 @@ import { selfId, type NetTransport } from './net/transport.ts';
 import type { RosterEntry } from './net/protocol.ts';
 import { makeNetSession, teardownNet } from './net/session.ts';
 import { createHostStartHandler, createBeginMatchHandler } from './net/hostHandlers.ts';
-import { createJoinAttemptHandler } from './net/clientHandlers.ts';
+import { connectAsClient, createJoinAttemptHandler } from './net/clientHandlers.ts';
+import { generateHostIdentity } from './net/hostIdentity.ts';
 import { formatStrategySummary } from './net/strategySummary.ts';
 import { SpatialGrid } from './physics/spatial.ts';
 // S50 P2 — physics tick orchestration extracted to physicsLoop.ts (Council
@@ -128,6 +131,10 @@ const P1 = asPlayerId(0);
 const SNAPSHOT_INTERVAL_TICKS = Math.max(1, Math.round(PHYSICS_HZ / NET_SNAPSHOT_HZ));
 
 async function bootstrap(): Promise<void> {
+  // S82 P4(a) — page-session host identity: ECDSA P-256 keypair whose pubkey fingerprint
+  // IS the room code (net/hostIdentity.ts). Generated once at boot (~10-50ms, parallel
+  // with Pixi init below) so the lobby's "Host New Room" handler stays synchronous.
+  const hostIdentityPromise = generateHostIdentity();
   const app = new Application();
   await app.init({
     width: CANVAS_WIDTH,
@@ -397,14 +404,18 @@ async function bootstrap(): Promise<void> {
       roster.map((e) => ({ seat: e.seat, color: e.color, isYou: e.peerId === selfId })),
     );
   };
-  const onHostStart = createHostStartHandler({ session, world, onLobbyError, onPresence });
-  const onJoinAttempt = createJoinAttemptHandler({
+  // S82 P4(a) — resolve the boot-time identity (started before Pixi init; in practice
+  // already settled long before a human can click "Host New Room").
+  const hostIdentity = await hostIdentityPromise;
+  const onHostStart = createHostStartHandler({ session, world, hostIdentity, onLobbyError, onPresence });
+  const clientJoinDeps = {
     session,
     world,
     controls,
     onLobbyError,
     onPresence,
-  });
+  };
+  const onJoinAttempt = createJoinAttemptHandler(clientJoinDeps);
   const onBeginMatch = createBeginMatchHandler({ session, world });
 
   lobbyScreen = new LobbyScreen(app, {
@@ -532,6 +543,18 @@ async function bootstrap(): Promise<void> {
   // now goes through `cutsceneOverlay.onComplete` (set inside
   // `startCinematicIfNeeded` in godlyOrchestration.ts).
   let lastConnectionLost = false;
+  // S82 P4(b) — auto-reconnect grace state. reconnectUntilMs===0 ⇔ no loss in progress.
+  // Wall-clock (performance.now) is correct here: this is transport orchestration, not
+  // sim state — determinism is untouched. FIRST_RETRY short-delays so a sub-second blip
+  // (the common case) recovers almost immediately; subsequent retries pace at RETRY_MS.
+  let reconnectUntilMs = 0;
+  let reconnectNextRetryMs = 0;
+  const RECONNECT_GRACE_MS = 15_000;
+  const RECONNECT_RETRY_MS = 4_000;
+  const RECONNECT_FIRST_RETRY_DELAY_MS = 1_000;
+  // S82 P4(c) — host-side absence tracker for the mid-game drop-bench sweep (peerId →
+  // first tick seen absent). Orchestration-local; reset whenever the sweep is inactive.
+  const peerAbsentSinceTick = new Map<string, number>();
   // S31 P0-3 — client-side cursor for ARC_FLASH-triggered screen-shake. Host
   // triggers shake locally inside the `!isClient` block in the tick loop;
   // client peer must mirror that feedback or 1v1 plays as visually & kinesthe-
@@ -821,6 +844,40 @@ async function bootstrap(): Promise<void> {
         }
       }
 
+      // S82 P4(c) — mid-game DROP-BENCH sweep (6p hardening; host-only). A seated peer
+      // absent from the transport past PEER_DROP_GRACE_TICKS stops ghosting: its player
+      // is benched via a rolling re-stamp (benchedUntilTick = tick + PEER_DROP_BENCH_TICKS
+      // EVERY tick while absent). Self-healing: the instant the peer rejoins (same
+      // in-page selfId → same frozen seat) the re-stamp stops and the bench expires
+      // within 2s — no unbench action, no reconnect/bench race (Council S82 Gemini R1#9).
+      if (
+        world.gameState === 'PLAYING' &&
+        !isClient &&
+        isNetworked(world) &&
+        session.hostSeats.size > 0 &&
+        session.netTransport !== null
+      ) {
+        const present = new Set(session.netTransport.peerIds());
+        for (const [peerId, seat] of session.hostSeats) {
+          if (present.has(peerId)) {
+            peerAbsentSinceTick.delete(peerId);
+            continue;
+          }
+          const since = peerAbsentSinceTick.get(peerId);
+          if (since === undefined) {
+            peerAbsentSinceTick.set(peerId, world.tick);
+          } else if (world.tick - since >= PEER_DROP_GRACE_TICKS) {
+            dispatch(world, {
+              type: 'BENCH_OFFLINE_PLAYER',
+              playerId: seat,
+              untilTick: world.tick + PEER_DROP_BENCH_TICKS,
+            });
+          }
+        }
+      } else if (peerAbsentSinceTick.size > 0) {
+        peerAbsentSinceTick.clear();
+      }
+
       // S15 P2 — host emits NetSnapshot every SNAPSHOT_INTERVAL_TICKS
       // (60Hz / 10Hz = 6 ticks). Suppressed in TITLE/LOBBY (no snapshot
       // to send pre-game) and in solo.
@@ -992,11 +1049,43 @@ async function bootstrap(): Promise<void> {
       && session.hostPeerId !== null
       && session.netTransport !== null
       && !session.netTransport.peerIds().includes(session.hostPeerId);
-    const connectionLost = isNetworked(world)
+    const peersGone = isNetworked(world)
       && world.gameState === 'PLAYING'
       && session.netTransport !== null
       && (session.netTransport.peerCount() === 0 || hostLost);
-    lobbyScreen.setConnectionLostVisible(connectionLost);
+    // S82 P4(b) — AUTO-RECONNECT grace (amends LOCKED §13.7 "no reconnect", user-
+    // authorized). On loss, a RECONNECT_GRACE_MS window opens: the CLIENT periodically
+    // tears the dead transport and re-runs the join path with the same room code —
+    // the page never reloaded, so Trystero's selfId is unchanged and the host's frozen
+    // peerId→seat map re-binds us; the TOFU/crypto latch survives (teardownNet is NOT
+    // called) and the next 10Hz snapshot restores state. The HOST side keeps its
+    // transport (clients rejoin to it) and simply waits out the same grace. Only after
+    // the window expires does the terminal CONNECTION LOST overlay take over.
+    const nowMs = performance.now();
+    let connectionLost = false;
+    if (peersGone) {
+      if (reconnectUntilMs === 0) {
+        reconnectUntilMs = nowMs + RECONNECT_GRACE_MS;
+        reconnectNextRetryMs = nowMs + RECONNECT_FIRST_RETRY_DELAY_MS;
+      }
+      if (nowMs < reconnectUntilMs) {
+        if (!world.isHost && session.roomCode !== null && nowMs >= reconnectNextRetryMs) {
+          reconnectNextRetryMs = nowMs + RECONNECT_RETRY_MS;
+          console.warn('[net] reconnect attempt — rejoining room', session.roomCode);
+          if (session.netTransport !== null) session.netTransport.disconnect();
+          connectAsClient(clientJoinDeps, session.roomCode);
+        }
+        lobbyScreen.setConnectionLostReconnecting(true, (reconnectUntilMs - nowMs) / 1000);
+        lobbyScreen.setConnectionLostVisible(true);
+      } else {
+        lobbyScreen.setConnectionLostReconnecting(false);
+        lobbyScreen.setConnectionLostVisible(true);
+        connectionLost = true; // terminal — drives the cinematic-abort edge below
+      }
+    } else {
+      reconnectUntilMs = 0;
+      lobbyScreen.setConnectionLostVisible(false);
+    }
     // S22 P3 — PRIME-AUDIT Δ3: on peer-drop, abort any active cinematic
     // and drain the godly queue cleanly. Transition-edge gated.
     if (connectionLost && !lastConnectionLost) {

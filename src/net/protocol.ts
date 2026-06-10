@@ -58,12 +58,33 @@ export type { NetSnapshot };
 // Council CONVERGED on the rainbow precedent: bump so a stale peer is hard-rejected at HELLO.
 export const PROTOCOL_VERSION = 7 as const;
 
+/**
+ * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
+ * a 30-bit fingerprint of that key — see net/hostIdentity.ts) to the host's transport
+ * peerId. ADDITIVE-OPTIONAL on HELLO + START_GAME_SIGNAL (no PROTOCOL_VERSION bump —
+ * lockstep-deploy procedure; a stale peer ignores unknown keys). The client latches the
+ * host ONLY after verifying it — the S79 P4 TOFU first-message race is dead.
+ */
+export interface HostAttest {
+  readonly spkiB64: string;
+  readonly sigB64: string;
+}
+
+/** Fail-closed shape check for an OPTIONAL hostAttest field (malformed ⇒ reject message). */
+function isValidHostAttest(v: unknown): v is HostAttest {
+  if (v === null || typeof v !== 'object') return false;
+  const a = v as Record<string, unknown>;
+  return typeof a.spkiB64 === 'string' && typeof a.sigB64 === 'string';
+}
+
 export interface HelloMsg {
   readonly kind: 'HELLO';
   readonly playerId: PlayerId;
   readonly color: number;
   /** Protocol version — bumped on wire-incompatible changes. S75: 5→6; S77 P3: 6→7 (seagull). */
   readonly protoVersion: 7;
+  /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
+  readonly hostAttest?: HostAttest;
 }
 
 /**
@@ -108,7 +129,11 @@ function readTestProtoVersionOverride(): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
 }
 
-export function buildHello(playerId: PlayerId, color: number): HelloMsg {
+export function buildHello(
+  playerId: PlayerId,
+  color: number,
+  hostAttest?: HostAttest,
+): HelloMsg {
   const override = readTestProtoVersionOverride();
   if (override !== null) {
     // DEV/E2E ONLY (window.__TEST_PROTO_VERSION_OVERRIDE__ is undefined in
@@ -122,9 +147,21 @@ export function buildHello(playerId: PlayerId, color: number): HelloMsg {
     // lockstep tsc tripwire: raising PROTOCOL_VERSION without updating
     // HelloMsg.protoVersion errors at that line. (Council R1 #1 —
     // quarantine-cast over relaxing the type to number.)
-    return { kind: 'HELLO', playerId, color, protoVersion: override as typeof PROTOCOL_VERSION };
+    return {
+      kind: 'HELLO',
+      playerId,
+      color,
+      protoVersion: override as typeof PROTOCOL_VERSION,
+      ...(hostAttest !== undefined ? { hostAttest } : {}),
+    };
   }
-  return { kind: 'HELLO', playerId, color, protoVersion: PROTOCOL_VERSION };
+  return {
+    kind: 'HELLO',
+    playerId,
+    color,
+    protoVersion: PROTOCOL_VERSION,
+    ...(hostAttest !== undefined ? { hostAttest } : {}),
+  };
 }
 
 export interface IntentMsg {
@@ -172,6 +209,9 @@ interface StartGameMsg {
   readonly mode: '1v1';
   // S62 — seat→color roster for deterministic N-player seating. Ordered by seat.
   readonly roster: readonly RosterEntry[];
+  /** S82 P4(a) — host attestation (additive-optional): lets a client whose HELLO was
+   *  lost still verify + latch from the Begin signal itself (buffered until verified). */
+  readonly hostAttest?: HostAttest;
 }
 
 /**
@@ -227,7 +267,9 @@ export type NetMessage =
  * Math.random() for entropy — fine for friends-only matchmaking (no
  * adversarial collision search worth defending against in v1).
  */
-const ROOM_CODE_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+// S82 P4(a) — exported: net/hostIdentity.ts derives the room code from the host pubkey
+// fingerprint over this SAME alphabet (single source of truth for the code charset).
+export const ROOM_CODE_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 export function generateRoomCode(length = 6): string {
   let out = '';
   for (let i = 0; i < length; i++) {
@@ -335,10 +377,50 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   SEAGULL_TICK: true,
   POOP_TICK: true,
   CLEAN_POOP: true,
+  // S82 P4(c) — host-internal mid-game drop-bench. Listed for the exhaustive Record
+  // mirror ONLY; it is NOT in CLIENT_INTENT_TYPES below, so a client sending it as an
+  // INTENT is dropped by the host's allowlist gate (hostHandlers.ts) — the first action
+  // to rely on that gate rather than the "inert under friends-only" rationalization.
+  BENCH_OFFLINE_PLAYER: true,
 };
 const KNOWN_GAME_ACTION_TYPES: ReadonlySet<string> = new Set(
   Object.keys(KNOWN_GAME_ACTION_TYPES_RECORD),
 );
+
+/**
+ * S82 P4(c) — CLIENT-INTENT ALLOWLIST (single source of truth — Council S82 Grok R2#2).
+ * The Record above mirrors the FULL GameAction union for wire-shape validation, which
+ * means a modified client could send HOST-INTERNAL actions (SPAWN_*, *_TICK, WIN_TRIGGER,
+ * START_GAME, …) as INTENTs and the host would apply them (state-machine abuse: free
+ * hazard spawns, forced win, mid-game restarts). This is the set of actions a player may
+ * GENUINELY originate; the host's INTENT handler drops everything else (fail-closed).
+ * `satisfies` keeps every key a real GameAction type — a typo or a renamed action errors
+ * at typecheck. Adding a NEW player-facing intent requires adding it HERE (the unit test
+ * in protocol.test.ts will remind you).
+ */
+const CLIENT_INTENT_TYPES_RECORD = {
+  PICKUP_SPARK: true,
+  DROP_SPARK: true,
+  PLACE_PRIMITIVE: true, // legacy pre-S52 client placement — host re-pick path still validates it
+  PLACE_FROM_FREE: true,
+  SEVER_BOND: true,
+  UPDATE_AVATAR_POS: true,
+  SHRINK_TERRITORY: true,
+  TRIGGER_BOMB: true,
+  TRIGGER_RAINBOW: true,
+  PICKUP_POTATO: true,
+  PLACE_POTATO: true,
+  DROP_POTATO: true,
+} as const satisfies Partial<Record<GameAction['type'], true>>;
+
+export const CLIENT_INTENT_TYPES: ReadonlySet<string> = new Set(
+  Object.keys(CLIENT_INTENT_TYPES_RECORD),
+);
+
+/** True iff a client may originate this action type as an INTENT (host-side gate). */
+export function isClientIntentAllowed(actionType: string): boolean {
+  return CLIENT_INTENT_TYPES.has(actionType);
+}
 
 const WIRE_SCHEMA_VERSION = 1;
 
@@ -396,6 +478,9 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
       if (obj.protoVersion !== PROTOCOL_VERSION) return null;
       if (typeof obj.playerId !== 'number') return null;
       if (typeof obj.color !== 'number') return null;
+      // S82 P4(a) — optional attestation: absent is fine (client HELLOs); present but
+      // malformed rejects the message (fail-closed — never hand a junk shape downstream).
+      if (obj.hostAttest !== undefined && !isValidHostAttest(obj.hostAttest)) return null;
       return obj as unknown as HelloMsg;
     }
     case 'INTENT': {
@@ -429,6 +514,8 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
       // so a corrupt peer can't desync seating.
       if (obj.mode !== '1v1') return null;
       if (!isValidRoster(obj.roster)) return null;
+      // S82 P4(a) — optional attestation, same fail-closed posture as HELLO.
+      if (obj.hostAttest !== undefined && !isValidHostAttest(obj.hostAttest)) return null;
       return obj as unknown as StartGameMsg;
     }
     case 'LOBBY_PRESENCE': {

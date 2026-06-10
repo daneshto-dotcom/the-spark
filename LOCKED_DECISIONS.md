@@ -553,6 +553,12 @@ chosen over PeerJS (multi-strategy fallback negates rate-limit concern);
 - **Room codes:** 6-character alphanumeric, no-confusion alphabet
   (`23456789ABCDEFGHJKLMNPQRSTUVWXYZ` — drops `0/O/1/I` for verbal sharing).
   `generateRoomCode()` / `parseRoomCode()` in `src/net/protocol.ts`.
+- **S82 P4(a) AMENDMENT:** the HOSTED room code is no longer Math.random — it is the
+  30-bit truncated SHA-256 fingerprint of the host's page-session ECDSA P-256 public
+  key (`roomCodeFromPubkey`, `src/net/hostIdentity.ts`), same alphabet/length/UX. The
+  code IS the host's key commitment (see §13.20). One identity per page load ⇒
+  re-hosting from the same tab reuses the code; a refresh mints a new one.
+  `generateRoomCode()` is retained for tests/back-compat only.
 - **UI (src/render/lobbyScreen.ts):** host pane generates code + waits
   for joiner + "Begin Match" button; join pane keyboard input + "Connect";
   "Back to Title" cancel; "Connection lost" full-screen overlay when
@@ -592,7 +598,15 @@ chosen over PeerJS (multi-strategy fallback negates rate-limit concern);
   currentPlayerId + scoreByPlayer + avatarPos are optional in restore
   but solo defaults applied — pre-S15 mid-game saves replay correctly
   but won't deserialize per-player score state that didn't exist).
-- **No reconnect.** Session ends on disconnect.
+- ~~**No reconnect.** Session ends on disconnect.~~ **S82 P4(b) AMENDMENT
+  (user-authorized):** an in-page transport blip now gets a 15s RECONNECTING grace —
+  the client auto-rejoins the same room (same page ⇒ same Trystero selfId ⇒ the host's
+  frozen peerId→seat map re-binds; latch + ClientSync watermark survive; next 10Hz
+  snapshot restores state). e2e/reconnect.spec.ts (@quarantine-flaky) proves it over
+  real WebRTC. HOST-page death remains fatal (host-migration still deferred — the
+  world state lives in the host page; see backlog carry-forward). Mid-game peer drops
+  past a 3s grace no longer ghost: the host benches them via a rolling 2s re-stamp
+  (`BENCH_OFFLINE_PLAYER`) that self-heals on rejoin (S82 P4(c)).
 
 ### 13.8 Constants (src/constants.ts)
 - `NET_SNAPSHOT_HZ = 10`
@@ -1089,6 +1103,37 @@ Constants (`src/constants.ts`):
 | `src/input/controls.ts` | Q-key handler + optimistic territory gate in LMB-up |
 | `src/render/debugOverlay.ts` | TERRITORY section (complexity, R, shrink countdown per player) |
 | `src/render/ui.ts` | `Q=ZONE` hint text (visible in 1v1 PLAYING) |
+
+### 13.20 Netcode hardening — crypto host identity + reconnect + intent allowlist (S82 P4 NEW; Full-tier Council R1+R2)
+
+- **Host attestation (lifts the S79 P4 TOFU race ceiling).** `src/net/hostIdentity.ts`:
+  page-session ECDSA P-256 keypair (WebCrypto, 0 dependency bytes); room code = first
+  30 bits (big-endian) of SHA-256(pubkey SPKI), 5 bits/char over the §13.4 alphabet —
+  ONE exported pure slicer (`roomCodeFromDigest`) used by host-derive AND client-verify.
+  Attestation payload = `utf8('SPARK-HOST-ATTEST-v1') || u16be(len)||roomCode ||
+  u16be(len)||hostPeerId` (length-prefixed + domain-separated — injective; Council
+  convergent fix). Attached additive-optionally to HELLO + START_GAME_SIGNAL — **NO
+  PROTOCOL_VERSION bump** (lockstep deploys; stale peers null-reject).
+- **Client latch (S79 hostAuthFilter v2).** Latch precondition = `hostVerifiedPeerId
+  === sender` (set ONLY after `verifyHostAttest`: fingerprint === typed code AND valid
+  sig AND signed peerId === transport sender) + the seat-0-self-naming roster rule. The
+  weak first-NETSNAPSHOT fallback is REMOVED. Pre-verify, START_GAME_SIGNAL +
+  LOBBY_PRESENCE buffer (latest per kind per peer, bounded) and REPLAY on verify
+  success — the Begin signal can never be lost to verification latency. Verify failure
+  leaves the client in pre-latch able to process the next attestation. Residual
+  (accepted): Trystero signaling-layer selfId spoofing; ~2^30 fingerprint preimage ≈
+  hours of keygen vs minutes-long friend lobbies.
+- **In-page auto-reconnect** — see the §13.7 amendment. Session fields `roomCode` /
+  `hostAttest` / `hostVerifiedPeerId` survive reconnect; only teardownNet clears them.
+- **Client-intent allowlist.** `CLIENT_INTENT_TYPES` (protocol.ts, single source of
+  truth) = the 12 genuine player intents; the host INTENT handler drops everything
+  else fail-closed (+ raceRejects diagnostic). Closes the pre-S82 hole where ANY
+  GameAction type (SPAWN_*, WIN_TRIGGER, START_GAME, …) was wire-valid as an INTENT.
+  `BENCH_OFFLINE_PLAYER` is the first action that RELIES on this gate.
+- **Tests:** netHardening.test.ts (encoding injectivity, fixed-vector slicing,
+  e2e generate→attest→verify + all tamper rejections, allowlist, drop-bench reducer);
+  clientHandlers.test.ts rewritten to the v2 latch contract (race-is-dead case);
+  e2e/reconnect.spec.ts real-WebRTC blip recovery (@quarantine-flaky, verified locally).
 
 ---
 

@@ -1,14 +1,17 @@
 /**
- * SPARK — S79 P4 (HIGH-2) client host sender-auth tests.
+ * SPARK — S79 P4 client host sender-auth tests, upgraded for S82 P4(a) crypto identity.
  *
  * hostAuthFilter is the pure gate in front of the joiner's message handler (the
- * #test-via-pure-helper-export pattern). Contract under test:
- *   1. the latch — host learned from a roster-bearing message whose seat-0 entry NAMES
- *      THE SENDER (genuine host self-identifies at seat 0), or first-NETSNAPSHOT fallback;
+ * #test-via-pure-helper-export pattern). S82 contract under test:
+ *   1. the latch — REQUIRES session.hostVerifiedPeerId === sender (cryptographic
+ *      precondition, set by verifyHostAttest in the join handler) AND a roster-bearing
+ *      message whose seat-0 entry NAMES THE SENDER. The S79 first-NETSNAPSHOT fallback
+ *      is REMOVED — that was the raceable path (the documented S79 ceiling).
  *   2. the gate — the five host-authored kinds drop unless sent by the latched host
  *      (fail-closed pre-latch), while INTENT/HELLO flow regardless;
- *   3. the spoof cases the S78 audit called out: spoofed-snapshotSeq wedge, fake ENDGAME,
- *      START_GAME_SIGNAL seat hijack, roster that claims someone ELSE is host.
+ *   3. the spoof cases: spoofed-snapshotSeq wedge, fake ENDGAME, START_GAME_SIGNAL seat
+ *      hijack, roster naming someone else, and the S79 RACE itself — an UNVERIFIED peer
+ *      beating the host's first message can no longer win the latch.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -17,6 +20,10 @@ import { hostAuthFilter } from './clientHandlers.ts';
 
 const HOST = 'peer-host';
 const EVIL = 'peer-evil';
+
+type LatchState = { hostPeerId: string | null; hostVerifiedPeerId: string | null };
+const unverified = (): LatchState => ({ hostPeerId: null, hostVerifiedPeerId: null });
+const verifiedHost = (): LatchState => ({ hostPeerId: null, hostVerifiedPeerId: HOST });
 
 const lobbyPresence = (seat0PeerId: string): NetMessage =>
   ({
@@ -39,9 +46,9 @@ const startGame = (seat0PeerId: string): NetMessage =>
 
 const ofKind = (kind: string): NetMessage => ({ kind }) as unknown as NetMessage;
 
-describe('S79 P4 — hostAuthFilter latch', () => {
-  it('latches from a LOBBY_PRESENCE whose seat-0 entry names the sender, then gates on it', () => {
-    const s = { hostPeerId: null as string | null };
+describe('S82 P4(a) — hostAuthFilter crypto-preconditioned latch', () => {
+  it('latches from a seat-0-self-naming roster ONLY when the sender is crypto-verified', () => {
+    const s = verifiedHost();
     expect(hostAuthFilter(s, lobbyPresence(HOST), HOST)).toBe(true);
     expect(s.hostPeerId).toBe(HOST);
     // Host messages keep flowing; the same kinds from another peer drop.
@@ -53,32 +60,43 @@ describe('S79 P4 — hostAuthFilter latch', () => {
     expect(hostAuthFilter(s, lobbyPresence(EVIL), EVIL)).toBe(false);
   });
 
+  it('THE S79 RACE IS DEAD: an unverified peer racing the first message cannot latch', () => {
+    const s = unverified();
+    // EVIL wins the race with a perfectly-formed seat-0-self-naming beacon → still dropped.
+    expect(hostAuthFilter(s, lobbyPresence(EVIL), EVIL)).toBe(false);
+    expect(s.hostPeerId).toBeNull();
+    // And the old weak fallback is gone: a first NETSNAPSHOT no longer latches anyone.
+    expect(hostAuthFilter(s, ofKind('NETSNAPSHOT'), EVIL)).toBe(false);
+    expect(s.hostPeerId).toBeNull();
+  });
+
   it('does NOT latch from a roster whose seat-0 names someone other than the sender', () => {
-    const s = { hostPeerId: null as string | null };
-    // EVIL forwards a roster naming HOST at seat 0 — sender-inconsistent → no latch, dropped.
+    const s = verifiedHost();
+    // Even a VERIFIED host relaying a roster naming EVIL at seat 0 must not latch EVIL —
+    // and EVIL forwarding a roster naming HOST is sender-inconsistent + unverified.
     expect(hostAuthFilter(s, lobbyPresence(HOST), EVIL)).toBe(false);
     expect(s.hostPeerId).toBeNull();
-    // The genuine host still latches normally afterwards.
     expect(hostAuthFilter(s, lobbyPresence(HOST), HOST)).toBe(true);
     expect(s.hostPeerId).toBe(HOST);
   });
 
-  it('falls back to latching the first NETSNAPSHOT sender (no lobby beacon seen)', () => {
-    const s = { hostPeerId: null as string | null };
-    expect(hostAuthFilter(s, ofKind('NETSNAPSHOT'), HOST)).toBe(true);
-    expect(s.hostPeerId).toBe(HOST);
-    expect(hostAuthFilter(s, ofKind('NETSNAPSHOT'), EVIL)).toBe(false);
+  it('a verified host still cannot latch via NETSNAPSHOT (roster-bearing kinds only)', () => {
+    const s = verifiedHost();
+    expect(hostAuthFilter(s, ofKind('NETSNAPSHOT'), HOST)).toBe(false); // pre-latch drop
+    expect(s.hostPeerId).toBeNull();
+    expect(hostAuthFilter(s, startGame(HOST), HOST)).toBe(true); // roster latches
+    expect(hostAuthFilter(s, ofKind('NETSNAPSHOT'), HOST)).toBe(true); // then flows
   });
 
-  it('fail-closed: host-authored kinds drop while un-latched (no roster, no snapshot yet)', () => {
-    const s = { hostPeerId: null as string | null };
+  it('fail-closed: host-authored kinds drop while un-latched', () => {
+    const s = unverified();
     expect(hostAuthFilter(s, ofKind('ENDGAME'), EVIL)).toBe(false);
     expect(hostAuthFilter(s, ofKind('GODLY_TRIGGER'), EVIL)).toBe(false);
     expect(s.hostPeerId).toBeNull();
   });
 
   it('non-host-authored kinds (INTENT / HELLO) pass through regardless of latch state', () => {
-    const s = { hostPeerId: null as string | null };
+    const s = unverified();
     expect(hostAuthFilter(s, ofKind('INTENT'), EVIL)).toBe(true);
     expect(hostAuthFilter(s, ofKind('HELLO'), EVIL)).toBe(true);
     s.hostPeerId = HOST;
@@ -86,8 +104,8 @@ describe('S79 P4 — hostAuthFilter latch', () => {
     expect(hostAuthFilter(s, ofKind('HELLO'), EVIL)).toBe(true);
   });
 
-  it('idempotent once latched — a later seat-0-consistent roster from another peer cannot re-latch', () => {
-    const s = { hostPeerId: HOST as string | null };
+  it('idempotent once latched — even a verified seat-0-consistent roster cannot re-latch', () => {
+    const s: LatchState = { hostPeerId: HOST, hostVerifiedPeerId: HOST };
     expect(hostAuthFilter(s, lobbyPresence(EVIL), EVIL)).toBe(false);
     expect(s.hostPeerId).toBe(HOST);
   });

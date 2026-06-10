@@ -52,6 +52,30 @@ export type UpdateAvatarPosAction = {
   readonly pos: Vec2;
 };
 
+/**
+ * S82 P4(c) — HOST-INTERNAL: bench a player whose transport peer dropped mid-game
+ * (no more ghost avatars). Dispatched by the main.ts absence sweep EVERY tick while
+ * the peer stays absent (rolling re-stamp), so the bench self-heals ≤ untilTick-now
+ * after a rejoin with no unbench action. NOT a client intent — the host INTENT
+ * allowlist (net/protocol.ts CLIENT_INTENT_TYPES) drops it from the wire.
+ */
+export type BenchOfflinePlayerAction = {
+  readonly type: 'BENCH_OFFLINE_PLAYER';
+  readonly playerId: PlayerId;
+  readonly untilTick: number;
+};
+
+export function applyBenchOfflinePlayer(world: World, action: BenchOfflinePlayerAction): World {
+  const player = world.players.get(action.playerId);
+  if (player === undefined) return world;
+  // Never SHORTEN an existing bench (a hunter-eaten player who also drops keeps the
+  // longer hunter bench; the rolling re-stamp only extends past rejoin-lag).
+  if (player.benchedUntilTick === undefined || action.untilTick > player.benchedUntilTick) {
+    player.benchedUntilTick = action.untilTick;
+  }
+  return world;
+}
+
 /* ─────────────────────── N-player helpers (S62) ─────────────────────── */
 
 /**

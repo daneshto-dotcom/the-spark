@@ -28,10 +28,12 @@ import type { World } from './worldTypes.ts';
 import { makeIdlePlayer, type Player } from '../game/player.ts';
 import { asPlayerId, type BondId, type PlayerId } from '../types.ts';
 import {
+  applyBenchOfflinePlayer,
   applyReturnToTitle,
   applyStartGame,
   applyUpdateAvatarPos,
   isNetworked,
+  type BenchOfflinePlayerAction,
   type ReturnToTitleAction,
   type StartGameAction,
   type UpdateAvatarPosAction,
@@ -161,6 +163,9 @@ export type GameAction =
   | StartGameAction
   | ReturnToTitleAction
   | UpdateAvatarPosAction
+  // S82 P4(c) — host-internal mid-game drop-bench (rolling re-stamp; see gameMode.ts).
+  // Deliberately NOT in net/protocol.ts CLIENT_INTENT_TYPES — clients cannot send it.
+  | BenchOfflinePlayerAction
   // S22 P3 — godly-trigger action. Host dispatches locally on matcher match,
   // client dispatches on receiving GodlyTriggerMsg over the network. Reducer
   // sets activeCinematicPlayerId (or queues if one is already active) and
@@ -357,6 +362,10 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'UPDATE_AVATAR_POS':
       return applyUpdateAvatarPos(world, action);
+
+    // S82 P4(c) — host-internal mid-game peer-drop bench.
+    case 'BENCH_OFFLINE_PLAYER':
+      return applyBenchOfflinePlayer(world, action);
 
     // S60 P5 — the GODLY cinematic-state cluster extracted to godlyActions.ts
     // (§XV de-hypertrophy). Behaviour + mutation order preserved verbatim.

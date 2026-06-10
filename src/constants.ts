@@ -641,3 +641,13 @@ export const POOP_CRUISER_SLOW_TICKS = 15 * PHYSICS_HZ; // same 15s as the poopy
 // 7 px/tick ≈ 420 px/s: far below a flicked cursor (~3000 px/s) so the slow BITES, comfortably
 // above the hunter's 4.2 px/tick so a slowed player can still outrun Pac-Man. #1 playtest knob.
 export const POOP_CRUISER_MAX_SPEED = 7;
+
+// === S82 P4(c) — mid-game peer-drop bench (6p hardening) ===
+// A seated peer absent from the transport for GRACE ticks stops ghosting: the host
+// re-stamps benchedUntilTick = tick + BENCH ticks EVERY tick while the peer stays absent
+// (BENCH_OFFLINE_PLAYER action — host-internal, blocked from client INTENTs by the
+// CLIENT_INTENT allowlist). Self-healing by construction: the moment the peer rejoins
+// (same in-page Trystero selfId → same frozen seat) the re-stamping stops and the bench
+// expires within BENCH ticks — no unbench action, no reconnect/bench race (Council S82).
+export const PEER_DROP_GRACE_TICKS = 3 * PHYSICS_HZ; // 3s of absence before benching (blip tolerance)
+export const PEER_DROP_BENCH_TICKS = 2 * PHYSICS_HZ; // rolling bench window; expiry = rejoin lag bound

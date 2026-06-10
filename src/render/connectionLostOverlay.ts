@@ -17,6 +17,12 @@ const BUTTON_HEIGHT = 48;
 export interface ConnectionLostOverlayHandle {
   readonly container: Container;
   setVisible(visible: boolean): void;
+  /**
+   * S82 P4(b) — flip between the RECONNECTING grace state (auto-rejoin in progress;
+   * cyan title + countdown help line) and the terminal CONNECTION LOST state. The
+   * Return-to-Title button stays available in both (a user can always bail early).
+   */
+  setReconnecting(reconnecting: boolean, secondsLeft?: number): void;
 }
 
 export function makeConnectionLostOverlay(
@@ -71,6 +77,21 @@ export function makeConnectionLostOverlay(
     container,
     setVisible(visible: boolean): void {
       container.visible = visible;
+    },
+    setReconnecting(reconnecting: boolean, secondsLeft?: number): void {
+      if (reconnecting) {
+        const secs = secondsLeft !== undefined ? ` (${Math.max(0, Math.ceil(secondsLeft))}s)` : '';
+        if (lostText.text !== 'RECONNECTING…') {
+          lostText.text = 'RECONNECTING…';
+          lostText.style.fill = 0x3bd7ff;
+        }
+        const help = `connection dropped — retrying automatically${secs}`;
+        if (lostHelp.text !== help) lostHelp.text = help;
+      } else if (lostText.text !== 'CONNECTION LOST') {
+        lostText.text = 'CONNECTION LOST';
+        lostText.style.fill = 0xff3b6b;
+        lostHelp.text = 'peer dropped — return to title to retry';
+      }
     },
   };
 }

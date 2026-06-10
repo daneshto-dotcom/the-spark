@@ -376,6 +376,11 @@ export class LobbyScreen {
     this.connectionLostHandle.setVisible(visible);
   }
 
+  /** S82 P4(b) — flip the overlay between RECONNECTING (grace) and terminal LOST. */
+  setConnectionLostReconnecting(reconnecting: boolean, secondsLeft?: number): void {
+    this.connectionLostHandle.setReconnecting(reconnecting, secondsLeft);
+  }
+
   /** Called by main.ts every frame; updates "Begin Match" + status based on peer count. */
   updatePeerStatus(peerCount: number): void {
     // S64 P1 — the errorLatched short-circuit, the hostConnected latch, the live

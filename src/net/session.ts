@@ -18,6 +18,7 @@
 import { ClientSync, HostSync } from './sync.ts';
 import { NetTransport } from './transport.ts';
 import type { Controls } from '../input/controls.ts';
+import type { HostAttest } from './protocol.ts';
 import { triggerReset as triggerAudioCursorReset } from '../state/audioCursor.ts';
 import type { World } from '../state/world.ts';
 import type { PlayerId } from '../types.ts';
@@ -55,6 +56,25 @@ export interface NetSession {
    * (main.ts). null on the host and before the latch; cleared on teardown.
    */
   hostPeerId: string | null;
+  /**
+   * S82 P4(a) — HOST-side cached attestation {pubkey, sig over (roomCode || selfId)}.
+   * Computed once right after host-start (selfId is page-constant); attached to every
+   * HELLO + the START_GAME_SIGNAL. null on clients / before ready. Cleared on teardown.
+   */
+  hostAttest: HostAttest | null;
+  /**
+   * S82 P4(a) — CLIENT-side: the peer that passed CRYPTOGRAPHIC host verification
+   * (pubkey fingerprint === typed room code AND valid signature over its own peerId).
+   * The hostPeerId latch above now REQUIRES this — the S79 TOFU first-message race is
+   * closed. Survives in-page reconnect (same host identity); cleared on teardown.
+   */
+  hostVerifiedPeerId: string | null;
+  /**
+   * S82 P4(b) — the room code of the live session (set on host-start AND join-attempt).
+   * Needed by (1) the client's attest verification (the code IS the key commitment) and
+   * (2) the auto-reconnect retry (rejoin the same room). Cleared on teardown.
+   */
+  roomCode: string | null;
 }
 
 export function makeNetSession(): NetSession {
@@ -66,6 +86,9 @@ export function makeNetSession(): NetSession {
     hostSeats: new Map(),
     lobbySeats: new Map(),
     hostPeerId: null,
+    hostAttest: null,
+    hostVerifiedPeerId: null,
+    roomCode: null,
   };
 }
 
@@ -109,5 +132,11 @@ export function teardownNet(
   // S79 P4 — clear the latched host identity so a rejoin re-latches fresh (a new room may
   // have a different host; a stale latch would drop ALL of the new host's messages).
   session.hostPeerId = null;
+  // S82 P4 — clear the crypto-identity + reconnect state with it (a NEW room = a new
+  // code = a new verification; auto-reconnect deliberately does NOT call teardownNet,
+  // which is what lets the latch + verification survive an in-page transport blip).
+  session.hostAttest = null;
+  session.hostVerifiedPeerId = null;
+  session.roomCode = null;
   triggerAudioCursorReset();
 }

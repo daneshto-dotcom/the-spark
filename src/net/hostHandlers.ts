@@ -18,7 +18,14 @@
  */
 
 import { HostSync } from './sync.ts';
-import { generateRoomCode, PROTOCOL_VERSION, buildHello, type RosterEntry } from './protocol.ts';
+import {
+  PROTOCOL_VERSION,
+  buildHello,
+  isClientIntentAllowed,
+  type HostAttest,
+  type RosterEntry,
+} from './protocol.ts';
+import type { HostIdentity } from './hostIdentity.ts';
 import { reconcileLobbySeats, buildLobbyRoster, buildMatchRoster } from './lobbyRoster.ts';
 import type { NetSession } from './session.ts';
 import { NetTransport, selfId } from './transport.ts';
@@ -105,15 +112,28 @@ export function wireHelloOnJoin(
   transport: NetTransport,
   playerId: PlayerId,
   color: number,
+  // S82 P4(a) — late-bound attestation provider (HOST side passes one; clients omit).
+  // Read at SEND time so the async signature computed right after host-start is
+  // attached even though wiring happens earlier (PRIME-AUDIT Δ1 late-binding posture).
+  getAttest?: () => HostAttest | null,
 ): void {
   transport.onPeerChange((_peerId, kind) => {
-    if (kind === 'join') transport.send(buildHello(playerId, color));
+    if (kind === 'join') {
+      const attest = getAttest !== undefined ? getAttest() : null;
+      transport.send(buildHello(playerId, color, attest ?? undefined));
+    }
   });
 }
 
 export interface HostStartDeps {
   session: NetSession;
   world: World;
+  /**
+   * S82 P4(a) — the page-session host identity (generated once at boot, awaited in
+   * main()). The room code IS this key's fingerprint; the attestation binds it to our
+   * transport selfId. Re-hosting from the same tab reuses it (same code — documented).
+   */
+  hostIdentity: HostIdentity;
   /**
    * Called when the underlying transport surfaces an error (signaling,
    * ICE, send). Forwarded to LobbyScreen.setErrorMessage in main.ts.
@@ -134,10 +154,20 @@ export interface HostStartDeps {
 
 export function createHostStartHandler(deps: HostStartDeps): () => string {
   return () => {
-    const code = generateRoomCode();
+    // S82 P4(a) — the room code is DERIVED from the host pubkey (30-bit fingerprint,
+    // net/hostIdentity.ts) instead of Math.random: the code a friend types IS the
+    // host's key commitment, which is what kills the S79 TOFU latch race client-side.
+    const code = deps.hostIdentity.roomCode;
+    // Kick the (cached, ~ms) attestation signature; ready long before any peer joins.
+    // Read late-bound via session.hostAttest at HELLO-send / Begin time.
+    deps.session.hostAttest = null;
+    void deps.hostIdentity.makeAttest(selfId).then((attest) => {
+      deps.session.hostAttest = attest;
+    });
     const transport = new NetTransport();
     deps.session.netTransport = transport;
     deps.session.hostSync = new HostSync();
+    deps.session.roomCode = code;
     deps.world.isHost = true;
     // S73 P1 (CHECK Gemini c) — a fresh Host starts with NO inherited lobby seats.
     // Defense-in-depth: every production path back to re-Host goes through teardownNet
@@ -162,7 +192,8 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
     // S54 P1 — announce our PROTOCOL_VERSION to the joiner the moment it
     // connects (host = playerId 0 / crimson). Activates the dormant S53
     // protocol-mismatch latch + UX on the joiner's receive side.
-    wireHelloOnJoin(transport, asPlayerId(0), PLAYER_COLORS[0]);
+    // S82 P4(a) — the host's HELLO now carries the attestation (late-bound read).
+    wireHelloOnJoin(transport, asPlayerId(0), PLAYER_COLORS[0], () => deps.session.hostAttest);
     // S70 P1 / S73 P1 — lobby presence broadcast with STABLE (non-compacting) seats.
     // On every peer join/leave, reconcile the persistent peerId→seat map (survivors
     // KEEP their seat; a departed peer leaves a HOLE; a new peer takes the lowest free
@@ -189,6 +220,16 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
       // wins host-receive order; loser's intent silently no-ops + increments
       // world.diagnostics.raceRejects (observable for tests).
       if (msg.kind === 'INTENT' && deps.session.hostSync !== null) {
+        // S82 P4(c) — CLIENT-INTENT ALLOWLIST (closes the any-GameAction hole): the
+        // wire validator mirrors the FULL action union, so a modified client could
+        // send host-internal actions (SPAWN_*, WIN_TRIGGER, START_GAME, *_TICK …) and
+        // the host would apply them. Only genuine player intents pass; everything
+        // else is dropped fail-closed + counted for observability.
+        if (!isClientIntentAllowed(msg.action.type)) {
+          deps.world.diagnostics.raceRejects++;
+          console.warn(`[net] dropped non-player INTENT '${msg.action.type}' from ${peerId}`);
+          return;
+        }
         // S62 — stamp the intent's playerId from the SENDER's assigned seat
         // (peerId→seat), overriding whatever the wire claimed. Anti-collision/
         // anti-spoof: a client can only act as its own seat, so two clients
@@ -247,7 +288,15 @@ export function createBeginMatchHandler(deps: BeginMatchDeps): () => void {
       if (e.seat > 0) deps.session.hostSeats.set(e.peerId, asPlayerId(e.seat));
     }
     if (transport !== null) {
-      transport.send({ kind: 'START_GAME_SIGNAL', mode: '1v1', roster });
+      // S82 P4(a) — Begin carries the attestation too: a client whose HELLO was lost
+      // can still verify + latch from the buffered Begin signal itself.
+      const attest = deps.session.hostAttest;
+      transport.send({
+        kind: 'START_GAME_SIGNAL',
+        mode: '1v1',
+        roster,
+        ...(attest !== null ? { hostAttest: attest } : {}),
+      });
     }
     dispatch(deps.world, {
       type: 'START_GAME',

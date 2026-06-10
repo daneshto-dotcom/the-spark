@@ -14,7 +14,8 @@
 
 import { ClientSync } from './sync.ts';
 import type { NetSession } from './session.ts';
-import type { NetMessage, RosterEntry } from './protocol.ts';
+import type { HostAttest, NetMessage, RosterEntry } from './protocol.ts';
+import { verifyHostAttest } from './hostIdentity.ts';
 import { NetTransport, selfId } from './transport.ts';
 import type { Controls } from '../input/controls.ts';
 import { dispatch, type World } from '../state/world.ts';
@@ -51,25 +52,29 @@ export interface JoinAttemptDeps {
  * kinds are dropped unless sent BY the latched host; before any latch they are dropped
  * too (fail-closed — in practice a beacon/snapshot always precedes the other kinds).
  *
- * Ceiling (documented, accepted): without cryptographic peer identity a spoofer who BEATS
- * the genuine host's first message into the victim's handler could win the latch. That
- * requires joining a secret-coded room AND racing the host's join-triggered beacon —
- * a far smaller surface than the pre-fix "any peer, any time". Crypto identity belongs to
- * the netcode-infra backlog (#4). Returns true = process, false = drop. Pure w.r.t.
- * everything except the latch write; exported for unit tests.
+ * S82 P4(a) — THE S79 CEILING IS LIFTED: the latch now REQUIRES cryptographic
+ * verification. session.hostVerifiedPeerId is set only after verifyHostAttest proved the
+ * sender holds the private key whose public-key fingerprint IS the room code the user
+ * typed (see net/hostIdentity.ts). The latch precondition is verified-peer + the same
+ * roster-bearing seat-0-self-naming rule as before; the WEAK first-NETSNAPSHOT fallback
+ * is REMOVED (it was the raceable path). A spoofer racing the host's first message now
+ * loses unconditionally: it cannot match the code's fingerprint nor sign for its peerId.
+ *
+ * Residual (documented): Trystero signaling-layer selfId spoofing + host-page death
+ * (= host-migration, deferred carry-forward). Returns true = process, false = drop.
+ * Pure w.r.t. everything except the latch write; exported for unit tests.
  */
 export function hostAuthFilter(
-  session: Pick<NetSession, 'hostPeerId'>,
+  session: Pick<NetSession, 'hostPeerId' | 'hostVerifiedPeerId'>,
   msg: NetMessage,
   peerId: string,
 ): boolean {
   if (session.hostPeerId === null) {
     if (
+      session.hostVerifiedPeerId === peerId &&
       (msg.kind === 'LOBBY_PRESENCE' || msg.kind === 'START_GAME_SIGNAL') &&
       msg.roster.some((e) => e.seat === 0 && e.peerId === peerId)
     ) {
-      session.hostPeerId = peerId;
-    } else if (msg.kind === 'NETSNAPSHOT') {
       session.hostPeerId = peerId;
     }
   }
@@ -83,10 +88,26 @@ export function hostAuthFilter(
 }
 
 export function createJoinAttemptHandler(deps: JoinAttemptDeps): (code: string) => void {
-  return (code: string) => {
+  return (code: string) => connectAsClient(deps, code);
+}
+
+/**
+ * S82 P4(b) — the full client connect path, extracted from createJoinAttemptHandler so
+ * the auto-RECONNECT can re-run it verbatim (same room code, same page → same Trystero
+ * selfId → the host's frozen peerId→seat map re-binds our intents automatically). The
+ * verify/buffer closures below are PER-CONNECT (fresh on rejoin); the durable trust
+ * (session.hostVerifiedPeerId + hostPeerId) lives on the session and deliberately
+ * SURVIVES a reconnect — only teardownNet clears it.
+ */
+export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
+  {
     const transport = new NetTransport();
     deps.session.netTransport = transport;
-    deps.session.clientSync = new ClientSync();
+    // S82 P4(b) — on RECONNECT a ClientSync already exists with a live lastSeq watermark;
+    // keep it (host snapshotSeq is monotonic per HostSync instance, so later snapshots
+    // still pass the seq gate). Fresh join → fresh ClientSync as before.
+    if (deps.session.clientSync === null) deps.session.clientSync = new ClientSync();
+    deps.session.roomCode = code;
     deps.world.isHost = false;
     // S35 P0 — break 1v1 join bootstrap deadlock. The render-loop client-
     // interpolation gate at main.ts is the only path that runs
@@ -118,10 +139,69 @@ export function createJoinAttemptHandler(deps: JoinAttemptDeps): (code: string) 
     // the dormant S53 protocol-mismatch latch + UX on the host's receive side
     // (closes the v2-peer-INTENT-bypass desync gap from the joiner direction).
     wireHelloOnJoin(transport, asPlayerId(1), PLAYER_COLORS[1]);
-    transport.on((msg, peerId) => {
-      // S79 P4 — host sender-auth gate (see hostAuthFilter). Drops the five host-authored
-      // kinds unless they come from the latched host peer. INTENT/HELLO are unaffected
-      // (the host side already stamps INTENT playerIds from its hostSeats freeze).
+
+    // S82 P4(a) — async host verification machinery (per-connect closures).
+    // verifying: single-in-flight guard per peer. pendingByPeer: the latch-bearing /
+    // once-only kinds (START_GAME_SIGNAL, LOBBY_PRESENCE) received BEFORE verification
+    // completes are buffered (latest per kind per peer) and REPLAYED through the normal
+    // route on verify success — so a Begin that lands mid-verify is never lost (the
+    // no-drop property today's sync latch has). Everything else stays fail-closed
+    // dropped pre-latch exactly as before (snapshots re-arrive at 10Hz).
+    const verifying = new Set<string>();
+    const pendingByPeer = new Map<
+      string,
+      { signal?: NetMessage; presence?: NetMessage }
+    >();
+    const kickVerify = (attest: HostAttest, peerId: string): void => {
+      if (deps.session.hostVerifiedPeerId !== null || verifying.has(peerId)) return;
+      verifying.add(peerId);
+      void verifyHostAttest(attest, code, peerId).then((ok) => {
+        verifying.delete(peerId);
+        if (!ok) {
+          // Fail → stay PRE-latch and remain able to process the next attestation
+          // (Council S82 Gemini R2#2 — a corrupt first attest must not wedge us).
+          // console-only: a spoofer's failed attest must not scare the user with a
+          // lobby error while the genuine host verifies fine.
+          console.warn(`[net] host attestation FAILED verification from ${peerId}`);
+          return;
+        }
+        if (deps.session.hostVerifiedPeerId === null) {
+          deps.session.hostVerifiedPeerId = peerId;
+          const buf = pendingByPeer.get(peerId);
+          pendingByPeer.clear(); // spoofer buffers die with the successful latch
+          if (buf !== undefined) {
+            if (buf.presence !== undefined) route(buf.presence, peerId);
+            if (buf.signal !== undefined) route(buf.signal, peerId);
+          }
+        }
+      });
+    };
+
+    const route = (msg: NetMessage, peerId: string): void => {
+      // S82 P4(a) — attestation-bearing kinds kick the async verify.
+      if (
+        (msg.kind === 'HELLO' || msg.kind === 'START_GAME_SIGNAL') &&
+        msg.hostAttest !== undefined
+      ) {
+        kickVerify(msg.hostAttest, peerId);
+      }
+      // Pre-verification: buffer the once-only/latch-bearing kinds (bounded: latest per
+      // kind per peer, hard cap on tracked peers), drop-fail-closed otherwise via the
+      // filter below. Replayed by kickVerify on success.
+      if (
+        deps.session.hostVerifiedPeerId === null &&
+        (msg.kind === 'START_GAME_SIGNAL' || msg.kind === 'LOBBY_PRESENCE')
+      ) {
+        if (!pendingByPeer.has(peerId) && pendingByPeer.size >= 12) return; // flood guard
+        const slot = pendingByPeer.get(peerId) ?? {};
+        if (msg.kind === 'START_GAME_SIGNAL') slot.signal = msg;
+        else slot.presence = msg;
+        pendingByPeer.set(peerId, slot);
+        return;
+      }
+      // S79 P4 — host sender-auth gate (see hostAuthFilter — now crypto-preconditioned).
+      // Drops the five host-authored kinds unless they come from the latched host peer.
+      // INTENT/HELLO are unaffected (the host side stamps INTENT playerIds itself).
       if (!hostAuthFilter(deps.session, msg, peerId)) return;
       if (msg.kind === 'NETSNAPSHOT' && deps.session.clientSync !== null) {
         deps.session.clientSync.receive(msg, performance.now());
@@ -181,6 +261,7 @@ export function createJoinAttemptHandler(deps: JoinAttemptDeps): (code: string) 
       if (msg.kind === 'ENDGAME') {
         dispatch(deps.world, { type: 'WIN_TRIGGER', winnerId: msg.winnerId });
       }
-    });
-  };
+    };
+    transport.on(route);
+  }
 }
