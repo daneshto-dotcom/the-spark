@@ -1,272 +1,283 @@
 {
-  "tool_calls_session_total": 198,
-  "session_id": "S79",
+  "tool_calls_session_total": 4,
+  "session_id": "S81",
   "session_kind": "execution",
-  "session_start": "2026-06-10T00:00:00.000Z",
-  "session_note": "S79 \u2014 USER EXPLICIT 'i approve full session priority and autonomous run'. Batch PDR (Full tier): P1 game-length lever (WIN 50->150, TIER 15->50); P2 seagull visibility (cadence 15/24->7/12) + pooped-building visuals (foul tint prims+bonds, bigger splat); P3 HIGH-1 fouledPrimitives reconcile + orphan CLEAN_POOP no-op bug (NEW, found A.0); P4 HIGH-2 client sender-auth hostPeerId gate + MEDIUM host-loss overlay; P5 MEDIUM spawner-RNG serialization + CREATURE_CHARGE drain-filter; P6 LOW sweep. FINAL: Rule 22 + adversarial multi-agent CHECK + /handoff. PDR: .claude/plans/2026-06-10_PDR_S79_batch.md",
+  "session_start": "2026-06-10T12:00:00.000Z",
+  "session_note": "S81 — playtest round-3 fixes. USER EXPLICIT batch approval: 'lets run all those edits ive just mentioned!' (7 user-dictated edits). Batch PDR tier: Micro per priority (each <10K, 1-2 files; user-path Council waiver). A.0 state discovery DONE pre-lock: all 7 root causes located by direct read (constants.ts, seagullLifecycle.ts, potatoLifecycle.ts, potato.ts, seagull.ts, avatarRenderer.ts, main.ts stage order, save.ts serializers, primitive.ts ownership fields).",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
   "council_waived": true,
-  "council_waiver_basis": "S78 precedent: user explicit full-session approval + autonomous run; deliberation basis = A.0 empirical state-discovery (all target files read, 1 NEW bug + 2 claim-deltas surfaced) + end-of-session adversarial multi-agent CHECK (exceeds Triumvirate static pass)",
-  "tier": "Full",
-  "prime_audit_completed": true,
-  "prime_audit_delta": "A.0 deltas vs handoff: potatoLifecycle delete site drifted 187->191; worldTypes 'NOT serialized' doc is FALSE (fouledPrimitives rides NetSnapshot since S77 \u2014 enables client foul-tint with no wire change); NEW bug found: orphan-sweep CLEAN_POOP no-ops forever when anchor prim destroyed (empty BFS component -> poop never deleted -> infinite per-tick dispatch + immortal splat); bombs need no third fix site (route through applySeverTopology)",
+  "council_waiver_basis": "Micro tier user-path auto-waiver (CLAUDE.md Rule 17): user-dictated scope + explicit same-message approval; A.0 empirical probe completed before lock",
+  "tier": "Micro",
   "priorities": [
     {
       "id": "P1",
-      "label": "S79 P1 \u2014 game length lever: PHASE_1_WIN_SCORE 50->150 + SCORE_TIER_STEP 15->50 (HUNTER_TRIGGER_SCORE auto-scales 112)",
+      "label": "S81 P1 — splat wipe is OWNER-ONLY: only the structure owner's avatar cleans a structure-splat (enemy walk-over no longer wipes)",
       "status": "completed",
       "phase": "ACT",
+      "check_completed": true,
+      "check_method": "S81 P1: canAvatarCleanSplat pure predicate in seagullLifecycle (SPLAT_STRUCTURE + live anchor + not-benched [S80 invariant folded in] + ownerColor===player.color + POOP_CLEAN_RADIUS sq-dist); main.ts sweep inner loop replaced with the predicate (orphan branch untouched; POOP_CLEAN_RADIUS import dropped from main). Ownership via ownerColor — rainbow shuffle remaps player.color + prim ownerColor in lockstep (parity test added); components single-owner per S46 P3 bond segregation. GATES: tsc -b --noEmit clean; seagull.test.ts 20/20 (+6: owner-in/enemy-in/owner-out/bench-expiry/rainbow-parity/orphan+falling); FULL vitest 1176/1176 (62 files). Commit 2173a04 pushed.",
+      "checkpoint_commit": "2173a04",
+      "real_context_tokens_at_close": 105000,
+      "real_context_pct_at_close": 10.5,
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": true,
-      "check_completed": true,
-      "check_method": "S79 P1: constants.ts PHASE_1_WIN_SCORE 50->150 (readTestWinScore fallback) + SCORE_TIER_STEP 15->50 + stale comments updated (tier-pulse cadence note, seam doc 50->150). HUNTER_TRIGGER_SCORE auto-scales (floor(150*0.75)=112). Verified pre-change that ALL e2e specs inject __TEST_WIN_SCORE__/score seams (S78 hunter lesson \u2014 no natural-accrual timing coupling remains). GATES: tsc -b exit 0; vitest 1149/1149 (60 files) green. Commit 9dcd284 pushed.",
-      "checkpoint_commit": "9dcd284",
-      "real_context_tokens_at_close": 120000,
-      "real_context_pct_at_close": 12,
+      "objective": "User: 'a spark should not be able to wipe off his enemies structure only his own.' Gate the main.ts avatar-proximity CLEAN_POOP sweep on ownership of the splat's anchor prim (ownerColor === player.color — survives rainbow shuffle). Orphan sweep stays unconditional.",
+      "scope": "src/main.ts (sweep gate), src/state/seagulls/seagullLifecycle.ts (pure exported predicate + docs), seagull.test.ts (+tests)",
+      "testing": "vitest unit on the predicate (owner cleans / enemy does not / benched does not / orphan unaffected); tsc; local seagull e2e if touched behavior is covered there",
       "verification": [
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 150;"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagullLifecycle.ts",
+          "needle": "export function canAvatarCleanSplat"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const SCORE_TIER_STEP = 50;"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagullLifecycle.ts",
+          "needle": "if (anchor.ownerColor !== player.color) return false;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "if (canAvatarCleanSplat(world, player, poop)) {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagull.test.ts",
+          "needle": "an ENEMY within radius may NOT clean"
         }
       ]
     },
     {
       "id": "P2",
-      "label": "S79 P2 \u2014 seagull visibility (cadence 7/12) + pooped-building visuals (foul tint on prims+bonds via fouledPrimitives, 2.3x structure splat)",
+      "label": "S81 P2 — hot potato: carrying the potato >3s cooks it off IN HAND (per-grab timer; re-grab resets)",
       "status": "completed",
       "phase": "ACT",
-      "tier": "Standard",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "council_waived": true,
       "check_completed": true,
-      "check_method": "S79 P2: (1) SEAGULL_SPAWN_MIN/MAX_SPARKS 15/24->7/12 \u2014 root cause of 'didnt even see the bird' was the LOCKED 0.15 spark/s base rate making 15-24 sparks = 100-160s while S78 games ran ~2min; 7-12 sparks = 47-80s. Test seam (__TEST_SEAGULL_SPAWN_SPARKS__) overrides both, so seagull e2e unaffected. (2) Pooped-building visual: new pure foulAwareTint(base,isFouled) in structureRenderer (lerp ownerColor->POOP_FOUL_TINT 0x9aa15c @0.65) applied to fouled prim sprites AND fouled bond endpoint colours (stress-red layers on top); KEY ENABLER verified in A.0: fouledPrimitives rides NetSnapshot since S77 (save.ts:469 not in the Omit strip-list; applySnapshotCore rehydrates) so the joiner renders the identical tint with ZERO wire change/protocol bump. drawBonds signature (bonds,tick)->(world). (3) poopRenderer SPLAT_STRUCTURE draws 2.3x (POOP_STRUCTURE_SPLAT_SCALE) + run-down drip; ground splats unchanged. GATES: tsc 0 (after pruning the now-unused Bond type import); vitest 1153/1153 (61 files, +4 new foulAwareTint tests); vite build 543.73KB <550 charter; LOCAL playwright seagull.spec+fog.spec chromium 7/7 pass 11.5s. Commit 3339036 pushed.",
-      "checkpoint_commit": "3339036",
-      "real_context_tokens_at_close": 150000,
-      "real_context_pct_at_close": 15,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const SEAGULL_SPAWN_MIN_SPARKS = _SEAGULL_TEST_CADENCE ?? 7;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/structureRenderer.ts",
-          "needle": "export function foulAwareTint"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/poopRenderer.ts",
-          "needle": "POOP_STRUCTURE_SPLAT_SCALE"
-        }
-      ]
-    },
-    {
-      "id": "P3",
-      "label": "S79 P3 \u2014 HIGH-1 fouledPrimitives reconcile on destroy paths + un-cleanable income-0 on sever + orphan CLEAN_POOP no-op fix + worldTypes doc rewrite + tests",
-      "status": "completed",
-      "phase": "ACT",
-      "tier": "Standard",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "council_waived": true,
-      "check_completed": true,
-      "check_method": "S79 P3: implemented reconcileFouledPrimitives(world) in seagullLifecycle (foul set := union of CURRENT components of live SPLAT_STRUCTURE anchors; early-out when un-fouled), called at the END of applySeverTopology (single choke point \u2014 player/physics/creature/bomb severs ALL route here, verified via bombLifecycle applyTriggerBomb -> applySeverBond) AND applyPotatoDetonate. STRICTLY STRONGER than the audit's prescribed per-prim deletes: also fixes the un-cleanable income-0 (fouled structure severed OFF its splat-anchor -> splat-less fragment now unfoels, income resumes). PLUS the A.0-discovered orphan bug: applyCleanPoop SPLAT_STRUCTURE branch now requires primitives.has(fouledPrimId) \u2014 a gone-anchor splat takes the plain-delete branch (pre-fix: empty BFS deleted NOTHING incl. the poop -> main.ts orphan sweep re-dispatched CLEAN_POOP every tick forever + immortal floating splat). worldTypes fouledPrimitives doc rewritten (serialized + invariant). TESTS: +4 in seagull.test.ts (stale-id reconcile; potato-AoE leak; sever-off-anchor with severSplit del=[anchor] asserted; orphan clean). GATES: tsc 0; vitest 1157/1157; LOCAL playwright seagull+potato chromium 5/5. Commit 23defd6 pushed.",
-      "checkpoint_commit": "23defd6",
-      "real_context_tokens_at_close": 175000,
-      "real_context_pct_at_close": 17.5,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagullLifecycle.ts",
-          "needle": "export function reconcileFouledPrimitives"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/disruptionManager.ts",
-          "needle": "reconcileFouledPrimitives(world);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/potatoLifecycle.ts",
-          "needle": "reconcileFouledPrimitives(world);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagullLifecycle.ts",
-          "needle": "world.primitives.has(poop.fouledPrimId)"
-        }
-      ]
-    },
-    {
-      "id": "P4",
-      "label": "S79 P4 \u2014 HIGH-2 client sender-auth (session.hostPeerId TOFU latch + host-only message gate) + MEDIUM 3+player host-loss overlay + tests",
-      "status": "completed",
-      "phase": "ACT",
-      "tier": "Standard",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "council_waived": true,
-      "check_completed": true,
-      "check_method": "S79 P4: NetSession.hostPeerId (null on host/pre-latch; cleared in teardownNet so a rejoin re-latches). hostAuthFilter (pure, exported) in clientHandlers: latch = roster-bearing LOBBY_PRESENCE/START_GAME_SIGNAL whose seat-0 entry NAMES THE SENDER (buildLobbyRoster/buildMatchRoster always put host selfId at seat 0) with first-NETSNAPSHOT fallback; gate = the 5 host-authored kinds drop unless sender===latched host, FAIL-CLOSED pre-latch; INTENT/HELLO unaffected. TOFU ceiling documented (no crypto identity until backlog #4). Closes: spoofed-snapshotSeq victim wedge, fake ENDGAME, START_GAME_SIGNAL seat hijack, bogus GODLY_TRIGGER. MEDIUM host-loss: main.ts connectionLost now ORs hostLost (= !isHost && latched && hostPeerId not in peerIds()) \u2014 closes the S62 KNOWN GAP 3+player limbo; host side keeps pure peerCount gate. BONUS REGRESSION FOUND+FIXED: nplayer 4p-FFA e2e (quarantine lane) failing since the S78 income cut \u2014 its WIN wait relied on natural accrual (complexity-3 = ~20s sim vs 20s timeout); fixed via host-score injection (S78 hunter.spec idiom); verified red->green locally. Multi-peer join flow THROUGH the gate validated live: nplayer 3/3 incl. 4-player FFA + lobby-presence (real WebRTC). GATES: tsc 0; vitest 1163/1163 (+6 hostAuthFilter tests); build 544.51KB <550; local playwright nplayer 3/3 + lobby-construction green. Commit c54b923 pushed.",
-      "checkpoint_commit": "c54b923",
-      "real_context_tokens_at_close": 210000,
-      "real_context_pct_at_close": 21,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/session.ts",
-          "needle": "hostPeerId: string | null;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/clientHandlers.ts",
-          "needle": "export function hostAuthFilter"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "const hostLost"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/nplayer.spec.ts",
-          "needle": "w.scoreByPlayer.set(0, 999);"
-        }
-      ]
-    },
-    {
-      "id": "P5",
-      "label": "S79 P5 \u2014 MEDIUM spawner-RNG serialization (StatefulRng + Spawner.getState/restoreState) + CREATURE_CHARGE drain-filter + tests",
-      "status": "completed",
-      "phase": "ACT",
-      "tier": "Standard",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "council_waived": true,
-      "check_completed": true,
-      "check_method": "S79 P5: (1) rng.ts mulberry32 now returns StatefulRng (interface extends Rng; getState/setState on the single uint32 word t; the generated sequence is BYTE-IDENTICAL \u2014 vitest 1167 incl. save.replay byte-equality guards confirm zero perturbation). (2) Spawner.getState(): SpawnerState|null (null when an ENABLED stream is a custom non-stateful Rng \u2014 caller falls back to from-seed) capturing nextId + secondsUntilNextSpawn + 4 hazard countdowns (Infinity<->null for JSON-safety, null also = disabled stream) + 5 rng words; restoreState resumes bit-exactly (test proves a DIFFERENT-seed donor spawner reproduces all 5 output streams exactly after restore, 60s sim @5/s with every hazard firing \u2014 non-vacuous asserts). Wiring into WorldSnapshot deferred with the save/load UI (no main.ts save path exists; capability+tests close the audit MEDIUM 'restore() cannot resume'); logged carry-forward. (3) effectsRenderer: CREATURE_CHARGE added to the audio-only drain skip (BOND_FORMED/BOND_SEVERED) + defense no-op draw case; test asserts it no longer inflates activeCount. GATES: tsc 0; vitest 1167/1167 (62 files; +3 spawner +1 effects). Commit 347f725 pushed.",
-      "checkpoint_commit": "347f725",
-      "real_context_tokens_at_close": 235000,
-      "real_context_pct_at_close": 23.5,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/rng.ts",
-          "needle": "export interface StatefulRng"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/game/spawner.ts",
-          "needle": "getState(): SpawnerState | null"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/effectsRenderer.ts",
-          "needle": "e.kind === 'CREATURE_CHARGE'"
-        }
-      ]
-    },
-    {
-      "id": "P6",
-      "label": "S79 P6 \u2014 LOW sweep: gameState header, addScore docstring, protocol as-7 cast, softReset hazard/foul clears",
-      "status": "completed",
-      "phase": "ACT",
+      "check_method": "S81 P2: POTATO_HOLD_DETONATE_TICKS=180 (3s); Potato.carriedAtTick stamped in applyPickupPotato (re-grab restamps = pass restarts), cleared in applyPlacePotato+applyDropPotato; pure shouldCookOffInHand(potato,tick) exported + used by the main.ts poll (dispatches POTATO_DETONATE → existing carrier-bench path); save.ts SerializedPotato.carriedAtTick additive-optional (emitted only while CARRIED → FREE/ARMED snapshot bytes unchanged; deserialize passes through). E2E coupling pre-checked: grab→place carry legs are sub-3s sim; the S75 bench spec (fuse 180 = hold 180) has identical observable. GATES: tsc clean; vitest 1181/1181 (+5: stamp/boundary, place-clears, drop-clears, re-grab-restarts, cook-off benches); LOCAL playwright potato.spec chromium 4/4 (29.5s). Commit bc769d8 pushed.",
+      "checkpoint_commit": "bc769d8",
+      "real_context_tokens_at_close": 130000,
+      "real_context_pct_at_close": 13,
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": true,
-      "check_completed": true,
-      "check_method": "S79 P6: gameState.ts header rewritten (score-based WIN via floor(scoreProgress)>=PHASE_1_WIN_SCORE + income model; primitive-count placeholder claim removed). addScore docstring rewritten (S76 unified leader-max; stale 'solo is additive' claim removed). protocol.ts buildHello override cast 'as 7' -> 'as typeof PROTOCOL_VERSION' (auto-tracks future bumps; tsc-verified the lockstep tripwire survives) + stale 'as 6' comment fixed. softReset now calls teardownBombs/Hunters/Potatoes/Rainbows/Seagulls (parity with WIN_TRIGGER/START_GAME; inert on current paths \u2014 documented as defense). GATES: tsc 0; vitest 1167/1167; build 545.91KB <550. Commit 3efcde9 pushed.",
-      "checkpoint_commit": "3efcde9",
-      "real_context_tokens_at_close": 250000,
-      "real_context_pct_at_close": 25,
+      "objective": "User: held it 22s then dumped at the last second ('hogging'). Add POTATO_HOLD_DETONATE_TICKS = 3s: a CARRIED potato detonates 3s after pickup (existing carrier-bench path punishes). Each grab restarts the 3s window (pass-it-on gameplay). From-spawn fuse (FREE dissipate / ARMED detonate) unchanged.",
+      "scope": "src/constants.ts, src/state/potato.ts (carriedAtTick), src/state/potatoLifecycle.ts (pickup sets / place+drop clear), src/main.ts (poll), src/state/save.ts (optional field round-trip), potatoLifecycle.test.ts",
+      "testing": "vitest: 3s cook-off fires + benches carrier; place/drop before 3s does NOT; re-grab resets window; serialization round-trip. Check e2e potato spec for hold-duration coupling BEFORE constant lands; add __TEST_ seam only if e2e needs it",
       "verification": [
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameState.ts",
-          "needle": "teardownSeagulls(world);"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const POTATO_HOLD_DETONATE_TICKS = 3 * PHYSICS_HZ;"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
-          "needle": "as typeof PROTOCOL_VERSION"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/potatoLifecycle.ts",
+          "needle": "export function shouldCookOffInHand"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/potatoLifecycle.ts",
+          "needle": "potato.carriedAtTick = world.tick;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "if (shouldCookOffInHand(potato, world.tick)) {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "carriedAtTick: po.carriedAtTick"
+        }
+      ]
+    },
+    {
+      "id": "P3",
+      "label": "S81 P3 — seagull poops at RANDOM intervals (different every pass), not a fixed metronome",
+      "status": "completed",
+      "phase": "ACT",
+      "check_completed": true,
+      "check_method": "S81 P3: POOP_DROP_INTERVAL_TICKS (fixed 33) → POOP_DROP_MIN/MAX_TICKS (12/48, avg ~30 preserves per-pass density); per-drop gap = murmur3-finalizer mix32(seagullId, lastPoopTick) % span + MIN — STATELESS randomness (zero RNG-stream consumption → 5 spawner streams byte-identical; zero new gull fields; both hash inputs already ride save/load → replay + host-reload reproduce the identical pattern). Stale FIXED-interval docs swept in seagull.ts/seagullLifecycle.ts/constants.ts/test header. seagull.spec smoke wait 1500→2500ms (worst-case first gap 48 ticks at degraded CI fps; was sized for the 33-tick metronome). GATES: tsc clean; seagull.test.ts 21/21 (sim sweep: bounded gaps + >1 distinct + >4 drops/400 ticks; pure-fn sweep: 601-tick range/purity + per-gull divergence); FULL vitest 1182/1182; LOCAL playwright seagull.spec chromium 1/1. Commit d56cfcf pushed.",
+      "checkpoint_commit": "d56cfcf",
+      "real_context_tokens_at_close": 160000,
+      "real_context_pct_at_close": 16,
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": true,
+      "objective": "Replace fixed POOP_DROP_INTERVAL_TICKS with POOP_DROP_MIN/MAX_TICKS sampled per-drop via a pure integer hash of (seagullId, lastPoopTick) — deterministic + replay-safe + save/load-safe with ZERO new state and no RNG-stream changes.",
+      "scope": "src/constants.ts, src/state/seagulls/seagullLifecycle.ts (hash + interval fn), seagull.test.ts (update fixed-interval tests; add range/variability/determinism tests)",
+      "testing": "vitest: all sampled intervals within [MIN,MAX]; same inputs → same interval; consecutive drops differ (variability); seagull e2e spec checked for interval coupling",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const POOP_DROP_MIN_TICKS"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const POOP_DROP_MAX_TICKS"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagullLifecycle.ts",
+          "needle": "export function poopDropIntervalTicks"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagullLifecycle.ts",
+          "needle": "poopDropIntervalTicks(gull.id, gull.lastPoopTick)"
+        }
+      ]
+    },
+    {
+      "id": "P4",
+      "label": "S81 P4 — remote (enemy) cruisers render SMOOTH: exponential interpolation of avatarPos instead of raw 10Hz steps",
+      "status": "completed",
+      "phase": "ACT",
+      "check_completed": true,
+      "check_method": "S81 P4: AvatarRenderer keeps displayPosByPlayer (remote-only; local stays controls.cursor) chasing player.avatarPos via pure smoothTowards(current,target,dtMs,tauMs,snapDist): k=1−e^(−dt/τ), τ=60ms (~81% of a 100ms net step), 300px snap guard (respawn/bench teleports), materialize-at-target on first sight (no (0,0) fly-in), dt clamped ≤100ms (tab-background stall), state GC'd with graphics + cleared on destroy. RENDER-ONLY — sim/snapshot/wire untouched. GATES: tsc clean; avatarRenderer.test.ts 13/13 (+6: converge/no-overshoot, dt-monotonic, frame-rate-independence 2×8ms≡1×16ms, ~100ms-step closes >75%, at-target exact, snap, dt≤0); FULL vitest 1188/1188; LOCAL playwright nplayer.spec chromium 3/3 (6-player render + 4p-FFA + real-WebRTC presence). Commit 10d1543 pushed.",
+      "checkpoint_commit": "10d1543",
+      "real_context_tokens_at_close": 185000,
+      "real_context_pct_at_close": 18.5,
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": true,
+      "objective": "User: own cruiser smooth, enemy cruisers 'pixelated'. Root cause located: AvatarRenderer renders remote players at raw player.avatarPos which updates at ~10Hz (snapshot/intent cadence) → 100ms position steps. Add render-side dt-aware exponential chase (time-constant ~60ms, snap >300px for respawn/bench teleports). Local player path untouched.",
+      "scope": "src/render/avatarRenderer.ts (+ pure smoothing fn), avatarRenderer.test.ts",
+      "testing": "vitest: pure fn converges toward target, dt-aware, snaps beyond threshold, exact at target; manual smoke via existing e2e lanes (no spec asserts remote avatar pixel pos)",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.ts",
+          "needle": "export function smoothTowards"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.ts",
+          "needle": "const AVATAR_SMOOTH_TAU_MS = 60;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.test.ts",
+          "needle": "frame-rate independence: two 8ms steps"
+        }
+      ]
+    },
+    {
+      "id": "P5",
+      "label": "S81 P5 — top HUD (BETA badge, primitives legend, mute, gear) renders ABOVE the fog",
+      "status": "completed",
+      "phase": "ACT",
+      "check_completed": true,
+      "check_method": "S81 P5: legend/betaBadge/muteIndicator/settingsIcon still CREATED at bootstrap-top (handlers bind there) but addChild moved to AFTER fog + aboveFogLayer staging; relative order preserved (legend, beta, ♪-after-beta per S18 P1 note, ⚙); spawnerRing deliberately left early (board element — should be fogged); explanatory comments at both sites. VERIFIED LIVE in browser preview (session port 14857, then stopped): stage indices fog=7 < memory=8 < aboveFogLayer=9 < legend=10 < beta=11 < ♪=12 < ⚙=13, zero console errors. GATES: tsc clean; playwright fog.spec chromium 6/6 (fog mask invariants unaffected). Commit f9a7470 pushed.",
+      "checkpoint_commit": "f9a7470",
+      "real_context_tokens_at_close": 200000,
+      "real_context_pct_at_close": 20,
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": true,
+      "objective": "User: 'stuff in the top (like where it says beta or shows primitives) is hidden within the fog.' Root cause: legend/betaBadge/muteIndicator/settingsIcon are addChild'd BEFORE FogRenderer constructs (fog container sits above them). Move their stage adds to after aboveFogLayer. spawnerRing stays fogged (board element).",
+      "scope": "src/main.ts (addChild order only)",
+      "testing": "tsc; fog e2e spec (fog.spec) local; visual order assertion via __SPARK__.app stage children if cheap",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "app.stage.addChild(aboveFogLayer);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "app.stage.addChild(legend);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "app.stage.addChild(betaBadge);"
+        }
+      ]
+    },
+    {
+      "id": "P6",
+      "label": "S81 P6 — Pac-Man hunter ~20% faster (MAX_SPEED 3.5→4.2, ACCEL 0.3→0.36, ratio preserved)",
+      "status": "completed",
+      "phase": "ACT",
+      "check_completed": true,
+      "check_method": "S81 P6: HUNTER_MAX_SPEED 3.5→4.2 + HUNTER_ACCEL 0.30→0.36 (×1.2 both; 0.0857 ratio + terminal-speed-under-cap headroom shape preserved → juke character unchanged, S76 P1 precedent); version-history comment updated. S78-lesson coupling check: hunter.spec catch wait is an UPPER bound (stationary target, 90s budget) — faster only catches sooner. GATES: tsc clean; full vitest green; LOCAL playwright hunter.spec chromium 1/1 (caught in 8s). Commit 34f9842 pushed.",
+      "checkpoint_commit": "34f9842",
+      "real_context_tokens_at_close": 210000,
+      "real_context_pct_at_close": 21,
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": true,
+      "objective": "User: 'pacman should be about 20% faster moving.' Scale HUNTER_MAX_SPEED and HUNTER_ACCEL together by 1.2 (terminal speed 3.6 stays just under the 4.2 cap — same juke character, S76 P1 precedent).",
+      "scope": "src/constants.ts",
+      "testing": "vitest (hunter tests import constants); hunter e2e spec uses score-injection seams (S78 lesson verified — no natural-speed timing coupling)",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const HUNTER_MAX_SPEED = 4.2;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const HUNTER_ACCEL = 0.36;"
         }
       ]
     },
     {
       "id": "P7",
-      "label": "S79 P7 \u2014 SCOPE AMENDMENT (user-explicit, Rule 16): sharpening pass \u2014 act on 5-lens adversarial audit findings, fix every confirmed bug, optimize details; full gates + CI green; then /handoff",
+      "label": "S81 P7 — poop falls 25% slower (POOP_FALL_SPEED 7→5.25) + answer the cruiser-poopy question in the report",
       "status": "completed",
       "phase": "ACT",
-      "tier": "Standard",
+      "check_completed": true,
+      "check_method": "S81 P7: POOP_FALL_SPEED 7→5.25 (−25%; binary-exact float, determinism unchanged); coupling check — unit collision tests are radius-tolerant (19px hit radius vs 1.75px landing shift), two exact-y comments rewritten to reference the constant; e2e injected-poop fall reaches its target prim in ~4 ticks (well inside the 2.5s window). Cruiser-poopy question answered honestly in the report: the slow debuff targets FREE sparks; the cruiser is cursor-bound (teleport-to-pointer) so slowing it = a movement-model feature — flagged as follow-up, NOT silently shipped (Rule 16). GATES: tsc clean; FULL vitest 1188/1188; LOCAL playwright seagull.spec chromium 1/1. Commit 1519a80 pushed.",
+      "checkpoint_commit": "1519a80",
+      "real_context_tokens_at_close": 220000,
+      "real_context_pct_at_close": 22,
+      "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "council_waived": true,
-      "amendment_basis": "user message: lets see what this mythos-class model can do. try to sharpen every details needs optimizing, any bug you find fix it",
-      "check_completed": true,
-      "check_method": "S80/P7 sharpening: the EXTERNAL 5-lens audit workflow FAILED (org spend limit; 5/5 reviewers errored; its {confirmed:[]} result is VACUOUS \u2014 logged, not trusted). Re-ran the audit IN-CONTEXT (direct adversarial re-read of the full 4d6d614..3efcde9 diff + consumers). CONFIRMED+SHIPPED (1a89b0a): (1) foul-on-merge \u2014 reconcileFouledPrimitives also runs after PLACE_PRIMITIVE/PLACE_FROM_FREE in world.ts; pre-fix a prim bonded into a pooped structure earned income un-tinted until an UNRELATED destroy event retroactively fouled it (timing-dependence introduced by S79 P3's destroy-only reconcile); dispatch-level test (real PICKUP->PLACE path, asserts placement non-reject + immediate foul + clean restores). (2) applyPoopTick zero-alloc \u2014 [...keys].sort() per falling poop per tick -> lowest-id tracking, IDENTICAL pick; 2 differential tests with scrambled Map insertion order (prim pass: ids 9,2,5 -> picks 2; spark pass: ids 7,3 -> slows 3). (3) benched-player silent splat-wipe \u2014 main.ts clean sweep now skips currently-benched players (hidden frozen avatar was passively cleaning). (4) seagull/poop polls size>0-gated (matches bomb/potato/rainbow idiom). VERIFIED-CLEAN (no action): host handler drops non-INTENT kinds; ClientSync seq-wedge upstream-gated by P4; HUD reads PHASE_1_WIN_SCORE symbol; no codex staleness; fog does not leak enemy foul tint; client fouledPrimitives clears on absent wire field; enforceFreeSparkCap already early-outs; remaining .sort() sites all event-gated not per-tick. ALSO CLOSED from S79 close-out: CI gating E2E on 3efcde9 = run 27254024044 SUCCESS (12m13s, Rule 22); reflexion 6/6 + verification[] backfilled. GATES: tsc 0; vitest 1170/1170 (+3); FULL chromium e2e suite 36 pass/1 skip/0 fail (3.5m); build 545.97KB <550. CI on 1a89b0a watched to conclusion before /handoff.",
-      "checkpoint_commit": "1a89b0a",
-      "real_context_tokens_at_close": 175000,
-      "real_context_pct_at_close": 17.5,
+      "objective": "User: poops fall too fast to test getting hit. Slow fall 25%. ALSO: answer truthfully — the poopy-slow mechanic applies to FREE sparks (floating building blocks), NOT the player cruiser; the cruiser is cursor-bound (teleport-to-pointer) so slowing it = a movement-model feature, proposed as a follow-up, NOT silently shipped (Rule 16).",
+      "scope": "src/constants.ts; seagull.test.ts if any test hardcodes ticks-to-floor",
+      "testing": "vitest; seagull e2e spec checked for fall-time coupling before landing",
       "verification": [
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/world.ts",
-          "needle": "reconcileFouledPrimitives(world);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagullLifecycle.ts",
-          "needle": "if (hitPrim !== null && (pid as number) >= (hitPrim as number)) continue;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "if (player.benchedUntilTick !== undefined && world.tick < player.benchedUntilTick) {"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const POOP_FALL_SPEED = 5.25;"
         }
       ]
     }
   ],
   "reflexion_entries_to_archive": [
-    "P1 #balance-lever #seam-protected-tuning: WIN 50->150 + TIER 15->50 (audit-rec lever after the S78 income cut still left games short). Pre-verified EVERY e2e injects __TEST_WIN_SCORE__/score seams before touching the constant \u2014 the S78 hunter lesson applied PROACTIVELY this time. Zero test fallout (1149 green).",
-    "P2 #root-cause-the-feel-report #reuse-shipped-wire-state: user never saw the seagull -> root cause was ARITHMETIC not rendering (15-24 sparks at the LOCKED 0.15/s = 100-160s first gull vs ~2min S78 games); cadence 7/12 puts it in the opening minute. Pooped-building visual: A.0 discovered fouledPrimitives ALREADY rides NetSnapshot (worldTypes doc claimed host-only \u2014 stale), so the whole foul tint (prims+bonds) shipped with ZERO wire change/protocol bump. LESSON: probe the serializer before designing wire plumbing \u2014 the field you need may already ship.",
-    "P3 #derive-dont-patch #adjacent-bug-found-in-A0: instead of the audit-prescribed per-site fouledPrimitives.delete patches, ONE reconcile primitive (foul set := union of live splat-anchor components) at the two destroy choke points fixed the leak AND the un-cleanable income-0 sever case. A.0 line-by-line read also surfaced an UNREPORTED bug: orphan CLEAN_POOP no-oped forever (empty BFS deleted nothing incl. the poop -> infinite per-tick dispatch + immortal splat). LESSON: re-derive state from first principles at mutation boundaries beats patching every delete site; read the consumer loop (main.ts sweep) not just the reducer.",
-    "P4 #tofu-auth #one-primitive-two-fixes #quarantine-lane-blindspot: hostPeerId TOFU latch (roster seat-0-consistency anchor + NETSNAPSHOT fallback, fail-closed) closed backlog #2 client half; the SAME latch closed the S62 3+player host-loss limbo (hostLost overlay). Running the nplayer e2e to validate the gate exposed that the quarantined 4p-FFA test had been FAILING since the S78 income cut (natural-accrual WIN wait ~20s vs 20s timeout) \u2014 Rule 22 only watched the GATING lane. Fixed via score-injection (S78 hunter idiom). LESSON: after a balance-constant change, sweep the QUARANTINED lane too \u2014 a non-gating red is still a broken test.",
-    "P5 #serializable-rng #non-vacuous-roundtrip: mulberry32 -> StatefulRng (state = one uint32; sequence byte-identical, save.replay guards prove no perturbation). Spawner.getState/restoreState round-trips all 5 streams; the test seeds the donor spawner DIFFERENTLY so restore provably overrides seeds, and asserts every hazard actually fired in-window (non-vacuous). CREATURE_CHARGE joined the audio-only drain skip (S37 omission inflating activeCount).",
-    "P6 #doc-rot-sweep: 70-session-stale gameState header (primitive-count win), pre-S76 addScore docstring, as-7 cast made version-tracking via typeof, softReset hazard-teardown parity. Doc rot accumulates where the code outlives its header \u2014 sweep headers when the mechanic they describe is replaced.",
-    "P7 #vacuous-empty-result #in-context-beats-fleet-when-broke #audit-your-own-diff: the external 5-lens audit workflow burned 443K subagent tokens into the org spend limit \u2014 5/5 reviewers ERRORED and the workflow returned {confirmed:[]}, which READS like a clean bill but is VACUOUS (zero reviewers ran). Re-ran the audit in-context by re-reading my own S79 diff adversarially: found 1 real semantic inconsistency I had introduced (destroy-only reconcile = foul set timing-dependent on placement; fixed at the two placement dispatch sites), 1 pre-existing gameplay bug (benched players silently wiping splats), 1 hot-path optimization (per-tick per-poop sort -> zero-alloc lowest-id, differential-tested), 1 idiom-consistency alloc fix. LESSONS: (a) an empty result from a FAILED pipeline is not a green result \u2014 check the failure channel before trusting the payload; (b) when fixing X-on-destroy, ask whether X-on-CREATE has the mirror problem (reconcile belonged at ALL topology mutations, not just deletes); (c) optimization claims of equivalence need DIFFERENTIAL tests that scramble the incidental order (Map insertion) the old code happened to neutralize."
+    "P1 #ownership-predicate-extraction: owner-only splat wipe shipped as a PURE predicate (canAvatarCleanSplat) absorbing the S80 bench gate + new ownership gate + radius — main.ts sweep shrank to one call and the whole eligibility contract became unit-testable (the S80 bench fix had lived untested inside main.ts). Ownership via ownerColor (not placedBy) so the rainbow shuffle (lockstep remap) and a future Steal both keep working — parity test locks it.",
+    "P2 #per-grab-timer #seam-audit-before-constants: 3s in-hand cook-off via carriedAtTick stamped on pickup / cleared on place+drop — per-grab semantics gives pass-it-on gameplay for free (re-grab restarts). Pre-checked every potato e2e carry window BEFORE landing the constant (S78 lesson): all carry legs sub-3s sim; the S75 bench spec (fuse 180 = hold 180) has an identical observable either way. Additive-optional serialization emitted only while CARRIED keeps FREE/ARMED snapshot bytes unchanged.",
+    "P3 #stateless-randomness #hash-not-rng: random poop intervals WITHOUT touching any RNG stream — pure mix32(seagullId, lastPoopTick) picks each gap; both inputs already rode save/load, so replay/reload determinism came for free with ZERO new state. LESSON: when a deterministic system needs 'randomness', hash state you already serialize before reaching for a new seeded stream (no serialization work, no byte-drift risk to the 5 locked spawner streams). Sized the e2e smoke wait to the new worst-case gap (48 ticks at degraded CI fps → 1.5s→2.5s) in the same commit.",
+    "P4 #render-side-smoothing #pure-helper-export: 'pixelated' enemy cruisers root-caused to raw 10Hz avatarPos rendering (vs the local cursor's per-frame glide) — fixed render-only with an exponential chase (k=1−e^(−dt/τ), τ=60ms, 300px snap guard, materialize-at-target) so sim/wire/determinism untouched. The S10 test-via-pure-helper-export pattern again: smoothTowards extracted, 6 tests incl. frame-rate independence (2×8ms ≡ 1×16ms).",
+    "P5 #construction-order-is-z-order #verify-in-live-browser: the fogged HUD was pure Pixi child-add order — the row was staged before FogRenderer existed. Fix = move addChild, keep creation (handlers bind early). Verified the REAL stage indices in a live preview (fog=7 < aboveFogLayer=9 < legend/beta/♪/⚙=10-13) instead of trusting the diff — for z-order bugs the browser IS the test.",
+    "P6 #ratio-preserving-tune: hunter +20% = both MAX_SPEED and ACCEL ×1.2 (0.0857 ratio + terminal-under-cap headroom preserved → juke character unchanged, only absolute speed). Confirmed the e2e catch wait is an UPPER bound (stationary target) so faster-only-catches-sooner — speed tunes are e2e-safe in that direction only.",
+    "P7 #scope-honesty-over-silent-feature: poop fall −25% shipped as asked; the user's real question ('does poop slow MY spark?') answered truthfully in the report — the debuff targets FREE sparks, the cruiser is cursor-bound (teleport-to-pointer) so slowing it is a movement-model feature needing its own design + netcode thought. Rule 16: flag the gap, don't silently expand scope into the input model."
   ],
   "budget_total": 1000000,
-  "session_status": "S79 \u2014 6/6 priorities shipped (9dcd284..3efcde9). USER SCOPE AMENDMENT (Rule 16, user-explicit): P7 sharpening/optimization pass \u2014 act on adversarial-audit findings + fix any bug found. In flight: CI gating E2E on 3efcde9, full local e2e suite, 5-lens audit workflow.",
-  "totals": {
-    "turns": 0,
-    "budget_remaining": 1000000,
-    "budget_status": "GREEN"
-  },
-  "auto_fill_applied": {
-    "ts": "2026-06-10T06:16:25.886044Z",
-    "fields": [
-      "totals"
-    ],
-    "validator_version": "s110-three-tier-v1"
-  }
+  "session_status": "S81 — 7/7 playtest round-3 priorities shipped (2173a04..1519a80). CI green on tip 1519a80 (E2E 7m36s SUCCESS + Pages deploy SUCCESS — live site serving S81). Full local chromium e2e 36 pass/1 skip; vitest 1188/1188; build 534.5KB <550 charter. Carry-forward flagged to user: cruiser-poopy-slow (poop hitting the player avatar) does not exist by design — needs a movement-model decision if wanted."
 }
