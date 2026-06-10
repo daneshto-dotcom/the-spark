@@ -581,10 +581,13 @@ function readTestSeagullSpawnSparks(): number | null {
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : null;
 }
 const _SEAGULL_TEST_CADENCE = readTestSeagullSpawnSparks();
-// First seagull ~every 2 min: at the 0.15 spark/s base rate, 15-24 sparks ≈ 100-160s.
+// S79 P2 — 15/24 → 7/12. At the LOCKED 0.15 spark/s base rate the old band meant the FIRST
+// gull arrived at ~100-160s — S78-era ~2-min games often ENDED before it ever appeared (user:
+// "didn't even see the bird"). 7-12 sparks ≈ 47-80s: first gull inside the opening minute,
+// then recurring every ~minute (still gated SEAGULL_MAX_ACTIVE=1).
 // RECURRING (not once-per-game like the hunter) — gated on SEAGULL_MAX_ACTIVE.
-export const SEAGULL_SPAWN_MIN_SPARKS = _SEAGULL_TEST_CADENCE ?? 15;
-export const SEAGULL_SPAWN_MAX_SPARKS = _SEAGULL_TEST_CADENCE ?? 24;
+export const SEAGULL_SPAWN_MIN_SPARKS = _SEAGULL_TEST_CADENCE ?? 7;
+export const SEAGULL_SPAWN_MAX_SPARKS = _SEAGULL_TEST_CADENCE ?? 12;
 export const SEAGULL_MAX_ACTIVE = 1; // at most one gull in the sky at a time
 export const SEAGULL_SPEED = 3.15; // px/tick horizontal cruise; S78 4.5→3.15 (−30%, user "flies really quickly") ⇒ crosses ~1920px in ~10s
 export const SEAGULL_Y_MIN = 44; // top band the gull flies through (sim y; render adds a bob)
@@ -602,3 +605,10 @@ export const POOP_SLOW_TICKS = 15 * PHYSICS_HZ; // "poopy" spark: half-speed for
 export const POOP_SLOW_MULTIPLIER = 0.5; // 2x slower
 export const POOP_CLEAN_RADIUS = 44; // an avatar within this of a structure-splat cleans it
 export const POOP_MAX_LIVE = 24; // safety cap on concurrent poops (snapshot-size guard)
+// S79 P2 — pooped-building visibility (user: a hit building "should visibly be pooped on ...
+// until the spark wipes it off"). The whole fouled component's prims + bonds tint toward the
+// splat colour (world.fouledPrimitives already rides NetSnapshot, so clients see it too), and
+// the structure splat itself draws larger than a ground splat so the wipe target is obvious.
+export const POOP_FOUL_TINT = 0x9aa15c; // sickly green-brown (poopRenderer's POOP_DARK)
+export const POOP_FOUL_TINT_STRENGTH = 0.65; // lerp weight ownerColor → POOP_FOUL_TINT
+export const POOP_STRUCTURE_SPLAT_SCALE = 2.3; // structure splat vs ground splat draw size

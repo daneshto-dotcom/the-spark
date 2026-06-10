@@ -22,8 +22,12 @@
 
 import { Application, Container, Graphics, Sprite } from 'pixi.js';
 import { lookupCombo } from '../combos.ts';
-import { STRAIN_BREAK_BY_TIER, type StiffnessTier } from '../constants.ts';
-import type { Bond } from '../physics/bonds.ts';
+import {
+  POOP_FOUL_TINT,
+  POOP_FOUL_TINT_STRENGTH,
+  STRAIN_BREAK_BY_TIER,
+  type StiffnessTier,
+} from '../constants.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { World } from '../state/world.ts';
 import type { PrimitiveId } from '../types.ts';
@@ -65,7 +69,7 @@ export class StructureRenderer {
   // of controls.state was the only reason the param existed; now removed.
   sync(world: World): void {
     this.syncPrimitives(world);
-    this.drawBonds(world.bonds, world.tick);
+    this.drawBonds(world);
     // S48 P5 (Sym B fix) — drawCarryHalo call removed; see field comment.
     // S53 P2 — drawPreview call removed; see field comment.
   }
@@ -74,18 +78,23 @@ export class StructureRenderer {
     const seen = new Set<PrimitiveId>();
     for (const prim of world.primitives.values()) {
       seen.add(prim.id);
+      // S79 P2 — a poop-FOULED primitive renders tinted toward the splat colour so the whole
+      // building reads "pooped on, earning nothing, go wipe it". world.fouledPrimitives rides
+      // NetSnapshot (S77), so the joiner sees the identical tint with no extra wire state.
+      const tint = foulAwareTint(prim.ownerColor, world.fouledPrimitives.has(prim.id));
       let sprite = this.spriteByPrim.get(prim.id);
       if (sprite === undefined) {
         sprite = new Sprite(this.textures[prim.type]);
         sprite.anchor.set(0.5);
         // Player color = ownership. Spec § VI.4 v0.5.1.
-        sprite.tint = prim.ownerColor;
+        sprite.tint = tint;
         sprite.scale.set(PLACED_PRIMITIVE_SCALE);
         this.primitiveLayer.addChild(sprite);
         this.spriteByPrim.set(prim.id, sprite);
       } else {
-        // ownerColor mutates on Phase-2 Steal disruption — keep tint synced.
-        if (sprite.tint !== prim.ownerColor) sprite.tint = prim.ownerColor;
+        // ownerColor mutates on Phase-2 Steal disruption (and foul state toggles on
+        // splat/clean) — keep tint synced.
+        if (sprite.tint !== tint) sprite.tint = tint;
       }
       sprite.x = prim.pos.x;
       sprite.y = prim.pos.y;
@@ -100,10 +109,12 @@ export class StructureRenderer {
     }
   }
 
-  private drawBonds(bonds: ReadonlyMap<unknown, Bond>, tick: number): void {
+  private drawBonds(world: World): void {
     const g = this.bondGraphics;
+    const tick = world.tick;
+    const fouled = world.fouledPrimitives;
     g.clear();
-    for (const bond of bonds.values()) {
+    for (const bond of world.bonds.values()) {
       // Bond gradient = blend of two endpoints' player colors. Single
       // player Phase 1 = monochrome (a→a). Phase 2 multi-player = real
       // gradient — the call site is identical. The cast is safe: bond.a /
@@ -123,8 +134,14 @@ export class StructureRenderer {
       // per-endpoint so the bond turns red as it approaches break threshold
       // even when endpoint colors differ. Single-color bonds (P1 self-built
       // or solo) render solid via drawDefaultLine fast-path.
-      const stressedA = stress > 0.05 ? lerpTint(a.placerColor, 0xff3030, stress * 0.85) : a.placerColor;
-      const stressedB = stress > 0.05 ? lerpTint(b.placerColor, 0xff3030, stress * 0.85) : b.placerColor;
+      // S79 P2 — a FOULED structure's bonds tint toward the splat colour first (either
+      // endpoint fouled = whole component fouled by construction), then stress-red layers
+      // on top so near-break feedback survives the foul.
+      const isFouled = fouled.size > 0 && (fouled.has(bond.aId) || fouled.has(bond.bId));
+      const baseA = foulAwareTint(a.placerColor, isFouled);
+      const baseB = foulAwareTint(b.placerColor, isFouled);
+      const stressedA = stress > 0.05 ? lerpTint(baseA, 0xff3030, stress * 0.85) : baseA;
+      const stressedB = stress > 0.05 ? lerpTint(baseB, 0xff3030, stress * 0.85) : baseB;
       const width = stiffnessToWidth(bond.stiffnessTier) + (stress > 0.5 ? (stress - 0.5) * 2 : 0);
 
       // S7 P2: per-combo persistent silhouette. Direction is a→b matching the
@@ -193,6 +210,15 @@ function stiffnessToWidth(tier: StiffnessTier): number {
 // gradient via stroke-decomposition (Council R1 Grok #6 + Gemini #5). The
 // stress-tint path still uses lerpTint below — applied to each endpoint's
 // placerColor separately.
+
+/**
+ * S79 P2 — pooped-building tint. Pure + exported for unit tests: a fouled element's colour
+ * lerps toward POOP_FOUL_TINT (the splat's green-brown core) by POOP_FOUL_TINT_STRENGTH;
+ * an un-fouled element keeps its base colour bit-exactly.
+ */
+export function foulAwareTint(baseColor: number, isFouled: boolean): number {
+  return isFouled ? lerpTint(baseColor, POOP_FOUL_TINT, POOP_FOUL_TINT_STRENGTH) : baseColor;
+}
 
 function lerpTint(a: number, b: number, t: number): number {
   const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;

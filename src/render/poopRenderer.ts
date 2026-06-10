@@ -16,7 +16,11 @@
  */
 
 import { Application, Container, Graphics } from 'pixi.js';
-import { POOP_GROUND_TTL_TICKS, POOP_RADIUS } from '../constants.ts';
+import {
+  POOP_GROUND_TTL_TICKS,
+  POOP_RADIUS,
+  POOP_STRUCTURE_SPLAT_SCALE,
+} from '../constants.ts';
 import type { World } from '../state/world.ts';
 
 const POOP_LIGHT = 0xeef0d2; // off-white with a faint green (classic "seagull special")
@@ -72,6 +76,10 @@ export class PoopRenderer {
       }
 
       // SPLAT — procedural blob cluster. Landing pop-scale (first ~POP_TICKS) + ground fade.
+      // S79 P2 — a STRUCTURE splat draws POOP_STRUCTURE_SPLAT_SCALE× bigger than a ground
+      // splat: it is the "this building is fouled + earning nothing, wipe it" target, and at
+      // the base 7px it read as a speck (user round-2 playtest).
+      const sr = poop.state === 'SPLAT_STRUCTURE' ? r * POOP_STRUCTURE_SPLAT_SCALE : r;
       const age = world.tick - poop.landedAtTick;
       const pop = age >= 0 && age < POP_TICKS ? 1 + (1 - age / POP_TICKS) * 0.7 : 1;
       const fade =
@@ -84,17 +92,25 @@ export class PoopRenderer {
       for (const [dx, dy, s] of BLOB_OFFSETS) {
         const rx = dx * Math.cos(phase) - dy * Math.sin(phase);
         const ry = dx * Math.sin(phase) + dy * Math.cos(phase);
-        g.circle(x + rx * r * pop, y + ry * r * pop, r * s * pop).fill({
+        g.circle(x + rx * sr * pop, y + ry * sr * pop, sr * s * pop).fill({
           color: POOP_LIGHT,
           alpha: 0.92 * fade,
         });
       }
       // Greenish core + a wet glint so it reads as fresh + gross.
-      g.circle(x, y, r * 0.5 * pop).fill({ color: POOP_DARK, alpha: 0.45 * fade });
-      g.circle(x - r * 0.25, y - r * 0.22, r * 0.2 * pop).fill({ color: POOP_GLINT, alpha: 0.5 * fade });
+      g.circle(x, y, sr * 0.5 * pop).fill({ color: POOP_DARK, alpha: 0.45 * fade });
+      g.circle(x - sr * 0.25, y - sr * 0.22, sr * 0.2 * pop).fill({ color: POOP_GLINT, alpha: 0.5 * fade });
       // A couple of drips below the splat.
-      g.circle(x - r * 0.5, y + r * 1.05, r * 0.18).fill({ color: POOP_LIGHT, alpha: 0.7 * fade });
-      g.circle(x + r * 0.4, y + r * 1.3, r * 0.14).fill({ color: POOP_LIGHT, alpha: 0.55 * fade });
+      g.circle(x - sr * 0.5, y + sr * 1.05, sr * 0.18).fill({ color: POOP_LIGHT, alpha: 0.7 * fade });
+      g.circle(x + sr * 0.4, y + sr * 1.3, sr * 0.14).fill({ color: POOP_LIGHT, alpha: 0.55 * fade });
+      // S79 P2 — a structure splat gets a longer run-down drip so it reads as dripping off
+      // the building (ground splats keep the compact two-drip look).
+      if (poop.state === 'SPLAT_STRUCTURE') {
+        g.moveTo(x + sr * 0.15, y + sr * 0.6)
+          .lineTo(x + sr * 0.15, y + sr * 1.7)
+          .stroke({ width: sr * 0.22, color: POOP_LIGHT, alpha: 0.6 * fade });
+        g.circle(x + sr * 0.15, y + sr * 1.75, sr * 0.16).fill({ color: POOP_LIGHT, alpha: 0.65 * fade });
+      }
     }
   }
 
