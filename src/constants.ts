@@ -221,7 +221,7 @@ export const SCORE_INCOME_PER_COMPLEXITY_PER_SEC = 0.05;
  * S50 P4 — E2E test override seam. Playwright's `page.addInitScript()` runs
  * BEFORE bundled scripts, so a `window.__TEST_WIN_SCORE__` assignment from
  * an init script is observable at module-load here. Production: window is
- * undefined (SSR / Node) OR override is absent → 50. Only positive finite
+ * undefined (SSR / Node) OR override is absent → 150. Only positive finite
  * numbers override; any other shape falls through to the default.
  *
  * Scope: per-context (Playwright contexts are isolated), so the override
@@ -233,7 +233,13 @@ function readTestWinScore(): number | null {
   const v = (window as { __TEST_WIN_SCORE__?: number }).__TEST_WIN_SCORE__;
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
 }
-export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 50;
+// S79 P1 — 50→150 (user round-2 playtest "still runs a little quick" after the S78 income cut).
+// Raising the WIN target (instead of cutting income again) makes the build-up ramp a smaller
+// fraction of the match (~5-7 min by the S78 audit estimate) without touching the locked income
+// feel. HUNTER_TRIGGER_SCORE auto-scales (75% → 112). SCORE_TIER_STEP raised in step (15→50)
+// so tier-pulse cadence stays ~2-3 per match. All e2e specs inject __TEST_WIN_SCORE__/score
+// seams, so this constant is e2e-timing-safe (the S78 hunter.spec lesson).
+export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 150;
 
 // === Spawner physics ===
 export const SPAWNER_BOUNCE_DAMPING = 0.92;
@@ -301,9 +307,10 @@ export const AUTO_BOND_RADIUS = 60;
 
 
 // Tier-gated corner pulse boundary. scoreProgress crossing each multiple
-// of SCORE_TIER_STEP fires one SCORE_TIER effect. At 15 + threshold 50:
-// 3 tier events before WIN.
-export const SCORE_TIER_STEP = 15;
+// of SCORE_TIER_STEP fires one SCORE_TIER effect. At 50 + threshold 150:
+// 2 tier events before WIN (S79 P1 — raised 15→50 in step with PHASE_1_WIN_SCORE
+// 50→150 so the pulse cadence per match is unchanged).
+export const SCORE_TIER_STEP = 50;
 
 // S13 P2 — outward verlet impulse for STRUCTURE_GROW. Applied to each
 // primitive in the *primary's pre-existing component* (the structure
