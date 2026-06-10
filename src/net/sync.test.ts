@@ -45,6 +45,9 @@ describe('S15 P2 — HostSync', () => {
     expect((msg.snapshot as { rngSeed?: number }).rngSeed).toBeUndefined();
     expect((msg.snapshot as { nextPrimitiveId?: number }).nextPrimitiveId).toBeUndefined();
     expect((msg.snapshot as { nextBondId?: number }).nextBondId).toBeUndefined();
+    // S82 P2 — spawner state (5 RNG stream words = the spawn schedule) must NEVER ride
+    // the wire (rngSeed precedent; param-injection keeps it off by construction).
+    expect((msg.snapshot as { spawner?: unknown }).spawner).toBeUndefined();
     // Retained fields present:
     expect(msg.snapshot.gameState).toBeDefined();
     expect(msg.snapshot.tick).toBeDefined();

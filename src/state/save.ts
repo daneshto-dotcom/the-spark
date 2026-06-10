@@ -49,6 +49,7 @@ import {
 } from '../types.ts';
 import { type GameMode, type GameState, type World } from './world.ts';
 import { type Player } from '../game/player.ts';
+import type { SpawnerState } from '../game/spawner.ts';
 import type { Bomb } from './bomb.ts';
 import type { Creature, CreatureState, CreatureType } from './creatures/creature.ts';
 import type { Hunter, HunterState } from './hunters/hunter.ts';
@@ -163,6 +164,16 @@ export interface WorldSnapshot {
    * post-restore) for back-compat.
    */
   effects?: SerializedEffect[];
+  /**
+   * S82 P2 — the Spawner's complete resumable state (5 RNG stream words + countdowns +
+   * nextId; S79 P5 capability, finally wired). Additive-optional: present ONLY when the
+   * save call site passes it via snapshot(world, { spawnerState }) — pre-S82 saves stay
+   * byte-identical. HOST-ONLY by design (rngSeed-exclusion precedent): clients never run
+   * a spawner, and shipping the stream words would leak the upcoming spawn schedule to a
+   * modified client. netSnapshot() NEVER passes it AND strips it defensively (triple
+   * defense: param-injection + Omit type + runtime destructure + wire-absence test).
+   */
+  spawner?: SpawnerState;
 }
 
 interface SerializedSpark {
@@ -425,7 +436,15 @@ interface SerializedPoop {
   readonly fouledPrimId?: PrimitiveId;
 }
 
-export function snapshot(world: World): WorldSnapshot {
+export function snapshot(
+  world: World,
+  // S82 P2 — host-only extras injected by the SAVE call site. The Spawner is not part of
+  // World (it is a main.ts-owned class), so its state arrives by parameter — which is
+  // exactly what keeps it off the wire: netSnapshot() calls snapshot(world) WITHOUT opts,
+  // so the field cannot exist on the net path by construction. getState() returning null
+  // (non-stateful custom Rng) degrades to the pre-S82 from-seed behaviour (field omitted).
+  opts?: { spawnerState?: SpawnerState | null },
+): WorldSnapshot {
   return {
     schemaVersion: 1,
     savedAt: new Date().toISOString(),
@@ -494,6 +513,9 @@ export function snapshot(world: World): WorldSnapshot {
       }
       return out.length > 0 ? out : undefined;
     })(),
+    // S82 P2 — emit the spawner state only when the save call site injected one
+    // (byte-identical pre-S82; null getState() fallback also omits — see opts docblock).
+    spawner: opts?.spawnerState ?? undefined,
   };
 }
 
@@ -521,7 +543,9 @@ export function restore(snap: WorldSnapshot, world: World): void {
  */
 export type NetSnapshot = Omit<
   WorldSnapshot,
-  'savedAt' | 'rngSeed' | 'nextPrimitiveId' | 'nextBondId'
+  // S82 P2 — 'spawner' joins the host-only omission list (rngSeed precedent: the spawner
+  // stream words are the spawn schedule — never ship them to clients).
+  'savedAt' | 'rngSeed' | 'nextPrimitiveId' | 'nextBondId' | 'spawner'
 >;
 
 /**
@@ -535,9 +559,12 @@ export function netSnapshot(world: World): NetSnapshot {
     rngSeed: _rngSeed,
     nextPrimitiveId: _nextPrimitiveId,
     nextBondId: _nextBondId,
+    // S82 P2 — defense-in-depth: snapshot(world) without opts never emits 'spawner',
+    // but if a future call path ever does, the destructure still strips it off the wire.
+    spawner: _spawner,
     ...rest
   } = full;
-  void _savedAt; void _rngSeed; void _nextPrimitiveId; void _nextBondId;
+  void _savedAt; void _rngSeed; void _nextPrimitiveId; void _nextBondId; void _spawner;
   return rest;
 }
 

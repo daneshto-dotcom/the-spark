@@ -114,6 +114,9 @@ import { shouldCookOffInHand } from './state/potatoLifecycle.ts';
 import { mulberry32 } from './state/rng.ts';
 import { canAvatarCleanSplat } from './state/seagulls/seagullLifecycle.ts';
 import { dispatch, isNetworked, makeWorld, type GameAction, type GameState } from './state/world.ts';
+// S82 P2 — DEV-only save/load seams (__SPARK__.snapshotWorld/restoreWorld); the spawner
+// state finally rides WorldSnapshot through these (S79 P5 capability wired).
+import { restore, snapshot, type WorldSnapshot } from './state/save.ts';
 import { makeGameStateExtras, softReset, tickGameState } from './state/gameState.ts';
 import { tickScoring } from './state/scoring.ts';
 import { asPlayerId } from './types.ts';
@@ -445,6 +448,19 @@ async function bootstrap(): Promise<void> {
       // through the fog (aboveFogLayer sits above the fog container).
       get potatoRenderer() { return potatoRenderer; },
       get aboveFogLayer() { return aboveFogLayer; },
+      // S82 P2 — full-fidelity save/load seams (DEV-only, tree-shaken from prod). The
+      // ONLY call sites that pass spawner state into snapshot() — netSnapshot() never
+      // does, keeping the stream words off the wire by construction. restoreWorld
+      // resumes the spawn sequence bit-exactly when the save carried spawner state
+      // (and degrades to from-seed when it did not — pre-S82 saves still load).
+      snapshotWorld(): string {
+        return JSON.stringify(snapshot(world, { spawnerState: spawner.getState() }));
+      },
+      restoreWorld(json: string): void {
+        const snap = JSON.parse(json) as WorldSnapshot;
+        restore(snap, world);
+        if (snap.spawner !== undefined) spawner.restoreState(snap.spawner);
+      },
       app,
     };
   }
