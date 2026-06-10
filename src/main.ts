@@ -110,6 +110,7 @@ import {
   runGodlyMatcher,
   startCinematicIfNeeded,
 } from './state/godlyOrchestration.ts';
+import { shouldCookOffInHand } from './state/potatoLifecycle.ts';
 import { mulberry32 } from './state/rng.ts';
 import { canAvatarCleanSplat } from './state/seagulls/seagullLifecycle.ts';
 import { dispatch, isNetworked, makeWorld, type GameAction, type GameState } from './state/world.ts';
@@ -716,7 +717,9 @@ async function bootstrap(): Promise<void> {
       // (a) CARRIED → sync pos to the carrier's avatar (the uniform blast center); if the
       //     carrier vanished (disconnect / eliminate) → FORCE-DETONATE at the last pos
       //     ("cooks off if its carrier vanishes" — no orphan; deterministic in-loop, no
-      //     net-handler hook). (b) tick >= detonateAtTick (from-SPAWN fuse) → DETONATE.
+      //     net-handler hook). (a2) S81 P2 — held >3s since the grab → cooks off IN HAND
+      //     (shouldCookOffInHand; per-grab window, real hot potato — pass it or eat the
+      //     bench). (b) tick >= detonateAtTick (from-SPAWN fuse) → DETONATE.
       // Snapshot the entries first (DETONATE deletes from the Map).
       if (world.gameState === 'PLAYING' && !isClient && world.potatoes.size > 0) {
         for (const [potatoId, potato] of [...world.potatoes]) {
@@ -728,6 +731,10 @@ async function bootstrap(): Promise<void> {
             }
             potato.pos.x = carrier.avatarPos.x;
             potato.pos.y = carrier.avatarPos.y;
+            if (shouldCookOffInHand(potato, world.tick)) {
+              dispatch(world, { type: 'POTATO_DETONATE', potatoId });
+              continue;
+            }
           }
           if (world.tick >= potato.detonateAtTick) {
             // S78 — a FREE (never-engaged) potato DISSIPATES harmlessly at fuse-time instead of

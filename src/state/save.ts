@@ -377,6 +377,9 @@ interface SerializedPotato {
   readonly state: PotatoState;
   readonly carrierId: PlayerId | null;
   readonly detonateAtTick: number;
+  /** S81 P2 — grab tick of a CARRIED potato (in-hand hold-detonate window). Additive-
+   *  optional: emitted only while CARRIED, so FREE/ARMED snapshots stay byte-identical. */
+  readonly carriedAtTick?: number;
 }
 
 /**
@@ -1077,6 +1080,8 @@ function serializePotato(po: Potato): SerializedPotato {
     state: po.state,
     carrierId: po.carrierId,
     detonateAtTick: po.detonateAtTick,
+    // S81 P2 — the hold-detonate window rides only while defined (CARRIED).
+    ...(po.carriedAtTick !== undefined ? { carriedAtTick: po.carriedAtTick } : {}),
   };
 }
 
@@ -1091,6 +1096,7 @@ function deserializePotato(s: SerializedPotato): Potato {
     carrierId: s.carrierId,
     spawnedAtTick: 0,
     detonateAtTick: s.detonateAtTick,
+    carriedAtTick: s.carriedAtTick, // S81 P2 — resumes the in-hand window (undefined if absent)
   };
 }
 

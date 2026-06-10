@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import {
   POTATO_CARRIER_BENCH_TICKS,
   POTATO_FUSE_TICKS,
+  POTATO_HOLD_DETONATE_TICKS,
   PLAYER_COLORS,
   SparkType,
 } from '../constants.ts';
@@ -28,6 +29,7 @@ import {
   applyPlacePotato,
   applyPotatoDetonate,
   applySpawnPotato,
+  shouldCookOffInHand,
   teardownPotatoes,
 } from './potatoLifecycle.ts';
 
@@ -316,5 +318,67 @@ describe('potatoLifecycle — teardownPotatoes', () => {
     expect(w.potatoes.size).toBe(0);
     expect(w.nextPotatoId).toBe(0);
     expect(w.players.get(P1)!.carriedPotatoId).toBeUndefined();
+  });
+});
+
+describe('S81 P2 — REAL hot potato: the in-hand hold-detonate window', () => {
+  function grabbedWorld(): World {
+    const w = baseWorld();
+    w.tick = 100;
+    applySpawnPotato(w, { type: 'SPAWN_POTATO', pos: { x: 960, y: 540 } });
+    applyPickupPotato(w, { type: 'PICKUP_POTATO', potatoId: asPotatoId(0), playerId: P1 });
+    return w;
+  }
+
+  it('pickup stamps carriedAtTick; the window fires at exactly +POTATO_HOLD_DETONATE_TICKS', () => {
+    const w = grabbedWorld();
+    const potato = w.potatoes.get(asPotatoId(0))!;
+    expect(potato.state).toBe('CARRIED');
+    expect(potato.carriedAtTick).toBe(100);
+    expect(shouldCookOffInHand(potato, 100)).toBe(false);
+    expect(shouldCookOffInHand(potato, 100 + POTATO_HOLD_DETONATE_TICKS - 1)).toBe(false);
+    expect(shouldCookOffInHand(potato, 100 + POTATO_HOLD_DETONATE_TICKS)).toBe(true);
+  });
+
+  it('placing before the window clears it (an ARMED potato never in-hand-cooks)', () => {
+    const w = grabbedWorld();
+    applyPlacePotato(w, { type: 'PLACE_POTATO', playerId: P1, pos: { x: 400, y: 300 } });
+    const potato = w.potatoes.get(asPotatoId(0))!;
+    expect(potato.state).toBe('ARMED');
+    expect(potato.carriedAtTick).toBeUndefined();
+    expect(shouldCookOffInHand(potato, 100 + POTATO_HOLD_DETONATE_TICKS * 2)).toBe(false);
+  });
+
+  it('dropping before the window clears it too', () => {
+    const w = grabbedWorld();
+    applyDropPotato(w, { type: 'DROP_POTATO', playerId: P1 });
+    const potato = w.potatoes.get(asPotatoId(0))!;
+    expect(potato.state).toBe('ARMED');
+    expect(potato.carriedAtTick).toBeUndefined();
+    expect(shouldCookOffInHand(potato, 100 + POTATO_HOLD_DETONATE_TICKS * 2)).toBe(false);
+  });
+
+  it('a RE-GRAB (pass) restarts the window from the new grab tick', () => {
+    const w = grabbedWorld();
+    applyPlacePotato(w, { type: 'PLACE_POTATO', playerId: P1, pos: { x: 400, y: 300 } });
+    w.tick = 100 + POTATO_HOLD_DETONATE_TICKS; // old window would have fired by now
+    applyPickupPotato(w, { type: 'PICKUP_POTATO', potatoId: asPotatoId(0), playerId: P1 }); // re-grab ARMED
+    const potato = w.potatoes.get(asPotatoId(0))!;
+    expect(potato.state).toBe('CARRIED');
+    expect(potato.carriedAtTick).toBe(w.tick);
+    expect(shouldCookOffInHand(potato, w.tick + POTATO_HOLD_DETONATE_TICKS - 1)).toBe(false);
+    expect(shouldCookOffInHand(potato, w.tick + POTATO_HOLD_DETONATE_TICKS)).toBe(true);
+  });
+
+  it('the in-hand cook-off detonates via the existing carrier path → carrier benched', () => {
+    const w = grabbedWorld();
+    w.tick = 100 + POTATO_HOLD_DETONATE_TICKS;
+    const potato = w.potatoes.get(asPotatoId(0))!;
+    expect(shouldCookOffInHand(potato, w.tick)).toBe(true);
+    applyPotatoDetonate(w, { type: 'POTATO_DETONATE', potatoId: asPotatoId(0) });
+    expect(w.potatoes.size).toBe(0);
+    const carrier = w.players.get(P1)!;
+    expect(carrier.carriedPotatoId).toBeUndefined();
+    expect(carrier.benchedUntilTick).toBe(w.tick + POTATO_CARRIER_BENCH_TICKS);
   });
 });

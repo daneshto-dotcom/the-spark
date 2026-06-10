@@ -20,10 +20,10 @@
  * receive the result (deleted prims/bonds + BOMB_EXPLODE burst) in the next NetSnapshot.
  */
 
-import { POTATO_BLAST_RADIUS, POTATO_CARRIER_BENCH_TICKS } from '../constants.ts';
+import { POTATO_BLAST_RADIUS, POTATO_CARRIER_BENCH_TICKS, POTATO_HOLD_DETONATE_TICKS } from '../constants.ts';
 import { snapPrevPosForUnbonded } from '../game/invariants.ts';
 import { asPotatoId, type BondId, type PlayerId, type PotatoId, type PrimitiveId, type Vec2 } from '../types.ts';
-import { makePotato } from './potato.ts';
+import { makePotato, type Potato } from './potato.ts';
 import { reconcileFouledPrimitives } from './seagulls/seagullLifecycle.ts';
 import type { World } from './worldTypes.ts';
 
@@ -79,8 +79,24 @@ export function applyPickupPotato(world: World, action: PickupPotatoAction): Wor
   if (player.kind === 'Carrying' || player.carriedPotatoId !== undefined) return world;
   potato.state = 'CARRIED';
   potato.carrierId = action.playerId;
+  // S81 P2 — stamp the grab: the hold-detonate window (3s) starts NOW. A re-grab (pass)
+  // restarts it — that's the hot-potato loop: grab → pass within 3s → repeat.
+  potato.carriedAtTick = world.tick;
   player.carriedPotatoId = action.potatoId;
   return world;
+}
+
+/**
+ * S81 P2 — pure hot-potato predicate for the main.ts poll: a CARRIED potato held
+ * continuously for POTATO_HOLD_DETONATE_TICKS cooks off IN HAND (the existing
+ * applyPotatoDetonate carrier path benches the holder). Exported for unit tests.
+ */
+export function shouldCookOffInHand(potato: Potato, tick: number): boolean {
+  return (
+    potato.state === 'CARRIED' &&
+    potato.carriedAtTick !== undefined &&
+    tick - potato.carriedAtTick >= POTATO_HOLD_DETONATE_TICKS
+  );
 }
 
 /**
@@ -101,6 +117,7 @@ export function applyPlacePotato(world: World, action: PlacePotatoAction): World
   potato.prevPos.x = action.pos.x;
   potato.prevPos.y = action.pos.y;
   potato.carrierId = null;
+  potato.carriedAtTick = undefined; // S81 P2 — placed in time: the hold window dies with the carry
   return world;
 }
 
@@ -117,6 +134,7 @@ export function applyDropPotato(world: World, action: DropPotatoAction): World {
   if (potato === undefined) return world;
   potato.state = 'ARMED';
   potato.carrierId = null;
+  potato.carriedAtTick = undefined; // S81 P2 — dropped in time: the hold window dies with the carry
   // CHECK-Grok hygiene — keep prevPos consistent with pos (matches applyPlacePotato).
   // prevPos is vestigial in v1 (the potato is never Verlet-integrated), so this has no
   // functional effect today; it forward-protects a future thrown-potato variant.

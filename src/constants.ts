@@ -531,6 +531,13 @@ export const POTATO_RADIUS = 16; // visual + pick radius
 // hunter bench infra) for this long. User-specified 15s (distinct from the 30s hunter
 // bench). ARMED/FREE detonations do NOT bench — only holding it too long is punished.
 export const POTATO_CARRIER_BENCH_TICKS = 15 * PHYSICS_HZ; // 900 ticks = 15s
+// S81 P2 — REAL hot potato: a CARRIED potato cooks off IN HAND this long after the grab
+// (per-grab timer — re-grabbing/passing restarts the window; place or drop before it fires
+// and you're safe). User round-3 playtest: players hogged the 23s from-spawn fuse for ~22s
+// and dumped it at the last second — 'it should be a real hot potato where you have to pass
+// it on as soon as possible.' The from-spawn fuse is UNCHANGED (FREE dissipate / ARMED
+// detonate); this is an ADDITIONAL, earlier in-hand trigger (existing carrier-bench applies).
+export const POTATO_HOLD_DETONATE_TICKS = 3 * PHYSICS_HZ; // 180 ticks = 3s of continuous carry
 
 // === S75 P3 — Rainbow color-shuffle pickup (Council Full; protocol 5->6) ===
 // The host-only spawner drops a RARE rainbow into the spawn zone on its OWN seeded cadence

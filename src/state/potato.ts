@@ -41,6 +41,13 @@ export interface Potato {
    * one-line flip to Council's from-PLACEMENT can reassign it in applyPlacePotato.
    */
   detonateAtTick: number;
+  /**
+   * S81 P2 — tick of the CURRENT grab (set by applyPickupPotato, cleared by place/drop).
+   * The main.ts poll cooks the potato off IN HAND once world.tick - carriedAtTick >=
+   * POTATO_HOLD_DETONATE_TICKS (3s) — the real hot-potato pressure. Per-grab: passing it
+   * on (drop/place → someone re-grabs) restarts the window. undefined while FREE/ARMED.
+   */
+  carriedAtTick?: number;
 }
 
 /**
