@@ -276,7 +276,16 @@ export const VOLTKIN_RECIPE: GodlyRecipe = {
   // ONLY visual handoff is the creature itself appearing at targetPos.
   sustainedEffectMs: 500,
   voiceOffsetMs: 3500,
-  lumaKey: { enabled: true, threshold: 0.88 },
+  // S83 P4 — DISABLED. The mp4's baked-in "transparency checkerboard" is now
+  // composited onto black OFFLINE (scripts/matte-voltkin-intro.py: temporal-
+  // median plate + per-frame difference key), so the video blends into the
+  // overlay's black bg with no runtime shader. The S22 luma key could never
+  // fully fix it at runtime: gray checker cells sat BELOW the .88 threshold
+  // (the user-visible squares) while the belly highlight #FFEB6B (luma .887)
+  // sat ON it, punching holes in the character. enabled=false takes the
+  // plain-DOM <video> path in cutsceneOverlay (the pre-S22 path). Threshold
+  // retained only for the type shape; unused while disabled.
+  lumaKey: { enabled: false, threshold: 0.88 },
 };
 
 registerRecipe(VOLTKIN_RECIPE);
