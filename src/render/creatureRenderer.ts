@@ -333,14 +333,27 @@ export class CreatureRenderer {
       // wire prevPos is dead on the client mirror, so both the walk/idle
       // selector and the facing flip read this frame-to-frame estimate).
       const last = this.lastSeenPos.get(creature.id);
-      const estVelX = last === undefined ? 0 : creature.pos.x - last.x;
-      const estVelY = last === undefined ? 0 : creature.pos.y - last.y;
+      let estVelX = last === undefined ? 0 : creature.pos.x - last.x;
+      let estVelY = last === undefined ? 0 : creature.pos.y - last.y;
+      // S83 P5 (CHECK hardening) — a snapshot restore can teleport the
+      // creature and/or rewind world.tick. A single >200px/frame jump is a
+      // teleport, not motion: skip movement detection (no spurious facing
+      // flip / walk burst). A lastMoveTick from the future (rewound clock)
+      // is stale: drop it instead of pinning isMoving true while it catches up.
+      if (estVelX * estVelX + estVelY * estVelY > 200 * 200) {
+        estVelX = 0;
+        estVelY = 0;
+      }
       this.lastSeenPos.set(creature.id, { x: creature.pos.x, y: creature.pos.y });
       if (estVelX * estVelX + estVelY * estVelY
           > FACING_VELOCITY_THRESHOLD * FACING_VELOCITY_THRESHOLD) {
         this.lastMoveTick.set(creature.id, world.tick);
       }
-      const lastMove = this.lastMoveTick.get(creature.id);
+      let lastMove = this.lastMoveTick.get(creature.id);
+      if (lastMove !== undefined && lastMove > world.tick) {
+        this.lastMoveTick.delete(creature.id);
+        lastMove = undefined;
+      }
       const isMoving = lastMove !== undefined && world.tick - lastMove < MOVING_HOLD_TICKS;
 
       // S83 P3 — atlas cell selection (pure mapping; loops on world.tick,
@@ -348,11 +361,15 @@ export class CreatureRenderer {
       let animCellIdx = -1;
       let animNativeFacing: 1 | -1 = 1;
       if (this.animManifest !== null && this.animCells !== null) {
+        // S83 P5 (CHECK, Gemini observation) — per-creature loop phase offset
+        // so two live Voltkins don't blink/stride in eerie unison. id is
+        // serialized (host+client agree); one-shots key off ticksInState and
+        // are unaffected. 7 ticks ~ 1.4 frames of desync per id step.
         const cell = currentAnimCell(
           creature.state,
           creature.ticksInState,
           creature.killCount,
-          world.tick,
+          world.tick + (creature.id as number) * 7,
           isMoving,
           this.animManifest,
         );

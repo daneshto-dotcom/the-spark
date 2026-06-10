@@ -28,7 +28,23 @@ S30 audit at session close surfaced 24 findings split P0/P1/P2 across S31/S33 (s
 
 ---
 
-## NEXT SESSION (S83) — VOLTKIN FULL AUDIT + REAL-ANIMATION UPGRADE [USER-QUEUED 2026-06-10, verbatim intent]
+## Session 83 — Voltkin full audit + real-animation upgrade [COMPLETED 2026-06-10]
+
+**User-approved PDR v2 ("Approved! work creatively, technically, pedantically, and thoroughly"). Full tier, Council R1+R2 (Grok 4.20 + Gemini 2.5-pro) CONVERGED; adversarial CHECK Triumvirate ran post-ship (Gemini PASS 5/5/5/5; 4 of 5 Grok findings rejected on inline triage with evidence, 1 accepted-downgraded and hardened). 5/5 priorities (24648a8 → P5 close). Tests 1237 → 1247; bundle 544.9KiB < 550 (+2.8KiB); generative spend $3.00 of $10 cap.**
+
+**ROOT CAUSE (A.0 audit):** the generator drew a literal *picture of* a transparency checkerboard behind the character — all 6 sprite frames had 0% real alpha (the in-game renderer applies no keying → checker card) and the intro mp4 had the same pattern (the .88 runtime luma key removed only the WHITE checkers; gray survived = the user-visible squares; belly `#FFEB6B` luma .887 sat ON the threshold → key punched holes in the character).
+
+- **P1 true-alpha sprites (24648a8)** — `scripts/matte-voltkin-frames.py`: measured checker model → achromatic+bright candidate, border-connected labeling (enclosed whites structurally safe), 2px feather + nearest-bg unmix decontamination. 30/30 probes; interior byte-identical; originals in `assets-source/.../pre-s83-checkerboard/`.
+- **P2 adversarial Veo probe (3215589)** — walk-cycle clip (the hard case: motion + loop closure + in-place), image-to-video seeded with the cleaned idle frame. Gate PASSED: dHash drift 0–18/64, loop 29..37 closure below consecutive-frame baseline, zero static transitions. The probe clip became the production walk asset.
+- **P3 real animation (4e3e257)** — 5 more clips (zap/hurt/victory on MAGENTA so achromatic-white decorations survive the key + provably-safe despill; idle/charge on white). `scripts/build-voltkin-atlas.py` → ONE 2048×1792 atlas (56× 256px cells, quantized, 540KB) + manifest in public/ (zero bundle cost). `voltkinFrames.currentAnimCell` pure mapping: loops on `world.tick` (+per-creature phase), one-shots on `ticksInState`, **zap apex lands exactly on FIRE_TICK=30**, form-swap boundaries identical to legacy → `flashIntensity` unchanged. Legacy 6-frame path retained as instant-first-paint + fallback. **Discovery:** wire `prevPos` rehydrates equal to `pos` on the 1v1 client → the S36 facing flip never worked on the client mirror; renderer-side velocity estimator (15-tick hold) now drives walk/idle AND facing, no wire change. Live-verified on the real loop: frame-exact ATTACKING sequence with a real bond severed underneath (LOCKED §13.15 untouched).
+- **P4 intro video fix (662def5)** — `scripts/matte-voltkin-intro.py`: temporal-median plate + 13px morphological opening (protects static lightning-arc cores baked into the plate) + per-frame plate-difference key → checkerboard composited onto black offline, approved content preserved exactly (0.06% survivor verify). `lumaKey.enabled=false` → plain-DOM video path; belly-hole defect eliminated by construction.
+- **P5 verification sweep + CHECK hardening** — full e2e lane 37 pass/1 skip (3.7m) incl. fog 6-children; vitest 1247/1247; estimator teleport/backward-clock guards; per-creature loop phase offset (Gemini CHECK observation); CI green on tip.
+
+**Carry-forwards (logged):** VFX lightning-overlay library (user-deferred; procedural ARC_FLASH stays) · host-migration design session · EYES follow-ups (ownership cue, above-fog identity, MEMORY_FOG_COLOR tier) · lobby D1 animations + e2e geometry getters · S73 dense-compaction colour-shift · **playtest round 5**: cruiser-slow feel + fuzzy fog + nameplates + reconnect UX + drop-bench (S82 knobs, untested by user) + NEW: Voltkin animation feel on the live site (walk/idle gait, charge→zap punch, hurt/victory despawns, intro over black).
+
+---
+
+## PRE-S83 BRIEF (historical) — VOLTKIN FULL AUDIT + REAL-ANIMATION UPGRADE [USER-QUEUED 2026-06-10, verbatim intent]
 
 User: Voltkin today is "not a really animated graphic, it's a collection of pictures running one after another with the clipping/cutout (squares) in the background that kinda looks like crap … even the voltkin video has those cutout white squares around instead of blending into the black background." Mandate: **full audit, then a full upgrade to a real moving character**, while KEEPING the in-game mechanics exactly (targets enemy structures, destroys them with electric bolts). User suggests exploring generative platforms (xAI etc.) whose output can be embedded. "Be super methodical, thorough, and creative."
 
