@@ -34,7 +34,7 @@
  * never (0,0) — see state/world.ts:292 and state/gameMode.ts:72).
  */
 
-import { Application, Container, Graphics } from 'pixi.js';
+import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { POOP_FOUL_TINT, POOP_FOUL_TINT_STRENGTH } from '../constants.ts';
 import type { Controls } from '../input/controls.ts';
 import { isCruiserDebuffed } from '../state/gameMode.ts';
@@ -86,11 +86,25 @@ const AVATAR_ATTRACT_PULSE_BOOST = 2.0;
 const AVATAR_SMOOTH_TAU_MS = 60;
 const AVATAR_SMOOTH_SNAP_DIST = 300;
 
+// S82 P3 — CVD seat nameplate (EYES backlog #3, S62 Council carry-forward: "color alone
+// is not a unique id beyond 3 players"). A tiny "P{n}" tag under each avatar gives
+// colour-independent identity at the action point. White WITH a dark stroke (Council
+// S82 Grok R1#8 — contrast on any background), small + translucent so it reads as a
+// tag, not a label. Networked matches only (players.size > 1) — solo needs no identity.
+const NAMEPLATE_OFFSET_Y = 22;
+const NAMEPLATE_ALPHA = 0.85;
+/** S82 P3 — pure: seat → nameplate text. Exported for unit tests. */
+export function avatarNameplateText(playerId: number): string {
+  return `P${playerId + 1}`;
+}
+
 export class AvatarRenderer {
   private readonly container: Container;
   private readonly graphicsByPlayer: Map<PlayerId, Graphics> = new Map();
   // S81 P4 — per-player smoothed display pos for REMOTE avatars (local renders at cursor).
   private readonly displayPosByPlayer: Map<PlayerId, Vec2> = new Map();
+  // S82 P3 — per-player CVD seat nameplate ("P{n}" under the avatar; networked only).
+  private readonly nameplateByPlayer: Map<PlayerId, Text> = new Map();
   private lastSyncMs: number | null = null;
 
   constructor(app: Application) {
@@ -128,11 +142,32 @@ export class AvatarRenderer {
       }
       g.clear();
 
+      // S82 P3 — CVD seat nameplate (created lazily; reused across frames).
+      let plate = this.nameplateByPlayer.get(player.id);
+      if (plate === undefined) {
+        plate = new Text({
+          text: avatarNameplateText(player.id as number),
+          style: new TextStyle({
+            fontFamily: 'monospace',
+            fontSize: 11,
+            fill: 0xffffff,
+            stroke: { color: 0x000000, width: 3 },
+          }),
+        });
+        plate.anchor.set(0.5, 0);
+        plate.alpha = NAMEPLATE_ALPHA;
+        this.container.addChild(plate);
+        this.nameplateByPlayer.set(player.id, plate);
+      }
+
       // S72 P2 — a benched player (eaten by the hunter) has NO avatar for the bench
       // duration. g.clear() above already wiped last frame's draw; skip re-drawing.
       // Tick-gated (self-heals on un-bench). Runs on host + client (benchedUntilTick
       // is in the snapshot) so both peers see the victim vanish.
-      if (isBenched(player.benchedUntilTick, world.tick)) continue;
+      if (isBenched(player.benchedUntilTick, world.tick)) {
+        plate.visible = false; // S82 P3 — no nameplate on a hidden avatar
+        continue;
+      }
 
       const isLocal = player.id === localPlayerId;
       // S82 P1 — cruiser-poopy-slow: while the debuff (or its residual chase) is live, the
@@ -201,6 +236,15 @@ export class AvatarRenderer {
       // Inner core.
       g.circle(x, y, AVATAR_INNER_RADIUS)
         .fill({ color: fill, alpha: inner });
+
+      // S82 P3 — position the CVD seat nameplate under the avatar (networked only;
+      // solo has a single player and needs no identity tag).
+      if (world.players.size > 1) {
+        plate.visible = true;
+        plate.position.set(x, y + NAMEPLATE_OFFSET_Y);
+      } else {
+        plate.visible = false;
+      }
     }
 
     // GC removed players (e.g. RETURN_TO_TITLE drops P2 — see state/gameMode.ts
@@ -213,6 +257,11 @@ export class AvatarRenderer {
           g.destroy();
           this.graphicsByPlayer.delete(pid);
           this.displayPosByPlayer.delete(pid); // S81 P4 — drop the smoothing state with it
+          const plate = this.nameplateByPlayer.get(pid); // S82 P3 — and the nameplate
+          if (plate !== undefined) {
+            plate.destroy();
+            this.nameplateByPlayer.delete(pid);
+          }
         }
       }
     }
@@ -222,6 +271,7 @@ export class AvatarRenderer {
     this.container.destroy({ children: true });
     this.graphicsByPlayer.clear();
     this.displayPosByPlayer.clear();
+    this.nameplateByPlayer.clear();
   }
 }
 

@@ -234,11 +234,22 @@ export class HUD {
     });
 
     // Connection status dot — visible in any networked gameState (PLAYING/LOBBY).
+    // S82 P3 — CVD fix (EYES backlog #3): green-vs-red alone is the classic
+    // deuteranopia trap. Connected = FILLED dot; lost = HOLLOW ring + X slash —
+    // the state now reads by SHAPE, colour stays as the redundant cue.
     const g = this.connectionDot;
     g.clear();
     if (isNetworked(world)) {
-      const color = this.connectedPeers > 0 ? 0x3bff7a : 0xff3b6b;
-      g.circle(CANVAS_WIDTH - 24, 48, 6).fill({ color, alpha: 0.85 });
+      const cx = CANVAS_WIDTH - 24;
+      const cy = 48;
+      if (this.connectedPeers > 0) {
+        g.circle(cx, cy, 6).fill({ color: 0x3bff7a, alpha: 0.85 });
+      } else {
+        g.circle(cx, cy, 6).stroke({ color: 0xff3b6b, width: 2, alpha: 0.85 });
+        g.moveTo(cx - 3, cy - 3).lineTo(cx + 3, cy + 3)
+          .moveTo(cx + 3, cy - 3).lineTo(cx - 3, cy + 3)
+          .stroke({ color: 0xff3b6b, width: 2, alpha: 0.85 });
+      }
     }
 
     // S17 P1 — disruption charge dots, one row per ranked player (aligned to the

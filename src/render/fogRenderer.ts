@@ -408,10 +408,61 @@ export class FogRenderer {
 }
 
 /**
- * One-time radial-gradient "vision brush": white opaque core → transparent
- * edge. Built with Canvas2D (version-proof; the Pixi v8 Graphics gradient API
- * differs from v7 and we sidestep it entirely). The inner plateau (stop 0.72)
- * keeps the core fully erasing; the outer band is the soft VISION_FADE edge.
+ * S82 P3 — fuzzy-edge brush parameters (EYES backlog #3). The vision edge is no longer a
+ * perfect circle: the fade band's OUTER boundary wobbles with the angle through a fixed
+ * 3-harmonic sine mix, so the reveal reads as an organic glow instead of a compass-drawn
+ * disc. All constants are FIXED (no Math.random, no time) — the texture is deterministic,
+ * baked ONCE, and costs zero per frame (Council S82: static texture, not animated edge).
+ *
+ * SAFETY ENVELOPE (fog.spec contract): the wobble only pulls the edge INWARD —
+ * edge(θ) ∈ [1 − FUZZ_AMP, 1.0] of the texture radius — so the brush NEVER paints
+ * outside the pre-S82 footprint (fogged probe points ≥160px away stay EXACT RGB(0,0,0)),
+ * and the full-alpha plateau (≤ BRUSH_PLATEAU) is untouched (source-center alpha<10
+ * asserts hold). FUZZ_AMP 0.09 ≈ ±12px on a 128px texture radius. Playtest knobs:
+ * raise FUZZ_AMP toward 0.15 for shaggier, lower toward 0.04 for subtler.
+ */
+const BRUSH_PLATEAU = 0.72;
+const FUZZ_AMP = 0.09;
+// Three co-prime angular frequencies + irrational-ish phases — no visible symmetry axis.
+const FUZZ_HARMONICS: ReadonlyArray<readonly [freq: number, phase: number, weight: number]> = [
+  [3, 0.7, 0.45],
+  [7, 2.1, 0.35],
+  [13, 4.4, 0.2],
+];
+
+/**
+ * S82 P3 — pure: angular wobble factor in [0, 1] (0 = max inward pull, 1 = full radius).
+ * Exported for unit tests (bounded, deterministic, angle-varying).
+ */
+export function fogEdgeWobble(theta: number): number {
+  let w = 0;
+  for (const [freq, phase, weight] of FUZZ_HARMONICS) {
+    w += weight * Math.sin(freq * theta + phase);
+  }
+  // w ∈ [-1, 1] (weights sum to 1) → map to [0, 1].
+  return 0.5 + 0.5 * w;
+}
+
+/**
+ * S82 P3 — pure: brush alpha at normalized radius r01 (0=center, 1=texture rim) and
+ * angle theta. Full plateau, then a smoothstepped fade to the wobbled edge. Exported
+ * for unit tests (plateau-full / beyond-edge-zero / monotonic-in-r / angle-varying).
+ */
+export function brushAlphaAt(r01: number, theta: number): number {
+  if (r01 <= BRUSH_PLATEAU) return 1;
+  const edge = 1 - FUZZ_AMP * (1 - fogEdgeWobble(theta));
+  if (r01 >= edge) return 0;
+  const t = (r01 - BRUSH_PLATEAU) / (edge - BRUSH_PLATEAU); // 0 at plateau → 1 at edge
+  const inv = 1 - t;
+  return inv * inv * (3 - 2 * inv); // smoothstep — softer shoulder than the old linear fade
+}
+
+/**
+ * One-time "vision brush": white opaque core → fuzzy transparent edge. S82 P3 — was a
+ * Canvas2D radial gradient (perfect circle); now a one-time per-pixel bake of
+ * brushAlphaAt so the edge carries the angular wobble. 256×256 = 65K texels, built once
+ * at construction — same zero-per-frame cost as the gradient. (GLSL stays Council-VETOED;
+ * this is still pure Canvas2D + scenegraph.)
  */
 function makeRadialBrushTexture(radius: number): Texture {
   const size = radius * 2;
@@ -420,11 +471,21 @@ function makeRadialBrushTexture(radius: number): Texture {
   canvas.height = size;
   const ctx = canvas.getContext('2d');
   if (ctx === null) throw new Error('FogRenderer: 2D canvas context unavailable');
-  const grad = ctx.createRadialGradient(radius, radius, 0, radius, radius, radius);
-  grad.addColorStop(0, 'rgba(255,255,255,1)');
-  grad.addColorStop(0.72, 'rgba(255,255,255,1)');
-  grad.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, size, size);
+  const img = ctx.createImageData(size, size);
+  const data = img.data;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const dx = x + 0.5 - radius;
+      const dy = y + 0.5 - radius;
+      const r01 = Math.sqrt(dx * dx + dy * dy) / radius;
+      const a = brushAlphaAt(r01, Math.atan2(dy, dx));
+      const o = (y * size + x) * 4;
+      data[o] = 255;
+      data[o + 1] = 255;
+      data[o + 2] = 255;
+      data[o + 3] = Math.round(a * 255);
+    }
+  }
+  ctx.putImageData(img, 0, 0);
   return Texture.from(canvas);
 }
