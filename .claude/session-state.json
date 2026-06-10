@@ -1,19 +1,49 @@
 {
-  "tool_calls_session_total": 35,
-  "session_start": "2026-06-09T16:00:00.000Z",
-  "session_id": "S78",
+  "tool_calls_session_total": 189,
+  "session_id": "S79",
   "session_kind": "execution",
-  "session_note": "S78 — USER-REPORTED playtest bugs + EXPLICIT go ('run all fixes ... committed and pushed and checked analyzed updated and then /handoff'). Three fixes batched (P1), code SHIPPED baa33f2: (1) game-too-short — SCORE_INCOME_PER_COMPLEXITY_PER_SEC 0.15->0.05. (2) random explosions — FREE potato now DISSIPATES harmlessly at fuse-time (new DISSIPATE_POTATO mirroring DISSIPATE_BOMB); CARRIED/ARMED still detonate. (3) seagull SEAGULL_SPEED 4.5->3.15 (-30%). E2E REGRESSION CAUGHT POST-PUSH: the income cut blew hunter.spec's 15s timeout (income-timing-coupled e2e); FIXED in 1fe0d6e (score-injection). NO protocol bump.",
+  "session_start": "2026-06-10T00:00:00.000Z",
+  "session_note": "S79 \u2014 USER EXPLICIT 'i approve full session priority and autonomous run'. Batch PDR (Full tier): P1 game-length lever (WIN 50->150, TIER 15->50); P2 seagull visibility (cadence 15/24->7/12) + pooped-building visuals (foul tint prims+bonds, bigger splat); P3 HIGH-1 fouledPrimitives reconcile + orphan CLEAN_POOP no-op bug (NEW, found A.0); P4 HIGH-2 client sender-auth hostPeerId gate + MEDIUM host-loss overlay; P5 MEDIUM spawner-RNG serialization + CREATURE_CHARGE drain-filter; P6 LOW sweep. FINAL: Rule 22 + adversarial multi-agent CHECK + /handoff. PDR: .claude/plans/2026-06-10_PDR_S79_batch.md",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
   "council_waived": true,
-  "tier": "Standard",
+  "council_waiver_basis": "S78 precedent: user explicit full-session approval + autonomous run; deliberation basis = A.0 empirical state-discovery (all target files read, 1 NEW bug + 2 claim-deltas surfaced) + end-of-session adversarial multi-agent CHECK (exceeds Triumvirate static pass)",
+  "tier": "Full",
   "prime_audit_completed": true,
+  "prime_audit_delta": "A.0 deltas vs handoff: potatoLifecycle delete site drifted 187->191; worldTypes 'NOT serialized' doc is FALSE (fouledPrimitives rides NetSnapshot since S77 \u2014 enables client foul-tint with no wire change); NEW bug found: orphan-sweep CLEAN_POOP no-ops forever when anchor prim destroyed (empty BFS component -> poop never deleted -> infinite per-tick dispatch + immortal splat); bombs need no third fix site (route through applySeverTopology)",
   "priorities": [
     {
       "id": "P1",
-      "label": "S78 P1 — playtest bug-fix batch (game length + random explosions + seagull speed) + e2e regression fix. (1) constants.ts SCORE_INCOME 0.15->0.05. (2) FREE-potato harmless dissipate (new DISSIPATE_POTATO, wired world.ts + protocol Record + main.ts poll). (3) SEAGULL_SPEED 4.5->3.15. (4) e2e/hunter.spec.ts score-injection so the trigger is income-rate-independent. NO protocol bump.",
+      "label": "S79 P1 \u2014 game length lever: PHASE_1_WIN_SCORE 50->150 + SCORE_TIER_STEP 15->50 (HUNTER_TRIGGER_SCORE auto-scales 112)",
+      "status": "completed",
+      "phase": "ACT",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": true,
+      "check_completed": true,
+      "check_method": "S79 P1: constants.ts PHASE_1_WIN_SCORE 50->150 (readTestWinScore fallback) + SCORE_TIER_STEP 15->50 + stale comments updated (tier-pulse cadence note, seam doc 50->150). HUNTER_TRIGGER_SCORE auto-scales (floor(150*0.75)=112). Verified pre-change that ALL e2e specs inject __TEST_WIN_SCORE__/score seams (S78 hunter lesson \u2014 no natural-accrual timing coupling remains). GATES: tsc -b exit 0; vitest 1149/1149 (60 files) green. Commit 9dcd284 pushed.",
+      "checkpoint_commit": "9dcd284",
+      "real_context_tokens_at_close": 120000,
+      "real_context_pct_at_close": 12,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 150;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const SCORE_TIER_STEP = 50;"
+        }
+      ]
+    },
+    {
+      "id": "P2",
+      "label": "S79 P2 \u2014 seagull visibility (cadence 7/12) + pooped-building visuals (foul tint on prims+bonds via fouledPrimitives, 2.3x structure splat)",
       "status": "completed",
       "phase": "ACT",
       "tier": "Standard",
@@ -22,49 +52,221 @@
       "unlock_source": "user",
       "council_waived": true,
       "check_completed": true,
-      "check_method": "S78 P1 (3-fix playtest batch + e2e regression fix). CODE baa33f2; e2e-fix 1fe0d6e. FIX 1 game-length: SCORE_INCOME_PER_COMPLEXITY_PER_SEC 0.15->0.05 (3x slower; root cause = the S76 income model accrues DURING the build-up so WIN=50 is crossed mid-ramp -> ~2min games; verified tickScoring runs ONCE per tick at main.ts:570 NOT per-substep + computeComplexity has no double-count -> balance not a code bug). WIN stays 50 (zero HUD/SCORE_TIER/test ripple). FIX 2 random explosions: root-caused to the FREE-potato auto-detonate (main.ts poll dispatched POTATO_DETONATE for ANY potato at tick>=detonateAtTick; makePotato sets detonateAtTick=spawnedAtTick+23s from-spawn) -> a never-picked-up potato exploded in the spawn-zone centre every cycle. FIX = new DissipatePotatoAction + applyDissipatePotato (bare delete, mirrors applyDissipateBomb) wired into world.ts (import+union+case) + protocol.ts KNOWN_GAME_ACTION_TYPES_RECORD (exhaustive Record -> tsc requires the key); main.ts poll dispatches DISSIPATE_POTATO when state==='FREE' else POTATO_DETONATE (CARRIED/ARMED still detonate). FIX 3 seagull: SEAGULL_SPEED 4.5->3.15. LOCAL GATES (baa33f2): tsc -b 0; vitest 1149/1149; vite build 543.36KB (<550). ===CI E2E CORRECTION (the earlier 'e2e NOT broken' claim was WRONG)===: the 2-browser gating lane FAILED on baa33f2 -- hunter.spec.ts:66 waitForHunter 15s TIMEOUT (run 27228104021; 33 passed / 1 failed). ROOT CAUSE: the hunter e2e relies on NATURAL in-browser income to cross HUNTER_TRIGGER_SCORE, and the 3x income cut tripled that sim-time past the 15s spawn-wait (worse under CI sim-clock slowdown). potato.spec (count===0) + fog.spec (6 children) passed as predicted, but I MISSED the hunter e2e's income-timing coupling. FIXED in 1fe0d6e: inject the host score via __SPARK__.world after the placement (S76 win-pipeline precedent) so the spawn is income-rate-INDEPENDENT (robust to the planned future win-score tuning too). VERIFIED LOCALLY: npx playwright test e2e/hunter.spec.ts --project=chromium => 1 passed (14.1s). CI re-run 27229270275 (on 1fe0d6e) GREEN (completed/success, 12m5s) -- Rule 22 CLOSED. Token ~272K/1M (27.2% GREEN).",
-      "checkpoint_commit": "1fe0d6e",
-      "real_context_tokens_at_close": 272000,
-      "real_context_pct_at_close": 27.2,
+      "check_method": "S79 P2: (1) SEAGULL_SPAWN_MIN/MAX_SPARKS 15/24->7/12 \u2014 root cause of 'didnt even see the bird' was the LOCKED 0.15 spark/s base rate making 15-24 sparks = 100-160s while S78 games ran ~2min; 7-12 sparks = 47-80s. Test seam (__TEST_SEAGULL_SPAWN_SPARKS__) overrides both, so seagull e2e unaffected. (2) Pooped-building visual: new pure foulAwareTint(base,isFouled) in structureRenderer (lerp ownerColor->POOP_FOUL_TINT 0x9aa15c @0.65) applied to fouled prim sprites AND fouled bond endpoint colours (stress-red layers on top); KEY ENABLER verified in A.0: fouledPrimitives rides NetSnapshot since S77 (save.ts:469 not in the Omit strip-list; applySnapshotCore rehydrates) so the joiner renders the identical tint with ZERO wire change/protocol bump. drawBonds signature (bonds,tick)->(world). (3) poopRenderer SPLAT_STRUCTURE draws 2.3x (POOP_STRUCTURE_SPLAT_SCALE) + run-down drip; ground splats unchanged. GATES: tsc 0 (after pruning the now-unused Bond type import); vitest 1153/1153 (61 files, +4 new foulAwareTint tests); vite build 543.73KB <550 charter; LOCAL playwright seagull.spec+fog.spec chromium 7/7 pass 11.5s. Commit 3339036 pushed.",
+      "checkpoint_commit": "3339036",
+      "real_context_tokens_at_close": 150000,
+      "real_context_pct_at_close": 15,
       "verification": [
         {
           "type": "file_contains",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const SCORE_INCOME_PER_COMPLEXITY_PER_SEC = 0.05;"
+          "needle": "export const SEAGULL_SPAWN_MIN_SPARKS = _SEAGULL_TEST_CADENCE ?? 7;"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const SEAGULL_SPEED = 3.15;"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/structureRenderer.ts",
+          "needle": "export function foulAwareTint"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/poopRenderer.ts",
+          "needle": "POOP_STRUCTURE_SPLAT_SCALE"
+        }
+      ]
+    },
+    {
+      "id": "P3",
+      "label": "S79 P3 \u2014 HIGH-1 fouledPrimitives reconcile on destroy paths + un-cleanable income-0 on sever + orphan CLEAN_POOP no-op fix + worldTypes doc rewrite + tests",
+      "status": "completed",
+      "phase": "ACT",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": true,
+      "check_completed": true,
+      "check_method": "S79 P3: implemented reconcileFouledPrimitives(world) in seagullLifecycle (foul set := union of CURRENT components of live SPLAT_STRUCTURE anchors; early-out when un-fouled), called at the END of applySeverTopology (single choke point \u2014 player/physics/creature/bomb severs ALL route here, verified via bombLifecycle applyTriggerBomb -> applySeverBond) AND applyPotatoDetonate. STRICTLY STRONGER than the audit's prescribed per-prim deletes: also fixes the un-cleanable income-0 (fouled structure severed OFF its splat-anchor -> splat-less fragment now unfoels, income resumes). PLUS the A.0-discovered orphan bug: applyCleanPoop SPLAT_STRUCTURE branch now requires primitives.has(fouledPrimId) \u2014 a gone-anchor splat takes the plain-delete branch (pre-fix: empty BFS deleted NOTHING incl. the poop -> main.ts orphan sweep re-dispatched CLEAN_POOP every tick forever + immortal floating splat). worldTypes fouledPrimitives doc rewritten (serialized + invariant). TESTS: +4 in seagull.test.ts (stale-id reconcile; potato-AoE leak; sever-off-anchor with severSplit del=[anchor] asserted; orphan clean). GATES: tsc 0; vitest 1157/1157; LOCAL playwright seagull+potato chromium 5/5. Commit 23defd6 pushed.",
+      "checkpoint_commit": "23defd6",
+      "real_context_tokens_at_close": 175000,
+      "real_context_pct_at_close": 17.5,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagullLifecycle.ts",
+          "needle": "export function reconcileFouledPrimitives"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/disruptionManager.ts",
+          "needle": "reconcileFouledPrimitives(world);"
         },
         {
           "type": "file_contains",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/potatoLifecycle.ts",
-          "needle": "export function applyDissipatePotato"
+          "needle": "reconcileFouledPrimitives(world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagullLifecycle.ts",
+          "needle": "world.primitives.has(poop.fouledPrimId)"
+        }
+      ]
+    },
+    {
+      "id": "P4",
+      "label": "S79 P4 \u2014 HIGH-2 client sender-auth (session.hostPeerId TOFU latch + host-only message gate) + MEDIUM 3+player host-loss overlay + tests",
+      "status": "completed",
+      "phase": "ACT",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": true,
+      "check_completed": true,
+      "check_method": "S79 P4: NetSession.hostPeerId (null on host/pre-latch; cleared in teardownNet so a rejoin re-latches). hostAuthFilter (pure, exported) in clientHandlers: latch = roster-bearing LOBBY_PRESENCE/START_GAME_SIGNAL whose seat-0 entry NAMES THE SENDER (buildLobbyRoster/buildMatchRoster always put host selfId at seat 0) with first-NETSNAPSHOT fallback; gate = the 5 host-authored kinds drop unless sender===latched host, FAIL-CLOSED pre-latch; INTENT/HELLO unaffected. TOFU ceiling documented (no crypto identity until backlog #4). Closes: spoofed-snapshotSeq victim wedge, fake ENDGAME, START_GAME_SIGNAL seat hijack, bogus GODLY_TRIGGER. MEDIUM host-loss: main.ts connectionLost now ORs hostLost (= !isHost && latched && hostPeerId not in peerIds()) \u2014 closes the S62 KNOWN GAP 3+player limbo; host side keeps pure peerCount gate. BONUS REGRESSION FOUND+FIXED: nplayer 4p-FFA e2e (quarantine lane) failing since the S78 income cut \u2014 its WIN wait relied on natural accrual (complexity-3 = ~20s sim vs 20s timeout); fixed via host-score injection (S78 hunter.spec idiom); verified red->green locally. Multi-peer join flow THROUGH the gate validated live: nplayer 3/3 incl. 4-player FFA + lobby-presence (real WebRTC). GATES: tsc 0; vitest 1163/1163 (+6 hostAuthFilter tests); build 544.51KB <550; local playwright nplayer 3/3 + lobby-construction green. Commit c54b923 pushed.",
+      "checkpoint_commit": "c54b923",
+      "real_context_tokens_at_close": 210000,
+      "real_context_pct_at_close": 21,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/session.ts",
+          "needle": "hostPeerId: string | null;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/clientHandlers.ts",
+          "needle": "export function hostAuthFilter"
         },
         {
           "type": "file_contains",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "type: 'DISSIPATE_POTATO'"
+          "needle": "const hostLost"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/nplayer.spec.ts",
+          "needle": "w.scoreByPlayer.set(0, 999);"
+        }
+      ]
+    },
+    {
+      "id": "P5",
+      "label": "S79 P5 \u2014 MEDIUM spawner-RNG serialization (StatefulRng + Spawner.getState/restoreState) + CREATURE_CHARGE drain-filter + tests",
+      "status": "completed",
+      "phase": "ACT",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": true,
+      "check_completed": true,
+      "check_method": "S79 P5: (1) rng.ts mulberry32 now returns StatefulRng (interface extends Rng; getState/setState on the single uint32 word t; the generated sequence is BYTE-IDENTICAL \u2014 vitest 1167 incl. save.replay byte-equality guards confirm zero perturbation). (2) Spawner.getState(): SpawnerState|null (null when an ENABLED stream is a custom non-stateful Rng \u2014 caller falls back to from-seed) capturing nextId + secondsUntilNextSpawn + 4 hazard countdowns (Infinity<->null for JSON-safety, null also = disabled stream) + 5 rng words; restoreState resumes bit-exactly (test proves a DIFFERENT-seed donor spawner reproduces all 5 output streams exactly after restore, 60s sim @5/s with every hazard firing \u2014 non-vacuous asserts). Wiring into WorldSnapshot deferred with the save/load UI (no main.ts save path exists; capability+tests close the audit MEDIUM 'restore() cannot resume'); logged carry-forward. (3) effectsRenderer: CREATURE_CHARGE added to the audio-only drain skip (BOND_FORMED/BOND_SEVERED) + defense no-op draw case; test asserts it no longer inflates activeCount. GATES: tsc 0; vitest 1167/1167 (62 files; +3 spawner +1 effects). Commit 347f725 pushed.",
+      "checkpoint_commit": "347f725",
+      "real_context_tokens_at_close": 235000,
+      "real_context_pct_at_close": 23.5,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/rng.ts",
+          "needle": "export interface StatefulRng"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/game/spawner.ts",
+          "needle": "getState(): SpawnerState | null"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/effectsRenderer.ts",
+          "needle": "e.kind === 'CREATURE_CHARGE'"
+        }
+      ]
+    },
+    {
+      "id": "P6",
+      "label": "S79 P6 \u2014 LOW sweep: gameState header, addScore docstring, protocol as-7 cast, softReset hazard/foul clears",
+      "status": "completed",
+      "phase": "ACT",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": true,
+      "check_completed": true,
+      "check_method": "S79 P6: gameState.ts header rewritten (score-based WIN via floor(scoreProgress)>=PHASE_1_WIN_SCORE + income model; primitive-count placeholder claim removed). addScore docstring rewritten (S76 unified leader-max; stale 'solo is additive' claim removed). protocol.ts buildHello override cast 'as 7' -> 'as typeof PROTOCOL_VERSION' (auto-tracks future bumps; tsc-verified the lockstep tripwire survives) + stale 'as 6' comment fixed. softReset now calls teardownBombs/Hunters/Potatoes/Rainbows/Seagulls (parity with WIN_TRIGGER/START_GAME; inert on current paths \u2014 documented as defense). GATES: tsc 0; vitest 1167/1167; build 545.91KB <550. Commit 3efcde9 pushed.",
+      "checkpoint_commit": "3efcde9",
+      "real_context_tokens_at_close": 250000,
+      "real_context_pct_at_close": 25,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameState.ts",
+          "needle": "teardownSeagulls(world);"
         },
         {
           "type": "file_contains",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
-          "needle": "DISSIPATE_POTATO: true,"
+          "needle": "as typeof PROTOCOL_VERSION"
+        }
+      ]
+    },
+    {
+      "id": "P7",
+      "label": "S79 P7 \u2014 SCOPE AMENDMENT (user-explicit, Rule 16): sharpening pass \u2014 act on 5-lens adversarial audit findings, fix every confirmed bug, optimize details; full gates + CI green; then /handoff",
+      "status": "completed",
+      "phase": "ACT",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "council_waived": true,
+      "amendment_basis": "user message: lets see what this mythos-class model can do. try to sharpen every details needs optimizing, any bug you find fix it",
+      "check_completed": true,
+      "check_method": "S80/P7 sharpening: the EXTERNAL 5-lens audit workflow FAILED (org spend limit; 5/5 reviewers errored; its {confirmed:[]} result is VACUOUS \u2014 logged, not trusted). Re-ran the audit IN-CONTEXT (direct adversarial re-read of the full 4d6d614..3efcde9 diff + consumers). CONFIRMED+SHIPPED (1a89b0a): (1) foul-on-merge \u2014 reconcileFouledPrimitives also runs after PLACE_PRIMITIVE/PLACE_FROM_FREE in world.ts; pre-fix a prim bonded into a pooped structure earned income un-tinted until an UNRELATED destroy event retroactively fouled it (timing-dependence introduced by S79 P3's destroy-only reconcile); dispatch-level test (real PICKUP->PLACE path, asserts placement non-reject + immediate foul + clean restores). (2) applyPoopTick zero-alloc \u2014 [...keys].sort() per falling poop per tick -> lowest-id tracking, IDENTICAL pick; 2 differential tests with scrambled Map insertion order (prim pass: ids 9,2,5 -> picks 2; spark pass: ids 7,3 -> slows 3). (3) benched-player silent splat-wipe \u2014 main.ts clean sweep now skips currently-benched players (hidden frozen avatar was passively cleaning). (4) seagull/poop polls size>0-gated (matches bomb/potato/rainbow idiom). VERIFIED-CLEAN (no action): host handler drops non-INTENT kinds; ClientSync seq-wedge upstream-gated by P4; HUD reads PHASE_1_WIN_SCORE symbol; no codex staleness; fog does not leak enemy foul tint; client fouledPrimitives clears on absent wire field; enforceFreeSparkCap already early-outs; remaining .sort() sites all event-gated not per-tick. ALSO CLOSED from S79 close-out: CI gating E2E on 3efcde9 = run 27254024044 SUCCESS (12m13s, Rule 22); reflexion 6/6 + verification[] backfilled. GATES: tsc 0; vitest 1170/1170 (+3); FULL chromium e2e suite 36 pass/1 skip/0 fail (3.5m); build 545.97KB <550. CI on 1a89b0a watched to conclusion before /handoff.",
+      "checkpoint_commit": "1a89b0a",
+      "real_context_tokens_at_close": 175000,
+      "real_context_pct_at_close": 17.5,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/world.ts",
+          "needle": "reconcileFouledPrimitives(world);"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/hunter.spec.ts",
-          "needle": "w.scoreByPlayer.set(0, 5);"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagullLifecycle.ts",
+          "needle": "if (hitPrim !== null && (pid as number) >= (hitPrim as number)) continue;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "if (player.benchedUntilTick !== undefined && world.tick < player.benchedUntilTick) {"
         }
       ]
     }
   ],
   "reflexion_entries_to_archive": [
-    "P1 #playtest-fixes #root-cause-before-fix #minimal-risk-lever #user-time-pressure: code SHIPPED baa33f2. Three user-reported playtest bugs from the un-playtested S76/S77 batch. DEFINING MOVES: (1) ROOT-CAUSED each before touching code -- 'random explosions' = the FREE-potato auto-detonate (the Fork-E from-spawn fuse fires for ANY potato in the main.ts poll, so a never-picked-up potato blows up in the spawn-zone centre ~every cycle); 'game over in 2min/ticks too fast' = the S76 complexity-income model accrues DURING the build-up so WIN=50 is crossed mid-ramp (VERIFIED tickScoring runs once-per-tick not per-substep + no double-count -> balance, not a bug). (2) chose the MINIMAL-RISK lever for each: rate-only cut keeping WIN=50 (zero HUD/test/trigger ripple) over the audit's bigger win-score+tier rework; FREE potato DISSIPATES harmlessly (mirror applyDissipateBomb) keeping hot-potato; seagull one-constant -30%. (3) caught that GameAction's KNOWN_GAME_ACTION_TYPES_RECORD is an EXHAUSTIVE Record so the new union member REQUIRED the DISSIPATE_POTATO key or tsc fails. PROCESS LESSON: the 3-agent parallel audit was thorough (found 2 HIGH + 4 MEDIUM) but cost ~48min and the user pushed back on time -- under time pressure lead with direct root-cause reads of the NAMED symptoms; the user's 'run all fixes' is an explicit unlock -> execute. Local gates: tsc0 / vitest1149 / build543.36KB.",
-    "P1-followup #e2e-regression #balance-constant-breaks-timing-coupled-e2e #verify-the-actual-CI-before-declaring-done: the income cut PASSED tsc+vitest+build+my-local-e2e-risk-analysis but FAILED the CI 2-browser E2E -- hunter.spec.ts relies on NATURAL in-browser income to cross the 75% trigger, and 3x-slower income blew its 15s waitForHunter (run 27228104021: 33 passed / 1 failed). I had claimed 'e2e-low-risk' after checking potato.spec + fog.spec but MISSED the hunter e2e's income-timing coupling, AND prematurely told the user 'seconds from green' before the run concluded. RECOVERY: a background gh-run-watch (NOT optimism) caught the red; root-caused to income-timing; FIXED by injecting the host score via __SPARK__.world (S76 precedent) so the trigger is income-rate-INDEPENDENT (also robust to the planned future win-score tuning); verified LOCALLY (playwright hunter.spec 14.1s pass) BEFORE re-pushing (1fe0d6e). LESSON: a 'balance constant' is NOT e2e-low-risk if ANY e2e depends on its TIMING -- grep the e2e dir for natural-accrual/threshold waits before claiming low-risk; NEVER declare a CI-gated task done/green until the run actually concludes; decouple timing-sensitive e2es from tunable constants via direct state injection. This is why the handoff kept a live watcher instead of 'confirm next boot'."
+    "P1 #balance-lever #seam-protected-tuning: WIN 50->150 + TIER 15->50 (audit-rec lever after the S78 income cut still left games short). Pre-verified EVERY e2e injects __TEST_WIN_SCORE__/score seams before touching the constant \u2014 the S78 hunter lesson applied PROACTIVELY this time. Zero test fallout (1149 green).",
+    "P2 #root-cause-the-feel-report #reuse-shipped-wire-state: user never saw the seagull -> root cause was ARITHMETIC not rendering (15-24 sparks at the LOCKED 0.15/s = 100-160s first gull vs ~2min S78 games); cadence 7/12 puts it in the opening minute. Pooped-building visual: A.0 discovered fouledPrimitives ALREADY rides NetSnapshot (worldTypes doc claimed host-only \u2014 stale), so the whole foul tint (prims+bonds) shipped with ZERO wire change/protocol bump. LESSON: probe the serializer before designing wire plumbing \u2014 the field you need may already ship.",
+    "P3 #derive-dont-patch #adjacent-bug-found-in-A0: instead of the audit-prescribed per-site fouledPrimitives.delete patches, ONE reconcile primitive (foul set := union of live splat-anchor components) at the two destroy choke points fixed the leak AND the un-cleanable income-0 sever case. A.0 line-by-line read also surfaced an UNREPORTED bug: orphan CLEAN_POOP no-oped forever (empty BFS deleted nothing incl. the poop -> infinite per-tick dispatch + immortal splat). LESSON: re-derive state from first principles at mutation boundaries beats patching every delete site; read the consumer loop (main.ts sweep) not just the reducer.",
+    "P4 #tofu-auth #one-primitive-two-fixes #quarantine-lane-blindspot: hostPeerId TOFU latch (roster seat-0-consistency anchor + NETSNAPSHOT fallback, fail-closed) closed backlog #2 client half; the SAME latch closed the S62 3+player host-loss limbo (hostLost overlay). Running the nplayer e2e to validate the gate exposed that the quarantined 4p-FFA test had been FAILING since the S78 income cut (natural-accrual WIN wait ~20s vs 20s timeout) \u2014 Rule 22 only watched the GATING lane. Fixed via score-injection (S78 hunter idiom). LESSON: after a balance-constant change, sweep the QUARANTINED lane too \u2014 a non-gating red is still a broken test.",
+    "P5 #serializable-rng #non-vacuous-roundtrip: mulberry32 -> StatefulRng (state = one uint32; sequence byte-identical, save.replay guards prove no perturbation). Spawner.getState/restoreState round-trips all 5 streams; the test seeds the donor spawner DIFFERENTLY so restore provably overrides seeds, and asserts every hazard actually fired in-window (non-vacuous). CREATURE_CHARGE joined the audio-only drain skip (S37 omission inflating activeCount).",
+    "P6 #doc-rot-sweep: 70-session-stale gameState header (primitive-count win), pre-S76 addScore docstring, as-7 cast made version-tracking via typeof, softReset hazard-teardown parity. Doc rot accumulates where the code outlives its header \u2014 sweep headers when the mechanic they describe is replaced.",
+    "P7 #vacuous-empty-result #in-context-beats-fleet-when-broke #audit-your-own-diff: the external 5-lens audit workflow burned 443K subagent tokens into the org spend limit \u2014 5/5 reviewers ERRORED and the workflow returned {confirmed:[]}, which READS like a clean bill but is VACUOUS (zero reviewers ran). Re-ran the audit in-context by re-reading my own S79 diff adversarially: found 1 real semantic inconsistency I had introduced (destroy-only reconcile = foul set timing-dependent on placement; fixed at the two placement dispatch sites), 1 pre-existing gameplay bug (benched players silently wiping splats), 1 hot-path optimization (per-tick per-poop sort -> zero-alloc lowest-id, differential-tested), 1 idiom-consistency alloc fix. LESSONS: (a) an empty result from a FAILED pipeline is not a green result \u2014 check the failure channel before trusting the payload; (b) when fixing X-on-destroy, ask whether X-on-CREATE has the mirror problem (reconcile belonged at ALL topology mutations, not just deletes); (c) optimization claims of equivalence need DIFFERENTIAL tests that scramble the incidental order (Map insertion) the old code happened to neutralize."
   ],
   "budget_total": 1000000,
-  "carry_forward": "=== S78 SHIPPED (USER EXPLICIT GO 'run all fixes') === code baa33f2 + e2e-fix 1fe0d6e. P1: income 0.15->0.05 (3x longer games), FREE-potato harmless-dissipate (no more random center blasts), seagull 4.5->3.15 (-30%). NO protocol bump. === CI === baa33f2 E2E FAILED (hunter.spec 15s timeout — income cut tripled the natural-accrual time to the trigger); FIXED 1fe0d6e (hunter e2e injects host score -> income-rate-independent), local playwright pass (14.1s); CI re-run 27229270275 GREEN -- Rule 22 CLOSED. Deploy GREEN throughout. === USER WILL PLAYTEST NEXT === tunables if game STILL too short: raise PHASE_1_WIN_SCORE 50->~150 + SCORE_TIER_STEP 15->~50 (audit rec ~5-7min; HUNTER_TRIGGER_SCORE auto-scales). Seagull off: SEAGULL_SPEED (3.15) / SEAGULL_SPAWN_MIN/MAX_SPARKS (15/24). === AUDIT FINDINGS CARRIED FORWARD (next session) === [HIGH] fouledPrimitives leaks stale ids on sever/bomb/potato destroy paths (only CLEAN_POOP deletes) -> add world.fouledPrimitives.delete(primId) at disruptionManager.ts:165 + potatoLifecycle.ts:187; ALSO an un-cleanable income-stuck-at-0 state when a fouled structure is severed off its splat-anchor. [HIGH] client-side sender-auth: clientHandlers.ts trusts ANY peer's GODLY_TRIGGER / NETSNAPSHOT / START_GAME_SIGNAL / ENDGAME (ignores the peerId already plumbed through) -> 1-line host-peerId gate closes backlog #2 client-side; a spoofed high snapshotSeq can WEDGE a victim. [MEDIUM] spawner nextId + 5 RNG streams NOT serialized (restore() can't resume; latent/test-only). [MEDIUM] 3+ player client losing ONLY the host sits in limbo (no overlay; no host-migration). [MEDIUM] CREATURE_CHARGE not drain-filtered in effectsRenderer.ts:64 (inflates activeCount; add skip + default/assertNever). [MEDIUM] worldTypes.ts:189-197 fouledPrimitives doc stale (code correct). [LOW] gameState.ts:7-8 + addScore stale docstrings; protocol DEV 'as 7' cast; softReset omits fouled/hazard clears (inert). === PRE-EXISTING BACKLOG === #2 sender-auth (partially mapped) · #3 EYES fog/CVD · #4 netcode infra. === DEFERRED PLAN === S69 P2 lobby seat-UX refactor. === E2E LESSON === a balance-constant change is NOT e2e-low-risk if an e2e depends on its TIMING; the hunter e2e is now income-rate-independent (score-injection) so future income/win tuning won't re-break it.",
-  "session_status": "S78 — P1 shipped (code baa33f2; e2e-fix 1fe0d6e). CAUGHT + FIXED an E2E regression: the income cut blew hunter.spec's 15s timeout (income-timing-coupled); fixed via score-injection (income-rate-independent), local playwright pass (14.1s). CI re-run 27229270275 GREEN (completed/success, 12m5s) -- Rule 22 CLOSED (baa33f2's E2E had failed on the hunter timeout; 1fe0d6e is green). Deploy GREEN. Token ~272K/1M (27.2% GREEN). Handoff docs (boot-snapshot + HANDOFF_2026-06-09_S78.md) updated with the corrected CI status. NEXT: confirm 27229270275 green, then user playtests; audit's 2 HIGH + 4 MEDIUM carried forward."
+  "session_status": "S79 \u2014 6/6 priorities shipped (9dcd284..3efcde9). USER SCOPE AMENDMENT (Rule 16, user-explicit): P7 sharpening/optimization pass \u2014 act on adversarial-audit findings + fix any bug found. In flight: CI gating E2E on 3efcde9, full local e2e suite, 5-lens audit workflow.",
+  "totals": {
+    "turns": 0,
+    "budget_remaining": 1000000,
+    "budget_status": "GREEN"
+  },
+  "auto_fill_applied": {
+    "ts": "2026-06-10T06:16:25.886044Z",
+    "fields": [
+      "totals"
+    ],
+    "validator_version": "s110-three-tier-v1"
+  }
 }
