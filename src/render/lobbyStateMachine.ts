@@ -297,8 +297,9 @@ export interface SeatView {
 }
 
 export interface LobbyView extends LobbyState {
-  readonly hostPaneAlpha: number;
-  readonly joinPaneAlpha: number;
+  // S82 P5 — hostPaneAlpha/joinPaneAlpha REMOVED: derived since S64 but never applied
+  // by applyView after S69 P2 hid the panes in-room (dead view surface the S82 lobby
+  // map flagged as refactor-bait). The panes are select-mode-only and full-opacity.
   /** MAX_PLAYERS seat slots, ordered 0..N-1 (seat i -> PLAYER_COLORS[i]). */
   readonly seats: readonly SeatView[];
   /** total players in the room (you + peers) while hosting/joining, else 0. */
@@ -308,8 +309,7 @@ export interface LobbyView extends LobbyState {
 }
 
 /**
- * Pure derivation of the renderable view — adds the two pane alphas (the inactive
- * pane dims to 0.3 while the other mode is committed) and the seat rack.
+ * Pure derivation of the renderable view — the seat rack + room totals.
  *
  * S70 P1 — when the host's presence roster is present (presenceRoster !== null) the
  * seats are ROSTER-based: real per-seat occupancy / colour / own-seat, INCLUDING a
@@ -358,8 +358,6 @@ export function lobbyView(state: LobbyState): LobbyView {
 
   return {
     ...state,
-    hostPaneAlpha: state.mode === 'joining' ? 0.3 : 1,
-    joinPaneAlpha: state.mode === 'hosting' ? 0.3 : 1,
     seats,
     totalPlayers,
     roomFull: totalPlayers >= MAX_PLAYERS,

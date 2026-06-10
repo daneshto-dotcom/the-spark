@@ -304,25 +304,10 @@ describe('S64 P1 — RESET', () => {
   });
 });
 
-describe('S64 P1 — lobbyView pane-alpha derivation', () => {
-  it('select: both panes full opacity', () => {
-    const v = lobbyView(initialLobbyState());
-    expect(v.hostPaneAlpha).toBe(1);
-    expect(v.joinPaneAlpha).toBe(1);
-  });
-
-  it('hosting: join pane dims to 0.3, host pane full', () => {
-    const v = lobbyView(lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: HOST_CODE }));
-    expect(v.hostPaneAlpha).toBe(1);
-    expect(v.joinPaneAlpha).toBe(0.3);
-  });
-
-  it('joining: host pane dims to 0.3, join pane full', () => {
-    const v = lobbyView(lobbyReduce(initialLobbyState(), { type: 'JOIN_ATTEMPT', code: VALID_CODE }));
-    expect(v.hostPaneAlpha).toBe(0.3);
-    expect(v.joinPaneAlpha).toBe(1);
-  });
-
+describe('S64 P1 / S82 P5 — lobbyView state carry-through', () => {
+  // S82 P5 — the pane-alpha derivation tests were DELETED with the dead
+  // hostPaneAlpha/joinPaneAlpha fields (derived since S64, never applied by applyView
+  // after S69 P2 hid the panes in-room). Carry-through coverage stays.
   it('carries through every state field unchanged', () => {
     const s = lobbyReduce(initialLobbyState(), { type: 'HOST_START', code: HOST_CODE });
     const v = lobbyView(s);

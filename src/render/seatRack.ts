@@ -32,6 +32,33 @@ const YOU_GLOW = 0xffffff;
 const LABEL_FILL = 0x0a0a0a;
 const CORNER = 12;
 
+/* ── S82 P5 — pure projection helpers (extracted for seatRack.test.ts; the Council
+ *    REVISED SCOPE DELTA's missing unit-test item). The Pixi code below consumes
+ *    EXACTLY these, so the test file locks the label/style contract without
+ *    instantiating a renderer. ── */
+
+/** Occupied-seat label: "P{n}" + HOST badge + "(you)" marker, double-space joined. */
+export function seatLabelText(seatIndex: number, isHost: boolean, isYou: boolean): string {
+  const parts = [`P${seatIndex + 1}`];
+  if (isHost) parts.push('HOST');
+  if (isYou) parts.push('(you)');
+  return parts.join('  ');
+}
+
+export interface OccupiedSeatStyle {
+  readonly fillAlpha: number;
+  readonly strokeWidth: number;
+  readonly strokeColor: number;
+  readonly strokeAlpha: number;
+}
+
+/** Occupied-seat fill/stroke derivation: own seat = full alpha + white glow (A5). */
+export function seatCellStyle(seatColor: number, isYou: boolean): OccupiedSeatStyle {
+  return isYou
+    ? { fillAlpha: 1, strokeWidth: 5, strokeColor: YOU_GLOW, strokeAlpha: 0.9 }
+    : { fillAlpha: 0.85, strokeWidth: 2, strokeColor: seatColor, strokeAlpha: 1 };
+}
+
 interface SeatCell {
   readonly bg: Graphics;
   readonly label: Text;
@@ -89,19 +116,18 @@ export function makeSeatRack(): SeatRackHandle {
       bg.clear();
 
       if (seat !== undefined && seat.occupied) {
+        // S82 P5 — style + label derivation through the exported pure helpers.
+        const style = seatCellStyle(seat.color, seat.isYou);
         bg.roundRect(0, 0, SEAT_W, SEAT_H, CORNER).fill({
           color: seat.color,
-          alpha: seat.isYou ? 1 : 0.85,
+          alpha: style.fillAlpha,
         });
-        bg.roundRect(0, 0, SEAT_W, SEAT_H, CORNER).stroke(
-          seat.isYou
-            ? { width: 5, color: YOU_GLOW, alpha: 0.9 }
-            : { width: 2, color: seat.color, alpha: 1 },
-        );
-        const parts = [`P${i + 1}`];
-        if (seat.isHost) parts.push('HOST');
-        if (seat.isYou) parts.push('(you)');
-        label.text = parts.join('  ');
+        bg.roundRect(0, 0, SEAT_W, SEAT_H, CORNER).stroke({
+          width: style.strokeWidth,
+          color: style.strokeColor,
+          alpha: style.strokeAlpha,
+        });
+        label.text = seatLabelText(i, seat.isHost, seat.isYou);
         label.visible = true;
         glyph.visible = false;
       } else {
