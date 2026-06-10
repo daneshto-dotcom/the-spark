@@ -7,7 +7,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { computeAvatarAlphas } from './avatarRenderer.ts';
+import { computeAvatarAlphas, smoothTowards } from './avatarRenderer.ts';
 
 describe('S14 P1 — computeAvatarAlphas', () => {
   // sin(0) = 0 → no modulation; both alphas exactly at base.
@@ -79,5 +79,50 @@ describe('S14 P1 — computeAvatarAlphas', () => {
     const { outer, inner } = computeAvatarAlphas(t, 0.35, 0.95, hz, 0.20);
     expect(outer).toBeCloseTo(0.35, 4);
     expect(inner).toBeCloseTo(0.95, 4);
+  });
+});
+
+describe('S81 P4 — smoothTowards (remote-avatar display smoothing)', () => {
+  const TAU = 60;
+  const SNAP = 300;
+
+  test('converges toward the target without overshoot, dt-aware', () => {
+    const cur = { x: 0, y: 0 };
+    const tgt = { x: 100, y: 0 };
+    const one = smoothTowards(cur, tgt, 16, TAU, SNAP);
+    expect(one.x).toBeGreaterThan(0);
+    expect(one.x).toBeLessThan(100); // never overshoots (k < 1)
+    // larger dt closes more of the gap in a single step
+    const big = smoothTowards(cur, tgt, 64, TAU, SNAP);
+    expect(big.x).toBeGreaterThan(one.x);
+    expect(big.x).toBeLessThan(100);
+  });
+
+  test('frame-rate independence: two 8ms steps ≈ one 16ms step', () => {
+    const tgt = { x: 100, y: 50 };
+    const twice8 = smoothTowards(smoothTowards({ x: 0, y: 0 }, tgt, 8, TAU, SNAP), tgt, 8, TAU, SNAP);
+    const once16 = smoothTowards({ x: 0, y: 0 }, tgt, 16, TAU, SNAP);
+    expect(twice8.x).toBeCloseTo(once16.x, 6);
+    expect(twice8.y).toBeCloseTo(once16.y, 6);
+  });
+
+  test('a ~100ms network step at τ=60 closes most of the gap (smooth but not laggy)', () => {
+    const out = smoothTowards({ x: 0, y: 0 }, { x: 100, y: 0 }, 100, TAU, SNAP);
+    expect(out.x).toBeGreaterThan(75); // 1 − e^(−100/60) ≈ 0.81
+  });
+
+  test('already at the target stays exactly at the target', () => {
+    const out = smoothTowards({ x: 42, y: 24 }, { x: 42, y: 24 }, 16, TAU, SNAP);
+    expect(out).toEqual({ x: 42, y: 24 });
+  });
+
+  test('beyond snapDist jumps instantly (teleport guard: respawn/bench-return)', () => {
+    const out = smoothTowards({ x: 0, y: 0 }, { x: 0, y: SNAP + 1 }, 16, TAU, SNAP);
+    expect(out).toEqual({ x: 0, y: SNAP + 1 });
+  });
+
+  test('dt<=0 returns current unchanged (first frame / clock hiccup)', () => {
+    const out = smoothTowards({ x: 10, y: 20 }, { x: 100, y: 200 }, 0, TAU, SNAP);
+    expect(out).toEqual({ x: 10, y: 20 });
   });
 });

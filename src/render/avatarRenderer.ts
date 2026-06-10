@@ -38,7 +38,7 @@ import { Application, Container, Graphics } from 'pixi.js';
 import type { Controls } from '../input/controls.ts';
 import type { World } from '../state/world.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
-import type { PlayerId } from '../types.ts';
+import type { PlayerId, Vec2 } from '../types.ts';
 
 const AVATAR_INNER_RADIUS = 4;
 const AVATAR_OUTER_RADIUS = 11;
@@ -72,9 +72,23 @@ const AVATAR_PULSE_DEPTH = 0.20;
 // AttractDrag FSM state needs no new mechanism (Council Battle Ledger C10).
 const AVATAR_ATTRACT_PULSE_BOOST = 2.0;
 
+// S81 P4 — REMOTE-avatar display smoothing. player.avatarPos only updates at the net cadence
+// (~10Hz UPDATE_AVATAR_POS / NetSnapshot), so rendering it raw makes enemy cruisers step in
+// ~100ms jumps while the local cursor-driven avatar glides ("enemy sparks look pixelated" —
+// user round-3). The renderer keeps a per-player DISPLAY position that exponentially chases
+// the authoritative target each frame: k = 1 − e^(−dt/τ). τ=60ms converges ~81% per 100ms
+// network step — smooth without feeling laggy. RENDER-ONLY (sim/snapshot state untouched).
+// SNAP_DIST guards teleports (respawn, bench-return, host reseat): beyond it, jump instantly
+// rather than streaking across the board. Module-local (pure UI feel, not gameplay-tunable).
+const AVATAR_SMOOTH_TAU_MS = 60;
+const AVATAR_SMOOTH_SNAP_DIST = 300;
+
 export class AvatarRenderer {
   private readonly container: Container;
   private readonly graphicsByPlayer: Map<PlayerId, Graphics> = new Map();
+  // S81 P4 — per-player smoothed display pos for REMOTE avatars (local renders at cursor).
+  private readonly displayPosByPlayer: Map<PlayerId, Vec2> = new Map();
+  private lastSyncMs: number | null = null;
 
   constructor(app: Application) {
     this.container = new Container();
@@ -93,7 +107,12 @@ export class AvatarRenderer {
    */
   sync(world: World, controls: Controls): void {
     const localPlayerId = controls.getPlayerId();
-    const tSec = performance.now() / 1000;
+    const nowMs = performance.now();
+    const tSec = nowMs / 1000;
+    // S81 P4 — frame delta for the dt-aware smoothing (clamped: a tab-background stall must
+    // not become one giant convergence step that defeats the snap guard's intent).
+    const dtMs = this.lastSyncMs === null ? 0 : Math.min(nowMs - this.lastSyncMs, 100);
+    this.lastSyncMs = nowMs;
     const present = new Set<PlayerId>();
 
     for (const player of world.players.values()) {
@@ -113,8 +132,34 @@ export class AvatarRenderer {
       if (isBenched(player.benchedUntilTick, world.tick)) continue;
 
       const isLocal = player.id === localPlayerId;
-      const x = isLocal ? controls.cursor.x : player.avatarPos.x;
-      const y = isLocal ? controls.cursor.y : player.avatarPos.y;
+      // S81 P4 — local: lag-free cursor. Remote: smoothed display pos chasing the ~10Hz
+      // authoritative avatarPos (raw rendering stepped visibly — "pixelated" enemy cruisers).
+      let x: number;
+      let y: number;
+      if (isLocal) {
+        x = controls.cursor.x;
+        y = controls.cursor.y;
+        this.displayPosByPlayer.delete(player.id); // hygiene if the local seat ever changes
+      } else {
+        let disp = this.displayPosByPlayer.get(player.id);
+        if (disp === undefined) {
+          // First sight: materialize AT the target (no fly-in streak from (0,0)).
+          disp = { x: player.avatarPos.x, y: player.avatarPos.y };
+          this.displayPosByPlayer.set(player.id, disp);
+        } else {
+          const next = smoothTowards(
+            disp,
+            player.avatarPos,
+            dtMs,
+            AVATAR_SMOOTH_TAU_MS,
+            AVATAR_SMOOTH_SNAP_DIST,
+          );
+          disp.x = next.x;
+          disp.y = next.y;
+        }
+        x = disp.x;
+        y = disp.y;
+      }
 
       // S45 C10 — boost pulse depth while local player is AttractDragging
       // a spark (perceptual-lag bridge for joiner intent feedback).
@@ -151,6 +196,7 @@ export class AvatarRenderer {
         if (!present.has(pid)) {
           g.destroy();
           this.graphicsByPlayer.delete(pid);
+          this.displayPosByPlayer.delete(pid); // S81 P4 — drop the smoothing state with it
         }
       }
     }
@@ -159,7 +205,31 @@ export class AvatarRenderer {
   destroy(): void {
     this.container.destroy({ children: true });
     this.graphicsByPlayer.clear();
+    this.displayPosByPlayer.clear();
   }
+}
+
+/**
+ * S81 P4 — pure exponential chase toward a target, extracted for unit testability.
+ * k = 1 − e^(−dtMs/tauMs): frame-rate independent (two 8ms steps ≈ one 16ms step), k∈[0,1).
+ * Distances beyond snapDist jump instantly (teleport guard: respawn/bench-return must not
+ * streak a ghost trail across the board). dtMs ≤ 0 returns current unchanged.
+ */
+export function smoothTowards(
+  current: Vec2,
+  target: Vec2,
+  dtMs: number,
+  tauMs: number,
+  snapDist: number,
+): Vec2 {
+  const dx = target.x - current.x;
+  const dy = target.y - current.y;
+  if (dx * dx + dy * dy > snapDist * snapDist) {
+    return { x: target.x, y: target.y };
+  }
+  if (dtMs <= 0) return { x: current.x, y: current.y };
+  const k = 1 - Math.exp(-dtMs / tauMs);
+  return { x: current.x + dx * k, y: current.y + dy * k };
 }
 
 /**
