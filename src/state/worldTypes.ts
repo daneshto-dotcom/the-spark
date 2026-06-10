@@ -223,6 +223,10 @@ export interface World {
    *   - pickupReachFail: remote carrier's pos failed isValidPickupPos
    *     (canvas bounds OR REASONABLE_PICKUP_REACH plausibility from
    *     avatarPos)
+   *   - pickupPoopedTooFar: carrier is poop-debuffed and its avatar has not
+   *     yet arrived within POOP_PICKUP_ARRIVAL_RADIUS of the spark (S84 P1
+   *     — the cursor outruns the 7px/tick cruiser chase; pickup waits for
+   *     the avatar)
    *   - placeTargetMissing: PLACE_PRIMITIVE references a primitive id that
    *     no longer exists on host (race: host severed it between joiner
    *     intent and host application)
@@ -235,6 +239,7 @@ export interface World {
       pickupPosShape: number;
       pickupSparkNotFree: number;
       pickupReachFail: number;
+      pickupPoopedTooFar: number;
       placeTargetMissing: number;
     };
     /**

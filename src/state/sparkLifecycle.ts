@@ -21,8 +21,10 @@ import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   ENERGY_PER_SECOND_FLAT,
+  POOP_PICKUP_ARRIVAL_RADIUS,
   REASONABLE_PICKUP_REACH,
 } from '../constants.ts';
+import { isCruiserDebuffed } from './gameMode.ts';
 import { isNetworked, requirePlayer, type World } from './world.ts';
 import type { PlayerId, SparkId, Vec2 } from '../types.ts';
 import type { Spark } from '../game/spark.ts';
@@ -148,6 +150,21 @@ export function applyPickupSpark(world: World, action: PickupSparkAction): World
     world.diagnostics.raceRejects++;
     world.diagnostics.rejectReasons.pickupReachFail++; // S48 P3 diagnostic
     return world;
+  }
+  // S84 P1 — pooped pickup gate: while the cruiser is slow-debuffed the cursor
+  // still moves at full mouse speed, so without this check the debuff never
+  // bit for collecting. Require the chasing avatar to have ARRIVED at the
+  // spark. Pure function of synced fields (poopedUntilTick, avatarPos,
+  // spark.pos) — an optimistic local dispatch and the host's authoritative
+  // dispatch agree by construction. Applies to local AND remote carriers.
+  if (isCruiserDebuffed(player, world.tick)) {
+    const dx = spark.pos.x - player.avatarPos.x;
+    const dy = spark.pos.y - player.avatarPos.y;
+    if (dx * dx + dy * dy > POOP_PICKUP_ARRIVAL_RADIUS * POOP_PICKUP_ARRIVAL_RADIUS) {
+      world.diagnostics.raceRejects++;
+      world.diagnostics.rejectReasons.pickupPoopedTooFar++;
+      return world;
+    }
   }
   const next = fsmPickup(player, action.sparkId);
   world.players.set(next.id, next);

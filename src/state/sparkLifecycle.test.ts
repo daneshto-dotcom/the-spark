@@ -301,3 +301,66 @@ describe('applyTickEnergy', () => {
     ).toThrowError(/player 99 missing/);
   });
 });
+
+describe('S84 P1 — pooped pickup gate (applyPickupSpark)', () => {
+  /** World with one debuffed player whose avatar sits at (ax, ay); spark at (100, 100). */
+  function poopedWorld(ax: number, ay: number, opts?: { expired?: boolean }) {
+    const world = makeWorld(1);
+    world.tick = 100;
+    const spark = makeTestSpark(5); // pos (100, 100)
+    world.freeSparks.set(spark.id, spark);
+    const player = world.players.get(asPlayerId(0))!;
+    player.avatarPos.x = ax;
+    player.avatarPos.y = ay;
+    player.poopedUntilTick = opts?.expired ? 100 : 200; // tick<until = live debuff
+    return { world, spark, player };
+  }
+  const pickupAt = (world: ReturnType<typeof makeWorld>, x: number, y: number) =>
+    applyPickupSpark(world, {
+      type: 'PICKUP_SPARK',
+      sparkId: asSparkId(5),
+      playerId: asPlayerId(0),
+      pos: { x, y },
+    });
+
+  it('rejects silently while debuffed with the avatar still far from the spark', () => {
+    const { world, spark } = poopedWorld(500, 500);
+    pickupAt(world, 100, 100); // cursor IS on the spark — gate keys on the avatar
+    expect(spark.state.kind).toBe('Free');
+    expect(world.diagnostics.raceRejects).toBe(1);
+    expect(world.diagnostics.rejectReasons.pickupPoopedTooFar).toBe(1);
+  });
+
+  it('allows pickup while debuffed once the avatar has arrived at the spark', () => {
+    const { world, spark } = poopedWorld(110, 110); // dist ~14.1 < 36
+    pickupAt(world, 100, 100);
+    expect(spark.state.kind).toEqual('Carried');
+    expect(world.diagnostics.rejectReasons.pickupPoopedTooFar).toBe(0);
+  });
+
+  it('treats the exact POOP_PICKUP_ARRIVAL_RADIUS boundary as arrived (> comparison)', () => {
+    const { world, spark } = poopedWorld(100 + 36, 100); // distSq === R^2
+    pickupAt(world, 100, 100);
+    expect(spark.state.kind).toEqual('Carried');
+  });
+
+  it('does not gate once the debuff has expired (tick >= poopedUntilTick)', () => {
+    const { world, spark } = poopedWorld(500, 500, { expired: true });
+    pickupAt(world, 100, 100);
+    expect(spark.state.kind).toEqual('Carried');
+    expect(world.diagnostics.rejectReasons.pickupPoopedTooFar).toBe(0);
+  });
+
+  it('does not gate un-pooped players regardless of avatar distance (pre-S84 behavior)', () => {
+    const world = makeWorld(1);
+    world.tick = 100;
+    const spark = makeTestSpark(5);
+    world.freeSparks.set(spark.id, spark);
+    const player = world.players.get(asPlayerId(0))!;
+    player.avatarPos.x = 900;
+    player.avatarPos.y = 900; // far, but no debuff
+    pickupAt(world, 100, 100);
+    expect(spark.state.kind).toEqual('Carried');
+    expect(world.diagnostics.raceRejects).toBe(0);
+  });
+});

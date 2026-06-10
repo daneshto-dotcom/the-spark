@@ -278,6 +278,7 @@ export function makeWorld(rngSeed: number): World {
         pickupPosShape: 0,
         pickupSparkNotFree: 0,
         pickupReachFail: 0,
+        pickupPoopedTooFar: 0,
         placeTargetMissing: 0,
       },
       territoryBlockRejects: 0,

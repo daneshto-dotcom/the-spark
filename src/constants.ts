@@ -641,6 +641,14 @@ export const POOP_CRUISER_SLOW_TICKS = 15 * PHYSICS_HZ; // same 15s as the poopy
 // 7 px/tick ≈ 420 px/s: far below a flicked cursor (~3000 px/s) so the slow BITES, comfortably
 // above the hunter's 4.2 px/tick so a slowed player can still outrun Pac-Man. #1 playtest knob.
 export const POOP_CRUISER_MAX_SPEED = 7;
+// === S84 P1 — pooped pickup gate ===
+// While debuffed, PICKUP_SPARK additionally requires the (slow-chasing) avatar to have
+// ARRIVED at the spark: distSq(spark.pos, avatarPos) <= R^2. Without this the cursor — which
+// still moves at full mouse speed — grabbed sparks instantly and the slow never bit for
+// collecting (user playtest round-5 report). 36 = avatar outer radius (11) + spark body
+// (~10) + slack > two 7px chase steps, so an arriving avatar can't oscillate across the
+// boundary between click and dispatch. Playtest knob.
+export const POOP_PICKUP_ARRIVAL_RADIUS = 36;
 
 // === S82 P4(c) — mid-game peer-drop bench (6p hardening) ===
 // A seated peer absent from the transport for GRACE ticks stops ghosting: the host
