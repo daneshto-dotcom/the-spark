@@ -14,6 +14,32 @@ S30 audit at session close surfaced 24 findings split P0/P1/P2 across S31/S33 (s
 
 ---
 
+## Session 82 — user-queued full batch: cruiser-poopy-slow · spawner-save · fog/CVD · netcode infra · lobby delta [COMPLETED 2026-06-10]
+
+**User pre-approved batch + autonomous run. Full tier, Council R1+R2 (Grok+Gemini) CONVERGED, PRIME-AUDIT in PDR. 5/5 priorities, one commit each (f8f35e6 → e364df5). Tests 1188 → 1237; bundle ~542.5KiB < 550.**
+
+- **P1 cruiser-poopy-slow (f8f35e6)** — poop now hits the PLAYER CRUISER (avatar-first bodyblock precedence): 15s slow via the target-chase movement model (`tickCruiserChase` ≤7px/tick, exact-snap convergence) + foul tint. Knobs: `POOP_AVATAR_HIT_RADIUS` 30, `POOP_CRUISER_SLOW_TICKS` 15s, `POOP_CRUISER_MAX_SPEED` 7.
+- **P2 spawner-save (afa3ec1)** — `WorldSnapshot.spawner` via `snapshot(world,{spawnerState})` param injection (wire-safe by construction); DEV `__SPARK__.snapshotWorld/restoreWorld`; bit-exact resume test.
+- **P3 EYES fog/CVD (0205d83)** — fuzzy fog edge (3-harmonic inward-only wobble baked into the brush; knob `FUZZ_AMP` 0.09); CVD: per-seat `P{n}` avatar nameplates + connection-dot shape (filled vs hollow+X).
+- **P4 netcode infra (3e71e5f)** — **crypto host identity**: room code = 30-bit pubkey fingerprint + signed attestation latch — the S79 TOFU race is DEAD (LOCKED §13.20); **in-page auto-reconnect** (15s grace, proven over real WebRTC in e2e/reconnect.spec.ts); **drop-bench** rolling re-stamp for mid-game peer drops; **client-intent allowlist** closes the any-GameAction INTENT hole. NO protocol bump. Host-migration explicitly deferred (world dies with the host page; needs state-handover design — own session).
+- **P5 lobby delta (e364df5)** — S69 P2 was already shipped (CARRIED banner corrected); true remainder closed: seatRack.test.ts via pure-helper extraction, dead pane-alphas removed.
+
+**Carry-forwards (logged):** host-migration design session · P3 structure-ownership non-color cue + above-fog hazard identity (S77 Δ5) + MEMORY_FOG_COLOR dim-tier (user-EYES) · P5 D1 living-lobby animations + e2e geometry-getter migration · S73 dense-compaction colour-shift at Begin (sparse in-game seats).
+
+---
+
+## NEXT SESSION (S83) — VOLTKIN FULL AUDIT + REAL-ANIMATION UPGRADE [USER-QUEUED 2026-06-10, verbatim intent]
+
+User: Voltkin today is "not a really animated graphic, it's a collection of pictures running one after another with the clipping/cutout (squares) in the background that kinda looks like crap … even the voltkin video has those cutout white squares around instead of blending into the black background." Mandate: **full audit, then a full upgrade to a real moving character**, while KEEPING the in-game mechanics exactly (targets enemy structures, destroys them with electric bolts). User suggests exploring generative platforms (xAI etc.) whose output can be embedded. "Be super methodical, thorough, and creative."
+
+Session plan seeds (validate with A.0, don't trust blindly):
+1. **AUDIT first**: render path = `src/render/voltkinFrames.ts` + `creatureRenderer.ts` (frame-flip sprite playback) + `cinematicLumaKey.ts` + `cutsceneOverlay.ts` (intro video); assets at `public/godly/voltkin/` + `assets-source/godly-voltkin/` (SLICE_SPEC.md, sprite history, notes/). The "white squares" = matte/alpha defect — check whether frames carry true alpha or rely on a luma key the in-game sprite path never applies; audit the intro video path separately (user says the video shows the squares too).
+2. **Upgrade options to Council**: (a) regenerate frames with TRUE alpha (gcp-vertex MCP imagen_generate/imagen_edit in-session; offline matte pipeline → premultiplied-alpha spritesheet); (b) procedural skeletal/vector animation in Pixi (bones + tweened parts — infinitely smooth, tiny bytes, matches the vector aesthetic; the most "real moving character"); (c) Veo/video with a properly applied runtime luma key; (d) hybrid vector body + generated texture detail.
+3. **Constraints**: creature mechanics untouched (`creatureAI/creatureAttack/creatureLifecycle`, LOCKED §13.15); bundle 550KiB charter (~7.5KiB JS headroom — big sheets go to public/ assets, never the bundle); deterministic sim untouched (render-only swap); aboveFogLayer staging + e2e `children.length===6` assert preserved.
+4. Tools in-session: gcp-vertex MCP (imagen/veo/tts), xai-grok MCP. History: S22–S28 phase-2 archive plans + `assets-source/godly-voltkin/notes/*`.
+
+---
+
 ## Session 34 — S30 audit P2 batch (Phase A) + fresh audit cleanup (Phase B) [COMPLETED 2026-05-16]
 
 **Phase A (S30 audit P2 batch — deferred from S33):** 8 priorities shipped, 9 commits `0df05d1..07b12b9`. P2-18 dropped per false-positive pattern (existing comment documents intentional back-compat). Standard tier Council R1 + PRIME-AUDIT 4 deltas. Tests 588 → 620 (+32). Bundle 467.46 → 468.14 KB (+0.68 KB).

@@ -1,0 +1,115 @@
+{
+ "summary": "SPARK's Spawner (src/game/spawner.ts, class at line 128) is a host/solo-only Poisson spark emitter with 5 independent mulberry32 streams (spark rng + bombRng + potatoRng + rainbowRng + seagullRng); S79 P5 added SpawnerState with getState()/restoreState() that round-trip all 5 RNG words plus countdown counters, fully unit-tested in src/game/spawner.test.ts but wired into NOTHING \u2014 the runtime instance is a module-local const in main.ts seeded from SEED 0xc0ffee with 4 xor-derived hazard streams, and no save/load path constructs or re-seeds it. src/state/save.ts owns WorldSnapshot (schemaVersion: 1, never bumped; all post-S15 fields are additive-optional, emitted only when non-empty/defined so older payloads stay byte-identical) and NetSnapshot, which is derived from the FULL snapshot by a fixed 4-key destructure-omit (savedAt, rngSeed, nextPrimitiveId, nextBondId) \u2014 therefore any new field emitted by snapshot() automatically rides the wire into every NetSnapshot unless explicitly added to both the Omit type and the runtime destructure. Today snapshot()/restore() are test-only (5 test files) and netSnapshot()/applyNetSnapshot() are net-only (HostSync at NET_SNAPSHOT_HZ=10); there is no save/load UI, no localStorage world persistence (localStorage holds only audio settings and codex unlocks), and no dev hotkeys or __SPARK__ accessor for saving. snapshot(world: World) cannot reach the Spawner at all \u2014 World (src/state/worldTypes.ts) has no spawner field, so wiring requires a new data path.",
+ "key_facts": [
+  "Spawner class: src/game/spawner.ts:128; constructor (lines 159-176) takes (cfg, rng, bombRng=null, potatoRng=null, rainbowRng=null, seagullRng=null) \u2014 the 5 streams; null hazard stream = that hazard disabled (countdown Infinity, spawner.ts:310,328,346,364)",
+  "SpawnerState interface: spawner.ts:109-121 \u2014 11 fields: nextId, secondsUntilNextSpawn, sparksUntilBomb/Potato/Rainbow/Seagull (number|null; null encodes Infinity/disabled via fin() at spawner.ts:242), rngState (uint32 word), bombRngState/potatoRngState/rainbowRngState/seagullRngState (number|null)",
+  "getState(): spawner.ts:237-258 \u2014 returns null if ANY enabled stream is not a StatefulRng (isStateful guard spawner.ts:124-126); caller is expected to fall back to from-seed behaviour per the docblock (spawner.ts:233-236)",
+  "restoreState(s): spawner.ts:266-281 \u2014 nullish-coalesces null countdowns to Number.POSITIVE_INFINITY, calls setState(word) per enabled stream; docblock (260-265) requires the spawner be constructed with the SAME stream configuration the state was captured under",
+  "S79 P5 unit tests: src/game/spawner.test.ts:236-313 \u2014 3 tests: (1) 267-293 getState\u2192restoreState resumes ALL five sequences bit-exactly mid-stream (restores into a DIFFERENT-seed spawner, 60s warm + 60s compare, asserts every hazard actually fired), (2) 295-298 getState returns null for custom non-stateful Rng, (3) 300-312 disabled streams round-trip as null and stay idle",
+  "fullSpawner test helper (spawner.test.ts:242-250) mirrors main.ts construction exactly: mulberry32(seed), seed^0x9e3779b9, seed^0x85ebca6b, seed^0xc2b2ae35, seed^0x5a4e28b8",
+  "Runtime instance: src/main.ts:227-234 \u2014 module-local const inside main(); SEED=0xc0ffee (main.ts:210); rng=mulberry32(SEED) (214); bombRng=SEED^0x9e3779b9 (217); potatoRng=SEED^0x85ebca6b (220); rainbowRng=SEED^0xc2b2ae35 (223); seagullRng=SEED^0x5a4e28b8 (226)",
+  "Spawner ticks only in stepPhysics (src/physics/physicsLoop.ts:66), called from main.ts:553 gated on world.gameState==='PLAYING' && !isClient (main.ts:551-552) \u2014 spawner NEVER runs on the 1v1 client; hazard caps (BOMB/POTATO/RAINBOW/SEAGULL_MAX_ACTIVE) enforced at dispatch site (physicsLoop.ts:70-95) with skip-and-redraw",
+  "NO restore path touches the spawner: main.ts never imports snapshot/restore (grep: zero matches); restore() writes world.rngSeed/nextPrimitiveId/nextBondId only (save.ts:499-501); the Spawner keeps its boot-time stream words forever \u2014 a restore today does NOT re-seed it (acknowledged latent in spawner.ts:102-108 docblock)",
+  "World has NO spawner field: src/state/worldTypes.ts:37-120 \u2014 snapshot(world: World) (save.ts:420) cannot reach the Spawner; wiring requires a new data path (spawner state onto World, or a changed snapshot signature)",
+  "WorldSnapshot: save.ts:71-166 \u2014 required: schemaVersion:1 (literal type, line 72), savedAt, tick, rngSeed, gameState, lastWinnerId, nextPrimitiveId, nextBondId, freeSparks, primitives, bonds, players; optional: scoreProgress, gameMode, currentPlayerId (ignored since S42), scoreByPlayer, creatures, bombs, hunters, hunterSpawned, potatoes, rainbows, seagulls, poops, fouledPrimitives, effects",
+  "Versioning: schemaVersion locked at 1 since S15; restore() throws on mismatch (save.ts:493-495), applyNetSnapshot() too (542-544); every addition since S15 used the additive-optional pattern with NO version bump (precedent chain cited at save.ts:287-288: S15 P2 / S28 P0 / S31 P0-3 / S33 P1-11 / S36 P3)",
+  "Emit-only-when-present discipline: snapshot() emits optional collections only when non-empty (creatures save.ts:444-446, bombs 449-451, hunters 454-456, hunterSpawned 458, potatoes 460-462, rainbows 464-466, seagulls/poops/fouledPrimitives 468-472, effects 480-488) so undefined keys are dropped by JSON.stringify and older payloads stay byte-identical",
+  "S81 precedent for additive-optional fields: SerializedPotato.carriedAtTick (save.ts:380-383) \u2014 emitted only while CARRIED via spread-conditional in serializePotato (save.ts:1084), rehydrated as possibly-undefined (save.ts:1099); same conditional-spread pattern in serializePlayer for territorialShrinkUntilTick/benchedUntilTick/carriedPotatoId (save.ts:834-845)",
+  "CRITICAL \u2014 NetSnapshot derivation: NetSnapshot = Omit<WorldSnapshot,'savedAt'|'rngSeed'|'nextPrimitiveId'|'nextBondId'> (save.ts:514-517); netSnapshot() calls snapshot(world) then destructure-omits exactly those 4 literal keys (save.ts:523-534) \u2014 ANY new field added to snapshot() output leaks into NetSnapshot (and the wire) unless added to BOTH the Omit type and the runtime destructure",
+  "rngSeed is DELIBERATELY excluded from NetSnapshot ('deterministic RNG not v1', save.ts:19-21); a spawner-state field is the same class of host-only data and would be present on essentially every host snapshot during PLAYING, so unlike the rare-hazard optionals it would change wire bytes on EVERY NetSnapshot if not omitted",
+  "Wire-omission test: src/net/sync.test.ts:42-47 asserts savedAt/rngSeed/nextPrimitiveId/nextBondId are undefined on msg.snapshot \u2014 it enumerates the 4 known keys and would NOT catch a NEW leaked field",
+  "Wire path: HostSync.buildSnapshotMessage (src/net/sync.ts:29-36) wraps netSnapshot(world) in a NETSNAPSHOT envelope at NET_SNAPSHOT_HZ=10 (sync.ts:4); applyNetSnapshot applies via shared applySnapshotCore (save.ts:541-546) which never writes host-only fields",
+  "Replay test: src/state/save.replay.test.ts \u2014 determinismJson() strips savedAt then JSON.stringify's snapshot() (lines 36-41); asserts byte-equal JSON across two same-seed runs of a 1000-iter and 250-iter reducer stress script (94-123), different-seed divergence canary via the rngSeed field (125-141), plus S34 PB-5 creature-lifecycle determinism (197-241); spawner is NOT exercised (runStress hand-mints sparks, never ticks a Spawner)",
+  "save.test.ts (src/state/save.test.ts:43-71+) asserts snapshot\u2192JSON\u2192restore round-trips: primitives/bonds/tick/rngSeed/gameState equality, bond adjacency + a/b ref reconstruction, stiffness tiers; later sections cover bombs/hunters/potatoes (imports applySpawnBomb/applySpawnHunter/applySpawnPotato, lines 12-14)",
+  "snapshot/restore consumers are TEST-ONLY: src/game/session15.test.ts:29, src/state/save.test.ts:11, src/state/world.test.ts:15, src/state/seagulls/seagull.test.ts:31, src/state/save.replay.test.ts:26; netSnapshot/applyNetSnapshot consumers: src/net/sync.ts:20 (production), sync.test.ts:16, creatureLifecycle.test.ts:46",
+  "NO save/load UI exists: localStorage in src is audio settings only (src/render/audioManager.ts:177-199,616-620) and codex unlocks (src/render/codexOverlay.ts:32-44); main.ts keydown handlers are only R (postgame reset), C (cinematics toggle), M (mute) at main.ts:472-488; __SPARK__ DEV accessor (main.ts:437-449) exposes world/controls/netTransport/lobbyScreen/titleScreen/fogRenderer/potatoRenderer/aboveFogLayer/app \u2014 no spawner, no save hooks; save.ts comments referencing 'localStorage saves' (lines 90, 257) are historical, no such path exists in code",
+  "StatefulRng: src/state/rng.ts:15-18 \u2014 interface extends Rng with getState():number / setState(state:number):void; mulberry32 (rng.ts:20-33) implements it: getState returns the uint32 word t, setState sets t=state>>>0; whole generator state is one uint32",
+  "No dedicated rng.test.ts exists (Glob: only src/state/rng.ts); StatefulRng coverage lives in spawner.test.ts S79 block; byte-drift locking tests: spawner.test.ts:63-78 (same seed \u2192 identical sequence), 142-160 (adding bombRng leaves spark stream byte-identical), 188-214 (adding rainbowRng leaves spark+bomb+potato byte-identical), plus save.replay.test.ts byte-equal JSON; pseudoRand byte-exactness guarded by save.replay.test.ts per rng.ts:59 comment",
+  "Stream-derivation precedent also used per-tick elsewhere: rainbowLifecycle.ts:105 builds a one-shot mulberry32((world.rngSeed ^ Math.imul(world.tick, 2654435761))>>>0) \u2014 stateless, replay-safe, not part of the Spawner's 5 streams",
+  "PHYSICS_HZ=60 (src/constants.ts:151); SPAWN_RATE_PER_SECOND=0.15 default with test override hook (constants.ts:91)"
+ ],
+ "key_files": [
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/game/spawner.ts",
+   "role": "Spawner class, SpawnerState interface, getState/restoreState (S79 P5), 5-stream RNG design, enforceSpawnerBounds",
+   "approx_loc": 429
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/game/spawner.test.ts",
+   "role": "Spawner unit tests incl. S79 P5 state round-trip block (lines 236-313) and byte-drift stream-separation tests",
+   "approx_loc": 313
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+   "role": "WorldSnapshot + NetSnapshot definitions, snapshot/restore/netSnapshot/applyNetSnapshot, the 4-key destructure-omit (514-534), all serialize/deserialize helpers",
+   "approx_loc": 1168
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/rng.ts",
+   "role": "Rng type, StatefulRng interface (15-18), mulberry32 with getState/setState, pseudoRand one-shot hash",
+   "approx_loc": 68
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+   "role": "Runtime Spawner construction + seeding (210-234), physics tick gate (550-574), __SPARK__ DEV accessor (437-449), keydown handlers (472-488); never imports snapshot/restore",
+   "approx_loc": 1160
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/physics/physicsLoop.ts",
+   "role": "stepPhysics \u2014 sole production spawner.tick() call site (line 66) + hazard-cap dispatch (70-95)",
+   "approx_loc": 190
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.replay.test.ts",
+   "role": "Replay-determinism guard: byte-equal snapshot JSON (savedAt stripped) across same-seed runs; reducer + creature stress; does NOT exercise the Spawner",
+   "approx_loc": 242
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.test.ts",
+   "role": "WorldSnapshot round-trip unit tests (chain, stiffness tiers, bombs/hunters/potatoes rehydration)",
+   "approx_loc": 450
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/sync.ts",
+   "role": "HostSync.buildSnapshotMessage \u2192 netSnapshot(world) at NET_SNAPSHOT_HZ=10; ClientSync applyNetSnapshot + lerp",
+   "approx_loc": 300
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/sync.test.ts",
+   "role": "Asserts the 4 host-only fields are absent from the wire snapshot (lines 42-47) \u2014 enumerated, won't catch new leaks",
+   "approx_loc": 200
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/worldTypes.ts",
+   "role": "World interface \u2014 confirms NO spawner field exists on World (snapshot() cannot reach the Spawner today)",
+   "approx_loc": 200
+  }
+ ],
+ "constraints": [
+  "NetSnapshot wire bytes are locked: netSnapshot() derives from the FULL snapshot() by removing exactly 4 literal keys (save.ts:514-534); any new WorldSnapshot field emitted by snapshot() leaks onto the wire on EVERY host snapshot unless added to BOTH the Omit type union AND the runtime destructure",
+  "schemaVersion must stay 1 \u2014 every addition since S15 is additive-optional with no version bump; restore()/applyNetSnapshot() throw on any other value (save.ts:493-495, 542-544)",
+  "Additive-optional fields must be emitted only when present/defined (conditional spread or non-empty guard) so JSON.stringify drops undefined keys and pre-existing saves/payloads stay byte-identical \u2014 S81 P2 carriedAtTick (save.ts:380-383, 1084) is the latest precedent",
+  "RNG streams are locked: main.ts SEED=0xc0ffee and the 4 xor constants (0x9e3779b9, 0x85ebca6b, 0xc2b2ae35, 0x5a4e28b8) define the production stream configuration; restoreState requires the SAME stream configuration the state was captured under (spawner.ts:260-265)",
+  "Spawner is host/solo-only (stepPhysics gated on !isClient, main.ts:551-553); the 1v1 client must never construct/tick/restore a spawner-driven sim",
+  "save.replay.test.ts asserts byte-equal JSON.stringify of snapshot() minus savedAt across same-seed runs \u2014 any new snapshot field must be deterministic under that harness (note: its runStress never ticks a Spawner, so spawner state is currently invisible to it)",
+  "sync.test.ts:42-47 asserts savedAt/rngSeed/nextPrimitiveId/nextBondId are undefined on the wire snapshot \u2014 this contract must keep holding; it does not protect against NEW leaked fields",
+  "getState() can legitimately return null (non-stateful custom Rng) \u2014 any persistence wiring must handle the null fallback (from-seed behaviour) per spawner.ts:233-236",
+  "snapshot(world: World) signature: World has no spawner field (worldTypes.ts:37-120) \u2014 the Spawner is unreachable from the existing serializeWorld entry point; this is a structural gap, not an oversight",
+  "Deterministic fixed-tick sim at PHYSICS_HZ=60 (constants.ts:151); spawner.tick consumes PHYSICS_DT=1/60 (physicsLoop.ts:47,66)"
+ ],
+ "risks": [
+  "Wire-leak risk is concrete, not theoretical: unlike rare-hazard optionals (bombs/seagulls emitted only when non-empty), a spawnerState field would be non-undefined on essentially every host snapshot during PLAYING, changing bytes of every 10Hz NetSnapshot unless added to the omission list in save.ts:514-534",
+  "sync.test.ts's absence-assertions are an enumerated allowlist (4 fields) \u2014 a new leaked field passes CI silently; there is no generic 'NetSnapshot contains only retained keys' guard",
+  "restoreState silently skips streams when configuration mismatches (put() guards null stream / null word, spawner.ts:274-280) \u2014 restoring a 5-stream state into a spawner built with fewer streams, or vice versa, degrades without error; only the docblock contract (spawner.ts:262-264) prevents misuse",
+  "restore() already has a latent semantics gap the S79 docblock names (spawner.ts:102-108): world.rngSeed round-trips but nothing reconstructs RNG word state from it \u2014 main.ts's spawner keeps its boot-time words after any (test-only) restore, so save/load cannot resume the spawn sequence today",
+  "Spawner.nextId mints SparkIds (spawner.ts:284); after a hypothetical load without restoreState, a fresh spawner restarts nextId=0 and would mint SparkIds colliding with rehydrated freeSparks (the bomb/hunter/potato maps got max-id+1 counter advancement in applySnapshotCore, save.ts:589-665, but SparkId minting lives in the Spawner, not World)",
+  "save.replay.test.ts would NOT currently detect spawner-state non-determinism: its stress scripts dispatch hand-built sparks and never tick a Spawner, so wiring spawner state into snapshot() adds a field the existing replay harness only covers trivially (constant across runs only if capture points align)",
+  "Comments in save.ts (lines 90, 257) reference 'existing localStorage saves (S15-S41)' \u2014 historical user data may exist in browsers from earlier sessions even though no current code path reads or writes world saves; any strict-parse change could be checked against that legacy shape"
+ ],
+ "open_questions": [
+  "Where is SpawnerState intended to live in the persisted shape \u2014 a new optional WorldSnapshot field (which then MUST be added to the NetSnapshot Omit + destructure) was the S79 intent per spawner.ts:102-108, but snapshot(world) cannot reach the Spawner; the goal-context wiring needs a data path decision (spawner-state-on-World vs. changed serialize signature) that is out of scope for this map",
+  "Should the existing world.rngSeed field interact with restored spawner words (e.g., as fallback when getState() returned null), given rngSeed currently round-trips but is consumed only by rainbowLifecycle's per-tick one-shot derivation (rainbowLifecycle.ts:105)?",
+  "Is there an MCV verification[] binding (mentioned in S81 close commit 32ca21f) that asserts on snapshot/wire shape and would need updating alongside any WorldSnapshot addition? Not found under src/ during this pass",
+  "Spawner.nextId vs. world's SparkId space: freeSparks rehydrate with their original ids, but no max-spark-id+1 advancement exists anywhere (unlike bombs/hunters/potatoes/rainbows/seagulls/poops in applySnapshotCore) \u2014 confirm whether SpawnerState.nextId restoration is the intended sole defense against SparkId collision after load"
+ ]
+}

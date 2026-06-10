@@ -1,0 +1,162 @@
+{
+ "summary": "SPARK's verification stack has four layers. (1) Vitest: 1188 tests in 62 files (empirically re-run during this mapping: 1188/1188 pass in ~3s), configured in vite.config.ts's test block (include src/**/*.test.ts, exclude e2e/); deterministic sim tests drive pure reducers via dispatch()/applyX() in explicit `for` tick loops with manual `world.tick` increments, and save.replay.test.ts guards determinism by running the same scripted dispatch sequence twice from one seed and asserting byte-identical JSON of the production WorldSnapshot serializer. (2) Playwright e2e: 9 specs / 37 test() in e2e/, single chromium project (swiftshader software WebGL), workers:1, against `npm run dev` on port 5173 with ?debug=1; the CI \"gating lane\" runs everything NOT tagged @quarantine-flaky (a red = real regression), while a non-gating continue-on-error lane runs the two @quarantine-flaky real-WebRTC describes (4-peer FFA, S70 2-peer presence); current local status 36 pass / 1 skip (Sym E fixme), CI lane 7m36s on tip 1519a80. (3) CI: .github/workflows/e2e.yml (push-to-master/PR, 15-min timeout, path-filtered) and deploy.yml (Pages deploy via upload-pages-artifact@v5 + deploy-pages@v5 to spark-online.space) are independent \u2014 deploy does NOT `needs: [e2e]`; the planned gate flip is documented but not yet wired. (4) MCV: each completed priority in .claude/session-state.json must carry a verification[] array of declarative assertions (file_contains etc.) checked against disk by ~/.claude/scripts/verify-session-claims.py (exit 0/1/2), with verify-claims-on-stop.sh as the advisory Stop backstop; S81 closed with 22 file_contains assertions across 7 priorities, exit 0. Tests reach the live game through the DEV-only __SPARK__ global (9 accessors, main.ts:437-449) plus 11 window.__TEST_*__/__FOG_DISABLE__ pre-bundle seams. e2e/ is excluded from tsconfig (include:[\"src\"] only) and invisible to knip \u2014 confirmed tsc/knip-blind.",
+ "key_facts": [
+  "Vitest config lives in vite.config.ts:29-32 (test.include ['src/**/*.test.ts'], test.exclude ['node_modules','dist','e2e']) \u2014 no separate vitest.config; `npm test` = `vitest` (package.json:12). Empirical run: 62 files / 1188 tests, all pass, ~3.05s.",
+  "Deterministic sim test pattern: pure reducer calls inside explicit tick loops with manual tick increments \u2014 e.g. src/state/seagulls/seagull.test.ts:127-134 (`for (let i=1; i<=400...) { w.tick = i; applySeagullTick(w, ...) }`) and purity sweeps (seagull.test.ts:149-156 asserting same-inputs-same-output).",
+  "Replay-determinism guard: src/state/save.replay.test.ts:94-108 runs an identical 1000-iteration dispatch script twice from seed 0xc0ffee and asserts JSON.stringify(snapshot) byte-equality (savedAt stripped at :36-41); catches Math.random/Date.now/iteration-order creep in any reducer.",
+  "RNG: mulberry32 StatefulRng in src/state/rng.ts:20-33 (LOCKED \u00a710.5, LOCKED_DECISIONS.md:451-455); Spawner holds FIVE separate streams (rng, bombRng, potatoRng, rainbowRng, seagullRng \u2014 src/game/spawner.ts:103-160) so each new hazard left prior byte streams identical; SpawnerPersistedState carries all 5 rngState words (spawner.ts:116-121).",
+  "PHYSICS_HZ = 60, PHYSICS_SUBSTEPS = 8 (src/constants.ts:151-152); all gameplay durations are expressed in ticks via PHYSICS_HZ multiples (e.g. POTATO_HOLD_DETONATE_TICKS = 3*PHYSICS_HZ, constants.ts:539).",
+  "playwright.config.ts: testDir './e2e', timeout 60s, expect 10s, fullyParallel:false + workers:1 (2-peer specs serialized), retries 2 in CI, viewport 1920x1080, ONE project 'chromium' with --use-gl=swiftshader/--enable-webgl/--ignore-gpu-blocklist (lines 45-62); webServer `npm run dev -- --port 5173 --host`, url 'http://localhost:5173/?debug=1', reuseExistingServer locally (lines 64-69). E2E targets DEV build because __SPARK__ is DEV-only.",
+  "e2e/ contains 9 specs + helpers.ts: smoke.spec.ts (12 tests, ALL real 2-3 browser-context WebRTC over live Trystero/Nostr \u2014 baseline lobby/place/bond, Sym A/C/D/F/G/I/J, protocol-mismatch v2/v8, 3-player FFA), nplayer.spec.ts (4-peer FFA @quarantine-flaky at :64, 6-player render local-sim at :158 which injects players directly into __SPARK__.world, S70 presence @quarantine-flaky at :286), lobby-construction.spec.ts (7, single-page; simulatePeerJoin fakes peers at :49), fog.spec.ts (6, single-page deterministic pixel-level mask assertions), bomb (2)/hunter (1)/potato (4)/rainbow (1)/seagull (1) \u2014 all single-page SOLO deterministic GATING-lane specs whose headers explicitly say 'NO real WebRTC => GATING lane'.",
+  "Gating lane definition: .github/workflows/e2e.yml:82-83 `npm run e2e -- --grep-invert \"@quarantine-flaky\"` \u2014 quarantine is opt-IN via tag in the describe title, so new tests gate by default; non-gating lane (:90-98) is continue-on-error + if:always(), separate --output=test-results-quarantine + list reporter so it never clobbers the gating lane's HTML report.",
+  "Mocked transport explicitly REJECTED: playwright.config.ts:16-18 (C9) \u2014 real Trystero/Nostr signaling IS the surface under test; e2e.yml:28-30 reiterates 'deterministic transport is rejected'.",
+  "S81 status (HANDOFF_2026-06-10_S81.md:17-18): 1188/1188 unit, full chromium e2e 36 pass / 1 skip (the skip = Sym E test.fixme at e2e/smoke.spec.ts:325), CI E2E lane 7m36s SUCCESS on tip 1519a80; e2e job timeout-minutes:15 (e2e.yml:62).",
+  "CI workflows: only two \u2014 e2e.yml (push master + PR + dispatch, path-filtered to src/public/e2e/index.html/configs, concurrency cancel-in-progress per-ref) and deploy.yml (push master path-filtered, build = `npm run build` = `tsc -b && vite build`, upload-pages-artifact@v5 include-hidden-files:true, deploy-pages@v5, concurrency group pages-deploy cancel-in-progress:false). Deploy does NOT depend on e2e \u2014 e2e.yml:11-13 documents the future plan 'add needs: [e2e] to deploy.yml' as NOT yet done. Nothing else gates the solo direct-to-master workflow.",
+  "__SPARK__ DEV global (src/main.ts:432-450, gated on import.meta.env.DEV, tree-shaken from prod): exactly 9 accessors \u2014 getter world, getter controls, getter netTransport, getter lobbyScreen, getter titleScreen, getter fogRenderer, getter potatoRenderer (S77 P2), getter aboveFogLayer (S77 P2), plus plain `app`. Only ONE definition site in src/ (grep confirms main.ts only).",
+  "__TEST_ seams (all read pre-bundle via addInitScript; window-guarded no-ops in prod): __TEST_SPAWN_RATE_PER_SECOND__ (src/constants.ts:87), __TEST_WIN_SCORE__ (:233), __TEST_TERRITORY_BASE_RADIUS__ (:412), __TEST_BOMB_SPAWN_SPARKS__ (:437), __TEST_HUNTER_TRIGGER_SCORE__ (:465), __TEST_POTATO_SPAWN_SPARKS__ (:511), __TEST_POTATO_FUSE_TICKS__ (:521), __TEST_RAINBOW_SPAWN_SPARKS__ (:553), __TEST_SEAGULL_SPAWN_SPARKS__ (:587), __TEST_PROTO_VERSION_OVERRIDE__ (src/net/protocol.ts:106-107, send-side stale-peer simulation), __FOG_DISABLE__ (src/render/fogRenderer.ts:136, read once at construction).",
+  "e2e key helpers (e2e/helpers.ts): canvasToCss (:30, letterbox-aware coord mapping), readWorldState (:62, page.evaluate against __SPARK__.world incl. peerCount), waitForWorld (:120, 200ms poll), hostNewRoom/joinRoom (:146/:197, canvas-coord button clicks \u2014 titleScreen layout constants HARDCODED at :160 because e2e cannot import src/), placeFreeSparkAndConfirm (:284, S55 P1 bounded-retry anti-flake), waitForRejected (:381, protocol-mismatch latch), readSeats/waitForSeats (:414/:434).",
+  "Bundle: dist/assets/index-wRM_jUgf.js = 547,346 bytes = 534.5 KiB \u2014 matches S81 handoff claim 'bundle 534.5KB (<550 charter)' (HANDOFF_2026-06-10_S81.md:13). The 550 KB soft cap was raised from 500 in S57 (HANDOFF_2026-05-30_S57.md:15: 'soft cap raised 500 \u2192 550 KB this session'). Build command `npm run build` = `tsc -b && vite build` (package.json:9); vite target es2022, sourcemap true, base '/' for spark-online.space (vite.config.ts:14-24).",
+  "knip: NOT a devDependency (package.json has no knip), no knip config file, not installed locally or globally (`npm ls knip` empty both) \u2014 the recurring 'knip 0' gate in reflexion/handoffs (e.g. .claude/reflexion_log.md:123 'knip 41->0') is run ad hoc via npx with default config.",
+  "MCV verifier: C:/Users/onesh/.claude/scripts/verify-session-claims.py \u2014 assertion types file_exists/file_absent/file_contains/file_lacks/grep_count/json_field/syntax_ok/nonce_match (:190-193); BINDING_TYPES excludes bare file_exists (strength floor :17-18, weak priority = WARN/FAIL :326-330); exit 0 clean / 1 hard fail / 2 warn (:26-29); TEETH_DATE 2026-07-15 auto-escalates WARNs to FAIL (:43); diff-binding scans watch-roots for files modified since session_start (:235-261); The Spark has NO project-local .claude/verify-watch-roots.json so the global config applies.",
+  "MCV binding procedure (the contract for new priorities): per-priority verification[] arrays inside .claude/session-state.json priorities[] \u2014 S81 example entries are absolute-path file_contains needles like `export function canAvatarCleanSplat` against src/state/seagulls/seagullLifecycle.ts; session-pdca SKILL.md:323-331 mandates authoring verification[] BEFORE marking status=completed and running `python ~/.claude/scripts/verify-session-claims.py --state .claude/session-state.json` (exit 0 required); verify-claims-on-stop.sh is the never-blocking advisory Stop backstop with verifier-sha tamper check. Project helpers scripts/close-priority.cjs + scripts/patch-session-state.cjs do race-safe read-modify-write of session-state (preserve concurrent hook counters).",
+  "tsconfig.json include: [\"src\"] ONLY (tsconfig.json:21) \u2014 e2e/ is outside tsc -b and outside knip's project graph: e2e is tsc/knip-blind, CONFIRMED (also stated in .claude/plans-archive/2026-06-06_PDR_S69_P2_lobby-seat-ux_*.md:36/:85 and in every hazard spec header, e.g. e2e/hunter.spec.ts:4). Consequence: e2e coord/constant drift is only caught by RUNNING the e2e (reflexion S69 lesson at .claude/reflexion_log.md:109).",
+  "PROTOCOL_VERSION = 7 as const (src/net/protocol.ts:59); HelloMsg.protoVersion is the literal type 7 (:66) \u2014 bumping PROTOCOL_VERSION without updating the literal is a tsc error (the deliberate 'version-bump lockstep tsc tripwire', protocol.ts:115-127); KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> (:266) is a second tripwire forcing wire-validator updates on GameAction union expansion.",
+  "Protocol-bump procedure precedent: additive-optional NetSnapshot/wire fields = NO version bump (LOCKED_DECISIONS.md:938 'NO SCHEMA_VERSION bump per documented additive-optional precedent (S15 P2 / S28 P0 / S31 P0-3)'; :966 same for new effect kinds); cosmetic non-gameplay messages (LOBBY_PRESENCE) also no-bump because stale peers null-reject in parseNetMessage (protocol.ts:185-192); a REAL bump (S71 v4\u21925) broke 3 protocol.test cases + 2 e2e mismatch tests as expected \u2014 the e2e mismatch specs inject hardcoded older/newer versions (v2 at e2e/smoke.spec.ts:594, v8 at :639) via __TEST_PROTO_VERSION_OVERRIDE__ and must be updated on every bump.",
+  "LOCKED_DECISIONS.md sections relevant to PDR citations: \u00a71 Engine & Stack (:10, Trystero relay pin NOTE :25, v5 amendment :57), \u00a72 Canvas/Spawner/Vision (:149 \u2014 spawner radius 250px :154, memory-fog placeholder item 7 :159), \u00a76 Combo Table (:237), \u00a77 Module Architecture anti-bloat \u2264500 LOC/module (:273), \u00a710.3 Render seam for fog (:411), \u00a710.4 Snapshot shape incl. rngSeed (:422-448), \u00a710.5 Determinism/mulberry32 (:451), \u00a713.1 Transport (:513), \u00a713.3 Sync protocol seq/lerp/envelopes (:535), \u00a713.9 Deployment (:603), \u00a713.15 godly/creature NetSnapshot semantics + additive-optional rows (:860), \u00a713.16-13.19 Sym D/G/I/F (:981-1093). The Anti-Bloat Charter \u00a7XV itself lives in SPARK_Blueprint.md:825-843 ('No module over 500 lines', no-tutorial/no-menus/no-analytics, 60fps floor).",
+  "Fog has NO dedicated LOCKED_DECISIONS section \u2014 fog ground truth: LOCKED_DECISIONS \u00a72 items 4-7 placeholders (:159-161) + \u00a710.3 render seam (:411); the shipped implementation is src/render/fogRenderer.ts (RenderTexture erase-mask + S59 explored-grid memory + S60 ghost silhouettes, :96-132) guarded by e2e/fog.spec.ts pixel assertions and the reveal-on-WIN \u00a7III.7 contract.",
+  "Quarantine artifacts: test-results/ (gating) and test-results-quarantine/ (non-gating lane output dir) both exist at repo root; Playwright HTML report uploaded as CI artifact 'playwright-report' retention 14 days (e2e.yml:100-106)."
+ ],
+ "key_files": [
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/vite.config.ts",
+   "role": "Vite + Vitest config: test.include src/**/*.test.ts, exclude e2e/; build target es2022, base '/'",
+   "approx_loc": 34
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/playwright.config.ts",
+   "role": "Playwright harness: single chromium project (swiftshader), workers:1, webServer dev:5173?debug=1, CI retries 2",
+   "approx_loc": 71
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/tsconfig.json",
+   "role": "tsc config \u2014 include [\"src\"] only; e2e/ is tsc-blind",
+   "approx_loc": 23
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/helpers.ts",
+   "role": "Shared e2e utilities: canvasToCss, readWorldState/waitForWorld, hostNewRoom/joinRoom, placeFreeSparkAndConfirm anti-flake, waitForRejected, readSeats/waitForSeats",
+   "approx_loc": 451
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/smoke.spec.ts",
+   "role": "Canonical 2-browser real-WebRTC baseline: lobby/match/place/bond, Sym A-J describes, protocol-mismatch v2/v8, 3-player FFA; contains the single fixme (Sym E :325)",
+   "approx_loc": 700
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/nplayer.spec.ts",
+   "role": "N-player specs: 4-peer FFA + S70 presence (both @quarantine-flaky real WebRTC), 6-player render (local-sim, gating)",
+   "approx_loc": 330
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/fog.spec.ts",
+   "role": "Single-page deterministic fog pixel-mask assertions (6 tests, gating)",
+   "approx_loc": 300
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.github/workflows/e2e.yml",
+   "role": "E2E CI: gating lane (--grep-invert @quarantine-flaky) + non-gating quarantine lane; 15-min timeout; report artifact",
+   "approx_loc": 107
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.github/workflows/deploy.yml",
+   "role": "GitHub Pages deploy (upload-pages-artifact@v5 + deploy-pages@v5); path-filtered; independent of e2e (no needs:[e2e])",
+   "approx_loc": 94
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+   "role": "__SPARK__ DEV global definition (:432-450) \u2014 the entire e2e window-hook surface (9 accessors)",
+   "approx_loc": 1000
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+   "role": "PHYSICS_HZ=60/PHYSICS_SUBSTEPS=8 (:151-152) + 9 of the 11 __TEST_*__ e2e seams",
+   "approx_loc": 640
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+   "role": "PROTOCOL_VERSION=7 + HelloMsg literal lockstep tripwire + KNOWN_GAME_ACTION_TYPES_RECORD tripwire + __TEST_PROTO_VERSION_OVERRIDE__ seam",
+   "approx_loc": 450
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.replay.test.ts",
+   "role": "Replay-determinism guard: double-run byte-equality of WorldSnapshot JSON over a 1000-iteration dispatch script",
+   "approx_loc": 125
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/rng.ts",
+   "role": "mulberry32 StatefulRng (\u00a710.5 LOCKED) with getState/setState for resumable streams",
+   "approx_loc": 60
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/game/spawner.ts",
+   "role": "Five separate RNG streams (spark/bomb/potato/rainbow/seagull) + SpawnerPersistedState with per-stream rngState",
+   "approx_loc": 400
+  },
+  {
+   "path": "C:/Users/onesh/.claude/scripts/verify-session-claims.py",
+   "role": "MCV verifier: declarative assertion types, diff-binding watch-roots, strength floor, exit 0/1/2, TEETH_DATE 2026-07-15",
+   "approx_loc": 352
+  },
+  {
+   "path": "C:/Users/onesh/.claude/hooks/verify-claims-on-stop.sh",
+   "role": "Advisory MCV Stop backstop: re-runs verifier, sha tamper check, loud chip on exit 1",
+   "approx_loc": 103
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.claude/session-state.json",
+   "role": "Per-priority verification[] arrays (S81: 22 file_contains assertions across 7 priorities) consumed by the MCV verifier",
+   "approx_loc": 400
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/scripts/close-priority.cjs",
+   "role": "Race-safe priority-completion writer for session-state.json (preserves concurrent hook counters)",
+   "approx_loc": 60
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/LOCKED_DECISIONS.md",
+   "role": "Locked design law: \u00a710.5 determinism, \u00a713.x net protocol, \u00a77 module charter, \u00a713.15 additive-optional no-bump precedent",
+   "approx_loc": 1095
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/SPARK_Blueprint.md",
+   "role": "\u00a7XV Anti-Bloat Charter (:825): \u2264500 LOC/module, no tutorial/menus/analytics, 60fps floor; relaxed only in Phase 4",
+   "approx_loc": 900
+  }
+ ],
+ "constraints": [
+  "NetSnapshot wire bytes + the 5 spawner RNG streams are LOCKED: any new randomness must use a NEW separate seeded stream (S71 bombRng precedent) or zero-RNG hashing of already-serialized state (S81 P3 mix32 precedent) \u2014 never consume from an existing stream; save.replay.test.ts byte-equality must stay green.",
+  "PROTOCOL_VERSION bumps are real costs: each bump requires the HelloMsg literal update (tsc tripwire), protocol.test version-case updates, AND updating the hardcoded v2/v8 injections in e2e/smoke.spec.ts:594/:639; additive-optional fields require NO bump (LOCKED_DECISIONS:938/:966 precedent) \u2014 prefer them.",
+  "New e2e tests GATE by default \u2014 quarantine is opt-in via '@quarantine-flaky' in the describe title; do not add that tag to deterministic local-sim specs. Mocked/deterministic transport is REJECTED (playwright.config C9) \u2014 real-WebRTC specs must stay on real Trystero/Nostr.",
+  "E2E runs against DEV build only (__SPARK__ is import.meta.env.DEV-gated and tree-shaken from prod); any new e2e accessor must go inside the main.ts:437 DEV block; any new tunable seam must follow the window.__TEST_*__ pre-bundle addInitScript idiom (window-guarded, prod no-op).",
+  "e2e/ is tsc- and knip-blind (tsconfig include [\"src\"] only): changes to titleScreen/lobbyScreen layout constants, button coords, or exported accessor names silently break e2e \u2014 the only guard is actually RUNNING the Playwright suite (S69/S50 lessons).",
+  "Bundle soft charter: main index-*.js \u2264 550 KB (currently 534.5 KiB = 547,346 bytes); \u00a7XV module charter \u2264500 LOC/module (soft); vite build must stay `tsc -b && vite build` clean.",
+  "MCV: a priority must NOT be marked status=completed until its verification[] assertions pass (verifier exit 0); every session-modified watch-root file needs a BINDING assertion (file_exists alone is insufficient); after 2026-07-15 (TEETH_DATE) uncovered/unbound auto-escalate to hard FAIL.",
+  "Playwright structural invariants: workers:1 / fullyParallel:false (multi-context peers serialize), fixed 1920x1080 viewport for canvas coord math, port 5173 fixed (webServer), 60s test / 10s expect timeouts \u2014 specs are tuned to these (e.g. smoke wait windows sized to spawn cadence under swiftshader).",
+  "Deploy and e2e workflows are path-filtered to exclude session bookkeeping (.claude/, HANDOFF_*.md) \u2014 keep new CI-relevant files inside the path lists or they won't trigger runs; deploy concurrency group 'pages-deploy' must stay cancel-in-progress:false."
+ ],
+ "risks": [
+  "Deploy is NOT gated on e2e (no needs:[e2e] in deploy.yml) \u2014 a regression that passes tsc/vite build deploys to spark-online.space even if the e2e lane reds minutes later; the e2e.yml header documents the gate flip as a future step that was never taken.",
+  "The two @quarantine-flaky real-WebRTC tests (4-peer FFA, S70 presence) cannot red CI \u2014 a CONSISTENT real regression in 4-peer or presence flows would only be visible by reading the non-gating lane's list output, not by job status.",
+  "e2e helpers hardcode canvas coordinates duplicated from src (titleScreen button layout at helpers.ts:160, spawner radius 200 at :234, PLAYER_COLORS replicated in nplayer.spec.ts) because e2e cannot import src/ \u2014 every UI-layout or constant change risks silent e2e drift that static gates cannot catch.",
+  "mcv_session_nonce is unset in current session-state (nonce_match assertions would fail with 'no session nonce recorded') and The Spark has no project-local verify-watch-roots.json, so MCV diff-binding watches only global ~/.claude surfaces \u2014 src/ edits rely entirely on per-priority verification[] discipline, as the verifier's own scope warning states.",
+  "knip is not pinned (no devDependency, no config) \u2014 'knip 0' gates run npx-latest, so a future knip major release could change findings non-reproducibly between sessions.",
+  "Unit count claims in handoffs (1188) drift fast (+23 in S81 alone); any PDR citing a fixed count should re-run vitest rather than trust the last handoff.",
+  "The 550 KB bundle charter exists only in handoff prose (S57), not in LOCKED_DECISIONS.md or any CI check \u2014 nothing mechanically blocks a bundle-size regression."
+ ],
+ "open_questions": [
+  "Is GitHub branch protection configured to require the e2e workflow on master pushes? (Solo direct-to-master workflow suggests no; not verifiable from the repo files alone.)",
+  "Local full-suite e2e wall-clock time is not recorded anywhere found (CI lane = 7m36s with install; the 15-min job timeout bounds it) \u2014 measure locally if a PDR needs a precise local-runtime budget.",
+  "Should the planned `needs: [e2e]` deploy gate (e2e.yml:11-13 migration plan) be wired now that the gating lane has been stable across S65-S81? That is a user/PDR decision, not yet ground truth.",
+  "test-results-quarantine/ and findings.1.json/findings.2.json sit at repo root untracked-or-stale \u2014 whether they are meant to be gitignored was not determined."
+ ]
+}

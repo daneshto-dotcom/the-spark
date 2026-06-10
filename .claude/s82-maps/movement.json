@@ -1,0 +1,143 @@
+{
+ "summary": "SPARK's player \"cruiser\" is today a pure teleport-to-pointer entity: controls.ts tracks the pointer into controls.cursor, main.ts dispatches a throttled (10Hz, 2px-delta) UPDATE_AVATAR_POS whose reducer (gameMode.ts applyUpdateAvatarPos) writes avatarPos verbatim with no speed cap, and avatarRenderer renders the LOCAL player at the raw cursor while REMOTE players render at an exponentially-smoothed displayPos chasing the ~10Hz avatarPos (S81 P4 smoothTowards). The seagull/poop hazard is fully host-authoritative: main.ts fans out SEAGULL_TICK/POOP_TICK per entity inside the fixed 60Hz tick loop; applyPoopTick (seagullLifecycle.ts) drops a FALLING poop by POOP_FALL_SPEED per tick and checks squared-distance lowest-id collision against primitives (fouls the whole connected component into world.fouledPrimitives) then FREE sparks (sets spark.poopyUntilTick = tick + POOP_SLOW_TICKS, halves implicit verlet velocity, consumes the poop) then the floor \u2014 players/avatars are never checked. The only existing player-shaped debuffs are Player.territorialShrinkUntilTick and benchedUntilTick, both additive-optional in save.ts's SerializedPlayer; the S81 P2 carriedAtTick potato field is the freshest emit-only-when-set serialization precedent. Visual debuff precedents: free sparks tint POOPY_SPARK_TINT 0x9aa15c in renderer.ts while poopy; fouled structures lerp ownerColor toward POOP_FOUL_TINT by 0.65 in structureRenderer.ts. The capped-speed-chase-toward-avatarPos movement precedent is the Pac-Man hunter (hunterPursue with HUNTER_ACCEL/HUNTER_MAX_SPEED toward target.avatarPos).",
+ "key_facts": [
+  "PHYSICS_HZ = 60 (src/constants.ts:151), PHYSICS_SUBSTEPS = 8 (src/constants.ts:152), PHYSICS_DT = 1/PHYSICS_HZ (src/physics/physicsLoop.ts:47). Game loop: app.ticker.add accumulates dtSec clamped to 0.05 (src/main.ts:545-547); while accumulator >= PHYSICS_DT, host/solo runs stepPhysics (src/main.ts:550-553) and the client runs only controls.applyPerSubstep x8 + world.tick++ (src/main.ts:570-573); all rendering happens once per ticker frame after the while-loop (src/main.ts:1108-1151).",
+  "Local cursor: Controls.updateCursor maps pointer events through letterbox-aware cssToCanvasCoords into controls.cursor (src/input/controls.ts:596-607). Player.avatarPos is declared at src/game/player.ts:32 ('per-player cursor / avatar position').",
+  "UPDATE_AVATAR_POS dispatch lives in the RENDER section of the ticker (not the fixed-tick loop), gated on gameState==='PLAYING' (solo included since S72), throttled by AVATAR_POS_DISPATCH_MIN_INTERVAL_MS = 100 (10Hz) + AVATAR_POS_DISPATCH_MIN_DELTA_PX = 2 (src/main.ts:539-543, 1089-1106). Both host and client dispatch for THEIR OWN playerId via dispatchFn.",
+  "dispatchFn (src/main.ts:264-284): client wraps actions as INTENT via session.clientSync.wrapIntent and sends on session.netTransport; UPDATE_AVATAR_POS, PICKUP_SPARK, DROP_SPARK are in PREDICTABLE_ACTIONS (src/main.ts:254-263) so the client ALSO applies them locally (optimistic prediction, try/catch-swallowed). Host/solo dispatches locally.",
+  "applyUpdateAvatarPos (src/state/gameMode.ts:299-315): writes player.avatarPos = action.pos VERBATIM \u2014 no clamp, no speed cap, no rate limit \u2014 and when player.kind==='Carrying' also snaps the carried spark pos+prevPos to the same point (S45 Sym A load-bearing coupling). This reducer (or the host INTENT-apply site) is where authoritative clamping would go; S48 handoff flagged 'UPDATE_AVATAR_POS rate limit' as a latent audit item never implemented.",
+  "Host applies client intents in createHostStartHandler's transport.on (src/net/hostHandlers.ts:185-203): playerId is overridden from the sender's frozen seat via stampSenderSeat (src/net/intentStamp.ts:23-25) \u2014 anti-spoof, so a client can only move its own avatar. wrapIntent envelope = {kind:'INTENT', intentSeq, action} (src/net/sync.ts:75-78).",
+  "AvatarRenderer.sync (src/render/avatarRenderer.ts:108-203): LOCAL player renders at controls.cursor lag-free (lines 139-142); REMOTE players render at a per-player displayPos that exponentially chases player.avatarPos via smoothTowards with AVATAR_SMOOTH_TAU_MS=60, AVATAR_SMOOTH_SNAP_DIST=300 (lines 83-84, 144-162, pure fn 218-233, S81 P4). Avatar = 3 concentric circles tinted player.color (AVATAR_INNER_RADIUS=4, AVATAR_OUTER_RADIUS=11, lines 43-46, 179-187) with a 1.2Hz alpha pulse; benched players are skipped entirely (line 132). Tinting a debuffed avatar would slot into the per-frame fill color (player.color is read fresh every frame).",
+  "Poop FSM: FALLING | SPLAT_STRUCTURE | SPLAT_GROUND (src/state/seagulls/seagull.ts:45); a poop that hits a FREE spark is consumed immediately, no persistent spark-splat state (seagull.ts:42-43). Poop fields: id, pos, prevPos, state, spawnedAtTick, landedAtTick, fouledPrimId? (seagull.ts:47-57).",
+  "applySeagullTick (src/state/seagulls/seagullLifecycle.ts:144-178): linear flight pos.x += vx, despawn past edge + SEAGULL_DEPART_MARGIN, drops a poop when tick - lastPoopTick >= poopDropIntervalTicks(id, lastPoopTick) (pure mix32 hash, NO RNG stream \u2014 lines 61-83) gated on world.poops.size < POOP_MAX_LIVE.",
+  "applyPoopTick (src/state/seagulls/seagullLifecycle.ts:185-253) is the natural home for a poop-vs-avatar check: FALLING branch advances pos.y += POOP_FALL_SPEED (line 198), then (1) primitives lowest-id within POOP_HIT_RADIUS_SQ -> foul whole component via collectComponent into world.fouledPrimitives + SPLAT_STRUCTURE snap (lines 200-223); (2) FREE sparks lowest-id -> hitSpark.poopyUntilTick = world.tick + POOP_SLOW_TICKS + one-time implicit-velocity halve via prevPos scale + poop deleted (lines 225-244); (3) floor at POOP_FLOOR_Y = CANVAS_HEIGHT -> SPLAT_GROUND (lines 246-251). Players are never iterated. The main.ts fan-out dispatching POOP_TICK per poop is at src/main.ts:786-789 (host-only, gated PLAYING && !isClient && poops.size>0).",
+  "Poop/seagull constants (src/constants.ts): POOP_FALL_SPEED=5.25 (:615, S81 P7), POOP_RADIUS=7 visual/collision core (:616), POOP_HIT_RADIUS=19 vs primitives|sparks (:617), POOP_GROUND_TTL_TICKS=4*60 (:618), POOP_SLOW_TICKS=15*60 (:619), POOP_SLOW_MULTIPLIER=0.5 (:620), POOP_CLEAN_RADIUS=44 (:621), POOP_MAX_LIVE=24 snapshot-size guard (:622), POOP_FOUL_TINT=0x9aa15c (:627), POOP_FOUL_TINT_STRENGTH=0.65 (:628), SEAGULL_MAX_ACTIVE=1 (:598), SEAGULL_SPEED=3.15 (:599), SEAGULL_RADIUS=24 (:602), POOP_DROP_MIN/MAX_TICKS=12/48 (:611-612). Avatar radii are render-module-local only: AVATAR_INNER_RADIUS=4 / AVATAR_OUTER_RADIUS=11 (src/render/avatarRenderer.ts:43-44) \u2014 no sim-side avatar radius constant exists.",
+  "Existing slow consumer: controls.applyPerSubstep AttractDrag uses followRate = ATTRACT_FOLLOW_RATE(0.06, constants.ts:262) * POOP_SLOW_MULTIPLIER when spark.poopyUntilTick !== undefined && world.tick < poopyUntilTick (src/input/controls.ts:232-238). Tick-compare self-heals at expiry; no clear action needed.",
+  "Tint precedents: free sparks override tint to POOPY_SPARK_TINT = 0x9aa15c while world.tick < poopyUntilTick (src/render/renderer.ts:28, 95-99 \u2014 overrides Free/Carried tint); fouled primitives render foulAwareTint = lerpTint(ownerColor, POOP_FOUL_TINT, POOP_FOUL_TINT_STRENGTH) (src/render/structureRenderer.ts:84, 216-220); generic lerpColor helper at src/render/effects/silhouettes/shared.ts:57.",
+  "CLEAN_POOP sweep (src/main.ts:790-806, host-only): orphan splat (anchor prim gone) -> unconditional CLEAN_POOP; otherwise per-player canAvatarCleanSplat (src/state/seagulls/seagullLifecycle.ts:297-306): SPLAT_STRUCTURE + live anchor + player not benched + anchor.ownerColor === player.color (S81 P1 owner-only) + player.avatarPos within POOP_CLEAN_RADIUS squared. applyCleanPoop (lines 320-344) unfouls the whole current component and deletes every splat on it. reconcileFouledPrimitives (lines 272-281) re-derives the foul set after topology mutations. teardownSeagulls (lines 351-357) clears gulls/poops/fouls on WIN/RETURN_TO_TITLE/START_GAME.",
+  "Player state serialization: SerializedPlayer (src/state/save.ts:203-229) = id, color, kind, carriedSparkId, energy, buildActions, disruptionCharges, avatarPos?, territorialShrinkUntilTick? (emit only when non-null), benchedUntilTick? (emit only when set), carriedPotatoId? (emit only when set). serializePlayer uses conditional-spread emit-only-when-set (save.ts:821-847); rehydration in applySnapshotCore's player loop (save.ts:752-778; godlyCooldownEndsAtTick is NOT serialized \u2014 reconstructed null at :765). A new player debuff field (e.g. slowedUntilTick) would mirror benchedUntilTick exactly across these three sites.",
+  "S81 P2 additive-optional precedent: SerializedPotato.carriedAtTick? declared src/state/save.ts:380-383 ('emitted only while CARRIED, so FREE/ARMED snapshots stay byte-identical'), emitted via conditional spread at save.ts:1084, rehydrated at save.ts:1099. Spark.poopyUntilTick rides the same pattern (save.ts:176-177, 701, 790).",
+  "NetSnapshot = Omit<WorldSnapshot, 'savedAt'|'rngSeed'|'nextPrimitiveId'|'nextBondId'> (src/state/save.ts:514-517); schemaVersion locked at 1 (save.ts:71-72). Host emits every SNAPSHOT_INTERVAL_TICKS = round(PHYSICS_HZ/NET_SNAPSHOT_HZ) = 6 ticks (src/main.ts:125, 820-829; NET_SNAPSHOT_HZ=10 constants.ts:385). Client applies via ClientSync.interpolateInto -> applyNetSnapshot full rebuild + position lerp over NET_INTERPOLATION_MS=100 (src/net/sync.ts:98-188, 222-247) \u2014 players Map is cleared and rebuilt from snapshot on every accepted snapshot (save.ts:566, 752-778).",
+  "Capped-speed chase precedent: hunterPursue(hunter, target.avatarPos, HUNTER_ACCEL=0.36, HUNTER_MAX_SPEED=4.2, HUNTER_DAMPING) per tick inside applyHunterTick (src/state/hunters/hunterLifecycle.ts:154; constants.ts:489-490); hunter pos/prevPos carry implicit verlet velocity (src/state/hunters/hunter.ts:30). Every avatarPos read sits behind a target-exists guard (hunterLifecycle.ts:127-133). The potato carry also syncs pos to carrier.avatarPos per tick in main.ts:735-742.",
+  "Pickup/drop FSM reconstruction rebuilds the Player object FIELD-BY-FIELD: pickup() (src/game/player.ts:95-117) and drop() (player.ts:120-140) explicitly copy benchedUntilTick and carriedPotatoId (lines 110-113, 133-137). Any new Player debuff field MUST be added to both reconstructions or it silently vanishes on every carry transition. Same for the applySnapshotCore base object (save.ts:753-772).",
+  "Input locking precedent: controls.isInputLocked (src/input/controls.ts:265-272) gates onDown/onUp on cinematic ownership + isBenched(benchedUntilTick, world.tick); benched avatar is hidden by avatarRenderer (avatarRenderer.ts:132). Fog personal-vision centres on the raw controls.cursor, not avatarPos (src/main.ts:1147).",
+  "PROTOCOL_VERSION = 7 as const (src/net/protocol.ts:59), bumped 6->7 for the S77 seagull (HELLO-gated; rainbow precedent). World hazard fields: seagulls/nextSeagullId/poops/nextPoopId/fouledPrimitives at src/state/worldTypes.ts:177-201.",
+  "Seagull spawn flow: spawner.tick fills a seagullSpawns out-array inside stepPhysics; SPAWN_SEAGULL dispatched gated on SEAGULL_MAX_ACTIVE (src/physics/physicsLoop.ts:61-95). Seagull drop randomness consumes NO RNG: 'the 5 seeded spawner streams stay byte-identical' (seagullLifecycle.ts:74-79)."
+ ],
+ "key_files": [
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagullLifecycle.ts",
+   "role": "Seagull+poop reducers: applySeagullTick, applyPoopTick (FALLING collision passes \u2014 where a vs-avatar check would slot), canAvatarCleanSplat, applyCleanPoop, reconcileFouledPrimitives, teardownSeagulls",
+   "approx_loc": 358
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+   "role": "Fixed-tick accumulator loop, host-only hazard fan-outs (SEAGULL_TICK/POOP_TICK/CLEAN sweep at 781-806), 10Hz UPDATE_AVATAR_POS throttle (1089-1106), dispatchFn + PREDICTABLE_ACTIONS (254-284), snapshot emit gate (820-829)",
+   "approx_loc": 1165
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/input/controls.ts",
+   "role": "Cursor tracking (updateCursor), dispatcher injection, AttractDrag + poopy followRate slow consumer (232-238), isInputLocked bench gate",
+   "approx_loc": 903
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/game/player.ts",
+   "role": "Player interface (avatarPos:32, territorialShrinkUntilTick:46, benchedUntilTick:56, carriedPotatoId:63) + pickup/drop field-by-field reconstruction that must thread any new debuff field",
+   "approx_loc": 158
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
+   "role": "applyUpdateAvatarPos reducer (299-315): verbatim teleport, no cap; carried-spark coupling; the host-side authoritative clamp point",
+   "approx_loc": 345
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.ts",
+   "role": "Local(cursor)/remote(smoothTowards displayPos, S81 P4) avatar rendering, per-frame player.color tint (debuff-tint hook), bench hide",
+   "approx_loc": 268
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+   "role": "WorldSnapshot/NetSnapshot serialization; SerializedPlayer (203-229), serializePlayer emit-when-set (821-847), player rehydrate (752-778), carriedAtTick S81 P2 precedent (380-383, 1084, 1099)",
+   "approx_loc": 1250
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+   "role": "PHYSICS_HZ/SUBSTEPS, all POOP_*/SEAGULL_* constants (598-629), ATTRACT_FOLLOW_RATE, HUNTER_MAX_SPEED/ACCEL, NET_SNAPSHOT_HZ",
+   "approx_loc": 640
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/sync.ts",
+   "role": "ClientSync.wrapIntent (intent envelope), interpolateInto full-rebuild + lerp, HostSync snapshot build",
+   "approx_loc": 248
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/hostHandlers.ts",
+   "role": "Host INTENT receive + stampSenderSeat anti-spoof apply (185-203) \u2014 second candidate host clamp point",
+   "approx_loc": 260
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagull.ts",
+   "role": "Seagull/Poop types + factories; Poop FSM docstring (FREE-spark hit consumes poop)",
+   "approx_loc": 88
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/renderer.ts",
+   "role": "SparkRenderer: POOPY_SPARK_TINT 0x9aa15c override while world.tick < poopyUntilTick (95-99)",
+   "approx_loc": 161
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/structureRenderer.ts",
+   "role": "foulAwareTint: ownerColor lerped to POOP_FOUL_TINT by 0.65 for fouled prims (216-220)",
+   "approx_loc": 230
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/hunters/hunterLifecycle.ts",
+   "role": "hunterPursue toward target.avatarPos at HUNTER_ACCEL/HUNTER_MAX_SPEED \u2014 the existing capped-speed-chase-the-cursor precedent (154)",
+   "approx_loc": 230
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/physics/physicsLoop.ts",
+   "role": "stepPhysics: spawner out-arrays (incl. seagull), 8 substeps with controls.applyPerSubstep, world.tick++",
+   "approx_loc": 183
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/worldTypes.ts",
+   "role": "World fields: players, seagulls/poops/fouledPrimitives Maps + mint counters (172-201), localPlayerId (256)",
+   "approx_loc": 270
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagull.test.ts",
+   "role": "Locks poop collision behavior: lowest-id differential test, poopyUntilTick round-trip \u2014 any collision-order change must keep these green",
+   "approx_loc": 430
+  }
+ ],
+ "constraints": [
+  "Determinism: poop drop intervals are a pure hash (mix32 of seagullId+lastPoopTick, seagullLifecycle.ts:61-83) consuming NO RNG; the 5 seeded spawner streams must stay byte-identical \u2014 any new randomness must reuse the hash pattern, never the RNG streams.",
+  "Poop collision pick is locked: squared-distance, LOWEST-id hit, allocation-free (seagullLifecycle.ts:200-244), with a differential test in seagull.test.ts. Inserting an avatar pass changes which existing target gets hit only if ordered before the primitive/spark passes \u2014 ordering is replay-visible host state.",
+  "NetSnapshot wire bytes: schemaVersion stays 1; ALL new serialized fields must be additive-optional and emitted only-when-set (conditional spread) so pre-existing snapshots/saves stay byte-identical (precedent chain S15/S28/S31/S72/S77/S81-P2 carriedAtTick, save.ts:380-383/1084/1099).",
+  "Host-authoritative split: clients NEVER run SEAGULL_TICK/POOP_TICK (main.ts fan-outs gated !isClient); clients only render from snapshot. Any client-visible debuff state must round-trip through SerializedPlayer (or spark) fields because applySnapshotCore rebuilds the players Map from scratch on every accepted snapshot (save.ts:566, 752-778).",
+  "Player FSM reconstruction contract: pickup()/drop() (player.ts:95-140) and the applySnapshotCore base object (save.ts:753-772) copy fields explicitly \u2014 a new Player field missed in any of the three silently drops on carry transitions or snapshot apply.",
+  "UPDATE_AVATAR_POS semantics are load-bearing: applyUpdateAvatarPos also snaps the carried spark to avatarPos (gameMode.ts:304-313, S45 Sym A) and joiner placement (PLACE_FROM_FREE) relies on this coupling; clamping/capping avatarPos changes carried-spark behavior and joiner build accuracy.",
+  "Tick-compare self-heal idiom: debuffs gate on world.tick < untilTick (poopyUntilTick controls.ts:235, benchedUntilTick hunter.ts isBenched) so missed clears self-heal \u2014 a new sloweduntilTick should follow it, not require an explicit clear action.",
+  "PROTOCOL_VERSION (=7, protocol.ts:59) must bump if a change would confuse a stale peer (income/visibility-affecting mechanics precedent: rainbow v6, seagull v7); HELLO handshake hard-rejects mismatches.",
+  "teardownSeagulls (seagullLifecycle.ts:351-357) clears all gull/poop/foul state on WIN/RETURN_TO_TITLE/START_GAME \u2014 any new avatar debuff must be similarly cleared at match boundaries (precedent: gameMode.ts:270-273 clears benchedUntilTick/carriedPotatoId on return-to-title).",
+  "Anti-spoof: host stamps every INTENT's playerId from the sender's seat (intentStamp.ts:23-25); a client cannot affect another player's avatarPos \u2014 preserve this when touching the intent path.",
+  "avatarPos cadence contract: at most 10Hz + 2px delta (main.ts:539-540); hunter chase, potato carry-sync, and CLEAN_POOP proximity all already consume this stale-by-\u2264100ms avatarPos \u2014 a poop-vs-avatar check would inherit identical staleness."
+ ],
+ "risks": [
+  "Local avatar render is hard-bound to controls.cursor (avatarRenderer.ts:139-141) and fog vision is centred on controls.cursor (main.ts:1147) \u2014 a 'cruiser chases cursor at capped speed' debuff breaks the current local-render==cursor identity; sim truth (avatarPos) and pointer would diverge for the first time, and every avatarPos consumer (hunter chase, potato carry-sync, CLEAN sweep, remote render) would follow the slowed position while picks (pickSpark/pickBomb/etc.) still use the raw cursor.",
+  "There is no per-tick avatar movement system today: avatarPos changes ONLY when an UPDATE_AVATAR_POS lands (event-driven, 10Hz max). A capped-speed chase needs either per-tick host sim movement (new mechanism \u2014 hunter-style pursue) or clamping inside applyUpdateAvatarPos (changes the S45 carried-spark coupling and joiner placement accuracy).",
+  "applyPoopTick deletes the poop on spark-hit and the main.ts fan-out snapshots keys first \u2014 adding an avatar pass must respect the existing pass order and the consumed-poop semantics, or the lowest-id differential test (seagull.test.ts) and replay equivalence break.",
+  "Client prediction of UPDATE_AVATAR_POS (PREDICTABLE_ACTIONS, main.ts:254-263) applies the action locally unclamped \u2014 if the host starts clamping while debuffed, the client's predicted avatarPos diverges from the authoritative one until the next snapshot; the smoothTowards remote chase masks it for remote viewers but not for the debuffed local player.",
+  "POOP_MAX_LIVE=24 caps snapshot size; a poop-vs-avatar check that does NOT consume the poop (e.g. splat-on-player) would need new state and wire fields \u2014 consuming on hit (free-spark precedent) is the snapshot-neutral shape.",
+  "Per-priority S81 lock: POOP_FALL_SPEED was just tuned 7->5.25 (commit 1519a80); MCV verification assertions (22) bind constants \u2014 changing collision constants may invalidate the bound verification suite."
+ ],
+ "open_questions": [
+  "Should the debuffed cruiser's capped chase be simulated host-side per tick (hunter-pursue style, smooth at 60Hz) or enforced as a clamp in applyUpdateAvatarPos (simple, but quantized to the 10Hz intent cadence and changes carried-spark coupling)?",
+  "While debuffed, should the LOCAL avatar render at the slowed avatarPos (sim truth, laggy feel) or stay at the cursor with only remote/sim positions slowed? Today's renderer has no machinery for local-at-avatarPos.",
+  "Does a poop hitting the cruiser get consumed (free-spark precedent, snapshot-neutral) or splat/persist (needs new poop state + wire fields)?",
+  "What collision radius for the avatar: POOP_HIT_RADIUS=19 (sim precedent) vs render AVATAR_OUTER_RADIUS=11 vs a new constant? No sim-side avatar radius exists today.",
+  "Should the new Player debuff field (e.g. sloweduntilTick) gate input like benchedUntilTick does, or only movement speed? And must fog vision + spark picks follow the slowed avatar or the raw cursor?",
+  "Does cruiser-slow require a PROTOCOL_VERSION 7->8 bump? A stale peer would see avatars move oddly but nothing income-affecting \u2014 the rainbow/seagull bump rationale was income/visibility confusion."
+ ]
+}

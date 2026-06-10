@@ -1,0 +1,130 @@
+{
+ "summary": "The S69 P2 \"lobby seat-UX\" draft (archived twice in .claude/plans-archive) is essentially FULLY SHIPPED: the 6-seat rack, peerCount-in-reducer, accessibility glyphs, you-emphasis, fixed control-button positions, and the Room N/6 fill visualization all landed in S69 P2 commit e7190b8 (per HANDOFF_2026-06-06_S69.md), and even the Council-escalated option B (LOBBY_ROSTER / presence broadcast) shipped in S70 P1 as the cosmetic LOBBY_PRESENCE beacon, then was hardened by S73 P1's stable non-compacting seat map (session.lobbySeats reconciled by pure reconcileLobbySeats, projected STABLE for the lobby and DENSE for Begin) and S79 P4's hostAuthFilter sender-auth. Today lobbyScreen.ts (630 LOC) keeps the two-pane HOST/JOIN ONLY as the select-mode entry screen; once hosting/joining the panes hide and the seatRack.ts (120 LOC) 2x3 rack + 64px room code + \"Room N/6 \u2014 FULL\" count line take over, driven by the pure lobbyStateMachine reducer (peerCount + presenceRoster fields, same-ref churn guards) and lobbyGeometry.getSeatRect. The CARRIED banner on 2026-06-06_PDR_S69_P2_lobby-seat-ux_CARRIED.md (added S74) claiming the draft was \"never gated/executed\" is inaccurate for P2 \u2014 the PDR text it preserves describes work that is already in the tree; only minor scraps remain (no seatRack.test.ts, e2e still uses hardcoded click coords rather than geometry getters, deferred D1 animations / D2 layout strategy, and the empty-seat outline is solid not dashed).",
+ "key_facts": [
+  "lobbyScreen.ts is 630 LOC (wc -l). Two-pane HOST/JOIN panes are built at src/render/lobbyScreen.ts:173-181 but are SELECT-mode only: applyView (lobbyScreen.ts:568-591) hides both panes and shows the seat rack + room code + count line whenever mode !== 'select' (inRoom, lines 579-590)",
+  "Seat rack already renders in lobby: lobbyScreen.ts:205-208 creates makeSeatRack(); 64px room code relocated out of the host pane to canvas centre y=250 (lobbyScreen.ts:193-203); 'Room N/6 \u2014 FULL' countText at y=710 (lobbyScreen.ts:210-218, 586-590) using MAX_PLAYERS=6 (src/constants.ts:61)",
+  "__SPARK__ accessors all exist: getDebugState (lobbyScreen.ts:435-441, returns mode/hostConnected/beginButtonVisible), getRoomCode (448-450, reads codeText.text), getStatusText (460-462), getSeats (470-472, returns lobbyView(state).seats \u2014 S70), getInputElement (516-518), plus updatePeerStatus (380-389), updatePresence (398-403), reset (405-419), destroy (520-528). Exposed via globalThis.__SPARK__ at src/main.ts:437",
+  "HTML input overlay intact: input[type=text][maxlength=6] created at lobbyScreen.ts:137-162, positioned via mapCanvasRectToPage on resize/visualViewport (535-559), shown only when isShown && mode==='select' (555-559); Enter-key submits via keydownHandler (354-360)",
+  "src/render/seatRack.ts (120 LOC, header 'S69 P2'): builds MAX_PLAYERS cells once at getSeatRect(i) positions (47-83); update() paints occupied=solid swatch alpha .85 + dark 'P{n} HOST (you)' label, isYou=alpha 1 + 5px white glow stroke (91-104), empty=2px solid 0x555555 outline + centered '+' glyph (107-115). Shown only in lobby in-room (lobbyScreen.ts:582). NO seatRack.test.ts exists (ls confirms); header lines 18-20 say Pixi projection is boot-smoke + e2e verified, occupancy logic unit-tested in lobbyStateMachine.test.ts",
+  "lobbyStateMachine.ts (367 LOC): LobbyState stores mode/code/status/statusColor/beginVisible/hostConnected/errorLatched + peerCount (line 83, S69 P2 Council A2) + presenceRoster: readonly SeatPresence[] | null (line 93, S70 P1). Events: HOST_START/JOIN_ATTEMPT/PEER_STATUS/PRESENCE/ERROR/RESET (96-102). Churn guards: same-ref return on unchanged peerCount+status (218-220, 227-229), errorLatched short-circuit (211, 245), rostersEqual content-compare for PRESENCE (124-137, 253); PEER_STATUS peerCount===0 is a deliberate NO-OP for WebRTC-blip resilience (233-239)",
+  "lobbyView (lobbyStateMachine.ts:320-367) derives seats two ways: roster-based (presenceRoster non-null \u2192 bySeat.get(i), real occupancy/colour/isYou, supports HOLES from non-contiguous seats, 326-341) with count-based fallback (occupied = i < clamp(peerCount+1, 1, MAX), isYou only for host seat 0, 343-357). Also derives totalPlayers, roomFull, and hostPaneAlpha/joinPaneAlpha 0.3-dim (361-362) \u2014 the alphas are asserted in lobbyStateMachine.test.ts:310-323 but NEVER applied by applyView (vestigial since S69 P2 hides panes in-room)",
+  "lobbyGeometry.ts (238 LOC): getSeatRect EXISTS (229-238) \u2014 2x3 row-major rack, SEAT_W=380 SEAT_H=150 SEAT_GAP=40, rack origin y=340 centered (26-32). Also pane/button constants (16-20), sanitize/isValidRoomCode (52-59), mapCanvasRectToPage + cssToCanvasCoords letterbox-aware mapping (108-165), pane-origin/button-bounds getters for tests (176-222). lobbyScreen.ts re-exports the public helpers (56-67)",
+  "S70 P1 shipped (HANDOFF_2026-06-06_S70.md:28-42, commit 57ee6b1): LOBBY_PRESENCE net message EXISTS \u2014 LobbyPresenceMsg {kind:'LOBBY_PRESENCE', roster: RosterEntry[]} at src/net/protocol.ts:193-196, in NetMessage union (215-222), parseNetMessage case (434), explicitly PURELY COSMETIC with NO PROTOCOL_VERSION bump (protocol.ts:184-191); stale builds null-reject it gracefully",
+  "S73 P1 shipped (HANDOFF_2026-06-07_S73.md:20, commit c9cf9be): stable non-compacting seats \u2014 src/net/lobbyRoster.ts (133 LOC): reconcileLobbySeats (58-87, survivors keep seat / departed leaves HOLE / new peer takes lowest free remote seat 1..5 / unseated if full), buildLobbyRoster STABLE projection with holes for LOBBY_PRESENCE (97-105), buildMatchRoster DENSE contiguous projection for START_GAME_SIGNAL because radialSpawnPos requires contiguous seats (121-132). Map persists on session.lobbySeats (src/net/session.ts:45,67, cleared at teardown 108)",
+  "Host wiring: hostHandlers.ts onPeerChange reconciles lobbySeats, broadcasts LOBBY_PRESENCE, AND self-dispatches onPresence locally because transport.send() excludes self (179-184); fresh host clears lobbySeats (148); Begin does final reconcile + dense buildMatchRoster + drop-warning (237-244). Client: LOBBY_PRESENCE forwarded to onPresence only while gameState==='LOBBY' (clientHandlers.ts:167-169); S79 P4 hostAuthFilter latches host peerId from first seat-0-self-naming LOBBY_PRESENCE/START_GAME_SIGNAL and drops the 5 host-authored kinds from non-host peers (clientHandlers.ts:61-83)",
+  "main.ts wiring: onPresence digests RosterEntry\u2192SeatPresence with isYou = peerId===selfId at composition root so reducer/lobbyScreen stay net-free (main.ts:387-396); per-frame lobbyScreen.updatePeerStatus(session.netTransport.peerCount()) at main.ts:1016; setVisible(gameState==='LOBBY') at 958; diagnostics strips updated at 1029/1049",
+  "e2e lobby-construction.spec.ts (299 lines): drives via __SPARK__ getDebugState/getRoomCode/getStatusText/updatePeerStatus/reset/updatePresence (24-64, 241-253), input[type=text][maxlength=6] locator, canvas click coords \u2014 1v1 button (960, 676) via canvasToCss (73), Back to Title (150,1024) (175), joinPane tap (1100,430) (192); S70 presence describe (255-299) asserts joiner own-seat + drop-on-leave + reset fallback via readSeats",
+  "e2e smoke.spec.ts + nplayer.spec.ts: hostNewRoom clicks HOST at hardcoded canvas (700,580) (helpers.ts:160-168); Begin Match clicked at hardcoded (CANVAS_WIDTH/2, 814) = paneY+PANE_HEIGHT+70 in every smoke test (smoke.spec.ts:105,133,170,...) and nplayer (88); joinRoom fills input + Enter (helpers.ts:197-212); readSeats/waitForSeats helpers (helpers.ts:414-450); real-2-peer presence test is @quarantine-flaky (nplayer.spec.ts:282-327), deterministic presence path gates in lobby-construction",
+  "Status literals are byte-exact contracts: LOBBY_STATUS const (lobbyStateMachine.ts:50-56) + hostingConnectedStatus capped at MAX_PLAYERS (59-65); e2e asserts 'players connected' substring (smoke/lobby-construction); a src-pinning canary in lobbyStateMachine.test.ts guards drift (noted at lobbyStateMachine.ts:47-49). Test counts: lobbyStateMachine.test.ts 58 tests, lobbyScreen.test.ts 33 tests (getSeatRect bounds/non-overlap describe at line 310), lobbyRoster.test.ts 18 tests",
+  "DELTA \u2014 ALREADY DONE from the S69 P2 Council-revised scope: (A1) seatRack.ts extraction DONE; (A2) reducer peerCount storage DONE (lobbyStateMachine.ts:83); (A4) accessibility glyph on empty/occupied DONE-with-deviation (solid thin outline + '+' glyph, NOT dashed; no 'Waiting...' text); (A5) you-emphasis DONE (seatRack.ts:94-100); (A3 half 1) fixed control-button positions DONE (lobbyScreen.ts:574-578 comment; zero e2e coord edits needed per S69 handoff); 6-seat fill visualization pre-Begin DONE (rack + Room N/6 + FULL); ESCALATED S1/option B (LOBBY_ROSTER presence broadcast) DONE in S70 P1; stable seats DONE S73 P1; presence sender-auth DONE S79 P4",
+  "DELTA \u2014 NOT DONE / remaining: (1) src/render/seatRack.test.ts from the Council REVISED SCOPE DELTA was never created (file absent; rack is boot-smoke+e2e verified only); (2) A3 half 2 \u2014 'e2e drives via geometry getters not hardcoded coords' NOT done: helpers.ts:160-167 and smoke.spec.ts y=814 etc. remain hardcoded numbers with comment-derivations; (3) D1 seat fill/empty animations ('Living Lobby' tweening) deferred, still absent; (4) D2 configurable SeatLayout strategy deferred (YAGNI), absent; (5) full CVD shape-icon item still deferred to EYES backlog (seatRack.ts:11-13 calls A4 a 'partial de-risk'); (6) vestigial hostPaneAlpha/joinPaneAlpha derived but unapplied; (7) S73 accepted tradeoff remains: an UNFILLED hole at Begin causes one-time dense-compaction colour shift (Option 2 sparse in-game seats deferred to netcode-infra #4); (8) S70 known edge: lobby host-loss leaves stale presence rack (deferred to netcode-infra)",
+  "The archive header on 2026-06-06_PDR_S69_P2_lobby-seat-ux_CARRIED.md (line 1, banner added S74 per HANDOFF_2026-06-07_S74.md:27,31) says the draft was 'never gated/executed' \u2014 this is contradicted by HANDOFF_2026-06-06_S69.md:21 ('P2 (Full, Council-vetted, e7190b8) \u2014 lobby 6-seat seat-UX' COMPLETED) and by the shipped code; the sibling archive 2026-06-06_PDR_S69_P2_lobby-seat-ux_P2-SHIPPED_P3-carried.md carries the accurate status. Both files contain the identical PDR body"
+ ],
+ "key_files": [
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/lobbyScreen.ts",
+   "role": "Pixi/DOM lobby shell: select-mode two-pane entry + in-room seat rack/code/count, HTML input overlay, diagnostics, all __SPARK__ accessors",
+   "approx_loc": 630
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/seatRack.ts",
+   "role": "S69 P2 6-seat rack renderer (occupied swatch / empty outline+glyph / you-glow); no dedicated unit test file",
+   "approx_loc": 120
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/lobbyStateMachine.ts",
+   "role": "Pure reducer: mode/status/Begin gating, peerCount (S69), presenceRoster + PRESENCE event (S70), lobbyView seat derivation with roster/count fallback",
+   "approx_loc": 367
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/lobbyGeometry.ts",
+   "role": "Pure layout/validation: getSeatRect 2x3 rack, pane/button constants, room-code sanitize/validate, letterbox coordinate mapping",
+   "approx_loc": 238
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/lobbyRoster.ts",
+   "role": "S70/S73 seat authority: reconcileLobbySeats (stable map) + buildLobbyRoster (STABLE, holes) + buildMatchRoster (DENSE for Begin)",
+   "approx_loc": 133
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+   "role": "LOBBY_PRESENCE message (cosmetic, no version bump), RosterEntry, START_GAME_SIGNAL, parseNetMessage validation",
+   "approx_loc": 500
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/hostHandlers.ts",
+   "role": "Host: onPeerChange reconcile+broadcast LOBBY_PRESENCE+local self-dispatch; Begin dense roster mint",
+   "approx_loc": 280
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/clientHandlers.ts",
+   "role": "Joiner: hostAuthFilter (S79) + LOBBY_PRESENCE\u2192onPresence gate while in LOBBY; START_GAME_SIGNAL seat adoption",
+   "approx_loc": 220
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+   "role": "Composition root: RosterEntry\u2192SeatPresence digest (isYou=peerId===selfId), per-frame updatePeerStatus, __SPARK__ exposure",
+   "approx_loc": 1100
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/lobby-construction.spec.ts",
+   "role": "Deterministic lobby net: construction, Begin gating, behavioral surfaces, S70 presence render path (gating lane)",
+   "approx_loc": 299
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/helpers.ts",
+   "role": "hostNewRoom/joinRoom (hardcoded canvas coords), readSeats/waitForSeats, canvasToCss, readLobbyStatus",
+   "approx_loc": 451
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/smoke.spec.ts",
+   "role": "Real 2-peer flows; clicks Begin Match at hardcoded (960, 814) in every test",
+   "approx_loc": 400
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/nplayer.spec.ts",
+   "role": "4-peer roster test + S70 real-WebRTC presence test (both @quarantine-flaky)",
+   "approx_loc": 330
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.claude/plans-archive/2026-06-06_PDR_S69_P2_lobby-seat-ux_CARRIED.md",
+   "role": "The CARRIED S69 P2 draft under analysis \u2014 banner wrongly says 'never executed'; body content already shipped",
+   "approx_loc": 197
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.claude/plans-archive/2026-06-07_PDR_S73_stable-lobby-seats_COMPLETED.md",
+   "role": "S73 stable-seats PDR (completed)",
+   "approx_loc": 150
+  }
+ ],
+ "constraints": [
+  "Status-string literals in LOBBY_STATUS + hostingConnectedStatus (lobbyStateMachine.ts:50-65) are byte-exact contracts: e2e asserts the 'players connected' substring and a unit-test canary fails loud on drift \u2014 do not reword",
+  "__SPARK__.lobbyScreen accessor names/signatures (getRoomCode, getStatusText, getDebugState, getSeats, getInputElement, updatePeerStatus, updatePresence, reset, destroy, container) are the e2e contract \u2014 no renames",
+  "e2e click coordinates are HARDCODED: 1v1 button (960,676), HOST (700,580), Begin (960,814 = paneY+PANE_HEIGHT+70), Back (150,1024), joinPane tap (1100,430), input[type=text][maxlength=6] selector \u2014 any layout move breaks Playwright silently (e2e is tsc/knip-blind); control buttons were deliberately kept at FIXED positions (Council A3) so seat fill never moves them",
+  "Reducer same-ref churn-guard semantics must hold: lobbyReduce returns the SAME reference on no-op (unchanged peerCount/status, errorLatched, equal roster) \u2014 the shell's next!==state gate depends on it (lobbyScreen.ts:385-388, 399-402)",
+  "PEER_STATUS with peerCount===0 must stay a NO-OP (lobbyStateMachine.ts:233-239): reacting to 0 was tried and e2e-REFUTED in S69 CHECK (broke transient-blip resilience AND the lobby-construction simulatePeerJoin persistence contract)",
+  "LOBBY_PRESENCE is PURELY COSMETIC and deliberately has NO PROTOCOL_VERSION bump (protocol.ts:184-191) \u2014 making it load-bearing for gameplay state would require revisiting that Council Fork B decision",
+  "START_GAME_SIGNAL roster MUST be DENSE/contiguous 0..N-1 (buildMatchRoster) \u2014 radialSpawnPos(seat,total) overlaps avatars on holed rosters; the N-player determinism contract and NetSnapshot bytes depend on the Begin roster shape (lobbyRoster.ts:15-18, 107-119)",
+  "Lobby seating is real-time presence and NOT part of save.replay determinism (lobbyRoster.ts:34); sim determinism/RNG streams are untouched by lobby UI \u2014 keep it that way (reducer and lobbyScreen import no net/, digest happens in main.ts per Council Fork C)",
+  "session.lobbySeats is the SINGLE SOURCE OF TRUTH for seats (S73 Option 1b): both LOBBY_PRESENCE (stable projection) and Begin (dense projection) MUST derive from it \u2014 no positional re-derivation from transport.peerIds() order",
+  "hostAuthFilter (clientHandlers.ts:61-83) latches host identity from the first seat-0-self-naming LOBBY_PRESENCE/START_GAME_SIGNAL \u2014 presence changes must keep the host's seat-0 self-entry naming the sender",
+  "Host self-dispatch of onPresence after broadcast (hostHandlers.ts:183) is REQUIRED \u2014 transport.send() excludes self (Council R6 CRITICAL); removing it blanks the host's own rack",
+  "errorLatched stickiness: PEER_STATUS and PRESENCE must not clobber a surfaced error (lobbyStateMachine.ts:211, 245) \u2014 only RESET clears it"
+ ],
+ "risks": [
+  "The CARRIED archive file's banner ('never gated/executed, needs re-validation') is factually wrong about P2 \u2014 anyone re-running that draft as written would REDO already-shipped work and likely regress the S70 roster-based path (the draft predates presenceRoster); the sibling P2-SHIPPED_P3-carried file is the accurate record",
+  "No seatRack.test.ts exists despite the Council REVISED SCOPE DELTA listing it \u2014 the Pixi projection (label composition, glow widths, glyph visibility) is covered only by boot-smoke + the e2e getSeats() data path, not by any pixel/structure assertion",
+  "e2e hardcoded coords (Begin at y=814 in ~8 smoke tests, HOST at 700,580) silently break on any pane/button layout change; the A3 'drive via geometry getters' half was never implemented, so the protection is purely 'don't move the buttons'",
+  "hostPaneAlpha/joinPaneAlpha are derived by lobbyView and unit-tested (lobbyStateMachine.test.ts:310-323) but never applied by applyView since S69 hides panes in-room \u2014 dead view surface that could mislead a future refactor into 'restoring' dimming",
+  "S73 accepted tradeoff still live: an unfilled seat hole persisting to Begin causes a one-time colour/seat shift for players above the gap (dense compaction); flagged as post-playtest tunable (Option 2 sparse in-game seats, deferred to netcode-infra #4)",
+  "S70 known edge: host-loss during lobby leaves a stale presence rack on joiners (connection-lost overlay only covers PLAYING) \u2014 deferred to netcode-infra backlog",
+  "Real-WebRTC presence and 4-peer rosters are only covered in the @quarantine-flaky lane (nplayer.spec.ts) \u2014 the gating lane proves the render path deterministically but not the wire path"
+ ],
+ "open_questions": [
+  "Should the stale CARRIED banner on 2026-06-06_PDR_S69_P2_lobby-seat-ux_CARRIED.md be corrected/marked superseded now that code archaeology confirms P2+P3 (and S73/S79 follow-ons) shipped? Both archive copies hold the identical PDR body",
+  "Is the literal 'dashed outline + Waiting... text' empty-seat treatment from the draft still wanted, or is the shipped solid-outline + '+' glyph accepted as final (A4 was logged as a 'partial de-risk' of the full CVD shape-icon item, which remains in the EYES backlog #3)?",
+  "Are the deferred D1 'Living Lobby' seat fill/empty animations still desired as a polish follow-up, and if so should they be a new Micro PDR rather than resurrecting the Full-tier draft?",
+  "Should the unapplied hostPaneAlpha/joinPaneAlpha view fields be removed (with their tests) or kept for a possible select-screen dimming revival?",
+  "Should e2e migrate from hardcoded canvas coords to importing/duplicating the geometry getters (A3 half 2), given e2e is bundled separately from src/ (helpers.ts:159 cites an import-cycle concern)?"
+ ]
+}

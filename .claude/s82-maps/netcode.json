@@ -1,0 +1,144 @@
+{
+ "summary": "SPARK's netcode is a host-authoritative star over Trystero 0.25 (@trystero-p2p/{core,nostr,torrent,mqtt}) with simultaneous multi-strategy broadcast: nostr eager-primary (7 pinned relays), torrent dynamic-import fallback (3 WSS trackers), mqtt default-OFF. NetTransport (src/net/transport.ts) dedups peers/messages across strategies, validates every inbound payload via parseNetMessage against PROTOCOL_VERSION=7 and a tsc-mirrored GameAction allowlist, and latches+drops peers whose HELLO carries a mismatched protoVersion. The host mints a stable lobby seat-map (LOBBY_PRESENCE beacons) compacted to a dense roster at Begin Match (START_GAME_SIGNAL), freezes peerId\u2192seat for anti-spoof INTENT stamping, and emits NetSnapshot every 6 physics ticks (60 Hz sim / 10 Hz snapshots); clients lerp-interpolate over 100 ms and send seq-numbered INTENTs. The S79 P4 TOFU latch (session.hostPeerId, set from the first roster-bearing message whose seat-0 entry names the sender, or first NETSNAPSHOT) gates the five host-authored kinds on the client and doubles as 3+player host-loss detection; its documented ceiling is that a spoofer beating the genuine host's first message wins the latch \u2014 crypto identity is explicitly deferred to backlog #4. There is no host-migration, no reconnect, and no mid-game rejoin: connection loss shows a full-screen overlay whose only exit is teardownNet + RETURN_TO_TITLE; a mid-game client drop on the host side leaves the player's avatar/structures in the sim untouched (no bench/removal logic exists). Trystero's selfId is a Math.random 20-char per-page-load constant \u2014 not cryptographic \u2014 and signaling is AES-GCM encrypted with a key derived from empty-password+appId+roomCode, so room secrecy is only the 6-char code; DTLS encrypts the data channels but provides zero application-level identity.",
+ "key_facts": [
+  "Transport strategy: nostr is eager/always-on primary (src/net/transport.ts:292-301), torrent + mqtt dynamic-imported behind STRATEGY_FLAGS {nostr:true, torrent:true, mqtt:false} (src/net/iceConfig.ts:69-73); all enabled strategies broadcast SIMULTANEOUSLY and the app layer dedups (transport.ts:10-16).",
+  "joinRoom config = { appId:'spark-game-v1' (iceConfig.ts:30), relayConfig:{urls, redundancy:urls.length}, rtcConfig:{iceServers (2 Google STUN + 3 openrelay.metered.ca TURN, iceConfig.ts:77-95), iceTransportPolicy:'all'}, trickleIce:true } \u2014 NO password field (transport.ts:367-405). Trystero derives the AES-GCM signaling key from `password ?? ''`+appId+roomId (node_modules/@trystero-p2p/core/dist/strategy.mjs:84, crypto.mjs genKey via SHA-256), so anyone with the bundle's appId + a room code can read/forge signaling.",
+  "NOSTR_RELAYS = 7 pinned relays (nos.lol, relay.mostr.pub, purplerelay.com, nostr.mom, offchain.pub, nostr-pub.wellorder.net, relay.primal.net) rotated S44 (iceConfig.ts:37-45); TORRENT_TRACKERS = 3 WSS trackers (iceConfig.ts:55-59); HANDSHAKE_TIMEOUT_MS=30000, ICE_POLL_* 1s/30s (iceConfig.ts:97-99).",
+  "Peer id source: Trystero selfId re-exported at transport.ts:64; it is `genId(20)` using Math.random over a 62-charset, a module-level const = stable per page load, identical across strategies (node_modules/@trystero-p2p/core/dist/utils.mjs:6-7). NOT cryptographic, NOT persistent across refresh (Trystero assigns fresh peerId on refresh \u2014 transport.ts:443-449), and unauthenticated: WebRTC DTLS encrypts channels but gives no identity guarantee.",
+  "NetTransport API: connect(roomCode), send(msg) broadcast on every active strategy, on(handler), onPeerChange(handler) deduped once per peerId across strategies, peerCount(), peerIds() in Set-insertion (join) order (transport.ts:590-592), isConnected(), getDiagnostics(), disconnect(), onError, onProtocolMismatch (transport.ts:27-37,153-194).",
+  "Receive path handleRawMessage (transport.ts:230-277): JSON.parse \u2192 protocolMismatchPeers drop-latch \u2192 detectProtocolMismatch sniff BEFORE parseNetMessage \u2192 parseNetMessage null-reject \u2192 fan-out. Mismatched-HELLO peers are latched and ALL their later messages dropped (transport.ts:176-194); latch cleared on full peer-leave (transport.ts:449) and disconnect (transport.ts:658).",
+  "PROTOCOL_VERSION = 7 as const (src/net/protocol.ts:59); bump history v1\u21927 documented in comments at protocol.ts:26-58 (S52 v3 PLACE_FROM_FREE, S62 v4 roster, S71 v5 TRIGGER_BOMB, S75 v6 TRIGGER_RAINBOW, S77 v7 seagull). Bump procedure: no back-compat shim, stale peers hard-rejected at HELLO, both sides deploy together; HelloMsg.protoVersion is the literal type 7 so raising PROTOCOL_VERSION without updating it errors at buildHello's return (protocol.ts:120-127 tsc tripwire). Host-internal actions get no bump; new client intents / desync-visible changes do (precedent ladder in protocol.ts:44-58).",
+  "Message-kind union NetMessage = HELLO | INTENT | NETSNAPSHOT | START_GAME_SIGNAL | ENDGAME | GODLY_TRIGGER | LOBBY_PRESENCE (protocol.ts:215-222). parseNetMessage validates: HELLO protoVersion strict-equal, INTENT.action.type in KNOWN_GAME_ACTION_TYPES_RECORD (compile-time mirror of GameAction['type'], protocol.ts:266-338), NETSNAPSHOT.snapshot.schemaVersion === 1 (WIRE_SCHEMA_VERSION, protocol.ts:343,420-421), roster validated fail-closed \u2264 MAX_PLAYERS (isValidRoster, protocol.ts:359-375).",
+  "Room codes: 6 chars from 32-char alphabet '23456789ABCDEFGHJKLMNPQRSTUVWXYZ' generated by Math.random \u2014 explicitly 'fine for friends-only matchmaking' (protocol.ts:229-237); parseRoomCode canonicalizes (protocol.ts:243-250). Room secrecy is the ONLY access control.",
+  "Host flow (src/net/hostHandlers.ts:135-206): createHostStartHandler makes NetTransport+HostSync, wireHelloOnJoin sends HELLO on every peer join (hostHandlers.ts:104-112), onPeerChange reconciles session.lobbySeats + broadcasts LOBBY_PRESENCE + local self-dispatch (hostHandlers.ts:179-184); transport.on applies only INTENT, stamping action.playerId from session.hostSeats.get(peerId) via stampSenderSeat (hostHandlers.ts:191-200, src/net/intentStamp.ts:23-25) \u2014 a client can only act as its own seat; unknown peer applies as-is (legacy 2-player path).",
+  "Begin Match (hostHandlers.ts:213-259): reconcile then DENSE-compact via buildMatchRoster (contiguous seats 0..N-1 required by radialSpawnPos), freeze hostSeats BEFORE sending START_GAME_SIGNAL {mode:'1v1', roster} then local START_GAME dispatch. Excess peers beyond MAX_PLAYERS=6 (src/constants.ts:61) are left unseated and dropped with a console.warn (hostHandlers.ts:240-244).",
+  "Seat stability: session.lobbySeats is the single source of truth (src/net/session.ts:45, src/net/lobbyRoster.ts:58-87) \u2014 survivors keep seats, departures leave holes, new peers take lowest free seat; an unfilled hole at Begin compacts and shifts higher seats down (documented one-time colour shift; the shift-free sparse-seat variant is explicitly 'deferred to the netcode-infra backlog', lobbyRoster.ts:25-29).",
+  "Snapshot cadence: SNAPSHOT_INTERVAL_TICKS = round(PHYSICS_HZ/NET_SNAPSHOT_HZ) = 60/10 = 6 (src/main.ts:125); host sends in PLAYING|WIN|POSTGAME when tick-lastSnapshotTick >= 6 (main.ts:820-832). HostSync.buildSnapshotMessage increments snapshotSeq monotonically (src/net/sync.ts:25-41); ClientSync.receive rejects snapshotSeq <= lastSeq (sync.ts:61-69); intents use an independent intentSeq counter (sync.ts:75-78); interpolation over NET_INTERPOLATION_MS=100 (constants.ts:386, sync.ts:98-188).",
+  "Client dispatcher (main.ts:264-284): joiner wraps actions as INTENT via clientSync.wrapIntent + transport.send, with optimistic local apply for PREDICTABLE_ACTIONS; client never steps physics (!isClient gates at main.ts:551-552 etc.).",
+  "S79 P4 TOFU latch hostAuthFilter (src/net/clientHandlers.ts:61-83): latches session.hostPeerId from the first LOBBY_PRESENCE/START_GAME_SIGNAL whose seat-0 roster entry NAMES THE SENDER, else first NETSNAPSHOT; then NETSNAPSHOT/GODLY_TRIGGER/START_GAME_SIGNAL/ENDGAME/LOBBY_PRESENCE from any other peer are dropped (fail-closed pre-latch). Stops: spoofed high-snapshotSeq wedge, fake ENDGAME win, START_GAME_SIGNAL seat hijack, bogus GODLY_TRIGGER (clientHandlers.ts:41-59). Documented ceiling: a spoofer who BEATS the genuine host's first message into the victim's handler wins the latch \u2014 requires joining the secret-coded room and racing the host's join-triggered beacon; accepted until crypto identity lands (clientHandlers.ts:54-59, session.ts:47-57, HANDOFF_2026-06-10_S79-S80.md:35).",
+  "Host-loss today (main.ts:966-996): connectionLost = isNetworked && PLAYING && (peerCount()===0 || hostLost), where hostLost = !isHost && hostPeerId latched && hostPeerId not in peerIds() (closes the S62 3+player client limbo). Edge-triggered cinematic abort + GODLY_ABORT on transition. Overlay (src/render/connectionLostOverlay.ts:22-76) = full-screen modal, single 'Return to Title' button \u2192 teardownNet + dispatch RETURN_TO_TITLE (main.ts:419-422); teardownNet disconnects transport, resets clientSync, clears hostSeats/lobbySeats/hostPeerId (session.ts:87-113). LOCKED \u00a713.7: 'No host-migration \u2026 both players must return to title + reconnect with new room code' and 'No reconnect. Session ends on disconnect.' (LOCKED_DECISIONS.md:586-595).",
+  "Mid-game peer drop (non-host): NO handling exists \u2014 main.ts registers no onPeerChange; hostSeats stays frozen; the dropped player's avatar/structures persist in the host sim as a ghost (no bench/removal action anywhere in src/net or main.ts). Host overlay fires only at peerCount()===0.",
+  "HELLO is transport-layer only: buildHello carries playerId/color but 'no receiver reads them \u2014 host/client message handlers ignore kind HELLO; carried for a future identity/colour handshake' (protocol.ts:80-84). E2E override seam window.__TEST_PROTO_VERSION_OVERRIDE__ lets a test peer announce a stale version (protocol.ts:104-127).",
+  "e2e net infra: e2e/nplayer.spec.ts has (a) 4-peer real-Trystero/Nostr FFA test tagged @quarantine-flaky (nplayer.spec.ts:58-156), (b) deterministic single-page 6-player render+pixel proof (gating, nplayer.spec.ts:158-280), (c) S70 2-peer real-WebRTC lobby-presence test also @quarantine-flaky (nplayer.spec.ts:282-334). e2e.yml splits a GATING lane (--grep-invert @quarantine-flaky) from a NON-GATING continue-on-error quarantine lane with separate --output dir (.github/workflows/e2e.yml:79-98). Real 6-peer WebRTC explicitly rejected by Council (15 data channels under swiftshader = flake; nplayer.spec.ts:22-25). playwright.config.ts: workers:1, port 5173, swiftshader, mocked transport rejected (C9, playwright.config.ts:16-18).",
+  "LOCKED_DECISIONS net sections: \u00a713.1 transport + relay-pin NOTE v4/v5 with future-bump relay re-audit (LOCKED_DECISIONS.md:25-114,513-521), \u00a713.2 authority model (524-533), \u00a713.3 sync protocol per-direction seqs (535-550), \u00a713.4 room codes (552-559), \u00a713.7 known v1 limits incl. no host-migration/no reconnect/tab-hidden host pause (582-595), \u00a713.18 ENDGAME both-halves wire rule: every new NetMessage kind MUST verify send call site AND recv dispatch before merge (1013-1023). Host-migration prior art = deliberately deferred stub (Grok R2 advocated, Gemini overlay-v1 adopted; LOCKED_DECISIONS.md:510-511, BACKLOG.md:321,442-446); NO stub code exists.",
+  "WebCrypto: zero crypto.subtle usage in src/ (grep: only the TOFU ceiling comment mentions crypto). Trystero core already requires WebCrypto (crypto.subtle SHA-256/AES-GCM + crypto.getRandomValues, @trystero-p2p/core/dist/crypto.mjs) \u2014 available only in secure contexts. Both shipping surfaces are secure contexts: https://spark-online.space (LOCKED_DECISIONS.md:604-606) and http://localhost:5173 dev/e2e (playwright.config.ts:37,64-69). Plain-http LAN-IP access (vite --host) would lack crypto.subtle.",
+  "Bundle charter: 550 KB soft cap (raised from 500 in S57, HANDOFF_2026-05-30_S57.md:15); current main bundle 534.5 KB \u2192 ~15.5 KB headroom (.claude/session-state.json:282, HANDOFF_2026-06-10_S81.md:13).",
+  "Backlog #4 ground truth (boot-snapshot.md:13,20): 'netcode infra \u2014 host-migration / reconnect / 6-player hardening / crypto peer identity to lift the S79 P4 TOFU sender-auth ceiling'. No design or stub exists in code; clientHandlers.ts:57-59 and lobbyRoster.ts:29 both point at this backlog item.",
+  "Diagnostics surfaces: NetDiagnostics {accepted, rejected, lastSeq, lastKind, strategies[] with per-relay connected} (transport.ts:83-89,598-639); lobby strips render sync counts + strategy summary for joiner and host (main.ts:1014-1057); world.diagnostics.raceRejects counts host-side intent races (hostHandlers.ts:186-190)."
+ ],
+ "key_files": [
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/transport.ts",
+   "role": "Multi-strategy Trystero adapter: NetTransport class, peer/message dedup, protocol-mismatch latch, diagnostics, selfId re-export",
+   "approx_loc": 665
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+   "role": "Wire protocol: PROTOCOL_VERSION=7, NetMessage union, buildHello, parseNetMessage validator, room-code gen/parse, action allowlist",
+   "approx_loc": 453
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/iceConfig.ts",
+   "role": "APP_ID, NOSTR_RELAYS (7), TORRENT_TRACKERS (3), STRATEGY_FLAGS, ICE_SERVERS (STUN+TURN), timeouts, classifyJoinError",
+   "approx_loc": 115
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/sync.ts",
+   "role": "HostSync (snapshotSeq emit) + ClientSync (seq-gated receive, intentSeq, lerp interpolation, drag-lock preservation)",
+   "approx_loc": 247
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/hostHandlers.ts",
+   "role": "Host lobby/match factories: room create, HELLO wiring, LOBBY_PRESENCE broadcast, INTENT seat-stamping, Begin Match roster mint",
+   "approx_loc": 259
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/clientHandlers.ts",
+   "role": "Joiner factory + S79 P4 hostAuthFilter TOFU latch gating the 5 host-authored kinds; seat adoption from roster",
+   "approx_loc": 186
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/session.ts",
+   "role": "NetSession state holder (netTransport/hostSync/clientSync/hostSeats/lobbySeats/hostPeerId) + teardownNet",
+   "approx_loc": 113
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/lobbyRoster.ts",
+   "role": "Pure seat authority: reconcileLobbySeats (stable, holes), buildLobbyRoster (stable projection), buildMatchRoster (dense compaction)",
+   "approx_loc": 132
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/intentStamp.ts",
+   "role": "stampSenderSeat \u2014 host-side anti-spoof playerId override on inbound INTENTs",
+   "approx_loc": 25
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+   "role": "Orchestration: client INTENT dispatcher (264-284), snapshot emit loop (820-832), client interpolation gate (928-934), connection-lost/hostLost detection (966-996), teardown paths (411-422,453-461)",
+   "approx_loc": 1164
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/connectionLostOverlay.ts",
+   "role": "Full-screen CONNECTION LOST modal; only exit is Return-to-Title",
+   "approx_loc": 77
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/nplayer.spec.ts",
+   "role": "Multi-peer e2e: 4-peer real-WebRTC FFA (@quarantine-flaky), deterministic 6-player render proof (gating), S70 2-peer presence test (@quarantine-flaky)",
+   "approx_loc": 334
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/helpers.ts",
+   "role": "e2e harness: hostNewRoom, joinRoom, readWorldState/readSeats/waitForWorld/waitForSeats via __SPARK__ DEV global",
+   "approx_loc": 450
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.github/workflows/e2e.yml",
+   "role": "CI: gating lane vs non-gating @quarantine-flaky lane (separate output dir, continue-on-error)",
+   "approx_loc": 107
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/LOCKED_DECISIONS.md",
+   "role": "\u00a713.1-13.9 net locks: relays, authority model, sync seqs, room codes, no-migration/no-reconnect v1 limits, \u00a713.18 both-halves wire rule",
+   "approx_loc": 1100
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/clientHandlers.test.ts",
+   "role": "Unit tests for hostAuthFilter latch order/fail-closed/drop semantics",
+   "approx_loc": 94
+  }
+ ],
+ "constraints": [
+  "NetSnapshot wire bytes are LOCKED: snapshot.schemaVersion must stay 1 (protocol.ts:343,420-421) and netSnapshot()/applyNetSnapshot in src/state/save.ts define the byte shape \u2014 any new field is a wire change requiring deliberate review; fouledPrimitives precedent shows probing the serializer FIRST before assuming a bump is needed (HANDOFF S79-S80 P2).",
+  "Any wire-incompatible change (new client intent, desync-visible state) requires bumping PROTOCOL_VERSION (7\u21928) AND HelloMsg.protoVersion literal in lockstep (tsc tripwire at protocol.ts:120-127); no back-compat shims \u2014 stale peers are hard-rejected at HELLO; single-deploy lockstep is the locked procedure (protocol.ts:42-58).",
+  "RNG streams are locked: the sim is deterministic, host-authoritative, fixed-tick (PHYSICS_HZ=60, constants.ts:151); S81 P3 lesson 'hash already-serialized state before adding seeded streams' \u2014 any identity/handshake work must NOT consume from or reorder sim RNG streams or alter tick scheduling.",
+  "START_GAME_SIGNAL roster must remain an ORDERED array (never a Map) and seats contiguous 0..N-1 at Begin \u2014 radialSpawnPos assumes contiguity; byte-identical initial worlds across clients depend on it (protocol.ts:155-166, lobbyRoster.ts:108-119).",
+  "KNOWN_GAME_ACTION_TYPES_RECORD must exhaustively mirror GameAction['type'] in both directions (tsc-enforced, protocol.ts:253-265).",
+  "New NetMessage kinds must ship BOTH halves \u2014 send call site and recv dispatch \u2014 verified before merge (LOCKED \u00a713.18, LOCKED_DECISIONS.md:1023).",
+  "test contracts: clientHandlers.test.ts locks hostAuthFilter latch/drop semantics; transport.test.ts/protocol.test.ts lock detectProtocolMismatch + parseNetMessage; nplayerSeating.test.ts locks N=2..6 seating determinism; e2e gating lane must stay green \u2014 new e2e tests gate by default unless explicitly tagged @quarantine-flaky (e2e.yml:18-31).",
+  "Mocked/deterministic transport in e2e is REJECTED (playwright.config C9, playwright.config.ts:16-18; e2e.yml:28-30) \u2014 real Trystero/Nostr P2P is the surface under test.",
+  "Bundle charter: main bundle must stay <550 KB; current 534.5 KB leaves ~15.5 KB \u2014 a crypto-identity dependency (e.g. a signature lib) must fit this or use built-in WebCrypto (zero bytes).",
+  "1v1 NOTE: transport.send() broadcasts to ALL peers; current code relies on broadcast==targeted semantics in places (hostHandlers.ts:97-103) \u2014 per-peer targeted send does not exist yet.",
+  "PRIME-AUDIT \u03941 invariant: handlers must read session.* at invocation time, never capture transport/sync refs at factory time (session.ts:11-16) \u2014 any reconnect work must preserve this.",
+  "teardownNet must clear hostPeerId (stale latch would drop ALL of a new host's messages on rejoin \u2014 session.ts:109-111); any reconnect path must re-latch fresh."
+ ],
+ "risks": [
+  "TOFU race ceiling is real and accepted: a hostile peer in the room who beats the host's first roster-bearing message (or first NETSNAPSHOT, the weaker fallback that does NOT check roster seat-0 consistency \u2014 clientHandlers.ts:72-74) permanently wins the victim's latch for that session.",
+  "selfId is Math.random-generated in Trystero core (utils.mjs:6-7) and unauthenticated \u2014 a modified client can claim any peerId at the signaling layer; the host's hostSeats anti-spoof stamping keys off this same unauthenticated peerId, so seat identity ultimately rests on signaling-layer honesty plus room-code secrecy.",
+  "Signaling encryption key derives from empty password + public appId + 6-char room code (strategy.mjs:84) \u2014 the room code is the entire access-control and confidentiality boundary; ~32^6 \u2248 1.07e9 space generated by Math.random (protocol.ts:230-236).",
+  "selfId is per-page-load: a refresh after disconnect gets a NEW peerId, so any reconnect design cannot rely on Trystero ids for seat re-binding \u2014 this is the core gap a crypto identity must fill.",
+  "Mid-game non-host peer drop leaves a ghost player in the host sim (no removal/bench code path) \u2014 6-player hardening must decide this behavior; nothing exists today.",
+  "Public relay decay is a recurring operational risk (S44 rotated 4 dead relays out; RELAY_HEALTH.md runbook referenced at iceConfig.ts:35) \u2014 host-migration/reconnect designs that re-signal through relays inherit it.",
+  "Real multi-peer e2e is quarantined non-gating due to CI flake (4-peer + S70 presence tests) \u2014 runtime verification of any host-migration work will face the same swiftshader/CI-network flake class; the gating proof layer is deterministic single-page only.",
+  "Messages sent before any strategy is ready are silently dropped (transport.ts:566-570) \u2014 reconnect handshakes must tolerate this startup window.",
+  "Tab-hidden host pause (LOCKED \u00a713.7) freezes the sim and stalls all clients \u2014 indistinguishable from host loss to a client without further signals.",
+  "hostLost detection requires the latch: a client that never received any host-authored message before the host died (latch still null) falls back to the peerCount()===0 gate only \u2014 in a 3+player room with surviving clients it would NOT show the overlay (main.ts:975-982)."
+ ],
+ "open_questions": [
+  "Does applyNetSnapshot on a late/mid-game joiner (who never got START_GAME_SIGNAL) actually flip its world to PLAYING, or does it strand in LOBBY? The code paths suggest stranding (START_GAME_SIGNAL gated on gameState==='LOBBY', clientHandlers.ts:144) but no test or doc pins the late-join behavior \u2014 relevant to any rejoin-same-room-code design.",
+  "Trystero room semantics on re-join with the same room code from the same page (selfId unchanged, module const): hostHandlers comments call same-peerId rejoin 'rare Trystero behavior' (transport.ts:191-193) \u2014 empirical behavior of leave()+joinRoom with identical selfId is unverified.",
+  "Whether @trystero-p2p 0.25's createPasswordHandshake (strategy.mjs:265) performs any peer-identity binding beyond payload encryption with the empty-password key \u2014 the handshake module wasn't traced end-to-end.",
+  "Exact current gzip bundle figure for the net chunk specifically (only aggregate 534.5 KB main bundle is recorded); torrent strategy is a separate dynamic chunk, size not measured here.",
+  "MQTT strategy is compiled-in but default-OFF and has an empty relay list at startStrategy (transport.ts:333) \u2014 whether it works at all if flipped on is untested ground truth."
+ ]
+}

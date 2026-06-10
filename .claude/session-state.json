@@ -1,283 +1,335 @@
 {
-  "tool_calls_session_total": 4,
-  "session_id": "S81",
+  "tool_calls_session_total": 317,
+  "session_id": "S82",
   "session_kind": "execution",
-  "session_start": "2026-06-10T12:00:00.000Z",
-  "session_note": "S81 — playtest round-3 fixes. USER EXPLICIT batch approval: 'lets run all those edits ive just mentioned!' (7 user-dictated edits). Batch PDR tier: Micro per priority (each <10K, 1-2 files; user-path Council waiver). A.0 state discovery DONE pre-lock: all 7 root causes located by direct read (constants.ts, seagullLifecycle.ts, potatoLifecycle.ts, potato.ts, seagull.ts, avatarRenderer.ts, main.ts stage order, save.ts serializers, primitive.ts ownership fields).",
+  "session_start": "2026-06-10T14:45:00.000Z",
+  "session_note": "S82 — user pre-approved full batch + autonomous run ('I pre-approve full session batch and autonomous run and am leaving for a few hours'). Full-tier batch PDR: .claude/plans/2026-06-10_PDR_S82_batch.md. Council R1+R2 (Grok reasoning + Gemini 2.5-pro) CONVERGED; PRIME-AUDIT logged in PDR. A.0 state discovery via 6 parallel reader agents (maps: .claude/s82-maps/). Model: Fable 5 user-sanctioned this session. NEXT SESSION (user-queued): Voltkin full audit + real-animation upgrade.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "council_waived": true,
-  "council_waiver_basis": "Micro tier user-path auto-waiver (CLAUDE.md Rule 17): user-dictated scope + explicit same-message approval; A.0 empirical probe completed before lock",
-  "tier": "Micro",
+  "tier": "Full",
+  "council_rounds": 2,
+  "council_result": "CONVERGED (R2: Grok CONVERGED +2 minor; Gemini +1 BLOCKER fix adopted +1 SHOULD adopted)",
   "priorities": [
     {
       "id": "P1",
-      "label": "S81 P1 — splat wipe is OWNER-ONLY: only the structure owner's avatar cleans a structure-splat (enemy walk-over no longer wipes)",
+      "label": "S82 P1 — cruiser-poopy-slow: poop hits the player cruiser; capped per-tick cursor-chase while debuffed + foul tint",
       "status": "completed",
       "phase": "ACT",
-      "check_completed": true,
-      "check_method": "S81 P1: canAvatarCleanSplat pure predicate in seagullLifecycle (SPLAT_STRUCTURE + live anchor + not-benched [S80 invariant folded in] + ownerColor===player.color + POOP_CLEAN_RADIUS sq-dist); main.ts sweep inner loop replaced with the predicate (orphan branch untouched; POOP_CLEAN_RADIUS import dropped from main). Ownership via ownerColor — rainbow shuffle remaps player.color + prim ownerColor in lockstep (parity test added); components single-owner per S46 P3 bond segregation. GATES: tsc -b --noEmit clean; seagull.test.ts 20/20 (+6: owner-in/enemy-in/owner-out/bench-expiry/rainbow-parity/orphan+falling); FULL vitest 1176/1176 (62 files). Commit 2173a04 pushed.",
-      "checkpoint_commit": "2173a04",
-      "real_context_tokens_at_close": 105000,
-      "real_context_pct_at_close": 10.5,
-      "tier": "Micro",
+      "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "council_waived": true,
-      "objective": "User: 'a spark should not be able to wipe off his enemies structure only his own.' Gate the main.ts avatar-proximity CLEAN_POOP sweep on ownership of the splat's anchor prim (ownerColor === player.color — survives rainbow shuffle). Orphan sweep stays unconditional.",
-      "scope": "src/main.ts (sweep gate), src/state/seagulls/seagullLifecycle.ts (pure exported predicate + docs), seagull.test.ts (+tests)",
-      "testing": "vitest unit on the predicate (owner cleans / enemy does not / benched does not / orphan unaffected); tsc; local seagull e2e if touched behavior is covered there",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagullLifecycle.ts",
-          "needle": "export function canAvatarCleanSplat"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagullLifecycle.ts",
-          "needle": "if (anchor.ownerColor !== player.color) return false;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "if (canAvatarCleanSplat(world, player, poop)) {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagull.test.ts",
-          "needle": "an ENEMY within radius may NOT clean"
-        }
-      ]
-    },
-    {
-      "id": "P2",
-      "label": "S81 P2 — hot potato: carrying the potato >3s cooks it off IN HAND (per-grab timer; re-grab resets)",
-      "status": "completed",
-      "phase": "ACT",
-      "check_completed": true,
-      "check_method": "S81 P2: POTATO_HOLD_DETONATE_TICKS=180 (3s); Potato.carriedAtTick stamped in applyPickupPotato (re-grab restamps = pass restarts), cleared in applyPlacePotato+applyDropPotato; pure shouldCookOffInHand(potato,tick) exported + used by the main.ts poll (dispatches POTATO_DETONATE → existing carrier-bench path); save.ts SerializedPotato.carriedAtTick additive-optional (emitted only while CARRIED → FREE/ARMED snapshot bytes unchanged; deserialize passes through). E2E coupling pre-checked: grab→place carry legs are sub-3s sim; the S75 bench spec (fuse 180 = hold 180) has identical observable. GATES: tsc clean; vitest 1181/1181 (+5: stamp/boundary, place-clears, drop-clears, re-grab-restarts, cook-off benches); LOCAL playwright potato.spec chromium 4/4 (29.5s). Commit bc769d8 pushed.",
-      "checkpoint_commit": "bc769d8",
-      "real_context_tokens_at_close": 130000,
-      "real_context_pct_at_close": 13,
-      "tier": "Micro",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "council_waived": true,
-      "objective": "User: held it 22s then dumped at the last second ('hogging'). Add POTATO_HOLD_DETONATE_TICKS = 3s: a CARRIED potato detonates 3s after pickup (existing carrier-bench path punishes). Each grab restarts the 3s window (pass-it-on gameplay). From-spawn fuse (FREE dissipate / ARMED detonate) unchanged.",
-      "scope": "src/constants.ts, src/state/potato.ts (carriedAtTick), src/state/potatoLifecycle.ts (pickup sets / place+drop clear), src/main.ts (poll), src/state/save.ts (optional field round-trip), potatoLifecycle.test.ts",
-      "testing": "vitest: 3s cook-off fires + benches carrier; place/drop before 3s does NOT; re-grab resets window; serialization round-trip. Check e2e potato spec for hold-duration coupling BEFORE constant lands; add __TEST_ seam only if e2e needs it",
+      "objective": "Poop-vs-avatar collision (avatar-first, seat-ascending, consume-on-hit); Player.poopedUntilTick + poopedCursorTarget additive-optional; while debuffed applyUpdateAvatarPos writes the TARGET and a host per-tick chase moves avatarPos <=POOP_CRUISER_MAX_SPEED px/tick with exact-snap convergence + clear; local render switches to smoothTowards chase + foul tint.",
+      "scope": "src/constants.ts, src/game/player.ts, src/state/seagulls/seagullLifecycle.ts, src/state/gameMode.ts, src/main.ts (chase fan-out), src/render/avatarRenderer.ts, src/state/save.ts, tests",
+      "testing": "vitest new units (hit/precedence/bench-skip/seat-order/chase/exact-snap/guards/serialization); tsc; seagull.spec pre-audit + local run; preview boot-smoke",
       "verification": [
         {
           "type": "file_contains",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const POTATO_HOLD_DETONATE_TICKS = 3 * PHYSICS_HZ;"
+          "needle": "export const POOP_CRUISER_MAX_SPEED = 7;"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/potatoLifecycle.ts",
-          "needle": "export function shouldCookOffInHand"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const POOP_AVATAR_HIT_RADIUS = 30;"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/potatoLifecycle.ts",
-          "needle": "potato.carriedAtTick = world.tick;"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
+          "needle": "export function tickCruiserChase"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "if (shouldCookOffInHand(potato, world.tick)) {"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
+          "needle": "if (player.poopedCursorTarget !== undefined) player.poopedCursorTarget = undefined;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagullLifecycle.ts",
+          "needle": "POOP_AVATAR_HIT_RADIUS_SQ) hitPlayer = player;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/physics/physicsLoop.ts",
+          "needle": "tickCruiserChase(world);"
         },
         {
           "type": "file_contains",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
-          "needle": "carriedAtTick: po.carriedAtTick"
+          "needle": "poopedCursorTarget: { x: p.poopedCursorTarget.x, y: p.poopedCursorTarget.y }"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.ts",
+          "needle": "lerpColor(player.color, POOP_FOUL_TINT, POOP_FOUL_TINT_STRENGTH)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/cruiserSlow.test.ts",
+          "needle": "PRECEDENCE: the avatar bodyblocks"
         }
-      ]
+      ],
+      "check_completed": true,
+      "check_method": "S82 P1: poop-vs-avatar pass added to applyPoopTick FALLING (avatar-FIRST bodyblock precedence, lowest-seat deterministic pick, benched immune, consume-on-hit, re-hit refresh); Player.poopedUntilTick + poopedCursorTarget additive-optional (pickup/drop FSM threading preserved); applyUpdateAvatarPos debuffed branch writes TARGET verbatim + un-debuffed branch clears leftover target (Grok R2#1 guard); tickCruiserChase in stepPhysics (host/solo, pre-substep) moves avatarPos <=POOP_CRUISER_MAX_SPEED=7 px/tick with EXACT-snap convergence + clear (Gemini R2#1) + S45 Sym A carried-spark pinning; avatarRenderer: slowed local player joins the S81 smoothTowards chase path, fill lerps toward POOP_FOUL_TINT@0.65 while debuffed. Serialization conditional-spread, deep-copied target on rehydrate. GATES: tsc -b clean; FULL vitest 1205/1205 (+17 cruiserSlow.test.ts: hit/outside/precedence/bench/seat-order/refresh/reducer-guards/chase-cap/exact-snap/post-expiry-completion/carried-pinning/serialization emit-only-when-set + round-trip-no-alias); LOCAL playwright seagull.spec 1/1 (e2e coupling pre-audited: injected poop x=600 vs avatar x=670 > 30px radius, asserts insensitive); LIVE preview boot-smoke via pumped app.ticker: real-dispatch hit at tick 2 (poopedUntilTick=901=tick+900), chase measured EXACTLY 7.000 px/tick over 30 real ticks, zero console errors; bundle 536.3KiB <550. Commit f8f35e6 pushed.",
+      "checkpoint_commit": "f8f35e6",
+      "real_context_tokens_at_close": 195000,
+      "real_context_pct_at_close": 19.5
+    },
+    {
+      "id": "P2",
+      "label": "S82 P2 — Spawner.getState/restoreState wired into WorldSnapshot (param injection; wire-safe by construction)",
+      "status": "completed",
+      "phase": "ACT",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "objective": "WorldSnapshot.spawner additive-optional via snapshot(world,{spawnerState}); netSnapshot never passes it + Omit + destructure defense + wire-absence test; DEV __SPARK__.snapshotWorld/restoreWorld seams; byte-identical resume integration test.",
+      "scope": "src/state/save.ts, src/main.ts (DEV block), src/net/sync.test.ts, integration test",
+      "testing": "vitest round-trip + resume byte-equality; wire-absence; tsc",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "spawner?: SpawnerState;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "opts?: { spawnerState?: SpawnerState | null },"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "'savedAt' | 'rngSeed' | 'nextPrimitiveId' | 'nextBondId' | 'spawner'"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "snapshotWorld(): string {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "if (snap.spawner !== undefined) spawner.restoreState(snap.spawner);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/sync.test.ts",
+          "needle": "expect((msg.snapshot as { spawner?: unknown }).spawner).toBeUndefined();"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.spawner.test.ts",
+          "needle": "RESUME: restore + restoreState continues the spark sequence"
+        }
+      ],
+      "check_completed": true,
+      "check_method": "S82 P2: WorldSnapshot.spawner?: SpawnerState additive-optional; snapshot(world, opts?:{spawnerState}) param injection (Spawner is main.ts-owned, not on World — the param IS the wire-safety: netSnapshot() calls snapshot(world) with no opts so the field cannot exist on the net path by construction); NetSnapshot Omit + runtime destructure defense + sync.test wire-absence assertion extended to 'spawner'; DEV __SPARK__.snapshotWorld/restoreWorld seams (sole inject sites, tree-shaken from prod); null getState() degrades to omitted (from-seed fallback). GATES: tsc clean; FULL vitest 1210/1210 (+5 save.spawner.test.ts: emit-only-when-injected/null-degrade, wire absence, byte-compat no-opts==null-opts, RESUME — 30s save restored into DIFFERENT-seed spawner continues 60s run with bit-identical snapshot JSON + spawner state words + SparkId continuity above pre-save max). LIVE preview: snapshotWorld carries 11-field spawner state, restoreWorld round-trips, tick preserved. Commit afa3ec1 pushed.",
+      "checkpoint_commit": "afa3ec1",
+      "real_context_tokens_at_close": 235000,
+      "real_context_pct_at_close": 23.5
     },
     {
       "id": "P3",
-      "label": "S81 P3 — seagull poops at RANDOM intervals (different every pass), not a fixed metronome",
+      "label": "S82 P3 — EYES: fog fuzzy-edge (noise-modulated brush) + CVD (avatar nameplates, connection-dot shape)",
       "status": "completed",
       "phase": "ACT",
-      "check_completed": true,
-      "check_method": "S81 P3: POOP_DROP_INTERVAL_TICKS (fixed 33) → POOP_DROP_MIN/MAX_TICKS (12/48, avg ~30 preserves per-pass density); per-drop gap = murmur3-finalizer mix32(seagullId, lastPoopTick) % span + MIN — STATELESS randomness (zero RNG-stream consumption → 5 spawner streams byte-identical; zero new gull fields; both hash inputs already ride save/load → replay + host-reload reproduce the identical pattern). Stale FIXED-interval docs swept in seagull.ts/seagullLifecycle.ts/constants.ts/test header. seagull.spec smoke wait 1500→2500ms (worst-case first gap 48 ticks at degraded CI fps; was sized for the 33-tick metronome). GATES: tsc clean; seagull.test.ts 21/21 (sim sweep: bounded gaps + >1 distinct + >4 drops/400 ticks; pure-fn sweep: 601-tick range/purity + per-gull divergence); FULL vitest 1182/1182; LOCAL playwright seagull.spec chromium 1/1. Commit d56cfcf pushed.",
-      "checkpoint_commit": "d56cfcf",
-      "real_context_tokens_at_close": 160000,
-      "real_context_pct_at_close": 16,
-      "tier": "Micro",
+      "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "council_waived": true,
-      "objective": "Replace fixed POOP_DROP_INTERVAL_TICKS with POOP_DROP_MIN/MAX_TICKS sampled per-drop via a pure integer hash of (seagullId, lastPoopTick) — deterministic + replay-safe + save/load-safe with ZERO new state and no RNG-stream changes.",
-      "scope": "src/constants.ts, src/state/seagulls/seagullLifecycle.ts (hash + interval fn), seagull.test.ts (update fixed-interval tests; add range/variability/determinism tests)",
-      "testing": "vitest: all sampled intervals within [MIN,MAX]; same inputs → same interval; consecutive drops differ (variability); seagull e2e spec checked for interval coupling",
+      "objective": "Angular wobble baked into fog brush texture (deterministic, inside existing 40px band, plateau preserved); per-seat P{n} nameplate with dark stroke under avatars; connection dot gains shape differentiation.",
+      "scope": "src/render/fogRenderer.ts, src/render/avatarRenderer.ts, src/render/ui.ts, tests",
+      "testing": "vitest pure helpers; fog.spec local run (exact-RGB probes must hold); preview screenshot",
       "verification": [
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const POOP_DROP_MIN_TICKS"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/fogRenderer.ts",
+          "needle": "export function fogEdgeWobble"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const POOP_DROP_MAX_TICKS"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/fogRenderer.ts",
+          "needle": "export function brushAlphaAt"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagullLifecycle.ts",
-          "needle": "export function poopDropIntervalTicks"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/fogRenderer.ts",
+          "needle": "const FUZZ_AMP = 0.09;"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagullLifecycle.ts",
-          "needle": "poopDropIntervalTicks(gull.id, gull.lastPoopTick)"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.ts",
+          "needle": "export function avatarNameplateText"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.ts",
+          "needle": "plate.position.set(x, y + NAMEPLATE_OFFSET_Y);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
+          "needle": "g.circle(cx, cy, 6).stroke({ color: 0xff3b6b, width: 2, alpha: 0.85 });"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/fogBrush.test.ts",
+          "needle": "plateau stays FULLY opaque at every angle"
         }
-      ]
+      ],
+      "check_completed": true,
+      "check_method": "S82 P3: fog brush rebaked per-pixel (one-time 256x256 ImageData) with fixed 3-harmonic angular wobble — fogEdgeWobble + brushAlphaAt exported pure (smoothstep fade, plateau<=0.72 untouched, edge in [1-FUZZ_AMP,1.0] INWARD-only so the pre-S82 footprint is never exceeded — fog.spec exact-RGB(0,0,0) probes + alpha<10 source centers provably safe; FUZZ_AMP=0.09 ~ +/-12px documented playtest knob); GLSL veto respected (pure Canvas2D). CVD: avatarRenderer P{n} nameplate per avatar (white, 3px dark stroke, alpha .85, +22px below, networked-only gate players.size>1, benched-hidden, GC'd with graphics); ui.ts connection dot connected=FILLED vs lost=HOLLOW ring+X slash (shape, not just green/red). GATES: tsc clean; FULL vitest 1217/1217 (+7 fogBrush.test.ts: wobble bounded/deterministic/angle-varying, plateau-full at 64 angles, rim-zero, monotonic fade, band angle-variance, nameplate map); LOCAL playwright fog.spec 6/6; LIVE mask pixel-sampled via extract: plateau ring (r=190cv) alpha 0 x24 angles, outside ring (r=300cv) 255 x24, mid-band ring (r=252cv) spread 75/255 across 48 angles = visible organic wobble; nameplates P1/P2 render at avatar+22px in a 2-player world. Carry-forwards logged (structure-ownership cue, above-fog hazard identity, MEMORY_FOG_COLOR dim tier). Commit 0205d83 pushed.",
+      "checkpoint_commit": "0205d83",
+      "real_context_tokens_at_close": 275000,
+      "real_context_pct_at_close": 27.5
     },
     {
       "id": "P4",
-      "label": "S81 P4 — remote (enemy) cruisers render SMOOTH: exponential interpolation of avatarPos instead of raw 10Hz steps",
+      "label": "S82 P4 — netcode infra: crypto host identity + in-page auto-reconnect + drop-bench + client-intent allowlist; host-migration DEFERRED (logged)",
       "status": "completed",
       "phase": "ACT",
-      "check_completed": true,
-      "check_method": "S81 P4: AvatarRenderer keeps displayPosByPlayer (remote-only; local stays controls.cursor) chasing player.avatarPos via pure smoothTowards(current,target,dtMs,tauMs,snapDist): k=1−e^(−dt/τ), τ=60ms (~81% of a 100ms net step), 300px snap guard (respawn/bench teleports), materialize-at-target on first sight (no (0,0) fly-in), dt clamped ≤100ms (tab-background stall), state GC'd with graphics + cleared on destroy. RENDER-ONLY — sim/snapshot/wire untouched. GATES: tsc clean; avatarRenderer.test.ts 13/13 (+6: converge/no-overshoot, dt-monotonic, frame-rate-independence 2×8ms≡1×16ms, ~100ms-step closes >75%, at-target exact, snap, dt≤0); FULL vitest 1188/1188; LOCAL playwright nplayer.spec chromium 3/3 (6-player render + 4p-FFA + real-WebRTC presence). Commit 10d1543 pushed.",
-      "checkpoint_commit": "10d1543",
-      "real_context_tokens_at_close": 185000,
-      "real_context_pct_at_close": 18.5,
-      "tier": "Micro",
+      "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "council_waived": true,
-      "objective": "User: own cruiser smooth, enemy cruisers 'pixelated'. Root cause located: AvatarRenderer renders remote players at raw player.avatarPos which updates at ~10Hz (snapshot/intent cadence) → 100ms position steps. Add render-side dt-aware exponential chase (time-constant ~60ms, snap >300px for respawn/bench teleports). Local player path untouched.",
-      "scope": "src/render/avatarRenderer.ts (+ pure smoothing fn), avatarRenderer.test.ts",
-      "testing": "vitest: pure fn converges toward target, dt-aware, snaps beyond threshold, exact at target; manual smoke via existing e2e lanes (no spec asserts remote avatar pixel pos)",
+      "objective": "Lift S79 P4 TOFU race ceiling via ECDSA P-256 attestation bound to the room code (roomCode = 30-bit pubkey fingerprint); client-blip reconnect with grace overlay (empirical Trystero rejoin probe FIRST, scoped fallback); mid-game drop-bench self-healing re-stamp; CLIENT_INTENT_ALLOWLIST closes the any-GameAction INTENT hole. No protocol bump (additive-optional).",
+      "scope": "src/net/hostIdentity.ts (new), protocol.ts, hostHandlers.ts, clientHandlers.ts, transport.ts, session.ts, main.ts, render/connectionLostOverlay.ts, tests",
+      "testing": "vitest (fingerprint vectors, attest encode/verify-fail-retry, allowlist, drop-bench, reconnect handler); local smoke+lobby-construction lanes; local 2-context real-WebRTC rejoin probe",
       "verification": [
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.ts",
-          "needle": "export function smoothTowards"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/hostIdentity.ts",
+          "needle": "export function roomCodeFromDigest"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.ts",
-          "needle": "const AVATAR_SMOOTH_TAU_MS = 60;"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/hostIdentity.ts",
+          "needle": "utf8('SPARK-HOST-ATTEST-v1')"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.test.ts",
-          "needle": "frame-rate independence: two 8ms steps"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/hostIdentity.ts",
+          "needle": "export async function verifyHostAttest"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/clientHandlers.ts",
+          "needle": "session.hostVerifiedPeerId === peerId &&"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/clientHandlers.ts",
+          "needle": "export function connectAsClient"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+          "needle": "export function isClientIntentAllowed"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/hostHandlers.ts",
+          "needle": "if (!isClientIntentAllowed(msg.action.type)) {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
+          "needle": "export function applyBenchOfflinePlayer"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "connectAsClient(clientJoinDeps, session.roomCode);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/reconnect.spec.ts",
+          "needle": "@quarantine-flaky"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/LOCKED_DECISIONS.md",
+          "needle": "### 13.20 Netcode hardening"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/clientHandlers.ts",
+          "needle": "} else if (msg.kind === 'NETSNAPSHOT') {"
         }
-      ]
+      ],
+      "check_completed": true,
+      "check_method": "S82 P4 (3 slices, commit 3e71e5f): (a) CRYPTO HOST IDENTITY — net/hostIdentity.ts: page-session ECDSA P-256; roomCode = first 30 bits BE of SHA-256(SPKI) over the room alphabet (ONE pure slicer for derive+verify, fixed-vector tested 222222/ZZZZZZ/J22222); attestation = domain-tag + u16be length-prefixed (roomCode, hostPeerId) — injectivity unit-tested; attached additive-optionally to HELLO + START_GAME_SIGNAL (NO protocol bump; parseNetMessage fail-closed shape check); hostAuthFilter v2 latch REQUIRES hostVerifiedPeerId (NETSNAPSHOT fallback REMOVED — the raceable path); pre-verify Begin/presence buffered (latest/kind/peer, flood-capped) + replayed on verify success; verify-fail leaves pre-latch retry-able (Gemini R2#2). (b) AUTO-RECONNECT — 15s grace, retry 1s-then-4s, connectAsClient re-runs the join path with same selfId; latch/ClientSync survive (teardownNet NOT called); overlay RECONNECTING(countdown) vs terminal LOST; host waits out same grace; LOCKED 13.7 amended. EMPIRICAL R3 PROBE PASSED: e2e/reconnect.spec.ts over REAL Trystero/Nostr — transport killed mid-PLAYING, auto-rejoin, tick advanced 60+, drop-bench expired (10.3s, @quarantine-flaky lane). (c) HARDENING — CLIENT_INTENT_TYPES single-source allowlist (12 player intents) enforced at host INTENT handler closing the any-GameAction hole (A.0 Delta-2); BENCH_OFFLINE_PLAYER host-internal action, 3s grace + rolling 2s re-stamp, never-shortens, self-heals on rejoin. GATES: tsc clean; FULL vitest 1234/1234 (+17 netHardening + clientHandlers v2 rewrite incl. 'S79 race is dead' case); REAL-WebRTC smoke.spec 11/11+1skip (attest path load-bearing in every test); lobby-construction 7/7; nplayer gating 1/1; bundle 542.1KiB <550 (+5.9KiB, zero deps — WebCrypto). LOCKED 13.4 amended + NEW 13.20. Host-migration DEFERRED with logged rationale (world dies with host page; needs state-handover design).",
+      "checkpoint_commit": "3e71e5f",
+      "real_context_tokens_at_close": 365000,
+      "real_context_pct_at_close": 36.5
     },
     {
       "id": "P5",
-      "label": "S81 P5 — top HUD (BETA badge, primitives legend, mute, gear) renders ABOVE the fog",
+      "label": "S82 P5 — lobby seat-UX TRUE delta (S69 P2 already shipped): seatRack.test.ts via pure-helper extraction, fix stale CARRIED banner, remove vestigial pane alphas",
       "status": "completed",
       "phase": "ACT",
-      "check_completed": true,
-      "check_method": "S81 P5: legend/betaBadge/muteIndicator/settingsIcon still CREATED at bootstrap-top (handlers bind there) but addChild moved to AFTER fog + aboveFogLayer staging; relative order preserved (legend, beta, ♪-after-beta per S18 P1 note, ⚙); spawnerRing deliberately left early (board element — should be fogged); explanatory comments at both sites. VERIFIED LIVE in browser preview (session port 14857, then stopped): stage indices fog=7 < memory=8 < aboveFogLayer=9 < legend=10 < beta=11 < ♪=12 < ⚙=13, zero console errors. GATES: tsc clean; playwright fog.spec chromium 6/6 (fog mask invariants unaffected). Commit f9a7470 pushed.",
-      "checkpoint_commit": "f9a7470",
-      "real_context_tokens_at_close": 200000,
-      "real_context_pct_at_close": 20,
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "council_waived": true,
-      "objective": "User: 'stuff in the top (like where it says beta or shows primitives) is hidden within the fog.' Root cause: legend/betaBadge/muteIndicator/settingsIcon are addChild'd BEFORE FogRenderer constructs (fog container sits above them). Move their stage adds to after aboveFogLayer. spawnerRing stays fogged (board element).",
-      "scope": "src/main.ts (addChild order only)",
-      "testing": "tsc; fog e2e spec (fog.spec) local; visual order assertion via __SPARK__.app stage children if cheap",
+      "objective": "Close the genuine remainder of S69 P2 without redoing shipped work; correct the factually-wrong archive banner; remove dead hostPaneAlpha/joinPaneAlpha view surface + orphans.",
+      "scope": "src/render/seatRack.ts (+.test.ts new), src/render/lobbyStateMachine.ts (+test), .claude/plans-archive banner edit",
+      "testing": "vitest; lobby-construction.spec local; tsc",
       "verification": [
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "app.stage.addChild(aboveFogLayer);"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/seatRack.ts",
+          "needle": "export function seatLabelText"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "app.stage.addChild(legend);"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/seatRack.ts",
+          "needle": "export function seatCellStyle"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "app.stage.addChild(betaBadge);"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/seatRack.test.ts",
+          "needle": "host + you (the hosting player): P1  HOST  (you)"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/lobbyStateMachine.ts",
+          "needle": "hostPaneAlpha: state.mode"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.claude/plans-archive/2026-06-06_PDR_S69_P2_lobby-seat-ux_CARRIED.md",
+          "needle": "STATUS CORRECTED S82"
         }
-      ]
-    },
-    {
-      "id": "P6",
-      "label": "S81 P6 — Pac-Man hunter ~20% faster (MAX_SPEED 3.5→4.2, ACCEL 0.3→0.36, ratio preserved)",
-      "status": "completed",
-      "phase": "ACT",
+      ],
       "check_completed": true,
-      "check_method": "S81 P6: HUNTER_MAX_SPEED 3.5→4.2 + HUNTER_ACCEL 0.30→0.36 (×1.2 both; 0.0857 ratio + terminal-speed-under-cap headroom shape preserved → juke character unchanged, S76 P1 precedent); version-history comment updated. S78-lesson coupling check: hunter.spec catch wait is an UPPER bound (stationary target, 90s budget) — faster only catches sooner. GATES: tsc clean; full vitest green; LOCAL playwright hunter.spec chromium 1/1 (caught in 8s). Commit 34f9842 pushed.",
-      "checkpoint_commit": "34f9842",
-      "real_context_tokens_at_close": 210000,
-      "real_context_pct_at_close": 21,
-      "tier": "Micro",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "council_waived": true,
-      "objective": "User: 'pacman should be about 20% faster moving.' Scale HUNTER_MAX_SPEED and HUNTER_ACCEL together by 1.2 (terminal speed 3.6 stays just under the 4.2 cap — same juke character, S76 P1 precedent).",
-      "scope": "src/constants.ts",
-      "testing": "vitest (hunter tests import constants); hunter e2e spec uses score-injection seams (S78 lesson verified — no natural-speed timing coupling)",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const HUNTER_MAX_SPEED = 4.2;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const HUNTER_ACCEL = 0.36;"
-        }
-      ]
-    },
-    {
-      "id": "P7",
-      "label": "S81 P7 — poop falls 25% slower (POOP_FALL_SPEED 7→5.25) + answer the cruiser-poopy question in the report",
-      "status": "completed",
-      "phase": "ACT",
-      "check_completed": true,
-      "check_method": "S81 P7: POOP_FALL_SPEED 7→5.25 (−25%; binary-exact float, determinism unchanged); coupling check — unit collision tests are radius-tolerant (19px hit radius vs 1.75px landing shift), two exact-y comments rewritten to reference the constant; e2e injected-poop fall reaches its target prim in ~4 ticks (well inside the 2.5s window). Cruiser-poopy question answered honestly in the report: the slow debuff targets FREE sparks; the cruiser is cursor-bound (teleport-to-pointer) so slowing it = a movement-model feature — flagged as follow-up, NOT silently shipped (Rule 16). GATES: tsc clean; FULL vitest 1188/1188; LOCAL playwright seagull.spec chromium 1/1. Commit 1519a80 pushed.",
-      "checkpoint_commit": "1519a80",
-      "real_context_tokens_at_close": 220000,
-      "real_context_pct_at_close": 22,
-      "tier": "Micro",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "council_waived": true,
-      "objective": "User: poops fall too fast to test getting hit. Slow fall 25%. ALSO: answer truthfully — the poopy-slow mechanic applies to FREE sparks (floating building blocks), NOT the player cruiser; the cruiser is cursor-bound (teleport-to-pointer) so slowing it = a movement-model feature, proposed as a follow-up, NOT silently shipped (Rule 16).",
-      "scope": "src/constants.ts; seagull.test.ts if any test hardcodes ticks-to-floor",
-      "testing": "vitest; seagull e2e spec checked for fall-time coupling before landing",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const POOP_FALL_SPEED = 5.25;"
-        }
-      ]
+      "check_method": "S82 P5 (commit e364df5): A.0 archaeology PROVED the CARRIED banner wrong — S69 P2 seat-UX fully shipped (e7190b8 + S70 LOBBY_PRESENCE + S73 stable seats + S79 sender-auth); re-execution would have regressed the roster path. TRUE delta closed: (1) seatRack.test.ts NEW via pure-helper extraction (seatLabelText + seatCellStyle consumed by the Pixi update path — 6 tests: P{n}/HOST/(you)/combined labels, A5 you-glow style, dimmed-other style); (2) dead hostPaneAlpha/joinPaneAlpha removed from LobbyView + lobbyView + 3 stale tests (derived since S64, never applied post-S69; flagged as refactor-bait); (3) archive banner corrected with pointer to the accurate sibling record. D1 animations + e2e geometry-getters stay deferred (logged carry-forwards). GATES: tsc clean; FULL vitest 1237/1237; LOCAL lobby-construction.spec 7/7.",
+      "checkpoint_commit": "e364df5",
+      "real_context_tokens_at_close": 395000,
+      "real_context_pct_at_close": 39.5
     }
   ],
+  "carry_forwards_logged": [
+    "Host-migration (true host handover) — deferred from P4 with rationale: world state dies with the host page; needs state-handover design (own session).",
+    "P3 follow-ups: structure-ownership non-color cue; above-fog hazard identity (S77 Delta-5); MEMORY_FOG_COLOR dim-tier restore (user-EYES knob).",
+    "P5 deferred: D1 living-lobby animations; e2e geometry-getter migration (A3 half 2).",
+    "NEXT SESSION (user-queued): Voltkin FULL AUDIT + real-animation upgrade — replace frame-flip sprite playback with a real animated character; fix white-square cutout/chroma artifacts vs black background; keep mechanics (structure targeting + electric-bolt destruction). Generative tools available: gcp-vertex MCP (imagen/veo). Be methodical + creative."
+  ],
   "reflexion_entries_to_archive": [
-    "P1 #ownership-predicate-extraction: owner-only splat wipe shipped as a PURE predicate (canAvatarCleanSplat) absorbing the S80 bench gate + new ownership gate + radius — main.ts sweep shrank to one call and the whole eligibility contract became unit-testable (the S80 bench fix had lived untested inside main.ts). Ownership via ownerColor (not placedBy) so the rainbow shuffle (lockstep remap) and a future Steal both keep working — parity test locks it.",
-    "P2 #per-grab-timer #seam-audit-before-constants: 3s in-hand cook-off via carriedAtTick stamped on pickup / cleared on place+drop — per-grab semantics gives pass-it-on gameplay for free (re-grab restarts). Pre-checked every potato e2e carry window BEFORE landing the constant (S78 lesson): all carry legs sub-3s sim; the S75 bench spec (fuse 180 = hold 180) has an identical observable either way. Additive-optional serialization emitted only while CARRIED keeps FREE/ARMED snapshot bytes unchanged.",
-    "P3 #stateless-randomness #hash-not-rng: random poop intervals WITHOUT touching any RNG stream — pure mix32(seagullId, lastPoopTick) picks each gap; both inputs already rode save/load, so replay/reload determinism came for free with ZERO new state. LESSON: when a deterministic system needs 'randomness', hash state you already serialize before reaching for a new seeded stream (no serialization work, no byte-drift risk to the 5 locked spawner streams). Sized the e2e smoke wait to the new worst-case gap (48 ticks at degraded CI fps → 1.5s→2.5s) in the same commit.",
-    "P4 #render-side-smoothing #pure-helper-export: 'pixelated' enemy cruisers root-caused to raw 10Hz avatarPos rendering (vs the local cursor's per-frame glide) — fixed render-only with an exponential chase (k=1−e^(−dt/τ), τ=60ms, 300px snap guard, materialize-at-target) so sim/wire/determinism untouched. The S10 test-via-pure-helper-export pattern again: smoothTowards extracted, 6 tests incl. frame-rate independence (2×8ms ≡ 1×16ms).",
-    "P5 #construction-order-is-z-order #verify-in-live-browser: the fogged HUD was pure Pixi child-add order — the row was staged before FogRenderer existed. Fix = move addChild, keep creation (handlers bind early). Verified the REAL stage indices in a live preview (fog=7 < aboveFogLayer=9 < legend/beta/♪/⚙=10-13) instead of trusting the diff — for z-order bugs the browser IS the test.",
-    "P6 #ratio-preserving-tune: hunter +20% = both MAX_SPEED and ACCEL ×1.2 (0.0857 ratio + terminal-under-cap headroom preserved → juke character unchanged, only absolute speed). Confirmed the e2e catch wait is an UPPER bound (stationary target) so faster-only-catches-sooner — speed tunes are e2e-safe in that direction only.",
-    "P7 #scope-honesty-over-silent-feature: poop fall −25% shipped as asked; the user's real question ('does poop slow MY spark?') answered truthfully in the report — the debuff targets FREE sparks, the cruiser is cursor-bound (teleport-to-pointer) so slowing it is a movement-model feature needing its own design + netcode thought. Rule 16: flag the gap, don't silently expand scope into the input model."
+    "P1 #target-chase-beats-message-cap #council-redesign: the per-MESSAGE displacement cap drafted for the slowed cruiser had two holes both externals found independently (spam bypass + pause-then-teleport via unclamped tick-delta). The fix that dissolved BOTH was a model change, not a parameter: store the cursor as a TARGET and chase it per-tick in the sim (hunter precedent) — spam now only moves the target, no dispatch-gate hack needed, and exact-snap-on-convergence (<=1 step => snap+clear) terminates without float-equality. LESSON: when a rate limit needs defending, move the authority from the message to the tick. Also: preview-tab rAF is throttled when occluded — pump app.ticker.update() manually to drive the REAL loop deterministically from eval.",
+    "P2 #param-injection-beats-field-addition: the Spawner is a main.ts-owned class, unreachable from snapshot(world) — instead of putting spawner state ON World (which would ride every 10Hz NetSnapshot unless remembered in the omission list), inject it as an optional snapshot() PARAMETER. Wire-safety then holds BY CONSTRUCTION (netSnapshot passes no opts) instead of by discipline, with Omit+destructure+test as backstops. LESSON: for host-only persistence data, prefer call-site injection over world-state expansion — the narrowest data path is the safest serializer.",
+    "P3 #inward-only-fuzz #verify-by-pixel-sampling: the fuzzy fog edge shipped INSIDE the existing brush footprint (wobble pulls the edge inward only, plateau untouched) so every fog.spec exact-RGB probe stayed valid BY GEOMETRY, not by re-tuning tests. Verified end-to-end by extracting the live maskRT and ring-sampling alpha at 24-48 angles (plateau 0, far 255, mid-band spread 75/255) — when a WebGL screenshot times out in an occluded preview window, extract.pixels IS the screenshot.",
+    "P4 #room-code-as-key-commitment #empirical-probe-before-dependent-code: the TOFU race died not by adding a handshake but by making the EXISTING shared secret (the room code) a pubkey fingerprint — zero UX change, zero protocol bump, zero deps (WebCrypto). Buffering+replaying the once-only Begin signal during async verify preserved the no-drop property the sync latch had. The Trystero same-selfId rejoin assumption (R3) was PROBED with a real-WebRTC e2e BEFORE the UI depended on it — it passed in 10.3s, converting a design bet into ground truth. Also: e2e spec bugs (missing canvasToCss, wrong waitForWorld arg order) masquerade as product failures — read the helper signatures before blaming the feature.",
+    "P5 #archaeology-before-execution: the CARRIED archive banner claimed the S69 P2 lobby refactor was 'never executed' — direct code reads + handoff archaeology proved it FULLY SHIPPED across four sessions. Executing the queued plan as-written would have redone shipped work and regressed the newer roster-based path the draft predates. LESSON: a plan file's own status header is a CLAIM, not ground truth — A.0-probe the code before re-running any carried plan, and when the banner is wrong, fix the banner as part of the close (never leave a known-false plan status for the next session to trip on)."
   ],
   "budget_total": 1000000,
-  "session_status": "S81 — 7/7 playtest round-3 priorities shipped (2173a04..1519a80). CI green on tip 1519a80 (E2E 7m36s SUCCESS + Pages deploy SUCCESS — live site serving S81). Full local chromium e2e 36 pass/1 skip; vitest 1188/1188; build 534.5KB <550 charter. Carry-forward flagged to user: cruiser-poopy-slow (poop hitting the player avatar) does not exist by design — needs a movement-model decision if wanted."
+  "session_status": "S82 CLOSED — 5/5 priorities shipped (f8f35e6 cruiser-poopy-slow, afa3ec1 spawner-save, 0205d83 fog/CVD, 3e71e5f netcode crypto-identity/reconnect/allowlist, e364df5 lobby delta). vitest 1237/1237; FULL local gating lane 34 pass/1 skip; bundle 542.1KiB<550; protocol v7 unchanged; MCV 38 assertions exit 0. Deploys green through tip; tip E2E lane in_progress at close (confirm next boot). NEXT SESSION (user-queued): S83 Voltkin full audit + real-animation upgrade — brief in BACKLOG.md + boot-snapshot.md.",
+  "totals": {
+    "turns": 0,
+    "budget_remaining": 560000,
+    "budget_status": "GREEN"
+  }
 }

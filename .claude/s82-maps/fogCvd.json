@@ -1,0 +1,141 @@
+{
+ "summary": "SPARK's fog of war is a purely client-side render effect: src/state/vision.ts computes circular vision sources (spawner + live local cursor + own primitives + own creatures), and src/render/fogRenderer.ts composes a half-resolution RenderTexture mask each ~3rd frame \u2014 an opaque pure-black base sprite, an opaque explored-memory grid overlay, then soft radial-gradient 'erase'-blend brush sprites punched at each source \u2014 displayed as one full-screen Sprite whose alpha tweens (snap-on at match start, ~1s fade on WIN). The edge is ALREADY soft: a Canvas2D radial brush with a full-opacity plateau to stop 0.72 then linear falloff, scaled so a 40px (VISION_FADE_PX) fade band lands outside the nominal radius, further smoothed by bilinear upscale from 0.5x resolution. Explored-but-not-visible memory has two tiers: a 48x27 monotonic Uint8Array grid rasterized into the mask (currently invisible because MEMORY_FOG_COLOR was tuned to the same pure black as FOG_COLOR), and per-structure 'ghost' silhouettes (last-seen enemy structures) drawn at MEMORY_GHOST_ALPHA=0.5 in a memoryLayer above the fog. Player identity is conveyed almost entirely by color (the CVD problem surface): placed-primitive tint, bond gradients, avatar glow, carried-spark tint, ghost tint, charge dots, seat swatches \u2014 with only the HUD leaderboard text labels (RED/CYAN/...), seat 'P{n}' labels, and the lobby empty-seat '+' glyph as non-color cues. The 6-color PLAYER_COLORS palette is pinned by an exact-value unit-test canary, and the S62 Council explicitly logged 'per-seat shape-icon identity' as the true CVD fix (green/orange collide under deuteranopia at 4-6 players). The settings overlay is audio-only HTML; the localStorage persistence precedent for a CVD toggle is audioManager's readBool/writeKey pattern.",
+ "key_facts": [
+  "MASK BUILD: FogRenderer composes maskScene (offscreen Container, never staged) into a RenderTexture maskRT via renderer.render({container, target, clear:true}) \u2014 src/render/fogRenderer.ts:282; maskRT is CANVAS sized x MASK_SCALE 0.5 (960x540), resolution 1 \u2014 fogRenderer.ts:68,140-144. NOT a Graphics/sprite mask: the mask texture is itself displayed as fogSprite stretched to 1920x1080 (fogRenderer.ts:182-185).",
+  "MASK LAYERS inside maskScene (bottom-up): (1) opaque base Sprite(Texture.WHITE) tinted FOG_COLOR=0x000000 (fogRenderer.ts:56-57,150-157); (2) explored-memory gridSprite (48x27 canvas texture, bilinear upscaled, opaque MEMORY_FOG_COLOR texels \u2014 fogRenderer.ts:165-178,302-317); (3) pooled erase brushes (blendMode 'erase' STRING, Pixi v8.18.1 \u2014 fogRenderer.ts:285-295).",
+  "SOFT EDGE TODAY: makeRadialBrushTexture (fogRenderer.ts:416-430) \u2014 Canvas2D radial gradient, opaque plateau stops 0..0.72, linear fade 0.72..1.0, BRUSH_TEX_RADIUS=128; brush scaled to (src.radius + VISION_FADE_PX)/128 so the fade band lands OUTSIDE the nominal radius (fogRenderer.ts:271-273). VISION_FADE_PX=40 (constants.ts:122). GLSL shader approach was Council-VETOED after the CinematicLumaKey silent-compile-failure history (fogRenderer.ts:10-14).",
+  "PER-FRAME COST MODEL: alpha tween every frame; mask recompose throttled to every MASK_RENDER_EVERY=3 frames (~20Hz) (fogRenderer.ts:69-76,249-251); early-return zero-cost when alpha<=ALPHA_EPSILON 0.002 (solo/title) (fogRenderer.ts:227-231); grid texture re-uploaded only when markVisible() returns true (exploration grew) (fogRenderer.ts:256-259); win-lift (target===0) FREEZES recompose so the reveal dissolves uniformly (fogRenderer.ts:240-244); __FOG_DISABLE__ E2E seam read once at construction (fogRenderer.ts:96-103,135-136).",
+  "STAGE ORDER (main.ts bootstrap, bottom-to-top): spawnerRing (main.ts:143, deliberately UNDER fog \u2014 board element), spark/structure/bomb/effects/avatar renderer containers (main.ts:287-326), fog container + memoryLayer (FogRenderer ctor adds both \u2014 fogRenderer.ts:191,204; constructed main.ts:333), aboveFogLayer staged main.ts:336 (S77 P2: creature/hunter/potato/rainbow/seagull/poop = exactly 6 children, asserted by e2e), then S81 P5 top HUD row legend/betaBadge/muteIndicator/settingsIcon (main.ts:341-344), then HUD + StatsOverlay (main.ts:345-346).",
+  "VISION SOURCES (src/state/vision.ts:57-74): always [spawner(SPAWNER_RADIUS=250 at canvas center), personal R_PERSONAL=75 at live cursor (NOT throttled avatarPos)], + R_BEACON=80 per OWN primitive (placedBy===localPlayerId), + R_CREATURE_VISION=120 per OWN creature. Enemy prims/creatures contribute nothing. Constants at constants.ts:66-68,115-122; R_PERSONAL was halved 300->150 (S58) ->75 (S63 live user tuning).",
+  "FOG GATING: fogActive = isNetworked && gameState==='PLAYING' (vision.ts:100-102); fogTargetAlpha 1 or 0 (vision.ts:111-113); stepFogAlpha snaps ON instantly (no match-start peek) and fades OFF clamped (vision.ts:122-125); FOG_FADE_PER_SECOND=1.0, MAX_FRAME_DT_SECONDS=0.1 (fogRenderer.ts:78-80). Sync called per render frame: fogRenderer.sync(world, controls.cursor, deltaMS/1000) main.ts:1147; fogRenderer.reset() on *->TITLE main.ts:911.",
+  "EXPLORED MEMORY (src/state/exploredMemory.ts): 48x27 Uint8Array grid (EXPLORED_GRID_COLS/ROWS constants.ts:133-134, 40px cells), markVisible uses circle-rect OVERLAP not center test (exploredMemory.ts:77-105), monotonic 0->1 only (no decay \u2014 Council R1, timing-exploit rationale exploredMemory.ts:71-72). MEMORY_FOG_COLOR=0x000000 (constants.ts:140) \u2014 S63 user tuning collapsed the dim 'remembered' tier into pure black; comment says raise toward 0x161b2e to restore a visible explored tier.",
+  "GHOST MEMORY (exploredMemory.ts:150-216): Map<PrimitiveId, GhostStructure{id,type,pos copy,color=last-seen ownerColor,lastSeenTick}>; 4 transitions SEEN-ON-LIVE / DESTROYED-LIVE / DESTROYED-IN-FOG / RE-FOGGED (exploredMemory.ts:135-140). Rendered as Sprite(ghostTextures[type]) tint=ghost.color alpha=MEMORY_GHOST_ALPHA=0.5 (constants.ts:148) in memoryLayer; per-sprite visible = !isPointVisible (fogRenderer.ts:326-351); memoryLayer.alpha mirrors fog alpha (fogRenderer.ts:237-238). Ghost owner identity is COLOR-ONLY (silhouette shape encodes SparkType, not owner).",
+  "FOG.SPEC.TS 6 TESTS (e2e/fog.spec.ts): (1) lines 36-102 conceal/reveal/lift \u2014 PLAYING alpha===1, mask pixel alpha<10 at cursor(590,410)/spawner(960,540)/own prim(560,380), alpha>245 AND exact RGB(0,0,0) at enemy(1600,860)+far(1400,200), after 90 WIN syncs alpha===0 + container hidden; (2) lines 104-173 potato-through-fog \u2014 stage.getChildIndex(aboveFogLayer)>fogIdx, aboveFogLayer.children.length===6, potato red>90 & r>b on stage, board 160px away r<20, mask alpha at potato >245; (3) lines 175-269 ghost state machine \u2014 rememberedCount 1/1/0/1/0 across scout/leave/raze/restart, ghost pixel G>50 B>50, unseen prim G<20, mask alpha at ghost >245 (no leak); (4) lines 271-286 solo \u2014 alpha 0 + hidden; (5) lines 288-322 win-lift freeze \u2014 vision hole alpha<10 both before and during lift, mid-lift alpha in (0,1); (6) lines 324-356 reset() \u2014 remembered 0, hidden, alpha 0.",
+  "FUZZY-EDGE TEST SENSITIVITY: fog.spec hardcodes FOG={r:0,g:0,b:0} (fog.spec.ts:23) with EXACT channel equality at the enemy point (fog.spec.ts:94-96), and 'fully transparent' (<10/255) at source CENTERS \u2014 a fuzzy edge must keep the plateau fully erasing at nominal radius and keep far fogged points 100% opaque pure black. All probe points are >=160px from any soft band, so widening VISION_FADE_PX moderately is test-safe.",
+  "COLOR-ONLY OWNERSHIP SURFACES (CVD problem): placed primitive sprite.tint=foulAwareTint(prim.ownerColor) \u2014 structureRenderer.ts:84-97 (shape encodes TYPE, owner is color-only); bond gradient from endpoint placerColor \u2014 structureRenderer.ts:118-142 + effects/silhouettes/shared.ts:36-37 and axisAligned.ts:80-189; avatar = 3 concentric circles all player.color \u2014 avatarRenderer.ts:179-187 (color is the SOLE owner cue; added post-S13 because user couldn't find their own cursor); carried spark tint=carrier.color \u2014 renderer.ts:81; ghost silhouette tint \u2014 fogRenderer.ts:337; energy gauge local.color \u2014 ui.ts:162-169; charge dots player.color \u2014 ui.ts:272-277 (row-aligned to leaderboard = positional cue); win text fill winner.color but text 'PLAYER N WINS' is redundant \u2014 ui.ts:187-195; connection dot green-vs-crimson (status red/green, classic CVD trap) \u2014 ui.ts:240-241; Voltkin creature tint is STATE-based not owner-based (creatureRenderer.ts:304,475-477) \u2014 above-fog global-reach sprites carry NO owner identity at all (S77 PRIME-AUDIT Delta-5 logged this as backlog #3).",
+  "NON-COLOR PRECEDENTS: HUD leaderboard PLAYER_LABELS ['RED','CYAN','YELLOW','GREEN','ORANGE','MAGENTA'] text per row + '> ... <YOU' local marker (ui.ts:43,220-234 \u2014 comment explicitly 'redundant (CVD-friendlier) cue'); lobby seatRack empty='+' glyph vs occupied=solid swatch + 'P{n} HOST (you)' dark text label (seatRack.ts:11-13,91-115 \u2014 'conveyed by SHAPE, not only colour (A4 accessibility) \u2014 a partial de-risk of the deferred CVD shape-icon item'); shapes.ts 6 white shape textures (Dot/Line/Triangle/Square/Circle/Spiral, shapes.ts:19-90) tinted at sprite level \u2014 shape currently encodes spark TYPE (spec section-IV LOCKED), so owner-shape-icons cannot reuse these geometries without colliding with type identity; legend (renderer.ts:136-160) shows the 6 type shapes tinted SPARK_COLORS (constants.ts:27-34) top-left as a type key.",
+  "PLAYER_COLORS (constants.ts:50-57): [0xff3b6b crimson, 0x3bd7ff cyan, 0xffe23b yellow, 0x44ff5e green, 0xff8c1a orange, 0xd73bff magenta], MAX_PLAYERS=6 (constants.ts:61). In-code CVD note constants.ts:46-49: 3-player ship set crimson/cyan/yellow is CVD-safe; green/orange collisions appear at 4-6 players; 'shape-icon identity' is the S62 Council/Gemini carry-forward ('color alone is not a unique id beyond 3 players').",
+  "PALETTE GUARDS: nplayerSeating.test.ts:196-240 \u2014 exact-array canary (lines 221-230, because e2e specs hardcode the hexes inline and cannot import src), uniqueness, and >50 min pairwise RGB distance (actual min ~92 yellow-orange); comment lines 198-203 states explicitly this is NOT a CVD certification and deuteranopia green/orange can still collide. Any palette change must sweep duplicated e2e literals in the same commit.",
+  "LOCKED_DECISIONS.md: line 229 'Player palette' lists a STALE pre-S62 palette (0x9bff3b/0xffb13b/0x3bffb1 for P3-P6) \u2014 superseded by constants.ts S62 retune; lines 156-159 lock Phase-2 placeholders R_personal=300 (code now 75 via S58/S63 tuning), R_beacon=80, 'Vision fade 40px soft', and a 'Memory-fog curve: linear opacity 1.0->0.4, desat 0->0.7 over 30s [PHASE 2] Placeholder' that the shipped implementation deliberately replaced with the opaque grid+ghost design (Council S59 ADOPT HYBRID, exploredMemory.ts:13-26).",
+  "SETTINGS OVERLAY (src/render/settingsOverlay.ts): plain HTML div (position:fixed, z-index 1000, role=dialog) toggled by the gear Pixi Text icon (main.ts:188-208); contains ONLY audio rows \u2014 Music/SFX on-checkbox + 0-100 volume slider (settingsOverlay.ts:84-87,202-242), ESC/outside-click/x-button close (125-177). It reads/writes audioManager on every interaction \u2014 no generic settings store exists.",
+  "PERSISTENCE PRECEDENT for a CVD toggle (src/render/audioManager.ts): localStorage keys 'spark_audio_muted' (legacy), 'audio.musicMuted', 'audio.sfxMuted', 'audio.musicVolume', 'audio.sfxVolume' (audioManager.ts:116-120); readBool/readNumber helpers with try/catch for Safari private mode (175-199); loaded once in initAudio (206-210); each setter writes through via writeKey (531-562). A 'display.cvdMode' style key + boot read + one overlay row is the established pattern.",
+  "E2E SEAM DEPENDENCY: smoke.spec.ts:70 and nplayer.spec.ts:48,167 set __FOG_DISABLE__=true so fog's extra render pass does not halve the swiftshader sim rate and perturb spawn-timing windows (S58 P0 incident: 3 manual-context tests missed the seam and went red) \u2014 any fog change must preserve this seam and the cheap-when-disabled property.",
+  "FOG IS OFF THE DETERMINISM PATH: vision/exploredMemory/fogRenderer are local per-peer, never networked, never serialized, never in game state (vision.ts:2-26, exploredMemory.ts:19-26); fog draws no RNG. A fuzzy-edge or CVD render change CANNOT touch NetSnapshot bytes or the 5 seeded RNG streams (main.ts:210-226) unless it introduces its own randomness \u2014 any noise source must be render-local (e.g. Math.random/time-based), never the seeded mulberry32 streams.",
+  "S81 P5 HUD-above-fog fix: legend/betaBadge/muteIndicator/settingsIcon are CREATED early (main.ts:142-208) but STAGED after aboveFogLayer (main.ts:337-344) so the top HUD row renders above the fog; spawnerRing intentionally stays below ('it is a BOARD element and should be fogged', main.ts:144-148)."
+ ],
+ "key_files": [
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/fogRenderer.ts",
+   "role": "Fog mask composition (RenderTexture + erase brushes + memory grid + ghost layer), alpha tween, reset/teardown",
+   "approx_loc": 431
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/vision.ts",
+   "role": "Pure vision math: computeVisionSources, isPointVisible, fogActive/fogTargetAlpha/stepFogAlpha",
+   "approx_loc": 126
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/exploredMemory.ts",
+   "role": "Pure explored-grid (48x27, monotonic) + ghost last-seen-structure state machine",
+   "approx_loc": 217
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/fog.spec.ts",
+   "role": "6 pixel-level fog invariant tests (mask alpha/RGB probes, z-order, ghost counts, lift/freeze/reset)",
+   "approx_loc": 357
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+   "role": "PLAYER_COLORS (50-57), vision radii (66-68,115-122), fog memory constants (124-148), SPARK_COLORS (27-34)",
+   "approx_loc": 400
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+   "role": "Stage layering (fog 333, aboveFogLayer 336, HUD row 341-344), settings icon wiring (188-208), fog sync loop (1147)",
+   "approx_loc": 1200
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/settingsOverlay.ts",
+   "role": "Audio-only HTML settings panel \u2014 extension point for a CVD toggle",
+   "approx_loc": 243
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/audioManager.ts",
+   "role": "localStorage persistence precedent (readBool/readNumber/writeKey, keys audio.*)",
+   "approx_loc": 650
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
+   "role": "HUD: leaderboard with text labels (CVD-friendly cue), charge dots, energy gauge, win text, connection dot",
+   "approx_loc": 280
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/shapes.ts",
+   "role": "6 LOCKED shape textures (type identity, not owner) \u2014 shared by sparks/prims/ghosts/legend",
+   "approx_loc": 105
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/seatRack.ts",
+   "role": "Lobby seat cells \u2014 existing shape-not-color precedent ('+' glyph vs swatch, A4 accessibility)",
+   "approx_loc": 121
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/structureRenderer.ts",
+   "role": "Placed-primitive ownerColor tint + placerColor bond gradients (largest color-only surface)",
+   "approx_loc": 215
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.ts",
+   "role": "Player avatar glow \u2014 color-only player identity at the cursor",
+   "approx_loc": 210
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/renderer.ts",
+   "role": "SparkRenderer (carried-spark carrier.color tint) + makeLegend type key + spawner ring",
+   "approx_loc": 160
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/nplayerSeating.test.ts",
+   "role": "PLAYER_COLORS exact-value canary + >50 RGB distance guard (S63 P2) \u2014 breaks on any palette edit",
+   "approx_loc": 245
+  },
+  {
+   "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/LOCKED_DECISIONS.md",
+   "role": "Locked vision placeholders (lines 156-159), stale pre-S62 palette note (line 229), shape names LOCKED (224-231)",
+   "approx_loc": 1100
+  }
+ ],
+ "constraints": [
+  "Determinism: fog/vision/memory are render-only and must stay OFF the networked sim path \u2014 no NetSnapshot byte changes, no touching the 5 seeded mulberry32 RNG streams (main.ts:210-226); any fuzzy-edge noise must be render-local randomness/time, never a seeded stream.",
+  "e2e/fog.spec.ts pixel contracts: vision-source CENTERS must extract as mask alpha <10 (fully erased plateau), fogged probe points must stay alpha >245 AND exactly RGB(0,0,0) (FOG hardcoded at fog.spec.ts:23,94-96) \u2014 changing FOG_COLOR or letting fuzz reach probe points breaks exact-equality asserts.",
+  "aboveFogLayer.children.length === 6 is asserted (fog.spec.ts:164) \u2014 reparenting renderers around the fog changes this count.",
+  "__FOG_DISABLE__ seam (fogRenderer.ts:135-136) must keep fog at zero cost for smoke.spec/nplayer.spec swiftshader sim-rate canaries (S58 P0 regression precedent).",
+  "Council VETO on custom GLSL fog shaders (fogRenderer.ts:10-14) \u2014 fuzzy edge must remain pure scenegraph + Canvas2D brush textures.",
+  "Memory tier must remain OPAQUE over the live board (no M1 leak \u2014 exploredMemory.ts:9-11, fog.spec.ts asserts mask opaque at ghost position); ghost alpha dims paint ABOVE opaque fog, never a transparency hole.",
+  "markVisible is monotonic (no decay \u2014 Council R1 timing-exploit rationale, exploredMemory.ts:71-72); stepFogAlpha must snap ON instantly at match start (no peek, vision.ts:118-124); win-lift must freeze the mask recompose (fog.spec.ts test 5).",
+  "PLAYER_COLORS values are pinned by nplayerSeating.test.ts:221-230 exact-array canary because e2e specs duplicate the hexes inline \u2014 any palette change must update unit canary + sweep e2e literals in one commit, and keep >50 min pairwise RGB distance + length === MAX_PLAYERS === 6.",
+  "Shape names/geometries are spec section-IV LOCKED (LOCKED_DECISIONS.md:224-231, shapes.ts header) and currently encode spark TYPE \u2014 owner shape-icons must not be confusable with the 6 type glyphs.",
+  "S81 P5 layering: legend/beta/mute/gear must stay staged ABOVE the fog (main.ts:337-344); spawnerRing must stay BELOW it (main.ts:144-148).",
+  "Per-frame budget: half-res mask (MASK_SCALE 0.5) + ~20Hz recompose (MASK_RENDER_EVERY 3) were adopted specifically for swiftshader CI and mobile battery \u2014 a per-frame animated fuzzy edge would defeat both optimizations.",
+  "localStorage access must stay try/catch-wrapped (Safari private mode \u2014 audioManager.ts:28,175-199 pattern) for any new CVD persistence key.",
+  "Spec/locked tunables: R_PERSONAL=75 / R_BEACON=80 / VISION_FADE_PX=40 / spawn-rate 0.15 are user-tuned or locked values; changes need a logged amendment, not a sneak."
+ ],
+ "risks": [
+  "MEMORY_FOG_COLOR === FOG_COLOR === 0x000000 (S63 tuning) means the 'explored' dim tier is currently INVISIBLE \u2014 a fuzzy-edge rework that assumes 3 visible tiers will find only 2 on screen; restoring 0x161b2e is flagged as the knob (constants.ts:135-140) but is itself a user-EYES decision.",
+  "fog.spec.ts test 1 asserts EXACT RGB equality (toBe(0)) at fogged points \u2014 any fuzz/noise that bleeds even 1/255 of channel value into probe points (1600,860), (1400,200), (300,200), (1400,700), (1400,300) fails CI; the half-res bilinear upscale makes the safe distance from any soft band larger than VISION_FADE_PX alone.",
+  "Brush plateau stop 0.72 is what keeps source centers fully erased; reshaping the gradient (e.g. noisier edge) without preserving a full-opacity core risks the <10 alpha asserts at cursor/spawner/own-prim centers.",
+  "The ghost-silhouette tint (fogRenderer.ts:337) snapshots ownerColor \u2014 if CVD mode remaps display colors at render time, ghosts (stored colors), e2e channel asserts (ghost G>50/B>50 for cyan), and the rainbow color-shuffle bijection on PLAYER_COLORS (rainbowLifecycle.ts:55-85, operates on canonical palette values in SIM state) must all stay consistent: remapping in sim state would change determinism; remapping must be display-side only.",
+  "Voltkin/hunter/potato/rainbow/seagull render above fog with NO owner identity (creature tint is state-based, creatureRenderer.ts:304) \u2014 S77 PRIME-AUDIT Delta-5 logged this exact gap into backlog #3; a CVD fix that only touches primitives misses the above-fog layer.",
+  "LOCKED_DECISIONS.md line 229 documents a stale pre-S62 palette \u2014 citing it as ground truth for CVD analysis would be wrong; constants.ts:50-57 + the S63 unit canary are authoritative.",
+  "PLAYER_LABELS in ui.ts:43 are hardcoded to the palette order \u2014 a palette change or CVD-alternate palette desynchronizes label text from swatch color.",
+  "No visual-regression screenshot baselines exist yet (no toHaveScreenshot in e2e/) \u2014 fuzzy-edge changes are guarded only by the point-probe asserts, so regressions outside probe points are invisible to CI; handoffs repeatedly defer 'first-run visual-regression baselines' as part of this same backlog item.",
+  "settingsOverlay is titled/structured 'AUDIO' (settingsOverlay.ts:65) with audio-specific API \u2014 adding a CVD toggle either grows this panel beyond its name or needs a second panel; the gear icon currently also doubles as the initAudio user-gesture trigger (main.ts:202-208)."
+ ],
+ "open_questions": [
+  "What 'fuzzy-edge' means concretely is undefined in the repo \u2014 BACKLOG.md has no EYES/fuzzy entry (only boot-snapshot.md:13,19 and handoffs name it); every handoff since S63 tags it 'EYES' = needs the user's live look, so the target aesthetic (noise-modulated edge? animated wisps? wider band?) is a user design decision, not derivable from code.",
+  "Should CVD shape-icons overload the existing 6 SparkType glyphs (risky \u2014 shape already means TYPE, locked section-IV) or add a separate per-seat marker (badge/pattern/outline style)? The S62 Council carry-forward says 'per-seat shape-icon identity' but no design was ever specced.",
+  "Should a CVD mode be a palette swap (fights the exact-value canary + duplicated e2e literals + rainbow bijection on canonical colors) or purely additive non-color cues (safe for determinism and tests)? The codebase's own precedents (PLAYER_LABELS text, seatRack glyphs) are all additive.",
+  "Does the currently-invisible explored tier (MEMORY_FOG_COLOR=black) get restored as part of the fog rework, and at what shade? constants.ts:139 explicitly leaves this as a preview-tunable.",
+  "Where should a CVD toggle live for non-audio settings persistence \u2014 extend the AUDIO overlay (rename to SETTINGS?) or a new overlay; and does the settings key namespace follow 'audio.*' ('display.cvdMode'?) \u2014 no display-settings store exists today."
+ ]
+}
