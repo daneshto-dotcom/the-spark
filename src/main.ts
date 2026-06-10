@@ -141,7 +141,11 @@ async function bootstrap(): Promise<void> {
   const spawnerRing = makeSpawnerRing(SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS);
   const legend = makeLegend(app);
   app.stage.addChild(spawnerRing);
-  app.stage.addChild(legend);
+  // S81 P5 — legend/betaBadge/muteIndicator/settingsIcon are CREATED here but staged AFTER
+  // the fog + aboveFogLayer (below): they were added before FogRenderer existed, so the fog
+  // container sat above them and swallowed the whole top HUD row in 1v1 PLAYING (user round-3:
+  // 'stuff in the top (like where it says beta or shows primitives) is hidden within the
+  // fog'). spawnerRing stays here — it is a BOARD element and should be fogged.
 
   // S16 P3.a — persistent BETA badge top-right of canvas. Added directly to
   // app.stage (not inside any screen container) so it's never hidden by
@@ -161,7 +165,6 @@ async function bootstrap(): Promise<void> {
   betaBadge.anchor.set(1, 0);
   betaBadge.position.set(CANVAS_WIDTH - 12, 12);
   betaBadge.alpha = 0.55;
-  app.stage.addChild(betaBadge);
 
   // S18 P1 — mute indicator. Small ♪ glyph anchored top-right (y=30),
   // between BETA badge (y=12) and connection dot (y=48). Added AFTER
@@ -179,7 +182,6 @@ async function bootstrap(): Promise<void> {
   muteIndicator.anchor.set(1, 0);
   muteIndicator.position.set(CANVAS_WIDTH - 12, 30);
   muteIndicator.alpha = 0.55;
-  app.stage.addChild(muteIndicator);
 
   // S19 P1 — ⚙ settings icon at top-right next to ♪ glyph. Click opens
   // HTML overlay (createSettingsOverlay) for per-channel mute + volume.
@@ -204,7 +206,6 @@ async function bootstrap(): Promise<void> {
     initAudio();
     settingsOverlay.toggle();
   });
-  app.stage.addChild(settingsIcon);
 
   const SEED = 0xc0ffee;
   const world = makeWorld(SEED);
@@ -333,6 +334,14 @@ async function bootstrap(): Promise<void> {
   // S77 P2 — stage the global-reach layer ABOVE the fog (+ memory ghosts) but BELOW the HUD, so
   // potato/rainbow/hunter/Voltkin punch through the fog as bare threat sprites for ALL players.
   app.stage.addChild(aboveFogLayer);
+  // S81 P5 — the persistent top HUD row, staged ABOVE the fog (created back at bootstrap top;
+  // see the comment there). Relative order preserved: legend, beta, ♪ (after beta — S18 P1
+  // child-add-order note), ⚙. The HUD/stats classes below add their containers after these,
+  // which is fine — none of the corner elements overlap them.
+  app.stage.addChild(legend);
+  app.stage.addChild(betaBadge);
+  app.stage.addChild(muteIndicator);
+  app.stage.addChild(settingsIcon);
   const hud = new HUD(app);
   const stats = new StatsOverlay(app);
   const grid = new SpatialGrid(SPATIAL_CELL_SIZE);
