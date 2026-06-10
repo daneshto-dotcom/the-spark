@@ -18,8 +18,14 @@
  * placePrimitive.ts and other state mutators).
  */
 
-import { PLAYER_COLORS, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS } from '../constants.ts';
-import { makeIdlePlayer } from '../game/player.ts';
+import {
+  PLAYER_COLORS,
+  POOP_CRUISER_MAX_SPEED,
+  SPAWNER_CENTER_X,
+  SPAWNER_CENTER_Y,
+  SPAWNER_RADIUS,
+} from '../constants.ts';
+import { makeIdlePlayer, type Player } from '../game/player.ts';
 import { asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
 import type { GameMode, World } from './world.ts';
 
@@ -299,6 +305,22 @@ export function applyReturnToTitle(world: World): World {
 export function applyUpdateAvatarPos(world: World, action: UpdateAvatarPosAction): World {
   const player = world.players.get(action.playerId);
   if (player === undefined) return world;
+  // S82 P1 — cruiser-poopy-slow: while debuffed, the cursor is a TARGET, not a teleport.
+  // Write poopedCursorTarget verbatim and leave avatarPos to the per-tick chase
+  // (tickCruiserChase). The reducer stays pure, so the client's optimistic prediction of
+  // its own UPDATE_AVATAR_POS matches the host exactly (both write the target).
+  if (isCruiserDebuffed(player, world.tick)) {
+    if (player.poopedCursorTarget === undefined) {
+      player.poopedCursorTarget = { x: action.pos.x, y: action.pos.y };
+    } else {
+      player.poopedCursorTarget.x = action.pos.x;
+      player.poopedCursorTarget.y = action.pos.y;
+    }
+    return world;
+  }
+  // S82 P1 (Council R2 — explicit guard): the first UN-debuffed update makes the cursor
+  // authoritative again — drop any leftover chase target so verbatim teleport resumes.
+  if (player.poopedCursorTarget !== undefined) player.poopedCursorTarget = undefined;
   player.avatarPos.x = action.pos.x;
   player.avatarPos.y = action.pos.y;
   // S45 Sym A — carried-spark coupling to carrier's avatarPos.
@@ -312,6 +334,68 @@ export function applyUpdateAvatarPos(world: World, action: UpdateAvatarPosAction
     }
   }
   return world;
+}
+
+/* ─────────────── S82 P1 — cruiser-poopy-slow movement model ─────────────── */
+
+/**
+ * S82 P1 — is this player's cruiser currently slow-debuffed? Pure tick compare
+ * (self-heals at expiry — mirror of spark.poopyUntilTick / benchedUntilTick).
+ */
+export function isCruiserDebuffed(
+  player: Pick<Player, 'poopedUntilTick'>,
+  tick: number,
+): boolean {
+  return player.poopedUntilTick !== undefined && tick < player.poopedUntilTick;
+}
+
+/**
+ * S82 P1 — per-tick capped cursor-chase for slowed cruisers. Called once per fixed
+ * physics tick on the HOST/solo path only (physicsLoop.stepPhysics — clients receive
+ * avatarPos via NetSnapshot and never simulate).
+ *
+ * Gate is poopedCursorTarget BEING SET, not the debuff timer: after poopedUntilTick
+ * expires mid-chase the residual gap still closes at the capped speed, then the field
+ * exact-snaps + clears (Council S82 R2 — guaranteed termination without float-equality;
+ * an un-debuffed UPDATE_AVATAR_POS also clears it, whichever comes first).
+ *
+ * Movement is ≤ POOP_CRUISER_MAX_SPEED px per tick toward the target — a physical
+ * speed limit. Spam-immune by construction: extra UPDATE_AVATAR_POS messages only move
+ * the target, never the avatar. Math.sqrt on IEEE doubles is exactly-rounded
+ * (deterministic cross-platform); the players Map iterates in seat-insertion order
+ * (S62 START_GAME inserts ascending), so the pass order is deterministic.
+ *
+ * Carried-spark coupling (S45 Sym A) mirrors applyUpdateAvatarPos: while the chase
+ * governs avatarPos, the carried spark is pinned to the avatar each tick.
+ */
+export function tickCruiserChase(world: World): void {
+  for (const player of world.players.values()) {
+    const target = player.poopedCursorTarget;
+    if (target === undefined) continue;
+    const dx = target.x - player.avatarPos.x;
+    const dy = target.y - player.avatarPos.y;
+    const distSq = dx * dx + dy * dy;
+    if (distSq <= POOP_CRUISER_MAX_SPEED * POOP_CRUISER_MAX_SPEED) {
+      // Within one step: exact snap + clear (terminates the chase deterministically).
+      player.avatarPos.x = target.x;
+      player.avatarPos.y = target.y;
+      player.poopedCursorTarget = undefined;
+    } else {
+      const dist = Math.sqrt(distSq);
+      player.avatarPos.x += (dx / dist) * POOP_CRUISER_MAX_SPEED;
+      player.avatarPos.y += (dy / dist) * POOP_CRUISER_MAX_SPEED;
+    }
+    // S45 Sym A — keep the carried spark pinned to the chasing avatar.
+    if (player.kind === 'Carrying') {
+      const spark = world.freeSparks.get(player.carriedSparkId);
+      if (spark !== undefined && spark.state.kind === 'Carried') {
+        spark.pos.x = player.avatarPos.x;
+        spark.pos.y = player.avatarPos.y;
+        spark.prevPos.x = player.avatarPos.x;
+        spark.prevPos.y = player.avatarPos.y;
+      }
+    }
+  }
 }
 
 /* ────────────────────────── Scoring helper ─────────────────────────── */

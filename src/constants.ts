@@ -627,3 +627,17 @@ export const POOP_MAX_LIVE = 24; // safety cap on concurrent poops (snapshot-siz
 export const POOP_FOUL_TINT = 0x9aa15c; // sickly green-brown (poopRenderer's POOP_DARK)
 export const POOP_FOUL_TINT_STRENGTH = 0.65; // lerp weight ownerColor → POOP_FOUL_TINT
 export const POOP_STRUCTURE_SPLAT_SCALE = 2.3; // structure splat vs ground splat draw size
+
+// === S82 P1 — cruiser-poopy-slow (poop can hit the PLAYER CRUISER) ===
+// User decision (S81 carry → S82 explicit go): the slow debuff now also applies to the
+// player avatar. A FALLING poop checks avatars FIRST (bodyblock: your cruiser can shield
+// the structure beneath — intended gameplay), seat-ascending lowest-id, consume-on-hit.
+// While debuffed the cruiser STOPS teleport-to-pointer: UPDATE_AVATAR_POS writes a cursor
+// TARGET and a host per-tick chase (gameMode.tickCruiserChase) moves avatarPos toward it
+// at ≤ POOP_CRUISER_MAX_SPEED px/tick with exact-snap convergence (Council S82 R2).
+// Spam-immune by construction (extra updates only move the target) and deterministic.
+export const POOP_AVATAR_HIT_RADIUS = 30; // px — POOP_HIT_RADIUS(19) + avatar outer radius(11)
+export const POOP_CRUISER_SLOW_TICKS = 15 * PHYSICS_HZ; // same 15s as the poopy-spark debuff
+// 7 px/tick ≈ 420 px/s: far below a flicked cursor (~3000 px/s) so the slow BITES, comfortably
+// above the hunter's 4.2 px/tick so a slowed player can still outrun Pac-Man. #1 playtest knob.
+export const POOP_CRUISER_MAX_SPEED = 7;

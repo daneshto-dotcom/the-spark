@@ -11,10 +11,11 @@
  *                   RANDOM interval in [POOP_DROP_MIN, MAX] (S81 P3 — pure fn of (id,
  *                   lastPoopTick), no RNG stream); despawn when off-screen. Fanned out
  *                   per gull in main.ts (host-only).
- *   POOP_TICK     — fall; on contact FOUL the hit primitive's whole connected structure
- *                   (component) → world.fouledPrimitives (tickScoring zeroes that structure's
- *                   income) OR slow a free spark ("poopy", half-speed 15s); floor → ground
- *                   splat (TTL). Fanned out per poop in main.ts.
+ *   POOP_TICK     — fall; on contact slow a player CRUISER (S82 P1 — avatar-first precedence,
+ *                   capped cursor-chase 15s) OR FOUL the hit primitive's whole connected
+ *                   structure (component) → world.fouledPrimitives (tickScoring zeroes that
+ *                   structure's income) OR slow a free spark ("poopy", half-speed 15s);
+ *                   floor → ground splat (TTL). Fanned out per poop in main.ts.
  *   CLEAN_POOP    — remove a structure-splat + UNFOUL its whole component (the structure
  *                   OWNER's avatar within POOP_CLEAN_RADIUS — host-detected in main.ts via
  *                   canAvatarCleanSplat; S81 P1: enemies can no longer wipe your splat for
@@ -30,7 +31,9 @@
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  POOP_AVATAR_HIT_RADIUS,
   POOP_CLEAN_RADIUS,
+  POOP_CRUISER_SLOW_TICKS,
   POOP_DROP_MAX_TICKS,
   POOP_DROP_MIN_TICKS,
   POOP_FALL_SPEED,
@@ -51,6 +54,8 @@ import { makePoop, makeSeagull, type Poop } from './seagull.ts';
 
 /** Squared poop hit radius — precomputed so the per-tick collision gate stays sqrt-free. */
 const POOP_HIT_RADIUS_SQ = POOP_HIT_RADIUS * POOP_HIT_RADIUS;
+/** S82 P1 — squared poop-vs-AVATAR hit radius (poop core + avatar outer halo). */
+const POOP_AVATAR_HIT_RADIUS_SQ = POOP_AVATAR_HIT_RADIUS * POOP_AVATAR_HIT_RADIUS;
 /** A poop at/under this y has hit the floor → harmless ground splat. */
 const POOP_FLOOR_Y = CANVAS_HEIGHT;
 
@@ -178,9 +183,10 @@ export function applySeagullTick(world: World, action: SeagullTickAction): World
 }
 
 /**
- * Advance one poop. FALLING → descend + collide (structure foul OR free-spark slow OR floor).
- * SPLAT_GROUND → dissipate at its TTL. SPLAT_STRUCTURE → persist (cleaned by CLEAN_POOP, or by
- * the main.ts orphan sweep if its anchor prim was destroyed). Squared-dist + LOWEST-id hit.
+ * Advance one poop. FALLING → descend + collide (S82 P1: player CRUISER slow → structure foul
+ * → free-spark slow → floor, in that precedence order — one victim per poop). SPLAT_GROUND →
+ * dissipate at its TTL. SPLAT_STRUCTURE → persist (cleaned by CLEAN_POOP, or by the main.ts
+ * orphan sweep if its anchor prim was destroyed). Squared-dist + LOWEST-id hit per pass.
  */
 export function applyPoopTick(world: World, action: PoopTickAction): World {
   const poop = world.poops.get(action.poopId);
@@ -196,6 +202,36 @@ export function applyPoopTick(world: World, action: PoopTickAction): World {
   poop.prevPos.x = poop.pos.x;
   poop.prevPos.y = poop.pos.y;
   poop.pos.y += POOP_FALL_SPEED;
+
+  // 0) vs PLAYER CRUISERS (S82 P1) — checked FIRST: the avatar flies "above" the board, and
+  // deliberately intercepting a poop to shield the structure beneath (bodyblock) is intended
+  // gameplay. IMPORTANT: iteration picks the LOWEST player id among in-radius avatars (the
+  // players Map iterates in seat-insertion order, but the explicit lowest-id selection makes
+  // the determinism independent of insertion history — same posture as the prim pass below).
+  // Benched avatars are hidden + input-locked, so they cannot be hit. A re-hit while already
+  // slowed refreshes the debuff window. Consumes the poop (one victim per poop).
+  let hitPlayer: Player | null = null;
+  for (const player of world.players.values()) {
+    if (player.benchedUntilTick !== undefined && world.tick < player.benchedUntilTick) continue;
+    if (hitPlayer !== null && (player.id as number) >= (hitPlayer.id as number)) continue;
+    const dx = player.avatarPos.x - poop.pos.x;
+    const dy = player.avatarPos.y - poop.pos.y;
+    if (dx * dx + dy * dy <= POOP_AVATAR_HIT_RADIUS_SQ) hitPlayer = player;
+  }
+  if (hitPlayer !== null) {
+    hitPlayer.poopedUntilTick = world.tick + POOP_CRUISER_SLOW_TICKS;
+    // Engage the cursor-chase movement model AT the current avatar position: no movement
+    // happens until the player's next UPDATE_AVATAR_POS retargets it, and the chase gate
+    // (poopedCursorTarget defined) is live from the instant of the hit.
+    if (hitPlayer.poopedCursorTarget === undefined) {
+      hitPlayer.poopedCursorTarget = { x: hitPlayer.avatarPos.x, y: hitPlayer.avatarPos.y };
+    } else {
+      hitPlayer.poopedCursorTarget.x = hitPlayer.avatarPos.x;
+      hitPlayer.poopedCursorTarget.y = hitPlayer.avatarPos.y;
+    }
+    world.poops.delete(action.poopId);
+    return world;
+  }
 
   // 1) vs PRIMITIVES (structures) — LOWEST-id hit → foul the whole component.
   // S80 — was `[...keys].sort()` + first-hit break: an array copy + O(P log P) sort per

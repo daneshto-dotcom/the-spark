@@ -40,6 +40,7 @@ import {
 } from './creatureVerlet.ts';
 import type { SpatialGrid } from './spatial.ts';
 import { verletStepAll } from './verlet.ts';
+import { tickCruiserChase } from '../state/gameMode.ts';
 import { computeTerritorialInfluence } from '../state/territory.ts';
 import { dispatch } from '../state/world.ts';
 import { asPlayerId, type SparkId } from '../types.ts';
@@ -99,6 +100,12 @@ export function stepPhysics(
   for (const player of world.players.values()) {
     dispatch(world, { type: 'TICK_ENERGY', playerId: player.id, deltaSec: PHYSICS_DT });
   }
+
+  // S82 P1 — slowed-cruiser cursor-chase (cruiser-poopy-slow movement model). Runs once
+  // per tick BEFORE the substep loop so this tick's gameplay (pickup reach, poop-vs-avatar,
+  // splat-clean sweeps) all see the post-chase avatarPos. No-op unless some player has an
+  // active poopedCursorTarget (the overwhelmingly common case iterates ≤6 players).
+  tickCruiserChase(world);
 
   const sparkArr = freeSparkArray(world.freeSparks);
   let bondArr: Bond[] = Array.from(world.bonds.values());

@@ -61,6 +61,26 @@ interface PlayerCommon {
    * set by applyPickupPotato, cleared by place/drop/detonate. Additive-optional in save.
    */
   carriedPotatoId?: PotatoId;
+  /**
+   * S82 P1 — cruiser-poopy-slow debuff expiry tick. Set by applyPoopTick when a FALLING
+   * poop lands on this player's avatar (within POOP_AVATAR_HIT_RADIUS). While
+   * world.tick < poopedUntilTick the cruiser is slowed (cursor-chase movement model,
+   * see poopedCursorTarget) and tinted toward POOP_FOUL_TINT. Tick-gated self-heal
+   * (mirror of benchedUntilTick / spark.poopyUntilTick — no clear action needed).
+   * Additive-optional in save.ts; rides NetSnapshot so clients render the tint.
+   */
+  poopedUntilTick?: number;
+  /**
+   * S82 P1 — the slowed cruiser's chase target. While the debuff is active,
+   * applyUpdateAvatarPos writes THIS (verbatim cursor) instead of avatarPos, and the
+   * host per-tick chase (gameMode.tickCruiserChase) moves avatarPos toward it at
+   * ≤ POOP_CRUISER_MAX_SPEED px/tick. Gate is THIS FIELD (not the timer): after the
+   * debuff expires the chase completes the residual gap, then exact-snaps and CLEARS
+   * the field (Council S82 R2 — guaranteed convergence, no float-equality compare).
+   * The first un-debuffed UPDATE_AVATAR_POS also clears it (cursor re-authoritative).
+   * Additive-optional in save.ts (emitted only while set).
+   */
+  poopedCursorTarget?: Vec2;
 }
 
 export type IdlePlayer = PlayerCommon & { readonly kind: 'Idle' };
@@ -111,6 +131,10 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     // S72 P3 — preserve the potato carry slot (undefined here by mutual exclusion —
     // the spark-pickup paths reject while carrying a potato — but thread it for safety).
     carriedPotatoId: player.carriedPotatoId,
+    // S82 P1 — preserve the cruiser-slow debuff across the carry-FSM reconstruction
+    // (a slowed player can still pick up a spark; the chase keeps governing avatarPos).
+    poopedUntilTick: player.poopedUntilTick,
+    poopedCursorTarget: player.poopedCursorTarget,
     kind: 'Carrying',
     carriedSparkId: sparkId,
   };
@@ -135,6 +159,9 @@ export function drop(player: Player): IdlePlayer {
     benchedUntilTick: player.benchedUntilTick,
     // S72 P3 — preserve the potato carry slot across the carry-FSM reconstruction.
     carriedPotatoId: player.carriedPotatoId,
+    // S82 P1 — preserve the cruiser-slow debuff across the carry-FSM reconstruction.
+    poopedUntilTick: player.poopedUntilTick,
+    poopedCursorTarget: player.poopedCursorTarget,
     kind: 'Idle',
   };
 }

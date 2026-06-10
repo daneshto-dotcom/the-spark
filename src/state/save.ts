@@ -226,6 +226,14 @@ interface SerializedPlayer {
    * undefined (pre-S72-P3 byte-compat).
    */
   carriedPotatoId?: PotatoId;
+  /**
+   * S82 P1 — cruiser-poopy-slow debuff expiry tick + cursor-chase target. Additive-
+   * optional; emitted only when set so pre-S82 saves/wire payloads stay byte-identical.
+   * Both ride NetSnapshot (clients render the foul tint; the chase itself is host-only).
+   * Rehydrate as undefined.
+   */
+  poopedUntilTick?: number;
+  poopedCursorTarget?: Vec2;
 }
 
 /**
@@ -769,6 +777,13 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       benchedUntilTick: p.benchedUntilTick,
       // S72 P3 — rehydrate the carried potato slot; undefined for pre-S72-P3 saves.
       carriedPotatoId: p.carriedPotatoId,
+      // S82 P1 — rehydrate the cruiser-slow debuff; undefined for pre-S82 saves. The
+      // chase target is deep-copied so the live World never aliases the snapshot object.
+      poopedUntilTick: p.poopedUntilTick,
+      poopedCursorTarget:
+        p.poopedCursorTarget !== undefined
+          ? { x: p.poopedCursorTarget.x, y: p.poopedCursorTarget.y }
+          : undefined,
     };
     const player: Player =
       p.kind === 'Carrying' && p.carriedSparkId !== null
@@ -842,6 +857,13 @@ function serializePlayer(p: Player): SerializedPlayer {
     // S72 P3 — emit the carried potato id only when set (byte-identical pre-S72-P3).
     ...(p.carriedPotatoId !== undefined
       ? { carriedPotatoId: p.carriedPotatoId }
+      : {}),
+    // S82 P1 — emit the cruiser-slow debuff fields only when set (byte-identical pre-S82).
+    ...(p.poopedUntilTick !== undefined
+      ? { poopedUntilTick: p.poopedUntilTick }
+      : {}),
+    ...(p.poopedCursorTarget !== undefined
+      ? { poopedCursorTarget: { x: p.poopedCursorTarget.x, y: p.poopedCursorTarget.y } }
       : {}),
   };
 }

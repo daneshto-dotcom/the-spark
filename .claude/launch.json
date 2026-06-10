@@ -4,8 +4,8 @@
     {
       "name": "spark-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "14857"],
-      "port": 14857
+      "runtimeArgs": ["run", "dev", "--", "--port", "37896"],
+      "port": 37896
     }
   ]
 }

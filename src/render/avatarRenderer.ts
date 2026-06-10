@@ -35,9 +35,12 @@
  */
 
 import { Application, Container, Graphics } from 'pixi.js';
+import { POOP_FOUL_TINT, POOP_FOUL_TINT_STRENGTH } from '../constants.ts';
 import type { Controls } from '../input/controls.ts';
+import { isCruiserDebuffed } from '../state/gameMode.ts';
 import type { World } from '../state/world.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
+import { lerpColor } from './effects/silhouettes/shared.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
 
 const AVATAR_INNER_RADIUS = 4;
@@ -132,11 +135,17 @@ export class AvatarRenderer {
       if (isBenched(player.benchedUntilTick, world.tick)) continue;
 
       const isLocal = player.id === localPlayerId;
+      // S82 P1 — cruiser-poopy-slow: while the debuff (or its residual chase) is live, the
+      // LOCAL player's cruiser is no longer cursor-bound — the SIM's avatarPos (capped chase)
+      // is the truth, so the local render joins the remote smoothTowards path. The tint
+      // tracks the debuff TIMER; the path switch tracks debuff-or-target (residual gap).
+      const debuffed = isCruiserDebuffed(player, world.tick);
+      const cruiserSlowed = debuffed || player.poopedCursorTarget !== undefined;
       // S81 P4 — local: lag-free cursor. Remote: smoothed display pos chasing the ~10Hz
       // authoritative avatarPos (raw rendering stepped visibly — "pixelated" enemy cruisers).
       let x: number;
       let y: number;
-      if (isLocal) {
+      if (isLocal && !cruiserSlowed) {
         x = controls.cursor.x;
         y = controls.cursor.y;
         this.displayPosByPlayer.delete(player.id); // hygiene if the local seat ever changes
@@ -175,16 +184,23 @@ export class AvatarRenderer {
         depth,
       );
 
+      // S82 P1 — debuffed cruisers tint toward the foul colour (same visual language as
+      // fouled structures + poopy sparks; clients see it too — poopedUntilTick rides the
+      // snapshot). Tick-gated: the tint self-heals at expiry with no clear pass.
+      const fill = debuffed
+        ? lerpColor(player.color, POOP_FOUL_TINT, POOP_FOUL_TINT_STRENGTH)
+        : player.color;
+
       // Outer glow halo.
       g.circle(x, y, AVATAR_OUTER_RADIUS)
-        .fill({ color: player.color, alpha: outer });
+        .fill({ color: fill, alpha: outer });
       // Mid ring — gives the spark some visual weight without bloom.
       // Pulses with outer + 0.15 offset so brightness wave is coherent.
       g.circle(x, y, (AVATAR_INNER_RADIUS + AVATAR_OUTER_RADIUS) / 2)
-        .fill({ color: player.color, alpha: Math.min(1, outer + 0.15) });
+        .fill({ color: fill, alpha: Math.min(1, outer + 0.15) });
       // Inner core.
       g.circle(x, y, AVATAR_INNER_RADIUS)
-        .fill({ color: player.color, alpha: inner });
+        .fill({ color: fill, alpha: inner });
     }
 
     // GC removed players (e.g. RETURN_TO_TITLE drops P2 — see state/gameMode.ts
