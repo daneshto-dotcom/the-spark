@@ -1,4 +1,4 @@
-# PDR S83 — Voltkin true-alpha + real animation (Full tier) — STATUS: IN-PROGRESS
+# PDR S83 — Voltkin true-alpha + real animation (Full tier) — STATUS: COMPLETED (5/5 priorities, CHECK Triumvirate run, CI green)
 
 Approved by user 2026-06-10 ("Approved! work creatively, technically, pedantically, and thoroughly").
 Council R1+R2 CONVERGED (Grok 4.20 reasoning + Gemini 2.5-pro). Battle Ledger in-chat; key rows:
