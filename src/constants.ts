@@ -479,16 +479,15 @@ export const HUNTER_RADIUS = 26; // visual wedge radius (Pac-Man mouth)
 // so an alert player escapes; DAMPING retains momentum so sharp turns overshoot.
 // S75 P2 slowed it ~5x (MAX_SPEED 7->1.4, ACCEL 0.6->0.12). S76 P1 — live 2-player
 // feedback said 1.4 px/tick was TOO slow (the hunter posed no threat), so both consts
-// are scaled back UP by 2.5x: MAX_SPEED 1.4->3.5 and ACCEL 0.12->0.30. The terminal speed
-// (accel/(1-damping) = 10*accel = 3.0 px/tick) still sits just under the 3.5 cap — exactly
-// the same headroom shape as S75's 1.2-under-1.4 and the original 6-under-7 — so the
-// accel/maxspeed ratio, hence the momentum/overshoot juke character, is UNCHANGED; only the
-// absolute speed rises. At 3.5 px/tick (~210 px/s) a flicking cursor still out-runs it, but
-// a casually-moving / cornered / stationary player now gets caught within the 30s window
-// (the bite the user wanted). Tunable: dial MAX_SPEED+ACCEL together (keep the 0.0857 ratio)
-// toward 2.5/0.214 if it feels too aggressive, or up if still too gentle.
-export const HUNTER_MAX_SPEED = 3.5; // px/tick (~210 px/s); S76 P1: was 1.4 (S75) / 7 (pre-S75)
-export const HUNTER_ACCEL = 0.3; // px/tick² of steering toward the avatar; S76 P1: was 0.12 (S75) / 0.6 (pre-S75)
+// were scaled back UP by 2.5x: MAX_SPEED 1.4->3.5 and ACCEL 0.12->0.30.
+// S81 P6 — round-3 playtest 'pacman should be about 20% faster moving': both consts ×1.2
+// (MAX_SPEED 3.5->4.2, ACCEL 0.30->0.36). Terminal speed (accel/(1-damping) = 10*accel
+// = 3.6 px/tick) keeps the same just-under-the-cap headroom shape as every prior tune
+// (3.0-under-3.5, 1.2-under-1.4, 6-under-7), so the momentum/overshoot juke character is
+// UNCHANGED; only the absolute speed rises. At 4.2 px/tick (~252 px/s) a flicking cursor
+// still out-runs it. Tunable: dial MAX_SPEED+ACCEL together (keep the 0.0857 ratio).
+export const HUNTER_MAX_SPEED = 4.2; // px/tick (~252 px/s); S81 P6: was 3.5 (S76) / 1.4 (S75) / 7 (pre-S75)
+export const HUNTER_ACCEL = 0.36; // px/tick² of steering toward the avatar; S81 P6: was 0.3 (S76) / 0.12 (S75) / 0.6 (pre-S75)
 export const HUNTER_DAMPING = 0.9; // per-tick velocity retention (momentum / overshoot)
 
 // === S72 P3 — Potato Bomb (Council Full; Fork E fuse FROM-SPAWN [user reading]) ===
