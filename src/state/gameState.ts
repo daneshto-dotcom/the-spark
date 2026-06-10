@@ -1,11 +1,12 @@
 /**
  * SPARK — high-level game state FSM.
- * Phase 1 abridged (per § XIII): PLAYING → WIN → POSTGAME → PLAYING (reset).
- * SETUP/COUNTDOWN are deferred to Phase 2 multiplayer.
+ * TITLE/LOBBY → PLAYING → WIN → POSTGAME (+ reset paths back via dispatch).
  *
- * Win condition (Phase 1 placeholder):
- *   primitives.size >= PHASE_1_WIN_PRIMITIVE_COUNT (30 per § XIV.14).
- * Phase 2 will replace with claimedArea / canvasArea ≥ 0.51.
+ * Win condition (S9 P3 score-based; S76 P3 income model): WIN fires when
+ * floor(scoreProgress) ≥ PHASE_1_WIN_SCORE, where scoreProgress is the LEADER's
+ * score = max(scoreByPlayer) and score accrues per-tick from standing-structure
+ * complexity (state/scoring.ts tickScoring). The S0-era primitive-count
+ * placeholder (PHASE_1_WIN_PRIMITIVE_COUNT) is long retired from this check.
  *
  * tickGameState() is called once per physics tick. It auto-promotes
  * PLAYING → WIN when the threshold is crossed. WIN → POSTGAME is driven
@@ -13,6 +14,11 @@
  */
 
 import { PHASE_1_WIN_SCORE, PHYSICS_HZ } from '../constants.ts';
+import { teardownBombs } from './bombLifecycle.ts';
+import { teardownHunters } from './hunters/hunterLifecycle.ts';
+import { teardownPotatoes } from './potatoLifecycle.ts';
+import { teardownRainbows } from './rainbowLifecycle.ts';
+import { teardownSeagulls } from './seagulls/seagullLifecycle.ts';
 import { dispatch, isNetworked } from './world.ts';
 import type { GameState, World } from './world.ts';
 import type { PlayerId } from '../types.ts';
@@ -90,6 +96,15 @@ export function softReset(world: World, extras: GameStateExtras): void {
   world.nextBondId = 0;
   world.effects.length = 0;
   world.scoreProgress = 0;
+  // S79 P6 — hazard + foul teardown parity with WIN_TRIGGER/START_GAME (S78 audit LOW;
+  // inert on today's paths because those transitions already tear down before any
+  // softReset, but a fresh PLAYING world must never inherit a live bomb/hunter/potato/
+  // rainbow/gull/poop or a fouled prim halting income from match zero).
+  teardownBombs(world);
+  teardownHunters(world);
+  teardownPotatoes(world);
+  teardownRainbows(world);
+  teardownSeagulls(world);
   // S15 P2: per-player score reset; keep keyed entries (player roster
   // unchanged by softReset).
   for (const pid of world.scoreByPlayer.keys()) world.scoreByPlayer.set(pid, 0);

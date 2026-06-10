@@ -317,19 +317,17 @@ export function applyUpdateAvatarPos(world: World, action: UpdateAvatarPosAction
 /* ────────────────────────── Scoring helper ─────────────────────────── */
 
 /**
- * S15 P2 — per-player score helper.
+ * S15 P2 — per-player score helper. S76 P3 UNIFIED: ONE path for solo AND
+ * networked — write the delta to scoreByPlayer, then scoreProgress is ALWAYS
+ * recomputed as the leader's score = max(scoreByPlayer.values()) (solo = the
+ * single player's value). The pre-S76 split (solo `scoreProgress += delta` vs
+ * networked leader-max) let player-1 score differently and is GONE — this
+ * docstring's old "solo is additive" claim with it (S79 P6 doc fix).
  *
- * Solo: scoreProgress is the scalar leader (additive). scoreByPlayer also
- * tracks for future-proofing but solo gameplay never reads it. Test
- * contracts that DIRECTLY mutate world.scoreProgress (session10.test.ts
- * scoreProgress=14 pre-bake, session13.test.ts likewise) remain valid
- * because solo path is additive (scoreProgress += delta).
- *
- * 1v1: scoreProgress = max(scoreByPlayer.values()) — the leader's score
- * drives the PHASE_1_WIN_SCORE gate in gameState.ts. Each player's
- * personal score lives in scoreByPlayer for HUD display + winner
- * attribution. The leader-max ensures WIN fires when ANY player crosses
- * the threshold first, not when summed totals do.
+ * scoreProgress drives the PHASE_1_WIN_SCORE gate in gameState.ts; per-player
+ * values feed HUD display + winner attribution. Production point-gain accrues
+ * in state/scoring.ts tickScoring (complexity income); addScore remains for
+ * tests + one-shot adjustments and matches tickScoring's leader-max recompute.
  */
 export function addScore(world: World, playerId: PlayerId, delta: number): void {
   const prev = world.scoreByPlayer.get(playerId) ?? 0;

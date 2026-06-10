@@ -112,14 +112,17 @@ export function buildHello(playerId: PlayerId, color: number): HelloMsg {
   const override = readTestProtoVersionOverride();
   if (override !== null) {
     // DEV/E2E ONLY (window.__TEST_PROTO_VERSION_OVERRIDE__ is undefined in
-    // production). The `as 6` cast is the SINGLE, quarantined point where the
-    // wire-contract literal is deliberately violated to simulate a stale-build
-    // peer; the receiver's detectProtocolMismatch is designed to reject it.
-    // The PRODUCTION return below stays `protoVersion: PROTOCOL_VERSION`, which
-    // preserves the version-bump lockstep tsc tripwire: raising
-    // PROTOCOL_VERSION without updating HelloMsg.protoVersion errors at that
-    // line. (Council R1 #1 — quarantine-cast over relaxing the type to number.)
-    return { kind: 'HELLO', playerId, color, protoVersion: override as 7 };
+    // production). The `as typeof PROTOCOL_VERSION` cast is the SINGLE,
+    // quarantined point where the wire-contract literal is deliberately violated
+    // to simulate a stale-build peer; the receiver's detectProtocolMismatch is
+    // designed to reject it. (S79 P6 — was a hardcoded `as 7`/stale "as 6"
+    // comment that needed manual maintenance on every version bump; the typeof
+    // form tracks the literal automatically.) The PRODUCTION return below stays
+    // `protoVersion: PROTOCOL_VERSION`, which preserves the version-bump
+    // lockstep tsc tripwire: raising PROTOCOL_VERSION without updating
+    // HelloMsg.protoVersion errors at that line. (Council R1 #1 —
+    // quarantine-cast over relaxing the type to number.)
+    return { kind: 'HELLO', playerId, color, protoVersion: override as typeof PROTOCOL_VERSION };
   }
   return { kind: 'HELLO', playerId, color, protoVersion: PROTOCOL_VERSION };
 }
