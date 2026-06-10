@@ -124,7 +124,10 @@ test.describe('S75 P3 — rainbow color-shuffle (solo, gating)', () => {
           const g = globalThis as { __SPARK__?: { rainbowFlyoverActive?: boolean } };
           return g.__SPARK__?.rainbowFlyoverActive ?? false;
         }),
-        { message: 'flyover self-closed after its 4s window', timeout: 10_000 },
+        // 240 SIM ticks ≈ 4s nominal, but under CI software-WebGL the clamped fixed-step
+        // accumulator falls 2-4x behind wall-clock (see bomb.spec budget note) — 30s gives
+        // the window room to elapse in sim time without flaking the gating lane.
+        { message: 'flyover self-closed after its 4s window', timeout: 30_000 },
       )
       .toBe(false);
 

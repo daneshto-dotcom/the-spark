@@ -14,7 +14,7 @@
  * frames from the synced pair, and a save/load mid-window resumes correctly.
  *
  * Photosensitivity: hue cycles at ~0.4 Hz, squash wobble at 1.25 Hz, alpha
- * envelopes are smooth sin ramps, peak background alpha 0.28 — no strobing.
+ * envelopes are smooth sin ramps, peak background alpha 0.30 — no strobing.
  *
  * Layering: backdrop Graphics at app.stage index 0 (true background, behind
  * the board); wash + beams + character in aboveFogLayer (a global-reach
@@ -51,7 +51,7 @@ export interface FlyoverPose {
   readonly charAlpha: number;
   /** Hue position (0..1) of the backdrop wash this frame. */
   readonly bgHue01: number;
-  /** Backdrop alpha — sin envelope, peak 0.28 (photosensitivity charter ≤0.30). */
+  /** Backdrop alpha — sin envelope, peak 0.30 (the photosensitivity charter cap). */
   readonly bgAlpha: number;
   /** Base rotation of the light beams. */
   readonly beamAngle: number;
