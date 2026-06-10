@@ -18,7 +18,9 @@
  *                   POOP_CLEAN_RADIUS — host-detected in main.ts; dispatchable for tests).
  *
  * Determinism: LINEAR flight + FIXED-interval drops (no RNG); collision uses squared-distance
- * + SORTED-id first-hit (the potato pattern); component foul/clean BFS returns sorted ids.
+ * + LOWEST-id hit selection (S80 — allocation-free equivalent of the original sorted-id
+ * first-hit; identical pick, locked by a differential test); component foul/clean BFS
+ * returns sorted ids.
  * Host-authoritative — clients receive seagulls[]/poops[] in the next NetSnapshot + never simulate.
  */
 
@@ -36,6 +38,7 @@ import {
   SEAGULL_MAX_ACTIVE,
   SEAGULL_RADIUS,
 } from '../../constants.ts';
+import type { Spark } from '../../game/spark.ts';
 import { asPoopId, asSeagullId, type PoopId, type PrimitiveId, type SeagullId, type Vec2 } from '../../types.ts';
 import type { World } from '../worldTypes.ts';
 import { makePoop, makeSeagull } from './seagull.ts';
@@ -141,7 +144,7 @@ export function applySeagullTick(world: World, action: SeagullTickAction): World
 /**
  * Advance one poop. FALLING → descend + collide (structure foul OR free-spark slow OR floor).
  * SPLAT_GROUND → dissipate at its TTL. SPLAT_STRUCTURE → persist (cleaned by CLEAN_POOP, or by
- * the main.ts orphan sweep if its anchor prim was destroyed). Squared-dist + SORTED-id first-hit.
+ * the main.ts orphan sweep if its anchor prim was destroyed). Squared-dist + LOWEST-id hit.
  */
 export function applyPoopTick(world: World, action: PoopTickAction): World {
   const poop = world.poops.get(action.poopId);
@@ -158,17 +161,17 @@ export function applyPoopTick(world: World, action: PoopTickAction): World {
   poop.prevPos.y = poop.pos.y;
   poop.pos.y += POOP_FALL_SPEED;
 
-  // 1) vs PRIMITIVES (structures) — sorted-id first-hit → foul the whole component.
+  // 1) vs PRIMITIVES (structures) — LOWEST-id hit → foul the whole component.
+  // S80 — was `[...keys].sort()` + first-hit break: an array copy + O(P log P) sort per
+  // FALLING poop per tick on the host hot path. Tracking the minimum id among hits selects
+  // the IDENTICAL primitive (lowest id within radius) with zero allocation — replay-safe
+  // equivalence, locked by the differential test in seagull.test.ts.
   let hitPrim: PrimitiveId | null = null;
-  for (const pid of [...world.primitives.keys()].sort((a, b) => (a as number) - (b as number))) {
-    const prim = world.primitives.get(pid);
-    if (prim === undefined) continue;
+  for (const [pid, prim] of world.primitives) {
+    if (hitPrim !== null && (pid as number) >= (hitPrim as number)) continue;
     const dx = prim.pos.x - poop.pos.x;
     const dy = prim.pos.y - poop.pos.y;
-    if (dx * dx + dy * dy <= POOP_HIT_RADIUS_SQ) {
-      hitPrim = pid;
-      break;
-    }
+    if (dx * dx + dy * dy <= POOP_HIT_RADIUS_SQ) hitPrim = pid;
   }
   if (hitPrim !== null) {
     for (const pid of collectComponent(world, hitPrim)) world.fouledPrimitives.add(pid);
@@ -183,22 +186,25 @@ export function applyPoopTick(world: World, action: PoopTickAction): World {
     return world;
   }
 
-  // 2) vs FREE SPARKS — sorted-id first-hit → "poopy" half-speed for 15s (consumes the poop).
-  for (const sid of [...world.freeSparks.keys()].sort((a, b) => (a as number) - (b as number))) {
-    const spark = world.freeSparks.get(sid);
-    if (spark === undefined || spark.state.kind !== 'Free') continue;
+  // 2) vs FREE SPARKS — LOWEST-id hit → "poopy" half-speed for 15s (consumes the poop).
+  // S80 — same zero-allocation lowest-id selection as the primitive pass above.
+  let hitSpark: Spark | null = null;
+  for (const [sid, spark] of world.freeSparks) {
+    if (spark.state.kind !== 'Free') continue;
+    if (hitSpark !== null && (sid as number) >= (hitSpark.id as number)) continue;
     const dx = spark.pos.x - poop.pos.x;
     const dy = spark.pos.y - poop.pos.y;
-    if (dx * dx + dy * dy <= POOP_HIT_RADIUS_SQ) {
-      spark.poopyUntilTick = world.tick + POOP_SLOW_TICKS;
-      // One-time impulse halve of the implicit Verlet velocity (pos-prevPos) — NOT a per-substep
-      // scale (which would exponentially decay the spark to a stop). The carry-follow scale
-      // handles the dragged case; the tint shows poopiness until poopyUntilTick.
-      spark.prevPos.x = spark.pos.x - (spark.pos.x - spark.prevPos.x) * POOP_SLOW_MULTIPLIER;
-      spark.prevPos.y = spark.pos.y - (spark.pos.y - spark.prevPos.y) * POOP_SLOW_MULTIPLIER;
-      world.poops.delete(action.poopId);
-      return world;
-    }
+    if (dx * dx + dy * dy <= POOP_HIT_RADIUS_SQ) hitSpark = spark;
+  }
+  if (hitSpark !== null) {
+    hitSpark.poopyUntilTick = world.tick + POOP_SLOW_TICKS;
+    // One-time impulse halve of the implicit Verlet velocity (pos-prevPos) — NOT a per-substep
+    // scale (which would exponentially decay the spark to a stop). The carry-follow scale
+    // handles the dragged case; the tint shows poopiness until poopyUntilTick.
+    hitSpark.prevPos.x = hitSpark.pos.x - (hitSpark.pos.x - hitSpark.prevPos.x) * POOP_SLOW_MULTIPLIER;
+    hitSpark.prevPos.y = hitSpark.pos.y - (hitSpark.pos.y - hitSpark.prevPos.y) * POOP_SLOW_MULTIPLIER;
+    world.poops.delete(action.poopId);
+    return world;
   }
 
   // 3) floor → harmless ground splat.
@@ -213,8 +219,11 @@ export function applyPoopTick(world: World, action: PoopTickAction): World {
 /**
  * S79 P3 (HIGH-1) — re-derive the foul set from FIRST PRINCIPLES: fouled = the union of the
  * CURRENT connected components of every live structure-splat's anchor prim. Called after any
- * topology mutation that deletes prims or splits components (sever cascade — which the bomb
- * also routes through — and the potato AoE). Fixes BOTH S78 audit defects in one pass:
+ * topology mutation: destroys that delete prims or split components (sever cascade — which
+ * the bomb also routes through — and the potato AoE), and S80: placements that bond into or
+ * merge with a fouled component (PLACE_PRIMITIVE / PLACE_FROM_FREE in world.ts — the new prim
+ * joins the foul immediately instead of retroactively at the next unrelated destroy event).
+ * Fixes BOTH S78 audit defects in one pass:
  *   (a) stale-id leak — a destroyed prim is unreachable from any anchor, so it drops out
  *       (pre-fix it sat in the Set forever, and a reused... id space is monotonic, but the
  *       Set grew unbounded across a long match);

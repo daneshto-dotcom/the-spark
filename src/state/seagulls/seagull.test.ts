@@ -22,7 +22,7 @@ import type { Primitive } from '../../game/primitive.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
 import { makeFreeSpark } from '../../game/spark.ts';
 import { asBondId, asPlayerId, asPoopId, asPrimitiveId, asSparkId } from '../../types.ts';
-import { makeWorld, type World } from '../world.ts';
+import { dispatch, makeWorld, type World } from '../world.ts';
 import { computeComplexity } from '../scoring.ts';
 import { restore, snapshot } from '../save.ts';
 import { severSplit } from '../../game/structure.ts';
@@ -265,6 +265,79 @@ describe('S79 P3 (HIGH-1) — fouledPrimitives stays consistent across destroy p
     w.poops.set(splat.id, splat);
     applyCleanPoop(w, { type: 'CLEAN_POOP', poopId: asPoopId(0) });
     expect(w.poops.size).toBe(0);
+  });
+});
+
+describe('S80 — poop collision lowest-id equivalence + foul-on-merge consistency', () => {
+  it('collision picks the LOWEST-id primitive among ALL hits regardless of Map insertion order', () => {
+    const w = baseWorld();
+    // Insert in non-ascending order so Map iteration order ≠ id order — the S80
+    // zero-allocation selection must still pick the lowest id (the exact primitive the
+    // pre-S80 sorted-first-hit loop picked), not the first-inserted.
+    addPrim(w, 9, 500, 400);
+    addPrim(w, 2, 505, 400);
+    addPrim(w, 5, 495, 400);
+    const poop = makePoop({ id: asPoopId(0), pos: { x: 500, y: 395 }, spawnedAtTick: 0 });
+    w.poops.set(poop.id, poop);
+    applyPoopTick(w, { type: 'POOP_TICK', poopId: asPoopId(0) }); // falls to y=402 → all 3 in radius
+    expect(poop.state).toBe('SPLAT_STRUCTURE');
+    expect(poop.fouledPrimId).toBe(asPrimitiveId(2));
+    expect(w.fouledPrimitives.has(asPrimitiveId(2))).toBe(true);
+  });
+
+  it('collision picks the LOWEST-id Free spark among hits and consumes the poop', () => {
+    const w = baseWorld();
+    w.tick = 50;
+    const mk = (id: number, x: number) =>
+      makeFreeSpark({
+        id: asSparkId(id), type: SparkType.Dot, pos: { x, y: 540 },
+        velocity: { x: 30, y: 0 }, dt: 1 / 60, createdTick: 0,
+      });
+    const s7 = mk(7, 960);
+    const s3 = mk(3, 962);
+    w.freeSparks.set(s7.id, s7); // inserted FIRST but higher id
+    w.freeSparks.set(s3.id, s3);
+    w.poops.set(asPoopId(0), makePoop({ id: asPoopId(0), pos: { x: 961, y: 535 }, spawnedAtTick: 0 }));
+    applyPoopTick(w, { type: 'POOP_TICK', poopId: asPoopId(0) }); // falls to 542 → both in radius
+    expect(s3.poopyUntilTick).toBe(50 + POOP_SLOW_TICKS); // lowest id takes the hit
+    expect(s7.poopyUntilTick).toBeUndefined();
+    expect(w.poops.size).toBe(0);
+  });
+
+  it('bonding a new prim into a fouled structure fouls it IMMEDIATELY (reconcile on placement)', () => {
+    const w = baseWorld();
+    const a = addPrim(w, 1, 100, 400);
+    const b = addPrim(w, 2, 220, 400);
+    connect(w, 10, a, b);
+    const splat = makePoop({ id: asPoopId(0), pos: { x: 100, y: 400 }, spawnedAtTick: 0 });
+    splat.state = 'SPLAT_STRUCTURE';
+    splat.landedAtTick = 0;
+    splat.fouledPrimId = a.id;
+    w.poops.set(splat.id, splat);
+    for (const p of [a, b]) w.fouledPrimitives.add(p.id);
+    expect(computeComplexity(w, P1)).toBe(0);
+
+    // Place a new prim bonded onto `b` via the REAL dispatch path (PICKUP → PLACE).
+    const spark = makeFreeSpark({
+      id: asSparkId(0), type: SparkType.Dot, pos: { x: 260, y: 400 },
+      velocity: { x: 0, y: 0 }, dt: 1 / 60, createdTick: 0,
+    });
+    w.freeSparks.set(spark.id, spark);
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: spark.id, playerId: P1, pos: spark.pos });
+    dispatch(w, { type: 'PLACE_PRIMITIVE', playerId: P1, targetPrimitiveId: b.id, stiffnessTier: 'MID' });
+
+    expect(w.primitives.size).toBe(3); // placement actually happened (not a silent reject)
+    const newPrimId = [...w.primitives.keys()].find((id) => id !== a.id && id !== b.id);
+    expect(newPrimId).toBeDefined();
+    // Pre-S80: the new prim earned income on a pooped building until an unrelated destroy
+    // event retroactively fouled it. Now it joins the foul at placement time.
+    expect(w.fouledPrimitives.has(newPrimId as typeof a.id)).toBe(true);
+    expect(computeComplexity(w, P1)).toBe(0);
+
+    // Cleaning the splat still unfouls the WHOLE grown component including the new prim.
+    applyCleanPoop(w, { type: 'CLEAN_POOP', poopId: splat.id });
+    expect(w.fouledPrimitives.size).toBe(0);
+    expect(computeComplexity(w, P1)).toBeGreaterThan(0);
   });
 });
 

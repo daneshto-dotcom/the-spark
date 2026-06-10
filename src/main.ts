@@ -759,10 +759,14 @@ async function bootstrap(): Promise<void> {
       // collide + TTL); (c) CLEAN a structure-splat when its anchor prim is gone (orphan sweep)
       // OR any avatar is within POOP_CLEAN_RADIUS (host-detected — NO client intent). Snapshot
       // the keys first (a tick may delete from the Map mid-iteration).
-      if (world.gameState === 'PLAYING' && !isClient) {
+      // S80 — size>0 gates match the bomb/potato/rainbow poll idiom (those blocks already
+      // guard), skipping three per-tick array allocations in the common no-hazard case.
+      if (world.gameState === 'PLAYING' && !isClient && world.seagulls.size > 0) {
         for (const sid of Array.from(world.seagulls.keys())) {
           dispatch(world, { type: 'SEAGULL_TICK', seagullId: sid });
         }
+      }
+      if (world.gameState === 'PLAYING' && !isClient && world.poops.size > 0) {
         for (const pid of Array.from(world.poops.keys())) {
           dispatch(world, { type: 'POOP_TICK', poopId: pid });
         }
@@ -773,6 +777,12 @@ async function bootstrap(): Promise<void> {
             continue;
           }
           for (const player of world.players.values()) {
+            // S80 — a BENCHED player (hunter catch / potato cook-off: avatar hidden, input
+            // locked, avatarPos frozen at the catch spot) must not silently wipe a splat
+            // that happens to land near their frozen position — cleaning is an ACTIVE move.
+            if (player.benchedUntilTick !== undefined && world.tick < player.benchedUntilTick) {
+              continue;
+            }
             const dx = player.avatarPos.x - poop.pos.x;
             const dy = player.avatarPos.y - poop.pos.y;
             if (dx * dx + dy * dy <= POOP_CLEAN_RADIUS * POOP_CLEAN_RADIUS) {

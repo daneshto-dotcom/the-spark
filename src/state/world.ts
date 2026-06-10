@@ -87,6 +87,7 @@ import {
   applyPoopTick,
   applySeagullTick,
   applySpawnSeagull,
+  reconcileFouledPrimitives,
   teardownSeagulls,
   type CleanPoopAction,
   type PoopTickAction,
@@ -302,11 +303,24 @@ export function dispatch(world: World, action: GameAction): World {
     case 'DROP_SPARK':
       return applyDropSpark(world, action);
 
-    case 'PLACE_PRIMITIVE':
-      return placePrimitive(world, action);
+    case 'PLACE_PRIMITIVE': {
+      // S80 — placement can BOND into (or merge structures with) a poop-fouled component;
+      // re-derive the foul set so it always equals the splat-anchors' CURRENT components.
+      // Pre-S80 the new prim stayed un-fouled until some unrelated destroy event triggered
+      // a reconcile — a timing-dependent inconsistency (income + tint flipped retroactively).
+      // No-op (early-out) in the common nothing-fouled case.
+      placePrimitive(world, action);
+      reconcileFouledPrimitives(world);
+      return world;
+    }
 
-    case 'PLACE_FROM_FREE':
-      return applyPlaceFromFree(world, action);
+    case 'PLACE_FROM_FREE': {
+      // S80 — same foul-set consistency as PLACE_PRIMITIVE (this is the second bond-forming
+      // placement path).
+      applyPlaceFromFree(world, action);
+      reconcileFouledPrimitives(world);
+      return world;
+    }
 
     // S61 P1 — SEVER_BOND orchestrator extracted to severBond.ts (§XV
     // de-hypertrophy). Effect ordering + charge semantics preserved verbatim;
