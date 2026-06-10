@@ -137,6 +137,13 @@ export interface WorldSnapshot {
    */
   rainbows?: SerializedRainbow[];
   /**
+   * S84 P2 — tick of the most recent rainbow colour-switch; drives the flyover
+   * celebration window + yell on every peer. Additive-optional (S82
+   * poopedUntilTick precedent — NO schemaVersion bump): emitted only when set,
+   * pre-S84 payloads omit it and rehydrate as undefined (flyover inactive).
+   */
+  rainbowSwitchTick?: number;
+  /**
    * S77 P3 — host-authoritative seagulls + their poop projectiles for the 1v1 client mirror +
    * host save/load. Additive-optional; emitted only when non-empty so pre-S77 saves stay
    * byte-identical. `fouledPrimitives` round-trips the host income-halt set so a save/load (+
@@ -491,6 +498,8 @@ export function snapshot(
     rainbows: world.rainbows.size > 0
       ? [...world.rainbows.values()].map(serializeRainbow)
       : undefined,
+    // S84 P2 — emit the flyover switch tick only when set (byte-identical pre-S84).
+    rainbowSwitchTick: world.rainbowSwitchTick,
     // S77 P3 — emit seagulls/poops/fouled-prims only when present (byte-identical pre-S77).
     seagulls: world.seagulls.size > 0
       ? [...world.seagulls.values()].map(serializeSeagull)
@@ -675,6 +684,9 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
     }
     if (maxRainbowId >= 0) world.nextRainbowId = maxRainbowId + 1;
   }
+  // S84 P2 — flyover switch tick: plain assign (undefined when the snapshot omits it,
+  // which also clears a stale local value if the host's window was torn down).
+  world.rainbowSwitchTick = snap.rainbowSwitchTick;
 
   // S77 P3 — seagulls + poops: clear + rehydrate (mirror of the hunter/potato pattern). Reset
   // the mint counters past the max loaded id (host save/load). Client never mints (no-op there).

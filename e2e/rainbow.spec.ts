@@ -107,6 +107,27 @@ test.describe('S75 P3 — rainbow color-shuffle (solo, gating)', () => {
       'colour shuffled: player + structure recoloured in lockstep, rainbow consumed',
     );
 
+    // S84 P2 — the switch opens the flyover celebration window (synced rainbowSwitchTick →
+    // renderer active) and it self-closes after RAINBOW_FLYOVER_DURATION_TICKS (240 = 4s).
+    await expect
+      .poll(
+        () => page.evaluate(() => {
+          const g = globalThis as { __SPARK__?: { rainbowFlyoverActive?: boolean } };
+          return g.__SPARK__?.rainbowFlyoverActive ?? false;
+        }),
+        { message: 'flyover window opened (switchTick stamped + renderer active)', timeout: 3_000 },
+      )
+      .toBe(true);
+    await expect
+      .poll(
+        () => page.evaluate(() => {
+          const g = globalThis as { __SPARK__?: { rainbowFlyoverActive?: boolean } };
+          return g.__SPARK__?.rainbowFlyoverActive ?? false;
+        }),
+        { message: 'flyover self-closed after its 4s window', timeout: 10_000 },
+      )
+      .toBe(false);
+
     expect(pageErrors, `uncaught errors:\n${pageErrors.join('\n')}`).toEqual([]);
   });
 });

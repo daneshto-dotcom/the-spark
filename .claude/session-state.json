@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 203,
+  "tool_calls_session_total": 291,
   "session_id": "S84",
   "session_kind": "execution",
   "session_start": "2026-06-10T18:00:00.000Z",
@@ -14,15 +14,20 @@
     {
       "id": "P1",
       "label": "S84 P1 — POOPED-CRUISER PICKUP GATE: while poop-debuffed, PICKUP_SPARK requires avatar arrival within POOP_PICKUP_ARRIVAL_RADIUS of the spark",
-      "status": "in_progress",
-      "phase": "DO",
+      "status": "completed",
+      "phase": "ACT",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "objective": "Pooped players' cursors must not grab free sparks at full mouse speed; the 7px/tick chasing avatar must physically arrive first. Silent reject + diagnostics counter; host-authoritative; zero wire change.",
       "scope": "src/constants.ts, src/state/sparkLifecycle.ts, src/state/worldTypes.ts (diagnostics key), src/state/sparkLifecycle.test.ts",
-      "testing": "reject-far / allow-near / allow-after-expiry / allow-not-pooped / counter increment; full vitest + tsc"
+      "testing": "reject-far / allow-near / allow-after-expiry / allow-not-pooped / counter increment; full vitest + tsc",
+      "check_completed": true,
+      "check_method": "S84 P1 (commit 3feb7ef): gate inserted in applyPickupSpark AFTER the remote reach check, BEFORE fsmPickup commit — isCruiserDebuffed(player, world.tick) && distSq(spark.pos, avatarPos) > POOP_PICKUP_ARRIVAL_RADIUS(36)^2 -> raceRejects++ + NEW rejectReasons.pickupPoopedTooFar++ + silent return (race-reject precedent S42/S48). Import-cycle check done: gameMode.ts imports world.ts TYPE-ONLY so sparkLifecycle->gameMode edge creates no runtime cycle. Gate is a pure function of synced fields (poopedUntilTick + avatarPos + spark.pos all ride NetSnapshot) so optimistic client dispatch and host-authoritative dispatch agree by construction (Grok desync challenge resolved). Boundary semantics: > comparison means distSq==R^2 counts as arrived; radius 36 > 2 chase steps (7px) prevents click-vs-dispatch oscillation. GATES: 5 new unit tests (reject-far w/ cursor ON spark proving avatar-keyed; allow-near 14.1px; exact-boundary 36px allowed; expired-debuff ungated; un-pooped far ungated = pre-S84 behavior) — suite 20/20; FULL vitest 1252/1252; tsc clean. Live-behavior verification deferred to the P2 combined preview smoke + CI e2e lane on 3feb7ef (logged, not dropped).",
+      "checkpoint_commit": "3feb7ef",
+      "real_context_tokens_at_close": 239178,
+      "real_context_pct_at_close": 23.9
     },
     {
       "id": "P2",
@@ -48,6 +53,9 @@
   },
   "generative_cost_cap_usd": 10,
   "generative_cost_spent_prior_usd": 3.0,
+  "reflexion_entries_to_archive": [
+    "P1 #recon-agents-map-the-wrong-verb #users-speak-in-avatars-not-actions: the recon agent read 'grab the primitives' as PLACE (the action that consumes a carried spark) because placement is where the existing validation blocks live — but the user's sentence structure ('until spark doesnt get to them he shouldnt be able to grab THEM') named the TARGET of the grab, and free sparks are what you grab. Reading applyPickupSpark directly settled it in one file: the only reach check was remote-only and cursor-keyed, so the debuff provably never bit for collecting. LESSON: when a user phrase maps to two candidate actions, diff the CANDIDATE VALIDATION PATHS — the bug lives where the check is MISSING, not where checks already exist. Second: the gate had to key on synced-field purity (poopedUntilTick/avatarPos/spark.pos) so optimistic and authoritative dispatch agree by construction — same construction S82 used for the cursor-target write."
+  ],
   "budget_total": 1000000,
   "session_status": "S84 OPEN — recon in flight; PDR pending Council deliberation",
   "totals": {

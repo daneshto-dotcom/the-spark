@@ -34,7 +34,7 @@
  *   - clamp01(n)
  */
 
-import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
+import { CANVAS_HEIGHT, CANVAS_WIDTH, RAINBOW_YELL_FRESH_TICKS } from '../constants.ts';
 import type { GameEffect } from '../game/effects.ts';
 import type { Vec2 } from '../types.ts';
 // Audit Pass 2 fix 622a7c7f — register the cursor-reset handler with the
@@ -663,6 +663,7 @@ export function _resetAudioForTest(): void {
   musicVolume = DEFAULT_MUSIC_VOLUME;
   sfxVolume = DEFAULT_SFX_VOLUME;
   lastDrainedTick = -1;
+  lastYelledSwitchTick = -1; // S84 P2 — yell latch follows the cursor lifecycle
   // S52 P3 — clear duck schedule state. No setTimeout to clear post-S52
   // (Web Audio automation queue is dropped when audioContext goes null).
   duckEndCtxTime = 0;
@@ -941,9 +942,33 @@ export function drainAudioEffects(effects: ReadonlyArray<GameEffect>, currentTic
   lastDrainedTick = currentTick;
 }
 
+// === S84 P2 — rainbow flyover yell ===
+const RAINBOW_YELL_URL = '/audio/rainbow-yell.ogg';
+let lastYelledSwitchTick = -1;
+
+/**
+ * Fire the flyover yell when a fresh world.rainbowSwitchTick is FIRST observed.
+ * Field-keyed, NOT effect-keyed: the 10Hz NetSnapshot samples world.effects live
+ * while effectsRenderer wipes it per frame, so a once-per-match one-shot effect
+ * reaches the 1v1 client only ~1/6 of the time — the synced field rides every
+ * snapshot instead (S84 Council A.0 probe). Freshness window: a late joiner or a
+ * snapshot restored mid-window skips the scream but still sees the remaining
+ * flyover. Non-spatial — the event is a whole-screen celebration, not a point
+ * source. Latch resets with the drain cursor (same publisher lifecycle).
+ */
+export function syncRainbowYellAudio(world: { rainbowSwitchTick?: number; tick: number }): void {
+  const switchTick = world.rainbowSwitchTick;
+  if (switchTick === undefined || switchTick === lastYelledSwitchTick) return;
+  const age = world.tick - switchTick;
+  if (age < 0 || age > RAINBOW_YELL_FRESH_TICKS) return;
+  lastYelledSwitchTick = switchTick;
+  void playOneShot(RAINBOW_YELL_URL);
+}
+
 /** Reset the drain cursor. Used by tests and on world reset (RETURN_TO_TITLE). */
 export function resetAudioDrainCursor(): void {
   lastDrainedTick = -1;
+  lastYelledSwitchTick = -1; // S84 P2 — yell latch shares the cursor lifecycle
 }
 
 // Audit Pass 2 fix 622a7c7f — register with the state-layer publisher at

@@ -170,3 +170,42 @@ describe('rainbowLifecycle — applyTriggerRainbow (global colour remap)', () =>
     expect(PLAYER_COLORS).toContain(w.players.get(P0)!.color);
   });
 });
+
+describe('S84 P2 — rainbowSwitchTick (flyover celebration window)', () => {
+  it('TRIGGER stamps world.rainbowSwitchTick with the trigger tick', () => {
+    const w = duelWorld();
+    w.tick = 777;
+    applySpawnRainbow(w, { type: 'SPAWN_RAINBOW', pos: { x: 960, y: 540 } });
+    expect(w.rainbowSwitchTick).toBeUndefined();
+    applyTriggerRainbow(w, { type: 'TRIGGER_RAINBOW', playerId: P0, rainbowId: asRainbowId(0) });
+    expect(w.rainbowSwitchTick).toBe(777);
+  });
+
+  it('a SECOND switch overwrites the tick (restart semantics — Council row 8)', () => {
+    const w = duelWorld();
+    w.tick = 100;
+    applySpawnRainbow(w, { type: 'SPAWN_RAINBOW', pos: { x: 960, y: 540 } });
+    applyTriggerRainbow(w, { type: 'TRIGGER_RAINBOW', playerId: P0, rainbowId: asRainbowId(0) });
+    w.tick = 150;
+    applySpawnRainbow(w, { type: 'SPAWN_RAINBOW', pos: { x: 400, y: 400 } });
+    applyTriggerRainbow(w, { type: 'TRIGGER_RAINBOW', playerId: P0, rainbowId: asRainbowId(1) });
+    expect(w.rainbowSwitchTick).toBe(150);
+  });
+
+  it('an idempotent re-click (consumed rainbow) does NOT re-stamp the window', () => {
+    const w = duelWorld();
+    w.tick = 100;
+    applySpawnRainbow(w, { type: 'SPAWN_RAINBOW', pos: { x: 960, y: 540 } });
+    applyTriggerRainbow(w, { type: 'TRIGGER_RAINBOW', playerId: P0, rainbowId: asRainbowId(0) });
+    w.tick = 130;
+    applyTriggerRainbow(w, { type: 'TRIGGER_RAINBOW', playerId: P0, rainbowId: asRainbowId(0) });
+    expect(w.rainbowSwitchTick).toBe(100); // first-click-wins, no restart from ghosts
+  });
+
+  it('DISSIPATE never opens the window (harmless TTL expiry)', () => {
+    const w = duelWorld();
+    applySpawnRainbow(w, { type: 'SPAWN_RAINBOW', pos: { x: 500, y: 500 } });
+    applyDissipateRainbow(w, { type: 'DISSIPATE_RAINBOW', rainbowId: asRainbowId(0) });
+    expect(w.rainbowSwitchTick).toBeUndefined();
+  });
+});

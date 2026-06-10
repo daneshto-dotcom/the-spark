@@ -96,6 +96,9 @@ export function applyTriggerRainbow(world: World, action: TriggerRainbowAction):
   const rainbow = world.rainbows.get(action.rainbowId);
   if (rainbow === undefined) return world; // already triggered / dissipated (first-click-wins)
   world.rainbows.delete(action.rainbowId);
+  // S84 P2 — stamp the switch tick: every peer's flyover celebration + yell key off
+  // this synced field (see worldTypes docblock). Overwrite-on-retrigger = restart.
+  world.rainbowSwitchTick = world.tick;
 
   // Active colours = those currently held by a player (the set the derangement must move).
   const activeColors = new Set<number>();

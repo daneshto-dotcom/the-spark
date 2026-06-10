@@ -26,6 +26,7 @@ import {
   mapPanningPosition,
   nextDuckEndCtxTime,
   resetAudioDrainCursor,
+  syncRainbowYellAudio,
   setMusicMuted,
   setMusicVolume,
   setSfxMuted,
@@ -477,5 +478,29 @@ describe('audioManager — nextDuckEndCtxTime (pure)', () => {
 
   it('zero-current with positive duration returns candidate (no negative-end regression)', () => {
     expect(nextDuckEndCtxTime(0, 5.5, 100)).toBeCloseTo(5.6, 5);
+  });
+});
+
+describe('audioManager — syncRainbowYellAudio (S84 P2 field-keyed yell latch)', () => {
+  beforeEach(() => {
+    resetAudioDrainCursor(); // also resets the yell latch (shared lifecycle)
+  });
+
+  it('no-ops without throwing when no switch is set (jsdom, no AudioContext)', () => {
+    expect(() => syncRainbowYellAudio({ tick: 100 })).not.toThrow();
+    expect(() => syncRainbowYellAudio({ tick: 100, rainbowSwitchTick: undefined })).not.toThrow();
+  });
+
+  it('accepts a fresh switch without throwing (play itself no-ops headless)', () => {
+    expect(() => syncRainbowYellAudio({ tick: 105, rainbowSwitchTick: 100 })).not.toThrow();
+    // Latched: re-observing the same switchTick every frame must stay silent + safe.
+    expect(() => syncRainbowYellAudio({ tick: 106, rainbowSwitchTick: 100 })).not.toThrow();
+  });
+
+  it('skips stale switches (older than RAINBOW_YELL_FRESH_TICKS) and rewound ticks', () => {
+    // age > freshness window (late joiner) — must not throw, must not latch-play
+    expect(() => syncRainbowYellAudio({ tick: 1000, rainbowSwitchTick: 100 })).not.toThrow();
+    // negative age (snapshot rewound below the stamp) — guarded
+    expect(() => syncRainbowYellAudio({ tick: 50, rainbowSwitchTick: 100 })).not.toThrow();
   });
 });

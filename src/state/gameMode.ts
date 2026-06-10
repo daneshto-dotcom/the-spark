@@ -163,6 +163,8 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   // S75 P3 — clear any lingering rainbow at match start (same all-hazards invariant).
   world.rainbows.clear();
   world.nextRainbowId = 0;
+  // S84 P2 — a fresh match must not resume (or re-yell) a previous match's flyover.
+  world.rainbowSwitchTick = undefined;
   // S77 P3 — clear seagulls/poops/fouled-prims at match start (same all-hazards invariant).
   world.seagulls.clear();
   world.nextSeagullId = 0;
@@ -273,6 +275,8 @@ export function applyReturnToTitle(world: World): World {
   // S75 P3 — clear rainbows on title-return (mirror of potatoes/hunters/bombs/creatures).
   world.rainbows.clear();
   world.nextRainbowId = 0;
+  // S84 P2 — drop any in-flight flyover with the rest of the hazard state.
+  world.rainbowSwitchTick = undefined;
   // S77 P3 — clear seagulls/poops/fouled-prims on title-return (mirror of the other hazards).
   world.seagulls.clear();
   world.nextSeagullId = 0;

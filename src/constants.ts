@@ -571,6 +571,17 @@ export const RAINBOW_RADIUS = 28; // visual + pick radius (a chunky, clearly-cli
 // point is rare for <=6 colours so this is seldom hit; the fallback (last unique permutation)
 // still guarantees the hard uniqueness constraint ("no two players the same colour"). Council DR5.
 export const RAINBOW_DERANGEMENT_MAX_REROLLS = 12;
+// === S84 P2 — rainbow flyover event (the colour-switch celebration) ===
+// On TRIGGER_RAINBOW the host stamps world.rainbowSwitchTick; every peer renders the
+// flyover (dumb rainbow character arcs L->R + trippy background wash) for the window
+// below, keyed purely off (world.tick - rainbowSwitchTick) — deterministic, no RNG,
+// no wall-clock. 240 ticks = 4s @60Hz: long enough to land the joke + hear the full
+// ~2.7s yell, short enough not to outstay the welcome. Playtest knob.
+export const RAINBOW_FLYOVER_DURATION_TICKS = 240;
+// The yell only fires if the switch is OBSERVED fresh (joiner arriving later than 1s
+// into the event sees the remaining flyover but skips the scream; also guards replays
+// from a restored snapshot mid-window double-firing on top of the cursor reset).
+export const RAINBOW_YELL_FRESH_TICKS = 60;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // S77 P3 — SEAGULL hazard (+ its poop projectiles). A seagull flies across the top

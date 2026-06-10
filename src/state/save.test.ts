@@ -735,3 +735,26 @@ describe('S72 P3 — potato snapshot round-trip', () => {
     expect(w2.potatoes.size).toBe(0); // restore cleared it
   });
 });
+
+describe('S84 P2 — rainbowSwitchTick snapshot round-trip', () => {
+  it('roundtrips the switch tick via snapshot → JSON → restore (flyover window resumes)', () => {
+    const w1 = makeWorld(1);
+    w1.tick = 500;
+    w1.rainbowSwitchTick = 460; // mid-window
+    const snap = JSON.parse(JSON.stringify(snapshot(w1)));
+    const w2 = makeWorld(2);
+    restore(snap, w2);
+    expect(w2.rainbowSwitchTick).toBe(460);
+  });
+
+  it('omits the field when unset (byte-identical pre-S84 wire) and clears stale local state', () => {
+    const w1 = makeWorld(1);
+    const snap = snapshot(w1);
+    expect(snap.rainbowSwitchTick).toBeUndefined();
+    expect(JSON.stringify(snap)).not.toContain('rainbowSwitchTick'); // truly absent on the wire
+    const w2 = makeWorld(2);
+    w2.rainbowSwitchTick = 123; // stale local window (e.g. host tore the match down)
+    restore(JSON.parse(JSON.stringify(snap)), w2);
+    expect(w2.rainbowSwitchTick).toBeUndefined(); // plain-assign clears it
+  });
+});

@@ -72,7 +72,7 @@ import { computeStubTargetPos } from './physics/creatureVerlet.ts';
 import { bondMidpoint, findNearestBondTarget } from './state/creatures/creatureAI.ts';
 import { VOLTKIN_ATTACK_FIRE_TICK } from './state/creatures/creature.ts';
 import { AvatarRenderer } from './render/avatarRenderer.ts';
-import { drainAudioEffects, initAudio, isMuted, playMusic, toggleMute } from './render/audioManager.ts';
+import { drainAudioEffects, initAudio, isMuted, playMusic, syncRainbowYellAudio, toggleMute } from './render/audioManager.ts';
 // S50 P2 — Audit Pass 2 refactor 622a7c7f: triggerReset is now called from
 // inside teardownNet (extracted to src/net/session.ts). No direct main.ts
 // import required.
@@ -93,6 +93,7 @@ import { BombRenderer } from './render/bombRenderer.ts';
 import { HunterRenderer } from './render/hunterRenderer.ts';
 import { PotatoRenderer } from './render/potatoRenderer.ts';
 import { RainbowRenderer } from './render/rainbowRenderer.ts';
+import { RainbowFlyoverRenderer } from './render/rainbowFlyoverRenderer.ts';
 import { SeagullRenderer } from './render/seagullRenderer.ts';
 import { PoopRenderer } from './render/poopRenderer.ts';
 import { ScreenShake, shouldTriggerShakeForArcFlash } from './render/screenShake.ts';
@@ -319,6 +320,10 @@ async function bootstrap(): Promise<void> {
   // S75 P3 — rainbow (dumb arc + tooth + bob); S77 P2 -> aboveFogLayer (global colour-shuffle,
   // visible to all so any player can find + click it). Pure Pixi vector; host + client.
   const rainbowRenderer = new RainbowRenderer(app, aboveFogLayer);
+  // S84 P2 — flyover celebration on the colour-switch (synced rainbowSwitchTick window).
+  // Backdrop goes to app.stage index 0 (true background); wash/beams/character ride
+  // aboveFogLayer (global-reach, same visibility rule as the rainbow pickup).
+  const rainbowFlyoverRenderer = new RainbowFlyoverRenderer(app, aboveFogLayer);
   // S77 P3 — seagull + poop; S77 -> aboveFogLayer (a global-reach hazard — it can poop on any
   // player — so it renders through the fog to all). Poops render above the gull's body layer.
   const seagullRenderer = new SeagullRenderer(app, aboveFogLayer);
@@ -459,6 +464,8 @@ async function bootstrap(): Promise<void> {
       // through the fog (aboveFogLayer sits above the fog container).
       get potatoRenderer() { return potatoRenderer; },
       get aboveFogLayer() { return aboveFogLayer; },
+      // S84 P2 — flyover e2e probe: active-window flag for rainbow.spec assertions.
+      get rainbowFlyoverActive() { return rainbowFlyoverRenderer.isActive(); },
       // S82 P2 — full-fidelity save/load seams (DEV-only, tree-shaken from prod). The
       // ONLY call sites that pass spawner state into snapshot() — netSnapshot() never
       // does, keeping the stream words off the wire by construction. restoreWorld
@@ -1236,6 +1243,10 @@ async function bootstrap(): Promise<void> {
     potatoRenderer.sync(world);
     // S75 P3 — rainbow (dumb arc + tooth + bob), before the effects wipe.
     rainbowRenderer.sync(world);
+    // S84 P2 — flyover celebration window + its yell (both keyed off the synced
+    // rainbowSwitchTick field, not world.effects — see renderer docblock).
+    rainbowFlyoverRenderer.sync(world);
+    syncRainbowYellAudio(world);
     // S77 P3 — seagull (flapping gull + shadow) + poop (falling/splat), before the effects wipe.
     seagullRenderer.sync(world);
     poopRenderer.sync(world);

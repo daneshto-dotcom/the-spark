@@ -169,6 +169,17 @@ export interface World {
   /** S75 P3 — monotonic rainbow id counter (host-only mint authority). */
   nextRainbowId: number;
   /**
+   * S84 P2 — tick of the most recent rainbow colour-switch (host stamps in
+   * applyTriggerRainbow). Drives the flyover celebration render window +
+   * yell audio on EVERY peer: rides NetSnapshot additive-optional (a one-shot
+   * GameEffect would be lost ~5/6 of the time — the 10Hz snapshot samples
+   * world.effects live while effectsRenderer wipes it per frame; Council S84
+   * A.0 probe). A second switch overwrites the tick = restart semantics; a
+   * late joiner sees the remaining window. Cleared on START_GAME +
+   * RETURN_TO_TITLE with the other hazard state.
+   */
+  rainbowSwitchTick?: number;
+  /**
    * S77 P3 — host-authoritative seagulls (SEPARATE Map, mirroring the other hazards). A
    * RECURRING hazard: the spawner cadence mints one ~every 2 min (gated SEAGULL_MAX_ACTIVE).
    * Flies across the top dropping poop. Additive-optional `seagulls[]` in NetSnapshot so
