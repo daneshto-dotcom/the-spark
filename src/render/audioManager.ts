@@ -958,7 +958,10 @@ let lastYelledSwitchTick = -1;
  */
 export function syncRainbowYellAudio(world: { rainbowSwitchTick?: number; tick: number }): void {
   const switchTick = world.rainbowSwitchTick;
-  if (switchTick === undefined || switchTick === lastYelledSwitchTick) return;
+  // <= (not ===): the latch is monotonic. world.tick never rewinds outside restore()
+  // (which resets the latch), so a switchTick BELOW the last yelled one can only be
+  // pathological host output — skip it rather than re-yell (S84 CHECK Grok hardening).
+  if (switchTick === undefined || switchTick <= lastYelledSwitchTick) return;
   const age = world.tick - switchTick;
   if (age < 0 || age > RAINBOW_YELL_FRESH_TICKS) return;
   lastYelledSwitchTick = switchTick;

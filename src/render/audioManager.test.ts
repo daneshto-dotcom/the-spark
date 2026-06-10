@@ -504,3 +504,14 @@ describe('audioManager — syncRainbowYellAudio (S84 P2 field-keyed yell latch)'
     expect(() => syncRainbowYellAudio({ tick: 50, rainbowSwitchTick: 100 })).not.toThrow();
   });
 });
+
+describe('audioManager — yell latch monotonicity (S84 CHECK Grok hardening)', () => {
+  it('a rewound-but-distinct switchTick never re-fires (<= guard)', () => {
+    resetAudioDrainCursor();
+    // Yell-latch at 600, then a pathological snapshot carries 580 with age still
+    // fresh — the <= guard skips it (out-of-order snapshots are seq-dropped on the
+    // real wire; this is defense-in-depth against weird host output).
+    expect(() => syncRainbowYellAudio({ tick: 610, rainbowSwitchTick: 600 })).not.toThrow();
+    expect(() => syncRainbowYellAudio({ tick: 625, rainbowSwitchTick: 580 })).not.toThrow();
+  });
+});
