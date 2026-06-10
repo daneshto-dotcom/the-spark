@@ -1,3 +1,5 @@
+STATUS: COMPLETED (S79 P1-P6 + S80 P7 sharpening — all shipped, CI green on 1a89b0a)
+
 # PDR S79 — Batch: playtest round-2 (length + seagull/poop visibility) + carried audit fixes (2 HIGH + 4 MEDIUM + LOW sweep)
 
 ## S80 SCOPE AMENDMENT (Rule 16 — user-explicit: "sharpen every detail... any bug you find fix it")
