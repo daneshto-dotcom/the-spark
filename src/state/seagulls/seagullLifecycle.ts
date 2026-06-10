@@ -7,8 +7,9 @@
  *
  *   SPAWN_SEAGULL — minted by the spawner cadence (main.ts dispatch from the out-array,
  *                   gated SEAGULL_MAX_ACTIVE). Carries the edge pos + horizontal vx.
- *   SEAGULL_TICK  — advance one frame (LINEAR sim: pos.x += vx); drop a poop on the FIXED
- *                   POOP_DROP_INTERVAL_TICKS (no RNG); despawn when off-screen. Fanned out
+ *   SEAGULL_TICK  — advance one frame (LINEAR sim: pos.x += vx); drop a poop on a hash-derived
+ *                   RANDOM interval in [POOP_DROP_MIN, MAX] (S81 P3 — pure fn of (id,
+ *                   lastPoopTick), no RNG stream); despawn when off-screen. Fanned out
  *                   per gull in main.ts (host-only).
  *   POOP_TICK     — fall; on contact FOUL the hit primitive's whole connected structure
  *                   (component) → world.fouledPrimitives (tickScoring zeroes that structure's
@@ -19,7 +20,7 @@
  *                   canAvatarCleanSplat; S81 P1: enemies can no longer wipe your splat for
  *                   you. The reducer itself stays owner-agnostic; dispatchable for tests).
  *
- * Determinism: LINEAR flight + FIXED-interval drops (no RNG); collision uses squared-distance
+ * Determinism: LINEAR flight + hash-derived drop intervals (stateless — no RNG); collision uses squared-distance
  * + LOWEST-id hit selection (S80 — allocation-free equivalent of the original sorted-id
  * first-hit; identical pick, locked by a differential test); component foul/clean BFS
  * returns sorted ids.
@@ -30,7 +31,8 @@ import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   POOP_CLEAN_RADIUS,
-  POOP_DROP_INTERVAL_TICKS,
+  POOP_DROP_MAX_TICKS,
+  POOP_DROP_MIN_TICKS,
   POOP_FALL_SPEED,
   POOP_GROUND_TTL_TICKS,
   POOP_HIT_RADIUS,
@@ -51,6 +53,34 @@ import { makePoop, makeSeagull, type Poop } from './seagull.ts';
 const POOP_HIT_RADIUS_SQ = POOP_HIT_RADIUS * POOP_HIT_RADIUS;
 /** A poop at/under this y has hit the floor → harmless ground splat. */
 const POOP_FLOOR_Y = CANVAS_HEIGHT;
+
+/**
+ * S81 P3 — avalanche-mix two uint32s into one (murmur3-finalizer shape). Pure + branchless;
+ * the bit stirring makes consecutive lastPoopTick values land anywhere in [0, 2^32).
+ */
+function mix32(a: number, b: number): number {
+  let h = (Math.imul(a | 0, 0x9e3779b9) ^ Math.imul(b | 0, 0x85ebca6b)) >>> 0;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x45d9f3b) >>> 0;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x45d9f3b) >>> 0;
+  h ^= h >>> 16;
+  return h >>> 0;
+}
+
+/**
+ * S81 P3 — per-drop poop interval in [POOP_DROP_MIN_TICKS, POOP_DROP_MAX_TICKS], derived from
+ * a PURE hash of (seagullId, lastPoopTick). User round-3: random intervals, 'different every
+ * time it passes' — both inputs vary per drop AND per gull (a later pass has a new id + new
+ * ticks), so every pass lays a different pattern. Stateless randomness: no RNG stream is
+ * consumed (the 5 seeded spawner streams stay byte-identical) and no new gull field exists;
+ * both hash inputs already round-trip save/load, so replay + a host reload reproduce the
+ * identical pattern. Exported for unit tests.
+ */
+export function poopDropIntervalTicks(seagullId: SeagullId, lastPoopTick: number): number {
+  const span = POOP_DROP_MAX_TICKS - POOP_DROP_MIN_TICKS + 1;
+  return POOP_DROP_MIN_TICKS + (mix32(seagullId as number, lastPoopTick) % span);
+}
 
 /** Action shapes — exported so world.ts can compose GameAction. */
 export interface SpawnSeagullAction {
@@ -107,8 +137,9 @@ export function applySpawnSeagull(world: World, action: SpawnSeagullAction): Wor
 }
 
 /**
- * Advance one seagull: LINEAR horizontal flight, FIXED-interval poop drops, off-screen despawn.
- * No RNG, no wall-clock — pure fn of (state, tick) → replay-safe.
+ * Advance one seagull: LINEAR horizontal flight, hash-derived random-interval poop drops
+ * (S81 P3), off-screen despawn. No RNG stream, no wall-clock — pure fn of (state, tick)
+ * → replay-safe.
  */
 export function applySeagullTick(world: World, action: SeagullTickAction): World {
   const gull = world.seagulls.get(action.seagullId);
@@ -126,9 +157,10 @@ export function applySeagullTick(world: World, action: SeagullTickAction): World
     return world;
   }
 
-  // Drop a poop on the FIXED interval (no RNG), capped to keep the snapshot small.
+  // Drop a poop on the hash-derived RANDOM interval (S81 P3 — no RNG stream; pure fn of
+  // (id, lastPoopTick) so it stays replay/save-load-safe), capped to keep the snapshot small.
   if (
-    world.tick - gull.lastPoopTick >= POOP_DROP_INTERVAL_TICKS &&
+    world.tick - gull.lastPoopTick >= poopDropIntervalTicks(gull.id, gull.lastPoopTick) &&
     world.poops.size < POOP_MAX_LIVE
   ) {
     gull.lastPoopTick = world.tick;

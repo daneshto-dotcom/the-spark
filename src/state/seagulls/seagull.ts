@@ -7,7 +7,8 @@
  * The seagull is a host-authoritative, RECURRING hazard (unlike the once-per-game hunter):
  * the spawner cadence mints one ~every 2 min (gated SEAGULL_MAX_ACTIVE). It flies straight
  * across the top at a constant horizontal velocity (SIM path is LINEAR — deterministic; the
- * renderer adds a cosmetic sine bob) and drops poop on a FIXED tick interval (no RNG). It is
+ * renderer adds a cosmetic sine bob) and drops poop at RANDOM intervals (S81 P3 — a pure hash
+ * of (id, lastPoopTick) picks each gap in [POOP_DROP_MIN, MAX]; no RNG stream consumed). It is
  * replicated to clients via the additive-optional seagulls[]/poops[] NetSnapshot fields
  * (hunter precedent); clients never simulate. PROTOCOL_VERSION bumped 6->7 (S77 P3): the
  * global income-affecting foul would confuse a stale peer, so it is gated at the HELLO
@@ -27,7 +28,8 @@ export interface Seagull {
   /** Constant flight altitude (sim). The renderer bobs ±SEAGULL_BOB_AMPLITUDE around it. */
   readonly baseY: number;
   readonly spawnedAtTick: number;
-  /** Tick of the last poop drop — the lifecycle drops again at lastPoopTick + INTERVAL. */
+  /** Tick of the last poop drop — the lifecycle drops again at lastPoopTick +
+   *  poopDropIntervalTicks(id, lastPoopTick) (S81 P3 hash-derived random gap). */
   lastPoopTick: number;
 }
 

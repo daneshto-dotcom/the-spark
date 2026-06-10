@@ -580,7 +580,8 @@ export const RAINBOW_DERANGEMENT_MAX_REROLLS = 12;
 // it). Poop on a free SPARK makes it "poopy" — half-speed for 15s, then auto-clears.
 // Host-authoritative + deterministic (mirrors hunter/potato/rainbow); renders ABOVE the
 // fog (global-reach). Seagull/poop draw from a dedicated seagullRng so the spark/bomb/
-// potato/rainbow sequences stay byte-identical. Poop DROPS are a FIXED interval (no rng).
+// potato/rainbow sequences stay byte-identical. Poop DROPS use a hash-derived random
+// interval (S81 P3 — stateless, no RNG stream; see seagullLifecycle.poopDropIntervalTicks).
 // E2E seam: window.__TEST_SEAGULL_SPAWN_SPARKS__ forces the cadence small (mirror rainbow).
 function readTestSeagullSpawnSparks(): number | null {
   if (typeof window === 'undefined') return null;
@@ -602,8 +603,14 @@ export const SEAGULL_Y_MAX = 132;
 export const SEAGULL_RADIUS = 24; // body radius (render + the pre-drop "hunch" anchor)
 export const SEAGULL_BOB_AMPLITUDE = 12; // RENDER-ONLY sine bob (the SIM y is constant → deterministic)
 export const SEAGULL_DEPART_MARGIN = 90; // px past the far edge before the gull despawns
-// Poop drop cadence: one poop every N ticks while FLYING — FIXED (no rng → determinism-trivial).
-export const POOP_DROP_INTERVAL_TICKS = Math.round(0.55 * PHYSICS_HZ); // ~33 ticks ≈ every ~150px
+// Poop drop cadence while FLYING. S81 P3 — RANDOM per-drop interval in [MIN, MAX] (user
+// round-3: 'the bird should poop in random intervals and not every few meters, it should be
+// different every time it passes'). Pre-S81 this was a FIXED 33-tick metronome (~every 150px).
+// The interval is drawn from a PURE integer hash of (seagullId, lastPoopTick) — stateless
+// "randomness": no RNG stream touched, both inputs already ride save/load, so replay + host
+// save/load reproduce the identical drop pattern. Avg ≈ 30 ticks (~old density per pass).
+export const POOP_DROP_MIN_TICKS = Math.round(0.2 * PHYSICS_HZ); // 12 ticks — tight burst floor
+export const POOP_DROP_MAX_TICKS = Math.round(0.8 * PHYSICS_HZ); // 48 ticks — long-gap ceiling
 export const POOP_FALL_SPEED = 7; // px/tick downward (constant; gravity-free for determinism)
 export const POOP_RADIUS = 7; // visual/collision core radius
 export const POOP_HIT_RADIUS = 19; // poop-vs-(primitive|spark) collision radius (squared internally)

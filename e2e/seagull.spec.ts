@@ -65,8 +65,10 @@ test.describe('S77 P3 — seagull hazard (host-loop smoke)', () => {
         state: 'FALLING', spawnedAtTick: w.tick, landedAtTick: -1,
       });
 
-      // Let the real rAF host loop run.
-      await new Promise((res) => setTimeout(res, 1500));
+      // Let the real rAF host loop run. 2.5s (S81 P3): drop intervals are now hash-random in
+      // [POOP_DROP_MIN, MAX] (worst case 48 ticks ≈ 0.8s at 60fps; ~1.6s at a degraded CI
+      // 30fps) — 2.5s keeps the ≥1-drop assert safe where the old 33-tick metronome fit 1.5s.
+      await new Promise((res) => setTimeout(res, 2500));
 
       return {
         droppedPoops: w.nextPoopId > startPoopId, // the gull minted poops through the host loop

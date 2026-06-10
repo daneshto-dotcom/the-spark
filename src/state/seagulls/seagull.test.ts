@@ -2,10 +2,11 @@
  * SPARK — S77 P3 seagull + poop lifecycle unit tests.
  *
  * Locks the host-authoritative + deterministic contract: spawn (gated SEAGULL_MAX_ACTIVE),
- * LINEAR flight + off-screen despawn, FIXED-interval poop drops, the poop→structure FOUL (whole
- * connected component) that HALTS that structure's income (computeComplexity → 0) until CLEANED,
- * the poop→free-spark "poopy" half-speed debuff, and teardown. Determinism is by construction
- * (no RNG in the lifecycle; fixed-interval drops; component BFS returns sorted ids).
+ * LINEAR flight + off-screen despawn, hash-derived RANDOM-interval poop drops (S81 P3 — pure
+ * fn of (id, lastPoopTick), bounded [MIN, MAX], no RNG stream), the poop→structure FOUL (whole
+ * connected component) that HALTS that structure's income (computeComplexity → 0) until CLEANED
+ * by the OWNER (S81 P1), the poop→free-spark "poopy" half-speed debuff, and teardown.
+ * Determinism is by construction (no RNG stream in the lifecycle; component BFS sorted ids).
  */
 
 import { describe, expect, it } from 'vitest';
@@ -13,6 +14,8 @@ import {
   CANVAS_WIDTH,
   PLAYER_COLORS,
   POOP_CLEAN_RADIUS,
+  POOP_DROP_MAX_TICKS,
+  POOP_DROP_MIN_TICKS,
   POOP_SLOW_TICKS,
   SEAGULL_MAX_ACTIVE,
   SEAGULL_SPEED,
@@ -22,7 +25,7 @@ import type { Bond } from '../../physics/bonds.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
 import { makeFreeSpark } from '../../game/spark.ts';
-import { asBondId, asPlayerId, asPoopId, asPrimitiveId, asSparkId } from '../../types.ts';
+import { asBondId, asPlayerId, asPoopId, asPrimitiveId, asSeagullId, asSparkId } from '../../types.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
 import { computeComplexity } from '../scoring.ts';
 import { restore, snapshot } from '../save.ts';
@@ -38,6 +41,7 @@ import {
   applySeagullTick,
   applySpawnSeagull,
   canAvatarCleanSplat,
+  poopDropIntervalTicks,
   reconcileFouledPrimitives,
   teardownSeagulls,
 } from './seagullLifecycle.ts';
@@ -114,15 +118,49 @@ describe('S77 P3 — seagull spawn + flight', () => {
     expect(w.seagulls.size).toBe(0);
   });
 
-  it('drops poop on the FIXED interval while flying (no RNG)', () => {
+  it('S81 P3 — drops poop at hash-derived RANDOM intervals: bounded, varied, deterministic', () => {
     const w = baseWorld();
     applySpawnSeagull(w, { type: 'SPAWN_SEAGULL', pos: { x: 200, y: 80 }, vx: SEAGULL_SPEED });
     const id = [...w.seagulls.keys()][0];
-    for (let i = 1; i <= 80 && w.seagulls.size > 0; i++) {
+    const dropTicks: number[] = [];
+    let lastCount = w.poops.size;
+    for (let i = 1; i <= 400 && w.seagulls.size > 0; i++) {
       w.tick = i;
       applySeagullTick(w, { type: 'SEAGULL_TICK', seagullId: id });
+      if (w.poops.size > lastCount) {
+        dropTicks.push(i);
+        lastCount = w.poops.size;
+      }
     }
-    expect(w.poops.size).toBeGreaterThan(0);
+    expect(dropTicks.length).toBeGreaterThan(4); // a 400-tick flight lays several poops
+    const intervals = dropTicks.slice(1).map((t, k) => t - dropTicks[k]);
+    for (const gap of intervals) {
+      expect(gap).toBeGreaterThanOrEqual(POOP_DROP_MIN_TICKS);
+      expect(gap).toBeLessThanOrEqual(POOP_DROP_MAX_TICKS);
+    }
+    // RANDOM, not a metronome: the sampled gaps are not all identical.
+    expect(new Set(intervals).size).toBeGreaterThan(1);
+  });
+
+  it('S81 P3 — poopDropIntervalTicks is pure, bounded, and varies across drops + gulls', () => {
+    const gullA = asSeagullId(0);
+    const gullB = asSeagullId(1);
+    const seen = new Set<number>();
+    for (let t = 0; t <= 600; t++) {
+      const gap = poopDropIntervalTicks(gullA, t);
+      expect(gap).toBeGreaterThanOrEqual(POOP_DROP_MIN_TICKS);
+      expect(gap).toBeLessThanOrEqual(POOP_DROP_MAX_TICKS);
+      expect(poopDropIntervalTicks(gullA, t)).toBe(gap); // pure: same inputs, same gap
+      seen.add(gap);
+    }
+    expect(seen.size).toBeGreaterThan(5); // spreads across the band, not a constant
+    // 'different every time it passes' — another gull at the same tick gets its own pattern
+    // (id is hashed in): at least one tick in a window must differ between gulls.
+    let differs = false;
+    for (let t = 0; t <= 60 && !differs; t++) {
+      differs = poopDropIntervalTicks(gullA, t) !== poopDropIntervalTicks(gullB, t);
+    }
+    expect(differs).toBe(true);
   });
 });
 
