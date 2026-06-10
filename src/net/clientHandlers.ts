@@ -14,7 +14,7 @@
 
 import { ClientSync } from './sync.ts';
 import type { NetSession } from './session.ts';
-import type { RosterEntry } from './protocol.ts';
+import type { NetMessage, RosterEntry } from './protocol.ts';
 import { NetTransport, selfId } from './transport.ts';
 import type { Controls } from '../input/controls.ts';
 import { dispatch, type World } from '../state/world.ts';
@@ -35,6 +35,51 @@ export interface JoinAttemptDeps {
    * — which is how this joiner finally learns WHICH seat is its own pre-Begin.
    */
   onPresence: (roster: readonly RosterEntry[]) => void;
+}
+
+/**
+ * S79 P4 (HIGH-2, backlog #2 client half) — host sender-auth. Pre-fix, the joiner's
+ * message handler trusted ANY peer in the room: a hostile 3rd peer could WEDGE a victim
+ * with a spoofed high-snapshotSeq NETSNAPSHOT (ClientSync then drops the real host's
+ * lower-seq snapshots forever), fake a win via ENDGAME, hijack seating via
+ * START_GAME_SIGNAL, or fire bogus GODLY_TRIGGER cinematics.
+ *
+ * Latch (trust-on-first-use): the host's peerId is learned from the FIRST roster-bearing
+ * message whose seat-0 entry NAMES THE SENDER (the genuine host always self-identifies at
+ * seat 0 in buildLobbyRoster/buildMatchRoster), with a first-NETSNAPSHOT fallback for any
+ * legacy flow that skips the lobby beacon. Gate: once latched, the five host-authored
+ * kinds are dropped unless sent BY the latched host; before any latch they are dropped
+ * too (fail-closed — in practice a beacon/snapshot always precedes the other kinds).
+ *
+ * Ceiling (documented, accepted): without cryptographic peer identity a spoofer who BEATS
+ * the genuine host's first message into the victim's handler could win the latch. That
+ * requires joining a secret-coded room AND racing the host's join-triggered beacon —
+ * a far smaller surface than the pre-fix "any peer, any time". Crypto identity belongs to
+ * the netcode-infra backlog (#4). Returns true = process, false = drop. Pure w.r.t.
+ * everything except the latch write; exported for unit tests.
+ */
+export function hostAuthFilter(
+  session: Pick<NetSession, 'hostPeerId'>,
+  msg: NetMessage,
+  peerId: string,
+): boolean {
+  if (session.hostPeerId === null) {
+    if (
+      (msg.kind === 'LOBBY_PRESENCE' || msg.kind === 'START_GAME_SIGNAL') &&
+      msg.roster.some((e) => e.seat === 0 && e.peerId === peerId)
+    ) {
+      session.hostPeerId = peerId;
+    } else if (msg.kind === 'NETSNAPSHOT') {
+      session.hostPeerId = peerId;
+    }
+  }
+  const hostAuthored =
+    msg.kind === 'NETSNAPSHOT' ||
+    msg.kind === 'GODLY_TRIGGER' ||
+    msg.kind === 'START_GAME_SIGNAL' ||
+    msg.kind === 'ENDGAME' ||
+    msg.kind === 'LOBBY_PRESENCE';
+  return !hostAuthored || session.hostPeerId === peerId;
 }
 
 export function createJoinAttemptHandler(deps: JoinAttemptDeps): (code: string) => void {
@@ -73,7 +118,11 @@ export function createJoinAttemptHandler(deps: JoinAttemptDeps): (code: string) 
     // the dormant S53 protocol-mismatch latch + UX on the host's receive side
     // (closes the v2-peer-INTENT-bypass desync gap from the joiner direction).
     wireHelloOnJoin(transport, asPlayerId(1), PLAYER_COLORS[1]);
-    transport.on((msg) => {
+    transport.on((msg, peerId) => {
+      // S79 P4 — host sender-auth gate (see hostAuthFilter). Drops the five host-authored
+      // kinds unless they come from the latched host peer. INTENT/HELLO are unaffected
+      // (the host side already stamps INTENT playerIds from its hostSeats freeze).
+      if (!hostAuthFilter(deps.session, msg, peerId)) return;
       if (msg.kind === 'NETSNAPSHOT' && deps.session.clientSync !== null) {
         deps.session.clientSync.receive(msg, performance.now());
       }

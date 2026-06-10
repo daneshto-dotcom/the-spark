@@ -43,6 +43,18 @@ export interface NetSession {
    * Empty on the client + before any peer joins. Cleared on teardown.
    */
   lobbySeats: Map<string, number>;
+  /**
+   * S79 P4 — CLIENT-side identity of the host peer, latched trust-on-first-use in
+   * createJoinAttemptHandler: preferentially from a roster-bearing message
+   * (LOBBY_PRESENCE / START_GAME_SIGNAL) whose seat-0 entry NAMES THE SENDER, with a
+   * first-NETSNAPSHOT fallback. Once latched, every host-authored message kind
+   * (NETSNAPSHOT / GODLY_TRIGGER / START_GAME_SIGNAL / ENDGAME / LOBBY_PRESENCE) from any
+   * OTHER peer is dropped — closes backlog #2's client half (a hostile 3rd peer could
+   * previously wedge a victim with a spoofed high snapshotSeq, fake a win via ENDGAME, or
+   * hijack seating via START_GAME_SIGNAL). Also drives the 3+player host-loss overlay
+   * (main.ts). null on the host and before the latch; cleared on teardown.
+   */
+  hostPeerId: string | null;
 }
 
 export function makeNetSession(): NetSession {
@@ -53,6 +65,7 @@ export function makeNetSession(): NetSession {
     lastSnapshotTick: 0,
     hostSeats: new Map(),
     lobbySeats: new Map(),
+    hostPeerId: null,
   };
 }
 
@@ -93,5 +106,8 @@ export function teardownNet(
   // S73 P1 — clear the stable lobby seat-map so a fresh Host/Join (after lobby Back /
   // peer-drop / postgame) starts with no inherited seats (mirror of hostSeats.clear()).
   session.lobbySeats.clear();
+  // S79 P4 — clear the latched host identity so a rejoin re-latches fresh (a new room may
+  // have a different host; a stale latch would drop ALL of the new host's messages).
+  session.hostPeerId = null;
   triggerAudioCursorReset();
 }

@@ -944,14 +944,20 @@ async function bootstrap(): Promise<void> {
     // S15 P2 — connection-lost overlay (networked, PLAYING, no peers).
     // S62 — generalized gameMode==='1v1' → isNetworked() but DELIBERATELY keeps
     // peerCount()===0 (Council/PRIME-AUDIT: NOT a blanket swap). Correct for the
-    // host (all clients gone) and for 2-player. KNOWN GAP (logged carry-forward,
-    // P5): a 3+-player CLIENT that loses only the HOST but still sees another
-    // client has peerCount>0, so this won't fire — needs explicit client-side
-    // host-presence detection. No false-positive: never shows while peers remain.
+    // host (all clients gone) and for 2-player.
+    // S79 P4 — the S62 KNOWN GAP is closed: a 3+-player CLIENT that loses only the
+    // HOST (other clients still connected → peerCount>0) previously sat in limbo with
+    // a frozen world and no exit. The hostPeerId latched for sender-auth doubles as
+    // host-presence: latched but no longer in peerIds() → the host is gone → overlay.
+    // Host-side (isHost) keeps the pure peerCount gate; no host-migration yet (#4).
+    const hostLost = !world.isHost
+      && session.hostPeerId !== null
+      && session.netTransport !== null
+      && !session.netTransport.peerIds().includes(session.hostPeerId);
     const connectionLost = isNetworked(world)
       && world.gameState === 'PLAYING'
       && session.netTransport !== null
-      && session.netTransport.peerCount() === 0;
+      && (session.netTransport.peerCount() === 0 || hostLost);
     lobbyScreen.setConnectionLostVisible(connectionLost);
     // S22 P3 — PRIME-AUDIT Δ3: on peer-drop, abort any active cinematic
     // and drain the godly queue cleanly. Transition-edge gated.

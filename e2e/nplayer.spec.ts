@@ -122,11 +122,22 @@ test.describe('S63 - 4-player FFA: roster broadcast + distinct seats/colors + FF
       // Render artifact (Playwright screenshot works headless, unlike the preview tool).
       await hostPage.screenshot({ path: 'test-results/s63-4player-hud.png' });
 
-      // FFA scoring → one winner. Host places 3 non-bonding anchors (score 3 = __TEST_WIN_SCORE__).
+      // FFA scoring → one winner. Host places 3 non-bonding anchors, then the host score is
+      // INJECTED over the win threshold (S78/S79 idiom, mirrors hunter.spec). Pre-S79 this
+      // waited for NATURAL income to cross 3 — but the S78 income cut (0.15→0.05) made
+      // complexity-3 accrual ~20s sim against the 20s wall timeout, so the wait was a
+      // coin-flip-at-best (deterministic local fail). This test covers the FFA WIN PIPELINE
+      // (win fires + ENDGAME propagates to all joiners), not the income rate (unit-tested in
+      // scoring.test.ts), so injection is the correct decoupling.
       await waitForWorld(hostPage, (w) => w.freeSparks.length >= 8, 'sparks spawned on host', 20_000);
       await dragSparkTo(hostPage, 300, 400);
       await dragSparkTo(hostPage, 300, 600);
       await dragSparkTo(hostPage, 300, 800);
+      await hostPage.evaluate(() => {
+        const w = (window as unknown as { __SPARK__: { world: { scoreByPlayer: Map<number, number> } } })
+          .__SPARK__.world;
+        w.scoreByPlayer.set(0, 999); // >> __TEST_WIN_SCORE__ (3) → WIN on the next tick
+      });
       await waitForWorld(hostPage, (w) => w.gameState === 'WIN', 'host reaches FFA WIN', 20_000);
 
       // All 3 joiners see the game end.
