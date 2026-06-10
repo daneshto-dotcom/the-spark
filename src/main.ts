@@ -26,7 +26,6 @@ import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   HUNTER_TRIGGER_SCORE,
-  POOP_CLEAN_RADIUS,
   NET_INTERPOLATION_MS,
   NET_SNAPSHOT_HZ,
   PHYSICS_HZ,
@@ -112,6 +111,7 @@ import {
   startCinematicIfNeeded,
 } from './state/godlyOrchestration.ts';
 import { mulberry32 } from './state/rng.ts';
+import { canAvatarCleanSplat } from './state/seagulls/seagullLifecycle.ts';
 import { dispatch, isNetworked, makeWorld, type GameAction, type GameState } from './state/world.ts';
 import { makeGameStateExtras, softReset, tickGameState } from './state/gameState.ts';
 import { tickScoring } from './state/scoring.ts';
@@ -757,8 +757,9 @@ async function bootstrap(): Promise<void> {
       // S77 P3 — seagull + poop orchestration (host-only). (a) fan out SEAGULL_TICK per gull
       // (advance + drop poop + despawn off-screen); (b) fan out POOP_TICK per poop (fall +
       // collide + TTL); (c) CLEAN a structure-splat when its anchor prim is gone (orphan sweep)
-      // OR any avatar is within POOP_CLEAN_RADIUS (host-detected — NO client intent). Snapshot
-      // the keys first (a tick may delete from the Map mid-iteration).
+      // OR the structure OWNER's avatar is within POOP_CLEAN_RADIUS (host-detected — NO client
+      // intent; S81 P1 owner-only — canAvatarCleanSplat). Snapshot the keys first (a tick may
+      // delete from the Map mid-iteration).
       // S80 — size>0 gates match the bomb/potato/rainbow poll idiom (those blocks already
       // guard), skipping three per-tick array allocations in the common no-hazard case.
       if (world.gameState === 'PLAYING' && !isClient && world.seagulls.size > 0) {
@@ -777,15 +778,10 @@ async function bootstrap(): Promise<void> {
             continue;
           }
           for (const player of world.players.values()) {
-            // S80 — a BENCHED player (hunter catch / potato cook-off: avatar hidden, input
-            // locked, avatarPos frozen at the catch spot) must not silently wipe a splat
-            // that happens to land near their frozen position — cleaning is an ACTIVE move.
-            if (player.benchedUntilTick !== undefined && world.tick < player.benchedUntilTick) {
-              continue;
-            }
-            const dx = player.avatarPos.x - poop.pos.x;
-            const dy = player.avatarPos.y - poop.pos.y;
-            if (dx * dx + dy * dy <= POOP_CLEAN_RADIUS * POOP_CLEAN_RADIUS) {
+            // Predicate (seagullLifecycle.canAvatarCleanSplat): not benched (S80 — a frozen
+            // hidden avatar must not passively wipe), OWNER of the fouled structure (S81 P1 —
+            // an enemy walk-over no longer cleans your splat), and within POOP_CLEAN_RADIUS.
+            if (canAvatarCleanSplat(world, player, poop)) {
               dispatch(world, { type: 'CLEAN_POOP', poopId });
               break;
             }

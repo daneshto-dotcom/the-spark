@@ -603,7 +603,7 @@ export const POOP_HIT_RADIUS = 19; // poop-vs-(primitive|spark) collision radius
 export const POOP_GROUND_TTL_TICKS = 4 * PHYSICS_HZ; // a floor splat lingers ~4s then dissipates
 export const POOP_SLOW_TICKS = 15 * PHYSICS_HZ; // "poopy" spark: half-speed for 15s ("cruiser speed")
 export const POOP_SLOW_MULTIPLIER = 0.5; // 2x slower
-export const POOP_CLEAN_RADIUS = 44; // an avatar within this of a structure-splat cleans it
+export const POOP_CLEAN_RADIUS = 44; // the structure OWNER's avatar within this of a structure-splat cleans it (S81 P1 owner-only)
 export const POOP_MAX_LIVE = 24; // safety cap on concurrent poops (snapshot-size guard)
 // S79 P2 — pooped-building visibility (user: a hit building "should visibly be pooped on ...
 // until the spark wipes it off"). The whole fouled component's prims + bonds tint toward the

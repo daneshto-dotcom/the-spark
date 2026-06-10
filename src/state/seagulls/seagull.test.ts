@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CANVAS_WIDTH,
   PLAYER_COLORS,
+  POOP_CLEAN_RADIUS,
   POOP_SLOW_TICKS,
   SEAGULL_MAX_ACTIVE,
   SEAGULL_SPEED,
@@ -36,6 +37,7 @@ import {
   applyPoopTick,
   applySeagullTick,
   applySpawnSeagull,
+  canAvatarCleanSplat,
   reconcileFouledPrimitives,
   teardownSeagulls,
 } from './seagullLifecycle.ts';
@@ -377,5 +379,87 @@ describe('S77 P3 — save/net round-trip (DIFFERENTIAL guard for the new wire fi
     expect(rp.fouledPrimId).toBe(a.id);
     expect(w2.fouledPrimitives.has(a.id)).toBe(true);
     expect(w2.freeSparks.get(asSparkId(0))!.poopyUntilTick).toBe(200 + POOP_SLOW_TICKS);
+  });
+});
+
+describe('S81 P1 — owner-only splat wipe (canAvatarCleanSplat)', () => {
+  const P2 = asPlayerId(1);
+  const BLUE = PLAYER_COLORS[1];
+
+  /** Owner P1 (RED) structure at (500,400) with a structure-splat sitting on it. */
+  function splatWorld(): { w: World; splat: ReturnType<typeof makePoop> } {
+    const w = baseWorld(); // P1 RED at (0,0)
+    w.players.set(P2, makeIdlePlayer(P2, BLUE));
+    const a = addPrim(w, 1, 500, 400);
+    const splat = makePoop({ id: asPoopId(0), pos: { x: a.pos.x, y: a.pos.y }, spawnedAtTick: 0 });
+    splat.state = 'SPLAT_STRUCTURE';
+    splat.fouledPrimId = a.id;
+    splat.landedAtTick = 0;
+    w.poops.set(splat.id, splat);
+    w.fouledPrimitives.add(a.id);
+    w.tick = 100;
+    return { w, splat };
+  }
+
+  it('the OWNER within POOP_CLEAN_RADIUS may clean', () => {
+    const { w, splat } = splatWorld();
+    const owner = w.players.get(P1)!;
+    owner.avatarPos.x = 500 + POOP_CLEAN_RADIUS - 1;
+    owner.avatarPos.y = 400;
+    expect(canAvatarCleanSplat(w, owner, splat)).toBe(true);
+  });
+
+  it('an ENEMY within radius may NOT clean (user round-3: only your own structure)', () => {
+    const { w, splat } = splatWorld();
+    const enemy = w.players.get(P2)!;
+    enemy.avatarPos.x = 500;
+    enemy.avatarPos.y = 400;
+    expect(canAvatarCleanSplat(w, enemy, splat)).toBe(false);
+  });
+
+  it('the owner OUTSIDE the radius may not clean', () => {
+    const { w, splat } = splatWorld();
+    const owner = w.players.get(P1)!;
+    owner.avatarPos.x = 500 + POOP_CLEAN_RADIUS + 1;
+    owner.avatarPos.y = 400;
+    expect(canAvatarCleanSplat(w, owner, splat)).toBe(false);
+  });
+
+  it('a BENCHED owner may not clean until the bench expires (S80 invariant preserved)', () => {
+    const { w, splat } = splatWorld();
+    const owner = w.players.get(P1)!;
+    owner.avatarPos.x = 500;
+    owner.avatarPos.y = 400;
+    owner.benchedUntilTick = w.tick + 60;
+    expect(canAvatarCleanSplat(w, owner, splat)).toBe(false);
+    w.tick = owner.benchedUntilTick; // bench just expired
+    expect(canAvatarCleanSplat(w, owner, splat)).toBe(true);
+  });
+
+  it('rainbow-shuffle parity: ownerColor + player.color remap in lockstep → owner still cleans, enemy still cannot', () => {
+    const { w, splat } = splatWorld();
+    const owner = w.players.get(P1)!;
+    const enemy = w.players.get(P2)!;
+    owner.avatarPos.x = 500;
+    owner.avatarPos.y = 400;
+    enemy.avatarPos.x = 500;
+    enemy.avatarPos.y = 400;
+    // simulate the shuffle: owner RED→MAGENTA, anchor follows (rainbowLifecycle remaps both)
+    const MAGENTA = PLAYER_COLORS[5];
+    owner.color = MAGENTA;
+    w.primitives.get(asPrimitiveId(1))!.ownerColor = MAGENTA;
+    expect(canAvatarCleanSplat(w, owner, splat)).toBe(true);
+    expect(canAvatarCleanSplat(w, enemy, splat)).toBe(false);
+  });
+
+  it('gone-anchor / non-structure poops are never predicate-cleanable (orphan branch owns those)', () => {
+    const { w, splat } = splatWorld();
+    const owner = w.players.get(P1)!;
+    owner.avatarPos.x = 500;
+    owner.avatarPos.y = 400;
+    w.primitives.delete(asPrimitiveId(1));
+    expect(canAvatarCleanSplat(w, owner, splat)).toBe(false); // anchor destroyed → orphan sweep
+    const falling = makePoop({ id: asPoopId(9), pos: { x: 500, y: 400 }, spawnedAtTick: 0 });
+    expect(canAvatarCleanSplat(w, owner, falling)).toBe(false); // FALLING, not a splat
   });
 });

@@ -14,8 +14,10 @@
  *                   (component) → world.fouledPrimitives (tickScoring zeroes that structure's
  *                   income) OR slow a free spark ("poopy", half-speed 15s); floor → ground
  *                   splat (TTL). Fanned out per poop in main.ts.
- *   CLEAN_POOP    — remove a structure-splat + UNFOUL its whole component (any avatar within
- *                   POOP_CLEAN_RADIUS — host-detected in main.ts; dispatchable for tests).
+ *   CLEAN_POOP    — remove a structure-splat + UNFOUL its whole component (the structure
+ *                   OWNER's avatar within POOP_CLEAN_RADIUS — host-detected in main.ts via
+ *                   canAvatarCleanSplat; S81 P1: enemies can no longer wipe your splat for
+ *                   you. The reducer itself stays owner-agnostic; dispatchable for tests).
  *
  * Determinism: LINEAR flight + FIXED-interval drops (no RNG); collision uses squared-distance
  * + LOWEST-id hit selection (S80 — allocation-free equivalent of the original sorted-id
@@ -27,6 +29,7 @@
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  POOP_CLEAN_RADIUS,
   POOP_DROP_INTERVAL_TICKS,
   POOP_FALL_SPEED,
   POOP_GROUND_TTL_TICKS,
@@ -38,10 +41,11 @@ import {
   SEAGULL_MAX_ACTIVE,
   SEAGULL_RADIUS,
 } from '../../constants.ts';
+import type { Player } from '../../game/player.ts';
 import type { Spark } from '../../game/spark.ts';
 import { asPoopId, asSeagullId, type PoopId, type PrimitiveId, type SeagullId, type Vec2 } from '../../types.ts';
 import type { World } from '../worldTypes.ts';
-import { makePoop, makeSeagull } from './seagull.ts';
+import { makePoop, makeSeagull, type Poop } from './seagull.ts';
 
 /** Squared poop hit radius — precomputed so the per-tick collision gate stays sqrt-free. */
 const POOP_HIT_RADIUS_SQ = POOP_HIT_RADIUS * POOP_HIT_RADIUS;
@@ -242,6 +246,31 @@ export function reconcileFouledPrimitives(world: World): void {
       world.fouledPrimitives.add(pid);
     }
   }
+}
+
+/**
+ * S81 P1 — the main.ts avatar-proximity sweep's full CLEAN_POOP eligibility predicate, pure +
+ * exported for unit tests. A player may wipe a structure-splat ONLY when ALL hold:
+ *   (a) the poop is a SPLAT_STRUCTURE with a LIVE anchor prim (a gone-anchor orphan is the
+ *       sweep's unconditional-clean branch, NOT this predicate);
+ *   (b) the player is not benched (S80 — a frozen hidden avatar must not passively wipe);
+ *   (c) the player OWNS the fouled structure (anchor ownerColor === player.color — user round-3
+ *       playtest: "a spark should not be able to wipe off his enemies structure only his own".
+ *       ownerColor is the identity that survives the rainbow shuffle, which remaps player.color
+ *       and every owned prim's ownerColor in lockstep, and a future Steal flips it to the thief);
+ *   (d) the avatar is within POOP_CLEAN_RADIUS of the splat (squared — no sqrt).
+ * Components are single-owner by the S46 P3 cross-colour bond-segregation invariant, so the
+ * anchor prim's owner IS the structure's owner.
+ */
+export function canAvatarCleanSplat(world: World, player: Player, poop: Poop): boolean {
+  if (poop.state !== 'SPLAT_STRUCTURE' || poop.fouledPrimId === undefined) return false;
+  const anchor = world.primitives.get(poop.fouledPrimId);
+  if (anchor === undefined) return false;
+  if (player.benchedUntilTick !== undefined && world.tick < player.benchedUntilTick) return false;
+  if (anchor.ownerColor !== player.color) return false;
+  const dx = player.avatarPos.x - poop.pos.x;
+  const dy = player.avatarPos.y - poop.pos.y;
+  return dx * dx + dy * dy <= POOP_CLEAN_RADIUS * POOP_CLEAN_RADIUS;
 }
 
 /**
