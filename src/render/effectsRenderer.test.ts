@@ -194,4 +194,21 @@ describe('S12 — EffectsRenderer class lifecycle', () => {
     expect(renderer.activeCount).toBe(0);
     renderer.destroy();
   });
+
+  it('S79 P5 — audio-only kinds (BOND_FORMED / BOND_SEVERED / CREATURE_CHARGE) never enter the active list', () => {
+    const renderer = new EffectsRenderer(stubApp());
+    const w = emptyWorld(1);
+    w.effects.push(
+      { kind: 'BOND_FORMED', tick: 0, pos: { x: 0, y: 0 }, bondCount: 1 },
+      { kind: 'BOND_SEVERED', tick: 0, pos: { x: 0, y: 0 }, cause: 'player' },
+      // The S78-audit MEDIUM: CREATURE_CHARGE is audio-only (drained by audioManager)
+      // but inflated activeCount as drawer-less dead weight until lifetime cull.
+      { kind: 'CREATURE_CHARGE', tick: 0, pos: { x: 50, y: 50 } },
+      { kind: 'SEVER_ERASE', tick: 0, pos: { x: 0, y: 0 }, color: 0xffffff, radius: 5 },
+    );
+    renderer.sync(w);
+    expect(w.effects.length).toBe(0); // all drained
+    expect(renderer.activeCount).toBe(1); // only the visual SEVER_ERASE survives
+    renderer.destroy();
+  });
 });

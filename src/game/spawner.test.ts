@@ -8,7 +8,7 @@ import {
   SPAWNER_RADIUS,
 } from '../constants.ts';
 import { mulberry32 } from '../state/rng.ts';
-import { DEFAULT_SPAWNER_CONFIG, Spawner, enforceSpawnerBounds, type BombSpawnRequest, type PotatoSpawnRequest, type RainbowSpawnRequest } from './spawner.ts';
+import { DEFAULT_SPAWNER_CONFIG, Spawner, enforceSpawnerBounds, type BombSpawnRequest, type PotatoSpawnRequest, type RainbowSpawnRequest, type SeagullSpawnRequest } from './spawner.ts';
 import type { Spark } from './spark.ts';
 
 const DT = 1 / PHYSICS_HZ;
@@ -230,5 +230,84 @@ describe('Spawner — S75 P3 rainbow cadence', () => {
     const s = new Spawner(FAST, mulberry32(1)); // no rainbowRng
     for (let i = 0; i < TICKS; i++) s.tick(DT, i, sparks, undefined, undefined, rainbows);
     expect(rainbows).toHaveLength(0);
+  });
+});
+
+describe('S79 P5 — spawner state round-trip (save/replay resumability)', () => {
+  const DT = 1 / PHYSICS_HZ;
+  const FAST = { ...DEFAULT_SPAWNER_CONFIG, ratePerSecond: 5 };
+  const TICKS = 60 * PHYSICS_HZ; // 60s sim at 5 sparks/s ≈ 300 sparks → every hazard fires
+
+  /** Full 5-stream spawner (the main.ts construction shape, seed-derived streams). */
+  const fullSpawner = (seed: number): Spawner =>
+    new Spawner(
+      FAST,
+      mulberry32(seed),
+      mulberry32((seed ^ 0x9e3779b9) >>> 0),
+      mulberry32((seed ^ 0x85ebca6b) >>> 0),
+      mulberry32((seed ^ 0xc2b2ae35) >>> 0),
+      mulberry32((seed ^ 0x5a4e28b8) >>> 0),
+    );
+
+  interface Streams {
+    sparks: Spark[];
+    bombs: BombSpawnRequest[];
+    potatoes: PotatoSpawnRequest[];
+    rainbows: RainbowSpawnRequest[];
+    seagulls: SeagullSpawnRequest[];
+  }
+  const emptyStreams = (): Streams => ({ sparks: [], bombs: [], potatoes: [], rainbows: [], seagulls: [] });
+  const run = (s: Spawner, out: Streams, ticks: number): void => {
+    for (let i = 0; i < ticks; i++) {
+      s.tick(DT, i, out.sparks, out.bombs, out.potatoes, out.rainbows, out.seagulls);
+    }
+  };
+  const sparkDigest = (sparks: Spark[]) => sparks.map((s) => ({ t: s.type, x: s.pos.x, y: s.pos.y }));
+
+  it('getState → restoreState resumes ALL five sequences bit-exactly mid-stream', () => {
+    const a = fullSpawner(1234);
+    run(a, emptyStreams(), TICKS); // warm A so counters + rng words are mid-stream
+    const state = a.getState();
+    expect(state).not.toBeNull();
+
+    // B gets DIFFERENT seeds — after restore, only the captured state may matter.
+    const b = fullSpawner(987654);
+    b.restoreState(state!);
+
+    const outA = emptyStreams();
+    const outB = emptyStreams();
+    run(a, outA, TICKS);
+    run(b, outB, TICKS);
+
+    expect(outA.sparks.length).toBeGreaterThan(100);
+    expect(sparkDigest(outB.sparks)).toEqual(sparkDigest(outA.sparks));
+    expect(outB.bombs).toEqual(outA.bombs);
+    expect(outB.potatoes).toEqual(outA.potatoes);
+    expect(outB.rainbows).toEqual(outA.rainbows);
+    expect(outB.seagulls).toEqual(outA.seagulls);
+    // The 60s window actually exercised every hazard cadence (not vacuous).
+    expect(outA.bombs.length).toBeGreaterThan(0);
+    expect(outA.potatoes.length).toBeGreaterThan(0);
+    expect(outA.rainbows.length).toBeGreaterThan(0);
+    expect(outA.seagulls.length).toBeGreaterThan(0);
+  });
+
+  it('getState returns null when an enabled stream cannot expose its word (custom Rng)', () => {
+    const s = new Spawner(FAST, () => 0.5);
+    expect(s.getState()).toBeNull();
+  });
+
+  it('disabled hazard streams round-trip as null and stay idle after restore', () => {
+    const a = new Spawner(FAST, mulberry32(5)); // spark stream only
+    const st = a.getState();
+    expect(st).not.toBeNull();
+    expect(st!.sparksUntilBomb).toBeNull();
+    expect(st!.bombRngState).toBeNull();
+    const b = new Spawner(FAST, mulberry32(6));
+    b.restoreState(st!);
+    const out = emptyStreams();
+    run(b, out, TICKS);
+    expect(out.bombs).toHaveLength(0);
+    expect(out.seagulls).toHaveLength(0);
   });
 });

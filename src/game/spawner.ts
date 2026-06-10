@@ -38,7 +38,7 @@ import {
   SparkType,
 } from '../constants.ts';
 import { rngPick, rngRange } from '../state/rng.ts';
-import type { Rng } from '../state/rng.ts';
+import type { Rng, StatefulRng } from '../state/rng.ts';
 import { asSparkId } from '../types.ts';
 import type { SparkId, Vec2 } from '../types.ts';
 import type { Spark } from './spark.ts';
@@ -96,6 +96,33 @@ export interface RainbowSpawnRequest {
 export interface SeagullSpawnRequest {
   readonly pos: Vec2;
   readonly vx: number;
+}
+
+/**
+ * S79 P5 — the spawner's complete resumable state. Pre-S79, WorldSnapshot.restore()
+ * rebuilt the world but the Spawner restarted its 5 RNG streams from the seed and its
+ * counters from fresh samples, so a save/load could not resume the spawn sequence
+ * (latent — no user-facing save UI yet; replay/test-facing). Countdown + rng fields are
+ * null when that hazard stream is DISABLED (null rng ⇒ Infinity countdown); restoring
+ * requires the same stream configuration the state was captured under.
+ */
+export interface SpawnerState {
+  readonly nextId: number;
+  readonly secondsUntilNextSpawn: number;
+  readonly sparksUntilBomb: number | null;
+  readonly sparksUntilPotato: number | null;
+  readonly sparksUntilRainbow: number | null;
+  readonly sparksUntilSeagull: number | null;
+  readonly rngState: number;
+  readonly bombRngState: number | null;
+  readonly potatoRngState: number | null;
+  readonly rainbowRngState: number | null;
+  readonly seagullRngState: number | null;
+}
+
+/** An Rng that can round-trip its internal word (mulberry32 qualifies). */
+function isStateful(rng: Rng): rng is StatefulRng {
+  return typeof (rng as Partial<StatefulRng>).getState === 'function';
 }
 
 export class Spawner {
@@ -200,6 +227,57 @@ export class Spawner {
       }
     }
     return n;
+  }
+
+  /**
+   * S79 P5 — capture the complete resumable state (counters + all 5 RNG words).
+   * Returns null when any ENABLED stream's Rng cannot expose its state (a custom
+   * non-mulberry32 Rng) — the caller then falls back to from-seed behaviour.
+   */
+  getState(): SpawnerState | null {
+    if (!isStateful(this.rng)) return null;
+    for (const stream of [this.bombRng, this.potatoRng, this.rainbowRng, this.seagullRng]) {
+      if (stream !== null && !isStateful(stream)) return null;
+    }
+    const fin = (v: number): number | null => (Number.isFinite(v) ? v : null);
+    const word = (stream: Rng | null): number | null =>
+      stream === null ? null : (stream as StatefulRng).getState();
+    return {
+      nextId: this.nextId,
+      secondsUntilNextSpawn: this.secondsUntilNextSpawn,
+      sparksUntilBomb: fin(this.sparksUntilBomb),
+      sparksUntilPotato: fin(this.sparksUntilPotato),
+      sparksUntilRainbow: fin(this.sparksUntilRainbow),
+      sparksUntilSeagull: fin(this.sparksUntilSeagull),
+      rngState: (this.rng as StatefulRng).getState(),
+      bombRngState: word(this.bombRng),
+      potatoRngState: word(this.potatoRng),
+      rainbowRngState: word(this.rainbowRng),
+      seagullRngState: word(this.seagullRng),
+    };
+  }
+
+  /**
+   * S79 P5 — resume from a captured state: the spark/bomb/potato/rainbow/seagull
+   * sequences continue bit-exactly from the capture point. The spawner must be
+   * constructed with the SAME stream configuration (same streams enabled) the state
+   * was captured under; a null countdown/word restores that stream as idle (Infinity).
+   */
+  restoreState(s: SpawnerState): void {
+    this.nextId = s.nextId;
+    this.secondsUntilNextSpawn = s.secondsUntilNextSpawn;
+    this.sparksUntilBomb = s.sparksUntilBomb ?? Number.POSITIVE_INFINITY;
+    this.sparksUntilPotato = s.sparksUntilPotato ?? Number.POSITIVE_INFINITY;
+    this.sparksUntilRainbow = s.sparksUntilRainbow ?? Number.POSITIVE_INFINITY;
+    this.sparksUntilSeagull = s.sparksUntilSeagull ?? Number.POSITIVE_INFINITY;
+    if (isStateful(this.rng)) this.rng.setState(s.rngState);
+    const put = (stream: Rng | null, word: number | null): void => {
+      if (stream !== null && word !== null && isStateful(stream)) stream.setState(word);
+    };
+    put(this.bombRng, s.bombRngState);
+    put(this.potatoRng, s.potatoRngState);
+    put(this.rainbowRng, s.rainbowRngState);
+    put(this.seagullRng, s.seagullRngState);
   }
 
   private spawnOne(tick: number): Spark {

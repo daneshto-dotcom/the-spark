@@ -61,7 +61,12 @@ export class EffectsRenderer {
         // S18 P1 — audio-only effects (BOND_FORMED, BOND_SEVERED) are drained
         // by audioManager earlier in the frame; they have no visual drawer.
         // Skip so they don't enter the active list as dead weight.
-        if (e.kind === 'BOND_FORMED' || e.kind === 'BOND_SEVERED') continue;
+        // S79 P5 — CREATURE_CHARGE joined the audio-only club in S37 (playChargeSFX
+        // via drainAudioEffects; no visual drawer) but was never added to this skip,
+        // so every charge inflated activeCount until lifetime cull (S78 audit MEDIUM).
+        if (e.kind === 'BOND_FORMED' || e.kind === 'BOND_SEVERED' || e.kind === 'CREATURE_CHARGE') {
+          continue;
+        }
         this.active.push({ effect: e, bornTick: e.tick });
       }
       world.effects.length = 0;
@@ -116,7 +121,8 @@ export class EffectsRenderer {
         return;
       case 'BOND_FORMED':
       case 'BOND_SEVERED':
-        // S18 P1 — audio-only; filtered at drain. Defense-in-depth no-op.
+      case 'CREATURE_CHARGE':
+        // S18 P1 / S79 P5 — audio-only; filtered at drain. Defense-in-depth no-op.
         return;
     }
   }
