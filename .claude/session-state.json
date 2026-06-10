@@ -1,335 +1,102 @@
 {
-  "tool_calls_session_total": 317,
-  "session_id": "S82",
+  "tool_calls_session_total": 0,
+  "session_id": "S83",
   "session_kind": "execution",
-  "session_start": "2026-06-10T14:45:00.000Z",
-  "session_note": "S82 — user pre-approved full batch + autonomous run ('I pre-approve full session batch and autonomous run and am leaving for a few hours'). Full-tier batch PDR: .claude/plans/2026-06-10_PDR_S82_batch.md. Council R1+R2 (Grok reasoning + Gemini 2.5-pro) CONVERGED; PRIME-AUDIT logged in PDR. A.0 state discovery via 6 parallel reader agents (maps: .claude/s82-maps/). Model: Fable 5 user-sanctioned this session. NEXT SESSION (user-queued): Voltkin full audit + real-animation upgrade.",
+  "session_start": "2026-06-10T16:30:00.000Z",
+  "session_note": "S83 — Voltkin full audit + real-animation upgrade (user-queued S82, PDR v2 approved this session: 'Approved! work creatively, technically, pedantically, and thoroughly'). Full-tier batch PDR presented in-chat after A.0 audit (checkerboard baked into all 6 sprites 0% alpha + intro mp4; no key on sprite path; gray checkers survive 0.88 luma key; belly #FFEB6B luma .887 threshold collision). Council R1+R2 (Grok 4.20 reasoning + Gemini 2.5-pro) — Battle Ledger 7 rows, Grok mesh-warp alternative rejected on merits, single-atlas + global-tick-loop + dHash gate adopted from Grok, VFX library deferred per user, audio cues rejected-already-wired. User quality bar added in v2: MapleStory-grade aliveness (weight, anticipation, follow-through, personality); reject clips that read as improved frame-flipping. Model: Fable 5 (user-sanctioned S82 precedent).",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
   "tier": "Full",
   "council_rounds": 2,
-  "council_result": "CONVERGED (R2: Grok CONVERGED +2 minor; Gemini +1 BLOCKER fix adopted +1 SHOULD adopted)",
+  "council_result": "CONVERGED (R2 synthesis: P2 probe upgraded to adversarial walk-cycle case; P3 adopted 2.75 vs 1.0 with Grok atlas optimization folded in; P4 unanimous with median-contamination validation; D5 VFX SPLIT resolved by user = defer)",
+  "generative_cost_cap_usd": 10,
+  "generative_cost_expected_usd": "3-6",
   "priorities": [
     {
       "id": "P1",
-      "label": "S82 P1 — cruiser-poopy-slow: poop hits the player cruiser; capped per-tick cursor-chase while debuffed + foul tint",
-      "status": "completed",
-      "phase": "ACT",
+      "label": "S83 P1 — TRUE-ALPHA SPRITES: offline checkerboard matte of the 6 Voltkin frames (edge-connected flood fill + LAB tolerance + edge decontamination)",
+      "status": "in_progress",
+      "phase": "DO",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "objective": "Poop-vs-avatar collision (avatar-first, seat-ascending, consume-on-hit); Player.poopedUntilTick + poopedCursorTarget additive-optional; while debuffed applyUpdateAvatarPos writes the TARGET and a host per-tick chase moves avatarPos <=POOP_CRUISER_MAX_SPEED px/tick with exact-snap convergence + clear; local render switches to smoothTowards chase + foul tint.",
-      "scope": "src/constants.ts, src/game/player.ts, src/state/seagulls/seagullLifecycle.ts, src/state/gameMode.ts, src/main.ts (chase fan-out), src/render/avatarRenderer.ts, src/state/save.ts, tests",
-      "testing": "vitest new units (hit/precedence/bench-skip/seat-order/chase/exact-snap/guards/serialization); tsc; seagull.spec pre-audit + local run; preview boot-smoke",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const POOP_CRUISER_MAX_SPEED = 7;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const POOP_AVATAR_HIT_RADIUS = 30;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
-          "needle": "export function tickCruiserChase"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
-          "needle": "if (player.poopedCursorTarget !== undefined) player.poopedCursorTarget = undefined;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagullLifecycle.ts",
-          "needle": "POOP_AVATAR_HIT_RADIUS_SQ) hitPlayer = player;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/physics/physicsLoop.ts",
-          "needle": "tickCruiserChase(world);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
-          "needle": "poopedCursorTarget: { x: p.poopedCursorTarget.x, y: p.poopedCursorTarget.y }"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.ts",
-          "needle": "lerpColor(player.color, POOP_FOUL_TINT, POOP_FOUL_TINT_STRENGTH)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/cruiserSlow.test.ts",
-          "needle": "PRECEDENCE: the avatar bodyblocks"
-        }
-      ],
-      "check_completed": true,
-      "check_method": "S82 P1: poop-vs-avatar pass added to applyPoopTick FALLING (avatar-FIRST bodyblock precedence, lowest-seat deterministic pick, benched immune, consume-on-hit, re-hit refresh); Player.poopedUntilTick + poopedCursorTarget additive-optional (pickup/drop FSM threading preserved); applyUpdateAvatarPos debuffed branch writes TARGET verbatim + un-debuffed branch clears leftover target (Grok R2#1 guard); tickCruiserChase in stepPhysics (host/solo, pre-substep) moves avatarPos <=POOP_CRUISER_MAX_SPEED=7 px/tick with EXACT-snap convergence + clear (Gemini R2#1) + S45 Sym A carried-spark pinning; avatarRenderer: slowed local player joins the S81 smoothTowards chase path, fill lerps toward POOP_FOUL_TINT@0.65 while debuffed. Serialization conditional-spread, deep-copied target on rehydrate. GATES: tsc -b clean; FULL vitest 1205/1205 (+17 cruiserSlow.test.ts: hit/outside/precedence/bench/seat-order/refresh/reducer-guards/chase-cap/exact-snap/post-expiry-completion/carried-pinning/serialization emit-only-when-set + round-trip-no-alias); LOCAL playwright seagull.spec 1/1 (e2e coupling pre-audited: injected poop x=600 vs avatar x=670 > 30px radius, asserts insensitive); LIVE preview boot-smoke via pumped app.ticker: real-dispatch hit at tick 2 (poopedUntilTick=901=tick+900), chase measured EXACTLY 7.000 px/tick over 30 real ticks, zero console errors; bundle 536.3KiB <550. Commit f8f35e6 pushed.",
-      "checkpoint_commit": "f8f35e6",
-      "real_context_tokens_at_close": 195000,
-      "real_context_pct_at_close": 19.5
+      "objective": "scripts/matte-voltkin-frames.py converts the 6 shipped frames to true-alpha PNGs by removing the baked-in transparency checkerboard. Edge-connected flood fill (checker tones only), LAB-tolerance match, 2px edge decontamination. Originals in assets-source/ untouched.",
+      "scope": "scripts/matte-voltkin-frames.py (new), public/godly/voltkin/sprites/voltkin-*.png (6 files regenerated)",
+      "testing": "pixel probes: 0 border-connected checker pixels; >0% transparent; interior whites (eyes/teeth) intact; dHash character-region vs original ~unchanged; in-game live preview probe",
+      "verification": []
     },
     {
       "id": "P2",
-      "label": "S82 P2 — Spawner.getState/restoreState wired into WorldSnapshot (param injection; wire-safe by construction)",
-      "status": "completed",
-      "phase": "ACT",
+      "label": "S83 P2 — ADVERSARIAL VEO PROBE: walk-cycle clip seeded with cleaned idle frame; quality-bar gate for P3",
+      "status": "pending",
+      "phase": "PLAN",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "objective": "WorldSnapshot.spawner additive-optional via snapshot(world,{spawnerState}); netSnapshot never passes it + Omit + destructure defense + wire-absence test; DEV __SPARK__.snapshotWorld/restoreWorld seams; byte-identical resume integration test.",
-      "scope": "src/state/save.ts, src/main.ts (DEV block), src/net/sync.test.ts, integration test",
-      "testing": "vitest round-trip + resume byte-equality; wire-absence; tsc",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
-          "needle": "spawner?: SpawnerState;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
-          "needle": "opts?: { spawnerState?: SpawnerState | null },"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
-          "needle": "'savedAt' | 'rngSeed' | 'nextPrimitiveId' | 'nextBondId' | 'spawner'"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "snapshotWorld(): string {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "if (snap.spawner !== undefined) spawner.restoreState(snap.spawner);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/sync.test.ts",
-          "needle": "expect((msg.snapshot as { spawner?: unknown }).spawner).toBeUndefined();"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.spawner.test.ts",
-          "needle": "RESUME: restore + restoreState continues the spark sequence"
-        }
-      ],
-      "check_completed": true,
-      "check_method": "S82 P2: WorldSnapshot.spawner?: SpawnerState additive-optional; snapshot(world, opts?:{spawnerState}) param injection (Spawner is main.ts-owned, not on World — the param IS the wire-safety: netSnapshot() calls snapshot(world) with no opts so the field cannot exist on the net path by construction); NetSnapshot Omit + runtime destructure defense + sync.test wire-absence assertion extended to 'spawner'; DEV __SPARK__.snapshotWorld/restoreWorld seams (sole inject sites, tree-shaken from prod); null getState() degrades to omitted (from-seed fallback). GATES: tsc clean; FULL vitest 1210/1210 (+5 save.spawner.test.ts: emit-only-when-injected/null-degrade, wire absence, byte-compat no-opts==null-opts, RESUME — 30s save restored into DIFFERENT-seed spawner continues 60s run with bit-identical snapshot JSON + spawner state words + SparkId continuity above pre-save max). LIVE preview: snapshotWorld carries 11-field spawner state, restoreWorld round-trips, tick preserved. Commit afa3ec1 pushed.",
-      "checkpoint_commit": "afa3ec1",
-      "real_context_tokens_at_close": 235000,
-      "real_context_pct_at_close": 23.5
+      "objective": "veo_generate image-to-video walk cycle on solid background. Gate: dHash drift, loop closure, motion variance (not pose-flipping), qualitative aliveness checklist at 128px render size. Contact sheet + GIF posted in-chat. Fail => ship P1+P4 only + carry-forward.",
+      "scope": "assets-source/godly-voltkin/anim-probe/ (new working dir), no src/ changes",
+      "testing": "dHash drift gate; first/last frame loop delta; frame-to-frame motion variance; visual checklist review",
+      "verification": []
     },
     {
       "id": "P3",
-      "label": "S82 P3 — EYES: fog fuzzy-edge (noise-modulated brush) + CVD (avatar nameplates, connection-dot shape)",
-      "status": "completed",
-      "phase": "ACT",
+      "label": "S83 P3 — REAL ANIMATION (gated on P2): per-state Veo clips -> 12-15fps frames -> matte -> single atlas + manifest -> deterministic tick mapping",
+      "status": "pending",
+      "phase": "PLAN",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "objective": "Angular wobble baked into fog brush texture (deterministic, inside existing 40px band, plateau preserved); per-seat P{n} nameplate with dark stroke under avatars; connection dot gains shape differentiation.",
-      "scope": "src/render/fogRenderer.ts, src/render/avatarRenderer.ts, src/render/ui.ts, tests",
-      "testing": "vitest pure helpers; fog.spec local run (exact-RGB probes must hold); preview screenshot",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/fogRenderer.ts",
-          "needle": "export function fogEdgeWobble"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/fogRenderer.ts",
-          "needle": "export function brushAlphaAt"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/fogRenderer.ts",
-          "needle": "const FUZZ_AMP = 0.09;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.ts",
-          "needle": "export function avatarNameplateText"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.ts",
-          "needle": "plate.position.set(x, y + NAMEPLATE_OFFSET_Y);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
-          "needle": "g.circle(cx, cy, 6).stroke({ color: 0xff3b6b, width: 2, alpha: 0.85 });"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/fogBrush.test.ts",
-          "needle": "plateau stays FULLY opaque at every angle"
-        }
-      ],
-      "check_completed": true,
-      "check_method": "S82 P3: fog brush rebaked per-pixel (one-time 256x256 ImageData) with fixed 3-harmonic angular wobble — fogEdgeWobble + brushAlphaAt exported pure (smoothstep fade, plateau<=0.72 untouched, edge in [1-FUZZ_AMP,1.0] INWARD-only so the pre-S82 footprint is never exceeded — fog.spec exact-RGB(0,0,0) probes + alpha<10 source centers provably safe; FUZZ_AMP=0.09 ~ +/-12px documented playtest knob); GLSL veto respected (pure Canvas2D). CVD: avatarRenderer P{n} nameplate per avatar (white, 3px dark stroke, alpha .85, +22px below, networked-only gate players.size>1, benched-hidden, GC'd with graphics); ui.ts connection dot connected=FILLED vs lost=HOLLOW ring+X slash (shape, not just green/red). GATES: tsc clean; FULL vitest 1217/1217 (+7 fogBrush.test.ts: wobble bounded/deterministic/angle-varying, plateau-full at 64 angles, rim-zero, monotonic fade, band angle-variance, nameplate map); LOCAL playwright fog.spec 6/6; LIVE mask pixel-sampled via extract: plateau ring (r=190cv) alpha 0 x24 angles, outside ring (r=300cv) 255 x24, mid-band ring (r=252cv) spread 75/255 across 48 angles = visible organic wobble; nameplates P1/P2 render at avatar+22px in a 2-player world. Carry-forwards logged (structure-ownership cue, above-fog hazard identity, MEMORY_FOG_COLOR dim tier). Commit 0205d83 pushed.",
-      "checkpoint_commit": "0205d83",
-      "real_context_tokens_at_close": 275000,
-      "real_context_pct_at_close": 27.5
+      "objective": "Clips: walk/idle loop (chibi), charge windup, zap (lion), hurt, victory — Transformation Arc preserved. Atlas <=2048^2 + JSON manifest in public/godly/voltkin/anim/. voltkinFrames mapping extended: loops keyed on world.tick modulo, one-shots on ticksInState (zap lands on FIRE_TICK=30). Per-state fallback to cleaned static frame. Quality bar: MapleStory-grade aliveness; reject smoother-frame-flip clips. Code delta <=4KiB JS.",
+      "scope": "src/render/voltkinFrames.ts, src/render/creatureRenderer.ts, scripts (pipeline), public/godly/voltkin/anim/ (new), tests",
+      "testing": "vitest mapping determinism (loop modulo + FIRE_TICK sync + fallback); tsc; bundle delta check; live preview at game scale",
+      "verification": []
     },
     {
       "id": "P4",
-      "label": "S82 P4 — netcode infra: crypto host identity + in-page auto-reconnect + drop-bench + client-intent allowlist; host-migration DEFERRED (logged)",
-      "status": "completed",
-      "phase": "ACT",
+      "label": "S83 P4 — INTRO VIDEO FIX: temporal-median plate-difference matte -> composite onto black -> re-encode; lumaKey disabled",
+      "status": "pending",
+      "phase": "PLAN",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "objective": "Lift S79 P4 TOFU race ceiling via ECDSA P-256 attestation bound to the room code (roomCode = 30-bit pubkey fingerprint); client-blip reconnect with grace overlay (empirical Trystero rejoin probe FIRST, scoped fallback); mid-game drop-bench self-healing re-stamp; CLIENT_INTENT_ALLOWLIST closes the any-GameAction INTENT hole. No protocol bump (additive-optional).",
-      "scope": "src/net/hostIdentity.ts (new), protocol.ts, hostHandlers.ts, clientHandlers.ts, transport.ts, session.ts, main.ts, render/connectionLostOverlay.ts, tests",
-      "testing": "vitest (fingerprint vectors, attest encode/verify-fail-retry, allowlist, drop-bench, reconnect handler); local smoke+lobby-construction lanes; local 2-context real-WebRTC rejoin probe",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/hostIdentity.ts",
-          "needle": "export function roomCodeFromDigest"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/hostIdentity.ts",
-          "needle": "utf8('SPARK-HOST-ATTEST-v1')"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/hostIdentity.ts",
-          "needle": "export async function verifyHostAttest"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/clientHandlers.ts",
-          "needle": "session.hostVerifiedPeerId === peerId &&"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/clientHandlers.ts",
-          "needle": "export function connectAsClient"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
-          "needle": "export function isClientIntentAllowed"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/hostHandlers.ts",
-          "needle": "if (!isClientIntentAllowed(msg.action.type)) {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
-          "needle": "export function applyBenchOfflinePlayer"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "connectAsClient(clientJoinDeps, session.roomCode);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/reconnect.spec.ts",
-          "needle": "@quarantine-flaky"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/LOCKED_DECISIONS.md",
-          "needle": "### 13.20 Netcode hardening"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/clientHandlers.ts",
-          "needle": "} else if (msg.kind === 'NETSNAPSHOT') {"
-        }
-      ],
-      "check_completed": true,
-      "check_method": "S82 P4 (3 slices, commit 3e71e5f): (a) CRYPTO HOST IDENTITY — net/hostIdentity.ts: page-session ECDSA P-256; roomCode = first 30 bits BE of SHA-256(SPKI) over the room alphabet (ONE pure slicer for derive+verify, fixed-vector tested 222222/ZZZZZZ/J22222); attestation = domain-tag + u16be length-prefixed (roomCode, hostPeerId) — injectivity unit-tested; attached additive-optionally to HELLO + START_GAME_SIGNAL (NO protocol bump; parseNetMessage fail-closed shape check); hostAuthFilter v2 latch REQUIRES hostVerifiedPeerId (NETSNAPSHOT fallback REMOVED — the raceable path); pre-verify Begin/presence buffered (latest/kind/peer, flood-capped) + replayed on verify success; verify-fail leaves pre-latch retry-able (Gemini R2#2). (b) AUTO-RECONNECT — 15s grace, retry 1s-then-4s, connectAsClient re-runs the join path with same selfId; latch/ClientSync survive (teardownNet NOT called); overlay RECONNECTING(countdown) vs terminal LOST; host waits out same grace; LOCKED 13.7 amended. EMPIRICAL R3 PROBE PASSED: e2e/reconnect.spec.ts over REAL Trystero/Nostr — transport killed mid-PLAYING, auto-rejoin, tick advanced 60+, drop-bench expired (10.3s, @quarantine-flaky lane). (c) HARDENING — CLIENT_INTENT_TYPES single-source allowlist (12 player intents) enforced at host INTENT handler closing the any-GameAction hole (A.0 Delta-2); BENCH_OFFLINE_PLAYER host-internal action, 3s grace + rolling 2s re-stamp, never-shortens, self-heals on rejoin. GATES: tsc clean; FULL vitest 1234/1234 (+17 netHardening + clientHandlers v2 rewrite incl. 'S79 race is dead' case); REAL-WebRTC smoke.spec 11/11+1skip (attest path load-bearing in every test); lobby-construction 7/7; nplayer gating 1/1; bundle 542.1KiB <550 (+5.9KiB, zero deps — WebCrypto). LOCKED 13.4 amended + NEW 13.20. Host-migration DEFERRED with logged rationale (world dies with host page; needs state-handover design).",
-      "checkpoint_commit": "3e71e5f",
-      "real_context_tokens_at_close": 365000,
-      "real_context_pct_at_close": 36.5
+      "objective": "Offline: median background plate (validated against explosion segment), per-frame diff matte, composite onto black, re-encode H.264 same budget. recipe lumaKey.enabled=false (kills belly-hole defect, removes runtime shader use). Fallback: Veo regen seeded with cleaned tv-glowing on solid black (~$0.35).",
+      "scope": "scripts (pipeline), public/godly/voltkin/cinematic/voltkin-intro.mp4 (regenerated), src/state/godlyRecipes/voltkin.ts (lumaKey flag)",
+      "testing": "frame-extract pixel probes pre/post; live preview: cinematic plays seamlessly over black, no squares, no belly holes",
+      "verification": []
     },
     {
       "id": "P5",
-      "label": "S82 P5 — lobby seat-UX TRUE delta (S69 P2 already shipped): seatRack.test.ts via pure-helper extraction, fix stale CARRIED banner, remove vestigial pane alphas",
-      "status": "completed",
-      "phase": "ACT",
-      "tier": "Micro",
+      "label": "S83 P5 — VERIFICATION SWEEP: determinism tests, fog e2e, full e2e lane, bundle delta, live pixel probes, CI green",
+      "status": "pending",
+      "phase": "PLAN",
+      "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "objective": "Close the genuine remainder of S69 P2 without redoing shipped work; correct the factually-wrong archive banner; remove dead hostPaneAlpha/joinPaneAlpha view surface + orphans.",
-      "scope": "src/render/seatRack.ts (+.test.ts new), src/render/lobbyStateMachine.ts (+test), .claude/plans-archive banner edit",
-      "testing": "vitest; lobby-construction.spec local; tsc",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/seatRack.ts",
-          "needle": "export function seatLabelText"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/seatRack.ts",
-          "needle": "export function seatCellStyle"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/seatRack.test.ts",
-          "needle": "host + you (the hosting player): P1  HOST  (you)"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/lobbyStateMachine.ts",
-          "needle": "hostPaneAlpha: state.mode"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.claude/plans-archive/2026-06-06_PDR_S69_P2_lobby-seat-ux_CARRIED.md",
-          "needle": "STATUS CORRECTED S82"
-        }
-      ],
-      "check_completed": true,
-      "check_method": "S82 P5 (commit e364df5): A.0 archaeology PROVED the CARRIED banner wrong — S69 P2 seat-UX fully shipped (e7190b8 + S70 LOBBY_PRESENCE + S73 stable seats + S79 sender-auth); re-execution would have regressed the roster path. TRUE delta closed: (1) seatRack.test.ts NEW via pure-helper extraction (seatLabelText + seatCellStyle consumed by the Pixi update path — 6 tests: P{n}/HOST/(you)/combined labels, A5 you-glow style, dimmed-other style); (2) dead hostPaneAlpha/joinPaneAlpha removed from LobbyView + lobbyView + 3 stale tests (derived since S64, never applied post-S69; flagged as refactor-bait); (3) archive banner corrected with pointer to the accurate sibling record. D1 animations + e2e geometry-getters stay deferred (logged carry-forwards). GATES: tsc clean; FULL vitest 1237/1237; LOCAL lobby-construction.spec 7/7.",
-      "checkpoint_commit": "e364df5",
-      "real_context_tokens_at_close": 395000,
-      "real_context_pct_at_close": 39.5
+      "objective": "Full gates: vitest suite green incl. new mapping tests; fog.spec 6-children intact; FULL local e2e lane; bundle <=550KiB charter with <=4KiB JS delta; live-preview probes (no checker survivors around creature; video seamless; animation feel at game scale); CI green on tip; LOCKED_DECISIONS render-note if needed.",
+      "scope": "tests, LOCKED_DECISIONS.md (note only), BACKLOG.md close entry",
+      "testing": "the sweep IS the testing",
+      "verification": []
     }
   ],
   "carry_forwards_logged": [
-    "Host-migration (true host handover) — deferred from P4 with rationale: world state dies with the host page; needs state-handover design (own session).",
-    "P3 follow-ups: structure-ownership non-color cue; above-fog hazard identity (S77 Delta-5); MEMORY_FOG_COLOR dim-tier restore (user-EYES knob).",
-    "P5 deferred: D1 living-lobby animations; e2e geometry-getter migration (A3 half 2).",
-    "NEXT SESSION (user-queued): Voltkin FULL AUDIT + real-animation upgrade — replace frame-flip sprite playback with a real animated character; fix white-square cutout/chroma artifacts vs black background; keep mechanics (structure targeting + electric-bolt destruction). Generative tools available: gcp-vertex MCP (imagen/veo). Be methodical + creative."
+    "VFX lightning-overlay library (3-5 one-shot Veo clips) — DEFERRED by user decision S83; procedural ARC_FLASH stays unless user asks for variety later.",
+    "Host-migration (true host handover) — own design session (S82 carry).",
+    "EYES follow-ups: structure-ownership non-color cue; above-fog hazard identity; MEMORY_FOG_COLOR dim tier (S82 carry).",
+    "Lobby: D1 living-lobby animations; e2e geometry-getter migration (S82 carry).",
+    "Playtest round 4 knobs (S82): cruiser-slow feel, fuzzy fog, nameplates, reconnect UX, drop-bench."
   ],
-  "reflexion_entries_to_archive": [
-    "P1 #target-chase-beats-message-cap #council-redesign: the per-MESSAGE displacement cap drafted for the slowed cruiser had two holes both externals found independently (spam bypass + pause-then-teleport via unclamped tick-delta). The fix that dissolved BOTH was a model change, not a parameter: store the cursor as a TARGET and chase it per-tick in the sim (hunter precedent) — spam now only moves the target, no dispatch-gate hack needed, and exact-snap-on-convergence (<=1 step => snap+clear) terminates without float-equality. LESSON: when a rate limit needs defending, move the authority from the message to the tick. Also: preview-tab rAF is throttled when occluded — pump app.ticker.update() manually to drive the REAL loop deterministically from eval.",
-    "P2 #param-injection-beats-field-addition: the Spawner is a main.ts-owned class, unreachable from snapshot(world) — instead of putting spawner state ON World (which would ride every 10Hz NetSnapshot unless remembered in the omission list), inject it as an optional snapshot() PARAMETER. Wire-safety then holds BY CONSTRUCTION (netSnapshot passes no opts) instead of by discipline, with Omit+destructure+test as backstops. LESSON: for host-only persistence data, prefer call-site injection over world-state expansion — the narrowest data path is the safest serializer.",
-    "P3 #inward-only-fuzz #verify-by-pixel-sampling: the fuzzy fog edge shipped INSIDE the existing brush footprint (wobble pulls the edge inward only, plateau untouched) so every fog.spec exact-RGB probe stayed valid BY GEOMETRY, not by re-tuning tests. Verified end-to-end by extracting the live maskRT and ring-sampling alpha at 24-48 angles (plateau 0, far 255, mid-band spread 75/255) — when a WebGL screenshot times out in an occluded preview window, extract.pixels IS the screenshot.",
-    "P4 #room-code-as-key-commitment #empirical-probe-before-dependent-code: the TOFU race died not by adding a handshake but by making the EXISTING shared secret (the room code) a pubkey fingerprint — zero UX change, zero protocol bump, zero deps (WebCrypto). Buffering+replaying the once-only Begin signal during async verify preserved the no-drop property the sync latch had. The Trystero same-selfId rejoin assumption (R3) was PROBED with a real-WebRTC e2e BEFORE the UI depended on it — it passed in 10.3s, converting a design bet into ground truth. Also: e2e spec bugs (missing canvasToCss, wrong waitForWorld arg order) masquerade as product failures — read the helper signatures before blaming the feature.",
-    "P5 #archaeology-before-execution: the CARRIED archive banner claimed the S69 P2 lobby refactor was 'never executed' — direct code reads + handoff archaeology proved it FULLY SHIPPED across four sessions. Executing the queued plan as-written would have redone shipped work and regressed the newer roster-based path the draft predates. LESSON: a plan file's own status header is a CLAIM, not ground truth — A.0-probe the code before re-running any carried plan, and when the banner is wrong, fix the banner as part of the close (never leave a known-false plan status for the next session to trip on)."
-  ],
+  "reflexion_entries_to_archive": [],
   "budget_total": 1000000,
-  "session_status": "S82 CLOSED — 5/5 priorities shipped (f8f35e6 cruiser-poopy-slow, afa3ec1 spawner-save, 0205d83 fog/CVD, 3e71e5f netcode crypto-identity/reconnect/allowlist, e364df5 lobby delta). vitest 1237/1237; FULL local gating lane 34 pass/1 skip; bundle 542.1KiB<550; protocol v7 unchanged; MCV 38 assertions exit 0. Deploys green through tip; tip E2E lane in_progress at close (confirm next boot). NEXT SESSION (user-queued): S83 Voltkin full audit + real-animation upgrade — brief in BACKLOG.md + boot-snapshot.md.",
+  "session_status": "S83 OPEN — PDR v2 approved by user (explicit 'Approved!'), executing P1.",
   "totals": {
     "turns": 0,
-    "budget_remaining": 560000,
+    "budget_remaining": 870000,
     "budget_status": "GREEN"
   }
 }
