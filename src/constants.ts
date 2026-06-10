@@ -610,7 +610,9 @@ export const SEAGULL_DEPART_MARGIN = 90; // px past the far edge before the gull
 // save/load reproduce the identical drop pattern. Avg ≈ 30 ticks (~old density per pass).
 export const POOP_DROP_MIN_TICKS = Math.round(0.2 * PHYSICS_HZ); // 12 ticks — tight burst floor
 export const POOP_DROP_MAX_TICKS = Math.round(0.8 * PHYSICS_HZ); // 48 ticks — long-gap ceiling
-export const POOP_FALL_SPEED = 7; // px/tick downward (constant; gravity-free for determinism)
+// S81 P7 — 7 → 5.25 (−25%): user round-3 'the poops are falling too fast' (couldn't even get
+// hit on purpose); slower fall opens a dodge/intercept window. Constant + gravity-free still.
+export const POOP_FALL_SPEED = 5.25; // px/tick downward (constant; gravity-free for determinism)
 export const POOP_RADIUS = 7; // visual/collision core radius
 export const POOP_HIT_RADIUS = 19; // poop-vs-(primitive|spark) collision radius (squared internally)
 export const POOP_GROUND_TTL_TICKS = 4 * PHYSICS_HZ; // a floor splat lingers ~4s then dissipates

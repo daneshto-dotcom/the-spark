@@ -319,7 +319,7 @@ describe('S80 — poop collision lowest-id equivalence + foul-on-merge consisten
     addPrim(w, 5, 495, 400);
     const poop = makePoop({ id: asPoopId(0), pos: { x: 500, y: 395 }, spawnedAtTick: 0 });
     w.poops.set(poop.id, poop);
-    applyPoopTick(w, { type: 'POOP_TICK', poopId: asPoopId(0) }); // falls to y=402 → all 3 in radius
+    applyPoopTick(w, { type: 'POOP_TICK', poopId: asPoopId(0) }); // falls to y=395+POOP_FALL_SPEED → all 3 in radius
     expect(poop.state).toBe('SPLAT_STRUCTURE');
     expect(poop.fouledPrimId).toBe(asPrimitiveId(2));
     expect(w.fouledPrimitives.has(asPrimitiveId(2))).toBe(true);
@@ -338,7 +338,7 @@ describe('S80 — poop collision lowest-id equivalence + foul-on-merge consisten
     w.freeSparks.set(s7.id, s7); // inserted FIRST but higher id
     w.freeSparks.set(s3.id, s3);
     w.poops.set(asPoopId(0), makePoop({ id: asPoopId(0), pos: { x: 961, y: 535 }, spawnedAtTick: 0 }));
-    applyPoopTick(w, { type: 'POOP_TICK', poopId: asPoopId(0) }); // falls to 542 → both in radius
+    applyPoopTick(w, { type: 'POOP_TICK', poopId: asPoopId(0) }); // falls to 535+POOP_FALL_SPEED → both in radius
     expect(s3.poopyUntilTick).toBe(50 + POOP_SLOW_TICKS); // lowest id takes the hit
     expect(s7.poopyUntilTick).toBeUndefined();
     expect(w.poops.size).toBe(0);
