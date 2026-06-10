@@ -24,6 +24,7 @@ import { POTATO_BLAST_RADIUS, POTATO_CARRIER_BENCH_TICKS } from '../constants.ts
 import { snapPrevPosForUnbonded } from '../game/invariants.ts';
 import { asPotatoId, type BondId, type PlayerId, type PotatoId, type PrimitiveId, type Vec2 } from '../types.ts';
 import { makePotato } from './potato.ts';
+import { reconcileFouledPrimitives } from './seagulls/seagullLifecycle.ts';
 import type { World } from './worldTypes.ts';
 
 const POTATO_BLAST_RADIUS_SQ = POTATO_BLAST_RADIUS * POTATO_BLAST_RADIUS;
@@ -190,6 +191,11 @@ export function applyPotatoDetonate(world: World, action: PotatoDetonateAction):
   // whose bond count changed (locked cleanup; prevents surviving neighbours flinging).
   for (const pid of victims) world.primitives.delete(pid);
   snapPrevPosForUnbonded(world.primitives);
+
+  // S79 P3 (HIGH-1) — the AoE can delete fouled prims and split a fouled component off its
+  // splat-anchor; re-derive the foul set from the live splats (stale-id leak + un-cleanable
+  // income-0 fix). The main.ts orphan sweep then CLEANs any splat whose anchor died here.
+  reconcileFouledPrimitives(world);
 
   return world;
 }

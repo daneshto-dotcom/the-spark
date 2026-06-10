@@ -189,10 +189,14 @@ export interface World {
   /**
    * S77 P3 — primitives currently FOULED by seagull poop. tickScoring zeroes the income of
    * any player owning a fouled primitive ("the whole structure stops generating income" — a
-   * poop fouls the hit prim's whole connected component). HOST-ONLY (the client reads the
-   * resulting host-authoritative scoreProgress + renders the splat from poops[]); NOT
-   * serialized. A primitive is removed from this set when its splat is cleaned OR the prim is
-   * destroyed (bomb/potato/sever). Cleared on teardown.
+   * poop fouls the hit prim's whole connected component). HOST-COMPUTED but SERIALIZED: it
+   * rides WorldSnapshot AND NetSnapshot (save.ts — additive-optional, emitted only when
+   * non-empty), so a host save/load resumes the income halt exactly and the client renders
+   * the fouled-structure tint (structureRenderer, S79 P2) without recomputing income.
+   * Maintained invariant (S79 P3): the set ALWAYS equals the union of the current connected
+   * components of live SPLAT_STRUCTURE poop anchors — CLEAN_POOP unfoels its component, and
+   * reconcileFouledPrimitives re-derives the set after destroy-path topology changes
+   * (sever/bomb cascade + potato AoE). Cleared on teardown.
    */
   fouledPrimitives: Set<PrimitiveId>;
   /**

@@ -40,6 +40,7 @@ import { snapPrevPosForUnbonded } from '../game/invariants.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { severSplit } from '../game/structure.ts';
 import type { Bond } from '../physics/bonds.ts';
+import { reconcileFouledPrimitives } from './seagulls/seagullLifecycle.ts';
 import type { World, GameAction } from './world.ts';
 
 /** SeverBond-specific action narrowing. */
@@ -165,4 +166,10 @@ export function applySeverTopology(world: World, bond: Bond, split: SeverSplit):
   for (const primId of split.del) world.primitives.delete(primId);
 
   snapPrevPosForUnbonded(world.primitives);
+
+  // S79 P3 (HIGH-1) — a sever (player / physics / creature / bomb all route here) can delete
+  // fouled prims AND split a fouled component off its splat-anchor. Re-derive the foul set
+  // from the live splats so no stale id leaks and no splat-less fragment stays income-0
+  // un-cleanable. Early-outs when nothing is fouled.
+  reconcileFouledPrimitives(world);
 }

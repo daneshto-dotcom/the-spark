@@ -211,14 +211,50 @@ export function applyPoopTick(world: World, action: PoopTickAction): World {
 }
 
 /**
+ * S79 P3 (HIGH-1) — re-derive the foul set from FIRST PRINCIPLES: fouled = the union of the
+ * CURRENT connected components of every live structure-splat's anchor prim. Called after any
+ * topology mutation that deletes prims or splits components (sever cascade — which the bomb
+ * also routes through — and the potato AoE). Fixes BOTH S78 audit defects in one pass:
+ *   (a) stale-id leak — a destroyed prim is unreachable from any anchor, so it drops out
+ *       (pre-fix it sat in the Set forever, and a reused... id space is monotonic, but the
+ *       Set grew unbounded across a long match);
+ *   (b) un-cleanable income-0 — severing a fouled structure OFF its splat-anchor left the
+ *       splat-less fragment fouled with nothing to wipe; now only the fragment still carrying
+ *       the splat stays fouled (no splat on you = clean, income resumes).
+ * Deterministic: pure fn of (poops, primitives, bonds); BFS via the same collectComponent.
+ * Cheap: early-out when nothing is fouled (the overwhelmingly common case).
+ */
+export function reconcileFouledPrimitives(world: World): void {
+  if (world.fouledPrimitives.size === 0) return;
+  world.fouledPrimitives.clear();
+  for (const poop of world.poops.values()) {
+    if (poop.state !== 'SPLAT_STRUCTURE' || poop.fouledPrimId === undefined) continue;
+    for (const pid of collectComponent(world, poop.fouledPrimId)) {
+      world.fouledPrimitives.add(pid);
+    }
+  }
+}
+
+/**
  * Clean a structure-splat: UNFOUL its whole CURRENT component + remove every structure-splat
  * sitting on that component (so cleaning any splat clears the whole structure — Council E3).
  * A non-structure poop just deletes. Dispatched by the main.ts avatar-proximity sweep + tests.
+ *
+ * S79 P3 — the SPLAT_STRUCTURE branch now also requires the anchor prim to still EXIST.
+ * Pre-fix, the main.ts orphan sweep (anchor destroyed) dispatched CLEAN_POOP but the BFS over
+ * a deleted anchor returned an EMPTY component, so the loop below deleted nothing — including
+ * the orphan poop itself — and the sweep re-dispatched every tick forever while the splat
+ * floated immortally at the dead prim's last position. A gone-anchor splat now takes the
+ * plain-delete branch.
  */
 export function applyCleanPoop(world: World, action: CleanPoopAction): World {
   const poop = world.poops.get(action.poopId);
   if (poop === undefined) return world;
-  if (poop.state === 'SPLAT_STRUCTURE' && poop.fouledPrimId !== undefined) {
+  if (
+    poop.state === 'SPLAT_STRUCTURE' &&
+    poop.fouledPrimId !== undefined &&
+    world.primitives.has(poop.fouledPrimId)
+  ) {
     const component = collectComponent(world, poop.fouledPrimId);
     const inComponent = new Set<PrimitiveId>(component);
     for (const pid of component) world.fouledPrimitives.delete(pid);

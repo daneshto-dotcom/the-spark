@@ -25,12 +25,18 @@ import { asBondId, asPlayerId, asPoopId, asPrimitiveId, asSparkId } from '../../
 import { makeWorld, type World } from '../world.ts';
 import { computeComplexity } from '../scoring.ts';
 import { restore, snapshot } from '../save.ts';
+import { severSplit } from '../../game/structure.ts';
+import { applySeverTopology } from '../disruptionManager.ts';
+import { makePotato } from '../potato.ts';
+import { applyPotatoDetonate } from '../potatoLifecycle.ts';
+import { asPotatoId } from '../../types.ts';
 import { makePoop } from './seagull.ts';
 import {
   applyCleanPoop,
   applyPoopTick,
   applySeagullTick,
   applySpawnSeagull,
+  reconcileFouledPrimitives,
   teardownSeagulls,
 } from './seagullLifecycle.ts';
 
@@ -189,6 +195,76 @@ describe('S77 P3 — teardown', () => {
     expect(w.fouledPrimitives.size).toBe(0);
     expect(w.nextSeagullId).toBe(0);
     expect(w.nextPoopId).toBe(0);
+  });
+});
+
+describe('S79 P3 (HIGH-1) — fouledPrimitives stays consistent across destroy paths', () => {
+  /** Chain a—b—c (spaced > POTATO_BLAST_RADIUS so an AoE can clip exactly one prim),
+   *  fully fouled by a splat anchored on `a`. */
+  function fouledChain(w: World) {
+    const a = addPrim(w, 1, 100, 400);
+    const b = addPrim(w, 2, 220, 400);
+    const c = addPrim(w, 3, 340, 400);
+    const ab = connect(w, 10, a, b);
+    const bc = connect(w, 11, b, c);
+    const splat = makePoop({ id: asPoopId(0), pos: { x: 100, y: 400 }, spawnedAtTick: 0 });
+    splat.state = 'SPLAT_STRUCTURE';
+    splat.landedAtTick = 0;
+    splat.fouledPrimId = a.id;
+    w.poops.set(splat.id, splat);
+    w.nextPoopId = 1;
+    for (const p of [a, b, c]) w.fouledPrimitives.add(p.id);
+    return { a, b, c, ab, bc, splat };
+  }
+
+  it('reconcile re-derives the set from live splat anchors (stale ids drop out)', () => {
+    const w = baseWorld();
+    const { a, b, c } = fouledChain(w);
+    w.fouledPrimitives.add(asPrimitiveId(999)); // stale id (prim long destroyed)
+    reconcileFouledPrimitives(w);
+    expect(w.fouledPrimitives.has(asPrimitiveId(999))).toBe(false);
+    expect([a.id, b.id, c.id].every((id) => w.fouledPrimitives.has(id))).toBe(true);
+  });
+
+  it('potato AoE on a fouled prim removes it from the foul set (pre-fix: leaked forever)', () => {
+    const w = baseWorld();
+    const { a, b, c } = fouledChain(w);
+    // Potato directly on `c`: blast 110 reaches only c (b is 120 away).
+    w.potatoes.set(asPotatoId(0), makePotato({ id: asPotatoId(0), pos: { x: 340, y: 400 }, spawnedAtTick: 0 }));
+    applyPotatoDetonate(w, { type: 'POTATO_DETONATE', potatoId: asPotatoId(0) });
+    expect(w.primitives.has(c.id)).toBe(false);
+    expect(w.fouledPrimitives.has(c.id)).toBe(false); // the S78-audit leak
+    // The surviving splat-anchored fragment stays fouled (splat still on `a`).
+    expect(w.fouledPrimitives.has(a.id)).toBe(true);
+    expect(w.fouledPrimitives.has(b.id)).toBe(true);
+    expect(computeComplexity(w, P1)).toBe(0);
+  });
+
+  it('severing a fouled structure OFF its splat-anchor unfouls the splat-less side (un-cleanable income-0 fix)', () => {
+    const w = baseWorld();
+    const { a, b, c, ab } = fouledChain(w);
+    // Cut a—b: §VIII.4 deletes the smaller fragment {a} — the SPLAT-ANCHOR side. Pre-fix,
+    // the surviving {b,c} stayed fouled with NO splat left to wipe → income 0 forever.
+    const split = severSplit(ab, w.primitives, w.bonds);
+    expect([...split.del]).toEqual([a.id]);
+    applySeverTopology(w, ab, split);
+    expect(w.primitives.has(a.id)).toBe(false);
+    expect(w.fouledPrimitives.size).toBe(0); // anchor died with its fragment → all clean
+    expect(computeComplexity(w, P1)).toBeGreaterThan(0); // b,c earn again
+    // The splat itself is now an orphan; the main.ts sweep CLEANs it (next test).
+    expect(w.poops.size).toBe(1);
+    expect([b.id, c.id].every((id) => w.primitives.has(id))).toBe(true);
+  });
+
+  it('orphan CLEAN_POOP (anchor prim gone) deletes the splat (pre-fix: per-tick no-op forever)', () => {
+    const w = baseWorld();
+    const splat = makePoop({ id: asPoopId(0), pos: { x: 100, y: 400 }, spawnedAtTick: 0 });
+    splat.state = 'SPLAT_STRUCTURE';
+    splat.landedAtTick = 0;
+    splat.fouledPrimId = asPrimitiveId(999); // anchor was destroyed
+    w.poops.set(splat.id, splat);
+    applyCleanPoop(w, { type: 'CLEAN_POOP', poopId: asPoopId(0) });
+    expect(w.poops.size).toBe(0);
   });
 });
 
