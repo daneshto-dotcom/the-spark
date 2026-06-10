@@ -1,0 +1,39 @@
+{
+  "cell": 256,
+  "cols": 8,
+  "atlas": "voltkin-atlas.png",
+  "clips": {
+    "walk": {
+      "start": 0,
+      "len": 8,
+      "kind": "loop",
+      "nativeFacing": -1
+    },
+    "idle": {
+      "start": 8,
+      "len": 8,
+      "kind": "loop"
+    },
+    "charge": {
+      "start": 16,
+      "len": 10,
+      "kind": "oneshot"
+    },
+    "zap": {
+      "start": 26,
+      "len": 6,
+      "kind": "oneshot",
+      "apex": 2
+    },
+    "hurt": {
+      "start": 32,
+      "len": 12,
+      "kind": "oneshot"
+    },
+    "victory": {
+      "start": 44,
+      "len": 12,
+      "kind": "oneshot"
+    }
+  }
+}

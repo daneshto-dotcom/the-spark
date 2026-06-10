@@ -62,6 +62,7 @@
  */
 
 import {
+  CREATURE_DESPAWNING_TICKS,
   VOLTKIN_ATTACK_CADENCE_TICKS,
   VOLTKIN_ATTACK_FIRE_TICK,
   VOLTKIN_ATTACK_CHARGE_ENGAGE_TICK,
@@ -237,3 +238,135 @@ export const FLASH_SCALE_AMPLITUDE = 0.15;
 // Re-export ATTACKING_CADENCE for test sanity-check that the schedule
 // covers all 60 ticks of the cycle (no gaps, no overlap with SEEKING entry).
 export { VOLTKIN_ATTACK_CADENCE_TICKS };
+
+// ===== S83 P3 — real-animation atlas layer =====
+//
+// Per-state Veo-generated clips packed into ONE atlas of `cell`-sized frames
+// (public/godly/voltkin/anim/voltkin-atlas.png + voltkin-anim.json, built by
+// scripts/build-voltkin-atlas.py). This layer REPLACES the 6-pose frame flip
+// when the atlas is loaded; the legacy frame path remains the fallback
+// (per-state Council fallback decision + instant first paint while the
+// atlas streams in).
+//
+// Determinism: cell choice is a pure function of (state, ticksInState,
+// killCount, worldTick, isMoving, manifest). LOOPS key off worldTick so a
+// SEEKING re-entry never restarts the gait mid-stride (Grok R1 adopt);
+// ONE-SHOTS key off ticksInState so action timing stays glued to the LOCKED
+// FSM constants — the zap apex frame lands EXACTLY on VOLTKIN_ATTACK_FIRE_TICK.
+// `isMoving` is supplied by the renderer's own frame-to-frame position
+// estimate (NOT pos-prevPos: the NetSnapshot mirror rehydrates prevPos=pos,
+// so wire velocity is identically zero on the 1v1 client).
+
+export type VoltkinClipKey = 'walk' | 'idle' | 'charge' | 'zap' | 'hurt' | 'victory';
+
+export interface VoltkinClipEntry {
+  /** First cell index of this clip in the atlas (row-major). */
+  readonly start: number;
+  readonly len: number;
+  readonly kind: 'loop' | 'oneshot';
+  /** zap only: clip-local index of the burst-apex frame. */
+  readonly apex?: number;
+  /** Art's native horizontal facing. -1 = drawn facing left (walk). Default 1. */
+  readonly nativeFacing?: 1 | -1;
+}
+
+export interface VoltkinAnimManifest {
+  readonly cell: number;
+  readonly cols: number;
+  readonly atlas: string;
+  readonly clips: Readonly<Record<VoltkinClipKey, VoltkinClipEntry>>;
+}
+
+export interface VoltkinAnimCell {
+  readonly clip: VoltkinClipKey;
+  /** Clip-local frame index (atlas cell = clips[clip].start + frame). */
+  readonly frame: number;
+}
+
+/** 60 Hz sim / 5 = native 12 fps clip playback for loops + despawn one-shots. */
+export const ANIM_TICKS_PER_FRAME = 5;
+
+export const VOLTKIN_ANIM_MANIFEST_URL = '/godly/voltkin/anim/voltkin-anim.json';
+export const VOLTKIN_ANIM_ATLAS_URL = '/godly/voltkin/anim/voltkin-atlas.png';
+
+/**
+ * Form classification for the atlas path — mirrors `isLionForm` for the
+ * legacy keys. charge/zap are lion-form; the chibi<->lion boundaries fall on
+ * the SAME (state, ticksInState) moments as the legacy schedule, so
+ * `flashIntensity` needs no changes.
+ */
+export function isLionClip(clip: VoltkinClipKey): boolean {
+  return clip === 'charge' || clip === 'zap';
+}
+
+/**
+ * Map FSM state to an atlas animation cell. Pure; unit-tested against the
+ * production manifest in voltkinFrames.anim.test.ts.
+ *
+ * Schedule (FSM timing constants UNTOUCHED — LOCKED 13.15):
+ *   SPAWNING  t<30: zap apex hold (cinematic lion continuity, as legacy)
+ *             t>=30: idle loop (chibi settle; morph flash at t=30 as legacy)
+ *   SEEKING   walk loop while moving, idle loop while still (worldTick-keyed)
+ *   ATTACKING t<15: idle loop | t in [15,30): charge one-shot spread over the
+ *             wind-up window | t=30: zap APEX (FIRE tick) | t in (30,45):
+ *             zap follow-through spread over the recovery hold | t>=45: idle
+ *   DESPAWNING victory (killCount>0) / hurt one-shot across the 60-tick window
+ *             — 12 frames at native 12 fps fits exactly.
+ */
+export function currentAnimCell(
+  state: CreatureState,
+  ticksInState: number,
+  killCount: number,
+  worldTick: number,
+  isMoving: boolean,
+  m: VoltkinAnimManifest,
+): VoltkinAnimCell {
+  const loopFrame = (key: VoltkinClipKey): number =>
+    Math.floor(worldTick / ANIM_TICKS_PER_FRAME) % m.clips[key].len;
+  const zapApex = m.clips.zap.apex ?? 0;
+
+  if (state === 'SPAWNING') {
+    if (ticksInState < SPAWNING_MORPH_TICK) return { clip: 'zap', frame: zapApex };
+    return { clip: 'idle', frame: loopFrame('idle') };
+  }
+  if (state === 'SEEKING') {
+    const clip = isMoving ? 'walk' : 'idle';
+    return { clip, frame: loopFrame(clip) };
+  }
+  if (state === 'ATTACKING') {
+    if (ticksInState < ATTACKING_CHARGE_ENGAGE_TICK) {
+      return { clip: 'idle', frame: loopFrame('idle') };
+    }
+    if (ticksInState < VOLTKIN_ATTACK_FIRE_TICK) {
+      // Wind-up: spread the whole charge clip across the 15-tick window.
+      const span = VOLTKIN_ATTACK_FIRE_TICK - ATTACKING_CHARGE_ENGAGE_TICK;
+      const t = ticksInState - ATTACKING_CHARGE_ENGAGE_TICK;
+      const len = m.clips.charge.len;
+      return { clip: 'charge', frame: Math.min(Math.floor((t * len) / span), len - 1) };
+    }
+    if (ticksInState === VOLTKIN_ATTACK_FIRE_TICK) {
+      return { clip: 'zap', frame: zapApex };
+    }
+    if (ticksInState < ATTACKING_IDLE_RELEASE_TICK) {
+      // Recovery hold: zap follow-through frames (apex..end) across 15 ticks —
+      // replaces the legacy static charge hold with real discharge motion.
+      const span = ATTACKING_IDLE_RELEASE_TICK - VOLTKIN_ATTACK_FIRE_TICK;
+      const t = ticksInState - VOLTKIN_ATTACK_FIRE_TICK;
+      const len = m.clips.zap.len;
+      const tail = len - zapApex;
+      return { clip: 'zap', frame: Math.min(zapApex + Math.floor((t * tail) / span), len - 1) };
+    }
+    return { clip: 'idle', frame: loopFrame('idle') };
+  }
+  if (state === 'DESPAWNING') {
+    const clip: VoltkinClipKey = killCount > 0 ? 'victory' : 'hurt';
+    const len = m.clips[clip].len;
+    const frame = Math.min(
+      Math.floor((ticksInState * len) / CREATURE_DESPAWNING_TICKS),
+      len - 1,
+    );
+    return { clip, frame };
+  }
+  // Closed union; unreachable. Mirror currentFrameKey's idle default.
+  return { clip: 'idle', frame: loopFrame('idle') };
+}

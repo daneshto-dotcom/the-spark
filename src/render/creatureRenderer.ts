@@ -36,7 +36,7 @@
  * trimmed render-only).
  */
 
-import { Application, Assets, Container, Sprite, type Texture } from 'pixi.js';
+import { Application, Assets, Container, Rectangle, Sprite, Texture } from 'pixi.js';
 import type { World } from '../state/world.ts';
 import type { Vec2 } from '../types.ts';
 import {
@@ -53,8 +53,12 @@ import {
   ALL_FRAME_KEYS,
   FLASH_SCALE_AMPLITUDE,
   FLASH_TINT,
+  VOLTKIN_ANIM_ATLAS_URL,
+  VOLTKIN_ANIM_MANIFEST_URL,
   VOLTKIN_FRAME_URLS,
+  type VoltkinAnimManifest,
   type VoltkinFrameKey,
+  currentAnimCell,
   currentFrameKey,
   flashIntensity,
 } from './voltkinFrames.ts';
@@ -63,6 +67,26 @@ import {
 // in `voltkinFrames.VOLTKIN_FRAME_URLS`; preloaded lazily on first sync().
 /** Match cutsceneOverlay's character-sprite scale so the handoff visual is continuous. */
 const CREATURE_SPRITE_SCALE = 0.25;
+
+/**
+ * S83 P3 — the legacy static frames are 512px; CREATURE_SPRITE_SCALE was
+ * tuned against them. Atlas cells are `manifest.cell` px (256), so the anim
+ * path multiplies by 512/cell to keep the identical on-screen size.
+ */
+const LEGACY_SPRITE_SOURCE_PX = 512;
+
+/**
+ * S83 P3 — renderer-side "is moving" hold window in ticks. The walk/idle
+ * selector and the facing flip both read a velocity ESTIMATE computed from
+ * the renderer's own last-seen position per creature (pos-prevPos is dead on
+ * the 1v1 client: deserializeCreature rehydrates prevPos=pos, so wire
+ * velocity is identically 0 — the S36 P6 facing flip silently never worked
+ * on the client mirror either; this estimator fixes both). On the host the
+ * estimate updates every tick; on the client it spikes once per ~6-tick
+ * NetSnapshot apply — the 15-tick hold (250 ms) bridges that cadence without
+ * walk/idle flicker.
+ */
+const MOVING_HOLD_TICKS = 15;
 
 // ===== S28 P0 transform constants (PRIME-AUDIT Δ1/Δ9 named) =====
 
@@ -179,6 +203,20 @@ export class CreatureRenderer {
   private textureLoading = false;
   private textureFailed = false;
 
+  // ===== S83 P3 — atlas animation state =====
+  /** Parsed voltkin-anim.json once loaded; null = legacy frame-flip fallback. */
+  private animManifest: VoltkinAnimManifest | null = null;
+  /** Pre-sliced per-cell textures (atlas row-major), index = start + frame. */
+  private animCells: Texture[] | null = null;
+  private animLoading = false;
+  private animFailed = false;
+  /** Per-sprite last applied atlas cell index (skip redundant texture swaps). */
+  private readonly spriteAnimCells: Map<CreatureId, number> = new Map();
+  /** Renderer-side last-seen position per creature (velocity estimator). */
+  private readonly lastSeenPos: Map<CreatureId, Vec2> = new Map();
+  /** worldTick of the last detected movement per creature (hold window). */
+  private readonly lastMoveTick: Map<CreatureId, number> = new Map();
+
   // S77 P2 — `parent` defaults to app.stage but main.ts passes aboveFogLayer so creatures
   // (a Voltkin attacks any player's bonds — cross-player reach) render THROUGH the fog to all.
   constructor(app: Application, parent: Container = app.stage) {
@@ -243,6 +281,45 @@ export class CreatureRenderer {
       });
     }
 
+    // S83 P3 — lazy parallel load of the animation atlas + manifest. The
+    // legacy 6-frame set above stays loaded as the instant-first-paint +
+    // per-state fallback; the atlas path takes over for a sprite the moment
+    // both files land (manifest assignment is the readiness latch — set
+    // LAST so a partially-built cell array is never observable). Failure is
+    // sticky: legacy frame-flip keeps rendering, no crash, logged once.
+    if (this.animManifest === null && !this.animLoading && !this.animFailed) {
+      this.animLoading = true;
+      void Promise.all([
+        Assets.load<VoltkinAnimManifest>(VOLTKIN_ANIM_MANIFEST_URL),
+        Assets.load<Texture>(VOLTKIN_ANIM_ATLAS_URL),
+      ]).then(([manifest, atlas]) => {
+        if (manifest?.clips?.walk === undefined || !(manifest.cell > 0) || !(manifest.cols > 0)) {
+          throw new Error('voltkin-anim.json failed shape validation');
+        }
+        const total = Object.values(manifest.clips)
+          .reduce((mx, c) => Math.max(mx, c.start + c.len), 0);
+        const cells: Texture[] = [];
+        for (let i = 0; i < total; i++) {
+          cells.push(new Texture({
+            source: atlas.source,
+            frame: new Rectangle(
+              (i % manifest.cols) * manifest.cell,
+              Math.floor(i / manifest.cols) * manifest.cell,
+              manifest.cell,
+              manifest.cell,
+            ),
+          }));
+        }
+        this.animCells = cells;
+        this.animManifest = manifest;
+        this.animLoading = false;
+      }).catch((err: unknown) => {
+        this.animFailed = true;
+        this.animLoading = false;
+        console.warn('[creatureRenderer] anim atlas load failed — legacy frame fallback:', err);
+      });
+    }
+
     // Add or update sprites for live creatures.
     for (const creature of world.creatures.values()) {
       const desiredKey = currentFrameKey(
@@ -252,17 +329,57 @@ export class CreatureRenderer {
       );
       const desiredTexture = this.textures.get(desiredKey);
 
+      // S83 P3 — renderer-side velocity estimate (see MOVING_HOLD_TICKS doc:
+      // wire prevPos is dead on the client mirror, so both the walk/idle
+      // selector and the facing flip read this frame-to-frame estimate).
+      const last = this.lastSeenPos.get(creature.id);
+      const estVelX = last === undefined ? 0 : creature.pos.x - last.x;
+      const estVelY = last === undefined ? 0 : creature.pos.y - last.y;
+      this.lastSeenPos.set(creature.id, { x: creature.pos.x, y: creature.pos.y });
+      if (estVelX * estVelX + estVelY * estVelY
+          > FACING_VELOCITY_THRESHOLD * FACING_VELOCITY_THRESHOLD) {
+        this.lastMoveTick.set(creature.id, world.tick);
+      }
+      const lastMove = this.lastMoveTick.get(creature.id);
+      const isMoving = lastMove !== undefined && world.tick - lastMove < MOVING_HOLD_TICKS;
+
+      // S83 P3 — atlas cell selection (pure mapping; loops on world.tick,
+      // one-shots on ticksInState). -1 = atlas not ready, legacy path below.
+      let animCellIdx = -1;
+      let animNativeFacing: 1 | -1 = 1;
+      if (this.animManifest !== null && this.animCells !== null) {
+        const cell = currentAnimCell(
+          creature.state,
+          creature.ticksInState,
+          creature.killCount,
+          world.tick,
+          isMoving,
+          this.animManifest,
+        );
+        const entry = this.animManifest.clips[cell.clip];
+        animCellIdx = entry.start + cell.frame;
+        animNativeFacing = entry.nativeFacing ?? 1;
+      }
+
       let sprite = this.sprites.get(creature.id);
       if (sprite === undefined) {
-        // No sprite yet — defer creation until the desired-frame texture
-        // is loaded. Earlier-loaded frames are usable too, but skipping a
-        // few render ticks during cinematic-to-creature handoff is fine.
-        if (desiredTexture === undefined) continue;
-        sprite = new Sprite(desiredTexture);
+        // No sprite yet — defer creation until a usable texture is loaded
+        // (anim cell preferred, legacy frame otherwise). Skipping a few
+        // render ticks during cinematic-to-creature handoff is fine.
+        const initialTexture = animCellIdx >= 0 ? this.animCells![animCellIdx] : desiredTexture;
+        if (initialTexture === undefined) continue;
+        sprite = new Sprite(initialTexture);
         sprite.anchor.set(0.5);
         this.sprites.set(creature.id, sprite);
-        this.spriteFrames.set(creature.id, desiredKey);
+        if (animCellIdx >= 0) this.spriteAnimCells.set(creature.id, animCellIdx);
+        else this.spriteFrames.set(creature.id, desiredKey);
         this.container.addChild(sprite);
+      } else if (animCellIdx >= 0) {
+        // S83 P3 — atlas path: swap only when the cell index changes.
+        if (this.spriteAnimCells.get(creature.id) !== animCellIdx) {
+          sprite.texture = this.animCells![animCellIdx];
+          this.spriteAnimCells.set(creature.id, animCellIdx);
+        }
       } else if (desiredTexture !== undefined) {
         // S36 P4 — swap texture only when the frame key has actually
         // changed. Avoids redundant Pixi `sprite.texture = tex` calls
@@ -285,21 +402,33 @@ export class CreatureRenderer {
       // tint with cyan FLASH_TINT during the window — punches the morph.
       const flash = flashIntensity(creature.state, creature.ticksInState);
 
-      const dynScale = computeCreatureScale(creature.state, creature.ticksInState);
+      // S83 P3 — on the atlas path: (a) compensate for the 256px cells vs
+      // the 512px legacy frames CREATURE_SPRITE_SCALE was tuned against;
+      // (b) retire the SEEKING procedural bob — the walk/idle clips carry
+      // real gait/breath motion, double-bobbing reads as jitter (Council
+      // "retire transforms the clips make redundant"). SPAWNING pulse,
+      // ATTACKING punch and DESPAWNING shrink still compose on top.
+      const animActive = animCellIdx >= 0;
+      const sourceComp = animActive
+        ? LEGACY_SPRITE_SOURCE_PX / this.animManifest!.cell
+        : 1;
+      const dynScale = animActive && creature.state === 'SEEKING'
+        ? 1.0
+        : computeCreatureScale(creature.state, creature.ticksInState);
       const flashScale = 1 + FLASH_SCALE_AMPLITUDE * flash;
-      const baseScale = CREATURE_SPRITE_SCALE * dynScale * flashScale;
+      const baseScale = CREATURE_SPRITE_SCALE * sourceComp * dynScale * flashScale;
 
-      // S36 P6 — directional facing flip on velocity.x. Read implicit Verlet
-      // velocity (pos - prevPos) and update facing only when |vx| crosses
-      // the threshold (no flutter on near-stationary creatures). Default
-      // facing +1 (right). The rotation lean already encodes direction
-      // intent (leanFactor = dx/dist) and composes correctly with a
-      // negative scale.x: a flipped sprite tilts "into" its leftward motion.
-      const velX = creature.pos.x - creature.prevPos.x;
+      // S36 P6 — directional facing flip on velocity.x; S83 P3 reads the
+      // renderer-side estimate (works on the client mirror where wire
+      // prevPos is rehydrated equal to pos) and multiplies the clip's
+      // nativeFacing (walk art is drawn facing left; legacy frames face
+      // front = +1). The rotation lean already encodes direction intent
+      // (leanFactor = dx/dist) and composes correctly with a negative
+      // scale.x: a flipped sprite tilts "into" its leftward motion.
       const prevFacing = this.spriteFacings.get(creature.id) ?? 1;
-      const facing = computeFacing(prevFacing, velX, FACING_VELOCITY_THRESHOLD);
+      const facing = computeFacing(prevFacing, estVelX, FACING_VELOCITY_THRESHOLD);
       this.spriteFacings.set(creature.id, facing);
-      sprite.scale.set(facing * baseScale, baseScale);
+      sprite.scale.set(facing * animNativeFacing * baseScale, baseScale);
 
       sprite.tint = flash > 0
         ? FLASH_TINT
@@ -330,6 +459,9 @@ export class CreatureRenderer {
         this.sprites.delete(id);
         this.spriteFrames.delete(id);
         this.spriteFacings.delete(id);
+        this.spriteAnimCells.delete(id);
+        this.lastSeenPos.delete(id);
+        this.lastMoveTick.delete(id);
       }
     }
   }
@@ -361,6 +493,9 @@ export class CreatureRenderer {
     this.sprites.clear();
     this.spriteFrames.clear();
     this.spriteFacings.clear();
+    this.spriteAnimCells.clear();
+    this.lastSeenPos.clear();
+    this.lastMoveTick.clear();
   }
 
   destroy(): void {
@@ -368,6 +503,9 @@ export class CreatureRenderer {
     this.sprites.clear();
     this.spriteFrames.clear();
     this.spriteFacings.clear();
+    this.spriteAnimCells.clear();
+    this.lastSeenPos.clear();
+    this.lastMoveTick.clear();
     this.container.destroy({ children: true });
   }
 }
