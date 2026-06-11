@@ -189,13 +189,12 @@ export class RainbowFlyoverRenderer {
       });
     }
 
-    // ── above-fog wash + slow rotating beams ──
+    // ── above-fog rotating beams (NO full-screen wash here: a 4th full-canvas
+    // fill per frame tanked CI software-GL to seconds-per-frame and costs real
+    // low-end GPUs too — the backdrop bands + beams carry the trippy look;
+    // S84 CHECK round 3) ──
     const ov = this.overlay;
     ov.clear();
-    ov.rect(-OVERSCAN, -OVERSCAN, CANVAS_WIDTH + 2 * OVERSCAN, CANVAS_HEIGHT + 2 * OVERSCAN).fill({
-      color: hsl01ToRgb((pose.bgHue01 + 0.5) % 1, 0.9, 0.7),
-      alpha: pose.bgAlpha * 0.45,
-    });
     const cx = CANVAS_WIDTH / 2;
     const cy = CANVAS_HEIGHT / 2;
     for (let i = 0; i < BEAM_COUNT; i++) {

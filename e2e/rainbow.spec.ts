@@ -83,6 +83,9 @@ test.describe('S75 P3 — rainbow color-shuffle (solo, gating)', () => {
     await page.addInitScript({ content: 'window.__TEST_BOMB_SPAWN_SPARKS__ = 99999;' });
     await page.addInitScript({ content: 'window.__TEST_POTATO_SPAWN_SPARKS__ = 99999;' });
     await page.addInitScript({ content: 'window.__TEST_WIN_SCORE__ = 999;' });
+    // S84 CHECK r3 — shrink the flyover window so CI software-GL (seconds-per-frame
+    // under full-screen fills) can elapse it in sim time; asserts open->close LOGIC.
+    await page.addInitScript({ content: 'window.__TEST_FLYOVER_DURATION_TICKS__ = 30;' });
     await startSolo(page);
 
     // Place a primitive (outside the spawn zone) so we can prove the STRUCTURE recolours, not just
@@ -135,7 +138,7 @@ test.describe('S75 P3 — rainbow color-shuffle (solo, gating)', () => {
           const w = g.__SPARK__?.world;
           const switchTick = w?.rainbowSwitchTick;
           if (w === undefined || switchTick === undefined) return 'no-switch-stamped';
-          const windowPassed = w.tick - switchTick >= 240 + 10; // duration + margin
+          const windowPassed = w.tick - switchTick >= 30 + 10; // seamed duration + margin
           const active = g.__SPARK__?.rainbowFlyoverActive ?? false;
           if (!windowPassed) return 'window-still-elapsing';
           return active ? 'STUCK-ACTIVE-PAST-WINDOW' : 'closed';

@@ -577,7 +577,16 @@ export const RAINBOW_DERANGEMENT_MAX_REROLLS = 12;
 // below, keyed purely off (world.tick - rainbowSwitchTick) — deterministic, no RNG,
 // no wall-clock. 240 ticks = 4s @60Hz: long enough to land the joke + hear the full
 // ~2.7s yell, short enough not to outstay the welcome. Playtest knob.
-export const RAINBOW_FLYOVER_DURATION_TICKS = 240;
+// E2E seam (mirror of __TEST_WIN_SCORE__): CI software-WebGL renders the flyover's
+// full-screen fills at seconds-per-frame, so the sim cannot elapse 240 ticks inside
+// any sane wall-clock budget — rainbow.spec shrinks the window to assert the
+// open->close LOGIC instead of fighting the render farm (S84 CHECK round 3).
+function readTestFlyoverDuration(): number | null {
+  if (typeof window === 'undefined') return null;
+  const v = (window as { __TEST_FLYOVER_DURATION_TICKS__?: number }).__TEST_FLYOVER_DURATION_TICKS__;
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : null;
+}
+export const RAINBOW_FLYOVER_DURATION_TICKS = readTestFlyoverDuration() ?? 240;
 // The yell only fires if the switch is OBSERVED fresh (joiner arriving later than 1s
 // into the event sees the remaining flyover but skips the scream; also guards replays
 // from a restored snapshot mid-window double-firing on top of the cursor reset).
