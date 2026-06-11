@@ -944,6 +944,14 @@ export function drainAudioEffects(effects: ReadonlyArray<GameEffect>, currentTic
 
 // === S84 P2 — rainbow flyover yell ===
 const RAINBOW_YELL_URL = '/audio/rainbow-yell.ogg';
+/**
+ * S85 P1 — duck the music for the yell's ~2.7s playback (same pattern as the
+ * 700 ms BOND_SEVERED-creature duck for lightning-crackle). The S84 ship was
+ * inaudible for TWO reasons: the asset itself was rendered silent (see
+ * scripts/make-rainbow-yell.py header) AND nothing lowered the music bed
+ * under a long voice line.
+ */
+const RAINBOW_YELL_DUCK_MS = 2700;
 let lastYelledSwitchTick = -1;
 
 /**
@@ -966,6 +974,7 @@ export function syncRainbowYellAudio(world: { rainbowSwitchTick?: number; tick: 
   if (age < 0 || age > RAINBOW_YELL_FRESH_TICKS) return;
   lastYelledSwitchTick = switchTick;
   void playOneShot(RAINBOW_YELL_URL);
+  duckMusic(RAINBOW_YELL_DUCK_MS); // S85 P1 — voice line must read over the bed
 }
 
 /** Reset the drain cursor. Used by tests and on world reset (RETURN_TO_TITLE). */
