@@ -52,3 +52,10 @@ VETO LOG: none used. GEMINI VERDICT: APPROVE. RISK CONSENSUS unresolved: none (S
 
 ## PRIME-AUDIT DELTA
 R1 consensus would have shipped the one-shot-effect design whose cross-wire delivery is ~17% for arbitrary-tick events — caught by empirical probe of save.ts effects closure + effectsRenderer wipe, not by any reviewer's stated reasoning. Grok's HIGH "latch" finding: mechanism claim REJECTED with evidence, adjacent risk CONFIRMED and fixed by design change. Carry-forward logged: pooped-pickup rejection UX cue (playtest-dependent).
+
+---
+## AMENDMENT (Rule 16, user-approved: "full priority batch approved! work thoroughy")
+P3: game +20% longer — WIN 150→210, TIER 50→70 (co-tuned with P4 income; ~+22% typical).
+P4: scoring field report (non-builder won 4p FFA) — 6 probes proved core math correct; fixed the verified real defects: seat-stable P{n} leaderboard labels (color names lied post-shuffle), functional bonds +0.25 capped ⌊1.5×prims⌋ (S76 neutrality retired, clique-spam capped per Grok challenge), WIN-time per-seat forensics dump, distributed-pipeline regression test. Root mechanism unreproduced → instrumented carry-forward.
+Council R1: Grok 5 challenges (weight 0.5→0.25+cap adopted; scoreboard kingmaking risk accepted; 'instrument first' synthesized as instruments-in-batch; e2e-immunity claim refuted), Gemini REVISE→adopted (CVD text identity, leader marker; juice/crown carried).
+CHECK rounds 1-3 (P1/P2 batch): fog 6→8 layer contract, sim-time e2e sentinel poll, flyover 4th-fill removal + __TEST_FLYOVER_DURATION_TICKS__ seam — all CI-GREEN at 6ad5f04. P3/P4 commit d1bb0d7.
