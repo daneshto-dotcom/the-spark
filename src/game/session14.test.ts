@@ -17,6 +17,7 @@
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import {
+  FUNCTIONAL_BOND_COMPLEXITY,
   PHYSICS_HZ,
   REDUNDANT_BOND_ANGLE_EPSILON,
   REDUNDANT_BOND_K,
@@ -413,10 +414,11 @@ describe('S14 P2.1 — placePrimitive end-to-end', () => {
     }
   });
 
-  it('S76: functional redundancy bonds add ZERO complexity (only the new prim counts)', () => {
-    // S14-S75 gave redundancy bonds zero SCORE (per-placement accumulator). S76 scores standing
-    // COMPLEXITY; functional bonds are complexity-neutral, so functional redundancy still adds
-    // nothing beyond the new primitive itself.
+  it('S84: functional redundancy bonds add 0.25 complexity each (capped; was ZERO in S76)', () => {
+    // S14-S75 gave redundancy bonds zero SCORE (per-placement accumulator). S76 made
+    // functional bonds complexity-neutral. S84 P4 retired that: every standing functional
+    // bond (primary or redundancy) adds FUNCTIONAL_BOND_COMPLEXITY, counted bonds capped
+    // at floor(1.5 × prims) — so this placement adds the prim + 3 functional bonds.
     const world = makeWorld(0);
     const c0 = placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 500, y: 500 }, targetId: null });
     const c1 = placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 470, y: 500 }, targetId: c0 });
@@ -431,8 +433,11 @@ describe('S14 P2.1 — placePrimitive end-to-end', () => {
       extraBondTargetIds: [c1, c2], // 2 functional (Dot→Dot) redundancy bonds
     });
 
-    // +1 new primitive; all bonds (primary + redundancy) are functional → +0 magic premium.
-    expect(computeComplexity(world, P1_ID) - before).toBe(SCORE_ANCHOR);
+    // +1 new primitive + 3 functional bonds (primary + 2 redundancy) × 0.25; no magic premium.
+    expect(computeComplexity(world, P1_ID) - before).toBeCloseTo(
+      SCORE_ANCHOR + 3 * FUNCTIONAL_BOND_COMPLEXITY,
+      10,
+    );
   });
 
   it('S76: standing MAGIC bonds count toward complexity, including redundancy (design change)', () => {

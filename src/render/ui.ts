@@ -38,9 +38,9 @@ const PROGRESS_Y_TOP = CANVAS_HEIGHT - 80;
 const PROGRESS_Y_BOTTOM = CANVAS_HEIGHT - 40;
 const PROGRESS_WIDTH = 80;
 
-// S62 — short per-seat labels for the N-player leaderboard. The row text is also
-// drawn in the player's color, so the label is a redundant (CVD-friendlier) cue.
-const PLAYER_LABELS = ['RED', 'CYAN', 'YELLOW', 'GREEN', 'ORANGE', 'MAGENTA'] as const;
+// S84 P4 — the S62 colour-name labels (RED/CYAN/…) are GONE: the rainbow shuffle
+// migrates colours mid-match, so colour names lied after the first switch. Rows
+// are labeled by seat-stable P{n}, matching the S82 nameplates + the win banner.
 
 export class HUD {
   private readonly gauge: Graphics;
@@ -211,6 +211,15 @@ export class HUD {
     // so you read "who's winning" + "who am I" at a glance (Council/Gemini quality
     // lift). Replaces the pre-S62 fixed RED/BLUE rows. ASCII markers for font
     // safety. `ranked` is reused below for the aligned charge-dot rows.
+    //
+    // S84 P4 — rows are labeled by SEAT ("P1".."P6"), never by colour NAME: the
+    // rainbow colour-shuffle migrates colours mid-match, so the old RED/CYAN/…
+    // labels lied after the first switch ("RED" rendered in green) and players
+    // could no longer tell whose score was whose — half of the S84 field report
+    // ("we all seemed to be gaining similar points"). P{n} matches the S82 CVD
+    // avatar nameplates AND the win banner, so every identity surface agrees;
+    // the row colour stays live as the redundant cue. The leader also gets a
+    // "*" crown marker so rank reads even when scores are close.
     const ranked = show1v1
       ? [...world.players.values()].sort(
           (a, b) =>
@@ -224,10 +233,10 @@ export class HUD {
         return;
       }
       const seat = p.id as unknown as number;
-      const name = PLAYER_LABELS[seat] ?? `P${seat + 1}`;
       const score = world.scoreByPlayer.get(p.id) ?? 0;
       const isLocal = p.id === world.localPlayerId;
-      t.text = `${isLocal ? '> ' : '  '}${name} ${Math.floor(score)}/${PHASE_1_WIN_SCORE}${isLocal ? ' <YOU' : ''}`;
+      const crown = i === 0 ? '*' : ' ';
+      t.text = `${isLocal ? '>' : ' '}${crown}P${seat + 1} ${Math.floor(score)}/${PHASE_1_WIN_SCORE}${isLocal ? ' <YOU' : ''}`;
       t.style.fill = p.color;
       t.position.set(12, 12 + i * 22);
       t.visible = true;

@@ -14,6 +14,7 @@
  */
 
 import { PHASE_1_WIN_SCORE, PHYSICS_HZ } from '../constants.ts';
+import { computeComplexity } from './scoring.ts';
 import { teardownBombs } from './bombLifecycle.ts';
 import { teardownHunters } from './hunters/hunterLifecycle.ts';
 import { teardownPotatoes } from './potatoLifecycle.ts';
@@ -66,6 +67,20 @@ export function tickGameState(
             }
           }
         }
+        // S84 P4 — field-forensics dump (one line, once per match; every peer logs
+        // its OWN view): the S84 "a non-builder won the FFA" report could not be
+        // reproduced in vitro, so any future mis-attribution must be diagnosable
+        // from a console screenshot — per-seat banked score + LIVE complexity at
+        // the WIN moment.
+        console.info(
+          `[SPARK] WIN tick=${world.tick} winner=P${(winnerId as number) + 1} | ` +
+            [...world.players.keys()]
+              .map((pid) => {
+                const s = world.scoreByPlayer.get(pid) ?? 0;
+                return `P${(pid as number) + 1}: score=${s.toFixed(1)} cx=${computeComplexity(world, pid)}`;
+              })
+              .join(' | '),
+        );
         dispatch(world, { type: 'WIN_TRIGGER', winnerId });
         extras.winEnteredTick = world.tick;
       }

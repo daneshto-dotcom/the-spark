@@ -199,6 +199,18 @@ export const PHASE_1_WIN_PRIMITIVE_COUNT = 30;
 export const SCORE_ANCHOR = 1;
 export const SCORE_FUNCTIONAL_BOND = 1;
 export const SCORE_MAGIC_BOND = 3;
+// === S84 P4 — functional bonds re-enter complexity, CAPPED ===
+// Field report (4p FFA): builders' incomes "seemed similar" — with functional bonds at
+// ZERO weight, a fully-CONNECTED tree earned exactly what the same prims earn scattered,
+// flattening differences between building styles ("the whole point is that more complex
+// structures get more points per tick"). Functional bonds now add 0.25 each, with the
+// COUNTED bonds capped at floor(1.5 × #prims): a spanning tree (n−1 bonds) is fully
+// counted (+~25% income when fully connected), but a dense clique field (k(k−1)/2 bonds)
+// caps out — 10 prims/45 bonds counts only 15 → bond-spam earns barely more than a tree
+// (Council S84 amendment, Grok degenerate-strategy challenge). The S76 "don't-connect"
+// exploit cannot return: bonding only ever ADDS complexity.
+export const FUNCTIONAL_BOND_COMPLEXITY = 0.25;
+export const FUNCTIONAL_BOND_CAP_PER_PRIM = 1.5;
 
 // === S76 P3 — complexity-INCOME rate ===
 // Each physics tick the host accrues, per player: scoreByPlayer[p] += this × complexity(p)
@@ -239,7 +251,12 @@ function readTestWinScore(): number | null {
 // feel. HUNTER_TRIGGER_SCORE auto-scales (75% → 112). SCORE_TIER_STEP raised in step (15→50)
 // so tier-pulse cadence stays ~2-3 per match. All e2e specs inject __TEST_WIN_SCORE__/score
 // seams, so this constant is e2e-timing-safe (the S78 hunter.spec lesson).
-export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 150;
+// S84 P3 — 150→210 (user: "make the game last like 20% longer"). Co-tuned with the S84 P4
+// functional-bond complexity weight (+~15% typical late-game income for connected builders):
+// 210/150 = 1.40 score budget ÷ 1.15 income ≈ +22% duration for typical play, ≈ +40% for
+// pure-blob builders (who gain no bond income — building connected now also ENDS games
+// sooner than scattering, the intended incentive). Hunter auto-scales (75% → 157).
+export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 210;
 
 // === Spawner physics ===
 export const SPAWNER_BOUNCE_DAMPING = 0.92;
@@ -310,7 +327,8 @@ export const AUTO_BOND_RADIUS = 60;
 // of SCORE_TIER_STEP fires one SCORE_TIER effect. At 50 + threshold 150:
 // 2 tier events before WIN (S79 P1 — raised 15→50 in step with PHASE_1_WIN_SCORE
 // 50→150 so the pulse cadence per match is unchanged).
-export const SCORE_TIER_STEP = 50;
+// S84 P3 — 50→70 in step with WIN 150→210 (exact thirds: pulses at 70/140, WIN at 210).
+export const SCORE_TIER_STEP = 70;
 
 // S13 P2 — outward verlet impulse for STRUCTURE_GROW. Applied to each
 // primitive in the *primary's pre-existing component* (the structure

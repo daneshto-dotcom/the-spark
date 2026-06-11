@@ -31,6 +31,8 @@
 
 import { lookupCombo } from '../combos.ts';
 import {
+  FUNCTIONAL_BOND_CAP_PER_PRIM,
+  FUNCTIONAL_BOND_COMPLEXITY,
   PHYSICS_HZ,
   SCORE_ANCHOR,
   SCORE_FUNCTIONAL_BOND,
@@ -48,7 +50,8 @@ const MAGIC_BONUS = SCORE_MAGIC_BOND - SCORE_FUNCTIONAL_BOND; // 2 — a magic b
 
 /**
  * Standing structure complexity for one player. Pure fn of world state.
- *   = (# primitives placed by p) × PRIM_WEIGHT + (# of p's MAGIC bonds) × MAGIC_BONUS.
+ *   = (# primitives placed by p) × PRIM_WEIGHT + (# of p's MAGIC bonds) × MAGIC_BONUS
+ *     + min(# functional bonds, ⌊1.5 × prims⌋) × 0.25   (S84 P4 — see constants.ts)
  *
  * Ownership (Δ2): one pass over each global Map, crediting each element to exactly one
  * owner — a primitive → its `placedBy`; a bond → its `aId` primitive's `placedBy` (both
@@ -72,6 +75,7 @@ export function computeComplexity(world: World, playerId: PlayerId): number {
     if (prim.placedBy === playerId && !world.fouledPrimitives.has(prim.id)) primCount++;
   }
   let magicBonds = 0;
+  let functionalBonds = 0;
   for (const bond of world.bonds.values()) {
     // Resolve endpoints via id — bond.a/.b are PhysicsBody refs (pos only), not Primitives.
     // Credit each bond to ONE owner: its aId primitive's placer (Δ2). Skip a bond that
@@ -84,8 +88,24 @@ export function computeComplexity(world: World, playerId: PlayerId): number {
     // with skipping its prims above, so a poop-fouled structure earns ZERO until cleaned.
     if (world.fouledPrimitives.has(bond.aId) || world.fouledPrimitives.has(bond.bId)) continue;
     if (lookupCombo(a.type, b.type).isMagical) magicBonds++;
+    else functionalBonds++;
   }
-  return primCount * PRIM_WEIGHT + magicBonds * MAGIC_BONUS;
+  // S84 P4 — functional bonds re-enter complexity at FUNCTIONAL_BOND_COMPLEXITY each, with
+  // the COUNTED bonds capped at FUNCTIONAL_BOND_CAP_PER_PRIM × prims: a spanning tree
+  // (n−1 bonds) counts fully — a connected structure now out-earns the same prims
+  // scattered (the S84 field report's flattening) — while a dense clique field caps out,
+  // so bond-spam cannot dominate (Council S84; the S76 don't-connect exploit cannot
+  // return because bonding only ever ADDS). Cap uses the UN-fouled prim count: fouling
+  // already zeroes those prims + bonds above, keeping the cap consistent.
+  const countedFunctional = Math.min(
+    functionalBonds,
+    Math.floor(FUNCTIONAL_BOND_CAP_PER_PRIM * primCount),
+  );
+  return (
+    primCount * PRIM_WEIGHT +
+    magicBonds * MAGIC_BONUS +
+    countedFunctional * FUNCTIONAL_BOND_COMPLEXITY
+  );
 }
 
 /**

@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 291,
+  "tool_calls_session_total": 366,
   "session_id": "S84",
   "session_kind": "execution",
   "session_start": "2026-06-10T18:00:00.000Z",
@@ -32,17 +32,49 @@
     {
       "id": "P2",
       "label": "S84 P2 — RAINBOW FLYOVER EVENT: synced rainbowSwitchTick field drives crooked-tooth rainbow L->R arc + trippy background + TTS dumb-voice yell on all peers",
-      "status": "pending",
-      "phase": "PLAN",
+      "status": "completed",
+      "phase": "ACT",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "objective": "On rainbow color-switch: flyover character (Imagen4+matte) arcs left-to-right over RAINBOW_FLYOVER_DURATION_TICKS=240 yelling a pitch-warped TTS nonsense line, background pulses trippy hue-cycled light (alpha<=0.30, no strobe). Reliable on both peers via additive-optional synced field.",
       "scope": "worldTypes/world.ts, rainbowLifecycle.ts, save.ts, audioManager.ts, rainbowFlyoverRenderer.ts (new), main.ts, constants.ts, public assets (PNG+OGG), tests + e2e extension",
-      "testing": "switchTick set/restart; snapshot round-trip + back-compat; audio single-fire freshness; flyoverPose determinism; full vitest + tsc + bundle charter; live preview; post-push CI + live URL probes"
+      "testing": "switchTick set/restart; snapshot round-trip + back-compat; audio single-fire freshness; flyoverPose determinism; full vitest + tsc + bundle charter; live preview; post-push CI + live URL probes",
+      "check_completed": true,
+      "check_method": "S84 P2 (commit d20c325): SYNC — world.rainbowSwitchTick stamped in applyTriggerRainbow (overwrite=restart, Gemini row 8), serialized additive-optional ONLY-when-set (JSON.stringify drops undefined; explicit test asserts the key is ABSENT from the wire string = byte-identical pre-S84), plain-assign rehydrate clears stale local values, cleared at START_GAME + RETURN_TO_TITLE with the hazard teardown. AUDIO — syncRainbowYellAudio field-keyed latch (NOT the lossy effects channel, A.0 probe), 60-tick freshness window guards late joiners + mid-window restores; latch resets with the drain cursor in BOTH resetAudioDrainCursor and teardownAudio; same cross-solo-rematch same-tick exposure as lastDrainedTick (codebase-wide accepted semantics, noted). ASSETS — Imagen 4 character $0.04 matched the brief first roll (mismatched googly eyes, crooked teeth, stubby arms); make-rainbow-flyover-sprite.py matte (border-connected achromatic key, 2px feather, nearest-white unmix, RGB-zeroed transparents) probes green: ring 100% transparent, 81.2% transparent, 48 enclosed-white features intact, dark-composite inspected in-chat clean; Chirp3-HD Puck TTS $0.001 -> ffmpeg asetrate*1.30+vibrato(6Hz)+loudnorm -> 2.68s 19KB opus ogg. RENDERER — pure flyoverPose() (window boundaries incl. NaN/negative-elapsed rewind guard, offscreen-both-ends, apex midpoint, alpha<=0.30 photosensitivity sweep over ALL 240 ticks, determinism) + hsl01ToRgb anchors; backdrop stage index 0 w/ 8px shake overscan, wash+4 beams aboveFog, sticky procedural fallback. GATES: vitest 1269/1269 (+17); tsc clean (caught missing playerId in my own test actions — fixed); bundle 561.65kB=548.5KiB<550 charter (session delta +3.6KiB vs 2.5 PDR estimate — overshoot logged, in-charter); rainbow.spec e2e extended w/ open+self-close polls PASS 10.7s real browser; LIVE preview on session port 28125: apex screenshot posted in-chat (sprite texture served from public path, backdrop full-canvas bounds 1936x1096, char container at 990,216 = exact apex), zero console errors/warns; brightness bump (L .6->.66/.7/.8, peak alpha .28->.30) re-verified visually after HMR.",
+      "checkpoint_commit": "d20c325",
+      "real_context_tokens_at_close": 338980,
+      "real_context_pct_at_close": 33.9
+    },
+    {
+      "id": "P3",
+      "label": "S84 P3 — GAME +20% LONGER: PHASE_1_WIN_SCORE 150->210, SCORE_TIER_STEP 50->70, co-tuned with P4 income change",
+      "status": "in_progress",
+      "phase": "DO",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "objective": "Match duration +20% vs current live feel. Math: P4 adds ~+15% typical income (0.25/functional capped) so WIN 210/150=1.40 / 1.15 = +21.7% duration. Hunter auto-scales (75% -> 157). All playtest knobs with documented version history.",
+      "scope": "src/constants.ts",
+      "testing": "tier-scaling unit checks; e2e immune via __TEST_WIN_SCORE__ seam; full vitest + tsc"
+    },
+    {
+      "id": "P4",
+      "label": "S84 P4 — SCORING: per-player HUD scoreboard + functional-bond complexity weight (capped) + WIN diag dump + distributed-pipeline regression tests (field report: non-builder won FFA)",
+      "status": "in_progress",
+      "phase": "DO",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "objective": "Field report S84: non-builder won a 4p FFA; builders' points 'seemed similar'. In-vitro probes prove core attribution + win-pick CORRECT; the two REAL verified defects: (a) one anonymous leader bar = total scoring illegibility (everyone watches the SAME bar), (b) functional bonds weigh ZERO so connected trees earn = scattered blobs (flattens builder differences). Fix: per-seat scoreboard (P{n} + floored score, seat colors, leader marker, local underline — CVD-safe via text), complexity += 0.25 x min(funcBonds, floor(1.5 x prims)) (connect-positive, clique-spam capped), WIN-time per-seat {score, complexity} console dump (field forensics), distributed-pipeline regression test (host snapshot -> ClientSync mirror -> WIN -> every peer attributes the builder).",
+      "scope": "src/constants.ts, src/state/scoring.ts, src/state/gameState.ts, src/render/ui.ts, src/state/scoring.test.ts (new), e2e risk-check on smoke HUD probes",
+      "testing": "formula weights + cap; 3p attribution; non-builder-never-outscores invariant; win attribution; distributed pipeline host->mirror; full vitest + tsc + bundle + gating e2e lane"
     }
   ],
+  "amendment_council": "Rule 16 amendment, user-approved verbatim 'full priority batch approved! work thoroughy'. R1: Grok 5 challenges -> pacing math hardened (0.5 weight cut to 0.25 + 1.5x-prims cap kills both dot-clique spam AND the overshoot; WIN 210 lands +21.7% at +15% typical income — clique 10prims/45bonds now earns 13.75 vs tree 12.25, spam neutralized), scoreboard kingmaking risk ACCEPTED (leader already leaked via bar + hunter; FFA leader-sniping = healthy negative feedback; periodic-update fallback logged as round-6 knob), 'instrument before changing' synthesized as BOTH-in-one-batch (the scoreboard + WIN dump ARE the instruments), __TEST_WIN_SCORE__ immunity claim verified-false (seam overrides). Gemini REVISE -> adopted: CVD-safe text identity, leader marker, bond-formation juice + in-world crown logged as creative carry-forwards. Non-builder-win mechanism: NOT reproduced in vitro after 6 probes (attribution, win-pick, ENDGAME, reconnect guard, rainbow shuffle, score resets) — Grok correctly flags the live-vs-vitro contradiction as UNRESOLVED; instrumented carry-forward, NOT blind-patched.",
   "a0_probes": {
     "imagen_generate": "AVAILABLE (Imagen 4 via mcp gcp-vertex; standard/fast/ultra)",
     "text_to_speech": "AVAILABLE (Chirp 3 HD voices, MP3/WAV/OGG, rate 0.5-2.0)",
@@ -53,14 +85,21 @@
   },
   "generative_cost_cap_usd": 10,
   "generative_cost_spent_prior_usd": 3.0,
+  "check_triumvirate": {
+    "ralph_patrol": "FAIL -> FIXED (d3fbae1): CRITICAL e2e lane red on d20c325 — (a) fog.spec aboveFogLayer children contract 6 vs new 8 (flyover overlay+char) -> contract test amended with roll-call comment; (b) rainbow.spec self-close poll 10s raced CI software-WebGL sim-lag (240 ticks = 2-4x wall-clock, bomb.spec precedent) -> 30s; (c) LOW docblock alpha 0.28 vs shipped 0.30 -> aligned; (d) smoke Sym I = transient WebRTC flake, confirmed green locally + next CI. Full local gating lane after fixes: 34 pass / 1 skip / 0 fail (3.3m). RALPH's 12 attack probes on the state/wire/audio design all HELD (wire absence, LOCKED untouched, ledger row 2 judged non-material, snapshot consumers, latch reset coverage incl. session.ts:141 teardown path, no numeric stage indexing in src, boundary semantics, determinism greps).",
+    "grok_analyst": "FIRST RUN INVALID — prompt construction error omitted the diff payload ('THE COMPLETE DIFF:' with nothing after); Grok PASSed citing hunks it never saw (one claim provably false: 'P2 adds to world.effects'). RE-RUN with verbatim hunks: FAIL, 4 findings, inline Opus triage -> F1 (Medium, rewound-but-distinct switchTick re-yells) DOWNGRADED LOW + SHIPPED as 1-line monotonic <= guard + test (971c81a) — unreachable on real paths (seq-gated snapshots, restore resets latch, world.tick never resets intra-session so rematch stamps always higher — verified by grep before shipping the guard); F2 (perpetual flyover via adversarial snapshots) REJECTED — requires a malicious HOST which owns the world by architecture (and the 'exploit' is literally our own dev-console test pin); F3 (10Hz pose stepping on client mirror) ACCEPTED-AS-ADVISORY — identical to every shipped tick-driven renderer (S83 creature anim precedent, user-approved feel), playtest will judge; F4 (host-apply-time evaluation) REJECTED — avatarPos is host state, not client-suppliable; same-tick expire-then-pickup behaves correctly.",
+    "gemini_auditor": "FIRST RUN INVALID — same omitted-diff error; hallucinated an entire packages/ repo structure (input tokens 338 prove no diff was seen). RE-RUN with verbatim hunks: PASS — ledger decisions (1)-(8) all PASS with hunk citations, Fidelity 5 / Quality 5 / Tool Utilization 5 / Completeness 5, no regressions flagged.",
+    "verdict": "FIX THEN SHIP executed: d3fbae1 (contract+poll+docblock) + 971c81a (monotonic latch). Local gates green (vitest 1270/1270, gating e2e 34/1skip). CI on 971c81a polling in background; live-site URL probes pending deploy."
+  },
   "reflexion_entries_to_archive": [
-    "P1 #recon-agents-map-the-wrong-verb #users-speak-in-avatars-not-actions: the recon agent read 'grab the primitives' as PLACE (the action that consumes a carried spark) because placement is where the existing validation blocks live — but the user's sentence structure ('until spark doesnt get to them he shouldnt be able to grab THEM') named the TARGET of the grab, and free sparks are what you grab. Reading applyPickupSpark directly settled it in one file: the only reach check was remote-only and cursor-keyed, so the debuff provably never bit for collecting. LESSON: when a user phrase maps to two candidate actions, diff the CANDIDATE VALIDATION PATHS — the bug lives where the check is MISSING, not where checks already exist. Second: the gate had to key on synced-field purity (poopedUntilTick/avatarPos/spark.pos) so optimistic and authoritative dispatch agree by construction — same construction S82 used for the cursor-target write."
+    "P1 #recon-agents-map-the-wrong-verb #users-speak-in-avatars-not-actions: the recon agent read 'grab the primitives' as PLACE (the action that consumes a carried spark) because placement is where the existing validation blocks live — but the user's sentence structure ('until spark doesnt get to them he shouldnt be able to grab THEM') named the TARGET of the grab, and free sparks are what you grab. Reading applyPickupSpark directly settled it in one file: the only reach check was remote-only and cursor-keyed, so the debuff provably never bit for collecting. LESSON: when a user phrase maps to two candidate actions, diff the CANDIDATE VALIDATION PATHS — the bug lives where the check is MISSING, not where checks already exist. Second: the gate had to key on synced-field purity (poopedUntilTick/avatarPos/spark.pos) so optimistic and authoritative dispatch agree by construction — same construction S82 used for the cursor-target write.",
+    "P2 #probe-the-channel-before-riding-it #a-wrong-reviewer-claim-can-point-at-a-real-gap: Grok's HIGH finding ('the latch violates the effectsRenderer contract') was factually backwards — the drain-into-internal-state latch IS the established idiom — but auditing it empirically exposed the REAL adjacent flaw neither reviewer articulated: buildNetSnapshot samples world.effects live at the 10Hz emit while effectsRenderer wipes the array at 60Hz, so a rare one-shot effect reaches the client ~1/6 of the time (frequent effects mask this statistically; a once-per-match celebration would have been silently absent for the joiner most games). The synced-field design (additive-optional, overwrite=restart, freshness-windowed audio) was strictly better than ALL R1 positions. LESSON: when a reviewer's mechanism claim dies under triage, autopsy the NEIGHBORHOOD the claim pointed at before discarding it — S83's lesson was 'a FAIL verdict is a list of claims'; S84's refinement is 'a refuted claim still marks a map location worth probing'. Also: Imagen 4 nailed a comedic character brief in ONE $0.04 roll when the prompt specified the COMEDY MECHANICS (mismatched googly eyes, exactly one crooked buck tooth, stubby arms thrown up) rather than 'make it funny'."
   ],
   "budget_total": 1000000,
   "session_status": "S84 OPEN — recon in flight; PDR pending Council deliberation",
   "totals": {
     "turns": 0,
     "budget_remaining": 980000,
-    "budget_status": "GREEN"
+    "budget_status": "statusline_dead"
   }
 }

@@ -11,6 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  FUNCTIONAL_BOND_COMPLEXITY,
   PHYSICS_HZ,
   SCORE_ANCHOR,
   SCORE_FUNCTIONAL_BOND,
@@ -227,13 +228,15 @@ describe('S9 P3 / S76 — standing complexity drives income scoring', () => {
     expect(computeComplexity(world, P1)).toBe(SCORE_ANCHOR * 2);
   });
 
-  it('a functional bond is complexity-NEUTRAL (no "don\'t connect" penalty)', () => {
+  it('a functional bond adds FUNCTIONAL_BOND_COMPLEXITY (S84 P4 — connecting PAYS, never penalizes)', () => {
     const world = makeWorld(0);
-    // Dot→Dot is NOT in the Magic-12 → functional. 2 prims + 0 magic = 2
-    // (== old accumulator anchor 1 + functional bond 1). Bonding never DROPS complexity.
+    // Dot→Dot is NOT in the Magic-12 → functional. S76 weighed these ZERO ("neutral");
+    // S84 P4 retired that contract after the FFA field report showed a connected tree
+    // earning exactly = scattered prims. 2 prims + 1 functional = 2.25. Bonding still
+    // never DROPS complexity, so the S76 don't-connect exploit stays dead.
     const a = placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
     placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 220, y: 200 }, targetId: a });
-    expect(computeComplexity(world, P1)).toBe(SCORE_ANCHOR * 2);
+    expect(computeComplexity(world, P1)).toBeCloseTo(SCORE_ANCHOR * 2 + FUNCTIONAL_BOND_COMPLEXITY, 10);
   });
 
   it('a magic bond adds the magic premium (Dot→Line = Filament)', () => {
@@ -253,13 +256,14 @@ describe('S9 P3 / S76 — standing complexity drives income scoring', () => {
     }
     expect(computeComplexity(wMagic, P1)).toBe(5 * SCORE_ANCHOR + 4 * MAGIC_PREMIUM); // 13
 
-    // All-functional Dot→Dot chain: 5 prims + 0 magic = 5 (== old 1 + 4×1).
+    // All-functional Dot→Dot chain: 5 prims + 4×0.25 functional = 6 (S84 P4 — connected
+    // chains now out-earn scattered prims, still far below the magic premium).
     const wFunc = makeWorld(0);
     let prevFunc = placeAt(wFunc, { sparkRawId: 0, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
     for (let i = 1; i <= 4; i++) {
       prevFunc = placeAt(wFunc, { sparkRawId: i, type: SparkType.Dot, pos: { x: 200 + i * 20, y: 200 }, targetId: prevFunc });
     }
-    expect(computeComplexity(wFunc, P1)).toBe(5 * SCORE_ANCHOR); // 5
+    expect(computeComplexity(wFunc, P1)).toBeCloseTo(5 * SCORE_ANCHOR + 4 * FUNCTIONAL_BOND_COMPLEXITY, 10); // 6
     expect(computeComplexity(wMagic, P1)).toBeGreaterThan(computeComplexity(wFunc, P1));
 
     // INCOME: one host tick accrues rate × complexity / PHYSICS_HZ; magic earns faster.
