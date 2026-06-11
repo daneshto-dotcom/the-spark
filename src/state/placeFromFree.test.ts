@@ -454,3 +454,103 @@ describe('applyPlaceFromFree — defense in depth', () => {
     expect(world.diagnostics.rejectReasons.pickupReachFail).toBe(1);
   });
 });
+
+// ===== S85 P3 — pooped-cruiser arrival gate on the BUILD path =====
+//
+// S84 P1 gated applyPickupSpark (the LMB-down claim) but the atomic LMB-up
+// PLACE_FROM_FREE had no gate, so a slow-debuffed player's full-speed cursor
+// still collected + placed sparks while the avatar lagged (playtest round 6).
+// Mirror of sparkLifecycle.test.ts's S84 boundary matrix on this reducer.
+
+describe('applyPlaceFromFree — S85 P3 pooped-cruiser arrival gate', () => {
+  const ARRIVAL = 36; // POOP_PICKUP_ARRIVAL_RADIUS
+
+  function setupPooped(avatarX: number, avatarY: number, opts?: { expired?: boolean }) {
+    const { world, spark } = setupSolo();
+    world.tick = 1000;
+    const p0 = world.players.get(P0)!;
+    p0.avatarPos.x = avatarX;
+    p0.avatarPos.y = avatarY;
+    p0.poopedUntilTick = opts?.expired === true ? 999 : 2000; // expired vs active debuff
+    return { world, spark };
+  }
+
+  it('rejects a far build while debuffed: spark stays Free, player Idle, pickupPoopedTooFar++', () => {
+    // Avatar lags at the spawner rim; cursor releases at the spark 300+ px away.
+    const { world, spark } = setupPooped(300, 600);
+    applyPlaceFromFree(world, {
+      type: 'PLACE_FROM_FREE',
+      sparkId: spark.id,
+      playerId: P0,
+      placementPos: { x: 600, y: 600 },
+      stiffnessTier: 'MID',
+      targetPrimitiveId: null,
+    });
+    expect(world.primitives.size).toBe(0);
+    expect(world.freeSparks.get(spark.id)!.state.kind).toBe('Free');
+    expect(world.players.get(P0)!.kind).toBe('Idle');
+    expect(world.diagnostics.raceRejects).toBe(1);
+    expect(world.diagnostics.rejectReasons.pickupPoopedTooFar).toBe(1);
+  });
+
+  it('commits once the chasing avatar has ARRIVED (within the radius)', () => {
+    const { world, spark } = setupPooped(590, 600); // 10 px from the release point
+    applyPlaceFromFree(world, {
+      type: 'PLACE_FROM_FREE',
+      sparkId: spark.id,
+      playerId: P0,
+      placementPos: { x: 600, y: 600 },
+      stiffnessTier: 'MID',
+      targetPrimitiveId: null,
+    });
+    expect(world.primitives.size).toBe(1);
+    expect(world.diagnostics.rejectReasons.pickupPoopedTooFar).toBe(0);
+  });
+
+  it('treats the exact arrival boundary as arrived (> comparison, S84 parity)', () => {
+    const { world, spark } = setupPooped(600 - ARRIVAL, 600); // dist exactly 36
+    applyPlaceFromFree(world, {
+      type: 'PLACE_FROM_FREE',
+      sparkId: spark.id,
+      playerId: P0,
+      placementPos: { x: 600, y: 600 },
+      stiffnessTier: 'MID',
+      targetPrimitiveId: null,
+    });
+    expect(world.primitives.size).toBe(1);
+    expect(world.diagnostics.rejectReasons.pickupPoopedTooFar).toBe(0);
+  });
+
+  it('an EXPIRED debuff does not gate (tick compare self-heals)', () => {
+    const { world, spark } = setupPooped(300, 600, { expired: true });
+    applyPlaceFromFree(world, {
+      type: 'PLACE_FROM_FREE',
+      sparkId: spark.id,
+      playerId: P0,
+      placementPos: { x: 600, y: 600 },
+      stiffnessTier: 'MID',
+      targetPrimitiveId: null,
+    });
+    expect(world.primitives.size).toBe(1);
+    expect(world.diagnostics.rejectReasons.pickupPoopedTooFar).toBe(0);
+  });
+
+  it('an un-pooped player far from the release point is NOT gated (pre-S85 behavior preserved)', () => {
+    const { world, spark } = setupSolo();
+    world.tick = 1000;
+    const p0 = world.players.get(P0)!;
+    p0.avatarPos.x = 300;
+    p0.avatarPos.y = 600;
+    expect(p0.poopedUntilTick).toBeUndefined();
+    applyPlaceFromFree(world, {
+      type: 'PLACE_FROM_FREE',
+      sparkId: spark.id,
+      playerId: P0,
+      placementPos: { x: 600, y: 600 },
+      stiffnessTier: 'MID',
+      targetPrimitiveId: null,
+    });
+    expect(world.primitives.size).toBe(1);
+    expect(world.diagnostics.rejectReasons.pickupPoopedTooFar).toBe(0);
+  });
+});

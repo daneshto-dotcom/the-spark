@@ -44,8 +44,9 @@
  *      this atomic reducer's delegation step.)
  */
 
-import { CANVAS_HEIGHT, CANVAS_WIDTH, REASONABLE_PICKUP_REACH, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, type StiffnessTier } from '../constants.ts';
+import { CANVAS_HEIGHT, CANVAS_WIDTH, POOP_PICKUP_ARRIVAL_RADIUS, REASONABLE_PICKUP_REACH, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, type StiffnessTier } from '../constants.ts';
 import { pickup as fsmPickup } from '../game/player.ts';
+import { isCruiserDebuffed } from './gameMode.ts';
 import {
   collectHostMergeCandidates,
   pickHostTargetPrimitive,
@@ -134,6 +135,26 @@ export function applyPlaceFromFree(world: World, action: PlaceFromFreeAction): W
     world.diagnostics.raceRejects++;
     world.diagnostics.rejectReasons.pickupReachFail++;
     return world;
+  }
+
+  // 4.5 — S85 P3: pooped-cruiser arrival gate. S84 P1 added this gate to
+  //     applyPickupSpark (the LMB-down claim) but the atomic LMB-up build
+  //     path runs THROUGH HERE and had no gate at all — so a slow-debuffed
+  //     player's full-speed cursor could still collect + place sparks while
+  //     their avatar lagged behind (playtest round 6: "the cruiser can still
+  //     pick up the primitives while the spark is lagging behind"). Require
+  //     the chasing avatar to have ARRIVED at the build point. Same pure-fn-
+  //     of-synced-fields construction as S84 P1 (poopedUntilTick, avatarPos,
+  //     placementPos all ride NetSnapshot) so optimistic and authoritative
+  //     dispatch agree. Same diagnostic bucket as the pickup-path gate.
+  if (isCruiserDebuffed(player, world.tick)) {
+    const pdx = action.placementPos.x - player.avatarPos.x;
+    const pdy = action.placementPos.y - player.avatarPos.y;
+    if (pdx * pdx + pdy * pdy > POOP_PICKUP_ARRIVAL_RADIUS * POOP_PICKUP_ARRIVAL_RADIUS) {
+      world.diagnostics.raceRejects++;
+      world.diagnostics.rejectReasons.pickupPoopedTooFar++;
+      return world;
+    }
   }
 
   // 5 — spawner-zone hard block (§ IX.5). Spark stays Free; the legacy
