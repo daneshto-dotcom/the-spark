@@ -10,7 +10,7 @@
  * __TEST_WIN_SCORE__ high (the game doesn't end first).
  */
 import { test, expect, type Page } from '@playwright/test';
-import { CANVAS_HEIGHT, CANVAS_WIDTH, canvasToCss, waitForWorld } from './helpers.ts';
+import { CANVAS_HEIGHT, CANVAS_WIDTH, canvasToCss, titleButtonCss, waitForWorld } from './helpers.ts';
 
 interface PotatoView {
   count: number;
@@ -60,7 +60,7 @@ async function waitForPotato(
 async function startSolo(page: Page): Promise<void> {
   await page.goto('/?debug=1');
   await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE');
-  const solo = await canvasToCss(page, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40);
+  const solo = await titleButtonCss(page, 'solo'); // S85 P4c — live title geometry
   await page.mouse.click(solo.x, solo.y);
   await waitForWorld(page, (w) => w.gameState === 'PLAYING' && w.gameMode === 'solo', 'PLAYING (solo)');
 }

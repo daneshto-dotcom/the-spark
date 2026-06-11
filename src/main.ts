@@ -100,7 +100,10 @@ import { ScreenShake, shouldTriggerShakeForArcFlash } from './render/screenShake
 // S23 P2 — debug overlay (toggleable via ?debug=1 URL param). Surfaces runtime
 // gates + audio chain + chain progress for in-vivo diagnosis when offline tests
 // pass but live trigger doesn't fire.
-import { createDebugOverlay, isDebugMode, type DebugOverlayHandle, type RuntimeProbes } from './render/debugOverlay.ts';
+// S85 bundle-charter remediation — debugOverlay is CODE-SPLIT (dynamic import
+// below): it only ever runs under ?debug=1, so its ~5 kB has no business in
+// the production index chunk. Type-only imports are erased at compile.
+import type { DebugOverlayHandle, RuntimeProbes } from './render/debugOverlay.ts';
 import { listRecipes } from './state/godlyRecipes/index.ts';
 // S22 P4 — side-effect import registers Voltkin recipe in the registry.
 import './state/godlyRecipes/voltkin.ts';
@@ -538,9 +541,15 @@ async function bootstrap(): Promise<void> {
     bondFormedCount: 0,
     matcherFiredEver: false,
   };
-  if (isDebugMode()) {
-    debugOverlay = createDebugOverlay();
-    console.log('[debug] overlay enabled via ?debug=1 — copy snapshot by clicking panel');
+  // S85 — lazy chunk; the render loop's `debugOverlay !== null` guard makes
+  // the async arrival benign (overlay appears a few frames into the session).
+  // The ?debug=1 check is inlined (importing isDebugMode statically would pull
+  // the whole module back into the index chunk and defeat the split).
+  if (window.location.search.includes('debug=1')) {
+    void import('./render/debugOverlay.ts').then((m) => {
+      debugOverlay = m.createDebugOverlay();
+      console.log('[debug] overlay enabled via ?debug=1 — copy snapshot by clicking panel');
+    });
   }
   // S50 P2 — lastCinematicOwner migrated to godlyState (above).
   // S31 P0-4 — `cinematicTimer` REMOVED. Previously this main.ts-scoped

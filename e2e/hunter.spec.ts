@@ -16,6 +16,7 @@ import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   canvasToCss,
+  titleButtonCss,
   placeFreeSparkAndConfirm,
   waitForWorld,
 } from './helpers.ts';
@@ -83,7 +84,7 @@ test.describe('S72 P2 — Pac-Man hunter (solo, gating)', () => {
     await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE');
 
     // Solo button — helpers: btnSolo at (CANVAS_W/2, CANVAS_H/2 + 40).
-    const solo = await canvasToCss(page, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40);
+    const solo = await titleButtonCss(page, 'solo'); // S85 P4c — live title geometry
     await page.mouse.click(solo.x, solo.y);
     await waitForWorld(page, (w) => w.gameState === 'PLAYING' && w.gameMode === 'solo', 'PLAYING (solo)');
 

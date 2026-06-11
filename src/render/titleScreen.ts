@@ -27,6 +27,13 @@ export interface TitleScreenCallbacks {
   onCodexSelected(): void;
 }
 
+/** S85 P4c — canvas-space button centers for the e2e geometry-getter migration. */
+export interface TitleButtonCenters {
+  readonly solo: { x: number; y: number };
+  readonly oneVOne: { x: number; y: number };
+  readonly codex: { x: number; y: number };
+}
+
 export class TitleScreen {
   readonly container: Container;
   private visible = false;
@@ -93,9 +100,27 @@ export class TitleScreen {
     );
     this.container.addChild(btnCodex);
 
+    // S85 P4c — read the centers back from the LIVE button containers (not a
+    // re-derivation of the layout math) so the getter can never drift from
+    // what is actually rendered. e2e clicks consume these via __SPARK__
+    // (the S50 P5 hardcoded-coordinate drift class is dead by construction).
+    // DEV-gated like __SPARK__ itself: e2e runs the dev server; the prod
+    // bundle dead-branches this out (S85 bundle-charter remediation).
+    if (import.meta.env.DEV) {
+      const centers: TitleButtonCenters = {
+        solo: { x: btnSolo.position.x, y: btnSolo.position.y },
+        oneVOne: { x: btn1v1.position.x, y: btn1v1.position.y },
+        codex: { x: btnCodex.position.x, y: btnCodex.position.y },
+      };
+      this.getButtonCenters = () => centers;
+    }
+
     app.stage.addChild(this.container);
     this.setVisible(false);
   }
+
+  /** S85 P4c — canvas-space button centers (e2e geometry getter; DEV-only). */
+  getButtonCenters?: () => TitleButtonCenters;
 
   setVisible(visible: boolean): void {
     this.visible = visible;

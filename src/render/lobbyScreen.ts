@@ -77,6 +77,16 @@ export interface LobbyScreenCallbacks {
   onReturnFromConnectionLost(): void;
 }
 
+/** S85 P4c — shape returned by the DEV-only getUiPoints e2e geometry getter. */
+export interface LobbyUiPointsView {
+  hostButton: { x: number; y: number };
+  joinButton: { x: number; y: number };
+  beginButton: { x: number; y: number };
+  backButton: { x: number; y: number };
+  joinPaneRect: { x: number; y: number; w: number; h: number };
+  joinInputRect: { x: number; y: number; w: number; h: number };
+}
+
 export class LobbyScreen {
   readonly container: Container;
   // S64 P1 — mode / Begin-gating / status / latches now live in a pure reducer
@@ -95,6 +105,9 @@ export class LobbyScreen {
   private joinButton: Container;
   private joinButtonBg: Graphics;
   private beginButton: Container;
+  // S85 P4c — captured for getUiPoints (the e2e geometry-getter migration).
+  private hostBtnRef: Container;
+  private backBtnRef: Container;
   // S39 P1 — visible-to-user wire diagnostics. Renders below statusText
   // whenever the peer is joining + has a connected host. Without this, a
   // peer stuck on "Waiting for host to begin" has no signal whether the
@@ -189,6 +202,7 @@ export class LobbyScreen {
     });
     hostBtn.position.set(PANE_WIDTH / 2 - BUTTON_WIDTH / 2, 220);
     this.hostPane.addChild(hostBtn);
+    this.hostBtnRef = hostBtn; // S85 P4c — geometry getter
 
     // S69 P2 — room code relocated OUT of the host pane to a standalone prominent
     // position (panes hide once you enter a room; the seat rack takes the centre).
@@ -327,6 +341,7 @@ export class LobbyScreen {
     });
     backBtn.position.set(40, CANVAS_HEIGHT - 80);
     this.container.addChild(backBtn);
+    this.backBtnRef = backBtn; // S85 P4c — geometry getter
 
     // S22 P2 — connection-lost overlay extracted to connectionLostOverlay.ts.
     this.connectionLostHandle = makeConnectionLostOverlay(
@@ -364,6 +379,8 @@ export class LobbyScreen {
     if (typeof window !== 'undefined' && window.visualViewport) {
       window.visualViewport.addEventListener('resize', this.resizeHandler);
     }
+
+    this.initUiPointsGetter(); // S85 P4c — DEV-only e2e geometry getter
   }
 
   setVisible(visible: boolean): void {
@@ -474,6 +491,39 @@ export class LobbyScreen {
    */
   getSeats(): readonly SeatView[] {
     return lobbyView(this.state).seats;
+  }
+
+  /**
+   * S85 P4c — DEV/E2E geometry getter (the S70 getSeats pattern, applied to
+   * the click coordinates the e2e suite used to HARDCODE — the exact drift
+   * class behind the S50 P5 wrong-button regression). Button centers are
+   * read from the LIVE containers (lobby buttons are top-left-anchored
+   * roundRects, so center = pane + button + half-extent); pane/input rects
+   * come from the same lobbyGeometry constants the renderer itself consumes.
+   * DEV-only (assigned in initUiPointsGetter below): e2e runs the dev server;
+   * the prod bundle dead-branches it (S85 bundle-charter remediation).
+   */
+  getUiPoints?: () => LobbyUiPointsView;
+
+  private initUiPointsGetter(): void {
+    if (!import.meta.env.DEV) return;
+    const center = (paneX: number, paneY: number, btn: Container) => ({
+      x: paneX + btn.position.x + BUTTON_WIDTH / 2,
+      y: paneY + btn.position.y + BUTTON_HEIGHT / 2,
+    });
+    this.getUiPoints = () => ({
+      hostButton: center(this.hostPane.position.x, this.hostPane.position.y, this.hostBtnRef),
+      joinButton: center(this.joinPane.position.x, this.joinPane.position.y, this.joinButton),
+      beginButton: center(0, 0, this.beginButton),
+      backButton: center(0, 0, this.backBtnRef),
+      joinPaneRect: {
+        x: this.joinPane.position.x, y: this.joinPane.position.y,
+        w: PANE_WIDTH, h: PANE_HEIGHT,
+      },
+      joinInputRect: {
+        x: INPUT_CANVAS_X, y: INPUT_CANVAS_Y, w: INPUT_CANVAS_W, h: INPUT_CANVAS_H,
+      },
+    });
   }
 
   /**

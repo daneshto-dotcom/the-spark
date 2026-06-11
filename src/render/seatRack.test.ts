@@ -44,3 +44,42 @@ describe('S82 P5 — seatCellStyle (A5 you-emphasis)', () => {
     expect(s.strokeAlpha).toBe(1);
   });
 });
+
+// ===== S85 P4c — D1 join/leave animation pose (pure) =====
+
+import { SEAT_ANIM_IN_MS, SEAT_ANIM_OUT_MS, seatAnimPose } from './seatRack.ts';
+
+describe('seatAnimPose — D1 living-lobby join/leave envelope', () => {
+  it('join: starts at alpha 0 / scale 0.92 and resolves to identity by SEAT_ANIM_IN_MS', () => {
+    const start = seatAnimPose('in', 0);
+    expect(start.alpha).toBe(0);
+    expect(start.scale).toBeCloseTo(0.92, 9);
+    expect(start.done).toBe(false);
+    const end = seatAnimPose('in', SEAT_ANIM_IN_MS);
+    expect(end).toEqual({ alpha: 1, scale: 1, done: true });
+  });
+
+  it('join: alpha rises monotonically (ease-out, no overshoot)', () => {
+    let prev = -1;
+    for (let t = 0; t <= SEAT_ANIM_IN_MS; t += 20) {
+      const p = seatAnimPose('in', t);
+      expect(p.alpha).toBeGreaterThanOrEqual(prev);
+      expect(p.alpha).toBeLessThanOrEqual(1);
+      prev = p.alpha;
+    }
+  });
+
+  it('leave: dips to 0.25 at the midpoint, recovers to identity by SEAT_ANIM_OUT_MS', () => {
+    expect(seatAnimPose('out', 0).alpha).toBeCloseTo(1, 9);
+    expect(seatAnimPose('out', SEAT_ANIM_OUT_MS / 2).alpha).toBeCloseTo(0.25, 9);
+    expect(seatAnimPose('out', SEAT_ANIM_OUT_MS)).toEqual({ alpha: 1, scale: 1, done: true });
+    // scale never moves on leave (the blink is alpha-only)
+    expect(seatAnimPose('out', SEAT_ANIM_OUT_MS / 3).scale).toBe(1);
+  });
+
+  it('out-of-range / non-finite elapsed resolves to identity (idempotent)', () => {
+    expect(seatAnimPose('in', -5)).toEqual({ alpha: 1, scale: 1, done: true });
+    expect(seatAnimPose('in', Number.NaN)).toEqual({ alpha: 1, scale: 1, done: true });
+    expect(seatAnimPose('out', 10_000)).toEqual({ alpha: 1, scale: 1, done: true });
+  });
+});

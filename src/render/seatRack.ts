@@ -18,9 +18,17 @@
  * per-seat roster. All seat OCCUPANCY logic is pure + unit-tested in
  * lobbyStateMachine.test.ts; this module is the Pixi projection (boot-smoke + e2e
  * verified, like lobbyScreen.ts itself — Pixi renderers are not vitest-unit-tested).
+ *
+ * S85 P4c — D1 living-lobby animations (the S70 P2 deferral): a seat POPS IN on
+ * join (alpha+scale ease-out) and BLINKS OUT on leave (alpha dip while the empty
+ * outline takes over). Animation state is per-cell, driven by Ticker.shared
+ * (wall-clock cosmetic convention — the lobby has no sim-tick contract), and the
+ * FIRST update() after mount sets a silent baseline (no spurious pop-in storm
+ * when entering an already-populated room). Pure pose math in seatAnimPose()
+ * (unit-tested); occupancy DATA (getSeats) is untouched — e2e contracts intact.
  */
 
-import { Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { Container, Graphics, Text, TextStyle, Ticker } from 'pixi.js';
 import { MAX_PLAYERS } from '../constants.ts';
 import { getSeatRect, SEAT_H, SEAT_W } from './lobbyGeometry.ts';
 import type { SeatView } from './lobbyStateMachine.ts';
@@ -59,10 +67,53 @@ export function seatCellStyle(seatColor: number, isYou: boolean): OccupiedSeatSt
     : { fillAlpha: 0.85, strokeWidth: 2, strokeColor: seatColor, strokeAlpha: 1 };
 }
 
+/* ── S85 P4c — D1 join/leave animation pose (pure, unit-tested) ── */
+
+export type SeatAnimKind = 'in' | 'out';
+
+export const SEAT_ANIM_IN_MS = 280;
+export const SEAT_ANIM_OUT_MS = 350;
+
+export interface SeatAnimPose {
+  readonly alpha: number;
+  readonly scale: number;
+  /** True once the animation has fully resolved (caller may drop the state). */
+  readonly done: boolean;
+}
+
+const IDENTITY_POSE: SeatAnimPose = { alpha: 1, scale: 1, done: true };
+
+/**
+ * Pose for a cell `elapsedMs` into a join ('in') or leave ('out') animation.
+ *   in:  ease-out cubic — alpha 0→1, scale 0.92→1 over SEAT_ANIM_IN_MS.
+ *   out: alpha dips to 0.25 at the midpoint then recovers to 1 over
+ *        SEAT_ANIM_OUT_MS (the "blink out" — the EMPTY visual is already
+ *        drawn underneath, so the dip reads as the occupant vanishing).
+ * Out-of-range elapsed resolves to the identity pose (idempotent, no clamp NaN).
+ */
+export function seatAnimPose(kind: SeatAnimKind, elapsedMs: number): SeatAnimPose {
+  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) return IDENTITY_POSE;
+  if (kind === 'in') {
+    if (elapsedMs >= SEAT_ANIM_IN_MS) return IDENTITY_POSE;
+    const t = elapsedMs / SEAT_ANIM_IN_MS;
+    const ease = 1 - Math.pow(1 - t, 3);
+    return { alpha: ease, scale: 0.92 + 0.08 * ease, done: false };
+  }
+  if (elapsedMs >= SEAT_ANIM_OUT_MS) return IDENTITY_POSE;
+  const t = elapsedMs / SEAT_ANIM_OUT_MS;
+  // Triangle dip: 1 → 0.25 → 1.
+  const dip = t < 0.5 ? 1 - t * 2 * 0.75 : 0.25 + (t - 0.5) * 2 * 0.75;
+  return { alpha: dip, scale: 1, done: false };
+}
+
 interface SeatCell {
+  readonly cell: Container;
   readonly bg: Graphics;
   readonly label: Text;
   readonly glyph: Text;
+  occupied: boolean;
+  animKind: SeatAnimKind | null;
+  animStartMs: number;
 }
 
 export interface SeatRackHandle {
@@ -74,11 +125,14 @@ export interface SeatRackHandle {
 export function makeSeatRack(): SeatRackHandle {
   const container = new Container();
   const cells: SeatCell[] = [];
+  let baselineSet = false;
 
   for (let i = 0; i < MAX_PLAYERS; i++) {
     const rect = getSeatRect(i);
     const cell = new Container();
-    cell.position.set(rect.x, rect.y);
+    // S85 P4c — center pivot so the pop-in scale grows from the cell middle.
+    cell.pivot.set(SEAT_W / 2, SEAT_H / 2);
+    cell.position.set(rect.x + SEAT_W / 2, rect.y + SEAT_H / 2);
 
     const bg = new Graphics();
     cell.addChild(bg);
@@ -106,16 +160,32 @@ export function makeSeatRack(): SeatRackHandle {
     cell.addChild(glyph);
 
     container.addChild(cell);
-    cells.push({ bg, label, glyph });
+    cells.push({ cell, bg, label, glyph, occupied: false, animKind: null, animStartMs: 0 });
   }
+
+  // S85 P4c — per-frame cosmetic animation pass. Cheap no-op when no cell is
+  // animating; runs for the app lifetime like the rack itself (no teardown
+  // path exists for the lobby shell). Wall-clock, not sim-tick: pure cosmetics.
+  Ticker.shared.add(() => {
+    const now = performance.now();
+    for (const c of cells) {
+      if (c.animKind === null) continue;
+      const pose = seatAnimPose(c.animKind, now - c.animStartMs);
+      c.cell.alpha = pose.alpha;
+      c.cell.scale.set(pose.scale);
+      if (pose.done) c.animKind = null;
+    }
+  });
 
   function update(seats: readonly SeatView[]): void {
     for (let i = 0; i < cells.length; i++) {
       const seat = seats[i];
-      const { bg, label, glyph } = cells[i];
+      const c = cells[i];
+      const { bg, label, glyph } = c;
+      const nowOccupied = seat !== undefined && seat.occupied;
       bg.clear();
 
-      if (seat !== undefined && seat.occupied) {
+      if (nowOccupied) {
         // S82 P5 — style + label derivation through the exported pure helpers.
         const style = seatCellStyle(seat.color, seat.isYou);
         bg.roundRect(0, 0, SEAT_W, SEAT_H, CORNER).fill({
@@ -139,7 +209,19 @@ export function makeSeatRack(): SeatRackHandle {
         label.visible = false;
         glyph.visible = true;
       }
+
+      // S85 P4c — D1 join/leave transition trigger. Baseline pass is silent
+      // (no pop-in storm when first showing an already-populated room).
+      if (baselineSet && nowOccupied !== c.occupied) {
+        c.animKind = nowOccupied ? 'in' : 'out';
+        c.animStartMs = performance.now();
+        const pose = seatAnimPose(c.animKind, 0);
+        c.cell.alpha = pose.alpha;
+        c.cell.scale.set(pose.scale);
+      }
+      c.occupied = nowOccupied;
     }
+    baselineSet = true;
   }
 
   return { container, update };

@@ -114,6 +114,49 @@ export async function readWorldState(page: Page): Promise<{
 }
 
 /**
+ * S85 P4c — geometry-getter migration (the S82 carry-forward). Click targets
+ * come from the app's OWN live layout via __SPARK__ accessors instead of
+ * coordinates duplicated into this file (the S50 P5 wrong-button drift class:
+ * hardcoded (960,580) silently hit Solo after a title-layout change). Returns
+ * CSS coords ready for page.mouse.click.
+ */
+export async function titleButtonCss(
+  page: Page,
+  which: 'solo' | 'oneVOne' | 'codex',
+): Promise<{ x: number; y: number }> {
+  const c = await page.evaluate((w) => {
+    const spark = (window as {
+      __SPARK__?: { titleScreen?: { getButtonCenters?: () => Record<string, { x: number; y: number }> } };
+    }).__SPARK__;
+    const centers = spark?.titleScreen?.getButtonCenters?.();
+    if (!centers) throw new Error('titleScreen.getButtonCenters unavailable — geometry getter missing');
+    return centers[w];
+  }, which);
+  return await canvasToCss(page, c.x, c.y);
+}
+
+export interface LobbyUiPoints {
+  hostButton: { x: number; y: number };
+  joinButton: { x: number; y: number };
+  beginButton: { x: number; y: number };
+  backButton: { x: number; y: number };
+  joinPaneRect: { x: number; y: number; w: number; h: number };
+  joinInputRect: { x: number; y: number; w: number; h: number };
+}
+
+/** S85 P4c — live lobby click geometry (canvas coords; convert via canvasToCss). */
+export async function lobbyUiPoints(page: Page): Promise<LobbyUiPoints> {
+  return await page.evaluate(() => {
+    const spark = (window as {
+      __SPARK__?: { lobbyScreen?: { getUiPoints?: () => unknown } };
+    }).__SPARK__;
+    const pts = spark?.lobbyScreen?.getUiPoints?.();
+    if (!pts) throw new Error('lobbyScreen.getUiPoints unavailable — geometry getter missing');
+    return pts as never;
+  });
+}
+
+/**
  * Wait until a predicate against world state becomes true. Polls every 200ms.
  * Times out at the page's expect timeout.
  */
@@ -147,24 +190,16 @@ export async function hostNewRoom(page: Page): Promise<string> {
   await page.goto('/?debug=1');
   // Wait for the SPARK title to mount.
   await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE state on host page');
-  // Click "1v1 (2 Player)" — text matched against canvas text via locator.
-  // Pixi text isn't queryable via DOM, so we click by canvas coord.
-  // S50 P5 EOS audit fix: title screen layout (src/render/titleScreen.ts):
-  //   btnSolo  at (CANVAS_W/2, CANVAS_H/2 + 40)              = (960, 580)
-  //   btn1v1   at (CANVAS_W/2, CANVAS_H/2 + 40 + 72 + 24)    = (960, 676)
-  // Pre-S50, this clicked at y=580 (Solo button) — sent host to PLAYING/solo,
-  // not LOBBY, so every e2e baseline test was timing out post-S49 P3
-  // (which removed the masking continue-on-error gate). Constants
-  // BUTTON_HEIGHT=72, BUTTON_GAP=24 from titleScreen.ts; hardcoded here to
-  // avoid an import cycle (e2e/ is bundled separately from src/).
-  const oneVOne = await canvasToCss(page, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40 + 72 + 24);
+  // Click "1v1 (2 Player)" — Pixi text isn't queryable via DOM, so we click
+  // by canvas coord. S85 P4c: the coord now comes from the title screen's
+  // LIVE layout (titleButtonCss geometry getter) — the S50 P5 regression
+  // class (hardcoded button math drifting from titleScreen.ts) is closed.
+  const oneVOne = await titleButtonCss(page, 'oneVOne');
   await page.mouse.click(oneVOne.x, oneVOne.y);
   await waitForWorld(page, (w) => w.gameState === 'LOBBY', 'LOBBY state on host page');
-  // Click HOST button — host pane center, button at PANE_WIDTH/2 + paneX, paneY+220
-  // hostPaneX = CANVAS_W/2 - PANE_WIDTH(480) - PANE_GAP(40)/2 = 1920/2 - 480 - 20 = 460
-  // paneY = CANVAS_H/2 - PANE_HEIGHT(360)/2 = 1080/2 - 180 = 360
-  // HOST button at (460 + 480/2, 360 + 220) = (700, 580)
-  const hostBtn = await canvasToCss(page, 700, 580);
+  // Click HOST button — live center via the lobby geometry getter.
+  const lobbyPts = await lobbyUiPoints(page);
+  const hostBtn = await canvasToCss(page, lobbyPts.hostButton.x, lobbyPts.hostButton.y);
   await page.mouse.click(hostBtn.x, hostBtn.y);
   // After clicking HOST: lobbyScreen.mode = 'hosting', codeText populated.
   // Read code from a fresh evaluate that looks at lobbyScreen state.
@@ -197,8 +232,8 @@ export async function hostNewRoom(page: Page): Promise<string> {
 export async function joinRoom(page: Page, code: string): Promise<void> {
   await page.goto('/?debug=1');
   await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE state on joiner page');
-  // S50 P5 EOS audit fix: same Solo-vs-1v1 button-coord bug as hostNewRoom.
-  const oneVOne = await canvasToCss(page, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40 + 72 + 24);
+  // S85 P4c — live title geometry (was the S50 P5 hardcoded-coord fix site).
+  const oneVOne = await titleButtonCss(page, 'oneVOne');
   await page.mouse.click(oneVOne.x, oneVOne.y);
   await waitForWorld(page, (w) => w.gameState === 'LOBBY', 'LOBBY state on joiner page');
   // Type the code into the HTML input overlay (S16 P1).

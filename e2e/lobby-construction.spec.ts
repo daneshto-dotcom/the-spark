@@ -17,7 +17,7 @@
  * 'hosting' mode (peerCount>0 is false), so the simulated reveal persists.
  */
 import { test, expect, type Page } from '@playwright/test';
-import { hostNewRoom, waitForWorld, canvasToCss, readSeats, CANVAS_WIDTH, CANVAS_HEIGHT } from './helpers';
+import { hostNewRoom, waitForWorld, canvasToCss, readSeats, titleButtonCss, lobbyUiPoints } from './helpers';
 
 type LobbyDebug = { mode: string; hostConnected: boolean; beginButtonVisible: boolean };
 
@@ -69,8 +69,8 @@ test.describe('S63 - lobby construction coverage (unblocks the deferred 548-LOC 
   }) => {
     await page.goto('/?debug=1');
     await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE on single page');
-    // Click "1v1 (2 Player)" → LOBBY (mirror of hostNewRoom's first half).
-    const oneVOne = await canvasToCss(page, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40 + 72 + 24);
+    // Click "1v1 (2 Player)" → LOBBY (S85 P4c: live title geometry).
+    const oneVOne = await titleButtonCss(page, 'oneVOne');
     await page.mouse.click(oneVOne.x, oneVOne.y);
     await waitForWorld(page, (w) => w.gameState === 'LOBBY', 'LOBBY on single page');
 
@@ -150,8 +150,8 @@ async function lobbyContainerVisible(page: Page): Promise<boolean> {
 async function gotoLobbySelect(page: Page): Promise<void> {
   await page.goto('/?debug=1');
   await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE on single page');
-  // Click "1v1 (2 Player)" → LOBBY (mirror of hostNewRoom's first half).
-  const oneVOne = await canvasToCss(page, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40 + 72 + 24);
+  // Click "1v1 (2 Player)" → LOBBY (S85 P4c: live title geometry).
+  const oneVOne = await titleButtonCss(page, 'oneVOne');
   await page.mouse.click(oneVOne.x, oneVOne.y);
   await waitForWorld(page, (w) => w.gameState === 'LOBBY', 'LOBBY on single page');
 }
@@ -172,7 +172,8 @@ test.describe('S64 - lobby behavioral surfaces (net-extension; unblocks the defe
     // and updateInputVisibility hides the absolutely-positioned HTML input.
     // (Driving via gameState — not a manual setVisible — because the loop
     // re-asserts visibility every frame.)
-    const back = await canvasToCss(page, 150, 1024);
+    const backPt = (await lobbyUiPoints(page)).backButton;
+    const back = await canvasToCss(page, backPt.x, backPt.y);
     await page.mouse.click(back.x, back.y);
     await waitForWorld(page, (w) => w.gameState === 'TITLE', 'Back to Title leaves LOBBY');
     expect(await lobbyContainerVisible(page)).toBe(false);
@@ -189,7 +190,13 @@ test.describe('S64 - lobby behavioral surfaces (net-extension; unblocks the defe
     await expect(input).not.toBeFocused();
     // Click the join-pane body ABOVE the input rect (canvas y<460) and BELOW the
     // header — the pane's pointertap fires inputEl.focus() while mode==='select'.
-    const tap = await canvasToCss(page, 1100, 430);
+    const ui = await lobbyUiPoints(page);
+    // pane body x: clear of the input rect; y: below the header, above the input.
+    const tap = await canvasToCss(
+      page,
+      ui.joinPaneRect.x + ui.joinPaneRect.w * 0.25,
+      ui.joinInputRect.y - 30,
+    );
     await page.mouse.click(tap.x, tap.y);
     await expect(input).toBeFocused({ timeout: 5_000 });
   });

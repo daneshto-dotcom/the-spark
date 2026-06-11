@@ -16,6 +16,7 @@ import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   canvasToCss,
+  titleButtonCss,
   placeFreeSparkAndConfirm,
   waitForWorld,
 } from './helpers.ts';
@@ -68,7 +69,7 @@ async function waitForRainbow(
 async function startSolo(page: Page): Promise<void> {
   await page.goto('/?debug=1');
   await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE');
-  const solo = await canvasToCss(page, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40);
+  const solo = await titleButtonCss(page, 'solo'); // S85 P4c — live title geometry
   await page.mouse.click(solo.x, solo.y);
   await waitForWorld(page, (w) => w.gameState === 'PLAYING' && w.gameMode === 'solo', 'PLAYING (solo)');
 }
