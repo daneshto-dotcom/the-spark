@@ -50,3 +50,52 @@ describe('S79 P2 — foulAwareTint (pooped-building visual)', () => {
     expect(a).toBe(b);
   });
 });
+
+// ===== S85 P4b — per-owner bond patterning (CVD ownership cue) =====
+
+import { bondPatternMarks, seatPatternKind } from './structureRenderer.ts';
+
+describe('seatPatternKind — seat → pattern vocabulary', () => {
+  it('seat 0 and unknown owners stay solid (none)', () => {
+    expect(seatPatternKind(0)).toBe('none');
+    expect(seatPatternKind(undefined)).toBe('none');
+  });
+
+  it('seats 1..3 get distinct patterns; 4+ cycles', () => {
+    expect(seatPatternKind(1)).toBe('rungs');
+    expect(seatPatternKind(2)).toBe('beads');
+    expect(seatPatternKind(3)).toBe('chevrons');
+    expect(seatPatternKind(4)).toBe('rungs'); // cycle
+  });
+});
+
+describe('bondPatternMarks — mark geometry', () => {
+  it('returns [] for degenerate and too-short bonds (no NaN, stays solid)', () => {
+    expect(bondPatternMarks(50, 50, 50, 50)).toEqual([]); // zero length
+    expect(bondPatternMarks(0, 0, 30, 0)).toEqual([]); // under clearance+half-spacing
+  });
+
+  it('spaces marks evenly along the bond, clear of both endpoints', () => {
+    const marks = bondPatternMarks(0, 0, 100, 0);
+    expect(marks.length).toBe(2);
+    for (const m of marks) {
+      expect(m.y).toBe(0);
+      expect(m.x).toBeGreaterThan(12); // endpoint clearance
+      expect(m.x).toBeLessThan(88);
+      expect(m.ux).toBe(1); // unit vector along a→b
+      expect(m.uy).toBe(0);
+    }
+    // symmetric about the bond midpoint
+    expect(marks[0].x + marks[1].x).toBeCloseTo(100, 6);
+  });
+
+  it('unit vector tracks bond direction (diagonal)', () => {
+    const marks = bondPatternMarks(0, 0, 80, 80);
+    expect(marks.length).toBeGreaterThan(0);
+    for (const m of marks) {
+      expect(m.ux).toBeCloseTo(Math.SQRT1_2, 6);
+      expect(m.uy).toBeCloseTo(Math.SQRT1_2, 6);
+      expect(m.x).toBeCloseTo(m.y, 6); // anchors stay ON the bond line
+    }
+  });
+});

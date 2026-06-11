@@ -114,6 +114,19 @@ export class StructureRenderer {
     const tick = world.tick;
     const fouled = world.fouledPrimitives;
     g.clear();
+    // S85 P4b — per-owner bond patterning (the S82 CVD carry-forward:
+    // "structure-ownership non-color cue"). Bonds are same-color by the S46 P3
+    // segregation invariant, so a bond belongs entirely to ONE seat; overlay a
+    // seat-keyed white pattern (rungs/beads/chevrons) so ownership reads
+    // without the color channel. Networked-only — solo has one owner (same
+    // gate as the S82 avatar nameplates). Color→seat is rebuilt per frame
+    // (≤MAX_PLAYERS entries) and stays correct through rainbow shuffles
+    // because player.color and placerColor remap in lockstep.
+    const patterned = world.gameMode !== 'solo';
+    const colorToSeat = patterned ? new Map<number, number>() : null;
+    if (colorToSeat !== null) {
+      for (const [pid, p] of world.players) colorToSeat.set(p.color, pid as number);
+    }
     for (const bond of world.bonds.values()) {
       // Bond gradient = blend of two endpoints' player colors. Single
       // player Phase 1 = monochrome (a→a). Phase 2 multi-player = real
@@ -175,6 +188,12 @@ export class StructureRenderer {
             alpha: 0.4 + 0.6 * pulse,
           });
       }
+
+      // S85 P4b — ownership pattern overlay (see drawBonds header comment).
+      if (colorToSeat !== null) {
+        const seat = colorToSeat.get(a.placerColor);
+        drawOwnershipPattern(g, a.pos.x, a.pos.y, b.pos.x, b.pos.y, seatPatternKind(seat));
+      }
     }
   }
 
@@ -218,6 +237,94 @@ function stiffnessToWidth(tier: StiffnessTier): number {
  */
 export function foulAwareTint(baseColor: number, isFouled: boolean): number {
   return isFouled ? lerpTint(baseColor, POOP_FOUL_TINT, POOP_FOUL_TINT_STRENGTH) : baseColor;
+}
+
+// ===== S85 P4b — per-owner bond patterning (CVD structure-ownership cue) =====
+
+export type BondPatternKind = 'none' | 'rungs' | 'beads' | 'chevrons';
+
+const PATTERN_SPACING = 28;
+/** Keep marks clear of the endpoint primitives' sprites. */
+const PATTERN_END_CLEARANCE = 12;
+const PATTERN_COLOR = 0xffffff;
+const PATTERN_ALPHA = 0.45;
+const RUNG_HALF = 4;
+const BEAD_RADIUS = 1.7;
+const CHEVRON_ARM = 4.5;
+
+/**
+ * Seat → pattern vocabulary. Seat 0 is the solid baseline (no overlay) so the
+ * pattern count stays at "one cue per ADDITIONAL seat"; seats beyond 3 cycle.
+ * Pure + exported for unit tests.
+ */
+export function seatPatternKind(seat: number | undefined): BondPatternKind {
+  if (seat === undefined || seat === 0) return 'none';
+  const idx = (seat - 1) % 3;
+  return idx === 0 ? 'rungs' : idx === 1 ? 'beads' : 'chevrons';
+}
+
+export interface PatternMark {
+  readonly x: number;
+  readonly y: number;
+  /** Unit vector ALONG the bond (a→b). */
+  readonly ux: number;
+  readonly uy: number;
+}
+
+/**
+ * Evenly spaced mark anchors along the bond, clear of both endpoints. Pure +
+ * exported for unit tests (spacing, clearance, unit-vector contract). Returns
+ * [] for degenerate/short bonds — a bond too short for one mark stays solid.
+ */
+export function bondPatternMarks(ax: number, ay: number, bx: number, by: number): PatternMark[] {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const dist = Math.hypot(dx, dy);
+  const usable = dist - 2 * PATTERN_END_CLEARANCE;
+  if (usable < PATTERN_SPACING * 0.5) return [];
+  const ux = dx / dist;
+  const uy = dy / dist;
+  const count = Math.max(1, Math.floor(usable / PATTERN_SPACING));
+  const step = usable / (count + 1);
+  const marks: PatternMark[] = [];
+  for (let i = 1; i <= count; i++) {
+    const d = PATTERN_END_CLEARANCE + step * i;
+    marks.push({ x: ax + ux * d, y: ay + uy * d, ux, uy });
+  }
+  return marks;
+}
+
+/** Stroke the seat pattern over an already-drawn bond visual. */
+function drawOwnershipPattern(
+  g: Graphics,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  kind: BondPatternKind,
+): void {
+  if (kind === 'none') return;
+  for (const m of bondPatternMarks(ax, ay, bx, by)) {
+    const nx = -m.uy; // perpendicular
+    const ny = m.ux;
+    if (kind === 'rungs') {
+      g.moveTo(m.x - nx * RUNG_HALF, m.y - ny * RUNG_HALF)
+        .lineTo(m.x + nx * RUNG_HALF, m.y + ny * RUNG_HALF)
+        .stroke({ width: 1.5, color: PATTERN_COLOR, alpha: PATTERN_ALPHA });
+    } else if (kind === 'beads') {
+      g.circle(m.x, m.y, BEAD_RADIUS).fill({ color: PATTERN_COLOR, alpha: PATTERN_ALPHA });
+    } else {
+      // chevron: a V opening along the bond direction.
+      const tipX = m.x + m.ux * CHEVRON_ARM * 0.6;
+      const tipY = m.y + m.uy * CHEVRON_ARM * 0.6;
+      const baseX = m.x - m.ux * CHEVRON_ARM * 0.6;
+      const baseY = m.y - m.uy * CHEVRON_ARM * 0.6;
+      g.moveTo(baseX + nx * CHEVRON_ARM, baseY + ny * CHEVRON_ARM)
+        .lineTo(tipX, tipY)
+        .lineTo(baseX - nx * CHEVRON_ARM, baseY - ny * CHEVRON_ARM)
+        .stroke({ width: 1.5, color: PATTERN_COLOR, alpha: PATTERN_ALPHA });
+    }
+  }
 }
 
 function lerpTint(a: number, b: number, t: number): number {

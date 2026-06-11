@@ -13,6 +13,7 @@
 
 import { Application, Container, Graphics } from 'pixi.js';
 import { POTATO_FUSE_TICKS, POTATO_RADIUS } from '../constants.ts';
+import { drawHazardRing } from './hazardRing.ts';
 import type { World } from '../state/world.ts';
 
 const BODY_COLOR = 0xb5651d; // potato brown
@@ -64,6 +65,14 @@ export class PotatoRenderer {
         color: fuseColor,
         alpha: 0.7 + pulse * 0.3,
       });
+
+      // S85 P4b — above-fog hazard identity: dashed white ring (CVD-safe; the
+      // ARMED ring above is pure-red, exactly the channel CVD players lose).
+      // A CARRIED potato skips it — it's in someone's hand, the carry motion
+      // is the cue, and the ring would orbit the cursor distractingly.
+      if (potato.state !== 'CARRIED') {
+        drawHazardRing(g, x, y, r + 8, tSec);
+      }
     }
   }
 

@@ -13,6 +13,7 @@
 
 import { Application, Container, Graphics } from 'pixi.js';
 import { HUNTER_CATCH_HOLD_TICKS, HUNTER_DESPAWN_FADE_TICKS, HUNTER_RADIUS } from '../constants.ts';
+import { drawHazardRing } from './hazardRing.ts';
 import type { World } from '../state/world.ts';
 
 const BODY_COLOR = 0xffd21a; // Pac-Man gold
@@ -80,6 +81,13 @@ export class HunterRenderer {
         y + Math.sin(eyeAngle) * eyeDist,
         r * 0.13,
       ).fill({ color: EYE_COLOR, alpha });
+
+      // S85 P4b — above-fog hazard identity: dashed white ring (CVD-safe
+      // luminance cue) so the wedge reads HOSTILE through near-black fog.
+      // Skipped while DESPAWNING (the fade already says "no longer a threat").
+      if (hunter.state !== 'DESPAWNING') {
+        drawHazardRing(g, x, y, r + 8, tSec);
+      }
     }
   }
 
