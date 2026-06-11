@@ -31,10 +31,22 @@ import {
 import type { World } from '../state/world.ts';
 
 const SPRITE_URL = '/godly/rainbow-flyover/rainbow-flyover.png';
-/** 512px source × 0.55 ≈ 282px on the 1920×1080 canvas — big enough to be the joke. */
-const CHAR_SCALE = 0.55;
-/** Fully offscreen at both ends of the traverse (≥ half the scaled diagonal). */
-const OFFSCREEN_MARGIN = 220;
+/**
+ * S85 P2 (playtest round 6: "needs to be like 20% of the whole screen, so like
+ * 10 times larger") — 0.55 → 1.75 ≈ 10× the area. The sprite's VISIBLE content
+ * (alpha bbox 345×208 in the 512 frame) renders ~604×364 px on the 1920×1080
+ * canvas: ~31% of canvas width, ~34% of height at the apex.
+ */
+const CHAR_SCALE = 1.75;
+/**
+ * Fully offscreen at both ends of the traverse. Derived from the VISIBLE
+ * content's max corner reach from the sprite anchor (≈202 px source-frame,
+ * alpha bbox vs the 256,256 anchor) × CHAR_SCALE × 1.05 wobble ≈ 372 px —
+ * the 512 frame's transparent padding needs no cover.
+ */
+const OFFSCREEN_MARGIN = 380;
+/** The scale at which the procedural fallback's R=140 art matches the sprite's visible size. */
+const FALLBACK_NATIVE_SCALE = 0.55;
 /** Overscan so the 2px screen-shake stage offset never exposes backdrop edges. */
 const OVERSCAN = 8;
 const BEAM_COUNT = 4;
@@ -227,7 +239,9 @@ export class RainbowFlyoverRenderer {
         this.drawFallbackChar();
         this.fallbackDrawn = true;
       }
-      this.fallback.scale.set(pose.scaleX / CHAR_SCALE, pose.scaleY / CHAR_SCALE);
+      // S85 P2 — normalize against the fallback's own native scale (not
+      // CHAR_SCALE) so the vector stand-in grows with the sprite size bump.
+      this.fallback.scale.set(pose.scaleX / FALLBACK_NATIVE_SCALE, pose.scaleY / FALLBACK_NATIVE_SCALE);
     }
   }
 
