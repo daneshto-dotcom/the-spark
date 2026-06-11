@@ -118,18 +118,31 @@ test.describe('S75 P3 — rainbow color-shuffle (solo, gating)', () => {
         { message: 'flyover window opened (switchTick stamped + renderer active)', timeout: 3_000 },
       )
       .toBe(true);
+    // SIM-time based close assertion: wall-clock polls raced CI software-WebGL (the
+    // flyover's own full-screen fills slow frames so much that the clamped fixed-step
+    // accumulator may need >30s wall to elapse 240 sim ticks — 971c81a CI failure).
+    // Instead: wait until the SIM has provably passed the window, then require the
+    // renderer inactive in the same sample (atomic — no tick/flag race).
     await expect
       .poll(
         () => page.evaluate(() => {
-          const g = globalThis as { __SPARK__?: { rainbowFlyoverActive?: boolean } };
-          return g.__SPARK__?.rainbowFlyoverActive ?? false;
+          const g = globalThis as {
+            __SPARK__?: {
+              rainbowFlyoverActive?: boolean;
+              world?: { tick: number; rainbowSwitchTick?: number };
+            };
+          };
+          const w = g.__SPARK__?.world;
+          const switchTick = w?.rainbowSwitchTick;
+          if (w === undefined || switchTick === undefined) return 'no-switch-stamped';
+          const windowPassed = w.tick - switchTick >= 240 + 10; // duration + margin
+          const active = g.__SPARK__?.rainbowFlyoverActive ?? false;
+          if (!windowPassed) return 'window-still-elapsing';
+          return active ? 'STUCK-ACTIVE-PAST-WINDOW' : 'closed';
         }),
-        // 240 SIM ticks ≈ 4s nominal, but under CI software-WebGL the clamped fixed-step
-        // accumulator falls 2-4x behind wall-clock (see bomb.spec budget note) — 30s gives
-        // the window room to elapse in sim time without flaking the gating lane.
-        { message: 'flyover self-closed after its 4s window', timeout: 30_000 },
+        { message: 'flyover self-closed once the sim window elapsed', timeout: 90_000 },
       )
-      .toBe(false);
+      .toBe('closed');
 
     expect(pageErrors, `uncaught errors:\n${pageErrors.join('\n')}`).toEqual([]);
   });
