@@ -92,7 +92,7 @@ describe('dispatch-entry bench gate', () => {
       sparkId: S0,
       playerId: P0,
       placementPos: { x: 600, y: 400 },
-      stiffnessTier: 'rigid',
+      stiffnessTier: 'MID',
       targetPrimitiveId: null,
       mergeCandidateIds: [],
       extraBondTargetIds: [],
@@ -148,7 +148,7 @@ describe('match-boundary diagnostic resets (S86 — the buckets prior lists miss
     const w = worldWithSpark();
     w.diagnostics.rejectReasons.actorBenched = 7;
     w.diagnostics.rejectReasons.pickupPoopedTooFar = 3;
-    applyStartGame(w, { type: 'START_GAME' });
+    applyStartGame(w, { type: 'START_GAME', mode: '1v1', isHost: true });
     expect(w.diagnostics.rejectReasons.actorBenched).toBe(0);
     expect(w.diagnostics.rejectReasons.pickupPoopedTooFar).toBe(0);
   });
@@ -157,7 +157,7 @@ describe('match-boundary diagnostic resets (S86 — the buckets prior lists miss
     const w = worldWithSpark();
     w.diagnostics.rejectReasons.actorBenched = 7;
     w.diagnostics.rejectReasons.pickupPoopedTooFar = 3;
-    applyReturnToTitle(w, { type: 'RETURN_TO_TITLE' });
+    applyReturnToTitle(w);
     expect(w.diagnostics.rejectReasons.actorBenched).toBe(0);
     expect(w.diagnostics.rejectReasons.pickupPoopedTooFar).toBe(0);
   });

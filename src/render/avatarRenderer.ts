@@ -98,6 +98,53 @@ export function avatarNameplateText(playerId: number): string {
   return `P${playerId + 1}`;
 }
 
+// S86 P4 — the spark IS the pointer. The OS cursor is hidden over the canvas
+// during PLAYING (round-6 user: "Why do we even have the windows classic
+// white cursor? it should just be the spark") — the local avatar tracks the
+// mouse 1:1 when healthy, so it fully replaces the pointer. The ONLY frames
+// where the player would otherwise steer blind are when avatar ≠ mouse:
+// pooped (avatar chases at capped speed, incl. the residual post-expiry
+// chase) or benched (avatar hidden entirely). For those frames a faint
+// LOCAL-ONLY ghost ring marks the real mouse position — feedback only: with
+// the S86 P3 gates, nothing can be grabbed or built there (Council ledger #6,
+// OVERRULED→GEMINI+CLAUDE: feedback kept, scoped to debuff frames only).
+const POINTER_GHOST_RADIUS = 7;
+const POINTER_GHOST_ALPHA = 0.30;
+const POINTER_GHOST_CORE_RADIUS = 1.5;
+const POINTER_GHOST_CORE_ALPHA = 0.5;
+const POINTER_GHOST_COLOR = 0xffffff;
+
+/** S86 P4 — pure: hide the OS cursor only while the board is live. Title /
+ * lobby / win / postgame are UI surfaces and keep the native pointer. */
+export function shouldHideOsCursor(gameState: World['gameState']): boolean {
+  return gameState === 'PLAYING';
+}
+
+/**
+ * S86 P4 — pure: show the local pointer ghost only while the avatar is NOT
+ * at the mouse — benched (hidden), pooped, or the residual post-expiry chase
+ * (poopedCursorTarget still set). Mirrors the avatar path-switch condition
+ * (`cruiserSlowed`) plus the bench case. Exported for unit tests.
+ */
+export function shouldShowPointerGhost(
+  player:
+    | {
+        benchedUntilTick?: number;
+        poopedUntilTick?: number;
+        poopedCursorTarget?: Vec2;
+      }
+    | undefined,
+  tick: number,
+  gameState: World['gameState'],
+): boolean {
+  if (gameState !== 'PLAYING' || player === undefined) return false;
+  return (
+    isBenched(player.benchedUntilTick, tick) ||
+    isCruiserDebuffed(player, tick) ||
+    player.poopedCursorTarget !== undefined
+  );
+}
+
 export class AvatarRenderer {
   private readonly container: Container;
   private readonly graphicsByPlayer: Map<PlayerId, Graphics> = new Map();
@@ -105,6 +152,9 @@ export class AvatarRenderer {
   private readonly displayPosByPlayer: Map<PlayerId, Vec2> = new Map();
   // S82 P3 — per-player CVD seat nameplate ("P{n}" under the avatar; networked only).
   private readonly nameplateByPlayer: Map<PlayerId, Text> = new Map();
+  // S86 P4 — local pointer ghost (drawn only while avatar ≠ mouse; see
+  // shouldShowPointerGhost). Lazily created, cleared every frame.
+  private pointerGhost: Graphics | null = null;
   private lastSyncMs: number | null = null;
 
   constructor(app: Application) {
@@ -247,6 +297,24 @@ export class AvatarRenderer {
       }
     }
 
+    // S86 P4 — local pointer ghost: with the OS cursor hidden during PLAYING,
+    // these are the only frames where the mouse position would otherwise be
+    // invisible (avatar chasing or benched). Drawn at controls.cursor —
+    // local-only by construction (never serialized, never on the wire).
+    if (this.pointerGhost === null) {
+      this.pointerGhost = new Graphics();
+      this.container.addChild(this.pointerGhost);
+    }
+    this.pointerGhost.clear();
+    if (shouldShowPointerGhost(world.players.get(localPlayerId), world.tick, world.gameState)) {
+      this.pointerGhost
+        .circle(controls.cursor.x, controls.cursor.y, POINTER_GHOST_RADIUS)
+        .stroke({ width: 1.5, color: POINTER_GHOST_COLOR, alpha: POINTER_GHOST_ALPHA });
+      this.pointerGhost
+        .circle(controls.cursor.x, controls.cursor.y, POINTER_GHOST_CORE_RADIUS)
+        .fill({ color: POINTER_GHOST_COLOR, alpha: POINTER_GHOST_CORE_ALPHA });
+    }
+
     // GC removed players (e.g. RETURN_TO_TITLE drops P2 — see state/gameMode.ts
     // applyReturnToTitle survivor sweep). Without this, lingering Graphics
     // would render a ghost avatar at the last-known position after a 1v1 → solo
@@ -272,6 +340,7 @@ export class AvatarRenderer {
     this.graphicsByPlayer.clear();
     this.displayPosByPlayer.clear();
     this.nameplateByPlayer.clear();
+    this.pointerGhost = null; // destroyed with the container's children
   }
 }
 

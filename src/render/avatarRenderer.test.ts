@@ -7,7 +7,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { computeAvatarAlphas, smoothTowards } from './avatarRenderer.ts';
+import { computeAvatarAlphas, shouldHideOsCursor, shouldShowPointerGhost, smoothTowards } from './avatarRenderer.ts';
 
 describe('S14 P1 — computeAvatarAlphas', () => {
   // sin(0) = 0 → no modulation; both alphas exactly at base.
@@ -124,5 +124,47 @@ describe('S81 P4 — smoothTowards (remote-avatar display smoothing)', () => {
   test('dt<=0 returns current unchanged (first frame / clock hiccup)', () => {
     const out = smoothTowards({ x: 10, y: 20 }, { x: 100, y: 200 }, 0, TAU, SNAP);
     expect(out).toEqual({ x: 10, y: 20 });
+  });
+});
+
+describe('S86 P4 — pointer-as-spark cursor helpers', () => {
+  test('shouldHideOsCursor: hidden ONLY while the board is live', () => {
+    expect(shouldHideOsCursor('PLAYING')).toBe(true);
+    expect(shouldHideOsCursor('TITLE')).toBe(false);
+    expect(shouldHideOsCursor('LOBBY')).toBe(false);
+    expect(shouldHideOsCursor('WIN')).toBe(false);
+    expect(shouldHideOsCursor('POSTGAME')).toBe(false);
+  });
+
+  test('ghost hidden for a healthy player (avatar IS the pointer)', () => {
+    expect(shouldShowPointerGhost({}, 100, 'PLAYING')).toBe(false);
+  });
+
+  test('ghost shown while pooped (avatar chasing the mouse)', () => {
+    expect(shouldShowPointerGhost({ poopedUntilTick: 200 }, 100, 'PLAYING')).toBe(true);
+  });
+
+  test('ghost shown during the residual post-expiry chase (target still set)', () => {
+    expect(
+      shouldShowPointerGhost(
+        { poopedUntilTick: 90, poopedCursorTarget: { x: 1, y: 2 } },
+        100,
+        'PLAYING',
+      ),
+    ).toBe(true);
+  });
+
+  test('ghost shown while benched (avatar hidden — the mouse is all you have)', () => {
+    expect(shouldShowPointerGhost({ benchedUntilTick: 500 }, 100, 'PLAYING')).toBe(true);
+  });
+
+  test('ghost self-heals at expiry boundaries (strict tick compare)', () => {
+    expect(shouldShowPointerGhost({ benchedUntilTick: 100 }, 100, 'PLAYING')).toBe(false);
+    expect(shouldShowPointerGhost({ poopedUntilTick: 100 }, 100, 'PLAYING')).toBe(false);
+  });
+
+  test('ghost never shows outside PLAYING or without a seated player', () => {
+    expect(shouldShowPointerGhost({ benchedUntilTick: 500 }, 100, 'TITLE')).toBe(false);
+    expect(shouldShowPointerGhost(undefined, 100, 'PLAYING')).toBe(false);
   });
 });

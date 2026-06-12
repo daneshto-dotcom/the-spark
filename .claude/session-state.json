@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 34,
+  "tool_calls_session_total": 100,
   "session_id": "S86",
   "session_kind": "execution",
   "session_start": "2026-06-12T00:00:00.000Z",
@@ -51,8 +51,13 @@
     {
       "id": "P3",
       "label": "S86 P3 — central bench/debuff enforcement: dispatch-entry bench gate (deny-by-default policy map) + claim-outcome-keyed AttractDrag cancel + benched drag cancel",
-      "status": "pending",
-      "phase": "PLAN",
+      "status": "completed",
+      "phase": "ACT",
+      "check_completed": true,
+      "checkpoint_commit": "4849393",
+      "real_context_tokens_at_close": 205000,
+      "real_context_pct_at_close": 20.5,
+      "check_method": "S86 P3 (4849393): TWO structural holes closed at the right layers. (1) Bench dimension: benchedUntilTick was input-layer-only — NEW benchGate.ts BENCH_INTENT_POLICY (explicit allow/deny per CLIENT_INTENT_TYPE, completeness locked by test vs protocol allowlist = Grok verb-drift defense) consulted at dispatch() ENTRY before any case body, so local input, optimistic joiner prediction AND host-applied remote intents all reject identically (pure fn of synced fields); deny=9 acquisitive/structural/offensive verbs, allow=UPDATE_AVATAR_POS+2 release-only drops (blocking a drop could strand Carrying). (2) Drag layer: gesture ENTRY now claim-outcome-keyed in onDown (dispatch synchronous locally on host AND joiner via PREDICTABLE_ACTIONS — verified main.ts:268 includes PICKUP_SPARK — so 'claim landed' = spark Carried-by-me right after dispatchFn; rejected claim -> no gesture/no capture/spark untouched) which kills the pooped full-speed haul at the source without any radius mirror (Council SYNTHESIS — R1 mirror design discarded after glued-spark desync risk); applyPerSubstep benched check kills in-flight gestures the catch orphaned AND the probe-discovered stuck-gesture-after-bench hole (onUp early-returns while input-locked), with defensive DROP_SPARK mirroring onUp/onLostCapture. Diagnostics: actorBenched bucket added (worldTypes+init+debugOverlay+both match-boundary resets — which also now clear pickupPoopedTooFar, leaking since S84). Verified: tsc clean; benchGate suite 11/11 first run; FULL vitest 1305/1305 (no regression from dispatch-entry gate or onDown reorder). Live pooped/eaten smoke deferred to combined post-P4 preview pass.",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,

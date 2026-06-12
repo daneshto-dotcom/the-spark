@@ -71,7 +71,7 @@ import { computeStubTargetPos } from './physics/creatureVerlet.ts';
 // existing steering forces (seek/arrive) home in on the nearest bond's center.
 import { bondMidpoint, findNearestBondTarget } from './state/creatures/creatureAI.ts';
 import { VOLTKIN_ATTACK_FIRE_TICK } from './state/creatures/creature.ts';
-import { AvatarRenderer } from './render/avatarRenderer.ts';
+import { AvatarRenderer, shouldHideOsCursor } from './render/avatarRenderer.ts';
 import { drainAudioEffects, initAudio, isMuted, playMusic, syncRainbowYellAudio, toggleMute } from './render/audioManager.ts';
 // S50 P2 — Audit Pass 2 refactor 622a7c7f: triggerReset is now called from
 // inside teardownNet (extracted to src/net/session.ts). No direct main.ts
@@ -596,6 +596,9 @@ async function bootstrap(): Promise<void> {
   let lastAvatarPosDispatchMs = 0;
   let lastDispatchedCursorX = Number.NEGATIVE_INFINITY;
   let lastDispatchedCursorY = Number.NEGATIVE_INFINITY;
+  // S86 P4 — change-gated mirror of the canvas cursor style (the spark IS
+  // the pointer during PLAYING; see the render-section comment below).
+  let osCursorHidden = false;
 
   app.ticker.add((tickerObj) => {
     const dtSec = Math.min(tickerObj.deltaMS / 1000, 0.05);
@@ -1267,6 +1270,28 @@ async function bootstrap(): Promise<void> {
     if (debugOverlay !== null) debugOverlay.sync(world, debugProbes);
     effectsRenderer.sync(world);
     avatarRenderer.sync(world, controls);
+    // S86 P4 — the spark IS the pointer: hide the OS cursor over the canvas
+    // while the board is live (round-6 user ask). Title/lobby/win/postgame
+    // restore the native pointer (UI surfaces); DOM overlays (settings,
+    // debug) sit above the canvas and keep their own cursors. While the
+    // avatar can't track the mouse (pooped chase / benched), the
+    // avatarRenderer draws a faint local ghost ring at the real cursor.
+    //
+    // IMPORTANT: Pixi's EventSystem owns canvas.style.cursor — it re-applies
+    // cursorStyles[mode] on every pointer interaction (hover over a Pixi
+    // button → 'pointer', anything else → cursorStyles.default). A direct
+    // one-shot style write gets clobbered on the next pointermove (caught
+    // live in the S86 preview pass: the title button's hover left 'pointer'
+    // stuck over the live board). So the durable switch is Pixi's OWN
+    // default mode; the direct style write below only makes the transition
+    // instant instead of waiting for the next pointer event.
+    const hideOsCursor = shouldHideOsCursor(world.gameState);
+    if (hideOsCursor !== osCursorHidden) {
+      osCursorHidden = hideOsCursor;
+      const cursorMode = hideOsCursor ? 'none' : 'inherit';
+      app.renderer.events.cursorStyles.default = cursorMode;
+      app.canvas.style.cursor = cursorMode;
+    }
     // S57 P1 — fog mask. Live cursor = personal-vision centre (lag-free);
     // ticker.deltaMS drives the win-lift fade. Cheap no-op in solo / once lifted.
     fogRenderer.sync(world, controls.cursor, app.ticker.deltaMS / 1000);
