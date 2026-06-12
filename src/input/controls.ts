@@ -205,11 +205,37 @@ export class Controls {
 
     if (this.state.kind === 'AttractDrag') {
       const spark = this.world.freeSparks.get(this.state.sparkId);
+      // S86 P3 — a benched (eaten) player's in-flight gesture dies NOW. The
+      // hunter catch force-drops the carried spark (→ Free at the hidden
+      // avatar), and pre-S86 the `mine` Free-allowance below then yanked it
+      // straight back to the cursor and kept hauling — the round-6 "the
+      // pacman ate me and i can still pick up primitives" exploit. Also
+      // covers the stuck-gesture hole: onUp early-returns while input-locked
+      // (isInputLocked), so without this per-substep check an AttractDrag
+      // survived the whole bench and resumed afterwards with LMB long
+      // released. benchedUntilTick is host-authored and rides the
+      // NetSnapshot — mirroring it here cannot diverge from the host.
+      // Defensive claim release mirrors onUp/onLostCapture (DROP_SPARK is
+      // 'allow' in BENCH_INTENT_POLICY — release-only verbs stay open).
+      if (isBenched(player.benchedUntilTick, this.world.tick)) {
+        if (player.kind === 'Carrying' && spark !== undefined && player.carriedSparkId === spark.id) {
+          this.dispatchFn({
+            type: 'DROP_SPARK',
+            playerId: this.playerId,
+            pos: { x: this.cursor.x, y: this.cursor.y },
+          });
+        }
+        this.state = { kind: 'Idle' };
+        return;
+      }
       // S58 (#2) — the spark is now CLAIMED (Carried{me}) on LMB-down, so the
       // drag must keep driving a spark that is Free (pre-claim / solo / the
       // 1-frame pre-host-confirm window) OR Carried by ME. It ends cleanly
       // (state→Idle) only if the spark is gone, consumed (Bonded), or grabbed
       // by the OPPONENT (Carried by them) — the race-lost reconciliation.
+      // (S86 P3: gesture ENTRY is now claim-gated in onDown, so the Free
+      // allowance no longer carries a rejected-claim exploit — it remains as
+      // belt-and-braces for snapshot-edge frames only.)
       const mine =
         spark !== undefined &&
         (spark.state.kind === 'Free' ||
@@ -307,12 +333,6 @@ export class Controls {
         }
         const spark = this.pickSpark();
         if (spark !== null) {
-          this.state = {
-            kind: 'AttractDrag',
-            sparkId: spark.id,
-            cursor: { ...this.cursor },
-          };
-          this.acquirePointerCapture(e);
           // S58 (#2) — authoritative CLAIM on grab. Transitions the spark to
           // Carried{me} (host-authoritative; predicted locally via
           // PREDICTABLE_ACTIONS). The opponent then can't also grab it — their
@@ -329,6 +349,30 @@ export class Controls {
             playerId: this.playerId,
             pos: { x: this.cursor.x, y: this.cursor.y },
           });
+          // S86 P3 — enter the drag gesture ONLY if the claim LANDED. The
+          // dispatch above is synchronous into the local world on host/solo
+          // AND on the joiner (PICKUP_SPARK is in main.ts PREDICTABLE_ACTIONS,
+          // and every reducer gate — pooped arrival, bench, not-Free race —
+          // is a pure fn of synced fields), so "did it land" is simply "is
+          // the spark Carried by me now". Pre-S86 the gesture was entered
+          // unconditionally BEFORE the dispatch, so a gate-REJECTED claim
+          // left an AttractDrag driving a still-Free spark at full cursor
+          // speed forever — the round-6 "pooped player still collects at
+          // normal speed" exploit. Rejected claim → no gesture, no capture,
+          // spark untouched.
+          const claimed = this.world.freeSparks.get(spark.id);
+          if (
+            claimed !== undefined &&
+            claimed.state.kind === 'Carried' &&
+            claimed.state.carrierId === this.playerId
+          ) {
+            this.state = {
+              kind: 'AttractDrag',
+              sparkId: spark.id,
+              cursor: { ...this.cursor },
+            };
+            this.acquirePointerCapture(e);
+          }
         }
       }
     } else if (e.button === 2) {

@@ -241,6 +241,9 @@ export interface World {
    *   - placeTargetMissing: PLACE_PRIMITIVE references a primitive id that
    *     no longer exists on host (race: host severed it between joiner
    *     intent and host application)
+   *   - actorBenched: intent rejected by the S86 P3 central dispatch-entry
+   *     bench gate — the actor was benched (eaten / potato-bench) and the
+   *     action type is 'deny' in BENCH_INTENT_POLICY (benchGate.ts)
    * Surfaced in debugOverlay (?debug=1) so 2-peer smoke tests can pinpoint
    * the rejection path in real time.
    */
@@ -252,6 +255,7 @@ export interface World {
       pickupReachFail: number;
       pickupPoopedTooFar: number;
       placeTargetMissing: number;
+      actorBenched: number;
     };
     /**
      * S49 P1 (Sym F) — count of PLACE_PRIMITIVE attempts silently rejected

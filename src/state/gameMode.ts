@@ -134,6 +134,10 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   world.diagnostics.rejectReasons.pickupSparkNotFree = 0;
   world.diagnostics.rejectReasons.pickupReachFail = 0;
   world.diagnostics.rejectReasons.placeTargetMissing = 0;
+  // S86 P3 — the two buckets both prior reset lists missed (S84 added
+  // pickupPoopedTooFar without extending either reset; actorBenched is new).
+  world.diagnostics.rejectReasons.pickupPoopedTooFar = 0;
+  world.diagnostics.rejectReasons.actorBenched = 0;
   // S49 P1 (Sym F) — reset territory diagnostics + clear any active shrink
   // debuffs from the previous match so a fresh game starts at full radii.
   world.diagnostics.territoryBlockRejects = 0;
@@ -238,6 +242,9 @@ export function applyReturnToTitle(world: World): World {
   world.diagnostics.rejectReasons.pickupSparkNotFree = 0;
   world.diagnostics.rejectReasons.pickupReachFail = 0;
   world.diagnostics.rejectReasons.placeTargetMissing = 0;
+  // S86 P3 — the buckets both prior reset lists missed (see applyStartGame).
+  world.diagnostics.rejectReasons.pickupPoopedTooFar = 0;
+  world.diagnostics.rejectReasons.actorBenched = 0;
   // S49 P1 (Sym F) — reset territory block counter.
   world.diagnostics.territoryBlockRejects = 0;
   world.primitives.clear();

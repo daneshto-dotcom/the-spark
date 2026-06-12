@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 4,
+  "tool_calls_session_total": 34,
   "session_id": "S86",
   "session_kind": "execution",
   "session_start": "2026-06-12T00:00:00.000Z",
@@ -33,8 +33,13 @@
     {
       "id": "P2",
       "label": "S86 P2 — hazard identity ring stray lines: moveTo before each arc segment (Pixi v8 path connects from world origin)",
-      "status": "pending",
-      "phase": "PLAN",
+      "status": "completed",
+      "phase": "ACT",
+      "check_completed": true,
+      "checkpoint_commit": "8e328cd",
+      "real_context_tokens_at_close": 172000,
+      "real_context_pct_at_close": 17.2,
+      "check_method": "S86 P2 (8e328cd): drawHazardRing now moveTo()s to each dash-segment start (x+r*cos(start), y+r*sin(start)) before arc() — canvas-path semantics otherwise draw a connecting line from the current pen position (world origin on the freshly-cleared per-hazard Graphics) to the arc start; user round-6 screenshots showed exactly that stray line to BOTH ringed hazards (potato + hunter), which also pinpoints why S85 unit tests missed it (they covered only the pure segment/alpha helpers, not Graphics path behavior). Inter-dash chords killed by the same subpath isolation. Verified: tsc clean, hazardRing 3/3, bundle re-measured at this render-code commit 546.6 KiB < 550 (S85 reflexion rule). Live no-stray-line screenshot deferred to the combined post-P4 preview pass (one server, all visual checks).",
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,

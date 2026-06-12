@@ -23,6 +23,8 @@
  */
 
 import { PLAYER_COLORS, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, TERRITORY_SHRINK_DURATION_TICKS } from '../constants.ts';
+import { isBenchDeniedIntent } from './benchGate.ts';
+import { isBenched } from './hunters/hunter.ts';
 import { applySeverBond } from './severBond.ts';
 import type { World } from './worldTypes.ts';
 import { makeIdlePlayer, type Player } from '../game/player.ts';
@@ -280,6 +282,7 @@ export function makeWorld(rngSeed: number): World {
         pickupReachFail: 0,
         pickupPoopedTooFar: 0,
         placeTargetMissing: 0,
+        actorBenched: 0,
       },
       territoryBlockRejects: 0,
     },
@@ -296,6 +299,22 @@ export function makeWorld(rngSeed: number): World {
 }
 
 export function dispatch(world: World, action: GameAction): World {
+  // S86 P3 — central bench gate (Council CONCEDED→GROK: ONE choke point, not
+  // per-verb enumeration). A benched (eaten) actor's acquisitive/structural
+  // intents are rejected HERE, before any case body, covering local input,
+  // optimistic joiner prediction AND remote intents the host applies — the
+  // round-6 playtest proved input-layer-only locking lets an eaten player
+  // keep collecting and building. Policy + rationale: benchGate.ts.
+  // Pure fn of synced fields (benchedUntilTick, world.tick) → optimistic and
+  // authoritative dispatch agree by construction.
+  if (isBenchDeniedIntent(action.type) && 'playerId' in action) {
+    const actor = world.players.get(action.playerId);
+    if (actor !== undefined && isBenched(actor.benchedUntilTick, world.tick)) {
+      world.diagnostics.raceRejects++;
+      world.diagnostics.rejectReasons.actorBenched++;
+      return world;
+    }
+  }
   switch (action.type) {
     case 'SPAWN_SPARK':
       return applySpawnSpark(world, action);
