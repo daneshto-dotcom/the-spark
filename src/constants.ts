@@ -132,13 +132,14 @@ export const VISION_FADE_PX = 40;
 // smooth RT, so the live edge is unaffected). Council S59 ADOPT HYBRID.
 export const EXPLORED_GRID_COLS = 48;
 export const EXPLORED_GRID_ROWS = 27;
-// The opaque "remembered area" fog shade. Version history (knob culture):
-// S59 designed 0x161b2e → S63 user tuning collapsed it to pure black (uniform
-// darkness, no blue layer) → S85 P4b user-EYES carry-forward RESTORES the
-// designed dim tier (explored-vs-unexplored must read again). Still OPAQUE
-// (the board stays hidden → no live-movement leak). One-line revert to
-// 0x000000 if round-6 playtest prefers the uniform black.
-export const MEMORY_FOG_COLOR = 0x161b2e;
+// The opaque "remembered area" fog shade. Version history: S59 designed
+// 0x161b2e → S63 USER tuning collapsed it to pure black → S85 P4b restored
+// the dim tier as a carry-forward → S86 round-6 playtest verdict reverted it
+// to black AGAIN ("the stupid blue fog is back... should be just black").
+// ⚠ USER-LOCKED (LOCKED_DECISIONS.md §14 + constants.lock.test.ts): pure
+// black, decided twice. Do NOT "restore" the dim tier without an explicit
+// fresh user ask in the current session.
+export const MEMORY_FOG_COLOR = 0x000000;
 // S60 P2 — last-seen ENEMY-structure "ghost" silhouettes (the StarCraft remembered-
 // building tier). A CPU last-seen Map (state/exploredMemory.ts) drives dim silhouette
 // sprites in a memoryLayer ABOVE the live fog, masked by the live fog mask so a ghost

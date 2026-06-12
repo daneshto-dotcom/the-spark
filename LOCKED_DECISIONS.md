@@ -1137,4 +1137,31 @@ Constants (`src/constants.ts`):
 
 ---
 
+## 14 · Fog Palette — USER-LOCKED (S86, 2026-06-12)
+
+| Constant | Value | Status |
+|---|---|---|
+| `MEMORY_FOG_COLOR` (constants.ts) | **`0x000000`** | **LOCKED — user decided TWICE** |
+| `FOG_COLOR` (fogRenderer.ts local) | `0x000000` | same decision, same shade |
+
+The explored-area "dim memory tier" renders **pure black** — visually identical
+to unexplored fog. This is a deliberate, twice-made USER decision, not an
+accident to be "fixed":
+
+- **S63** — user live-tuned the original S59 design away: *"kill the blue fog
+  tint → pure black = the background."*
+- **S85 P4b** regressed it by treating the S59 design note as a carry-forward
+  and restoring `0x161b2e` ("user-EYES knob"). Round-6 playtest verdict
+  (2026-06-12, user verbatim): *"the stupid blue fog is back... it should be
+  as it was just black background."* → reverted + locked.
+
+**Rule for future sessions:** do NOT restore a dim/blue explored tier — not as
+a carry-forward, not as an EYES follow-up, not as a "designed tier restore" —
+unless the user explicitly asks for it IN THAT SESSION. Old design notes do not
+outrank newer user tuning. Enforced by `src/constants.lock.test.ts` (vitest =
+CI-blocking); changing the value requires consciously editing the lock test,
+which cites this section.
+
+---
+
 ## End — All Phase 1 + Phase-2 Tier-0 (1v1 networked) + Phase-2 Tier-1 (Sever-as-disruption + multi-color bond rendering) + Audio subsystem (Suno BGM + procedural SFX + per-channel controls) + Phase-2 godly/creature system (Voltkin lifecycle + combat + NetSnapshot semantics) + Phase-2 Sym D (color-segregated bonding) + Sym G (Voltkin chain isolation) + Sym I (ENDGAME envelope) + Sym F (territorial repulsion) implementation decisions are locked. Phase 2+ remaining: Inject Spiral (D), Steal (E), Fog of war (A), Mega-combos via connector chain (G), Anvil second-creature (post-S34 P2-20 voltkin-config base). Audio polish remaining: OGG compression for mobile, PannerNode + auto-duck. Phase 3 net (Colyseus / Geckos.io) reserved for >2-player scalability.
