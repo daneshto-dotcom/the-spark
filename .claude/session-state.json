@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 118,
+  "tool_calls_session_total": 122,
   "session_id": "S86",
   "session_kind": "execution",
   "session_start": "2026-06-12T00:00:00.000Z",
@@ -28,7 +28,24 @@
       "unlock_source": "user",
       "objective": "Explored-fog dim tier back to pure black; decision locked in LOCKED_DECISIONS.md + a locking unit test so no future session restores 0x161b2e.",
       "scope": "src/constants.ts, LOCKED_DECISIONS.md, new locking test",
-      "testing": "vitest (incl. new lock test); fog.spec has no colour literal (verified pre-PDR)"
+      "testing": "vitest (incl. new lock test); fog.spec has no colour literal (verified pre-PDR)",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const MEMORY_FOG_COLOR = 0x000000;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.lock.test.ts",
+          "needle": "expect(MEMORY_FOG_COLOR).toBe(0x000000);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/LOCKED_DECISIONS.md",
+          "needle": "## 14 · Fog Palette — USER-LOCKED"
+        }
+      ]
     },
     {
       "id": "P2",
@@ -46,7 +63,14 @@
       "unlock_source": "user",
       "objective": "Kill the line from (0,0) to each ringed hazard (screenshot-proven on potato + hunter) and inter-segment chords.",
       "scope": "src/render/hazardRing.ts",
-      "testing": "vitest green; live screenshot of ringed hazard with no stray line"
+      "testing": "vitest green; live screenshot of ringed hazard with no stray line",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/hazardRing.ts",
+          "needle": "g.moveTo(x + radius * Math.cos(seg.start), y + radius * Math.sin(seg.start))"
+        }
+      ]
     },
     {
       "id": "P3",
@@ -64,7 +88,29 @@
       "unlock_source": "user",
       "objective": "Eaten players cannot collect/build (reducer-level, covers remote intents); pooped players cannot haul Free sparks at full cursor speed via the ungated drag lerp; stuck-drag-after-bench killed. All checks pure fns of synced fields.",
       "scope": "src/state/world.ts (dispatch gate), new bench-policy map module, src/input/controls.ts (drag cancel), tests",
-      "testing": "vitest per gate + policy-map completeness test vs protocol action tables; existing 1293 stay green; live smoke pooped+eaten scenarios"
+      "testing": "vitest per gate + policy-map completeness test vs protocol action tables; existing 1293 stay green; live smoke pooped+eaten scenarios",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/benchGate.ts",
+          "needle": "export const BENCH_INTENT_POLICY"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/world.ts",
+          "needle": "isBenchDeniedIntent(action.type)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/input/controls.ts",
+          "needle": "claimed.state.carrierId === this.playerId"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/worldTypes.ts",
+          "needle": "actorBenched: number;"
+        }
+      ]
     },
     {
       "id": "P4",
@@ -82,7 +128,19 @@
       "unlock_source": "user",
       "objective": "cursor:none on canvas during PLAYING only (single derived visibility fn); title/lobby/overlays keep normal cursor; ghost dot local-only while avatar!=cursor.",
       "scope": "src/main.ts or render layer, src/render (ghost dot), tests where pure",
-      "testing": "vitest; preview screenshot PLAYING (no OS cursor artefacts) + title (cursor back); bundle <=550 KiB re-measured (render code)"
+      "testing": "vitest; preview screenshot PLAYING (no OS cursor artefacts) + title (cursor back); bundle <=550 KiB re-measured (render code)",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.ts",
+          "needle": "export function shouldShowPointerGhost"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "app.renderer.events.cursorStyles.default = cursorMode;"
+        }
+      ]
     },
     {
       "id": "P5",
@@ -100,7 +158,19 @@
       "unlock_source": "user",
       "objective": "BACKLOG.md rewritten: every item traced to USER-ASK vs CLAUDE-SUGGESTED, prioritized by gameplay impact (geometry/builder depth first), infra items (host-migration etc.) explained in plain language + ranked honestly, multi-session roadmap section.",
       "scope": "BACKLOG.md (+ mine past handoffs for explicit user asks)",
-      "testing": "n/a docs; user review next session"
+      "testing": "n/a docs; user review next session",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "# ROADMAP — rewritten S86"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "24 of 36 combos are literal placeholders"
+        }
+      ]
     }
   ],
   "generative_cost_cap_usd": 10,
