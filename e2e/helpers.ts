@@ -122,7 +122,9 @@ export async function readWorldState(page: Page): Promise<{
  */
 export async function titleButtonCss(
   page: Page,
-  which: 'solo' | 'oneVOne' | 'codex',
+  // S87 — 'oneVOne' is the Multiplayer button (key kept for spec stability);
+  // 'vsBots' opens the bot setup overlay.
+  which: 'solo' | 'oneVOne' | 'vsBots' | 'codex',
 ): Promise<{ x: number; y: number }> {
   const c = await page.evaluate((w) => {
     const spark = (window as {

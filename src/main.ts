@@ -32,10 +32,17 @@ import {
   PEER_DROP_GRACE_TICKS,
   PHYSICS_HZ,
   PHYSICS_SUBSTEPS,
+  PLAYER_COLORS,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
 } from './constants.ts';
+// S87 — VS-BOTS mode. BOTH the setup overlay AND the BotManager are LAZY
+// chunks (the overlay alone pushed the index chunk over the 550 kB charter —
+// measured 566.9 on the eager build): the overlay loads on first VS-BOTS
+// click, the manager on match start. Type-only imports are erased at compile.
+import type { BotSetupOverlay } from './render/botSetupOverlay.ts';
+import type { BotManager } from './bots/botManager.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from './game/spawner.ts';
 import {
   snapshotInvariants,
@@ -381,6 +388,49 @@ async function bootstrap(): Promise<void> {
     codexOverlay.setVisible(false);
   });
 
+  // ===== S87 — VS-BOTS: lazy overlay + lazy manager =====
+  // The manager exists ONLY during a bots match (armed on START MATCH, dropped
+  // on the *→TITLE transition watcher below). Pure decision state — no Pixi /
+  // DOM resources to free. The overlay is created once on first open (lazy
+  // chunk — the eager build breached the 550 kB index charter at 566.9).
+  let botManager: BotManager | null = null;
+  let botSetupOverlay: BotSetupOverlay | null = null;
+  const openBotSetup = (): void => {
+    void (async () => {
+      if (botSetupOverlay === null) {
+        const ui = await import('./render/botSetupOverlay.ts');
+        botSetupOverlay = new ui.BotSetupOverlay(app, {
+          onStart: (difficulties) => {
+            void (async () => {
+              // Await BEFORE dispatch so the first PLAYING tick already has a
+              // live manager (no dead-bot frames).
+              const mod = await import('./bots/botManager.ts');
+              const totalSeats = difficulties.length + 1;
+              const roster = Array.from({ length: totalSeats }, (_, seat) => ({
+                seat,
+                color: PLAYER_COLORS[seat],
+              }));
+              const botSeats = difficulties.map((_, i) => i + 1);
+              botManager = new mod.BotManager(difficulties, SEED);
+              botSetupOverlay?.setVisible(false);
+              dispatch(world, {
+                type: 'START_GAME',
+                mode: 'bots',
+                isHost: true,
+                roster,
+                botSeats,
+              });
+            })();
+          },
+          onClose: () => {
+            botSetupOverlay?.setVisible(false);
+          },
+        });
+      }
+      botSetupOverlay.setVisible(true);
+    })();
+  };
+
   // ===== S15 P2 — title + lobby screens =====
   const titleScreen = new TitleScreen(app, {
     onSoloSelected: () => {
@@ -388,6 +438,9 @@ async function bootstrap(): Promise<void> {
     },
     on1v1Selected: () => {
       world.gameState = 'LOBBY';
+    },
+    onVsBotsSelected: () => {
+      openBotSetup();
     },
     onCodexSelected: () => {
       codexOverlay.setVisible(true);
@@ -462,6 +515,9 @@ async function bootstrap(): Promise<void> {
       get netTransport(): NetTransport | null { return session.netTransport; },
       get lobbyScreen() { return lobbyScreen; },
       get titleScreen() { return titleScreen; },
+      // S87 — VS-BOTS e2e probes: setup-overlay geometry/state + live manager.
+      get botSetupOverlay() { return botSetupOverlay; },
+      get botManager() { return botManager; },
       get fogRenderer() { return fogRenderer; },
       // S77 P2 — fog-exemption e2e: sync a global-reach entity + assert it renders
       // through the fog (aboveFogLayer sits above the fog container).
@@ -756,6 +812,16 @@ async function bootstrap(): Promise<void> {
         }
       }
 
+      // S87 — VS-BOTS: bots think + act (host-only by construction — bots mode
+      // has no client). Runs BEFORE the hunter/hazard polls so a bot's
+      // UPDATE_AVATAR_POS lands this tick and the hunter chases fresh
+      // positions, mirroring the human input path (controls write the cursor
+      // before stepPhysics). Every bot action flows through dispatch(), so
+      // bench/poop/reach/territory gates bind bots exactly like remote humans.
+      if (world.gameState === 'PLAYING' && !isClient && botManager !== null) {
+        botManager.tick(world);
+      }
+
       // S72 P2 — Pac-Man hunter orchestration (host-only). (a) Trigger ONCE when the
       // leader first reaches 75% (HUNTER_TRIGGER_SCORE); applySpawnHunter sets
       // world.hunterSpawned so it never re-fires this game. (b) Fan out HUNTER_TICK
@@ -975,6 +1041,9 @@ async function bootstrap(): Promise<void> {
       // leave the HTMLVideoElement playing audio off-DOM, the ticker pumping
       // a dead Texture, and the stage offset stuck at last-shake-amplitude.
       if (world.gameState === 'TITLE' && lastGameState !== 'TITLE') {
+        // S87 — drop the bot manager with the match (pure decision state; the
+        // reducer's RETURN_TO_TITLE already cleared world.botSeats + players).
+        botManager = null;
         cutsceneOverlay.abort();
         screenShake.reset();
         // S34 P2-16 — explicit sprite cleanup. The reducer-side

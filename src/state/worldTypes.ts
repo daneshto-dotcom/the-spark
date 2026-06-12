@@ -32,7 +32,19 @@ import type { BombId, BondId, CreatureId, HunterId, PlayerId, PoopId, PotatoId, 
  */
 export type GameState = 'TITLE' | 'LOBBY' | 'PLAYING' | 'WIN' | 'POSTGAME';
 
-export type GameMode = 'solo' | '1v1';
+/**
+ * S87 — 'bots' added: VS-BOTS local match (1 human host + 1..MAX_BOTS AI
+ * seats). DELIBERATELY non-solo so isNetworked() returns true and the mode
+ * inherits the full FFA rule set with zero special-casing: fog of war,
+ * territory hard-blocks, SHRINK_TERRITORY, remote-origin reach validation
+ * (bot playerIds ≠ localPlayerId, so bots are reach/zone/territory-validated
+ * like remote humans), scoreByPlayer WIN attribution. There is NO transport
+ * (netTransport stays null — every consumer is null-guarded, audited S87
+ * Council F3); isHost=true and the world simulates locally at 60Hz.
+ * The internal '1v1' value is KEPT for the networked mode (wire literal +
+ * test surface); only UI strings say "Multiplayer".
+ */
+export type GameMode = 'solo' | '1v1' | 'bots';
 
 export interface World {
   tick: number;
@@ -274,4 +286,14 @@ export interface World {
    * concern about HUD signature-threading.
    */
   localPlayerId: PlayerId;
+  /**
+   * S87 — seats occupied by AI bots in 'bots' mode (empty otherwise). SIM
+   * STATE, not orchestration: renderers key the B{n} nameplate / leaderboard
+   * rows / win-banner label off it, and a DEV save must restore it (additive-
+   * optional in WorldSnapshot). The bot CONTROLLERS (decision state) live in
+   * the lazily-loaded BotManager (main.ts orchestration), mirroring the
+   * spawner split: identity in world, behavior in orchestration. Cleared on
+   * START_GAME (refilled from the action) and RETURN_TO_TITLE.
+   */
+  botSeats: Set<PlayerId>;
 }

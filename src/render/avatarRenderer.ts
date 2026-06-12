@@ -93,9 +93,10 @@ const AVATAR_SMOOTH_SNAP_DIST = 300;
 // tag, not a label. Networked matches only (players.size > 1) — solo needs no identity.
 const NAMEPLATE_OFFSET_Y = 22;
 const NAMEPLATE_ALPHA = 0.85;
-/** S82 P3 — pure: seat → nameplate text. Exported for unit tests. */
-export function avatarNameplateText(playerId: number): string {
-  return `P${playerId + 1}`;
+/** S82 P3 — pure: seat → nameplate text. S87: bot seats read B{n} so a human
+ * can tell silicon from flesh at the action point. Exported for unit tests. */
+export function avatarNameplateText(playerId: number, isBot = false): string {
+  return `${isBot ? 'B' : 'P'}${playerId + 1}`;
 }
 
 // S86 P4 — the spark IS the pointer. The OS cursor is hidden over the canvas
@@ -196,7 +197,10 @@ export class AvatarRenderer {
       let plate = this.nameplateByPlayer.get(player.id);
       if (plate === undefined) {
         plate = new Text({
-          text: avatarNameplateText(player.id as number),
+          // S87 — botSeats is per-match-stable and plates are recreated per
+          // roster change (GC sweep below drops P2+ on RETURN_TO_TITLE), so
+          // creation-time read is safe.
+          text: avatarNameplateText(player.id as number, world.botSeats.has(player.id)),
           style: new TextStyle({
             fontFamily: 'monospace',
             fontSize: 11,

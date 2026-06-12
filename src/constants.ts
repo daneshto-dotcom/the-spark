@@ -54,11 +54,21 @@ export const PLAYER_COLORS = [
   0x44ff5e, // P4 Green
   0xff8c1a, // P5 Orange
   0xd73bff, // P6 Magenta
+  // S87 — 7th seat exists ONLY for VS-BOTS mode (1 human + up to 6 bots = 7
+  // seats; user-mandated "up to 6 bots"). Networked play stays capped at
+  // MAX_PLAYERS=6 — every wire/lobby validator keeps that cap. Silver reads
+  // "robot"; seat identity beyond 3 players is carried by the B{n}/P{n}
+  // nameplates anyway (S62 council note), so hue distinctness is secondary.
+  0xc0c8d0, // B7 Silver (bots-mode only)
 ] as const;
 
-// S62 — max seats per FFA match. Seats are 0..MAX_PLAYERS-1; seat → PLAYER_COLORS[seat].
-// Ship target this session: 3 (1v1v1). 4-6 are config-only (more peers join).
+// S62 — max seats per NETWORKED FFA match. Seats are 0..MAX_PLAYERS-1; seat →
+// PLAYER_COLORS[seat]. S87: VS-BOTS mode alone may seat MAX_BOTS+1 players
+// (human seat 0 + bot seats 1..MAX_BOTS); wire/lobby validators use THIS cap.
 export const MAX_PLAYERS = 6;
+// S87 — bots-mode caps. Local-only mode (no wire surface); PLAYER_COLORS must
+// cover MAX_BOTS+1 seats (tsc-visible via the array literal above).
+export const MAX_BOTS = 6;
 
 // === Canvas, Spawner, Vision ===
 export const CANVAS_WIDTH = 1920;

@@ -287,6 +287,7 @@ export function makeWorld(rngSeed: number): World {
       territoryBlockRejects: 0,
     },
     localPlayerId: asPlayerId(0),
+    botSeats: new Set(),
   };
   // Phase 1 + solo default: P1 only at spawner-rim left.
   const p1 = makeIdlePlayer(asPlayerId(0), PLAYER_COLORS[0], {

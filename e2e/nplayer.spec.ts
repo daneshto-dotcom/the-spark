@@ -40,7 +40,7 @@ import {
 // Mirror of src/constants.ts PLAYER_COLORS (e2e/ is bundled separately from src/,
 // so no import — the values are asserted against the live world below + locked by
 // src/state/nplayerSeating.test.ts's distinctness guard).
-const PLAYER_COLORS = [0xff3b6b, 0x3bd7ff, 0xffe23b, 0x44ff5e, 0xff8c1a, 0xd73bff];
+const PLAYER_COLORS = [0xff3b6b, 0x3bd7ff, 0xffe23b, 0x44ff5e, 0xff8c1a, 0xd73bff, 0xc0c8d0]; // S87: +bots-only silver
 
 /** Seam injection mirror of smoke.spec.ts: fog off (swiftshader perf) + fast spawn + low win. */
 async function prepCtx(ctx: BrowserContext, spawnRate = 1.5, winScore = 3): Promise<void> {

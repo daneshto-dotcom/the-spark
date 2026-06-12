@@ -1,9 +1,13 @@
 /**
- * SPARK — Title screen (S15 P2).
+ * SPARK — Title screen (S15 P2; S87 mode restructure).
  *
- * Renders the "SPARK" title + two mode buttons:
- *   - 1 Player   → solo mode (existing Phase-1 behavior unchanged)
- *   - 1v1 (2 Player) → networked hotseat-style 1v1 via Trystero
+ * Renders the "SPARK" title + four buttons:
+ *   - 1 Player    → solo mode (existing Phase-1 behavior unchanged)
+ *   - Multiplayer → networked FFA (2..6 players) via Trystero — friends lobby
+ *                   or quick match (S87 rename of the historical "1v1" button;
+ *                   the INTERNAL GameMode value stays '1v1', wire-locked)
+ *   - VS Bots     → local match vs 1..6 AI sparks (S87; opens BotSetupOverlay)
+ *   - CODEX       → godly recipe gallery
  *
  * Visibility is gated on world.gameState === 'TITLE'. main.ts adds/removes
  * the container from the stage on FSM transition.
@@ -23,14 +27,18 @@ const BUTTON_RADIUS = 12;
 export interface TitleScreenCallbacks {
   onSoloSelected(): void;
   on1v1Selected(): void;
+  /** S87 — open the VS-BOTS setup overlay (bot count + per-bot difficulty). */
+  onVsBotsSelected(): void;
   /** S22 P3 — open Codex (MK-style godly recipe gallery). */
   onCodexSelected(): void;
 }
 
-/** S85 P4c — canvas-space button centers for the e2e geometry-getter migration. */
+/** S85 P4c — canvas-space button centers for the e2e geometry-getter migration.
+ * S87: `oneVOne` KEY kept (e2e churn guard) — it is the Multiplayer button. */
 export interface TitleButtonCenters {
   readonly solo: { x: number; y: number };
   readonly oneVOne: { x: number; y: number };
+  readonly vsBots: { x: number; y: number };
   readonly codex: { x: number; y: number };
 }
 
@@ -78,9 +86,11 @@ export class TitleScreen {
     );
     this.container.addChild(btnSolo);
 
+    // S87 — renamed from "1v1 (2 Player)": the mode has seated up to 6 since
+    // S62; the user mandated the honest name. Internal GameMode stays '1v1'.
     const btn1v1 = this.makeButton(
-      '1v1 (2 Player)',
-      'host or join a room — play against a friend',
+      'Multiplayer',
+      'friends lobby or quick match — up to 6 players',
       PLAYER_COLORS[1],
       CANVAS_WIDTH / 2,
       CANVAS_HEIGHT / 2 + 40 + BUTTON_HEIGHT + BUTTON_GAP,
@@ -88,14 +98,27 @@ export class TitleScreen {
     );
     this.container.addChild(btn1v1);
 
-    // S22 P3 — CODEX entry button (third row). MK-style gallery of unlocked
-    // godly combos. Empty on first 1v1 (PRIME-AUDIT-S21 #4 no-spoilers).
+    // S87 — VS BOTS entry (third row): local match vs 1..6 AI sparks with
+    // per-bot difficulty. Opens BotSetupOverlay; the match itself reuses the
+    // FFA rule set (mode 'bots').
+    const btnVsBots = this.makeButton(
+      'VS Bots',
+      'battle 1-6 AI sparks — pick each bot’s difficulty',
+      PLAYER_COLORS[6],
+      CANVAS_WIDTH / 2,
+      CANVAS_HEIGHT / 2 + 40 + (BUTTON_HEIGHT + BUTTON_GAP) * 2,
+      callbacks.onVsBotsSelected,
+    );
+    this.container.addChild(btnVsBots);
+
+    // S22 P3 — CODEX entry button (fourth row since S87). MK-style gallery of
+    // unlocked godly combos. Empty on first 1v1 (PRIME-AUDIT-S21 #4 no-spoilers).
     const btnCodex = this.makeButton(
       'CODEX',
       'godly combos — discovered through play',
       0xffd60a,
       CANVAS_WIDTH / 2,
-      CANVAS_HEIGHT / 2 + 40 + (BUTTON_HEIGHT + BUTTON_GAP) * 2,
+      CANVAS_HEIGHT / 2 + 40 + (BUTTON_HEIGHT + BUTTON_GAP) * 3,
       callbacks.onCodexSelected,
     );
     this.container.addChild(btnCodex);
@@ -110,6 +133,7 @@ export class TitleScreen {
       const centers: TitleButtonCenters = {
         solo: { x: btnSolo.position.x, y: btnSolo.position.y },
         oneVOne: { x: btn1v1.position.x, y: btn1v1.position.y },
+        vsBots: { x: btnVsBots.position.x, y: btnVsBots.position.y },
         codex: { x: btnCodex.position.x, y: btnCodex.position.y },
       };
       this.getButtonCenters = () => centers;

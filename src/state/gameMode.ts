@@ -40,6 +40,10 @@ export type StartGameAction = {
   // the historical seat-P1-at-right path). State only needs seat+color; the wire
   // RosterEntry's peerId is consumed net-side (client self-identification).
   readonly roster?: readonly { readonly seat: number; readonly color: number }[];
+  // S87 — seats driven by AI bots (mode 'bots' only; subset of roster seats,
+  // never seat 0). Host-local action — START_GAME is not a client intent and
+  // the StartGameMsg wire envelope is unrelated, so no protocol surface.
+  readonly botSeats?: readonly number[];
 };
 
 export type ReturnToTitleAction = {
@@ -177,6 +181,12 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   world.fouledPrimitives.clear();
   // S34 P2-21 defensive clear (see JSDoc above).
   world.pendingCreatureSpawn = null;
+  // S87 — bot-seat identity is per-match: rebuild from the action (empty for
+  // solo/networked starts — a fresh match never inherits stale bot flags).
+  world.botSeats.clear();
+  if (action.botSeats !== undefined) {
+    for (const seat of action.botSeats) world.botSeats.add(asPlayerId(seat));
+  }
   if (action.roster !== undefined && action.roster.length > 0) {
     // S62 — N-player seating from the host-minted ordered roster. Insert in
     // SEAT ORDER so the players Map iterates identically on every client (same
@@ -294,6 +304,8 @@ export function applyReturnToTitle(world: World): World {
   world.currentCinematicEvent = null;
   world.pendingCinematics.length = 0;
   world.pendingCreatureSpawn = null;
+  // S87 — bot seats are dropped with their players (survivor sweep below).
+  world.botSeats.clear();
   // Keep P1 only; drop P2 if present.
   const survivors: PlayerId[] = [];
   for (const pid of world.players.keys()) {

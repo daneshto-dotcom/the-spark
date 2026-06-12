@@ -21,8 +21,8 @@ import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   MAX_DISRUPTION_CHARGES,
-  MAX_PLAYERS,
   PHASE_1_WIN_SCORE,
+  PLAYER_COLORS,
 } from '../constants.ts';
 import { isNetworked, type World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
@@ -46,7 +46,7 @@ export class HUD {
   private readonly gauge: Graphics;
   private readonly progress: Graphics;
   private readonly winText: Text;
-  /** S62 — N-player leaderboard rows (pool of MAX_PLAYERS; shown/sorted per frame). */
+  /** S62 — N-player leaderboard rows (pool of PLAYER_COLORS.length since S87). */
   private readonly scoreTexts: Text[];
   private readonly connectionDot: Graphics;
   /** S17 P1 — per-player disruption charge dots (Phase-2 §VIII.1-2). */
@@ -84,11 +84,12 @@ export class HUD {
     // S42 — Turn indicator badge DELETED (was top-center "PLAYER N'S TURN").
 
     // S62 — per-player score LEADERBOARD (top-left, vertical stack). A pool of
-    // MAX_PLAYERS rows; drawMultiplayerHUD shows one per live player, sorted by
-    // score (leader on top), each in the player's color, the local player marked.
-    // Replaces the pre-S62 hardcoded 2-row RED/BLUE readout.
+    // rows; drawMultiplayerHUD shows one per live player, sorted by score
+    // (leader on top), each in the player's color, the local player marked.
+    // S87 — pool sized by PLAYER_COLORS.length (not MAX_PLAYERS): VS-BOTS can
+    // seat MAX_BOTS+1=7 players; the wire/lobby caps stay at MAX_PLAYERS=6.
     this.scoreTexts = [];
-    for (let i = 0; i < MAX_PLAYERS; i++) {
+    for (let i = 0; i < PLAYER_COLORS.length; i++) {
       const t = new Text({
         text: '',
         style: new TextStyle({ fontFamily: 'monospace', fontSize: 16, fill: 0xffffff }),
@@ -186,8 +187,11 @@ export class HUD {
     if (world.gameState === 'WIN' || world.gameState === 'POSTGAME') {
       const winnerPid = world.lastWinnerId ?? asPlayerId(0);
       const winner = world.players.get(winnerPid);
+      // S87 — a bot victory says so (rub it in / soothe accordingly).
       const winLabel = isNetworked(world) && winner !== undefined
-        ? `PLAYER ${winnerPid + 1} WINS`
+        ? world.botSeats.has(winnerPid)
+          ? `BOT ${winnerPid + 1} WINS`
+          : `PLAYER ${winnerPid + 1} WINS`
         : 'WIN';
       this.winText.text = world.gameState === 'WIN'
         ? winLabel
@@ -236,7 +240,9 @@ export class HUD {
       const score = world.scoreByPlayer.get(p.id) ?? 0;
       const isLocal = p.id === world.localPlayerId;
       const crown = i === 0 ? '*' : ' ';
-      t.text = `${isLocal ? '>' : ' '}${crown}P${seat + 1} ${Math.floor(score)}/${PHASE_1_WIN_SCORE}${isLocal ? ' <YOU' : ''}`;
+      // S87 — bot rows read B{n} (matches the avatar nameplates).
+      const tag = world.botSeats.has(p.id) ? 'B' : 'P';
+      t.text = `${isLocal ? '>' : ' '}${crown}${tag}${seat + 1} ${Math.floor(score)}/${PHASE_1_WIN_SCORE}${isLocal ? ' <YOU' : ''}`;
       t.style.fill = p.color;
       t.position.set(12, 12 + i * 22);
       t.visible = true;

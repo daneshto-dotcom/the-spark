@@ -154,6 +154,15 @@ export interface WorldSnapshot {
   poops?: SerializedPoop[];
   fouledPrimitives?: PrimitiveId[];
   /**
+   * S87 — seats occupied by AI bots in 'bots' mode. Additive-optional
+   * (creature precedent; NO schemaVersion bump): emitted only when non-empty,
+   * so every pre-S87 save AND every networked NetSnapshot (bots never exist
+   * while networked) stays byte-identical. A DEV save/restore of a bots match
+   * rehydrates the B{n} identity surfaces; bot CONTROLLER state is
+   * deliberately not saved (bots re-decide from world state — PDR S87).
+   */
+  botSeats?: number[];
+  /**
    * S31 P0-3 — filtered effects array for 1v1 client mirror. Pre-S31 the
    * snapshot omitted `world.effects` entirely; 1v1 client saw creatures walk
    * + bonds vanish with no visible attack feedback (no ARC_FLASH lightning),
@@ -506,6 +515,9 @@ export function snapshot(
       : undefined,
     poops: world.poops.size > 0 ? [...world.poops.values()].map(serializePoop) : undefined,
     fouledPrimitives: world.fouledPrimitives.size > 0 ? [...world.fouledPrimitives] : undefined,
+    // S87 — emit bot seats only when present (byte-identical pre-S87 + on the wire,
+    // where bots can never exist).
+    botSeats: world.botSeats.size > 0 ? [...world.botSeats].map((p) => p as number) : undefined,
     // S31 P0-3 — filtered effects for 1v1 client mirror. Map+filter pattern
     // drops the 5 host-local visual kinds (BOND_COMMIT/SEVER_ERASE/
     // STRUCTURE_GROW/STRUCTURE_MERGE/SCORE_TIER) and keeps only the 3 wire
@@ -715,6 +727,13 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   world.fouledPrimitives.clear();
   if (snap.fouledPrimitives !== undefined) {
     for (const pid of snap.fouledPrimitives) world.fouledPrimitives.add(pid);
+  }
+
+  // S87 — bot-seat identity (clear + rehydrate; absent on every networked /
+  // pre-S87 payload → stays empty).
+  world.botSeats.clear();
+  if (snap.botSeats !== undefined) {
+    for (const seat of snap.botSeats) world.botSeats.add(asPlayerId(seat));
   }
 
   // S31 P0-3 — replace effects array contents from snap.effects. effects are
