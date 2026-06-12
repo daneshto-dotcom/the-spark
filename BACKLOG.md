@@ -1,16 +1,93 @@
 # SPARK — Build Backlog
 
-**Plan horizon:** 5–6 main sessions to working Phase-1 prototype + 3 buffer.
-**Locked decisions:** [LOCKED_DECISIONS.md](LOCKED_DECISIONS.md).
-**Spec:** [SPARK_Blueprint.md](SPARK_Blueprint.md) v0.5.1.
+**Spec:** [SPARK_Blueprint.md](SPARK_Blueprint.md) v0.5.1 · **Locked:** [LOCKED_DECISIONS.md](LOCKED_DECISIONS.md) · **Live:** https://spark-online.space
+**This file = the forward plan.** The ROADMAP below is the source of truth for what each session works on. Session history (newest first) follows after it; the authoritative per-session narrative is the handoff series in `.handoff-archive/`.
 
-**SESSIONS 20–30 — DEPRECATED FROM THIS FILE (S33 P1-14, 2026-05-16):** Entries S20–S30 are intentionally absent from BACKLOG.md going forward. The authoritative session record is the handoff series:
+---
+
+# ROADMAP — rewritten S86 (2026-06-12) on user mandate
+
+> User (S86, verbatim): *"organize our priority backlog to see what we actually need to do in order to IMPROVE on the game … like for example developing the geometric connections between the primitives, some of them dont do anything like dot to square or line to circle … the whole point is being a geometric builder game and we have least focused on that … rather than random stuff you have added to backlog which will or will not improve our gameplay."*
+
+## North star
+
+SPARK is a **geometric builder duel**. The build system — what happens when you connect primitive A to primitive B — IS the game. Hazards, fog, netcode, and lobbies exist to serve that loop, not the other way round.
+
+## The honest gap (S86 code audit — measured, not vibes)
+
+The user's complaint is structurally correct. State of `src/combos.ts` (36 ordered pairs across 6 primitives):
+
+| Fact | Evidence |
+|---|---|
+| **24 of 36 combos are literal placeholders** | `description: 'Functional placeholder — generic bond'` — Dot→Square, Line→Circle, Dot→Dot, Square→Triangle, Square→Line, most Spiral pairs… all identical generic bonds |
+| **The magic 12 are visuals + physics stiffness ONLY** | their descriptions promise behavior ("Pulls nearby free sparks", "Slow rotation begins", "chaos modifier propagates") — none is implemented as a mechanic |
+| **`areaMultiplier` is dead data** | defined per combo, consumed by zero production code |
+| **`isMagical` is dead outside combos.ts** | a magical bond scores exactly the same as a placeholder bond (S84 gave ALL functional bonds +0.25 complexity; magic earns no premium) |
+| **Discovery exists only as the title-screen Codex** | nothing in-match celebrates or even mentions discovering a new combo |
+
+## TIER 1 — CORE GAME: make the geometry matter (USER-MANDATED, S86)
+
+Session-sized cuts, in recommended order:
+
+- **G1 — Magic combos MATTER mechanically.**
+  - *G1a (small, instantly felt):* wire `isMagical` into scoring — a magical bond out-earns a functional one (e.g. +0.75 vs +0.25 complexity, same anti-spam cap family). Pairs naturally with G3a in one session.
+  - *G1b (the real meat, ~1 session per archetype):* implement combo BEHAVIORS in three archetypes so the magic 12 stop being paint: **ECONOMY** (Vortex actually pulls free sparks toward it — its own table description, never built; Filament income trickle), **DEFENSE** (Lattice/Diamond resist hazards — e.g. potato blast or Voltkin bolt needs 2 hits, or hostile sever costs 2 charges), **MOTION** (Wheel/Star slow structure rotation; Capsule glow-trail). Every behavior must be a pure function of synced state (determinism + 1v1 mirror constraints) — Council design round picks the exact 3–5 behaviors before any code.
+- **G2 — Fill or fold the 24 placeholders.** Design decision first (user picks flavor): rule-based FAMILY traits so EVERY pair does *something* (e.g. Dot-pairs = cheap/weak filler, Square-pairs = sturdy/slow, Spiral-pairs = chaotic wobble) + promote 2–4 placeholder pairs to new named magic combos — starting with the two the user called out by name: **Dot→Square** and **Line→Circle**. Families + a few promotions, NOT 24 bespoke mechanics.
+- **G3 — Discovery loop.** *G3a:* in-match "NEW COMBO — Filament!" toast + per-match discovered counter (the Codex exists on the title screen; nothing celebrates discovery in play). *G3b:* Codex marks used combos; undiscovered render as silhouettes.
+- **G4 — Build-feel juice** (carry-overs that genuinely serve the core loop): bond-formation juice burst (S84 Gemini candidate) · pooped-reject feedback cue · in-world leader crown. One polish session after G1a/G3a.
+
+## TIER 2 — Playtest loop (USER-driven)
+
+- **Round 7** on spark-online.space: verify all four S86 fixes (black fog · no hazard-ring lines · eaten/pooped players truly locked out · OS cursor gone — the spark IS the pointer, faint ghost ring only while slowed/eaten) + judge the rounds-5/6 leftovers still pending eyes (yell audibility, big flyover, bond ownership patterns, hazard rings, lobby animations, match length 210, seat-stable leaderboard).
+- **Non-builder-win mechanism** (USER field report S84, unreproduced in vitro): instrumentation is live — if it recurs, screenshot the console (the WIN line dumps per-seat score+complexity).
+
+## TIER 3 — Resilience & infra (CLAUDE/COUNCIL-suggested — honest labels, plain language; only after Tier-1 ships or on explicit user ask)
+
+- **Host migration** ([HOST_MIGRATION_DESIGN.md](HOST_MIGRATION_DESIGN.md), design adopted S85). **Plain English:** in multiplayer one player's browser (the "host") runs the real game; everyone else mirrors it. Today, **if the host closes their tab or drops, the match dies for everyone**. This work makes a surviving player's browser take over automatically so the match continues. Four session-sized steps (D1 identity plumbing → D2 detection → D3 takeover → D4 hardening). Real value — but it only matters for matches that are already fun; hence Tier 3.
+- **S73 dense-compaction colour-shift at Begin** (sparse in-game seat palette) — CLAUDE-suggested polish.
+- **Periodic-scoreboard knob** (if real-time scores distort FFA play) — CLAUDE-suggested, playtest-gated.
+
+## TIER 4 — User-deferred (touch ONLY on explicit ask)
+
+- **VFX lightning-overlay library** — user said defer; procedural ARC_FLASH stays.
+
+## Session protocol going forward
+
+1. **Regression reports jump the queue** (S86 pattern: fix what the playtest broke, same session).
+2. Otherwise **every session leads with the top unfinished Tier-1 item**.
+3. Tier-3 infra and new polish ship only AFTER the session's Tier-1 item, or on explicit user ask.
+4. **New Claude/Council ideas do NOT enter Tiers 1–3 directly** — they land in PARKED and graduate only with user sign-off.
+5. This ROADMAP section is updated at every session close; completed items move to the session history.
+
+## PARKED (Claude/Council ideas awaiting user sign-off)
+
+- 10 Hz client-mirror pose-stepping smoothing (S84 advisory — judge in 1v1 playtest first).
+
+---
+
+# SESSION HISTORY (newest first)
+
+**SESSIONS 20–30 — DEPRECATED FROM THIS FILE (S33 P1-14, 2026-05-16):** Entries S20–S30 are intentionally absent. The authoritative session record is the handoff series:
 - S20–S22 networking fixes — `.handoff-archive/HANDOFF_2026-05-12_*.md`
 - S23 — `.handoff-archive/HANDOFF_2026-05-13_S23close.md`
 - S24–S28 Voltkin Phase-2 implementation — `.handoff-archive/HANDOFF_2026-05-14_S{24,25,27,28,29}close.md`
 - S29–S30 polish + regression repair — `.handoff-archive/HANDOFF_2026-05-14_S{29,30}close.md`
 
-S30 audit at session close surfaced 24 findings split P0/P1/P2 across S31/S33 (see §Session 31 / §Session 33 below). BACKLOG.md tracks plans from S31 onward only. Council R1 Q3=B unanimous + S33 P1-14 — explicit deprecation chosen over ~100 LOC backfill on the grounds that handoff series already preserves the authoritative narrative and BACKLOG is a forward-looking plan tracker, not a session history.
+S30 audit at session close surfaced 24 findings split P0/P1/P2 across S31/S33 (see §Session 31 / §Session 33 below). History below tracks S31 onward only (Council R1 Q3=B unanimous + S33 P1-14 — handoffs preserve the authoritative narrative).
+
+---
+
+## Session 86 — Playtest round-6 REGRESSION batch + ROADMAP rewrite [COMPLETED 2026-06-12]
+
+**User + friend live playtest found 4 regressions; user approved the batch PDR (Standard, Council 1-round Trident Strike: bench gate CONCEDED→GROK central-choke-point, drag-cancel SYNTHESIS claim-outcome-keyed, ghost dot OVERRULED→GEMINI+CLAUDE) + pre-approved the roadmap amendment. 5/5 priorities. Tests 1299 → 1312; bundle 548.3 KiB < 550.**
+
+- **P1 fog black + LOCK (b0f3913)** — S85 P4b restored the dim blue explored tier (0x161b2e) over the S63 USER tuning; round-6 verdict: "the stupid blue fog is back... should be just black." Reverted to 0x000000 and LOCKED: LOCKED_DECISIONS.md §14 (rule: old design notes do not outrank newer user tuning) + `constants.lock.test.ts` CI tripwire — docs alone provably failed once.
+- **P2 hazard-ring stray lines (8e328cd)** — S85 ring drew `arc()` with no `moveTo`: canvas-path semantics connect the pen from the world origin to each ringed hazard (the screenshot lines to the potato + pacman). One `moveTo` per dash segment; also kills inter-dash chords.
+- **P3 central bench gate + claim-gated drag (4849393)** — eaten players could still collect AND build: `benchedUntilTick` was input-layer-only (no reducer checked it; the catch force-drop made the carried spark Free and the surviving AttractDrag yanked it back to the cursor), and the S84/S85 pooped gates blocked claim/build but never the DRAG (a rejected claim left the spark Free = the gesture kept hauling at full cursor speed). Fixes: NEW `benchGate.ts` BENCH_INTENT_POLICY (explicit allow/deny per CLIENT_INTENT_TYPE, completeness locked by test) enforced at `dispatch()` entry (covers local input + optimistic prediction + remote intents); gesture ENTRY claim-outcome-keyed (rejected claim → no gesture at all; no local radius mirror to desync); benched in-flight gestures die per-substep with defensive drop (also kills the probe-discovered stuck-gesture-after-bench hole). `rejectReasons.actorBenched` + both match-boundary resets now also clear `pickupPoopedTooFar` (leaking since S84).
+- **P4 the spark IS the pointer (53b4251)** — OS cursor hidden during PLAYING via Pixi's OWN `cursorStyles.default` (the preview pass caught the naive style-write being clobbered by Pixi's per-interaction cursor management); title/lobby/win keep the native pointer; faint local-only ghost ring at the real mouse ONLY while pooped/benched. LIVE-VERIFIED end-to-end through the real input path: pooped-far grab rejects + no gesture, pooped-arrived grab works, eaten-mid-drag dies same frame, ghost verified at Graphics-object level, fog-black + line-free-ring screenshot, zero console errors.
+- **P5 ROADMAP rewrite (this)** — combo-system audit (24/36 placeholders; `isMagical`/`areaMultiplier` dead in production; no in-match discovery), USER-first tiered roadmap with origin labels, host-migration explained in plain language, session protocol locked.
+
+**Carry-forwards:** playtest ROUND 7 (all four S86 fixes + rounds-5/6 leftovers) · recommended next build session: Tier-1 **G1a + G3a**.
 
 ---
 
