@@ -31,12 +31,23 @@
  */
 
 import { lookupCombo } from '../combos.ts';
-import { SPAWNER_CENTER_X, SPAWNER_CENTER_Y, type StiffnessTier } from '../constants.ts';
+import {
+  AUTO_BOND_RADIUS,
+  REDUNDANT_BOND_ANGLE_EPSILON,
+  REDUNDANT_BOND_K,
+  REDUNDANT_BOND_MAX_CANDIDATES,
+  REDUNDANT_BOND_MIN_ANGLE_RAD,
+  SPAWNER_CENTER_X,
+  SPAWNER_CENTER_Y,
+  type StiffnessTier,
+} from '../constants.ts';
+import { componentOf } from '../game/structure.ts';
 import type { Player } from '../game/player.ts';
+import { pickRedundantBondTargets } from '../input/redundantBondTargets.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
 import { pickHostTargetPrimitive } from '../state/placePrimitive.ts';
 import type { GameAction, World } from '../state/world.ts';
-import type { BondId, PlayerId, PotatoId, RainbowId, SparkId, Vec2 } from '../types.ts';
+import type { BondId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 } from '../types.ts';
 import { BOT_CONFIGS, type BotConfig } from './botConfig.ts';
 import { chooseBuildPos, chooseGoal, type BotGoal } from './botBrain.ts';
 import type { BotDifficulty } from './botTypes.ts';
@@ -339,12 +350,33 @@ export class BotController {
         predicted !== null && predicted !== undefined
           ? lookupCombo(spark.type, predicted.type).stiffnessTier
           : 'MID';
+      // S87 P3 — smart bots weave redundancy bonds exactly like the human
+      // LMB-up path (same pure picker + same constants): denser webs feed
+      // the 0.25/bond complexity income up to the 1.5×prim cap AND resist
+      // single-sever amputation. The action's extraBondTargetIds list is
+      // trusted for same-world dispatches (we ARE the host).
+      let extraBondTargetIds: readonly PrimitiveId[] | undefined;
+      if (this.cfg.smartPlacement && predicted !== null && predicted !== undefined) {
+        const component = componentOf(predicted, world.primitives, world.bonds);
+        extraBondTargetIds = pickRedundantBondTargets({
+          primary: { id: predicted.id, pos: predicted.pos },
+          componentIds: component.primitiveIds,
+          primitives: world.primitives,
+          newPrimPos: placementPos,
+          radius: AUTO_BOND_RADIUS,
+          k: REDUNDANT_BOND_K,
+          minAngleRad: REDUNDANT_BOND_MIN_ANGLE_RAD,
+          angleEpsilon: REDUNDANT_BOND_ANGLE_EPSILON,
+          maxCandidates: REDUNDANT_BOND_MAX_CANDIDATES,
+        });
+      }
       send({
         type: 'PLACE_PRIMITIVE',
         playerId: this.seat,
         targetPrimitiveId: null, // host re-pick path (S48 P2) is authoritative
         stiffnessTier: tier,
         placementPos,
+        extraBondTargetIds,
       });
       const after = world.players.get(this.seat);
       if (after !== undefined && after.kind === 'Idle') {
