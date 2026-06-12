@@ -56,6 +56,14 @@ export function hazardRingAlpha(tSec: number): number {
 export function drawHazardRing(g: Graphics, x: number, y: number, radius: number, tSec: number): void {
   const alpha = hazardRingAlpha(tSec);
   for (const seg of hazardRingSegments(tSec)) {
-    g.arc(x, y, radius, seg.start, seg.end).stroke({ width: 1.5, color: RING_COLOR, alpha });
+    // S86 P2 — lift the pen to the dash start BEFORE arc(): canvas-path
+    // semantics make arc() draw a connecting LINE from the current pen
+    // position to the arc start, and on a freshly-cleared Graphics that pen
+    // sits at the world origin — round-6 playtest screenshots showed a stray
+    // line from screen top-left to every ringed hazard (and chords bridging
+    // the dash gaps). moveTo starts each dash as its own subpath.
+    g.moveTo(x + radius * Math.cos(seg.start), y + radius * Math.sin(seg.start))
+      .arc(x, y, radius, seg.start, seg.end)
+      .stroke({ width: 1.5, color: RING_COLOR, alpha });
   }
 }

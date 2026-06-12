@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 0,
+  "tool_calls_session_total": 4,
   "session_id": "S86",
   "session_kind": "execution",
   "session_start": "2026-06-12T00:00:00.000Z",
@@ -15,8 +15,13 @@
     {
       "id": "P1",
       "label": "S86 P1 — MEMORY_FOG_COLOR revert to 0x000000 + LOCK (user demanded black twice: S63 + round-6)",
-      "status": "in_progress",
-      "phase": "DO",
+      "status": "completed",
+      "phase": "ACT",
+      "check_completed": true,
+      "checkpoint_commit": "b0f3913",
+      "real_context_tokens_at_close": 165998,
+      "real_context_pct_at_close": 16.6,
+      "check_method": "S86 P1 (b0f3913): constants.ts:142 MEMORY_FOG_COLOR 0x161b2e -> 0x000000 with the full knob history in the comment (S59 design -> S63 user black -> S85 regress -> S86 user black AGAIN + LOCK). Enforcement is layered because docs alone provably failed (S85 read the S59 note and restored over the S63 user tuning): LOCKED_DECISIONS.md NEW §14 states the rule (old design notes do not outrank newer user tuning; restore requires fresh same-session user ask) and src/constants.lock.test.ts asserts MEMORY_FOG_COLOR===0x000000 as a CI-blocking tripwire whose header explains a failure means a session is overriding a USER decision, not a bug. Verified: targeted vitest 52/52 (lock + exploredMemory + fogBrush + vision); e2e/fog.spec.ts greped for colour literals pre-PDR = none (probes sample unexplored points). Pushed to master -> CI/deploy lineage.",
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
