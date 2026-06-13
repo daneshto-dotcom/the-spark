@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 281,
+  "tool_calls_session_total": 305,
   "session_id": "S87",
   "session_kind": "execution",
   "session_start": "2026-06-12T00:00:00.000Z",
@@ -97,7 +97,7 @@
       "scope": "tests, BACKLOG.md, preview verification, CI",
       "testing": "vitest full + e2e + bundle stat + preview screenshots",
       "check_completed": true,
-      "checkpoint_commit": "PENDING-P5-COMMIT",
+      "checkpoint_commit": "4c371c3",
       "real_context_tokens_at_close": 600000,
       "real_context_pct_at_close": 60,
       "check_method": "S87 P5 verification sweep. UNIT: full vitest 1370/1370 (was 1312) exit 0; tsc --noEmit exit 0 (unpiped, captured). BUNDLE: index 554.58 vite-kB = 541.6 KiB < 550 KiB charter (recovered from a 553.6 KiB breach by lazy-loading CodexOverlay — eager only via godlyOrchestration.unlockGodly, split to codexStore.ts); quickmatch.ts 2.69 kB + botManager 11.01 kB + botSetupOverlay 4.40 kB + codexOverlay 12.28 kB all lazy chunks. LIVE PREVIEW (real dev server, screenshots): (1) title shows Solo/Multiplayer/VS Bots/Codex; (2) VS Bots opens the lazy BotSetupOverlay (count stepper + per-bot NOOB/MID/HARD/IMBA + START); (3) started a 3-bot match — all 3 bots cruised, claimed, hauled and built FULLY-BONDED structures and scored income (seat1=12/12, seat2=5/5, seat3=9/9 bonded; leaderboard B2/B3/B4 climbing, P1 human=0), with the human seat 0 at 0 prims/0 score under no input — NO mis-attribution (clean-room re-test confirmed: byOwner={1:1} with zero human prims; the earlier seat-0 prims were an artifact of manual preview poking + harness pointer events, proven by reload+observe); (4) Multiplayer lobby renders QUICK MATCH headline above the unchanged Host/Join panes; (5) zero console errors. E2E: smoke + lobby-construction + nplayer + reconnect run locally — found+fixed 3 expected ripples from the version bump/7th-color (protocol-mismatch v8->current so test moved to v9; v2-test local-version string v7->v8; nplayer 6-player palette assertion sliced to the first MAX_PLAYERS=6) — all re-ran GREEN; remaining hazard specs (bomb/hunter/potato/rainbow/seagull/fog) grep-clean of palette/protocol/mode assumptions, gated by CI. ROADMAP: S87 session entry written; Tier-1 G1a+G3a remains the next build session."
