@@ -39,7 +39,8 @@ Session-sized cuts, in recommended order:
 ## TIER 2 — Playtest loop (USER-driven)
 
 - **Round 7** on spark-online.space: verify all four S86 fixes (black fog · no hazard-ring lines · eaten/pooped players truly locked out · OS cursor gone — the spark IS the pointer, faint ghost ring only while slowed/eaten) + judge the rounds-5/6 leftovers still pending eyes (yell audibility, big flyover, bond ownership patterns, hazard rings, lobby animations, match length 210, seat-stable leaderboard).
-- **Non-builder-win mechanism** (USER field report S84, unreproduced in vitro): instrumentation is live — if it recurs, screenshot the console (the WIN line dumps per-seat score+complexity).
+- **NEW (S87) — VS BOTS + Multiplayer/Quick Match playtest:** (a) VS Bots feel across NOOB/MID/HARD/IMBA — do the bots read as *playing* (cruise, collect, haul, build bonded structures, sever, flee the hunter) and is the difficulty curve right? Tuning knobs all in `src/bots/botConfig.ts`. (b) Quick Match with a friend on two machines: does discovery pair you, does the all-ready gate start when both click READY, does the smallest-code convergence avoid split lobbies? (c) Confirm the "Multiplayer" rename + the friends Host/Join lobby still works byte-identically.
+- **Non-builder-win mechanism** (USER field report S84, unreproduced in vitro): instrumentation is live — if it recurs, screenshot the console (the WIN line dumps per-seat score+complexity). *S87 live-preview note: confirmed in vitro that bot builds attribute to their OWN seats and the human seat stays 0 with no input — no mis-attribution in bots mode.*
 
 ## TIER 3 — Resilience & infra (CLAUDE/COUNCIL-suggested — honest labels, plain language; only after Tier-1 ships or on explicit user ask)
 
@@ -66,6 +67,22 @@ Session-sized cuts, in recommended order:
 ---
 
 # SESSION HISTORY (newest first)
+
+## Session 87 — USER-QUEUED mode batch: VS BOTS + Multiplayer rename + Quick Match [COMPLETED 2026-06-12]
+
+**User queued a mode batch AHEAD of the Tier-1 roadmap ("this is before continuing other priorities from backlog … i am preapproving this session batch and autonomous run") + pre-approved autonomous run. Full tier, Council R1 (Grok 4.20 + Gemini 2.5-pro). 5/5 priorities. Tests 1312 → 1370; bundle index 554.58 vite-kB = 541.6 KiB < 550 (recovered headroom by lazy-loading CodexOverlay). PROTOCOL_VERSION 7 → 8.**
+
+- **P1 mode restructure (139ea4b)** — title "1v1 (2 Player)" → **"Multiplayer"** (internal GameMode value `'1v1'` kept — wire/test literal); NEW **VS Bots** button + lazy `BotSetupOverlay` (count 1-6, per-bot NOOB/MID/HARD/IMBA). `GameMode += 'bots'` inherits the FFA rule set via `isNetworked()` (fog/territory/shrink/remote-reach validation bind bots like remote humans) with `isHost=true`, no transport (all 11 isNetworked sites grep-audited null-guarded). `World.botSeats` + additive-optional `WorldSnapshot.botSeats`; 7th PLAYER_COLOR (silver, bots-mode only — MAX_PLAYERS stays 6 for every wire/lobby validator); B{n} nameplates/leaderboard/win banner.
+- **P2 bot framework (139ea4b)** — code-split `src/bots/` (botManager + botController FSM + botConfig + botTypes). Bots are ordinary seated players that may ONLY dispatch the same GameActions a remote human can — so the bench/poop/reach/territory gates bind them by construction (the S86 dispatch choke point's first structural dividend). Virtual cursor = avatarPos eased ≤cursorSpeed px/tick (accel + arrive-decel + wobble) via UPDATE_AVATAR_POS; claim at ≤24px (claim-outcome-confirmed), haul rides the S45 coupling, place via the PLACE_PRIMITIVE remote-origin host re-pick. Per-bot seeded mulberry32 (no Math.random/Date.now). Carry-1 crash class made unreachable (brain never proposes BUILD while Carrying + controller self-heals idle-with-spark into HAUL).
+- **P3 bot brain (281ddb5)** — pure goal arbitration (flee hunter / clean own splat / claim rainbow / sever / IMBA potato+shrink / BUILD) + home-sector anchor + frontier growth (GROWTH_STEP 48 < AUTO_BOND_RADIUS 60 so the host re-pick chains bonds) with difficulty-tuned aim jitter; smart bots weave redundancy bonds via the SAME human-path picker (componentOf + pickRedundantBondTargets). Behaviors proven through the real dispatch pipeline.
+- **P4 Quick Match (7ca9497)** — Multiplayer lobby = friends Host/Join (byte-identical) + NEW **QUICK MATCH**: a lazy `quickmatch.ts` discovery room (`spark-qm-v8`) where seekers gossip host beacons, join the smallest advertised code (deterministic convergence), or self-promote after a jittered window; peerless hosts demote toward smaller codes (split-brain heals); full hosts (6 seated) are skipped. All-ready START GATE: new `LOBBY_READY` client→host kind (the v7→8 bump — a stale peer could never send it and would stall the gate), readiness mirrored via `RosterEntry.ready` on LOBBY_PRESENCE, host auto-Begins when every CURRENTLY-SEATED player + host are ready and ≥2 present (live-seat intersection ⇒ a departed peer can't wedge). Pure core (election + gate) has 21 unit tests.
+- **P5 verification + ship** — live preview: title rename + VS Bots overlay + bots building bonded structures & scoring (seat1=12/12, seat2=5/5, seat3=9/9 bonded; human seat 0 = 0, no mis-attribution) + Quick Match button in the lobby; zero console errors. Full vitest 1370/1370, tsc exit 0, bundle under charter, e2e lane.
+
+**Council adopted/overruled (evidence-based):** F1 ADOPT+fixes (per-tick target invalidation, staggered think, cursor easing); F2 OVERRULED→6 bots/7 seats (both REJECTs rested on hallucinated structures — fogVisionMask/score-arrays don't exist; the one real consumer was the ui.ts leaderboard pool); F3 ADOPT (Grok's 10Hz-quantized-bots rejection architecturally false — the human IS the host); F4 ADOPT+fixes incl. CONCEDED→GEMINI PROTOCOL_VERSION bump.
+
+**Carry-forwards:** playtest the new modes (Tier 2, above) · resume **Tier-1 G1a + G3a** (isMagical scoring premium + in-match discovery toast) as the next build session per the unchanged roadmap.
+
+---
 
 **SESSIONS 20–30 — DEPRECATED FROM THIS FILE (S33 P1-14, 2026-05-16):** Entries S20–S30 are intentionally absent. The authoritative session record is the handoff series:
 - S20–S22 networking fixes — `.handoff-archive/HANDOFF_2026-05-12_*.md`

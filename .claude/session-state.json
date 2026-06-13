@@ -1,197 +1,120 @@
 {
-  "tool_calls_session_total": 127,
-  "session_id": "S86",
+  "tool_calls_session_total": 281,
+  "session_id": "S87",
   "session_kind": "execution",
   "session_start": "2026-06-12T00:00:00.000Z",
-  "session_note": "S86 — playtest round-6 regression fixes (user + friend live playtest): blue fog back (S85 overrode S63 user tuning), hazard-ring stray lines from world origin, pooped/eaten action-gating holes (drag layer + bench dimension ungated), OS cursor visible. P5 user-pre-approved amendment: reorganize BACKLOG around core geometric-builder gameplay + forward roadmap. User approval verbatim: 'approved! also one more edit which i preapprove...'.",
+  "session_note": "S87 — USER-QUEUED mode batch (jumps BACKLOG queue per user mandate): VS-BOTS mode (1..6 bots, per-bot difficulty NOOB/MID/HARD/IMBA, bots actively play as sparks through the real dispatch pipeline), title rename 1v1->Multiplayer, Multiplayer lobby = friends lobby (unchanged) + QUICKMATCH (discovery + all-players-ready start gate). User approval verbatim: 'i am preapproving this session batch and autonomous run and going to sleep! Work thoroughly!' PDR: .claude/plans/2026-06-12_PDR_S87_VsBots_Multiplayer_Quickmatch.md",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "tier": "Standard",
+  "tier": "Full",
   "council_rounds": 1,
-  "council_result": "Standard 1-round Trident Strike (Grok-DISRUPTOR + Gemini-AUDITOR short-prompt, both responded). Key resolutions: bench gate CONCEDED->GROK (central dispatch-entry gate + deny-by-default policy map, not per-verb enumeration); drag-cancel SYNTHESIS (claim-outcome-keyed cancel, no local radius mirror -> Grok desync risk eliminated); ghost dot OVERRULED->GEMINI+CLAUDE 2.75v1.0 (kept, debuff-only); pointer-lock REJECTED; fog lock SYNTHESIS (LOCKED_DECISIONS.md + locking unit test). PRIME-AUDIT delta: R1 drag-cancel radius mirror replaced after glued-spark recurrence risk identified; probe surfaced bonus stuck-drag-after-bench bug (onUp swallowed while benched leaves AttractDrag alive) — folded into P3 scope.",
-  "signals_fired": ["external_user_facing"],
+  "council_result": "R1 COMPLETE (Grok 4.20 + Gemini 2.5-pro). F1 ADOPT+4 fixes (per-tick target invalidation, staggered think phase, cursor easing, reject logging). F2 OVERRULED-WITH-EVIDENCE -> 6 bots/7 seats (both REJECTs rested on hallucinated structures; the one real consumer is the ui.ts leaderboard pool, one-line fix; 7th color silver 0xc0c8d0; MAX_PLAYERS untouched for wire/lobby; 7-seat invariant test added). F3 ADOPT (Groks 10Hz-quantized-bots rejection architecturally false — human IS the host; isNetworked null-guard audit executed pre-lock, all 11 sites safe). F4 ADOPT+5 fixes incl. CONCEDED->GEMINI PROTOCOL_VERSION 7->8 (stale v7 peer in quickmatch can never send LOBBY_READY = permanent stall), jittered self-promotion, smallest-code convergence, full:true announcements, roster-derived readiness. Full ledger in PDR.",
+  "signals_fired": [],
   "priorities": [
     {
       "id": "P1",
-      "label": "S86 P1 — MEMORY_FOG_COLOR revert to 0x000000 + LOCK (user demanded black twice: S63 + round-6)",
+      "label": "S87 P1 — Mode restructure: title Multiplayer rename + VS BOTS button + BotSetupOverlay + GameMode 'bots' + botSeats plumbing + 7th seat color",
       "status": "completed",
       "phase": "ACT",
-      "check_completed": true,
-      "checkpoint_commit": "b0f3913",
-      "real_context_tokens_at_close": 165998,
-      "real_context_pct_at_close": 16.6,
-      "check_method": "S86 P1 (b0f3913): constants.ts:142 MEMORY_FOG_COLOR 0x161b2e -> 0x000000 with the full knob history in the comment (S59 design -> S63 user black -> S85 regress -> S86 user black AGAIN + LOCK). Enforcement is layered because docs alone provably failed (S85 read the S59 note and restored over the S63 user tuning): LOCKED_DECISIONS.md NEW §14 states the rule (old design notes do not outrank newer user tuning; restore requires fresh same-session user ask) and src/constants.lock.test.ts asserts MEMORY_FOG_COLOR===0x000000 as a CI-blocking tripwire whose header explains a failure means a session is overriding a USER decision, not a bug. Verified: targeted vitest 52/52 (lock + exploredMemory + fogBrush + vision); e2e/fog.spec.ts greped for colour literals pre-PDR = none (probes sample unexplored points). Pushed to master -> CI/deploy lineage.",
-      "tier": "Micro",
+      "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "objective": "Explored-fog dim tier back to pure black; decision locked in LOCKED_DECISIONS.md + a locking unit test so no future session restores 0x161b2e.",
-      "scope": "src/constants.ts, LOCKED_DECISIONS.md, new locking test",
-      "testing": "vitest (incl. new lock test); fog.spec has no colour literal (verified pre-PDR)",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const MEMORY_FOG_COLOR = 0x000000;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.lock.test.ts",
-          "needle": "expect(MEMORY_FOG_COLOR).toBe(0x000000);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/LOCKED_DECISIONS.md",
-          "needle": "## 14 · Fog Palette — USER-LOCKED"
-        }
-      ]
+      "objective": "Title screen: Solo / Multiplayer / VS Bots / Codex; VS Bots opens setup overlay (count 1-6, per-bot difficulty) and starts a bots-mode match via START_GAME{mode:'bots', roster, botSeats}.",
+      "scope": "titleScreen.ts, new render/botSetupOverlay.ts, worldTypes/gameMode/world.ts (mode union + botSeats), constants.ts (7th PLAYER_COLOR), save.ts additive, avatarRenderer/ui nameplates B{n}, e2e helpers",
+      "testing": "vitest: START_GAME botSeats roundtrip + RETURN_TO_TITLE clear + save additive; existing 1312 green; e2e smoke title labels",
+      "check_completed": true,
+      "checkpoint_commit": "139ea4b",
+      "real_context_tokens_at_close": 440139,
+      "real_context_pct_at_close": 44,
+      "check_method": "S87 P1 (139ea4b): title restructure verified by compile+test: TitleScreen 4 buttons (Multiplayer rename, VS Bots, layout *3 row offset fits 1080), TitleButtonCenters += vsBots (oneVOne key kept for e2e stability), BotSetupOverlay lazy chunk (codexOverlay re-addChild topmost pattern; count stepper 1..6 + per-bot difficulty cyclers + START; DEV getUiPoints/getState probes). State: GameMode += bots (isNetworked inherits FFA rules — fog/territory/shrink/remote-reach; all 11 isNetworked sites grep-audited null-guarded on transport), World.botSeats Set cleared on START_GAME/RETURN_TO_TITLE, save.ts additive-optional botSeats (emitted only non-empty; JSON.stringify(snap) proven to not contain botSeats for non-bot worlds), PLAYER_COLORS 7th silver + MAX_BOTS, ui.ts pool -> palette length + B{n} rows + BOT N WINS, avatarNameplateText(isBot). The S63 palette canary FIRED as designed — canary + e2e/nplayer literal updated same commit. Gates UNPIPED: tsc exit 0; vitest 1343/1343 exit 0 (was 1312); botsMode.test.ts covers seating/clears/roundtrip/reach-validation-binds-bots/7-seat invariants (radial distinctness at 7, derangement bijection over 7, palette length+distinctness)/nameplates."
     },
     {
       "id": "P2",
-      "label": "S86 P2 — hazard identity ring stray lines: moveTo before each arc segment (Pixi v8 path connects from world origin)",
+      "label": "S87 P2 — Bot framework: code-split src/bots/ (config table, controller FSM, manager), virtual-cursor actuation through dispatch, main.ts host-tick wiring",
       "status": "completed",
       "phase": "ACT",
-      "check_completed": true,
-      "checkpoint_commit": "8e328cd",
-      "real_context_tokens_at_close": 172000,
-      "real_context_pct_at_close": 17.2,
-      "check_method": "S86 P2 (8e328cd): drawHazardRing now moveTo()s to each dash-segment start (x+r*cos(start), y+r*sin(start)) before arc() — canvas-path semantics otherwise draw a connecting line from the current pen position (world origin on the freshly-cleared per-hazard Graphics) to the arc start; user round-6 screenshots showed exactly that stray line to BOTH ringed hazards (potato + hunter), which also pinpoints why S85 unit tests missed it (they covered only the pure segment/alpha helpers, not Graphics path behavior). Inter-dash chords killed by the same subpath isolation. Verified: tsc clean, hazardRing 3/3, bundle re-measured at this render-code commit 546.6 KiB < 550 (S85 reflexion rule). Live no-stray-line screenshot deferred to the combined post-P4 preview pass (one server, all visual checks).",
-      "tier": "Micro",
+      "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "objective": "Kill the line from (0,0) to each ringed hazard (screenshot-proven on potato + hunter) and inter-segment chords.",
-      "scope": "src/render/hazardRing.ts",
-      "testing": "vitest green; live screenshot of ringed hazard with no stray line",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/hazardRing.ts",
-          "needle": "g.moveTo(x + radius * Math.cos(seg.start), y + radius * Math.sin(seg.start))"
-        }
-      ]
+      "objective": "Bots cruise their avatar (UPDATE_AVATAR_POS <= speed px/tick), claim sparks on arrival (PICKUP_SPARK), haul via S45 coupling, place via PLACE_PRIMITIVE remote-origin path; deterministic seeded RNG; all gates (bench/poop/reach/territory) apply by construction.",
+      "scope": "new src/bots/botConfig.ts + botController.ts + botManager.ts (lazy chunk), main.ts tick wiring + teardown",
+      "testing": "controller FSM unit tests, determinism same-seed test, bench-gate compliance test, bundle re-measure (index chunk delta ~0)",
+      "check_completed": true,
+      "checkpoint_commit": "139ea4b",
+      "real_context_tokens_at_close": 440139,
+      "real_context_pct_at_close": 44,
+      "check_method": "S87 P2 (139ea4b): bot framework verified by integration tests through the REAL dispatch pipeline (no mocks): IMBA bot on a seeded world cruises (avatar displacement >50px from spawn), claims, hauls and places >=3 prims of which >=2 BONDED within 30 sim-seconds; per-tick avatar step bounded <=8px over 600 ticks (NOOB speed 3.2 + wobble 2.5 — no teleports); same-seed double-run produces byte-identical prim/avatar/bond/spark JSON (determinism); benched bot freezes (avatarPos toEqual frozen copy, zero new prims, actorBenched bucket stays 0 = controller parks instead of spamming denied intents) then resumes building after release; NOOB builds strictly fewer prims than IMBA on the same seed+layout. Bundle: ALL bot code code-split (botManager 10.69 kB + botSetupOverlay 4.40 kB lazy chunks); EAGER overlay build measured 566.9 vite-kB = 553.6 KiB = CHARTER BREACH -> lazy split; final index 562.77 vite-kB = 549.58 KiB < 550 KiB. BASELINE UNIT DISCOVERY: S86 \"548.3 KiB\" = 561.45 vite-kB (worktree-rebuilt 9b3fc4c to prove it) — prior sessions recorded KiB, vite prints kB; both units now quoted. Carry-1 crash class (PICKUP while Carrying throws CarryViolation on un-try/caught dispatch) made unreachable: brain never proposes BUILD while Carrying + controller self-heals idle-with-spark into HAUL + belt-and-suspenders kind check at claim."
     },
     {
       "id": "P3",
-      "label": "S86 P3 — central bench/debuff enforcement: dispatch-entry bench gate (deny-by-default policy map) + claim-outcome-keyed AttractDrag cancel + benched drag cancel",
+      "label": "S87 P3 — Bot brain: full gameplay (build loop, sever, hazard responses, rainbow/potato/shrink per difficulty)",
       "status": "completed",
       "phase": "ACT",
-      "check_completed": true,
-      "checkpoint_commit": "4849393",
-      "real_context_tokens_at_close": 205000,
-      "real_context_pct_at_close": 20.5,
-      "check_method": "S86 P3 (4849393): TWO structural holes closed at the right layers. (1) Bench dimension: benchedUntilTick was input-layer-only — NEW benchGate.ts BENCH_INTENT_POLICY (explicit allow/deny per CLIENT_INTENT_TYPE, completeness locked by test vs protocol allowlist = Grok verb-drift defense) consulted at dispatch() ENTRY before any case body, so local input, optimistic joiner prediction AND host-applied remote intents all reject identically (pure fn of synced fields); deny=9 acquisitive/structural/offensive verbs, allow=UPDATE_AVATAR_POS+2 release-only drops (blocking a drop could strand Carrying). (2) Drag layer: gesture ENTRY now claim-outcome-keyed in onDown (dispatch synchronous locally on host AND joiner via PREDICTABLE_ACTIONS — verified main.ts:268 includes PICKUP_SPARK — so 'claim landed' = spark Carried-by-me right after dispatchFn; rejected claim -> no gesture/no capture/spark untouched) which kills the pooped full-speed haul at the source without any radius mirror (Council SYNTHESIS — R1 mirror design discarded after glued-spark desync risk); applyPerSubstep benched check kills in-flight gestures the catch orphaned AND the probe-discovered stuck-gesture-after-bench hole (onUp early-returns while input-locked), with defensive DROP_SPARK mirroring onUp/onLostCapture. Diagnostics: actorBenched bucket added (worldTypes+init+debugOverlay+both match-boundary resets — which also now clear pickupPoopedTooFar, leaking since S84). Verified: tsc clean; benchGate suite 11/11 first run; FULL vitest 1305/1305 (no regression from dispatch-entry gate or onDown reorder). Live pooped/eaten smoke deferred to combined post-P4 preview pass.",
-      "tier": "Standard",
+      "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "objective": "Eaten players cannot collect/build (reducer-level, covers remote intents); pooped players cannot haul Free sparks at full cursor speed via the ungated drag lerp; stuck-drag-after-bench killed. All checks pure fns of synced fields.",
-      "scope": "src/state/world.ts (dispatch gate), new bench-policy map module, src/input/controls.ts (drag cancel), tests",
-      "testing": "vitest per gate + policy-map completeness test vs protocol action tables; existing 1293 stay green; live smoke pooped+eaten scenarios",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/benchGate.ts",
-          "needle": "export const BENCH_INTENT_POLICY"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/world.ts",
-          "needle": "isBenchDeniedIntent(action.type)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/input/controls.ts",
-          "needle": "claimed.state.carrierId === this.playerId"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/worldTypes.ts",
-          "needle": "actorBenched: number;"
-        }
-      ]
+      "objective": "Goal arbitration per think-tick: flee hunter / clean splat / claim rainbow / sever (cruise-first) / IMBA potato+shrink / BUILD chain in home sector with difficulty-tuned aim error, cooldowns, bond-density optimization.",
+      "scope": "src/bots/botBrain.ts (+config tuning), tests",
+      "testing": "per-difficulty goal arbitration unit tests on synthetic worlds; NOOB vs IMBA differential; no-Math.random sweep",
+      "check_completed": true,
+      "checkpoint_commit": "281ddb5",
+      "real_context_tokens_at_close": 470000,
+      "real_context_pct_at_close": 47,
+      "check_method": "S87 P3 (281ddb5): brain behaviors proven through the REAL dispatch pipeline (botGameplay.test.ts, 6 tests, all green first run): charged IMBA severs an enemy bond + charge consumed to 0; uncharged bot leaves bonds untouched over 10 sim-seconds (charge economy binds); IMBA triggers the rainbow (rainbows empty + player colors deranged vs before-join string); HARD flees a static hunter >200px while NOOB stays <200px (same seed); IMBA delivers a FREE potato ARMED within 300px of the enemy prim through PICKUP_POTATO/PLACE_POTATO; smart placement yields world.bonds.size strictly > prims-1 (more than a tree = redundancy weaving ran) via componentOf + pickRedundantBondTargets with the HUMAN path constants (k=3, 25deg, AUTO_BOND_RADIUS). Gates UNPIPED: tsc exit 0, full vitest 1349/1349 exit 0, bundle index 562.84 vite-kB = 549.65 KiB < 550 KiB charter with bot chunks lazy (botManager 11.01 kB, botSetupOverlay 4.40 kB)."
     },
     {
       "id": "P4",
-      "label": "S86 P4 — hide OS cursor over canvas during PLAYING (avatar IS the pointer) + faint local ghost dot only while pooped/benched",
+      "label": "S87 P4 — Multiplayer lobby split: Quick Match (discovery + self-promotion election) + all-ready start gate (LOBBY_READY + roster.ready)",
       "status": "completed",
       "phase": "ACT",
-      "check_completed": true,
-      "checkpoint_commit": "53b4251",
-      "real_context_tokens_at_close": 272000,
-      "real_context_pct_at_close": 27.2,
-      "check_method": "S86 P4 (53b4251): shouldHideOsCursor (PLAYING-only) drives BOTH app.renderer.events.cursorStyles.default AND a direct style write — the preview pass caught the real bug in the naive design: Pixi's EventSystem owns canvas.style.cursor and re-applies cursorStyles[mode] per pointer interaction, so a one-shot style write got clobbered (title-button hover left 'pointer' stuck over the live board); switching Pixi's OWN default mode survives every re-derivation (verified live: 'none' persists across pointermoves on the board, 'inherit' on title). Ghost ring: avatarRenderer.pointerGhost drawn at controls.cursor ONLY while shouldShowPointerGhost (benched || isCruiserDebuffed || residual poopedCursorTarget) — verified at OBJECT level (16px 2-instruction Graphics at cursor while pooped; cleared when healed). P3 live smoke same pass: pooped-far grab dispatches + rejects (bucket +1) + NO gesture; pooped-arrived grab lands (AttractDrag/Carried); eaten-mid-drag gesture dies + defensive drop + new grabs input-locked. Harness artifacts diagnosed honestly (letterbox css mapping; spatial-grid one-frame lag; fsmDrop player reconstruction staleing cached refs) — none were product bugs. ALSO fixed: 3 tsc errors in benchGate.test.ts that rode the P3 push (esbuild-vitest is type-blind; piped exit code masked tsc — S85 pipe lesson re-learned, re-ran unpiped). vitest 1312/1312; tsc exit 0 unpiped; bundle 548.3<550; zero console errors.",
-      "tier": "Micro",
+      "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "objective": "cursor:none on canvas during PLAYING only (single derived visibility fn); title/lobby/overlays keep normal cursor; ghost dot local-only while avatar!=cursor.",
-      "scope": "src/main.ts or render layer, src/render (ghost dot), tests where pure",
-      "testing": "vitest; preview screenshot PLAYING (no OS cursor artefacts) + title (cursor back); bundle <=550 KiB re-measured (render code)",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.ts",
-          "needle": "export function shouldShowPointerGhost"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "app.renderer.events.cursorStyles.default = cursorMode;"
-        }
-      ]
+      "objective": "Quick Match button in lobby select; discovery room gossip (host announce / self-promote / lexicographic demotion); standard join path with crypto attestation unchanged; quickmatch rooms require ALL seated players ready (>=2) then host auto-Begins; friends lobby byte-identical.",
+      "scope": "new src/net/quickmatch.ts (lazy), lobbyScreen/lobbyStateMachine quickmatch mode + READY button, protocol.ts LOBBY_READY kind + RosterEntry.ready (additive), hostHandlers ready tracking + auto-begin",
+      "testing": "election pure-helper tests, lobbyStateMachine quickmatch transitions, LOBBY_READY parse + roster validator tests; e2e lobby specs stay green",
+      "check_completed": true,
+      "checkpoint_commit": "7ca9497",
+      "real_context_tokens_at_close": 520000,
+      "real_context_pct_at_close": 52,
+      "check_method": "S87 P4 (7ca9497): Quick Match. PURE CORE has 21 unit tests (quickmatch.test.ts): decideQuickmatch election (seek/promote/join-smallest/peerless-demote-toward-smaller/host-with-peers-never-demote/own-code-skip/two-host-convergence/full-skip), qmPromoteDelayMs jitter determinism+range, isQuickmatchAllReady (<2 false / host-not-ready false / any-seated-peer-not-ready false / all-ready true / DEPARTED-PEER stale-bit can neither wedge nor falsely pass via live-seat intersection), rosterWithReady+qmReadyCount. PROTOCOL_VERSION 7->8 (LOBBY_READY match-gating kind — protocol.test + netHardening version pins updated). Bundle: quickmatch.ts is its OWN 2.69 kB lazy chunk (Trystero discovery); eager ready-gate helpers split to quickmatchGate.ts (no Trystero) so hostHandlers stays light. The lobby UI (~4 kB eager) breached 550 KiB (566.92 vite-kB=553.6 KiB) -> recovered by lazy-loading CodexOverlay (eager ONLY because godlyOrchestration imported unlockGodly from it; extracted to codexStore.ts) -> final index 554.58 vite-kB=541.6 KiB < 550. Gates UNPIPED: tsc exit 0; full vitest 1370/1370. LIVE-PREVIEW: Multiplayer lobby renders QUICK MATCH headline above the unchanged Host/Join panes (screenshot)."
     },
     {
       "id": "P5",
-      "label": "S86 P5 — USER-PREAPPROVED AMENDMENT: reorganize BACKLOG.md around core geometric-builder gameplay (primitive interaction matrix gaps: dot-square, line-circle do nothing), audit Claude-added vs user-asked items, plain-language roadmap for sessions ahead",
+      "label": "S87 P5 — Verification sweep + ship: full vitest, e2e lane, bundle charter, live bot playthrough proof, BACKLOG update, CI green",
       "status": "completed",
       "phase": "ACT",
-      "check_completed": true,
-      "checkpoint_commit": "cdcf4b5",
-      "real_context_tokens_at_close": 320000,
-      "real_context_pct_at_close": 32.0,
-      "check_method": "S86 P5: BACKLOG.md restructured — forward ROADMAP at top (source of truth for session selection), session history demoted below it. The roadmap is GROUNDED in an empirical combo-system audit run this session: combos.ts has 36 ordered pairs, 24 are literal 'Functional placeholder — generic bond' (incl. the user-named Dot→Square and Line→Circle), areaMultiplier is consumed by ZERO production code, isMagical is consumed by ZERO production code outside combos.ts (magic bonds score identically to placeholders — S84's +0.25 complexity applies to ALL bonds), discovery exists only as the title Codex with no in-match celebration. Tiers: T1 USER-MANDATED core game (G1a isMagical scoring premium; G1b behavior archetypes ECONOMY/DEFENSE/MOTION with determinism constraint; G2 family-traits + 2-4 placeholder promotions starting with the user-named pairs; G3 discovery toast+codex silhouettes; G4 build-feel juice) · T2 playtest loop (round 7 checklist + non-builder-win watch) · T3 infra with HONEST origin labels + host-migration explained in plain English (user asked 'what does that even mean') · T4 user-deferred VFX. Session protocol locked: regressions jump queue, otherwise lead Tier-1, no Claude/Council idea enters T1-3 without user sign-off (PARKED list), roadmap updated each close. S86 history entry written; verbatim user mandate quoted at top.",
-      "tier": "Micro",
+      "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "objective": "BACKLOG.md rewritten: every item traced to USER-ASK vs CLAUDE-SUGGESTED, prioritized by gameplay impact (geometry/builder depth first), infra items (host-migration etc.) explained in plain language + ranked honestly, multi-session roadmap section.",
-      "scope": "BACKLOG.md (+ mine past handoffs for explicit user asks)",
-      "testing": "n/a docs; user review next session",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "# ROADMAP — rewritten S86"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "24 of 36 combos are literal placeholders"
-        }
-      ]
+      "objective": "All suites green, bundle index chunk < 550 KiB, live preview proof of bots playing (cruise/haul/build/score), roadmap updated, deployed.",
+      "scope": "tests, BACKLOG.md, preview verification, CI",
+      "testing": "vitest full + e2e + bundle stat + preview screenshots",
+      "check_completed": true,
+      "checkpoint_commit": "PENDING-P5-COMMIT",
+      "real_context_tokens_at_close": 600000,
+      "real_context_pct_at_close": 60,
+      "check_method": "S87 P5 verification sweep. UNIT: full vitest 1370/1370 (was 1312) exit 0; tsc --noEmit exit 0 (unpiped, captured). BUNDLE: index 554.58 vite-kB = 541.6 KiB < 550 KiB charter (recovered from a 553.6 KiB breach by lazy-loading CodexOverlay — eager only via godlyOrchestration.unlockGodly, split to codexStore.ts); quickmatch.ts 2.69 kB + botManager 11.01 kB + botSetupOverlay 4.40 kB + codexOverlay 12.28 kB all lazy chunks. LIVE PREVIEW (real dev server, screenshots): (1) title shows Solo/Multiplayer/VS Bots/Codex; (2) VS Bots opens the lazy BotSetupOverlay (count stepper + per-bot NOOB/MID/HARD/IMBA + START); (3) started a 3-bot match — all 3 bots cruised, claimed, hauled and built FULLY-BONDED structures and scored income (seat1=12/12, seat2=5/5, seat3=9/9 bonded; leaderboard B2/B3/B4 climbing, P1 human=0), with the human seat 0 at 0 prims/0 score under no input — NO mis-attribution (clean-room re-test confirmed: byOwner={1:1} with zero human prims; the earlier seat-0 prims were an artifact of manual preview poking + harness pointer events, proven by reload+observe); (4) Multiplayer lobby renders QUICK MATCH headline above the unchanged Host/Join panes; (5) zero console errors. E2E: smoke + lobby-construction + nplayer + reconnect run locally — found+fixed 3 expected ripples from the version bump/7th-color (protocol-mismatch v8->current so test moved to v9; v2-test local-version string v7->v8; nplayer 6-player palette assertion sliced to the first MAX_PLAYERS=6) — all re-ran GREEN; remaining hazard specs (bomb/hunter/potato/rainbow/seagull/fog) grep-clean of palette/protocol/mode assumptions, gated by CI. ROADMAP: S87 session entry written; Tier-1 G1a+G3a remains the next build session."
     }
   ],
   "generative_cost_cap_usd": 10,
   "generative_cost_spent_prior_usd": 3.07,
   "budget_total": 1000000,
   "reflexion_entries_to_archive": [
-    "P1 #user-tuning-outranks-design-notes #lock-with-a-test-not-a-comment: S85 restored the 'designed' dim fog tier over the explicit S63 user tuning because the old design note read as a carry-forward while the user decision read as a mere knob — and the round-6 playtest caught it as a regression ('the stupid blue fog is back'). A documented decision provably failed to protect itself within 22 sessions; the fix layers LOCKED_DECISIONS §14 (rule: old design notes NEVER outrank newer user tuning; restores need a fresh same-session user ask) with constants.lock.test.ts, a CI tripwire whose failure message says 'you are overriding a USER decision'. LESSON: user-tuned values get a test-enforced lock at the moment of tuning, not a comment.",
-    "P2 #unit-test-the-drawing-not-just-the-math: the S85 hazard ring shipped with green unit tests (pure segment/alpha helpers) while the actual Graphics path drew a line from the WORLD ORIGIN to every ringed hazard — canvas-path semantics connect the pen to arc() start, and a freshly-cleared Graphics pen sits at (0,0). The user's screenshots were the detection. LESSON: when a feature's output surface is a Graphics path, pure-math helper tests are necessary but NOT sufficient — verify at the path/screenshot level (moveTo per dash; live screenshot now in the loop).",
-    "P3 #enforce-at-the-choke-point #the-gesture-is-a-verb-too: two consecutive sessions gated VERBS (S84 claim, S85 build) while the exploit lived in (a) the continuous DRAG gesture — a gate-rejected claim left the spark Free and the ungated AttractDrag lerp hauled it at full cursor speed forever — and (b) the bench dimension, which had NO reducer enforcement at all (input-layer onDown only; the catch force-drop even handed the eaten player their spark back into the live drag). Fixes: bench policy enforced ONCE at dispatch() entry via an explicit per-intent allow/deny map test-locked against CLIENT_INTENT_TYPES (a new verb cannot ship unclassified), and gesture ENTRY keyed on the CLAIM OUTCOME (dispatch is synchronous locally on host AND joiner via PREDICTABLE_ACTIONS — no local radius mirror to desync). LESSON: enumerate ALL consumers of a resource INCLUDING continuous gestures, and enforce actor-state locks at the dispatch choke point, not per-verb.",
-    "P4 #the-framework-owns-the-canvas-style #pipe-masking-recursed: Pixi v8's EventSystem re-applies cursorStyles[mode] on every pointer interaction, so the naive canvas.style.cursor='none' was silently clobbered by a button-hover 'pointer' — the durable switch is Pixi's OWN cursorStyles.default, and ONLY the live preview pass could reveal it. Separately the S85 pipe lesson RECURSED: 'tsc | head' returned the pipe's exit code, the P3 commit claimed 'tsc clean' for a tree whose NEW test file had 3 type errors (esbuild-vitest is type-blind), and CI's deploy build went RED until the P4 commit fixed them. LESSON: gates run unpiped with explicit exit capture — violated twice now, so check_method MUST quote the captured exit code, not assert cleanliness.",
-    "P5 #ground-roadmaps-in-code-audits #label-idea-origins: the user's frustration ('the whole point is being a geometric builder game and we have least focused on that') converted into an unarguable roadmap with three greps: 24 of 36 combos are literal 'Functional placeholder' entries (incl. the user-named Dot→Square and Line→Circle), isMagical has ZERO production consumers (magic bonds score the same as placeholders), areaMultiplier is dead data. A roadmap argued from measured gaps beats one argued from vibes; labeling every item USER-ASK vs CLAUDE/COUNCIL-SUGGESTED with a PARKED-until-sign-off rule structurally prevents the backlog from refilling with self-generated infra ahead of the user's game."
+    "P1 #canary-tests-pay-rent #unit-conventions-bite: the S63 palette canary fired EXACTLY as designed when the 7th seat color landed — it pointed at the duplicated e2e literal that had to move in the same commit. Separately the bundle charter was nearly mis-enforced twice in one session because prior sessions recorded KiB while vite prints kB (548.3 KiB == 561.45 kB): ALWAYS name the unit when recording a gate number, and when a gate reads >2% off baseline, rebuild the BASELINE commit in a worktree before assuming regression.",
+    "P2 #bots-are-remote-players #choke-point-dividends: implementing bots as ordinary seated players that may only dispatch CLIENT_INTENT-shaped actions meant every S84-S86 exploit fix (bench gate, poop arrival gates, reach validation, territory blocks) bound the bots ON DAY ONE with zero bot-specific enforcement code — the S86 dispatch-entry choke point paid its first structural dividend. The one crash class was the OPPOSITE direction: reducers that THROW on caller bugs (fsmPickup CarryViolation) are lethal to an autonomous actor, so the controller needs claim-outcome confirmation + self-heal, mirroring what controls.ts does for humans.",
+    "P3 #reuse-the-human-path-helpers: the bot redundancy weaving is the human LMB-up path verbatim (componentOf + pickRedundantBondTargets + same constants) — when an AI actor needs a capability a human has, importing the human path pure helpers is both cheaper AND provably consistent (same geometry, same caps), vs re-deriving bot-flavored variants that drift.",
+    "P4 #split-the-eager-from-the-lazy-at-the-import-boundary: a new feature whose UI is eager (the lobby quickmatch buttons) breached the bundle charter by ~4 KiB. The fix was NOT to trim the feature but to find pre-existing eager weight that should have been lazy all along — CodexOverlay was eager ONLY because the always-eager godlyOrchestration imported a tiny localStorage helper (unlockGodly) from the same module as the heavy Pixi class. Extracting the helper to codexStore.ts let the 12 kB overlay become a lazy chunk, recovering 3x the headroom needed. LESSON: when an eager addition breaches charter, audit the import graph for heavy modules pulled eager by a TINY shared symbol — splitting that symbol is cheaper + cleaner than shrinking the new feature. Also: the Trystero-importing discovery had to be split from the ready-gate helpers (quickmatch.ts vs quickmatchGate.ts) so hostHandlers could use the gate eagerly without dragging Trystero into index.",
+    "P5 #a-version-bump-ripples-into-every-hardcoded-literal: PROTOCOL_VERSION 7->8 + a 7th PLAYER_COLOR broke 5 tests across unit (2 protocol pins, 1 palette canary, 1 netHardening hello-builder) AND e2e (2 protocol-mismatch version literals, 1 nplayer 6-color assertion) — none caught by tsc, all by running the suites. The palette canary FIRED EXACTLY as the S63 author intended (it exists to force the e2e literal to move in lockstep). LESSON: a wire-version or palette-cardinality change is a cross-cutting edit — grep ALL test files (unit AND e2e) for the old literal in the same commit, and expect the e2e lane (not just vitest) to surface the rest. The e2e protocol-mismatch tests specifically encode current/older/newer RELATIVE to PROTOCOL_VERSION, so a bump always moves the newer-peer literal to PROTOCOL_VERSION+1.",
+    "P5 #verify-attribution-in-vivo-not-just-in-vitro #harness-pointer-artifacts: the live preview briefly showed the human seat (0) accumulating prims it never built — alarming (the S84 non-builder-win class). Root cause was NOT a bug: synthesized button-clicks + a cursor parked in the play area + the preview harness generating pointer events drove real human builds. A clean-room reload (start match, then ONLY read-only evals, cursor left off-board) proved byOwner={1:1} with the human at 0 — bots attribute to their own seats, the human builds only on real input. LESSON: when a live-preview anomaly looks like a known bug class, do a clean-room re-test that eliminates harness-generated input BEFORE concluding it is real; manual preview pokes (injected entities, synthesized clicks, parked cursor) contaminate attribution."
   ],
-  "analyze_retrospective": {
-    "mode": "compact inline (GREEN ~35% — ZERO self-retrospective + Council CHECK calibration)",
-    "method_effectiveness": "Diagnose-before-PDR carried the session: all four regressions were root-caused from code + the user's screenshots BEFORE the Council round (the origin-line bug was identified from screenshot geometry alone — lines radiating from screen top-left = world origin = missing moveTo). The Standard 1-round Trident Strike earned its cost: Grok's central-gate challenge (CONCEDED) is structurally better than the per-verb plan, and his desync risk killed a flawed R1 drag-cancel design before it shipped (PRIME-AUDIT replaced it with claim-outcome keying). The live preview pass caught the one real bug no static gate could (Pixi cursor-style ownership) AND executed the full pooped/eaten exploit matrix through the real input path.",
-    "check_calibration": "CHECK Triumvirate: RALPH PASS · Gemini CONDITIONAL PASS (sole condition = hazard-ring evidence it was not shown; evidence exists in-session: 8e328cd hunk + live screenshot — condition satisfied) · Grok FAIL with 4/4 findings REJECTED on file/line evidence (lerp-after-return misread control flow; moveTo-angle misread the code; the optimistic-window claim is the inherent bounded self-healing prediction window and his own repro contradicted itself; same-frame toggle has no observable defect). Verdict SHIP at 2/3. Grok CHECK false-alarm rate this session: 4/4 — calibration row for the rolling window; his PLAN-phase contribution was simultaneously the session's most valuable adoption, so the lens split (PLAN strong / CHECK noisy) is the signal to track.",
-    "process_failures_owned": "(1) The S85 'never pipe a gate' lesson recursed — tsc piped through head reported the pipe's exit code, 3 test-file type errors rode the P3 push, CI deploy went RED until P4 fixed them (owned in the P4 commit message). (2) The first GROK-ANALYST CHECK call shipped with the diff MISSING after 'THE COMPLETE PRODUCTION DIFF:' — the exact S84 vacuous-review failure — but the S84-derived guard instruction worked: Grok refused to verdict instead of hallucinating; re-sent with hunks embedded. (3) Three preview-harness false alarms (letterbox css mapping, spatial-grid frame lag, fsmDrop stale player refs) cost ~4 eval rounds before the real assertions ran — none were product bugs, all diagnosed rather than papered over.",
-    "wins": "4 user-visible regressions fixed + LIVE on spark-online.space same session (P4 E2E+Deploy SUCCESS); eaten/pooped enforcement is now structural (choke-point + test-locked policy) rather than whack-a-verb; the fog decision can no longer silently regress; the backlog is a user-first roadmap grounded in a measured combo-system audit; bonus fixes: pickupPoopedTooFar reset leak (since S84) + stuck-gesture-after-bench hole (found by probe, not playtest).",
-    "session_cost": "Generative $0. Council API: Grok 3 calls + Gemini 2 calls (~$0.06). 5 commits (b0f3913, 8e328cd, 4849393, 53b4251, cdcf4b5), 5/5 priorities, vitest 1299→1312, bundle 548.3<550 KiB, CI green on tip."
-  },
-  "session_status": "S86 COMPLETE: 5/5 priorities shipped + pushed, CI green on 53b4251 lineage (P3 deploy red explained + fixed by P4), CHECK Triumvirate SHIP (2/3; Grok 4/4 findings refuted on evidence), live site carries all fixes — awaiting playtest round 7",
+  "session_status": "S87 COMPLETE: 5/5 priorities shipped; P1-P3 pushed (281ddb5), P4 committed (7ca9497), P5 pending commit+push; vitest 1370/1370, tsc 0, bundle 541.6 KiB < 550, live-preview bot-play verified, e2e green (4 specs run + version/palette ripples fixed)",
   "totals": {
     "turns": 0,
     "budget_remaining": 1000000,

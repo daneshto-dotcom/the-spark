@@ -41,6 +41,9 @@ import {
 // so no import — the values are asserted against the live world below + locked by
 // src/state/nplayerSeating.test.ts's distinctness guard).
 const PLAYER_COLORS = [0xff3b6b, 0x3bd7ff, 0xffe23b, 0x44ff5e, 0xff8c1a, 0xd73bff, 0xc0c8d0]; // S87: +bots-only silver
+// S87 — the NETWORKED seat palette is the first MAX_PLAYERS=6 (the 7th silver is
+// reachable only in local VS-BOTS mode, which has no e2e wire path).
+const NETWORKED_COLORS = PLAYER_COLORS.slice(0, 6);
 
 /** Seam injection mirror of smoke.spec.ts: fog off (swiftshader perf) + fast spawn + low win. */
 async function prepCtx(ctx: BrowserContext, spawnRate = 1.5, winScore = 3): Promise<void> {
@@ -213,16 +216,18 @@ test.describe('S63 - 6-player render: MAX_PLAYERS seated + avatars/HUD render wi
         });
         w.scoreByPlayer.set(seat, seat); // distinct scores so the leaderboard ranks all 6
       }
-    }, PLAYER_COLORS);
+      // S87 P4 — a NETWORKED match seats MAX_PLAYERS=6; PLAYER_COLORS now has a
+      // 7th (bots-mode-only silver), so this 6-player render asserts the first 6.
+    }, NETWORKED_COLORS);
 
     // Let the render loop run a full second over 6 players (catches a render crash).
     await page.waitForTimeout(1000);
 
     const s = await readWorldState(page);
     expect(s.players.length).toBe(6);
-    // The 6 live colours == the full PLAYER_COLORS palette (incl orange + magenta).
+    // The 6 live colours == the 6 NETWORKED seat colours (incl orange + magenta).
     expect(s.players.map((p) => p.color).sort((x, y) => x - y)).toEqual(
-      [...PLAYER_COLORS].sort((x, y) => x - y),
+      [...NETWORKED_COLORS].sort((x, y) => x - y),
     );
     // 6 distinct radial positions (no overlap at MAX_PLAYERS).
     expect(new Set(s.players.map((p) => `${p.avatarPos.x},${p.avatarPos.y}`)).size).toBe(6);
@@ -266,10 +271,10 @@ test.describe('S63 - 6-player render: MAX_PLAYERS seated + avatars/HUD render wi
         }
       }
       return found;
-    }, PLAYER_COLORS);
+    }, NETWORKED_COLORS);
     expect(
       renderedColors,
-      `every PLAYER_COLOR must be drawn on the canvas; found=${JSON.stringify(renderedColors)}`,
+      `every networked PLAYER_COLOR must be drawn on the canvas; found=${JSON.stringify(renderedColors)}`,
     ).toEqual([true, true, true, true, true, true]);
 
     await page.screenshot({ path: 'test-results/s63-6player-hud.png' });
