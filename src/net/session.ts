@@ -75,6 +75,21 @@ export interface NetSession {
    * (2) the auto-reconnect retry (rejoin the same room). Cleared on teardown.
    */
   roomCode: string | null;
+  /**
+   * S87 P4 — TRUE while this session is a QUICKMATCH room (host or client).
+   * Gates the ready-button UI + the host's all-ready auto-Begin; friends
+   * lobbies stay byte-identical. Cleared on teardown.
+   */
+  quickmatch: boolean;
+  /**
+   * S87 P4 — HOST-side per-peer readiness (keyed by transport peerId — never
+   * a wire-claimed identity). Pruned implicitly: the auto-begin check
+   * intersects with the CURRENT lobbySeats, so a departed peer's stale flag
+   * can never wedge or trip the gate. Cleared on teardown.
+   */
+  qmReadyPeers: Map<string, boolean>;
+  /** S87 P4 — this peer's own readiness (host: gates auto-Begin; client: mirrors the last sent LOBBY_READY). */
+  qmSelfReady: boolean;
 }
 
 export function makeNetSession(): NetSession {
@@ -89,6 +104,9 @@ export function makeNetSession(): NetSession {
     hostAttest: null,
     hostVerifiedPeerId: null,
     roomCode: null,
+    quickmatch: false,
+    qmReadyPeers: new Map(),
+    qmSelfReady: false,
   };
 }
 
@@ -138,5 +156,10 @@ export function teardownNet(
   session.hostAttest = null;
   session.hostVerifiedPeerId = null;
   session.roomCode = null;
+  // S87 P4 — quickmatch state dies with the session (a re-host/re-join must
+  // opt back in; the QM orchestrator in main.ts re-sets the flag on demote).
+  session.quickmatch = false;
+  session.qmReadyPeers.clear();
+  session.qmSelfReady = false;
   triggerAudioCursorReset();
 }

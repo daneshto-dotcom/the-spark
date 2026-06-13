@@ -30,6 +30,7 @@ import {
   verifyHostAttest,
 } from './hostIdentity.ts';
 import {
+  PROTOCOL_VERSION,
   ROOM_CODE_ALPHABET,
   isClientIntentAllowed,
   parseNetMessage,
@@ -130,7 +131,7 @@ describe('S82 P4 — wire validation of hostAttest (parseNetMessage)', () => {
     kind: 'HELLO',
     playerId: 0,
     color: PLAYER_COLORS[0],
-    protoVersion: 7,
+    protoVersion: PROTOCOL_VERSION, // S87 P4 — track the live version (was hardcoded 7)
     ...extra,
   });
 

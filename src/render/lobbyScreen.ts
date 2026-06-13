@@ -75,6 +75,12 @@ export interface LobbyScreenCallbacks {
   onBeginMatch(): void;
   onBackToTitle(): void;
   onReturnFromConnectionLost(): void;
+  /** S87 P4 — start QUICK MATCH (main.ts owns the discovery orchestration; it
+   *  drives this screen into hosting/joining via applyQuickmatchHosting/Joining). */
+  onQuickMatch(): void;
+  /** S87 P4 — this player's readiness changed in a quickmatch room. `ready` is
+   *  the new (post-toggle) state — the button is the single source of truth. */
+  onToggleReady(ready: boolean): void;
 }
 
 /** S85 P4c — shape returned by the DEV-only getUiPoints e2e geometry getter. */
@@ -83,6 +89,9 @@ export interface LobbyUiPointsView {
   joinButton: { x: number; y: number };
   beginButton: { x: number; y: number };
   backButton: { x: number; y: number };
+  // S87 P4 — QUICK MATCH entry + the in-room READY toggle (e2e click targets).
+  quickMatchButton: { x: number; y: number };
+  readyButton: { x: number; y: number };
   joinPaneRect: { x: number; y: number; w: number; h: number };
   joinInputRect: { x: number; y: number; w: number; h: number };
 }
@@ -108,6 +117,18 @@ export class LobbyScreen {
   // S85 P4c — captured for getUiPoints (the e2e geometry-getter migration).
   private hostBtnRef: Container;
   private backBtnRef: Container;
+  // S87 P4 — QUICK MATCH (select pane) + the in-room READY toggle + ready tally.
+  private quickMatchBtnRef: Container;
+  private readyButton: Container;
+  private readyButtonBg: Graphics;
+  private readyButtonText: Text;
+  private readyCountText: Text;
+  /** S87 P4 — shell flag: true once the QUICK MATCH flow started (cleared on
+   *  reset). Drives READY-button visibility + hides the manual Begin. NOT in the
+   *  pure reducer — the mode machine (select/hosting/joining) is unchanged. */
+  private quickmatch = false;
+  /** S87 P4 — this player's own ready state (mirrors the READY toggle). */
+  private selfReady = false;
   // S39 P1 — visible-to-user wire diagnostics. Renders below statusText
   // whenever the peer is joining + has a connected host. Without this, a
   // peer stuck on "Waiting for host to begin" has no signal whether the
@@ -334,6 +355,52 @@ export class LobbyScreen {
     this.beginButton.visible = false;
     this.container.addChild(this.beginButton);
 
+    // S87 P4 — QUICK MATCH entry (SELECT pane only): match up to 6 strangers,
+    // everyone clicks READY to start. Centered above the Host/Join panes so it
+    // reads as the headline option. main.ts owns the discovery + drives this
+    // screen into hosting/joining via applyQuickmatch*.
+    const quickMatchBtn = this.makeButton('QUICK MATCH', 0x9bff3b, () => {
+      callbacks.onQuickMatch();
+    });
+    quickMatchBtn.position.set(CANVAS_WIDTH / 2 - BUTTON_WIDTH / 2, paneY - 70);
+    this.container.addChild(quickMatchBtn);
+    this.quickMatchBtnRef = quickMatchBtn;
+
+    // S87 P4 — in-room READY toggle (quickmatch only). Shares the Begin slot
+    // (Begin is hidden in quickmatch). Click flips readiness; the host
+    // auto-Begins once everyone is ready.
+    this.readyButton = new Container();
+    this.readyButtonBg = new Graphics();
+    this.readyButton.addChild(this.readyButtonBg);
+    this.readyButtonText = new Text({
+      text: 'READY',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 18, fill: 0x9bff3b }),
+    });
+    this.readyButtonText.anchor.set(0.5);
+    this.readyButtonText.position.set(BUTTON_WIDTH / 2, BUTTON_HEIGHT / 2);
+    this.readyButton.addChild(this.readyButtonText);
+    this.readyButton.eventMode = 'static';
+    this.readyButton.cursor = 'pointer';
+    this.readyButton.on('pointertap', () => {
+      this.selfReady = !this.selfReady;
+      this.paintReadyButton();
+      callbacks.onToggleReady(this.selfReady);
+    });
+    this.readyButton.position.set(CANVAS_WIDTH / 2 - BUTTON_WIDTH / 2, paneY + PANE_HEIGHT + 70);
+    this.readyButton.visible = false;
+    this.container.addChild(this.readyButton);
+    this.paintReadyButton();
+
+    // S87 P4 — "ready k/n" tally, above the READY button.
+    this.readyCountText = new Text({
+      text: '',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 18, fill: 0x9bff3b, letterSpacing: 2 }),
+    });
+    this.readyCountText.anchor.set(0.5);
+    this.readyCountText.position.set(CANVAS_WIDTH / 2, paneY + PANE_HEIGHT + 40);
+    this.readyCountText.visible = false;
+    this.container.addChild(this.readyCountText);
+
     // Back button
     const backBtn = this.makeButton('Back to Title', 0x888888, () => {
       this.reset();
@@ -428,6 +495,11 @@ export class LobbyScreen {
     // SM-owned surface (mode / status / colour / Begin / code / pane-alphas) via
     // the view; everything else is shell-owned and cleared verbatim as before.
     this.state = lobbyReduce(this.state, { type: 'RESET' });
+    // S87 P4 — clear the quickmatch shell flags BEFORE applyView so the READY
+    // surfaces hide and the manual-Begin gating returns to friends-lobby rules.
+    this.quickmatch = false;
+    this.selfReady = false;
+    this.paintReadyButton();
     this.applyView();
     this.connectionLostHandle.setVisible(false);
     this.inputEl.value = '';
@@ -516,6 +588,9 @@ export class LobbyScreen {
       joinButton: center(this.joinPane.position.x, this.joinPane.position.y, this.joinButton),
       beginButton: center(0, 0, this.beginButton),
       backButton: center(0, 0, this.backBtnRef),
+      // S87 P4 — quickmatch click targets (top-left-anchored roundRects → center).
+      quickMatchButton: center(0, 0, this.quickMatchBtnRef),
+      readyButton: center(0, 0, this.readyButton),
       joinPaneRect: {
         x: this.joinPane.position.x, y: this.joinPane.position.y,
         w: PANE_WIDTH, h: PANE_HEIGHT,
@@ -625,7 +700,11 @@ export class LobbyScreen {
     if (this.codeText.text !== v.code) this.codeText.text = v.code;
     if (this.statusText.text !== v.status) this.statusText.text = v.status;
     this.statusText.style.fill = v.statusColor;
-    if (this.beginButton.visible !== v.beginVisible) this.beginButton.visible = v.beginVisible;
+    // S87 P4 — in QUICK MATCH there is NO manual Begin (the all-ready gate
+    // auto-begins); the READY toggle takes the Begin slot. Friends lobby is
+    // unchanged: Begin per the reducer, READY hidden.
+    const beginVisible = this.quickmatch ? false : v.beginVisible;
+    if (this.beginButton.visible !== beginVisible) this.beginButton.visible = beginVisible;
 
     // S69 P2 — the SELECT screen shows the two entry panes; once in a room they
     // hide and the 6-seat rack + room code + count line take over. The control
@@ -642,6 +721,23 @@ export class LobbyScreen {
       this.seatRack.update(v.seats);
       const countStr = `Room ${v.totalPlayers}/${MAX_PLAYERS}${v.roomFull ? ' — FULL' : ''}`;
       if (this.countText.text !== countStr) this.countText.text = countStr;
+    }
+
+    // S87 P4 — QUICK MATCH surfaces: the headline button only in select; the
+    // READY toggle + "ready k/n" tally only once in a quickmatch room.
+    const showQuickMatch = !inRoom;
+    if (this.quickMatchBtnRef.visible !== showQuickMatch) {
+      this.quickMatchBtnRef.visible = showQuickMatch;
+    }
+    const showReady = this.quickmatch && inRoom;
+    if (this.readyButton.visible !== showReady) this.readyButton.visible = showReady;
+    if (this.readyCountText.visible !== showReady) this.readyCountText.visible = showReady;
+    if (showReady) {
+      const roster = v.presenceRoster;
+      const ready = roster !== null ? roster.filter((e) => e.ready === true).length : (this.selfReady ? 1 : 0);
+      const total = roster !== null ? roster.length : v.totalPlayers;
+      const tally = `READY ${ready}/${total} — match starts when all ready (≥2)`;
+      if (this.readyCountText.text !== tally) this.readyCountText.text = tally;
     }
   }
 
@@ -681,5 +777,53 @@ export class LobbyScreen {
     c.cursor = 'pointer';
     c.on('pointertap', onClick);
     return c;
+  }
+
+  /** S87 P4 — repaint the READY toggle to reflect this player's own state. */
+  private paintReadyButton(): void {
+    const color = this.selfReady ? 0x9bff3b : 0xaaaaaa;
+    this.readyButtonBg.clear();
+    this.readyButtonBg
+      .roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8)
+      .fill({ color: this.selfReady ? 0x163a16 : 0x222222, alpha: 0.9 })
+      .stroke({ width: 2, color, alpha: 0.85 });
+    this.readyButtonText.text = this.selfReady ? 'READY ✓' : 'READY?';
+    this.readyButtonText.style.fill = color;
+  }
+
+  /**
+   * S87 P4 — enter QUICK MATCH (shell flag). main.ts calls this when the user
+   * clicks QUICK MATCH, BEFORE the discovery resolves; the screen shows a
+   * "finding players" status and hides the manual Begin. Cleared by reset().
+   */
+  setQuickmatch(on: boolean): void {
+    this.quickmatch = on;
+    if (on) {
+      this.selfReady = false;
+      this.paintReadyButton();
+    }
+    this.applyView();
+  }
+
+  /**
+   * S87 P4 — the discovery elected US host. Drive the SAME reducer transition
+   * the friends "Host New Room" button does (so the rack/code/in-room view
+   * appears) while keeping the quickmatch shell flag set (READY not Begin).
+   */
+  applyQuickmatchHosting(code: string): void {
+    this.state = lobbyReduce(this.state, { type: 'HOST_START', code });
+    this.applyView();
+    this.updateInputVisibility();
+  }
+
+  /**
+   * S87 P4 — the discovery told us to JOIN an advertised host. Drive the same
+   * reducer transition the friends Connect button does (the discovered code is
+   * a real, valid room code, so JOIN_ATTEMPT transitions to 'joining').
+   */
+  applyQuickmatchJoining(code: string): void {
+    this.state = lobbyReduce(this.state, { type: 'JOIN_ATTEMPT', code });
+    this.applyView();
+    this.updateInputVisibility();
   }
 }

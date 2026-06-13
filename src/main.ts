@@ -58,6 +58,11 @@ import type { RosterEntry } from './net/protocol.ts';
 import { makeNetSession, teardownNet } from './net/session.ts';
 import { createHostStartHandler, createBeginMatchHandler } from './net/hostHandlers.ts';
 import { connectAsClient, createJoinAttemptHandler } from './net/clientHandlers.ts';
+// S87 P4 — QUICK MATCH. The ready-gate/presence helpers are eager-safe (no
+// Trystero import); the QuickmatchDiscovery class is the LAZY half, imported on
+// the first "Quick Match" click so the index chunk stays under charter.
+import { broadcastQmPresence, maybeQmAutoBegin } from './net/quickmatchGate.ts';
+import type { QuickmatchDiscovery } from './net/quickmatch.ts';
 import { generateHostIdentity } from './net/hostIdentity.ts';
 import { formatStrategySummary } from './net/strategySummary.ts';
 import { SpatialGrid } from './physics/spatial.ts';
@@ -94,7 +99,11 @@ import { TitleScreen } from './render/titleScreen.ts';
 import { HUD } from './render/ui.ts';
 import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
 import { makeCinematicVignette } from './render/cinematicVignette.ts';
-import { CodexOverlay, entryFromRecipe } from './render/codexOverlay.ts';
+// S87 P4 — CodexOverlay is LAZY (shown only on a Codex click). Lazy-loading it
+// frees ~index-chunk headroom for the quickmatch UI (the heavy Pixi overlay was
+// only eager because godlyOrchestration imported unlockGodly from it — now split
+// to codexStore.ts). Type-only import is erased; the class loads on demand.
+import type { CodexOverlay } from './render/codexOverlay.ts';
 import { CreatureRenderer } from './render/creatureRenderer.ts';
 import { BombRenderer } from './render/bombRenderer.ts';
 import { HunterRenderer } from './render/hunterRenderer.ts';
@@ -379,14 +388,24 @@ async function bootstrap(): Promise<void> {
   };
   const cutsceneOverlay = new CutsceneOverlay(app);
   const vignette = makeCinematicVignette(app);
-  const codexEntries = listRecipes().map((recipe) => entryFromRecipe(
-    recipe,
-    recipe.id.toUpperCase(),
-    recipeHint(recipe.id),
-  ));
-  const codexOverlay = new CodexOverlay(app, codexEntries, () => {
-    codexOverlay.setVisible(false);
-  });
+  // S87 P4 — CodexOverlay is created lazily on first open (the botSetupOverlay
+  // pattern). recipeHint + listRecipes are cheap + already eager; the heavy
+  // Pixi overlay class + its Assets/ColorMatrixFilter usage load on demand.
+  let codexOverlay: CodexOverlay | null = null;
+  const openCodex = (): void => {
+    void (async () => {
+      if (codexOverlay === null) {
+        const mod = await import('./render/codexOverlay.ts');
+        const codexEntries = listRecipes().map((recipe) =>
+          mod.entryFromRecipe(recipe, recipe.id.toUpperCase(), recipeHint(recipe.id)),
+        );
+        codexOverlay = new mod.CodexOverlay(app, codexEntries, () => {
+          codexOverlay?.setVisible(false);
+        });
+      }
+      codexOverlay.setVisible(true);
+    })();
+  };
 
   // ===== S87 — VS-BOTS: lazy overlay + lazy manager =====
   // The manager exists ONLY during a bots match (armed on START MATCH, dropped
@@ -437,13 +456,16 @@ async function bootstrap(): Promise<void> {
       dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
     },
     on1v1Selected: () => {
+      // S87 P4 — guarantee a clean SELECT state on entry (clears any stale
+      // quickmatch shell flag / mode from a prior aborted session).
+      lobbyScreen.reset();
       world.gameState = 'LOBBY';
     },
     onVsBotsSelected: () => {
       openBotSetup();
     },
     onCodexSelected: () => {
-      codexOverlay.setVisible(true);
+      openCodex();
     },
   });
 
@@ -462,13 +484,38 @@ async function bootstrap(): Promise<void> {
   // Late-bound like onLobbyError so it can reference lobbyScreen before it exists.
   const onPresence = (roster: readonly RosterEntry[]): void => {
     lobbyScreen.updatePresence(
-      roster.map((e) => ({ seat: e.seat, color: e.color, isYou: e.peerId === selfId })),
+      // S87 P4 — carry the quickmatch ready flag through to the seat presence
+      // (undefined in friends lobbies → no UI change there).
+      roster.map((e) => ({ seat: e.seat, color: e.color, isYou: e.peerId === selfId, ready: e.ready })),
     );
   };
   // S82 P4(a) — resolve the boot-time identity (started before Pixi init; in practice
   // already settled long before a human can click "Host New Room").
   const hostIdentity = await hostIdentityPromise;
-  const onHostStart = createHostStartHandler({ session, world, hostIdentity, onLobbyError, onPresence });
+  // S87 P4 — onBeginMatch is built FIRST so the quickmatch auto-begin gate (passed
+  // into the host-start handler below) can reference it.
+  const onBeginMatch = createBeginMatchHandler({ session, world });
+  // S87 P4 — QUICK MATCH discovery orchestration. The discovery instance is the
+  // LAZY chunk (imported on first click); main.ts owns the host/client wiring it
+  // drives. stopQuickmatch is idempotent (covers match-begin, back-to-title,
+  // peer-drop). qmDiscovery!==null ⇔ a discovery is live.
+  let qmDiscovery: QuickmatchDiscovery | null = null;
+  const stopQuickmatch = (): void => {
+    if (qmDiscovery !== null) {
+      qmDiscovery.stop();
+      qmDiscovery = null;
+    }
+  };
+  // The all-ready gate fires this; ignore it once the match has left LOBBY so a
+  // late LOBBY_READY can't re-dispatch START_GAME (idempotency, Council F4).
+  const onAutoBegin = (): void => {
+    if (world.gameState !== 'LOBBY') return;
+    stopQuickmatch();
+    onBeginMatch();
+  };
+  const onHostStart = createHostStartHandler({
+    session, world, hostIdentity, onLobbyError, onPresence, onAutoBegin,
+  });
   const clientJoinDeps = {
     session,
     world,
@@ -477,21 +524,77 @@ async function bootstrap(): Promise<void> {
     onPresence,
   };
   const onJoinAttempt = createJoinAttemptHandler(clientJoinDeps);
-  const onBeginMatch = createBeginMatchHandler({ session, world });
+
+  // S87 P4 — start QUICK MATCH: spin up the discovery (lazy), which elects this
+  // peer as host or joins an advertised room, then the all-ready gate begins the
+  // match. session.quickmatch is (re)asserted on every become-host/join so it
+  // survives the demote teardown (teardownNet clears it).
+  const startQuickmatch = (): void => {
+    if (qmDiscovery !== null) return; // already searching
+    session.quickmatch = true;
+    lobbyScreen.setQuickmatch(true);
+    void import('./net/quickmatch.ts').then((qm) => {
+      if (!session.quickmatch) return; // user backed out before the chunk loaded
+      qmDiscovery = new qm.QuickmatchDiscovery({
+        becomeHost: () => {
+          session.quickmatch = true;
+          const code = onHostStart();
+          lobbyScreen.applyQuickmatchHosting(code);
+          return code;
+        },
+        joinCode: (code) => {
+          session.quickmatch = true;
+          connectAsClient(clientJoinDeps, code);
+          lobbyScreen.applyQuickmatchJoining(code);
+        },
+        teardownHost: () => {
+          teardownNet(session, world, controls, P1);
+        },
+        hostPeerCount: () =>
+          session.netTransport !== null ? session.netTransport.peerCount() : 0,
+      });
+      qmDiscovery.start();
+    });
+  };
+  // S87 P4 — READY toggle (host + client). `ready` is the post-flip UI state
+  // (single source of truth — lobbyScreen owns the button, passes the value).
+  const onToggleReady = (ready: boolean): void => {
+    session.qmSelfReady = ready;
+    if (world.isHost && session.netTransport !== null) {
+      broadcastQmPresence(session, session.netTransport, onPresence);
+      maybeQmAutoBegin(session, onAutoBegin);
+    } else if (session.netTransport !== null) {
+      session.netTransport.send({ kind: 'LOBBY_READY', ready });
+    }
+  };
 
   lobbyScreen = new LobbyScreen(app, {
-    onHostStart,
-    onJoinAttempt,
+    // Friends-lobby Host/Join: stop any in-flight quickmatch discovery + clear
+    // the flag so a deliberate friends room never inherits quickmatch gating.
+    onHostStart: () => {
+      stopQuickmatch();
+      session.quickmatch = false;
+      return onHostStart();
+    },
+    onJoinAttempt: (code: string) => {
+      stopQuickmatch();
+      session.quickmatch = false;
+      onJoinAttempt(code);
+    },
     onBeginMatch,
+    onQuickMatch: startQuickmatch,
+    onToggleReady,
     onBackToTitle: () => {
       // S31 P0-2 (PRIME-AUDIT Δ5 scope amendment) — route through reducer
       // dispatch so the new applyReturnToTitle cinematic-state-clear cleanup
       // applies on the lobby-back path too. Pre-S31 this set gameState
       // directly which bypassed the reducer cleanup entirely.
+      stopQuickmatch();
       teardownNet(session, world, controls, P1);
       dispatch(world, { type: 'RETURN_TO_TITLE' });
     },
     onReturnFromConnectionLost: () => {
+      stopQuickmatch();
       teardownNet(session, world, controls, P1);
       dispatch(world, { type: 'RETURN_TO_TITLE' });
     },

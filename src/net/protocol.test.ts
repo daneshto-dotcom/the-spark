@@ -71,8 +71,8 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 7 (S77 P3 bump from 6 — seagull global income-affecting hazard)', () => {
-    expect(PROTOCOL_VERSION).toBe(7);
+  it('PROTOCOL_VERSION is 8 (S87 P4 bump from 7 — LOBBY_READY quickmatch start gate)', () => {
+    expect(PROTOCOL_VERSION).toBe(8);
   });
 
   it('accepts a HELLO with current protoVersion', () => {
@@ -292,7 +292,7 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
     expect(parseNetMessage({ kind: 'LOBBY_PRESENCE', roster: exactlyMax })).not.toBeNull();
   });
 
-  it('S70 graceful-degradation contract holds; PROTOCOL_VERSION is 6 after the S75 rainbow-intent bump', () => {
+  it('S70 graceful-degradation contract holds; PROTOCOL_VERSION is 8 after the S87 LOBBY_READY bump', () => {
     // S70's LOBBY_PRESENCE was cosmetic and did NOT bump the version on its own:
     // unknown kinds fail CLOSED (fall through parseNetMessage's default → null, not
     // a throw), so a stale peer degrades to the count-based rack and can still play.
@@ -304,7 +304,10 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
     // S77 P3 — bumped 6→7 for the SEAGULL hazard: no new client intent (cleaning is host-detected),
     // but its global income-affecting foul would confuse a stale v6 peer, so it is hard-rejected at
     // HELLO (the rainbow precedent — Council CONVERGED).
-    expect(PROTOCOL_VERSION).toBe(7);
+    // S87 P4 — bumped 7→8 for LOBBY_READY: a stale v7 peer in a QUICKMATCH room could never send
+    // the readiness toggle, so the host's all-ready START GATE would stall forever on its silence
+    // (Council F4 CONCEDED→GEMINI — match-gating, unlike the cosmetic LOBBY_PRESENCE precedent).
+    expect(PROTOCOL_VERSION).toBe(8);
     expect(
       parseNetMessage({ kind: 'SOME_FUTURE_KIND', roster: [{ seat: 0, peerId: 'h', color: 1 }] }),
     ).toBeNull();

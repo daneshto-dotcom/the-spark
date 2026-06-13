@@ -129,7 +129,12 @@ function rostersEqual(
   if (a === null || b === null) return false;
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
-    if (a[i].seat !== b[i].seat || a[i].color !== b[i].color || a[i].isYou !== b[i].isYou) {
+    if (
+      a[i].seat !== b[i].seat ||
+      a[i].color !== b[i].color ||
+      a[i].isYou !== b[i].isYou ||
+      a[i].ready !== b[i].ready // S87 P4 — re-render on a readiness change
+    ) {
       return false;
     }
   }
@@ -278,6 +283,9 @@ export interface SeatPresence {
   readonly seat: number;
   readonly color: number;
   readonly isYou: boolean;
+  /** S87 P4 — QUICKMATCH readiness (undefined in friends lobbies). Drives the
+   *  "ready k/n" line + per-seat ready tick. */
+  readonly ready?: boolean;
 }
 
 /**

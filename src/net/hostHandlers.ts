@@ -26,7 +26,8 @@ import {
   type RosterEntry,
 } from './protocol.ts';
 import type { HostIdentity } from './hostIdentity.ts';
-import { reconcileLobbySeats, buildLobbyRoster, buildMatchRoster } from './lobbyRoster.ts';
+import { reconcileLobbySeats, buildMatchRoster } from './lobbyRoster.ts';
+import { broadcastQmPresence, maybeQmAutoBegin } from './quickmatchGate.ts';
 import type { NetSession } from './session.ts';
 import { NetTransport, selfId } from './transport.ts';
 import { dispatch, type World } from '../state/world.ts';
@@ -150,6 +151,14 @@ export interface HostStartDeps {
    * digests RosterEntry → the render-local SeatPresence shape).
    */
   onPresence: (roster: readonly RosterEntry[]) => void;
+  /**
+   * S87 P4 — fired by the QUICKMATCH all-ready gate (host side) to begin the
+   * match without a manual click. main.ts wires it to the begin handler,
+   * gated on gameState==='LOBBY' so a late LOBBY_READY can't re-fire
+   * START_GAME after the match already started. A no-op in friends lobbies
+   * (session.quickmatch=false → maybeQmAutoBegin never calls it).
+   */
+  onAutoBegin: () => void;
 }
 
 export function createHostStartHandler(deps: HostStartDeps): () => string {
@@ -208,10 +217,15 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
     // ONE source of truth (Council S73 Option 1b: no positional re-derivation that
     // could diverge from a back-filled hole).
     transport.onPeerChange(() => {
-      deps.session.lobbySeats = reconcileLobbySeats(deps.session.lobbySeats, transport.peerIds());
-      const roster = buildLobbyRoster(deps.session.lobbySeats, selfId);
-      transport.send({ kind: 'LOBBY_PRESENCE', roster });
-      deps.onPresence(roster);
+      // S87 P4 — broadcastQmPresence is the single host presence path: in a
+      // friends lobby (session.quickmatch=false) it produces the SAME base
+      // roster the pre-S87 inline reconcile+build+send+onPresence did
+      // (byte-identical); a quickmatch room additionally carries roster.ready.
+      // The auto-begin check also covers a peer LEAVING (if the leaver was the
+      // last unready player, the remaining all-ready ≥2 start) — idempotent +
+      // LOBBY-gated in main.ts.
+      broadcastQmPresence(deps.session, transport, deps.onPresence);
+      maybeQmAutoBegin(deps.session, deps.onAutoBegin);
     });
     transport.on((msg, peerId) => {
       // S15 P2 — host applies client intent authoritatively.
@@ -238,6 +252,16 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
         const seat = deps.session.hostSeats.get(peerId);
         const action = seat !== undefined ? stampSenderSeat(msg.action, seat) : msg.action;
         dispatch(deps.world, action);
+      }
+      // S87 P4 — QUICKMATCH readiness from a joiner. Recorded by TRANSPORT
+      // peerId (never a wire-claimed identity — same anti-spoof posture as
+      // INTENT seat-stamping); the aggregate is mirrored back via the presence
+      // roster's ready flags, and the all-ready gate auto-Begins. Ignored
+      // outside a quickmatch room (friends lobbies keep the manual Begin).
+      if (msg.kind === 'LOBBY_READY' && deps.session.quickmatch) {
+        deps.session.qmReadyPeers.set(peerId, msg.ready);
+        broadcastQmPresence(deps.session, transport, deps.onPresence);
+        maybeQmAutoBegin(deps.session, deps.onAutoBegin);
       }
       // S22 P3 — clients never send GODLY_TRIGGER (host-only authority,
       // Battle Ledger row 9). Defensive: drop GODLY_TRIGGER from clients silently.

@@ -56,7 +56,13 @@ export type { NetSnapshot };
 // that structure's income halts; a free spark is slowed) whose effects would be invisible/
 // confusing to a stale v6 peer (which can't render seagulls/poops or understand the foul).
 // Council CONVERGED on the rainbow precedent: bump so a stale peer is hard-rejected at HELLO.
-export const PROTOCOL_VERSION = 7 as const;
+// S87 P4 — bumped 7→8: QUICKMATCH ships the new LOBBY_READY client→host
+// envelope and an all-ready START GATE. A stale v7 peer in a quickmatch room
+// could never send LOBBY_READY, so the host's "everyone clicked start" gate
+// would stall FOREVER on its silence (Council S87 F4 CONCEDED→GEMINI — the
+// LOBBY_PRESENCE no-bump precedent covers cosmetic kinds, not match-gating
+// ones). The HELLO hard-reject + "please refresh" UX handles the skew.
+export const PROTOCOL_VERSION = 8 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -81,8 +87,8 @@ export interface HelloMsg {
   readonly kind: 'HELLO';
   readonly playerId: PlayerId;
   readonly color: number;
-  /** Protocol version — bumped on wire-incompatible changes. S75: 5→6; S77 P3: 6→7 (seagull). */
-  readonly protoVersion: 7;
+  /** Protocol version — bumped on wire-incompatible changes. S77 P3: 6→7 (seagull); S87 P4: 7→8 (LOBBY_READY quickmatch gate). */
+  readonly protoVersion: 8;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
 }
@@ -200,6 +206,14 @@ export interface RosterEntry {
   readonly seat: number;
   readonly peerId: string;
   readonly color: number;
+  /**
+   * S87 P4 — quickmatch readiness flag, attached by the HOST to the
+   * LOBBY_PRESENCE roster in quickmatch rooms only (friends-lobby beacons
+   * stay byte-identical). Additive-optional: absent = not-applicable (friends
+   * lobby) or not-ready. Drives the joiner's "ready k/n" display; the
+   * AUTHORITATIVE gate is host-side (isQuickmatchAllReady).
+   */
+  readonly ready?: boolean;
 }
 
 interface StartGameMsg {
@@ -252,6 +266,19 @@ interface GodlyTriggerMsg {
   readonly event: GodlyTriggerEvent;
 }
 
+/**
+ * S87 P4 — quickmatch readiness toggle, CLIENT→HOST (the one lobby message a
+ * client originates). The host records it per sender peerId (never trusts a
+ * claimed identity — same posture as INTENT seat-stamping), mirrors the
+ * aggregate back via LOBBY_PRESENCE roster.ready, and auto-Begins when every
+ * seated player is ready and >=2 are present. Drives the PROTOCOL_VERSION
+ * 7→8 bump (see above).
+ */
+interface LobbyReadyMsg {
+  readonly kind: 'LOBBY_READY';
+  readonly ready: boolean;
+}
+
 export type NetMessage =
   | HelloMsg
   | IntentMsg
@@ -259,7 +286,8 @@ export type NetMessage =
   | StartGameMsg
   | EndGameMsg
   | GodlyTriggerMsg
-  | LobbyPresenceMsg;
+  | LobbyPresenceMsg
+  | LobbyReadyMsg;
 
 /**
  * 6-character alphanumeric room code (uppercase letters + digits, dropping
@@ -452,6 +480,9 @@ function isValidRoster(roster: unknown): roster is readonly RosterEntry[] {
     ) {
       return false;
     }
+    // S87 P4 — optional readiness flag: absent is fine; present-but-not-boolean
+    // rejects the message (fail-closed, mirrors the hostAttest posture).
+    if (r.ready !== undefined && typeof r.ready !== 'boolean') return false;
   }
   return true;
 }
@@ -525,6 +556,11 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
       // null (graceful degradation — the no-version-bump path, Council Fork B).
       if (!isValidRoster(obj.roster)) return null;
       return obj as unknown as LobbyPresenceMsg;
+    }
+    case 'LOBBY_READY': {
+      // S87 P4 — quickmatch readiness toggle (client→host). Boolean-strict.
+      if (typeof obj.ready !== 'boolean') return null;
+      return obj as unknown as LobbyReadyMsg;
     }
     case 'ENDGAME':
       return typeof obj.winnerId === 'number' ? (obj as unknown as EndGameMsg) : null;

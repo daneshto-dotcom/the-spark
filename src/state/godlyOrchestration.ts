@@ -24,7 +24,10 @@
 import { Controls } from '../input/controls.ts';
 import { NetTransport } from '../net/transport.ts';
 import { CinematicVignetteHandle } from '../render/cinematicVignette.ts';
-import { unlockGodly } from '../render/codexOverlay.ts';
+// S87 P4 — unlockGodly moved to codexStore.ts (tiny localStorage helper) so this
+// always-eager orchestration no longer drags the heavy CodexOverlay Pixi class
+// into the index chunk; main.ts lazy-loads the overlay UI on first Codex click.
+import { unlockGodly } from '../render/codexStore.ts';
 import { CutsceneOverlay, FADE_MS } from '../render/cutsceneOverlay.ts';
 import type { DebugOverlayHandle, RuntimeProbes } from '../render/debugOverlay.ts';
 import { playOneShot } from '../render/audioManager.ts';

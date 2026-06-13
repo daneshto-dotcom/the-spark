@@ -14,8 +14,12 @@
 import { Application, Container, Graphics, Text, TextStyle, Sprite, Assets, ColorMatrixFilter } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import type { GodlyId, GodlyRecipe } from '../state/godlyRecipes/types.ts';
+// S87 P4 — the localStorage unlock helpers live in codexStore.ts so the
+// always-eager godlyOrchestration can call unlockGodly WITHOUT pulling this
+// heavy Pixi overlay into the index chunk (main.ts now lazy-loads CodexOverlay).
+import { loadUnlockedSet } from './codexStore.ts';
+export { unlockGodly } from './codexStore.ts';
 
-const STORAGE_KEY = 'spark:codex:unlocked:v1';
 const TILE_W = 220;
 const TILE_H = 280;
 const TILE_GAP = 32;
@@ -25,34 +29,6 @@ export interface CodexEntry {
   readonly displayName: string;
   readonly recipeHint: string;
   readonly characterSprite: string;
-}
-
-function loadUnlockedSet(): Set<GodlyId> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw === null) return new Set();
-    const arr = JSON.parse(raw) as unknown;
-    if (!Array.isArray(arr)) return new Set();
-    return new Set(arr.filter((x): x is GodlyId => typeof x === 'string') as GodlyId[]);
-  } catch {
-    return new Set();
-  }
-}
-
-function persistUnlockedSet(set: Set<GodlyId>): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(set)));
-  } catch {
-    // localStorage may be disabled (private mode); silent skip is fine.
-  }
-}
-
-/** Record a successful godly trigger as an unlock. Idempotent. */
-export function unlockGodly(id: GodlyId): void {
-  const set = loadUnlockedSet();
-  if (set.has(id)) return;
-  set.add(id);
-  persistUnlockedSet(set);
 }
 
 export class CodexOverlay {
