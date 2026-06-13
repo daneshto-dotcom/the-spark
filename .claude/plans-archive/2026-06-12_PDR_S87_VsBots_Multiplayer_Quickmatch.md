@@ -1,6 +1,6 @@
 # PDR — S87: VS-BOTS mode + Multiplayer rename + Quickmatch (USER-QUEUED batch)
 
-STATUS: IN-PROGRESS (user pre-approved batch + autonomous run, 2026-06-12, verbatim:
+STATUS: COMPLETED 2026-06-13 (S87 — 5/5 priorities shipped, CI E2E+Deploy GREEN on 4489fa7 lineage, live-preview verified)
 "figure out the best way to make it happen and make it happen in the next session or
 two. this is before continuing other priorities from backlog. Produce the best quality
 output and i am preapproving this session batch and autonomous run and going to sleep!")
