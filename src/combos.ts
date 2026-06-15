@@ -165,6 +165,17 @@ export function isMagical(a: SparkType, b: SparkType): boolean {
   return lookupCombo(a, b).isMagical;
 }
 
+/**
+ * S89 P6 (G1b) — is the A→B bond the Vortex combo (Dot→Spiral)? Table-coupled (keys off the
+ * combo's resultName, so it follows the table if the Vortex pairing is ever retuned) and
+ * order-dependent like every combo (§ V.1) — Spiral→Dot is a placeholder, not a Vortex, matching
+ * how scoring + discovery already read this bond. Lets the Vortex-pull behavior identify its
+ * anchors without importing the table internals.
+ */
+export function isVortexCombo(a: SparkType, b: SparkType): boolean {
+  return lookupCombo(a, b).resultName === 'Vortex';
+}
+
 export const COMBO_TABLE: ReadonlyMap<ComboKey, ComboOutcome> = TABLE;
 
 export const MAGIC_12_KEYS: readonly ComboKey[] = MAGICAL.map(

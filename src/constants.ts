@@ -747,3 +747,15 @@ export const POOP_PICKUP_ARRIVAL_RADIUS = 36;
 // expires within BENCH ticks — no unbench action, no reconnect/bench race (Council S82).
 export const PEER_DROP_GRACE_TICKS = 3 * PHYSICS_HZ; // 3s of absence before benching (blip tolerance)
 export const PEER_DROP_BENCH_TICKS = 2 * PHYSICS_HZ; // rolling bench window; expiry = rejoin lag bound
+
+// === S89 P6 (G1b) — Vortex anchor-pull (the first MECHANICAL magic-combo behavior) ===
+// A Vortex (Dot→Spiral, its own table description: "Pulls nearby free sparks toward it") exerts a
+// capped attraction on nearby FREE sparks, host-side, once per physics tick (pulled positions ride
+// the snapshot to clients — clients never recompute the force). The pull is a Verlet velocity
+// impulse (shift prevPos), so the 8 substeps carry it; terminal pull speed ≈ ACCEL / (1 −
+// VELOCITY_DAMPING^PHYSICS_SUBSTEPS). Conservative defaults — #1 Vortex playtest-feel knob.
+export const VORTEX_PULL_RADIUS = 220; // px — reach within which a free spark feels the pull
+export const VORTEX_PULL_MIN_DIST = 12; // px — inside the core: no pull (avoid a singular yank/jitter)
+export const VORTEX_PULL_ACCEL = 0.04; // px/tick velocity added toward the anchor AT the core,
+// ramped linearly to 0 at the radius edge, then the per-tick SUM across multiple Vortexes is
+// capped to this same value (no stacking yank). Deterministic (pure float; host-only).

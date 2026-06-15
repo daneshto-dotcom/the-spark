@@ -42,6 +42,7 @@ import type { SpatialGrid } from './spatial.ts';
 import { verletStepAll } from './verlet.ts';
 import { tickCruiserChase } from '../state/gameMode.ts';
 import { computeTerritorialInfluence } from '../state/territory.ts';
+import { applyVortexPull } from '../state/vortex.ts';
 import { dispatch } from '../state/world.ts';
 import { asPlayerId, type SparkId } from '../types.ts';
 
@@ -121,6 +122,12 @@ export function stepPhysics(
   // substep loop (only severance, which removes bonds from bondArr on
   // the next substep iteration).
   computeTerritorialInfluence(world);
+
+  // S89 P6 (G1b) — Vortex anchor-pull: a Dot→Spiral magic combo pulls nearby FREE sparks toward
+  // it. Once per tick (like tickCruiserChase, BEFORE the substeps), host-only; the substep Verlet
+  // then carries + damps the injected velocity. No-op when no live Vortex exists. Skips the
+  // currently AttractDragged spark so the pull never fights the player's drag.
+  applyVortexPull(world, attractedId);
 
   for (let s = 0; s < PHYSICS_SUBSTEPS; s++) {
     controls.applyPerSubstep();
