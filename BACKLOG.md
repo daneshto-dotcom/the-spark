@@ -22,7 +22,7 @@ The user's complaint is structurally correct. State of `src/combos.ts` (36 order
 | **24 of 36 combos are literal placeholders** | `description: 'Functional placeholder — generic bond'` — Dot→Square, Line→Circle, Dot→Dot, Square→Triangle, Square→Line, most Spiral pairs… all identical generic bonds |
 | **The magic 12 are visuals + physics stiffness ONLY** | their descriptions promise behavior ("Pulls nearby free sparks", "Slow rotation begins", "chaos modifier propagates") — none is implemented as a mechanic |
 | **`areaMultiplier` is dead data** | defined per combo, consumed by zero production code |
-| **`isMagical` is dead outside combos.ts** | a magical bond scores exactly the same as a placeholder bond (S84 gave ALL functional bonds +0.25 complexity; magic earns no premium) |
+| ~~**`isMagical` is dead outside combos.ts**~~ — **S88 CORRECTION: FALSE** | `isMagical` IS read in production at `scoring.ts:90`: a magic bond earns `MAGIC_BONUS = +2.0` (uncapped) vs a functional bond's `+0.25` (capped) — an **8× premium, live since S76**, with a passing test (`scoring.test.ts:89`). The original row mis-stated the code. The real magic gap is **behaviors (G1b)**, not scoring. |
 | **Discovery exists only as the title-screen Codex** | nothing in-match celebrates or even mentions discovering a new combo |
 
 ## TIER 1 — CORE GAME: make the geometry matter (USER-MANDATED, S86)
@@ -30,10 +30,10 @@ The user's complaint is structurally correct. State of `src/combos.ts` (36 order
 Session-sized cuts, in recommended order:
 
 - **G1 — Magic combos MATTER mechanically.**
-  - *G1a (small, instantly felt):* wire `isMagical` into scoring — a magical bond out-earns a functional one (e.g. +0.75 vs +0.25 complexity, same anti-spam cap family). Pairs naturally with G3a in one session.
+  - ~~*G1a:* wire `isMagical` into scoring (+0.75 vs +0.25)~~ — **DROPPED (S88 PRIME-AUDIT).** Magic bonds ALREADY out-earn functional **+2.0 vs +0.25** (8×, uncapped, since S76 — `scoring.ts:90`); the proposed +0.75 would have been a **−62% nerf**. If magic should feel *even* stronger, the lever is tuning `MAGIC_BONUS` upward (touches `LOCKED_DECISIONS §6` + `constants.lock.test.ts`), playtest-gated — not a blind edit.
   - *G1b (the real meat, ~1 session per archetype):* implement combo BEHAVIORS in three archetypes so the magic 12 stop being paint: **ECONOMY** (Vortex actually pulls free sparks toward it — its own table description, never built; Filament income trickle), **DEFENSE** (Lattice/Diamond resist hazards — e.g. potato blast or Voltkin bolt needs 2 hits, or hostile sever costs 2 charges), **MOTION** (Wheel/Star slow structure rotation; Capsule glow-trail). Every behavior must be a pure function of synced state (determinism + 1v1 mirror constraints) — Council design round picks the exact 3–5 behaviors before any code.
 - **G2 — Fill or fold the 24 placeholders.** Design decision first (user picks flavor): rule-based FAMILY traits so EVERY pair does *something* (e.g. Dot-pairs = cheap/weak filler, Square-pairs = sturdy/slow, Spiral-pairs = chaotic wobble) + promote 2–4 placeholder pairs to new named magic combos — starting with the two the user called out by name: **Dot→Square** and **Line→Circle**. Families + a few promotions, NOT 24 bespoke mechanics.
-- **G3 — Discovery loop.** *G3a:* in-match "NEW COMBO — Filament!" toast + per-match discovered counter (the Codex exists on the title screen; nothing celebrates discovery in play). *G3b:* Codex marks used combos; undiscovered render as silhouettes.
+- **G3 — Discovery loop.** ~~*G3a:* in-match "NEW COMBO — Filament!" toast + per-match discovered counter~~ — **SHIPPED S88** (magic-12 toast + "Combos N/12" HUD; deterministic synced-tick render, additive-optional wire, no protocol bump). *G3b (next):* Codex marks used combos; undiscovered render as silhouettes.
 - **G4 — Build-feel juice** (carry-overs that genuinely serve the core loop): bond-formation juice burst (S84 Gemini candidate) · pooped-reject feedback cue · in-world leader crown. One polish session after G1a/G3a.
 
 ## TIER 2 — Playtest loop (USER-driven)
