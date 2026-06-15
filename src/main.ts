@@ -26,7 +26,7 @@ import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   HUNTER_TRIGGER_SCORE,
-  NET_INTERPOLATION_MS,
+  NET_RENDER_DELAY_MS,
   NET_SNAPSHOT_HZ,
   PEER_DROP_BENCH_TICKS,
   PEER_DROP_GRACE_TICKS,
@@ -1224,7 +1224,7 @@ async function bootstrap(): Promise<void> {
       session.clientSync.interpolateInto(
         world,
         performance.now(),
-        NET_INTERPOLATION_MS,
+        NET_RENDER_DELAY_MS,
         controls.getDragLockedSparkId() ?? undefined,
       );
       // S31 P0-3 — implicit shake trigger on mirrored ARC_FLASH. Scan the

@@ -1,11 +1,13 @@
 /**
  * SPARK — host emit + client apply + lerp interpolation for Phase-2 1v1.
  *
- * § 11 LOCKED (post-S15): host emits NetSnapshot at NET_SNAPSHOT_HZ (10);
- * client interpolates linearly between prev + current snapshot over
- * NET_INTERPOLATION_MS (100). Per-direction sequence numbers (snapshotSeq
- * host→client; intentSeq client→host). Out-of-order snapshots rejected by
- * seq check.
+ * § 11 (post-S15): host emits NetSnapshot at NET_SNAPSHOT_HZ (10). S89 P5 — the client now
+ * buffers recent snapshots and renders the world NET_RENDER_DELAY_MS behind real time,
+ * interpolating the two snapshots BRACKETING that render clock (a render-delay jitter buffer).
+ * This replaced the original prev→current single-pair lerp over NET_INTERPOLATION_MS=100, whose
+ * window equalled the snapshot interval ⇒ zero jitter buffer ⇒ freeze-then-jump on every late
+ * packet. Per-direction sequence numbers (snapshotSeq host→client; intentSeq client→host).
+ * Out-of-order snapshots rejected by seq check.
  *
  * Authority model: host runs full Verlet sim authoritatively; client
  * receives snapshots and applies them. Client input becomes Intent
@@ -19,7 +21,14 @@ import type { NetSnapshot, NetSnapshotMsg, IntentMsg } from './protocol.ts';
 import type { GameAction, World } from '../state/world.ts';
 import { netSnapshot, applyNetSnapshot } from '../state/save.ts';
 import { lerp01 } from './lerp.ts';
-import type { SparkId } from '../types.ts';
+import type { SparkId, Vec2 } from '../types.ts';
+
+/**
+ * S89 P5 — how many recent snapshots the client keeps for render-delay interpolation.
+ * The render clock sits NET_RENDER_DELAY_MS behind real time (≈1.5 snapshot intervals),
+ * so a bracketing pair almost always exists; 8 × 100ms = 800ms of history is ample headroom.
+ */
+const SNAP_BUFFER_MAX = 8;
 
 /** Server-side: emit snapshots at fixed rate, increment seq. */
 export class HostSync {
@@ -40,11 +49,20 @@ export class HostSync {
   }
 }
 
-/** Client-side: receive snapshots, lerp-interpolate between prev + current. */
+/** Client-side: receive snapshots, render-delay interpolate between buffered snapshots. */
 export class ClientSync {
-  private prevSnap: NetSnapshot | null = null;
+  /** The latest accepted snapshot — drives the full state apply (entity SET + non-position). */
   private currentSnap: NetSnapshot | null = null;
-  private currentSnapTime = 0;
+  /**
+   * S89 P5 — ring of recent snapshots with their LOCAL arrival time. The render clock sits
+   * NET_RENDER_DELAY_MS behind real time and interpolates the two snapshots BRACKETING that
+   * render time. This is the jitter buffer the old single-pair lerp lacked: the previous scheme
+   * lerped prev→current over a window EQUAL to the snapshot interval and restarted the lerp on
+   * each arrival, so a late packet saturated t at 1 (freeze) then jumped — every jittery interval.
+   * Bracketing a render-delayed clock means a newer snapshot almost always exists past the render
+   * time, so motion stays continuous; only a true stall (no packet for > the delay) clamps.
+   */
+  private snapBuffer: Array<{ snap: NetSnapshot; t: number }> = [];
   /** Highest snapshotSeq accepted — newer-than-this required for next apply. */
   private lastSeq = 0;
   /** Outgoing intent counter — used by controls when wrapping local actions. */
@@ -61,11 +79,46 @@ export class ClientSync {
   receive(msg: NetSnapshotMsg, now: number): boolean {
     if (msg.snapshotSeq <= this.lastSeq) return false;
     this.lastSeq = msg.snapshotSeq;
-    this.prevSnap = this.currentSnap;
     this.currentSnap = msg.snapshot;
-    this.currentSnapTime = now;
     this.needsFullApply = true;
+    // S89 P5 — append to the render-delay buffer (seq-monotonic ⇒ arrival-time-monotonic since
+    // out-of-order is rejected above). Cap the history; the render clock only ever looks back
+    // ~NET_RENDER_DELAY_MS, far inside SNAP_BUFFER_MAX × interval.
+    this.snapBuffer.push({ snap: msg.snapshot, t: now });
+    if (this.snapBuffer.length > SNAP_BUFFER_MAX) this.snapBuffer.shift();
     return true;
+  }
+
+  /**
+   * S89 P5 — pick the two buffered snapshots bracketing `renderTime` (= now − render delay) plus
+   * the lerp factor between them. Degrades gracefully (PRIME-AUDIT A1):
+   *   • empty buffer → null (caller skips the lerp);
+   *   • renderTime at/before the oldest (cold start, < 2 snapshots buffered) → clamp to oldest;
+   *   • renderTime at/after the newest (buffer underrun / network stall) → clamp to newest (no
+   *     extrapolation — holding the last known pose is safer than inventing one);
+   *   • otherwise the consecutive pair a,b with a.t ≤ renderTime ≤ b.t.
+   * A clamp returns a === b with t = 0, so interpolatePositions writes that snapshot's positions.
+   */
+  private pickBracket(renderTime: number): { a: NetSnapshot; b: NetSnapshot; t: number } | null {
+    const buf = this.snapBuffer;
+    if (buf.length === 0) return null;
+    if (buf.length === 1 || renderTime <= buf[0].t) {
+      return { a: buf[0].snap, b: buf[0].snap, t: 0 };
+    }
+    const last = buf[buf.length - 1];
+    if (renderTime >= last.t) {
+      return { a: last.snap, b: last.snap, t: 0 };
+    }
+    for (let i = 1; i < buf.length; i++) {
+      if (buf[i].t >= renderTime) {
+        const a = buf[i - 1];
+        const b = buf[i];
+        const span = b.t - a.t;
+        return { a: a.snap, b: b.snap, t: span > 0 ? lerp01((renderTime - a.t) / span) : 0 };
+      }
+    }
+    // Unreachable (renderTime is strictly between oldest and newest), but stay total.
+    return { a: last.snap, b: last.snap, t: 0 };
   }
 
   /**
@@ -78,9 +131,11 @@ export class ClientSync {
   }
 
   /**
-   * Render-time: write interpolated state into `world`. First snapshot
-   * applies directly (no prev to lerp from). Subsequent snapshots lerp
-   * primitive + freeSpark positions over NET_INTERPOLATION_MS.
+   * Render-time: write interpolated state into `world`. The LATEST snapshot's entity SET +
+   * non-position state is applied once per arrival (the needsFullApply block below); positions
+   * are then interpolated EVERY render frame from the two buffered snapshots bracketing the
+   * render clock (now − renderDelayMs) — see pickBracket. The first snapshot, or a cold/underrun
+   * buffer, clamps to a single snapshot (no extrapolation).
    *
    * Non-position state (gameState, scoreProgress, currentPlayerId,
    * players, bonds adjacency) is snapped to currentSnap ONCE per new
@@ -98,7 +153,7 @@ export class ClientSync {
   interpolateInto(
     world: World,
     now: number,
-    interpolationMs: number,
+    renderDelayMs: number,
     dragLockedSparkId?: SparkId,
   ): void {
     if (this.currentSnap === null) return;
@@ -178,13 +233,14 @@ export class ClientSync {
       }
     }
 
-    if (this.prevSnap === null) return; // first snapshot — no lerp source.
-
-    const elapsed = now - this.currentSnapTime;
-    const t = lerp01(elapsed / interpolationMs);
-    // t=1 means we've reached the current snapshot; t=0 means we just got it.
-    // Render-position = lerp(prev, current, t). At t=1, positions == current.
-    interpolatePositions(this.prevSnap, this.currentSnap, t, world, dragLockedSparkId);
+    // S89 P5 — render-delay bracket lerp. Render the world as it was renderDelayMs ago,
+    // interpolating the two buffered snapshots bracketing that render time. This is the jitter
+    // buffer the old prev→current scheme lacked (see pickBracket / the snapBuffer comment).
+    // Positions only — non-position state was snapped to the LATEST snapshot in the full apply
+    // above; determinism is untouched (the client never simulates from these positions).
+    const bracket = this.pickBracket(now - renderDelayMs);
+    if (bracket === null) return; // no snapshot buffered yet
+    interpolatePositions(bracket.a, bracket.b, bracket.t, world, dragLockedSparkId);
   }
 
   lastSnapshotSeq(): number {
@@ -197,9 +253,8 @@ export class ClientSync {
   }
 
   reset(): void {
-    this.prevSnap = null;
     this.currentSnap = null;
-    this.currentSnapTime = 0;
+    this.snapBuffer = [];
     this.lastSeq = 0;
     this.intentSeq = 0;
     this.needsFullApply = false;
@@ -208,7 +263,33 @@ export class ClientSync {
 }
 
 /**
- * Lerp primitive + freeSpark positions. Bonds derive position from prims,
+ * S89 P5 — lerp ONE id-keyed entity collection prev→curr by t. Skips entities absent from
+ * EITHER snapshot (just-spawned / despawned → left at the full-apply position, never
+ * extrapolated) and the optional skip id (the drag-locked spark). Generic over the serialized
+ * {id, pos} shape so every moving hazard reuses one tested code path. A no-op when either array
+ * is absent (the optional hazard arrays are omitted from the wire when empty).
+ */
+function lerpCollection<K, E extends { pos: Vec2 }>(
+  prev: ReadonlyArray<{ id: K; pos: Vec2 }> | undefined,
+  curr: ReadonlyArray<{ id: K; pos: Vec2 }> | undefined,
+  t: number,
+  worldMap: Map<K, E>,
+  skipId?: K,
+): void {
+  if (prev === undefined || curr === undefined) return;
+  const prevById = new Map(prev.map((e) => [e.id, e]));
+  for (const c of curr) {
+    if (skipId !== undefined && c.id === skipId) continue;
+    const p = prevById.get(c.id);
+    const ent = worldMap.get(c.id);
+    if (ent === undefined || p === undefined) continue;
+    ent.pos.x = p.pos.x + (c.pos.x - p.pos.x) * t;
+    ent.pos.y = p.pos.y + (c.pos.y - p.pos.y) * t;
+  }
+}
+
+/**
+ * Lerp primitive + freeSpark + moving-hazard positions. Bonds derive position from prims,
  * so no per-bond lerp needed.
  *
  * S52 P1 Council C4 — `dragLockedSparkId` (optional): when set, the matching
@@ -216,6 +297,18 @@ export class ClientSync {
  * (or post-LMB-up pendingPlaceFromFree TTL) position survives without
  * snapshot clobber. Primitives are NEVER drag-locked — they're host-
  * authoritative immutable after placement.
+ *
+ * S89 P5 — also interpolates the CONTINUOUSLY-moving hazards (hunters + seagulls), which
+ * previously rendered RAW at 10Hz on the client and visibly stepped while structures + sparks
+ * glided. Avatars are NOT here — the avatarRenderer's smoothTowards already de-steps avatarPos.
+ *
+ * DELIBERATELY EXCLUDED (CHECK GROK-ANALYST finding #5 — lerping a DISCONTINUOUS position jump
+ * smears the entity across the screen for a render-delay window): creatures (cinematic spawn /
+ * teleport), poops (the FALLING→SPLAT transition snaps the pos onto the struck structure — a
+ * lerp would slide the splat mid-air), potatoes (grab teleports it to the carrier's hand),
+ * rainbows + bombs (spawn / pickup-vanish / placement). Hunters pursue continuously and seagulls
+ * fly linearly across the field — neither mid-life-teleports, so their lerp is clean (a spawn is
+ * absent-from-prev → skipped; a despawn is removed by the full apply → pops, which is correct).
  *
  * Exported for unit testing.
  */
@@ -244,4 +337,9 @@ export function interpolatePositions(
     spark.pos.x = ps.pos.x + (cs.pos.x - ps.pos.x) * t;
     spark.pos.y = ps.pos.y + (cs.pos.y - ps.pos.y) * t;
   }
+  // S89 P5 — continuous-motion hazards only (no-op when the optional wire array is absent/empty).
+  // Poops/potatoes/rainbows/bombs/creatures are EXCLUDED — they transition discontinuously and a
+  // lerp would smear them (CHECK finding #5). See the function doc.
+  lerpCollection(prev.hunters, curr.hunters, t, world.hunters);
+  lerpCollection(prev.seagulls, curr.seagulls, t, world.seagulls);
 }

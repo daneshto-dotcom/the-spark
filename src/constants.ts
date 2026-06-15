@@ -413,7 +413,14 @@ export const REDUNDANT_BOND_MAX_CANDIDATES = 16;
 // scaffolding; the wire-up never landed. If a future PR wants
 // configurable bond line width or master volume, reintroduce there.
 export const NET_SNAPSHOT_HZ = 10;
-export const NET_INTERPOLATION_MS = 100;
+// S89 P5 — the CLIENT renders the world this many ms behind real time and interpolates the two
+// buffered snapshots BRACKETING that render clock (ClientSync render-delay buffer). Supersedes
+// the old NET_INTERPOLATION_MS=100 single-pair lerp, whose window EQUALLED the 100ms snapshot
+// interval → zero jitter buffer → freeze-then-jump on every late packet (the "choppy joiner"
+// playtest report). 150ms ≈ 1.5 snapshot intervals: enough slack to bracket through typical P2P
+// jitter, yet imperceptible for a builder duel (only REMOTE entity display is delayed — the local
+// cursor/avatar is not snapshot-bound). #1 netcode-feel knob; raise toward 200 if stalls persist.
+export const NET_RENDER_DELAY_MS = 150;
 export const NET_ROOM_CODE_LENGTH = 6;
 
 // === Territorial Repulsion (Sym F, S49 P1) ===

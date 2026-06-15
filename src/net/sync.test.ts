@@ -15,7 +15,8 @@ import { lerp01 } from './lerp.ts';
 import { dispatch, makeWorld } from '../state/world.ts';
 import { applyNetSnapshot, netSnapshot, type NetSnapshot } from '../state/save.ts';
 import type { NetSnapshotMsg } from './protocol.ts';
-import { asCreatureId, asPlayerId, asSparkId, type CreatureId } from '../types.ts';
+import { asCreatureId, asHunterId, asPlayerId, asSparkId, type CreatureId } from '../types.ts';
+import { makeHunter } from '../state/hunters/hunter.ts';
 import { currentFrameKey, type VoltkinFrameKey } from '../render/voltkinFrames.ts';
 import { SparkType } from '../constants.ts';
 import type { CreatureState } from '../state/creatures/creature.ts';
@@ -907,5 +908,86 @@ describe('Audit Pass 1 e698a17a — interpolateInto guards applyNetSnapshot thro
     const wrongVersion = { ...base, schemaVersion: 99 } as unknown as NetSnapshot;
     c.receive(mkSnapMsg(1, wrongVersion), 0);
     expect(() => c.interpolateInto(w, 100, 100)).not.toThrow();
+  });
+});
+
+describe('S89 P5 — render-delay snapshot buffer (jitter buffer, bracket lerp, graceful degradation)', () => {
+  const SPARK = asSparkId(7);
+  // A NetSnapshot carrying one free spark at (x,0), built off a fresh-world base.
+  function snapSpark(x: number): NetSnapshot {
+    return {
+      ...netSnapshot(makeWorld(0)),
+      freeSparks: [{
+        id: SPARK, type: SparkType.Dot,
+        pos: { x, y: 0 }, prevPos: { x, y: 0 },
+        state: { kind: 'Free' }, radius: 8, createdTick: 0,
+      }],
+    };
+  }
+
+  it('interpolates the BRACKETING pair at the render-delayed clock — continuous, no freeze-jump', () => {
+    const c = new ClientSync();
+    const w = makeWorld(0);
+    c.receive(mkSnapMsg(1, snapSpark(0)), 0);
+    c.receive(mkSnapMsg(2, snapSpark(100)), 100);
+    c.receive(mkSnapMsg(3, snapSpark(200)), 200);
+    // now=300, renderDelay=150 → renderTime=150 brackets snap@100(x100) & snap@200(x200), t=0.5.
+    c.interpolateInto(w, 300, 150);
+    expect(w.freeSparks.get(SPARK)!.pos.x).toBeCloseTo(150);
+    // Advance the render clock WITHOUT a new snapshot arriving → motion still progresses
+    // (the old single-pair scheme would have frozen at t=1 here, then jumped on the next packet).
+    c.interpolateInto(w, 350, 150); // renderTime=200 → exactly snap@200 → x=200
+    expect(w.freeSparks.get(SPARK)!.pos.x).toBeCloseTo(200);
+  });
+
+  it('PRIME-AUDIT A1 — cold start (<2 snapshots) clamps to the only snapshot, never throws', () => {
+    const c = new ClientSync();
+    const w = makeWorld(0);
+    c.receive(mkSnapMsg(1, snapSpark(50)), 0);
+    // renderTime = 200−150 = 50, but only one snapshot buffered → clamp to it (no extrapolation).
+    expect(() => c.interpolateInto(w, 200, 150)).not.toThrow();
+    expect(w.freeSparks.get(SPARK)!.pos.x).toBeCloseTo(50);
+  });
+
+  it('PRIME-AUDIT A1 — buffer underrun / stall clamps to the NEWEST pose (no extrapolation)', () => {
+    const c = new ClientSync();
+    const w = makeWorld(0);
+    c.receive(mkSnapMsg(1, snapSpark(0)), 0);
+    c.receive(mkSnapMsg(2, snapSpark(100)), 100);
+    // now=400, renderDelay=150 → renderTime=250 is past the newest (t=100) → hold x=100, NOT 250+.
+    c.interpolateInto(w, 400, 150);
+    expect(w.freeSparks.get(SPARK)!.pos.x).toBeCloseTo(100);
+  });
+
+  it('PRIME-AUDIT A1 — an entity only in the LATEST snapshot stays at its applied pos (no smear)', () => {
+    const c = new ClientSync();
+    const w = makeWorld(0);
+    const NEW = asSparkId(8);
+    const mkSpark = (id: typeof SPARK, x: number) => ({
+      id, type: SparkType.Dot, pos: { x, y: 0 }, prevPos: { x, y: 0 },
+      state: { kind: 'Free' as const }, radius: 8, createdTick: 0,
+    });
+    c.receive(mkSnapMsg(1, snapSpark(0)), 0);   // SPARK only
+    c.receive(mkSnapMsg(2, snapSpark(100)), 100); // SPARK only
+    c.receive(mkSnapMsg(3, {
+      ...netSnapshot(makeWorld(0)),
+      freeSparks: [mkSpark(SPARK, 200), mkSpark(NEW, 500)], // NEW spawns this snapshot
+    }), 200);
+    // renderTime=150 brackets snap@100 & snap@200; NEW is absent from snap@100, so it is NOT
+    // lerped — it stays at its full-apply pos (currentSnap = snap@200, x=500).
+    c.interpolateInto(w, 300, 150);
+    expect(w.freeSparks.get(NEW)!.pos.x).toBeCloseTo(500);
+  });
+
+  it('D — interpolatePositions now smooths the moving hazards (hunter no longer steps raw)', () => {
+    const w = makeWorld(0);
+    const hid = asHunterId(0);
+    w.hunters.set(hid, makeHunter({ id: hid, targetPlayerId: asPlayerId(1), pos: { x: 0, y: 0 }, spawnedAtTick: 0 }));
+    const base = netSnapshot(w); // includes a hunters array with this hunter
+    expect(base.hunters?.length).toBe(1); // guard: the wire actually carries the hunter
+    const prev: NetSnapshot = { ...base, hunters: [{ ...base.hunters![0], pos: { x: 0, y: 0 } }] };
+    const curr: NetSnapshot = { ...base, hunters: [{ ...base.hunters![0], pos: { x: 100, y: 40 } }] };
+    interpolatePositions(prev, curr, 0.5, w);
+    expect(w.hunters.get(hid)!.pos).toEqual({ x: 50, y: 20 });
   });
 });
