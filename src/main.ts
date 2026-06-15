@@ -21,7 +21,7 @@
  * lerp-interpolated snapshots + sends INTENT envelopes.
  */
 
-import { Application, Container, Text, TextStyle } from 'pixi.js';
+import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
@@ -185,17 +185,42 @@ async function bootstrap(): Promise<void> {
   const betaBadge = new Text({
     // S17 P3 — Phase-2 Tier-1 LIVE (Sever-as-disruption + multi-color bond
     // rendering). Badge text signals the build is past Phase-1 minimal.
+    // S89 P2 — fontSize 14->12 + letterSpacing 4->3: smaller footprint so the
+    // version chrome competes less with gameplay (paired with the backing plate
+    // below — Council synthesis: de-emphasize the text AND mask the conflict).
     text: 'BETA · S17 PHASE-2',
     style: new TextStyle({
       fontFamily: 'monospace',
-      fontSize: 14,
+      fontSize: 12,
       fill: 0x3bd7ff,
-      letterSpacing: 4,
+      letterSpacing: 3,
     }),
   });
   betaBadge.anchor.set(1, 0);
   betaBadge.position.set(CANVAS_WIDTH - 12, 12);
-  betaBadge.alpha = 0.55;
+  betaBadge.alpha = 0.6;
+
+  // S89 P2 — subtle dark backing plate behind the badge. The badge sits on the
+  // post-fog HUD layer ABOVE the world, so a semi-transparent version string
+  // overprinted gameplay primitives that drift into the top-right corner and
+  // read as a glitch (user playtest). A small dark rounded chip establishes a
+  // clean screen-space-chrome boundary: the plate masks whatever world content
+  // is behind it, so the badge always reads as UI, never as a clash. Sized from
+  // the measured badge bounds (Pixi v8 Text measures synchronously); staged
+  // immediately BELOW betaBadge (see addChild order) so it backs the text but
+  // stays on the same fog-surviving HUD layer.
+  const BADGE_PLATE_PAD_X = 9;
+  const BADGE_PLATE_PAD_Y = 4;
+  const betaBadgePlate = new Graphics();
+  betaBadgePlate
+    .roundRect(
+      CANVAS_WIDTH - 12 - betaBadge.width - BADGE_PLATE_PAD_X,
+      12 - BADGE_PLATE_PAD_Y,
+      betaBadge.width + BADGE_PLATE_PAD_X * 2,
+      betaBadge.height + BADGE_PLATE_PAD_Y * 2,
+      7,
+    )
+    .fill({ color: 0x05070a, alpha: 0.5 });
 
   // S18 P1 — mute indicator. Small ♪ glyph anchored top-right (y=30),
   // between BETA badge (y=12) and connection dot (y=48). Added AFTER
@@ -374,6 +399,7 @@ async function bootstrap(): Promise<void> {
   // child-add-order note), ⚙. The HUD/stats classes below add their containers after these,
   // which is fine — none of the corner elements overlap them.
   app.stage.addChild(legend);
+  app.stage.addChild(betaBadgePlate); // S89 P2 — backs the badge text (below it, above fog)
   app.stage.addChild(betaBadge);
   app.stage.addChild(muteIndicator);
   app.stage.addChild(settingsIcon);
