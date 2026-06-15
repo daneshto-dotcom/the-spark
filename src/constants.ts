@@ -516,9 +516,13 @@ export const HUNTER_RADIUS = 26; // visual wedge radius (Pac-Man mouth)
 // (3.0-under-3.5, 1.2-under-1.4, 6-under-7), so the momentum/overshoot juke character is
 // UNCHANGED; only the absolute speed rises. At 4.2 px/tick (~252 px/s) a flicking cursor
 // still out-runs it. Tunable: dial MAX_SPEED+ACCEL together (keep the 0.0857 ratio).
-export const HUNTER_MAX_SPEED = 4.2; // px/tick (~252 px/s); S81 P6: was 3.5 (S76) / 1.4 (S75) / 7 (pre-S75)
-export const HUNTER_ACCEL = 0.36; // px/tick² of steering toward the avatar; S81 P6: was 0.3 (S76) / 0.12 (S75) / 0.6 (pre-S75)
-export const HUNTER_DAMPING = 0.9; // per-tick velocity retention (momentum / overshoot)
+// S89 P4 — user playtest: hunter too slow, +25%. Both MAX_SPEED and ACCEL scaled by 1.25
+// (4.2->5.25, 0.36->0.45), preserving the 0.0857 ratio so the juke character is unchanged.
+// Terminal speed (10*accel) 3.6->4.5 px/tick (exactly +25%), still under the new 5.25 cap
+// (the same just-under-the-cap headroom shape). ~315 px/s — a flicked cursor still out-runs it.
+export const HUNTER_MAX_SPEED = 5.25; // px/tick (~315 px/s); S89 P4 +25%: was 4.2 (S81 P6) / 3.5 (S76) / 1.4 (S75)
+export const HUNTER_ACCEL = 0.45; // px/tick² toward the avatar; S89 P4 +25%: was 0.36 (S81 P6) / 0.3 (S76) / 0.12 (S75)
+export const HUNTER_DAMPING = 0.9; // per-tick velocity retention (momentum / overshoot) — unchanged (ratio, not speed)
 
 // === S72 P3 — Potato Bomb (Council Full; Fork E fuse FROM-SPAWN [user reading]) ===
 // The host-only spawner drops a CARRYABLE potato in the spawn zone on its OWN seeded
