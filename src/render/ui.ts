@@ -26,6 +26,7 @@ import {
 } from '../constants.ts';
 import { isNetworked, type World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
+import { MAGIC_12_KEYS } from '../combos.ts';
 
 const GAUGE_X = CANVAS_WIDTH - 24;
 const GAUGE_Y_TOP = 80;
@@ -53,6 +54,8 @@ export class HUD {
   private readonly chargeDots: Graphics;
   /** S49 P1 (Sym F) — "Q=ZONE" key hint near charge dots. 1v1 PLAYING only. */
   private readonly qHintText: Text;
+  /** S88 G3a — "Combos N/12" discovered counter (top-center, PLAYING, all modes). */
+  private readonly comboCounterText: Text;
   private displayEnergy = 0;
   private displayProgress = 0;
   private winTextAlphaTarget = 0;
@@ -121,6 +124,16 @@ export class HUD {
     this.qHintText.position.set(290, 8);
     this.qHintText.visible = false;
     app.stage.addChild(this.qHintText);
+
+    // S88 G3a — discovered-combo counter (top-center; shown during PLAYING, all modes).
+    this.comboCounterText = new Text({
+      text: '',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 14, fill: 0xffe066 }),
+    });
+    this.comboCounterText.anchor.set(0.5, 0);
+    this.comboCounterText.position.set(CANVAS_WIDTH / 2, 10);
+    this.comboCounterText.visible = false;
+    app.stage.addChild(this.comboCounterText);
   }
 
   /** S15 P2 — main.ts sets this from netTransport.peerCount() each frame. */
@@ -133,6 +146,23 @@ export class HUD {
     this.drawProgress(world);
     this.drawWinState(world);
     this.drawMultiplayerHUD(world);
+    this.drawComboCounter(world);
+  }
+
+  // S88 G3a — "Combos N/12" discovered-combo counter (top-center). Shown during
+  // PLAYING in ALL modes (solo/bots/networked) — discovery is a core mechanic for
+  // everyone. Brightens to full alpha at the complete set. discoveredCombos rides
+  // the host snapshot, so the client mirror shows the authoritative count.
+  private drawComboCounter(world: World): void {
+    if (world.gameState !== 'PLAYING') {
+      this.comboCounterText.visible = false;
+      return;
+    }
+    const found = world.discoveredCombos.size;
+    const total = MAGIC_12_KEYS.length;
+    this.comboCounterText.text = `Combos ${found}/${total}`;
+    this.comboCounterText.alpha = found >= total ? 1 : 0.7;
+    this.comboCounterText.visible = true;
   }
 
   private drawEnergyGauge(world: World): void {

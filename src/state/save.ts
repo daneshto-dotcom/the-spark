@@ -31,6 +31,7 @@ import {
 } from '../game/spark.ts';
 import { type Bond } from '../physics/bonds.ts';
 import { type SparkType } from '../constants.ts';
+import { type ComboKey } from '../combos.ts';
 import {
   asPlayerId,
   asSparkId,
@@ -143,6 +144,16 @@ export interface WorldSnapshot {
    * pre-S84 payloads omit it and rehydrate as undefined (flyover inactive).
    */
   rainbowSwitchTick?: number;
+  /**
+   * S88 G3a — in-match combo discovery. `discoveredCombos` is a SORTED string[] of
+   * discovered ComboKeys (canonical order ⇒ byte-stable snapshots for replay/diff —
+   * PRIME-AUDIT R2); `comboToastTick` + `lastDiscoveredComboNames` drive the toast.
+   * Additive-optional (rainbowSwitchTick precedent — NO schemaVersion bump): emitted
+   * only when non-empty/set; pre-S88 payloads omit them and rehydrate inactive.
+   */
+  discoveredCombos?: string[];
+  comboToastTick?: number;
+  lastDiscoveredComboNames?: string[];
   /**
    * S77 P3 — host-authoritative seagulls + their poop projectiles for the 1v1 client mirror +
    * host save/load. Additive-optional; emitted only when non-empty so pre-S77 saves stay
@@ -509,6 +520,12 @@ export function snapshot(
       : undefined,
     // S84 P2 — emit the flyover switch tick only when set (byte-identical pre-S84).
     rainbowSwitchTick: world.rainbowSwitchTick,
+    // S88 G3a — emit combo-discovery only when present (byte-identical pre-S88). The set
+    // is SORTED so the wire form is canonical regardless of insertion order (PRIME-AUDIT R2).
+    discoveredCombos:
+      world.discoveredCombos.size > 0 ? [...world.discoveredCombos].sort() : undefined,
+    comboToastTick: world.comboToastTick,
+    lastDiscoveredComboNames: world.lastDiscoveredComboNames,
     // S77 P3 — emit seagulls/poops/fouled-prims only when present (byte-identical pre-S77).
     seagulls: world.seagulls.size > 0
       ? [...world.seagulls.values()].map(serializeSeagull)
@@ -699,6 +716,12 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   // S84 P2 — flyover switch tick: plain assign (undefined when the snapshot omits it,
   // which also clears a stale local value if the host's window was torn down).
   world.rainbowSwitchTick = snap.rainbowSwitchTick;
+
+  // S88 G3a — combo discovery: rebuild the Set from the (sorted) wire array + plain-assign
+  // the toast fields. Absent on pre-S88 / non-discovery snapshots ⇒ empty set + inactive toast.
+  world.discoveredCombos = new Set((snap.discoveredCombos ?? []) as ComboKey[]);
+  world.comboToastTick = snap.comboToastTick;
+  world.lastDiscoveredComboNames = snap.lastDiscoveredComboNames;
 
   // S77 P3 — seagulls + poops: clear + rehydrate (mirror of the hunter/potato pattern). Reset
   // the mint counters past the max loaded id (host save/load). Client never mints (no-op there).

@@ -622,6 +622,22 @@ export const RAINBOW_FLYOVER_DURATION_TICKS = readTestFlyoverDuration() ?? 240;
 // from a restored snapshot mid-window double-firing on top of the cursor reset).
 export const RAINBOW_YELL_FRESH_TICKS = 60;
 
+// === S88 G3a — in-match combo discovery toast ===
+// The host stamps world.comboToastTick when a magic combo is FIRST formed in a
+// match; every peer renders the "NEW COMBO — <name>!" toast for the window below,
+// keyed purely off (world.tick - comboToastTick) — deterministic, no RNG/clock
+// (the rainbowSwitchTick pattern). 150 ticks = 2.5s @60Hz: long enough to read +
+// celebrate, short enough not to nag on a combo-heavy build. Playtest knob.
+// E2E seam (mirror of __TEST_FLYOVER_DURATION_TICKS__): a test can shrink the
+// window to assert the open->close logic without elapsing 150 sim ticks.
+function readTestComboToastDuration(): number | null {
+  if (typeof window === 'undefined') return null;
+  const v = (window as { __TEST_COMBO_TOAST_DURATION_TICKS__?: number })
+    .__TEST_COMBO_TOAST_DURATION_TICKS__;
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : null;
+}
+export const COMBO_TOAST_DURATION_TICKS = readTestComboToastDuration() ?? 150;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // S77 P3 — SEAGULL hazard (+ its poop projectiles). A seagull flies across the top
 // ~every 2 min dropping poop. Poop on a STRUCTURE fouls its whole connected component

@@ -22,6 +22,7 @@ import type { Potato } from './potato.ts';
 import type { Rainbow } from './rainbow.ts';
 import type { Poop, Seagull } from './seagulls/seagull.ts';
 import type { GodlyTriggerEvent } from './godlyRecipes/types.ts';
+import type { ComboKey } from '../combos.ts';
 import type { BombId, BondId, CreatureId, HunterId, PlayerId, PoopId, PotatoId, PrimitiveId, RainbowId, SeagullId, SparkId } from '../types.ts';
 
 /**
@@ -191,6 +192,32 @@ export interface World {
    * RETURN_TO_TITLE with the other hazard state.
    */
   rainbowSwitchTick?: number;
+  /**
+   * S88 G3a — in-match combo DISCOVERY (the magic-12). Global per-match: the host
+   * adds a combo's ComboKey the FIRST time it forms in a match (comboDiscovery.ts,
+   * driven from placePrimitive — covers PLACE_PRIMITIVE + the PLACE_FROM_FREE
+   * delegate). `discoveredCombos.size` drives the "Combos N/12" HUD counter.
+   * NON-optional (always a Set, like fouledPrimitives): initialised empty in
+   * makeWorld, serialised additive-optional (SORTED string[]) only when non-empty,
+   * cleared on START_GAME / RETURN_TO_TITLE.
+   */
+  discoveredCombos: Set<ComboKey>;
+  /**
+   * S88 G3a — tick of the most recent NEW-combo discovery (host stamps =
+   * world.tick). Drives the "NEW COMBO — <name>!" toast window on EVERY peer,
+   * keyed purely off (world.tick - comboToastTick) — the rainbowSwitchTick
+   * pattern (additive-optional, NO protocol bump; overwrite = restart; a late
+   * joiner sees the remaining window). Cleared with discoveredCombos.
+   */
+  comboToastTick?: number;
+  /**
+   * S88 G3a — resultName(s) discovered AT comboToastTick, in deterministic
+   * bond-id order. An array (not a scalar) so a single placement that weaves
+   * >1 NEW magic combo on one tick toasts ALL of them (PRIME-AUDIT R1 — no
+   * silent drop). Host-authoritative; the client renders this synced array
+   * verbatim (never recomputes) ⇒ replay-deterministic + 1v1-mirror-consistent.
+   */
+  lastDiscoveredComboNames?: string[];
   /**
    * S77 P3 — host-authoritative seagulls (SEPARATE Map, mirroring the other hazards). A
    * RECURRING hazard: the spawner cadence mints one ~every 2 min (gated SEAGULL_MAX_ACTIVE).

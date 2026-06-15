@@ -758,3 +758,49 @@ describe('S84 P2 — rainbowSwitchTick snapshot round-trip', () => {
     expect(w2.rainbowSwitchTick).toBeUndefined(); // plain-assign clears it
   });
 });
+
+describe('S88 G3a — combo discovery snapshot round-trip', () => {
+  it('round-trips discoveredCombos (SORTED) + comboToastTick + names via snapshot → JSON → restore', () => {
+    const w1 = makeWorld(1);
+    w1.tick = 500;
+    // insert out of alphabetical order to prove the wire form is sorted (PRIME-AUDIT R2).
+    const set = w1.discoveredCombos as unknown as Set<string>;
+    set.add('Line->Line');
+    set.add('Dot->Line');
+    w1.comboToastTick = 470;
+    w1.lastDiscoveredComboNames = ['Cable'];
+
+    const snap = JSON.parse(JSON.stringify(snapshot(w1)));
+    expect(snap.discoveredCombos).toEqual(['Dot->Line', 'Line->Line']); // sorted, canonical
+
+    const w2 = makeWorld(2);
+    restore(snap, w2);
+    expect([...(w2.discoveredCombos as unknown as Set<string>)].sort()).toEqual([
+      'Dot->Line',
+      'Line->Line',
+    ]);
+    expect(w2.comboToastTick).toBe(470);
+    expect(w2.lastDiscoveredComboNames).toEqual(['Cable']);
+  });
+
+  it('omits the keys with no discoveries (byte-identical pre-S88 wire) + a keyless snapshot decodes + clears stale local state', () => {
+    const w1 = makeWorld(1);
+    const snap = snapshot(w1);
+    expect(snap.discoveredCombos).toBeUndefined();
+    expect(snap.comboToastTick).toBeUndefined();
+    expect(snap.lastDiscoveredComboNames).toBeUndefined();
+    const s = JSON.stringify(snap);
+    expect(s).not.toContain('discoveredCombos');
+    expect(s).not.toContain('comboToastTick');
+
+    // a pre-S88-shaped snapshot (no discovery keys) still decodes AND clears stale local state.
+    const w2 = makeWorld(2);
+    (w2.discoveredCombos as unknown as Set<string>).add('Dot->Line'); // stale
+    w2.comboToastTick = 99;
+    w2.lastDiscoveredComboNames = ['Filament'];
+    restore(JSON.parse(JSON.stringify(snap)), w2);
+    expect(w2.discoveredCombos.size).toBe(0);
+    expect(w2.comboToastTick).toBeUndefined();
+    expect(w2.lastDiscoveredComboNames).toBeUndefined();
+  });
+});

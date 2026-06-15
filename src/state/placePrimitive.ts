@@ -38,6 +38,7 @@ import type { Bond } from '../physics/bonds.ts';
 import { asBondId, asPrimitiveId, type PlayerId, type PrimitiveId, type Vec2 } from '../types.ts';
 import { isNetworked, requirePlayer, type World } from './world.ts';
 import { isInsideEnemyTerritory } from './territory.ts';
+import { detectComboDiscoveries } from './comboDiscovery.ts';
 
 /** Action payload for PLACE_PRIMITIVE — exported so world.ts can compose GameAction. */
 export interface PlacePrimitiveAction {
@@ -214,6 +215,9 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
 
   // S18 P1 — snapshot bond count for BOND_FORMED audio aggregation.
   const bondsAtStart = world.bonds.size;
+  // S88 G3a — bond-id watermark so the placement-level discovery scan below sees
+  // exactly the bonds minted by THIS placement (primary + redundancy + merge sweep).
+  const firstNewBondId = world.nextBondId;
 
   // Track which components are already bonded to this new primitive so the
   // P2 sweep below doesn't double-bond into a component the primary target
@@ -554,6 +558,9 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
       pos: { x: prim.pos.x, y: prim.pos.y },
       bondCount: bondsFormedCount,
     });
+    // S88 G3a — host-authoritative in-match combo-discovery. One hook covers this
+    // path + the PLACE_FROM_FREE delegate; only NEW magic combos stamp the toast.
+    detectComboDiscoveries(world, firstNewBondId);
   }
 
   // Carry-1 reset.

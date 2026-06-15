@@ -173,6 +173,10 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   world.nextRainbowId = 0;
   // S84 P2 — a fresh match must not resume (or re-yell) a previous match's flyover.
   world.rainbowSwitchTick = undefined;
+  // S88 G3a — discovery is per-match: a fresh match starts at Combos 0/12, no stale toast.
+  world.discoveredCombos.clear();
+  world.comboToastTick = undefined;
+  world.lastDiscoveredComboNames = undefined;
   // S77 P3 — clear seagulls/poops/fouled-prims at match start (same all-hazards invariant).
   world.seagulls.clear();
   world.nextSeagullId = 0;
@@ -294,6 +298,10 @@ export function applyReturnToTitle(world: World): World {
   world.nextRainbowId = 0;
   // S84 P2 — drop any in-flight flyover with the rest of the hazard state.
   world.rainbowSwitchTick = undefined;
+  // S88 G3a — drop per-match combo-discovery state on title-return.
+  world.discoveredCombos.clear();
+  world.comboToastTick = undefined;
+  world.lastDiscoveredComboNames = undefined;
   // S77 P3 — clear seagulls/poops/fouled-prims on title-return (mirror of the other hazards).
   world.seagulls.clear();
   world.nextSeagullId = 0;

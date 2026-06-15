@@ -110,6 +110,7 @@ import { HunterRenderer } from './render/hunterRenderer.ts';
 import { PotatoRenderer } from './render/potatoRenderer.ts';
 import { RainbowRenderer } from './render/rainbowRenderer.ts';
 import { RainbowFlyoverRenderer } from './render/rainbowFlyoverRenderer.ts';
+import { ComboToastRenderer } from './render/comboToastRenderer.ts';
 import { SeagullRenderer } from './render/seagullRenderer.ts';
 import { PoopRenderer } from './render/poopRenderer.ts';
 import { ScreenShake, shouldTriggerShakeForArcFlash } from './render/screenShake.ts';
@@ -378,6 +379,10 @@ async function bootstrap(): Promise<void> {
   app.stage.addChild(settingsIcon);
   const hud = new HUD(app);
   const stats = new StatsOverlay(app);
+  // S88 G3a — in-match discovery toast. Constructed AFTER the HUD so its main-stage
+  // container renders ABOVE the board/fog (HUD/main-stage layer, NOT aboveFogLayer —
+  // a screen-space notification keeps the fog.spec children contract untouched).
+  const comboToastRenderer = new ComboToastRenderer(app);
   const grid = new SpatialGrid(SPATIAL_CELL_SIZE);
 
   // ===== S22 P3 — godly cinematic overlay + counter-window vignette + Codex =====
@@ -1468,6 +1473,9 @@ async function bootstrap(): Promise<void> {
     // ticker.deltaMS drives the win-lift fade. Cheap no-op in solo / once lifted.
     fogRenderer.sync(world, controls.cursor, app.ticker.deltaMS / 1000);
     hud.sync(world);
+    // S88 G3a — discovery toast window (keyed off the synced comboToastTick, like the
+    // rainbow flyover — see comboToastRenderer docblock). HUD-tier, after hud.sync.
+    comboToastRenderer.sync(world);
     stats.recordWorld(world, effectsRenderer.activeCount);
     stats.recordFrame(world.freeSparks.size + world.primitives.size);
     stats.recordRender(performance.now() - renderStart);
