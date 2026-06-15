@@ -17,6 +17,8 @@
 
 import { Application, Container, Graphics } from 'pixi.js';
 import {
+  POOP_FOUL_FADE_TICKS,
+  POOP_FOUL_TICKS,
   POOP_GROUND_TTL_TICKS,
   POOP_RADIUS,
   POOP_STRUCTURE_SPLAT_SCALE,
@@ -82,10 +84,16 @@ export class PoopRenderer {
       const sr = poop.state === 'SPLAT_STRUCTURE' ? r * POOP_STRUCTURE_SPLAT_SCALE : r;
       const age = world.tick - poop.landedAtTick;
       const pop = age >= 0 && age < POP_TICKS ? 1 + (1 - age / POP_TICKS) * 0.7 : 1;
+      // S89 P3 — a STRUCTURE splat now holds full opacity, then fades over its final
+      // POOP_FOUL_FADE_TICKS to telegraph the imminent foul auto-expiry (the host self-cleans
+      // at POOP_FOUL_TICKS). Deterministic on both peers (world.tick − landedAtTick). Ground
+      // splats keep their full-TTL dissipate.
       const fade =
         poop.state === 'SPLAT_GROUND'
           ? Math.max(0, 1 - age / POOP_GROUND_TTL_TICKS) // dissipate over the TTL
-          : 1; // structure splat stays put until cleaned
+          : age < POOP_FOUL_TICKS - POOP_FOUL_FADE_TICKS
+            ? 1 // fully fouled — the "go clean it" cue
+            : Math.max(0, (POOP_FOUL_TICKS - age) / POOP_FOUL_FADE_TICKS); // fade-out tell
       if (fade <= 0) continue;
 
       const phase = ((poop.id as number) % 8) * (Math.PI / 4); // stable per-poop rotation

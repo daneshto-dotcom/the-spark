@@ -704,6 +704,17 @@ export const POOP_STRUCTURE_SPLAT_SCALE = 2.3; // structure splat vs ground spla
 // Spam-immune by construction (extra updates only move the target) and deterministic.
 export const POOP_AVATAR_HIT_RADIUS = 30; // px — POOP_HIT_RADIUS(19) + avatar outer radius(11)
 export const POOP_CRUISER_SLOW_TICKS = 15 * PHYSICS_HZ; // same 15s as the poopy-spark debuff
+// === S89 P3 — structure-foul AUTO-EXPIRY (Council synthesis C) ===
+// A pooped structure used to stay fouled (olive tint + ZERO income) FOREVER until the owner
+// manually flew their avatar onto the splat to wipe it — non-obvious, and a single hit read as
+// permanent income-death (user playtest reported it as a bug). The foul now self-cleans after a
+// grace window so it is a TEMPORARY tempo cost; the avatar-wipe (canAvatarCleanSplat / CLEAN_POOP)
+// remains the INSTANT clean (skill-based fast-recovery — Grok's tempo/diversion depth preserved).
+// 30s = 2× the cruiser slow (~14% of a 210s match): a meaningful penalty, not a lost cause.
+export const POOP_FOUL_TICKS = 30 * PHYSICS_HZ;
+// The structure splat holds full opacity, then fades over its final FADE_TICKS to telegraph the
+// imminent auto-clean (render-only cue; deterministic from world.tick − landedAtTick on both peers).
+export const POOP_FOUL_FADE_TICKS = 3 * PHYSICS_HZ;
 // 7 px/tick ≈ 420 px/s: far below a flicked cursor (~3000 px/s) so the slow BITES, comfortably
 // above the hunter's 4.2 px/tick so a slowed player can still outrun Pac-Man. #1 playtest knob.
 export const POOP_CRUISER_MAX_SPEED = 7;

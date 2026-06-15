@@ -37,6 +37,7 @@ import {
   POOP_DROP_MAX_TICKS,
   POOP_DROP_MIN_TICKS,
   POOP_FALL_SPEED,
+  POOP_FOUL_TICKS,
   POOP_GROUND_TTL_TICKS,
   POOP_HIT_RADIUS,
   POOP_MAX_LIVE,
@@ -185,8 +186,9 @@ export function applySeagullTick(world: World, action: SeagullTickAction): World
 /**
  * Advance one poop. FALLING → descend + collide (S82 P1: player CRUISER slow → structure foul
  * → free-spark slow → floor, in that precedence order — one victim per poop). SPLAT_GROUND →
- * dissipate at its TTL. SPLAT_STRUCTURE → persist (cleaned by CLEAN_POOP, or by the main.ts
- * orphan sweep if its anchor prim was destroyed). Squared-dist + LOWEST-id hit per pass.
+ * dissipate at its TTL. SPLAT_STRUCTURE → foul the structure until the owner wipes it (CLEAN_POOP)
+ * OR it AUTO-EXPIRES at POOP_FOUL_TICKS (S89 P3 — self-clean so the foul is a temporary tempo cost,
+ * not permanent income-death). Squared-dist + LOWEST-id hit per pass.
  */
 export function applyPoopTick(world: World, action: PoopTickAction): World {
   const poop = world.poops.get(action.poopId);
@@ -195,6 +197,16 @@ export function applyPoopTick(world: World, action: PoopTickAction): World {
   if (poop.state !== 'FALLING') {
     if (poop.state === 'SPLAT_GROUND' && world.tick - poop.landedAtTick >= POOP_GROUND_TTL_TICKS) {
       world.poops.delete(action.poopId);
+    } else if (
+      poop.state === 'SPLAT_STRUCTURE' &&
+      world.tick - poop.landedAtTick >= POOP_FOUL_TICKS
+    ) {
+      // S89 P3 — foul auto-expiry (Council synthesis C). The structure self-cleans after the
+      // grace window: colour + income revert. Reuses applyCleanPoop so it UNFOULS the whole
+      // CURRENT component + removes every splat on it AND handles the gone-anchor orphan case
+      // identically to the avatar wipe — host-authoritative (POOP_TICK is host-internal; clients
+      // mirror world.fouledPrimitives + poops[] via the snapshot, never simulate this).
+      return applyCleanPoop(world, { type: 'CLEAN_POOP', poopId: action.poopId });
     }
     return world;
   }

@@ -16,6 +16,8 @@ import {
   POOP_CLEAN_RADIUS,
   POOP_DROP_MAX_TICKS,
   POOP_DROP_MIN_TICKS,
+  POOP_FOUL_TICKS,
+  POOP_GROUND_TTL_TICKS,
   POOP_SLOW_TICKS,
   SEAGULL_MAX_ACTIVE,
   SEAGULL_SPEED,
@@ -191,6 +193,71 @@ describe('S77 P3 — poop on a structure HALTS that structure income', () => {
     expect(w.fouledPrimitives.size).toBe(0);
     expect(w.poops.size).toBe(0);
     expect(computeComplexity(w, P1)).toBe(before);
+  });
+});
+
+describe('S89 P3 — structure foul AUTO-EXPIRES (color + income revert; manual wipe stays instant)', () => {
+  // Helper: land a poop on prim `a` and return the fouled world (poop id 0).
+  function foulStructure(): { w: World; before: number } {
+    const w = baseWorld();
+    const a = addPrim(w, 1, 500, 400);
+    const b = addPrim(w, 2, 540, 400);
+    const c = addPrim(w, 3, 580, 400);
+    connect(w, 10, a, b);
+    connect(w, 11, b, c);
+    const before = computeComplexity(w, P1);
+    w.poops.set(asPoopId(0), makePoop({ id: asPoopId(0), pos: { x: 500, y: 378 }, spawnedAtTick: 0 }));
+    w.nextPoopId = 1;
+    for (let i = 0; i < 20 && w.poops.get(asPoopId(0))?.state === 'FALLING'; i++) {
+      applyPoopTick(w, { type: 'POOP_TICK', poopId: asPoopId(0) });
+    }
+    expect(w.poops.get(asPoopId(0))!.state).toBe('SPLAT_STRUCTURE');
+    expect(w.fouledPrimitives.size).toBe(3);
+    expect(computeComplexity(w, P1)).toBe(0); // income halted while fouled
+    return { w, before };
+  }
+
+  it('self-cleans at landedAtTick + POOP_FOUL_TICKS — splat gone, foul cleared, income restored', () => {
+    const { w, before } = foulStructure();
+    const landedAt = w.poops.get(asPoopId(0))!.landedAtTick;
+
+    // One tick BEFORE expiry: still fouled, income still 0, splat persists.
+    w.tick = landedAt + POOP_FOUL_TICKS - 1;
+    applyPoopTick(w, { type: 'POOP_TICK', poopId: asPoopId(0) });
+    expect(w.poops.size).toBe(1);
+    expect(w.fouledPrimitives.size).toBe(3);
+    expect(computeComplexity(w, P1)).toBe(0);
+
+    // AT expiry: the structure auto-cleans — splat removed, component unfouled, income restored.
+    w.tick = landedAt + POOP_FOUL_TICKS;
+    applyPoopTick(w, { type: 'POOP_TICK', poopId: asPoopId(0) });
+    expect(w.poops.size).toBe(0);
+    expect(w.fouledPrimitives.size).toBe(0);
+    expect(computeComplexity(w, P1)).toBe(before); // PRIME-AUDIT A4 — income resumes exactly
+  });
+
+  it('the manual avatar-wipe still cleans INSTANTLY before the auto-expiry window', () => {
+    const { w, before } = foulStructure();
+    // Long before expiry, a manual CLEAN_POOP still works (skill-based fast-recovery preserved).
+    w.tick = w.poops.get(asPoopId(0))!.landedAtTick + 60; // 1s in, well under POOP_FOUL_TICKS
+    applyCleanPoop(w, { type: 'CLEAN_POOP', poopId: asPoopId(0) });
+    expect(w.fouledPrimitives.size).toBe(0);
+    expect(w.poops.size).toBe(0);
+    expect(computeComplexity(w, P1)).toBe(before);
+  });
+
+  it('the new foul branch does not regress SPLAT_GROUND: a ground splat still dissipates on its own (shorter) TTL', () => {
+    // At the ground TTL (240 ticks) — far below POOP_FOUL_TICKS (1800) — only the SPLAT_GROUND
+    // branch can fire, so this proves the added SPLAT_STRUCTURE else-if didn't break ground TTL.
+    const w = baseWorld();
+    const poop = makePoop({ id: asPoopId(0), pos: { x: 100, y: 100 }, spawnedAtTick: 0 });
+    poop.state = 'SPLAT_GROUND';
+    poop.landedAtTick = 0;
+    w.poops.set(poop.id, poop);
+    expect(POOP_GROUND_TTL_TICKS).toBeLessThan(POOP_FOUL_TICKS); // the branches can't collide
+    w.tick = POOP_GROUND_TTL_TICKS; // ground TTL reached; foul window NOT (240 < 1800)
+    applyPoopTick(w, { type: 'POOP_TICK', poopId: asPoopId(0) });
+    expect(w.poops.size).toBe(0); // dissipated via the ground TTL path
   });
 });
 
