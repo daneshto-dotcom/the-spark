@@ -1,5 +1,5 @@
 ---
-STATUS: COUNCIL-COMPLETE (R1 + PRIME-AUDIT) — awaiting user `go`
+STATUS: COMPLETED (S88 — shipped: P1 b0751bf, P2 0709b51)
 SESSION: S88
 TIER: Standard (10–30K; batch)
 DATE: 2026-06-15
