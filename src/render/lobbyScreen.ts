@@ -392,12 +392,17 @@ export class LobbyScreen {
     this.paintReadyButton();
 
     // S87 P4 — "ready k/n" tally, above the READY button.
+    // S89 P1 — moved from +40 to +16: it shared the +40 row with `statusText`
+    // (the gray connection line), so in a quickmatch room the green tally
+    // overprinted the gray status illegibly. +16 gives it a clean row between
+    // the "Room N/6" count (y=710) and statusText (+40). The READY button stays
+    // at +70 (fixed e2e click coords); only this non-interactive Text moved.
     this.readyCountText = new Text({
       text: '',
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 18, fill: 0x9bff3b, letterSpacing: 2 }),
     });
     this.readyCountText.anchor.set(0.5);
-    this.readyCountText.position.set(CANVAS_WIDTH / 2, paneY + PANE_HEIGHT + 40);
+    this.readyCountText.position.set(CANVAS_WIDTH / 2, paneY + PANE_HEIGHT + 16);
     this.readyCountText.visible = false;
     this.container.addChild(this.readyCountText);
 

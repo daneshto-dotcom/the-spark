@@ -302,6 +302,9 @@ export interface SeatView {
   readonly occupied: boolean;
   readonly isHost: boolean;
   readonly isYou: boolean;
+  /** S89 P1 — QUICKMATCH per-seat readiness (undefined in friends lobbies / the
+   *  count-based pre-roster fallback). Drives the seat-rack ✓ tick. */
+  readonly ready?: boolean;
 }
 
 export interface LobbyView extends LobbyState {
@@ -343,6 +346,9 @@ export function lobbyView(state: LobbyState): LobbyView {
         occupied: entry !== undefined,
         isHost: entry !== undefined && i === 0,
         isYou: entry !== undefined && entry.isYou,
+        // S89 P1 — surface the synced quickmatch readiness per seat (undefined in
+        // friends lobbies where SeatPresence.ready is never set).
+        ready: entry !== undefined ? entry.ready : undefined,
       });
     }
     // roster.length = occupied-seat count (buildLobbyRoster already caps at MAX).

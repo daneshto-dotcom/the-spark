@@ -111,6 +111,9 @@ interface SeatCell {
   readonly bg: Graphics;
   readonly label: Text;
   readonly glyph: Text;
+  /** S89 P1 — quickmatch READY tick, top-right of the cell (dark for guaranteed
+   *  contrast on every bright PLAYER_COLOR swatch, same rationale as the label). */
+  readonly readyTick: Text;
   occupied: boolean;
   animKind: SeatAnimKind | null;
   animStartMs: number;
@@ -159,8 +162,19 @@ export function makeSeatRack(): SeatRackHandle {
     glyph.position.set(SEAT_W / 2, SEAT_H / 2);
     cell.addChild(glyph);
 
+    // S89 P1 — per-seat READY tick (quickmatch). Dark fill on the bright swatch
+    // for contrast (same as the label); top-right corner, hidden until ready.
+    const readyTick = new Text({
+      text: '✓',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 34, fontWeight: 'bold', fill: LABEL_FILL }),
+    });
+    readyTick.anchor.set(1, 0);
+    readyTick.position.set(SEAT_W - 14, 10);
+    readyTick.visible = false;
+    cell.addChild(readyTick);
+
     container.addChild(cell);
-    cells.push({ cell, bg, label, glyph, occupied: false, animKind: null, animStartMs: 0 });
+    cells.push({ cell, bg, label, glyph, readyTick, occupied: false, animKind: null, animStartMs: 0 });
   }
 
   // S85 P4c — per-frame cosmetic animation pass. Cheap no-op when no cell is
@@ -181,9 +195,13 @@ export function makeSeatRack(): SeatRackHandle {
     for (let i = 0; i < cells.length; i++) {
       const seat = seats[i];
       const c = cells[i];
-      const { bg, label, glyph } = c;
+      const { bg, label, glyph, readyTick } = c;
       const nowOccupied = seat !== undefined && seat.occupied;
       bg.clear();
+
+      // S89 P1 — show the READY tick only on an occupied seat that has readied
+      // (seat.ready is undefined in friends lobbies → tick stays hidden there).
+      readyTick.visible = nowOccupied && seat?.ready === true;
 
       if (nowOccupied) {
         // S82 P5 — style + label derivation through the exported pure helpers.

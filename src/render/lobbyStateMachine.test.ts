@@ -558,4 +558,31 @@ describe('S70 P1 — lobbyView roster-derived seats (joiner own-seat + drop-on-l
     expect(v.seats.every((x) => x.occupied)).toBe(true);
     expect(v.seats[3].isYou).toBe(true);
   });
+
+  // S89 P1 — surface the synced quickmatch readiness per seat (drives the rack ✓).
+  it('maps SeatPresence.ready onto SeatView.ready per seat (quickmatch)', () => {
+    const v = joinWith([
+      { seat: 0, color: PLAYER_COLORS[0], isYou: false, ready: true },
+      { seat: 1, color: PLAYER_COLORS[1], isYou: true, ready: false },
+      { seat: 2, color: PLAYER_COLORS[2], isYou: false }, // ready omitted by host
+    ]);
+    expect(v.seats[0].ready).toBe(true);
+    expect(v.seats[1].ready).toBe(false);
+    expect(v.seats[2].ready).toBeUndefined();
+    // Exactly one seat is ready → exactly one ✓ shows.
+    expect(v.seats.filter((s) => s.ready === true)).toHaveLength(1);
+  });
+
+  it('friends-lobby / count-based seats carry NO readiness (ready stays undefined)', () => {
+    // No roster → count-based fallback: ready must be undefined so the rack tick
+    // never shows in a friends lobby (byte-identical to pre-S89 behaviour).
+    const v = joinWith(null);
+    expect(v.seats.every((s) => s.ready === undefined)).toBe(true);
+    // A roster WITHOUT any ready flags (friends presence) also yields undefined.
+    const friends = joinWith([
+      { seat: 0, color: PLAYER_COLORS[0], isYou: false },
+      { seat: 1, color: PLAYER_COLORS[1], isYou: true },
+    ]);
+    expect(friends.seats.every((s) => s.ready === undefined)).toBe(true);
+  });
 });
