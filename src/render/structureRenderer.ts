@@ -158,8 +158,8 @@ export class StructureRenderer {
       const width = stiffnessToWidth(bond.stiffnessTier) + (stress > 0.5 ? (stress - 0.5) * 2 : 0);
 
       // S7 P2: per-combo persistent silhouette. Direction is a→b matching the
-      // PLACE_PRIMITIVE dispatch order (carried→target). The 24 functional
-      // combos resolve to fx.bond.default and render as a plain line; the 12
+      // PLACE_PRIMITIVE dispatch order (carried→target). The 22 functional
+      // combos resolve to fx.bond.default and render as a plain line; the 14
       // magic combos render their named silhouette stretched between
       // endpoints. Stress tint + width are applied here so the silhouette
       // inherits stress feedback uniformly.

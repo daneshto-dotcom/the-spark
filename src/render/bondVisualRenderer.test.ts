@@ -236,8 +236,8 @@ describe('S7 P2 — tick-driven animation', () => {
     expect(serialize(a)).not.toEqual(serialize(b));
   });
 
-  // S8 P5 — after P1/P3/P4 the 12 magic silhouettes split 6 animated
-  // (wheel, vortex, orbital, whip, warped, filament) + 6 static. This
+  // S8 P5 — the 14 magic silhouettes split 6 animated (wheel, vortex, orbital,
+  // whip, warped, filament) + 8 static (S91 added anchor+spindle, both static). This
   // guards the OPPOSITE regression class: a future refactor accidentally
   // wiring p.tick into a silhouette that should stay frame-stable.
   const STATIC_SILHOUETTES = [

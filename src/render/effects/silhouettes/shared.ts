@@ -109,7 +109,7 @@ export function strokePathLerp(
   g.stroke({ width, color: p.colorA, alpha });
 }
 
-/** Plain line — 24 functional combos + degenerate fallback when bond length < 1. */
+/** Plain line — 22 functional combos + degenerate fallback when bond length < 1. */
 export function drawDefaultLine(g: Graphics, p: BondVisualParams): void {
   g.moveTo(p.ax, p.ay)
     .lineTo(p.bx, p.by)

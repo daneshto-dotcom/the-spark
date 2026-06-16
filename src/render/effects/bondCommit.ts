@@ -2,7 +2,9 @@
  * BOND_COMMIT — expanding ring from the bonded primitive (~0.4s pop).
  * Dispatches over `visualEffectId` to per-combo silhouette flair from
  * `silhouettes.ts`. Inner flash precedes the silhouette to anchor visual
- * continuity across the 14 magic + 22 functional variants.
+ * continuity. 12 magic combos have a bespoke commit-pop; the other 24 — the 22
+ * functional placeholders + the S91 Anchor/Spindle promotions (whose bespoke
+ * commit-pop is deferred to Phase 2) — use drawDefaultRing.
  */
 
 import { Graphics } from 'pixi.js';
