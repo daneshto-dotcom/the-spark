@@ -26,3 +26,8 @@ test-results-quarantine/
 # S74 — root handoff docs are ephemeral; the permanent copy lives in .handoff-archive/
 # (tracked). Root-anchored (leading /) so .handoff-archive/HANDOFF_*.md is NOT ignored.
 /HANDOFF_*.md
+
+# S90 — stray captured build-log output (e.g. `npm run build > build-out.txt`); never a tracked artifact.
+/build-out.txt
+/*-out.txt
+/e2e-watch-*.log
