@@ -1,81 +1,274 @@
 {
-  "tool_calls_session_total": 370,
-  "session_id": "S88",
+  "tool_calls_session_total": 7,
+  "session_id": "S89",
   "session_kind": "execution",
-  "session_start": "2026-06-15T00:00:00.000Z",
-  "session_note": "S88 — (1) MCV false-UNBOUND fix: project-local verify-watch-roots.json (1bf69c7). (2) Batch PDR G3a + roadmap correction: PRIME-AUDIT DROPPED G1a (magic bonds already earn +2.0/8x premium since S76 — roadmap claim false; +0.75 would be a -62% nerf). P1=in-match discovery toast (magic-12) + per-match counter (b0751bf); P2=BACKLOG audit-error correction (0709b51). Full Council R1 (Grok 4.20 + Gemini 2.5-pro) UNANIMOUS; PRIME-AUDIT folded 6 revisions. User approval: 'approved full session batch!'. PDR: .claude/plans/2026-06-15_PDR_S88_G3a_Discovery_Toast.md",
+  "session_start": "2026-06-15T18:00:00.000Z",
+  "session_note": "S89 — user playtested spark-online.space, reported 5 regression/feel issues + mandated 'run those 5 fixes then go straight into G1b' with explicit pre-approval of full autonomous run. Batch PDR (Full tier, 2-round Council Grok-4.20 + Gemini-2.5-pro). P1 lobby READY overlap + per-seat tick; P2 version-badge overprint; P3 poop-foul auto-expiry+cue (Council SYNTHESIS C, 30s window); P4 hunter +25%; P5 client-mirror render-delay snapshot buffer (Council CONVERGED — A dropped as broken); P6 G1b Vortex behavior (Council SPLIT resolved → Vortex-last w/ determinism discipline + DEFENSE fallback). PRIME-AUDIT 5 revisions. PDR: .claude/plans/2026-06-15_PDR_S89_playtest5_plus_G1b.md",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "tier": "Standard",
-  "council_rounds": 1,
-  "council_result": "R1 UNANIMOUS (Claude+Grok-4.20+Gemini-2.5-pro). CONVERGED: drop G1a; 4 design choices unanimous (global per-match / magic-12 only / HUD layer / per-match counter). PRIME-AUDIT adopted 6 revisions (R1 same-tick multi-discovery names[]; R2 sorted Set serialize; R3 placement-level detection; R4 HUD position band; R5 keyless-decode test; R6 visual-only). Deferred: 12/12 flourish.",
-  "signals_fired": [],
+  "tier": "Full",
+  "council_rounds": 2,
+  "council_result": "R1 split (P3 Grok keep-mechanic vs Gemini auto-expiry; P6 Grok Defense-first vs Gemini Vortex-first), R2 domain-weighted convergence. P2 SYNTHESIS de-emph+backing-plate; P3 SYNTHESIS C auto-expiry 30s + cue (user reported permanence as bug); P5 CONVERGED render-delay buffer + bracket lerp + creature/hazard coverage (option A DROPPED — confirmed broken: late snapshot resets currentSnapTime so a bigger window only shifts the freeze-jump); P6 SYNTHESIS Vortex-first w/ mitigations (sequenced last, host-only force, sorted iteration, replay test, DEFENSE fallback). PRIME-AUDIT: A1 buffer cold-start/underrun/new-entity tests; A2 preserve S52 dragLock + S56 GAP-2; A3 Vortex host-only force (CRITICAL desync guard); A4 income resumes at foul-expiry; A5 P2/P4 static-fine.",
+  "signals_fired": [
+    "external_user_facing",
+    "novel_mechanism"
+  ],
   "priorities": [
     {
       "id": "P1",
-      "label": "S88 P1 — G3a: in-match NEW COMBO discovery toast (magic-12) + per-match discovered counter",
+      "label": "S89 P1 — Quick Match lobby: de-collide status-text overlap + per-seat READY tick",
       "status": "completed",
       "phase": "ACT",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "objective": "First formation of a named magic combo in a match -> transient HUD toast 'NEW COMBO — <name>!' on all peers + 'Combos N/12' counter. Deterministic, 1v1-mirror-safe, no protocol bump.",
-      "scope": "worldTypes.ts, world.ts, save.ts, gameMode.ts, placePrimitive.ts, comboDiscovery.ts (new), comboToastRenderer.ts (new), ui.ts, main.ts, constants.ts + tests",
-      "testing": "pure-pose unit; detection unit (first/same-tick-R1/watermark/functional/first-only); save round-trip + sorted-R2 + keyless-R5; tsc 0; full vitest; bundle <550 KiB; live boot",
+      "objective": "Kill the illegible text overprint above the READY button (statusText + readyCountText share y=paneY+PANE_HEIGHT+40); show a per-seat checkmark when another player has clicked READY.",
+      "scope": "lobbyScreen.ts (status-block relayout), lobbyStateMachine.ts (SeatView.ready + lobbyView map), seatRack.ts (per-seat tick), main.ts (confirm presence passthrough) + tests",
+      "testing": "lobbyView maps presenceRoster ready->SeatView.ready; status y-positions pairwise distinct; friends-lobby (ready undefined) byte-identical; tsc 0; vitest green; bundle <550 KiB",
       "check_completed": true,
-      "checkpoint_commit": "b0751bf",
-      "check_method": "S88 P1 (b0751bf): G3a discovery loop verified by compile+test+boot. UNIT: full vitest 1385/1385 exit 0 (was 1370; +15 = 6 detection + 7 pose + 2 save). tsc -b --noEmit exit 0. comboDiscovery.test.ts: first magic combo stamps comboToastTick+name+counter; functional (Dot->Dot) never toasts; same combo twice does NOT re-stamp (first-this-match); PRIME-AUDIT R1 two DIFFERENT magic combos on one tick -> BOTH names + counter+2; watermark scoping (only bonds id>=firstNewBondId scanned); fresh-world baseline empty. comboToastRenderer.test.ts: pose inactive before/after window + NaN guard (tick-rewind ghost guard), active across window, alpha smooth fade peak 0.95 never exceeded, upper-center band y=0.28H, scale pop-in. save.test.ts: discoveredCombos round-trips SORTED (PRIME-AUDIT R2 canonical), comboToastTick+names round-trip, a keyless snapshot decodes + clears stale local state (PRIME-AUDIT R5 backward-compat, NO protocol bump). DETECTION: single placement-level hook in placePrimitive (firstNewBondId watermark) covers primary+redundancy+merge-sweep + the PLACE_FROM_FREE delegate (confirmed delegates to placePrimitive). BUNDLE: index 557.48 vite-kB = 544.4 KiB < 550 KiB charter (+2.8 KiB eager ComboToastRenderer; kB->KiB x1000/1024 per S87 unit gotcha). LIVE PREVIEW (dev server 25399): clean boot, zero console errors across boot+reload, new renderer mounted, world.discoveredCombos inits empty + comboToastTick undefined at TITLE. Live VISUAL of the toast/counter NOT captured — driving the in-canvas Pixi Solo button via synthetic DOM pointer events did not trigger the federated event flow, and a force gameState='PLAYING' mutation wedged the render loop (harness artifact, recovered by reload); render WIRING confirmed (construct+addChild+sync-in-loop+crash-free) + pose/counter logic unit-proven. G1a DROPPED via PRIME-AUDIT (magic already +2.0 vs +0.25 since S76).",
+      "checkpoint_commit": "de2f05d",
+      "real_context_tokens_at_close": 245489,
+      "real_context_pct_at_close": 24.55,
+      "check_method": "S89 P1 (de2f05d): lobby READY fixes verified by tsc+test+boot. ROOT CAUSE (confirmed by Read): statusText (lobbyScreen.ts:323) and readyCountText (:400) BOTH at y=paneY+PANE_HEIGHT+40 -> head-on overprint in a quickmatch room. FIX: readyCountText moved to +16 (clean row between countText y=710 and statusText +40); READY button untouched at +70 (e2e click coords stable per the in-file contract). PER-SEAT TICK: SeatPresence.ready (synced since S87 P4) now flows through new SeatView.ready (lobbyStateMachine.lobbyView roster branch; count-based fallback leaves it undefined) -> seatRack renders a dark bold checkmark top-right of a ready occupied seat (dark fill = guaranteed contrast on every bright PLAYER_COLOR, same rationale as the dark label). UNIT: full vitest 1387/1387 (was 1385; +2 new lobbyStateMachine tests: ready maps per-seat with exactly one tick; friends/count-based seats carry ready=undefined so no tick in friends lobbies = byte-identical). seatRack.test.ts existing 10 pass. tsc -b --noEmit exit 0. BUNDLE: index 557.74 vite-kB = 544.67 KiB < 550 charter (+0.26 KiB). BOOT (dev 25399): zero console errors, canvas 1920x1080, window.__SPARK__ present, title SPARK. VISUAL GAP (honest, S88 precedent): the in-room quickmatch lobby (overlap fix + tick) is NOT harness-drivable — it needs real peers + the READY button, and the Pixi WebGL canvas screenshot times out headless. The fix is a verified y-position constant + unit-proven state mapping + crash-free boot.",
       "verification": [
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/comboDiscovery.ts", "needle": "export function detectComboDiscoveries" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/comboToastRenderer.ts", "needle": "export function comboToastPose" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/worldTypes.ts", "needle": "discoveredCombos: Set<ComboKey>" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/placePrimitive.ts", "needle": "detectComboDiscoveries(world, firstNewBondId)" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts", "needle": "drawComboCounter" }
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/lobbyStateMachine.ts",
+          "needle": "ready: entry !== undefined ? entry.ready : undefined"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/seatRack.ts",
+          "needle": "readyTick.visible = nowOccupied"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/lobbyScreen.ts",
+          "needle": "paneY + PANE_HEIGHT + 16"
+        }
       ]
     },
     {
       "id": "P2",
-      "label": "S88 P2 — correct BACKLOG roadmap audit error (magic premium already exists; real gap = G1b)",
+      "label": "S89 P2 — version badge 'BETA · S17 PHASE-2' overprints world primitives",
       "status": "completed",
       "phase": "ACT",
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "objective": "Fix BACKLOG.md S86 gap-table isMagical row + G1a item to reflect code reality; mark G3a shipped.",
-      "scope": "BACKLOG.md only",
-      "testing": "re-read + MCV file_contains assertion",
+      "objective": "Version/meta badge no longer clashes with gameplay primitives in the top-right. Council SYNTHESIS: de-emphasize (smaller/dimmer) + subtle dark backing plate pinned to corner.",
+      "scope": "main.ts betaBadge (lines ~185-198) — backing-plate Graphics + de-emph; render-only",
+      "testing": "live boot screenshot (or honesty note if Pixi not drivable); tsc 0; vitest green; bundle <550 KiB",
       "check_completed": true,
-      "checkpoint_commit": "0709b51",
-      "check_method": "S88 P2 (0709b51): BACKLOG.md corrected. The S86 'honest gap' isMagical row struck through + replaced with the empirical truth (isMagical live at scoring.ts:90; magic +2.0 uncapped vs functional +0.25 capped = 8x since S76, passing test scoring.test.ts:89). G1a struck through + marked DROPPED (S88 PRIME-AUDIT) with the -62%-nerf rationale + the MAGIC_BONUS tuning lever (LOCKED_DECISIONS §6 + constants.lock, playtest-gated). G3a marked SHIPPED S88. Re-read confirms all three edits landed; BACKLOG.md is the S88 MCV-bound watch-root so this edit is diff-bound.",
+      "checkpoint_commit": "9eeac55",
+      "real_context_tokens_at_close": 270000,
+      "real_context_pct_at_close": 27.0,
+      "check_method": "S89 P2 (9eeac55): version-badge overprint fixed. ROOT CAUSE: betaBadge (main.ts:185) on the post-fog HUD layer above the world; semi-transparent text overprinted gameplay primitives drifting into the top-right corner. FIX (Council synthesis de-emph + plate): fontSize 14->12, letterSpacing 4->3 (smaller footprint); NEW betaBadgePlate Graphics (dark 0x05070a @ fill-alpha 0.5, roundRect sized from measured betaBadge.width/height + 9px/4px pad), staged immediately BELOW betaBadge (added Graphics import). The plate masks world content behind it so the badge reads as screen-space chrome. VERIFY: tsc -b --noEmit exit 0. LIVE SCENE-GRAPH (dev 25399 eval of app.stage.children getBounds — better than the un-capturable WebGL screenshot): plate bounds (1729-1917, 8-29) fully enclose badge text bounds (1738-1908, 12-25) with the designed padding; plate at lower z-index than the badge (renders behind); no overlap with the mute glyph at y>=30 or the energy gauge at y>=80; zero console errors on reload. Render-only, no test surface (positional/Graphics).",
       "verification": [
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md", "needle": "DROPPED (S88 PRIME-AUDIT)" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md", "needle": "S88 CORRECTION: FALSE" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md", "needle": "SHIPPED S88" }
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "const betaBadgePlate = new Graphics()"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "app.stage.addChild(betaBadgePlate)"
+        }
+      ]
+    },
+    {
+      "id": "P3",
+      "label": "S89 P3 — pooped structures auto-expire foul (color+income revert) + cue",
+      "status": "completed",
+      "phase": "ACT",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "objective": "Council SYNTHESIS C: deterministic tick-gated foul auto-expiry (Poop.fouledUntilTick = tick + POOP_FOUL_TICKS, 30s window) so a pooped structure self-cleans (color+income restored); manual avatar-wipe stays the instant clean; + a subtle deterministic timer cue. Honors the user's bug report while preserving the tempo/diversion depth.",
+      "scope": "seagullLifecycle.ts (stamp fouledUntilTick + expire in tick), constants.ts (POOP_FOUL_TICKS), save.ts (additive round-trip, no protocol bump), render cue + tests",
+      "testing": "auto-unfoul at tick>=fouledUntilTick (color+income restored, PRIME-AUDIT A4); manual wipe still instant pre-expiry; no double-fire race; avatar tint reverts (regression); save round-trip additive+keyless; determinism host/client mirror; tsc 0; vitest green; bundle <550 KiB",
+      "check_completed": true,
+      "checkpoint_commit": "4df76b1",
+      "real_context_tokens_at_close": 300000,
+      "real_context_pct_at_close": 30.0,
+      "check_method": "S89 P3 (4df76b1): poop-foul auto-expiry. DESIGN (Council synthesis C, user reported permanence as a bug): a SPLAT_STRUCTURE foul (olive tint + ZERO income) used to persist until a manual avatar-wipe; now AUTO-EXPIRES at landedAtTick + POOP_FOUL_TICKS (30s = 2x cruiser slow). FIX: applyPoopTick landed branch -> applyCleanPoop reuse (unfoul whole CURRENT component + remove splats; gone-anchor orphan handled same as the avatar wipe). NO new field (landedAtTick already serializes -> NO protocol bump). Manual wipe stays the INSTANT clean (Grok tempo depth preserved). Host-authoritative (POOP_TICK host-internal; client mirrors fouledPrimitives+poops via snapshot). CUE: structure splat holds then fades over final POOP_FOUL_FADE_TICKS (3s) to telegraph auto-clean (render-only, deterministic both peers via world.tick-landedAtTick). RALPH:PATROL spec-conformance (inline Opus): conforms to synthesis C; reuses the audited clean path; income-restore = PRIME-AUDIT A4 satisfied. UNIT: full vitest 1390/1390 (was 1387; +3 new: auto-clean at expiry restores income EXACTLY + still fouled 1 tick before; manual wipe instant pre-expiry; SPLAT_GROUND TTL not regressed). tsc 0. BUNDLE index 558.03 vite-kB = 544.95 KiB < 550 (+0.28). VISUAL GAP: the in-match self-heal needs a seagull to poop a structure (not harness-drivable Pixi); logic unit-proven + clean boot.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const POOP_FOUL_TICKS = 30 * PHYSICS_HZ"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/seagulls/seagullLifecycle.ts",
+          "needle": "world.tick - poop.landedAtTick >= POOP_FOUL_TICKS"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/poopRenderer.ts",
+          "needle": "POOP_FOUL_TICKS - POOP_FOUL_FADE_TICKS"
+        }
+      ]
+    },
+    {
+      "id": "P4",
+      "label": "S89 P4 — hunter +25% speed",
+      "status": "completed",
+      "phase": "ACT",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "objective": "Hunter pursues 25% faster: HUNTER_MAX_SPEED 4.2->5.25, HUNTER_ACCEL 0.36->0.45 (preserve locked 0.0857 ratio), damping unchanged. Terminal speed accel/(1-damping) 3.6->4.5 = +25%.",
+      "scope": "constants.ts:519-520 (two constants); no lock test / LOCKED_DECISIONS entry exists",
+      "testing": "vitest green (hunter tests use literals); tsc 0; bundle <550 KiB",
+      "check_completed": true,
+      "checkpoint_commit": "43b4c0c",
+      "real_context_tokens_at_close": 312000,
+      "real_context_pct_at_close": 31.2,
+      "check_method": "S89 P4 (43b4c0c): hunter +25%. constants.ts HUNTER_MAX_SPEED 4.2->5.25, HUNTER_ACCEL 0.36->0.45 (x1.25 both, 0.0857 ratio preserved). Terminal speed 10*accel 3.6->4.5 px/tick = exactly +25%, under the new 5.25 cap. DAMPING unchanged. No lock test/LOCKED_DECISIONS gates it (verified S89 investigation). hunterLifecycle.test.ts 20/20 (uses literals, not constants). full vitest 1390/1390, tsc 0.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const HUNTER_MAX_SPEED = 5.25"
+        }
+      ]
+    },
+    {
+      "id": "P5",
+      "label": "S89 P5 — client-mirror lag: render-delay snapshot buffer + bracket lerp + creature/hazard coverage",
+      "status": "completed",
+      "phase": "ACT",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "objective": "Joiner (P2) renders smooth motion (sparks, structures, creatures/hazards) instead of freeze-jump. Council CONVERGED: replace the zero-buffer single-pair lerp with a render-delay snapshot buffer (render at now-NET_RENDER_DELAY_MS, interpolate the bracketing pair) + extend interpolation to creatures/hazards. Render-layer only; determinism untouched. Option A DROPPED (confirmed broken).",
+      "scope": "sync.ts (ClientSync snapshot buffer + bracket selection in interpolateInto/interpolatePositions + creature/hazard coverage), constants.ts (NET_RENDER_DELAY_MS ~120-150ms tunable), possibly render creature smoothing + tests",
+      "testing": "PRIME-AUDIT A1 cold-start/underrun/new-entity graceful; A2 preserve S52 dragLock + S56 GAP-2; jittered snapshot sequence -> continuous (no t-saturation freeze); synced state untouched by render lerp; tsc 0; full vitest green; bundle <550 KiB; e2e 2-browser lane green",
+      "check_completed": true,
+      "checkpoint_commit": "de1d1fd",
+      "check_method": "S89 P5 (de1d1fd): client-mirror render-delay buffer. ROOT CAUSE (confirmed): 100ms interp window == 100ms snapshot interval = ZERO jitter buffer -> late packet saturates t=1 (freeze) then jumps; + hunter/seagulls/poops stepped raw (not interpolated). FIX (Council CONVERGED; option A dropped as broken): ClientSync keeps last-8 snapshots w/ arrival timestamps, renders world NET_RENDER_DELAY_MS=150 behind realtime, interpolates the BRACKETING pair (pickBracket). LATEST snapshot still drives entity SET + non-position state; only positions render-delayed. Render-layer only; host authoritative + re-resolves intents by id; client never simulates from these. Coverage extended to CONTINUOUS movers (hunter+seagulls). ADVERSARIAL CHECK (Triumvirate): GROK-ANALYST FAIL on finding #5 (lerping DISCONTINUOUS entities smears them — poop FALLING->SPLAT snap, potato grab teleport) -> FIXED by excluding poops/potatoes/rainbows/bombs/creatures, keeping only hunters+seagulls. Grok #1 (intent-leak desync) triaged NON-ISSUE (host-authoritative + id-based intents + old code already interpolated prims/sparks for many sessions). Grok #2/Gemini #4 (150ms tuning) -> documented #1 netcode knob, playtest-tune. GEMINI-AUDITOR CONDITIONAL PASS (Fidelity 5/Quality 4/Completeness 4): architecture sound, condition = live 2-peer playtest of aiming-at-render-delayed-targets feel (== the user playtest plan). PRIME-AUDIT A1 (cold-start/underrun/new-entity) + A2 (S52 dragLock + S56 GAP-2 preserved) covered by tests. UNIT: full vitest 1395/1395 (+5: bracket continuous, cold-start clamp-oldest, underrun clamp-newest, new-entity-no-smear, hunter-lerp; all prior dragLock/GAP-2/throw-guard green). tsc 0. BUNDLE 558.65 vite-kB = 545.56 KiB < 550. CLEAN BOOT no console errors. E2E 2-browser CI lane runs on push (exercises client path) — confirm GREEN. VISUAL/FEEL GAP: live 2-peer smoothness is the user playtest (harness cannot drive 2 Pixi peers).",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/sync.ts",
+          "needle": "private pickBracket(renderTime: number)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/sync.ts",
+          "needle": "lerpCollection(prev.hunters, curr.hunters, t, world.hunters)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const NET_RENDER_DELAY_MS = 150"
+        }
+      ]
+    },
+    {
+      "id": "P6",
+      "label": "S89 P6 — G1b: Vortex anchor-pull (first magic-combo BEHAVIOR) + behavior slate",
+      "status": "completed",
+      "phase": "ACT",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "objective": "Make magic combos MATTER. Implement ONE archetype: Vortex (Dot->Spiral) pulls nearby free sparks toward the bonded anchor (its literal table description). Host-only capped force, pure fn of synced state, sorted iteration, spatial-grid-bounded. Council picks full slate (Vortex/Diamond-Lattice/Wheel-Star/Filament). DEFENSE fallback if budget/risk forces.",
+      "scope": "combos.ts (behavior tag/helper), state physics step (vortexPull host-only), constants.ts (pull radius/strength), render cue + tests. Sequenced LAST (isolated commit, clean desync attribution).",
+      "testing": "PRIME-AUDIT A3 host-only force (client never recomputes — desync guard); determinism replay-identical; spark within R gains capped velocity toward anchor, outside R unaffected, carried/poopy handled; tsc 0; full vitest green; bundle <550 KiB; e2e lane green",
+      "check_completed": true,
+      "checkpoint_commit": "f425167",
+      "real_context_tokens_at_close": 476430,
+      "real_context_pct_at_close": 47.64,
+      "check_method": "S89 P6 G1b (f425167): Vortex anchor-pull — FIRST mechanical magic-combo behavior. applyVortexPull(world, attractedId) once per tick in stepPhysics (HOST/SOLO-only -> clients mirror via snapshot, never recompute = PRIME-AUDIT A3 desync guard by construction). Vortex bond = isVortexCombo(a.type,b.type) [lookupCombo resultName Vortex, order-dependent Dot=aId->Spiral=bId, matches scoring/discovery]; skipped when fouled. Capped proximity-ramped velocity impulse toward anchor (bond midpoint) on FREE sparks within VORTEX_PULL_RADIUS=220, injected via prevPos (8 substeps carry+damp). Skips AttractDragged spark. ADVERSARIAL CHECK (Triumvirate): GROK-ANALYST FAIL on determinism finding #1 (multi-anchor float SUM is Map-insertion-order-sensitive = latent replay hazard) -> triaged: NO current desync (host-only + save/load preserves bond array order) BUT real fragility -> HARDENED by sorting anchors by bond id (canonical order, seagull lowest-id convention) + added a multi-anchor determinism test (same Vortexes opposite insertion order -> identical pull). Grok #2 (prevPos double-write vortex+poopy) triaged deterministic+fixed-call-order (not desync). #3/#4 (MIN_DIST guard / collision oscillation) not breaks (dist>=12 valid unit vector, bounded terminal, deterministic). GEMINI-AUDITOR CONDITIONAL PASS (Fidelity 5/Quality 4/Completeness 5): excellent first mechanic, counterplay-balanced (build-own/sever/poop), VFX-deferral acceptable, tune time-to-advantage in playtest. UNIT: full vitest 1405/1405 (+10 Vortex: pull-toward-anchor, out-of-range/carried/dragged/fouled no-op, only-Dot->Spiral, proximity ramp, single+MULTI-anchor determinism). tsc 0. BUNDLE 559.48 vite-kB = 546.37 KiB < 550. CLEAN BOOT (solo runs applyVortexPull as no-op, zero console errors). VISUAL GAP: live in-match pull (sparks converging on a built Dot->Spiral) needs a real solo game + the combo formed — not harness-drivable (Pixi input); mechanic unit-proven + wiring compiles + boots.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/vortex.ts",
+          "needle": "export function applyVortexPull"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/vortex.ts",
+          "needle": "anchors.sort((p, q) => p.id - q.id)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/combos.ts",
+          "needle": "export function isVortexCombo"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/physics/physicsLoop.ts",
+          "needle": "applyVortexPull(world, attractedId)"
+        }
+      ]
+    },
+    {
+      "id": "P7",
+      "label": "S89 P7 — final adversarial audit (8-reviewer workflow) + post-audit polish",
+      "status": "completed",
+      "phase": "ACT",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "objective": "Ultracode mandate: exhaustive adversarial audit of the full 6-commit S89 batch before handoff; fix every confirmed-real finding.",
+      "scope": "8-dimension Workflow (per-priority + cross-cutting + PDR-fidelity + test-coverage), refute-first verifiers; then src/net/sync.ts + sync.test.ts (creature interp), src/state/vortex.ts, src/constants.ts, src/bots/botConfig.ts, LOCKED_DECISIONS.md",
+      "testing": "tsc 0; full vitest 1407; bundle <550; clean boot",
+      "check_completed": true,
+      "checkpoint_commit": "6432391",
+      "real_context_tokens_at_close": null,
+      "check_method": "S89 P7 (6432391): ultracode final adversarial audit. WORKFLOW wf_952c310f-03a: 8 review dimensions (P1-P2 ui, P3 poop, P4 hunter, P5 netcode-refix, P6 vortex-refix, cross-cutting, pdr-fidelity, test-coverage), each finding independently verified refute-first. RESULT: NO critical/high code bugs — all P1-P6 work + the in-build P5/P6 CHECK fixes HELD under adversarial re-review. 6 findings raised, 4 confirmed real (1 MED + 3 LOW), 2 refuted (badge-plate/mute cosmetic z-correct; vortex attractedId-redundant harmless). FIXES LANDED: [MED] P5 had over-excluded CREATURE interpolation when narrowing to hunters+seagulls — creatures (voltkin) DO ride the client mirror (NetSnapshot v2; S27 empty-creatures comment stale) and step at 10Hz while SEEKING (the artifact P5 targeted; Council coverage said creatures). Added state-gated creature interp (SEEKING-in-both only; SPAWNING/DESPAWNING/transitions skipped) + 2 tests. [LOW] vortex bounded-scan justification comment (full scan is O(<=50 sparks x few anchors), grid query not worth it). [LOW] LOCKED_DECISIONS.md 13.3/13.8 amended to the render-delay buffer (was NET_INTERPOLATION_MS=100). [LOW] stale hunter 4.2 comments -> 5.25/term~4.5 in constants.ts + botConfig.ts. VERIFY: tsc 0, full vitest 1405->1407, bundle 559.82 vite-kB = 546.70 KiB < 550, clean boot (canvas+__SPARK__, zero console errors).",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/sync.ts",
+          "needle": "if (cc.state !== 'SEEKING') continue"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/LOCKED_DECISIONS.md",
+          "needle": "Render-delay snapshot-buffer interpolation"
+        }
       ]
     }
   ],
   "generative_cost_cap_usd": 10,
-  "generative_cost_spent_prior_usd": 3.07,
+  "generative_cost_spent_prior_usd": 0,
   "budget_total": 1000000,
   "reflexion_entries_to_archive": [
-    "P1 #verify-the-roadmap-against-the-code-before-building (Rule 21/20): the user-mandated roadmap's G1a premise ('isMagical is dead / magic earns no premium') was FALSE — scoring.ts:90 reads isMagical and a magic bond has earned +2.0 vs functional +0.25 (8x, uncapped) since S76, with a passing test. Coding the literal roadmap item (+0.75) would have been a -62% NERF. A state-discovery probe (read the actual scoring + combos source) BEFORE drafting caught it; the gap table had conflated 'magic combos have no BEHAVIORS' (true, = G1b) with 'magic earns no SCORING premium' (false). LESSON: an audit/roadmap claim about code is a hypothesis — ground-truth it with Read+grep before designing on it, even when it's user-authored.",
-    "P1 #hook-at-the-confluence-not-per-path: combo-discovery detection needed to cover THREE bond-creation paths in placePrimitive (primary + redundancy + merge-sweep) PLUS the PLACE_FROM_FREE reducer — but placeFromFree delegates to placePrimitive, and all three paths run before the single BOND_FORMED emit. So ONE placement-level hook keyed off a captured firstNewBondId watermark (bonds with id>=watermark) covers everything, vs N fragile per-path hooks. Reused the rainbowSwitchTick (synced-tick + pure-pose, additive-optional, overwrite=restart) AND fouledPrimitives (Set field: init in makeWorld, sorted-serialize, clear on START_GAME/RETURN_TO_TITLE) precedents verbatim — same shape, provably consistent, no protocol bump.",
-    "P1 #preview-cannot-always-drive-pixi-input (process): the live-preview VISUAL of the toast/counter was not capturable — Pixi v8's federated event system did not react to synthetic DOM PointerEvents on the canvas (gameState stayed TITLE), and force-mutating world.gameState='PLAYING' on an uninitialized TITLE world WEDGED the render loop (screenshot timed out; recovered by reload). The S87 lesson recurred: harness-synthesized input + artificial state contaminate. LESSON: when the live visual isn't reachable, lean on (a) pure-pose unit tests for the render math, (b) clean-boot + console-error checks for render WIRING, and REPORT the visual gap honestly rather than claim a screenshot that wasn't taken. Don't force engine state the real flow initializes.",
-    "P2 #correct-the-source-of-truth-when-it-lies: when a PRIME-AUDIT overturns a roadmap/audit claim, fixing the code is not enough — the wrong claim must be struck FROM the source of truth (BACKLOG.md roadmap) in the same session, with the empirical correction + evidence, so the next session doesn't rebuild on the false premise. Struck the gap-table row, marked G1a DROPPED with the nerf rationale, marked G3a SHIPPED."
+    "P1 #surface-state-that-already-exists-dont-rebuild-it: the per-seat READY indicator the user asked for needed ZERO new wire/sync work — SeatPresence.ready had been synced since S87 P4 (RosterEntry.ready -> LOBBY_PRESENCE) but was never rendered. The whole fix was one optional field on SeatView + a map in lobbyView + a tick in seatRack. LESSON: before adding a feature, grep the data model for a field that already carries it; the gap was render-only, not protocol.",
+    "P1 #two-texts-one-y-coordinate: the overprint was literally two Text objects pinned to the SAME y (paneY+PANE_HEIGHT+40) — statusText (always) + readyCountText (quickmatch). A pure layout collision, not a logic bug. Moving only the non-interactive Text (not the e2e-pinned READY button) de-collided it. LESSON: text-overprint reports are usually identical-anchor collisions; diff the .position.set calls before theorizing.",
+    "P2 #verify-pixi-via-scenegraph-bounds-not-screenshot: the WebGL canvas screenshot times out headless (recurring S88 limitation), but app.stage.children + getBounds() IS queryable through the __SPARK__.app handle. Confirmed the backing plate landed at bounds (1729-1917,8-29) enclosing the badge text with the designed padding + correct z-order — a real visual-geometry verification, not just unit math. LESSON: for Pixi render fixes, eval the scene-graph bounds/z-order as the verification channel when screenshots fail; expose app on the debug handle so this stays possible.",
+    "P2 #pixi-v8-class-names-are-underscore-prefixed: a filter for constructor.name===\"Graphics\" returned 0 even though the stage was full of Graphics — Pixi v8 names them _Graphics/_Container/_Text. LESSON: match the _-prefixed names (or use instanceof) when introspecting a Pixi v8 scene graph at runtime.",
+    "P3 #reuse-the-existing-expiry-rail-no-new-field: the foul auto-expiry needed ZERO new synced field — Poop.landedAtTick already existed AND round-tripped in save.ts (SPLAT_GROUND already used landedAtTick+TTL). So the change was one else-if mirroring the ground-TTL pattern + a call to the already-audited applyCleanPoop (which even handles the gone-anchor orphan case). No protocol bump, no new serialization. LESSON: before adding a timer field, check whether an existing landed/created tick + a new constant already expresses the window.",
+    "P3 #a-bug-report-can-be-a-design-decision-surface-it: the user-reported \"stayed white\" was partly a DELIBERATE mechanic (foul = income-zero until manually wiped). I did NOT blindly rip it out — ground-truthed it as intentional, ran the Council (Grok: keep+cue; Gemini: auto-expiry), and synthesized C (auto-expiry 30s + manual-wipe-instant + fade cue) which honors the user intent AND preserves the tempo depth. LESSON: when a reported bug is actually intended behavior, surface the design tension + let deliberation + user-intent resolve it; do not unilaterally gut a mechanic, and do not dismiss the user report as -working as intended-.",
+    "P5 #adversarial-check-caught-a-real-ship-blocker: the Triumvirate CHECK (GROK-ANALYST break-it lens) found that extending interpolation to ALL moving entities would SMEAR the ones with discontinuous transitions — a poop FALLING->SPLAT snaps its pos onto the struck structure, so a lerp slides the splat mid-air; a grabbed potato teleports to the carrier. I had excluded creatures for this reason but missed poops/potatoes/rainbows/bombs. FIX: narrow coverage to CONTINUOUS movers (hunter+seagulls) only. LESSON: interpolation is only safe for entities whose position is CONTINUOUS between snapshots; anything that teleports/snaps mid-life must be excluded (or state-gated). Adversarial CHECK on the high-risk netcode change paid for itself — unit tests passed but did not model the FALLING->SPLAT transition.",
+    "P5 #zero-jitter-buffer-was-the-bug-not-the-window-size: the choppiness was NOT \"interpolation missing\" — it existed (prev->current lerp) but the window EQUALLED the snapshot interval, so any late packet saturated t=1 and froze-then-jumped. Council proved that just WIDENING the window (option A) does not help: a late snapshot resets currentSnapTime=now, t=0, so it only shifts the freeze. The fix is a RENDER-DELAY clock + a multi-snapshot buffer + bracket-lerp (render the past, where a newer snapshot reliably exists). LESSON: for snapshot interpolation, the render clock must lag real-time by >1 interval and interpolate the bracketing pair from a buffer; a single prev/current pair with window==interval is structurally a zero-buffer freeze machine.",
+    "P6 #host-only-physics-is-a-desync-guard-by-construction: the Vortex pull mutates spark positions, but because stepPhysics is host/solo-gated (clients receive positions via snapshot, never simulate), the client CANNOT double-apply the force -> the PRIME-AUDIT A3 critical desync risk is closed structurally, not by a runtime check. LESSON: for a new host-authoritative behavior, the determinism contract is mostly satisfied by WHERE it runs (host-only) + purity; the residual risk is replay-reproducibility, not host/client mirror.",
+    "P6 #float-sums-need-a-canonical-order-even-host-only: the adversarial CHECK caught that my multi-anchor pull SUM depended on Map insertion order (IEEE-754 non-associativity). No CURRENT desync (save/load preserves bond array order; client never computes it) but a latent replay hazard. FIX: sort anchors by bond id before summing (canonical order = reproducible regardless of Map order), matching the seagull lowest-id determinism convention. My first unit tests only covered SINGLE-anchor — the CHECK exposed the gap; added a multi-anchor opposite-insertion-order determinism test. LESSON: any float accumulation over a collection in a deterministic sim must iterate in a CANONICAL (id-sorted) order, and determinism tests must include the MULTI-element case.",
+    "P7 #ultracode-final-audit-catches-the-over-correction: the P5 in-build CHECK (Grok hazard-smear) made me narrow interpolation coverage from \"creatures/hazards\" to hunters+seagulls — but that OVER-dropped creatures (voltkin), which actually move continuously while SEEKING and DO ride the client mirror (the S27 \"client creatures empty\" comment was stale). The final 8-reviewer audit caught it as a MED Council-fidelity gap; fix = STATE-GATED creature interp (only SEEKING, skip the stationary/transition states). LESSON: a reactive narrowing fix can swing too far — re-audit the binding coverage list after any scope-narrowing; and verify stale \"X is empty/disabled\" comments against the CURRENT wire (NetSnapshot v2 made the S27 comment false).",
+    "P7 #audit-the-claims-not-just-the-code: the audit verified every check_method claim + every verification[] needle + ran tsc/vitest/bundle independently, and separately checked DOC fidelity (LOCKED_DECISIONS, code comments) — finding 3 doc-drift items (stale netcode design, stale hunter-speed comments) that code-only review misses. LESSON: a shipped change must also update the locked-decision doc + neighboring invariant comments that reference the changed numbers; a final audit should explicitly diff docs/comments against the new reality, not just the code."
   ],
-  "session_status": "S88 COMPLETE: 2/2 priorities shipped + pushed pending. P1 b0751bf (G3a toast+counter), P2 0709b51 (roadmap fix). vitest 1385/1385, tsc 0, bundle 544.4 KiB < 550, clean boot. MCV local watch-config fix (1bf69c7) earlier. Handoff next.",
+  "session_status": "S89 COMPLETE (+post-audit polish): 6 priorities + P7 audit shipped & pushed (P1 de2f05d, P2 9eeac55, P3 4df76b1, P4 43b4c0c, P5 de1d1fd, P6 f425167, P7 6432391). Ultracode 8-reviewer adversarial audit: NO critical/high bugs; 4 confirmed-real findings (1 MED creature-interp + 3 LOW docs) all FIXED. vitest 1407/1407, tsc 0, bundle 546.70 KiB < 550, clean boot. P5 netcode E2E 2-browser GREEN (de1d1fd). Ready for /handoff. OPEN: live 2-peer playtest (P5 smoothness/aim-feel, P6 Vortex time-to-advantage, P1/P3 in-match visuals) — harness cannot drive Pixi multiplayer.",
   "totals": {
     "turns": 0,
     "budget_remaining": 1000000,
     "budget_status": "GREEN"
   },
   "carry_forward": [
-    "USER DISCUSSION (deferred to a future session, user-confirmed S88): combinatorial DEPTH — 6 primitives, user notes 6^6 (~46,656) eventual combination space (longer recipes/chains beyond the 36 ordered pairs); to be raised when scaling the game up. Saved in memory/combinatorial-depth-discussion.md.",
-    "Tier-1 NEXT (top recommended): G1b — magic-combo BEHAVIORS (Council design round: 3-5 behaviors across ECONOMY/DEFENSE/MOTION) + G2 placeholder families + Dot->Square / Line->Circle promotions. This is the REAL 'make geometry matter' gap (G1a was already met).",
-    "Deferred (non-blocking): G3b Codex used/silhouette marks; 12/12 ALL-COMBOS flourish; optional MAGIC_BONUS tuning bump (playtest-gated, LOCKED §6).",
-    "Playtest still open: S87 VS Bots difficulty + Quick Match 2-peer; S88 discovery toast/counter live visual (build a magic combo on spark-online.space)."
+    "G1b behavior slate (Council): implement Vortex first (P6); remaining for future sessions = DEFENSE Diamond/Lattice hazard-resist (2-hit), MOTION Wheel/Star rotation, ECONOMY Filament income trickle.",
+    "USER DISCUSSION (deferred): combinatorial DEPTH 6^6 ~46k — memory/combinatorial-depth-discussion.md — raise when scaling the game up.",
+    "Grok dissent LOGGED (P3): permanent foul = strategic depth (forces avatar diversion). Resolved against per the user's explicit bug report; revisit window length in playtest if the duel-tempo suffers."
   ]
 }
