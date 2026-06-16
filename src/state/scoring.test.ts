@@ -11,6 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  FILAMENT_INCOME_COMPLEXITY,
   FUNCTIONAL_BOND_CAP_PER_PRIM,
   FUNCTIONAL_BOND_COMPLEXITY,
   PHASE_1_WIN_SCORE,
@@ -107,6 +108,55 @@ describe('S76 scoring — computeComplexity', () => {
     addPrim(w, P0, SparkType.Dot, 300, 300); // P0 +1 isolated
     expect(computeComplexity(w, P0)).toBe(5);
     expect(computeComplexity(w, P1)).toBe(4);
+  });
+});
+
+describe('S90 P1 (G1b ECONOMY) — Filament (Dot→Line) income trickle', () => {
+  it('a Filament earns the magic premium AND an extra FILAMENT_INCOME_COMPLEXITY trickle', () => {
+    const w = makeWorld(0);
+    const dot = addPrim(w, P0, SparkType.Dot, 200, 200);
+    const line = addPrim(w, P0, SparkType.Line, 230, 200);
+    addBond(w, dot, line); // aId=Dot, bId=Line → Filament (order-dependent like every behavior helper)
+    // 2 anchors + magic premium (2) + filament trickle (0.6)
+    expect(computeComplexity(w, P0)).toBeCloseTo(
+      2 * SCORE_ANCHOR + MAGIC_PREMIUM + FILAMENT_INCOME_COMPLEXITY, 10,
+    );
+  });
+
+  it('order-dependent: Line→Dot is a functional placeholder, NOT a Filament (no trickle)', () => {
+    const w = makeWorld(0);
+    const line = addPrim(w, P0, SparkType.Line, 200, 200);
+    const dot = addPrim(w, P0, SparkType.Dot, 230, 200);
+    addBond(w, line, dot); // aId=Line, bId=Dot → placeholder (functional), not Filament
+    expect(computeComplexity(w, P0)).toBeCloseTo(2 * SCORE_ANCHOR + FUNCTIONAL_BOND_COMPLEXITY, 10);
+  });
+
+  it('a non-Filament magic bond (Line→Line Cable) gets the magic premium but NO filament trickle', () => {
+    const w = makeWorld(0);
+    buildMagicPair(w, P0, 200, 200); // Line→Line = Cable (magic, not Filament)
+    expect(computeComplexity(w, P0)).toBe(2 * SCORE_ANCHOR + MAGIC_PREMIUM); // exactly 4, no +0.6
+  });
+
+  it('a poop-fouled Filament earns ZERO trickle (whole bond skipped like every fouled bond)', () => {
+    const w = makeWorld(0);
+    const dot = addPrim(w, P0, SparkType.Dot, 200, 200);
+    const line = addPrim(w, P0, SparkType.Line, 230, 200);
+    addBond(w, dot, line);
+    w.fouledPrimitives.add(dot.id); // foul one endpoint → that prim + the whole bond drop out
+    expect(computeComplexity(w, P0)).toBe(1 * SCORE_ANCHOR); // only the un-fouled Line prim counts
+  });
+
+  it('deterministic: identical Filament builds + tick counts → identical scoreProgress', () => {
+    const run = (): number => {
+      nextId = 2000;
+      const w = makeWorld(0);
+      const dot = addPrim(w, P0, SparkType.Dot, 200, 200);
+      const line = addPrim(w, P0, SparkType.Line, 230, 200);
+      addBond(w, dot, line);
+      for (let t = 0; t < 300; t++) tickScoring(w);
+      return w.scoreProgress;
+    };
+    expect(run()).toBe(run());
   });
 });
 

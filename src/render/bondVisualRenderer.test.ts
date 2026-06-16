@@ -121,8 +121,20 @@ describe('S7 P2 — drawBondVisual dispatches per visualEffectId', () => {
   it('fx.filament produces main bond + 6-ray starburst (≥7 strokes)', () => {
     const g = new GraphicsMock();
     drawBondVisual(g as unknown as Parameters<typeof drawBondVisual>[0], makeParams({ visualEffectId: 'fx.filament' }));
-    // 1 main bond + 6 rays = 7 strokes minimum
+    // 1 main bond + 6 rays = 7 strokes minimum (+ the S90 income-node ring = 8)
     expect(g.calls.filter((c) => c.op === 'stroke').length).toBeGreaterThanOrEqual(7);
+  });
+
+  it('S90 P1 — fx.filament emits a pulsing income-node ring (one circle; radius breathes with tick)', () => {
+    const at = (tick: number): readonly CallRecord[] => {
+      const g = new GraphicsMock();
+      drawBondVisual(g as unknown as Parameters<typeof drawBondVisual>[0], makeParams({ visualEffectId: 'fx.filament', tick }));
+      return g.calls.filter((c) => c.op === 'circle');
+    };
+    const c0 = at(0);
+    const c40 = at(40);
+    expect(c0).toHaveLength(1); // filament draws no other circles — this is the income node
+    expect(c0[0].args[2]).not.toEqual(c40[0].args[2]); // radius pulses with tick ("generating")
   });
 
   it('S8 P2 — fx.lattice emits 3 strokes (outline + 2 cross-hatch lines)', () => {

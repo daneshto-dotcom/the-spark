@@ -29,8 +29,9 @@
  *      gets tier-up feedback as the bar climbs.
  */
 
-import { lookupCombo } from '../combos.ts';
+import { isFilamentCombo, lookupCombo } from '../combos.ts';
 import {
+  FILAMENT_INCOME_COMPLEXITY,
   FUNCTIONAL_BOND_CAP_PER_PRIM,
   FUNCTIONAL_BOND_COMPLEXITY,
   PHYSICS_HZ,
@@ -52,6 +53,8 @@ const MAGIC_BONUS = SCORE_MAGIC_BOND - SCORE_FUNCTIONAL_BOND; // 2 — a magic b
  * Standing structure complexity for one player. Pure fn of world state.
  *   = (# primitives placed by p) × PRIM_WEIGHT + (# of p's MAGIC bonds) × MAGIC_BONUS
  *     + min(# functional bonds, ⌊1.5 × prims⌋) × 0.25   (S84 P4 — see constants.ts)
+ *     + (# of p's FILAMENT bonds) × FILAMENT_INCOME_COMPLEXITY   (S90 P1 — Filaments are ALSO
+ *       counted as magic bonds above, so this is an INTENDED extra trickle, not a double-count bug)
  *
  * Ownership (Δ2): one pass over each global Map, crediting each element to exactly one
  * owner — a primitive → its `placedBy`; a bond → its `aId` primitive's `placedBy` (both
@@ -76,6 +79,7 @@ export function computeComplexity(world: World, playerId: PlayerId): number {
   }
   let magicBonds = 0;
   let functionalBonds = 0;
+  let filamentBonds = 0; // S90 P1 — Filaments earn an EXTRA trickle on top of the magic premium
   for (const bond of world.bonds.values()) {
     // Resolve endpoints via id — bond.a/.b are PhysicsBody refs (pos only), not Primitives.
     // Credit each bond to ONE owner: its aId primitive's placer (Δ2). Skip a bond that
@@ -87,8 +91,15 @@ export function computeComplexity(world: World, playerId: PlayerId): number {
     // S77 P3 — skip a fouled structure's magic bonds too (either endpoint fouled), consistent
     // with skipping its prims above, so a poop-fouled structure earns ZERO until cleaned.
     if (world.fouledPrimitives.has(bond.aId) || world.fouledPrimitives.has(bond.bId)) continue;
-    if (lookupCombo(a.type, b.type).isMagical) magicBonds++;
-    else functionalBonds++;
+    if (lookupCombo(a.type, b.type).isMagical) {
+      magicBonds++;
+      // S90 P1 (G1b ECONOMY) — a Filament (Dot→Line) ALSO earns the income trickle. The 2nd
+      // lookup only fires for the handful of magic bonds (functional bonds skip it). The
+      // fouled-skip above already zeroes a poop-fouled Filament, same as every other bond.
+      if (isFilamentCombo(a.type, b.type)) filamentBonds++;
+    } else {
+      functionalBonds++;
+    }
   }
   // S84 P4 — functional bonds re-enter complexity at FUNCTIONAL_BOND_COMPLEXITY each, with
   // the COUNTED bonds capped at FUNCTIONAL_BOND_CAP_PER_PRIM × prims: a spanning tree
@@ -104,7 +115,8 @@ export function computeComplexity(world: World, playerId: PlayerId): number {
   return (
     primCount * PRIM_WEIGHT +
     magicBonds * MAGIC_BONUS +
-    countedFunctional * FUNCTIONAL_BOND_COMPLEXITY
+    countedFunctional * FUNCTIONAL_BOND_COMPLEXITY +
+    filamentBonds * FILAMENT_INCOME_COMPLEXITY
   );
 }
 

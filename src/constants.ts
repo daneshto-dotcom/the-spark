@@ -223,6 +223,15 @@ export const SCORE_MAGIC_BOND = 3;
 // exploit cannot return: bonding only ever ADDS complexity.
 export const FUNCTIONAL_BOND_COMPLEXITY = 0.25;
 export const FUNCTIONAL_BOND_CAP_PER_PRIM = 1.5;
+// === S90 P1 (G1b ECONOMY) — Filament (Dot→Line) income trickle ===
+// A Filament is the dedicated "income" magic combo. It already earns the standard magic premium
+// (MAGIC_BONUS = +2.0, uncapped — counted in the magicBonds branch of computeComplexity). This
+// adds an EXTRA per-Filament complexity weight ON TOP of that. The double-count (magic premium +
+// trickle) is INTENDED — Filament IS the income combo (Council R2 unanimous; PRIME-AUDIT A3
+// flags it as an intended BUFF so a future auditor does NOT "fix" it the way S88 nerfed a bogus
+// double-count). Uncapped + cheapest magic (Dot+Line, both basic prims) → spam-dominant risk
+// (R12), so the default is conservative and this is the #1 PLAYTEST KNOB for the ECONOMY behavior.
+export const FILAMENT_INCOME_COMPLEXITY = 0.6;
 
 // === S76 P3 — complexity-INCOME rate ===
 // Each physics tick the host accrues, per player: scoreByPlayer[p] += this × complexity(p)

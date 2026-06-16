@@ -176,6 +176,28 @@ export function isVortexCombo(a: SparkType, b: SparkType): boolean {
   return lookupCombo(a, b).resultName === 'Vortex';
 }
 
+/**
+ * S90 P1 (G1b ECONOMY) — is the A→B bond a Filament (Dot→Line)? Table-coupled + order-dependent
+ * like every behavior helper (§ V.1) — Line→Dot is a placeholder, not a Filament, matching how
+ * scoring + discovery already read this bond. A Filament earns an EXTRA income trickle on top of
+ * its magic-bond complexity (see scoring.computeComplexity + FILAMENT_INCOME_COMPLEXITY).
+ */
+export function isFilamentCombo(a: SparkType, b: SparkType): boolean {
+  return lookupCombo(a, b).resultName === 'Filament';
+}
+
+/**
+ * S90 P2 (G1b DEFENSE) — is the A→B bond a Diamond (Triangle→Triangle) or Lattice (Square→Square)?
+ * Both are SELF-PAIRED (a===b types), so this is order-symmetric (unlike Vortex/Filament). A
+ * defensive bond costs an attacking player DEFENSIVE_SEVER_CHARGE_COST charges to HOSTILE-sever
+ * (see disruptionManager) — it resists enemy sabotage, NOT environmental hazards (physics /
+ * creature / bomb sever still bypass, by design).
+ */
+export function isDefensiveCombo(a: SparkType, b: SparkType): boolean {
+  const name = lookupCombo(a, b).resultName;
+  return name === 'Diamond' || name === 'Lattice';
+}
+
 export const COMBO_TABLE: ReadonlyMap<ComboKey, ComboOutcome> = TABLE;
 
 export const MAGIC_12_KEYS: readonly ComboKey[] = MAGICAL.map(

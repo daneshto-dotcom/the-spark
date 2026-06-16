@@ -39,6 +39,16 @@ export function drawFilament(g: Graphics, p: BondVisualParams): void {
       .lineTo(mx + Math.cos(a) * rayLen, my + Math.sin(a) * rayLen)
       .stroke({ width: 1, color: rayColor, alpha: rayAlpha });
   }
+
+  // S90 P1 (G1b ECONOMY) — pulsing "income node" ring at the midpoint. A Filament is the dedicated
+  // income combo (it earns an EXTRA per-tick trickle on top of the magic premium — see
+  // scoring.computeComplexity / FILAMENT_INCOME_COMPLEXITY), so its center breathes to read as
+  // "generating." Render-derived from the synced combo type (no wire field → BOTH peers see it);
+  // animated (filament is already in the tick-driven silhouette set). Stroke-only per the
+  // bond-visual convention (the mock + every silhouette avoid fills).
+  const nodePulse = 0.5 + Math.sin(p.tick * 0.04) * 0.5; // 0..1, in phase with the ray shimmer
+  g.circle(mx, my, 2 + nodePulse * 2)
+    .stroke({ width: 1.5, color: rayColor, alpha: p.alpha * (0.4 + nodePulse * 0.35) });
 }
 
 /** Cable (Line→Line, MID): twin parallel lines along the bond axis. */

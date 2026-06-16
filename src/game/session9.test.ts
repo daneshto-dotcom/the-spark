@@ -11,6 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  FILAMENT_INCOME_COMPLEXITY,
   FUNCTIONAL_BOND_COMPLEXITY,
   PHYSICS_HZ,
   SCORE_ANCHOR,
@@ -239,12 +240,18 @@ describe('S9 P3 / S76 — standing complexity drives income scoring', () => {
     expect(computeComplexity(world, P1)).toBeCloseTo(SCORE_ANCHOR * 2 + FUNCTIONAL_BOND_COMPLEXITY, 10);
   });
 
-  it('a magic bond adds the magic premium (Dot→Line = Filament)', () => {
+  it('a Filament (Dot→Line) earns the magic premium AND the S90 income trickle, via the real placement pipeline', () => {
     const world = makeWorld(0);
-    // 2 prims + 1 magic bond = 2 + MAGIC_PREMIUM = 4 (== old accumulator anchor 1 + magic 3).
+    // 2 prims + 1 magic bond. The carried Dot placed onto the Line forms Dot→Line = Filament
+    // (placePrimitive's carried→target order), which since S90 P1 (G1b ECONOMY) ALSO earns the
+    // income trickle on top of the magic premium: 2 + MAGIC_PREMIUM(2) + FILAMENT_INCOME_COMPLEXITY(0.6)
+    // = 4.6. (Integration-level lock: proves the trickle survives the full placement path, not just
+    // the unit-level addBond in scoring.test.ts.)
     const a = placeAt(world, { sparkRawId: 1, type: SparkType.Line, pos: { x: 200, y: 200 }, targetId: null });
     placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 220, y: 200 }, targetId: a });
-    expect(computeComplexity(world, P1)).toBe(SCORE_ANCHOR * 2 + MAGIC_PREMIUM);
+    expect(computeComplexity(world, P1)).toBeCloseTo(
+      SCORE_ANCHOR * 2 + MAGIC_PREMIUM + FILAMENT_INCOME_COMPLEXITY, 10,
+    );
   });
 
   it('all-magic chain has higher complexity AND accrues income faster than functional at equal length', () => {
