@@ -5,9 +5,9 @@
  * little cousin and IMBA feel unfair. All values are playtest knobs — tune
  * here, never inline in the controller/brain.
  *
- * Reference speeds (px/tick @60Hz): hunter max 4.2 · pooped-cruiser chase 7 ·
- * a deliberate human mouse sweep ≈ 8-20. NOOB is slower than the hunter
- * (catchable, comedic); IMBA out-runs everything but a panicked human.
+ * Reference speeds (px/tick @60Hz): hunter cap 5.25 / terminal ≈ 4.5 (S89 P4, was 4.2) ·
+ * pooped-cruiser chase 7 · a deliberate human mouse sweep ≈ 8-20. NOOB (3.2) is slower than the
+ * hunter (catchable, comedic); MID (5.0) still edges it; HARD/IMBA out-run everything but a human.
  */
 
 import type { BotDifficulty } from './botTypes.ts';

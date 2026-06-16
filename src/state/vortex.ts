@@ -58,6 +58,12 @@ export function applyVortexPull(world: World, attractedId: SparkId | null = null
 
   // 2) For each FREE spark, sum the in-range anchor pulls (ramped by proximity), cap the per-tick
   //    total, and inject it as a Verlet velocity impulse via prevPos.
+  // NOTE (final-audit fidelity): the PDR said "spatial-grid-bounded", but a plain O(freeSparks ×
+  // anchors) scan is already tightly bounded and NOT worth a grid query here — free sparks are
+  // hard-capped at FREE_SPARK_SOFT_CAP (enforceFreeSparkCap every tick) and live Vortex anchors
+  // are a handful, so this is ~O(50 × few) per tick. A SpatialGrid lookup would add overhead +
+  // its own determinism surface for no measurable win. Justified deviation; revisit only if the
+  // free-spark cap is ever raised by an order of magnitude.
   for (const spark of world.freeSparks.values()) {
     if (spark.state.kind !== 'Free') continue; // carried/placed sparks are not free to pull
     if (attractedId !== null && spark.id === attractedId) continue; // don't fight the player's drag

@@ -301,14 +301,20 @@ function lerpCollection<K, E extends { pos: Vec2 }>(
  * S89 P5 — also interpolates the CONTINUOUSLY-moving hazards (hunters + seagulls), which
  * previously rendered RAW at 10Hz on the client and visibly stepped while structures + sparks
  * glided. Avatars are NOT here — the avatarRenderer's smoothTowards already de-steps avatarPos.
+ * S89 post-audit — creatures (voltkin) are added too, but STATE-GATED to SEEKING-in-both-snapshots
+ * (their only continuous-motion phase). They DO ride the client mirror (NetSnapshot v2; the S27
+ * "client creatures stay empty" comment is stale) and stepped at 10Hz while SEEKING — the exact
+ * artifact P5 set out to kill. The final-audit MED finding: the P5 Council coverage said
+ * "creatures"; the hunter+seagull narrowing (CHECK finding #5) had over-dropped them.
  *
  * DELIBERATELY EXCLUDED (CHECK GROK-ANALYST finding #5 — lerping a DISCONTINUOUS position jump
- * smears the entity across the screen for a render-delay window): creatures (cinematic spawn /
- * teleport), poops (the FALLING→SPLAT transition snaps the pos onto the struck structure — a
- * lerp would slide the splat mid-air), potatoes (grab teleports it to the carrier's hand),
- * rainbows + bombs (spawn / pickup-vanish / placement). Hunters pursue continuously and seagulls
- * fly linearly across the field — neither mid-life-teleports, so their lerp is clean (a spawn is
- * absent-from-prev → skipped; a despawn is removed by the full apply → pops, which is correct).
+ * smears the entity across the screen for a render-delay window): poops (the FALLING→SPLAT
+ * transition snaps the pos onto the struck structure — a lerp would slide the splat mid-air),
+ * potatoes (grab teleports it to the carrier's hand), rainbows + bombs (spawn / pickup-vanish /
+ * placement). Hunters pursue continuously and seagulls fly linearly across the field — neither
+ * mid-life-teleports, so their lerp is clean (a spawn is absent-from-prev → skipped; a despawn is
+ * removed by the full apply → pops, which is correct). Creatures: SPAWNING/DESPAWNING are
+ * stationary animation states + a state transition could shift the anchor, so only SEEKING lerps.
  *
  * Exported for unit testing.
  */
@@ -338,8 +344,23 @@ export function interpolatePositions(
     spark.pos.y = ps.pos.y + (cs.pos.y - ps.pos.y) * t;
   }
   // S89 P5 — continuous-motion hazards only (no-op when the optional wire array is absent/empty).
-  // Poops/potatoes/rainbows/bombs/creatures are EXCLUDED — they transition discontinuously and a
-  // lerp would smear them (CHECK finding #5). See the function doc.
+  // Poops/potatoes/rainbows/bombs are EXCLUDED — they transition discontinuously and a lerp would
+  // smear them (CHECK finding #5). See the function doc.
   lerpCollection(prev.hunters, curr.hunters, t, world.hunters);
   lerpCollection(prev.seagulls, curr.seagulls, t, world.seagulls);
+  // S89 post-audit — creatures, STATE-GATED to SEEKING-in-both (their continuous-motion phase).
+  // SPAWNING/DESPAWNING (stationary animation) + any state transition are skipped so a creature
+  // is never smeared across a state change; a creature absent from prev is skipped (just spawned).
+  if (curr.creatures !== undefined && prev.creatures !== undefined) {
+    const prevCreatures = new Map(prev.creatures.map((c) => [c.id, c]));
+    for (const cc of curr.creatures) {
+      if (cc.state !== 'SEEKING') continue;
+      const pc = prevCreatures.get(cc.id);
+      if (pc === undefined || pc.state !== 'SEEKING') continue;
+      const creature = world.creatures.get(cc.id);
+      if (creature === undefined) continue;
+      creature.pos.x = pc.pos.x + (cc.pos.x - pc.pos.x) * t;
+      creature.pos.y = pc.pos.y + (cc.pos.y - pc.pos.y) * t;
+    }
+  }
 }

@@ -12,7 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import { HostSync, ClientSync, interpolatePositions } from './sync.ts';
 import { lerp01 } from './lerp.ts';
-import { dispatch, makeWorld } from '../state/world.ts';
+import { dispatch, makeWorld, type World } from '../state/world.ts';
 import { applyNetSnapshot, netSnapshot, type NetSnapshot } from '../state/save.ts';
 import type { NetSnapshotMsg } from './protocol.ts';
 import { asCreatureId, asHunterId, asPlayerId, asSparkId, type CreatureId } from '../types.ts';
@@ -989,5 +989,37 @@ describe('S89 P5 — render-delay snapshot buffer (jitter buffer, bracket lerp, 
     const curr: NetSnapshot = { ...base, hunters: [{ ...base.hunters![0], pos: { x: 100, y: 40 } }] };
     interpolatePositions(prev, curr, 0.5, w);
     expect(w.hunters.get(hid)!.pos).toEqual({ x: 50, y: 20 });
+  });
+
+  // S89 post-audit (final-audit MED finding): creatures (voltkin) DO ride the client mirror and
+  // step at 10Hz while SEEKING; state-gated interpolation smooths exactly that phase.
+  function worldWithCreature(state: CreatureState, x: number): World {
+    const w = makeWorld(0);
+    w.creatures.set(asCreatureId(0), {
+      id: asCreatureId(0), type: 'voltkin', ownerPlayerId: asPlayerId(0),
+      pos: { x, y: 0 }, prevPos: { x, y: 0 }, targetPos: { x: 999, y: 0 },
+      targetBondId: null, state, ticksInState: 5, killCount: 0,
+      spawnedAtTick: 0, despawnAtTick: 480,
+    });
+    return w;
+  }
+
+  it('D — a SEEKING creature is interpolated (no longer steps at 10Hz on the joiner)', () => {
+    const w = worldWithCreature('SEEKING', 0);
+    const base = netSnapshot(w);
+    expect(base.creatures?.length).toBe(1);
+    const mk = (x: number): NetSnapshot => ({ ...base, creatures: [{ ...base.creatures![0], state: 'SEEKING', pos: { x, y: 0 } }] });
+    interpolatePositions(mk(0), mk(100), 0.5, w);
+    expect(w.creatures.get(asCreatureId(0))!.pos.x).toBeCloseTo(50);
+  });
+
+  it('D — a non-SEEKING creature (SPAWNING) is NOT interpolated (avoids smearing a stationary/transition state)', () => {
+    const w = worldWithCreature('SPAWNING', 0);
+    const base = netSnapshot(w);
+    const mk = (x: number): NetSnapshot => ({ ...base, creatures: [{ ...base.creatures![0], state: 'SPAWNING', pos: { x, y: 0 } }] });
+    // applyNetSnapshot would have set it to the latest (x=100); the lerp must NOT move it back to 50.
+    w.creatures.get(asCreatureId(0))!.pos.x = 100;
+    interpolatePositions(mk(0), mk(100), 0.5, w);
+    expect(w.creatures.get(asCreatureId(0))!.pos.x).toBe(100); // untouched by the lerp
   });
 });

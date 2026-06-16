@@ -537,13 +537,22 @@ chosen over PeerJS (multi-strategy fallback negates rate-limit concern);
   emits `snapshotSeq` monotonic; client receives validates
   `msg.snapshotSeq > lastSeq` (out-of-order rejected). Client→host
   intents use independent `intentSeq` counter.
-- **Linear lerp interpolation** (Council R2 — non-negotiable): client
-  maintains `prevSnap` + `currentSnap`; render frame computes
-  `t = elapsed / NET_INTERPOLATION_MS = 100ms`; positions = lerp(prev,
-  curr, t). Non-position state (gameState, scoreProgress, players,
-  bonds adjacency) snaps to currentSnap once per new snapshot via
-  `applyNetSnapshot()` flag (PRIME-AUDIT perf: avoids per-render
-  Map rebuilds).
+- **Render-delay snapshot-buffer interpolation** (S89 P5 — SUPERSEDES the
+  original single-pair lerp below; Council CONVERGED): the client buffers the
+  last `SNAP_BUFFER_MAX = 8` snapshots with arrival timestamps and renders the
+  world `NET_RENDER_DELAY_MS = 150ms` behind real time, interpolating the two
+  buffered snapshots **bracketing** that render clock (`ClientSync.pickBracket`).
+  This replaced the original window-equals-interval scheme, which had zero jitter
+  buffer (a late packet saturated `t` at 1 → freeze-then-jump every jittery
+  interval — the S89 "choppy joiner" report). Cold start / single snapshot clamps
+  to oldest; buffer underrun clamps to newest (no extrapolation). Position lerp
+  also covers the continuously-moving hazards (hunters, seagulls, and SEEKING
+  creatures); poops/potatoes/rainbows/bombs are excluded (discontinuous transitions
+  would smear). Non-position state still snaps to the LATEST snapshot once per
+  arrival via `applyNetSnapshot()`. Render-layer only — determinism untouched.
+  - *Original (pre-S89, superseded):* client maintained `prevSnap` + `currentSnap`;
+    render frame computed `t = elapsed / NET_INTERPOLATION_MS = 100ms`; positions =
+    lerp(prev, curr, t).
 - **Envelopes (src/net/protocol.ts):** `HELLO` (handshake),
   `INTENT { intentSeq, action: GameAction }` (client→host),
   `NETSNAPSHOT { snapshotSeq, snapshot: NetSnapshot }` (host→client),
@@ -610,7 +619,7 @@ chosen over PeerJS (multi-strategy fallback negates rate-limit concern);
 
 ### 13.8 Constants (src/constants.ts)
 - `NET_SNAPSHOT_HZ = 10`
-- `NET_INTERPOLATION_MS = 100`
+- `NET_RENDER_DELAY_MS = 150` (S89 P5 — REPLACED `NET_INTERPOLATION_MS = 100`; see §13.3 render-delay buffer)
 - `NET_ROOM_CODE_LENGTH = 6`
 - `NET_CONNECTION_TIMEOUT_MS = 30000` (reserved for future)
 
