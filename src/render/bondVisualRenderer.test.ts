@@ -71,6 +71,8 @@ const ALL_VISUAL_EFFECT_IDS = [
   'fx.vortex',
   'fx.whip',
   'fx.warped',
+  'fx.anchor',
+  'fx.spindle',
   'fx.bond.default',
 ] as const;
 
@@ -141,6 +143,18 @@ describe('S7 P2 — drawBondVisual dispatches per visualEffectId', () => {
     const g = new GraphicsMock();
     drawBondVisual(g as unknown as Parameters<typeof drawBondVisual>[0], makeParams({ visualEffectId: 'fx.lattice' }));
     expect(g.calls.filter((c) => c.op === 'stroke')).toHaveLength(3);
+  });
+
+  it('S91 — fx.anchor emits a shaft + stock + 2 flukes (≥3 strokes)', () => {
+    const g = new GraphicsMock();
+    drawBondVisual(g as unknown as Parameters<typeof drawBondVisual>[0], makeParams({ visualEffectId: 'fx.anchor' }));
+    expect(g.calls.filter((c) => c.op === 'stroke').length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('S91 — fx.spindle emits a shaft + 2 bows (≥3 strokes)', () => {
+    const g = new GraphicsMock();
+    drawBondVisual(g as unknown as Parameters<typeof drawBondVisual>[0], makeParams({ visualEffectId: 'fx.spindle' }));
+    expect(g.calls.filter((c) => c.op === 'stroke').length).toBeGreaterThanOrEqual(3);
   });
 });
 
@@ -233,6 +247,8 @@ describe('S7 P2 — tick-driven animation', () => {
     'fx.star',
     'fx.lattice',
     'fx.capsule',
+    'fx.anchor',
+    'fx.spindle',
   ] as const;
   it.each(STATIC_SILHOUETTES)('S8 P5 — non-animated %s is identical at tick=0 and tick=999', (visualEffectId) => {
     const a = calls(visualEffectId, 0);

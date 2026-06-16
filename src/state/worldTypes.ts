@@ -193,10 +193,10 @@ export interface World {
    */
   rainbowSwitchTick?: number;
   /**
-   * S88 G3a — in-match combo DISCOVERY (the magic-12). Global per-match: the host
+   * S88 G3a — in-match combo DISCOVERY (the magic set). Global per-match: the host
    * adds a combo's ComboKey the FIRST time it forms in a match (comboDiscovery.ts,
    * driven from placePrimitive — covers PLACE_PRIMITIVE + the PLACE_FROM_FREE
-   * delegate). `discoveredCombos.size` drives the "Combos N/12" HUD counter.
+   * delegate). `discoveredCombos.size` drives the "Combos N/14" HUD counter.
    * NON-optional (always a Set, like fouledPrimitives): initialised empty in
    * makeWorld, serialised additive-optional (SORTED string[]) only when non-empty,
    * cleared on START_GAME / RETURN_TO_TITLE.

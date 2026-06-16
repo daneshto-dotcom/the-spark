@@ -54,7 +54,7 @@ export class HUD {
   private readonly chargeDots: Graphics;
   /** S49 P1 (Sym F) — "Q=ZONE" key hint near charge dots. 1v1 PLAYING only. */
   private readonly qHintText: Text;
-  /** S88 G3a — "Combos N/12" discovered counter (top-center, PLAYING, all modes). */
+  /** S88 G3a — "Combos N/14" discovered counter (top-center, PLAYING, all modes). */
   private readonly comboCounterText: Text;
   private displayEnergy = 0;
   private displayProgress = 0;
@@ -149,7 +149,8 @@ export class HUD {
     this.drawComboCounter(world);
   }
 
-  // S88 G3a — "Combos N/12" discovered-combo counter (top-center). Shown during
+  // S88 G3a — "Combos N/14" discovered-combo counter (top-center; total auto-follows
+  // MAGIC_12_KEYS.length, now 14 after S91 G2-PROMO). Shown during
   // PLAYING in ALL modes (solo/bots/networked) — discovery is a core mechanic for
   // everyone. Brightens to full alpha at the complete set. discoveredCombos rides
   // the host snapshot, so the client mirror shows the authoritative count.

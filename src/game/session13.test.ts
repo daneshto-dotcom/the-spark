@@ -323,7 +323,7 @@ describe('S13 P4 / S76 — SCORE_TIER pulse fires at the leader avatar as income
       prev = placeAt(world, { sparkRawId: i, type: SparkType.Line, pos: { x: 250 + i * 18, y: 250 }, targetId: prev });
     }
     let tierEvent: { pos: { x: number; y: number }; tier: number } | null = null;
-    for (let t = 0; t < 20000 && world.scoreProgress < SCORE_TIER_STEP; t++) {
+    for (let t = 0; t < 120000 && world.scoreProgress < SCORE_TIER_STEP; t++) {
       const before = world.effects.length;
       tickScoring(world);
       for (const e of world.effects.slice(before)) {
@@ -347,7 +347,7 @@ describe('S13 P4 / S76 — SCORE_TIER pulse fires at the leader avatar as income
       prev = placeAt(world, { sparkRawId: i, type: SparkType.Line, pos: { x: 250 + i * 18, y: 250 }, targetId: prev });
     }
     const tiers: number[] = [];
-    for (let t = 0; t < 20000 && world.scoreProgress < 2 * SCORE_TIER_STEP; t++) {
+    for (let t = 0; t < 120000 && world.scoreProgress < 2 * SCORE_TIER_STEP; t++) {
       const before = world.effects.length;
       tickScoring(world);
       for (const e of world.effects.slice(before)) {

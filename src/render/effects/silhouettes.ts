@@ -1,6 +1,6 @@
 /**
- * S6 P3 placeholder bond-commit silhouettes. 12 magic combos get distinct
- * one-shot flair at the moment of bond creation; the 24 functional combos
+ * S6 P3 placeholder bond-commit silhouettes. 14 magic combos get distinct
+ * one-shot flair at the moment of bond creation; the 22 functional combos
  * use drawDefaultRing. Easing + lifetime are owned by the caller — these
  * are pure draw helpers.
  *

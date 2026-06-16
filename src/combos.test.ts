@@ -1,6 +1,6 @@
 /**
  * SPARK — combo table coverage.
- * § V LOCKED: 6 types × 6 ordered = 36 combos. 12 magical, 24 functional
+ * § V LOCKED: 6 types × 6 ordered = 36 combos. 14 magical, 22 functional
  * (MID/1.0×). Every ordered pair must resolve. Order-dependence (§ V.1)
  * means A→B and B→A may differ.
  */
@@ -20,10 +20,10 @@ describe('combo table coverage', () => {
     expect(COMBO_TABLE.size).toBe(36);
   });
 
-  it('has exactly 12 magical entries', () => {
-    expect(MAGIC_12_KEYS.length).toBe(12);
+  it('has exactly 14 magical entries', () => {
+    expect(MAGIC_12_KEYS.length).toBe(14);
     const magicalCount = [...COMBO_TABLE.values()].filter((c) => c.isMagical).length;
-    expect(magicalCount).toBe(12);
+    expect(magicalCount).toBe(14);
   });
 
   test.each(
@@ -69,10 +69,24 @@ describe('combo table coverage', () => {
   });
 
   it('functional placeholders default to MID/1.0×', () => {
-    // A combo NOT in the magical list — e.g., Dot→Square
-    const out = lookupCombo(SparkType.Dot, SparkType.Square);
+    // A combo NOT in the magical list — Dot→Dot (Dot→Square is now the Anchor magic combo, S91).
+    const out = lookupCombo(SparkType.Dot, SparkType.Dot);
     expect(out.isMagical).toBe(false);
     expect(out.stiffnessTier).toBe('MID');
     expect(out.areaMultiplier).toBe(1.0);
+  });
+
+  it('S91 G2-PROMO — Dot→Square=Anchor and Line→Circle=Spindle are magic (order-dependent)', () => {
+    const anchor = lookupCombo(SparkType.Dot, SparkType.Square);
+    expect(anchor.isMagical).toBe(true);
+    expect(anchor.resultName).toBe('Anchor');
+    expect(anchor.visualEffectId).toBe('fx.anchor');
+    const spindle = lookupCombo(SparkType.Line, SparkType.Circle);
+    expect(spindle.isMagical).toBe(true);
+    expect(spindle.resultName).toBe('Spindle');
+    expect(spindle.visualEffectId).toBe('fx.spindle');
+    // Order-dependent (§ V.1): the reversed pairs stay functional placeholders.
+    expect(lookupCombo(SparkType.Square, SparkType.Dot).isMagical).toBe(false);
+    expect(lookupCombo(SparkType.Circle, SparkType.Line).isMagical).toBe(false);
   });
 });

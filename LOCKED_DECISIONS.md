@@ -234,7 +234,7 @@ enum SparkType {
 
 ---
 
-## 6 · Combo Table — Schema & Magic-12 Seed
+## 6 · Combo Table — Schema & Magic-14 Seed
 
 **Schema (order-dependent, per § V.1 LOCKED):**
 
@@ -251,7 +251,7 @@ interface ComboOutcome {
 }
 ```
 
-**The Magic-12 seed** (all 6 types, both Spiral roles, see [src/combos.ts](src/combos.ts) for full data):
+**The Magic-14 seed** (all 6 types, both Spiral roles, see [src/combos.ts](src/combos.ts) for full data):
 
 1. Dot → Line: **Filament** (HIGH, 1.5×)
 2. Line → Line: **Cable** (MID, 1.0×)
@@ -265,8 +265,12 @@ interface ComboOutcome {
 10. Dot → Spiral: **Vortex** (HIGH, 2.0×)
 11. Spiral → Line: **Whip** (LOW, 1.5×)
 12. Triangle → Spiral: **Warped Anchor** (LOW, 3.0×)
+13. Dot → Square: **Anchor** (MID, 1.0×) — promoted S91 (G2-PROMO), `fx.anchor`, visual + discovery + magic premium only (no behavior; order-dependent, Square→Dot stays functional)
+14. Line → Circle: **Spindle** (MID, 1.0×) — promoted S91 (G2-PROMO), `fx.spindle`, visual + discovery + magic premium only (no behavior; order-dependent, Circle→Line stays functional)
 
-Remaining **24 functional combos** ship as one-liners (MID/1.0×/generic visual). Phase 1 ships all 36 functionally. **Visual polish per combo is tunable across many sessions** — Phase 1 just needs each combo to *resolve* with the right physics tier and area claim. Combos are "limitless in the future" — Phase 2+ can extend the table without breaking the schema.
+**Win-score rebalance (S91, G2-PROMO):** `PHASE_1_WIN_SCORE` 210 → 630, `SCORE_TIER_STEP` 70 → 210 (ratio 3 preserved; `scoring.test.ts:330-331` stays green) — offsets the structural 8× magic-income premium the two promotions add to combo-leaning builds; holds the canonical P=20/B=30 combo build's match length ~constant (152.7s → 157.5s). Behaviors deferred to a Phase-2 PDR. User-approved S91 (`go`).
+
+Remaining **22 functional combos** ship as one-liners (MID/1.0×/generic visual). Phase 1 ships all 36 functionally. **Visual polish per combo is tunable across many sessions** — Phase 1 just needs each combo to *resolve* with the right physics tier and area claim. Combos are "limitless in the future" — Phase 2+ can extend the table without breaking the schema.
 
 ---
 

@@ -272,7 +272,7 @@ export function makeWorld(rngSeed: number): World {
     poops: new Map(),
     nextPoopId: 0,
     fouledPrimitives: new Set(),
-    // S88 G3a — in-match combo-discovery set (the magic-12); empty at world birth.
+    // S88 G3a — in-match combo-discovery set (the magic combos); empty at world birth.
     discoveredCombos: new Set(),
     // S42 — race-condition observability (real-time 1v1) + local-player
     // convention (replaces removed currentPlayerId active-player concept).

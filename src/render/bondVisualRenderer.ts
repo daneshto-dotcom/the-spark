@@ -1,7 +1,7 @@
 /**
  * SPARK — per-combo persistent bond visuals dispatcher (S7 P2 + S20 P3 slim).
  *
- * The 24 functional combos render as the original straight line. The 12
+ * The 22 functional combos render as the original straight line. The 14
  * magic combos render as their named silhouette stretched/anchored
  * between the two bond endpoints. The visual IS the bond — there's no
  * separate "decoration" layer. Stress-tint and width are applied by the
@@ -33,6 +33,7 @@
 import type { Graphics } from 'pixi.js';
 import { drawDefaultLine, type BondVisualParams } from './effects/silhouettes/shared.ts';
 import {
+  drawAnchor,
   drawBracket,
   drawCable,
   drawCapsule,
@@ -40,6 +41,7 @@ import {
   drawFilament,
   drawLattice,
   drawOrbital,
+  drawSpindle,
   drawStar,
   drawVortex,
   drawWarped,
@@ -68,6 +70,8 @@ export function drawBondVisual(g: Graphics, p: BondVisualParams): void {
     case 'fx.vortex': drawVortex(g, p); break;
     case 'fx.whip': drawWhip(g, p); break;
     case 'fx.warped': drawWarped(g, p); break;
+    case 'fx.anchor': drawAnchor(g, p); break;   // S91 G2-PROMO (Dot→Square)
+    case 'fx.spindle': drawSpindle(g, p); break; // S91 G2-PROMO (Line→Circle)
     default: drawDefaultLine(g, p); break;
   }
 }

@@ -1,7 +1,7 @@
 /**
  * SPARK — Combo table.
  * Spec § V.1 LOCKED: order-dependent (A->B != B->A).
- * 12 magical (full polish) + 24 functional placeholders = 36 entries.
+ * 14 magical (full polish) + 22 functional placeholders = 36 entries.
  */
 
 import { SparkType, ALL_SPARK_TYPES } from './constants.ts';
@@ -23,7 +23,7 @@ export function comboKey(a: SparkType, b: SparkType): ComboKey {
   return `${a}->${b}` as ComboKey;
 }
 
-// === Magic-12 (LOCKED — see LOCKED_DECISIONS § 6) ===
+// === Magic-14 (LOCKED — see LOCKED_DECISIONS § 6) ===
 const MAGICAL: Array<[SparkType, SparkType, ComboOutcome]> = [
   [SparkType.Dot, SparkType.Line, {
     resultName: 'Filament',
@@ -120,6 +120,29 @@ const MAGICAL: Array<[SparkType, SparkType, ComboOutcome]> = [
     visualEffectId: 'fx.warped',
     isMagical: true,
     description: 'Rigid base becomes warped; dramatic transformation',
+  }],
+  // S91 P1 (G2-PROMO) — Dot→Square + Line→Circle promoted from functional placeholders to named
+  // magic combos (the two pairs the user called out as "the whole point" of a geometric builder).
+  // Phase 1 = visual silhouette + discovery toast + the magic income premium ONLY; NO bespoke
+  // behavior yet (Anchor anti-drift / Spindle pull are a logged Phase-2 PDR). MID/1.0× keeps their
+  // bond physics byte-identical to the placeholder tier (only scoring + visual change). Order-
+  // dependent (§ V.1): only the forward keys promote — Square→Dot / Circle→Line stay placeholders.
+  // See LOCKED_DECISIONS § 6 (Magic-14 seed) + the S91 win-score rebalance.
+  [SparkType.Dot, SparkType.Square, {
+    resultName: 'Anchor',
+    stiffnessTier: 'MID',
+    areaMultiplier: 1.0,
+    visualEffectId: 'fx.anchor',
+    isMagical: true,
+    description: 'A dot plants into a square footing — a grounded, anchored joint',
+  }],
+  [SparkType.Line, SparkType.Circle, {
+    resultName: 'Spindle',
+    stiffnessTier: 'MID',
+    areaMultiplier: 1.0,
+    visualEffectId: 'fx.spindle',
+    isMagical: true,
+    description: 'A line winds onto the circle — a spun spindle of stored motion',
   }],
 ];
 

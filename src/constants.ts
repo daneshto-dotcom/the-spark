@@ -284,7 +284,14 @@ function readTestWinScore(): number | null {
 // 210/150 = 1.40 score budget ÷ 1.15 income ≈ +22% duration for typical play, ≈ +40% for
 // pure-blob builders (who gain no bond income — building connected now also ENDS games
 // sooner than scattering, the intended incentive). Hunter auto-scales (75% → 157).
-export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 210;
+// S91 G2-PROMO — 210→630 (×3, with SCORE_TIER_STEP 70→210 in lockstep so the exact-thirds tier
+// cadence is preserved). Offsets the structural 8× magic-income premium that promoting Dot→Square
+// (Anchor) + Line→Circle (Spindle) to magic adds to combo-leaning builds: holds the canonical
+// P=20/B=30 combo build's match length ~constant (152.7s → 157.5s). Accepted v1 trade-off: a pure
+// non-combo/blob builder (complexity unchanged) runs ~3× longer — builders out-pace blobs, the
+// intended incentive. HUNTER_TRIGGER_SCORE auto-scales (75% → 472). User-approved S91. Damped
+// per-combo-premium fallback logged in BACKLOG if blob matches feel too long on playtest.
+export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 630;
 
 // === Spawner physics ===
 export const SPAWNER_BOUNCE_DAMPING = 0.92;
@@ -356,7 +363,10 @@ export const AUTO_BOND_RADIUS = 60;
 // 2 tier events before WIN (S79 P1 — raised 15→50 in step with PHASE_1_WIN_SCORE
 // 50→150 so the pulse cadence per match is unchanged).
 // S84 P3 — 50→70 in step with WIN 150→210 (exact thirds: pulses at 70/140, WIN at 210).
-export const SCORE_TIER_STEP = 70;
+// S91 G2-PROMO — 70→210 in lockstep with PHASE_1_WIN_SCORE 210→630 (exact thirds preserved:
+// pulses at 210/420, WIN at 630; scoring.test.ts:330-331 invariant stays green). Per-match tier-
+// pulse cadence is unchanged (still 2 pulses before WIN).
+export const SCORE_TIER_STEP = 210;
 
 // S13 P2 — outward verlet impulse for STRUCTURE_GROW. Applied to each
 // primitive in the *primary's pre-existing component* (the structure

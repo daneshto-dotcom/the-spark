@@ -1,7 +1,7 @@
 /**
  * SPARK — bond-axis-aligned silhouettes (S20 P3 archetype grouping).
  *
- * Seven silhouettes whose primary stroke runs along or through the bond
+ * Nine silhouettes whose primary stroke runs along or through the bond
  * axis from endpoint A to endpoint B. Each takes a Graphics buffer + the
  * shared `BondVisualParams`. All use the bond axis as their organizing
  * geometry; midpoint ornaments (filament starburst, wheel ring+spokes)
@@ -13,6 +13,7 @@ import {
   drawDefaultLine,
   midColor,
   strokeAxisLerp,
+  strokePathLerp,
   type BondVisualParams,
 } from './shared.ts';
 
@@ -197,4 +198,72 @@ export function drawCapsule(g: Graphics, p: BondVisualParams): void {
   strokeAxisLerp(g, p, p.ax - nx * halfH, p.ay - ny * halfH, p.bx - nx * halfH, p.by - ny * halfH);
   g.circle(p.ax, p.ay, halfH).stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
   g.circle(p.bx, p.by, halfH).stroke({ width: p.width, color: p.colorB, alpha: p.alpha });
+}
+
+/**
+ * Anchor (Dot→Square, MID) — S91 G2-PROMO. A shaft along the bond axis with a perpendicular
+ * "stock" crossbar near the Dot (A) end and two "flukes" sweeping back from the Square (B) end:
+ * reads as a planted anchor. Stroke-only, STATIC (no p.tick) → joins STATIC_SILHOUETTES.
+ * Phase-1 visual only — no behavior keys off this yet (cf. isFilamentCombo/isDefensiveCombo).
+ */
+export function drawAnchor(g: Graphics, p: BondVisualParams): void {
+  const dx = p.bx - p.ax;
+  const dy = p.by - p.ay;
+  const len = Math.hypot(dx, dy);
+  if (len < 1) { drawDefaultLine(g, p); return; }
+
+  const ux = dx / len;
+  const uy = dy / len;
+  const nx = -dy / len;
+  const ny = dx / len;
+
+  // Shaft along the bond axis (A→B).
+  strokeAxisLerp(g, p, p.ax, p.ay, p.bx, p.by);
+
+  // Stock — a crossbar perpendicular to the shaft, near the Dot (A) end.
+  const stockHalf = Math.min(10, len * 0.22);
+  const sx = p.ax + ux * (len * 0.18);
+  const sy = p.ay + uy * (len * 0.18);
+  g.moveTo(sx + nx * stockHalf, sy + ny * stockHalf)
+    .lineTo(sx - nx * stockHalf, sy - ny * stockHalf)
+    .stroke({ width: p.width, color: p.colorA, alpha: p.alpha });
+
+  // Flukes — two arms sweeping back toward the shaft from the Square (B) end (the planted foot).
+  // Endpoint-owned colorB, matching the capsule/bracket endpoint-color convention.
+  const flukeLen = Math.min(12, len * 0.28);
+  g.moveTo(p.bx, p.by)
+    .lineTo(p.bx - ux * flukeLen + nx * flukeLen, p.by - uy * flukeLen + ny * flukeLen)
+    .stroke({ width: p.width, color: p.colorB, alpha: p.alpha });
+  g.moveTo(p.bx, p.by)
+    .lineTo(p.bx - ux * flukeLen - nx * flukeLen, p.by - uy * flukeLen - ny * flukeLen)
+    .stroke({ width: p.width, color: p.colorB, alpha: p.alpha });
+}
+
+/**
+ * Spindle (Line→Circle, MID) — S91 G2-PROMO. A central shaft A→B wrapped by two symmetric bows
+ * that meet at both endpoints and swell to ± the axis normal at the middle — a pointed lens /
+ * spun-thread spindle. Stroke-only, STATIC (no p.tick) → joins STATIC_SILHOUETTES. Phase-1 visual.
+ */
+export function drawSpindle(g: Graphics, p: BondVisualParams): void {
+  const dx = p.bx - p.ax;
+  const dy = p.by - p.ay;
+  const len = Math.hypot(dx, dy);
+  if (len < 1) { drawDefaultLine(g, p); return; }
+
+  const nx = -dy / len;
+  const ny = dx / len;
+  const bulge = Math.min(14, len * 0.2);
+
+  // Central shaft (the spindle rod).
+  strokeAxisLerp(g, p, p.ax, p.ay, p.bx, p.by);
+
+  // Two bows: pinned at A and B, swelling to ±normal at the midpoint (sin envelope → zero at ends).
+  strokePathLerp(g, p, 10, (t) => {
+    const swell = Math.sin(Math.PI * t) * bulge;
+    return { x: p.ax + dx * t + nx * swell, y: p.ay + dy * t + ny * swell };
+  }, 1, 0.85);
+  strokePathLerp(g, p, 10, (t) => {
+    const swell = Math.sin(Math.PI * t) * bulge;
+    return { x: p.ax + dx * t - nx * swell, y: p.ay + dy * t - ny * swell };
+  }, 1, 0.85);
 }

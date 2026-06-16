@@ -136,4 +136,25 @@ describe('S88 G3a — detectComboDiscoveries', () => {
     expect(w.comboToastTick).toBeUndefined();
     expect(w.lastDiscoveredComboNames).toBeUndefined();
   });
+
+  it('S91 G2-PROMO — a promoted Anchor (Dot→Square) and Spindle (Line→Circle) each toast as magic', () => {
+    nextId = 0;
+    const w = makeWorld(0);
+    w.tick = 77;
+    const dot = addPrim(w, SparkType.Dot);
+    const sq = addPrim(w, SparkType.Square);
+    const line = addPrim(w, SparkType.Line);
+    const circle = addPrim(w, SparkType.Circle);
+    const watermark = nextId;
+    addBond(w, dot, sq);      // Dot→Square = Anchor (magic, S91)
+    addBond(w, line, circle); // Line→Circle = Spindle (magic, S91)
+
+    detectComboDiscoveries(w, watermark);
+
+    expect(w.comboToastTick).toBe(77);
+    expect(w.discoveredCombos.size).toBe(2);
+    const names = w.lastDiscoveredComboNames ?? [];
+    expect(names).toContain('Anchor');
+    expect(names).toContain('Spindle');
+  });
 });

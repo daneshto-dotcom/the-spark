@@ -5,8 +5,8 @@
  * (bond.id >= firstNewBondId). One hook covers every bond-creation path —
  * primary + redundancy + merge-sweep in placePrimitive, plus the PLACE_FROM_FREE
  * delegate that routes through placePrimitive (PRIME-AUDIT R3). For each NAMED
- * MAGIC combo (the magic-12) formed for the FIRST time this match, record it:
- *   - add its ComboKey to world.discoveredCombos (drives the "Combos N/12" HUD),
+ * MAGIC combo (the magic set) formed for the FIRST time this match, record it:
+ *   - add its ComboKey to world.discoveredCombos (drives the "Combos N/14" HUD),
  *   - stamp world.comboToastTick = world.tick,
  *   - set world.lastDiscoveredComboNames to the resultName(s) discovered at this tick.
  *

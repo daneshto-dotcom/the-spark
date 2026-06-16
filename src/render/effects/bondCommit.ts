@@ -2,7 +2,7 @@
  * BOND_COMMIT — expanding ring from the bonded primitive (~0.4s pop).
  * Dispatches over `visualEffectId` to per-combo silhouette flair from
  * `silhouettes.ts`. Inner flash precedes the silhouette to anchor visual
- * continuity across the 12 magic + 24 functional variants.
+ * continuity across the 14 magic + 22 functional variants.
  */
 
 import { Graphics } from 'pixi.js';

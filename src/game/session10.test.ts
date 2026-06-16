@@ -333,7 +333,7 @@ describe('S10 P4 — SCORE_TIER corner pulse at every SCORE_TIER_STEP boundary',
       prev = placeAt(world, { sparkRawId: i, type: SparkType.Line, pos: { x: 200 + i * 18, y: 200 }, targetId: prev });
     }
     const tiers: number[] = [];
-    for (let t = 0; t < 20000 && world.scoreProgress < SCORE_TIER_STEP; t++) {
+    for (let t = 0; t < 120000 && world.scoreProgress < SCORE_TIER_STEP; t++) {
       const before = world.effects.length;
       tickScoring(world);
       for (const e of world.effects.slice(before)) if (e.kind === 'SCORE_TIER') tiers.push(e.tier);
@@ -371,7 +371,7 @@ describe('S10 P4 — SCORE_TIER corner pulse at every SCORE_TIER_STEP boundary',
       prev = placeAt(world, { sparkRawId: i, type: SparkType.Line, pos: { x: 200 + i * 18, y: 200 }, targetId: prev });
     }
     const tiers: number[] = [];
-    for (let t = 0; t < 20000 && world.scoreProgress < 2 * SCORE_TIER_STEP; t++) {
+    for (let t = 0; t < 120000 && world.scoreProgress < 2 * SCORE_TIER_STEP; t++) {
       const before = world.effects.length;
       tickScoring(world);
       for (const e of world.effects.slice(before)) if (e.kind === 'SCORE_TIER') tiers.push(e.tier);
@@ -424,7 +424,7 @@ describe('S10 P5 — cinematicsEnabled gates STRUCTURE_GROW / STRUCTURE_MERGE / 
     for (let i = 1; i <= 4; i++) {
       prev = placeAt(world, { sparkRawId: i, type: SparkType.Line, pos: { x: 200 + i * 18, y: 200 }, targetId: prev });
     }
-    for (let t = 0; t < 20000 && world.scoreProgress < SCORE_TIER_STEP; t++) tickScoring(world);
+    for (let t = 0; t < 120000 && world.scoreProgress < SCORE_TIER_STEP; t++) tickScoring(world);
     // Income still accrues (the gate only suppresses the visual pulse, not scoring) —
     // but no SCORE_TIER effect is emitted while cinematics are off.
     expect(world.scoreProgress).toBeGreaterThanOrEqual(SCORE_TIER_STEP);
