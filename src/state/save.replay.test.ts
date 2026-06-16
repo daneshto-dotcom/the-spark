@@ -24,6 +24,7 @@ import { makeFreeSpark } from '../game/spark.ts';
 import { asPlayerId, asSparkId } from '../types.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
 import { snapshot } from './save.ts';
+import { tickScoring } from './scoring.ts';
 
 const P1 = asPlayerId(0);
 
@@ -74,6 +75,14 @@ function runStress(world: World, iterations: number): void {
     if (i % 5 === 0) {
       dispatch(world, { type: 'TICK_ENERGY', playerId: P1, deltaSec: 1 / 60 });
     }
+
+    // S90 P1 — accrue complexity-income every iteration so the scoring path
+    // (computeComplexity + tickScoring, incl. the Filament trickle branch and
+    // its filamentBonds*FILAMENT_INCOME_COMPLEXITY float multiply) lands in the
+    // compared snapshot. Closes the S90 final-audit gap: the prior runStress
+    // never called tickScoring, so a Date.now/Math.random crept into scoring
+    // would have stayed green. Pure fn of synced state → identical both runs.
+    tickScoring(world);
 
     // Every 7th iteration sever a bond if one exists (exercises SEVER_BOND
     // + computeSeverEraseEffects + bond/primitive cascade).
