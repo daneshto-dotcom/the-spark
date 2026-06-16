@@ -35,6 +35,8 @@
  * hidden inside a helper named for topology).
  */
 
+import { isDefensiveCombo } from '../combos.ts';
+import { DEFENSIVE_SEVER_CHARGE_COST } from '../constants.ts';
 import type { GameEffect } from '../game/effects.ts';
 import { snapPrevPosForUnbonded } from '../game/invariants.ts';
 import type { Primitive } from '../game/primitive.ts';
@@ -80,8 +82,12 @@ export function canSeverBond(
   const player = world.players.get(action.playerId);
   if (player === undefined) return false;
 
-  const isHostile = primA.placerColor !== player.color || primB.placerColor !== player.color;
-  if (isHostile && player.disruptionCharges < 1) return false;
+  // S90 P2 — gate on the REQUIRED charge for THIS bond (1 for a normal hostile sever,
+  // DEFENSIVE_SEVER_CHARGE_COST for a hostile Diamond/Lattice, 0 for a self-sever). Derived from
+  // computeBaseCharge so the entry gate and the decrement in severBond.ts can NEVER disagree
+  // (PRIME-AUDIT A4) — an opponent short of the full premium is silent-rejected (§VIII.2) and so
+  // can't even START breaking a defensive bond. Self-sever returns 0 → always allowed (unchanged).
+  if (player.disruptionCharges < computeBaseCharge(world, action, primA, primB)) return false;
   return true;
 }
 
@@ -109,7 +115,13 @@ export function computeBaseCharge(
   const player = world.players.get(action.playerId);
   if (player === undefined) return 0;
   const isHostile = primA.placerColor !== player.color || primB.placerColor !== player.color;
-  return isHostile ? 1 : 0;
+  if (!isHostile) return 0;
+  // S90 P2 (G1b DEFENSE) — a hostile Diamond (Tri→Tri) / Lattice (Sq→Sq) sever costs the full
+  // DEFENSIVE_SEVER_CHARGE_COST; every other hostile sever still costs 1. Order-symmetric (the
+  // two combos are self-paired). Only the cause==='player' path reaches here — physics/creature/
+  // bomb returned 0 above, so a hazard still severs a Diamond for free (anti-sabotage, not
+  // hazard-immunity — PRIME-AUDIT A1: no indestructible structures).
+  return isDefensiveCombo(primA.type, primB.type) ? DEFENSIVE_SEVER_CHARGE_COST : 1;
 }
 
 /**

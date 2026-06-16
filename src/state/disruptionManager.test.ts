@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { PLAYER_COLORS, SparkType } from '../constants.ts';
+import { DEFENSIVE_SEVER_CHARGE_COST, PLAYER_COLORS, SparkType } from '../constants.ts';
 import type { Bond } from '../physics/bonds.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { makeIdlePlayer } from '../game/player.ts';
@@ -19,6 +19,7 @@ import {
   computeBaseCharge,
   computeSeverEraseEffects,
 } from './disruptionManager.ts';
+import { applySeverBond } from './severBond.ts';
 import {
   asBondId,
   asPlayerId,
@@ -39,10 +40,11 @@ function makePrim(
   x = 100,
   y = 100,
   radius = 8,
+  type: SparkType = SparkType.Dot,
 ): Primitive {
   return {
     id: asPrimitiveId(id),
-    type: SparkType.Dot,
+    type,
     placerColor,
     placedBy: P1,
     createdTick: 0,
@@ -74,6 +76,7 @@ function setupWorld(opts: {
   p2Charges?: number;
   primAColor?: number;
   primBColor?: number;
+  primType?: SparkType;
 }): { world: World; primA: Primitive; primB: Primitive; bond: Bond } {
   const world = makeWorld(0);
   world.gameMode = opts.gameMode ?? 'solo';
@@ -88,8 +91,8 @@ function setupWorld(opts: {
     p2.disruptionCharges = opts.p2Charges ?? 0;
     world.players.set(P2, p2);
   }
-  const primA = makePrim(1, opts.primAColor ?? RED, 100, 100);
-  const primB = makePrim(2, opts.primBColor ?? RED, 132, 100);
+  const primA = makePrim(1, opts.primAColor ?? RED, 100, 100, 8, opts.primType);
+  const primB = makePrim(2, opts.primBColor ?? RED, 132, 100, 8, opts.primType);
   const bond = makeBond(1, primA, primB);
   world.primitives.set(primA.id, primA);
   world.primitives.set(primB.id, primB);
@@ -155,6 +158,80 @@ describe('disruptionManager — computeBaseCharge', () => {
     const { world, primA, primB } = setupWorld({ p1Charges: 5, primBColor: CYAN });
     const action: GameAction = { type: 'SEVER_BOND', bondId: asBondId(1), playerId: P1, cause: 'player' };
     expect(computeBaseCharge(world, action, primA, primB)).toBe(1);
+  });
+});
+
+describe('S90 P2 (G1b DEFENSE) — Diamond/Lattice resist enemy sabotage', () => {
+  // A hostile defensive bond: attacker P1 (RED) vs a Tri→Tri (Diamond) / Sq→Sq (Lattice) bond
+  // owned by CYAN. The combo is read from the prim TYPES, so build the prims with the right type.
+  function hostileDefensive(combo: 'Diamond' | 'Lattice', charges: number) {
+    const primType = combo === 'Diamond' ? SparkType.Triangle : SparkType.Square;
+    return setupWorld({ p1Charges: charges, primAColor: CYAN, primBColor: CYAN, primType });
+  }
+  // `as const` keeps `type` the 'SEVER_BOND' literal so the result narrows to the SEVER_BOND
+  // action variant (a plain `: GameAction` return type would NOT narrow — function returns aren't
+  // control-flow-narrowed the way the existing `const action: GameAction = {…}` locals are).
+  const sever = (cause: 'player' | 'physics' | 'creature' | 'bomb' = 'player') =>
+    ({ type: 'SEVER_BOND', bondId: asBondId(1), playerId: P1, cause }) as const;
+
+  it('computeBaseCharge: a hostile Diamond (Tri→Tri) costs DEFENSIVE_SEVER_CHARGE_COST, not 1', () => {
+    const { world, primA, primB } = hostileDefensive('Diamond', 5);
+    expect(computeBaseCharge(world, sever(), primA, primB)).toBe(DEFENSIVE_SEVER_CHARGE_COST);
+  });
+
+  it('computeBaseCharge: a hostile Lattice (Sq→Sq) costs DEFENSIVE_SEVER_CHARGE_COST', () => {
+    const { world, primA, primB } = hostileDefensive('Lattice', 5);
+    expect(computeBaseCharge(world, sever(), primA, primB)).toBe(DEFENSIVE_SEVER_CHARGE_COST);
+  });
+
+  it('canSeverBond: an opponent SHORT of the full premium cannot sever a Diamond (silent-reject)', () => {
+    const { world, primA, primB } = hostileDefensive('Diamond', DEFENSIVE_SEVER_CHARGE_COST - 1);
+    expect(canSeverBond(world, sever(), primA, primB)).toBe(false);
+  });
+
+  it('canSeverBond: an opponent with the FULL budget CAN sever a Diamond (a premium, not invincibility)', () => {
+    const { world, primA, primB } = hostileDefensive('Diamond', DEFENSIVE_SEVER_CHARGE_COST);
+    expect(canSeverBond(world, sever(), primA, primB)).toBe(true);
+  });
+
+  it('AUDIT-1 (R14): physics/creature/bomb sever of a Diamond bypasses the premium (anti-sabotage ≠ hazard-immunity)', () => {
+    for (const cause of ['physics', 'creature', 'bomb'] as const) {
+      const { world, primA, primB } = hostileDefensive('Diamond', 0);
+      expect(canSeverBond(world, sever(cause), primA, primB)).toBe(true);   // allowed at 0 charges
+      expect(computeBaseCharge(world, sever(cause), primA, primB)).toBe(0); // and costs nothing
+    }
+  });
+
+  it('a player may still self-sever their OWN Diamond for free (rearrange your own structure)', () => {
+    // both prims RED = the actor's own color → self-sever (zero-cost), even for a Diamond.
+    const s = setupWorld({ p1Charges: 0, primType: SparkType.Triangle });
+    expect(computeBaseCharge(s.world, sever(), s.primA, s.primB)).toBe(0);
+    expect(canSeverBond(s.world, sever(), s.primA, s.primB)).toBe(true);
+  });
+
+  it('a non-defensive hostile bond is unaffected — still costs 1 (regression)', () => {
+    const { world, primA, primB } = setupWorld({ p1Charges: 5, primAColor: CYAN }); // Dot→Dot placeholder
+    expect(computeBaseCharge(world, sever(), primA, primB)).toBe(1);
+  });
+
+  it('AUDIT-4 (orchestrator): a full-budget attacker breaks a Diamond and is left at 0 (gate + decrement agree)', () => {
+    const { world } = hostileDefensive('Diamond', DEFENSIVE_SEVER_CHARGE_COST);
+    applySeverBond(world, sever());
+    expect(world.bonds.has(asBondId(1))).toBe(false); // broken at full cost
+    expect(world.players.get(P1)!.disruptionCharges).toBe(0); // spent the whole budget
+  });
+
+  it('AUDIT-4 (orchestrator): an attacker one charge short does NOT break the Diamond and is NOT charged', () => {
+    const { world } = hostileDefensive('Diamond', DEFENSIVE_SEVER_CHARGE_COST - 1);
+    applySeverBond(world, sever());
+    expect(world.bonds.has(asBondId(1))).toBe(true); // held
+    expect(world.players.get(P1)!.disruptionCharges).toBe(DEFENSIVE_SEVER_CHARGE_COST - 1); // untouched
+  });
+
+  it('AUDIT-1 (orchestrator): a physics-overstretch sever actually REMOVES a Diamond (no indestructible structures)', () => {
+    const { world } = hostileDefensive('Diamond', 0);
+    applySeverBond(world, sever('physics'));
+    expect(world.bonds.has(asBondId(1))).toBe(false);
   });
 });
 

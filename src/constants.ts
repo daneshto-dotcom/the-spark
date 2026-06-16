@@ -188,6 +188,13 @@ export const ENERGY_PER_SECOND_FLAT = 5.0;
 // === Disruption ===
 export const BUILD_ACTIONS_PER_CHARGE = 5;
 export const MAX_DISRUPTION_CHARGES = 2;
+// S90 P2 (G1b DEFENSE) — a Diamond (Tri→Tri) / Lattice (Sq→Sq) costs an attacking player THIS many
+// charges to HOSTILE-sever (a normal hostile sever costs 1). Set == MAX_DISRUPTION_CHARGES so an
+// opponent must spend their ENTIRE disruption budget to break ONE defensive bond — a meaningful
+// "resists enemy sabotage" premium, NOT invincibility (they CAN still break it at full cost, and
+// physics/creature/bomb sever bypass this entirely — anti-sabotage ≠ hazard-immunity). #1 DEFENSE
+// playtest knob; raise MAX_DISRUPTION_CHARGES first if "costs the whole budget" proves too swingy.
+export const DEFENSIVE_SEVER_CHARGE_COST = 2;
 
 // === Win condition ===
 // Phase 1 single-player placeholder: trigger WIN at N primitives instead of % canvas.
