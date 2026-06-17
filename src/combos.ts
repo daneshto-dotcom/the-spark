@@ -223,6 +223,6 @@ export function isDefensiveCombo(a: SparkType, b: SparkType): boolean {
 
 export const COMBO_TABLE: ReadonlyMap<ComboKey, ComboOutcome> = TABLE;
 
-export const MAGIC_12_KEYS: readonly ComboKey[] = MAGICAL.map(
+export const MAGIC_COMBO_KEYS: readonly ComboKey[] = MAGICAL.map(
   ([a, b]) => comboKey(a, b),
 );

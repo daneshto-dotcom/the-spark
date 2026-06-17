@@ -9,7 +9,7 @@ import { describe, expect, it, test } from 'vitest';
 import { ALL_SPARK_TYPES, SparkType } from './constants.ts';
 import {
   COMBO_TABLE,
-  MAGIC_12_KEYS,
+  MAGIC_COMBO_KEYS,
   comboKey,
   isMagical,
   lookupCombo,
@@ -21,7 +21,7 @@ describe('combo table coverage', () => {
   });
 
   it('has exactly 14 magical entries', () => {
-    expect(MAGIC_12_KEYS.length).toBe(14);
+    expect(MAGIC_COMBO_KEYS.length).toBe(14);
     const magicalCount = [...COMBO_TABLE.values()].filter((c) => c.isMagical).length;
     expect(magicalCount).toBe(14);
   });

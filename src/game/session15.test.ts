@@ -21,7 +21,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { PHASE_1_WIN_SCORE, PHYSICS_HZ, PLAYER_COLORS, SCORE_ANCHOR, SparkType } from '../constants.ts';
+import { PHASE_1_WIN_SCORE, PHYSICS_HZ, PLAYER_COLORS, SparkType } from '../constants.ts';
 import { makeFreeSpark } from './spark.ts';
 import { asPlayerId, asSparkId, type PrimitiveId } from '../types.ts';
 import { addScore, dispatch, makeWorld } from '../state/world.ts';
@@ -342,10 +342,14 @@ describe('S15 P2 — scoreByPlayer + winner attribution', () => {
   it('solo win attributes to primaryPlayerId (P1)', () => {
     const w = makeWorld(0);
     const ex = makeGameStateExtras();
-    // S76: placement raises complexity (not score). Build a winning-size structure, then reach
-    // the threshold directly — income accrual is covered in session9 + scoring.test.ts. Solo
-    // attribution is primaryPlayerId regardless of how the score got there.
-    for (let i = 0; i < PHASE_1_WIN_SCORE / SCORE_ANCHOR; i++) {
+    // S76: placement raises complexity (not score). Build a structure of a fixed, intentional
+    // size, then reach the threshold directly by setting scoreProgress. The win is driven by that
+    // direct set, NOT the loop count — S92 decoupled the loop from PHASE_1_WIN_SCORE/SCORE_ANCHOR
+    // so a win-score rebalance no longer silently changes the dispatch count (the loop only needs
+    // to build *a* structure for solo attribution; income accrual is covered in session9 +
+    // scoring.test.ts). Solo attribution is primaryPlayerId regardless of how the score got there.
+    const WINNING_STRUCTURE_SIZE = 12;
+    for (let i = 0; i < WINNING_STRUCTURE_SIZE; i++) {
       placeAnchor(w, i, P1, 100 + i, 100);
     }
     w.scoreProgress = PHASE_1_WIN_SCORE; // accrued-equivalent (income path tested elsewhere)

@@ -26,7 +26,7 @@ import {
 } from '../constants.ts';
 import { isNetworked, type World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
-import { MAGIC_12_KEYS } from '../combos.ts';
+import { MAGIC_COMBO_KEYS } from '../combos.ts';
 
 const GAUGE_X = CANVAS_WIDTH - 24;
 const GAUGE_Y_TOP = 80;
@@ -150,7 +150,7 @@ export class HUD {
   }
 
   // S88 G3a — "Combos N/14" discovered-combo counter (top-center; total auto-follows
-  // MAGIC_12_KEYS.length, now 14 after S91 G2-PROMO). Shown during
+  // MAGIC_COMBO_KEYS.length, now 14 after S91 G2-PROMO). Shown during
   // PLAYING in ALL modes (solo/bots/networked) — discovery is a core mechanic for
   // everyone. Brightens to full alpha at the complete set. discoveredCombos rides
   // the host snapshot, so the client mirror shows the authoritative count.
@@ -160,7 +160,7 @@ export class HUD {
       return;
     }
     const found = world.discoveredCombos.size;
-    const total = MAGIC_12_KEYS.length;
+    const total = MAGIC_COMBO_KEYS.length;
     this.comboCounterText.text = `Combos ${found}/${total}`;
     this.comboCounterText.alpha = found >= total ? 1 : 0.7;
     this.comboCounterText.visible = true;
