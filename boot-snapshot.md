@@ -14,7 +14,7 @@ Generated: 2026-06-17 | Session: S92
 7. **DISCUSS (deferred, user-confirmed):** combinatorial DEPTH 6^6 ≈ 46k — `memory/combinatorial-depth-discussion.md`.
 
 ## Blockers
-None. S92 shipped 2 commits (code 3244ed3 · session-state c64caa8 = tip), both pushed. tsc 0, vitest 1433/1433, bundle 548.3 KiB < 550. 3-lens adversarial CHECK ALL CLEAN. Transient `.claude/session-state.json.lockdir*` dirs + a stray root file `0` may linger — ignore.
+None. S92 shipped 4 commits (code 3244ed3 · P1-complete c64caa8 · handoff 1722b1c · MCV verification[] bind 2d74b00 = tip), all pushed. tsc 0, vitest 1433/1433, bundle 548.3 KiB < 550. 3-lens adversarial CHECK ALL CLEAN. MCV verify-session-claims exit 0 (4/4 assertions pass). Transient `.claude/session-state.json.lockdir*` dirs + a stray root file `0` may linger — ignore.
 
 ## Pending Backlog
 - [ ] PLAYTEST (S91 Anchor/Spindle feel + the rebalanced pacing) + S90 carry (Filament · Diamond/Lattice · Vortex · joiner smoothness · self-heal)
