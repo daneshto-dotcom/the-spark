@@ -1,31 +1,25 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-06-17 | Session: S92
+Generated: 2026-06-20 | Session: S93
 
 ## Next Steps
-1. ⭐ **PLAYTEST on https://spark-online.space/** — the live verification the harness CANNOT drive (Pixi multiplayer/input). Still open from S91/S90:
-   - **S91 G2-PROMO Phase 1:** build **Anchor (Dot→Square)** + **Spindle (Line→Circle)** — does the silhouette read, does the "NEW COMBO!" toast fire, does "Combos N/14" tick, does the magic income premium feel worth it?
-   - **PACING (#1 knob):** the win-score rebalance (`PHASE_1_WIN_SCORE` 210→630, `SCORE_TIER_STEP` 70→210) holds combo-builder matches ~constant (~157s) but makes a **pure non-combo/blob match ~3× longer (≈10.5 min)**. If that feels bad, the **damped-premium fallback** is logged (keep WIN 210 + a `+0.05` per-promoted-bond term inside the 1.5× cap — its own PDR).
-   - **S90 carry:** Filament income feel (`FILAMENT_INCOME_COMPLEXITY`) · Diamond/Lattice anti-sabotage (`DEFENSIVE_SEVER_CHARGE_COST`) · Vortex pull · joiner smoothness · structure self-heal.
-2. **G2-PROMO Phase 2 (separate PDR):** Anchor anti-drift (`stiffnessMultiplier` lift, ordered after `computeTerritorialInfluence`) + anti-sabotage (extend `isDefensiveCombo` to Anchor) + Spindle tangential `applyVortexPull` clone (~0.4× accel, all determinism guards). Spec captured in the S91 PDR APPROACH §3.5.
-3. **G4 juice:** **BOND_COMMIT commit-pop flair for Anchor/Spindle** (they use the default ring pop; persistent silhouette IS distinct, only the one-shot pop is generic). To add: drawAnchor/drawSpindle in render/effects/silhouettes.ts + 2 cases in bondCommit.ts + append both ids to effectsRenderer.test.ts ALL_MAGIC.
-4. **G2-TRAITS (deferred, gated):** rule-based family stiffness — needs a `LOCKED_DECISIONS §6` lock-amendment + watch territorial `stiffnessMultiplier` stacking.
-5. **G1b MOTION (deferred):** Wheel/Star rotation — build only once it earns a mechanical verb (both reviewers rated pure rotation low-value).
-6. **DEFENSE-v2 (deferred):** Voltkin-bolt/bomb absorb-first-hit (host-only Set<BondId>) + resist clang; potato excluded; ~1.5–3 KiB → own session.
-7. **DISCUSS (deferred, user-confirmed):** combinatorial DEPTH 6^6 ≈ 46k — `memory/combinatorial-depth-discussion.md`.
+1. ⭐ **PLAYTEST NONET on https://spark-online.space/** (deployed this session, commit 31a8aa6 → deploy.yml). Build a structure of **exactly 9 squares** (all `Square`, one connected structure, nothing else bonded in) → the duel should FREEZE for everyone, the realm theme (Cloudstep Caravan) should play, a 6×6 Sudoku board appears → click a cell + press 1–6 to solve → first solver gets score ×2, everyone else halved → ~3s → resume. Test SOLO + 1v1 (the netcode path) + Bots. Report anything wrong.
+2. **Combo order-symmetry bug (user-flagged S93, own PDR):** Triangle→Spiral = "Warped Anchor" (magic) but Spiral→Triangle = plain placeholder line — systemic across most combos (only 14/30 orderings are "cool"). Fix = make single-defined magic combos symmetric (mirror the reverse pairs) EXCEPT the intentional Wheel/Star pair. Touches LOCKED_DECISIONS §6 combo table → own PDR + user go.
+3. **Bundle trim (charter):** main bundle 552.7 KiB, +2.7 over the 550 charter. Overlay already lazy-split; residual is the generator+event core (reducer/snapshot need it synchronously). Either trim the generator's dig/solve or formally raise the charter for this feature.
+4. **NONET polish (deferred):** anime-SFX layer (boing/pop cell-entry, kawaii correct-chime, comedic bonk, idle kami/kodama blips — needs SFX assets); resolve juice (screen-shake + winner-colour flood); tune trigger =9 vs ≥9 (≥9 is more forgiving if a merge jumps past 9).
+5. **NONET Phase 2 (own PDR):** swap the vector kami/kodama for the illustrated Ghibli sprites (assets-source/nonet-concepts/ — kami_2 hero, kodama_2 trio, dusk_world_1 backdrop) loaded off-bundle from public/art/nonet/; parallax sky.
 
 ## Blockers
-None. S92 shipped 4 commits (code 3244ed3 · P1-complete c64caa8 · handoff 1722b1c · MCV verification[] bind 2d74b00 = tip), all pushed. tsc 0, vitest 1433/1433, bundle 548.3 KiB < 550. 3-lens adversarial CHECK ALL CLEAN. MCV verify-session-claims exit 0 (4/4 assertions pass). Transient `.claude/session-state.json.lockdir*` dirs + a stray root file `0` may linger — ignore.
+None blocking. NONET is shipped + deployed. Advisory: bundle +2.7 KiB over the 550 charter (flagged, non-fatal). User playtest pending — bugs to be reported next session.
 
 ## Pending Backlog
-- [ ] PLAYTEST (S91 Anchor/Spindle feel + the rebalanced pacing) + S90 carry (Filament · Diamond/Lattice · Vortex · joiner smoothness · self-heal)
-- [ ] TIER-1 G2 Phase 2: Anchor/Spindle behaviors (own PDR) · G2-TRAITS (§6 lock-amend)
-- [ ] TIER-1 G1b MOTION: Wheel/Star rotation (deferred until it earns a mechanical verb)
-- [ ] DEFENSE-v2 (Voltkin/bomb absorb + resist clang) · BOND_COMMIT commit-pop flair for Anchor/Spindle (G4 juice)
-- [ ] TIER-1 G3b: Codex marks used combos; undiscovered render as silhouettes
-- [ ] DISCUSS: combinatorial depth 6^6 ≈ 46k — memory/combinatorial-depth-discussion.md
-- [ ] TIER-3 (after Tier-1): host-migration D1–D4 · S73 colour-shift · periodic-scoreboard knob
-- [ ] INFRA: /handoff STEP-0 review gate (pre-handoff-review.py) reads a cross-project session ("S162"), not The Spark's session-state — advisory until 2026-07-15, then it BLOCKS. Fix before the teeth-date.
+- [ ] PLAYTEST NONET (all 3 modes) on spark-online.space + report bugs
+- [ ] Combo order-symmetry fix (Triangle↔Spiral etc.) — own PDR (LOCKED §6 amend)
+- [ ] Bundle trim / charter review (+2.7 over 550)
+- [ ] NONET: anime SFX + resolve juice + =9-vs-≥9 trigger tuning
+- [ ] NONET Phase 2: illustrated Ghibli sprites (off-bundle) + parallax
+- [ ] Carry from S92: PLAYTEST S91 Anchor/Spindle feel + the rebalanced pacing; S90 Filament/Diamond/Lattice feel
+- [ ] INFRA: /handoff STEP-0 review gate reads a cross-project session — advisory until 2026-07-15 then BLOCKS
 
 ## Recent Reflexion (last 2 sessions)
+**S93** — NONET shipped (all modes). #netcode-sync-a-host-event-by-mirroring-the-additive-optional-snapshot-pattern (additive-optional snapshot field + seed-only/regen-client + one client INTENT forces 5 tsc/test-enforced surfaces incl. the PROTOCOL_VERSION literal tripwire) · #freeze-a-sim-loop-without-starving-the-network-or-the-clock (an early-continue freeze must replicate the snapshot-send + keep advancing tick; the heavy Pixi view lazy-splits, the core logic can't).
 **S92** — HYGIENE Micro (MAGIC_12_KEYS→MAGIC_COMBO_KEYS rename + session15 loop decouple). #tsc-proves-rename-completeness-grep-proves-the-rest · #prove-a-test-loops-contribution-before-rescaling-it.
-**S91** — G2-PROMO Phase 1 (Anchor/Spindle → magic, visual-only) + Option A rebalance. #recover-an-orphaned-workflow-from-its-journal-dont-rerun · #a-relative-test-still-breaks-on-a-fixed-iteration-budget · #verify-the-serialization-SHAPE-not-just-the-no-bump-claim · #passing-green-gates-still-warrant-the-doc-drift-sweep · #a-doc-sweep-can-MANUFACTURE-a-false-claim.

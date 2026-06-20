@@ -1,67 +1,77 @@
 {
-  "tool_calls_session_total": 0,
-  "session_id": "S92",
+  "tool_calls_session_total": 55,
+  "session_id": "S93",
   "session_kind": "execution",
-  "session_start": "2026-06-16T19:24:06.000Z",
-  "session_note": "S92 — user said 'go' on the S92 HYGIENE Micro PDR (the two LOW items the S91 CHECK flagged). Item A: rename MAGIC_12_KEYS -> MAGIC_COMBO_KEYS (now maps 14; 3 code consumers: combos.ts def + combos.test.ts + render/ui.ts). Item B: decouple session15.test.ts:348 solo-win loop from PHASE_1_WIN_SCORE/SCORE_ANCHOR (=630 iters) -> a fixed self-documenting WINNING_STRUCTURE_SIZE; the win is driven by the direct scoreProgress set on the next line, not the loop. Pure cleanup, zero runtime behavior change. State-Discovery (A.0) done inline: all consumers read this session. PDR presented inline; user 'go' = explicit unlock.",
+  "session_start": "2026-06-19T20:00:00.000Z",
+  "session_note": "S93 — NONET Sudoku-lock feature (new event subsystem). User 'go' + funded Google billing ($25) for concept art. Full-tier Scope Amendment PDR at .claude/plans/2026-06-19_PDR_S93_NONET_SUDOKU.md, approved by explicit user 'go' (user-path: pre-build 3-way Council waived per PDR S8 OPEN ITEM 1; Triumvirate CHECK post-build). Phase 1 = mechanic + retro arcade-Tetris board + realm-shift audio (user MP3 cloudstep-caravan, staged assets-source/audio/) + vector spirits, all off-bundle/code-drawn. Ghibli concept art generated via Imagen (assets-source/nonet-concepts/).",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "tier": "Micro",
+  "tier": "Full",
   "council_rounds": 0,
-  "council_result": "Micro tier, user-path: deliberation auto-waived (pdr_approved + unlock_source:user). State-Discovery Gate (Rule 21 A.0) satisfied inline — read combos.ts:226, combos.test.ts:12/24, render/ui.ts:29/153/163, session15.test.ts:24/35/348/351 and constants.ts (SCORE_ANCHOR=1, PHASE_1_WIN_SCORE=630). No external-state dependency beyond files read this session; no user-locked surface touched (no constant value change, no LOCKED_DECISIONS/combo-table semantics change). CHECK = RALPH + adversarial verification (Micro CHECK protocol).",
+  "council_result": "Full tier; user-path lean: user chose 'go on plan + Triumvirate CHECK after build' over the pre-build 3-way Council (PDR S8 OPEN ITEM 1). Greenfield-additive; the only desync surface is fully host-only per PDR S4 (seed-only broadcast, mulberry32 pure generator, x2//2 + detectNonet host-only). State-Discovery (Rule 21 A.0) inline pre-PDR: read scoring.ts, game/structure.ts, state/gameMode.ts, state/rng.ts, state/worldTypes.ts, net/protocol.ts, combos.ts, constants.ts, render/audioManager.ts, input/controls.ts.",
   "signals_fired": [],
   "priorities": [
     {
       "id": "P1",
-      "label": "S92 P1 — HYGIENE: rename MAGIC_12_KEYS->MAGIC_COMBO_KEYS + decouple session15.test.ts solo-win loop from the win-score constant",
+      "label": "S93 P1 — NONET: 9-square Sudoku-lock event subsystem (Phase 1 — mechanic + retro board + realm-shift audio + vector spirits)",
       "status": "completed",
       "phase": "ACT",
-      "tier": "Micro",
+      "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "objective": "Clear the two LOW items the S91 CHECK flagged. (A) The stale MAGIC_12_KEYS identifier now maps 14 magical combos -> rename to MAGIC_COMBO_KEYS. (B) The session15.test.ts solo-win loop iterates PHASE_1_WIN_SCORE/SCORE_ANCHOR (=630) purely to build a structure, then the win is forced by setting w.scoreProgress directly on the next line -> decouple the loop count from the balance constant (reflexion #a-relative-test-still-breaks-on-a-fixed-iteration-budget). Zero runtime behavior change.",
-      "scope": "Item A (rename, 3 code files): combos.ts:226 (export const def), render/ui.ts:29 (import) + :153 (comment) + :163 (.length read), combos.test.ts:12 (import) + :24 (.length assertion). Item B (session15.test.ts): replace loop bound PHASE_1_WIN_SCORE/SCORE_ANCHOR with a named local WINNING_STRUCTURE_SIZE=12 + clarifying comment; drop now-unused SCORE_ANCHOR from the line-24 import (keep PHASE_1_WIN_SCORE, used @336/@351); assertions + the scoreProgress set unchanged. OUT: any constant value change, any combo-table/lock-surface change.",
-      "testing": "npx tsc --noEmit -> 0 (catches missed rename + dropped SCORE_ANCHOR import). npx vitest run -> 1433/1433 still green (esp combos.test 'has exactly 14 magical entries' + session15 solo-win). bundle expected unchanged ~548.3 KiB (local-identifier rename + test-only loop change). No E2E (no shipped runtime behavior change).",
+      "objective": "Ship NONET Phase 1: connecting EXACTLY 9 pure-Square primitives into one structure freezes the duel for all players and summons a synced, seeded 6x6 Sudoku trial (digits = the six SparkType colours); first to solve gets score x2, all others /2, then the duel resumes (120s timeout = no-op resume, anti-softlock). Host-authoritative + deterministic: host mints one seed -> broadcasts -> every client mulberry32(seed) -> byte-identical puzzle; all x2//2 + detectNonet host-only -> zero desync.",
+      "scope": "NEW: state/sudoku.ts (deterministic 6x6 gen+validator), state/sudokuEvent.ts (detectNonet/startSudoku/resolveSudoku), render/sudoku/ overlay. TOUCH: worldTypes.ts(+sudoku,+sudokuFiredThisMatch), world.ts(init), gameMode.ts(start/return clears), scoring.ts(freeze guard), main.ts(freeze gate+overlay watcher+trigger sweep), placePrimitive.ts(trigger hook), net/protocol.ts(NetSnapshot.sudoku + SUDOKU_SOLVED intent + PROTOCOL_VERSION bump), net/hostHandlers.ts + clientHandlers.ts, input/controls.ts, render/audioManager.ts(realm-shift). OFF-BUNDLE ASSETS: public/audio/nonet-theme.ogg (transcode of cloudstep-caravan.mp3), public/audio/nonet/*.ogg. OUT (Phase 2/sep PDR): illustrated public/art/nonet/ sprites; bot solving; per-cell live progress; difficulty scaling.",
+      "testing": "tsc 0; vitest green (existing 1433 + new). NEW sudoku.test.ts (gen determinism same-seed byte-identical, valid complete solution, unique-solvable, isSolved accept/reject/incomplete). NEW sudokuEvent.test.ts (detectNonet fires exactly-9-pure-Square, rejects 8/10/9+Dot/second-time; resolveSudoku x2 winner //2 others + scoreProgress=max + clears). protocol roundtrip + PROTOCOL_VERSION bump. gameMode start/return clears the 2 fields. bundle <550 KiB. Post-build: Triumvirate CHECK + 2-browser E2E.",
       "check_completed": true,
-      "checkpoint_commit": "3244ed3",
-      "real_context_tokens_at_close": 136900,
-      "check_method": "S92 P1 (3244ed3): HYGIENE Micro, two S91-CHECK LOW items, zero runtime behavior change. ITEM A: renamed MAGIC_12_KEYS -> MAGIC_COMBO_KEYS (the const maps 14 magical combo keys, '12' was stale). 5 refs across 3 files: combos.ts:226 export-const def, combos.test.ts:12 import + :24 .length===14 assert, render/ui.ts:29 import + :153 comment + :163 HUD 'Combos N/14' .length read. RHS unchanged (MAGICAL.map(([a,b])=>comboKey(a,b))) -> semantically inert. ITEM B: session15.test.ts 'solo win attributes to primaryPlayerId' loop iterated PHASE_1_WIN_SCORE/SCORE_ANCHOR (=630/1=630) purely to build a structure, but the win is driven by the direct w.scoreProgress=PHASE_1_WIN_SCORE set on the NEXT line + tickGameState (loop is inert to the assertions). Replaced bound with fixed self-documenting WINNING_STRUCTURE_SIZE=12 + clarifying comment; dropped now-unused SCORE_ANCHOR import (PHASE_1_WIN_SCORE kept, used @336/@351). GATES: tsc -b --noEmit 0; vitest 1433/1433 (80 files, same count as S91 -> no test added/removed); production bundle index.js 561.42 vite-kB = 548.3 KiB < 550 (UNCHANGED -- local identifier mangles away, test-loop change does not ship). State-Discovery (Rule 21 A.0) inline pre-PDR: read all consumers + constants.ts (SCORE_ANCHOR=1, PHASE_1_WIN_SCORE=630). CHECK (Micro = RALPH + adversarial; ultracode): 3-lens refute-first workflow (wf_31455c37-1ef, 3 agents, 190k tok, on the ACTUAL diff) -> ALL CLEAN, high confidence: (1) RENAME COMPLETENESS -- 0 surviving MAGIC_12_KEYS in src/, no string-literal/dynamic obj['...'] access, no duplicate decl, HUD denominator unchanged; (2) TEST INTEGRITY -- WIN gated ONLY on Math.floor(scoreProgress)>=PHASE_1_WIN_SCORE (gameState.ts:59); placePrimitive provably never touches scoreProgress/scoreByPlayer (placePrimitive.ts:71,348,479) so 12-vs-630 placements is irrelevant; attribution genuinely exercised (lastWinnerId===P1 via WIN_TRIGGER world.ts:364, isNetworked false -> primaryPlayerId); sibling 1v1 test wins with 0 placements corroborates; (3) DOC-DRIFT -- all 11 non-src MAGIC_12_KEYS hits are DATED history (handoffs/plans-archive/reflexion/session-state task label), correctly LEFT; no live doc now false; LOCKED_DECISIONS has no match (count lock unaffected); ui.ts:153 'now 14' verified TRUE (MAGICAL has exactly 14 entries) -> the S91 'manufactured false claim' trap explicitly re-checked and avoided. NO findings to triage. E2E not run (no shipped runtime behavior change; identical to the verified S91 tip + a pure-test Item B).",
+      "checkpoint_commit": "31a8aa6",
+      "real_context_tokens_at_close": 607705,
+      "check_method": "S93 P1 (31a8aa6, pushed -> deploy.yml builds spark-online.space): NONET 9-square Sudoku-lock event, ALL modes. SHIPPED: state/sudoku.ts (deterministic seeded 6x6 gen+validators, unique-solution); state/sudokuEvent.ts (detectNonet exactly-9-pure-Square + start/submit/resolve/tick, host-authoritative, x2//2 + detection HOST-ONLY -> zero desync); placePrimitive trigger (host, once/match) + main.ts freeze gate (whole sim pauses via early-continue, tick+tickSudoku keep running, snapshot-send replicated INSIDE the freeze so 1v1 clients don't stall); render/sudokuOverlay.ts retro arcade-Tetris board (6 spark-colour jewels, gold frame, scanlines, kami+kodama) LAZY code-split; netcode = NetSnapshot.sudoku additive-optional (seed-only, clients regen puzzle via mulberry32) + SUDOKU_SOLVED client intent (allowlist + bench policy 'allow' + stampSenderSeat) + PROTOCOL_VERSION 8->9 (HelloMsg literal-type tripwire caught+fixed); audio realm-shift (Cloudstep Caravan ogg, off-bundle, swapped onto music bus, all modes). GATES: tsc 0; vitest 1463/1463 (incl. 3 snapshot-roundtrip determinism tests + benchGate set-equality which caught the missing policy entry); npm run build OK. BUNDLE: main index 565.94 vite-kB = 552.7 KiB, +2.7 over the 550 charter (overlay split out to a 6.44kB lazy chunk; residual = generator+event core which the reducer/snapshot need synchronously, cannot lazy-load) -> CARRY-FORWARD (trim or charter review). VERIFY (preview, dev server): overlay renders correctly in 3 states (active trial, resolved 'SOLVED FIRST! x2', and the lazy-load path) with ZERO console errors; 6-colour jewels + selection + kami/kodama all draw; live keyboard input fills cells. CHECK = build + full vitest + 3-state preview screenshots (no Triumvirate Council this session -- user-path lean; user will playtest on spark-online.space + report bugs next session, per explicit direction). NOT DONE (carry): anime-SFX layer (need assets); combo order-symmetry bug the user flagged (Triangle->Spiral magic vs Spiral->Triangle placeholder line -- systemic, its own PDR); bundle trim; resolve-juice (shake/flood).",
       "verification": [
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/combos.ts",
-          "needle": "export const MAGIC_COMBO_KEYS"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/sudoku.ts",
+          "needle": "export function generateSudoku"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
-          "needle": "MAGIC_COMBO_KEYS.length"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/sudokuEvent.ts",
+          "needle": "export function detectNonet"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/combos.test.ts",
-          "needle": "MAGIC_COMBO_KEYS.length).toBe(14)"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/sudokuOverlay.ts",
+          "needle": "export class SudokuOverlay"
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/game/session15.test.ts",
-          "needle": "const WINNING_STRUCTURE_SIZE = 12"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/world.ts",
+          "needle": "case 'SUDOKU_SOLVED'"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+          "needle": "PROTOCOL_VERSION = 9"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/audioManager.ts",
+          "needle": "export async function enterNonetRealm"
         }
       ]
     }
   ],
   "generative_cost_cap_usd": 10,
-  "generative_cost_spent_prior_usd": 0,
+  "generative_cost_spent_prior_usd": 0.24,
   "budget_total": 1000000,
   "reflexion_entries_to_archive": [
-    "P1 #tsc-proves-rename-completeness-grep-proves-the-rest: a pure identifier rename (MAGIC_12_KEYS -> MAGIC_COMBO_KEYS) is exactly what tsc fully validates FOR THE CODE -- any missed or typo'd reference fails the build, so the green typecheck IS the code-completeness proof. But tsc is blind to two non-type surfaces: (a) string-literal / dynamic access (obj['MAGIC_12_KEYS'], a test asserting on the NAME, a serialized key) which type-checks fine while silently breaking, and (b) live-doc staleness. So the CHECK grepped the LITERAL OLD name across the whole repo: 0 dynamic/string hits in src, 11 doc hits -- each classified current-state (would-be-false -> fix) vs dated-history (handoff/archive/reflexion/session-state task label -> LEAVE, editing is revisionist). All 11 were history. LESSON: for an identifier rename let tsc carry code-completeness, but STILL grep the literal old name across src+docs for the two things tsc cannot see -- dynamic/string access and present-tense doc claims -- and split doc hits current-vs-dated before touching any.",
-    "P1 #prove-a-test-loops-contribution-before-rescaling-it: session15's solo-win loop ran PHASE_1_WIN_SCORE/SCORE_ANCHOR (=630) iterations and LOOKED load-bearing. Before pinning it to a fixed 12, I verified the loop is INERT to the assertions: the win is driven by the direct w.scoreProgress=PHASE_1_WIN_SCORE set on the very next line, and the CHECK confirmed via gameState.ts:59 that WIN gates ONLY on floor(scoreProgress)>=threshold while placePrimitive never writes scoreProgress/scoreByPlayer -- so 12 vs 630 changes nothing the test asserts (the sibling 1v1 test wins with ZERO placements). LESSON: before rescaling/removing a test loop, trace whether any ASSERTION depends on its iteration count; a loop that only mutates state the assertions never read is safe to pin to a small intentional constant -- and decoupling it from a balance constant structurally prevents a future rebalance from silently changing the dispatch count (closes the S91 #a-relative-test-still-breaks-on-a-fixed-iteration-budget lesson at this site)."
+    "P1 #netcode-sync-a-host-event-by-mirroring-the-additive-optional-snapshot-pattern: to make a new host-authoritative event work in 1v1, (a) add an additive-optional field to WorldSnapshot (emit while active, omit -> client clears), (b) serialize ONLY the seed and REGENERATE derived state (the 6x6 puzzle) client-side from the shared mulberry32 RNG -- never send the grid, and (c) add ONE client INTENT for the single player-originated action. (c) forces matching edits across 5 tsc/test-enforced surfaces: GameAction union + dispatch case, the exhaustive KNOWN_GAME_ACTION_TYPES Record (also the parseNetMessage gate), the CLIENT_INTENT_TYPES allowlist, BENCH_INTENT_POLICY (a test asserts set-equality with the allowlist -> a new intent FORCES an allow/deny decision), and the PROTOCOL_VERSION literal-type tripwire on HelloMsg.protoVersion. Bump the version for a new gameplay intent so cross-version matches hard-reject at HELLO instead of silently desyncing.",
+    "P1 #freeze-a-sim-loop-without-starving-the-network-or-the-clock: an early `continue` that pauses the whole fixed-step loop ALSO skips the snapshot-send at the loop bottom -> 1v1 clients stall on their last frame. Fix: inside the freeze branch, (1) still advance world.tick so timeout/resume windows elapse, (2) run the event's own per-tick driver, and (3) REPLICATE the host snapshot-send (same cadence guard) before continuing. Also: a whole minigame can cost only ~+4KiB of CORE bundle if the heavy Pixi VIEW is a lazy dynamic-import (mirror the codex/bot/debug overlay pattern) while the generator+event logic stays core (reducer+snapshot need it synchronously). Landed +2.7KiB over the 550 charter -> flag the residual, don't hide it."
   ],
-  "session_status": "S92 COMPLETE — HYGIENE Micro shipped & pushed (code 3244ed3; session-state commit follows). Two S91-CHECK LOW items, zero runtime behavior change: (A) MAGIC_12_KEYS -> MAGIC_COMBO_KEYS (5 refs / 3 files; RHS unchanged -> semantically inert); (B) session15.test.ts solo-win loop decoupled from PHASE_1_WIN_SCORE/SCORE_ANCHOR -> fixed WINNING_STRUCTURE_SIZE=12 + dropped unused SCORE_ANCHOR import. tsc 0, vitest 1433/1433, bundle 548.3 KiB < 550 (unchanged). 3-lens adversarial CHECK (wf_31455c37-1ef) ALL CLEAN high-confidence -- rename total + no dynamic access, test integrity (win gates only on scoreProgress; placePrimitive never scores), doc-drift (all 11 non-src hits dated history, correctly left; S91 false-claim trap re-checked). Ready for /handoff. OPEN (carry): user playtest spark-online.space (S91 Anchor/Spindle feel + ~10.5min blob pacing; S90 Filament/Diamond/Lattice feel). DEFERRED (logged): G2-PROMO Phase-2 behaviors + BOND_COMMIT flair, G2-TRAITS, MOTION, DEFENSE-v2, damped-rebalance fallback, 6^6 combinatorial-depth discussion.",
-  "real_context_tokens_at_close": 136900,
-  "real_context_pct_at_close": 13.69,
+  "session_status": "S93 NONET shipped + pushed (31a8aa6 -> deploy.yml building spark-online.space). 9-square Sudoku-lock, ALL modes: trigger+freeze+overlay+solve+resolve, 1v1 netcode (snapshot sudoku field seed-only + SUDOKU_SOLVED intent + PROTOCOL_VERSION 9), realm-shift audio (Cloudstep Caravan). tsc 0, vitest 1463/1463, build OK, bundle 552.7 KiB (+2.7 over 550 charter -> trim/review). Preview-verified overlay in 3 states, zero console errors. USER WILL PLAYTEST on spark-online.space + report bugs. CARRY: anime-SFX layer; combo order-symmetry bug (Triangle->Spiral magic vs reverse placeholder line, systemic, own PDR); bundle trim; resolve juice (shake/flood); =9 vs >=9 trigger tuning.",
+  "real_context_tokens_at_close": 607705,
+  "real_context_pct_at_close": 60.77,
   "totals": {
     "turns": 0,
     "budget_remaining": 1000000,
@@ -78,6 +88,7 @@
     "E2E 2-browser Playwright lane GREEN on the pushed tip (37 passed / 1 intentional skip / 0 fail; Sym I win-condition + Sym F territorial both green) -- the rebalance + promotion are integration-verified.",
     "G4 JUICE (flagged by the S91 CHECK test-net lens): BOND_COMMIT commit-pop flair for Anchor/Spindle -- they currently use the default ring creation-pop (the PERSISTENT silhouette IS distinct; only the one-shot commit-pop is generic). To add: drawAnchor/drawSpindle in render/effects/silhouettes.ts + 2 cases in bondCommit.ts + append both ids to effectsRenderer.test.ts ALL_MAGIC. Phase-1 scope was the persistent silhouette only.",
     "Stray untracked file '0' at repo root (likely a redirect leftover) — left untouched; clean up if confirmed stray.",
-    "INFRA (S91 handoff): /handoff STEP-0 review gate (pre-handoff-review.py) read a cross-project session 'S162' not this repo's S91 — appears keyed to a global registry, not The Spark's .claude/session-state.json. Was exit-0 advisory (non-blocking pre-2026-07-15). Flag for infra follow-up."
+    "INFRA (S91 handoff): /handoff STEP-0 review gate (pre-handoff-review.py) read a cross-project session 'S162' not this repo's S91 — appears keyed to a global registry, not The Spark's .claude/session-state.json. Was exit-0 advisory (non-blocking pre-2026-07-15). Flag for infra follow-up.",
+    "INFRA (S93): gcp-vertex MCP .env GEMINI_API_KEY set to the user's working AQ.* key (memory/gcp-vertex-gemini-key-console-only.md). Imagen/Gemini-image needs the Google project on a PAID plan (user added $25 2026-06-19). MCP tool needs a server restart to load the .env; this session used direct curl."
   ]
 }
