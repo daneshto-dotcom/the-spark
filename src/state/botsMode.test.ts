@@ -148,11 +148,17 @@ describe('S87 — 7-seat invariants (Council F2 overrule evidence)', () => {
     expect(seen.size).toBe(7);
   });
 
-  it('rainbow derangement stays a bijection over the 7-color palette', () => {
+  it('rainbow keeps all 7 bots-mode seats distinct: 6 humans shuffle, Silver bot stays Silver (S94)', () => {
+    // S94 — the derangement permutes only the 6 human colours; the bots-only Silver
+    // (PLAYER_COLORS[6], near-white) is FIXED so a human is never deranged into it. 7-seat
+    // uniqueness still holds: 6 shuffled (distinct) + Silver (untouched, distinct from the 6).
+    const SILVER = PLAYER_COLORS[6];
+    const human = PLAYER_COLORS.slice(0, 6);
     const map = buildShuffleColorMap(mulberry32(42), new Set(PLAYER_COLORS));
-    const outputs = PLAYER_COLORS.map((c) => map.get(c)!);
-    expect(new Set(outputs).size).toBe(PLAYER_COLORS.length);
-    expect(new Set(outputs)).toEqual(new Set(PLAYER_COLORS));
+    expect(map.has(SILVER)).toBe(false); // Silver bot keeps Silver via the ?? fallback
+    const humanOut = human.map((c) => map.get(c)!);
+    expect(new Set(humanOut)).toEqual(new Set(human)); // bijection over the 6 human colours
+    expect(new Set([...humanOut, SILVER]).size).toBe(7); // all 7 seats remain distinct
   });
 });
 

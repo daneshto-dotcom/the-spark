@@ -60,8 +60,15 @@ export function applySpawnRainbow(world: World, action: SpawnRainbowAction): Wor
  * the user's HARD constraint ("any 2 players can't have the same colour") — ALWAYS holds (it's
  * a permutation); the visible-change guarantee is best-effort (Council DR5 synthesis).
  */
+// S94 BUGFIX — the rainbow derangement permutes only the 6 HUMAN colours. PLAYER_COLORS[6] is
+// the bots-only Silver (0xc0c8d0, near-white); including it let a human get deranged INTO Silver
+// and read as "stuck white" after a rainbow (and a poop-foul on that structure then reverts to
+// the same Silver). Excluding it: humans shuffle among the 6 real colours, and a Silver bot's
+// colour isn't in the map so the `?? p.color` fallback leaves it unchanged. MAX_PLAYERS=6.
+const SHUFFLE_PALETTE = PLAYER_COLORS.slice(0, 6);
+
 export function buildShuffleColorMap(rng: Rng, activeColors: ReadonlySet<number>): Map<number, number> {
-  const n = PLAYER_COLORS.length;
+  const n = SHUFFLE_PALETTE.length;
   let perm: number[] = [];
   for (let attempt = 0; attempt <= RAINBOW_DERANGEMENT_MAX_REROLLS; attempt++) {
     perm = Array.from({ length: n }, (_, i) => i);
@@ -74,7 +81,7 @@ export function buildShuffleColorMap(rng: Rng, activeColors: ReadonlySet<number>
     }
     let deranged = true;
     for (let i = 0; i < n; i++) {
-      if (perm[i] === i && activeColors.has(PLAYER_COLORS[i])) {
+      if (perm[i] === i && activeColors.has(SHUFFLE_PALETTE[i])) {
         deranged = false;
         break;
       }
@@ -82,7 +89,7 @@ export function buildShuffleColorMap(rng: Rng, activeColors: ReadonlySet<number>
     if (deranged) break;
   }
   const map = new Map<number, number>();
-  for (let i = 0; i < n; i++) map.set(PLAYER_COLORS[i], PLAYER_COLORS[perm[i]]);
+  for (let i = 0; i < n; i++) map.set(SHUFFLE_PALETTE[i], SHUFFLE_PALETTE[perm[i]]);
   return map;
 }
 

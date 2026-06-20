@@ -83,11 +83,12 @@ describe('rainbowLifecycle — spawn + dissipate + teardown', () => {
 });
 
 describe('rainbowLifecycle — buildShuffleColorMap (bijection + derangement)', () => {
-  it('is a BIJECTION over the full palette (unique assignment — no two collide)', () => {
-    const map = buildShuffleColorMap(mulberry32(123), new Set(PLAYER_COLORS));
-    const outputs = PLAYER_COLORS.map((c) => map.get(c)!);
-    expect(new Set(outputs).size).toBe(PLAYER_COLORS.length); // all distinct
-    expect(new Set(outputs)).toEqual(new Set(PLAYER_COLORS)); // a permutation of the palette
+  it('is a BIJECTION over the 6 human colours (excludes the bots-only Silver — S94)', () => {
+    const human = PLAYER_COLORS.slice(0, 6);
+    const map = buildShuffleColorMap(mulberry32(123), new Set(human));
+    const outputs = human.map((c) => map.get(c)!);
+    expect(new Set(outputs).size).toBe(human.length); // all distinct
+    expect(new Set(outputs)).toEqual(new Set(human)); // a permutation of the 6 human colours
   });
 
   it('DERANGES the active colours (every active player visibly changes) across seeds', () => {
@@ -207,5 +208,35 @@ describe('S84 P2 — rainbowSwitchTick (flyover celebration window)', () => {
     applySpawnRainbow(w, { type: 'SPAWN_RAINBOW', pos: { x: 500, y: 500 } });
     applyDissipateRainbow(w, { type: 'DISSIPATE_RAINBOW', rainbowId: asRainbowId(0) });
     expect(w.rainbowSwitchTick).toBeUndefined();
+  });
+});
+
+describe('S94 BUGFIX — rainbow shuffles only the 6 human colours, never the bots-only Silver', () => {
+  const SILVER = PLAYER_COLORS[6]; // 0xc0c8d0, bots-only, near-white — the "stuck white" culprit
+  const HUMAN = PLAYER_COLORS.slice(0, 6);
+
+  it('buildShuffleColorMap never has Silver as a key or value, over any seed', () => {
+    for (let seed = 0; seed < 300; seed++) {
+      const map = buildShuffleColorMap(mulberry32(seed), new Set([PLAYER_COLORS[0], PLAYER_COLORS[1]]));
+      expect(map.has(SILVER)).toBe(false);
+      for (const v of map.values()) expect(v).not.toBe(SILVER);
+      // bijection over exactly the 6 human colours
+      expect([...map.keys()].sort((a, b) => a - b)).toEqual([...HUMAN].sort((a, b) => a - b));
+    }
+  });
+
+  it('a Silver bot keeps Silver (not in the map → unchanged via the ?? fallback)', () => {
+    const map = buildShuffleColorMap(mulberry32(7), new Set([PLAYER_COLORS[0], SILVER]));
+    expect(map.get(SILVER)).toBeUndefined();
+  });
+
+  it('applyTriggerRainbow never leaves a human player stuck Silver (200 seeds)', () => {
+    for (let seed = 0; seed < 200; seed++) {
+      const w = duelWorld();
+      w.rngSeed = seed;
+      applySpawnRainbow(w, { type: 'SPAWN_RAINBOW', pos: { x: 100, y: 100 } });
+      applyTriggerRainbow(w, { type: 'TRIGGER_RAINBOW', rainbowId: asRainbowId(0), playerId: P0 });
+      for (const p of w.players.values()) expect(p.color).not.toBe(SILVER);
+    }
   });
 });
