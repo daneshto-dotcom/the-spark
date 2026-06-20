@@ -289,6 +289,8 @@ export class Controls {
    * Controls instance's playerId.
    */
   private isInputLocked(): boolean {
+    // S93 — the NONET trial freezes the duel for everyone; the Sudoku overlay owns input.
+    if (this.world.sudoku !== null) return true;
     if (this.world.activeCinematicPlayerId === this.playerId) return true;
     // S72 P2 — a benched player (eaten by the Pac-Man hunter) is fully input-locked
     // until benchedUntilTick. Tick compare self-heals if the clear is missed (R5).
@@ -586,6 +588,8 @@ export class Controls {
   // prevents charge drain in solo / LOBBY / WIN states and when typing into
   // an input field.
   private onKeyDown = (e: KeyboardEvent): void => {
+    // S93 — the NONET overlay owns the keyboard during a trial (digits 1–6).
+    if (this.world.sudoku !== null) return;
     // S55 P3 — the full guard set is the pure decideKeyShrink (testable without
     // a DOM / Pixi Application). Behavior-preserving: same five guards, same
     // order, same dispatch.

@@ -32,6 +32,7 @@ import {
 import { type Bond } from '../physics/bonds.ts';
 import { type SparkType } from '../constants.ts';
 import { type ComboKey } from '../combos.ts';
+import { generateSudoku } from './sudoku.ts';
 import {
   asPlayerId,
   asSparkId,
@@ -154,6 +155,19 @@ export interface WorldSnapshot {
   discoveredCombos?: string[];
   comboToastTick?: number;
   lastDiscoveredComboNames?: string[];
+  /**
+   * S93 — NONET trial wire form (additive-optional). The puzzle is NOT serialized — every peer
+   * regenerates it from `seed` (mulberry32). Emitted only while a trial is active; absent ⇒ no
+   * trial (the client clears). `sudokuFiredThisMatch` rides along so a host save/load can't re-fire.
+   */
+  sudoku?: {
+    readonly seed: number;
+    readonly startTick: number;
+    readonly triggeredBy: PlayerId;
+    readonly solvedBy: PlayerId | null;
+    readonly resolvedTick: number | null;
+  };
+  sudokuFiredThisMatch?: boolean;
   /**
    * S77 P3 — host-authoritative seagulls + their poop projectiles for the 1v1 client mirror +
    * host save/load. Additive-optional; emitted only when non-empty so pre-S77 saves stay
@@ -526,6 +540,19 @@ export function snapshot(
       world.discoveredCombos.size > 0 ? [...world.discoveredCombos].sort() : undefined,
     comboToastTick: world.comboToastTick,
     lastDiscoveredComboNames: world.lastDiscoveredComboNames,
+    // S93 — emit the NONET trial (compact wire form; puzzle regenerated from seed) only while
+    // active; byte-identical pre-S93 otherwise. The fired-guard rides along for save/load.
+    sudoku:
+      world.sudoku === null
+        ? undefined
+        : {
+            seed: world.sudoku.seed,
+            startTick: world.sudoku.startTick,
+            triggeredBy: world.sudoku.triggeredBy,
+            solvedBy: world.sudoku.solvedBy,
+            resolvedTick: world.sudoku.resolvedTick,
+          },
+    sudokuFiredThisMatch: world.sudokuFiredThisMatch ? true : undefined,
     // S77 P3 — emit seagulls/poops/fouled-prims only when present (byte-identical pre-S77).
     seagulls: world.seagulls.size > 0
       ? [...world.seagulls.values()].map(serializeSeagull)
@@ -722,6 +749,20 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   world.discoveredCombos = new Set((snap.discoveredCombos ?? []) as ComboKey[]);
   world.comboToastTick = snap.comboToastTick;
   world.lastDiscoveredComboNames = snap.lastDiscoveredComboNames;
+  // S93 — NONET: rebuild the trial from the wire form (regenerate the puzzle from the seed so it
+  // matches the host byte-for-byte) or clear it when the snapshot omits it (trial ended / none).
+  world.sudoku =
+    snap.sudoku === undefined
+      ? null
+      : {
+          seed: snap.sudoku.seed,
+          puzzle: generateSudoku(snap.sudoku.seed),
+          startTick: snap.sudoku.startTick,
+          triggeredBy: snap.sudoku.triggeredBy,
+          solvedBy: snap.sudoku.solvedBy,
+          resolvedTick: snap.sudoku.resolvedTick,
+        };
+  world.sudokuFiredThisMatch = snap.sudokuFiredThisMatch ?? false;
 
   // S77 P3 — seagulls + poops: clear + rehydrate (mirror of the hunter/potato pattern). Reset
   // the mint counters past the max loaded id (host save/load). Client never mints (no-op there).

@@ -177,6 +177,9 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   world.discoveredCombos.clear();
   world.comboToastTick = undefined;
   world.lastDiscoveredComboNames = undefined;
+  // S93 — a fresh match starts with NO NONET trial active + the once-per-match guard reset.
+  world.sudoku = null;
+  world.sudokuFiredThisMatch = false;
   // S77 P3 — clear seagulls/poops/fouled-prims at match start (same all-hazards invariant).
   world.seagulls.clear();
   world.nextSeagullId = 0;
@@ -302,6 +305,9 @@ export function applyReturnToTitle(world: World): World {
   world.discoveredCombos.clear();
   world.comboToastTick = undefined;
   world.lastDiscoveredComboNames = undefined;
+  // S93 — drop any active NONET trial + reset the once-per-match guard on title-return.
+  world.sudoku = null;
+  world.sudokuFiredThisMatch = false;
   // S77 P3 — clear seagulls/poops/fouled-prims on title-return (mirror of the other hazards).
   world.seagulls.clear();
   world.nextSeagullId = 0;

@@ -14,6 +14,7 @@ import type { GameEffect } from '../game/effects.ts';
 import type { Player } from '../game/player.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { Spark } from '../game/spark.ts';
+import type { SudokuEvent } from './sudoku.ts';
 import type { Bond } from '../physics/bonds.ts';
 import type { Bomb } from './bomb.ts';
 import type { Creature } from './creatures/creature.ts';
@@ -323,4 +324,17 @@ export interface World {
    * START_GAME (refilled from the action) and RETURN_TO_TITLE.
    */
   botSeats: Set<PlayerId>;
+  /**
+   * S93 — NONET event. Non-null while a 9-square Sudoku trial is active (the duel FREEZES
+   * for ALL players until it resolves). Host-authoritative: host mints the seed + drives the
+   * lifecycle (start / resolve / timeout); the seed rides NetSnapshot and every client
+   * regenerates the identical puzzle (mulberry32) — only seed + solvedBy + resolvedTick cross
+   * the wire, never the grid. Cleared on resolve-window expiry + START_GAME / RETURN_TO_TITLE.
+   */
+  sudoku: SudokuEvent | null;
+  /**
+   * S93 — once-per-match guard (mirror of hunterSpawned): the NONET trial fires at most once
+   * per match. Reset on START_GAME / RETURN_TO_TITLE.
+   */
+  sudokuFiredThisMatch: boolean;
 }

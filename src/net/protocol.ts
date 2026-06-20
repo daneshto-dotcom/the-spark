@@ -62,7 +62,7 @@ export type { NetSnapshot };
 // would stall FOREVER on its silence (Council S87 F4 CONCEDED→GEMINI — the
 // LOBBY_PRESENCE no-bump precedent covers cosmetic kinds, not match-gating
 // ones). The HELLO hard-reject + "please refresh" UX handles the skew.
-export const PROTOCOL_VERSION = 8 as const;
+export const PROTOCOL_VERSION = 9 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -87,8 +87,8 @@ export interface HelloMsg {
   readonly kind: 'HELLO';
   readonly playerId: PlayerId;
   readonly color: number;
-  /** Protocol version — bumped on wire-incompatible changes. S77 P3: 6→7 (seagull); S87 P4: 7→8 (LOBBY_READY quickmatch gate). */
-  readonly protoVersion: 8;
+  /** Protocol version — bumped on wire-incompatible changes. S77 P3: 6→7 (seagull); S87 P4: 7→8 (LOBBY_READY quickmatch gate); S93: 8→9 (NONET SUDOKU_SOLVED intent + sudoku snapshot field). */
+  readonly protoVersion: 9;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
 }
@@ -410,6 +410,8 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   // INTENT is dropped by the host's allowlist gate (hostHandlers.ts) — the first action
   // to rely on that gate rather than the "inert under friends-only" rationalization.
   BENCH_OFFLINE_PLAYER: true,
+  // S93 — NONET solve submission (player-originated; also in CLIENT_INTENT_TYPES below).
+  SUDOKU_SOLVED: true,
 };
 const KNOWN_GAME_ACTION_TYPES: ReadonlySet<string> = new Set(
   Object.keys(KNOWN_GAME_ACTION_TYPES_RECORD),
@@ -439,6 +441,8 @@ const CLIENT_INTENT_TYPES_RECORD = {
   PICKUP_POTATO: true,
   PLACE_POTATO: true,
   DROP_POTATO: true,
+  // S93 — NONET: a 1v1 client (joiner) submits its completed grid; host validates first-valid-wins.
+  SUDOKU_SOLVED: true,
 } as const satisfies Partial<Record<GameAction['type'], true>>;
 
 export const CLIENT_INTENT_TYPES: ReadonlySet<string> = new Set(

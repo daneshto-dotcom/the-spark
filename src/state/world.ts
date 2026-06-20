@@ -125,6 +125,7 @@ import {
 
 // Re-export addScore from gameMode.ts for back-compat with placePrimitive.ts
 // and session15.test.ts (S16 P0 extraction preserved external import paths).
+import { submitSudokuSolve } from './sudokuEvent.ts';
 export { addScore, isNetworked } from './gameMode.ts';
 
 // S61 P3 — World / GameState / GameMode moved to src/state/worldTypes.ts (§XV
@@ -232,7 +233,10 @@ export type GameAction =
   // SPAWN_RAINBOW + DISSIPATE_RAINBOW are host-internal (spawner cadence / TTL poll). PROTOCOL 5->6.
   | SpawnRainbowAction
   | TriggerRainbowAction
-  | DissipateRainbowAction;
+  | DissipateRainbowAction
+  // S93 — NONET: a player submits a completed Sudoku grid (client INTENT or host/solo local);
+  // the host validates first-valid-wins. playerId is host-stamped to the sender's seat.
+  | { readonly type: 'SUDOKU_SOLVED'; readonly playerId: PlayerId; readonly grid: readonly number[] };
 
 export function makeWorld(rngSeed: number): World {
   const w: World = {
@@ -290,6 +294,9 @@ export function makeWorld(rngSeed: number): World {
     },
     localPlayerId: asPlayerId(0),
     botSeats: new Set(),
+    // S93 — NONET event: no trial active, not yet fired this match.
+    sudoku: null,
+    sudokuFiredThisMatch: false,
   };
   // Phase 1 + solo default: P1 only at spawner-rim left.
   const p1 = makeIdlePlayer(asPlayerId(0), PLAYER_COLORS[0], {
@@ -491,6 +498,13 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'DISSIPATE_RAINBOW':
       return applyDissipateRainbow(world, action);
+
+    // S93 — NONET solve submission (host-authoritative; first valid grid wins). On the host this
+    // applies the ×2/÷2; on a client this case never runs (clients send it as an INTENT, the host
+    // dispatches it, and the result returns via NetSnapshot).
+    case 'SUDOKU_SOLVED':
+      submitSudokuSolve(world, action.playerId, action.grid);
+      return world;
   }
 }
 

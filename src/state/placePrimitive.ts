@@ -39,6 +39,7 @@ import { asBondId, asPrimitiveId, type PlayerId, type PrimitiveId, type Vec2 } f
 import { isNetworked, requirePlayer, type World } from './world.ts';
 import { isInsideEnemyTerritory } from './territory.ts';
 import { detectComboDiscoveries } from './comboDiscovery.ts';
+import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
 
 /** Action payload for PLACE_PRIMITIVE — exported so world.ts can compose GameAction. */
 export interface PlacePrimitiveAction {
@@ -561,6 +562,15 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
     // S88 G3a — host-authoritative in-match combo-discovery. One hook covers this
     // path + the PLACE_FROM_FREE delegate; only NEW magic combos stamp the toast.
     detectComboDiscoveries(world, firstNewBondId);
+    // S93 — NONET trigger: a placement that closes a structure of EXACTLY 9 connected
+    // Squares (and nothing else) summons the Sudoku trial — host-authoritative, once per
+    // match. detectNonet seeds from the just-placed prim (it is always in the new component).
+    if (world.isHost && !world.sudokuFiredThisMatch && world.sudoku === null) {
+      const nonetOwner = detectNonet(world, prim.id);
+      if (nonetOwner !== null) {
+        startSudoku(world, nonetOwner, mintNonetSeed(world, prim.id));
+      }
+    }
   }
 
   // Carry-1 reset.

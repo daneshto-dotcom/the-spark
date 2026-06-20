@@ -84,7 +84,7 @@ import { computeStubTargetPos } from './physics/creatureVerlet.ts';
 import { bondMidpoint, findNearestBondTarget } from './state/creatures/creatureAI.ts';
 import { VOLTKIN_ATTACK_FIRE_TICK } from './state/creatures/creature.ts';
 import { AvatarRenderer, shouldHideOsCursor } from './render/avatarRenderer.ts';
-import { drainAudioEffects, initAudio, isMuted, playMusic, syncRainbowYellAudio, toggleMute } from './render/audioManager.ts';
+import { drainAudioEffects, enterNonetRealm, exitNonetRealm, initAudio, isMuted, playMusic, syncRainbowYellAudio, toggleMute } from './render/audioManager.ts';
 // S50 P2 — Audit Pass 2 refactor 622a7c7f: triggerReset is now called from
 // inside teardownNet (extracted to src/net/session.ts). No direct main.ts
 // import required.
@@ -98,6 +98,7 @@ import { StructureRenderer } from './render/structureRenderer.ts';
 import { TitleScreen } from './render/titleScreen.ts';
 import { HUD } from './render/ui.ts';
 import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
+import type { SudokuOverlay } from './render/sudokuOverlay.ts';
 import { makeCinematicVignette } from './render/cinematicVignette.ts';
 // S87 P4 — CodexOverlay is LAZY (shown only on a Codex click). Lazy-loading it
 // frees ~index-chunk headroom for the quickmatch UI (the heavy Pixi overlay was
@@ -143,6 +144,7 @@ import { dispatch, isNetworked, makeWorld, type GameAction, type GameState } fro
 import { restore, snapshot, type WorldSnapshot } from './state/save.ts';
 import { makeGameStateExtras, softReset, tickGameState } from './state/gameState.ts';
 import { tickScoring } from './state/scoring.ts';
+import { submitSudokuSolve, tickSudoku } from './state/sudokuEvent.ts';
 import { asPlayerId } from './types.ts';
 
 // S50 P2 — PHYSICS_DT / SUBSTEP_DT extracted to physicsLoop.ts; PHYSICS_DT
@@ -789,6 +791,30 @@ async function bootstrap(): Promise<void> {
   // S86 P4 — change-gated mirror of the canvas cursor style (the spark IS
   // the pointer during PLAYING; see the render-section comment below).
   let osCursorHidden = false;
+  // S93 — track world.sudoku active-state edges to drive the realm-shift audio swap.
+  let prevNonetActive = false;
+
+  // S93 — NONET Sudoku overlay. LAZY (code-split like the codex/bot/debug overlays): the Pixi
+  // board + spirits only load on the FIRST trial, keeping it out of the main bundle (charter
+  // < 550 KiB). Built on demand (so it sits on top of the play-field) + rendered each frame after.
+  let nonetOverlay: SudokuOverlay | null = null;
+  let nonetOverlayLoading = false;
+  const ensureNonetOverlay = (): void => {
+    if (nonetOverlay !== null || nonetOverlayLoading) return;
+    nonetOverlayLoading = true;
+    void import('./render/sudokuOverlay.ts').then((mod) => {
+      nonetOverlay = new mod.SudokuOverlay(app, (grid) => {
+        // Host/solo/bots resolve locally (immediate, so the overlay can flash a wrong grid). A 1v1
+        // CLIENT instead sends a SUDOKU_SOLVED intent — the host validates first-valid-wins and the
+        // result returns via NetSnapshot (no optimistic local resolve → no score desync).
+        if (isNetworked(world) && !world.isHost) {
+          dispatchFn({ type: 'SUDOKU_SOLVED', playerId: world.localPlayerId, grid: grid.slice() });
+          return false;
+        }
+        return submitSudokuSolve(world, world.localPlayerId, grid);
+      });
+    });
+  };
 
   app.ticker.add((tickerObj) => {
     const dtSec = Math.min(tickerObj.deltaMS / 1000, 0.05);
@@ -797,6 +823,29 @@ async function bootstrap(): Promise<void> {
     const physStart = performance.now();
     while (physicsAccumulator >= PHYSICS_DT) {
       const isClient = isNetworked(world) && !world.isHost;
+      // S93 — NONET freeze: while a Sudoku trial is active the host pauses the ENTIRE duel
+      // sim (physics, building, income, win-check, hazard polls) — the "different realm". The
+      // tick clock still advances so tickSudoku's timeout + resume window elapse; tickSudoku
+      // drives the lifecycle (timeout / resume) and clears world.sudoku to resume play.
+      if (world.gameState === 'PLAYING' && !isClient && world.sudoku !== null) {
+        world.tick++;
+        tickSudoku(world);
+        // S93 — keep broadcasting during the freeze so 1v1 clients receive the trial (the sudoku
+        // field rides NetSnapshot) + the resolution; the snapshot send at the loop bottom is
+        // skipped by this `continue`, so replicate the host send here at the same cadence.
+        if (
+          isNetworked(world) &&
+          world.isHost &&
+          session.hostSync !== null &&
+          session.netTransport !== null &&
+          world.tick - session.lastSnapshotTick >= SNAPSHOT_INTERVAL_TICKS
+        ) {
+          session.netTransport.send(session.hostSync.buildSnapshotMessage(world));
+          session.lastSnapshotTick = world.tick;
+        }
+        physicsAccumulator -= PHYSICS_DT;
+        continue;
+      }
       if (world.gameState === 'PLAYING' && !isClient) {
         stepPhysics(world, spawner, grid, controls);
       } else {
@@ -1439,6 +1488,18 @@ async function bootstrap(): Promise<void> {
     // shake duration (6 ticks). Stage offset is global — every Pixi child
     // inherits the translation, giving the whole play-field the shake feel.
     screenShake.applyToStage(app.stage, world.tick);
+    // S93 — draw the NONET trial overlay on top (hidden when world.sudoku is null).
+    if (world.sudoku !== null) ensureNonetOverlay();
+    nonetOverlay?.render(world);
+    // S93 — realm-shift audio: rising edge → swap to the trial theme; falling edge → restore the
+    // duel track. Edge-driven (the audio fns are idempotent). All modes: the host sets world.sudoku
+    // locally; a 1v1 client receives it via NetSnapshot, so both peers hear the realm theme.
+    const nonetActiveNow = world.sudoku !== null;
+    if (nonetActiveNow !== prevNonetActive) {
+      if (nonetActiveNow) void enterNonetRealm();
+      else exitNonetRealm();
+      prevNonetActive = nonetActiveNow;
+    }
     const freeSparkArr = freeSparkArray(world.freeSparks);
     // S45 Sym C(a) — pass world for per-frame carrier-color tint resolution
     // of Carried-state sparks. SparkRenderer falls back to FREE_SPARK_TINT

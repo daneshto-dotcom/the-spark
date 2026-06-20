@@ -60,6 +60,9 @@ export const BENCH_INTENT_POLICY = {
   PICKUP_POTATO: 'deny',
   PLACE_POTATO: 'deny',
   DROP_POTATO: 'allow',
+  // S93 — the NONET trial is a universal puzzle race in a separate realm; the bench gates
+  // building/acquisition, not puzzle participation (a benched player solving is a fair comeback).
+  SUDOKU_SOLVED: 'allow',
 } as const satisfies Partial<Record<GameAction['type'], BenchPolicy>>;
 
 /**

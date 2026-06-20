@@ -469,6 +469,74 @@ export async function playMusic(): Promise<void> {
   musicSource = source;
 }
 
+// S93 — NONET "different realm" theme (user-provided Cloudstep Caravan, off-bundle). Swapped
+// onto the SAME music bus as the duel track so master/music mute + volume apply unchanged.
+const NONET_THEME_URL = '/audio/nonet-theme.ogg';
+let nonetBuffer: AudioBuffer | null = null;
+let nonetFetchPromise: Promise<AudioBuffer | null> | null = null;
+let nonetSource: AudioBufferSourceNode | null = null;
+let nonetRealmActive = false;
+
+async function getNonetBuffer(): Promise<AudioBuffer | null> {
+  if (audioContext === null) return null;
+  if (nonetBuffer !== null) return nonetBuffer;
+  if (nonetFetchPromise !== null) return nonetFetchPromise;
+  nonetFetchPromise = (async () => {
+    const response = await fetch(NONET_THEME_URL);
+    if (!response.ok) throw new Error(`nonet theme fetch ${response.status}`);
+    const arrayBuffer = await response.arrayBuffer();
+    const ctx = audioContext;
+    if (ctx === null) throw new Error('AudioContext lost during decode');
+    const decoded = await ctx.decodeAudioData(arrayBuffer);
+    nonetBuffer = decoded;
+    return decoded;
+  })();
+  try {
+    return await nonetFetchPromise;
+  } catch (err) {
+    console.warn('[audio] nonet theme load failed', err);
+    nonetFetchPromise = null;
+    return null;
+  }
+}
+
+/**
+ * S93 — enter the NONET realm: stop the duel track and loop the trial theme on the music bus.
+ * Lazy-loads the theme off-bundle on first trial; idempotent; no-ops gracefully before the
+ * first user gesture (no AudioContext yet). The `nonetRealmActive` flag guards the async race
+ * where exitNonetRealm fires during the buffer load.
+ */
+export async function enterNonetRealm(): Promise<void> {
+  if (audioContext === null || musicGainNode === null) return;
+  if (nonetRealmActive) return;
+  nonetRealmActive = true;
+  await resumeIfSuspended();
+  if (musicSource !== null) {
+    try { musicSource.stop(); } catch { /* already stopped */ }
+    musicSource = null;
+  }
+  const buffer = await getNonetBuffer();
+  // exit may have fired during the load, or the context was torn down — bail.
+  if (!nonetRealmActive || buffer === null || audioContext === null || musicGainNode === null) return;
+  const source = audioContext.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
+  source.connect(musicGainNode);
+  source.start();
+  nonetSource = source;
+}
+
+/** S93 — leave the NONET realm: stop the trial theme and resume the duel track. */
+export function exitNonetRealm(): void {
+  if (!nonetRealmActive) return;
+  nonetRealmActive = false;
+  if (nonetSource !== null) {
+    try { nonetSource.stop(); } catch { /* already stopped */ }
+    nonetSource = null;
+  }
+  void playMusic();
+}
+
 /**
  * S22 P4 — one-shot OGG/audio sample playback through the SFX bus. Fetches +
  * decodes + plays once. Caches the AudioBuffer per URL so repeated triggers
