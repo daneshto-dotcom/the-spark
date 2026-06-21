@@ -22,6 +22,10 @@
 
 **Engine path:** Spec § XII.1 listed Godot recommended + HTML5 alt. We chose Pixi+TS — engine choice is NOT in the LOCKED list, so this is allowed. Phase 3 networking via web-native libs.
 
+### Bundle charter — main entry ≤ 560 KiB raw (S95 P1, 2026-06-21)
+
+The main entry chunk (`dist/assets/index-*.js`) must stay **≤ 560 KiB raw** (= 573,440 bytes; raw byte size / 1024, NOT gzip). History: a "550 KiB" soft cap was raised from 500 in S57 but lived only in handoff prose — no `LOCKED_DECISIONS` entry, no CI guard — so it silently crept to 553.0 KiB by S94. S95 raises it to **560 KiB** (honest headroom for the shipped NONET core, whose generator + event state genuinely cannot be lazy-loaded) AND makes it **mechanically enforced**: `scripts/check-bundle-size.mjs` runs as the last step of `npm run build`, so `deploy.yml` CI (`npm ci && npm run build`) fails on a regression. Heavy/optional UI (codex, bots, debug, NONET overlay, quickmatch) stays **lazy code-split** to defend this; big art/audio goes to `public/` assets, never the bundle. To change the cap: bump `CAP_KIB` in the script AND this clause together.
+
 ### NOTE (S19 P4, 2026-05-12) — Trystero relay pin
 
 S19 playtest BLOCKER: brother + user both stuck at "connecting" in 1v1 lobby

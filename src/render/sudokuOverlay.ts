@@ -13,7 +13,7 @@
  * Phase 2 swaps in illustrated sprites loaded off-bundle from public/art/nonet/.
  */
 
-import { Application, Container, type FederatedPointerEvent, Graphics, Text, TextStyle } from 'pixi.js';
+import { Application, Assets, Container, type FederatedPointerEvent, Graphics, Sprite, Text, TextStyle } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, SPARK_COLORS, SparkType } from '../constants.ts';
 import type { World } from '../state/worldTypes.ts';
 
@@ -186,6 +186,19 @@ export class SudokuOverlay {
     kami.poly([kx - 8, ky - 72, kx + 8, ky - 72, kx, ky - 60]).fill(0x34424c); // nose
     kami.circle(kx + 78, ky + 70, 16).fill({ color: 0xff9a4a, alpha: 0.95 }); // lantern
     this.container.addChild(kami);
+
+    // S95 — Phase-2 auto-upgrade: when the illustrated kami sprite is present, swap it in for the
+    // vector placeholder above; if the asset is absent (404) the vector spirit simply stays. The
+    // sprite loads async + sits to the RIGHT of the board (kx ≈ BX+BOARD+150) so it never occludes
+    // the grid. Same asset path as the Codex tile, so both upgrade off the same file.
+    void Assets.load('/art/nonet/kami.webp').then((tex) => {
+      const sprite = new Sprite(tex);
+      sprite.anchor.set(0.5);
+      sprite.position.set(kx, ky - 18);
+      sprite.scale.set(0.7); // 512 × 0.7 ≈ 358 px — matches the vector kami's footprint
+      this.container.addChild(sprite);
+      kami.visible = false;
+    }).catch(() => { /* asset missing → keep the vector kami */ });
 
     for (const [x, y] of [[BX - 110, BY + BOARD + 10], [BX + BOARD + 60, BY + BOARD - 20]]) {
       const k = new Graphics();
