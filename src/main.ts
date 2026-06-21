@@ -692,6 +692,9 @@ async function bootstrap(): Promise<void> {
         restore(snap, world);
         if (snap.spawner !== undefined) spawner.restoreState(snap.spawner);
       },
+      // S95 — DEV-only NONET trigger for repro + future overlay e2e (tree-shaken
+      // from prod). Mints + starts a trial host-side exactly like the detector path.
+      forceNonet(): void { startSudoku(world, world.localPlayerId, mintNonetSeed(world)); },
       app,
     };
   }
@@ -715,6 +718,23 @@ async function bootstrap(): Promise<void> {
   const initAudioOnGesture = (): void => { initAudio(); };
   window.addEventListener('pointerdown', initAudioOnGesture, { once: true });
   window.addEventListener('keydown', initAudioOnGesture, { once: true });
+
+  // S95 P0 — stale-deploy / transient chunk recovery. Every code-split dynamic import() (NONET
+  // overlay, codex, bots, debug, quickmatch…) fetches a hashed chunk at runtime. When a fresh
+  // deploy rotates those hashes while a tab still holds the OLD index.html, the next import() 404s
+  // and Vite fires `vite:preloadError` on window. A NONET trial then froze the duel with no board
+  // (the live bug). Reload ONCE to pull the new chunk graph; the in-memory + sessionStorage latches
+  // prevent a reload loop if a chunk is genuinely, permanently missing.
+  let preloadReloadFired = false;
+  window.addEventListener('vite:preloadError', () => {
+    if (preloadReloadFired) return;
+    preloadReloadFired = true;
+    try {
+      if (sessionStorage.getItem('spark:preloadReloaded') === '1') return; // already retried this tab
+      sessionStorage.setItem('spark:preloadReloaded', '1');
+    } catch { /* private mode — the in-memory latch still bounds us to one reload per load */ }
+    window.location.reload();
+  });
 
   window.addEventListener('keydown', (e) => {
     if ((e.key === 'r' || e.key === 'R') && world.gameState === 'POSTGAME') {
@@ -817,21 +837,38 @@ async function bootstrap(): Promise<void> {
   // < 550 KiB). Built on demand (so it sits on top of the play-field) + rendered each frame after.
   let nonetOverlay: SudokuOverlay | null = null;
   let nonetOverlayLoading = false;
+  // S95 P0 — last load attempt wall-clock; throttles retries to ≤1 per 500 ms so a sustained
+  // chunk-fetch outage self-heals (loads the instant the network recovers) without per-frame spam.
+  let nonetOverlayLastLoadAttemptMs = 0;
   const ensureNonetOverlay = (): void => {
     if (nonetOverlay !== null || nonetOverlayLoading) return;
+    // S95 P0 — back off between retries (the catch un-latches `nonetOverlayLoading`, and this fn is
+    // called every frame a trial is active, so without the gate a hard-down chunk would retry 60×/s).
+    const nowMs = performance.now();
+    if (nowMs - nonetOverlayLastLoadAttemptMs < 500) return;
+    nonetOverlayLastLoadAttemptMs = nowMs;
     nonetOverlayLoading = true;
-    void import('./render/sudokuOverlay.ts').then((mod) => {
-      nonetOverlay = new mod.SudokuOverlay(app, (grid) => {
-        // Host/solo/bots resolve locally (immediate, so the overlay can flash a wrong grid). A 1v1
-        // CLIENT instead sends a SUDOKU_SOLVED intent — the host validates first-valid-wins and the
-        // result returns via NetSnapshot (no optimistic local resolve → no score desync).
-        if (isNetworked(world) && !world.isHost) {
-          dispatchFn({ type: 'SUDOKU_SOLVED', playerId: world.localPlayerId, grid: grid.slice() });
-          return false;
-        }
-        return submitSudokuSolve(world, world.localPlayerId, grid);
+    import('./render/sudokuOverlay.ts')
+      .then((mod) => {
+        nonetOverlay = new mod.SudokuOverlay(app, (grid) => {
+          // Host/solo/bots resolve locally (immediate, so the overlay can flash a wrong grid). A 1v1
+          // CLIENT instead sends a SUDOKU_SOLVED intent — the host validates first-valid-wins and the
+          // result returns via NetSnapshot (no optimistic local resolve → no score desync).
+          if (isNetworked(world) && !world.isHost) {
+            dispatchFn({ type: 'SUDOKU_SOLVED', playerId: world.localPlayerId, grid: grid.slice() });
+            return false;
+          }
+          return submitSudokuSolve(world, world.localPlayerId, grid);
+        });
+      })
+      .catch((err: unknown) => {
+        // S95 P0 — THE live bug: a failed overlay load (transient blip OR a stale-deploy chunk-hash
+        // 404) used to leave `nonetOverlayLoading=true` forever with no .catch, so the duel froze for
+        // the full ~180 s NONET timeout with no board. Now we log + un-latch so the 500 ms-throttled
+        // retry above can recover; the stale-deploy case also triggers the vite:preloadError reload.
+        console.error('[nonet] Sudoku overlay failed to load; will retry', err);
+        nonetOverlayLoading = false;
       });
-    });
   };
 
   app.ticker.add((tickerObj) => {
@@ -1240,6 +1277,10 @@ async function bootstrap(): Promise<void> {
       // already playing (Council Adoption-F).
       if (world.gameState === 'PLAYING' && lastGameState !== 'PLAYING') {
         void playMusic();
+        // S95 P0 — preload the NONET overlay chunk at match start so the trial appears INSTANTLY
+        // when it fires (no mid-duel chunk fetch) AND so any load failure surfaces + starts its
+        // retry window early — never as the silent ~180 s freeze the live playtest hit. Idempotent.
+        ensureNonetOverlay();
       }
       // S31 P0-2 — *→TITLE transition orchestration cleanup. Mirrors the
       // reducer-side cinematic-state-clear (gameMode.ts applyReturnToTitle)
