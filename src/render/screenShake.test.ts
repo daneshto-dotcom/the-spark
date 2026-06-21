@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { GameEffect } from '../game/effects.ts';
-import { ScreenShake, shouldTriggerShakeForArcFlash } from './screenShake.ts';
+import { ScreenShake, shouldTriggerNonetResolveShake, shouldTriggerShakeForArcFlash } from './screenShake.ts';
 
 describe('ScreenShake (S30 P0e — global tick-decayed screen-shake)', () => {
   it('inactive shake — isActive returns false before any trigger', () => {
@@ -142,5 +142,33 @@ describe('shouldTriggerShakeForArcFlash (S33 P1-6 — explicit ARC_FLASH gate)',
       { kind: 'BOND_SEVERED', tick: 42, pos: { x: 0, y: 0 }, cause: 'creature' },
     ];
     expect(shouldTriggerShakeForArcFlash(effects, 42)).toBe(false);
+  });
+});
+
+// S95 P2 — NONET resolve celebration shake gate. Fires once on the resolvedTick null→non-null edge.
+describe('shouldTriggerNonetResolveShake (S95 P2 — resolve juice)', () => {
+  it('fires on the resolve rising edge (null → a tick)', () => {
+    expect(shouldTriggerNonetResolveShake(null, 4351)).toBe(true);
+  });
+
+  it('does not fire while the trial is still live (null → null)', () => {
+    expect(shouldTriggerNonetResolveShake(null, null)).toBe(false);
+  });
+
+  it('does not re-fire on subsequent frames after resolve (tick → same tick)', () => {
+    expect(shouldTriggerNonetResolveShake(4351, 4351)).toBe(false);
+  });
+
+  it('does not fire when the trial clears after resolve (tick → null)', () => {
+    expect(shouldTriggerNonetResolveShake(4351, null)).toBe(false);
+  });
+
+  it('fires again for a fresh trial after a clear (null → new tick)', () => {
+    // caller resets prev to null when world.sudoku clears, so the next trial can fire.
+    expect(shouldTriggerNonetResolveShake(null, 9000)).toBe(true);
+  });
+
+  it('fires on a timeout resolve too (tick 0 is a valid resolvedTick, not "unresolved")', () => {
+    expect(shouldTriggerNonetResolveShake(null, 0)).toBe(true);
   });
 });

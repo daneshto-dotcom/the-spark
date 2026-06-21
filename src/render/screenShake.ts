@@ -51,6 +51,20 @@ export function shouldTriggerShakeForArcFlash(
   return effects.some((e) => e.kind === 'ARC_FLASH' && e.tick === currentTick);
 }
 
+/**
+ * S95 — pure rising-edge predicate for the NONET resolve celebration shake. Fires once when the
+ * trial's resolvedTick goes null→non-null (a solve OR the no-solver timeout). The caller tracks the
+ * previous value across frames and resets it to null when world.sudoku clears between trials. Same
+ * spirit as shouldTriggerShakeForArcFlash: derived from the synced world.sudoku stream, so host +
+ * client fire the shake on the same beat.
+ */
+export function shouldTriggerNonetResolveShake(
+  prevResolvedTick: number | null,
+  curResolvedTick: number | null,
+): boolean {
+  return prevResolvedTick === null && curResolvedTick !== null;
+}
+
 /** Default shake duration in ticks. 6 @ 60Hz = ~100ms. */
 const DEFAULT_DURATION_TICKS = 6;
 

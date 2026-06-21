@@ -114,7 +114,7 @@ import { RainbowFlyoverRenderer } from './render/rainbowFlyoverRenderer.ts';
 import { ComboToastRenderer } from './render/comboToastRenderer.ts';
 import { SeagullRenderer } from './render/seagullRenderer.ts';
 import { PoopRenderer } from './render/poopRenderer.ts';
-import { ScreenShake, shouldTriggerShakeForArcFlash } from './render/screenShake.ts';
+import { ScreenShake, shouldTriggerNonetResolveShake, shouldTriggerShakeForArcFlash } from './render/screenShake.ts';
 // S23 P2 — debug overlay (toggleable via ?debug=1 URL param). Surfaces runtime
 // gates + audio chain + chain progress for in-vivo diagnosis when offline tests
 // pass but live trigger doesn't fire.
@@ -831,6 +831,8 @@ async function bootstrap(): Promise<void> {
   let osCursorHidden = false;
   // S93 — track world.sudoku active-state edges to drive the realm-shift audio swap.
   let prevNonetActive = false;
+  // S95 — last-seen NONET resolvedTick, to fire a one-shot celebration shake on the resolve edge.
+  let prevNonetResolvedTick: number | null = null;
 
   // S93 — NONET Sudoku overlay. LAZY (code-split like the codex/bot/debug overlays): the Pixi
   // board + spirits only load on the FIRST trial, keeping it out of the main bundle (charter
@@ -1577,6 +1579,14 @@ async function bootstrap(): Promise<void> {
       }
       prevNonetActive = nonetActiveNow;
     }
+    // S95 — resolve juice: a bigger one-shot shake the moment the trial is decided (solve OR timeout),
+    // pairing with the overlay's winner-colour flood. Edge-driven off the synced resolvedTick so host
+    // + client jolt together; reset to null when the trial clears so the next trial can fire again.
+    const curNonetResolvedTick = world.sudoku?.resolvedTick ?? null;
+    if (shouldTriggerNonetResolveShake(prevNonetResolvedTick, curNonetResolvedTick)) {
+      screenShake.trigger(world.tick, 5, 20);
+    }
+    prevNonetResolvedTick = curNonetResolvedTick;
     const freeSparkArr = freeSparkArray(world.freeSparks);
     // S45 Sym C(a) — pass world for per-frame carrier-color tint resolution
     // of Carried-state sparks. SparkRenderer falls back to FREE_SPARK_TINT

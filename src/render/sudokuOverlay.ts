@@ -16,6 +16,16 @@
 import { Application, Assets, Container, type FederatedPointerEvent, Graphics, Sprite, Text, TextStyle } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, SPARK_COLORS, SparkType } from '../constants.ts';
 import type { World } from '../state/worldTypes.ts';
+import {
+  floodAlpha,
+  playNonetAppear,
+  playNonetLose,
+  playNonetPop,
+  playNonetSolve,
+  playNonetTimeout,
+  playNonetWrong,
+  resolveFloodColor,
+} from './nonetJuice.ts';
 
 const N = 6;
 const CELLS = 36;
@@ -50,6 +60,11 @@ export class SudokuOverlay {
   private readonly banner: Text;
   private readonly result: Text;
   private readonly hint: Text;
+  // S95 — winner-colour resolve flood + its rising-edge latch + fade state.
+  private readonly flood: Graphics;
+  private floodStartTick = -1;
+  private floodColor = 0xffffff;
+  private prevResolved = false;
 
   private world: World | null = null;
   private entries: number[] = new Array(CELLS).fill(0);
@@ -165,6 +180,13 @@ export class SudokuOverlay {
     this.result.visible = false;
     this.container.addChild(this.result);
 
+    // S95 — winner-colour resolve flood: a full-screen wash, drawn topmost + pointer-transparent,
+    // filled per-frame in render() while a resolve flood is active.
+    this.flood = new Graphics();
+    this.flood.eventMode = 'none';
+    this.flood.visible = false;
+    this.container.addChild(this.flood);
+
     this.container.on('pointertap', this.onTap);
     window.addEventListener('keydown', this.onKey);
     app.stage.addChild(this.container);
@@ -226,9 +248,26 @@ export class SudokuOverlay {
       this.entries = this.givens.slice();
       this.selected = this.givens.findIndex((g) => g === 0);
       this.wrongFlash = 0;
+      // S95 — realm-shift sting + reset the resolve-edge latch / any prior flood for the new trial.
+      this.prevResolved = false;
+      this.floodStartTick = -1;
+      this.flood.visible = false;
+      playNonetAppear();
     }
     this.container.visible = true;
     const resolved = ev.resolvedTick !== null;
+
+    // S95 — resolve rising edge: fire the outcome SFX + kick off the winner-colour flood (once).
+    if (resolved && !this.prevResolved) {
+      this.prevResolved = true;
+      if (ev.solvedBy === null) playNonetTimeout();
+      else if (ev.solvedBy === world.localPlayerId) playNonetSolve();
+      else playNonetLose();
+      const winnerColor = ev.solvedBy !== null ? world.players.get(ev.solvedBy)?.color : undefined;
+      this.floodColor = resolveFloodColor(winnerColor);
+      this.floodStartTick = world.tick;
+      this.container.setChildIndex(this.flood, this.container.children.length - 1); // keep topmost
+    }
 
     this.cells.clear();
     for (let i = 0; i < CELLS; i++) {
@@ -290,6 +329,21 @@ export class SudokuOverlay {
       this.hint.visible = true;
       this.result.visible = false;
     }
+
+    // S95 — animate the resolve flood: a winner-colour wash that flashes then eases out over ~0.75 s.
+    // world.tick advances during the NONET freeze (host) / via snapshots (client), so it drives the fade.
+    if (this.floodStartTick >= 0) {
+      const a = floodAlpha(world.tick - this.floodStartTick);
+      if (a <= 0) {
+        this.floodStartTick = -1;
+        this.flood.visible = false;
+        this.flood.clear();
+      } else {
+        this.flood.clear();
+        this.flood.rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT).fill({ color: this.floodColor, alpha: a });
+        this.flood.visible = true;
+      }
+    }
   }
 
   private cellAt(px: number, py: number): number {
@@ -312,6 +366,7 @@ export class SudokuOverlay {
     if (e.key >= '1' && e.key <= '6') {
       if (this.selected >= 0 && this.givens[this.selected] === 0) {
         this.entries[this.selected] = Number(e.key);
+        playNonetPop(); // S95 — kawaii cell-place pip
         const next = this.entries.findIndex((v, i) => v === 0 && this.givens[i] === 0);
         if (next >= 0) this.selected = next;
         this.maybeSubmit();
@@ -335,6 +390,9 @@ export class SudokuOverlay {
   private maybeSubmit(): void {
     if (this.entries.some((v) => v === 0)) return;
     const won = this.onSubmit(this.entries.slice());
-    if (!won) this.wrongFlash = 36;
+    if (!won) {
+      this.wrongFlash = 36;
+      playNonetWrong(); // S95 — comedic "bonk" on a wrong full grid
+    }
   }
 }

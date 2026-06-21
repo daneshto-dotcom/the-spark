@@ -589,6 +589,22 @@ export async function playOneShot(url: string, pos?: Vec2): Promise<void> {
 }
 
 /**
+ * S95 — minimal SFX-bus accessor for the LAZY NONET overlay chunk (render/nonetJuice.ts). Keeps all
+ * the NONET procedural-SFX code OUT of the eager main bundle: nonetJuice imports only this tiny
+ * accessor, synthesizes its own one-shot oscillator graphs, and routes them through the SHARED
+ * sfxGainNode so the 'M' master mute + the SFX-channel mute/volume apply for free. Ensures the
+ * context exists + nudges a resume (autoplay-policy: by the time a NONET fires the user has already
+ * been clicking, so the context is running). Returns null pre-init / in non-browser (vitest node)
+ * env so callers no-op cleanly.
+ */
+export function ensureSfxBus(): { ctx: AudioContext; sfxGain: GainNode } | null {
+  const ctx = ensureAudio();
+  if (ctx === null || sfxGainNode === null) return null;
+  if (ctx.state === 'suspended') void ctx.resume();
+  return { ctx, sfxGain: sfxGainNode };
+}
+
+/**
  * Toggle global mute (the 'M' key / legacy mute behavior). Flips masterGain
  * between 0 and 1, preserving per-channel state. Persists to legacy
  * localStorage key.
