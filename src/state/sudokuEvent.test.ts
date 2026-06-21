@@ -3,7 +3,7 @@ import { PLAYER_COLORS, SparkType } from '../constants.ts';
 import type { Bond } from '../physics/bonds.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { makeIdlePlayer } from '../game/player.ts';
-import { asBondId, asPlayerId, asPrimitiveId, type PlayerId, type PrimitiveId } from '../types.ts';
+import { asBondId, asPlayerId, asPrimitiveId, type PlayerId } from '../types.ts';
 import { makeWorld, type World } from './world.ts';
 import {
   detectNonet,
@@ -11,7 +11,7 @@ import {
   resolveSudoku,
   submitSudokuSolve,
   tickSudoku,
-  NONET_SQUARE_COUNT,
+  NONET_SHAPE_COUNT,
   NONET_TIMEOUT_TICKS,
   NONET_RESOLVE_DISPLAY_TICKS,
 } from './sudokuEvent.ts';
@@ -48,7 +48,7 @@ function link(world: World, a: Primitive, b: Primitive, bondId: number): void {
 }
 
 /** A fresh world with a connected chain of `n` P1-owned prims (all `type`, except the last = `lastType`). */
-function chainWorld(n: number, type: SparkType, lastType?: SparkType): { world: World; firstId: PrimitiveId } {
+function chainWorld(n: number, type: SparkType, lastType?: SparkType): World {
   const world = makeWorld(0);
   const prims: Primitive[] = [];
   for (let i = 0; i < n; i++) {
@@ -58,29 +58,28 @@ function chainWorld(n: number, type: SparkType, lastType?: SparkType): { world: 
     prims.push(p);
     if (i > 0) link(world, prims[i - 1], p, i);
   }
-  return { world, firstId: prims[0].id };
+  return world;
 }
 
-describe('detectNonet — exactly 9 connected pure Squares', () => {
-  it('fires on a 9-square connected component (returns owner)', () => {
-    const { world, firstId } = chainWorld(NONET_SQUARE_COUNT, SparkType.Square);
-    expect(detectNonet(world, firstId)).toBe(P1);
+describe('detectNonet — a connected component of exactly 9 of ONE SparkType (S94)', () => {
+  it('fires on 9 connected squares (returns the owner)', () => {
+    expect(detectNonet(chainWorld(NONET_SHAPE_COUNT, SparkType.Square))).toBe(P1);
   });
-  it('rejects 8 squares (too few)', () => {
-    const { world, firstId } = chainWorld(8, SparkType.Square);
-    expect(detectNonet(world, firstId)).toBeNull();
+  it('fires on 9 of ANY single type — circles, spirals', () => {
+    expect(detectNonet(chainWorld(NONET_SHAPE_COUNT, SparkType.Circle))).toBe(P1);
+    expect(detectNonet(chainWorld(NONET_SHAPE_COUNT, SparkType.Spiral))).toBe(P1);
   });
-  it('rejects 10 squares (too many)', () => {
-    const { world, firstId } = chainWorld(10, SparkType.Square);
-    expect(detectNonet(world, firstId)).toBeNull();
+  it('rejects 8 (too few)', () => {
+    expect(detectNonet(chainWorld(8, SparkType.Square))).toBeNull();
   });
-  it('rejects 9 with a non-Square (a Dot) in the component', () => {
-    const { world, firstId } = chainWorld(NONET_SQUARE_COUNT, SparkType.Square, SparkType.Dot);
-    expect(detectNonet(world, firstId)).toBeNull();
+  it('rejects 10 (too many)', () => {
+    expect(detectNonet(chainWorld(10, SparkType.Square))).toBeNull();
   });
-  it('rejects when the seed itself is not a Square', () => {
-    const { world, firstId } = chainWorld(NONET_SQUARE_COUNT, SparkType.Dot);
-    expect(detectNonet(world, firstId)).toBeNull();
+  it('rejects a single component of 18 same-type (size is the COMPONENT, not the total)', () => {
+    expect(detectNonet(chainWorld(18, SparkType.Square))).toBeNull();
+  });
+  it('rejects 9 of MIXED type (8 squares + 1 dot)', () => {
+    expect(detectNonet(chainWorld(NONET_SHAPE_COUNT, SparkType.Square, SparkType.Dot))).toBeNull();
   });
 });
 

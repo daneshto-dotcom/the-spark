@@ -11,38 +11,47 @@
  * separately (main.ts, net/*, render/sudoku/*).
  */
 
-import { SparkType } from '../constants.ts';
 import { componentOf } from '../game/structure.ts';
 import type { PlayerId, PrimitiveId } from '../types.ts';
 import { generateSudoku, isSolved } from './sudoku.ts';
 import type { World } from './worldTypes.ts';
 
-/** A NONET fires when a connected component is EXACTLY this many primitives, ALL Squares. */
-export const NONET_SQUARE_COUNT = 9;
+/** A NONET fires when a connected component is EXACTLY this many primitives, all the SAME SparkType. */
+export const NONET_SHAPE_COUNT = 9;
 /** Score multipliers applied on resolve (PDR D3-locked). */
 export const NONET_WINNER_MULT = 2;
 export const NONET_LOSER_MULT = 0.5;
 /** Resume the duel this many ticks after the trial is decided — the win/timeout flash window. 60 Hz. */
 export const NONET_RESOLVE_DISPLAY_TICKS = 180; // ~3 s
 /** No-solver timeout: resolve with NO score change (anti-softlock, RISK 3). 60 Hz. */
-export const NONET_TIMEOUT_TICKS = 7200; // ~120 s
+export const NONET_TIMEOUT_TICKS = 10800; // ~180 s (S94 — +60 s per user request)
 
 /**
- * Does the component containing `seedId` form a NONET — EXACTLY 9 connected primitives, every
- * one a Square (the "nine squares connected, no other connectors" trigger)? Returns the owner
- * (a structure is single-owner — cross-colour bonds are impossible) or null. HOST-ONLY (clients
- * never trigger). Pure read of world state.
+ * Sweep all connected components for a NONET — a component of EXACTLY 9 primitives that are ALL
+ * the SAME SparkType (9 squares, OR 9 circles, OR 9 spirals, …). Returns that component's owner
+ * (single-owner — cross-colour bonds are impossible) or null. HOST-ONLY. Pure read of world state.
+ * A SWEEP (not a seeded check) so it fires whether the structure is BUILT up to 9 same-type OR
+ * ERASED down to 9 of one type (S94 — the user's "build big, erase to 9 of a type" tactic). The
+ * host calls this each tick until it fires; the once-per-match guard then skips it (see main.ts).
  */
-export function detectNonet(world: World, seedId: PrimitiveId): PlayerId | null {
-  const seed = world.primitives.get(seedId);
-  if (seed === undefined || seed.type !== SparkType.Square) return null;
-  const comp = componentOf(seed, world.primitives, world.bonds);
-  if (comp.primitiveIds.size !== NONET_SQUARE_COUNT) return null;
-  for (const id of comp.primitiveIds) {
-    const p = world.primitives.get(id);
-    if (p === undefined || p.type !== SparkType.Square) return null;
+export function detectNonet(world: World): PlayerId | null {
+  const seen = new Set<PrimitiveId>();
+  for (const start of world.primitives.values()) {
+    if (seen.has(start.id)) continue;
+    const comp = componentOf(start, world.primitives, world.bonds);
+    for (const id of comp.primitiveIds) seen.add(id);
+    if (comp.primitiveIds.size !== NONET_SHAPE_COUNT) continue;
+    let sameType = true;
+    for (const id of comp.primitiveIds) {
+      const p = world.primitives.get(id);
+      if (p === undefined || p.type !== start.type) {
+        sameType = false;
+        break;
+      }
+    }
+    if (sameType) return start.placedBy;
   }
-  return seed.placedBy;
+  return null;
 }
 
 /**
@@ -64,10 +73,10 @@ export function startSudoku(world: World, triggeredBy: PlayerId, seed: number): 
 /**
  * Deterministic host-minted trial seed. Broadcast to clients (they NEVER recompute it — they
  * regenerate the puzzle from the seed), so its only requirement is host-reproducibility. Mixes
- * the world rng seed + tick + the triggering primitive id for per-trigger variety.
+ * the world rng seed + the firing tick for per-trial variety.
  */
-export function mintNonetSeed(world: World, primId: PrimitiveId): number {
-  return Math.imul((world.rngSeed ^ world.tick ^ primId) >>> 0, 2654435761) >>> 0;
+export function mintNonetSeed(world: World): number {
+  return Math.imul((world.rngSeed ^ world.tick) >>> 0, 2654435761) >>> 0;
 }
 
 /**

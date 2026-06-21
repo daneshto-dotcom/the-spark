@@ -123,6 +123,8 @@ import { ScreenShake, shouldTriggerShakeForArcFlash } from './render/screenShake
 // the production index chunk. Type-only imports are erased at compile.
 import type { DebugOverlayHandle, RuntimeProbes } from './render/debugOverlay.ts';
 import { listRecipes } from './state/godlyRecipes/index.ts';
+import type { GodlyId } from './state/godlyRecipes/types.ts';
+import { unlockGodly } from './render/codexStore.ts';
 // S22 P4 — side-effect import registers Voltkin recipe in the registry.
 import './state/godlyRecipes/voltkin.ts';
 // S50 P2 — godly matcher + cinematic-lifecycle orchestration extracted to
@@ -144,7 +146,7 @@ import { dispatch, isNetworked, makeWorld, type GameAction, type GameState } fro
 import { restore, snapshot, type WorldSnapshot } from './state/save.ts';
 import { makeGameStateExtras, softReset, tickGameState } from './state/gameState.ts';
 import { tickScoring } from './state/scoring.ts';
-import { submitSudokuSolve, tickSudoku } from './state/sudokuEvent.ts';
+import { detectNonet, mintNonetSeed, startSudoku, submitSudokuSolve, tickSudoku } from './state/sudokuEvent.ts';
 import { asPlayerId } from './types.ts';
 
 // S50 P2 — PHYSICS_DT / SUBSTEP_DT extracted to physicsLoop.ts; PHYSICS_DT
@@ -152,6 +154,19 @@ import { asPlayerId } from './types.ts';
 const SPATIAL_CELL_SIZE = 32;
 const P1 = asPlayerId(0);
 const SNAPSHOT_INTERVAL_TICKS = Math.max(1, Math.round(PHYSICS_HZ / NET_SNAPSHOT_HZ));
+
+// S94 — NONET appears in the Codex as a "super-combo". It is NOT a godly recipe (no recipe
+// predicate/cinematic), so it's a synthetic CodexEntry, unlocked the first time a trial fires.
+// The sprite points at the Phase-2 illustrated kami; until that asset lands, makeTile's catch
+// leaves the tile image-less (the NONET name + hint still render).
+const NONET_CODEX_ID = 'nonet' as GodlyId;
+const NONET_CODEX_ENTRY = {
+  id: NONET_CODEX_ID,
+  displayName: 'NONET',
+  recipeHint:
+    'Connect 9 of ONE shape (and nothing else) → a Sudoku trial freezes the duel. First to solve DOUBLES their score; everyone else is HALVED.',
+  characterSprite: '/art/nonet/kami.webp',
+};
 
 async function bootstrap(): Promise<void> {
   // S82 P4(a) — page-session host identity: ECDSA P-256 keypair whose pubkey fingerprint
@@ -429,9 +444,12 @@ async function bootstrap(): Promise<void> {
     void (async () => {
       if (codexOverlay === null) {
         const mod = await import('./render/codexOverlay.ts');
-        const codexEntries = listRecipes().map((recipe) =>
-          mod.entryFromRecipe(recipe, recipe.id.toUpperCase(), recipeHint(recipe.id)),
-        );
+        const codexEntries = [
+          ...listRecipes().map((recipe) =>
+            mod.entryFromRecipe(recipe, recipe.id.toUpperCase(), recipeHint(recipe.id)),
+          ),
+          NONET_CODEX_ENTRY, // S94 — NONET super-combo (synthetic, non-recipe entry)
+        ];
         codexOverlay = new mod.CodexOverlay(app, codexEntries, () => {
           codexOverlay?.setVisible(false);
         });
@@ -877,6 +895,20 @@ async function bootstrap(): Promise<void> {
         tickScoring(world);
       }
       tickGameState(world, gameStateExtras, P1);
+
+      // S94 — NONET trigger sweep (host-only, once/match): a connected component of EXACTLY 9
+      // shapes of ONE type summons the trial. Per-tick sweep (cheap — comparable to tickScoring's
+      // own per-tick prim/bond walk; the once-per-match guard skips it after firing) so it catches
+      // the structure forming by PLACEMENT or by ERASING down to 9 of a single type (user tactic).
+      if (
+        world.gameState === 'PLAYING' &&
+        !isClient &&
+        world.sudoku === null &&
+        !world.sudokuFiredThisMatch
+      ) {
+        const nonetOwner = detectNonet(world);
+        if (nonetOwner !== null) startSudoku(world, nonetOwner, mintNonetSeed(world));
+      }
 
       // S28 P0 — Step 0 (tick-deterministic pending creature spawn poll).
       // Replaces S25's `onCinematicHandoff` wall-clock setTimeout in
@@ -1496,8 +1528,12 @@ async function bootstrap(): Promise<void> {
     // locally; a 1v1 client receives it via NetSnapshot, so both peers hear the realm theme.
     const nonetActiveNow = world.sudoku !== null;
     if (nonetActiveNow !== prevNonetActive) {
-      if (nonetActiveNow) void enterNonetRealm();
-      else exitNonetRealm();
+      if (nonetActiveNow) {
+        void enterNonetRealm();
+        unlockGodly(NONET_CODEX_ID); // S94 — reveal the NONET Codex entry on first trial
+      } else {
+        exitNonetRealm();
+      }
       prevNonetActive = nonetActiveNow;
     }
     const freeSparkArr = freeSparkArray(world.freeSparks);
