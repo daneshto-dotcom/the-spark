@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 131,
+  "tool_calls_session_total": 145,
   "session_id": "S95",
   "session_kind": "execution",
   "session_start": "2026-06-21T17:30:00.000Z",
@@ -96,5 +96,6 @@
     "INFRA (S91): /handoff STEP-0 review gate reads a cross-project session; advisory until 2026-07-15 then BLOCKS.",
     "INFRA (S93): gcp-vertex MCP .env GEMINI_API_KEY — Imagen/Gemini need the paid GCP project; server restart loads the .env. Imagen-ultra + gemini-2.5-pro both worked this session (key valid)."
   ],
-  "analyze_completed": false
+  "analyze_completed": true,
+  "analyze_summary": "S95 ANALYZE: Standard batch, scope-amended mid-session. Headline was a P0 from live playtest (NONET fires but the Sudoku overlay never appears → 180s silent freeze) — correctly promoted ABOVE the approved polish batch under the urgency protocol AND because the overlay is the substrate the polish renders into. Root cause was a load-path defect, NOT a render bug: a catchless, latching lazy dynamic-import. Best win: refused to 'fix by inspection' — empirically proved the overlay renders+solves in solo and the netcode round-trips (new sudokuSync test), which RULED OUT the obvious suspects and pinned the failure to the chunk load; the fix is defensive across all plausible triggers (retry + preload + vite:preloadError reload) even though the exact 2-peer trigger couldn't be reproduced single-browser. P1/P2 hit objectives cleanly; the lazy-chunk SFX/flood architecture kept the main entry flat (553.6/560) and the bundle charter is now mechanically enforced (closing a ~40-session prose-only drift). Honest gaps carried forward: true 2-peer NONET playtest, and Voltkin live-recheck (hypothesized downstream symptom of the broken session, not an independent bug — green unit tests + eager cutscene). Generative spend $0.12. No hazardous findings dropped; preview renderer wedged by reload churn so the final P2 visual was state-inspected (P1 screenshot already confirmed overlay+kami)."
 }

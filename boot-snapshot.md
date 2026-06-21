@@ -1,25 +1,24 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-06-21 | Session: S94
+Generated: 2026-06-21 | Session: S95
 
 ## Next Steps
-1. ⭐ **REPORT S94 PLAYTEST on https://spark-online.space/** (deployed: P1 672cddd + P2 9333bbc → deploy.yml). Verify: (P1) rainbow + bird-poop no longer leave your player stuck white/silver — colour always reverts to one of the 6. (P2) NONET now triggers on a connected structure of **9 of ANY single shape** (9 squares OR 9 circles OR 9 spirals…), and fires whether you **build up** to 9 OR **erase down** to 9 of a type; timeout is now 180s; open the **Codex** → a "NONET" super-combo tile (name + hint; no character image yet — that's the Phase-2 kami sprite). Test solo + 1v1 + bots.
-2. **Combo order-symmetry bug (S93 user-flagged, own PDR):** Triangle→Spiral = "Warped Anchor" magic but Spiral→Triangle = plain placeholder line — systemic (14/30 orderings cool). Fix = make single-defined magic combos symmetric (mirror reverse pairs) EXCEPT the intentional Wheel/Star pair. LOCKED §6 combo-table change → own PDR + user go.
-3. **Bundle trim / charter review:** main bundle 553.0 KiB, +3 over the 550 charter (NONET generator+event are core, can't lazy-load; overlay already split). Trim or formally raise the charter.
-4. **NONET illustrated kami sprite (Phase-2):** drop a sprite at `public/art/nonet/kami.webp` — the Codex tile (`makeTile` catch) AND the overlay vector spirits both auto-upgrade to it. Concept refs: `assets-source/nonet-concepts/` (v1) + `assets-source/nonet-concepts-v2/` (v2 pencil). Then parallax sky + the overlay sprite swap → own PDR.
-5. **NONET polish (deferred):** anime-SFX layer (boing/pop/kawaii-chime/idle blips — needs SFX assets); resolve juice (screen-shake + winner-colour flood).
+1. ⭐ **RE-PLAYTEST NONET on https://spark-online.space/** (now live: P0 e23b8a8 + P1 92b7ea8 + P2 d5c54de). Connect 9 of one shape in 1v1 → the Sudoku board MUST now appear (was the bug). Confirm: board shows + is solvable; the illustrated **kami sprite** (forest spirit) shows right of the board AND on its Codex tile; **anime SFX** on cell-place/wrong/solve; on solve a **winner-colour screen flood + shake**. Test solo + 1v1 + bots. **If a chunk ever fails to load, the page now auto-reloads once** (stale-deploy fix) — that's expected, not a bug.
+2. ⭐ **RECONFIRM VOLTKIN (4 squares + 4 triangles)** now that NONET no longer freezes the session. Hypothesis: it failed last time as a downstream symptom of the 180s NONET hang, NOT its own bug (voltkin.test.ts 22/22 green; cutscene is eager, not a lazy-chunk casualty). If it STILL fails with NONET working → fresh diagnosis (consider a DEV `__SPARK__.forceVoltkin` hook mirroring the new `forceNonet`).
+3. TRUE 2-peer NONET playtest (real WebRTC, 2 browsers) — the host→client round-trip is now unit-covered (sudokuSync.test.ts) + the silent-hang is fixed, but the exact production trigger was never reproduced single-browser.
+4. Combo order-symmetry bug (S93): Triangle→Spiral magic vs Spiral→Triangle plain line — own PDR (LOCKED §6 amend).
+5. NONET Phase-2 remainder: parallax sky behind the overlay; swap the vector **kodama** for illustrated sprites (kami is done). Refs: assets-source/nonet-concepts + -v2.
 
 ## Blockers
-None blocking. S94 shipped + deployed. Advisory: bundle +3 over the 550 charter (flagged, non-fatal). User playtest of the S94 fixes pending — bugs reported next session.
+None blocking. S95 shipped + deployed (Deploy CI green; bundle guard passes). The exact 1v1 production trigger for the NONET hang could not be reproduced single-browser — the fix eliminates the silent-hang failure mode regardless; a true 2-peer playtest is the final confirmation.
 
 ## Pending Backlog
-- [ ] REPORT S94 playtest (colour fix + NONET 9-of-any-type/erase + 180s + Codex tile) on spark-online.space
-- [ ] Combo order-symmetry fix (Triangle↔Spiral etc.) — own PDR (LOCKED §6 amend)
-- [ ] Bundle trim / charter review (+3 over 550)
-- [ ] NONET Phase 2: illustrated kami sprite (public/art/nonet/kami.webp) → codex + overlay auto-upgrade; parallax sky
-- [ ] NONET: anime SFX + resolve juice
-- [ ] Carry from S93: also still open — 1v1 NONET netcode is unit-tested but not live 2-peer tested (verify in playtest)
-- [ ] INFRA: /handoff STEP-0 review gate reads a cross-project session — advisory until 2026-07-15 then BLOCKS
+- [ ] Re-playtest NONET live (board appears + solvable + kami + SFX + flood/shake)
+- [ ] Reconfirm Voltkin live (likely fixed as a side effect of the NONET fix)
+- [ ] True 2-peer NONET WebRTC playtest
+- [ ] Combo order-symmetry fix — own PDR (LOCKED §6)
+- [ ] NONET parallax sky + illustrated kodama sprites
+- [ ] USER DISCUSSION (deferred): combinatorial depth 6^6 ≈ 46k
 
 ## Recent Reflexion (last 2 sessions)
-**S94** — colour bug + NONET tweaks. #one-root-cause-can-explain-two-symptoms-trace-to-the-shared-state (rainbow+poop "stuck white" = one bug: bots-only Silver in the 6-human shuffle) · #a-per-tick-host-sweep-beats-a-per-event-hook-for-emergent-triggers (NONET fires on build OR erase from one swept integration point) · #a-synthetic-codex-entry-with-a-forward-compatible-asset-path · #after-a-context-reset-mid-edit-run-the-failing-gate-first.
-**S93** — NONET shipped (all modes). #netcode-sync-a-host-event-by-mirroring-the-additive-optional-snapshot-pattern · #freeze-a-sim-loop-without-starving-the-network-or-the-clock.
+**S95** — #a-silent-catchless-lazy-import-is-a-time-bomb-for-trigger-critical-ui (NONET overlay never appeared = unguarded latching lazy import, not a render bug; verify the LOAD path) · #key-a-stubborn-chroma-bg-by-its-minimum-channel-not-its-brightness (key on a hue/channel invariant the subject can't satisfy) · #a-soft-prose-charter-with-no-CI-guard-will-always-drift (raise + ENFORCE in the build + code-split to defend).
+**S94** — #one-root-cause-can-explain-two-symptoms (rainbow+poop stuck-white = one Silver-in-6-human-shuffle bug) · #a-per-tick-host-sweep-beats-a-per-event-hook · #a-synthetic-codex-entry-with-a-forward-compatible-asset-path.
