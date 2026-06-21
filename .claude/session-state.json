@@ -1,137 +1,100 @@
 {
-  "tool_calls_session_total": 67,
-  "session_id": "S94",
+  "tool_calls_session_total": 131,
+  "session_id": "S95",
   "session_kind": "execution",
-  "session_start": "2026-06-19T20:00:00.000Z",
-  "session_note": "S94 — post-S93-playtest batch. User 'go' on P1 (white-stuck colour bug: rainbow/poop must revert to a PLAYER_COLOR) + P2 (NONET: trigger 9-of-any-single-type + fire on sever; timeout 120->180s; Codex supercombo entry). P3 art/animation (pencil-Ghibli, animated) deferred to own PDR; fresh concept art generated in parallel -> assets-source/nonet-concepts-v2/.",
+  "session_start": "2026-06-21T17:30:00.000Z",
+  "session_note": "S95 — user approved the S94 carry batch (P1 NONET Phase-2 kami sprite + bundle/charter; P2 NONET anime SFX + resolve juice) for autonomous execution. MID-SESSION SCOPE AMENDMENT: live 1v1 playtest found NONET fires (music+freeze) but the Sudoku overlay NEVER appears → unsolvable 180s hang; Voltkin (4sq+4tri) also failed. Added P0 (CRITICAL, urgency protocol) FIRST — it is also a hard prerequisite for verifying the P1/P2 polish (SFX/flood/sprite all live inside that overlay).",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
   "tier": "Standard",
-  "council_rounds": 0,
-  "council_result": "S94 Standard batch (user-path lean, user 'go'): P1 colour-revert bug + P2 NONET gameplay tweaks. User will playtest = CHECK. P3 (art/animation) deferred to own PDR.",
+  "council_rounds": 1,
+  "council_result": "S95 Standard batch. Council (Grok-4.20-reasoning ANALYST + Gemini-2.5-pro AUDITOR) CONVERGED: D1 bundle → raise charter to a documented+ENFORCED cap (LOCKED entry + scripts/check-bundle-size.mjs in the build) over a cosmetic 3-KiB trim (ADOPT/ADOPT). D2 SFX → keep new NONET SFX in the LAZY overlay chunk via a tiny audioManager ensureSfxBus() accessor; reuse sfxGain so master/sfx mute apply free (ADOPT/ADOPT). D3 kami sprite → Imagen on solid magenta + Pillow chroma-key (hue/min-channel key robust to the vignette + spill-suppress/erode for fringe), vector fallback retained; Gemini's separate-alpha-mask idea rejected (text-to-image can't produce a pixel-aligned mask). PRIME-AUDIT: bundle check globs the hashed name + measures RAW bytes; SFX null-guard ensureSfxBus; autoplay resume via the existing gesture path. Mid-session: P0 (overlay-never-appears) added — root-caused to a no-catch latching lazy-chunk load.",
   "signals_fired": [],
   "priorities": [
     {
-      "id": "P1",
-      "label": "S94 P1 — BUG: player colour stuck WHITE after rainbow/poop; must revert to one of the 6 PLAYER_COLORS",
+      "id": "P0",
+      "label": "S95 P0 — CRITICAL: NONET trial fires (music+freeze) but the Sudoku overlay NEVER appears → unsolvable 180s hang (live 1v1 playtest)",
       "status": "completed",
-      "phase": "DO",
+      "phase": "DONE",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "objective": "Fix the bug where a player's colour gets stuck WHITE (0xffffff, NOT a player colour) after a rainbow shuffle or seagull-poop foul. It must always revert to one of the 6 PLAYER_COLORS. Root-cause: poop-foul render-tint revert (S89 P3) + rainbow '?? p.color' fallback preserving a stuck white.",
-      "scope": "Investigate structureRenderer foul tint + seagulls/poop foul-expiry colour revert + rainbowLifecycle interaction; ensure the canonical colour is never set to white + always reverts to the seat PLAYER_COLOR; regression test. OUT: rainbow derangement semantics (works), NONET.",
-      "testing": "tsc 0; vitest green + new regression test (foul -> expiry reverts to a PLAYER_COLOR; rainbow never yields white); preview spot-check.",
+      "objective": "Make the NONET overlay actually appear + be solvable in live play (it never showed in the user's 1v1 — music swapped, duel froze, no board, hung till timeout).",
+      "scope": "Root-cause + fix the lazy SudokuOverlay load path; add the missing 2-peer netcode regression coverage; verify the full trigger→board→solve→resolve→resume lifecycle live. OUT: anime SFX/juice (P2), sprite (P1), Voltkin (separate follow-up check).",
+      "testing": "tsc 0; full vitest green + new sudokuSync round-trip tests; live preview solo: overlay instant, solve resolves (solvedBy=local, x2), duel resumes, 0 console errors.",
       "check_completed": true,
-      "checkpoint_commit": "672cddd",
-      "check_method": "S94 P1 (672cddd, pushed): white-stuck colour bug. ROOT: buildShuffleColorMap deranged over all 7 PLAYER_COLORS incl. bots-only Silver (0xc0c8d0) -> human could map INTO Silver; poop-foul reverts to it. FIX: SHUFFLE_PALETTE=PLAYER_COLORS.slice(0,6) (6 human only); Silver bot keeps Silver via ?? fallback; 7-seat uniqueness holds. +3 regression tests (no human->Silver over 500 seeds) + updated 2 palette-coupled tests (rainbow bijection, bots 7-seat). tsc 0, vitest 1466/1466 (2 clean runs). Pure-logic fix -> unit tests authoritative; user visual-confirms in playtest.",
+      "checkpoint_commit": "e23b8a8",
+      "check_method": "S95 P0 (e23b8a8): NONET overlay never appeared. ROOT: ensureNonetOverlay's dynamic import had NO .catch + nonetOverlayLoading latched true forever → any chunk-load hiccup (transient fetch OR stale chunk-hash 404 after the S94 deploy while the tab held the old index.html) = permanent silent ~180s freeze, no board. Overlay code itself is fine (renders+solves+resumes end-to-end in solo — verified in the preview harness). FIX (3 layers): (a) .catch → log + un-latch so the load retries (throttled 1/500ms) + self-heals on network recovery; (b) preload the overlay chunk on the PLAYING-entry edge so the trial pops instantly + load failures surface early; (c) global vite:preloadError → reload-once (in-mem + sessionStorage latch) — canonical stale-deploy fix covering ALL lazy chunks. Added src/net/sudokuSync.test.ts (host→client snapshot round-trip — the previously-untested 2-peer path; 3 tests). Added DEV-only __SPARK__.forceNonet() (tree-shaken). GATES: tsc 0; vitest 1470→1484; live preview verified (trigger→instant board→solve solvedBy=0 x2→resume→0 errors). NOTE: exact production trigger not reproduced deterministically (needs 2 live WebRTC peers) but the silent-hang failure mode is now eliminated regardless of trigger + the 1v1 path is test-covered.",
       "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/rainbowLifecycle.ts",
-          "needle": "const SHUFFLE_PALETTE = PLAYER_COLORS.slice(0, 6)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/rainbowLifecycle.ts",
-          "needle": "map.set(SHUFFLE_PALETTE[i], SHUFFLE_PALETTE[perm[i]])"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/rainbowLifecycle.test.ts",
-          "needle": "never has Silver as a key or value"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/botsMode.test.ts",
-          "needle": "6 humans shuffle, Silver bot stays Silver"
-        }
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts", "needle": "console.error('[nonet] Sudoku overlay failed to load; will retry'" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts", "needle": "window.addEventListener('vite:preloadError'" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/sudokuSync.test.ts", "needle": "NONET trial survives the host" }
+      ]
+    },
+    {
+      "id": "P1",
+      "label": "S95 P1 — NONET Phase-2 kami sprite (public/art/nonet/kami.webp → codex tile + overlay auto-upgrade) + bundle/charter review",
+      "status": "completed",
+      "phase": "DONE",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "objective": "Ship the illustrated kami sprite so the Codex tile + overlay spirit auto-upgrade off the vector placeholder; resolve the bundle being +3 over the soft 550 charter (raise + mechanically enforce).",
+      "scope": "Generate kami → 512x512 transparent webp at public/art/nonet/kami.webp; overlay loads it with vector fallback; raise charter in LOCKED_DECISIONS + add scripts/check-bundle-size.mjs to the build. OUT: parallax sky (future).",
+      "testing": "tsc 0; vitest green; build OK + bundle check passes; live preview: codex tile + overlay show the kami sprite.",
+      "check_completed": true,
+      "checkpoint_commit": "92b7ea8",
+      "check_method": "S95 P1 (92b7ea8): KAMI SPRITE — Imagen-ultra dusk Ghibli forest-spirit (2 candidates, $0.12), picked the full-body centered one. Imagen gave a rose-pink bg (not the requested #ff00ff), so keyed in Pillow via a HUE/min-channel rule (the character's grey/cream/amber palette never has G as its min channel; the pink bg always does — robust to the vignette; corner diag confirmed bg pinkness 67 vs character -7) + spill-suppression + 1px erode + feather → 512x512 RGBA webp (33 KB, off-bundle), clean alpha on dark AND white (zero fringe). Codex tile (makeTile Assets.load, S94 stub) + overlay buildSpirits (loads sprite, hides vector on success, keeps vector on 404) BOTH auto-upgrade — verified live in the preview (codex NONET tile shows full-colour kami + name + hint; overlay shows the kami right of the board). BUNDLE: raised 550→560 KiB AND enforced — scripts/check-bundle-size.mjs runs last in `npm run build` (parses the hashed entry from dist/index.html, RAW bytes, fails over cap, prints total initial JS); documented in LOCKED_DECISIONS; `npm run size` added. Main entry 553.4 KiB → 6.6 KiB headroom. GATES: tsc 0; vitest 1470/1470; build+guard green; codex+overlay visually confirmed.",
+      "verification": [
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/scripts/check-bundle-size.mjs", "needle": "const CAP_KIB = 560" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/package.json", "needle": "node scripts/check-bundle-size.mjs" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/sudokuOverlay.ts", "needle": "Assets.load('/art/nonet/kami.webp')" }
       ]
     },
     {
       "id": "P2",
-      "label": "S94 P2 — NONET tweaks: 9-of-any-single-type trigger (+ fire on sever) + timeout 120->180s + Codex supercombo entry",
+      "label": "S95 P2 — NONET polish: anime SFX (lazy chunk) + resolve juice (screen-shake + winner-colour flood)",
       "status": "completed",
-      "phase": "DO",
+      "phase": "DONE",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "objective": "(a) Generalize NONET trigger from 9-pure-Square to a connected component of exactly 9 of ANY single SparkType (9 circles, 9 spirals, ...) AND fire on sever/erase (not just placement) so 'build big then erase down to 9 same-type' works. (b) Timeout 120->180s (no solver -> no x2/no halve, already the behaviour). (c) Add NONET as a SUPERCOMBO entry in the Codex.",
-      "scope": "sudokuEvent.detectNonet (any single type, was Square-only); placePrimitive trigger + severBond trigger hook; NONET_TIMEOUT_TICKS 7200->10800; codexStore/codexOverlay supercombo entry; tests. OUT: art/animation (P3).",
-      "testing": "tsc 0; vitest green + detectNonet same-type tests (9 circles/spirals fire; mixed-type rejects; sever-down-to-9 fires; 8/10 reject) + timeout const test; codex entry renders.",
+      "objective": "Add kawaii/anime SFX on cell-place/wrong/solve/appear + resolve juice (shake on resolve + a winner-colour screen flood), all in the lazy overlay chunk to keep the main bundle flat.",
+      "scope": "New src/render/nonetJuice.ts (procedural Web-Audio SFX + pure flood/colour helpers) imported only by sudokuOverlay; audioManager ensureSfxBus() accessor; screenShake resolve-edge trigger in main.ts; tests for pure helpers. OUT: external SFX assets.",
+      "testing": "tsc 0; vitest green + nonetJuice pure-helper tests; live preview: SFX fire + flood renders on solve.",
       "check_completed": true,
-      "checkpoint_commit": "9333bbc",
-      "check_method": "S94 P2 (9333bbc, pushed): NONET tweaks. (a) detectNonet -> per-tick host SWEEP for a connected component of EXACTLY 9 of ONE SparkType (any type, not just Square), replacing the placement-only Square-only placePrimitive hook -> fires on build-up OR erase-down. Wired in main.ts host PLAYING tick, gated host-only + once-per-match (free after firing). (b) NONET_TIMEOUT_TICKS 7200->10800 (180s). (c) Codex: synthetic NONET_CODEX_ENTRY (id 'nonet' as GodlyId, name+hint, characterSprite='/art/nonet/kami.webp' Phase-2 path) appended to codexEntries; unlockGodly(NONET_CODEX_ID) on the trial rising edge. makeTile's missing-sprite catch renders name+hint until the Phase-2 kami sprite lands. GATES: tsc 0; vitest 1467/1467 (detectNonet tests rewritten for sweep + any-type/mixed/18-component); build OK; bundle 553.0 KiB (+3 over 550 charter, flagged). CHECK = build + full vitest (trigger exhaustively unit-tested) + user playtest. Codex tile not browser-verified (proven makeTile pattern + 404-sprite fallback). Resumed mid-edit after a context reset -> ran tsc first to map the half-edited surface.",
-      "real_context_tokens_at_close": 727433,
+      "checkpoint_commit": "d5c54de",
+      "check_method": "S95 P2 (d5c54de): SFX layer + resolve juice, ALL in the LAZY sudokuOverlay chunk (Council D2). New render/nonetJuice.ts (procedural Web-Audio) imports only audioManager's new ensureSfxBus() accessor → reuses the shared sfxGainNode so 'M' master mute + SFX mute/volume apply free. SFX: cell-place pip, wrong-grid bonk, 3-sparkle appear shimmer, solve pentatonic arpeggio / lose 'aww' / timeout neutral tone. RESOLVE JUICE: winner-colour full-screen flood (neutral slate on timeout) flashing to the 0.30 photosensitivity-charter cap + ease-out over ~0.75s, drawn topmost+pointer-transparent in the overlay; a bigger one-shot screen-shake on the resolve edge (main.ts) via new pure screenShake.shouldTriggerNonetResolveShake, edge-driven off synced resolvedTick (host+client jolt together). BUNDLE: SFX+flood in the lazy chunk (6.4→8.4 kB); main entry 553.6 KiB (cap 560, 6.4 KiB headroom). GATES: tsc 0; vitest 1484/1484 (+8 nonetJuice flood/colour/arpeggio +6 resolve-shake predicate); live preview via ticker-pump: overlayVisible true, solvedBy=0, flood active in winner colour 0xff3b6b, stage shake offset applied, 0 console errors (renderer paint wedged by reload churn so no final screenshot, but state-inspected + P1 screenshot already confirmed overlay+kami render).",
       "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/sudokuEvent.ts",
-          "needle": "export const NONET_SHAPE_COUNT = 9"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/sudokuEvent.ts",
-          "needle": "export const NONET_TIMEOUT_TICKS = 10800"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/sudokuEvent.ts",
-          "needle": "export function detectNonet(world: World): PlayerId | null"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "const nonetOwner = detectNonet(world);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "const NONET_CODEX_ENTRY ="
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "unlockGodly(NONET_CODEX_ID)"
-        }
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/nonetJuice.ts", "needle": "export function floodAlpha" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/audioManager.ts", "needle": "export function ensureSfxBus" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/screenShake.ts", "needle": "export function shouldTriggerNonetResolveShake" }
       ]
     }
   ],
   "generative_cost_cap_usd": 10,
   "generative_cost_spent_prior_usd": 0.24,
+  "generative_cost_spent_session_usd": 0.12,
   "budget_total": 1000000,
   "reflexion_entries_to_archive": [
-    "P0 #one-root-cause-can-explain-two-symptoms-trace-to-the-shared-state: 'stuck white after rainbow OR poop' had ONE root — buildShuffleColorMap deranged over all 7 PLAYER_COLORS incl. the bots-only Silver (near-white), so a human could map INTO Silver (and a poop-foul reverts to that same Silver). The render tints were all render-only + self-reverting, which RULED THEM OUT and pointed upstream at a STATE corruption (player.color) that BOTH triggers flow through. LESSON: when two different triggers yield the same wrong end-state, find the shared state they both pass through (one fix), not two; a 7th 'special' palette entry leaking into a 6-human shuffle is an off-by-one-set bug hiding behind PLAYER_COLORS.length.",
-    "P1 #a-per-tick-host-sweep-beats-a-per-event-hook-for-emergent-triggers: NONET must fire whether a 9-same-type structure is BUILT up or ERASED down. A per-placement hook catches only build-up (and would need a second hook on every erase/sever/bomb path). A single per-tick host sweep (detectNonet over all components, gated by the once-per-match guard so it's free after firing) catches ALL topology changes from ONE integration point at ~the cost of tickScoring's existing per-tick walk. LESSON: for a trigger reachable by many state mutations, sweep the resulting state once per tick (guarded) instead of hooking every mutation path.",
-    "P1 #a-synthetic-codex-entry-with-a-forward-compatible-asset-path: NONET isn't a godly recipe so it can't go through listRecipes()->entryFromRecipe. A synthetic CodexEntry (id cast to GodlyId, unlocked via unlockGodly on the rising edge) slots into the same grid. makeTile already .catch()es a missing sprite (tile stays image-less, name+hint show), so pointing characterSprite at the FUTURE Phase-2 path renders cleanly now AND auto-upgrades when the asset lands — zero rework. LESSON: when a UI slot wants an asset you don't have yet, point at the eventual path + lean on the existing missing-asset fallback for a forward-compatible stub.",
-    "SESSION #after-a-context-reset-mid-edit-run-the-failing-gate-first: a reset landed mid-P2 (sudokuEvent.ts fully changed incl. mintNonetSeed signature, but callers in placePrimitive/main.ts/tests NOT updated -> tsc broken). On resume I ran tsc FIRST to get the authoritative list of the half-done surface (2-arg call sites + renamed const) rather than reconstruct it from memory. LESSON: after a reset mid-implementation, run tsc/the failing gate immediately to diff what's actually half-done."
+    "P0 #a-silent-catchless-lazy-import-is-a-time-bomb-for-trigger-critical-ui: the NONET overlay 'never appeared in 1v1' was not a render bug (it renders + solves fine in solo) — it was an unguarded dynamic import() (no .catch) whose loading-latch flag stayed true forever, so one chunk-fetch failure (transient, or a stale chunk-hash 404 right after a deploy) froze the whole duel for the 180s timeout with NO board and NO error surfaced. LESSON: any lazy chunk that gates a critical, time-boxed interaction MUST (a) .catch + un-latch to retry, (b) preload ahead of the trigger, and (c) be covered by a vite:preloadError reload for the stale-deploy case. Verify the LOAD path, not just the happy-path render.",
+    "P1 #key-a-stubborn-chroma-bg-by-its-minimum-channel-not-its-brightness: Imagen ignored the #ff00ff chroma request and returned a vignetted rose-pink bg. A brightness/distance key fights the vignette and risks holes; but the CHARACTER's palette (slate/cream/amber) never has GREEN as its minimum channel while the pink bg always does — so keying on 'G is the min channel AND R,G,B make a pink' cleanly separated them regardless of the gradient (corner diag: bg pinkness 67 vs char -7), then spill-suppress + 1px erode killed the fringe. LESSON: when a generated chroma bg is imperfect, key on a HUE/channel-relationship invariant the subject can't satisfy, not on absolute colour distance.",
+    "P2 #a-soft-prose-charter-with-no-CI-guard-will-always-drift: the '550 KiB bundle' lived only in handoff prose for ~40 sessions with no LOCKED entry + no mechanical check, so it silently crept over. Raising the number alone would just restart the drift; the fix was raise + ENFORCE — a check script in the build that the deploy CI runs, plus keeping new feature code (NONET SFX/flood) in lazy chunks so the entry chunk barely moved. LESSON: a budget that isn't mechanically checked is a wish; gate it in the build and code-split to defend it."
   ],
-  "session_status": "S94 COMPLETE — P1 colour bug (672cddd) + P2 NONET tweaks (9333bbc) shipped + pushed -> deploy.yml building spark-online.space. P1: rainbow/poop no longer leaves a human stuck Silver/white (derange only the 6 human colours). P2: NONET trigger = 9 of ANY one type via per-tick sweep (build OR erase), timeout 180s, synthetic Codex super-combo entry. tsc 0, vitest 1467/1467, build OK, bundle 553.0 KiB (+3 over charter). USER PLAYTESTING on spark-online.space. CARRY: bundle trim/charter review; NONET illustrated kami sprite (Phase-2; codex+overlay ready); S93 combo order-symmetry bug (own PDR); anime SFX + resolve juice; concept art v2 in assets-source/nonet-concepts-v2.",
-  "real_context_tokens_at_close": 727433,
-  "real_context_pct_at_close": 72.7,
-  "totals": {
-    "turns": 0,
-    "budget_remaining": 1000000,
-    "budget_status": "GREEN"
-  },
+  "session_status": "S95 COMPLETE (pending push) — P0 NONET-overlay-never-appears FIXED (e23b8a8: robust lazy-chunk load .catch+retry+preload+vite:preloadError reload + 2-peer round-trip test + DEV forceNonet); P1 kami sprite + enforced 560 KiB charter (92b7ea8); P2 anime SFX + resolve juice all in the lazy chunk (d5c54de). tsc 0, vitest 1484/1484, build+bundle-guard green (entry 553.6 KiB / 560), generative $0.12. Verified live in the preview (overlay instant, solve→resolve→resume, kami in codex+overlay, flood+shake on resolve, 0 errors). NEXT: push (single deploy) + handoff. CARRY: Voltkin live-recheck (likely a downstream symptom of the broken NONET session, not an independent bug — voltkin.test.ts green, cutscene eager); true 2-peer NONET playtest; combo order-symmetry; parallax sky + kodama sprites.",
+  "totals": { "turns": 0, "budget_remaining": 1000000, "budget_status": "GREEN" },
   "carry_forward": [
-    "G2-PROMO Phase 2 — Anchor anti-drift (stiffnessMultiplier lift via applyAnchorStiffen, ordered after computeTerritorialInfluence) + anti-sabotage (extend isDefensiveCombo to Anchor) + Spindle tangential applyVortexPull clone (SPINDLE_PULL_ACCEL ~0.4x VORTEX, all determinism guards). Separate PDR, own State-Discovery + Council + lock-amend. Phase-2 spec is captured in the PDR APPROACH 3.5.",
-    "Damped-rebalance fallback (if Option A makes non-combo/blob matches feel too long at 630s ~= 10.5min): keep WIN 210, add PROMOTED_COMBO_INCOME_PREMIUM=0.05 per-promoted-bond term INSIDE the floor(1.5*prims) cap (NOT excluded from it — un-capping reopens the S84 bond-spam dominance). SEPARATE scoring-branch PDR.",
-    "MOTION Wheel/Star rotation — DEFERRED (both reviewers rated pure rotation low player-value; revisit when it earns a mechanical verb). Impl note: rigid pose-write clone of vortex.ts, midpoint pivot, drift-free baseAngle+tick*const precomputed, component dedupe.",
-    "DEFENSE v2 — Voltkin-bolt/bomb absorb-first-hit via host-only Set<BondId> (reset in reconcileFouledPrimitives) + DEFENSE_RESIST cue; potato excluded. Bundle risk ~1.5-3 KiB -> own session.",
-    "G2-TRAITS — rule-based family stiffness traits (only live axis); needs LOCKED_DECISIONS sect.6 lock-amendment + watch territorial stiffnessMultiplier stacking.",
+    "VOLTKIN LIVE-RECHECK (S95 user report): user said Voltkin (4 squares + 4 triangles) 'didnt work either' in the SAME 1v1 session right after the NONET hang. Strong hypothesis: it was a downstream symptom of that broken/frozen session, NOT an independent Voltkin bug — voltkin.test.ts (22 tests) is GREEN, the cutsceneOverlay is EAGER (not a lazy-chunk casualty), and the session was wedged by the 180s NONET freeze. With P0 fixed the session won't enter that state. ASK the user to reconfirm Voltkin now; if it STILL fails with NONET working, that's a fresh diagnosis with a clean repro (consider a DEV __SPARK__.forceVoltkin hook mirroring forceNonet).",
+    "1v1 NONET TRUE 2-PEER PLAYTEST still open — the host→client snapshot round-trip is now unit-covered (sudokuSync.test.ts) and the silent-hang failure mode is fixed, but a real 2-browser WebRTC playtest would close the last gap (could not repro the exact production trigger in a single preview).",
+    "Combo order-symmetry bug (S93 user-flagged): Triangle->Spiral magic vs Spiral->Triangle plain line; systemic (14/30 orderings cool). Own PDR (LOCKED §6 combo-table amend).",
+    "NONET Phase-2 polish remainder: parallax sky behind the overlay; swap the overlay vector kodama for illustrated sprites (the kami is done). Concept refs in assets-source/nonet-concepts + -v2.",
     "USER DISCUSSION (deferred): combinatorial DEPTH 6^6 ~46k — memory/combinatorial-depth-discussion.md.",
-    "USER PLAYTEST OPEN: S90 Filament income feel (#1 knob FILAMENT_INCOME_COMPLEXITY) + Diamond/Lattice anti-sabotage feel (DEFENSIVE_SEVER_CHARGE_COST); S91 Anchor/Spindle promotion feel + the rebalanced pacing on spark-online.space.",
-    "E2E 2-browser Playwright lane GREEN on the pushed tip (37 passed / 1 intentional skip / 0 fail; Sym I win-condition + Sym F territorial both green) -- the rebalance + promotion are integration-verified.",
-    "G4 JUICE (flagged by the S91 CHECK test-net lens): BOND_COMMIT commit-pop flair for Anchor/Spindle -- they currently use the default ring creation-pop (the PERSISTENT silhouette IS distinct; only the one-shot commit-pop is generic). To add: drawAnchor/drawSpindle in render/effects/silhouettes.ts + 2 cases in bondCommit.ts + append both ids to effectsRenderer.test.ts ALL_MAGIC. Phase-1 scope was the persistent silhouette only.",
-    "Stray untracked file '0' at repo root (likely a redirect leftover) — left untouched; clean up if confirmed stray.",
-    "INFRA (S91 handoff): /handoff STEP-0 review gate (pre-handoff-review.py) read a cross-project session 'S162' not this repo's S91 — appears keyed to a global registry, not The Spark's .claude/session-state.json. Was exit-0 advisory (non-blocking pre-2026-07-15). Flag for infra follow-up.",
-    "INFRA (S93): gcp-vertex MCP .env GEMINI_API_KEY set to the user's working AQ.* key (memory/gcp-vertex-gemini-key-console-only.md). Imagen/Gemini-image needs the Google project on a PAID plan (user added $25 2026-06-19). MCP tool needs a server restart to load the .env; this session used direct curl."
+    "INFRA (S91): /handoff STEP-0 review gate reads a cross-project session; advisory until 2026-07-15 then BLOCKS.",
+    "INFRA (S93): gcp-vertex MCP .env GEMINI_API_KEY — Imagen/Gemini need the paid GCP project; server restart loads the .env. Imagen-ultra + gemini-2.5-pro both worked this session (key valid)."
   ],
-  "analyze_completed": true,
-  "analyze_summary": "S93 ANALYZE: Full-tier NONET run user-path (no Council; user playtest = CHECK). PDR risk model accurate — desync pre-identified + closed host-only (seed-only broadcast, host-only x2//2, determinism test-locked via snapshot-roundtrip). RISK 10 (bundle) materialized: predicted, lazy-split mitigated the overlay, still +2.7 over 550 charter -> carry-forward. Wins: verified increments each tsc+vitest-gated; engine tripwires (PROTOCOL_VERSION literal type + benchGate set-equality test) auto-caught 2 omissions. Watch: 1v1 netcode unit-tested but not live 2-peer; combo order-symmetry bug surfaced from playtest -> deferred to own PDR (no scope-creep).",
-  "analyze_note": "S94 ANALYZE: both priorities hit objectives. P1 colour bug root-caused to ONE shared-state bug (bots-only Silver leaking into the 6-human rainbow shuffle) explaining BOTH reported triggers; minimal fix, 500-seed unit proof. P2 NONET: per-tick sweep (one integration point covers build+erase), +60s timeout, synthetic forward-compatible codex entry. Both Standard, in-scope; only friction was a context-reset mid-P2 (recovered via tsc-first). Carry: bundle +3 over charter; NONET illustrated kami sprite (Phase-2; codex tile + overlay both ready for /art/nonet/kami.webp); S93 combo order-symmetry bug (own PDR); anime SFX + resolve juice. No hazardous findings dropped."
+  "analyze_completed": false
 }
