@@ -1,33 +1,41 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-06-22 | Session: S95 (full — incl. visual buildout follow-ups)
+Generated: 2026-06-22 | Session: S96 (autonomous overnight, explicit full-batch pre-approval)
 
-## ⭐ NEXT LAYER (user-requested — start here)
-"Push forward on ambient life + other video loops + cool graphics." The NONET realm now has 4 animated original spirits (breathe/blink/hop/float) + a 16-firefly swarm. Build the NEXT layer of life on top:
-1. **Video/parallax dusk-sky background** behind the board — try `veo_generate` (gcp-vertex MCP) for a seamless looping forest-dusk clip, OR layered parallax of drifting silhouettes. Off-bundle in `public/art/nonet/`, lazy. Respect the photosensitivity 0.30-alpha cap precedent.
-2. **More ambient particles** — drifting leaves / spores / pollen motes (same pre-drawn-Graphics + sin-drift pattern as the fireflies in `sudokuOverlay.animateLife`).
-3. **Spirit micro-reactions** — occasional head-turn / lantern-lift; one spirit that wanders all the way across; a reaction beat when you place a number or SOLVE (spirits hop/cheer; tie to the existing resolve edge).
-4. **(stretch) veo creature video-loops** for the kami; keep everything off-bundle + in the lazy overlay chunk; the build bundle guard (560 KiB) only watches the main entry so off-bundle assets are free.
+## ⭐ HEADLINE — NONET realm is now ALIVE with real video
+The procedural "PowerPoint-spin" sprite twitch is GONE. All 4 original NONET spirits (kami, owl-a,
+owl-b, moss-b) are now veo-3.1 image-to-video loops + there's a dusk-forest ambient backdrop video,
+composited with feathered alpha masks behind the board. Live-verified + deployed (639b140). Watch it:
+trigger NONET on https://spark-online.space/ — 4 living spirits frame the board over a drifting dusk
+forest. Pipeline + scripts: `assets-source/nonet-video/` (make_keyframe.py · process.sh). Source loops:
+`public/art/nonet/*.webm` + `spirit-mask.png`. Code: `src/render/sudokuOverlay.ts` (buildGuardian /
+makeVideoSprite / loadBackdropVideo / setVideosPlaying).
 
-Key files: `src/render/sudokuOverlay.ts` (`buildSpirits` + `animateLife`), `src/render/nonetJuice.ts` (pure anim/sfx helpers), `public/art/nonet/` (sprites). Imagen/veo via the gcp-vertex MCP (key valid this session).
-
-## Next Steps (after / alongside the next layer)
-2. RE-PLAYTEST NONET live on https://spark-online.space/ — board appears + solvable; 4 animated spirits + fireflies; anime SFX; winner-colour flood + shake on solve. Solo + 1v1 + bots.
-3. RECONFIRM VOLTKIN (4 squares + 4 triangles) — likely fixed as a side effect of the NONET hang fix (voltkin.test.ts 22/22 green; cutscene is eager). If still broken with NONET working → fresh diagnosis (consider a DEV `__SPARK__.forceVoltkin`).
-4. IP cleanup: delete/replace the Totoro-derivative concept refs in `assets-source/nonet-concepts*`; broader audit of other generated art (rainbow-flyover, voltkin, seagull) for franchise resemblance — no-copy policy is general.
-5. TRUE 2-peer NONET WebRTC playtest (round-trip is unit-covered; silent-hang fixed; exact prod trigger never reproduced single-browser).
-6. Combo order-symmetry bug (S93): Triangle→Spiral magic vs reverse plain line — own PDR (LOCKED §6 amend).
+## Next Steps
+1. ⭐ DECIDE the combo order-symmetry option — read `docs/combo-order-symmetry-PDR.md` (full symmetry
+   map + 3 options + recommendation). It was NOT auto-changed (LOCKED §V.1 amend + the Triangle→Circle
+   Wheel/Star dual-magic would be destroyed + scoring rebalance needed). Pick A/B/C → a session executes.
+2. Re-playtest NONET live (board + 4 video spirits + backdrop) AND reconfirm Voltkin (4sq+4tri) — you
+   hadn't checked Voltkin yet; likely fine post-S95 NONET-hang fix.
+3. TRUE 2-peer NONET WebRTC playtest (round-trip is unit-covered; the 2 version E2E tests now pass).
+4. (optional P1 polish) gentle parallax drift of spirits across the margin; a veo-STANDARD re-shoot of
+   the hero kami for max fidelity; a "realm brightens" beat on solve. All deliberately deferred.
 
 ## Blockers
-None blocking. All S95 work shipped + deployed (Deploy CI green; bundle guard passes). STEP-0 review gate reads a cross-project session (known infra quirk; advisory until 2026-07-15).
+None blocking. P2 (combo symmetry) is BLOCKED-ON-USER (design + balance decision). All S96 code shipped
++ deployed (tsc 0, vitest 1488/1488, entry flat 553.6/560, Deploy CI green). veo spend $2.10/$10 cap.
 
 ## Pending Backlog
-- [ ] NONET ambient-life NEXT layer (video/parallax bg, particles, spirit reactions) — user-requested
-- [ ] Re-playtest NONET live; reconfirm Voltkin live
-- [ ] IP: delete Totoro-derivative concept refs + broader art audit
-- [ ] True 2-peer NONET WebRTC playtest
-- [ ] Combo order-symmetry fix — own PDR (LOCKED §6)
+- [ ] Combo order-symmetry — user picks an option from docs/combo-order-symmetry-PDR.md (then execute + rebalance)
+- [ ] Voltkin live-recheck (user-side) + true 2-peer NONET playtest (user-side)
+- [ ] (optional) NONET video polish: parallax drift / veo-standard hero / solve-cheer beat
 - [ ] USER DISCUSSION (deferred): combinatorial depth 6^6 ≈ 46k
 
 ## Recent Reflexion (last 2 sessions)
-**S95 (cont., 06-22)** — #shipped-an-IP-look-alike-then-got-flagged-live (self-check generated art for franchise resemblance BEFORE shipping; prompt for original silhouettes) · #procedural-life-on-static-sprites-is-cheap (sin-driven breathe/blink/hop/float + firefly swarm; drive on wall-clock not world.tick; blink as a pure tested helper) · #verify-animation-by-state-sampling-not-one-screenshot (fresh preview server; sample sprite transforms at t and t+Δ).
-**S95 (06-21)** — #a-silent-catchless-lazy-import-is-a-time-bomb (verify the LOAD path, not just the render) · #key-a-stubborn-chroma-bg-by-its-minimum-channel (hue/channel invariant, not absolute colour distance) · #a-soft-prose-charter-with-no-CI-guard-will-always-drift (raise + ENFORCE in the build + code-split to defend).
+**S96 (06-22)** — #image-to-video-beats-procedural-twitch (Pillow keyframe → veo i2v → ffmpeg seamless
+VP9 → Pixi feathered mask; calibrate 1 clip before fanning out; pivot off broken libvpx-alpha to
+render-time masking; verify motion empirically) · #a-flagged-bug-can-be-a-locked-design-decision (combo
+order-symmetry is LOCKED §V.1 + Wheel/Star dual-magic; surfaced a PDR, didn't auto-gut it) ·
+#a-version-bump-breaks-more-tests-than-the-one-flagged (S93 8→9 broke 2 version E2E tests; verify by running them).
+**S95 (06-22)** — #shipped-an-IP-look-alike-then-got-flagged-live (self-check generated art for franchise
+resemblance) · #procedural-life-on-static-sprites-is-cheap (the S96 video work supersedes this for the
+guardians) · #verify-animation-by-state-sampling-not-one-screenshot.
