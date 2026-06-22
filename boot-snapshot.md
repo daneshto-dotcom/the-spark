@@ -21,8 +21,11 @@ makeVideoSprite / loadBackdropVideo / setVideosPlaying).
    the hero kami for max fidelity; a "realm brightens" beat on solve. All deliberately deferred.
 
 ## Blockers
-None blocking. P2 (combo symmetry) is BLOCKED-ON-USER (design + balance decision). All S96 code shipped
-+ deployed (tsc 0, vitest 1488/1488, entry flat 553.6/560, Deploy CI green). veo spend $2.10/$10 cap.
+None blocking the code. P2 (combo symmetry) is BLOCKED-ON-USER (design + balance decision). All S96 code
+shipped + deployed (tsc 0, vitest 1488/1488, entry flat 553.6/560, Deploy CI GREEN). veo spend $2.10/$10.
+⚠️ E2E lane still RED but NOT on my fix: 32 passed / 1 failed — my 2 version tests PASS; the failure is
+"Sym F — territorial hard-block" timing out on a WebRTC P2P flake (net::ERR_ADDRESS_UNREACHABLE), env/flaky,
+unrelated to this session. Re-run likely greens it; pre-existing 2-peer-WebRTC-in-CI fragility.
 
 ## Pending Backlog
 - [ ] Combo order-symmetry — user picks an option from docs/combo-order-symmetry-PDR.md (then execute + rebalance)
