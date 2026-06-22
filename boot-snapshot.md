@@ -1,29 +1,33 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-06-22 | Session: S95 (+ IP-rework follow-up)
+Generated: 2026-06-22 | Session: S95 (full — incl. visual buildout follow-ups)
 
-## ⚠️ IP NOTE (resolved this follow-up, commit 2f0fa89 — DEPLOYED)
-The S95 P1 kami was a **Totoro look-alike** (Studio Ghibli) — user flagged it as a legal/trademark risk while it was LIVE. Reworked to clearly **ORIGINAL** spirits (the white kodama-style spirits also → generic firefly wisps). The NONET realm now shows a **guardian council** of FOUR original creatures the user approved (Totoros excluded): the big moss-kami (`kami.webp`, lantern raised) right of the board + an owl guardian (`owl-a.webp`) left + two small spirits in the lower corners (`owl-b.webp`, `moss-b.webp`). All in `public/art/nonet/`, keyed via Imagen-magenta-bg + Pillow hue/min-channel key. The vector 404-fallback in `sudokuOverlay.buildSpirits` is an original moss-kami too. Candidate images live on the desktop: `C:\Users\onesh\OneDrive\Desktop\nonet-kami-candidates\`. **TODO:** (a) concept refs in `assets-source/nonet-concepts*` are Totoro-derivative — delete/replace; (b) BROADER IP AUDIT — review ALL generated art (rainbow-flyover, voltkin sprites, seagull, etc.) for Ghibli/franchise resemblance (no-copy policy is general).
+## ⭐ NEXT LAYER (user-requested — start here)
+"Push forward on ambient life + other video loops + cool graphics." The NONET realm now has 4 animated original spirits (breathe/blink/hop/float) + a 16-firefly swarm. Build the NEXT layer of life on top:
+1. **Video/parallax dusk-sky background** behind the board — try `veo_generate` (gcp-vertex MCP) for a seamless looping forest-dusk clip, OR layered parallax of drifting silhouettes. Off-bundle in `public/art/nonet/`, lazy. Respect the photosensitivity 0.30-alpha cap precedent.
+2. **More ambient particles** — drifting leaves / spores / pollen motes (same pre-drawn-Graphics + sin-drift pattern as the fireflies in `sudokuOverlay.animateLife`).
+3. **Spirit micro-reactions** — occasional head-turn / lantern-lift; one spirit that wanders all the way across; a reaction beat when you place a number or SOLVE (spirits hop/cheer; tie to the existing resolve edge).
+4. **(stretch) veo creature video-loops** for the kami; keep everything off-bundle + in the lazy overlay chunk; the build bundle guard (560 KiB) only watches the main entry so off-bundle assets are free.
 
-## Next Steps
-1. ⭐ **RE-PLAYTEST NONET on https://spark-online.space/** (now live: P0 e23b8a8 + P1 92b7ea8 + P2 d5c54de + IP-rework 2f0fa89). Connect 9 of one shape in 1v1 → the Sudoku board MUST now appear (was the bug). Confirm: board shows + is solvable; the **original moss-spirit kami** shows right of the board AND on its Codex tile (NOT the old Totoro); **anime SFX** on cell-place/wrong/solve; on solve a **winner-colour screen flood + shake**. Test solo + 1v1 + bots. **If a chunk ever fails to load, the page now auto-reloads once** (stale-deploy fix) — that's expected, not a bug.
-2. ⭐ **RECONFIRM VOLTKIN (4 squares + 4 triangles)** now that NONET no longer freezes the session. Hypothesis: it failed last time as a downstream symptom of the 180s NONET hang, NOT its own bug (voltkin.test.ts 22/22 green; cutscene is eager, not a lazy-chunk casualty). If it STILL fails with NONET working → fresh diagnosis (consider a DEV `__SPARK__.forceVoltkin` hook mirroring the new `forceNonet`).
-3. TRUE 2-peer NONET playtest (real WebRTC, 2 browsers) — the host→client round-trip is now unit-covered (sudokuSync.test.ts) + the silent-hang is fixed, but the exact production trigger was never reproduced single-browser.
-4. Combo order-symmetry bug (S93): Triangle→Spiral magic vs Spiral→Triangle plain line — own PDR (LOCKED §6 amend).
-5. NONET Phase-2 remainder: parallax sky behind the overlay; optionally illustrate the **firefly wisps** as sprites (kami done; the wisps are now generic glowing orbs, IP-safe). Do NOT reuse the Totoro-derivative refs in assets-source/nonet-concepts*.
+Key files: `src/render/sudokuOverlay.ts` (`buildSpirits` + `animateLife`), `src/render/nonetJuice.ts` (pure anim/sfx helpers), `public/art/nonet/` (sprites). Imagen/veo via the gcp-vertex MCP (key valid this session).
+
+## Next Steps (after / alongside the next layer)
+2. RE-PLAYTEST NONET live on https://spark-online.space/ — board appears + solvable; 4 animated spirits + fireflies; anime SFX; winner-colour flood + shake on solve. Solo + 1v1 + bots.
+3. RECONFIRM VOLTKIN (4 squares + 4 triangles) — likely fixed as a side effect of the NONET hang fix (voltkin.test.ts 22/22 green; cutscene is eager). If still broken with NONET working → fresh diagnosis (consider a DEV `__SPARK__.forceVoltkin`).
+4. IP cleanup: delete/replace the Totoro-derivative concept refs in `assets-source/nonet-concepts*`; broader audit of other generated art (rainbow-flyover, voltkin, seagull) for franchise resemblance — no-copy policy is general.
+5. TRUE 2-peer NONET WebRTC playtest (round-trip is unit-covered; silent-hang fixed; exact prod trigger never reproduced single-browser).
+6. Combo order-symmetry bug (S93): Triangle→Spiral magic vs reverse plain line — own PDR (LOCKED §6 amend).
 
 ## Blockers
-None blocking. S95 shipped + deployed (Deploy CI green; bundle guard passes). The exact 1v1 production trigger for the NONET hang could not be reproduced single-browser — the fix eliminates the silent-hang failure mode regardless; a true 2-peer playtest is the final confirmation.
+None blocking. All S95 work shipped + deployed (Deploy CI green; bundle guard passes). STEP-0 review gate reads a cross-project session (known infra quirk; advisory until 2026-07-15).
 
 ## Pending Backlog
-- [ ] Re-playtest NONET live (board appears + solvable + kami + SFX + flood/shake)
-- [ ] Reconfirm Voltkin live (likely fixed as a side effect of the NONET fix)
+- [ ] NONET ambient-life NEXT layer (video/parallax bg, particles, spirit reactions) — user-requested
+- [ ] Re-playtest NONET live; reconfirm Voltkin live
+- [ ] IP: delete Totoro-derivative concept refs + broader art audit
 - [ ] True 2-peer NONET WebRTC playtest
 - [ ] Combo order-symmetry fix — own PDR (LOCKED §6)
-- [ ] NONET parallax sky + (optional) illustrated firefly-wisp sprites
-- [ ] IP: delete/replace Totoro-derivative concept refs in assets-source/nonet-concepts*
-- [ ] IP AUDIT: review all generated game art (rainbow-flyover, voltkin, seagull, etc.) for Ghibli/franchise resemblance — no-copy policy is general
 - [ ] USER DISCUSSION (deferred): combinatorial depth 6^6 ≈ 46k
 
 ## Recent Reflexion (last 2 sessions)
-**S95** — #a-silent-catchless-lazy-import-is-a-time-bomb-for-trigger-critical-ui (NONET overlay never appeared = unguarded latching lazy import, not a render bug; verify the LOAD path) · #key-a-stubborn-chroma-bg-by-its-minimum-channel-not-its-brightness (key on a hue/channel invariant the subject can't satisfy) · #a-soft-prose-charter-with-no-CI-guard-will-always-drift (raise + ENFORCE in the build + code-split to defend).
-**S94** — #one-root-cause-can-explain-two-symptoms (rainbow+poop stuck-white = one Silver-in-6-human-shuffle bug) · #a-per-tick-host-sweep-beats-a-per-event-hook · #a-synthetic-codex-entry-with-a-forward-compatible-asset-path.
+**S95 (cont., 06-22)** — #shipped-an-IP-look-alike-then-got-flagged-live (self-check generated art for franchise resemblance BEFORE shipping; prompt for original silhouettes) · #procedural-life-on-static-sprites-is-cheap (sin-driven breathe/blink/hop/float + firefly swarm; drive on wall-clock not world.tick; blink as a pure tested helper) · #verify-animation-by-state-sampling-not-one-screenshot (fresh preview server; sample sprite transforms at t and t+Δ).
+**S95 (06-21)** — #a-silent-catchless-lazy-import-is-a-time-bomb (verify the LOAD path, not just the render) · #key-a-stubborn-chroma-bg-by-its-minimum-channel (hue/channel invariant, not absolute colour distance) · #a-soft-prose-charter-with-no-CI-guard-will-always-drift (raise + ENFORCE in the build + code-split to defend).
