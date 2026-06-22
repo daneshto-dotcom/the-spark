@@ -25,7 +25,7 @@
       "scope": "Pipeline: transparent sprite -> dark dusk keyframe (Pillow) -> veo-3.1 image-to-video -> ffmpeg seamless xfade-loop + soft-vignette + opaque VP9 -> Pixi video texture, feathered alpha mask, video-primary/static-fallback, paused when hidden. Plus a dusk-forest ambient backdrop loop. OUT: procedural spirit reactions (user de-prioritised), IP cleanup, Voltkin.",
       "testing": "tsc 0; full vitest green (overlay not node-tested; no import-time break); build + bundle guard pass (entry flat 553.6/560 — video code lazy, assets off-bundle); LIVE preview: 4 spirit videos + backdrop load (readyState 4), play, advance + loop seamlessly, masked composite over the board, board legible, 0 console errors, procedural spirits list empties (video won all 4).",
       "check_completed": true,
-      "checkpoint_commit": "PENDING",
+      "checkpoint_commit": "639b140",
       "check_method": "S96 P1: NONET characters brought to life with real video. Pipeline (all proven end-to-end before fan-out): (1) Pillow composites each approved transparent sprite (kami/owl-a/owl-b/moss-b, 512^2 RGBA) onto a dark dusk-forest keyframe so veo has a rich opaque seed whose dark bg later melts into the overlay's dark backdrop; (2) veo-3.1-fast image-to-video, 9:16 720p 6s, personality-tailored motion prompt per character (elder breathes/blinks/lantern-flicker; owl-a head-turn+blink; owl-b peppy bounce+wing-flap; moss-b dreamy float) + an 8s 16:9 dusk-forest ambient backdrop (text-to-video); (3) ffmpeg seamless loop via xfade-against-self at offset=(D-CF) keeping the middle [CF,D] segment (first frame == last frame; measured seam diff mean 1.4/255), + mild vignette, stripped audio, opaque VP9 (libvpx alpha plane is broken in this build — both VP8/VP9 dropped it; alphamerge verified working pre-encode, so pivoted to render-time masking). Compositing in Pixi: manual HTMLVideoElement + Texture.from (explicit play/pause refs, muted->autoplay-allowed), each video sprite gets a feathered radial alpha-mask Sprite (spirit-mask.png), all in a dedicated realmLayer added before the board frame so async sprites render BEHIND the grid; backdrop at alpha 0.42; videos play on show / pause on hide, loop currentTimes desynced. Video is the PRIMARY layer over the S95 static-webp + procedural idle FALLBACK (whichever wins the load race wins; a guardian's procedural entry is dropped from this.spirits when its video loads -> animateLife never twitches a video). GATES: tsc 0; vitest 1488/1488; build+bundle guard green (entry 553.6/560, video code in the 12kB lazy chunk, ~2MB webm off-bundle); LIVE preview verified — constructed the overlay via the dev ESM module + a render pump, forceNonet active: 4 spirit videos + backdrop all readyState 4 + playing + currentTime advancing & looping, screenshot shows all 4 masked living spirits framing a legible board over the dusk backdrop, spirits[] empty (all 4 upgraded to video), 0 console errors. veo spend $2.10 (6 clips @ $0.35).",
       "verification": [
         { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/sudokuOverlay.ts", "needle": "private makeVideoSprite(" },
@@ -36,7 +36,7 @@
     {
       "id": "P2",
       "label": "S96 P2 — combo order-symmetry bug (S93): Triangle->Spiral magic vs reverse plain line; ~14/30 orderings asymmetric",
-      "status": "pending",
+      "status": "blocked_on_user",
       "phase": "PLAN",
       "tier": "Standard",
       "pdr_approved": true,
@@ -44,7 +44,13 @@
       "unlock_source": "user",
       "objective": "Make 2-type combos order-independent (commutative) so e.g. Triangle->Spiral and Spiral->Triangle yield the same magic result.",
       "scope": "Locate the combo lookup table; make lookups canonical/order-insensitive (or fill the missing reverse entries). Tests for symmetry across all pairs. OUT: changing which combos are magic (only symmetry).",
-      "testing": "tsc 0; vitest green + a new exhaustive symmetry test over all unordered type pairs."
+      "testing": "tsc 0; vitest green + a new exhaustive symmetry test over all unordered type pairs.",
+      "check_completed": true,
+      "checkpoint_commit": "PENDING",
+      "check_method": "S96 P2: ANALYZED, NOT auto-changed — correctly surfaced as a LOCKED-amend design decision rather than mechanically rewritten in an autonomous overnight session (INTEGRITY-WARNING + LOCKED protocol). FINDINGS: the combo table is INTENTIONALLY order-dependent (combos.ts:3 'Spec § V.1 LOCKED'; LOCKED_DECISIONS §6) and the order-dependence is asserted by THREE invariant tests (combos.test.ts:52 'at least one A->B differs from B->A', scoring.test.ts:126 Line->Dot is a placeholder, vortex.test.ts:125 Spiral->Dot is not a Vortex). It is load-bearing for scoring (MAGIC_BONUS premium + Filament trickle re-derived in carried->target order), discovery ('Combos N/14' HUD), and behavior helpers (Vortex/Filament/Anchor/Spindle). CRUCIALLY Triangle+Circle is a DELIBERATE dual-magic (Triangle->Circle=Wheel 3.0x vs Circle->Triangle=Star 2.0x) — a naive commutative fix would DELETE one of them. Symmetry map: 8 one-way-magic pairs (the real UX confusion), 1 dual-magic pair, 6 none, 4 magic self-pairs (= Magic-14). A commutative change would ~double magic occurrence -> inflate income -> break the S91-tuned ~157s match length (needs a rebalance). DELIVERABLE: docs/combo-order-symmetry-PDR.md — full symmetry map + 3 options (A full-commute / B mirror-the-8-keep-Wheel/Star / C keep-order-fix-UX) + impact analysis + recommendation (B+rebalance, or C as zero-risk). BLOCKED ON USER: pick option + (for B) confirm 'same magic both orders' + approve a rebalance. No code/spec changed; no tests broken; tsc/vitest still green.",
+      "verification": [
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/docs/combo-order-symmetry-PDR.md", "needle": "Triangle→Circle = Wheel" }
+      ]
     },
     {
       "id": "P3",
@@ -64,7 +70,9 @@
   "generative_cost_spent_prior_usd": 0.24,
   "generative_cost_spent_session_usd": 2.10,
   "budget_total": 1000000,
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    "P1 #image-to-video-beats-procedural-twitch-for-character-life: the user rejected the S95 procedural breathe/blink/hop/float sprite idle as 'an early-2000s PowerPoint shape spinning'. The fix was NOT better procedural math — it was a real asset pipeline: composite each approved sprite onto a dark dusk keyframe (Pillow), veo-3.1 image-to-video it into a rich loop (breathing, blinking, lantern flicker, wing-flap, drifting fireflies), ffmpeg into a seamless opaque VP9, composite in Pixi with a feathered alpha mask. LESSONS: (a) when libvpx can't encode an alpha plane (this build silently dropped it on BOTH VP8 and VP9 even though alphamerge verified varying alpha pre-encode), don't fight the codec — pivot to render-time masking (opaque video + a feathered Pixi alpha-mask sprite), which is also more tunable + universal; (b) a perfect seamless loop comes free from xfade-against-self at offset=(D-CF) keeping the middle [CF,D] segment (first frame == last; measured seam diff 1.4/255); (c) de-risk generative spend by calibrating ONE clip (auth + cost + fidelity) before fanning out the rest in PARALLEL — 6 veo clips for $2.10, all useful; (d) verify generative motion empirically (videos readyState 4 + currentTime advancing/looping + live screenshot), not by trusting the prompt."
+  ],
   "session_status": "S96 IN PROGRESS. P1 (NONET video life) COMPLETE + live-verified, commit pending. P2 (combo order-symmetry) + P3 (E2E v8->v9 + netcode) next. veo spend $2.10/$10 cap. Autonomous overnight build on explicit full-batch pre-approval.",
   "totals": { "turns": 0, "budget_remaining": 1000000, "budget_status": "GREEN" },
   "carry_forward": [
