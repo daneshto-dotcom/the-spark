@@ -14,7 +14,7 @@
  * Phase 2 swaps in illustrated sprites loaded off-bundle from public/art/nonet/.
  */
 
-import { Application, Assets, Container, type FederatedPointerEvent, Graphics, Sprite, Text, TextStyle } from 'pixi.js';
+import { Application, Assets, Container, type FederatedPointerEvent, Graphics, Sprite, Text, Texture, TextStyle } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, SPARK_COLORS, SparkType } from '../constants.ts';
 import type { World } from '../state/worldTypes.ts';
 import {
@@ -47,6 +47,21 @@ interface Firefly {
   readonly sx: number; readonly sy: number; // drift speed
   readonly px: number; readonly py: number; readonly pf: number; // phase offsets (x, y, flicker)
 }
+/** S96 — one guardian's placement + idle personality; drives both the video and static-fallback layers. */
+interface Guardian {
+  readonly id: string; // asset basename (kami | owl-a | owl-b | moss-b)
+  readonly x: number; readonly y: number; // on-stage centre
+  readonly vw: number; // on-stage video width (px); the matte ellipse + static sprite share this footprint
+  readonly staticScale: number; // fallback webp scale (512px source)
+  readonly behavior: SpiritBehavior; // procedural idle used ONLY while the video layer is absent
+  readonly phase: number;
+  readonly hero?: boolean; // the kami — also hides the vector placeholder on load
+}
+
+// S96 — character video loops are authored 540×960 (9:16) and the matte PNG matches; the dusk backdrop
+// loop is 1280×720 (16:9). Sprite scale = on-stage size ÷ these source widths.
+const SPIRIT_VID_W = 540;
+const BG_VID_W = 1280;
 
 const N = 6;
 const CELLS = 36;
@@ -89,6 +104,16 @@ export class SudokuOverlay {
   // S95 — the living realm: animated guardian spirits + a firefly swarm (driven per-frame in render()).
   private readonly spirits: SpiritAnim[] = [];
   private readonly fireflies: Firefly[] = [];
+  // S96 — the realm BROUGHT TO LIFE: veo-animated dusk video loops replace the procedural sprite idle.
+  // The video layer is primary; the S95 static webp + procedural idle is the fallback until/if a video
+  // loads. We hold the <video> elements to play on show / pause on hide. (vectorKami = hero 404-fallback.)
+  private vectorKami: Graphics | null = null;
+  private readonly spiritVideoEls: HTMLVideoElement[] = [];
+  private bgVideoEl: HTMLVideoElement | null = null;
+  private videosPlaying = false;
+  // S96 — one z-slot (added before the board frame) holding ALL decorative realm visuals, so async
+  // video sprites that resolve after the board is built still render BEHIND it, not over the grid.
+  private readonly realmLayer = new Container();
 
   private world: World | null = null;
   private entries: number[] = new Array(CELLS).fill(0);
@@ -217,14 +242,21 @@ export class SudokuOverlay {
   }
 
   /**
-   * Builds the LIVING realm: an original vector moss-kami (the 404-fallback) that the illustrated
-   * sprite upgrades, three more illustrated guardian spirits framing the board, and a firefly swarm.
-   * Each guardian registers into `this.spirits` with its OWN idle behaviour (breathe / blink / hop /
-   * float) and the fireflies into `this.fireflies`; animateLife() drives them all per frame. The
-   * designs are deliberately ORIGINAL (mossy forest spirits + owls, NOT a grey rabbit-cat — S95
-   * replaced a prior Totoro-look-alike to avoid any Studio-Ghibli IP risk).
+   * Builds the LIVING realm in three upgrade layers per guardian (latest wins):
+   *   1. vector moss-kami — instant 404-proof fallback for the hero (drawn here).
+   *   2. illustrated static webp sprite + a procedural idle (breathe/blink/hop/float) — the S95 look.
+   *   3. S96 — a veo-animated dusk VIDEO loop (image-to-video off each sprite, post-processed to a
+   *      seamless loop + soft-vignette matte) that REPLACES the procedural idle: real, painterly motion
+   *      (breathing, blinking, lantern flicker, drifting fireflies) instead of a transform twitch.
+   * When a guardian's video loads it hides that guardian's static sprite and drops its procedural
+   * entry from `this.spirits`, so animateLife() never twitches a video. A drifting firefly swarm and a
+   * dusk-forest backdrop video round out the scene. Designs are deliberately ORIGINAL (mossy spirits +
+   * owls — S95 replaced a prior Totoro-look-alike to avoid any Studio-Ghibli IP risk).
    */
   private buildSpirits(): void {
+    this.realmLayer.eventMode = 'none'; // purely decorative — never intercept board clicks
+    this.container.addChild(this.realmLayer);
+
     const kami = new Graphics();
     const kx = BX + BOARD + 150;
     const ky = BY + 250;
@@ -249,43 +281,23 @@ export class SudokuOverlay {
     // raised paper lantern (right arm)
     kami.rect(kx + 88, ky - 34, 8, 12).fill(0x6b4a2a); // cap
     kami.circle(kx + 92, ky - 8, 18).fill({ color: 0xff9a4a, alpha: 0.95 }); // lantern glow
-    this.container.addChild(kami);
+    this.realmLayer.addChild(kami);
+    this.vectorKami = kami;
 
-    // S95 — Phase-2 auto-upgrade: when the illustrated kami sprite is present, swap it in for the
-    // vector placeholder above; if the asset is absent (404) the vector spirit simply stays. The
-    // sprite loads async + sits to the RIGHT of the board (kx ≈ BX+BOARD+150) so it never occludes
-    // the grid. Same asset path as the Codex tile, so both upgrade off the same file.
-    void Assets.load('/art/nonet/kami.webp').then((tex) => {
-      const sprite = new Sprite(tex);
-      sprite.anchor.set(0.5);
-      sprite.position.set(kx, ky - 18);
-      sprite.scale.set(0.7); // 512 × 0.7 ≈ 358 px — matches the vector kami's footprint
-      this.container.addChild(sprite);
-      kami.visible = false;
-      // the big primary guardian BREATHES — stately + calm (it's the elder of the realm).
-      this.spirits.push({ sprite, bx: kx, by: ky - 18, s: 0.7, behavior: 'breathe', phase: 0 });
-    }).catch(() => { /* asset missing → keep the vector kami */ });
+    // S96 — a slow dusk-forest ambient video drifts behind the board (above the dim backdrop).
+    this.loadBackdropVideo();
 
-    // S95 — additional illustrated guardian spirits framing the realm (the moss + owl pair the user
-    // approved). Each loads off-bundle from public/art/nonet/ and is skipped silently if absent.
-    // Positioned in the margins around the board (left + lower corners) so none occludes the grid or
-    // the hint/result text (centred ~x=960); the main moss-kami above stays the largest. Decorative
-    // → no vector fallback. They share the sprite layer with the kami (added on top, in the margins).
-    const GUARDIANS: ReadonlyArray<{ url: string; x: number; y: number; scale: number; behavior: SpiritBehavior; phase: number }> = [
-      { url: '/art/nonet/owl-a.webp', x: BX - 210, y: BY + 260, scale: 0.44, behavior: 'blink', phase: 0.6 }, // left — watchful, blinks + sways
-      { url: '/art/nonet/owl-b.webp', x: BX - 100, y: BY + BOARD + 95, scale: 0.28, behavior: 'hop', phase: 1.7 }, // lower-left — peppy hopper that patrols
-      { url: '/art/nonet/moss-b.webp', x: BX + BOARD + 100, y: BY + BOARD + 95, scale: 0.28, behavior: 'float', phase: 3.1 }, // lower-right — dreamy floater
+    // S96 — guardians framing the board, in the LEFT + RIGHT margins only (the board+frame fills the
+    // centre x≈630–1290 and there is no room below it on a 1080-tall stage). Each gets a video layer
+    // (primary) over a static-sprite layer (fallback). The hero kami additionally hides the vector
+    // placeholder above when EITHER of its richer layers loads. `vw` = on-stage video width in px.
+    const GUARDIANS: ReadonlyArray<Guardian> = [
+      { id: 'kami', x: 1595, y: 425, vw: 340, staticScale: 0.52, behavior: 'breathe', phase: 0.0, hero: true }, // right-upper — stately elder
+      { id: 'owl-a', x: 325, y: 415, vw: 300, staticScale: 0.42, behavior: 'blink', phase: 0.6 }, // left-upper — watchful
+      { id: 'owl-b', x: 340, y: 870, vw: 235, staticScale: 0.30, behavior: 'hop', phase: 1.7 }, // left-lower — peppy
+      { id: 'moss-b', x: 1580, y: 875, vw: 235, staticScale: 0.30, behavior: 'float', phase: 3.1 }, // right-lower — dreamy
     ];
-    for (const g of GUARDIANS) {
-      void Assets.load(g.url).then((tex) => {
-        const s = new Sprite(tex);
-        s.anchor.set(0.5);
-        s.position.set(g.x, g.y);
-        s.scale.set(g.scale);
-        this.container.addChild(s);
-        this.spirits.push({ sprite: s, bx: g.x, by: g.y, s: g.scale, behavior: g.behavior, phase: g.phase });
-      }).catch(() => { /* decorative — skip if absent */ });
-    }
+    GUARDIANS.forEach((g, i) => this.buildGuardian(g, i));
 
     // S95 — a SWARM of drifting, twinkling fireflies that wander the realm (replaces the 3 static
     // wisps). Each is a pre-drawn glow (core + halo) whose position + alpha animate per-frame in
@@ -299,13 +311,121 @@ export class SudokuOverlay {
       const bx = BX - 150 + Math.random() * (BOARD + 360);
       const by = BY - 70 + Math.random() * (BOARD + 300);
       g.position.set(bx, by);
-      this.container.addChild(g);
+      this.realmLayer.addChild(g);
       this.fireflies.push({
         g, bx, by,
         ax: 22 + Math.random() * 46, ay: 16 + Math.random() * 36,
         sx: 0.3 + Math.random() * 0.8, sy: 0.3 + Math.random() * 0.8,
         px: Math.random() * 6.283, py: Math.random() * 6.283, pf: Math.random() * 6.283,
       });
+    }
+  }
+
+  /**
+   * S96 — builds one guardian's two upgrade layers into the realm layer. The static webp + procedural
+   * idle (S95) shows first as a fallback; when the veo video loop loads it hides that sprite, drops its
+   * procedural entry so animateLife() stops twitching it, and plays the masked video. `index` desyncs
+   * the loops. Whichever layer wins the load race first wins (the other yields), so a missing/broken
+   * video silently leaves the static spirit, and a fast video skips the static layer entirely.
+   */
+  private buildGuardian(g: Guardian, index: number): void {
+    let staticEntry: SpiritAnim | null = null;
+    let videoTookOver = false;
+
+    // layer 2 — static webp + procedural idle (fallback)
+    void Assets.load(`/art/nonet/${g.id}.webp`).then((tex: Texture) => {
+      if (videoTookOver) return; // the video already won — don't add a redundant static sprite
+      const s = new Sprite(tex);
+      s.anchor.set(0.5);
+      s.position.set(g.x, g.y);
+      s.scale.set(g.staticScale);
+      this.realmLayer.addChild(s);
+      if (g.hero) this.hideVectorKami();
+      staticEntry = { sprite: s, bx: g.x, by: g.y, s: g.staticScale, behavior: g.behavior, phase: g.phase };
+      this.spirits.push(staticEntry);
+    }).catch(() => { /* no sprite → vector kami (hero) or nothing */ });
+
+    // layer 3 — veo dusk video loop (primary), masked to a soft feathered vignette
+    void Promise.all([
+      this.makeVideoSprite(`/art/nonet/${g.id}.webm`, g.x, g.y, g.vw / SPIRIT_VID_W),
+      Assets.load('/art/nonet/spirit-mask.png') as Promise<Texture>,
+    ]).then(([made, maskTex]) => {
+      videoTookOver = true;
+      const { sprite, video } = made;
+      const mask = new Sprite(maskTex);
+      mask.anchor.set(0.5);
+      mask.position.set(g.x, g.y);
+      mask.scale.set(g.vw / SPIRIT_VID_W);
+      this.realmLayer.addChild(mask);
+      this.realmLayer.addChild(sprite);
+      sprite.mask = mask; // feathered alpha matte — the dark dusk surround melts into the overlay
+      if (g.hero) this.hideVectorKami();
+      if (staticEntry) { // retire the fallback layer for this guardian
+        staticEntry.sprite.visible = false;
+        const i = this.spirits.indexOf(staticEntry);
+        if (i >= 0) this.spirits.splice(i, 1);
+      }
+      try { video.currentTime = (index * 1.1) % 4; } catch { /* seek before metadata — harmless */ }
+      this.spiritVideoEls.push(video);
+      if (this.container.visible) void video.play().catch(() => { /* autoplay deferred to next show */ });
+    }).catch(() => { /* video unavailable → the static sprite + procedural idle remains */ });
+  }
+
+  private hideVectorKami(): void {
+    if (this.vectorKami) this.vectorKami.visible = false;
+  }
+
+  /**
+   * Creates a looping, muted, paused <video> + a Pixi sprite bound to it. Resolves only once the element
+   * has decoded its first frame (so the texture is never a 0×0 black box); rejects on error so the
+   * caller can fall back. Muted + no audio track ⇒ autoplay is permitted once we call play() on show.
+   */
+  private makeVideoSprite(
+    url: string,
+    x: number,
+    y: number,
+    scale: number,
+  ): Promise<{ sprite: Sprite; video: HTMLVideoElement }> {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.src = url;
+      video.loop = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+      video.addEventListener('error', () => reject(new Error(`video load failed: ${url}`)), { once: true });
+      video.addEventListener('loadeddata', () => {
+        const sprite = new Sprite(Texture.from(video));
+        sprite.anchor.set(0.5);
+        sprite.position.set(x, y);
+        sprite.scale.set(scale);
+        resolve({ sprite, video });
+      }, { once: true });
+      video.load();
+    });
+  }
+
+  /** S96 — the dusk-forest ambient backdrop loop, drifting above the dim layer behind the board. */
+  private loadBackdropVideo(): void {
+    void this.makeVideoSprite('/art/nonet/bg.webm', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH / BG_VID_W)
+      .then(({ sprite, video }) => {
+        sprite.alpha = 0.42; // slow ambient (no strobe) — calm dusk wash, not a flash
+        sprite.eventMode = 'none';
+        this.realmLayer.addChildAt(sprite, 0); // bottom of the realm layer → behind every spirit
+        this.bgVideoEl = video;
+        if (this.container.visible) void video.play().catch(() => { /* deferred to next show */ });
+      })
+      .catch(() => { /* no backdrop video → the static dusk sky band remains */ });
+  }
+
+  /** S96 — play all realm videos while the overlay is visible; pause them when hidden to spare the GPU. */
+  private setVideosPlaying(on: boolean): void {
+    if (on === this.videosPlaying) return;
+    this.videosPlaying = on;
+    const els = this.bgVideoEl ? [...this.spiritVideoEls, this.bgVideoEl] : this.spiritVideoEls;
+    for (const el of els) {
+      if (on) void el.play().catch(() => { /* may need a gesture; retried on next show */ });
+      else el.pause();
     }
   }
 
@@ -351,6 +471,7 @@ export class SudokuOverlay {
     const ev = world.sudoku;
     if (ev === null) {
       this.container.visible = false;
+      this.setVideosPlaying(false); // pause the realm loops while the overlay is dismissed
       this.activeSeed = null;
       return;
     }
@@ -368,7 +489,8 @@ export class SudokuOverlay {
       playNonetAppear();
     }
     this.container.visible = true;
-    this.animateLife(); // S95 — drive the living spirits + fireflies each visible frame
+    this.setVideosPlaying(true); // S96 — the realm video loops play while the trial is on screen
+    this.animateLife(); // S95 — drive any remaining static spirits + the firefly swarm each visible frame
     const resolved = ev.resolvedTick !== null;
 
     // S95 — resolve rising edge: fire the outcome SFX + kick off the winner-colour flood (once).

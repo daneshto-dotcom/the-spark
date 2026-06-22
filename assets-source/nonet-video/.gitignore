@@ -1,0 +1,4 @@
+# S96 — regenerable intermediates: raw veo mp4 downloads + extracted verification frames.
+# The shipped loops live in public/art/nonet/*.webm; keyframes/ + the scripts are kept for reproducibility.
+raw/
+work/
