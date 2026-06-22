@@ -3,7 +3,8 @@
  *
  * A full-screen Pixi overlay shown while world.sudoku is active. Late-90s arcade-Tetris
  * visual language (beveled jewel cells, gold cloisonné frame, CRT scanlines, chunky bitmap
- * numerals) fused with a Ghibli dusk world (a forest-kami guardian + kodama). The six Sudoku
+ * numerals) fused with a painterly dusk-folklore world (an ORIGINAL mossy forest-kami guardian +
+ * firefly wisps — deliberately NOT modeled on any existing studio character). The six Sudoku
  * digits ARE the six SparkType colours, so it reads as a colour-logic puzzle in SPARK's own
  * alphabet (the numeral is the colour-blind-safe primary token).
  *
@@ -192,21 +193,38 @@ export class SudokuOverlay {
     app.stage.addChild(this.container);
   }
 
-  /** Vector kami guardian + two kodama (Phase-1 placeholders for the Ghibli art). */
+  /**
+   * Original vector moss-kami guardian + two firefly wisps (Phase-1 placeholders; the illustrated
+   * sprite below upgrades the kami when public/art/nonet/kami.webp is present). The design is a
+   * deliberately ORIGINAL mossy forest spirit — a rounded mossy body, a sprout tuft, calm jade
+   * eyes, firefly freckles, a carved stone amulet, and a raised paper lantern — NOT a grey
+   * rabbit-cat (S95: replaced the prior Totoro-look-alike to avoid any Studio-Ghibli IP risk).
+   */
   private buildSpirits(): void {
     const kami = new Graphics();
     const kx = BX + BOARD + 150;
     const ky = BY + 250;
-    kami.ellipse(kx, ky, 95, 130).fill(0x5f7486); // body
-    kami.ellipse(kx + 4, ky + 24, 56, 88).fill(0xb9c4cb); // belly
-    kami.poly([kx - 44, ky - 110, kx - 28, ky - 184, kx - 8, ky - 112]).fill(0x5f7486); // ear L
-    kami.poly([kx + 6, ky - 112, kx + 28, ky - 186, kx + 48, ky - 110]).fill(0x5f7486); // ear R
-    kami.circle(kx - 26, ky - 96, 17).fill(0xffffff);
-    kami.circle(kx + 22, ky - 96, 17).fill(0xffffff);
-    kami.circle(kx - 24, ky - 94, 7).fill(0x23303a);
-    kami.circle(kx + 20, ky - 94, 7).fill(0x23303a);
-    kami.poly([kx - 8, ky - 72, kx + 8, ky - 72, kx, ky - 60]).fill(0x34424c); // nose
-    kami.circle(kx + 78, ky + 70, 16).fill({ color: 0xff9a4a, alpha: 0.95 }); // lantern
+    // rounded mossy body
+    kami.ellipse(kx, ky, 100, 122).fill(0x2f4a45);
+    kami.ellipse(kx, ky + 34, 90, 92).fill(0x26403b); // lower shade
+    // sprout tuft
+    kami.moveTo(kx, ky - 116).lineTo(kx, ky - 150).stroke({ width: 5, color: 0x6fae5e });
+    kami.ellipse(kx - 11, ky - 150, 9, 17).fill(0x6fae5e); // leaf L
+    kami.ellipse(kx + 11, ky - 150, 9, 17).fill(0x7cbf66); // leaf R
+    // calm glowing jade eyes
+    kami.circle(kx - 30, ky - 18, 13).fill(0xcfe9cf);
+    kami.circle(kx + 30, ky - 18, 13).fill(0xcfe9cf);
+    kami.circle(kx - 30, ky - 18, 5).fill(0x223028);
+    kami.circle(kx + 30, ky - 18, 5).fill(0x223028);
+    // firefly freckles
+    for (const [fx, fy] of [[kx - 52, ky + 6], [kx - 22, ky + 44], [kx + 16, ky - 52], [kx + 48, ky + 22], [kx - 8, ky + 74], [kx + 58, ky - 8]]) {
+      kami.circle(fx, fy, 3).fill({ color: 0xdff0a0, alpha: 0.9 });
+    }
+    // carved stone amulet
+    kami.roundRect(kx - 14, ky + 36, 28, 36, 9).fill(0x8a949a).stroke({ width: 2, color: 0x5d6469 });
+    // raised paper lantern (right arm)
+    kami.rect(kx + 88, ky - 34, 8, 12).fill(0x6b4a2a); // cap
+    kami.circle(kx + 92, ky - 8, 18).fill({ color: 0xff9a4a, alpha: 0.95 }); // lantern glow
     this.container.addChild(kami);
 
     // S95 — Phase-2 auto-upgrade: when the illustrated kami sprite is present, swap it in for the
@@ -222,13 +240,13 @@ export class SudokuOverlay {
       kami.visible = false;
     }).catch(() => { /* asset missing → keep the vector kami */ });
 
+    // Two small glowing firefly-wisps drifting near the board — generic spirits, no faces (S95:
+    // replaced the prior white kodama-style spirits to keep the realm clear of Ghibli references).
     for (const [x, y] of [[BX - 110, BY + BOARD + 10], [BX + BOARD + 60, BY + BOARD - 20]]) {
-      const k = new Graphics();
-      k.ellipse(x, y, 16, 20).fill(0xe9efe2);
-      k.circle(x - 5, y - 4, 3).fill(0x2a2a2a);
-      k.circle(x + 5, y - 4, 3).fill(0x2a2a2a);
-      k.ellipse(x, y + 5, 3.5, 2.5).fill(0x2a2a2a);
-      this.container.addChild(k);
+      const wisp = new Graphics();
+      wisp.circle(x, y, 18).fill({ color: 0xdff0a0, alpha: 0.16 }); // soft halo
+      wisp.circle(x, y, 9).fill({ color: 0xe8f6b0, alpha: 0.85 }); // glowing core
+      this.container.addChild(wisp);
     }
   }
 
