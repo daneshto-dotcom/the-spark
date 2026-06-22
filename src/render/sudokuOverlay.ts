@@ -240,9 +240,29 @@ export class SudokuOverlay {
       kami.visible = false;
     }).catch(() => { /* asset missing → keep the vector kami */ });
 
-    // Two small glowing firefly-wisps drifting near the board — generic spirits, no faces (S95:
+    // S95 — additional illustrated guardian spirits framing the realm (the moss + owl pair the user
+    // approved). Each loads off-bundle from public/art/nonet/ and is skipped silently if absent.
+    // Positioned in the margins around the board (left + lower corners) so none occludes the grid or
+    // the hint/result text (centred ~x=960); the main moss-kami above stays the largest. Decorative
+    // → no vector fallback. They share the sprite layer with the kami (added on top, in the margins).
+    const GUARDIANS: ReadonlyArray<{ url: string; x: number; y: number; scale: number }> = [
+      { url: '/art/nonet/owl-a.webp', x: BX - 210, y: BY + 260, scale: 0.44 }, // left guardian
+      { url: '/art/nonet/owl-b.webp', x: BX - 100, y: BY + BOARD + 95, scale: 0.28 }, // lower-left
+      { url: '/art/nonet/moss-b.webp', x: BX + BOARD + 100, y: BY + BOARD + 95, scale: 0.28 }, // lower-right
+    ];
+    for (const g of GUARDIANS) {
+      void Assets.load(g.url).then((tex) => {
+        const s = new Sprite(tex);
+        s.anchor.set(0.5);
+        s.position.set(g.x, g.y);
+        s.scale.set(g.scale);
+        this.container.addChild(s);
+      }).catch(() => { /* decorative — skip if absent */ });
+    }
+
+    // A few small glowing firefly-wisps drifting near the board — generic spirits, no faces (S95:
     // replaced the prior white kodama-style spirits to keep the realm clear of Ghibli references).
-    for (const [x, y] of [[BX - 110, BY + BOARD + 10], [BX + BOARD + 60, BY + BOARD - 20]]) {
+    for (const [x, y] of [[BX - 60, BY + 30], [BX + BOARD + 70, BY + 40], [BX + BOARD - 30, BY + BOARD + 60]]) {
       const wisp = new Graphics();
       wisp.circle(x, y, 18).fill({ color: 0xdff0a0, alpha: 0.16 }); // soft halo
       wisp.circle(x, y, 9).fill({ color: 0xe8f6b0, alpha: 0.85 }); // glowing core

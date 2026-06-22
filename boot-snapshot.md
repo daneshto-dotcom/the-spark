@@ -2,7 +2,7 @@
 Generated: 2026-06-22 | Session: S95 (+ IP-rework follow-up)
 
 ## ⚠️ IP NOTE (resolved this follow-up, commit 2f0fa89 — DEPLOYED)
-The S95 P1 kami was a **Totoro look-alike** (Studio Ghibli) — user flagged it as a legal/trademark risk while it was LIVE. Reworked to a clearly **ORIGINAL mossy seedpod forest-spirit** (sprite `public/art/nonet/kami.webp` + the vector 404-fallback in `sudokuOverlay.buildSpirits` + the white kodama-style spirits → generic firefly wisps). Live now. User declined to pick among 4 candidates; I shipped my recommendation (moss-spirit, lantern raised). An **owl-guardian variant** was also generated if a swap is wanted (regen via Imagen; magenta-bg + `/tmp`-style hue/min-channel key). **TODO:** (a) the concept refs in `assets-source/nonet-concepts/` + `-v2/` are Totoro-derivative — delete or replace; (b) BROADER IP AUDIT — review ALL generated art (rainbow-flyover, voltkin sprites, seagull, any other AI art) for resemblance to Ghibli/other franchises, since the no-copy policy is general.
+The S95 P1 kami was a **Totoro look-alike** (Studio Ghibli) — user flagged it as a legal/trademark risk while it was LIVE. Reworked to clearly **ORIGINAL** spirits (the white kodama-style spirits also → generic firefly wisps). The NONET realm now shows a **guardian council** of FOUR original creatures the user approved (Totoros excluded): the big moss-kami (`kami.webp`, lantern raised) right of the board + an owl guardian (`owl-a.webp`) left + two small spirits in the lower corners (`owl-b.webp`, `moss-b.webp`). All in `public/art/nonet/`, keyed via Imagen-magenta-bg + Pillow hue/min-channel key. The vector 404-fallback in `sudokuOverlay.buildSpirits` is an original moss-kami too. Candidate images live on the desktop: `C:\Users\onesh\OneDrive\Desktop\nonet-kami-candidates\`. **TODO:** (a) concept refs in `assets-source/nonet-concepts*` are Totoro-derivative — delete/replace; (b) BROADER IP AUDIT — review ALL generated art (rainbow-flyover, voltkin sprites, seagull, etc.) for Ghibli/franchise resemblance (no-copy policy is general).
 
 ## Next Steps
 1. ⭐ **RE-PLAYTEST NONET on https://spark-online.space/** (now live: P0 e23b8a8 + P1 92b7ea8 + P2 d5c54de + IP-rework 2f0fa89). Connect 9 of one shape in 1v1 → the Sudoku board MUST now appear (was the bug). Confirm: board shows + is solvable; the **original moss-spirit kami** shows right of the board AND on its Codex tile (NOT the old Totoro); **anime SFX** on cell-place/wrong/solve; on solve a **winner-colour screen flood + shake**. Test solo + 1v1 + bots. **If a chunk ever fails to load, the page now auto-reloads once** (stale-deploy fix) — that's expected, not a bug.
@@ -22,7 +22,6 @@ None blocking. S95 shipped + deployed (Deploy CI green; bundle guard passes). Th
 - [ ] NONET parallax sky + (optional) illustrated firefly-wisp sprites
 - [ ] IP: delete/replace Totoro-derivative concept refs in assets-source/nonet-concepts*
 - [ ] IP AUDIT: review all generated game art (rainbow-flyover, voltkin, seagull, etc.) for Ghibli/franchise resemblance — no-copy policy is general
-- [ ] (optional) swap the moss-spirit kami for the owl variant if user prefers
 - [ ] USER DISCUSSION (deferred): combinatorial depth 6^6 ≈ 46k
 
 ## Recent Reflexion (last 2 sessions)
