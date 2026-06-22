@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import {
   FLOOD_DURATION_TICKS,
   FLOOD_PEAK_ALPHA,
+  blinkPulse,
   floodAlpha,
   resolveFloodColor,
   solveArpeggio,
@@ -65,5 +66,33 @@ describe('S95 — solveArpeggio', () => {
     const notes = solveArpeggio();
     expect(notes).toHaveLength(4);
     for (let i = 1; i < notes.length; i++) expect(notes[i]).toBeGreaterThan(notes[i - 1]);
+  });
+});
+
+describe('S95 — blinkPulse (living-spirit blink envelope)', () => {
+  it('eyes open (0) outside the blink window, fully shut (1) at its centre', () => {
+    expect(blinkPulse(0, 0, 3.3, 0.14)).toBe(0); // window start = just opening
+    expect(blinkPulse(0.07, 0, 3.3, 0.14)).toBeCloseTo(1, 5); // dur/2 = fully shut
+    expect(blinkPulse(1.5, 0, 3.3, 0.14)).toBe(0); // mid-period = open
+  });
+
+  it('is bounded to [0,1] for all inputs and repeats each period', () => {
+    for (let t = -2; t <= 10; t += 0.013) {
+      const v = blinkPulse(t);
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(1 + 1e-9);
+    }
+    expect(blinkPulse(3.3 + 0.07)).toBeCloseTo(blinkPulse(0.07), 5); // one period later
+  });
+
+  it('phase desyncs two spirits (different value at the same t)', () => {
+    // a spirit mid-blink vs one with eyes open at the same instant
+    expect(blinkPulse(0.07, 0)).toBeCloseTo(1, 5);
+    expect(blinkPulse(0.07, 1.5)).toBe(0);
+  });
+
+  it('degenerate period/dur are safe (return 0, no divide-by-zero)', () => {
+    expect(blinkPulse(1, 0, 0, 0.1)).toBe(0);
+    expect(blinkPulse(1, 0, 3.3, 0)).toBe(0);
   });
 });

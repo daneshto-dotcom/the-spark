@@ -18,6 +18,7 @@ import { Application, Assets, Container, type FederatedPointerEvent, Graphics, S
 import { CANVAS_HEIGHT, CANVAS_WIDTH, SPARK_COLORS, SparkType } from '../constants.ts';
 import type { World } from '../state/worldTypes.ts';
 import {
+  blinkPulse,
   floodAlpha,
   playNonetAppear,
   playNonetLose,
@@ -27,6 +28,25 @@ import {
   playNonetWrong,
   resolveFloodColor,
 } from './nonetJuice.ts';
+
+/** S95 — per-spirit idle behaviour; each illustrated guardian gets a DIFFERENT one so the realm reads as alive. */
+type SpiritBehavior = 'breathe' | 'blink' | 'hop' | 'float';
+interface SpiritAnim {
+  readonly sprite: Sprite;
+  readonly bx: number; // base (home) position the animation oscillates around
+  readonly by: number;
+  readonly s: number; // base scale
+  readonly behavior: SpiritBehavior;
+  readonly phase: number; // desync offset so spirits don't move in lockstep
+}
+/** A drifting, twinkling firefly mote (pre-drawn Graphics; only position + alpha animate). */
+interface Firefly {
+  readonly g: Graphics;
+  readonly bx: number; readonly by: number;
+  readonly ax: number; readonly ay: number; // drift amplitude
+  readonly sx: number; readonly sy: number; // drift speed
+  readonly px: number; readonly py: number; readonly pf: number; // phase offsets (x, y, flicker)
+}
 
 const N = 6;
 const CELLS = 36;
@@ -66,6 +86,9 @@ export class SudokuOverlay {
   private floodStartTick = -1;
   private floodColor = 0xffffff;
   private prevResolved = false;
+  // S95 — the living realm: animated guardian spirits + a firefly swarm (driven per-frame in render()).
+  private readonly spirits: SpiritAnim[] = [];
+  private readonly fireflies: Firefly[] = [];
 
   private world: World | null = null;
   private entries: number[] = new Array(CELLS).fill(0);
@@ -194,11 +217,12 @@ export class SudokuOverlay {
   }
 
   /**
-   * Original vector moss-kami guardian + two firefly wisps (Phase-1 placeholders; the illustrated
-   * sprite below upgrades the kami when public/art/nonet/kami.webp is present). The design is a
-   * deliberately ORIGINAL mossy forest spirit — a rounded mossy body, a sprout tuft, calm jade
-   * eyes, firefly freckles, a carved stone amulet, and a raised paper lantern — NOT a grey
-   * rabbit-cat (S95: replaced the prior Totoro-look-alike to avoid any Studio-Ghibli IP risk).
+   * Builds the LIVING realm: an original vector moss-kami (the 404-fallback) that the illustrated
+   * sprite upgrades, three more illustrated guardian spirits framing the board, and a firefly swarm.
+   * Each guardian registers into `this.spirits` with its OWN idle behaviour (breathe / blink / hop /
+   * float) and the fireflies into `this.fireflies`; animateLife() drives them all per frame. The
+   * designs are deliberately ORIGINAL (mossy forest spirits + owls, NOT a grey rabbit-cat — S95
+   * replaced a prior Totoro-look-alike to avoid any Studio-Ghibli IP risk).
    */
   private buildSpirits(): void {
     const kami = new Graphics();
@@ -238,6 +262,8 @@ export class SudokuOverlay {
       sprite.scale.set(0.7); // 512 × 0.7 ≈ 358 px — matches the vector kami's footprint
       this.container.addChild(sprite);
       kami.visible = false;
+      // the big primary guardian BREATHES — stately + calm (it's the elder of the realm).
+      this.spirits.push({ sprite, bx: kx, by: ky - 18, s: 0.7, behavior: 'breathe', phase: 0 });
     }).catch(() => { /* asset missing → keep the vector kami */ });
 
     // S95 — additional illustrated guardian spirits framing the realm (the moss + owl pair the user
@@ -245,10 +271,10 @@ export class SudokuOverlay {
     // Positioned in the margins around the board (left + lower corners) so none occludes the grid or
     // the hint/result text (centred ~x=960); the main moss-kami above stays the largest. Decorative
     // → no vector fallback. They share the sprite layer with the kami (added on top, in the margins).
-    const GUARDIANS: ReadonlyArray<{ url: string; x: number; y: number; scale: number }> = [
-      { url: '/art/nonet/owl-a.webp', x: BX - 210, y: BY + 260, scale: 0.44 }, // left guardian
-      { url: '/art/nonet/owl-b.webp', x: BX - 100, y: BY + BOARD + 95, scale: 0.28 }, // lower-left
-      { url: '/art/nonet/moss-b.webp', x: BX + BOARD + 100, y: BY + BOARD + 95, scale: 0.28 }, // lower-right
+    const GUARDIANS: ReadonlyArray<{ url: string; x: number; y: number; scale: number; behavior: SpiritBehavior; phase: number }> = [
+      { url: '/art/nonet/owl-a.webp', x: BX - 210, y: BY + 260, scale: 0.44, behavior: 'blink', phase: 0.6 }, // left — watchful, blinks + sways
+      { url: '/art/nonet/owl-b.webp', x: BX - 100, y: BY + BOARD + 95, scale: 0.28, behavior: 'hop', phase: 1.7 }, // lower-left — peppy hopper that patrols
+      { url: '/art/nonet/moss-b.webp', x: BX + BOARD + 100, y: BY + BOARD + 95, scale: 0.28, behavior: 'float', phase: 3.1 }, // lower-right — dreamy floater
     ];
     for (const g of GUARDIANS) {
       void Assets.load(g.url).then((tex) => {
@@ -257,16 +283,65 @@ export class SudokuOverlay {
         s.position.set(g.x, g.y);
         s.scale.set(g.scale);
         this.container.addChild(s);
+        this.spirits.push({ sprite: s, bx: g.x, by: g.y, s: g.scale, behavior: g.behavior, phase: g.phase });
       }).catch(() => { /* decorative — skip if absent */ });
     }
 
-    // A few small glowing firefly-wisps drifting near the board — generic spirits, no faces (S95:
-    // replaced the prior white kodama-style spirits to keep the realm clear of Ghibli references).
-    for (const [x, y] of [[BX - 60, BY + 30], [BX + BOARD + 70, BY + 40], [BX + BOARD - 30, BY + BOARD + 60]]) {
-      const wisp = new Graphics();
-      wisp.circle(x, y, 18).fill({ color: 0xdff0a0, alpha: 0.16 }); // soft halo
-      wisp.circle(x, y, 9).fill({ color: 0xe8f6b0, alpha: 0.85 }); // glowing core
-      this.container.addChild(wisp);
+    // S95 — a SWARM of drifting, twinkling fireflies that wander the realm (replaces the 3 static
+    // wisps). Each is a pre-drawn glow (core + halo) whose position + alpha animate per-frame in
+    // animateLife(). Added here (before the board/frame) so they twinkle in the dusk sky and pass
+    // BEHIND the board — natural, and keeps the grid numerals clean. Light randomness so the swarm
+    // never looks gridded (decorative → Math.random is fine; no determinism needed).
+    for (let i = 0; i < 16; i++) {
+      const g = new Graphics();
+      g.circle(0, 0, 5).fill({ color: 0xeaf7a0, alpha: 0.16 }); // halo
+      g.circle(0, 0, 2.1).fill({ color: 0xf6ffc0, alpha: 0.95 }); // core
+      const bx = BX - 150 + Math.random() * (BOARD + 360);
+      const by = BY - 70 + Math.random() * (BOARD + 300);
+      g.position.set(bx, by);
+      this.container.addChild(g);
+      this.fireflies.push({
+        g, bx, by,
+        ax: 22 + Math.random() * 46, ay: 16 + Math.random() * 36,
+        sx: 0.3 + Math.random() * 0.8, sy: 0.3 + Math.random() * 0.8,
+        px: Math.random() * 6.283, py: Math.random() * 6.283, pf: Math.random() * 6.283,
+      });
+    }
+  }
+
+  /**
+   * S95 — per-frame "life" pass: each guardian spirit idles with its OWN behaviour (breathe / blink
+   * / hop-patrol / float) and the firefly swarm drifts + twinkles. Driven by wall-clock seconds
+   * (performance.now) so motion is smooth + frame-rate independent regardless of the host tick rate;
+   * decorative-only so no determinism is needed. Called from render() while the overlay is visible.
+   */
+  private animateLife(): void {
+    const t = performance.now() / 1000;
+    for (const sp of this.spirits) {
+      const { sprite, bx, by, s, behavior, phase } = sp;
+      if (behavior === 'breathe') {
+        const br = Math.sin(t * 1.05 + phase); // ~6 s breath cycle
+        sprite.scale.set(s * (1 - 0.016 * br), s * (1 + 0.03 * br)); // belly swells, slight x squash
+        sprite.position.set(bx, by + 4 * Math.sin(t * 0.7 + phase));
+        sprite.rotation = 0.012 * Math.sin(t * 0.4 + phase);
+      } else if (behavior === 'blink') {
+        const blink = blinkPulse(t, phase);
+        sprite.scale.set(s, s * (1 - 0.55 * blink)); // quick vertical squint = a blink
+        sprite.rotation = 0.05 * Math.sin(t * 0.45 + phase); // gentle head sway
+        sprite.position.set(bx, by + 3 * Math.sin(t * 0.6 + phase));
+      } else if (behavior === 'hop') {
+        const hop = Math.abs(Math.sin(t * 2.05 + phase)); // bouncy
+        const land = 1 - hop; // 1 at the bottom of the bounce
+        sprite.position.set(bx + 30 * Math.sin(t * 0.5 + phase), by - 16 * hop); // patrols L↔R while hopping
+        sprite.scale.set(s * (1 + 0.12 * land), s * (1 - 0.12 * land)); // squash on landing
+      } else { // float
+        sprite.position.set(bx + 20 * Math.sin(t * 0.55 + phase), by + 12 * Math.sin(t * 0.85 + phase + 1));
+        sprite.rotation = 0.06 * Math.sin(t * 0.65 + phase);
+      }
+    }
+    for (const f of this.fireflies) {
+      f.g.position.set(f.bx + f.ax * Math.sin(t * f.sx + f.px), f.by + f.ay * Math.sin(t * f.sy + f.py));
+      f.g.alpha = 0.2 + 0.6 * (0.5 + 0.5 * Math.sin(t * 2.3 + f.pf)); // twinkle
     }
   }
 
@@ -293,6 +368,7 @@ export class SudokuOverlay {
       playNonetAppear();
     }
     this.container.visible = true;
+    this.animateLife(); // S95 — drive the living spirits + fireflies each visible frame
     const resolved = ev.resolvedTick !== null;
 
     // S95 — resolve rising edge: fire the outcome SFX + kick off the winner-colour flood (once).

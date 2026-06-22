@@ -37,6 +37,19 @@ export function solveArpeggio(): readonly number[] {
   return [660, 880, 990, 1320];
 }
 
+/**
+ * Blink envelope for the living spirits — 0 most of the time (eyes open), spiking to 1 and back
+ * (eyes shut) for a short `dur`-second window once every `period` seconds. A `phase` offset
+ * desyncs each spirit so they don't all blink in unison. Pure → unit-tested; the overlay multiplies
+ * a sprite's scale.y by (1 - k·blinkPulse) to read as a blink. Handles negative t.
+ */
+export function blinkPulse(t: number, phase = 0, period = 3.3, dur = 0.14): number {
+  if (period <= 0 || dur <= 0) return 0;
+  const x = (((t + phase) % period) + period) % period; // 0..period (negatives safe)
+  if (x >= dur) return 0;
+  return Math.sin((x / dur) * Math.PI); // 0 → 1 → 0 across the blink window
+}
+
 // ───────────────────────── SFX (best-effort; need a live AudioContext) ─────────────────────────
 
 /**
