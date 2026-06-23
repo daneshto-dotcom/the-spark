@@ -1,44 +1,26 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-06-22 | Session: S96 (autonomous overnight, explicit full-batch pre-approval)
-
-## ⭐ HEADLINE — NONET realm is now ALIVE with real video
-The procedural "PowerPoint-spin" sprite twitch is GONE. All 4 original NONET spirits (kami, owl-a,
-owl-b, moss-b) are now veo-3.1 image-to-video loops + there's a dusk-forest ambient backdrop video,
-composited with feathered alpha masks behind the board. Live-verified + deployed (639b140). Watch it:
-trigger NONET on https://spark-online.space/ — 4 living spirits frame the board over a drifting dusk
-forest. Pipeline + scripts: `assets-source/nonet-video/` (make_keyframe.py · process.sh). Source loops:
-`public/art/nonet/*.webm` + `spirit-mask.png`. Code: `src/render/sudokuOverlay.ts` (buildGuardian /
-makeVideoSprite / loadBackdropVideo / setVideosPlaying).
+Generated: 2026-06-23 | Session: S97
 
 ## Next Steps
-1. ⭐ DECIDE the combo order-symmetry option — read `docs/combo-order-symmetry-PDR.md` (full symmetry
-   map + 3 options + recommendation). It was NOT auto-changed (LOCKED §V.1 amend + the Triangle→Circle
-   Wheel/Star dual-magic would be destroyed + scoring rebalance needed). Pick A/B/C → a session executes.
-2. Re-playtest NONET live (board + 4 video spirits + backdrop) AND reconfirm Voltkin (4sq+4tri) — you
-   hadn't checked Voltkin yet; likely fine post-S95 NONET-hang fix.
-3. TRUE 2-peer NONET WebRTC playtest (round-trip is unit-covered; the 2 version E2E tests now pass).
-4. (optional P1 polish) gentle parallax drift of spirits across the margin; a veo-STANDARD re-shoot of
-   the hero kami for max fidelity; a "realm brightens" beat on solve. All deliberately deferred.
+1. **Fix the E2E CI lane (stops the GitHub failure emails) — DO FIRST.** Run 28031530523: gating 30 passed / 4 failed, job CANCELLED at the 15m cap. ALL failures are real-WebRTC multiplayer tests (S62 3-player FFA, S63 4-player FFA, S82 reconnect) dying on `net::ERR_ADDRESS_UNREACHABLE` (CI sandbox can't hold P2P data channels) — NOT app logic. The "cancelled" is because the non-gating `@quarantine-flaky` suite runs in the SAME job after the gating suite + retries overrun 15m. FIX: move `@quarantine-flaky` to its own job/workflow (or raise the gating timeout) so a non-gating suite can't cancel the gating result; quarantine the 4 flaky gating WebRTC tests (established environmental flakes since S96) so the gating lane goes green. Deeper WebRTC-in-CI-sandbox flakiness is a separate hard infra problem.
+2. **User playtest feedback on the S97 deploy** — P3 (NONET spirit asymmetric placement: feel?), P4 (NONET winner jackpot: solve a NONET → fireworks+gold-glow+banner+fanfare; loser sees nothing), P5 (try Voltkin AFTER NONET → should now fire). If P5 still fails it's the Voltkin recipe PREDICATE (the user's exact structure), not a lock — get their build.
+3. **Combo order-symmetry** — PARKED on the user's A/B/C pick (`docs/combo-order-symmetry-PDR.md`). Recommend B+rebalance, or C as zero-risk.
+4. **Tower-defense-style combos** (next major feature) — REMIND the user to share the plan; then build. See `memory/spark-tower-defense-combos-next-feature.md`.
+5. (optional Tier-1) G4 build-feel juice; combinatorial-depth 6^6 discussion (deferred).
 
 ## Blockers
-None blocking the code. P2 (combo symmetry) is BLOCKED-ON-USER (design + balance decision). All S96 code
-shipped + deployed (tsc 0, vitest 1488/1488, entry flat 553.6/560, Deploy CI GREEN). veo spend $2.10/$10.
-⚠️ E2E lane still RED but NOT on my fix: 32 passed / 1 failed — my 2 version tests PASS; the failure is
-"Sym F — territorial hard-block" timing out on a WebRTC P2P flake (net::ERR_ADDRESS_UNREACHABLE), env/flaky,
-unrelated to this session. Re-run likely greens it; pre-existing 2-peer-WebRTC-in-CI fragility.
+- Combo order-symmetry: needs the user's A/B/C design pick + (A/B) a rebalance go — cannot self-approve (LOCKED §V.1 amend).
+- Tower-defense feature: needs the user's exact plan.
+- E2E WebRTC flakiness is environmental (CI runner UDP/STUN) — the lane can be made green by quarantining, but the underlying P2P-in-CI limitation persists.
+- STEP-0 review gate reads a CROSS-PROJECT session (S166) — documented infra quirk, advisory until 2026-07-15 then BLOCKS.
 
-## Pending Backlog
-- [ ] Combo order-symmetry — user picks an option from docs/combo-order-symmetry-PDR.md (then execute + rebalance)
-- [ ] Voltkin live-recheck (user-side) + true 2-peer NONET playtest (user-side)
-- [ ] (optional) NONET video polish: parallax drift / veo-standard hero / solve-cheer beat
-- [ ] USER DISCUSSION (deferred): combinatorial depth 6^6 ≈ 46k
+## Pending Backlog (Tier-1, open)
+- G1b MOTION (Wheel/Star rotation, Capsule glow-trail) — S90 Council DEFERRED (low player-value without a mechanical verb).
+- G2 TRAITS (rule-based family traits for the 22 placeholders) — gated (needs LOCKED §6 amend).
+- G2-PROMO behaviors (Anchor anti-drift / Spindle pull) — deferred Phase-2 PDR.
+- G4 build-feel juice (bond-formation burst, pooped-reject cue, in-world leader crown).
+- (G3b Combo Codex — DONE S97 P2.)
 
 ## Recent Reflexion (last 2 sessions)
-**S96 (06-22)** — #image-to-video-beats-procedural-twitch (Pillow keyframe → veo i2v → ffmpeg seamless
-VP9 → Pixi feathered mask; calibrate 1 clip before fanning out; pivot off broken libvpx-alpha to
-render-time masking; verify motion empirically) · #a-flagged-bug-can-be-a-locked-design-decision (combo
-order-symmetry is LOCKED §V.1 + Wheel/Star dual-magic; surfaced a PDR, didn't auto-gut it) ·
-#a-version-bump-breaks-more-tests-than-the-one-flagged (S93 8→9 broke 2 version E2E tests; verify by running them).
-**S95 (06-22)** — #shipped-an-IP-look-alike-then-got-flagged-live (self-check generated art for franchise
-resemblance) · #procedural-life-on-static-sprites-is-cheap (the S96 video work supersedes this for the
-guardians) · #verify-animation-by-state-sampling-not-one-screenshot.
+- **S97**: per-asset tighter mask beats baked-darken/reshoot for a matte-edge artifact; verify Pixi features via live stage introspection (not screenshots) + mind bg-rAF throttling (pump app.ticker.update()); asymmetric placement is data not code; winner-only celebration is netcode-safe when gated local-vs-synced; find the REAL gate before coding the user's theory, then mirror a proven pattern (godlyFiredThisMatch ← sudokuFiredThisMatch).
+- **S96**: image-to-video beats procedural twitch for character life; a flagged "bug" can be a LOCKED design decision in disguise (surface a decision-ready PDR); a version bump breaks more tests than the one flagged.
