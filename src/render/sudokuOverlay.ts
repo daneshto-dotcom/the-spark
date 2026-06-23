@@ -292,11 +292,16 @@ export class SudokuOverlay {
     // centre x≈630–1290 and there is no room below it on a 1080-tall stage). Each gets a video layer
     // (primary) over a static-sprite layer (fallback). The hero kami additionally hides the vector
     // placeholder above when EITHER of its richer layers loads. `vw` = on-stage video width in px.
+    // S97 P3 — asymmetric, natural placement (user playtest: the old 2x2-corner layout read
+    // 'symmetrical and unnatural'). Varied heights + sizes, all clear of the centred panel/frame
+    // bbox [630,1290] x [210,1060]: LEFT margin (x right-edge < 630) holds the prominent elder
+    // mid-height + the peppy owl low; RIGHT margin (x left-edge > 1290) holds the watchful owl high
+    // + the dreamy moss low — so no two mirror each other.
     const GUARDIANS: ReadonlyArray<Guardian> = [
-      { id: 'kami', x: 1595, y: 425, vw: 340, staticScale: 0.52, behavior: 'breathe', phase: 0.0, hero: true }, // right-upper — stately elder
-      { id: 'owl-a', x: 325, y: 415, vw: 300, staticScale: 0.42, behavior: 'blink', phase: 0.6 }, // left-upper — watchful
-      { id: 'owl-b', x: 340, y: 870, vw: 235, staticScale: 0.30, behavior: 'hop', phase: 1.7, mask: 'owl-b-mask' }, // left-lower — peppy (tighter matte crops a stray veo flame at the edges — S97)
-      { id: 'moss-b', x: 1580, y: 875, vw: 235, staticScale: 0.30, behavior: 'float', phase: 3.1 }, // right-lower — dreamy
+      { id: 'kami', x: 300, y: 558, vw: 360, staticScale: 0.55, behavior: 'breathe', phase: 0.0, hero: true }, // MIDDLE-LEFT — the stately elder, prominent
+      { id: 'owl-a', x: 1628, y: 332, vw: 286, staticScale: 0.40, behavior: 'blink', phase: 0.6 }, // TOP-RIGHT — watchful, peeking high
+      { id: 'owl-b', x: 372, y: 888, vw: 214, staticScale: 0.28, behavior: 'hop', phase: 1.7, mask: 'owl-b-mask' }, // BOTTOM-LEFT — peppy (tighter matte crops a stray veo flame — S97 P1)
+      { id: 'moss-b', x: 1562, y: 842, vw: 252, staticScale: 0.33, behavior: 'float', phase: 3.1 }, // BOTTOM-RIGHT — dreamy
     ];
     GUARDIANS.forEach((g, i) => this.buildGuardian(g, i));
 
