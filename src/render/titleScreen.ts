@@ -8,6 +8,7 @@
  *                   the INTERNAL GameMode value stays '1v1', wire-locked)
  *   - VS Bots     → local match vs 1..6 AI sparks (S87; opens BotSetupOverlay)
  *   - CODEX       → godly recipe gallery
+ *   - COMBOS      → combo codex (S97 G3b; discovered combos + locked silhouettes)
  *
  * Visibility is gated on world.gameState === 'TITLE'. main.ts adds/removes
  * the container from the stage on FSM transition.
@@ -31,6 +32,8 @@ export interface TitleScreenCallbacks {
   onVsBotsSelected(): void;
   /** S22 P3 — open Codex (MK-style godly recipe gallery). */
   onCodexSelected(): void;
+  /** S97 G3b — open the Combo Codex (Magic-14 gallery; discovered + locked silhouettes). */
+  onCombosSelected(): void;
 }
 
 /** S85 P4c — canvas-space button centers for the e2e geometry-getter migration.
@@ -40,6 +43,7 @@ export interface TitleButtonCenters {
   readonly oneVOne: { x: number; y: number };
   readonly vsBots: { x: number; y: number };
   readonly codex: { x: number; y: number };
+  readonly combos: { x: number; y: number };
 }
 
 export class TitleScreen {
@@ -123,6 +127,20 @@ export class TitleScreen {
     );
     this.container.addChild(btnCodex);
 
+    // S97 G3b — COMBOS entry (fifth row): the Magic-14 gallery. Combos are the
+    // user-mandated CORE of a geometric builder, so the catalogue gets a
+    // top-level button (not buried) — discovered tiles reveal, undiscovered show
+    // as locked silhouettes. Opens the lazy ComboCodexOverlay.
+    const btnCombos = this.makeButton(
+      'COMBOS',
+      'the geometry — connections discovered through play',
+      0x53d8ff,
+      CANVAS_WIDTH / 2,
+      CANVAS_HEIGHT / 2 + 40 + (BUTTON_HEIGHT + BUTTON_GAP) * 4,
+      callbacks.onCombosSelected,
+    );
+    this.container.addChild(btnCombos);
+
     // S85 P4c — read the centers back from the LIVE button containers (not a
     // re-derivation of the layout math) so the getter can never drift from
     // what is actually rendered. e2e clicks consume these via __SPARK__
@@ -135,6 +153,7 @@ export class TitleScreen {
         oneVOne: { x: btn1v1.position.x, y: btn1v1.position.y },
         vsBots: { x: btnVsBots.position.x, y: btnVsBots.position.y },
         codex: { x: btnCodex.position.x, y: btnCodex.position.y },
+        combos: { x: btnCombos.position.x, y: btnCombos.position.y },
       };
       this.getButtonCenters = () => centers;
     }

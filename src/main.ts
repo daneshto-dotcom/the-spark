@@ -99,6 +99,11 @@ import { TitleScreen } from './render/titleScreen.ts';
 import { HUD } from './render/ui.ts';
 import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
 import type { SudokuOverlay } from './render/sudokuOverlay.ts';
+// S97 G3b — ComboCodexOverlay is LAZY (shown only on a COMBOS click); only its
+// type is needed eagerly. The tiny Pixi-free store IS eager (the render loop
+// persists discoveries through it every match).
+import type { ComboCodexOverlay } from './render/comboCodexOverlay.ts';
+import { mergeDiscoveredCombos } from './render/comboCodexStore.ts';
 import { makeCinematicVignette } from './render/cinematicVignette.ts';
 // S87 P4 — CodexOverlay is LAZY (shown only on a Codex click). Lazy-loading it
 // frees ~index-chunk headroom for the quickmatch UI (the heavy Pixi overlay was
@@ -458,6 +463,23 @@ async function bootstrap(): Promise<void> {
     })();
   };
 
+  // S97 G3b — Combo Codex (the Magic-14 gallery). Lazy on first open, like the
+  // godly CodexOverlay. Reads discovery from the cross-match comboCodexStore
+  // (the in-match world.discoveredCombos is wiped on return-to-title; the render
+  // loop below mirrors its growth into that store).
+  let comboCodexOverlay: ComboCodexOverlay | null = null;
+  const openComboCodex = (): void => {
+    void (async () => {
+      if (comboCodexOverlay === null) {
+        const mod = await import('./render/comboCodexOverlay.ts');
+        comboCodexOverlay = new mod.ComboCodexOverlay(app, () => {
+          comboCodexOverlay?.setVisible(false);
+        });
+      }
+      comboCodexOverlay.setVisible(true);
+    })();
+  };
+
   // ===== S87 — VS-BOTS: lazy overlay + lazy manager =====
   // The manager exists ONLY during a bots match (armed on START MATCH, dropped
   // on the *→TITLE transition watcher below). Pure decision state — no Pixi /
@@ -517,6 +539,9 @@ async function bootstrap(): Promise<void> {
     },
     onCodexSelected: () => {
       openCodex();
+    },
+    onCombosSelected: () => {
+      openComboCodex();
     },
   });
 
@@ -831,6 +856,10 @@ async function bootstrap(): Promise<void> {
   let osCursorHidden = false;
   // S93 — track world.sudoku active-state edges to drive the realm-shift audio swap.
   let prevNonetActive = false;
+  // S97 G3b — last-seen in-match combo-discovery count, to persist NEW discoveries into the
+  // cross-match Combo Codex store only on the rising edge of the set's size (cheap: a localStorage
+  // touch only when a combo is actually discovered, never per frame).
+  let lastDiscoveredComboSize = 0;
   // S95 — last-seen NONET resolvedTick, to fire a one-shot celebration shake on the resolve edge.
   let prevNonetResolvedTick: number | null = null;
 
@@ -1563,6 +1592,18 @@ async function bootstrap(): Promise<void> {
     // shake duration (6 ticks). Stage offset is global — every Pixi child
     // inherits the translation, giving the whole play-field the shake feel.
     screenShake.applyToStage(app.stage, world.tick);
+    // S97 G3b — persist newly-discovered combos to the cross-match Combo Codex store. world.
+    // discoveredCombos is per-match (cleared on START_GAME/RETURN_TO_TITLE), so mirror its GROWTH
+    // into localStorage on the rising size edge → the title-screen Combo Codex remembers across
+    // matches + survives an abrupt quit. Host + the 1v1 client (which mirrors the host's set via the
+    // snapshot) each persist their own witnessed view. On clear the size drops → tracker resets, no
+    // write. mergeDiscoveredCombos itself no-ops the write when nothing new lands.
+    if (world.discoveredCombos.size !== lastDiscoveredComboSize) {
+      if (world.discoveredCombos.size > lastDiscoveredComboSize) {
+        mergeDiscoveredCombos(world.discoveredCombos);
+      }
+      lastDiscoveredComboSize = world.discoveredCombos.size;
+    }
     // S93 — draw the NONET trial overlay on top (hidden when world.sudoku is null).
     if (world.sudoku !== null) ensureNonetOverlay();
     nonetOverlay?.render(world);

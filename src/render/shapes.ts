@@ -32,6 +32,21 @@ export function destroyShapeTextures(textures: ShapeTextures): void {
   for (const t of Object.values(textures)) t.destroy(true);
 }
 
+/**
+ * S97 G3b — per-type primitive glyph drawers (white fill; tint at the Graphics
+ * level by the caller, e.g. SPARK_COLORS). Reused by the Combo Codex recipe row
+ * ("Dot → Square") so the catalog draws the SAME geometry the spawner/board use.
+ * The functions hoist, so this map references them regardless of source order.
+ */
+export const SHAPE_GLYPHS: Record<SparkType, (g: Graphics) => void> = {
+  [SparkType.Dot]: drawDot,
+  [SparkType.Line]: drawLine,
+  [SparkType.Triangle]: drawTriangle,
+  [SparkType.Square]: drawSquare,
+  [SparkType.Circle]: drawCircle,
+  [SparkType.Spiral]: drawSpiral,
+};
+
 // Each draw function targets a 32×32 logical canvas, centered at (0,0).
 // The renderer.generateTexture call captures bounds automatically.
 
