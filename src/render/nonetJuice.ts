@@ -37,6 +37,11 @@ export function solveArpeggio(): readonly number[] {
   return [660, 880, 990, 1320];
 }
 
+/** S97 P4 — triumphant two-octave major run (Hz) for the winner-only JACKPOT fanfare. Pure. */
+export function jackpotRun(): readonly number[] {
+  return [523, 659, 784, 1047, 1319, 1568, 2093];
+}
+
 /**
  * Blink envelope for the living spirits — 0 most of the time (eyes open), spiking to 1 and back
  * (eyes shut) for a short `dur`-second window once every `period` seconds. A `phase` offset
@@ -106,6 +111,17 @@ export function playNonetAppear(): void {
 /** Solve (you won) — a kawaii ascending pentatonic bell arpeggio. */
 export function playNonetSolve(): void {
   solveArpeggio().forEach((f, i) => blip(f, f, 0.28, 'triangle', 0.16, i * 0.09));
+}
+
+/**
+ * S97 P4 — WINNER-ONLY jackpot fanfare: a triumphant ascending major run + high bell sparkles over
+ * the top + a warm low swell for body. Bigger + more celebratory than playNonetSolve (which it
+ * replaces in the winner branch). Layers stay modest-gain so the sum doesn't clip the SFX bus.
+ */
+export function playNonetJackpot(): void {
+  jackpotRun().forEach((f, i) => blip(f, f, 0.22, 'triangle', 0.14, i * 0.07));
+  [1568, 2093, 2637].forEach((f, i) => blip(f, f * 1.5, 0.5, 'sine', 0.08, 0.5 + i * 0.12)); // sparkle bells
+  blip(196, 262, 0.7, 'sawtooth', 0.06, 0.0); // warm low swell
 }
 
 /** Someone else solved (your score halved) — a gentle descending "aww". */

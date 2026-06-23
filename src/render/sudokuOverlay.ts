@@ -21,13 +21,22 @@ import {
   blinkPulse,
   floodAlpha,
   playNonetAppear,
+  playNonetJackpot,
   playNonetLose,
   playNonetPop,
-  playNonetSolve,
   playNonetTimeout,
   playNonetWrong,
   resolveFloodColor,
 } from './nonetJuice.ts';
+import {
+  bannerPose,
+  CELEBRATION_DURATION_TICKS,
+  fireworkParticles,
+  jackpotGlowAlpha,
+  jackpotGlowColor,
+  makeFireworks,
+  type Firework,
+} from './nonetCelebration.ts';
 
 /** S95 — per-spirit idle behaviour; each illustrated guardian gets a DIFFERENT one so the realm reads as alive. */
 type SpiritBehavior = 'breathe' | 'blink' | 'hop' | 'float';
@@ -102,6 +111,14 @@ export class SudokuOverlay {
   private floodStartTick = -1;
   private floodColor = 0xffffff;
   private prevResolved = false;
+  // S97 P4 — WINNER-ONLY jackpot celebration (fireworks + screen glow + banner). Triggered on the
+  // resolve edge only when ev.solvedBy === localPlayerId; losers/timeout never set celebrateStartTick.
+  private readonly celebrateLayer = new Container();
+  private readonly celebrateGlow = new Graphics();
+  private readonly celebrateFx = new Graphics();
+  private readonly wonBanner: Text;
+  private celebrateStartTick = -1;
+  private fireworks: Firework[] = [];
   // S95 — the living realm: animated guardian spirits + a firefly swarm (driven per-frame in render()).
   private readonly spirits: SpiritAnim[] = [];
   private readonly fireflies: Firefly[] = [];
@@ -236,6 +253,29 @@ export class SudokuOverlay {
     this.flood.eventMode = 'none';
     this.flood.visible = false;
     this.container.addChild(this.flood);
+
+    // S97 P4 — winner-only jackpot celebration layer (kept topmost on trigger, above the flood):
+    // a full-screen gold glow wash + fireworks particles + a popping "JACKPOT!" banner. Pointer-
+    // transparent + hidden until a LOCAL-win resolve.
+    this.celebrateGlow.eventMode = 'none';
+    this.celebrateFx.eventMode = 'none';
+    this.wonBanner = new Text({
+      text: 'JACKPOT!',
+      style: new TextStyle({
+        fontFamily: 'monospace',
+        fontWeight: 'bold',
+        fontSize: 66,
+        fill: GOLD,
+        letterSpacing: 8,
+        stroke: { color: 0x4a3200, width: 7 },
+      }),
+    });
+    this.wonBanner.anchor.set(0.5);
+    this.wonBanner.position.set(CANVAS_WIDTH / 2, 140);
+    this.celebrateLayer.eventMode = 'none';
+    this.celebrateLayer.visible = false;
+    this.celebrateLayer.addChild(this.celebrateGlow, this.celebrateFx, this.wonBanner);
+    this.container.addChild(this.celebrateLayer);
 
     this.container.on('pointertap', this.onTap);
     window.addEventListener('keydown', this.onKey);
@@ -479,6 +519,7 @@ export class SudokuOverlay {
       this.container.visible = false;
       this.setVideosPlaying(false); // pause the realm loops while the overlay is dismissed
       this.activeSeed = null;
+      this.endCelebration(); // S97 P4 — no winner celebration once the trial is gone
       return;
     }
     if (ev.seed !== this.activeSeed) {
@@ -492,6 +533,7 @@ export class SudokuOverlay {
       this.prevResolved = false;
       this.floodStartTick = -1;
       this.flood.visible = false;
+      this.endCelebration(); // S97 P4 — clear any prior winner celebration for the new trial
       playNonetAppear();
     }
     this.container.visible = true;
@@ -503,8 +545,8 @@ export class SudokuOverlay {
     if (resolved && !this.prevResolved) {
       this.prevResolved = true;
       if (ev.solvedBy === null) playNonetTimeout();
-      else if (ev.solvedBy === world.localPlayerId) playNonetSolve();
-      else playNonetLose();
+      else if (ev.solvedBy === world.localPlayerId) this.startCelebration(world.tick); // WINNER → jackpot
+      else playNonetLose(); // LOSER → nothing new beyond the existing neutral flood
       const winnerColor = ev.solvedBy !== null ? world.players.get(ev.solvedBy)?.color : undefined;
       this.floodColor = resolveFloodColor(winnerColor);
       this.floodStartTick = world.tick;
@@ -586,6 +628,52 @@ export class SudokuOverlay {
         this.flood.visible = true;
       }
     }
+
+    // S97 P4 — animate the WINNER jackpot celebration (celebrateStartTick is set only in the local-win
+    // branch, so losers/timeout never reach this). Kept topmost above the flood; gentle gold glow wash
+    // (charter-capped, no strobe) + fireworks bursts + a popping "JACKPOT!" banner. Rides world.tick.
+    if (this.celebrateStartTick >= 0) {
+      const e = world.tick - this.celebrateStartTick;
+      if (e >= CELEBRATION_DURATION_TICKS) {
+        this.endCelebration();
+      } else {
+        this.container.setChildIndex(this.celebrateLayer, this.container.children.length - 1);
+        this.celebrateLayer.visible = true;
+        this.celebrateGlow.clear();
+        const ga = jackpotGlowAlpha(e);
+        if (ga > 0) this.celebrateGlow.rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT).fill({ color: jackpotGlowColor(e), alpha: ga });
+        this.celebrateFx.clear();
+        for (const fw of this.fireworks) {
+          for (const p of fireworkParticles(fw, e, CANVAS_HEIGHT)) {
+            if (p.alpha <= 0) continue;
+            this.celebrateFx.circle(p.x, p.y, p.r).fill({ color: p.color, alpha: p.alpha });
+          }
+        }
+        const bp = bannerPose(e);
+        this.wonBanner.scale.set(bp.scale);
+        this.wonBanner.alpha = bp.alpha;
+      }
+    }
+  }
+
+  /** S97 P4 — kick off the winner-only jackpot (SFX + fireworks + banner). Cosmetic + local. */
+  private startCelebration(tick: number): void {
+    playNonetJackpot();
+    this.celebrateStartTick = tick;
+    this.fireworks = makeFireworks(8, CANVAS_WIDTH, CANVAS_HEIGHT, Math.random);
+    this.wonBanner.scale.set(0.55);
+    this.wonBanner.alpha = 0;
+    this.celebrateLayer.visible = true;
+    this.container.setChildIndex(this.celebrateLayer, this.container.children.length - 1);
+  }
+
+  /** S97 P4 — tear down the celebration (window elapsed, new trial, or dismiss). Idempotent. */
+  private endCelebration(): void {
+    this.celebrateStartTick = -1;
+    this.fireworks = [];
+    this.celebrateLayer.visible = false;
+    this.celebrateGlow.clear();
+    this.celebrateFx.clear();
   }
 
   private cellAt(px: number, py: number): number {
