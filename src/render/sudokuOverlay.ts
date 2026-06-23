@@ -56,6 +56,7 @@ interface Guardian {
   readonly behavior: SpiritBehavior; // procedural idle used ONLY while the video layer is absent
   readonly phase: number;
   readonly hero?: boolean; // the kami — also hides the vector placeholder on load
+  readonly mask?: string; // guardian-specific matte basename (defaults to the shared 'spirit-mask')
 }
 
 // S96 — character video loops are authored 540×960 (9:16) and the matte PNG matches; the dusk backdrop
@@ -294,7 +295,7 @@ export class SudokuOverlay {
     const GUARDIANS: ReadonlyArray<Guardian> = [
       { id: 'kami', x: 1595, y: 425, vw: 340, staticScale: 0.52, behavior: 'breathe', phase: 0.0, hero: true }, // right-upper — stately elder
       { id: 'owl-a', x: 325, y: 415, vw: 300, staticScale: 0.42, behavior: 'blink', phase: 0.6 }, // left-upper — watchful
-      { id: 'owl-b', x: 340, y: 870, vw: 235, staticScale: 0.30, behavior: 'hop', phase: 1.7 }, // left-lower — peppy
+      { id: 'owl-b', x: 340, y: 870, vw: 235, staticScale: 0.30, behavior: 'hop', phase: 1.7, mask: 'owl-b-mask' }, // left-lower — peppy (tighter matte crops a stray veo flame at the edges — S97)
       { id: 'moss-b', x: 1580, y: 875, vw: 235, staticScale: 0.30, behavior: 'float', phase: 3.1 }, // right-lower — dreamy
     ];
     GUARDIANS.forEach((g, i) => this.buildGuardian(g, i));
@@ -348,7 +349,7 @@ export class SudokuOverlay {
     // layer 3 — veo dusk video loop (primary), masked to a soft feathered vignette
     void Promise.all([
       this.makeVideoSprite(`/art/nonet/${g.id}.webm`, g.x, g.y, g.vw / SPIRIT_VID_W),
-      Assets.load('/art/nonet/spirit-mask.png') as Promise<Texture>,
+      Assets.load(`/art/nonet/${g.mask ?? 'spirit-mask'}.png`) as Promise<Texture>,
     ]).then(([made, maskTex]) => {
       videoTookOver = true;
       const { sprite, video } = made;
