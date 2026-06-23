@@ -36,8 +36,8 @@
     {
       "id": "P2",
       "label": "S97 P2 — G3b Combo Codex: title-screen combo encyclopedia (Magic-14), discovered combos reveal (name+recipe+silhouette), undiscovered render as locked silhouettes; discoveries persist across matches.",
-      "status": "in_progress",
-      "phase": "DO",
+      "status": "completed",
+      "phase": "DONE",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -59,15 +59,22 @@
     {
       "id": "P3",
       "label": "S97 P3 — NONET spirit re-placement: the 4 guardians stand in symmetric, unnatural 2x2-corner spots; move them to organic, asymmetric positions (user playtest).",
-      "status": "pending",
-      "phase": "PLAN",
+      "status": "completed",
+      "phase": "DONE",
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "objective": "User playtest: the NONET spirits/owls 'are standing in very symmetrical and unnatural places'. Re-place them so the framing reads natural (e.g. top-right, bottom-right, middle-left, bottom-left — varied heights/sizes, not a mirror 2x2).",
       "scope": "Retune the GUARDIANS array x/y (+ maybe vw/scale) in sudokuOverlay.ts only. Keep them clear of the centered NONET panel/frame (bounds [630,1290] x [210,1060]). OUT: changing the spirit art/videos/masks themselves; owl-b keeps its tighter mask.",
-      "testing": "tsc 0; vitest green; build (no entry change); LIVE preview overlay introspection — 4 guardians at the new asymmetric positions, none overlapping the panel bbox, all still video+mask."
+      "testing": "tsc 0; vitest green; build (no entry change); LIVE preview overlay introspection — 4 guardians at the new asymmetric positions, none overlapping the panel bbox, all still video+mask.",
+      "check_completed": true,
+      "checkpoint_commit": "4b9447d",
+      "check_method": "S97 P3: NONET spirits re-placed asymmetrically. Retuned the GUARDIANS array (sudokuOverlay.ts) ONLY — kami(elder) MIDDLE-LEFT (300,558) prominent vw360, owl-a TOP-RIGHT (1628,332) vw286, owl-b BOTTOM-LEFT (372,888) vw214, moss-b BOTTOM-RIGHT (1562,842) vw252 — varied heights+sizes so left(mid+low) and right(high+low) don't mirror. LIVE-VERIFIED via dev-import + render(world) with sudoku active: the 4 masked video sprites sit at exactly the new coords and 0 overlap the centred panel/frame bbox [630,1290]x[210,1060] (right spirits left-edge >1290, left spirits right-edge <630). tsc 0; vitest 1495/1495; bundle flat 554.9/560. (Visual 'naturalness' is the user's call on the next deploy; screenshots time out on the background WebGL canvas, so positions were introspected instead.) Committed 4b9447d, pushed.",
+      "verification": [
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/sudokuOverlay.ts", "needle": "MIDDLE-LEFT — the stately elder" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/sudokuOverlay.ts", "needle": "TOP-RIGHT — watchful" }
+      ]
     },
     {
       "id": "P4",
@@ -102,6 +109,7 @@
   "budget_total": 1000000,
   "reflexion_entries_to_archive": [
     "P1 #tighter-render-mask-beats-baked-darken-or-reshoot-for-a-stray-matte-edge-artifact: a localized generative artifact (a cyclic flame veo baked into the owl-b loop) was leaking through the shared full-width spirit-mask. THREE fix routes considered + two rejected EMPIRICALLY: baking a tightened matte into the video dimmed the whole subject (it multiplies the body, not just the edges); a veo re-shoot gambles a good loop + costs $. The winner was a per-asset TIGHTER RENDER MASK (crop) — the subject stays full-brightness inside the matte, only the offending edge band is cropped, the source video is untouched, $0, deterministic, and scoped to the one asset via an optional per-entry mask field (others default byte-identically). LESSONS: (a) to size the crop, MEASURE — sample the mask alpha where the artifact sits (flame 19-57) vs the subject (100-231) and stretch the alpha to zero the gap (lutyuv clip); (b) verify a matte fix with an ffmpeg masked-composite (alphaextract+alphamerge over the real bg) — it is PIXEL-EQUIVALENT to Pixi's alpha mask and far more precise + reliable than a heavy WebGL screenshot (preview_screenshot timed out on the 1920x1080 canvas); (c) prove the wiring IN-CONTEXT without a screenshot by dev-importing the overlay, render()-ing it, and introspecting which mask texture each video sprite carries (owl-b.webm <- owl-b-mask.png, others <- spirit-mask.png).",
+    "P3 #asymmetric-placement-is-data-not-code-verify-by-introspecting-coords: the 'spirits look symmetrical/unnatural' fix was a pure DATA change (the GUARDIANS x/y/vw array), not new code. Re-placed into varied heights+sizes (left mid+low, right high+low) so no two mirror, all kept clear of the centred panel bbox by keeping each spirit's x-RANGE outside [630,1290] (a bbox-x-interval test is enough — y is then irrelevant). Verified by reading the live masked-sprite positions + a 0-overlap check, since the WebGL screenshot tool times out on this background canvas. Visual taste stays the user's call on deploy.",
     "P2 #verify-a-pixi-feature-without-a-screenshot-and-mind-background-rAF-throttling: G3b (a title-screen Combo Codex) was verified END-TO-END through the REAL UI path in the preview WITHOUT a working screenshot (preview_screenshot timed out on the 1920x1080 WebGL canvas). The technique: emit the real title button's 'pointertap' to fire openComboCodex, then INTROSPECT the live Pixi stage (find the overlay by a Text child, count tiles, read each tile's name/glyph-tint, read localStorage) to prove tile states + type-coloured glyphs + cross-reload persistence. KEY GOTCHA: the preview browser runs in the BACKGROUND, so requestAnimationFrame (Pixi's Ticker) is throttled/paused -> world.tick froze at 0 and the render-loop persistence hook never got frames, which looked like a hook bug. It was NOT — pumping app.ticker.update() once fired the real hook and persisted the discovery. LESSON: when a render-loop side-effect 'doesn't fire' in a headless/background preview, suspect rAF throttling and pump the ticker manually before concluding it's broken. Also: a 5-dimension adversarial review workflow (each finding independently verified) returned 0 confirmed findings, corroborating the live verification."
   ],
   "session_status": "S97 IN PROGRESS (SCOPE AMENDED — user playtested S97 deploy + approved a FULL session batch). DONE: P1 owl-b flame fix (77b7dbd) + P2 G3b Combo Codex (e1e7b6b) — both verified (composite/introspection + 5-dim review 0 findings) + pushed. AMENDED-IN priorities (user explicit batch approval 2026-06-23): P3 NONET spirit re-placement (symmetric->natural), P4 NONET winner jackpot celebration (winner-only fireworks+lights+cheers; losers nothing), P5 multiple-godlies-per-match (1 of each type — Voltkin wouldn't fire after NONET). Combo order-symmetry STILL parked on user A/B/C pick. FUTURE (memory + remind): tower-defense-style combos (next major feature, user will supply the plan).",
