@@ -11,7 +11,6 @@
 
 import type { World } from '../world.ts';
 import type { GodlyRecipe, GodlyMatch, GodlyId, GodlyTriggerEvent } from './types.ts';
-import { isOnCooldown } from '../godlyCooldown.ts';
 
 const REGISTRY = new Map<GodlyId, GodlyRecipe>();
 
@@ -40,19 +39,19 @@ export interface MatchResult {
 /**
  * Run all registered predicates on a single BOND_FORMED event. Returns the
  * first matching recipe (deterministic by registry insertion order). Skips
- * any recipe whose triggerer is on cooldown — caller's burden to verify a
- * candidate match's triggerer is also the active player for game-mode auth,
- * but this barrel does not assume that auth model.
+ * any recipe whose TYPE has already fired this match (S97 P5 — "1 of each type
+ * per match"; replaces the old per-player 60s cooldown gate, which cross-blocked
+ * DIFFERENT godly types for 60s). The triggerer must still exist (auth).
  *
  * Host-only — caller must gate (world.isHost).
  */
 export function findGodlyMatch(world: World, bondPos: { x: number; y: number }): MatchResult | null {
   for (const recipe of REGISTRY.values()) {
+    if (world.godlyFiredThisMatch.has(recipe.id)) continue; // already used this type this match
     const match = recipe.predicate(world, bondPos);
     if (match === null) continue;
     const triggerer = world.players.get(match.triggererPlayerId);
     if (triggerer === undefined) continue;
-    if (isOnCooldown(triggerer, world.tick)) continue;
     return { recipe, match };
   }
   return null;

@@ -804,3 +804,24 @@ describe('S88 G3a — combo discovery snapshot round-trip', () => {
     expect(w2.lastDiscoveredComboNames).toBeUndefined();
   });
 });
+
+describe('save — S97 P5 godlyFiredThisMatch round-trip', () => {
+  it('omits the field when empty, round-trips a fired type (sorted), restores it', () => {
+    const w1 = makeWorld(7);
+    expect(snapshot(w1).godlyFiredThisMatch).toBeUndefined(); // empty → omitted (byte-stable wire)
+    w1.godlyFiredThisMatch.add('voltkin');
+    const snap = snapshot(w1);
+    expect(snap.godlyFiredThisMatch).toEqual(['voltkin']);
+    const w2 = makeWorld(0);
+    restore(JSON.parse(JSON.stringify(snap)), w2);
+    expect(w2.godlyFiredThisMatch.has('voltkin')).toBe(true); // a save/migration host won't re-fire it
+  });
+
+  it('restoring a pre-S97 payload (no field) clears the set, never crashes', () => {
+    const w2 = makeWorld(0);
+    w2.godlyFiredThisMatch.add('voltkin');
+    const legacy = snapshot(makeWorld(0)); // empty world → no godlyFiredThisMatch on the wire
+    restore(JSON.parse(JSON.stringify(legacy)), w2);
+    expect(w2.godlyFiredThisMatch.size).toBe(0);
+  });
+});

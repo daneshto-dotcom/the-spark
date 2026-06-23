@@ -32,6 +32,7 @@ import {
 import { type Bond } from '../physics/bonds.ts';
 import { type SparkType } from '../constants.ts';
 import { type ComboKey } from '../combos.ts';
+import { type GodlyId } from './godlyRecipes/types.ts';
 import { generateSudoku } from './sudoku.ts';
 import {
   asPlayerId,
@@ -168,6 +169,12 @@ export interface WorldSnapshot {
     readonly resolvedTick: number | null;
   };
   sudokuFiredThisMatch?: boolean;
+  /**
+   * S97 P5 — per-type godly once-per-match guard (SORTED GodlyId[]). Additive-optional (emitted
+   * only when non-empty); a new host (host-migration) / save-load won't re-fire an already-used
+   * godly type. Mirror of discoveredCombos' Set↔sorted-string[] wire form.
+   */
+  godlyFiredThisMatch?: string[];
   /**
    * S77 P3 — host-authoritative seagulls + their poop projectiles for the 1v1 client mirror +
    * host save/load. Additive-optional; emitted only when non-empty so pre-S77 saves stay
@@ -553,6 +560,9 @@ export function snapshot(
             resolvedTick: world.sudoku.resolvedTick,
           },
     sudokuFiredThisMatch: world.sudokuFiredThisMatch ? true : undefined,
+    // S97 P5 — emit the per-type godly guard only when non-empty (sorted ⇒ byte-stable, like discoveredCombos).
+    godlyFiredThisMatch:
+      world.godlyFiredThisMatch.size > 0 ? [...world.godlyFiredThisMatch].sort() : undefined,
     // S77 P3 — emit seagulls/poops/fouled-prims only when present (byte-identical pre-S77).
     seagulls: world.seagulls.size > 0
       ? [...world.seagulls.values()].map(serializeSeagull)
@@ -763,6 +773,7 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
           resolvedTick: snap.sudoku.resolvedTick,
         };
   world.sudokuFiredThisMatch = snap.sudokuFiredThisMatch ?? false;
+  world.godlyFiredThisMatch = new Set((snap.godlyFiredThisMatch ?? []) as GodlyId[]); // S97 P5
 
   // S77 P3 — seagulls + poops: clear + rehydrate (mirror of the hunter/potato pattern). Reset
   // the mint counters past the max loaded id (host save/load). Client never mints (no-op there).

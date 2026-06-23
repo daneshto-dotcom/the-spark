@@ -3,9 +3,10 @@
  * dispatch() to bring the reducer back toward its §XV size charter).
  *
  * The single-slot cinematic state machine: GODLY_TRIGGER activates (or queues)
- * a cinematic + starts the triggerer's cooldown; GODLY_COMPLETE clears the
- * active slot (main.ts shifts the next pending event); GODLY_ABORT tears the
- * whole cinematic + creature state down on peer-drop / explicit abort.
+ * a cinematic + marks the godly TYPE spent for the match (S97 P5 — replaced the
+ * old per-player 60s cooldown); GODLY_COMPLETE clears the active slot (main.ts
+ * shifts the next pending event); GODLY_ABORT tears the whole cinematic +
+ * creature state down on peer-drop / explicit abort.
  *
  * PURE reducer helpers: each mutates `world` in place and returns it (CQS — no
  * re-dispatch from inside; main.ts owns the pending-queue shift). Determinism-
@@ -15,14 +16,14 @@
  * is a type-only import).
  */
 
-import { setCooldown } from './godlyCooldown.ts';
 import type { GodlyTriggerEvent } from './godlyRecipes/types.ts';
 import type { World } from './world.ts';
 
 /**
  * S22 P3 — single-slot cinematic serialization (PRIME-AUDIT Δ2). If another
- * cinematic is active, queue. Otherwise activate + start cooldown. The cinematic
- * plays in main.ts; the creature actor spawned at handoff (main.ts
+ * cinematic is active, queue. Otherwise activate + mark the godly TYPE spent for
+ * the match (S97 P5 godlyFiredThisMatch — "1 of each type per match"). The
+ * cinematic plays in main.ts; the creature actor spawned at handoff (main.ts
  * onCinematicHandoff) handles bond severance.
  *
  * S27 P0 — the pre-S27 26-line synchronous SEVER_BOND cascade (cause='godly')
@@ -40,7 +41,7 @@ export function applyGodlyTrigger(world: World, event: GodlyTriggerEvent): World
   if (triggerer === undefined) return world;
   world.activeCinematicPlayerId = event.triggererPlayerId;
   world.currentCinematicEvent = event;
-  setCooldown(triggerer, world.tick);
+  world.godlyFiredThisMatch.add(event.godlyId); // S97 P5 — this type is now spent for the match
   return world;
 }
 

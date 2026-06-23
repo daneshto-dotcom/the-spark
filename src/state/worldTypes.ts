@@ -22,7 +22,7 @@ import type { Hunter } from './hunters/hunter.ts';
 import type { Potato } from './potato.ts';
 import type { Rainbow } from './rainbow.ts';
 import type { Poop, Seagull } from './seagulls/seagull.ts';
-import type { GodlyTriggerEvent } from './godlyRecipes/types.ts';
+import type { GodlyId, GodlyTriggerEvent } from './godlyRecipes/types.ts';
 import type { ComboKey } from '../combos.ts';
 import type { BombId, BondId, CreatureId, HunterId, PlayerId, PoopId, PotatoId, PrimitiveId, RainbowId, SeagullId, SparkId } from '../types.ts';
 
@@ -337,4 +337,13 @@ export interface World {
    * per match. Reset on START_GAME / RETURN_TO_TITLE.
    */
   sudokuFiredThisMatch: boolean;
+  /**
+   * S97 P5 — per-GodlyId once-per-match guard. Each godly TYPE (voltkin, …) fires at most once
+   * per match — "as many godlies as possible but only 1 of each type" (user). Replaces the old
+   * per-player 60s cooldown gate (which cross-blocked DIFFERENT types for 60s). Independent of
+   * sudokuFiredThisMatch, so a NONET never blocks a godly (and vice-versa). Host-authoritative
+   * (the matcher is host-only); serialized additive-optional for host-migration/replay parity.
+   * Reset on START_GAME / RETURN_TO_TITLE.
+   */
+  godlyFiredThisMatch: Set<GodlyId>;
 }

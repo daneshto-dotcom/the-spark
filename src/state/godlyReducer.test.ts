@@ -21,7 +21,6 @@ import {
 import type { Bond } from '../physics/bonds.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { makeIdlePlayer } from '../game/player.ts';
-import { GODLY_COOLDOWN_TICKS } from './godlyCooldown.ts';
 import type { GodlyTriggerEvent } from './godlyRecipes/types.ts';
 
 function event(triggerer: number, targetIds: number[] = [], tick = 0): GodlyTriggerEvent {
@@ -44,12 +43,21 @@ describe('GODLY_TRIGGER reducer', () => {
     world.players.set(p2.id, p2);
   });
 
-  it('null → owner: dispatch sets activeCinematicPlayerId + cooldown', () => {
+  it('null → owner: dispatch sets activeCinematicPlayerId + marks the godly type fired (S97 P5)', () => {
     expect(world.activeCinematicPlayerId).toBe(null);
+    expect(world.godlyFiredThisMatch.has('voltkin')).toBe(false);
     dispatch(world, { type: 'GODLY_TRIGGER', event: event(0) });
     expect(world.activeCinematicPlayerId).toBe(asPlayerId(0));
-    const p1 = world.players.get(asPlayerId(0))!;
-    expect(p1.godlyCooldownEndsAtTick).toBe(world.tick + GODLY_COOLDOWN_TICKS);
+    expect(world.godlyFiredThisMatch.has('voltkin')).toBe(true); // type spent for the match
+  });
+
+  it('S97 P5: a fired NONET does NOT block godlies; START_GAME clears the per-type godly guard', () => {
+    world.sudokuFiredThisMatch = true; // NONET already happened this match
+    expect(world.godlyFiredThisMatch.has('voltkin')).toBe(false); // independent guards — no cross-block
+    dispatch(world, { type: 'GODLY_TRIGGER', event: event(0) });
+    expect(world.godlyFiredThisMatch.has('voltkin')).toBe(true);
+    dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
+    expect(world.godlyFiredThisMatch.has('voltkin')).toBe(false); // reset for the next match
   });
 
   it('concurrent trigger queues behind the active one (Δ2 serialization)', () => {

@@ -180,6 +180,7 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   // S93 — a fresh match starts with NO NONET trial active + the once-per-match guard reset.
   world.sudoku = null;
   world.sudokuFiredThisMatch = false;
+  world.godlyFiredThisMatch.clear(); // S97 P5 — each godly type can fire again next match
   // S77 P3 — clear seagulls/poops/fouled-prims at match start (same all-hazards invariant).
   world.seagulls.clear();
   world.nextSeagullId = 0;
@@ -308,6 +309,7 @@ export function applyReturnToTitle(world: World): World {
   // S93 — drop any active NONET trial + reset the once-per-match guard on title-return.
   world.sudoku = null;
   world.sudokuFiredThisMatch = false;
+  world.godlyFiredThisMatch.clear(); // S97 P5 — reset the per-type godly guard on title-return
   // S77 P3 — clear seagulls/poops/fouled-prims on title-return (mirror of the other hazards).
   world.seagulls.clear();
   world.nextSeagullId = 0;
