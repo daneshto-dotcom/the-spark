@@ -33,6 +33,8 @@ import {
   PHYSICS_HZ,
   PHYSICS_SUBSTEPS,
   PLAYER_COLORS,
+  REVALIDATE_INTERVAL_TICKS,
+  SPAWN_INTERVAL_TICKS,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
@@ -82,7 +84,21 @@ import { computeStubTargetPos } from './physics/creatureVerlet.ts';
 // UNANIMOUS A); bondMidpoint feeds the per-tick targetPos update so the
 // existing steering forces (seek/arrive) home in on the nearest bond's center.
 import { bondMidpoint, findNearestBondTarget } from './state/creatures/creatureAI.ts';
-import { VOLTKIN_ATTACK_FIRE_TICK } from './state/creatures/creature.ts';
+// S100 P1 (TD Phase 1a, Layer 4) — the post-CREATURE_TICK attack-fire gate reads the
+// FIRE tick from each creature's config (was the Voltkin-only module const) so a chewer
+// fires its SEVER_BOND on the FINAL chew (config.attackFireTick = chewHits×interval) while
+// Voltkin still fires at tick 30. getCreatureConfig is the documented per-type seam.
+import { getCreatureConfig } from './state/creatures/voltkin-config.ts';
+// S100 P1 (TD Phase 1a, Layer 4) — host re-validation poll: a spawner is torn down when
+// its anchor primitive is gone OR its component no longer satisfies the recipe shape.
+import { recipeStillSatisfied } from './state/spawners/spawnerLifecycle.ts';
+// S100 P1 (TD Phase 1a, Layer 6) — one-shot raid reward split across enemies on the
+// destruction branch of the re-validation poll (NOT a per-tick accrual loop).
+import { awardSpawnerKillReward } from './state/gameMode.ts';
+// S100 P1 (TD Phase 1a, Layer 4) — cap gate for the spawner emit poll. The reducer
+// (applySpawnCreature) re-checks it authoritatively; the poll calls it first so it can
+// skip the dispatch (and a future birth VFX) when the swarm is already at its ceiling.
+import { underChewerCaps } from './state/creatures/creatureLifecycle.ts';
 import { AvatarRenderer, shouldHideOsCursor } from './render/avatarRenderer.ts';
 import { drainAudioEffects, enterNonetRealm, exitNonetRealm, initAudio, isMuted, playMusic, syncRainbowYellAudio, toggleMute } from './render/audioManager.ts';
 // S50 P2 — Audit Pass 2 refactor 622a7c7f: triggerReset is now called from
@@ -112,6 +128,8 @@ import { makeCinematicVignette } from './render/cinematicVignette.ts';
 // to codexStore.ts). Type-only import is erased; the class loads on demand.
 import type { CodexOverlay } from './render/codexOverlay.ts';
 import { CreatureRenderer } from './render/creatureRenderer.ts';
+import { ChewerRenderer } from './render/chewerRenderer.ts';
+import { SpawnerZoneRenderer } from './render/spawnerZoneRenderer.ts';
 import { BombRenderer } from './render/bombRenderer.ts';
 import { HunterRenderer } from './render/hunterRenderer.ts';
 import { PotatoRenderer } from './render/potatoRenderer.ts';
@@ -133,6 +151,9 @@ import type { GodlyId } from './state/godlyRecipes/types.ts';
 import { unlockGodly } from './render/codexStore.ts';
 // S22 P4 — side-effect import registers Voltkin recipe in the registry.
 import './state/godlyRecipes/voltkin.ts';
+// S100 P1 (TD Phase 1b, Layer 5) — side-effect import registers the pentagram
+// SPAWNER recipe (a non-cinematic recipe → REGISTER_SPAWNER, not GODLY_TRIGGER).
+import './state/godlyRecipes/pentagram.ts';
 // S50 P2 — godly matcher + cinematic-lifecycle orchestration extracted to
 // godlyOrchestration.ts (Council Standard-tier refactor, Battle Ledger C2).
 // Pre-S50 these two functions (runGodlyMatcher + startCinematicIfNeeded)
@@ -159,6 +180,16 @@ import { asPlayerId } from './types.ts';
 // re-imported (above) for the outer ticker accumulator.
 const SPATIAL_CELL_SIZE = 32;
 const P1 = asPlayerId(0);
+
+// S100 P1 (TD Phase 1a, Layer 4) — mandatory perf mitigation (§3.4 R7): a CHEWER
+// re-selects its SEEKING target only every K ticks, phase-spread across the swarm by
+// `world.tick % K === creature.id % K` so the O(creatures×bonds) target scans don't all
+// land on the same tick. Tick-deterministic (pure fn of world.tick + creature.id — NO
+// wall-clock, NO RNG), so the replay byte-equivalence holds. VOLTKIN is unaffected: it
+// keeps its every-tick re-selection (Council R1 Q3 UNANIMOUS A) byte-for-byte — the
+// throttle is gated on `sourceSpawnerId != null` only. K=6 ≈ the 10 Hz snapshot cadence,
+// so a chewer re-aims at most ~once per emitted snapshot frame (imperceptible in transit).
+const CHEWER_SEEK_RESELECT_TICKS = 6;
 const SNAPSHOT_INTERVAL_TICKS = Math.max(1, Math.round(PHYSICS_HZ / NET_SNAPSHOT_HZ));
 
 // S94 — NONET appears in the Codex as a "super-combo". It is NOT a godly recipe (no recipe
@@ -377,9 +408,18 @@ async function bootstrap(): Promise<void> {
   // Created here (before the 4 renderers) so each can target it at construction.
   const aboveFogLayer = new Container();
   aboveFogLayer.eventMode = 'none';
+  // S100 P1 (TD Phase 1a) — spawner-zone aura. Constructed BEFORE creatureRenderer so its
+  // radiating aura + 'alive' bond overlay sit UNDER the chewers/Voltkin on the aboveFogLayer.
+  // Cross-player landmark (everyone must see the high-value target to raid it) → aboveFogLayer,
+  // same fog rule as the other global-reach visuals. Cheap no-op when no spawner is live.
+  const spawnerZoneRenderer = new SpawnerZoneRenderer(app, aboveFogLayer);
   // S25 P0 — creatureRenderer renders ABOVE prims; S77 P2 reparented to aboveFogLayer (a Voltkin
   // attacks ANY player's bonds — cross-player reach — so it must be visible to all through fog).
   const creatureRenderer = new CreatureRenderer(app, aboveFogLayer);
+  // S100 P1 (TD Phase 1a) — chewerRenderer draws the persistent 'chewer' creatures (original
+  // pencil sketch + physics-driven hop); creatureRenderer keeps Voltkin. Both drain world.creatures
+  // partitioned by creature.type. aboveFogLayer for the same cross-player-reach fog rule.
+  const chewerRenderer = new ChewerRenderer(app, aboveFogLayer);
   // S71 P1 — bomb renderer stays on app.stage (BELOW the fog): single-owner, NOT fog-exempt.
   // Below effects so BOMB_EXPLODE stacks over the orb. Cheap no-op when world.bombs is empty.
   const bombRenderer = new BombRenderer(app);
@@ -1022,6 +1062,62 @@ async function bootstrap(): Promise<void> {
         }
       }
 
+      // S100 P1 (TD Phase 1a, Layer 4) — creature-spawner emit + re-validation poll
+      // (host-only, tick-deterministic). Modeled on the bomb-dissipate poll above and
+      // the pendingCreatureSpawn one-shot poll — NOT game/spawner.ts (its dtSec wall-
+      // clock cadence + 5 RNG streams are the S25 replay-break class). NO 6th RNG
+      // stream: cadence + re-validation are pure fns of world.tick.
+      //
+      // For each live spawner:
+      //   (a) THROTTLED re-validation (every REVALIDATE_INTERVAL_TICKS via the
+      //       lastValidatedTick cache, §3.4): if the anchor primitive is gone OR its
+      //       current component no longer satisfies the recipe → REMOVE_SPAWNER and
+      //       skip — the income bonus + chewer cadence stop instantly (the counterplay).
+      //   (b) EMIT: when world.tick >= nextSpawnTick AND the chewer caps allow, dispatch
+      //       SPAWN_CREATURE{creatureType:'chewer', sourceSpawnerId:id} at the anchor's
+      //       LIVE position, then advance the cadence by `+=` (NOT `= tick + interval`)
+      //       so emit timing never drifts. Snapshot the entries first (REMOVE_SPAWNER
+      //       deletes from the Map mid-loop, mirroring the bomb-dissipate snapshot).
+      if (world.gameState === 'PLAYING' && !isClient && world.creatureSpawners.size > 0) {
+        for (const [spawnerId, sp] of [...world.creatureSpawners]) {
+          if (world.tick - sp.lastValidatedTick >= REVALIDATE_INTERVAL_TICKS) {
+            sp.lastValidatedTick = world.tick;
+            if (!world.primitives.has(sp.anchorPrimitiveId) || !recipeStillSatisfied(world, sp)) {
+              // S100 P1 (Layer 6) — destruction (NOT teardown): award the one-shot raid
+              // reward split across enemies BEFORE removing the record (awardSpawnerKillReward
+              // reads sp.ownerPlayerId). teardownSpawners clears the map directly and never
+              // reaches this branch, so a match-end / title-return mints nothing.
+              awardSpawnerKillReward(world, sp);
+              dispatch(world, { type: 'REMOVE_SPAWNER', spawnerId });
+              continue;
+            }
+          }
+          if (world.tick >= sp.nextSpawnTick && underChewerCaps(world, spawnerId)) {
+            const anchor = world.primitives.get(sp.anchorPrimitiveId);
+            // Defense-in-depth: a deleted anchor between the (throttled) re-validation
+            // and this tick would leave `anchor` undefined — skip the emit (the next
+            // re-validation tears the spawner down). The chewer SPAWNS at the anchor's
+            // current position; its enemy-only target is selected by the fan-out below
+            // once it transitions SPAWNING → SEEKING.
+            if (anchor !== undefined) {
+              dispatch(world, {
+                type: 'SPAWN_CREATURE',
+                creatureType: 'chewer',
+                ownerPlayerId: sp.ownerPlayerId,
+                pos: { x: anchor.pos.x, y: anchor.pos.y },
+                // SPAWNING is force-free + has no committed target yet, so targetPos is
+                // a harmless seed (the anchor); the fan-out overwrites it the first
+                // SEEKING tick from findNearestBondTarget's bond midpoint.
+                targetPos: { x: anchor.pos.x, y: anchor.pos.y },
+                sourceSpawnerId: spawnerId,
+              });
+              sp.nextSpawnTick += SPAWN_INTERVAL_TICKS;
+              sp.spawnedCount++;
+            }
+          }
+        }
+      }
+
       // S25 P0 — fan-out CREATURE_TICK to every live creature. Host-only (client
       // never simulates; S28 NetSnapshot v2 mirrors host→client creature state).
       // Snapshot the keys BEFORE iterating because applyCreatureTick auto-deletes
@@ -1052,16 +1148,43 @@ async function bootstrap(): Promise<void> {
           // Step 1: AI target re-selection BEFORE the tick. Only during SEEKING —
           // SPAWNING is force-free, ATTACKING is locked to its current target for
           // the cycle duration, DESPAWNING is fading out.
+          //
+          // S100 P1 (TD Phase 1a, Layer 4) — chewer vs Voltkin re-selection diverge:
+          //  • VOLTKIN (sourceSpawnerId === null): UNCHANGED — every-tick re-selection
+          //    (Council R1 Q3 UNANIMOUS A), default enemyOnly=false (the own-bond fallback
+          //    is a Voltkin feature). This branch is byte-for-byte the pre-S100 code.
+          //  • CHEWER (sourceSpawnerId !== null): (a) target-STICKINESS — once committed to
+          //    a bond (chewProgress > 0) it does NOT re-select (glued to the bond per R9);
+          //    (b) THROTTLE — otherwise it re-selects only every CHEWER_SEEK_RESELECT_TICKS,
+          //    phase-spread by id (§3.4 R7); (c) enemyOnly=true so it never eats its own
+          //    spawner (R8) + runs the FFA target-spread.
           const creature = world.creatures.get(id);
           if (creature !== undefined && creature.state === 'SEEKING') {
-            const nextTarget = findNearestBondTarget(world, creature);
-            creature.targetBondId = nextTarget;
-            if (nextTarget !== null) {
-              const targetBond = world.bonds.get(nextTarget);
-              if (targetBond !== undefined) {
-                const mid = bondMidpoint(targetBond);
-                creature.targetPos.x = mid.x;
-                creature.targetPos.y = mid.y;
+            const isChewer = creature.sourceSpawnerId !== null;
+            let doReselect: boolean;
+            let enemyOnly: boolean;
+            if (!isChewer) {
+              doReselect = true; // Voltkin — every-tick, byte-identical
+              enemyOnly = false;
+            } else {
+              enemyOnly = true;
+              // Stickiness: committed to a bond → skip re-selection entirely.
+              // Otherwise throttle the scan to a per-creature phase slot.
+              doReselect =
+                creature.chewProgress === 0 &&
+                world.tick % CHEWER_SEEK_RESELECT_TICKS ===
+                  (creature.id as unknown as number) % CHEWER_SEEK_RESELECT_TICKS;
+            }
+            if (doReselect) {
+              const nextTarget = findNearestBondTarget(world, creature, enemyOnly);
+              creature.targetBondId = nextTarget;
+              if (nextTarget !== null) {
+                const targetBond = world.bonds.get(nextTarget);
+                if (targetBond !== undefined) {
+                  const mid = bondMidpoint(targetBond);
+                  creature.targetPos.x = mid.x;
+                  creature.targetPos.y = mid.y;
+                }
               }
             }
           }
@@ -1071,11 +1194,19 @@ async function bootstrap(): Promise<void> {
 
           // Step 3: post-tick attack fire check. Re-fetch creature (the tick may
           // have transitioned state OR auto-deleted at despawnAtTick boundary).
+          //
+          // S100 P1 (TD Phase 1a, Layer 4) — the FIRE tick is read from the creature's
+          // config (was the Voltkin-only VOLTKIN_ATTACK_FIRE_TICK module const). Voltkin's
+          // config.attackFireTick is still 30 (byte-identical); a chewer's is 300 (its
+          // FINAL, 5th chew — chewHits × CHEW_INTERVAL_TICKS), so the SEVER_BOND dispatch
+          // lands exactly when the chew completes (R9). Both creatures stay in ATTACKING
+          // when this fires; the chewer's FSM then releases the commit next tick (the
+          // bond-gone branch), Voltkin recovers via its cadence bounce.
           const after = world.creatures.get(id);
           if (
             after !== undefined &&
             after.state === 'ATTACKING' &&
-            after.ticksInState === VOLTKIN_ATTACK_FIRE_TICK &&
+            after.ticksInState === getCreatureConfig(after.type).attackFireTick &&
             after.targetBondId !== null
           ) {
             const bondId = after.targetBondId;
@@ -1345,6 +1476,12 @@ async function bootstrap(): Promise<void> {
         // closes the one-frame orphan-sprite window (PRIME-AUDIT Δ3).
         // Container preserved — next PLAYING entry can re-mount sprites.
         creatureRenderer.clear();
+        // S100 P1 (TD Phase 1a) — drop chewer graphics + per-chewer hop state on
+        // title-return (reducer teardownSpawners clears creatureSpawners and the
+        // chewers; this closes the one-frame orphan window + resets the hop phase).
+        chewerRenderer.clear();
+        // S100 P1 — drop the spawner-zone aura on title-return.
+        spawnerZoneRenderer.clear();
         // S71 P1 — drop bomb sprites on title-return (the reducer applyReturnToTitle
         // clears world.bombs; this closes the one-frame orphan-sprite window).
         bombRenderer.clear();
@@ -1639,10 +1776,19 @@ async function bootstrap(): Promise<void> {
     // defensively when world omitted or carrier missing (Battle Ledger C4).
     sparkRenderer.sync(freeSparkArr, world);
     structureRenderer.sync(world);
+    // S100 P1 (TD Phase 1a) — spawner-zone aura. After structureRenderer (so the
+    // 'alive' bond overlay traces over the just-drawn bonds) and before the
+    // creatures (so chewers/Voltkin draw on top of the aura). Cheap no-op when
+    // world.creatureSpawners is empty.
+    spawnerZoneRenderer.sync(world);
     // S25 P0 — creature sprite sync. After structureRenderer (z-order: above
     // prims, blueprint Q1) and before effectsRenderer (so ARC_FLASH effects
     // can stack above creatures in S27). Cheap when world.creatures empty.
+    // S100 P1 — creatureRenderer now draws VOLTKIN only; chewerRenderer (below)
+    // draws the persistent chewers from the same world.creatures map.
     creatureRenderer.sync(world);
+    // S100 P1 (TD Phase 1a) — chewer pencil-sketch + physics hop. Cheap when no chewer is live.
+    chewerRenderer.sync(world);
     // S71 P1 — bomb sprites (after creatures, before the effects wipe).
     bombRenderer.sync(world);
     // S72 P2 — hunter wedge (after bombs, before the effects wipe). Faces the chased

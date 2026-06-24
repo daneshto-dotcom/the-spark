@@ -69,5 +69,11 @@ export function applyGodlyAbort(world: World): World {
   world.pendingCinematics.length = 0;
   world.creatures.clear();
   world.pendingCreatureSpawn = null;
+  // S100 P1 (TD Phase 1a) — cascade-clear creature spawners alongside creatures so a
+  // peer-drop / explicit abort leaves no spawner that would keep minting chewers +
+  // accruing income in a dead session (inline clear mirrors the creatures.clear() above,
+  // keeping godlyActions.ts free of a runtime teardownSpawners import).
+  world.creatureSpawners.clear();
+  world.nextSpawnerId = 0;
   return world;
 }

@@ -33,10 +33,28 @@
 
 import type { Bond } from '../../physics/bonds.ts';
 import { PLAYER_COLORS } from '../../constants.ts';
-import type { BondId, Vec2 } from '../../types.ts';
+import type { BondId, PlayerId, Vec2 } from '../../types.ts';
 import type { World } from '../world.ts';
 import type { Creature } from './creature.ts';
 import { VOLTKIN_ATTACK_RANGE_SQ } from './creature.ts';
+
+/**
+ * S100 P1 (TD Phase 1a) — avalanche-mix two uint32s into one (murmur3-finalizer
+ * shape; identical to the seagull `mix32` idiom at seagullLifecycle.ts:67). Pure +
+ * branchless; consumes NO RNG stream and reads NO wall-clock, so the existing
+ * spark/bomb/potato/rainbow/seagull byte sequences stay byte-identical (§3.2 rule 3).
+ * Used by the chewer FFA target-spread to deterministically bias a chewer toward a
+ * particular enemy player keyed on (creatureId, sourceSpawnerId).
+ */
+function mix32(a: number, b: number): number {
+  let h = (Math.imul(a | 0, 0x9e3779b9) ^ Math.imul(b | 0, 0x85ebca6b)) >>> 0;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x45d9f3b) >>> 0;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x45d9f3b) >>> 0;
+  h ^= h >>> 16;
+  return h >>> 0;
+}
 
 /**
  * Squared distance between two Vec2 points. Avoids sqrt for hot-path compare.
@@ -71,16 +89,40 @@ export function bondMidpoint(bond: Bond): Vec2 {
  * degenerate bonds as non-enemy so the AI doesn't target zombie state).
  */
 export function isEnemyBond(world: World, creature: Creature, bond: Bond): boolean {
-  const primA = world.primitives.get(bond.aId);
-  const primB = world.primitives.get(bond.bId);
-  if (primA === undefined || primB === undefined) return false;
   // S75 P3 — read the owner's LIVE colour (single source of truth), NOT the static palette, so
   // creature targeting stays coherent after a rainbow colour-shuffle remaps player.color +
   // prim.placerColor. In normal play player.color === PLAYER_COLORS[seat], so this is behaviour-
   // identical; the palette is only the fallback when the owner is somehow absent. Aligns with how
   // disruptionManager + territory already read player.color live.
+  //
+  // S100 P1 (TD Phase 1a, Layer 4, §3.4 R7) — the owner/ownerColor resolve is HOISTED into
+  // `creatureOwnerColor` so the per-bond callers (findNearestBondTarget / spreadEnemyTarget)
+  // can compute it ONCE per creature instead of once per bond. This public single-bond form is
+  // behaviour-identical (it just resolves the colour then delegates), so existing call sites +
+  // tests stay byte-for-byte.
+  return isEnemyBondWithColor(world, creatureOwnerColor(world, creature), bond);
+}
+
+/**
+ * S100 P1 (TD Phase 1a, Layer 4) — the owner's live colour, hoisted from `isEnemyBond` so the
+ * per-bond loops resolve it ONCE per creature (§3.4 R7 perf mitigation). Live `player.color`
+ * (post-rainbow-shuffle coherent), palette fallback when the owner is absent.
+ */
+function creatureOwnerColor(world: World, creature: Creature): number {
   const owner = world.players.get(creature.ownerPlayerId);
-  const ownerColor = owner?.color ?? PLAYER_COLORS[creature.ownerPlayerId as unknown as number];
+  return owner?.color ?? PLAYER_COLORS[creature.ownerPlayerId as unknown as number];
+}
+
+/**
+ * S100 P1 (TD Phase 1a, Layer 4) — inner per-bond enemy test against a PRE-RESOLVED owner
+ * colour. Identical predicate to `isEnemyBond` (either endpoint's placerColor ≠ ownerColor;
+ * degenerate/missing-endpoint bonds are non-enemy), but without re-resolving the owner per
+ * bond. Used by the hot target-scan loops below.
+ */
+function isEnemyBondWithColor(world: World, ownerColor: number, bond: Bond): boolean {
+  const primA = world.primitives.get(bond.aId);
+  const primB = world.primitives.get(bond.bId);
+  if (primA === undefined || primB === undefined) return false;
   return primA.placerColor !== ownerColor || primB.placerColor !== ownerColor;
 }
 
@@ -100,16 +142,24 @@ export function isEnemyBond(world: World, creature: Creature, bond: Bond): boole
  * Pure function. Does not mutate world or creature. Called every CREATURE_TICK
  * during SEEKING (host-only) per Council R1 Q3 UNANIMOUS A.
  */
-export function findNearestBondTarget(world: World, creature: Creature): BondId | null {
+export function findNearestBondTarget(
+  world: World,
+  creature: Creature,
+  enemyOnly: boolean = false,
+): BondId | null {
   let bestEnemyId: BondId | null = null;
   let bestEnemyDistSq = Infinity;
   let bestOwnId: BondId | null = null;
   let bestOwnDistSq = Infinity;
 
+  // S100 P1 (TD Phase 1a, Layer 4, §3.4 R7) — resolve the owner colour ONCE, then the
+  // per-bond test below is a pure colour compare (no Map.get per bond for the owner).
+  const ownerColor = creatureOwnerColor(world, creature);
+
   for (const [bondId, bond] of world.bonds) {
     const mid = bondMidpoint(bond);
     const dSq = distSq(creature.pos, mid);
-    if (isEnemyBond(world, creature, bond)) {
+    if (isEnemyBondWithColor(world, ownerColor, bond)) {
       if (
         dSq < bestEnemyDistSq ||
         // Tie-break: lower BondId wins (deterministic). Map iteration order in
@@ -131,7 +181,88 @@ export function findNearestBondTarget(world: World, creature: Creature): BondId 
     }
   }
 
-  return bestEnemyId ?? bestOwnId;
+  // S100 P1 (TD Phase 1a) — chewers pass `enemyOnly: true` so they NEVER fall back
+  // to the own-bond target (R8: that fallback is a Voltkin feature — without this a
+  // chewer with no enemy in range would eat its own spawner). With no enemy bond the
+  // chewer returns null and idles/SEEKs harmlessly. The Voltkin default
+  // (`enemyOnly: false`) is byte-for-byte unchanged: `bestEnemyId ?? bestOwnId`.
+  if (!enemyOnly) {
+    return bestEnemyId ?? bestOwnId;
+  }
+  if (bestEnemyId === null) return null;
+
+  // FFA target-spread (R-design §4.3): with multiple enemy PLAYERS present, bias
+  // this chewer toward a particular victim (and toward the score leader) so a swarm
+  // fans out across rivals instead of focus-firing the single geometrically-nearest
+  // connector (which enables kingmaking). Deterministic — keyed on a stateless
+  // mix32 hash of (creatureId, sourceSpawnerId); NO RNG stream, NO wall-clock.
+  return spreadEnemyTarget(world, creature, bestEnemyId);
+}
+
+/**
+ * S100 P1 — FFA target-spread for chewers. `fallbackEnemyId` is the overall-nearest
+ * enemy bond (already computed); this picks a preferred victim player deterministically
+ * and returns that player's nearest enemy bond, falling back to `fallbackEnemyId` when
+ * there is only one enemy player (or the chosen victim somehow has no bond).
+ *
+ * Determinism: `mix32(creatureId, sourceSpawnerId)` picks among the distinct enemy
+ * players (sorted ascending for stable indexing), with the score leader given one extra
+ * weighted slot so the swarm leans toward the player in front (reinforces the hunter's
+ * catch-up dynamic). Pure read; no mutation, no RNG, no wall-clock.
+ */
+function spreadEnemyTarget(world: World, creature: Creature, fallbackEnemyId: BondId): BondId {
+  // S100 P1 (TD Phase 1a, Layer 4, §3.4 R7) — owner colour resolved once for both scans below.
+  const ownerColor = creatureOwnerColor(world, creature);
+
+  // Distinct enemy players that own at least one enemy bond, sorted ascending.
+  const victimSet = new Set<PlayerId>();
+  for (const bond of world.bonds.values()) {
+    if (!isEnemyBondWithColor(world, ownerColor, bond)) continue;
+    const primA = world.primitives.get(bond.aId);
+    if (primA !== undefined) victimSet.add(primA.placedBy);
+  }
+  if (victimSet.size <= 1) return fallbackEnemyId; // only one victim → no spread
+
+  const victims = Array.from(victimSet).sort(
+    (a, b) => (a as unknown as number) - (b as unknown as number),
+  );
+
+  // Score leader among the candidate victims (highest scoreByPlayer; lowest-id
+  // tie-break). Given one extra weighted slot below.
+  let leader: PlayerId = victims[0];
+  let leaderScore = -Infinity;
+  for (const v of victims) {
+    const s = world.scoreByPlayer.get(v) ?? 0;
+    if (s > leaderScore) {
+      leaderScore = s;
+      leader = v;
+    }
+  }
+
+  const h = mix32(creature.id as unknown as number, (creature.sourceSpawnerId ?? 0) as unknown as number);
+  // N players + 1 leader-bonus slot. Slot 0 → leader; slots 1..N → uniform spread.
+  const n = victims.length;
+  const slot = h % (n + 1);
+  const chosen: PlayerId = slot === 0 ? leader : victims[(slot - 1) % n];
+
+  // Nearest enemy bond owned by the chosen victim (lowest-BondId tie-break).
+  let bestId: BondId | null = null;
+  let bestDistSq = Infinity;
+  for (const [bondId, bond] of world.bonds) {
+    if (!isEnemyBondWithColor(world, ownerColor, bond)) continue;
+    const primA = world.primitives.get(bond.aId);
+    if (primA === undefined || primA.placedBy !== chosen) continue;
+    const dSq = distSq(creature.pos, bondMidpoint(bond));
+    if (
+      dSq < bestDistSq ||
+      (dSq === bestDistSq &&
+        (bestId === null || (bondId as unknown as number) < (bestId as unknown as number)))
+    ) {
+      bestDistSq = dSq;
+      bestId = bondId;
+    }
+  }
+  return bestId ?? fallbackEnemyId;
 }
 
 /**

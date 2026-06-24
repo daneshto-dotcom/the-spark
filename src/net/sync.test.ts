@@ -374,6 +374,8 @@ describe('S37 P10 — NetSnapshot v2 frame-derivation parity', () => {
       killCount: opts.killCount ?? 0,
       spawnedAtTick: 0,
       despawnAtTick: 480,
+      sourceSpawnerId: null,
+      chewProgress: 0,
     });
     return { host, creatureId: id };
   }
@@ -1000,6 +1002,7 @@ describe('S89 P5 — render-delay snapshot buffer (jitter buffer, bracket lerp, 
       pos: { x, y: 0 }, prevPos: { x, y: 0 }, targetPos: { x: 999, y: 0 },
       targetBondId: null, state, ticksInState: 5, killCount: 0,
       spawnedAtTick: 0, despawnAtTick: 480,
+      sourceSpawnerId: null, chewProgress: 0,
     });
     return w;
   }

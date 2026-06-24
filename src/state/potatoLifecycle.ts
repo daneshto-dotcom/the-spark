@@ -22,7 +22,7 @@
 
 import { POTATO_BLAST_RADIUS, POTATO_CARRIER_BENCH_TICKS, POTATO_HOLD_DETONATE_TICKS } from '../constants.ts';
 import { snapPrevPosForUnbonded } from '../game/invariants.ts';
-import { asPotatoId, type BondId, type PlayerId, type PotatoId, type PrimitiveId, type Vec2 } from '../types.ts';
+import { asPotatoId, type BondId, type CreatureId, type PlayerId, type PotatoId, type PrimitiveId, type Vec2 } from '../types.ts';
 import { makePotato, type Potato } from './potato.ts';
 import { reconcileFouledPrimitives } from './seagulls/seagullLifecycle.ts';
 import type { World } from './worldTypes.ts';
@@ -146,7 +146,9 @@ export function applyDropPotato(world: World, action: DropPotatoAction): World {
 /**
  * DETERMINISTIC radial AoE at the potato's pos (the uniform blast center across all
  * states). Owner-AGNOSTIC + POSITION-based (fires at the coord even if the structure
- * there is already gone = area denial); NO chain reaction (deletes prims/bonds only).
+ * there is already gone = area denial); NO chain reaction (deletes prims/bonds — and,
+ * S100 P1, any CHEWER in radius — only). The chewer kill is the Phase-1 swarm counterplay
+ * (R6): chewers are otherwise untargetable since every other primitive hits bonds/positions.
  */
 export function applyPotatoDetonate(world: World, action: PotatoDetonateAction): World {
   const potato = world.potatoes.get(action.potatoId);
@@ -173,6 +175,25 @@ export function applyPotatoDetonate(world: World, action: PotatoDetonateAction):
     }
   }
   world.potatoes.delete(action.potatoId);
+
+  // S100 P1 (TD Phase 1a) — Phase-1 CHEWER KILL PATH (TOWER_DEFENSE_DESIGN.md §4.3, R6):
+  // a potato blast also DESPAWNS any CHEWER within the same radius, so chewers are not
+  // untargetable in Phase 1 ("blow up the swarm"). Owner-AGNOSTIC (your own potato can
+  // catch an enemy chewer or a stray of your own) + POSITION-based (same blast center as
+  // the prim AoE), and only CHEWERS (sourceSpawnerId !== null) — a Voltkin is summoned-
+  // lifetime and not part of this counterplay. Iterated in SORTED CreatureId order (the
+  // canonical sequence, mirroring the sorted prim/bond deletion below) so removal is
+  // replay-deterministic regardless of Map insertion history. Runs BEFORE the empty-prim
+  // early-return so a chewer-only blast (no structure at the coord) still clears the swarm.
+  const chewerVictims: CreatureId[] = [];
+  for (const [cid, creature] of world.creatures) {
+    if (creature.sourceSpawnerId === null) continue; // Voltkin — not a chew-swarm target
+    const dx = creature.pos.x - cx;
+    const dy = creature.pos.y - cy;
+    if (dx * dx + dy * dy <= POTATO_BLAST_RADIUS_SQ) chewerVictims.push(cid);
+  }
+  chewerVictims.sort((a, b) => (a as number) - (b as number));
+  for (const cid of chewerVictims) world.creatures.delete(cid);
 
   // STEP 1 — collect victims within R (SQUARED dist, no sqrt) in SORTED PrimitiveId
   // order (canonical delete sequence → replay-safe regardless of Map insertion history).

@@ -29,6 +29,8 @@ export const SCORE_TIER_DURATION_TICKS = 48;
 const ARC_FLASH_DURATION_TICKS = 24;
 // S71 P1 — bomb detonation burst lifetime (~0.6s @ 60Hz).
 const BOMB_EXPLODE_DURATION_TICKS = 36;
+// S100 P1 — chewer bite burst lifetime (~0.4s @ 60Hz).
+const CHEW_BITE_DURATION_TICKS = 24;
 
 export function effectLifetime(effect: GameEffect): number {
   switch (effect.kind) {
@@ -46,6 +48,10 @@ export function effectLifetime(effect: GameEffect): number {
       return ARC_FLASH_DURATION_TICKS;
     case 'BOMB_EXPLODE':
       return BOMB_EXPLODE_DURATION_TICKS;
+    case 'CHEW_BITE':
+      // S100 P1 — graphite-dust bite burst (~0.4s @ 60Hz). Short so a chewer's
+      // 1/sec bites read as discrete pops, not a smear. Layer 7 draws the visual.
+      return CHEW_BITE_DURATION_TICKS;
     case 'BOND_FORMED':
     case 'BOND_SEVERED':
     case 'CREATURE_CHARGE':

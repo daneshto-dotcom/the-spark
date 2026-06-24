@@ -10,7 +10,15 @@
  */
 
 import type { World } from '../world.ts';
-import type { GodlyRecipe, GodlyMatch, GodlyId, GodlyTriggerEvent } from './types.ts';
+import type {
+  GodlyRecipe,
+  CinematicGodlyRecipe,
+  SpawnerGodlyRecipe,
+  GodlyMatch,
+  SpawnerMatch,
+  GodlyId,
+  GodlyTriggerEvent,
+} from './types.ts';
 
 const REGISTRY = new Map<GodlyId, GodlyRecipe>();
 
@@ -32,22 +40,59 @@ export function listRecipes(): GodlyRecipe[] {
 // registry reset, add `__resetRegistryForTests` with explicit @internal JSDoc.
 
 export interface MatchResult {
-  readonly recipe: GodlyRecipe;
+  readonly recipe: CinematicGodlyRecipe;
   readonly match: GodlyMatch;
 }
 
 /**
- * Run all registered predicates on a single BOND_FORMED event. Returns the
- * first matching recipe (deterministic by registry insertion order). Skips
- * any recipe whose TYPE has already fired this match (S97 P5 — "1 of each type
- * per match"; replaces the old per-player 60s cooldown gate, which cross-blocked
- * DIFFERENT godly types for 60s). The triggerer must still exist (auth).
+ * S100 P1 (TD Phase 1b, Layer 5) — a SPAWNER recipe match. Carries the recipe
+ * (for its id) + the SpawnerMatch (owner + anchor). The matcher turns this into a
+ * REGISTER_SPAWNER dispatch, NOT a cinematic.
+ */
+export interface SpawnerMatchResult {
+  readonly recipe: SpawnerGodlyRecipe;
+  readonly match: SpawnerMatch;
+}
+
+/**
+ * Run all registered CINEMATIC predicates on a single topology-change event.
+ * Returns the first matching recipe (deterministic by registry insertion order).
+ * Skips any recipe whose TYPE has already fired this match (S97 P5 — "1 of each
+ * type per match"; replaces the old per-player 60s cooldown gate, which
+ * cross-blocked DIFFERENT godly types for 60s). The triggerer must still exist
+ * (auth).
+ *
+ * S100 P1 (TD Phase 1b, Layer 5) — SPAWNER recipes are NOT scanned here: they are
+ * matched separately via `findSpawnerMatch`, dispatch REGISTER_SPAWNER (never a
+ * cinematic), and are EXCLUDED from the `godlyFiredThisMatch` per-type gate (a
+ * spawner is rebuildable after a raid + multiple players may each have one).
  *
  * Host-only — caller must gate (world.isHost).
  */
 export function findGodlyMatch(world: World, bondPos: { x: number; y: number }): MatchResult | null {
   for (const recipe of REGISTRY.values()) {
+    if (recipe.kind !== 'cinematic') continue; // spawner recipes handled by findSpawnerMatch
     if (world.godlyFiredThisMatch.has(recipe.id)) continue; // already used this type this match
+    const match = recipe.predicate(world, bondPos);
+    if (match === null) continue;
+    const triggerer = world.players.get(match.triggererPlayerId);
+    if (triggerer === undefined) continue;
+    return { recipe, match };
+  }
+  return null;
+}
+
+/**
+ * S100 P1 (TD Phase 1b, Layer 5) — run all registered SPAWNER predicates on a
+ * single topology-change event. Returns the first match (registry insertion
+ * order). NO `godlyFiredThisMatch` gate (spawner recipes are excluded by design);
+ * the per-`(playerId, anchorPrimitiveId)` de-dup is applied by the caller against
+ * the live `world.creatureSpawners` map (godlyOrchestration). The triggerer must
+ * still exist (auth). Host-only — caller gates (world.isHost).
+ */
+export function findSpawnerMatch(world: World, bondPos: { x: number; y: number }): SpawnerMatchResult | null {
+  for (const recipe of REGISTRY.values()) {
+    if (recipe.kind !== 'spawner') continue;
     const match = recipe.predicate(world, bondPos);
     if (match === null) continue;
     const triggerer = world.players.get(match.triggererPlayerId);

@@ -33,6 +33,7 @@ import type { World } from '../state/world.ts';
 import { drawBondCommit } from './effects/bondCommit.ts';
 import { drawArcFlash } from './effects/arcFlash.ts';
 import { drawBombExplode } from './effects/bombExplode.ts';
+import { drawChewBite } from './effects/chewBite.ts';
 import { effectLifetime } from './effects/lifetime.ts';
 import { drawScoreTier } from './effects/scoreTier.ts';
 import { drawSeverErase } from './effects/severErase.ts';
@@ -118,6 +119,12 @@ export class EffectsRenderer {
         return;
       case 'BOMB_EXPLODE':
         drawBombExplode(g, effect, Math.min(1, age / lifetime));
+        return;
+      case 'CHEW_BITE':
+        // S100 P1 (TD Phase 1a) — chewer bite burst (Layer 7). A small graphite
+        // bite ring + dust spray at the chewed bond midpoint, modeled on
+        // drawBombExplode. Host-local-only (never serialized — §5.2).
+        drawChewBite(g, effect, Math.min(1, age / lifetime));
         return;
       case 'BOND_FORMED':
       case 'BOND_SEVERED':

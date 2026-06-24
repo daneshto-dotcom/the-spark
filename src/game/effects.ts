@@ -189,6 +189,26 @@ export type GameEffect =
       readonly tick: number;
       readonly pos: Vec2;
       readonly radius: number;
+    }
+  | {
+      /**
+       * S100 P1 (TD Phase 1a) — chewer bite. Emitted by `applyCreatureTick` on each
+       * NON-final chew of a committed bond (one per CHEW_INTERVAL_TICKS while the
+       * chewer is in ATTACKING); the final chew is marked by the SEVER_ERASE the
+       * CREATURE_ATTACK → SEVER_BOND emits instead. The renderer (Layer 7) draws a
+       * small graphite-dust burst + bite ring at `pos` (the bond midpoint), modeled
+       * on `drawBombExplode`.
+       *
+       * HOST-LOCAL ONLY — like BOND_COMMIT / SEVER_ERASE, this effect is NEVER
+       * serialized to the wire (no SerializedEffect case), so it adds zero protocol
+       * surface (TOWER_DEFENSE_DESIGN.md §5.2). `creatureId` lets the renderer key
+       * per-emitter jitter so simultaneous bites from different chewers read distinct
+       * (mirrors the ARC_FLASH.creatureId precedent).
+       */
+      readonly kind: 'CHEW_BITE';
+      readonly tick: number;
+      readonly pos: Vec2;
+      readonly creatureId: import('../types.ts').CreatureId;
     };
 
 /** Soft cap on the queue — anything older than this many ticks is dropped. */

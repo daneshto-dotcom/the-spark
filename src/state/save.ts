@@ -21,7 +21,7 @@
  * authority — clients never mint IDs).
  */
 
-import { type StiffnessTier } from '../constants.ts';
+import { SPAWN_INTERVAL_TICKS, type StiffnessTier } from '../constants.ts';
 import { type GameEffect } from '../game/effects.ts';
 import { makePrimitiveFromSpark, type Primitive } from '../game/primitive.ts';
 import {
@@ -48,6 +48,7 @@ import {
   type PrimitiveId,
   type SeagullId,
   type SparkId,
+  type SpawnerId,
   type Vec2,
 } from '../types.ts';
 import { type GameMode, type GameState, type World } from './world.ts';
@@ -59,6 +60,7 @@ import type { Hunter, HunterState } from './hunters/hunter.ts';
 import type { Potato, PotatoState } from './potato.ts';
 import type { Rainbow } from './rainbow.ts';
 import type { Poop, PoopState, Seagull } from './seagulls/seagull.ts';
+import { makeSpawner, type CreatureSpawner } from './spawners/spawner.ts';
 // Audit Pass 1 fix 3c8630d7 (Δ4) + Pass 2 refactor 622a7c7f: on restore,
 // world.tick may jump backward relative to the audio drain cursor. Without
 // resetting the cursor, audio effects whose tick straddles the cursor are
@@ -222,6 +224,17 @@ export interface WorldSnapshot {
    * defense: param-injection + Omit type + runtime destructure + wire-absence test).
    */
   spawner?: SpawnerState;
+  /**
+   * S100 P1 (TD Phase 1a) — host-authoritative creature spawners for the 1v1 client
+   * mirror + host save/load. Additive-optional (creature/hunter precedent; NO
+   * schemaVersion bump): emitted only when non-empty, so every pre-S100 save AND every
+   * networked NetSnapshot (no spawner live) stays byte-identical. Unlike the `spawner`
+   * field above (the host-only spark-cadence RNG state, stripped from the wire), this
+   * one DOES ride the wire — clients need to render the live spawn-zone aura — but only
+   * the tiny SerializedSpawner identity (id/ownerPlayerId/anchorPrimitiveId/recipeId);
+   * the cadence state stays host-only and is re-seeded from `world.tick` on rehydrate.
+   */
+  creatureSpawners?: SerializedSpawner[];
 }
 
 interface SerializedSpark {
@@ -401,6 +414,52 @@ interface SerializedCreature {
    * Wire cost: 1 byte per creature × max 2 = ≤2 B per NetSnapshot — negligible.
    */
   readonly ownerPlayerId?: PlayerId;
+  /**
+   * S100 P1 (TD Phase 1a) — HOST-SAVE-ONLY persistent chewer fields. These are
+   * ROUND-TRIPPED through the host save path (`snapshot()` → `restore()`) so a
+   * persistent mid-chew chewer survives a save/load (TOWER_DEFENSE_DESIGN.md §3.5,
+   * R3) — the SerializedBomb.dissipateAtTick precedent — but they are STRIPPED from
+   * the wire by `netSnapshot()` (host-authoritative; the client never simulates and
+   * only renders the trimmed id/type/pos/state/ticksInState/killCount shape, R1
+   * bandwidth budget). All four are additive-optional + emitted ONLY when non-default
+   * (a Voltkin — sourceSpawnerId:null / chewProgress:0 / targetBondId:null — emits
+   * NONE of them, so every pre-S100 save + the Voltkin replay byte-equivalence stay
+   * byte-identical, and the wire shape for a Voltkin is unchanged).
+   *
+   *  - despawnAtTick: a persistent chewer's lifetime is governed by the FSM
+   *    `!config.persistent` gate, but `deserializeCreature` defaults despawnAtTick=0
+   *    → a rehydrated chewer would mis-render its DESPAWNING window; round-trip it so
+   *    save/load preserves the construction-time value.
+   *  - chewProgress: the in-flight chew accumulator vs the committed bond.
+   *  - sourceSpawnerId: provenance (which spawner minted it) — drives the split caps
+   *    + FFA target-spread + scoped stickiness; lost on the wire (rehydrates null).
+   *  - targetBondId: the committed bond the chewer is chewing; round-tripped so a
+   *    mid-chew save resumes against the same bond (the wire rehydrates it null since
+   *    the client doesn't run the AI).
+   */
+  readonly despawnAtTick?: number;
+  readonly chewProgress?: number;
+  readonly sourceSpawnerId?: SpawnerId;
+  readonly targetBondId?: BondId;
+}
+
+/**
+ * S100 P1 (TD Phase 1a) — tiny additive-optional spawner wire/save shape. Only the
+ * persistent identity (id/ownerPlayerId/anchorPrimitiveId/recipeId) round-trips; the
+ * cadence state (nextSpawnTick/lastValidatedTick/spawnedCount/ignitedAtTick) is HOST-
+ * ONLY (rngSeed-exclusion precedent — never ship the upcoming spawn schedule to a
+ * modified client, TOWER_DEFENSE_DESIGN.md §3.3). On rehydrate, makeSpawner re-seeds
+ * the cadence from `world.tick` so a save/load resumes deterministically (a host
+ * save/load with a live spawner can't desync because both peers re-derive cadence the
+ * same way). Emitted only when `creatureSpawners` is non-empty (creature/hunter
+ * precedent), so every pre-S100 save AND every networked NetSnapshot (where a spawner
+ * can exist) stays byte-identical when no spawner is live.
+ */
+interface SerializedSpawner {
+  readonly id: SpawnerId;
+  readonly ownerPlayerId: PlayerId;
+  readonly anchorPrimitiveId: PrimitiveId;
+  readonly recipeId: GodlyId;
 }
 
 /**
@@ -591,6 +650,11 @@ export function snapshot(
     // S82 P2 — emit the spawner state only when the save call site injected one
     // (byte-identical pre-S82; null getState() fallback also omits — see opts docblock).
     spawner: opts?.spawnerState ?? undefined,
+    // S100 P1 (TD Phase 1a) — emit creature spawners only when present (byte-identical
+    // pre-S100 + when no spawner is live). Tiny identity-only shape; cadence stays host-only.
+    creatureSpawners: world.creatureSpawners.size > 0
+      ? [...world.creatureSpawners.values()].map(serializeSpawner)
+      : undefined,
   };
 }
 
@@ -640,7 +704,47 @@ export function netSnapshot(world: World): NetSnapshot {
     ...rest
   } = full;
   void _savedAt; void _rngSeed; void _nextPrimitiveId; void _nextBondId; void _spawner;
+  // S100 P1 (TD Phase 1a) — strip the HOST-SAVE-ONLY persistent chewer fields from the
+  // wire (TOWER_DEFENSE_DESIGN.md §3.3/§3.5 R1+R3: the render-trimmed creature wire shape
+  // is id/type/ownerPlayerId/pos/state/ticksInState/killCount only). `snapshot()` emits
+  // sourceSpawnerId/despawnAtTick/chewProgress/targetBondId for the HOST save round-trip;
+  // here we re-map `creatures` to drop them so a swarm doesn't balloon the 10 Hz full-world
+  // payload, and the client (which never simulates) rehydrates them neutral (null/0). When
+  // no chewer is live this re-map is a no-op (Voltkin emits none of those keys anyway), so
+  // the Voltkin wire shape stays byte-identical. `creatureSpawners` IS kept on the wire
+  // (clients render the live spawn-zone) — its host-only cadence is already off via the
+  // tiny SerializedSpawner identity shape.
+  if (rest.creatures !== undefined) {
+    rest.creatures = rest.creatures.map(trimMirrorCreature);
+  }
   return rest;
+}
+
+/**
+ * S100 P1 (TD Phase 1a) — produce the render-trimmed wire shape of a serialized creature:
+ * drop the four HOST-SAVE-ONLY persistent fields (sourceSpawnerId/despawnAtTick/
+ * chewProgress/targetBondId). For a Voltkin (which never carries them) this returns the
+ * input shape unchanged (no allocation cost beyond the spread), so the pre-S100 wire is
+ * byte-identical; for a chewer it strips the host-only sim state.
+ */
+function trimMirrorCreature(c: SerializedCreature): SerializedCreature {
+  if (
+    c.sourceSpawnerId === undefined &&
+    c.despawnAtTick === undefined &&
+    c.chewProgress === undefined &&
+    c.targetBondId === undefined
+  ) {
+    return c; // Voltkin / no host-only fields — already in wire shape
+  }
+  const {
+    sourceSpawnerId: _s,
+    despawnAtTick: _d,
+    chewProgress: _c,
+    targetBondId: _t,
+    ...wire
+  } = c;
+  void _s; void _d; void _c; void _t;
+  return wire;
 }
 
 /**
@@ -809,6 +913,25 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   world.botSeats.clear();
   if (snap.botSeats !== undefined) {
     for (const seat of snap.botSeats) world.botSeats.add(asPlayerId(seat));
+  }
+
+  // S100 P1 (TD Phase 1a) — creature spawners: clear + rehydrate (mirror of the
+  // hunter/seagull pattern). Reset the mint counter past the max loaded id so a host
+  // save/load with a live spawner does not mint a colliding SpawnerId on the next
+  // REGISTER_SPAWNER (save.ts:690 nextCreatureId precedent). The nullish guard keeps an
+  // old/pre-S100 save (no `creatureSpawners` field) loading as an empty map → no
+  // TypeError (R18). deserializeSpawner re-seeds the host-only cadence from world.tick,
+  // which applySnapshotCore set above (so the post-load first-emit / first-revalidate
+  // are one interval out — deterministic across peers; the next NetSnapshot re-syncs).
+  world.creatureSpawners.clear();
+  world.nextSpawnerId = 0;
+  if (snap.creatureSpawners !== undefined) {
+    let maxSpawnerId = -1;
+    for (const s of snap.creatureSpawners) {
+      world.creatureSpawners.set(s.id, deserializeSpawner(s, world.tick));
+      if ((s.id as number) > maxSpawnerId) maxSpawnerId = s.id as number;
+    }
+    if (maxSpawnerId >= 0) world.nextSpawnerId = maxSpawnerId + 1;
   }
 
   // S31 P0-3 — replace effects array contents from snap.effects. effects are
@@ -1025,7 +1148,52 @@ function serializeCreature(c: Creature): SerializedCreature {
     // Pre-S36 readers tolerate the missing field via deserializeCreature's
     // nullish-coalescing default 0.
     ...(c.killCount > 0 ? { killCount: c.killCount } : {}),
+    // S100 P1 (TD Phase 1a) — persistent chewer fields, emitted ONLY when non-default
+    // (a Voltkin: sourceSpawnerId:null / chewProgress:0 / targetBondId:null → ZERO of
+    // these keys, so every pre-S100 save + the Voltkin replay byte-equivalence stay
+    // byte-identical). These four are HOST-SAVE-ONLY: `serializeCreature` always emits
+    // them here (so `snapshot()`→`restore()` round-trips a mid-chew chewer, R3), and
+    // `netSnapshot()` STRIPS them from the wire afterward (trimMirrorCreature) — the
+    // client never simulates and rehydrates them neutral (null/0). `despawnAtTick` is
+    // emitted only for a chewer (sourceSpawnerId != null) since a Voltkin's value is
+    // re-derivable from spawnedAtTick on the trimmed-rehydrate path (deserializeCreature
+    // defaults it to 0 and the FSM is lifetime-bound), and the existing pre-S100 wire
+    // shape never carried it — keep that byte-identical.
+    ...(c.sourceSpawnerId !== null
+      ? { sourceSpawnerId: c.sourceSpawnerId, despawnAtTick: c.despawnAtTick }
+      : {}),
+    ...(c.chewProgress > 0 ? { chewProgress: c.chewProgress } : {}),
+    ...(c.targetBondId !== null ? { targetBondId: c.targetBondId } : {}),
   };
+}
+
+/** S100 P1 (TD Phase 1a) — tiny spawner identity round-trip (see SerializedSpawner). */
+function serializeSpawner(sp: CreatureSpawner): SerializedSpawner {
+  return {
+    id: sp.id,
+    ownerPlayerId: sp.ownerPlayerId,
+    anchorPrimitiveId: sp.anchorPrimitiveId,
+    recipeId: sp.recipeId,
+  };
+}
+
+/**
+ * S100 P1 (TD Phase 1a) — rehydrate a SerializedSpawner. The host-only cadence state
+ * (nextSpawnTick/lastValidatedTick/spawnedCount/ignitedAtTick) is NOT on the wire/save,
+ * so makeSpawner re-seeds it deterministically from `tick`: the first chewer emits one
+ * full SPAWN_INTERVAL after the load (the register-reducer seeding rule), and the first
+ * re-validation runs one throttle window later. A host save/load can't desync because
+ * every peer re-derives the cadence identically; the next NetSnapshot re-syncs anyway.
+ */
+function deserializeSpawner(s: SerializedSpawner, tick: number): CreatureSpawner {
+  return makeSpawner({
+    id: s.id,
+    ownerPlayerId: s.ownerPlayerId,
+    anchorPrimitiveId: s.anchorPrimitiveId,
+    recipeId: s.recipeId,
+    ignitedAtTick: tick,
+    nextSpawnTick: tick + SPAWN_INTERVAL_TICKS,
+  });
 }
 
 /**
@@ -1082,11 +1250,14 @@ function serializeEffect(e: GameEffect): SerializedEffect | null {
         radius: e.radius,
       };
     // Host-local visual flair — not sent to client. Renderer-only.
+    // S100 P1 — CHEW_BITE joins this host-local-only club (TOWER_DEFENSE_DESIGN.md
+    // §5.2): zero wire/protocol surface, the chewer's per-bite VFX is host-side cosmetic.
     case 'BOND_COMMIT':
     case 'SEVER_ERASE':
     case 'STRUCTURE_GROW':
     case 'STRUCTURE_MERGE':
     case 'SCORE_TIER':
+    case 'CHEW_BITE':
       return null;
   }
 }
@@ -1141,15 +1312,20 @@ function deserializeEffect(s: SerializedEffect): GameEffect {
 }
 
 /**
- * S28 P0 — rehydrate a SerializedCreature on the client side. Sim-only fields
- * (prevPos, targetPos, targetBondId, spawnedAtTick, despawnAtTick) are
- * reconstructed with neutral defaults: prevPos snaps to pos (zero implicit
- * velocity — client never integrates anyway), targetPos snaps to pos (no AI),
- * targetBondId=null (no AI), spawnedAtTick=0 and despawnAtTick=0 (renderer
- * ignores — host owns the despawn dispatch).
+ * S28 P0 — rehydrate a SerializedCreature. On the WIRE (client mirror) the sim-only
+ * fields (prevPos, targetPos, targetBondId, spawnedAtTick, despawnAtTick) are
+ * reconstructed with neutral defaults: prevPos snaps to pos (zero implicit velocity —
+ * client never integrates anyway), targetPos snaps to pos (no AI), spawnedAtTick=0,
+ * and (when absent) targetBondId=null + despawnAtTick=0 (renderer ignores — host owns
+ * the despawn dispatch).
  * S58 (#3) — `ownerPlayerId` now rehydrates from the wire (was hardcoded 0);
  * the client fog mask reveals around OWN creatures. Pre-S58 NetSnapshots omit
  * the field → nullish-coalesce to 0 (old data stays valid).
+ * S100 P1 (TD Phase 1a) — on the HOST SAVE path `snapshot()` ROUND-TRIPS despawnAtTick /
+ * targetBondId / sourceSpawnerId / chewProgress for a persistent mid-chew chewer (R3);
+ * the wire strips them (netSnapshot → trimMirrorCreature) so the same nullish-coalescing
+ * defaults below rehydrate a client mirror neutral. prevPos/targetPos/spawnedAtTick stay
+ * host-derived/neutral as before (a chewer's pos-relative steering re-derives next tick).
  */
 function deserializeCreature(s: SerializedCreature): Creature {
   return {
@@ -1159,7 +1335,6 @@ function deserializeCreature(s: SerializedCreature): Creature {
     pos: { x: s.pos.x, y: s.pos.y },
     prevPos: { x: s.pos.x, y: s.pos.y },
     targetPos: { x: s.pos.x, y: s.pos.y },
-    targetBondId: null,
     state: s.state,
     ticksInState: s.ticksInState,
     // S36 P3 — additive-optional rehydrate. Pre-S36 saves + pre-S36
@@ -1168,7 +1343,19 @@ function deserializeCreature(s: SerializedCreature): Creature {
     // frame at DESPAWNING).
     killCount: s.killCount ?? 0,
     spawnedAtTick: 0,
-    despawnAtTick: 0,
+    // S100 P1 (TD Phase 1a) — host-save round-trip + wire-neutral rehydrate (one path
+    // serves both, R3). The HOST save path (`snapshot()`) emits the four persistent
+    // chewer fields, so a mid-chew chewer rehydrates with its real despawnAtTick /
+    // chewProgress / sourceSpawnerId / targetBondId. The WIRE strips them (netSnapshot
+    // → trimMirrorCreature), so a 1v1 client mirror rehydrates them NEUTRAL via the
+    // nullish-coalescing defaults below — sourceSpawnerId:null (Voltkin-population),
+    // chewProgress:0 (no chew), despawnAtTick:0 (client never runs the lifetime gate),
+    // targetBondId:null (client never runs the AI). A Voltkin omits all four either way,
+    // so its rehydrate is byte-identical to pre-S100.
+    despawnAtTick: s.despawnAtTick ?? 0,
+    targetBondId: s.targetBondId ?? null,
+    sourceSpawnerId: s.sourceSpawnerId ?? null,
+    chewProgress: s.chewProgress ?? 0,
   };
 }
 

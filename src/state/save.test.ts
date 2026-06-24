@@ -130,6 +130,8 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         killCount: 0,
         spawnedAtTick: 10,
         despawnAtTick: 490,
+        sourceSpawnerId: null,
+        chewProgress: 0,
       },
     );
     const snap = snapshot(w1);
@@ -172,6 +174,8 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         killCount: 3,
         spawnedAtTick: 50,
         despawnAtTick: 530,
+        sourceSpawnerId: null,
+        chewProgress: 0,
       },
     );
     const snap = snapshot(w1);
@@ -201,6 +205,8 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         killCount: 0,
         spawnedAtTick: 50,
         despawnAtTick: 530,
+        sourceSpawnerId: null,
+        chewProgress: 0,
       },
     );
     const snap = snapshot(w1);
@@ -251,6 +257,8 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         killCount: 0,
         spawnedAtTick: 0,
         despawnAtTick: 480,
+        sourceSpawnerId: null,
+        chewProgress: 0,
       },
     );
     w1.creatures.set(
@@ -268,6 +276,8 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         killCount: 0,
         spawnedAtTick: 100,
         despawnAtTick: 580,
+        sourceSpawnerId: null,
+        chewProgress: 0,
       },
     );
     w1.nextCreatureId = 4;

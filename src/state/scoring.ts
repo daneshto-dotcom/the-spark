@@ -40,6 +40,7 @@ import {
   SCORE_INCOME_PER_COMPLEXITY_PER_SEC,
   SCORE_MAGIC_BOND,
   SCORE_TIER_STEP,
+  SPAWNER_INCOME_COMPLEXITY,
 } from '../constants.ts';
 import type { PlayerId } from '../types.ts';
 import type { World } from './worldTypes.ts';
@@ -112,11 +113,24 @@ export function computeComplexity(world: World, playerId: PlayerId): number {
     functionalBonds,
     Math.floor(FUNCTIONAL_BOND_CAP_PER_PRIM * primCount),
   );
+  // S100 P1 (TD Phase 1a) — NEAR-ZERO passive income for each LIVE spawner this player
+  // owns (TOWER_DEFENSE_DESIGN.md §2.7/§4.2). Recomputed from live state every tick (no
+  // parallel accrual loop): destroy a player's spawner (the re-validation poll dispatches
+  // REMOVE_SPAWNER → the map shrinks) and this term vanishes the SAME tick — "raid it to
+  // stop its income" works for free. Kept tiny (SPAWNER_INCOME_COMPLEXITY=0.5) so it never
+  // threatens the protected PHASE_1_WIN_SCORE=630 anchor; the real balance lever is
+  // destruction throughput, not income. O(spawners) — bounded by the per-player spawner
+  // count (typically 0-1), negligible next to the prim/bond passes above.
+  let spawnerCount = 0;
+  for (const sp of world.creatureSpawners.values()) {
+    if (sp.ownerPlayerId === playerId) spawnerCount++;
+  }
   return (
     primCount * PRIM_WEIGHT +
     magicBonds * MAGIC_BONUS +
     countedFunctional * FUNCTIONAL_BOND_COMPLEXITY +
-    filamentBonds * FILAMENT_INCOME_COMPLEXITY
+    filamentBonds * FILAMENT_INCOME_COMPLEXITY +
+    spawnerCount * SPAWNER_INCOME_COMPLEXITY
   );
 }
 

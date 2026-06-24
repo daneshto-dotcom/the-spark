@@ -62,7 +62,16 @@ export type { NetSnapshot };
 // would stall FOREVER on its silence (Council S87 F4 CONCEDED→GEMINI — the
 // LOBBY_PRESENCE no-bump precedent covers cosmetic kinds, not match-gating
 // ones). The HELLO hard-reject + "please refresh" UX handles the skew.
-export const PROTOCOL_VERSION = 9 as const;
+// S100 P1 (TD Phase 1a) — bumped 9→10: the tower-defense feature ships
+// REGISTER_SPAWNER/REMOVE_SPAWNER (host-internal) + a new SPAWN_CREATURE
+// sourceSpawnerId field + the additive-optional `creatureSpawners[]` snapshot
+// field. Both are HOST-AUTHORITATIVE (never client INTENTs — see the
+// KNOWN_GAME_ACTION_TYPES_RECORD rows below, deliberately ABSENT from
+// CLIENT_INTENT_TYPES). A stale v9 peer can't render an income-affecting +
+// structure-destroying system (a spawner that mints chewers chewing through its
+// connectors), so it is hard-rejected at the HELLO handshake — same lockstep as
+// the S77 seagull / S93 NONET bumps (TOWER_DEFENSE_DESIGN.md §3.3).
+export const PROTOCOL_VERSION = 10 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -87,8 +96,8 @@ export interface HelloMsg {
   readonly kind: 'HELLO';
   readonly playerId: PlayerId;
   readonly color: number;
-  /** Protocol version — bumped on wire-incompatible changes. S77 P3: 6→7 (seagull); S87 P4: 7→8 (LOBBY_READY quickmatch gate); S93: 8→9 (NONET SUDOKU_SOLVED intent + sudoku snapshot field). */
-  readonly protoVersion: 9;
+  /** Protocol version — bumped on wire-incompatible changes. S77 P3: 6→7 (seagull); S87 P4: 7→8 (LOBBY_READY quickmatch gate); S93: 8→9 (NONET SUDOKU_SOLVED intent + sudoku snapshot field); S100 P1: 9→10 (TD spawner lifecycle + creatureSpawners snapshot field). */
+  readonly protoVersion: 10;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
 }
@@ -412,6 +421,15 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   BENCH_OFFLINE_PLAYER: true,
   // S93 — NONET solve submission (player-originated; also in CLIENT_INTENT_TYPES below).
   SUDOKU_SOLVED: true,
+  // S100 P1 (TD Phase 1a) — creature-spawner lifecycle. BOTH are HOST-INTERNAL
+  // (host-authored on ignition / re-validation; NOT client INTENTs — see
+  // spawners/spawnerLifecycle.ts). Listed here ONLY because this Record must mirror
+  // GameAction['type'] exhaustively; they are deliberately ABSENT from
+  // CLIENT_INTENT_TYPES below, so a modified client sending one as an INTENT is dropped
+  // by the host allowlist gate (BENCH_OFFLINE_PLAYER precedent). The PROTOCOL_VERSION
+  // bump (9→10) for this feature is owned by the protocol layer, not this layer.
+  REGISTER_SPAWNER: true,
+  REMOVE_SPAWNER: true,
 };
 const KNOWN_GAME_ACTION_TYPES: ReadonlySet<string> = new Set(
   Object.keys(KNOWN_GAME_ACTION_TYPES_RECORD),

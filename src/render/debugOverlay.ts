@@ -19,7 +19,7 @@
 import { inspectAudioChain, type AudioChainSnapshot } from './audioManager.ts';
 import { listRecipes } from '../state/godlyRecipes/index.ts';
 import { findLongestVoltkinPartial } from '../state/godlyRecipes/voltkin.ts';
-import { SparkType } from '../constants.ts';
+import { CHEWER_MAX_GLOBAL, SparkType } from '../constants.ts';
 import type { World } from '../state/world.ts';
 import { computePlayerComplexity, computeTerritorialRadius } from '../state/territory.ts';
 
@@ -131,12 +131,32 @@ export function createDebugOverlay(): DebugOverlayHandle {
     // creature so the user can paste a snapshot at SPAWN, mid-life, and DESPAWN
     // moments + verify lifecycle.
     const creatureLines: string[] = [];
+    // S100 P1 (TD Phase 1a, Layer 4) — minimal dev PERF readout: split the live count
+    // into the two independently-capped populations (Voltkin sourceSpawnerId===null vs
+    // chewer !==null) so the cap headroom + swarm size (the perf/wire risk, §3.3) is
+    // visible at a glance. Surface chewProgress for chewers (the new chew loop).
+    let chewerCount = 0;
     for (const c of world.creatures.values()) {
+      const isChewer = c.sourceSpawnerId !== null;
+      if (isChewer) chewerCount++;
       const ticksLeft = Math.max(0, c.despawnAtTick - world.tick);
+      const chewSuffix = isChewer
+        ? ` src=S${c.sourceSpawnerId} chew=${c.chewProgress} tgt=${c.targetBondId ?? '-'}`
+        : ` ticksLeft=${ticksLeft}`;
       creatureLines.push(
         `  C${c.id}: type=${c.type} owner=P${c.ownerPlayerId} state=${c.state} `
         + `pos=(${c.pos.x.toFixed(1)},${c.pos.y.toFixed(1)}) `
-        + `ticksInState=${c.ticksInState} ticksLeft=${ticksLeft}`,
+        + `ticksInState=${c.ticksInState}${chewSuffix}`,
+      );
+    }
+
+    // S100 P1 (TD Phase 1a, Layer 4) — spawner perf readout.
+    const spawnerLines: string[] = [];
+    for (const sp of world.creatureSpawners.values()) {
+      spawnerLines.push(
+        `  S${sp.id}: owner=P${sp.ownerPlayerId} anchor=#${sp.anchorPrimitiveId} `
+        + `recipe=${sp.recipeId} next=${sp.nextSpawnTick} (${Math.max(0, sp.nextSpawnTick - world.tick)}t) `
+        + `spawned=${sp.spawnedCount}`,
       );
     }
 
@@ -200,8 +220,12 @@ export function createDebugOverlay(): DebugOverlayHandle {
       ...playerLines,
       ``,
       `=== CREATURES ===`,
-      `count:          ${world.creatures.size}`,
+      `count:          ${world.creatures.size} (chewers=${chewerCount}/${CHEWER_MAX_GLOBAL})`,
       ...creatureLines,
+      ``,
+      `=== SPAWNERS (S100 TD) ===`,
+      `count:          ${world.creatureSpawners.size}`,
+      ...spawnerLines,
       ``,
       `=== AUDIO ===`,
       `ctxState:       ${audio.contextState}${audio.contextState === 'running' ? '' : '  !!!'}`,

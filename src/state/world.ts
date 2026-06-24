@@ -122,6 +122,13 @@ import {
   type SpawnRainbowAction,
   type TriggerRainbowAction,
 } from './rainbowLifecycle.ts';
+import {
+  applyRegisterSpawner,
+  applyRemoveSpawner,
+  teardownSpawners,
+  type RegisterSpawnerAction,
+  type RemoveSpawnerAction,
+} from './spawners/spawnerLifecycle.ts';
 
 // Re-export addScore from gameMode.ts for back-compat with placePrimitive.ts
 // and session15.test.ts (S16 P0 extraction preserved external import paths).
@@ -234,6 +241,14 @@ export type GameAction =
   | SpawnRainbowAction
   | TriggerRainbowAction
   | DissipateRainbowAction
+  // S100 P1 (TD Phase 1a) — creature-spawner lifecycle (host-internal; reducers in
+  // spawners/spawnerLifecycle.ts). REGISTER_SPAWNER is dispatched on spawner-structure
+  // ignition (Layer 5); REMOVE_SPAWNER by the host re-validation poll when the shape
+  // breaks. NEITHER is a client INTENT — host-authored + snapshot-replicated, so they go
+  // in KNOWN_GAME_ACTION_TYPES_RECORD only, NOT CLIENT_INTENT_TYPES (PROTOCOL_VERSION
+  // bump handled in the protocol layer).
+  | RegisterSpawnerAction
+  | RemoveSpawnerAction
   // S93 — NONET: a player submits a completed Sudoku grid (client INTENT or host/solo local);
   // the host validates first-valid-wins. playerId is host-stamped to the sender's seat.
   | { readonly type: 'SUDOKU_SOLVED'; readonly playerId: PlayerId; readonly grid: readonly number[] };
@@ -261,6 +276,9 @@ export function makeWorld(rngSeed: number): World {
     pendingCinematics: [],
     creatures: new Map(),
     nextCreatureId: 0,
+    // S100 P1 (TD Phase 1a) — host-authoritative creature spawners; empty at world birth.
+    creatureSpawners: new Map(),
+    nextSpawnerId: 0,
     pendingCreatureSpawn: null,
     bombs: new Map(),
     nextBombId: 0,
@@ -384,6 +402,9 @@ export function dispatch(world: World, action: GameAction): World {
       // S77 P3 — and seagulls/poops/fouled state (so no gull/poop/foul persists onto the win
       // screen or into the next match — a fouled prim would otherwise halt income next game).
       teardownSeagulls(world);
+      // S100 P1 (TD Phase 1a) — and creature spawners (a lingering spawner would keep minting
+      // chewers + accruing income onto the win screen / into the next match).
+      teardownSpawners(world);
       return world;
 
     case 'START_GAME':
@@ -500,6 +521,13 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'DISSIPATE_RAINBOW':
       return applyDissipateRainbow(world, action);
+
+    // S100 P1 (TD Phase 1a) — creature-spawner lifecycle (reducers in spawners/spawnerLifecycle.ts).
+    case 'REGISTER_SPAWNER':
+      return applyRegisterSpawner(world, action);
+
+    case 'REMOVE_SPAWNER':
+      return applyRemoveSpawner(world, action);
 
     // S93 — NONET solve submission (host-authoritative; first valid grid wins). On the host this
     // applies the ×2/÷2; on a client this case never runs (clients send it as an INTENT, the host

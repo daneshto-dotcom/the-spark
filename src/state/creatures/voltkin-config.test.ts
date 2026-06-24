@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest';
 import {
   CREATURE_CONFIGS,
   VOLTKIN_CONFIG,
+  CHEWER_CONFIG,
   getCreatureConfig,
   type CreatureConfig,
 } from './voltkin-config.ts';
@@ -45,6 +46,18 @@ describe('VOLTKIN_CONFIG (per-type config record)', () => {
 
   it('fadeTicks ≤ despawningTicks (blueprint Q8 invariant)', () => {
     expect(VOLTKIN_CONFIG.fadeTicks).toBeLessThanOrEqual(VOLTKIN_CONFIG.despawningTicks);
+  });
+
+  // S100 P1 (TD Phase 1a) — the new TD fields on VOLTKIN_CONFIG MUST keep Voltkin
+  // byte-for-byte: lifetime-bound (persistent:false), single-fire zap (chewHits:0,
+  // NOT the chew loop), full top speed (hopSpeedMul:1), and the de-hardcoded
+  // CREATURE_MAX_ACCEL=200 unchanged. save.replay.test.ts is the empirical guard;
+  // this locks the literals so accidental drift surfaces here (R4 / R16).
+  it('locks the S100 TD fields on Voltkin (persistent:false / chewHits:0 / hopSpeedMul:1 / maxAccel:200)', () => {
+    expect(VOLTKIN_CONFIG.persistent).toBe(false);
+    expect(VOLTKIN_CONFIG.chewHits).toBe(0);
+    expect(VOLTKIN_CONFIG.hopSpeedMul).toBe(1);
+    expect(VOLTKIN_CONFIG.maxAccel).toBe(200);
   });
 
   it('attackFireTick falls inside the attackCadenceTicks window (and > 0 so wind-up exists)', () => {
@@ -97,17 +110,51 @@ describe('back-compat exports in creature.ts derive from VOLTKIN_CONFIG', () => 
   });
 });
 
+// S100 P1 (TD Phase 1a) — CHEWER_CONFIG contract lock (TOWER_DEFENSE_DESIGN.md §2.4).
+// The behavioral diffs from Voltkin are the spec; this catches accidental drift.
+describe('CHEWER_CONFIG (TD swarm creature)', () => {
+  it('discriminator matches chewer type', () => {
+    expect(CHEWER_CONFIG.type).toBe('chewer');
+  });
+
+  it('is persistent (no lifetime auto-delete; FSM gate is the despawn mechanism)', () => {
+    expect(CHEWER_CONFIG.persistent).toBe(true);
+  });
+
+  it('chews 5 hits, hops at ~0.6× speed, maxAccel = 200 × hopSpeedMul', () => {
+    expect(CHEWER_CONFIG.chewHits).toBe(5);
+    expect(CHEWER_CONFIG.hopSpeedMul).toBe(0.6);
+    expect(CHEWER_CONFIG.maxAccel).toBe(120); // 200 (CREATURE_MAX_ACCEL) × 0.6
+  });
+
+  it('ATTACKING spans the full chew (attackCadenceTicks = chewHits × CHEW_INTERVAL_TICKS)', () => {
+    // CHEW_INTERVAL_TICKS = 60 (constants.ts); 5 × 60 = 300 so the chewer stays in
+    // ATTACKING for the whole chew instead of bouncing to SEEKING after each hit (R9).
+    expect(CHEWER_CONFIG.attackCadenceTicks).toBe(300);
+    expect(CHEWER_CONFIG.attackFireTick).toBe(300); // sever on the final hit
+    expect(CHEWER_CONFIG.attackFireTick).toBeLessThanOrEqual(CHEWER_CONFIG.attackCadenceTicks);
+  });
+
+  it('fadeTicks ≤ despawningTicks (blueprint Q8 invariant holds for chewers too)', () => {
+    expect(CHEWER_CONFIG.fadeTicks).toBeLessThanOrEqual(CHEWER_CONFIG.despawningTicks);
+  });
+});
+
 describe('CREATURE_CONFIGS lookup table', () => {
   it('contains an entry per known CreatureType discriminator', () => {
-    // Currently only 'voltkin'. When Anvil ships, this test will fail at
-    // the new type's entry — that failure is the intentional reminder to
-    // add the new XYZ_CONFIG to the table.
+    // S100 P1 — 'chewer' joined 'voltkin'. When the next type ships, this test
+    // will fail at the new type's entry — that failure is the intentional
+    // reminder to add the new XYZ_CONFIG to the table.
     const keys = Object.keys(CREATURE_CONFIGS).sort();
-    expect(keys).toEqual(['voltkin']);
+    expect(keys).toEqual(['chewer', 'voltkin']);
   });
 
   it('voltkin entry is === VOLTKIN_CONFIG (reference equality, not just deep-equal)', () => {
     expect(CREATURE_CONFIGS.voltkin).toBe(VOLTKIN_CONFIG);
+  });
+
+  it('chewer entry is === CHEWER_CONFIG (reference equality)', () => {
+    expect(CREATURE_CONFIGS.chewer).toBe(CHEWER_CONFIG);
   });
 });
 

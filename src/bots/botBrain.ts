@@ -20,6 +20,7 @@ import {
   SPAWNER_RADIUS,
 } from '../constants.ts';
 import { isInsideEnemyTerritory } from '../state/territory.ts';
+import { componentOf } from '../game/structure.ts';
 import type { World } from '../state/world.ts';
 import type { BondId, PlayerId, PotatoId, RainbowId, SparkId, Vec2 } from '../types.ts';
 import type { BotConfig } from './botConfig.ts';
@@ -33,6 +34,11 @@ const HOME_ANCHOR_REACH = 90;
 const GROWTH_STEP = AUTO_BOND_RADIUS * 0.8;
 /** Flee hop length when running from the hunter. */
 const FLEE_HOP = 320;
+/** S100 P1 (TD Phase 1a) — a bot keeps a light berth from chewers: if one is within this
+ *  radius of its avatar, hop away (chewers chew enemy connectors, not the cursor, so this
+ *  is a LIGHT avoid — just don't loiter in the swarm — gated below the hunter flee). */
+const CHEWER_AVOID_RADIUS = 140;
+const CHEWER_AVOID_RADIUS_SQ = CHEWER_AVOID_RADIUS * CHEWER_AVOID_RADIUS;
 
 export type BotGoal =
   | { readonly kind: 'BUILD'; readonly sparkId: SparkId }
@@ -66,6 +72,16 @@ export function chooseGoal(
         return { kind: 'FLEE', pos: fleePoint(me.avatarPos, h.pos) };
       }
     }
+    // 1b — S100 P1 (TD Phase 1a) — LIGHT chewer-avoid: if a chewer is loitering near my
+    // avatar, hop away from the nearest one (reuses the FLEE goal + fleePoint, so no new
+    // controller actuation). Gated under fleesHunter (the same "I dodge threats" trait) and
+    // BELOW the hunter check (a locked hunter is the bigger danger). Deterministic: the
+    // nearest chewer wins, tie-broken by Map (insertion) order. Without this, VS-BOTS gives
+    // a false "spawners are fine" reading (R11) because bots ignore the swarm entirely.
+    const chewer = nearestChewer(world, me.avatarPos);
+    if (chewer !== null) {
+      return { kind: 'FLEE', pos: fleePoint(me.avatarPos, chewer) };
+    }
   }
 
   // 2 — CLEAN: my structure is fouled → income is ZERO until I walk the splat.
@@ -87,8 +103,18 @@ export function chooseGoal(
     }
   }
 
-  // 4 — SEVER: spend a charge on the nearest enemy bond (rng-gated).
+  // 4 — SEVER: spend a charge on an enemy bond (rng-gated). S100 P1 (TD Phase 1a) —
+  // PRIORITIZE an enemy SPAWNER-anchor's connectors over a generic bond: breaking any
+  // connector of the exact pentagram reduces the component below the recipe → the
+  // spawner is torn down (income + swarm STOP) on the next re-validation poll. Only when
+  // no enemy spawner exists does the bot fall back to the generic nearest-enemy-bond
+  // (the pre-S100 behaviour, byte-identical). Without this, bots never answer a spawner
+  // and VS-BOTS balance tests read falsely (R11).
   if (cfg.canSever && me.disruptionCharges >= 1 && rng() < cfg.severChance) {
+    const spawnerTarget = nearestEnemySpawnerBond(world, seat, me.avatarPos);
+    if (spawnerTarget !== null) {
+      return { kind: 'SEVER', bondId: spawnerTarget.bondId, pos: spawnerTarget.mid };
+    }
     const target = nearestEnemyBond(world, seat, me.avatarPos);
     if (target !== null) return { kind: 'SEVER', bondId: target.bondId, pos: target.mid };
   }
@@ -270,6 +296,66 @@ export function nearestEnemyBond(
     if (best === null || d < best.d) best = { bondId: bond.id, mid, d };
   }
   return best === null ? null : { bondId: best.bondId, mid: best.mid };
+}
+
+/**
+ * S100 P1 (TD Phase 1a) — nearest connector bond of an ENEMY spawner's anchor component.
+ * Iterates live spawners (host-authoritative); for each one owned by a different seat,
+ * walks the CURRENT connected component of its anchor primitive and considers every bond
+ * whose BOTH endpoints lie inside that component (the recipe's connectors). Returns the
+ * nearest such bond's id + midpoint, or null when no enemy spawner exists (→ the caller
+ * falls back to the generic nearest-enemy-bond). Severing any one connector drops the
+ * pentagram below the recipe shape, tearing the spawner down on the next re-validation.
+ *
+ * Deterministic: spawners iterate in Map (insertion = SpawnerId mint) order; the nearest
+ * bond wins, ties broken by the first-seen (so by spawner order then component-walk order)
+ * — the bot's avatar-distance is the only ranking key, identical across same-seed runs.
+ */
+export function nearestEnemySpawnerBond(
+  world: World,
+  seat: PlayerId,
+  from: Vec2,
+): { bondId: BondId; mid: Vec2 } | null {
+  let best: { bondId: BondId; mid: Vec2; d: number } | null = null;
+  for (const sp of world.creatureSpawners.values()) {
+    if (sp.ownerPlayerId === seat) continue; // only raid ENEMY spawners
+    const anchor = world.primitives.get(sp.anchorPrimitiveId);
+    if (anchor === undefined) continue; // stale anchor (poll will tear it down)
+    const comp = componentOf(anchor, world.primitives, world.bonds);
+    for (const bondId of comp.bondIds) {
+      const bond = world.bonds.get(bondId);
+      if (bond === undefined) continue;
+      // Connector = a bond internal to the component (both endpoints in the ring).
+      if (!comp.primitiveIds.has(bond.aId) || !comp.primitiveIds.has(bond.bId)) continue;
+      const a = world.primitives.get(bond.aId);
+      const b = world.primitives.get(bond.bId);
+      if (a === undefined || b === undefined) continue;
+      const mid = { x: (a.pos.x + b.pos.x) / 2, y: (a.pos.y + b.pos.y) / 2 };
+      const dx = mid.x - from.x;
+      const dy = mid.y - from.y;
+      const d = dx * dx + dy * dy;
+      if (best === null || d < best.d) best = { bondId: bond.id, mid, d };
+    }
+  }
+  return best === null ? null : { bondId: best.bondId, mid: best.mid };
+}
+
+/**
+ * S100 P1 (TD Phase 1a) — nearest CHEWER position within CHEWER_AVOID_RADIUS of a point,
+ * or null. Only chewers (sourceSpawnerId !== null) — a Voltkin isn't a swarm threat. Used
+ * by the light chewer-avoid in chooseGoal. Deterministic: nearest wins, Map-order tie-break.
+ */
+export function nearestChewer(world: World, from: Vec2): Vec2 | null {
+  let best: { pos: Vec2; d: number } | null = null;
+  for (const c of world.creatures.values()) {
+    if (c.sourceSpawnerId === null) continue; // Voltkin — not a chew-swarm threat
+    const dx = c.pos.x - from.x;
+    const dy = c.pos.y - from.y;
+    const d = dx * dx + dy * dy;
+    if (d > CHEWER_AVOID_RADIUS_SQ) continue;
+    if (best === null || d < best.d) best = { pos: c.pos, d };
+  }
+  return best === null ? null : { x: best.pos.x, y: best.pos.y };
 }
 
 /** Nearest enemy primitive to a point (potato delivery target). */

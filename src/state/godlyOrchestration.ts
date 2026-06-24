@@ -33,6 +33,7 @@ import type { DebugOverlayHandle, RuntimeProbes } from '../render/debugOverlay.t
 import { playOneShot } from '../render/audioManager.ts';
 import { cinematicMsToTicks } from './creatures/creature.ts';
 import { findGodlyMatch, getRecipe, makeTriggerEvent } from './godlyRecipes/index.ts';
+import { findAllPentagramAnchors, pentagramOwnerForAnchor } from './godlyRecipes/pentagram.ts';
 import { dispatch, isNetworked, type World } from './world.ts';
 
 export interface GodlyOrchestrationState {
@@ -69,6 +70,17 @@ export function runGodlyMatcher(
   ctx: GodlyOrchestrationCtx,
 ): void {
   if (!world.isHost) return;
+
+  // S100 P1 (TD Phase 1b, Layer 5) — SPAWNER ignition, scanned FIRST + DECOUPLED
+  // from the cinematic single-slot. This runs BEFORE the `activeCinematicPlayerId`
+  // early-return below, so a spawner can ignite while ANY player's cinematic plays
+  // (and vice-versa) — a pentagram never blocks, nor is blocked by, a cinematic. It
+  // dispatches REGISTER_SPAWNER directly: it NEVER touches activeCinematicPlayerId /
+  // pendingCinematics, and is EXCLUDED from godlyFiredThisMatch (gated instead
+  // per-(playerId, anchorPrimitiveId) against the LIVE creatureSpawners map below —
+  // rebuildable after a raid, multiple players may each have one).
+  runSpawnerIgnition(world);
+
   if (world.activeCinematicPlayerId !== null) return; // queue handled in reducer
   for (const eff of world.effects) {
     // S99 — a godly is matched on any TOPOLOGY change, not just bond creation:
@@ -118,6 +130,59 @@ export function runGodlyMatcher(
 }
 
 /**
+ * S100 P1 (TD Phase 1b, Layer 5) — host-only spawner ignition. Decoupled from the
+ * cinematic single-slot: dispatches REGISTER_SPAWNER WITHOUT touching
+ * activeCinematicPlayerId / pendingCinematics, and never consults / mutates
+ * godlyFiredThisMatch.
+ *
+ * Gating (mirrors the cinematic matcher's intent, NOT its mechanism):
+ *  - Run only on a topology change this frame (a BOND_FORMED or a PLAYER-caused
+ *    BOND_SEVERED — build UP to the shape OR reduce DOWN to it; combat severs do
+ *    NOT ignite). Without a qualifying effect, the shape can't have just changed,
+ *    so there's nothing new to ignite. (The reducer + live-map de-dup below make a
+ *    redundant scan harmless, but this keeps the per-tick cost out.)
+ *  - De-dup per-(playerId, anchorPrimitiveId) against the LIVE creatureSpawners
+ *    map: an anchor that is already a live spawner OWNED BY THE SAME PLAYER is
+ *    skipped (can't double-register; CAN rebuild after the prior spawner was
+ *    removed). Defense-in-depth: applyRegisterSpawner also no-ops on a duplicate
+ *    anchor regardless of owner.
+ *  - Multi-anchor-in-one-frame tie-break = LOWEST anchorPrimitiveId: enumerate all
+ *    pentagram anchors ascending, register the first un-registered one, and stop
+ *    (single ignition per frame, paralleling the cinematic matcher's `break`).
+ */
+function runSpawnerIgnition(world: World): void {
+  let hasTopologyChange = false;
+  for (const eff of world.effects) {
+    if (eff.kind === 'BOND_FORMED') { hasTopologyChange = true; break; }
+    if (eff.kind === 'BOND_SEVERED' && eff.cause === 'player') { hasTopologyChange = true; break; }
+  }
+  if (!hasTopologyChange) return;
+
+  const anchors = findAllPentagramAnchors(world); // ascending anchor-id order
+  for (const anchor of anchors) {
+    const owner = pentagramOwnerForAnchor(world, anchor);
+    if (owner === null) continue;
+    // Already a live spawner on this anchor owned by this player? Skip (no
+    // double-register; rebuild allowed after the prior one was removed).
+    let alreadyLive = false;
+    for (const sp of world.creatureSpawners.values()) {
+      if (sp.anchorPrimitiveId === anchor && sp.ownerPlayerId === owner) {
+        alreadyLive = true;
+        break;
+      }
+    }
+    if (alreadyLive) continue;
+    dispatch(world, {
+      type: 'REGISTER_SPAWNER',
+      ownerPlayerId: owner,
+      anchorPrimitiveId: anchor,
+      recipeId: 'pentagram',
+    });
+    return; // single ignition per frame (lowest-anchor tie-break)
+  }
+}
+
+/**
  * S22 P3 — cinematic lifecycle. Detects activeCinematicPlayerId transitions
  * and kicks/aborts CutsceneOverlay accordingly. Host-only schedules
  * pendingCreatureSpawn (S28 P0); both peers manage local overlay/vignette.
@@ -153,6 +218,16 @@ export function startCinematicIfNeeded(
   const recipe = getRecipe(event.godlyId);
   if (recipe === undefined) {
     console.warn('[godly] no recipe registered for id', event.godlyId);
+    return;
+  }
+  // S100 P1 (TD Phase 1b, Layer 5) — GodlyRecipe is now a discriminated union; the
+  // cinematic pipeline (cutsceneOverlay.play + the timing reads below) only handles
+  // the cinematic variant. A cinematic event should NEVER reference a spawner recipe
+  // (spawner recipes dispatch REGISTER_SPAWNER, never GODLY_TRIGGER), so this guard
+  // is defensive — narrow `recipe` to CinematicGodlyRecipe before touching its
+  // cinematic-only fields (cinematicMs/sustainedEffectMs/etc.).
+  if (recipe.kind !== 'cinematic') {
+    console.warn('[godly] cinematic event references a non-cinematic recipe', event.godlyId);
     return;
   }
   const localPlayerId = ctx.controls.getPlayerId();

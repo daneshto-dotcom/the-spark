@@ -24,6 +24,8 @@ export type RainbowId = number & { readonly __brand: 'RainbowId' };
 // S77 P3 — seagull hazard + its poop projectile entity ids.
 export type SeagullId = number & { readonly __brand: 'SeagullId' };
 export type PoopId = number & { readonly __brand: 'PoopId' };
+// S100 P1 (TD Phase 1a) — tower-defense creature-spawner structure entity id.
+export type SpawnerId = number & { readonly __brand: 'SpawnerId' };
 
 export const asSparkId = (n: number): SparkId => n as SparkId;
 export const asPrimitiveId = (n: number): PrimitiveId => n as PrimitiveId;
@@ -36,5 +38,6 @@ export const asPotatoId = (n: number): PotatoId => n as PotatoId;
 export const asRainbowId = (n: number): RainbowId => n as RainbowId;
 export const asSeagullId = (n: number): SeagullId => n as SeagullId;
 export const asPoopId = (n: number): PoopId => n as PoopId;
+export const asSpawnerId = (n: number): SpawnerId => n as SpawnerId;
 
 export const v2copy = (v: Vec2): Vec2 => ({ x: v.x, y: v.y });

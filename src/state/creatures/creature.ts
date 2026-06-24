@@ -18,9 +18,9 @@
  * selection (nearest enemy bond / fallback own).
  */
 
-import type { BondId, PlayerId, Vec2 } from '../../types.ts';
+import type { BondId, PlayerId, Vec2, SpawnerId } from '../../types.ts';
 import type { CreatureId } from '../../types.ts';
-import { VOLTKIN_CONFIG } from './voltkin-config.ts';
+import { VOLTKIN_CONFIG, type CreatureConfig } from './voltkin-config.ts';
 
 export { asCreatureId, type CreatureId } from '../../types.ts';
 
@@ -135,8 +135,13 @@ export function cinematicMsToTicks(ms: number): number {
 /**
  * S25 v1 creature type. S29+ will add `'anvil'` and `'pacPredator'`. The type discriminates
  * spritesheet, FSM transition table, attack range, etc. (see blueprint § "Creature type config").
+ *
+ * S100 P1 (TD Phase 1a) — `'chewer'`: the persistent tower-defense swarm creature
+ * emitted by a spawner-structure. Generalizes the Voltkin substrate (see
+ * `CHEWER_CONFIG` in voltkin-config.ts). Adding it here forces a CREATURE_CONFIGS
+ * entry (exhaustiveness) and a CHEWER branch wherever a CreatureConfig is consumed.
  */
-export type CreatureType = 'voltkin';
+export type CreatureType = 'voltkin' | 'chewer';
 
 /**
  * Full 4-state FSM per blueprint Q2. S25 only USES SPAWNING + DESPAWNING; SEEKING + ATTACKING
@@ -197,25 +202,67 @@ export interface Creature {
   readonly spawnedAtTick: number;
   /** Tick at which the creature is auto-removed from `world.creatures`. */
   readonly despawnAtTick: number;
+  /**
+   * S100 P1 (TD Phase 1a) — provenance / population discriminant. `null` for a
+   * Voltkin (lifetime-bound, summoned via the godly cinematic single-slot);
+   * a `SpawnerId` for a chewer (persistent, emitted by that spawner-structure).
+   *
+   * Host-only — STRIPPED from the wire (`netSnapshot`) but ROUND-TRIPPED through
+   * the host save path (the SerializedBomb.dissipateAtTick precedent), so a
+   * persistent chewer rehydrated host-side keeps its provenance. Drives:
+   *   - the split max-1 cap (Voltkin `null`-population counted independently of
+   *     the chewer `SpawnerId`-population) so a swarm never blocks a summon (R10);
+   *   - FFA target-spread (`mix32(creatureId, sourceSpawnerId)`);
+   *   - scoped target-stickiness (`sourceSpawnerId != null && chewProgress > 0`)
+   *     so Voltkin's every-tick re-selection stays byte-identical.
+   * Mutable-free (readonly): set once at construction. Later layers wire the cap
+   * split / targeting / save round-trip; this layer only declares + defaults it.
+   */
+  readonly sourceSpawnerId: SpawnerId | null;
+  /**
+   * S100 P1 (TD Phase 1a) — incremental chew accumulator vs the CURRENT committed
+   * bond (`targetBondId`). A chewer in ATTACKING increments this once per
+   * `CHEW_INTERVAL_TICKS` and severs (dispatches `CREATURE_ATTACK` → `SEVER_BOND`)
+   * only when it reaches the config's `chewHits` (5). While `chewProgress > 0`
+   * the chewer does NOT re-run `findNearestBondTarget` — it commits to the bond
+   * (R9). Resets to 0 only when `world.bonds.has(targetBondId)` is false.
+   *
+   * Host-only — STRIPPED from the wire but ROUND-TRIPPED through host save/load
+   * so a mid-chew chewer survives a save (R3). `0` for Voltkin (it never chews).
+   * Mutable. Later layers own the increment/reset logic; this layer declares it
+   * and the factory defaults it to 0.
+   */
+  chewProgress: number;
 }
 
 /**
- * Factory for a freshly-spawned Voltkin creature in SPAWNING state. `prevPos` snaps to
- * `pos` so the first Verlet substep sees zero initial implicit velocity. `despawnAtTick`
- * is fixed at construction — the lifecycle is deterministic from this point. `targetPos`
- * is supplied by the caller (Council Q1: `onCinematicHandoff` computes via
- * `computeStubTargetPos` and passes via SPAWN_CREATURE payload).
+ * S100 P1 (TD Phase 1a) — generic creature factory. `makeVoltkinCreature` is now a
+ * thin wrapper over this so existing Voltkin call sites + tests stay byte-identical
+ * (the wrapper passes `VOLTKIN_CONFIG` and the Voltkin defaults `sourceSpawnerId:null`
+ * / `chewProgress:0`). A chewer spawn (later layer) calls `makeCreature(CHEWER_CONFIG, …)`
+ * with a non-null `sourceSpawnerId`.
+ *
+ * `prevPos` snaps to `pos` so the first Verlet substep sees zero initial implicit
+ * velocity. `despawnAtTick` is fixed at construction from `config.lifetimeTicks` —
+ * deterministic from this point (for a persistent chewer the FSM `!config.persistent`
+ * gate, not this tick, governs removal; the sentinel lifetime is defense-in-depth).
+ * `targetPos` is supplied by the caller (Council Q1: the caller computes it).
  */
-export function makeVoltkinCreature(args: {
-  id: CreatureId;
-  ownerPlayerId: PlayerId;
-  pos: Vec2;
-  targetPos: Vec2;
-  spawnedAtTick: number;
-}): Creature {
+export function makeCreature(
+  config: CreatureConfig,
+  args: {
+    id: CreatureId;
+    ownerPlayerId: PlayerId;
+    pos: Vec2;
+    targetPos: Vec2;
+    spawnedAtTick: number;
+    /** S100 P1 — null = Voltkin (lifetime-bound); SpawnerId = chewer (persistent). */
+    sourceSpawnerId?: SpawnerId | null;
+  },
+): Creature {
   return {
     id: args.id,
-    type: 'voltkin',
+    type: config.type,
     ownerPlayerId: args.ownerPlayerId,
     pos: { x: args.pos.x, y: args.pos.y },
     prevPos: { x: args.pos.x, y: args.pos.y },
@@ -225,6 +272,25 @@ export function makeVoltkinCreature(args: {
     ticksInState: 0,
     killCount: 0,
     spawnedAtTick: args.spawnedAtTick,
-    despawnAtTick: args.spawnedAtTick + VOLTKIN_LIFETIME_TICKS,
+    despawnAtTick: args.spawnedAtTick + config.lifetimeTicks,
+    sourceSpawnerId: args.sourceSpawnerId ?? null,
+    chewProgress: 0,
   };
+}
+
+/**
+ * Factory for a freshly-spawned Voltkin creature in SPAWNING state. Thin wrapper over
+ * `makeCreature(VOLTKIN_CONFIG, …)` (S100 P1) — the call-site API is unchanged, and a
+ * Voltkin always gets `sourceSpawnerId:null` / `chewProgress:0`. `despawnAtTick` resolves
+ * to `spawnedAtTick + VOLTKIN_LIFETIME_TICKS` exactly as before (VOLTKIN_CONFIG.lifetimeTicks
+ * === VOLTKIN_LIFETIME_TICKS by construction), preserving the locked replay byte-equivalence.
+ */
+export function makeVoltkinCreature(args: {
+  id: CreatureId;
+  ownerPlayerId: PlayerId;
+  pos: Vec2;
+  targetPos: Vec2;
+  spawnedAtTick: number;
+}): Creature {
+  return makeCreature(VOLTKIN_CONFIG, { ...args, sourceSpawnerId: null });
 }

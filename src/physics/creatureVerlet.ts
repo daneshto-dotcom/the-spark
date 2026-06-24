@@ -39,6 +39,7 @@ import {
   VELOCITY_DAMPING,
 } from '../constants.ts';
 import type { Creature } from '../state/creatures/creature.ts';
+import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
 
 /** Shared zero-accel sentinel. Callers must NOT mutate. */
@@ -111,13 +112,21 @@ export function creatureVerletStep(c: Creature, dtSub: number, accel: Vec2 = ZER
  */
 export function computeSteeringAccel(c: Creature): Vec2 {
   if (c.state !== 'SEEKING') return ZERO_ACCEL;
-  const arrive = arriveForce(c, c.targetPos, CREATURE_ARRIVE_RADIUS);
-  const repulse = repulseForce(c, SPAWNER_POS, CREATURE_SPAWNER_REPULSE_RADIUS);
+  // S100 P1 (TD Phase 1a, R16) — de-hardcode the peak accel: read it from the
+  // creature's config instead of the bare CREATURE_MAX_ACCEL module const. For
+  // Voltkin `config.maxAccel === CREATURE_MAX_ACCEL === 200` (× hopSpeedMul 1), so
+  // its locomotion is byte-identical (the byte-equivalence guard). A chewer's config
+  // already bakes hopSpeedMul into maxAccel (200 × 0.6 = 120) → the slower, readable
+  // hop. The per-behavior helpers take the same effective cap so the arrive/repulse
+  // ramps scale with it (not just the post-sum clamp).
+  const maxAccel = getCreatureConfig(c.type).maxAccel;
+  const arrive = arriveForce(c, c.targetPos, CREATURE_ARRIVE_RADIUS, maxAccel);
+  const repulse = repulseForce(c, SPAWNER_POS, CREATURE_SPAWNER_REPULSE_RADIUS, maxAccel);
   let ax = arrive.x + repulse.x;
   let ay = arrive.y + repulse.y;
   const mag = Math.hypot(ax, ay);
-  if (mag > CREATURE_MAX_ACCEL) {
-    const scale = CREATURE_MAX_ACCEL / mag;
+  if (mag > maxAccel) {
+    const scale = maxAccel / mag;
     ax *= scale;
     ay *= scale;
   }
@@ -160,14 +169,14 @@ export function computeStubTargetPos(spawnedAtTick: number, ownerPlayerId: Playe
  * @internal Test-only export. See block comment above.
  * Unit vector × CREATURE_MAX_ACCEL from creature toward target. ZERO at coincident pos.
  */
-export function seekForce(c: Creature, target: Vec2): Vec2 {
+export function seekForce(c: Creature, target: Vec2, maxAccel: number = CREATURE_MAX_ACCEL): Vec2 {
   const dx = target.x - c.pos.x;
   const dy = target.y - c.pos.y;
   const dist = Math.hypot(dx, dy);
   if (dist < 1e-6) return { x: 0, y: 0 };
   return {
-    x: (dx / dist) * CREATURE_MAX_ACCEL,
-    y: (dy / dist) * CREATURE_MAX_ACCEL,
+    x: (dx / dist) * maxAccel,
+    y: (dy / dist) * maxAccel,
   };
 }
 
@@ -175,15 +184,20 @@ export function seekForce(c: Creature, target: Vec2): Vec2 {
  * @internal Test-only export. See block comment above seekForce.
  * Seek with linear ramp-down inside arriveRadius — smooth approach, no oscillation.
  */
-export function arriveForce(c: Creature, target: Vec2, arriveRadius: number): Vec2 {
+export function arriveForce(
+  c: Creature,
+  target: Vec2,
+  arriveRadius: number,
+  maxAccel: number = CREATURE_MAX_ACCEL,
+): Vec2 {
   const dx = target.x - c.pos.x;
   const dy = target.y - c.pos.y;
   const dist = Math.hypot(dx, dy);
   if (dist < 1e-6) return { x: 0, y: 0 };
   const scale = dist < arriveRadius ? dist / arriveRadius : 1;
   return {
-    x: (dx / dist) * CREATURE_MAX_ACCEL * scale,
-    y: (dy / dist) * CREATURE_MAX_ACCEL * scale,
+    x: (dx / dist) * maxAccel * scale,
+    y: (dy / dist) * maxAccel * scale,
   };
 }
 
@@ -191,12 +205,17 @@ export function arriveForce(c: Creature, target: Vec2, arriveRadius: number): Ve
  * @internal Test-only export. See block comment above seekForce.
  * Linear-strength repulsion from `source` inside `radius`; zero outside.
  */
-export function repulseForce(c: Creature, source: Vec2, radius: number): Vec2 {
+export function repulseForce(
+  c: Creature,
+  source: Vec2,
+  radius: number,
+  maxAccel: number = CREATURE_MAX_ACCEL,
+): Vec2 {
   const dx = c.pos.x - source.x;
   const dy = c.pos.y - source.y;
   const dist = Math.hypot(dx, dy);
   if (dist < 1e-6 || dist >= radius) return { x: 0, y: 0 };
-  const strength = (1 - dist / radius) * CREATURE_MAX_ACCEL;
+  const strength = (1 - dist / radius) * maxAccel;
   return {
     x: (dx / dist) * strength,
     y: (dy / dist) * strength,

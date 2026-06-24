@@ -765,6 +765,40 @@ export const POOP_CRUISER_MAX_SPEED = 7;
 // boundary between click and dispatch. Playtest knob.
 export const POOP_PICKUP_ARRIVAL_RADIUS = 36;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// === S100 P1 — TOWER DEFENSE tunables (TD Phase 1a) ===
+// A spawner-structure (a closed pentagram of 5 triangles) "comes alive" and emits a
+// persistent pencil-drawn CHEWER creature every SPAWN_INTERVAL_TICKS. Chewers slow-hop
+// to the nearest ENEMY connector and chew it (CHEW_HITS hits, one per CHEW_INTERVAL_TICKS)
+// until it severs, then move on. The spawner is destroyed — and its swarm + income stop
+// instantly — when its exact shape is broken (re-validated every REVALIDATE_INTERVAL_TICKS).
+//
+// ALL tick-based, host-authoritative, replay-deterministic — NEVER wall-clock, NEVER
+// Math.random (any jitter uses the stateless mix32 hash idiom; NO 6th RNG stream, the
+// spawner cadence is a `world.tick >= nextSpawnTick` poll, NOT game/spawner.ts). Full
+// rationale + per-value Phase-1 table in TOWER_DEFENSE_DESIGN.md §4.1.
+//
+// Caps are LOWERED for Phase 1 (every existing roaming hazard caps at 1; 8 is already an
+// 8× leap past anything the sync/perf substrate has been load-tested against — raise only
+// after a measured playtest, §3.3 R1).
+export const SPAWN_INTERVAL_TICKS = 900; // 15 s @ 60 Hz — chewer emit cadence (user's number)
+export const CHEW_HITS = 5; // chews to sever one connector (user's number; = CHEWER_CONFIG.chewHits)
+export const CHEW_INTERVAL_TICKS = 60; // 1 s/hit → CHEW_HITS × this = 5 s/connector (user's number)
+export const CHEWER_MAX_GLOBAL = 8; // hard ceiling on live chewers (perf/wire ceiling — start low)
+export const CHEWER_MAX_PER_SPAWNER = 2; // #1 balance dial — destruction rate scales with this
+export const CHEWER_MAX_PER_VICTIM = 3; // one swarm can't fully strip a single player
+export const REVALIDATE_INTERVAL_TICKS = 30; // 0.5 s — spawner shape re-validation throttle
+// Passive income term added to a spawner owner's complexity (scoring.computeComplexity). Kept
+// NEAR-ZERO so it never threatens the protected PHASE_1_WIN_SCORE=630 anchor — the real cost is
+// the spawner's raid-vulnerability, and the real balance lever is destruction throughput, not
+// income (§4.2). At SCORE_INCOME_PER_COMPLEXITY_PER_SEC=0.05 a +0.5 bump ≈ 1/25200 of a win.
+export const SPAWNER_INCOME_COMPLEXITY = 0.5;
+// Small one-shot VP reward for destroying an enemy spawner (raid incentive). Awarded via
+// gameMode.addScore (the resolveSudoku discrete-mutation precedent — NO parallel accrual loop);
+// split across all players who landed a sever (§4.3). Small so it incentivizes raids without
+// itself becoming a win path.
+export const SPAWNER_KILL_REWARD = 5;
+
 // === S82 P4(c) — mid-game peer-drop bench (6p hardening) ===
 // A seated peer absent from the transport for GRACE ticks stops ghosting: the host
 // re-stamps benchedUntilTick = tick + BENCH ticks EVERY tick while the peer stays absent

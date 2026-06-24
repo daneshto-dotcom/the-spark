@@ -23,11 +23,13 @@ import {
   POOP_CRUISER_MAX_SPEED,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
+  SPAWNER_KILL_REWARD,
   SPAWNER_RADIUS,
 } from '../constants.ts';
 import { makeIdlePlayer, type Player } from '../game/player.ts';
 import { asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
 import type { GameMode, World } from './world.ts';
+import type { CreatureSpawner } from './spawners/spawner.ts';
 
 /* ────────────────────────── Action types ───────────────────────────── */
 
@@ -187,6 +189,10 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   world.poops.clear();
   world.nextPoopId = 0;
   world.fouledPrimitives.clear();
+  // S100 P1 (TD Phase 1a) — clear any lingering spawner at match start (same all-hazards
+  // start-of-match invariant: no spawner before a player ignites one this match).
+  world.creatureSpawners.clear();
+  world.nextSpawnerId = 0;
   // S34 P2-21 defensive clear (see JSDoc above).
   world.pendingCreatureSpawn = null;
   // S87 — bot-seat identity is per-match: rebuild from the action (empty for
@@ -316,6 +322,10 @@ export function applyReturnToTitle(world: World): World {
   world.poops.clear();
   world.nextPoopId = 0;
   world.fouledPrimitives.clear();
+  // S100 P1 (TD Phase 1a) — clear creature spawners on title-return (mirror of the other
+  // hazards). A lingering spawner would keep minting chewers + accruing income next match.
+  world.creatureSpawners.clear();
+  world.nextSpawnerId = 0;
   world.activeCinematicPlayerId = null;
   world.currentCinematicEvent = null;
   world.pendingCinematics.length = 0;
@@ -495,4 +505,34 @@ export function addScore(world: World, playerId: PlayerId, delta: number): void 
     }
   }
   world.scoreProgress = any ? max : 0;
+}
+
+/**
+ * S100 P1 (TD Phase 1a) — award SPAWNER_KILL_REWARD when an enemy spawner is destroyed
+ * by a raid (TOWER_DEFENSE_DESIGN.md §4.3). Called ONCE from the host re-validation poll
+ * (main.ts) on the destruction branch — the moment the spawner's exact shape is broken —
+ * just BEFORE the REMOVE_SPAWNER dispatch. NOT a per-tick accrual loop (the passive income
+ * is the recomputed scoring.ts term; this is the discrete one-shot raid incentive, the
+ * resolveSudoku precedent) and NOT fired on teardown (teardownSpawners clears the map
+ * directly without going through this path — so a match-end / title-return mints no reward).
+ *
+ * SEVERER ATTRIBUTION: the reward SPLITS evenly across every player OTHER than the spawner
+ * owner (`addScore` per recipient — the unified leader-max path, no parallel loop). In a
+ * raid the enemies ARE the severers (the owner doesn't raid their own structure, and a
+ * chewer-driven self-collapse can't happen — chewers never eat their own spawner, R8). This
+ * is the deterministic "split across severers" at the granularity available WITHOUT new
+ * per-bond severer tracking (which would be cross-cutting state on the SEVER_BOND path); a
+ * precise last-/contributing-severer split is the documented Phase-3 refinement. Solo (no
+ * enemies) → no recipients → no-op, so a solo self-destruct mints nothing. Deterministic:
+ * recipients are iterated in `world.players` (insertion = seat) order and each gets an equal
+ * `SPAWNER_KILL_REWARD / enemyCount` share (float — replay-safe, host-authoritative).
+ */
+export function awardSpawnerKillReward(world: World, spawner: CreatureSpawner): void {
+  const enemies: PlayerId[] = [];
+  for (const player of world.players.values()) {
+    if (player.id !== spawner.ownerPlayerId) enemies.push(player.id);
+  }
+  if (enemies.length === 0) return; // solo / no raider — nothing to award
+  const share = SPAWNER_KILL_REWARD / enemies.length;
+  for (const pid of enemies) addScore(world, pid, share);
 }

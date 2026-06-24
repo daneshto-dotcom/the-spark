@@ -22,7 +22,7 @@
 import { SparkType } from '../../constants.ts';
 import type { World } from '../world.ts';
 import type { Bond } from '../../physics/bonds.ts';
-import type { GodlyRecipe, RecipePredicate } from './types.ts';
+import type { CinematicGodlyRecipe, RecipePredicate } from './types.ts';
 import type { PrimitiveId } from '../../types.ts';
 import { registerRecipe } from './index.ts';
 
@@ -254,7 +254,11 @@ export const voltkinPredicate: RecipePredicate = (world) => {
   };
 };
 
-export const VOLTKIN_RECIPE: GodlyRecipe = {
+export const VOLTKIN_RECIPE: CinematicGodlyRecipe = {
+  // S100 P1 (TD Phase 1b, Layer 5) — GodlyRecipe is now a discriminated union;
+  // Voltkin is the cinematic-bearing variant. Every other field below is
+  // textually UNCHANGED from pre-S100 — only this discriminant is added.
+  kind: 'cinematic',
   id: 'voltkin',
   predicate: voltkinPredicate,
   cinematicAsset: '/godly/voltkin/cinematic/voltkin-intro.mp4',

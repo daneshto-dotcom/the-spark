@@ -322,6 +322,13 @@ export class CreatureRenderer {
 
     // Add or update sprites for live creatures.
     for (const creature of world.creatures.values()) {
+      // S100 P1 (TD Phase 1a) — this renderer owns the VOLTKIN sprite only.
+      // The persistent 'chewer' creature is drawn by `ChewerRenderer` (its own
+      // procedural pencil look + physics-driven hop). Both drain the SAME
+      // `world.creatures` map, partitioned by `creature.type`, so neither forks
+      // a parallel entity list. Skip non-voltkin here (the prune below uses the
+      // identical voltkin-only id filter so a chewer never registers a sprite).
+      if (creature.type !== 'voltkin') continue;
       const desiredKey = currentFrameKey(
         creature.state,
         creature.ticksInState,
@@ -467,7 +474,14 @@ export class CreatureRenderer {
 
     // Remove sprites whose creatures despawned. S34 P2-24 — orphan IDs
     // pre-computed via `computeSpriteDelta` for testable lifecycle contract.
-    const { toRemove } = computeSpriteDelta(this.sprites.keys(), world.creatures.keys());
+    // S100 P1 — feed only VOLTKIN ids (this renderer skips chewers above), so a
+    // chewer present in world.creatures is treated as "not ours" and never
+    // leaves an orphan voltkin sprite (it simply has no sprite here to prune).
+    const voltkinIds: CreatureId[] = [];
+    for (const c of world.creatures.values()) {
+      if (c.type === 'voltkin') voltkinIds.push(c.id);
+    }
+    const { toRemove } = computeSpriteDelta(this.sprites.keys(), voltkinIds);
     for (const id of toRemove) {
       const sprite = this.sprites.get(id);
       if (sprite !== undefined) {

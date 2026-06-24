@@ -21,10 +21,14 @@
 import { describe, expect, it } from 'vitest';
 import { SparkType } from '../constants.ts';
 import { makeFreeSpark } from '../game/spark.ts';
-import { asPlayerId, asSparkId } from '../types.ts';
+import { asBondId, asPlayerId, asPrimitiveId, asSparkId, asSpawnerId } from '../types.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
-import { snapshot } from './save.ts';
+import { snapshot, restore, netSnapshot } from './save.ts';
 import { tickScoring } from './scoring.ts';
+import { makeIdlePlayer } from '../game/player.ts';
+import { findNearestBondTarget } from './creatures/creatureAI.ts';
+import { getCreatureConfig } from './creatures/voltkin-config.ts';
+import { asCreatureId } from './creatures/creature.ts';
 
 const P1 = asPlayerId(0);
 
@@ -203,6 +207,115 @@ function runCreatureStress(world: World, iterations: number): void {
   }
 }
 
+/**
+ * S100 P1 (TD Phase 1a) — chewer + spawner replay-determinism stress (HARD GATE,
+ * design §3.2 rule 6 / R2). The pre-S100 runCreatureStress only ticks a Voltkin, so
+ * it stays green even if every new chewer/spawner reducer is non-deterministic. This
+ * driver exercises EXACTLY the new code paths: register a spawner, spawn chewers (split
+ * caps), commit them to a stationary enemy bond, accumulate chewProgress through the
+ * chew loop, sever via the CREATURE_ATTACK chew path, and re-validate / tear down the
+ * spawner — all tick-deterministic, no wall-clock, no Math.random. Two identically-
+ * seeded runs MUST produce byte-identical JSON.stringify(snapshot).
+ */
+function runChewerStress(world: World, iterations: number): void {
+  const P2 = asPlayerId(1);
+  // Two players so the chewer's enemy-only targeting + FFA spread paths are live.
+  world.players.set(P2, makeIdlePlayer(P2, 0x00ff00));
+
+  // A standing enemy structure (player-1-coloured prims) the chewers chew through,
+  // built deterministically from fixed positions (no RNG).
+  for (let i = 0; i < 6; i++) {
+    const prim: import('../game/primitive.ts').Primitive = {
+      id: asPrimitiveId(900 + i),
+      type: SparkType.Dot,
+      placerColor: 0x00ff00,
+      placedBy: P2,
+      createdTick: 0,
+      pos: { x: 100 + i * 20, y: 100 },
+      prevPos: { x: 100 + i * 20, y: 100 },
+      bonds: new Set(),
+      ownerColor: 0x00ff00,
+      lastOwnershipChange: 0,
+      radius: 8,
+    };
+    world.primitives.set(prim.id, prim);
+  }
+  for (let i = 0; i < 5; i++) {
+    const a = world.primitives.get(asPrimitiveId(900 + i))!;
+    const b = world.primitives.get(asPrimitiveId(901 + i))!;
+    const bond: import('../physics/bonds.ts').Bond = {
+      id: asBondId(900 + i),
+      aId: a.id,
+      bId: b.id,
+      a,
+      b,
+      restLength: 20,
+      stiffnessTier: 'MID',
+      createdTick: 0,
+    };
+    world.bonds.set(bond.id, bond);
+    a.bonds.add(bond.id);
+    b.bonds.add(bond.id);
+  }
+
+  // Register a spawner over the (anchor) prim 900 — recipeStillSatisfied falls to the
+  // anchor-exists check for a non-pentagram-shaped component, which is deterministic.
+  dispatch(world, {
+    type: 'REGISTER_SPAWNER',
+    ownerPlayerId: P1,
+    anchorPrimitiveId: asPrimitiveId(900),
+    recipeId: 'pentagram',
+  });
+
+  for (let i = 0; i < iterations; i++) {
+    // Periodically emit a chewer near the enemy structure (capped by underChewerCaps).
+    if (i % 20 === 0) {
+      dispatch(world, {
+        type: 'SPAWN_CREATURE',
+        creatureType: 'chewer',
+        ownerPlayerId: P1,
+        pos: { x: 110 + (i % 30), y: 110 },
+        targetPos: { x: 110, y: 100 },
+        sourceSpawnerId: asSpawnerId(0),
+      });
+    }
+    // Tick every creature; deterministically drive the chew FSM the way main.ts does:
+    // re-select target (enemyOnly for chewers), promote SEEKING→ATTACKING if in range,
+    // and fire CREATURE_ATTACK at the chewer's attackFireTick on the final chew.
+    for (const creatureId of [...world.creatures.keys()]) {
+      const c = world.creatures.get(creatureId);
+      if (c === undefined) continue;
+      if (c.type === 'chewer' && c.state === 'SEEKING' && c.chewProgress === 0) {
+        const tgt = findNearestBondTarget(world, c, true);
+        c.targetBondId = tgt;
+      }
+      dispatch(world, { type: 'CREATURE_TICK', creatureId });
+      const after = world.creatures.get(creatureId);
+      if (
+        after !== undefined &&
+        after.type === 'chewer' &&
+        after.state === 'ATTACKING' &&
+        after.ticksInState === getCreatureConfig(after.type).attackFireTick &&
+        after.targetBondId !== null
+      ) {
+        dispatch(world, {
+          type: 'CREATURE_ATTACK',
+          creatureId,
+          bondId: after.targetBondId,
+        });
+      }
+    }
+    // Throttled re-validation + teardown of the spawner near the end of the run.
+    if (i === iterations - 5) {
+      const sp = world.creatureSpawners.get(asSpawnerId(0));
+      if (sp !== undefined) {
+        dispatch(world, { type: 'REMOVE_SPAWNER', spawnerId: asSpawnerId(0) });
+      }
+    }
+    world.tick++;
+  }
+}
+
 describe('Replay determinism — S34 PB-5 creature lifecycle coverage', () => {
   it('two runs with the same seed produce byte-identical snapshot after creature stress', () => {
     const SEED = 0xc0c0c0;
@@ -246,5 +359,179 @@ describe('Replay determinism — S34 PB-5 creature lifecycle coverage', () => {
     // Same creature script, different seeds → different rngSeed field in
     // snapshot ensures JSON divergence (the "is this test real" canary).
     expect(jsonA).not.toBe(jsonB);
+  });
+});
+
+describe('Replay determinism — S100 P1 chewer + spawner coverage (HARD GATE)', () => {
+  it('two runs with the same seed produce byte-identical snapshot after chewer stress', () => {
+    const SEED = 0xc4e0a7;
+    const ITERS = 400;
+
+    const wA = makeWorld(SEED);
+    runChewerStress(wA, ITERS);
+    const jsonA = determinismJson(wA);
+
+    const wB = makeWorld(SEED);
+    runChewerStress(wB, ITERS);
+    const jsonB = determinismJson(wB);
+
+    expect(jsonA).toBe(jsonB);
+  });
+
+  it('chewer stress actually exercises the new paths (chewers spawned, bonds severed)', () => {
+    const w = makeWorld(0xfeed);
+    runChewerStress(w, 400);
+    // The structure had 5 bonds; the chew path must have severed at least one.
+    expect(w.bonds.size).toBeLessThan(5);
+    // The spawner was torn down near the end of the run.
+    expect(w.creatureSpawners.size).toBe(0);
+  });
+
+  it('different seeds with chewer stress diverge (canary — test has real signal)', () => {
+    const wA = makeWorld(0xaa11);
+    runChewerStress(wA, 200);
+    const wB = makeWorld(0xbb22);
+    runChewerStress(wB, 200);
+    expect(determinismJson(wA)).not.toBe(determinismJson(wB));
+  });
+});
+
+describe('S100 P1 — host save/load round-trips a mid-chew chewer (R3)', () => {
+  it('despawnAtTick / chewProgress / sourceSpawnerId / targetBondId survive snapshot→restore', () => {
+    const P2 = asPlayerId(1);
+    const host = makeWorld(0x5a4e);
+    host.players.set(P2, makeIdlePlayer(P2, 0x00ff00));
+    host.tick = 500;
+
+    // Stationary enemy bond.
+    const primA: import('../game/primitive.ts').Primitive = {
+      id: asPrimitiveId(10), type: SparkType.Dot, placerColor: 0x00ff00, placedBy: P2,
+      createdTick: 0, pos: { x: 40, y: 0 }, prevPos: { x: 40, y: 0 }, bonds: new Set(),
+      ownerColor: 0x00ff00, lastOwnershipChange: 0, radius: 8,
+    };
+    const primB: import('../game/primitive.ts').Primitive = {
+      id: asPrimitiveId(11), type: SparkType.Dot, placerColor: 0x00ff00, placedBy: P2,
+      createdTick: 0, pos: { x: 60, y: 0 }, prevPos: { x: 60, y: 0 }, bonds: new Set(),
+      ownerColor: 0x00ff00, lastOwnershipChange: 0, radius: 8,
+    };
+    host.primitives.set(primA.id, primA);
+    host.primitives.set(primB.id, primB);
+    const bond: import('../physics/bonds.ts').Bond = {
+      id: asBondId(1), aId: primA.id, bId: primB.id, a: primA, b: primB,
+      restLength: 20, stiffnessTier: 'MID', createdTick: 0,
+    };
+    host.bonds.set(bond.id, bond);
+    primA.bonds.add(bond.id);
+    primB.bonds.add(bond.id);
+
+    dispatch(host, {
+      type: 'SPAWN_CREATURE',
+      creatureType: 'chewer',
+      ownerPlayerId: P1,
+      pos: { x: 50, y: 5 },
+      targetPos: { x: 50, y: 0 },
+      sourceSpawnerId: asSpawnerId(0),
+    });
+    const cid = asCreatureId(0);
+    const c = host.creatures.get(cid)!;
+    c.state = 'ATTACKING';
+    c.ticksInState = 130;
+    c.chewProgress = 2;
+    c.targetBondId = bond.id;
+    const expectedDespawn = c.despawnAtTick;
+
+    const snap = snapshot(host);
+    const loaded = makeWorld(0); // different seed — restore overwrites
+    restore(snap, loaded);
+
+    const r = loaded.creatures.get(cid)!;
+    expect(r.type).toBe('chewer');
+    expect(r.chewProgress).toBe(2);
+    expect(r.sourceSpawnerId).toBe(asSpawnerId(0));
+    expect(r.targetBondId).toBe(bond.id);
+    expect(r.despawnAtTick).toBe(expectedDespawn);
+  });
+
+  it('an old save with no TD fields loads as an empty creatureSpawners map (R18)', () => {
+    const base = makeWorld(0x01d5);
+    const snap = snapshot(base);
+    // Simulate a pre-S100 save: strip the additive-optional field entirely.
+    delete (snap as { creatureSpawners?: unknown }).creatureSpawners;
+    const loaded = makeWorld(0);
+    expect(() => restore(snap, loaded)).not.toThrow();
+    expect(loaded.creatureSpawners.size).toBe(0);
+    expect(loaded.nextSpawnerId).toBe(0);
+  });
+});
+
+describe('S100 P1 — wire byte budget (R1) + TD host-only stripping', () => {
+  it('a worst-case world (8 chewers + spawners + prims/bonds) stays under ~16 KB on the wire', () => {
+    const host = makeWorld(0xb19);
+    host.gameMode = '1v1';
+    host.isHost = true;
+    host.players.set(asPlayerId(1), makeIdlePlayer(asPlayerId(1), 0x00ff00));
+
+    // Build a dense enemy structure (primitives + bonds). save.ts documents a
+    // realistic prim/bond base of ~3 KB; this fixture is deliberately generous
+    // (a large full-board structure) so the assertion proves the 8-chewer swarm +
+    // spawners do NOT push a realistic worst case past the ~16 KB single-SCTP ceiling.
+    const N_PRIMS = 40;
+    for (let i = 0; i < N_PRIMS; i++) {
+      host.primitives.set(asPrimitiveId(i), {
+        id: asPrimitiveId(i), type: SparkType.Triangle, placerColor: 0x00ff00, placedBy: asPlayerId(1),
+        createdTick: 0, pos: { x: (i % 10) * 30, y: Math.floor(i / 10) * 30 },
+        prevPos: { x: (i % 10) * 30, y: Math.floor(i / 10) * 30 },
+        bonds: new Set(), ownerColor: 0x00ff00, lastOwnershipChange: 0, radius: 8,
+      });
+    }
+    for (let i = 0; i < N_PRIMS - 1; i++) {
+      const a = host.primitives.get(asPrimitiveId(i))!;
+      const b = host.primitives.get(asPrimitiveId(i + 1))!;
+      const bond: import('../physics/bonds.ts').Bond = {
+        id: asBondId(i), aId: a.id, bId: b.id, a, b, restLength: 30, stiffnessTier: 'MID', createdTick: 0,
+      };
+      host.bonds.set(bond.id, bond);
+      a.bonds.add(bond.id);
+      b.bonds.add(bond.id);
+    }
+
+    // 8 chewers (the global cap) with full host-only sim state set.
+    for (let i = 0; i < 8; i++) {
+      dispatch(host, {
+        type: 'SPAWN_CREATURE',
+        creatureType: 'chewer',
+        ownerPlayerId: asPlayerId(0),
+        pos: { x: i * 13, y: 200 },
+        targetPos: { x: i * 13, y: 100 },
+        sourceSpawnerId: asSpawnerId(i % 3),
+      });
+    }
+    for (const c of host.creatures.values()) {
+      c.state = 'ATTACKING';
+      c.ticksInState = 130;
+      c.chewProgress = 3;
+      c.targetBondId = asBondId(0);
+    }
+
+    // A few spawners.
+    for (let i = 0; i < 3; i++) {
+      dispatch(host, {
+        type: 'REGISTER_SPAWNER',
+        ownerPlayerId: asPlayerId(0),
+        anchorPrimitiveId: asPrimitiveId(i),
+        recipeId: 'pentagram',
+      });
+    }
+
+    const wire = JSON.stringify(netSnapshot(host));
+    expect(wire.length).toBeLessThan(16 * 1024);
+
+    // The host-only chewer fields MUST be stripped from the wire (render-trimmed shape).
+    expect(wire).not.toContain('chewProgress');
+    expect(wire).not.toContain('sourceSpawnerId');
+    // creatureSpawners IS on the wire (clients render the spawn-zone) but only the
+    // tiny identity shape — no host-only cadence words.
+    expect(wire).not.toContain('nextSpawnTick');
+    expect(wire).not.toContain('lastValidatedTick');
   });
 });

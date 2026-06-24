@@ -7,11 +7,25 @@
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "tier": "Standard",
+  "tier": "Full",
   "council_rounds": 1,
   "council_result": "1-round 3-way Council (Claude + Grok-ANALYST grok-4.20-reasoning + Gemini-AUDITOR gemini-2.5-pro). P1: both ADOPT (+ add warm backing glow, update make_mask.py defaults, verify live + cache). P2: both ADOPT-WITH-CHANGES, convergent: (a) single consolidated matcher pass per frame on topology-change, not a 2nd trigger (the existing loop+break already gives one-trigger/frame); (b) cause-filter to PLAYER severs only (exclude bomb/creature random-fires); keep strict topology. Accepted all. PRIME-AUDIT: the player-cause-filter + reuse-of-existing-loop+break is materially safer than the PDR's 'add BOND_SEVERED to filter'. Realized the existing break already prevents Gemini's double-fire fear.",
   "signals_fired": [],
   "priorities": [
+    {
+      "id": "P_TD1A",
+      "label": "S100 - Tower-Defense Phase 1a+1b vertical slice: pentagram spawner -> chewer swarm chews enemy connectors -> destroyable (strict exact-shape gating) -> potato-killable; deterministic + multiplayer-safe; procedural pencil chewer w/ amusing physics hop.",
+      "status": "in_progress",
+      "phase": "DO",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "objective": "Build the playable TD loop: build exactly 5 triangles in a closed pentagram -> structure comes alive as a radiating spawn-zone (+tiny VP, spawns a chewer/15s) -> chewers hop to nearest ENEMY connector + chew 5x/5s -> spawner destroyable (remove a triangle OR attach an extra shape stops it, exactly) -> chewers potato-killable. Generalizes the Voltkin creature substrate; deterministic + host-authoritative + perf-gated.",
+      "scope": "See .claude/plans/2026-06-24_PDR_S100_TD_PHASE1A.md + TOWER_DEFENSE_DESIGN.md (sections 2-6). Merges design Phase 1a (sim loop + caps + determinism) with Phase 1b (real pentagram recipe + ignition decoupled from the cinematic single-slot). Reuse: CreatureType/CREATURE_CONFIGS, findNearestBondTarget(+enemyOnly), creatureVerlet, applyCreatureAttack->SEVER_BOND{cause:'creature'}, additive-optional snapshot, recipe registry, computeComplexity, gameMode.addScore. Net-new: CreatureSpawner+spawnerLifecycle, persistent-FSM gate, 5-hit chew loop, per-spawner tick poll, de-hardcode VOLTKIN_ATTACK_*/CREATURE_MAX_ACCEL, pentagram predicate, chewerRenderer (pencil + amusing physics hop), CHEW_BITE effect, spawn-zone aura, potato chewer-kill counterplay, bot spawner counterplay.",
+      "testing": "tsc 0; full vitest green (1522 stay green); Voltkin regression (auto-delete@1200/DESPAWN@1140/byte-identical replay); chew-to-5-then-sever; caps (global/per-spawner/per-victim); independent Voltkin-vs-chewer counting; enemy-only targeting; spawner register/revalidate/teardown; pentagram predicate (exactly-5-cycle matches, +1 extra fails, -1 fails); two-player + rebuild; extended runChewerStress byte-identical replay (HARD GATE); host save/load mid-chew; snapshot byte-budget <~16KB; TD actions absent from CLIENT_INTENT_TYPES; old-save load empty. Perf HUD + frame-time at cap; bundle delta measured.",
+      "check_completed": false
+    },
     {
       "id": "P1",
       "label": "S99 P1 - NONET spirit/owl sprites fade into the dark background (mask peaked at alpha 231, never opaque).",

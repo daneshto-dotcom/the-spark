@@ -109,6 +109,43 @@ export interface CreatureConfig {
    * (halfway through the 30-tick wind-up).
    */
   readonly attackChargeEngageTick: number;
+  /**
+   * S100 P1 (TD Phase 1a) — when `false` the creature is lifetime-bound
+   * (`despawnAtTick = spawnedAtTick + lifetimeTicks` auto-deletes it, and the
+   * end-of-life forced-DESPAWNING step runs) — the original Voltkin behavior,
+   * preserved byte-for-byte. When `true` (chewer) the FSM auto-delete + forced-
+   * DESPAWNING steps are skipped (wrapped in `if (!config.persistent)`), so the
+   * creature persists until an external removal (spawner teardown / potato
+   * blast). Voltkin = `false`. See TOWER_DEFENSE_DESIGN.md §2.4 (R4).
+   */
+  readonly persistent: boolean;
+  /**
+   * S100 P1 (TD Phase 1a) — number of incremental chew hits a chewer lands on a
+   * single committed bond before that bond severs. The chewer stays in ATTACKING
+   * for the full `chewHits × CHEW_INTERVAL_TICKS`, incrementing `Creature.chewProgress`
+   * once per `CHEW_INTERVAL_TICKS` and dispatching the actual `CREATURE_ATTACK`
+   * (→ `SEVER_BOND`) only on the final hit. `0` for non-chewing creatures
+   * (Voltkin uses its single-fire `attackFireTick` zap, not the chew loop).
+   * Chewer = `CHEW_HITS` (5). See TOWER_DEFENSE_DESIGN.md §2.4 (R9).
+   */
+  readonly chewHits: number;
+  /**
+   * S100 P1 (TD Phase 1a) — multiplier on `CREATURE_MAX_ACCEL` (= this config's
+   * `maxAccel`) for locomotion speed. Voltkin = `1` (unchanged top speed ~208
+   * px/s). Chewer = `~0.6` (slower, readable, counterable hop). Threaded into
+   * `creatureVerlet.computeSteeringAccel` by a later layer (today that module
+   * reads the module-const `CREATURE_MAX_ACCEL` directly). See §3.4 (R16).
+   */
+  readonly hopSpeedMul: number;
+  /**
+   * S100 P1 (TD Phase 1a) — per-substep peak steering acceleration (px/s²),
+   * de-hardcoded from the `CREATURE_MAX_ACCEL` module constant in
+   * `src/physics/creatureVerlet.ts` (current value 200). Voltkin = `200`
+   * (unchanged — byte-identical Voltkin locomotion is the guard). Chewer is
+   * scaled by `hopSpeedMul`. A later layer threads this per-config value
+   * through `computeSteeringAccel` to replace the bare module constant. See §3.4 (R16).
+   */
+  readonly maxAccel: number;
 }
 
 /**
@@ -127,6 +164,61 @@ export const VOLTKIN_CONFIG: CreatureConfig = {
   attackCadenceTicks: 60,
   attackFireTick: 30,
   attackChargeEngageTick: 15,
+  // S100 P1 (TD Phase 1a) — Voltkin keeps its original behavior byte-for-byte:
+  // lifetime-bound (persistent:false), single-fire zap (chewHits:0, NOT the chew
+  // loop), full top speed (hopSpeedMul:1), and the literal CREATURE_MAX_ACCEL=200
+  // de-hardcoded from creatureVerlet.ts unchanged. These are the byte-identical
+  // Voltkin regression guards (save.replay.test.ts / creatureLifecycle.test.ts).
+  persistent: false,
+  chewHits: 0,
+  hopSpeedMul: 1,
+  maxAccel: 200,
+};
+
+/**
+ * Chewer — tower-defense swarm creature (S100 P1, TD Phase 1a). A persistent,
+ * slow-hopping, pencil-drawn creature emitted every `SPAWN_INTERVAL_TICKS` by a
+ * live spawner-structure. Generalizes the Voltkin substrate (same FSM / Verlet /
+ * SEVER_BOND choke point) with three behavioral diffs encoded here:
+ *
+ *   - `persistent: true` — no lifetime auto-delete; lives until the spawner is
+ *     destroyed (re-validation teardown) or a potato blast despawns it. The
+ *     FSM gates its end-of-life steps behind `if (!config.persistent)`, so the
+ *     Voltkin (`persistent:false`) path stays textually unchanged (R4).
+ *   - `chewHits: 5` (= constants.ts `CHEW_HITS`) — instead of Voltkin's single
+ *     mid-cycle zap, a chewer commits to ONE bond and lands 5 incremental chews
+ *     (one per `CHEW_INTERVAL_TICKS` = 60), severing only on the final hit (R9).
+ *     `attackCadenceTicks` therefore spans the whole chew (5 × 60 = 300) and
+ *     `attackFireTick` is the final hit (300) so the FSM stays in ATTACKING for
+ *     the full chew rather than bouncing to SEEKING after each hit.
+ *   - `hopSpeedMul: 0.6` / `maxAccel: 120` — ~60% of Voltkin's top speed:
+ *     a readable, counterable hop. `maxAccel = 200 × 0.6` (the de-hardcoded
+ *     CREATURE_MAX_ACCEL scaled by hopSpeedMul).
+ *
+ * `lifetimeTicks` is a large sentinel (defense-in-depth only — the `persistent`
+ * gate is the sole despawn mechanism; the chewer never reaches this tick in
+ * normal play). `attackRange` is a touch shorter than Voltkin's 180 (chewers
+ * engage at melee-ish chew range, not a ranged arc).
+ *
+ * NOTE for downstream layers: the FSM chew loop, the split caps, the enemy-only
+ * targeting, the spawner poll, and threading `hopSpeedMul`/`maxAccel` through
+ * `computeSteeringAccel` all live in later layers. This entry only declares the
+ * config; adding it here forces the CREATURE_CONFIGS exhaustiveness below.
+ */
+export const CHEWER_CONFIG: CreatureConfig = {
+  type: 'chewer',
+  lifetimeTicks: 1_000_000_000, // sentinel — persistent:true is the real despawn gate
+  spawnTicks: 30, // 0.5 s materialize (faster than Voltkin's 1 s — it's a swarm unit)
+  despawningTicks: 30,
+  fadeTicks: 15,
+  attackRange: 120, // shorter than Voltkin's 180 — melee-ish chew engage range
+  attackCadenceTicks: 300, // chewHits × CHEW_INTERVAL_TICKS (5 × 60) — full chew span
+  attackFireTick: 300, // sever on the final (5th) chew hit
+  attackChargeEngageTick: 60, // first chew bite lands one CHEW_INTERVAL_TICKS in
+  persistent: true,
+  chewHits: 5, // = constants.ts CHEW_HITS
+  hopSpeedMul: 0.6,
+  maxAccel: 120, // 200 (CREATURE_MAX_ACCEL) × hopSpeedMul 0.6
 };
 
 /**
@@ -136,6 +228,7 @@ export const VOLTKIN_CONFIG: CreatureConfig = {
  */
 export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = {
   voltkin: VOLTKIN_CONFIG,
+  chewer: CHEWER_CONFIG,
 };
 
 /**

@@ -178,6 +178,9 @@ describe('S82 P4(c) — client-intent allowlist', () => {
       'SPAWN_RAINBOW', 'DISSIPATE_RAINBOW', 'SPAWN_SEAGULL', 'SEAGULL_TICK', 'POOP_TICK',
       'CLEAN_POOP', 'SPAWN_CREATURE', 'CREATURE_TICK', 'CREATURE_ATTACK', 'GODLY_TRIGGER',
       'GODLY_COMPLETE', 'GODLY_ABORT',
+      // S100 P1 (TD Phase 1a) — spawner lifecycle is host-authored (ignition / re-validation
+      // poll), NEVER a client INTENT. A modified client sending one is dropped by this gate.
+      'REGISTER_SPAWNER', 'REMOVE_SPAWNER',
     ]) {
       expect(isClientIntentAllowed(t), t).toBe(false);
     }

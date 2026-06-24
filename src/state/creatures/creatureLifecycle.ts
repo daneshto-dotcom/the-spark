@@ -28,19 +28,23 @@
  */
 
 import type { World } from '../world.ts';
-import type { PlayerId, Vec2 } from '../../types.ts';
+import type { PlayerId, SpawnerId, Vec2 } from '../../types.ts';
 import {
   asCreatureId,
   CREATURE_DESPAWNING_TICKS,
-  CREATURE_SPAWN_TICKS,
-  VOLTKIN_ATTACK_CADENCE_TICKS,
-  VOLTKIN_ATTACK_FIRE_TICK,
-  VOLTKIN_ATTACK_CHARGE_ENGAGE_TICK,
+  makeCreature,
   makeVoltkinCreature,
   type CreatureId,
   type CreatureType,
 } from './creature.ts';
+import { CREATURE_CONFIGS, getCreatureConfig } from './voltkin-config.ts';
 import { isWithinAttackRange } from './creatureAI.ts';
+import {
+  CHEW_INTERVAL_TICKS,
+  CHEWER_MAX_GLOBAL,
+  CHEWER_MAX_PER_SPAWNER,
+  CHEWER_MAX_PER_VICTIM,
+} from '../../constants.ts';
 
 /** Action shapes — exported so `world.ts` can compose `GameAction`. */
 export interface SpawnCreatureAction {
@@ -51,6 +55,26 @@ export interface SpawnCreatureAction {
   /** S26 P0 — destination for SEEKING-state steering. Caller-computed
    *  (host-only, deterministic) per Council Q1 unanimous + Δ5. */
   readonly targetPos: Vec2;
+  /**
+   * S100 P1 (TD Phase 1a) — provenance discriminant for the population-split cap
+   * (TOWER_DEFENSE_DESIGN.md §2.4, R10). `null`/absent → a Voltkin spawn (the
+   * legacy max-1-per-owner counting ONLY the `sourceSpawnerId==null` population);
+   * a `SpawnerId` → a chewer spawn (the per-spawner / global / per-victim chewer
+   * caps, counting ONLY the non-null population). The two populations are counted
+   * INDEPENDENTLY so a chewer swarm never blocks a Voltkin summon (or vice-versa).
+   * The spawned `Creature.sourceSpawnerId` is set from this field.
+   */
+  readonly sourceSpawnerId?: SpawnerId | null;
+  /**
+   * S100 P1 (TD Phase 1a) — the enemy player this chewer is being aimed at, used
+   * for the per-victim cap (`CHEWER_MAX_PER_VICTIM`). Supplied by the spawner poll
+   * (the layer that runs the FFA target-spread). A chewer spawns in SPAWNING with
+   * no committed `targetBondId` yet, so the victim count is keyed on this hint:
+   * a chewer "targets" `victimPlayerId` for the purpose of the cap from the moment
+   * it spawns. Absent → the per-victim guard is skipped (Voltkin spawns, or a
+   * chewer spawn that hasn't picked a victim). Chewer-only.
+   */
+  readonly victimPlayerId?: PlayerId;
 }
 
 export interface DespawnCreatureAction {
@@ -71,20 +95,99 @@ export interface CreatureTickAction {
  * blueprint also explicitly permits this guard).
  */
 export function applySpawnCreature(world: World, action: SpawnCreatureAction): World {
-  // Max-1-per-player invariant (blueprint Q10).
-  for (const c of world.creatures.values()) {
-    if (c.ownerPlayerId === action.ownerPlayerId) return world;
+  const sourceSpawnerId = action.sourceSpawnerId ?? null;
+
+  if (sourceSpawnerId === null) {
+    // ── Voltkin (lifetime-bound) population ───────────────────────────────────
+    // Legacy max-1-per-owner invariant (blueprint Q10), now SPLIT BY POPULATION
+    // (S100 P1, R10): count ONLY the `sourceSpawnerId == null` creatures so a live
+    // chewer swarm (non-null population) can never block a Voltkin summon. Voltkin
+    // path is otherwise byte-identical (same makeVoltkinCreature, same id mint).
+    for (const c of world.creatures.values()) {
+      if (c.sourceSpawnerId === null && c.ownerPlayerId === action.ownerPlayerId) return world;
+    }
+    const id = asCreatureId(world.nextCreatureId++);
+    const creature = makeVoltkinCreature({
+      id,
+      ownerPlayerId: action.ownerPlayerId,
+      pos: action.pos,
+      targetPos: action.targetPos,
+      spawnedAtTick: world.tick,
+    });
+    world.creatures.set(id, creature);
+    return world;
   }
+
+  // ── Chewer (persistent, spawner-emitted) population ───────────────────────────
+  // Split caps (S100 P1, R10/R13), counting ONLY the non-null population so the two
+  // hazard classes never interfere. No-op (silent) if ANY cap is already saturated:
+  //   • per-spawner: chewers already emitted by THIS spawner ≥ CHEWER_MAX_PER_SPAWNER
+  //   • global:      ALL live chewers ≥ CHEWER_MAX_GLOBAL (perf/wire ceiling)
+  //   • per-victim:  chewers already targeting the chosen victim ≥ CHEWER_MAX_PER_VICTIM
+  //                  (only checked when the spawner poll supplied `victimPlayerId`)
+  if (!underChewerCaps(world, sourceSpawnerId, action.victimPlayerId)) return world;
+
   const id = asCreatureId(world.nextCreatureId++);
-  const creature = makeVoltkinCreature({
+  const creature = makeCreature(getCreatureConfig(action.creatureType), {
     id,
     ownerPlayerId: action.ownerPlayerId,
     pos: action.pos,
     targetPos: action.targetPos,
     spawnedAtTick: world.tick,
+    sourceSpawnerId,
   });
   world.creatures.set(id, creature);
   return world;
+}
+
+/**
+ * S100 P1 (TD Phase 1a) — chewer cap gate (TOWER_DEFENSE_DESIGN.md §2.4 R10/R13).
+ * Pure read; the spawner poll (a later layer) calls this BEFORE dispatching a
+ * chewer SPAWN_CREATURE (so it can also avoid emitting the dev VFX), and
+ * `applySpawnCreature` re-checks it as the authoritative guard. Counts ONLY the
+ * non-null `sourceSpawnerId` population (the chewer swarm) so a Voltkin summon
+ * never affects the count and vice-versa.
+ *
+ * The per-victim term attributes each live chewer to the player who OWNS its
+ * current `targetBondId` (via the bond's endpoint `placedBy`), so a single swarm
+ * can't fully strip one player. A chewer with no committed target yet is not
+ * counted against any victim. `victimPlayerId === undefined` skips the per-victim
+ * term entirely.
+ */
+export function underChewerCaps(
+  world: World,
+  sourceSpawnerId: SpawnerId,
+  victimPlayerId?: PlayerId,
+): boolean {
+  let global = 0;
+  let perSpawner = 0;
+  let perVictim = 0;
+  for (const c of world.creatures.values()) {
+    if (c.sourceSpawnerId === null) continue; // skip the Voltkin population
+    global++;
+    if (c.sourceSpawnerId === sourceSpawnerId) perSpawner++;
+    if (victimPlayerId !== undefined && c.targetBondId !== null) {
+      if (chewerVictimPlayerId(world, c.targetBondId) === victimPlayerId) perVictim++;
+    }
+  }
+  if (global >= CHEWER_MAX_GLOBAL) return false;
+  if (perSpawner >= CHEWER_MAX_PER_SPAWNER) return false;
+  if (victimPlayerId !== undefined && perVictim >= CHEWER_MAX_PER_VICTIM) return false;
+  return true;
+}
+
+/**
+ * S100 P1 — the player a chewer's committed bond belongs to, for the per-victim
+ * cap. A bond is attributed to the `placedBy` of its first endpoint primitive
+ * (deterministic; lowest-numbered endpoint by the `aId`/`bId` shape). Returns
+ * `null` for a missing bond or missing endpoint (degenerate — not counted).
+ */
+function chewerVictimPlayerId(world: World, bondId: import('../../types.ts').BondId): PlayerId | null {
+  const bond = world.bonds.get(bondId);
+  if (bond === undefined) return null;
+  const primA = world.primitives.get(bond.aId);
+  if (primA === undefined) return null;
+  return primA.placedBy;
 }
 
 /**
@@ -131,24 +234,38 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
   const creature = world.creatures.get(action.creatureId);
   if (creature === undefined) return world;
 
-  // 1. Auto-delete at end-of-life.
-  if (world.tick >= creature.despawnAtTick) {
-    world.creatures.delete(action.creatureId);
-    return world;
+  // S100 P1 (TD Phase 1a) — read all timing/behavior from this creature's config
+  // instead of the module-level VOLTKIN_ATTACK_* constants (R16 de-hardcode). For
+  // Voltkin the config values are the same literals (60/30/15/false/0), so its path
+  // is byte-identical; for a chewer they diverge (persistent + chew loop below).
+  const config = CREATURE_CONFIGS[creature.type];
+
+  // 1. Auto-delete at end-of-life. S100 P1 (R4): gated behind `!config.persistent`
+  //    so a persistent chewer NEVER auto-despawns (it lives until spawner teardown
+  //    or a potato blast). The Voltkin (`persistent:false`) body is verbatim.
+  if (!config.persistent) {
+    if (world.tick >= creature.despawnAtTick) {
+      world.creatures.delete(action.creatureId);
+      return world;
+    }
   }
 
   // 2. ANY-non-DESPAWNING → DESPAWNING at the last-second mark (blueprint Q5/Q8).
   //    S27 P0: extended to include ATTACKING so a creature in the middle of an
   //    attack cycle still routes through the despawn animation rather than
   //    fighting past its own end-of-life. Uses world.tick (not ticksInState).
-  if (
-    creature.state !== 'DESPAWNING' &&
-    world.tick >= creature.despawnAtTick - CREATURE_DESPAWNING_TICKS
-  ) {
-    creature.state = 'DESPAWNING';
-    creature.ticksInState = 0;
-    creature.targetBondId = null;
-    return world;
+  //    S100 P1 (R4): gated behind `!config.persistent` so a chewer never enters the
+  //    forced end-of-life DESPAWNING. The Voltkin body is verbatim inside the gate.
+  if (!config.persistent) {
+    if (
+      creature.state !== 'DESPAWNING' &&
+      world.tick >= creature.despawnAtTick - CREATURE_DESPAWNING_TICKS
+    ) {
+      creature.state = 'DESPAWNING';
+      creature.ticksInState = 0;
+      creature.targetBondId = null;
+      return world;
+    }
   }
 
   // 3. Advance the in-state counter THEN check FSM transitions.
@@ -169,9 +286,15 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
   // edit happens AFTER this push — the effect stays in the queue and drains
   // normally. (The post-FSM ATTACKING→SEEKING path resets ticksInState to 0,
   // so a freshly-entered SEEKING state cannot retro-trigger this branch.)
+  //
+  //  S100 P1 — read the engage tick from config (was the VOLTKIN_ATTACK_CHARGE_ENGAGE_TICK
+  //  module const). The CREATURE_CHARGE lion-form audio cue is a Voltkin-only flourish
+  //  (the chewer uses the CHEW_BITE effect instead), so it is gated to the non-chew
+  //  (single-fire) path. For Voltkin `config.chewHits === 0`, so this is byte-identical.
   if (
+    config.chewHits === 0 &&
     creature.state === 'ATTACKING' &&
-    creature.ticksInState === VOLTKIN_ATTACK_CHARGE_ENGAGE_TICK
+    creature.ticksInState === config.attackChargeEngageTick
   ) {
     world.effects.push({
       kind: 'CREATURE_CHARGE',
@@ -183,7 +306,10 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
   // 4. SPAWNING → SEEKING at the spawn window boundary (S26 P0, blueprint Q7).
   //    Cleanup: targetBondId stays null on entry to SEEKING; main.ts will populate
   //    it on the NEXT tick's pre-CREATURE_TICK re-selection step.
-  if (creature.state === 'SPAWNING' && creature.ticksInState >= CREATURE_SPAWN_TICKS) {
+  //    S100 P1 — read the spawn window from config (was CREATURE_SPAWN_TICKS, the
+  //    Voltkin-derived module const). Byte-identical for Voltkin (config.spawnTicks
+  //    === CREATURE_SPAWN_TICKS === 60); a chewer materializes faster (30).
+  if (creature.state === 'SPAWNING' && creature.ticksInState >= config.spawnTicks) {
     creature.state = 'SEEKING';
     creature.ticksInState = 0;
     return world;
@@ -204,7 +330,67 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
     return world;
   }
 
-  // 6. S27 P0: ATTACKING → SEEKING. Two exit conditions:
+  // 6. ATTACKING — two distinct behaviors keyed on `config.chewHits`:
+  //
+  //  6a. CHEWER (chewHits > 0) — the incremental chew loop (S100 P1, R9). The
+  //      chewer COMMITS to one bond and stays in ATTACKING for the full
+  //      `chewHits × CHEW_INTERVAL_TICKS` rather than Voltkin's single-fire bounce.
+  //      Once per CHEW_INTERVAL_TICKS it lands a chew: `chewProgress++`. On every
+  //      NON-final chew it emits a host-local CHEW_BITE effect (Layer 7 renders it);
+  //      the actual severance (CREATURE_ATTACK → SEVER_BOND) is dispatched by the
+  //      main.ts post-tick fan-out on the FINAL chew (at `ticksInState ===
+  //      config.attackFireTick`, which for the chewer === chewHits×interval). While
+  //      `chewProgress > 0` the chewer does NOT re-seek (main.ts skips re-selection
+  //      for `sourceSpawnerId != null && chewProgress > 0`) — it is glued to the bond.
+  //      `chewProgress` resets to 0 (and the creature drops back to SEEKING) ONLY when
+  //      the committed bond has vanished — bite-through complete, or another actor
+  //      severed it. No `despawnAtTick`/cadence bounce: persistent + commit-to-bond.
+  if (config.chewHits > 0) {
+    if (creature.state === 'ATTACKING') {
+      // Bond gone (severed by the final chew elsewhere, by another actor, or
+      // physics) → release the commit and re-seek next tick.
+      if (creature.targetBondId === null || !world.bonds.has(creature.targetBondId)) {
+        creature.chewProgress = 0;
+        creature.state = 'SEEKING';
+        creature.ticksInState = 0;
+        creature.targetBondId = null;
+        return world;
+      }
+      // Land a chew once per CHEW_INTERVAL_TICKS. `ticksInState` was just
+      // incremented (step 3), so the k-th bite lands when ticksInState reaches
+      // k × CHEW_INTERVAL_TICKS. Increment-first ordering mirrors the rest of the
+      // FSM ("the 60th tick triggers"). The final bite (chewProgress reaching
+      // chewHits) does NOT emit CHEW_BITE — main.ts fires the real CREATURE_ATTACK
+      // (→ SEVER_BOND) on that tick, and the bond-gone branch above releases the
+      // commit next tick.
+      if (
+        creature.chewProgress < config.chewHits &&
+        creature.ticksInState === CHEW_INTERVAL_TICKS * (creature.chewProgress + 1)
+      ) {
+        creature.chewProgress++;
+        if (creature.chewProgress < config.chewHits) {
+          // Non-final chew: graphite-dust bite at the bond midpoint. Host-local
+          // (NOT wire-mirrored, like BOND_COMMIT/SEVER_ERASE) so it adds no
+          // protocol surface — Layer 7 renders it.
+          const bond = world.bonds.get(creature.targetBondId);
+          if (bond !== undefined) {
+            const aPos = bond.a.pos;
+            const bPos = bond.b.pos;
+            world.effects.push({
+              kind: 'CHEW_BITE',
+              tick: world.tick,
+              pos: { x: (aPos.x + bPos.x) * 0.5, y: (aPos.y + bPos.y) * 0.5 },
+              creatureId: creature.id,
+            });
+          }
+        }
+      }
+    }
+    return world;
+  }
+
+  // 6b. VOLTKIN (chewHits === 0) — the original ATTACKING → SEEKING bounce,
+  //     byte-for-byte. Two exit conditions (Δ4 + blueprint Q9):
   //    (a) cadence elapsed: full 60-tick attack cycle complete (blueprint Q9
   //        1 attack per second rhythm — preserves the "ranged lightning canon"
   //        feel even if the bond gets severed post-zap).
@@ -217,10 +403,12 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
   //        would no-op in applyCreatureAttack (benign but visually missing the
   //        ARC_FLASH on a doomed attack); with `<=` we abort cleanly into SEEKING
   //        and pick a fresh target next tick.
+  //    S100 P1 — cadence/fire ticks now read from config (was VOLTKIN_ATTACK_*
+  //    module consts); identical literals for Voltkin (60/30) so byte-identical.
   if (creature.state === 'ATTACKING') {
-    const cadenceElapsed = creature.ticksInState >= VOLTKIN_ATTACK_CADENCE_TICKS;
+    const cadenceElapsed = creature.ticksInState >= config.attackCadenceTicks;
     const targetGoneEarly =
-      creature.ticksInState <= VOLTKIN_ATTACK_FIRE_TICK &&
+      creature.ticksInState <= config.attackFireTick &&
       (creature.targetBondId === null || !world.bonds.has(creature.targetBondId));
     if (cadenceElapsed || targetGoneEarly) {
       creature.state = 'SEEKING';

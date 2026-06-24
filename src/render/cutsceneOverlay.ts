@@ -27,7 +27,7 @@
 
 import { Application, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
-import type { GodlyRecipe } from '../state/godlyRecipes/types.ts';
+import type { CinematicGodlyRecipe } from '../state/godlyRecipes/types.ts';
 import { CinematicLumaKeyFilter } from './cinematicLumaKey.ts';
 
 /**
@@ -90,7 +90,7 @@ export class CutsceneOverlay {
     return this.active;
   }
 
-  async play(recipe: GodlyRecipe, ctx: CutsceneContext): Promise<void> {
+  async play(recipe: CinematicGodlyRecipe, ctx: CutsceneContext): Promise<void> {
     if (this.active) {
       // Concurrent call — shouldn't happen given world.activeCinematicPlayerId
       // single-slot serialization, but be defensive.

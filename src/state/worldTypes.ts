@@ -22,9 +22,10 @@ import type { Hunter } from './hunters/hunter.ts';
 import type { Potato } from './potato.ts';
 import type { Rainbow } from './rainbow.ts';
 import type { Poop, Seagull } from './seagulls/seagull.ts';
+import type { CreatureSpawner } from './spawners/spawner.ts';
 import type { GodlyId, GodlyTriggerEvent } from './godlyRecipes/types.ts';
 import type { ComboKey } from '../combos.ts';
-import type { BombId, BondId, CreatureId, HunterId, PlayerId, PoopId, PotatoId, PrimitiveId, RainbowId, SeagullId, SparkId } from '../types.ts';
+import type { BombId, BondId, CreatureId, HunterId, PlayerId, PoopId, PotatoId, PrimitiveId, RainbowId, SeagullId, SparkId, SpawnerId } from '../types.ts';
 
 /**
  * S15 P2: extended FSM. Solo path TITLE→PLAYING→WIN→POSTGAME→TITLE. 1v1
@@ -124,6 +125,20 @@ export interface World {
    * S25 P0 — monotonic counter for creature IDs. Host-only mint authority.
    */
   nextCreatureId: number;
+  /**
+   * S100 P1 (TD Phase 1a) — host-authoritative per-structure creature spawners. A
+   * spawner-structure (e.g. a closed pentagram) "comes alive": it emits a persistent
+   * 'chewer' creature on a tick-deterministic cadence (host-only poll in main.ts) and
+   * is re-validated each poll against its anchor primitive + recipe shape (broken
+   * shape → REMOVE_SPAWNER → income+swarm STOP instantly). Mirrors the
+   * creatures/hunters Map<Id,Entity> + nextId convention. Additive-optional
+   * `creatureSpawners[]` on the wire (creature/hunter precedent), emitted only when
+   * non-empty; the host save path round-trips cadence state, the wire strips it.
+   * Cleared on teardown (teardownSpawners — all four teardown sites).
+   */
+  creatureSpawners: Map<SpawnerId, CreatureSpawner>;
+  /** S100 P1 — monotonic counter for spawner IDs. Host-only mint authority. */
+  nextSpawnerId: number;
   /**
    * S28 P0 — tick-deterministic pending-spawn schedule (Council Q2 UNANIMOUS A
    * single-slot). Replaces S25's wall-clock `setTimeout(handoff, cinematicMs)`
