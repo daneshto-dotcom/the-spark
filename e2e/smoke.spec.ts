@@ -12,6 +12,18 @@
  * `test`, and CI gate flips from RED→GREEN.
  *
  * Bundle impact: ZERO. e2e/ is excluded from vite build (devOnly).
+ *
+ * S98 P1 — ALL describes in this file are @quarantine-flaky (NON-GATING). Every test
+ * here uses open2Peers (real Trystero/Nostr P2P over 2+ Chromium contexts), and the
+ * GitHub Actions sandbox cannot reliably hold those data channels — a different subset
+ * fails each run on `net::ERR_ADDRESS_UNREACHABLE` / `waitForWorld timeout: sparks on
+ * joiner` (peerCount connects, but the snapshot never arrives). They still RUN in the
+ * non-gating `e2e-quarantine` job (visible; a CONSISTENT 100%-fail would flag a real
+ * regression), but cannot red the gating lane or email. 1v1/N-player correctness gates
+ * via the nplayerSeating units + the deterministic single-page render e2e. Deterministic
+ * transport is rejected (real P2P IS the surface under test) — LOCKED_DECISIONS. RULE:
+ * any NEW test added here is real-WebRTC → keep the ` @quarantine-flaky` tag in its
+ * describe title.
  */
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import {
@@ -84,7 +96,7 @@ async function open2Peers(browser: import('@playwright/test').Browser): Promise<
   return { hostCtx, hostPage, joinerCtx, joinerPage };
 }
 
-test.describe('S46 Baseline — lobby + match start (must pass after S46 P1 Phase A.0)', () => {
+test.describe('S46 Baseline — lobby + match start (must pass after S46 P1 Phase A.0) @quarantine-flaky', () => {
   test('Both peers reach PLAYING after host hosts + joiner joins + Begin Match', async ({ browser }) => {
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
@@ -122,7 +134,7 @@ test.describe('S46 Baseline — lobby + match start (must pass after S46 P1 Phas
   });
 });
 
-test.describe('Sym A — joiner single-action LMB-place (GREEN post-S46 P2)', () => {
+test.describe('Sym A — joiner single-action LMB-place (GREEN post-S46 P2) @quarantine-flaky', () => {
   test('Joiner LMB-drag-release places primitive at release position', async ({ browser }) => {
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
@@ -159,7 +171,7 @@ test.describe('Sym A — joiner single-action LMB-place (GREEN post-S46 P2)', ()
   });
 });
 
-test.describe('Sym G — joiner AttractDrag live-follow (S56 P1: client-prediction parity)', () => {
+test.describe('Sym G — joiner AttractDrag live-follow (S56 P1: client-prediction parity) @quarantine-flaky', () => {
   test('Joiner dragged spark tracks the cursor mid-drag (not frozen at spawn)', async ({ browser }) => {
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
@@ -237,7 +249,7 @@ test.describe('Sym G — joiner AttractDrag live-follow (S56 P1: client-predicti
   });
 });
 
-test.describe('Sym C — joiner self-bond (GREEN post-S46 P2+P3+P4)', () => {
+test.describe('Sym C — joiner self-bond (GREEN post-S46 P2+P3+P4) @quarantine-flaky', () => {
   test('Joiner can bond own primitives', async ({ browser }) => {
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
@@ -273,7 +285,7 @@ test.describe('Sym C — joiner self-bond (GREEN post-S46 P2+P3+P4)', () => {
   });
 });
 
-test.describe('Sym D — color-segregated bonds (GREEN post-S46 P3)', () => {
+test.describe('Sym D — color-segregated bonds (GREEN post-S46 P3) @quarantine-flaky', () => {
   test('Cross-color bond attempt is silently rejected', async ({ browser }) => {
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
@@ -321,7 +333,7 @@ test.describe('Sym D — color-segregated bonds (GREEN post-S46 P3)', () => {
   });
 });
 
-test.describe('Sym E — score display layout (placeholder — needs Pixi Graphics bounds inspection helper for full assertion)', () => {
+test.describe('Sym E — score display layout (placeholder — needs Pixi Graphics bounds inspection helper for full assertion) @quarantine-flaky', () => {
   test.fixme('Both score readouts show "/50" without charge-dot collision', async ({ browser }) => {
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
@@ -352,7 +364,7 @@ test.describe('Sym E — score display layout (placeholder — needs Pixi Graphi
   });
 });
 
-test.describe('Sym F — territorial hard-block (S49 mechanic, S50 P4 e2e coverage)', () => {
+test.describe('Sym F — territorial hard-block (S49 mechanic, S50 P4 e2e coverage) @quarantine-flaky', () => {
   test('Host placement inside joiner territory is silently rejected', async ({ browser }) => {
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
@@ -422,7 +434,7 @@ test.describe('Sym F — territorial hard-block (S49 mechanic, S50 P4 e2e covera
   });
 });
 
-test.describe('Sym I — win-condition + ENDGAME envelope (S47 wire, S50 P4 e2e coverage)', () => {
+test.describe('Sym I — win-condition + ENDGAME envelope (S47 wire, S50 P4 e2e coverage) @quarantine-flaky', () => {
   test('Host reaching WIN_SCORE triggers WIN on both peers (joiner via ENDGAME envelope)', async ({ browser }) => {
     const hostCtx = await browser.newContext();
     const joinerCtx = await browser.newContext();
@@ -525,7 +537,7 @@ test.describe('Sym I — win-condition + ENDGAME envelope (S47 wire, S50 P4 e2e 
   });
 });
 
-test.describe('Sym J — spawner pickup claim (S58 #2: no double-grab + opponent sees it carried)', () => {
+test.describe('Sym J — spawner pickup claim (S58 #2: no double-grab + opponent sees it carried) @quarantine-flaky', () => {
   test('Joiner grabbing a spawner spark claims it (Carried) on the host; release drops the claim', async ({ browser }) => {
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
@@ -580,7 +592,7 @@ test.describe('Sym J — spawner pickup claim (S58 #2: no double-grab + opponent
   });
 });
 
-test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch (S53/S54 system, S55 e2e coverage)', () => {
+test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch (S53/S54 system, S55 e2e coverage) @quarantine-flaky', () => {
   // S55 P2 — FIRST runtime coverage of the S54-activated HELLO -> mismatch
   // chain over a real cross-browser wire (the S54 PRIME-AUDIT flagged it as
   // having zero observable runtime behavior). A peer announces a non-current
