@@ -1,121 +1,76 @@
 {
   "tool_calls_session_total": 0,
-  "session_id": "S98",
+  "session_id": "S99",
   "session_kind": "execution",
-  "session_start": "2026-06-24T08:00:00.000Z",
-  "session_note": "S98 - user: 'Approved! run full priority session batch and in the end ... run a thorough end of session procedure ending with /handoff.' Full-tier 3-priority batch, user-explicit approval (unlock_source=user). Order: P1 E2E CI lane fix, P2 combo order-symmetry Option B (user pre-picked B + same-magic-both-orders + rebalance-go), P3 Connection Preview (new feature). Empirical A.0 state-discovery via a 6-agent research workflow. 3-way Council (Claude+Grok+Gemini) 2 rounds + quality gate -> ADOPT all 3, no blockers. PRIME-AUDIT clean (synthesis > R1; 4 verify-during-exec watch-items D1-D4). PDR: .claude/plans/2026-06-24_PDR_S98_BATCH.md",
+  "session_start": "2026-06-24T18:00:00.000Z",
+  "session_note": "S99 - user: 'I approve full session priority batch ... add a few other small fixes' (2 playtest bug-fixes w/ screenshots). P1 NONET spirit sprites fading into the bg; P2 Voltkin not firing when a structure is REDUCED by deletion to a valid 4Sq+4Tr chain. unlock_source=user. 2-agent investigation workflow + 1-round 3-way Council (Standard) ADOPT-WITH-CHANGES (accepted) + PRIME-AUDIT. PDR: .claude/plans/2026-06-24_PDR_S99_BATCH.md",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "tier": "Full",
-  "council_rounds": 2,
-  "council_result": "3-way Council (Claude supervisor + Grok-ANALYST grok-4.20-reasoning + Gemini-AUDITOR gemini-2.5-pro). R1: P1/P2 ADOPT-WITH-CHANGES, P3 Gemini REJECT (misread: thought preview used cursor not targetRefPos) + Grok ADOPT-WITH-CHANGES. Battle Ledger accepted: P1 add job-level continue-on-error:true (the real email-stopper) + gh-api check-name verify; P2 replace assumed-no-rebalance with EMPIRICAL scoring-delta sim (multi-bond placements DO raise optimal magic density) + canonicalize discovery by resultName; P3 extract ONE pure computePotentialBonds() called by both onUp and preview -> preview==release structural. R2/quality-gate: BOTH ADOPT all 3, no blockers. PRIME-AUDIT: synthesis > R1; watch-items D1 canonical-build target, D2 MAGIC_COMBO_KEYS 14->22 dedupe by resultName, D3 verify no-email via real run, D4 computeReleaseGates pure (resolved).",
+  "tier": "Standard",
+  "council_rounds": 1,
+  "council_result": "1-round 3-way Council (Claude + Grok-ANALYST grok-4.20-reasoning + Gemini-AUDITOR gemini-2.5-pro). P1: both ADOPT (+ add warm backing glow, update make_mask.py defaults, verify live + cache). P2: both ADOPT-WITH-CHANGES, convergent: (a) single consolidated matcher pass per frame on topology-change, not a 2nd trigger (the existing loop+break already gives one-trigger/frame); (b) cause-filter to PLAYER severs only (exclude bomb/creature random-fires); keep strict topology. Accepted all. PRIME-AUDIT: the player-cause-filter + reuse-of-existing-loop+break is materially safer than the PDR's 'add BOND_SEVERED to filter'. Realized the existing break already prevents Gemini's double-fire fear.",
   "signals_fired": [],
   "priorities": [
     {
       "id": "P1",
-      "label": "S98 P1 - Fix E2E CI lane: split @quarantine-flaky into its own non-gating job + tag S62 so gating `e2e` greens and the flaky real-WebRTC suite can never cancel/red the run (stops the GitHub failure emails).",
+      "label": "S99 P1 - NONET spirit/owl sprites fade into the dark background (mask peaked at alpha 231, never opaque).",
+      "status": "completed",
+      "phase": "DONE",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "objective": "The 3 shared-mask spirits (kami/owl-a/moss-b) show their FULL outline+wings during NONET, naturally integrated, without re-exposing owl-b's cropped flame.",
+      "scope": "Regenerate public/art/nonet/spirit-mask.png with a high plateau (peak 255, large opaque core, feather only the outer rim) via make_mask.py (+ new --plateau clamp + updated defaults inset0.05/feather0.20/plateau2.0 + docstring). Leave owl-b-mask.png byte-identical. Add a subtle warm backing glow behind each spirit (sudokuOverlay.buildGuardian, concentric low-alpha ellipses 0x6b5836). OUT: re-encoding the .webm vignette; touching owl-b.",
+      "testing": "alpha profile (peak 255, wings@x15%=250, corners 0, ~42% opaque core); git confirms only spirit-mask.png changed; tsc 0; vitest 1522/1522; build 557.2/560; LIVE screenshot: all 4 spirits full outlines, naturally integrated, no hard edges, owl-b flame still cropped, 0 console errors.",
+      "check_completed": true,
+      "checkpoint_commit": "7db1ee1",
+      "check_method": "S99 P1 DONE. Root cause: shared spirit-mask.png peaked at alpha 231/255 (never opaque) + 81px feather blur (make_mask.py defaults inset0.06/feather0.30) ate ~93% of the frame, so kami/owl-a/moss-b (which fall back to it) faded incl. wings into the dark forest; owl-b was fine (its S97 mask reaches 255 + a hard cutoff that also crops a stray veo flame). Fix: added a --plateau clamp to make_mask.py (m.point(min(255, v*plateau)) after blur) + set defaults to inset0.05/feather0.20/plateau2.0; regenerated spirit-mask.png -> peak 255, ~42% opaque core, wings opaque to x~15%, soft feathered rim, fully-transparent corners (swept params empirically: plateau 1.7 made it 100% opaque=hard rectangle; 2.0@feather0.20 was the sweet spot). owl-b-mask.png UNTOUCHED (git-confirmed) so its flame stays cropped. Added a subtle warm backing glow (0x6b5836, alpha 0.05-0.08, concentric ellipses) behind each spirit in buildGuardian to ground the now-crisp sprite in the dusk scene (Council P1). GATES: tsc 0; vitest 1522/1522; build entry 557.2/560. LIVE-VERIFIED via __SPARK__.forceNonet + screenshot: all 4 spirits render with FULL outlines (the user's faded bottom-left owl now clearly visible), naturally integrated via glow + feathered rim, no hard rectangle, owl-b flame still cropped, 0 console errors. Committed 7db1ee1, pushed (deploy auto).",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "assets-source/nonet-video/make_mask.py",
+          "needle": "plateau"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/sudokuOverlay.ts",
+          "needle": "warm backing glow"
+        }
+      ],
+      "real_context_tokens_at_close": 623735,
+      "real_context_pct_at_close": 62.4
+    },
+    {
+      "id": "P2",
+      "label": "S99 P2 - Voltkin doesn't fire when a structure is REDUCED (by deletion) to a valid 4Sq+4Tr chain.",
       "status": "completed",
       "phase": "DONE",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "objective": "Gating `e2e` job goes reliably GREEN and the flaky real-WebRTC suite can never cancel or red the workflow run -> no more failure emails.",
-      "scope": "(.github/workflows/e2e.yml) Move quarantine step into its OWN job e2e-quarantine with continue-on-error:true at JOB level (the real email-stopper), own timeout-minutes, no `needs` (e2e job self-contained: Playwright webServer runs npm run dev; separate runners=no port clash), distinct artifact upload, --reporter=list --output=test-results-quarantine. Gating job e2e runs only --grep-invert '@quarantine-flaky' at timeout 15, name UNCHANGED (preserve required-check). Tag S62 (e2e/smoke.spec.ts:666 describe) with ' @quarantine-flaky' + comment. Optional e2e:gating/e2e:quarantine npm scripts. Verify required-check name = job e2e via gh api. OUT: needs:[e2e] on deploy.yml; de-flaking WebRTC-in-CI (carry-forward; quarantine LOCKED policy).",
-      "testing": "actionlint/YAML sanity; npm run e2e:gating/:quarantine --list resolve right sets; tsc 0 + vitest unchanged; PUSH + gh run view: e2e job GREEN, e2e-quarantine runs independently and its failure neither emails nor gates (D3 boot-then-smoke).",
+      "objective": "Severing/deleting bonds DOWN to a valid Voltkin chain re-evaluates the recipe and fires (not only building UP to it); bomb/creature severs do NOT random-fire.",
+      "scope": "runGodlyMatcher (godlyOrchestration.ts): the qualifying-effect condition now also accepts a PLAYER-caused BOND_SEVERED (eff.cause==='player'), so findGodlyMatch re-runs on the post-sever world. Single loop + break unchanged -> one trigger/frame (no double-fire). cause!=='player' (bomb/creature/physics/godly) excluded. Strict isolated-chain topology KEPT (relaxing reopens S48 5-blob false-positive). Host-only + once-per-match gate unchanged. Tests: build+player-sever fires, bomb/creature sever no-fire, BOND_FORMED regression, gate holds. OUT: relaxing topology (separate design decision); client-side trigger.",
+      "testing": "tsc 0; vitest 1522/1522 incl 5 new godlyOrchestration tests (first to drive runGodlyMatcher); build green.",
       "check_completed": true,
-      "checkpoint_commit": "fc21bd6",
-      "check_method": "S98 P1 (E2E CI lane) DONE. Split the @quarantine-flaky suite into its OWN job e2e-quarantine with continue-on-error:true AT JOB LEVEL (the real email-stopper — a non-required job still reds the run + emails; job-level continue-on-error makes the RUN conclusion success regardless) + no `needs` (e2e job self-contained, Playwright webServer runs npm run dev, separate runners=no port clash) + distinct artifact. Gating job e2e runs only --grep-invert @quarantine-flaky at timeout 15. Added DRY npm scripts e2e:gating / e2e:quarantine. PRIME-AUDIT DELTA (vs PDR 'tag S62'): the first real run (28076437366) proved the handoff under-counted — the gating lane still RED on 3 TWO-peer joiner tests (Sym A/G/J, waitForWorld timeout: sparks on joiner peerCount:1); the whole real-WebRTC class is CI-flaky and a different subset fails each run. Corrected scope: tagged ALL 10 smoke.spec.ts describes (every one uses open2Peers) + a file-header policy note; gating lane is now 23 deterministic single-page tests across 8 files. master is NOT branch-protected (no required-check name to preserve). VERIFIED ON A REAL RUN (28078258931, D3 boot-then-smoke): overall conclusion=SUCCESS, e2e gating=SUCCESS, e2e-quarantine=FAILURE-but-continue-on-error → NO EMAIL. tsc 0; vitest unaffected. Commits 10eff00 + fc21bd6, pushed.",
+      "checkpoint_commit": "807bbb6",
+      "check_method": "S99 P2 DONE. Root cause: the godly matcher ran ONLY on bond creation - runGodlyMatcher (the sole caller of findGodlyMatch) hard-filtered eff.kind==='BOND_FORMED'; the sever reducer (severBond.ts) emits only BOND_SEVERED/SEVER_ERASE -> deleting down to a valid 4Sq->4Tr chain never re-evaluated. (godlyFiredThisMatch gate NOT the cause; first-time passes; NONET is a different id. S97 P5 already removed the cooldown cross-block.) Fix: the qualifying condition in runGodlyMatcher now also accepts a PLAYER-caused BOND_SEVERED (eff.cause==='player' only - bomb/creature/physics/godly excluded so combat chaos can't random-fire a godly, per Council). The existing single-loop+break already caps to ONE trigger/frame (so a BOND_FORMED + a sever in the same frame can't double-fire - this dissolved Gemini's double-fire concern without a bigger refactor). voltkinPredicate is global + ignores bondPos, so any qualifying eff.pos suffices. Strict isolated-chain topology (S48 P4) KEPT - relaxing reopens the 5-blob false-positive; the user's reduced structure must end as a CLEAN isolated line (4 SQ then 4 TR, endpoints deg1, middles deg2, no stubs); ?debug=1 surfaces findLongestVoltkinPartial. New godlyOrchestration.test.ts (5 tests, FIRST to drive runGodlyMatcher - stub the Pixi-only ctx fields): player-sever fires, bomb-sever + creature-sever do NOT, BOND_FORMED regression, once-per-type gate holds. GATES: tsc 0; vitest 1522/1522; build green. Committed 807bbb6, pushed.",
       "verification": [
         {
           "type": "file_contains",
-          "path": ".github/workflows/e2e.yml",
-          "needle": "continue-on-error: true"
+          "path": "src/state/godlyOrchestration.ts",
+          "needle": "isPlayerSever"
         },
         {
           "type": "file_contains",
-          "path": "package.json",
-          "needle": "e2e:quarantine"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/smoke.spec.ts",
-          "needle": "@quarantine-flaky"
+          "path": "src/state/godlyOrchestration.test.ts",
+          "needle": "runGodlyMatcher fires on player-sever"
         }
       ],
-      "real_context_tokens_at_close": 454238,
-      "real_context_pct_at_close": 45.42
-    },
-    {
-      "id": "P2",
-      "label": "S98 P2 - Combo order-symmetry Option B: mirror the 8 one-way magic pairs (same magic both orders), keep Triangle<->Circle (Wheel/Star) directional, HUD stays N/14, empirical rebalance.",
-      "status": "completed",
-      "phase": "DONE",
-      "tier": "Full",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "objective": "Connecting the same two shape types yields the same magic regardless of carry order for the 8 one-way pairs; Wheel/Star duality preserved; HUD N/14; persistence + discovery count intact; balance held via measured (not assumed) win-score.",
-      "scope": "(src/combos.ts) ADD 8 reverse rows to MAGICAL[] reusing the byte-identical ComboOutcome of each forward row (Dot<->Line/Square/Spiral, Line<->Triangle/Circle/Spiral, Triangle<->Spiral, Square<->Circle); leave comboKey() UNSORTED (no key-format change -> no save/replay/localStorage migration); keep Triangle->Circle & Circle->Triangle distinct. TABLE.size stays 36 (magic 14->22, functional fill 22->14). Discovery canonicalized by resultName (detectComboDiscoveries) -> forward+reverse unlock same tile, +1 not +2; codex catalog dedupes by resultName so N/14 stays 14 tiles (D2: MAGIC_COMBO_KEYS may grow 14->22 - ensure catalog/count use distinct resultName). REBALANCE EMPIRICAL: Vitest scoring-delta sim of canonical/representative build under original vs symmetric table (D1: locate canonical build; else documented representative); scale PHASE_1_WIN_SCORE + SCORE_TIER_STEP in lockstep (keep /3) by measured factor only if material (>~3%). Rewrite (not delete) the 4 asymmetry-invariant tests -> symmetric for the 8 + Wheel!=Star. Amend LOCKED_DECISIONS sec6 + combos.ts header + Blueprint secV.1 (covered by user approval). Grep tutorial/tooltip for 'order matters'.",
-      "testing": "tsc 0; full vitest green incl rewritten invariants + new tests (8 symmetric, reverse=same tile +1, old-save load=expected); scoring-delta sim recorded; TABLE.size===36 + /3 invariant green; build+bundle guard; live: codex shows 14 tiles, reverse-order placement reveals same tile.",
-      "check_completed": true,
-      "checkpoint_commit": "6e62d29",
-      "check_method": "S98 P2 (combo order-symmetry, Option B) DONE. combos.ts: mirror the 8 one-way magic pairs into TABLE reusing the byte-identical forward outcome object (Dot<->Line/Square/Spiral, Line<->Triangle/Circle/Spiral, Triangle<->Spiral, Square<->Circle); comboKey UNSORTED (no save/replay/localStorage migration); Triangle<->Circle stays the directional Wheel/Star dual; TABLE stays 36 (14 fwd + 8 rev magic + 14 functional). canonicalComboKey() canonicalizes discovery to the catalogued forward key so a magic found in either order unlocks the SAME tile, counted once → HUD/Codex stay N/14 (MAGICAL/MAGIC_COMBO_KEYS unchanged at 14). isOrderSymmetric() + Codex shows '↔' for symmetric pairs, '→' for Wheel/Star. Behavior follows the table: Spiral->Dot now a Vortex (pulls), Line->Dot a Filament (trickle) — intended 'same magic both orders'. REBALANCE: win-score UNCHANGED (630). EMPIRICAL basis: change is additive (never touches a forward key) so the optimal/canonical-build income — the ~157.5s anchor — is provably unchanged (income-parity tests prove it); symmetry only raises the floor for sloppy ordering. Playtest-gated micro-rebalance held (carry-forward). PRIME-AUDIT DELTA: my PDR wrongly said combos.test.ts:88-90 (Square->Dot/Circle->Line) stay functional — they ARE reverses of the 8 pairs (Anchor/Spindle) so they flip to magic; rewrote those assertions. Rewrote the 4 asymmetry invariants -> symmetric truth + Wheel!=Star; added symmetry / reverse-same-tile / income-parity tests. Docs amended (LOCKED_DECISIONS §6, Blueprint §V.1 — LOCKED amendment, user-approved). GATES: tsc 0; vitest 1509/1509; build 555.3/560. LIVE-VERIFIED in-browser: shipped module — every reverse pair resolves to its magic, Wheel/Star distinct, table 36/22magic/14names; Codex renders ↔ (Filament/Diamond) + → (Wheel), 14 tiles, 0 console errors. Commit 6e62d29, pushed (real run 28078258931 gating SUCCESS).",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/combos.ts",
-          "needle": "canonicalComboKey"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/combos.ts",
-          "needle": "ORDER-SYMMETRY (Option B"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/comboDiscovery.ts",
-          "needle": "canonicalComboKey"
-        }
-      ],
-      "real_context_tokens_at_close": 454238,
-      "real_context_pct_at_close": 45.42
-    },
-    {
-      "id": "P3",
-      "label": "S98 P3 - Connection Preview: while dragging a primitive from spawn, render a pulsating faded preview of EXACTLY the bond(s) it will form (distance + connector count) before release; on release the real bond commits at full opacity in player+shape color.",
-      "status": "completed",
-      "phase": "DONE",
-      "tier": "Full",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "objective": "Player sees, before releasing, a pulsating faded preview of exactly the connection(s) the dragged primitive will form at the current position (connect distance + number of connectors); on release the real bond commits (existing code) at full opacity in player+shape color. Local-only, render-only, zero netcode/sim change.",
-      "scope": "Extract ONE pure computePotentialBonds(world,targetRefPos,draggedType,playerId)->{primary,mergeBonds[],redundancyBonds[]} from onUp's assembly (controls.ts:519-532, using pure pickers pickHostTargetPrimitive/collectHostMergeCandidates/pickRedundantBondTargets); BOTH onUp AND a new DragPreviewRenderer call it -> preview==release structural. Per-frame while controls.state==='AttractDrag': refPos = isClient?cursor:spark.pos (exact onUp expr, controls.ts:456); evaluate computeReleaseGates (pure) -> no phantom bonds when rejected; draw all 3 bond classes via drawBondVisual with visualEffectId=lookupCombo(draggedType,targetType), colorA=colorB=world.players.get(localPlayerId).color (placerColor NOT ownerColor), pulse=clamp01(BASE+AMP*sin(performance.now()/1000*HZ*2pi)) named constants HZ<=1.0 base~0.4, g.clear() each frame, moveTo before arcs. Own Graphics on app.stage ABOVE structureRenderer layers BELOW aboveFogLayer (NOT in aboveFogLayer -> fog.spec contract). S53 previewGraphics = lifecycle/destroy reference only. Joiner = best-effort (host re-derives; pre-existing netcode). OUT: any sim/netcode/balance change.",
-      "testing": "Pure unit tests on computePotentialBonds (same fn guards drift); gate-rejection -> empty; tsc 0 + vitest green incl fog.spec; live preview-tools: drag near 0/1/2/3 targets, preview lines match committed bonds, color+pulse correct, nothing renders over spawn-zone/enemy-territory/beyond reach; frame-time sane (D4-ok).",
-      "check_completed": true,
-      "checkpoint_commit": "65978c6",
-      "check_method": "S98 P3 (Connection Preview) DONE. PURELY ADDITIVE — zero change to the placement/netcode path. New Pixi-free src/input/dragPreview.ts computePreviewBonds() returns {primaryId, redundancyIds, mergeIds} using the reducer's OWN host-authoritative pure pickers (pickHostTargetPrimitive / collectHostMergeCandidates / pickRedundantBondTargets) + a mirror of the placePrimitive merge-sweep dedup (one nearest per distinct other same-colour component); refPos = isClient?cursor:spark.pos (exact onUp expr) → preview==release on host/solo; EMPTY when a spawner-zone/enemy-territory gate would reject (no phantom bonds); joiner best-effort under snapshot lag (host re-derives; pre-existing netcode). New src/render/dragPreviewRenderer.ts: one Graphics on app.stage just above the board (NOT aboveFogLayer → fog.spec contract intact, verified: aboveFogChildren stays 8, z-check is relative), g.clear()+drawBondVisual per would-be bond with the predicted combo silhouette, colour=player.color (placerColor), alpha=wall-clock sine 0.9Hz sub-strobe 0.17-0.73. main.ts: construct after StructureRenderer + sync after avatarRenderer. ANTI-DRIFT (Council req): reasoned deviation from the literal 'shared computePotentialBonds called by onUp' — refactoring the critical onUp path is riskier now its e2e net is quarantined; instead the preview reuses the reducer's own pickers and dragPreview.test.ts (8 tests) asserts equivalence to them (source-of-truth guard). GATES: tsc 0; vitest 1517/1517; build 557.1/560 (additive +1.8). LIVE-VERIFIED in-browser: shipped resolver correct at runtime (primary=nearest, enemy-colour ignored, 1 merge per separate component, spawner-zone gate→empty); per-frame sync runs with 0 console errors. Interactive pixel-drag (drag a spark by your structure, see the pulsating preview) = user playtest. Commit 65978c6, pushed (run 28079083480 in flight; P3 is render-only + fog.spec-safe → gating expected green).",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/input/dragPreview.ts",
-          "needle": "computePreviewBonds"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/dragPreviewRenderer.ts",
-          "needle": "DragPreviewRenderer"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "dragPreviewRenderer.sync(world, controls)"
-        }
-      ],
-      "real_context_tokens_at_close": 454238,
-      "real_context_pct_at_close": 45.42
+      "real_context_tokens_at_close": 623735,
+      "real_context_pct_at_close": 62.4
     }
   ],
   "generative_cost_cap_usd": 10,
@@ -123,23 +78,22 @@
   "generative_cost_spent_session_usd": 0.0,
   "budget_total": 1000000,
   "reflexion_entries_to_archive": [
-    "P1 #ci-flake-quarantine-is-a-CLASS-not-a-named-list: the handoff named 4 flaky tests but a real run proved the WHOLE real-WebRTC (open2Peers) suite is CI-flaky with a different subset failing each run. Verify CI fixes on a REAL run (static --list/grep is insufficient — D3 boot-then-smoke); and the actual email-stopper is JOB-LEVEL continue-on-error (a non-required job still reds the run + emails). Why: static analysis said 'tag S62 → green' but the gating lane stayed red on 2-peer joiner tests. How to apply: for CI-flake quarantine, tag by the shared characteristic (real P2P) not by names, isolate into a continue-on-error job, and confirm the RUN conclusion=success on a live run before declaring done.",
-    "P2 #order-symmetry-mirror-the-table-not-sort-the-key: achieve commutativity by adding reverse rows reusing the forward outcome (byte-identical) + canonicalize DISCOVERY by resultName/forward-key — NOT by sorting comboKey (which collapses the intentional Wheel/Star dual and breaks persistence). And prove a balance change empirically: an ADDITIVE table change never touches forward keys, so the optimal/canonical-build income (the match-length anchor) is provably unchanged → no win-score inflation needed (over-correcting would punish skill). Why: the PDR's instinct was a blanket win-score bump (wrong — that was S91's forward-additive case, not this reverse-only one). How to apply: when a change is provably additive to the optimal path, the LOCKED anchor holds; rebalance only the floor, gated on playtest.",
-    "P3 #preview-equals-release-by-reusing-the-reducers-own-pure-pickers: a 'show exactly what will happen' preview should call the SAME pure functions the authoritative path uses (here the reducer's pickHostTargetPrimitive/collectHostMergeCandidates/pickRedundantBondTargets), not re-implement the picking — and prove equivalence with a unit test against those pickers. Keep it purely additive (new resolver + renderer + 1 sync line) rather than refactoring the critical input path, ESPECIALLY once that path's e2e safety net is quarantined. Why: Council wanted preview==release structural; reusing the source-of-truth pickers + an equivalence test is a safer way to get it than a risky onUp refactor. How to apply: prefer additive + reuse-the-authority + equivalence-test over refactoring a critical, now-under-tested path."
+    "P1 #nonet-sprite-fade-was-a-mask-peaking-at-231-not-255: 'sprites fade into the bg' = the shared alpha matte never reached full opacity (peak 231/255) + an 81px feather blur eating the WHOLE subject (not just the rim). Fix lives in the MASK GENERATOR, not runtime code: a plateau-clamp (multiply-then-min-255 after blur) for a flat-255 core + soft rim - you can't add back opacity a mask removed (sprite.alpha is unset; the fade is in the matte's alpha channel + a baked webm vignette). Sweep params EMPIRICALLY and measure (peak / opaque-core% / corner-transparency / wing-band alpha): too-high plateau (1.7) made it 100% opaque = hard rectangle; 2.0@feather0.20 was the sweet spot. Keep a bespoke per-asset mask (owl-b) untouched - it was cropping a flame. Verify with BOTH the numeric alpha profile AND a live screenshot (the WebGL screenshot worked this time after forceNonet + ticker.update pump).",
+    "P2 #godly-matcher-only-ran-on-bond-create-not-sever: 'X didn't fire after I DELETED down to a valid pattern' = the matcher was triggered only by BOND_FORMED effects, never by a sever, so reducing TO a valid state never re-evaluated (build-up worked, delete-down didn't). Fix = also act on the sever effect, but cause-FILTER to player-initiated only (bomb/creature severs must not random-fire a godly in combat) and REUSE the existing single-loop+break (already caps to one-trigger/frame, so no double-fire from a form+sever in the same frame - dissolved the Council's double-fire concern without a bigger refactor). Keep the strict topology gate (relaxing reopens a prior false-positive); the player's structure must end as a clean isolated chain. Wrote the FIRST test to drive runGodlyMatcher by stubbing only the ctx fields it reads (the Pixi-heavy fields are for the cinematic fn). General lesson: an event-driven matcher must listen to ALL topology mutations (create AND destroy), not just creation."
   ],
-  "session_status": "S98 — ALL 3 PRIORITIES COMPLETE + pushed. P1 E2E lane: gating green + NO-EMAIL confirmed on a real run (28078258931 overall=success, quarantine fails under continue-on-error). P2 combo order-symmetry (Option B): 8 pairs mirrored, Wheel/Star kept, N/14, win-score unchanged (provably), 1509 tests + live Codex ↔. P3 Connection Preview: additive resolver+renderer, preview==release via the reducer's own pickers, 1517 tests + live runtime. tsc 0, build 557.1/560. 2-round Council ADOPT + PRIME-AUDIT (2 deltas landed: P1 full-class quarantine, P2 combos.test:88-90 flip). Ready for /handoff.",
+  "session_status": "S99 - BOTH PRIORITIES COMPLETE + pushed. P1 NONET spirits: mask peak 231->255 (plateau clamp) + warm glow -> full outlines, owl-b flame still cropped, LIVE-screenshot-verified. P2 Voltkin: matcher now re-evaluates on player-sever (reduce DOWN to a valid chain), bomb/creature excluded, strict topology kept, 5 new tests. tsc 0, vitest 1522/1522, build 557.2/560, deploy auto. 1-round Council ADOPT + PRIME-AUDIT. Ready for /handoff.",
   "totals": {
     "turns": 0,
     "budget_remaining": 1000000,
-    "budget_status": "GREEN"
+    "budget_status": "YELLOW"
   },
+  "real_context_tokens_at_close": 623735,
+  "real_context_pct_at_close": 62.4,
   "carry_forward": [
-    "P2 balance playtest: after S98 ships, ask if casual matches feel too fast post-symmetry; if yes apply the ready micro-rebalance (raise PHASE_1_WIN_SCORE+SCORE_TIER_STEP in lockstep, keep /3).",
-    "De-flake WebRTC-in-CI (net::ERR_ADDRESS_UNREACHABLE) - environmental; quarantine is LOCKED policy. Investigate hosted-runner networking/TURN someday. NOT a blocker.",
     "Tower-defense combos - next major feature; user supplies the plan (memory/spark-tower-defense-combos-next-feature.md).",
-    "(optional) deploy.yml needs:[e2e] (S46 migration note); combinatorial-depth 6^6 discussion; G4 build-feel juice."
+    "S98 P2 combo balance playtest: does casual pace feel too fast post order-symmetry? If yes, apply the held PHASE_1_WIN_SCORE+SCORE_TIER_STEP micro-rebalance (keep /3).",
+    "Voltkin UX (Council suggestion): the strict isolated-chain requirement (4 SQ then 4 TR, no stubs/junctions) is NOT player-visible. Consider a tooltip/tutorial or surfacing findLongestVoltkinPartial outside ?debug=1. Relaxing topology to 'any 4S+4T blob' is a SEPARATE design decision (reopens the S48 false-positive).",
+    "(optional) NONET backing-glow strength tuning on playtest; de-flake WebRTC-in-CI; deploy.yml needs:[e2e]; combinatorial-depth 6^6; G4 build-feel juice."
   ],
-  "analyze_completed": false,
-  "real_context_tokens_at_close": 454238,
-  "real_context_pct_at_close": 45.42
+  "analyze_completed": false
 }
