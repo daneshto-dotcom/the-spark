@@ -118,6 +118,19 @@ describe('isPentagramComponent — strict exact-5-triangle-cycle predicate', () 
     expect(findPentagramAnchor(world)).toBe(asPrimitiveId(0));
   });
 
+  it('S102 #7 — sever a closing connector → no match (spawner removed) → re-place it → matches again (rebuild)', () => {
+    const anchor = buildPentagram(world, color, 0, 0);
+    expect(isPentagramComponent(world, anchor)).toBe(true);
+    // an enemy raids/severs the closing connector → the ring opens → the predicate fails,
+    // so the re-validation poll removes the spawner (income + swarm STOP). This is the counterplay.
+    removeBond(world, 4); // bond 4 closes prim 4 -> prim 0
+    expect(isPentagramComponent(world, anchor)).toBe(false);
+    // the owner REBUILDS by re-placing that connector → the exact pentagram stands again → the
+    // predicate matches, so the next topology change re-ignites a fresh spawner (owner item #7).
+    addBond(world, 4, 4, 0);
+    expect(isPentagramComponent(world, anchor)).toBe(true);
+  });
+
   it('NO match with the same 5 + 1 extra primitive attached (component grows past 5)', () => {
     const anchor = buildPentagram(world, color, 0, 0);
     expect(isPentagramComponent(world, anchor)).toBe(true);

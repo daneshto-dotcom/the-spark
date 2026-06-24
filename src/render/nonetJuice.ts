@@ -95,6 +95,25 @@ export function playNonetPop(): void {
   blip(680, 1040, 0.07, 'triangle', 0.18);
 }
 
+/**
+ * S102 #6 — CORRECT cell: a chipmunk "yey!" — two fast, very high, bright up-chirps
+ * (an excited rodent squeak) so you instantly know the digit was right. ORIGINAL synth.
+ */
+export function playNonetYey(): void {
+  blip(1400, 2100, 0.09, 'triangle', 0.16, 0.0);
+  blip(1900, 2640, 0.1, 'triangle', 0.15, 0.07);
+}
+
+/**
+ * S102 #6 — WRONG cell: a lazy, sad, low "owww" — a slow descending sine doubled a
+ * touch lower for a deflated, mournful droning voice (Eeyore-style downbeat). Slow +
+ * low = it reads as a tired groan, not a harsh error buzz. ORIGINAL synth (no IP name/sample).
+ */
+export function playNonetOww(): void {
+  blip(300, 196, 0.55, 'sine', 0.15, 0.0);
+  blip(232, 150, 0.6, 'sine', 0.09, 0.04); // sad doubled undertone
+}
+
 /** Wrong full-grid submit — a comedic descending two-tone "bonk". */
 export function playNonetWrong(): void {
   blip(440, 230, 0.16, 'square', 0.13);

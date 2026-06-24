@@ -23,9 +23,10 @@ import {
   playNonetAppear,
   playNonetJackpot,
   playNonetLose,
-  playNonetPop,
+  playNonetOww,
   playNonetTimeout,
   playNonetWrong,
+  playNonetYey,
   resolveFloodColor,
 } from './nonetJuice.ts';
 import {
@@ -340,7 +341,7 @@ export class SudokuOverlay {
     const GUARDIANS: ReadonlyArray<Guardian> = [
       { id: 'kami', x: 300, y: 558, vw: 360, staticScale: 0.55, behavior: 'breathe', phase: 0.0, hero: true }, // MIDDLE-LEFT — the stately elder, prominent
       { id: 'owl-a', x: 1628, y: 332, vw: 286, staticScale: 0.40, behavior: 'blink', phase: 0.6 }, // TOP-RIGHT — watchful, peeking high
-      { id: 'owl-b', x: 372, y: 888, vw: 214, staticScale: 0.28, behavior: 'hop', phase: 1.7, mask: 'owl-b-mask' }, // BOTTOM-LEFT — peppy (tighter matte crops a stray veo flame — S97 P1)
+      { id: 'owl-b', x: 372, y: 888, vw: 214, staticScale: 0.28, behavior: 'hop', phase: 1.7, mask: 'owl-b-mask' }, // BOTTOM-LEFT — peppy (S102 #5: matte widened to ~69% to show BOTH wings; still crops the lower flame-streak's edges — make_owlb_mask.py)
       { id: 'moss-b', x: 1562, y: 842, vw: 252, staticScale: 0.33, behavior: 'float', phase: 3.1 }, // BOTTOM-RIGHT — dreamy
     ];
     GUARDIANS.forEach((g, i) => this.buildGuardian(g, i));
@@ -709,8 +710,14 @@ export class SudokuOverlay {
     if (!this.container.visible || ev == null || ev.resolvedTick != null) return;
     if (e.key >= '1' && e.key <= '6') {
       if (this.selected >= 0 && this.givens[this.selected] === 0) {
-        this.entries[this.selected] = Number(e.key);
-        playNonetPop(); // S95 — kawaii cell-place pip
+        const digit = Number(e.key);
+        this.entries[this.selected] = digit;
+        // S102 #6 — instant per-cell feedback: a chipmunk "yey!" when the digit matches
+        // the puzzle's unique solution, a lazy sad "owww" when it's wrong. puzzle.solution
+        // is byte-identical on every peer (generated from the shared seed), so this is purely
+        // render-local — no sim, determinism, or wire impact.
+        if (ev.puzzle.solution[this.selected] === digit) playNonetYey();
+        else playNonetOww();
         const next = this.entries.findIndex((v, i) => v === 0 && this.givens[i] === 0);
         if (next >= 0) this.selected = next;
         this.maybeSubmit();

@@ -1,158 +1,76 @@
 {
   "tool_calls_session_total": 0,
-  "session_id": "S101",
+  "session_id": "S102",
   "session_kind": "execution",
-  "session_start": "2026-06-24T20:00:00.000Z",
-  "session_note": "S101 - RECOVERY: prior session got stuck in UI after the S100 TD workflow finished. Confirmed task done (committed+pushed, no live task). DIAGNOSED the owner's 'pentagram didn't work' report: S100 was built+committed+pushed but the GitHub Pages DEPLOY FAILED on the bundle-size HARD gate (570.9 KiB > 560 charter; npm run build exit 1) -> live site stuck at S99 with NO tower-defense. E2E lane also failed (stale aboveFogLayer contract 8->10). Owner directive: raise bundle charter 560->750, fix E2E contract, verify green, ship live, then close S100 properly (backlog + handoff). unlock_source=user (explicit go). Micro tier. PDR: .claude/plans/2026-06-24_PDR_S101_DEPLOY_FIX.md",
+  "session_start": "2026-06-24T22:00:00.000Z",
+  "session_note": "S102 - Tower-Defense Combat Overhaul: 10-item owner playtest batch. This session ships items 1-8 (Batches 1+2); items 9-10 (laser turret + HELGA princess) are next session. Owner explicit approval ('full session batch approved, lets get to work!') = unlock_source:user. FULL tier; 3-way Council (ADOPT-WITH-FIXES, 6 must-fixes folded) + PRIME-AUDIT. Owner corrections: RAID = the existing player sever extended to also hit creatures (right-click chewer=1 kill, Voltkin=2); UNIFIED HP model (connectors HP=5 chewable, chewer HP=1, Voltkin HP=2); HELGA princess spec captured for next session. PDR: .claude/plans/2026-06-24_PDR_Session_102_TD_Combat_Overhaul.md",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "tier": "Micro",
+  "tier": "Full",
   "council_rounds": 1,
-  "council_result": "1-round 3-way Council (Claude + Grok-ANALYST grok-4.20-reasoning + Gemini-AUDITOR gemini-2.5-pro). P1: both ADOPT (+ add warm backing glow, update make_mask.py defaults, verify live + cache). P2: both ADOPT-WITH-CHANGES, convergent: (a) single consolidated matcher pass per frame on topology-change, not a 2nd trigger (the existing loop+break already gives one-trigger/frame); (b) cause-filter to PLAYER severs only (exclude bomb/creature random-fires); keep strict topology. Accepted all. PRIME-AUDIT: the player-cause-filter + reuse-of-existing-loop+break is materially safer than the PDR's 'add BOND_SEVERED to filter'. Realized the existing break already prevents Gemini's double-fire fear.",
+  "council_result": "1-round 3-way Council (Claude + Grok-ANALYST grok-4.20-reasoning + Gemini-AUDITOR gemini-2.5-pro) on the 10-item batch PDR. Grok: REWORK (foundations must precede consumers; host-local effects violate the 10Hz full-snapshot contract; damage model under-budgeted; need ONE shared area-damage helper). Gemini: ADOPT-WITH-FIXES (wire-sync visibility failure; incoherent two-path HP model; B4 builds generic entity AFTER bespoke; RAID strictly-better-than-potato). SYNTHESIS=ADOPT-WITH-FIXES+re-sequence. 6 must-fixes folded: MF1 unify death via damageCreature/applyAreaDamage (AoE=lethal through same path); MF2 client-visible feedback via synced-state-derived VFX (client diffs prev/curr creatures for death splat; gnaw off ATTACKING state; windup off nextFireTick) not transient effects; MF3 re-sequence foundations-first + touch applyCreatureAttack ONCE; MF4 one shared radius helper (potato refactored onto it); MF5 RAID balance (mooted by owner correction OC1 - raid is now precise single-target via the existing sever+charge); MF6 save-hp round-trip + client-intent-path + cause-exhaustiveness tests. PRIME-AUDIT: boot-then-smoke live verification mandatory; determinism gate per foundation (extend runCreatureStress = HARD gate); bond-hp additive-optional wire. Owner corrections OC1 (raid=existing sever extended to creatures) + OC2 (unified HP: connector 5, chewer 1, Voltkin 2) + OC3 (HELGA spec) authoritative.",
   "signals_fired": [],
   "priorities": [
     {
-      "id": "P_DEPLOY_FIX",
-      "label": "S101 - Ship S100: TD Phase 1a+1b was built+committed+pushed but NEVER deployed (bundle gate hard-failed npm run build at 570.9>560 KiB; GitHub Pages deploy aborted; live site stuck at S99 = no tower-defense). Raise charter 560->750, fix E2E aboveFogLayer contract 8->10, verify green, push, confirm deploy publishes to spark-online.space.",
-      "status": "completed",
-      "phase": "DONE",
-      "tier": "Micro",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "objective": "Get the already-built S100 tower-defense slice actually LIVE: unblock the failed deploy (bundle hard gate), fix the failed E2E gating lane (stale layer contract), re-verify all gates green, ship, and confirm the published bundle on spark-online.space is the S100 build. Then verify the feature works end-to-end and close the session.",
-      "scope": "(1) scripts/check-bundle-size.mjs CAP_KIB 560->750 + LOCKED_DECISIONS.md bundle clause in lockstep (script contract requires both). (2) e2e/fog.spec.ts:166 aboveFogChildren 8->10 + roll-call comment (S100 added spawnerZoneRenderer + chewerRenderer to aboveFogLayer). (3) build+test+e2e verify, commit, push, watch deploy go green. (4) end-to-end feature verification + adversarial S100 audit. (5) close: BACKLOG + session-state + reflexion + handoff. PDR: .claude/plans/2026-06-24_PDR_S101_DEPLOY_FIX.md",
-      "testing": "npm run build exit 0 ([bundle] OK under 750); npm test 1577/1577; npm run e2e:gating fog.spec green (aboveFogChildren=10); deploy run SUCCESS; served bundle hash updated; placed+bonded 5-triangle ring registers a spawner + emits a chewer after SPAWN_INTERVAL_TICKS.",
-      "check_completed": true,
-      "checkpoint_commit": "6169c2b",
-      "real_context_tokens_at_close": 273547,
-      "real_context_pct_at_close": 27.35,
-      "check_method": "S101 P_DEPLOY_FIX DONE (fix commit 6169c2b + close commit; SHIPPED LIVE). Root cause of owner's 'pentagram didn't work in multiplayer, did you push it?': S100 TD was built/committed/pushed (git clean, HEAD=origin) but the GitHub Pages DEPLOY HARD-FAILED on the bundle gate (check-bundle-size.mjs exit 1 at 570.9>560 KiB; it is the LAST step of `npm run build` = the exact command deploy.yml runs) -> live spark-online.space stayed at the S99 build with NO tower-defense, so the pentagram had no code to fire. S100 E2E lane also failed (stale aboveFogLayer contract 8->10). The S100 notes had SEEN the breach but mislabeled it 'soft budget, no hard CI gate' (it IS a hard gate) and marked the priority done. Fix: charter 560->750 (CAP_KIB + LOCKED clause lockstep; owner directive - self-imposed cap, gzip ~185 KiB, deploy-blocking failure mode costlier than the KiB) + e2e 8->10 (spawnerZone+chewer renderers) + early-warning band (<60 KiB headroom shouts on every build). Re-verified: npm run build exit 0 (entry 570.9 KiB, 179 KiB headroom), vitest 1584/1584 (incl 7 NEW pentagramBuildability integration tests through the real PLACE_FROM_FREE pipeline), gating E2E green. Manually triggered workflow_dispatch deploy (fix paths don't match deploy filter) -> run 28109794663 SUCCESS; live bundle hash == local build hash (index-Cg8IJAGz.js) -> TD LIVE for the first time. S100 verified end-to-end via a 4-agent adversarial workflow: buildability/ignition+2p-replication/chewer-lifecycle+counterplay/render+runloop ALL verdict=works,confidence=high, zero critical/high/medium issues. A REAL hand-built pentagram DOES ignite at circumradius ~32-51 (degree-2 holds in the buildable band; merge sweep skips already-merged components, the lone redundancy bond on the closing triangle IS the closing edge). Carry-forward (LOW): pentagram spacing-sensitive + unguided (no in-game hint) -> add closing-edge ghost-preview / 'almost complete' affordance, OR relax predicate to 'contains a 5-cycle, ignore chords'; code-split TD render layer now optional. Process lesson encoded in memory bundle-cap-raise-dont-debug + LOCKED clause + the early-warning band.",
-      "verification": [
-        { "type": "file_contains", "path": "scripts/check-bundle-size.mjs", "needle": "CAP_KIB = 750" },
-        { "type": "file_contains", "path": "scripts/check-bundle-size.mjs", "needle": "WARN_HEADROOM_KIB" },
-        { "type": "file_contains", "path": "LOCKED_DECISIONS.md", "needle": "750 KiB raw" },
-        { "type": "file_contains", "path": "e2e/fog.spec.ts", "needle": "toBe(10)" },
-        { "type": "file_contains", "path": "src/state/spawners/pentagramBuildability.test.ts", "needle": "BUILDABILITY" }
-      ]
-    },
-    {
-      "id": "P_TD1A",
-      "label": "S100 - Tower-Defense Phase 1a+1b vertical slice: pentagram spawner -> chewer swarm chews enemy connectors -> destroyable (strict exact-shape gating) -> potato-killable; deterministic + multiplayer-safe; procedural pencil chewer w/ amusing physics hop.",
-      "status": "completed",
-      "phase": "DONE",
+      "id": "P1",
+      "label": "S102 P1 - Quick wins (items 4,5,6,7): chewer buck-teeth render; regen owl-b NONET mask (bottom-left owl faded, wings cropped); NONET sudoku correct/wrong SFX (chipmunk yey / sad oww); verify spawner rebuild already works.",
+      "status": "in_progress",
+      "phase": "DO",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "checkpoint_commit": "52d822a",
-      "real_context_tokens_at_close": 263970,
-      "real_context_pct_at_close": 26.4,
-      "objective": "Build the playable TD loop: build exactly 5 triangles in a closed pentagram -> structure comes alive as a radiating spawn-zone (+tiny VP, spawns a chewer/15s) -> chewers hop to nearest ENEMY connector + chew 5x/5s -> spawner destroyable (remove a triangle OR attach an extra shape stops it, exactly) -> chewers potato-killable. Generalizes the Voltkin creature substrate; deterministic + host-authoritative + perf-gated.",
-      "scope": "See .claude/plans/2026-06-24_PDR_S100_TD_PHASE1A.md + TOWER_DEFENSE_DESIGN.md (sections 2-6). Merges design Phase 1a (sim loop + caps + determinism) with Phase 1b (real pentagram recipe + ignition decoupled from the cinematic single-slot). Reuse: CreatureType/CREATURE_CONFIGS, findNearestBondTarget(+enemyOnly), creatureVerlet, applyCreatureAttack->SEVER_BOND{cause:'creature'}, additive-optional snapshot, recipe registry, computeComplexity, gameMode.addScore. Net-new: CreatureSpawner+spawnerLifecycle, persistent-FSM gate, 5-hit chew loop, per-spawner tick poll, de-hardcode VOLTKIN_ATTACK_*/CREATURE_MAX_ACCEL, pentagram predicate, chewerRenderer (pencil + amusing physics hop), CHEW_BITE effect, spawn-zone aura, potato chewer-kill counterplay, bot spawner counterplay.",
-      "testing": "tsc 0; full vitest green (1522 stay green); Voltkin regression (auto-delete@1200/DESPAWN@1140/byte-identical replay); chew-to-5-then-sever; caps (global/per-spawner/per-victim); independent Voltkin-vs-chewer counting; enemy-only targeting; spawner register/revalidate/teardown; pentagram predicate (exactly-5-cycle matches, +1 extra fails, -1 fails); two-player + rebuild; extended runChewerStress byte-identical replay (HARD GATE); host save/load mid-chew; snapshot byte-budget <~16KB; TD actions absent from CLIENT_INTENT_TYPES; old-save load empty. Perf HUD + frame-time at cap; bundle delta measured.",
-      "check_completed": true,
-      "check_method": "S100 P_TD1A DONE (commit 52d822a, pushed). Built the tower-defense vertical slice as a GENERALIZATION of the Voltkin creature substrate via a 7-layer sequential build workflow + a verification stage (38 new tests). WHAT: (1) 'chewer' CreatureType w/ persistent:true + chewHits:5 + hopSpeedMul + de-hardcoded attack/maxAccel config fields; makeCreature(config,args) w/ makeVoltkinCreature as a thin wrapper. (2) FSM persistence gate: auto-delete (:135) + forced-DESPAWN (:144) wrapped in if(!config.persistent) so Voltkin (persistent:false, lifetime 1200) is TEXTUALLY UNCHANGED; chewer stays in ATTACKING the full chewHits*CHEW_INTERVAL_TICKS, increments chewProgress, severs only on the 5th hit, no re-seek while chewProgress>0, resets only when the bond vanishes. (3) Split max-1 cap by population (sourceSpawnerId null=Voltkin vs non-null=chewer) counted INDEPENDENTLY; chewer caps 8 global / 2 per-spawner / 3 per-victim. (4) findNearestBondTarget(world,creature,enemyOnly) — chewers pass true (never eat own structure); FFA target-spread via mix32 (no RNG stream). (5) CreatureSpawner leaf + spawnerLifecycle + creatureSpawners Map on World + REGISTER/REMOVE_SPAWNER actions + host-only tick poll in main.ts (modeled on the bomb-dissipate poll, NOT game/spawner.ts wall-clock) w/ throttled re-validation (lastValidatedTick, 30t). (6) pentagram.ts predicate: EXACTLY 5 triangles in a closed 5-cycle, anchor component == that exact shape (extra attached primitive OR a removed triangle both fail -> spawner removed -> swarm+income stop). Ignition dispatches REGISTER_SPAWNER WITHOUT touching activeCinematicPlayerId; spawner recipes EXCLUDED from godlyFiredThisMatch, gated per-(player,anchor) against live creatureSpawners (rebuildable after a raid; two players can each have one). (7) Persistence: host save round-trips chewProgress/sourceSpawnerId/despawnAtTick/targetBondId (SerializedBomb precedent) but netSnapshot STRIPS them (render-trimmed wire); creatureSpawners? additive-optional + nextId advance + nullish guards; PROTOCOL_VERSION 9->10; TD actions in KNOWN_GAME_ACTION_TYPES_RECORD NOT CLIENT_INTENT_TYPES. (8) Scoring: near-zero SPAWNER_INCOME_COMPLEXITY in computeComplexity (never touches PHASE_1_WIN_SCORE=630); SPAWNER_KILL_REWARD via addScore. (9) Counterplay: applyPotatoDetonate despawns chewers in blast (owner-agnostic, sorted-id); botBrain spawner-sever priority + chewer-avoid. (10) teardownSpawners wired into all 4 teardown sites. (11) Render: chewerRenderer.ts (original child's-pencil aesthetic, oversized teeth, amusing PHYSICS-DRIVEN hop = squash-stretch + arc keyed off real motion, NOT a looping image), spawnerZoneRenderer.ts (radiating pulsed aura + 'alive' bond styling), chewBite.ts host-local effect. GATES: tsc 0; vitest 1577/1577 (92 files; 38 new TD tests) — verified MYSELF, not just the agent's report. Prod build OK. KNOWN: index chunk 584.65 KiB > 560 soft charter (R14 predicted; soft budget, no hard CI gate) -> carry-forward = code-split TD render layer (S85 pattern). Visual not headless-screenshottable (Pixi rAF + game-loop-gated sync) -> live playtest = build a pentagram. NEXT: generated pencil art (better-than-Voltkin).",
-      "verification": [
-        { "type": "file_contains", "path": "src/state/spawners/spawner.ts", "needle": "CreatureSpawner" },
-        { "type": "file_contains", "path": "src/state/spawners/spawnerLifecycle.ts", "needle": "recipeStillSatisfied" },
-        { "type": "file_contains", "path": "src/state/godlyRecipes/pentagram.ts", "needle": "pentagram" },
-        { "type": "file_contains", "path": "src/state/creatures/voltkin-config.ts", "needle": "chewHits" },
-        { "type": "file_contains", "path": "src/state/creatures/creatureLifecycle.ts", "needle": "persistent" },
-        { "type": "file_contains", "path": "src/render/chewerRenderer.ts", "needle": "ChewerRenderer" },
-        { "type": "file_contains", "path": "src/render/spawnerZoneRenderer.ts", "needle": "SpawnerZoneRenderer" },
-        { "type": "file_contains", "path": "src/constants.ts", "needle": "SPAWN_INTERVAL_TICKS" },
-        { "type": "file_contains", "path": "src/state/creatures/towerDefense.test.ts", "needle": "chewProgress" },
-        { "type": "file_contains", "path": "src/state/godlyRecipes/pentagram.test.ts", "needle": "pentagram" }
-      ]
-    },
-    {
-      "id": "P1",
-      "label": "S99 P1 - NONET spirit/owl sprites fade into the dark background (mask peaked at alpha 231, never opaque).",
-      "status": "completed",
-      "phase": "DONE",
-      "tier": "Micro",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "objective": "The 3 shared-mask spirits (kami/owl-a/moss-b) show their FULL outline+wings during NONET, naturally integrated, without re-exposing owl-b's cropped flame.",
-      "scope": "Regenerate public/art/nonet/spirit-mask.png with a high plateau (peak 255, large opaque core, feather only the outer rim) via make_mask.py (+ new --plateau clamp + updated defaults inset0.05/feather0.20/plateau2.0 + docstring). Leave owl-b-mask.png byte-identical. Add a subtle warm backing glow behind each spirit (sudokuOverlay.buildGuardian, concentric low-alpha ellipses 0x6b5836). OUT: re-encoding the .webm vignette; touching owl-b.",
-      "testing": "alpha profile (peak 255, wings@x15%=250, corners 0, ~42% opaque core); git confirms only spirit-mask.png changed; tsc 0; vitest 1522/1522; build 557.2/560; LIVE screenshot: all 4 spirits full outlines, naturally integrated, no hard edges, owl-b flame still cropped, 0 console errors.",
-      "check_completed": true,
-      "checkpoint_commit": "7db1ee1",
-      "check_method": "S99 P1 DONE. Root cause: shared spirit-mask.png peaked at alpha 231/255 (never opaque) + 81px feather blur (make_mask.py defaults inset0.06/feather0.30) ate ~93% of the frame, so kami/owl-a/moss-b (which fall back to it) faded incl. wings into the dark forest; owl-b was fine (its S97 mask reaches 255 + a hard cutoff that also crops a stray veo flame). Fix: added a --plateau clamp to make_mask.py (m.point(min(255, v*plateau)) after blur) + set defaults to inset0.05/feather0.20/plateau2.0; regenerated spirit-mask.png -> peak 255, ~42% opaque core, wings opaque to x~15%, soft feathered rim, fully-transparent corners (swept params empirically: plateau 1.7 made it 100% opaque=hard rectangle; 2.0@feather0.20 was the sweet spot). owl-b-mask.png UNTOUCHED (git-confirmed) so its flame stays cropped. Added a subtle warm backing glow (0x6b5836, alpha 0.05-0.08, concentric ellipses) behind each spirit in buildGuardian to ground the now-crisp sprite in the dusk scene (Council P1). GATES: tsc 0; vitest 1522/1522; build entry 557.2/560. LIVE-VERIFIED via __SPARK__.forceNonet + screenshot: all 4 spirits render with FULL outlines (the user's faded bottom-left owl now clearly visible), naturally integrated via glow + feathered rim, no hard rectangle, owl-b flame still cropped, 0 console errors. Committed 7db1ee1, pushed (deploy auto).",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "assets-source/nonet-video/make_mask.py",
-          "needle": "plateau"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/sudokuOverlay.ts",
-          "needle": "warm backing glow"
-        }
-      ],
-      "real_context_tokens_at_close": 623735,
-      "real_context_pct_at_close": 62.4
+      "objective": "Ship the four standalone quick wins with no combat-foundation coupling. #4 two large funny beaver buck-teeth (render only). #5 regenerate a wider owl-b matte so the bottom-left NONET owl's wings are visible (asset; still crush the stray veo flame). #6 chipmunk 'yey' on a correct sudoku cell, sad low 'oww' on a wrong one (render-local procedural SFX hooked at the keypress validating puzzle.solution[selected]). #7 verify destroy->rebuild of a chewer spawner already works (regression test + playtest); no code unless broken.",
+      "scope": "#4 src/render/chewerRenderer.ts teeth loop -> 2 buck-teeth (+ relax chewerRenderer.test.ts rect>=4->>=2, add roundRect to mock if used). #5 public/art/nonet/owl-b-mask.png regen via assets-source/nonet-video/make_mask.py (wider opaque core covering wing span ~x117..423/540, still crop flame; extract owl-b.webm frames to verify wing/flame overlap first). #6 src/render/nonetJuice.ts add playNonetYey (high up-chirps) + playNonetOww (low descending sad tone, ORIGINAL not named Eeyore) via blip; src/render/sudokuOverlay.ts onKey '1'..'6' branch correct?yey:oww replacing the unconditional pop. #7 add destroy->rebuild regression test in pentagram.test.ts; confirm ignition de-dups on live creatureSpawners not godlyFiredThisMatch.",
+      "testing": "tsc 0; full vitest green; teeth render test (>=2 incisors); NONET correct vs wrong fires the right synth (unit on the branch); owl fix verified by extracted-frame visual diff + live screenshot (bottom-left owl wings visible, flame still cropped); destroy->rebuild spawner regression test green; build exit 0 under 750 charter.",
+      "check_completed": false
     },
     {
       "id": "P2",
-      "label": "S99 P2 - Voltkin doesn't fire when a structure is REDUCED (by deletion) to a valid 4Sq+4Tr chain.",
-      "status": "completed",
-      "phase": "DONE",
-      "tier": "Standard",
+      "label": "S102 P2 - HP/damage foundation + chewer feel (items 2,3 + unified HP): CONNECTOR_HP + creature HP; damageCreature/applyAreaDamage; ONE applyCreatureAttack refactor; chewers melee close-in (#3); gnaw audio replaces lightning (#2); green-goo VFX/SFX; damaged-connector render.",
+      "status": "pending",
+      "phase": "PENDING",
+      "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "objective": "Severing/deleting bonds DOWN to a valid Voltkin chain re-evaluates the recipe and fires (not only building UP to it); bomb/creature severs do NOT random-fire.",
-      "scope": "runGodlyMatcher (godlyOrchestration.ts): the qualifying-effect condition now also accepts a PLAYER-caused BOND_SEVERED (eff.cause==='player'), so findGodlyMatch re-runs on the post-sever world. Single loop + break unchanged -> one trigger/frame (no double-fire). cause!=='player' (bomb/creature/physics/godly) excluded. Strict isolated-chain topology KEPT (relaxing reopens S48 5-blob false-positive). Host-only + once-per-match gate unchanged. Tests: build+player-sever fires, bomb/creature sever no-fire, BOND_FORMED regression, gate holds. OUT: relaxing topology (separate design decision); client-side trigger.",
-      "testing": "tsc 0; vitest 1522/1522 incl 5 new godlyOrchestration tests (first to drive runGodlyMatcher); build green.",
-      "check_completed": true,
-      "checkpoint_commit": "807bbb6",
-      "check_method": "S99 P2 DONE. Root cause: the godly matcher ran ONLY on bond creation - runGodlyMatcher (the sole caller of findGodlyMatch) hard-filtered eff.kind==='BOND_FORMED'; the sever reducer (severBond.ts) emits only BOND_SEVERED/SEVER_ERASE -> deleting down to a valid 4Sq->4Tr chain never re-evaluated. (godlyFiredThisMatch gate NOT the cause; first-time passes; NONET is a different id. S97 P5 already removed the cooldown cross-block.) Fix: the qualifying condition in runGodlyMatcher now also accepts a PLAYER-caused BOND_SEVERED (eff.cause==='player' only - bomb/creature/physics/godly excluded so combat chaos can't random-fire a godly, per Council). The existing single-loop+break already caps to ONE trigger/frame (so a BOND_FORMED + a sever in the same frame can't double-fire - this dissolved Gemini's double-fire concern without a bigger refactor). voltkinPredicate is global + ignores bondPos, so any qualifying eff.pos suffices. Strict isolated-chain topology (S48 P4) KEPT - relaxing reopens the 5-blob false-positive; the user's reduced structure must end as a CLEAN isolated line (4 SQ then 4 TR, endpoints deg1, middles deg2, no stubs); ?debug=1 surfaces findLongestVoltkinPartial. New godlyOrchestration.test.ts (5 tests, FIRST to drive runGodlyMatcher - stub the Pixi-only ctx fields): player-sever fires, bomb-sever + creature-sever do NOT, BOND_FORMED regression, once-per-type gate holds. GATES: tsc 0; vitest 1522/1522; build green. Committed 807bbb6, pushed.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/godlyOrchestration.ts",
-          "needle": "isPlayerSever"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/godlyOrchestration.test.ts",
-          "needle": "runGodlyMatcher fires on player-sever"
-        }
-      ],
-      "real_context_tokens_at_close": 623735,
-      "real_context_pct_at_close": 62.4
+      "objective": "Build the coherent unified HP/damage foundation ONCE and land the two chewer-feel fixes on it. Foundation A: Bond.hp (CONNECTOR_HP=5, chew=1 dmg, 5 chews sever; replaces per-creature chewProgress; multi-chewer stacking; damaged-bond render) + creature hp (chewer 1, Voltkin 2) round-tripped in save. Foundation B: findNearestEnemyCreature (lowest-id tie-break). Foundation D: green-goo CREATURE death VFX (client-driven by prev/curr creature diff per MF2) + procedural fly-splat SFX. Refactor applyCreatureAttack ONCE to a bond-OR-creature target. #3: chewers engage at true melee (~35px) via per-type attackRange + skip the global SPAWNER_POS repulse for chewers, Voltkin 180^2 byte-identical. #2: chewer sever uses NEW cause:'chewer' (no lightning, no ARC_FLASH, no screen-shake); every chew plays a 3-pulse 'tchhht' gnaw derived from the synced ATTACKING state; sever on the 5th.",
+      "scope": "Bond.hp + makeBond default + chew decrement + sever-on-0; creature hp on Creature + CreatureConfig + makeCreature; damageCreature + applyAreaDamage shared helper (potato refactored onto it, sorted-CreatureId, sourceSpawnerId-gated); findNearestEnemyCreature; CREATURE_SPLAT/goo render (client prev/curr-diff driven) + playSplatSFX + playGnawSFX (procedural); isWithinAttackRange per-type config (chewer attackRange~35); creatureVerlet skip global repulse for chewers; applyCreatureAttack branch type==='chewer' (cause:'chewer', suppress ARC_FLASH) + creature-target branch; main.ts gate screen-shake for chewer; effects.ts BOND_SEVERED.cause add 'chewer'; bond renderer damage visual; save round-trip Bond.hp + creature hp (additive-optional); extend runCreatureStress (HARD gate); replay re-baseline. PROTOCOL bump deferred to P3 (or here if bond-hp wire lands first).",
+      "testing": "tsc 0; full vitest green; bond hp decrements on chew, severs at 0; raid/Voltkin still instant-sever a connector; chewer engages at melee (unit on isWithinAttackRange per-config); chewer sever emits cause:'chewer' not lightning; gnaw derivable from ATTACKING state; Voltkin replay BYTE-IDENTICAL (auto-delete@1200/DESPAWN@1140 unchanged); damageCreature decrement+despawn; potato still kills chewers via the shared helper; save round-trip bond.hp + creature hp (load a damaged Voltkin hp=1 -> stays 1 not 2); extend runCreatureStress byte-identical 2 seeds; build under 750.",
+      "check_completed": false
+    },
+    {
+      "id": "P3",
+      "label": "S102 P3 - Raid-on-creatures (#1) + Voltkin attacks chewers (#8): RAID_CREATURE client-intent (right-click a chewer=1 kill / Voltkin=2 -> lightning-cloud); Voltkin hunts+pops enemy chewers; protocol bump; final replay re-baseline + byte-budget.",
+      "status": "pending",
+      "phase": "PENDING",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "objective": "Land the two combat consumers on the P2 foundation. #1 RAID = the existing player sever EXTENDED to creatures: RMB picks a creature first (pickCreature), else a bond; a creature hit dispatches RAID_CREATURE{creatureId,playerId} (host-authoritative, charge-gated, -> damageCreature 1 dmg) -> chewer (hp1) pops with green-goo+fly-splat, Voltkin (hp2) needs 2 -> discombobulate lightning-cloud. Orphaned chewers (dead spawner) still raid-killable. #8 Voltkin targets enemy chewers too (findNearestEnemyCreature) + creature-target branch -> damageCreature; chewer half already enemy-bond-only (correct). Intentionally breaks Voltkin replay byte-equivalence -> accepted regression + re-baseline.",
+      "scope": "world.ts RAID_CREATURE action + dispatch + targetCreatureId on Creature; controls.ts RMB pickCreature-first; net/protocol.ts RAID_CREATURE in CLIENT_INTENT_TYPES + PROTOCOL_VERSION bump (10->11); damageCreature creature-target path in applyCreatureAttack for Voltkin; Voltkin pre-tick target selection tries findNearestEnemyCreature; LIGHTNING_CLOUD death VFX for Voltkin (client prev/curr-diff driven), green-goo for chewer; lightning-cloud SFX; save round-trip targetCreatureId; final runCreatureStress extension (chewer-vs-creature + raid path) + byte-budget assertion + re-baseline.",
+      "testing": "tsc 0; full vitest green; RAID_CREATURE charge-gated + enemy-only + 1 dmg (chewer dies, Voltkin survives 1 / dies on 2); orphaned-chewer raid-killable; client-dispatched RAID_CREATURE reaches host (intent path test); RAID_CREATURE in CLIENT_INTENT, TD internals not; Voltkin kills a chewer (hp1)+emits goo; findNearestEnemyCreature determinism (lowest-id); cause:'chewer' exhaustiveness (no other cause-switch breaks); runCreatureStress byte-identical 2 seeds; byte-budget under ceiling; build under 750; LIVE deploy verified gh run list deploy.yml SUCCESS; boot-then-smoke: press raid on a chewer -> pops+goo+splat+1 charge; Voltkin near enemy chewer walks over+pops it.",
+      "check_completed": false
     }
   ],
   "generative_cost_cap_usd": 10,
   "generative_cost_spent_prior_usd": 2.34,
   "generative_cost_spent_session_usd": 0.0,
   "budget_total": 1000000,
-  "reflexion_entries_to_archive": [
-    "S101 P_DEPLOY_FIX #shipped-pushed-but-NOT-live-was-a-failed-deploy-not-a-code-bug: owner said 'I built two pentagrams in multiplayer and it didn't work - are you sure you pushed it and it works in all versions?' The feature WAS committed + pushed (git clean, HEAD==origin/master) - but the GitHub Pages DEPLOY had FAILED, so the LIVE site was a stale build with NO tower-defense at all. Root cause: check-bundle-size.mjs is a HARD gate (exit 1) that runs as the LAST step of `npm run build` - the exact command deploy.yml runs; S100's TD code put the entry chunk 10.9 KiB over the 560 charter -> build exit 1 -> deploy aborted -> nothing published. The S100 session even SAW the breach but mislabeled it 'soft budget, no hard CI gate' (it is a HARD gate) and still marked the priority done. General lessons: (a) 'committed+pushed' != 'LIVE' - for any deploy-gated project, a priority whose artifact is a deployed site is NOT done until `gh run list --workflow=deploy.yml` shows the deploy SUCCEEDED; add a deploy-success check to the completion protocol for such projects. (b) a CI gate's FAILURE MODE matters as much as what it guards - a bundle cap that blocks the whole deploy is far costlier than the ~3 KiB-gzip it saved; the cap is self-imposed, so RAISE it (560->750), don't get stuck debugging (owner directive: 'who cares why confine ourselves'). (c) added an early-warning band (<60 KiB headroom) to the build script so the NEXT session catches it locally BEFORE it blocks a deploy, and a memory (bundle-cap-raise-dont-debug). (d) never trust a 'soft' label on a mechanically-enforced gate - read the script. (e) the owner's UX report also surfaced a real LOW carry-forward: the pentagram is buildable but spacing-sensitive + unguided (PROVED buildable by a NEW real-pipeline integration test, pentagramBuildability.test.ts, igniting at circumradius ~32-51) - so 'it didn't work' could recur post-deploy without a build hint. (f) verification that actually exercises the REAL pipeline (placement+autobond+matcher) beats synthetic hand-built fixtures - the existing pentagram.test.ts hand-built the bonds and never proved a human could build the shape.",
-    "P1 #nonet-sprite-fade-was-a-mask-peaking-at-231-not-255: 'sprites fade into the bg' = the shared alpha matte never reached full opacity (peak 231/255) + an 81px feather blur eating the WHOLE subject (not just the rim). Fix lives in the MASK GENERATOR, not runtime code: a plateau-clamp (multiply-then-min-255 after blur) for a flat-255 core + soft rim - you can't add back opacity a mask removed (sprite.alpha is unset; the fade is in the matte's alpha channel + a baked webm vignette). Sweep params EMPIRICALLY and measure (peak / opaque-core% / corner-transparency / wing-band alpha): too-high plateau (1.7) made it 100% opaque = hard rectangle; 2.0@feather0.20 was the sweet spot. Keep a bespoke per-asset mask (owl-b) untouched - it was cropping a flame. Verify with BOTH the numeric alpha profile AND a live screenshot (the WebGL screenshot worked this time after forceNonet + ticker.update pump).",
-    "P2 #godly-matcher-only-ran-on-bond-create-not-sever: 'X didn't fire after I DELETED down to a valid pattern' = the matcher was triggered only by BOND_FORMED effects, never by a sever, so reducing TO a valid state never re-evaluated (build-up worked, delete-down didn't). Fix = also act on the sever effect, but cause-FILTER to player-initiated only (bomb/creature severs must not random-fire a godly in combat) and REUSE the existing single-loop+break (already caps to one-trigger/frame, so no double-fire from a form+sever in the same frame - dissolved the Council's double-fire concern without a bigger refactor). Keep the strict topology gate (relaxing reopens a prior false-positive); the player's structure must end as a clean isolated chain. Wrote the FIRST test to drive runGodlyMatcher by stubbing only the ctx fields it reads (the Pixi-heavy fields are for the cinematic fn). General lesson: an event-driven matcher must listen to ALL topology mutations (create AND destroy), not just creation.",
-    "S100 P_TD1A #tower-defense-is-a-generalization-not-a-new-system: the owner's big 'tower-defense' vision (pentagram comes alive -> spawns creatures -> chew enemy connectors -> counterplay) looked like a from-scratch subsystem but was ~70% already shipped as the one-shot Voltkin creature (FSM + nearest-bond AI + Verlet hop + SEVER_BOND{cause:'creature'} + recipe matcher + additive-optional snapshot). The win was MAPPING before designing: a 14-agent design workflow (7 subsystem maps -> draft -> 5 adversarial review lenses) surfaced 6 CRITICAL latent bugs the naive version would have shipped (persistent creature instant-deleted on save/load via despawnAtTick=0; per-type godlyFiredThisMatch makes spawners one-per-match-per-type + non-rebuildable = broken in FFA; chewers untargetable w/ no kill path; Voltkin own-bond fallback makes a chewer eat its own structure; cap relaxation cross-blocks Voltkin; the 'replay test guards us' assumption was FALSE because runCreatureStress only ticked voltkin). General lessons: (a) for a big feature, run a map+design+adversarial-review workflow FIRST and let it find the latent integration bugs — cheaper than discovering them mid-build; (b) generalize the existing substrate (wrap new behavior in if(!config.persistent){...verbatim...}) so the locked path stays byte-identical and the replay-determinism guard proves it; (c) a green replay/test suite is only a guard if it actually EXERCISES the new code — extend the stress harness (runChewerStress) or it gives false confidence; (d) keep host-authoritative sim state OFF the wire (chewProgress/sourceSpawnerId host-only) and tick-deterministic (mix32, never Math.random/wall-clock) so multiplayer + replay stay consistent; (e) sequential (not parallel) build agents on a shared tree avoid file-write conflicts on hot shared files (creature.ts/world.ts). Verified tsc 0 + vitest 1577/1577 MYSELF, not on the agent's report. Carry-forward: index chunk 584.65 KiB breached the 560 soft charter (R14 predicted) -> code-split the TD render layer (S85 pattern); generated pencil art is the next pass."
-  ],
-  "session_status": "S101 - RECOVERY COMPLETE. Diagnosed owner's 'pentagram didn't work in multiplayer': S100 TD was committed+pushed but the Pages DEPLOY had hard-failed on the bundle gate (570.9>560) -> live site stuck at S99 (no TD). Fixed: charter 560->750 + e2e aboveFogLayer 8->10 + early-warning band; commit 6169c2b; manually triggered deploy (run 28109794663 SUCCESS) -> TD LIVE for the first time (live bundle hash == local). Verified S100 end-to-end via 4-agent adversarial workflow (all WORKS/high) + NEW real-pipeline buildability test (pentagram ignites at circumradius ~32-51). Gates: build exit 0 (570.9/750, 179 KiB headroom), vitest 1584/1584, gating E2E green. All recent sessions (S92-S99) confirmed already-deployed. Prevention encoded (memory + LOCKED clause + build warning). Ready for /handoff.",
+  "reflexion_entries_to_archive": [],
+  "session_status": "S102 - IN PROGRESS. TD combat overhaul (items 1-8 this session; 9-10 HELGA+laser next). PDR locked + Council ADOPT-WITH-FIXES + owner corrections (raid=sever-extended-to-creatures; unified HP connector5/chewer1/Voltkin2; HELGA spec). Starting P1 (quick wins).",
   "totals": {
     "turns": 0,
     "budget_remaining": 1000000,
-    "budget_status": "YELLOW"
+    "budget_status": "GREEN"
   },
-  "real_context_tokens_at_close": 273547,
-  "real_context_pct_at_close": 27.35,
   "carry_forward": [
-    "TD pentagram UX (S101, LOW): the spawner is BUILDABLE but spacing-sensitive (circumradius ~32-51 / side ~38-60) + unguided - no in-game hint when a near-pentagon doesn't ignite (adjacent <60px to auto-bond, diagonals >60px to avoid extra bonds). Add a closing-edge ghost-preview or 'shape almost complete' affordance, OR relax the predicate to 'contains a 5-triangle cycle, ignore extra chords'. This is the most likely thing to make a player think 'it didn't work' now that TD is actually live.",
-    "TD Phase 2-4 (TOWER_DEFENSE_DESIGN.md): more spawner recipes, chewer art pass (pencil art is in but could go higher-fidelity via veo image-to-video), balance playtest. Code-split TD render layer is now OPTIONAL (bundle has 179 KiB headroom under the 750 charter).",
-    "Tower-defense combos - next major feature; user supplies the plan (memory/spark-tower-defense-combos-next-feature.md).",
-    "S98 P2 combo balance playtest: does casual pace feel too fast post order-symmetry? If yes, apply the held PHASE_1_WIN_SCORE+SCORE_TIER_STEP micro-rebalance (keep /3).",
-    "Voltkin UX (Council suggestion): the strict isolated-chain requirement (4 SQ then 4 TR, no stubs/junctions) is NOT player-visible. Consider a tooltip/tutorial or surfacing findLongestVoltkinPartial outside ?debug=1. Relaxing topology to 'any 4S+4T blob' is a SEPARATE design decision (reopens the S48 false-positive).",
-    "(optional) NONET backing-glow strength tuning on playtest; de-flake WebRTC-in-CI; deploy.yml needs:[e2e]; combinatorial-depth 6^6; G4 build-feel juice."
+    "Item 9 (NEXT SESSION) - Laser turret: recipe = 1 Line(deg7) + 7 Spiral leaves (= 7 Whips, strict). Generic Defender entity (kind:'turret') + recipe generalization (Foundation C+E) built FIRST. Fires every 1800 ticks; 5 client-visible windup rings (derived from nextFireTick); WIRE-SYNCED red Looney-Tunes beam; kills nearest enemy creature (chewer 1 hit -> goo, Voltkin 2 -> lightning-cloud). Original turret art.",
+    "Item 10 (NEXT SESSION) - HELGA princess: recipe = central Triangle hub + 3 Spirals (3 Warped Anchors) + 3 Circles (3 Stars), single component; Star detected by unordered {Triangle,Circle} type-set. Stationary; slaps nearest enemy creature only (never structures), chewer 1 / Voltkin 2. HELGA = Bavarian dirndl + beer stein in one hand + slaps with the other; Courage-the-Cowardly-Dog art style; ORIGINAL character (not Peach/not a CtCD copy). MUST be a real functioning state-driven animated character (idle/sip/acquire/windup/slap/react), NOT a looping gif and NOT a procedural transform-twitch. See memory helga-princess-spec.",
+    "TD pentagram UX (S101, LOW): spawner buildable but spacing-sensitive + unguided - add closing-edge ghost-preview or relax predicate to 'contains a 5-cycle, ignore chords'.",
+    "Tier-1 roadmap: G1b MOTION (Wheel/Star rotation), G2 family traits (needs LOCKED_DECISIONS Section 6 lock-amendment), G3b Codex silhouettes, G4 build-feel juice."
   ],
   "analyze_completed": false
 }

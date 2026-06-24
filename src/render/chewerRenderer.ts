@@ -280,25 +280,30 @@ export class ChewerRenderer {
       .quadraticCurveTo(frontX - face * mw * 0.5, mouthY, frontX - face * mw * 0.2, mouthY - gape * 0.5)
       .closePath()
       .fill({ color: GRAPHITE, alpha: 0.9 });
-    // BIG square chompers — a top row + a bottom row of oversized teeth.
-    const teeth = 3;
-    const toothW = (mw * 0.9) / teeth;
-    const toothH = gape * 0.5 + 4;
-    for (let i = 0; i < teeth; i++) {
-      const tx = frontX - face * (mw * 0.05) + face * i * toothW * 0.95;
-      // top tooth points DOWN into the mouth
-      g.rect(face > 0 ? tx : tx - toothW, mouthY - gape * 0.5, toothW * 0.82, toothH)
+    // ── TWO BIG funny beaver buck-teeth (S102 #4) ──
+    // Two oversized flat incisors side-by-side at the front of the mouth, jutting
+    // DOWN well past the lower lip — the classic goofy buck-tooth overbite. Funny
+    // = huge, a little gapped, each with a soft vertical pencil seam + a tiny
+    // rounded-off bottom nick so they read as worn beaver chompers, not boxes.
+    const toothW = mw * 0.5; // each incisor is wide + flat
+    const toothH = gape * 0.6 + BODY_R * 0.72; // long buck overbite, hangs below the chin
+    const toothTopY = mouthY - gape * 0.35; // anchored up under the lip
+    const gap = toothW * 0.14; // small comedic gap between the two front teeth
+    const pairCx = frontX - face * mw * 0.04; // pair centred on the mouth front
+    for (let s = -1; s <= 1; s += 2) {
+      const tx = pairCx + s * (toothW * 0.5 + gap * 0.5) - toothW * 0.5;
+      // the big flat incisor
+      g.rect(tx, toothTopY, toothW, toothH)
         .fill({ color: TOOTH_COLOR, alpha: 1 })
-        .stroke({ width: 1, color: GRAPHITE, alpha: 0.9 });
-      // bottom tooth points UP
-      g.rect(
-        face > 0 ? tx + toothW * 0.42 : tx - toothW * 1.4,
-        mouthY + gape * 0.5 - toothH,
-        toothW * 0.82,
-        toothH,
-      )
-        .fill({ color: TOOTH_COLOR, alpha: 1 })
-        .stroke({ width: 1, color: GRAPHITE, alpha: 0.9 });
+        .stroke({ width: 2, color: GRAPHITE, alpha: 0.95 });
+      // a worn rounded "chewed" bottom edge (little graphite arc across the tip)
+      g.moveTo(tx, toothTopY + toothH)
+        .quadraticCurveTo(tx + toothW * 0.5, toothTopY + toothH + 2.5, tx + toothW, toothTopY + toothH)
+        .stroke({ width: 1.4, color: GRAPHITE_SOFT, alpha: 0.7 });
+      // soft vertical pencil seam down the face of each tooth (cosmetic)
+      g.moveTo(tx + toothW * 0.34, toothTopY + toothH * 0.16)
+        .lineTo(tx + toothW * 0.34, toothTopY + toothH * 0.82)
+        .stroke({ width: 1, color: GRAPHITE_SOFT, alpha: 0.35 });
     }
 
     // ── two big goofy googly eyes on stalks (over the top of the body) ──

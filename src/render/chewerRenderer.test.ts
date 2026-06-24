@@ -145,7 +145,7 @@ describe('S100 P1 — ChewerRenderer', () => {
     expect(lastGraphics.calls).toContain('clear');
     expect(lastGraphics.calls).toContain('fill');
     expect(lastGraphics.calls).toContain('stroke');
-    expect(lastGraphics.calls.filter((c) => c === 'rect').length).toBeGreaterThanOrEqual(4); // ≥4 oversized teeth
+    expect(lastGraphics.calls.filter((c) => c === 'rect').length).toBeGreaterThanOrEqual(2); // 2 big beaver buck-teeth
     expect(lastGraphics.calls.filter((c) => c === 'circle').length).toBeGreaterThan(0); // eyes + feet ticks
     r.destroy();
   });
