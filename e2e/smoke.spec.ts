@@ -663,7 +663,13 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
   });
 });
 
-test.describe('S62 - 3-player FFA (1v1v1): seat assignment + distinct colors + FFA win', () => {
+// S98 P1 — quarantined: this 3-peer real-WebRTC FFA test fails in the CI sandbox
+// on net::ERR_ADDRESS_UNREACHABLE (the runner can't hold 3 simultaneous P2P data
+// channels), an environmental flake — NOT app logic. It was the only multi-peer
+// WebRTC test still UNTAGGED and gating, so it red the gating lane. Deterministic
+// transport is rejected (real Trystero/Nostr P2P is the surface under test); the
+// fix is quarantine, per LOCKED_DECISIONS. Mirrors the S63/S70/S82 quarantine.
+test.describe('S62 - 3-player FFA (1v1v1): seat assignment + distinct colors + FFA win @quarantine-flaky', () => {
   test('host + 2 joiners get distinct seats/colors, all reach PLAYING, one wins FFA', async ({ browser }) => {
     const ctxs = await Promise.all([browser.newContext(), browser.newContext(), browser.newContext()]);
     const [hostCtx, aCtx, bCtx] = ctxs;

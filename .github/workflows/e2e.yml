@@ -4,31 +4,39 @@
 # 2 separate Chromium contexts (= 2 WebRTC peers over real Trystero/Nostr
 # signaling) and asserts the full lobby → match-start → place → bond flow.
 #
-# Migration plan:
-#   S46 — separate workflow, non-blocking (continue-on-error: false but
-#         no deploy.yml dependency yet). The 5 per-Sym tests ship as
-#         test.fixme() initially; CI passes on the baseline test only.
-#   S47+ — as each Sym fix lands, the corresponding test.fixme() flips to
-#         test() and CI starts gating. When all 5 are green + stable, add
-#         a `needs: [e2e]` to deploy.yml so failed E2E blocks deploy.
-#
 # Path filter mirrors deploy.yml — skip e2e on session-bookkeeping commits
 # (.claude/, HANDOFF_*.md, etc) to avoid wasting CI minutes on docs.
 #
-# S65 P3 — flake quarantine: the Run-E2E step is split into a GATING lane
-# (--grep-invert "@quarantine-flaky"; a red here == a real regression) and a
-# NON-GATING lane (continue-on-error; --grep "@quarantine-flaky") for the
-# 4-peer real-WebRTC nplayer test, a recurring CI timeout flake (S63 P3 + S64
-# P1; 90s x retries under CI network load). The test carries the
-# @quarantine-flaky tag in its describe title — explicit opt-IN, so new tests
-# GATE by default (you must tag to quarantine). It still runs + is visible
-# (catches a CONSISTENT real regression) but cannot red the gate. The quarantine
-# lane uses a separate --output dir + --reporter=list so it never overwrites the
-# gating lane's HTML report / traces (the artifact on a real regression stays
-# correct) and its flakes emit no GitHub annotations. Deterministic transport is
-# rejected (playwright.config C9: real Trystero/Nostr P2P IS the surface under
-# test). N-player correctness stays gating via the nplayerSeating units + the
-# fast/stable 6-player-render e2e.
+# S98 P1 — FLAKE QUARANTINE, now split into TWO JOBS (was two steps in one job):
+#   • job `e2e`            — GATING. Runs everything EXCEPT @quarantine-flaky
+#                            (--grep-invert). A red here == a real regression.
+#   • job `e2e-quarantine` — NON-GATING. Runs ONLY @quarantine-flaky, the real
+#                            multi-peer WebRTC tests that fail in the CI sandbox
+#                            on net::ERR_ADDRESS_UNREACHABLE (it can't hold P2P
+#                            data channels). It carries `continue-on-error: true`
+#                            AT JOB LEVEL, so even when it fails/times out the
+#                            workflow-run conclusion stays SUCCESS → no failure
+#                            emails and it can never cancel/red the gating job.
+#
+#   Why a separate JOB, not a step: previously both lanes lived in one job, so
+#   the quarantine lane's slow real-WebRTC retries (90–120s × playwright
+#   retries:2) overran the single 15m cap → the WHOLE job was cancelled →
+#   mooted the already-passed gating step → emailed the user. Separate jobs run
+#   on separate runners with independent timeouts, so the quarantine lane is
+#   fully isolated.
+#
+#   Quarantine = explicit opt-IN: a test GATES by default; you must add the
+#   ` @quarantine-flaky` tag to its describe title to move it to the non-gating
+#   job (Playwright --grep / --grep-invert match the full test title). The
+#   quarantine job uses a separate --output dir + --reporter=list so it never
+#   overwrites the gating lane's HTML report/traces and its flakes emit no
+#   GitHub annotations. Deterministic transport is rejected (playwright.config
+#   C9 + LOCKED_DECISIONS: real Trystero/Nostr P2P IS the surface under test);
+#   de-flaking WebRTC-in-CI is tracked as a carry-forward, not done here.
+#
+#   master is currently NOT branch-protected (no required status checks), so the
+#   gating signal is advisory; the job is named `e2e` so that if/when branch
+#   protection is added, the required check can point at the gating job.
 
 name: E2E (2-browser harness)
 
@@ -51,12 +59,15 @@ on:
   workflow_dispatch:
 
 # E2E is independent of deploy; no shared concurrency group needed.
-# Cancel in-progress runs on rapid pushes to save CI minutes.
+# Cancel in-progress runs on rapid pushes to save CI minutes. Both jobs share
+# this group, so a new push cancels the whole in-progress run (cancelled != failed).
 concurrency:
   group: e2e-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # GATING lane — everything EXCEPT @quarantine-flaky. A failure here is a REAL
+  # regression and reds the run (the whole point of the quarantine split).
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -76,31 +87,54 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      # GATING lane — everything EXCEPT the flaky 4-peer real-WebRTC test.
-      # A failure here is a REAL regression and reds the job (the point of the
-      # quarantine: gating-CI-red == real regression).
-      - name: Run E2E (gating)
-        run: npm run e2e -- --grep-invert "@quarantine-flaky"
+      - name: Run E2E (gating — excludes @quarantine-flaky)
+        run: npm run e2e:gating
         env:
           CI: 'true'
 
-      # NON-GATING quarantine lane — the 4-peer real-WebRTC nplayer test only.
-      # continue-on-error keeps its recurring CI timeout flake from reding the
-      # job; if:always() runs it even when the gating lane failed (diagnostics).
-      - name: Run E2E (4-peer real-WebRTC - non-gating quarantine)
-        if: always()
-        continue-on-error: true
-        # Separate --output dir + list reporter so this lane NEVER overwrites the
-        # gating lane's playwright-report/ + test-results/ (the artifact on a real
-        # regression stays the gating one) and flakes don't emit GitHub annotations.
-        run: npm run e2e -- --grep "@quarantine-flaky" --output=test-results-quarantine --reporter=list
-        env:
-          CI: 'true'
-
-      - name: Upload Playwright report
+      - name: Upload Playwright report (gating)
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
+
+  # NON-GATING quarantine lane — ONLY @quarantine-flaky (multi-peer real-WebRTC).
+  # `continue-on-error: true` at JOB level => its failure/timeout NEVER fails the
+  # workflow run (no failure emails); independent runner + timeout => it can never
+  # cancel the gating job. It still RUNS + is visible (a consistent real regression
+  # is still catchable) but cannot gate.
+  e2e-quarantine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E (quarantine — @quarantine-flaky only, non-gating)
+        run: npm run e2e:quarantine
+        env:
+          CI: 'true'
+
+      - name: Upload quarantine results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-quarantine-results
+          path: test-results-quarantine/
+          retention-days: 14
+          if-no-files-found: ignore
