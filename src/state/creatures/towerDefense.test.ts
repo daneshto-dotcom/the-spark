@@ -17,7 +17,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { makeWorld, type World } from '../world.ts';
+import { makeWorld, dispatch, type World } from '../world.ts';
 import {
   applyCreatureTick,
   applySpawnCreature,
@@ -356,5 +356,61 @@ describe('Enemy-only targeting — chewer never eats its own structure', () => {
     const chewer = world.creatures.get(asCreatureId(0))!;
     // enemyOnly:true picks the enemy bond even though the own bond is closer.
     expect(findNearestBondTarget(world, chewer, true)).toBe(enemy);
+  });
+});
+
+describe('RAID_CREATURE — a player raid pops an enemy chewer (S102 #1)', () => {
+  const RAIDER = asPlayerId(0);
+
+  it('right-clicking an enemy chewer pops it (hp 1) and spends 1 charge', () => {
+    const world = makeWorld(2); // P0 raider, P1 owns the chewer
+    world.players.get(RAIDER)!.disruptionCharges = 2;
+    spawnChewer(world, { x: 100, y: 100 }, 7, 1); // ownerPlayer 1 = enemy
+    const id = asCreatureId(0);
+    expect(world.creatures.has(id)).toBe(true);
+    dispatch(world, { type: 'RAID_CREATURE', creatureId: id, playerId: RAIDER });
+    expect(world.creatures.has(id)).toBe(false); // chewer hp 1 -> dead in one raid
+    expect(world.players.get(RAIDER)!.disruptionCharges).toBe(1); // spent exactly 1
+  });
+
+  it('cannot raid your OWN chewer (enemy-only) — survives, no charge spent', () => {
+    const world = makeWorld(1);
+    world.players.get(RAIDER)!.disruptionCharges = 2;
+    spawnChewer(world, { x: 100, y: 100 }, 7, 0); // ownerPlayer 0 = the raider
+    const id = asCreatureId(0);
+    dispatch(world, { type: 'RAID_CREATURE', creatureId: id, playerId: RAIDER });
+    expect(world.creatures.has(id)).toBe(true);
+    expect(world.players.get(RAIDER)!.disruptionCharges).toBe(2);
+  });
+
+  it('no disruption charge -> the raid is a no-op (chewer survives)', () => {
+    const world = makeWorld(2);
+    world.players.get(RAIDER)!.disruptionCharges = 0;
+    spawnChewer(world, { x: 100, y: 100 }, 7, 1);
+    const id = asCreatureId(0);
+    dispatch(world, { type: 'RAID_CREATURE', creatureId: id, playerId: RAIDER });
+    expect(world.creatures.has(id)).toBe(true);
+  });
+
+  it('orphaned chewer (spawner already destroyed) is still raid-killable', () => {
+    const world = makeWorld(2);
+    world.players.get(RAIDER)!.disruptionCharges = 2;
+    spawnChewer(world, { x: 100, y: 100 }, 99, 1); // its spawner id 99 was never registered / is gone
+    const id = asCreatureId(0);
+    dispatch(world, { type: 'RAID_CREATURE', creatureId: id, playerId: RAIDER });
+    expect(world.creatures.has(id)).toBe(false); // persistent chewers live independent of the spawner
+  });
+
+  it('a Voltkin is NOT raidable this session (chewers only; Voltkin-raid ships next session)', () => {
+    const world = makeWorld(2);
+    world.players.get(RAIDER)!.disruptionCharges = 2;
+    applySpawnCreature(world, {
+      type: 'SPAWN_CREATURE', creatureType: 'voltkin', ownerPlayerId: asPlayerId(1),
+      pos: { x: 100, y: 100 }, targetPos: { x: 100, y: 100 },
+    });
+    const id = asCreatureId(0);
+    dispatch(world, { type: 'RAID_CREATURE', creatureId: id, playerId: RAIDER });
+    expect(world.creatures.has(id)).toBe(true);
+    expect(world.players.get(RAIDER)!.disruptionCharges).toBe(2); // no charge spent on a no-op
   });
 });

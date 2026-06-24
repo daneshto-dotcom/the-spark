@@ -52,7 +52,7 @@ import { cssToCanvasCoords } from '../render/lobbyScreen.ts';
 import { dispatch, isNetworked } from '../state/world.ts';
 import type { GameAction, World } from '../state/world.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
-import type { BombId, BondId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 } from '../types.ts';
+import type { BombId, BondId, CreatureId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 } from '../types.ts';
 import { pickRedundantBondTargets } from './redundantBondTargets.ts';
 import { isInsideEnemyTerritory } from '../state/territory.ts';
 
@@ -72,6 +72,10 @@ function makeLocalDispatcher(world: World): ControlsDispatchFn {
 
 const PICK_RADIUS = 28;
 const BOND_PICK_DIST = 8;
+// S102 #1 — cursor→creature hit radius for a right-click RAID (≈ 2× the chewer body so a
+// click "on" a hopping chewer reliably pops it). Bigger than BOND_PICK_DIST (a creature is a
+// fat blob; a bond is a thin segment).
+const CREATURE_PICK_DIST = 34;
 // On LMB-up outside the spawner zone, auto-bond to any primitive within
 // this radius of the release point. Generous so dropping "near" a structure
 // snaps cleanly. Bigger than PICK_RADIUS because PICK_RADIUS is for grabbing
@@ -388,6 +392,15 @@ export class Controls {
       // S17 P1 §VIII.3: player-cause runs through host auth + charge gate
       // (cross-color + 1 disruptionCharge in 1v1); physics-cause path is
       // reserved for main.ts overstretch loop.
+      // S102 #1 — RAID: the right-click "raid" can now also pop an enemy SPAWN. Pick a
+      // creature FIRST (a chewer hopping on top of a bond should be the target, not the bond
+      // under it); if one is under the cursor, raid it (host charge-gates + enemy-checks).
+      // Otherwise fall back to the connector sever (the original raid).
+      const creatureId = this.pickCreature();
+      if (creatureId !== null) {
+        this.dispatchFn({ type: 'RAID_CREATURE', creatureId, playerId: this.playerId });
+        return;
+      }
       const bondId = this.pickBond();
       if (bondId !== null) {
         this.dispatchFn({ type: 'SEVER_BOND', bondId, playerId: this.playerId, cause: 'player' });
@@ -826,6 +839,28 @@ export class Controls {
       if (d < bestDist) {
         bestDist = d;
         bestId = bond.id;
+      }
+    }
+    return bestId;
+  }
+
+  /**
+   * S102 #1 — nearest ENEMY pencil-chewer (sourceSpawnerId !== null) within CREATURE_PICK_DIST
+   * of the cursor, for a right-click RAID. Enemy-only (skips the player's own creatures) and
+   * chewer-only this session (Voltkin-raid + its lightning-cloud discombobulate ship next
+   * session). The host re-checks ownership/charge authoritatively in the RAID_CREATURE reducer;
+   * this is just the cursor hit-test (mirrors pickBond).
+   */
+  private pickCreature(): CreatureId | null {
+    let bestId: CreatureId | null = null;
+    let bestDist = CREATURE_PICK_DIST;
+    for (const c of this.world.creatures.values()) {
+      if (c.sourceSpawnerId === null) continue; // chewers only
+      if (c.ownerPlayerId === this.playerId) continue; // enemy-only
+      const d = Math.hypot(this.cursor.x - c.pos.x, this.cursor.y - c.pos.y);
+      if (d < bestDist) {
+        bestDist = d;
+        bestId = c.id;
       }
     }
     return bestId;

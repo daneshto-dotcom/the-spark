@@ -13,6 +13,7 @@ import {
   parseRoomCode,
   parseNetMessage,
   PROTOCOL_VERSION,
+  CLIENT_INTENT_TYPES,
   buildHello,
 } from './protocol.ts';
 import { MAX_PLAYERS, NET_ROOM_CODE_LENGTH, PLAYER_COLORS } from '../constants.ts';
@@ -71,8 +72,12 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 10 (S100 P1 bump from 9 — TD REGISTER/REMOVE_SPAWNER host actions + creatureSpawners snapshot field)', () => {
-    expect(PROTOCOL_VERSION).toBe(10);
+  it('PROTOCOL_VERSION is 11 (S102 #1 bump from 10 — RAID_CREATURE client intent + creature hp)', () => {
+    expect(PROTOCOL_VERSION).toBe(11);
+  });
+
+  it('S102 #1 — RAID_CREATURE is an allowed CLIENT INTENT (a 1v1 joiner can raid an enemy chewer)', () => {
+    expect(CLIENT_INTENT_TYPES.has('RAID_CREATURE')).toBe(true);
   });
 
   it('accepts a HELLO with current protoVersion', () => {
@@ -292,7 +297,7 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
     expect(parseNetMessage({ kind: 'LOBBY_PRESENCE', roster: exactlyMax })).not.toBeNull();
   });
 
-  it('S70 graceful-degradation contract holds; PROTOCOL_VERSION is 10 after the S100 TD bump', () => {
+  it('S70 graceful-degradation contract holds; PROTOCOL_VERSION is 11 after the S102 raid bump', () => {
     // S70's LOBBY_PRESENCE was cosmetic and did NOT bump the version on its own:
     // unknown kinds fail CLOSED (fall through parseNetMessage's default → null, not
     // a throw), so a stale peer degrades to the count-based rack and can still play.
@@ -312,7 +317,8 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
     // HOST-INTERNAL — NOT in CLIENT_INTENT_TYPES) + the additive-optional creatureSpawners[]
     // snapshot field; a stale v9 peer can't render the income-affecting + connector-chewing
     // system, so it is hard-rejected at HELLO (seagull/NONET precedent).
-    expect(PROTOCOL_VERSION).toBe(10);
+    // S102 #1 — bumped 10→11 for the RAID_CREATURE client intent + creature hp.
+    expect(PROTOCOL_VERSION).toBe(11);
     expect(
       parseNetMessage({ kind: 'SOME_FUTURE_KIND', roster: [{ seat: 0, peerId: 'h', color: 1 }] }),
     ).toBeNull();

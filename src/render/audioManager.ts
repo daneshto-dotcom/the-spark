@@ -1051,6 +1051,57 @@ async function playGnawSFX(pos?: Vec2, final = false): Promise<void> {
 }
 
 /**
+ * S102 #1 — FLY-SPLAT: the wet "splat!" of a pencil chewer being popped (a raid / potato kill),
+ * "like a huge fly being splatted". A short lowpass-swept noise SQUISH layered over a low sine
+ * THUD = wet impact. EXPORTED + called directly from the chewer renderer's death-watcher (it
+ * detects a chewer that vanished from the synced snapshot and plays this once), so it fires for
+ * EVERY chewer death on host AND the 1v1 client without any wire/effect surface. Procedural;
+ * routed through sfxGainNode so master/SFX mute + volume apply.
+ */
+export async function playSplatSFX(pos?: Vec2): Promise<void> {
+  if (audioContext === null || sfxGainNode === null) return;
+  if (audioContext.state !== 'running') {
+    try { await audioContext.resume(); } catch (e) {
+      if (isDebugRequested()) console.warn('[audio] playSplatSFX resume() threw:', e);
+    }
+  }
+  if (audioContext.state !== 'running') return;
+
+  const ctx = audioContext;
+  const now = ctx.currentTime;
+  const panner = pos !== undefined ? createPanner(pos) : null;
+  const sink: AudioNode = panner ?? sfxGainNode;
+  if (panner !== null) panner.connect(sfxGainNode);
+
+  // 1) wet squish — a short noise burst swept from bright to muffled (the SPLAT).
+  const nsrc = ctx.createBufferSource();
+  nsrc.buffer = getGnawNoiseBuffer(ctx);
+  nsrc.loop = true;
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(2400, now);
+  lp.frequency.exponentialRampToValueAtTime(320, now + 0.18);
+  lp.Q.value = 0.7;
+  const ng = ctx.createGain();
+  ng.gain.setValueAtTime(0.0001, now);
+  ng.gain.exponentialRampToValueAtTime(0.5, now + 0.006); // fast wet attack
+  ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+  nsrc.connect(lp); lp.connect(ng); ng.connect(sink);
+  nsrc.start(now); nsrc.stop(now + 0.22);
+
+  // 2) low thud — a quick sine drop for the "body" of the impact.
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(180, now);
+  osc.frequency.exponentialRampToValueAtTime(48, now + 0.14);
+  const og = ctx.createGain();
+  og.gain.setValueAtTime(0.34, now);
+  og.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+  osc.connect(og); og.connect(sink);
+  osc.start(now); osc.stop(now + 0.2);
+}
+
+/**
  * Drain effects for audio. Iterates effects, fires SFX for new ticks, advances
  * the cursor. Replay-safe: effects with tick <= cursor are skipped silently.
  */

@@ -71,7 +71,11 @@ export type { NetSnapshot };
 // structure-destroying system (a spawner that mints chewers chewing through its
 // connectors), so it is hard-rejected at the HELLO handshake — same lockstep as
 // the S77 seagull / S93 NONET bumps (TOWER_DEFENSE_DESIGN.md §3.3).
-export const PROTOCOL_VERSION = 10 as const;
+// S102 #1 — bumped 10→11: the new RAID_CREATURE client INTENT (a player right-clicks an
+// enemy chewer to pop it) + creatures now carry an `hp` field (host-only, wire-stripped, but
+// the kill semantics differ). A stale v10 peer that can't originate/handle a raid would
+// desync on the creature-kill, so it is hard-rejected at HELLO (same lockstep as above).
+export const PROTOCOL_VERSION = 11 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -96,8 +100,8 @@ export interface HelloMsg {
   readonly kind: 'HELLO';
   readonly playerId: PlayerId;
   readonly color: number;
-  /** Protocol version — bumped on wire-incompatible changes. S77 P3: 6→7 (seagull); S87 P4: 7→8 (LOBBY_READY quickmatch gate); S93: 8→9 (NONET SUDOKU_SOLVED intent + sudoku snapshot field); S100 P1: 9→10 (TD spawner lifecycle + creatureSpawners snapshot field). */
-  readonly protoVersion: 10;
+  /** Protocol version — bumped on wire-incompatible changes. S77 P3: 6→7 (seagull); S87 P4: 7→8 (LOBBY_READY quickmatch gate); S93: 8→9 (NONET SUDOKU_SOLVED intent + sudoku snapshot field); S100 P1: 9→10 (TD spawner lifecycle + creatureSpawners snapshot field); S102 #1: 10→11 (RAID_CREATURE intent + creature hp). */
+  readonly protoVersion: 11;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
 }
@@ -430,6 +434,9 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   // bump (9→10) for this feature is owned by the protocol layer, not this layer.
   REGISTER_SPAWNER: true,
   REMOVE_SPAWNER: true,
+  // S102 #1 — a player raids an enemy SPAWN (right-click a chewer). A genuine client
+  // INTENT (also in CLIENT_INTENT_TYPES below); the host charge-gates + enemy-checks it.
+  RAID_CREATURE: true,
 };
 const KNOWN_GAME_ACTION_TYPES: ReadonlySet<string> = new Set(
   Object.keys(KNOWN_GAME_ACTION_TYPES_RECORD),
@@ -461,6 +468,8 @@ const CLIENT_INTENT_TYPES_RECORD = {
   DROP_POTATO: true,
   // S93 — NONET: a 1v1 client (joiner) submits its completed grid; host validates first-valid-wins.
   SUDOKU_SOLVED: true,
+  // S102 #1 — a 1v1 client can raid an enemy chewer (right-click); host charge-gates + enemy-checks.
+  RAID_CREATURE: true,
 } as const satisfies Partial<Record<GameAction['type'], true>>;
 
 export const CLIENT_INTENT_TYPES: ReadonlySet<string> = new Set(

@@ -42,6 +42,7 @@
 import { Application, Container, Graphics } from 'pixi.js';
 import type { World } from '../state/world.ts';
 import type { CreatureId } from '../types.ts';
+import { playSplatSFX } from './audioManager.ts';
 
 // ── palette: graphite + paper, like a kid's pencil drawing ──
 const GRAPHITE = 0x2e2f36; // main outline / lead
@@ -50,6 +51,12 @@ const PAPER_FILL = 0xe9e7df; // off-white paper showing through the body
 const TOOTH_COLOR = 0xf6f4ec; // bright ivory chompers
 const EYE_COLOR = 0x1a1320; // near-black pupil
 const SHADOW_COLOR = 0x000000; // ground shadow under the hop
+
+// ── S102 #1 — green-goo splat (a chewer being popped by a raid/potato) ──
+const GOO_CORE = 0x8fd14a; // bright slime green
+const GOO_DARK = 0x3f7a1f; // dark green centre/rim
+const GOO_DURATION_SEC = 0.55; // splat lifetime (expand + fade)
+const GOO_DROPLETS = 7; // radial flung droplets
 
 /** Base body radius in px (the goofy round body). */
 const BODY_R = 17;
@@ -77,6 +84,10 @@ export class ChewerRenderer {
   private readonly hopPhase: Map<CreatureId, number> = new Map();
   /** Last horizontal facing per chewer (+1 right, -1 left). Anti-jitter hold. */
   private readonly facing: Map<CreatureId, 1 | -1> = new Map();
+  /** S102 #1 — active green-goo splats (a chewer that vanished = was killed). Render-only;
+   *  outlives the chewer that spawned it, so it is drawn unconditionally each frame + culled
+   *  by wall-clock age. */
+  private readonly gooSplats: Array<{ x: number; y: number; bornSec: number; seed: number }> = [];
   /** Wall-clock seconds of the previous frame (idle-hop advance + jitter clock). */
   private prevNowSec = -1;
 
@@ -97,12 +108,10 @@ export class ChewerRenderer {
     const dtSec = this.prevNowSec < 0 ? 0 : Math.max(0, nowSec - this.prevNowSec);
     this.prevNowSec = nowSec;
 
-    let anyChewer = false;
     const liveIds = new Set<CreatureId>();
 
     for (const c of world.creatures.values()) {
       if (c.type !== 'chewer') continue;
-      anyChewer = true;
       liveIds.add(c.id);
 
       // ── real physics-driven motion estimate (see module docblock) ──
@@ -144,24 +153,50 @@ export class ChewerRenderer {
       this.drawChewer(g, c.pos.x, c.pos.y, phase, face, lean, nowSec, c);
     }
 
-    if (!anyChewer) {
-      // Drop bookkeeping when the swarm is gone (keeps the Maps from leaking).
-      if (this.lastSeenPos.size > 0) {
-        this.lastSeenPos.clear();
-        this.hopPhase.clear();
-        this.facing.clear();
+    // S102 #1 — DEATH WATCHER. Any chewer alive last frame but GONE from the synced snapshot
+    // this frame was killed (raid / potato / future laser). Splat green goo at its last position
+    // + a wet fly-splat SFX — reliable on host AND the 1v1 client (both render the same snapshot)
+    // and it covers EVERY chewer death with zero wire/effect surface. Guarded on PLAYING so a
+    // match-end / title-return creature wipe doesn't spuriously splat.
+    if (this.lastSeenPos.size > liveIds.size) {
+      const playing = world.gameState === 'PLAYING';
+      for (const [id, pos] of [...this.lastSeenPos]) {
+        if (liveIds.has(id)) continue;
+        if (playing) {
+          this.gooSplats.push({ x: pos.x, y: pos.y, bornSec: nowSec, seed: (id as unknown as number) * 2.39 });
+          void playSplatSFX({ x: pos.x, y: pos.y });
+        }
+        this.lastSeenPos.delete(id);
+        this.hopPhase.delete(id);
+        this.facing.delete(id);
       }
-      return;
     }
 
-    // Prune per-chewer state for chewers that despawned this frame.
-    if (this.lastSeenPos.size > liveIds.size) {
-      for (const id of this.lastSeenPos.keys()) {
-        if (!liveIds.has(id)) {
-          this.lastSeenPos.delete(id);
-          this.hopPhase.delete(id);
-          this.facing.delete(id);
-        }
+    // Draw active goo splats LAST + UNCONDITIONALLY — they outlive the chewer that spawned them
+    // (a splat must keep animating for ~0.55 s after the swarm is gone).
+    this.drawGoo(g, nowSec);
+  }
+
+  /** S102 #1 — render + cull the active green-goo splats (expanding blob + flung droplets that
+   *  fade over GOO_DURATION_SEC). Wall-clock fade is render-only cosmetic (no sim coupling). */
+  private drawGoo(g: Graphics, nowSec: number): void {
+    for (let i = this.gooSplats.length - 1; i >= 0; i--) {
+      const s = this.gooSplats[i];
+      const t = (nowSec - s.bornSec) / GOO_DURATION_SEC;
+      if (t >= 1 || t < 0) { this.gooSplats.splice(i, 1); continue; }
+      const alpha = 1 - t;
+      const spread = BODY_R * (0.6 + t * 1.5); // droplets fling outward as it bursts
+      // central splat blob (bright core over a dark centre)
+      g.circle(s.x, s.y, BODY_R * (0.95 - t * 0.35)).fill({ color: GOO_CORE, alpha: 0.85 * alpha });
+      g.circle(s.x, s.y, BODY_R * (0.55 - t * 0.25)).fill({ color: GOO_DARK, alpha: 0.6 * alpha });
+      // radial droplets, drooping a touch as they fall
+      for (let d = 0; d < GOO_DROPLETS; d++) {
+        const a = (d / GOO_DROPLETS) * TAU + s.seed;
+        const dist = spread * (0.7 + (Math.sin(s.seed + d * 2.1) + 1) * 0.3);
+        const dx = s.x + Math.cos(a) * dist;
+        const dy = s.y + Math.sin(a) * dist + t * 6;
+        const r = Math.max(0.5, (2.6 - t * 1.6) * (0.7 + (Math.sin(s.seed * 1.7 + d) + 1) * 0.4));
+        g.circle(dx, dy, r).fill({ color: GOO_CORE, alpha: 0.8 * alpha });
       }
     }
   }
@@ -333,6 +368,7 @@ export class ChewerRenderer {
     this.lastSeenPos.clear();
     this.hopPhase.clear();
     this.facing.clear();
+    this.gooSplats.length = 0; // S102 #1 — drop in-flight splats on a hard reset (no spurious goo)
     this.prevNowSec = -1;
   }
 
@@ -341,5 +377,6 @@ export class ChewerRenderer {
     this.lastSeenPos.clear();
     this.hopPhase.clear();
     this.facing.clear();
+    this.gooSplats.length = 0;
   }
 }

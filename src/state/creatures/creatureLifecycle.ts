@@ -201,6 +201,31 @@ export function applyDespawnCreature(world: World, action: DespawnCreatureAction
 }
 
 /**
+ * S102 #1 (unified HP model) — deal `amount` single-target damage to a creature; if its
+ * hp drops to ≤ 0 the creature despawns (removed from world.creatures). The SINGLE
+ * creature-death path: a player RAID (RAID_CREATURE), a Voltkin zap on a chewer (P3+), and
+ * next session the laser beam + HELGA slap all route through here, so "chewer dies in 1 hit /
+ * Voltkin in 2" is one coherent rule (per-target hp, not a per-attacker table). AoE (potato)
+ * keeps its own guaranteed-despawn loop — it obliterates regardless of hp.
+ *
+ * Host-only mutation (callers are host-authoritative reducers); tick-deterministic; pushes NO
+ * effect — the green-goo splat + fly-splat SFX are driven RENDER-SIDE by the chewer renderer
+ * detecting a chewer that vanished from the synced snapshot (reliable on host AND the 1v1
+ * client, and it fires for EVERY chewer death — raid, potato, future laser — not just this one
+ * path). Returns true if the creature died (caller may award a reward, etc.).
+ */
+export function damageCreature(world: World, creatureId: CreatureId, amount: number): boolean {
+  const c = world.creatures.get(creatureId);
+  if (c === undefined) return false;
+  c.hp -= amount;
+  if (c.hp <= 0) {
+    world.creatures.delete(creatureId);
+    return true;
+  }
+  return false;
+}
+
+/**
  * Advance one frame for the given creature. Order of operations matters — checks
  * are evaluated top-down so the most-terminal state wins on a tick that satisfies
  * multiple boundaries:

@@ -22,13 +22,13 @@
  *         (applySeverBond) — dispatch() is now uniformly 1-line delegations.
  */
 
-import { PLAYER_COLORS, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, TERRITORY_SHRINK_DURATION_TICKS } from '../constants.ts';
+import { PLAYER_COLORS, RAID_CREATURE_DAMAGE, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, TERRITORY_SHRINK_DURATION_TICKS } from '../constants.ts';
 import { isBenchDeniedIntent } from './benchGate.ts';
 import { isBenched } from './hunters/hunter.ts';
 import { applySeverBond } from './severBond.ts';
 import type { World } from './worldTypes.ts';
 import { makeIdlePlayer, type Player } from '../game/player.ts';
-import { asPlayerId, type BondId, type PlayerId } from '../types.ts';
+import { asPlayerId, type BondId, type CreatureId, type PlayerId } from '../types.ts';
 import {
   applyBenchOfflinePlayer,
   applyReturnToTitle,
@@ -60,6 +60,7 @@ import {
   applyCreatureTick,
   applyDespawnCreature,
   applySpawnCreature,
+  damageCreature,
   type CreatureTickAction,
   type DespawnCreatureAction,
   type SpawnCreatureAction,
@@ -213,6 +214,11 @@ export type GameAction =
   // no enemies exist in world.players). Guard in controls.ts prevents the key
   // from doing anything in solo mode.
   | { readonly type: 'SHRINK_TERRITORY'; readonly playerId: PlayerId }
+  // S102 #1 — RAID a creature: the player's "raid" (the same charge-spending disruption as
+  // a bond sever) aimed at an enemy SPAWN instead of a connector. Right-clicking an enemy
+  // pencil chewer pops it (1 charge → 1 damage → chewer hp 1 dies, green-goo splat). A
+  // CLIENT_INTENT (a 1v1 joiner can raid); the host applies it authoritatively.
+  | { readonly type: 'RAID_CREATURE'; readonly creatureId: CreatureId; readonly playerId: PlayerId }
   // S71 P1 — bomb hazard. SPAWN_BOMB + DISSIPATE_BOMB are host-internal (spawner
   // cadence / TTL poll); TRIGGER_BOMB is a client→host intent (drives the v4→5
   // PROTOCOL_VERSION bump). Reducers in bombLifecycle.ts.
@@ -459,6 +465,23 @@ export function dispatch(world: World, action: GameAction): World {
           enemy.territorialShrinkUntilTick = until;
         }
       }
+      return world;
+    }
+
+    case 'RAID_CREATURE': {
+      // S102 #1 — a player raids an enemy SPAWN. Charge-gated exactly like a bond sever
+      // (1 disruption charge); enemy-only; targets a pencil CHEWER (sourceSpawnerId !== null)
+      // — Voltkin-raid + its lightning-cloud discombobulate ship next session. Host-authoritative
+      // (a client INTENT routes here on the host). The chewer's green-goo splat is render-driven.
+      const raider = world.players.get(action.playerId);
+      if (raider === undefined) return world;
+      if (raider.disruptionCharges < 1) return world;
+      const target = world.creatures.get(action.creatureId);
+      if (target === undefined) return world;
+      if (target.sourceSpawnerId === null) return world; // chewers only this session
+      if (target.ownerPlayerId === action.playerId) return world; // enemy-only — never your own
+      raider.disruptionCharges--;
+      damageCreature(world, action.creatureId, RAID_CREATURE_DAMAGE);
       return world;
     }
 

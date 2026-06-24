@@ -55,6 +55,9 @@ export const BENCH_INTENT_POLICY = {
   SEVER_BOND: 'deny',
   UPDATE_AVATAR_POS: 'allow',
   SHRINK_TERRITORY: 'deny',
+  // S102 #1 — raiding an enemy chewer is an offensive disruption (like SEVER_BOND); a benched
+  // (offline) player can't raid.
+  RAID_CREATURE: 'deny',
   TRIGGER_BOMB: 'deny',
   TRIGGER_RAINBOW: 'deny',
   PICKUP_POTATO: 'deny',
