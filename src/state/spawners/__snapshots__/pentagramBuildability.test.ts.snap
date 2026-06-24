@@ -1,0 +1,63 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`pentagram BUILDABILITY via the REAL placement pipeline > builds a pentagon through real placements and reports whether it ignites (R=42.5, side≈50) 1`] = `
+{
+  "anchorsDetected": 1,
+  "bondCount": 5,
+  "degrees": [
+    2,
+    2,
+    2,
+    2,
+    2,
+  ],
+  "ignited": true,
+}
+`;
+
+exports[`pentagram BUILDABILITY via the REAL placement pipeline > tries MULTIPLE circumradii through the real path; records which ignite 1`] = `
+[
+  {
+    "R": 40,
+    "bonds": 5,
+    "diag": 76.1,
+    "ignites": true,
+    "side": 47,
+  },
+  {
+    "R": 42.5,
+    "bonds": 5,
+    "diag": 80.8,
+    "ignites": true,
+    "side": 50,
+  },
+  {
+    "R": 45,
+    "bonds": 5,
+    "diag": 85.6,
+    "ignites": true,
+    "side": 52.9,
+  },
+  {
+    "R": 48,
+    "bonds": 5,
+    "diag": 91.3,
+    "ignites": true,
+    "side": 56.4,
+  },
+  {
+    "R": 51,
+    "bonds": 5,
+    "diag": 97,
+    "ignites": true,
+    "side": 60,
+  },
+]
+`;
+
+exports[`pentagram BUILDABILITY via the REAL placement pipeline > tries a SPREAD pentagon where diagonals exceed the merge reach (R=46, side≈54, diag≈87) — still < 100 1`] = `
+{
+  "anchors": 1,
+  "ignited": true,
+}
+`;

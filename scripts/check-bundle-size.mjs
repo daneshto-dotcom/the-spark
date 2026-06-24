@@ -18,6 +18,12 @@ import { fileURLToPath } from 'node:url';
 
 const CAP_KIB = 750; // ← keep in sync with LOCKED_DECISIONS.md § Bundle charter (raised 560→750 S101)
 const CAP_BYTES = CAP_KIB * 1024;
+// S101 early-warning band: shout when headroom drops below this BEFORE the hard cap
+// silently hard-fails `npm run build` (= the exact command deploy.yml runs → a breach
+// blocks the live deploy, not just a local build). Policy: when you see this warning,
+// RAISE the charter now (bump CAP_KIB + the LOCKED_DECISIONS clause) — the cap is
+// self-imposed, gzip transfer is tiny, and raising it is cheaper than a stuck deploy.
+const WARN_HEADROOM_KIB = 60;
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = resolve(root, 'dist');
@@ -57,7 +63,16 @@ if (entryBytes > CAP_BYTES) {
     `[bundle] FAIL: main entry ${kib(entryBytes)} KiB exceeds the ${CAP_KIB} KiB charter by `
     + `${kib(entryBytes - CAP_BYTES)} KiB.`,
   );
-  console.error('[bundle] Lazy-load a chunk (dynamic import) or raise the charter (here + LOCKED_DECISIONS.md).');
+  console.error('[bundle] This HARD-FAILS the deploy (npm run build). RAISE the charter (CAP_KIB here + LOCKED_DECISIONS.md) — the cap is self-imposed; do NOT get stuck debugging it.');
   process.exit(1);
+}
+const headroomKib = (CAP_BYTES - entryBytes) / 1024;
+if (headroomKib < WARN_HEADROOM_KIB) {
+  // Non-fatal early warning (S101): caught locally on every `npm run build` so the
+  // next session raises the cap proactively instead of discovering a blocked deploy.
+  console.warn(
+    `[bundle] ⚠ WARNING: only ${headroomKib.toFixed(1)} KiB headroom under the ${CAP_KIB} KiB cap. `
+    + `Per S101 policy, RAISE the charter NOW (CAP_KIB + LOCKED_DECISIONS clause) before it hard-fails a deploy.`,
+  );
 }
 console.log('[bundle] OK — under charter.');
