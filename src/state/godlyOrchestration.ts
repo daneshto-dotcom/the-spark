@@ -71,11 +71,23 @@ export function runGodlyMatcher(
   if (!world.isHost) return;
   if (world.activeCinematicPlayerId !== null) return; // queue handled in reducer
   for (const eff of world.effects) {
-    if (eff.kind !== 'BOND_FORMED') continue;
+    // S99 — a godly is matched on any TOPOLOGY change, not just bond creation:
+    // BOND_FORMED (build UP to the pattern) OR a PLAYER-initiated BOND_SEVERED
+    // (reduce DOWN to it). The user built a big structure then DELETED bonds
+    // until it was a valid 4Sq→4Tr Voltkin chain — but the matcher only ran on
+    // bond creation, so the reduction never re-evaluated. Only cause 'player'
+    // re-triggers; bomb/creature/physics/godly severs do NOT (a chaotic combat
+    // sever must not random-fire a godly). The single loop + `break` below still
+    // caps to ONE trigger per frame, so a BOND_FORMED and a sever in the same
+    // frame can't double-fire. findGodlyMatch scans the whole world (the Voltkin
+    // predicate is global + ignores bondPos), so any qualifying eff.pos suffices.
+    const isForm = eff.kind === 'BOND_FORMED';
+    const isPlayerSever = eff.kind === 'BOND_SEVERED' && eff.cause === 'player';
+    if (!isForm && !isPlayerSever) continue;
     // S23 P2 — record BOND_FORMED observation for debug overlay BEFORE the
     // stale-cursor skip so the probe surfaces every event even if matcher
-    // skips it for cursor reasons.
-    if (ctx.debugOverlay !== null && eff.tick > ctx.debugProbes.lastBondFormedTick) {
+    // skips it for cursor reasons. (Sever observations aren't probed here.)
+    if (isForm && ctx.debugOverlay !== null && eff.tick > ctx.debugProbes.lastBondFormedTick) {
       ctx.debugProbes.lastBondFormedTick = eff.tick;
       ctx.debugProbes.bondFormedCount += 1;
     }
