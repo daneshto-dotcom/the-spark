@@ -50,7 +50,7 @@ The feel is **tactile**. Mouse-only controls. Drag to attract, drag to connect. 
 1. **Travel** to the central spawner zone.
 2. **Grab** one spark from inside the zone (your carry limit is exactly 1).
 3. **Return** to your structure (or build a new one anywhere on the canvas).
-4. **Combine** the carried spark with your structure using order-dependent input — the sequence in which you connect primitives determines the emergent shape.
+4. **Combine** the carried spark with your structure — connect primitives to form emergent shapes. Most magic pairings now work in **either** order (S98); the Triangle↔Circle pair stays directional (Wheel vs Star).
 5. **Defend, Disrupt, or Scout.** Every 5 build actions earns 1 disruption charge (max 2 stored). Spend on enemies' structures, scout the canvas to find them, or keep building.
 6. **Claim Area.** Complex, stable structures claim more canvas area per primitive.
 7. **Win** when your color covers ≥ 51% of the canvas.
@@ -183,11 +183,11 @@ The atoms of the game. Each is visually distinct, behaviorally unique, and combi
 
 ## V · Combination System
 
-### V.1 — Order Dependence [LOCKED]
+### V.1 — Order Dependence [LOCKED — S98 AMENDED to order-symmetry for the 8 one-way magics]
 
-**Triangle → Square ≠ Square → Triangle.** The sequence in which you connect primitives determines the resulting combo. This is the Mortal Kombat principle: input order is part of the input.
+**S98 amendment (Option B, user-approved):** the 8 one-way magic pairs are now **order-SYMMETRIC** — connecting the same two shapes makes the same magic in **either** order (the user's "connecting two shapes shouldn't feel arbitrary" fix). The original blanket order-dependence punished a player for carrying the "wrong" piece. The one **intentional directional dual is retained**: **Triangle → Circle = Wheel ≠ Circle → Triangle = Star** — two different magics from one pair, the Mortal-Kombat "input order is part of the input" principle where it adds genuine depth. Functional (placeholder) pairs are unaffected. See `LOCKED_DECISIONS.md §6` (S98) for the full pair list + rationale.
 
-This doubles the design space (36 ordered pairs vs. 21 unordered) at zero implementation cost, and gives players directional intent — they can plan a build sequence the way a chess player plans an opening.
+The table still ships all 36 ordered keys (zero implementation cost); the 8 mirrored magics + the Wheel/Star dual keep directional intent where it's meaningful while removing the arbitrary-feeling duds.
 
 ### V.2 — Pair Combo Matrix [LOCKED SCOPE: 36 ordered pairs]
 

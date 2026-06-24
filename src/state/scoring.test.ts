@@ -123,12 +123,14 @@ describe('S90 P1 (G1b ECONOMY) — Filament (Dot→Line) income trickle', () => 
     );
   });
 
-  it('order-dependent: Line→Dot is a functional placeholder, NOT a Filament (no trickle)', () => {
+  it('S98 order-symmetry: Line→Dot is now ALSO a Filament — same income as Dot→Line (both orders equal)', () => {
     const w = makeWorld(0);
     const line = addPrim(w, P0, SparkType.Line, 200, 200);
     const dot = addPrim(w, P0, SparkType.Dot, 230, 200);
-    addBond(w, line, dot); // aId=Line, bId=Dot → placeholder (functional), not Filament
-    expect(computeComplexity(w, P0)).toBeCloseTo(2 * SCORE_ANCHOR + FUNCTIONAL_BOND_COMPLEXITY, 10);
+    addBond(w, line, dot); // aId=Line, bId=Dot → Filament (S98 symmetric), earns magic + trickle
+    expect(computeComplexity(w, P0)).toBeCloseTo(
+      2 * SCORE_ANCHOR + MAGIC_PREMIUM + FILAMENT_INCOME_COMPLEXITY, 10,
+    );
   });
 
   it('a non-Filament magic bond (Line→Line Cable) gets the magic premium but NO filament trickle', () => {
@@ -157,6 +159,35 @@ describe('S90 P1 (G1b ECONOMY) — Filament (Dot→Line) income trickle', () => 
       return w.scoreProgress;
     };
     expect(run()).toBe(run());
+  });
+});
+
+describe('S98 order-symmetry — income parity (Option B balance proof)', () => {
+  // The rebalance question: does symmetry inflate the canonical (optimal) build's income
+  // (the ~157.5s anchor)? These two tests bound it empirically: (1) a one-way pair now earns
+  // the SAME in either order (the floor rises for sloppy play); (2) a pure-forward build earns
+  // EXACTLY its pre-S98 magic income (the change is additive to the table — it never touches a
+  // forward key — so the optimal ceiling, and thus the 157.5s anchor, is unchanged). Conclusion:
+  // ship PHASE_1_WIN_SCORE unchanged; a ready playtest-gated micro-rebalance covers casual pace.
+  it('a one-way pair earns IDENTICAL income in both carry orders (was asymmetric pre-S98)', () => {
+    const fwd = makeWorld(0);
+    addBond(fwd, addPrim(fwd, P0, SparkType.Line, 200, 200), addPrim(fwd, P0, SparkType.Triangle, 230, 200));
+    const rev = makeWorld(0);
+    addBond(rev, addPrim(rev, P0, SparkType.Triangle, 200, 200), addPrim(rev, P0, SparkType.Line, 230, 200));
+    expect(computeComplexity(rev, P0)).toBe(computeComplexity(fwd, P0));
+    expect(computeComplexity(fwd, P0)).toBe(2 * SCORE_ANCHOR + MAGIC_PREMIUM); // both magic (Bracket)
+  });
+
+  it('the optimal (all-forward) build income is UNCHANGED — symmetry only raises the floor', () => {
+    const w = makeWorld(0);
+    const d = addPrim(w, P0, SparkType.Dot, 100, 100);
+    const l = addPrim(w, P0, SparkType.Line, 130, 100);
+    const t = addPrim(w, P0, SparkType.Triangle, 160, 100);
+    addBond(w, d, l); // Dot→Line Filament (magic + trickle)
+    addBond(w, l, t); // Line→Triangle Bracket (magic)
+    expect(computeComplexity(w, P0)).toBeCloseTo(
+      3 * SCORE_ANCHOR + 2 * MAGIC_PREMIUM + FILAMENT_INCOME_COMPLEXITY, 10,
+    );
   });
 });
 

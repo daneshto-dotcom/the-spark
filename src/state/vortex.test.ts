@@ -121,17 +121,18 @@ describe('S89 P6 — Vortex anchor-pull', () => {
     expect(vel(s)).toEqual({ x: 0, y: 0 });
   });
 
-  it('only the Vortex combo pulls — Spiral→Dot (reverse order) and Dot→Dot do NOT', () => {
-    // Reverse order: aId=Spiral, bId=Dot ⇒ a placeholder, not a Vortex (order-dependent § V.1).
+  it('S98 order-symmetry: Spiral→Dot is now ALSO a Vortex and pulls (Dot→Dot still does not)', () => {
+    // S98: Dot↔Spiral is order-symmetric, so Spiral→Dot is a Vortex too and pulls (consistent
+    // with "same magic both orders" — the reverse earns the Vortex behavior, not just the income).
     const w = baseWorld();
     const spiral = addPrim(w, 1, SparkType.Spiral, 480, 400);
     const dot = addPrim(w, 2, SparkType.Dot, 520, 400);
-    connect(w, 10, spiral, dot); // aId=Spiral, bId=Dot
+    connect(w, 10, spiral, dot); // aId=Spiral, bId=Dot ⇒ Vortex (S98 symmetric)
     const s = addFreeSpark(w, 100, 500, 480);
     applyVortexPull(w);
-    expect(vel(s)).toEqual({ x: 0, y: 0 });
+    expect(vel(s)).not.toEqual({ x: 0, y: 0 }); // pulled
 
-    // Dot→Dot (a generic placeholder) also does not pull.
+    // Dot→Dot (a true none-pair, not one of the 8 symmetric pairs) still does NOT pull.
     const w2 = baseWorld();
     const d1 = addPrim(w2, 1, SparkType.Dot, 480, 400);
     const d2 = addPrim(w2, 2, SparkType.Dot, 520, 400);

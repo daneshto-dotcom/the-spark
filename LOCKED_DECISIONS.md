@@ -240,7 +240,22 @@ enum SparkType {
 
 ## 6 · Combo Table — Schema & Magic-14 Seed
 
-**Schema (order-dependent, per § V.1 LOCKED):**
+> **S98 AMENDMENT (order-symmetry, Option B — user-approved, 2-round Council ADOPT).** The 8
+> "one-way" magic pairs are now **order-SYMMETRIC**: both carry orders yield the SAME magic
+> (e.g. Line→Dot is also a Filament, Square→Dot is also an Anchor, Spiral→Dot is also a Vortex
+> and pulls). The pairs: Dot↔Line, Line↔Triangle, Square↔Circle, Dot↔Spiral, Spiral↔Line,
+> Triangle↔Spiral, Dot↔Square, Line↔Circle. **Triangle↔Circle stays order-DEPENDENT by design**
+> (Triangle→Circle=Wheel ≠ Circle→Triangle=Star — the intentional dual; symmetry must NOT collapse
+> it). The 4 magic self-pairs are inherently symmetric. Implementation: the reverse rows are mirrored
+> into the TABLE reusing the forward outcome object (byte-identical), `comboKey` is NOT sorted (so
+> persistence/replay keys are unchanged), discovery canonicalizes via `canonicalComboKey` so a magic
+> in either order unlocks the SAME Codex tile (HUD stays **N/14**). **Win-score UNCHANGED (630):** the
+> change is additive (never touches a forward key), so the optimal/canonical-build income — the
+> ~157.5s anchor — is provably unchanged; symmetry only raises the floor for sloppy ordering. A
+> playtest-gated micro-rebalance (raise win+step in lockstep, keep /3) is held if casual pace feels
+> too fast. Supersedes the "order-dependent" clauses below where they conflict.
+
+**Schema (key still carried→target; the 8 one-way magics mirrored per the S98 amendment above):**
 
 ```typescript
 type ComboKey = `${SparkType}->${SparkType}`;  // e.g. "2->4"
@@ -269,8 +284,8 @@ interface ComboOutcome {
 10. Dot → Spiral: **Vortex** (HIGH, 2.0×)
 11. Spiral → Line: **Whip** (LOW, 1.5×)
 12. Triangle → Spiral: **Warped Anchor** (LOW, 3.0×)
-13. Dot → Square: **Anchor** (MID, 1.0×) — promoted S91 (G2-PROMO), `fx.anchor`, visual + discovery + magic premium only (no behavior; order-dependent, Square→Dot stays functional)
-14. Line → Circle: **Spindle** (MID, 1.0×) — promoted S91 (G2-PROMO), `fx.spindle`, visual + discovery + magic premium only (no behavior; order-dependent, Circle→Line stays functional)
+13. Dot → Square: **Anchor** (MID, 1.0×) — promoted S91 (G2-PROMO), `fx.anchor`, visual + discovery + magic premium only (no bespoke behavior; **S98: order-symmetric — Square→Dot is also Anchor**)
+14. Line → Circle: **Spindle** (MID, 1.0×) — promoted S91 (G2-PROMO), `fx.spindle`, visual + discovery + magic premium only (no bespoke behavior; **S98: order-symmetric — Circle→Line is also Spindle**)
 
 **Win-score rebalance (S91, G2-PROMO):** `PHASE_1_WIN_SCORE` 210 → 630, `SCORE_TIER_STEP` 70 → 210 (ratio 3 preserved; `scoring.test.ts:330-331` stays green) — offsets the structural 8× magic-income premium the two promotions add to combo-leaning builds; holds the canonical P=20/B=30 combo build's match length ~constant (152.7s → 157.5s). Behaviors deferred to a Phase-2 PDR. User-approved S91 (`go`).
 

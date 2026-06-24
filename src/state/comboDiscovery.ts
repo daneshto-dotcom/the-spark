@@ -16,7 +16,7 @@
  * recomputes ⇒ replay-deterministic + 1v1-mirror-consistent (rainbowSwitchTick
  * pattern). Functional (placeholder) combos never toast — only isMagical entries.
  */
-import { comboKey, lookupCombo, type ComboKey } from '../combos.ts';
+import { canonicalComboKey, lookupCombo, type ComboKey } from '../combos.ts';
 import type { World } from './worldTypes.ts';
 
 export function detectComboDiscoveries(world: World, firstNewBondId: number): void {
@@ -35,7 +35,9 @@ export function detectComboDiscoveries(world: World, firstNewBondId: number): vo
     if (a === undefined || b === undefined) continue;
     const combo = lookupCombo(a.type, b.type);
     if (!combo.isMagical) continue;
-    const key = comboKey(a.type, b.type);
+    // S98 P2 — canonical (order-independent) key: a magic made in either order
+    // unlocks the SAME Codex tile and counts once (Wheel/Star stay distinct).
+    const key = canonicalComboKey(a.type, b.type);
     if (world.discoveredCombos.has(key)) continue; // already found this match
     if (newKeys.includes(key)) continue; // dedupe within this placement
     newKeys.push(key);

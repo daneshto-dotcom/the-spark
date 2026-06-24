@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { PLAYER_COLORS, SparkType } from '../constants.ts';
-import { lookupCombo } from '../combos.ts';
+import { comboKey, lookupCombo } from '../combos.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { asBondId, asPlayerId, asPrimitiveId, type PlayerId } from '../types.ts';
 import { makeWorld, type World } from './world.ts';
@@ -156,5 +156,49 @@ describe('S88 G3a — detectComboDiscoveries', () => {
     const names = w.lastDiscoveredComboNames ?? [];
     expect(names).toContain('Anchor');
     expect(names).toContain('Spindle');
+  });
+
+  it('S98 — a reverse-order magic unlocks the SAME tile as forward (counted once, /14)', () => {
+    nextId = 0;
+    const w = makeWorld(0);
+    w.tick = 300;
+    // Discover Filament via the REVERSE order (Line→Dot) — S98 symmetric.
+    const line = addPrim(w, SparkType.Line);
+    const dot = addPrim(w, SparkType.Dot);
+    let wm = nextId;
+    addBond(w, line, dot); // aId=Line, bId=Dot → Filament (reverse order)
+    detectComboDiscoveries(w, wm);
+    expect(w.lastDiscoveredComboNames).toEqual([FILAMENT]);
+    expect(w.discoveredCombos.size).toBe(1);
+    // The stored key is the CANONICAL forward key (Dot→Line) so it matches the Codex tile.
+    expect([...w.discoveredCombos][0]).toBe(comboKey(SparkType.Dot, SparkType.Line));
+
+    // Forming the FORWARD Filament (Dot→Line) later must NOT re-discover (same canonical key).
+    w.tick = 400;
+    const dot2 = addPrim(w, SparkType.Dot);
+    const line2 = addPrim(w, SparkType.Line);
+    wm = nextId;
+    addBond(w, dot2, line2); // aId=Dot, bId=Line → Filament (forward)
+    detectComboDiscoveries(w, wm);
+    expect(w.comboToastTick).toBe(300); // unchanged — already discovered
+    expect(w.discoveredCombos.size).toBe(1); // still 1, not 2
+  });
+
+  it('S98 — Wheel and Star (Triangle↔Circle dual) remain TWO distinct discoveries', () => {
+    nextId = 0;
+    const w = makeWorld(0);
+    w.tick = 50;
+    const tri = addPrim(w, SparkType.Triangle);
+    const cir = addPrim(w, SparkType.Circle);
+    const tri2 = addPrim(w, SparkType.Triangle);
+    const cir2 = addPrim(w, SparkType.Circle);
+    const wm = nextId;
+    addBond(w, tri, cir); // Triangle→Circle = Wheel
+    addBond(w, cir2, tri2); // Circle→Triangle = Star
+    detectComboDiscoveries(w, wm);
+    expect(w.discoveredCombos.size).toBe(2);
+    const names = w.lastDiscoveredComboNames ?? [];
+    expect(names).toContain('Wheel');
+    expect(names).toContain('Star');
   });
 });

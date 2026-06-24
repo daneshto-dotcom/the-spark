@@ -21,7 +21,7 @@ import { Application, Container, Graphics, Text, TextStyle, Ticker } from 'pixi.
 import { CANVAS_HEIGHT, CANVAS_WIDTH, SPARK_COLORS, SparkType } from '../constants.ts';
 import { drawBondVisual, type BondVisualParams } from './bondVisualRenderer.ts';
 import { SHAPE_GLYPHS } from './shapes.ts';
-import { MAGIC_COMBO_KEYS } from '../combos.ts';
+import { MAGIC_COMBO_KEYS, isOrderSymmetric } from '../combos.ts';
 import { loadDiscoveredCombos, magicComboCatalog, type ComboCatalogEntry } from './comboCodexStore.ts';
 
 const COLS = 5;
@@ -177,10 +177,12 @@ export class ComboCodexOverlay {
     tile.addChild(name);
 
     if (isDiscovered) {
-      // Recipe row: glyphA → glyphB, each tinted its spec §IV type colour.
+      // Recipe row: glyphA <arrow> glyphB, each tinted its spec §IV type colour.
+      // S98 — "↔" for the order-symmetric pairs (either order makes this magic), "→" for the
+      // Triangle↔Circle directional dual (Wheel vs Star), so the rule reads off the tile.
       tile.addChild(this.makeGlyph(entry.a, TILE_W / 2 - 42, 148));
       const arrow = new Text({
-        text: '→',
+        text: isOrderSymmetric(entry.a, entry.b) ? '↔' : '→',
         style: new TextStyle({ fontFamily: 'monospace', fontSize: 20, fill: 0xcccccc }),
       });
       arrow.anchor.set(0.5);
