@@ -378,6 +378,20 @@ export class SudokuOverlay {
     let staticEntry: SpiritAnim | null = null;
     let videoTookOver = false;
 
+    // S99 — layer 1: a soft warm backing glow. The S99 mask fix makes the spirit
+    // fully opaque (was fading into the bg); this halo GROUNDS it in the dusk scene
+    // and softens its feathered rim against the dark surround so the now-crisp
+    // outline reads naturally rather than "cut out" (Council P1). Added FIRST so it
+    // sits BEHIND the static + video layers; concentric low-alpha ellipses = a cheap
+    // soft radial. Render-only.
+    const glow = new Graphics();
+    const gw = g.vw * 0.60;
+    const gh = g.vw * 0.80;
+    for (const [rs, alpha] of [[1.0, 0.05], [0.68, 0.06], [0.42, 0.08]] as const) {
+      glow.ellipse(g.x, g.y, gw * rs, gh * rs).fill({ color: 0x6b5836, alpha });
+    }
+    this.realmLayer.addChild(glow);
+
     // layer 2 — static webp + procedural idle (fallback)
     void Assets.load(`/art/nonet/${g.id}.webp`).then((tex: Texture) => {
       if (videoTookOver) return; // the video already won — don't add a redundant static sprite
