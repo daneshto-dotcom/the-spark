@@ -1,28 +1,28 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-06-24 | Session: S99
+Generated: 2026-06-24 | Session: S101
 
 ## Next Steps
-1. **User playtest feedback on the S99 + S98 deploy (live at spark-online.space).**
-   - **S99 P1 NONET spirits:** the 3 shared-mask spirits (kami/owl-a/moss-b) now show FULL outlines + wings with a warm backing glow (was: faded into the bg). FEEL CHECK: do they read naturally? Glow too strong/weak?
-   - **S99 P2 Voltkin-on-delete:** build a structure then DELETE bonds down to a CLEAN isolated line of 4 squares then 4 triangles (endpoints degree-1, middles degree-2, NO leftover stubs/junctions) → Voltkin now fires. (Bomb/creature severs intentionally don't trigger it. `?debug=1` shows how close the chain is via findLongestVoltkinPartial.)
-   - **S98:** combo order-symmetry (reverse-order pairs now make magic; Codex shows `↔`) + Connection Preview (drag a primitive → pulsating preview of the bond(s) before release).
-2. **Tower-defense combos (next major feature) — REMIND the user to share the plan, then build.** See `memory/spark-tower-defense-combos-next-feature.md`.
-3. **(playtest-gated) S98 P2 combo micro-rebalance** — only if casual matches feel too fast post-symmetry: raise `PHASE_1_WIN_SCORE` + `SCORE_TIER_STEP` in lockstep (keep `/3`). Win-score shipped unchanged (the optimal-build anchor is provably untouched).
-4. **(optional)** Voltkin UX: surface the strict isolated-chain requirement to players (tooltip / findLongestVoltkinPartial outside ?debug=1) — Council suggestion. NONET glow strength tuning. de-flake WebRTC-in-CI; deploy.yml `needs:[e2e]`; combinatorial-depth 6^6; G4 build-feel juice.
+1. **PLAYTEST the now-live tower-defense** on https://spark-online.space — build a real pentagram: 5 triangles in a ring, adjacent vertices <60px apart but roughly circumradius ~40-50px so diagonals stay >60px (too tight over-bonds and won't ignite). Confirm spawn-zone aura appears, then a pencil "chewer" emits ~15s later and hops to chew an enemy connector.
+2. **TD pentagram UX gap (LOW)** — the spawner is buildable but spacing-sensitive with NO in-game hint when a near-pentagon doesn't ignite. Consider a closing-edge ghost-preview / "shape almost complete" affordance, OR relax `isPentagramComponent` to "contains a 5-triangle cycle, ignore extra chords". Most likely thing to make a player think "it didn't work."
+3. **TD Phase 2-4** (TOWER_DEFENSE_DESIGN.md): more spawner recipes, higher-fidelity chewer art (veo image-to-video), balance playtest. Code-split TD render layer is now OPTIONAL (179 KiB headroom under the 750 charter).
+4. Resume Tier-1 roadmap: G1b MOTION (Wheel/Star rotation — deferred pending a mechanical verb), G2 family traits (gated on a LOCKED §6 amendment), G3b Codex silhouettes, G4 build-feel juice.
 
 ## Blockers
-- Tower-defense feature: needs the user's exact plan/vision.
-- S98 P2 micro-rebalance: gated on the user's playtest "feels too fast?" call.
-- Relaxing the Voltkin topology to "any 4S+4T blob" is a SEPARATE design decision (reopens the S48 5-blob false-positive) — only if the user explicitly wants it.
-- STEP-0 review gate reads a CROSS-PROJECT session (S166) — documented infra quirk, advisory until 2026-07-15 then BLOCKS.
+None. Tower-defense is LIVE and verified end-to-end. The buildability UX gap is a nicety, not a blocker.
 
-## Pending Backlog (Tier-1, open)
-- G1b MOTION (Wheel/Star rotation, Capsule glow-trail) — S90 Council DEFERRED (low player-value without a mechanical verb).
-- G2 TRAITS (rule-based family traits for the 22 placeholders) — gated (needs LOCKED §6 amend).
-- G2-PROMO behaviors (Anchor anti-drift / Spindle pull) — deferred Phase-2 PDR.
-- G4 build-feel juice (bond-formation burst, pooped-reject cue, in-world leader crown).
-- (DONE S99: NONET sprite visibility + Voltkin-on-delete. DONE S98: combo order-symmetry + Connection Preview. DONE S97: G3b Combo Codex.)
+## Pending Backlog
+- [ ] TD pentagram build-hint / predicate-relax (LOW UX) — see Next Steps #2
+- [ ] TD Phase 2-4 (recipes, art, balance)
+- [ ] G1b MOTION (Wheel/Star rotation) — deferred until it earns a mechanical verb
+- [ ] G2 family traits — needs LOCKED_DECISIONS §6 lock-amendment
+- [ ] G3b Codex: mark used combos, render undiscovered as silhouettes
+- [ ] G4 build-feel juice (bond-formation burst, pooped-reject cue, leader crown)
+- [ ] Voltkin strict-chain UX (not player-visible; same class as the pentagram gap)
 
 ## Recent Reflexion (last 2 sessions)
-- **S99**: NONET sprite fade = a mask peaking at alpha 231 (not 255) + an 81px blur eating the whole subject → fix in the mask GENERATOR (plateau-clamp for a flat-255 core + soft rim), sweep params empirically (too-high plateau = 100% opaque hard rectangle), keep owl-b's bespoke flame-cropping mask untouched. Voltkin-on-delete = the godly matcher only ran on BOND_FORMED, never on sever → also act on PLAYER-caused BOND_SEVERED (cause-filter excludes bomb/creature; existing loop+break already prevents double-fire); keep the strict topology gate; an event-driven matcher must listen to ALL topology mutations.
-- **S98**: CI-flake quarantine is a CLASS not a named list — verify on a REAL run; job-level `continue-on-error` is the real email-stopper. Order-symmetry = mirror the TABLE + canonicalize discovery by resultName, NOT sort the key; additive change leaves the optimal-build anchor provably unchanged → no win-score inflation. Preview==release by reusing the reducer's OWN pure pickers + an equivalence test; keep it purely additive vs refactoring a critical (now under-tested) path.
+## 2026-06-24 — Session 101: RECOVERY — shipped S100 tower-defense LIVE (deploy had hard-failed on the bundle gate) + verified end-to-end.
+- S101 #shipped-pushed-but-NOT-live-was-a-failed-deploy: feature was committed+pushed but the Pages DEPLOY hard-failed on the bundle gate (570.9>560 KiB; `npm run build` exit 1) → live site stale with no TD. Fix: charter 560→750 + e2e 8→10 + early-warning band. "committed+pushed" ≠ "LIVE" — check `gh run list --workflow=deploy.yml` on any "shipped but not working" report. Raise the self-imposed cap, don't get stuck. Real-pipeline integration test proves the pentagram ignites at circumradius ~32-51.
+
+## 2026-06-24 — Session 99: 2 playtest bug-fixes — P1 NONET sprite fade · P2 Voltkin fires on player-sever reduction.
+- P1 #nonet-sprite-fade-was-a-mask-peaking-at-231-not-255: the fade lived in the mask generator (peak 231 + 81px feather), fixed with a plateau-clamp; verify with numeric alpha profile + live screenshot.
+- P2 #godly-matcher-only-ran-on-bond-create-not-sever: an event-driven matcher must listen to ALL topology mutations (create AND destroy), cause-filtered to player severs.
