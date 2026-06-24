@@ -16,7 +16,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const CAP_KIB = 560; // ← keep in sync with LOCKED_DECISIONS.md § Bundle charter
+const CAP_KIB = 750; // ← keep in sync with LOCKED_DECISIONS.md § Bundle charter (raised 560→750 S101)
 const CAP_BYTES = CAP_KIB * 1024;
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');

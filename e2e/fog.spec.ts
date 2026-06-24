@@ -160,10 +160,11 @@ test.describe('S57 Fog of War — client-side render mask', () => {
 
     // Z-order: the global-reach layer sits above the fog, with all global-reach renderers routed
     // into it — P2's 4 (creature/hunter/potato/rainbow) + P3's seagull + poop = 6, + S84 P2's
-    // flyover celebration (overlay wash/beams + character container) = 8. This count is the
+    // flyover celebration (overlay wash/beams + character container) = 8, + S100 P1's two TD
+    // renderers (spawnerZoneRenderer aura + chewerRenderer swarm) = 10. This count is the
     // layer CONTRACT: bump it deliberately (with the renderer list above) on every addition.
     expect(r.aboveIdx).toBeGreaterThan(r.fogIdx);
-    expect(r.aboveFogChildren).toBe(8);
+    expect(r.aboveFogChildren).toBe(10);
     // The potato punches THROUGH the fog — its brown body (BODY_COLOR 0xb5651d, r≈181) shows on the
     // composited stage as a strong red channel, clearly not the fog's pure black.
     expect(r.potatoOnStage[0]).toBeGreaterThan(90);                 // red channel present → visible
