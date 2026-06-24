@@ -233,6 +233,17 @@ export interface Creature {
    * and the factory defaults it to 0.
    */
   chewProgress: number;
+  /**
+   * S102 (unified HP model, owner correction OC2) — remaining single-target
+   * hit-points. Defaulted from `config.hp` by `makeCreature` (chewer 1, Voltkin 2).
+   * A "hit" (player RAID, Voltkin zap on a chewer, laser beam, HELGA slap) decrements
+   * this by 1 via `damageCreature` (S102 P3); at hp ≤ 0 the creature despawns with a
+   * death VFX (chewer → green goo; Voltkin → lightning-cloud). AoE (potato) passes a
+   * lethal amount through the same path. Mutable. ROUND-TRIPPED through host save/load
+   * (additive-optional; a pre-S102 save rehydrates hp to the config default) so a
+   * damaged creature survives a save (the SerializedBomb / chewProgress precedent).
+   */
+  hp: number;
 }
 
 /**
@@ -275,6 +286,7 @@ export function makeCreature(
     despawnAtTick: args.spawnedAtTick + config.lifetimeTicks,
     sourceSpawnerId: args.sourceSpawnerId ?? null,
     chewProgress: 0,
+    hp: config.hp, // S102 — chewer 1 / Voltkin 2 (unified HP model)
   };
 }
 

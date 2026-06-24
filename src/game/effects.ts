@@ -125,8 +125,13 @@ export type GameEffect =
        * Plan, Gemini Q4 minority "reuse 'player' SFX" rejected on tonal-mismatch grounds:
        * lightning creature ≠ fart SFX). 'godly' kept for back-compat (no emitter post-S27
        * cascade DELETION but type union widening is free + safe).
+       *
+       * S102 #2 — 'chewer' added for a pencil-chewer's final-chew severance. The
+       * chewer path is split off 'creature' (which stays the Voltkin lightning zap)
+       * so the audio drain plays a beaver GNAW (not lightning-crackle) and the
+       * attack emits NO ARC_FLASH / screen-shake (see creatureAttack.ts).
        */
-      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb';
+      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer';
     }
   | {
       /**

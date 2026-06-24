@@ -787,6 +787,23 @@ export const CHEW_INTERVAL_TICKS = 60; // 1 s/hit → CHEW_HITS × this = 5 s/co
 export const CHEWER_MAX_GLOBAL = 8; // hard ceiling on live chewers (perf/wire ceiling — start low)
 export const CHEWER_MAX_PER_SPAWNER = 2; // #1 balance dial — destruction rate scales with this
 export const CHEWER_MAX_PER_VICTIM = 3; // one swarm can't fully strip a single player
+
+// === S102 — UNIFIED HP / DAMAGE MODEL (owner correction OC2: "coherent, logical, epic") ===
+// ONE damage scale across the whole game. Two kinds of destructible thing have HP:
+//   • CONNECTORS (bonds): CONNECTOR_HP, chipped by chewers (CHEW_DAMAGE per chew). 5 chews sever a
+//     connector (= the owner's "5 chews to destroy a connector"). A player RAID and a godly Voltkin
+//     still INSTANT-sever a connector (decisive teardown) — they don't chip; the chewer is the only
+//     thing that whittles connector HP. (Implemented as the chewer's commit-counter `chewProgress`;
+//     CONNECTOR_HP is tied to CHEW_HITS so the model reads coherently.)
+//   • CREATURES (spawn): per-type hit-count HP. A pencil chewer dies in 1 hit; a godly Voltkin takes
+//     2 (twice as tough). A "hit" = a player RAID (P3), a Voltkin zap on a chewer (P3), and next
+//     session the laser beam + HELGA's slap. Each single-target hit deals 1; AoE (potato) = lethal.
+// Creature death VFX: chewer -> green-goo splat; Voltkin -> discombobulated lightning-cloud (P3).
+export const CONNECTOR_HP = CHEW_HITS; // 5 — a connector withstands 5 chews
+export const CHEW_DAMAGE = 1; // damage one chew deals to a connector (CONNECTOR_HP / CHEW_DAMAGE = CHEW_HITS)
+export const CHEWER_HP = 1; // a pencil chewer dies in 1 single-target hit (raid / Voltkin / laser / slap)
+export const VOLTKIN_HP = 2; // a godly Voltkin takes 2 hits — twice as tough as a chewer
+export const RAID_CREATURE_DAMAGE = 1; // a player raid (right-click a creature) deals 1 (P3)
 export const REVALIDATE_INTERVAL_TICKS = 30; // 0.5 s — spawner shape re-validation throttle
 // Passive income term added to a spawner owner's complexity (scoring.computeComplexity). Kept
 // NEAR-ZERO so it never threatens the protected PHASE_1_WIN_SCORE=630 anchor — the real cost is

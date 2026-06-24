@@ -41,6 +41,7 @@
  */
 
 import type { CreatureType } from './creature.ts';
+import { CHEWER_HP, VOLTKIN_HP } from '../../constants.ts';
 
 /**
  * Per-creature-type config record. One entry per `CreatureType` discriminant
@@ -57,6 +58,14 @@ import type { CreatureType } from './creature.ts';
 export interface CreatureConfig {
   /** Discriminator — matches the `Creature.type` field. */
   readonly type: CreatureType;
+  /**
+   * S102 (unified HP model, owner correction OC2) — single-target hit-points. A
+   * "hit" (player RAID, Voltkin zap on a chewer, laser beam, HELGA slap) deals 1
+   * damage via `damageCreature`; the creature despawns at hp ≤ 0. AoE (potato)
+   * passes a lethal amount through the same path. Voltkin = 2 (godly, twice as
+   * tough); chewer = 1. Defaulted onto `Creature.hp` by `makeCreature`.
+   */
+  readonly hp: number;
   /**
    * Total lifetime in ticks. `despawnAtTick = spawnedAtTick + lifetimeTicks`.
    * Blueprint Q5; Voltkin = 480 (8 s @ 60 Hz).
@@ -173,6 +182,7 @@ export const VOLTKIN_CONFIG: CreatureConfig = {
   chewHits: 0,
   hopSpeedMul: 1,
   maxAccel: 200,
+  hp: VOLTKIN_HP, // 2 — godly, takes 2 hits (S102 unified HP model)
 };
 
 /**
@@ -211,7 +221,8 @@ export const CHEWER_CONFIG: CreatureConfig = {
   spawnTicks: 30, // 0.5 s materialize (faster than Voltkin's 1 s — it's a swarm unit)
   despawningTicks: 30,
   fadeTicks: 15,
-  attackRange: 120, // shorter than Voltkin's 180 — melee-ish chew engage range
+  attackRange: 35, // S102 #3: true MELEE — chewer walks right up to the connector before chewing
+                   // (was 180 via the VOLTKIN_ATTACK_RANGE_SQ hardcode; now read per-config in isWithinAttackRange)
   attackCadenceTicks: 300, // chewHits × CHEW_INTERVAL_TICKS (5 × 60) — full chew span
   attackFireTick: 300, // sever on the final (5th) chew hit
   attackChargeEngageTick: 60, // first chew bite lands one CHEW_INTERVAL_TICKS in
@@ -219,6 +230,7 @@ export const CHEWER_CONFIG: CreatureConfig = {
   chewHits: 5, // = constants.ts CHEW_HITS
   hopSpeedMul: 0.6,
   maxAccel: 120, // 200 (CREATURE_MAX_ACCEL) × hopSpeedMul 0.6
+  hp: CHEWER_HP, // 1 — dies in a single hit (S102 unified HP model)
 };
 
 /**

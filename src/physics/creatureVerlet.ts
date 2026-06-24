@@ -121,7 +121,14 @@ export function computeSteeringAccel(c: Creature): Vec2 {
   // ramps scale with it (not just the post-sum clamp).
   const maxAccel = getCreatureConfig(c.type).maxAccel;
   const arrive = arriveForce(c, c.targetPos, CREATURE_ARRIVE_RADIUS, maxAccel);
-  const repulse = repulseForce(c, SPAWNER_POS, CREATURE_SPAWNER_REPULSE_RADIUS, maxAccel);
+  // S102 #3 — the SPAWNER_POS repulse is the canvas-CENTRE spark-spawner zone (legacy
+  // Voltkin scaffolding). A CHEWER must close ONTO its target connector to chew it at
+  // melee range, not be held ~300px off by a phantom centre-repulse — so it is skipped
+  // for chewers (`sourceSpawnerId !== null`). Voltkin (`sourceSpawnerId === null`) keeps
+  // the repulse byte-identical (its locomotion is the replay-equivalence guard).
+  const repulse = c.sourceSpawnerId === null
+    ? repulseForce(c, SPAWNER_POS, CREATURE_SPAWNER_REPULSE_RADIUS, maxAccel)
+    : ZERO_ACCEL;
   let ax = arrive.x + repulse.x;
   let ay = arrive.y + repulse.y;
   const mag = Math.hypot(ax, ay);

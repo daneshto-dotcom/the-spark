@@ -77,7 +77,14 @@ export function canSeverBond(
   // Both bypass all gates (host-authoritative spawn upstream gates the mint
   // for 'creature'; constraint solver fires for 'physics'). computeBaseCharge
   // at line 90 already returns 0 for non-'player' so no change needed there.
-  if (action.cause === 'physics' || action.cause === 'creature' || action.cause === 'bomb') return true;
+  // S102 #2 — 'chewer' bypasses too (a pencil chewer's bite is host-authoritative,
+  // exactly like 'creature' — it pays no disruption charge and skips the hostile-auth gate).
+  if (
+    action.cause === 'physics' ||
+    action.cause === 'creature' ||
+    action.cause === 'bomb' ||
+    action.cause === 'chewer'
+  ) return true;
 
   const player = world.players.get(action.playerId);
   if (player === undefined) return false;

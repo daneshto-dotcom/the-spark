@@ -35,10 +35,13 @@ import {
 } from './creatureAI.ts';
 import {
   asCreatureId,
+  makeCreature,
   makeVoltkinCreature,
   type Creature,
   VOLTKIN_ATTACK_RANGE,
 } from './creature.ts';
+import { CHEWER_CONFIG } from './voltkin-config.ts';
+import { asSpawnerId } from '../../types.ts';
 
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
@@ -230,5 +233,26 @@ describe('isWithinAttackRange', () => {
     const w = setupWorld();
     const creature = spawnAt(w, P0, 0, 0);
     expect(isWithinAttackRange(w, creature, asBondId(999))).toBe(false);
+  });
+
+  it('S102 #3 — uses PER-TYPE range: a chewer engages at melee (~35), a Voltkin at 180', () => {
+    const w = setupWorld();
+    const primA = makePrim(1, COLOR_P1, 0, 0);
+    const primB = makePrim(2, COLOR_P1, 20, 0); // mid = (10, 0)
+    addBond(w, 1, primA, primB);
+    // A chewer 100px from the bond midpoint: would be in range at Voltkin's 180, but NOT
+    // at the chewer's 35 — it must keep approaching the connector (the "move close" fix).
+    const chewer = makeCreature(CHEWER_CONFIG, {
+      id: asCreatureId(5), ownerPlayerId: P0,
+      pos: { x: 110, y: 0 }, targetPos: { x: 10, y: 0 },
+      spawnedAtTick: 0, sourceSpawnerId: asSpawnerId(1),
+    });
+    w.creatures.set(chewer.id, chewer);
+    expect(isWithinAttackRange(w, chewer, asBondId(1))).toBe(false); // 100 > chewer 35
+    chewer.pos = { x: 40, y: 0 }; // now 30px from the midpoint (10,0) — within melee
+    expect(isWithinAttackRange(w, chewer, asBondId(1))).toBe(true);
+    // A Voltkin at the same far 100px IS in range (180) — proves the range is per-type.
+    const voltkin = spawnAt(w, P0, 110, 0);
+    expect(isWithinAttackRange(w, voltkin, asBondId(1))).toBe(true);
   });
 });

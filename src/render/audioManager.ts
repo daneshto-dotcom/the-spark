@@ -980,6 +980,76 @@ async function playBoomSFX(pos?: Vec2): Promise<void> {
   osc.stop(now + BOOM_DURATION);
 }
 
+// S102 #2 — pencil-chewer GNAW. A short cached white-noise buffer played in three
+// quick raspy bandpass bursts = a beaver "tchhht·tchhht·tchhht" chewing wood. Replaces
+// the Voltkin lightning that used to leak on a chewer's bite. Each chew (CHEW_BITE) plays
+// the triple-pulse; the severing bite (BOND_SEVERED{cause:'chewer'}) plays a slightly
+// lower/louder "crunch" variant. Procedural; routed through sfxGainNode so master/SFX
+// mute + volume apply.
+const GNAW_PULSES = 3;
+const GNAW_PULSE_GAP = 0.085; // s between the three "tchhht" bursts
+const GNAW_PULSE_DUR = 0.05; // s per raspy burst
+let gnawNoiseBuffer: AudioBuffer | null = null;
+
+function getGnawNoiseBuffer(ctx: AudioContext): AudioBuffer {
+  if (gnawNoiseBuffer !== null) return gnawNoiseBuffer;
+  // 0.25 s of white noise, looped per-burst. Deterministic content is irrelevant
+  // (render-only, post-physics); a simple LCG keeps it allocation-cheap + dependency-free.
+  const len = Math.floor(ctx.sampleRate * 0.25);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  let seed = 0x2e2f36;
+  for (let i = 0; i < len; i++) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    data[i] = (seed / 0xffffffff) * 2 - 1;
+  }
+  gnawNoiseBuffer = buf;
+  return buf;
+}
+
+async function playGnawSFX(pos?: Vec2, final = false): Promise<void> {
+  if (audioContext === null || sfxGainNode === null) return;
+  if (audioContext.state !== 'running') {
+    try { await audioContext.resume(); } catch (e) {
+      if (isDebugRequested()) console.warn('[audio] playGnawSFX resume() threw:', e);
+    }
+  }
+  if (audioContext.state !== 'running') return;
+
+  const ctx = audioContext;
+  const now = ctx.currentTime;
+  const noise = getGnawNoiseBuffer(ctx);
+  const panner = pos !== undefined ? createPanner(pos) : null;
+  const sink: AudioNode = panner ?? sfxGainNode;
+  if (panner !== null) panner.connect(sfxGainNode);
+
+  for (let i = 0; i < GNAW_PULSES; i++) {
+    const t = now + i * GNAW_PULSE_GAP;
+    const src = ctx.createBufferSource();
+    src.buffer = noise;
+    src.loop = true;
+
+    // Bandpass shapes the white noise into a dry raspy "tchhht". The final (sever)
+    // crunch sits a touch lower + louder so the connector breaking reads as conclusive.
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = final ? 850 : 1500 - i * 130; // descending rasp across the 3 bites
+    bp.Q.value = 1.1;
+
+    const g = ctx.createGain();
+    const peak = final ? 0.34 : 0.2;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + 0.008); // fast scrape attack
+    g.gain.exponentialRampToValueAtTime(0.0001, t + GNAW_PULSE_DUR);
+
+    src.connect(bp);
+    bp.connect(g);
+    g.connect(sink);
+    src.start(t);
+    src.stop(t + GNAW_PULSE_DUR + 0.01);
+  }
+}
+
 /**
  * Drain effects for audio. Iterates effects, fires SFX for new ticks, advances
  * the cursor. Replay-safe: effects with tick <= cursor are skipped silently.
@@ -1005,6 +1075,16 @@ export function drainAudioEffects(effects: ReadonlyArray<GameEffect>, currentTic
       // S51 P2.b — positional; S51 P2.c — duck music for the ~700 ms crackle.
       void playOneShot(LIGHTNING_CRACKLE_URL, effect.pos);
       duckMusic(700);
+    } else if (effect.kind === 'BOND_SEVERED' && effect.cause === 'chewer') {
+      // S102 #2 — a pencil chewer's FINAL bite severs the connector with a beaver GNAW
+      // crunch (NOT lightning). Wire-synced (BOND_SEVERED rides the snapshot) so a 1v1
+      // victim hears the connector break too. `final` = the lower/louder crunch variant.
+      void playGnawSFX(effect.pos, true);
+    } else if (effect.kind === 'CHEW_BITE') {
+      // S102 #2 — each non-final chew gnaws ("tchhht·tchhht·tchhht"). Host-local effect
+      // (vs-bots host + the chewing player hear all 5 chews; the 1v1 opponent gets the
+      // wired final-sever crunch above + sees the connector vanish).
+      void playGnawSFX(effect.pos, false);
     } else if (effect.kind === 'CREATURE_CHARGE') {
       // S37 P7 — Voltkin lightning charge-up rising tone, 250 ms procedural
       // synth (sawtooth + biquad lowpass sweep + exp gain envelope). Climaxes

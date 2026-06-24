@@ -36,7 +36,7 @@ import { PLAYER_COLORS } from '../../constants.ts';
 import type { BondId, PlayerId, Vec2 } from '../../types.ts';
 import type { World } from '../world.ts';
 import type { Creature } from './creature.ts';
-import { VOLTKIN_ATTACK_RANGE_SQ } from './creature.ts';
+import { getCreatureConfig } from './voltkin-config.ts';
 
 /**
  * S100 P1 (TD Phase 1a) — avalanche-mix two uint32s into one (murmur3-finalizer
@@ -266,14 +266,21 @@ function spreadEnemyTarget(world: World, creature: Creature, fallbackEnemyId: Bo
 }
 
 /**
- * Pure check: is the given bond's midpoint within VOLTKIN_ATTACK_RANGE of the
- * creature's current position? Squared compare; no sqrt. Caller fetches the
- * bond from world.bonds (returns false if bond is missing — defense-in-depth
- * for race conditions where the bond severs between target-selection and
- * range-check within the same physics tick).
+ * Pure check: is the given bond's midpoint within this creature's PER-TYPE attack
+ * range of its current position? Squared compare; no sqrt. Caller fetches the bond
+ * from world.bonds (returns false if bond is missing — defense-in-depth for race
+ * conditions where the bond severs between target-selection and range-check within
+ * the same physics tick).
+ *
+ * S102 #3 — reads `getCreatureConfig(creature.type).attackRange` instead of the
+ * hardcoded `VOLTKIN_ATTACK_RANGE_SQ`. Before this, a chewer engaged at Voltkin's
+ * 180 px (it "stood near the structure and chewed from afar"); now it uses the
+ * chewer's 35 px so it walks right up to the connector before chewing. Voltkin's
+ * config.attackRange is still 180, so its engage distance is byte-identical.
  */
 export function isWithinAttackRange(world: World, creature: Creature, bondId: BondId): boolean {
   const bond = world.bonds.get(bondId);
   if (bond === undefined) return false;
-  return distSq(creature.pos, bondMidpoint(bond)) <= VOLTKIN_ATTACK_RANGE_SQ;
+  const range = getCreatureConfig(creature.type).attackRange;
+  return distSq(creature.pos, bondMidpoint(bond)) <= range * range;
 }

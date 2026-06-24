@@ -91,37 +91,44 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
   const arcStart: Vec2 = { x: creature.pos.x, y: creature.pos.y };
   const arcEnd: Vec2 = bondMidpoint(bond);
 
-  // Council R1 Q1 UNANIMOUS B: re-dispatch through SEVER_BOND with cause='creature'.
-  // disruptionManager.canSeverBond bypasses auth for 'creature' (line 62 update);
-  // computeBaseCharge returns 0 for non-'player' (line 90 unchanged). Net effect:
-  // bond severs unconditionally, SEVER_ERASE + BOND_SEVERED{cause:'creature'}
-  // emit through the canonical path.
+  // Council R1 Q1 UNANIMOUS B: re-dispatch through SEVER_BOND with a creature cause.
+  // disruptionManager.canSeverBond bypasses auth for creature-class causes;
+  // computeBaseCharge returns 0 for non-'player'. Net effect: bond severs
+  // unconditionally, SEVER_ERASE + BOND_SEVERED{cause} emit through the canonical path.
+  //
+  // S102 #2 — split the chewer cause off Voltkin's: a pencil chewer's final bite uses
+  // cause:'chewer' (the audio drain plays a beaver GNAW, NOT lightning-crackle); a
+  // Voltkin keeps cause:'creature' (its lightning zap). `creature.type` is the discriminant.
+  const isChewer = creature.type === 'chewer';
   dispatch(world, {
     type: 'SEVER_BOND',
     bondId: action.bondId,
     playerId: creature.ownerPlayerId,
-    cause: 'creature',
+    cause: isChewer ? 'chewer' : 'creature',
   });
 
-  // Emit ARC_FLASH only if the bond actually severed. canSeverBond bypass for
-  // 'creature' makes this near-tautological in S27, but the guard is cheap
-  // and protects against future cause-policy changes (e.g. S28 adds a "creature
-  // can't sever its own structures during a certain GameState").
+  // Emit ARC_FLASH only if the bond actually severed.
   if (!world.bonds.has(action.bondId)) {
     // S36 P3 — increment kill counter. Drives the DESPAWNING victory/hurt frame
     // branch (`voltkinFrames.currentFrameKey`). Tick-deterministic — same
-    // success guard as ARC_FLASH emission so the two stay in lockstep.
+    // success guard as the visual emission so the two stay in lockstep.
     creature.killCount += 1;
-    world.effects.push({
-      kind: 'ARC_FLASH',
-      tick: world.tick,
-      start: arcStart,
-      end: arcEnd,
-      // S33 P1-11 — emitter ID so simultaneous same-tick attacks from
-      // multiple creatures at int-truncated-equal positions don't render
-      // identical jitter (latent at S33, breaks at Anvil multi-creature).
-      creatureId: creature.id,
-    });
+    // S102 #2 — a chewer's bite is a GNAW, not a lightning zap: emit NO ARC_FLASH for
+    // a chewer. This also suppresses the creature-attack screen-shake (main.ts gates the
+    // shake on an ARC_FLASH emission this tick), so a chewer chewing through a connector
+    // is quiet + un-flashy — just the gnaw. Voltkin keeps its lightning arc + shake.
+    if (!isChewer) {
+      world.effects.push({
+        kind: 'ARC_FLASH',
+        tick: world.tick,
+        start: arcStart,
+        end: arcEnd,
+        // S33 P1-11 — emitter ID so simultaneous same-tick attacks from
+        // multiple creatures at int-truncated-equal positions don't render
+        // identical jitter (latent at S33, breaks at Anvil multi-creature).
+        creatureId: creature.id,
+      });
+    }
   }
 
   return world;

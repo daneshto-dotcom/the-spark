@@ -21,6 +21,7 @@ import {
   asBondId,
   asPlayerId,
   asPrimitiveId,
+  asSpawnerId,
   type BondId,
 } from '../../types.ts';
 import type { Bond } from '../../physics/bonds.ts';
@@ -28,7 +29,8 @@ import type { Primitive } from '../../game/primitive.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
 import { makeWorld, type World } from '../world.ts';
 import { applyCreatureAttack } from './creatureAttack.ts';
-import { asCreatureId, makeVoltkinCreature, type Creature } from './creature.ts';
+import { asCreatureId, makeCreature, makeVoltkinCreature, type Creature } from './creature.ts';
+import { CHEWER_CONFIG } from './voltkin-config.ts';
 
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
@@ -150,6 +152,40 @@ describe('applyCreatureAttack — happy path', () => {
     // (single-prim limb) → split.del.size = 1 → exactly one SEVER_ERASE.
     // Exact count catches mutations that produce 0 or 2+ (logic regression).
     expect(severs).toHaveLength(1);
+  });
+});
+
+describe('applyCreatureAttack — chewer gnaw vs Voltkin lightning (S102 #2)', () => {
+  // Same enemy bond (midpoint 10,0) but the attacker is a CHEWER, not a Voltkin.
+  function setupChewer(): { world: World; creature: Creature; bondId: BondId } {
+    const base = setupWorld();
+    base.world.creatures.clear();
+    const chewer = makeCreature(CHEWER_CONFIG, {
+      id: asCreatureId(0), ownerPlayerId: P0,
+      pos: { x: 50, y: 30 }, targetPos: { x: 10, y: 0 },
+      spawnedAtTick: 0, sourceSpawnerId: asSpawnerId(1),
+    });
+    chewer.state = 'ATTACKING';
+    chewer.targetBondId = base.bondId;
+    base.world.creatures.set(chewer.id, chewer);
+    return { world: base.world, creature: chewer, bondId: base.bondId };
+  }
+
+  it("a chewer's final bite severs with cause='chewer' (a GNAW), NOT 'creature' (lightning)", () => {
+    const { world, creature, bondId } = setupChewer();
+    applyCreatureAttack(world, { type: 'CREATURE_ATTACK', creatureId: creature.id, bondId });
+    expect(world.bonds.has(bondId)).toBe(false); // still severs
+    const bondSevered = world.effects.find((e) => e.kind === 'BOND_SEVERED');
+    expect(bondSevered).toBeDefined();
+    if (bondSevered && bondSevered.kind === 'BOND_SEVERED') {
+      expect(bondSevered.cause).toBe('chewer'); // gnaw audio routing, not lightning-crackle
+    }
+  });
+
+  it('a chewer emits NO ARC_FLASH (no lightning visual, no creature-attack screen-shake)', () => {
+    const { world, creature, bondId } = setupChewer();
+    applyCreatureAttack(world, { type: 'CREATURE_ATTACK', creatureId: creature.id, bondId });
+    expect(world.effects.find((e) => e.kind === 'ARC_FLASH')).toBeUndefined();
   });
 });
 

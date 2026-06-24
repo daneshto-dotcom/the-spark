@@ -56,6 +56,7 @@ import { type Player } from '../game/player.ts';
 import type { SpawnerState } from '../game/spawner.ts';
 import type { Bomb } from './bomb.ts';
 import type { Creature, CreatureState, CreatureType } from './creatures/creature.ts';
+import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import type { Hunter, HunterState } from './hunters/hunter.ts';
 import type { Potato, PotatoState } from './potato.ts';
 import type { Rainbow } from './rainbow.ts';
@@ -352,7 +353,7 @@ type SerializedEffect =
       readonly kind: 'BOND_SEVERED';
       readonly tick: number;
       readonly pos: Vec2;
-      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb';
+      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer'; // S102 #2 — chewer gnaw sever
     }
   | {
       /**
@@ -441,6 +442,14 @@ interface SerializedCreature {
   readonly chewProgress?: number;
   readonly sourceSpawnerId?: SpawnerId;
   readonly targetBondId?: BondId;
+  /**
+   * S102 (unified HP model) — remaining creature hit-points. HOST-SAVE-ONLY (stripped
+   * from the wire by trimMirrorCreature; the client rehydrates the config default).
+   * Emitted by serializeCreature ONLY when DAMAGED (hp < config.hp) so an undamaged
+   * creature (every creature in normal play until P3's combat) stays byte-identical to
+   * a pre-S102 save. deserializeCreature defaults a missing value to the per-type config.
+   */
+  readonly hp?: number;
 }
 
 /**
@@ -732,7 +741,8 @@ function trimMirrorCreature(c: SerializedCreature): SerializedCreature {
     c.sourceSpawnerId === undefined &&
     c.despawnAtTick === undefined &&
     c.chewProgress === undefined &&
-    c.targetBondId === undefined
+    c.targetBondId === undefined &&
+    c.hp === undefined // S102 — hp is host-only too (stripped below)
   ) {
     return c; // Voltkin / no host-only fields — already in wire shape
   }
@@ -741,9 +751,10 @@ function trimMirrorCreature(c: SerializedCreature): SerializedCreature {
     despawnAtTick: _d,
     chewProgress: _c,
     targetBondId: _t,
+    hp: _h, // S102 — strip damaged-hp from the wire (client rehydrates the config default)
     ...wire
   } = c;
-  void _s; void _d; void _c; void _t;
+  void _s; void _d; void _c; void _t; void _h;
   return wire;
 }
 
@@ -1164,6 +1175,9 @@ function serializeCreature(c: Creature): SerializedCreature {
       : {}),
     ...(c.chewProgress > 0 ? { chewProgress: c.chewProgress } : {}),
     ...(c.targetBondId !== null ? { targetBondId: c.targetBondId } : {}),
+    // S102 — emit hp ONLY when damaged (below the per-type config default) so an undamaged
+    // creature stays byte-identical to a pre-S102 save (every creature until P3 combat).
+    ...(c.hp < getCreatureConfig(c.type).hp ? { hp: c.hp } : {}),
   };
 }
 
@@ -1356,6 +1370,10 @@ function deserializeCreature(s: SerializedCreature): Creature {
     targetBondId: s.targetBondId ?? null,
     sourceSpawnerId: s.sourceSpawnerId ?? null,
     chewProgress: s.chewProgress ?? 0,
+    // S102 — rehydrate hp: a host save of a damaged creature carries it; the wire strips it
+    // (trimMirrorCreature), so a client mirror + any pre-S102 save default to the per-type
+    // config hp (chewer 1 / Voltkin 2).
+    hp: s.hp ?? getCreatureConfig(s.type).hp,
   };
 }
 

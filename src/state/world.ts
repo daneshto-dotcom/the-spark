@@ -166,7 +166,9 @@ export type GameAction =
       readonly playerId: PlayerId;
       // S71 P1 — 'bomb' added: bypasses charge + auth like 'creature'/'physics'
       // (host-authoritative bomb detonation; the picker damages their OWN bonds).
-      readonly cause: 'player' | 'physics' | 'creature' | 'bomb';
+      // S102 #2 — 'chewer' added: a pencil chewer's final bite (gnaw audio, no lightning;
+      // bypasses charge + auth exactly like 'creature').
+      readonly cause: 'player' | 'physics' | 'creature' | 'bomb' | 'chewer';
     }
   | TickEnergyAction
   | { readonly type: 'WIN_TRIGGER'; readonly winnerId: PlayerId }
