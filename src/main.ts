@@ -95,6 +95,7 @@ import { SparkRenderer, makeLegend, makeSpawnerRing } from './render/renderer.ts
 import { createSettingsOverlay } from './render/settingsOverlay.ts';
 import { StatsOverlay } from './render/statsOverlay.ts';
 import { StructureRenderer } from './render/structureRenderer.ts';
+import { DragPreviewRenderer } from './render/dragPreviewRenderer.ts';
 import { TitleScreen } from './render/titleScreen.ts';
 import { HUD } from './render/ui.ts';
 import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
@@ -364,6 +365,10 @@ async function bootstrap(): Promise<void> {
   const controls = new Controls(app, world, P1, dispatchFn);
   const sparkRenderer = new SparkRenderer(app);
   const structureRenderer = new StructureRenderer(app);
+  // S98 P3 — drag-time connection preview. Constructed right after the board
+  // layers so its Graphics sits ABOVE the bonds/prims but BELOW effects/avatar/
+  // fog/HUD + aboveFogLayer (added later). Render-only; pulses while dragging.
+  const dragPreviewRenderer = new DragPreviewRenderer(app);
   // S77 P2 — global-reach hazards (potato/rainbow/hunter/Voltkin) render THROUGH the fog to ALL
   // players: they draw into aboveFogLayer, staged after the FogRenderer (below) so it sits ABOVE
   // the fog + memory ghosts but BELOW the HUD. Rule: visible-to-all iff can-affect-all. Bomb is
@@ -1662,6 +1667,8 @@ async function bootstrap(): Promise<void> {
     if (debugOverlay !== null) debugOverlay.sync(world, debugProbes);
     effectsRenderer.sync(world);
     avatarRenderer.sync(world, controls);
+    // S98 P3 — pulsating preview of the bond(s) the dragged spark would form.
+    dragPreviewRenderer.sync(world, controls);
     // S86 P4 — the spark IS the pointer: hide the OS cursor over the canvas
     // while the board is live (round-6 user ask). Title/lobby/win/postgame
     // restore the native pointer (UI surfaces); DOM overlays (settings,
