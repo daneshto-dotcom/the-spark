@@ -22,6 +22,10 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "checkpoint_commit": "de9c799",
+      "verification": [
+        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "?? 0.1875"},
+        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/game/spawner.ts", "needle": "reseed(baseSeed"}
+      ],
       "check_completed": true,
       "check_method": "S105 P1 DONE (de9c799). Gates: tsc 0; vitest 1653/1653 (+3 reseed tests: same-base-seed->identical, diff-seed->different, reseed-moves-off-boot-0xc0ffee); build entry 598.0/750 KiB (152 headroom). ROOT CAUSE was a FIXED boot seed (main.ts SEED=0xc0ffee), not a non-random picker (ALL_SPARK_TYPES has 6 shapes + rngPick already random) -> identical sequence every match. FIX: Spawner.reseed(baseSeed) setStates all 5 streams via SPAWNER_STREAM_OFFSETS (single source of truth, mirrors main.ts boot derivation) + re-samples countdowns; reseedForNewMatch() in main.ts draws Math.random base seed at EVERY host begin (solo/vs-bots/networked-host onBeginMatch wrap) + sets world.rngSeed; vs-bots also seeds BotManager from the same draw. SPAWN_RATE_PER_SECOND 0.15->0.1875 (LOCKED Item 3 owner-authorized amendment). DETERMINISM verified: spawner+sim are host-only (joiner mirrors via NetSnapshot) so no wire/PROTOCOL change; replay tests pin own seeds (unaffected); save captures rng WORDS via getState; rainbow/sudoku RNG derive from world.rngSeed but are host-only + replay-captured. nextId NOT reset on reseed (monotonic, no id collision). NOTE runtime spawn-feel is owner playtest (WebGL rAF).",
       "objective": "Each match a different unpredictable spawn sequence; primitives arrive ~20% sooner. Determinism/replay preserved.",
@@ -38,6 +42,10 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "checkpoint_commit": "11d2438",
+      "verification": [
+        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts", "needle": "(7 spirals, not 4.)"},
+        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/codexOverlay.ts", "needle": "shown in BOTH states"}
+      ],
       "check_completed": true,
       "check_method": "S105 P2 DONE (11d2438). Gates: tsc 0; build entry 598.2/750 KiB; codexOverlay stays a LAZY 15.45 KiB chunk (off entry — M12 invariant from S104 preserved). ROOT of the turret 'bug' = pure discoverability: recipe needs 1 Line + 7 Spirals (laserTurret.ts) but the codex hid the recipe behind the unlock gate ('??? / build it to reveal') so you couldn't check it before building. FIX: codexOverlay.makeSpriteTile now renders the recipeHint in BOTH locked+unlocked states (only the NAME + character art stay hidden as the brother-surprise reveal). Made all recipeHints EXACT (main.ts): voltkin '4 Squares then 4 Triangles in one straight chain' (was cryptic 'lightning meets a screen'), turret explicitly '7 spirals, not 4', pentagram/HELGA with totals. Connectors (combos tab) already show their 2-shape glyph recipe (dimmed when undiscovered) — recipe visible, result-name is the reveal, consistent treatment. Render/string only, zero sim/determinism impact. Runtime codex render is owner playtest (WebGL).",
       "objective": "Every godly/tower/connector shows its exact build recipe, checkable BEFORE building.",
@@ -54,6 +62,10 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "checkpoint_commit": "dcdfdcb",
+      "verification": [
+        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts", "needle": "lastSnapshotSentMs"},
+        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/chewerRenderer.ts", "needle": "fade > 0.04"}
+      ],
       "check_completed": true,
       "check_method": "S105 P3 DONE (dcdfdcb). Gates: tsc 0; vitest 1653/1653 (net/sync 60 + replay 21 green — the determinism-sensitive surface); build entry 598.1/750 KiB. Architecture judge-panel (wf_22b3c4c6, 5 agents, profiled host per-frame cost): DOMINANT host-only cost = the 10Hz full-world snapshot serialize+JSON.stringify (no delta-encode), and it ran INSIDE the physics catch-up while-loop. Panel scored worker-sim(24)/in-frame-budget(29)/lockstep(15); chose IN-FRAME-BUDGET now + WORKER-SIM as the scalable end-state milestone. SHIPPED: Step 1 — moved the host send OUT of the physics drain to ONE post-loop wall-clock ~10Hz send (performance.now gate + >=SNAPSHOT_INTERVAL_TICKS fresh-state floor; removed the in-loop NONET-freeze replica, post-loop send covers it). Step 2 — chewer render trim (skip near-faded draw; body ring 22->16 segs). Both determinism-NEUTRAL (only WHEN we serialize / how the read-only mirror draws — no reducer/RNG/snapshot-content change). DEFERRED to the logged milestone (see carry_forward): worker-sim cutover (host becomes render-only == client; worker boundary == future dedicated-server boundary), snapshot pooling (pairs with delta-encode = Milestone B, the real complexity-class fix), runHostTick extraction, STATEHASH+transcendental determinism instrument, collision 64->8 grid-rebuild (Milestone C, needs new stepPhysics replay test). Honest scope: this is a real felt win for the lagging host + the scalable decision; FULL host-independence is the worker milestone. Runtime smoothness is owner playtest.",
       "objective": "Host stays smooth at TD-entity scale; architecture portable toward more players / dedicated authority.",
@@ -70,6 +82,10 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "checkpoint_commit": "c2610ab",
+      "verification": [
+        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/audioManager.ts", "needle": "final ? 0.5 : 0.36"},
+        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/chewerRenderer.ts", "needle": "bucket >= 0"}
+      ],
       "check_completed": true,
       "check_method": "S105 P4 DONE (c2610ab). Gates: tsc 0; vitest render 73/73 (chewerRenderer 10 + audioManager 63), no test pins the gnaw gate; build entry 598.1/750 KiB. DIAGNOSIS: synth (playGnawSFX) + FSM correct (chewer holds ATTACKING 300 ticks; gate fired ~5x/chew on host); state+ticksInState ARE wired to the client mirror (save.ts:411-412,766 — verified, chewProgress correctly stripped). So neither wire nor synth was broken — the gnaw was just MISSABLE: started 1s into a chew (bucket>=1) at 0.2 gain, lost under music + positional distance attenuation (listener at canvas centre; far ATTACKING chewers ~0.6x). FIX (render-only, determinism-neutral): chewerRenderer gate bucket>=1 -> bucket>=0 (fire the instant a chewer latches on + every bite); playGnawSFX peak 0.2->0.36 (final crunch 0.34->0.5). MAX_GNAW_VOICES=3/frame still caps the swarm. NOTE: if owner playtest STILL shows silence, the residual hypothesis is chewers staying SEEKING near the owner's own base (hop mouth-gape looks like chewing) while the real ATTACKING happens at the far enemy base — that's correct behavior, not a bug; the louder/earlier gnaw maximizes audibility regardless. Runtime audibility is owner playtest.",
       "objective": "A chewing chewer is unmistakably audible on host AND client.",
