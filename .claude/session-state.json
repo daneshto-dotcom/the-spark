@@ -92,7 +92,13 @@
       "testing": "tsc 0; vitest green; render-only (no sim/replay impact); build < 750 KiB."
     }
   ],
-  "reflexion_entries_to_archive": [],
-  "real_context_tokens_at_close": null,
-  "real_context_pct_at_close": null
+  "reflexion_entries_to_archive": [
+    "P1 #finite-lifetime-is-an-FSM-change-not-a-config-tweak: the chewer despawn gate is `if (!config.persistent)`, so lowering lifetimeTicks alone is a NO-OP (despawnAtTick is never read for a persistent creature) — flip persistent:false to REUSE the proven Voltkin DESPAWNING->auto-delete FSM. And key render SFX off WIRED fields (state==='ATTACKING' + ticksInState) — chewProgress/sourceSpawnerId are STRIPPED from the client mirror, so a chewProgress-keyed gnaw is silent on the 1v1 joiner. Two tests pinned the OLD contract (towerDefense + voltkin-config) — find + invert them.",
+    "P2 #host-seed-beats-a-scripted-bot-builder: to give a bot a named multi-primitive structure without RNG-draw-order surgery on its single shared mulberry32 (which shifts EVERY later draw + invalidates all vs-bots baselines), have the HOST deterministically PLACE it at START_GAME via pure seat-angle math (zero RNG) and reuse the real recipe-ignition path. Place the FULL shape (re-validation tears down a partial), which doubles as the raid counterplay.",
+    "P3 #merge-overlays-but-prove-it-via-the-build: verify a lazy-overlay merge by the BUILD output (one ~15.6 KiB codexOverlay chunk, the old comboCodexOverlay chunk GONE, entry stayed lazy) not just tsc. unlock-on-build is a render-loop localStorage mirror of world.creatureSpawners/defenders — uniform host+client, idempotent; the determinism invariant is that unlock is WRITE-ONLY from the sim's view (no reducer READS unlock state). A G+C chord is pure UI -> main.ts (overlay owner), never controls.ts (the sim-input FSM whose lock-guards would swallow it).",
+    "P4 #verify-the-registry-consumer-before-registering: registering the orphaned PENTAGRAM_RECIPE was safe ONLY because findSpawnerMatch (the registry consumer) is DEAD CODE and ignition uses findAllPentagramAnchors directly — so no double-fire. Always grep the consumer before assuming a registration is inert vs a double-ignition.",
+    "META #the-council-caught-a-blocker-i-missed: the Opus 3-lens deliberation found a real BLOCKER (the persistent-gate no-op + the two old-contract tests) plus the chewProgress-wire-strip correctness bug that would have shipped client-silent SFX. Run the deliberation even when confident; the adversarial determinism/wire lens earns its keep on a lockstep game."
+  ],
+  "real_context_tokens_at_close": 539708,
+  "real_context_pct_at_close": 53.97
 }
