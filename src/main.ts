@@ -118,10 +118,9 @@ import { TitleScreen } from './render/titleScreen.ts';
 import { HUD } from './render/ui.ts';
 import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
 import type { SudokuOverlay } from './render/sudokuOverlay.ts';
-// S97 G3b — ComboCodexOverlay is LAZY (shown only on a COMBOS click); only its
-// type is needed eagerly. The tiny Pixi-free store IS eager (the render loop
-// persists discoveries through it every match).
-import type { ComboCodexOverlay } from './render/comboCodexOverlay.ts';
+// S97 G3b / S104 P3 — the Magic-14 combos are now a TAB inside the unified CodexOverlay (the
+// separate ComboCodexOverlay was deleted). The tiny Pixi-free store stays eager (the render loop
+// persists discoveries through it every match; the codex's COMBOS tab reads it).
 import { mergeDiscoveredCombos } from './render/comboCodexStore.ts';
 import { makeCinematicVignette } from './render/cinematicVignette.ts';
 // S87 P4 — CodexOverlay is LAZY (shown only on a Codex click). Lazy-loading it
@@ -492,51 +491,82 @@ async function bootstrap(): Promise<void> {
   const grid = new SpatialGrid(SPATIAL_CELL_SIZE);
 
   // ===== S22 P3 — godly cinematic overlay + counter-window vignette + Codex =====
+  // S104 P3 — "how to build" text per recipe id. Cinematic godlies stay purposefully cryptic
+  // (the brother-surprise easter-egg convention); the TOWERS & STRUCTURES recipes get PRECISE
+  // build instructions — this is the direct fix for the owner's "couldn't build the turret".
   const recipeHint = (id: string): string => {
-    // v1 hints are purposefully cryptic to preserve discovery. S24+ may refine.
-    if (id === 'voltkin') return 'lightning meets a screen';
-    return '???';
+    switch (id) {
+      case 'voltkin': return 'lightning meets a screen';
+      case 'pentagram': return 'Spawner: 5 Triangles bonded in a closed ring (each Triangle links to exactly 2 others).';
+      case 'laserTurret': return 'Tower: 1 Line + 7 Spirals all bonded to that Line — fires a beam at enemy chewers.';
+      case 'helga': return 'Tower: a Triangle hub + 3 Spirals + 3 Circles all bonded to the hub — she slaps chewers.';
+      default: return '???';
+    }
   };
   const cutsceneOverlay = new CutsceneOverlay(app);
   const vignette = makeCinematicVignette(app);
   // S87 P4 — CodexOverlay is created lazily on first open (the botSetupOverlay
   // pattern). recipeHint + listRecipes are cheap + already eager; the heavy
   // Pixi overlay class + its Assets/ColorMatrixFilter usage load on demand.
+  // S104 P3 — ONE unified CODEX (3 tabs: GODLY COMBOS / COMBOS / TOWERS & STRUCTURES). Lazy on first
+  // open (the botSetupOverlay pattern — Pixi weight off the entry chunk). Opened from the title-screen
+  // CODEX button AND in-game via the G+C chord (openCodex('towers') etc.). Godly = cinematic recipes
+  // (+ the synthetic NONET); towers = spawner + defender recipes. Combos read comboCodexStore directly.
   let codexOverlay: CodexOverlay | null = null;
-  const openCodex = (): void => {
+  const openCodex = (tab: 'godly' | 'combos' | 'towers' = 'godly'): void => {
     void (async () => {
       if (codexOverlay === null) {
         const mod = await import('./render/codexOverlay.ts');
-        const codexEntries = [
-          ...listRecipes().map((recipe) =>
-            mod.entryFromRecipe(recipe, recipe.id.toUpperCase(), recipeHint(recipe.id)),
-          ),
+        const godly = [
+          ...listRecipes()
+            .filter((r) => r.kind === 'cinematic')
+            .map((r) => mod.entryFromRecipe(r, r.id.toUpperCase(), recipeHint(r.id))),
           NONET_CODEX_ENTRY, // S94 — NONET super-combo (synthetic, non-recipe entry)
         ];
-        codexOverlay = new mod.CodexOverlay(app, codexEntries, () => {
+        const towers = listRecipes()
+          .filter((r) => r.kind === 'spawner' || r.kind === 'defender')
+          .map((r) => mod.entryFromRecipe(r, r.id.toUpperCase(), recipeHint(r.id)));
+        codexOverlay = new mod.CodexOverlay(app, { godly, towers }, () => {
           codexOverlay?.setVisible(false);
         });
       }
-      codexOverlay.setVisible(true);
+      codexOverlay.open(tab);
     })();
   };
 
-  // S97 G3b — Combo Codex (the Magic-14 gallery). Lazy on first open, like the
-  // godly CodexOverlay. Reads discovery from the cross-match comboCodexStore
-  // (the in-match world.discoveredCombos is wiped on return-to-title; the render
-  // loop below mirrors its growth into that store).
-  let comboCodexOverlay: ComboCodexOverlay | null = null;
-  const openComboCodex = (): void => {
-    void (async () => {
-      if (comboCodexOverlay === null) {
-        const mod = await import('./render/comboCodexOverlay.ts');
-        comboCodexOverlay = new mod.ComboCodexOverlay(app, () => {
-          comboCodexOverlay?.setVisible(false);
-        });
-      }
-      comboCodexOverlay.setVisible(true);
-    })();
+  // S104 P3 — G+C key CHORD opens the unified Codex IN-GAME (the owner's "G + C at the same time").
+  // Pure UI: it dispatches NOTHING to the sim, so it lives here (main.ts owns the overlays) and NOT
+  // in controls.ts (the per-player world-mutating sim-input FSM whose lock-guards could swallow it).
+  // Edge-triggered (open once on the transition into both-down; ignore OS key-repeat); the pressed
+  // set clears on blur + tab-hide so an alt-tab with G held can't spuriously fire on the next C.
+  // Guarded against typing into a field, the NONET trial, and an active cinematic. Opens on the
+  // TOWERS tab — the in-game "how do I build this?" is the chord's reason for existing.
+  const chordKeys = new Set<string>();
+  let codexChordFired = false;
+  const chordBlocked = (): boolean => {
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return true;
+    if (world.sudoku !== null) return true;
+    if (world.activeCinematicPlayerId !== null) return true;
+    return false;
   };
+  const resetChord = (key?: string): void => {
+    if (key === undefined) chordKeys.clear();
+    else chordKeys.delete(key);
+    if (!chordKeys.has('g') || !chordKeys.has('c')) codexChordFired = false;
+  };
+  window.addEventListener('keydown', (e) => {
+    const k = e.key.toLowerCase();
+    if (k !== 'g' && k !== 'c') return;
+    chordKeys.add(k);
+    if (chordKeys.has('g') && chordKeys.has('c') && !codexChordFired) {
+      codexChordFired = true; // latch until a keyup breaks the chord (no re-open on key-repeat)
+      if (!chordBlocked()) openCodex('towers');
+    }
+  });
+  window.addEventListener('keyup', (e) => resetChord(e.key.toLowerCase()));
+  window.addEventListener('blur', () => resetChord());
+  document.addEventListener('visibilitychange', () => { if (document.hidden) resetChord(); });
 
   // ===== S87 — VS-BOTS: lazy overlay + lazy manager =====
   // The manager exists ONLY during a bots match (armed on START MATCH, dropped
@@ -597,9 +627,6 @@ async function bootstrap(): Promise<void> {
     },
     onCodexSelected: () => {
       openCodex();
-    },
-    onCombosSelected: () => {
-      openComboCodex();
     },
   });
 
@@ -1799,6 +1826,15 @@ async function bootstrap(): Promise<void> {
         mergeDiscoveredCombos(world.discoveredCombos);
       }
       lastDiscoveredComboSize = world.discoveredCombos.size;
+    }
+    // S104 P3 — unlock-on-build for the TOWERS & STRUCTURES Codex tab. runSpawnerIgnition /
+    // runDefenderIgnition only DISPATCH (they never call unlockGodly), so those tiles could never
+    // reveal. A spawner/defender LIVE in the synced world unlocks its tile — uniform on host AND the
+    // 1v1 client (both hold the synced maps; the combo-mirror precedent above). unlockGodly is
+    // idempotent pure-localStorage (zero sim coupling); the maps are tiny so the per-frame scan is free.
+    if (world.creatureSpawners.size > 0 || world.defenders.size > 0) {
+      for (const sp of world.creatureSpawners.values()) unlockGodly(sp.recipeId);
+      for (const d of world.defenders.values()) unlockGodly(d.recipeId);
     }
     // S93 — draw the NONET trial overlay on top (hidden when world.sudoku is null).
     if (world.sudoku !== null) ensureNonetOverlay();

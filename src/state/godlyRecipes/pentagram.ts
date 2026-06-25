@@ -36,6 +36,7 @@
  */
 
 import { SparkType } from '../../constants.ts';
+import { registerRecipe } from './index.ts';
 import { componentOf } from '../../game/structure.ts';
 // Type-only World import from the leaf worldTypes (NOT world.ts) so
 // spawnerLifecycle.ts can import isPentagramComponent without a runtime
@@ -164,3 +165,10 @@ export const PENTAGRAM_RECIPE: SpawnerGodlyRecipe = {
   // placeholder until the pencil-drawn chewer/spawner art pass (Phase 4).
   characterSprite: '/godly/voltkin/sprites/voltkin-zap.png',
 };
+
+// S104 P4 (Council M8) — register the (previously orphaned) pentagram SPAWNER recipe so it appears
+// in the unified Codex's TOWERS & STRUCTURES tab + unlock-on-build can reveal it. This does NOT
+// change ignition: runSpawnerIgnition uses findAllPentagramAnchors directly, and findSpawnerMatch
+// (the registry consumer) is currently dead code, so there is no double-register / double-ignition.
+// findGodlyMatch skips it (kind !== 'cinematic'). Side-effect import in main.ts triggers this.
+registerRecipe(PENTAGRAM_RECIPE);
