@@ -139,7 +139,12 @@ export class ChewerRenderer {
       // fire one rasp when the bucket increments while ATTACKING (≈ CHEW_HITS bites/bond at 1/s).
       const bucket = c.state === 'ATTACKING' ? Math.floor(c.ticksInState / CHEW_INTERVAL_TICKS) : -1;
       const prevBucket = this.lastChewBucket.get(c.id) ?? -1;
-      if (c.state === 'ATTACKING' && bucket > prevBucket && bucket >= 1 && gnawsThisFrame < MAX_GNAW_VOICES) {
+      // S105 P4 — fire the gnaw the INSTANT a chewer latches onto a connector (bucket >= 0, was >= 1),
+      // not a full second later, so the chewing is audible immediately + even on a short commit. The
+      // owner heard NO gnaw in playtest though the synth + FSM were correct — the old 1s-delayed,
+      // quiet (0.2-gain) rasp was easy to miss under music, especially for ATTACKING chewers far from
+      // the audio-listener (canvas centre). Now: immediate + on every bite + louder (see audioManager).
+      if (c.state === 'ATTACKING' && bucket > prevBucket && bucket >= 0 && gnawsThisFrame < MAX_GNAW_VOICES) {
         void playGnawSFX({ x: c.pos.x, y: c.pos.y }, false);
         gnawsThisFrame++;
       }

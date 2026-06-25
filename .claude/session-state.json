@@ -47,12 +47,15 @@
     {
       "id": "P3",
       "label": "S105 P3 - Smooth regardless of host (scalable). Per architecture judge-panel (wf_22b3c4c6): adopt recommended approach + shippable-now change list; log milestone follow-ups. Bound + cheapen the dominant host per-frame cost; keep render decoupled from sim; worker-authority migration logged as scalable milestone.",
-      "status": "pending",
-      "phase": "PLAN",
+      "status": "completed",
+      "phase": "DONE",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
+      "checkpoint_commit": "dcdfdcb",
+      "check_completed": true,
+      "check_method": "S105 P3 DONE (dcdfdcb). Gates: tsc 0; vitest 1653/1653 (net/sync 60 + replay 21 green — the determinism-sensitive surface); build entry 598.1/750 KiB. Architecture judge-panel (wf_22b3c4c6, 5 agents, profiled host per-frame cost): DOMINANT host-only cost = the 10Hz full-world snapshot serialize+JSON.stringify (no delta-encode), and it ran INSIDE the physics catch-up while-loop. Panel scored worker-sim(24)/in-frame-budget(29)/lockstep(15); chose IN-FRAME-BUDGET now + WORKER-SIM as the scalable end-state milestone. SHIPPED: Step 1 — moved the host send OUT of the physics drain to ONE post-loop wall-clock ~10Hz send (performance.now gate + >=SNAPSHOT_INTERVAL_TICKS fresh-state floor; removed the in-loop NONET-freeze replica, post-loop send covers it). Step 2 — chewer render trim (skip near-faded draw; body ring 22->16 segs). Both determinism-NEUTRAL (only WHEN we serialize / how the read-only mirror draws — no reducer/RNG/snapshot-content change). DEFERRED to the logged milestone (see carry_forward): worker-sim cutover (host becomes render-only == client; worker boundary == future dedicated-server boundary), snapshot pooling (pairs with delta-encode = Milestone B, the real complexity-class fix), runHostTick extraction, STATEHASH+transcendental determinism instrument, collision 64->8 grid-rebuild (Milestone C, needs new stepPhysics replay test). Honest scope: this is a real felt win for the lagging host + the scalable decision; FULL host-independence is the worker milestone. Runtime smoothness is owner playtest.",
       "objective": "Host stays smooth at TD-entity scale; architecture portable toward more players / dedicated authority.",
       "scope": "per workflow reco — main.ts ticker loop, net/sync.ts + save.ts serialization, the per-frame renderers; determinism contract untouched.",
       "testing": "vitest green incl. replay determinism; build < 750 KiB; boot-smoke; owner playtest for felt smoothness."
@@ -72,6 +75,10 @@
     }
   ],
   "carry_forward_priorities": [
+    "SCALABLE-SMOOTHNESS MILESTONE (next dedicated Full-tier session, runtime-flag-gated ?worker=1): worker-sim cutover — move the authoritative sim into a Web Worker so the host main thread becomes render-only (== client) and runs the SAME snapshot-apply path; main becomes a relay (worker->snapshot->render+netTransport.send; wire->intent->worker.postMessage); transport STAYS on main (WebRTC needs navigator). worker boundary == future dedicated-server boundary (same Intent/Snapshot protocol). Biggest playability risk = host-as-client drag feel (reuse sync.ts dragLock reconcile). Verify TITLE<->PLAYING<->POSTGAME teardown + NONET-freeze replication + Safari module-worker + drag feel before flipping the default.",
+    "Milestone B (with/after worker): snapshot POOLING (snapshotInto a persistent buffer on the net path, gated by a pooled==fresh equality test across spawn+despawn) + DELTA-ENCODE (diff vs last-sent, send only changed entities) + binary wire format — the real O(total-world)/100ms complexity-class fix. Pooled buffer is the diff/transfer unit.",
+    "Milestone groundwork (additive, low-risk, any session): extract runHostTick(world,deps) from the main.ts !isClient sim block (the worker's entry point; guarded by replay tests) + add a STATEHASH (FNV-1a over determinismJson) + a grep audit asserting no Math.sin/cos/pow/exp feeds WORLD STATE in the sim hot path (render-only transcendentals allowed).",
+    "Milestone C (determinism-sensitive, own Council + new stepPhysics-replay test FIRST): resolveCollisions 64->8 grid-rebuild (once per substep, not per inner iteration). Secondary sim cost: throttle the Voltkin every-tick bond rescan (O(creatures x bonds)) — also needs a replay baseline.",
     "Leader crown + enhance existing BOND_COMMIT flair (re-scope, not a parallel burst)",
     "TD connector visible-damage (render Bond.hp)",
     "Ghost build-hint (live next-primitive scaffold)",

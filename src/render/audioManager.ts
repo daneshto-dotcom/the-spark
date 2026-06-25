@@ -1037,7 +1037,11 @@ export async function playGnawSFX(pos?: Vec2, final = false): Promise<void> {
     bp.Q.value = 1.1;
 
     const g = ctx.createGain();
-    const peak = final ? 0.34 : 0.2;
+    // S105 P4 — louder gnaw (was 0.2 / 0.34 final). The owner heard NO chewing in playtest; at 0.2
+    // the raspy bursts were lost under the music bed + positional distance attenuation. Raised so a
+    // chewing chewer is unmistakable; the MAX_GNAW_VOICES=3/frame cap (chewerRenderer) keeps a
+    // 12-chewer swarm from becoming a wall of static.
+    const peak = final ? 0.5 : 0.36;
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(peak, t + 0.008); // fast scrape attack
     g.gain.exponentialRampToValueAtTime(0.0001, t + GNAW_PULSE_DUR);
