@@ -14,14 +14,16 @@
   "priorities": [
     {
       "id": "P1",
-      "label": "S104 P1 - Chewer continuous production + audible chewing: finite chewer lifetime (churn) reconciled with the persistent despawn gate; raise CHEWER_MAX_PER_SPAWNER 2->5 + CHEWER_MAX_GLOBAL 8->16; render-driven chewing-loop SFX (per-creature debounced, host+client, zero wire); re-baseline chewer-present goldens (2-seed).",
-      "status": "in_progress",
-      "phase": "DO",
+      "label": "S104 P1 - Chewer continuous production + audible chewing: finite chewer lifetime (churn) reconciled with the persistent despawn gate; raise CHEWER_MAX_PER_SPAWNER 2->4 + CHEWER_MAX_GLOBAL 8->12; render-driven chewing-loop SFX (per-creature debounced, host+client, zero wire); re-baseline chewer-present goldens (2-seed).",
+      "status": "completed",
+      "phase": "DONE",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
+      "checkpoint_commit": "6f9f763",
+      "check_completed": true,
+      "check_method": "S104 P1 DONE (6f9f763, push batched to session end). Gates: tsc 0; vitest 1646/1646 (+2 new: churn-drain determinism gate + the rewritten chewer-finite-lifetime contract); build entry 594.9/750 KiB (155.1 headroom). Council M1-M7 folded: M1 CHEWER_CONFIG persistent:true->false + lifetimeTicks 1e9->3000 (reuses the !config.persistent Voltkin DESPAWNING->auto-delete FSM — NO new branch; the no-op-config-tweak trap avoided) so the swarm churns + the spawner keeps producing past 2. M2 rewrote BOTH old-contract tests (towerDefense.test.ts 'persistent chewer does NOT despawn' -> 'enters DESPAWNING then auto-deletes'; voltkin-config.test.ts persistent toBe(true)->false+lifetime 3000). M3 chewing SFX is RENDER-DRIVEN in chewerRenderer keyed on the WIRED state==='ATTACKING' + ticksInState bite-buckets (chewProgress is STRIPPED from the client mirror per save.ts:736 — verified; never wall-clock cadence) so host AND 1v1 joiner both hear it; removed the redundant host-local CHEW_BITE audio drain (kept the BOND_SEVERED final-crunch + the CHEW_BITE visual). M4 voice-cap MAX_GNAW_VOICES=3/frame. M5 caps 4/12 (NOT 5/16 — finite lifetime is the real fix; 18 left as documented post-playtest ceiling) + steady_state=lifetime/interval comment. M6 added a 2-seed churn gate that drives a swarm past lifetime (drains to 0, count drops) so the despawn path is EXERCISED in-gate. M7 re-derived the 16KB wire-budget test at 12 chewers + rewrote stale per-creature wire-cost comments. Lifetime-expiry FADES via DESPAWNING (death-watcher reserves green-goo for KILLS = non-DESPAWNING vanish, mirroring creatureRenderer). M8 verified a FALSE alarm: spawners form via the hardcoded findAllPentagramAnchors path, not the recipe registry, so PENTAGRAM_RECIPE being unregistered does NOT break chewer production (deferred to P4 for the codex tile). NOTE: runtime playtest is owner's (WebGL rAF game can't be screenshot by the harness — project-established); boot-smoke at session end.",
       "objective": "Spawner produces a chewer ~every 15s continuously (no hard stop at 2) and every actively-chewing chewer is audible on host + client. Replay determinism preserved (re-baselined chewer goldens 2-seed; no-chewer replays byte-identical).",
       "scope": "src/constants.ts (CHEWER_MAX_PER_SPAWNER 2->5, CHEWER_MAX_GLOBAL 8->16); src/state/creatures/voltkin-config.ts (chewer lifetimeTicks finite) + creatureLifecycle.ts (reconcile persistent despawn gate, tick-pure); src/render/chewerRenderer.ts + audioManager (render-driven chewing-loop SFX, per-creature debounce); src/state/save.replay.test.ts + golden snapshots (re-baseline chewer-present).",
       "testing": "tsc 0; full vitest green; chewer despawns at finite lifetime (tick-pure) with green-goo; spawner keeps emitting past 2 (cap 5 concurrent, global 16); chewing chewer triggers gnaw on cadence (render); chewer-present goldens re-recorded 2-seed byte-identical; no-chewer/Voltkin-only replays unchanged; build < 750 KiB."

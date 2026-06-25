@@ -42,6 +42,15 @@ function botsWorld(botCount = 2): World {
     roster,
     botSeats: Array.from({ length: botCount }, (_, i) => i + 1),
   });
+  // S104 P2 — START_GAME(bots) now host-seeds a chewer-spawner pentagram per bot seat. These tests
+  // exercise PURE bot-decision logic on hand-built fixtures, so clear the seeded structures to keep
+  // the board clean (the seeding itself is covered by spawners/botSpawnerSeed.test.ts).
+  world.primitives.clear();
+  world.bonds.clear();
+  world.creatureSpawners.clear();
+  world.nextPrimitiveId = 0;
+  world.nextBondId = 0;
+  world.nextSpawnerId = 0;
   return world;
 }
 

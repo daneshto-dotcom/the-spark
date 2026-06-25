@@ -30,6 +30,7 @@ import { makeIdlePlayer, type Player } from '../game/player.ts';
 import { asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
 import type { GameMode, World } from './world.ts';
 import type { CreatureSpawner } from './spawners/spawner.ts';
+import { seedBotSpawners } from './spawners/botSpawnerSeed.ts';
 
 /* ────────────────────────── Action types ───────────────────────────── */
 
@@ -235,6 +236,10 @@ export function applyStartGame(world: World, action: StartGameAction): World {
       world.scoreByPlayer.set(p2.id, 0);
     }
   }
+  // S104 P2 — vs-bots TD playability: host-seed one chewer-spawner per bot seat so the player's
+  // turret/HELGA/Voltkin have live ENEMY chewers to fire on (deterministic, zero bot-RNG draws).
+  // No-op outside 'bots' mode. MUST run AFTER seating (resolves the owner colour from the player).
+  seedBotSpawners(world);
   return world;
 }
 

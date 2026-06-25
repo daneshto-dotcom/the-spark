@@ -33,6 +33,14 @@ function botsWorld(seed = 0xabc): World {
     roster: [0, 1, 2].map((seat) => ({ seat, color: PLAYER_COLORS[seat] })),
     botSeats: [1, 2],
   });
+  // S104 P2 — clear the host-seeded bot chewer-spawner pentagrams (see botSpawnerSeed.test.ts) so
+  // these reactive-behavior tests run on the clean board they were written against.
+  world.primitives.clear();
+  world.bonds.clear();
+  world.creatureSpawners.clear();
+  world.nextPrimitiveId = 0;
+  world.nextBondId = 0;
+  world.nextSpawnerId = 0;
   return world;
 }
 
