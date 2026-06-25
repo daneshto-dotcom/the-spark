@@ -46,6 +46,21 @@ import { makeFreeSpark } from './spark.ts';
 
 const PHYSICS_DT = 1 / PHYSICS_HZ;
 
+/**
+ * S105 P1 — single source of truth for the per-stream seed derivation. The spawner runs FIVE
+ * independent mulberry32 streams (spark + 4 hazard cadences); each is `mulberry32((baseSeed ^ off) >>> 0)`
+ * so adding a hazard never perturbs the spark sequence (the S71/S72/S75/S77 byte-identity rationale).
+ * main.ts builds the streams with these SAME offsets at boot, and `Spawner.reseed` reuses them so a
+ * fresh per-match base seed regenerates all five consistently. (`spark` offset is 0 — the base seed itself.)
+ */
+export const SPAWNER_STREAM_OFFSETS = {
+  spark: 0x00000000,
+  bomb: 0x9e3779b9,
+  potato: 0x85ebca6b,
+  rainbow: 0xc2b2ae35,
+  seagull: 0x5a4e28b8,
+} as const;
+
 export interface SpawnerConfig {
   readonly center: { x: number; y: number };
   readonly radius: number;
@@ -278,6 +293,39 @@ export class Spawner {
     put(this.potatoRng, s.potatoRngState);
     put(this.rainbowRng, s.rainbowRngState);
     put(this.seagullRng, s.seagullRngState);
+  }
+
+  /**
+   * S105 P1 — reseed all 5 streams from a FRESH per-match base seed so every match gets a different,
+   * unpredictable spawn sequence (the owner's "make them fully random — they always come in the same
+   * order"). Today main.ts seeds from a hardcoded `0xc0ffee` at module-init and never reseeds, so every
+   * match replays the identical sequence; the host calls this at START_GAME with a random base seed.
+   *
+   * SAFE for P2P + replay BY CONSTRUCTION: the spawner is HOST-ONLY (the client never ticks it — it
+   * receives sparks via NetSnapshot), so reseeding the host needs no wire change and cannot desync a
+   * joiner. Replay tests construct their OWN seeded worlds (never call this), and save/load captures the
+   * post-reseed rng WORDS via getState()/restoreState() — so a recorded match still replays bit-exactly.
+   *
+   * Each stream is set to the state a fresh `mulberry32((baseSeed ^ offset))` would start from (mulberry32
+   * state IS its seed word — see rng.ts). `nextId` is intentionally NOT reset (kept monotonic so a
+   * same-page rematch can't collide spark ids); only the RNG sequences + the in-flight countdowns restart.
+   */
+  reseed(baseSeed: number): void {
+    const s = baseSeed >>> 0;
+    const put = (stream: Rng | null, offset: number): void => {
+      if (stream !== null && isStateful(stream)) stream.setState((s ^ offset) >>> 0);
+    };
+    put(this.rng, SPAWNER_STREAM_OFFSETS.spark);
+    put(this.bombRng, SPAWNER_STREAM_OFFSETS.bomb);
+    put(this.potatoRng, SPAWNER_STREAM_OFFSETS.potato);
+    put(this.rainbowRng, SPAWNER_STREAM_OFFSETS.rainbow);
+    put(this.seagullRng, SPAWNER_STREAM_OFFSETS.seagull);
+    // Re-sample the countdowns off the freshly-seeded streams (mirrors the constructor).
+    this.secondsUntilNextSpawn = this.sampleInterarrival();
+    this.sparksUntilBomb = this.sampleBombCountdown();
+    this.sparksUntilPotato = this.samplePotatoCountdown();
+    this.sparksUntilRainbow = this.sampleRainbowCountdown();
+    this.sparksUntilSeagull = this.sampleSeagullCountdown();
   }
 
   private spawnOne(tick: number): Spark {

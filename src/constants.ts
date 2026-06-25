@@ -77,20 +77,26 @@ export const SPAWNER_RADIUS = 250;
 export const SPAWNER_CENTER_X = CANVAS_WIDTH / 2;
 export const SPAWNER_CENTER_Y = CANVAS_HEIGHT / 2;
 /**
- * S51 P1 — E2E test override seam. Production gameplay rate stays at 0.15
- * per LOCKED_DECISIONS Item 3 (S5 amendment: "strategic-bet feel — wait for
- * the type you need"; raising it would violate the locked decision). The
- * seam is mirror-of-`PHASE_1_WIN_SCORE`: Playwright `addInitScript` sets
- * `window.__TEST_SPAWN_RATE_PER_SECOND__` BEFORE the bundled scripts load,
- * so the constant captures the override at module-init. Production paths
- * (SSR / Node tests / browser without addInitScript) fall through to 0.15.
+ * S51 P1 — E2E test override seam. The seam is mirror-of-`PHASE_1_WIN_SCORE`:
+ * Playwright `addInitScript` sets `window.__TEST_SPAWN_RATE_PER_SECOND__` BEFORE
+ * the bundled scripts load, so the constant captures the override at module-init.
+ * Production paths (SSR / Node tests / browser without addInitScript) fall through
+ * to the production rate below.
  *
- * Root cause of S50→S51 e2e cascade failure: with deterministic seed
- * `0xc0ffee` the spawner's first sampled interarrival at λ=0.15 is 25.71s
- * (because mulberry32(0xc0ffee).first() = 0.0214 → -ln(0.0214)/0.15 = 25.71).
- * Tests timed out at 10-30s waiting for sparks. The override at λ=1.5 in
- * the e2e specs drops the first wait to 2.56s — same seed sequence, just
- * faster pacing — so production replay-determinism is unaffected.
+ * S105 — LOCKED_DECISIONS Item 3 AMENDMENT (owner-authorized this session): the
+ * production rate is raised 0.15 → 0.1875 (×1.25 = primitives arrive ~20% sooner)
+ * per the owner's explicit "make the spawned primitives come about 20% quicker".
+ * The S5 "strategic-bet feel — wait for the type you need" intent is preserved (the
+ * draw is still a slow Poisson process, just 20% brisker); the owner — who owns the
+ * locked decision — directed the change, so this is a sanctioned amendment, not a
+ * violation. Determinism is unaffected: λ scales the interarrival, not the RNG draw
+ * order, so replay byte-identity holds for a fixed seed.
+ *
+ * Root cause of the old S50→S51 e2e cascade failure: with deterministic seed
+ * `0xc0ffee` the spawner's first sampled interarrival at λ=0.15 was 25.71s
+ * (mulberry32(0xc0ffee).first() = 0.0214 → -ln(0.0214)/0.15 = 25.71). The override
+ * at λ=1.5 in the e2e specs drops the first wait to ~2.56s — same seed sequence,
+ * just faster pacing — so production replay-determinism is unaffected.
  */
 function readTestSpawnRate(): number | null {
   if (typeof window === 'undefined') return null;
@@ -98,7 +104,7 @@ function readTestSpawnRate(): number | null {
     .__TEST_SPAWN_RATE_PER_SECOND__;
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
 }
-export const SPAWN_RATE_PER_SECOND = readTestSpawnRate() ?? 0.15;
+export const SPAWN_RATE_PER_SECOND = readTestSpawnRate() ?? 0.1875;
 
 // S46 P2 Δ1 — host treats joiner's PICKUP_SPARK.pos as untrusted input;
 // validates plausibility within REASONABLE_PICKUP_REACH of joiner's last

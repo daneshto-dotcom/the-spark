@@ -6,9 +6,10 @@ import {
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
+  SparkType,
 } from '../constants.ts';
 import { mulberry32 } from '../state/rng.ts';
-import { DEFAULT_SPAWNER_CONFIG, Spawner, enforceSpawnerBounds, type BombSpawnRequest, type PotatoSpawnRequest, type RainbowSpawnRequest, type SeagullSpawnRequest } from './spawner.ts';
+import { DEFAULT_SPAWNER_CONFIG, Spawner, SPAWNER_STREAM_OFFSETS, enforceSpawnerBounds, type BombSpawnRequest, type PotatoSpawnRequest, type RainbowSpawnRequest, type SeagullSpawnRequest } from './spawner.ts';
 import type { Spark } from './spark.ts';
 
 const DT = 1 / PHYSICS_HZ;
@@ -75,6 +76,43 @@ describe('Spawner', () => {
       expect(a[i].pos.x).toBeCloseTo(b[i].pos.x, 10);
       expect(a[i].pos.y).toBeCloseTo(b[i].pos.y, 10);
     }
+  });
+});
+
+describe('Spawner.reseed (S105 P1 — fully-random per-match spawns)', () => {
+  // Build a 5-stream spawner exactly like main.ts does (same offsets), so reseed is covered
+  // across all streams, then reseed it from a per-match base seed.
+  const makeFullSpawner = (bootSeed: number): Spawner => new Spawner(
+    DEFAULT_SPAWNER_CONFIG,
+    mulberry32((bootSeed ^ SPAWNER_STREAM_OFFSETS.spark) >>> 0),
+    mulberry32((bootSeed ^ SPAWNER_STREAM_OFFSETS.bomb) >>> 0),
+    mulberry32((bootSeed ^ SPAWNER_STREAM_OFFSETS.potato) >>> 0),
+    mulberry32((bootSeed ^ SPAWNER_STREAM_OFFSETS.rainbow) >>> 0),
+    mulberry32((bootSeed ^ SPAWNER_STREAM_OFFSETS.seagull) >>> 0),
+  );
+  const firstTypes = (sp: Spawner, n: number): SparkType[] => {
+    const out: Spark[] = [];
+    let f = 0;
+    while (out.length < n && f < 500000) sp.tick(DT, f++, out);
+    return out.slice(0, n).map((s) => s.type);
+  };
+
+  it('same base seed → identical spawn sequence (replay determinism preserved)', () => {
+    const a = makeFullSpawner(0xc0ffee); a.reseed(0x12345678);
+    const b = makeFullSpawner(0x999999); b.reseed(0x12345678); // boot seed irrelevant after reseed
+    expect(firstTypes(a, 18)).toEqual(firstTypes(b, 18));
+  });
+
+  it('different base seeds → different spawn sequences (genuinely random per match)', () => {
+    const a = makeFullSpawner(0xc0ffee); a.reseed(0x11111111);
+    const b = makeFullSpawner(0xc0ffee); b.reseed(0x99999999);
+    expect(firstTypes(a, 18)).not.toEqual(firstTypes(b, 18));
+  });
+
+  it('reseed moves the sequence off the fixed boot (0xc0ffee) sequence', () => {
+    const bootSeq = firstTypes(makeFullSpawner(0xc0ffee), 18); // the old "same every match" sequence
+    const reseeded = makeFullSpawner(0xc0ffee); reseeded.reseed(0xdeadbeef);
+    expect(firstTypes(reseeded, 18)).not.toEqual(bootSeq);
   });
 });
 

@@ -351,6 +351,23 @@ async function bootstrap(): Promise<void> {
     rainbowRng,
     seagullRng,
   );
+
+  // S105 P1 — FULLY-RANDOM spawns. The boot SEED above (0xc0ffee) is fixed, so without this every
+  // match replayed the IDENTICAL spawn sequence (the owner's "they always come in the same order
+  // square/triangle/square"). At each match start the HOST draws a fresh random base seed and reseeds
+  // the spawner (+ world.rngSeed, which feeds the host-only rainbow-shuffle / NONET RNG and the
+  // replay-capture field). This is match-SETUP randomness (drawn ONCE when a match begins, never in
+  // the sim loop) — the seeded streams stay fully deterministic afterward, so replay byte-identity is
+  // preserved. Host-only by construction: the spawner runs only on the host (the joiner mirrors sparks
+  // via NetSnapshot), so no wire change / PROTOCOL bump / desync. Called at every host begin (solo /
+  // vs-bots / networked host); the joiner's local START_GAME never calls it.
+  const reseedForNewMatch = (): number => {
+    const seed = Math.floor(Math.random() * 0x1_0000_0000) >>> 0;
+    spawner.reseed(seed);
+    world.rngSeed = seed;
+    return seed;
+  };
+
   const gameStateExtras = makeGameStateExtras();
 
   // ===== S15 P2 — net session state (1v1 only). S50 P2 — unified into
@@ -591,7 +608,11 @@ async function bootstrap(): Promise<void> {
                 color: PLAYER_COLORS[seat],
               }));
               const botSeats = difficulties.map((_, i) => i + 1);
-              botManager = new mod.BotManager(difficulties, SEED);
+              // S105 P1 — fresh random base seed per vs-bots match: reseeds the spawn sequence AND
+              // seeds the bot AI streams from the same draw, so both the shapes you get and the bots'
+              // play vary each match (was the fixed boot SEED → identical every time).
+              const matchSeed = reseedForNewMatch();
+              botManager = new mod.BotManager(difficulties, matchSeed);
               botSetupOverlay?.setVisible(false);
               dispatch(world, {
                 type: 'START_GAME',
@@ -614,6 +635,7 @@ async function bootstrap(): Promise<void> {
   // ===== S15 P2 — title + lobby screens =====
   const titleScreen = new TitleScreen(app, {
     onSoloSelected: () => {
+      reseedForNewMatch(); // S105 P1 — fresh random spawn sequence each solo match
       dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
     },
     on1v1Selected: () => {
@@ -655,7 +677,14 @@ async function bootstrap(): Promise<void> {
   const hostIdentity = await hostIdentityPromise;
   // S87 P4 — onBeginMatch is built FIRST so the quickmatch auto-begin gate (passed
   // into the host-start handler below) can reference it.
-  const onBeginMatch = createBeginMatchHandler({ session, world });
+  // S105 P1 — wrap the networked-host begin so it reseeds the spawn sequence with a fresh random base
+  // seed before dispatching START_GAME (host-only; the joiner mirrors sparks via snapshot so it must NOT
+  // reseed — its local START_GAME path stays untouched).
+  const baseBeginMatch = createBeginMatchHandler({ session, world });
+  const onBeginMatch = (): void => {
+    reseedForNewMatch();
+    baseBeginMatch();
+  };
   // S87 P4 — QUICK MATCH discovery orchestration. The discovery instance is the
   // LAZY chunk (imported on first click); main.ts owns the host/client wiring it
   // drives. stopQuickmatch is idempotent (covers match-begin, back-to-title,
