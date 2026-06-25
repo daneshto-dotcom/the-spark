@@ -1,40 +1,50 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-06-24 | Session: S102
+Generated: 2026-06-25 | Session: S103
 
 ## Next Steps
-1. **PLAYTEST the live S102 combat changes** on https://spark-online.space:
-   - Build a pentagram → confirm chewers now **walk right up to a connector** (melee ~35px) and
-     **gnaw** ("tchhht·tchhht·tchhht", 3 per chew, 5 chews to sever) — NO Voltkin lightning/shake.
-   - **Right-click an enemy chewer → it pops** with a green-goo splat + fly-splat sound, costing 1
-     disruption charge (the same "raid" you use to sever connectors). Orphaned chewers (spawner
-     already gone) are still poppable.
-   - **NONET:** correct cell → chipmunk "yey!", wrong cell → lazy sad "owww"; bottom-left owl's
-     **wings are now visible** (was faded); chewer has **two big buck-teeth**.
-   - **Tune by ear:** the gnaw + fly-splat + yey/oww are procedural synths — say if any want retuning.
-2. **NEXT SESSION — items 8/9/10 (bundled; shared creature-targets-creature foundation):**
-   - **#8 Voltkin attacks chewers** — add `findNearestEnemyCreature` + a `targetCreatureId` branch
-     routed through the EXISTING `damageCreature` helper; Voltkin death = discombobulate lightning-cloud.
-     INTENTIONALLY breaks Voltkin's locked replay byte-equivalence → accepted regression + re-baseline.
-   - **#9 Laser turret** (1 Line + 7 Spirals = 7 Whips) + **#10 HELGA princess** (3 Warped Anchors +
-     3 Stars) — build the generic `Defender` entity substrate + recipe generalization FIRST, then both
-     on top. HELGA = Bavarian/beer/slap, Courage-the-Cowardly-Dog style, ORIGINAL, a REAL state-driven
-     animated character (not a gif). See memory `helga-princess-spec` + PDR OC3.
-3. Resume Tier-1 roadmap: G1b MOTION / G2 traits (LOCKED §6 amendment) / G3b Codex silhouettes / G4 juice.
+1. **PLAYTEST the S103 TD defenders LIVE** on https://spark-online.space:
+   - Build **1 Line + 7 Spirals** (the Line auto-bonded to 7 spiral leaves) → a pencil **laser turret**:
+     its lens charges + 5 wind-up rings contract, and every ~30s it fires a red **beam** at the
+     nearest enemy chewer (chewer pops with goo; a Voltkin takes 2 → lightning-cloud).
+   - Build a **Triangle hub + 3 Spirals (Warped Anchors) + 3 Circles (Stars)** → **HELGA**: she idles,
+     breathes, periodically **sips her beer stein**, and when an enemy chewer comes within ~160px she
+     **winds up + SLAPS** it dead (articulated puppet — windup→impact→recover, not a gif/twitch).
+   - Summon a **Voltkin** near enemy chewers → it **zaps a chewer that wanders within 180px** while
+     still marching on the enemy base (bonds stay its primary job); a 2-hit Voltkin death = lightning-cloud.
+   - **Tune by eye/ear:** the turret beam/charge, HELGA's look + slap arc, and the laser/slap/zap-burst
+     synths are all tunable — say what feels off.
+2. **P5 (carry-forward, was YELLOW-gated):** Tier-1 **G4 build-feel juice** — bond-formation juice burst
+   + in-world leader crown (pure render, synced-tick deterministic).
+3. **Resume Tier-1 roadmap:** G1b MOTION (Council-deferred, needs a mechanical verb) · G2 family traits
+   (needs LOCKED_DECISIONS §6 amendment) · G3b Codex silhouettes.
+4. **Optional HELGA art enhancement:** she's a deterministic Pixi puppet rig (zero-API). If you want
+   painterly texture, layer an imagen-generated original face/texture on the head part (additive,
+   must stay replay-safe). See memory `helga-princess-spec`.
 
 ## Blockers
-None. S102 (items 1–7) is LIVE and verified (3 deploys SUCCESS). Items 8/9/10 are scoped + spec'd for next session.
+None. S103 (#8/#9/#10 + the generic Defender substrate) is LIVE + verified (all deploys SUCCESS).
+P5 deferred by the GREEN budget gate (closed at 59.9% YELLOW). E2E fog contract fixed (10→13); the
+fix's E2E run was in-flight at close — confirm green next boot via `gh run list --workflow="E2E (2-browser harness)"`.
 
 ## Pending Backlog
-- [ ] Items 8/9/10 (next session bundle — see Next Steps #2)
-- [ ] TD connector visible-damage + multi-chewer stacking (de-scoped from S102 P2 — chewProgress works; a real Bond.hp + damaged-bond render is the polish)
-- [ ] 1v1 parity: chewer intermediate-gnaw is host-local (the wired sever-crunch + vanishing bond cover the opponent); derive from synced ATTACKING state if 1v1 feedback feels thin
-- [ ] TD pentagram build-hint / predicate-relax (LOW UX, S101 carry)
+- [ ] P5 Tier-1 G4 build-feel juice (bond-formation burst + leader crown) — carry-forward.
+- [ ] TD recipe-build UX (LOW): defender/spawner recipes are spacing-sensitive + unguided — add an
+  in-build affordance (highlight invalid leaf / "connect to the hub" hint / closing-edge ghost). The
+  S103 CHECK loosened recipes to tolerate inter-leaf auto-bonds, but the unguided-build gap remains.
+- [ ] TD connector visible-damage + multi-chewer stacking (S102 de-scoped): real Bond.hp + damaged-bond render.
+- [ ] Defender polish (logged, non-blocking): slapped/beamed creature vanishes same tick (impact VFX at
+  lastStrikePos over empty space — same accepted S102 goo tradeoff); register the orphaned PENTAGRAM_RECIPE.
+- [ ] Death-VFX fallback watch-item: if playtest shows missed clouds/goo on the 1v1 client, add a synced recentDeaths[] queue.
+- [ ] Tier-1: G1b MOTION, G2 traits (LOCKED §6), G3b Codex silhouettes, G4 juice (=P5).
 
 ## Recent Reflexion (last 2 sessions)
-## 2026-06-24 — Session 102: TD combat overhaul — shipped 7 of 10 owner playtest items LIVE. commits 2fea955/e0d5abf/f228532 → deploys all SUCCESS; vitest 1594/1594, entry 574.6/750 KiB.
-- S102 P1 #verify-the-mask-on-the-real-frame-not-just-the-keyframe: a video-mask fade lives in the matte, not runtime; verify the ACTUAL video under the ACTUAL mask (a max-bright loop projection found the stray flame an early keyframe hid) — an asymmetric matte keeps the wings + crops the flame. WebGL screenshots time out on this Pixi rAF game → eval pixel-probes + offline composites are the verification path.
-- S102 P2 #touch-the-shared-reducer-once-and-let-suppression-cascade: the chewer fixes were small — one cause:'chewer' branch (suppressing ARC_FLASH auto-drops the shake) + routing isWithinAttackRange through the per-type config (the "shoots from afar" bug was a hardcode ignoring config.attackRange). Grep for hardcoded constants the config was SUPPOSED to drive before adding systems.
-- S102 P3 #drive-kill-VFX-from-the-snapshot-removal-not-a-wire-effect: the chewer renderer's death-watcher diffs prev/curr world.creatures and splats goo for ANY vanished chewer — reliable on host + 1v1 client, zero wire/effect/save surface, covers every kill path for free.
+## 2026-06-25 — Session 103: TD Defenders Bundle — #8 Voltkin-vs-chewer + generic Defender substrate + #9 laser turret + #10 HELGA articulated princess LIVE. vitest 1645/1645, entry 594.3/750 KiB. FULL-tier Council ADOPT-WITH-FIXES (8 MF) + 2 Triumvirate CHECKs. P5 deferred (YELLOW).
+- P1 #opportunistic-override-stays-byte-identical-when-population-empty: gate new behavior on a condition absent from the test corpus (enemy creatures) → old replays byte-identical BY CONSTRUCTION, no re-baseline.
+- P2 #mirror-the-spawner-substrate: the new synced entity + protocol bump was low-risk by cloning S100's spawner SHAPE; MF1 wire pattern = hold the FIRE state ~12 ticks + SYNC it (the state is the event bus) + synced lastStrikePos; 4/5 CHECK findings were false-positives from not knowing FSM-state durations.
+- P3 #consumer-is-just-a-recipe-plus-a-renderer: invest determinism/wire/protocol ONCE in the substrate; each consumer is then cheap. Recipes MUST registerRecipe (pentagram is the never-registered counter-example).
+- P4 #a-puppet-rig-IS-the-real-character: HELGA = a PURE deterministic Pixi puppet rig (per-state authored poses, a real windup→impact→recover arc) — chosen over veo for an action character; add a per-entity offset so N instances don't animate in unison; match combo SEMANTICS (Star = {Triangle,Circle} type-set) not lookupCombo direction; tolerate inter-leaf auto-bonds.
 
-## 2026-06-24 — Session 101: RECOVERY — shipped the S100 tower-defense slice LIVE. commits 6169c2b/6065c76 → deploy SUCCESS; vitest 1584/1584, entry 570.9/750 KiB.
-- S101 #shipped-pushed-but-NOT-live-was-a-failed-deploy: "committed+pushed" ≠ "LIVE" — a deploy-gated priority isn't done until `gh run list --workflow=deploy.yml` shows SUCCESS; a self-imposed cap that blocks the whole deploy costs more than it saves — raise it, don't get stuck.
+## 2026-06-24 — Session 102: TD combat overhaul — shipped 7 of 10 owner playtest items LIVE (P1 buck-teeth/owl-mask/NONET sounds/rebuild · P2 gnaw/melee + unified-HP foundation · P3 RAID-pops-chewer + green-goo). vitest 1594/1594, entry 574.6/750 KiB. Items 8/9/10 deferred → shipped in S103.
+- P1 #verify-the-mask-on-the-real-frame: to fix a video-mask fade, look at the actual video under the actual mask (a max-bright projection), not the still keyframe; bespoke per-asset masks are where regressions hide.
+- P2 #touch-the-shared-reducer-once: grep for hardcoded constants the per-type config was SUPPOSED to drive before adding systems — the seam is often already half-wired.
+- P3 #drive-kill-VFX-from-snapshot-removal: derive "something died" VFX from the entity's REMOVAL at the render layer (prev/curr diff), not a per-kill wire event — reliable on the 1v1 client, zero wire surface.
