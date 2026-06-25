@@ -73,6 +73,16 @@ describe('isHelgaComponent — strict Triangle hub + 3 Warped Anchor + 3 Star', 
     expect(isHelgaComponent(w, buildHelga(w, 1, 3, 3, /*circleAsAId*/ true))).toBe(true);
   });
 
+  it('TOLERATES inter-leaf auto-bonds (Council CHECK — a leaf bonded to a sibling still ignites)', () => {
+    const w = setup();
+    const hub = buildHelga(w, 1, 3, 3);
+    // AUTO_BOND bonds two leaves together → still 7 prims / hub deg 6 / 3 Spiral + 3 Circle → valid.
+    const a = w.primitives.get(asPrimitiveId(101))!; // a spiral leaf
+    const b = w.primitives.get(asPrimitiveId(201))!; // a circle leaf
+    bond(w, 7777, a, b);
+    expect(isHelgaComponent(w, hub)).toBe(true);
+  });
+
   it('rejects the wrong leaf mix (2 Spiral + 4 Circle, 4 Spiral + 2 Circle)', () => {
     const wA = setup();
     expect(isHelgaComponent(wA, buildHelga(wA, 1, 2, 4))).toBe(false);

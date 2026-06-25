@@ -57,7 +57,8 @@ export class PrincessRenderer {
     for (const d of world.defenders.values()) {
       if (d.kind !== 'princess') continue;
       live.add(d.id);
-      const pose = helgaPose(d.state, d.ticksInState, world.tick);
+      // Per-defender offset (its id) desyncs the idle ambient across multiple HELGAs (Council CHECK).
+      const pose = helgaPose(d.state, d.ticksInState, world.tick, d.id as unknown as number);
       const firing = d.state === 'FIRE';
 
       // Face the target (synced strike/target pos), holding the last facing when idle.

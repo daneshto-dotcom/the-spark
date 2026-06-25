@@ -30,14 +30,20 @@ import { registerRecipe } from './index.ts';
 
 const HELGA_SIZE = 7; // 1 Triangle hub + 3 Spiral + 3 Circle leaves
 const HUB_DEGREE = 6;
-const LEAF_DEGREE = 1;
 const SPIRAL_LEAVES = 3; // 3 Warped Anchors
 const CIRCLE_LEAVES = 3; // 3 Stars (unordered {Triangle,Circle} type-set)
 
 /**
- * Read-only check: is the component anchored at `hubId` EXACTLY a Triangle hub + 3 Spiral + 3 Circle
- * leaves? Exported so defenderLifecycle.recipeStillSatisfied (via the recipe's `stillValid`) can
- * re-validate a live HELGA's component each poll.
+ * Read-only check: is the component anchored at `hubId` a Triangle hub(deg6) + 3 Spiral + 3 Circle
+ * star? Exported so defenderLifecycle.recipeStillSatisfied (via `stillValid`) can re-validate each poll.
+ *
+ * S103 P4 CHECK (Council, Grok+Gemini): the gate is (a) the hub is a Triangle of bond-degree exactly
+ * 6, (b) its component is exactly 7 primitives, (c) the 6 non-hub members are exactly 3 Spirals + 3
+ * Circles. Those force the star by pigeonhole (the hub's 6 bonds reach all 6 leaves → 3 Warped
+ * Anchors + 3 Stars). We deliberately DON'T require each leaf degree-1: dense AUTO_BOND can bond two
+ * adjacent leaves WITHOUT changing the hub degree / component size / leaf types — so tolerating
+ * inter-leaf bonds fixes a frequent silent no-build while a size/degree/type mismatch still rejects.
+ * Star is the UNORDERED {Triangle,Circle} type-set (a Circle leaf), direction-agnostic per OC3.
  */
 export function isHelgaComponent(world: World, hubId: PrimitiveId): boolean {
   const hub = world.primitives.get(hubId);
@@ -52,13 +58,6 @@ export function isHelgaComponent(world: World, hubId: PrimitiveId): boolean {
     if (id === hubId) continue;
     const p = world.primitives.get(id);
     if (p === undefined) return false;
-    if (p.bonds.size !== LEAF_DEGREE) return false; // pure leaf
-    // Defense-in-depth: the leaf's single bond connects back to the hub.
-    const bondId = [...p.bonds][0];
-    const bond = world.bonds.get(bondId);
-    if (bond === undefined) return false;
-    const other = bond.aId === id ? bond.bId : bond.aId;
-    if (other !== hubId) return false;
     if (p.type === SparkType.Spiral) spirals++; // Triangle↔Spiral = Warped Anchor
     else if (p.type === SparkType.Circle) circles++; // {Triangle,Circle} type-set = Star (dir-agnostic)
     else return false; // any other leaf type ⇒ NO match

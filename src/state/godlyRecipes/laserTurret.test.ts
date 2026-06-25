@@ -77,23 +77,24 @@ describe('isLaserTurretComponent — strict 1-Line + 7-Spiral-leaf star', () => 
     expect(isLaserTurretComponent(w, hub.id)).toBe(false);
   });
 
-  it('rejects when a leaf is bonded to something else (degree > 1 — not a pure leaf)', () => {
+  it('rejects an EXTRA attached shape (a leaf bonded to an external prim grows the component past 8)', () => {
     const w = setup();
     const line = buildTurret(w, 1, 7);
-    // Attach an extra primitive to one leaf → that leaf is now degree 2 + the component grows.
+    // Attach an external Dot to one leaf → the component grows to 9 → size mismatch → reject.
     const leaf = w.primitives.get(asPrimitiveId(101))!;
     bond(w, 9999, leaf, addPrim(w, 5000, SparkType.Dot, 260, 260));
     expect(isLaserTurretComponent(w, line)).toBe(false);
   });
 
-  it('rejects a Line of degree 7 whose component has an extra non-leaf shape', () => {
+  it('TOLERATES inter-leaf auto-bonds (Council CHECK — fixes the dense-7-leaf silent no-build)', () => {
     const w = setup();
     const line = buildTurret(w, 1, 7);
-    // Bond one spiral leaf to another spiral leaf → still 8 prims but a leaf gains degree → fail.
+    // AUTO_BOND can bond two adjacent Spiral leaves together → a leaf of degree 2, but still
+    // 8 prims / hub degree 7 / all Spirals → it IS a valid turret (was a frequent silent no-build).
     const a = w.primitives.get(asPrimitiveId(101))!;
     const b = w.primitives.get(asPrimitiveId(102))!;
     bond(w, 8888, a, b);
-    expect(isLaserTurretComponent(w, line)).toBe(false);
+    expect(isLaserTurretComponent(w, line)).toBe(true);
   });
 
   it('returns false when the anchor is not a Line', () => {

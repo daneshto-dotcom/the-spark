@@ -53,24 +53,30 @@ function smooth(t: number): number {
 }
 
 /**
- * Compute HELGA's full-body pose for the given FSM state + ticksInState. `phaseTick` (default
- * world.tick) drives the slow idle breathing/sip cadence so two clients agree on the idle phase.
+ * Compute HELGA's full-body pose for the given FSM state + ticksInState. `phaseTick` (world.tick)
+ * drives the slow idle breathing/sip cadence so two clients agree on the idle phase. `offset` (the
+ * synced defenderId — Council CHECK, Gemini) desynchronizes the idle ambient ACROSS instances so two
+ * HELGAs don't breathe/sip in robotic unison (the owner "real character, not a robot/gif" bar).
+ * Deterministic: pose = f(state, ticksInState, phaseTick, offset).
  */
-export function helgaPose(state: DefenderState, ticksInState: number, phaseTick: number): HelgaPose {
+export function helgaPose(state: DefenderState, ticksInState: number, phaseTick: number, offset = 0): HelgaPose {
+  // Per-instance phase so each HELGA's idle ambient runs on its own clock (replay-safe — offset is
+  // the synced, integer defenderId).
+  const ph = phaseTick + offset * 37;
   // Idle ambient: gentle breathing + a beer-sip that crests once per slap-interval-ish window.
-  const breath = Math.sin(phaseTick * 0.06) * 1.4;
-  const sipCycle = (phaseTick % PRINCESS_SLAP_INTERVAL_TICKS) / PRINCESS_SLAP_INTERVAL_TICKS;
+  const breath = Math.sin(ph * 0.06) * 1.4;
+  const sipCycle = (((ph % PRINCESS_SLAP_INTERVAL_TICKS) + PRINCESS_SLAP_INTERVAL_TICKS) % PRINCESS_SLAP_INTERVAL_TICKS) / PRINCESS_SLAP_INTERVAL_TICKS;
   // Sip crests in the back third of the idle cycle (a quick raise-drink-lower).
   const sip = sipCycle > 0.7 ? smooth((sipCycle - 0.7) / 0.15) * smooth((1 - sipCycle) / 0.15) : 0;
-  const skirtSway = Math.sin(phaseTick * 0.05 + 1) * 0.06;
+  const skirtSway = Math.sin(ph * 0.05 + 1) * 0.06;
 
   const base: HelgaPose = {
     bodyBobY: breath,
     leanAngle: 0,
-    headTilt: Math.sin(phaseTick * 0.04) * 0.05,
+    headTilt: Math.sin(ph * 0.04) * 0.05,
     beerArmAngle: -0.5 - sip * 1.3, // raises toward the mouth as sip → 1
     sip,
-    slapArmAngle: REST_SLAP + Math.sin(phaseTick * 0.05) * 0.04,
+    slapArmAngle: REST_SLAP + Math.sin(ph * 0.05) * 0.04,
     slapReach: 0,
     skirtSway,
   };

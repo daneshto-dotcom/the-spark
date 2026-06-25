@@ -24,6 +24,17 @@ describe('helgaPose — pure + deterministic', () => {
       }
     }
   });
+
+  it('a per-defender offset DESYNCS the idle ambient across instances (Council CHECK — not robotic unison)', () => {
+    // Two HELGAs at the same world.tick but different ids must NOT share an idle phase.
+    let anyDiff = false;
+    for (let t = 0; t < 120; t++) {
+      const a = helgaPose('IDLE', 0, t, 0);
+      const b = helgaPose('IDLE', 0, t, 5);
+      if (a.bodyBobY !== b.bodyBobY || a.sip !== b.sip) anyDiff = true;
+    }
+    expect(anyDiff).toBe(true);
+  });
 });
 
 describe('helgaPose — the slap is a real arc (distinct authored poses)', () => {

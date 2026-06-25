@@ -23,7 +23,6 @@
 
 import { SparkType } from '../../constants.ts';
 import { componentOf } from '../../game/structure.ts';
-import { lookupCombo } from '../../combos.ts';
 import type { World } from '../worldTypes.ts';
 import type { PlayerId, PrimitiveId } from '../../types.ts';
 import type { DefenderGodlyRecipe, DefenderRecipePredicate } from './types.ts';
@@ -31,12 +30,20 @@ import { registerRecipe } from './index.ts';
 
 const TURRET_SIZE = 8; // 1 Line hub + 7 Spiral leaves
 const HUB_DEGREE = 7;
-const LEAF_DEGREE = 1;
 
 /**
- * Read-only check: is the component anchored at `lineId` EXACTLY a 1-Line + 7-Spiral-leaf star?
+ * Read-only check: is the component anchored at `lineId` a 1-Line(deg7) + 7-Spiral star?
  * Exported so defenderLifecycle.recipeStillSatisfied (via the recipe's `stillValid`) can re-validate
  * a live turret's component each poll without re-walking the whole world.
+ *
+ * S103 P3 CHECK (Council, Grok+Gemini): the gate is (a) the hub is a Line of bond-degree exactly 7,
+ * (b) its connected component is exactly 8 primitives, (c) every non-hub member is a Spiral. Those
+ * three TOGETHER force the star by pigeonhole — the hub's 7 bonds reach 7 distinct in-component
+ * members, and the only members are the 7 Spirals, so each Spiral bonds the hub (= 7 'Whip' combos).
+ * We deliberately DON'T require each leaf to be degree-1: dense AUTO_BOND can bond two adjacent
+ * Spiral leaves to each other (a leaf of degree 2) WITHOUT changing the hub degree, the component
+ * size, or the leaf types — so tolerating inter-leaf bonds fixes a frequent silent no-build while a
+ * size/degree/type mismatch (an extra shape, a wrong leaf, a missing leaf) still rejects.
  */
 export function isLaserTurretComponent(world: World, lineId: PrimitiveId): boolean {
   const hub = world.primitives.get(lineId);
@@ -45,23 +52,13 @@ export function isLaserTurretComponent(world: World, lineId: PrimitiveId): boole
   if (hub.bonds.size !== HUB_DEGREE) return false;
   const comp = componentOf(hub, world.primitives, world.bonds);
   if (comp.primitiveIds.size !== TURRET_SIZE) return false;
-  let leaves = 0;
   for (const id of comp.primitiveIds) {
     if (id === lineId) continue;
     const p = world.primitives.get(id);
     if (p === undefined) return false;
-    if (p.type !== SparkType.Spiral) return false; // every non-hub member must be a Spiral leaf
-    if (p.bonds.size !== LEAF_DEGREE) return false; // pure leaf (bonded only to the hub)
-    // Defense-in-depth: the leaf's single bond connects back to the hub, AND it is a 'Whip' combo.
-    const bondId = [...p.bonds][0];
-    const bond = world.bonds.get(bondId);
-    if (bond === undefined) return false;
-    const other = bond.aId === id ? bond.bId : bond.aId;
-    if (other !== lineId) return false;
-    if (lookupCombo(p.type, hub.type).resultName !== 'Whip') return false;
-    leaves++;
+    if (p.type !== SparkType.Spiral) return false; // every non-hub member must be a Spiral
   }
-  return leaves === HUB_DEGREE;
+  return true;
 }
 
 /**
