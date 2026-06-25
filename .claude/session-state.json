@@ -31,12 +31,15 @@
     {
       "id": "P2",
       "label": "S105 P2 - Codex EXACT recipes + reveal-when-locked (the real fix for the 4-vs-7 spirals turret). main.ts recipeHint() exact for voltkin/pentagram/laserTurret/helga/NONET; codexOverlay shows recipe on LOCKED tiles (name/sprite stay surprise); combos tab adds effect line.",
-      "status": "pending",
-      "phase": "PLAN",
+      "status": "completed",
+      "phase": "DONE",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
+      "checkpoint_commit": "11d2438",
+      "check_completed": true,
+      "check_method": "S105 P2 DONE (11d2438). Gates: tsc 0; build entry 598.2/750 KiB; codexOverlay stays a LAZY 15.45 KiB chunk (off entry — M12 invariant from S104 preserved). ROOT of the turret 'bug' = pure discoverability: recipe needs 1 Line + 7 Spirals (laserTurret.ts) but the codex hid the recipe behind the unlock gate ('??? / build it to reveal') so you couldn't check it before building. FIX: codexOverlay.makeSpriteTile now renders the recipeHint in BOTH locked+unlocked states (only the NAME + character art stay hidden as the brother-surprise reveal). Made all recipeHints EXACT (main.ts): voltkin '4 Squares then 4 Triangles in one straight chain' (was cryptic 'lightning meets a screen'), turret explicitly '7 spirals, not 4', pentagram/HELGA with totals. Connectors (combos tab) already show their 2-shape glyph recipe (dimmed when undiscovered) — recipe visible, result-name is the reveal, consistent treatment. Render/string only, zero sim/determinism impact. Runtime codex render is owner playtest (WebGL).",
       "objective": "Every godly/tower/connector shows its exact build recipe, checkable BEFORE building.",
       "scope": "src/main.ts (recipeHint), src/render/codexOverlay.ts (locked-tile recipe reveal + combo effect line).",
       "testing": "G+C opens with zero console errors; locked tiles render recipe text; tsc 0; vitest green."

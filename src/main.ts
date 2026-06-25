@@ -900,6 +900,17 @@ async function bootstrap(): Promise<void> {
   let invariantSnap: InvariantSnapshot = snapshotInvariants(world.primitives);
   let lastViolationLogTick = -Infinity;
   let physicsAccumulator = 0;
+  // S105 P3 (smooth-regardless-of-host, step 1) — the host's 10Hz full-world snapshot
+  // serialize+JSON.stringify is the single dominant host-only per-frame cost (the profiler's
+  // finding). It used to fire INSIDE the physics catch-up while-loop; a slow/behind host could
+  // serialize mid-drain on the very frames it was already over budget. We now send ONCE per render
+  // frame on a WALL-CLOCK cadence (after the loop), so the send rate stays a steady ~10Hz tied to
+  // real time rather than to the sim-tick drain — the client's render-delay jitter buffer (sync.ts)
+  // already absorbs arrival jitter. Determinism-NEUTRAL: this changes only WHEN we serialize, not
+  // the snapshot CONTENT, no reducer/RNG touched. This single isolated send gate is also the relay
+  // seam the worker-sim milestone will reuse.
+  const NET_SNAPSHOT_INTERVAL_MS = 1000 / NET_SNAPSHOT_HZ;
+  let lastSnapshotSentMs = -Infinity;
 
   // S50 P2 — godly orchestration state (lastMatcherTick + lastCinematicOwner)
   // migrated to godlyOrchestration.ts (Battle Ledger C2 — closure state moved
@@ -1034,19 +1045,10 @@ async function bootstrap(): Promise<void> {
       if (world.gameState === 'PLAYING' && !isClient && world.sudoku !== null) {
         world.tick++;
         tickSudoku(world);
-        // S93 — keep broadcasting during the freeze so 1v1 clients receive the trial (the sudoku
-        // field rides NetSnapshot) + the resolution; the snapshot send at the loop bottom is
-        // skipped by this `continue`, so replicate the host send here at the same cadence.
-        if (
-          isNetworked(world) &&
-          world.isHost &&
-          session.hostSync !== null &&
-          session.netTransport !== null &&
-          world.tick - session.lastSnapshotTick >= SNAPSHOT_INTERVAL_TICKS
-        ) {
-          session.netTransport.send(session.hostSync.buildSnapshotMessage(world));
-          session.lastSnapshotTick = world.tick;
-        }
+        // S105 P3 — the snapshot send moved OUT of this loop to a single wall-clock-gated send AFTER
+        // the loop. It still covers the freeze: gameState stays PLAYING during a NONET trial and
+        // world.tick advanced just above, so the post-loop send broadcasts the sudoku field +
+        // resolution at ~10Hz regardless of this `continue` (no per-branch in-loop send needed).
         physicsAccumulator -= PHYSICS_DT;
         continue;
       }
@@ -1492,31 +1494,11 @@ async function bootstrap(): Promise<void> {
         peerAbsentSinceTick.clear();
       }
 
-      // S15 P2 — host emits NetSnapshot every SNAPSHOT_INTERVAL_TICKS
-      // (60Hz / 10Hz = 6 ticks). Suppressed in TITLE/LOBBY (no snapshot
-      // to send pre-game) and in solo.
-      //
-      // S47 P1 (Sym I fix): gate WIDENED from `gameState === 'PLAYING'`
-      // to `PLAYING|WIN|POSTGAME`. Pre-fix, host stopped sending snapshots
-      // the instant it transitioned to WIN, leaving joiner stuck at the
-      // last PLAYING snapshot forever — joiner never saw the win and the
-      // game ended silently on the remote side. Defence-in-depth alongside
-      // the dedicated ENDGAME envelope below: snapshots keep flowing so the
-      // joiner gets continuous interpolation through the WIN dwell + POSTGAME
-      // freeze, AND a guaranteed ENDGAME envelope fires once on the transition.
-      if (
-        (world.gameState === 'PLAYING' ||
-          world.gameState === 'WIN' ||
-          world.gameState === 'POSTGAME') &&
-        isNetworked(world) &&
-        world.isHost &&
-        session.hostSync !== null &&
-        session.netTransport !== null &&
-        world.tick - session.lastSnapshotTick >= SNAPSHOT_INTERVAL_TICKS
-      ) {
-        session.netTransport.send(session.hostSync.buildSnapshotMessage(world));
-        session.lastSnapshotTick = world.tick;
-      }
+      // S105 P3 — host snapshot send relocated OUT of this physics drain loop to a single
+      // wall-clock-gated send AFTER the loop (see below), so the heavy serialize+stringify runs at
+      // most once per render frame on a steady ~10Hz real-time cadence instead of inside the
+      // per-tick catch-up drain. Gate semantics (PLAYING|WIN|POSTGAME, host, ≥SNAPSHOT_INTERVAL_TICKS
+      // of fresh state) are preserved at the new site.
 
       if (import.meta.env.DEV && world.gameState === 'PLAYING' && !isClient) {
         const violations = verifyInvariants(world.primitives, world.freeSparks, invariantSnap);
@@ -1618,6 +1600,33 @@ async function bootstrap(): Promise<void> {
       physicsAccumulator -= PHYSICS_DT;
     }
     stats.recordPhysics(performance.now() - physStart);
+
+    // S105 P3 (step 1) — host NetSnapshot send, ONCE per render frame on a WALL-CLOCK ~10Hz cadence.
+    // Relocated here from inside the physics drain loop (above) so the dominant serialize+JSON.stringify
+    // cost never runs mid-catch-up on a frame the host is already over budget. The wall-clock gate keeps
+    // the joiner's update cadence steady at real-time 10Hz even when the host's sim falls behind, while
+    // the ≥SNAPSHOT_INTERVAL_TICKS floor skips a re-send when no fresh state accrued. Same gate as before
+    // (PLAYING|WIN|POSTGAME, host, networked). Covers the NONET-freeze path too (gameState stays PLAYING).
+    // Determinism-neutral: changes only WHEN we serialize, never the snapshot content. (sync.ts's
+    // render-delay jitter buffer already absorbs arrival jitter on the client.)
+    {
+      const nowMs = performance.now();
+      if (
+        (world.gameState === 'PLAYING' ||
+          world.gameState === 'WIN' ||
+          world.gameState === 'POSTGAME') &&
+        isNetworked(world) &&
+        world.isHost &&
+        session.hostSync !== null &&
+        session.netTransport !== null &&
+        nowMs - lastSnapshotSentMs >= NET_SNAPSHOT_INTERVAL_MS &&
+        world.tick - session.lastSnapshotTick >= SNAPSHOT_INTERVAL_TICKS
+      ) {
+        session.netTransport.send(session.hostSync.buildSnapshotMessage(world));
+        session.lastSnapshotTick = world.tick;
+        lastSnapshotSentMs = nowMs;
+      }
+    }
 
     // S15 P2 — client interpolation. Runs every render frame to lerp
     // primitive + freeSpark positions between prev + current snapshot.

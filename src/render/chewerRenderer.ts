@@ -188,7 +188,12 @@ export class ChewerRenderer {
       const ldy = Math.abs(vx) > FACING_VX_THRESHOLD ? vy : c.targetPos.y - c.pos.y;
       const lean = (Math.atan2(ldy, ldx === 0 && ldy === 0 ? 1 : ldx)) * 0.10;
 
-      this.drawChewer(g, c.pos.x, c.pos.y, phase, face, lean, nowSec, c, fade);
+      // S105 P3 (smooth-regardless-of-host) — skip the whole ~50-op draw for a chewer that has
+      // faded to near-invisible (the tail of a DESPAWNING fade); its state/hop bookkeeping above
+      // still runs, only the draw is elided. Render-only, no determinism impact.
+      if (fade > 0.04) {
+        this.drawChewer(g, c.pos.x, c.pos.y, phase, face, lean, nowSec, c, fade);
+      }
     }
 
     // S102 #1 — DEATH WATCHER. Any chewer alive last frame but GONE from the synced snapshot
@@ -318,7 +323,10 @@ export class ChewerRenderer {
     // ── body: a round goofy blob, drawn as a rough wobbly hand-stroked outline ──
     // Build the outline as a ring of points with a small per-vertex jitter so the
     // edge looks pencil-drawn rather than a perfect vector ellipse.
-    const SEGS = 22;
+    // S105 P3 — 16 segments (was 22) for the body ring: a BODY_R≈17 graphite blob reads identically
+    // hand-drawn at 16, and it's redrawn 3× (fill + 2 sketch strokes) every frame per chewer, so the
+    // trim removes ~18 path ops/chewer/frame at the 12-chewer cap. Render-only.
+    const SEGS = 16;
     const pts: Array<{ x: number; y: number }> = [];
     for (let i = 0; i < SEGS; i++) {
       const a = (i / SEGS) * TAU;
