@@ -784,8 +784,23 @@ export const POOP_PICKUP_ARRIVAL_RADIUS = 36;
 export const SPAWN_INTERVAL_TICKS = 900; // 15 s @ 60 Hz — chewer emit cadence (user's number)
 export const CHEW_HITS = 5; // chews to sever one connector (user's number; = CHEWER_CONFIG.chewHits)
 export const CHEW_INTERVAL_TICKS = 60; // 1 s/hit → CHEW_HITS × this = 5 s/connector (user's number)
-export const CHEWER_MAX_GLOBAL = 8; // hard ceiling on live chewers (perf/wire ceiling — start low)
-export const CHEWER_MAX_PER_SPAWNER = 2; // #1 balance dial — destruction rate scales with this
+// S104 P1 — the REAL "constantly produce more every ~15s" fix is the chewer's now-FINITE lifetime
+// (voltkin-config.ts: persistent:false + lifetimeTicks), NOT a big cap raise. Once a chewer ages
+// out and despawns, the spawner's cadence refills the slot — so the population CHURNS instead of
+// hard-stopping at the per-spawner cap. STEADY-STATE per spawner ≈ lifetimeTicks / SPAWN_INTERVAL_TICKS
+// = 3000/900 ≈ 3.3 concurrent; the caps below are an OVERLAP BUFFER, never the binding limiter for a
+// single spawner. (Keep this relationship in mind before changing any one value: shortening
+// SPAWN_INTERVAL or lengthening lifetime raises the steady-state toward the cap.)
+//
+// Council (S104) reconciled the raise DOWN from a proposed 18/6: 12/4 is a measured, modest step
+// (the original TOWER_DEFENSE_DESIGN spec'd 14 before the conservative drop to 8); 18 stays a
+// documented post-playtest ceiling, not the ship value. WIRE: a trimMirrorCreature'd chewer is
+// ~124 B JSON; the full world rides the DataChannel every 100ms (NET_SNAPSHOT_HZ, no delta-encode),
+// so 12 chewers ≈ +1.5 KiB/snapshot vs 8 — trivial on WebRTC (Trystero auto-chunks), guarded by the
+// wire-size assertion in save.replay.test.ts. CHEWER_MAX_PER_VICTIM (below) stays the governor of how
+// many can attack ONE player at once in 1v1/vs-bots; the global cap mostly matters in FFA.
+export const CHEWER_MAX_GLOBAL = 12; // hard ceiling on live chewers (overlap buffer; post-playtest ceiling 18)
+export const CHEWER_MAX_PER_SPAWNER = 4; // overlap buffer above the ~3.3 steady-state; destruction rate scales with this
 export const CHEWER_MAX_PER_VICTIM = 3; // one swarm can't fully strip a single player
 
 // === S102 — UNIFIED HP / DAMAGE MODEL (owner correction OC2: "coherent, logical, epic") ===

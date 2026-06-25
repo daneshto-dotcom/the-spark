@@ -40,9 +40,12 @@
  */
 
 import { Application, Container, Graphics } from 'pixi.js';
+import { CHEW_INTERVAL_TICKS } from '../constants.ts';
+import { CREATURE_DESPAWNING_TICKS, CREATURE_FADE_TICKS } from '../state/creatures/creature.ts';
+import type { CreatureState } from '../state/creatures/creature.ts';
 import type { World } from '../state/world.ts';
 import type { CreatureId } from '../types.ts';
-import { playSplatSFX } from './audioManager.ts';
+import { playSplatSFX, playGnawSFX } from './audioManager.ts';
 
 // ── palette: graphite + paper, like a kid's pencil drawing ──
 const GRAPHITE = 0x2e2f36; // main outline / lead
@@ -72,6 +75,9 @@ const IDLE_HOP_HZ = 0.85;
 const TELEPORT_PX = 200;
 /** Min |vx| (px/frame) to flip facing — below this, hold prior facing (anti-jitter). */
 const FACING_VX_THRESHOLD = 0.6;
+/** S104 P1 — max NEW chewing gnaws started per frame. Caps the swarm's audio so 12 chewers all
+ *  ATTACKING don't become a wall of raspy static (Council M4); nearest-first, low volume. */
+const MAX_GNAW_VOICES = 3;
 
 /** Two-π convenience. */
 const TAU = Math.PI * 2;
@@ -84,6 +90,14 @@ export class ChewerRenderer {
   private readonly hopPhase: Map<CreatureId, number> = new Map();
   /** Last horizontal facing per chewer (+1 right, -1 left). Anti-jitter hold. */
   private readonly facing: Map<CreatureId, 1 | -1> = new Map();
+  /** S104 P1 — last-seen FSM state per chewer. The death-watcher reads it to tell a KILL (vanished
+   *  from a LIVE state — raid/potato/laser/slap hard-deleted it) from a natural lifetime despawn
+   *  (which now passes through DESPAWNING — fade, NOT green-goo splat). Mirrors creatureRenderer. */
+  private readonly lastSeenState: Map<CreatureId, CreatureState> = new Map();
+  /** S104 P1 — last CHEW_INTERVAL bucket (floor(ticksInState / CHEW_INTERVAL_TICKS)) per chewer, for
+   *  the render-driven gnaw. Keyed on the WIRED state+ticksInState (chewProgress is stripped from the
+   *  client mirror), so the gnaw fires on host AND the 1v1 joiner as each bite lands. */
+  private readonly lastChewBucket: Map<CreatureId, number> = new Map();
   /** S102 #1 — active green-goo splats (a chewer that vanished = was killed). Render-only;
    *  outlives the chewer that spawned it, so it is drawn unconditionally each frame + culled
    *  by wall-clock age. */
@@ -109,10 +123,34 @@ export class ChewerRenderer {
     this.prevNowSec = nowSec;
 
     const liveIds = new Set<CreatureId>();
+    // S104 P1 — per-frame gnaw budget (Council M4 voice cap): at most MAX_GNAW_VOICES new
+    // chewing rasps start per frame so a full swarm doesn't clip into raspy static.
+    let gnawsThisFrame = 0;
 
     for (const c of world.creatures.values()) {
       if (c.type !== 'chewer') continue;
       liveIds.add(c.id);
+      this.lastSeenState.set(c.id, c.state);
+
+      // ── S104 P1: render-driven CHEWING gnaw (host + 1v1 client). Keyed on the WIRED
+      // state + ticksInState (chewProgress is stripped from the client mirror, so we must
+      // NOT use it, and NEVER use performance.now as the cadence — host/client frame-rate
+      // would diverge and it'd play while backgrounded). A bite lands each CHEW_INTERVAL_TICKS;
+      // fire one rasp when the bucket increments while ATTACKING (≈ CHEW_HITS bites/bond at 1/s).
+      const bucket = c.state === 'ATTACKING' ? Math.floor(c.ticksInState / CHEW_INTERVAL_TICKS) : -1;
+      const prevBucket = this.lastChewBucket.get(c.id) ?? -1;
+      if (c.state === 'ATTACKING' && bucket > prevBucket && bucket >= 1 && gnawsThisFrame < MAX_GNAW_VOICES) {
+        void playGnawSFX({ x: c.pos.x, y: c.pos.y }, false);
+        gnawsThisFrame++;
+      }
+      this.lastChewBucket.set(c.id, bucket);
+
+      // S104 P1 — DESPAWNING fade: a chewer that aged out (finite lifetime) routes through
+      // DESPAWNING; fade its alpha over the last CREATURE_FADE_TICKS so it dissolves instead of
+      // popping (the death-watcher below reserves the green-goo splat for KILLS, not timeouts).
+      const fade = c.state === 'DESPAWNING'
+        ? Math.max(0, Math.min(1, (CREATURE_DESPAWNING_TICKS - c.ticksInState) / CREATURE_FADE_TICKS))
+        : 1;
 
       // ── real physics-driven motion estimate (see module docblock) ──
       const last = this.lastSeenPos.get(c.id);
@@ -150,7 +188,7 @@ export class ChewerRenderer {
       const ldy = Math.abs(vx) > FACING_VX_THRESHOLD ? vy : c.targetPos.y - c.pos.y;
       const lean = (Math.atan2(ldy, ldx === 0 && ldy === 0 ? 1 : ldx)) * 0.10;
 
-      this.drawChewer(g, c.pos.x, c.pos.y, phase, face, lean, nowSec, c);
+      this.drawChewer(g, c.pos.x, c.pos.y, phase, face, lean, nowSec, c, fade);
     }
 
     // S102 #1 — DEATH WATCHER. Any chewer alive last frame but GONE from the synced snapshot
@@ -162,13 +200,20 @@ export class ChewerRenderer {
       const playing = world.gameState === 'PLAYING';
       for (const [id, pos] of [...this.lastSeenPos]) {
         if (liveIds.has(id)) continue;
-        if (playing) {
+        // S104 P1 — KILL vs natural timeout: a chewer that vanished from a LIVE state (raid /
+        // potato / laser / slap hard-deleted it) splats green goo; one that aged out passes
+        // through DESPAWNING (faded above) and dies QUIETLY — no kill-VFX on natural expiry
+        // (mirrors the Voltkin death-watcher's DESPAWNING discriminator).
+        const wasState = this.lastSeenState.get(id);
+        if (playing && wasState !== undefined && wasState !== 'DESPAWNING') {
           this.gooSplats.push({ x: pos.x, y: pos.y, bornSec: nowSec, seed: (id as unknown as number) * 2.39 });
           void playSplatSFX({ x: pos.x, y: pos.y });
         }
         this.lastSeenPos.delete(id);
         this.hopPhase.delete(id);
         this.facing.delete(id);
+        this.lastSeenState.delete(id);
+        this.lastChewBucket.delete(id);
       }
     }
 
@@ -216,7 +261,12 @@ export class ChewerRenderer {
     lean: number,
     nowSec: number,
     c: { id: CreatureId },
+    fade = 1,
   ): void {
+    // S104 P1 — `fade` (1 normally, ramps to 0 during DESPAWNING) multiplies EVERY alpha so a
+    // timed-out chewer dissolves rather than popping. One shared Graphics → per-chewer alpha is
+    // applied per draw-call via this helper.
+    const fa = (a: number): number => a * fade;
     // ── hop arc + squash/stretch derived from the phase ──
     // height: a parabola peaking at phase=0.5 (one leap per cycle).
     const arc = Math.sin(phase * Math.PI); // 0 at ground, 1 at apex
@@ -240,7 +290,7 @@ export class ChewerRenderer {
     // Ground shadow — shrinks + fades as the chewer leaps up (sells the arc).
     const shadowScale = 1 - arc * 0.45;
     g.ellipse(px, py + BODY_R * 0.78, rx * 0.85 * shadowScale, ry * 0.26 * shadowScale)
-      .fill({ color: SHADOW_COLOR, alpha: 0.18 * (1 - arc * 0.5) });
+      .fill({ color: SHADOW_COLOR, alpha: fa(0.18 * (1 - arc * 0.5)) });
 
     // ── many little scuttling legs (drawn UNDER the body) ──
     // Legs splay wider on landing (arc→0), tuck in at apex (arc→1); each wiggles
@@ -258,10 +308,10 @@ export class ChewerRenderer {
         const midY = (rootY + footY) / 2 - 2;
         g.moveTo(rootX, rootY)
           .quadraticCurveTo(midX, midY, footX, footY)
-          .stroke({ width: 2, color: GRAPHITE_SOFT, alpha: 0.85 });
+          .stroke({ width: 2, color: GRAPHITE_SOFT, alpha: fa(0.85) });
         // little foot tick
         g.moveTo(footX, footY).lineTo(footX + s * 2.5, footY + 1.5)
-          .stroke({ width: 1.5, color: GRAPHITE, alpha: 0.8 });
+          .stroke({ width: 1.5, color: GRAPHITE, alpha: fa(0.8) });
       }
     }
 
@@ -286,14 +336,14 @@ export class ChewerRenderer {
     // paper fill first
     g.moveTo(pts[0].x, pts[0].y);
     for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y);
-    g.closePath().fill({ color: PAPER_FILL, alpha: 0.95 });
+    g.closePath().fill({ color: PAPER_FILL, alpha: fa(0.95) });
     // rough graphite outline — double-stroked slightly offset for a sketchy edge
     g.moveTo(pts[0].x, pts[0].y);
     for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y);
-    g.closePath().stroke({ width: 2.4, color: GRAPHITE, alpha: 0.95 });
+    g.closePath().stroke({ width: 2.4, color: GRAPHITE, alpha: fa(0.95) });
     g.moveTo(pts[0].x + 1, pts[0].y + 1);
     for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x + 1, pts[i].y + 1);
-    g.closePath().stroke({ width: 1, color: GRAPHITE_SOFT, alpha: 0.5 });
+    g.closePath().stroke({ width: 1, color: GRAPHITE_SOFT, alpha: fa(0.5) });
 
     // a couple of graphite shading scribbles on the lower-back (pencil hatching)
     const backX = px - face * rx * 0.45;
@@ -301,7 +351,7 @@ export class ChewerRenderer {
       .lineTo(backX - face * 5, bodyY + ry * 0.5)
       .moveTo(backX + face * 4, bodyY + ry * 0.15)
       .lineTo(backX - face * 2, bodyY + ry * 0.55)
-      .stroke({ width: 1, color: GRAPHITE_SOFT, alpha: 0.4 });
+      .stroke({ width: 1, color: GRAPHITE_SOFT, alpha: fa(0.4) });
 
     // ── OVERSIZED comedic teeth + huge gawping mouth at the front ──
     const frontX = px + face * rx * 0.62;
@@ -314,7 +364,7 @@ export class ChewerRenderer {
       .quadraticCurveTo(frontX + face * mw, mouthY, frontX - face * mw * 0.2, mouthY + gape * 0.5)
       .quadraticCurveTo(frontX - face * mw * 0.5, mouthY, frontX - face * mw * 0.2, mouthY - gape * 0.5)
       .closePath()
-      .fill({ color: GRAPHITE, alpha: 0.9 });
+      .fill({ color: GRAPHITE, alpha: fa(0.9) });
     // ── TWO BIG funny beaver buck-teeth (S102 #4) ──
     // Two oversized flat incisors side-by-side at the front of the mouth, jutting
     // DOWN well past the lower lip — the classic goofy buck-tooth overbite. Funny
@@ -329,16 +379,16 @@ export class ChewerRenderer {
       const tx = pairCx + s * (toothW * 0.5 + gap * 0.5) - toothW * 0.5;
       // the big flat incisor
       g.rect(tx, toothTopY, toothW, toothH)
-        .fill({ color: TOOTH_COLOR, alpha: 1 })
-        .stroke({ width: 2, color: GRAPHITE, alpha: 0.95 });
+        .fill({ color: TOOTH_COLOR, alpha: fa(1) })
+        .stroke({ width: 2, color: GRAPHITE, alpha: fa(0.95) });
       // a worn rounded "chewed" bottom edge (little graphite arc across the tip)
       g.moveTo(tx, toothTopY + toothH)
         .quadraticCurveTo(tx + toothW * 0.5, toothTopY + toothH + 2.5, tx + toothW, toothTopY + toothH)
-        .stroke({ width: 1.4, color: GRAPHITE_SOFT, alpha: 0.7 });
+        .stroke({ width: 1.4, color: GRAPHITE_SOFT, alpha: fa(0.7) });
       // soft vertical pencil seam down the face of each tooth (cosmetic)
       g.moveTo(tx + toothW * 0.34, toothTopY + toothH * 0.16)
         .lineTo(tx + toothW * 0.34, toothTopY + toothH * 0.82)
-        .stroke({ width: 1, color: GRAPHITE_SOFT, alpha: 0.35 });
+        .stroke({ width: 1, color: GRAPHITE_SOFT, alpha: fa(0.35) });
     }
 
     // ── two big goofy googly eyes on stalks (over the top of the body) ──
@@ -351,14 +401,14 @@ export class ChewerRenderer {
       const eyeY = eyeBaseY - stalkLen - arc * 2;
       // stalk
       g.moveTo(eyeBaseX, eyeBaseY).lineTo(eyeX, eyeY)
-        .stroke({ width: 2, color: GRAPHITE, alpha: 0.9 });
+        .stroke({ width: 2, color: GRAPHITE, alpha: fa(0.9) });
       // white of the eye
       g.circle(eyeX, eyeY, BODY_R * 0.34)
-        .fill({ color: PAPER_FILL, alpha: 1 })
-        .stroke({ width: 1.6, color: GRAPHITE, alpha: 0.95 });
+        .fill({ color: PAPER_FILL, alpha: fa(1) })
+        .stroke({ width: 1.6, color: GRAPHITE, alpha: fa(0.95) });
       // pupil — looks toward the facing/target direction
       g.circle(eyeX + face * BODY_R * 0.12, eyeY + 1, BODY_R * 0.15)
-        .fill({ color: EYE_COLOR, alpha: 1 });
+        .fill({ color: EYE_COLOR, alpha: fa(1) });
     }
   }
 
@@ -368,6 +418,8 @@ export class ChewerRenderer {
     this.lastSeenPos.clear();
     this.hopPhase.clear();
     this.facing.clear();
+    this.lastSeenState.clear();
+    this.lastChewBucket.clear();
     this.gooSplats.length = 0; // S102 #1 — drop in-flight splats on a hard reset (no spurious goo)
     this.prevNowSec = -1;
   }
@@ -377,6 +429,8 @@ export class ChewerRenderer {
     this.lastSeenPos.clear();
     this.hopPhase.clear();
     this.facing.clear();
+    this.lastSeenState.clear();
+    this.lastChewBucket.clear();
     this.gooSplats.length = 0;
   }
 }

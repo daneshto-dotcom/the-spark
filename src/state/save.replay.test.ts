@@ -600,6 +600,41 @@ describe('Replay determinism — S100 P1 chewer + spawner coverage (HARD GATE)',
     runChewerStress(wB, 200);
     expect(determinismJson(wA)).not.toBe(determinismJson(wB));
   });
+
+  // S104 P1 (Council M6) — the finite-lifetime CHURN is the actual "constantly produce more" fix,
+  // and it must be EXERCISED inside the 2-seed gate (the 400-iter stress above never reaches the
+  // 3000-tick lifetime, so a value-only despawnAtTick change would pass it silently). Drive a swarm
+  // PAST its lifetime (no enemy bonds → chewers just age out): assert (a) both seeds byte-identical
+  // through the DESPAWNING→auto-delete path, (b) the swarm fully drains (the despawn path ran), and
+  // (c) the live count actually dropped across the run (churn, not a no-op).
+  it('S104 P1 — a chewer swarm drains to empty by its finite lifetime (deterministic churn)', () => {
+    const LIFE = getCreatureConfig('chewer').lifetimeTicks; // 3000
+    const drain = (seed: number): { json: string; finalCount: number; maxLive: number } => {
+      const w = makeWorld(seed);
+      for (let i = 0; i < 4; i++) {
+        dispatch(w, {
+          type: 'SPAWN_CREATURE', creatureType: 'chewer', ownerPlayerId: P1,
+          pos: { x: i * 20, y: 0 }, targetPos: { x: i * 20, y: 100 }, sourceSpawnerId: asSpawnerId(0),
+        });
+      }
+      let maxLive = w.creatures.size;
+      for (let t = 0; t < LIFE + 200; t++) {
+        for (const id of [...w.creatures.keys()]) {
+          dispatch(w, { type: 'CREATURE_TICK', creatureId: id });
+        }
+        maxLive = Math.max(maxLive, w.creatures.size);
+        w.tick++;
+      }
+      return { json: determinismJson(w), finalCount: w.creatures.size, maxLive };
+    };
+    const SEED = 0x5104a;
+    const a = drain(SEED);
+    const b = drain(SEED);
+    expect(a.json).toBe(b.json); // byte-identical through the new despawn path
+    expect(a.maxLive).toBeGreaterThan(0); // the swarm existed
+    expect(a.finalCount).toBe(0); // … and fully aged out (despawn path actually ran)
+    expect(a.finalCount).toBeLessThan(a.maxLive); // count dropped across the run (churn proven)
+  });
 });
 
 describe('S100 P1 — host save/load round-trips a mid-chew chewer (R3)', () => {
@@ -671,7 +706,7 @@ describe('S100 P1 — host save/load round-trips a mid-chew chewer (R3)', () => 
 });
 
 describe('S100 P1 — wire byte budget (R1) + TD host-only stripping', () => {
-  it('a worst-case world (8 chewers + spawners + prims/bonds) stays under ~16 KB on the wire', () => {
+  it('a worst-case world (12 chewers + spawners + prims/bonds) stays under ~16 KB on the wire', () => {
     const host = makeWorld(0xb19);
     host.gameMode = '1v1';
     host.isHost = true;
@@ -679,8 +714,10 @@ describe('S100 P1 — wire byte budget (R1) + TD host-only stripping', () => {
 
     // Build a dense enemy structure (primitives + bonds). save.ts documents a
     // realistic prim/bond base of ~3 KB; this fixture is deliberately generous
-    // (a large full-board structure) so the assertion proves the 8-chewer swarm +
+    // (a large full-board structure) so the assertion proves the 12-chewer swarm +
     // spawners do NOT push a realistic worst case past the ~16 KB single-SCTP ceiling.
+    // S104 P1: cap raised 8->12 (CHEWER_MAX_GLOBAL). Measured wire ≈124 B / trimMirrorCreature'd
+    // chewer (host-only fields stripped), so 12 ≈ +0.5 KiB vs 8 — inside the single-SCTP envelope.
     const N_PRIMS = 40;
     for (let i = 0; i < N_PRIMS; i++) {
       host.primitives.set(asPrimitiveId(i), {
@@ -701,8 +738,8 @@ describe('S100 P1 — wire byte budget (R1) + TD host-only stripping', () => {
       b.bonds.add(bond.id);
     }
 
-    // 8 chewers (the global cap) with full host-only sim state set.
-    for (let i = 0; i < 8; i++) {
+    // 12 chewers (the global cap, S104 P1) with full host-only sim state set.
+    for (let i = 0; i < 12; i++) {
       dispatch(host, {
         type: 'SPAWN_CREATURE',
         creatureType: 'chewer',

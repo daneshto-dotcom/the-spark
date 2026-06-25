@@ -117,8 +117,9 @@ describe('CHEWER_CONFIG (TD swarm creature)', () => {
     expect(CHEWER_CONFIG.type).toBe('chewer');
   });
 
-  it('is persistent (no lifetime auto-delete; FSM gate is the despawn mechanism)', () => {
-    expect(CHEWER_CONFIG.persistent).toBe(true);
+  it('S104 P1 — is FINITE (persistent:false + a real lifetime) so the swarm churns and the spawner keeps producing', () => {
+    expect(CHEWER_CONFIG.persistent).toBe(false); // was true (sentinel-lifetime, never despawned → spawner stuck at the cap)
+    expect(CHEWER_CONFIG.lifetimeTicks).toBe(3000); // 50s @ 60Hz; > seek+travel+5-chew sever (300t) so it completes severs
   });
 
   it('chews 5 hits, hops at ~0.6× speed, maxAccel = 200 × hopSpeedMul', () => {

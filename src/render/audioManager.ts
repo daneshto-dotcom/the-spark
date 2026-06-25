@@ -1007,7 +1007,7 @@ function getGnawNoiseBuffer(ctx: AudioContext): AudioBuffer {
   return buf;
 }
 
-async function playGnawSFX(pos?: Vec2, final = false): Promise<void> {
+export async function playGnawSFX(pos?: Vec2, final = false): Promise<void> {
   if (audioContext === null || sfxGainNode === null) return;
   if (audioContext.state !== 'running') {
     try { await audioContext.resume(); } catch (e) {
@@ -1286,11 +1286,10 @@ export function drainAudioEffects(effects: ReadonlyArray<GameEffect>, currentTic
       // crunch (NOT lightning). Wire-synced (BOND_SEVERED rides the snapshot) so a 1v1
       // victim hears the connector break too. `final` = the lower/louder crunch variant.
       void playGnawSFX(effect.pos, true);
-    } else if (effect.kind === 'CHEW_BITE') {
-      // S102 #2 — each non-final chew gnaws ("tchhht·tchhht·tchhht"). Host-local effect
-      // (vs-bots host + the chewing player hear all 5 chews; the 1v1 opponent gets the
-      // wired final-sever crunch above + sees the connector vanish).
-      void playGnawSFX(effect.pos, false);
+    // S104 P1 — the non-final CHEW_BITE no longer plays audio HERE. The continuous chewing rasp
+    // is now RENDER-DRIVEN in chewerRenderer (keyed on the WIRED state==='ATTACKING' + ticksInState
+    // bite-buckets, voice-capped), so it fires on host AND the 1v1 joiner (the old host-local
+    // CHEW_BITE was silent on the joiner). The CHEW_BITE effect still drives its graphite-dust VISUAL.
     } else if (effect.kind === 'CREATURE_CHARGE') {
       // S37 P7 — Voltkin lightning charge-up rising tone, 250 ms procedural
       // synth (sawtooth + biquad lowpass sweep + exp gain envelope). Climaxes

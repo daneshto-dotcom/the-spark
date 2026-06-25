@@ -186,15 +186,16 @@ export const VOLTKIN_CONFIG: CreatureConfig = {
 };
 
 /**
- * Chewer — tower-defense swarm creature (S100 P1, TD Phase 1a). A persistent,
- * slow-hopping, pencil-drawn creature emitted every `SPAWN_INTERVAL_TICKS` by a
- * live spawner-structure. Generalizes the Voltkin substrate (same FSM / Verlet /
+ * Chewer — tower-defense swarm creature (S100 P1, TD Phase 1a). A slow-hopping,
+ * pencil-drawn creature emitted every `SPAWN_INTERVAL_TICKS` by a live
+ * spawner-structure. Generalizes the Voltkin substrate (same FSM / Verlet /
  * SEVER_BOND choke point) with three behavioral diffs encoded here:
  *
- *   - `persistent: true` — no lifetime auto-delete; lives until the spawner is
- *     destroyed (re-validation teardown) or a potato blast despawns it. The
- *     FSM gates its end-of-life steps behind `if (!config.persistent)`, so the
- *     Voltkin (`persistent:false`) path stays textually unchanged (R4).
+ *   - `persistent: false` (S104 P1 — was true) — a FINITE `lifetimeTicks` so the swarm
+ *     CHURNS: a chewer ages out through the SAME `!config.persistent` DESPAWNING→auto-delete
+ *     FSM the Voltkin uses, freeing the spawner's per-spawner slot so its 15s cadence keeps
+ *     producing (the owner's "constantly produce more every ~15s" fix). A chewer can also die
+ *     early to a raid / potato / laser / slap (hp 1), or instantly when its spawner is destroyed.
  *   - `chewHits: 5` (= constants.ts `CHEW_HITS`) — instead of Voltkin's single
  *     mid-cycle zap, a chewer commits to ONE bond and lands 5 incremental chews
  *     (one per `CHEW_INTERVAL_TICKS` = 60), severing only on the final hit (R9).
@@ -205,10 +206,10 @@ export const VOLTKIN_CONFIG: CreatureConfig = {
  *     a readable, counterable hop. `maxAccel = 200 × 0.6` (the de-hardcoded
  *     CREATURE_MAX_ACCEL scaled by hopSpeedMul).
  *
- * `lifetimeTicks` is a large sentinel (defense-in-depth only — the `persistent`
- * gate is the sole despawn mechanism; the chewer never reaches this tick in
- * normal play). `attackRange` is a touch shorter than Voltkin's 180 (chewers
- * engage at melee-ish chew range, not a ranged arc).
+ * `lifetimeTicks` (3000 = 50s @ 60Hz) is the REAL despawn gate now (`persistent:false`):
+ * the FSM auto-deletes at `despawnAtTick` and routes the last second through DESPAWNING, so
+ * a timed-out chewer FADES (the renderer reserves the green-goo splat for KILLS). `attackRange`
+ * is a touch shorter than Voltkin's 180 (chewers engage at melee-ish chew range, not a ranged arc).
  *
  * NOTE for downstream layers: the FSM chew loop, the split caps, the enemy-only
  * targeting, the spawner poll, and threading `hopSpeedMul`/`maxAccel` through
@@ -217,7 +218,14 @@ export const VOLTKIN_CONFIG: CreatureConfig = {
  */
 export const CHEWER_CONFIG: CreatureConfig = {
   type: 'chewer',
-  lifetimeTicks: 1_000_000_000, // sentinel — persistent:true is the real despawn gate
+  // S104 P1 — FINITE lifetime (was a 1e9 sentinel + persistent:true). The chewer now ages out
+  // through the SAME replay-proven Voltkin DESPAWNING→auto-delete FSM, so the spawner's swarm
+  // CHURNS (an old chewer expires ~as the 15s cadence mints a new one) instead of hard-stopping at
+  // the per-spawner cap — the owner's "should constantly produce more every ~15s" fix. 3000t = 50s
+  // @ 60Hz, comfortably longer than seek+travel+a full 5-chew sever (5×60=300t=5s) so a chewer
+  // actually completes severs rather than timing out mid-bite. Lifetime-expiry FADES via DESPAWNING
+  // (the chewerRenderer death-watcher reserves the green-goo splat for KILLS — a non-DESPAWNING vanish).
+  lifetimeTicks: 3000, // 50 s @ 60Hz — finite so the swarm churns (steady-state ≈ 3000/SPAWN_INTERVAL_TICKS 900 ≈ 3.3/spawner)
   spawnTicks: 30, // 0.5 s materialize (faster than Voltkin's 1 s — it's a swarm unit)
   despawningTicks: 30,
   fadeTicks: 15,
@@ -226,7 +234,7 @@ export const CHEWER_CONFIG: CreatureConfig = {
   attackCadenceTicks: 300, // chewHits × CHEW_INTERVAL_TICKS (5 × 60) — full chew span
   attackFireTick: 300, // sever on the final (5th) chew hit
   attackChargeEngageTick: 60, // first chew bite lands one CHEW_INTERVAL_TICKS in
-  persistent: true,
+  persistent: false, // S104 P1 — finite lifetime (see lifetimeTicks); routes end-of-life through the Voltkin DESPAWNING FSM
   chewHits: 5, // = constants.ts CHEW_HITS
   hopSpeedMul: 0.6,
   maxAccel: 120, // 200 (CREATURE_MAX_ACCEL) × hopSpeedMul 0.6

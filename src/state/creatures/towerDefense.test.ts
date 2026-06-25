@@ -2,8 +2,10 @@
  * SPARK — S100 P1 (TD Phase 1a) chewer behaviour tests.
  *
  * Covers the PDR acceptance gates for the chewer creature:
- *   - Voltkin regression: still auto-deletes at tick 1200, enters DESPAWNING at 1140;
- *     a persistent chewer does NOT auto-despawn.
+ *   - Voltkin regression: still auto-deletes at tick 1200, enters DESPAWNING at 1140.
+ *   - Chewer lifetime (S104 P1): a chewer is now FINITE (persistent:false) — it enters DESPAWNING
+ *     at despawnAtTick−CREATURE_DESPAWNING_TICKS and auto-deletes at despawnAtTick (the churn that
+ *     keeps the spawner producing). Was: "a persistent chewer does NOT auto-despawn" (now inverted).
  *   - Chew loop: a chewer reaches chewProgress 5 on a stationary enemy bond, severs it
  *     exactly on the 5th hit, and does not re-seek (re-select its target) mid-chew.
  *   - Caps: global / per-spawner / per-victim; Voltkin-vs-chewer populations counted
@@ -43,6 +45,7 @@ import { asPlayerId, asPrimitiveId, asSpawnerId, type BondId } from '../../types
 import type { Primitive } from '../../game/primitive.ts';
 import type { Bond } from '../../physics/bonds.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
+import { CHEWER_CONFIG } from './voltkin-config.ts';
 
 /** Add an enemy (player-1-coloured) bond whose midpoint is at (midX, midY). */
 function addEnemyBond(
@@ -141,18 +144,22 @@ describe('Voltkin regression — persistent gate does not touch the Voltkin life
     expect(world.creatures.has(id)).toBe(false);
   });
 
-  it('a persistent chewer does NOT auto-despawn at its (sentinel) lifetime boundary', () => {
+  it('S104 P1 — a chewer (now finite, persistent:false) enters DESPAWNING then auto-deletes at its lifetime', () => {
     const world = makeWorld(1);
     spawnChewer(world, { x: 100, y: 100 }, 0);
     const id = asCreatureId(0);
     const c = world.creatures.get(id)!;
-    // Drive far past Voltkin's 1200-tick lifetime and well past despawnAtTick−60
-    // boundaries — the !config.persistent gate skips both end-of-life steps.
+    const life = CHEWER_CONFIG.lifetimeTicks; // 3000 (S104); spawnedAtTick 0 → despawnAtTick = life
+    expect(c.despawnAtTick).toBe(life);
+    // Forced into DESPAWNING at despawnAtTick − CREATURE_DESPAWNING_TICKS (the churn fix; was: never).
     c.state = 'SEEKING';
-    world.tick = 100_000;
+    world.tick = life - CREATURE_DESPAWNING_TICKS;
     applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId: id });
-    expect(world.creatures.has(id)).toBe(true);
-    expect(world.creatures.get(id)!.state).toBe('SEEKING'); // never forced into DESPAWNING
+    expect(world.creatures.get(id)!.state).toBe('DESPAWNING');
+    // Auto-deletes at despawnAtTick — the spawner slot frees so its 15s cadence keeps producing.
+    world.tick = life;
+    applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId: id });
+    expect(world.creatures.has(id)).toBe(false);
   });
 });
 
