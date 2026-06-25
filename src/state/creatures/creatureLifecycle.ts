@@ -289,6 +289,7 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
       creature.state = 'DESPAWNING';
       creature.ticksInState = 0;
       creature.targetBondId = null;
+      creature.targetCreatureId = null; // S103 #8 — clear the opportunistic creature target too
       return world;
     }
   }
@@ -345,10 +346,15 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
   //    re-selection per Council R1 Q3 UNANIMOUS A). isWithinAttackRange does a
   //    squared-distance compare against VOLTKIN_ATTACK_RANGE_SQ; returns false
   //    if the bond is missing (defense-in-depth race-condition guard).
+  //    S103 #8 — a Voltkin also enters ATTACKING when an enemy CREATURE is in range
+  //    (`targetCreatureId`), even if no bond is — so it can zap a chewer that wandered up to
+  //    it while it has no structure in reach (Council MF3: opportunistic, never navigated to).
+  //    `targetCreatureId` is set by the main.ts fan-out via `findNearestEnemyCreature`, which
+  //    is range-gated to this creature's attackRange. Chewers never set it → byte-identical.
   if (
     creature.state === 'SEEKING' &&
-    creature.targetBondId !== null &&
-    isWithinAttackRange(world, creature, creature.targetBondId)
+    ((creature.targetBondId !== null && isWithinAttackRange(world, creature, creature.targetBondId)) ||
+      creature.targetCreatureId !== null)
   ) {
     creature.state = 'ATTACKING';
     creature.ticksInState = 0;
@@ -432,13 +438,20 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
   //    module consts); identical literals for Voltkin (60/30) so byte-identical.
   if (creature.state === 'ATTACKING') {
     const cadenceElapsed = creature.ticksInState >= config.attackCadenceTicks;
+    // S103 #8 — the wind-up only aborts early when BOTH possible targets are invalid. A Voltkin
+    // that entered ATTACKING for a creature-only target (no bond in range) must NOT bounce out
+    // before its FIRE_TICK. When no enemy creatures exist `targetCreatureId` is null →
+    // `creatureValid` is always false → this reduces to the original bond-only condition (MF4).
+    const bondValid = creature.targetBondId !== null && world.bonds.has(creature.targetBondId);
+    const creatureValid =
+      creature.targetCreatureId !== null && world.creatures.has(creature.targetCreatureId);
     const targetGoneEarly =
-      creature.ticksInState <= config.attackFireTick &&
-      (creature.targetBondId === null || !world.bonds.has(creature.targetBondId));
+      creature.ticksInState <= config.attackFireTick && !bondValid && !creatureValid;
     if (cadenceElapsed || targetGoneEarly) {
       creature.state = 'SEEKING';
       creature.ticksInState = 0;
       creature.targetBondId = null;
+      creature.targetCreatureId = null; // S103 #8 — release the opportunistic creature target
     }
   }
 

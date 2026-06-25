@@ -26,7 +26,7 @@ import { dispatch, makeWorld, type World } from './world.ts';
 import { snapshot, restore, netSnapshot } from './save.ts';
 import { tickScoring } from './scoring.ts';
 import { makeIdlePlayer } from '../game/player.ts';
-import { findNearestBondTarget } from './creatures/creatureAI.ts';
+import { findNearestBondTarget, findNearestEnemyCreature } from './creatures/creatureAI.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import { asCreatureId } from './creatures/creature.ts';
 
@@ -315,6 +315,122 @@ function runChewerStress(world: World, iterations: number): void {
     world.tick++;
   }
 }
+
+/**
+ * S103 #8 (HARD GATE) — Voltkin-vs-chewer combat determinism. Mirrors runChewerStress but ALSO
+ * stations a Voltkin (owned by the victim P2) amid the P1 chewer swarm. Each iteration drives the
+ * REAL main.ts orchestration for both populations: chewers re-select their enemy bond + chew it,
+ * and the Voltkin (a) opportunistically sets `targetCreatureId` via findNearestEnemyCreature
+ * (in-range only — MF3), (b) fires CREATURE_ATTACK creature-FIRST when it has one (→ damageCreature,
+ * a chewer dies in 1), else severs its bond target. All tick-deterministic (no wall-clock / RNG):
+ * two identically-seeded runs MUST be byte-identical. Returns the number of chewer-kills credited
+ * to the Voltkin (its killCount) so the sanity test can assert combat actually happened.
+ */
+function runVoltkinVsChewerStress(world: World, iterations: number): number {
+  const P2 = asPlayerId(1);
+  world.players.set(P2, makeIdlePlayer(P2, 0x00ff00));
+
+  // A standing P2 structure (the thing P1 chewers chew through), fixed positions.
+  for (let i = 0; i < 6; i++) {
+    const prim: import('../game/primitive.ts').Primitive = {
+      id: asPrimitiveId(900 + i), type: SparkType.Dot, placerColor: 0x00ff00, placedBy: P2,
+      createdTick: 0, pos: { x: 100 + i * 20, y: 100 }, prevPos: { x: 100 + i * 20, y: 100 },
+      bonds: new Set(), ownerColor: 0x00ff00, lastOwnershipChange: 0, radius: 8,
+    };
+    world.primitives.set(prim.id, prim);
+  }
+  for (let i = 0; i < 5; i++) {
+    const a = world.primitives.get(asPrimitiveId(900 + i))!;
+    const b = world.primitives.get(asPrimitiveId(901 + i))!;
+    const bond: import('../physics/bonds.ts').Bond = {
+      id: asBondId(900 + i), aId: a.id, bId: b.id, a, b, restLength: 20, stiffnessTier: 'MID', createdTick: 0,
+    };
+    world.bonds.set(bond.id, bond);
+    a.bonds.add(bond.id); b.bonds.add(bond.id);
+  }
+
+  dispatch(world, { type: 'REGISTER_SPAWNER', ownerPlayerId: P1, anchorPrimitiveId: asPrimitiveId(900), recipeId: 'pentagram' });
+
+  // Station a Voltkin (owned by victim P2) right in the chewer lane so P1 chewers wander into
+  // its 180px attackRange → it opportunistically zaps them.
+  dispatch(world, {
+    type: 'SPAWN_CREATURE', creatureType: 'voltkin', ownerPlayerId: P2,
+    pos: { x: 130, y: 110 }, targetPos: { x: 130, y: 110 },
+  });
+
+  for (let i = 0; i < iterations; i++) {
+    if (i % 18 === 0) {
+      dispatch(world, {
+        type: 'SPAWN_CREATURE', creatureType: 'chewer', ownerPlayerId: P1,
+        pos: { x: 120 + (i % 24), y: 112 }, targetPos: { x: 110, y: 100 }, sourceSpawnerId: asSpawnerId(0),
+      });
+    }
+    for (const creatureId of [...world.creatures.keys()]) {
+      const c = world.creatures.get(creatureId);
+      if (c === undefined) continue;
+      // ── main.ts SEEKING fan-out (faithful mirror) ──
+      if (c.state === 'SEEKING') {
+        const isChewer = c.sourceSpawnerId !== null;
+        if (isChewer) {
+          if (c.chewProgress === 0) c.targetBondId = findNearestBondTarget(world, c, true);
+        } else {
+          c.targetBondId = findNearestBondTarget(world, c, false);
+          c.targetCreatureId = findNearestEnemyCreature(world, c); // S103 #8 opportunistic
+        }
+      }
+      dispatch(world, { type: 'CREATURE_TICK', creatureId });
+      const after = world.creatures.get(creatureId);
+      if (
+        after !== undefined &&
+        after.state === 'ATTACKING' &&
+        after.ticksInState === getCreatureConfig(after.type).attackFireTick &&
+        (after.targetCreatureId !== null || after.targetBondId !== null)
+      ) {
+        if (after.targetCreatureId !== null) {
+          dispatch(world, { type: 'CREATURE_ATTACK', creatureId, bondId: null, targetCreatureId: after.targetCreatureId });
+        } else {
+          dispatch(world, { type: 'CREATURE_ATTACK', creatureId, bondId: after.targetBondId });
+        }
+      }
+    }
+    world.tick++;
+  }
+
+  // Total chewer-kills the Voltkin landed (killCount survives even after the Voltkin despawns? no —
+  // read it live while it's alive; the determinism check uses the full snapshot regardless).
+  let voltkinKills = 0;
+  for (const c of world.creatures.values()) {
+    if (c.type === 'voltkin') voltkinKills += c.killCount;
+  }
+  return voltkinKills;
+}
+
+describe('Replay determinism — S103 #8 Voltkin-vs-chewer combat (HARD GATE)', () => {
+  it('two runs with the same seed produce byte-identical snapshot after Voltkin-vs-chewer stress', () => {
+    const SEED = 0x8c0ffee;
+    const ITERS = 240;
+    const wA = makeWorld(SEED);
+    runVoltkinVsChewerStress(wA, ITERS);
+    const jsonA = determinismJson(wA);
+    const wB = makeWorld(SEED);
+    runVoltkinVsChewerStress(wB, ITERS);
+    const jsonB = determinismJson(wB);
+    expect(jsonA).toBe(jsonB);
+  });
+
+  it('the Voltkin actually zaps chewers (combat sanity — kills happen)', () => {
+    const w = makeWorld(0x5eed1);
+    // Run long enough for the Voltkin to materialize (60-tick SPAWNING) + chewers to reach it.
+    const kills = runVoltkinVsChewerStress(w, 240);
+    expect(kills).toBeGreaterThan(0);
+  });
+
+  it('different seeds still diverge (canary)', () => {
+    const wA = makeWorld(0xa11); runVoltkinVsChewerStress(wA, 120);
+    const wB = makeWorld(0xb22); runVoltkinVsChewerStress(wB, 120);
+    expect(determinismJson(wA)).not.toBe(determinismJson(wB));
+  });
+});
 
 describe('Replay determinism — S34 PB-5 creature lifecycle coverage', () => {
   it('two runs with the same seed produce byte-identical snapshot after creature stress', () => {

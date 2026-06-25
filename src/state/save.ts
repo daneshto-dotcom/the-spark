@@ -443,6 +443,13 @@ interface SerializedCreature {
   readonly sourceSpawnerId?: SpawnerId;
   readonly targetBondId?: BondId;
   /**
+   * S103 #8 — the enemy creature a Voltkin is zapping this cycle. HOST-SAVE-ONLY (stripped
+   * from the wire by trimMirrorCreature; the client rehydrates null — it never runs the AI).
+   * Emitted by serializeCreature ONLY when non-null, so an undamaged/idle creature stays
+   * byte-identical to a pre-S103 save; round-tripped so a Voltkin mid-zap resumes its target.
+   */
+  readonly targetCreatureId?: CreatureId;
+  /**
    * S102 (unified HP model) — remaining creature hit-points. HOST-SAVE-ONLY (stripped
    * from the wire by trimMirrorCreature; the client rehydrates the config default).
    * Emitted by serializeCreature ONLY when DAMAGED (hp < config.hp) so an undamaged
@@ -742,6 +749,7 @@ function trimMirrorCreature(c: SerializedCreature): SerializedCreature {
     c.despawnAtTick === undefined &&
     c.chewProgress === undefined &&
     c.targetBondId === undefined &&
+    c.targetCreatureId === undefined && // S103 #8 — host-only too (stripped below)
     c.hp === undefined // S102 — hp is host-only too (stripped below)
   ) {
     return c; // Voltkin / no host-only fields — already in wire shape
@@ -751,10 +759,11 @@ function trimMirrorCreature(c: SerializedCreature): SerializedCreature {
     despawnAtTick: _d,
     chewProgress: _c,
     targetBondId: _t,
+    targetCreatureId: _tc, // S103 #8 — strip the opportunistic creature target from the wire
     hp: _h, // S102 — strip damaged-hp from the wire (client rehydrates the config default)
     ...wire
   } = c;
-  void _s; void _d; void _c; void _t; void _h;
+  void _s; void _d; void _c; void _t; void _tc; void _h;
   return wire;
 }
 
@@ -1175,6 +1184,9 @@ function serializeCreature(c: Creature): SerializedCreature {
       : {}),
     ...(c.chewProgress > 0 ? { chewProgress: c.chewProgress } : {}),
     ...(c.targetBondId !== null ? { targetBondId: c.targetBondId } : {}),
+    // S103 #8 — host-save-only; emit only when a Voltkin is mid-zap (non-null) so an idle/
+    // no-creature world stays byte-identical to a pre-S103 save. Stripped from the wire.
+    ...(c.targetCreatureId !== null ? { targetCreatureId: c.targetCreatureId } : {}),
     // S102 — emit hp ONLY when damaged (below the per-type config default) so an undamaged
     // creature stays byte-identical to a pre-S102 save (every creature until P3 combat).
     ...(c.hp < getCreatureConfig(c.type).hp ? { hp: c.hp } : {}),
@@ -1368,6 +1380,9 @@ function deserializeCreature(s: SerializedCreature): Creature {
     // so its rehydrate is byte-identical to pre-S100.
     despawnAtTick: s.despawnAtTick ?? 0,
     targetBondId: s.targetBondId ?? null,
+    // S103 #8 — host save carries a mid-zap Voltkin's creature target; the wire strips it so a
+    // client mirror (+ pre-S103 save) rehydrates null (the client never runs the AI).
+    targetCreatureId: s.targetCreatureId ?? null,
     sourceSpawnerId: s.sourceSpawnerId ?? null,
     chewProgress: s.chewProgress ?? 0,
     // S102 — rehydrate hp: a host save of a damaged creature carries it; the wire strips it

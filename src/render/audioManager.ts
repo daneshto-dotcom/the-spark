@@ -1102,6 +1102,62 @@ export async function playSplatSFX(pos?: Vec2): Promise<void> {
 }
 
 /**
+ * S103 #8 — ZAP-BURST: the electric "discombobulation" of a godly Voltkin being destroyed (2 hits
+ * → it pops into a lightning-cloud). A bright crackly noise burst (high-pass, fast decay) layered
+ * over two detuned descending sawtooth zaps = a short sparky electric POP, distinct from the
+ * chewer's wet fly-splat. EXPORTED + called from the creatureRenderer death-watcher when a Voltkin
+ * vanishes from a LIVE state (a kill, not a natural lifetime despawn), so it fires on host AND the
+ * 1v1 client with zero wire surface (the green-goo / fly-splat precedent). Procedural; routed
+ * through sfxGainNode so master/SFX mute + volume apply.
+ */
+export async function playZapBurstSFX(pos?: Vec2): Promise<void> {
+  if (audioContext === null || sfxGainNode === null) return;
+  if (audioContext.state !== 'running') {
+    try { await audioContext.resume(); } catch (e) {
+      if (isDebugRequested()) console.warn('[audio] playZapBurstSFX resume() threw:', e);
+    }
+  }
+  if (audioContext.state !== 'running') return;
+
+  const ctx = audioContext;
+  const now = ctx.currentTime;
+  const panner = pos !== undefined ? createPanner(pos) : null;
+  const sink: AudioNode = panner ?? sfxGainNode;
+  if (panner !== null) panner.connect(sfxGainNode);
+
+  // 1) electric crackle — white noise through a high-pass, snappy decay (the SPARK).
+  const nsrc = ctx.createBufferSource();
+  nsrc.buffer = getGnawNoiseBuffer(ctx);
+  nsrc.loop = true;
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.setValueAtTime(1200, now);
+  hp.frequency.exponentialRampToValueAtTime(4200, now + 0.12);
+  hp.Q.value = 0.9;
+  const ng = ctx.createGain();
+  ng.gain.setValueAtTime(0.0001, now);
+  ng.gain.exponentialRampToValueAtTime(0.42, now + 0.005); // instant zap attack
+  ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+  nsrc.connect(hp); hp.connect(ng); ng.connect(sink);
+  nsrc.start(now); nsrc.stop(now + 0.24);
+
+  // 2) two detuned descending sawtooth zaps — the "pew" of the discombobulation.
+  for (let i = 0; i < 2; i++) {
+    const t = now + i * 0.04;
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(1400 - i * 180, t);
+    osc.frequency.exponentialRampToValueAtTime(140, t + 0.16);
+    const og = ctx.createGain();
+    og.gain.setValueAtTime(0.0001, t);
+    og.gain.exponentialRampToValueAtTime(0.22, t + 0.006);
+    og.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+    osc.connect(og); og.connect(sink);
+    osc.start(t); osc.stop(t + 0.2);
+  }
+}
+
+/**
  * Drain effects for audio. Iterates effects, fires SFX for new ticks, advances
  * the cursor. Replay-safe: effects with tick <= cursor are skipped silently.
  */

@@ -1,185 +1,99 @@
 {
   "tool_calls_session_total": 0,
-  "session_id": "S102",
+  "session_id": "S103",
   "session_kind": "execution",
-  "session_start": "2026-06-24T22:00:00.000Z",
-  "session_note": "S102 - Tower-Defense Combat Overhaul: 10-item owner playtest batch. This session ships items 1-8 (Batches 1+2); items 9-10 (laser turret + HELGA princess) are next session. Owner explicit approval ('full session batch approved, lets get to work!') = unlock_source:user. FULL tier; 3-way Council (ADOPT-WITH-FIXES, 6 must-fixes folded) + PRIME-AUDIT. Owner corrections: RAID = the existing player sever extended to also hit creatures (right-click chewer=1 kill, Voltkin=2); UNIFIED HP model (connectors HP=5 chewable, chewer HP=1, Voltkin HP=2); HELGA princess spec captured for next session. PDR: .claude/plans/2026-06-24_PDR_Session_102_TD_Combat_Overhaul.md",
+  "session_start": "2026-06-25T00:00:00.000Z",
+  "session_note": "S103 - TD Defenders Bundle: #8 Voltkin-vs-chewer + #9 Laser Turret + #10 HELGA princess, on a generic Defender substrate built FIRST (findNearestEnemyCreature + lightning-cloud + recipe generalization). Then Tier-1 G4 juice (budget-gated). Owner: 'run the bundle ... build the generic Defender substrate + findNearestEnemyCreature + lightning-cloud FIRST ... and any other top recommended priorities. i pre approve full session and autonomous run' = unlock_source:user. FULL tier; 3-way Council (Grok REWORK + Gemini ADOPT-WITH-FIXES -> SYNTHESIS ADOPT-WITH-FIXES, 8 must-fixes folded) + PRIME-AUDIT. PDR: .claude/plans/2026-06-25_PDR_Session_103_TD_Defenders_Bundle.md",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
   "tier": "Full",
   "council_rounds": 1,
-  "council_result": "1-round 3-way Council (Claude + Grok-ANALYST grok-4.20-reasoning + Gemini-AUDITOR gemini-2.5-pro) on the 10-item batch PDR. Grok: REWORK (foundations must precede consumers; host-local effects violate the 10Hz full-snapshot contract; damage model under-budgeted; need ONE shared area-damage helper). Gemini: ADOPT-WITH-FIXES (wire-sync visibility failure; incoherent two-path HP model; B4 builds generic entity AFTER bespoke; RAID strictly-better-than-potato). SYNTHESIS=ADOPT-WITH-FIXES+re-sequence. 6 must-fixes folded: MF1 unify death via damageCreature/applyAreaDamage (AoE=lethal through same path); MF2 client-visible feedback via synced-state-derived VFX (client diffs prev/curr creatures for death splat; gnaw off ATTACKING state; windup off nextFireTick) not transient effects; MF3 re-sequence foundations-first + touch applyCreatureAttack ONCE; MF4 one shared radius helper (potato refactored onto it); MF5 RAID balance (mooted by owner correction OC1 - raid is now precise single-target via the existing sever+charge); MF6 save-hp round-trip + client-intent-path + cause-exhaustiveness tests. PRIME-AUDIT: boot-then-smoke live verification mandatory; determinism gate per foundation (extend runCreatureStress = HARD gate); bond-hp additive-optional wire. Owner corrections OC1 (raid=existing sever extended to creatures) + OC2 (unified HP: connector 5, chewer 1, Voltkin 2) + OC3 (HELGA spec) authoritative.",
+  "council_result": "1-round 3-way Council (Claude + Grok-ANALYST grok-4.20-reasoning + Gemini-AUDITOR gemini-2.5-pro) on the S103 TD-defenders batch PDR. Grok: REWORK (Voltkin-death watcher unreliable @10Hz; Voltkin target priority backwards; replay re-baseline violates HARD gate; serialization/host-only stripping underspecified; P2 clones not generalizes). Gemini: ADOPT-WITH-FIXES (transient VFX triggers incompatible with 10Hz full-snapshot -> use synced STATE; insta-fire-on-load bug; sync visually-relevant state; protocol scope; ENDORSES HELGA puppet rig + recipe-break removal). SYNTHESIS=ADOPT-WITH-FIXES (foundations-first sequencing endorsed by both). 8 must-fixes folded: MF1 attack VFX (laser beam/HELGA slap) STATE-derived from a FIRE/SLAP FSM state held ~12 ticks + SYNCED (not cadence-derived); MF2 death VFX KEEP render-driven prev/curr diff (EVIDENCE-BASED PARTIAL OVERRULE - the proven S102 zero-wire pattern; DESPAWNING lasts ~60 ticks so the kill-vs-despawn discriminator is robust; fallback=synced recentDeaths[] if playtest shows misses); MF3 Voltkin BONDS-primary, creatures OPPORTUNISTIC (zap only if already within attackRange 180, never navigate toward distant chewers); MF4 two-seed determinism gate stays GREEN (never re-baselined) - only golden behavior-snapshots for chewer-present scenarios get new baselines, each independently 2-seed verified; Voltkin-ONLY replays stay byte-identical by construction; MF5 insta-fire-on-load fix (re-phase nextFireTick on load); MF6 sorted-by-id serialization + ALL defender fields synced (beam/windup need them), Creature.targetCreatureId host-only stripped (no creature-reticle) -> P1 no bump, P2 PROTOCOL 11->12 for the defenders map; MF7 generalize-not-clone (one findNearestEnemyCreatureFrom + one ignition helper + register orphaned PENTAGRAM_RECIPE); MF8 Defender.hp + damageDefender stub (future lever, no re-bump) + expanded runDefenderStress (save/load insta-fire, co-resident defenders, recipe-break mid-fight, unordered combo, Voltkin target-switch). PRIME-AUDIT: boot-then-smoke mandatory (Voltkin opportunistic zap; turret beam+windup+kill visible to 1v1 joiner; HELGA slap; Voltkin->cloud on 2 hits); determinism gate per priority; HELGA animation-bar honesty (distinct authored poses per state, real windup->impact->recover slap, NOT a twitch/loop).",
   "signals_fired": [],
   "priorities": [
     {
       "id": "P1",
-      "label": "S102 P1 - Quick wins (items 4,5,6,7): chewer buck-teeth render; regen owl-b NONET mask (bottom-left owl faded, wings cropped); NONET sudoku correct/wrong SFX (chipmunk yey / sad oww); verify spawner rebuild already works.",
-      "status": "completed",
-      "phase": "DONE",
+      "label": "S103 P1 - Creature-combat foundation + #8 Voltkin-vs-chewer: generic findNearestEnemyCreatureFrom (lowest-id, range-gated) + Creature.targetCreatureId (host-only); Voltkin zaps an enemy chewer ONLY when already within attackRange (bonds stay primary nav); creature-target branch in applyCreatureAttack -> damageCreature(1); Voltkin-death lightning-cloud (render-driven death-watcher). NO protocol bump.",
+      "status": "in_progress",
+      "phase": "PLAN-DONE",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "checkpoint_commit": "2fea955",
-      "real_context_tokens_at_close": 342149,
-      "real_context_pct_at_close": 34.21,
-      "objective": "Ship the four standalone quick wins with no combat-foundation coupling. #4 two large funny beaver buck-teeth (render only). #5 regenerate a wider owl-b matte so the bottom-left NONET owl's wings are visible (asset; still crush the stray veo flame). #6 chipmunk 'yey' on a correct sudoku cell, sad low 'oww' on a wrong one (render-local procedural SFX hooked at the keypress validating puzzle.solution[selected]). #7 verify destroy->rebuild of a chewer spawner already works (regression test + playtest); no code unless broken.",
-      "scope": "#4 src/render/chewerRenderer.ts teeth loop -> 2 buck-teeth (+ relax chewerRenderer.test.ts rect>=4->>=2). #5 public/art/nonet/owl-b-mask.png regen via assets-source/nonet-video/make_owlb_mask.py (wider opaque core covering wing span, still crop flame). #6 src/render/nonetJuice.ts add playNonetYey + playNonetOww via blip; src/render/sudokuOverlay.ts onKey branch correct?yey:oww. #7 add destroy->rebuild regression test in pentagram.test.ts.",
-      "testing": "tsc 0; full vitest green; teeth render test (>=2 incisors); NONET correct vs wrong fires the right synth; owl fix verified by composite + served-asset alpha probe; destroy->rebuild spawner regression test green; build exit 0 under 750 charter.",
-      "check_completed": true,
-      "check_method": "S102 P1 DONE (commit 2fea955, pushed). Four quick wins, all gates green (tsc 0; vitest 1585/1585 (+1 new rebuild test); build 571.0/750 KiB, 179 headroom). #4 TEETH: replaced the 3-column/6-square chomper loop (chewerRenderer.ts:283-302) with TWO big funny beaver buck-teeth (each ~mw*0.5 wide x gape*0.6+BODY_R*0.72 tall, jutting below the lip, with a worn rounded bottom arc + a vertical pencil seam); relaxed chewerRenderer.test.ts rect>=4->>=2. #5 OWL-B (the owner-circled bottom-left NONET owl, faded wings): root cause = owl-b is the one guardian with a custom mask (sudokuOverlay.ts:344) whose opaque core was only 39% wide (vs spirit-mask 69%), so its raised right wing (~x380-430) + left wing fell into the transparent rim. Empirically (max-brightness projection of the loop) the 'stray veo flame' it was cropping is an orange streak sweeping HORIZONTALLY across the LOWER body, extending past the owl to both edges. Fix: new reproducible generator assets-source/nonet-video/make_owlb_mask.py — an asymmetric ellipse (c=258,445 r=190,278, blur62 plateau2.0, RGBA white+alpha) shifted UP, opaque core widened to 69% to cover BOTH wings, cropping the lower-flame edge extensions + corner firefly trails. VERIFIED: composite preview (mask alpha x real video frame -> both wings visible, lantern intact, flame cropped, soft edge) + live served-asset alpha probe (right-wing 428,445 = 255 [was ~0], center 270,445 = 255, corner 30,30 = 0, bottom-flame 270,820 = 22). Render WIRING unchanged (same filename/format/path) — only the mask pixels widened. #6 NONET SFX: added playNonetYey (two fast high triangle up-chirps = chipmunk cheer) + playNonetOww (slow low doubled descending sine = lazy sad groan, ORIGINAL synth, no IP name/sample) to nonetJuice.ts via the blip primitive; sudokuOverlay.onKey '1'..'6' now checks ev.puzzle.solution[this.selected]===digit -> playNonetYey() else playNonetOww(), replacing the unconditional playNonetPop() (dropped its now-unused import). Render-local, zero sim/wire impact (puzzle.solution is byte-identical on every peer). #7 REBUILD: confirmed it already works (runSpawnerIgnition de-dups on the live creatureSpawners map, NOT the cinematic-only godlyFiredThisMatch gate) — existing pentagram.test.ts:221 + new test 'sever a closing connector -> predicate fails -> re-place -> matches again' proves the owner's break->rebuild flow at the predicate level. NOTE: live WebGL screenshot tooling times out on this Pixi rAF game (harness limitation, console clean) — verified via eval + composite instead.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/chewerRenderer.ts",
-          "needle": "beaver buck-teeth"
-        },
-        {
-          "type": "file_contains",
-          "path": "assets-source/nonet-video/make_owlb_mask.py",
-          "needle": "owl-b"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/nonetJuice.ts",
-          "needle": "playNonetYey"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/sudokuOverlay.ts",
-          "needle": "playNonetYey"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/godlyRecipes/pentagram.test.ts",
-          "needle": "sever a closing connector"
-        }
-      ]
+      "objective": "Land #8 on the S102 damageCreature/HP foundation with MF3 (bonds-primary, creatures-opportunistic) + MF2 (render-driven death VFX) + MF4 (determinism gate stays green). findNearestEnemyCreatureFrom(world,pos,owner,maxRangeSq?) generic helper (no RNG, lowest-CreatureId tie-break) + a creature wrapper. Creature.targetCreatureId host-only (stripped). Voltkin tick: if an enemy creature is within attackRange, zap it this tick; else pursue nearest enemy bond (never navigate toward a distant creature). One creature-target branch in applyCreatureAttack -> damageCreature(target, CREATURE_HIT_DAMAGE=1). Voltkin death-by-kill -> lightning-cloud via creatureRenderer death-watcher (fires on a voltkin that vanished from a LIVE state, not DESPAWNING).",
+      "scope": "src/state/creatures/creatureAI.ts (findNearestEnemyCreatureFrom + wrapper + Voltkin opportunistic selection); src/state/creatures/creature.ts (targetCreatureId host-only field + makeCreature default); src/state/creatures/creatureAttack.ts (creature-target branch); src/constants.ts (CREATURE_HIT_DAMAGE=1); src/main.ts (Voltkin target selection in creature-tick); src/state/save.ts (targetCreatureId emit-when-set + trimMirrorCreature strip); src/render/creatureRenderer.ts (Voltkin death-watcher -> lightning-cloud); src/render/effects/* (lightning-cloud) + src/render/audioManager.ts (playZapBurstSFX). Tests: findNearest determinism, Voltkin opportunistic-in-range, kills a chewer (hp1), bond path intact, save round-trip, runCreatureStress Voltkin-vs-chewer (2-seed).",
+      "testing": "tsc 0; full vitest green; findNearestEnemyCreatureFrom lowest-id + range-gate determinism; Voltkin zaps a chewer in range but does NOT path toward a distant one (bonds primary); chewer dies in 1 (hp1); creature branch doesn't break the bond sever path; targetCreatureId round-trips (host-only, stripped on wire); Voltkin-ONLY replay byte-identical (no enemy creature -> null path); new Voltkin-vs-chewer golden 2-seed byte-identical; build under 750."
     },
     {
       "id": "P2",
-      "label": "S102 P2 - HP/damage foundation + chewer feel (items 2,3 + unified HP): CONNECTOR_HP + creature HP; chewers melee close-in (#3); gnaw audio replaces lightning (#2).",
-      "status": "completed",
-      "phase": "DONE",
+      "label": "S103 P2 - Generic Defender substrate + recipe generalization: defenders Map + nextDefenderId; defenderLifecycle (register/remove/tick/attack/recipeStillSatisfied/teardown); 4 teardown sites; save additive-optional + WorldSnapshot.defenders (sorted-by-id, ALL fields synced); register PENTAGRAM_RECIPE + runDefenderIgnition pass; unordered type-set detector; generic fire/slap poll in main.ts; PROTOCOL 11->12; runDefenderStress HARD gate (incl save/load insta-fire MF5). Defenders removed by recipe-break; Defender.hp + damageDefender stub.",
+      "status": "pending",
+      "phase": "QUEUED",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "checkpoint_commit": "e0d5abf",
-      "check_completed": true,
-      "real_context_tokens_at_close": 506595,
-      "real_context_pct_at_close": 50.66,
-      "check_method": "S102 P2 DONE (commit e0d5abf, pushed). Items 2+3 (chewer feel) + unified-HP foundation. Gates: tsc 0; vitest 1588/1588 (+3 new); runChewerStress byte-identical + Voltkin replay byte-identical (locked equivalence held); build 572.3/750 KiB. #3 MELEE: isWithinAttackRange (creatureAI.ts) now reads getCreatureConfig(type).attackRange instead of the hardcoded VOLTKIN_ATTACK_RANGE_SQ; CHEWER_CONFIG.attackRange 120->35 (true melee — was effectively 180 via the hardcode); computeSteeringAccel (creatureVerlet.ts) skips the legacy canvas-centre SPAWNER_POS repulse for chewers (sourceSpawnerId!==null) so they close onto the connector. Voltkin keeps 180 + repulse (byte-identical guard). #2 GNAW: creatureAttack.ts branches on creature.type==='chewer' -> SEVER_BOND{cause:'chewer'} (NOT 'creature') + NO ARC_FLASH (which auto-drops the creature-attack screen-shake, gated on ARC_FLASH in main.ts). audioManager: new procedural playGnawSFX (3 white-noise bandpass bursts = 'tchhht tchhht tchhht'); drain CHEW_BITE -> gnaw, BOND_SEVERED{cause:'chewer'} -> final crunch (wired so 1v1 victim hears the break). 5 chews x 3 pulses = 15 gnaws/connector (owner's spec). cause:'chewer' widened in effects.ts/world.ts/save.ts; canSeverBond bypasses it like 'creature'. FOUNDATION: CONNECTOR_HP(5)/CHEW_DAMAGE(1)/CHEWER_HP(1)/VOLTKIN_HP(2) consts; CreatureConfig.hp + Creature.hp (chewer1/Voltkin2) defaulted in makeCreature + save round-trip (emit-when-damaged, wire-stripped via trimMirrorCreature, config-default on load). Consumers (damageCreature/findNearestEnemyCreature/green-goo + raid + Voltkin-vs-chewer) are P3. NOTE: gnaw synth is procedural + tunable (subjective sound -> owner playtest); live WebGL screenshot tooling times out on this Pixi rAF game (harness limit) so behavioural/audio changes verified via unit + determinism tests, not screenshots.",
-      "objective": "Build the coherent unified HP/damage foundation ONCE and land the two chewer-feel fixes on it. Foundation A: Bond.hp (CONNECTOR_HP=5, chew=1 dmg, 5 chews sever; replaces per-creature chewProgress; multi-chewer stacking; damaged-bond render) + creature hp (chewer 1, Voltkin 2) round-tripped in save. Foundation B: findNearestEnemyCreature (lowest-id tie-break). Foundation D: green-goo CREATURE death VFX (client-driven by prev/curr creature diff per MF2) + procedural fly-splat SFX. Refactor applyCreatureAttack ONCE to a bond-OR-creature target. #3: chewers engage at true melee (~35px) via per-type attackRange + skip the global SPAWNER_POS repulse for chewers, Voltkin 180^2 byte-identical. #2: chewer sever uses NEW cause:'chewer' (no lightning, no ARC_FLASH, no screen-shake); every chew plays a 3-pulse 'tchhht' gnaw derived from the synced ATTACKING state; sever on the 5th.",
-      "scope": "Bond.hp + makeBond default + chew decrement + sever-on-0; creature hp on Creature + CreatureConfig + makeCreature; damageCreature + applyAreaDamage shared helper (potato refactored onto it, sorted-CreatureId, sourceSpawnerId-gated); findNearestEnemyCreature; CREATURE_SPLAT/goo render (client prev/curr-diff driven) + playSplatSFX + playGnawSFX (procedural); isWithinAttackRange per-type config (chewer attackRange~35); creatureVerlet skip global repulse for chewers; applyCreatureAttack branch type==='chewer' (cause:'chewer', suppress ARC_FLASH) + creature-target branch; main.ts gate screen-shake for chewer; effects.ts BOND_SEVERED.cause add 'chewer'; bond renderer damage visual; save round-trip Bond.hp + creature hp (additive-optional); extend runCreatureStress (HARD gate); replay re-baseline. PROTOCOL bump deferred to P3 (or here if bond-hp wire lands first).",
-      "testing": "tsc 0; full vitest green; bond hp decrements on chew, severs at 0; raid/Voltkin still instant-sever a connector; chewer engages at melee (unit on isWithinAttackRange per-config); chewer sever emits cause:'chewer' not lightning; gnaw derivable from ATTACKING state; Voltkin replay BYTE-IDENTICAL (auto-delete@1200/DESPAWN@1140 unchanged); damageCreature decrement+despawn; potato still kills chewers via the shared helper; save round-trip creature hp (load a damaged Voltkin hp=1 -> stays 1 not 2); runChewerStress byte-identical 2 seeds; build under 750. NOTE: connector HP shipped as the existing chewProgress commit-counter (CONNECTOR_HP=CHEW_HITS) rather than a separate Bond.hp field — same player experience for a single chewer; multi-chewer stacking + a visible damaged-connector are a noted polish carry-forward.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/voltkin-config.ts",
-          "needle": "attackRange: 35"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAI.ts",
-          "needle": "getCreatureConfig(creature.type).attackRange"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureAttack.ts",
-          "needle": "isChewer ? 'chewer'"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/audioManager.ts",
-          "needle": "playGnawSFX"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creature.ts",
-          "needle": "hp: config.hp"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "CONNECTOR_HP"
-        }
-      ]
+      "objective": "Build ONE generic deterministic multiplayer-safe Defender substrate that #9 + #10 stand on (foundations-first). MF1 (FSM state held ~12 ticks + synced is the VFX event bus), MF5 (insta-fire-on-load re-phase), MF6 (sorted-id serialize, all fields synced, protocol 11->12), MF7 (generalize: shared findNearestEnemyCreatureFrom + ignition helper + register the orphaned PENTAGRAM_RECIPE), MF8 (Defender.hp + damageDefender stub + expanded runDefenderStress).",
+      "scope": "src/state/worldTypes.ts (defenders Map + nextDefenderId); src/state/world.ts (makeWorld init); src/state/defenders/* NEW (defender type + defenderLifecycle: applyRegisterDefender/applyRemoveDefender/applyDefenderTick FSM/applyDefenderAttack/recipeStillSatisfied/teardownDefenders/loadRephaseDefenders); src/state/gameMode.ts + src/state/godlyActions.ts + src/state/world.ts (4 teardown sites); src/state/godlyRecipes/{index.ts,pentagram.ts,types.ts} (register PENTAGRAM_RECIPE + defender-recipe registry + componentMatchesTypeSet); src/state/godlyOrchestration.ts (runDefenderIgnition shared helper); src/main.ts (generic fire/slap poll); src/state/save.ts (SerializedDefender + WorldSnapshot.defenders sorted-id additive-optional + nextDefenderId advance + load re-phase); src/net/protocol.ts (PROTOCOL 11->12 + REGISTER/REMOVE/TICK/ATTACK_DEFENDER internal actions); src/constants.ts; save.replay.test.ts (runDefenderStress) + protocol test.",
+      "testing": "tsc 0; full vitest green; defender registers from geometry; recipeStillSatisfied; FSM tick determinism; runDefenderStress 2-seed byte-identical (HARD gate) incl save->load no-insta-fire (MF5) + co-resident defenders + recipe-break mid-fight + unordered combo + Voltkin target-switch; save round-trip (damaged + targeting defender + nextDefenderId advance, sorted-id); protocol test (defenders internal, version=12); teardown x4 clears defenders+nextDefenderId; build under 750."
     },
     {
       "id": "P3",
-      "label": "S102 P3 - Raid-on-creatures (#1) + Voltkin attacks chewers (#8): RAID_CREATURE client-intent (right-click a chewer=1 kill / Voltkin=2 -> lightning-cloud); Voltkin hunts+pops enemy chewers; protocol bump; final replay re-baseline + byte-budget.",
-      "status": "completed",
-      "phase": "DONE",
+      "label": "S103 P3 - #9 Laser turret on the substrate: recipe 1 Line(deg7)+7 Spiral 'Whip' leaves (strict); fire every TURRET_FIRE_INTERVAL_TICKS=1800; 5 windup rings DERIVED from synced nextFireTick; LASER_BEAM VFX rendered off the synced FIRE state (MF1); kills nearest enemy creature via damageCreature (chewer->goo 1, Voltkin->cloud 2). Original procedural turret art; TurretRenderer.",
+      "status": "pending",
+      "phase": "QUEUED",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "checkpoint_commit": "f228532",
-      "check_completed": true,
-      "real_context_tokens_at_close": 605131,
-      "real_context_pct_at_close": 60.51,
-      "scope_note": "SCOPED to item #1 (RAID) only under the YELLOW budget (50.7% at P3 start). Item #8 (Voltkin attacks chewers) DEFERRED to next session, bundled with items 9/10 (laser turret + HELGA) — they all share the same creature-targets-creature foundation (findNearestEnemyCreature + lightning-cloud VFX + the generic Defender substrate), so building them together is cleaner. This session shipped 7 of 10 items (1-7) + the creature-HP foundation; 8/9/10 next session.",
-      "check_method": "S102 P3 DONE (commit f228532, pushed; deploy run 28124978894 SUCCESS -> LIVE). Item #1 RAID-on-creatures shipped + verified live-loading. The player's existing right-click 'raid' (the disruption-charge sever) now ALSO targets enemy SPAWN: controls.pickCreature (cursor->nearest enemy chewer within CREATURE_PICK_DIST=34) runs FIRST on RMB, else falls back to pickBond/SEVER_BOND. New RAID_CREATURE client intent -> host-authoritative applyRaidCreature (world.ts): charge-gated (1 disruption charge, like a sever), enemy-only, chewer-only (sourceSpawnerId!==null) -> damageCreature(creatureId, RAID_CREATURE_DAMAGE=1) -> chewer (hp 1) dies. damageCreature (creatureLifecycle.ts) is the SINGLE creature-death path (raid now; Voltkin/laser/slap next session): decrement hp, despawn at <=0. GREEN-GOO + FLY-SPLAT is RENDER-DRIVEN (MF2): the chewer renderer's death-watcher detects a chewer that vanished from the synced snapshot (reliable on host AND 1v1 client) and splats expanding green goo + droplets + playSplatSFX (procedural wet squish + thud) — fires for EVERY chewer death (raid/potato/future laser) with ZERO new wire/effect/save surface; guarded on gameState===PLAYING (no spurious splat on match reset). protocol 10->11 (RAID_CREATURE intent + creature hp; HelloMsg.protoVersion + protocol.test asserts updated); RAID_CREATURE added to CLIENT_INTENT_TYPES + benchGate deny (offensive, like sever) + KNOWN_GAME_ACTION_TYPES_RECORD. Gates: tsc 0; vitest 1594/1594 (+6: 5 raid reducer tests [charge-gated, enemy-only, chewer dies in 1, orphaned-chewer killable, voltkin-not-raidable] + protocol intent test); build 574.6/750 KiB (175 headroom); deploy SUCCESS. Live runtime smoke (preview eval, screenshots time out on this Pixi rAF game): full S102 code loads with 0 console errors + a live-injected chewer draws (new buck-teeth) + the death-watcher handles removal without throwing. Orphaned chewers raid-killable confirmed (chewers persistent, independent of spawner).",
-      "objective": "Land the two combat consumers on the P2 foundation. #1 RAID = the existing player sever EXTENDED to creatures: RMB picks a creature first (pickCreature), else a bond; a creature hit dispatches RAID_CREATURE{creatureId,playerId} (host-authoritative, charge-gated, -> damageCreature 1 dmg) -> chewer (hp1) pops with green-goo+fly-splat, Voltkin (hp2) needs 2 -> discombobulate lightning-cloud. Orphaned chewers (dead spawner) still raid-killable. #8 Voltkin targets enemy chewers too (findNearestEnemyCreature) + creature-target branch -> damageCreature; chewer half already enemy-bond-only (correct). Intentionally breaks Voltkin replay byte-equivalence -> accepted regression + re-baseline.",
-      "scope": "world.ts RAID_CREATURE action + dispatch + targetCreatureId on Creature; controls.ts RMB pickCreature-first; net/protocol.ts RAID_CREATURE in CLIENT_INTENT_TYPES + PROTOCOL_VERSION bump (10->11); damageCreature creature-target path in applyCreatureAttack for Voltkin; Voltkin pre-tick target selection tries findNearestEnemyCreature; LIGHTNING_CLOUD death VFX for Voltkin (client prev/curr-diff driven), green-goo for chewer; lightning-cloud SFX; save round-trip targetCreatureId; final runCreatureStress extension (chewer-vs-creature + raid path) + byte-budget assertion + re-baseline.",
-      "testing": "tsc 0; full vitest green; RAID_CREATURE charge-gated + enemy-only + 1 dmg (chewer dies, Voltkin survives 1 / dies on 2); orphaned-chewer raid-killable; client-dispatched RAID_CREATURE reaches host (intent path test); RAID_CREATURE in CLIENT_INTENT, TD internals not; Voltkin kills a chewer (hp1)+emits goo; findNearestEnemyCreature determinism (lowest-id); cause:'chewer' exhaustiveness (no other cause-switch breaks); runCreatureStress byte-identical 2 seeds; byte-budget under ceiling; build under 750; LIVE deploy verified gh run list deploy.yml SUCCESS; boot-then-smoke: press raid on a chewer -> pops+goo+splat+1 charge. (Item #8 Voltkin-vs-chewer DEFERRED to next session — see scope_note.)",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/world.ts",
-          "needle": "RAID_CREATURE"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creatureLifecycle.ts",
-          "needle": "export function damageCreature"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/input/controls.ts",
-          "needle": "pickCreature"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "PROTOCOL_VERSION = 11"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/chewerRenderer.ts",
-          "needle": "drawGoo"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/audioManager.ts",
-          "needle": "playSplatSFX"
-        }
-      ]
+      "objective": "First consumer on the Defender substrate. Strict 1-Line-deg7 + 7-Spiral-Whip recipe. Slow heavy turret: fire every 1800 ticks; 5 windup rings derived from the synced nextFireTick-world.tick (client-visible); a visible LASER_BEAM rendered whenever the client observes the synced FIRE state (held ~12 ticks, MF1) drawn to the synced target's pos; kills nearest enemy creature in range via damageCreature (chewer->goo, Voltkin->cloud).",
+      "scope": "src/state/godlyRecipes/laserTurret.ts NEW (registerRecipe) + side-effect import in main.ts; src/constants.ts (TURRET_FIRE_INTERVAL_TICKS=1800, TURRET_WINDUP_RINGS=5, TURRET_ATTACK_RANGE~420, TURRET_HP); src/state/defenders/* (turret FSM branch); src/render/turretRenderer.ts NEW (clone ChewerRenderer Graphics; original pencil turret; charge glow keyed to nextFireTick) + main.ts wiring; src/render/effects/laserBeam.ts NEW + effectsRenderer + lifetime; src/render/audioManager.ts (playLaserSFX). Tests: strict recipe (reject 6/8 spirals or non-Whip), fire cadence, target determinism, kill->goo/cloud, windup from nextFireTick.",
+      "testing": "tsc 0; full vitest green; strict laser recipe predicate; fire cadence 1800; target determinism (lowest-id); chewer->goo 1 hit / Voltkin->cloud 2 hits; windup rings derive from synced nextFireTick; beam renders off synced FIRE state (visible to 1v1 joiner); runDefenderStress covers turret; build under 750; deploy SUCCESS at milestone."
+    },
+    {
+      "id": "P4",
+      "label": "S103 P4 - #10 HELGA princess on the substrate: recipe central Triangle hub + 3 Spiral 'Warped Anchor' + 3 Circle 'Star' (unordered {Triangle,Circle} type-set, single component). Stationary; slaps nearest enemy CREATURE only (never structures), chewer 1/Voltkin 2. HELGA = ARTICULATED PIXI PUPPET RIG (multi-part hand-authored per-state poses, pose=f(state,ticksInState) pure+deterministic+zero-bundle, thick CtCD-style ORIGINAL art). PrincessRenderer + pure helgaPose(). SLAP VFX off synced SLAP state (MF1).",
+      "status": "pending",
+      "phase": "QUEUED",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "objective": "Second consumer + the articulated character. Recipe: a Triangle hub (6 bonds) with neighbors = exactly 3 Spirals (Triangle/Spiral='Warped Anchor') + 3 Circles (unordered {Triangle,Circle}='Star'), single connected component. Stationary defender; FSM IDLE/SIP->ACQUIRE->WINDUP->SLAP (fire tick -> damageCreature on targetCreatureId)->RECOVER; creatures only, never structures; chewer 1 / Voltkin 2. HELGA = a REAL state-driven articulated character via a Pixi puppet rig (Council-locked, DD6): parts skirt/torso/head/beer-arm/slap-arm/legs; helgaPose(state,ticksInState) pure fn (per-part transforms per state, interpolated; genuine windup->impact->recover slap arc; idle breathing + beer-sip); thick painterly CtCD-STYLE outlines; ORIGINAL character (no Peach, no CtCD copy). SLAP VFX (SLAP_IMPACT star-burst) rendered off the synced SLAP state (MF1).",
+      "scope": "src/state/godlyRecipes/princessHelga.ts NEW (registerRecipe + componentMatchesTypeSet) + side-effect import; src/constants.ts (PRINCESS_SLAP_INTERVAL_TICKS=90, PRINCESS_SLAP_RANGE~160, PRINCESS_WINDUP_TICKS, PRINCESS_HP); src/state/defenders/* (princess FSM branch incl SIP); src/render/princessRenderer.ts NEW + src/render/helgaPose.ts NEW (pure pose fn) + main.ts wiring; src/render/effects/slapImpact.ts NEW + effectsRenderer; src/render/audioManager.ts (playSlapSFX); memory helga-princess-spec update. Optional: imagen original face texture (additive, never blocks). Tests: recipe predicate (3 WarpedAnchor+3 Star single component; reject Wheel-direction + wrong mix), helgaPose pure-determinism (state x ticks sweep), slap cadence + kill, never targets structures.",
+      "testing": "tsc 0; full vitest green; HELGA recipe predicate (3 Warped Anchor + 3 Star single component; reject Wheel-dir confusion + wrong neighbor mix); helgaPose pure (same state,ticks -> same pose, full sweep); slap cadence + kills nearest enemy creature; never targets a structure/bond; SLAP VFX off synced state (1v1 joiner sees it); runDefenderStress covers princess; build under 750; deploy SUCCESS; boot-then-smoke live (HELGA idles/sips, winds up, slaps a chewer dead)."
+    },
+    {
+      "id": "P5",
+      "label": "S103 P5 (budget-gated GREEN stretch) - Tier-1 G4 build-feel juice: bond-formation juice burst (render-local, synced-tick deterministic) + in-world leader crown over the top-score seat. Pure render; additive-optional if any wire. Skipped -> carry-forward if budget <= YELLOW after P4.",
+      "status": "pending",
+      "phase": "QUEUED",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "objective": "If budget stays GREEN after P4, ship the highest value-per-risk Tier-1 item (G4 juice: bond-formation burst + leader crown) - pure render/feel, no LOCKED-Section-6 gate. Otherwise log as carry-forward.",
+      "scope": "src/render/* bond-formation burst hook (on new-bond render-tick) + in-world leader crown over top-score seat; deterministic synced-tick; additive-optional if any wire surface.",
+      "testing": "tsc 0; full vitest green; render-local determinism; (if wired) additive-optional round-trip; build under 750. BUDGET-GATED: execute only if real-context < 750K (GREEN/low-YELLOW) after P4."
     }
   ],
   "generative_cost_cap_usd": 10,
   "generative_cost_spent_prior_usd": 2.34,
   "generative_cost_spent_session_usd": 0.0,
   "budget_total": 1000000,
-  "reflexion_entries_to_archive": [
-    "S102 P1 #verify-the-mask-on-the-real-frame-not-just-the-keyframe: the owner circled the bottom-left NONET owl (owl-b) as 'too faded, missing his wings'. Both owl KEYFRAMES looked fine in isolation — the fade was in the COMPOSITING MASK. Root cause: owl-b is the one guardian with a bespoke mask (it crops a stray veo flame) and its opaque core was only 39% wide vs the shared spirit-mask's 69%, so the raised right wing fell into the transparent rim. KEY LESSON: to fix a video-mask fade you must look at the ACTUAL VIDEO under the ACTUAL mask, not the still keyframe — a max-brightness PROJECTION across the whole loop revealed the 'stray flame' is an orange streak sweeping HORIZONTALLY across the lower body and OUT past the owl to both edges (invisible in any single early frame). The fix is therefore an ASYMMETRIC matte (ellipse shifted up, wide for wings, cropping the lower-edge flame extensions) — a symmetric widen would re-expose the flame. Verified two ways without a screenshot: (a) a composite preview = mask-alpha x real-video-frame (exactly what Pixi sprite.mask renders) and (b) a live served-asset alpha probe (right-wing pixel 0->255, corner stays 0, bottom-flame stays low). General: the live WebGL screenshot tool times out on this Pixi continuous-rAF game (harness limit, console clean) — eval-based pixel probes + offline composites are the reliable verification path for masked-video render here. Also: a 'faded sprite' bug usually lives in the asset/mask generator, not runtime code (mirrors the S99 spirit-mask plateau fix) — and bespoke per-asset masks excluded from a shared fix (owl-b skipped in S99) are exactly where the regression hides.",
-    "S102 P2 #touch-the-shared-reducer-once-and-let-suppression-cascade: the chewer 'gnaw not lightning' (item 2) + 'move close' (item 3) fixes turned out far smaller + lower-risk than the first PDR feared. Two leverage points: (a) ONE branch in the shared applyCreatureAttack (creature.type==='chewer' -> cause:'chewer' + suppress ARC_FLASH) — and suppressing ARC_FLASH AUTOMATICALLY drops the screen-shake too, because main.ts gates the shake on an ARC_FLASH emission this tick (no separate main.ts edit needed). (b) the chewer 'shoots from afar' bug was a HARDCODE: isWithinAttackRange used VOLTKIN_ATTACK_RANGE_SQ for ALL creatures, ignoring the per-type config.attackRange — so the chewer's advertised 120 never applied (it engaged at 180). Routing it through getCreatureConfig(type).attackRange + lowering chewer to 35 + skipping the legacy canvas-centre repulse (only Voltkin scaffolding) fixed melee. LESSON: before adding new fields/systems, grep for hardcoded constants the per-type config was SUPPOSED to drive — the seam often already exists, half-wired. Also: I de-scoped a separate Bond.hp field (the owner's 'connectors have HP') down to the existing chewProgress commit-counter (CONNECTOR_HP=CHEW_HITS) — identical single-chewer experience, far less wire/save/determinism risk; the visible-damage + multi-chewer-stacking payoff is a logged carry-forward, not silently dropped. Determinism held: cause-label + absent-ARC_FLASH + emit-when-damaged-hp are all deterministic, so runChewerStress + the locked Voltkin replay stayed byte-identical.",
-    "S102 P3 #drive-kill-VFX-from-the-snapshot-removal-not-a-wire-effect: the PDR planned a wire-synced CREATURE_SPLAT effect (+ effects-union/save/protocol surface) for the raid's green goo. The leaner + more robust shipped design: damageCreature just removes the creature, and the chewer RENDERER's death-watcher diffs prev/curr world.creatures and splats goo + plays the fly-splat for ANY chewer that vanished from the SYNCED snapshot. Wins: (a) reliable on host AND the 1v1 client (both render the same snapshot — no transient-effect 1/6 sampling loss, the rainbow-yell trap); (b) ZERO new wire/effect/save surface (the only protocol bump is for the RAID_CREATURE intent itself); (c) it fires for EVERY chewer death — raid, potato, and next session's laser — for free, instead of each kill-path re-emitting an effect. LESSON: for 'show something died' VFX in a host-authoritative snapshot game, derive it from the entity's REMOVAL at the render layer, not a per-kill wire event. Guard on gameState===PLAYING so a match-reset creature wipe doesn't spuriously splat. Also: the owner's 'raid' was a VOCABULARY match, not a missing feature — 'raid' = the existing right-click charge-sever; item 1 just extended its target set (pickCreature-before-pickBond) to enemy spawn. Verified live via eval pixel/console probes (screenshots time out on this Pixi rAF game) + deploy SUCCESS. Scoped to item 1 under YELLOW budget; item 8 bundled with 9/10 next session (shared creature-targets-creature foundation)."
-  ],
-  "session_status": "S102 - COMPLETE (7 of 10 items shipped LIVE). P1 (#4 teeth, #5 owl mask, #6 NONET sounds, #7 rebuild) + P2 (#2 gnaw, #3 melee + unified-HP foundation) + P3 (#1 RAID-pops-chewer + green-goo/fly-splat). Commits 2fea955/e0d5abf/f228532 all pushed; deploys 28120442098/28122820403/28124978894 all SUCCESS -> LIVE on spark-online.space. Gates: tsc 0; vitest 1594/1594; build 574.6/750 KiB. Context 605K/1M (60.5% YELLOW). DEFERRED to next session (bundled — shared creature-targets-creature foundation): #8 Voltkin attacks chewers, #9 laser turret (Line+7 Spirals), #10 HELGA princess (3 Warped Anchors + 3 Stars). Ready for /handoff.",
+  "reflexion_entries_to_archive": [],
+  "session_status": "S103 - PLAN LOCKED. FULL-tier batch PDR (TD defenders #8/#9/#10 + Tier-1 G4) drafted + 3-way Council (ADOPT-WITH-FIXES, 8 MF folded) + PRIME-AUDIT + gate-flagged (owner pre-approved unlock_source:user). A.0 done (4-agent fresh map of post-S102 source). Executing P1 (Voltkin-vs-chewer) next. PDR: .claude/plans/2026-06-25_PDR_Session_103_TD_Defenders_Bundle.md",
   "totals": {
     "turns": 0,
     "budget_remaining": 1000000,
     "budget_status": "GREEN"
   },
   "carry_forward": [
-    "Item 8 (NEXT SESSION, bundle with 9/10) - Voltkin attacks chewers: Voltkin should hunt + pop enemy pencil chewers (godly > spawn; chewer dies in 1 Voltkin hit since chewer hp=1). Needs findNearestEnemyCreature (inverse of findNearestBondTarget, lowest-id tie-break) + a creature-target branch (targetCreatureId on Creature) routed through the existing damageCreature helper (already shipped in P3). Chewer half already correct (enemy-bond-only). This INTENTIONALLY breaks Voltkin's locked replay byte-equivalence -> accepted regression + re-baseline. Voltkin death-by-anything = discombobulate into a lightning-cloud (the Voltkin branch of the render death-watcher / a new VFX). All three (8/9/10) share: findNearestEnemyCreature, the lightning-cloud VFX, and creature-vs-creature damage via damageCreature.",
-    "Item 9 (NEXT SESSION) - Laser turret: recipe = 1 Line(deg7) + 7 Spiral leaves (= 7 Whips, strict). Generic Defender entity (kind:'turret') + recipe generalization (Foundation C+E) built FIRST. Fires every 1800 ticks; 5 client-visible windup rings (derived from nextFireTick); WIRE-SYNCED red Looney-Tunes beam; kills nearest enemy creature (chewer 1 hit -> goo, Voltkin 2 -> lightning-cloud). Original turret art.",
-    "Item 10 (NEXT SESSION) - HELGA princess: recipe = central Triangle hub + 3 Spirals (3 Warped Anchors) + 3 Circles (3 Stars), single component; Star detected by unordered {Triangle,Circle} type-set. Stationary; slaps nearest enemy creature only (never structures), chewer 1 / Voltkin 2. HELGA = Bavarian dirndl + beer stein in one hand + slaps with the other; Courage-the-Cowardly-Dog art style; ORIGINAL character (not Peach/not a CtCD copy). MUST be a real functioning state-driven animated character (idle/sip/acquire/windup/slap/react), NOT a looping gif and NOT a procedural transform-twitch. See memory helga-princess-spec.",
-    "TD pentagram UX (S101, LOW): spawner buildable but spacing-sensitive + unguided - add closing-edge ghost-preview or relax predicate to 'contains a 5-cycle, ignore chords'.",
-    "Tier-1 roadmap: G1b MOTION (Wheel/Star rotation), G2 family traits (needs LOCKED_DECISIONS Section 6 lock-amendment), G3b Codex silhouettes, G4 build-feel juice."
+    "TD connector visible-damage + multi-chewer stacking (S102 de-scoped polish): a real Bond.hp + damaged-bond render (current model is per-creature chewProgress; CONNECTOR_HP=CHEW_HITS).",
+    "Death VFX fallback (S103 MF2 watch-item): if playtest shows missed lightning-clouds/goo on the 1v1 client, add a bounded synced recentDeaths[] queue (Gemini's design) instead of the render-driven prev/curr diff.",
+    "TD pentagram UX (S101, LOW): spawner buildable but spacing-sensitive + unguided - closing-edge ghost-preview or relax predicate to 'contains a 5-cycle, ignore chords'.",
+    "Tier-1 roadmap remainder: G1b MOTION (Wheel/Star rotation, Council-deferred - needs a mechanical verb), G2 family traits (needs LOCKED_DECISIONS Section 6 lock-amendment), G3b Codex silhouettes."
   ],
   "analyze_completed": false
 }

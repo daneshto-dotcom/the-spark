@@ -369,6 +369,7 @@ describe('S37 P10 — NetSnapshot v2 frame-derivation parity', () => {
       prevPos: { x: 100, y: 100 },
       targetPos: { x: 200, y: 200 },
       targetBondId: null,
+      targetCreatureId: null,
       state: opts.state,
       ticksInState: opts.ticksInState,
       killCount: opts.killCount ?? 0,
@@ -1001,7 +1002,7 @@ describe('S89 P5 — render-delay snapshot buffer (jitter buffer, bracket lerp, 
     w.creatures.set(asCreatureId(0), {
       id: asCreatureId(0), type: 'voltkin', ownerPlayerId: asPlayerId(0),
       pos: { x, y: 0 }, prevPos: { x, y: 0 }, targetPos: { x: 999, y: 0 },
-      targetBondId: null, state, ticksInState: 5, killCount: 0,
+      targetBondId: null, targetCreatureId: null, state, ticksInState: 5, killCount: 0,
       spawnedAtTick: 0, despawnAtTick: 480,
       sourceSpawnerId: null, chewProgress: 0, hp: 2,
     });

@@ -36,9 +36,10 @@
  * trimmed render-only).
  */
 
-import { Application, Assets, Container, Rectangle, Sprite, Texture } from 'pixi.js';
+import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import type { World } from '../state/world.ts';
 import type { Vec2 } from '../types.ts';
+import { playZapBurstSFX } from './audioManager.ts';
 import {
   CREATURE_DESPAWNING_TICKS,
   CREATURE_FADE_TICKS,
@@ -128,6 +129,13 @@ const ATTACKING_LEAN_PEAK_RAD = 0.436;
  */
 const FACING_VELOCITY_THRESHOLD = 1.5;
 
+// ── S103 #8 — lightning-cloud (a Voltkin discombobulated by a kill) ──
+const LIGHTNING_CLOUD_SEC = 0.6; // burst lifetime (expand + fade), render-only wall-clock
+const LIGHTNING_CLOUD_R = 22; // base glow radius (Voltkin reads bigger than a chewer goo-splat)
+const LIGHTNING_BOLTS = 7; // jagged bolts radiating from the burst
+const LIGHTNING_CORE = 0xbfeaff; // bright electric cyan-white (the bolts + inner core)
+const LIGHTNING_GLOW = 0x6fa8ff; // soft blue glow halo + tip sparks
+
 /**
  * S28 P0 — Council Q3 COMPROMISE B ease-in curve (Gemini minority over Claude
  * default A linear; game-feel argument). Quadratic `t²` builds tension slow-
@@ -216,12 +224,28 @@ export class CreatureRenderer {
   private readonly lastSeenPos: Map<CreatureId, Vec2> = new Map();
   /** worldTick of the last detected movement per creature (hold window). */
   private readonly lastMoveTick: Map<CreatureId, number> = new Map();
+  /**
+   * S103 #8 — last-seen FSM state per voltkin id. The death-watcher reads it to tell a KILL
+   * (vanished from a LIVE state — laser/slap/raid hard-deleted it via `damageCreature`) from a
+   * natural lifetime despawn (which passes through DESPAWNING for ~60 ticks = many snapshots, so
+   * the client reliably observes it). A kill → spawn a lightning-cloud; a despawn → nothing.
+   */
+  private readonly lastSeenState: Map<CreatureId, CreatureState> = new Map();
+  /** S103 #8 — active lightning-cloud bursts (a Voltkin that was KILLED). Render-only, wall-clock
+   *  culled; outlives the sprite that spawned it, mirroring the chewer goo-splat pattern. */
+  private readonly lightningClouds: Array<{ x: number; y: number; bornSec: number; seed: number }> = [];
+  /** S103 #8 — dedicated Graphics for the procedural lightning-clouds (sprites can't draw bolts). */
+  private readonly cloudGfx: Graphics;
 
   // S77 P2 — `parent` defaults to app.stage but main.ts passes aboveFogLayer so creatures
   // (a Voltkin attacks any player's bonds — cross-player reach) render THROUGH the fog to all.
   constructor(app: Application, parent: Container = app.stage) {
     this.container = new Container();
     parent.addChild(this.container);
+    // S103 #8 — cloud overlay sits in the SAME parent (aboveFogLayer) so a Voltkin popping in
+    // enemy territory is visible to everyone, like the chewer goo.
+    this.cloudGfx = new Graphics();
+    parent.addChild(this.cloudGfx);
   }
 
   /**
@@ -329,6 +353,8 @@ export class CreatureRenderer {
       // a parallel entity list. Skip non-voltkin here (the prune below uses the
       // identical voltkin-only id filter so a chewer never registers a sprite).
       if (creature.type !== 'voltkin') continue;
+      // S103 #8 — record the live FSM state for the death-watcher (kill vs natural despawn).
+      this.lastSeenState.set(creature.id, creature.state);
       const desiredKey = currentFrameKey(
         creature.state,
         creature.ticksInState,
@@ -482,6 +508,14 @@ export class CreatureRenderer {
       if (c.type === 'voltkin') voltkinIds.push(c.id);
     }
     const { toRemove } = computeSpriteDelta(this.sprites.keys(), voltkinIds);
+    // S103 #8 — DEATH-WATCHER. A Voltkin sprite gone this frame that was last seen in a LIVE state
+    // (not DESPAWNING) was KILLED (laser/slap/raid → `damageCreature` hard-delete). Pop a
+    // lightning-cloud + zap-burst at its last position — reliable on host AND the 1v1 client (both
+    // render the same synced snapshot; a 2-hit Voltkin death is the trigger). A natural lifetime
+    // despawn passes through DESPAWNING (~60 ticks ≈ 10 snapshots) so it never mis-fires the cloud.
+    // Guarded on PLAYING so a match-end / title-return creature wipe doesn't spuriously discharge.
+    const nowSec = performance.now() / 1000;
+    const playing = world.gameState === 'PLAYING';
     for (const id of toRemove) {
       const sprite = this.sprites.get(id);
       if (sprite !== undefined) {
@@ -491,8 +525,67 @@ export class CreatureRenderer {
         this.spriteFrames.delete(id);
         this.spriteFacings.delete(id);
         this.spriteAnimCells.delete(id);
-        this.lastSeenPos.delete(id);
         this.lastMoveTick.delete(id);
+      }
+      const wasState = this.lastSeenState.get(id);
+      const lastPos = this.lastSeenPos.get(id);
+      if (playing && wasState !== undefined && wasState !== 'DESPAWNING' && lastPos !== undefined) {
+        this.lightningClouds.push({
+          x: lastPos.x,
+          y: lastPos.y,
+          bornSec: nowSec,
+          seed: (id as unknown as number) * 1.732 + 0.61,
+        });
+        void playZapBurstSFX({ x: lastPos.x, y: lastPos.y });
+      }
+      this.lastSeenState.delete(id);
+      this.lastSeenPos.delete(id);
+    }
+
+    // S103 #8 — render + cull the active lightning-clouds (drawn LAST + unconditionally so they
+    // keep crackling for LIGHTNING_CLOUD_SEC after the Voltkin is gone).
+    this.drawLightningClouds(nowSec);
+  }
+
+  /**
+   * S103 #8 — render + cull the active lightning-clouds. A discombobulated Voltkin bursts into a
+   * shrinking electric scribble: a soft cyan halo, a few jagged jittering bolts radiating out, and
+   * sparks, fading over LIGHTNING_CLOUD_SEC. Wall-clock fade is render-only cosmetic (the SIM
+   * already removed the creature — this is pure decoration, no determinism coupling), and the
+   * per-cloud `seed` keeps two clients' bolt shapes stable-per-cloud (cosmetic divergence only).
+   */
+  private drawLightningClouds(nowSec: number): void {
+    const g = this.cloudGfx;
+    g.clear();
+    const TAU = Math.PI * 2;
+    for (let i = this.lightningClouds.length - 1; i >= 0; i--) {
+      const s = this.lightningClouds[i];
+      const t = (nowSec - s.bornSec) / LIGHTNING_CLOUD_SEC;
+      if (t >= 1 || t < 0) { this.lightningClouds.splice(i, 1); continue; }
+      const alpha = 1 - t;
+      const reach = LIGHTNING_CLOUD_R * (0.5 + t * 1.4); // bolts fly outward as it discharges
+      // soft cyan glow core
+      g.circle(s.x, s.y, LIGHTNING_CLOUD_R * (0.9 - t * 0.4)).fill({ color: LIGHTNING_GLOW, alpha: 0.5 * alpha });
+      g.circle(s.x, s.y, LIGHTNING_CLOUD_R * (0.45 - t * 0.2)).fill({ color: LIGHTNING_CORE, alpha: 0.7 * alpha });
+      // jagged radial bolts (deterministic-per-cloud jitter from the seed)
+      for (let b = 0; b < LIGHTNING_BOLTS; b++) {
+        const baseA = (b / LIGHTNING_BOLTS) * TAU + s.seed;
+        let px = s.x;
+        let py = s.y;
+        g.moveTo(px, py);
+        const segs = 3;
+        for (let k = 1; k <= segs; k++) {
+          const frac = k / segs;
+          const wobble = Math.sin(s.seed * (b + 1.7) + k * 2.3) * 0.5;
+          const a = baseA + wobble * (1 - frac);
+          const dist = reach * frac;
+          px = s.x + Math.cos(a) * dist;
+          py = s.y + Math.sin(a) * dist;
+          g.lineTo(px, py);
+        }
+        g.stroke({ color: LIGHTNING_CORE, width: Math.max(0.75, 2.2 * alpha), alpha: 0.9 * alpha });
+        // spark at the bolt tip
+        g.circle(px, py, Math.max(0.5, 1.8 * alpha)).fill({ color: LIGHTNING_GLOW, alpha: 0.85 * alpha });
       }
     }
   }
@@ -527,6 +620,10 @@ export class CreatureRenderer {
     this.spriteAnimCells.clear();
     this.lastSeenPos.clear();
     this.lastMoveTick.clear();
+    // S103 #8 — drop the death-watcher + cloud state so a title-return doesn't pop a stale cloud.
+    this.lastSeenState.clear();
+    this.lightningClouds.length = 0;
+    this.cloudGfx.clear();
   }
 
   destroy(): void {
@@ -537,6 +634,9 @@ export class CreatureRenderer {
     this.spriteAnimCells.clear();
     this.lastSeenPos.clear();
     this.lastMoveTick.clear();
+    this.lastSeenState.clear();
+    this.lightningClouds.length = 0;
+    this.cloudGfx.destroy();
     this.container.destroy({ children: true });
   }
 }

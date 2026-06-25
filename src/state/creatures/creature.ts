@@ -181,6 +181,22 @@ export interface Creature {
    * field is host-only.
    */
   targetBondId: BondId | null;
+  /**
+   * S103 #8 — creature this one is zapping THIS attack cycle, or `null`. Parallel to
+   * `targetBondId` but for the creature population (a Voltkin opportunistically zapping an
+   * enemy chewer that wandered within its attackRange — Council MF3: bonds drive navigation,
+   * a creature is only struck when already in range). Set by the main.ts SEEKING fan-out
+   * (`findNearestEnemyCreature`), consumed by the FSM (SEEKING→ATTACKING also enters on a
+   * creature-in-range) + the attack-fire (creature-first → `damageCreature`). Cleared on every
+   * SEEKING/ATTACKING/DESPAWNING transition alongside `targetBondId`. `0`/chewers never set it.
+   *
+   * HOST-ONLY — STRIPPED from the wire (`trimMirrorCreature`) and emitted-when-non-null through
+   * the host save path (the `targetBondId`/`chewProgress` precedent). The 1v1 client needs no
+   * creature-reticle: it sees the synced ATTACKING animation + the victim vanishing from the
+   * snapshot (the render-driven goo/cloud death-watcher), so this never rides the snapshot →
+   * P1 adds ZERO wire surface and needs NO protocol bump (Council MF6).
+   */
+  targetCreatureId: CreatureId | null;
   state: CreatureState;
   /** Ticks elapsed since entering current `state`. Resets on transition. */
   ticksInState: number;
@@ -279,6 +295,7 @@ export function makeCreature(
     prevPos: { x: args.pos.x, y: args.pos.y },
     targetPos: { x: args.targetPos.x, y: args.targetPos.y },
     targetBondId: null,
+    targetCreatureId: null, // S103 #8 — set opportunistically (Voltkin) by the main.ts fan-out
     state: 'SPAWNING',
     ticksInState: 0,
     killCount: 0,

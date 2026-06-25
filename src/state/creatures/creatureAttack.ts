@@ -39,12 +39,24 @@ import type { World } from '../world.ts';
 import { dispatch } from '../world.ts';
 import type { BondId, CreatureId, Vec2 } from '../../types.ts';
 import { bondMidpoint } from './creatureAI.ts';
+import { damageCreature } from './creatureLifecycle.ts';
+import { CREATURE_HIT_DAMAGE } from '../../constants.ts';
 
-/** Action shape — exported for `world.ts` GameAction union composition. */
+/**
+ * Action shape — exported for `world.ts` GameAction union composition.
+ *
+ * S103 #8 — a CREATURE_ATTACK now resolves to ONE of two targets (Council "touch
+ * applyCreatureAttack once"): a BOND (sever — the chewer chew + Voltkin's zap on a structure)
+ * or, when `targetCreatureId` is set, an enemy CREATURE (a Voltkin zapping a chewer that
+ * wandered into range → the single `damageCreature` death path). `bondId` is nullable so the
+ * creature-zap case needn't fabricate one; the main.ts fan-out fills exactly one.
+ */
 export interface CreatureAttackAction {
   readonly type: 'CREATURE_ATTACK';
   readonly creatureId: CreatureId;
-  readonly bondId: BondId;
+  readonly bondId: BondId | null;
+  /** S103 #8 — when set, this attack zaps a CREATURE (damageCreature) instead of severing a bond. */
+  readonly targetCreatureId?: CreatureId | null;
 }
 
 /**
@@ -78,6 +90,31 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
   if (creature === undefined) return world;
   if (creature.state !== 'ATTACKING') return world;
 
+  // S103 #8 — CREATURE-target branch (a Voltkin zapping an enemy chewer in range). The SINGLE
+  // creature-death path (`damageCreature`); a chewer (hp 1) dies in one zap, a Voltkin (hp 2) in
+  // two → discombobulate (the render death-watcher splats goo / a lightning-cloud on the vanished
+  // creature, so NO effect/wire surface here). The Voltkin keeps its lightning arc: emit ARC_FLASH
+  // from the attacker to the victim, then deal the damage. Defense-in-depth: victim must still exist.
+  if (action.targetCreatureId !== undefined && action.targetCreatureId !== null) {
+    const victim = world.creatures.get(action.targetCreatureId);
+    if (victim === undefined) return world;
+    const arcStart: Vec2 = { x: creature.pos.x, y: creature.pos.y };
+    const arcEnd: Vec2 = { x: victim.pos.x, y: victim.pos.y };
+    const died = damageCreature(world, action.targetCreatureId, CREATURE_HIT_DAMAGE);
+    if (died) creature.killCount += 1;
+    // A chewer never zaps a creature (it only chews bonds); this branch is Voltkin/lightning only,
+    // so always emit ARC_FLASH + let main.ts trigger the screen-shake (the existing ARC_FLASH gate).
+    world.effects.push({
+      kind: 'ARC_FLASH',
+      tick: world.tick,
+      start: arcStart,
+      end: arcEnd,
+      creatureId: creature.id,
+    });
+    return world;
+  }
+
+  if (action.bondId === null) return world;
   const bond = world.bonds.get(action.bondId);
   if (bond === undefined) return world;
 

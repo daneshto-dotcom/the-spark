@@ -804,6 +804,12 @@ export const CHEW_DAMAGE = 1; // damage one chew deals to a connector (CONNECTOR
 export const CHEWER_HP = 1; // a pencil chewer dies in 1 single-target hit (raid / Voltkin / laser / slap)
 export const VOLTKIN_HP = 2; // a godly Voltkin takes 2 hits — twice as tough as a chewer
 export const RAID_CREATURE_DAMAGE = 1; // a player raid (right-click a creature) deals 1 (P3)
+// S103 #8 — single-target creature-vs-creature / defender-vs-creature hit. A Voltkin zap on a
+// chewer, a laser beam (P3), and HELGA's slap (P4) all deal this through the SAME `damageCreature`
+// path: 1 → a chewer (CHEWER_HP=1) dies in one, a Voltkin (VOLTKIN_HP=2) in two → lightning-cloud.
+// Same value as RAID_CREATURE_DAMAGE by design (one coherent damage scale, OC2); named separately
+// so the creature-combat call sites read intentionally and a future tuning of one needn't move both.
+export const CREATURE_HIT_DAMAGE = 1;
 export const REVALIDATE_INTERVAL_TICKS = 30; // 0.5 s — spawner shape re-validation throttle
 // Passive income term added to a spawner owner's complexity (scoring.computeComplexity). Kept
 // NEAR-ZERO so it never threatens the protected PHASE_1_WIN_SCORE=630 anchor — the real cost is

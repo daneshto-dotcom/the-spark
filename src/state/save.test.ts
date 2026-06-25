@@ -8,7 +8,7 @@ import { makeFreeSpark } from '../game/spark.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import { asPlayerId, asPotatoId, asSparkId } from '../types.ts';
 import { dispatch, makeWorld } from './world.ts';
-import { restore, snapshot } from './save.ts';
+import { netSnapshot, restore, snapshot } from './save.ts';
 import { applySpawnBomb } from './bombLifecycle.ts';
 import { applySpawnHunter } from './hunters/hunterLifecycle.ts';
 import { applyPickupPotato, applySpawnPotato } from './potatoLifecycle.ts';
@@ -125,6 +125,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         prevPos: { x: 100, y: 400 },
         targetPos: { x: 200, y: 500 },
         targetBondId: null,
+        targetCreatureId: null,
         state: 'SEEKING',
         ticksInState: 42,
         killCount: 0,
@@ -170,6 +171,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         prevPos: { x: 100, y: 200 },
         targetPos: { x: 110, y: 210 },
         targetBondId: null,
+        targetCreatureId: null,
         state: 'DESPAWNING',
         ticksInState: 0,
         killCount: 3,
@@ -190,6 +192,55 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
     expect(rehydrated.killCount).toBe(3);
   });
 
+  it('S103 #8 — targetCreatureId round-trips through the HOST save but is STRIPPED from the wire (MF6)', () => {
+    const w1 = makeWorld(0);
+    const CID = 0 as unknown as import('../types.ts').CreatureId;
+    w1.creatures.set(CID, {
+      id: CID,
+      type: 'voltkin',
+      ownerPlayerId: P1,
+      pos: { x: 100, y: 200 },
+      prevPos: { x: 100, y: 200 },
+      targetPos: { x: 110, y: 210 },
+      targetBondId: null,
+      targetCreatureId: 7 as unknown as import('../types.ts').CreatureId, // mid-zap, committed to creature 7
+      state: 'ATTACKING',
+      ticksInState: 10,
+      killCount: 0,
+      spawnedAtTick: 0,
+      despawnAtTick: 1200,
+      sourceSpawnerId: null,
+      chewProgress: 0,
+      hp: 2,
+    });
+
+    // HOST save emits it (a mid-zap Voltkin resumes its target) ...
+    const hostSnap = snapshot(w1);
+    expect(hostSnap.creatures?.[0].targetCreatureId).toBe(7);
+    const w2 = makeWorld(0);
+    restore(JSON.parse(JSON.stringify(hostSnap)), w2);
+    expect(w2.creatures.get(CID)!.targetCreatureId).toBe(7 as unknown as import('../types.ts').CreatureId);
+
+    // ... the WIRE strips it (host-authoritative; the client never runs the AI → rehydrates null).
+    const wire = netSnapshot(w1);
+    expect(wire.creatures?.[0].targetCreatureId).toBeUndefined();
+    const wc = makeWorld(0);
+    restore(JSON.parse(JSON.stringify(wire)), wc);
+    expect(wc.creatures.get(CID)!.targetCreatureId).toBe(null);
+  });
+
+  it('S103 #8 — an idle Voltkin (targetCreatureId null) emits NO targetCreatureId key (byte-compat)', () => {
+    const w1 = makeWorld(0);
+    const CID = 0 as unknown as import('../types.ts').CreatureId;
+    w1.creatures.set(CID, {
+      id: CID, type: 'voltkin', ownerPlayerId: P1,
+      pos: { x: 1, y: 2 }, prevPos: { x: 1, y: 2 }, targetPos: { x: 1, y: 2 },
+      targetBondId: null, targetCreatureId: null, state: 'SEEKING', ticksInState: 0,
+      killCount: 0, spawnedAtTick: 0, despawnAtTick: 1200, sourceSpawnerId: null, chewProgress: 0, hp: 2,
+    });
+    expect(snapshot(w1).creatures?.[0].targetCreatureId).toBeUndefined();
+  });
+
   it('S36 P3 — pre-S36 snapshots (no killCount field) rehydrate as 0', () => {
     const w1 = makeWorld(0);
     w1.creatures.set(
@@ -202,6 +253,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         prevPos: { x: 100, y: 200 },
         targetPos: { x: 110, y: 210 },
         targetBondId: null,
+        targetCreatureId: null,
         state: 'DESPAWNING',
         ticksInState: 0,
         killCount: 0,
@@ -255,6 +307,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         prevPos: { x: 50, y: 50 },
         targetPos: { x: 60, y: 60 },
         targetBondId: null,
+        targetCreatureId: null,
         state: 'SPAWNING',
         ticksInState: 5,
         killCount: 0,
@@ -275,6 +328,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         prevPos: { x: 100, y: 100 },
         targetPos: { x: 110, y: 110 },
         targetBondId: null,
+        targetCreatureId: null,
         state: 'SEEKING',
         ticksInState: 12,
         killCount: 0,

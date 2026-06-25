@@ -30,6 +30,8 @@ import {
   bondMidpoint,
   distSq,
   findNearestBondTarget,
+  findNearestEnemyCreature,
+  findNearestEnemyCreatureFrom,
   isEnemyBond,
   isWithinAttackRange,
 } from './creatureAI.ts';
@@ -254,5 +256,65 @@ describe('isWithinAttackRange', () => {
     // A Voltkin at the same far 100px IS in range (180) — proves the range is per-type.
     const voltkin = spawnAt(w, P0, 110, 0);
     expect(isWithinAttackRange(w, voltkin, asBondId(1))).toBe(true);
+  });
+});
+
+describe('findNearestEnemyCreatureFrom / findNearestEnemyCreature (S103 #8)', () => {
+  // Place an enemy chewer (owned by `owner`) at (x,y) with the given id.
+  function addChewer(world: World, id: number, owner: typeof P0, x: number, y: number): void {
+    const c = makeCreature(CHEWER_CONFIG, {
+      id: asCreatureId(id), ownerPlayerId: owner,
+      pos: { x, y }, targetPos: { x, y },
+      spawnedAtTick: 0, sourceSpawnerId: asSpawnerId(1),
+    });
+    world.creatures.set(c.id, c);
+  }
+
+  it('returns the nearest ENEMY creature (skips same-owner) within range', () => {
+    const w = setupWorld();
+    addChewer(w, 1, P1, 300, 0); // far enemy
+    addChewer(w, 2, P1, 40, 0); // near enemy
+    addChewer(w, 3, P0, 10, 0); // OWN — must be skipped even though nearest
+    const got = findNearestEnemyCreatureFrom(w, { x: 0, y: 0 }, P0);
+    expect(got).toBe(asCreatureId(2));
+  });
+
+  it('respects the squared range gate (returns null when all enemies are out of range)', () => {
+    const w = setupWorld();
+    addChewer(w, 1, P1, 200, 0); // 200px away
+    expect(findNearestEnemyCreatureFrom(w, { x: 0, y: 0 }, P0, 100 * 100)).toBe(null);
+    expect(findNearestEnemyCreatureFrom(w, { x: 0, y: 0 }, P0, 250 * 250)).toBe(asCreatureId(1));
+  });
+
+  it('deterministic tie-break: lowest CreatureId wins among equidistant enemies', () => {
+    const w = setupWorld();
+    addChewer(w, 7, P1, 50, 0);
+    addChewer(w, 4, P1, 50, 0); // identical pos — pure tie; lower id (4) must win
+    addChewer(w, 9, P1, 50, 0);
+    expect(findNearestEnemyCreatureFrom(w, { x: 0, y: 0 }, P0)).toBe(asCreatureId(4));
+  });
+
+  it('excludeId skips the caller itself', () => {
+    const w = setupWorld();
+    addChewer(w, 1, P1, 30, 0);
+    expect(findNearestEnemyCreatureFrom(w, { x: 0, y: 0 }, P0, Infinity, asCreatureId(1)))
+      .toBe(null); // only candidate is excluded
+  });
+
+  it('returns null when there are no enemy creatures (Voltkin path stays byte-identical, MF4)', () => {
+    const w = setupWorld();
+    addChewer(w, 1, P0, 10, 0); // own creature only
+    const voltkin = spawnAt(w, P0, 0, 0);
+    expect(findNearestEnemyCreature(w, voltkin)).toBe(null);
+  });
+
+  it('wrapper: a Voltkin zaps an enemy chewer ONLY when within its attackRange (opportunistic, MF3)', () => {
+    const w = setupWorld();
+    const voltkin = spawnAt(w, P0, 0, 0); // attackRange 180
+    addChewer(w, 1, P1, VOLTKIN_ATTACK_RANGE + 40, 0); // out of range → opportunistic = null
+    expect(findNearestEnemyCreature(w, voltkin)).toBe(null);
+    // chewer wanders within range → now it's a valid opportunistic target
+    w.creatures.get(asCreatureId(1))!.pos = { x: VOLTKIN_ATTACK_RANGE - 30, y: 0 };
+    expect(findNearestEnemyCreature(w, voltkin)).toBe(asCreatureId(1));
   });
 });

@@ -33,7 +33,7 @@
 
 import type { Bond } from '../../physics/bonds.ts';
 import { PLAYER_COLORS } from '../../constants.ts';
-import type { BondId, PlayerId, Vec2 } from '../../types.ts';
+import type { BondId, CreatureId, PlayerId, Vec2 } from '../../types.ts';
 import type { World } from '../world.ts';
 import type { Creature } from './creature.ts';
 import { getCreatureConfig } from './voltkin-config.ts';
@@ -283,4 +283,64 @@ export function isWithinAttackRange(world: World, creature: Creature, bondId: Bo
   if (bond === undefined) return false;
   const range = getCreatureConfig(creature.type).attackRange;
   return distSq(creature.pos, bondMidpoint(bond)) <= range * range;
+}
+
+/**
+ * S103 #8 — the GENERIC nearest-enemy-creature scan, the inverse of `findNearestBondTarget`
+ * for the creature population. Returns the `CreatureId` of the nearest LIVE creature owned by
+ * a DIFFERENT player than `ownerPlayerId`, within `maxRangeSq` (squared px) of `fromPos`, or
+ * `null` if none. This is the ONE shared helper (Council MF7) used by:
+ *   - Voltkin (#8) — opportunistic zap of a chewer that wanders within its attackRange;
+ *   - the laser turret (P3) + HELGA (P4) — both `Defender`s pick their slap/beam victim with it.
+ * That is why it takes a bare `(pos, ownerPlayerId, range)` rather than a `Creature` — a defender
+ * is not a creature but targets the same population from the same rule.
+ *
+ * Determinism (replay + 1v1 host-authority): pure read, no `Math.random` / wall-clock; squared
+ * distances (no sqrt); **lowest-`CreatureId` tie-break** on equal distance (V8 Map iteration is
+ * insertion order, so the explicit id compare guarantees a stable pick regardless of insert order).
+ * `excludeId` lets a creature-caller skip itself (a defender passes `undefined`).
+ */
+export function findNearestEnemyCreatureFrom(
+  world: World,
+  fromPos: Vec2,
+  ownerPlayerId: PlayerId,
+  maxRangeSq: number = Infinity,
+  excludeId?: CreatureId,
+): CreatureId | null {
+  let bestId: CreatureId | null = null;
+  let bestDistSq = Infinity;
+  for (const [id, c] of world.creatures) {
+    if (id === excludeId) continue;
+    if (c.ownerPlayerId === ownerPlayerId) continue; // enemy-only
+    const dSq = distSq(fromPos, c.pos);
+    if (dSq > maxRangeSq) continue; // range gate
+    if (
+      dSq < bestDistSq ||
+      (dSq === bestDistSq &&
+        (bestId === null || (id as unknown as number) < (bestId as unknown as number)))
+    ) {
+      bestDistSq = dSq;
+      bestId = id;
+    }
+  }
+  return bestId;
+}
+
+/**
+ * S103 #8 — convenience wrapper for a CREATURE attacker (the Voltkin path). Scans for the
+ * nearest enemy creature within this creature's PER-TYPE `attackRange` of its own position,
+ * excluding itself. Voltkin uses this for the OPPORTUNISTIC in-range zap (Council MF3): it
+ * pursues enemy BONDS for navigation and only zaps a creature that is already within its
+ * attack range — it never paths toward a distant creature. When no enemy creatures exist this
+ * returns `null` and the Voltkin path is byte-identical to pre-S103 (MF4 determinism guard).
+ */
+export function findNearestEnemyCreature(world: World, creature: Creature): CreatureId | null {
+  const range = getCreatureConfig(creature.type).attackRange;
+  return findNearestEnemyCreatureFrom(
+    world,
+    creature.pos,
+    creature.ownerPlayerId,
+    range * range,
+    creature.id,
+  );
 }

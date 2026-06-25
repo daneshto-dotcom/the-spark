@@ -83,7 +83,7 @@ import { computeStubTargetPos } from './physics/creatureVerlet.ts';
 // findNearestBondTarget runs every CREATURE_TICK during SEEKING (Council R1 Q3
 // UNANIMOUS A); bondMidpoint feeds the per-tick targetPos update so the
 // existing steering forces (seek/arrive) home in on the nearest bond's center.
-import { bondMidpoint, findNearestBondTarget } from './state/creatures/creatureAI.ts';
+import { bondMidpoint, findNearestBondTarget, findNearestEnemyCreature } from './state/creatures/creatureAI.ts';
 // S100 P1 (TD Phase 1a, Layer 4) — the post-CREATURE_TICK attack-fire gate reads the
 // FIRE tick from each creature's config (was the Voltkin-only module const) so a chewer
 // fires its SEVER_BOND on the FINAL chew (config.attackFireTick = chewHits×interval) while
@@ -1187,6 +1187,14 @@ async function bootstrap(): Promise<void> {
                 }
               }
             }
+            // S103 #8 — Voltkin ONLY: opportunistic enemy-creature target. Bonds stay the
+            // navigation target (targetPos unchanged); this just notes a chewer ALREADY within
+            // attackRange so the FSM can zap it this cycle (Council MF3 — never path toward it).
+            // `findNearestEnemyCreature` is range-gated + lowest-id, returns null with no enemy
+            // creatures → byte-identical Voltkin (MF4). Chewers never get a creature target.
+            if (!isChewer) {
+              creature.targetCreatureId = findNearestEnemyCreature(world, creature);
+            }
           }
 
           // Step 2: FSM tick.
@@ -1207,14 +1215,25 @@ async function bootstrap(): Promise<void> {
             after !== undefined &&
             after.state === 'ATTACKING' &&
             after.ticksInState === getCreatureConfig(after.type).attackFireTick &&
-            after.targetBondId !== null
+            (after.targetCreatureId !== null || after.targetBondId !== null)
           ) {
-            const bondId = after.targetBondId;
-            dispatch(world, {
-              type: 'CREATURE_ATTACK',
-              creatureId: id,
-              bondId,
-            });
+            // S103 #8 — creature-FIRST: a Voltkin zaps an in-range enemy creature this cycle if
+            // it has one (the chewer right next to it is the immediate threat), else severs its
+            // committed bond target. Chewers never set targetCreatureId, so they always sever.
+            if (after.targetCreatureId !== null) {
+              dispatch(world, {
+                type: 'CREATURE_ATTACK',
+                creatureId: id,
+                bondId: null,
+                targetCreatureId: after.targetCreatureId,
+              });
+            } else {
+              dispatch(world, {
+                type: 'CREATURE_ATTACK',
+                creatureId: id,
+                bondId: after.targetBondId,
+              });
+            }
             // S30 P0e — trigger screen-shake when CREATURE_ATTACK emits an
             // ARC_FLASH this tick. S33 P1-6 replaced the prior
             // `!world.bonds.has(bondId)` gate with an explicit ARC_FLASH
