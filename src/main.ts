@@ -131,6 +131,7 @@ import { makeCinematicVignette } from './render/cinematicVignette.ts';
 import type { CodexOverlay } from './render/codexOverlay.ts';
 import { CreatureRenderer } from './render/creatureRenderer.ts';
 import { ChewerRenderer } from './render/chewerRenderer.ts';
+import { TurretRenderer } from './render/turretRenderer.ts';
 import { SpawnerZoneRenderer } from './render/spawnerZoneRenderer.ts';
 import { BombRenderer } from './render/bombRenderer.ts';
 import { HunterRenderer } from './render/hunterRenderer.ts';
@@ -156,6 +157,9 @@ import './state/godlyRecipes/voltkin.ts';
 // S100 P1 (TD Phase 1b, Layer 5) — side-effect import registers the pentagram
 // SPAWNER recipe (a non-cinematic recipe → REGISTER_SPAWNER, not GODLY_TRIGGER).
 import './state/godlyRecipes/pentagram.ts';
+// S103 P3 — side-effect import registers the LASER TURRET defender recipe (calls registerRecipe at
+// module tail) so runDefenderIgnition + recipeStillSatisfied find it. (#9 — 1 Line + 7 Spiral Whips.)
+import './state/godlyRecipes/laserTurret.ts';
 // S50 P2 — godly matcher + cinematic-lifecycle orchestration extracted to
 // godlyOrchestration.ts (Council Standard-tier refactor, Battle Ledger C2).
 // Pre-S50 these two functions (runGodlyMatcher + startCinematicIfNeeded)
@@ -422,6 +426,8 @@ async function bootstrap(): Promise<void> {
   // pencil sketch + physics-driven hop); creatureRenderer keeps Voltkin. Both drain world.creatures
   // partitioned by creature.type. aboveFogLayer for the same cross-player-reach fog rule.
   const chewerRenderer = new ChewerRenderer(app, aboveFogLayer);
+  // S103 P3/P4 — turret + (P4) HELGA defenders render above the fog (cross-player reach, like chewers).
+  const turretRenderer = new TurretRenderer(app, aboveFogLayer);
   // S71 P1 — bomb renderer stays on app.stage (BELOW the fog): single-owner, NOT fog-exempt.
   // Below effects so BOMB_EXPLODE stacks over the orb. Cheap no-op when world.bombs is empty.
   const bombRenderer = new BombRenderer(app);
@@ -1519,6 +1525,8 @@ async function bootstrap(): Promise<void> {
         // title-return (reducer teardownSpawners clears creatureSpawners and the
         // chewers; this closes the one-frame orphan window + resets the hop phase).
         chewerRenderer.clear();
+        // S103 P3 — drop turret graphics + per-turret SFX-edge state on title-return.
+        turretRenderer.clear();
         // S100 P1 — drop the spawner-zone aura on title-return.
         spawnerZoneRenderer.clear();
         // S71 P1 — drop bomb sprites on title-return (the reducer applyReturnToTitle
@@ -1828,6 +1836,8 @@ async function bootstrap(): Promise<void> {
     creatureRenderer.sync(world);
     // S100 P1 (TD Phase 1a) — chewer pencil-sketch + physics hop. Cheap when no chewer is live.
     chewerRenderer.sync(world);
+    // S103 P3 — laser-turret defenders (charge/beam off synced state). Cheap when none live.
+    turretRenderer.sync(world);
     // S71 P1 — bomb sprites (after creatures, before the effects wipe).
     bombRenderer.sync(world);
     // S72 P2 — hunter wedge (after bombs, before the effects wipe). Faces the chased

@@ -1158,6 +1158,58 @@ export async function playZapBurstSFX(pos?: Vec2): Promise<void> {
 }
 
 /**
+ * S103 P3 (#9) — LASER: the heavy turret firing its beam. A bright square-wave "PEW" that sweeps
+ * DOWN (the classic blaster), layered over a short noise sizzle = a beefy energy discharge, distinct
+ * from the Voltkin zap-burst. EXPORTED + played by the turret renderer when it observes a defender
+ * entering the synced FIRE state (host + 1v1 client both see it). Procedural; routed through sfxGain.
+ */
+export async function playLaserSFX(pos?: Vec2): Promise<void> {
+  if (audioContext === null || sfxGainNode === null) return;
+  if (audioContext.state !== 'running') {
+    try { await audioContext.resume(); } catch (e) {
+      if (isDebugRequested()) console.warn('[audio] playLaserSFX resume() threw:', e);
+    }
+  }
+  if (audioContext.state !== 'running') return;
+
+  const ctx = audioContext;
+  const now = ctx.currentTime;
+  const panner = pos !== undefined ? createPanner(pos) : null;
+  const sink: AudioNode = panner ?? sfxGainNode;
+  if (panner !== null) panner.connect(sfxGainNode);
+
+  // 1) the beam "pew" — a square wave swept high→low (blaster discharge).
+  const osc = ctx.createOscillator();
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(880, now);
+  osc.frequency.exponentialRampToValueAtTime(110, now + 0.28);
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(3200, now);
+  lp.frequency.exponentialRampToValueAtTime(700, now + 0.28);
+  const og = ctx.createGain();
+  og.gain.setValueAtTime(0.0001, now);
+  og.gain.exponentialRampToValueAtTime(0.3, now + 0.008);
+  og.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+  osc.connect(lp); lp.connect(og); og.connect(sink);
+  osc.start(now); osc.stop(now + 0.32);
+
+  // 2) a brief high sizzle over the front of the beam (energy crackle).
+  const nsrc = ctx.createBufferSource();
+  nsrc.buffer = getGnawNoiseBuffer(ctx);
+  nsrc.loop = true;
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 2600;
+  const ng = ctx.createGain();
+  ng.gain.setValueAtTime(0.0001, now);
+  ng.gain.exponentialRampToValueAtTime(0.16, now + 0.006);
+  ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+  nsrc.connect(hp); hp.connect(ng); ng.connect(sink);
+  nsrc.start(now); nsrc.stop(now + 0.14);
+}
+
+/**
  * Drain effects for audio. Iterates effects, fires SFX for new ticks, advances
  * the cursor. Replay-safe: effects with tick <= cursor are skipped silently.
  */
