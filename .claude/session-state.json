@@ -15,12 +15,15 @@
     {
       "id": "P1",
       "label": "S105 P1 - Fully-random + 20%-faster spark spawning. SPAWN_RATE_PER_SECOND 0.15->0.1875 (LOCKED Item 3 amendment, owner-authorized). spawner.reseed(baseSeed) reseeds all 5 streams + countdowns; main.ts draws a fresh random base seed at START_GAME (host-only) so every match differs. No wire change (spawner is host-only; client mirrors via snapshot). Replay-safe (tests pin own seeds; save captures rng words).",
-      "status": "in_progress",
-      "phase": "DO",
+      "status": "completed",
+      "phase": "DONE",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
+      "checkpoint_commit": "de9c799",
+      "check_completed": true,
+      "check_method": "S105 P1 DONE (de9c799). Gates: tsc 0; vitest 1653/1653 (+3 reseed tests: same-base-seed->identical, diff-seed->different, reseed-moves-off-boot-0xc0ffee); build entry 598.0/750 KiB (152 headroom). ROOT CAUSE was a FIXED boot seed (main.ts SEED=0xc0ffee), not a non-random picker (ALL_SPARK_TYPES has 6 shapes + rngPick already random) -> identical sequence every match. FIX: Spawner.reseed(baseSeed) setStates all 5 streams via SPAWNER_STREAM_OFFSETS (single source of truth, mirrors main.ts boot derivation) + re-samples countdowns; reseedForNewMatch() in main.ts draws Math.random base seed at EVERY host begin (solo/vs-bots/networked-host onBeginMatch wrap) + sets world.rngSeed; vs-bots also seeds BotManager from the same draw. SPAWN_RATE_PER_SECOND 0.15->0.1875 (LOCKED Item 3 owner-authorized amendment). DETERMINISM verified: spawner+sim are host-only (joiner mirrors via NetSnapshot) so no wire/PROTOCOL change; replay tests pin own seeds (unaffected); save captures rng WORDS via getState; rainbow/sudoku RNG derive from world.rngSeed but are host-only + replay-captured. nextId NOT reset on reseed (monotonic, no id collision). NOTE runtime spawn-feel is owner playtest (WebGL rAF).",
       "objective": "Each match a different unpredictable spawn sequence; primitives arrive ~20% sooner. Determinism/replay preserved.",
       "scope": "src/constants.ts (SPAWN_RATE_PER_SECOND), src/game/spawner.ts (reseed), src/main.ts (random base seed at START_GAME), + spawner reseed test.",
       "testing": "tsc 0; vitest green incl. replay/spawner determinism; reseed test (diff seed -> diff sequence, same seed -> identical); build < 750 KiB."

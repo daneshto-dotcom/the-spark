@@ -511,12 +511,16 @@ async function bootstrap(): Promise<void> {
   // S104 P3 — "how to build" text per recipe id. Cinematic godlies stay purposefully cryptic
   // (the brother-surprise easter-egg convention); the TOWERS & STRUCTURES recipes get PRECISE
   // build instructions — this is the direct fix for the owner's "couldn't build the turret".
+  // S105 P2 — EXACT build recipes for EVERY godly/tower (the owner: "add exact recipes so we can
+  // check the requirements"). Voltkin was the lone cryptic hint ("lightning meets a screen") — now
+  // precise like the rest. The codex shows these even on LOCKED tiles so requirements are checkable
+  // BEFORE building (the direct fix for "Line + 4 spirals made no laser torrent" — it needs 7).
   const recipeHint = (id: string): string => {
     switch (id) {
-      case 'voltkin': return 'lightning meets a screen';
-      case 'pentagram': return 'Spawner: 5 Triangles bonded in a closed ring (each Triangle links to exactly 2 others).';
-      case 'laserTurret': return 'Tower: 1 Line + 7 Spirals all bonded to that Line — fires a beam at enemy chewers.';
-      case 'helga': return 'Tower: a Triangle hub + 3 Spirals + 3 Circles all bonded to the hub — she slaps chewers.';
+      case 'voltkin': return 'GODLY: 4 Squares then 4 Triangles bonded in ONE straight line — 8 in a chain, ends free, nothing else attached. Summons Voltkin.';
+      case 'pentagram': return 'SPAWNER: 5 Triangles bonded in a closed ring — each Triangle bonded to exactly 2 others (a pentagon). Mints chewers.';
+      case 'laserTurret': return 'TOWER: 1 Line + 7 Spirals, every Spiral bonded to the Line — 8 shapes, a star. Beams enemy chewers. (7 spirals, not 4.)';
+      case 'helga': return 'TOWER: 1 Triangle hub + 3 Spirals + 3 Circles, all 6 bonded to the hub — 7 shapes. Princess HELGA slaps chewers.';
       default: return '???';
     }
   };

@@ -256,26 +256,20 @@ export class CodexOverlay {
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 20, fill: isUnlocked ? GOLD : 0x666666, letterSpacing: 2 }),
     });
     name.anchor.set(0.5);
-    name.position.set(TILE_W / 2, 168);
+    name.position.set(TILE_W / 2, 160);
     tile.addChild(name);
 
-    if (isUnlocked) {
-      const hint = new Text({
-        text: entry.recipeHint,
-        style: new TextStyle({ fontFamily: 'monospace', fontSize: 12, fill: 0xbfbfbf, wordWrap: true, wordWrapWidth: TILE_W - 22, align: 'center' }),
-      });
-      hint.anchor.set(0.5, 0);
-      hint.position.set(TILE_W / 2, 186);
-      tile.addChild(hint);
-    } else {
-      const lock = new Text({
-        text: 'build it to reveal',
-        style: new TextStyle({ fontFamily: 'monospace', fontSize: 11, fill: 0x555555, letterSpacing: 1 }),
-      });
-      lock.anchor.set(0.5);
-      lock.position.set(TILE_W / 2, 196);
-      tile.addChild(lock);
-    }
+    // S105 P2 — the recipe is shown in BOTH states so a player can CHECK the build requirements
+    // BEFORE building (the owner couldn't see the 7-spiral turret recipe because it was unlock-gated).
+    // When locked, only the NAME + character art stay hidden (the brother-surprise reveal) — you learn
+    // HOW to build it; the WHAT (its name/look) is still the payoff for building it once.
+    const hint = new Text({
+      text: entry.recipeHint,
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 12, fill: isUnlocked ? 0xbfbfbf : 0x9a9aa8, wordWrap: true, wordWrapWidth: TILE_W - 20, align: 'center' }),
+    });
+    hint.anchor.set(0.5, 0);
+    hint.position.set(TILE_W / 2, 178);
+    tile.addChild(hint);
     return tile;
   }
 
