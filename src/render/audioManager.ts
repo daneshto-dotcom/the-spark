@@ -1210,6 +1210,53 @@ export async function playLaserSFX(pos?: Vec2): Promise<void> {
 }
 
 /**
+ * S103 P4 (#10) — SLAP: HELGA's open-hand WHACK. A sharp broadband noise crack (the hand) over a
+ * quick mid sine THWOCK (the impact body) = a cartoon slap, snappier + higher than the chewer's wet
+ * fly-splat. EXPORTED + played by the princess renderer on the synced SLAP/FIRE edge. Procedural.
+ */
+export async function playSlapSFX(pos?: Vec2): Promise<void> {
+  if (audioContext === null || sfxGainNode === null) return;
+  if (audioContext.state !== 'running') {
+    try { await audioContext.resume(); } catch (e) {
+      if (isDebugRequested()) console.warn('[audio] playSlapSFX resume() threw:', e);
+    }
+  }
+  if (audioContext.state !== 'running') return;
+
+  const ctx = audioContext;
+  const now = ctx.currentTime;
+  const panner = pos !== undefined ? createPanner(pos) : null;
+  const sink: AudioNode = panner ?? sfxGainNode;
+  if (panner !== null) panner.connect(sfxGainNode);
+
+  // 1) the hand crack — a very short bright noise burst, fast decay (the WHACK).
+  const nsrc = ctx.createBufferSource();
+  nsrc.buffer = getGnawNoiseBuffer(ctx);
+  nsrc.loop = true;
+  const bp = ctx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 2000;
+  bp.Q.value = 0.8;
+  const ng = ctx.createGain();
+  ng.gain.setValueAtTime(0.0001, now);
+  ng.gain.exponentialRampToValueAtTime(0.5, now + 0.003); // instant crack
+  ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
+  nsrc.connect(bp); bp.connect(ng); ng.connect(sink);
+  nsrc.start(now); nsrc.stop(now + 0.08);
+
+  // 2) the impact "thwock" — a quick mid sine drop for the body of the hit.
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(420, now);
+  osc.frequency.exponentialRampToValueAtTime(120, now + 0.09);
+  const og = ctx.createGain();
+  og.gain.setValueAtTime(0.3, now);
+  og.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
+  osc.connect(og); og.connect(sink);
+  osc.start(now); osc.stop(now + 0.12);
+}
+
+/**
  * Drain effects for audio. Iterates effects, fires SFX for new ticks, advances
  * the cursor. Replay-safe: effects with tick <= cursor are skipped silently.
  */

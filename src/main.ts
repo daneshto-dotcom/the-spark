@@ -132,6 +132,7 @@ import type { CodexOverlay } from './render/codexOverlay.ts';
 import { CreatureRenderer } from './render/creatureRenderer.ts';
 import { ChewerRenderer } from './render/chewerRenderer.ts';
 import { TurretRenderer } from './render/turretRenderer.ts';
+import { PrincessRenderer } from './render/princessRenderer.ts';
 import { SpawnerZoneRenderer } from './render/spawnerZoneRenderer.ts';
 import { BombRenderer } from './render/bombRenderer.ts';
 import { HunterRenderer } from './render/hunterRenderer.ts';
@@ -160,6 +161,9 @@ import './state/godlyRecipes/pentagram.ts';
 // S103 P3 — side-effect import registers the LASER TURRET defender recipe (calls registerRecipe at
 // module tail) so runDefenderIgnition + recipeStillSatisfied find it. (#9 — 1 Line + 7 Spiral Whips.)
 import './state/godlyRecipes/laserTurret.ts';
+// S103 P4 — side-effect import registers the HELGA princess defender recipe (#10 — Triangle hub +
+// 3 Warped Anchors + 3 Stars).
+import './state/godlyRecipes/princessHelga.ts';
 // S50 P2 — godly matcher + cinematic-lifecycle orchestration extracted to
 // godlyOrchestration.ts (Council Standard-tier refactor, Battle Ledger C2).
 // Pre-S50 these two functions (runGodlyMatcher + startCinematicIfNeeded)
@@ -428,6 +432,7 @@ async function bootstrap(): Promise<void> {
   const chewerRenderer = new ChewerRenderer(app, aboveFogLayer);
   // S103 P3/P4 — turret + (P4) HELGA defenders render above the fog (cross-player reach, like chewers).
   const turretRenderer = new TurretRenderer(app, aboveFogLayer);
+  const princessRenderer = new PrincessRenderer(app, aboveFogLayer);
   // S71 P1 — bomb renderer stays on app.stage (BELOW the fog): single-owner, NOT fog-exempt.
   // Below effects so BOMB_EXPLODE stacks over the orb. Cheap no-op when world.bombs is empty.
   const bombRenderer = new BombRenderer(app);
@@ -1527,6 +1532,8 @@ async function bootstrap(): Promise<void> {
         chewerRenderer.clear();
         // S103 P3 — drop turret graphics + per-turret SFX-edge state on title-return.
         turretRenderer.clear();
+        // S103 P4 — drop HELGA graphics + per-princess facing/SFX state on title-return.
+        princessRenderer.clear();
         // S100 P1 — drop the spawner-zone aura on title-return.
         spawnerZoneRenderer.clear();
         // S71 P1 — drop bomb sprites on title-return (the reducer applyReturnToTitle
@@ -1838,6 +1845,8 @@ async function bootstrap(): Promise<void> {
     chewerRenderer.sync(world);
     // S103 P3 — laser-turret defenders (charge/beam off synced state). Cheap when none live.
     turretRenderer.sync(world);
+    // S103 P4 — HELGA princess defenders (articulated slap rig off synced state). Cheap when none live.
+    princessRenderer.sync(world);
     // S71 P1 — bomb sprites (after creatures, before the effects wipe).
     bombRenderer.sync(world);
     // S72 P2 — hunter wedge (after bombs, before the effects wipe). Faces the chased
