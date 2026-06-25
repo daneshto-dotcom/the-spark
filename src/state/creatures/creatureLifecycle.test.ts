@@ -35,10 +35,12 @@ import {
   VOLTKIN_LIFETIME_TICKS,
   asCreatureId,
   cinematicMsToTicks,
+  makeCreature,
   makeVoltkinCreature,
 } from './creature.ts';
+import { CHEWER_CONFIG } from './voltkin-config.ts';
 import { computeCreatureAlpha } from '../../render/creatureRenderer.ts';
-import { asBondId, asPlayerId, asPrimitiveId } from '../../types.ts';
+import { asBondId, asPlayerId, asPrimitiveId, asSpawnerId } from '../../types.ts';
 import { PLAYER_COLORS, SparkType } from '../../constants.ts';
 import type { Bond } from '../../physics/bonds.ts';
 import type { Primitive } from '../../game/primitive.ts';
@@ -717,5 +719,64 @@ describe('cinematicMsToTicks (S28 P0 spawn scheduler)', () => {
 
   it('33 ms (~2 ticks at 60Hz) maps to 2 (round-up from 1.98)', () => {
     expect(cinematicMsToTicks(33)).toBe(2);
+  });
+});
+
+describe('S103 #8 — Voltkin ATTACKING re-validates its opportunistic creature target (Council CHECK)', () => {
+  it('clears a STALE targetCreatureId (victim gone) on tick → the attack falls back to the bond', () => {
+    const w = makeWorld(0);
+    w.players.set(asPlayerId(0), makeIdlePlayer(asPlayerId(0), PLAYER_COLORS[0]));
+    const v = makeVoltkinCreature({
+      id: asCreatureId(0), ownerPlayerId: asPlayerId(0),
+      pos: { x: 0, y: 0 }, targetPos: { x: 0, y: 0 }, spawnedAtTick: 0,
+    });
+    v.state = 'ATTACKING';
+    v.ticksInState = 5;
+    v.targetCreatureId = asCreatureId(999); // points to a creature that no longer exists
+    w.creatures.set(v.id, v);
+    dispatch(w, { type: 'CREATURE_TICK', creatureId: v.id });
+    expect(w.creatures.get(v.id)!.targetCreatureId).toBe(null); // cleared → attack-fire uses the bond
+  });
+
+  it('KEEPS targetCreatureId when the victim is still a valid in-range enemy', () => {
+    const w = makeWorld(0);
+    w.players.set(asPlayerId(0), makeIdlePlayer(asPlayerId(0), PLAYER_COLORS[0]));
+    w.players.set(asPlayerId(1), makeIdlePlayer(asPlayerId(1), PLAYER_COLORS[1]));
+    const v = makeVoltkinCreature({
+      id: asCreatureId(0), ownerPlayerId: asPlayerId(0),
+      pos: { x: 0, y: 0 }, targetPos: { x: 0, y: 0 }, spawnedAtTick: 0,
+    });
+    v.state = 'ATTACKING';
+    v.ticksInState = 5;
+    v.targetCreatureId = asCreatureId(7);
+    w.creatures.set(v.id, v);
+    const chewer = makeCreature(CHEWER_CONFIG, {
+      id: asCreatureId(7), ownerPlayerId: asPlayerId(1),
+      pos: { x: 50, y: 0 }, targetPos: { x: 50, y: 0 }, spawnedAtTick: 0, sourceSpawnerId: asSpawnerId(1),
+    });
+    w.creatures.set(chewer.id, chewer);
+    dispatch(w, { type: 'CREATURE_TICK', creatureId: v.id });
+    expect(w.creatures.get(v.id)!.targetCreatureId).toBe(asCreatureId(7)); // valid + in range → kept
+  });
+
+  it('clears targetCreatureId when the victim walked OUT of range (still alive, just far)', () => {
+    const w = makeWorld(0);
+    w.players.set(asPlayerId(0), makeIdlePlayer(asPlayerId(0), PLAYER_COLORS[0]));
+    w.players.set(asPlayerId(1), makeIdlePlayer(asPlayerId(1), PLAYER_COLORS[1]));
+    const v = makeVoltkinCreature({
+      id: asCreatureId(0), ownerPlayerId: asPlayerId(0),
+      pos: { x: 0, y: 0 }, targetPos: { x: 0, y: 0 }, spawnedAtTick: 0,
+    });
+    v.state = 'ATTACKING';
+    v.ticksInState = 5;
+    v.targetCreatureId = asCreatureId(7);
+    w.creatures.set(v.id, v);
+    const chewer = makeCreature(CHEWER_CONFIG, {
+      id: asCreatureId(7), ownerPlayerId: asPlayerId(1),
+      pos: { x: VOLTKIN_ATTACK_RANGE + 80, y: 0 }, targetPos: { x: 0, y: 0 }, spawnedAtTick: 0, sourceSpawnerId: asSpawnerId(1),
+    });
+    w.creatures.set(chewer.id, chewer);
+    dispatch(w, { type: 'CREATURE_TICK', creatureId: v.id });
+    expect(w.creatures.get(v.id)!.targetCreatureId).toBe(null); // out of range → dropped
   });
 });

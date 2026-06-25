@@ -38,7 +38,7 @@ import {
   type CreatureType,
 } from './creature.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from './voltkin-config.ts';
-import { isWithinAttackRange } from './creatureAI.ts';
+import { distSq, isWithinAttackRange } from './creatureAI.ts';
 import {
   CHEW_INTERVAL_TICKS,
   CHEWER_MAX_GLOBAL,
@@ -437,6 +437,20 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
   //    S100 P1 — cadence/fire ticks now read from config (was VOLTKIN_ATTACK_*
   //    module consts); identical literals for Voltkin (60/30) so byte-identical.
   if (creature.state === 'ATTACKING') {
+    // S103 #8 (Council CHECK, Grok) — re-validate the opportunistic creature target EACH ATTACKING
+    // tick. main.ts only sets it during SEEKING, so without this a creature that dies / leaves range
+    // / stops being an enemy mid-windup would still be "creature-first" at fire time → the zap no-ops
+    // on a gone victim AND the still-valid bond goes unsevered (a wasted cycle). Clearing it here lets
+    // the attack-fire fall back to the bond. Pure read (distSq) — no RNG; deterministic.
+    if (creature.targetCreatureId !== null) {
+      const victim = world.creatures.get(creature.targetCreatureId);
+      const range = config.attackRange;
+      const stillValid =
+        victim !== undefined &&
+        victim.ownerPlayerId !== creature.ownerPlayerId &&
+        distSq(creature.pos, victim.pos) <= range * range;
+      if (!stillValid) creature.targetCreatureId = null;
+    }
     const cadenceElapsed = creature.ticksInState >= config.attackCadenceTicks;
     // S103 #8 — the wind-up only aborts early when BOTH possible targets are invalid. A Voltkin
     // that entered ATTACKING for a creature-only target (no bond in range) must NOT bounce out
