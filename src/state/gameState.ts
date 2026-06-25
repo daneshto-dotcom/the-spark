@@ -21,6 +21,7 @@ import { teardownPotatoes } from './potatoLifecycle.ts';
 import { teardownRainbows } from './rainbowLifecycle.ts';
 import { teardownSeagulls } from './seagulls/seagullLifecycle.ts';
 import { teardownSpawners } from './spawners/spawnerLifecycle.ts';
+import { teardownDefenders } from './defenders/defenderLifecycle.ts';
 import { dispatch, isNetworked } from './world.ts';
 import type { GameState, World } from './world.ts';
 import type { PlayerId } from '../types.ts';
@@ -124,6 +125,8 @@ export function softReset(world: World, extras: GameStateExtras): void {
   // S100 P1 (TD Phase 1a) — a fresh PLAYING world must never inherit a live spawner
   // (it would keep minting chewers + accruing income from match zero).
   teardownSpawners(world);
+  // S103 P2 — a fresh PLAYING world must never inherit a live defender either.
+  teardownDefenders(world);
   // S15 P2: per-player score reset; keep keyed entries (player roster
   // unchanged by softReset).
   for (const pid of world.scoreByPlayer.keys()) world.scoreByPlayer.set(pid, 0);

@@ -72,8 +72,8 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 11 (S102 #1 bump from 10 — RAID_CREATURE client intent + creature hp)', () => {
-    expect(PROTOCOL_VERSION).toBe(11);
+  it('PROTOCOL_VERSION is 12 (S103 P2 bump from 11 — generic defender lifecycle + defenders snapshot)', () => {
+    expect(PROTOCOL_VERSION).toBe(12);
   });
 
   it('S102 #1 — RAID_CREATURE is an allowed CLIENT INTENT (a 1v1 joiner can raid an enemy chewer)', () => {
@@ -318,7 +318,9 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
     // snapshot field; a stale v9 peer can't render the income-affecting + connector-chewing
     // system, so it is hard-rejected at HELLO (seagull/NONET precedent).
     // S102 #1 — bumped 10→11 for the RAID_CREATURE client intent + creature hp.
-    expect(PROTOCOL_VERSION).toBe(11);
+    // S103 P2 — bumped 11→12 for the generic defender lifecycle (REGISTER/REMOVE/TICK_DEFENDER,
+    // all HOST-INTERNAL) + the additive-optional defenders[] snapshot field.
+    expect(PROTOCOL_VERSION).toBe(12);
     expect(
       parseNetMessage({ kind: 'SOME_FUTURE_KIND', roster: [{ seat: 0, peerId: 'h', color: 1 }] }),
     ).toBeNull();

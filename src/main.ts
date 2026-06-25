@@ -92,6 +92,8 @@ import { getCreatureConfig } from './state/creatures/voltkin-config.ts';
 // S100 P1 (TD Phase 1a, Layer 4) — host re-validation poll: a spawner is torn down when
 // its anchor primitive is gone OR its component no longer satisfies the recipe shape.
 import { recipeStillSatisfied } from './state/spawners/spawnerLifecycle.ts';
+// S103 P2 — host re-validation poll for generic defenders (aliased — same name as the spawner one).
+import { recipeStillSatisfied as defenderRecipeStillSatisfied } from './state/defenders/defenderLifecycle.ts';
 // S100 P1 (TD Phase 1a, Layer 6) — one-shot raid reward split across enemies on the
 // destruction branch of the re-validation poll (NOT a per-tick accrual loop).
 import { awardSpawnerKillReward } from './state/gameMode.ts';
@@ -1115,6 +1117,24 @@ async function bootstrap(): Promise<void> {
               sp.spawnedCount++;
             }
           }
+        }
+      }
+
+      // S103 P2 — DEFENDER poll (host-only), mirroring the spawner poll above. Each tick:
+      //   (a) revalidate (throttled per-defender by a deterministic phase slot): anchor gone OR the
+      //       recipe broke (a chewer ate the structure) → REMOVE_DEFENDER (the v1 counterplay).
+      //   (b) DEFENDER_TICK advances the FSM (acquire → windup → FIRE damage → recover) + pins the
+      //       defender to its anchor. Snapshot entries first (REMOVE_DEFENDER mutates the map).
+      if (world.gameState === 'PLAYING' && !isClient && world.defenders.size > 0) {
+        for (const [defenderId, d] of [...world.defenders]) {
+          const did = defenderId as unknown as number;
+          if (world.tick % REVALIDATE_INTERVAL_TICKS === did % REVALIDATE_INTERVAL_TICKS) {
+            if (!world.primitives.has(d.anchorPrimitiveId) || !defenderRecipeStillSatisfied(world, d)) {
+              dispatch(world, { type: 'REMOVE_DEFENDER', defenderId });
+              continue;
+            }
+          }
+          dispatch(world, { type: 'DEFENDER_TICK', defenderId });
         }
       }
 

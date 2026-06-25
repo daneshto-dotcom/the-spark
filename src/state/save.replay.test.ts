@@ -432,6 +432,96 @@ describe('Replay determinism — S103 #8 Voltkin-vs-chewer combat (HARD GATE)', 
   });
 });
 
+/**
+ * S103 P2 (HARD GATE) — generic DEFENDER substrate determinism. Registers a princess + a turret
+ * (co-resident, both kinds) over P0 anchors, spawns P1 chewers that wander into range, and drives
+ * the REAL main.ts poll each tick (revalidate + DEFENDER_TICK) alongside a minimal chewer tick. The
+ * princess (short interval) acquires → windups → FIRES (damageCreature kills a chewer) → recovers;
+ * the turret co-ticks. All tick-deterministic (no wall-clock / RNG; lowest-id target tie-break) →
+ * two identically-seeded runs MUST be byte-identical.
+ */
+function runDefenderStress(world: World, iterations: number): void {
+  const P2 = asPlayerId(1);
+  world.players.set(P2, makeIdlePlayer(P2, 0x00ff00));
+
+  // P0 anchor primitives for the two defenders (fixed positions).
+  for (const [pid, x, y] of [[800, 100, 100], [801, 320, 100]] as const) {
+    world.primitives.set(asPrimitiveId(pid), {
+      id: asPrimitiveId(pid), type: SparkType.Triangle, placerColor: 0xff0000, placedBy: P1,
+      createdTick: 0, pos: { x, y }, prevPos: { x, y }, bonds: new Set(),
+      ownerColor: 0xff0000, lastOwnershipChange: 0, radius: 8,
+    });
+  }
+  dispatch(world, { type: 'REGISTER_DEFENDER', defenderKind: 'princess', ownerPlayerId: P1, anchorPrimitiveId: asPrimitiveId(800), recipeId: 'helga', pos: { x: 100, y: 100 } });
+  dispatch(world, { type: 'REGISTER_DEFENDER', defenderKind: 'turret', ownerPlayerId: P1, anchorPrimitiveId: asPrimitiveId(801), recipeId: 'laserTurret', pos: { x: 320, y: 100 } });
+
+  for (let i = 0; i < iterations; i++) {
+    if (i % 12 === 0) {
+      dispatch(world, {
+        type: 'SPAWN_CREATURE', creatureType: 'chewer', ownerPlayerId: P2,
+        pos: { x: 110 + (i % 20), y: 105 }, targetPos: { x: 110, y: 100 }, sourceSpawnerId: asSpawnerId(0),
+      });
+    }
+    // Defender poll (faithful mirror of main.ts).
+    for (const [defenderId, d] of [...world.defenders]) {
+      const did = defenderId as unknown as number;
+      if (world.tick % 30 === did % 30) {
+        if (!world.primitives.has(d.anchorPrimitiveId)) {
+          dispatch(world, { type: 'REMOVE_DEFENDER', defenderId });
+          continue;
+        }
+      }
+      dispatch(world, { type: 'DEFENDER_TICK', defenderId });
+    }
+    // Minimal chewer tick (they SEEK their stub target; the defender kills the in-range ones).
+    for (const creatureId of [...world.creatures.keys()]) {
+      dispatch(world, { type: 'CREATURE_TICK', creatureId });
+    }
+    world.tick++;
+  }
+}
+
+describe('Replay determinism — S103 P2 generic defender substrate (HARD GATE)', () => {
+  it('two runs with the same seed produce byte-identical snapshot after defender stress', () => {
+    const SEED = 0xdefe0d;
+    const ITERS = 240;
+    const wA = makeWorld(SEED);
+    runDefenderStress(wA, ITERS);
+    const jsonA = determinismJson(wA);
+    const wB = makeWorld(SEED);
+    runDefenderStress(wB, ITERS);
+    const jsonB = determinismJson(wB);
+    expect(jsonA).toBe(jsonB);
+  });
+
+  it('the princess defender actually kills chewers (combat sanity)', () => {
+    const w = makeWorld(0xc0c0a);
+    runDefenderStress(w, 240);
+    // 20 chewers spawned (240/12); the princess (range 160, 90-tick cadence) culls those in range,
+    // so fewer than the full 20 survive — the FIRE→damageCreature path ran.
+    const liveChewers = [...w.creatures.values()].filter((c) => c.type === 'chewer').length;
+    expect(liveChewers).toBeLessThan(20);
+  });
+
+  it('save→load does NOT make a defender insta-fire (Council MF5)', () => {
+    const w = makeWorld(0xabc);
+    runDefenderStress(w, 120); // defenders mid-cadence
+    const snap = snapshot(w);
+    const w2 = makeWorld(0); // fresh world (different tick baseline)
+    restore(JSON.parse(JSON.stringify(snap)), w2);
+    for (const d of w2.defenders.values()) {
+      expect(d.nextFireTick).toBeGreaterThanOrEqual(w2.tick); // re-phased — never in the past
+    }
+    expect(w2.defenders.size).toBe(2); // both round-tripped
+  });
+
+  it('different seeds still diverge (canary)', () => {
+    const wA = makeWorld(0x1a); runDefenderStress(wA, 120);
+    const wB = makeWorld(0x2b); runDefenderStress(wB, 120);
+    expect(determinismJson(wA)).not.toBe(determinismJson(wB));
+  });
+});
+
 describe('Replay determinism — S34 PB-5 creature lifecycle coverage', () => {
   it('two runs with the same seed produce byte-identical snapshot after creature stress', () => {
     const SEED = 0xc0c0c0;

@@ -18,7 +18,11 @@ import type { World } from '../world.ts';
 // NOT a cinematic-bearing godly: it dispatches REGISTER_SPAWNER instead of
 // GODLY_TRIGGER, never occupies activeCinematicPlayerId, and is excluded from the
 // per-type `godlyFiredThisMatch` gate (see index.ts).
-export type GodlyId = 'voltkin' | 'pentagram';
+// S103 P2 — 'laserTurret' (#9) + 'helga' (#10) widen GodlyId for the first DEFENDER-variant
+// recipes (a stationary auto-attacker structure). Like 'pentagram' they are non-cinematic: they
+// dispatch REGISTER_DEFENDER (never GODLY_TRIGGER), never occupy activeCinematicPlayerId, and are
+// excluded from the per-type godlyFiredThisMatch gate.
+export type GodlyId = 'voltkin' | 'pentagram' | 'laserTurret' | 'helga';
 
 export interface GodlyMatch {
   readonly triggererPlayerId: PlayerId;
@@ -54,6 +58,25 @@ export type RecipePredicate = (world: World, bondPos: { x: number; y: number }) 
  * REGISTER_SPAWNER dispatch.
  */
 export type SpawnerRecipePredicate = (world: World, bondPos: { x: number; y: number }) => SpawnerMatch | null;
+
+/**
+ * S103 P2 — a DEFENDER recipe's match: the owner + the shape-defining anchor primitive (the Line
+ * for a laser turret, the Triangle hub for HELGA) + its centre pos (where the defender stands).
+ * The matcher turns this into a REGISTER_DEFENDER dispatch.
+ */
+export interface DefenderMatch {
+  readonly triggererPlayerId: PlayerId;
+  readonly anchorPrimitiveId: PrimitiveId;
+  readonly pos: { readonly x: number; readonly y: number };
+}
+
+/**
+ * S103 P2 — a defender recipe's predicate. Same read-only purity contract. It must return only a
+ * BUILDABLE anchor — i.e. it skips an anchor that is ALREADY a live defender (it reads
+ * world.defenders) so runDefenderIgnition can register one per frame until all are built and a
+ * rebuild re-ignites after a removal.
+ */
+export type DefenderRecipePredicate = (world: World, bondPos: { x: number; y: number }) => DefenderMatch | null;
 
 /**
  * S100 P1 (TD Phase 1b, Layer 5) — GodlyRecipe is now a discriminated union on
@@ -98,7 +121,25 @@ export interface SpawnerGodlyRecipe {
   readonly characterSprite: string;
 }
 
-export type GodlyRecipe = CinematicGodlyRecipe | SpawnerGodlyRecipe;
+/**
+ * S103 P2 — a non-cinematic recipe whose match mints a generic stationary DEFENDER (laser turret
+ * / HELGA). Carries `defenderKind` (which substrate variant), a `stillValid` re-validation rule
+ * (the host poll calls it each tick — a broken structure removes the defender), and a Codex
+ * sprite. `defenderKind` is the 2-literal union inlined here (NOT imported from defenders/defender
+ * to avoid a types <-> defender import cycle — it stays assignable to DefenderKind).
+ */
+export interface DefenderGodlyRecipe {
+  readonly kind: 'defender';
+  readonly id: GodlyId;
+  readonly defenderKind: 'turret' | 'princess';
+  readonly predicate: DefenderRecipePredicate;
+  /** Re-validation: does the recipe STILL hold at this anchor? (false → REMOVE_DEFENDER). */
+  readonly stillValid: (world: World, anchorPrimitiveId: PrimitiveId) => boolean;
+  /** Codex gallery sprite (the only render-surface a recipe shares). */
+  readonly characterSprite: string;
+}
+
+export type GodlyRecipe = CinematicGodlyRecipe | SpawnerGodlyRecipe | DefenderGodlyRecipe;
 
 /** Queue entry used by world.pendingCinematics + sync.ts broadcast. */
 export interface GodlyTriggerEvent {

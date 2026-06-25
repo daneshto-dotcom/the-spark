@@ -32,7 +32,7 @@ import { CutsceneOverlay, FADE_MS } from '../render/cutsceneOverlay.ts';
 import type { DebugOverlayHandle, RuntimeProbes } from '../render/debugOverlay.ts';
 import { playOneShot } from '../render/audioManager.ts';
 import { cinematicMsToTicks } from './creatures/creature.ts';
-import { findGodlyMatch, getRecipe, makeTriggerEvent } from './godlyRecipes/index.ts';
+import { findDefenderMatches, findGodlyMatch, getRecipe, makeTriggerEvent } from './godlyRecipes/index.ts';
 import { findAllPentagramAnchors, pentagramOwnerForAnchor } from './godlyRecipes/pentagram.ts';
 import { dispatch, isNetworked, type World } from './world.ts';
 
@@ -80,6 +80,8 @@ export function runGodlyMatcher(
   // per-(playerId, anchorPrimitiveId) against the LIVE creatureSpawners map below —
   // rebuildable after a raid, multiple players may each have one).
   runSpawnerIgnition(world);
+  // S103 P2 — DEFENDER ignition, same decoupled-from-cinematic treatment as the spawner above.
+  runDefenderIgnition(world);
 
   if (world.activeCinematicPlayerId !== null) return; // queue handled in reducer
   for (const eff of world.effects) {
@@ -179,6 +181,40 @@ function runSpawnerIgnition(world: World): void {
       recipeId: 'pentagram',
     });
     return; // single ignition per frame (lowest-anchor tie-break)
+  }
+}
+
+/**
+ * S103 P2 — host-only DEFENDER ignition (mirror of runSpawnerIgnition). On a topology change,
+ * scan every registered defender recipe for a buildable anchor (each predicate already skips
+ * anchors that are ALREADY live defenders — see DefenderRecipePredicate) and dispatch
+ * REGISTER_DEFENDER for each. Decoupled from the cinematic single-slot (dispatches directly, never
+ * touches activeCinematicPlayerId / godlyFiredThisMatch). One defender per recipe per frame; a
+ * second turret/HELGA ignites on a later frame once its predicate surfaces the next anchor.
+ */
+function runDefenderIgnition(world: World): void {
+  let hasTopologyChange = false;
+  for (const eff of world.effects) {
+    if (eff.kind === 'BOND_FORMED') { hasTopologyChange = true; break; }
+    if (eff.kind === 'BOND_SEVERED' && eff.cause === 'player') { hasTopologyChange = true; break; }
+  }
+  if (!hasTopologyChange) return;
+
+  for (const { recipe, match } of findDefenderMatches(world, { x: 0, y: 0 })) {
+    // Defense-in-depth (the predicate already skips live anchors): don't double-register an anchor.
+    let alreadyLive = false;
+    for (const d of world.defenders.values()) {
+      if (d.anchorPrimitiveId === match.anchorPrimitiveId) { alreadyLive = true; break; }
+    }
+    if (alreadyLive) continue;
+    dispatch(world, {
+      type: 'REGISTER_DEFENDER',
+      defenderKind: recipe.defenderKind,
+      ownerPlayerId: match.triggererPlayerId,
+      anchorPrimitiveId: match.anchorPrimitiveId,
+      recipeId: recipe.id,
+      pos: { x: match.pos.x, y: match.pos.y },
+    });
   }
 }
 

@@ -49,6 +49,7 @@ import {
   type SeagullId,
   type SparkId,
   type SpawnerId,
+  type DefenderId,
   type Vec2,
 } from '../types.ts';
 import { type GameMode, type GameState, type World } from './world.ts';
@@ -62,6 +63,8 @@ import type { Potato, PotatoState } from './potato.ts';
 import type { Rainbow } from './rainbow.ts';
 import type { Poop, PoopState, Seagull } from './seagulls/seagull.ts';
 import { makeSpawner, type CreatureSpawner } from './spawners/spawner.ts';
+import { makeDefender, type Defender, type DefenderKind, type DefenderState } from './defenders/defender.ts';
+import { loadRephaseDefenders } from './defenders/defenderLifecycle.ts';
 // Audit Pass 1 fix 3c8630d7 (Δ4) + Pass 2 refactor 622a7c7f: on restore,
 // world.tick may jump backward relative to the audio drain cursor. Without
 // resetting the cursor, audio effects whose tick straddles the cursor are
@@ -236,6 +239,16 @@ export interface WorldSnapshot {
    * the cadence state stays host-only and is re-seeded from `world.tick` on rehydrate.
    */
   creatureSpawners?: SerializedSpawner[];
+  /**
+   * S103 P2 — host-authoritative generic defenders (laser turret / HELGA) for the 1v1 client
+   * mirror + host save/load. Additive-optional (creatureSpawners precedent; NO schemaVersion
+   * bump): emitted only when non-empty, so a no-defender world stays byte-identical. Unlike
+   * creatures, NOTHING is host-only-stripped — ALL fields ride the wire because the client
+   * renders the beam/slap off the synced FIRE state + the windup rings off `nextFireTick`
+   * (Council MF1/MF6). Serialized sorted by id (deterministic); `nextFireTick` is re-phased on
+   * load (Council MF5) to prevent an insta-fire. PROTOCOL_VERSION 11->12 covers the wire shape.
+   */
+  defenders?: SerializedDefender[];
 }
 
 interface SerializedSpark {
@@ -479,6 +492,27 @@ interface SerializedSpawner {
 }
 
 /**
+ * S103 P2 — full defender wire/save shape. Unlike the trimmed creature, EVERY field rides the
+ * wire (the client renders the strike + windup off the synced FSM + nextFireTick + targetCreatureId
+ * + lastStrikePos — Council MF1/MF6). `lastStrikePos` / `targetCreatureId` are emitted only when
+ * non-null (additive-optional). Re-phased on load via loadRephaseDefenders (Council MF5).
+ */
+interface SerializedDefender {
+  readonly id: DefenderId;
+  readonly kind: DefenderKind;
+  readonly ownerPlayerId: PlayerId;
+  readonly anchorPrimitiveId: PrimitiveId;
+  readonly recipeId: GodlyId;
+  readonly pos: Vec2;
+  readonly state: DefenderState;
+  readonly ticksInState: number;
+  readonly hp: number;
+  readonly nextFireTick: number;
+  readonly targetCreatureId?: CreatureId;
+  readonly lastStrikePos?: Vec2;
+}
+
+/**
  * S71 P1 — full bomb wire shape. Unlike the trimmed SerializedCreature, the bomb
  * is tiny so we round-trip every field: `dissipateAtTick` MUST survive a HOST
  * save/load so the TTL poll resumes correctly (a trimmed-to-0 value would make a
@@ -670,6 +704,13 @@ export function snapshot(
     // pre-S100 + when no spawner is live). Tiny identity-only shape; cadence stays host-only.
     creatureSpawners: world.creatureSpawners.size > 0
       ? [...world.creatureSpawners.values()].map(serializeSpawner)
+      : undefined,
+    // S103 P2 — emit defenders only when present (byte-identical when none live). Sorted by id
+    // (deterministic serialization — Council MF6); full shape (every field is render-relevant + synced).
+    defenders: world.defenders.size > 0
+      ? [...world.defenders.values()]
+          .sort((a, b) => (a.id as unknown as number) - (b.id as unknown as number))
+          .map(serializeDefender)
       : undefined,
   };
 }
@@ -954,6 +995,23 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
     if (maxSpawnerId >= 0) world.nextSpawnerId = maxSpawnerId + 1;
   }
 
+  // S103 P2 — defenders: clear + rehydrate (mirror of the spawner block). Advance the mint
+  // counter past the max loaded id (no colliding DefenderId on the next REGISTER_DEFENDER). The
+  // nullish guard keeps a pre-S103 save loading as an empty map. AFTER loading, re-phase every
+  // defender's nextFireTick relative to the loaded world.tick (Council MF5) so a host save/load
+  // doesn't make every defender insta-fire on the first post-load tick (the despawnAtTick=0 bug class).
+  world.defenders.clear();
+  world.nextDefenderId = 0;
+  if (snap.defenders !== undefined) {
+    let maxDefenderId = -1;
+    for (const d of snap.defenders) {
+      world.defenders.set(d.id, deserializeDefender(d));
+      if ((d.id as number) > maxDefenderId) maxDefenderId = d.id as number;
+    }
+    if (maxDefenderId >= 0) world.nextDefenderId = maxDefenderId + 1;
+    loadRephaseDefenders(world);
+  }
+
   // S31 P0-3 — replace effects array contents from snap.effects. effects are
   // short-lived (max ~30 ticks each) and the host-side effectsRenderer.sync()
   // wipes `world.effects` to length=0 after draining; so the snapshot's effects
@@ -1220,6 +1278,51 @@ function deserializeSpawner(s: SerializedSpawner, tick: number): CreatureSpawner
     ignitedAtTick: tick,
     nextSpawnTick: tick + SPAWN_INTERVAL_TICKS,
   });
+}
+
+/**
+ * S103 P2 — full defender round-trip. Unlike the spawner (whose cadence is host-only + re-seeded),
+ * a defender's FSM is fully synced (the client renders off it), so EVERY field round-trips exactly.
+ * targetCreatureId / lastStrikePos emit only when non-null (additive-optional). nextFireTick is
+ * re-phased AFTER the load by loadRephaseDefenders (Council MF5) — emitted verbatim here.
+ */
+function serializeDefender(d: Defender): SerializedDefender {
+  return {
+    id: d.id,
+    kind: d.kind,
+    ownerPlayerId: d.ownerPlayerId,
+    anchorPrimitiveId: d.anchorPrimitiveId,
+    recipeId: d.recipeId,
+    pos: { x: d.pos.x, y: d.pos.y },
+    state: d.state,
+    ticksInState: d.ticksInState,
+    hp: d.hp,
+    nextFireTick: d.nextFireTick,
+    ...(d.targetCreatureId !== null ? { targetCreatureId: d.targetCreatureId } : {}),
+    ...(d.lastStrikePos !== null ? { lastStrikePos: { x: d.lastStrikePos.x, y: d.lastStrikePos.y } } : {}),
+  };
+}
+
+/** S103 P2 — rehydrate a SerializedDefender, preserving the full mid-cycle FSM state (a defender
+ *  mid-windup resumes there). makeDefender seeds the immutable identity; the FSM fields are then
+ *  overwritten from the saved values (makeDefender would reset to IDLE). */
+function deserializeDefender(s: SerializedDefender): Defender {
+  const d = makeDefender({
+    id: s.id,
+    kind: s.kind,
+    ownerPlayerId: s.ownerPlayerId,
+    anchorPrimitiveId: s.anchorPrimitiveId,
+    recipeId: s.recipeId,
+    pos: s.pos,
+    registeredAtTick: 0,
+  });
+  d.state = s.state;
+  d.ticksInState = s.ticksInState;
+  d.hp = s.hp;
+  d.nextFireTick = s.nextFireTick;
+  d.targetCreatureId = s.targetCreatureId ?? null;
+  d.lastStrikePos = s.lastStrikePos !== undefined ? { x: s.lastStrikePos.x, y: s.lastStrikePos.y } : null;
+  return d;
 }
 
 /**

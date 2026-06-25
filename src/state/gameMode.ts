@@ -193,6 +193,9 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   // start-of-match invariant: no spawner before a player ignites one this match).
   world.creatureSpawners.clear();
   world.nextSpawnerId = 0;
+  // S103 P2 — clear any lingering defender at match start (same all-hazards invariant).
+  world.defenders.clear();
+  world.nextDefenderId = 0;
   // S34 P2-21 defensive clear (see JSDoc above).
   world.pendingCreatureSpawn = null;
   // S87 — bot-seat identity is per-match: rebuild from the action (empty for
@@ -326,6 +329,9 @@ export function applyReturnToTitle(world: World): World {
   // hazards). A lingering spawner would keep minting chewers + accruing income next match.
   world.creatureSpawners.clear();
   world.nextSpawnerId = 0;
+  // S103 P2 — clear defenders on title-return (mirror of the other hazards).
+  world.defenders.clear();
+  world.nextDefenderId = 0;
   world.activeCinematicPlayerId = null;
   world.currentCinematicEvent = null;
   world.pendingCinematics.length = 0;

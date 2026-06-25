@@ -14,8 +14,10 @@ import type {
   GodlyRecipe,
   CinematicGodlyRecipe,
   SpawnerGodlyRecipe,
+  DefenderGodlyRecipe,
   GodlyMatch,
   SpawnerMatch,
+  DefenderMatch,
   GodlyId,
   GodlyTriggerEvent,
 } from './types.ts';
@@ -29,6 +31,15 @@ export function registerRecipe(recipe: GodlyRecipe): void {
 
 export function getRecipe(id: GodlyId): GodlyRecipe | undefined {
   return REGISTRY.get(id);
+}
+
+/**
+ * S103 P2 — typed lookup for a DEFENDER recipe (narrows on kind). Used by defenderLifecycle's
+ * `recipeStillSatisfied` re-validation. Returns undefined for a missing / non-defender id.
+ */
+export function getDefenderRecipe(id: GodlyId): DefenderGodlyRecipe | undefined {
+  const r = REGISTRY.get(id);
+  return r !== undefined && r.kind === 'defender' ? r : undefined;
 }
 
 export function listRecipes(): GodlyRecipe[] {
@@ -52,6 +63,14 @@ export interface MatchResult {
 export interface SpawnerMatchResult {
   readonly recipe: SpawnerGodlyRecipe;
   readonly match: SpawnerMatch;
+}
+
+/**
+ * S103 P2 — a DEFENDER recipe match. The matcher turns this into a REGISTER_DEFENDER dispatch.
+ */
+export interface DefenderMatchResult {
+  readonly recipe: DefenderGodlyRecipe;
+  readonly match: DefenderMatch;
 }
 
 /**
@@ -100,6 +119,24 @@ export function findSpawnerMatch(world: World, bondPos: { x: number; y: number }
     return { recipe, match };
   }
   return null;
+}
+
+/**
+ * S103 P2 — run all registered DEFENDER predicates on a topology-change event. Returns ONE match
+ * per recipe that currently has a buildable anchor (the predicate itself skips already-live
+ * anchors — see DefenderRecipePredicate), in registry insertion order. runDefenderIgnition
+ * registers them (dedup defense-in-depth). The triggerer must still exist (auth). Host-only.
+ */
+export function findDefenderMatches(world: World, bondPos: { x: number; y: number }): DefenderMatchResult[] {
+  const out: DefenderMatchResult[] = [];
+  for (const recipe of REGISTRY.values()) {
+    if (recipe.kind !== 'defender') continue;
+    const match = recipe.predicate(world, bondPos);
+    if (match === null) continue;
+    if (world.players.get(match.triggererPlayerId) === undefined) continue;
+    out.push({ recipe, match });
+  }
+  return out;
 }
 
 /** Build a GodlyTriggerEvent from a match + the host's current tick. */

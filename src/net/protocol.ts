@@ -75,7 +75,13 @@ export type { NetSnapshot };
 // enemy chewer to pop it) + creatures now carry an `hp` field (host-only, wire-stripped, but
 // the kill semantics differ). A stale v10 peer that can't originate/handle a raid would
 // desync on the creature-kill, so it is hard-rejected at HELLO (same lockstep as above).
-export const PROTOCOL_VERSION = 11 as const;
+// S103 P2 — bumped 11->12: the generic DEFENDER substrate ships REGISTER_DEFENDER /
+// REMOVE_DEFENDER / DEFENDER_TICK (host-internal) + the additive-optional `defenders[]` snapshot
+// field (a stationary turret/HELGA auto-attacking creatures). A stale v11 peer can't stay in sync
+// with a defender firing beams/slaps, so it is hard-rejected at HELLO (same lockstep as the S100
+// spawner bump). Defenders are HOST-AUTHORITATIVE (never client INTENTs — they auto-build from
+// geometry), so they ride KNOWN_GAME_ACTION_TYPES_RECORD only, ABSENT from CLIENT_INTENT_TYPES.
+export const PROTOCOL_VERSION = 12 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -100,8 +106,8 @@ export interface HelloMsg {
   readonly kind: 'HELLO';
   readonly playerId: PlayerId;
   readonly color: number;
-  /** Protocol version — bumped on wire-incompatible changes. S77 P3: 6→7 (seagull); S87 P4: 7→8 (LOBBY_READY quickmatch gate); S93: 8→9 (NONET SUDOKU_SOLVED intent + sudoku snapshot field); S100 P1: 9→10 (TD spawner lifecycle + creatureSpawners snapshot field); S102 #1: 10→11 (RAID_CREATURE intent + creature hp). */
-  readonly protoVersion: 11;
+  /** Protocol version — bumped on wire-incompatible changes. S77 P3: 6→7 (seagull); S87 P4: 7→8 (LOBBY_READY quickmatch gate); S93: 8→9 (NONET SUDOKU_SOLVED intent + sudoku snapshot field); S100 P1: 9→10 (TD spawner lifecycle + creatureSpawners snapshot field); S102 #1: 10→11 (RAID_CREATURE intent + creature hp); S103 P2: 11→12 (generic defender lifecycle + defenders snapshot field). */
+  readonly protoVersion: 12;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
 }
@@ -437,6 +443,14 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   // S102 #1 — a player raids an enemy SPAWN (right-click a chewer). A genuine client
   // INTENT (also in CLIENT_INTENT_TYPES below); the host charge-gates + enemy-checks it.
   RAID_CREATURE: true,
+  // S103 P2 — generic defender lifecycle. ALL THREE are HOST-INTERNAL (host-authored on recipe
+  // ignition / re-validation / per-tick FSM; NOT client INTENTs — defenders auto-build from
+  // geometry). Listed here only because this Record must mirror GameAction['type'] exhaustively;
+  // deliberately ABSENT from CLIENT_INTENT_TYPES so a modified client sending one is dropped by
+  // the host allowlist gate. PROTOCOL bump (11->12) owned by the PROTOCOL_VERSION above.
+  REGISTER_DEFENDER: true,
+  REMOVE_DEFENDER: true,
+  DEFENDER_TICK: true,
 };
 const KNOWN_GAME_ACTION_TYPES: ReadonlySet<string> = new Set(
   Object.keys(KNOWN_GAME_ACTION_TYPES_RECORD),

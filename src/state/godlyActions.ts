@@ -75,5 +75,9 @@ export function applyGodlyAbort(world: World): World {
   // keeping godlyActions.ts free of a runtime teardownSpawners import).
   world.creatureSpawners.clear();
   world.nextSpawnerId = 0;
+  // S103 P2 — cascade-clear defenders alongside creatures/spawners on peer-drop / abort (inline,
+  // keeping godlyActions.ts free of a runtime teardownDefenders import — mirrors the lines above).
+  world.defenders.clear();
+  world.nextDefenderId = 0;
   return world;
 }

@@ -130,6 +130,15 @@ import {
   type RegisterSpawnerAction,
   type RemoveSpawnerAction,
 } from './spawners/spawnerLifecycle.ts';
+import {
+  applyRegisterDefender,
+  applyRemoveDefender,
+  applyDefenderTick,
+  teardownDefenders,
+  type RegisterDefenderAction,
+  type RemoveDefenderAction,
+  type DefenderTickAction,
+} from './defenders/defenderLifecycle.ts';
 
 // Re-export addScore from gameMode.ts for back-compat with placePrimitive.ts
 // and session15.test.ts (S16 P0 extraction preserved external import paths).
@@ -257,6 +266,13 @@ export type GameAction =
   // bump handled in the protocol layer).
   | RegisterSpawnerAction
   | RemoveSpawnerAction
+  // S103 P2 — generic DEFENDER lifecycle (host-internal; reducers in defenders/defenderLifecycle.ts).
+  // REGISTER_DEFENDER on recipe ignition; REMOVE_DEFENDER on re-validation break/teardown;
+  // DEFENDER_TICK advances the auto-attack FSM. None is a client INTENT (host-authored +
+  // snapshot-replicated), so they ride KNOWN_GAME_ACTION_TYPES_RECORD only — PROTOCOL 11->12.
+  | RegisterDefenderAction
+  | RemoveDefenderAction
+  | DefenderTickAction
   // S93 — NONET: a player submits a completed Sudoku grid (client INTENT or host/solo local);
   // the host validates first-valid-wins. playerId is host-stamped to the sender's seat.
   | { readonly type: 'SUDOKU_SOLVED'; readonly playerId: PlayerId; readonly grid: readonly number[] };
@@ -287,6 +303,9 @@ export function makeWorld(rngSeed: number): World {
     // S100 P1 (TD Phase 1a) — host-authoritative creature spawners; empty at world birth.
     creatureSpawners: new Map(),
     nextSpawnerId: 0,
+    // S103 P2 — host-authoritative generic defenders; empty at world birth.
+    defenders: new Map(),
+    nextDefenderId: 0,
     pendingCreatureSpawn: null,
     bombs: new Map(),
     nextBombId: 0,
@@ -413,6 +432,8 @@ export function dispatch(world: World, action: GameAction): World {
       // S100 P1 (TD Phase 1a) — and creature spawners (a lingering spawner would keep minting
       // chewers + accruing income onto the win screen / into the next match).
       teardownSpawners(world);
+      // S103 P2 — and defenders (a lingering turret/HELGA would keep firing onto the win screen).
+      teardownDefenders(world);
       return world;
 
     case 'START_GAME':
@@ -553,6 +574,16 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'REMOVE_SPAWNER':
       return applyRemoveSpawner(world, action);
+
+    // S103 P2 — generic defender lifecycle (reducers in defenders/defenderLifecycle.ts).
+    case 'REGISTER_DEFENDER':
+      return applyRegisterDefender(world, action);
+
+    case 'REMOVE_DEFENDER':
+      return applyRemoveDefender(world, action);
+
+    case 'DEFENDER_TICK':
+      return applyDefenderTick(world, action);
 
     // S93 — NONET solve submission (host-authoritative; first valid grid wins). On the host this
     // applies the ×2/÷2; on a client this case never runs (clients send it as an INTENT, the host

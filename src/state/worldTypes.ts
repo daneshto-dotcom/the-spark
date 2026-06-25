@@ -23,9 +23,10 @@ import type { Potato } from './potato.ts';
 import type { Rainbow } from './rainbow.ts';
 import type { Poop, Seagull } from './seagulls/seagull.ts';
 import type { CreatureSpawner } from './spawners/spawner.ts';
+import type { Defender } from './defenders/defender.ts';
 import type { GodlyId, GodlyTriggerEvent } from './godlyRecipes/types.ts';
 import type { ComboKey } from '../combos.ts';
-import type { BombId, BondId, CreatureId, HunterId, PlayerId, PoopId, PotatoId, PrimitiveId, RainbowId, SeagullId, SparkId, SpawnerId } from '../types.ts';
+import type { BombId, BondId, CreatureId, DefenderId, HunterId, PlayerId, PoopId, PotatoId, PrimitiveId, RainbowId, SeagullId, SparkId, SpawnerId } from '../types.ts';
 
 /**
  * S15 P2: extended FSM. Solo path TITLE→PLAYING→WIN→POSTGAME→TITLE. 1v1
@@ -139,6 +140,17 @@ export interface World {
   creatureSpawners: Map<SpawnerId, CreatureSpawner>;
   /** S100 P1 — monotonic counter for spawner IDs. Host-only mint authority. */
   nextSpawnerId: number;
+  /**
+   * S103 P2 — host-authoritative generic DEFENDERS (laser turret / HELGA princess). A defender
+   * recipe (geometry that "comes alive") mints a stationary Defender that auto-attacks the nearest
+   * enemy creature in range via the unified `damageCreature` path. Mirrors the creatureSpawners
+   * Map<Id,Entity> + nextId convention; replicated to clients via an additive-optional `defenders[]`
+   * NetSnapshot field (ALL render-relevant fields synced — beam/windup VFX derive from them).
+   * Re-validated each poll (broken recipe → REMOVE_DEFENDER). Cleared on teardown (all four sites).
+   */
+  defenders: Map<DefenderId, Defender>;
+  /** S103 P2 — monotonic counter for defender IDs. Host-only mint authority. */
+  nextDefenderId: number;
   /**
    * S28 P0 — tick-deterministic pending-spawn schedule (Council Q2 UNANIMOUS A
    * single-slot). Replaces S25's wall-clock `setTimeout(handoff, cinematicMs)`

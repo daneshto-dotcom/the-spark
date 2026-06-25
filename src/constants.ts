@@ -822,6 +822,32 @@ export const SPAWNER_INCOME_COMPLEXITY = 0.5;
 // itself becoming a win path.
 export const SPAWNER_KILL_REWARD = 5;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// === S103 P2 — TOWER-DEFENSE DEFENDERS (the generic Defender substrate) ===
+// A player builds a geometric recipe that "comes alive" as a stationary DEFENDER which
+// auto-attacks the nearest enemy CREATURE in range via the unified `damageCreature` path
+// (chewer dies in 1, Voltkin in 2 → lightning-cloud). Two kinds stand on ONE substrate:
+//   • LASER TURRET (#9, P3): 1 Line(deg7) + 7 Spiral 'Whip' leaves — a slow heavy beam.
+//   • HELGA PRINCESS (#10, P4): a Triangle hub + 3 'Warped Anchor' + 3 'Star' — a fast slapper.
+// Defenders are removed by RECIPE-BREAK (a chewer eats the structure's bonds → the shape no
+// longer matches → REMOVE_DEFENDER), NOT by direct combat in v1 — `DEFENDER_HP` is a high
+// sentinel kept for a future direct-attack lever (Council MF8) so adding it needs no re-bump.
+// ALL tick-based + host-authoritative + replay-deterministic (no wall-clock, no Math.random).
+export const DEFENDER_FIRE_HOLD_TICKS = 12; // FIRE state held ≥2 snapshot intervals so the 1v1
+// client reliably observes it + renders the beam/slap VFX (Council MF1 — state is the event bus).
+export const DEFENDER_RECOVER_TICKS = 12; // post-fire recovery before returning to IDLE
+export const DEFENDER_REACQUIRE_TICKS = 12; // IDLE retry cadence when no enemy creature is in range
+export const DEFENDER_HP = 1_000_000_000; // sentinel — defenders die by recipe-break, not damage (v1)
+// Laser turret (#9) — slow + heavy; the windup is shown via 5 rings derived from nextFireTick.
+export const TURRET_FIRE_INTERVAL_TICKS = 1800; // 30 s @ 60 Hz (owner spec: "every 30s")
+export const TURRET_WINDUP_TICKS = 18; // brief pre-beam tell after the long charge completes
+export const TURRET_WINDUP_RINGS = 5; // client-visible charge rings across the fire interval (owner: "5 rings")
+export const TURRET_ATTACK_RANGE = 420; // long reach (it's a turret)
+// HELGA princess (#10) — fast melee-ish swatter; she only acts when an enemy creature is near.
+export const PRINCESS_SLAP_INTERVAL_TICKS = 90; // 1.5 s between slaps
+export const PRINCESS_WINDUP_TICKS = 14; // arm pulls back (a visible wind-up, not a twitch)
+export const PRINCESS_SLAP_RANGE = 160; // short — she slaps what's next to her
+
 // === S82 P4(c) — mid-game peer-drop bench (6p hardening) ===
 // A seated peer absent from the transport for GRACE ticks stops ghosting: the host
 // re-stamps benchedUntilTick = tick + BENCH ticks EVERY tick while the peer stays absent
