@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 9,
+  "tool_calls_session_total": 10,
   "session_id": "S108",
   "session_kind": "planning",
   "session_start": "2026-06-26T15:30:00.000Z",
@@ -75,7 +75,9 @@
   ],
   "real_context_tokens_at_close": null,
   "real_context_pct_at_close": null,
-  "analyze_completed": false,
-  "session_status": "S108 PLAN-ONLY — ready for handoff",
-  "handoff_ready": false
+  "analyze_completed": true,
+  "session_status": "S108 CLOSED (PLAN-ONLY)",
+  "handoff_ready": true,
+  "handoff_doc": "HANDOFF_S108.md",
+  "phase_final": "CLOSED"
 }
