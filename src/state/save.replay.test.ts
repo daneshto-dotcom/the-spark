@@ -29,6 +29,12 @@ import { makeIdlePlayer } from '../game/player.ts';
 import { findNearestBondTarget, findNearestEnemyCreature } from './creatures/creatureAI.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import { asCreatureId } from './creatures/creature.ts';
+import { stepPhysics } from '../physics/physicsLoop.ts';
+import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../game/spawner.ts';
+import { SpatialGrid } from '../physics/spatial.ts';
+import { mulberry32 } from './rng.ts';
+import { hashWorldState } from './stateHash.ts';
+import type { Controls } from '../input/controls.ts';
 
 const P1 = asPlayerId(0);
 
@@ -776,5 +782,97 @@ describe('S100 P1 — wire byte budget (R1) + TD host-only stripping', () => {
     // tiny identity shape — no host-only cadence words.
     expect(wire).not.toContain('nextSpawnTick');
     expect(wire).not.toContain('lastValidatedTick');
+  });
+});
+
+// ============================================================================
+// S107 P2 — stepPhysics PHYSICS-LOOP determinism (worker-sim foundation prereq)
+// ----------------------------------------------------------------------------
+// The existing determinism gates above all drive the REDUCER path (dispatch).
+// None drove stepPhysics() directly — yet the Verlet integrator + bond solver +
+// collision grid (the part a Web Worker would actually run) is exactly where a
+// non-deterministic accumulation order / iteration order / wall-clock would
+// hide. The backlog names this the prerequisite that must land FIRST, before any
+// collision-grid rebuild or worker cutover: it LOCKS the current physics-loop
+// output so a later refactor is provably behaviour-identical. See
+// WORKER_SIM_FOUNDATION.md. controls is only read for state.kind +
+// applyPerSubstep(), so a no-op Idle stub fully drives the host physics path.
+// ============================================================================
+
+const stubControls = { state: { kind: 'Idle' }, applyPerSubstep() {} } as unknown as Controls;
+
+function buildPhysicsWorld(seed: number): { world: World; spawner: Spawner; grid: SpatialGrid } {
+  const world = makeWorld(seed);
+  const spawner = new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(seed));
+  const grid = new SpatialGrid(32);
+  // Scatter free sparks across the field INCLUDING near the canvas boundaries
+  // (x≈50 and y≈60) so the substep verlet + spawner-bounds + collision passes
+  // exercise edge cells, not just the centre.
+  for (let i = 0; i < 12; i++) {
+    const s = makeFreeSpark({
+      id: asSparkId(5000 + i),
+      type: (i % 6) as SparkType,
+      pos: { x: 50 + i * 140, y: 60 + (i % 4) * 240 },
+      velocity: { x: 0, y: 0 },
+      dt: 1 / 60,
+      createdTick: 0,
+    });
+    dispatch(world, { type: 'SPAWN_SPARK', spark: s });
+  }
+  // A bonded 3-prim chain so the bond solver + STRUCTURE_GROW path run under physics.
+  for (let i = 0; i < 3; i++) {
+    const s = makeFreeSpark({
+      id: asSparkId(6000 + i),
+      type: SparkType.Line,
+      pos: { x: 300 + i * 40, y: 500 },
+      velocity: { x: 0, y: 0 },
+      dt: 1 / 60,
+      createdTick: 0,
+    });
+    dispatch(world, { type: 'SPAWN_SPARK', spark: s });
+    dispatch(world, { type: 'PICKUP_SPARK', sparkId: s.id, playerId: P1, pos: { x: s.pos.x, y: s.pos.y } });
+    dispatch(world, {
+      type: 'PLACE_PRIMITIVE',
+      playerId: P1,
+      targetPrimitiveId: i === 0 ? null : asPrimitiveId(i - 1),
+      stiffnessTier: 'MID',
+    });
+  }
+  return { world, spawner, grid };
+}
+
+function runStepPhysicsStress(world: World, spawner: Spawner, grid: SpatialGrid, iters: number): void {
+  for (let t = 0; t < iters; t++) stepPhysics(world, spawner, grid, stubControls);
+}
+
+describe('Replay determinism — S107 P2 stepPhysics physics-loop (HARD GATE)', () => {
+  const ITERS = 300;
+
+  it('two same-seed stepPhysics runs are byte-identical (snapshot AND state hash)', () => {
+    const SEED = 0xb0d1e5;
+    const a = buildPhysicsWorld(SEED);
+    runStepPhysicsStress(a.world, a.spawner, a.grid, ITERS);
+    const b = buildPhysicsWorld(SEED);
+    runStepPhysicsStress(b.world, b.spawner, b.grid, ITERS);
+    expect(determinismJson(a.world)).toBe(determinismJson(b.world));
+    expect(hashWorldState(a.world)).toBe(hashWorldState(b.world));
+  });
+
+  it('different seeds diverge (canary — the gate has real signal)', () => {
+    const a = buildPhysicsWorld(0xb0d1e5);
+    runStepPhysicsStress(a.world, a.spawner, a.grid, ITERS);
+    const b = buildPhysicsWorld(0xfeed11);
+    runStepPhysicsStress(b.world, b.spawner, b.grid, ITERS);
+    // Different spawner streams → different spawned sparks → divergent state.
+    expect(hashWorldState(a.world)).not.toBe(hashWorldState(b.world));
+  });
+
+  it('actually advances the physics loop (tick + bodies moved, not a no-op)', () => {
+    const { world, spawner, grid } = buildPhysicsWorld(0xb0d1e5);
+    const before = world.primitives.size;
+    runStepPhysicsStress(world, spawner, grid, ITERS);
+    expect(world.tick).toBe(ITERS); // stepPhysics increments world.tick once per call
+    expect(world.primitives.size).toBe(before); // prims persist (no spurious creation/loss)
+    expect(world.freeSparks.size).toBeGreaterThan(0); // the spawner kept the field populated
   });
 });
