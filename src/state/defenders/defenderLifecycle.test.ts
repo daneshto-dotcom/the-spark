@@ -96,7 +96,9 @@ describe('applyDefenderTick FSM', () => {
   it('with NO enemy in range stays IDLE + reschedules (never fires into the void)', () => {
     const w = setup();
     const anchor = addAnchor(w, 1, 100, 100);
-    addEnemyChewer(w, 50, 900, 900); // far out of range
+    addEnemyChewer(w, 50, 2400, 2400); // S106 — far out of range (HELGA's range is now the whole-screen
+    // diagonal ~2203; (2400,2400) is ~3252px from the (100,100) anchor, genuinely unreachable — so the
+    // "no enemy in range stays IDLE" contract still holds under the screen-wide range).
     applyRegisterDefender(w, { type: 'REGISTER_DEFENDER', defenderKind: 'princess', ownerPlayerId: P0, anchorPrimitiveId: anchor, recipeId: 'helga', pos: { x: 100, y: 100 } });
     const d = [...w.defenders.values()][0];
     d.nextFireTick = w.tick;
