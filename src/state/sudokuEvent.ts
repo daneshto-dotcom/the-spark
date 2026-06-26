@@ -18,9 +18,11 @@ import type { World } from './worldTypes.ts';
 
 /** A NONET fires when a connected component is EXACTLY this many primitives, all the SAME SparkType. */
 export const NONET_SHAPE_COUNT = 9;
-/** Score multipliers applied on resolve (PDR D3-locked). */
+/** Score multipliers applied on resolve. S106 — loser 0.5 → 0.4 (owner: "things that make you
+ *  lose points ... so players can actually compete"): losing a NONET now costs you 60% of your
+ *  banked score, not half — a real gut-punch so a runaway leader can be reeled in. Winner stays ×2. */
 export const NONET_WINNER_MULT = 2;
-export const NONET_LOSER_MULT = 0.5;
+export const NONET_LOSER_MULT = 0.4;
 /** Resume the duel this many ticks after the trial is decided — the win/timeout flash window. 60 Hz. */
 export const NONET_RESOLVE_DISPLAY_TICKS = 180; // ~3 s
 /** No-solver timeout: resolve with NO score change (anti-softlock, RISK 3). 60 Hz. */

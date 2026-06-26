@@ -43,6 +43,25 @@ const PROGRESS_WIDTH = 80;
 // migrates colours mid-match, so colour names lied after the first switch. Rows
 // are labeled by seat-stable P{n}, matching the S82 nameplates + the win banner.
 
+/**
+ * S106 P4 — pure: the two progress-bar fractions [0..1]. `own` = the LOCAL player's own banked score
+ * — the bar the owner actually watches. (It used to be world.scoreProgress = max-of-all = the LEADER,
+ * which HID your own NONET halving: when the friend won the trial his doubled score kept the shared
+ * bar near-full, so the owner read "almost full victory points" while his OWN score had been cut.)
+ * `leader` = max-of-all, kept as a thin ghost-tick so "who's winning" stays legible (the WIN gate +
+ * HUNTER trigger still read world.scoreProgress elsewhere — unchanged). Solo: localPlayerId=0 is the
+ * only entry, so own === leader. Exported for unit tests. Falls back to scoreProgress pre-population.
+ */
+export function progressBarFractions(
+  world: Pick<World, 'scoreByPlayer' | 'localPlayerId' | 'scoreProgress'>,
+): { own: number; leader: number } {
+  const localScore = world.scoreByPlayer.get(world.localPlayerId) ?? world.scoreProgress;
+  return {
+    own: Math.min(1, localScore / PHASE_1_WIN_SCORE),
+    leader: Math.min(1, world.scoreProgress / PHASE_1_WIN_SCORE),
+  };
+}
+
 export class HUD {
   private readonly gauge: Graphics;
   private readonly progress: Graphics;
@@ -58,6 +77,8 @@ export class HUD {
   private readonly comboCounterText: Text;
   private displayEnergy = 0;
   private displayProgress = 0;
+  private lastLocalScore = -1; // S106 P4 — detect a DROP in your own score (NONET halving) to flash the bar
+  private dropFlash = 0; // S106 P4 — 1 on a score drop, decays per frame (render-only cosmetic)
   private winTextAlphaTarget = 0;
   private winTextAlpha = 0;
   /** S15 P2 — set by main.ts each frame; reflects netTransport.peerCount(). */
@@ -203,15 +224,30 @@ export class HUD {
   }
 
   private drawProgress(world: World): void {
-    const target = Math.min(1, world.scoreProgress / PHASE_1_WIN_SCORE);
-    this.displayProgress += (target - this.displayProgress) * 0.18;
+    // S106 P4 — the PRIMARY bar tracks YOUR OWN score (own), with the LEADER as a ghost-tick. See
+    // progressBarFractions: this makes a NONET halving VISIBLE (your bar drops) where the old shared
+    // leader-max bar hid it. The bar also flashes red on any DROP in your own score so the loss is felt.
+    const { own, leader } = progressBarFractions(world);
+    this.displayProgress += (own - this.displayProgress) * 0.18;
+
+    const localScore = world.scoreByPlayer.get(world.localPlayerId) ?? world.scoreProgress;
+    if (this.lastLocalScore >= 0 && localScore < this.lastLocalScore - 0.5) this.dropFlash = 1;
+    this.lastLocalScore = localScore;
+    this.dropFlash = Math.max(0, this.dropFlash - 0.04);
+
     const g = this.progress;
     g.clear();
     const trackHeight = PROGRESS_Y_BOTTOM - PROGRESS_Y_TOP;
     g.rect(PROGRESS_X, PROGRESS_Y_TOP, PROGRESS_WIDTH, trackHeight)
       .stroke({ width: 1, color: 0x333333, alpha: 0.6 });
+    // your own progress — flashes red on a drop (NONET loss / any future point-loss)
+    const barColor = this.dropFlash > 0 ? 0xff5a5a : 0xffffff;
     g.rect(PROGRESS_X, PROGRESS_Y_TOP, PROGRESS_WIDTH * this.displayProgress, trackHeight)
-      .fill({ color: 0xffffff, alpha: 0.6 });
+      .fill({ color: barColor, alpha: 0.6 + this.dropFlash * 0.35 });
+    // leader ghost-tick (max-of-all) so "who's ahead" stays readable
+    const leaderX = PROGRESS_X + PROGRESS_WIDTH * leader;
+    g.rect(leaderX - 1, PROGRESS_Y_TOP - 2, 2, trackHeight + 4)
+      .fill({ color: 0xffd60a, alpha: 0.85 });
   }
 
   private drawWinState(world: World): void {

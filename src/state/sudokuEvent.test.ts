@@ -94,12 +94,12 @@ function twoPlayerStarted(s1: number, s2: number, seed: number): World {
   return world;
 }
 
-describe('resolveSudoku — winner ×2, others ÷2', () => {
-  it('doubles the winner, halves everyone else, recomputes scoreProgress=max', () => {
+describe('resolveSudoku — winner ×2, others ×0.4', () => {
+  it('doubles the winner, docks everyone else to 0.4, recomputes scoreProgress=max', () => {
     const world = twoPlayerStarted(100, 200, 42);
     resolveSudoku(world, P1);
     expect(world.scoreByPlayer.get(P1)).toBe(200); // 100 ×2
-    expect(world.scoreByPlayer.get(P2)).toBe(100); // 200 ÷2
+    expect(world.scoreByPlayer.get(P2)).toBe(80); // 200 ×0.4 (S106 — was ÷2 = 100)
     expect(world.scoreProgress).toBe(200);
     expect(world.sudoku?.solvedBy).toBe(P1);
     expect(world.sudoku?.resolvedTick).toBe(world.tick); // decided, not yet cleared
@@ -117,7 +117,7 @@ describe('resolveSudoku — winner ×2, others ÷2', () => {
     resolveSudoku(world, P1);
     resolveSudoku(world, P2); // already decided → no-op
     expect(world.scoreByPlayer.get(P1)).toBe(200);
-    expect(world.scoreByPlayer.get(P2)).toBe(100);
+    expect(world.scoreByPlayer.get(P2)).toBe(80); // S106 — 200 ×0.4
     expect(world.sudoku?.solvedBy).toBe(P1);
   });
 });
@@ -129,7 +129,7 @@ describe('submitSudokuSolve — first valid wins', () => {
     expect(submitSudokuSolve(world, P2, sol)).toBe(true);
     expect(world.sudoku?.solvedBy).toBe(P2);
     expect(world.scoreByPlayer.get(P2)).toBe(200);
-    expect(world.scoreByPlayer.get(P1)).toBe(50);
+    expect(world.scoreByPlayer.get(P1)).toBe(40); // S106 — 100 ×0.4 (was ÷2 = 50)
   });
   it('rejects a wrong grid (no resolve)', () => {
     const world = twoPlayerStarted(100, 100, 7);
