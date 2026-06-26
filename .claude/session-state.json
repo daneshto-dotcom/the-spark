@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 14,
+  "tool_calls_session_total": 33,
   "session_id": "S109",
   "session_kind": "execution",
   "session_start": "2026-06-26T00:00:00.000Z",
@@ -56,13 +56,14 @@
     },
     {
       "id": "PLAN-D",
-      "label": "S108 Batch D (PLANNED, needs art SPIKE + owner eyeball) — #2 Voltkin (+ Helga) better-quality 2D art, cleanly matted (NO square box), NO 3D (meshy/GLB off the table). Offline imagen/veo -> matte -> 2D atlas/video swap; PROTOCOL_VERSION unchanged.",
+      "label": "S108 Batch D (#2 Voltkin + Helga better-quality 2D art, NO 3D). S109: ART SPIKE DONE — imagen-4-ultra key verified live, generated 6 ORIGINAL on-model candidates (Voltkin locked 'Static Gremlin' idle+zap, Helga dirndl+stein+slap). Keepers: voltkin_idle_A, voltkin_zap_A, helga_B. Quality jump over the procedural cyan spindle confirmed. NO code wired (gated — deferred to a Batch D PDR after owner picks). PROTOCOL_VERSION unchanged.",
       "status": "planned",
-      "phase": "PLANNED",
+      "phase": "SPIKE_DONE_AWAITING_OWNER_PICK",
       "tier": "Full",
       "pdr_approved": false,
       "deliberation_completed": false,
       "unlock_source": "none",
+      "spike_artifacts": "C:/Users/onesh/OneDrive/Desktop/SPARK_Batch_D_art_spike_S109/ (6 PNGs + READ_ME_first.txt) — also in C:/Users/onesh/Desktop/Claude/generated/ (imagen_1782492793/856/869). Owner must answer the 5 OQs in the plan (render target / confirm locked gremlin / generator / swap scope / bundle) before wiring.",
       "plan_file": ".claude/plans/2026-06-26_PLAN_S108_Batch_D_Voltkin_Helga_Art.md"
     }
   ],
