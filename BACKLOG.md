@@ -14,13 +14,13 @@
 
 | Batch | Covers (owner points) | PDR / Plan file | Wire | Risk | Status |
 |---|---|---|---|---|---|
-| **A** (NEXT — safe) | #5 codex-trap · #6 shape 10s-despawn (no clamp — fling is a tactic) · #1 poop model (disable structures / slow creatures+Helga / carried-spark 50% slow / idle-pool immune / foul placed prims) · #3 Helga anti-laser INTERIM (cut range + remove beam) | `.claude/plans/2026-06-26_PDR_S108_Batch_A.md` (READY, deliberated; NOT yet unlocked) | none (v12) | Low/Std | **PDR ready — execute next session** |
-| **B** | #3 FULL — Helga WALKS to target + slaps once on arrival, chases not loops | `.claude/plans/2026-06-26_PLAN_S108_Batch_B_Helga_Walk.md` | **12→13** | HIGH | needs PDR + Council |
+| **A** | #5 codex-trap · #6 shape 10s-despawn (no clamp — fling is a tactic) · #1 poop model (disable structures / slow creatures+Helga / carried-spark 50% slow / idle-pool immune / foul placed prims) · #3 Helga anti-laser INTERIM (cut range + remove beam) | `.claude/plans-archive/2026-06-26_PDR_S108_Batch_A_COMPLETED.md` | none (v12) | Low/Std | **✅ SHIPPED S109** — 4 commits e2c8500/4ef506a/08bdfbd/9259cd1, all deploys SUCCESS, vitest 1702/1702. Owner playtest: HELGA range 380 is a tunable dial. |
+| **B** (NEXT) | #3 FULL — Helga WALKS to target + slaps once on arrival, chases not loops | `.claude/plans/2026-06-26_PLAN_S108_Batch_B_Helga_Walk.md` | **12→13** | HIGH | needs PDR + Council |
 | **C** | #4 — "5 circles + dot" building → suicide lightning drones → self-destruct after 3 | `.claude/plans/2026-06-26_PLAN_S108_Batch_C_Lightning_Drone_Building.md` | **12→13** | HIGH | needs PDR + Council + 9 owner design Qs |
-| **D** | #2 — Voltkin (+ Helga) better-quality 2D art, clean matte, NO 3D | `.claude/plans/2026-06-26_PLAN_S108_Batch_D_Voltkin_Helga_Art.md` | none | Med | needs art SPIKE + owner eyeball |
+| **D** | #2 — Voltkin (+ Helga) better-quality 2D art, clean matte, NO 3D | `.claude/plans/2026-06-26_PLAN_S108_Batch_D_Voltkin_Helga_Art.md` | none | Med | **SPIKE DONE S109** — 6 original candidates at `~/OneDrive/Desktop/SPARK_Batch_D_art_spike_S109/`; owner must pick + answer 5 OQs before a Batch D PDR wires the atlas swap. |
 
-**Sequencing:** A (safe, no-bump) → B (Helga walk) → C (new building) → D (art). Each of B/C/D gets its own PDR +
-3-way Council before any code. The Tier-1 G-series + Tier-3 host-migration ROADMAP below resumes after the S108 queue.
+**Sequencing:** ~~A (safe, no-bump)~~ ✅ → B (Helga walk) → C (new building) → D (art wiring, after owner picks). Each of
+B/C/D gets its own PDR + 3-way Council before any code. The Tier-1 G-series + Tier-3 host-migration ROADMAP below resumes after the S108 queue.
 
 **KEY DELIBERATION RESULT (do not re-litigate):** the SPARK client runs NO authoritative physics/FSM (main.ts:1055 —
 it renders host-synced positions). So host-only sim changes whose WIRE FORMAT is unchanged need NO PROTOCOL_VERSION

@@ -1,27 +1,29 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-06-26 | Session: S108 (PLAN-ONLY — seat weekly-limit; NO code shipped)
+Generated: 2026-06-26 | Session: S109
 
 ## Next Steps
-1. **EXECUTE Batch A** — the ready, deliberated, no-protocol-bump batch. PDR: `.claude/plans/2026-06-26_PDR_S108_Batch_A.md`.
-   On owner `go`: write `pdr_approved:true` + `unlock_source:user` (+ per-priority), then run P0→P1→P2→P3 with a
-   Triumvirate CHECK per priority, then deploy. Covers owner playtest points #5, #6, #1, and the #3 Helga INTERIM:
-   - **P0 #5** Codex traps cruiser → add Escape-to-close + G+C toggle-close + `isVisible()` getter (main.ts:579-587 / codexOverlay.ts).
-   - **P1 #6** Shapes fly + pile up → 10s un-claimed TTL despawn (physicsLoop.ts enforceFreeSparkCap site) + fresh-window on drop (sparkLifecycle.ts:218). **NO velocity clamp** (owner: the fling is a tactic).
-   - **P2 #1** Poop model → disable fouled turret-fire + spawner-emit; slow chewer/Voltkin on hit (host-internal poopyUntilTick); Helga slap-cadence slow when her hub fouled; **carried-spark 50% slow (dodge); idle pool shapes IMMUNE** (no slow/tint); placed prims fouled = no points until cleaned.
-   - **P3 #3-interim** Helga cross-map laser → cut PRINCESS_SLAP_RANGE 2203→~380 + remove drawSlapReach beam.
-2. **Batch B** (own PDR + Council; PROTOCOL_VERSION 12→13): Helga FULL walk-to-target + slap-on-arrival. `.claude/plans/2026-06-26_PLAN_S108_Batch_B_Helga_Walk.md`.
-3. **Batch C** (own PDR + Council + 9 owner design Qs; v12→13): new "5 circles + dot" lightning-drone building. `.claude/plans/2026-06-26_PLAN_S108_Batch_C_Lightning_Drone_Building.md`.
-4. **Batch D** (art SPIKE + owner eyeball first; no bump): Voltkin + Helga better-quality 2D art, NO 3D. `.claude/plans/2026-06-26_PLAN_S108_Batch_D_Voltkin_Helga_Art.md`.
+1. **OWNER PLAYTEST** the S109 Batch A changes live (spark-online.space): codex Esc/G+C toggle, 10s shape despawn, poop disables fouled turret/spawner + dodge, Helga local-range (no cross-map laser). Confirm HELGA range 380 feels right (tunable dial: 380=area defender, ~120=near-melee).
+2. **Batch D wiring** — owner must PICK from the 6 art candidates at `C:/Users/onesh/OneDrive/Desktop/SPARK_Batch_D_art_spike_S109/` (keepers: voltkin_idle_A, voltkin_zap_A, helga_B) AND answer the 5 OQs in the plan (render target / confirm locked gremlin / generator / swap scope / bundle). Then a Batch D PDR wires the imagen→matte→atlas swap (no PROTOCOL_VERSION bump).
+3. **Batch B** — Helga full walk-to-target rework. Needs own PDR + 3-way Council. PROTOCOL_VERSION 12→13 (new synced WALK state). Plan: `.claude/plans/2026-06-26_PLAN_S108_Batch_B_Helga_Walk.md`.
+4. **Batch C** — new "5 circles + dot" lightning-drone building. Needs own PDR + Council + the 9 owner design Qs answered first. PROTOCOL_VERSION 12→13. Plan: `.claude/plans/2026-06-26_PLAN_S108_Batch_C_Lightning_Drone_Building.md`.
+5. After the S108 queue: resume the ROADMAP — Tier-1 G-series (G1b motion / G2 family traits / G3b silhouettes / G4 crown+BOND_COMMIT), then Tier-3 host-migration.
 
 ## Blockers
-- Batch A needs the owner's `go` to set the PDR gate + unlock execution (it is NOT yet unlocked — this was a plan-only session).
-- Batches C and D need owner decisions first (C: 9 design Qs in its plan; D: pick generator/look from an art spike).
+- Batch D wiring is BLOCKED on owner picking the art look + answering the 5 plan OQs.
+- Batch B/C are BLOCKED on their own PDR+Council (and C on 9 owner design Qs).
+- Owner-gated (unchanged): anti-coast structure-loss CLAWBACK; worker-sim ?worker=1 cutover (WORKER_SIM_FOUNDATION.md).
 
 ## Pending Backlog
-- S108 queue (front of line, regression-first): Batch A (ready) → B → C → D. See BACKLOG.md "CURRENT QUEUE — S108".
-- After the S108 queue: prior ROADMAP resumes — Tier-1 G1b MOTION / G2 family traits (LOCKED §6 amend) / G3b silhouettes / G4 crown+BOND_COMMIT; then Tier-3 host-migration D1-D4.
-- Owner-gated (unchanged): anti-coast structure-loss CLAWBACK (own PDR); worker-sim ?worker=1 cutover (WORKER_SIM_FOUNDATION.md).
+- [ ] Batch B — Helga full walk-to-target rework (own PDR+Council; v12→13)
+- [ ] Batch C — lightning-drone building (own PDR+Council + 9 design Qs; v12→13)
+- [ ] Batch D — wire the picked art (atlas swap; no bump) after owner pick
+- [ ] ROADMAP Tier-1 G-series + Tier-3 host-migration (resume after S108 queue)
 
 ## Recent Reflexion (last 2 sessions)
-- **S108 (PLAN):** verify a confident Council consensus against the ACTUAL architecture before adopting (two models sharing a wrong netcode prior ≠ confirmation — refuted a "mandatory protocol bump" against main.ts:1055); keep the PDR LIVING as the owner spec-refines (re-deliberate only the delta).
-- **S107:** harden a flaky perf gate (p95+canary), don't tolerate it; dead-asset cleanup must trace the WHOLE import graph; fix the MECHANISM not the distance + derive protective state from existing state (no new wire field); proportional rubber-band beats flat AND existing tests pin the rate; the honest milestone increment is the verifiable foundation, not a risky half-cutover.
+## 2026-06-26 — Session 109: Executed S108 Batch A (4/4 shipped + deployed, PROTOCOL_VERSION 12 held). Then Batch D art SPIKE (imagen-4-ultra, 6 original candidates, owner-pick pending).
+- S109-PLAN-A #host-only-field-needs-no-wire-bump-when-the-serializer-is-a-whitelist: adding Creature.poopyUntilTick needed ZERO save.ts changes — serializeCreature is a field whitelist, so host-only runtime fields are free (no wire surface). Read the serializer before assuming a new field forces a protocol bump.
+- S109-PLAN-A #the-unlock-hook-vocabulary-vs-the-final-gate-vocabulary: the unlock hook writes priority_state:'unlocked' but pdca-final-gate accepts only {approved,in_progress,completed} → first edit blocked despite a clean 'go'. Fix: align priority_state to 'in_progress' in session-state; unlock_source:user is the load-bearing attribution field.
+
+## 2026-06-26 — Session 108: PLAN-ONLY (seat weekly-limit). Scoped 6 owner playtest points into 4 risk-tiered batches + 2 Council rounds + PRIME-AUDIT. Batch A PDR READY; B/C/D planned. NO code shipped.
+- S108-PLAN #verify-the-councils-confident-consensus-against-the-actual-architecture: two models converging is NOT independent confirmation when they share a generic prior; verify a confident consensus against the actual codebase before adopting.
+- S108-PLAN #owner-corrections-reshape-scope-mid-plan-keep-the-PDR-living: when the owner is actively spec-ing, treat the PDR as living, re-deliberate only the delta.

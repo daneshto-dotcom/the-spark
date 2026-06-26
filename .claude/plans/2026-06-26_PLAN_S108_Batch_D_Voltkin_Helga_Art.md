@@ -1,5 +1,12 @@
 # PLAN — S108 Batch D · Voltkin + Helga Visual-Quality (point #2 + Helga art) — 2D, NO 3D
-Status: PLANNED (art-pipeline SPIKE + owner eyeball BEFORE wiring) | PROTOCOL_VERSION: unchanged (offline asset swap) | Tier: Full | Risk: Medium (art quality + bundle)
+Status: SPIKE DONE (S109) — AWAITING OWNER PICK before wiring | PROTOCOL_VERSION: unchanged (offline asset swap) | Tier: Full | Risk: Medium (art quality + bundle)
+
+> S109 SPIKE RESULT (2026-06-26): imagen-4-ultra key verified LIVE (no refresh needed). Generated 6 ORIGINAL on-model
+> candidates — Voltkin on the LOCKED 'Static Gremlin' design (idle + zap-attack) + Helga (dirndl + stein + slap). Keepers:
+> voltkin_idle_A, voltkin_zap_A, helga_B. Quality jump over the procedural cyan spindle CONFIRMED; pipeline viable. NO code
+> wired (gated). Artifacts: C:/Users/onesh/OneDrive/Desktop/SPARK_Batch_D_art_spike_S109/ + READ_ME_first.txt. Watch-out
+> confirmed live: 1 idle gen drifted to red-cheeks/Pikachu — the anti-Pikachu lock caught it (reject drifted gens, harden
+> the prompt). NEXT: owner answers the 5 OQs below → Batch D PDR + Council → full per-pose set → matte → atlas swap.
 Source: S108 scope-discovery workflow (investigator #2, Opus) + owner correction (S108). See memory [[voltkin-helga-no-3d-better-2d]].
 
 > OWNER CORRECTION (decisive): NO 3D — meshy.ai / GLB / live-3D is OFF the table. Keep the SAME 2D characters, just

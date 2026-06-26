@@ -1,0 +1,166 @@
+# PDR — S108 Batch A (Safe Regression/Quality Fixes) — REV 2 (owner corrections folded in)
+> STATUS: COMPLETED in S109 (2026-06-26). All 4 priorities shipped + deployed (commits e2c8500/4ef506a/08bdfbd/9259cd1, all GitHub Pages deploys SUCCESS). vitest 1702/1702, tsc 0, entry 597.5/750 KiB, PROTOCOL_VERSION 12 unchanged. Owner playtest follow-up: HELGA range 380 is a tunable dial.
+Generated: 2026-06-26 | Session S108 | Tier: **Standard** (batch) | Branch: master @ 709f1bd | PROTOCOL_VERSION: 12 (UNCHANGED)
+
+> REV 2 incorporates the owner's 3 corrections: (1) NO velocity clamp — the fast-fling is an intended
+> tactic; the 10s TTL alone caps pile size; (2) poop must NOT affect spawn-zone shapes (remove the
+> poop↔free-spark interaction); (3) Helga effectively lasers across the map (whole-screen range + a
+> screen-spanning streak) — add a SAFE interim that kills the cross-map reach. Net effect vs REV 1:
+> two scope REDUCTIONS + one new low-risk priority. Deferred big features unchanged.
+
+## A.0 STATE-DISCOVERY GATE — PASS (empirically verified this session)
+- Baseline: vitest 1684/1684 PASS, exit 0 (101 files).
+- #6 `createdTick` serialized + on NetSnapshot (save.ts:260,614,1038) → no wire field, no bump.
+- #1 `fouledPrimitives` round-trips the wire (save.ts:193,680,967); structureRenderer.ts already tints fouled
+  structures; today only scoring.ts consumes it (income halt only) → disable-function gap is real.
+- Free-spark poop branch CONFIRMED at seagullLifecycle.ts:273-292 (sets poopyUntilTick + halves velocity +
+  CONSUMES the poop). Poop terminus = unconditional floor catch `pos.y >= POOP_FLOOR_Y` (seagullLifecycle.ts:295).
+- Helga: PRINCESS_SLAP_RANGE = `Math.ceil(Math.hypot(CANVAS_WIDTH, CANVAS_HEIGHT))` = **2203** (constants.ts:907);
+  turret = TURRET_ATTACK_RANGE 420 (constants.ts:898). drawSlapReach = render-only screen-spanning streak
+  (princessRenderer.ts:188-209). Helga is a STATIONARY princess Defender (no locomotion). defenderLifecycle.test.ts:86
+  references the range (stale "(160)" comment).
+- CLIENT ARCHITECTURE (load-bearing for the no-bump claim): client runs ZERO authoritative physics/FSM
+  (main.ts:1055-1075 "the client runs no authoritative physics"); creatures stripped of AI + rendered from synced
+  positions (save.ts:460; creatureRenderer.ts:177-183 derives a render-only velocity estimate from synced pos
+  deltas). PROTOCOL_VERSION 12 since S103 (last WIRE change); S107 sim changes shipped without a bump.
+
+## OBJECTIVE
+Ship the owner's low-risk, no-wire-bump fixes from the S107 playtest:
+- **P0 (#5):** Codex no longer traps the player (forced quit).
+- **P1 (#6):** Unclaimed shapes despawn after 10s so the spawn zone never becomes chaos (the fast-fling stays — it's a tactic).
+- **P2 (#1):** Pooped structures (turret + chewer-spawner) stop working until cleaned; poop slows chewers/Voltkin;
+  spawn-zone shapes are immune to poop.
+- **P3 (#3, interim):** Helga stops lasering across the map (cut her range + remove the beam streak); poop slows her slap.
+  The full "walk-to-target + slap-on-arrival" rework stays a dedicated session.
+
+## SCOPE — IN
+
+### P0 — Codex escape (Micro · UI-only · main.ts + codexOverlay.ts)
+- Add `Escape`-to-close for the Codex (mirror botSetupOverlay.ts:130 / settingsOverlay.ts:126); the branch must
+  `return` so settingsOverlay's own Escape doesn't double-fire.
+- Make the **G+C chord toggle**: if the codex is visible when G+C fires (main.ts:583-586), close it instead of re-opening.
+- Add a public `isVisible()` getter on `CodexOverlay` (avoid reaching into `.container.visible`).
+
+### P1 — Shape despawn, TTL-ONLY (Micro · host-sim · physics)  [REV2: clamp REMOVED]
+- Add `FREE_SPARK_TTL_TICKS = 10 * PHYSICS_HZ` (600) to constants.ts (mirror BOMB_TTL_TICKS).
+- TTL reap pass at the `enforceFreeSparkCap` site (physicsLoop.ts:99/179), run BEFORE the count-cap sort:
+  dispatch `DESPAWN_SPARK` for every `state.kind==='Free' && world.tick - createdTick >= FREE_SPARK_TTL_TICKS`.
+  Reuses `applyDespawnSpark` (sparkLifecycle.ts:93) as-is (no-ops on non-Free → never yanks a carried/bonding spark).
+- **TTL-drop reset (Council C1):** in `applyDropSpark` (sparkLifecycle.ts:~218) stamp `createdTick = world.tick` so a
+  spark Carried >10s then dropped gets a FRESH 10s window (otherwise it'd be reaped on the next tick = "my piece vanished").
+- **NO velocity clamp** — owner intent: the fast-fling (grab a shape, scatter others to deny opponents) is a TACTIC.
+  Document with an inline comment: "velocity intentionally unbounded (owner tactic); only the TTL bounds pile growth."
+- Wire: createdTick already serialized → **no bump**.
+
+### P2 — Poop system rework (Standard · host-sim) — #1 + correction #3
+- **Spark poop behavior [REV3 — owner spec]:** poop affects the spark a player is STEERING, not the idle pool.
+  - IDLE FREE sparks (state.kind==='Free', un-grabbed pool): poop does NOT touch them — no slow, no tint, no consume;
+    poop passes through (correction #3 — "don't affect or change primitives that aren't placed").
+  - CARRIED sparks (state.kind==='Carried', the one a player is dragging): poop sets `poopyUntilTick` (already wired,
+    save.ts:263) → the EXISTING carry-slow (controls.ts:264-268) halves the follow-rate by POOP_SLOW_MULTIPLIER (the
+    50% dodge — players must steer their spark around falling poop) + consumes the poop. This matches the code's own
+    intent ("the meaningful slow case … free sparks settle on their own anyway", controls.ts:263).
+  - So in applyPoopTick: change the spark branch's state guard from `=== 'Free'` to `=== 'Carried'`. poopyUntilTick is
+    already serialized → clients render the slow/tint on the carried spark with NO wire bump.
+- **New poop precedence (deterministic, locked + tested):** avatar (existing cruiser-slow) → nearest in-radius CREATURE
+  (chewer/Voltkin) → slow it → nearest in-radius STRUCTURE primitive → foul it (UNCHANGED) → nearest in-radius CARRIED
+  spark → 50%-slow + consume → floor (unconditional y-threshold, seagullLifecycle.ts:295 — verified no entity leak;
+  Grok's max-lifetime net rejected as redundant). Each pass uses the existing zero-allocation lowest-id + squared-dist
+  selection (seagullLifecycle.ts:253-258). Regression tests: a poop on a bare structure (no creature/carried-spark in
+  range) still fouls exactly as today; a poop over an IDLE free spark passes through untouched; a poop on a CARRIED
+  spark slows that carry 50%.
+- **Structure DISABLE while fouled** (turret + chewer-spawner "shouldn't work until cleaned"):
+  - Turret: in `applyDefenderTick` (defenderLifecycle.ts:110), when `world.fouledPrimitives.has(d.anchorPrimitiveId)`
+    and kind==='turret', skip IDLE→WINDUP acquisition + hold nextFireTick → no firing until clean.
+  - Chewer-spawner: in the main.ts emit loop (1156-1192), `continue` when `fouledPrimitives.has(sp.anchorPrimitiveId)`;
+    advance nextSpawnTick while fouled so a cleaned spawner resumes on cadence (NO post-clean burst — Council C5).
+- **Creature SLOW-on-poop-hit** (chewer + Voltkin — "still in effect but slowed if poop hits them"):
+  add host-internal `poopyUntilTick?: number` to Creature (NOT serialized — stripped like other host-only creature
+  fields; client renders the slower synced positions automatically); new poop-vs-creature branch sets it
+  (tick + POOP_SLOW_TICKS) + halves implicit velocity; scale `computeSteeringAccel` by POOP_SLOW_MULTIPLIER while
+  slowed (thread world.tick from physicsLoop.ts:166-168). NO-OP when unset → Voltkin/chewer byte-equivalence preserved.
+  Already-spawned chewers keep working (slow-on-hit only) — matches the owner's "still in effect."
+- Wire: fouledPrimitives already wired; poopyUntilTick host-only → **no bump**.
+
+### P3 — Helga anti-cross-map-laser, INTERIM (Micro · host-sim const + render) — #3 (partial)
+- **Cut the range:** `PRINCESS_SLAP_RANGE` 2203 → **~380** (just under the turret's 420 so the turret stays the
+  long-reach unit). She becomes a local-area hub defender — no more cross-map hits. *Range value is the owner's dial
+  (380 = area defender; ~120 = near-melee, weaker) — flagged for playtest.*
+- **Remove the beam:** delete/disable `drawSlapReach` (princessRenderer.ts:81,188-209) so there's no screen-spanning
+  streak (the `len<24` guard is insufficient at 380px reach — must remove, not rely on it). Pure render, safe.
+- **Poop slows her slap** (#1 "same with helga"): she's stationary, so when her anchor is fouled, stretch her slap
+  cadence (multiply windup / nextFireTick increment by 1/POOP_SLOW_MULTIPLIER). She still defends, just slower.
+- **DEFERRED (own session):** the full "walk to target + slap on arrival, chase not loop" locomotion rework — it adds
+  a synced 'WALK' state + movement → a likely PROTOCOL_VERSION 12→13 bump + determinism-heavy work. This interim
+  removes the cross-map laser NOW; the walk-rework converts her to a true melee chaser next.
+- Tests: update defenderLifecycle.test.ts:86 + the range lock (constants.lock.test if PRINCESS_SLAP_RANGE is pinned).
+- Wire: host-only constant + render-only removal → **no bump**.
+
+## SCOPE — OUT (deferred — own sessions, own PDR + Council)
+- #2 Voltkin visual-quality redo (2D, no 3D — art pipeline; spike + owner eyeball first — see memory).
+- #3 FULL Helga walk-to-target locomotion rework (synced movement → PROTOCOL_VERSION bump, HIGH risk).
+- #4 New 5-circle+dot lightning-drone building (new recipe + creature + self-destruct + bot-seed + bump).
+- Velocity clamp (explicitly rejected by owner). Client-visible "slowed creature" tint (would need a wire field).
+- Lowering FREE_SPARK_SOFT_CAP, bare-'c' cinematicsEnabled collision (flagged, not in scope).
+
+## COUNCIL DELIBERATION + PRIME-AUDIT (Battle Ledger) — 3-way (Claude / Grok / Gemini), 2 rounds
+**Round 1 (REV1 batch):** Grok REJECT, Gemini ADOPT-WITH-CHANGES — both headlined "client predicts physics → host-only
+slow/clamp desyncs → mandatory PROTOCOL_VERSION 12→13."
+**PRIME-AUDIT — headline REFUTED by code** (shared wrong netcode prior, not independent confirmation): client runs no
+authoritative physics (main.ts:1055-1075); creatures stripped of AI + rendered from synced positions (save.ts:460,
+creatureRenderer.ts:177-183); lerp is position-clamp not velocity-extrapolation; PROTOCOL_VERSION 12 since S103 (wire
+change) with S107 sim changes shipped without a bump. ⇒ no bump for host-only changes whose wire FORMAT is unchanged.
+Adopted R1 peripheral findings: C1 TTL-drop reset · C4 dedicated determinism tests + inactive-baseline byte-equivalence
+· C5 spawner burst-avoidance test. (C2 clamp-determinism MOOT — clamp removed in REV2.)
+
+**Round 2 (REV2 deltas):** both ADOPT-WITH-CHANGES.
+- DELTA1 remove clamp: strictly risk-reducing (resolves Grok's own C2). ADOPT.
+- DELTA2 spark poop-immunity: poop termination guaranteed by the unconditional floor catch (Gemini); Grok's
+  max-lifetime net REJECTED as redundant. Required: update seagull.test (poop passes through spark) + a
+  poop-always-terminates test. ADOPT.
+- DELTA3 Helga interim: host-only const → no bump (both confirm); flagged feel-nerf; update defenderLifecycle.test:86
+  + range lock. Grok's "keep range, hide beam" alternative REJECTED — it masks the visual but keeps the cross-map HIT,
+  which is the owner's actual complaint. ADOPT-WITH-CHANGES.
+
+CHECK (per Standard tier) = Triumvirate (RALPH:PATROL + GROK-ANALYST + GEMINI-AUDITOR) on the raw diffs, per priority.
+
+## TESTING
+- P0: codex Escape closes + G+C toggles closed; Escape `return`s (no settingsOverlay double-handle). Render/UI only.
+- P1: TTL reap despawns Free sparks older than 600 ticks, Free-only; carried/bonded never reaped; dropped spark gets a
+  fresh window (createdTick reset on drop); determinism (same seed → same despawn sequence); save.replay byte-equiv green.
+- P2: poop PASSES THROUGH a free spark (no slow/tint/consume) + a poop always terminates; new precedence
+  (creature-in-radius slows creature; bare structure with no creature still fouls); turret no-fire while fouled +
+  resumes on clean; spawner no-emit while fouled + NO burst on clean; chewer/Voltkin slow on hit + NO-OP byte-equiv
+  when unslowed; save.replay green.
+- P3: Helga acquires only within ~380 (not across map); no drawSlapReach streak; cadence stretched while her anchor
+  fouled; defenderLifecycle.test:86 + range lock updated.
+- Global: vitest ≥1684 (new tests add), tsc 0, `npm run build` < 750 KiB, MCV exit 0, deploy SUCCESS. E2E 2-browser
+  non-gating (no net/fog/wire contract touched — confirmed by the no-bump analysis).
+
+## RISKS & MITIGATIONS
+- R1 Replay determinism (P1 reap, P2 creature-slow + new poop branch): pure tick math, no wall-clock/RNG, sorted-id
+  selection, NO-OP when inactive. Extend save.replay/stateHash tests.
+- R2 Poop precedence change (P2): deliberate, owner-requested; spec'd + regression-tested so bare-structure fouling is unchanged.
+- R3 Helga feel-nerf (P3): from cross-map to local defender — flagged interim; range is a single tunable dial; full walk-rework next.
+- R4 Tests/locks invalidated (P2 seagull.test, P3 defenderLifecycle.test + range lock): updated as part of each priority.
+- R5 Escape double-handling (P0): codex Escape branch `return`s.
+
+## DETERMINISM / WIRE
+**PROTOCOL_VERSION stays 12 for the entire batch.** All changes are host-sim or UI/render; no wire-format change
+(no new serialized field). Host-authoritative, bot/human symmetric, no new RNG stream.
+
+## ROLLBACK
+Each priority is an independent commit, revertible without touching the others. `poopyUntilTick` defaults undefined →
+its consumer reverts to a pure no-op.
+
+## SUCCESS CRITERIA
+- P0: G+C opens the codex AND (Escape OR G+C) closes it; cruiser recoverable; no forced quit.
+- P1: unclaimed shapes vanish ~10s after spawn; the fast-fling tactic still works; the zone never piles into chaos.
+- P2: poop on a turret/spawner stops it until the owner cleans it (no points, no function); poop on a chewer/Voltkin
+  slows it; poop on the spark a player is CARRYING slows that carry 50% (dodge); idle pool shapes are untouched (no
+  tint/slow); poop fouls placed primitives + connectors → denied points until cleaned. Already-spawned chewers keep working.
+- P3: Helga no longer hits/streaks across the map; she defends her hub area; poop slows her slap.
+- Global: vitest ≥1684 green, tsc 0, build < 750 KiB, MCV exit 0, deploy SUCCESS.
+
+## PDR GATE (to be set on owner `go`)
+pdr_approved:true · deliberation_completed:true · unlock_source:user — at BOTH top-level AND each priority entry.
