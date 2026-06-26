@@ -10,11 +10,14 @@
  *   - despawn one-shots fit the 60-tick window without overrun
  *   - form-swap boundaries identical to the legacy schedule so
  *     `flashIntensity` stays valid unchanged
- *   - the production manifest on disk satisfies every structural assumption
- *     the mapping makes (drift guard for scripts/build-voltkin-atlas.py)
+ *
+ * S107 P3: the on-disk "production manifest drift guard" subtest was removed
+ * along with its atlas pipeline (public/godly/voltkin/anim/* + the legacy
+ * frame PNGs + scripts/build-voltkin-atlas.py) — the S106 procedural Pixi.Graphics
+ * rig replaced both the bitmap-frame AND the atlas render paths, so neither asset
+ * is loaded at runtime. The pure `currentAnimCell` mapping is retained + tested
+ * against the inline manifest `M` (the canonical spec) below.
  */
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   ANIM_TICKS_PER_FRAME,
@@ -30,7 +33,8 @@ import {
   VOLTKIN_ATTACK_CHARGE_ENGAGE_TICK,
 } from '../state/creatures/creature.ts';
 
-/** Mirror of the production manifest shape (values pinned by the disk test). */
+/** Canonical manifest spec for the pure currentAnimCell mapping (S107 P3: this
+ * inline manifest replaced the deleted on-disk voltkin-anim.json as the source). */
 const M: VoltkinAnimManifest = {
   cell: 256,
   cols: 8,
@@ -144,33 +148,29 @@ describe('form-swap boundaries match flashIntensity (legacy parity)', () => {
   });
 });
 
-describe('production manifest drift guard', () => {
-  it('voltkin-anim.json on disk satisfies every mapping assumption', () => {
-    const raw = readFileSync(
-      resolve(__dirname, '../../public/godly/voltkin/anim/voltkin-anim.json'),
-      'utf-8',
-    );
-    const disk = JSON.parse(raw) as VoltkinAnimManifest;
-    expect(disk.cell).toBe(M.cell);
-    expect(disk.cols).toBe(M.cols);
+// S107 P3 — structural self-consistency of the canonical inline manifest M
+// (replaces the deleted on-disk voltkin-anim.json drift-guard; same assertions,
+// now against the spec the mapping is actually tested with).
+describe('manifest spec is structurally consistent', () => {
+  it('M satisfies every mapping assumption', () => {
     const keys: VoltkinClipKey[] = ['walk', 'idle', 'charge', 'zap', 'hurt', 'victory'];
     for (const k of keys) {
-      const c = disk.clips[k];
+      const c = M.clips[k];
       expect(c, k).toBeDefined();
       expect(c.len, k).toBeGreaterThan(0);
       expect(c.start, k).toBeGreaterThanOrEqual(0);
     }
     // No cell overlap between clips; all cells fit the atlas grid.
-    const ranges = keys.map((k) => disk.clips[k]).sort((a, b) => a.start - b.start);
+    const ranges = keys.map((k) => M.clips[k]).sort((a, b) => a.start - b.start);
     for (let i = 1; i < ranges.length; i++) {
       expect(ranges[i].start).toBeGreaterThanOrEqual(ranges[i - 1].start + ranges[i - 1].len);
     }
-    const apex = disk.clips.zap.apex ?? 0;
+    const apex = M.clips.zap.apex ?? 0;
     expect(apex).toBeGreaterThanOrEqual(0);
-    expect(apex).toBeLessThan(disk.clips.zap.len);
-    expect(disk.clips.walk.nativeFacing).toBe(-1);
+    expect(apex).toBeLessThan(M.clips.zap.len);
+    expect(M.clips.walk.nativeFacing).toBe(-1);
     // Despawn one-shots fit the 60-tick window at 12 fps native.
-    expect(disk.clips.hurt.len * ANIM_TICKS_PER_FRAME).toBeLessThanOrEqual(CREATURE_DESPAWNING_TICKS);
-    expect(disk.clips.victory.len * ANIM_TICKS_PER_FRAME).toBeLessThanOrEqual(CREATURE_DESPAWNING_TICKS);
+    expect(M.clips.hurt.len * ANIM_TICKS_PER_FRAME).toBeLessThanOrEqual(CREATURE_DESPAWNING_TICKS);
+    expect(M.clips.victory.len * ANIM_TICKS_PER_FRAME).toBeLessThanOrEqual(CREATURE_DESPAWNING_TICKS);
   });
 });

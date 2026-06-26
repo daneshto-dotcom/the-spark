@@ -72,8 +72,17 @@ import {
 const BASE = '/godly/voltkin/sprites';
 
 /**
- * Canonical sprite URLs. Each file ships in `public/godly/voltkin/sprites/`
- * (S36 P1 asset pipeline: `scripts/compress-voltkin-frames.py`).
+ * Frame keys + their (now-vestigial) sprite URLs.
+ *
+ * S107 P3: the S106 procedural Pixi.Graphics rig replaced the bitmap-frame
+ * render path, so NOTHING loads these URLs at runtime anymore and the legacy
+ * frame PNGs (voltkin-idle-1/2, -charge, -hurt, -victory) were deleted from
+ * public/. The map is RETAINED because its KEYS define `VoltkinFrameKey` — the
+ * wire frame-key type that `sync.test.ts` uses to prove a creature's synced
+ * (state, ticksInState, killCount) reconstructs the same frame key on host AND
+ * client (a determinism cross-check of the wire fields). The URL strings are
+ * kept only as stable labels for that type; `voltkin-zap.png` is the one file
+ * still on disk (it doubles as the Codex recipe placeholder).
  */
 export const VOLTKIN_FRAME_URLS = {
   idle1: `${BASE}/voltkin-idle-1.png`,
@@ -239,14 +248,15 @@ export const FLASH_SCALE_AMPLITUDE = 0.15;
 // covers all 60 ticks of the cycle (no gaps, no overlap with SEEKING entry).
 export { VOLTKIN_ATTACK_CADENCE_TICKS };
 
-// ===== S83 P3 — real-animation atlas layer =====
+// ===== S83 P3 — real-animation atlas layer (RETIRED S107 P3) =====
 //
-// Per-state Veo-generated clips packed into ONE atlas of `cell`-sized frames
-// (public/godly/voltkin/anim/voltkin-atlas.png + voltkin-anim.json, built by
-// scripts/build-voltkin-atlas.py). This layer REPLACES the 6-pose frame flip
-// when the atlas is loaded; the legacy frame path remains the fallback
-// (per-state Council fallback decision + instant first paint while the
-// atlas streams in).
+// HISTORY: per-state Veo-generated clips were packed into ONE atlas, built by
+// scripts/build-voltkin-atlas.py. The S106 procedural Pixi.Graphics rig replaced
+// BOTH the legacy 6-pose frame flip AND this atlas path, so neither the atlas
+// (public/godly/voltkin/anim/*) nor its build script is loaded/used at runtime —
+// all three were deleted in S107 P3. The pure `currentAnimCell` mapping below is
+// retained as a tested spec (voltkinFrames.anim.test.ts drives it from an inline
+// manifest), kept for provenance + as a reference for any future atlas revival.
 //
 // Determinism: cell choice is a pure function of (state, ticksInState,
 // killCount, worldTick, isMoving, manifest). LOOPS key off worldTick so a
@@ -286,8 +296,8 @@ export interface VoltkinAnimCell {
 /** 60 Hz sim / 5 = native 12 fps clip playback for loops + despawn one-shots. */
 export const ANIM_TICKS_PER_FRAME = 5;
 
-export const VOLTKIN_ANIM_MANIFEST_URL = '/godly/voltkin/anim/voltkin-anim.json';
-export const VOLTKIN_ANIM_ATLAS_URL = '/godly/voltkin/anim/voltkin-atlas.png';
+// S107 P3 — removed dead exports VOLTKIN_ANIM_MANIFEST_URL / VOLTKIN_ANIM_ATLAS_URL
+// (pointed at the deleted atlas files; imported by nothing).
 
 /**
  * Form classification for the atlas path — mirrors `isLionForm` for the
