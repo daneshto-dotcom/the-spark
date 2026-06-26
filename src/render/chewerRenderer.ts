@@ -378,29 +378,29 @@ export class ChewerRenderer {
       .quadraticCurveTo(frontX - face * mw * 0.5, mouthY, frontX - face * mw * 0.2, mouthY - gape * 0.5)
       .closePath()
       .fill({ color: GRAPHITE, alpha: fa(0.9) });
-    // ── TWO BIG funny beaver buck-teeth (S102 #4) ──
-    // Two oversized flat incisors side-by-side at the front of the mouth, jutting
-    // DOWN well past the lower lip — the classic goofy buck-tooth overbite. Funny
-    // = huge, a little gapped, each with a soft vertical pencil seam + a tiny
-    // rounded-off bottom nick so they read as worn beaver chompers, not boxes.
-    const toothW = mw * 0.5; // each incisor is wide + flat
-    const toothH = gape * 0.6 + BODY_R * 0.72; // long buck overbite, hangs below the chin
+    // ── TWO BIG funny pointed buck-FANGS (S106 P2) ──
+    // Restyled from the old stiff flat rectangle incisors to two downward-pointing TRIANGULAR
+    // fangs — the goofy shape of the rainbow's big tooth (rainbowRenderer g.poly wedge) — but kept
+    // in the chewer's ORIGINAL pencil style (ivory TOOTH_COLOR fill + graphite outline, NOT the
+    // rainbow's flat white, so it never reads as a clone). Two splayed fangs with a comedic gap and
+    // a slight crooked asymmetry (one a touch longer, apexes splayed outward) so it looks silly.
+    const toothW = mw * 0.52; // fang gum-width at the lip
+    const toothH = gape * 0.6 + BODY_R * 0.72; // long buck overbite, tapers to a point below the chin
     const toothTopY = mouthY - gape * 0.35; // anchored up under the lip
-    const gap = toothW * 0.14; // small comedic gap between the two front teeth
+    const gap = toothW * 0.18; // comedic gap between the two front fangs
     const pairCx = frontX - face * mw * 0.04; // pair centred on the mouth front
     for (let s = -1; s <= 1; s += 2) {
-      const tx = pairCx + s * (toothW * 0.5 + gap * 0.5) - toothW * 0.5;
-      // the big flat incisor
-      g.rect(tx, toothTopY, toothW, toothH)
+      const cxT = pairCx + s * (toothW * 0.5 + gap * 0.5); // this fang's centreline
+      const hw = toothW * 0.5; // half gum-width
+      const th = toothH * (s > 0 ? 1.12 : 0.96); // one fang a touch longer → crooked-goofy
+      const apexX = cxT + s * toothW * 0.16; // apex splays slightly outward (silly buck-fang)
+      // the big pointed ivory fang — downward triangle (top-left, top-right, bottom apex)
+      g.poly([cxT - hw, toothTopY, cxT + hw, toothTopY, apexX, toothTopY + th])
         .fill({ color: TOOTH_COLOR, alpha: fa(1) })
         .stroke({ width: 2, color: GRAPHITE, alpha: fa(0.95) });
-      // a worn rounded "chewed" bottom edge (little graphite arc across the tip)
-      g.moveTo(tx, toothTopY + toothH)
-        .quadraticCurveTo(tx + toothW * 0.5, toothTopY + toothH + 2.5, tx + toothW, toothTopY + toothH)
-        .stroke({ width: 1.4, color: GRAPHITE_SOFT, alpha: fa(0.7) });
-      // soft vertical pencil seam down the face of each tooth (cosmetic)
-      g.moveTo(tx + toothW * 0.34, toothTopY + toothH * 0.16)
-        .lineTo(tx + toothW * 0.34, toothTopY + toothH * 0.82)
+      // a short soft pencil seam down the inner face (keeps the hand-shaded sketch look)
+      g.moveTo(cxT, toothTopY + 2)
+        .lineTo(cxT + s * toothW * 0.05, toothTopY + th * 0.5)
         .stroke({ width: 1, color: GRAPHITE_SOFT, alpha: fa(0.35) });
     }
 

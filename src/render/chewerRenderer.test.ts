@@ -41,6 +41,7 @@ class GraphicsMock {
   circle(): this { this.calls.push('circle'); return this; }
   ellipse(): this { this.calls.push('ellipse'); return this; }
   rect(): this { this.calls.push('rect'); return this; }
+  poly(): this { this.calls.push('poly'); return this; } // S106 P2 — chewer fangs are now g.poly triangles
   closePath(): this { this.calls.push('closePath'); return this; }
   fill(): this { this.calls.push('fill'); return this; }
   stroke(): this { this.calls.push('stroke'); return this; }
@@ -145,7 +146,7 @@ describe('S100 P1 — ChewerRenderer', () => {
     expect(lastGraphics.calls).toContain('clear');
     expect(lastGraphics.calls).toContain('fill');
     expect(lastGraphics.calls).toContain('stroke');
-    expect(lastGraphics.calls.filter((c) => c === 'rect').length).toBeGreaterThanOrEqual(2); // 2 big beaver buck-teeth
+    expect(lastGraphics.calls.filter((c) => c === 'poly').length).toBeGreaterThanOrEqual(2); // S106 P2 — 2 funny pointed buck-fangs (triangles)
     expect(lastGraphics.calls.filter((c) => c === 'circle').length).toBeGreaterThan(0); // eyes + feet ticks
     r.destroy();
   });

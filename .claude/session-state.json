@@ -15,12 +15,19 @@
     {
       "id": "P1",
       "label": "S106 P1 - +25% match length: PHASE_1_WIN_SCORE 630->786, SCORE_TIER_STEP 210->262 (lockstep, exact thirds; HUNTER auto-scales to 589).",
-      "status": "in_progress",
-      "phase": "DO",
+      "status": "completed",
+      "phase": "DONE",
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
+      "checkpoint_commit": "5482446",
+      "check_completed": true,
+      "check_method": "S106 P1 DONE (5482446). tsc 0; full vitest 1653/1653 (WIN now fires at score=786 per gameState.test log; scoring/session10/13/15 tier+win tests green; exact-thirds invariant 786=3x262 holds). PHASE_1_WIN_SCORE 630->786, SCORE_TIER_STEP 210->262 lockstep. No literal pins (symbolic imports); HUNTER auto-scales to 589. Replay-safe single host-side threshold (no fixture pins a 630-win). Runtime match-length is owner playtest.",
+      "verification": [
+        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "?? 786;"},
+        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "SCORE_TIER_STEP = 262"}
+      ],
       "objective": "A match lasts ~25% longer (more points to win) so players can build + compete.",
       "scope": "src/constants.ts (PHASE_1_WIN_SCORE, SCORE_TIER_STEP, comment refresh).",
       "testing": "tsc 0; full vitest green (no literal pins; tier-pulse loops under 120k caps; exact-thirds invariant green)."
