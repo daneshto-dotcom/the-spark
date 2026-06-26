@@ -14,6 +14,8 @@ import {
   FILAMENT_INCOME_COMPLEXITY,
   FUNCTIONAL_BOND_CAP_PER_PRIM,
   FUNCTIONAL_BOND_COMPLEXITY,
+  LEADER_DECAY_RATE_PER_SEC,
+  LEADER_DECAY_THRESHOLD_FRACTION,
   PHASE_1_WIN_SCORE,
   PHYSICS_HZ,
   PLAYER_COLORS,
@@ -322,7 +324,10 @@ describe('S84 P4 — functional-bond complexity (capped) + field-report invarian
     const hostWorld = trio();
     hostWorld.isHost = true;
     const prims: Primitive[] = [];
-    for (let i = 0; i < 6; i++) prims.push(addPrim(hostWorld, P1, SparkType.Dot, 1200 + i * 30, 500));
+    // S107 P1 — complexity must exceed the leader-decay equilibrium (~39) so the leader
+    // can still cross the win line past the 75% threshold (a builder this committed wins;
+    // the anti-coast decay only stalls a modest/coasting leader). 80 isolated prims = c.80.
+    for (let i = 0; i < 80; i++) prims.push(addPrim(hostWorld, P1, SparkType.Dot, 1200 + i * 30, 500));
     hostWorld.scoreByPlayer.set(P0, 4);
     hostWorld.scoreByPlayer.set(P1, PHASE_1_WIN_SCORE - 0.001); // about to cross
     hostWorld.scoreByPlayer.set(P2, 2);
@@ -360,5 +365,77 @@ describe('S84 P3 — pacing constants coherence', () => {
   it('tier pulses divide the win target into exact thirds', () => {
     expect(PHASE_1_WIN_SCORE % SCORE_TIER_STEP).toBe(0);
     expect(PHASE_1_WIN_SCORE / SCORE_TIER_STEP).toBe(3);
+  });
+});
+
+describe('S107 P1 — anti-coast LEADER SCORE-DECAY', () => {
+  const THRESHOLD = PHASE_1_WIN_SCORE * LEADER_DECAY_THRESHOLD_FRACTION; // 589.5
+  // Equilibrium complexity at the win line: C_eq = RATE × (1−FRACTION) × WIN / INCOME ≈ 39.
+  const C_EQ =
+    (LEADER_DECAY_RATE_PER_SEC * (1 - LEADER_DECAY_THRESHOLD_FRACTION) * PHASE_1_WIN_SCORE) /
+    SCORE_INCOME_PER_COMPLEXITY_PER_SEC;
+
+  it('a COASTING leader (low complexity) past the threshold bleeds', () => {
+    const w = duel();
+    w.scoreByPlayer.set(P0, THRESHOLD + 110); // ~700, the leader (P1 = 0)
+    buildMagicPair(w, P0, 200, 200); // complexity 4 ≪ C_eq → income cannot outrun the decay
+    tickScoring(w);
+    expect(w.scoreByPlayer.get(P0)!).toBeLessThan(THRESHOLD + 110);
+  });
+
+  it('a COMMITTED builder (complexity > equilibrium) still climbs past the threshold', () => {
+    const w = duel();
+    w.scoreByPlayer.set(P0, THRESHOLD + 110);
+    // Build well above C_eq (~39) so live income exceeds the decay → net positive.
+    for (let i = 0; i < Math.ceil(C_EQ) + 25; i++) addPrim(w, P0, SparkType.Dot, 200 + i * 12, 200);
+    tickScoring(w);
+    expect(w.scoreByPlayer.get(P0)!).toBeGreaterThan(THRESHOLD + 110);
+  });
+
+  it('decay never drops the leader BELOW the threshold (floored, self-limiting)', () => {
+    const w = duel();
+    w.scoreByPlayer.set(P0, THRESHOLD + 5); // just above, zero standing structure (income 0)
+    for (let t = 0; t < 5000; t++) tickScoring(w);
+    expect(w.scoreByPlayer.get(P0)!).toBeGreaterThanOrEqual(THRESHOLD);
+    expect(w.scoreByPlayer.get(P0)!).toBeLessThan(THRESHOLD + 5); // it DID bleed toward the floor
+  });
+
+  it('does NOT decay a leader still below the threshold (normal income climbs)', () => {
+    const w = duel();
+    w.scoreByPlayer.set(P0, THRESHOLD - 100);
+    buildMagicPair(w, P0, 200, 200);
+    const before = w.scoreByPlayer.get(P0)!;
+    tickScoring(w);
+    expect(w.scoreByPlayer.get(P0)!).toBeGreaterThan(before); // pure income, no decay below 75%
+  });
+
+  it('is EXEMPT in solo (zen sandbox) — the same coasting leader climbs instead of bleeding', () => {
+    const solo = makeWorld(0); // gameMode defaults to 'solo'
+    solo.scoreByPlayer.set(P0, THRESHOLD + 110);
+    buildMagicPair(solo, P0, 200, 200);
+    tickScoring(solo);
+    expect(solo.scoreByPlayer.get(P0)!).toBeGreaterThan(THRESHOLD + 110); // no rubber-band in solo
+  });
+
+  it('decays whoever is the LEADER at this tick, not a fixed seat (leader-swap safe)', () => {
+    const w = duel();
+    w.scoreByPlayer.set(P0, THRESHOLD + 60); // 649.5
+    w.scoreByPlayer.set(P1, THRESHOLD + 110); // 699.5 — P1 is the leader
+    tickScoring(w); // both have zero structure → P1 (leader) decays, P0 is untouched by decay
+    expect(w.scoreByPlayer.get(P1)!).toBeLessThan(THRESHOLD + 110); // leader bled
+    expect(w.scoreByPlayer.get(P0)!).toBe(THRESHOLD + 60); // non-leader unchanged (no income, no decay)
+    // scoreProgress (WIN gate + HUNTER read this) is the true post-decay max.
+    expect(w.scoreProgress).toBe(Math.max(w.scoreByPlayer.get(P0)!, w.scoreByPlayer.get(P1)!));
+  });
+
+  it('is replay-deterministic — two identical runs bleed byte-identically', () => {
+    const run = (): string => {
+      const w = duel();
+      w.scoreByPlayer.set(P0, THRESHOLD + 90);
+      buildMagicPair(w, P0, 200, 200);
+      for (let t = 0; t < 300; t++) tickScoring(w);
+      return JSON.stringify([...w.scoreByPlayer.entries()]);
+    };
+    expect(run()).toBe(run());
   });
 });

@@ -545,6 +545,31 @@ function readTestHunterTriggerScore(): number | null {
 const HUNTER_TRIGGER_FRACTION = 0.75;
 export const HUNTER_TRIGGER_SCORE =
   readTestHunterTriggerScore() ?? Math.floor(PHASE_1_WIN_SCORE * HUNTER_TRIGGER_FRACTION);
+
+// S107 P1 — ANTI-COAST LEADER SCORE-DECAY (gentle proportional rubber-band).
+// Once the LEADER's banked score passes LEADER_DECAY_THRESHOLD_FRACTION × PHASE_1_WIN_SCORE,
+// it bleeds back toward that threshold at a rate PROPORTIONAL to the excess:
+//     bleed/sec = LEADER_DECAY_RATE_PER_SEC × (leaderScore − threshold)
+// Why proportional (not a flat rate): it is ZERO at the threshold and grows with the
+// lead, so it is SELF-LIMITING — it can never drop the leader below the threshold and
+// never HARD-CAPS the win. A leader whose live income (complexity ×
+// SCORE_INCOME_PER_COMPLEXITY_PER_SEC) exceeds the decay at their current score still
+// climbs to PHASE_1_WIN_SCORE; it only makes COASTING (banking a lead then idling, or
+// riding a small/raided structure) bleed — the owner's "don't let a banked leader run
+// out the clock" ask, kept gentle.
+// Equilibrium complexity (live income == decay) at the win line:
+//     C_eq = LEADER_DECAY_RATE_PER_SEC × (1 − FRACTION) × PHASE_1_WIN_SCORE
+//            / SCORE_INCOME_PER_COMPLEXITY_PER_SEC
+//          = 0.01 × 0.25 × 786 / 0.05 ≈ 39
+// So a committed builder (sustained standing complexity > ~39) still closes out the
+// win; a modest/raided leader stalls below the win line and the trailing player gets a
+// window. The threshold coincides with HUNTER_TRIGGER (75%) by design: past 75% you are
+// both HUNTED and must keep earning. Host-only + tick-driven + pure fn of synced state
+// → replay byte-equivalent (clients read the decayed scoreProgress from the snapshot).
+// NOT applied in solo (zen sandbox). Two tuning dials: RATE (harsher↑ / gentler↓) +
+// THRESHOLD_FRACTION (earlier↓ / later↑). Owner-tune after the first playtest.
+export const LEADER_DECAY_THRESHOLD_FRACTION = 0.75;
+export const LEADER_DECAY_RATE_PER_SEC = 0.01;
 export const HUNTER_HUNT_TICKS = 30 * PHYSICS_HZ; // 1800 ticks = 30 s chase
 export const HUNTER_BENCH_TICKS = 30 * PHYSICS_HZ; // 1800 ticks = 30 s benched
 export const HUNTER_CATCH_RADIUS = 30; // px — contact distance for the "eat"

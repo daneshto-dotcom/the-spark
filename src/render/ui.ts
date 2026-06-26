@@ -20,6 +20,7 @@ import { Application, Graphics, Text, TextStyle } from 'pixi.js';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  LEADER_DECAY_THRESHOLD_FRACTION,
   MAX_DISRUPTION_CHARGES,
   PHASE_1_WIN_SCORE,
   PLAYER_COLORS,
@@ -51,14 +52,27 @@ const PROGRESS_WIDTH = 80;
  * `leader` = max-of-all, kept as a thin ghost-tick so "who's winning" stays legible (the WIN gate +
  * HUNTER trigger still read world.scoreProgress elsewhere — unchanged). Solo: localPlayerId=0 is the
  * only entry, so own === leader. Exported for unit tests. Falls back to scoreProgress pre-population.
+ *
+ * S107 P1 — `ownDecaying`: true when the LOCAL player IS the leader (own === the max) AND past the
+ * anti-coast decay threshold, i.e. their score is gently bleeding (state/scoring.ts). Drives a subtle
+ * amber tint on the own-bar so the slow recede reads as "you're coasting — keep building" rather than
+ * an unexplained drop (the gentle per-tick bleed is too small to trip the red NONET drop-flash). Never
+ * true in solo (no decay there).
  */
 export function progressBarFractions(
-  world: Pick<World, 'scoreByPlayer' | 'localPlayerId' | 'scoreProgress'>,
-): { own: number; leader: number } {
+  world: Pick<World, 'scoreByPlayer' | 'localPlayerId' | 'scoreProgress' | 'gameMode'>,
+): { own: number; leader: number; ownDecaying: boolean } {
   const localScore = world.scoreByPlayer.get(world.localPlayerId) ?? world.scoreProgress;
+  // Local player is (tied for) the leader when their own score reaches the max-of-all.
+  const isLeader = localScore >= world.scoreProgress - 0.001;
+  const ownDecaying =
+    world.gameMode !== 'solo' &&
+    isLeader &&
+    localScore > PHASE_1_WIN_SCORE * LEADER_DECAY_THRESHOLD_FRACTION;
   return {
     own: Math.min(1, localScore / PHASE_1_WIN_SCORE),
     leader: Math.min(1, world.scoreProgress / PHASE_1_WIN_SCORE),
+    ownDecaying,
   };
 }
 
@@ -227,7 +241,7 @@ export class HUD {
     // S106 P4 — the PRIMARY bar tracks YOUR OWN score (own), with the LEADER as a ghost-tick. See
     // progressBarFractions: this makes a NONET halving VISIBLE (your bar drops) where the old shared
     // leader-max bar hid it. The bar also flashes red on any DROP in your own score so the loss is felt.
-    const { own, leader } = progressBarFractions(world);
+    const { own, leader, ownDecaying } = progressBarFractions(world);
     this.displayProgress += (own - this.displayProgress) * 0.18;
 
     const localScore = world.scoreByPlayer.get(world.localPlayerId) ?? world.scoreProgress;
@@ -240,8 +254,11 @@ export class HUD {
     const trackHeight = PROGRESS_Y_BOTTOM - PROGRESS_Y_TOP;
     g.rect(PROGRESS_X, PROGRESS_Y_TOP, PROGRESS_WIDTH, trackHeight)
       .stroke({ width: 1, color: 0x333333, alpha: 0.6 });
-    // your own progress — flashes red on a drop (NONET loss / any future point-loss)
-    const barColor = this.dropFlash > 0 ? 0xff5a5a : 0xffffff;
+    // your own progress — flashes RED on a sharp drop (NONET loss / any future point-loss),
+    // else AMBER while gently decaying as the coasting leader (S107 P1 anti-coast cue — the
+    // slow per-tick bleed is too small to trip the red flash, so amber signals "you're past
+    // 75% and bleeding; keep building to close it out"), else white.
+    const barColor = this.dropFlash > 0 ? 0xff5a5a : ownDecaying ? 0xffc04d : 0xffffff;
     g.rect(PROGRESS_X, PROGRESS_Y_TOP, PROGRESS_WIDTH * this.displayProgress, trackHeight)
       .fill({ color: barColor, alpha: 0.6 + this.dropFlash * 0.35 });
     // leader ghost-tick (max-of-all) so "who's ahead" stays readable

@@ -34,6 +34,9 @@ import {
   FILAMENT_INCOME_COMPLEXITY,
   FUNCTIONAL_BOND_CAP_PER_PRIM,
   FUNCTIONAL_BOND_COMPLEXITY,
+  LEADER_DECAY_RATE_PER_SEC,
+  LEADER_DECAY_THRESHOLD_FRACTION,
+  PHASE_1_WIN_SCORE,
   PHYSICS_HZ,
   SCORE_ANCHOR,
   SCORE_FUNCTIONAL_BOND,
@@ -155,6 +158,28 @@ export function tickScoring(world: World): void {
     }
   }
   world.scoreProgress = leaderId === null ? 0 : max;
+
+  // S107 P1 — ANTI-COAST LEADER SCORE-DECAY (gentle proportional rubber-band; see
+  // constants.ts for the model + tuning). Applied AFTER income accrual + scoreProgress
+  // but BEFORE the tier pulse below, so a net-decay tick can't fire a spurious tier-up.
+  // Host-only (tickScoring is !isClient-gated in main.ts) + pure fn of (synced score,
+  // tick, constants) → replay byte-equivalent. Skipped in solo (zen sandbox). The decay
+  // is self-limiting (floored at the threshold) and never exceeds a live builder's
+  // income above the equilibrium complexity, so it never hard-caps a deserved win.
+  if (world.gameMode !== 'solo' && leaderId !== null) {
+    const threshold = PHASE_1_WIN_SCORE * LEADER_DECAY_THRESHOLD_FRACTION;
+    const leaderScore = world.scoreByPlayer.get(leaderId) ?? 0;
+    if (leaderScore > threshold) {
+      const bleed = (LEADER_DECAY_RATE_PER_SEC / PHYSICS_HZ) * (leaderScore - threshold);
+      world.scoreByPlayer.set(leaderId, Math.max(threshold, leaderScore - bleed));
+      // Re-derive scoreProgress as the true post-decay max. Gentle per-tick bleed means
+      // the leader almost always stays the leader, but a near-tie could flip — keep the
+      // WIN gate + HUNTER trigger (which read scoreProgress elsewhere) exactly correct.
+      let decayedMax = 0;
+      for (const v of world.scoreByPlayer.values()) if (v > decayedMax) decayedMax = v;
+      world.scoreProgress = decayedMax;
+    }
+  }
 
   // Δ5 — SCORE_TIER pulse: one per SCORE_TIER_STEP boundary the LEADER's scoreProgress
   // crosses this tick, at the leader's avatar. Host-local visual flair (not serialized);
