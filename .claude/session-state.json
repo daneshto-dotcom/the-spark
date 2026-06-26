@@ -35,12 +35,19 @@
     {
       "id": "P2",
       "label": "S106 P2 - Chewer teeth = funny downward triangular fangs (rainbow style) kept ORIGINAL pencil ivory+graphite.",
-      "status": "pending",
-      "phase": "PLAN",
+      "status": "completed",
+      "phase": "DONE",
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
+      "checkpoint_commit": "5d7c469",
+      "check_completed": true,
+      "check_method": "S106 P2 DONE (5d7c469). tsc 0; chewerRenderer.test 10/10 (mock gained g.poly + the teeth-count assertion now counts poly); entry under cap. Replaced the 2 stiff g.rect incisors with 2 downward-pointing g.poly triangular fangs (rainbow's funny shape) kept in the chewer's ORIGINAL pencil style (ivory TOOTH_COLOR + graphite, NOT rainbow's flat white) with a comedic gap + slight crooked asymmetry. Render-only, no determinism impact. Runtime look is owner playtest.",
+      "verification": [
+        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/chewerRenderer.ts", "needle": "pointed buck-FANGS"},
+        {"type": "grep_count", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/chewerRenderer.ts", "pattern": "g\\.poly\\(", "op": ">=", "value": 1}
+      ],
       "objective": "The chewer's two front teeth look funny like the rainbow's tooth.",
       "scope": "src/render/chewerRenderer.ts (drawChewer tooth-loop: 2 g.poly fangs, comedic gap + slight asymmetry, ivory TOOTH_COLOR + graphite outline).",
       "testing": "render-only; tsc 0; visual (owner)."
@@ -48,12 +55,19 @@
     {
       "id": "P3",
       "label": "S106 P3 - HELGA whole-screen range (PRINCESS_SLAP_RANGE -> Math.ceil(hypot(CANVAS_W,CANVAS_H))=2203) + reach VFX (graphite slap-shockwave hand->lastStrikePos, render-only).",
-      "status": "pending",
-      "phase": "PLAN",
+      "status": "completed",
+      "phase": "DONE",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
+      "checkpoint_commit": "b0cfb25",
+      "check_completed": true,
+      "check_method": "S106 P3 DONE (b0cfb25). tsc 0; full vitest 1653/1653 (defender 7 + replay 21 + helgaPose 7 green); entry 598.7/750. PRINCESS_SLAP_RANGE 160 -> Math.ceil(hypot(CANVAS_W,CANVAS_H))=2203 (screen diagonal, integer for determinism). Targeting already picks nearest enemy -> screen-wide range = hunts ANY enemy chewer. princessRenderer.drawSlapReach draws a graphite slap-shockwave streak hand->lastStrikePos during FIRE (no-op when adjacent <24px so close slap unchanged); original CtCD style, NOT lightning. Render-only VFX. Replay byte-identical (fresh-run gate green); out-of-range IDLE test moved to (2400,2400) (>diagonal). Runtime look is owner playtest.",
+      "verification": [
+        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "PRINCESS_SLAP_RANGE = Math.ceil(Math.hypot"},
+        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/princessRenderer.ts", "needle": "drawSlapReach"}
+      ],
       "objective": "HELGA slaps any enemy chewer anywhere on screen, and a far slap reads visually.",
       "scope": "src/constants.ts (PRINCESS_SLAP_RANGE), src/render/princessRenderer.ts (reach VFX), src/state/defenders/defenderLifecycle.test.ts (move out-of-range chewer beyond diagonal), src/state/save.replay.test.ts (comment).",
       "testing": "tsc 0; full vitest green (fix the IDLE-out-of-range test); determinism-safe (integer sim config)."
@@ -61,12 +75,19 @@
     {
       "id": "P4",
       "label": "S106 P4 - NONET point-loss VISIBLE (progress bar -> local OWN score + leader ghost-tick + drop-flash) + harsher (NONET_LOSER_MULT 0.5->0.4).",
-      "status": "pending",
-      "phase": "PLAN",
+      "status": "completed",
+      "phase": "DONE",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
+      "checkpoint_commit": "cc4a004",
+      "check_completed": true,
+      "check_method": "S106 P4 DONE (cc4a004). tsc 0; full vitest 1657/1657 (+4 ui.progress; sudoku 19 updated to ×0.4); entry 599.2/750. ROOT (verdict-confirmed): the halving reducer is correct; the main bar read world.scoreProgress=max(scoreByPlayer)=the LEADER, hiding the owner's own halving (the friend's ×2 kept the shared bar near-full). FIX: pure progressBarFractions(world) -> {own,leader}; drawProgress now tracks the LOCAL player's own score (the bar drops on a NONET loss) + a gold leader ghost-tick + a red drop-flash; WIN gate + HUNTER still read scoreProgress(max). HARSHER: NONET_LOSER_MULT 0.5->0.4 (keep 40%). ui.progress.test pins own-tracks-localPlayerId + own-DROPS-on-NONET-loss. Render display is owner playtest; the scoring math is unit-verified.",
+      "verification": [
+        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts", "needle": "export function progressBarFractions"},
+        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/sudokuEvent.ts", "needle": "NONET_LOSER_MULT = 0.4"}
+      ],
       "objective": "Losing a NONET visibly cuts YOUR points (was hidden by the leader-max bar) and hurts more.",
       "scope": "src/render/ui.ts (drawProgress: own-score bar + leader ghost-tick + drop-flash), src/state/sudokuEvent.ts (NONET_LOSER_MULT 0.5->0.4), sudokuEvent.test.ts (loser expectations) + a display regression test.",
       "testing": "tsc 0; full vitest green; WIN gate + HUNTER stay on scoreProgress(max)."
