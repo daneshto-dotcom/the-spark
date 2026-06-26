@@ -5,6 +5,30 @@
 
 ---
 
+# CURRENT QUEUE — S108 PLAYTEST-FEEDBACK BATCHES (regression-first, front of the line)
+
+> S108 was a PLAN-ONLY session (seat weekly-limit). Owner playtested live S107 and reported 6 points; we scoped all 6
+> against the code (6-investigator Opus workflow), deliberated (2 Council rounds + PRIME-AUDIT), and split them into 4
+> batches by risk. **NO code shipped S108** — execution continues next session (possibly a different Claude seat).
+> Full handoff: `HANDOFF_S108.md`. The owner's 6 points + their refinements are captured in the plan files below.
+
+| Batch | Covers (owner points) | PDR / Plan file | Wire | Risk | Status |
+|---|---|---|---|---|---|
+| **A** (NEXT — safe) | #5 codex-trap · #6 shape 10s-despawn (no clamp — fling is a tactic) · #1 poop model (disable structures / slow creatures+Helga / carried-spark 50% slow / idle-pool immune / foul placed prims) · #3 Helga anti-laser INTERIM (cut range + remove beam) | `.claude/plans/2026-06-26_PDR_S108_Batch_A.md` (READY, deliberated; NOT yet unlocked) | none (v12) | Low/Std | **PDR ready — execute next session** |
+| **B** | #3 FULL — Helga WALKS to target + slaps once on arrival, chases not loops | `.claude/plans/2026-06-26_PLAN_S108_Batch_B_Helga_Walk.md` | **12→13** | HIGH | needs PDR + Council |
+| **C** | #4 — "5 circles + dot" building → suicide lightning drones → self-destruct after 3 | `.claude/plans/2026-06-26_PLAN_S108_Batch_C_Lightning_Drone_Building.md` | **12→13** | HIGH | needs PDR + Council + 9 owner design Qs |
+| **D** | #2 — Voltkin (+ Helga) better-quality 2D art, clean matte, NO 3D | `.claude/plans/2026-06-26_PLAN_S108_Batch_D_Voltkin_Helga_Art.md` | none | Med | needs art SPIKE + owner eyeball |
+
+**Sequencing:** A (safe, no-bump) → B (Helga walk) → C (new building) → D (art). Each of B/C/D gets its own PDR +
+3-way Council before any code. The Tier-1 G-series + Tier-3 host-migration ROADMAP below resumes after the S108 queue.
+
+**KEY DELIBERATION RESULT (do not re-litigate):** the SPARK client runs NO authoritative physics/FSM (main.ts:1055 —
+it renders host-synced positions). So host-only sim changes whose WIRE FORMAT is unchanged need NO PROTOCOL_VERSION
+bump (Council's "mandatory bump" was refuted against the netcode; verified: createdTick, fouledPrimitives,
+poopyUntilTick all already on the wire). A bump is needed only when a NEW serialized field/literal is added (Batches B + C).
+
+---
+
 # ROADMAP — rewritten S86 (2026-06-12) on user mandate
 
 > User (S86, verbatim): *"organize our priority backlog to see what we actually need to do in order to IMPROVE on the game … like for example developing the geometric connections between the primitives, some of them dont do anything like dot to square or line to circle … the whole point is being a geometric builder game and we have least focused on that … rather than random stuff you have added to backlog which will or will not improve our gameplay."*

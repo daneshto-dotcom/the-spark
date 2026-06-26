@@ -1,199 +1,81 @@
 {
-  "tool_calls_session_total": 32,
-  "session_id": "S107",
-  "session_kind": "execution",
-  "session_start": "2026-06-26T12:40:00.000Z",
-  "session_note": "S107 - BATCH A: the four S105/S106 carry-forwards, owner-mandated as one thorough autonomous session ('run all the carry forward items ... Batch A ... I pre-approve full session priority batch pdr and autonomous run'). Next = Batch B, then Batch C. EXEC ORDER (bank safe first): P0 test-flake hygiene -> P3 Voltkin cleanup -> P4 bot-pentagram fix -> P1 leader-decay (PROPORTIONAL, not flat; +minimal visible cue) -> P2 worker-sim FOUNDATION (replay test + state hash + cost probe; cutover/pooling/grid/audit carried forward with documented blockers). Structure-loss CLAWBACK held as separate future owner-gated PDR. FULL tier. PDR: .claude/plans/2026-06-26_PDR_Session_107_Batch_A.md",
-  "phase": "CLOSED",
-  "pdr_approved": true,
+  "tool_calls_session_total": 2,
+  "session_id": "S108",
+  "session_kind": "planning",
+  "session_start": "2026-06-26T15:30:00.000Z",
+  "session_note": "S108 PLAN-ONLY session (team seat hit weekly limit ~1% remaining — owner: 'we are not going to work anything this batch ... update all backlog ... save the open plans and pdr so we can continue working next session in another claude account'). Owner playtested live S107 and reported 6 points. We: (1) ran a clean pre-flight + dispositioned all 5 WARNs; (2) scoped all 6 points against the code via a 6-investigator Opus workflow (wf_6c9fd480-8a2); (3) deliberated 2 Council rounds (Grok-4.20 + Gemini-2.5-pro) + PRIME-AUDIT; (4) split into 4 risk-tiered batches and persisted READY plans. NO code shipped. Next session (possibly a different seat) starts by executing Batch A.",
+  "phase": "PLANNING_DONE",
+  "pdr_approved": false,
   "deliberation_completed": true,
-  "unlock_source": "user",
+  "unlock_source": "none",
   "tier": "Full",
-  "council_rounds": 1,
-  "scoping_workflow": "wf_d37331f2-37a",
-  "council_result": "Batch A scoped + adversarially verified via wf_d37331f2-37a (4 deep investigators; worker-sim 3-lens refute panel DETERMINISM/FEASIBILITY/SCOPE-REALISM). 10 agents, ~600K tok, 280 tools. All 4 verdicts SHIP-WITH-FIXES, high conf. MODEL DEVIATION (logged): investigators ran on Haiku (agentType:'Explore' downgrade) -> Opus orchestrator PRIME-AUDIT performed. PRIME-AUDIT deltas: (1) REFUTED worker-safety claim - state/godlyOrchestration.ts imports render/* (cutsceneOverlay/audioManager/codexStore) so the sim graph is NOT cleanly worker-safe -> runHostTick extraction harder, ?worker=1 cutover stays carry-forward with documented blocker. (2) REFUTED 1664/1664 - actual 1663/1664 (stress.test.ts timing flake 51>50ms) -> added P0 hygiene fix. (3) REFINED leader-decay: PROPORTIONAL (bleed=rate*(score-threshold)) over the scope's flat rate (no hard WIN-cap, self-limiting) + minimal visible cue per S106 invisible-bug lesson. (4) CONFIRMED via own reads: tickScoring host-only slot, Voltkin asset map + zap.png referencers + anim-test disk-read dep, botSpawnerSeed PENTAGRAM_REACH+240 pure geometry. P2 ships the SAFE foundation (stepPhysics replay test + state hash + snapshot-cost probe); refactor/cutover/pooling/grid/transcendental-audit carried forward honestly.",
+  "council_rounds": 2,
+  "scoping_workflow": "wf_6c9fd480-8a2",
+  "council_result": "S108 planning. 6-investigator Opus workflow mapped all 6 owner points to exact files/symbols + wire/determinism. Council R1 (Grok REJECT / Gemini ADOPT-WITH-CHANGES) headlined a MANDATORY PROTOCOL_VERSION 12->13 bump claiming the client predicts creature/spark physics. PRIME-AUDIT REFUTED this against the code: main.ts:1055-1075 ('the client runs no authoritative physics'); save.ts:460 trimMirrorCreature strips AI, client rehydrates neutral; creatureRenderer.ts:177-183 derives a render-only velocity estimate from synced positions; lerp.ts is position-clamp not velocity-extrapolation; PROTOCOL_VERSION has been 12 since S103 (a WIRE change) while S107 sim changes (leader-decay) shipped without a bump. => host-only sim changes with unchanged wire FORMAT need NO bump. Adopted all real Council findings (TTL-drop reset, poop-always-terminates, test/lock updates, spawner burst-avoidance). Council R2 (deltas) both ADOPT-WITH-CHANGES; rejected Grok's poop max-lifetime net (redundant - floor is an unconditional y-threshold) and Grok's 'keep Helga range, hide beam' (masks the visual but keeps the cross-map hit the owner is complaining about).",
   "signals_fired": [],
   "priorities": [
     {
-      "id": "P0",
-      "label": "S107 P0 - Harden stress.test.ts perf-timing flake (51>50ms machine-variant). Restore a trustworthy green baseline before changing sim code.",
-      "status": "completed",
-      "phase": "DONE",
-      "tier": "Micro",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "4477892",
-      "check_method": "S107 P0 DONE (4477892). tsc 0; full vitest 1664/1664 (was 1663/1664: stress.test.ts perf flake). Replaced the worst-single-tick<50ms assertion (machine-variant: a 51.01ms transient GC/scheduler spike over 3600 ticks failed an otherwise healthy run) with a p95<50ms gate (immune to a handful of outliers, still catches systemic slowdown) + a worst<1000ms catastrophic-pathology canary (a real O(n^2)/NaN cascade is seconds/tick + trips the 60s timeout). Test-only; zero sim/wire impact. Restores a trustworthy green baseline before sim changes.",
-      "real_context_tokens_at_close": 262387,
-      "real_context_pct_at_close": 26.24,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/physics/stress.test.ts",
-          "needle": "p95 tick"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/physics/stress.test.ts",
-          "needle": "if (dt > maxPhysMs)"
-        }
-      ]
-    },
-    {
-      "id": "P3",
-      "label": "S107 P3 - Voltkin dead-asset cleanup: DELETE 8 PNGs + anim.json/atlas.png + 3 build scripts (import-graph-verified zero refs); KEEP voltkin-zap.png + audio + intro.mp4 + matte-intro.py + assets-source + voltkinFrames.ts/tests. MUST-FIX: mock voltkin-anim.json read in voltkinFrames.anim.test.ts.",
-      "status": "completed",
-      "phase": "DONE",
-      "tier": "Micro",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "30d04e8",
-      "check_method": "S107 P3 DONE (30d04e8). tsc 0; vitest 1664/1664; build clean; bundle 596.5/750 KiB (unchanged - public/ assets not bundled). Import-graph-verified the S106 procedural rig orphaned both bitmap-frame + atlas paths. DELETED 13 files: 5 legacy frame PNGs (idle-1/2/charge/hurt/victory) + 3 dead sprites (tv-glowing/off/static) + atlas pair (voltkin-anim.json + voltkin-atlas.png) + 3 build scripts (build-voltkin-atlas/compress-voltkin-frames/matte-voltkin-frames .py). Removed dead exports VOLTKIN_ANIM_MANIFEST_URL/ATLAS_URL (imported by nothing) + converted the on-disk anim.json drift-guard to validate the inline canonical manifest M (no disk dep, same assertions). KEPT voltkin-zap.png (4 Codex recipes), audio (lightning-crackle + voice), intro.mp4 + cutscene, matte-voltkin-intro.py (provenance), assets-source, voltkinFrames.ts + 2 tests (sync.test.ts uses currentFrameKey/VoltkinFrameKey as a WIRE-DETERMINISM cross-check). PRIME-AUDIT correction over the Haiku scope: voltkinFrames.ts is fully test-only post-S106 (currentSpriteUrl/currentAnimCell have ZERO prod callers; the cited prod refs are doc-comments) - kept anyway for the valuable wire-determinism test. No code loads any deleted asset (grep + tsc + vite build all clean).",
-      "real_context_tokens_at_close": null,
-      "verification": [
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/voltkinFrames.ts",
-          "needle": "VOLTKIN_ANIM_MANIFEST_URL ="
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/voltkinFrames.anim.test.ts",
-          "needle": "readFileSync"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/voltkinFrames.ts",
-          "needle": "RETIRED S107 P3"
-        }
-      ]
-    },
-    {
-      "id": "P4",
-      "label": "S107 P4 - Bot self-breaks own pentagram: robust fix = mark 5 seeded ring nodes no-auto-bond (filter on existing spawner-owned property if possible, else additive-optional flag); fallback relocate+340 with invariant comment. Replay HARD gate + new degree-preserved test.",
-      "status": "completed",
-      "phase": "DONE",
+      "id": "PLAN-A",
+      "label": "S108 Batch A PDR (READY, deliberated, NOT unlocked) — #5 codex Esc/toggle + #6 shape 10s-TTL-despawn (NO clamp; fling is an owner tactic) + #1 poop model (disable fouled turret/spawner; slow chewer/Voltkin on hit + Helga slap-cadence when fouled; carried-spark 50% slow; idle pool immune; foul placed prims = no points) + #3 Helga anti-cross-map-laser INTERIM (range 2203->~380 + remove beam streak). PROTOCOL_VERSION 12 unchanged.",
+      "status": "planned",
+      "phase": "PDR_READY",
       "tier": "Standard",
-      "pdr_approved": true,
+      "pdr_approved": false,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "1b7eb73",
-      "real_context_tokens_at_close": 374787,
-      "real_context_pct_at_close": 37.5,
-      "check_method": "S107 P4 DONE (1b7eb73). tsc 0; vitest 1666/1666 (+2); build clean; bundle 596.8/750. ROOT confirmed via own reads: bots mode isNetworked (gameMode!='solo') -> bot placements are remote-origin -> resolve through pickHostTargetPrimitive + collectHostMergeCandidates (placePrimitive.ts); the host auto-MERGE sweep (same-colour within MERGE_REACH=100) bonds the bot's frontier into its own seeded pentagram ring -> node degree 2->3 -> recipeStillSatisfied/isPentagramComponent re-validation tears the spawner down. FIX (robust, distance-independent, chosen over the verifier-REFUTED 'relocate +340' band-aid): new collectSpawnerLockedPrimitiveIds(world) = each live spawner anchor's connected component; excluded from auto-bond candidacy at pickHostTargetPrimitive + collectHostMergeCandidates + the merge-sweep loop (latter covers the LOCAL path -> also protects a HUMAN building beside their own pentagram, same latent vector). Derived from existing world.creatureSpawners + bond graph -> NO new primitive field, NO wire/PROTOCOL change, re-derived per placement (survives host-migration). Explicit sever (raid counterplay) untouched. Kept PENTAGRAM_REACH +240 (ring stays raidable). +2 tests with before/after signal (ring IS an in-range candidate without the lock, excluded with it). Determinism HARD gate unchanged (seed untouched).",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/placePrimitive.ts",
-          "needle": "export function collectSpawnerLockedPrimitiveIds"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/placePrimitive.ts",
-          "needle": "if (lockedPrims.has(candId)) continue;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/spawners/botSpawnerSeed.test.ts",
-          "needle": "protected from auto-bond self-break"
-        }
-      ]
+      "unlock_source": "none",
+      "plan_file": ".claude/plans/2026-06-26_PDR_S108_Batch_A.md"
     },
     {
-      "id": "P1",
-      "label": "S107 P1 - Anti-coast LEADER SCORE-DECAY (PROPORTIONAL: bleed=rate*(score-threshold), floor=threshold, host-only in tickScoring, solo-exempt) + minimal visible 'coasting' cue. Constants tunable. Replay determinism + WIN/HUNTER-unaffected tests.",
-      "status": "completed",
-      "phase": "DONE",
-      "tier": "Standard",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "63913d0",
-      "real_context_tokens_at_close": 451166,
-      "real_context_pct_at_close": 45.1,
-      "check_method": "S107 P1 DONE (63913d0). tsc 0; vitest 1677/1677 (+11: 7 decay + 4 ownDecaying cue); build clean; bundle 597.1/750. Anti-coast LEADER SCORE-DECAY: once the leader passes 75% of win, score bleeds back toward the threshold at bleed/sec = LEADER_DECAY_RATE_PER_SEC(0.01) x (score - threshold). PROPORTIONAL (PRIME-AUDIT refinement over the scoped flat rate): zero at threshold, self-limiting -> can NEVER drop below threshold, NEVER hard-caps the win (income>decay above the ~39 equilibrium complexity still climbs). Host-only in tickScoring (pure fn of synced state+tick -> replay byte-equivalent; clients read decayed scoreProgress), re-derives post-decay max so WIN gate + HUNTER stay exact, EXEMPT in solo. Visible cue (S106 invisible-bug lesson): progressBarFractions returns ownDecaying -> drawProgress tints own-bar AMBER when coasting leader (gentle bleed too small to trip the red drop-flash). 2 owner dials (RATE + THRESHOLD_FRACTION). CLAWBACK alternative = separate future owner-gated PDR. Updated distributed-pipeline WIN test to complexity 80 (>equilibrium) so the leader still crosses; all other win/tier tests are solo (decay-exempt) or accrue below threshold -> unaffected. Runtime amber tint + felt balance = owner playtest (only manifests past 75% in non-solo).",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "LEADER_DECAY_RATE_PER_SEC = 0.01"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/scoring.ts",
-          "needle": "world.scoreByPlayer.set(leaderId, Math.max(threshold, leaderScore - bleed))"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
-          "needle": "ownDecaying ? 0xffc04d"
-        }
-      ]
-    },
-    {
-      "id": "P2",
-      "label": "S107 P2 - Worker-sim FOUNDATION increment: SHIP stepPhysics replay-determinism test (runStepPhysicsStress) + deterministic state hash (additive) + dev snapshot-cost probe. CARRY-FORWARD (documented blockers): runHostTick extraction (render-coupled via godlyOrchestration), pooling/delta-encode (measure first), collision grid 64->8, transcendental/accumulation-order audit, ?worker=1 cutover.",
-      "status": "completed",
-      "phase": "DONE",
+      "id": "PLAN-B",
+      "label": "S108 Batch B (PLANNED, needs own PDR+Council) — #3 FULL: Helga WALKS to target + slaps once on arrival, chases not loops. PROTOCOL_VERSION 12->13 (synced WALK state + movement). HIGH risk.",
+      "status": "planned",
+      "phase": "PLANNED",
       "tier": "Full",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "02a1112",
-      "real_context_tokens_at_close": 493018,
-      "real_context_pct_at_close": 49.3,
-      "check_method": "S107 P2 DONE (02a1112). tsc 0; vitest 1684/1684 (+7: 4 stateHash + 3 stepPhysics determinism); build clean; bundle 597.1/750 UNCHANGED (stateHash.ts is test-only -> zero production wire, confirming pure groundwork). Worker-sim FOUNDATION increment (scope workflow's 3-lens panel UNANIMOUS 'groundwork-only' \u2014 full cutover not ship-quality in a 4-item batch). SHIPPED: (1) stepPhysics PHYSICS-LOOP replay-determinism HARD gate (runStepPhysicsStress: 2 same-seed 300-tick runs byte-identical + hash-equal) - the backlog's named prerequisite; every prior gate drove the reducer path, none the Verlet/bond/collision loop a worker runs. (2) hashWorldState pure FNV-1a cross-check oracle (sorted-by-id, order-invariant) + tests (deterministic/sensitive/order-invariant); NOT on the wire (no consumer -> premature). (3) WORKER_SIM_FOUNDATION.md: determinism AUDIT (verdict worker-SAFE within a browser: sqrt/hypot IEEE754, same-V8 sin/cos, deterministic accrual+iteration order, now PROVEN) + PRIME-AUDIT render-coupling blocker (state/godlyOrchestration.ts imports render/*) + sequenced cutover plan. CARRY-FORWARD (documented): runHostTick extraction (untangle render-coupling, ~410-560 LOC), pooling/delta-encode (MEASURE first), grid 64->8, cross-V8 transcendental audit, ?worker=1 cutover. No felt-smoothness this session by design \u2014 laid the verifiable foundation honestly vs shipping a risky core-loop refactor.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/stateHash.ts",
-          "needle": "export function hashWorldState"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.replay.test.ts",
-          "needle": "stepPhysics physics-loop (HARD GATE)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/WORKER_SIM_FOUNDATION.md",
-          "needle": "sequenced cutover plan"
-        }
-      ]
+      "pdr_approved": false,
+      "deliberation_completed": false,
+      "unlock_source": "none",
+      "plan_file": ".claude/plans/2026-06-26_PLAN_S108_Batch_B_Helga_Walk.md"
+    },
+    {
+      "id": "PLAN-C",
+      "label": "S108 Batch C (PLANNED, needs own PDR+Council+9 owner design Qs) — #4 new '5 circles + dot' building -> suicide lightning drones (sever <=3 connectors/explosion + ARC_FLASH) -> structure self-destruct after 3 drones. Reuses current procedural Voltkin @ 50% as the drone. PROTOCOL_VERSION 12->13. HIGH risk, ~600-900 LOC.",
+      "status": "planned",
+      "phase": "PLANNED",
+      "tier": "Full",
+      "pdr_approved": false,
+      "deliberation_completed": false,
+      "unlock_source": "none",
+      "plan_file": ".claude/plans/2026-06-26_PLAN_S108_Batch_C_Lightning_Drone_Building.md"
+    },
+    {
+      "id": "PLAN-D",
+      "label": "S108 Batch D (PLANNED, needs art SPIKE + owner eyeball) — #2 Voltkin (+ Helga) better-quality 2D art, cleanly matted (NO square box), NO 3D (meshy/GLB off the table). Offline imagen/veo -> matte -> 2D atlas/video swap; PROTOCOL_VERSION unchanged.",
+      "status": "planned",
+      "phase": "PLANNED",
+      "tier": "Full",
+      "pdr_approved": false,
+      "deliberation_completed": false,
+      "unlock_source": "none",
+      "plan_file": ".claude/plans/2026-06-26_PLAN_S108_Batch_D_Voltkin_Helga_Art.md"
     }
   ],
   "carry_forward_priorities": [
-    "ANTI-COAST structure-loss CLAWBACK (owner-gated, own PDR): severing a connector / killing a spawner DOCKS banked score. Overturns the S76 'banked score is safe' invariant -> floor at 0, host-only, serialized, replay tests. Held out of Batch A deliberately.",
-    "WORKER-SIM remainder (P2 carry, documented blockers): runHostTick extraction is ~410-560 LOC AND render-coupled (state/godlyOrchestration.ts imports render/*) - untangle sim-mutation vs render-side-effects first; snapshot pooling/delta-encode (the real O(world)/100ms fix - MEASURE ROI via the new probe first); collision grid 64->8 (after replay test locks behavior + 8-bit overflow assert); transcendental + float-accumulation-order audit (resolveCollisions/solveBonds; host vs worker V8 Math equivalence UNVERIFIED = the cutover blocker); ?worker=1 flag-gated cutover (blocked on all prior).",
-    "Leader-decay HUD: richer cue + playtest-driven bleed-rate/threshold tuning (P1 ships conservative + a minimal cue).",
-    "Batch B (next session): Tier-1 G1b MOTION / G2 family traits (needs LOCKED 6 amend) / G3b codex silhouettes / G4 leader-crown + BOND_COMMIT.",
-    "Batch C (session after): host-migration D1-D4 + Tier-3 infra/PARKED."
+    "EXECUTE Batch A next session (PDR ready + deliberated; set pdr_approved+unlock_source=user on owner `go`, then P0->P1->P2->P3 with Triumvirate CHECK per priority). PROTOCOL_VERSION 12 unchanged — fully safe.",
+    "Batch B: Helga full walk-to-target rework (own PDR+Council; PROTOCOL_VERSION 12->13).",
+    "Batch C: new lightning-drone building (own PDR+Council; resolve the 9 owner design Qs first; PROTOCOL_VERSION 12->13).",
+    "Batch D: Voltkin/Helga art quality (2D, no 3D; art spike + owner eyeball BEFORE wiring; gcp-vertex key may need refresh).",
+    "After the S108 queue: resume the prior ROADMAP — Tier-1 G1b MOTION / G2 family traits (LOCKED 6 amend) / G3b silhouettes / G4 crown+BOND_COMMIT; then Tier-3 host-migration D1-D4.",
+    "Owner-gated (unchanged): anti-coast structure-loss CLAWBACK (own PDR); worker-sim ?worker=1 cutover (WORKER_SIM_FOUNDATION.md)."
   ],
   "budget_total": 1000000,
-  "totals": {
-    "turns": 0,
-    "budget_remaining": 1000000,
-    "budget_status": "GREEN"
-  },
+  "totals": { "turns": 0, "budget_remaining": 1000000, "budget_status": "GREEN" },
   "reflexion_entries_to_archive": [
-    "P0 #a-flaky-perf-gate-erodes-the-suite-and-must-be-hardened-not-tolerated: the handoff said vitest 1664/1664 but a fresh run was 1663/1664 - stress.test.ts asserted the WORST single tick over 3600 ticks be <50ms, a machine-variant wall-clock gate that a lone 51.01ms GC/OS-scheduler spike fails. Fix = assert the p95 (immune to transient outliers, still catches a 5%+ systemic slowdown) + a worst<1000ms catastrophic-pathology canary (a true O(n^2)/NaN blowup is seconds/tick + also trips the 60s test timeout). LESSON: a perf assertion on a single MAX is inherently flaky; gate on a percentile + a far-looser catastrophic ceiling. Establish a trustworthy green baseline BEFORE editing sim code, or you can't tell a regression from pre-existing noise.",
-    "P3 #dead-asset-cleanup-must-trace-the-WHOLE-import-graph-not-trust-the-scope: the Haiku scope said 'KEEP voltkinFrames.ts - 8 sim/test importers' but a full consumer grep showed it is ENTIRELY test-only post-S106 - currentSpriteUrl + currentAnimCell have ZERO production callers (the cited 'prod refs' in creature.ts/save.ts are doc-comments), and currentFrameKey/VoltkinFrameKey survive only because sync.test.ts uses them as a WIRE-DETERMINISM cross-check (host+client reconstruct the same frame key from synced fields). Kept the module for that test value, but deleted 13 dead asset files + the dead URL exports. TRAP avoided: deleting the 5 frame PNGs while VOLTKIN_FRAME_URLS still names them is safe ONLY because no test does readFileSync on them (they inspect the URL STRINGS) and no runtime path loads them - verified before deleting. Converted the on-disk anim.json drift-guard (which validated a now-deleted artifact) to assert the inline canonical manifest instead, preserving coverage without the disk dep. LESSON: 'dead-asset cleanup' = trace every exported symbol's real consumers (prod vs test, import vs comment) before deleting the asset OR pruning the code; a scope's KEEP/DELETE list is a hypothesis to verify, not a fact.",
-    "P4 #fix-the-mechanism-not-the-distance-and-derive-state-dont-store-it: the bot self-broke its seeded pentagram because the host AUTO-MERGE sweep bonded its frontier into its own ring (degree 2->3 fails the recipe). The scope's first instinct (relocate the ring +100px) was REFUTED by the adversarial verifier as a band-aid (still reachable in ~4 hops). The robust fix attacks the MECHANISM: exclude any live spawner's locked-ring component from auto-bond candidacy. Chose to DERIVE the locked set from existing world.creatureSpawners + the bond graph (collectSpawnerLockedPrimitiveIds) rather than add a noAutoBond flag to Primitive -> zero new wire/save field, survives host-migration for free (re-derived per placement), and incidentally fixes the SAME latent self-break for a HUMAN building beside their own pentagram (applied at the merge-sweep chokepoint covering both remote + local paths). LESSON: when a 'just move it / just bump the constant' fix is offered, check whether it addresses the mechanism or only lowers the probability; and prefer deriving protective state from authoritative existing state over storing a new serialized flag.",
-    "P1 #proportional-rubber-band-beats-flat-AND-the-existing-tests-pin-the-rate: anti-coast leader-decay shipped as PROPORTIONAL bleed = rate*(score-threshold) rather than the scoped FLAT rate, because proportional is self-limiting (zero at the threshold, floored there) so it can never hard-cap a deserved win - a builder whose income exceeds the decay at their score still climbs. The KEY constraint that set the rate: the existing WIN-driving tests accrue a structure to 786 THROUGH the decay zone, so any rate strong enough to be a real anti-coast (equilibrium complexity > the test's structure) STALLS them. Resolved by (a) decay is gated gameMode!='solo' and makeWorld defaults to solo, so MOST unit tests are decay-exempt by construction, and (b) the one non-solo WIN test (distributed-pipeline, complexity 6) was rebuilt to complexity 80 (> the ~39 equilibrium) so a committed builder still wins - which is exactly the intended new semantic. Visible cue per the S106 invisible-bug lesson: the own-bar already recedes but the gentle bleed is sub-threshold for the red drop-flash, so added an AMBER tint via a new progressBarFractions.ownDecaying flag. LESSON: when adding a score-mutating mechanic, the existing accrual/win tests ARE the calibration harness - run them to discover the rate's real-world constraint, and prefer a self-limiting (proportional, floored) shape so you never accidentally make the game unwinnable.",
-    "P2 #the-honest-milestone-increment-is-the-verifiable-foundation-not-a-risky-half-cutover: 'smooth regardless of host' is a multi-session milestone; the 3-lens scope panel UNANIMOUSLY said the ?worker=1 cutover is not ship-quality landable in a 4-item batch (render-coupling + unmeasured pooling ROI + cross-context Math). Best-interests call = ship the SAFE critical-path foundation (a stepPhysics replay-determinism HARD gate that LOCKS the physics loop + a pure hashWorldState cross-check oracle + a determinism AUDIT proving worker-safety within a browser + a sequenced cutover plan) and carry the risky refactor forward with DOCUMENTED blockers - rather than ship a half-working cutover that could silently desync. KEY: the existing determinism gates all drove the reducer path; the part a worker actually runs (Verlet/bond/collision via stepPhysics) was UNGUARDED - so the highest-value safe deliverable was the test that proves IT deterministic. Also kept the state hash OFF the wire (no consumer yet = premature serialization). LESSON: for a big architectural milestone, the first session's deliverable is proof + plan (lock current behaviour with a test, audit the risk, sequence the phases), not a rushed cutover; and 'profile before optimizing' (S105) means SHIP THE PROBE/measurement before the optimization it justifies."
+    "S108-PLAN #verify-the-councils-confident-consensus-against-the-actual-architecture: a 3-way Council (Grok+Gemini, both premium-reasoning models) UNANIMOUSLY headlined a MANDATORY PROTOCOL_VERSION bump, asserting the client predicts creature/spark physics so a host-only slow/clamp would desync. PRIME-AUDIT refuted it against the code: the SPARK client runs ZERO authoritative physics (main.ts:1055 'the client runs no authoritative physics'; creatures stripped of AI + rendered from synced positions; lerp is position-clamp not velocity-extrapolation) and PROTOCOL_VERSION bumps only on WIRE-FORMAT change (12 since S103; S107 sim changes shipped without a bump). LESSON: two models converging is NOT independent confirmation when they share a generic prior (here: 'games use predict-and-reconcile netcode'); the convergence can be a shared wrong assumption. Always verify a confident consensus claim against the actual codebase before adopting it - but STILL harvest the peripheral findings (the Council's TTL-drop edge case, poop-termination, and test/lock updates were all real and adopted).",
+    "S108-PLAN #owner-corrections-reshape-scope-mid-plan-keep-the-PDR-living: the owner refined the spec three times across the session (no velocity clamp - the fast-fling is an intended tactic; Helga reads as a cross-map laser; poop must not touch idle spawn-zone shapes but the carried-spark 50% slow is intended). Each correction was folded into a living PDR (REV1->REV3) with a focused delta re-deliberation rather than a from-scratch redo. Two of the three corrections REDUCED risk (dropped the contested clamp; simplified poop precedence). LESSON: when the owner is actively spec-ing, treat the PDR as a living doc, re-deliberate only the DELTA, and confirm the genuinely-ambiguous fork (carried-vs-free spark) explicitly rather than guessing - but when the owner declines to pick, commit to the reading their own words point at and make it easy to redirect at the go-gate."
   ],
-  "real_context_tokens_at_close": 493018,
-  "real_context_pct_at_close": 49.3,
-  "analyze_completed": true,
-  "session_status": "S107 CLOSED",
-  "handoff_ready": true,
-  "handoff_doc": "HANDOFF_2026-06-26_S107.md",
-  "analyze_summary": "S107 Batch A ANALYZE: 5/5 priorities completed + disk-verified (MCV exit 0, 14 assertions). Objectives met \u2014 all four S105/S106 carry-forwards shipped: P0 test-flake hardened (restored 1684 green baseline), P3 Voltkin cleanup (13 dead files, import-graph-verified, render-neutral), P4 bot pentagram self-break FIXED at the auto-bond mechanism (no new wire field; also protects human pentagrams), P1 anti-coast leader-decay LIVE (proportional/self-limiting/solo-exempt + amber cue), P2 worker-sim FOUNDATION (stepPhysics replay-determinism HARD gate + hashWorldState oracle + audit/plan doc). CALIBRATION: scope workflow ran on Haiku (agentType:'Explore' downgrade) - Opus PRIME-AUDIT caught a 7x host-loop LOC undercount + a refuted 'worker-safe' claim (state/godlyOrchestration imports render/*); banked as memory. Two honest deferrals (NOT scope drift - drift scan = 0): clawback held as separate owner-gated PDR (overturns S76 banked-safe invariant); worker ?worker=1 cutover deferred (3-lens panel unanimous 'not ship-quality in a 4-item batch') with documented blockers in WORKER_SIM_FOUNDATION.md. RUNTIME AUDIT clean: P0-P1 deploy SUCCESS (decay LIVE), no CI failures, bundle 597.1/750, no unrendered placeholders / dead-file refs / restart-fragile mitigations. Reflexion appended+pruned (48). Next: Batch B (Tier-1)."
+  "real_context_tokens_at_close": null,
+  "real_context_pct_at_close": null,
+  "analyze_completed": false,
+  "session_status": "S108 PLAN-ONLY — ready for handoff",
+  "handoff_ready": false
 }
