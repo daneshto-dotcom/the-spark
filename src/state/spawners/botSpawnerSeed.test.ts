@@ -13,6 +13,11 @@ import { asPlayerId } from '../../types.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
 import { isPentagramComponent } from '../godlyRecipes/pentagram.ts';
 import { snapshot } from '../save.ts';
+import {
+  collectSpawnerLockedPrimitiveIds,
+  collectHostMergeCandidates,
+  pickHostTargetPrimitive,
+} from '../placePrimitive.ts';
 
 function startBots(world: World, botCount: number): void {
   const total = botCount + 1; // seat 0 = the human, seats 1..botCount = bots
@@ -73,5 +78,45 @@ describe('S104 P2 — host-seeded bot chewer-spawner', () => {
     const wB = makeWorld(0xdeadbee);
     startBots(wB, 2);
     expect(detJson(wA)).toBe(detJson(wB));
+  });
+});
+
+describe('S107 P4 — the seeded bot pentagram is protected from auto-bond self-break', () => {
+  it('collectSpawnerLockedPrimitiveIds returns exactly the 5 seeded ring nodes', () => {
+    const world = makeWorld(0xb0a7);
+    startBots(world, 1);
+    const locked = collectSpawnerLockedPrimitiveIds(world);
+    const ringIds = [...world.primitives.values()]
+      .filter((p) => p.placedBy === asPlayerId(1))
+      .map((p) => p.id);
+    expect(ringIds.length).toBe(5);
+    expect(locked.size).toBe(5);
+    for (const id of ringIds) expect(locked.has(id)).toBe(true);
+  });
+
+  it('auto-bond EXCLUDES the ring nodes (which WOULD be in range without the lock) — degree stays 2', () => {
+    const world = makeWorld(0xb0a7);
+    startBots(world, 1);
+    const ring = [...world.primitives.values()].filter((p) => p.placedBy === asPlayerId(1));
+    const botColor = ring[0].placerColor; // the ring is the bot's own colour (same-colour bonds)
+    // A build point 2px off a ring node — the worst case: well inside AUTO_BOND_RADIUS (60)
+    // and MERGE_REACH_RADIUS (100). This is exactly what the bot frontier hits.
+    const near = { x: ring[0].pos.x + 2, y: ring[0].pos.y + 2 };
+
+    // SIGNAL CHECK — with NO lock, the same-colour ring node IS a candidate in range
+    // (so the test has real signal: this is the bond that used to self-break the spawner).
+    const unguardedMerge = collectHostMergeCandidates(world, near, botColor, new Set());
+    expect(unguardedMerge.length).toBeGreaterThan(0);
+    expect(pickHostTargetPrimitive(world, near, botColor, new Set())).not.toBeNull();
+
+    // FIX — the default spawner-locked exclusion drops every ring node from auto-bond
+    // candidacy: no primary target, no merge candidate, so the ring keeps degree 2.
+    expect(collectHostMergeCandidates(world, near, botColor)).toHaveLength(0);
+    expect(pickHostTargetPrimitive(world, near, botColor)).toBeNull();
+
+    // The ring is still a valid pentagram (untouched), and degree-2 is intact.
+    const sp = [...world.creatureSpawners.values()][0];
+    expect(isPentagramComponent(world, sp.anchorPrimitiveId)).toBe(true);
+    expect(ring.every((p) => p.bonds.size === 2)).toBe(true);
   });
 });

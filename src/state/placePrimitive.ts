@@ -180,6 +180,15 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
     isNetworked(world) &&
     world.isHost &&
     action.playerId !== world.localPlayerId;
+  // S107 P4 — primitives belonging to a live spawner's LOCKED ring (the spawner
+  // anchor's connected component). Auto-bond must never target these: bonding a
+  // neighbour into the ring raises a node's degree above the recipe's exact-2 and
+  // the next re-validation poll tears the spawner down. This was the bot
+  // self-breaking its own seeded pentagram (its frontier auto-merged into the
+  // ring); a human building beside their own pentagram hit the same latent vector.
+  // Computed once per placement, reused below. Empty + ~free when no spawner exists.
+  const lockedPrims = collectSpawnerLockedPrimitiveIds(world);
+
   let effectiveMergeCandidateIds: ReadonlyArray<PrimitiveId> | undefined =
     action.mergeCandidateIds;
   if (isRemoteOrigin && action.placementPos !== undefined) {
@@ -188,6 +197,7 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
         world,
         action.placementPos,
         player.color,
+        lockedPrims,
       );
     }
     // Re-derive merge candidates from host's world so stale joiner lists
@@ -197,6 +207,7 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
       world,
       action.placementPos,
       player.color,
+      lockedPrims,
     );
   }
 
@@ -371,6 +382,7 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
   for (const candId of effectiveMergeCandidateIds ?? []) {
     if (candId === prim.id) continue;
     if (mergedComponents.has(candId)) continue;
+    if (lockedPrims.has(candId)) continue; // S107 P4 — never auto-merge into a live spawner's locked ring (covers the local path too)
     const cand = world.primitives.get(candId);
     if (cand === undefined) continue;
     const candComp = componentOf(cand, world.primitives, world.bonds);
@@ -590,11 +602,13 @@ export function pickHostTargetPrimitive(
   world: World,
   placementPos: Vec2,
   playerColor: number,
+  lockedPrims: ReadonlySet<PrimitiveId> = collectSpawnerLockedPrimitiveIds(world),
 ): PrimitiveId | null {
   let best: Primitive | null = null;
   let bestDistSq = AUTO_BOND_RADIUS * AUTO_BOND_RADIUS;
   for (const p of world.primitives.values()) {
     if (p.placerColor !== playerColor) continue;
+    if (lockedPrims.has(p.id)) continue; // S107 P4 — exclude spawner-locked ring nodes from auto-bond
     const dx = p.pos.x - placementPos.x;
     const dy = p.pos.y - placementPos.y;
     const d2 = dx * dx + dy * dy;
@@ -622,16 +636,45 @@ export function collectHostMergeCandidates(
   world: World,
   placementPos: Vec2,
   playerColor: number,
+  lockedPrims: ReadonlySet<PrimitiveId> = collectSpawnerLockedPrimitiveIds(world),
 ): ReadonlyArray<PrimitiveId> {
   const r2 = MERGE_REACH_RADIUS * MERGE_REACH_RADIUS;
   const ids: PrimitiveId[] = [];
   for (const p of world.primitives.values()) {
     if (p.placerColor !== playerColor) continue;
+    if (lockedPrims.has(p.id)) continue; // S107 P4 — exclude spawner-locked ring nodes from auto-bond
     const dx = p.pos.x - placementPos.x;
     const dy = p.pos.y - placementPos.y;
     if (dx * dx + dy * dy <= r2) ids.push(p.id);
   }
   return ids;
+}
+
+/**
+ * S107 P4 — the set of primitives that belong to a LIVE spawner's locked ring,
+ * i.e. the connected component of each `creatureSpawner`'s anchor primitive.
+ * Auto-bond candidacy excludes these so the recipe's exact bond-degree (a
+ * pentagram node is degree-2) is never raised by an adjacent placement, which
+ * would fail re-validation and tear the spawner down. Explicit severing (the
+ * raid counterplay) is unaffected — only AUTO-bond target selection consults this.
+ *
+ * Derived purely from existing state (`world.creatureSpawners` + the bond graph),
+ * so there is NO new primitive field and NO wire/PROTOCOL change; it is re-derived
+ * per placement, which means it stays correct for free across host-migration
+ * (a migrated host rebuilds it from the adopted snapshot's spawners). Cost is
+ * O(Σ spawner-component sizes) — typically 0 (no spawner) to a handful of 5-node
+ * rings — negligible next to the placement's own work.
+ */
+export function collectSpawnerLockedPrimitiveIds(world: World): ReadonlySet<PrimitiveId> {
+  const locked = new Set<PrimitiveId>();
+  for (const sp of world.creatureSpawners.values()) {
+    const anchor = world.primitives.get(sp.anchorPrimitiveId);
+    if (anchor === undefined) continue;
+    for (const id of componentOf(anchor, world.primitives, world.bonds).primitiveIds) {
+      locked.add(id);
+    }
+  }
+  return locked;
 }
 
 function makeBond(

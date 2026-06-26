@@ -42,9 +42,13 @@ const RING_SIZE = 5; // a pentagram is exactly 5 triangles (isPentagramComponent
 const RING_R = 40; // ring radius (px) — triangles spaced so they don't overlap (radius 8 each)
 /** Distance from arena centre to a bot's pentagram, out in its radial sector (clamped to canvas).
  *  Beyond the bot's home-anchor build seed (SPAWNER_RADIUS + ~90) so the bot grows outward roughly
- *  toward it rather than starting on top of it; the bot CAN eventually grow into it (auto-bonding a
- *  neighbour would raise a ring node's degree and self-break the spawner) — accepted as the same
- *  raid-counterplay outcome, logged as a polish item if playtest shows it self-breaks too fast. */
+ *  toward it rather than starting on top of it. NOTE (S107 P4): the bot used to SELF-BREAK this ring
+ *  — its frontier would grow within AUTO_BOND_RADIUS of a node and auto-merge in, raising the node's
+ *  degree above the pentagram recipe's exact-2 → the next re-validation poll tore the spawner down.
+ *  FIXED at the auto-bond layer instead of by distance: placePrimitive now excludes any live spawner's
+ *  locked-ring nodes from auto-bond candidacy (collectSpawnerLockedPrimitiveIds), so the ring stays
+ *  degree-2 regardless of how close the bot builds. Kept at +240 (NOT relocated farther) precisely so
+ *  the ring stays reachable for the player's raid counterplay (explicit sever still breaks it). */
 const PENTAGRAM_REACH = SPAWNER_RADIUS + 240;
 const TRIANGLE_RADIUS = 8;
 const EDGE_MARGIN = 80;
