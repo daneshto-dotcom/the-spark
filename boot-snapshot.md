@@ -1,40 +1,29 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-06-26 | Session: S106
-
-## ⭐ FULL PRIORITY BACKLOG — owner to review + organize (everything still open across S104→S106)
-> Owner asked to see the COMPLETE defined-but-undone backlog at boot to reorganize it. Deduped below.
-> Owner will FIRST playtest the live S106 build and bring corrections — those jump the queue (regression-first).
-
-### A. From the S105/S106 sessions (carry-forwards)
-1. **Anti-coast POINT-LOSS — owner picks the lever** (S106 shipped the visible own-score bar + harsher NONET 0.5→0.4; the *deeper* lever is undone):
-   - (2) **Leader score-decay** — the current leader slowly bleeds points once past 75% (gentle coast-breaker), OR
-   - (3) **Lose-a-structure CLAWBACK** — an enemy chewer/raid severing your connector or killing your spawner DOCKS your banked score (most competitive, but OVERTURNS the S76 "banked score is safe" invariant → own PDR, floor-at-0, host-only, serialized, replay tests).
-2. **SCALABLE "smooth regardless of host" MILESTONE** (S105 chose the architecture; the cutover is undone): move the authoritative sim into a **Web Worker** so the host becomes render-only (== client; worker boundary == future dedicated-server boundary). Flag-gated (`?worker=1`) own session. Groundwork that ships with/before it: snapshot **pooling + delta-encode** (the real O(world)/100ms fix), `runHostTick` extraction, STATEHASH + transcendental-determinism audit, collision 64→8 grid-rebuild (needs a new stepPhysics replay test FIRST).
-3. **Voltkin polish** (S106 shipped the procedural rig): VISUAL-TUNE the electric being if the owner doesn't love it (fully tunable in voltkinPose.ts/drawVoltkin) + DEAD-ASSET cleanup (delete the dead atlas/legacy PNGs/build scripts AFTER an import-graph grep — KEEP voltkin-zap.png, it's the Codex placeholder for 4 recipes).
-4. **bot-self-break-its-own-pentagram polish** — the bot auto-bonds into its seeded ring → self-breaks its spawner (monitor; place the ring farther or mark nodes no-auto-bond).
-
-### B. From BACKLOG.md Tier-1 CORE GAME (USER-MANDATED, still open)
-5. **G1b MOTION** — Wheel/Star slow structure rotation; Capsule glow-trail. (S90 deferred: needs a mechanical verb, not pure visual.)
-6. **G2 family TRAITS** — rule-based per-family traits so every placeholder pair does something. **GATED:** needs a LOCKED_DECISIONS §6 lock-amendment (functional combos locked MID/1.0×/generic).
-7. **G3b Codex silhouettes** — undiscovered combos render as silhouettes; mark used combos. (S104 unified codex covers how-to-build; silhouettes are the remaining bit.)
-8. **G4 build-feel juice** — in-world LEADER CROWN + enhance the existing BOND_COMMIT flair (re-scope, NOT a parallel burst) + pooped-reject cue. (S104/S105 deferred.)
-9. **Ghost build-hint** — live next-primitive scaffold ("you're 1 triangle away") for the spacing-sensitive TD recipes.
-10. **TD connector visible-damage** — render Bond.hp so a chewed connector visibly degrades (S102 de-scope).
-
-### C. BACKLOG.md Tier-3 infra + PARKED (only after Tier-1 or explicit ask)
-11. **Host migration** (D1-D4) — surviving player takes over when the host drops (HOST_MIGRATION_DESIGN.md). [NOTE: the worker-sim milestone #2 is the modern path to this.]
-12. Dense-compaction colour-shift at Begin · periodic-scoreboard knob · (Tier-4) VFX lightning-overlay library · (PARKED) 10Hz client-mirror pose-stepping smoothing.
+Generated: 2026-06-26 | Session: S107
 
 ## Next Steps
-1. **PLAYTEST the live S106 build** on https://spark-online.space (rematch a friend): +25% match length; build a 1-Line+7-Spirals turret (codex shows it); HELGA slapping across the screen; a NONET loss visibly halving YOUR bar + the red flash; the new procedural Voltkin (no more gif-square). Bring corrections — they jump the queue.
-2. **Organize the FULL BACKLOG above** (owner request) into the next session's priorities.
-3. Then execute the chosen batch under a PDR.
+1. **PLAYTEST the live S107 build** on https://spark-online.space (deployed: P0-P1 live, P2 finishing).
+   Bring corrections — they JUMP THE QUEUE (regression-first). What to look for:
+   - **Anti-coast leader-decay (P1):** in a non-solo match get a lead PAST 75% of the win (≈589/786) and STOP building — your own progress bar should turn AMBER and gently recede ("coasting — keep building"). A committed builder (big standing structure) still wins; a coaster/raided leader stalls below the win line. Two tuning dials in constants.ts (LEADER_DECAY_RATE_PER_SEC=0.01, LEADER_DECAY_THRESHOLD_FRACTION=0.75) — dial RATE up if it feels too gentle.
+   - **Bot pentagram (P4):** vs-bots — the bot should NO LONGER tear down its own chewer-spawner by building near it (was self-breaking). Enemy chewers keep coming so your turret/HELGA/Voltkin have targets.
+   - **Voltkin (P3):** still renders + cinematic plays (dead-asset cleanup was render-neutral).
+2. **BATCH B (owner-mandated next session):** Tier-1 CORE GAME —
+   - **G1b MOTION** (Wheel/Star structure rotation + Capsule glow-trail; needs a mechanical verb, not pure visual)
+   - **G2 family TRAITS** (GATED: needs a LOCKED_DECISIONS §6 lock-amendment — functional combos locked MID/1.0×/generic)
+   - **G3b Codex silhouettes** (undiscovered combos render as silhouettes; mark used)
+   - **G4 build-feel juice** (in-world LEADER CROWN + enhance BOND_COMMIT flair + pooped-reject cue)
+   - Also queued: Ghost build-hint · TD connector visible-damage (Bond.hp) · HELGA full princess spec (memory).
+3. **BATCH C (session after B):** host-migration D1-D4 (`HOST_MIGRATION_DESIGN.md`) + Tier-3 infra/PARKED.
 
 ## Blockers
-None. All S106 work is LIVE (Deploy to GitHub Pages SUCCESS for 9631995) + verified (vitest 1664/1664, tsc 0, MCV exit 0, runtime boot-smoke clean). The push-triggered E2E (2-browser, non-gating; S106 doesn't touch the net/fog contract) — confirm green next boot via `gh run list --workflow="E2E (2-browser harness)"`.
+None. All S107 work verified (tsc 0, vitest 1684/1684, MCV exit 0 / 14 assertions, build clean, bundle 597.1/750) and LIVE (P1 deploy SUCCESS = anti-coast decay live; P2 deploy finishing — test/doc-only, identical bundle). E2E (2-browser, non-gating) — S107 touches no net/fog contract.
+
+## Owner-gated carry-forwards (DO NOT start without owner go)
+- **Anti-coast structure-loss CLAWBACK** (own PDR): severing a connector / killing a spawner DOCKS banked score. Overturns the S76 "banked-safe" invariant → floor-at-0, host-only, serialized, replay tests. The harsher alternative to the leader-decay lever shipped this session — owner picks if/when.
+- **Worker-sim cutover remainder** (see `WORKER_SIM_FOUNDATION.md` for the sequenced plan): S107 P2 proved the sim is replay-deterministic at the stepPhysics level (worker-SAFE within a browser) + shipped the hashWorldState cross-check oracle. Next phases (each own PDR): (a) runHostTick extraction — FIRST untangle the `state/godlyOrchestration.ts → render/*` coupling; (b) snapshot pooling/delta-encode — MEASURE ROI first (add the cost probe); (c) collision grid 64→8; (d) `?worker=1` flag-gated cutover.
 
 ## Pending Backlog
-(BACKLOG.md uses TIER structure, no `- [ ]` checkboxes — see the FULL PRIORITY BACKLOG section above for the complete consolidated list.)
+(BACKLOG.md is TIER-structured — no `- [ ]` checkboxes. Batches A/B/C above are the organized plan. Tier-1 = Batch B; Tier-3 = Batch C.)
 
 ## Recent Reflexion (last 2 sessions)
-See .claude/reflexion_log.md top 2 blocks (S106 + S105). S106: balance anchors bump in lockstep or the invariant test catches you · match the shape not the color (rainbow teeth) · a screen-wide melee needs a reach VFX · a correct reducer can still be an invisible bug (display layer) · a procedural rig replaces a bitmap by keeping every pure helper + porting the watcher verbatim. S105: the randomness bug was a fixed seed not a bad picker · reveal the recipe not the reward · profile before optimizing the host gap · not broken just quiet (gnaw).
+See .claude/reflexion_log.md top 2 blocks (S107 + S106). S107: a flaky perf gate must be HARDENED (p95+canary) not tolerated · dead-asset cleanup must trace the WHOLE import graph (the module was test-only, kept for a wire-determinism test) · fix the MECHANISM not the distance + derive protective state from existing state (no new wire field) · proportional rubber-band beats flat AND the existing win tests pin the rate (solo-exempt by default saved most of them) · the honest milestone increment is the verifiable foundation (lock + audit + plan), not a risky half-cutover. META: don't use `agentType:'Explore'` for deliberation — it downgrades to Haiku (ALWAYS-OPUS); PRIME-AUDIT the scope.
