@@ -274,6 +274,23 @@ describe('applyDropSpark', () => {
     expect(spark.prevPos).toEqual({ x: 200, y: 300 }); // velocity killed on drop
     expect(world.players.get(asPlayerId(0))!.kind).toBe('Idle');
   });
+
+  it('S109 P1 — re-stamps createdTick = world.tick on drop (fresh TTL window after a long carry)', () => {
+    // Without this, a spark carried longer than FREE_SPARK_TTL_TICKS would be reaped on the
+    // very next physics tick after release ("my piece vanished the instant I let go"). Council C1.
+    const world = makeWorld(1);
+    world.tick = 5000; // well past the 600-tick TTL
+    const spark = makeTestSpark(11); // createdTick: 0 (stale by 5000 ticks)
+    spark.state = { kind: 'Carried', carrierId: asPlayerId(0) };
+    world.freeSparks.set(spark.id, spark);
+    const p0 = world.players.get(asPlayerId(0))!;
+    world.players.set(asPlayerId(0), { ...p0, kind: 'Carrying', carriedSparkId: spark.id } as CarryingPlayer);
+
+    applyDropSpark(world, { type: 'DROP_SPARK', playerId: asPlayerId(0), pos: { x: 10, y: 10 } });
+
+    expect(spark.state).toEqual({ kind: 'Free' });
+    expect(spark.createdTick).toBe(5000); // fresh window, not the original 0
+  });
 });
 
 describe('applyTickEnergy', () => {

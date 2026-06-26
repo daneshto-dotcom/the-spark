@@ -28,7 +28,13 @@ export interface Spark {
   pos: Vec2;
   prevPos: Vec2;
   readonly radius: number;
-  readonly createdTick: number;
+  /**
+   * Tick the spark entered the Free pool. Drives both the count-cap eviction order
+   * (oldest-first) and the S109 P1 10s TTL reap. MUTABLE: applyDropSpark re-stamps it
+   * to world.tick so a spark dropped after a long carry gets a fresh 10s window instead
+   * of being reaped on the very next tick.
+   */
+  createdTick: number;
   state: SparkState;
   /**
    * S77 P3 — "poopy" debuff: tick until which a seagull-pooped spark moves at half speed

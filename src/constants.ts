@@ -313,6 +313,15 @@ export const SPARK_INITIAL_VELOCITY_MAX = 20;
 // sparks never despawn (they belong to the player FSM).
 export const FREE_SPARK_SOFT_CAP = 50;
 
+// S109 P1 — un-claimed shapes self-despawn after 10s so the spawn zone never
+// piles into chaos (owner playtest #6). This is a TTL reap that runs BEFORE the
+// count-cap each tick (physicsLoop.reapExpiredFreeSparks). Only Free sparks are
+// reaped — Carried/Bonded never expire (a spark dropped after a long carry gets a
+// FRESH window: applyDropSpark re-stamps createdTick = world.tick). NOTE: there is
+// deliberately NO velocity clamp — the fast-fling (grab a shape, scatter the pile
+// to deny opponents) is an intended owner TACTIC; the TTL alone bounds pile growth.
+export const FREE_SPARK_TTL_TICKS = 10 * PHYSICS_HZ; // 600 ticks = 10s
+
 // === AttractDrag follow (S10 P1) ===
 // Replaces S5's impulse-on-prevPos model (which produced a damped pendulum
 // under verlet damping 0.998 → user-reported "stupid magnet slowly swinging

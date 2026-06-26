@@ -225,6 +225,11 @@ export function applyDropSpark(world: World, action: DropSparkAction): World {
   spark.pos.y = action.pos.y;
   spark.prevPos.x = action.pos.x;
   spark.prevPos.y = action.pos.y;
+  // S109 P1 — re-stamp createdTick so a spark that was Carried longer than the 10s TTL gets a
+  // FRESH window on drop instead of being reaped on the next tick (Council C1: otherwise "my
+  // piece vanished the instant I let go"). world.tick is deterministic + host-authoritative →
+  // replay-safe. Also nudges the count-cap eviction order: a just-dropped piece is now "young".
+  spark.createdTick = world.tick;
   world.players.set(player.id, fsmDrop(player));
   return world;
 }

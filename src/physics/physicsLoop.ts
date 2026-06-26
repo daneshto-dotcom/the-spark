@@ -23,6 +23,7 @@
 import {
   BOMB_MAX_ACTIVE,
   FREE_SPARK_SOFT_CAP,
+  FREE_SPARK_TTL_TICKS,
   PHYSICS_HZ,
   PHYSICS_SUBSTEPS,
   POTATO_MAX_ACTIVE,
@@ -96,6 +97,9 @@ export function stepPhysics(
     }
   }
 
+  // S109 P1 — TTL reap runs BEFORE the count-cap so a 10s-old Free spark always despawns
+  // regardless of how many are live (the cap only fires past FREE_SPARK_SOFT_CAP).
+  reapExpiredFreeSparks(world);
   enforceFreeSparkCap(world);
 
   for (const player of world.players.values()) {
@@ -174,6 +178,27 @@ export function stepPhysics(
 
 export function freeSparkArray(map: ReadonlyMap<SparkId, Spark>): Spark[] {
   return Array.from(map.values());
+}
+
+/**
+ * S109 P1 — despawn any Free spark that has lingered un-claimed for FREE_SPARK_TTL_TICKS
+ * (10s). Keeps the spawn zone from piling into chaos (owner playtest #6). Only Free sparks
+ * expire — Carried/Bonded are skipped here AND applyDespawnSpark no-ops on non-Free, so a
+ * carry/bond can never be yanked mid-flight. Candidates are collected before dispatching so
+ * the freeSparks map isn't mutated mid-iteration. Deterministic: pure tick math, host-
+ * authoritative, no wall-clock / RNG → replay-safe. NO velocity clamp (owner tactic — see
+ * FREE_SPARK_TTL_TICKS comment).
+ */
+export function reapExpiredFreeSparks(world: Parameters<typeof dispatch>[0]): void {
+  const expired: SparkId[] = [];
+  for (const s of world.freeSparks.values()) {
+    if (s.state.kind === 'Free' && world.tick - s.createdTick >= FREE_SPARK_TTL_TICKS) {
+      expired.push(s.id);
+    }
+  }
+  for (const id of expired) {
+    dispatch(world, { type: 'DESPAWN_SPARK', sparkId: id });
+  }
 }
 
 function enforceFreeSparkCap(world: Parameters<typeof dispatch>[0]): void {
