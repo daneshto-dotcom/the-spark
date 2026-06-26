@@ -1,132 +1,86 @@
 {
   "tool_calls_session_total": 0,
-  "session_id": "S106",
+  "session_id": "S107",
   "session_kind": "execution",
-  "session_start": "2026-06-25T21:20:00.000Z",
-  "session_note": "S106 - Owner full-batch 'make the whole game better, HIGHEST QUALITY'. P1 +25% match length (PHASE_1_WIN_SCORE 630->786, SCORE_TIER_STEP 210->262 lockstep). P2 chewer teeth -> funny triangular fangs (rainbow style, kept ORIGINAL pencil ivory+graphite). P3 HELGA whole-screen range (PRINCESS_SLAP_RANGE -> canvas diagonal) + reach VFX (graphite slap-shockwave hand->target, render-only). P4 NONET point-loss VISIBLE (progress bar -> local player's OWN score + leader ghost-tick + drop-flash; the owner saw 'almost full' because the bar shows the LEADER) + harsher (NONET_LOSER_MULT 0.5->0.4). P5 Voltkin procedural Graphics rig replacing the bitmap Sprite ('looping gif + square') - new voltkinPose.ts + creatureRenderer rewrite, keep voltkin-zap.png (Codex placeholder). Owner: 'full session batch approved' = unlock_source:user. FULL tier (Voltkin + multi-priority). Scoped via wf_3c8db072 (5 investigators + adversarial verify, both verdicts HOLD). PDR: .claude/plans/2026-06-25_PDR_Session_106_Polish_Balance_Voltkin.md",
+  "session_start": "2026-06-26T12:40:00.000Z",
+  "session_note": "S107 - BATCH A: the four S105/S106 carry-forwards, owner-mandated as one thorough autonomous session ('run all the carry forward items ... Batch A ... I pre-approve full session priority batch pdr and autonomous run'). Next = Batch B, then Batch C. EXEC ORDER (bank safe first): P0 test-flake hygiene -> P3 Voltkin cleanup -> P4 bot-pentagram fix -> P1 leader-decay (PROPORTIONAL, not flat; +minimal visible cue) -> P2 worker-sim FOUNDATION (replay test + state hash + cost probe; cutover/pooling/grid/audit carried forward with documented blockers). Structure-loss CLAWBACK held as separate future owner-gated PDR. FULL tier. PDR: .claude/plans/2026-06-26_PDR_Session_107_Batch_A.md",
+  "phase": "EXECUTING",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
   "tier": "Full",
   "council_rounds": 1,
-  "council_result": "S106 scoped via background workflow wf_3c8db072 (profile->propose 5 items, adversarial-verify the NONET-display + Voltkin-render findings). Both verdicts HOLD high-confidence. NONET correction: the halving reducer is correct+tested; the main progress bar reads world.scoreProgress=max(scoreByPlayer)=the LEADER, so a non-leader's halving is invisible THERE (the per-player leaderboard + a 'descending aww' audio cue DO surface it) -> fix = bind the primary bar to the local player's own score. Voltkin confirmed: creatureRenderer.ts:421 new Sprite + per-tick texture swap = the 'looping gif'; voltkin-zap.png is the Codex characterSprite placeholder for 4 recipes + sync.test imports currentFrameKey -> keep them, don't naive-delete. Determinism guardrails: P1 single host-side threshold (replay-safe, no fixture pins 630); P3 range is sim-config (integer, pure fn of tick); P2/P4-display/P5 render-only (no world mutation, pose=f(synced state)).",
+  "scoping_workflow": "wf_d37331f2-37a",
+  "council_result": "Batch A scoped + adversarially verified via wf_d37331f2-37a (4 deep investigators; worker-sim 3-lens refute panel DETERMINISM/FEASIBILITY/SCOPE-REALISM). 10 agents, ~600K tok, 280 tools. All 4 verdicts SHIP-WITH-FIXES, high conf. MODEL DEVIATION (logged): investigators ran on Haiku (agentType:'Explore' downgrade) -> Opus orchestrator PRIME-AUDIT performed. PRIME-AUDIT deltas: (1) REFUTED worker-safety claim - state/godlyOrchestration.ts imports render/* (cutsceneOverlay/audioManager/codexStore) so the sim graph is NOT cleanly worker-safe -> runHostTick extraction harder, ?worker=1 cutover stays carry-forward with documented blocker. (2) REFUTED 1664/1664 - actual 1663/1664 (stress.test.ts timing flake 51>50ms) -> added P0 hygiene fix. (3) REFINED leader-decay: PROPORTIONAL (bleed=rate*(score-threshold)) over the scope's flat rate (no hard WIN-cap, self-limiting) + minimal visible cue per S106 invisible-bug lesson. (4) CONFIRMED via own reads: tickScoring host-only slot, Voltkin asset map + zap.png referencers + anim-test disk-read dep, botSpawnerSeed PENTAGRAM_REACH+240 pure geometry. P2 ships the SAFE foundation (stepPhysics replay test + state hash + snapshot-cost probe); refactor/cutover/pooling/grid/transcendental-audit carried forward honestly.",
   "signals_fired": [],
   "priorities": [
     {
-      "id": "P1",
-      "label": "S106 P1 - +25% match length: PHASE_1_WIN_SCORE 630->786, SCORE_TIER_STEP 210->262 (lockstep, exact thirds; HUNTER auto-scales to 589).",
-      "status": "completed",
-      "phase": "DONE",
+      "id": "P0",
+      "label": "S107 P0 - Harden stress.test.ts perf-timing flake (51>50ms machine-variant). Restore a trustworthy green baseline before changing sim code.",
+      "status": "in_progress",
+      "phase": "DO",
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "checkpoint_commit": "5482446",
-      "check_completed": true,
-      "check_method": "S106 P1 DONE (5482446). tsc 0; full vitest 1653/1653 (WIN now fires at score=786 per gameState.test log; scoring/session10/13/15 tier+win tests green; exact-thirds invariant 786=3x262 holds). PHASE_1_WIN_SCORE 630->786, SCORE_TIER_STEP 210->262 lockstep. No literal pins (symbolic imports); HUNTER auto-scales to 589. Replay-safe single host-side threshold (no fixture pins a 630-win). Runtime match-length is owner playtest.",
-      "verification": [
-        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "?? 786;"},
-        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "SCORE_TIER_STEP = 262"}
-      ],
-      "objective": "A match lasts ~25% longer (more points to win) so players can build + compete.",
-      "scope": "src/constants.ts (PHASE_1_WIN_SCORE, SCORE_TIER_STEP, comment refresh).",
-      "testing": "tsc 0; full vitest green (no literal pins; tier-pulse loops under 120k caps; exact-thirds invariant green)."
-    },
-    {
-      "id": "P2",
-      "label": "S106 P2 - Chewer teeth = funny downward triangular fangs (rainbow style) kept ORIGINAL pencil ivory+graphite.",
-      "status": "completed",
-      "phase": "DONE",
-      "tier": "Micro",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "checkpoint_commit": "5d7c469",
-      "check_completed": true,
-      "check_method": "S106 P2 DONE (5d7c469). tsc 0; chewerRenderer.test 10/10 (mock gained g.poly + the teeth-count assertion now counts poly); entry under cap. Replaced the 2 stiff g.rect incisors with 2 downward-pointing g.poly triangular fangs (rainbow's funny shape) kept in the chewer's ORIGINAL pencil style (ivory TOOTH_COLOR + graphite, NOT rainbow's flat white) with a comedic gap + slight crooked asymmetry. Render-only, no determinism impact. Runtime look is owner playtest.",
-      "verification": [
-        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/chewerRenderer.ts", "needle": "pointed buck-FANGS"},
-        {"type": "grep_count", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/chewerRenderer.ts", "pattern": "g\\.poly\\(", "op": ">=", "value": 1}
-      ],
-      "objective": "The chewer's two front teeth look funny like the rainbow's tooth.",
-      "scope": "src/render/chewerRenderer.ts (drawChewer tooth-loop: 2 g.poly fangs, comedic gap + slight asymmetry, ivory TOOTH_COLOR + graphite outline).",
-      "testing": "render-only; tsc 0; visual (owner)."
+      "check_completed": false
     },
     {
       "id": "P3",
-      "label": "S106 P3 - HELGA whole-screen range (PRINCESS_SLAP_RANGE -> Math.ceil(hypot(CANVAS_W,CANVAS_H))=2203) + reach VFX (graphite slap-shockwave hand->lastStrikePos, render-only).",
-      "status": "completed",
-      "phase": "DONE",
-      "tier": "Standard",
+      "label": "S107 P3 - Voltkin dead-asset cleanup: DELETE 8 PNGs + anim.json/atlas.png + 3 build scripts (import-graph-verified zero refs); KEEP voltkin-zap.png + audio + intro.mp4 + matte-intro.py + assets-source + voltkinFrames.ts/tests. MUST-FIX: mock voltkin-anim.json read in voltkinFrames.anim.test.ts.",
+      "status": "pending",
+      "phase": "PLAN",
+      "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "checkpoint_commit": "b0cfb25",
-      "check_completed": true,
-      "check_method": "S106 P3 DONE (b0cfb25). tsc 0; full vitest 1653/1653 (defender 7 + replay 21 + helgaPose 7 green); entry 598.7/750. PRINCESS_SLAP_RANGE 160 -> Math.ceil(hypot(CANVAS_W,CANVAS_H))=2203 (screen diagonal, integer for determinism). Targeting already picks nearest enemy -> screen-wide range = hunts ANY enemy chewer. princessRenderer.drawSlapReach draws a graphite slap-shockwave streak hand->lastStrikePos during FIRE (no-op when adjacent <24px so close slap unchanged); original CtCD style, NOT lightning. Render-only VFX. Replay byte-identical (fresh-run gate green); out-of-range IDLE test moved to (2400,2400) (>diagonal). Runtime look is owner playtest.",
-      "verification": [
-        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "PRINCESS_SLAP_RANGE = Math.ceil(Math.hypot"},
-        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/princessRenderer.ts", "needle": "drawSlapReach"}
-      ],
-      "objective": "HELGA slaps any enemy chewer anywhere on screen, and a far slap reads visually.",
-      "scope": "src/constants.ts (PRINCESS_SLAP_RANGE), src/render/princessRenderer.ts (reach VFX), src/state/defenders/defenderLifecycle.test.ts (move out-of-range chewer beyond diagonal), src/state/save.replay.test.ts (comment).",
-      "testing": "tsc 0; full vitest green (fix the IDLE-out-of-range test); determinism-safe (integer sim config)."
+      "check_completed": false
     },
     {
       "id": "P4",
-      "label": "S106 P4 - NONET point-loss VISIBLE (progress bar -> local OWN score + leader ghost-tick + drop-flash) + harsher (NONET_LOSER_MULT 0.5->0.4).",
-      "status": "completed",
-      "phase": "DONE",
+      "label": "S107 P4 - Bot self-breaks own pentagram: robust fix = mark 5 seeded ring nodes no-auto-bond (filter on existing spawner-owned property if possible, else additive-optional flag); fallback relocate+340 with invariant comment. Replay HARD gate + new degree-preserved test.",
+      "status": "pending",
+      "phase": "PLAN",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "checkpoint_commit": "cc4a004",
-      "check_completed": true,
-      "check_method": "S106 P4 DONE (cc4a004). tsc 0; full vitest 1657/1657 (+4 ui.progress; sudoku 19 updated to ×0.4); entry 599.2/750. ROOT (verdict-confirmed): the halving reducer is correct; the main bar read world.scoreProgress=max(scoreByPlayer)=the LEADER, hiding the owner's own halving (the friend's ×2 kept the shared bar near-full). FIX: pure progressBarFractions(world) -> {own,leader}; drawProgress now tracks the LOCAL player's own score (the bar drops on a NONET loss) + a gold leader ghost-tick + a red drop-flash; WIN gate + HUNTER still read scoreProgress(max). HARSHER: NONET_LOSER_MULT 0.5->0.4 (keep 40%). ui.progress.test pins own-tracks-localPlayerId + own-DROPS-on-NONET-loss. Render display is owner playtest; the scoring math is unit-verified.",
-      "verification": [
-        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts", "needle": "export function progressBarFractions"},
-        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/sudokuEvent.ts", "needle": "NONET_LOSER_MULT = 0.4"}
-      ],
-      "objective": "Losing a NONET visibly cuts YOUR points (was hidden by the leader-max bar) and hurts more.",
-      "scope": "src/render/ui.ts (drawProgress: own-score bar + leader ghost-tick + drop-flash), src/state/sudokuEvent.ts (NONET_LOSER_MULT 0.5->0.4), sudokuEvent.test.ts (loser expectations) + a display regression test.",
-      "testing": "tsc 0; full vitest green; WIN gate + HUNTER stay on scoreProgress(max)."
+      "check_completed": false
     },
     {
-      "id": "P5",
-      "label": "S106 P5 - Voltkin procedural Graphics rig replacing the bitmap Sprite ('looping gif + visible square'): new voltkinPose.ts (pure pose fn) + creatureRenderer rewrite (one Graphics + drawVoltkin), PORT velocity-estimator + facing + S103#8 lightningCloud death-watcher + zap-burst verbatim; KEEP voltkin-zap.png (Codex placeholder).",
-      "status": "completed",
-      "phase": "DONE",
+      "id": "P1",
+      "label": "S107 P1 - Anti-coast LEADER SCORE-DECAY (PROPORTIONAL: bleed=rate*(score-threshold), floor=threshold, host-only in tickScoring, solo-exempt) + minimal visible 'coasting' cue. Constants tunable. Replay determinism + WIN/HUNTER-unaffected tests.",
+      "status": "pending",
+      "phase": "PLAN",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false
+    },
+    {
+      "id": "P2",
+      "label": "S107 P2 - Worker-sim FOUNDATION increment: SHIP stepPhysics replay-determinism test (runStepPhysicsStress) + deterministic state hash (additive) + dev snapshot-cost probe. CARRY-FORWARD (documented blockers): runHostTick extraction (render-coupled via godlyOrchestration), pooling/delta-encode (measure first), collision grid 64->8, transcendental/accumulation-order audit, ?worker=1 cutover.",
+      "status": "pending",
+      "phase": "PLAN",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "checkpoint_commit": "2376093",
-      "check_completed": true,
-      "check_method": "S106 P5 DONE (2376093). tsc 0; voltkinPose 7/7 + creatureRenderer 55/55 (all pure-helper + computeSpriteDelta tests preserved — kept every export verbatim); full vitest 1664/1664; entry 596.5/750 (DROPPED — atlas/sprite loaders gone). Runtime boot-smoke: injected Voltkins in all 4 FSM states (incl ATTACKING/FIRE) via the __SPARK__ seam, rendered across frames with ZERO console errors, page healthy. Rewrote the bitmap Sprite/atlas path (the 'looping gif + visible square') to an ORIGINAL procedural Pixi.Graphics electric being: new pure voltkinPose.ts (boltCharge peaks at FIRE, unit-pinned) + drawVoltkin (glow halo, crackle mane, jagged lightning-spindle body, bolt-arms scaling with armSpread, bolt-legs, glowing head). PORTED VERBATIM: S103#8 lightning-cloud KILL death-watcher + zap-burst, velocity-estimator facing, ALL pure transform helpers. arcFlash FIRE emit unchanged -> replay byte-equivalence intact (render-only, pose=f(synced state)). KEPT voltkin-zap.png + voltkinFrames.ts (Codex placeholder + 8 sim/test importers — verified, not deleted). Visual quality of the electric rig is owner playtest (fully tunable, git-reversible).",
-      "verification": [
-        {"type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/voltkinPose.ts", "needle": "export function voltkinPose"},
-        {"type": "file_lacks", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/creatureRenderer.ts", "needle": "new Sprite("}
-      ],
-      "objective": "Voltkin is fully integrated, drawn with vector Graphics (no bitmap, no visible square), keyed on synced FSM state.",
-      "scope": "src/render/voltkinPose.ts (NEW), src/render/voltkinPose.test.ts (NEW), src/render/creatureRenderer.ts (REWRITE draw path), src/render/creatureRenderer.test.ts (UPDATE). Do NOT delete voltkin-zap.png / currentFrameKey without import-graph grep.",
-      "testing": "tsc 0; full vitest green; voltkinPose.test (boltCharge peaks at FIRE=30); arcFlash emit unchanged -> replay byte-equivalence intact; boot-smoke; owner playtest."
+      "check_completed": false
     }
   ],
   "carry_forward_priorities": [
-    "ANTI-COAST point-loss (owner to pick, own PDR): (2) leader score-decay once past 75%; (3) lose-a-structure-docks-points CLAWBACK (most competitive, but overturns the S76 'banked score is safe' invariant -> floor at 0, host-only, serialized, replay tests).",
-    "SCALABLE-SMOOTHNESS MILESTONE (from S105): worker-sim cutover (host render-only == client; worker boundary == future dedicated-server) + snapshot pooling/delta-encode (Milestone B) + runHostTick extraction + STATEHASH/transcendental audit + collision 64->8 grid-rebuild (Milestone C).",
-    "Voltkin asset cleanup: after the rig ships + an import-graph grep, delete the dead atlas/legacy PNGs/build scripts (keep voltkin-zap.png until the 4 Codex placeholders get their own art).",
-    "Leader crown + enhance BOND_COMMIT flair; TD connector visible-damage (Bond.hp); ghost build-hint; bot-self-break polish."
+    "ANTI-COAST structure-loss CLAWBACK (owner-gated, own PDR): severing a connector / killing a spawner DOCKS banked score. Overturns the S76 'banked score is safe' invariant -> floor at 0, host-only, serialized, replay tests. Held out of Batch A deliberately.",
+    "WORKER-SIM remainder (P2 carry, documented blockers): runHostTick extraction is ~410-560 LOC AND render-coupled (state/godlyOrchestration.ts imports render/*) - untangle sim-mutation vs render-side-effects first; snapshot pooling/delta-encode (the real O(world)/100ms fix - MEASURE ROI via the new probe first); collision grid 64->8 (after replay test locks behavior + 8-bit overflow assert); transcendental + float-accumulation-order audit (resolveCollisions/solveBonds; host vs worker V8 Math equivalence UNVERIFIED = the cutover blocker); ?worker=1 flag-gated cutover (blocked on all prior).",
+    "Leader-decay HUD: richer cue + playtest-driven bleed-rate/threshold tuning (P1 ships conservative + a minimal cue).",
+    "Batch B (next session): Tier-1 G1b MOTION / G2 family traits (needs LOCKED 6 amend) / G3b codex silhouettes / G4 leader-crown + BOND_COMMIT.",
+    "Batch C (session after): host-migration D1-D4 + Tier-3 infra/PARKED."
   ],
-  "reflexion_entries_to_archive": [
-    "P1 #balance-anchors-bump-in-lockstep-or-the-invariant-test-catches-you: +25% match length = PHASE_1_WIN_SCORE 630->786, but SCORE_TIER_STEP (210) is NOT auto-derived — it's a sibling hardcoded const that MUST move in lockstep (->262) or scoring.test's exact-thirds invariant (786=3×262) fails. HUNTER_TRIGGER_SCORE IS auto-derived (floor(WIN×0.75)) so it rescaled free. Tests pin the SYMBOL not the literal, so they auto-track — except a fixed-iteration accrual loop must still reach the now-larger target (the post-S91 120k-tick cap had headroom). Pick a win value divisible by 3 to keep the tier thirds clean.",
-    "P2 #match-the-shape-not-the-color (rainbow teeth): the chewer teeth 'looked bad' because they were g.rect BOXES while the rainbow's funny tooth is a downward g.poly TRIANGLE — funny = pointed, not the fill color. Restyled to 2 splayed triangular fangs but KEPT the chewer's ivory+graphite pencil palette (NOT the rainbow's flat white) per the no-franchise/original-style memory. TRAP: the test's GraphicsMock stubbed rect/circle/etc but not poly -> 'g.poly is not a function' on 3 tests; add poly to the mock + flip the teeth-count assertion rect->poly. When you swap a Pixi draw primitive, the render-test mock + its draw-call-count assertions move with it.",
-    "P3 #a-screen-wide-melee-needs-a-reach-VFX-or-it-flails: giving HELGA whole-screen range was a 1-line sim-config change (PRINCESS_SLAP_RANGE -> ceil(hypot(CANVAS_W,CANVAS_H)), integer for determinism; targeting already picks nearest enemy so no targeting change) — but a melee slap across the map renders as a hand flailing in empty air while a star-burst pops on a distant victim. Added a render-only graphite slap-shockwave streak (hand->lastStrikePos, no-op when adjacent) mirroring the turret's drawBeam. The range test 'NO enemy in range stays IDLE' had its chewer at (900,900)=1131px which is now IN a 2203 range -> moved it beyond the diagonal. Range is sim -> integer + replay (fresh-run gate stays byte-identical).",
-    "P4 #a-correct-reducer-can-still-be-an-invisible-bug (the display layer): the owner's 'losing NONET didn't cut my points in half' was NOT a reducer bug (winner ×2/loser ÷2 is correct + tested) — the HUD progress bar read world.scoreProgress=MAX-of-all-players=the LEADER, so when the friend's ×2 kept the shared bar near-full the owner's own ÷2 was invisible ON THAT BAR (the leaderboard + audio did surface it). Fix = bind the primary bar to the LOCAL player's own score (pure progressBarFractions helper, unit-pinned) + a leader ghost-tick + a red drop-flash; WIN gate + HUNTER still read max. Also harsher (loser 0.5->0.4). LESSON: when a 'broken' value is provably-correct in the reducer + tests, suspect the DISPLAY surface (which aggregate is it actually showing?).",
-    "P5 #a-procedural-rig-replaces-a-bitmap-by-keeping-every-pure-helper-+-porting-the-watcher-verbatim: killing the Voltkin 'looping gif + square' (a Pixi.Sprite with per-tick texture swaps) = a full creatureRenderer rewrite to a Graphics rig + a new pure voltkinPose (mirrors helgaPose; boltCharge peaks at FIRE). The rewrite stayed SAFE by (a) keeping EVERY exported pure helper (computeCreatureScale/Tint/Alpha/Rotation, computeFacing, computeSpriteDelta, lerpHex) verbatim so their 55 tests passed untouched, (b) porting the S103#8 lightning-cloud death-watcher + zap-burst + velocity-estimator facing VERBATIM, (c) NOT deleting voltkin-zap.png/voltkinFrames.ts (Codex placeholder + 8 sim/test importers — verify the import graph BEFORE deleting an asset/module). arcFlash FIRE emit unchanged -> replay intact. Runtime-verify a can't-screenshot WebGL rig by INJECTING entities via the dev seam + checking console-error-free across frames (the rAF-await times out — that's the game loop saturating rAF, not a fault).",
-    "META #scope-the-batch-with-an-adversarial-workflow-then-bank-trivial-wins-first: a 5-item batch (teeth/length/point-loss/HELGA/Voltkin) scoped via a profile->investigate->adversarial-verify workflow caught the NONET framing correction (the leaderboard+audio DO surface the halving — 'invisible' was only true for the shared bar) before I built on a wrong premise. Executing P1->P5 banked the trivial/micro wins (length, teeth) + deployed them mid-session so the owner could playtest while the large Voltkin rewrite proceeded. Held the riskiest economy lever (structure-loss clawback, overturns 'banked score is safe') as a flagged owner decision rather than rushing it into a big batch."
-  ],
-  "real_context_tokens_at_close": 634134,
-  "real_context_pct_at_close": 63.41
+  "budget_total": 1000000,
+  "totals": {
+    "turns": 0,
+    "budget_remaining": 1000000,
+    "budget_status": "GREEN"
+  }
 }
