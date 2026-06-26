@@ -22,6 +22,7 @@ import {
   DEFENDER_FIRE_HOLD_TICKS,
   DEFENDER_REACQUIRE_TICKS,
   DEFENDER_RECOVER_TICKS,
+  POOP_SLOW_MULTIPLIER,
 } from '../../constants.ts';
 import {
   asDefenderId,
@@ -135,6 +136,17 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
     return world;
   }
 
+  // S109 P3 — a pooped HELGA (princess) does NOT stop like the turret — she just slaps SLOWER while
+  // her anchor is fouled (#1 "same with helga"). Stretch the windup + the recover→IDLE reschedule by
+  // 1/POOP_SLOW_MULTIPLIER (=2×). Pure fn of the CURRENT fouled state each tick → deterministic. For a
+  // turret (returned above) or an un-fouled defender, stretch === 1 so windupTicks/fireInterval equal
+  // the config integers EXACTLY (Math.round(n*1)===n) → byte-identical, no replay drift.
+  const slapStretch = d.kind === 'princess' && world.fouledPrimitives.has(d.anchorPrimitiveId)
+    ? 1 / POOP_SLOW_MULTIPLIER
+    : 1;
+  const windupTicks = Math.round(config.windupTicks * slapStretch);
+  const fireInterval = Math.round(config.fireIntervalTicks * slapStretch);
+
   switch (d.state) {
     case 'IDLE': {
       if (world.tick >= d.nextFireTick) {
@@ -162,7 +174,7 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
         d.nextFireTick = world.tick + DEFENDER_REACQUIRE_TICKS;
         break;
       }
-      if (d.ticksInState >= config.windupTicks) {
+      if (d.ticksInState >= windupTicks) {
         // FIRE: the strike lands NOW. Capture the endpoint BEFORE the victim can vanish, then deal
         // the unified single-target hit. The FIRE state (+ lastStrikePos) is what the client renders.
         const victim = d.targetCreatureId !== null ? world.creatures.get(d.targetCreatureId) : undefined;
@@ -188,7 +200,7 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
         d.ticksInState = 0;
         d.targetCreatureId = null;
         d.lastStrikePos = null; // stop riding the wire once the strike VFX window closed
-        d.nextFireTick = world.tick + config.fireIntervalTicks;
+        d.nextFireTick = world.tick + fireInterval;
       }
       break;
     }

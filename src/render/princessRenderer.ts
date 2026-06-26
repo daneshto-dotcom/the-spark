@@ -74,11 +74,12 @@ export class PrincessRenderer {
       if (firing && prev !== 'FIRE') void playSlapSFX({ x: d.pos.x, y: d.pos.y });
       this.lastState.set(d.id, d.state);
 
-      const slapHand = this.drawHelga(g, d.pos.x, d.pos.y, face, pose);
+      this.drawHelga(g, d.pos.x, d.pos.y, face, pose);
       if (firing && d.lastStrikePos !== null) {
-        // S106 P3 — a slap-shockwave streak connects HELGA's hand to a FAR victim so a whole-screen
-        // slap reads (no-op when the enemy is adjacent → the close melee slap is visually unchanged).
-        this.drawSlapReach(g, slapHand.x, slapHand.y, d.lastStrikePos.x, d.lastStrikePos.y, d.ticksInState, nowSec);
+        // S109 P3 — the screen-spanning slap-shockwave streak (drawSlapReach) is REMOVED: with the
+        // range cut to a local 380px (no more whole-screen reach) it only ever read as a cross-map
+        // laser, which is the owner's actual complaint (#3). Just the close-range impact star-burst
+        // at the (now always-nearby) strike point remains.
         this.drawImpact(g, d.lastStrikePos.x, d.lastStrikePos.y, d.ticksInState, nowSec);
       }
     }
@@ -89,7 +90,7 @@ export class PrincessRenderer {
   }
 
   /** Draw the full puppet. (lx,ly)=feet anchor; `face` mirrors X; `pose` supplies the per-part angles. */
-  private drawHelga(g: Graphics, lx: number, ly: number, face: 1 | -1, pose: HelgaPose): { x: number; y: number } {
+  private drawHelga(g: Graphics, lx: number, ly: number, face: 1 | -1, pose: HelgaPose): void {
     const X = (x: number) => lx + face * x; // local-x → world-x with facing
     const Y = (y: number) => ly + y + pose.bodyBobY;
     const O = { color: OUTLINE, width: 3.2, alpha: 1 } as const;
@@ -157,10 +158,6 @@ export class PrincessRenderer {
     // mouth: open shout when slapping, small smirk otherwise
     if (pose.slapReach > 1) g.circle(hx + face * 1, hy + 6, 2.6).fill({ color: 0x7a2b2b });
     else g.moveTo(hx - face * 3, hy + 6).quadraticCurveTo(hx + face * 1, hy + 8, hx + face * 4, hy + 6).stroke({ color: OUTLINE, width: 1.6 });
-
-    // S106 P3 — return the slap-hand world pos so sync() can draw a screen-spanning "slap-shockwave"
-    // streak from the hand to a far strike point (HELGA's range is now whole-screen).
-    return sHand;
   }
 
   /** A quick cartoon star-burst at the slap point (cosmetic flicker via wall-clock). */
@@ -175,36 +172,6 @@ export class PrincessRenderer {
       const a = (i / 6) * Math.PI * 2 + spin;
       const x1 = x + Math.cos(a) * r, y1 = y + Math.sin(a) * r;
       g.moveTo(x, y).lineTo(x1, y1).stroke({ color: IMPACT, width: 2.5 * alpha + 0.5, alpha: 0.9 * alpha });
-    }
-  }
-
-  /**
-   * S106 P3 — a graphite "slap-shockwave" streak from HELGA's slap-hand to a far strike point, so a
-   * WHOLE-SCREEN slap reads as a flung crack across the map instead of a hand flailing in empty air.
-   * No-op for an adjacent enemy (len < 24 → close melee slap looks exactly as before). Mirrors the
-   * turret's drawBeam structure but in HELGA's original CtCD graphite style (NOT lightning — Voltkin
-   * owns lightning). Render-only: wall-clock jitter is cosmetic (the FIRE timing is tick-synced).
-   */
-  private drawSlapReach(g: Graphics, x0: number, y0: number, x1: number, y1: number, ticksInState: number, nowSec: number): void {
-    const t = Math.min(1, ticksInState / 8); // pops then fades over the first ~8 FIRE ticks
-    const alpha = 1 - t;
-    if (alpha <= 0) return;
-    const dx = x1 - x0, dy = y1 - y0;
-    const len = Math.hypot(dx, dy);
-    if (len < 24) return; // adjacent slap → no streak (close melee unchanged)
-    const nx = -dy / len, ny = dx / len; // unit normal for the bow + speed-lines
-    const bow = Math.min(64, len * 0.12) * (1 - t) + Math.sin(nowSec * 30) * 3; // bowed whip-crack, jittered
-    const mx = (x0 + x1) / 2 + nx * bow, my = (y0 + y1) / 2 + ny * bow;
-    // soft wide trail then a crisp bright core
-    g.moveTo(x0, y0).quadraticCurveTo(mx, my, x1, y1).stroke({ color: OUTLINE, width: 7 * alpha + 1, alpha: 0.26 * alpha });
-    g.moveTo(x0, y0).quadraticCurveTo(mx, my, x1, y1).stroke({ color: IMPACT, width: 3 * alpha + 0.6, alpha: 0.85 * alpha });
-    // two short speed-lines straddling the streak (motion)
-    for (let i = 1; i <= 2; i++) {
-      const f = i / 3;
-      const k = 1 - Math.abs(0.5 - f) * 2; // bow falloff toward the ends
-      const px = x0 + dx * f + nx * bow * k, py = y0 + dy * f + ny * bow * k;
-      g.moveTo(px - nx * 5, py - ny * 5).lineTo(px + nx * 5, py + ny * 5)
-        .stroke({ color: OUTLINE, width: 1.4, alpha: 0.4 * alpha });
     }
   }
 

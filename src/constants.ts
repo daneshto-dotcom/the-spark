@@ -908,12 +908,15 @@ export const TURRET_ATTACK_RANGE = 420; // long reach (it's a turret)
 // HELGA princess (#10) — fast melee-ish swatter; she only acts when an enemy creature is near.
 export const PRINCESS_SLAP_INTERVAL_TICKS = 90; // 1.5 s between slaps
 export const PRINCESS_WINDUP_TICKS = 14; // arm pulls back (a visible wind-up, not a twitch)
-// S106 — WHOLE-SCREEN range (owner: "increase Princess HELGA's range to the whole screen, she
-// looks for any enemy spawn and slaps them"). The canvas diagonal so any enemy creature on screen
-// is in reach; targeting already picks the nearest enemy, so she now hunts ANY enemy chewer. Integer
-// (Math.ceil) for determinism-safety on the sim path. A far slap is connected by the reach-VFX
-// shockwave in princessRenderer so it reads (the close melee slap is unchanged at short range).
-export const PRINCESS_SLAP_RANGE = Math.ceil(Math.hypot(CANVAS_WIDTH, CANVAS_HEIGHT)); // = 2203
+// S109 P3 — anti-cross-map-laser INTERIM (owner playtest #3: "she effectively lasers across the
+// map"). The S106 whole-screen diagonal (~2203) made HELGA hit any enemy anywhere — she read as a
+// map-wide laser, not a hub defender. Cut to a LOCAL-AREA range JUST under the turret's 420 so the
+// turret stays the long-reach unit and HELGA defends her own hub area (no more cross-map hits).
+// This is the safe interim; the full "walk to the target + slap on arrival" locomotion rework
+// (chase, not loop) is a dedicated session (Batch B). Range is the owner's playtest DIAL — left
+// un-pinned (NOT in constants.lock.test) precisely so the next playtest can tune it:
+// 380 = area defender; ~120 = near-melee (weaker).
+export const PRINCESS_SLAP_RANGE = 380;
 
 // === S82 P4(c) — mid-game peer-drop bench (6p hardening) ===
 // A seated peer absent from the transport for GRACE ticks stops ghosting: the host

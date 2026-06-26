@@ -83,7 +83,7 @@ describe('applyDefenderTick FSM', () => {
   it('acquires an in-range enemy creature, fires, and KILLS it (chewer dies in 1 via damageCreature)', () => {
     const w = setup();
     const anchor = addAnchor(w, 1, 100, 100);
-    addEnemyChewer(w, 50, 130, 100); // 30px — within PRINCESS_SLAP_RANGE (160)
+    addEnemyChewer(w, 50, 130, 100); // 30px — within PRINCESS_SLAP_RANGE (380 after S109 P3)
     applyRegisterDefender(w, { type: 'REGISTER_DEFENDER', defenderKind: 'princess', ownerPlayerId: P0, anchorPrimitiveId: anchor, recipeId: 'helga', pos: { x: 100, y: 100 } });
     const d = [...w.defenders.values()][0];
     d.nextFireTick = w.tick; // fire ASAP (skip the 90-tick wait for the test)
@@ -96,9 +96,9 @@ describe('applyDefenderTick FSM', () => {
   it('with NO enemy in range stays IDLE + reschedules (never fires into the void)', () => {
     const w = setup();
     const anchor = addAnchor(w, 1, 100, 100);
-    addEnemyChewer(w, 50, 2400, 2400); // S106 — far out of range (HELGA's range is now the whole-screen
-    // diagonal ~2203; (2400,2400) is ~3252px from the (100,100) anchor, genuinely unreachable — so the
-    // "no enemy in range stays IDLE" contract still holds under the screen-wide range).
+    addEnemyChewer(w, 50, 2400, 2400); // S109 P3 — far out of range. HELGA's range was cut to a local
+    // 380px (anti-cross-map-laser interim); (2400,2400) is ~3252px from the (100,100) anchor, far
+    // beyond reach — so the "no enemy in range stays IDLE" contract holds at the new local range.
     applyRegisterDefender(w, { type: 'REGISTER_DEFENDER', defenderKind: 'princess', ownerPlayerId: P0, anchorPrimitiveId: anchor, recipeId: 'helga', pos: { x: 100, y: 100 } });
     const d = [...w.defenders.values()][0];
     d.nextFireTick = w.tick;
@@ -142,6 +142,29 @@ describe('S109 P2 — a pooped TURRET stops firing until cleaned', () => {
     d.nextFireTick = w.tick; // due now (no stale-burst since it was held forward while fouled)
     tickN(w, getDefenderConfig('turret').windupTicks + 5);
     expect(w.creatures.has(asCreatureId(50))).toBe(false); // resumed → chewer dead
+  });
+});
+
+describe('S109 P3 — a pooped HELGA (princess) slaps SLOWER but does not stop', () => {
+  it('stretches the windup ~2x while fouled — still winding up where an un-fouled HELGA would have fired', () => {
+    const w = setup();
+    const anchor = addAnchor(w, 1, 100, 100);
+    addEnemyChewer(w, 50, 130, 100); // 30px — within the 380 range
+    applyRegisterDefender(w, { type: 'REGISTER_DEFENDER', defenderKind: 'princess', ownerPlayerId: P0, anchorPrimitiveId: anchor, recipeId: 'helga', pos: { x: 100, y: 100 } });
+    const d = [...w.defenders.values()][0];
+    d.nextFireTick = w.tick;
+    w.fouledPrimitives.add(anchor);
+
+    const windup = getDefenderConfig('princess').windupTicks; // 14
+    // After the UN-stretched windup, an un-fouled HELGA would already have slapped (see the FSM
+    // test). Fouled, the windup is ~2x, so she is STILL winding up — not yet fired, and NOT stopped.
+    tickN(w, windup + 1);
+    expect(w.creatures.has(asCreatureId(50))).toBe(true); // not slapped yet (cadence stretched)
+    expect(d.state).not.toBe('IDLE');                      // actively winding up, unlike the turret full-stop
+
+    // Run out the rest of the stretched (2x) window → the slap lands. She still defends, just slower.
+    tickN(w, windup * 2);
+    expect(w.creatures.has(asCreatureId(50))).toBe(false); // slapped
   });
 });
 
