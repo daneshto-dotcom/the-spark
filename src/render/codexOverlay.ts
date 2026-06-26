@@ -168,6 +168,12 @@ export class CodexOverlay {
     this.container.visible = visible;
   }
 
+  /** S109 P0 — public visibility probe so main.ts can toggle the G+C chord and wire Escape-to-close
+   *  without reaching into `.container.visible`. */
+  isVisible(): boolean {
+    return this.container.visible;
+  }
+
   /** Open directly on a given tab (the G+C chord opens 'godly' by default). */
   open(tab: TabKey = 'godly'): void {
     this.active = tab;

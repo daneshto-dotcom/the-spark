@@ -582,12 +582,30 @@ async function bootstrap(): Promise<void> {
     chordKeys.add(k);
     if (chordKeys.has('g') && chordKeys.has('c') && !codexChordFired) {
       codexChordFired = true; // latch until a keyup breaks the chord (no re-open on key-repeat)
-      if (!chordBlocked()) openCodex('towers');
+      // S109 P0 — TOGGLE: if the codex is already open when G+C fires, close it (don't re-open on
+      // top of itself). chordBlocked() still gates OPENING (typing field / NONET / active cinematic),
+      // but a close is always allowed so the chord can never trap the player with the overlay up.
+      if (codexOverlay !== null && codexOverlay.isVisible()) {
+        codexOverlay.setVisible(false);
+      } else if (!chordBlocked()) {
+        openCodex('towers');
+      }
     }
   });
   window.addEventListener('keyup', (e) => resetChord(e.key.toLowerCase()));
   window.addEventListener('blur', () => resetChord());
   document.addEventListener('visibilitychange', () => { if (document.hidden) resetChord(); });
+
+  // S109 P0 — Escape closes the Codex (the owner got trapped: the in-game G+C codex had no key-exit,
+  // only the on-screen CLOSE button). Guarded on the codex being visible so this never swallows an
+  // Escape meant for another overlay; returns immediately after closing so it can't double-handle
+  // (settingsOverlay owns its own Escape on its DOM root — mirror of botSetupOverlay.ts / settingsOverlay.ts).
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && codexOverlay !== null && codexOverlay.isVisible()) {
+      codexOverlay.setVisible(false);
+      return;
+    }
+  });
 
   // ===== S87 — VS-BOTS: lazy overlay + lazy manager =====
   // The manager exists ONLY during a bots match (armed on START MATCH, dropped
