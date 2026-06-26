@@ -297,7 +297,11 @@ function readTestWinScore(): number | null {
 // non-combo/blob builder (complexity unchanged) runs ~3× longer — builders out-pace blobs, the
 // intended incentive. HUNTER_TRIGGER_SCORE auto-scales (75% → 472). User-approved S91. Damped
 // per-combo-premium fallback logged in BACKLOG if blob matches feel too long on playtest.
-export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 630;
+// S106 — 630→786 (×1.248, owner: "the game needs to last 25% longer ... so players can actually
+// try to do shit and build stuff and compete"). SCORE_TIER_STEP raised 210→262 in LOCKSTEP below so
+// the exact-thirds tier cadence holds (786=3×262; pulses at 262/524, WIN at 786). HUNTER_TRIGGER_SCORE
+// auto-scales to floor(786×0.75)=589. Owner-authorized amendment to the "protected anchor".
+export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 786;
 
 // === Spawner physics ===
 export const SPAWNER_BOUNCE_DAMPING = 0.92;
@@ -372,7 +376,10 @@ export const AUTO_BOND_RADIUS = 60;
 // S91 G2-PROMO — 70→210 in lockstep with PHASE_1_WIN_SCORE 210→630 (exact thirds preserved:
 // pulses at 210/420, WIN at 630; scoring.test.ts:330-331 invariant stays green). Per-match tier-
 // pulse cadence is unchanged (still 2 pulses before WIN).
-export const SCORE_TIER_STEP = 210;
+// S106 — 210→262 in lockstep with PHASE_1_WIN_SCORE 630→786 (+25% match length). Exact thirds
+// preserved (786=3×262: pulses at 262/524, WIN at 786) so the exact-thirds invariant stays green
+// and the per-match tier-pulse cadence is still 2 pulses before WIN.
+export const SCORE_TIER_STEP = 262;
 
 // S13 P2 — outward verlet impulse for STRUCTURE_GROW. Applied to each
 // primitive in the *primary's pre-existing component* (the structure
