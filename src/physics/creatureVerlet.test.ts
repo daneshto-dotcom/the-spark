@@ -38,7 +38,7 @@ import {
   makeVoltkinCreature,
   type Creature,
 } from '../state/creatures/creature.ts';
-import { SPAWNER_CENTER_X, SPAWNER_CENTER_Y, VELOCITY_DAMPING } from '../constants.ts';
+import { POOP_SLOW_MULTIPLIER, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, VELOCITY_DAMPING } from '../constants.ts';
 import { asPlayerId } from '../types.ts';
 
 const SUBSTEP_DT = 1 / 480; // 60 Hz × 8 substeps
@@ -190,6 +190,34 @@ describe('computeSteeringAccel — Δ4 state gate (cross-resolves Q7 momentum tr
     });
     const accel = computeSteeringAccel(c);
     expect(Math.hypot(accel.x, accel.y)).toBeLessThanOrEqual(CREATURE_MAX_ACCEL + 1e-6);
+  });
+});
+
+describe('S109 P2 — poop-slow scaling in computeSteeringAccel', () => {
+  it('is a NO-OP (byte-identical) for an un-pooped creature regardless of tick', () => {
+    const c = makeStubCreature({ pos: { x: 200, y: 200 }, targetPos: { x: 1000, y: 200 }, state: 'SEEKING' });
+    const base = computeSteeringAccel(c);            // tick defaults to 0
+    const withTick = computeSteeringAccel(c, 99999); // un-pooped → must equal base exactly
+    expect(withTick.x).toBe(base.x);
+    expect(withTick.y).toBe(base.y);
+  });
+
+  it('scales the steering accel by POOP_SLOW_MULTIPLIER while poopyUntilTick is live', () => {
+    const c = makeStubCreature({ pos: { x: 200, y: 200 }, targetPos: { x: 1000, y: 200 }, state: 'SEEKING' });
+    const unslowed = computeSteeringAccel(c, 100);
+    c.poopyUntilTick = 1000; // tick 100 < 1000 → slowed
+    const slowed = computeSteeringAccel(c, 100);
+    expect(slowed.x).toBeCloseTo(unslowed.x * POOP_SLOW_MULTIPLIER, 9);
+    expect(slowed.y).toBeCloseTo(unslowed.y * POOP_SLOW_MULTIPLIER, 9);
+  });
+
+  it('self-heals: once tick >= poopyUntilTick the slow no longer applies', () => {
+    const c = makeStubCreature({ pos: { x: 200, y: 200 }, targetPos: { x: 1000, y: 200 }, state: 'SEEKING' });
+    const base = computeSteeringAccel(c, 100);
+    c.poopyUntilTick = 100; // tick 100 is NOT < 100 → expired
+    const after = computeSteeringAccel(c, 100);
+    expect(after.x).toBe(base.x);
+    expect(after.y).toBe(base.y);
   });
 });
 

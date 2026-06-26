@@ -121,6 +121,20 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
   }
   d.ticksInState++;
 
+  // S109 P2 — a pooped TURRET stops firing until the owner cleans it ("shouldn't work until
+  // cleaned"). Force it back to IDLE and hold the fire clock just ahead of now so a cleaned turret
+  // resumes on cadence with no stale insta-fire (mirrors the spawner-resume posture). HELGA
+  // (princess) is handled separately — she slows her slap cadence rather than fully stopping —
+  // so this full-stop branch is turret-only. fouledPrimitives already round-trips → no wire bump.
+  if (d.kind === 'turret' && world.fouledPrimitives.has(d.anchorPrimitiveId)) {
+    d.state = 'IDLE';
+    d.ticksInState = 0;
+    d.targetCreatureId = null;
+    d.lastStrikePos = null;
+    d.nextFireTick = world.tick + DEFENDER_REACQUIRE_TICKS;
+    return world;
+  }
+
   switch (d.state) {
     case 'IDLE': {
       if (world.tick >= d.nextFireTick) {

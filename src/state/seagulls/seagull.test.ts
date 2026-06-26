@@ -11,6 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  CANVAS_HEIGHT,
   CANVAS_WIDTH,
   PLAYER_COLORS,
   POOP_CLEAN_RADIUS,
@@ -27,7 +28,8 @@ import type { Bond } from '../../physics/bonds.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
 import { makeFreeSpark } from '../../game/spark.ts';
-import { asBondId, asPlayerId, asPoopId, asPrimitiveId, asSeagullId, asSparkId } from '../../types.ts';
+import { makeVoltkinCreature } from '../creatures/creature.ts';
+import { asBondId, asCreatureId, asPlayerId, asPoopId, asPrimitiveId, asSeagullId, asSparkId } from '../../types.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
 import { computeComplexity } from '../scoring.ts';
 import { restore, snapshot } from '../save.ts';
@@ -261,8 +263,10 @@ describe('S89 P3 — structure foul AUTO-EXPIRES (color + income revert; manual 
   });
 });
 
-describe('S77 P3 — poop on a free spark = "poopy" half-speed debuff', () => {
-  it('sets poopyUntilTick = tick + POOP_SLOW_TICKS and consumes the poop', () => {
+describe('S109 P2 — poop passes through an IDLE Free spark but slows a CARRIED spark', () => {
+  // Owner correction #3: poop must NOT touch the idle spawn-zone pool — only the spark a player
+  // is STEERING. The carried-spark hit drives the existing carry-follow slow (the 50% dodge).
+  function poopOverSpark(state: 'Free' | 'Carried') {
     const w = baseWorld();
     w.tick = 100;
     const spark = makeFreeSpark({
@@ -273,16 +277,85 @@ describe('S77 P3 — poop on a free spark = "poopy" half-speed debuff', () => {
       dt: 1 / 60,
       createdTick: 0,
     });
+    if (state === 'Carried') spark.state = { kind: 'Carried', carrierId: P1 };
     w.freeSparks.set(spark.id, spark);
+    // Poop directly above the spark + in hit radius (the pre-S109 setup that DID hit a Free spark).
     w.poops.set(asPoopId(0), makePoop({ id: asPoopId(0), pos: { x: 960, y: 536 }, spawnedAtTick: 0 }));
-
     applyPoopTick(w, { type: 'POOP_TICK', poopId: asPoopId(0) });
+    return { w, spark };
+  }
 
+  it('IDLE Free spark: poop passes through untouched (no slow, not consumed, keeps falling)', () => {
+    const { w, spark } = poopOverSpark('Free');
+    expect(spark.poopyUntilTick).toBeUndefined();
+    expect(w.poops.size).toBe(1);                            // NOT consumed
+    expect(w.poops.get(asPoopId(0))!.state).toBe('FALLING'); // falls past toward the floor
+  });
+
+  it('CARRIED spark: poop sets poopyUntilTick + consumes the poop (the steer-to-dodge case)', () => {
+    const { w, spark } = poopOverSpark('Carried');
     expect(spark.poopyUntilTick).toBe(100 + POOP_SLOW_TICKS);
-    expect(w.poops.size).toBe(0); // poop consumed on a spark hit
+    expect(w.poops.size).toBe(0); // consumed on the carried-spark hit
     // The implicit velocity was halved (impulse), so the spark still MOVES (not frozen).
-    const vx = spark.pos.x - spark.prevPos.x;
-    expect(vx).not.toBe(0);
+    expect(spark.pos.x - spark.prevPos.x).not.toBe(0);
+  });
+});
+
+describe('S109 P2 — poop slows a CREATURE and takes precedence over structures; always terminates', () => {
+  /** Drop a poop from just above (cx, cy) and tick until it lands/consumes (≤20 ticks). */
+  function dropPoopOnto(w: World, cx: number, cy: number): void {
+    w.poops.set(asPoopId(0), makePoop({ id: asPoopId(0), pos: { x: cx, y: cy - 22 }, spawnedAtTick: 0 }));
+    for (let i = 0; i < 20 && w.poops.get(asPoopId(0))?.state === 'FALLING'; i++) {
+      applyPoopTick(w, { type: 'POOP_TICK', poopId: asPoopId(0) });
+    }
+  }
+
+  it('sets creature.poopyUntilTick + consumes the poop ("slowed if poop hits them")', () => {
+    const w = baseWorld();
+    w.tick = 200;
+    const c = makeVoltkinCreature({
+      id: asCreatureId(0), ownerPlayerId: P1, pos: { x: 700, y: 500 },
+      targetPos: { x: 700, y: 500 }, spawnedAtTick: 0,
+    });
+    w.creatures.set(c.id, c);
+    dropPoopOnto(w, 700, 500);
+    expect(c.poopyUntilTick).toBe(200 + POOP_SLOW_TICKS);
+    expect(w.poops.size).toBe(0); // consumed on the creature hit (one victim per poop)
+  });
+
+  it('slows a co-located creature BEFORE fouling the structure under it (creature precedence)', () => {
+    const w = baseWorld();
+    w.tick = 200;
+    addPrim(w, 1, 700, 500); // a structure prim sharing the poop column
+    const c = makeVoltkinCreature({
+      id: asCreatureId(0), ownerPlayerId: P1, pos: { x: 700, y: 500 },
+      targetPos: { x: 700, y: 500 }, spawnedAtTick: 0,
+    });
+    w.creatures.set(c.id, c);
+    dropPoopOnto(w, 700, 500);
+    expect(c.poopyUntilTick).toBe(200 + POOP_SLOW_TICKS); // creature took the hit
+    expect(w.fouledPrimitives.size).toBe(0);              // structure NOT fouled
+    expect(w.poops.size).toBe(0);
+  });
+
+  it('a bare structure with NO creature in range still fouls exactly as before (regression)', () => {
+    const w = baseWorld();
+    addPrim(w, 1, 700, 500);
+    dropPoopOnto(w, 700, 500);
+    expect(w.fouledPrimitives.has(asPrimitiveId(1))).toBe(true);
+    expect(w.poops.get(asPoopId(0))!.state).toBe('SPLAT_STRUCTURE');
+  });
+
+  it('a poop over only IDLE Free sparks always terminates at the floor (no entity leak)', () => {
+    const w = baseWorld();
+    const spark = makeFreeSpark({
+      id: asSparkId(0), type: SparkType.Dot, pos: { x: 500, y: CANVAS_HEIGHT - 6 },
+      velocity: { x: 0, y: 0 }, dt: 1 / 60, createdTick: 0,
+    });
+    w.freeSparks.set(spark.id, spark);
+    dropPoopOnto(w, 500, CANVAS_HEIGHT - 6);
+    expect(spark.poopyUntilTick).toBeUndefined();                       // passed through untouched
+    expect(w.poops.get(asPoopId(0))!.state).toBe('SPLAT_GROUND');       // terminated at the floor
   });
 });
 
@@ -392,14 +465,19 @@ describe('S80 — poop collision lowest-id equivalence + foul-on-merge consisten
     expect(w.fouledPrimitives.has(asPrimitiveId(2))).toBe(true);
   });
 
-  it('collision picks the LOWEST-id Free spark among hits and consumes the poop', () => {
+  it('collision picks the LOWEST-id CARRIED spark among hits and consumes the poop', () => {
+    // S109 P2 — poop now targets CARRIED sparks (not the idle Free pool); the lowest-id selection
+    // is unchanged. Both sparks are Carried so both are eligible; the lowest id takes the hit.
     const w = baseWorld();
     w.tick = 50;
-    const mk = (id: number, x: number) =>
-      makeFreeSpark({
+    const mk = (id: number, x: number) => {
+      const s = makeFreeSpark({
         id: asSparkId(id), type: SparkType.Dot, pos: { x, y: 540 },
         velocity: { x: 30, y: 0 }, dt: 1 / 60, createdTick: 0,
       });
+      s.state = { kind: 'Carried', carrierId: P1 };
+      return s;
+    };
     const s7 = mk(7, 960);
     const s3 = mk(3, 962);
     w.freeSparks.set(s7.id, s7); // inserted FIRST but higher id

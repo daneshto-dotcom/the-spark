@@ -47,6 +47,7 @@ import {
   SEAGULL_MAX_ACTIVE,
   SEAGULL_RADIUS,
 } from '../../constants.ts';
+import type { Creature } from '../creatures/creature.ts';
 import type { Player } from '../../game/player.ts';
 import type { Spark } from '../../game/spark.ts';
 import { asPoopId, asSeagullId, type PoopId, type PrimitiveId, type SeagullId, type Vec2 } from '../../types.ts';
@@ -184,9 +185,11 @@ export function applySeagullTick(world: World, action: SeagullTickAction): World
 }
 
 /**
- * Advance one poop. FALLING → descend + collide (S82 P1: player CRUISER slow → structure foul
- * → free-spark slow → floor, in that precedence order — one victim per poop). SPLAT_GROUND →
- * dissipate at its TTL. SPLAT_STRUCTURE → foul the structure until the owner wipes it (CLEAN_POOP)
+ * Advance one poop. FALLING → descend + collide. S109 P2 precedence (one victim per poop):
+ * player CRUISER slow → CREATURE slow (chewer/Voltkin) → structure foul → CARRIED-spark slow →
+ * floor. NOTE (owner correction #3): IDLE Free sparks are NO LONGER hit — poop passes through the
+ * un-grabbed pool untouched; only the spark a player is CARRYING is slowed (the dodge). SPLAT_GROUND
+ * → dissipate at its TTL. SPLAT_STRUCTURE → foul the structure until the owner wipes it (CLEAN_POOP)
  * OR it AUTO-EXPIRES at POOP_FOUL_TICKS (S89 P3 — self-clean so the foul is a temporary tempo cost,
  * not permanent income-death). Squared-dist + LOWEST-id hit per pass.
  */
@@ -245,7 +248,29 @@ export function applyPoopTick(world: World, action: PoopTickAction): World {
     return world;
   }
 
-  // 1) vs PRIMITIVES (structures) — LOWEST-id hit → foul the whole component.
+  // 1) vs CREATURES (chewer/Voltkin) — S109 P2: LOWEST-id in-radius hit → "poopy" crawl for
+  // POOP_SLOW_TICKS ("still in effect but slowed if poop hits them"). Already-spawned chewers
+  // keep working — they're just slowed. Same zero-allocation lowest-id + squared-dist selection
+  // as the prim/spark passes. Consumes the poop (one victim per poop). The crawl itself is applied
+  // by computeSteeringAccel (host-sim); the field is host-only so there is NO wire bump.
+  let hitCreature: Creature | null = null;
+  for (const [cid, creature] of world.creatures) {
+    if (hitCreature !== null && (cid as number) >= (hitCreature.id as number)) continue;
+    const dx = creature.pos.x - poop.pos.x;
+    const dy = creature.pos.y - poop.pos.y;
+    if (dx * dx + dy * dy <= POOP_HIT_RADIUS_SQ) hitCreature = creature;
+  }
+  if (hitCreature !== null) {
+    hitCreature.poopyUntilTick = world.tick + POOP_SLOW_TICKS;
+    // One-time impulse halve of the implicit Verlet velocity (pos-prevPos), mirroring the spark
+    // slow — the sustained crawl is handled per-substep by the computeSteeringAccel scale.
+    hitCreature.prevPos.x = hitCreature.pos.x - (hitCreature.pos.x - hitCreature.prevPos.x) * POOP_SLOW_MULTIPLIER;
+    hitCreature.prevPos.y = hitCreature.pos.y - (hitCreature.pos.y - hitCreature.prevPos.y) * POOP_SLOW_MULTIPLIER;
+    world.poops.delete(action.poopId);
+    return world;
+  }
+
+  // 2) vs PRIMITIVES (structures) — LOWEST-id hit → foul the whole component.
   // S80 — was `[...keys].sort()` + first-hit break: an array copy + O(P log P) sort per
   // FALLING poop per tick on the host hot path. Tracking the minimum id among hits selects
   // the IDENTICAL primitive (lowest id within radius) with zero allocation — replay-safe
@@ -270,11 +295,16 @@ export function applyPoopTick(world: World, action: PoopTickAction): World {
     return world;
   }
 
-  // 2) vs FREE SPARKS — LOWEST-id hit → "poopy" half-speed for 15s (consumes the poop).
-  // S80 — same zero-allocation lowest-id selection as the primitive pass above.
+  // 3) vs the CARRIED spark — S109 P2 (owner correction #3): poop slows ONLY the spark a player is
+  // STEERING, not the idle Free pool. A Carried spark hit → "poopy" for POOP_SLOW_TICKS; the EXISTING
+  // carry-follow slow (controls.ts) halves the drag rate by POOP_SLOW_MULTIPLIER (the 50% dodge —
+  // players must steer their spark around falling poop) + the tint shows poopiness. IDLE Free sparks
+  // are skipped entirely (the `!== 'Carried'` guard), so poop passes through the un-grabbed pool.
+  // Same zero-allocation lowest-id selection. Consumes the poop. poopyUntilTick is already serialized
+  // (clients render the slow/tint on the carried spark) → NO wire bump.
   let hitSpark: Spark | null = null;
   for (const [sid, spark] of world.freeSparks) {
-    if (spark.state.kind !== 'Free') continue;
+    if (spark.state.kind !== 'Carried') continue;
     if (hitSpark !== null && (sid as number) >= (hitSpark.id as number)) continue;
     const dx = spark.pos.x - poop.pos.x;
     const dy = spark.pos.y - poop.pos.y;
@@ -291,7 +321,7 @@ export function applyPoopTick(world: World, action: PoopTickAction): World {
     return world;
   }
 
-  // 3) floor → harmless ground splat.
+  // 4) floor → harmless ground splat.
   if (poop.pos.y >= POOP_FLOOR_Y) {
     poop.state = 'SPLAT_GROUND';
     poop.landedAtTick = world.tick;

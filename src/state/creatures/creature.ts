@@ -260,6 +260,18 @@ export interface Creature {
    * damaged creature survives a save (the SerializedBomb / chewProgress precedent).
    */
   hp: number;
+  /**
+   * S109 P2 — tick until which a seagull-pooped creature crawls at POOP_SLOW_MULTIPLIER speed
+   * ("still in effect but slowed if poop hits them"). undefined / past = not slowed (self-heals
+   * at expiry). Consumed by `computeSteeringAccel` (scales the steering accel while live).
+   *
+   * HOST-ONLY — NOT serialized: `serializeCreature` is an explicit field whitelist that never
+   * emits this, so it adds ZERO wire/save surface and needs NO protocol bump (the client renders
+   * the slower synced positions automatically). A host reload rehydrates it undefined (the slow
+   * transient resets, like targetCreatureId) — acceptable. Mutable; defaults undefined (no factory
+   * change) → un-pooped creatures stay byte-identical (the Voltkin/chewer replay-equivalence guard).
+   */
+  poopyUntilTick?: number;
 }
 
 /**

@@ -168,7 +168,8 @@ export function stepPhysics(
     // fade. Caller stepPhysics() is host-only-gated at call site. Empty
     // world.creatures Map iterates zero times — negligible overhead.
     for (const c of world.creatures.values()) {
-      creatureVerletStep(c, SUBSTEP_DT, computeSteeringAccel(c));
+      // S109 P2 — thread world.tick so a poop-slowed creature crawls until its poopyUntilTick.
+      creatureVerletStep(c, SUBSTEP_DT, computeSteeringAccel(c, world.tick));
     }
     enforceSpawnerBounds(sparkArr, undefined, attractedId);
     resolveCollisions(sparkArr, grid);

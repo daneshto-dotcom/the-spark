@@ -1,11 +1,11 @@
 {
-  "tool_calls_session_total": 10,
-  "session_id": "S108",
-  "session_kind": "planning",
-  "session_start": "2026-06-26T15:30:00.000Z",
-  "session_note": "S108 PLAN-ONLY session (team seat hit weekly limit ~1% remaining — owner: 'we are not going to work anything this batch ... update all backlog ... save the open plans and pdr so we can continue working next session in another claude account'). Owner playtested live S107 and reported 6 points. We: (1) ran a clean pre-flight + dispositioned all 5 WARNs; (2) scoped all 6 points against the code via a 6-investigator Opus workflow (wf_6c9fd480-8a2); (3) deliberated 2 Council rounds (Grok-4.20 + Gemini-2.5-pro) + PRIME-AUDIT; (4) split into 4 risk-tiered batches and persisted READY plans. NO code shipped. Next session (possibly a different seat) starts by executing Batch A.",
-  "phase": "PLANNING_DONE",
-  "pdr_approved": false,
+  "tool_calls_session_total": 13,
+  "session_id": "S109",
+  "session_kind": "execution",
+  "session_start": "2026-06-26T00:00:00.000Z",
+  "prior_session_note": "S108 PLAN-ONLY session (team seat hit weekly limit ~1% remaining — owner: 'we are not going to work anything this batch ... update all backlog ... save the open plans and pdr so we can continue working next session in another claude account'). Owner playtested live S107 and reported 6 points. We: (1) ran a clean pre-flight + dispositioned all 5 WARNs; (2) scoped all 6 points against the code via a 6-investigator Opus workflow (wf_6c9fd480-8a2); (3) deliberated 2 Council rounds (Grok-4.20 + Gemini-2.5-pro) + PRIME-AUDIT; (4) split into 4 risk-tiered batches and persisted READY plans. NO code shipped. Next session (possibly a different seat) starts by executing Batch A.",
+  "phase": "EXECUTING",
+  "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "none",
   "tier": "Full",
@@ -16,13 +16,14 @@
   "priorities": [
     {
       "id": "PLAN-A",
-      "label": "S108 Batch A PDR (READY, deliberated, NOT unlocked) — #5 codex Esc/toggle + #6 shape 10s-TTL-despawn (NO clamp; fling is an owner tactic) + #1 poop model (disable fouled turret/spawner; slow chewer/Voltkin on hit + Helga slap-cadence when fouled; carried-spark 50% slow; idle pool immune; foul placed prims = no points) + #3 Helga anti-cross-map-laser INTERIM (range 2203->~380 + remove beam streak). PROTOCOL_VERSION 12 unchanged.",
-      "status": "planned",
-      "phase": "PDR_READY",
+      "label": "S108 Batch A PDR (READY, deliberated, owner go received) — #5 codex Esc/toggle + #6 shape 10s-TTL-despawn (NO clamp; fling is an owner tactic) + #1 poop model (disable fouled turret/spawner; slow chewer/Voltkin on hit + Helga slap-cadence when fouled; carried-spark 50% slow; idle pool immune; foul placed prims = no points) + #3 Helga anti-cross-map-laser INTERIM (range 2203->~380 + remove beam streak). PROTOCOL_VERSION 12 unchanged.",
+      "status": "in_progress",
+      "phase": "EXECUTING",
       "tier": "Standard",
-      "pdr_approved": false,
+      "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "none",
+      "priority_state": "in_progress",
+      "unlock_source": "user",
       "plan_file": ".claude/plans/2026-06-26_PDR_S108_Batch_A.md"
     },
     {
@@ -68,16 +69,16 @@
     "Owner-gated (unchanged): anti-coast structure-loss CLAWBACK (own PDR); worker-sim ?worker=1 cutover (WORKER_SIM_FOUNDATION.md)."
   ],
   "budget_total": 1000000,
-  "totals": { "turns": 0, "budget_remaining": 1000000, "budget_status": "GREEN" },
+  "totals": { "turns": 0, "budget_remaining": 1000000, "budget_status": "statusline_dead" },
   "reflexion_entries_to_archive": [
     "S108-PLAN #verify-the-councils-confident-consensus-against-the-actual-architecture: a 3-way Council (Grok+Gemini, both premium-reasoning models) UNANIMOUSLY headlined a MANDATORY PROTOCOL_VERSION bump, asserting the client predicts creature/spark physics so a host-only slow/clamp would desync. PRIME-AUDIT refuted it against the code: the SPARK client runs ZERO authoritative physics (main.ts:1055 'the client runs no authoritative physics'; creatures stripped of AI + rendered from synced positions; lerp is position-clamp not velocity-extrapolation) and PROTOCOL_VERSION bumps only on WIRE-FORMAT change (12 since S103; S107 sim changes shipped without a bump). LESSON: two models converging is NOT independent confirmation when they share a generic prior (here: 'games use predict-and-reconcile netcode'); the convergence can be a shared wrong assumption. Always verify a confident consensus claim against the actual codebase before adopting it - but STILL harvest the peripheral findings (the Council's TTL-drop edge case, poop-termination, and test/lock updates were all real and adopted).",
     "S108-PLAN #owner-corrections-reshape-scope-mid-plan-keep-the-PDR-living: the owner refined the spec three times across the session (no velocity clamp - the fast-fling is an intended tactic; Helga reads as a cross-map laser; poop must not touch idle spawn-zone shapes but the carried-spark 50% slow is intended). Each correction was folded into a living PDR (REV1->REV3) with a focused delta re-deliberation rather than a from-scratch redo. Two of the three corrections REDUCED risk (dropped the contested clamp; simplified poop precedence). LESSON: when the owner is actively spec-ing, treat the PDR as a living doc, re-deliberate only the DELTA, and confirm the genuinely-ambiguous fork (carried-vs-free spark) explicitly rather than guessing - but when the owner declines to pick, commit to the reading their own words point at and make it easy to redirect at the go-gate."
   ],
   "real_context_tokens_at_close": null,
   "real_context_pct_at_close": null,
-  "analyze_completed": true,
-  "session_status": "S108 CLOSED (PLAN-ONLY)",
-  "handoff_ready": true,
+  "analyze_completed": false,
+  "session_status": "S109 ACTIVE (continuing from S108 PLAN-ONLY close)",
+  "handoff_ready": false,
   "handoff_doc": "HANDOFF_S108.md",
-  "phase_final": "CLOSED"
+  "phase_final": null
 }

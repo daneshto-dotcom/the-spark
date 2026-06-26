@@ -33,6 +33,7 @@
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  POOP_SLOW_MULTIPLIER,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
@@ -110,7 +111,7 @@ export function creatureVerletStep(c: Creature, dtSub: number, accel: Vec2 = ZER
  * trap (a different and more severe failure mode). The current behavior is the
  * documented cross-resolve.
  */
-export function computeSteeringAccel(c: Creature): Vec2 {
+export function computeSteeringAccel(c: Creature, tick = 0): Vec2 {
   if (c.state !== 'SEEKING') return ZERO_ACCEL;
   // S100 P1 (TD Phase 1a, R16) — de-hardcode the peak accel: read it from the
   // creature's config instead of the bare CREATURE_MAX_ACCEL module const. For
@@ -136,6 +137,14 @@ export function computeSteeringAccel(c: Creature): Vec2 {
     const scale = maxAccel / mag;
     ax *= scale;
     ay *= scale;
+  }
+  // S109 P2 — a seagull-pooped creature (chewer/Voltkin) crawls at POOP_SLOW_MULTIPLIER of its
+  // steering accel until poopyUntilTick ("still in effect but slowed if poop hits them"). Applied
+  // to the FINAL accel so the whole output scales uniformly. NO-OP (byte-identical) when un-pooped
+  // → the Voltkin/chewer replay-equivalence guard holds. Deterministic (pure fn of synced tick).
+  if (c.poopyUntilTick !== undefined && tick < c.poopyUntilTick) {
+    ax *= POOP_SLOW_MULTIPLIER;
+    ay *= POOP_SLOW_MULTIPLIER;
   }
   return { x: ax, y: ay };
 }

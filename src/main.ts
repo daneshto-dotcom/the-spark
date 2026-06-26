@@ -1185,6 +1185,14 @@ async function bootstrap(): Promise<void> {
               continue;
             }
           }
+          // S109 P2 — a pooped chewer-spawner stops emitting until the owner cleans it
+          // ("shouldn't work until cleaned"). Keep the cadence aligned to NOW while fouled so a
+          // cleaned spawner resumes on its normal cadence instead of dumping a backlog burst of the
+          // now-overdue slots (Council C5). fouledPrimitives already round-trips → no wire bump.
+          if (world.fouledPrimitives.has(sp.anchorPrimitiveId)) {
+            while (world.tick >= sp.nextSpawnTick) sp.nextSpawnTick += SPAWN_INTERVAL_TICKS;
+            continue;
+          }
           if (world.tick >= sp.nextSpawnTick && underChewerCaps(world, spawnerId)) {
             const anchor = world.primitives.get(sp.anchorPrimitiveId);
             // Defense-in-depth: a deleted anchor between the (throttled) re-validation

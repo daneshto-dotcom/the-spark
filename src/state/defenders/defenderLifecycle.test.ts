@@ -121,6 +121,30 @@ describe('applyDefenderTick FSM', () => {
   });
 });
 
+describe('S109 P2 — a pooped TURRET stops firing until cleaned', () => {
+  it('does not fire while its anchor is fouled, then resumes on clean (no stale insta-fire)', () => {
+    const w = setup();
+    const anchor = addAnchor(w, 1, 100, 100);
+    addEnemyChewer(w, 50, 130, 100); // 30px — well within TURRET_ATTACK_RANGE (420)
+    applyRegisterDefender(w, { type: 'REGISTER_DEFENDER', defenderKind: 'turret', ownerPlayerId: P0, anchorPrimitiveId: anchor, recipeId: 'laserTurret', pos: { x: 100, y: 100 } });
+    const d = [...w.defenders.values()][0];
+    d.nextFireTick = w.tick; // would fire ASAP if not fouled
+
+    // FOUL the anchor → the turret must not fire even across a full windup+fire window.
+    w.fouledPrimitives.add(anchor);
+    tickN(w, getDefenderConfig('turret').windupTicks + 5);
+    expect(w.creatures.has(asCreatureId(50))).toBe(true); // chewer untouched — turret disabled
+    expect(d.state).toBe('IDLE');                          // held in IDLE while fouled
+    expect(d.nextFireTick).toBeGreaterThanOrEqual(w.tick); // clock held ahead → no backlog insta-fire
+
+    // CLEAN it → the turret reacquires and kills the chewer (hp 1) within a fresh cycle.
+    w.fouledPrimitives.delete(anchor);
+    d.nextFireTick = w.tick; // due now (no stale-burst since it was held forward while fouled)
+    tickN(w, getDefenderConfig('turret').windupTicks + 5);
+    expect(w.creatures.has(asCreatureId(50))).toBe(false); // resumed → chewer dead
+  });
+});
+
 describe('recipeStillSatisfied (default — no recipe registered)', () => {
   it('survives while the anchor primitive exists; fails once it is gone', () => {
     const w = setup();
