@@ -105,8 +105,8 @@ export const LASER_TURRET_RECIPE: DefenderGodlyRecipe = {
   defenderKind: 'turret',
   predicate: laserTurretPredicate,
   stillValid: (world, anchorId) => isLaserTurretComponent(world, anchorId),
-  // Codex gallery sprite placeholder (reuses the Voltkin zap art until a turret art pass).
-  characterSprite: '/godly/voltkin/sprites/voltkin-zap.png',
+  // Codex gallery sprite placeholder (reuses the new matted Voltkin zap art until a turret art pass).
+  characterSprite: '/godly/voltkin/anim/voltkin-zap.png',
 };
 
 // Side-effect registration (voltkin.ts precedent) — main.ts imports this module for the effect.

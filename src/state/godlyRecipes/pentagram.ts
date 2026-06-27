@@ -161,9 +161,9 @@ export const PENTAGRAM_RECIPE: SpawnerGodlyRecipe = {
   kind: 'spawner',
   id: 'pentagram',
   predicate: pentagramPredicate,
-  // Codex gallery sprite only (entryFromRecipe). Reuses the Voltkin sprite as a
+  // Codex gallery sprite only (entryFromRecipe). Reuses the new matted Voltkin sprite as a
   // placeholder until the pencil-drawn chewer/spawner art pass (Phase 4).
-  characterSprite: '/godly/voltkin/sprites/voltkin-zap.png',
+  characterSprite: '/godly/voltkin/anim/voltkin-zap.png',
 };
 
 // S104 P4 (Council M8) — register the (previously orphaned) pentagram SPAWNER recipe so it appears

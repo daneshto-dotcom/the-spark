@@ -263,7 +263,7 @@ export const VOLTKIN_RECIPE: CinematicGodlyRecipe = {
   predicate: voltkinPredicate,
   cinematicAsset: '/godly/voltkin/cinematic/voltkin-intro.mp4',
   voiceAsset: '/godly/voltkin/audio/voltkin-voice.ogg',
-  characterSprite: '/godly/voltkin/sprites/voltkin-zap.png',
+  characterSprite: '/godly/voltkin/anim/voltkin-zap.png', // S110 P5 — new on-model matted imagen art
   cinematicMs: 4000,
   // S30 P0b — REDUCED from 8000 to 500. Root cause: Voltkin creature spawns
   // at `world.tick + cinematicMsToTicks(cinematicMs) = world.tick + 240`

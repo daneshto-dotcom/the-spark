@@ -21,7 +21,7 @@
  * + exported unchanged (their unit tests still pin the curves; the rig reuses the alpha + facing).
  */
 
-import { Application, Container, Graphics } from 'pixi.js';
+import { Application, Assets, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import type { World } from '../state/world.ts';
 import type { Vec2 } from '../types.ts';
 import { playZapBurstSFX } from './audioManager.ts';
@@ -70,6 +70,18 @@ const V_EYE = 0x0a1428; // near-black eye glint
 const V_HOT = 0xffffff; // white-hot highlight at full charge
 const BODY_H = 30; // body half-height at scale 1
 const BODY_W = 14; // body half-width at the waist
+
+// ===== S110 P5 (Batch D) — matted high-quality art swap (owner: "the voltkin art") =====
+// The procedural cyan-spindle rig (drawVoltkin, S106) is REPLACED in-world by the on-model imagen
+// gremlin, cleanly matted to TRANSPARENT (no square box — the owner's burned complaint; see
+// scripts/matte-art-keepers.py). Lazy-loaded from public/ (a separate static file → NEVER bundled
+// into the entry chunk) with a GRACEFUL FALLBACK to the procedural rig until the texture resolves.
+// Determinism-free: the texture choice + transforms read ONLY synced state (state/ticksInState/
+// killCount via the pure helpers), exactly as the procedural path did.
+const VOLTKIN_IDLE_URL = '/godly/voltkin/anim/voltkin-idle.png';
+const VOLTKIN_ZAP_URL = '/godly/voltkin/anim/voltkin-zap.png';
+// Base on-screen scale so the ~512px matted art renders at roughly the procedural rig's size.
+const VOLTKIN_SPRITE_BASE_SCALE = 0.17;
 
 // ── S103 #8 — lightning-cloud (a Voltkin discombobulated by a kill) ──
 const LIGHTNING_CLOUD_SEC = 0.6; // burst lifetime (expand + fade), render-only wall-clock
@@ -126,6 +138,13 @@ export class CreatureRenderer {
   private readonly lightningClouds: Array<{ x: number; y: number; bornSec: number; seed: number }> = [];
   /** S103 #8 — dedicated Graphics for the procedural lightning-clouds (drawn after the bodies). */
   private readonly cloudGfx: Graphics;
+  // S110 P5 — matted-art sprite layer + per-creature sprites. Null textures = not yet loaded (or
+  // load failed) → the renderer falls back to the procedural drawVoltkin rig (graceful degradation).
+  private readonly spriteLayer: Container;
+  private readonly sprites: Map<CreatureId, Sprite> = new Map();
+  private idleTex: Texture | null = null;
+  private zapTex: Texture | null = null;
+  private texLoadStarted = false;
 
   // S77 P2 — `parent` defaults to app.stage but main.ts passes aboveFogLayer so creatures
   // (a Voltkin attacks any player's bonds — cross-player reach) render THROUGH the fog to all.
@@ -134,10 +153,57 @@ export class CreatureRenderer {
     parent.addChild(this.container);
     this.bodyGfx = new Graphics();
     this.container.addChild(this.bodyGfx);
+    // S110 P5 — sprite layer renders above the (procedural-fallback) bodyGfx, below the death clouds.
+    this.spriteLayer = new Container();
+    this.container.addChild(this.spriteLayer);
     // S103 #8 — cloud overlay sits in the SAME parent so a Voltkin popping in enemy territory is
     // visible to everyone, like the chewer goo.
     this.cloudGfx = new Graphics();
     parent.addChild(this.cloudGfx);
+  }
+
+  /**
+   * S110 P5 — kick off the one-time lazy load of the matted Voltkin textures (idle + zap). Until both
+   * resolve, sync() falls back to the procedural rig; on failure they stay null (procedural forever).
+   * Public/ assets load by URL → off the JS entry chunk (no bundle-cap impact). SSR/Node-safe: Assets
+   * is only touched in a browser (the renderer is constructed only in the browser app).
+   */
+  private ensureTextures(): void {
+    if (this.texLoadStarted) return;
+    this.texLoadStarted = true;
+    void Promise.all([Assets.load(VOLTKIN_IDLE_URL), Assets.load(VOLTKIN_ZAP_URL)])
+      .then(([idle, zap]) => {
+        this.idleTex = idle as Texture;
+        this.zapTex = zap as Texture;
+      })
+      .catch(() => {
+        // Leave textures null → the procedural drawVoltkin fallback keeps the creature visible.
+        this.idleTex = null;
+        this.zapTex = null;
+      });
+  }
+
+  /**
+   * S110 P5 — position/scale/face/tint a Voltkin's matted sprite from SYNCED state (pure transform
+   * helpers — determinism-free, same inputs the procedural rig read). Idle texture except during the
+   * ATTACKING zap. Returns the (possibly newly created) sprite.
+   */
+  private syncVoltkinSprite(creature: Creature, facing: 1 | -1): void {
+    let sp = this.sprites.get(creature.id);
+    if (sp === undefined) {
+      sp = new Sprite();
+      sp.anchor.set(0.5, 0.56); // feet a touch below centre so the scale-pulse grows upward
+      this.spriteLayer.addChild(sp);
+      this.sprites.set(creature.id, sp);
+    }
+    const zapping = creature.state === 'ATTACKING' && creature.ticksInState >= VOLTKIN_ATTACK_FIRE_TICK;
+    const tex = zapping ? this.zapTex : this.idleTex;
+    if (tex !== null && sp.texture !== tex) sp.texture = tex;
+    const scale = VOLTKIN_SPRITE_BASE_SCALE * computeCreatureScale(creature.state, creature.ticksInState);
+    sp.scale.set(facing * scale, scale);
+    sp.position.set(creature.pos.x, creature.pos.y);
+    sp.alpha = computeCreatureAlpha(creature);
+    sp.tint = computeCreatureTint(creature.state, creature.ticksInState);
   }
 
   /**
@@ -164,6 +230,7 @@ export class CreatureRenderer {
 
     const g = this.bodyGfx;
     g.clear();
+    this.ensureTextures(); // S110 P5 — start the one-time matted-texture load (no-op once started)
     const nowSec = performance.now() / 1000;
     const liveIds = new Set<CreatureId>();
 
@@ -186,9 +253,25 @@ export class CreatureRenderer {
       const facing = computeFacing(this.facings.get(creature.id) ?? 1, estVelX, FACING_VELOCITY_THRESHOLD);
       this.facings.set(creature.id, facing);
 
-      const pose = voltkinPose(creature.state, creature.ticksInState, world.tick, creature.id as number);
-      const alpha = computeCreatureAlpha(creature);
-      this.drawVoltkin(g, creature.pos.x, creature.pos.y, facing, alpha, pose, nowSec, (creature.id as number) * 1.37);
+      // S110 P5 — draw the matted high-quality sprite once its texture is ready; until then (or if
+      // the load failed) fall back to the procedural electric-being rig so the creature is never blank.
+      if (this.idleTex !== null && this.zapTex !== null) {
+        this.syncVoltkinSprite(creature, facing);
+      } else {
+        const pose = voltkinPose(creature.state, creature.ticksInState, world.tick, creature.id as number);
+        const alpha = computeCreatureAlpha(creature);
+        this.drawVoltkin(g, creature.pos.x, creature.pos.y, facing, alpha, pose, nowSec, (creature.id as number) * 1.37);
+      }
+    }
+
+    // S110 P5 — drop sprites for Voltkins gone this frame (death/despawn) so the layer never leaks.
+    if (this.sprites.size > 0) {
+      for (const [id, sp] of [...this.sprites]) {
+        if (!liveIds.has(id)) {
+          sp.destroy();
+          this.sprites.delete(id);
+        }
+      }
     }
 
     // S103 #8 — DEATH-WATCHER. A Voltkin alive last frame but GONE this frame, last seen in a LIVE
@@ -359,6 +442,8 @@ export class CreatureRenderer {
   /** Drop all Voltkin geometry + death-watcher/cloud state (title-return), preserving the container. */
   clear(): void {
     this.bodyGfx.clear();
+    for (const sp of this.sprites.values()) sp.destroy(); // S110 P5 — drop matted sprites on title-return
+    this.sprites.clear();
     this.lastSeenPos.clear();
     this.facings.clear();
     this.lastSeenState.clear();
@@ -368,6 +453,7 @@ export class CreatureRenderer {
 
   destroy(): void {
     this.bodyGfx.destroy();
+    this.sprites.clear(); // S110 P5 — container.destroy({children}) frees the spriteLayer + its sprites
     this.lastSeenPos.clear();
     this.facings.clear();
     this.lastSeenState.clear();

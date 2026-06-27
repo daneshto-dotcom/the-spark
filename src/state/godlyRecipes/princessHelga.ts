@@ -104,7 +104,7 @@ export const HELGA_RECIPE: DefenderGodlyRecipe = {
   defenderKind: 'princess',
   predicate: helgaPredicate,
   stillValid: (world, anchorId) => isHelgaComponent(world, anchorId),
-  characterSprite: '/godly/voltkin/sprites/voltkin-zap.png', // Codex placeholder until a HELGA art pass
+  characterSprite: '/godly/helga/helga.png', // S110 P5 — HELGA's own matted imagen art (dirndl + stein + slap)
 };
 
 // Side-effect registration (laserTurret precedent) — main.ts imports this module for the effect.
