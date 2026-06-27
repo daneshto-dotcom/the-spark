@@ -41,19 +41,15 @@
 name: E2E (2-browser harness)
 
 on:
-  push:
-    branches: [master]
-    paths:
-      - 'src/**'
-      - 'public/**'
-      - 'e2e/**'
-      - 'index.html'
-      - 'vite.config.ts'
-      - 'tsconfig.json'
-      - 'playwright.config.ts'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/e2e.yml'
+  # S110 — REMOVED the per-push trigger. This 2-job Playwright harness ran ~35 min on EVERY push to
+  # master and exhausted the PRIVATE repo's free GitHub Actions minutes — the spending-limit cap that
+  # blocked all S110 deploys (startup_failure / 0 jobs) AND spammed failure emails (two per push: this
+  # + the Pages deploy). It now runs on a WEEKLY schedule + on PRs + on-demand, catching regressions
+  # without the per-push minute drain. The cheap deploy.yml (Pages, ~2 min) still runs on every push,
+  # unchanged — so code still deploys on push (once the spending cap is lifted). Run a one-off check
+  # anytime via the Actions tab → "E2E (2-browser harness)" → Run workflow (workflow_dispatch).
+  schedule:
+    - cron: '0 7 * * 1'  # Mondays 07:00 UTC — weekly regression sweep
   pull_request:
     branches: [master]
   workflow_dispatch:
