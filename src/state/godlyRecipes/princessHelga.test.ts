@@ -130,7 +130,8 @@ describe('helgaPredicate + end-to-end slap', () => {
     buildHelga(w, 1, 3, 3);
     w.defenders.set(asDefenderId(0), {
       id: asDefenderId(0), kind: 'princess', ownerPlayerId: P0, anchorPrimitiveId: asPrimitiveId(1),
-      recipeId: 'helga', pos: { x: 300, y: 300 }, state: 'IDLE', ticksInState: 0, hp: 1,
+      recipeId: 'helga', pos: { x: 300, y: 300 }, prevPos: { x: 300, y: 300 }, walkTargetPos: null,
+      state: 'IDLE', ticksInState: 0, hp: 1,
       nextFireTick: 0, targetCreatureId: null, lastStrikePos: null,
     });
     expect(helgaPredicate(w, { x: 0, y: 0 })).toBeNull();

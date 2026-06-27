@@ -26,6 +26,8 @@
 
 import {
   DEFENDER_HP,
+  PRINCESS_MELEE_RANGE,
+  PRINCESS_MOVE_ACCEL,
   PRINCESS_SLAP_INTERVAL_TICKS,
   PRINCESS_SLAP_RANGE,
   PRINCESS_WINDUP_TICKS,
@@ -47,7 +49,10 @@ export type DefenderKind = 'turret' | 'princess';
  *            1v1 client reliably observes it + renders the beam/slap (Council MF1).
  *   RECOVER— cooldown before returning to IDLE + scheduling the next fire.
  */
-export type DefenderState = 'IDLE' | 'WINDUP' | 'FIRE' | 'RECOVER';
+// S110 P4 (Batch B) — 'WALK' added for HELGA's walk-to-target locomotion (princess-only; the turret
+// has moveAccel 0 + meleeRange == attackRange so it never enters WALK → its FSM stays byte-identical).
+// A SERIALIZED state literal a stale peer can't parse ⇒ PROTOCOL_VERSION 12→13.
+export type DefenderState = 'IDLE' | 'WALK' | 'WINDUP' | 'FIRE' | 'RECOVER';
 
 export interface Defender {
   readonly id: DefenderId;
@@ -59,6 +64,20 @@ export interface Defender {
   readonly recipeId: GodlyId;
   /** Render + range origin — synced; the host refreshes it from the anchor primitive each poll. */
   pos: Vec2;
+  /**
+   * S110 P4 — previous-tick position for the WALK Verlet integrator (implicit velocity = pos −
+   * prevPos). Held == pos while stationary (turret always; princess when home/striking) so velocity
+   * is zero. SERIALIZED (additive-optional, emitted only when ≠ pos) so a mid-walk host save/load
+   * resumes with the right velocity — replay byte-equivalence. Turret keeps prevPos == pos → no wire
+   * surface, byte-identical.
+   */
+  prevPos: Vec2;
+  /**
+   * S110 P4 — the point HELGA is currently walking toward (the victim's pos, refreshed each WALK
+   * tick), or null when not pursuing. SERIALIZED (additive-optional) so the 1v1 client faces her the
+   * same way mid-walk. Cleared to null when she stops pursuing.
+   */
+  walkTargetPos: Vec2 | null;
   state: DefenderState;
   /** Ticks since entering `state`. */
   ticksInState: number;
@@ -87,8 +106,19 @@ export interface DefenderConfig {
   readonly fireIntervalTicks: number;
   /** Wind-up telegraph duration before the strike lands. */
   readonly windupTicks: number;
-  /** Max distance (px) to the target creature for acquisition + the strike. */
+  /** Max distance (px) to the target creature for acquisition (+ for a turret, also the strike). */
   readonly attackRange: number;
+  /**
+   * S110 P4 — Verlet walk acceleration (px·s⁻²). 0 = stationary (turret: never walks). Princess > 0
+   * → she walks to her target before striking.
+   */
+  readonly moveAccel: number;
+  /**
+   * S110 P4 — strike distance (px). The defender only enters WINDUP when within this of the target.
+   * Turret meleeRange == attackRange (a ranged laser strikes at acquisition range → never WALKs);
+   * princess meleeRange is small (must be adjacent).
+   */
+  readonly meleeRange: number;
   /** Sentinel hp (see DEFENDER_HP). */
   readonly hp: number;
 }
@@ -98,6 +128,8 @@ export const TURRET_DEFENDER_CONFIG: DefenderConfig = {
   fireIntervalTicks: TURRET_FIRE_INTERVAL_TICKS,
   windupTicks: TURRET_WINDUP_TICKS,
   attackRange: TURRET_ATTACK_RANGE,
+  moveAccel: 0, // stationary — a turret never walks (its FSM stays byte-identical to pre-S110)
+  meleeRange: TURRET_ATTACK_RANGE, // strikes at acquisition range → always "in melee" → never WALKs
   hp: DEFENDER_HP,
 };
 
@@ -105,7 +137,9 @@ export const PRINCESS_DEFENDER_CONFIG: DefenderConfig = {
   kind: 'princess',
   fireIntervalTicks: PRINCESS_SLAP_INTERVAL_TICKS,
   windupTicks: PRINCESS_WINDUP_TICKS,
-  attackRange: PRINCESS_SLAP_RANGE,
+  attackRange: PRINCESS_SLAP_RANGE, // S110 P4 — acquisition + chase-leash radius (from her hub)
+  moveAccel: PRINCESS_MOVE_ACCEL, // S110 P4 — she walks to her target
+  meleeRange: PRINCESS_MELEE_RANGE, // S110 P4 — must be adjacent to slap
   hp: DEFENDER_HP,
 };
 
@@ -141,6 +175,8 @@ export function makeDefender(args: {
     anchorPrimitiveId: args.anchorPrimitiveId,
     recipeId: args.recipeId,
     pos: { x: args.pos.x, y: args.pos.y },
+    prevPos: { x: args.pos.x, y: args.pos.y }, // S110 P4 — starts at rest (prevPos == pos → v=0)
+    walkTargetPos: null, // S110 P4 — not pursuing on ignition
     state: 'IDLE',
     ticksInState: 0,
     hp: config.hp,

@@ -929,7 +929,23 @@ export const PRINCESS_WINDUP_TICKS = 14; // arm pulls back (a visible wind-up, n
 // (chase, not loop) is a dedicated session (Batch B). Range is the owner's playtest DIAL — left
 // un-pinned (NOT in constants.lock.test) precisely so the next playtest can tune it:
 // 380 = area defender; ~120 = near-melee (weaker).
+// S110 P4 (Batch B): PRINCESS_SLAP_RANGE is now the ACQUISITION + chase-LEASH radius, measured from
+// HELGA's hub ANCHOR — she engages enemy creatures near her hub and BREAKS OFF if they flee beyond
+// it (bounded, so no cross-map chase — the Council anti-kite gate). She WALKS to the target and only
+// STRIKES within PRINCESS_MELEE_RANGE.
 export const PRINCESS_SLAP_RANGE = 380;
+
+// === S110 P4 (Batch B) — HELGA full walk-to-target + melee locomotion ===
+// She acquires the nearest enemy within PRINCESS_SLAP_RANGE of her hub, WALKS to it (deterministic
+// Verlet arrive, mirrors creatureVerlet), slaps ONCE within PRINCESS_MELEE_RANGE, chases while the
+// target stays inside the leash, else returns home. All px / px·s⁻²; pure fn of world.tick (no
+// wall-clock, no RNG) → replay byte-equivalent. moveAccel sits between a chewer (120) and a Voltkin
+// (200) so she CATCHES ground attackers but a fast Voltkin can outrun her (Council: a melee unit
+// slower than its prey is pointless — the "too-strong" nerf is the RANGE + travel time, not speed).
+export const PRINCESS_MELEE_RANGE = 40; // strike distance — she must be adjacent to slap
+export const PRINCESS_MOVE_ACCEL = 150; // walk accel (chewer 120 < 150 < Voltkin 200) — #1 playtest dial
+export const PRINCESS_ARRIVE_RADIUS = 50; // arrive ramp-down radius (smooth stop, no overshoot oscillation)
+export const PRINCESS_HOME_EPSILON = 6; // within this of her hub anchor she is "home" (snap + idle)
 
 // === S82 P4(c) — mid-game peer-drop bench (6p hardening) ===
 // A seated peer absent from the transport for GRACE ticks stops ghosting: the host

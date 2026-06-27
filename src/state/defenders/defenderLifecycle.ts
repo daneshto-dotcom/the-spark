@@ -23,6 +23,8 @@ import {
   DEFENDER_REACQUIRE_TICKS,
   DEFENDER_RECOVER_TICKS,
   POOP_SLOW_MULTIPLIER,
+  PRINCESS_ARRIVE_RADIUS,
+  PRINCESS_HOME_EPSILON,
 } from '../../constants.ts';
 import {
   asDefenderId,
@@ -37,6 +39,7 @@ import { findNearestEnemyCreatureFrom } from '../creatures/creatureAI.ts';
 import { damageCreature } from '../creatures/creatureLifecycle.ts';
 import type { World } from '../worldTypes.ts';
 import { getDefenderConfig, makeDefender, type Defender, type DefenderConfig, type DefenderKind } from './defender.ts';
+import { stepDefenderWalk, freezeDefender, distSq } from './defenderMotion.ts';
 
 /** Action shapes — exported so world.ts can compose GameAction. */
 export interface RegisterDefenderAction {
@@ -112,13 +115,18 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
   const d = world.defenders.get(action.defenderId);
   if (d === undefined) return world;
   const config = getDefenderConfig(d.kind);
-  // Keep the defender pinned to its (verlet-mobile) anchor primitive so it renders + targets from
-  // the right spot. Deterministic (reads the synced primitive pos). If the anchor is gone, hold the
-  // last pos — the host re-validation poll will REMOVE_DEFENDER on its next throttle slot.
+  // The defender's HOME = its (verlet-mobile) anchor primitive's current pos. If the anchor is gone,
+  // hold the last pos — the host re-validation poll will REMOVE_DEFENDER on its next throttle slot.
   const anchor = world.primitives.get(d.anchorPrimitiveId);
-  if (anchor !== undefined) {
-    d.pos.x = anchor.pos.x;
-    d.pos.y = anchor.pos.y;
+  const homePos: Vec2 = anchor !== undefined ? { x: anchor.pos.x, y: anchor.pos.y } : { x: d.pos.x, y: d.pos.y };
+  // A TURRET is STATIONARY — pinned to its anchor every tick (unchanged pre-S110 behavior); prevPos
+  // tracks pos so its (unused) implicit velocity is always zero. A PRINCESS (S110 P4) is MOBILE: her
+  // pos is managed per FSM state below (IDLE walks home / snaps when home; WALK integrates toward the
+  // target; WINDUP/FIRE/RECOVER freeze her in place). She is NEVER pinned here.
+  if (d.kind === 'turret') {
+    d.pos.x = homePos.x;
+    d.pos.y = homePos.y;
+    freezeDefender(d);
   }
   d.ticksInState++;
 
@@ -150,27 +158,81 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
   switch (d.state) {
     case 'IDLE': {
       if (world.tick >= d.nextFireTick) {
+        // Acquire the nearest enemy within the LEASH measured from HOME (the hub) — so HELGA engages
+        // enemies near her hub and is bounded to that area (anti-kite). A turret's homePos == d.pos
+        // (pinned) so this is byte-identical to the pre-S110 d.pos acquisition for turrets.
         const target = findNearestEnemyCreatureFrom(
-          world, d.pos, d.ownerPlayerId, config.attackRange * config.attackRange,
+          world, homePos, d.ownerPlayerId, config.attackRange * config.attackRange,
         );
         if (target !== null) {
           d.targetCreatureId = target;
-          d.state = 'WINDUP';
-          d.ticksInState = 0;
+          const victim = world.creatures.get(target);
+          // Already adjacent (turret meleeRange == attackRange → always true → never WALKs, byte-
+          // identical) → strike now. Else (princess, target far) → WALK to it first.
+          if (victim !== undefined && distSq(d.pos, victim.pos) <= config.meleeRange * config.meleeRange) {
+            d.state = 'WINDUP';
+            d.ticksInState = 0;
+          } else {
+            d.state = 'WALK';
+            d.ticksInState = 0;
+            d.walkTargetPos = victim !== undefined ? { x: victim.pos.x, y: victim.pos.y } : null;
+          }
         } else {
           // Nothing in range — retry shortly rather than fire into the void.
           d.targetCreatureId = null;
           d.nextFireTick = world.tick + DEFENDER_REACQUIRE_TICKS;
         }
       }
+      // PRINCESS only: if still IDLE (didn't engage this tick), drift HOME and snap-pin when there so
+      // she follows her hub's drift while waiting. Turret was pinned + frozen at the top already.
+      if (d.kind === 'princess' && d.state === 'IDLE') {
+        if (distSq(d.pos, homePos) <= PRINCESS_HOME_EPSILON * PRINCESS_HOME_EPSILON) {
+          d.pos.x = homePos.x;
+          d.pos.y = homePos.y;
+          d.walkTargetPos = null;
+          freezeDefender(d);
+        } else {
+          d.walkTargetPos = { x: homePos.x, y: homePos.y };
+          stepDefenderWalk(d, homePos, config.moveAccel, PRINCESS_ARRIVE_RADIUS);
+        }
+      }
+      break;
+    }
+    case 'WALK': {
+      // PRINCESS only (a turret never enters WALK). Re-validate the target is alive, hostile, and
+      // still inside the leash from HOME — else break off and head home (via IDLE). Anti-kite: the
+      // leash is anchored to the hub, NOT her current pos, so she can't be walk-chased across the map.
+      const victim = d.targetCreatureId !== null ? world.creatures.get(d.targetCreatureId) : undefined;
+      const leashOk = victim !== undefined
+        && victim.ownerPlayerId !== d.ownerPlayerId
+        && distSq(victim.pos, homePos) <= config.attackRange * config.attackRange;
+      if (!leashOk) {
+        d.state = 'IDLE';
+        d.ticksInState = 0;
+        d.targetCreatureId = null;
+        d.walkTargetPos = null;
+        d.nextFireTick = world.tick + DEFENDER_REACQUIRE_TICKS;
+        break;
+      }
+      d.walkTargetPos = { x: victim.pos.x, y: victim.pos.y };
+      if (distSq(d.pos, victim.pos) <= config.meleeRange * config.meleeRange) {
+        // Arrived → freeze in place and wind up the slap (the strike lands at FIRE, as today).
+        freezeDefender(d);
+        d.state = 'WINDUP';
+        d.ticksInState = 0;
+      } else {
+        stepDefenderWalk(d, victim.pos, config.moveAccel, PRINCESS_ARRIVE_RADIUS);
+      }
       break;
     }
     case 'WINDUP': {
+      if (d.kind === 'princess') freezeDefender(d); // hold position through the wind-up
       // Abort if the target slipped away mid-windup (died / left range) — re-acquire from IDLE.
       if (!targetValid(world, d, config)) {
         d.state = 'IDLE';
         d.ticksInState = 0;
         d.targetCreatureId = null;
+        d.walkTargetPos = null;
         d.nextFireTick = world.tick + DEFENDER_REACQUIRE_TICKS;
         break;
       }
@@ -188,6 +250,7 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
       break;
     }
     case 'FIRE': {
+      if (d.kind === 'princess') freezeDefender(d); // hold position through the slap follow-through
       if (d.ticksInState >= DEFENDER_FIRE_HOLD_TICKS) {
         d.state = 'RECOVER';
         d.ticksInState = 0;
@@ -195,10 +258,12 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
       break;
     }
     case 'RECOVER': {
+      if (d.kind === 'princess') freezeDefender(d); // hold position through the recovery
       if (d.ticksInState >= DEFENDER_RECOVER_TICKS) {
         d.state = 'IDLE';
         d.ticksInState = 0;
         d.targetCreatureId = null;
+        d.walkTargetPos = null; // S110 P4 — stop pursuing; IDLE walks her home if she's away
         d.lastStrikePos = null; // stop riding the wire once the strike VFX window closed
         d.nextFireTick = world.tick + fireInterval;
       }

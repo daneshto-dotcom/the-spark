@@ -121,7 +121,8 @@ describe('laserTurretPredicate', () => {
     // Mark the Line as already a live defender → predicate must skip it (returns null, no 2nd turret).
     w.defenders.set(asDefenderId(0), {
       id: asDefenderId(0), kind: 'turret', ownerPlayerId: P0, anchorPrimitiveId: asPrimitiveId(1),
-      recipeId: 'laserTurret', pos: { x: 200, y: 200 }, state: 'IDLE', ticksInState: 0, hp: 1,
+      recipeId: 'laserTurret', pos: { x: 200, y: 200 }, prevPos: { x: 200, y: 200 }, walkTargetPos: null,
+      state: 'IDLE', ticksInState: 0, hp: 1,
       nextFireTick: 0, targetCreatureId: null, lastStrikePos: null,
     });
     expect(laserTurretPredicate(w, { x: 0, y: 0 })).toBeNull();

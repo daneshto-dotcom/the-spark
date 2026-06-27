@@ -72,8 +72,8 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 12 (S103 P2 bump from 11 — generic defender lifecycle + defenders snapshot)', () => {
-    expect(PROTOCOL_VERSION).toBe(12);
+  it('PROTOCOL_VERSION is 13 (S110 P4 bump from 12 — HELGA walk: serialized WALK state + prevPos/walkTargetPos)', () => {
+    expect(PROTOCOL_VERSION).toBe(13);
   });
 
   it('S102 #1 — RAID_CREATURE is an allowed CLIENT INTENT (a 1v1 joiner can raid an enemy chewer)', () => {
@@ -320,7 +320,8 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
     // S102 #1 — bumped 10→11 for the RAID_CREATURE client intent + creature hp.
     // S103 P2 — bumped 11→12 for the generic defender lifecycle (REGISTER/REMOVE/TICK_DEFENDER,
     // all HOST-INTERNAL) + the additive-optional defenders[] snapshot field.
-    expect(PROTOCOL_VERSION).toBe(12);
+    // S110 P4 — bumped 12→13 for HELGA's walk rework (serialized 'WALK' state + prevPos/walkTargetPos).
+    expect(PROTOCOL_VERSION).toBe(13);
     expect(
       parseNetMessage({ kind: 'SOME_FUTURE_KIND', roster: [{ seat: 0, peerId: 'h', color: 1 }] }),
     ).toBeNull();

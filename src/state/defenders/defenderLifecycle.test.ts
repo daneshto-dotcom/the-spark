@@ -25,7 +25,8 @@ import { CHEWER_CONFIG } from '../creatures/voltkin-config.ts';
 import {
   applyDefenderTick, applyRegisterDefender, recipeStillSatisfied, teardownDefenders, loadRephaseDefenders,
 } from './defenderLifecycle.ts';
-import { getDefenderConfig } from './defender.ts';
+import { getDefenderConfig, type Defender } from './defender.ts';
+import { snapshot, restore } from '../save.ts';
 
 const P0 = asPlayerId(0); // defender owner
 const P1 = asPlayerId(1); // enemy (chewer owner)
@@ -165,6 +166,132 @@ describe('S109 P3 — a pooped HELGA (princess) slaps SLOWER but does not stop',
     // Run out the rest of the stretched (2x) window → the slap lands. She still defends, just slower.
     tickN(w, windup * 2);
     expect(w.creatures.has(asCreatureId(50))).toBe(false); // slapped
+  });
+});
+
+describe('S110 P4 (Batch B) — HELGA walk-to-target locomotion', () => {
+  function registerHelga(w: World, anchor: PrimitiveId, x = 100, y = 100): Defender {
+    applyRegisterDefender(w, { type: 'REGISTER_DEFENDER', defenderKind: 'princess', ownerPlayerId: P0, anchorPrimitiveId: anchor, recipeId: 'helga', pos: { x, y } });
+    return [...w.defenders.values()][0];
+  }
+
+  it('a FAR (but in-leash) enemy: she WALKS toward it first — no instant cross-map slap', () => {
+    const w = setup();
+    const anchor = addAnchor(w, 1, 100, 100);
+    addEnemyChewer(w, 50, 300, 100); // 200px — within the 380 leash, far beyond melee (40)
+    const d = registerHelga(w, anchor);
+    d.nextFireTick = w.tick;
+
+    tickN(w, 1); // IDLE acquires → WALK (not adjacent)
+    expect(d.state).toBe('WALK');
+    expect(w.creatures.has(asCreatureId(50))).toBe(true); // NOT slapped — she must close the distance
+
+    const startX = d.pos.x;
+    tickN(w, 50); // she marches toward the target
+    expect(d.pos.x).toBeGreaterThan(startX + 10); // moved meaningfully toward (300,100)
+    expect(d.pos.x).toBeLessThanOrEqual(300); // never overshoots past the target
+  });
+
+  it('walks all the way up and slaps ONCE on arrival (the far chewer dies)', () => {
+    const w = setup();
+    const anchor = addAnchor(w, 1, 100, 100);
+    addEnemyChewer(w, 50, 300, 100);
+    const d = registerHelga(w, anchor);
+    d.nextFireTick = w.tick;
+
+    tickN(w, 400); // generous: walk in + windup + fire
+    expect(w.creatures.has(asCreatureId(50))).toBe(false); // reached melee and slapped it dead
+    expect(d.lastStrikePos).toBeNull(); // back to IDLE after the kill (strike VFX window closed)
+  });
+
+  it('returns HOME after the target is gone (walks back to her hub anchor)', () => {
+    const w = setup();
+    const anchor = addAnchor(w, 1, 100, 100);
+    addEnemyChewer(w, 50, 320, 100); // she'll end up ~280px out after the kill
+    const d = registerHelga(w, anchor);
+    d.nextFireTick = w.tick;
+
+    tickN(w, 200); // walk + slap (chewer dies in 1) → target gone
+    expect(w.creatures.has(asCreatureId(50))).toBe(false);
+    expect(d.pos.x).toBeGreaterThan(150); // she's out near the old kill spot, away from home
+
+    tickN(w, 400); // IDLE walks her home; within HOME_EPSILON she snaps to the anchor
+    expect(d.state).toBe('IDLE');
+    expect(Math.abs(d.pos.x - 100)).toBeLessThan(7); // home (snapped within PRINCESS_HOME_EPSILON)
+    expect(Math.abs(d.pos.y - 100)).toBeLessThan(7);
+  });
+
+  it('anti-kite leash: a target that flees beyond the leash-from-HOME breaks off the chase', () => {
+    const w = setup();
+    const anchor = addAnchor(w, 1, 100, 100);
+    addEnemyChewer(w, 50, 300, 100);
+    const d = registerHelga(w, anchor);
+    d.nextFireTick = w.tick;
+
+    tickN(w, 2);
+    expect(d.state).toBe('WALK');
+    const chewer = w.creatures.get(asCreatureId(50))!;
+    chewer.pos.x = 2000; // teleport it WAY outside the 380 leash from the (100,100) hub
+    chewer.pos.y = 2000;
+    tickN(w, 2);
+    expect(d.state).toBe('IDLE'); // gave up the chase (leash is anchored to her hub, not her pos)
+    expect(d.targetCreatureId).toBeNull();
+  });
+
+  it('the turret NEVER walks (stationary, byte-identical FSM — no WALK state)', () => {
+    const w = setup();
+    const anchor = addAnchor(w, 1, 100, 100);
+    addEnemyChewer(w, 50, 300, 100); // far, but a turret strikes at range (no melee/walk concept)
+    applyRegisterDefender(w, { type: 'REGISTER_DEFENDER', defenderKind: 'turret', ownerPlayerId: P0, anchorPrimitiveId: anchor, recipeId: 'laserTurret', pos: { x: 100, y: 100 } });
+    const d = [...w.defenders.values()][0];
+    d.nextFireTick = w.tick;
+    tickN(w, getDefenderConfig('turret').windupTicks + 2);
+    expect(d.state).not.toBe('WALK'); // turret goes IDLE→WINDUP directly (meleeRange == attackRange)
+    expect(d.pos).toEqual({ x: 100, y: 100 }); // pinned to its anchor (never moved)
+  });
+
+  it('PROTOCOL_VERSION 13 wire round-trip: a mid-walk princess survives save/restore exactly', () => {
+    const w = setup();
+    const anchor = addAnchor(w, 1, 100, 100);
+    addEnemyChewer(w, 50, 320, 200);
+    const d = registerHelga(w, anchor);
+    d.nextFireTick = w.tick;
+    tickN(w, 8); // mid-walk: WALK state, prevPos ≠ pos (moving), walkTargetPos pursuing
+    expect(d.state).toBe('WALK');
+    expect(d.prevPos).not.toEqual(d.pos); // she has velocity
+    expect(d.walkTargetPos).not.toBeNull();
+
+    const w2 = makeWorld(0);
+    restore(JSON.parse(JSON.stringify(snapshot(w))), w2); // full JSON round-trip (the wire path)
+    const d2 = [...w2.defenders.values()][0];
+    expect(d2.state).toBe('WALK');
+    expect(d2.pos).toEqual(d.pos);
+    expect(d2.prevPos).toEqual(d.prevPos); // velocity preserved → replay resumes correctly
+    expect(d2.walkTargetPos).toEqual(d.walkTargetPos);
+  });
+
+  it('a stationary turret omits prevPos/walkTargetPos from the wire (byte-identical, additive-optional)', () => {
+    const w = setup();
+    const anchor = addAnchor(w, 1, 100, 100);
+    applyRegisterDefender(w, { type: 'REGISTER_DEFENDER', defenderKind: 'turret', ownerPlayerId: P0, anchorPrimitiveId: anchor, recipeId: 'laserTurret', pos: { x: 100, y: 100 } });
+    tickN(w, 1); // pinned + frozen → prevPos == pos, walkTargetPos null
+    const snap = JSON.parse(JSON.stringify(snapshot(w)));
+    const serialized = snap.defenders[0];
+    expect(serialized.prevPos).toBeUndefined(); // not emitted (prevPos == pos)
+    expect(serialized.walkTargetPos).toBeUndefined(); // not emitted (null)
+  });
+
+  it('replay determinism: two identical walk runs produce byte-identical positions', () => {
+    const runWalk = (): { x: number; y: number; prevX: number } => {
+      const w = setup();
+      const anchor = addAnchor(w, 1, 100, 100);
+      addEnemyChewer(w, 50, 320, 240);
+      const d = registerHelga(w, anchor);
+      d.nextFireTick = w.tick;
+      tickN(w, 25); // mid-walk
+      return { x: d.pos.x, y: d.pos.y, prevX: d.prevPos.x };
+    };
+    expect(runWalk()).toEqual(runWalk()); // deterministic Verlet — no RNG, no wall-clock
   });
 });
 

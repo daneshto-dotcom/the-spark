@@ -510,6 +510,11 @@ interface SerializedDefender {
   readonly nextFireTick: number;
   readonly targetCreatureId?: CreatureId;
   readonly lastStrikePos?: Vec2;
+  // S110 P4 (Batch B) — HELGA walk locomotion. Both additive-optional: prevPos is emitted only while
+  // MOVING (≠ pos) so a stationary turret / idle-home HELGA stays byte-identical; walkTargetPos only
+  // while pursuing. A mid-walk host save/load resumes with the right velocity + facing (replay-safe).
+  readonly prevPos?: Vec2;
+  readonly walkTargetPos?: Vec2;
 }
 
 /**
@@ -1300,6 +1305,10 @@ function serializeDefender(d: Defender): SerializedDefender {
     nextFireTick: d.nextFireTick,
     ...(d.targetCreatureId !== null ? { targetCreatureId: d.targetCreatureId } : {}),
     ...(d.lastStrikePos !== null ? { lastStrikePos: { x: d.lastStrikePos.x, y: d.lastStrikePos.y } } : {}),
+    // S110 P4 — emit prevPos only while moving (≠ pos) so a stationary defender stays byte-identical.
+    ...(d.prevPos.x !== d.pos.x || d.prevPos.y !== d.pos.y
+      ? { prevPos: { x: d.prevPos.x, y: d.prevPos.y } } : {}),
+    ...(d.walkTargetPos !== null ? { walkTargetPos: { x: d.walkTargetPos.x, y: d.walkTargetPos.y } } : {}),
   };
 }
 
@@ -1322,6 +1331,9 @@ function deserializeDefender(s: SerializedDefender): Defender {
   d.nextFireTick = s.nextFireTick;
   d.targetCreatureId = s.targetCreatureId ?? null;
   d.lastStrikePos = s.lastStrikePos !== undefined ? { x: s.lastStrikePos.x, y: s.lastStrikePos.y } : null;
+  // S110 P4 — prevPos defaults to pos (at rest) when omitted; walkTargetPos defaults to null.
+  d.prevPos = s.prevPos !== undefined ? { x: s.prevPos.x, y: s.prevPos.y } : { x: s.pos.x, y: s.pos.y };
+  d.walkTargetPos = s.walkTargetPos !== undefined ? { x: s.walkTargetPos.x, y: s.walkTargetPos.y } : null;
   return d;
 }
 

@@ -85,6 +85,23 @@ export function helgaPose(state: DefenderState, ticksInState: number, phaseTick:
     case 'IDLE':
       return base;
 
+    case 'WALK': {
+      // S110 P4 (Batch B) — marching to the target: a determined forward lean + a brisk walking BOB
+      // (gait driven by phaseTick so host + client agree), slap-arm cocked back ready, stein braced
+      // out of the way. A real state-driven gait, NOT a slide — distinct from the idle breathing.
+      const gait = Math.sin(ph * 0.5); // brisk step cadence
+      return {
+        ...base,
+        bodyBobY: Math.abs(gait) * 2.2 - 1.0, // up-down stride bob
+        leanAngle: 0.16, // lean forward into the march
+        headTilt: base.headTilt - 0.04,
+        beerArmAngle: -0.35, // stein braced out of the way
+        sip: 0,
+        slapArmAngle: REST_SLAP - 0.25, // arm cocked slightly back, ready to swing
+        skirtSway: gait * 0.12, // skirt swings with the stride
+      };
+    }
+
     case 'WINDUP': {
       // Pull the slap-arm back/up + coil the torso AWAY from the target (anticipation).
       const p = smooth(ticksInState / Math.max(1, PRINCESS_WINDUP_TICKS));

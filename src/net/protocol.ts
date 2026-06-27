@@ -81,7 +81,11 @@ export type { NetSnapshot };
 // with a defender firing beams/slaps, so it is hard-rejected at HELLO (same lockstep as the S100
 // spawner bump). Defenders are HOST-AUTHORITATIVE (never client INTENTs — they auto-build from
 // geometry), so they ride KNOWN_GAME_ACTION_TYPES_RECORD only, ABSENT from CLIENT_INTENT_TYPES.
-export const PROTOCOL_VERSION = 12 as const;
+// S110 P4 (Batch B) — bumped 12->13: HELGA's walk-to-target rework adds a SERIALIZED defender state
+// literal 'WALK' + additive-optional prevPos/walkTargetPos to the defenders[] snapshot. A stale v12
+// peer would receive a 'WALK' state it can't parse / would mis-render the walking princess, so it is
+// hard-rejected at HELLO (same lockstep as the S103 11->12 defender bump). Still host-authoritative.
+export const PROTOCOL_VERSION = 13 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -106,8 +110,8 @@ export interface HelloMsg {
   readonly kind: 'HELLO';
   readonly playerId: PlayerId;
   readonly color: number;
-  /** Protocol version — bumped on wire-incompatible changes. S77 P3: 6→7 (seagull); S87 P4: 7→8 (LOBBY_READY quickmatch gate); S93: 8→9 (NONET SUDOKU_SOLVED intent + sudoku snapshot field); S100 P1: 9→10 (TD spawner lifecycle + creatureSpawners snapshot field); S102 #1: 10→11 (RAID_CREATURE intent + creature hp); S103 P2: 11→12 (generic defender lifecycle + defenders snapshot field). */
-  readonly protoVersion: 12;
+  /** Protocol version — bumped on wire-incompatible changes. S77 P3: 6→7 (seagull); S87 P4: 7→8 (LOBBY_READY quickmatch gate); S93: 8→9 (NONET SUDOKU_SOLVED intent + sudoku snapshot field); S100 P1: 9→10 (TD spawner lifecycle + creatureSpawners snapshot field); S102 #1: 10→11 (RAID_CREATURE intent + creature hp); S103 P2: 11→12 (generic defender lifecycle + defenders snapshot field); S110 P4: 12→13 (HELGA walk: serialized 'WALK' state + prevPos/walkTargetPos on defenders[]). */
+  readonly protoVersion: 13;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
 }
