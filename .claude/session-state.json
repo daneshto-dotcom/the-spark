@@ -16,19 +16,27 @@
     {
       "id": "S110-BATCH",
       "label": "S110 BATCH (one approval, 5 sub-priorities executed sequentially): P1 win-points 786->1500 (+tier-step 262->500); P2 uniform spark speed (min=max=12, keep rngRange draw); P3 codex keep player-avatar visible above backdrop; P4 Batch B Helga walk-to-target+melee (PROTOCOL_VERSION 12->13, two commits 4a substrate+WALK / 4b chase AI); P5 Batch D wire 3 imagen art keepers (offline matte->atlas->render-swap, lazy-load, no bump). Sub-priorities tracked via TaskCreate + one commit each.",
-      "status": "in_progress",
-      "phase": "EXECUTING",
+      "status": "completed",
+      "phase": "COMPLETED",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "priority_state": "in_progress",
+      "priority_state": "completed",
       "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "All 5 sub-priorities shipped as 5 revertible commits (0d83eef P1 / 94a5097 P2 / 8558f38 P3 / ae30daa P4 / ffcde36 P5), each gated: tsc 0 + full vitest green throughout (1702->1710, +8 net). P1 (win 786->1500 + tier-step 262->500): exact-thirds invariant (scoring.test 366-367) holds 1500=3x500; leader-decay tests auto-scale (compute C_EQ live, ~39->~75) + hardened the one hardcoded fixture (80->120 prims) + gameState WIN-accrual cap (cx10/100k->cx20/150k); HUNTER/LEADER fractions auto-derive; no bump. P2 (speed 12): KEPT the rngRange call so the draw sequence (shape distribution) is byte-identical (Grok 'RNG mutation' REFUTED against rng.ts:35); spawner 18/18. P3 (codex avatar): render-only z-order lift/restore (fog-of-war layering preserved); tsc only (Pixi-stage logic, browser-verified-deferred). P4 (Helga walk v12->13, FULL): stepDefenderWalk mirrors creatureVerlet byte-for-byte; +8 tests (6 WALK behavior: walk-before-strike/walk-and-slap/return-home/anti-kite-leash/turret-never-walks/replay-determinism + wire round-trip + turret additive-optional byte-identity); turret BYTE-IDENTICAL (moveAccel 0, meleeRange==attackRange -> never WALKs); save.replay/stateHash full suite green; PROTOCOL_VERSION 13 round-trip asserted. P5 (art, no bump): scripts/matte-art-keepers.py border-connected-component matte (NO box - verified via dark-bg preview composites; interior whites preserved); in-world Voltkin procedural->matted Sprite (idle/zap, synced-state pure helpers, determinism-free) lazy-loaded from public/ (unbundled; entry 597.5->601.5 KiB / 750 cap) with graceful procedural fallback; codex tiles + Helga's own art wired; in-world Helga kept procedural (walks). Build under cap. CRITICAL DEPLOY CAVEAT: all 5 pushed to master but the GitHub Actions deploy is BLOCKED (startup_failure, 0 jobs, both push + manual) by an account-level Actions spending-limit/minutes cap on this PRIVATE repo -> spark-online.space still serves S109. Owner billing action needed; code is safe on master and deploys on the next push once unblocked.",
+      "checkpoint_commit": "ffcde36",
+      "real_context_tokens_at_close": 472051,
+      "real_context_pct_at_close": 47.21,
       "sub_priorities": ["P1-win-points", "P2-uniform-speed", "P3-codex-avatar", "P4-helga-walk-v13", "P5-art-wiring"],
+      "commits": ["0d83eef (P1)", "94a5097 (P2)", "8558f38 (P3)", "ae30daa (P4)", "ffcde36 (P5)"],
       "plan_file": ".claude/plans/2026-06-26_PDR_S110_Batch_E_plus_B_plus_D.md"
     }
   ],
   "carry_forward_priorities": [
+    "*** CRITICAL / OWNER ACTION *** GitHub Actions deploy is BLOCKED — all S110 pushes (and a manual workflow_dispatch) startup_failure with 0 jobs while Actions is enabled + the workflow files are valid + unchanged since the Jun 26 S109 success. Diagnosis: the PRIVATE repo's Actions spending-limit/free-minutes cap is exhausted (the Playwright e2e burns ~35 min/push). spark-online.space STILL SERVES S109 — none of S110 is live. FIX (owner): GitHub -> Settings -> Billing & plans -> Actions -> raise the spending limit (or wait for the monthly reset, or make the repo public for unlimited minutes). Code is safe on master (5 commits) and will deploy on the next push once unblocked. PREVENTION (optional follow-up, own PDR): gate the heavy e2e.yml to run less often (not every push) so the minutes last.",
     "Helga walk-cycle animation (Veo image-to-video loop or multi-pose imagen on helga_B) once veo/imagen reference-conditioning is functional in this auth -- first-pass P5 ships a static sprite that slides while walking (Gemini quality flag).",
+    "P5 in-world Voltkin sprite SCALE (VOLTKIN_SPRITE_BASE_SCALE=0.17) + anchor (0.5,0.56) are estimates — confirm on the owner's live playtest (a dial like the Helga range); also P4 Helga moveAccel 150 + acquisition/leash 380 are playtest dials.",
     "Batch C: new lightning-drone building (own PDR+Council; resolve 9 owner design Qs first; PROTOCOL_VERSION 12->13).",
     "After S108 queue: resume ROADMAP -- Tier-1 G1b MOTION / G2 family traits / G3b silhouettes / G4 crown+BOND_COMMIT; then Tier-3 host-migration D1-D4.",
     "Owner-gated (unchanged): anti-coast structure-loss CLAWBACK (own PDR); worker-sim ?worker=1 cutover (WORKER_SIM_FOUNDATION.md)."
@@ -38,12 +46,15 @@
   "reflexion_entries_to_archive": [
     "S108-PLAN #verify-the-councils-confident-consensus-against-the-actual-architecture: a 3-way Council UNANIMOUSLY headlined a MANDATORY PROTOCOL_VERSION bump asserting the client predicts physics; PRIME-AUDIT refuted it against the code (SPARK client runs ZERO authoritative physics). LESSON: two models converging is NOT independent confirmation when they share a generic prior; verify confident consensus against the actual codebase before adopting.",
     "S109-PLAN-A #host-only-field-needs-no-wire-bump-when-the-serializer-is-a-whitelist: adding Creature.poopyUntilTick needed ZERO save.ts changes because serializeCreature is a field WHITELIST. LESSON: read the serializer before assuming a new field forces a protocol bump.",
-    "S109-PLAN-A #the-unlock-hook-vocabulary-vs-the-final-gate-vocabulary: the unlock hook writes priority_state:'unlocked' but pdca-final-gate accepts only {approved,in_progress,completed}. FIX: reconcile priority_state to 'in_progress' after the hook mints unlock_source:user (the load-bearing field)."
+    "S109-PLAN-A #the-unlock-hook-vocabulary-vs-the-final-gate-vocabulary: the unlock hook writes priority_state:'unlocked' but pdca-final-gate accepts only {approved,in_progress,completed}. FIX: reconcile priority_state to 'in_progress' after the hook mints unlock_source:user (the load-bearing field).",
+    "S110-BATCH #commit-and-push-is-not-the-same-as-deployed: all 5 S110 commits passed tsc + 1710 vitest + build-under-cap and pushed clean, but `gh run list` showed EVERY S110 deploy at startup_failure/0s/0-jobs while S109 succeeded. The bundle-cap memory's 'on shipped-but-not-working check gh run list FIRST' caught it. Root cause was NOT code/bundle/workflow-file (files valid + unchanged since the green Jun 26 run; Actions enabled): a private-repo GitHub Actions SPENDING-LIMIT/minutes cap (the ~35min/push Playwright e2e exhausted the 2000 free minutes) blocks ALL new runs (push AND manual workflow_dispatch) with 0 jobs. LESSON: 'done' = DEPLOYED, not just pushed-green; always verify the live deploy via `gh run list` at batch close, and a 0-job startup_failure that survives a manual dispatch = an account/billing block (owner action), not a code fix. Prevention: don't run a heavy e2e on every push on a minutes-capped private repo.",
+    "S110-BATCH #engage-the-pdr-lock-WHEN-you-present-not-after: the user said 'go' twice but the write-gate never minted unlock_source=user because glue_pdr_unlock only mints when a lock file (pdr-gate-lock / pdr-lock-<id>) exists at the approval prompt AND an in_progress priority exists — and I'd presented the PDR without engaging the lock first. LESSON: the lock is the 'awaiting approval' marker; create it (+ stage the in_progress priority) WHEN you present the PDR, so the user's very next 'go' mints the unlock. Also: a multi-priority batch must be ONE in_progress session-state entry (the S109 PLAN-A pattern) — separate per-priority entries each need their own unlock, which re-blocks at every priority boundary.",
+    "S110-P5 #border-connected-component-matte-beats-luma-key: imagen stills on a uniform white bg matte cleanly to transparent by removing ONLY border-connected near-white (scipy.ndimage.label + drop border-touching components), which preserves interior whites (Voltkin belly, Helga beer-foam/apron) and leaves NO square box — exactly the S106 failure mode a naive luma/white key caused (it punched holes in the #FFEB6B belly + left the box the owner hated). Verify the matte via a dark-bg preview composite BEFORE wiring. public/ assets are unbundled by construction (separate static files) so lazy-loading them is bundle-cap-free."
   ],
   "real_context_tokens_at_close": null,
   "real_context_pct_at_close": null,
   "analyze_completed": false,
-  "session_status": "S110 ACTIVE — batch PDR deliberated, gate engaged, awaiting unlock to execute P1->P5",
+  "session_status": "S110 COMPLETE (code) — all 5 batch priorities shipped to master (5 commits, tsc 0, vitest 1710/1710, build under cap). BLOCKED on LIVE DEPLOY: GitHub Actions startup_failure (private-repo Actions spending-limit cap) — spark-online.space still serves S109; owner billing action needed. Recommend /handoff.",
   "handoff_ready": false,
   "handoff_doc": "HANDOFF_S109.md",
   "phase_final": null
