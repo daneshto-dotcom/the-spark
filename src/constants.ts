@@ -309,8 +309,14 @@ export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 1500;
 
 // === Spawner physics ===
 export const SPAWNER_BOUNCE_DAMPING = 0.92;
-export const SPARK_INITIAL_VELOCITY_MIN = 5;
-export const SPARK_INITIAL_VELOCITY_MAX = 20;
+// S110 P2 — UNIFORM spawn speed (owner live-playtest: "same speed but random shapes").
+// Was random 5–20; now both bounds = 12 so every fresh Free spark drifts at one speed while
+// the SHAPE stays uniform-random (rngPick, spawner.ts) and the per-match reseed (S105) keeps
+// the sequence unpredictable. CRITICAL determinism note: spawner.ts still calls
+// rngRange(rng, MIN, MAX) — with MIN==MAX it returns 12 but STILL consumes one rng() draw, so
+// the draw sequence (and thus the shape distribution, drawn first) is byte-identical to before.
+export const SPARK_INITIAL_VELOCITY_MIN = 12;
+export const SPARK_INITIAL_VELOCITY_MAX = 12;
 
 // Phase-1 soft-cap. Despawn-on-overflow keeps the spawner zone playable
 // during long sandbox sessions. Oldest Free sparks despawn first; Carried
