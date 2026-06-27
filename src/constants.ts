@@ -301,7 +301,11 @@ function readTestWinScore(): number | null {
 // try to do shit and build stuff and compete"). SCORE_TIER_STEP raised 210→262 in LOCKSTEP below so
 // the exact-thirds tier cadence holds (786=3×262; pulses at 262/524, WIN at 786). HUNTER_TRIGGER_SCORE
 // auto-scales to floor(786×0.75)=589. Owner-authorized amendment to the "protected anchor".
-export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 786;
+// S110 P1 — 786→1500 (×1.908, owner live-playtest: "you can barely build anything before you win
+// because some structures take so long to build" → ~2× match length so slow/complex structures finish).
+// SCORE_TIER_STEP raised 262→500 in LOCKSTEP below so exact-thirds holds (1500=3×500; pulses at
+// 500/1000, WIN at 1500). HUNTER_TRIGGER_SCORE auto-scales to floor(1500×0.75)=1125. Owner-approved S110.
+export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 1500;
 
 // === Spawner physics ===
 export const SPAWNER_BOUNCE_DAMPING = 0.92;
@@ -388,7 +392,10 @@ export const AUTO_BOND_RADIUS = 60;
 // S106 — 210→262 in lockstep with PHASE_1_WIN_SCORE 630→786 (+25% match length). Exact thirds
 // preserved (786=3×262: pulses at 262/524, WIN at 786) so the exact-thirds invariant stays green
 // and the per-match tier-pulse cadence is still 2 pulses before WIN.
-export const SCORE_TIER_STEP = 262;
+// S110 P1 — 262→500 in lockstep with PHASE_1_WIN_SCORE 786→1500. Exact thirds preserved
+// (1500=3×500: pulses at 500/1000, WIN at 1500) so the scoring.test.ts exact-thirds invariant
+// stays green and the per-match tier-pulse cadence is still 2 pulses before WIN.
+export const SCORE_TIER_STEP = 500;
 
 // S13 P2 — outward verlet impulse for STRUCTURE_GROW. Applied to each
 // primitive in the *primary's pre-existing component* (the structure
@@ -569,8 +576,8 @@ export const HUNTER_TRIGGER_SCORE =
 // Equilibrium complexity (live income == decay) at the win line:
 //     C_eq = LEADER_DECAY_RATE_PER_SEC × (1 − FRACTION) × PHASE_1_WIN_SCORE
 //            / SCORE_INCOME_PER_COMPLEXITY_PER_SEC
-//          = 0.01 × 0.25 × 786 / 0.05 ≈ 39
-// So a committed builder (sustained standing complexity > ~39) still closes out the
+//          = 0.01 × 0.25 × 1500 / 0.05 ≈ 75   (S110 P1: WIN 786→1500 lifted C_eq ~39→~75)
+// So a committed builder (sustained standing complexity > ~75) still closes out the
 // win; a modest/raided leader stalls below the win line and the trailing player gets a
 // window. The threshold coincides with HUNTER_TRIGGER (75%) by design: past 75% you are
 // both HUNTED and must keep earning. Host-only + tick-driven + pure fn of synced state

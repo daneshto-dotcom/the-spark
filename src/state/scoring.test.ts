@@ -324,10 +324,11 @@ describe('S84 P4 — functional-bond complexity (capped) + field-report invarian
     const hostWorld = trio();
     hostWorld.isHost = true;
     const prims: Primitive[] = [];
-    // S107 P1 — complexity must exceed the leader-decay equilibrium (~39) so the leader
+    // S107 P1 — complexity must exceed the leader-decay equilibrium so the leader
     // can still cross the win line past the 75% threshold (a builder this committed wins;
-    // the anti-coast decay only stalls a modest/coasting leader). 80 isolated prims = c.80.
-    for (let i = 0; i < 80; i++) prims.push(addPrim(hostWorld, P1, SparkType.Dot, 1200 + i * 30, 500));
+    // the anti-coast decay only stalls a modest/coasting leader). S110 P1: WIN 786→1500 lifted
+    // C_eq ~39→~75, so 120 isolated prims = c.120 keeps a healthy margin above equilibrium.
+    for (let i = 0; i < 120; i++) prims.push(addPrim(hostWorld, P1, SparkType.Dot, 1200 + i * 30, 500));
     hostWorld.scoreByPlayer.set(P0, 4);
     hostWorld.scoreByPlayer.set(P1, PHASE_1_WIN_SCORE - 0.001); // about to cross
     hostWorld.scoreByPlayer.set(P2, 2);
@@ -369,8 +370,8 @@ describe('S84 P3 — pacing constants coherence', () => {
 });
 
 describe('S107 P1 — anti-coast LEADER SCORE-DECAY', () => {
-  const THRESHOLD = PHASE_1_WIN_SCORE * LEADER_DECAY_THRESHOLD_FRACTION; // 589.5
-  // Equilibrium complexity at the win line: C_eq = RATE × (1−FRACTION) × WIN / INCOME ≈ 39.
+  const THRESHOLD = PHASE_1_WIN_SCORE * LEADER_DECAY_THRESHOLD_FRACTION; // 1125 at WIN=1500
+  // Equilibrium complexity at the win line: C_eq = RATE × (1−FRACTION) × WIN / INCOME ≈ 75 at WIN=1500.
   const C_EQ =
     (LEADER_DECAY_RATE_PER_SEC * (1 - LEADER_DECAY_THRESHOLD_FRACTION) * PHASE_1_WIN_SCORE) /
     SCORE_INCOME_PER_COMPLEXITY_PER_SEC;
@@ -386,7 +387,7 @@ describe('S107 P1 — anti-coast LEADER SCORE-DECAY', () => {
   it('a COMMITTED builder (complexity > equilibrium) still climbs past the threshold', () => {
     const w = duel();
     w.scoreByPlayer.set(P0, THRESHOLD + 110);
-    // Build well above C_eq (~39) so live income exceeds the decay → net positive.
+    // Build well above C_eq (~75 at WIN=1500) so live income exceeds the decay → net positive.
     for (let i = 0; i < Math.ceil(C_EQ) + 25; i++) addPrim(w, P0, SparkType.Dot, 200 + i * 12, 200);
     tickScoring(w);
     expect(w.scoreByPlayer.get(P0)!).toBeGreaterThan(THRESHOLD + 110);

@@ -52,9 +52,10 @@ describe('Game-state FSM (Phase 1 abridged)', () => {
   it('PLAYING → WIN when income reaches PHASE_1_WIN_SCORE', () => {
     const w = makeWorld(0);
     const ex = makeGameStateExtras();
-    for (let i = 0; i < 10; i++) placeOne(w, i); // complexity 10
-    // Accrue per-tick income until the floored threshold is reached.
-    for (let t = 0; t < 100000 && Math.floor(w.scoreProgress) < PHASE_1_WIN_SCORE; t++) tickScoring(w);
+    for (let i = 0; i < 20; i++) placeOne(w, i); // complexity 20 (S110 P1: WIN 786→1500, more income needed)
+    // Accrue per-tick income until the floored threshold is reached. Cap is generous so the loop
+    // is bounded by the SCORE condition (reaches 1500 at ~90k ticks @ cx20/60Hz), not the iteration cap.
+    for (let t = 0; t < 150000 && Math.floor(w.scoreProgress) < PHASE_1_WIN_SCORE; t++) tickScoring(w);
     expect(Math.floor(w.scoreProgress)).toBeGreaterThanOrEqual(PHASE_1_WIN_SCORE);
     tickGameState(w, ex, P1);
     expect(w.gameState).toBe('WIN');
