@@ -164,6 +164,16 @@ export class AvatarRenderer {
   }
 
   /**
+   * S110 P3 — public handle on the avatar layer so the CodexOverlay can lift it above its
+   * near-opaque backdrop while open (owner: "I need to see the cruiser always — it shouldn't
+   * disappear within the popup"). The codex restores it to its original z-index on close, so
+   * fog-of-war layering (fog sits above avatars) is untouched in normal play.
+   */
+  get layer(): Container {
+    return this.container;
+  }
+
+  /**
    * Draw every player's avatar. Local player follows controls.cursor for
    * zero-lag feedback; remote players read world.players[id].avatarPos
    * (which the host populates from received UPDATE_AVATAR_POS intents and

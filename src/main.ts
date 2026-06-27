@@ -550,6 +550,8 @@ async function bootstrap(): Promise<void> {
         codexOverlay = new mod.CodexOverlay(app, { godly, towers }, () => {
           codexOverlay?.setVisible(false);
         });
+        // S110 P3 — keep the player avatar ("cruiser") visible above the codex backdrop while open.
+        codexOverlay.setAvatarLayer(avatarRenderer.layer);
       }
       codexOverlay.open(tab);
     })();

@@ -78,6 +78,10 @@ export class CodexOverlay {
   private readonly content: Container;
   private readonly subtitle: Text;
   private readonly tabButtons = new Map<TabKey, { box: Graphics; label: Text }>();
+  // S110 P3 — the player-avatar layer is lifted above this overlay's near-opaque backdrop while
+  // open, then restored to its original z-index on close (so fog-of-war layering is untouched).
+  private avatarLayer: Container | null = null;
+  private savedAvatarIndex = -1;
 
   constructor(app: Application, opts: CodexOverlayOpts, onClose: () => void) {
     this.app = app;
@@ -160,10 +164,30 @@ export class CodexOverlay {
 
   private tabW = 320;
 
+  /**
+   * S110 P3 — register the player-avatar layer so it can be kept visible above this overlay's
+   * backdrop while open. Owner: the "cruiser" (avatar) must not disappear behind the codex popup.
+   */
+  setAvatarLayer(layer: Container): void {
+    this.avatarLayer = layer;
+  }
+
   setVisible(visible: boolean): void {
     if (visible) {
       this.app.stage.addChild(this.container); // re-parent topmost (constructed before title/lobby)
       this.rebuild();
+      // S110 P3 — lift the avatar ABOVE the codex (which we just put topmost) so the player can
+      // always see their cruiser. Record its home index first to restore it on close.
+      if (this.avatarLayer !== null && this.avatarLayer.parent === this.app.stage) {
+        this.savedAvatarIndex = this.app.stage.getChildIndex(this.avatarLayer);
+        this.app.stage.addChild(this.avatarLayer); // moves to topmost (above this.container)
+      }
+    } else if (this.avatarLayer !== null && this.savedAvatarIndex >= 0
+      && this.avatarLayer.parent === this.app.stage) {
+      // Restore the avatar to its original z-index (below the fog layer) so fog-of-war is unaffected.
+      const idx = Math.min(this.savedAvatarIndex, this.app.stage.children.length - 1);
+      this.app.stage.setChildIndex(this.avatarLayer, idx);
+      this.savedAvatarIndex = -1;
     }
     this.container.visible = visible;
   }
