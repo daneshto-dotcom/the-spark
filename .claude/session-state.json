@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 101,
+  "tool_calls_session_total": 113,
   "session_id": "S110",
   "session_kind": "execution",
   "session_start": "2026-06-27T00:00:00.000Z",
@@ -30,6 +30,17 @@
       "real_context_pct_at_close": 47.21,
       "sub_priorities": ["P1-win-points", "P2-uniform-speed", "P3-codex-avatar", "P4-helga-walk-v13", "P5-art-wiring"],
       "commits": ["0d83eef (P1)", "94a5097 (P2)", "8558f38 (P3)", "ae30daa (P4)", "ffcde36 (P5)"],
+      "verification": [
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md", "needle": "S110 (2026-06-27) SHIPPED a 5-priority batch" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "readTestWinScore() ?? 1500" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "SPARK_INITIAL_VELOCITY_MIN = 12" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "SCORE_TIER_STEP = 500" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts", "needle": "PROTOCOL_VERSION = 13" },
+        { "type": "file_exists", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defenderMotion.ts" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/codexOverlay.ts", "needle": "setAvatarLayer" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/creatureRenderer.ts", "needle": "VOLTKIN_IDLE_URL" },
+        { "type": "file_exists", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/public/godly/helga/helga.png" }
+      ],
       "plan_file": ".claude/plans/2026-06-26_PDR_S110_Batch_E_plus_B_plus_D.md"
     }
   ],
