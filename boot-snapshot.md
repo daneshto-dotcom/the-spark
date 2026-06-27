@@ -1,29 +1,31 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-06-26 | Session: S109
+Generated: 2026-06-27 | Session: S110
 
 ## Next Steps
-1. **OWNER PLAYTEST** the S109 Batch A changes live (spark-online.space): codex Esc/G+C toggle, 10s shape despawn, poop disables fouled turret/spawner + dodge, Helga local-range (no cross-map laser). Confirm HELGA range 380 feels right (tunable dial: 380=area defender, ~120=near-melee).
-2. **Batch D wiring** — owner must PICK from the 6 art candidates at `C:/Users/onesh/OneDrive/Desktop/SPARK_Batch_D_art_spike_S109/` (keepers: voltkin_idle_A, voltkin_zap_A, helga_B) AND answer the 5 OQs in the plan (render target / confirm locked gremlin / generator / swap scope / bundle). Then a Batch D PDR wires the imagen→matte→atlas swap (no PROTOCOL_VERSION bump).
-3. **Batch B** — Helga full walk-to-target rework. Needs own PDR + 3-way Council. PROTOCOL_VERSION 12→13 (new synced WALK state). Plan: `.claude/plans/2026-06-26_PLAN_S108_Batch_B_Helga_Walk.md`.
-4. **Batch C** — new "5 circles + dot" lightning-drone building. Needs own PDR + Council + the 9 owner design Qs answered first. PROTOCOL_VERSION 12→13. Plan: `.claude/plans/2026-06-26_PLAN_S108_Batch_C_Lightning_Drone_Building.md`.
-5. After the S108 queue: resume the ROADMAP — Tier-1 G-series (G1b motion / G2 family traits / G3b silhouettes / G4 crown+BOND_COMMIT), then Tier-3 host-migration.
+1. **🚨 OWNER ACTION — unblock the deploy.** ALL of S110 is committed/pushed to `master` (tsc 0, vitest 1710/1710, build under cap) but the GitHub Actions deploy is BLOCKED (private-repo Actions spending-limit cap → `startup_failure`/0 jobs). spark-online.space STILL SERVES S109. Fix: GitHub → Settings → Billing & plans → Actions → raise the spending limit (or wait for monthly reset, or make the repo public). It deploys on the next push once unblocked. Verify with `gh run list` (want a green "Deploy to GitHub Pages").
+2. **Owner playtest S110 once live** — dials to confirm: in-world Voltkin sprite scale (`VOLTKIN_SPRITE_BASE_SCALE=0.17`), Helga walk speed (`PRINCESS_MOVE_ACCEL=150`) + leash (`PRINCESS_SLAP_RANGE=380`), win-points pace (1500).
+3. **Batch C — now front of the line.** New "5 circles + dot" lightning-drone building → suicide drones → self-destruct after 3. Needs its OWN PDR + 3-way Council + the 9 owner design Qs answered first. PROTOCOL_VERSION 12→13. Plan: `.claude/plans/2026-06-26_PLAN_S108_Batch_C_Lightning_Drone_Building.md`.
+4. **Carry-forward: Helga Veo walk-cycle** — first-pass P5 kept in-world Helga procedural (she walks); a proper imagen/Veo walk-cycle for her matted art is deferred until reference-conditioning works in this auth.
+5. After C: resume ROADMAP — Tier-1 G-series (G1b motion / G2 family traits / G3b silhouettes / G4 crown+BOND_COMMIT), then Tier-3 host-migration.
 
 ## Blockers
-- Batch D wiring is BLOCKED on owner picking the art look + answering the 5 plan OQs.
-- Batch B/C are BLOCKED on their own PDR+Council (and C on 9 owner design Qs).
-- Owner-gated (unchanged): anti-coast structure-loss CLAWBACK; worker-sim ?worker=1 cutover (WORKER_SIM_FOUNDATION.md).
+- **Deploy** blocked on owner billing action (GitHub Actions spending-limit cap) — code is safe on master; deploys on next push once the limit is raised.
+- **Batch C** blocked on its own PDR + 3-way Council + 9 owner design Qs.
+- Owner-gated (unchanged): anti-coast structure-loss CLAWBACK (own PDR); worker-sim `?worker=1` cutover (WORKER_SIM_FOUNDATION.md).
+- (Optional follow-up) gate the heavy `e2e.yml` to not run on every push so Actions minutes last — own small PDR.
 
 ## Pending Backlog
-- [ ] Batch B — Helga full walk-to-target rework (own PDR+Council; v12→13)
-- [ ] Batch C — lightning-drone building (own PDR+Council + 9 design Qs; v12→13)
-- [ ] Batch D — wire the picked art (atlas swap; no bump) after owner pick
-- [ ] ROADMAP Tier-1 G-series + Tier-3 host-migration (resume after S108 queue)
+- [ ] Batch C — lightning-drone building (own PDR + Council + 9 design Qs; v12→13) — FRONT OF LINE
+- [ ] Helga Veo/multi-pose walk-cycle (P5 carry-forward; once veo conditioning works)
+- [ ] Optional: e2e.yml run-less-often (CI minutes prevention)
+- [ ] ROADMAP Tier-1 G-series + Tier-3 host-migration (resume after C)
 
 ## Recent Reflexion (last 2 sessions)
-## 2026-06-26 — Session 109: Executed S108 Batch A (4/4 shipped + deployed, PROTOCOL_VERSION 12 held). Then Batch D art SPIKE (imagen-4-ultra, 6 original candidates, owner-pick pending).
-- S109-PLAN-A #host-only-field-needs-no-wire-bump-when-the-serializer-is-a-whitelist: adding Creature.poopyUntilTick needed ZERO save.ts changes — serializeCreature is a field whitelist, so host-only runtime fields are free (no wire surface). Read the serializer before assuming a new field forces a protocol bump.
-- S109-PLAN-A #the-unlock-hook-vocabulary-vs-the-final-gate-vocabulary: the unlock hook writes priority_state:'unlocked' but pdca-final-gate accepts only {approved,in_progress,completed} → first edit blocked despite a clean 'go'. Fix: align priority_state to 'in_progress' in session-state; unlock_source:user is the load-bearing attribution field.
+## 2026-06-27 — Session 110: Shipped a 5-priority owner-playtest batch (P1 win 786→1500, P2 uniform speed 12, P3 codex avatar visible, P4 Batch B Helga walk v12→13, P5 Batch D matted Voltkin/Helga art). tsc 0, vitest 1710/1710, build under cap. 🚨 DEPLOY BLOCKED on a private-repo Actions spending-limit cap (startup_failure/0 jobs) — S110 not live; owner billing action needed.
+- #commit-and-push-is-not-the-same-as-deployed: `gh run list` at close caught all S110 deploys at startup_failure/0 jobs. Root cause = private-repo Actions minutes cap (the ~35min/push Playwright e2e), NOT code. 'Done' = DEPLOYED; a 0-job startup_failure surviving a manual dispatch = billing, not a code fix.
+- #engage-the-pdr-lock-WHEN-you-present-not-after: glue_pdr_unlock mints unlock_source=user only when a lock file + an in_progress priority exist at the approval prompt; engage the lock WHEN presenting the PDR. A multi-priority batch must be ONE in_progress entry (S109 PLAN-A pattern).
+- #border-connected-component-matte-beats-luma-key: matte white-bg imagen stills by removing ONLY border-connected white (scipy label) → preserves interior whites, no box (the S106 failure mode). Verify via a dark-bg preview before wiring; public/ assets are unbundled.
 
-## 2026-06-26 — Session 108: PLAN-ONLY (seat weekly-limit). Scoped 6 owner playtest points into 4 risk-tiered batches + 2 Council rounds + PRIME-AUDIT. Batch A PDR READY; B/C/D planned. NO code shipped.
-- S108-PLAN #verify-the-councils-confident-consensus-against-the-actual-architecture: two models converging is NOT independent confirmation when they share a generic prior; verify a confident consensus against the actual codebase before adopting.
-- S108-PLAN #owner-corrections-reshape-scope-mid-plan-keep-the-PDR-living: when the owner is actively spec-ing, treat the PDR as living, re-deliberate only the delta.
+## 2026-06-26 — Session 109: Executed S108 Batch A (4/4 shipped + deployed, PROTOCOL_VERSION 12 held) — codex Esc/toggle, 10s spark TTL despawn, poop rework, Helga anti-cross-map-laser interim (range→380). vitest 1702/1702. Then Batch D art SPIKE (6 candidates, owner-pick pending).
+- #host-only-field-needs-no-wire-bump-when-the-serializer-is-a-whitelist: read the serializer before assuming a new field forces a protocol bump (serializeCreature is a field whitelist).
+- #the-unlock-hook-vocabulary-vs-the-final-gate-vocabulary: reconcile priority_state to 'in_progress' after the hook mints unlock_source:user (the load-bearing field).
