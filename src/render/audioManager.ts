@@ -510,6 +510,7 @@ export async function enterNonetRealm(): Promise<void> {
   if (audioContext === null || musicGainNode === null) return;
   if (nonetRealmActive) return;
   nonetRealmActive = true;
+  stopHelgaTheme(false); // S112 — NONET owns the music bus; never layer HELGA's theme under it
   await resumeIfSuspended();
   if (musicSource !== null) {
     try { musicSource.stop(); } catch { /* already stopped */ }
@@ -535,6 +536,99 @@ export function exitNonetRealm(): void {
     nonetSource = null;
   }
   void playMusic();
+}
+
+// === S112 — HELGA situational theme. Plays while ANY princess defender is ENGAGED (walking/attacking
+// a target); reverts to the base duel music when none is. Composition rules (Council Δ1): NONET realm
+// takes priority (never layered under it); the theme rides musicGainNode so master/music mute + volume
+// + the auto-duck all apply; a ~1 s disengage DEBOUNCE stops rapid target-flap from thrashing the
+// loop. Both peers evaluate the SAME pure predicate on SYNCED defender state ⇒ they switch together. ===
+const HELGA_THEME_URL = '/godly/helga/audio/helga-theme.ogg';
+const HELGA_DISENGAGE_DEBOUNCE_TICKS = 60; // ~1 s @ 60 Hz
+let helgaThemeBuffer: AudioBuffer | null = null;
+let helgaThemeFetchPromise: Promise<AudioBuffer | null> | null = null;
+let helgaThemeSource: AudioBufferSourceNode | null = null;
+let helgaThemeActive = false;
+let lastHelgaEngagedTick = -1;
+
+/** Minimal structural view of the world the theme resolver reads (decoupled from the state layer). */
+interface HelgaThemeWorldView {
+  tick: number;
+  defenders: ReadonlyMap<unknown, { kind: string; state: string; targetCreatureId: unknown }>;
+}
+
+async function getHelgaThemeBuffer(): Promise<AudioBuffer | null> {
+  if (audioContext === null) return null;
+  if (helgaThemeBuffer !== null) return helgaThemeBuffer;
+  if (helgaThemeFetchPromise !== null) return helgaThemeFetchPromise;
+  helgaThemeFetchPromise = (async (): Promise<AudioBuffer | null> => {
+    try {
+      const response = await fetch(HELGA_THEME_URL);
+      if (!response.ok) throw new Error(`helga theme fetch ${response.status}`);
+      const arrayBuffer = await response.arrayBuffer();
+      const ctx = audioContext;
+      if (ctx === null) throw new Error('AudioContext lost during decode');
+      const decoded = await ctx.decodeAudioData(arrayBuffer);
+      helgaThemeBuffer = decoded;
+      return decoded;
+    } catch (err) {
+      console.warn('[audio] helga theme load failed', err);
+      helgaThemeFetchPromise = null;
+      return null;
+    }
+  })();
+  return helgaThemeFetchPromise;
+}
+
+async function startHelgaTheme(): Promise<void> {
+  if (audioContext === null || musicGainNode === null) return;
+  if (helgaThemeActive) return;
+  helgaThemeActive = true;
+  await resumeIfSuspended();
+  if (musicSource !== null) { // stop the base duel track while her theme plays (mirrors enterNonetRealm)
+    try { musicSource.stop(); } catch { /* already stopped */ }
+    musicSource = null;
+  }
+  const buffer = await getHelgaThemeBuffer();
+  // disengaged, or NONET took the bus, during the async load → bail without starting
+  if (!helgaThemeActive || nonetRealmActive || buffer === null || audioContext === null || musicGainNode === null) return;
+  const source = audioContext.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
+  source.connect(musicGainNode);
+  source.start();
+  helgaThemeSource = source;
+}
+
+function stopHelgaTheme(resumeBase: boolean): void {
+  helgaThemeActive = false;
+  if (helgaThemeSource !== null) {
+    try { helgaThemeSource.stop(); } catch { /* already stopped */ }
+    helgaThemeSource = null;
+  }
+  if (resumeBase && !nonetRealmActive) void playMusic();
+}
+
+/**
+ * S112 — per-frame situational-music resolver. Called from the render loop with the current world.
+ * Idempotent + edge-driven (starts/stops only on change). No-op before the first user gesture.
+ */
+export function updateHelgaTheme(world: HelgaThemeWorldView): void {
+  if (audioContext === null) return;
+  if (nonetRealmActive) { // NONET realm owns the bus
+    if (helgaThemeActive) stopHelgaTheme(false);
+    return;
+  }
+  let engagedRaw = false;
+  for (const d of world.defenders.values()) {
+    if (d.kind !== 'princess') continue;
+    if (d.state !== 'IDLE' || d.targetCreatureId !== null) { engagedRaw = true; break; }
+  }
+  if (engagedRaw) lastHelgaEngagedTick = world.tick;
+  const engaged = engagedRaw
+    || (lastHelgaEngagedTick >= 0 && world.tick - lastHelgaEngagedTick < HELGA_DISENGAGE_DEBOUNCE_TICKS);
+  if (engaged && !helgaThemeActive) void startHelgaTheme();
+  else if (!engaged && helgaThemeActive) stopHelgaTheme(true);
 }
 
 /**
@@ -751,6 +845,12 @@ export function _resetAudioForTest(): void {
   // S52 P3 — clear duck schedule state. No setTimeout to clear post-S52
   // (Web Audio automation queue is dropped when audioContext goes null).
   duckEndCtxTime = 0;
+  // S112 — clear HELGA theme state (audioContext is nulled above → no source to stop).
+  helgaThemeActive = false;
+  helgaThemeSource = null;
+  helgaThemeBuffer = null;
+  helgaThemeFetchPromise = null;
+  lastHelgaEngagedTick = -1;
 }
 
 async function playClaveSFX(pos?: Vec2): Promise<void> {
@@ -1213,51 +1313,16 @@ export async function playLaserSFX(pos?: Vec2): Promise<void> {
   nsrc.start(now); nsrc.stop(now + 0.14);
 }
 
+const HELGA_SLAP_URL = '/godly/helga/audio/helga-slap.ogg';
 /**
- * S103 P4 (#10) — SLAP: HELGA's open-hand WHACK. A sharp broadband noise crack (the hand) over a
- * quick mid sine THWOCK (the impact body) = a cartoon slap, snappier + higher than the chewer's wet
- * fly-splat. EXPORTED + played by the princess renderer on the synced SLAP/FIRE edge. Procedural.
+ * S112 (#10) — SLAP: HELGA's open-hand WHACK, now the owner-approved RECORDED "HHWAPAH battle-cry +
+ * clap" one-shot (replaces the S103 procedural crack+thwock). EXPORTED + played by the princess
+ * renderer on the synced FIRE edge (host + 1v1 client both see it). Positional via the SFX bus
+ * (master/SFX mute + volume apply); ducks the music bed ~600 ms so the cry reads over her theme.
  */
 export async function playSlapSFX(pos?: Vec2): Promise<void> {
-  if (audioContext === null || sfxGainNode === null) return;
-  if (audioContext.state !== 'running') {
-    try { await audioContext.resume(); } catch (e) {
-      if (isDebugRequested()) console.warn('[audio] playSlapSFX resume() threw:', e);
-    }
-  }
-  if (audioContext.state !== 'running') return;
-
-  const ctx = audioContext;
-  const now = ctx.currentTime;
-  const panner = pos !== undefined ? createPanner(pos) : null;
-  const sink: AudioNode = panner ?? sfxGainNode;
-  if (panner !== null) panner.connect(sfxGainNode);
-
-  // 1) the hand crack — a very short bright noise burst, fast decay (the WHACK).
-  const nsrc = ctx.createBufferSource();
-  nsrc.buffer = getGnawNoiseBuffer(ctx);
-  nsrc.loop = true;
-  const bp = ctx.createBiquadFilter();
-  bp.type = 'bandpass';
-  bp.frequency.value = 2000;
-  bp.Q.value = 0.8;
-  const ng = ctx.createGain();
-  ng.gain.setValueAtTime(0.0001, now);
-  ng.gain.exponentialRampToValueAtTime(0.5, now + 0.003); // instant crack
-  ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
-  nsrc.connect(bp); bp.connect(ng); ng.connect(sink);
-  nsrc.start(now); nsrc.stop(now + 0.08);
-
-  // 2) the impact "thwock" — a quick mid sine drop for the body of the hit.
-  const osc = ctx.createOscillator();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(420, now);
-  osc.frequency.exponentialRampToValueAtTime(120, now + 0.09);
-  const og = ctx.createGain();
-  og.gain.setValueAtTime(0.3, now);
-  og.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
-  osc.connect(og); og.connect(sink);
-  osc.start(now); osc.stop(now + 0.12);
+  await playOneShot(HELGA_SLAP_URL, pos);
+  duckMusic(600);
 }
 
 /**
@@ -1354,6 +1419,10 @@ export function syncRainbowYellAudio(world: { rainbowSwitchTick?: number; tick: 
 export function resetAudioDrainCursor(): void {
   lastDrainedTick = -1;
   lastYelledSwitchTick = -1; // S84 P2 — yell latch shares the cursor lifecycle
+  // S112 — drop HELGA's theme on world reset (RETURN_TO_TITLE / save-restore); the per-frame resolver
+  // re-evaluates from synced state next frame and re-starts it if a princess is still engaged.
+  lastHelgaEngagedTick = -1;
+  stopHelgaTheme(false);
 }
 
 // Audit Pass 2 fix 622a7c7f — register with the state-layer publisher at

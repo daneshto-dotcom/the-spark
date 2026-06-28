@@ -947,6 +947,10 @@ export const PRINCESS_MOVE_ACCEL = 150; // walk accel (chewer 120 < 150 < Voltki
 export const PRINCESS_ARRIVE_RADIUS = 50; // arrive ramp-down radius (smooth stop, no overshoot oscillation)
 export const PRINCESS_HOME_EPSILON = 6; // within this of her hub anchor she is "home" (snap + idle)
 
+// S112 — in-world render scale for HELGA's veo-atlas sprite (256px-tall cell → ~85px in-world, ~the
+// procedural puppet's height). Playtest DIAL (like VOLTKIN_SPRITE_BASE_SCALE 0.17) — left un-pinned.
+export const PRINCESS_SPRITE_BASE_SCALE = 0.34;
+
 // === S82 P4(c) — mid-game peer-drop bench (6p hardening) ===
 // A seated peer absent from the transport for GRACE ticks stops ghosting: the host
 // re-stamps benchedUntilTick = tick + BENCH ticks EVERY tick while the peer stays absent

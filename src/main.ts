@@ -102,7 +102,7 @@ import { awardSpawnerKillReward } from './state/gameMode.ts';
 // skip the dispatch (and a future birth VFX) when the swarm is already at its ceiling.
 import { underChewerCaps } from './state/creatures/creatureLifecycle.ts';
 import { AvatarRenderer, shouldHideOsCursor } from './render/avatarRenderer.ts';
-import { drainAudioEffects, enterNonetRealm, exitNonetRealm, initAudio, isMuted, playMusic, syncRainbowYellAudio, toggleMute } from './render/audioManager.ts';
+import { drainAudioEffects, enterNonetRealm, exitNonetRealm, initAudio, isMuted, playMusic, syncRainbowYellAudio, toggleMute, updateHelgaTheme } from './render/audioManager.ts';
 // S50 P2 — Audit Pass 2 refactor 622a7c7f: triggerReset is now called from
 // inside teardownNet (extracted to src/net/session.ts). No direct main.ts
 // import required.
@@ -1972,6 +1972,9 @@ async function bootstrap(): Promise<void> {
     // S18 P1 — drain audio effects BEFORE effectsRenderer (which wipes
     // world.effects). Cursor-gated; replay-safe.
     drainAudioEffects(world.effects, world.tick);
+    // S112 — situational music: HELGA's theme while she's engaged (walk/attack), else base music.
+    // Render-layer, edge-driven, idempotent; reads SYNCED defender state so host + client switch together.
+    updateHelgaTheme(world);
     // S23 P2 — debug overlay sync runs BEFORE effects wipe so chain-progress
     // sees this frame's bonds. Cheap when null (no-op).
     if (debugOverlay !== null) debugOverlay.sync(world, debugProbes);

@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 190,
-  "session_id": "S110",
+  "tool_calls_session_total": 243,
+  "session_id": "S112",
   "session_kind": "execution",
   "session_start": "2026-06-27T00:00:00.000Z",
   "prior_session_note": "S109 shipped Batch A (4/4 host-sim/UI/render priorities: codex Esc/G+C toggle, 10s free-spark TTL despawn, poop rework, Helga anti-cross-map-laser interim range->380), all deployed SUCCESS, PROTOCOL_VERSION 12 held, vitest 1702/1702. Also ran Batch D art SPIKE: 6 ORIGINAL on-model imagen candidates (Voltkin idle+zap, Helga dirndl+stein) at OneDrive desktop, NOT wired (owner-pick gated). S110 starts by executing the owner's live-playtest batch.",
-  "phase": "S110_EXECUTING",
+  "phase": "S112_EXECUTING",
   "pdr_approved": true,
   "deliberation_completed": true,
-  "unlock_source": "none",
-  "tier": "Full",
+  "unlock_source": "user",
+  "tier": "Standard",
   "council_rounds": 1,
   "council_result": "S110 batch PDR (.claude/plans/2026-06-26_PDR_S110_Batch_E_plus_B_plus_D.md). 5 priorities from owner live playtest: P1 win-points 786->1500 (+tier-step 262->500, exact-thirds); P2 uniform spark speed (min=max=12, keep rngRange draw); P3 codex keep player-avatar visible above backdrop; P4 Batch B Helga walk-to-target+melee (v12->13, HIGH); P5 Batch D wire 3 imagen art keepers (offline matte->atlas->render-swap, lazy-load, no bump). Council R1 Grok-4.20-reasoning + Gemini-2.5-pro + Opus PRIME-AUDIT, HIGH confidence, no SPLIT. ADOPTED: P2 keep-the-draw discipline; P4 walk-speed ~=chewer (catchable, not undercut) + bounded acquisition radius (anti-kite); P4 two-commit split (substrate+WALK, then chase AI); P5 graceful fallback to procedural rig until atlas loads. REJECTED on audit: Grok fixed-point/client-extrapolation integrator (contradicts proven float-Verlet determinism + no-client-physics arch); Grok seed-pinned-art (offline-baked, no runtime gen). CARRY-FORWARD (logged, Gemini quality flag): proper Helga walk-cycle (Veo loop/multi-pose) once veo/imagen reference-conditioning works in this auth -- first-pass P5 static sprite slides while walking.",
   "signals_fired": [],
@@ -42,6 +42,19 @@
         { "type": "file_exists", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/public/godly/helga/helga.png" }
       ],
       "plan_file": ".claude/plans/2026-06-26_PDR_S110_Batch_E_plus_B_plus_D.md"
+    },
+    {
+      "id": "S112-HELGA-VEO",
+      "label": "S112 — HELGA veo animated character (idle/walk/slap atlas, tick-synced, replay-safe) replacing the in-world procedural puppet + state-driven audio (Helga theme on walk/attack only, base game music when idle) + strong HHWAPAH+clap slap SFX on FIRE. Render+asset+audio ONLY, NO wire/protocol change (PROTOCOL_VERSION stays 13). Owner-approved all assets + 'Go! highest quality'.",
+      "status": "in_progress",
+      "phase": "EXECUTING",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "priority_state": "in_progress",
+      "unlock_source": "user",
+      "council_result": "2-way (Grok-4.20-reasoning ANALYST + Claude; Gemini-2.5-pro DOWN 429 credits → 2-way per protocol). Grok BLOCK → PRIME-AUDIT against codebase → SHIP-WITH-FIXES. Δ1 ACCEPT: explicit resolveMusicPolicy (NONET>Helga-theme>base) + ~1s disengage debounce + idempotent transitions + match-boundary reset. Δ2 ACCEPT: matte to a SHARED foot-anchored frame box (not per-frame crop) so she doesn't jitter. Δ3 REFUTE w/ evidence: DEFENDER_FIRE_HOLD_TICKS=12 designed for ≥2 snapshot intervals + existing prev!=='FIRE' edge = exactly-once + renderer keys off SYNCED world.tick/ticksInState. Δ4 doc: atlas-load-fail→puppet fallback is cosmetic-only.",
+      "plan_file": ".claude/plans/2026-06-28_PDR_S112_Helga_Veo_Character.md"
     }
   ],
   "carry_forward_priorities": [
