@@ -18,6 +18,8 @@ tsconfig.tsbuildinfo
 .claude/pdr-user-responded
 .claude/budget-reported-*
 .claude/pdr-deliberation-*
+.claude/pdr-token-*
+.claude/pdr-user-confirmed-*
 
 # S46 P1 — Playwright E2E artifacts
 playwright-report/
