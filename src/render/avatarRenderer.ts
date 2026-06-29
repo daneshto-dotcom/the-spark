@@ -40,6 +40,7 @@ import type { Controls } from '../input/controls.ts';
 import { isCruiserDebuffed } from '../state/gameMode.ts';
 import type { World } from '../state/world.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
+import { leaderPlayerId } from '../state/scoring.ts';
 import { lerpColor } from './effects/silhouettes/shared.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
 
@@ -115,6 +116,20 @@ const POINTER_GHOST_CORE_RADIUS = 1.5;
 const POINTER_GHOST_CORE_ALPHA = 0.5;
 const POINTER_GHOST_COLOR = 0xffffff;
 
+// S114 G4 — in-world LEADER CROWN. A small STATIC gold crown floats above the score
+// leader's avatar so "who's winning" reads at the action point, not only in the top-left
+// HUD leaderboard (ui.ts marks rank-0 with '*'). Static by design — no bob/spin (the owner
+// has rejected procedural motion-juice; this is an informational cue, not juice). Drawn in
+// the avatar layer so it inherits the SAME fog occlusion + z-order as the avatar/nameplate
+// (no new strategic info leak — a fogged enemy's crown is hidden with their avatar). Shown
+// networked/bots only (players.size > 1, mirrors the nameplate gate) + PLAYING + not benched.
+// Module-local (pure UI feel, not gameplay-tunable), like the nameplate/ghost constants above.
+const CROWN_OFFSET_Y = 20; // px ABOVE the avatar core (nameplate sits +22 BELOW)
+const CROWN_W = 16;
+const CROWN_H = 9;
+const CROWN_COLOR = 0xffd60a; // gold (matches the codex GOLD)
+const CROWN_ALPHA = 0.92;
+
 /** S86 P4 — pure: hide the OS cursor only while the board is live. Title /
  * lobby / win / postgame are UI surfaces and keep the native pointer. */
 export function shouldHideOsCursor(gameState: World['gameState']): boolean {
@@ -146,6 +161,41 @@ export function shouldShowPointerGhost(
   );
 }
 
+/**
+ * S114 G4 — pure: show the in-world leader crown only over the score leader's avatar, and
+ * only when that avatar is actually on the field — networked/bots (size > 1, mirrors the
+ * nameplate gate), PLAYING, and not benched (a benched/eaten avatar is hidden, so its crown
+ * must be too). Exported for unit tests.
+ */
+export function shouldShowCrown(
+  isLeader: boolean,
+  playersSize: number,
+  isBenchedNow: boolean,
+  gameState: World['gameState'],
+): boolean {
+  return isLeader && playersSize > 1 && !isBenchedNow && gameState === 'PLAYING';
+}
+
+/**
+ * S114 G4 — draw a small static crown into `g`: a classic 3-point gold silhouette whose band
+ * bottom is centered at (cx, baseY) with spikes rising upward. Pure draw (no state).
+ */
+function drawCrown(g: Graphics, cx: number, baseY: number): void {
+  const hw = CROWN_W / 2;
+  const h = CROWN_H;
+  g.poly([
+    cx - hw, baseY,
+    cx - hw, baseY - h,
+    cx - hw / 2, baseY - h * 0.45,
+    cx, baseY - h * 1.15,
+    cx + hw / 2, baseY - h * 0.45,
+    cx + hw, baseY - h,
+    cx + hw, baseY,
+  ]).fill({ color: CROWN_COLOR, alpha: CROWN_ALPHA });
+  // Base band for a touch of weight under the spikes.
+  g.rect(cx - hw, baseY, CROWN_W, 2.5).fill({ color: CROWN_COLOR, alpha: CROWN_ALPHA });
+}
+
 export class AvatarRenderer {
   private readonly container: Container;
   private readonly graphicsByPlayer: Map<PlayerId, Graphics> = new Map();
@@ -156,6 +206,9 @@ export class AvatarRenderer {
   // S86 P4 — local pointer ghost (drawn only while avatar ≠ mouse; see
   // shouldShowPointerGhost). Lazily created, cleared every frame.
   private pointerGhost: Graphics | null = null;
+  // S114 G4 — one shared leader-crown Graphics (pointerGhost pattern); cleared + redrawn each
+  // frame over the current leader's avatar.
+  private crown: Graphics | null = null;
   private lastSyncMs: number | null = null;
 
   constructor(app: Application) {
@@ -192,6 +245,15 @@ export class AvatarRenderer {
     const dtMs = this.lastSyncMs === null ? 0 : Math.min(nowMs - this.lastSyncMs, 100);
     this.lastSyncMs = nowMs;
     const present = new Set<PlayerId>();
+
+    // S114 G4 — compute the leader once; (re)create + clear the shared crown Graphics before
+    // the per-player loop draws it over the leader's avatar (mirrors the pointerGhost pattern).
+    const leaderId = leaderPlayerId(world);
+    if (this.crown === null) {
+      this.crown = new Graphics();
+      this.container.addChild(this.crown);
+    }
+    this.crown.clear();
 
     for (const player of world.players.values()) {
       present.add(player.id);
@@ -309,6 +371,14 @@ export class AvatarRenderer {
       } else {
         plate.visible = false;
       }
+
+      // S114 G4 — crown the leader. This avatar is past the benched `continue`, so it IS on
+      // the field (isBenchedNow=false here); shouldShowCrown gates solo / non-PLAYING and
+      // leaderId gates non-leaders. The crown floats ABOVE the core (nameplate is below).
+      if (this.crown !== null
+        && shouldShowCrown(player.id === leaderId, world.players.size, false, world.gameState)) {
+        drawCrown(this.crown, x, y - CROWN_OFFSET_Y);
+      }
     }
 
     // S86 P4 — local pointer ghost: with the OS cursor hidden during PLAYING,
@@ -355,6 +425,7 @@ export class AvatarRenderer {
     this.displayPosByPlayer.clear();
     this.nameplateByPlayer.clear();
     this.pointerGhost = null; // destroyed with the container's children
+    this.crown = null; // S114 G4 — destroyed with the container's children
   }
 }
 

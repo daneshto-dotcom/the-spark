@@ -33,7 +33,7 @@ import { asBondId, asPlayerId, asPrimitiveId, type PlayerId } from '../types.ts'
 import { makeGameStateExtras, tickGameState } from './gameState.ts';
 import { makeWorld, type World } from './world.ts';
 import { addScore } from './gameMode.ts';
-import { computeComplexity, tickScoring } from './scoring.ts';
+import { computeComplexity, leaderPlayerId, tickScoring } from './scoring.ts';
 
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
@@ -438,5 +438,45 @@ describe('S107 P1 — anti-coast LEADER SCORE-DECAY', () => {
       return JSON.stringify([...w.scoreByPlayer.entries()]);
     };
     expect(run()).toBe(run());
+  });
+});
+
+describe('S114 G4 — leaderPlayerId (in-world leader crown)', () => {
+  it('no seat has scored → null (nothing is crowned over a 0–0 board)', () => {
+    expect(leaderPlayerId(trio())).toBeNull(); // trio() seats P0/P1/P2 all at score 0
+  });
+
+  it('one clear leader → that seat', () => {
+    const w = trio();
+    w.scoreByPlayer.set(P0, 3);
+    w.scoreByPlayer.set(P1, 9);
+    w.scoreByPlayer.set(P2, 5);
+    expect(leaderPlayerId(w)).toBe(P1);
+  });
+
+  it('a single scorer among zeros → that seat', () => {
+    const w = trio();
+    w.scoreByPlayer.set(P2, 4);
+    expect(leaderPlayerId(w)).toBe(P2);
+  });
+
+  it('tie at the top → first insertion-order seat (matches the HUD stable sort, so the crown agrees with the * marker)', () => {
+    const a = trio();
+    a.scoreByPlayer.set(P0, 7);
+    a.scoreByPlayer.set(P1, 7);
+    a.scoreByPlayer.set(P2, 3);
+    expect(leaderPlayerId(a)).toBe(P0);
+    const b = trio();
+    b.scoreByPlayer.set(P0, 3);
+    b.scoreByPlayer.set(P1, 7);
+    b.scoreByPlayer.set(P2, 7);
+    expect(leaderPlayerId(b)).toBe(P1);
+  });
+
+  it('the local seat leading is returned too (you see your own crown)', () => {
+    const w = duel(); // P0 + P1
+    w.scoreByPlayer.set(P0, 12);
+    w.scoreByPlayer.set(P1, 4);
+    expect(leaderPlayerId(w)).toBe(P0);
   });
 });

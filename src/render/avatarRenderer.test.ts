@@ -7,7 +7,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { computeAvatarAlphas, shouldHideOsCursor, shouldShowPointerGhost, smoothTowards } from './avatarRenderer.ts';
+import { computeAvatarAlphas, shouldHideOsCursor, shouldShowCrown, shouldShowPointerGhost, smoothTowards } from './avatarRenderer.ts';
 
 describe('S14 P1 — computeAvatarAlphas', () => {
   // sin(0) = 0 → no modulation; both alphas exactly at base.
@@ -166,5 +166,29 @@ describe('S86 P4 — pointer-as-spark cursor helpers', () => {
   test('ghost never shows outside PLAYING or without a seated player', () => {
     expect(shouldShowPointerGhost({ benchedUntilTick: 500 }, 100, 'TITLE')).toBe(false);
     expect(shouldShowPointerGhost(undefined, 100, 'PLAYING')).toBe(false);
+  });
+});
+
+describe('S114 G4 — shouldShowCrown (in-world leader crown gate)', () => {
+  test('the leader gets a crown while networked + PLAYING + not benched', () => {
+    expect(shouldShowCrown(true, 2, false, 'PLAYING')).toBe(true);
+  });
+
+  test('a non-leader never gets a crown', () => {
+    expect(shouldShowCrown(false, 2, false, 'PLAYING')).toBe(false);
+  });
+
+  test('no crown in solo (players.size === 1 — mirrors the nameplate gate)', () => {
+    expect(shouldShowCrown(true, 1, false, 'PLAYING')).toBe(false);
+  });
+
+  test('no crown for a benched/eaten leader (its avatar is hidden, so the crown must be too)', () => {
+    expect(shouldShowCrown(true, 2, true, 'PLAYING')).toBe(false);
+  });
+
+  test('no crown outside PLAYING (LOBBY/WIN/POSTGAME/TITLE)', () => {
+    for (const gs of ['TITLE', 'LOBBY', 'WIN', 'POSTGAME'] as const) {
+      expect(shouldShowCrown(true, 2, false, gs)).toBe(false);
+    }
   });
 });

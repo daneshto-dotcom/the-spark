@@ -54,6 +54,27 @@ const PRIM_WEIGHT = SCORE_ANCHOR; // 1 — every placed primitive is worth its a
 const MAGIC_BONUS = SCORE_MAGIC_BOND - SCORE_FUNCTIONAL_BOND; // 2 — a magic bond's premium
 
 /**
+ * S114 G4 — the current score LEADER's seat: the player with the strictly-highest
+ * `scoreByPlayer` where score > 0. Tie-break by `world.players` INSERTION ORDER (Map
+ * iteration order) via the strict `>` keep-first rule, which matches the HUD leaderboard's
+ * stable descending sort (`ui.ts` `ranked[0]`) so the in-world crown and the HUD `*` marker
+ * always agree on who leads. Returns `null` when no seat has scored yet (nothing is crowned
+ * over a 0–0 board). Pure + render-safe: reads only synced state, never mutates.
+ */
+export function leaderPlayerId(world: World): PlayerId | null {
+  let leader: PlayerId | null = null;
+  let best = 0;
+  for (const player of world.players.values()) {
+    const score = world.scoreByPlayer.get(player.id) ?? 0;
+    if (score > best) {
+      best = score;
+      leader = player.id;
+    }
+  }
+  return leader;
+}
+
+/**
  * Standing structure complexity for one player. Pure fn of world state.
  *   = (# primitives placed by p) × PRIM_WEIGHT + (# of p's MAGIC bonds) × MAGIC_BONUS
  *     + min(# functional bonds, ⌊1.5 × prims⌋) × 0.25   (S84 P4 — see constants.ts)
