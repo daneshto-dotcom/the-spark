@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 302,
+  "tool_calls_session_total": 307,
   "session_id": "S112",
   "session_kind": "execution",
   "session_start": "2026-06-27T00:00:00.000Z",
@@ -35,7 +35,7 @@
         { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "readTestWinScore() ?? 1500" },
         { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "SPARK_INITIAL_VELOCITY_MIN = 12" },
         { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "SCORE_TIER_STEP = 500" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts", "needle": "PROTOCOL_VERSION = 13" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts", "needle": "12->13: HELGA's walk-to-target rework" },
         { "type": "file_exists", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defenderMotion.ts" },
         { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/codexOverlay.ts", "needle": "setAvatarLayer" },
         { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/creatureRenderer.ts", "needle": "VOLTKIN_IDLE_URL" },
