@@ -106,6 +106,7 @@ import {
   applyPlacePotato,
   applyPotatoDetonate,
   applySpawnPotato,
+  applyStructureSelfDestruct,
   teardownPotatoes,
   type DissipatePotatoAction,
   type DropPotatoAction,
@@ -113,7 +114,11 @@ import {
   type PlacePotatoAction,
   type PotatoDetonateAction,
   type SpawnPotatoAction,
+  type StructureSelfDestructAction,
 } from './potatoLifecycle.ts';
+// S113 Batch C — lightning-drone explode reducer (host-internal). dispatch()<->droneLifecycle is the
+// same runtime-safe cycle as creatureAttack.ts (dispatch is called, not imported, at module-init).
+import { applyDroneExplode, type DroneExplodeAction } from './droneLifecycle.ts';
 import {
   applyDissipateRainbow,
   applySpawnRainbow,
@@ -178,7 +183,9 @@ export type GameAction =
       // (host-authoritative bomb detonation; the picker damages their OWN bonds).
       // S102 #2 — 'chewer' added: a pencil chewer's final bite (gnaw audio, no lightning;
       // bypasses charge + auth exactly like 'creature').
-      readonly cause: 'player' | 'physics' | 'creature' | 'bomb' | 'chewer';
+      // S113 Batch C — 'drone' added: a lightning-drone's detonation sever. Bypasses charge + auth
+      // exactly like 'creature'/'chewer'/'bomb' (host-authoritative; the drone severs ENEMY bonds).
+      readonly cause: 'player' | 'physics' | 'creature' | 'bomb' | 'chewer' | 'drone';
     }
   | TickEnergyAction
   | { readonly type: 'WIN_TRIGGER'; readonly winnerId: PlayerId }
@@ -253,6 +260,13 @@ export type GameAction =
   | DropPotatoAction
   | PotatoDetonateAction
   | DissipatePotatoAction
+  // S113 Batch C — lightning-drone building (host-internal; reducers in droneLifecycle.ts +
+  // potatoLifecycle.ts). DRONE_EXPLODE: a drone detonates (radial enemy-bond sever via SEVER_BOND
+  // cause:'drone'). STRUCTURE_SELFDESTRUCT: the hub blows up (potato-style AoE) after its 3rd drone.
+  // NEITHER is a client INTENT — host-authored + snapshot-replicated; they ride
+  // KNOWN_GAME_ACTION_TYPES_RECORD only. PROTOCOL_VERSION 13->14 (new CreatureType + recipeId).
+  | DroneExplodeAction
+  | StructureSelfDestructAction
   // S75 P3 — rainbow color-shuffle. TRIGGER_RAINBOW is a client INTENT (any player clicking it);
   // SPAWN_RAINBOW + DISSIPATE_RAINBOW are host-internal (spawner cadence / TTL poll). PROTOCOL 5->6.
   | SpawnRainbowAction
@@ -554,6 +568,13 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'POTATO_DETONATE':
       return applyPotatoDetonate(world, action);
+
+    // S113 Batch C — lightning-drone building reducers.
+    case 'DRONE_EXPLODE':
+      return applyDroneExplode(world, action);
+
+    case 'STRUCTURE_SELFDESTRUCT':
+      return applyStructureSelfDestruct(world, action);
 
     case 'DISSIPATE_POTATO':
       return applyDissipatePotato(world, action);

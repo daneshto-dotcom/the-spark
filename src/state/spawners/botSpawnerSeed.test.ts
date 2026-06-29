@@ -12,6 +12,7 @@ import { PLAYER_COLORS, SparkType } from '../../constants.ts';
 import { asPlayerId } from '../../types.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
 import { isPentagramComponent } from '../godlyRecipes/pentagram.ts';
+import { isLightningHubComponent } from '../godlyRecipes/lightningHub.ts';
 import { snapshot } from '../save.ts';
 import {
   collectSpawnerLockedPrimitiveIds,
@@ -31,27 +32,49 @@ describe('S104 P2 — host-seeded bot chewer-spawner', () => {
     const world = makeWorld(0xb0a7);
     startBots(world, 1);
 
-    expect(world.creatureSpawners.size).toBe(1);
-    const sp = [...world.creatureSpawners.values()][0];
+    // S113 Batch C — each bot seat now ALSO gets a lightning-hub spawner, so 2 spawners per bot.
+    expect(world.creatureSpawners.size).toBe(2);
+    const sp = [...world.creatureSpawners.values()].find((s) => s.recipeId === 'pentagram')!;
     expect(sp.ownerPlayerId).toBe(asPlayerId(1)); // the bot seat, not the human
     expect(sp.recipeId).toBe('pentagram');
     // The seeded ring is a REAL pentagram (re-validation keeps the spawner alive until raided).
     expect(isPentagramComponent(world, sp.anchorPrimitiveId)).toBe(true);
 
-    // The ring is 5 Triangles placed by the bot seat.
-    const botPrims = [...world.primitives.values()].filter((p) => p.placedBy === asPlayerId(1));
-    expect(botPrims.length).toBe(5);
-    expect(botPrims.every((p) => p.type === SparkType.Triangle)).toBe(true);
-    expect(botPrims.every((p) => p.bonds.size === 2)).toBe(true); // closed 5-cycle ⇒ degree 2 each
+    // The ring is 5 Triangles placed by the bot seat (the lightning-hub's Dot+Circles filtered out).
+    const ringPrims = [...world.primitives.values()].filter(
+      (p) => p.placedBy === asPlayerId(1) && p.type === SparkType.Triangle,
+    );
+    expect(ringPrims.length).toBe(5);
+    expect(ringPrims.every((p) => p.bonds.size === 2)).toBe(true); // closed 5-cycle ⇒ degree 2 each
+  });
+
+  it('S113 — also seeds one VALID lightning-hub spawner per bot seat (1 Dot deg-5 + 5 Circle leaves)', () => {
+    const world = makeWorld(0xb0a7);
+    startBots(world, 1);
+    const hub = [...world.creatureSpawners.values()].find((s) => s.recipeId === 'lightningHub')!;
+    expect(hub).toBeDefined();
+    expect(hub.ownerPlayerId).toBe(asPlayerId(1));
+    expect(isLightningHubComponent(world, hub.anchorPrimitiveId)).toBe(true);
+    // The hub anchor is the Dot (degree 5); the 5 leaves are Circles (degree 1).
+    const dot = world.primitives.get(hub.anchorPrimitiveId)!;
+    expect(dot.type).toBe(SparkType.Dot);
+    expect(dot.bonds.size).toBe(5);
+    const circles = [...world.primitives.values()].filter(
+      (p) => p.placedBy === asPlayerId(1) && p.type === SparkType.Circle,
+    );
+    expect(circles.length).toBe(5);
+    expect(circles.every((p) => p.bonds.size === 1)).toBe(true);
   });
 
   it('seeds one spawner per bot in a multi-bot match', () => {
     const world = makeWorld(0xb0a7);
     startBots(world, 3);
-    expect(world.creatureSpawners.size).toBe(3);
-    // Each spawner is owned by a distinct bot seat (1,2,3).
-    const owners = [...world.creatureSpawners.values()].map((s) => s.ownerPlayerId as unknown as number).sort();
-    expect(owners).toEqual([1, 2, 3]);
+    // S113 Batch C — 2 spawners per bot (pentagram + lightning-hub) = 6 for 3 bots.
+    expect(world.creatureSpawners.size).toBe(6);
+    const pentagrams = [...world.creatureSpawners.values()].filter((s) => s.recipeId === 'pentagram');
+    const hubs = [...world.creatureSpawners.values()].filter((s) => s.recipeId === 'lightningHub');
+    expect(pentagrams.map((s) => s.ownerPlayerId as unknown as number).sort()).toEqual([1, 2, 3]);
+    expect(hubs.map((s) => s.ownerPlayerId as unknown as number).sort()).toEqual([1, 2, 3]);
   });
 
   it('does NOT seed in solo or 1v1', () => {
@@ -86,18 +109,23 @@ describe('S107 P4 — the seeded bot pentagram is protected from auto-bond self-
     const world = makeWorld(0xb0a7);
     startBots(world, 1);
     const locked = collectSpawnerLockedPrimitiveIds(world);
+    // The pentagram ring nodes (5 Triangles).
     const ringIds = [...world.primitives.values()]
-      .filter((p) => p.placedBy === asPlayerId(1))
+      .filter((p) => p.placedBy === asPlayerId(1) && p.type === SparkType.Triangle)
       .map((p) => p.id);
     expect(ringIds.length).toBe(5);
-    expect(locked.size).toBe(5);
+    // S113 Batch C — BOTH structures are registered spawners, so the locked set = 5 ring Triangles
+    // + 6 hub nodes (1 Dot + 5 Circles) = 11. Every pentagram ring node is still locked (protection holds).
+    expect(locked.size).toBe(11);
     for (const id of ringIds) expect(locked.has(id)).toBe(true);
   });
 
   it('auto-bond EXCLUDES the ring nodes (which WOULD be in range without the lock) — degree stays 2', () => {
     const world = makeWorld(0xb0a7);
     startBots(world, 1);
-    const ring = [...world.primitives.values()].filter((p) => p.placedBy === asPlayerId(1));
+    const ring = [...world.primitives.values()].filter(
+      (p) => p.placedBy === asPlayerId(1) && p.type === SparkType.Triangle,
+    );
     const botColor = ring[0].placerColor; // the ring is the bot's own colour (same-colour bonds)
     // A build point 2px off a ring node — the worst case: well inside AUTO_BOND_RADIUS (60)
     // and MERGE_REACH_RADIUS (100). This is exactly what the bot frontier hits.

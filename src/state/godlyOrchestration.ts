@@ -34,6 +34,11 @@ import { playOneShot } from '../render/audioManager.ts';
 import { cinematicMsToTicks } from './creatures/creature.ts';
 import { findDefenderMatches, findGodlyMatch, getRecipe, makeTriggerEvent } from './godlyRecipes/index.ts';
 import { findAllPentagramAnchors, pentagramOwnerForAnchor } from './godlyRecipes/pentagram.ts';
+// S113 Batch C — the lightning-hub spawner recipe. Importing it also triggers its registerRecipe
+// side-effect (Codex TOWERS & STRUCTURES tab), exactly like the pentagram import above.
+import { findAllLightningHubAnchors, lightningHubOwnerForAnchor } from './godlyRecipes/lightningHub.ts';
+import type { GodlyId } from './godlyRecipes/types.ts';
+import type { PlayerId, PrimitiveId } from '../types.ts';
 import { dispatch, isNetworked, type World } from './world.ts';
 
 export interface GodlyOrchestrationState {
@@ -152,20 +157,22 @@ export function runGodlyMatcher(
  *    pentagram anchors ascending, register the first un-registered one, and stop
  *    (single ignition per frame, paralleling the cinematic matcher's `break`).
  */
-function runSpawnerIgnition(world: World): void {
-  let hasTopologyChange = false;
-  for (const eff of world.effects) {
-    if (eff.kind === 'BOND_FORMED') { hasTopologyChange = true; break; }
-    if (eff.kind === 'BOND_SEVERED' && eff.cause === 'player') { hasTopologyChange = true; break; }
-  }
-  if (!hasTopologyChange) return;
-
-  const anchors = findAllPentagramAnchors(world); // ascending anchor-id order
+/**
+ * S113 Batch C — register the lowest un-registered anchor of ONE spawner recipe (generalizes the
+ * original pentagram-only loop). Returns true if it ignited one (caller stops — single ignition per
+ * frame). The per-(player, anchor) de-dup against the live creatureSpawners map is unchanged.
+ */
+function igniteOneSpawnerRecipe(
+  world: World,
+  anchors: PrimitiveId[],
+  ownerForAnchor: (world: World, anchor: PrimitiveId) => PlayerId | null,
+  recipeId: GodlyId,
+): boolean {
   for (const anchor of anchors) {
-    const owner = pentagramOwnerForAnchor(world, anchor);
+    const owner = ownerForAnchor(world, anchor);
     if (owner === null) continue;
-    // Already a live spawner on this anchor owned by this player? Skip (no
-    // double-register; rebuild allowed after the prior one was removed).
+    // Already a live spawner on this anchor owned by this player? Skip (no double-register; rebuild
+    // allowed after the prior one was removed).
     let alreadyLive = false;
     for (const sp of world.creatureSpawners.values()) {
       if (sp.anchorPrimitiveId === anchor && sp.ownerPlayerId === owner) {
@@ -178,10 +185,26 @@ function runSpawnerIgnition(world: World): void {
       type: 'REGISTER_SPAWNER',
       ownerPlayerId: owner,
       anchorPrimitiveId: anchor,
-      recipeId: 'pentagram',
+      recipeId,
     });
-    return; // single ignition per frame (lowest-anchor tie-break)
+    return true; // single ignition per frame (lowest-anchor tie-break)
   }
+  return false;
+}
+
+function runSpawnerIgnition(world: World): void {
+  let hasTopologyChange = false;
+  for (const eff of world.effects) {
+    if (eff.kind === 'BOND_FORMED') { hasTopologyChange = true; break; }
+    if (eff.kind === 'BOND_SEVERED' && eff.cause === 'player') { hasTopologyChange = true; break; }
+  }
+  if (!hasTopologyChange) return;
+
+  // Single ignition per frame. Scan pentagram first (registry-order parity), then the S113
+  // lightning-hub; in practice only one spawner structure completes per topology-change frame, and
+  // the per-(player,anchor) de-dup makes a redundant scan harmless either way.
+  if (igniteOneSpawnerRecipe(world, findAllPentagramAnchors(world), pentagramOwnerForAnchor, 'pentagram')) return;
+  igniteOneSpawnerRecipe(world, findAllLightningHubAnchors(world), lightningHubOwnerForAnchor, 'lightningHub');
 }
 
 /**

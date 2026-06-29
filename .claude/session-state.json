@@ -1,15 +1,15 @@
 {
-  "tool_calls_session_total": 257,
+  "tool_calls_session_total": 288,
   "session_id": "S112",
   "session_kind": "execution",
   "session_start": "2026-06-27T00:00:00.000Z",
   "prior_session_note": "S109 shipped Batch A (4/4 host-sim/UI/render priorities: codex Esc/G+C toggle, 10s free-spark TTL despawn, poop rework, Helga anti-cross-map-laser interim range->380), all deployed SUCCESS, PROTOCOL_VERSION 12 held, vitest 1702/1702. Also ran Batch D art SPIKE: 6 ORIGINAL on-model imagen candidates (Voltkin idle+zap, Helga dirndl+stein) at OneDrive desktop, NOT wired (owner-pick gated). S110 starts by executing the owner's live-playtest batch.",
-  "phase": "S112_EXECUTING",
+  "phase": "S113_AWAITING_UNLOCK",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "tier": "Standard",
-  "council_rounds": 1,
+  "tier": "Full",
+  "council_rounds": 2,
   "council_result": "S110 batch PDR (.claude/plans/2026-06-26_PDR_S110_Batch_E_plus_B_plus_D.md). 5 priorities from owner live playtest: P1 win-points 786->1500 (+tier-step 262->500, exact-thirds); P2 uniform spark speed (min=max=12, keep rngRange draw); P3 codex keep player-avatar visible above backdrop; P4 Batch B Helga walk-to-target+melee (v12->13, HIGH); P5 Batch D wire 3 imagen art keepers (offline matte->atlas->render-swap, lazy-load, no bump). Council R1 Grok-4.20-reasoning + Gemini-2.5-pro + Opus PRIME-AUDIT, HIGH confidence, no SPLIT. ADOPTED: P2 keep-the-draw discipline; P4 walk-speed ~=chewer (catchable, not undercut) + bounded acquisition radius (anti-kite); P4 two-commit split (substrate+WALK, then chase AI); P5 graceful fallback to procedural rig until atlas loads. REJECTED on audit: Grok fixed-point/client-extrapolation integrator (contradicts proven float-Verlet determinism + no-client-physics arch); Grok seed-pinned-art (offline-baked, no runtime gen). CARRY-FORWARD (logged, Gemini quality flag): proper Helga walk-cycle (Veo loop/multi-pose) once veo/imagen reference-conditioning works in this auth -- first-pass P5 static sprite slides while walking.",
   "signals_fired": [],
   "priorities": [
@@ -72,6 +72,20 @@
         { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts", "needle": "updateHelgaTheme(world)" },
         { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "PRINCESS_SPRITE_BASE_SCALE" }
       ]
+    },
+    {
+      "id": "S113-BATCH-C",
+      "label": "S113 Batch C — lightning-drone building: new SPAWNER godly-recipe (1 Dot hub deg-5 + 5 Circle leaves) emits up to 3 self-exploding lightningDrone creatures (procedural Voltkin rig @0.5) on the 15s cadence; each drone seeks the nearest ENEMY bond then detonates severing <=3 enemy bonds (1 ARC_FLASH each); after the 3rd drone the structure self-destructs in a large potato-style owner-agnostic AoE. PROTOCOL_VERSION 13->14. Full tier, HIGH risk. PDR: .claude/plans/2026-06-28_PDR_S113_Batch_C_Lightning_Drone.md",
+      "status": "in_progress",
+      "phase": "EXECUTING",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "priority_state": "in_progress",
+      "unlock_source": "user",
+      "council_rounds": 2,
+      "council_result": "2-way (Grok-4.20-reasoning ANALYST + Claude Supervisor; Gemini-2.5-pro 429 credits-depleted -> 2-way per protocol, S112 precedent). R1 ADOPT-WITH-FIXES (4 challenges); R2 D1 PUSH-BACK / D2 AGREE. PRIME-AUDIT SHIP-WITH-FIXES: D1 guarded-extraction (drone sever = own enemy-only helper radialSeverEnemyBonds; structure self-destruct reuses potato radial-clear via save.replay-gated extraction; never unguarded-touch the frozen potato path); D2 exactly-once self-destruct (fire + REMOVE_SPAWNER in the same emit-poll branch; existing spawner-poll-before-creature-fan-out tick order; cross-drone same-bond sever idempotent+sorted CreatureId); D3 reuse locked creatureAI.isEnemyBond + findNearestBondTarget(enemyOnly:true), no new predicate; D4 ship owner numbers (15s/3 drones/<=3 bonds/240px agnostic) as playtest dials, log Grok 20s/2-drone/180px alt as #1 post-playtest dial set. A.0 PASS (laserTurret recipe template, applyPotatoDetonate radial sever, spawner.spawnedCount, canSeverBond bypass, runSpawnerIgnition/runDefenderIgnition registry, Codex tab); one delta folded (applyPotatoDetonate already kills chewers in radius -> structure self-destruct matches).",
+      "plan_file": ".claude/plans/2026-06-28_PDR_S113_Batch_C_Lightning_Drone.md"
     }
   ],
   "carry_forward_priorities": [

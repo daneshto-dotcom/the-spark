@@ -83,7 +83,10 @@ export function canSeverBond(
     action.cause === 'physics' ||
     action.cause === 'creature' ||
     action.cause === 'bomb' ||
-    action.cause === 'chewer'
+    action.cause === 'chewer' ||
+    // S113 Batch C — a lightning-drone's detonation sever is host-authoritative (the drone mint
+    // requires a host-only SPAWN_CREATURE), so it bypasses charge + hostile-auth like 'creature'.
+    action.cause === 'drone'
   ) return true;
 
   const player = world.players.get(action.playerId);

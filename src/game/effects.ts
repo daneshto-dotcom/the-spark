@@ -131,7 +131,9 @@ export type GameEffect =
        * so the audio drain plays a beaver GNAW (not lightning-crackle) and the
        * attack emits NO ARC_FLASH / screen-shake (see creatureAttack.ts).
        */
-      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer';
+      // S113 Batch C — 'drone' added for a lightning-drone's detonation sever (audio drain treats it
+      // like the lightning 'creature' crackle — see audioManager; the ARC_FLASH carries the visual).
+      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer' | 'drone';
     }
   | {
       /**

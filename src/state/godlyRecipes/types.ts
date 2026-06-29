@@ -22,7 +22,11 @@ import type { World } from '../world.ts';
 // recipes (a stationary auto-attacker structure). Like 'pentagram' they are non-cinematic: they
 // dispatch REGISTER_DEFENDER (never GODLY_TRIGGER), never occupy activeCinematicPlayerId, and are
 // excluded from the per-type godlyFiredThisMatch gate.
-export type GodlyId = 'voltkin' | 'pentagram' | 'laserTurret' | 'helga';
+// S113 Batch C — 'lightningHub' widens GodlyId for the second SPAWNER-variant recipe (1 Dot + 5
+// Circles -> a suicide-drone emitter). Like 'pentagram' it is non-cinematic: it dispatches
+// REGISTER_SPAWNER (never GODLY_TRIGGER), never occupies activeCinematicPlayerId, and is excluded
+// from the per-type godlyFiredThisMatch gate (a spawner is rebuildable + multi-instance).
+export type GodlyId = 'voltkin' | 'pentagram' | 'laserTurret' | 'helga' | 'lightningHub';
 
 export interface GodlyMatch {
   readonly triggererPlayerId: PlayerId;

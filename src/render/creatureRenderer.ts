@@ -36,6 +36,9 @@ import {
   type CreatureState,
 } from '../state/creatures/creature.ts';
 import { voltkinPose, type VoltkinPose } from './voltkinPose.ts';
+// S113 Batch C — the lightning-DRONE is "the procedural Voltkin design, ~50% smaller" (owner spec),
+// so it reuses this same rig at LIGHTNING_DRONE_SPRITE_SCALE. Playtest DIAL.
+import { LIGHTNING_DRONE_SPRITE_SCALE } from '../constants.ts';
 
 const TAU = Math.PI * 2;
 
@@ -235,9 +238,14 @@ export class CreatureRenderer {
     const liveIds = new Set<CreatureId>();
 
     for (const creature of world.creatures.values()) {
-      // This renderer owns the VOLTKIN rig only; the persistent 'chewer' is drawn by ChewerRenderer.
-      // Both drain the SAME world.creatures map, partitioned by type, so neither forks a parallel list.
-      if (creature.type !== 'voltkin') continue;
+      // This renderer owns the VOLTKIN rig + the S113 lightning-DRONE (the same procedural rig, ~50%
+      // smaller — owner spec). The persistent 'chewer' is drawn by ChewerRenderer. All drain the SAME
+      // world.creatures map, partitioned by type, so none forks a parallel list. A drone that vanishes
+      // (it always DETONATES from a live SEEKING state) trips the death-watcher below → a lightning-
+      // cloud burst at the blast point, reinforcing the explosion (alongside the sim ARC_FLASH/burst).
+      const isVoltkin = creature.type === 'voltkin';
+      const isDrone = creature.type === 'lightningDrone';
+      if (!isVoltkin && !isDrone) continue;
       liveIds.add(creature.id);
       this.lastSeenState.set(creature.id, creature.state);
 
@@ -255,12 +263,15 @@ export class CreatureRenderer {
 
       // S110 P5 — draw the matted high-quality sprite once its texture is ready; until then (or if
       // the load failed) fall back to the procedural electric-being rig so the creature is never blank.
-      if (this.idleTex !== null && this.zapTex !== null) {
+      // A drone ALWAYS uses the procedural rig (the matted imagen art is the godly Voltkin's; the
+      // drone is the smaller procedural electric being). A Voltkin uses the matted sprite once loaded.
+      if (isVoltkin && this.idleTex !== null && this.zapTex !== null) {
         this.syncVoltkinSprite(creature, facing);
       } else {
         const pose = voltkinPose(creature.state, creature.ticksInState, world.tick, creature.id as number);
         const alpha = computeCreatureAlpha(creature);
-        this.drawVoltkin(g, creature.pos.x, creature.pos.y, facing, alpha, pose, nowSec, (creature.id as number) * 1.37);
+        const scaleMul = isDrone ? LIGHTNING_DRONE_SPRITE_SCALE : 1;
+        this.drawVoltkin(g, creature.pos.x, creature.pos.y, facing, alpha, pose, nowSec, (creature.id as number) * 1.37, scaleMul);
       }
     }
 
@@ -309,14 +320,15 @@ export class CreatureRenderer {
    */
   private drawVoltkin(
     g: Graphics, x: number, y: number, face: 1 | -1, alpha: number, pose: VoltkinPose, nowSec: number, idSeed: number,
+    scaleMul: number = 1, // S113 Batch C — 0.5 for a lightning-drone ("the Voltkin design, smaller")
   ): void {
     if (alpha <= 0.02) return;
     const fa = (a: number): number => a * alpha;
     const sc = pose.coreScale;
     const charge = pose.boltCharge;
-    const cy = y + pose.bodyBobY;
-    const bw = BODY_W * sc;
-    const bh = BODY_H * sc;
+    const cy = y + pose.bodyBobY * scaleMul;
+    const bw = BODY_W * sc * scaleMul;
+    const bh = BODY_H * sc * scaleMul;
     // crackle jitter: faster + bigger with charge (cosmetic, render-only)
     const jit = (k: number): number => Math.sin(nowSec * (16 + charge * 34) + idSeed + k * 1.7) * (0.5 + charge * 2.4);
 

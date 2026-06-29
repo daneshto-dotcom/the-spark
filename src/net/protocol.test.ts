@@ -72,8 +72,8 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 13 (S110 P4 bump from 12 — HELGA walk: serialized WALK state + prevPos/walkTargetPos)', () => {
-    expect(PROTOCOL_VERSION).toBe(13);
+  it('PROTOCOL_VERSION is 14 (S113 Batch C bump from 13 — lightning-drone building: CreatureType lightningDrone + recipeId lightningHub)', () => {
+    expect(PROTOCOL_VERSION).toBe(14);
   });
 
   it('S102 #1 — RAID_CREATURE is an allowed CLIENT INTENT (a 1v1 joiner can raid an enemy chewer)', () => {
@@ -297,7 +297,7 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
     expect(parseNetMessage({ kind: 'LOBBY_PRESENCE', roster: exactlyMax })).not.toBeNull();
   });
 
-  it('S70 graceful-degradation contract holds; PROTOCOL_VERSION is 11 after the S102 raid bump', () => {
+  it('S70 graceful-degradation contract holds; PROTOCOL_VERSION is 14 after the S113 lightning-drone bump', () => {
     // S70's LOBBY_PRESENCE was cosmetic and did NOT bump the version on its own:
     // unknown kinds fail CLOSED (fall through parseNetMessage's default → null, not
     // a throw), so a stale peer degrades to the count-based rack and can still play.
@@ -321,7 +321,8 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
     // S103 P2 — bumped 11→12 for the generic defender lifecycle (REGISTER/REMOVE/TICK_DEFENDER,
     // all HOST-INTERNAL) + the additive-optional defenders[] snapshot field.
     // S110 P4 — bumped 12→13 for HELGA's walk rework (serialized 'WALK' state + prevPos/walkTargetPos).
-    expect(PROTOCOL_VERSION).toBe(13);
+    // S113 Batch C — bumped 13→14 for the lightning-drone building (CreatureType lightningDrone + recipeId lightningHub).
+    expect(PROTOCOL_VERSION).toBe(14);
     expect(
       parseNetMessage({ kind: 'SOME_FUTURE_KIND', roster: [{ seat: 0, peerId: 'h', color: 1 }] }),
     ).toBeNull();

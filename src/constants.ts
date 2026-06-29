@@ -898,6 +898,32 @@ export const SPAWNER_INCOME_COMPLEXITY = 0.5;
 export const SPAWNER_KILL_REWARD = 5;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// === S113 Batch C — LIGHTNING-DRONE BUILDING (the "5-Circle + Dot" suicide-drone spawner) ===
+// A player builds 1 Dot hub (bond-degree >= 5) + 5 Circle leaves -> a SPAWNER that emits up to 3
+// self-exploding lightning DRONES on the standard 15s cadence. Each drone is the procedural Voltkin
+// rig @0.5; it homes on the nearest ENEMY connector and detonates (radial sever of <=3 enemy bonds,
+// 1 ARC_FLASH each) on arrival OR fuse-expiry. After the 3rd drone, on the next cadence slot the
+// structure SELF-DESTRUCTS in a large owner-AGNOSTIC potato-style AoE (prims+bonds+creatures).
+// ALL host-authoritative + tick-deterministic + replay-safe (no RNG, sorted-id AoE, single
+// SEVER_BOND path with a new 'drone' cause). Every number below is a post-playtest DIAL.
+// Owner design decisions (S113): Dot+Circle / loosened gate / 15s / nearest-enemy / <=3 bonds /
+// owner-agnostic 240px self-destruct / own drone cap / Codex tile / host-seeded bots.
+// Council R2 carry-forward (#1 post-playtest dial set, Grok balance alt): 20s cadence / 2 drones /
+// 180px self-destruct if the 3-drone 240px-nuke proves too swingy on the owner's live playtest.
+export const LIGHTNING_HUB_DEGREE = 5; // the Dot hub's minimum bond-degree (LOOSENED gate: >=, not ==)
+export const LIGHTNING_HUB_LEAVES = 5; // 5 Circle leaves
+export const LIGHTNING_HUB_COMPONENT_SIZE = LIGHTNING_HUB_DEGREE + 1; // 1 hub + 5 leaves = 6
+export const DRONE_EMIT_INTERVAL_TICKS = SPAWN_INTERVAL_TICKS; // 900t = 15s — reuse the chewer cadence
+export const STRUCTURE_SELFDESTRUCT_DRONE_COUNT = 3; // emit 3 drones, then self-destruct on the next slot
+export const DRONE_LIFETIME_TICKS = 8 * PHYSICS_HZ; // 480t = 8s fly-time FUSE (explodes on expiry if it never arrived)
+export const DRONE_EXPLODE_RADIUS = 110; // px — small targeted blast (== the drone's arrival/attack range)
+export const DRONE_MAX_CONNECTORS = 3; // <=3 ENEMY bonds severed per drone (owner: "3 connectors per lightning")
+export const DRONE_MAX_GLOBAL = 12; // hard ceiling on live drones (its OWN population, NOT shared with chewers)
+export const DRONE_MAX_PER_SPAWNER = STRUCTURE_SELFDESTRUCT_DRONE_COUNT; // <=3 live from one hub
+export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — large owner-AGNOSTIC "lightning storm" AoE on the anchor
+export const LIGHTNING_DRONE_SPRITE_SCALE = 0.5; // the Voltkin rig at 50% (owner: "~50% smaller")
+
+// ─────────────────────────────────────────────────────────────────────────────
 // === S103 P2 — TOWER-DEFENSE DEFENDERS (the generic Defender substrate) ===
 // A player builds a geometric recipe that "comes alive" as a stationary DEFENDER which
 // auto-attacks the nearest enemy CREATURE in range via the unified `damageCreature` path

@@ -27,6 +27,7 @@ import { SPAWN_INTERVAL_TICKS } from '../../constants.ts';
 import { asSpawnerId, type PlayerId, type PrimitiveId, type SpawnerId } from '../../types.ts';
 import type { GodlyId } from '../godlyRecipes/types.ts';
 import { isPentagramComponent } from '../godlyRecipes/pentagram.ts';
+import { isLightningHubComponent } from '../godlyRecipes/lightningHub.ts';
 import type { World } from '../worldTypes.ts';
 import { makeSpawner, type CreatureSpawner } from './spawner.ts';
 
@@ -107,6 +108,10 @@ export function recipeStillSatisfied(world: World, spawner: CreatureSpawner): bo
   switch (spawner.recipeId) {
     case 'pentagram':
       return isPentagramComponent(world, spawner.anchorPrimitiveId);
+    // S113 Batch C — a lightningHub survives only while its Dot hub still anchors a 1-Dot(deg5)
+    // + 5-Circle star (a chewer/drone eating a Circle leaf drops the size/degree -> teardown).
+    case 'lightningHub':
+      return isLightningHubComponent(world, spawner.anchorPrimitiveId);
     default:
       // A spawner minted by a recipe with no re-validation rule (none today) is
       // kept alive only while its anchor primitive exists — the minimal contract.

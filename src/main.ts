@@ -35,6 +35,9 @@ import {
   PLAYER_COLORS,
   REVALIDATE_INTERVAL_TICKS,
   SPAWN_INTERVAL_TICKS,
+  DRONE_EMIT_INTERVAL_TICKS,
+  STRUCTURE_SELFDESTRUCT_DRONE_COUNT,
+  STRUCTURE_SELFDESTRUCT_RADIUS,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
@@ -83,7 +86,7 @@ import { computeStubTargetPos } from './physics/creatureVerlet.ts';
 // findNearestBondTarget runs every CREATURE_TICK during SEEKING (Council R1 Q3
 // UNANIMOUS A); bondMidpoint feeds the per-tick targetPos update so the
 // existing steering forces (seek/arrive) home in on the nearest bond's center.
-import { bondMidpoint, findNearestBondTarget, findNearestEnemyCreature } from './state/creatures/creatureAI.ts';
+import { bondMidpoint, findNearestBondTarget, findNearestEnemyCreature, isWithinAttackRange } from './state/creatures/creatureAI.ts';
 // S100 P1 (TD Phase 1a, Layer 4) — the post-CREATURE_TICK attack-fire gate reads the
 // FIRE tick from each creature's config (was the Voltkin-only module const) so a chewer
 // fires its SEVER_BOND on the FINAL chew (config.attackFireTick = chewHits×interval) while
@@ -101,6 +104,8 @@ import { awardSpawnerKillReward } from './state/gameMode.ts';
 // (applySpawnCreature) re-checks it authoritatively; the poll calls it first so it can
 // skip the dispatch (and a future birth VFX) when the swarm is already at its ceiling.
 import { underChewerCaps } from './state/creatures/creatureLifecycle.ts';
+// S113 Batch C — the lightning-drone population cap (its own, not shared with chewers).
+import { underDroneCaps } from './state/droneLifecycle.ts';
 import { AvatarRenderer, shouldHideOsCursor } from './render/avatarRenderer.ts';
 import { drainAudioEffects, enterNonetRealm, exitNonetRealm, initAudio, isMuted, playMusic, syncRainbowYellAudio, toggleMute, updateHelgaTheme } from './render/audioManager.ts';
 // S50 P2 — Audit Pass 2 refactor 622a7c7f: triggerReset is now called from
@@ -157,6 +162,10 @@ import './state/godlyRecipes/voltkin.ts';
 // S100 P1 (TD Phase 1b, Layer 5) — side-effect import registers the pentagram
 // SPAWNER recipe (a non-cinematic recipe → REGISTER_SPAWNER, not GODLY_TRIGGER).
 import './state/godlyRecipes/pentagram.ts';
+// S113 Batch C — side-effect import registers the lightning-hub SPAWNER recipe (1 Dot + 5 Circles →
+// suicide-drone emitter) so it appears in the Codex TOWERS & STRUCTURES tab + recipeStillSatisfied
+// finds it. (Also imported transitively by godlyOrchestration/spawnerLifecycle; registerRecipe is idempotent.)
+import './state/godlyRecipes/lightningHub.ts';
 // S103 P3 — side-effect import registers the LASER TURRET defender recipe (calls registerRecipe at
 // module tail) so runDefenderIgnition + recipeStillSatisfied find it. (#9 — 1 Line + 7 Spiral Whips.)
 import './state/godlyRecipes/laserTurret.ts';
@@ -521,6 +530,7 @@ async function bootstrap(): Promise<void> {
       case 'pentagram': return 'SPAWNER: 5 Triangles bonded in a closed ring — each Triangle bonded to exactly 2 others (a pentagon). Mints chewers.';
       case 'laserTurret': return 'TOWER: 1 Line + 7 Spirals, every Spiral bonded to the Line — 8 shapes, a star. Beams enemy chewers. (7 spirals, not 4.)';
       case 'helga': return 'TOWER: 1 Triangle hub + 3 Spirals + 3 Circles, all 6 bonded to the hub — 7 shapes. Princess HELGA slaps chewers.';
+      case 'lightningHub': return 'SPAWNER: 1 Dot in the middle + 5 Circles, every Circle bonded to the Dot — 6 shapes, a star. Fires 3 suicide lightning-drones at enemy connectors, then SELF-DESTRUCTS in a lightning storm.';
       default: return '???';
     }
   };
@@ -1195,7 +1205,40 @@ async function bootstrap(): Promise<void> {
             while (world.tick >= sp.nextSpawnTick) sp.nextSpawnTick += SPAWN_INTERVAL_TICKS;
             continue;
           }
-          if (world.tick >= sp.nextSpawnTick && underChewerCaps(world, spawnerId)) {
+          // S113 Batch C — branch the emit on the recipe. A pentagram (the default) spawns chewers
+          // (unchanged). A lightningHub spawns up to STRUCTURE_SELFDESTRUCT_DRONE_COUNT lightning
+          // drones on the cadence, then on the NEXT cadence slot SELF-DESTRUCTS (a large
+          // owner-agnostic AoE at the anchor) + REMOVE_SPAWNER — fired together so it is exactly-once
+          // (the spawner leaves the map, so this branch is structurally unreachable again). Reusing
+          // nextSpawnTick for the self-destruct delay gives the 3rd drone a full cadence to fly out.
+          if (sp.recipeId === 'lightningHub') {
+            if (world.tick >= sp.nextSpawnTick) {
+              const anchor = world.primitives.get(sp.anchorPrimitiveId);
+              if (sp.spawnedCount >= STRUCTURE_SELFDESTRUCT_DRONE_COUNT) {
+                if (anchor !== undefined) {
+                  dispatch(world, {
+                    type: 'STRUCTURE_SELFDESTRUCT',
+                    pos: { x: anchor.pos.x, y: anchor.pos.y },
+                    radius: STRUCTURE_SELFDESTRUCT_RADIUS,
+                  });
+                }
+                dispatch(world, { type: 'REMOVE_SPAWNER', spawnerId });
+              } else if (anchor !== undefined && underDroneCaps(world, spawnerId)) {
+                dispatch(world, {
+                  type: 'SPAWN_CREATURE',
+                  creatureType: 'lightningDrone',
+                  ownerPlayerId: sp.ownerPlayerId,
+                  // The drone spawns at the hub; the fan-out picks its nearest-enemy-bond target the
+                  // first SEEKING tick (targetPos is a harmless anchor seed until then).
+                  pos: { x: anchor.pos.x, y: anchor.pos.y },
+                  targetPos: { x: anchor.pos.x, y: anchor.pos.y },
+                  sourceSpawnerId: spawnerId,
+                });
+                sp.nextSpawnTick += DRONE_EMIT_INTERVAL_TICKS;
+                sp.spawnedCount++;
+              }
+            }
+          } else if (world.tick >= sp.nextSpawnTick && underChewerCaps(world, spawnerId)) {
             const anchor = world.primitives.get(sp.anchorPrimitiveId);
             // Defense-in-depth: a deleted anchor between the (throttled) re-validation
             // and this tick would leave `anchor` undefined — skip the emit (the next
@@ -1280,7 +1323,21 @@ async function bootstrap(): Promise<void> {
           //    phase-spread by id (§3.4 R7); (c) enemyOnly=true so it never eats its own
           //    spawner (R8) + runs the FFA target-spread.
           const creature = world.creatures.get(id);
-          if (creature !== undefined && creature.state === 'SEEKING') {
+          if (creature !== undefined && creature.state === 'SEEKING' && getCreatureConfig(creature.type).selfExplode) {
+            // S113 Batch C — a lightning-DRONE is a homing missile: every-tick enemy-only
+            // re-selection (NOT the chewer throttle/stickiness — it never commits/chews). It then
+            // DETONATES in Step 1.5 below the moment it is in blast range (or its fuse expires).
+            const nextTarget = findNearestBondTarget(world, creature, true);
+            creature.targetBondId = nextTarget;
+            if (nextTarget !== null) {
+              const targetBond = world.bonds.get(nextTarget);
+              if (targetBond !== undefined) {
+                const mid = bondMidpoint(targetBond);
+                creature.targetPos.x = mid.x;
+                creature.targetPos.y = mid.y;
+              }
+            }
+          } else if (creature !== undefined && creature.state === 'SEEKING') {
             const isChewer = creature.sourceSpawnerId !== null;
             let doReselect: boolean;
             let enemyOnly: boolean;
@@ -1315,6 +1372,28 @@ async function bootstrap(): Promise<void> {
             // creatures → byte-identical Voltkin (MF4). Chewers never get a creature target.
             if (!isChewer) {
               creature.targetCreatureId = findNearestEnemyCreature(world, creature);
+            }
+          }
+
+          // Step 1.5: S113 Batch C — a lightning-DRONE DETONATES (skipping its CREATURE_TICK) the
+          // moment it arrives within blast range of the nearest enemy connector, OR when its
+          // fly-time fuse is about to expire (explode-in-place rather than silently fade). Checked in
+          // SEEKING only (SPAWNING is the materialize window). DRONE_EXPLODE deletes the drone, so we
+          // `continue` past the CREATURE_TICK / attack-fire steps. Runs AFTER Step 1's fresh target
+          // re-selection so `isWithinAttackRange` sees this tick's nearest-enemy-bond.
+          const droneCandidate = world.creatures.get(id);
+          if (
+            droneCandidate !== undefined &&
+            droneCandidate.state === 'SEEKING' &&
+            getCreatureConfig(droneCandidate.type).selfExplode
+          ) {
+            const inRange =
+              droneCandidate.targetBondId !== null &&
+              isWithinAttackRange(world, droneCandidate, droneCandidate.targetBondId);
+            const fuseExpiring = world.tick >= droneCandidate.despawnAtTick - 1;
+            if (inRange || fuseExpiring) {
+              dispatch(world, { type: 'DRONE_EXPLODE', creatureId: id });
+              continue;
             }
           }
 

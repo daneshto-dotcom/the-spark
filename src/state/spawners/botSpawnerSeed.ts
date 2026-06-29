@@ -32,11 +32,21 @@ import {
   SPAWNER_RADIUS,
   SparkType,
 } from '../../constants.ts';
-import { asBondId, asPrimitiveId, type PrimitiveId } from '../../types.ts';
+import { asBondId, asPrimitiveId, type PlayerId, type PrimitiveId } from '../../types.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import type { Bond } from '../../physics/bonds.ts';
 import type { World } from '../world.ts';
 import { applyRegisterSpawner } from './spawnerLifecycle.ts';
+
+// S113 Batch C — bot lightning-hub seed geometry (1 Dot hub + 5 Circle leaves = isLightningHubComponent).
+const HUB_LEAVES = 5;
+const HUB_R = 36; // leaf ring radius (px) — leaves bonded only to the hub (degree-1 leaves; hub degree 5)
+const HUB_DOT_RADIUS = 4;
+const HUB_CIRCLE_RADIUS = 9;
+// Placed in a SEPARATE sector from the pentagram: closer in (+150 vs the pentagram's +240) AND an
+// angular offset, so the two host-placed structures never sit within AUTO_BOND_RADIUS of each other.
+const LIGHTNING_HUB_REACH = SPAWNER_RADIUS + 150;
+const LIGHTNING_HUB_ANGLE_OFFSET = 0.6; // rad
 
 const RING_SIZE = 5; // a pentagram is exactly 5 triangles (isPentagramComponent gate)
 const RING_R = 40; // ring radius (px) — triangles spaced so they don't overlap (radius 8 each)
@@ -125,7 +135,85 @@ export function seedBotSpawners(world: World): void {
       anchorPrimitiveId: anchor,
       recipeId: 'pentagram',
     });
+
+    // S113 Batch C — also seed a lightning-DRONE hub per bot seat (owner decision #9: host-seed the
+    // proven path) so the owner SEES drones fly at them in vs-bots (their main test mode). It emits 3
+    // drones then self-destructs — a one-time demo burst, distinct from the persistent chewer ring.
+    seedOneLightningHub(world, seat, color, total);
   }
+}
+
+/**
+ * S113 Batch C — place ONE lightning-hub (1 Dot hub of degree 5 + 5 Circle leaves) for a bot seat and
+ * register a lightningHub spawner over the Dot. Pure seat-angle math (no RNG), in a separate sector
+ * from the bot's pentagram. The Dot is the anchor (isLightningHubComponent re-validates from it).
+ */
+function seedOneLightningHub(world: World, seat: PlayerId, color: number, total: number): void {
+  const angle =
+    Math.PI + ((seat as number) / Math.max(1, total)) * 2 * Math.PI + LIGHTNING_HUB_ANGLE_OFFSET;
+  const cx = clamp(SPAWNER_CENTER_X + Math.cos(angle) * LIGHTNING_HUB_REACH, EDGE_MARGIN, CANVAS_WIDTH - EDGE_MARGIN);
+  const cy = clamp(SPAWNER_CENTER_Y + Math.sin(angle) * LIGHTNING_HUB_REACH, EDGE_MARGIN, CANVAS_HEIGHT - EDGE_MARGIN);
+
+  // Centre Dot hub (will end at bond-degree HUB_LEAVES = 5).
+  const hubId = asPrimitiveId(world.nextPrimitiveId++);
+  const hub: Primitive = {
+    id: hubId,
+    type: SparkType.Dot,
+    placerColor: color,
+    placedBy: seat,
+    createdTick: world.tick,
+    pos: { x: cx, y: cy },
+    prevPos: { x: cx, y: cy },
+    bonds: new Set(),
+    ownerColor: color,
+    lastOwnershipChange: world.tick,
+    radius: HUB_DOT_RADIUS,
+  };
+  world.primitives.set(hubId, hub);
+
+  // 5 Circle leaves around the hub, each bonded ONLY to the hub (degree-1 leaf; hub ends degree 5).
+  for (let i = 0; i < HUB_LEAVES; i++) {
+    const a = (i / HUB_LEAVES) * Math.PI * 2;
+    const px = cx + Math.cos(a) * HUB_R;
+    const py = cy + Math.sin(a) * HUB_R;
+    const leafId = asPrimitiveId(world.nextPrimitiveId++);
+    const leaf: Primitive = {
+      id: leafId,
+      type: SparkType.Circle,
+      placerColor: color,
+      placedBy: seat,
+      createdTick: world.tick,
+      pos: { x: px, y: py },
+      prevPos: { x: px, y: py },
+      bonds: new Set(),
+      ownerColor: color,
+      lastOwnershipChange: world.tick,
+      radius: HUB_CIRCLE_RADIUS,
+    };
+    world.primitives.set(leafId, leaf);
+    const restLength = Math.hypot(px - cx, py - cy);
+    const bondId = asBondId(world.nextBondId++);
+    const bond: Bond = {
+      id: bondId,
+      aId: hubId,
+      bId: leafId,
+      a: hub,
+      b: leaf,
+      restLength,
+      stiffnessTier: 'MID',
+      createdTick: world.tick,
+    };
+    world.bonds.set(bondId, bond);
+    hub.bonds.add(bondId);
+    leaf.bonds.add(bondId);
+  }
+
+  applyRegisterSpawner(world, {
+    type: 'REGISTER_SPAWNER',
+    ownerPlayerId: seat,
+    anchorPrimitiveId: hubId,
+    recipeId: 'lightningHub',
+  });
 }
 
 function clamp(v: number, lo: number, hi: number): number {

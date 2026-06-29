@@ -85,7 +85,11 @@ export type { NetSnapshot };
 // literal 'WALK' + additive-optional prevPos/walkTargetPos to the defenders[] snapshot. A stale v12
 // peer would receive a 'WALK' state it can't parse / would mis-render the walking princess, so it is
 // hard-rejected at HELLO (same lockstep as the S103 11->12 defender bump). Still host-authoritative.
-export const PROTOCOL_VERSION = 13 as const;
+// S113 Batch C — bumped 13->14: the lightning-drone building adds a NEW CreatureType 'lightningDrone'
+// on the serialized creatures[] + a NEW recipeId 'lightningHub' on a SerializedSpawner. A stale v13
+// peer would receive a creature/recipe literal it can't render, so it is hard-rejected at HELLO. The
+// new actions (DRONE_EXPLODE / STRUCTURE_SELFDESTRUCT) are HOST-INTERNAL (never client INTENTs).
+export const PROTOCOL_VERSION = 14 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -110,8 +114,8 @@ export interface HelloMsg {
   readonly kind: 'HELLO';
   readonly playerId: PlayerId;
   readonly color: number;
-  /** Protocol version — bumped on wire-incompatible changes. S77 P3: 6→7 (seagull); S87 P4: 7→8 (LOBBY_READY quickmatch gate); S93: 8→9 (NONET SUDOKU_SOLVED intent + sudoku snapshot field); S100 P1: 9→10 (TD spawner lifecycle + creatureSpawners snapshot field); S102 #1: 10→11 (RAID_CREATURE intent + creature hp); S103 P2: 11→12 (generic defender lifecycle + defenders snapshot field); S110 P4: 12→13 (HELGA walk: serialized 'WALK' state + prevPos/walkTargetPos on defenders[]). */
-  readonly protoVersion: 13;
+  /** Protocol version — bumped on wire-incompatible changes. S77 P3: 6→7 (seagull); S87 P4: 7→8 (LOBBY_READY quickmatch gate); S93: 8→9 (NONET SUDOKU_SOLVED intent + sudoku snapshot field); S100 P1: 9→10 (TD spawner lifecycle + creatureSpawners snapshot field); S102 #1: 10→11 (RAID_CREATURE intent + creature hp); S103 P2: 11→12 (generic defender lifecycle + defenders snapshot field); S110 P4: 12→13 (HELGA walk: serialized 'WALK' state + prevPos/walkTargetPos on defenders[]); S113 Batch C: 13→14 (lightning-drone building: new CreatureType 'lightningDrone' + recipeId 'lightningHub'). */
+  readonly protoVersion: 14;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
 }
@@ -455,6 +459,13 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   REGISTER_DEFENDER: true,
   REMOVE_DEFENDER: true,
   DEFENDER_TICK: true,
+  // S113 Batch C — lightning-drone building. BOTH are HOST-INTERNAL (host-authored: a drone's
+  // detonation / the hub's post-3-drone self-destruct; NOT client INTENTs). Listed here only because
+  // this Record must mirror GameAction['type'] exhaustively; deliberately ABSENT from
+  // CLIENT_INTENT_TYPES so a modified client sending one is dropped by the host allowlist gate.
+  // PROTOCOL bump (13->14) owned by the PROTOCOL_VERSION above.
+  DRONE_EXPLODE: true,
+  STRUCTURE_SELFDESTRUCT: true,
 };
 const KNOWN_GAME_ACTION_TYPES: ReadonlySet<string> = new Set(
   Object.keys(KNOWN_GAME_ACTION_TYPES_RECORD),

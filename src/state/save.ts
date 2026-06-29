@@ -366,7 +366,7 @@ type SerializedEffect =
       readonly kind: 'BOND_SEVERED';
       readonly tick: number;
       readonly pos: Vec2;
-      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer'; // S102 #2 — chewer gnaw sever
+      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer' | 'drone'; // S102 #2 — chewer gnaw sever; S113 — 'drone' lightning detonation sever
     }
   | {
       /**

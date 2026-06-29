@@ -25,6 +25,7 @@ import { snapPrevPosForUnbonded } from '../game/invariants.ts';
 import { asPotatoId, type BondId, type CreatureId, type PlayerId, type PotatoId, type PrimitiveId, type Vec2 } from '../types.ts';
 import { makePotato, type Potato } from './potato.ts';
 import { reconcileFouledPrimitives } from './seagulls/seagullLifecycle.ts';
+import type { Creature } from './creatures/creature.ts';
 import type { World } from './worldTypes.ts';
 
 const POTATO_BLAST_RADIUS_SQ = POTATO_BLAST_RADIUS * POTATO_BLAST_RADIUS;
@@ -55,6 +56,12 @@ export interface PotatoDetonateAction {
 export interface DissipatePotatoAction {
   readonly type: 'DISSIPATE_POTATO';
   readonly potatoId: PotatoId;
+}
+/** S113 Batch C — the lightningHub structure self-destruct (host-internal; main.ts emit poll). */
+export interface StructureSelfDestructAction {
+  readonly type: 'STRUCTURE_SELFDESTRUCT';
+  readonly pos: Vec2;
+  readonly radius: number;
 }
 
 /** Host-only: mint a FREE potato at the spawner-chosen position. */
@@ -185,29 +192,53 @@ export function applyPotatoDetonate(world: World, action: PotatoDetonateAction):
   // canonical sequence, mirroring the sorted prim/bond deletion below) so removal is
   // replay-deterministic regardless of Map insertion history. Runs BEFORE the empty-prim
   // early-return so a chewer-only blast (no structure at the coord) still clears the swarm.
-  const chewerVictims: CreatureId[] = [];
+  // S113 (Δ1 guarded extraction) — the chewer/drone-kill + prim/bond radial clear, SAME
+  // predicate (sourceSpawnerId !== null) + SAME step order + SAME sorted-id iteration as the
+  // original inline body, now via the shared `applyRadialClear` so the lightningHub structure
+  // self-destruct reuses ONE tested radial clear instead of duplicating it. The potato call site
+  // is byte-IDENTICAL (the save.replay.test.ts two-seed gate is the proof).
+  return applyRadialClear(world, cx, cy, POTATO_BLAST_RADIUS_SQ, (c) => c.sourceSpawnerId !== null);
+}
+
+/**
+ * S113 Batch C (Δ1) — the DETERMINISTIC radial-clear core, lifted VERBATIM (same step order, same
+ * SORTED-id iteration, same effects) from the S72 applyPotatoDetonate body so the structure
+ * self-destruct shares it WITHOUT a second copy. The CALLER emits its own burst effect
+ * (BOMB_EXPLODE) BEFORE calling this, preserving the original effect order (burst, then per-victim
+ * SEVER_ERASE). `creatureKill` selects which creatures the blast despawns: the potato passes
+ * `c => c.sourceSpawnerId !== null` (chewers + drones — its original filter); the structure
+ * self-destruct passes `() => true` (owner: "destroying EVERYTHING in its radius").
+ *
+ * Order (unchanged from S72): creature-kill (SORTED CreatureId) -> collect prim victims (SQUARED
+ * dist, SORTED PrimitiveId) -> early-return if none -> SEVER_ERASE per victim + collect incident
+ * bonds -> delete bonds (SORTED BondId) -> delete prims + snapPrevPos -> reconcileFouledPrimitives.
+ */
+export function applyRadialClear(
+  world: World,
+  cx: number,
+  cy: number,
+  radiusSq: number,
+  creatureKill: (creature: Creature) => boolean,
+): World {
+  const creatureVictims: CreatureId[] = [];
   for (const [cid, creature] of world.creatures) {
-    if (creature.sourceSpawnerId === null) continue; // Voltkin — not a chew-swarm target
+    if (!creatureKill(creature)) continue;
     const dx = creature.pos.x - cx;
     const dy = creature.pos.y - cy;
-    if (dx * dx + dy * dy <= POTATO_BLAST_RADIUS_SQ) chewerVictims.push(cid);
+    if (dx * dx + dy * dy <= radiusSq) creatureVictims.push(cid);
   }
-  chewerVictims.sort((a, b) => (a as number) - (b as number));
-  for (const cid of chewerVictims) world.creatures.delete(cid);
+  creatureVictims.sort((a, b) => (a as number) - (b as number));
+  for (const cid of creatureVictims) world.creatures.delete(cid);
 
-  // STEP 1 — collect victims within R (SQUARED dist, no sqrt) in SORTED PrimitiveId
-  // order (canonical delete sequence → replay-safe regardless of Map insertion history).
   const victims: PrimitiveId[] = [];
   for (const [pid, prim] of world.primitives) {
     const dx = prim.pos.x - cx;
     const dy = prim.pos.y - cy;
-    if (dx * dx + dy * dy <= POTATO_BLAST_RADIUS_SQ) victims.push(pid);
+    if (dx * dx + dy * dy <= radiusSq) victims.push(pid);
   }
   victims.sort((a, b) => (a as number) - (b as number));
-  if (victims.length === 0) return world; // position-based area denial: empty coord = visual only
+  if (victims.length === 0) return world;
 
-  // STEP 2 — emit SEVER_ERASE per victim (host-local visual; pre-deletion, reads live
-  // prims) + collect every incident bond (a bond touching any victim).
   const incidentBonds = new Set<BondId>();
   for (const pid of victims) {
     const prim = world.primitives.get(pid);
@@ -216,8 +247,6 @@ export function applyPotatoDetonate(world: World, action: PotatoDetonateAction):
     for (const bondId of prim.bonds) incidentBonds.add(bondId);
   }
 
-  // STEP 3 — delete incident bonds (remove from BOTH endpoints' sets + world.bonds),
-  // SORTED for determinism (reuse the locked applySeverTopology cleanup shape).
   for (const bondId of [...incidentBonds].sort((a, b) => (a as number) - (b as number))) {
     const bond = world.bonds.get(bondId);
     if (bond === undefined) continue;
@@ -226,17 +255,25 @@ export function applyPotatoDetonate(world: World, action: PotatoDetonateAction):
     world.bonds.delete(bondId);
   }
 
-  // STEP 4 — delete the victim primitives, then refresh Verlet history for any prim
-  // whose bond count changed (locked cleanup; prevents surviving neighbours flinging).
   for (const pid of victims) world.primitives.delete(pid);
   snapPrevPosForUnbonded(world.primitives);
-
-  // S79 P3 (HIGH-1) — the AoE can delete fouled prims and split a fouled component off its
-  // splat-anchor; re-derive the foul set from the live splats (stale-id leak + un-cleanable
-  // income-0 fix). The main.ts orphan sweep then CLEANs any splat whose anchor died here.
   reconcileFouledPrimitives(world);
-
   return world;
+}
+
+/**
+ * S113 Batch C — the lightningHub STRUCTURE self-destruct: after the hub has produced its 3 drones,
+ * on the next cadence slot it blows up in a LARGE owner-AGNOSTIC "lightning storm" at the anchor
+ * (owner spec: "destroying EVERYTHING in its radius"). A BOMB_EXPLODE burst + the shared radial
+ * clear with `() => true` (every creature in radius dies too — matching the potato precedent that
+ * already clears creatures). Position-based; host-internal (main.ts dispatches it, then immediately
+ * REMOVE_SPAWNER so it fires exactly once).
+ */
+export function applyStructureSelfDestruct(world: World, action: StructureSelfDestructAction): World {
+  const cx = action.pos.x;
+  const cy = action.pos.y;
+  world.effects.push({ kind: 'BOMB_EXPLODE', tick: world.tick, pos: { x: cx, y: cy }, radius: action.radius });
+  return applyRadialClear(world, cx, cy, action.radius * action.radius, () => true);
 }
 
 /**

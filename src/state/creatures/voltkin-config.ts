@@ -41,7 +41,12 @@
  */
 
 import type { CreatureType } from './creature.ts';
-import { CHEWER_HP, VOLTKIN_HP } from '../../constants.ts';
+import {
+  CHEWER_HP,
+  VOLTKIN_HP,
+  DRONE_LIFETIME_TICKS,
+  DRONE_EXPLODE_RADIUS,
+} from '../../constants.ts';
 
 /**
  * Per-creature-type config record. One entry per `CreatureType` discriminant
@@ -155,6 +160,16 @@ export interface CreatureConfig {
    * through `computeSteeringAccel` to replace the bare module constant. See §3.4 (R16).
    */
   readonly maxAccel: number;
+  /**
+   * S113 Batch C — `true` for the suicide lightning-DRONE: instead of the chewer's
+   * chew loop or Voltkin's single-fire zap, a selfExplode creature flies to the nearest
+   * ENEMY connector and DETONATES (a radial sever of <= DRONE_MAX_CONNECTORS enemy bonds)
+   * on arrival within `attackRange` OR on lifetime-fuse expiry, then despawns. The
+   * main.ts fan-out reads this flag to dispatch DRONE_EXPLODE (the sever stays on the
+   * single SEVER_BOND path, cause:'drone') BEFORE the CREATURE_TICK that would otherwise
+   * step the generic FSM. Voltkin/chewer = `false` (byte-identical — they never explode).
+   */
+  readonly selfExplode: boolean;
 }
 
 /**
@@ -183,6 +198,7 @@ export const VOLTKIN_CONFIG: CreatureConfig = {
   hopSpeedMul: 1,
   maxAccel: 200,
   hp: VOLTKIN_HP, // 2 — godly, takes 2 hits (S102 unified HP model)
+  selfExplode: false, // a Voltkin zaps; it never self-detonates
 };
 
 /**
@@ -239,6 +255,41 @@ export const CHEWER_CONFIG: CreatureConfig = {
   hopSpeedMul: 0.6,
   maxAccel: 120, // 200 (CREATURE_MAX_ACCEL) × hopSpeedMul 0.6
   hp: CHEWER_HP, // 1 — dies in a single hit (S102 unified HP model)
+  selfExplode: false, // a chewer gnaws bonds; it never self-detonates
+};
+
+/**
+ * Lightning DRONE — S113 Batch C suicide creature emitted by a `lightningHub` spawner.
+ * Generalizes the Voltkin substrate (same FSM / Verlet / SEVER_BOND choke) with the NEW
+ * `selfExplode` behavior: it homes on the nearest ENEMY connector and DETONATES (radial
+ * sever of <= DRONE_MAX_CONNECTORS enemy bonds) on arrival within `attackRange`
+ * (= DRONE_EXPLODE_RADIUS) OR on lifetime-fuse expiry, then despawns. Rendered as the
+ * procedural Voltkin rig @ LIGHTNING_DRONE_SPRITE_SCALE (0.5 — owner "~50% smaller").
+ *
+ *  - `selfExplode: true` — the discriminator the main.ts fan-out reads to dispatch
+ *    DRONE_EXPLODE before the generic CREATURE_TICK (it never enters the chew/zap path).
+ *  - `persistent: false` + `lifetimeTicks` = the fly-time FUSE (DRONE_LIFETIME_TICKS, 8s):
+ *    if it never reaches an enemy it explodes harmlessly in place at fuse end.
+ *  - `chewHits: 0` (not a chewer); `attackRange` = DRONE_EXPLODE_RADIUS (arrival == blast).
+ *  - `hopSpeedMul` 1.2 / `maxAccel` 240 — a touch faster than a Voltkin (it's a missile).
+ *  - `hp: 1` — dies in one hit (a raid / laser / slap / potato can shoot it down).
+ */
+export const LIGHTNING_DRONE_CONFIG: CreatureConfig = {
+  type: 'lightningDrone',
+  lifetimeTicks: DRONE_LIFETIME_TICKS, // 8s fly-time fuse
+  spawnTicks: 30, // fast materialize (like a chewer) — it's a swarm-ish unit
+  despawningTicks: 30,
+  fadeTicks: 15,
+  attackRange: DRONE_EXPLODE_RADIUS, // arrival == explode radius (reused by isWithinAttackRange)
+  attackCadenceTicks: 60, // unused (the drone explodes, it never ATTACKS) — sane placeholder
+  attackFireTick: 30, // unused
+  attackChargeEngageTick: 15, // unused
+  persistent: false, // lifetime-bound: lifetimeTicks is the fuse
+  chewHits: 0, // not a chewer
+  hopSpeedMul: 1.2, // a touch faster than Voltkin — a homing missile
+  maxAccel: 240, // 200 (Voltkin) × 1.2
+  hp: CHEWER_HP, // 1 — a single hit (raid/laser/slap/potato) shoots it down
+  selfExplode: true, // THE drone discriminator
 };
 
 /**
@@ -249,6 +300,7 @@ export const CHEWER_CONFIG: CreatureConfig = {
 export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = {
   voltkin: VOLTKIN_CONFIG,
   chewer: CHEWER_CONFIG,
+  lightningDrone: LIGHTNING_DRONE_CONFIG,
 };
 
 /**

@@ -45,6 +45,9 @@ import {
   CHEWER_MAX_PER_SPAWNER,
   CHEWER_MAX_PER_VICTIM,
 } from '../../constants.ts';
+// S113 Batch C — a lightning-drone spawn uses its OWN cap (runtime-only call; the
+// creatureLifecycle<->droneLifecycle<->world cycle is the same runtime-safe shape as creatureAttack).
+import { underDroneCaps } from '../droneLifecycle.ts';
 
 /** Action shapes — exported so `world.ts` can compose `GameAction`. */
 export interface SpawnCreatureAction {
@@ -118,6 +121,27 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
     return world;
   }
 
+  // S113 Batch C — a lightning-DRONE is spawner-emitted (sourceSpawnerId !== null) but uses its OWN
+  // independent population cap (underDroneCaps), NOT the chewer caps (owner decision #7 — a drone
+  // swarm never blocks a chewer summon or vice-versa). The main.ts emit poll already gated it; this
+  // is the authoritative defense-in-depth re-check (mirrors the chewer path below).
+  if (action.creatureType === 'lightningDrone') {
+    if (!underDroneCaps(world, sourceSpawnerId)) return world;
+    const droneId = asCreatureId(world.nextCreatureId++);
+    world.creatures.set(
+      droneId,
+      makeCreature(getCreatureConfig(action.creatureType), {
+        id: droneId,
+        ownerPlayerId: action.ownerPlayerId,
+        pos: action.pos,
+        targetPos: action.targetPos,
+        spawnedAtTick: world.tick,
+        sourceSpawnerId,
+      }),
+    );
+    return world;
+  }
+
   // ── Chewer (persistent, spawner-emitted) population ───────────────────────────
   // Split caps (S100 P1, R10/R13), counting ONLY the non-null population so the two
   // hazard classes never interfere. No-op (silent) if ANY cap is already saturated:
@@ -163,7 +187,9 @@ export function underChewerCaps(
   let perSpawner = 0;
   let perVictim = 0;
   for (const c of world.creatures.values()) {
-    if (c.sourceSpawnerId === null) continue; // skip the Voltkin population
+    // S113 Batch C — count ONLY chewers (was `sourceSpawnerId === null` to skip Voltkin; now also
+    // excludes lightning-drones, which are spawner-emitted too but have their OWN underDroneCaps).
+    if (c.type !== 'chewer') continue;
     global++;
     if (c.sourceSpawnerId === sourceSpawnerId) perSpawner++;
     if (victimPlayerId !== undefined && c.targetBondId !== null) {
@@ -281,7 +307,10 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
   //    fighting past its own end-of-life. Uses world.tick (not ticksInState).
   //    S100 P1 (R4): gated behind `!config.persistent` so a chewer never enters the
   //    forced end-of-life DESPAWNING. The Voltkin body is verbatim inside the gate.
-  if (!config.persistent) {
+  // S113 Batch C — a selfExplode DRONE is excluded from the forced fade-out: it never enters the
+  // DESPAWNING window. Its end-of-life is the main.ts fan-out explode-on-fuse (at despawnAtTick-1),
+  // with step 1's auto-delete at despawnAtTick as a silent fallback if that is ever missed.
+  if (!config.persistent && !config.selfExplode) {
     if (
       creature.state !== 'DESPAWNING' &&
       world.tick >= creature.despawnAtTick - CREATURE_DESPAWNING_TICKS

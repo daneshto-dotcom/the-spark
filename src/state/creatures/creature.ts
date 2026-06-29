@@ -141,7 +141,12 @@ export function cinematicMsToTicks(ms: number): number {
  * `CHEWER_CONFIG` in voltkin-config.ts). Adding it here forces a CREATURE_CONFIGS
  * entry (exhaustiveness) and a CHEWER branch wherever a CreatureConfig is consumed.
  */
-export type CreatureType = 'voltkin' | 'chewer';
+// S113 Batch C — `'lightningDrone'`: the self-exploding suicide drone emitted by a lightningHub
+// spawner. Generalizes the Voltkin substrate (same FSM / Verlet / SEVER_BOND choke point) with a
+// NEW `selfExplode` config discriminator (see LIGHTNING_DRONE_CONFIG in voltkin-config.ts). Adding
+// it here forces a CREATURE_CONFIGS entry (exhaustiveness) + a drone branch wherever a CreatureConfig
+// is consumed (the main.ts fan-out explode hook + the drone FSM gating).
+export type CreatureType = 'voltkin' | 'chewer' | 'lightningDrone';
 
 /**
  * Full 4-state FSM per blueprint Q2. S25 only USES SPAWNING + DESPAWNING; SEEKING + ATTACKING
