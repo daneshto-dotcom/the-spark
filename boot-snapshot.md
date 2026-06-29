@@ -1,25 +1,24 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-06-29 | Session: S113 (Batch C — lightning-drone building, SHIPPED LIVE)
+Generated: 2026-06-29 | Session: S114 (G4 in-world leader crown — SHIPPED LIVE)
 
 ## Next Steps
-1. OWNER PLAYTEST the lightning-drone building LIVE: build **1 Dot + 5 Circles** (each Circle bonded to the Dot) to summon the `lightningHub` → it fires 3 suicide drones (procedural Voltkin rig @0.5) at enemy connectors, then self-destructs. Best seen in vs-bots (each bot is host-seeded a hub + a pentagram). Confirm feel + sizes.
-2. TUNE after playtest (each a one-constant dial in `src/constants.ts`): `LIGHTNING_DRONE_SPRITE_SCALE`=0.5 (drone size) · `DRONE_EXPLODE_RADIUS`=110 · `DRONE_MAX_CONNECTORS`=3 · `DRONE_EMIT_INTERVAL_TICKS`=900 (15s) · `STRUCTURE_SELFDESTRUCT_RADIUS`=240 · `DRONE_LIFETIME_TICKS`=480 (8s fuse). Council "too-swingy" alt logged: 20s / 2 drones / 180px.
-3. DEPLOY stays MANUAL: `npm run deploy` (Actions dead — GitHub account billing lock). A plain `git push` does NOT deploy.
-4. Resume ROADMAP: Tier-1 G-series (G1b motion / G2 family traits / G3b silhouettes / G4 crown+BOND_COMMIT) → Tier-3 host-migration D1-D4.
-5. Owner-gated (unchanged): anti-coast structure-loss CLAWBACK (own PDR); worker-sim ?worker=1 cutover.
+1. OWNER PLAYTEST the leader crown live: in vs-bots (or multiplayer) the current score-leader's avatar now wears a static gold crown; confirm it reads well + the size/offset feel right (dials are module-local in `src/render/avatarRenderer.ts`: `CROWN_OFFSET_Y` 20, `CROWN_W` 16, `CROWN_H` 9, `CROWN_COLOR`, `CROWN_ALPHA`). Same playtest can still tune the S113 drone dials (`src/constants.ts`).
+2. ROADMAP — remaining Tier-1 G-series is now GATED, not free: **G1b MOTION** (Wheel/Star rotation) was Council-DEFERRED pending a mechanical verb (needs a design decision, not a blind build); **G2 family traits** needs a `LOCKED_DECISIONS §6` lock-amendment + owner picks the family flavor. G3 + G4 are COMPLETE (S114 reconciled the stale roadmap). Next non-gated big item = **Tier-3 host-migration D1–D4** (HOST_MIGRATION_DESIGN.md).
+3. DEPLOY stays MANUAL: `npm run deploy` (Actions dead — GitHub account billing lock). `git push` ≠ deploy.
+4. Owner-gated (unchanged): anti-coast structure-loss CLAWBACK (own PDR); worker-sim `?worker=1` cutover (WORKER_SIM_FOUNDATION.md).
 
 ## Blockers
 - OWNER (non-blocking): clear the GitHub account billing lock (Settings → Billing) so Actions/auto-deploy return. Until then deploy via `npm run deploy`.
-- OWNER (non-blocking): top up Gemini prepayment credits at ai.studio so the Council is 3-way again (it ran 2-way Grok+Opus this session, Gemini 429).
+- OWNER (non-blocking): top up Gemini prepayment credits at ai.studio so the Council is 3-way again (S112–S114 ran 2-way, Gemini 429).
 
 ## Pending Backlog
-- (BACKLOG.md uses prose sections, not `- [ ]` checkboxes — see BACKLOG.md "NEXT" / roadmap + the Next Steps above.)
+- (BACKLOG.md uses prose sections, not `- [ ]` checkboxes — see its ROADMAP. Tier-1 G1b/G2 gated; Tier-3 host-migration is the next non-gated item.)
 
 ## Recent Reflexion (last 2 sessions)
-## 2026-06-29 — Session 113: Shipped Batch C lightning-drone building (lightningHub recipe → 3 suicide drones → self-destruct; v13→14; tsc 0, 1734 tests, live).
-- S113 #a-new-spawner-emitted-type-silently-joins-any-cap-keyed-on-sourceSpawnerId: a boolean discriminant (`sourceSpawnerId===null`) that proxied "is-Voltkin" mis-bucketed the new drone type into the chewer cap; RALPH:PATROL caught it; FIX = discriminate on `creature.type`. Grep every reader of a proxy field when a 3rd value enters the proxied set.
-- S113 #drive-a-hidden-preview-sim-via-app.ticker.update-not-rAF: a hidden Pixi preview throttles rAF (tick stays 0) but `app.ticker.update(ts)` steps it deterministically — drove the full hub→3-drone→self-destruct flow in-browser via the __SPARK__ DEV accessor. Real runtime verify when rAF is asleep.
+## 2026-06-29 — Session 114: Shipped G4 in-world leader crown (static gold crown over the score-leader's avatar; pure scoring.leaderPlayerId + avatarRenderer.shouldShowCrown; render-only, v14 held; reconciled stale BACKLOG; tsc 0, 1744 tests, live commit c2c1e80).
+- S114 #scope-roadmap-next-items-against-the-code-not-the-roadmap-text: a roadmap's "next" label is a CLAIM — G3b + G4 bond-juice were both already shipped (S97 / bondCommit.ts); grep the feature's expected symbols BEFORE picking work, and reconcile the roadmap as part of it.
+- S114 #walking-a-pixi8-stage-for-render-verify-must-match-the-minified-class-name-and-assert-on-getBounds: Pixi 8 minifies Graphics→_Graphics; regex-match the class name + assert on getBounds() geometry (deterministic) — the hidden preview can't paint a capturable screenshot.
 
-## 2026-06-28 — Session 112: Shipped HELGA as a real veo-animated character (idle/walk/slap tick-synced atlas) + state-driven audio; render+asset+audio only, v13 held; live.
-- S112 #veo-img2vid-is-strong-on-ambient-motion-weak-on-fast-specific-actions: veo holds a character on-model for walk/idle but not a crisp slap; sell the HIT with SFX+VFX+lunge; reframe violent prompts to dodge the filter.
-- S112 #matte-a-veo-clip-needs-component-keep-plus-shared-foot-canvas: extend the still-matte with largest-component speck-removal + a shared foot-anchored canvas; diagnose alpha empirically before assuming it's broken.
+## 2026-06-29 — Session 113: Shipped Batch C lightning-drone building (lightningHub recipe → 3 suicide drones → self-destruct; v13→14; tsc 0, 1734 tests, live commit 759fe80).
+- S113 #a-new-spawner-emitted-type-silently-joins-any-cap-keyed-on-sourceSpawnerId: a boolean discriminant proxying "is-Voltkin" mis-bucketed the new drone type into the chewer cap; grep every reader of a proxy field when a 3rd value enters the proxied set.
+- S113 #drive-a-hidden-preview-sim-via-app.ticker.update-not-rAF: a hidden Pixi preview throttles rAF but `app.ticker.update(ts)` steps it deterministically; drive the full sim in-browser via the __SPARK__ DEV accessor for a real runtime verify.

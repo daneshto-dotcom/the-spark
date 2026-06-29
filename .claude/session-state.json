@@ -1,18 +1,70 @@
 {
-  "tool_calls_session_total": 310,
-  "session_id": "S112",
+  "tool_calls_session_total": 356,
+  "session_id": "S114",
   "session_kind": "execution",
   "session_start": "2026-06-27T00:00:00.000Z",
   "prior_session_note": "S109 shipped Batch A (4/4 host-sim/UI/render priorities: codex Esc/G+C toggle, 10s free-spark TTL despawn, poop rework, Helga anti-cross-map-laser interim range->380), all deployed SUCCESS, PROTOCOL_VERSION 12 held, vitest 1702/1702. Also ran Batch D art SPIKE: 6 ORIGINAL on-model imagen candidates (Voltkin idle+zap, Helga dirndl+stein) at OneDrive desktop, NOT wired (owner-pick gated). S110 starts by executing the owner's live-playtest batch.",
-  "phase": "S113_CLOSED",
+  "phase": "S114_CLOSED",
   "pdr_approved": true,
   "deliberation_completed": true,
-  "unlock_source": "user",
-  "tier": "Full",
+  "unlock_source": "pending",
+  "tier": "Micro",
   "council_rounds": 2,
   "council_result": "S110 batch PDR (.claude/plans/2026-06-26_PDR_S110_Batch_E_plus_B_plus_D.md). 5 priorities from owner live playtest: P1 win-points 786->1500 (+tier-step 262->500, exact-thirds); P2 uniform spark speed (min=max=12, keep rngRange draw); P3 codex keep player-avatar visible above backdrop; P4 Batch B Helga walk-to-target+melee (v12->13, HIGH); P5 Batch D wire 3 imagen art keepers (offline matte->atlas->render-swap, lazy-load, no bump). Council R1 Grok-4.20-reasoning + Gemini-2.5-pro + Opus PRIME-AUDIT, HIGH confidence, no SPLIT. ADOPTED: P2 keep-the-draw discipline; P4 walk-speed ~=chewer (catchable, not undercut) + bounded acquisition radius (anti-kite); P4 two-commit split (substrate+WALK, then chase AI); P5 graceful fallback to procedural rig until atlas loads. REJECTED on audit: Grok fixed-point/client-extrapolation integrator (contradicts proven float-Verlet determinism + no-client-physics arch); Grok seed-pinned-art (offline-baked, no runtime gen). CARRY-FORWARD (logged, Gemini quality flag): proper Helga walk-cycle (Veo loop/multi-pose) once veo/imagen reference-conditioning works in this auth -- first-pass P5 static sprite slides while walking.",
   "signals_fired": [],
   "priorities": [
+    {
+      "id": "S114-CROWN",
+      "label": "S114 G4 in-world leader crown: render a static gold crown above the current score-leader's avatar (networked/bots, PLAYING) via a new pure leaderPlayerId(world) helper + shouldShowCrown gate in avatarRenderer (pointerGhost pattern); render-only, no wire/protocol/save change (PROTOCOL_VERSION held 14). Plus reconcile the stale BACKLOG roadmap (G3b + G4 bond-juice already shipped). Micro tier. PDR: .claude/plans/2026-06-29_PDR_S114_G4_Leader_Crown.md",
+      "status": "completed",
+      "phase": "COMPLETED",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "priority_state": "completed",
+      "unlock_source": "user",
+      "plan_file": ".claude/plans/2026-06-29_PDR_S114_G4_Leader_Crown.md",
+      "check_completed": true,
+      "check_method": "S114 G4 in-world leader crown shipped as 1 commit (c2c1e80), gated GREEN: tsc 0; vitest 1744/1744 (+10: scoring.test leaderPlayerId 5 cases [clear leader / single scorer / all-zero->null / tie->first-insertion-seat / local-leader] + avatarRenderer.test shouldShowCrown 5 cases [leader-on / non-leader-off / solo-off / benched-off / non-PLAYING-off]); build entry 609.6/750 KiB (+0.9). RENDER-ONLY: NO wire/protocol/save change (PROTOCOL_VERSION held 14), replay byte-identical (full save.replay suite green). New pure scoring.leaderPlayerId(world) = max scoreByPlayer >0, tie-break by world.players insertion order via strict-> keep-first (matches the HUD stable sort so the crown agrees with the ui.ts '*' marker); null over a 0-0 board. avatarRenderer: pure shouldShowCrown(isLeader,size,benched,gameState) gate (leader && size>1 && !benched && PLAYING) + one shared crown Graphics (pointerGhost pattern) + static gold drawCrown 3-point poly above the avatar core; cleared+redrawn each frame, benched leader skipped via the existing per-player continue. IN-BROWSER VERIFIED (preview, app.ticker.update drive since the page runs hidden): injected a 2-seat bots PLAYING world -> crown Graphics at cx=700,cy=516,16x12.9 over the leader's avatar, NONE over the non-leader; flipped the lead -> crown moved to cx=1200 (new leader); dropped to solo -> no crown; 0 console errors. (Pixi8 minifies Graphics->_Graphics; the stage walker had to match /Graphics/ + assert on getBounds geometry.) Also reconciled the stale BACKLOG roadmap: G3b (Codex silhouettes) shipped S97 + G4 bond-juice shipped as bondCommit.ts were both mis-listed 'next'. DEPLOYED via npm run deploy -> gh-pages classic Pages: spark-online.space serves this build (deploy script self-verified live entry hash index-D4Rugu65.js == built hash). RALPH:PATROL CHECK PASS (determinism/MP, tie/swap, benched/solo/non-PLAYING gates, fog z-order, bundle). Micro tier, deliberation user-path waived.",
+      "checkpoint_commit": "c2c1e80",
+      "real_context_tokens_at_close": 232286,
+      "real_context_pct_at_close": 23.23,
+      "commits": [
+        "c2c1e80 (S114 G4 in-world leader crown + roadmap reconcile)"
+      ],
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/scoring.ts",
+          "needle": "export function leaderPlayerId"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.ts",
+          "needle": "export function shouldShowCrown"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.ts",
+          "needle": "function drawCrown"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/scoring.test.ts",
+          "needle": "leaderPlayerId (in-world leader crown)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.test.ts",
+          "needle": "shouldShowCrown (in-world leader crown gate)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "SHIPPED S114"
+        }
+      ]
+    },
     {
       "id": "S110-BATCH",
       "label": "S110 BATCH (one approval, 5 sub-priorities executed sequentially): P1 win-points 786->1500 (+tier-step 262->500); P2 uniform spark speed (min=max=12, keep rngRange draw); P3 codex keep player-avatar visible above backdrop; P4 Batch B Helga walk-to-target+melee (PROTOCOL_VERSION 12->13, two commits 4a substrate+WALK / 4b chase AI); P5 Batch D wire 3 imagen art keepers (offline matte->atlas->render-swap, lazy-load, no bump). Sub-priorities tracked via TaskCreate + one commit each.",
@@ -28,18 +80,64 @@
       "checkpoint_commit": "ffcde36",
       "real_context_tokens_at_close": 472051,
       "real_context_pct_at_close": 47.21,
-      "sub_priorities": ["P1-win-points", "P2-uniform-speed", "P3-codex-avatar", "P4-helga-walk-v13", "P5-art-wiring"],
-      "commits": ["0d83eef (P1)", "94a5097 (P2)", "8558f38 (P3)", "ae30daa (P4)", "ffcde36 (P5)"],
+      "sub_priorities": [
+        "P1-win-points",
+        "P2-uniform-speed",
+        "P3-codex-avatar",
+        "P4-helga-walk-v13",
+        "P5-art-wiring"
+      ],
+      "commits": [
+        "0d83eef (P1)",
+        "94a5097 (P2)",
+        "8558f38 (P3)",
+        "ae30daa (P4)",
+        "ffcde36 (P5)"
+      ],
       "verification": [
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md", "needle": "S110 (2026-06-27) SHIPPED a 5-priority batch" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "readTestWinScore() ?? 1500" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "SPARK_INITIAL_VELOCITY_MIN = 12" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "SCORE_TIER_STEP = 500" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts", "needle": "12->13: HELGA's walk-to-target rework" },
-        { "type": "file_exists", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defenderMotion.ts" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/codexOverlay.ts", "needle": "setAvatarLayer" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/creatureRenderer.ts", "needle": "VOLTKIN_IDLE_URL" },
-        { "type": "file_exists", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/public/godly/helga/helga.png" }
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "S110 (2026-06-27) SHIPPED a 5-priority batch"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "readTestWinScore() ?? 1500"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "SPARK_INITIAL_VELOCITY_MIN = 12"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "SCORE_TIER_STEP = 500"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+          "needle": "12->13: HELGA's walk-to-target rework"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defenderMotion.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/codexOverlay.ts",
+          "needle": "setAvatarLayer"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/creatureRenderer.ts",
+          "needle": "VOLTKIN_IDLE_URL"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/public/godly/helga/helga.png"
+        }
       ],
       "plan_file": ".claude/plans/2026-06-26_PDR_S110_Batch_E_plus_B_plus_D.md"
     },
@@ -60,17 +158,51 @@
       "checkpoint_commit": "eeffb5e",
       "real_context_tokens_at_close": 397522,
       "real_context_pct_at_close": 39.75,
-      "commits": ["eeffb5e (S112 HELGA veo character + state-driven audio)"],
+      "commits": [
+        "eeffb5e (S112 HELGA veo character + state-driven audio)"
+      ],
       "verification": [
-        { "type": "file_exists", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/public/godly/helga/anim/helga-atlas.png" },
-        { "type": "file_exists", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/public/godly/helga/anim/helga-anim.json" },
-        { "type": "file_exists", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/public/godly/helga/audio/helga-slap.ogg" },
-        { "type": "file_exists", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/public/godly/helga/audio/helga-theme.ogg" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/helgaFrame.ts", "needle": "export function helgaCell" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/princessRenderer.ts", "needle": "helga-atlas.png" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/audioManager.ts", "needle": "export function updateHelgaTheme" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts", "needle": "updateHelgaTheme(world)" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "PRINCESS_SPRITE_BASE_SCALE" }
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/public/godly/helga/anim/helga-atlas.png"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/public/godly/helga/anim/helga-anim.json"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/public/godly/helga/audio/helga-slap.ogg"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/public/godly/helga/audio/helga-theme.ogg"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/helgaFrame.ts",
+          "needle": "export function helgaCell"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/princessRenderer.ts",
+          "needle": "helga-atlas.png"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/audioManager.ts",
+          "needle": "export function updateHelgaTheme"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "updateHelgaTheme(world)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "PRINCESS_SPRITE_BASE_SCALE"
+        }
       ]
     },
     {
@@ -88,18 +220,57 @@
       "checkpoint_commit": "759fe80",
       "real_context_tokens_at_close": 559215,
       "real_context_pct_at_close": 55.92,
-      "commits": ["759fe80 (S113 Batch C lightning-drone building + state-driven wire v13->14)"],
+      "commits": [
+        "759fe80 (S113 Batch C lightning-drone building + state-driven wire v13->14)"
+      ],
       "verification": [
-        { "type": "file_exists", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/droneLifecycle.ts" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/droneLifecycle.ts", "needle": "export function applyDroneExplode" },
-        { "type": "file_exists", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/godlyRecipes/lightningHub.ts" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/godlyRecipes/lightningHub.ts", "needle": "export function isLightningHubComponent" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts", "needle": "PROTOCOL_VERSION = 14" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/creatures/creature.ts", "needle": "'lightningDrone'" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/potatoLifecycle.ts", "needle": "export function applyRadialClear" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/world.ts", "needle": "STRUCTURE_SELFDESTRUCT" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "DRONE_EXPLODE_RADIUS" },
-        { "type": "file_exists", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/lightningDrone.test.ts" }
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/droneLifecycle.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/droneLifecycle.ts",
+          "needle": "export function applyDroneExplode"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/godlyRecipes/lightningHub.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/godlyRecipes/lightningHub.ts",
+          "needle": "export function isLightningHubComponent"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+          "needle": "PROTOCOL_VERSION = 14"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/creatures/creature.ts",
+          "needle": "'lightningDrone'"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/potatoLifecycle.ts",
+          "needle": "export function applyRadialClear"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/world.ts",
+          "needle": "STRUCTURE_SELFDESTRUCT"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "DRONE_EXPLODE_RADIUS"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/lightningDrone.test.ts"
+        }
       ],
       "council_rounds": 2,
       "council_result": "2-way (Grok-4.20-reasoning ANALYST + Claude Supervisor; Gemini-2.5-pro 429 credits-depleted -> 2-way per protocol, S112 precedent). R1 ADOPT-WITH-FIXES (4 challenges); R2 D1 PUSH-BACK / D2 AGREE. PRIME-AUDIT SHIP-WITH-FIXES: D1 guarded-extraction (drone sever = own enemy-only helper radialSeverEnemyBonds; structure self-destruct reuses potato radial-clear via save.replay-gated extraction; never unguarded-touch the frozen potato path); D2 exactly-once self-destruct (fire + REMOVE_SPAWNER in the same emit-poll branch; existing spawner-poll-before-creature-fan-out tick order; cross-drone same-bond sever idempotent+sorted CreatureId); D3 reuse locked creatureAI.isEnemyBond + findNearestBondTarget(enemyOnly:true), no new predicate; D4 ship owner numbers (15s/3 drones/<=3 bonds/240px agnostic) as playtest dials, log Grok 20s/2-drone/180px alt as #1 post-playtest dial set. A.0 PASS (laserTurret recipe template, applyPotatoDetonate radial sever, spawner.spawnedCount, canSeverBond bypass, runSpawnerIgnition/runDefenderIgnition registry, Codex tab); one delta folded (applyPotatoDetonate already kills chewers in radius -> structure self-destruct matches).",
@@ -115,7 +286,11 @@
     "Owner-gated (unchanged): anti-coast structure-loss CLAWBACK (own PDR); worker-sim ?worker=1 cutover (WORKER_SIM_FOUNDATION.md)."
   ],
   "budget_total": 1000000,
-  "totals": { "turns": 0, "budget_remaining": 1000000, "budget_status": "statusline_dead" },
+  "totals": {
+    "turns": 0,
+    "budget_remaining": 1000000,
+    "budget_status": "statusline_dead"
+  },
   "reflexion_entries_to_archive": [
     "S112 #veo-img2vid-is-strong-on-ambient-motion-weak-on-fast-specific-actions: veo image-to-video seeded from a static character holds it ON-MODEL for walk/idle (generic ambient motion) but CANNOT produce a crisp wind-up->impact->recover slap from a seed with no target (2 attempts, fast + standard model; the violent-worded prompt was content-filtered to 0 samples, the non-violent reframe returned a usable gesture). LESSON: generate veo for ambient states + sell the HIT with SFX + a VFX burst + a tick-synced lunge; don't burn re-rolls fighting img2vid's weak axis; reframe violent prompts non-violently to dodge the safety filter.",
     "S112 #matte-a-veo-clip-needs-component-keep-plus-shared-foot-canvas: the S110 border-flood still-matte must be EXTENDED for an animation: (a) drop stray opaque specks via largest-connected-component keep (AI-video margin noise isn't achromatic-bright so the bg-flood spares it and it blows the alpha bbox edge-to-edge) and (b) place every frame on ONE SHARED foot-anchored canvas (per-frame bbox crop makes the character jitter/teleport in world space). Diagnose the alpha empirically (dump border-column opacity on one frame) before assuming the matte is broken — the bbox alarm was her widest gesture frame, not a bug.",
@@ -126,13 +301,15 @@
     "S110-BATCH #engage-the-pdr-lock-WHEN-you-present-not-after: the user said 'go' twice but the write-gate never minted unlock_source=user because glue_pdr_unlock only mints when a lock file (pdr-gate-lock / pdr-lock-<id>) exists at the approval prompt AND an in_progress priority exists — and I'd presented the PDR without engaging the lock first. LESSON: the lock is the 'awaiting approval' marker; create it (+ stage the in_progress priority) WHEN you present the PDR, so the user's very next 'go' mints the unlock. Also: a multi-priority batch must be ONE in_progress session-state entry (the S109 PLAN-A pattern) — separate per-priority entries each need their own unlock, which re-blocks at every priority boundary.",
     "S110-P5 #border-connected-component-matte-beats-luma-key: imagen stills on a uniform white bg matte cleanly to transparent by removing ONLY border-connected near-white (scipy.ndimage.label + drop border-touching components), which preserves interior whites (Voltkin belly, Helga beer-foam/apron) and leaves NO square box — exactly the S106 failure mode a naive luma/white key caused (it punched holes in the #FFEB6B belly + left the box the owner hated). Verify the matte via a dark-bg preview composite BEFORE wiring. public/ assets are unbundled by construction (separate static files) so lazy-loading them is bundle-cap-free.",
     "S113 #a-new-spawner-emitted-type-silently-joins-any-cap-keyed-on-sourceSpawnerId: underChewerCaps + applySpawnCreature discriminated chewer-vs-Voltkin on `sourceSpawnerId === null` (a 2-value proxy that meant 'spawner-emitted'); the new lightning-DRONE is ALSO spawner-emitted (sourceSpawnerId != null), so it silently counted toward the chewer GLOBAL cap AND a drone SPAWN_CREATURE routed through the chewer-cap re-check — violating the owner's INDEPENDENT-caps decision. RALPH:PATROL caught it (the unit tests were green because no test mixed the populations). FIX: discriminate on `creature.type` ('chewer' / 'lightningDrone'), not the provenance field, + added a cap-independence test. LESSON: when a boolean discriminant was a proxy for a type and you add a THIRD value into the proxied set, grep every reader of that proxy — each one silently mis-buckets the new type.",
-    "S113 #drive-a-hidden-preview-sim-via-app.ticker.update-not-rAF: the preview page runs document.hidden=true so requestAnimationFrame is throttled and world.tick stayed 0 (no sim, no render) — but app.ticker.started is true and `app.ticker.update(growingTimestamp)` steps the loop deterministically. Driving 400+ manual updates ran the WHOLE time-based feature end-to-end in-browser: inject a hub via window.__SPARK__.world -> the recipe registers a spawner -> 3 drones emit -> a drone flies to + severs the enemy connector (enemy bonds 1->0) -> the structure self-destructs wiping its own prims, 0 console errors. LESSON: a hidden/headless Pixi preview can still be driven frame-by-frame via app.ticker.update(ts) + state injected through the __SPARK__ DEV accessor — a REAL runtime verification of time-based sim, not a static parse, when rAF is asleep. Also: to start the canvas-only title screen with no DOM buttons, emit the Pixi federated 'pointertap' directly on the button object found by walking titleScreen.container."
+    "S113 #drive-a-hidden-preview-sim-via-app.ticker.update-not-rAF: the preview page runs document.hidden=true so requestAnimationFrame is throttled and world.tick stayed 0 (no sim, no render) — but app.ticker.started is true and `app.ticker.update(growingTimestamp)` steps the loop deterministically. Driving 400+ manual updates ran the WHOLE time-based feature end-to-end in-browser: inject a hub via window.__SPARK__.world -> the recipe registers a spawner -> 3 drones emit -> a drone flies to + severs the enemy connector (enemy bonds 1->0) -> the structure self-destructs wiping its own prims, 0 console errors. LESSON: a hidden/headless Pixi preview can still be driven frame-by-frame via app.ticker.update(ts) + state injected through the __SPARK__ DEV accessor — a REAL runtime verification of time-based sim, not a static parse, when rAF is asleep. Also: to start the canvas-only title screen with no DOM buttons, emit the Pixi federated 'pointertap' directly on the button object found by walking titleScreen.container.",
+    "S114 #scope-roadmap-next-items-against-the-code-not-the-roadmap-text: the BACKLOG listed G3b (Codex silhouettes) AND the G4 bond-formation juice as 'next', but both were already shipped (G3b S97 in comboCodexStore/codexOverlay; bond-juice in render/effects/bondCommit.ts). Only grepping the code for the feature's expected symbols revealed the genuinely-open item (the G4 in-world leader crown). LESSON: a roadmap's 'next' label is a CLAIM, not ground truth -- run State-Discovery (grep the expected exports/files) on a candidate BEFORE picking it, or you rebuild something already done. Reconcile the roadmap text as part of the work.",
+    "S114 #walking-a-pixi8-stage-for-render-verify-must-match-the-minified-class-name-and-assert-on-getBounds: the in-browser crown verify first found 0 graphics because the stage walker matched constructor.name==='Graphics' but Pixi 8 minifies the class to '_Graphics'; switching to /Graphics/.test(name) + asserting on getBounds() geometry (cx=700,cy=516,16x12.9 over the leader; moved to cx=1200 on lead-swap; null in solo) gave a deterministic runtime proof. The screenshot timed out (hidden preview can't paint a capturable frame, S113 artifact) -- geometry assertion beats a pixel grab here. LESSON: when verifying render output by walking the Pixi tree, regex-match the (minified) class name and assert on getBounds(), not a screenshot."
   ],
-  "real_context_tokens_at_close": null,
-  "real_context_pct_at_close": null,
+  "real_context_tokens_at_close": 232286,
+  "real_context_pct_at_close": 23.23,
   "analyze_completed": true,
-  "session_status": "S113 COMPLETE — Batch C lightning-drone building SHIPPED LIVE (commit 759fe80) on spark-online.space (verified by content-hash index-B9EKUUes.js). New lightningHub recipe (1 Dot + 5 Circles) emits 3 suicide drones (procedural Voltkin rig @0.5) that home on + sever enemy connectors, then the structure self-destructs in a 240px owner-agnostic AoE; PROTOCOL_VERSION 13->14; host-authoritative + replay byte-safe. Full tier, Council 2-way (Grok-4.20 ANALYST + Opus PRIME-AUDIT; Gemini 429 credits-down) SHIP-WITH-FIXES (D1 guarded potato-extraction byte-identical / D2 exactly-once self-destruct / D3 reuse locked isEnemyBond / D4 owner numbers as playtest dials). RALPH:PATROL caught + fixed a cap-independence bug (drones were eating the chewer cap via the sourceSpawnerId proxy). tsc 0; vitest 1734/1734 (+18); build entry 608.7/750 KiB. IN-BROWSER end-to-end verified (drove the hidden preview via app.ticker.update): hub registers -> 3 drones -> enemy connector severed -> self-destruct wipes the hub; 0 console errors. master clean+synced; deployed via npm run deploy (gh-pages classic Pages; Actions still dead = account billing lock). OWNER follow-up (non-blocking): clear the GitHub account billing lock + top up Gemini credits.",
-  "handoff_ready": true,
+  "session_status": "S114 — G4 in-world leader crown SHIPPED LIVE (commit c2c1e80) on spark-online.space (deploy script self-verified live hash index-D4Rugu65.js). Static gold crown over the score-leader's avatar via pure scoring.leaderPlayerId + avatarRenderer.shouldShowCrown; render-only, PROTOCOL_VERSION held 14, replay byte-identical. Also reconciled stale BACKLOG (G3b + G4 bond-juice were already shipped). tsc 0; vitest 1744/1744 (+10); build 609.6/750 KiB. In-browser verified (crown follows the lead, gone in solo, 0 errors). RALPH:PATROL PASS. Recommend /handoff.",
+  "handoff_ready": false,
   "handoff_doc": "HANDOFF_S113.md",
-  "phase_final": "S113_CLOSED"
+  "phase_final": "S114_CLOSED"
 }
