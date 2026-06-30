@@ -267,6 +267,17 @@ export function isAnchorCombo(a: SparkType, b: SparkType): boolean {
   return lookupCombo(a, b).resultName === 'Anchor';
 }
 
+/**
+ * S115 P2 (G2-PROMO Phase-2) — is the A→B bond the Spindle (Line↔Circle)? Table-coupled (keys off
+ * resultName). S98 ORDER-SYMMETRIC: both Line→Circle and Circle→Line resolve to the Spindle outcome
+ * (the mirror loop above), so BOTH orders earn the behavior. A Spindle imparts a bounded TANGENTIAL
+ * swirl to nearby FREE sparks (state/spindle.ts) — realizing its "a spun spindle of stored motion"
+ * description: free sparks orbit it rather than (Vortex-style) get sucked in.
+ */
+export function isSpindleCombo(a: SparkType, b: SparkType): boolean {
+  return lookupCombo(a, b).resultName === 'Spindle';
+}
+
 export const COMBO_TABLE: ReadonlyMap<ComboKey, ComboOutcome> = TABLE;
 
 export const MAGIC_COMBO_KEYS: readonly ComboKey[] = MAGICAL.map(

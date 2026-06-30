@@ -1008,3 +1008,17 @@ export const VORTEX_PULL_MIN_DIST = 12; // px — inside the core: no pull (avoi
 export const VORTEX_PULL_ACCEL = 0.04; // px/tick velocity added toward the anchor AT the core,
 // ramped linearly to 0 at the radius edge, then the per-tick SUM across multiple Vortexes is
 // capped to this same value (no stacking yank). Deterministic (pure float; host-only).
+
+// === S115 P2 (G2-PROMO Phase-2) — Spindle tangential swirl (Line↔Circle) ===
+// Where a Vortex sucks free sparks radially INWARD, a Spindle pushes them PERPENDICULAR so they SWIRL
+// around it ("a spun spindle of stored motion"). A 90°-rotated Vortex (state/spindle.ts), with one
+// addition the Council demanded: a CONSTANT tangential impulse would ACCUMULATE angular momentum →
+// escape velocity (no centripetal force in this engine). So the push is BOUNDED by a tangential-SPEED
+// cap — the swirl is non-accumulating by construction (provably no escape velocity, unit-tested).
+export const SPINDLE_PULL_RADIUS = 200; // px — reach within which a free spark feels the swirl
+export const SPINDLE_PULL_MIN_DIST = 14; // px — inside the core: no swirl (avoid a singular spin)
+export const SPINDLE_PULL_ACCEL = 0.05; // px/tick tangential impulse AT the core, ramped to 0 at the
+// edge, then the per-tick SUM across stacked Spindles is capped to this same value (no stacking yank).
+export const SPINDLE_MAX_TANGENTIAL_SPEED = 2.0; // px/tick HARD cap on swirl-direction speed — the
+// impulse only ever lifts a spark UP TO this, never beyond (the anti-escape-velocity bound). Also the
+// #1 Spindle readability/feel knob: higher = faster orbit, lower = gentle drift. Deterministic; host-only.

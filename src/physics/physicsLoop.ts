@@ -45,6 +45,7 @@ import { tickCruiserChase } from '../state/gameMode.ts';
 import { computeTerritorialInfluence } from '../state/territory.ts';
 import { applyVortexPull } from '../state/vortex.ts';
 import { applyAnchorStabilize } from '../state/anchorStabilize.ts';
+import { applySpindlePull } from '../state/spindle.ts';
 import { dispatch } from '../state/world.ts';
 import { asPlayerId, type SparkId } from '../types.ts';
 
@@ -140,6 +141,12 @@ export function stepPhysics(
   // then carries + damps the injected velocity. No-op when no live Vortex exists. Skips the
   // currently AttractDragged spark so the pull never fights the player's drag.
   applyVortexPull(world, attractedId);
+
+  // S115 P2 (G2-PROMO Phase-2) — Spindle tangential swirl: a Line→Circle magic combo pushes nearby FREE
+  // sparks PERPENDICULAR (around it) so they orbit, distinct from the Vortex radial suck-in. Same once-
+  // per-tick host-only slot; the per-tick push is bounded by a tangential-SPEED cap (non-accumulating —
+  // no escape velocity). No-op when no live Spindle exists. Skips the AttractDragged spark.
+  applySpindlePull(world, attractedId);
 
   for (let s = 0; s < PHYSICS_SUBSTEPS; s++) {
     controls.applyPerSubstep();
