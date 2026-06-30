@@ -39,11 +39,19 @@ export interface HostIdentity {
   readonly roomCode: string;
   /** Sign an attestation binding this room code to OUR transport peerId. */
   makeAttest(hostPeerId: string): Promise<HostAttest>;
+  /**
+   * S115 P3 (host-migration D1) — sign ARBITRARY bytes with this host's key (e.g. a SuccessionWarrant
+   * payload — successionWarrant.signWarrant). Additive to the interface; existing consumers ignore it.
+   * Dormant until host migration is wired (D2+).
+   */
+  sign(payload: Uint8Array): Promise<string>;
 }
 
 const ATTEST_DOMAIN = 'SPARK-HOST-ATTEST-v1';
-const ECDSA_PARAMS: EcdsaParams = { name: 'ECDSA', hash: 'SHA-256' };
-const KEYGEN_PARAMS: EcKeyGenParams = { name: 'ECDSA', namedCurve: 'P-256' };
+// S115 P3 (host-migration D1) — EXPORTED so successionWarrant.ts reuses the SAME crypto params (one
+// config, no second definition to drift — the Grok#10 "single implementation" convention).
+export const ECDSA_PARAMS: EcdsaParams = { name: 'ECDSA', hash: 'SHA-256' };
+export const KEYGEN_PARAMS: EcKeyGenParams = { name: 'ECDSA', namedCurve: 'P-256' };
 
 /* ───────────────────────────── pure helpers ───────────────────────────── */
 
@@ -135,6 +143,46 @@ export async function generateHostIdentity(): Promise<HostIdentity> {
       const attest: HostAttest = { spkiB64, sigB64: bytesToB64(sig) };
       attestCache.set(hostPeerId, attest);
       return attest;
+    },
+    async sign(payload: Uint8Array): Promise<string> {
+      const sig = new Uint8Array(
+        await crypto.subtle.sign(ECDSA_PARAMS, keyPair.privateKey, payload.slice().buffer as ArrayBuffer),
+      );
+      return bytesToB64(sig);
+    },
+  };
+}
+
+/**
+ * S115 P3 (host-migration D1) — a client/peer's ephemeral identity: its public key (so the host can
+ * warrant it as a potential successor) + a generic signer (so survivors can later verify its
+ * MIGRATION_CLAIM). Unlike a HostIdentity it derives NO room code and makes NO attest — a client is not
+ * the room's commitment, it is a warrant-able successor candidate.
+ */
+export interface PeerIdentity {
+  readonly spkiB64: string;
+  /** Sign arbitrary bytes with this peer's private key → raw ECDSA signature, base64. */
+  sign(payload: Uint8Array): Promise<string>;
+}
+
+/**
+ * Generate an ephemeral client identity, reusing the host-identity keygen machinery. Clients did NOT
+ * previously hold identities (only the host did); under host migration each joiner mints one at boot so
+ * (a) the host can sign a SuccessionWarrant naming the joiner's pubkey for its seat and (b) survivors can
+ * verify that joiner's signature if it later claims succession. Pure crypto, DORMANT (feature-flagged
+ * off): no live path calls this yet — it is the D1 foundation for D2–D4. ~10–50ms (one P-256 keygen).
+ */
+export async function generateClientIdentity(): Promise<PeerIdentity> {
+  const keyPair = await crypto.subtle.generateKey(KEYGEN_PARAMS, true, ['sign', 'verify']);
+  const spki = new Uint8Array(await crypto.subtle.exportKey('spki', keyPair.publicKey));
+  const spkiB64 = bytesToB64(spki);
+  return {
+    spkiB64,
+    async sign(payload: Uint8Array): Promise<string> {
+      const sig = new Uint8Array(
+        await crypto.subtle.sign(ECDSA_PARAMS, keyPair.privateKey, payload.slice().buffer as ArrayBuffer),
+      );
+      return bytesToB64(sig);
     },
   };
 }

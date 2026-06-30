@@ -118,6 +118,13 @@ export interface HelloMsg {
   readonly protoVersion: 14;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
+  /**
+   * S115 P3 (host-migration D1) — the joiner's ephemeral pubkey (SPKI base64, net/hostIdentity.
+   * generateClientIdentity), so the host can warrant it as a potential successor. ADDITIVE-OPTIONAL (no
+   * PROTOCOL_VERSION bump — same posture as hostAttest): a stale peer ignores the key, and no live HELLO
+   * populates it yet (D1 is feature-flagged off; D2 wires the send). Absent on host/legacy HELLOs.
+   */
+  readonly clientPubkeyB64?: string;
 }
 
 /**
@@ -166,6 +173,7 @@ export function buildHello(
   playerId: PlayerId,
   color: number,
   hostAttest?: HostAttest,
+  clientPubkeyB64?: string,
 ): HelloMsg {
   const override = readTestProtoVersionOverride();
   if (override !== null) {
@@ -186,6 +194,7 @@ export function buildHello(
       color,
       protoVersion: override as typeof PROTOCOL_VERSION,
       ...(hostAttest !== undefined ? { hostAttest } : {}),
+      ...(clientPubkeyB64 !== undefined ? { clientPubkeyB64 } : {}),
     };
   }
   return {
@@ -194,6 +203,7 @@ export function buildHello(
     color,
     protoVersion: PROTOCOL_VERSION,
     ...(hostAttest !== undefined ? { hostAttest } : {}),
+    ...(clientPubkeyB64 !== undefined ? { clientPubkeyB64 } : {}),
   };
 }
 
@@ -572,6 +582,9 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
       // S82 P4(a) — optional attestation: absent is fine (client HELLOs); present but
       // malformed rejects the message (fail-closed — never hand a junk shape downstream).
       if (obj.hostAttest !== undefined && !isValidHostAttest(obj.hostAttest)) return null;
+      // S115 P3 (host-migration D1) — optional joiner pubkey: absent is fine (host/legacy HELLOs);
+      // present but non-string rejects (fail-closed, same posture as hostAttest).
+      if (obj.clientPubkeyB64 !== undefined && typeof obj.clientPubkeyB64 !== 'string') return null;
       return obj as unknown as HelloMsg;
     }
     case 'INTENT': {
