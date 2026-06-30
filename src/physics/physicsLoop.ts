@@ -44,6 +44,7 @@ import { verletStepAll } from './verlet.ts';
 import { tickCruiserChase } from '../state/gameMode.ts';
 import { computeTerritorialInfluence } from '../state/territory.ts';
 import { applyVortexPull } from '../state/vortex.ts';
+import { applyAnchorStabilize } from '../state/anchorStabilize.ts';
 import { dispatch } from '../state/world.ts';
 import { asPlayerId, type SparkId } from '../types.ts';
 
@@ -126,6 +127,13 @@ export function stepPhysics(
   // substep loop (only severance, which removes bonds from bondArr on
   // the next substep iteration).
   computeTerritorialInfluence(world);
+
+  // S115 P1 (G2-PROMO Phase-2) — ANCHOR planted-joint: floor each live Anchor (Dot→Square) bond's
+  // territorial stiffnessMultiplier so an anchored structure stays rigid in enemy territory (where
+  // normal bonds sag to ~0.06 effective). MUST run AFTER computeTerritorialInfluence (which sets the
+  // multiplier each tick) and BEFORE the substep solveBonds loop (so all 8 substeps see the floored
+  // value). Host-only; no-op with no live Anchor / outside enemy territory. Pure synced-state fn.
+  applyAnchorStabilize(world);
 
   // S89 P6 (G1b) — Vortex anchor-pull: a Dot→Spiral magic combo pulls nearby FREE sparks toward
   // it. Once per tick (like tickCruiserChase, BEFORE the substeps), host-only; the substep Verlet

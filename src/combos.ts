@@ -132,11 +132,15 @@ const MAGICAL: Array<[SparkType, SparkType, ComboOutcome]> = [
   }],
   // S91 P1 (G2-PROMO) — Dot→Square + Line→Circle promoted from functional placeholders to named
   // magic combos (the two pairs the user called out as "the whole point" of a geometric builder).
-  // Phase 1 = visual silhouette + discovery toast + the magic income premium ONLY; NO bespoke
-  // behavior yet (Anchor anti-drift / Spindle pull are a logged Phase-2 PDR). MID/1.0× keeps their
-  // bond physics byte-identical to the placeholder tier (only scoring + visual change). Order-
-  // dependent (§ V.1): only the forward keys promote — Square→Dot / Circle→Line stay placeholders.
-  // See LOCKED_DECISIONS § 6 (Magic-14 seed) + the S91 win-score rebalance.
+  // Phase 1 (S91) shipped visual silhouette + discovery toast + the magic income premium ONLY. S98
+  // then made these two pairs ORDER-SYMMETRIC like the other one-way magic combos (the mirror loop
+  // below covers them — Square→Dot / Circle→Line now resolve to the SAME Anchor/Spindle outcome, NOT
+  // placeholders; the S91-era "forward keys only" note is superseded). S115 (G2-PROMO Phase-2) gave
+  // them BEHAVIORS keyed off resultName so BOTH orders earn them: P1 Anchor resists the S49
+  // territorial sag (state/anchorStabilize.ts); P2 Spindle imparts a bounded tangential swirl. MID/
+  // 1.0× still keeps their bond DISTANCE-constraint physics identical to the placeholder tier (the
+  // Anchor effect is a per-tick stiffnessMultiplier floor, not a rest-length change).
+  // See LOCKED_DECISIONS § 6 (Magic-14 seed) + the S91 win-score rebalance + the S98 symmetry amendment.
   [SparkType.Dot, SparkType.Square, {
     resultName: 'Anchor',
     stiffnessTier: 'MID',
@@ -249,6 +253,18 @@ export function isFilamentCombo(a: SparkType, b: SparkType): boolean {
 export function isDefensiveCombo(a: SparkType, b: SparkType): boolean {
   const name = lookupCombo(a, b).resultName;
   return name === 'Diamond' || name === 'Lattice';
+}
+
+/**
+ * S115 P1 (G2-PROMO Phase-2) — is the A→B bond the Anchor (Dot↔Square)? Table-coupled (keys off
+ * resultName). S98 ORDER-SYMMETRIC: both Dot→Square and Square→Dot resolve to the Anchor outcome
+ * (the mirror loop above), so — like Vortex/Filament — BOTH orders earn the behavior, not just the
+ * income. An Anchor bond resists the S49 territorial engulf-sag (state/anchorStabilize.ts) —
+ * realizing its "a grounded, anchored joint" table description as a "planted joint" that stays rigid
+ * in enemy territory where a normal bond's effective stiffness sags toward ~0.06.
+ */
+export function isAnchorCombo(a: SparkType, b: SparkType): boolean {
+  return lookupCombo(a, b).resultName === 'Anchor';
 }
 
 export const COMBO_TABLE: ReadonlyMap<ComboKey, ComboOutcome> = TABLE;

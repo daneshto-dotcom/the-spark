@@ -516,6 +516,16 @@ export const TERRITORY_RADIUS_SCALE = 12;
 export const TERRITORY_ENGULF_STIFFNESS = 0.3;
 export const TERRITORY_SHRINK_DURATION_TICKS = 300; // 5 seconds at 60 Hz
 
+// S115 P1 (G2-PROMO Phase-2) — ANCHOR (Dot→Square magic combo) "planted joint". computeTerritorial-
+// Influence degrades an enemy bond's stiffnessMultiplier to TERRITORY_ENGULF_STIFFNESS (0.3) inside
+// hostile territory — driving a LOW-tier bond's EFFECTIVE stiffness to ~0.06 (the roadmap's "structures
+// feel floppy in enemy territory" weakness). applyAnchorStabilize (state/anchorStabilize.ts) then FLOORS
+// each live, un-fouled Anchor bond's multiplier back up to this value, so an anchored structure stays
+// rigid/planted in contested ground. 1.0 = fully immune to sag; 0.3 = no effect; 0.7 = sags at most 30%
+// (effective LOW 0.2×0.7=0.14 vs 0.06). #1 ANCHOR playtest knob. Host-only; the multiplier is ephemeral
+// (recomputed every tick, NOT serialized) so this is replay-byte-identical by construction.
+export const ANCHOR_STIFFNESS_FLOOR = 0.7;
+
 // === S71 P1 — Bomb hazard (Council Full; Fork B leaf-first deterministic sever) ===
 // The host-only spawner drops a STATIONARY bomb into the spawn zone every
 // BOMB_SPAWN_MIN..MAX sparks (cadence counts SPARKS SPAWNED — user "every random
