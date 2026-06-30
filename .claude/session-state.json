@@ -1,149 +1,21 @@
 {
-  "tool_calls_session_total": 356,
-  "session_id": "S114",
+  "tool_calls_session_total": 17,
+  "session_id": "S115",
   "session_kind": "execution",
-  "session_start": "2026-06-27T00:00:00.000Z",
-  "prior_session_note": "S109 shipped Batch A (4/4 host-sim/UI/render priorities: codex Esc/G+C toggle, 10s free-spark TTL despawn, poop rework, Helga anti-cross-map-laser interim range->380), all deployed SUCCESS, PROTOCOL_VERSION 12 held, vitest 1702/1702. Also ran Batch D art SPIKE: 6 ORIGINAL on-model imagen candidates (Voltkin idle+zap, Helga dirndl+stein) at OneDrive desktop, NOT wired (owner-pick gated). S110 starts by executing the owner's live-playtest batch.",
-  "phase": "S114_CLOSED",
+  "session_start": "2026-06-29T00:00:00.000Z",
+  "prior_session_note": "S114 shipped the G4 in-world leader crown LIVE (commit c2c1e80, deploy 501885e); render-only, PROTOCOL_VERSION held 14. Tier-1 G3+G4 reconciled COMPLETE. Remaining Tier-1 (G1b MOTION, G2 family traits) is owner-design-gated. S115 advances the next NON-gated work while the owner has not yet playtested.",
+  "phase": "S115_EXECUTING",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "pending",
-  "tier": "Micro",
-  "council_rounds": 2,
-  "council_result": "S110 batch PDR (.claude/plans/2026-06-26_PDR_S110_Batch_E_plus_B_plus_D.md). 5 priorities from owner live playtest: P1 win-points 786->1500 (+tier-step 262->500, exact-thirds); P2 uniform spark speed (min=max=12, keep rngRange draw); P3 codex keep player-avatar visible above backdrop; P4 Batch B Helga walk-to-target+melee (v12->13, HIGH); P5 Batch D wire 3 imagen art keepers (offline matte->atlas->render-swap, lazy-load, no bump). Council R1 Grok-4.20-reasoning + Gemini-2.5-pro + Opus PRIME-AUDIT, HIGH confidence, no SPLIT. ADOPTED: P2 keep-the-draw discipline; P4 walk-speed ~=chewer (catchable, not undercut) + bounded acquisition radius (anti-kite); P4 two-commit split (substrate+WALK, then chase AI); P5 graceful fallback to procedural rig until atlas loads. REJECTED on audit: Grok fixed-point/client-extrapolation integrator (contradicts proven float-Verlet determinism + no-client-physics arch); Grok seed-pinned-art (offline-baked, no runtime gen). CARRY-FORWARD (logged, Gemini quality flag): proper Helga walk-cycle (Veo loop/multi-pose) once veo/imagen reference-conditioning works in this auth -- first-pass P5 static sprite slides while walking.",
+  "tier": "Standard",
+  "council_rounds": 1,
+  "council_result": "2-way (GROK-ANALYST grok-4.20-reasoning + Claude Supervisor; Gemini 429 credits-depleted, S112-S114 precedent). Grok verdict REJECT-AND-SPLIT. Supervisor PRIME-AUDIT synthesis: P1 ADOPT-WITH-FIX (keep Vortex pre-substep slot — post-solver damp would damp the constraint's corrective velocity = MORE dead; per-prim damp is order-independent; fouled-skip in-pass). P2 REDESIGN (Grok's escape-velocity REJECT is valid against a CONSTANT impulse -> overruled to ADOPT-WITH-FIX by bounding the tangential SPEED, non-accumulating by construction; low/smooth speed for 10Hz readability). P3 ADOPT-WITH-FIX (HELLO pubkey purely additive, no D1 consumer requires it, test absence; warrant reuses the injective domain-separated buildAttestPayload encoding; WebCrypto ECDSA = raw non-malleable sigs). OVERRULED the full SPLIT: the 3 priorities are independent (P1/P2 state+physics+combos; P3 net) with per-priority commit+CHECK+tests = equivalent review depth; user explicitly requested a full batch + pre-approved autonomous run. Bundle headroom ~140KiB (Grok 'tight' overstated). PDR: .claude/plans/2026-06-29_PDR_S115_Combo_Behaviors_HostMigD1.md",
   "signals_fired": [],
   "priorities": [
     {
-      "id": "S114-CROWN",
-      "label": "S114 G4 in-world leader crown: render a static gold crown above the current score-leader's avatar (networked/bots, PLAYING) via a new pure leaderPlayerId(world) helper + shouldShowCrown gate in avatarRenderer (pointerGhost pattern); render-only, no wire/protocol/save change (PROTOCOL_VERSION held 14). Plus reconcile the stale BACKLOG roadmap (G3b + G4 bond-juice already shipped). Micro tier. PDR: .claude/plans/2026-06-29_PDR_S114_G4_Leader_Crown.md",
-      "status": "completed",
-      "phase": "COMPLETED",
-      "tier": "Micro",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "priority_state": "completed",
-      "unlock_source": "user",
-      "plan_file": ".claude/plans/2026-06-29_PDR_S114_G4_Leader_Crown.md",
-      "check_completed": true,
-      "check_method": "S114 G4 in-world leader crown shipped as 1 commit (c2c1e80), gated GREEN: tsc 0; vitest 1744/1744 (+10: scoring.test leaderPlayerId 5 cases [clear leader / single scorer / all-zero->null / tie->first-insertion-seat / local-leader] + avatarRenderer.test shouldShowCrown 5 cases [leader-on / non-leader-off / solo-off / benched-off / non-PLAYING-off]); build entry 609.6/750 KiB (+0.9). RENDER-ONLY: NO wire/protocol/save change (PROTOCOL_VERSION held 14), replay byte-identical (full save.replay suite green). New pure scoring.leaderPlayerId(world) = max scoreByPlayer >0, tie-break by world.players insertion order via strict-> keep-first (matches the HUD stable sort so the crown agrees with the ui.ts '*' marker); null over a 0-0 board. avatarRenderer: pure shouldShowCrown(isLeader,size,benched,gameState) gate (leader && size>1 && !benched && PLAYING) + one shared crown Graphics (pointerGhost pattern) + static gold drawCrown 3-point poly above the avatar core; cleared+redrawn each frame, benched leader skipped via the existing per-player continue. IN-BROWSER VERIFIED (preview, app.ticker.update drive since the page runs hidden): injected a 2-seat bots PLAYING world -> crown Graphics at cx=700,cy=516,16x12.9 over the leader's avatar, NONE over the non-leader; flipped the lead -> crown moved to cx=1200 (new leader); dropped to solo -> no crown; 0 console errors. (Pixi8 minifies Graphics->_Graphics; the stage walker had to match /Graphics/ + assert on getBounds geometry.) Also reconciled the stale BACKLOG roadmap: G3b (Codex silhouettes) shipped S97 + G4 bond-juice shipped as bondCommit.ts were both mis-listed 'next'. DEPLOYED via npm run deploy -> gh-pages classic Pages: spark-online.space serves this build (deploy script self-verified live entry hash index-D4Rugu65.js == built hash). RALPH:PATROL CHECK PASS (determinism/MP, tie/swap, benched/solo/non-PLAYING gates, fog z-order, bundle). Micro tier, deliberation user-path waived.",
-      "checkpoint_commit": "c2c1e80",
-      "real_context_tokens_at_close": 232286,
-      "real_context_pct_at_close": 23.23,
-      "commits": [
-        "c2c1e80 (S114 G4 in-world leader crown + roadmap reconcile)"
-      ],
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/scoring.ts",
-          "needle": "export function leaderPlayerId"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.ts",
-          "needle": "export function shouldShowCrown"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.ts",
-          "needle": "function drawCrown"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/scoring.test.ts",
-          "needle": "leaderPlayerId (in-world leader crown)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/avatarRenderer.test.ts",
-          "needle": "shouldShowCrown (in-world leader crown gate)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "SHIPPED S114"
-        }
-      ]
-    },
-    {
-      "id": "S110-BATCH",
-      "label": "S110 BATCH (one approval, 5 sub-priorities executed sequentially): P1 win-points 786->1500 (+tier-step 262->500); P2 uniform spark speed (min=max=12, keep rngRange draw); P3 codex keep player-avatar visible above backdrop; P4 Batch B Helga walk-to-target+melee (PROTOCOL_VERSION 12->13, two commits 4a substrate+WALK / 4b chase AI); P5 Batch D wire 3 imagen art keepers (offline matte->atlas->render-swap, lazy-load, no bump). Sub-priorities tracked via TaskCreate + one commit each.",
-      "status": "completed",
-      "phase": "COMPLETED",
-      "tier": "Full",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "priority_state": "completed",
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "All 5 sub-priorities shipped as 5 revertible commits (0d83eef P1 / 94a5097 P2 / 8558f38 P3 / ae30daa P4 / ffcde36 P5), each gated: tsc 0 + full vitest green throughout (1702->1710, +8 net). P1 (win 786->1500 + tier-step 262->500): exact-thirds invariant (scoring.test 366-367) holds 1500=3x500; leader-decay tests auto-scale (compute C_EQ live, ~39->~75) + hardened the one hardcoded fixture (80->120 prims) + gameState WIN-accrual cap (cx10/100k->cx20/150k); HUNTER/LEADER fractions auto-derive; no bump. P2 (speed 12): KEPT the rngRange call so the draw sequence (shape distribution) is byte-identical (Grok 'RNG mutation' REFUTED against rng.ts:35); spawner 18/18. P3 (codex avatar): render-only z-order lift/restore (fog-of-war layering preserved); tsc only (Pixi-stage logic, browser-verified-deferred). P4 (Helga walk v12->13, FULL): stepDefenderWalk mirrors creatureVerlet byte-for-byte; +8 tests (6 WALK behavior: walk-before-strike/walk-and-slap/return-home/anti-kite-leash/turret-never-walks/replay-determinism + wire round-trip + turret additive-optional byte-identity); turret BYTE-IDENTICAL (moveAccel 0, meleeRange==attackRange -> never WALKs); save.replay/stateHash full suite green; PROTOCOL_VERSION 13 round-trip asserted. P5 (art, no bump): scripts/matte-art-keepers.py border-connected-component matte (NO box - verified via dark-bg preview composites; interior whites preserved); in-world Voltkin procedural->matted Sprite (idle/zap, synced-state pure helpers, determinism-free) lazy-loaded from public/ (unbundled; entry 597.5->601.5 KiB / 750 cap) with graceful procedural fallback; codex tiles + Helga's own art wired; in-world Helga kept procedural (walks). Build under cap. CRITICAL DEPLOY CAVEAT: all 5 pushed to master but the GitHub Actions deploy is BLOCKED (startup_failure, 0 jobs, both push + manual) by an account-level Actions spending-limit/minutes cap on this PRIVATE repo -> spark-online.space still serves S109. Owner billing action needed; code is safe on master and deploys on the next push once unblocked.",
-      "checkpoint_commit": "ffcde36",
-      "real_context_tokens_at_close": 472051,
-      "real_context_pct_at_close": 47.21,
-      "sub_priorities": [
-        "P1-win-points",
-        "P2-uniform-speed",
-        "P3-codex-avatar",
-        "P4-helga-walk-v13",
-        "P5-art-wiring"
-      ],
-      "commits": [
-        "0d83eef (P1)",
-        "94a5097 (P2)",
-        "8558f38 (P3)",
-        "ae30daa (P4)",
-        "ffcde36 (P5)"
-      ],
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "S110 (2026-06-27) SHIPPED a 5-priority batch"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "readTestWinScore() ?? 1500"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "SPARK_INITIAL_VELOCITY_MIN = 12"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "SCORE_TIER_STEP = 500"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
-          "needle": "12->13: HELGA's walk-to-target rework"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defenderMotion.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/codexOverlay.ts",
-          "needle": "setAvatarLayer"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/creatureRenderer.ts",
-          "needle": "VOLTKIN_IDLE_URL"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/public/godly/helga/helga.png"
-        }
-      ],
-      "plan_file": ".claude/plans/2026-06-26_PDR_S110_Batch_E_plus_B_plus_D.md"
-    },
-    {
-      "id": "S112-HELGA-VEO",
-      "label": "S112 — HELGA veo animated character (idle/walk/slap atlas, tick-synced, replay-safe) replacing the in-world procedural puppet + state-driven audio (Helga theme on walk/attack only, base game music when idle) + strong HHWAPAH+clap slap SFX on FIRE. Render+asset+audio ONLY, NO wire/protocol change (PROTOCOL_VERSION stays 13). Owner-approved all assets + 'Go! highest quality'.",
+      "id": "S115-BATCH",
+      "label": "S115 BATCH (one approval, 3 sub-priorities executed sequentially P1->P2->P3): P1 ANCHOR anti-drift (Dot->Square magic combo gets a host-only Verlet drift-damp so anchored structures resist being shoved; new anchorStabilize.ts + isAnchorCombo + ANCHOR_DRIFT_DAMP; render/sim-only, no wire bump). P2 SPINDLE swirl (Line->Circle magic combo imparts a BOUNDED tangential impulse to free sparks so they orbit; 90deg-rotated Vortex clone with a tangential-SPEED cap = non-accumulating; new spindle.ts + isSpindleCombo + SPINDLE_* constants; no wire bump). P3 HOST-MIGRATION D1 (identity plumbing, FEATURE-FLAGGED OFF, no protocol bump): client ephemeral ECDSA identity at boot + joiner pubkey additive-optional in HELLO + pure SuccessionWarrant build/sign/verify helpers + unit tests; no MIGRATION_CLAIM/detection/takeover (D2-D4). PROTOCOL_VERSION held 14 across the whole batch. Standard tier (highest-of-batch; D1 driver).",
       "status": "completed",
       "phase": "COMPLETED",
       "tier": "Standard",
@@ -151,139 +23,43 @@
       "deliberation_completed": true,
       "priority_state": "completed",
       "unlock_source": "user",
-      "council_result": "2-way (Grok-4.20-reasoning ANALYST + Claude; Gemini-2.5-pro DOWN 429 credits → 2-way per protocol). Grok BLOCK → PRIME-AUDIT against codebase → SHIP-WITH-FIXES. Δ1 ACCEPT: explicit resolveMusicPolicy (NONET>Helga-theme>base) + ~1s disengage debounce + idempotent transitions + match-boundary reset. Δ2 ACCEPT: matte to a SHARED foot-anchored frame box (not per-frame crop) so she doesn't jitter. Δ3 REFUTE w/ evidence: DEFENDER_FIRE_HOLD_TICKS=12 designed for ≥2 snapshot intervals + existing prev!=='FIRE' edge = exactly-once + renderer keys off SYNCED world.tick/ticksInState. Δ4 doc: atlas-load-fail→puppet fallback is cosmetic-only.",
-      "plan_file": ".claude/plans/2026-06-28_PDR_S112_Helga_Veo_Character.md",
-      "check_completed": true,
-      "check_method": "S112 Helga veo character shipped as 1 commit (eeffb5e), gated green: tsc 0; vitest 1716/1716 (+6 helgaFrame.test); build entry 604.0/750 KiB (atlas is an UNBUNDLED static file). NO wire/protocol change (PROTOCOL_VERSION 13 held). Pipeline scripts/matte-helga-anim.py: border-flood matte (interior-white-safe, NO box) + shadow-kill (V_TOL 0.32) + largest-component speck-removal + Δ2 shared foot-anchored canvas (no jitter) -> public/godly/helga/anim/helga-atlas.png (2.6MB) + manifest. Renderer princessRenderer draws atlas cells via PURE helgaCell(state,ticksInState,world.tick,id) off SYNCED state; procedural puppet retained as first-paint + load-fail fallback; facing + FIRE-edge SFX + impact burst preserved. Audio: slap -> recorded HHWAPAH+clap helga-slap.ogg (duck 600ms); Δ1 updateHelgaTheme single-source resolver NONET>Helga-theme(walk/attack)>base music, ~1s disengage debounce, idempotent edge transitions, reset on RTT/restore, composes with mute/duck. IN-BROWSER VERIFIED (preview): 3 injected princesses (IDLE/WALK/FIRE) render as clean matted sprites + impact burst, 0 console errors, all 4 helga assets 200. DEPLOYED via npm run deploy -> gh-pages classic Pages: spark-online.space serves this build (entry hash index-_F6YAVfj.js verified live; all 4 /godly/helga/ assets 200). Council 2-way SHIP-WITH-FIXES (Gemini 429-down); Δ1/Δ2 folded in, Δ3 refuted with code evidence.",
-      "checkpoint_commit": "eeffb5e",
-      "real_context_tokens_at_close": 397522,
-      "real_context_pct_at_close": 39.75,
-      "commits": [
-        "eeffb5e (S112 HELGA veo character + state-driven audio)"
+      "plan_file": ".claude/plans/2026-06-29_PDR_S115_Combo_Behaviors_HostMigD1.md",
+      "sub_priorities": [
+        "P1-anchor-anti-drift",
+        "P2-spindle-swirl",
+        "P3-hostmig-d1"
       ],
+      "check_completed": true,
+      "checkpoint_commit": "707c973",
+      "real_context_tokens_at_close": 384973,
+      "real_context_pct_at_close": 38.5,
+      "commits": [
+        "04ced0c (P1 ANCHOR planted-joint)",
+        "e80854f (P2 SPINDLE bounded-swirl)",
+        "707c973 (P3 host-migration D1, dormant)"
+      ],
+      "check_method": "All 3 sub-priorities shipped as 3 revertible commits, each gated GREEN, then DEPLOYED LIVE. P1 ANCHOR planted-joint (04ced0c): Dot<->Square magic combo floors its territorial stiffnessMultiplier (ANCHOR_STIFFNESS_FLOOR 0.7) so anchored structures resist the S49 enemy-territory sag. A.0-during-execution found the PDR's 'damp prim drift velocity' was a NO-OP (placed prims are never Verlet-integrated — verletStepAll steps only freeSparks, collisions spark-only, placement deletes the spark, hazards erase/sever not shove); reframed to the territorial-stiffness floor (same owner-approved verb, engine-correct mechanism). new state/anchorStabilize.ts (host-only, per-bond idempotent => order-independent, fouled/deleted skip) + isAnchorCombo + wired in physicsLoop after computeTerritorialInfluence. Caught+reconciled the STALE S91 'forward-key only' comment (S98 made Anchor/Spindle order-SYMMETRIC; test caught isAnchorCombo(Square,Dot)===true). P2 SPINDLE bounded-swirl (e80854f): Line<->Circle magic combo imparts a TANGENTIAL impulse to nearby free sparks (orbit, vs Vortex radial suck-in). Council (Grok) REJECTed the naive constant-impulse design for escape-velocity accumulation; FIXED by bounding the tangential SPEED (project velocity onto swirl axis, add only up to SPINDLE_MAX_TANGENTIAL_SPEED headroom) => non-accumulating by construction, proven by a 500-tick unit test. new state/spindle.ts (90deg-rotated applyVortexPull clone; bond-id canonical sort; deterministic vector math, no sin/cos) + isSpindleCombo + SPINDLE_* constants + wired in physicsLoop. P3 host-migration D1 (707c973, DORMANT/feature-flagged off): net/successionWarrant.ts (buildWarrantPayload injective length-prefixed+domain-separated encoding, signWarrant, verifyWarrant chaining to the room-code commitment via host-pubkey fingerprint + fail-closed, warrantedPubkeyForSeat) + generateClientIdentity + HostIdentity.sign() (additive) + ADDITIVE-OPTIONAL HELLO clientPubkeyB64 (fail-closed parse, unpopulated by live sends). No MIGRATION_CLAIM/detection/takeover/boot-wiring (carried D2-D4). P1+P2 render/sim-only, P3 additive => PROTOCOL_VERSION held 14 across the whole batch; save.replay byte-identical (24/24). GATES: tsc 0; vitest 1735->1779 (+44: 9 anchor + 12 spindle + 14 D1 + the +9 net from prior count reconcile... actual final 1779/1779); build entry 611.0/750 KiB (+1.4 over the session). DEPLOYED via npm run deploy -> gh-pages classic Pages: spark-online.space serves this build (deploy script self-verified live hash assets/index-BZSCuCtI.js == built). IN-BROWSER smoke: new modules load + run with 0 console errors; the live-orbit drive was blocked by a hand-hacked-PLAYING-world NaN ARTIFACT (proven via a no-Spindle control that ALSO NaNs — not a code defect; stepPhysics wiring is covered by physicsLoop.test.ts + save.replay full-tick determinism). RALPH:PATROL PASS on all 3. Council 2-way (Grok-4.20 ANALYST + Opus Supervisor; Gemini 429) + PRIME-AUDIT; Standard tier.",
       "verification": [
-        {
-          "type": "file_exists",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/public/godly/helga/anim/helga-atlas.png"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/public/godly/helga/anim/helga-anim.json"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/public/godly/helga/audio/helga-slap.ogg"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/public/godly/helga/audio/helga-theme.ogg"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/helgaFrame.ts",
-          "needle": "export function helgaCell"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/princessRenderer.ts",
-          "needle": "helga-atlas.png"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/audioManager.ts",
-          "needle": "export function updateHelgaTheme"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "updateHelgaTheme(world)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "PRINCESS_SPRITE_BASE_SCALE"
-        }
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/anchorStabilize.ts", "needle": "export function applyAnchorStabilize" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/combos.ts", "needle": "export function isAnchorCombo" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "ANCHOR_STIFFNESS_FLOOR = 0.7" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/spindle.ts", "needle": "export function applySpindlePull" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/combos.ts", "needle": "export function isSpindleCombo" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "SPINDLE_MAX_TANGENTIAL_SPEED" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/physics/physicsLoop.ts", "needle": "applySpindlePull(world, attractedId)" },
+        { "type": "file_exists", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/successionWarrant.ts" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/successionWarrant.ts", "needle": "export async function verifyWarrant" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/hostIdentity.ts", "needle": "export async function generateClientIdentity" },
+        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts", "needle": "clientPubkeyB64" }
       ]
-    },
-    {
-      "id": "S113-BATCH-C",
-      "label": "S113 Batch C — lightning-drone building: new SPAWNER godly-recipe (1 Dot hub deg-5 + 5 Circle leaves) emits up to 3 self-exploding lightningDrone creatures (procedural Voltkin rig @0.5) on the 15s cadence; each drone seeks the nearest ENEMY bond then detonates severing <=3 enemy bonds (1 ARC_FLASH each); after the 3rd drone the structure self-destructs in a large potato-style owner-agnostic AoE. PROTOCOL_VERSION 13->14. Full tier, HIGH risk. PDR: .claude/plans/2026-06-28_PDR_S113_Batch_C_Lightning_Drone.md",
-      "status": "completed",
-      "phase": "COMPLETED",
-      "tier": "Full",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "priority_state": "completed",
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "S113 Batch C lightning-drone building shipped as 1 commit (759fe80), gated GREEN: tsc 0; vitest 1734/1734 (+18: new lightningDrone.test 17 cases incl. recipe-gate/drone-explode/self-destruct/cap-independence/determinism + 1 bot lightning-hub seed; updated protocol/voltkin-config/botSpawnerSeed expectations for the v14 bump + new CreatureType + 2nd bot spawner); build entry 608.7/750 KiB. PROTOCOL_VERSION 13->14 (new CreatureType 'lightningDrone' + recipeId 'lightningHub'). New godlyRecipes/lightningHub.ts (loosened Dot-hub deg5 + 5-Circle gate, laserTurret pattern; registered); runSpawnerIgnition generalized to a per-recipe igniteOneSpawnerRecipe helper; recipeStillSatisfied 'lightningHub' case. New droneLifecycle.ts: applyDroneExplode (enemy-only radial sever <=DRONE_MAX_CONNECTORS, nearest-first sorted-BondId, ARC_FLASH per sever + BOMB_EXPLODE, re-dispatch SEVER_BOND cause:'drone' per the applyCreatureAttack pattern) + underDroneCaps (own independent population cap). LIGHTNING_DRONE_CONFIG selfExplode:true; drone FSM via main.ts fan-out Step 1.5 (explode-on-arrival-or-fuse BEFORE CREATURE_TICK) + forced-DESPAWNING excluded for selfExplode. D1 GUARDED EXTRACTION: applyRadialClear lifted verbatim from applyPotatoDetonate (same step order + sorted-id iteration); the potato call stays BYTE-IDENTICAL (save.replay.test.ts two-seed green is the proof); applyStructureSelfDestruct reuses it owner-agnostic (()=>true). RALPH:PATROL CAUGHT a real bug: underChewerCaps counted sourceSpawnerId!=null which now includes drones -> drones ate the chewer cap; FIXED to count only type==='chewer' + applySpawnCreature routes a drone spawn to underDroneCaps (owner #7 independence restored + unit-tested). Render: creatureRenderer draws the drone via drawVoltkin @ LIGHTNING_DRONE_SPRITE_SCALE 0.5; death-watcher pops a lightning-cloud per detonation. Codex TOWERS tile + bot host-seed (1 Dot + 5 Circles per bot seat, separate sector from the pentagram). IN-BROWSER VERIFIED (preview; manual app.ticker.update drive since the page runs hidden): a live-injected hub registered a lightningHub spawner -> emitted 3 drones -> a drone flew to the enemy connector + DETONATED it (enemy bonds 1->0) -> the structure self-destructed after the 3rd drone, wiping its own 6 prims (owner-agnostic); 0 console errors. DEPLOYED via npm run deploy -> gh-pages classic Pages: spark-online.space serves this build (live entry hash index-B9EKUUes.js verified). Council 2-way Grok-4.20 ANALYST + Opus SHIP-WITH-FIXES (Gemini 429 credits-down).",
-      "checkpoint_commit": "759fe80",
-      "real_context_tokens_at_close": 559215,
-      "real_context_pct_at_close": 55.92,
-      "commits": [
-        "759fe80 (S113 Batch C lightning-drone building + state-driven wire v13->14)"
-      ],
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/droneLifecycle.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/droneLifecycle.ts",
-          "needle": "export function applyDroneExplode"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/godlyRecipes/lightningHub.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/godlyRecipes/lightningHub.ts",
-          "needle": "export function isLightningHubComponent"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
-          "needle": "PROTOCOL_VERSION = 14"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/creatures/creature.ts",
-          "needle": "'lightningDrone'"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/potatoLifecycle.ts",
-          "needle": "export function applyRadialClear"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/world.ts",
-          "needle": "STRUCTURE_SELFDESTRUCT"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "DRONE_EXPLODE_RADIUS"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/lightningDrone.test.ts"
-        }
-      ],
-      "council_rounds": 2,
-      "council_result": "2-way (Grok-4.20-reasoning ANALYST + Claude Supervisor; Gemini-2.5-pro 429 credits-depleted -> 2-way per protocol, S112 precedent). R1 ADOPT-WITH-FIXES (4 challenges); R2 D1 PUSH-BACK / D2 AGREE. PRIME-AUDIT SHIP-WITH-FIXES: D1 guarded-extraction (drone sever = own enemy-only helper radialSeverEnemyBonds; structure self-destruct reuses potato radial-clear via save.replay-gated extraction; never unguarded-touch the frozen potato path); D2 exactly-once self-destruct (fire + REMOVE_SPAWNER in the same emit-poll branch; existing spawner-poll-before-creature-fan-out tick order; cross-drone same-bond sever idempotent+sorted CreatureId); D3 reuse locked creatureAI.isEnemyBond + findNearestBondTarget(enemyOnly:true), no new predicate; D4 ship owner numbers (15s/3 drones/<=3 bonds/240px agnostic) as playtest dials, log Grok 20s/2-drone/180px alt as #1 post-playtest dial set. A.0 PASS (laserTurret recipe template, applyPotatoDetonate radial sever, spawner.spawnedCount, canSeverBond bypass, runSpawnerIgnition/runDefenderIgnition registry, Codex tab); one delta folded (applyPotatoDetonate already kills chewers in radius -> structure self-destruct matches).",
-      "plan_file": ".claude/plans/2026-06-28_PDR_S113_Batch_C_Lightning_Drone.md"
     }
   ],
   "carry_forward_priorities": [
-    "*** RESOLVED — S110 IS LIVE (this session) *** spark-online.space now serves the S110 build (live entry asset index-D9JyMcs9.js; all godly/ art PNGs return 200). CORRECTED ROOT CAUSE (the earlier 'out of free minutes' theory was incomplete): the GitHub ACCOUNT is LOCKED due to a billing issue — Actions annotation verbatim: 'The job was not started because your account is locked due to a billing issue.' This kills ALL GitHub Actions runs (deploy.yml + e2e) regardless of repo public/private. THE FIX THAT WORKED: (1) made repo PUBLIC (gitleaks full-history = 0 leaks / 729 commits; no secrets tracked, .env gitignored); (2) built dist/ LOCALLY (npm run build; bundle 601.5/750 KiB; CNAME spark-online.space + .nojekyll baked in); (3) force-pushed it to a gh-pages branch; (4) set Pages build_type=legacy source=gh-pages. The CLASSIC/legacy Pages builder runs on SEPARATE infra that is NOT gated by the account billing lock (only needs the repo public to be free), so it builds + deploys fine while Actions stays dead. CURRENT CONFIG: repo PUBLIC + Pages=legacy/gh-pages (verified built, site 200). GO-FORWARD DEPLOY until billing is fixed: Actions auto-deploy (deploy.yml, workflow-mode) is DEAD — do NOT switch Pages back to 'GitHub Actions' mode (it 404s/fails: account locked). To ship new code: `npm run build` locally, force-push dist/ to gh-pages branch, then `gh api -X POST repos/daneshto-dotcom/the-spark/pages/builds` — classic Pages also auto-rebuilds on any push to gh-pages. OWNER ACTION (non-blocking, but do it): resolve the GitHub account billing lock (Settings -> Billing) — an account lock usually = failed payment method / unpaid invoice, more than a spending cap. Once cleared, can optionally revert to private + Pages workflow-mode for auto-on-push. PREVENTION already shipped: a29a314 took e2e off per-push.",
-    "*** RESOLVED S112 *** Helga walk-cycle animation — SHIPPED LIVE (commit eeffb5e): veo idle/walk/slap atlas replaces the procedural puppet, tick-synced + replay-safe; veo reference-conditioning DID hold idle/walk on-model, slap stays gestural (hit sold by HHWAPAH+clap SFX + impact burst). Helga theme plays on walk/attack, base music when idle. Remaining playtest DIAL: PRINCESS_SPRITE_BASE_SCALE 0.34 (confirm in-world size on live playtest, like the Voltkin 0.17 dial).",
-    "P5 in-world Voltkin sprite SCALE (VOLTKIN_SPRITE_BASE_SCALE=0.17) + anchor (0.5,0.56) are estimates — confirm on the owner's live playtest (a dial like the Helga range); also P4 Helga moveAccel 150 + acquisition/leash 380 are playtest dials.",
-    "*** RESOLVED S113 *** Batch C lightning-drone building — SHIPPED LIVE (commit 759fe80): lightningHub recipe (1 Dot + 5 Circles) emits 3 suicide drones (Voltkin rig @0.5) that home on + sever enemy connectors, then self-destructs in a 240px owner-agnostic AoE; PROTOCOL_VERSION 13->14; in-browser end-to-end verified + deployed. POST-PLAYTEST DIALS (owner tunes after live play, each a one-constant): DRONE_EXPLODE_RADIUS=110 / DRONE_MAX_CONNECTORS=3 / DRONE_EMIT_INTERVAL_TICKS=900(15s) / STRUCTURE_SELFDESTRUCT_RADIUS=240 / STRUCTURE_SELFDESTRUCT_DRONE_COUNT=3 / LIGHTNING_DRONE_SPRITE_SCALE=0.5 / DRONE_LIFETIME_TICKS=480(8s fuse). Council R2 'too-swingy' alt logged: 20s cadence / 2 drones / 180px self-destruct.",
-    "After S108 queue: resume ROADMAP -- Tier-1 G1b MOTION / G2 family traits / G3b silhouettes / G4 crown+BOND_COMMIT; then Tier-3 host-migration D1-D4.",
-    "Owner-gated (unchanged): anti-coast structure-loss CLAWBACK (own PDR); worker-sim ?worker=1 cutover (WORKER_SIM_FOUNDATION.md)."
+    "GATED Tier-1 (owner design decisions needed, NOT force-built): G1b MOTION (Wheel/Star rotation) — Council-deferred twice as 'visual noise without a mechanical verb'; needs an owner-blessed verb (rule #4). G2 family traits (fill the 24 placeholders) — needs a LOCKED_DECISIONS §6 lock-amendment + owner picks the family flavor (roadmap suggests Dot-pairs=cheap/weak, Square-pairs=sturdy/slow, Spiral-pairs=chaotic wobble).",
+    "Tier-3 host-migration D2-D4 (after D1): D2 epoch field in NETSNAPSHOT + starvation detector + successor computation (instrument-only); D3 MIGRATION_CLAIM happy-path behind __TEST_MIGRATION__ + kill-host e2e; D4 zombie demotion + double-failure + LOCKED amendments + PROTOCOL_VERSION bump ships.",
+    "DEPLOY stays MANUAL: npm run deploy (gh-pages classic Pages). Actions dead — GitHub account billing lock. git push != deploy. OWNER (non-blocking): clear the billing lock (Settings->Billing) + top up Gemini credits at ai.studio (Council ran 2-way S112-S115).",
+    "Owner-gated (unchanged): anti-coast structure-loss CLAWBACK (own PDR); worker-sim ?worker=1 cutover (WORKER_SIM_FOUNDATION.md).",
+    "Playtest dials outstanding: leader crown size/offset (avatarRenderer.ts CROWN_*); Helga PRINCESS_SPRITE_BASE_SCALE 0.34; Voltkin VOLTKIN_SPRITE_BASE_SCALE 0.17; lightning-drone dials (DRONE_EXPLODE_RADIUS etc.); and the NEW S115 dials (ANCHOR_DRIFT_DAMP, SPINDLE_*)."
   ],
   "budget_total": 1000000,
   "totals": {
@@ -292,24 +68,15 @@
     "budget_status": "statusline_dead"
   },
   "reflexion_entries_to_archive": [
-    "S112 #veo-img2vid-is-strong-on-ambient-motion-weak-on-fast-specific-actions: veo image-to-video seeded from a static character holds it ON-MODEL for walk/idle (generic ambient motion) but CANNOT produce a crisp wind-up->impact->recover slap from a seed with no target (2 attempts, fast + standard model; the violent-worded prompt was content-filtered to 0 samples, the non-violent reframe returned a usable gesture). LESSON: generate veo for ambient states + sell the HIT with SFX + a VFX burst + a tick-synced lunge; don't burn re-rolls fighting img2vid's weak axis; reframe violent prompts non-violently to dodge the safety filter.",
-    "S112 #matte-a-veo-clip-needs-component-keep-plus-shared-foot-canvas: the S110 border-flood still-matte must be EXTENDED for an animation: (a) drop stray opaque specks via largest-connected-component keep (AI-video margin noise isn't achromatic-bright so the bg-flood spares it and it blows the alpha bbox edge-to-edge) and (b) place every frame on ONE SHARED foot-anchored canvas (per-frame bbox crop makes the character jitter/teleport in world space). Diagnose the alpha empirically (dump border-column opacity on one frame) before assuming the matte is broken — the bbox alarm was her widest gesture frame, not a bug.",
-    "S108-PLAN #verify-the-councils-confident-consensus-against-the-actual-architecture: a 3-way Council UNANIMOUSLY headlined a MANDATORY PROTOCOL_VERSION bump asserting the client predicts physics; PRIME-AUDIT refuted it against the code (SPARK client runs ZERO authoritative physics). LESSON: two models converging is NOT independent confirmation when they share a generic prior; verify confident consensus against the actual codebase before adopting.",
-    "S109-PLAN-A #host-only-field-needs-no-wire-bump-when-the-serializer-is-a-whitelist: adding Creature.poopyUntilTick needed ZERO save.ts changes because serializeCreature is a field WHITELIST. LESSON: read the serializer before assuming a new field forces a protocol bump.",
-    "S109-PLAN-A #the-unlock-hook-vocabulary-vs-the-final-gate-vocabulary: the unlock hook writes priority_state:'unlocked' but pdca-final-gate accepts only {approved,in_progress,completed}. FIX: reconcile priority_state to 'in_progress' after the hook mints unlock_source:user (the load-bearing field).",
-    "S110-BATCH #commit-and-push-is-not-the-same-as-deployed: all 5 S110 commits passed tsc + 1710 vitest + build-under-cap and pushed clean, but `gh run list` showed EVERY S110 deploy at startup_failure/0s/0-jobs while S109 succeeded. The bundle-cap memory's 'on shipped-but-not-working check gh run list FIRST' caught it. Root cause was NOT code/bundle/workflow-file (files valid + unchanged since the green Jun 26 run; Actions enabled): a private-repo GitHub Actions SPENDING-LIMIT/minutes cap (the ~35min/push Playwright e2e exhausted the 2000 free minutes) blocks ALL new runs (push AND manual workflow_dispatch) with 0 jobs. LESSON: 'done' = DEPLOYED, not just pushed-green; always verify the live deploy via `gh run list` at batch close, and a 0-job startup_failure that survives a manual dispatch = an account/billing block (owner action), not a code fix. Prevention: don't run a heavy e2e on every push on a minutes-capped private repo.",
-    "S110-BATCH #engage-the-pdr-lock-WHEN-you-present-not-after: the user said 'go' twice but the write-gate never minted unlock_source=user because glue_pdr_unlock only mints when a lock file (pdr-gate-lock / pdr-lock-<id>) exists at the approval prompt AND an in_progress priority exists — and I'd presented the PDR without engaging the lock first. LESSON: the lock is the 'awaiting approval' marker; create it (+ stage the in_progress priority) WHEN you present the PDR, so the user's very next 'go' mints the unlock. Also: a multi-priority batch must be ONE in_progress session-state entry (the S109 PLAN-A pattern) — separate per-priority entries each need their own unlock, which re-blocks at every priority boundary.",
-    "S110-P5 #border-connected-component-matte-beats-luma-key: imagen stills on a uniform white bg matte cleanly to transparent by removing ONLY border-connected near-white (scipy.ndimage.label + drop border-touching components), which preserves interior whites (Voltkin belly, Helga beer-foam/apron) and leaves NO square box — exactly the S106 failure mode a naive luma/white key caused (it punched holes in the #FFEB6B belly + left the box the owner hated). Verify the matte via a dark-bg preview composite BEFORE wiring. public/ assets are unbundled by construction (separate static files) so lazy-loading them is bundle-cap-free.",
-    "S113 #a-new-spawner-emitted-type-silently-joins-any-cap-keyed-on-sourceSpawnerId: underChewerCaps + applySpawnCreature discriminated chewer-vs-Voltkin on `sourceSpawnerId === null` (a 2-value proxy that meant 'spawner-emitted'); the new lightning-DRONE is ALSO spawner-emitted (sourceSpawnerId != null), so it silently counted toward the chewer GLOBAL cap AND a drone SPAWN_CREATURE routed through the chewer-cap re-check — violating the owner's INDEPENDENT-caps decision. RALPH:PATROL caught it (the unit tests were green because no test mixed the populations). FIX: discriminate on `creature.type` ('chewer' / 'lightningDrone'), not the provenance field, + added a cap-independence test. LESSON: when a boolean discriminant was a proxy for a type and you add a THIRD value into the proxied set, grep every reader of that proxy — each one silently mis-buckets the new type.",
-    "S113 #drive-a-hidden-preview-sim-via-app.ticker.update-not-rAF: the preview page runs document.hidden=true so requestAnimationFrame is throttled and world.tick stayed 0 (no sim, no render) — but app.ticker.started is true and `app.ticker.update(growingTimestamp)` steps the loop deterministically. Driving 400+ manual updates ran the WHOLE time-based feature end-to-end in-browser: inject a hub via window.__SPARK__.world -> the recipe registers a spawner -> 3 drones emit -> a drone flies to + severs the enemy connector (enemy bonds 1->0) -> the structure self-destructs wiping its own prims, 0 console errors. LESSON: a hidden/headless Pixi preview can still be driven frame-by-frame via app.ticker.update(ts) + state injected through the __SPARK__ DEV accessor — a REAL runtime verification of time-based sim, not a static parse, when rAF is asleep. Also: to start the canvas-only title screen with no DOM buttons, emit the Pixi federated 'pointertap' directly on the button object found by walking titleScreen.container.",
-    "S114 #scope-roadmap-next-items-against-the-code-not-the-roadmap-text: the BACKLOG listed G3b (Codex silhouettes) AND the G4 bond-formation juice as 'next', but both were already shipped (G3b S97 in comboCodexStore/codexOverlay; bond-juice in render/effects/bondCommit.ts). Only grepping the code for the feature's expected symbols revealed the genuinely-open item (the G4 in-world leader crown). LESSON: a roadmap's 'next' label is a CLAIM, not ground truth -- run State-Discovery (grep the expected exports/files) on a candidate BEFORE picking it, or you rebuild something already done. Reconcile the roadmap text as part of the work.",
-    "S114 #walking-a-pixi8-stage-for-render-verify-must-match-the-minified-class-name-and-assert-on-getBounds: the in-browser crown verify first found 0 graphics because the stage walker matched constructor.name==='Graphics' but Pixi 8 minifies the class to '_Graphics'; switching to /Graphics/.test(name) + asserting on getBounds() geometry (cx=700,cy=516,16x12.9 over the leader; moved to cx=1200 on lead-swap; null in solo) gave a deterministic runtime proof. The screenshot timed out (hidden preview can't paint a capturable frame, S113 artifact) -- geometry assertion beats a pixel grab here. LESSON: when verifying render output by walking the Pixi tree, regex-match the (minified) class name and assert on getBounds(), not a screenshot."
+    "S115-P1 #scope-the-mechanism-against-the-engine-not-the-pdrs-mental-model: the PDR's 'damp the prim drift velocity' Anchor design was a NO-OP against the real engine — placed primitives are NEVER Verlet-integrated (verletStepAll steps only world.freeSparks; resolveCollisions is spark-only; placement DELETEs the spark; hazards erase/sever a structure, never shove it) so there is no free momentum to damp. A.0-during-execution (read verlet.ts + physicsLoop + how potato/territory actually move a structure) revealed the ONLY real structural instability is the S49 territorial stiffnessMultiplier sag; reframed Anchor to FLOOR that sag (same owner-approved 'planted joint' verb, engine-correct mechanism). LESSON: verify the PDR's IMPLEMENTATION mechanism against the integrator BEFORE coding, not just the feature's intent — the verb survived, the mechanism didn't.",
+    "S115-P1 #a-stale-source-comment-is-a-claim-grep-the-construction-not-the-comment: the S91 'forward-key only — Square->Dot stays a placeholder' combos comment was SUPERSEDED by the S98 order-symmetry mirror loop (which mirrors every non-self magic pair, Anchor+Spindle included); my new isAnchorCombo docstring AND a unit test repeated the stale claim until the test caught it (isAnchorCombo(Square,Dot)===true). LESSON: trust the table-CONSTRUCTION code over an adjacent prose comment; reconcile the stale comment as part of the work; the symmetric reverse earns the BEHAVIOR, not just the income (Vortex S98 precedent).",
+    "S115-P2 #bound-the-accumulated-STATE-not-the-per-tick-DELTA: Grok's REJECT of the naive Spindle (constant tangential impulse -> escape velocity) was a real kill-shot; capping the per-tick IMPULSE does NOT fix it (it still accumulates across ticks since the spark stays in range). The fix bounds the RESULT: project the spark's current velocity onto the swirl axis and only add up to the headroom to SPINDLE_MAX_TANGENTIAL_SPEED. Provably non-accumulating; a 500-tick unit test asserts the bound holds every tick. LESSON: when a behavior adds to a quantity each tick, bound the STATE (resulting speed), not the DELTA (per-tick impulse).",
+    "S115-P2 #a-hand-hacked-PLAYING-world-cannot-runtime-verify-a-behavior: driving the hidden preview by setting world.gameState='PLAYING' on a TITLE world (a) ran tick++ but SKIPPED stepPhysics until I cleared the forceNonet sudoku-FREEZE branch, then (b) NaN'd within ~14 ticks — a no-Spindle CONTROL spark ALSO NaN'd, proving the uninitialized-match state (territory/scoring/collision on a title world) is the NaN source, NOT the new code. LESSON: the app gates stepPhysics on its SCREEN state, not world.gameState; a hand-forced PLAYING world is not a valid runtime fixture. Use physicsLoop.test.ts (real stepPhysics) for wiring + the browser load-smoke for 'no console error'; to truly drive live, start a real match via the title buttons (S113 method).",
+    "S115-P3 #ship-the-PRIMITIVES-dormant-defer-the-LIVE-WIRING: host-migration D1 is the textbook 'land the tested foundation, activate later' phase — the warrant build/sign/verify + client identity + the additive-optional HELLO pubkey field all ship now (14 tests, real WebCrypto), but NOTHING is wired into a live decision path (no boot-time keygen, no live HELLO populates the field, no MIGRATION_CLAIM). This keeps a security-sensitive netcode feature at ZERO behavior-change before the owner playtests, while D2-D4 build on a proven base. KEY trust property: verifyWarrant chains to the room-code COMMITMENT (the host pubkey's fingerprint MUST equal the room code) so a successor can't forge under a different key; reused the buildAttestPayload injective length-prefixed encoding (no malleability) + WebCrypto raw P-1363 sigs. LESSON: for risky infra, separate 'capability exists + is tested' (D1) from 'capability is active in the live path' (D2+) — additive-optional fields with fail-closed parsers make the dormant phase truly inert."
   ],
-  "real_context_tokens_at_close": 232286,
-  "real_context_pct_at_close": 23.23,
   "analyze_completed": true,
-  "session_status": "S114 — G4 in-world leader crown SHIPPED LIVE (commit c2c1e80) on spark-online.space (deploy script self-verified live hash index-D4Rugu65.js). Static gold crown over the score-leader's avatar via pure scoring.leaderPlayerId + avatarRenderer.shouldShowCrown; render-only, PROTOCOL_VERSION held 14, replay byte-identical. Also reconciled stale BACKLOG (G3b + G4 bond-juice were already shipped). tsc 0; vitest 1744/1744 (+10); build 609.6/750 KiB. In-browser verified (crown follows the lead, gone in solo, 0 errors). RALPH:PATROL PASS. Recommend /handoff.",
-  "handoff_ready": false,
-  "handoff_doc": "HANDOFF_S113.md",
-  "phase_final": "S114_CLOSED"
+  "real_context_tokens_at_close": 384973,
+  "real_context_pct_at_close": 38.5,
+  "session_status": "S115 — 3-PRIORITY BATCH SHIPPED + DEPLOYED LIVE. P1 ANCHOR planted-joint (04ced0c: Dot<->Square floors territorial stiffness to resist enemy-territory sag) + P2 SPINDLE bounded-swirl (e80854f: Line<->Circle orbits free sparks, Council-mandated tangential-speed cap = no escape velocity) + P3 host-migration D1 (707c973: succession-warrant + client-identity + additive HELLO pubkey, DORMANT/feature-flagged off). PROTOCOL_VERSION held 14 across the batch; save.replay byte-identical. tsc 0; vitest 1779/1779 (+35 net new: 9 anchor + 12 spindle + 14 D1); build 611.0/750 KiB. DEPLOYED via npm run deploy -> spark-online.space serves this build (self-verified hash index-BZSCuCtI.js). 2-way Council (Grok ANALYST + Opus; Gemini 429) + PRIME-AUDIT; RALPH:PATROL PASS x3. Recommend /handoff. Remaining Tier-1 (G1b MOTION, G2 family traits) is owner-design-gated; next non-gated = host-migration D2.",
+  "handoff_ready": false
 }
