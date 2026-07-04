@@ -22,6 +22,13 @@ export type ComboKey = `${SparkType}->${SparkType}`;
 export interface ComboOutcome {
   resultName: string;
   stiffnessTier: StiffnessTier;
+  /**
+   * RESERVED / currently unread by production (S116 audit F3). Defined per combo + in the
+   * LOCKED §6 schema, but NO runtime code consumes it today — it is retained as the schema's
+   * "area claim" slot for a future territory/area mechanic (e.g. the S116-audit "Prismatic
+   * Lensing" idea) rather than deleted, so the LOCKED catalog stays stable. Do NOT treat a
+   * non-zero value here as live behavior until a consumer is wired.
+   */
   areaMultiplier: number;
   visualEffectId: string;
   isMagical: boolean;

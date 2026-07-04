@@ -263,12 +263,14 @@ type ComboKey = `${SparkType}->${SparkType}`;  // e.g. "2->4"
 interface ComboOutcome {
   resultName: string;
   stiffnessTier: 'LOW' | 'MID' | 'HIGH';
-  areaMultiplier: number;
+  areaMultiplier: number;   // RESERVED — currently unread by production (S116 audit F3); the "area claim" slot for a future mechanic, not live behavior.
   visualEffectId: string;
   isMagical: boolean;
   description: string;
 }
 ```
+
+> **S116 audit F3 note:** the `×` values in the Magic-14 seed list below are the `areaMultiplier` slot. As of the S116 audit NO production code reads `areaMultiplier` — the values are catalogued (reserved) for a future area/territory mechanic, NOT a live area claim. Treat them as design intent until a consumer is wired.
 
 **The Magic-14 seed** (all 6 types, both Spiral roles, see [src/combos.ts](src/combos.ts) for full data):
 
@@ -797,10 +799,11 @@ build, or solo mode), `drawDefaultLine` emits a single solid stroke —
 identical to S7-S16 behavior. Existing 22 bondVisualRenderer tests stay
 green.
 
-**Magic-12 silhouettes (filament, cable, bracket, diamond, wheel, star,
-orbital, lattice, capsule, vortex, whip, warped) use `colorA` as primary
-stroke** — per-silhouette gradient upgrade deferred to S18 polish.
-Phase-2 Tier-1 v1 ships with default-line gradient only.
+**Magic-14 silhouettes (filament, cable, bracket, diamond, wheel, star,
+orbital, lattice, capsule, vortex, whip, warped, anchor, spindle) use `colorA`
+as primary stroke** — per-silhouette gradient upgrade deferred to S18 polish.
+Phase-2 Tier-1 v1 ships with default-line gradient only. (S116 audit F4: was
+stale "Magic-12" + missing anchor/spindle, which were promoted to magic in S91.)
 
 **Test coverage:** 8 new tests in `src/render/bondVisualRenderer.test.ts`
 S17 P2 describe blocks (lerpColor at t=0/0.5/1, green-cyan channel

@@ -1,23 +1,23 @@
 {
-  "tool_calls_session_total": 43,
-  "session_id": "S116",
-  "session_kind": "audit-research",
+  "tool_calls_session_total": 54,
+  "session_id": "S117",
+  "session_kind": "execution",
   "session_start": "2026-07-04T08:30:00.000Z",
-  "prior_session_note": "S115 shipped the 3-priority combo-behavior batch LIVE (Anchor 04ced0c + Spindle e80854f + host-mig D1 707c973); magic-combo arc COMPLETE; v14 held; 1779 tests. S116 opened with a hostmig-D2 PDR (3-way Council — Gemini BACK online) which the owner PARKED in favor of a full-project audit.",
-  "phase": "S116_EXECUTING",
+  "prior_session_note": "S115 shipped the 3-priority combo-behavior batch LIVE (Anchor 04ced0c + Spindle e80854f + host-mig D1 707c973); magic-combo arc COMPLETE; v14 held; 1779 tests. S116 opened with a hostmig-D2 PDR (3-way Council \u2014 Gemini BACK online) which the owner PARKED in favor of a full-project audit.",
+  "phase": "S117_EXECUTING",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
   "tier": "Standard",
   "council_rounds": 1,
-  "council_result": "S116 pre-audit Council R1 ran 3-WAY for the first time since S111 (Grok-4.20-reasoning ANALYST + Gemini-2.5-pro AUDITOR + Claude Supervisor) on the hostmig-D2 PDR: W1 ADOPT-WITH-FIX (proof-of-possession), W2 1-1 split (Supervisor IN with sign-before-send ordering), W3 Grok REJECT overruled with envelope-vs-save code evidence, W4/W5 ADOPT-WITH-FIX (visibilityState forensics + failure-path tests). That PDR is PARKED (.claude/plans/2026-07-04_PDR_S116_HostMig_D2.md) — owner redirected to a full-project audit (user-pre-approved batch, autonomous). Audit Phase G runs a second Council pass on the findings.",
+  "council_result": "S116 pre-audit Council R1 ran 3-WAY for the first time since S111 (Grok-4.20-reasoning ANALYST + Gemini-2.5-pro AUDITOR + Claude Supervisor) on the hostmig-D2 PDR: W1 ADOPT-WITH-FIX (proof-of-possession), W2 1-1 split (Supervisor IN with sign-before-send ordering), W3 Grok REJECT overruled with envelope-vs-save code evidence, W4/W5 ADOPT-WITH-FIX (visibilityState forensics + failure-path tests). That PDR is PARKED (.claude/plans/2026-07-04_PDR_S116_HostMig_D2.md) \u2014 owner redirected to a full-project audit (user-pre-approved batch, autonomous). Audit Phase G runs a second Council pass on the findings.",
   "signals_fired": [],
   "priorities": [
     {
       "id": "S116-AUDIT",
       "label": "Full project audit (Fable 5 Ultracode): bugs, unfinished pathways, inconsistencies, incoherence + creative/technical/structural/architectural optimization ideas. Phases A inventory / B smell sweep / C core deep-read / D cross-artifact consistency / E test quality / F perf-bundle / G Council pass / H synthesis. Deliverable = AUDIT_S116.md ranked findings + proposed implementation priority order for owner picks. NO production code changes this session.",
-      "status": "in_progress",
-      "phase": "EXECUTING",
+      "status": "completed",
+      "phase": "COMPLETED",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -26,20 +26,77 @@
       "plan_file": ".claude/plans/2026-07-04_PDR_S116_FULL_PROJECT_AUDIT.md",
       "user_approval_verbatim": "I pre-approve this session batch, run it autonomously.",
       "check_completed": true,
-      "check_method": "Full deep-read audit (Fable 5 Ultracode), research-only, NO production code changed. Deep-read the entire core sim: physics/ (verlet, bonds, collision, spatial, physicsLoop), state/ (world dispatch seam, save/netSnapshot, scoring complexity-income, territory engulf-sag, gameMode, placePrimitive, sparkLifecycle, benchGate, disruptionManager, rainbow derangement, stateHash, rng), net/ (protocol v14, sync HostSync/ClientSync render-delay buffer, hostHandlers/clientHandlers trust chain, successionWarrant D1), combos.ts (36-entry table, 14 magic order-symmetric), main.ts tick loop. Smell sweeps (TODO/ts-ignore/skip/console/Math.random/Date.now/setInterval), ts-prune dead-export pass, npm outdated. 3-way Council (Grok-4.20-reasoning ANALYST + Gemini-2.5-pro AUDITOR — FIRST full 3-way since S111) on 8 ranked findings + PRIME-AUDIT of every Council-surfaced risk against code. Deliverable AUDIT_S116.md: 11 findings ranked severity×effort. TOP-3 (both models converged): F1 per-tick redundant complexity/component recompute on host (High/Small — no memoization, ~12+ graph walks/tick at 6P; Grok called it understated), F7 host-migration+worker-sim half-built (High/Large — host death kills match), F8 geometric-builder core under-delivered (High/Med — 14/36 placeholders, 9/14 magic combos visuals-only; reframed from arch-bug to product-debt per Grok). PRIME-AUDIT REFUTED: sim RNG nondeterminism (only Math.random is render-only sudoku fireworks; hazards use seeded mulberry32), full-vs-incremental snapshot divergence (NetSnapshot IS full-every-10Hz), golden-replay-in-CI (save.replay.test.ts 24 tests in suite). CONFIRMED gaps: F9 no INTENT rate-limit, F10 Pixi-leak UNVERIFIED (logged not dropped). Recommended queue: Tier-A A1 F1-memoization + A2 consistency/hygiene batch (F3/F4/F5/F6) THIS session-class (safe/high-value); Tier-B strategic fork (B1 hostmig-D2 [parked PDR] vs B2 worker-sim vs B3 one symbiotic combo) as owner pick. gates untouched (research: tsc 0, vitest 1779/1779 baseline held).",
+      "check_method": "Full deep-read audit (Fable 5 Ultracode), research-only, NO production code changed. Deep-read the entire core sim: physics/ (verlet, bonds, collision, spatial, physicsLoop), state/ (world dispatch seam, save/netSnapshot, scoring complexity-income, territory engulf-sag, gameMode, placePrimitive, sparkLifecycle, benchGate, disruptionManager, rainbow derangement, stateHash, rng), net/ (protocol v14, sync HostSync/ClientSync render-delay buffer, hostHandlers/clientHandlers trust chain, successionWarrant D1), combos.ts (36-entry table, 14 magic order-symmetric), main.ts tick loop. Smell sweeps (TODO/ts-ignore/skip/console/Math.random/Date.now/setInterval), ts-prune dead-export pass, npm outdated. 3-way Council (Grok-4.20-reasoning ANALYST + Gemini-2.5-pro AUDITOR \u2014 FIRST full 3-way since S111) on 8 ranked findings + PRIME-AUDIT of every Council-surfaced risk against code. Deliverable AUDIT_S116.md: 11 findings ranked severity\u00d7effort. TOP-3 (both models converged): F1 per-tick redundant complexity/component recompute on host (High/Small \u2014 no memoization, ~12+ graph walks/tick at 6P; Grok called it understated), F7 host-migration+worker-sim half-built (High/Large \u2014 host death kills match), F8 geometric-builder core under-delivered (High/Med \u2014 14/36 placeholders, 9/14 magic combos visuals-only; reframed from arch-bug to product-debt per Grok). PRIME-AUDIT REFUTED: sim RNG nondeterminism (only Math.random is render-only sudoku fireworks; hazards use seeded mulberry32), full-vs-incremental snapshot divergence (NetSnapshot IS full-every-10Hz), golden-replay-in-CI (save.replay.test.ts 24 tests in suite). CONFIRMED gaps: F9 no INTENT rate-limit, F10 Pixi-leak UNVERIFIED (logged not dropped). Recommended queue: Tier-A A1 F1-memoization + A2 consistency/hygiene batch (F3/F4/F5/F6) THIS session-class (safe/high-value); Tier-B strategic fork (B1 hostmig-D2 [parked PDR] vs B2 worker-sim vs B3 one symbiotic combo) as owner pick. gates untouched (research: tsc 0, vitest 1779/1779 baseline held).",
       "checkpoint_commit": "7aed58a",
       "real_context_tokens_at_close": 301350,
       "real_context_pct_at_close": 30.1
+    },
+    {
+      "id": "S117-P1-F1a",
+      "label": "F1a single-pass complexity: new computeAllComplexities(world) bucketed one-pass; computeComplexity becomes a thin wrapper (single source of truth); tickScoring uses the map. Byte-identical BY CONSTRUCTION (integer counts + verbatim final expression). Bit-exact differential test + 24 save.replay tests as gate. Defers F1b (territory global-labeling) to carry-forward per Council risk-isolation.",
+      "status": "completed",
+      "phase": "COMPLETED",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "priority_state": "completed",
+      "unlock_source": "user",
+      "plan_file": ".claude/plans/2026-07-04_PDR_S117_TierA_Audit_Fixes.md",
+      "user_approval_verbatim": "approved to run per your recommendations",
+      "check_completed": true,
+      "checkpoint_commit": "471105d",
+      "real_context_tokens_at_close": 391450,
+      "real_context_pct_at_close": 39.1,
+      "check_method": "F1a shipped (471105d). scoring.computeComplexity re-walked world.primitives+world.bonds once PER PLAYER inside tickScoring (O(P*(prims+bonds))/tick on host). NEW computeAllComplexities(world): one prim pass (bucket primCount+owned-spawner by placedBy, skip fouled) + one bond pass (bucket magic/functional/filament by aId-owner with IDENTICAL undefined/fouled skips) + per-player IDENTICAL one-shot final expression (primCount*PRIM_WEIGHT + magicBonds*MAGIC_BONUS + min(fb,floor(1.5*pc))*FUNCTIONAL_BOND_COMPLEXITY + filament*FILAMENT_INCOME_COMPLEXITY + spawner*SPAWNER_INCOME_COMPLEXITY). computeComplexity is now a thin wrapper over it (single source of truth — Gemini mandate; single-shot callers gameState WIN-log + debugOverlay unchanged). tickScoring computes the map ONCE. BYTE-IDENTICAL BY CONSTRUCTION: integer counts (order-independent) + verbatim expression = no incremental float accumulation to reorder (refutes Grok's IEEE-order REJECT — the old code also counted ints then multiplied once). PRIME-AUDIT of Council split: Grok said ship-F1b-not-F1a (float REJECT), Gemini said ship-F1a-not-F1b (canonical wrapper + Object.is test); Supervisor shipped F1a (byte-identical by construction once Grok's misread corrected) + deferred F1b. GATE: tsc 0; new scoring.differential.test.ts (600+200 random worlds, seated+non-seated ids 0..7, cap-boundary — bit-exact via .toBe()/Object.is) PASS; full vitest 1779->1782 (+3); ALL 24 save.replay byte-identity tests green; PROTOCOL_VERSION 14 held. RALPH:PATROL PASS. CARRY-FORWARD (logged): F1b territory union-find/placerColor-labeling + F2 placement radius reuse."
+    },
+    {
+      "id": "S117-P2-consistency",
+      "label": "F3 assess+remove dead areaMultiplier (if zero refs incl tests; else document); F4 fix stale Magic-12->Magic-14 in LOCKED_DECISIONS; F5 archive ~41 stray untracked HANDOFF_*.md root->.handoff-archive/.",
+      "status": "pending",
+      "phase": "PENDING",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "priority_state": "pending",
+      "unlock_source": "user",
+      "plan_file": ".claude/plans/2026-07-04_PDR_S117_TierA_Audit_Fixes.md"
+    },
+    {
+      "id": "S117-P3-deps",
+      "label": "F6 patch-bump trystero 0.25.0->0.25.2 + pixi lock to 8.19; npm install; full tsc + vitest; revert on any regression.",
+      "status": "pending",
+      "phase": "PENDING",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "priority_state": "pending",
+      "unlock_source": "user",
+      "plan_file": ".claude/plans/2026-07-04_PDR_S117_TierA_Audit_Fixes.md"
     }
   ],
   "carry_forward_priorities": [
-    "PARKED THIS SESSION: hostmig-D2 PDR (.claude/plans/2026-07-04_PDR_S116_HostMig_D2.md) — fully deliberated 3-way, awaiting owner go; remains next non-gated build item unless the audit reorders it.",
-    "GATED Tier-1 (owner design decisions needed): G1b MOTION (mechanical-verb decision) · G2 family traits (LOCKED_DECISIONS §6 amendment + flavor pick).",
+    "PARKED THIS SESSION: hostmig-D2 PDR (.claude/plans/2026-07-04_PDR_S116_HostMig_D2.md) \u2014 fully deliberated 3-way, awaiting owner go; remains next non-gated build item unless the audit reorders it.",
+    "GATED Tier-1 (owner design decisions needed): G1b MOTION (mechanical-verb decision) \u00b7 G2 family traits (LOCKED_DECISIONS \u00a76 amendment + flavor pick).",
     "Owner-gated: anti-coast CLAWBACK; worker-sim ?worker=1 cutover.",
-    "DEPLOY stays MANUAL: npm run deploy (Actions dead — GitHub account billing lock). git push != deploy.",
+    "DEPLOY stays MANUAL: npm run deploy (Actions dead \u2014 GitHub account billing lock). git push != deploy.",
     "Playtest dials outstanding: ANCHOR_STIFFNESS_FLOOR 0.7, SPINDLE_* (2.0/200/0.05), CROWN_*, Helga 0.34, Voltkin 0.17, lightning-drone dials."
   ],
   "budget_total": 1000000,
-  "reflexion_entries_to_archive": [],
-  "session_status": "S116 EXECUTING — full-project audit (user-pre-approved autonomous batch). Gemini back online: Council is 3-way again."
+  "reflexion_entries_to_archive": [
+    "S117-P1 #prime-audit-the-council-not-just-the-code: Grok REJECTed F1a on an IEEE-754 float-summation-order kill-shot (N*0.6 vs incremental +=0.6 in Map order) — a real hazard IN GENERAL, but PRIME-AUDIT against the actual code refuted it: computeComplexity counts INTEGERS (primCount++/magicBonds++) then does the float math ONCE in a single final expression; there is no incremental float accumulation to reorder. Keeping that final expression VERBATIM + feeding identical integer buckets makes the single-pass version byte-identical BY CONSTRUCTION. LESSON: a Council kill-shot is a hypothesis to verify against the code, not a verdict to obey — the strongest adversary can still misread the implementation; the code is the arbiter.",
+    "S117-P1 #ship-the-byte-identical-half-defer-the-subtle-half: the audit's F1 had two collapses — F1a (scoring, integer-count-then-multiply-once → byte-identical by construction) and F1b (territory, needs global component-labeling that must replicate the exact placerColor-relative connectivity rule). Council split on which to ship; the resolution was to ship the provably-safe half (F1a) now and defer the subtle half (F1b) to its own increment with its own union-find + differential test. LESSON: when a perf refactor has a trivially-equivalent part and a partition-equivalence part, split them — the differential-test harness built for the safe half de-risks the subtle half later."
+  ],
+  "session_status": "S116 EXECUTING \u2014 full-project audit (user-pre-approved autonomous batch). Gemini back online: Council is 3-way again.",
+  "totals": {
+    "turns": 0,
+    "budget_remaining": 1000000,
+    "budget_status": "statusline_dead"
+  },
+  "auto_fill_applied": {
+    "ts": "2026-07-04T17:52:39.066136Z",
+    "fields": [
+      "totals"
+    ],
+    "validator_version": "s110-three-tier-v1"
+  }
 }
