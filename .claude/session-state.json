@@ -1,82 +1,45 @@
 {
-  "tool_calls_session_total": 17,
-  "session_id": "S115",
-  "session_kind": "execution",
-  "session_start": "2026-06-29T00:00:00.000Z",
-  "prior_session_note": "S114 shipped the G4 in-world leader crown LIVE (commit c2c1e80, deploy 501885e); render-only, PROTOCOL_VERSION held 14. Tier-1 G3+G4 reconciled COMPLETE. Remaining Tier-1 (G1b MOTION, G2 family traits) is owner-design-gated. S115 advances the next NON-gated work while the owner has not yet playtested.",
-  "phase": "S115_EXECUTING",
+  "tool_calls_session_total": 43,
+  "session_id": "S116",
+  "session_kind": "audit-research",
+  "session_start": "2026-07-04T08:30:00.000Z",
+  "prior_session_note": "S115 shipped the 3-priority combo-behavior batch LIVE (Anchor 04ced0c + Spindle e80854f + host-mig D1 707c973); magic-combo arc COMPLETE; v14 held; 1779 tests. S116 opened with a hostmig-D2 PDR (3-way Council — Gemini BACK online) which the owner PARKED in favor of a full-project audit.",
+  "phase": "S116_EXECUTING",
   "pdr_approved": true,
   "deliberation_completed": true,
-  "unlock_source": "pending",
+  "unlock_source": "user",
   "tier": "Standard",
   "council_rounds": 1,
-  "council_result": "2-way (GROK-ANALYST grok-4.20-reasoning + Claude Supervisor; Gemini 429 credits-depleted, S112-S114 precedent). Grok verdict REJECT-AND-SPLIT. Supervisor PRIME-AUDIT synthesis: P1 ADOPT-WITH-FIX (keep Vortex pre-substep slot — post-solver damp would damp the constraint's corrective velocity = MORE dead; per-prim damp is order-independent; fouled-skip in-pass). P2 REDESIGN (Grok's escape-velocity REJECT is valid against a CONSTANT impulse -> overruled to ADOPT-WITH-FIX by bounding the tangential SPEED, non-accumulating by construction; low/smooth speed for 10Hz readability). P3 ADOPT-WITH-FIX (HELLO pubkey purely additive, no D1 consumer requires it, test absence; warrant reuses the injective domain-separated buildAttestPayload encoding; WebCrypto ECDSA = raw non-malleable sigs). OVERRULED the full SPLIT: the 3 priorities are independent (P1/P2 state+physics+combos; P3 net) with per-priority commit+CHECK+tests = equivalent review depth; user explicitly requested a full batch + pre-approved autonomous run. Bundle headroom ~140KiB (Grok 'tight' overstated). PDR: .claude/plans/2026-06-29_PDR_S115_Combo_Behaviors_HostMigD1.md",
+  "council_result": "S116 pre-audit Council R1 ran 3-WAY for the first time since S111 (Grok-4.20-reasoning ANALYST + Gemini-2.5-pro AUDITOR + Claude Supervisor) on the hostmig-D2 PDR: W1 ADOPT-WITH-FIX (proof-of-possession), W2 1-1 split (Supervisor IN with sign-before-send ordering), W3 Grok REJECT overruled with envelope-vs-save code evidence, W4/W5 ADOPT-WITH-FIX (visibilityState forensics + failure-path tests). That PDR is PARKED (.claude/plans/2026-07-04_PDR_S116_HostMig_D2.md) — owner redirected to a full-project audit (user-pre-approved batch, autonomous). Audit Phase G runs a second Council pass on the findings.",
   "signals_fired": [],
   "priorities": [
     {
-      "id": "S115-BATCH",
-      "label": "S115 BATCH (one approval, 3 sub-priorities executed sequentially P1->P2->P3): P1 ANCHOR anti-drift (Dot->Square magic combo gets a host-only Verlet drift-damp so anchored structures resist being shoved; new anchorStabilize.ts + isAnchorCombo + ANCHOR_DRIFT_DAMP; render/sim-only, no wire bump). P2 SPINDLE swirl (Line->Circle magic combo imparts a BOUNDED tangential impulse to free sparks so they orbit; 90deg-rotated Vortex clone with a tangential-SPEED cap = non-accumulating; new spindle.ts + isSpindleCombo + SPINDLE_* constants; no wire bump). P3 HOST-MIGRATION D1 (identity plumbing, FEATURE-FLAGGED OFF, no protocol bump): client ephemeral ECDSA identity at boot + joiner pubkey additive-optional in HELLO + pure SuccessionWarrant build/sign/verify helpers + unit tests; no MIGRATION_CLAIM/detection/takeover (D2-D4). PROTOCOL_VERSION held 14 across the whole batch. Standard tier (highest-of-batch; D1 driver).",
-      "status": "completed",
-      "phase": "COMPLETED",
+      "id": "S116-AUDIT",
+      "label": "Full project audit (Fable 5 Ultracode): bugs, unfinished pathways, inconsistencies, incoherence + creative/technical/structural/architectural optimization ideas. Phases A inventory / B smell sweep / C core deep-read / D cross-artifact consistency / E test quality / F perf-bundle / G Council pass / H synthesis. Deliverable = AUDIT_S116.md ranked findings + proposed implementation priority order for owner picks. NO production code changes this session.",
+      "status": "in_progress",
+      "phase": "EXECUTING",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "priority_state": "completed",
       "unlock_source": "user",
-      "plan_file": ".claude/plans/2026-06-29_PDR_S115_Combo_Behaviors_HostMigD1.md",
-      "sub_priorities": [
-        "P1-anchor-anti-drift",
-        "P2-spindle-swirl",
-        "P3-hostmig-d1"
-      ],
+      "plan_file": ".claude/plans/2026-07-04_PDR_S116_FULL_PROJECT_AUDIT.md",
+      "user_approval_verbatim": "I pre-approve this session batch, run it autonomously.",
       "check_completed": true,
-      "checkpoint_commit": "707c973",
-      "real_context_tokens_at_close": 384973,
-      "real_context_pct_at_close": 38.5,
-      "commits": [
-        "04ced0c (P1 ANCHOR planted-joint)",
-        "e80854f (P2 SPINDLE bounded-swirl)",
-        "707c973 (P3 host-migration D1, dormant)"
-      ],
-      "check_method": "All 3 sub-priorities shipped as 3 revertible commits, each gated GREEN, then DEPLOYED LIVE. P1 ANCHOR planted-joint (04ced0c): Dot<->Square magic combo floors its territorial stiffnessMultiplier (ANCHOR_STIFFNESS_FLOOR 0.7) so anchored structures resist the S49 enemy-territory sag. A.0-during-execution found the PDR's 'damp prim drift velocity' was a NO-OP (placed prims are never Verlet-integrated — verletStepAll steps only freeSparks, collisions spark-only, placement deletes the spark, hazards erase/sever not shove); reframed to the territorial-stiffness floor (same owner-approved verb, engine-correct mechanism). new state/anchorStabilize.ts (host-only, per-bond idempotent => order-independent, fouled/deleted skip) + isAnchorCombo + wired in physicsLoop after computeTerritorialInfluence. Caught+reconciled the STALE S91 'forward-key only' comment (S98 made Anchor/Spindle order-SYMMETRIC; test caught isAnchorCombo(Square,Dot)===true). P2 SPINDLE bounded-swirl (e80854f): Line<->Circle magic combo imparts a TANGENTIAL impulse to nearby free sparks (orbit, vs Vortex radial suck-in). Council (Grok) REJECTed the naive constant-impulse design for escape-velocity accumulation; FIXED by bounding the tangential SPEED (project velocity onto swirl axis, add only up to SPINDLE_MAX_TANGENTIAL_SPEED headroom) => non-accumulating by construction, proven by a 500-tick unit test. new state/spindle.ts (90deg-rotated applyVortexPull clone; bond-id canonical sort; deterministic vector math, no sin/cos) + isSpindleCombo + SPINDLE_* constants + wired in physicsLoop. P3 host-migration D1 (707c973, DORMANT/feature-flagged off): net/successionWarrant.ts (buildWarrantPayload injective length-prefixed+domain-separated encoding, signWarrant, verifyWarrant chaining to the room-code commitment via host-pubkey fingerprint + fail-closed, warrantedPubkeyForSeat) + generateClientIdentity + HostIdentity.sign() (additive) + ADDITIVE-OPTIONAL HELLO clientPubkeyB64 (fail-closed parse, unpopulated by live sends). No MIGRATION_CLAIM/detection/takeover/boot-wiring (carried D2-D4). P1+P2 render/sim-only, P3 additive => PROTOCOL_VERSION held 14 across the whole batch; save.replay byte-identical (24/24). GATES: tsc 0; vitest 1735->1779 (+44: 9 anchor + 12 spindle + 14 D1 + the +9 net from prior count reconcile... actual final 1779/1779); build entry 611.0/750 KiB (+1.4 over the session). DEPLOYED via npm run deploy -> gh-pages classic Pages: spark-online.space serves this build (deploy script self-verified live hash assets/index-BZSCuCtI.js == built). IN-BROWSER smoke: new modules load + run with 0 console errors; the live-orbit drive was blocked by a hand-hacked-PLAYING-world NaN ARTIFACT (proven via a no-Spindle control that ALSO NaNs — not a code defect; stepPhysics wiring is covered by physicsLoop.test.ts + save.replay full-tick determinism). RALPH:PATROL PASS on all 3. Council 2-way (Grok-4.20 ANALYST + Opus Supervisor; Gemini 429) + PRIME-AUDIT; Standard tier.",
-      "verification": [
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/anchorStabilize.ts", "needle": "export function applyAnchorStabilize" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/combos.ts", "needle": "export function isAnchorCombo" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "ANCHOR_STIFFNESS_FLOOR = 0.7" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/spindle.ts", "needle": "export function applySpindlePull" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/combos.ts", "needle": "export function isSpindleCombo" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts", "needle": "SPINDLE_MAX_TANGENTIAL_SPEED" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/physics/physicsLoop.ts", "needle": "applySpindlePull(world, attractedId)" },
-        { "type": "file_exists", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/successionWarrant.ts" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/successionWarrant.ts", "needle": "export async function verifyWarrant" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/hostIdentity.ts", "needle": "export async function generateClientIdentity" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts", "needle": "clientPubkeyB64" }
-      ]
+      "check_method": "Full deep-read audit (Fable 5 Ultracode), research-only, NO production code changed. Deep-read the entire core sim: physics/ (verlet, bonds, collision, spatial, physicsLoop), state/ (world dispatch seam, save/netSnapshot, scoring complexity-income, territory engulf-sag, gameMode, placePrimitive, sparkLifecycle, benchGate, disruptionManager, rainbow derangement, stateHash, rng), net/ (protocol v14, sync HostSync/ClientSync render-delay buffer, hostHandlers/clientHandlers trust chain, successionWarrant D1), combos.ts (36-entry table, 14 magic order-symmetric), main.ts tick loop. Smell sweeps (TODO/ts-ignore/skip/console/Math.random/Date.now/setInterval), ts-prune dead-export pass, npm outdated. 3-way Council (Grok-4.20-reasoning ANALYST + Gemini-2.5-pro AUDITOR — FIRST full 3-way since S111) on 8 ranked findings + PRIME-AUDIT of every Council-surfaced risk against code. Deliverable AUDIT_S116.md: 11 findings ranked severity×effort. TOP-3 (both models converged): F1 per-tick redundant complexity/component recompute on host (High/Small — no memoization, ~12+ graph walks/tick at 6P; Grok called it understated), F7 host-migration+worker-sim half-built (High/Large — host death kills match), F8 geometric-builder core under-delivered (High/Med — 14/36 placeholders, 9/14 magic combos visuals-only; reframed from arch-bug to product-debt per Grok). PRIME-AUDIT REFUTED: sim RNG nondeterminism (only Math.random is render-only sudoku fireworks; hazards use seeded mulberry32), full-vs-incremental snapshot divergence (NetSnapshot IS full-every-10Hz), golden-replay-in-CI (save.replay.test.ts 24 tests in suite). CONFIRMED gaps: F9 no INTENT rate-limit, F10 Pixi-leak UNVERIFIED (logged not dropped). Recommended queue: Tier-A A1 F1-memoization + A2 consistency/hygiene batch (F3/F4/F5/F6) THIS session-class (safe/high-value); Tier-B strategic fork (B1 hostmig-D2 [parked PDR] vs B2 worker-sim vs B3 one symbiotic combo) as owner pick. gates untouched (research: tsc 0, vitest 1779/1779 baseline held).",
+      "checkpoint_commit": "pending-commit",
+      "real_context_tokens_at_close": 301350,
+      "real_context_pct_at_close": 30.1
     }
   ],
   "carry_forward_priorities": [
-    "GATED Tier-1 (owner design decisions needed, NOT force-built): G1b MOTION (Wheel/Star rotation) — Council-deferred twice as 'visual noise without a mechanical verb'; needs an owner-blessed verb (rule #4). G2 family traits (fill the 24 placeholders) — needs a LOCKED_DECISIONS §6 lock-amendment + owner picks the family flavor (roadmap suggests Dot-pairs=cheap/weak, Square-pairs=sturdy/slow, Spiral-pairs=chaotic wobble).",
-    "Tier-3 host-migration D2-D4 (after D1): D2 epoch field in NETSNAPSHOT + starvation detector + successor computation (instrument-only); D3 MIGRATION_CLAIM happy-path behind __TEST_MIGRATION__ + kill-host e2e; D4 zombie demotion + double-failure + LOCKED amendments + PROTOCOL_VERSION bump ships.",
-    "DEPLOY stays MANUAL: npm run deploy (gh-pages classic Pages). Actions dead — GitHub account billing lock. git push != deploy. OWNER (non-blocking): clear the billing lock (Settings->Billing) + top up Gemini credits at ai.studio (Council ran 2-way S112-S115).",
-    "Owner-gated (unchanged): anti-coast structure-loss CLAWBACK (own PDR); worker-sim ?worker=1 cutover (WORKER_SIM_FOUNDATION.md).",
-    "Playtest dials outstanding: leader crown size/offset (avatarRenderer.ts CROWN_*); Helga PRINCESS_SPRITE_BASE_SCALE 0.34; Voltkin VOLTKIN_SPRITE_BASE_SCALE 0.17; lightning-drone dials (DRONE_EXPLODE_RADIUS etc.); and the NEW S115 dials (ANCHOR_DRIFT_DAMP, SPINDLE_*)."
+    "PARKED THIS SESSION: hostmig-D2 PDR (.claude/plans/2026-07-04_PDR_S116_HostMig_D2.md) — fully deliberated 3-way, awaiting owner go; remains next non-gated build item unless the audit reorders it.",
+    "GATED Tier-1 (owner design decisions needed): G1b MOTION (mechanical-verb decision) · G2 family traits (LOCKED_DECISIONS §6 amendment + flavor pick).",
+    "Owner-gated: anti-coast CLAWBACK; worker-sim ?worker=1 cutover.",
+    "DEPLOY stays MANUAL: npm run deploy (Actions dead — GitHub account billing lock). git push != deploy.",
+    "Playtest dials outstanding: ANCHOR_STIFFNESS_FLOOR 0.7, SPINDLE_* (2.0/200/0.05), CROWN_*, Helga 0.34, Voltkin 0.17, lightning-drone dials."
   ],
   "budget_total": 1000000,
-  "totals": {
-    "turns": 0,
-    "budget_remaining": 1000000,
-    "budget_status": "statusline_dead"
-  },
-  "reflexion_entries_to_archive": [
-    "S115-P1 #scope-the-mechanism-against-the-engine-not-the-pdrs-mental-model: the PDR's 'damp the prim drift velocity' Anchor design was a NO-OP against the real engine — placed primitives are NEVER Verlet-integrated (verletStepAll steps only world.freeSparks; resolveCollisions is spark-only; placement DELETEs the spark; hazards erase/sever a structure, never shove it) so there is no free momentum to damp. A.0-during-execution (read verlet.ts + physicsLoop + how potato/territory actually move a structure) revealed the ONLY real structural instability is the S49 territorial stiffnessMultiplier sag; reframed Anchor to FLOOR that sag (same owner-approved 'planted joint' verb, engine-correct mechanism). LESSON: verify the PDR's IMPLEMENTATION mechanism against the integrator BEFORE coding, not just the feature's intent — the verb survived, the mechanism didn't.",
-    "S115-P1 #a-stale-source-comment-is-a-claim-grep-the-construction-not-the-comment: the S91 'forward-key only — Square->Dot stays a placeholder' combos comment was SUPERSEDED by the S98 order-symmetry mirror loop (which mirrors every non-self magic pair, Anchor+Spindle included); my new isAnchorCombo docstring AND a unit test repeated the stale claim until the test caught it (isAnchorCombo(Square,Dot)===true). LESSON: trust the table-CONSTRUCTION code over an adjacent prose comment; reconcile the stale comment as part of the work; the symmetric reverse earns the BEHAVIOR, not just the income (Vortex S98 precedent).",
-    "S115-P2 #bound-the-accumulated-STATE-not-the-per-tick-DELTA: Grok's REJECT of the naive Spindle (constant tangential impulse -> escape velocity) was a real kill-shot; capping the per-tick IMPULSE does NOT fix it (it still accumulates across ticks since the spark stays in range). The fix bounds the RESULT: project the spark's current velocity onto the swirl axis and only add up to the headroom to SPINDLE_MAX_TANGENTIAL_SPEED. Provably non-accumulating; a 500-tick unit test asserts the bound holds every tick. LESSON: when a behavior adds to a quantity each tick, bound the STATE (resulting speed), not the DELTA (per-tick impulse).",
-    "S115-P2 #a-hand-hacked-PLAYING-world-cannot-runtime-verify-a-behavior: driving the hidden preview by setting world.gameState='PLAYING' on a TITLE world (a) ran tick++ but SKIPPED stepPhysics until I cleared the forceNonet sudoku-FREEZE branch, then (b) NaN'd within ~14 ticks — a no-Spindle CONTROL spark ALSO NaN'd, proving the uninitialized-match state (territory/scoring/collision on a title world) is the NaN source, NOT the new code. LESSON: the app gates stepPhysics on its SCREEN state, not world.gameState; a hand-forced PLAYING world is not a valid runtime fixture. Use physicsLoop.test.ts (real stepPhysics) for wiring + the browser load-smoke for 'no console error'; to truly drive live, start a real match via the title buttons (S113 method).",
-    "S115-P3 #ship-the-PRIMITIVES-dormant-defer-the-LIVE-WIRING: host-migration D1 is the textbook 'land the tested foundation, activate later' phase — the warrant build/sign/verify + client identity + the additive-optional HELLO pubkey field all ship now (14 tests, real WebCrypto), but NOTHING is wired into a live decision path (no boot-time keygen, no live HELLO populates the field, no MIGRATION_CLAIM). This keeps a security-sensitive netcode feature at ZERO behavior-change before the owner playtests, while D2-D4 build on a proven base. KEY trust property: verifyWarrant chains to the room-code COMMITMENT (the host pubkey's fingerprint MUST equal the room code) so a successor can't forge under a different key; reused the buildAttestPayload injective length-prefixed encoding (no malleability) + WebCrypto raw P-1363 sigs. LESSON: for risky infra, separate 'capability exists + is tested' (D1) from 'capability is active in the live path' (D2+) — additive-optional fields with fail-closed parsers make the dormant phase truly inert."
-  ],
-  "analyze_completed": true,
-  "real_context_tokens_at_close": 384973,
-  "real_context_pct_at_close": 38.5,
-  "session_status": "S115 — 3-PRIORITY BATCH SHIPPED + DEPLOYED LIVE. P1 ANCHOR planted-joint (04ced0c: Dot<->Square floors territorial stiffness to resist enemy-territory sag) + P2 SPINDLE bounded-swirl (e80854f: Line<->Circle orbits free sparks, Council-mandated tangential-speed cap = no escape velocity) + P3 host-migration D1 (707c973: succession-warrant + client-identity + additive HELLO pubkey, DORMANT/feature-flagged off). PROTOCOL_VERSION held 14 across the batch; save.replay byte-identical. tsc 0; vitest 1779/1779 (+35 net new: 9 anchor + 12 spindle + 14 D1); build 611.0/750 KiB. DEPLOYED via npm run deploy -> spark-online.space serves this build (self-verified hash index-BZSCuCtI.js). 2-way Council (Grok ANALYST + Opus; Gemini 429) + PRIME-AUDIT; RALPH:PATROL PASS x3. Recommend /handoff. Remaining Tier-1 (G1b MOTION, G2 family traits) is owner-design-gated; next non-gated = host-migration D2.",
-  "handoff_ready": false
+  "reflexion_entries_to_archive": [],
+  "session_status": "S116 EXECUTING — full-project audit (user-pre-approved autonomous batch). Gemini back online: Council is 3-way again."
 }
