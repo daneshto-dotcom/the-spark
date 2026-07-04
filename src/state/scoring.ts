@@ -95,67 +95,104 @@ export function leaderPlayerId(world: World): PlayerId | null {
  * bond feature [e.g. Steal] is ever added, revisit this single-owner rule.)
  */
 export function computeComplexity(world: World, playerId: PlayerId): number {
-  let primCount = 0;
+  // S117 P1 (F1a) — thin wrapper over the single-pass computeAllComplexities so there is ONE
+  // implementation of the complexity formula (Council/Gemini mandate: no parallel code path to
+  // drift). Byte-identical to the pre-S117 per-player walk BY CONSTRUCTION (same integer counts,
+  // same one-shot final expression). Single-shot callers (the WIN-forensics log in gameState.ts,
+  // debugOverlay) pay one full pass per call — negligible (they fire once per match / on the
+  // ?debug overlay), and the per-tick hot path (tickScoring) computes the map ONCE for all seats.
+  return computeAllComplexities(world).get(playerId) ?? 0;
+}
+
+/**
+ * S117 P1 (F1a, audit fix) — compute EVERY player's standing complexity in a SINGLE pass over
+ * `world.primitives` + a SINGLE pass over `world.bonds` (was: `computeComplexity` re-walked both
+ * global Maps once PER PLAYER inside `tickScoring`, O(P×(prims+bonds)) every tick on the host).
+ *
+ * BYTE-IDENTICAL to the former per-player walk by construction, and the byte-identity is the whole
+ * point (replay determinism / 1v1-mirror). The proof:
+ *   1. Every count is an INTEGER (`primCount`/`magicBonds`/… ++) bucketed by the SAME ownership
+ *      predicate the old loop used — a prim credits `prim.placedBy` (skip fouled); a bond credits
+ *      its `aId`-primitive's `placedBy` (the old "credit each bond to ONE owner: bond.aId's placer"
+ *      rule), with the IDENTICAL undefined-endpoint + fouled-endpoint skips; a spawner credits
+ *      `sp.ownerPlayerId`. Integer counting is order-independent, so Map-iteration order is irrelevant.
+ *   2. The final value per player is the SAME one-shot expression as before — there is NO incremental
+ *      float accumulation anywhere (the old code also counted ints then multiplied once), so there is
+ *      no IEEE-754 summation-order hazard to introduce. `state/scoring.differential.test.ts` proves
+ *      bit-exact (`Object.is`) equivalence vs a reference per-player loop across many random worlds,
+ *      and the 24 save.replay byte-identity tests guard the live path.
+ *
+ * Returns a value for every seated player AND every owner that appears in the counts (union), so the
+ * `computeComplexity` wrapper matches the old function for ANY playerId (absent ⇒ 0, same as before).
+ */
+export function computeAllComplexities(world: World): Map<PlayerId, number> {
+  const primCount = new Map<PlayerId, number>();
+  const magicBonds = new Map<PlayerId, number>();
+  const functionalBonds = new Map<PlayerId, number>();
+  const filamentBonds = new Map<PlayerId, number>();
+  const spawnerCount = new Map<PlayerId, number>();
+  const inc = (m: Map<PlayerId, number>, k: PlayerId): void => {
+    m.set(k, (m.get(k) ?? 0) + 1);
+  };
+
+  // S77 P3 — a poop-FOULED primitive earns nothing (its whole structure's income stops until
+  // cleaned). O(1) Set check; the set is empty in the common case.
   for (const prim of world.primitives.values()) {
-    // S77 P3 — a poop-FOULED primitive earns nothing: a seagull poop fouls the whole connected
-    // structure, so that structure's income stops until cleaned ("the whole structure stops
-    // generating income"). O(1) Set check; the set is empty in the common (un-fouled) case.
-    if (prim.placedBy === playerId && !world.fouledPrimitives.has(prim.id)) primCount++;
+    if (!world.fouledPrimitives.has(prim.id)) inc(primCount, prim.placedBy);
   }
-  let magicBonds = 0;
-  let functionalBonds = 0;
-  let filamentBonds = 0; // S90 P1 — Filaments earn an EXTRA trickle on top of the magic premium
   for (const bond of world.bonds.values()) {
     // Resolve endpoints via id — bond.a/.b are PhysicsBody refs (pos only), not Primitives.
     // Credit each bond to ONE owner: its aId primitive's placer (Δ2). Skip a bond that
     // references a deleted primitive (defensive — keeps complexity well-defined mid-teardown).
     const a = world.primitives.get(bond.aId);
-    if (a === undefined || a.placedBy !== playerId) continue;
+    if (a === undefined) continue;
     const b = world.primitives.get(bond.bId);
     if (b === undefined) continue;
-    // S77 P3 — skip a fouled structure's magic bonds too (either endpoint fouled), consistent
-    // with skipping its prims above, so a poop-fouled structure earns ZERO until cleaned.
+    // S77 P3 — skip a fouled structure's bonds too (either endpoint fouled), consistent with
+    // skipping its prims above, so a poop-fouled structure earns ZERO until cleaned.
     if (world.fouledPrimitives.has(bond.aId) || world.fouledPrimitives.has(bond.bId)) continue;
     if (lookupCombo(a.type, b.type).isMagical) {
-      magicBonds++;
-      // S90 P1 (G1b ECONOMY) — a Filament (Dot→Line) ALSO earns the income trickle. The 2nd
-      // lookup only fires for the handful of magic bonds (functional bonds skip it). The
-      // fouled-skip above already zeroes a poop-fouled Filament, same as every other bond.
-      if (isFilamentCombo(a.type, b.type)) filamentBonds++;
+      inc(magicBonds, a.placedBy);
+      // S90 P1 (G1b ECONOMY) — a Filament ALSO earns the income trickle (extra, on top of the
+      // magic premium). The 2nd lookup only fires for the handful of magic bonds.
+      if (isFilamentCombo(a.type, b.type)) inc(filamentBonds, a.placedBy);
     } else {
-      functionalBonds++;
+      inc(functionalBonds, a.placedBy);
     }
   }
-  // S84 P4 — functional bonds re-enter complexity at FUNCTIONAL_BOND_COMPLEXITY each, with
-  // the COUNTED bonds capped at FUNCTIONAL_BOND_CAP_PER_PRIM × prims: a spanning tree
-  // (n−1 bonds) counts fully — a connected structure now out-earns the same prims
-  // scattered (the S84 field report's flattening) — while a dense clique field caps out,
-  // so bond-spam cannot dominate (Council S84; the S76 don't-connect exploit cannot
-  // return because bonding only ever ADDS). Cap uses the UN-fouled prim count: fouling
-  // already zeroes those prims + bonds above, keeping the cap consistent.
-  const countedFunctional = Math.min(
-    functionalBonds,
-    Math.floor(FUNCTIONAL_BOND_CAP_PER_PRIM * primCount),
-  );
-  // S100 P1 (TD Phase 1a) — NEAR-ZERO passive income for each LIVE spawner this player
-  // owns (TOWER_DEFENSE_DESIGN.md §2.7/§4.2). Recomputed from live state every tick (no
-  // parallel accrual loop): destroy a player's spawner (the re-validation poll dispatches
-  // REMOVE_SPAWNER → the map shrinks) and this term vanishes the SAME tick — "raid it to
-  // stop its income" works for free. Kept tiny (SPAWNER_INCOME_COMPLEXITY=0.5) so it never
-  // threatens the protected PHASE_1_WIN_SCORE=630 anchor; the real balance lever is
-  // destruction throughput, not income. O(spawners) — bounded by the per-player spawner
-  // count (typically 0-1), negligible next to the prim/bond passes above.
-  let spawnerCount = 0;
+  // S100 P1 (TD Phase 1a) — NEAR-ZERO passive income per LIVE owned spawner (raid it to stop it).
   for (const sp of world.creatureSpawners.values()) {
-    if (sp.ownerPlayerId === playerId) spawnerCount++;
+    inc(spawnerCount, sp.ownerPlayerId);
   }
-  return (
-    primCount * PRIM_WEIGHT +
-    magicBonds * MAGIC_BONUS +
-    countedFunctional * FUNCTIONAL_BOND_COMPLEXITY +
-    filamentBonds * FILAMENT_INCOME_COMPLEXITY +
-    spawnerCount * SPAWNER_INCOME_COMPLEXITY
-  );
+
+  // Finalize each player with the IDENTICAL one-shot expression. Union of (owners that appear) ∪
+  // (seated players) so a value exists for every id the old per-player function would return.
+  const owners = new Set<PlayerId>();
+  for (const m of [primCount, magicBonds, functionalBonds, filamentBonds, spawnerCount]) {
+    for (const k of m.keys()) owners.add(k);
+  }
+  for (const player of world.players.values()) owners.add(player.id);
+
+  const result = new Map<PlayerId, number>();
+  for (const pid of owners) {
+    const pc = primCount.get(pid) ?? 0;
+    const mb = magicBonds.get(pid) ?? 0;
+    const fb = functionalBonds.get(pid) ?? 0;
+    const flb = filamentBonds.get(pid) ?? 0;
+    const sc = spawnerCount.get(pid) ?? 0;
+    // S84 P4 — functional bonds capped at FUNCTIONAL_BOND_CAP_PER_PRIM × prims (spanning tree counts
+    // fully; dense clique caps out so bond-spam can't dominate). Cap uses the UN-fouled prim count.
+    const countedFunctional = Math.min(fb, Math.floor(FUNCTIONAL_BOND_CAP_PER_PRIM * pc));
+    result.set(
+      pid,
+      pc * PRIM_WEIGHT +
+        mb * MAGIC_BONUS +
+        countedFunctional * FUNCTIONAL_BOND_COMPLEXITY +
+        flb * FILAMENT_INCOME_COMPLEXITY +
+        sc * SPAWNER_INCOME_COMPLEXITY,
+    );
+  }
+  return result;
 }
 
 /**
@@ -167,10 +204,15 @@ export function tickScoring(world: World): void {
   const perTickFactor = SCORE_INCOME_PER_COMPLEXITY_PER_SEC / PHYSICS_HZ;
   const oldProgress = world.scoreProgress;
 
+  // S117 P1 (F1a) — compute EVERY seat's complexity in one pass (was a per-player re-walk of the
+  // prim+bond Maps inside this loop). Byte-identical values, so scoreByPlayer accrues bit-for-bit
+  // as before; the per-tick cost drops from O(P×(prims+bonds)) to O(prims+bonds+P) on the host.
+  const complexities = computeAllComplexities(world);
+
   let leaderId: PlayerId | null = null;
   let max = 0;
   for (const player of world.players.values()) {
-    const complexity = computeComplexity(world, player.id);
+    const complexity = complexities.get(player.id) ?? 0;
     const next = (world.scoreByPlayer.get(player.id) ?? 0) + complexity * perTickFactor;
     world.scoreByPlayer.set(player.id, next);
     if (leaderId === null || next > max) {
