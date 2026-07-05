@@ -1,16 +1,16 @@
 {
-  "tool_calls_session_total": 70,
+  "tool_calls_session_total": 73,
   "session_id": "S117",
   "session_kind": "execution",
   "session_start": "2026-07-04T08:30:00.000Z",
-  "prior_session_note": "S115 shipped the 3-priority combo-behavior batch LIVE (Anchor 04ced0c + Spindle e80854f + host-mig D1 707c973); magic-combo arc COMPLETE; v14 held; 1779 tests. S116 opened with a hostmig-D2 PDR (3-way Council \u2014 Gemini BACK online) which the owner PARKED in favor of a full-project audit.",
+  "prior_session_note": "S115 shipped the 3-priority combo-behavior batch LIVE (Anchor 04ced0c + Spindle e80854f + host-mig D1 707c973); magic-combo arc COMPLETE; v14 held; 1779 tests. S116 opened with a hostmig-D2 PDR (3-way Council — Gemini BACK online) which the owner PARKED in favor of a full-project audit.",
   "phase": "S117_EXECUTING",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
   "tier": "Standard",
   "council_rounds": 1,
-  "council_result": "S116 pre-audit Council R1 ran 3-WAY for the first time since S111 (Grok-4.20-reasoning ANALYST + Gemini-2.5-pro AUDITOR + Claude Supervisor) on the hostmig-D2 PDR: W1 ADOPT-WITH-FIX (proof-of-possession), W2 1-1 split (Supervisor IN with sign-before-send ordering), W3 Grok REJECT overruled with envelope-vs-save code evidence, W4/W5 ADOPT-WITH-FIX (visibilityState forensics + failure-path tests). That PDR is PARKED (.claude/plans/2026-07-04_PDR_S116_HostMig_D2.md) \u2014 owner redirected to a full-project audit (user-pre-approved batch, autonomous). Audit Phase G runs a second Council pass on the findings.",
+  "council_result": "S116 pre-audit Council R1 ran 3-WAY for the first time since S111 (Grok-4.20-reasoning ANALYST + Gemini-2.5-pro AUDITOR + Claude Supervisor) on the hostmig-D2 PDR: W1 ADOPT-WITH-FIX (proof-of-possession), W2 1-1 split (Supervisor IN with sign-before-send ordering), W3 Grok REJECT overruled with envelope-vs-save code evidence, W4/W5 ADOPT-WITH-FIX (visibilityState forensics + failure-path tests). That PDR is PARKED (.claude/plans/2026-07-04_PDR_S116_HostMig_D2.md) — owner redirected to a full-project audit (user-pre-approved batch, autonomous). Audit Phase G runs a second Council pass on the findings.",
   "signals_fired": [],
   "priorities": [
     {
@@ -26,10 +26,21 @@
       "plan_file": ".claude/plans/2026-07-04_PDR_S116_FULL_PROJECT_AUDIT.md",
       "user_approval_verbatim": "I pre-approve this session batch, run it autonomously.",
       "check_completed": true,
-      "check_method": "Full deep-read audit (Fable 5 Ultracode), research-only, NO production code changed. Deep-read the entire core sim: physics/ (verlet, bonds, collision, spatial, physicsLoop), state/ (world dispatch seam, save/netSnapshot, scoring complexity-income, territory engulf-sag, gameMode, placePrimitive, sparkLifecycle, benchGate, disruptionManager, rainbow derangement, stateHash, rng), net/ (protocol v14, sync HostSync/ClientSync render-delay buffer, hostHandlers/clientHandlers trust chain, successionWarrant D1), combos.ts (36-entry table, 14 magic order-symmetric), main.ts tick loop. Smell sweeps (TODO/ts-ignore/skip/console/Math.random/Date.now/setInterval), ts-prune dead-export pass, npm outdated. 3-way Council (Grok-4.20-reasoning ANALYST + Gemini-2.5-pro AUDITOR \u2014 FIRST full 3-way since S111) on 8 ranked findings + PRIME-AUDIT of every Council-surfaced risk against code. Deliverable AUDIT_S116.md: 11 findings ranked severity\u00d7effort. TOP-3 (both models converged): F1 per-tick redundant complexity/component recompute on host (High/Small \u2014 no memoization, ~12+ graph walks/tick at 6P; Grok called it understated), F7 host-migration+worker-sim half-built (High/Large \u2014 host death kills match), F8 geometric-builder core under-delivered (High/Med \u2014 14/36 placeholders, 9/14 magic combos visuals-only; reframed from arch-bug to product-debt per Grok). PRIME-AUDIT REFUTED: sim RNG nondeterminism (only Math.random is render-only sudoku fireworks; hazards use seeded mulberry32), full-vs-incremental snapshot divergence (NetSnapshot IS full-every-10Hz), golden-replay-in-CI (save.replay.test.ts 24 tests in suite). CONFIRMED gaps: F9 no INTENT rate-limit, F10 Pixi-leak UNVERIFIED (logged not dropped). Recommended queue: Tier-A A1 F1-memoization + A2 consistency/hygiene batch (F3/F4/F5/F6) THIS session-class (safe/high-value); Tier-B strategic fork (B1 hostmig-D2 [parked PDR] vs B2 worker-sim vs B3 one symbiotic combo) as owner pick. gates untouched (research: tsc 0, vitest 1779/1779 baseline held).",
+      "check_method": "Full deep-read audit (Fable 5 Ultracode), research-only, NO production code changed. Deep-read the entire core sim: physics/ (verlet, bonds, collision, spatial, physicsLoop), state/ (world dispatch seam, save/netSnapshot, scoring complexity-income, territory engulf-sag, gameMode, placePrimitive, sparkLifecycle, benchGate, disruptionManager, rainbow derangement, stateHash, rng), net/ (protocol v14, sync HostSync/ClientSync render-delay buffer, hostHandlers/clientHandlers trust chain, successionWarrant D1), combos.ts (36-entry table, 14 magic order-symmetric), main.ts tick loop. Smell sweeps (TODO/ts-ignore/skip/console/Math.random/Date.now/setInterval), ts-prune dead-export pass, npm outdated. 3-way Council (Grok-4.20-reasoning ANALYST + Gemini-2.5-pro AUDITOR — FIRST full 3-way since S111) on 8 ranked findings + PRIME-AUDIT of every Council-surfaced risk against code. Deliverable AUDIT_S116.md: 11 findings ranked severity×effort. TOP-3 (both models converged): F1 per-tick redundant complexity/component recompute on host (High/Small — no memoization, ~12+ graph walks/tick at 6P; Grok called it understated), F7 host-migration+worker-sim half-built (High/Large — host death kills match), F8 geometric-builder core under-delivered (High/Med — 14/36 placeholders, 9/14 magic combos visuals-only; reframed from arch-bug to product-debt per Grok). PRIME-AUDIT REFUTED: sim RNG nondeterminism (only Math.random is render-only sudoku fireworks; hazards use seeded mulberry32), full-vs-incremental snapshot divergence (NetSnapshot IS full-every-10Hz), golden-replay-in-CI (save.replay.test.ts 24 tests in suite). CONFIRMED gaps: F9 no INTENT rate-limit, F10 Pixi-leak UNVERIFIED (logged not dropped). Recommended queue: Tier-A A1 F1-memoization + A2 consistency/hygiene batch (F3/F4/F5/F6) THIS session-class (safe/high-value); Tier-B strategic fork (B1 hostmig-D2 [parked PDR] vs B2 worker-sim vs B3 one symbiotic combo) as owner pick. gates untouched (research: tsc 0, vitest 1779/1779 baseline held).",
       "checkpoint_commit": "7aed58a",
       "real_context_tokens_at_close": 301350,
-      "real_context_pct_at_close": 30.1
+      "real_context_pct_at_close": 30.1,
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/AUDIT_S116.md"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/AUDIT_S116.md",
+          "needle": "Recommended implementation order"
+        }
+      ]
     },
     {
       "id": "S117-P1-F1a",
@@ -47,7 +58,18 @@
       "checkpoint_commit": "471105d",
       "real_context_tokens_at_close": 391450,
       "real_context_pct_at_close": 39.1,
-      "check_method": "F1a shipped (471105d). scoring.computeComplexity re-walked world.primitives+world.bonds once PER PLAYER inside tickScoring (O(P*(prims+bonds))/tick on host). NEW computeAllComplexities(world): one prim pass (bucket primCount+owned-spawner by placedBy, skip fouled) + one bond pass (bucket magic/functional/filament by aId-owner with IDENTICAL undefined/fouled skips) + per-player IDENTICAL one-shot final expression (primCount*PRIM_WEIGHT + magicBonds*MAGIC_BONUS + min(fb,floor(1.5*pc))*FUNCTIONAL_BOND_COMPLEXITY + filament*FILAMENT_INCOME_COMPLEXITY + spawner*SPAWNER_INCOME_COMPLEXITY). computeComplexity is now a thin wrapper over it (single source of truth — Gemini mandate; single-shot callers gameState WIN-log + debugOverlay unchanged). tickScoring computes the map ONCE. BYTE-IDENTICAL BY CONSTRUCTION: integer counts (order-independent) + verbatim expression = no incremental float accumulation to reorder (refutes Grok's IEEE-order REJECT — the old code also counted ints then multiplied once). PRIME-AUDIT of Council split: Grok said ship-F1b-not-F1a (float REJECT), Gemini said ship-F1a-not-F1b (canonical wrapper + Object.is test); Supervisor shipped F1a (byte-identical by construction once Grok's misread corrected) + deferred F1b. GATE: tsc 0; new scoring.differential.test.ts (600+200 random worlds, seated+non-seated ids 0..7, cap-boundary — bit-exact via .toBe()/Object.is) PASS; full vitest 1779->1782 (+3); ALL 24 save.replay byte-identity tests green; PROTOCOL_VERSION 14 held. RALPH:PATROL PASS. CARRY-FORWARD (logged): F1b territory union-find/placerColor-labeling + F2 placement radius reuse."
+      "check_method": "F1a shipped (471105d). scoring.computeComplexity re-walked world.primitives+world.bonds once PER PLAYER inside tickScoring (O(P*(prims+bonds))/tick on host). NEW computeAllComplexities(world): one prim pass (bucket primCount+owned-spawner by placedBy, skip fouled) + one bond pass (bucket magic/functional/filament by aId-owner with IDENTICAL undefined/fouled skips) + per-player IDENTICAL one-shot final expression (primCount*PRIM_WEIGHT + magicBonds*MAGIC_BONUS + min(fb,floor(1.5*pc))*FUNCTIONAL_BOND_COMPLEXITY + filament*FILAMENT_INCOME_COMPLEXITY + spawner*SPAWNER_INCOME_COMPLEXITY). computeComplexity is now a thin wrapper over it (single source of truth — Gemini mandate; single-shot callers gameState WIN-log + debugOverlay unchanged). tickScoring computes the map ONCE. BYTE-IDENTICAL BY CONSTRUCTION: integer counts (order-independent) + verbatim expression = no incremental float accumulation to reorder (refutes Grok's IEEE-order REJECT — the old code also counted ints then multiplied once). PRIME-AUDIT of Council split: Grok said ship-F1b-not-F1a (float REJECT), Gemini said ship-F1a-not-F1b (canonical wrapper + Object.is test); Supervisor shipped F1a (byte-identical by construction once Grok's misread corrected) + deferred F1b. GATE: tsc 0; new scoring.differential.test.ts (600+200 random worlds, seated+non-seated ids 0..7, cap-boundary — bit-exact via .toBe()/Object.is) PASS; full vitest 1779->1782 (+3); ALL 24 save.replay byte-identity tests green; PROTOCOL_VERSION 14 held. RALPH:PATROL PASS. CARRY-FORWARD (logged): F1b territory union-find/placerColor-labeling + F2 placement radius reuse.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/scoring.ts",
+          "needle": "computeAllComplexities"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/scoring.differential.test.ts"
+        }
+      ]
     },
     {
       "id": "S117-P2-consistency",
@@ -62,7 +84,19 @@
       "plan_file": ".claude/plans/2026-07-04_PDR_S117_TierA_Audit_Fixes.md",
       "check_completed": true,
       "checkpoint_commit": "f3123e3",
-      "check_method": "F3/F4/F5 shipped (f3123e3), low-risk hygiene. F3: areaMultiplier has ZERO production readers but IS woven through the LOCKED §6 Magic-14 seed catalog (the 'x' annotations) + has 2 combos.test.ts assertions — clean removal would churn a LOCKED governance doc AND trip the PDR's no-scope-creep guard. Resolved the ACTUAL defect (dead-data masquerading as live schema) by documenting areaMultiplier as RESERVED (future area-mechanic slot) in combos.ts ComboOutcome + a LOCKED §6 note. F4: LOCKED_DECISIONS:800 stale 'Magic-12 silhouettes' (12-item list) -> 'Magic-14' + added anchor/spindle (magic since S91). F5: 23 root HANDOFF_*.md were committed BEFORE the S74 /HANDOFF_*.md gitignore rule (violating it); verified ALL 23 already have permanent copies in .handoff-archive/, git rm'd them (design-correct per S74: root handoffs ephemeral, permanent copy archived). 41 gitignored local handoffs (incl active S115) untouched. GATE: tsc 0; full vitest 1782/1782 (no runtime change — docs + untracking only). RALPH:PATROL PASS."
+      "check_method": "F3/F4/F5 shipped (f3123e3), low-risk hygiene. F3: areaMultiplier has ZERO production readers but IS woven through the LOCKED §6 Magic-14 seed catalog (the 'x' annotations) + has 2 combos.test.ts assertions — clean removal would churn a LOCKED governance doc AND trip the PDR's no-scope-creep guard. Resolved the ACTUAL defect (dead-data masquerading as live schema) by documenting areaMultiplier as RESERVED (future area-mechanic slot) in combos.ts ComboOutcome + a LOCKED §6 note. F4: LOCKED_DECISIONS:800 stale 'Magic-12 silhouettes' (12-item list) -> 'Magic-14' + added anchor/spindle (magic since S91). F5: 23 root HANDOFF_*.md were committed BEFORE the S74 /HANDOFF_*.md gitignore rule (violating it); verified ALL 23 already have permanent copies in .handoff-archive/, git rm'd them (design-correct per S74: root handoffs ephemeral, permanent copy archived). 41 gitignored local handoffs (incl active S115) untouched. GATE: tsc 0; full vitest 1782/1782 (no runtime change — docs + untracking only). RALPH:PATROL PASS.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/combos.ts",
+          "needle": "RESERVED"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/LOCKED_DECISIONS.md",
+          "needle": "Magic-14"
+        }
+      ]
     },
     {
       "id": "S117-P3-deps",
@@ -79,14 +113,26 @@
       "checkpoint_commit": "b9d77d3",
       "real_context_tokens_at_close": 355643,
       "real_context_pct_at_close": 35.6,
-      "check_method": "F6 dependency patch bumps shipped (b9d77d3). Audit F6 was the last Tier-A hygiene item: patch/minor dep drift, no majors. Applied @trystero-p2p/{core,mqtt,nostr,torrent} 0.25.0->0.25.2 (patch — bugfix-only, no API surface change) + pixi.js ^8.5.0->^8.19.0 (installed 8.19.0); package-lock regenerated (node_modules verified: pixi 8.19.0 + trystero 0.25.2 on disk). RALPH:PATROL risk sweep: (a) pixi minor could shift render behavior -> mitigated, all 108 render-inclusive test files pass + build succeeds; (b) trystero patch could change P2P transport -> mitigated, net tests pass + patch has no API change + tsc clean; (c) lockfile/node_modules drift -> verified installed versions match package.json. GATE: tsc 0; FULL vitest 1782/1782 (no test count change — dep-only); npm run build clean, entry bundle 611.0->617.2 KiB (+6.2 KiB pixi minor, still 132.8 KiB under the 750 charter); PROTOCOL_VERSION 14 held (no wire/schema touch). No regression -> no revert needed. Tier-A batch (S117-P1 F1a + P2 F3/F4/F5 + P3 F6) now COMPLETE."
+      "check_method": "F6 dependency patch bumps shipped (b9d77d3). Audit F6 was the last Tier-A hygiene item: patch/minor dep drift, no majors. Applied @trystero-p2p/{core,mqtt,nostr,torrent} 0.25.0->0.25.2 (patch — bugfix-only, no API surface change) + pixi.js ^8.5.0->^8.19.0 (installed 8.19.0); package-lock regenerated (node_modules verified: pixi 8.19.0 + trystero 0.25.2 on disk). RALPH:PATROL risk sweep: (a) pixi minor could shift render behavior -> mitigated, all 108 render-inclusive test files pass + build succeeds; (b) trystero patch could change P2P transport -> mitigated, net tests pass + patch has no API change + tsc clean; (c) lockfile/node_modules drift -> verified installed versions match package.json. GATE: tsc 0; FULL vitest 1782/1782 (no test count change — dep-only); npm run build clean, entry bundle 611.0->617.2 KiB (+6.2 KiB pixi minor, still 132.8 KiB under the 750 charter); PROTOCOL_VERSION 14 held (no wire/schema touch). No regression -> no revert needed. Tier-A batch (S117-P1 F1a + P2 F3/F4/F5 + P3 F6) now COMPLETE.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/package.json",
+          "needle": "0.25.2"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/package.json",
+          "needle": "8.19"
+        }
+      ]
     }
   ],
   "carry_forward_priorities": [
-    "PARKED THIS SESSION: hostmig-D2 PDR (.claude/plans/2026-07-04_PDR_S116_HostMig_D2.md) \u2014 fully deliberated 3-way, awaiting owner go; remains next non-gated build item unless the audit reorders it.",
-    "GATED Tier-1 (owner design decisions needed): G1b MOTION (mechanical-verb decision) \u00b7 G2 family traits (LOCKED_DECISIONS \u00a76 amendment + flavor pick).",
+    "PARKED THIS SESSION: hostmig-D2 PDR (.claude/plans/2026-07-04_PDR_S116_HostMig_D2.md) — fully deliberated 3-way, awaiting owner go; remains next non-gated build item unless the audit reorders it.",
+    "GATED Tier-1 (owner design decisions needed): G1b MOTION (mechanical-verb decision) · G2 family traits (LOCKED_DECISIONS §6 amendment + flavor pick).",
     "Owner-gated: anti-coast CLAWBACK; worker-sim ?worker=1 cutover.",
-    "DEPLOY stays MANUAL: npm run deploy (Actions dead \u2014 GitHub account billing lock). git push != deploy.",
+    "DEPLOY stays MANUAL: npm run deploy (Actions dead — GitHub account billing lock). git push != deploy.",
     "Playtest dials outstanding: ANCHOR_STIFFNESS_FLOOR 0.7, SPINDLE_* (2.0/200/0.05), CROWN_*, Helga 0.34, Voltkin 0.17, lightning-drone dials."
   ],
   "budget_total": 1000000,
@@ -108,5 +154,6 @@
       "totals"
     ],
     "validator_version": "s110-three-tier-v1"
-  }
+  },
+  "analyze_completed": true
 }
