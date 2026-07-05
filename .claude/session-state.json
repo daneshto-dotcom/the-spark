@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 54,
+  "tool_calls_session_total": 62,
   "session_id": "S117",
   "session_kind": "execution",
   "session_start": "2026-07-04T08:30:00.000Z",
@@ -52,26 +52,34 @@
     {
       "id": "S117-P2-consistency",
       "label": "F3 assess+remove dead areaMultiplier (if zero refs incl tests; else document); F4 fix stale Magic-12->Magic-14 in LOCKED_DECISIONS; F5 archive ~41 stray untracked HANDOFF_*.md root->.handoff-archive/.",
-      "status": "pending",
-      "phase": "PENDING",
+      "status": "completed",
+      "phase": "COMPLETED",
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "priority_state": "pending",
+      "priority_state": "completed",
       "unlock_source": "user",
-      "plan_file": ".claude/plans/2026-07-04_PDR_S117_TierA_Audit_Fixes.md"
+      "plan_file": ".claude/plans/2026-07-04_PDR_S117_TierA_Audit_Fixes.md",
+      "check_completed": true,
+      "checkpoint_commit": "f3123e3",
+      "check_method": "F3/F4/F5 shipped (f3123e3), low-risk hygiene. F3: areaMultiplier has ZERO production readers but IS woven through the LOCKED §6 Magic-14 seed catalog (the 'x' annotations) + has 2 combos.test.ts assertions — clean removal would churn a LOCKED governance doc AND trip the PDR's no-scope-creep guard. Resolved the ACTUAL defect (dead-data masquerading as live schema) by documenting areaMultiplier as RESERVED (future area-mechanic slot) in combos.ts ComboOutcome + a LOCKED §6 note. F4: LOCKED_DECISIONS:800 stale 'Magic-12 silhouettes' (12-item list) -> 'Magic-14' + added anchor/spindle (magic since S91). F5: 23 root HANDOFF_*.md were committed BEFORE the S74 /HANDOFF_*.md gitignore rule (violating it); verified ALL 23 already have permanent copies in .handoff-archive/, git rm'd them (design-correct per S74: root handoffs ephemeral, permanent copy archived). 41 gitignored local handoffs (incl active S115) untouched. GATE: tsc 0; full vitest 1782/1782 (no runtime change — docs + untracking only). RALPH:PATROL PASS."
     },
     {
       "id": "S117-P3-deps",
       "label": "F6 patch-bump trystero 0.25.0->0.25.2 + pixi lock to 8.19; npm install; full tsc + vitest; revert on any regression.",
-      "status": "pending",
-      "phase": "PENDING",
+      "status": "completed",
+      "phase": "COMPLETED",
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "priority_state": "pending",
+      "priority_state": "completed",
       "unlock_source": "user",
-      "plan_file": ".claude/plans/2026-07-04_PDR_S117_TierA_Audit_Fixes.md"
+      "plan_file": ".claude/plans/2026-07-04_PDR_S117_TierA_Audit_Fixes.md",
+      "check_completed": true,
+      "checkpoint_commit": "b9d77d3",
+      "real_context_tokens_at_close": 355643,
+      "real_context_pct_at_close": 35.6,
+      "check_method": "F6 dependency patch bumps shipped (b9d77d3). Audit F6 was the last Tier-A hygiene item: patch/minor dep drift, no majors. Applied @trystero-p2p/{core,mqtt,nostr,torrent} 0.25.0->0.25.2 (patch — bugfix-only, no API surface change) + pixi.js ^8.5.0->^8.19.0 (installed 8.19.0); package-lock regenerated (node_modules verified: pixi 8.19.0 + trystero 0.25.2 on disk). RALPH:PATROL risk sweep: (a) pixi minor could shift render behavior -> mitigated, all 108 render-inclusive test files pass + build succeeds; (b) trystero patch could change P2P transport -> mitigated, net tests pass + patch has no API change + tsc clean; (c) lockfile/node_modules drift -> verified installed versions match package.json. GATE: tsc 0; FULL vitest 1782/1782 (no test count change — dep-only); npm run build clean, entry bundle 611.0->617.2 KiB (+6.2 KiB pixi minor, still 132.8 KiB under the 750 charter); PROTOCOL_VERSION 14 held (no wire/schema touch). No regression -> no revert needed. Tier-A batch (S117-P1 F1a + P2 F3/F4/F5 + P3 F6) now COMPLETE."
     }
   ],
   "carry_forward_priorities": [
@@ -84,9 +92,11 @@
   "budget_total": 1000000,
   "reflexion_entries_to_archive": [
     "S117-P1 #prime-audit-the-council-not-just-the-code: Grok REJECTed F1a on an IEEE-754 float-summation-order kill-shot (N*0.6 vs incremental +=0.6 in Map order) — a real hazard IN GENERAL, but PRIME-AUDIT against the actual code refuted it: computeComplexity counts INTEGERS (primCount++/magicBonds++) then does the float math ONCE in a single final expression; there is no incremental float accumulation to reorder. Keeping that final expression VERBATIM + feeding identical integer buckets makes the single-pass version byte-identical BY CONSTRUCTION. LESSON: a Council kill-shot is a hypothesis to verify against the code, not a verdict to obey — the strongest adversary can still misread the implementation; the code is the arbiter.",
-    "S117-P1 #ship-the-byte-identical-half-defer-the-subtle-half: the audit's F1 had two collapses — F1a (scoring, integer-count-then-multiply-once → byte-identical by construction) and F1b (territory, needs global component-labeling that must replicate the exact placerColor-relative connectivity rule). Council split on which to ship; the resolution was to ship the provably-safe half (F1a) now and defer the subtle half (F1b) to its own increment with its own union-find + differential test. LESSON: when a perf refactor has a trivially-equivalent part and a partition-equivalence part, split them — the differential-test harness built for the safe half de-risks the subtle half later."
+    "S117-P1 #ship-the-byte-identical-half-defer-the-subtle-half: the audit's F1 had two collapses — F1a (scoring, integer-count-then-multiply-once → byte-identical by construction) and F1b (territory, needs global component-labeling that must replicate the exact placerColor-relative connectivity rule). Council split on which to ship; the resolution was to ship the provably-safe half (F1a) now and defer the subtle half (F1b) to its own increment with its own union-find + differential test. LESSON: when a perf refactor has a trivially-equivalent part and a partition-equivalence part, split them — the differential-test harness built for the safe half de-risks the subtle half later.",
+    "S117-P2 #resolve-the-real-defect-not-the-literal-instruction: F3 said 'remove dead areaMultiplier', but the field is woven through the LOCKED section-6 Magic-14 seed catalog + 2 combos.test assertions -- a literal removal would churn a governance doc and trip the no-scope-creep guard. The ACTUAL defect was 'dead data masquerading as live schema', resolved by documenting it RESERVED (future area-mechanic slot) instead of deleting it. LESSON: an audit finding names a symptom; fix the underlying defect in the way that respects the surrounding invariants, not the literal verb.",
+    "S117-P3 #a-dep-bump-is-a-behavioral-change-gate-it-like-one: F6 was 'just' patch/minor version bumps (trystero patch + pixi minor), but pixi is the entire render layer and trystero is the transport -- so it ran the FULL gate (tsc + 1782 vitest + build + bundle) exactly like a code change, not a rubber-stamp. Bundle grew +6.2 KiB (pixi minor) but stayed under charter; no test moved. LESSON: dependency bumps on load-bearing libs get the same verification rigor as source edits -- the diff being in package.json doesn't make it low-risk."
   ],
-  "session_status": "S116 EXECUTING \u2014 full-project audit (user-pre-approved autonomous batch). Gemini back online: Council is 3-way again.",
+  "session_status": "S117 CLOSING -- Tier-A audit-fix batch COMPLETE (3/3): P1 F1a single-pass complexity byte-identical (471105d), P2 F3/F4/F5 consistency+hygiene (f3123e3), P3 F6 dep patch-bumps trystero 0.25.2 + pixi 8.19 (b9d77d3). tsc 0, vitest 1782/1782 (+3 from F1a differential), bundle 617.2/750 KiB, PROTOCOL_VERSION 14 held. Carry-forward: F1b territory labeling + F2 placement-radius reuse; strategic Tier-B fork (hostmig-D2 parked PDR / worker-sim / combo-depth) awaits owner pick. Running /handoff.",
   "totals": {
     "turns": 0,
     "budget_remaining": 1000000,
