@@ -35,92 +35,154 @@ import {
   TERRITORY_ENGULF_STIFFNESS,
   TERRITORY_RADIUS_SCALE,
 } from '../constants.ts';
-import { componentOf } from '../game/structure.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
 import type { World } from './world.ts';
 
 /**
- * Compute the structural complexity of a player's holdings.
- *   complexity = primCount + 0.5 × bondCount + 0.1 × componentCount
+ * S118 P3 (F1b) — ONE per-tick GLOBAL connected-component labeling for ALL primitives, via union-find
+ * with union-by-MIN-id (so every component's root is its lowest primitive id → a CANONICAL partition,
+ * independent of iteration order). Returns primId → canonical-root map.
  *
- * - primCount:      all primitives placed by this player
- * - bondCount:      bonds where BOTH endpoints are this player's color
- *                   (Sym D invariant: all bonds are same-color, so this is
- *                   all bonds connected only to same-color prims)
- * - componentCount: distinct connected components wholly owned by this player
- *                   (count of isolated structure islands)
- *
- * Returns 0 if the player has no primitives (territory is inactive).
+ * Replaces the pre-F1b per-player `componentOf` BFS (rebuilt from scratch for every unvisited primitive,
+ * inside computePlayerComplexity, itself called per-player per-tick — O(P·prims·BFS)/tick on the host).
+ * Sym-D guarantees every bond is same-color, so each component is single-color; counting distinct roots
+ * among a color's prims therefore equals the old per-player component count (byte-identical — see the
+ * differential test). Dangling bonds (an endpoint primitive missing) are skipped, matching componentOf's
+ * `primitives.get(otherId) === undefined` skip. Exported so the differential test can assert the
+ * partition is bit-exact against a componentOf-derived reference (Council S118 Q3 gate).
  */
-export function computePlayerComplexity(playerId: PlayerId, world: World): number {
-  const player = world.players.get(playerId);
-  if (player === undefined) return 0;
-
-  // Collect this player's primitives in a Set for fast membership test.
-  let primCount = 0;
-  const myPrimIds = new Set<number>();
-  for (const [id, prim] of world.primitives) {
-    if (prim.placerColor === player.color) {
-      primCount++;
-      myPrimIds.add(id as number);
+export function computeComponentRoots(world: World): Map<number, number> {
+  const parent = new Map<number, number>();
+  for (const id of world.primitives.keys()) parent.set(id as number, id as number);
+  const find = (x: number): number => {
+    let r = x;
+    while (parent.get(r) !== r) r = parent.get(r)!;
+    // Path-compress the chain to the root.
+    let c = x;
+    while (c !== r) {
+      const next = parent.get(c)!;
+      parent.set(c, r);
+      c = next;
     }
-  }
-  if (primCount === 0) return 0;
-
-  // Count bonds where both endpoints belong to this player.
-  let bondCount = 0;
+    return r;
+  };
   for (const bond of world.bonds.values()) {
-    if (myPrimIds.has(bond.aId as number) && myPrimIds.has(bond.bId as number)) {
-      bondCount++;
+    const a = bond.aId as number;
+    const b = bond.bId as number;
+    if (!parent.has(a) || !parent.has(b)) continue; // dangling bond → skip (componentOf parity)
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) {
+      // Union by MIN id → root is the lowest primitive id (canonical, order-independent).
+      if (ra < rb) parent.set(rb, ra);
+      else parent.set(ra, rb);
     }
   }
-
-  // Count distinct connected components (BFS / componentOf over unvisited prims).
-  // Council C4: use count of components (locked spec). Future tuning: Σ(size^1.5)
-  // noted in LOCKED_DECISIONS.md §Sym F.
-  let componentCount = 0;
-  const visited = new Set<number>();
-  for (const [id, prim] of world.primitives) {
-    if (prim.placerColor !== player.color) continue;
-    if (visited.has(id as number)) continue;
-    const comp = componentOf(prim, world.primitives, world.bonds);
-    for (const pid of comp.primitiveIds) visited.add(pid as number);
-    componentCount++;
-  }
-
-  return primCount + 0.5 * bondCount + 0.1 * componentCount;
+  const roots = new Map<number, number>();
+  for (const id of world.primitives.keys()) roots.set(id as number, find(id as number));
+  return roots;
 }
 
 /**
- * Compute the territorial radius for a player. Returns 0 if the player has
- * no primitives (territory is inactive — game starts with no territory).
- *
- * Applies the shrink debuff (territorialShrinkUntilTick) by halving R when
- * the debuff is active at the current tick.
+ * S118 P3 (F1b) — compute EVERY player's structural complexity in ONE pass (single global labeling +
+ * single prim pass + single bond pass, bucketed by color), replacing the per-player re-walk. The final
+ * per-player expression is kept VERBATIM from the pre-F1b code:
+ *   complexity = primCount + 0.5 × bondCount + 0.1 × componentCount
+ * so — given identical integer counts — the result is byte-identical by construction (no incremental
+ * float accumulation to reorder). primCount = prims placed by the player's color; bondCount = bonds
+ * whose BOTH endpoints are that color (Sym-D); componentCount = distinct component roots among that
+ * color's prims. A player with no primitives maps to 0 (territory inactive), matching the old early-out.
+ */
+export function computeAllPlayerComplexities(world: World): Map<PlayerId, number> {
+  const roots = computeComponentRoots(world);
+  const primCountByColor = new Map<number, number>();
+  const rootsByColor = new Map<number, Set<number>>();
+  const bondCountByColor = new Map<number, number>();
+
+  // One prim pass: bucket primCount + distinct component roots by placerColor.
+  for (const [id, prim] of world.primitives) {
+    const c = prim.placerColor;
+    primCountByColor.set(c, (primCountByColor.get(c) ?? 0) + 1);
+    let s = rootsByColor.get(c);
+    if (s === undefined) {
+      s = new Set<number>();
+      rootsByColor.set(c, s);
+    }
+    s.add(roots.get(id as number)!);
+  }
+
+  // One bond pass: bucket same-color bondCount by color (dangling / cross-color bonds skipped — parity
+  // with the old myPrimIds.has(aId) && myPrimIds.has(bId) check, which failed for missing / off-color).
+  for (const bond of world.bonds.values()) {
+    const pa = world.primitives.get(bond.aId);
+    if (pa === undefined) continue;
+    const pb = world.primitives.get(bond.bId);
+    if (pb === undefined) continue;
+    if (pa.placerColor !== pb.placerColor) continue;
+    const c = pa.placerColor;
+    bondCountByColor.set(c, (bondCountByColor.get(c) ?? 0) + 1);
+  }
+
+  const result = new Map<PlayerId, number>();
+  for (const [playerId, player] of world.players) {
+    const c = player.color;
+    const primCount = primCountByColor.get(c) ?? 0;
+    if (primCount === 0) {
+      result.set(playerId, 0);
+      continue;
+    }
+    const bondCount = bondCountByColor.get(c) ?? 0;
+    const componentCount = rootsByColor.get(c)?.size ?? 0;
+    result.set(playerId, primCount + 0.5 * bondCount + 0.1 * componentCount);
+  }
+  return result;
+}
+
+/**
+ * S118 P3 (F2) — compute EVERY player's territorial radius in ONE pass from the shared per-tick
+ * complexity map, so the per-tick influence pass + per-placement enemy check reuse it instead of
+ * re-deriving complexity per player/enemy. Formula kept VERBATIM. A 0-complexity (no-prims) player maps
+ * to radius 0 (territory inactive), matching the old !hasPrims early-out; shrink halves an active radius.
+ */
+export function computeAllPlayerRadii(world: World): Map<PlayerId, number> {
+  const complexities = computeAllPlayerComplexities(world);
+  const radii = new Map<PlayerId, number>();
+  for (const [playerId, player] of world.players) {
+    const complexity = complexities.get(playerId) ?? 0;
+    if (complexity === 0) {
+      radii.set(playerId, 0);
+      continue;
+    }
+    let R = TERRITORY_BASE_RADIUS + TERRITORY_RADIUS_SCALE * Math.log2(complexity + 1);
+    if (
+      player.territorialShrinkUntilTick !== null &&
+      world.tick < player.territorialShrinkUntilTick
+    ) {
+      R *= 0.5;
+    }
+    radii.set(playerId, R);
+  }
+  return radii;
+}
+
+/**
+ * Compute the structural complexity of a player's holdings (single source of truth = the one-pass
+ * computeAllPlayerComplexities; S118 P3 F1b). Byte-identical to the pre-F1b per-player walk.
+ *   complexity = primCount + 0.5 × bondCount + 0.1 × componentCount
+ * Returns 0 if the player has no primitives (territory is inactive) or is unknown.
+ */
+export function computePlayerComplexity(playerId: PlayerId, world: World): number {
+  return computeAllPlayerComplexities(world).get(playerId) ?? 0;
+}
+
+/**
+ * Compute the territorial radius for a player (single source of truth = the one-pass
+ * computeAllPlayerRadii; S118 P3 F2). Returns 0 if the player has no primitives (territory is inactive —
+ * game starts with no territory) or is unknown. The shrink debuff (territorialShrinkUntilTick) halves R
+ * inside computeAllPlayerRadii. Byte-identical to the pre-F2 per-player derivation.
  */
 export function computeTerritorialRadius(playerId: PlayerId, world: World): number {
-  const player = world.players.get(playerId);
-  if (player === undefined) return 0;
-
-  // Check if this player has any primitives.
-  let hasPrims = false;
-  for (const prim of world.primitives.values()) {
-    if (prim.placerColor === player.color) { hasPrims = true; break; }
-  }
-  if (!hasPrims) return 0;
-
-  const complexity = computePlayerComplexity(playerId, world);
-  let R = TERRITORY_BASE_RADIUS + TERRITORY_RADIUS_SCALE * Math.log2(complexity + 1);
-
-  // Apply shrink debuff if active.
-  if (
-    player.territorialShrinkUntilTick !== null &&
-    world.tick < player.territorialShrinkUntilTick
-  ) {
-    R *= 0.5;
-  }
-
-  return R;
+  return computeAllPlayerRadii(world).get(playerId) ?? 0;
 }
 
 /**
@@ -144,9 +206,12 @@ export function isInsideEnemyTerritory(
   const localPlayer = world.players.get(localPlayerId);
   if (localPlayer === undefined) return false;
 
+  // S118 P3 (F2) — derive every enemy's radius from ONE shared complexity/radius pass instead of
+  // re-deriving complexity per enemy on each placement. Byte-identical value.
+  const radii = computeAllPlayerRadii(world);
   for (const [enemyId, enemy] of world.players) {
     if (enemyId === localPlayerId) continue;
-    const R = computeTerritorialRadius(enemyId, world);
+    const R = radii.get(enemyId) ?? 0;
     if (R <= 0) continue;
     const R2 = R * R;
     // Pre-collect enemy prim positions (Council C2: once per enemy per call).
@@ -183,9 +248,14 @@ export function computeTerritorialInfluence(world: World): void {
     bond.stiffnessMultiplier = 1.0;
   }
 
+  // S118 P3 (F1b/F2) — compute ALL players' radii ONCE (one global component-labeling pass, reused)
+  // instead of re-deriving complexity+BFS per player inside the loop. Byte-identical value; the win is
+  // removing the per-player O(prims·BFS) re-walk on the host every tick.
+  const radii = computeAllPlayerRadii(world);
+
   // Phase 2: for each player's territory, degrade enemy bonds inside it.
   for (const [playerId, player] of world.players) {
-    const R = computeTerritorialRadius(playerId, world);
+    const R = radii.get(playerId) ?? 0;
     if (R <= 0) continue;
     const R2 = R * R;
 
