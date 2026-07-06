@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1,
+  "tool_calls_session_total": 7,
   "session_id": "S118",
   "session_kind": "execution",
   "session_start": "2026-07-05T19:45:00.000Z",
@@ -132,6 +132,16 @@
         {
           "type": "file_exists",
           "path": "scripts/deploy-pages.sh"
+        },
+        {
+          "type": "file_contains",
+          "path": "public/CNAME",
+          "needle": "spark-online.space"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/deploy-pages.sh",
+          "needle": "spark-online.space"
         }
       ]
     }
@@ -158,5 +168,6 @@
     "budget_remaining": 1000000,
     "budget_status": "statusline_dead"
   },
-  "analyze_completed": false
+  "analyze_completed": true,
+  "analyze_retrospective": "S118 ANALYZE — Tier-B batch 4/4 shipped + deployed, all gates green (tsc 0, vitest 1826/1826, F1b differential 400/400 bit-exact, save.replay 24/24 byte-identical, bundle 624.0/750, PROTOCOL_VERSION 14 held). CALIBRATION: deliberation was high-value on the NEW surface, low-cost elsewhere — B1 carried its parked 3-way (only A.0 re-run needed); the focused 3-way earned its keep twice: (1) F1b convergent REJECT forced the componentOf-caller audit that dissolved the relabeling hazard + the 400-world differential that empirically confirmed byte-identity; (2) RALPH:PATROL caught the async-Begin refactor blocking the happy-path (fail-open fix). PRIME-AUDIT REFUTED two plausible-but-wrong Council criticals (Grok sort-IDs on B3, Grok root-selection on F1b) — the #empirical-refutes-plausible-criticals pattern (now 6x, a promotion candidate) held again. NO REGRESSIONS. Deferred B2 worker-sim deliberately (large/undeliberated) — the right best-interest trade: shipped 3 complete, verified, deployed wins rather than one rushed worker migration. Model: ran on Opus 4.8 (owner override of Fable-5 pin) — drift warning persists, non-blocking. Next session: B2 worker-sim (its own PDR), then host-mig D3 (MIGRATION_CLAIM takeover, building on this D2 detection layer)."
 }
