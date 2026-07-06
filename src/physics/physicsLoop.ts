@@ -45,6 +45,7 @@ import { tickCruiserChase } from '../state/gameMode.ts';
 import { computeTerritorialInfluence } from '../state/territory.ts';
 import { applyVortexPull } from '../state/vortex.ts';
 import { applyAnchorStabilize } from '../state/anchorStabilize.ts';
+import { applyKeystoneAnchor } from '../state/keystoneAnchor.ts';
 import { applySpindlePull } from '../state/spindle.ts';
 import { dispatch } from '../state/world.ts';
 import { asPlayerId, type SparkId } from '../types.ts';
@@ -135,6 +136,15 @@ export function stepPhysics(
   // multiplier each tick) and BEFORE the substep solveBonds loop (so all 8 substeps see the floored
   // value). Host-only; no-op with no live Anchor / outside enemy territory. Pure synced-state fn.
   applyAnchorStabilize(world);
+
+  // S118 P2 (B3) — KEYSTONE ANCHOR symbiotic chaining: an un-fouled Anchor confers PART of its
+  // territorial rigidity to MAGIC bonds directly bonded to its endpoint primitives (partial floor,
+  // below the anchor's own). MUST run AFTER applyAnchorStabilize (so the anchors' own floors are set
+  // first and a magic-neighbor-that-is-also-an-Anchor keeps its higher 0.7) and BEFORE the substep
+  // loop (so all 8 substeps see the conferred value). Host-only; per-bond idempotent constant-floor
+  // max → iteration-order-irrelevant; ephemeral stiffnessMultiplier → replay-byte-identical. No-op with
+  // no live Anchor / no anchored magic neighbor sagging in enemy territory.
+  applyKeystoneAnchor(world);
 
   // S89 P6 (G1b) — Vortex anchor-pull: a Dot→Spiral magic combo pulls nearby FREE sparks toward
   // it. Once per tick (like tickCruiserChase, BEFORE the substeps), host-only; the substep Verlet

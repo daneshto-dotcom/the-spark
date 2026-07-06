@@ -526,6 +526,17 @@ export const TERRITORY_SHRINK_DURATION_TICKS = 300; // 5 seconds at 60 Hz
 // (recomputed every tick, NOT serialized) so this is replay-byte-identical by construction.
 export const ANCHOR_STIFFNESS_FLOOR = 0.7;
 
+// S118 P2 (B3 — KEYSTONE ANCHOR symbiotic combo) — an Anchor confers PART of its territorial rigidity
+// to MAGIC bonds directly bonded to its endpoint primitives (state/keystoneAnchor.ts, runs AFTER
+// applyAnchorStabilize). "Branch your magic structures off an Anchor and they resist enemy engulf-sag
+// too" → build ORDER / topology becomes tactical (the North Star: connecting shape A to shape B IS the
+// game). Set BELOW the anchor's own floor (0.7) so the Anchor bond stays the strongest joint and the
+// neighbor benefit is a partial lift: a sagged magic neighbor rises 0.3 → 0.5 (effective LOW 0.2×0.5=
+// 0.10 vs 0.06 sagged vs the anchor's own 0.14). 1.0 = full immunity; ≤ TERRITORY_ENGULF_STIFFNESS
+// (0.3) = no effect. #1 KEYSTONE playtest knob. Host-only; stiffnessMultiplier is ephemeral (recomputed
+// each tick, NOT serialized) so the whole mechanic is replay-byte-identical by construction.
+export const KEYSTONE_STIFFNESS_FLOOR = 0.5;
+
 // === S71 P1 — Bomb hazard (Council Full; Fork B leaf-first deterministic sever) ===
 // The host-only spawner drops a STATIONARY bomb into the spawn zone every
 // BOMB_SPAWN_MIN..MAX sparks (cadence counts SPARKS SPAWNED — user "every random
