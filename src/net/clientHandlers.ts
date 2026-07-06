@@ -15,7 +15,8 @@
 import { ClientSync } from './sync.ts';
 import type { NetSession } from './session.ts';
 import type { HostAttest, NetMessage, RosterEntry } from './protocol.ts';
-import { verifyHostAttest } from './hostIdentity.ts';
+import { verifyHostAttest, buildPubkeyPopPayload, type PeerIdentity } from './hostIdentity.ts';
+import { verifyWarrant } from './successionWarrant.ts';
 import { NetTransport, selfId } from './transport.ts';
 import type { Controls } from '../input/controls.ts';
 import { dispatch, type World } from '../state/world.ts';
@@ -36,6 +37,12 @@ export interface JoinAttemptDeps {
    * — which is how this joiner finally learns WHICH seat is its own pre-Begin.
    */
   onPresence: (roster: readonly RosterEntry[]) => void;
+  /**
+   * S118 P1 (host-migration D2) — this joiner's ephemeral identity (generateClientIdentity, minted once
+   * at boot). Its pubkey (+ a PoP signature) rides the HELLO so the host can warrant it as a potential
+   * successor; the same key later signs a D3 MIGRATION_CLAIM. Late-bound like the host's identity.
+   */
+  clientIdentity: PeerIdentity;
 }
 
 /**
@@ -134,11 +141,28 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
       deps.onLobbyError(formatProtocolMismatchMessage(peerVersion));
     };
     transport.connect(code);
+    // S118 P1 (host-migration D2) — pre-compute this joiner's pubkey PROOF-OF-POSSESSION once per
+    // connect (roomCode + selfId + our spki are all known now). The async sign settles in ~ms, long
+    // before a Begin; the HELLO getter below returns null until then (host just won't warrant us yet —
+    // a fresh HELLO re-sends on the next peer-change, and Begin re-carries the roster). Binds (code,
+    // selfId, spki) so the host's verifyPubkeyPop proves we hold the key AND blocks cross-peer replay.
+    let clientPop: { pubkeyB64: string; popB64: string } | null = null;
+    const clientSpkiB64 = deps.clientIdentity.spkiB64;
+    void deps.clientIdentity
+      .sign(buildPubkeyPopPayload(code, selfId, clientSpkiB64))
+      .then((popB64) => {
+        clientPop = { pubkeyB64: clientSpkiB64, popB64 };
+      })
+      .catch((err: unknown) => {
+        console.warn('[net] client PoP sign failed:', err instanceof Error ? err.message : String(err));
+      });
     // S54 P1 — announce our PROTOCOL_VERSION to the host the moment we connect
     // (joiner = playerId 1 / cyan). Symmetric with the host path; activates
     // the dormant S53 protocol-mismatch latch + UX on the host's receive side
     // (closes the v2-peer-INTENT-bypass desync gap from the joiner direction).
-    wireHelloOnJoin(transport, asPlayerId(1), PLAYER_COLORS[1]);
+    // S118 P1 — also carries the joiner pubkey + PoP (late-bound getter; null until the async sign
+    // above settles). The host verifies PoP before warranting the seat.
+    wireHelloOnJoin(transport, asPlayerId(1), PLAYER_COLORS[1], undefined, () => clientPop);
 
     // S82 P4(a) — async host verification machinery (per-connect closures).
     // verifying: single-in-flight guard per peer. pendingByPeer: the latch-bearing /
@@ -235,6 +259,32 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
           mode: msg.mode,
           isHost: false,
           roster: msg.roster.map((e) => ({ seat: e.seat, color: e.color })),
+        });
+      }
+      // S118 P1 (host-migration D2) — accept the host's SuccessionWarrant off the Begin signal. NOT
+      // gated on LOBBY (a warrant may ride a re-sent/buffered Begin); only reachable AFTER hostAuthFilter
+      // (so only the latched host's warrant lands here). Verify cryptographically: verifyWarrant re-checks
+      // that the host pubkey's fingerprint IS the room code AND the signature binds (epoch, roster), so a
+      // spoofed hostAttest.spkiB64 can't validate. Fail-OPEN (instrument phase): an absent/invalid warrant
+      // just leaves session.warrant null (this client can't be a successor); the match proceeds normally.
+      if (
+        msg.kind === 'START_GAME_SIGNAL' &&
+        msg.warrant !== undefined &&
+        msg.hostAttest !== undefined &&
+        deps.session.roomCode !== null
+      ) {
+        const warrant = msg.warrant;
+        const hostSpkiB64 = msg.hostAttest.spkiB64;
+        const roomCode = deps.session.roomCode;
+        void Promise.resolve(verifyWarrant(warrant, roomCode, hostSpkiB64)).then((ok) => {
+          if (ok) {
+            deps.session.warrant = warrant;
+            console.info(
+              `[net] succession warrant ACCEPTED (epoch ${warrant.epoch}, ${warrant.seats.length} warranted seats)`,
+            );
+          } else {
+            console.warn('[net] succession warrant FAILED verification — ignoring (match proceeds fail-open)');
+          }
         });
       }
       // S70 P1 — host lobby presence beacon. While still in LOBBY, forward the

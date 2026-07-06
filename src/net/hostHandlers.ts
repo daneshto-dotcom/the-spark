@@ -25,7 +25,8 @@ import {
   type HostAttest,
   type RosterEntry,
 } from './protocol.ts';
-import type { HostIdentity } from './hostIdentity.ts';
+import { verifyPubkeyPop, type HostIdentity } from './hostIdentity.ts';
+import { signWarrant, type WarrantSeat } from './successionWarrant.ts';
 import { reconcileLobbySeats, buildMatchRoster } from './lobbyRoster.ts';
 import { broadcastQmPresence, maybeQmAutoBegin } from './quickmatchGate.ts';
 import type { NetSession } from './session.ts';
@@ -117,11 +118,16 @@ export function wireHelloOnJoin(
   // Read at SEND time so the async signature computed right after host-start is
   // attached even though wiring happens earlier (PRIME-AUDIT Δ1 late-binding posture).
   getAttest?: () => HostAttest | null,
+  // S118 P1 (host-migration D2) — late-bound joiner pubkey + PoP provider (CLIENT side passes one; the
+  // host omits). Read at SEND time (returns null until the async PoP sign settles — the next peer-change
+  // re-sends). Mutually exclusive with getAttest in practice (host attests; client proves a pubkey).
+  getClientPubkey?: () => { pubkeyB64: string; popB64: string } | null,
 ): void {
   transport.onPeerChange((_peerId, kind) => {
     if (kind === 'join') {
       const attest = getAttest !== undefined ? getAttest() : null;
-      transport.send(buildHello(playerId, color, attest ?? undefined));
+      const cp = getClientPubkey !== undefined ? getClientPubkey() : null;
+      transport.send(buildHello(playerId, color, attest ?? undefined, cp?.pubkeyB64, cp?.popB64));
     }
   });
 }
@@ -228,6 +234,29 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
       maybeQmAutoBegin(deps.session, deps.onAutoBegin);
     });
     transport.on((msg, peerId) => {
+      // S118 P1 (host-migration D2) — a joiner's HELLO may advertise its ephemeral pubkey + a PoP
+      // signature. Store peerId→pubkey in session.peerPubkeys ONLY after verifyPubkeyPop proves the
+      // sender holds the matching private key (bound to roomCode + THIS transport peerId — anti-replay),
+      // closing the "claim any pubkey" hole (GROK W1). Unproven / garbage → ignore the field + warn; the
+      // peer still plays normally, it just isn't warrantable as a successor. The pubkey is consumed at
+      // Begin (buildMatchRoster ∩ peerPubkeys). No effect on non-D2/legacy HELLOs (fields absent).
+      if (
+        msg.kind === 'HELLO' &&
+        msg.clientPubkeyB64 !== undefined &&
+        msg.clientPubkeyPopB64 !== undefined &&
+        deps.session.roomCode !== null
+      ) {
+        const pubkeyB64 = msg.clientPubkeyB64;
+        const popB64 = msg.clientPubkeyPopB64;
+        const roomCode = deps.session.roomCode;
+        void verifyPubkeyPop(pubkeyB64, popB64, roomCode, peerId).then((ok) => {
+          if (ok) {
+            deps.session.peerPubkeys.set(peerId, pubkeyB64);
+          } else {
+            console.warn(`[net] client pubkey PoP FAILED verification from ${peerId} — not warrantable`);
+          }
+        });
+      }
       // S15 P2 — host applies client intent authoritatively.
       // S42 — turn-based active-player gate REMOVED (blueprint mandates
       // real-time). Shared-resource race conditions resolved by first-Intent-
@@ -273,10 +302,22 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
 export interface BeginMatchDeps {
   session: NetSession;
   world: World;
+  /**
+   * S118 P1 (host-migration D2) — the page-session host identity, used to SIGN the SuccessionWarrant at
+   * Begin (its key is the room-code commitment survivors chain a D3 claim back to). Same instance the
+   * host-start handler used to derive the code + attest.
+   */
+  hostIdentity: HostIdentity;
 }
 
 export function createBeginMatchHandler(deps: BeginMatchDeps): () => void {
   return () => {
+    void beginMatch(deps);
+  };
+}
+
+async function beginMatch(deps: BeginMatchDeps): Promise<void> {
+  {
     // Host triggers START_GAME. The first snapshot will carry gameState=
     // 'PLAYING' to the clients. S39 P1: also broadcast a dedicated
     // START_GAME_SIGNAL envelope BEFORE the local dispatch so peers' lobby-exit
@@ -311,15 +352,54 @@ export function createBeginMatchHandler(deps: BeginMatchDeps): () => void {
     for (const e of roster) {
       if (e.seat > 0) deps.session.hostSeats.set(e.peerId, asPlayerId(e.seat));
     }
+    // S118 P1 (host-migration D2) — SIGN the SuccessionWarrant BEFORE broadcasting Begin. Ordering by
+    // construction (GROK R1 kill-shot fix): the warrant must exist before START_GAME_SIGNAL / the
+    // snapshot stream, so a client can never receive state under a term whose warrant was not yet minted
+    // (async slow-sign can't race the send — we AWAIT it here first). Warrant the REMOTE seats (seat>0)
+    // that PROVED a pubkey via HELLO PoP (session.peerPubkeys); the host's own seat 0 is the current
+    // authority (never its own successor) and is excluded. Unproven seats are OMITTED (mixed-build
+    // tolerance — GEMINI FIX 2: strictly less harm than excluding them from the match). No proven peer
+    // → no warrant (nothing to authorize; the additive field is simply absent, Begin unchanged).
+    deps.session.warrant = null;
+    const warrantSeats: WarrantSeat[] = [];
+    for (const e of roster) {
+      if (e.seat === 0) continue;
+      const pubkey = deps.session.peerPubkeys.get(e.peerId);
+      if (pubkey !== undefined) warrantSeats.push({ seat: e.seat, spkiB64: pubkey });
+    }
+    const roomCode = deps.session.roomCode;
+    if (warrantSeats.length > 0 && roomCode !== null) {
+      try {
+        deps.session.warrant = await signWarrant(
+          deps.hostIdentity,
+          roomCode,
+          deps.session.currentEpoch,
+          warrantSeats,
+        );
+      } catch (err) {
+        // Fail-OPEN (instrument phase): a warrant-sign failure must NOT block the match starting. The
+        // Begin below simply carries no warrant (successors can't be authorized this term); every other
+        // path is unaffected. Signing failing at all would be catastrophic (the host identity itself
+        // relies on the same crypto), so this is defense-in-depth, not an expected path.
+        console.warn(
+          '[net] succession warrant signing FAILED — Begin proceeds without a warrant (fail-open):',
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    }
     if (transport !== null) {
       // S82 P4(a) — Begin carries the attestation too: a client whose HELLO was lost
       // can still verify + latch from the buffered Begin signal itself.
       const attest = deps.session.hostAttest;
+      // S118 P1 — ...and the SuccessionWarrant signed above (additive-optional; absent when no peer
+      // proved a pubkey). Rides the SAME Begin the attest does, so the client verifies both together.
+      const warrant = deps.session.warrant;
       transport.send({
         kind: 'START_GAME_SIGNAL',
         mode: '1v1',
         roster,
         ...(attest !== null ? { hostAttest: attest } : {}),
+        ...(warrant !== null ? { warrant } : {}),
       });
     }
     dispatch(deps.world, {
@@ -328,5 +408,5 @@ export function createBeginMatchHandler(deps: BeginMatchDeps): () => void {
       isHost: true,
       roster: roster.map((e) => ({ seat: e.seat, color: e.color })),
     });
-  };
+  }
 }

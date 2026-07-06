@@ -34,13 +34,19 @@ const SNAP_BUFFER_MAX = 8;
 export class HostSync {
   private snapshotSeq = 0;
 
-  /** Build a snapshot envelope ready to be sent. */
-  buildSnapshotMessage(world: World): NetSnapshotMsg {
+  /**
+   * Build a snapshot envelope ready to be sent. S118 P1 (host-migration D2) — stamps the current term
+   * `epoch` so a survivor can drop snapshots from a deposed zombie host (D3+). Epoch 0 (the original
+   * host's term — the ONLY value in D2) is OMITTED, keeping the wire byte-identical to pre-D2; a
+   * receiver treats absent as 0. Envelope-only: netSnapshot(world) is untouched, so save.replay holds.
+   */
+  buildSnapshotMessage(world: World, epoch = 0): NetSnapshotMsg {
     this.snapshotSeq++;
     return {
       kind: 'NETSNAPSHOT',
       snapshotSeq: this.snapshotSeq,
       snapshot: netSnapshot(world),
+      ...(epoch > 0 ? { epoch } : {}),
     };
   }
 
@@ -65,6 +71,18 @@ export class ClientSync {
   private snapBuffer: Array<{ snap: NetSnapshot; t: number }> = [];
   /** Highest snapshotSeq accepted — newer-than-this required for next apply. */
   private lastSeq = 0;
+  /**
+   * S118 P1 (host-migration D2) — local performance.now() of the last ACCEPTED snapshot (0 = none yet).
+   * The render-loop starvation detector (main.ts) reads it to notice the host has gone silent. Set only
+   * on accept, so a rejected (stale-seq / stale-epoch) frame does not refresh it.
+   */
+  private lastAcceptedAtMs = 0;
+  /**
+   * S118 P1 (host-migration D2) — the minimum term/epoch this client will accept. 0 for the original
+   * host's term (the ONLY value in D2 — no migration yet), so the receive gate `epoch < currentEpoch`
+   * is PROVABLY inert (0 < 0 is false). D3 raises it on takeover to fence out a deposed zombie host.
+   */
+  private currentEpoch = 0;
   /** Outgoing intent counter — used by controls when wrapping local actions. */
   private intentSeq = 0;
   /** Set true on receive; cleared after applyNetSnapshot runs on next render frame. */
@@ -77,8 +95,14 @@ export class ClientSync {
    * Returns true on accept (caller may want to log on reject).
    */
   receive(msg: NetSnapshotMsg, now: number): boolean {
+    // S118 P1 (host-migration D2) — epoch gate: drop a snapshot from an OLDER term (a deposed zombie
+    // host in D3+). PROVABLY INERT in D2: absent epoch = 0 and currentEpoch = 0, so 0 < 0 is false and
+    // every snapshot passes exactly as pre-D2. Placed before the seq gate so a zombie's seq can't
+    // advance our watermark.
+    if ((msg.epoch ?? 0) < this.currentEpoch) return false;
     if (msg.snapshotSeq <= this.lastSeq) return false;
     this.lastSeq = msg.snapshotSeq;
+    this.lastAcceptedAtMs = now;
     this.currentSnap = msg.snapshot;
     this.needsFullApply = true;
     // S89 P5 — append to the render-delay buffer (seq-monotonic ⇒ arrival-time-monotonic since
@@ -247,6 +271,22 @@ export class ClientSync {
     return this.lastSeq;
   }
 
+  /**
+   * S118 P1 (host-migration D2) — local performance.now() of the last accepted snapshot (0 = none yet).
+   * The render-loop starvation detector reads this to notice host silence (isSnapshotStarved).
+   */
+  lastAcceptedAt(): number {
+    return this.lastAcceptedAtMs;
+  }
+
+  /**
+   * S118 P1 (host-migration D2) — raise the minimum accepted epoch (D3 takeover fences a zombie host).
+   * DORMANT in D2 (no caller advances it), so the receive epoch gate stays inert at 0.
+   */
+  setEpoch(epoch: number): void {
+    this.currentEpoch = epoch;
+  }
+
   /** S39 P1 — count of applyNetSnapshot throws caught by interpolateInto; surfaced in lobby diagnostics. */
   applyErrors(): number {
     return this.applyErrorCount;
@@ -256,6 +296,8 @@ export class ClientSync {
     this.currentSnap = null;
     this.snapBuffer = [];
     this.lastSeq = 0;
+    this.lastAcceptedAtMs = 0;
+    this.currentEpoch = 0;
     this.intentSeq = 0;
     this.needsFullApply = false;
     this.applyErrorCount = 0;

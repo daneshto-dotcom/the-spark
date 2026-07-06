@@ -19,6 +19,7 @@ import { ClientSync, HostSync } from './sync.ts';
 import { NetTransport } from './transport.ts';
 import type { Controls } from '../input/controls.ts';
 import type { HostAttest } from './protocol.ts';
+import type { SuccessionWarrant } from './successionWarrant.ts';
 import { triggerReset as triggerAudioCursorReset } from '../state/audioCursor.ts';
 import type { World } from '../state/world.ts';
 import type { PlayerId } from '../types.ts';
@@ -90,6 +91,28 @@ export interface NetSession {
   qmReadyPeers: Map<string, boolean>;
   /** S87 P4 — this peer's own readiness (host: gates auto-Begin; client: mirrors the last sent LOBBY_READY). */
   qmSelfReady: boolean;
+  /**
+   * S118 P1 (host-migration D2) — HOST-side peerId→proven-pubkey (SPKI base64) map. A joiner's pubkey
+   * is stored HERE only AFTER verifyPubkeyPop passes (hostHandlers HELLO handler), so a peer can't claim
+   * another's key. At Begin the host warrants seat→pubkey for every roster seat WITH a proven pubkey
+   * (unproven seats are OMITTED — mixed-build tolerance). Empty on clients / before any verified HELLO.
+   * Cleared on teardown.
+   */
+  peerPubkeys: Map<string, string>;
+  /**
+   * S118 P1 (host-migration D2) — the SuccessionWarrant for the live term. HOST: set at Begin (the one
+   * it signed + broadcast). CLIENT: set when a START_GAME_SIGNAL carrying a warrant that passes
+   * verifyWarrant arrives (invalid/absent → stays null, match proceeds fail-open). Drives the D2
+   * starvation forensics (would-be successor) + is the precondition for a D3 MIGRATION_CLAIM. Cleared
+   * on teardown.
+   */
+  warrant: SuccessionWarrant | null;
+  /**
+   * S118 P1 (host-migration D2) — the epoch/term this session runs at. 0 for the original host's term;
+   * a migrated session (D3+) advances it. Stamped onto every NetSnapshotMsg by HostSync; the ClientSync
+   * epoch gate drops snapshots below it (PROVABLY inert at 0). Reset to 0 on teardown.
+   */
+  currentEpoch: number;
 }
 
 export function makeNetSession(): NetSession {
@@ -107,6 +130,10 @@ export function makeNetSession(): NetSession {
     quickmatch: false,
     qmReadyPeers: new Map(),
     qmSelfReady: false,
+    // S118 P1 (host-migration D2) — succession detection state (dormant until a peer proves a pubkey).
+    peerPubkeys: new Map(),
+    warrant: null,
+    currentEpoch: 0,
   };
 }
 
@@ -161,5 +188,12 @@ export function teardownNet(
   session.quickmatch = false;
   session.qmReadyPeers.clear();
   session.qmSelfReady = false;
+  // S118 P1 (host-migration D2) — clear succession state so a fresh Host/Join starts with no inherited
+  // pubkeys/warrant/epoch (a new room = a new host key commitment = a new warrant; mirror of the S82
+  // hostAttest/hostVerifiedPeerId clears above). Auto-reconnect does NOT call teardownNet, so a live
+  // session's warrant survives an in-page transport blip (same posture as the crypto latch).
+  session.peerPubkeys.clear();
+  session.warrant = null;
+  session.currentEpoch = 0;
   triggerAudioCursorReset();
 }

@@ -68,7 +68,8 @@ import { connectAsClient, createJoinAttemptHandler } from './net/clientHandlers.
 // the first "Quick Match" click so the index chunk stays under charter.
 import { broadcastQmPresence, maybeQmAutoBegin } from './net/quickmatchGate.ts';
 import type { QuickmatchDiscovery } from './net/quickmatch.ts';
-import { generateHostIdentity } from './net/hostIdentity.ts';
+import { generateHostIdentity, generateClientIdentity } from './net/hostIdentity.ts';
+import { computeSuccessorSeat, isSnapshotStarved, HOST_STARVATION_MS } from './net/succession.ts';
 import { formatStrategySummary } from './net/strategySummary.ts';
 import { SpatialGrid } from './physics/spatial.ts';
 // S50 P2 — physics tick orchestration extracted to physicsLoop.ts (Council
@@ -228,6 +229,10 @@ async function bootstrap(): Promise<void> {
   // IS the room code (net/hostIdentity.ts). Generated once at boot (~10-50ms, parallel
   // with Pixi init below) so the lobby's "Host New Room" handler stays synchronous.
   const hostIdentityPromise = generateHostIdentity();
+  // S118 P1 (host-migration D2) — mint this page's ephemeral CLIENT identity too (mirror of the host
+  // identity; ~10-50ms, parallel with Pixi init). If this page joins a room, its pubkey (+ PoP) rides
+  // the HELLO so the host can warrant it as a potential successor. Dormant when this page hosts.
+  const clientIdentityPromise = generateClientIdentity();
   const app = new Application();
   await app.init({
     width: CANVAS_WIDTH,
@@ -709,12 +714,15 @@ async function bootstrap(): Promise<void> {
   // S82 P4(a) — resolve the boot-time identity (started before Pixi init; in practice
   // already settled long before a human can click "Host New Room").
   const hostIdentity = await hostIdentityPromise;
+  // S118 P1 (host-migration D2) — resolve the boot-time client identity (settled long before a human
+  // can type a room code). Passed into the join deps so the joiner HELLO carries its pubkey + PoP.
+  const clientIdentity = await clientIdentityPromise;
   // S87 P4 — onBeginMatch is built FIRST so the quickmatch auto-begin gate (passed
   // into the host-start handler below) can reference it.
   // S105 P1 — wrap the networked-host begin so it reseeds the spawn sequence with a fresh random base
   // seed before dispatching START_GAME (host-only; the joiner mirrors sparks via snapshot so it must NOT
   // reseed — its local START_GAME path stays untouched).
-  const baseBeginMatch = createBeginMatchHandler({ session, world });
+  const baseBeginMatch = createBeginMatchHandler({ session, world, hostIdentity });
   const onBeginMatch = (): void => {
     reseedForNewMatch();
     baseBeginMatch();
@@ -746,6 +754,8 @@ async function bootstrap(): Promise<void> {
     controls,
     onLobbyError,
     onPresence,
+    // S118 P1 (host-migration D2) — the joiner identity whose pubkey + PoP rides the HELLO.
+    clientIdentity,
   };
   const onJoinAttempt = createJoinAttemptHandler(clientJoinDeps);
 
@@ -996,6 +1006,20 @@ async function bootstrap(): Promise<void> {
   // ruled explicit SCREEN_SHAKE NetMessage; overridden per YAGNI — refactor
   // when Anvil ships a non-ARC_FLASH shake source).
   let clientLastShakeArcFlashTick = -Infinity;
+
+  // S118 P1 (host-migration D2) — snapshot-STARVATION detector state (instrument-only; NO takeover).
+  // Edge-triggered latch: log ONE forensic line when the client crosses HOST_STARVATION_MS with no
+  // accepted snapshot, then stay quiet until a snapshot recovers (re-arm) — no per-frame console spam
+  // (Council R5). lastVisibilityChangeAt disambiguates a genuine host-death from a backgrounded-tab
+  // throttle (GEMINI FIX 1): a starvation that began right after the tab hid is likely local throttling,
+  // not host loss. Registered once; harmless when this page hosts (the detector is client-gated below).
+  let clientStarvationLatched = false;
+  let lastVisibilityChangeAt = performance.now();
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      lastVisibilityChangeAt = performance.now();
+    });
+  }
 
   // S50 P2 — runGodlyMatcher + startCinematicIfNeeded extracted to
   // src/state/godlyOrchestration.ts. Both invoked from the ticker (below).
@@ -1729,7 +1753,9 @@ async function bootstrap(): Promise<void> {
         nowMs - lastSnapshotSentMs >= NET_SNAPSHOT_INTERVAL_MS &&
         world.tick - session.lastSnapshotTick >= SNAPSHOT_INTERVAL_TICKS
       ) {
-        session.netTransport.send(session.hostSync.buildSnapshotMessage(world));
+        // S118 P1 (host-migration D2) — stamp the current term epoch (0 in D2 → omitted → wire byte-
+        // identical to pre-D2; a survivor uses it in D3+ to fence out a deposed zombie host).
+        session.netTransport.send(session.hostSync.buildSnapshotMessage(world, session.currentEpoch));
         session.lastSnapshotTick = world.tick;
         lastSnapshotSentMs = nowMs;
       }
@@ -1768,6 +1794,45 @@ async function bootstrap(): Promise<void> {
       if (latestArcFlashTick > clientLastShakeArcFlashTick) {
         screenShake.trigger(latestArcFlashTick);
         clientLastShakeArcFlashTick = latestArcFlashTick;
+      }
+
+      // S118 P1 (host-migration D2) — SNAPSHOT-STARVATION DETECTOR (instrument-only; NO takeover, NO
+      // UI). Edge-triggered: when the client has accepted no snapshot for ≥ HOST_STARVATION_MS, log ONE
+      // forensic line (would-be successor from the warrant, alive seats, visibility state to
+      // disambiguate a backgrounded-tab throttle from a genuine host death), then stay quiet until a
+      // snapshot recovers. This is the D2 half of "host death no longer silently ends the match": D3
+      // will turn this detection into a MIGRATION_CLAIM takeover. Gated on a real prior acceptance
+      // (lastAcceptedAt > 0) so a cold client is never reported starved; PLAYING-only.
+      const lastAcceptedAtMs = session.clientSync.lastAcceptedAt();
+      if (world.gameState === 'PLAYING' && lastAcceptedAtMs > 0) {
+        const nowStarveMs = performance.now();
+        if (isSnapshotStarved(nowStarveMs, lastAcceptedAtMs, HOST_STARVATION_MS)) {
+          if (!clientStarvationLatched) {
+            clientStarvationLatched = true;
+            // Forensic approximation of the alive set (instrument phase): every seated player EXCEPT
+            // the presumed-dead host (seat 0). D3 carry-forward: a transport-grounded alive set.
+            const aliveSeats = new Set<number>();
+            for (const seatId of world.players.keys()) {
+              if ((seatId as number) !== 0) aliveSeats.add(seatId as number);
+            }
+            const warrant = session.warrant;
+            const successor = warrant !== null ? computeSuccessorSeat(warrant, aliveSeats) : null;
+            console.warn('[net] HOST SNAPSHOT STARVATION (D2 detect — no takeover):', {
+              sinceMs: Math.round(nowStarveMs - lastAcceptedAtMs),
+              wouldBeSuccessorSeat: successor,
+              iAmSuccessor: successor !== null && successor === (world.localPlayerId as number),
+              mySeat: world.localPlayerId,
+              warrantPresent: warrant !== null,
+              warrantedSeats: warrant !== null ? warrant.seats.map((s) => s.seat) : [],
+              aliveSeats: Array.from(aliveSeats).sort((a, b) => a - b),
+              visibilityState: typeof document !== 'undefined' ? document.visibilityState : 'unknown',
+              msSinceVisibilityChange: Math.round(nowStarveMs - lastVisibilityChangeAt),
+            });
+          }
+        } else if (clientStarvationLatched) {
+          clientStarvationLatched = false; // recovered → re-arm for the next episode
+          console.info('[net] host snapshot stream recovered (D2 detect).');
+        }
       }
     }
 

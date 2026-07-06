@@ -224,3 +224,77 @@ export async function verifyHostAttest(
     return false;
   }
 }
+
+/* ───────────────── S118 P1 (host-migration D2): client PROOF-OF-POSSESSION ───────────────── */
+
+const PUBKEY_POP_DOMAIN = 'SPARK-CLIENT-PUBKEY-POP-v1';
+
+/**
+ * S118 P1 (host-migration D2) — canonical, INJECTIVE proof-of-possession payload a JOINER signs with
+ * its ephemeral key (net/hostIdentity.generateClientIdentity) to PROVE it holds the private key for the
+ * `clientPubkeyB64` it advertises in HELLO. Without this, a peer could claim ANOTHER peer's pubkey in
+ * its HELLO and get warranted as a successor for a seat it can't actually sign for (Council S116 GROK
+ * W1 kill-shot). Binding (roomCode, senderPeerId, spki) also blocks cross-room / cross-peer replay of a
+ * captured PoP. Layout mirrors buildAttestPayload / buildWarrantPayload (length-prefixed + domain-
+ * separated → no field-boundary ambiguity): utf8(domain) ‖ u16be(len roomCode) ‖ roomCode ‖
+ * u16be(len peerId) ‖ peerId ‖ u16be(len spkiB64) ‖ spkiB64.
+ */
+export function buildPubkeyPopPayload(
+  roomCode: string,
+  selfPeerId: string,
+  spkiB64: string,
+): Uint8Array {
+  const enc = new TextEncoder();
+  const domain = enc.encode(PUBKEY_POP_DOMAIN);
+  const code = enc.encode(roomCode);
+  const peer = enc.encode(selfPeerId);
+  const spki = enc.encode(spkiB64);
+  const out = new Uint8Array(domain.length + 2 + code.length + 2 + peer.length + 2 + spki.length);
+  let o = 0;
+  out.set(domain, o); o += domain.length;
+  out[o++] = (code.length >> 8) & 0xff;
+  out[o++] = code.length & 0xff;
+  out.set(code, o); o += code.length;
+  out[o++] = (peer.length >> 8) & 0xff;
+  out[o++] = peer.length & 0xff;
+  out.set(peer, o); o += peer.length;
+  out[o++] = (spki.length >> 8) & 0xff;
+  out[o++] = spki.length & 0xff;
+  out.set(spki, o);
+  return out;
+}
+
+/**
+ * HOST-side PoP verification — the precondition for storing peerId→pubkey in session.peerPubkeys. True
+ * iff the signature verifies over buildPubkeyPopPayload(roomCode, senderPeerId, spkiB64) under the
+ * claimed spki itself (self-signed possession proof). `senderPeerId` MUST be the TRANSPORT peerId of
+ * the sender (never a wire-claimed identity), so a captured PoP cannot be replayed by a different peer.
+ * Any malformed input → false (fail-closed; mirrors verifyHostAttest's posture).
+ */
+export async function verifyPubkeyPop(
+  spkiB64: string,
+  popSigB64: string,
+  roomCode: string,
+  senderPeerId: string,
+): Promise<boolean> {
+  try {
+    const spki = b64ToBytes(spkiB64);
+    const pubKey = await crypto.subtle.importKey(
+      'spki',
+      spki.slice().buffer as ArrayBuffer,
+      KEYGEN_PARAMS,
+      false,
+      ['verify'],
+    );
+    const payload = buildPubkeyPopPayload(roomCode, senderPeerId, spkiB64);
+    const sig = b64ToBytes(popSigB64);
+    return await crypto.subtle.verify(
+      ECDSA_PARAMS,
+      pubKey,
+      sig.slice().buffer as ArrayBuffer,
+      payload.slice().buffer as ArrayBuffer,
+    );
+  } catch {
+    return false;
+  }
+}

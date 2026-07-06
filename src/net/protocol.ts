@@ -16,6 +16,9 @@ import type { GameAction } from '../state/world.ts';
 import type { NetSnapshot } from '../state/save.ts';
 import type { PlayerId } from '../types.ts';
 import type { GodlyTriggerEvent } from '../state/godlyRecipes/types.ts';
+// S118 P1 (host-migration D2) — TYPE-ONLY (erased at compile; adds no runtime import cycle) so the
+// Begin signal can carry the host's SuccessionWarrant additively. Shape is validated at the wire below.
+import type { SuccessionWarrant } from './successionWarrant.ts';
 import { MAX_PLAYERS } from '../constants.ts';
 
 // NetSnapshot is defined in save.ts (alongside its producer netSnapshot()
@@ -110,6 +113,26 @@ function isValidHostAttest(v: unknown): v is HostAttest {
   return typeof a.spkiB64 === 'string' && typeof a.sigB64 === 'string';
 }
 
+/**
+ * S118 P1 (host-migration D2) — fail-closed SHAPE check for an OPTIONAL START_GAME_SIGNAL.warrant.
+ * Validates {epoch:number, seats:[{seat:number, spkiB64:string}] (≤ MAX_PLAYERS), sigB64:string}. This
+ * is a WIRE-shape gate only — cryptographic verifyWarrant (chaining to the room code) runs later, in
+ * the client handler. A malformed warrant nulls the whole message (never hand a junk shape downstream);
+ * an ABSENT warrant is fine (legacy/mixed-build Begin). Bounds seat-list work against a flooding peer.
+ */
+function isValidWarrant(v: unknown): v is SuccessionWarrant {
+  if (v === null || typeof v !== 'object') return false;
+  const w = v as Record<string, unknown>;
+  if (typeof w.epoch !== 'number' || typeof w.sigB64 !== 'string') return false;
+  if (!Array.isArray(w.seats) || w.seats.length > MAX_PLAYERS) return false;
+  for (const s of w.seats) {
+    if (s === null || typeof s !== 'object') return false;
+    const seat = s as Record<string, unknown>;
+    if (typeof seat.seat !== 'number' || typeof seat.spkiB64 !== 'string') return false;
+  }
+  return true;
+}
+
 export interface HelloMsg {
   readonly kind: 'HELLO';
   readonly playerId: PlayerId;
@@ -125,6 +148,14 @@ export interface HelloMsg {
    * populates it yet (D1 is feature-flagged off; D2 wires the send). Absent on host/legacy HELLOs.
    */
   readonly clientPubkeyB64?: string;
+  /**
+   * S118 P1 (host-migration D2) — the joiner's PROOF-OF-POSSESSION signature over
+   * buildPubkeyPopPayload(roomCode, selfId, clientPubkeyB64) (net/hostIdentity.ts), proving it holds
+   * the private key for clientPubkeyB64 (closes the "claim any pubkey in HELLO" hole — Council GROK W1).
+   * ADDITIVE-OPTIONAL (no PROTOCOL_VERSION bump). Present only alongside clientPubkeyB64 on a live D2
+   * joiner HELLO; the host stores the pubkey ONLY after verifyPubkeyPop passes. Absent on host/legacy.
+   */
+  readonly clientPubkeyPopB64?: string;
 }
 
 /**
@@ -174,6 +205,8 @@ export function buildHello(
   color: number,
   hostAttest?: HostAttest,
   clientPubkeyB64?: string,
+  // S118 P1 (host-migration D2) — the joiner's PoP signature; threaded alongside clientPubkeyB64.
+  clientPubkeyPopB64?: string,
 ): HelloMsg {
   const override = readTestProtoVersionOverride();
   if (override !== null) {
@@ -195,6 +228,7 @@ export function buildHello(
       protoVersion: override as typeof PROTOCOL_VERSION,
       ...(hostAttest !== undefined ? { hostAttest } : {}),
       ...(clientPubkeyB64 !== undefined ? { clientPubkeyB64 } : {}),
+      ...(clientPubkeyPopB64 !== undefined ? { clientPubkeyPopB64 } : {}),
     };
   }
   return {
@@ -204,6 +238,7 @@ export function buildHello(
     protoVersion: PROTOCOL_VERSION,
     ...(hostAttest !== undefined ? { hostAttest } : {}),
     ...(clientPubkeyB64 !== undefined ? { clientPubkeyB64 } : {}),
+    ...(clientPubkeyPopB64 !== undefined ? { clientPubkeyPopB64 } : {}),
   };
 }
 
@@ -217,6 +252,15 @@ export interface NetSnapshotMsg {
   readonly kind: 'NETSNAPSHOT';
   readonly snapshotSeq: number;
   readonly snapshot: NetSnapshot;
+  /**
+   * S118 P1 (host-migration D2) — the term/epoch this snapshot was emitted under. 0 (or absent =
+   * treated as 0) for the ORIGINAL host's term; a migrated session (D3+) runs at epoch ≥ 1, letting a
+   * survivor DROP late snapshots from a deposed zombie host (ClientSync epoch gate). ENVELOPE-ONLY —
+   * it rides NetSnapshotMsg, NEVER enters NetSnapshot/save (save.replay stays byte-identical by
+   * construction). ADDITIVE-OPTIONAL: PROTOCOL_VERSION held 14; the gate is PROVABLY inert at 0
+   * (0 < 0 is false). D4 carry-forward: epoch-advance/reset + late-packet rules before activation.
+   */
+  readonly epoch?: number;
 }
 
 /**
@@ -253,7 +297,7 @@ export interface RosterEntry {
   readonly ready?: boolean;
 }
 
-interface StartGameMsg {
+export interface StartGameMsg {
   readonly kind: 'START_GAME_SIGNAL';
   // Kept as the literal '1v1' value (the "networked mode" tag) for back-compat;
   // the actual player count is roster.length (2..MAX_PLAYERS). S62.
@@ -263,6 +307,14 @@ interface StartGameMsg {
   /** S82 P4(a) — host attestation (additive-optional): lets a client whose HELLO was
    *  lost still verify + latch from the Begin signal itself (buffered until verified). */
   readonly hostAttest?: HostAttest;
+  /**
+   * S118 P1 (host-migration D2) — the host's SuccessionWarrant (net/successionWarrant.ts), signed at
+   * Begin over the seat→pubkey roster ∩ proven-pubkey peers, so survivors can later verify a D3
+   * MIGRATION_CLAIM chains to the room-code commitment. ADDITIVE-OPTIONAL (PROTOCOL_VERSION held 14);
+   * a client that receives no/invalid warrant just can't be a successor (fail-open — instrument phase,
+   * match proceeds). Seats without a proven pubkey are OMITTED (mixed-build tolerance, GROK R1 fix).
+   */
+  readonly warrant?: SuccessionWarrant;
 }
 
 /**
@@ -585,6 +637,9 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
       // S115 P3 (host-migration D1) — optional joiner pubkey: absent is fine (host/legacy HELLOs);
       // present but non-string rejects (fail-closed, same posture as hostAttest).
       if (obj.clientPubkeyB64 !== undefined && typeof obj.clientPubkeyB64 !== 'string') return null;
+      // S118 P1 (host-migration D2) — optional joiner PoP signature: absent is fine; present but
+      // non-string rejects (fail-closed). Cryptographic verifyPubkeyPop runs host-side later.
+      if (obj.clientPubkeyPopB64 !== undefined && typeof obj.clientPubkeyPopB64 !== 'string') return null;
       return obj as unknown as HelloMsg;
     }
     case 'INTENT': {
@@ -608,6 +663,9 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
       // now; test fixtures updated to include `schemaVersion: 1`.
       const schemaVersion = (obj.snapshot as Record<string, unknown>).schemaVersion;
       if (schemaVersion !== WIRE_SCHEMA_VERSION) return null;
+      // S118 P1 (host-migration D2) — optional envelope epoch: absent is fine (legacy/original-term =
+      // treated as 0); present but non-number rejects (fail-closed, same posture as the other optionals).
+      if (obj.epoch !== undefined && typeof obj.epoch !== 'number') return null;
       return obj as unknown as NetSnapshotMsg;
     }
     case 'START_GAME_SIGNAL': {
@@ -620,6 +678,9 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
       if (!isValidRoster(obj.roster)) return null;
       // S82 P4(a) — optional attestation, same fail-closed posture as HELLO.
       if (obj.hostAttest !== undefined && !isValidHostAttest(obj.hostAttest)) return null;
+      // S118 P1 (host-migration D2) — optional succession warrant: absent is fine (legacy/mixed-build
+      // Begin); present but malformed rejects the whole message (fail-closed). Crypto verify runs later.
+      if (obj.warrant !== undefined && !isValidWarrant(obj.warrant)) return null;
       return obj as unknown as StartGameMsg;
     }
     case 'LOBBY_PRESENCE': {
