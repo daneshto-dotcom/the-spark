@@ -1,6 +1,6 @@
 # Worker-Sim Smoothness Milestone — Foundation & Cutover Plan
 
-**Status:** Foundation laid (S107 P2). Cutover carried forward (multi-session).
+**Status:** Foundation laid (S107 P2). **Phase (a) runHostTick extraction SHIPPED (S119 P1).** Cutover carried forward (multi-session).
 **Goal (owner, S105):** "smooth regardless of who hosts; best + scalable for future real players." Move the authoritative sim behind a **Web Worker** boundary so the host becomes render-only (== a client), and that worker boundary doubles as the future **dedicated-server** boundary.
 
 ---
@@ -26,8 +26,48 @@ The HOST runs the full Verlet sim on the render thread: `stepPhysics(world, spaw
 
 ---
 
-## The blocker the PRIME-AUDIT caught (worker-feasibility)
-The S107 scoping workflow's WORKER-FEASIBILITY lens claimed "`state/` has zero render imports → worker-safe." **FALSE** (Opus PRIME-AUDIT): [`state/godlyOrchestration.ts`](src/state/godlyOrchestration.ts) imports `../render/{cutsceneOverlay, audioManager, codexStore, cinematicVignette, debugOverlay}`. So the host *tick* is entangled with render side-effects (godly cinematics, audio, codex unlocks). A worker cannot import Pixi/DOM. → **`runHostTick` extraction must first separate the pure sim mutation from the render-side-effects** (emit render/audio intents as data the main thread consumes, rather than calling render modules inside the tick). This is the real (a)-phase work, larger than the ~80 LOC the scope first estimated — the host tick spans ~410–560 LOC (main.ts ~1039–1600) once all host-only polls are included.
+## The blocker the PRIME-AUDIT caught (worker-feasibility) — RESOLVED S119, claim CORRECTED
+The S107 scoping workflow's WORKER-FEASIBILITY lens claimed "`state/` has zero render imports → worker-safe." **FALSE** (Opus PRIME-AUDIT): [`state/godlyOrchestration.ts`](src/state/godlyOrchestration.ts) imports `../render/{cutsceneOverlay, audioManager, codexStore, cinematicVignette, debugOverlay}`.
+
+**S119 A.0 correction:** the follow-on claim "so the host *tick* is entangled with godlyOrchestration" was **stale** — a fresh audit showed `runGodlyMatcher` runs **per-FRAME, OUTSIDE the drain loop** (main.ts render section, so it can scan `world.effects` before effectsRenderer wipes). The render side-effects actually inside the tick loop were only: `screenShake.trigger` at creature attack-fire, the shared PLAYING/TITLE edge watchers, the ENDGAME transport send, and a per-tick `netTransport.peerIds()` read. All four were resolved in phase (a) without any intents mechanism (see below).
+
+## Phase (a) — SHIPPED S119 P1 (`src/state/hostTick.ts`)
+
+The entire host per-tick body (stepPhysics → scoring → gameState → NONET sweep → hazard/creature/tower polls → bots → DROP-BENCH → DEV invariants, ~640 LOC) moved verbatim into **`runHostTick(world, deps, state)`** — a DOM/Pixi-free unit. Resolutions:
+- **screenShake** → post-drain ARC_FLASH effects-scan in main.ts (the client's S31 pattern; render-identical: nothing renders mid-drain + `ScreenShake.trigger` replaces, never stacks).
+- **Shared edge watchers (music/teardown) + ENDGAME send** → stayed verbatim in main.ts's loop tail — they run for BOTH host and client, so they are main-thread orchestration, not host sim (S119 Council R2; an R1 events-based design was rejected because it would have broken the client's watchers).
+- **peerIds() per tick** → `deps.alivePeerIds` computed once per frame (single-threaded JS ⇒ equivalent; empirically re-verified per-tick-vs-per-frame in the differential gate).
+- **Closure state** → explicit `HostTickState` struct (worker-serializable, no hidden closures).
+
+**Gates shipped with it:** `hostTick.replay.test.ts` (HARD: two same-seed 1000-tick bot runs byte-identical) + `hostTick.differential.test.ts` (frozen verbatim pre-refactor reference @840f31f run side-by-side, per-tick hash equality across 8 forced-state scenarios: solo physics, live bots, voltkin/chewer/drone, all four hazards, spawner+defender teardown, hunter, WIN→POSTGAME, DROP-BENCH).
+
+```mermaid
+flowchart LR
+  subgraph before [BEFORE — main.ts ticker owned everything]
+    T1[ticker drain loop\nsim + shake + music + teardown\n+ ENDGAME send + peerIds reads]
+  end
+  subgraph after [AFTER S119 — the worker seam exists]
+    subgraph sim [Sim space — worker-safe]
+      H[runHostTick\nworld + HostTickDeps + HostTickState\npure dispatch/mutation]
+    end
+    subgraph browser [Browser space — main thread]
+      M[main.ts ticker\nbuilds deps per frame\nalivePeerIds snapshot]
+      W[shared tail watchers\nENDGAME / music / teardown]
+      S[post-drain ARC_FLASH scan → shake]
+      G[godly matcher per frame\ncutscene/audio/codex ctx]
+    end
+    M -->|per tick| H
+    M --> W
+    M --> S
+    M --> G
+  end
+```
+
+### Godly-matcher per-frame contract (MUST hold until its phase-d migration)
+`runGodlyMatcher` + `startCinematicIfNeeded` (both world-mutating on the host) run once per RENDER FRAME, not per tick:
+1. **Cadence cap:** at most ONE godly trigger per frame (the matcher `break`s after a match) — moving it per-tick would raise the cap to one per tick and change gameplay.
+2. **Ordering:** it must observe `world.effects` AFTER the drain loop and BEFORE effectsRenderer wipes them each frame.
+3. **Side-effect ctx:** it consumes a render ctx (cutsceneOverlay, vignette, debug probes, `unlockGodly` localStorage, `playOneShot` audio). For phase (d) these become worker→main intents, and the cadence contract (1) must be preserved explicitly in the message protocol (e.g. the worker matcher runs once per snapshot batch, not per tick).
 
 ---
 
@@ -36,8 +76,8 @@ The S107 scoping workflow's WORKER-FEASIBILITY lens claimed "`state/` has zero r
 | Phase | Work | Blocker / prereq | Risk |
 |---|---|---|---|
 | **(done) d-1** | `stepPhysics` replay-determinism HARD gate + `hashWorldState` oracle | — | shipped S107 P2 |
-| **a** | `runHostTick` extraction — pull the host-only per-tick work into a DOM/Pixi-free unit | **untangle the `godlyOrchestration → render` coupling first** (emit render/audio as intents) | HIGH (core-loop refactor; the d-1 gate de-risks it) |
-| **b** | Snapshot **pooling + delta-encode** (the real O(world)/100 ms fix) | **MEASURE first** — add a dev snapshot-cost probe (`__SPARK__`), confirm the 15-spread allocation is actually the dominant cost before optimizing (S105 reflexion: "profile before optimizing the host gap"; the scope's "80–90% reduction" is UNMEASURED) | MED |
+| **(done) a** | `runHostTick` extraction — the host per-tick body in a DOM/Pixi-free unit (`state/hostTick.ts`) + replay HARD gate + frozen-reference differential | — | shipped S119 P1 (godly matcher deliberately stays per-frame main-thread — see its contract above) |
+| **b** | Snapshot **pooling + delta-encode** (the real O(world)/100 ms fix) | **MEASURE first** — dev snapshot-cost probe (`performance.mark/measure` + `__SPARK__.snapshotProbe`, shipped S119 P2), confirm the 15-spread allocation is actually the dominant cost before optimizing (S105 reflexion: "profile before optimizing the host gap"; the scope's "80–90% reduction" is UNMEASURED) | MED |
 | **c** | Collision grid 64→8 cell rebuild | the d-1 gate (done) locks behaviour; add an 8-bit cellKey overflow compile-assert (`CANVAS/cell < 256`) | LOW (gated by the gate) |
 | **d** | `?worker=1` flag-gated cutover (default OFF): worker entrypoint (sim modules only) + host↔worker message protocol (intents in, snapshots out) + `hashWorldState` cross-check | phases a+b+c; serialization-cost ROI measured (clone+postMessage vs current) | HIGH — ship behind a flag, never default-on until the cross-check is green on real devices |
 
