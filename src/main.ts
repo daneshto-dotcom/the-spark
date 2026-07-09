@@ -811,6 +811,9 @@ async function bootstrap(): Promise<void> {
       // S87 — VS-BOTS e2e probes: setup-overlay geometry/state + live manager.
       get botSetupOverlay() { return botSetupOverlay; },
       get botManager() { return botManager; },
+      // S119 P2 — live snapshot-cost aggregate (build vs send split; see the
+      // instrumented 10 Hz send site). Console: __SPARK__.snapshotProbe.
+      get snapshotProbe() { return snapshotProbe; },
       get fogRenderer() { return fogRenderer; },
       // S77 P2 — fog-exemption e2e: sync a global-reach entity + assert it renders
       // through the fog (aboveFogLayer sits above the fog container).
@@ -909,6 +912,33 @@ async function bootstrap(): Promise<void> {
   // seam the worker-sim milestone will reuse.
   const NET_SNAPSHOT_INTERVAL_MS = 1000 / NET_SNAPSHOT_HZ;
   let lastSnapshotSentMs = -Infinity;
+  // S119 P2 — DEV-only snapshot-cost probe (WORKER_SIM_FOUNDATION.md phase-b
+  // MEASURE-first): before any pooling/delta work, empirically confirm whether the
+  // snapshot BUILD (save.ts's 15-spread allocation) or the transport SEND dominates
+  // the 10 Hz cost. performance.mark/measure entries ('spark-snapshot-build'/'-send')
+  // land in the DevTools Performance timeline; the accumulator is readable live via
+  // __SPARK__.snapshotProbe. Records only on the networked-host path (the path that
+  // lags a weak host). Zero production cost — the instrumented branch is DEV-gated
+  // and tree-shaken from the production bundle.
+  const snapshotProbe = {
+    count: 0,
+    buildMsTotal: 0,
+    buildMsMax: 0,
+    sendMsTotal: 0,
+    sendMsMax: 0,
+    lastBuildMs: 0,
+    lastSendMs: 0,
+    /** Zero the aggregate mid-session (console) — for before/after A-B probing. */
+    reset(): void {
+      this.count = 0;
+      this.buildMsTotal = 0;
+      this.buildMsMax = 0;
+      this.sendMsTotal = 0;
+      this.sendMsMax = 0;
+      this.lastBuildMs = 0;
+      this.lastSendMs = 0;
+    },
+  };
 
   // S50 P2 — godly orchestration state (lastMatcherTick + lastCinematicOwner)
   // migrated to godlyOrchestration.ts (Battle Ledger C2 — closure state moved
@@ -1260,7 +1290,44 @@ async function bootstrap(): Promise<void> {
       ) {
         // S118 P1 (host-migration D2) — stamp the current term epoch (0 in D2 → omitted → wire byte-
         // identical to pre-D2; a survivor uses it in D3+ to fence out a deposed zombie host).
-        session.netTransport.send(session.hostSync.buildSnapshotMessage(world, session.currentEpoch));
+        if (import.meta.env.DEV) {
+          // S119 P2 — instrumented twin of the production send in the else-branch:
+          // same calls, same order, split only to mark the build/send boundary.
+          performance.mark('spark-snap-build-start');
+          const snapMsg = session.hostSync.buildSnapshotMessage(world, session.currentEpoch);
+          performance.mark('spark-snap-build-end');
+          session.netTransport.send(snapMsg);
+          performance.mark('spark-snap-send-end');
+          // GROK S119 CHECK — measure() throws if a third party (e.g. a devtools
+          // extension calling performance.clearMarks() globally) voided our marks
+          // between mark and measure; a throw here would abort the ticker frame
+          // AFTER the send but BEFORE lastSnapshotTick updates. The probe must
+          // never break the send path — stats are best-effort. mark() itself
+          // never throws, so build/send above stay un-tried.
+          try {
+            const buildMeasure = performance.measure('spark-snapshot-build', 'spark-snap-build-start', 'spark-snap-build-end');
+            const sendMeasure = performance.measure('spark-snapshot-send', 'spark-snap-build-end', 'spark-snap-send-end');
+            snapshotProbe.count++;
+            snapshotProbe.lastBuildMs = buildMeasure.duration;
+            snapshotProbe.lastSendMs = sendMeasure.duration;
+            snapshotProbe.buildMsTotal += buildMeasure.duration;
+            snapshotProbe.sendMsTotal += sendMeasure.duration;
+            if (buildMeasure.duration > snapshotProbe.buildMsMax) snapshotProbe.buildMsMax = buildMeasure.duration;
+            if (sendMeasure.duration > snapshotProbe.sendMsMax) snapshotProbe.sendMsMax = sendMeasure.duration;
+            // RALPH S119 — drop our entries once read: at 10 Hz a long dev duel would
+            // otherwise grow the Performance buffer unboundedly (~5 entries/send).
+            // DevTools' own recording is unaffected (it samples independently).
+            performance.clearMarks('spark-snap-build-start');
+            performance.clearMarks('spark-snap-build-end');
+            performance.clearMarks('spark-snap-send-end');
+            performance.clearMeasures('spark-snapshot-build');
+            performance.clearMeasures('spark-snapshot-send');
+          } catch {
+            // Voided marks (see above) — skip this sample; the send already went out.
+          }
+        } else {
+          session.netTransport.send(session.hostSync.buildSnapshotMessage(world, session.currentEpoch));
+        }
         session.lastSnapshotTick = world.tick;
         lastSnapshotSentMs = nowMs;
       }
