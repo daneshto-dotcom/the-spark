@@ -1,18 +1,21 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-07-06 | Session: S118 (Tier-B strategic batch — 4/4 SHIPPED + DEPLOYED LIVE)
+Generated: 2026-07-09 | Session: S119 (worker-sim seam — B2 phase (a) + probe + truth-maintenance, 3/3 SHIPPED)
 
 ## Next Steps
-1. **B2 — worker-sim cutover** (its own PDR — the deliberately-deferred Tier-B item; `WORKER_SIM_FOUNDATION.md`). Move the sim behind a Web Worker. Large/higher-risk; Grok's "before B1" argument was overruled for S118 (B1 was ship-ready), but B2 is the natural next big rock. Not yet deliberated → needs a fresh Standard/Full PDR. B1-D2's `succession.ts` already carries a forward-comment sketching the worker `postMessage` seam (Gemini Q1 fix).
-2. **Host-migration D3 — MIGRATION_CLAIM takeover** — builds directly on the S118 D2 detection layer (epoch gate + warrant + starvation detector are all wired dormant). D3 = the survivor with the lowest warranted+alive seat broadcasts a signed claim, others verify + re-home. Carry-forward from D2: a transport-grounded alive set (D2 used a seat-0-excluded approximation) + D4 epoch-advance/reset rules before activating the epoch gate.
-3. **B3 follow-ups (Gemini Q2 salience note)** — a VFX telegraph so the Keystone rigidity conferral is player-visible + an income-based 2nd symbiotic combo (the flashier proof; keep it off the byte-identity-sensitive scoring path or gate it hard).
-4. **Investigate/owner-side:** F9 INTENT token-bucket (before public matchmaking) · F10 Pixi-leak long-match heap probe (UNVERIFIED) · gated Tier-1 (G1b MOTION verb, G2 family traits).
+1. **B2 phase (b) — snapshot pooling/delta-encode.** MEASURE FIRST: read `__SPARK__.snapshotProbe` (S119 P2 — build-vs-send split, count/totals/max, `reset()` for A-B) in a real 2-peer dev duel before optimizing; the "15-spread build dominates" claim is still UNMEASURED. Then its own Standard PDR.
+2. **B2 phase (c) — collision-grid cell rebuild** (+ 8-bit cellKey overflow compile-assert). Now double-locked: the S107 stepPhysics gate AND the S119 hostTick replay gate + frozen-reference differential (template it — see reflexion #verbatim-move-plus-frozen-reference-differential).
+3. **B2 phase (d) — `?worker=1` flag-gated cutover** (intents in / snapshots out + hashWorldState cross-check). `runHostTick(world, deps, state)` in `src/state/hostTick.ts` IS the boundary; honor the godly-matcher per-frame cadence CONTRACT documented in WORKER_SIM_FOUNDATION.md.
+4. **Host-migration D3 — MIGRATION_CLAIM takeover** on the D2 detection layer (epoch gate + warrant + starvation wired dormant). Carry: transport-grounded alive set + D4 epoch rules.
+5. **B3 follow-ups** — Keystone rigidity VFX telegraph + income-based 2nd symbiotic combo (owner-taste: spike art + show first).
+6. **Owner-side / OS-side:** F9 INTENT token-bucket · F10 Pixi-leak heap probe · G1b MOTION · G2 family traits · clear the GitHub billing lock (restores Actions) · OS session: update ALWAYS-STRONGEST Gemini pin (2.5-pro RETIRED → gemini-3.1-pro-preview, see memory) + verify-session-claims.py path normalization (relative assertion paths never diff-bind; S119 had to absolutize).
 
 ## Blockers
-- OWNER (non-blocking): GitHub **account billing lock** kills Actions/auto-deploy → deploy stays MANUAL via `npm run deploy` (gh-pages branch-mode). Clear it (Settings → Billing) to restore the Actions pipeline.
-- Model: session ran on **Opus 4.8** (owner override of the ALWAYS-STRONGEST Fable-5 pin). The drift warning keeps firing until re-selected in settings. Non-blocking.
+- OWNER (non-blocking): GitHub account billing lock keeps Actions dead → deploy stays MANUAL `npm run deploy` (gh-pages branch-mode).
+- NOTE: spark-online.space still serves the **S118** build — S119 was refactor+instrumentation (zero player-visible change); deploy deliberately deferred until a player-facing change ships (reflexion #deploy-last-makes-the-deploy-meaningful).
+- REVIEW-PENDING.flag deferred (autonomous session in the advisory window) — the boot hook will surface the S119 review card; APPROVE or AMEND then.
 
 ## Pending Backlog
-- (BACKLOG.md uses a prose ROADMAP, not `- [ ]` checkboxes. Magic-combo behavior arc COMPLETE. Tier-A audit fixes SHIPPED S117. Tier-B batch (B1+B3+F1b/F2) SHIPPED + DEPLOYED S118. Next big rock = B2 worker-sim, then host-mig D3. Full audit: `AUDIT_S116.md`.)
+- (BACKLOG.md now has a **STATUS S119 banner at the top** — the worker-sim arc is the front of the line; the S108 queue is closed/history. Full plan: WORKER_SIM_FOUNDATION.md — phases d-1 ✅ S107, a ✅ S119, b/c/d open.)
 
 ## Recent Reflexion (last 2 sessions)
-See `.claude/reflexion_log.md` — S118 (Tier-B batch: parked-PDR-verbatim + A.0 re-run · RALPH caught async-Begin blocking happy-path · reuse-proven-replay-safe-template · caller-audit-was-the-real-gate · deploy-last-makes-it-meaningful) and S117 (Tier-A: prime-audit-the-council · ship-byte-identical-defer-subtle · resolve-real-defect-not-literal · dep-bump-is-behavioral).
+See `.claude/reflexion_log.md` — S119 (verbatim-move + frozen-reference differential · instrumented-twin + throw-audit · fix-the-warn-at-its-root · #method: template the differential harness; make CHECK reviewers verify semantics at file:line before CRITICAL — 7× refutation pattern; probe external-model availability at boot) and S118 (parked-PDR-verbatim + A.0 re-run · RALPH caught async-Begin · reuse-proven-replay-safe-template · caller-audit-was-the-real-gate · deploy-last).
