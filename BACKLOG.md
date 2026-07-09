@@ -5,7 +5,26 @@
 
 ---
 
-# CURRENT QUEUE — S108 PLAYTEST-FEEDBACK BATCHES (regression-first, front of the line)
+# STATUS S119 (2026-07-09) — FRONT OF THE LINE: the WORKER-SIM ARC
+
+> All four S108 playtest batches are SHIPPED (A S109 · B+D S110 · C S113 — queue below kept as history).
+> Deploys are **MANUAL** `npm run deploy` (gh-pages branch-mode, classic Pages builder; the account billing
+> lock keeps Actions dead). spark-online.space serves the **S118** batch (B1 host-mig D2 forensics + B3
+> Keystone Anchor + F1b/F2 territory perf). **S119** shipped the worker-sim seam: **B2 phase (a) runHostTick
+> extraction** (`src/state/hostTick.ts` + replay HARD gate + frozen-reference differential) and the phase-(b)
+> **snapshot-cost probe** (`__SPARK__.snapshotProbe`). Full plan: `WORKER_SIM_FOUNDATION.md`.
+>
+> **NEXT BIG ROCKS (in order):**
+> 1. **B2 phase (b)** — snapshot pooling/delta-encode. **MEASURE FIRST**: read `__SPARK__.snapshotProbe` in a real 2-peer dev duel (build vs send split) before optimizing.
+> 2. **B2 phase (c)** — collision-grid cell rebuild (+ 8-bit cellKey overflow compile-assert), now double-locked by the S107 + S119 gates.
+> 3. **B2 phase (d)** — `?worker=1` flag-gated cutover (intents in / snapshots out + `hashWorldState` cross-check). Honor the godly-matcher per-frame cadence CONTRACT (WORKER_SIM_FOUNDATION.md).
+> 4. **Host-migration D3** — MIGRATION_CLAIM takeover on the D2 detection layer (carry: transport-grounded alive set + D4 epoch rules).
+> 5. **B3 follow-ups** — Keystone rigidity VFX telegraph + income-based 2nd symbiotic combo (owner-taste: spike + show first).
+> Owner-gated: F9 INTENT token-bucket (before public matchmaking) · F10 Pixi-leak heap probe · G1b MOTION verb · G2 family traits · clear the billing lock to restore Actions.
+
+---
+
+# CURRENT QUEUE — S108 PLAYTEST-FEEDBACK BATCHES — ✅ ALL SHIPPED (closed S113; kept as history)
 
 > S108 was a PLAN-ONLY session (seat weekly-limit). Owner playtested live S107 and reported 6 points; we scoped all 6
 > against the code (6-investigator Opus workflow), deliberated (2 Council rounds + PRIME-AUDIT), and split them into 4
@@ -16,19 +35,19 @@
 > **1710/1710**, build 601.5/750 KiB): P1 victory points 786→**1500** (+tier-step 262→500); P2 **uniform spark speed** (12);
 > P3 codex keeps the player **avatar visible** above the popup; **P4 = Batch B** (Helga full walk-to-target + melee, **v12→13**);
 > **P5 = Batch D** (matted on-model Voltkin art + Helga's own codex art). 5 commits `0d83eef`/`94a5097`/`8558f38`/`ae30daa`/`ffcde36`.
-> 🚨 **NOT LIVE YET:** the GitHub Actions deploy is blocked (private-repo Actions spending-limit cap → `startup_failure`/0 jobs);
-> spark-online.space still serves S109. **Owner: raise the Actions spending limit** (Settings → Billing → Actions), then it
-> deploys on the next push. Detail: `HANDOFF_S110.md`.
+> ~~🚨 NOT LIVE YET: the GitHub Actions deploy is blocked~~ **RESOLVED S111+** — repo went PUBLIC and deploys
+> are MANUAL via `npm run deploy` (gh-pages branch-mode, classic Pages builder; Actions remain dead under the
+> account billing lock). The live site has tracked master ever since (currently S118 — see STATUS banner above).
 
 | Batch | Covers (owner points) | PDR / Plan file | Wire | Risk | Status |
 |---|---|---|---|---|---|
 | **A** | #5 codex-trap · #6 shape 10s-despawn (no clamp — fling is a tactic) · #1 poop model (disable structures / slow creatures+Helga / carried-spark 50% slow / idle-pool immune / foul placed prims) · #3 Helga anti-laser INTERIM (cut range + remove beam) | `.claude/plans-archive/2026-06-26_PDR_S108_Batch_A_COMPLETED.md` | none (v12) | Low/Std | **✅ SHIPPED S109** — 4 commits, all deploys SUCCESS, vitest 1702/1702. Owner playtest: HELGA range 380 is a tunable dial. |
 | **B** | #3 FULL — Helga WALKS to target + slaps once on arrival, chases not loops | `.claude/plans/2026-06-26_PDR_S110_Batch_E_plus_B_plus_D.md` | **12→13** | HIGH | **✅ SHIPPED S110** (`ae30daa`) — walk-to-target + melee + anti-kite leash; turret byte-identical; replay byte-equiv; +8 tests. Playtest dials: moveAccel 150, leash 380. (deploy pending — see banner) |
-| **C** | #4 — "5 circles + dot" building → suicide lightning drones → self-destruct after 3 | `.claude/plans/2026-06-26_PLAN_S108_Batch_C_Lightning_Drone_Building.md` | **12→13** | HIGH | needs PDR + Council + 9 owner design Qs |
+| **C** | #4 — "5 circles + dot" building → suicide lightning drones → self-destruct after 3 | `.claude/plans/2026-06-28_PDR_S113_Batch_C_Lightning_Drone.md` | **12→13** | HIGH | **✅ SHIPPED S113** — lightningHub spawner recipe (1 Dot + 5 Circles): emits 3 homing suicide drones on the cadence, then STRUCTURE_SELFDESTRUCT AoE + teardown; Codex TOWERS tab entry |
 | **D** | #2 — Voltkin (+ Helga) better-quality 2D art, clean matte, NO 3D | `.claude/plans/2026-06-26_PDR_S110_Batch_E_plus_B_plus_D.md` | none | Med | **✅ SHIPPED S110** (`ffcde36`) — border-component matte (no box), in-world Voltkin sprite swap + Helga codex art. In-world Helga kept procedural (walks). Carry-fwd: Helga Veo walk-cycle; confirm Voltkin scale 0.17 on playtest. (deploy pending — see banner) |
 
-**Sequencing:** ~~A (safe, no-bump)~~ ✅ → ~~B (Helga walk)~~ ✅ S110 → C (new building) → ~~D (art wiring)~~ ✅ S110. **C is now the
-front of the line** (own PDR + 3-way Council + 9 owner design Qs). The Tier-1 G-series + Tier-3 host-migration ROADMAP below resumes after C.
+**Sequencing:** ~~A~~ ✅ S109 → ~~B~~ ✅ S110 → ~~C~~ ✅ S113 → ~~D~~ ✅ S110 — **queue closed.** The front of the
+line is the WORKER-SIM ARC + host-mig D3 (see the STATUS S119 banner at the top of this file).
 
 **KEY DELIBERATION RESULT (do not re-litigate):** the SPARK client runs NO authoritative physics/FSM (main.ts:1055 —
 it renders host-synced positions). So host-only sim changes whose WIRE FORMAT is unchanged need NO PROTOCOL_VERSION

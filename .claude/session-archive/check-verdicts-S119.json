@@ -1,0 +1,48 @@
+{
+  "session_id": "S119",
+  "schema_version": 1,
+  "verdicts": [
+    {
+      "priority_id": "P1",
+      "grok_verdict": "FAIL",
+      "grok_findings": {
+        "critical": 3,
+        "important": 0,
+        "minor": 0,
+        "good": 0
+      },
+      "gemini_verdict": "FAIL",
+      "gemini_findings": {
+        "critical": 2
+      },
+      "triage": "all 5 findings refuted with file:line evidence (check_finding_filtered x5); effective SHIP",
+      "ralph_verdict": "CLEAN",
+      "timestamp": "2026-07-09T21:47:25.815208"
+    },
+    {
+      "priority_id": "P2",
+      "grok_verdict": "FAIL",
+      "grok_findings": {
+        "critical": 1,
+        "important": 2,
+        "minor": 0,
+        "good": 0
+      },
+      "triage": "F1 adopted-modified (try/catch), F2+F3 rejected (immaterial / arithmetic wrong); effective SHIP after fix",
+      "ralph_verdict": "ISSUES_FOUND->FIXED (perf-buffer growth)",
+      "timestamp": "2026-07-09T21:54:34.062865"
+    },
+    {
+      "priority_id": "P3",
+      "grok_verdict": "SKIPPED",
+      "grok_findings": {
+        "critical": 0,
+        "important": 0,
+        "minor": 0,
+        "good": 0
+      },
+      "ralph_verdict": "CLEAN",
+      "timestamp": "2026-07-09T22:00:16.269899"
+    }
+  ]
+}
