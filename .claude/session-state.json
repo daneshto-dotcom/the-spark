@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 73,
+  "tool_calls_session_total": 76,
   "session_id": "S121",
   "session_kind": "execution",
   "session_start": "2026-07-10T12:00:00.000Z",
@@ -16,7 +16,7 @@
   "budget_total": 1000000,
   "priorities": [
     {
-      "id": "S121-P1-rigidity-telegraph",
+      "id": "P1-rigidity-telegraph",
       "label": "B3: Keystone rigidity VFX telegraph — gold pulse from un-fouled Anchor along its keystone-linked magic bonds; render-side both peers (structural, always-on subtle); new keystoneTelegraphRenderer.ts + test; wire after structureRenderer.sync (main.ts:1658).",
       "status": "completed",
       "phase": "COMPLETED",
@@ -53,7 +53,7 @@
       ]
     },
     {
-      "id": "S121-P2-income-keystone",
+      "id": "P2-income-keystone",
       "label": "B3: Income Keystone symbiotic combo — a Filament confers +KEYSTONE_INCOME_COMPLEXITY(0.25) income to up to KEYSTONE_INCOME_MAX_NEIGHBORS(3) magic neighbors (per-Filament cap, Council-revised). computeAllComplexities + differential-oracle mirror + constants + green pulse in the shared telegraph renderer + new scoring.keystoneIncome.test.ts.",
       "status": "completed",
       "phase": "COMPLETED",
@@ -100,7 +100,7 @@
       ]
     },
     {
-      "id": "S121-P3-deploy",
+      "id": "P3-deploy",
       "label": "Deploy: npm run deploy (manual, billing lock) after P1+P2 gates green; verify spark-online.space serves new bundle hash + 0 console errors.",
       "status": "completed",
       "phase": "COMPLETED",
@@ -131,7 +131,7 @@
       ]
     },
     {
-      "id": "S121-P4-codex-coherence",
+      "id": "P4-codex-coherence",
       "label": "SCOPE AMENDMENT (owner pre-approved): Codex+Godly UI coherence — fix text overflowing boxes (codex overlay + title screen), fix wrong Voltkin image shown for non-Voltkin entries, per-tower/per-godly consistent imagery, rewrite copy to be creative/epic/well-presented. Redeploy after.",
       "status": "completed",
       "phase": "COMPLETED",
@@ -188,7 +188,8 @@
     "Host-migration D3 MIGRATION_CLAIM takeover (builds on D2; carry: transport alive set + D4 epochs).",
     "F9 INTENT token-bucket; F10 Pixi-leak long-match heap probe (UNVERIFIED).",
     "Gated Tier-1 (owner design): G1b MOTION verb; G2 family traits.",
-    "Owner-side: clear GitHub account billing lock -> restores Actions/auto-deploy."
+    "Owner-side: clear GitHub account billing lock -> restores Actions/auto-deploy.",
+    "OS session: constitution-close-gate CLAIM-A id-matcher expects ^PN- priority ids but the long-standing session convention is SNNN-PN-... (S120 used it too) — either loosen the jq regex to a substring test or codify the PN- id convention in session-pdca SKILL.md. S121 hit a guaranteed-block loop until ids were renamed."
   ],
   "reflexion_entries_to_archive": [
     "S121-P1 #telegraph-cross-peer-by-derivation: the physics conferral (bond.stiffnessMultiplier) is host-only + un-synced, so a joiner cannot read it. Deriving the STRUCTURAL relation (un-fouled hub + magic neighbor sharing an endpoint) render-side from synced graph state + world.tick gives a bit-identical cross-peer telegraph with ZERO wire bytes. General pattern for visualizing an ephemeral host quantity: recompute from synced inputs, never sync the derived value.",
