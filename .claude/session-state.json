@@ -1,176 +1,147 @@
 {
-  "tool_calls_session_total": 19,
-  "session_id": "S120",
+  "tool_calls_session_total": 62,
+  "session_id": "S121",
   "session_kind": "execution",
-  "session_start": "2026-07-10T00:00:00.000Z",
-  "prior_session_note": "S119 COMPLETE \u2014 3/3 priorities + ANALYZE done. Handoff next. S119 review card APPROVED at S120 boot.",
-  "phase": "S120_EXECUTING",
+  "session_start": "2026-07-10T12:00:00.000Z",
+  "prior_session_note": "S120 COMPLETE (B2 phase b/c). S121 = B3 symbiotic batch: rigidity telegraph + Income Keystone + deploy. PDR approved via AskUserQuestion (telegraph always-on-subtle; Approve & execute).",
+  "phase": "S121_EXECUTING",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "user_approval_verbatim": "I approve to run top recommended priority batch that would yield the highest quality output and best value for this project and vision. I will turn on Fable 5 ultracode so you can work to the best of your ability producing the absolute highest level of output! I approve full session autonomous batch!",
-  "tier": "Full",
-  "council_rounds": 2,
-  "council_result": "S120 Full-tier 2-round Council (Grok-4.20-reasoning DISRUPTOR + Gemini AUDITOR). Ledger: #1 GO-thresholds CONCEDED->GROK (6x weak-host factor, avg>=0.25/max>=2ms + heavy-load protocol + A-B re-measure); #2 P2 mechanism SYNTHESIS (byte-identity gate invariant, minimal mechanism; ArrayBuffer wire REJECTED as phase-d work, carry-forward); #3 stale-bucket OVERRULED w/ proof (per-SUBSTEP hoist not per-tick; phantom pairs no-op collision.ts:29; client renders host state) + CONCEDED dense-pile hardening test; #4 measurement validity SYNTHESIS (6x analytic factor; telemetry carry-forward); #5 Gemini adds PARTIAL (protocol+results table ADOPTED; CI spec/PDF/Imagen REJECTED). No vetoes. NOTE: Gemini MCP default routed to gemini-2.5-pro and RESPONDED (retirement partial?); explicit 3.1-pro-preview pin retained.",
-  "plan_file": ".claude/plans/2026-07-10_PDR_S120_B2bc_Snapshot_Grid.md",
+  "user_approval_verbatim": "Approve & execute — S121 B3 batch (P1 telegraph always-on-subtle + P2 Income Keystone + P3 deploy).",
+  "tier": "Standard",
+  "council_rounds": 1,
+  "council_result": "S121 Standard 3-way Council (Grok DISRUPTOR grok-4.20-reasoning + Gemini AUDITOR gemini-3.1-pro-preview). Ledger: Q1 income-value CONCEDED->Council (magic term uncapped scoring.ts:189 VERIFIED) -> per-Filament cap 3 + value 0.3->0.25; Q2 telegraph honesty REJECTED-always-on by both -> ESCALATED to owner, owner ratified always-on-subtle (keystone-linked framing); Q3 dyadic/sort criticals REFUTED with proof (JS deterministic doubles; existing x0.05 non-dyadic passes byte-identical replay; pure-count order-independent) -> determinism gate as-designed correct. No vetoes.",
+  "plan_file": ".claude/plans/2026-07-10_PDR_S121_B3_Symbiotic.md",
   "budget_total": 1000000,
   "priorities": [
     {
-      "id": "S120-P1-snapshot-cost-measure",
-      "label": "B2 phase (b) MEASURE: real 2-peer duel, heavy-load protocol, __SPARK__.snapshotProbe build-vs-send split; GO rule avg>=0.25ms OR max>=2ms; results+protocol into WORKER_SIM_FOUNDATION.md.",
+      "id": "S121-P1-rigidity-telegraph",
+      "label": "B3: Keystone rigidity VFX telegraph — gold pulse from un-fouled Anchor along its keystone-linked magic bonds; render-side both peers (structural, always-on subtle); new keystoneTelegraphRenderer.ts + test; wire after structureRenderer.sync (main.ts:1658).",
       "status": "completed",
       "phase": "COMPLETED",
-      "tier": "Full",
+      "tier": "Standard",
+      "check_completed": true,
+      "reflexion_entries": [],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "eaca05b",
-      "reflexion_entries": [],
-      "real_context_tokens_at_close": 221718,
-      "real_context_pct_at_close": 22.17,
-      "check_method": "P1 phase-(b) MEASURE shipped (eaca05b). e2e/perf-snapshot.spec.ts (SPARK_PERF=1 opt-in, excluded from default runs): REAL 2-peer Trystero duel via the S46 lobby helpers, 3 windows \u2014 W1 light 45s, W2 heavy 60s post-build-phase, W3 heavy + REAL 6x CDP Emulation.setCPUThrottlingRate (upgrades the Council analytic factor to a measured throttle). Results: build 0.079/0.056/0.345 ms avg (max 0.3/0.2/0.9), send 3-6x build in every window, snapshots 6.6-8.5KB. NO clause of the pre-registered GO rule fired -> NO-GO; 15-spread-dominates hypothesis REFUTED. +2 DEV-only __SPARK__ getters (hostSync/currentEpoch) INSIDE the import.meta.env.DEV block \u2014 prod bundle BYTE-IDENTICAL (index-CFp6LxFV.js 639212B = S119 hash, empirically rebuilt). Protocol + results table + caveats in WORKER_SIM_FOUNDATION.md. CHECK adversarial: RALPH:PATROL PASS (tsc 0, ledger conformance, bundle identity). GEMINI-AUDITOR (3.1-pro-preview) PASS 5/5/5/5 (its threshold-math misread noted; verdict independently recomputed). GROK-ANALYST raw FAIL, 6 attacks -> S154 inline triage: F2 8-12x-creature-extrapolation REFUTED with file:line (save.replay.test.ts:715 wire-budget HARD gate bounds worst-case TD world <=16KB = 2x measured; extrapolated W3 0.7ms < 1.5 threshold, 2x margin); F4/F5 margin-refuted; F1 timer-quantization ADOPTED as doc note (all maxes 0.1ms-multiples \u2014 strengthens NO-GO); F3 GC-observation PARTIALLY ADOPTED (longtask requirement folded into the mandated TD-heavy re-measure before phase-d); F6 convergent-with-close. 6 telemetry entries logged. #empirical-refutes-plausible-criticals 8th.",
+      "checkpoint_commit": "1ba7cdc",
+      "real_context_tokens_at_close": 232851,
+      "real_context_pct_at_close": 23.29,
+      "check_method": "P1 rigidity telegraph shipped (1ba7cdc). New keystoneTelegraphRenderer.ts: pure computeKeystonePulses(world) scans un-fouled Anchor(gold 0xffd873)/Filament(green 0x74e0a4) hubs, emits a pulse per un-fouled MAGIC neighbor bond (SAME endpoint-neighbor scan as applyKeystoneAnchor) -> cross-peer BY CONSTRUCTION (synced graph + world.tick phase, ZERO wire/save bytes, pure cosmetic). Always-on subtle per owner taste + Council Q2 ratification. Graphics constructed after structureRenderer (above bonds/prims), synced after structureRenderer.sync (main.ts:1665). GATES: tsc 0; vitest full 1849/1849 (+8 new: hub detect, gold/green dispatch, magic-only + foul filtering, far-endpoint geometry both bond a/b directions, order-independence); regression-clean. Live VISUAL smoke CONSOLIDATED to pre-deploy (P2 adds the green pulse to the SAME renderer). CHECK RALPH:PATROL PASS (render-only, no world mutation, helper is Pixi-free testable).",
       "verification": [
         {
           "type": "file_exists",
-          "path": "e2e/perf-snapshot.spec.ts"
+          "path": "src/render/keystoneTelegraphRenderer.ts"
         },
         {
           "type": "file_contains",
-          "path": "e2e/perf-snapshot.spec.ts",
-          "needle": "Emulation.setCPUThrottlingRate"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/perf-snapshot.spec.ts",
-          "needle": "process.env.SPARK_PERF !== '1'"
+          "path": "src/render/keystoneTelegraphRenderer.ts",
+          "needle": "export function computeKeystonePulses"
         },
         {
           "type": "file_contains",
           "path": "src/main.ts",
-          "needle": "get hostSync() { return session.hostSync; }"
+          "needle": "keystoneTelegraphRenderer.sync(world)"
         },
         {
           "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\WORKER_SIM_FOUNDATION.md",
-          "needle": "W3 heavy+6\u00d7 | 60s | 398 | 0.345"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\WORKER_SIM_FOUNDATION.md",
-          "needle": "Verdict: NO-GO"
+          "path": "src/render/keystoneTelegraphRenderer.test.ts",
+          "needle": "KEYSTONE_INCOME_PULSE_COLOR"
         }
       ]
     },
     {
-      "id": "S120-P2-snapshot-build-reduction",
-      "label": "B2 phase (b) NO-GO branch: docs-only close (CLOSED-BY-MEASUREMENT refinements: timer-quantization note, repo-verified 2x/16KB extrapolation, longtask re-measure clause) + BACKLOG banner truth-maintenance.",
+      "id": "S121-P2-income-keystone",
+      "label": "B3: Income Keystone symbiotic combo — a Filament confers +KEYSTONE_INCOME_COMPLEXITY(0.25) income to up to KEYSTONE_INCOME_MAX_NEIGHBORS(3) magic neighbors (per-Filament cap, Council-revised). computeAllComplexities + differential-oracle mirror + constants + green pulse in the shared telegraph renderer + new scoring.keystoneIncome.test.ts.",
+      "status": "completed",
+      "phase": "COMPLETED",
+      "tier": "Standard",
+      "check_completed": true,
+      "reflexion_entries": [],
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "checkpoint_commit": "c77a817",
+      "real_context_tokens_at_close": 291082,
+      "real_context_pct_at_close": 29.11,
+      "check_method": "P2 Income Keystone shipped (c77a817). computeAllComplexities (scoring.ts) gains a SECOND isFilamentCombo-gated bond pass: per un-fouled Filament, count un-fouled MAGIC neighbors (prim.bonds adjacency, foul parity), CAP at KEYSTONE_INCOME_MAX_NEIGHBORS(3), sum×KEYSTONE_INCOME_COMPLEXITY(0.25) credited to the Filament aId-placer. Council Q1 anti-starburst cap (rewards spreading hubs). Green pulse ships via the P1 telegraph renderer (Filament hub). Constants added w/ #1-playtest-knob docblock. GATES: tsc 0; vitest FULL 1855/1855 (+6 keystone: bonus earned, non-Filament=0, cap-fires-at-4-neighbors, fouled-hub=0, fouled-neighbor=0, order-independent) — scoring.differential BIT-EXACT vs an INDEPENDENT reference oracle across 600 random worlds (keystone term mirrored in referenceComplexity), save.replay 24/24 self-consistency (jsonA==jsonB) holds with the new income formula (REPLAY-SELF-CONSISTENT by construction: pure synced-state fn, integer-counted, one-shot expr, no float accumulation), no PROTOCOL_VERSION bump (wire schema unchanged). Updated 1 pre-existing test (scoring.test.ts S98 forward-build) whose structure is now a keystone neighbor BY DESIGN — expected value += KEYSTONE_INCOME_COMPLEXITY, S98-symmetry invariant preserved. Bundle 626.2/750 (headroom 123.8). LIVE SMOKE (:37722): injected Anchor+Capsule + Filament+Cable into the live world, called the SHIPPED computeKeystonePulses -> exactly 2 pulses (gold #ffd873 anchor->capsule, green #74e0a4 filament->cable, correct endpoints); render loop 60 FPS over the structure, PLAYING, 0 console errors -> telegraph draws without throwing. Screenshot times out (heavy WebGL/fog canvas, known S120 constraint) -> eval/snapshot verification used per preview guidance. CHECK RALPH:PATROL PASS. Council Q3 determinism gate (differential-oracle mirror + replay self-consistency) EMPIRICALLY CONFIRMED green.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "KEYSTONE_INCOME_COMPLEXITY = 0.25"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "KEYSTONE_INCOME_MAX_NEIGHBORS = 3"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/scoring.ts",
+          "needle": "INCOME KEYSTONE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/scoring.ts",
+          "needle": "kib * KEYSTONE_INCOME_COMPLEXITY"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/scoring.differential.test.ts",
+          "needle": "keystoneBlessed * KEYSTONE_INCOME_COMPLEXITY"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/state/scoring.keystoneIncome.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "S121-P3-deploy",
+      "label": "Deploy: npm run deploy (manual, billing lock) after P1+P2 gates green; verify spark-online.space serves new bundle hash + 0 console errors.",
       "status": "completed",
       "phase": "COMPLETED",
       "tier": "Micro",
+      "check_completed": true,
+      "reflexion_entries": [],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "543a3aa",
-      "reflexion_entries": [],
-      "real_context_tokens_at_close": 232000,
-      "real_context_pct_at_close": 23.2,
-      "check_method": "P2 phase-(b) NO-GO docs-only close shipped (543a3aa). Foundation doc: phase-b row -> (closed)/CLOSED-BY-MEASUREMENT; phase-d prereq row corrected (a done / b closed / c remaining) so no future session misreads b as unfinished work; CHECK-triage refinements folded in \u2014 timer-quantization note (all maxes 0.1ms multiples -> perf.now ~100us granularity, W1->W2 avg dip is noise-floor+JIT not signal), extrapolation re-bounded by the repo-verified save.replay.test.ts:715 16KB wire-budget HARD gate (2x, replacing the speculative 4x; GROK 8-12x refuted), longtask/GC observation requirement added to the mandatory TD-heavy re-measure clause before phase (d). BACKLOG.md: STATUS S120 banner (front of line = phase c -> d -> host-mig D3 -> B3; phase-b closure recorded with instrument pointer). RALPH:PATROL: grep sweep found zero stale MEASURE-FIRST/pooling-next directives outside history; found+fixed the phase-d prereq staleness (the S119 fix-the-warn-at-its-root pattern applied proactively). GROK/GEMINI skipped (docs-only Micro, S119-P3 precedent). P1 triage telemetry (6 entries) committed with it.",
+      "checkpoint_commit": "c77a817",
+      "real_context_tokens_at_close": 291082,
+      "real_context_pct_at_close": 29.11,
+      "check_method": "P3 deploy shipped (npm run deploy; gh-pages branch-mode workaround). Built (tsc+vite+bundle 626.2/750), published dist/ to gh-pages (67be75a), triggered classic Pages build -> status=built, verified live: https://spark-online.space serves assets/index-BslTOrNs.js (live==want hash), HTTP 200. Deployed content = master c77a817 (P1 1ba7cdc + P2 c77a817). Rule 22 END-OF-SESSION AUDIT: live hash matches, no errored Pages build, ZERO new gh issues. FINDING (carry-forward, not dropped): gh run list shows Actions RUNNING AGAIN this session (pages-build-deployment 35s success + Deploy-to-GitHub-Pages on master-push 53s success) -> the billing lock that killed Actions may be CLEARED; owner to verify + potentially restore auto-deploy (retire the manual gh-pages workaround).",
       "verification": [
         {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "STATUS S120 (2026-07-10)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "CLOSED-BY-MEASUREMENT"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\WORKER_SIM_FOUNDATION.md",
-          "needle": "(closed) b"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\WORKER_SIM_FOUNDATION.md",
-          "needle": "Timer quantization"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "STATUS S119 (2026-07-09)"
-        }
-      ]
-    },
-    {
-      "id": "S120-P3-grid-rebuild-64to8",
-      "label": "B2 phase (c): hoist insertAll out of COLLISION_ITERATIONS loop (per-substep, 8 rebuilds/tick) + cellKey bounds assert + dense-pile hardening test + informational bench.",
-      "status": "completed",
-      "phase": "COMPLETED",
-      "tier": "Full",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "3fc6688",
-      "reflexion_entries": [],
-      "real_context_tokens_at_close": 279000,
-      "real_context_pct_at_close": 27.9,
-      "check_method": "P3 phase-(c) grid rebuild shipped (3fc6688). grid.insertAll hoisted out of the COLLISION_ITERATIONS loop, kept INSIDE resolveCollisions (per-substep, post-verletStepAll integration \u2014 the Council ledger-3 never-per-tick constraint, enforced by docblock at the site). 64 -> 8 O(N) rebuilds/tick. SpatialGrid ctor fail-fast guard CANVAS/cellSize>=256 per axis (after the <=0 throw, division safe; all 7 ctor sites pass 32 = 60x34 cells, 4x headroom). NEW collision.pile.test.ts (written PRE-hoist, thresholds untouched post-hoist \u2014 behavior-agnostic hardening): 30-spark jam, two-run byte determinism, residual overlap <1.5px empirical bound, no-NaN, drift canary 1500px (baseline pre 798 / post 783px), seed-divergence canary, informational bench 21.7->20.4us/call (honestly reported pair-dominated fixture; real win = 56 fewer rebuilds/tick + allocation churn). GATES: tsc 0; vitest 1841/1841 incl. stepPhysics 300-tick replay HARD gate, hostTick 1000-tick replay, frozen-reference differential 8 scenarios (imports LIVE stepPhysics both sides \u2014 hoist flows through both, gate locks the seam), 60s stress p95-budget; bundle 624.4/750 KiB; LIVE smoke on :37722 dev \u2014 TITLE->SOLO PLAYING via letterbox-corrected synthetic pointer events, energy accrual 7.00, tick advance, 0 console errors, 0 non-finite positions. CHECK adversarial: RALPH:PATROL PASS; GEMINI-AUDITOR (3.1-pro-preview) PASS 5/5/5/5; GROK-ANALYST raw FAIL 5 criticals -> ALL REFUTED in S154 triage with file:line/spec evidence: (a) Map-order cross-engine REFUTED (ECMA-262 insertion-order mandate + S107 audit), (b) 2.4px-residual REFUTED-fabricated-run (no exec env; pile gate bounds <1.5px), (d) ctor-throw-in-prod REFUTED (1920/8=240<256; cited spatial.test.ts DOES NOT EXIST), (f) crossing-clusters REFUTED (rebuild is post-integration; fast movers see fresh buckets), NaN-===0 REFUTED-fabricated-symbol (real guard distSq<EPSILON collision.ts:29). NEW PATTERN telemetry-logged: reviewer fabricated I-ran-it claims \u2014 auto-distrust execution claims from CHECK reviewers. 9th #empirical-refutes-plausible-criticals.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/physics/collision.ts",
-          "needle": "the grid is rebuilt ONCE per call"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/physics/collision.ts",
-          "needle": "Was 64 insertAll/tick"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/physics/spatial.ts",
-          "needle": "overflows the reserved 8-bit cell space"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/physics/collision.pile.test.ts",
-          "needle": "two same-seed pile runs are byte-identical"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/physics/collision.pile.test.ts",
-          "needle": "toBeLessThan(1.5)"
+          "type": "live_hash_match",
+          "path": "https://spark-online.space",
+          "needle": "assets/index-BslTOrNs.js"
         }
       ]
     }
   ],
   "carry_forward_priorities": [
-    "B2 phases b/c/d: snapshot pooling+delta (measure first), collision grid 64->8, ?worker=1 flag-gated cutover.",
-    "Host-migration D3 MIGRATION_CLAIM takeover (builds on D2; carry: transport-grounded alive set + D4 epoch rules).",
-    "B3 follow-ups: VFX telegraph for Keystone rigidity + income-based 2nd symbiotic combo.",
+    "OWNER-SIDE VERIFY (S121 finding): GitHub Actions appear ALIVE again (pages-build + master-push deploy.yml both succeeded S121) — the billing lock may be cleared. If so, restore Pages source to GitHub-Actions mode + retire the manual npm-run-deploy gh-pages workaround (memory: spark-deploy-account-billing-lock).",
+    "B2 phase (d): ?worker=1 flag-gated cutover (all prereqs done). FIRST: TD-heavy longtask re-measure + serialization-format ROI call.",
+    "Host-migration D3 MIGRATION_CLAIM takeover (builds on D2; carry: transport alive set + D4 epochs).",
     "F9 INTENT token-bucket; F10 Pixi-leak long-match heap probe (UNVERIFIED).",
     "Gated Tier-1 (owner design): G1b MOTION verb; G2 family traits.",
     "Owner-side: clear GitHub account billing lock -> restores Actions/auto-deploy."
   ],
   "reflexion_entries_to_archive": [
-    "S120-P1 #measure-first-kills-phantom-work: the 15-spread-dominates claim survived 15 sessions as an assumed bottleneck; ONE real instrument (2-peer Playwright duel + REAL 6x CDP Emulation.setCPUThrottlingRate \u2014 measured, not analytically multiplied) closed it in one session. Pre-register the GO/NO-GO rule BEFORE measuring: it makes the negative result undebatable and a shippable deliverable (CLOSED-BY-MEASUREMENT), not a failure.",
-    "S120-P1 #repo-bounds-beat-speculation: when CHECK attacked the load-extrapolation (could be 8-12x!), the repo already held the answer \u2014 the 16KB wire-budget HARD gate (save.replay.test.ts:715) bounded worst-case at 2x. Search the existing test suite for empirical bounds before conceding any speculative multiplier.",
-    "S120-P3 #reviewer-execution-claims-are-fabrications: a CHECK reviewer emitted I-ran-it claims (18%-of-runs, byte-184, tick-47) plus citations of NONEXISTENT files/symbols (spatial.test.ts, get3x3Neighbors, a ===0 guard). External reviewers have NO execution environment \u2014 auto-distrust every runtime claim; grep-verify every cited symbol EXISTS before spending triage effort. 9th #empirical-refutes-plausible-criticals (promotion-flagged at boot).",
-    "SESSION #method #worked: batch PDR with an explicit NO-GO branch let the measurement decide P2 scope mid-session with zero re-approval friction; the docs-only close + truth-maintenance sweep (phase-d prereq row) is real work, not bookkeeping.",
-    "SESSION #method #improve: OS session should harden council CHECK prompts with BOTH self-endorsed fixes: Grok [STATIC]/[PREDICTED] tagging + no-execution-claims rule; Gemini constraint-binding pre-computation + 4/5 baseline score cap. Also: pile-test fixtures \u2014 derive thresholds from an OBSERVED baseline run, never from analytic guesses (2 retunes wasted)."
+    "S121-P1 #telegraph-cross-peer-by-derivation: the physics conferral (bond.stiffnessMultiplier) is host-only + un-synced, so a joiner cannot read it. Deriving the STRUCTURAL relation (un-fouled hub + magic neighbor sharing an endpoint) render-side from synced graph state + world.tick gives a bit-identical cross-peer telegraph with ZERO wire bytes. General pattern for visualizing an ephemeral host quantity: recompute from synced inputs, never sync the derived value.",
+    "S121-P2 #income-keystone-replay-self-consistent-not-byte-identical: unlike the S118 rigidity Keystone (ephemeral stiffnessMultiplier -> byte-identical), the income keystone changes SCORE values BY DESIGN. It is still safe because save.replay asserts run-A==run-B (self-consistency), NOT golden fixtures -> both runs use the new formula and match. The gate is (a) mirror the term into the differential-test INDEPENDENT oracle (else the equivalence test fails) + (b) update any pre-existing test that hardcoded a now-changed value. Check whether replay tests are self-consistency vs golden BEFORE assuming a scoring change needs fixture regen.",
+    "S121 #council-plan-value-check-value-refute: PLAN-phase Council caught a REAL balance finding (magic-bond term is uncapped scoring.ts:189 -> income keystone amplifies clustering) -> adopted per-Filament cap. But BOTH seats' Q3 determinism criticals (non-dyadic 0.3 -> cross-arch FP desync; sort-by-id tiebreaker) were REFUTED on merits (JS doubles are spec-deterministic; existing x0.05 non-dyadic passes byte-identical replay; a pure count has no tiebreaker). 10th #empirical-refutes-plausible-criticals: verify determinism criticals against language semantics + the existing passing suite before conceding."
   ],
   "signals_fired": [],
-  "session_status": "S120 3/3 priorities COMPLETE \u2014 ANALYZE + handoff next.",
+  "session_status": "S121 CLOSED — 3/3 shipped (P1 telegraph 1ba7cdc, P2 income keystone c77a817, P3 deploy live). ANALYZE + handoff next.",
   "totals": {
     "turns": 0,
     "budget_remaining": 1000000,
     "budget_status": "GREEN"
   },
-  "analyze_completed": true,
-  "analyze_retrospective": "S120 ANALYZE \u2014 batch 3/3 shipped (P1 measurement eaca05b, P2 phase-b close 543a3aa, P3 grid hoist 3fc6688). All gates green: tsc 0, vitest 1841/1841 (+4 pile), MCV exit 0, bundle 624.4/750, live smoke clean. HEADLINE: the MEASURE-first mandate closed phase (b) with data \u2014 the S105-era 15-spread-dominates claim died against a real 2-peer instrument (send is 3-6x build; even 6x-throttled build is 4x under threshold). METHOD (Council-assessed): (1) pre-registered GO rule made NO-GO undebatable and a first-class deliverable; (2) Grok PLAN-phase value HIGH (~65% adoption-to-impact: CDP-throttle demand shaped the decisive instrument; stale-bucket pressure produced the pile gate) but CHECK-phase NET-NEGATIVE (P3: 5/5 refuted, 3 on fabricated symbols/files + invented runtime stats \u2014 Grok self-scored 52/100, endorses a [STATIC]/[PREDICTED] no-execution-claims prompt rule); (3) Gemini self-diagnosed rubber-stamp drift (double 5/5/5/5 + W2/W3 math misread \u2014 endorses constraint-binding pre-computation + 4/5 baseline cap); (4) repo-bounds-beat-speculation: the 16KB wire-budget HARD gate refuted the 8-12x extrapolation attack \u2014 search existing tests for empirical bounds before conceding speculative multipliers. WASTE: minimal \u2014 1 pile-fixture retune (fixture artifact, 2 iterations). OS CARRY-FORWARD: CHECK prompt hardening (both externals endorsed their own fixes); #empirical-refutes-plausible-criticals at 9x is a flagged promotion candidate (gate/rule/eval per boot constitution advisory); model-drift WARN at boot was a resume artifact (session IS Fable 5 owner-selected) but the <synthetic> hook-read deserves an OS look."
+  "analyze_completed": false
 }
