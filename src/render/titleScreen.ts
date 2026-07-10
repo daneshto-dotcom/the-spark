@@ -20,11 +20,16 @@
 
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, PLAYER_COLORS } from '../constants.ts';
+import { fitTextToWidth } from './textFit.ts';
 
-const BUTTON_WIDTH = 360;
+// S121 P4 — 360 was too narrow for the sublabels (the CODEX one ran ~490px wide and escaped the
+// box; Multiplayer/VS-Bots grazed the edges). Wider buttons + tighter copy + a fitTextToWidth
+// guard make sublabel overflow structurally impossible.
+const BUTTON_WIDTH = 430;
 const BUTTON_HEIGHT = 72;
 const BUTTON_GAP = 24;
 const BUTTON_RADIUS = 12;
+const SUBLABEL_MAX_W = BUTTON_WIDTH - 36;
 
 export interface TitleScreenCallbacks {
   onSoloSelected(): void;
@@ -80,7 +85,7 @@ export class TitleScreen {
 
     const btnSolo = this.makeButton(
       '1 Player',
-      'learn the mechanics solo',
+      'a calm canvas — learn the craft of connection',
       PLAYER_COLORS[0],
       CANVAS_WIDTH / 2,
       CANVAS_HEIGHT / 2 + 40,
@@ -92,7 +97,7 @@ export class TitleScreen {
     // S62; the user mandated the honest name. Internal GameMode stays '1v1'.
     const btn1v1 = this.makeButton(
       'Multiplayer',
-      'friends lobby or quick match — up to 6 players',
+      'friends lobby or quick match · 2–6 sparks',
       PLAYER_COLORS[1],
       CANVAS_WIDTH / 2,
       CANVAS_HEIGHT / 2 + 40 + BUTTON_HEIGHT + BUTTON_GAP,
@@ -105,7 +110,7 @@ export class TitleScreen {
     // FFA rule set (mode 'bots').
     const btnVsBots = this.makeButton(
       'VS Bots',
-      'battle 1-6 AI sparks — pick each bot’s difficulty',
+      'battle 1–6 AI sparks · set each bot’s difficulty',
       PLAYER_COLORS[6],
       CANVAS_WIDTH / 2,
       CANVAS_HEIGHT / 2 + 40 + (BUTTON_HEIGHT + BUTTON_GAP) * 2,
@@ -119,7 +124,7 @@ export class TitleScreen {
     // Also openable in-game via the G+C chord.
     const btnCodex = this.makeButton(
       'CODEX',
-      'godly combos · combos · towers — discovered through play (G+C in-game)',
+      'godly · combos · towers — everything you have earned',
       0xffd60a,
       CANVAS_WIDTH / 2,
       CANVAS_HEIGHT / 2 + 40 + (BUTTON_HEIGHT + BUTTON_GAP) * 3,
@@ -195,6 +200,7 @@ export class TitleScreen {
     });
     subText.anchor.set(0.5);
     subText.position.set(0, 16);
+    fitTextToWidth(subText, SUBLABEL_MAX_W, 9); // S121 P4 — sublabels can never escape the button
     c.addChild(subText);
 
     c.eventMode = 'static';

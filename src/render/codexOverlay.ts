@@ -27,6 +27,8 @@ import { loadUnlockedSet } from './codexStore.ts';
 import { SHAPE_GLYPHS } from './shapes.ts';
 import { MAGIC_COMBO_KEYS, isOrderSymmetric } from '../combos.ts';
 import { loadDiscoveredCombos, magicComboCatalog } from './comboCodexStore.ts';
+import { codexCopyFor, drawEmblem, type EmblemSpec } from './codexPresentation.ts';
+import { fitTextToBox, fitTextToWidth } from './textFit.ts';
 // S87 P4 — re-export so godlyOrchestration (eager) can unlock without importing this heavy overlay.
 export { unlockGodly } from './codexStore.ts';
 
@@ -34,34 +36,70 @@ const GOLD = 0xffd60a;
 const LOCKED_STROKE = 0x3a3a44;
 const LOCKED_SIL = 0x53536a;
 
-const TILE_W = 220;
-const TILE_H = 230;
+// S121 P4 — tile anatomy (was 220×230 with the recipe text starting at y=178: every hint longer than
+// ~3 lines escaped the box — the owner's "text coming out of the boxes"). The tile is now sized so the
+// LONGEST budgeted copy (codexPresentation.test.ts caps recipe at 150 chars) fits at full fontSize,
+// with fitTextToBox as the structural overflow guard:
+//   name 30 · art/emblem center 116 · power epigraph 200 · divider 216 · recipe zone 226..308.
+const TILE_W = 240;
+const TILE_H = 320;
 const TILE_GAP = 28;
-const GRID_TOP = 250;
+const GRID_TOP = 235;
+const ART_CY = 116;
+const POWER_Y = 200;
+const RECIPE_Y = 226;
 const COMBO_COLS = 5;
 
 export interface CodexEntry {
   readonly id: GodlyId;
   readonly displayName: string;
-  /** Human-readable "how to build" recipe (shown on the unlocked tile). */
+  /** One-line epigraph — the entry's soul; shown only when unlocked (part of the reveal). */
+  readonly power: string;
+  /** Precise "how to build + what it does" — visible in BOTH states (S105 P2 checkable recipes). */
   readonly recipeHint: string;
-  readonly characterSprite: string;
+  /** Character art — only for entries that ARE characters (Voltkin, HELGA, the NONET kami). */
+  readonly characterSprite?: string;
+  /** Recipe-constellation emblem — only for geometric buildables (drawn in the board's glyph language). */
+  readonly emblem?: EmblemSpec;
 }
 
 /**
- * Convenience: derive a CodexEntry from a GodlyRecipe (used at startup to build the entries
- * arrays). Recipe hints are author-supplied since the recipe object doesn't embed them.
+ * S121 P4 — derive a CodexEntry from a GodlyRecipe via the codexPresentation copy map (the single
+ * source of presentation truth). The recipe's own `characterSprite` is used ONLY when the map marks
+ * the entry as a character — this is what retired the wrong Voltkin placeholder on the three
+ * geometric towers (they now show their build constellation instead).
  */
-export function entryFromRecipe(recipe: GodlyRecipe, displayName: string, recipeHint: string): CodexEntry {
-  return { id: recipe.id, displayName, recipeHint, characterSprite: recipe.characterSprite };
+export function entryFromRecipe(recipe: GodlyRecipe): CodexEntry {
+  const copy = codexCopyFor(recipe.id);
+  return {
+    id: recipe.id,
+    displayName: copy.name,
+    power: copy.power,
+    recipeHint: copy.recipe,
+    characterSprite: copy.sprite,
+    emblem: copy.emblem,
+  };
+}
+
+/** S121 P4 — the synthetic NONET super-combo entry (not a recipe; copy lives in codexPresentation). */
+export function nonetEntry(): CodexEntry {
+  const copy = codexCopyFor('nonet');
+  return {
+    id: 'nonet' as GodlyId,
+    displayName: copy.name,
+    power: copy.power,
+    recipeHint: copy.recipe,
+    characterSprite: copy.sprite,
+    emblem: copy.emblem,
+  };
 }
 
 type TabKey = 'godly' | 'combos' | 'towers';
 interface TabDef { readonly key: TabKey; readonly label: string; readonly color: number; readonly subtitle: string; }
 const TABS: readonly TabDef[] = [
-  { key: 'godly', label: 'GODLY COMBOS', color: 0xff6ad5, subtitle: 'cinematic summons — discovered through play' },
-  { key: 'combos', label: 'COMBOS', color: 0x53d8ff, subtitle: 'the geometry — two shapes, one magic' },
-  { key: 'towers', label: 'TOWERS & STRUCTURES', color: GOLD, subtitle: 'buildables that come alive on the field' },
+  { key: 'godly', label: 'GODLY COMBOS', color: 0xff6ad5, subtitle: 'cinematic summons — earned in the arena, never given' },
+  { key: 'combos', label: 'COMBOS', color: 0x53d8ff, subtitle: 'the geometry itself — two shapes, one magic' },
+  { key: 'towers', label: 'TOWERS & STRUCTURES', color: GOLD, subtitle: 'build them true and they fight for you' },
 ];
 
 export interface CodexOverlayOpts {
@@ -108,6 +146,15 @@ export class CodexOverlay {
     this.subtitle.anchor.set(0.5);
     this.subtitle.position.set(CANVAS_WIDTH / 2, 192);
     this.container.addChild(this.subtitle);
+
+    // S121 P4 — one persistent footer: how to reopen + the unlock convention, out of every tile.
+    const footer = new Text({
+      text: 'entries reveal through play · press G+C in-game to open the codex',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 13, fill: 0x6a6a78, letterSpacing: 1 }),
+    });
+    footer.anchor.set(0.5);
+    footer.position.set(CANVAS_WIDTH / 2, CANVAS_HEIGHT - 26);
+    this.container.addChild(footer);
 
     // Tab bar.
     const tabY = 130;
@@ -267,38 +314,74 @@ export class CodexOverlay {
       .stroke({ width: 2, color: isUnlocked ? GOLD : LOCKED_STROKE, alpha: 0.7 });
     tile.addChild(bg);
 
-    void Assets.load(entry.characterSprite).then((tex) => {
-      const sprite = new Sprite(tex);
-      sprite.anchor.set(0.5);
-      sprite.position.set(TILE_W / 2, 84);
-      sprite.scale.set(0.26);
-      if (!isUnlocked) {
-        const gray = new ColorMatrixFilter();
-        gray.desaturate();
-        sprite.filters = [gray];
-        sprite.alpha = 0.15;
-      }
-      tile.addChild(sprite);
-    }).catch(() => { /* asset missing — leave empty tile */ });
-
+    // Name at the TOP (was below the art — long names collided with the hint block).
     const name = new Text({
       text: isUnlocked ? entry.displayName : '???',
-      style: new TextStyle({ fontFamily: 'monospace', fontSize: 20, fill: isUnlocked ? GOLD : 0x666666, letterSpacing: 2 }),
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 20, fill: isUnlocked ? GOLD : 0x666666, letterSpacing: 2, fontWeight: 'bold' }),
     });
     name.anchor.set(0.5);
-    name.position.set(TILE_W / 2, 160);
+    name.position.set(TILE_W / 2, 30);
+    fitTextToWidth(name, TILE_W - 24, 12);
     tile.addChild(name);
+
+    // IMAGE — the S121 coherence rule: characters show their art (brother-surprise hidden until
+    // unlocked); geometric buildables show their BUILD CONSTELLATION in the board's own glyph
+    // language (visible even locked — the recipe is checkable, per S105 P2; just dimmed).
+    if (entry.emblem !== undefined) {
+      const emblem = new Graphics();
+      drawEmblem(emblem, entry.emblem, isUnlocked);
+      emblem.position.set(TILE_W / 2, ART_CY);
+      tile.addChild(emblem);
+    } else if (entry.characterSprite !== undefined) {
+      const spritePath = entry.characterSprite;
+      void Assets.load(spritePath).then((tex) => {
+        const sprite = new Sprite(tex);
+        sprite.anchor.set(0.5);
+        sprite.position.set(TILE_W / 2, ART_CY);
+        // Fit the art inside the zone regardless of source resolution (was a fixed 0.26 that
+        // assumed one asset size — another "escapes the box" vector for future art drops).
+        const fit = Math.min(150 / tex.width, 130 / tex.height);
+        sprite.scale.set(Math.min(0.26, fit));
+        if (!isUnlocked) {
+          const gray = new ColorMatrixFilter();
+          gray.desaturate();
+          sprite.filters = [gray];
+          sprite.alpha = 0.15;
+        }
+        tile.addChild(sprite);
+      }).catch(() => { /* asset missing — leave empty tile */ });
+    }
+
+    // POWER epigraph — the entry's soul, part of the unlock payoff (hidden while locked).
+    if (isUnlocked && entry.power !== '') {
+      const power = new Text({
+        text: entry.power,
+        style: new TextStyle({ fontFamily: 'monospace', fontSize: 13, fill: 0xe8d9a0, letterSpacing: 1, align: 'center' }),
+      });
+      power.anchor.set(0.5);
+      power.position.set(TILE_W / 2, POWER_Y);
+      fitTextToWidth(power, TILE_W - 20, 10);
+      tile.addChild(power);
+    }
+
+    // Divider between the reveal zone (name/art/power) and the always-visible recipe.
+    const divider = new Graphics();
+    divider.moveTo(20, POWER_Y + 16).lineTo(TILE_W - 20, POWER_Y + 16)
+      .stroke({ width: 1, color: isUnlocked ? 0x3a3624 : 0x22222a, alpha: 0.9 });
+    tile.addChild(divider);
 
     // S105 P2 — the recipe is shown in BOTH states so a player can CHECK the build requirements
     // BEFORE building (the owner couldn't see the 7-spiral turret recipe because it was unlock-gated).
-    // When locked, only the NAME + character art stay hidden (the brother-surprise reveal) — you learn
-    // HOW to build it; the WHAT (its name/look) is still the payoff for building it once.
+    // When locked, only the NAME + character art + power stay hidden (the brother-surprise reveal) —
+    // you learn HOW to build it; the WHAT (its name/look/soul) is the payoff for building it once.
+    // S121 P4 — copy budget (≤150 chars, tested) + fitTextToBox make tile overflow impossible.
     const hint = new Text({
       text: entry.recipeHint,
-      style: new TextStyle({ fontFamily: 'monospace', fontSize: 12, fill: isUnlocked ? 0xbfbfbf : 0x9a9aa8, wordWrap: true, wordWrapWidth: TILE_W - 20, align: 'center' }),
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 12, fill: isUnlocked ? 0xbfbfbf : 0x9a9aa8, wordWrap: true, wordWrapWidth: TILE_W - 28, align: 'center' }),
     });
     hint.anchor.set(0.5, 0);
-    hint.position.set(TILE_W / 2, 178);
+    hint.position.set(TILE_W / 2, RECIPE_Y);
+    fitTextToBox(hint, TILE_W - 28, TILE_H - RECIPE_Y - 12, 9);
     tile.addChild(hint);
     return tile;
   }

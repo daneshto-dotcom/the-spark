@@ -170,16 +170,9 @@ const SNAPSHOT_INTERVAL_TICKS = Math.max(1, Math.round(PHYSICS_HZ / NET_SNAPSHOT
 
 // S94 — NONET appears in the Codex as a "super-combo". It is NOT a godly recipe (no recipe
 // predicate/cinematic), so it's a synthetic CodexEntry, unlocked the first time a trial fires.
-// The sprite points at the Phase-2 illustrated kami; until that asset lands, makeTile's catch
-// leaves the tile image-less (the NONET name + hint still render).
+// S121 P4 — its copy + kami sprite moved to render/codexPresentation.ts (the single source of
+// codex presentation truth); only the unlock id stays here for the trial-fire hook below.
 const NONET_CODEX_ID = 'nonet' as GodlyId;
-const NONET_CODEX_ENTRY = {
-  id: NONET_CODEX_ID,
-  displayName: 'NONET',
-  recipeHint:
-    'Connect 9 of ONE shape (and nothing else) → a Sudoku trial freezes the duel. First to solve DOUBLES their score; everyone else is HALVED.',
-  characterSprite: '/art/nonet/kami.webp',
-};
 
 async function bootstrap(): Promise<void> {
   // S82 P4(a) — page-session host identity: ECDSA P-256 keypair whose pubkey fingerprint
@@ -483,23 +476,10 @@ async function bootstrap(): Promise<void> {
   const grid = new SpatialGrid(SPATIAL_CELL_SIZE);
 
   // ===== S22 P3 — godly cinematic overlay + counter-window vignette + Codex =====
-  // S104 P3 — "how to build" text per recipe id. Cinematic godlies stay purposefully cryptic
-  // (the brother-surprise easter-egg convention); the TOWERS & STRUCTURES recipes get PRECISE
-  // build instructions — this is the direct fix for the owner's "couldn't build the turret".
-  // S105 P2 — EXACT build recipes for EVERY godly/tower (the owner: "add exact recipes so we can
-  // check the requirements"). Voltkin was the lone cryptic hint ("lightning meets a screen") — now
-  // precise like the rest. The codex shows these even on LOCKED tiles so requirements are checkable
-  // BEFORE building (the direct fix for "Line + 4 spirals made no laser torrent" — it needs 7).
-  const recipeHint = (id: string): string => {
-    switch (id) {
-      case 'voltkin': return 'GODLY: 4 Squares then 4 Triangles bonded in ONE straight line — 8 in a chain, ends free, nothing else attached. Summons Voltkin.';
-      case 'pentagram': return 'SPAWNER: 5 Triangles bonded in a closed ring — each Triangle bonded to exactly 2 others (a pentagon). Mints chewers.';
-      case 'laserTurret': return 'TOWER: 1 Line + 7 Spirals, every Spiral bonded to the Line — 8 shapes, a star. Beams enemy chewers. (7 spirals, not 4.)';
-      case 'helga': return 'TOWER: 1 Triangle hub + 3 Spirals + 3 Circles, all 6 bonded to the hub — 7 shapes. Princess HELGA slaps chewers.';
-      case 'lightningHub': return 'SPAWNER: 1 Dot in the middle + 5 Circles, every Circle bonded to the Dot — 6 shapes, a star. Fires 3 suicide lightning-drones at enemy connectors, then SELF-DESTRUCTS in a lightning storm.';
-      default: return '???';
-    }
-  };
+  // S104 P3 / S105 P2 — every godly/tower shows a PRECISE, checkable build recipe (even locked).
+  // S121 P4 — all codex copy (names + power epigraphs + recipes) and per-entry imagery moved to
+  // render/codexPresentation.ts: characters keep their art; geometric buildables render their build
+  // constellation (this retired the wrong Voltkin placeholder on pentagram/turret/hub tiles).
   const cutsceneOverlay = new CutsceneOverlay(app);
   const vignette = makeCinematicVignette(app);
   // S87 P4 — CodexOverlay is created lazily on first open (the botSetupOverlay
@@ -517,12 +497,12 @@ async function bootstrap(): Promise<void> {
         const godly = [
           ...listRecipes()
             .filter((r) => r.kind === 'cinematic')
-            .map((r) => mod.entryFromRecipe(r, r.id.toUpperCase(), recipeHint(r.id))),
-          NONET_CODEX_ENTRY, // S94 — NONET super-combo (synthetic, non-recipe entry)
+            .map((r) => mod.entryFromRecipe(r)),
+          mod.nonetEntry(), // S94 — NONET super-combo (synthetic, non-recipe entry)
         ];
         const towers = listRecipes()
           .filter((r) => r.kind === 'spawner' || r.kind === 'defender')
-          .map((r) => mod.entryFromRecipe(r, r.id.toUpperCase(), recipeHint(r.id)));
+          .map((r) => mod.entryFromRecipe(r));
         codexOverlay = new mod.CodexOverlay(app, { godly, towers }, () => {
           codexOverlay?.setVisible(false);
         });
