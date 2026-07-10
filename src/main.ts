@@ -814,6 +814,10 @@ async function bootstrap(): Promise<void> {
       // S119 P2 — live snapshot-cost aggregate (build vs send split; see the
       // instrumented 10 Hz send site). Console: __SPARK__.snapshotProbe.
       get snapshotProbe() { return snapshotProbe; },
+      // S120 P1 — measurement probes (e2e/perf-snapshot.spec.ts): one-off
+      // snapshot byte-size reads on the live hostSync. DEV-only, tree-shaken.
+      get hostSync() { return session.hostSync; },
+      get currentEpoch() { return session.currentEpoch; },
       get fogRenderer() { return fogRenderer; },
       // S77 P2 — fog-exemption e2e: sync a global-reach entity + assert it renders
       // through the fog (aboveFogLayer sits above the fog container).

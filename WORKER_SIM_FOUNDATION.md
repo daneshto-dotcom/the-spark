@@ -77,11 +77,39 @@ flowchart LR
 |---|---|---|---|
 | **(done) d-1** | `stepPhysics` replay-determinism HARD gate + `hashWorldState` oracle | — | shipped S107 P2 |
 | **(done) a** | `runHostTick` extraction — the host per-tick body in a DOM/Pixi-free unit (`state/hostTick.ts`) + replay HARD gate + frozen-reference differential | — | shipped S119 P1 (godly matcher deliberately stays per-frame main-thread — see its contract above) |
-| **b** | Snapshot **pooling + delta-encode** (the real O(world)/100 ms fix) | **MEASURE first** — dev snapshot-cost probe (`performance.mark/measure` + `__SPARK__.snapshotProbe`, shipped S119 P2), confirm the 15-spread allocation is actually the dominant cost before optimizing (S105 reflexion: "profile before optimizing the host gap"; the scope's "80–90% reduction" is UNMEASURED) | MED |
+| **b** | Snapshot **pooling + delta-encode** (the real O(world)/100 ms fix) | **MEASURED S120 P1 → NO-GO (see "Phase (b) measurement" below).** The 15-spread claim is REFUTED: build is 0.06–0.08 ms avg (0.35 ms under 6× CPU throttle) — send costs 3–6× more, and both are ≪1 frame at 10 Hz. Phase (b) CLOSED-BY-MEASUREMENT; re-measure with a TD-heavy world before the phase-(d) serialization-ROI call (the probe + `e2e/perf-snapshot.spec.ts` remain the instrument) | ~~MED~~ CLOSED |
 | **c** | Collision grid 64→8 cell rebuild | the d-1 gate (done) locks behaviour; add an 8-bit cellKey overflow compile-assert (`CANVAS/cell < 256`) | LOW (gated by the gate) |
 | **d** | `?worker=1` flag-gated cutover (default OFF): worker entrypoint (sim modules only) + host↔worker message protocol (intents in, snapshots out) + `hashWorldState` cross-check | phases a+b+c; serialization-cost ROI measured (clone+postMessage vs current) | HIGH — ship behind a flag, never default-on until the cross-check is green on real devices |
 
 **Future dedicated-server boundary (beyond the worker):** the same message protocol; the `sin/cos` cross-V8 risk (audit #2) becomes real there — mitigate with a pinned transcendental impl.
+
+---
+
+## Phase (b) measurement — S120 P1 (repeatable protocol + results)
+
+**Instrument:** `SPARK_PERF=1 npx playwright test e2e/perf-snapshot.spec.ts` — forms a REAL
+2-peer Trystero duel (host + joiner contexts), builds mid-game state, then reads the S119 P2
+`__SPARK__.snapshotProbe` aggregate on the host across three windows; W3 applies **real 6×
+CPU throttling** via CDP `Emulation.setCPUThrottlingRate` (the weak-host proxy Grok demanded
+in the S120 Council — measured, not analytically multiplied).
+
+**Results (2026-07-10, dev machine, headless Chromium/swiftshader):**
+
+| window | dur | sends | buildAvg ms | buildMax ms | sendAvg ms | sendMax ms | sparks/prims/bonds/creat/haz/fx | snapBytes |
+|---|---|---|---|---|---|---|---|---|
+| W1 light | 45s | 407 | 0.079 | 0.300 | 0.253 | 0.600 | 27/0/0/0/10/0 | 6657 |
+| W2 heavy | 60s | 555 | 0.056 | 0.200 | 0.245 | 0.500 | 26/4/0/0/19/0 | 8549 |
+| W3 heavy+6× | 60s | 398 | 0.345 | 0.900 | 1.924 | 3.500 | 22/4/0/0/14/0 | 7333 |
+
+**Verdict: NO-GO** (GO rule was: W2 avg≥0.25 ∨ max≥2, OR W3 avg≥1.5 ∨ max≥12 — no clause fired).
+- The "15-spread build dominates" hypothesis is **refuted**: SEND costs 3–6× BUILD in every window.
+- Even on the 6× weak-host proxy, build+send ≈ 2.3 ms per send at 10 Hz ≈ **2.3% of CPU** — not the S105 lag source. The weak-host gap lives in **sim+render**, which phases (c)+(d) address.
+- **GC blind spot** (perf.mark sees only synchronous time): allocation volume is ~8.5 KB × 15 spreads at 10 Hz — trivial young-gen churn; not NEAR-MISS class.
+- **Composition caveat:** the automated build phase landed only 4 prims / 0 creatures (drag
+  automation vs live physics). A TD-endgame world is plausibly ~4× snapshot size → still under
+  every threshold (W3 avg ≈1.4 ms extrapolated), but **re-run this spec against a TD-heavy world
+  before committing to the phase-(d) snapshot serialization design** (which replaces this JSON
+  path anyway — transferable ArrayBuffers are the Council-logged candidate).
 
 ---
 
