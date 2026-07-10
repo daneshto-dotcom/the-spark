@@ -1,7 +1,0 @@
-{
-  "generated_at": "2026-07-10T17:08:46",
-  "session_id": "S121",
-  "state_sha256": "852a11895c33d640",
-  "approved": false,
-  "card": "==================================================================\nREVIEW CARD - session S121  (generated 2026-07-10 17:08)\n==================================================================\nPRIORITIES:\n  PP1-rigidity-telegraph [completed  ] check_completed=True  None\n  PP2-income-keystone [completed  ] check_completed=True  None\n  PP3-deploy [completed  ] check_completed=True  None\n  PP4-codex-coherence [completed  ] check_completed=True  None\n\nMCV verdict: exit 0  ::  === RESULT: hard_fail=0 warn=0 -> exit 0 ===\nRestore points (claude-rollback.py --list): 190\n\nHELD / NEEDS A HUMAN DECISION:\n  (none recorded)\n\nACTION: review the above; rollback is still cheap (claude-rollback.py --restore <ref>).\n  APPROVE  -> pre-handoff-review.py --approve, then /handoff\n  AMEND    -> fix + re-CHECK, then regenerate this card\n  ROLLBACK -> claude-rollback.py --restore <ref>\n=================================================================="
-}
