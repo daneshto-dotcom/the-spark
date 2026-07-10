@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 71,
+  "tool_calls_session_total": 73,
   "session_id": "S121",
   "session_kind": "execution",
   "session_start": "2026-07-10T12:00:00.000Z",
@@ -177,7 +177,9 @@
           "path": "dist/index.html",
           "needle": "assets/index-CNKzBfzJ.js"
         }
-      ]
+      ],
+      "real_context_tokens_at_close": 302662,
+      "real_context_pct_at_close": 30.27
     }
   ],
   "carry_forward_priorities": [
