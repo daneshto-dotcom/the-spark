@@ -85,6 +85,7 @@ import { SparkRenderer, makeLegend, makeSpawnerRing } from './render/renderer.ts
 import { createSettingsOverlay } from './render/settingsOverlay.ts';
 import { StatsOverlay } from './render/statsOverlay.ts';
 import { StructureRenderer } from './render/structureRenderer.ts';
+import { KeystoneTelegraphRenderer } from './render/keystoneTelegraphRenderer.ts';
 import { DragPreviewRenderer } from './render/dragPreviewRenderer.ts';
 import { TitleScreen } from './render/titleScreen.ts';
 import { HUD } from './render/ui.ts';
@@ -392,6 +393,10 @@ async function bootstrap(): Promise<void> {
   const controls = new Controls(app, world, P1, dispatchFn);
   const sparkRenderer = new SparkRenderer(app);
   const structureRenderer = new StructureRenderer(app);
+  // S121 P1 (B3) — keystone telegraph. Constructed right after the board layers so its Graphics sits
+  // ABOVE bonds/prims (a subtle gold/green pulse along keystone-linked magic bonds). Render-only,
+  // cross-peer by construction (derives the structural relation from synced state + world.tick).
+  const keystoneTelegraphRenderer = new KeystoneTelegraphRenderer(app);
   // S98 P3 — drag-time connection preview. Constructed right after the board
   // layers so its Graphics sits ABOVE the bonds/prims but BELOW effects/avatar/
   // fog/HUD + aboveFogLayer (added later). Render-only; pulses while dragging.
@@ -1656,6 +1661,8 @@ async function bootstrap(): Promise<void> {
     // defensively when world omitted or carrier missing (Battle Ledger C4).
     sparkRenderer.sync(freeSparkArr, world);
     structureRenderer.sync(world);
+    // S121 P1 (B3) — keystone telegraph pulse, drawn over the freshly-synced bonds.
+    keystoneTelegraphRenderer.sync(world);
     // S100 P1 (TD Phase 1a) — spawner-zone aura. After structureRenderer (so the
     // 'alive' bond overlay traces over the just-drawn bonds) and before the
     // creatures (so chewers/Voltkin draw on top of the aura). Cheap no-op when
