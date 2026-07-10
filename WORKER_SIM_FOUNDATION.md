@@ -77,9 +77,9 @@ flowchart LR
 |---|---|---|---|
 | **(done) d-1** | `stepPhysics` replay-determinism HARD gate + `hashWorldState` oracle | — | shipped S107 P2 |
 | **(done) a** | `runHostTick` extraction — the host per-tick body in a DOM/Pixi-free unit (`state/hostTick.ts`) + replay HARD gate + frozen-reference differential | — | shipped S119 P1 (godly matcher deliberately stays per-frame main-thread — see its contract above) |
-| **b** | Snapshot **pooling + delta-encode** (the real O(world)/100 ms fix) | **MEASURED S120 P1 → NO-GO (see "Phase (b) measurement" below).** The 15-spread claim is REFUTED: build is 0.06–0.08 ms avg (0.35 ms under 6× CPU throttle) — send costs 3–6× more, and both are ≪1 frame at 10 Hz. Phase (b) CLOSED-BY-MEASUREMENT; re-measure with a TD-heavy world before the phase-(d) serialization-ROI call (the probe + `e2e/perf-snapshot.spec.ts` remain the instrument) | ~~MED~~ CLOSED |
+| **(closed) b** | Snapshot **pooling + delta-encode** (the real O(world)/100 ms fix) | **MEASURED S120 P1 → NO-GO (see "Phase (b) measurement" below).** The 15-spread claim is REFUTED: build is 0.06–0.08 ms avg (0.35 ms under 6× CPU throttle) — send costs 3–6× more, and both are ≪1 frame at 10 Hz. Phase (b) CLOSED-BY-MEASUREMENT; re-measure with a TD-heavy world before the phase-(d) serialization-ROI call (the probe + `e2e/perf-snapshot.spec.ts` remain the instrument) | ~~MED~~ CLOSED |
 | **c** | Collision grid 64→8 cell rebuild | the d-1 gate (done) locks behaviour; add an 8-bit cellKey overflow compile-assert (`CANVAS/cell < 256`) | LOW (gated by the gate) |
-| **d** | `?worker=1` flag-gated cutover (default OFF): worker entrypoint (sim modules only) + host↔worker message protocol (intents in, snapshots out) + `hashWorldState` cross-check | phases a+b+c; serialization-cost ROI measured (clone+postMessage vs current) | HIGH — ship behind a flag, never default-on until the cross-check is green on real devices |
+| **d** | `?worker=1` flag-gated cutover (default OFF): worker entrypoint (sim modules only) + host↔worker message protocol (intents in, snapshots out) + `hashWorldState` cross-check | phase a ✅ S119 · phase b ✅ CLOSED S120 (no pooling needed — but run the TD-heavy probe re-measure w/ longtask observation for THIS phase's serialization-format ROI call) · phase c; serialization-cost ROI measured (clone+postMessage vs current) | HIGH — ship behind a flag, never default-on until the cross-check is green on real devices |
 
 **Future dedicated-server boundary (beyond the worker):** the same message protocol; the `sin/cos` cross-V8 risk (audit #2) becomes real there — mitigate with a pinned transcendental impl.
 
@@ -104,12 +104,24 @@ in the S120 Council — measured, not analytically multiplied).
 **Verdict: NO-GO** (GO rule was: W2 avg≥0.25 ∨ max≥2, OR W3 avg≥1.5 ∨ max≥12 — no clause fired).
 - The "15-spread build dominates" hypothesis is **refuted**: SEND costs 3–6× BUILD in every window.
 - Even on the 6× weak-host proxy, build+send ≈ 2.3 ms per send at 10 Hz ≈ **2.3% of CPU** — not the S105 lag source. The weak-host gap lives in **sim+render**, which phases (c)+(d) address.
-- **GC blind spot** (perf.mark sees only synchronous time): allocation volume is ~8.5 KB × 15 spreads at 10 Hz — trivial young-gen churn; not NEAR-MISS class.
-- **Composition caveat:** the automated build phase landed only 4 prims / 0 creatures (drag
-  automation vs live physics). A TD-endgame world is plausibly ~4× snapshot size → still under
-  every threshold (W3 avg ≈1.4 ms extrapolated), but **re-run this spec against a TD-heavy world
-  before committing to the phase-(d) snapshot serialization design** (which replaces this JSON
-  path anyway — transferable ArrayBuffers are the Council-logged candidate).
+- **Timer quantization (GROK S120 CHECK, adopted):** every recorded max is an exact 0.1 ms
+  multiple → default `performance.now()` ~100 µs granularity. Averages over 400–555 sends are
+  valid in aggregate, but the W1→W2 avg dip (0.079→0.056) is noise-floor + JIT warm-up, not
+  signal. This *strengthens* the NO-GO: the true unthrottled build cost sits at/below the
+  browser's measurement noise floor.
+- **GC blind spot** (perf.mark sees only synchronous time): allocation volume is ~8.5 KB × 15
+  spreads at 10 Hz — trivial young-gen churn; not NEAR-MISS class. buildMax stayed ≤0.9 ms
+  across 1,360 sends (no GC lottery struck in-window).
+- **Composition caveat — extrapolation is REPO-BOUNDED, not speculative:** the automated build
+  phase landed only 4 prims / 0 creatures. The wire-budget HARD gate
+  (`save.replay.test.ts` "worst-case world … under ~16 KB", chewers ≈124 B each) bounds a
+  TD-endgame snapshot at **≈2×** the measured 8.5 KB → extrapolated W3 build ≈0.7 ms avg,
+  under the 1.5 ms clause with 2× margin.
+- **Re-measure clause (mandatory before phase (d)):** re-run this spec against a TD-heavy world
+  (seed creatures/spawners via the DEV seams) **with a `PerformanceObserver('longtask')` +
+  GC-pressure observation added** (GROK S120 CHECK, adopted) before committing to the phase-(d)
+  snapshot serialization design — which replaces this JSON path anyway (transferable
+  ArrayBuffers are the Council-logged candidate).
 
 ---
 

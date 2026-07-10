@@ -5,21 +5,21 @@
 
 ---
 
-# STATUS S119 (2026-07-09) — FRONT OF THE LINE: the WORKER-SIM ARC
+# STATUS S120 (2026-07-10) — FRONT OF THE LINE: the WORKER-SIM ARC (phases b ✅closed · c in flight · d next)
 
 > All four S108 playtest batches are SHIPPED (A S109 · B+D S110 · C S113 — queue below kept as history).
 > Deploys are **MANUAL** `npm run deploy` (gh-pages branch-mode, classic Pages builder; the account billing
-> lock keeps Actions dead). spark-online.space serves the **S118** batch (B1 host-mig D2 forensics + B3
-> Keystone Anchor + F1b/F2 territory perf). **S119** shipped the worker-sim seam: **B2 phase (a) runHostTick
-> extraction** (`src/state/hostTick.ts` + replay HARD gate + frozen-reference differential) and the phase-(b)
-> **snapshot-cost probe** (`__SPARK__.snapshotProbe`). Full plan: `WORKER_SIM_FOUNDATION.md`.
+> lock keeps Actions dead). spark-online.space serves the **S118** batch. **S119** shipped the worker-sim seam
+> (B2 phase (a) runHostTick extraction + probes). **S120** ran the phase-(b) measurement in a REAL 2-peer duel
+> (`e2e/perf-snapshot.spec.ts`, incl. 6× CPU-throttle window): **NO-GO — phase (b) pooling CLOSED-BY-MEASUREMENT**
+> (build 0.06–0.35 ms avg, send 3–6× build; the "15-spread dominates" claim is refuted; TD-heavy re-measure
+> mandated before phase (d)). Full record: `WORKER_SIM_FOUNDATION.md` § "Phase (b) measurement".
 >
 > **NEXT BIG ROCKS (in order):**
-> 1. **B2 phase (b)** — snapshot pooling/delta-encode. **MEASURE FIRST**: read `__SPARK__.snapshotProbe` in a real 2-peer dev duel (build vs send split) before optimizing.
-> 2. **B2 phase (c)** — collision-grid cell rebuild (+ 8-bit cellKey overflow compile-assert), now double-locked by the S107 + S119 gates.
-> 3. **B2 phase (d)** — `?worker=1` flag-gated cutover (intents in / snapshots out + `hashWorldState` cross-check). Honor the godly-matcher per-frame cadence CONTRACT (WORKER_SIM_FOUNDATION.md).
-> 4. **Host-migration D3** — MIGRATION_CLAIM takeover on the D2 detection layer (carry: transport-grounded alive set + D4 epoch rules).
-> 5. **B3 follow-ups** — Keystone rigidity VFX telegraph + income-based 2nd symbiotic combo (owner-taste: spike + show first).
+> 1. **B2 phase (c)** — collision-grid rebuild hoist 64→8/tick (+ 8-bit cellKey bounds assert), double-locked by the S107 + S119 gates + the S120 dense-pile hardening test.
+> 2. **B2 phase (d)** — `?worker=1` flag-gated cutover (intents in / snapshots out + `hashWorldState` cross-check). Honor the godly-matcher per-frame cadence CONTRACT; run the TD-heavy probe re-measure (longtask observation) for the serialization-format ROI call (WORKER_SIM_FOUNDATION.md).
+> 3. **Host-migration D3** — MIGRATION_CLAIM takeover on the D2 detection layer (carry: transport-grounded alive set + D4 epoch rules).
+> 4. **B3 follow-ups** — Keystone rigidity VFX telegraph + income-based 2nd symbiotic combo (owner-taste: spike + show first).
 > Owner-gated: F9 INTENT token-bucket (before public matchmaking) · F10 Pixi-leak heap probe · G1b MOTION verb · G2 family traits · clear the billing lock to restore Actions.
 
 ---
