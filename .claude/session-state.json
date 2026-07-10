@@ -1,131 +1,70 @@
 {
-  "tool_calls_session_total": 86,
-  "session_id": "S119",
+  "tool_calls_session_total": 19,
+  "session_id": "S120",
   "session_kind": "execution",
-  "session_start": "2026-07-07T00:00:00.000Z",
-  "prior_session_note": "S118 shipped + deployed the Tier-B batch 4/4: B1 host-mig D2 instrument-only (637ed84), B3 Keystone Anchor (5df5d4b), F1b/F2 territory perf (06de193), deploy (spark-online.space serves index-DrvI9WXb.js). tsc 0, vitest 1826/1826, bundle 624.0/750, PROTOCOL_VERSION 14 held. B2 worker-sim deliberately deferred to its own session.",
-  "phase": "S119_EXECUTING",
+  "session_start": "2026-07-10T00:00:00.000Z",
+  "prior_session_note": "S119 COMPLETE \u2014 3/3 priorities + ANALYZE done. Handoff next. S119 review card APPROVED at S120 boot.",
+  "phase": "S120_EXECUTING",
   "pdr_approved": true,
   "deliberation_completed": true,
+  "unlock_source": "user",
+  "user_approval_verbatim": "I approve to run top recommended priority batch that would yield the highest quality output and best value for this project and vision. I will turn on Fable 5 ultracode so you can work to the best of your ability producing the absolute highest level of output! I approve full session autonomous batch!",
   "tier": "Full",
+  "council_rounds": 2,
+  "council_result": "S120 Full-tier 2-round Council (Grok-4.20-reasoning DISRUPTOR + Gemini AUDITOR). Ledger: #1 GO-thresholds CONCEDED->GROK (6x weak-host factor, avg>=0.25/max>=2ms + heavy-load protocol + A-B re-measure); #2 P2 mechanism SYNTHESIS (byte-identity gate invariant, minimal mechanism; ArrayBuffer wire REJECTED as phase-d work, carry-forward); #3 stale-bucket OVERRULED w/ proof (per-SUBSTEP hoist not per-tick; phantom pairs no-op collision.ts:29; client renders host state) + CONCEDED dense-pile hardening test; #4 measurement validity SYNTHESIS (6x analytic factor; telemetry carry-forward); #5 Gemini adds PARTIAL (protocol+results table ADOPTED; CI spec/PDF/Imagen REJECTED). No vetoes. NOTE: Gemini MCP default routed to gemini-2.5-pro and RESPONDED (retirement partial?); explicit 3.1-pro-preview pin retained.",
+  "plan_file": ".claude/plans/2026-07-10_PDR_S120_B2bc_Snapshot_Grid.md",
+  "budget_total": 1000000,
   "priorities": [
     {
-      "id": "S119-P1-B2a-runHostTick-extraction",
-      "label": "B2 phase (a): runHostTick extraction \u2014 pull the host-only per-tick work out of main.ts into a DOM/Pixi-free unit; untangle godlyOrchestration render coupling into emitted intents. Prerequisite for the worker cutover (WORKER_SIM_FOUNDATION.md). Full tier.",
+      "id": "S120-P1-snapshot-cost-measure",
+      "label": "B2 phase (b) MEASURE: real 2-peer duel, heavy-load protocol, __SPARK__.snapshotProbe build-vs-send split; GO rule avg>=0.25ms OR max>=2ms; results+protocol into WORKER_SIM_FOUNDATION.md.",
       "status": "completed",
       "phase": "COMPLETED",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "check_completed": true,
-      "checkpoint_commit": "235653f",
-      "reflexion_entries": [],
       "unlock_source": "user",
-      "plan_file": ".claude/plans/2026-07-09_PDR_S119_B2a_HostTick.md",
+      "check_completed": true,
+      "checkpoint_commit": "eaca05b",
+      "reflexion_entries": [],
+      "real_context_tokens_at_close": 221718,
+      "real_context_pct_at_close": 22.17,
+      "check_method": "P1 phase-(b) MEASURE shipped (eaca05b). e2e/perf-snapshot.spec.ts (SPARK_PERF=1 opt-in, excluded from default runs): REAL 2-peer Trystero duel via the S46 lobby helpers, 3 windows \u2014 W1 light 45s, W2 heavy 60s post-build-phase, W3 heavy + REAL 6x CDP Emulation.setCPUThrottlingRate (upgrades the Council analytic factor to a measured throttle). Results: build 0.079/0.056/0.345 ms avg (max 0.3/0.2/0.9), send 3-6x build in every window, snapshots 6.6-8.5KB. NO clause of the pre-registered GO rule fired -> NO-GO; 15-spread-dominates hypothesis REFUTED. +2 DEV-only __SPARK__ getters (hostSync/currentEpoch) INSIDE the import.meta.env.DEV block \u2014 prod bundle BYTE-IDENTICAL (index-CFp6LxFV.js 639212B = S119 hash, empirically rebuilt). Protocol + results table + caveats in WORKER_SIM_FOUNDATION.md. CHECK adversarial: RALPH:PATROL PASS (tsc 0, ledger conformance, bundle identity). GEMINI-AUDITOR (3.1-pro-preview) PASS 5/5/5/5 (its threshold-math misread noted; verdict independently recomputed). GROK-ANALYST raw FAIL, 6 attacks -> S154 inline triage: F2 8-12x-creature-extrapolation REFUTED with file:line (save.replay.test.ts:715 wire-budget HARD gate bounds worst-case TD world <=16KB = 2x measured; extrapolated W3 0.7ms < 1.5 threshold, 2x margin); F4/F5 margin-refuted; F1 timer-quantization ADOPTED as doc note (all maxes 0.1ms-multiples \u2014 strengthens NO-GO); F3 GC-observation PARTIALLY ADOPTED (longtask requirement folded into the mandated TD-heavy re-measure before phase-d); F6 convergent-with-close. 6 telemetry entries logged. #empirical-refutes-plausible-criticals 8th.",
       "verification": [
         {
           "type": "file_exists",
-          "path": "src/state/hostTick.ts"
+          "path": "e2e/perf-snapshot.spec.ts"
         },
         {
           "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "export function runHostTick"
+          "path": "e2e/perf-snapshot.spec.ts",
+          "needle": "Emulation.setCPUThrottlingRate"
         },
         {
           "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "SPAWN_HUNTER"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "peerAbsentSinceTick"
+          "path": "e2e/perf-snapshot.spec.ts",
+          "needle": "process.env.SPARK_PERF !== '1'"
         },
         {
           "type": "file_contains",
           "path": "src/main.ts",
-          "needle": "runHostTick(world, hostTickDeps, hostTickState)"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/main.ts",
-          "needle": "SPAWN_HUNTER"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/main.ts",
-          "needle": "CREATURE_TICK"
+          "needle": "get hostSync() { return session.hostSync; }"
         },
         {
           "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "hostLastShakeArcFlashTick"
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\WORKER_SIM_FOUNDATION.md",
+          "needle": "W3 heavy+6\u00d7 | 60s | 398 | 0.345"
         },
         {
           "type": "file_contains",
-          "path": "src/state/hostTick.replay.test.ts",
-          "needle": "two same-seed 1000-tick bot runs are byte-identical"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.differential.test.ts",
-          "needle": "function referenceHostTick"
-        },
-        {
-          "type": "file_contains",
-          "path": "WORKER_SIM_FOUNDATION.md",
-          "needle": "Phase (a) runHostTick extraction SHIPPED (S119 P1)"
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\WORKER_SIM_FOUNDATION.md",
+          "needle": "Verdict: NO-GO"
         }
-      ],
-      "priority_state": "completed",
-      "real_context_tokens_at_close": 352399,
-      "real_context_pct_at_close": 35.24,
-      "check_method": "B2 phase (a) runHostTick extraction shipped (235653f). The host's ENTIRE per-tick sim body (~500 LOC) moved VERBATIM from main.ts drain loop into DOM/Pixi-free src/state/hostTick.ts runHostTick(world, deps, state) \u2014 the future worker boundary. Deliberated substitutions: !isClient conjuncts folded (provably true at call site); per-tick netTransport.peerIds() -> per-frame deps.alivePeerIds (synchronous drain, run-to-completion => equivalent; differential re-verified); closure vars -> explicit HostTickState (peerAbsentSinceTick + invariantSnap + lastViolationLogTick); in-loop screenShake.trigger at CREATURE_ATTACK -> post-drain ARC_FLASH cursor scan in main.ts (client's S31 pattern; render-identical: no render mid-drain + trigger() unconditionally REPLACES per screenShake.ts:89; cursor reset on TITLE). NONET-freeze branch + shared tail watchers (ENDGAME/music/TITLE-teardown/lastGameState) deliberately NOT moved (serve host AND client \u2014 R2/PRIME-AUDIT killed the R1 events design that would have broken client watchers). GATES: tsc 0; vitest 1837/1837 (+11); save.replay 24/24 byte-identical; NEW hostTick.replay.test.ts HARD gate (two same-seed 1000-tick bot runs byte-identical snapshot+hash); NEW hostTick.differential.test.ts frozen-reference differential (verbatim pre-refactor code @840f31f transcribed in-test, per-tick hashWorldState equality across 8 forced-state scenarios: solo/bots/creatures/hazards/spawner+defender-teardown/hunter/WIN->POSTGAME/DROP-BENCH); bundle 624.2/750 KiB; PROTOCOL_VERSION 14 held; zero wire/save bytes. LIVE browser smoke (preview :41818): boot 0 errors, TITLE tick++ path advances, PLAYING runs stepPhysics through the extraction (energy accrual 5.33 observed, field renders), TITLE-edge teardown clean. CHECK (adversarial Triumvirate): RALPH:PATROL PASS. GROK-ANALYST raw FAIL (3 criticals) + GEMINI-AUDITOR on gemini-3.1-pro-preview (2.5-pro retired upstream mid-session) raw FAIL (2 criticals) -> ALL 5 findings S154-triage-REFUTED with file:line evidence, logged to telemetry.jsonl as check_finding_filtered: shake replace-semantics (screenShake.ts:89-91) + scan-maxes-over-all-new-effects (wipe at effectsRenderer.ts:73 runs at main.ts:1630, 400 lines after the scan at 1228); hostSeats mutated only in async net handlers (hostHandlers.ts:351) which cannot interleave a synchronous drain; BENCH reducer world-only (world.ts:463); NONET-freeze continue unmoved (main.ts:1076 above call at 1092); tail watchers unmoved (no diff hunk). #empirical-refutes-plausible-criticals 7th occurrence. MCV verify-session-claims exit 0 (11 binding assertions). WORKER_SIM_FOUNDATION.md updated: phase (a) delivered, stale matcher-in-tick claim corrected, godly per-frame cadence contract + mermaid diagram added."
+      ]
     },
     {
-      "id": "S119-P2-snapshot-cost-probe",
-      "label": "Phase (b) prep: dev-gated performance.mark/measure probe around snapshot build+stringify at the 10Hz send site + __SPARK__.snapshotProbe accessor. Measures the 15-spread-dominates claim BEFORE any pooling work (foundation doc MEASURE-first).",
-      "status": "completed",
-      "phase": "COMPLETED",
-      "tier": "Micro",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "check_completed": true,
-      "checkpoint_commit": "09f4bf2",
-      "reflexion_entries": [],
-      "unlock_source": "user",
-      "plan_file": ".claude/plans/2026-07-09_PDR_S119_B2a_HostTick.md",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "const snapshotProbe"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "performance.measure('spark-snapshot-build'"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "get snapshotProbe() { return snapshotProbe; }"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "performance.clearMeasures"
-        }
-      ],
-      "priority_state": "completed",
-      "real_context_tokens_at_close": 386000,
-      "real_context_pct_at_close": 38.6,
-      "check_method": "P2 snapshot-cost probe shipped (09f4bf2). DEV-only performance.mark/measure instrumentation at the host's 10Hz NetSnapshot send site splitting BUILD (hostSync.buildSnapshotMessage \u2014 the save.ts 15-spread surface) from SEND (netTransport.send), aggregated in __SPARK__.snapshotProbe {count, buildMsTotal/Max, sendMsTotal/Max, last*, reset()}. Instrumented branch is an exact twin of the production send (same calls, same order) gated on import.meta.env.DEV; PROD BUNDLE BYTE-IDENTICAL post-change (index-CFp6LxFV.js 639212 B \u2014 tree-shake proven by hash). GATES: tsc 0; vitest 1837/1837; bundle 624.2/750; probe presence + shape + reset() verified live in the dev preview (port 41818). CHECK: RALPH:PATROL found the unbounded dev Performance-buffer growth -> clearMarks/clearMeasures per sample; GROK-ANALYST raw FAIL -> finding 1 ADOPTED-MODIFIED (try/catch around measure+stats: a third-party global clearMarks between mark and measure makes measure() throw, which would abort the ticker frame AFTER the send but BEFORE lastSnapshotTick/lastSnapshotSentMs update -> 60Hz send storm until reload; marks+send stay un-tried since mark() never throws), finding 2 REJECTED (post-measurement 0.1ms jitter vs 100ms wall-clock gate, DEV-only), finding 3 REJECTED (overflow arithmetic wrong by ~10 orders: 4h@10Hz ~ 7e5 ms vs MAX_SAFE 9e15; added reset() anyway for A-B probing). MCV exit 0 (4 binding assertions)."
-    },
-    {
-      "id": "S119-P3-truth-maintenance",
-      "label": "MICRO PDR \u2014 OBJECTIVE: stop BACKLOG.md + stray plan files from misleading future sessions. SCOPE: (1) BACKLOG.md \u2014 mark shipped queue items (Batch C S113), retire the obsolete S110 deploy-blocked banner (gh-pages manual deploy shipped S111+), add S117-S119 status + point the front-of-line at B2 phases b/c/d + host-mig D3; (2) archive the 2 stray S51/S52 *_COMPLETED plan files that re-fire the pre-flight WARN every boot. TESTING: pre-flight WARN gone next boot (file move verified), BACKLOG diff review. Docs-only, zero code. Covered by owner blanket mandate (user_approval_verbatim); Micro user-path => deliberation auto-waived.",
+      "id": "S120-P2-snapshot-build-reduction",
+      "label": "B2 phase (b) NO-GO branch: docs-only close (CLOSED-BY-MEASUREMENT refinements: timer-quantization note, repo-verified 2x/16KB extrapolation, longtask re-measure clause) + BACKLOG banner truth-maintenance.",
       "status": "completed",
       "phase": "COMPLETED",
       "tier": "Micro",
@@ -133,37 +72,81 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "checkpoint_commit": null,
+      "checkpoint_commit": "543a3aa",
       "reflexion_entries": [],
+      "real_context_tokens_at_close": 232000,
+      "real_context_pct_at_close": 23.2,
+      "check_method": "P2 phase-(b) NO-GO docs-only close shipped (543a3aa). Foundation doc: phase-b row -> (closed)/CLOSED-BY-MEASUREMENT; phase-d prereq row corrected (a done / b closed / c remaining) so no future session misreads b as unfinished work; CHECK-triage refinements folded in \u2014 timer-quantization note (all maxes 0.1ms multiples -> perf.now ~100us granularity, W1->W2 avg dip is noise-floor+JIT not signal), extrapolation re-bounded by the repo-verified save.replay.test.ts:715 16KB wire-budget HARD gate (2x, replacing the speculative 4x; GROK 8-12x refuted), longtask/GC observation requirement added to the mandatory TD-heavy re-measure clause before phase (d). BACKLOG.md: STATUS S120 banner (front of line = phase c -> d -> host-mig D3 -> B3; phase-b closure recorded with instrument pointer). RALPH:PATROL: grep sweep found zero stale MEASURE-FIRST/pooling-next directives outside history; found+fixed the phase-d prereq staleness (the S119 fix-the-warn-at-its-root pattern applied proactively). GROK/GEMINI skipped (docs-only Micro, S119-P3 precedent). P1 triage telemetry (6 entries) committed with it.",
       "verification": [
         {
           "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "needle": "STATUS S120 (2026-07-10)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "needle": "CLOSED-BY-MEASUREMENT"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\WORKER_SIM_FOUNDATION.md",
+          "needle": "(closed) b"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\WORKER_SIM_FOUNDATION.md",
+          "needle": "Timer quantization"
+        },
+        {
+          "type": "file_lacks",
           "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
           "needle": "STATUS S119 (2026-07-09)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "SHIPPED S113"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "C is now the"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/plans-archive/2026-05-26_PDR_S51_e2e-spawner-fix_audio-polish_COMPLETED.md",
-          "needle": "STATUS: COMPLETED"
-        },
-        {
-          "type": "file_lacks",
-          "path": ".claude/plans-archive/2026-05-26_PDR_S52_input-asymmetry_raid-ratio_duck-fix_COMPLETED.md",
-          "needle": "STATUS: IN-PROGRESS"
         }
-      ],
-      "priority_state": "completed",
-      "check_method": "P3 truth-maintenance shipped. (1) BACKLOG.md: new STATUS S119 top banner (front of the line = worker-sim arc phases b/c/d + host-mig D3 + B3 follow-ups + owner-gated items); S108 queue section marked ALL SHIPPED/closed (Batch C corrected to SHIPPED S113 with the real S113 PDR path \u2014 it wrongly said 'needs PDR + Council'); obsolete S110 'NOT LIVE YET / raise Actions spending limit' banner struck with the RESOLVED S111+ manual gh-pages reality; stale 'C is now the front of the line' sequencing replaced. (2) Root-caused the every-boot pre-flight 'ACTIVE PLAN(S)' WARN: hook greps plans-archive for a line-anchored 'STATUS: IN-PROGRESS' \u2014 the archived S51/S52 *_COMPLETED.md bodies still carried it; corrected both to STATUS: COMPLETED; hook predicate now matches 0 files (verified with the hook's own regex). RALPH:PATROL: S113 plan path exists; no stale front-of-line strings remain; hook regex re-run = 0. GROK skipped (Tier C prose only). MCV: 5 binding assertions authored; BACKLOG.md diff-bound via P3 verification."
+      ]
+    },
+    {
+      "id": "S120-P3-grid-rebuild-64to8",
+      "label": "B2 phase (c): hoist insertAll out of COLLISION_ITERATIONS loop (per-substep, 8 rebuilds/tick) + cellKey bounds assert + dense-pile hardening test + informational bench.",
+      "status": "completed",
+      "phase": "COMPLETED",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "3fc6688",
+      "reflexion_entries": [],
+      "real_context_tokens_at_close": 279000,
+      "real_context_pct_at_close": 27.9,
+      "check_method": "P3 phase-(c) grid rebuild shipped (3fc6688). grid.insertAll hoisted out of the COLLISION_ITERATIONS loop, kept INSIDE resolveCollisions (per-substep, post-verletStepAll integration \u2014 the Council ledger-3 never-per-tick constraint, enforced by docblock at the site). 64 -> 8 O(N) rebuilds/tick. SpatialGrid ctor fail-fast guard CANVAS/cellSize>=256 per axis (after the <=0 throw, division safe; all 7 ctor sites pass 32 = 60x34 cells, 4x headroom). NEW collision.pile.test.ts (written PRE-hoist, thresholds untouched post-hoist \u2014 behavior-agnostic hardening): 30-spark jam, two-run byte determinism, residual overlap <1.5px empirical bound, no-NaN, drift canary 1500px (baseline pre 798 / post 783px), seed-divergence canary, informational bench 21.7->20.4us/call (honestly reported pair-dominated fixture; real win = 56 fewer rebuilds/tick + allocation churn). GATES: tsc 0; vitest 1841/1841 incl. stepPhysics 300-tick replay HARD gate, hostTick 1000-tick replay, frozen-reference differential 8 scenarios (imports LIVE stepPhysics both sides \u2014 hoist flows through both, gate locks the seam), 60s stress p95-budget; bundle 624.4/750 KiB; LIVE smoke on :37722 dev \u2014 TITLE->SOLO PLAYING via letterbox-corrected synthetic pointer events, energy accrual 7.00, tick advance, 0 console errors, 0 non-finite positions. CHECK adversarial: RALPH:PATROL PASS; GEMINI-AUDITOR (3.1-pro-preview) PASS 5/5/5/5; GROK-ANALYST raw FAIL 5 criticals -> ALL REFUTED in S154 triage with file:line/spec evidence: (a) Map-order cross-engine REFUTED (ECMA-262 insertion-order mandate + S107 audit), (b) 2.4px-residual REFUTED-fabricated-run (no exec env; pile gate bounds <1.5px), (d) ctor-throw-in-prod REFUTED (1920/8=240<256; cited spatial.test.ts DOES NOT EXIST), (f) crossing-clusters REFUTED (rebuild is post-integration; fast movers see fresh buckets), NaN-===0 REFUTED-fabricated-symbol (real guard distSq<EPSILON collision.ts:29). NEW PATTERN telemetry-logged: reviewer fabricated I-ran-it claims \u2014 auto-distrust execution claims from CHECK reviewers. 9th #empirical-refutes-plausible-criticals.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/physics/collision.ts",
+          "needle": "the grid is rebuilt ONCE per call"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/physics/collision.ts",
+          "needle": "Was 64 insertAll/tick"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/physics/spatial.ts",
+          "needle": "overflows the reserved 8-bit cell space"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/physics/collision.pile.test.ts",
+          "needle": "two same-seed pile runs are byte-identical"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/physics/collision.pile.test.ts",
+          "needle": "toBeLessThan(1.5)"
+        }
+      ]
     }
   ],
   "carry_forward_priorities": [
@@ -174,25 +157,20 @@
     "Gated Tier-1 (owner design): G1b MOTION verb; G2 family traits.",
     "Owner-side: clear GitHub account billing lock -> restores Actions/auto-deploy."
   ],
-  "budget_total": 1000000,
   "reflexion_entries_to_archive": [
-    "S119-P1 #verbatim-move-plus-frozen-reference-differential: for a hot-loop extraction, transcribe the pre-refactor code INTO the test as a frozen reference and assert per-tick hash equality across forced-state scenarios \u2014 it catches transcription drift a two-run replay gate cannot (same bug on both runs), and it empirically re-verifies every deliberated substitution (per-frame alive-set) for free. PRIME-AUDIT R2 also killed an R1 events-seam design by tracing the CLIENT path: the edge watchers were shared, not host-only \u2014 trace the OTHER role's path before moving 'host' code.",
-    "S119-P2 #instrumented-twin-plus-throw-audit: when instrumenting a hot path, write the DEV branch as an exact call-twin of the prod line and prove parity by bundle-hash byte-identity; then audit what a mid-instrumentation THROW would skip (the send-gate stamp) \u2014 measurement code must be best-effort (try/catch) so the probe can never break the thing it measures.",
-    "S119-P3 #fix-the-warn-at-its-root-not-the-scanner: the every-boot ACTIVE-PLAN WARN was neither hook-bug nor stray files \u2014 archived plan BODIES still said STATUS: IN-PROGRESS; correcting the two stale lines (not touching the hook, not moving files) silenced it with the hook's own predicate as the verifier. Check what a scanner actually greps before assuming it misfires.",
-    "SESSION #method #worked: anchor-asserted scripted splices + frozen-reference differential moved 500 hot-loop lines with zero shipped defects; template the differential harness for phases c/d (~80 lines next time).",
-    "SESSION #method #improve: 7x plausible-critical refutations say CHECK reviewer prompts should demand 'verified semantics at file:line' before CRITICAL; also probe external-model availability at session start (gemini-2.5-pro retired mid-arc, 2 calls wasted; use gemini-3.1-pro-preview)."
+    "S120-P1 #measure-first-kills-phantom-work: the 15-spread-dominates claim survived 15 sessions as an assumed bottleneck; ONE real instrument (2-peer Playwright duel + REAL 6x CDP Emulation.setCPUThrottlingRate \u2014 measured, not analytically multiplied) closed it in one session. Pre-register the GO/NO-GO rule BEFORE measuring: it makes the negative result undebatable and a shippable deliverable (CLOSED-BY-MEASUREMENT), not a failure.",
+    "S120-P1 #repo-bounds-beat-speculation: when CHECK attacked the load-extrapolation (could be 8-12x!), the repo already held the answer \u2014 the 16KB wire-budget HARD gate (save.replay.test.ts:715) bounded worst-case at 2x. Search the existing test suite for empirical bounds before conceding any speculative multiplier.",
+    "S120-P3 #reviewer-execution-claims-are-fabrications: a CHECK reviewer emitted I-ran-it claims (18%-of-runs, byte-184, tick-47) plus citations of NONEXISTENT files/symbols (spatial.test.ts, get3x3Neighbors, a ===0 guard). External reviewers have NO execution environment \u2014 auto-distrust every runtime claim; grep-verify every cited symbol EXISTS before spending triage effort. 9th #empirical-refutes-plausible-criticals (promotion-flagged at boot).",
+    "SESSION #method #worked: batch PDR with an explicit NO-GO branch let the measurement decide P2 scope mid-session with zero re-approval friction; the docs-only close + truth-maintenance sweep (phase-d prereq row) is real work, not bookkeeping.",
+    "SESSION #method #improve: OS session should harden council CHECK prompts with BOTH self-endorsed fixes: Grok [STATIC]/[PREDICTED] tagging + no-execution-claims rule; Gemini constraint-binding pre-computation + 4/5 baseline score cap. Also: pile-test fixtures \u2014 derive thresholds from an OBSERVED baseline run, never from analytic guesses (2 retunes wasted)."
   ],
-  "session_status": "S119 COMPLETE \u2014 3/3 priorities + ANALYZE done. Handoff next.",
+  "signals_fired": [],
+  "session_status": "S120 3/3 priorities COMPLETE \u2014 ANALYZE + handoff next.",
   "totals": {
     "turns": 0,
     "budget_remaining": 1000000,
     "budget_status": "GREEN"
   },
-  "council_rounds": 2,
-  "signals_fired": [],
-  "council_result": "S119 Full-tier 2-round Council (Grok-4.20-reasoning DISRUPTOR + Gemini-2.5-pro AUDITOR, 1 call each). Gemini APPROVE (extraction+gate 5/5). Grok 4 challenges: granularity-split OVERRULED (2.75v1.75 domain vote, byte-identity mandate); EffectSink SUPERSEDED (R2/PRIME-AUDIT traced edge watchers as SHARED client+host -> watchers stay verbatim in main.ts tail, NO event seam needed in phase a \u2014 R1 events design would have broken client music/teardown); shake-drift OVERRULED w/ proof (no render mid-drain + replace semantics -> render-identical); replay-gate-insufficient CONCEDED (added frozen-reference differential test + 1000 ticks + forced-state scenarios); godly-contract-doc CONCEDED (mermaid+contract into WORKER_SIM_FOUNDATION.md); BotManager-render-risk REFUTED empirically (bots import only sim modules); perf.mark probe UNANIMOUS ADOPT.",
-  "unlock_source": "user",
-  "user_approval_verbatim": "Approve full session batch and more so, i will move this project session to Fable 5 ultracode... other than working this session batch do anything you think is useful for the overall benefit of this project and vision that will optimize it and ameliorate it! WORK!",
   "analyze_completed": true,
-  "analyze_retrospective": "S119 ANALYZE \u2014 batch 3/3 shipped (P1 hostTick extraction 235653f, P2 snapshot probe 09f4bf2, P3 truth-maintenance cdfdfd8). All gates green: tsc 0, vitest 1837/1837 (+11), save.replay 24/24, NEW replay HARD gate + frozen-reference differential 8/8, bundle 624.2/750 (prod byte-identical through P2), live browser smoke clean, MCV exit 0. METHOD (Grok-assessed): (1) A.0 earned its keep BEFORE code \u2014 the foundation doc's 'godly matcher entangles the tick' claim was stale and reshaped the whole phase; (2) PRIME-AUDIT killed MY OWN R1 events-seam design by tracing the client path (both externals missed it) \u2014 the shared-watcher trap; (3) anchor-asserted python splices for the 500-line verbatim move: zero shipped-code defects, all 3 session bugs confined to test fixtures; (4) frozen-reference differential ADOPTED AS STANDING PATTERN for phases c/d (template it: ~200 -> ~80 lines); (5) CHECK triage: 8 external criticals raised across P1/P2, 1 adopted-modified (try/catch around performance.measure \u2014 real), 7 refuted with file:line evidence \u2014 #empirical-refutes-plausible-criticals now 7x; RECOMMENDATION (advisory, for an OS session): CHECK prompts should require 'verified semantics at file:line' before any CRITICAL rating; (6) WASTE: 2 Gemini calls lost to the retired gemini-2.5-pro model id \u2014 strongest available is now gemini-3.1-pro-preview; ALWAYS-STRONGEST external-variant pins (CLAUDE.md, council-of-models, delegation skills) need an OS-session update. Owner extras mandate honored with zero-risk truth-maintenance; behavior-sensitive candidates (grid rebuild, F9) deliberately left for their own deliberated PDRs."
+  "analyze_retrospective": "S120 ANALYZE \u2014 batch 3/3 shipped (P1 measurement eaca05b, P2 phase-b close 543a3aa, P3 grid hoist 3fc6688). All gates green: tsc 0, vitest 1841/1841 (+4 pile), MCV exit 0, bundle 624.4/750, live smoke clean. HEADLINE: the MEASURE-first mandate closed phase (b) with data \u2014 the S105-era 15-spread-dominates claim died against a real 2-peer instrument (send is 3-6x build; even 6x-throttled build is 4x under threshold). METHOD (Council-assessed): (1) pre-registered GO rule made NO-GO undebatable and a first-class deliverable; (2) Grok PLAN-phase value HIGH (~65% adoption-to-impact: CDP-throttle demand shaped the decisive instrument; stale-bucket pressure produced the pile gate) but CHECK-phase NET-NEGATIVE (P3: 5/5 refuted, 3 on fabricated symbols/files + invented runtime stats \u2014 Grok self-scored 52/100, endorses a [STATIC]/[PREDICTED] no-execution-claims prompt rule); (3) Gemini self-diagnosed rubber-stamp drift (double 5/5/5/5 + W2/W3 math misread \u2014 endorses constraint-binding pre-computation + 4/5 baseline cap); (4) repo-bounds-beat-speculation: the 16KB wire-budget HARD gate refuted the 8-12x extrapolation attack \u2014 search existing tests for empirical bounds before conceding speculative multipliers. WASTE: minimal \u2014 1 pile-fixture retune (fixture artifact, 2 iterations). OS CARRY-FORWARD: CHECK prompt hardening (both externals endorsed their own fixes); #empirical-refutes-plausible-criticals at 9x is a flagged promotion candidate (gate/rule/eval per boot constitution advisory); model-drift WARN at boot was a resume artifact (session IS Fable 5 owner-selected) but the <synthetic> hook-read deserves an OS look."
 }

@@ -1,6 +1,6 @@
 # PDR S120 — B2 worker-sim arc: phase (b) measure→pooling + phase (c) grid rebuild
 
-**STATUS: IN-PROGRESS** · Tier: **Full** (batch) · Council: 2-round, Battle Ledger in session log
+**STATUS: COMPLETED** (3/3 shipped S120: eaca05b · 543a3aa · 3fc6688) · Tier: **Full** (batch) · Council: 2-round, Battle Ledger in session log
 **Approval:** owner verbatim — "I approve to run top recommended priority batch … I approve full session autonomous batch!" (`unlock_source: user`)
 **Foundation:** `WORKER_SIM_FOUNDATION.md` phases (b)+(c); completing both unblocks phase (d) `?worker=1` cutover (S121).
 

@@ -1,21 +1,19 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-07-09 | Session: S119 (worker-sim seam — B2 phase (a) + probe + truth-maintenance, 3/3 SHIPPED)
+Generated: 2026-07-10 | Session: S120 (worker-sim phases (b)+(c) closed — MEASURE→NO-GO + grid hoist, 3/3 SHIPPED)
 
 ## Next Steps
-1. **B2 phase (b) — snapshot pooling/delta-encode.** MEASURE FIRST: read `__SPARK__.snapshotProbe` (S119 P2 — build-vs-send split, count/totals/max, `reset()` for A-B) in a real 2-peer dev duel before optimizing; the "15-spread build dominates" claim is still UNMEASURED. Then its own Standard PDR.
-2. **B2 phase (c) — collision-grid cell rebuild** (+ 8-bit cellKey overflow compile-assert). Now double-locked: the S107 stepPhysics gate AND the S119 hostTick replay gate + frozen-reference differential (template it — see reflexion #verbatim-move-plus-frozen-reference-differential).
-3. **B2 phase (d) — `?worker=1` flag-gated cutover** (intents in / snapshots out + hashWorldState cross-check). `runHostTick(world, deps, state)` in `src/state/hostTick.ts` IS the boundary; honor the godly-matcher per-frame cadence CONTRACT documented in WORKER_SIM_FOUNDATION.md.
-4. **Host-migration D3 — MIGRATION_CLAIM takeover** on the D2 detection layer (epoch gate + warrant + starvation wired dormant). Carry: transport-grounded alive set + D4 epoch rules.
-5. **B3 follow-ups** — Keystone rigidity VFX telegraph + income-based 2nd symbiotic combo (owner-taste: spike art + show first).
-6. **Owner-side / OS-side:** F9 INTENT token-bucket · F10 Pixi-leak heap probe · G1b MOTION · G2 family traits · clear the GitHub billing lock (restores Actions) · OS session: update ALWAYS-STRONGEST Gemini pin (2.5-pro RETIRED → gemini-3.1-pro-preview, see memory) + verify-session-claims.py path normalization (relative assertion paths never diff-bind; S119 had to absolutize).
+1. **B2 phase (d) — `?worker=1` flag-gated cutover.** THE big rock; prereqs all satisfied (a ✅S119 · b ✅CLOSED S120 · c ✅S120). `runHostTick(world, deps, state)` in `src/state/hostTick.ts` IS the boundary: worker entrypoint (sim modules only) + intents-in/snapshots-out protocol + `hashWorldState` cross-check, default OFF. Honor the godly-matcher per-frame cadence CONTRACT (WORKER_SIM_FOUNDATION.md). Before the serialization-format choice: re-run `SPARK_PERF=1 npx playwright test e2e/perf-snapshot.spec.ts` against a TD-heavy world + add `PerformanceObserver('longtask')` (mandated clause; transferable ArrayBuffers = Council-logged candidate).
+2. **Host-migration D3 — MIGRATION_CLAIM takeover** on the D2 detection layer (epoch gate + warrant + starvation wired dormant). Carry: transport-grounded alive set + D4 epoch rules.
+3. **B3 follow-ups** — Keystone rigidity VFX telegraph + income-based 2nd symbiotic combo (owner-taste: spike art + show first).
+4. **Deploy when a player-visible change ships** (S119+S120 are refactor/instrumentation/perf — site correctly still serves S118; manual `npm run deploy`).
+5. **Owner-side / OS-side:** F9 INTENT token-bucket · F10 Pixi-leak heap probe · G1b MOTION · G2 family traits · billing lock (restores Actions) · OS session: harden council CHECK prompts (Grok [STATIC]/[PREDICTED] no-execution-claims rule + Gemini constraint-binding pre-computation + 4/5 cap — both self-endorsed in S120 ANALYZE) · #empirical-refutes-plausible-criticals at 9× is promotion-flagged (gate/rule/eval) · boot hook read model as '<synthetic>' (resume artifact — session WAS Fable 5; check the hook's model-read path).
 
 ## Blockers
 - OWNER (non-blocking): GitHub account billing lock keeps Actions dead → deploy stays MANUAL `npm run deploy` (gh-pages branch-mode).
-- NOTE: spark-online.space still serves the **S118** build — S119 was refactor+instrumentation (zero player-visible change); deploy deliberately deferred until a player-facing change ships (reflexion #deploy-last-makes-the-deploy-meaningful).
-- REVIEW-PENDING.flag deferred (autonomous session in the advisory window) — the boot hook will surface the S119 review card; APPROVE or AMEND then.
+- REVIEW-PENDING.flag deferred (autonomous advisory window) — next boot surfaces the S120 review card; APPROVE or AMEND then.
 
 ## Pending Backlog
-- (BACKLOG.md now has a **STATUS S119 banner at the top** — the worker-sim arc is the front of the line; the S108 queue is closed/history. Full plan: WORKER_SIM_FOUNDATION.md — phases d-1 ✅ S107, a ✅ S119, b/c/d open.)
+- BACKLOG.md STATUS S120 banner is current: front of the line = phase (d) → host-mig D3 → B3. S108 queue closed (history).
 
 ## Recent Reflexion (last 2 sessions)
-See `.claude/reflexion_log.md` — S119 (verbatim-move + frozen-reference differential · instrumented-twin + throw-audit · fix-the-warn-at-its-root · #method: template the differential harness; make CHECK reviewers verify semantics at file:line before CRITICAL — 7× refutation pattern; probe external-model availability at boot) and S118 (parked-PDR-verbatim + A.0 re-run · RALPH caught async-Begin · reuse-proven-replay-safe-template · caller-audit-was-the-real-gate · deploy-last).
+See `.claude/reflexion_log.md` — S120 (measure-first-kills-phantom-work: pre-registered GO rule + real 6× CDP throttle closed a 15-session-old assumed bottleneck in one session · repo-bounds-beat-speculation: the 16KB wire-budget gate refuted a speculative 8-12× · reviewer-execution-claims-are-fabrications: grep-verify cited symbols EXIST; reviewers have no runtime · #method: NO-GO branch as first-class deliverable; derive test thresholds from observed baselines) and S119 (verbatim-move + frozen-reference differential · instrumented-twin + throw-audit · fix-the-warn-at-its-root).
