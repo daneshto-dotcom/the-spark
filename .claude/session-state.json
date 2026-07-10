@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 67,
+  "tool_calls_session_total": 68,
   "session_id": "S121",
   "session_kind": "execution",
   "session_start": "2026-07-10T12:00:00.000Z",
@@ -129,6 +129,55 @@
           "path": "dist/.nojekyll"
         }
       ]
+    },
+    {
+      "id": "S121-P4-codex-coherence",
+      "label": "SCOPE AMENDMENT (owner pre-approved): Codex+Godly UI coherence — fix text overflowing boxes (codex overlay + title screen), fix wrong Voltkin image shown for non-Voltkin entries, per-tower/per-godly consistent imagery, rewrite copy to be creative/epic/well-presented. Redeploy after.",
+      "status": "completed",
+      "phase": "COMPLETED",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "reflexion_entries": [],
+      "checkpoint_commit": "87cdc35",
+      "check_method": "P4 codex+title coherence shipped (87cdc35) + redeployed (live index-CNKzBfzJ.js hash-verified). ROOT FIXES: (1) Voltkin-everywhere — NEW render/codexPresentation.ts owns per-entry imagery under a tested coherence contract (sprite XOR emblem): characters wear their art (Voltkin/HELGA/NONET-kami), geometric buildables wear their BUILD CONSTELLATION drawn from the board's SHAPE_GLYPHS+SPARK_COLORS (pentagram 5-triangle ring / turret Line+7 Spirals / hub Dot+5 Circles; pure emblemLayout unit-tested against real recipe numbers; anti-voltkin-placeholder REGRESSION test). (2) Text-out-of-boxes — tile re-anatomized 220x230->240x320 (name/art/power/divider/recipe zones), NEW render/textFit.ts fitTextToWidth/Box guards on codex tiles + title sublabels, title buttons 360->430, copy under TESTED budgets (name<=16/power<=34/recipe<=150; the 34 budget is LIVE-MEASURED — first NONET power draft at 42 chars escaped even at the fontSize floor, caught by the in-browser bounds audit, shortened+budget-tightened). (3) Copy — proper names (LASER TURRET not LASERTURRET), POWER epigraphs as part of the unlock reveal, epic recipes; recipeHint switch + NONET inline copy REMOVED from main.ts (presentation single-source; bundle SHRANK 626.2->625.3 entry KiB). GATES: tsc 0; vitest 1865/1865 (+10 presentation); bundle under charter; LIVE in-browser bounds audit — every Text inside its tile on BOTH tabs (unlocked seeded via localStorage), title 8/8 texts fit 430px buttons, emblem glyph counts 5/8/6 structurally confirmed, HELGA sprite loads, 0 console errors. Deployed via npm run deploy; live==want hash. CHECK RALPH:PATROL PASS (render-only; e2e uses geometry getters not strings — verified).",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "src/render/codexPresentation.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/codexPresentation.ts",
+          "needle": "export function emblemLayout"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/codexPresentation.test.ts",
+          "needle": "no non-Voltkin entry wears Voltkin art"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/render/textFit.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/titleScreen.ts",
+          "needle": "fitTextToWidth(subText, SUBLABEL_MAX_W"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/main.ts",
+          "needle": "const recipeHint"
+        },
+        {
+          "type": "file_contains",
+          "path": "dist/index.html",
+          "needle": "assets/index-CNKzBfzJ.js"
+        }
+      ]
     }
   ],
   "carry_forward_priorities": [
@@ -142,14 +191,17 @@
   "reflexion_entries_to_archive": [
     "S121-P1 #telegraph-cross-peer-by-derivation: the physics conferral (bond.stiffnessMultiplier) is host-only + un-synced, so a joiner cannot read it. Deriving the STRUCTURAL relation (un-fouled hub + magic neighbor sharing an endpoint) render-side from synced graph state + world.tick gives a bit-identical cross-peer telegraph with ZERO wire bytes. General pattern for visualizing an ephemeral host quantity: recompute from synced inputs, never sync the derived value.",
     "S121-P2 #income-keystone-replay-self-consistent-not-byte-identical: unlike the S118 rigidity Keystone (ephemeral stiffnessMultiplier -> byte-identical), the income keystone changes SCORE values BY DESIGN. It is still safe because save.replay asserts run-A==run-B (self-consistency), NOT golden fixtures -> both runs use the new formula and match. The gate is (a) mirror the term into the differential-test INDEPENDENT oracle (else the equivalence test fails) + (b) update any pre-existing test that hardcoded a now-changed value. Check whether replay tests are self-consistency vs golden BEFORE assuming a scoring change needs fixture regen.",
-    "S121 #council-plan-value-check-value-refute: PLAN-phase Council caught a REAL balance finding (magic-bond term is uncapped scoring.ts:189 -> income keystone amplifies clustering) -> adopted per-Filament cap. But BOTH seats' Q3 determinism criticals (non-dyadic 0.3 -> cross-arch FP desync; sort-by-id tiebreaker) were REFUTED on merits (JS doubles are spec-deterministic; existing x0.05 non-dyadic passes byte-identical replay; a pure count has no tiebreaker). 10th #empirical-refutes-plausible-criticals: verify determinism criticals against language semantics + the existing passing suite before conceding."
+    "S121 #council-plan-value-check-value-refute: PLAN-phase Council caught a REAL balance finding (magic-bond term is uncapped scoring.ts:189 -> income keystone amplifies clustering) -> adopted per-Filament cap. But BOTH seats' Q3 determinism criticals (non-dyadic 0.3 -> cross-arch FP desync; sort-by-id tiebreaker) were REFUTED on merits (JS doubles are spec-deterministic; existing x0.05 non-dyadic passes byte-identical replay; a pure count has no tiebreaker). 10th #empirical-refutes-plausible-criticals: verify determinism criticals against language semantics + the existing passing suite before conceding.",
+    "S121-P4 #copy-budgets-beat-fit-guards: the text-overflow class dies at AUTHORING time, not render time — put char budgets on the copy source (tested: name<=16/power<=34/recipe<=150) and keep fitText guards only as the safety net. The 34-char power budget came from a LIVE bounds measurement (42 chars escaped a 240px tile even at the fontSize floor) — measure the real zone before writing the budget, then encode it as a test so future copy fails in vitest instead of on screen.",
+    "S121-P4 #placeholder-art-is-a-liability: three towers shipped sessions ago with a voltkin-zap placeholder sprite and it silently became the owner-visible 'voltkin everywhere' bug. When a real asset is missing, prefer a PROCEDURAL representation derived from game truth (the recipe constellation in the board's own glyph language) over borrowing another entry's art — it can never be wrong, never drifts, and costs zero assets. Encode the coherence rule as a test (sprite XOR emblem + anti-placeholder regression)."
   ],
   "signals_fired": [],
-  "session_status": "S121 CLOSED — 3/3 shipped (P1 telegraph 1ba7cdc, P2 income keystone c77a817, P3 deploy live). ANALYZE + handoff next.",
+  "session_status": "S121 CLOSED — 4/4 shipped (P1 telegraph 1ba7cdc, P2 income keystone c77a817, P3 deploy, P4 codex coherence 87cdc35 + redeploy live). ANALYZE + handoff next.",
   "totals": {
     "turns": 0,
     "budget_remaining": 1000000,
     "budget_status": "GREEN"
   },
-  "analyze_completed": false
+  "analyze_completed": false,
+  "user_approval_verbatim_p4": "i pre approve this extra batch (codex/godly coherence + text overflow + voltkin image consistency + epic copy; Fable 5 ultracode)"
 }
