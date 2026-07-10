@@ -15,8 +15,15 @@ import type { SpatialGrid } from './spatial.ts';
 const EPSILON = 1e-6;
 
 export function resolveCollisions(sparks: readonly Spark[], grid: SpatialGrid): void {
+  // S120 P3 (worker-sim phase (c)) — the grid is rebuilt ONCE per call (= once
+  // per SUBSTEP, 8×/tick — never hoist to per-tick: positions integrate between
+  // substeps). Iterations 2..8 re-visit start-of-substep buckets: a stale PAIR
+  // re-reads live positions and no-ops below when no longer overlapping, and a
+  // pair that drifts >1 cell apart mid-substep self-heals at the next substep's
+  // rebuild (SUBSTEP_DT later). Was 64 insertAll/tick (rebuild inside the
+  // iteration loop); dense-pile invariants locked by collision.pile.test.ts.
+  grid.insertAll(sparks);
   for (let iter = 0; iter < COLLISION_ITERATIONS; iter++) {
-    grid.insertAll(sparks);
     grid.forEachNearbyPair(resolvePair);
   }
 }

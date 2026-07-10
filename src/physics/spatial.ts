@@ -8,6 +8,7 @@
  * so GC pressure stays near zero.
  */
 
+import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import type { Spark } from '../game/spark.ts';
 
 export class SpatialGrid {
@@ -16,6 +17,17 @@ export class SpatialGrid {
 
   constructor(cellSize: number) {
     if (cellSize <= 0) throw new Error('cellSize must be > 0');
+    // S120 P3 (worker-sim phase (c)) — 8-bit cellKey headroom guard: a future
+    // flat-array grid packs cx/cy into 8 bits each, which is collision-free only
+    // while the canvas spans <256 cells per axis. Checked at construction
+    // (boot/test-time, zero per-frame cost) so a cellSize shrink or canvas grow
+    // fails loudly HERE instead of silently aliasing buckets later.
+    if (CANVAS_WIDTH / cellSize >= 256 || CANVAS_HEIGHT / cellSize >= 256) {
+      throw new Error(
+        `SpatialGrid: cellSize ${cellSize} yields ≥256 cells on a ` +
+          `${CANVAS_WIDTH}×${CANVAS_HEIGHT} canvas — overflows the reserved 8-bit cell space`,
+      );
+    }
     this.invCellSize = 1 / cellSize;
   }
 
