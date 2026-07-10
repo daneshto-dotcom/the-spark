@@ -34,6 +34,8 @@ import {
   FILAMENT_INCOME_COMPLEXITY,
   FUNCTIONAL_BOND_CAP_PER_PRIM,
   FUNCTIONAL_BOND_COMPLEXITY,
+  KEYSTONE_INCOME_COMPLEXITY,
+  KEYSTONE_INCOME_MAX_NEIGHBORS,
   LEADER_DECAY_RATE_PER_SEC,
   LEADER_DECAY_THRESHOLD_FRACTION,
   PHASE_1_WIN_SCORE,
@@ -80,6 +82,9 @@ export function leaderPlayerId(world: World): PlayerId | null {
  *     + min(# functional bonds, ⌊1.5 × prims⌋) × 0.25   (S84 P4 — see constants.ts)
  *     + (# of p's FILAMENT bonds) × FILAMENT_INCOME_COMPLEXITY   (S90 P1 — Filaments are ALSO
  *       counted as magic bonds above, so this is an INTENDED extra trickle, not a double-count bug)
+ *     + Σ over p's un-fouled Filaments of min(#un-fouled magic neighbors, KEYSTONE_INCOME_MAX_NEIGHBORS)
+ *       × KEYSTONE_INCOME_COMPLEXITY   (S121 P2 — INCOME KEYSTONE: a Filament pays a capped bonus for the
+ *       magic bonds branched off it; the income-axis mirror of the rigidity Keystone Anchor)
  *
  * Ownership (Δ2): one pass over each global Map, crediting each element to exactly one
  * owner — a primitive → its `placedBy`; a bond → its `aId` primitive's `placedBy` (both
@@ -165,10 +170,44 @@ export function computeAllComplexities(world: World): Map<PlayerId, number> {
     inc(spawnerCount, sp.ownerPlayerId);
   }
 
+  // S121 P2 (B3) — INCOME KEYSTONE: each un-fouled FILAMENT confers income to up to
+  // KEYSTONE_INCOME_MAX_NEIGHBORS of the un-fouled MAGIC bonds branched off its endpoint prims. A SECOND
+  // bond pass — it needs adjacency (prim.bonds), which the count-only first pass does not walk. Gated on
+  // isFilamentCombo so non-Filaments (the overwhelming majority) skip before any neighbor scan. Credited to
+  // the Filament's aId-placer (same single-owner attribution as every other term; segregation guarantees the
+  // neighbors are same-owner). The per-Filament min() cap bounds it (Council Q1) and keeps it order-
+  // independent (integer count → the SUM is Map-iteration-order-invariant → replay-self-consistent).
+  const keystoneBlessed = new Map<PlayerId, number>();
+  for (const fil of world.bonds.values()) {
+    const fa = world.primitives.get(fil.aId);
+    if (fa === undefined) continue;
+    const fb = world.primitives.get(fil.bId);
+    if (fb === undefined) continue;
+    if (!isFilamentCombo(fa.type, fb.type)) continue;
+    if (world.fouledPrimitives.has(fil.aId) || world.fouledPrimitives.has(fil.bId)) continue;
+    let n = 0;
+    for (const prim of [fa, fb]) {
+      for (const neighborBondId of prim.bonds) {
+        if (neighborBondId === fil.id) continue; // the Filament is not its own neighbor
+        const nb = world.bonds.get(neighborBondId);
+        if (nb === undefined) continue;
+        const na = world.primitives.get(nb.aId);
+        if (na === undefined) continue;
+        const nbEnd = world.primitives.get(nb.bId);
+        if (nbEnd === undefined) continue;
+        if (!lookupCombo(na.type, nbEnd.type).isMagical) continue; // only magic neighbors are blessed
+        if (world.fouledPrimitives.has(nb.aId) || world.fouledPrimitives.has(nb.bId)) continue;
+        n++;
+      }
+    }
+    if (n > KEYSTONE_INCOME_MAX_NEIGHBORS) n = KEYSTONE_INCOME_MAX_NEIGHBORS;
+    keystoneBlessed.set(fa.placedBy, (keystoneBlessed.get(fa.placedBy) ?? 0) + n);
+  }
+
   // Finalize each player with the IDENTICAL one-shot expression. Union of (owners that appear) ∪
   // (seated players) so a value exists for every id the old per-player function would return.
   const owners = new Set<PlayerId>();
-  for (const m of [primCount, magicBonds, functionalBonds, filamentBonds, spawnerCount]) {
+  for (const m of [primCount, magicBonds, functionalBonds, filamentBonds, spawnerCount, keystoneBlessed]) {
     for (const k of m.keys()) owners.add(k);
   }
   for (const player of world.players.values()) owners.add(player.id);
@@ -180,6 +219,7 @@ export function computeAllComplexities(world: World): Map<PlayerId, number> {
     const fb = functionalBonds.get(pid) ?? 0;
     const flb = filamentBonds.get(pid) ?? 0;
     const sc = spawnerCount.get(pid) ?? 0;
+    const kib = keystoneBlessed.get(pid) ?? 0; // S121 P2 — Σ per-Filament min(magicNeighbors, cap)
     // S84 P4 — functional bonds capped at FUNCTIONAL_BOND_CAP_PER_PRIM × prims (spanning tree counts
     // fully; dense clique caps out so bond-spam can't dominate). Cap uses the UN-fouled prim count.
     const countedFunctional = Math.min(fb, Math.floor(FUNCTIONAL_BOND_CAP_PER_PRIM * pc));
@@ -189,7 +229,8 @@ export function computeAllComplexities(world: World): Map<PlayerId, number> {
         mb * MAGIC_BONUS +
         countedFunctional * FUNCTIONAL_BOND_COMPLEXITY +
         flb * FILAMENT_INCOME_COMPLEXITY +
-        sc * SPAWNER_INCOME_COMPLEXITY,
+        sc * SPAWNER_INCOME_COMPLEXITY +
+        kib * KEYSTONE_INCOME_COMPLEXITY,
     );
   }
   return result;

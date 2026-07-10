@@ -14,6 +14,7 @@ import {
   FILAMENT_INCOME_COMPLEXITY,
   FUNCTIONAL_BOND_CAP_PER_PRIM,
   FUNCTIONAL_BOND_COMPLEXITY,
+  KEYSTONE_INCOME_COMPLEXITY,
   LEADER_DECAY_RATE_PER_SEC,
   LEADER_DECAY_THRESHOLD_FRACTION,
   PHASE_1_WIN_SCORE,
@@ -186,9 +187,13 @@ describe('S98 order-symmetry — income parity (Option B balance proof)', () => 
     const l = addPrim(w, P0, SparkType.Line, 130, 100);
     const t = addPrim(w, P0, SparkType.Triangle, 160, 100);
     addBond(w, d, l); // Dot→Line Filament (magic + trickle)
-    addBond(w, l, t); // Line→Triangle Bracket (magic)
+    addBond(w, l, t); // Line→Triangle Bracket (magic), branched off the Filament's Line endpoint
+    // S121 P2 — the Bracket is now an INCOME-KEYSTONE neighbor of the Filament (a magic bond sharing the
+    // Line prim), so it earns +KEYSTONE_INCOME_COMPLEXITY on top. The S98-symmetry invariant this test
+    // guards (forward-build income unchanged BY SYMMETRY) still holds — the keystone bonus is an additive
+    // S121 feature, order-independent, applied equally to forward + mirrored builds.
     expect(computeComplexity(w, P0)).toBeCloseTo(
-      3 * SCORE_ANCHOR + 2 * MAGIC_PREMIUM + FILAMENT_INCOME_COMPLEXITY, 10,
+      3 * SCORE_ANCHOR + 2 * MAGIC_PREMIUM + FILAMENT_INCOME_COMPLEXITY + KEYSTONE_INCOME_COMPLEXITY, 10,
     );
   });
 });

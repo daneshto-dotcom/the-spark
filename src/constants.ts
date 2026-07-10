@@ -537,6 +537,18 @@ export const ANCHOR_STIFFNESS_FLOOR = 0.7;
 // each tick, NOT serialized) so the whole mechanic is replay-byte-identical by construction.
 export const KEYSTONE_STIFFNESS_FLOOR = 0.5;
 
+// S121 P2 (B3 — INCOME KEYSTONE symbiotic combo) — the income-axis mirror of the rigidity Keystone
+// above. An un-fouled FILAMENT (Dot↔Line, the income magic combo) confers a small standing-complexity
+// (= income) bonus to the un-fouled MAGIC bonds branched off its endpoint primitives (state/scoring.ts,
+// computeAllComplexities). "Branch your magic off an income hub and it pays more" → build TOPOLOGY becomes
+// an INCOME decision, not just a rigidity one. Counted per Filament, CAPPED at KEYSTONE_INCOME_MAX_NEIGHBORS
+// magic neighbors (max +0.75 complexity/Filament) so the mechanic rewards SPREADING income hubs rather than
+// clustering N magic "whiskers" off one point (Council S121 Q1 — the magic-bond term is otherwise uncapped).
+// #1 INCOME-KEYSTONE playtest knob. Host-authoritative + pure fn of synced state (integer-counted, one-shot
+// expression) → replay-self-consistent; no wire/save bytes, PROTOCOL_VERSION unchanged.
+export const KEYSTONE_INCOME_COMPLEXITY = 0.25;
+export const KEYSTONE_INCOME_MAX_NEIGHBORS = 3;
+
 // === S71 P1 — Bomb hazard (Council Full; Fork B leaf-first deterministic sever) ===
 // The host-only spawner drops a STATIONARY bomb into the spawn zone every
 // BOMB_SPAWN_MIN..MAX sparks (cadence counts SPARKS SPAWNED — user "every random

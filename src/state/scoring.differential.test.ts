@@ -18,6 +18,8 @@ import {
   FILAMENT_INCOME_COMPLEXITY,
   FUNCTIONAL_BOND_CAP_PER_PRIM,
   FUNCTIONAL_BOND_COMPLEXITY,
+  KEYSTONE_INCOME_COMPLEXITY,
+  KEYSTONE_INCOME_MAX_NEIGHBORS,
   SCORE_ANCHOR,
   SCORE_FUNCTIONAL_BOND,
   SCORE_MAGIC_BOND,
@@ -65,12 +67,41 @@ function referenceComplexity(world: World, playerId: PlayerId): number {
   for (const sp of world.creatureSpawners.values()) {
     if (sp.ownerPlayerId === playerId) spawnerCount++;
   }
+  // S121 P2 — INCOME KEYSTONE reference oracle (INDEPENDENT reimplementation): Σ over THIS player's
+  // un-fouled Filaments of min(#un-fouled magic neighbors, cap). Neighbor owner is NOT checked (matches
+  // production — segregation makes neighbors same-owner in-game; in a random world both count identically).
+  let keystoneBlessed = 0;
+  for (const fil of world.bonds.values()) {
+    const fa = world.primitives.get(fil.aId);
+    if (fa === undefined || fa.placedBy !== playerId) continue;
+    const fb = world.primitives.get(fil.bId);
+    if (fb === undefined) continue;
+    if (!isFilamentCombo(fa.type, fb.type)) continue;
+    if (world.fouledPrimitives.has(fil.aId) || world.fouledPrimitives.has(fil.bId)) continue;
+    let n = 0;
+    for (const prim of [fa, fb]) {
+      for (const nbId of prim.bonds) {
+        if (nbId === fil.id) continue;
+        const nb = world.bonds.get(nbId);
+        if (nb === undefined) continue;
+        const na = world.primitives.get(nb.aId);
+        if (na === undefined) continue;
+        const nbEnd = world.primitives.get(nb.bId);
+        if (nbEnd === undefined) continue;
+        if (!lookupCombo(na.type, nbEnd.type).isMagical) continue;
+        if (world.fouledPrimitives.has(nb.aId) || world.fouledPrimitives.has(nb.bId)) continue;
+        n++;
+      }
+    }
+    keystoneBlessed += Math.min(n, KEYSTONE_INCOME_MAX_NEIGHBORS);
+  }
   return (
     primCount * PRIM_WEIGHT +
     magicBonds * MAGIC_BONUS +
     countedFunctional * FUNCTIONAL_BOND_COMPLEXITY +
     filamentBonds * FILAMENT_INCOME_COMPLEXITY +
-    spawnerCount * SPAWNER_INCOME_COMPLEXITY
+    spawnerCount * SPAWNER_INCOME_COMPLEXITY +
+    keystoneBlessed * KEYSTONE_INCOME_COMPLEXITY
   );
 }
 
