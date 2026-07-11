@@ -1,32 +1,34 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-07-10 | Session: S121 (B3 symbiotic batch — telegraph + income keystone + codex coherence, 4/4 SHIPPED + LIVE)
+Generated: 2026-07-11 | Session: S122 (worker cutover + hostmig D3 + pulse cap + deploy — 4/4 SHIPPED + LIVE)
 
 ## Next Steps
-1. **B2 phase (d)** — `?worker=1` flag-gated cutover (all prereqs done: a✅S119 · b✅S120 closed-by-measurement · c✅S120). FIRST: TD-heavy `PerformanceObserver('longtask')` re-measure (`SPARK_PERF=1 npx playwright test e2e/perf-snapshot.spec.ts` on a TD-heavy world) + the serialization-format ROI call (transferable ArrayBuffer = logged candidate) before wiring. `runHostTick` in `src/state/hostTick.ts` IS the boundary; honor the godly-matcher per-frame contract (WORKER_SIM_FOUNDATION.md).
-2. **Host-migration D3** — MIGRATION_CLAIM takeover (builds on D2; carry: transport-grounded alive set + D4 epoch rules).
-3. **B3 follow-ups (optional polish)** — the income (green) pulse shows on ALL magic neighbors of a Filament while the income cap pays only 3 (deliberate mismatch — pulse means "linked to an income hub"; cap the visual too if strict honesty wanted). Everything else in B3 shipped S121.
-4. **F9** INTENT token-bucket; **F10** Pixi-leak long-match heap probe (UNVERIFIED).
+1. **Owner playtest `?worker=1`** on a weak device — spark-online.space/?worker=1 (the "Player One lags" fix, live opt-in). Default-ON decision gates on this + the S123 items below.
+2. **Worker default-on prereqs (S123 candidates):** VS-BOTS worker support (botManager reconstruction in INIT) · networked worker-host duel e2e (@quarantine-flaky) · 10k-frame GC-creep audit of the positions-buffer loop (GEMINI ANALYZE risk) · overlay abort-vs-fade pop under lag (M3, cosmetic).
+3. **Host-migration D4:** zombie demotion, claim-timeout next-successor, simultaneous-claim demotion, POSTGAME/WIN interplay, LOCKED amendments (§13.7/§13.20/epoch), PROTOCOL_VERSION bump at default-on, reconnect-vs-migration reconciliation + lastRoster/teardown lifecycle (GEMINI M3 note).
+4. **F9** INTENT token-bucket (before public matchmaking); **F10** Pixi-leak long-match heap probe (UNVERIFIED).
 5. **Gated Tier-1 (owner design):** G1b MOTION verb; G2 family traits.
 
 ## Blockers
-- **Owner-side:** GitHub account billing lock historically killed Actions → the manual `npm run deploy` (gh-pages branch-mode) workaround exists. **S121 FINDING:** Actions appear ALIVE again this session (pages-build + master-push `deploy.yml` both succeeded). VERIFY whether the lock is cleared; if so, restore Pages source to GitHub-Actions mode and retire the manual deploy.
-- **OS session (not this repo):** `constitution-close-gate.sh` CLAIM-A id-matcher expects `^PN-` priority ids but the session convention is `SNNN-PN-*` → guaranteed-block loop until ids renamed (hit twice in S121). Loosen the jq regex to a substring test OR codify `PN-` ids in session-pdca SKILL.md.
+- **OWNER DECISION (2 sessions running):** GitHub Actions are ALIVE (master-push deploy succeeded S121 + S122). BOTH deploy paths ran and converged in S122 — dual-writer race waiting to diverge. Pick ONE: restore Actions-mode Pages + retire `npm run deploy`, or disable the workflow.
+- **S123 PDR template addition (ANALYZE-adopted):** feed a PLATFORM CONSTRAINTS block (GH Pages = no COOP/COEP → no SAB; bundle charter; worker availability) into Council R1 prompts — both seats bet on SAB blind in S122.
 
 ## Pending Backlog
-BACKLOG.md uses a STATUS-banner format (no `- [ ]` checkboxes). Front of line per the S120 banner + S121 close: B2 phase (d) → host-mig D3 → B3 polish. See BACKLOG.md "STATUS S120" banner + the carry-forward list above.
+BACKLOG.md uses a STATUS-banner format (no `- [ ]` checkboxes). Front of line per the S120 banner + S122 close: worker default-on track → host-mig D4 → F9/F10. The B2 WORKER-SIM ARC IS COMPLETE (a✅S119 b✅closed-S120 c✅S120 d✅S122); host-mig D1✅S115 D2✅S118 D3✅S122.
 
 ## Recent Reflexion (last 2 sessions)
 
-## 2026-07-10 — Session 121: B3 symbiotic batch (4 priorities, all live). P1 keystone rigidity telegraph — gold/green pulse renderer, cross-peer by DERIVATION from synced graph + world.tick (1ba7cdc). P2 Income Keystone — Filament confers +0.25 income to ≤3 branched magic neighbors, per-Filament cap, replay-self-consistent (c77a817). P3 deploy live. P4 codex+title coherence — codexPresentation.ts (characters wear art, geometry wears its build constellation → retired voltkin-everywhere bug), textFit guards + tested copy budgets, epic copy (87cdc35). tsc 0, vitest 1865/1865, bundle 625.3/750, MCV 0. Council: 1 balance finding adopted, Q3 determinism criticals refuted (10th #empirical-refutes-plausible-criticals).
+## 2026-07-11 — Session 122: 4/4 shipped + live. P1 worker cutover (?worker=1, measured-first — ROI rule FAILED honestly → positions-buffer format; differential HARD gate; hash oracle caught its first real bug = the author's own ordering mistake) 82ea2c3. P2 hostmig D3 (kill-host e2e green FIRST RUN, 3 real peers) 5f53b3a. P3 pulse cap 999e530. P4 live. vitest 1882/1882.
 
-- S121-P1 #telegraph-cross-peer-by-derivation: visualize an ephemeral host quantity by recomputing from synced inputs + world.tick, never sync the derived value → bit-identical cross-peer, zero wire bytes.
-- S121-P2 #income-keystone-replay-self-consistent-not-byte-identical: a scoring change is safe when save.replay is self-consistency (run-A==run-B) not golden; gate = mirror the term into the differential oracle + fix any test that hardcoded the old value.
-- S121 #council-plan-value-check-value-refute: PLAN Council caught a real uncapped-magic balance finding; both seats' Q3 determinism criticals refuted (JS FP deterministic; existing ×0.05 non-dyadic already passes replay). 10th #empirical-refutes-plausible-criticals.
-- S121-P4 #copy-budgets-beat-fit-guards: kill text-overflow at authoring time with tested char budgets (measure the real zone first); fitText guards are only the safety net.
-- S121-P4 #placeholder-art-is-a-liability: prefer a procedural representation derived from game truth over borrowing another entry's art; encode coherence as a test (sprite XOR emblem + anti-placeholder regression).
+- S122-P1 #cross-check-oracle-catches-your-own-layer: order integrity checks to validate EXACTLY the layer under test (apply), before deliberate divergences (prediction/UX) re-enter.
+- S122-P1 #measure-first-changed-the-design: the pre-registered ROI rule + contingency ladder made the escalation mechanical — the positions-buffer format came FROM the measurement, not deliberation.
+- S122-P2 #suppress-competing-recovery-paths: reconnect-cycling and migration grace COMPETE for the transport; serialize recovery protocols explicitly, never let timers interleave.
+- S122 #both-deploy-paths-ran: dual-writer deploy paths converged harmlessly once; surface the owner decision every close until one is retired.
+- S122 #feed-platform-constraints-into-council-prompts: both Council seats bet on SAB without knowing GH Pages can't set COOP/COEP; add a PLATFORM CONSTRAINTS block to R1 prompts (S123 template).
 
-## 2026-07-10 — Session 120: Closed worker-sim phases (b)+(c). P1 phase-(b) MEASURE (real 2-peer duel + 6× CDP throttle) → NO-GO, pooling CLOSED-BY-MEASUREMENT (eaca05b). P2 docs close (543a3aa). P3 collision grid 64→8/tick + cellKey guard + pile test (3fc6688). tsc 0, vitest 1841/1841, MCV 0, bundle 624.4/750.
+## 2026-07-10 — Session 121: B3 symbiotic batch (4 priorities, all live) — telegraph 1ba7cdc, income keystone c77a817, deploy, codex coherence 87cdc35.
 
-- S120-P1 #measure-first-kills-phantom-work: pre-register the GO/NO-GO rule before measuring → a NO-GO becomes a shippable deliverable (CLOSED-BY-MEASUREMENT), not a failure.
-- S120-P1 #repo-bounds-beat-speculation: search the existing test suite for empirical bounds (the 16KB wire-budget gate) before conceding a speculative multiplier.
-- S120-P3 #reviewer-execution-claims-are-fabrications: external reviewers have no execution env — auto-distrust runtime claims; grep-verify every cited symbol exists before triage.
+- S121-P1 #telegraph-cross-peer-by-derivation: recompute ephemeral host quantities from synced inputs render-side; never sync the derived value.
+- S121-P2 #income-keystone-replay-self-consistent-not-byte-identical: check whether replay tests are self-consistency vs golden BEFORE assuming a scoring change needs fixture regen.
+- S121 #council-plan-value-check-value-refute: 10th #empirical-refutes-plausible-criticals — verify determinism criticals against language semantics + the passing suite before conceding.
+- S121-P4 #copy-budgets-beat-fit-guards: kill text-overflow at authoring time with tested char budgets; fitText is only the net.
+- S121-P4 #placeholder-art-is-a-liability: prefer procedural representations derived from game truth over borrowed art; encode coherence as a test.
