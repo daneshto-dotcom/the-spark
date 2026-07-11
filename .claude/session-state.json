@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 134,
+  "tool_calls_session_total": 143,
   "session_id": "S122",
   "session_kind": "execution",
   "session_start": "2026-07-11T00:00:00.000Z",
@@ -228,7 +228,8 @@
     "S122-P1 #cross-check-oracle-catches-your-own-layer: the mirror-vs-worker hashWorldState oracle's first live catch was MY OWN prediction layer (drag-preserve restore ran before the hash -> 6 mismatches), not the apply path. Order integrity checks to validate EXACTLY the layer under test (apply), before deliberate divergences (prediction/UX) re-enter. An oracle that fires on designed divergence trains people to ignore it.",
     "S122-P1 #measure-first-changed-the-design: the pre-registered ROI rule v2 FAILED on the TD-heavy re-measure (structuredClone p95 10.1ms @6x \u2014 5x the stringify cost, refuting the 'simple clone' default BOTH Council seats and I expected to pass) -> the positions-buffer + structural-snapshot format came FROM the measurement, not the deliberation. Pre-registering the rule + the contingency ladder BEFORE measuring made the escalation mechanical instead of a debate.",
     "S122-P2 #suppress-competing-recovery-paths: the S82 auto-reconnect (transport teardown+rejoin @1s) and the D3 migration grace COMPETE for the same transport \u2014 a survivor mid-reconnect-cycle misses the claim broadcast. Seam-gated suppression + idempotent re-broadcast x5 made the e2e deterministic. When two recovery protocols share a resource, serialize them explicitly; do not let timers interleave.",
-    "S122 #both-deploy-paths-ran: with Actions back alive, the master-push auto-deploy AND the manual gh-pages force-push both deployed the same session \u2014 they converged harmlessly this time, but dual-writer deploy paths are a race waiting for a divergence. Surface the owner decision at every close until one path is retired."
+    "S122 #both-deploy-paths-ran: with Actions back alive, the master-push auto-deploy AND the manual gh-pages force-push both deployed the same session \u2014 they converged harmlessly this time, but dual-writer deploy paths are a race waiting for a divergence. Surface the owner decision at every close until one path is retired.",
+    "S122 #feed-platform-constraints-into-council-prompts: BOTH Council seats bet R1 architecture on SharedArrayBuffer without knowing the deploy target (GH Pages) cannot set COOP/COEP headers. A 5-line PLATFORM CONSTRAINTS block in the R1 prompt (hosting, headers, worker/SAB availability, bundle charter) would have redirected both seats' effort to viable alternatives. Adopted for the S123 PDR template."
   ],
   "session_status": "S122 COMPLETE - 4/4 shipped (P1 82ea2c3 worker cutover, P2 5f53b3a hostmig D3, P3 999e530 pulse cap, P4 live). ANALYZE + handoff next.",
   "totals": {
@@ -236,5 +237,6 @@
     "budget_remaining": 1000000,
     "budget_status": "GREEN"
   },
-  "analyze_completed": false
+  "analyze_completed": true,
+  "analyze_result": "S122 ANALYZE (3-seat). ZERO: 4/4 shipped at 56% context; scope discipline held (F9/F10 + VS-BOTS worker + networked worker duel deferred whole, never half-shipped); the two arc keystones (B2-d, hostmig-D3) landed with first-run-green hard gates. GROK: disruption adoption ~10% but the one adoption was CRITICAL-class (allocator repair); recommends (1) auto-escalate hash-oracle/ordering-class findings to mandatory repro before refute, (2) PRE-FLIGHT PLATFORM-CONSTRAINT VALIDATION for Council seats (both seats bet on SAB without knowing GH Pages can't set COOP/COEP \u2014 feed platform constraints into R1 prompts; ADOPTED for S123 PDR template), (3) track refuted-then-confirmed rate <15%. GEMINI: measurement-first vindicated (its own GC/alloc critique became ROI rule v2 which then failed honestly); calibration self-note \u2014 with a differential gate + live oracle present, weight static edge-case theorizing lower; S123 quality risks = worker default-on (fallback latency, frame-0 init races, 10k-frame GC creep) + D4 dirty paths (death-during-handshake, asymmetric partitions). Calibration: Grok 1 adopted / ~10; Gemini 1 forward-note adopted / 8; both PLAN R1 architecture counter-proposals refuted on platform grounds but their measurement skepticism was load-bearing."
 }
