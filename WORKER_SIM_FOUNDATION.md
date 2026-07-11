@@ -125,6 +125,37 @@ in the S120 Council — measured, not analytically multiplied).
 
 ---
 
+## Phase (d) re-measure — S122 P1 (TD-heavy + worker-boundary ROI, 2026-07-11)
+
+**Instrument:** `SPARK_PERF=1 npx playwright test e2e/perf-snapshot.spec.ts -g "S122"` — real 2-peer
+duel; host world inflated via `__SPARK__.restoreWorld` (template-cloned prims/bonds + injected chewer
+swarm: **119 prims / 104 bonds / 48 creatures / 13 hazards, snapshot 49,684 B** — at/above a realistic
+TD endgame); `PerformanceObserver('longtask')`; `__SPARK__.benchWorkerRoi` measures the worker-boundary
+candidate round-trip (netSnapshot BUILD → structuredClone → applyNetSnapshot onto a scratch mirror).
+
+| window | dur | sends | buildAvg | buildMax | sendAvg | sendMax | snapBytes |
+|---|---|---|---|---|---|---|---|
+| W4 TD-heavy | 40s | 89 | 0.112 | 0.300 | 0.528 | 1.000 | 49684 |
+| W5 TD-heavy+6× | 40s | 39 | 0.979 | 1.500 | 6.346 | 10.200 | 49684 |
+
+ROI bench (150 iters): unthrottled roundTrip p95 **1.1 ms** (clone 0.53 avg); **6× throttled roundTrip
+p95 10.1 ms** — clone avg **5.19 ms** (5× the 1.1 ms stringify), build 0.68, apply 1.31 (p95 2.1).
+Longtasks: 325 — ~52 ms tasks CONTINUOUSLY in the unthrottled TD window (the host frame rate itself
+collapses under the TD-heavy sim+render → send cadence fell to ~2.2 Hz), 260–600 ms under 6×.
+
+**ROI VERDICT (pre-registered S122 Council rule v2): FAIL — 10.1 ms p95 > 4 ms budget → contingency
+ladder fires.** Full-snapshot structured-clone at 60 Hz is out. **Adopted format (ladder steps 1+2
+merged):**
+- **60 Hz positions-only transferable Float64Array** (flat sections: players/prims/sparks/creatures/
+  hunters/seagulls/poops/potatoes + tick; ~5 KB, O(1) transfer, zero per-frame GC);
+- **full netSnapshot attached ONLY on structural batches** (any effects emitted ∨ entity-set change ∨
+  intents dispatched ∨ 100 ms floor) — bursty in practice, and the ≥10 Hz floor batch doubles as the
+  remote-peer wire snapshot (built once, in the worker);
+- `hashWorldState` cross-check runs on full-snapshot batches (≈10 Hz).
+
+Secondary finding: the ~52 ms/frame TD-heavy main-thread load measured here is the direct evidence for
+the cutover's value — moving the sim off main is worth roughly that entire budget on weak hosts.
+
 ## What S107 P2 delivered (the safe, high-value foundation)
 - `stepPhysics` physics-loop replay-determinism HARD gate (the named prerequisite).
 - `hashWorldState` pure cross-check oracle + tests (deterministic, sensitive, order-invariant).

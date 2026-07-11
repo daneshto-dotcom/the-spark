@@ -26,8 +26,6 @@
 
 import type { Application } from 'pixi.js';
 import {
-  ATTRACT_FOLLOW_RATE,
-  POOP_SLOW_MULTIPLIER,
   AUTO_BOND_RADIUS,
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
@@ -50,7 +48,7 @@ import type { Primitive } from '../game/primitive.ts';
 import { componentOf } from '../game/structure.ts';
 import { cssToCanvasCoords } from '../render/lobbyScreen.ts';
 import { dispatch, isNetworked } from '../state/world.ts';
-import type { GameAction, World } from '../state/world.ts';
+import type { World } from '../state/world.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
 import type { BombId, BondId, CreatureId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 } from '../types.ts';
 import { pickRedundantBondTargets } from './redundantBondTargets.ts';
@@ -63,7 +61,14 @@ import { isInsideEnemyTerritory } from '../state/territory.ts';
  * applies authoritatively, snapshot returns ~RTT/2 later). controls.ts has
  * no direct net dependency; main.ts decides the wiring.
  */
-export type ControlsDispatchFn = (action: GameAction) => void;
+// S122 P1 — moved to controlsCore.ts (DOM/Pixi-free); re-exported for existing consumers.
+export type { ControlsDispatchFn, ControlState, ControlsLike } from './controlsCore.ts';
+export { applyControlsPerSubstep, stepAttractLerp } from './controlsCore.ts';
+import {
+  applyControlsPerSubstep,
+  type ControlsDispatchFn,
+  type ControlState,
+} from './controlsCore.ts';
 
 /** Default dispatcher: solo path. Equivalent to pre-S15 controls behavior. */
 function makeLocalDispatcher(world: World): ControlsDispatchFn {
@@ -112,15 +117,6 @@ const MAX_RELEASE_REACH = 120;
  * convergence either way.
  */
 const PENDING_PLACE_DRAG_LOCK_MS = 300;
-
-export type ControlState =
-  | { readonly kind: 'Idle' }
-  | {
-      readonly kind: 'AttractDrag';
-      readonly sparkId: SparkId;
-      readonly cursor: Vec2;
-    };
-// S53 P2 — ConnectDrag variant removed. See header docstring for rationale.
 
 export class Controls {
   state: ControlState = { kind: 'Idle' };
@@ -202,85 +198,22 @@ export class Controls {
     return null;
   }
 
-  /** Apply attract force / cursor-lock per substep. Called from main loop. */
+  /**
+   * Apply attract force / cursor-lock per substep. Called from main loop.
+   *
+   * S122 P1 — body extracted VERBATIM to applyControlsPerSubstep (module fn above) so the
+   * worker-sim facade drives the byte-identical path. Full S86/S58/S10/S77 rationale comments
+   * live at the extraction site. This delegation preserves the exact pre-S122 semantics: the
+   * only mutation the class layer adds back is `this.state` adoption of the returned FSM state.
+   */
   applyPerSubstep(): void {
-    const player = this.world.players.get(this.playerId);
-    if (player === undefined) return;
-
-    if (this.state.kind === 'AttractDrag') {
-      const spark = this.world.freeSparks.get(this.state.sparkId);
-      // S86 P3 — a benched (eaten) player's in-flight gesture dies NOW. The
-      // hunter catch force-drops the carried spark (→ Free at the hidden
-      // avatar), and pre-S86 the `mine` Free-allowance below then yanked it
-      // straight back to the cursor and kept hauling — the round-6 "the
-      // pacman ate me and i can still pick up primitives" exploit. Also
-      // covers the stuck-gesture hole: onUp early-returns while input-locked
-      // (isInputLocked), so without this per-substep check an AttractDrag
-      // survived the whole bench and resumed afterwards with LMB long
-      // released. benchedUntilTick is host-authored and rides the
-      // NetSnapshot — mirroring it here cannot diverge from the host.
-      // Defensive claim release mirrors onUp/onLostCapture (DROP_SPARK is
-      // 'allow' in BENCH_INTENT_POLICY — release-only verbs stay open).
-      if (isBenched(player.benchedUntilTick, this.world.tick)) {
-        if (player.kind === 'Carrying' && spark !== undefined && player.carriedSparkId === spark.id) {
-          this.dispatchFn({
-            type: 'DROP_SPARK',
-            playerId: this.playerId,
-            pos: { x: this.cursor.x, y: this.cursor.y },
-          });
-        }
-        this.state = { kind: 'Idle' };
-        return;
-      }
-      // S58 (#2) — the spark is now CLAIMED (Carried{me}) on LMB-down, so the
-      // drag must keep driving a spark that is Free (pre-claim / solo / the
-      // 1-frame pre-host-confirm window) OR Carried by ME. It ends cleanly
-      // (state→Idle) only if the spark is gone, consumed (Bonded), or grabbed
-      // by the OPPONENT (Carried by them) — the race-lost reconciliation.
-      // (S86 P3: gesture ENTRY is now claim-gated in onDown, so the Free
-      // allowance no longer carries a rejected-claim exploit — it remains as
-      // belt-and-braces for snapshot-edge frames only.)
-      const mine =
-        spark !== undefined &&
-        (spark.state.kind === 'Free' ||
-          (spark.state.kind === 'Carried' && spark.state.carrierId === this.playerId));
-      if (!mine) {
-        this.state = { kind: 'Idle' };
-        return;
-      }
-      // S10 P1: position-lerp follow. Replaces S5-era impulse-on-prevPos
-      // (k = ATTRACT_STRENGTH / max(dist, 60), pushed against prevPos under
-      // verlet damping 0.998) which produced a slow pendulum: the spark
-      // built momentum toward the cursor, overshot, swung back. User read
-      // this as "stupid magnet slowly swinging back and forward."
-      //
-      // Lerping spark.pos directly and restoring prevPos = old pos keeps
-      // residual velocity = lerp delta (not impulse-accumulated), so verlet
-      // still gives the spark a tiny "alive" feel during follow but cannot
-      // overshoot. Snappy, no swing. Pure position math = no force/dt
-      // coupling either.
-      // S77 P3 — a seagull-pooped ("poopy") spark drags at half speed ("cruiser speed") until
-      // its poopyUntilTick (the meaningful slow case — free sparks settle on their own anyway).
-      const followRate =
-        spark.poopyUntilTick !== undefined && this.world.tick < spark.poopyUntilTick
-          ? ATTRACT_FOLLOW_RATE * POOP_SLOW_MULTIPLIER
-          : ATTRACT_FOLLOW_RATE;
-      stepAttractLerp(spark.pos, spark.prevPos, this.state.cursor, followRate);
-    }
-
-    // S58 (#2) — when actively AttractDragging, the lerp above is the sole local
-    // driver (preserves the S10/S56 drag feel). This hard-snap branch only runs
-    // for a Carrying-without-gesture state (defensive fallback) so the carried
-    // spark still tracks the cursor if a drag ever ends while still Carrying.
-    if (player.kind === 'Carrying' && this.state.kind !== 'AttractDrag') {
-      const carried = this.world.freeSparks.get(player.carriedSparkId);
-      if (carried !== undefined) {
-        carried.pos.x = this.cursor.x;
-        carried.pos.y = this.cursor.y;
-        carried.prevPos.x = this.cursor.x;
-        carried.prevPos.y = this.cursor.y;
-      }
-    }
+    this.state = applyControlsPerSubstep(
+      this.world,
+      this.playerId,
+      this.state,
+      this.cursor,
+      this.dispatchFn,
+    );
   }
 
   // === pointer handlers ===
@@ -873,24 +806,6 @@ export class Controls {
   }
 }
 
-/**
- * S10 P1: one position-lerp step for AttractDrag. Pure function, exported so
- * the controls.test.ts equivalent can validate the math without spinning up
- * a Pixi Application + DOM. Mutates `pos` and `prevPos` in place to match
- * the on-spark mutation contract used by applyPerSubstep.
- */
-export function stepAttractLerp(
-  pos: { x: number; y: number },
-  prevPos: { x: number; y: number },
-  cursor: { x: number; y: number },
-  rate: number,
-): void {
-  const oldX = pos.x, oldY = pos.y;
-  pos.x = oldX + (cursor.x - oldX) * rate;
-  pos.y = oldY + (cursor.y - oldY) * rate;
-  prevPos.x = oldX;
-  prevPos.y = oldY;
-}
 
 // S55 P3 — exported for controls.test.ts (pure geometry; used by pickBond to
 // hit-test the cursor against a bond segment). Point-to-segment distance with

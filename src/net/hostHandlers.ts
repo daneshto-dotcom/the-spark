@@ -31,7 +31,7 @@ import { reconcileLobbySeats, buildMatchRoster } from './lobbyRoster.ts';
 import { broadcastQmPresence, maybeQmAutoBegin } from './quickmatchGate.ts';
 import type { NetSession } from './session.ts';
 import { NetTransport, selfId } from './transport.ts';
-import { dispatch, type World } from '../state/world.ts';
+import { dispatch, type GameAction as GameActionForIntent, type World } from '../state/world.ts';
 import { stampSenderSeat } from './intentStamp.ts';
 import { asPlayerId, type PlayerId } from '../types.ts';
 import { PLAYER_COLORS, MAX_PLAYERS } from '../constants.ts';
@@ -165,6 +165,13 @@ export interface HostStartDeps {
    * (session.quickmatch=false → maybeQmAutoBegin never calls it).
    */
   onAutoBegin: () => void;
+  /**
+   * S122 P1 (worker mode) — optional override for the authoritative apply of a validated,
+   * seat-stamped remote INTENT. Absent (direct mode) → dispatch(deps.world, action) exactly
+   * as before. main.ts passes a thunk that routes to the SimWorkerDriver when the sim runs
+   * behind the ?worker=1 flag (the mirror world must never apply intents authoritatively).
+   */
+  dispatchAction?: (action: GameActionForIntent) => void;
 }
 
 export function createHostStartHandler(deps: HostStartDeps): () => string {
@@ -280,7 +287,9 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
         // Unknown peer (no seat yet / legacy 2-player) → apply as-is.
         const seat = deps.session.hostSeats.get(peerId);
         const action = seat !== undefined ? stampSenderSeat(msg.action, seat) : msg.action;
-        dispatch(deps.world, action);
+        // S122 P1 — worker mode routes the authoritative apply to the sim worker.
+        if (deps.dispatchAction !== undefined) deps.dispatchAction(action);
+        else dispatch(deps.world, action);
       }
       // S87 P4 — QUICKMATCH readiness from a joiner. Recorded by TRANSPORT
       // peerId (never a wire-claimed identity — same anti-spoof posture as

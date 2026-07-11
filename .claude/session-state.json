@@ -1,210 +1,99 @@
 {
-  "tool_calls_session_total": 91,
-  "session_id": "S121",
+  "tool_calls_session_total": 134,
+  "session_id": "S122",
   "session_kind": "execution",
-  "session_start": "2026-07-10T12:00:00.000Z",
-  "prior_session_note": "S120 COMPLETE (B2 phase b/c). S121 = B3 symbiotic batch: rigidity telegraph + Income Keystone + deploy. PDR approved via AskUserQuestion (telegraph always-on-subtle; Approve & execute).",
-  "phase": "S121_EXECUTING",
+  "session_start": "2026-07-11T00:00:00.000Z",
+  "prior_session_note": "S121 COMPLETE (B3 symbiotic batch + codex coherence, 4/4 live). S122 = the S121-handoff top batch: B2 phase (d) worker cutover + host-mig D3 + B3 pulse cap + deploy.",
+  "phase": "S122_EXECUTING",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "user_approval_verbatim": "Approve & execute — S121 B3 batch (P1 telegraph always-on-subtle + P2 Income Keystone + P3 deploy).",
-  "tier": "Standard",
-  "council_rounds": 1,
-  "council_result": "S121 Standard 3-way Council (Grok DISRUPTOR grok-4.20-reasoning + Gemini AUDITOR gemini-3.1-pro-preview). Ledger: Q1 income-value CONCEDED->Council (magic term uncapped scoring.ts:189 VERIFIED) -> per-Filament cap 3 + value 0.3->0.25; Q2 telegraph honesty REJECTED-always-on by both -> ESCALATED to owner, owner ratified always-on-subtle (keystone-linked framing); Q3 dyadic/sort criticals REFUTED with proof (JS deterministic doubles; existing x0.05 non-dyadic passes byte-identical replay; pure-count order-independent) -> determinism gate as-designed correct. No vetoes.",
-  "plan_file": ".claude/plans/2026-07-10_PDR_S121_B3_Symbiotic.md",
+  "user_approval_verbatim": "continue working top recommended priority batch in order. work highest value highest leverage priority batch autonomously in the best of your abilities (im turning on fable 5 ultracode) in the absolute best interests of this project and vision. I approve full run!",
+  "tier": "Full",
+  "council_rounds": 2,
+  "signals_fired": ["security_sensitive", "novel_mechanism"],
+  "council_result": "S122 Full 3-way Council (Grok DISRUPTOR grok-4.20-reasoning + Gemini AUDITOR gemini-3.1-pro-preview), R1 parallel -> quality gate PASS -> R2 Claude convergence. Ledger: L1 P1 transport (60Hz snapshot+apply vs SAB/flatbuffers/WASM) SYNTHESIS -> keep proven netSnapshot/applyNetSnapshot path, ADOPT ROI-rule-v2 (full round-trip build+clone+post+apply p95<=4ms @6x throttle on TD-heavy world, User-Timing marks + longtask + memory sampling, contingency ladder positions-only-apply -> ArrayBuffer); SAB REFUTED on platform (GH Pages cannot set COOP/COEP -> crossOriginIsolated false); per-frame payload is netSnapshot (~8.5KB, <=16KB TD wire-gate bound), NOT whole World (both seats misread). L2 godly cadence SYNTHESIS -> ADOPT tick-tagged events + main presentation queue + request/response batch discipline (1 batch=1 frame, no queued batches); multiple-cutscenes-per-batch REFUTED (matcher breaks after 1 match). L3 D3 hardening ADOPT -> survivors process claims only while themselves observing host loss + same-epoch lowest-seat-wins demotion; baseline-rollback-desync REFUTED (clients never simulate, full-apply rebuild); epoch-after-apply REFUTED (sync.ts:102 epoch gate first); claim-timeout/zombie-demotion stay D4 (logged). L4 D3 no-PROTOCOL-bump RESOLVED 2.0(Claude+Gemini) > 1.75(Grok) -> seam-gated claims cannot fire in production, D4 owns the bump. L5 P3/P4 AGREED (Grok CI-hash-lane ADD logged as owner/Actions carry-forward). PRIME-AUDIT: worker.terminate() lifecycle added, flag gates HOST path only, worker chunk separate from entry charter; boot-then-smoke satisfied via ?worker=1 e2e smoke + local kill-host e2e. No vetoes. Confidence HIGH.",
+  "plan_file": ".claude/plans/2026-07-11_PDR_S122_Worker_Cutover_HostMig_D3.md",
   "budget_total": 1000000,
   "priorities": [
     {
-      "id": "P1-rigidity-telegraph",
-      "label": "B3: Keystone rigidity VFX telegraph — gold pulse from un-fouled Anchor along its keystone-linked magic bonds; render-side both peers (structural, always-on subtle); new keystoneTelegraphRenderer.ts + test; wire after structureRenderer.sync (main.ts:1658).",
-      "status": "completed",
-      "phase": "COMPLETED",
-      "tier": "Standard",
-      "check_completed": true,
-      "reflexion_entries": [],
+      "id": "P1-worker-cutover",
+      "label": "B2 phase (d): TD-heavy re-measure + serialization ROI call (rule v2), then ?worker=1 flag-gated cutover (default OFF): workerSim.ts batch core + simWorker.ts entry + main.ts driver, netSnapshot mirror path, hashWorldState cross-check, tick-tagged godly events, differential HARD gate + e2e smoke.",
+      "status": "in_progress",
+      "phase": "CHECK",
+      "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "checkpoint_commit": "1ba7cdc",
-      "real_context_tokens_at_close": 232851,
-      "real_context_pct_at_close": 23.29,
-      "check_method": "P1 rigidity telegraph shipped (1ba7cdc). New keystoneTelegraphRenderer.ts: pure computeKeystonePulses(world) scans un-fouled Anchor(gold 0xffd873)/Filament(green 0x74e0a4) hubs, emits a pulse per un-fouled MAGIC neighbor bond (SAME endpoint-neighbor scan as applyKeystoneAnchor) -> cross-peer BY CONSTRUCTION (synced graph + world.tick phase, ZERO wire/save bytes, pure cosmetic). Always-on subtle per owner taste + Council Q2 ratification. Graphics constructed after structureRenderer (above bonds/prims), synced after structureRenderer.sync (main.ts:1665). GATES: tsc 0; vitest full 1849/1849 (+8 new: hub detect, gold/green dispatch, magic-only + foul filtering, far-endpoint geometry both bond a/b directions, order-independence); regression-clean. Live VISUAL smoke CONSOLIDATED to pre-deploy (P2 adds the green pulse to the SAME renderer). CHECK RALPH:PATROL PASS (render-only, no world mutation, helper is Pixi-free testable).",
+      "check_completed": false,
+      "reflexion_entries": [],
       "verification": [
-        {
-          "type": "file_exists",
-          "path": "src/render/keystoneTelegraphRenderer.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/keystoneTelegraphRenderer.ts",
-          "needle": "export function computeKeystonePulses"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "keystoneTelegraphRenderer.sync(world)"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/keystoneTelegraphRenderer.test.ts",
-          "needle": "KEYSTONE_INCOME_PULSE_COLOR"
-        }
+        { "type": "file_exists", "path": "src/state/workerSim.ts" },
+        { "type": "file_contains", "path": "src/state/workerSim.ts", "needle": "export function applyTickBatch" },
+        { "type": "file_contains", "path": "src/state/workerSim.ts", "needle": "export function buildPositions" },
+        { "type": "file_exists", "path": "src/simWorker.ts" },
+        { "type": "file_exists", "path": "src/simWorkerDriver.ts" },
+        { "type": "file_exists", "path": "src/state/godlyMatcherCore.ts" },
+        { "type": "file_contains", "path": "src/state/godlyMatcherCore.ts", "needle": "export function tickWorkerCinematics" },
+        { "type": "file_exists", "path": "src/input/controlsCore.ts" },
+        { "type": "file_contains", "path": "src/input/controlsCore.ts", "needle": "export function applyControlsPerSubstep" },
+        { "type": "file_exists", "path": "src/state/workerSim.differential.test.ts" },
+        { "type": "file_exists", "path": "e2e/worker.spec.ts" },
+        { "type": "file_contains", "path": "src/main.ts", "needle": "simWorkerDriver = new SimWorkerDriver" },
+        { "type": "file_contains", "path": "src/net/sync.ts", "needle": "wrapSnapshot" },
+        { "type": "file_contains", "path": "WORKER_SIM_FOUNDATION.md", "needle": "ROI VERDICT (pre-registered S122 Council rule v2): FAIL" }
       ]
     },
     {
-      "id": "P2-income-keystone",
-      "label": "B3: Income Keystone symbiotic combo — a Filament confers +KEYSTONE_INCOME_COMPLEXITY(0.25) income to up to KEYSTONE_INCOME_MAX_NEIGHBORS(3) magic neighbors (per-Filament cap, Council-revised). computeAllComplexities + differential-oracle mirror + constants + green pulse in the shared telegraph renderer + new scoring.keystoneIncome.test.ts.",
-      "status": "completed",
-      "phase": "COMPLETED",
-      "tier": "Standard",
-      "check_completed": true,
-      "reflexion_entries": [],
+      "id": "P2-hostmig-d3",
+      "label": "Host-migration D3: MIGRATION_CLAIM takeover behind __TEST_MIGRATION__ seam (no PROTOCOL bump). migrationClaim.ts sign/verify + rebuildAuthorityFromMirror, session lastRoster, main.ts successor/survivor wiring w/ Council acceptance hardening, unit matrix + kill-host e2e (@quarantine-flaky).",
+      "status": "pending",
+      "phase": "PLAN",
+      "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "checkpoint_commit": "c77a817",
-      "real_context_tokens_at_close": 291082,
-      "real_context_pct_at_close": 29.11,
-      "check_method": "P2 Income Keystone shipped (c77a817). computeAllComplexities (scoring.ts) gains a SECOND isFilamentCombo-gated bond pass: per un-fouled Filament, count un-fouled MAGIC neighbors (prim.bonds adjacency, foul parity), CAP at KEYSTONE_INCOME_MAX_NEIGHBORS(3), sum×KEYSTONE_INCOME_COMPLEXITY(0.25) credited to the Filament aId-placer. Council Q1 anti-starburst cap (rewards spreading hubs). Green pulse ships via the P1 telegraph renderer (Filament hub). Constants added w/ #1-playtest-knob docblock. GATES: tsc 0; vitest FULL 1855/1855 (+6 keystone: bonus earned, non-Filament=0, cap-fires-at-4-neighbors, fouled-hub=0, fouled-neighbor=0, order-independent) — scoring.differential BIT-EXACT vs an INDEPENDENT reference oracle across 600 random worlds (keystone term mirrored in referenceComplexity), save.replay 24/24 self-consistency (jsonA==jsonB) holds with the new income formula (REPLAY-SELF-CONSISTENT by construction: pure synced-state fn, integer-counted, one-shot expr, no float accumulation), no PROTOCOL_VERSION bump (wire schema unchanged). Updated 1 pre-existing test (scoring.test.ts S98 forward-build) whose structure is now a keystone neighbor BY DESIGN — expected value += KEYSTONE_INCOME_COMPLEXITY, S98-symmetry invariant preserved. Bundle 626.2/750 (headroom 123.8). LIVE SMOKE (:37722): injected Anchor+Capsule + Filament+Cable into the live world, called the SHIPPED computeKeystonePulses -> exactly 2 pulses (gold #ffd873 anchor->capsule, green #74e0a4 filament->cable, correct endpoints); render loop 60 FPS over the structure, PLAYING, 0 console errors -> telegraph draws without throwing. Screenshot times out (heavy WebGL/fog canvas, known S120 constraint) -> eval/snapshot verification used per preview guidance. CHECK RALPH:PATROL PASS. Council Q3 determinism gate (differential-oracle mirror + replay self-consistency) EMPIRICALLY CONFIRMED green.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "KEYSTONE_INCOME_COMPLEXITY = 0.25"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "KEYSTONE_INCOME_MAX_NEIGHBORS = 3"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/scoring.ts",
-          "needle": "INCOME KEYSTONE"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/scoring.ts",
-          "needle": "kib * KEYSTONE_INCOME_COMPLEXITY"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/scoring.differential.test.ts",
-          "needle": "keystoneBlessed * KEYSTONE_INCOME_COMPLEXITY"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/state/scoring.keystoneIncome.test.ts"
-        }
-      ]
+      "check_completed": false,
+      "reflexion_entries": []
     },
     {
-      "id": "P3-deploy",
-      "label": "Deploy: npm run deploy (manual, billing lock) after P1+P2 gates green; verify spark-online.space serves new bundle hash + 0 console errors.",
-      "status": "completed",
-      "phase": "COMPLETED",
+      "id": "P3-pulse-cap",
+      "label": "B3 polish: cap green income pulse at KEYSTONE_INCOME_MAX_NEIGHBORS(3) in scoring scan order (render-only) + tests.",
+      "status": "pending",
+      "phase": "PLAN",
       "tier": "Micro",
-      "check_completed": true,
-      "reflexion_entries": [],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "checkpoint_commit": "c77a817",
-      "real_context_tokens_at_close": 291082,
-      "real_context_pct_at_close": 29.11,
-      "check_method": "P3 deploy shipped (npm run deploy; gh-pages branch-mode workaround). Built (tsc+vite+bundle 626.2/750), published dist/ to gh-pages (67be75a), triggered classic Pages build -> status=built, verified live: https://spark-online.space serves assets/index-BslTOrNs.js (live==want hash), HTTP 200. Deployed content = master c77a817 (P1 1ba7cdc + P2 c77a817). Rule 22 END-OF-SESSION AUDIT: live hash matches, no errored Pages build, ZERO new gh issues. FINDING (carry-forward, not dropped): gh run list shows Actions RUNNING AGAIN this session (pages-build-deployment 35s success + Deploy-to-GitHub-Pages on master-push 53s success) -> the billing lock that killed Actions may be CLEARED; owner to verify + potentially restore auto-deploy (retire the manual gh-pages workaround). SUPERSESSION NOTE (MCV reconcile): the P3 artifact (index-BslTOrNs.js, live-verified at completion) was superseded SAME-SESSION by the P4 redeploy (index-CNKzBfzJ.js, also live-verified) — dist/ holds only the latest build, so P3 disk-binding now points at the current deployed artifact; the BslTOrNs evidence lives in the P3 deploy-script output + commit history.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "dist/index.html",
-          "needle": "assets/index-CNKzBfzJ.js"
-        },
-        {
-          "type": "file_exists",
-          "path": "scripts/deploy-pages.sh"
-        },
-        {
-          "type": "file_exists",
-          "path": "dist/.nojekyll"
-        }
-      ]
+      "check_completed": false,
+      "reflexion_entries": []
     },
     {
-      "id": "P4-codex-coherence",
-      "label": "SCOPE AMENDMENT (owner pre-approved): Codex+Godly UI coherence — fix text overflowing boxes (codex overlay + title screen), fix wrong Voltkin image shown for non-Voltkin entries, per-tower/per-godly consistent imagery, rewrite copy to be creative/epic/well-presented. Redeploy after.",
-      "status": "completed",
-      "phase": "COMPLETED",
-      "tier": "Standard",
+      "id": "P4-deploy",
+      "label": "Deploy (manual npm run deploy gh-pages branch-mode) + live hash verify + Rule 22 audit.",
+      "status": "pending",
+      "phase": "PLAN",
+      "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": true,
-      "reflexion_entries": [],
-      "checkpoint_commit": "87cdc35",
-      "check_method": "P4 codex+title coherence shipped (87cdc35) + redeployed (live index-CNKzBfzJ.js hash-verified). ROOT FIXES: (1) Voltkin-everywhere — NEW render/codexPresentation.ts owns per-entry imagery under a tested coherence contract (sprite XOR emblem): characters wear their art (Voltkin/HELGA/NONET-kami), geometric buildables wear their BUILD CONSTELLATION drawn from the board's SHAPE_GLYPHS+SPARK_COLORS (pentagram 5-triangle ring / turret Line+7 Spirals / hub Dot+5 Circles; pure emblemLayout unit-tested against real recipe numbers; anti-voltkin-placeholder REGRESSION test). (2) Text-out-of-boxes — tile re-anatomized 220x230->240x320 (name/art/power/divider/recipe zones), NEW render/textFit.ts fitTextToWidth/Box guards on codex tiles + title sublabels, title buttons 360->430, copy under TESTED budgets (name<=16/power<=34/recipe<=150; the 34 budget is LIVE-MEASURED — first NONET power draft at 42 chars escaped even at the fontSize floor, caught by the in-browser bounds audit, shortened+budget-tightened). (3) Copy — proper names (LASER TURRET not LASERTURRET), POWER epigraphs as part of the unlock reveal, epic recipes; recipeHint switch + NONET inline copy REMOVED from main.ts (presentation single-source; bundle SHRANK 626.2->625.3 entry KiB). GATES: tsc 0; vitest 1865/1865 (+10 presentation); bundle under charter; LIVE in-browser bounds audit — every Text inside its tile on BOTH tabs (unlocked seeded via localStorage), title 8/8 texts fit 430px buttons, emblem glyph counts 5/8/6 structurally confirmed, HELGA sprite loads, 0 console errors. Deployed via npm run deploy; live==want hash. CHECK RALPH:PATROL PASS (render-only; e2e uses geometry getters not strings — verified).",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "src/render/codexPresentation.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/codexPresentation.ts",
-          "needle": "export function emblemLayout"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/codexPresentation.test.ts",
-          "needle": "no non-Voltkin entry wears Voltkin art"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/render/textFit.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/titleScreen.ts",
-          "needle": "fitTextToWidth(subText, SUBLABEL_MAX_W"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/main.ts",
-          "needle": "const recipeHint"
-        },
-        {
-          "type": "file_contains",
-          "path": "dist/index.html",
-          "needle": "assets/index-CNKzBfzJ.js"
-        }
-      ],
-      "real_context_tokens_at_close": 302662,
-      "real_context_pct_at_close": 30.27
+      "check_completed": false,
+      "reflexion_entries": []
     }
   ],
   "carry_forward_priorities": [
-    "OWNER-SIDE VERIFY (S121 finding): GitHub Actions appear ALIVE again (pages-build + master-push deploy.yml both succeeded S121) — the billing lock may be cleared. If so, restore Pages source to GitHub-Actions mode + retire the manual npm-run-deploy gh-pages workaround (memory: spark-deploy-account-billing-lock).",
-    "B2 phase (d): ?worker=1 flag-gated cutover (all prereqs done). FIRST: TD-heavy longtask re-measure + serialization-format ROI call.",
-    "Host-migration D3 MIGRATION_CLAIM takeover (builds on D2; carry: transport alive set + D4 epochs).",
-    "F9 INTENT token-bucket; F10 Pixi-leak long-match heap probe (UNVERIFIED).",
-    "Gated Tier-1 (owner design): G1b MOTION verb; G2 family traits.",
-    "Owner-side: clear GitHub account billing lock -> restores Actions/auto-deploy.",
-    "OS session: constitution-close-gate CLAIM-A id-matcher expects ^PN- priority ids but the long-standing session convention is SNNN-PN-... (S120 used it too) — either loosen the jq regex to a substring test or codify the PN- id convention in session-pdca SKILL.md. S121 hit a guaranteed-block loop until ids were renamed."
+    "D4 (host-mig hardening): zombie demotion, claim-timeout/next-successor fallback, POSTGAME/WIN interactions, LOCKED ledger amendments (13.7/13.20/epoch), PROTOCOL_VERSION bump ships with activation.",
+    "Worker-mode contingency ladder if ROI v2 fails post-ship: positions-only per-frame apply + 10Hz full apply -> transferable ArrayBuffer format. SAB unavailable on GH Pages (COOP/COEP) unless coi-serviceworker shim adopted (owner call).",
+    "Grok ADD: CI 2-browser migration + hash-equality lane once owner confirms Actions/billing unlocked.",
+    "F9 INTENT token-bucket; F10 Pixi-leak heap probe (UNVERIFIED).",
+    "Owner: verify GitHub Actions/billing lock status (S121 finding: Actions succeeded)."
   ],
-  "reflexion_entries_to_archive": [
-    "S121-P1 #telegraph-cross-peer-by-derivation: the physics conferral (bond.stiffnessMultiplier) is host-only + un-synced, so a joiner cannot read it. Deriving the STRUCTURAL relation (un-fouled hub + magic neighbor sharing an endpoint) render-side from synced graph state + world.tick gives a bit-identical cross-peer telegraph with ZERO wire bytes. General pattern for visualizing an ephemeral host quantity: recompute from synced inputs, never sync the derived value.",
-    "S121-P2 #income-keystone-replay-self-consistent-not-byte-identical: unlike the S118 rigidity Keystone (ephemeral stiffnessMultiplier -> byte-identical), the income keystone changes SCORE values BY DESIGN. It is still safe because save.replay asserts run-A==run-B (self-consistency), NOT golden fixtures -> both runs use the new formula and match. The gate is (a) mirror the term into the differential-test INDEPENDENT oracle (else the equivalence test fails) + (b) update any pre-existing test that hardcoded a now-changed value. Check whether replay tests are self-consistency vs golden BEFORE assuming a scoring change needs fixture regen.",
-    "S121 #council-plan-value-check-value-refute: PLAN-phase Council caught a REAL balance finding (magic-bond term is uncapped scoring.ts:189 -> income keystone amplifies clustering) -> adopted per-Filament cap. But BOTH seats' Q3 determinism criticals (non-dyadic 0.3 -> cross-arch FP desync; sort-by-id tiebreaker) were REFUTED on merits (JS doubles are spec-deterministic; existing x0.05 non-dyadic passes byte-identical replay; a pure count has no tiebreaker). 10th #empirical-refutes-plausible-criticals: verify determinism criticals against language semantics + the existing passing suite before conceding.",
-    "S121-P4 #copy-budgets-beat-fit-guards: the text-overflow class dies at AUTHORING time, not render time — put char budgets on the copy source (tested: name<=16/power<=34/recipe<=150) and keep fitText guards only as the safety net. The 34-char power budget came from a LIVE bounds measurement (42 chars escaped a 240px tile even at the fontSize floor) — measure the real zone before writing the budget, then encode it as a test so future copy fails in vitest instead of on screen.",
-    "S121-P4 #placeholder-art-is-a-liability: three towers shipped sessions ago with a voltkin-zap placeholder sprite and it silently became the owner-visible 'voltkin everywhere' bug. When a real asset is missing, prefer a PROCEDURAL representation derived from game truth (the recipe constellation in the board's own glyph language) over borrowing another entry's art — it can never be wrong, never drifts, and costs zero assets. Encode the coherence rule as a test (sprite XOR emblem + anti-placeholder regression)."
-  ],
-  "signals_fired": [],
-  "session_status": "S121 CLOSED — 4/4 shipped (P1 telegraph 1ba7cdc, P2 income keystone c77a817, P3 deploy, P4 codex coherence 87cdc35 + redeploy live). ANALYZE + handoff next.",
+  "reflexion_entries_to_archive": [],
+  "session_status": "S122 EXECUTING - P1 in progress (re-measure first)",
   "totals": {
     "turns": 0,
     "budget_remaining": 1000000,
     "budget_status": "GREEN"
   },
-  "analyze_completed": false,
-  "user_approval_verbatim_p4": "i pre approve this extra batch (codex/godly coherence + text overflow + voltkin image consistency + epic copy; Fable 5 ultracode)"
+  "analyze_completed": false
 }

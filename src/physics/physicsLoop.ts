@@ -32,7 +32,7 @@ import {
 } from '../constants.ts';
 import { Spawner, enforceSpawnerBounds, type BombSpawnRequest, type PotatoSpawnRequest, type RainbowSpawnRequest, type SeagullSpawnRequest } from '../game/spawner.ts';
 import type { Spark } from '../game/spark.ts';
-import type { Controls } from '../input/controls.ts';
+import type { ControlsLike } from '../input/controlsCore.ts';
 import { solveBonds, type Bond } from './bonds.ts';
 import { resolveCollisions } from './collision.ts';
 import {
@@ -61,7 +61,7 @@ export function stepPhysics(
   world: Parameters<typeof dispatch>[0],
   spawner: Spawner,
   grid: SpatialGrid,
-  controls: Controls,
+  controls: ControlsLike,
 ): void {
   // SPAWN — dispatched as actions for the audit log seam (§ 10.2).
   const spawned: Spark[] = [];

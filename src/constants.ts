@@ -1045,3 +1045,11 @@ export const SPINDLE_PULL_ACCEL = 0.05; // px/tick tangential impulse AT the cor
 export const SPINDLE_MAX_TANGENTIAL_SPEED = 2.0; // px/tick HARD cap on swirl-direction speed — the
 // impulse only ever lifts a spark UP TO this, never beyond (the anti-escape-velocity bound). Also the
 // #1 Spindle readability/feel knob: higher = faster orbit, lower = gentle drift. Deterministic; host-only.
+
+// ── S122 P1 (B2 phase d — worker-sim cutover) ───────────────────────────────────────────────
+// CUTSCENE_FADE_MS: the cutscene overlay's fade-out duration. MOVED here from
+// render/cutsceneOverlay.ts (which re-exports it as FADE_MS for its render-side consumers) so the
+// WORKER-side cinematic scheduler (state/workerSim.ts) can compute the deterministic tick-domain
+// completion moment (cinematicMs + sustainedEffectMs + CUTSCENE_FADE_MS — the exact S31 P0-1
+// spawn-delay math) without importing render/ into the worker chunk. Value unchanged since S31.
+export const CUTSCENE_FADE_MS = 300;

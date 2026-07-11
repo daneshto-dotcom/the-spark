@@ -50,6 +50,22 @@ export class HostSync {
     };
   }
 
+  /**
+   * S122 P1 (worker mode) — wrap a snapshot the WORKER already built (BatchResult.snapshot)
+   * into the wire envelope, paying only the seq increment. buildSnapshotMessage stays the
+   * direct-path builder; the two share the seq counter so a mid-match mode fallback can
+   * never regress a joiner's seq gate.
+   */
+  wrapSnapshot(snapshot: NetSnapshot, epoch = 0): NetSnapshotMsg {
+    this.snapshotSeq++;
+    return {
+      kind: 'NETSNAPSHOT',
+      snapshotSeq: this.snapshotSeq,
+      snapshot,
+      ...(epoch > 0 ? { epoch } : {}),
+    };
+  }
+
   currentSeq(): number {
     return this.snapshotSeq;
   }

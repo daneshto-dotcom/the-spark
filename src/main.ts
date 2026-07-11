@@ -23,6 +23,7 @@
 
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import {
+  SPAWN_RATE_PER_SECOND,
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   NET_RENDER_DELAY_MS,
@@ -66,6 +67,11 @@ import { SpatialGrid } from './physics/spatial.ts';
 // zero behavior change. PHYSICS_DT re-imported here for the outer ticker
 // accumulator (frame-rate-independent fixed-step loop).
 import { freeSparkArray, PHYSICS_DT } from './physics/physicsLoop.ts';
+// S122 P1 (B2 phase d) — the ?worker=1 sim-worker driver + the mirror-side positions apply
+// + the hash oracle for the mirror-vs-worker cross-check.
+import { SimWorkerDriver } from './simWorkerDriver.ts';
+import { applyPositions } from './state/workerSim.ts';
+import { hashWorldState } from './state/stateHash.ts';
 // S119 P1 (B2 phase a) — the host's ENTIRE per-tick sim body extracted to a
 // DOM/Pixi-free unit (the future Web Worker boundary). WORKER_SIM_FOUNDATION.md.
 import { makeHostTickState, runHostTick, type HostTickDeps } from './state/hostTick.ts';
@@ -154,7 +160,7 @@ import { mulberry32 } from './state/rng.ts';
 import { dispatch, isNetworked, makeWorld, type GameAction, type GameState } from './state/world.ts';
 // S82 P2 — DEV-only save/load seams (__SPARK__.snapshotWorld/restoreWorld); the spawner
 // state finally rides WorldSnapshot through these (S79 P5 capability wired).
-import { restore, snapshot, type WorldSnapshot } from './state/save.ts';
+import { applyNetSnapshot, netSnapshot, restore, snapshot, type WorldSnapshot } from './state/save.ts';
 import { makeGameStateExtras, softReset, tickGameState } from './state/gameState.ts';
 import { mintNonetSeed, startSudoku, submitSudokuSolve, tickSudoku } from './state/sudokuEvent.ts';
 import { asPlayerId } from './types.ts';
@@ -361,6 +367,19 @@ async function bootstrap(): Promise<void> {
     'DROP_SPARK',
     'UPDATE_AVATAR_POS',
   ]);
+  // S122 P1 (B2 phase d) — the ?worker=1 flag-gated sim worker (default OFF, experimental).
+  // When active on the host path, the AUTHORITATIVE world lives in the Worker; the `world`
+  // object here becomes a render MIRROR (the client's exact posture): positions apply every
+  // frame from a transferable buffer, full snapshots on structural batches, and every local
+  // action routes to the worker as an intent (with the client's optimistic-prediction set).
+  const workerFlagWanted =
+    new URLSearchParams(window.location.search).get('worker') === '1';
+  let simWorkerDriver: SimWorkerDriver | null = null;
+  // One-shot latch for the worker-failure → direct-resume allocator repair (see below).
+  let workerFallbackRepaired = false;
+  const workerSimActive = (): boolean =>
+    simWorkerDriver !== null && !simWorkerDriver.failed;
+
   const dispatchFn: ControlsDispatchFn = (action: GameAction) => {
     if (
       isNetworked(world) &&
@@ -378,6 +397,18 @@ async function bootstrap(): Promise<void> {
         }
       }
       session.netTransport.send(session.clientSync.wrapIntent(action));
+    } else if (workerSimActive()) {
+      // S122 P1 — worker mode: the host is a client of its own sim worker. Same
+      // prediction set as the joiner path (mirror is reconciled by the next batch).
+      if (PREDICTABLE_ACTIONS.has(action.type)) {
+        try {
+          dispatch(world, action);
+        } catch {
+          // Prediction may fail against a 1-frame-stale mirror — the worker's
+          // authoritative apply + next batch reconcile. Swallow.
+        }
+      }
+      simWorkerDriver!.postIntent(action);
     } else {
       dispatch(world, action);
     }
@@ -688,6 +719,13 @@ async function bootstrap(): Promise<void> {
   };
   const onHostStart = createHostStartHandler({
     session, world, hostIdentity, onLobbyError, onPresence, onAutoBegin,
+    // S122 P1 — worker mode routes validated, seat-stamped remote INTENTs to the sim
+    // worker (the mirror must never apply them authoritatively). Direct mode dispatches
+    // into `world` exactly as before.
+    dispatchAction: (action) => {
+      if (workerSimActive()) simWorkerDriver!.postIntent(action);
+      else dispatch(world, action);
+    },
   });
   const clientJoinDeps = {
     session,
@@ -803,6 +841,16 @@ async function bootstrap(): Promise<void> {
       // snapshot byte-size reads on the live hostSync. DEV-only, tree-shaken.
       get hostSync() { return session.hostSync; },
       get currentEpoch() { return session.currentEpoch; },
+      // S122 P1 — worker-mode e2e probes: null when the flag is off / not yet adopted.
+      get simWorker() {
+        return simWorkerDriver === null
+          ? null
+          : {
+              ready: simWorkerDriver.isReady,
+              failed: simWorkerDriver.failed,
+              hashMismatches: simWorkerDriver.hashMismatches,
+            };
+      },
       get fogRenderer() { return fogRenderer; },
       // S77 P2 — fog-exemption e2e: sync a global-reach entity + assert it renders
       // through the fog (aboveFogLayer sits above the fog container).
@@ -826,6 +874,51 @@ async function bootstrap(): Promise<void> {
       // S95 — DEV-only NONET trigger for repro + future overlay e2e (tree-shaken
       // from prod). Mints + starts a trial host-side exactly like the detector path.
       forceNonet(): void { startSudoku(world, world.localPlayerId, mintNonetSeed(world)); },
+      // S122 P1 (B2 phase d) — worker-boundary serialization ROI bench (Council ROI rule v2:
+      // measure the FULL candidate round-trip — netSnapshot BUILD → structuredClone (the
+      // postMessage-dominant cost) → applyNetSnapshot onto a scratch mirror — plus JSON.stringify
+      // as the today-baseline comparator). Run by e2e/perf-snapshot.spec.ts on a TD-heavy world;
+      // results decide the phase-(d) message format (plain clone vs ArrayBuffer ladder).
+      // DEV-only, tree-shaken from prod.
+      benchWorkerRoi(iterations = 150): unknown {
+        const scratch = makeWorld(1);
+        const build: number[] = [], clone: number[] = [], stringify: number[] = [], apply: number[] = [];
+        let bytes = 0;
+        let applyErrors = 0;
+        for (let i = 0; i < iterations; i++) {
+          const t0 = performance.now();
+          const snap = netSnapshot(world);
+          const t1 = performance.now();
+          const cloned = structuredClone(snap);
+          const t2 = performance.now();
+          bytes = JSON.stringify(snap).length;
+          const t3 = performance.now();
+          try {
+            applyNetSnapshot(cloned, scratch);
+          } catch {
+            applyErrors++;
+          }
+          const t4 = performance.now();
+          build.push(t1 - t0);
+          clone.push(t2 - t1);
+          stringify.push(t3 - t2);
+          apply.push(t4 - t3);
+        }
+        const stat = (a: number[]): { avg: number; p95: number; max: number } => {
+          const s = [...a].sort((x, y) => x - y);
+          return {
+            avg: a.reduce((p, c) => p + c, 0) / a.length,
+            p95: s[Math.floor(s.length * 0.95)] ?? 0,
+            max: s[s.length - 1] ?? 0,
+          };
+        };
+        const roundTrip = build.map((b, i) => b + clone[i] + apply[i]);
+        return {
+          iterations, bytes, applyErrors,
+          build: stat(build), clone: stat(clone), stringify: stat(stringify),
+          apply: stat(apply), roundTrip: stat(roundTrip),
+        };
+      },
       app,
     };
   }
@@ -1051,6 +1144,12 @@ async function bootstrap(): Promise<void> {
             dispatchFn({ type: 'SUDOKU_SOLVED', playerId: world.localPlayerId, grid: grid.slice() });
             return false;
           }
+          // S122 P1 — worker mode: the authoritative board lives in the worker; submit as an
+          // intent exactly like a networked client (result returns via the next snapshot).
+          if (workerSimActive()) {
+            dispatchFn({ type: 'SUDOKU_SOLVED', playerId: world.localPlayerId, grid: grid.slice() });
+            return false;
+          }
           return submitSudokuSolve(world, world.localPlayerId, grid);
         });
       })
@@ -1086,13 +1185,19 @@ async function bootstrap(): Promise<void> {
     };
 
     const physStart = performance.now();
+    // S122 P1 (B2 phase d) — fixed steps counted for the sim worker this frame (worker mode
+    // does not simulate locally; the batch pump below forwards the count).
+    let workerTicksThisFrame = 0;
     while (physicsAccumulator >= PHYSICS_DT) {
       const isClient = isNetworked(world) && !world.isHost;
+      const workerActive = !isClient && workerSimActive();
       // S93 — NONET freeze: while a Sudoku trial is active the host pauses the ENTIRE duel
       // sim (physics, building, income, win-check, hazard polls) — the "different realm". The
       // tick clock still advances so tickSudoku's timeout + resume window elapse; tickSudoku
       // drives the lifecycle (timeout / resume) and clears world.sudoku to resume play.
-      if (world.gameState === 'PLAYING' && !isClient && world.sudoku !== null) {
+      // S122 P1 — worker mode owns this branch inside applyTickBatch (verbatim semantics);
+      // the mirror only counts the tick.
+      if (world.gameState === 'PLAYING' && !isClient && !workerActive && world.sudoku !== null) {
         world.tick++;
         tickSudoku(world);
         // S105 P3 — the snapshot send moved OUT of this loop to a single wall-clock-gated send AFTER
@@ -1102,7 +1207,16 @@ async function bootstrap(): Promise<void> {
         physicsAccumulator -= PHYSICS_DT;
         continue;
       }
-      if (!isClient) {
+      if (workerActive) {
+        // S122 P1 — the worker owns the authoritative drain; main counts the fixed step and
+        // runs ONLY the local drag-prediction substeps on the mirror (the joiner's exact
+        // posture, S56 P1): the dragged spark tracks the cursor at zero perceived latency
+        // while the worker's authoritative stepAttractLerp reconciles via the next batch.
+        if (world.gameState === 'PLAYING') {
+          for (let i = 0; i < PHYSICS_SUBSTEPS; i++) controls.applyPerSubstep();
+        }
+        workerTicksThisFrame++;
+      } else if (!isClient) {
         // S119 P1 (B2 phase a) — the ENTIRE host/solo per-tick sim body (stepPhysics →
         // scoring → gameState → NONET sweep → hazard/creature/tower polls → bots →
         // DROP-BENCH → DEV invariants) lives in state/hostTick.ts — a DOM/Pixi-free
@@ -1236,6 +1350,164 @@ async function bootstrap(): Promise<void> {
     }
     stats.recordPhysics(performance.now() - physStart);
 
+    // ── S122 P1 (B2 phase d) — sim-worker lifecycle + result apply + batch pump ──────────
+    // Runs BEFORE the ARC_FLASH scan / renderers so this frame renders the freshest mirror.
+    {
+      const isClientNow = isNetworked(world) && !world.isHost;
+      // Lifecycle: adopt on the host PLAYING path (a few direct frames may run first — the
+      // INIT save carries current state, so the takeover is seamless). VS-BOTS is excluded
+      // in v1 (botManager reconstruction is a logged carry-forward); clients never.
+      if (
+        workerFlagWanted &&
+        !isClientNow &&
+        world.gameState === 'PLAYING' &&
+        world.botSeats.size === 0 &&
+        simWorkerDriver === null
+      ) {
+        console.info('[worker-sim] ?worker=1 — starting the sim worker (experimental, S122).');
+        workerFallbackRepaired = false;
+        simWorkerDriver = new SimWorkerDriver({
+          type: 'INIT',
+          saveJson: JSON.stringify(snapshot(world, { spawnerState: spawner.getState() })),
+          hostSeats: [...session.hostSeats].map(([p, s]) => [p, s as number] as const),
+          localPlayerId: world.localPlayerId as number,
+          // Main's EFFECTIVE rate (includes the e2e __TEST_SPAWN_RATE_PER_SECOND__ seam,
+          // which the worker cannot read — window is undefined there).
+          ratePerSecond: SPAWN_RATE_PER_SECOND,
+        });
+      }
+      // Teardown with the match (all *→TITLE paths), mirroring the renderer clears above.
+      if (simWorkerDriver !== null && world.gameState === 'TITLE') {
+        simWorkerDriver.terminate();
+        simWorkerDriver = null;
+      }
+      // GROK S122 CHECK G1 (adopted) — worker failure → direct-resume REPAIR. The mirror
+      // lacks every netSnapshot-STRIPPED field (rngSeed, nextPrimitiveId/nextBondId, the
+      // spawner streams + its spark-id allocator), so resuming the direct sim on it would
+      // REUSE live entity ids and replay stale streams. Repair once with the host-migration
+      // D-A rebuild rules (HOST_MIGRATION_DESIGN.md §4): allocators = max(live)+1, streams
+      // reseeded (a one-time cadence discontinuity — the ratified reconnect UX class).
+      if (simWorkerDriver !== null && simWorkerDriver.failed && !workerFallbackRepaired) {
+        workerFallbackRepaired = true;
+        let maxPrim = 0;
+        for (const id of world.primitives.keys()) if ((id as number) > maxPrim) maxPrim = id as number;
+        let maxBond = 0;
+        for (const id of world.bonds.keys()) if ((id as number) > maxBond) maxBond = id as number;
+        world.nextPrimitiveId = maxPrim + 1;
+        world.nextBondId = maxBond + 1;
+        let maxSpark = 0;
+        for (const id of world.freeSparks.keys()) if ((id as number) > maxSpark) maxSpark = id as number;
+        const st = spawner.getState();
+        if (st !== null) spawner.restoreState({ ...st, nextId: maxSpark + 1 });
+        const repairSeed = Math.floor(Math.random() * 0x1_0000_0000) >>> 0;
+        spawner.reseed(repairSeed); // keeps nextId; re-seeds streams + countdowns
+        world.rngSeed = repairSeed;
+        console.error(
+          '[worker-sim] worker FAILED — direct sim resumed on the repaired mirror ' +
+          '(allocators rebuilt, streams reseeded; one-time cadence discontinuity).',
+        );
+      }
+      if (workerSimActive()) {
+        const result = simWorkerDriver!.takeResult();
+        if (result !== null) {
+          const dragLockedId = controls.getDragLockedSparkId();
+          if (result.snapshot !== undefined) {
+            // Full mirror apply — the client's exact posture incl. the S56 GAP-2 drag
+            // preserve (capture the locally-predicted spark, restore if still ours).
+            let lockedPos: { x: number; y: number } | null = null;
+            let lockedPrev: { x: number; y: number } | null = null;
+            if (dragLockedId !== null) {
+              const locked = world.freeSparks.get(dragLockedId);
+              if (locked !== undefined) {
+                lockedPos = { x: locked.pos.x, y: locked.pos.y };
+                lockedPrev = { x: locked.prevPos.x, y: locked.prevPos.y };
+              }
+            }
+            try {
+              applyNetSnapshot(result.snapshot, world);
+            } catch (err) {
+              console.error(
+                '[worker-sim] mirror apply rejected snapshot:',
+                err instanceof Error ? err.message : String(err),
+              );
+            }
+            // hashWorldState cross-check (the phase-d oracle) — checked IMMEDIATELY after
+            // the apply, BEFORE the drag-preserve restore below: the restore deliberately
+            // diverges the locked spark from authority (the S56 client-prediction posture),
+            // which is UX, not an apply defect. The oracle validates the APPLY path only.
+            if (result.hash !== undefined) {
+              const mirrorHash = hashWorldState(world);
+              if (mirrorHash !== result.hash) {
+                simWorkerDriver!.hashMismatches++;
+                console.error('[worker-sim] HASH MISMATCH mirror-vs-worker', {
+                  mirrorHash,
+                  workerHash: result.hash,
+                  tick: result.tick,
+                  count: simWorkerDriver!.hashMismatches,
+                });
+              }
+            }
+            if (lockedPos !== null && lockedPrev !== null && dragLockedId !== null) {
+              const locked = world.freeSparks.get(dragLockedId);
+              if (
+                locked !== undefined &&
+                (locked.state.kind === 'Free' ||
+                  (locked.state.kind === 'Carried' &&
+                    locked.state.carrierId === world.localPlayerId))
+              ) {
+                locked.pos.x = lockedPos.x;
+                locked.pos.y = lockedPos.y;
+                locked.prevPos.x = lockedPrev.x;
+                locked.prevPos.y = lockedPrev.y;
+              }
+            }
+            // The untrimmed effect set (audio/shake/bond-pop fidelity = direct path).
+            if (result.effects !== undefined) {
+              world.effects.length = 0;
+              for (const e of result.effects) world.effects.push(e);
+            }
+            // Godly side effects (≤1/batch — the cadence cap), tick-tagged (Council L2):
+            // transport broadcast + codex unlock + probe flag — the wrapper's exact set.
+            for (const g of result.godlyEvents) {
+              if (session.netTransport !== null && isNetworked(world)) {
+                session.netTransport.send({ kind: 'GODLY_TRIGGER', event: g.event });
+              }
+              unlockGodly(g.event.godlyId);
+              debugProbes.matcherFiredEver = true;
+            }
+            // Remote-peer forward: the worker-built snapshot IS the wire snapshot (built
+            // once, in the worker — ROI verdict). Rate-limited ≥80 ms so the structural
+            // floor (~100 ms) + this gate together keep peers at the familiar ~10 Hz.
+            const nowMsW = performance.now();
+            if (
+              (world.gameState === 'PLAYING' ||
+                world.gameState === 'WIN' ||
+                world.gameState === 'POSTGAME') &&
+              isNetworked(world) &&
+              world.isHost &&
+              session.hostSync !== null &&
+              session.netTransport !== null &&
+              nowMsW - lastSnapshotSentMs >= 80
+            ) {
+              session.netTransport.send(
+                session.hostSync.wrapSnapshot(result.snapshot, session.currentEpoch),
+              );
+              lastSnapshotSentMs = nowMsW;
+              session.lastSnapshotTick = world.tick;
+            }
+          }
+          // 60 Hz positions (transferable payload) — every batch, after any full apply.
+          applyPositions(world, result.positions, dragLockedId ?? undefined);
+        }
+        // Request/response discipline: one in-flight batch max; ticks carry over.
+        simWorkerDriver!.pump(
+          workerTicksThisFrame,
+          { state: controls.state, cursor: controls.cursor },
+          session.netTransport !== null ? session.netTransport.peerIds() : null,
+        );
+      }
+    }
+
     // S119 P1 — HOST screen-shake on creature attack: the trigger that lived at the
     // CREATURE_ATTACK fire site inside the drain loop is now a post-drain ARC_FLASH
     // scan — the exact pattern the CLIENT has used since S31 (further below). Render-
@@ -1275,7 +1547,10 @@ async function bootstrap(): Promise<void> {
         session.hostSync !== null &&
         session.netTransport !== null &&
         nowMs - lastSnapshotSentMs >= NET_SNAPSHOT_INTERVAL_MS &&
-        world.tick - session.lastSnapshotTick >= SNAPSHOT_INTERVAL_TICKS
+        world.tick - session.lastSnapshotTick >= SNAPSHOT_INTERVAL_TICKS &&
+        // S122 P1 — worker mode forwards the worker-built snapshot instead (see the
+        // sim-worker section above); this direct build+send is the flag-OFF path only.
+        !workerSimActive()
       ) {
         // S118 P1 (host-migration D2) — stamp the current term epoch (0 in D2 → omitted → wire byte-
         // identical to pre-D2; a survivor uses it in D3+ to fence out a deposed zombie host).
@@ -1485,7 +1760,13 @@ async function bootstrap(): Promise<void> {
         vignette,
         controls,
       };
-      runGodlyMatcher(world, godlyState, godlyCtx);
+      // S122 P1 — in worker mode the matcher core runs INSIDE the worker (once per batch —
+      // the cadence contract); running the wrapper here too would double-trigger against the
+      // mirror (mirror.isHost === true). startCinematicIfNeeded stays: it drives the render
+      // overlay/vignette off mirrored state on BOTH peers (the joiner's existing posture);
+      // its host-only pendingCreatureSpawn write on the mirror is sim-inert (the mirror
+      // never runs runHostTick) and the worker schedules the authoritative one.
+      if (!workerSimActive()) runGodlyMatcher(world, godlyState, godlyCtx);
       startCinematicIfNeeded(world, godlyState, godlyCtx);
     }
 

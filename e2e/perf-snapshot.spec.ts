@@ -134,6 +134,210 @@ function fmt(r: WindowResult): string {
   ].join('');
 }
 
+/**
+ * S122 P1 (B2 phase d) — the MANDATED TD-heavy re-measure + serialization-format ROI call
+ * (WORKER_SIM_FOUNDATION.md phase-(b) re-measure clause + S122 Council ROI rule v2).
+ *
+ * Seeds a TD-heavy world onto the LIVE host of a real 2-peer duel via the S82
+ * __SPARK__.restoreWorld seam (template-cloned prims/bonds + injected chewer swarm),
+ * then measures:
+ *   W4 TD-heavy       — snapshotProbe window, no throttle
+ *   W5 TD-heavy+6x    — same under CDP 6x CPU throttle (weak-host proxy)
+ *   ROI bench         — __SPARK__.benchWorkerRoi: netSnapshot BUILD → structuredClone
+ *                       (postMessage-dominant cost) → applyNetSnapshot(scratch mirror)
+ *                       round-trip, plus JSON.stringify baseline — unthrottled AND 6x
+ *   longtasks         — PerformanceObserver('longtask') on the host page across windows
+ *
+ * PRE-REGISTERED ROI RULE (Council v2): worker-mode message format = plain structured-clone
+ * postMessage of the netSnapshot object IFF roundTrip p95 <= 4ms under 6x throttle on the
+ * TD-heavy world; otherwise escalate the contingency ladder (positions-only per-frame apply
+ * + 10Hz full apply → transferable ArrayBuffer format).
+ */
+test.describe('S122 P1 — TD-heavy re-measure + worker ROI @perf-measure', () => {
+  test.skip(process.env.SPARK_PERF !== '1', 'opt-in measurement (SPARK_PERF=1)');
+
+  test('TD-heavy duel: W4 / W5+6x windows + worker round-trip bench', async ({ browser }) => {
+    test.setTimeout(420_000);
+
+    const mk = async (withLongtask: boolean): Promise<BrowserContext> => {
+      const ctx = await browser.newContext();
+      await ctx.addInitScript(() => {
+        (window as { __FOG_DISABLE__?: boolean }).__FOG_DISABLE__ = true;
+      });
+      await ctx.addInitScript(() => {
+        (window as { __TEST_SPAWN_RATE_PER_SECOND__?: number }).__TEST_SPAWN_RATE_PER_SECOND__ = 3;
+      });
+      if (withLongtask) {
+        await ctx.addInitScript(() => {
+          const w = window as { __LONGTASKS__?: Array<{ t: number; d: number }> };
+          w.__LONGTASKS__ = [];
+          try {
+            new PerformanceObserver((list) => {
+              for (const e of list.getEntries()) {
+                w.__LONGTASKS__!.push({ t: e.startTime, d: e.duration });
+              }
+            }).observe({ type: 'longtask', buffered: true });
+          } catch { /* longtask unsupported → stays empty (reported as n/a) */ }
+        });
+      }
+      return ctx;
+    };
+    const hostCtx = await mk(true);
+    const joinCtx = await mk(false);
+    try {
+      const hostPage = await hostCtx.newPage();
+      const joinPage = await joinCtx.newPage();
+
+      // ── Form the duel ────────────────────────────────────────────────
+      const code = await hostNewRoom(hostPage);
+      await joinRoom(joinPage, code);
+      await waitForWorld(hostPage, (w) => w.peerCount >= 1, 'host sees joiner', 60_000);
+      const pts = await lobbyUiPoints(hostPage);
+      const begin = await canvasToCss(hostPage, pts.beginButton.x, pts.beginButton.y);
+      await hostPage.mouse.click(begin.x, begin.y);
+      for (const [i, p] of [hostPage, joinPage].entries()) {
+        await waitForWorld(p, (w) => w.gameState === 'PLAYING', `peer ${i} PLAYING`, 30_000);
+      }
+
+      // ── Small build phase: create template prims/bonds for cloning ───
+      for (let i = 0; i < 4; i++) {
+        await placeFreeSparkAndConfirm(hostPage, 360 + i * 70, CANVAS_HEIGHT / 2 - 80).catch(() => null);
+        await placeFreeSparkAndConfirm(joinPage, CANVAS_WIDTH - 360 - i * 70, CANVAS_HEIGHT / 2 - 80).catch(() => null);
+      }
+
+      // ── TD-heavy injection (template-cloned; internally consistent ids) ─
+      const composition = await hostPage.evaluate(() => {
+        interface AnyRec { [k: string]: unknown }
+        const spark = (window as unknown as {
+          __SPARK__: { snapshotWorld(): string; restoreWorld(j: string): void; world: { tick: number } };
+        }).__SPARK__;
+        const snap = JSON.parse(spark.snapshotWorld()) as AnyRec & {
+          primitives: AnyRec[]; bonds?: AnyRec[]; creatures?: AnyRec[];
+          nextPrimitiveId?: number; nextBondId?: number;
+        };
+        const primT = snap.primitives[snap.primitives.length - 1];
+        if (!primT) throw new Error('no template primitive — build phase failed');
+        const bondT = (snap.bonds ?? [])[0] ?? null;
+        let maxPrimId = Math.max(0, ...snap.primitives.map((p) => p.id as number));
+        let maxBondId = Math.max(0, ...(snap.bonds ?? []).map((b) => b.id as number));
+        // 120 extra prims in two grids (one per seat side), chained by bonds when a template exists.
+        const newPrims: AnyRec[] = [];
+        const newBonds: AnyRec[] = [];
+        const mkPrim = (x: number, y: number, placedBy: number): AnyRec => {
+          const p = JSON.parse(JSON.stringify(primT)) as AnyRec;
+          p.id = ++maxPrimId;
+          (p.pos as { x: number; y: number }).x = x;
+          (p.pos as { x: number; y: number }).y = y;
+          if (p.prevPos !== undefined) {
+            (p.prevPos as { x: number; y: number }).x = x;
+            (p.prevPos as { x: number; y: number }).y = y;
+          }
+          if ('placedBy' in p) p.placedBy = placedBy;
+          if (Array.isArray(p.bonds)) p.bonds = [];
+          return p;
+        };
+        for (let side = 0; side < 2; side++) {
+          let prev: AnyRec | null = null;
+          for (let i = 0; i < 60; i++) {
+            const col = i % 10, row = Math.floor(i / 10);
+            const x = side === 0 ? 250 + col * 55 : 1920 - 250 - col * 55;
+            const y = 220 + row * 55;
+            const p = mkPrim(x, y, side);
+            newPrims.push(p);
+            if (bondT !== null && prev !== null && col !== 0) {
+              const b = JSON.parse(JSON.stringify(bondT)) as AnyRec;
+              b.id = ++maxBondId;
+              b.aId = prev.id;
+              b.bId = p.id;
+              newBonds.push(b);
+              if (Array.isArray(prev.bonds)) (prev.bonds as number[]).push(b.id as number);
+              if (Array.isArray(p.bonds)) (p.bonds as number[]).push(b.id as number);
+            }
+            prev = p;
+          }
+        }
+        snap.primitives = snap.primitives.concat(newPrims);
+        snap.bonds = (snap.bonds ?? []).concat(newBonds);
+        // 48 chewers (the TD swarm — the dominant per-tick cost class) + long fuses.
+        const tick = (snap.tick as number) ?? 0;
+        const creatures: AnyRec[] = (snap.creatures ?? []).slice();
+        let cid = 1 + Math.max(0, ...creatures.map((c) => c.id as number));
+        for (let i = 0; i < 48; i++) {
+          creatures.push({
+            id: cid++,
+            type: 'chewer',
+            pos: { x: 400 + (i % 12) * 90, y: 300 + Math.floor(i / 12) * 100 },
+            state: 'SEEKING',
+            ticksInState: 3 + (i % 7),
+            ownerPlayerId: i % 2,
+            sourceSpawnerId: 99990 + (i % 4),
+            despawnAtTick: tick + 200_000,
+          });
+        }
+        snap.creatures = creatures;
+        if (typeof snap.nextPrimitiveId === 'number') snap.nextPrimitiveId = maxPrimId + 1;
+        if (typeof snap.nextBondId === 'number') snap.nextBondId = maxBondId + 1;
+        // Generic guard for any other allocator fields.
+        for (const k of Object.keys(snap)) {
+          if (k.startsWith('nextCreature')) (snap as AnyRec)[k] = cid + 1;
+        }
+        spark.restoreWorld(JSON.stringify(snap));
+        return { prims: snap.primitives.length, bonds: (snap.bonds ?? []).length, creatures: creatures.length };
+      });
+      console.log('[S122-P1] TD-heavy seeded:', composition);
+
+      // Let the swarm settle + joiner absorb the big snapshot.
+      await hostPage.waitForTimeout(3_000);
+
+      // ── W4: TD-heavy, no throttle ─────────────────────────────────────
+      const w4 = await measureWindow(hostPage, 'W4 TD-heavy', 40);
+
+      // ── ROI bench, unthrottled ────────────────────────────────────────
+      const roiUnthrottled = await hostPage.evaluate(() =>
+        (window as unknown as { __SPARK__: { benchWorkerRoi(n: number): unknown } }).__SPARK__.benchWorkerRoi(150),
+      );
+
+      // ── W5: TD-heavy + 6x throttle + throttled ROI bench ─────────────
+      const cdp = await hostCtx.newCDPSession(hostPage);
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 });
+      const w5 = await measureWindow(hostPage, 'W5 TD-heavy+6x', 40);
+      const roiThrottled = await hostPage.evaluate(() =>
+        (window as unknown as { __SPARK__: { benchWorkerRoi(n: number): unknown } }).__SPARK__.benchWorkerRoi(150),
+      );
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+
+      const longtasks = await hostPage.evaluate(() =>
+        (window as unknown as { __LONGTASKS__?: Array<{ t: number; d: number }> }).__LONGTASKS__ ?? [],
+      );
+
+      // ── Report ────────────────────────────────────────────────────────
+      const header =
+        '| window | dur | sends | buildAvg ms | buildMax ms | sendAvg ms | sendMax ms | sparks/prims/bonds/creat/haz/fx | snapBytes |';
+      const sep = '|---|---|---|---|---|---|---|---|---|';
+      const rt = (roiThrottled as { roundTrip: { p95: number } }).roundTrip.p95;
+      const lines = [
+        header, sep, fmt(w4), fmt(w5), '',
+        'ROI unthrottled: ' + JSON.stringify(roiUnthrottled), '',
+        'ROI 6x-throttled: ' + JSON.stringify(roiThrottled), '',
+        `longtasks on host page: ${longtasks.length} (durations ms: ${longtasks.map((l) => Math.round(l.d)).join(',') || 'none'})`,
+        '',
+        `ROI VERDICT: ${rt <= 4 ? 'SIMPLE-CLONE format (rule v2 pass)' : 'ESCALATE contingency ladder (rule v2 fail)'} — roundTrip p95 ${rt.toFixed(3)}ms vs 4ms budget @6x`,
+      ];
+      console.log('\n[S122-P1 TD-HEAVY MEASUREMENT]\n' + lines.join('\n') + '\n');
+
+      // Validity floor only — this spec measures, it does not gate. (Floor 60: the
+      // 2026-07-11 run measured 89 sends in W4 — the TD-heavy world itself drops the
+      // host frame rate (~52ms longtasks), which throttles the wall-clock send cadence;
+      // that IS the phenomenon under study, not an invalid window.)
+      test.expect(w4.count).toBeGreaterThanOrEqual(60);
+      test.expect(composition.creatures).toBeGreaterThanOrEqual(40);
+    } finally {
+      await hostCtx.close();
+      await joinCtx.close();
+    }
+  });
+});
+
 test.describe('S120 P1 — snapshot build-vs-send measurement @perf-measure', () => {
   test.skip(process.env.SPARK_PERF !== '1', 'opt-in measurement (SPARK_PERF=1)');
 

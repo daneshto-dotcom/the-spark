@@ -32,13 +32,10 @@ import { CutsceneOverlay, FADE_MS } from '../render/cutsceneOverlay.ts';
 import type { DebugOverlayHandle, RuntimeProbes } from '../render/debugOverlay.ts';
 import { playOneShot } from '../render/audioManager.ts';
 import { cinematicMsToTicks } from './creatures/creature.ts';
-import { findDefenderMatches, findGodlyMatch, getRecipe, makeTriggerEvent } from './godlyRecipes/index.ts';
-import { findAllPentagramAnchors, pentagramOwnerForAnchor } from './godlyRecipes/pentagram.ts';
-// S113 Batch C — the lightning-hub spawner recipe. Importing it also triggers its registerRecipe
-// side-effect (Codex TOWERS & STRUCTURES tab), exactly like the pentagram import above.
-import { findAllLightningHubAnchors, lightningHubOwnerForAnchor } from './godlyRecipes/lightningHub.ts';
-import type { GodlyId } from './godlyRecipes/types.ts';
-import type { PlayerId, PrimitiveId } from '../types.ts';
+import { getRecipe } from './godlyRecipes/index.ts';
+// S122 P1 — the matcher core (spawner/defender ignition + the cinematic matcher loop) lives in
+// godlyMatcherCore.ts (worker-safe, state-only imports); this module is the render-side wrapper.
+import { runGodlyMatcherCore } from './godlyMatcherCore.ts';
 import { dispatch, isNetworked, type World } from './world.ts';
 
 export interface GodlyOrchestrationState {
@@ -74,172 +71,36 @@ export function runGodlyMatcher(
   state: GodlyOrchestrationState,
   ctx: GodlyOrchestrationCtx,
 ): void {
-  if (!world.isHost) return;
-
-  // S100 P1 (TD Phase 1b, Layer 5) — SPAWNER ignition, scanned FIRST + DECOUPLED
-  // from the cinematic single-slot. This runs BEFORE the `activeCinematicPlayerId`
-  // early-return below, so a spawner can ignite while ANY player's cinematic plays
-  // (and vice-versa) — a pentagram never blocks, nor is blocked by, a cinematic. It
-  // dispatches REGISTER_SPAWNER directly: it NEVER touches activeCinematicPlayerId /
-  // pendingCinematics, and is EXCLUDED from godlyFiredThisMatch (gated instead
-  // per-(playerId, anchorPrimitiveId) against the LIVE creatureSpawners map below —
-  // rebuildable after a raid, multiple players may each have one).
-  runSpawnerIgnition(world);
-  // S103 P2 — DEFENDER ignition, same decoupled-from-cinematic treatment as the spawner above.
-  runDefenderIgnition(world);
-
-  if (world.activeCinematicPlayerId !== null) return; // queue handled in reducer
-  for (const eff of world.effects) {
-    // S99 — a godly is matched on any TOPOLOGY change, not just bond creation:
-    // BOND_FORMED (build UP to the pattern) OR a PLAYER-initiated BOND_SEVERED
-    // (reduce DOWN to it). The user built a big structure then DELETED bonds
-    // until it was a valid 4Sq→4Tr Voltkin chain — but the matcher only ran on
-    // bond creation, so the reduction never re-evaluated. Only cause 'player'
-    // re-triggers; bomb/creature/physics/godly severs do NOT (a chaotic combat
-    // sever must not random-fire a godly). The single loop + `break` below still
-    // caps to ONE trigger per frame, so a BOND_FORMED and a sever in the same
-    // frame can't double-fire. findGodlyMatch scans the whole world (the Voltkin
-    // predicate is global + ignores bondPos), so any qualifying eff.pos suffices.
-    const isForm = eff.kind === 'BOND_FORMED';
-    const isPlayerSever = eff.kind === 'BOND_SEVERED' && eff.cause === 'player';
-    if (!isForm && !isPlayerSever) continue;
-    // S23 P2 — record BOND_FORMED observation for debug overlay BEFORE the
-    // stale-cursor skip so the probe surfaces every event even if matcher
-    // skips it for cursor reasons. (Sever observations aren't probed here.)
-    if (isForm && ctx.debugOverlay !== null && eff.tick > ctx.debugProbes.lastBondFormedTick) {
-      ctx.debugProbes.lastBondFormedTick = eff.tick;
-      ctx.debugProbes.bondFormedCount += 1;
-    }
-    // S23 P4 — strict `<` not `<=`. Click-handler dispatches between physics
-    // ticks emit BOND_FORMED with the current (un-advanced) world.tick;
-    // `<=` against a cursor that already equals world.tick silently skipped
-    // those. This is the root cause of "Voltkin never fires" — the final
-    // bond completes the chain via a click dispatch that the matcher then
-    // ignored. Equality now passes; only ticks BELOW cursor (stale replays)
-    // are skipped.
-    if (eff.tick < state.lastMatcherTick) continue;
-    const result = findGodlyMatch(world, eff.pos);
-    if (result === null) continue;
-    const event = makeTriggerEvent(result, world.tick);
-    // Broadcast first so client renders sooner (D4 standalone latency choice).
-    if (ctx.netTransport !== null && isNetworked(world)) {
-      ctx.netTransport.send({ kind: 'GODLY_TRIGGER', event });
-    }
-    dispatch(world, { type: 'GODLY_TRIGGER', event });
-    // Codex unlock on host (mirrors client-side unlock on receipt).
-    unlockGodly(event.godlyId);
-    ctx.debugProbes.matcherFiredEver = true;
-    break; // single trigger per frame; queue handles concurrent
-  }
-  // Advance cursor to current tick after scan.
-  state.lastMatcherTick = world.tick;
+  // S122 P1 — matcher core extracted to state/godlyMatcherCore.ts (worker-safe: no render
+  // imports). This wrapper re-injects the three main-thread side effects at their ORIGINAL
+  // call sites, preserving byte-identical direct-mode behavior + ordering (probe observation
+  // before the stale-cursor skip; transport broadcast BEFORE the dispatch; unlock + probe
+  // flag after it). Worker mode calls the core directly and performs these on BatchResult.
+  runGodlyMatcherCore(world, state, {
+    observeBondFormed: (effTick) => {
+      // S23 P2 — record BOND_FORMED observation for the debug overlay.
+      if (ctx.debugOverlay !== null && effTick > ctx.debugProbes.lastBondFormedTick) {
+        ctx.debugProbes.lastBondFormedTick = effTick;
+        ctx.debugProbes.bondFormedCount += 1;
+      }
+    },
+    beforeDispatch: (event) => {
+      // Broadcast first so client renders sooner (D4 standalone latency choice).
+      if (ctx.netTransport !== null && isNetworked(world)) {
+        ctx.netTransport.send({ kind: 'GODLY_TRIGGER', event });
+      }
+    },
+    afterDispatch: (event) => {
+      // Codex unlock on host (mirrors client-side unlock on receipt).
+      unlockGodly(event.godlyId);
+      ctx.debugProbes.matcherFiredEver = true;
+    },
+  });
   ctx.debugProbes.lastMatcherTick = world.tick;
 }
 
-/**
- * S100 P1 (TD Phase 1b, Layer 5) — host-only spawner ignition. Decoupled from the
- * cinematic single-slot: dispatches REGISTER_SPAWNER WITHOUT touching
- * activeCinematicPlayerId / pendingCinematics, and never consults / mutates
- * godlyFiredThisMatch.
- *
- * Gating (mirrors the cinematic matcher's intent, NOT its mechanism):
- *  - Run only on a topology change this frame (a BOND_FORMED or a PLAYER-caused
- *    BOND_SEVERED — build UP to the shape OR reduce DOWN to it; combat severs do
- *    NOT ignite). Without a qualifying effect, the shape can't have just changed,
- *    so there's nothing new to ignite. (The reducer + live-map de-dup below make a
- *    redundant scan harmless, but this keeps the per-tick cost out.)
- *  - De-dup per-(playerId, anchorPrimitiveId) against the LIVE creatureSpawners
- *    map: an anchor that is already a live spawner OWNED BY THE SAME PLAYER is
- *    skipped (can't double-register; CAN rebuild after the prior spawner was
- *    removed). Defense-in-depth: applyRegisterSpawner also no-ops on a duplicate
- *    anchor regardless of owner.
- *  - Multi-anchor-in-one-frame tie-break = LOWEST anchorPrimitiveId: enumerate all
- *    pentagram anchors ascending, register the first un-registered one, and stop
- *    (single ignition per frame, paralleling the cinematic matcher's `break`).
- */
-/**
- * S113 Batch C — register the lowest un-registered anchor of ONE spawner recipe (generalizes the
- * original pentagram-only loop). Returns true if it ignited one (caller stops — single ignition per
- * frame). The per-(player, anchor) de-dup against the live creatureSpawners map is unchanged.
- */
-function igniteOneSpawnerRecipe(
-  world: World,
-  anchors: PrimitiveId[],
-  ownerForAnchor: (world: World, anchor: PrimitiveId) => PlayerId | null,
-  recipeId: GodlyId,
-): boolean {
-  for (const anchor of anchors) {
-    const owner = ownerForAnchor(world, anchor);
-    if (owner === null) continue;
-    // Already a live spawner on this anchor owned by this player? Skip (no double-register; rebuild
-    // allowed after the prior one was removed).
-    let alreadyLive = false;
-    for (const sp of world.creatureSpawners.values()) {
-      if (sp.anchorPrimitiveId === anchor && sp.ownerPlayerId === owner) {
-        alreadyLive = true;
-        break;
-      }
-    }
-    if (alreadyLive) continue;
-    dispatch(world, {
-      type: 'REGISTER_SPAWNER',
-      ownerPlayerId: owner,
-      anchorPrimitiveId: anchor,
-      recipeId,
-    });
-    return true; // single ignition per frame (lowest-anchor tie-break)
-  }
-  return false;
-}
-
-function runSpawnerIgnition(world: World): void {
-  let hasTopologyChange = false;
-  for (const eff of world.effects) {
-    if (eff.kind === 'BOND_FORMED') { hasTopologyChange = true; break; }
-    if (eff.kind === 'BOND_SEVERED' && eff.cause === 'player') { hasTopologyChange = true; break; }
-  }
-  if (!hasTopologyChange) return;
-
-  // Single ignition per frame. Scan pentagram first (registry-order parity), then the S113
-  // lightning-hub; in practice only one spawner structure completes per topology-change frame, and
-  // the per-(player,anchor) de-dup makes a redundant scan harmless either way.
-  if (igniteOneSpawnerRecipe(world, findAllPentagramAnchors(world), pentagramOwnerForAnchor, 'pentagram')) return;
-  igniteOneSpawnerRecipe(world, findAllLightningHubAnchors(world), lightningHubOwnerForAnchor, 'lightningHub');
-}
-
-/**
- * S103 P2 — host-only DEFENDER ignition (mirror of runSpawnerIgnition). On a topology change,
- * scan every registered defender recipe for a buildable anchor (each predicate already skips
- * anchors that are ALREADY live defenders — see DefenderRecipePredicate) and dispatch
- * REGISTER_DEFENDER for each. Decoupled from the cinematic single-slot (dispatches directly, never
- * touches activeCinematicPlayerId / godlyFiredThisMatch). One defender per recipe per frame; a
- * second turret/HELGA ignites on a later frame once its predicate surfaces the next anchor.
- */
-function runDefenderIgnition(world: World): void {
-  let hasTopologyChange = false;
-  for (const eff of world.effects) {
-    if (eff.kind === 'BOND_FORMED') { hasTopologyChange = true; break; }
-    if (eff.kind === 'BOND_SEVERED' && eff.cause === 'player') { hasTopologyChange = true; break; }
-  }
-  if (!hasTopologyChange) return;
-
-  for (const { recipe, match } of findDefenderMatches(world, { x: 0, y: 0 })) {
-    // Defense-in-depth (the predicate already skips live anchors): don't double-register an anchor.
-    let alreadyLive = false;
-    for (const d of world.defenders.values()) {
-      if (d.anchorPrimitiveId === match.anchorPrimitiveId) { alreadyLive = true; break; }
-    }
-    if (alreadyLive) continue;
-    dispatch(world, {
-      type: 'REGISTER_DEFENDER',
-      defenderKind: recipe.defenderKind,
-      ownerPlayerId: match.triggererPlayerId,
-      anchorPrimitiveId: match.anchorPrimitiveId,
-      recipeId: recipe.id,
-      pos: { x: match.pos.x, y: match.pos.y },
-    });
-  }
-}
+// S122 P1 — igniteOneSpawnerRecipe / runSpawnerIgnition / runDefenderIgnition MOVED VERBATIM
+// to state/godlyMatcherCore.ts (worker-safe). The matcher core calls them; nothing else here did.
 
 /**
  * S22 P3 — cinematic lifecycle. Detects activeCinematicPlayerId transitions

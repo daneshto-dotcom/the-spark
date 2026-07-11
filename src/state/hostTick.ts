@@ -51,7 +51,7 @@ import {
   verifyInvariants,
   type InvariantSnapshot,
 } from '../game/invariants.ts';
-import type { Controls } from '../input/controls.ts';
+import type { ControlsLike } from '../input/controlsCore.ts';
 import { computeStubTargetPos } from '../physics/creatureVerlet.ts';
 import { stepPhysics } from '../physics/physicsLoop.ts';
 import type { SpatialGrid } from '../physics/spatial.ts';
@@ -94,7 +94,7 @@ const CHEWER_SEEK_RESELECT_TICKS = 6;
 export interface HostTickDeps {
   spawner: Spawner;
   grid: SpatialGrid;
-  controls: Controls;
+  controls: ControlsLike;
   /** Null until a VS-BOTS match starts (lazy chunk); read fresh per frame. */
   botManager: BotManager | null;
   gameStateExtras: GameStateExtras;

@@ -26,7 +26,7 @@
  */
 
 import { Application, Container, Graphics, Sprite, Texture } from 'pixi.js';
-import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
+import { CANVAS_HEIGHT, CANVAS_WIDTH, CUTSCENE_FADE_MS } from '../constants.ts';
 import type { CinematicGodlyRecipe } from '../state/godlyRecipes/types.ts';
 import { CinematicLumaKeyFilter } from './cinematicLumaKey.ts';
 
@@ -42,7 +42,9 @@ import { CinematicLumaKeyFilter } from './cinematicLumaKey.ts';
  * FADE_MS in the spawn-delay math means the creature spawns at the
  * exact tick `bg.alpha` reaches 0 — full SPAWNING animation visible.
  */
-export const FADE_MS = 300;
+// S122 P1 — value moved to constants.ts (CUTSCENE_FADE_MS) so the worker-side cinematic
+// scheduler can import it DOM-free; re-exported here so render-side consumers are unchanged.
+export const FADE_MS = CUTSCENE_FADE_MS;
 const VIDEO_LOAD_TIMEOUT_MS = 5000;
 
 export interface CutsceneContext {
