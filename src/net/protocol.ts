@@ -363,6 +363,23 @@ interface GodlyTriggerMsg {
  * seated player is ready and >=2 are present. Drives the PROTOCOL_VERSION
  * 7→8 bump (see above).
  */
+/**
+ * S122 P2 (host-migration D3) — a warranted survivor claims host succession after loss+grace
+ * (HOST_MIGRATION_DESIGN.md §5). SEAM-GATED: production peers never emit one (main.ts gates
+ * activation on __TEST_MIGRATION__), and pre-D3 peers null the unknown kind at parseNetMessage
+ * (the LOBBY_PRESENCE Fork-B no-bump precedent) — PROTOCOL_VERSION held; D4 owns the bump at
+ * default-on (S122 Council L4). The signature binds (roomCode ‖ epoch ‖ seat ‖ SENDER peerId)
+ * under the pubkey the ORIGINAL host warranted for that seat (net/migrationClaim.ts).
+ */
+export interface MigrationClaimMsg {
+  readonly kind: 'MIGRATION_CLAIM';
+  /** The NEW term (survivors require currentEpoch + 1). */
+  readonly epoch: number;
+  /** The claimant's seat — must be the lowest warranted transport-alive seat. */
+  readonly seat: number;
+  readonly sigB64: string;
+}
+
 interface LobbyReadyMsg {
   readonly kind: 'LOBBY_READY';
   readonly ready: boolean;
@@ -376,7 +393,8 @@ export type NetMessage =
   | EndGameMsg
   | GodlyTriggerMsg
   | LobbyPresenceMsg
-  | LobbyReadyMsg;
+  | LobbyReadyMsg
+  | MigrationClaimMsg;
 
 /**
  * 6-character alphanumeric room code (uppercase letters + digits, dropping
@@ -703,6 +721,15 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
       const godlyId = (obj.event as Record<string, unknown>).godlyId;
       if (typeof godlyId !== 'string') return null;
       return obj as unknown as GodlyTriggerMsg;
+    }
+    case 'MIGRATION_CLAIM': {
+      // S122 P2 (host-migration D3) — fail-closed shape gate; cryptographic verification
+      // (warrant chain + sender binding) runs in the client handler. Bounds-checked ints so
+      // a garbage epoch/seat can't reach the handlers.
+      if (typeof obj.epoch !== 'number' || !Number.isInteger(obj.epoch) || obj.epoch < 1) return null;
+      if (typeof obj.seat !== 'number' || !Number.isInteger(obj.seat) || obj.seat < 0) return null;
+      if (typeof obj.sigB64 !== 'string') return null;
+      return obj as unknown as MigrationClaimMsg;
     }
     default:
       return null;

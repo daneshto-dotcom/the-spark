@@ -108,6 +108,13 @@ export interface NetSession {
    */
   warrant: SuccessionWarrant | null;
   /**
+   * S122 P2 (host-migration D3) — CLIENT-side copy of the frozen Begin roster (the
+   * START_GAME_SIGNAL's seat↔peerId map). The successor rebuilds hostSeats from it
+   * (roster ∩ transport-alive) and every survivor grounds its alive-seat view in it.
+   * null before Begin / on the host (which owns hostSeats). Cleared on teardown.
+   */
+  lastRoster: readonly import('./protocol.ts').RosterEntry[] | null;
+  /**
    * S118 P1 (host-migration D2) — the epoch/term this session runs at. 0 for the original host's term;
    * a migrated session (D3+) advances it. Stamped onto every NetSnapshotMsg by HostSync; the ClientSync
    * epoch gate drops snapshots below it (PROVABLY inert at 0). Reset to 0 on teardown.
@@ -133,6 +140,7 @@ export function makeNetSession(): NetSession {
     // S118 P1 (host-migration D2) — succession detection state (dormant until a peer proves a pubkey).
     peerPubkeys: new Map(),
     warrant: null,
+    lastRoster: null,
     currentEpoch: 0,
   };
 }
@@ -194,6 +202,7 @@ export function teardownNet(
   // session's warrant survives an in-page transport blip (same posture as the crypto latch).
   session.peerPubkeys.clear();
   session.warrant = null;
+  session.lastRoster = null;
   session.currentEpoch = 0;
   triggerAudioCursorReset();
 }

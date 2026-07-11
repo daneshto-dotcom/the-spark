@@ -32,7 +32,16 @@ const SNAP_BUFFER_MAX = 8;
 
 /** Server-side: emit snapshots at fixed rate, increment seq. */
 export class HostSync {
-  private snapshotSeq = 0;
+  private snapshotSeq: number;
+
+  /**
+   * S122 P2 (host-migration D3) — a successor constructs its HostSync at
+   * lastSeenSeq + MIGRATION_SEQ_JUMP so its snapshots pass every survivor's seq
+   * watermark regardless of per-peer skew (design §5). The original host uses 0.
+   */
+  constructor(initialSeq = 0) {
+    this.snapshotSeq = initialSeq;
+  }
 
   /**
    * Build a snapshot envelope ready to be sent. S118 P1 (host-migration D2) — stamps the current term

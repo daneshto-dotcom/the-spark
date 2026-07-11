@@ -17,6 +17,9 @@ import type { NetSession } from './session.ts';
 import type { HostAttest, NetMessage, RosterEntry } from './protocol.ts';
 import { verifyHostAttest, buildPubkeyPopPayload, type PeerIdentity } from './hostIdentity.ts';
 import { verifyWarrant } from './successionWarrant.ts';
+// S122 P2 (host-migration D3) — claim verification + the transport-grounded alive set.
+import { computeAliveSeats, verifyMigrationClaim } from './migrationClaim.ts';
+import { computeSuccessorSeat, isSnapshotStarved, HOST_STARVATION_MS } from './succession.ts';
 import { NetTransport, selfId } from './transport.ts';
 import type { Controls } from '../input/controls.ts';
 import { dispatch, type World } from '../state/world.ts';
@@ -254,6 +257,9 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
         const seat = mine !== undefined ? asPlayerId(mine.seat) : asPlayerId(1);
         deps.world.localPlayerId = seat;
         deps.controls.setPlayerId(seat);
+        // S122 P2 (host-migration D3) — keep the frozen seat↔peerId roster: the successor
+        // rebuilds hostSeats from it and every survivor grounds its alive-seat view in it.
+        deps.session.lastRoster = msg.roster;
         dispatch(deps.world, {
           type: 'START_GAME',
           mode: msg.mode,
@@ -296,6 +302,73 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
       // dropped beacon only delays the live rack until the next join/leave re-broadcast.
       if (msg.kind === 'LOBBY_PRESENCE' && deps.world.gameState === 'LOBBY') {
         deps.onPresence(msg.roster);
+      }
+      // S122 P2 (host-migration D3) — a MIGRATION_CLAIM from a warranted survivor.
+      // SEAM-GATED (window.__TEST_MIGRATION__ must be present — D3 never activates in
+      // production) + Council-hardened acceptance gates, ALL required:
+      //   (a) a verified warrant is stored (set exclusively after verifyWarrant at Begin);
+      //   (b) the claimed term is EXACTLY currentEpoch + 1 (replays at other terms drop);
+      //   (c) this client is itself OBSERVING host loss (starvation or transport peer-left)
+      //       — a claim arriving while the host is healthy is ignored (kills healthy-state
+      //       replay, S122 Council L3);
+      //   (d) the claimed seat is the lowest warranted TRANSPORT-ALIVE seat per OWN view;
+      //   (e) the signature verifies under the warranted pubkey for that seat, bound to the
+      //       SENDER's transport peerId (verifyMigrationClaim).
+      // On accept: re-latch host identity to the claimer + raise the epoch fence. The
+      // successor's +MIGRATION_SEQ_JUMP snapshots then pass the seq gate and PLAYING resumes.
+      if (msg.kind === 'MIGRATION_CLAIM' && !deps.world.isHost) {
+        const seam = (typeof window !== 'undefined'
+          ? (window as { __TEST_MIGRATION__?: { starvationMs?: number } }).__TEST_MIGRATION__
+          : undefined);
+        const transport = deps.session.netTransport;
+        const warrant = deps.session.warrant;
+        const clientSync = deps.session.clientSync;
+        if (
+          seam !== undefined &&
+          warrant !== null &&
+          transport !== null &&
+          clientSync !== null &&
+          msg.epoch === deps.session.currentEpoch + 1
+        ) {
+          const alivePeers = new Set(transport.peerIds());
+          const starvMs = seam.starvationMs ?? HOST_STARVATION_MS;
+          const lastAccepted = clientSync.lastAcceptedAt();
+          const hostGone =
+            (deps.session.hostPeerId !== null && !alivePeers.has(deps.session.hostPeerId)) ||
+            (lastAccepted > 0 && isSnapshotStarved(performance.now(), lastAccepted, starvMs));
+          const roster = deps.session.lastRoster ?? [];
+          const aliveSeats = computeAliveSeats(
+            roster,
+            alivePeers,
+            deps.world.localPlayerId as number,
+          );
+          const expectedSuccessor = computeSuccessorSeat(warrant, aliveSeats);
+          if (hostGone && expectedSuccessor === msg.seat) {
+            const claim = msg;
+            const roomCode = deps.session.roomCode;
+            if (roomCode !== null) {
+              void verifyMigrationClaim(claim, warrant, roomCode, peerId).then((ok) => {
+                if (!ok) {
+                  console.warn('[net] MIGRATION_CLAIM failed verification — ignored', {
+                    seat: claim.seat, epoch: claim.epoch, from: peerId,
+                  });
+                  return;
+                }
+                deps.session.hostPeerId = peerId;
+                deps.session.hostVerifiedPeerId = peerId;
+                deps.session.currentEpoch = claim.epoch;
+                deps.session.clientSync?.setEpoch(claim.epoch);
+                console.info('[net] MIGRATION accepted — re-latched host', {
+                  successorSeat: claim.seat, epoch: claim.epoch, peerId,
+                });
+              });
+            }
+          } else {
+            console.warn('[net] MIGRATION_CLAIM rejected by acceptance gates', {
+              hostGone, expectedSuccessor, claimedSeat: msg.seat,
+            });
+          }
+        }
       }
       // S47 P1 (Sym I fix) — receive host-broadcast game-end envelope
       // and dispatch WIN_TRIGGER locally so joiner's gameState flips to

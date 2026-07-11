@@ -50,6 +50,17 @@ import { selfId, type NetTransport } from './net/transport.ts';
 import type { RosterEntry } from './net/protocol.ts';
 import { makeNetSession, teardownNet } from './net/session.ts';
 import { createHostStartHandler, createBeginMatchHandler } from './net/hostHandlers.ts';
+// S122 P2 (host-migration D3) — claim sign + takeover helpers (seam-gated successor path).
+import {
+  computeAliveSeats,
+  MIGRATION_SEQ_JUMP,
+  rebuildAuthorityAllocators,
+  signMigrationClaim,
+} from './net/migrationClaim.ts';
+import { isClientIntentAllowed } from './net/protocol.ts';
+import { stampSenderSeat } from './net/intentStamp.ts';
+import { selfId as trysteroSelfId } from './net/transport.ts';
+import { HostSync } from './net/sync.ts';
 import { connectAsClient, createJoinAttemptHandler } from './net/clientHandlers.ts';
 // S87 P4 — QUICK MATCH. The ready-gate/presence helpers are eager-safe (no
 // Trystero import); the QuickmatchDiscovery class is the LAZY half, imported on
@@ -1086,6 +1097,15 @@ async function bootstrap(): Promise<void> {
   // throttle (GEMINI FIX 1): a starvation that began right after the tab hid is likely local throttling,
   // not host loss. Registered once; harmless when this page hosts (the detector is client-gated below).
   let clientStarvationLatched = false;
+  // S122 P2 (host-migration D3) — the takeover seam + latches. The seam is read ONCE at
+  // bootstrap (Playwright addInitScript sets it pre-load); absent ⇒ D3 is fully inert.
+  const migrationSeam =
+    typeof window !== 'undefined'
+      ? (window as { __TEST_MIGRATION__?: { starvationMs?: number; graceMs?: number } })
+          .__TEST_MIGRATION__
+      : undefined;
+  let migrationLossObservedAtMs = 0;
+  let migrationClaimedEpoch = -1; // -1 = no claim fired this session
   let lastVisibilityChangeAt = performance.now();
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', () => {
@@ -1340,6 +1360,8 @@ async function bootstrap(): Promise<void> {
         // host happens to be at a tick < clientLastShakeArcFlashTick.
         clientLastShakeArcFlashTick = -Infinity;
         hostLastShakeArcFlashTick = -Infinity; // S119 P1 — same discipline, host cursor
+        migrationLossObservedAtMs = 0; // S122 P2 — D3 latches die with the match
+        migrationClaimedEpoch = -1;
         // S60 P3(c) — clear explored grid + ghost memory + hide the brush pool so the
         // title is clean and the next match starts fresh (covers all *→TITLE paths:
         // lobby Back, POSTGAME→title, peer-drop).
@@ -1667,7 +1689,112 @@ async function bootstrap(): Promise<void> {
           }
         } else if (clientStarvationLatched) {
           clientStarvationLatched = false; // recovered → re-arm for the next episode
+          migrationLossObservedAtMs = 0; // S122 P2 — the loss episode ended; re-arm D3 too
           console.info('[net] host snapshot stream recovered (D2 detect).');
+        }
+      }
+
+      // ── S122 P2 (host-migration D3) — SUCCESSOR takeover, SEAM-GATED ────────────────
+      // Activation requires window.__TEST_MIGRATION__ (production never fires — Council L4
+      // no-bump rests on this) + a verified warrant. Trigger = starvation OR transport
+      // host-loss; then the (seam-shrunken) grace runs; then, if THIS peer is the lowest
+      // warranted TRANSPORT-ALIVE seat (design §5 step 4), it signs + broadcasts the claim
+      // (re-broadcast ×5 @1s — a survivor mid-reconnect-cycle must not miss it) and adopts
+      // authority: D-A allocator rebuild + stream reseed, isHost flip, HostSync at
+      // lastSeenSeq + MIGRATION_SEQ_JUMP, hostSeats from the frozen roster ∩ alive, and an
+      // additive INTENT handler (allowlist + seat-stamp — the hostHandlers posture).
+      if (
+        migrationSeam !== undefined &&
+        world.gameState === 'PLAYING' &&
+        session.warrant !== null &&
+        session.lastRoster !== null &&
+        session.netTransport !== null &&
+        lastAcceptedAtMs > 0 &&
+        migrationClaimedEpoch === -1
+      ) {
+        const nowMigMs = performance.now();
+        const starvMs = migrationSeam.starvationMs ?? HOST_STARVATION_MS;
+        const hostGoneNow =
+          (session.hostPeerId !== null &&
+            !session.netTransport.peerIds().includes(session.hostPeerId)) ||
+          isSnapshotStarved(nowMigMs, lastAcceptedAtMs, starvMs);
+        if (!hostGoneNow) {
+          migrationLossObservedAtMs = 0;
+        } else {
+          if (migrationLossObservedAtMs === 0) migrationLossObservedAtMs = nowMigMs;
+          const graceMs = migrationSeam.graceMs ?? RECONNECT_GRACE_MS;
+          if (nowMigMs - migrationLossObservedAtMs >= graceMs) {
+            const alivePeers = new Set(session.netTransport.peerIds());
+            const aliveSeats = computeAliveSeats(
+              session.lastRoster,
+              alivePeers,
+              world.localPlayerId as number,
+            );
+            const successor = computeSuccessorSeat(session.warrant, aliveSeats);
+            if (successor === (world.localPlayerId as number)) {
+              const newEpoch = session.currentEpoch + 1;
+              migrationClaimedEpoch = newEpoch; // sync latch — fire exactly once
+              const roomCode = session.roomCode ?? '';
+              const mySeat = world.localPlayerId as number;
+              void (async () => {
+                const transport = session.netTransport;
+                if (transport === null) return;
+                const claim = await signMigrationClaim(
+                  clientIdentity, roomCode, newEpoch, mySeat, trysteroSelfId,
+                );
+                transport.send(claim);
+                // Re-broadcast — idempotent on receivers (same sig; re-latch is a no-op).
+                for (let i = 1; i <= 5; i++) {
+                  setTimeout(() => { session.netTransport?.send(claim); }, i * 1000);
+                }
+                // ── TAKEOVER (design §4 D-A: adopt the mirror, reseed the streams) ──
+                const allocs = rebuildAuthorityAllocators(world);
+                world.nextPrimitiveId = allocs.nextPrimitiveId;
+                world.nextBondId = allocs.nextBondId;
+                const st = spawner.getState();
+                if (st !== null) spawner.restoreState({ ...st, nextId: allocs.maxSparkId + 1 });
+                const seed = allocs.reseed(roomCode, world.tick);
+                spawner.reseed(seed);
+                world.rngSeed = seed;
+                world.isHost = true;
+                session.currentEpoch = newEpoch;
+                const successorSync = new HostSync(
+                  (session.clientSync?.lastSnapshotSeq() ?? 0) + MIGRATION_SEQ_JUMP,
+                );
+                session.hostSync = successorSync;
+                session.hostSeats.clear();
+                for (const e of session.lastRoster ?? []) {
+                  if (e.seat !== mySeat && alivePeers.has(e.peerId)) {
+                    session.hostSeats.set(e.peerId, asPlayerId(e.seat));
+                  }
+                }
+                // I AM the host now — clear the latch so the hostLost overlay gate can't
+                // fire on my own absence from peerIds().
+                session.hostPeerId = null;
+                session.hostVerifiedPeerId = null;
+                // Additive successor INTENT handler (transport.on handlers stack; the old
+                // client handler's host-authored kinds stay epoch/seq-gated inert).
+                transport.on((m, fromPeer) => {
+                  if (m.kind !== 'INTENT' || !world.isHost) return;
+                  if (!isClientIntentAllowed(m.action.type)) {
+                    world.diagnostics.raceRejects++;
+                    return;
+                  }
+                  const seat = session.hostSeats.get(fromPeer);
+                  const action = seat !== undefined ? stampSenderSeat(m.action, seat) : m.action;
+                  try {
+                    dispatch(world, action);
+                  } catch {
+                    /* reducer reject — same posture as the host path */
+                  }
+                });
+                console.info('[net] MIGRATION TAKEOVER complete — this peer is now the host', {
+                  seat: mySeat, epoch: newEpoch, seqBase: successorSync.currentSeq(),
+                  survivors: [...session.hostSeats.values()],
+                });
+              })();
+            }
+          }
         }
       }
     }
@@ -1717,7 +1844,12 @@ async function bootstrap(): Promise<void> {
         reconnectNextRetryMs = nowMs + RECONNECT_FIRST_RETRY_DELAY_MS;
       }
       if (nowMs < reconnectUntilMs) {
-        if (!world.isHost && session.roomCode !== null && nowMs >= reconnectNextRetryMs) {
+        // S122 P2 (host-migration D3, seam-gated) — while a warrant is stored and the
+        // migration seam is active, do NOT reconnect-cycle the transport: tearing it mid-
+        // grace would drop the successor's MIGRATION_CLAIM broadcast/receipt. Production
+        // (seam absent) keeps the S82 behavior byte-identically. D4 reconciles the two.
+        const suppressForMigration = migrationSeam !== undefined && session.warrant !== null;
+        if (!world.isHost && session.roomCode !== null && nowMs >= reconnectNextRetryMs && !suppressForMigration) {
           reconnectNextRetryMs = nowMs + RECONNECT_RETRY_MS;
           console.warn('[net] reconnect attempt — rejoining room', session.roomCode);
           if (session.netTransport !== null) session.netTransport.disconnect();
