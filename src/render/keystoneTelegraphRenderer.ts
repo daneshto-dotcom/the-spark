@@ -24,6 +24,7 @@
 
 import { Application, Graphics } from 'pixi.js';
 import { isAnchorCombo, isFilamentCombo, isMagical } from '../combos.ts';
+import { KEYSTONE_INCOME_MAX_NEIGHBORS } from '../constants.ts';
 import type { World } from '../state/world.ts';
 
 export const KEYSTONE_RIGIDITY_PULSE_COLOR = 0xffd873; // gold — Anchor rigidity conferral
@@ -68,6 +69,13 @@ export function computeKeystonePulses(world: World): KeystonePulse[] {
     if (fouled.has(hub.aId) || fouled.has(hub.bId)) continue;
     const color = rigidity ? KEYSTONE_RIGIDITY_PULSE_COLOR : KEYSTONE_INCOME_PULSE_COLOR;
     const phase = hub.id % PULSE_PERIOD_TICKS;
+    // S122 P3 (B3 polish) — VISUAL HONESTY: the income keystone PAYS at most
+    // KEYSTONE_INCOME_MAX_NEIGHBORS (scoring.ts per-Filament cap, Council S121 Q1), so the
+    // green pulse now stops at the same budget, counted in the SAME deterministic scan order
+    // scoring uses ([fa,fb] endpoints, then each prim's bonds array — both synced, so host
+    // and joiner cap the identical first-3). Rigidity (gold) stays uncapped — the physics
+    // conferral has no neighbor cap.
+    let incomeBudget = income ? KEYSTONE_INCOME_MAX_NEIGHBORS : Number.POSITIVE_INFINITY;
 
     for (const shared of [ha, hb]) {
       for (const neighborBondId of shared.bonds) {
@@ -81,6 +89,8 @@ export function computeKeystonePulses(world: World): KeystonePulse[] {
         if (!isMagical(na.type, nbEnd.type)) continue; // only magic neighbors are blessed
         // A fouled magic neighbor receives nothing (foul-skip parity).
         if (fouled.has(nb.aId) || fouled.has(nb.bId)) continue;
+        if (incomeBudget <= 0) continue; // income cap reached — remaining neighbors unpaid, unlit
+        incomeBudget--;
         const far = nb.aId === shared.id ? nbEnd : na; // the neighbor endpoint away from the hub
         pulses.push({
           fromX: shared.pos.x,

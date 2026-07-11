@@ -163,6 +163,38 @@ describe('S121 P1 — Keystone telegraph (computeKeystonePulses)', () => {
     };
     expect(build(true)).toEqual(build(false));
   });
+
+  // ── S122 P3 (B3 polish) — VISUAL HONESTY: the green pulse caps at the income cap ──
+  it('a Filament with 4 magic neighbors lights exactly KEYSTONE_INCOME_MAX_NEIGHBORS (3) pulses', () => {
+    const w = baseWorld();
+    const dot = addPrim(w, 1, SparkType.Dot, 100, 100);
+    const line = addPrim(w, 2, SparkType.Line, 140, 100);
+    connect(w, 10, dot, line); // Filament hub
+    for (let i = 0; i < 4; i++) {
+      const far = addPrim(w, 3 + i, SparkType.Line, 180 + i * 40, 100);
+      connect(w, 11 + i, line, far); // Line→Line = Cable (magic) — 4 branched neighbors
+    }
+    const pulses = computeKeystonePulses(w);
+    expect(pulses).toHaveLength(3); // = KEYSTONE_INCOME_MAX_NEIGHBORS — paid ⇔ lit
+    for (const pu of pulses) expect(pu.color).toBe(KEYSTONE_INCOME_PULSE_COLOR);
+    // The scan order is scoring's own ([fa,fb] endpoints, bonds insertion order), so the
+    // FIRST three attached neighbors light — deterministic + identical cross-peer.
+    expect(pulses.map((pu) => pu.toX)).toEqual([180, 220, 260]);
+  });
+
+  it('an Anchor with 4 magic neighbors stays UNCAPPED (rigidity has no neighbor cap)', () => {
+    const w = baseWorld();
+    const dot = addPrim(w, 1, SparkType.Dot, 480, 400);
+    const square = addPrim(w, 2, SparkType.Square, 520, 400);
+    connect(w, 10, dot, square); // Anchor hub
+    for (let i = 0; i < 4; i++) {
+      const far = addPrim(w, 3 + i, SparkType.Circle, 560 + i * 40, 400);
+      connect(w, 11 + i, square, far); // Square→Circle = Capsule (magic) — 4 neighbors
+    }
+    const pulses = computeKeystonePulses(w);
+    expect(pulses).toHaveLength(4);
+    for (const pu of pulses) expect(pu.color).toBe(KEYSTONE_RIGIDITY_PULSE_COLOR);
+  });
 });
 
 interface KeystonePulseSummary {
