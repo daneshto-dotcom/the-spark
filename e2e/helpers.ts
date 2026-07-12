@@ -188,8 +188,9 @@ export async function waitForWorld(
  * Host flow — TitleScreen → 1v1 → HOST → returns room code.
  * Council C6/Δ1 + Sym A diagnostic: each step asserts world state advanced.
  */
-export async function hostNewRoom(page: Page): Promise<string> {
-  await page.goto('/?debug=1');
+export async function hostNewRoom(page: Page, url = '/?debug=1'): Promise<string> {
+  // S123 P2 — `url` lets a spec boot the host with extra flags (e.g. '&worker=1').
+  await page.goto(url);
   // Wait for the SPARK title to mount.
   await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE state on host page');
   // Click "1v1 (2 Player)" — Pixi text isn't queryable via DOM, so we click
@@ -231,8 +232,9 @@ export async function hostNewRoom(page: Page): Promise<string> {
 /**
  * Joiner flow — TitleScreen → 1v1 → type code → CONNECT.
  */
-export async function joinRoom(page: Page, code: string): Promise<void> {
-  await page.goto('/?debug=1');
+export async function joinRoom(page: Page, code: string, url = '/?debug=1'): Promise<void> {
+  // S123 P2 — `url` lets a spec boot the joiner with extra flags (e.g. '&worker=1').
+  await page.goto(url);
   await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE state on joiner page');
   // S85 P4c — live title geometry (was the S50 P5 hardcoded-coord fix site).
   const oneVOne = await titleButtonCss(page, 'oneVOne');
