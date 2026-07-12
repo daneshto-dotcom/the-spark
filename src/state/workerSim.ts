@@ -31,6 +31,12 @@
  * semantics (S107 audit #2), and runHostTick/stepPhysics already carry replay HARD gates.
  */
 
+// Type-only (erased at compile time): workerSim.ts is ALSO imported by main.ts
+// (applyPositions), so a VALUE import here would drag the S87 lazy bot chunk into the
+// entry bundle. The concrete BotManager is INJECTED by the caller: simWorker.ts (worker
+// chunk, static import — S123 P1) and the differential/unit tests construct it themselves.
+import type { BotManager } from '../bots/botManager.ts';
+import type { BotDifficulty } from '../bots/botTypes.ts';
 import { DEFAULT_SPAWNER_CONFIG, Spawner, type SpawnerConfig } from '../game/spawner.ts';
 import type { GameEffect } from '../game/effects.ts';
 import {
@@ -70,6 +76,20 @@ export interface WorkerInitMsg {
   readonly localPlayerId: number;
   /** DEV test-seam spawn-rate override (the e2e __TEST_SPAWN_RATE_PER_SECOND__ seam). */
   readonly ratePerSecond?: number;
+  /**
+   * S123 P1 — VS-BOTS worker support. One difficulty per bot seat (seats 1..N; the
+   * BotManager ctor contract). Present ⇒ the worker owns the bots (fresh-from-seed —
+   * Council S123 design (A): the INIT snapshot is taken on the first PLAYING frames,
+   * BEFORE any bot's first think tick (min stagger ≥ 6 ticks), so there is no bot
+   * decision-state to lose; BotController additionally self-heals IDLE-while-Carrying).
+   */
+  readonly botDifficulties?: readonly BotDifficulty[];
+  /**
+   * The matchSeed the main thread constructed ITS BotManager with (reseedForNewMatch's
+   * draw). Explicit rather than derived from world.rngSeed so future rngSeed rewrite
+   * paths (fallback repair, migration takeover) can never skew the bot streams.
+   */
+  readonly botMatchSeed?: number;
 }
 
 export interface WorkerTickBatchMsg {
@@ -155,13 +175,25 @@ export interface WorkerSim {
   readonly matcherCursor: GodlyMatcherCursor;
   readonly cinematics: WorkerCinematicState;
   readonly hostSeats: Map<string, PlayerId>;
+  /** S123 P1 — the worker-authoritative bots (null: not a bots match / no factory). */
+  readonly botManager: BotManager | null;
   /** nowMs (main clock) of the last snapshot-bearing batch — the 10 Hz floor anchor. */
   lastSnapshotAtMs: number;
   /** Structural signature at the last snapshot — change ⇒ attach a fresh snapshot. */
   lastStructuralSig: string;
 }
 
-export function makeWorkerSim(init: WorkerInitMsg): WorkerSim {
+/**
+ * `makeBotManager` — the injection seam for the S87 lazy bot chunk (see the type-only
+ * import note above). The seed-fallback rule lives HERE (tested core): explicit
+ * botMatchSeed wins; otherwise the restored world.rngSeed (== matchSeed for a normal
+ * bots match — reseedForNewMatch sets both from one draw and rngSeed never mutates
+ * during play).
+ */
+export function makeWorkerSim(
+  init: WorkerInitMsg,
+  makeBotManager?: (difficulties: readonly BotDifficulty[], matchSeed: number) => BotManager,
+): WorkerSim {
   const world = makeWorld(1);
   const snap = JSON.parse(init.saveJson) as WorldSnapshot;
   restore(snap, world);
@@ -184,6 +216,12 @@ export function makeWorkerSim(init: WorkerInitMsg): WorkerSim {
     mulberry32(0x5122_0005),
   );
   if (snap.spawner !== undefined && snap.spawner !== null) spawner.restoreState(snap.spawner);
+  const botManager =
+    init.botDifficulties !== undefined &&
+    init.botDifficulties.length > 0 &&
+    makeBotManager !== undefined
+      ? makeBotManager(init.botDifficulties, init.botMatchSeed ?? world.rngSeed)
+      : null;
   const sim: WorkerSim = {
     world,
     spawner,
@@ -194,6 +232,7 @@ export function makeWorkerSim(init: WorkerInitMsg): WorkerSim {
     matcherCursor: { lastMatcherTick: -1 },
     cinematics: makeWorkerCinematicState(),
     hostSeats: new Map(init.hostSeats.map(([peer, seat]) => [peer, asPlayerId(seat)])),
+    botManager,
     lastSnapshotAtMs: 0,
     lastStructuralSig: '',
   };
@@ -358,7 +397,9 @@ export function applyTickBatch(
     spawner: sim.spawner,
     grid: sim.grid,
     controls: sim.controls,
-    botManager: null,
+    // S123 P1 — worker-authoritative bots: ticked inside runHostTick at the exact
+    // direct-path site (hostTick.ts), same dispatch-only actuation + gates.
+    botManager: sim.botManager,
     gameStateExtras: sim.gameStateExtras,
     alivePeerIds: batch.alivePeerIds !== null ? new Set(batch.alivePeerIds) : null,
     hostSeats: sim.hostSeats,

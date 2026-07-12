@@ -16,6 +16,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { BotManager } from '../bots/botManager.ts';
+import type { BotDifficulty } from '../bots/botTypes.ts';
 import { DEFAULT_SPAWNER_CONFIG, Spawner } from '../game/spawner.ts';
 import { SpatialGrid } from '../physics/spatial.ts';
 import { makeGameStateExtras } from './gameState.ts';
@@ -45,6 +47,11 @@ const P0 = asPlayerId(0);
 const SEED = 0x51220042;
 const CHURN_RATE = 3; // elevated spawner rate — keeps the field busy across 300 frames
 
+// S123 P1 — the bots scenario: two fast difficulties for maximum acted-path coverage
+// (HARD severs/cleans/rainbows; IMBA adds potato + shrink) within the frame budget.
+const BOT_DIFFS: readonly BotDifficulty[] = ['HARD', 'IMBA'];
+const BOT_SEED = 0x51230001;
+
 /** A deterministic solo-PLAYING world (the worker-mode v1 scope: no bots). */
 function buildSoloWorld(): World {
   const world = makeWorld(SEED);
@@ -53,13 +60,27 @@ function buildSoloWorld(): World {
   return world;
 }
 
+/** S123 P1 — a deterministic VS-BOTS PLAYING world (human seat 0 + bots 1..N). */
+function buildBotsWorld(): World {
+  const world = makeWorld(SEED);
+  world.gameState = 'TITLE';
+  const roster = Array.from({ length: BOT_DIFFS.length + 1 }, (_, seat) => ({
+    seat,
+    color: 0x111111 * (seat + 1),
+  }));
+  const botSeats = BOT_DIFFS.map((_, i) => i + 1);
+  dispatch(world, { type: 'START_GAME', mode: 'bots', isHost: true, roster, botSeats });
+  return world;
+}
+
 interface Rig {
   world: World;
   frame: (batch: Omit<WorkerTickBatchMsg, 'type' | 'batchSeq'>) => { json: string; hash: number };
 }
 
-/** The REFERENCE: hand-rolled direct-path frame semantics over the same primitives. */
-function buildReferenceRig(world: World): Rig {
+/** The REFERENCE: hand-rolled direct-path frame semantics over the same primitives.
+ *  S123 P1 — `botManager` mirrors main.ts's direct path: ticked INSIDE runHostTick. */
+function buildReferenceRig(world: World, botManager: BotManager | null = null): Rig {
   const spawner = new Spawner(
     { ...DEFAULT_SPAWNER_CONFIG, ratePerSecond: CHURN_RATE },
     mulberry32(1),
@@ -89,7 +110,7 @@ function buildReferenceRig(world: World): Rig {
         spawner,
         grid,
         controls,
-        botManager: null,
+        botManager,
         gameStateExtras,
         alivePeerIds: batch.alivePeerIds !== null ? new Set(batch.alivePeerIds) : null,
         hostSeats: new Map(),
@@ -112,8 +133,12 @@ function buildReferenceRig(world: World): Rig {
   };
 }
 
-/** The BATCH path: the real INIT (JSON save round-trip) + applyTickBatch envelope. */
-function buildBatchRig(sourceWorld: World): Rig {
+/** The BATCH path: the real INIT (JSON save round-trip) + applyTickBatch envelope.
+ *  S123 P1 — `bots` rides the real INIT fields + the simWorker.ts factory seam. */
+function buildBatchRig(
+  sourceWorld: World,
+  bots?: { difficulties: readonly BotDifficulty[]; seed: number },
+): Rig {
   // The reference rig hasn't ticked yet — snapshot the pristine world exactly like
   // main.ts's INIT does (spawner state omitted here: both spawners start pristine at the
   // same construction seeds? NO — construction seeds differ, so state MUST ride the save).
@@ -126,13 +151,19 @@ function buildBatchRig(sourceWorld: World): Rig {
     mulberry32(5),
   );
   const saveJson = JSON.stringify(snapshot(sourceWorld, { spawnerState: refSpawner.getState() }));
-  const sim = makeWorkerSim({
-    type: 'INIT',
-    saveJson,
-    hostSeats: [],
-    localPlayerId: 0,
-    ratePerSecond: CHURN_RATE,
-  });
+  const sim = makeWorkerSim(
+    {
+      type: 'INIT',
+      saveJson,
+      hostSeats: [],
+      localPlayerId: 0,
+      ratePerSecond: CHURN_RATE,
+      ...(bots !== undefined
+        ? { botDifficulties: bots.difficulties, botMatchSeed: bots.seed }
+        : {}),
+    },
+    (difficulties, matchSeed) => new BotManager(difficulties, matchSeed),
+  );
   let seq = 0;
   return {
     world: sim.world,
@@ -215,6 +246,85 @@ describe('S122 P1 — worker-sim batch envelope differential (HARD GATE)', () =>
     // The run must have actually exercised the interesting paths.
     expect(refWorld.primitives.size).toBeGreaterThan(3); // placements landed
     expect(refWorld.tick).toBeGreaterThan(500);
+  });
+
+  it('S123 P1 — VS-BOTS: 300 live frames with worker-owned bots are byte-identical to the direct path (HARD GATE)', () => {
+    const refWorld = buildBotsWorld();
+    // Fresh-from-seed equivalence (Council S123 design (A)): BOTH sides construct their
+    // OWN BotManager from the identical (difficulties, matchSeed) — exactly what main.ts
+    // (direct) and simWorker.ts (worker) each do. Identical mulberry32 streams ⇒
+    // identical decisions ⇒ byte-identical worlds, or this gate throws the frame index.
+    const ref = buildReferenceRig(refWorld, new BotManager(BOT_DIFFS, BOT_SEED));
+    const batch = buildBatchRig(refWorld, { difficulties: BOT_DIFFS, seed: BOT_SEED });
+
+    // INIT adoption must be bit-exact BEFORE any tick (bots included in the roster).
+    expect(hashWorldState(batch.world)).toBe(hashWorldState(refWorld));
+    expect(batch.world.botSeats.size).toBe(BOT_DIFFS.length);
+
+    for (let f = 0; f < 300; f++) {
+      const inputs = scriptInputs(refWorld, f);
+      const a = ref.frame(inputs);
+      const b = batch.frame(inputs);
+      if (a.json !== b.json || a.hash !== b.hash) {
+        throw new Error(
+          `BOTS DIVERGED at frame ${f}: hashRef=${a.hash} hashBatch=${b.hash} ` +
+            `(json equal: ${a.json === b.json})`,
+        );
+      }
+    }
+    // The run must have actually exercised the bots: at least one BOT-authored primitive
+    // (placedBy !== human seat 0) — otherwise this scenario silently tests nothing.
+    let botPlaced = 0;
+    for (const p of refWorld.primitives.values()) {
+      if ((p.placedBy as number) !== 0) botPlaced++;
+    }
+    expect(botPlaced).toBeGreaterThan(0);
+    expect(refWorld.tick).toBeGreaterThan(500);
+  });
+
+  it('S123 P1 — INIT bot-config round-trip: factory receives the exact difficulties + seed', () => {
+    const world = buildBotsWorld();
+    const spawner = new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(1));
+    const saveJson = JSON.stringify(snapshot(world, { spawnerState: spawner.getState() }));
+    const calls: Array<{ difficulties: readonly BotDifficulty[]; seed: number }> = [];
+    const factory = (difficulties: readonly BotDifficulty[], matchSeed: number): BotManager => {
+      calls.push({ difficulties, seed: matchSeed });
+      return new BotManager(difficulties, matchSeed);
+    };
+
+    // Explicit botMatchSeed wins.
+    const sim = makeWorkerSim(
+      { type: 'INIT', saveJson, hostSeats: [], localPlayerId: 0, botDifficulties: BOT_DIFFS, botMatchSeed: 777 },
+      factory,
+    );
+    expect(sim.botManager).not.toBeNull();
+    expect(sim.botManager!.debugStates().map((s) => s.difficulty)).toEqual([...BOT_DIFFS]);
+    expect(sim.botManager!.debugStates().map((s) => s.seat)).toEqual([1, 2]);
+    expect(calls).toEqual([{ difficulties: BOT_DIFFS, seed: 777 }]);
+
+    // Omitted botMatchSeed falls back to the RESTORED world.rngSeed (== matchSeed for a
+    // normal bots match — reseedForNewMatch sets both from one draw).
+    calls.length = 0;
+    makeWorkerSim(
+      { type: 'INIT', saveJson, hostSeats: [], localPlayerId: 0, botDifficulties: BOT_DIFFS },
+      factory,
+    );
+    expect(calls).toEqual([{ difficulties: BOT_DIFFS, seed: SEED }]);
+
+    // No difficulties / empty difficulties / no factory ⇒ no bots.
+    calls.length = 0;
+    const noBots = makeWorkerSim({ type: 'INIT', saveJson, hostSeats: [], localPlayerId: 0 }, factory);
+    expect(noBots.botManager).toBeNull();
+    const emptyBots = makeWorkerSim(
+      { type: 'INIT', saveJson, hostSeats: [], localPlayerId: 0, botDifficulties: [] },
+      factory,
+    );
+    expect(emptyBots.botManager).toBeNull();
+    expect(calls).toEqual([]);
+    const noFactory = makeWorkerSim(
+      { type: 'INIT', saveJson, hostSeats: [], localPlayerId: 0, botDifficulties: BOT_DIFFS },
+    );
+    expect(noFactory.botManager).toBeNull();
   });
 
   it('positions payload round-trips onto a mirror', () => {

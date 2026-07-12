@@ -1,242 +1,91 @@
 {
-  "tool_calls_session_total": 157,
-  "session_id": "S122",
+  "tool_calls_session_total": 0,
+  "session_id": "S123",
   "session_kind": "execution",
-  "session_start": "2026-07-11T00:00:00.000Z",
-  "prior_session_note": "S121 COMPLETE (B3 symbiotic batch + codex coherence, 4/4 live). S122 = the S121-handoff top batch: B2 phase (d) worker cutover + host-mig D3 + B3 pulse cap + deploy.",
-  "phase": "S122_EXECUTING",
+  "session_start": "2026-07-12T00:00:00.000Z",
+  "prior_session_note": "S122 COMPLETE (4/4: worker cutover 82ea2c3, hostmig D3 5f53b3a, pulse cap 999e530, deploy live). S122 review gate approved+cleared this boot (40ef8e3). S123 = worker default-on prereqs batch (owner-selected) + owner scope amendment P4 (bot-intelligence research).",
+  "phase": "S123_EXECUTING",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "user_approval_verbatim": "continue working top recommended priority batch in order. work highest value highest leverage priority batch autonomously in the best of your abilities (im turning on fable 5 ultracode) in the absolute best interests of this project and vision. I approve full run!",
+  "user_approval_verbatim": "I approve full session priority batch, another thing i want to add though is that bots of different levels should know the game in different levels too [...] other than that I approve full current session priority batch and just want you to run a consideration and research on how to make what i just said happen. I will turn on fable 5 ultracode so you can work in the absolute best interests of this project and vision producing the highest quality of output!",
   "tier": "Full",
   "council_rounds": 2,
   "signals_fired": [
-    "security_sensitive",
     "novel_mechanism"
   ],
-  "council_result": "S122 Full 3-way Council (Grok DISRUPTOR grok-4.20-reasoning + Gemini AUDITOR gemini-3.1-pro-preview), R1 parallel -> quality gate PASS -> R2 Claude convergence. Ledger: L1 P1 transport (60Hz snapshot+apply vs SAB/flatbuffers/WASM) SYNTHESIS -> keep proven netSnapshot/applyNetSnapshot path, ADOPT ROI-rule-v2 (full round-trip build+clone+post+apply p95<=4ms @6x throttle on TD-heavy world, User-Timing marks + longtask + memory sampling, contingency ladder positions-only-apply -> ArrayBuffer); SAB REFUTED on platform (GH Pages cannot set COOP/COEP -> crossOriginIsolated false); per-frame payload is netSnapshot (~8.5KB, <=16KB TD wire-gate bound), NOT whole World (both seats misread). L2 godly cadence SYNTHESIS -> ADOPT tick-tagged events + main presentation queue + request/response batch discipline (1 batch=1 frame, no queued batches); multiple-cutscenes-per-batch REFUTED (matcher breaks after 1 match). L3 D3 hardening ADOPT -> survivors process claims only while themselves observing host loss + same-epoch lowest-seat-wins demotion; baseline-rollback-desync REFUTED (clients never simulate, full-apply rebuild); epoch-after-apply REFUTED (sync.ts:102 epoch gate first); claim-timeout/zombie-demotion stay D4 (logged). L4 D3 no-PROTOCOL-bump RESOLVED 2.0(Claude+Gemini) > 1.75(Grok) -> seam-gated claims cannot fire in production, D4 owns the bump. L5 P3/P4 AGREED (Grok CI-hash-lane ADD logged as owner/Actions carry-forward). PRIME-AUDIT: worker.terminate() lifecycle added, flag gates HOST path only, worker chunk separate from entry charter; boot-then-smoke satisfied via ?worker=1 e2e smoke + local kill-host e2e. No vetoes. Confidence HIGH.",
-  "plan_file": ".claude/plans/2026-07-11_PDR_S122_Worker_Cutover_HostMig_D3.md",
+  "council_result": "S123 Full 3-way Council (Grok DISRUPTOR grok-4.20-reasoning + Gemini AUDITOR gemini-3.1-pro-preview), R1 parallel -> R2 Claude convergence. HEADLINE: both seats voted (B) bit-exact bot serialization on the shared claim '(A) fresh-from-seed breaks the byte-identical differential gate' -> EMPIRICALLY REFUTED by reading workerSim.differential.test.ts:117-128,191-196 (gate is fresh-vs-fresh from a pristine un-ticked world, bit-exact adoption asserted BEFORE any tick; NOT a runtime handoff) -> (A) ADOPTED, (B) kernel logged as carry-forward (expose mulberry32 word only if replay/spectator-of-bot-state ever ships). ADOPTED: Gemini cross-mode e2e matrix (host worker=1 x joiner worker=0 proves wire format execution-model-independent), Gemini structuredClone silent-freeze guard (solo-bots e2e asserts structural snapshot progress), P3 instrument synthesis (--expose-gc + window.gc() + performance.memory primary, CDP HeapProfiler optional deep-dive; measured warm-up baseline threshold, record actuals), ordering synthesis (keep P1->P2->P3 but P3 runs non-bot baseline FIRST then bots run). REJECTED (logged): invert-adoption-model, message-replay-instead-of-WebRTC, incremental hash, SimulationMode enum, NullBotManager, 20Hz combat batching. PRIME-AUDIT: botSeats survives save/restore (save.ts:688,979) so worker knows it's a bots match; main must capture difficulties[] at adoption for INIT; vsBots probe relocation downgraded OPTIONAL (e2e asserts bot-authored world changes instead). No vetoes. Confidence HIGH. 13th #empirical-refutes-plausible-criticals instance (both external seats simultaneously).",
+  "plan_file": ".claude/plans/S123_worker_default_on_prereqs_PDR.md",
   "budget_total": 1000000,
   "priorities": [
     {
-      "id": "P1-worker-cutover",
-      "label": "B2 phase (d): TD-heavy re-measure + serialization ROI call (rule v2), then ?worker=1 flag-gated cutover (default OFF): workerSim.ts batch core + simWorker.ts entry + main.ts driver, netSnapshot mirror path, hashWorldState cross-check, tick-tagged godly events, differential HARD gate + e2e smoke.",
-      "status": "completed",
-      "phase": "COMPLETED",
+      "id": "P1-worker-bots",
+      "label": "VS-BOTS worker support: botDifficulties[] -> WorkerInitMsg, makeWorkerSim builds BotManager(difficulties, matchSeed) fresh-from-seed (Council-resolved A), applyTickBatch wires deps.botManager, drop the botSeats.size===0 adoption exclusion, capture difficulties[] at adoption in main.ts. Tests: bots differential HARD gate scenario + solo-bots ?worker=1 e2e (bot-authored primitive lands + structural snapshot progress + 0 hash mismatches) + INIT bot-config round-trip unit.",
+      "status": "in_progress",
+      "phase": "DO",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": true,
+      "check_completed": false,
       "reflexion_entries": [],
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "src/state/workerSim.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/workerSim.ts",
-          "needle": "export function applyTickBatch"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/workerSim.ts",
-          "needle": "export function buildPositions"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/simWorker.ts"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/simWorkerDriver.ts"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/state/godlyMatcherCore.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/godlyMatcherCore.ts",
-          "needle": "export function tickWorkerCinematics"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/input/controlsCore.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/input/controlsCore.ts",
-          "needle": "export function applyControlsPerSubstep"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/state/workerSim.differential.test.ts"
-        },
-        {
-          "type": "file_exists",
-          "path": "e2e/worker.spec.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "simWorkerDriver = new SimWorkerDriver"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/sync.ts",
-          "needle": "wrapSnapshot"
-        },
-        {
-          "type": "file_contains",
-          "path": "WORKER_SIM_FOUNDATION.md",
-          "needle": "ROI VERDICT (pre-registered S122 Council rule v2): FAIL"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "GROK S122 CHECK G1 (adopted)"
-        }
-      ],
-      "checkpoint_commit": "82ea2c3",
-      "real_context_tokens_at_close": 453859,
-      "real_context_pct_at_close": 45.39,
-      "check_method": "P1 worker cutover shipped (82ea2c3). MEASURE-FIRST: TD-heavy re-measure via restoreWorld-seeded 2-peer duel (119 prims/104 bonds/48 chewers, snap 49.7KB) \u2014 ROI rule v2 FAIL @6x (clone round-trip p95 10.1ms > 4ms budget; clone avg 5.2ms = 5x stringify; 325 longtasks incl ~52ms/frame UNTHROTTLED = the offload's value evidence) -> ladder adopted: 60Hz positions-only transferable Float64Array + full netSnapshot on STRUCTURAL batches (effects|intents|godly|signature-change|100ms floor; the floor batch doubles as the peer wire snapshot via HostSync.wrapSnapshot, single seq counter). CUTOVER: workerSim.ts batch core (intents->drain incl NONET freeze->matcher core once/batch->tick-domain cinematic scheduler at the S31 fade-end math->structural decision), simWorker.ts render-free chunk (108KB, entry charter untouched), simWorkerDriver.ts (request/response, 1 in-flight, carried-ticks cap 10), main.ts mirror driver (client posture: optimistic prediction + S56 drag-preserve; hash cross-check IMMEDIATELY post-apply BEFORE drag restore \u2014 the e2e oracle caught my own first-pass ordering bug: 6 mismatches from hashing the prediction layer; reordered -> 0). Extractions byte-identical by delegation: controlsCore.ts, godlyMatcherCore.ts, CUTSCENE_FADE_MS. GATES: tsc 0; vitest 1868/1868 incl NEW 300-frame differential HARD gate (direct-vs-INIT+batch envelope byte-identical snapshots+hashes per frame, forced mid-run NONET freeze, scripted drags/placements; diverged=throws frame index) + positions round-trip + structural-rule unit; e2e ?worker=1 solo smoke GREEN (worker adopts, tick +120, placement lands via intent path, 0 hash mismatches, 0 page errors); default-path gating e2e green (3 fails all @quarantine-flaky = the excluded relay class); bundle 630.4/750. CHECK Triumvirate: RALPH PASS; GROK G1 ADOPTED-FIXED (worker-failure direct-resume allocator repair: nextPrim/nextBond=max+1, spawner nextId=maxSpark+1 via restoreState, streams reseeded per HOST_MIGRATION_DESIGN D-A; re-verified green); G2 REFUTED (activeCinematicPlayerId IS in structuralSignature; matcher fires are structural via godlyEvents>0; pendingCreatureSpawn is host-only, never mirror-relevant); GEMINI M1 REFUTED (intents dispatch BEFORE the freeze branch in applyTickBatch); M4 REFUTED (wrapSnapshot is main-side HostSync method, single counter); M2 = existing S52/S56 client posture (TTL convergence, not a regression); M3 overlay-pop-under-lag logged carry-forward. 11th+12th #empirical-refutes-plausible-criticals instances."
+      "verification": []
     },
     {
-      "id": "P2-hostmig-d3",
-      "label": "Host-migration D3: MIGRATION_CLAIM takeover behind __TEST_MIGRATION__ seam (no PROTOCOL bump). migrationClaim.ts sign/verify + rebuildAuthorityFromMirror, session lastRoster, main.ts successor/survivor wiring w/ Council acceptance hardening, unit matrix + kill-host e2e (@quarantine-flaky).",
-      "status": "completed",
-      "phase": "COMPLETED",
+      "id": "P2-worker-duel-e2e",
+      "label": "Networked worker-duel e2e (e2e/worker-duel.spec.ts): 2-peer real WebRTC, TWO permutations — host ?worker=1 x joiner ?worker=1 AND host ?worker=1 x joiner ?worker=0 (Gemini cross-mode ADOPTED). Assert: host simWorker ready+!failed, hashMismatches===0, joiner converges (host-authored primitive appears), worker-built snapshots are the wire snapshots (~10Hz), zero page errors.",
+      "status": "pending",
+      "phase": "PLAN",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": true,
+      "check_completed": false,
       "reflexion_entries": [],
-      "checkpoint_commit": "5f53b3a",
-      "real_context_tokens_at_close": 545000,
-      "real_context_pct_at_close": 54.5,
-      "check_method": "P2 host-mig D3 shipped (5f53b3a). MIGRATION_CLAIM behind __TEST_MIGRATION__ (production inert; NO PROTOCOL bump per Council L4). migrationClaim.ts: injective domain-separated payload binding (roomCode, epoch, seat, SENDER transport peerId) under the D1 warranted key; verify fail-closed against the pre-verified stored warrant only. Successor: transport-grounded alive set (D3 carry retired D2's world.players approximation), lowest-warranted-alive rule, one-shot sync latch, claim re-broadcast x5@1s, D-A takeover (allocators max+1, spawner nextId repair, fnv(roomCode)^tick reseed, HostSync at lastSeenSeq+10000, hostSeats from frozen lastRoster \u2229 alive, additive allowlist+seat-stamp INTENT handler). Survivor: Council-L3 gates (self-observing-loss kills healthy-state replay; epoch exactly +1; lowest-alive match; sender-bound crypto verify) -> re-latch + clientSync.setEpoch zombie fence. Reconnect-cycling suppressed under seam+warrant (RECONNECT_FIRST_RETRY 1000ms would tear the transport mid-grace); production byte-identical. GATES: tsc 0; vitest 1882/1882 incl 12-test claim matrix; kill-host e2e GREEN over REAL 3-peer WebRTC 19.7s (host killed -> seat-1 isHost+epoch1+tick advancing -> survivor epoch1 + mirror advancing through the +10000 seq jump). CHECK: GROK-ANALYST no breaks (7-attack list logged); GEMINI PASS 5/5/5/5 \u2014 M1 refuted (gate rejects = warn+return, nothing severs transport), M2 refuted (post-accept rebroadcasts fail the epoch+1 outer if -> silent skip), M4 refuted (sim cap shipped S121 scoring.ts), M3 = D4 roster-lifecycle forward-note LOGGED to carry-forwards.",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "src/net/migrationClaim.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/migrationClaim.ts",
-          "needle": "export async function verifyMigrationClaim"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "MIGRATION_CLAIM"
-        },
-        {
-          "type": "file_exists",
-          "path": "src/net/migrationClaim.test.ts"
-        },
-        {
-          "type": "file_exists",
-          "path": "e2e/hostmigration.spec.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "MIGRATION TAKEOVER complete"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/clientHandlers.ts",
-          "needle": "MIGRATION_CLAIM"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/session.ts",
-          "needle": "lastRoster"
-        }
-      ]
+      "verification": []
     },
     {
-      "id": "P3-pulse-cap",
-      "label": "B3 polish: cap green income pulse at KEYSTONE_INCOME_MAX_NEIGHBORS(3) in scoring scan order (render-only) + tests.",
-      "status": "completed",
-      "phase": "COMPLETED",
-      "tier": "Micro",
+      "id": "P3-gc-audit",
+      "label": "10k-frame GC/heap audit (e2e/worker-heap.spec.ts): --expose-gc + window.gc() + performance.memory (CDP optional), TD-heavy seeded world, NON-BOT baseline run FIRST then bots run (Grok ordering kernel), warm-up baseline threshold, assert bounded post-GC growth + record actual numbers; fix any leak found (small, in-scope).",
+      "status": "pending",
+      "phase": "PLAN",
+      "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": true,
+      "check_completed": false,
       "reflexion_entries": [],
-      "checkpoint_commit": "999e530",
-      "real_context_tokens_at_close": 545000,
-      "real_context_pct_at_close": 54.5,
-      "check_method": "P3 pulse cap shipped (999e530). computeKeystonePulses: income hubs get incomeBudget = KEYSTONE_INCOME_MAX_NEIGHBORS(3) decremented in scoring.ts's exact scan order ([fa,fb] then prim.bonds insertion order \u2014 synced rebuild order, cross-peer identical); rigidity uncapped. Render-only, zero determinism/wire cost. +2 tests (4-neighbor Filament -> exactly 3 green in attach order; 4-neighbor Anchor -> 4 gold). vitest 1882/1882; CHECK rode the P2 Triumvirate (GEMINI M4 refuted: the SIM cap has been live since S121 P2 \u2014 this aligns the visual).",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/keystoneTelegraphRenderer.ts",
-          "needle": "incomeBudget"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/keystoneTelegraphRenderer.test.ts",
-          "needle": "lights exactly KEYSTONE_INCOME_MAX_NEIGHBORS"
-        }
-      ]
+      "verification": []
     },
     {
-      "id": "P4-deploy",
-      "label": "Deploy (manual npm run deploy gh-pages branch-mode) + live hash verify + Rule 22 audit.",
-      "status": "completed",
-      "phase": "COMPLETED",
-      "tier": "Micro",
+      "id": "P4-bot-intelligence-research",
+      "label": "OWNER SCOPE AMENDMENT (Rule 16, approved same-message): research + design doc (NO gameplay code) for difficulty-tiered bot GAME KNOWLEDGE: (a) tier-gated combo/recipe books (harder bots know+seek TD structures and godly combos), (b) leader-awareness + raid-the-winner targeting, (c) sacrifice play (delete own constructions when it enables a better combination), (d) how these bind into the existing botBrain/botConfig FSM + determinism constraints. Output: BOT_INTELLIGENCE_DESIGN.md for owner review + Council consideration pass.",
+      "status": "pending",
+      "phase": "PLAN",
+      "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": true,
+      "check_completed": false,
       "reflexion_entries": [],
-      "checkpoint_commit": "999e530",
-      "real_context_tokens_at_close": 560000,
-      "real_context_pct_at_close": 56.0,
-      "check_method": "P4 deploy shipped. npm run deploy (gh-pages branch-mode a321609, classic Pages build -> built); LIVE VERIFIED: spark-online.space serves assets/index-KQaaBM--.js (live==want hash), simWorker chunk HTTP 200 (the ?worker=1 opt-in works on the live site). Deployed content = master 999e530 (P1 82ea2c3 default-OFF worker infra + P2 5f53b3a seam-inert D3 + P3 999e530 live pulse-cap visual). Rule 22 END-OF-SESSION AUDIT: 0 unrendered placeholders in deploy artifacts, 0 new gh issues, pages-build success 24s. FINDING (re-confirms S121 carry): the master-push Deploy-to-GitHub-Pages Action SUCCEEDED AGAIN (48s) \u2014 Actions alive, billing lock likely cleared; BOTH deploy paths (auto + manual) ran and converged this session. OWNER: pick one path (restore Actions mode + retire manual, or disable the workflow).",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "dist/index.html",
-          "needle": "assets/index-KQaaBM--.js"
-        },
-        {
-          "type": "file_exists",
-          "path": "scripts/deploy-pages.sh"
-        }
-      ]
+      "verification": []
     }
   ],
   "carry_forward_priorities": [
+    "Bit-exact bot serialization (Council S123 (B) kernel): expose mulberry32 word + serialize BotController FSM ONLY IF replay/rewind/spectator-of-bot-internal-state ever ships (YAGNI now; differential gate is fresh-vs-fresh so (A) is sound).",
     "D4 (host-mig hardening): zombie demotion, claim-timeout/next-successor fallback, POSTGAME/WIN interactions, LOCKED ledger amendments (13.7/13.20/epoch), PROTOCOL_VERSION bump ships with activation.",
-    "Worker-mode contingency ladder if ROI v2 fails post-ship: positions-only per-frame apply + 10Hz full apply -> transferable ArrayBuffer format. SAB unavailable on GH Pages (COOP/COEP) unless coi-serviceworker shim adopted (owner call).",
-    "Grok ADD: CI 2-browser migration + hash-equality lane once owner confirms Actions/billing unlocked.",
-    "F9 INTENT token-bucket; F10 Pixi-leak heap probe (UNVERIFIED).",
-    "Owner: verify GitHub Actions/billing lock status (S121 finding: Actions succeeded).",
-    "D4 addition (GEMINI S122 CHECK M3): at default-on, the reconnect-vs-migration reconciliation must also keep session.lastRoster alive through the loss window (teardown lifecycle) \u2014 the D3 seam suppression papers over this in tests only."
+    "D4 addition (GEMINI S122 CHECK M3): at default-on, reconnect-vs-migration reconciliation must keep session.lastRoster alive through the loss window (teardown lifecycle).",
+    "F9 INTENT token-bucket; F10 Pixi-leak heap probe (P3 this session partially covers F10's worker side).",
+    "Grok ADD (S122): CI 2-browser migration + hash-equality lane once owner confirms Actions path decision.",
+    "OWNER: pick ONE deploy path (Actions auto vs manual gh-pages) — both ran S122 and converged; dual-writer race pending.",
+    "OWNER: weak-device playtest of spark-online.space/?worker=1 (gates the default-on flip).",
+    "Worker known-deltas (S122, documented): window e2e seams don't reach the worker (spawn rate rides INIT); DEV restoreWorld acts on the mirror; overlay abort-vs-fade pop under lag+catchup (GEMINI M3, cosmetic)."
   ],
-  "reflexion_entries_to_archive": [
-    "S122-P1 #cross-check-oracle-catches-your-own-layer: the mirror-vs-worker hashWorldState oracle's first live catch was MY OWN prediction layer (drag-preserve restore ran before the hash -> 6 mismatches), not the apply path. Order integrity checks to validate EXACTLY the layer under test (apply), before deliberate divergences (prediction/UX) re-enter. An oracle that fires on designed divergence trains people to ignore it.",
-    "S122-P1 #measure-first-changed-the-design: the pre-registered ROI rule v2 FAILED on the TD-heavy re-measure (structuredClone p95 10.1ms @6x \u2014 5x the stringify cost, refuting the 'simple clone' default BOTH Council seats and I expected to pass) -> the positions-buffer + structural-snapshot format came FROM the measurement, not the deliberation. Pre-registering the rule + the contingency ladder BEFORE measuring made the escalation mechanical instead of a debate.",
-    "S122-P2 #suppress-competing-recovery-paths: the S82 auto-reconnect (transport teardown+rejoin @1s) and the D3 migration grace COMPETE for the same transport \u2014 a survivor mid-reconnect-cycle misses the claim broadcast. Seam-gated suppression + idempotent re-broadcast x5 made the e2e deterministic. When two recovery protocols share a resource, serialize them explicitly; do not let timers interleave.",
-    "S122 #both-deploy-paths-ran: with Actions back alive, the master-push auto-deploy AND the manual gh-pages force-push both deployed the same session \u2014 they converged harmlessly this time, but dual-writer deploy paths are a race waiting for a divergence. Surface the owner decision at every close until one path is retired.",
-    "S122 #feed-platform-constraints-into-council-prompts: BOTH Council seats bet R1 architecture on SharedArrayBuffer without knowing the deploy target (GH Pages) cannot set COOP/COEP headers. A 5-line PLATFORM CONSTRAINTS block in the R1 prompt (hosting, headers, worker/SAB availability, bundle charter) would have redirected both seats' effort to viable alternatives. Adopted for the S123 PDR template."
-  ],
-  "session_status": "S122 COMPLETE - 4/4 shipped (P1 82ea2c3 worker cutover, P2 5f53b3a hostmig D3, P3 999e530 pulse cap, P4 live). ANALYZE + handoff next.",
+  "reflexion_entries_to_archive": [],
+  "session_status": "S123 EXECUTING - P1 worker-bots in progress (batch: P1 worker-bots, P2 duel e2e, P3 GC audit, P4 bot-intelligence research).",
   "totals": {
     "turns": 0,
     "budget_remaining": 1000000,
     "budget_status": "GREEN"
-  },
-  "analyze_completed": true,
-  "analyze_result": "S122 ANALYZE (3-seat). ZERO: 4/4 shipped at 56% context; scope discipline held (F9/F10 + VS-BOTS worker + networked worker duel deferred whole, never half-shipped); the two arc keystones (B2-d, hostmig-D3) landed with first-run-green hard gates. GROK: disruption adoption ~10% but the one adoption was CRITICAL-class (allocator repair); recommends (1) auto-escalate hash-oracle/ordering-class findings to mandatory repro before refute, (2) PRE-FLIGHT PLATFORM-CONSTRAINT VALIDATION for Council seats (both seats bet on SAB without knowing GH Pages can't set COOP/COEP \u2014 feed platform constraints into R1 prompts; ADOPTED for S123 PDR template), (3) track refuted-then-confirmed rate <15%. GEMINI: measurement-first vindicated (its own GC/alloc critique became ROI rule v2 which then failed honestly); calibration self-note \u2014 with a differential gate + live oracle present, weight static edge-case theorizing lower; S123 quality risks = worker default-on (fallback latency, frame-0 init races, 10k-frame GC creep) + D4 dirty paths (death-during-handshake, asymmetric partitions). Calibration: Grok 1 adopted / ~10; Gemini 1 forward-note adopted / 8; both PLAN R1 architecture counter-proposals refuted on platform grounds but their measurement skepticism was load-bearing."
+  }
 }

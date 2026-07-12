@@ -41,6 +41,7 @@ import {
 // click, the manager on match start. Type-only imports are erased at compile.
 import type { BotSetupOverlay } from './render/botSetupOverlay.ts';
 import type { BotManager } from './bots/botManager.ts';
+import type { BotDifficulty } from './bots/botTypes.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from './game/spawner.ts';
 import { Controls, type ControlsDispatchFn } from './input/controls.ts';
 // S50 P2 — NetTransport / HostSync / ClientSync / generateRoomCode no longer
@@ -388,6 +389,14 @@ async function bootstrap(): Promise<void> {
   let simWorkerDriver: SimWorkerDriver | null = null;
   // One-shot latch for the worker-failure → direct-resume allocator repair (see below).
   let workerFallbackRepaired = false;
+  // S123 P1 — VS-BOTS worker support: the bot config captured at match start (the same
+  // difficulties + matchSeed main's own BotManager was built from), so the worker can
+  // construct ITS authoritative BotManager fresh-from-seed at adoption (Council S123
+  // design (A)). Null outside a bots match; cleared by the *→TITLE watcher.
+  let workerBotInit: {
+    difficulties: readonly BotDifficulty[];
+    matchSeed: number;
+  } | null = null;
   const workerSimActive = (): boolean =>
     simWorkerDriver !== null && !simWorkerDriver.failed;
 
@@ -635,6 +644,9 @@ async function bootstrap(): Promise<void> {
               // play vary each match (was the fixed boot SEED → identical every time).
               const matchSeed = reseedForNewMatch();
               botManager = new mod.BotManager(difficulties, matchSeed);
+              // S123 P1 — capture the exact ctor inputs for the sim worker's INIT
+              // (fresh-from-seed reconstruction at adoption; Council S123 design (A)).
+              workerBotInit = { difficulties: [...difficulties], matchSeed };
               botSetupOverlay?.setVisible(false);
               dispatch(world, {
                 type: 'START_GAME',
@@ -843,6 +855,8 @@ async function bootstrap(): Promise<void> {
       get lobbyScreen() { return lobbyScreen; },
       get titleScreen() { return titleScreen; },
       // S87 — VS-BOTS e2e probes: setup-overlay geometry/state + live manager.
+      // S123 P1 — in worker mode this manager is FROZEN (the worker owns the
+      // authoritative bots); e2e asserts bot-authored WORLD changes instead of FSM labels.
       get botSetupOverlay() { return botSetupOverlay; },
       get botManager() { return botManager; },
       // S119 P2 — live snapshot-cost aggregate (build vs send split; see the
@@ -1327,6 +1341,8 @@ async function bootstrap(): Promise<void> {
         // S87 — drop the bot manager with the match (pure decision state; the
         // reducer's RETURN_TO_TITLE already cleared world.botSeats + players).
         botManager = null;
+        workerBotInit = null; // S123 P1 — the worker INIT bot config dies with the match
+
         cutsceneOverlay.abort();
         screenShake.reset();
         // S34 P2-16 — explicit sprite cleanup. The reducer-side
@@ -1377,13 +1393,17 @@ async function bootstrap(): Promise<void> {
     {
       const isClientNow = isNetworked(world) && !world.isHost;
       // Lifecycle: adopt on the host PLAYING path (a few direct frames may run first — the
-      // INIT save carries current state, so the takeover is seamless). VS-BOTS is excluded
-      // in v1 (botManager reconstruction is a logged carry-forward); clients never.
+      // INIT save carries current state, so the takeover is seamless). Clients never.
+      // S123 P1 — VS-BOTS now adopts too (worker reconstructs the BotManager fresh-from-
+      // seed; adoption happens before any bot's first think tick, so there is no decision
+      // state to lose). Fail-safe: a bots match with no captured config (impossible today
+      // — onStart always stashes before START_GAME) stays on the direct path rather than
+      // adopting a worker that would freeze the bots.
       if (
         workerFlagWanted &&
         !isClientNow &&
         world.gameState === 'PLAYING' &&
-        world.botSeats.size === 0 &&
+        (world.botSeats.size === 0 || workerBotInit !== null) &&
         simWorkerDriver === null
       ) {
         console.info('[worker-sim] ?worker=1 — starting the sim worker (experimental, S122).');
@@ -1396,6 +1416,14 @@ async function bootstrap(): Promise<void> {
           // Main's EFFECTIVE rate (includes the e2e __TEST_SPAWN_RATE_PER_SECOND__ seam,
           // which the worker cannot read — window is undefined there).
           ratePerSecond: SPAWN_RATE_PER_SECOND,
+          // S123 P1 — bots match: the worker builds its authoritative BotManager from
+          // the same (difficulties, matchSeed) main's (now-frozen) manager was built from.
+          ...(world.botSeats.size > 0 && workerBotInit !== null
+            ? {
+                botDifficulties: workerBotInit.difficulties,
+                botMatchSeed: workerBotInit.matchSeed,
+              }
+            : {}),
         });
       }
       // Teardown with the match (all *→TITLE paths), mirroring the renderer clears above.

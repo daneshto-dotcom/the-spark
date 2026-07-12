@@ -11,6 +11,11 @@
  * Float64Array is TRANSFERRED (zero-copy) back to main each batch.
  */
 
+// S123 P1 — VS-BOTS worker support. The static import is DELIBERATE and safe HERE (and
+// only here): simWorker.ts is its own Vite worker chunk, so the S87 "bots are a lazy
+// chunk" entry-bundle charter is untouched. workerSim.ts (imported by main.ts) may only
+// type-import BotManager; this entry injects the concrete class via the factory seam.
+import { BotManager } from './bots/botManager.ts';
 import {
   applyTickBatch,
   makeWorkerSim,
@@ -31,7 +36,7 @@ ctx.onmessage = (e: MessageEvent): void => {
   if (msg === null || typeof msg !== 'object') return;
   if (msg.type === 'INIT') {
     try {
-      sim = makeWorkerSim(msg);
+      sim = makeWorkerSim(msg, (difficulties, matchSeed) => new BotManager(difficulties, matchSeed));
       ctx.postMessage({ type: 'READY', tick: sim.world.tick });
     } catch (err) {
       console.error('[simWorker] INIT failed:', err instanceof Error ? err.message : String(err));
