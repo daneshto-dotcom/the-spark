@@ -5,22 +5,26 @@
 
 ---
 
-# STATUS S120 (2026-07-10) — FRONT OF THE LINE: the WORKER-SIM ARC (phases b ✅closed · c in flight · d next)
+# STATUS S123 (2026-07-12) — WORKER DEFAULT-ON: DEV-COMPLETE, OWNER-GATED
 
-> All four S108 playtest batches are SHIPPED (A S109 · B+D S110 · C S113 — queue below kept as history).
-> Deploys are **MANUAL** `npm run deploy` (gh-pages branch-mode, classic Pages builder; the account billing
-> lock keeps Actions dead). spark-online.space serves the **S118** batch. **S119** shipped the worker-sim seam
-> (B2 phase (a) runHostTick extraction + probes). **S120** ran the phase-(b) measurement in a REAL 2-peer duel
-> (`e2e/perf-snapshot.spec.ts`, incl. 6× CPU-throttle window): **NO-GO — phase (b) pooling CLOSED-BY-MEASUREMENT**
-> (build 0.06–0.35 ms avg, send 3–6× build; the "15-spread dominates" claim is refuted; TD-heavy re-measure
-> mandated before phase (d)). Full record: `WORKER_SIM_FOUNDATION.md` § "Phase (b) measurement".
+> **S122** shipped B2 phase (d) — the `?worker=1` cutover (60Hz transferable positions + structural-batch
+> snapshots + hash oracle) AND host-migration D3 (MIGRATION_CLAIM behind `__TEST_MIGRATION__`), both live.
+> **S123** closed the default-on prereqs: **P1** VS-BOTS worker support (fresh-from-seed BotManager via
+> factory seam; bots differential HARD gate byte-identical; e2e green first run — 9f48d50) · **P2** networked
+> worker-duel e2e over real WebRTC (merged cross-mode matrix, remote-INTENT round-trip, 4–30Hz wire-cadence
+> bound — a8e073a) · **P3** dual-isolate 10k-tick GC audit (stabilized floors + raw-CDP worker-heap reads:
+> **NO LEAK either isolate**, ~20k-tick oracle soak clean — c0eca11) · **P4** `BOT_INTELLIGENCE_DESIGN.md`
+> (owner amendment: tiered bot game-knowledge, Council-hardened, 7 owner questions — 3ba5cf3).
+> tsc 0 · vitest 1884/1884 · bundle 635.5/750 · **the ONLY remaining default-on gate is the owner's
+> weak-device playtest of spark-online.space/?worker=1.**
 >
 > **NEXT BIG ROCKS (in order):**
-> 1. **B2 phase (c)** — collision-grid rebuild hoist 64→8/tick (+ 8-bit cellKey bounds assert), double-locked by the S107 + S119 gates + the S120 dense-pile hardening test.
-> 2. **B2 phase (d)** — `?worker=1` flag-gated cutover (intents in / snapshots out + `hashWorldState` cross-check). Honor the godly-matcher per-frame cadence CONTRACT; run the TD-heavy probe re-measure (longtask observation) for the serialization-format ROI call (WORKER_SIM_FOUNDATION.md).
-> 3. **Host-migration D3** — MIGRATION_CLAIM takeover on the D2 detection layer (carry: transport-grounded alive set + D4 epoch rules).
-> 4. **B3 follow-ups** — Keystone rigidity VFX telegraph + income-based 2nd symbiotic combo (owner-taste: spike + show first).
-> Owner-gated: F9 INTENT token-bucket (before public matchmaking) · F10 Pixi-leak heap probe · G1b MOTION verb · G2 family traits · clear the billing lock to restore Actions.
+> 1. **OWNER:** weak-device `?worker=1` playtest (flips default-on) · answer `BOT_INTELLIGENCE_DESIGN.md` §7 (Q1–Q7) · pick ONE deploy path (Actions auto vs manual gh-pages — both ran S122).
+> 2. **Worker default-on flip** (once playtest passes): remove the flag gate + fallback-latency telemetry (GEMINI S123 risk: message-queue depth assert).
+> 3. **Host-migration D4** — zombie demotion, claim-timeout, simultaneous-claim demotion, POSTGAME/WIN, LOCKED amendments, PROTOCOL bump, reconnect reconciliation + lastRoster lifecycle (+ GEMINI S123: pause-and-buffer during the migration window).
+> 4. **Bot-intelligence Phase A** (after owner answers): knowledge book + combo-aware pick/placement + raid w/ 1-raider cap — Standard tier, no new FSM.
+> 5. **B2 phase (c)** — collision-grid rebuild hoist 64→8/tick (still open; jumped by (d) — now worker-side, gates still lock it).
+> Owner-gated: F9 INTENT token-bucket (before public matchmaking) · G1b MOTION verb · G2 family traits. (F10 heap probe: worker side CLOSED by S123 P3; Pixi/render side remains.)
 
 ---
 

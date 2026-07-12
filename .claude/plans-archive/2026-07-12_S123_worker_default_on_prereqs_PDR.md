@@ -1,3 +1,5 @@
+STATUS: COMPLETED (S123 — all 4 priorities shipped: 9f48d50, a8e073a, c0eca11, 3ba5cf3)
+
 # PDR — S123: Worker Default-On Prerequisites (Full tier, batch)
 
 **Session:** S123 · **Tier:** Full (>30K; batch → highest tier) · **Owner-selected:** "Worker default-on prereqs"

@@ -1,34 +1,35 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-07-11 | Session: S122 (worker cutover + hostmig D3 + pulse cap + deploy — 4/4 SHIPPED + LIVE)
+Generated: 2026-07-12 | Session: S123 (worker default-on prereqs + bot-intelligence design — 4/4 shipped)
 
 ## Next Steps
-1. **Owner playtest `?worker=1`** on a weak device — spark-online.space/?worker=1 (the "Player One lags" fix, live opt-in). Default-ON decision gates on this + the S123 items below.
-2. **Worker default-on prereqs (S123 candidates):** VS-BOTS worker support (botManager reconstruction in INIT) · networked worker-host duel e2e (@quarantine-flaky) · 10k-frame GC-creep audit of the positions-buffer loop (GEMINI ANALYZE risk) · overlay abort-vs-fade pop under lag (M3, cosmetic).
-3. **Host-migration D4:** zombie demotion, claim-timeout next-successor, simultaneous-claim demotion, POSTGAME/WIN interplay, LOCKED amendments (§13.7/§13.20/epoch), PROTOCOL_VERSION bump at default-on, reconnect-vs-migration reconciliation + lastRoster/teardown lifecycle (GEMINI M3 note).
-4. **F9** INTENT token-bucket (before public matchmaking); **F10** Pixi-leak long-match heap probe (UNVERIFIED).
-5. **Gated Tier-1 (owner design):** G1b MOTION verb; G2 family traits.
+1. **OWNER (blocks the flip):** weak-device playtest of spark-online.space/?worker=1 — the ONLY remaining default-on gate (S123 closed VS-BOTS worker support, networked-duel e2e, GC audit).
+2. **OWNER:** answer `BOT_INTELLIGENCE_DESIGN.md` §7 (Q1 tier matrix · Q2 raid cap · Q3 reclaim verb · Q4 VOLTKIN chase · Q5 phasing · Q6 starvation · Q7 collateral) → then Bot-intelligence **Phase A** PDR (knowledge book + combo-aware pick/placement + raid, Standard tier, no new FSM).
+3. **OWNER:** pick ONE deploy path (Actions auto vs manual gh-pages — both ran S122; dual-writer race pending).
+4. **Worker default-on flip** (after playtest passes): remove the flag gate + add fallback-latency/message-queue-depth telemetry (GEMINI S123 risk).
+5. **Host-migration D4:** zombie demotion, claim-timeout, simultaneous-claim demotion, POSTGAME/WIN, LOCKED amendments, PROTOCOL bump, reconnect reconciliation + lastRoster lifecycle (+ pause-and-buffer during the migration window — GEMINI S123).
+6. **B2 phase (c)** collision-grid 64→8 hoist (still open, now worker-side); **F9** INTENT token-bucket; **F10** render-side heap probe (worker side CLOSED by S123 P3).
 
 ## Blockers
-- **OWNER DECISION (2 sessions running):** GitHub Actions are ALIVE (master-push deploy succeeded S121 + S122). BOTH deploy paths ran and converged in S122 — dual-writer race waiting to diverge. Pick ONE: restore Actions-mode Pages + retire `npm run deploy`, or disable the workflow.
-- **S123 PDR template addition (ANALYZE-adopted):** feed a PLATFORM CONSTRAINTS block (GH Pages = no COOP/COEP → no SAB; bundle charter; worker availability) into Council R1 prompts — both seats bet on SAB blind in S122.
+- **Owner weak-device `?worker=1` playtest** — gates default-on.
+- **Owner answers to `BOT_INTELLIGENCE_DESIGN.md` §7** — gates bot-intelligence Phase A.
+- **Owner deploy-path decision** (Actions vs manual — both alive since S121/S122).
 
 ## Pending Backlog
-BACKLOG.md uses a STATUS-banner format (no `- [ ]` checkboxes). Front of line per the S120 banner + S122 close: worker default-on track → host-mig D4 → F9/F10. The B2 WORKER-SIM ARC IS COMPLETE (a✅S119 b✅closed-S120 c✅S120 d✅S122); host-mig D1✅S115 D2✅S118 D3✅S122.
+BACKLOG.md uses the STATUS-banner format (no `- [ ]` checkboxes) — updated this session to STATUS S123. Front of line: owner playtest/answers → worker default-on flip → host-mig D4 → bot-intelligence Phase A → B2 phase (c). The B2 WORKER-SIM ARC is dev-complete (a✅S119 · b✅closed-S120 · c open · d✅S122 · **default-on prereqs✅S123**); host-mig D1✅S115 D2✅S118 D3✅S122 (D4 open).
 
 ## Recent Reflexion (last 2 sessions)
 
-## 2026-07-11 — Session 122: 4/4 shipped + live. P1 worker cutover (?worker=1, measured-first — ROI rule FAILED honestly → positions-buffer format; differential HARD gate; hash oracle caught its first real bug = the author's own ordering mistake) 82ea2c3. P2 hostmig D3 (kill-host e2e green FIRST RUN, 3 real peers) 5f53b3a. P3 pulse cap 999e530. P4 live. vitest 1882/1882.
+## 2026-07-12 — Session 123: worker default-on prereqs + owner bot-intelligence amendment, 4/4 shipped. P1 VS-BOTS worker support fresh-from-seed (9f48d50) · P2 networked worker-duel e2e cross-mode (a8e073a) · P3 dual-isolate GC audit no-leak (c0eca11) · P4 BOT_INTELLIGENCE_DESIGN.md (3ba5cf3). tsc 0, vitest 1884/1884, bundle 635.5/750.
 
-- S122-P1 #cross-check-oracle-catches-your-own-layer: order integrity checks to validate EXACTLY the layer under test (apply), before deliberate divergences (prediction/UX) re-enter.
-- S122-P1 #measure-first-changed-the-design: the pre-registered ROI rule + contingency ladder made the escalation mechanical — the positions-buffer format came FROM the measurement, not deliberation.
-- S122-P2 #suppress-competing-recovery-paths: reconnect-cycling and migration grace COMPETE for the transport; serialize recovery protocols explicitly, never let timers interleave.
-- S122 #both-deploy-paths-ran: dual-writer deploy paths converged harmlessly once; surface the owner decision every close until one is retired.
-- S122 #feed-platform-constraints-into-council-prompts: both Council seats bet on SAB without knowing GH Pages can't set COOP/COEP; add a PLATFORM CONSTRAINTS block to R1 prompts (S123 template).
+- S123-P1 #verify-the-gates-mechanism-before-trusting-consensus: BOTH Council seats voted bit-exact serialization on the same claim that "(A) breaks the differential gate" — collapsed on a 10-line read (gate is fresh-vs-fresh, not a handoff). Consensus from a shared unverified premise ≈ 1 seat; read the test before the vote.
+- S123-P2 #probe-the-pipeline-before-blaming-the-new-layer: worker-duel red (joiner sparks=0) was e2e-environment starvation (fps-capped sim × 0.15/s spawn = 1 spark/18s), NOT the wire — host+joiner were in perfect lockstep. Measure the substrate rate first; sibling specs' spawn-seam convention was the fix.
+- S123-P3 #a-suspicious-pass-is-a-finding: the v1 heap audit "passed" at −39MB growth = instrument indictment (unsettled floor + wrong isolate). Record the actuals a threshold consumes; probe what the platform DOES expose (Chromium /json/list lists worker targets → 25-line raw-CDP read).
+- S123-P4 #fix-degeneracy-by-sequencing-not-by-knobs: sacrifice-thrash + raid-dogpile both dissolved under sequencing constraints (in-hand-only sacrifice; pure-function designated raider) instead of tuned cooldowns/quotas. Make the bad interleaving unrepresentable, don't damp it.
 
-## 2026-07-10 — Session 121: B3 symbiotic batch (4 priorities, all live) — telegraph 1ba7cdc, income keystone c77a817, deploy, codex coherence 87cdc35.
+## 2026-07-11 — Session 122: 4/4 shipped + live. P1 worker cutover (?worker=1, measured-first) 82ea2c3 · P2 hostmig D3 (kill-host e2e green first run, 3 real peers) 5f53b3a · P3 pulse cap 999e530 · P4 live. vitest 1882/1882.
 
-- S121-P1 #telegraph-cross-peer-by-derivation: recompute ephemeral host quantities from synced inputs render-side; never sync the derived value.
-- S121-P2 #income-keystone-replay-self-consistent-not-byte-identical: check whether replay tests are self-consistency vs golden BEFORE assuming a scoring change needs fixture regen.
-- S121 #council-plan-value-check-value-refute: 10th #empirical-refutes-plausible-criticals — verify determinism criticals against language semantics + the passing suite before conceding.
-- S121-P4 #copy-budgets-beat-fit-guards: kill text-overflow at authoring time with tested char budgets; fitText is only the net.
-- S121-P4 #placeholder-art-is-a-liability: prefer procedural representations derived from game truth over borrowed art; encode coherence as a test.
+- S122-P1 #cross-check-oracle-catches-your-own-layer: order integrity checks to validate EXACTLY the layer under test before deliberate divergences re-enter.
+- S122-P1 #measure-first-changed-the-design: the pre-registered ROI rule + contingency ladder made escalation mechanical — the positions-buffer format came FROM the measurement.
+- S122-P2 #suppress-competing-recovery-paths: serialize recovery protocols sharing a transport; never let timers interleave.
+- S122 #both-deploy-paths-ran: dual-writer deploys converged harmlessly once; surface the owner decision until one is retired.
+- S122 #feed-platform-constraints-into-council-prompts: PLATFORM CONSTRAINTS block in R1 prompts — APPLIED S123, worked (zero SAB bets this session).
