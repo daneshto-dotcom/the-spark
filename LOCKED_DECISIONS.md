@@ -623,9 +623,13 @@ chosen over PeerJS (multi-strategy fallback negates rate-limit concern);
 - **AttractDrag client latency** (~RTT/2 sluggish). Client doesn't run
   physics — local cursor + spark visuals lag until host snapshot returns.
   S16 prediction work plan.
-- **No host-migration.** Connection drop → "Connection lost" overlay →
+- ~~**No host-migration.** Connection drop → "Connection lost" overlay →
   both players must return to title + reconnect with new room code.
-  Grok R2 advocated mandatory one-line stub; Gemini R2 (adopted) deferred.
+  Grok R2 advocated mandatory one-line stub; Gemini R2 (adopted) deferred.~~
+  **S124 P1 AMENDMENT (D4 production-ON):** host-page death no longer ends a warranted
+  multiplayer match — after the reconnect grace, the lowest warranted transport-alive
+  seat claims authority (MIGRATION_CLAIM ladder) and the match continues at epoch+1.
+  See §13.21 for the locked semantics.
 - **Tab-hidden host pause.** Pixi animation pauses when host's tab
   hides → sim freezes → client sees stale snapshots until tab refocused.
 - **Save format break.** Pre-S15 saves rejected gracefully (gameMode +
@@ -637,10 +641,14 @@ chosen over PeerJS (multi-strategy fallback negates rate-limit concern);
   the client auto-rejoins the same room (same page ⇒ same Trystero selfId ⇒ the host's
   frozen peerId→seat map re-binds; latch + ClientSync watermark survive; next 10Hz
   snapshot restores state). e2e/reconnect.spec.ts (@quarantine-flaky) proves it over
-  real WebRTC. HOST-page death remains fatal (host-migration still deferred — the
-  world state lives in the host page; see backlog carry-forward). Mid-game peer drops
+  real WebRTC. ~~HOST-page death remains fatal~~ **S124 P1: host-page death now
+  migrates** (§13.21) — the grace window doubles as the migration window (no transport
+  tearing while the mesh survives; the reconnect-cycle runs only when OUR OWN transport
+  died, peerCount === 0). Mid-game peer drops
   past a 3s grace no longer ghost: the host benches them via a rolling 2s re-stamp
-  (`BENCH_OFFLINE_PLAYER`) that self-heals on rejoin (S82 P4(c)).
+  (`BENCH_OFFLINE_PLAYER`) that self-heals on rejoin (S82 P4(c)); after a migration the
+  successor rebuilds hostSeats from the FULL Begin roster minus itself, so the dead
+  host's own seat flows into the same sweep instead of ghosting.
 
 ### 13.8 Constants (src/constants.ts)
 - `NET_SNAPSHOT_HZ = 10`
@@ -1169,6 +1177,56 @@ Constants (`src/constants.ts`):
   e2e generate→attest→verify + all tamper rejections, allowlist, drop-bench reducer);
   clientHandlers.test.ts rewritten to the v2 latch contract (race-is-dead case);
   e2e/reconnect.spec.ts real-WebRTC blip recovery (@quarantine-flaky, verified locally).
+- **S124 P1 ADDENDUM — the SuccessionWarrant is SANCTIONED delegation of this clause's
+  authority.** The room-code key commitment never changes and never transfers; what a
+  migration transfers is the right to SIMULATE, through a signature chain rooted in the
+  commitment: the ORIGINAL host signs the warrant at Begin (roomCode ‖ epoch ‖ ordered
+  seat→pubkey list), and a successor proves itself by signing its claim with a key the
+  warrant names, bound to its own transport peerId. No TOFU re-latch, no code rotation —
+  the S79/S82 trust posture holds end-to-end through any number of successions (§13.21).
+
+### 13.21 Host-migration epoch semantics (S124 P1 NEW; Full-tier Council R1+R2 + PRIME-AUDIT)
+
+PROTOCOL_VERSION 14→15; `window.__TEST_MIGRATION__` is a TIMING override only (never an
+activation gate). The locked rules:
+
+- **Epochs are monotonic terms.** Epoch 0 = the original host; every accepted
+  MIGRATION_CLAIM advances the receiver to the claim's epoch. Acceptance is
+  MONOTONIC-FORWARD (`epoch > current`), NOT strict +1 — a survivor that slept through N
+  migrations converges on the current term via the claim echo. Reset only at teardown /
+  match end.
+- **Epoch advances require locally-observed host loss** (transport peer-left OR ≥6s
+  snapshot starvation) — a claim arriving while the receiver's current-term host is
+  healthy is replay/grief and drops (S122 Council L3, generalized). Same-epoch
+  reconciliation (below) needs no such observation.
+- **The claim ladder replaces the exact-successor gate.** Rank k of the warranted ∩
+  transport-alive seat order fires at grace + k·`CLAIM_LADDER_MS` (1500ms; rank 0 ≡ the
+  D3 timing). A wedged-but-alive rank-0 is overtaken one rung later — the stuck-successor
+  deadlock is structurally dead.
+- **Lowest-seat-wins.** Simultaneous claims at one epoch converge downward: survivors
+  re-latch to a verified LOWER-seat claim at the same epoch (never upward); a
+  losing adopter demotes to client toward the winner (isHost off, HostSync dropped,
+  one-shot claim latch + ClientSync seq watermark reset — `setEpoch` on an advance
+  resets the watermark so the new term's first snapshot is admitted by construction).
+- **Zombie demotion, v1 = terminal overlay.** A deposed prior-term host demotes on a
+  VERIFIED claim at a higher epoch, PLUS local partition evidence (a main-loop freeze ≥
+  the starvation window, or a total peer wipe-out, within a 60s TTL) — a healthy host can
+  NEVER be deposed by a bare signed claim (anti-grief; PRIME-AUDIT addition). The
+  original host routes to the connection-lost overlay (auto-rejoin-as-client = v2). The
+  migrated host answers stale-epoch snapshots and peer joins with a rate-limited (≥5s)
+  re-send of its own signed claim (the echo — only the original claimant's re-send can
+  verify, so the echo is replay-proof by construction). Unsigned snapshots never demote.
+- **The migration window is PAUSE-ONLY.** While a warranted survivor observes host loss,
+  local gameplay intents are neither optimistically applied nor sent (buffering REJECTED
+  by Council: a ≥15s-stale intent materializing on a reseeded world is worse UX than the
+  in-flight loss the design already accepts). The overlay shows MIGRATING… with the
+  ladder-deadline countdown; the transport is never torn while the mesh survives.
+- **Fail-closed intent stamping (BOTH host paths).** An INTENT from a peer absent from
+  the seat map DROPS (+raceRejects) — the S62 "unknown peer → apply as-is" leniency is
+  closed on the original host and the successor (`stampOrReject`).
+- **Tests:** hostmigD4.test.ts (ladder matrix, acceptance decisions, stamping, watermark
+  reset, dead-host-seat bench sweep); e2e/hostmigration.spec.ts test 2 = NO-seam
+  production activation under the real 15s grace (@quarantine-flaky).
 
 ---
 

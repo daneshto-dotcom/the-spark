@@ -27,8 +27,8 @@ const beginSignal = (extra: Record<string, unknown> = {}) => ({
 const validWarrant = { epoch: 0, seats: [{ seat: 1, spkiB64: 'pk' }], sigB64: 'sig' };
 
 describe('S118 P1 — D2 wire: HELLO clientPubkeyPopB64 (additive-optional)', () => {
-  it('protocol version held at 14 (no wire-breaking bump)', () => {
-    expect(PROTOCOL_VERSION).toBe(14);
+  it('protocol version is 15 after the S124 D4 production-ON bump (D2 itself added no wire-breaking field)', () => {
+    expect(PROTOCOL_VERSION).toBe(15);
   });
 
   it('buildHello threads pubkey + PoP together; the message parses', () => {

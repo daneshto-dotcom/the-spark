@@ -23,3 +23,17 @@ import type { PlayerId } from '../types.ts';
 export function stampSenderSeat(action: GameAction, seat: PlayerId): GameAction {
   return 'playerId' in action ? ({ ...action, playerId: seat } as GameAction) : action;
 }
+
+/**
+ * S124 P1 (host-migration D4) — FAIL-CLOSED stamping: an INTENT from a peer with no seat
+ * assignment returns null (caller drops + counts raceRejects). Replaces the S62 "unknown peer →
+ * apply as-is" leniency on BOTH host paths (original + migrated successor): that fallthrough
+ * honored a wire-claimed playerId, letting any swarm-joiner spoof an arbitrary seat mid-match
+ * (S124 Council R1 GEMINI "identity theft", provenance corrected to pre-existing). Safe to
+ * close: every legitimate sender is in the roster-derived seat map from Begin, and an in-page
+ * reconnect keeps its Trystero selfId, so the frozen map re-binds it — there is no honest
+ * unknown-peer INTENT flow.
+ */
+export function stampOrReject(action: GameAction, seat: PlayerId | undefined): GameAction | null {
+  return seat === undefined ? null : stampSenderSeat(action, seat);
+}

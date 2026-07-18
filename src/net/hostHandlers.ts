@@ -26,13 +26,15 @@ import {
   type RosterEntry,
 } from './protocol.ts';
 import { verifyPubkeyPop, type HostIdentity } from './hostIdentity.ts';
+import { verifyMigrationClaim } from './migrationClaim.ts';
+import type { MigrationClaimMsg } from './protocol.ts';
 import { signWarrant, type WarrantSeat } from './successionWarrant.ts';
 import { reconcileLobbySeats, buildMatchRoster } from './lobbyRoster.ts';
 import { broadcastQmPresence, maybeQmAutoBegin } from './quickmatchGate.ts';
 import type { NetSession } from './session.ts';
 import { NetTransport, selfId } from './transport.ts';
 import { dispatch, type GameAction as GameActionForIntent, type World } from '../state/world.ts';
-import { stampSenderSeat } from './intentStamp.ts';
+import { stampOrReject } from './intentStamp.ts';
 import { asPlayerId, type PlayerId } from '../types.ts';
 import { PLAYER_COLORS, MAX_PLAYERS } from '../constants.ts';
 
@@ -172,6 +174,24 @@ export interface HostStartDeps {
    * behind the ?worker=1 flag (the mirror world must never apply intents authoritatively).
    */
   dispatchAction?: (action: GameActionForIntent) => void;
+  /**
+   * S124 P1 (host-migration D4) — ZOMBIE DEMOTION sink. Fired when a VERIFIED MIGRATION_CLAIM
+   * at an epoch STRICTLY ABOVE this host's current term arrives (the match migrated around a
+   * frozen/partitioned "us"; the claim chains to the warrant WE signed at Begin, so it is
+   * cryptographically ours to trust). main.ts wires it to the demote core (stop simulating,
+   * stop the sim worker if active, route to the v1 connection-lost overlay — design §5).
+   */
+  onDeposed?: (claim: MigrationClaimMsg, fromPeerId: string) => void;
+  /**
+   * S124 P1 (host-migration D4) — anti-grief gate for onDeposed (PRIME-AUDIT addition, not in
+   * the Council rounds): a HEALTHY host must never be deposable by a single malicious warranted
+   * client signing a claim. A LEGITIMATE migration requires ≥ grace (~15s) of this host's
+   * silence, which is only possible if this page was frozen (rAF gap ≥ starvation) or fully
+   * partitioned (peer wipe-out episode). main.ts tracks that evidence; without it a verified
+   * claim is logged + REFUSED (fail-closed toward staying host — survivors that migrated ignore
+   * us regardless via hostAuthFilter + epoch gate, so a wrong refusal only affects our own UI).
+   */
+  hasPartitionEvidence?: () => boolean;
 }
 
 export function createHostStartHandler(deps: HostStartDeps): () => string {
@@ -284,12 +304,59 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
         // (peerId→seat), overriding whatever the wire claimed. Anti-collision/
         // anti-spoof: a client can only act as its own seat, so two clients
         // can't both drive seat 1 and no client can move another player.
-        // Unknown peer (no seat yet / legacy 2-player) → apply as-is.
-        const seat = deps.session.hostSeats.get(peerId);
-        const action = seat !== undefined ? stampSenderSeat(msg.action, seat) : msg.action;
+        // S124 P1 (D4) — unknown peer → DROP fail-closed (was: apply as-is, an S62
+        // "legacy 2-player" leniency that let ANY swarm-joiner mid-match spoof an
+        // arbitrary playerId — S124 Council R1 GEMINI "identity theft", provenance
+        // corrected to pre-existing). Safe: every legitimate sender is in hostSeats
+        // from Begin, and an in-page reconnect keeps its Trystero selfId, so the
+        // frozen map re-binds it; there is no honest unknown-peer INTENT flow.
+        const action = stampOrReject(msg.action, deps.session.hostSeats.get(peerId));
+        if (action === null) {
+          deps.world.diagnostics.raceRejects++;
+          console.warn(`[net] dropped INTENT from unseated peer ${peerId} (no hostSeats entry)`);
+          return;
+        }
         // S122 P1 — worker mode routes the authoritative apply to the sim worker.
         if (deps.dispatchAction !== undefined) deps.dispatchAction(action);
         else dispatch(deps.world, action);
+      }
+      // S124 P1 (host-migration D4) — ZOMBIE DEMOTION receive path. If a VERIFIED claim at an
+      // epoch above our term reaches us while we still think we are the PLAYING host, the match
+      // has migrated around us (we were frozen/partitioned past the survivors' grace). Verify
+      // against the warrant WE signed at Begin (stored in session.warrant), demand local
+      // partition evidence (anti-grief — see HostStartDeps.hasPartitionEvidence), then hand off
+      // to main.ts. Apply-time re-check inside the async continuation (same posture as the
+      // client-side acceptance re-check).
+      if (
+        msg.kind === 'MIGRATION_CLAIM' &&
+        deps.onDeposed !== undefined &&
+        deps.world.isHost &&
+        deps.world.gameState === 'PLAYING' &&
+        deps.session.warrant !== null &&
+        deps.session.roomCode !== null &&
+        msg.epoch > deps.session.currentEpoch
+      ) {
+        const claim = msg;
+        const warrant = deps.session.warrant;
+        const roomCode = deps.session.roomCode;
+        void verifyMigrationClaim(claim, warrant, roomCode, peerId).then((ok) => {
+          if (!ok) {
+            console.warn('[net] host received MIGRATION_CLAIM that failed verification — ignored', {
+              seat: claim.seat, epoch: claim.epoch, from: peerId,
+            });
+            return;
+          }
+          if (!deps.world.isHost || claim.epoch <= deps.session.currentEpoch) return;
+          if (deps.hasPartitionEvidence !== undefined && !deps.hasPartitionEvidence()) {
+            console.warn(
+              '[net] verified MIGRATION_CLAIM at higher epoch but NO local partition evidence — ' +
+              'refusing demotion (anti-grief gate); survivors that migrated ignore us regardless',
+              { seat: claim.seat, epoch: claim.epoch },
+            );
+            return;
+          }
+          deps.onDeposed?.(claim, peerId);
+        });
       }
       // S87 P4 — QUICKMATCH readiness from a joiner. Recorded by TRANSPORT
       // peerId (never a wire-claimed identity — same anti-spoof posture as

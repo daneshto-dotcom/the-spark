@@ -17,9 +17,10 @@ import type { NetSession } from './session.ts';
 import type { HostAttest, NetMessage, RosterEntry } from './protocol.ts';
 import { verifyHostAttest, buildPubkeyPopPayload, type PeerIdentity } from './hostIdentity.ts';
 import { verifyWarrant } from './successionWarrant.ts';
-// S122 P2 (host-migration D3) — claim verification + the transport-grounded alive set.
-import { computeAliveSeats, verifyMigrationClaim } from './migrationClaim.ts';
-import { computeSuccessorSeat, isSnapshotStarved, HOST_STARVATION_MS } from './succession.ts';
+// S122 P2 (host-migration D3) / S124 P1 (D4) — claim verification; the D3 exact-successor
+// gate (computeAliveSeats/computeSuccessorSeat) was retired by the D4 claim ladder + b′.
+import { verifyMigrationClaim } from './migrationClaim.ts';
+import { claimAcceptDecision, isSnapshotStarved, HOST_STARVATION_MS } from './succession.ts';
 import { NetTransport, selfId } from './transport.ts';
 import type { Controls } from '../input/controls.ts';
 import { dispatch, type World } from '../state/world.ts';
@@ -303,19 +304,27 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
       if (msg.kind === 'LOBBY_PRESENCE' && deps.world.gameState === 'LOBBY') {
         deps.onPresence(msg.roster);
       }
-      // S122 P2 (host-migration D3) — a MIGRATION_CLAIM from a warranted survivor.
-      // SEAM-GATED (window.__TEST_MIGRATION__ must be present — D3 never activates in
-      // production) + Council-hardened acceptance gates, ALL required:
+      // S122 P2 (host-migration D3) / S124 P1 (D4 — PRODUCTION-ON) — a MIGRATION_CLAIM from a
+      // warranted survivor. The D3 __TEST_MIGRATION__ seam is now a TIMING OVERRIDE only
+      // (starvationMs for e2e), no longer an activation gate. Acceptance gates, ALL required:
       //   (a) a verified warrant is stored (set exclusively after verifyWarrant at Begin);
-      //   (b) the claimed term is EXACTLY currentEpoch + 1 (replays at other terms drop);
-      //   (c) this client is itself OBSERVING host loss (starvation or transport peer-left)
-      //       — a claim arriving while the host is healthy is ignored (kills healthy-state
-      //       replay, S122 Council L3);
-      //   (d) the claimed seat is the lowest warranted TRANSPORT-ALIVE seat per OWN view;
+      //   (b′) the claimed term MOVES US FORWARD: epoch > currentEpoch (monotonic — a rejoiner
+      //        that missed N migrations still converges on the current term via the claim echo),
+      //        OR epoch === currentEpoch with a LOWER seat than the latched claimant
+      //        (lowest-seat-wins reconciliation of ladder races — downward only, never up);
+      //   (c) for an epoch ADVANCE: this client is itself OBSERVING host loss (starvation or
+      //       transport peer-left) — a claim arriving while the current-term host is healthy is
+      //       ignored (kills healthy-state replay, S122 Council L3). A SAME-epoch downward
+      //       re-latch needs no host-loss: it is pure reconciliation inside an already-migrated
+      //       term, and only the genuinely warranted lower seat can produce it (sender-binding);
+      //   (d) DELETED in D4 (was: exact computeSuccessorSeat match) — the claim LADDER
+      //       (succession.ts computeClaimDelayMs) + (b′) replace it: a wedged-but-transport-alive
+      //       rank-0 no longer deadlocks the match (S124 Council R1 both-seat CONFIRMED);
       //   (e) the signature verifies under the warranted pubkey for that seat, bound to the
-      //       SENDER's transport peerId (verifyMigrationClaim).
-      // On accept: re-latch host identity to the claimer + raise the epoch fence. The
-      // successor's +MIGRATION_SEQ_JUMP snapshots then pass the seq gate and PLAYING resumes.
+      //       SENDER's transport peerId (verifyMigrationClaim — relays/replays cannot verify);
+      //   (f) gameState === 'PLAYING' (a concluded match never migrates — POSTGAME/WIN hold).
+      // On accept: re-latch host identity + raise the epoch fence + record the latched claim seat.
+      // The successor's +MIGRATION_SEQ_JUMP snapshots then pass the seq gate and PLAYING resumes.
       if (msg.kind === 'MIGRATION_CLAIM' && !deps.world.isHost) {
         const seam = (typeof window !== 'undefined'
           ? (window as { __TEST_MIGRATION__?: { starvationMs?: number } }).__TEST_MIGRATION__
@@ -324,28 +333,24 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
         const warrant = deps.session.warrant;
         const clientSync = deps.session.clientSync;
         if (
-          seam !== undefined &&
           warrant !== null &&
           transport !== null &&
           clientSync !== null &&
-          msg.epoch === deps.session.currentEpoch + 1
+          deps.world.gameState === 'PLAYING'
         ) {
+          const sess = deps.session;
           const alivePeers = new Set(transport.peerIds());
-          const starvMs = seam.starvationMs ?? HOST_STARVATION_MS;
+          const starvMs = seam?.starvationMs ?? HOST_STARVATION_MS;
           const lastAccepted = clientSync.lastAcceptedAt();
           const hostGone =
-            (deps.session.hostPeerId !== null && !alivePeers.has(deps.session.hostPeerId)) ||
+            (sess.hostPeerId !== null && !alivePeers.has(sess.hostPeerId)) ||
             (lastAccepted > 0 && isSnapshotStarved(performance.now(), lastAccepted, starvMs));
-          const roster = deps.session.lastRoster ?? [];
-          const aliveSeats = computeAliveSeats(
-            roster,
-            alivePeers,
-            deps.world.localPlayerId as number,
+          const decision = claimAcceptDecision(
+            msg.epoch, msg.seat, sess.currentEpoch, sess.latchedClaimSeat, hostGone,
           );
-          const expectedSuccessor = computeSuccessorSeat(warrant, aliveSeats);
-          if (hostGone && expectedSuccessor === msg.seat) {
+          if (decision !== 'reject') {
             const claim = msg;
-            const roomCode = deps.session.roomCode;
+            const roomCode = sess.roomCode;
             if (roomCode !== null) {
               void verifyMigrationClaim(claim, warrant, roomCode, peerId).then((ok) => {
                 if (!ok) {
@@ -354,18 +359,30 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
                   });
                   return;
                 }
-                deps.session.hostPeerId = peerId;
-                deps.session.hostVerifiedPeerId = peerId;
-                deps.session.currentEpoch = claim.epoch;
-                deps.session.clientSync?.setEpoch(claim.epoch);
+                // APPLY-TIME RE-CHECK (async-verify reorder guard): two claims can verify
+                // concurrently; the LATER-resolving one must not overwrite a better latch
+                // (e.g. seat-2's verify resolving after seat-1 already latched at the same
+                // epoch). Re-evaluate forwardness against CURRENT session state (hostGone was
+                // required at gate time; forwardness is what protects the latch here).
+                const still = claimAcceptDecision(
+                  claim.epoch, claim.seat, sess.currentEpoch, sess.latchedClaimSeat, true,
+                );
+                if (still === 'reject' || deps.world.isHost) return;
+                sess.hostPeerId = peerId;
+                sess.hostVerifiedPeerId = peerId;
+                sess.currentEpoch = claim.epoch;
+                sess.latchedClaimSeat = claim.seat;
+                sess.clientSync?.setEpoch(claim.epoch);
                 console.info('[net] MIGRATION accepted — re-latched host', {
-                  successorSeat: claim.seat, epoch: claim.epoch, peerId,
+                  successorSeat: claim.seat, epoch: claim.epoch, peerId, decision: still,
                 });
               });
             }
           } else {
             console.warn('[net] MIGRATION_CLAIM rejected by acceptance gates', {
-              hostGone, expectedSuccessor, claimedSeat: msg.seat,
+              hostGone,
+              claimedSeat: msg.seat, claimedEpoch: msg.epoch,
+              currentEpoch: sess.currentEpoch, latchedClaimSeat: sess.latchedClaimSeat,
             });
           }
         }

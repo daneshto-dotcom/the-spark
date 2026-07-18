@@ -120,6 +120,14 @@ export interface NetSession {
    * epoch gate drops snapshots below it (PROVABLY inert at 0). Reset to 0 on teardown.
    */
   currentEpoch: number;
+  /**
+   * S124 P1 (host-migration D4) — the seat of the claim latched for the CURRENT epoch (null when the
+   * current term was not entered via a MIGRATION_CLAIM — i.e. epoch 0, or this peer IS the claimant).
+   * Drives the same-epoch-lowest-seat-wins reconciliation: a survivor re-latches DOWNWARD (never up)
+   * when a verified claim at the same epoch arrives from a lower seat than this. Reset on epoch
+   * advance, teardown, and match end.
+   */
+  latchedClaimSeat: number | null;
 }
 
 export function makeNetSession(): NetSession {
@@ -142,6 +150,7 @@ export function makeNetSession(): NetSession {
     warrant: null,
     lastRoster: null,
     currentEpoch: 0,
+    latchedClaimSeat: null,
   };
 }
 
@@ -204,5 +213,6 @@ export function teardownNet(
   session.warrant = null;
   session.lastRoster = null;
   session.currentEpoch = 0;
+  session.latchedClaimSeat = null;
   triggerAudioCursorReset();
 }

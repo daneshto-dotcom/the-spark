@@ -1,6 +1,9 @@
 # SPARK — Host Migration Design (S85 P4a)
 
-**Status:** DESIGN — adopted on paper, no runtime code in this session.
+**Status:** ✅ SHIPPED — D1 (S115) → D2 (S118) → D3 (S122) → **D4 production-ON (S124,
+PROTOCOL_VERSION 15)**. §11 records the D4 as-built deltas from this design; the locked
+runtime semantics live in LOCKED_DECISIONS.md §13.21. (Original S85 text kept below as
+the design rationale record.)
 **Carried from:** S82 P4 ("host-migration explicitly deferred — world dies with the
 host page; needs state-handover design — own design session"), re-logged S83/S84.
 **Scope anchor:** true host handover for in-progress matches (2..MAX_PLAYERS FFA),
@@ -188,6 +191,45 @@ for everyone (clients don't simulate) — no divergence accumulates by design.
 3. Solo-survivor migration (1 peer left): technically trivial (it just becomes
    a solo-authority match) — but is a 1-player FFA worth continuing? Product
    call; recommend yes (they may win by score-out).
+
+## 11. D4 as-built deltas (S124, Full-tier Council R1+R2 + PRIME-AUDIT)
+
+Where the shipped D4 differs from (or extends) the sections above:
+
+1. **Successor selection = a CLAIM LADDER, not the unique lowest-alive seat** (§5 step 4
+   as designed deadlocks on a wedged-but-transport-alive successor). Rank k of the
+   warranted ∩ transport-alive order fires at grace + k·`CLAIM_LADDER_MS` (1500 ms;
+   rank 0 is timing-identical to the design). Races converge via lowest-seat-wins:
+   survivors re-latch downward at the same epoch; a losing adopter demotes to client
+   (ClientSync intact; `setEpoch` resets the seq watermark so the winner's first
+   snapshot is admitted by construction).
+2. **Acceptance is MONOTONIC-FORWARD** (`epoch > current` + locally-observed host loss),
+   not strict +1 — a survivor that reconnect-cycled through N migrations converges via
+   the CLAIM ECHO: the migrated host re-sends its own signed claim on stale-epoch
+   snapshots and peer joins (≥5 s rate-limited). Sender-binding makes the echo the ONLY
+   relay that can verify — replay-proof by construction.
+3. **Zombie demotion carries an ANTI-GRIEF gate the design lacked** (PRIME-AUDIT
+   addition): a verified higher-epoch claim deposes a host only alongside local
+   partition evidence — a main-loop freeze ≥ the starvation window or a total peer
+   wipe-out, within a 60 s TTL. A healthy host can never be deposed by a bare signed
+   claim from one malicious warranted client. v1 zombie routing = terminal
+   connection-lost overlay, exactly as §5 chose; worker-mode zombies also terminate
+   their sim worker.
+4. **Takeover hostSeats = the FULL Begin roster minus self** (the design's roster ∩
+   alive left the dead host's seat outside the §8 drop-bench sweep — its avatar ghosted
+   forever). Dead peers now flow into the S82 rolling re-stamp and self-heal on rejoin;
+   a post-migration rejoiner's intents stamp correctly without any HELLO machinery.
+5. **The migration window is PAUSE-ONLY** (§8's in-flight-loss stance upheld; Council
+   REJECTED buffering): local intents are neither optimistically applied nor sent while
+   a warranted survivor observes host loss; the overlay shows MIGRATING… with the
+   ladder-deadline countdown; the transport is never torn while the mesh survives
+   (peerCount === 0 keeps the S82 reconnect-cycle byte-identically).
+6. **Fail-closed intent stamping on BOTH host paths** (`stampOrReject`) — closes the
+   pre-existing S62 unknown-peer apply-as-is spoof hole the D3 successor handler had
+   copied.
+7. **PROTOCOL_VERSION 14 → 15** (§7 said 7→8 — versions moved on underneath). The
+   `__TEST_MIGRATION__` seam survives as a TIMING override only; e2e test 2 proves the
+   production path with no seam under the real 15 s grace.
 
 ---
 *Grounding: all file references verified against working tree at commit d4a7d8b

@@ -1,141 +1,82 @@
 {
-  "tool_calls_session_total": 83,
-  "session_id": "S123",
+  "tool_calls_session_total": 0,
+  "session_id": "S124",
   "session_kind": "execution",
-  "session_start": "2026-07-12T00:00:00.000Z",
-  "prior_session_note": "S122 COMPLETE (4/4: worker cutover 82ea2c3, hostmig D3 5f53b3a, pulse cap 999e530, deploy live). S122 review gate approved+cleared this boot (40ef8e3). S123 = worker default-on prereqs batch (owner-selected) + owner scope amendment P4 (bot-intelligence research).",
-  "phase": "S123_EXECUTING",
+  "session_start": "2026-07-16T00:00:00.000Z",
+  "prior_session_note": "S123 COMPLETE (4/4 + close f26f735/4c04938). S124 = host-migration D4 production-ON batch (user pre-approved: 'continue working exactly where we left off... highest possible best quality output' following the explicitly proposed P1/P2/P3 batch). A.0 found B2(c) ALREADY SHIPPED S120 P3 (3fc6688) -> P2 collapsed to BACKLOG reconciliation; F10 render probe promoted to P3.",
+  "phase": "S124_EXECUTING",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "user_approval_verbatim": "I approve full session priority batch, another thing i want to add though is that bots of different levels should know the game in different levels too [...] other than that I approve full current session priority batch and just want you to run a consideration and research on how to make what i just said happen. I will turn on fable 5 ultracode so you can work in the absolute best interests of this project and vision producing the highest quality of output!",
+  "user_approval_verbatim": "continue working exactly where we left off, work to the absolute best interests of this project and vision working to produce the highest possible best quality output.",
   "tier": "Full",
   "council_rounds": 2,
   "signals_fired": [
-    "novel_mechanism"
+    "protocol_bump",
+    "security_surface"
   ],
-  "council_result": "S123 Full 3-way Council (Grok DISRUPTOR grok-4.20-reasoning + Gemini AUDITOR gemini-3.1-pro-preview), R1 parallel -> R2 Claude convergence. HEADLINE: both seats voted (B) bit-exact bot serialization on the shared claim '(A) fresh-from-seed breaks the byte-identical differential gate' -> EMPIRICALLY REFUTED by reading workerSim.differential.test.ts:117-128,191-196 (gate is fresh-vs-fresh from a pristine un-ticked world, bit-exact adoption asserted BEFORE any tick; NOT a runtime handoff) -> (A) ADOPTED, (B) kernel logged as carry-forward (expose mulberry32 word only if replay/spectator-of-bot-state ever ships). ADOPTED: Gemini cross-mode e2e matrix (host worker=1 x joiner worker=0 proves wire format execution-model-independent), Gemini structuredClone silent-freeze guard (solo-bots e2e asserts structural snapshot progress), P3 instrument synthesis (--expose-gc + window.gc() + performance.memory primary, CDP HeapProfiler optional deep-dive; measured warm-up baseline threshold, record actuals), ordering synthesis (keep P1->P2->P3 but P3 runs non-bot baseline FIRST then bots run). REJECTED (logged): invert-adoption-model, message-replay-instead-of-WebRTC, incremental hash, SimulationMode enum, NullBotManager, 20Hz combat batching. PRIME-AUDIT: botSeats survives save/restore (save.ts:688,979) so worker knows it's a bots match; main must capture difficulties[] at adoption for INIT; vsBots probe relocation downgraded OPTIONAL (e2e asserts bot-authored world changes instead). No vetoes. Confidence HIGH. 13th #empirical-refutes-plausible-criticals instance (both external seats simultaneously).",
-  "plan_file": ".claude/plans/S123_worker_default_on_prereqs_PDR.md",
-  "budget_total": 1000000,
+  "council_result": "S124 Full 3-way Council R1+R2 (GROK-DISRUPTOR grok-4.20-0309-reasoning + GEMINI-AUDITOR gemini-3.1-pro-preview) + PRIME-AUDIT. Both-seat CRITICAL 'premature coup' EMPIRICALLY REFUTED (gate c shipped S122, clientHandlers.ts:311-346; 14th #empirical-refutes-plausible-criticals, 2nd double-seat). ADOPTED: claim ladder 1500ms, monotonic epoch gate + same-epoch-lower-seat re-latch, demotion core (latch+watermark reset), roster-complete hostSeats (ghost seat-0 bench fix), fail-closed stamping both paths, claim echo (zombie+join triggers, 5s rate-limit), pause-only window (buffer REJECTED). REFUTED: watermark trap (hardened anyway), relay replay (sender-binding), lobby negotiation (HELLO ban), 3 fabricated Grok mechanics. Gemini quality 4.5/5.",
+  "plan_file": ".claude/plans/2026-07-16_PDR_S124_HostMig_D4_Batch.md",
+  "budget_total": "GREEN",
   "priorities": [
     {
-      "id": "P1-worker-bots",
-      "label": "VS-BOTS worker support: botDifficulties[] -> WorkerInitMsg, makeWorkerSim builds BotManager(difficulties, matchSeed) fresh-from-seed (Council-resolved A), applyTickBatch wires deps.botManager, drop the botSeats.size===0 adoption exclusion, capture difficulties[] at adoption in main.ts. Tests: bots differential HARD gate scenario + solo-bots ?worker=1 e2e (bot-authored primitive lands + structural snapshot progress + 0 hash mismatches) + INIT bot-config round-trip unit.",
-      "status": "completed",
-      "phase": "COMPLETED",
+      "id": "P1-hostmig-d4",
+      "label": "Host-migration D4 production-ON: PROTOCOL 14->15, seam->timing-only, claim ladder (CLAIM_LADDER_MS 1500), monotonic epoch acceptance + latchedClaimSeat, demoteToClient core (zombie v1 overlay + loser re-latch, watermark+latch reset, worker-stop), claim echo, hostSeats=full roster minus self (drop-bench inherits), fail-closed INTENT stamping both paths, pause-only migration window + peersGone split + MIGRATING overlay line, POSTGAME acceptance gate, LOCKED 13.7/13.20/new epoch clause + design-doc as-built, unit matrix + no-seam production e2e.",
+      "status": "in_progress",
+      "phase": "DO",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": true,
-      "reflexion_entries": [],
-      "checkpoint_commit": "9f48d50",
-      "real_context_tokens_at_close": 222648,
-      "real_context_pct_at_close": 22.26,
-      "check_method": "P1 VS-BOTS worker support shipped (9f48d50). DESIGN: Council S123 (A) fresh-from-seed — worker reconstructs BotManager(difficulties, matchSeed) at adoption; both external seats' shared critical '(A) breaks the byte-identical differential gate' EMPIRICALLY REFUTED pre-adoption by reading workerSim.differential.test.ts:117-128,191-196 (gate is fresh-vs-fresh from a pristine un-ticked world, bit-exact adoption asserted BEFORE any tick — NOT a runtime handoff; 13th #empirical-refutes-plausible-criticals, first double-seat instance). IMPL: WorkerInitMsg += botDifficulties/botMatchSeed (explicit seed beats world.rngSeed-derivation to survive repair/migration rewrites; fallback rule init.botMatchSeed ?? world.rngSeed lives in the tested core); makeWorkerSim(init, makeBotManager?) factory-injection seam — simWorker.ts static-imports BotManager (worker chunk ONLY), workerSim.ts type-only (entry bundle 635.5/750 KiB, +0.1; botManager-*.js still its own lazy chunk = S87 charter held); applyTickBatch deps.botManager null → sim.botManager (ticked inside runHostTick at the exact direct-path site); main.ts workerBotInit stash at onStart (exact ctor inputs), cleared at *→TITLE watcher, adoption gate (botSeats.size===0 || workerBotInit!==null) with fail-safe (bots match w/o config stays direct — never a bot-less worker). Orphan-carry wedge pre-verified unreachable: adoption precedes first bot think (stagger ≥6 ticks) AND BotController self-heals IDLE-while-Carrying (botController.ts:137-145). GATES: tsc 0; vitest 1884/1884 incl NEW 300-frame VS-BOTS differential HARD gate (worker-vs-direct byte-identical netSnapshot JSON + hash per frame with HARD+IMBA bots acting; positive assertion ≥1 bot-authored primitive) + INIT round-trip matrix (explicit-seed-wins / rngSeed-fallback / empty / no-factory → null); e2e worker-bots.spec.ts GREEN FIRST RUN 5.4s (worker ADOPTS bots match, bot-authored primitives reach the mirror via structural snapshots, growth CONTINUES at a second sample = GEMINI structuredClone-freeze guard, all placedBy!==0, 0 hash mismatches, 0 page errors); existing solo worker.spec.ts re-run green (no regression). CHECK Triumvirate: RALPH PASS (8/8 Ledger items conform); GEMINI PASS 5/5/5/5 (freeze-guard realization confirmed faithful — a dead bridge freezes primitives while positions extrapolate); GROK no-break BUT its execution claims ('ran 50× loops', 'DevTools worker kills') FABRICATED per the S120 calibration class — triaged its one substantive attack myself: malformed difficulty throws at TICK time (outside INIT try/catch) → still fails safe via worker.onerror → failed=true → repair; input surface typed + same-origin only.",
-      "verification": [
-        { "type": "file_contains", "path": "src/state/workerSim.ts", "needle": "botDifficulties" },
-        { "type": "file_contains", "path": "src/state/workerSim.ts", "needle": "makeBotManager" },
-        { "type": "file_contains", "path": "src/state/workerSim.ts", "needle": "botManager: sim.botManager" },
-        { "type": "file_contains", "path": "src/simWorker.ts", "needle": "import { BotManager } from './bots/botManager.ts'" },
-        { "type": "file_contains", "path": "src/main.ts", "needle": "workerBotInit" },
-        { "type": "file_contains", "path": "src/main.ts", "needle": "(world.botSeats.size === 0 || workerBotInit !== null)" },
-        { "type": "file_contains", "path": "src/state/workerSim.differential.test.ts", "needle": "VS-BOTS: 300 live frames with worker-owned bots are byte-identical" },
-        { "type": "file_exists", "path": "e2e/worker-bots.spec.ts" }
-      ]
+      "check_completed": false,
+      "reflexion_entries": []
     },
     {
-      "id": "P2-worker-duel-e2e",
-      "label": "Networked worker-duel e2e (e2e/worker-duel.spec.ts): 2-peer real WebRTC, TWO permutations — host ?worker=1 x joiner ?worker=1 AND host ?worker=1 x joiner ?worker=0 (Gemini cross-mode ADOPTED). Assert: host simWorker ready+!failed, hashMismatches===0, joiner converges (host-authored primitive appears), worker-built snapshots are the wire snapshots (~10Hz), zero page errors.",
-      "status": "completed",
-      "phase": "COMPLETED",
-      "tier": "Full",
+      "id": "P2-b2c-reconciliation",
+      "label": "BACKLOG reconciliation: B2 phase (c) grid hoist ALREADY SHIPPED S120 P3 commit 3fc6688 (collision.ts:18-25, collision.pile.test.ts) - fix stale STATUS banner (S114 G3b precedent).",
+      "status": "pending",
+      "phase": "PLAN",
+      "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": true,
-      "reflexion_entries": [],
-      "checkpoint_commit": "a8e073a",
-      "real_context_tokens_at_close": 275289,
-      "real_context_pct_at_close": 27.53,
-      "check_method": "P2 networked worker-duel e2e shipped (a8e073a). DELIVERY DELTA vs label (documented, reviewed, not silent): the TWO permutations MERGED into one stronger room — both peers carry worker=1; joiner asserted simWorker===null (clients never adopt: the gate requires !isClientNow AND the flag is never on the wire — no negotiation surface — so a client is a direct wire consumer regardless of flag; every other networked spec IS the w=0-client permutation). GEMINI CHECK explicitly ACCEPTED the merged form (bookmarked-?worker=1-URL-joins-friend real-world case). SPEC: host adopts on the NETWORKED path (S122 solo-proved only); joiner tick +120 exclusively via HostSync.wrapSnapshot(worker snapshot) forwards (direct send is !workerSimActive()-gated); host-authored placement → wire; JOINER-authored placement = remote INTENT → host seat-stamp → postIntent → worker dispatch → snapshot back (landing wait IS the authoritative round-trip); primitive-count convergence host===joiner; 0 hash mismatches; 0 pageerrors both; wire-cadence bound 4-30Hz over 10s via netTransport.getDiagnostics().accepted delta (GEMINI CHECK CONFIRMED counterexample ADOPTED fix-then-ship: a dropped ≥80ms forward throttle flooding 60Hz passes liveness but trips this — also closes the label's ~10Hz item, converting deviation 2 into an assert). Spawn seam __TEST_SPAWN_RATE_PER_SECOND__=2 both contexts (bomb/potato/nplayer convention; production 0.15/s starves the fps-capped e2e sim — EMPIRICALLY probed via scratch spec: sim runs ~21 ticks/s in the 2-page env (drain clamp 3xfps), first spark ~t18s without seam, host+joiner in PERFECT tick lockstep with 0 mismatches for 18s = the original red was environment starvation, wire innocent). helpers.ts: hostNewRoom/joinRoom + url param (default unchanged '/?debug=1' — GEMINI caveat verified: zero behavior change for existing callers by construction). RUNS: 3/4 green (14.4s/14.2s/24.5s), 1 red = joiner-placement landing timeout in the public-relay class the spec is @quarantine-flaky-tagged for (reconnect/hostmigration envelope). tsc 0. CHECK: GEMINI PASS 4/5/5/4 (merged-form ACCEPTED, cadence gap FIXED same-session); GROK 5 findings ALL REFUTED with code cites (G1/G4 worker-death false-green: failed is a LATCH until TITLE — any pre-assert death trips the final assert; G2 w=0-client path: flag never on wire + workerFlagWanted=false short-circuits before any isClientNow race + covered by every other networked spec; G3 seam-abuse: attacks the established convention, density is not this spec's target; G5 worker-marker asserts: no such protocol field exists BY DESIGN — execution-model independence is the feature); RALPH PASS with the two label deviations surfaced to reviewers rather than silently claimed conformant.",
-      "verification": [
-        { "type": "file_exists", "path": "e2e/worker-duel.spec.ts" },
-        { "type": "file_contains", "path": "e2e/worker-duel.spec.ts", "needle": "expect(await readSimWorker(joiner)).toBeNull()" },
-        { "type": "file_contains", "path": "e2e/worker-duel.spec.ts", "needle": "accRate" },
-        { "type": "file_contains", "path": "e2e/worker-duel.spec.ts", "needle": "__TEST_SPAWN_RATE_PER_SECOND__" },
-        { "type": "file_contains", "path": "e2e/helpers.ts", "needle": "url = '/?debug=1'" }
-      ]
+      "check_completed": false,
+      "reflexion_entries": []
     },
     {
-      "id": "P3-gc-audit",
-      "label": "10k-frame GC/heap audit (e2e/worker-heap.spec.ts): --expose-gc + window.gc() + performance.memory (CDP optional), TD-heavy seeded world, NON-BOT baseline run FIRST then bots run (Grok ordering kernel), warm-up baseline threshold, assert bounded post-GC growth + record actual numbers; fix any leak found (small, in-scope).",
-      "status": "completed",
-      "phase": "COMPLETED",
+      "id": "P3-f10-render-heap",
+      "label": "F10 render-side heap probe: direct-mode long-soak e2e (worker-heap.spec S123 pattern) with stabilized GC floors + Pixi render census (textures/children) - closes F10's remaining half.",
+      "status": "pending",
+      "phase": "PLAN",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": true,
-      "reflexion_entries": [],
-      "checkpoint_commit": "c0eca11",
-      "real_context_tokens_at_close": 329393,
-      "real_context_pct_at_close": 32.94,
-      "check_method": "P3 GC/heap audit shipped (c0eca11). TWO ≥10k-tick soaks under --expose-gc + --enable-precise-memory-info: (1) BASELINE TD-heavy — perf-snapshot recipe save built in a DIRECT boot, transplanted at TITLE under ?worker=1 so the adoption INIT carries the heavy world INTO the worker (asserted prims>=100 post-adoption; the S122 restoreWorld-mirror delta only applies post-adoption); (2) BOTS 3xMID worker-owned. V1 instrument returned NEGATIVE growth (−39/−8.9MB) → CHECK Triumvirate: BOTH seats CONFIRMED two real holes — F1 transient masking (descending h0 leaves a negative buffer a +10MB leak hides inside) and F2 worker-isolate blindness (performance.memory is thread-local; the mandate is auditing ?worker=1) → FIX-THEN-SHIP: stabilized floor sampling (repeat double-GC reads until consecutive MAIN floors <1MB apart, max 10, rounds recorded) + WORKER-ISOLATE reads via raw CDP (performance.memory probed ABSENT in WorkerGlobalScope; /json/list DOES expose the dedicated worker target with its own webSocketDebuggerUrl — probed via scratch spec — → native Node WebSocket → HeapProfiler.collectGarbage ×2 → Runtime.getHeapUsage.usedSize = the Council deep-dive instrument for real; --remote-debugging-port=SPARK_CDP_PORT??39221). GROK's structuredClone-longtask alternative REFUTED by my own cross-run contrast (baseline has the BIGGER ~50KB snapshots yet longtasks 1→1; bots-run ~2400 longtasks track sever→ARC_FLASH filter cost under swiftshader — logged F1-memo class); GROK's named worker accumulators (_history/WeakMap/effects-growth) don't exist in workerSim (effects cleared per batch line ~404, godlyEvents fresh per batch, sig is a replaced string) but the CLASS argument was valid → instrument built. FINAL RESULTS (hardened): BASELINE 10,332 ticks MAIN 78.0→39.9 (transplant transient draining, floors 8/1, documented) WORKER 2.9→3.0MB Δ+0.15; BOTS 10,153 ticks MAIN 30.7→30.7 Δ+0.08MB (7.8KB/ktick) floors 2/1 WORKER 3.4→3.9 Δ+0.54MB (world grew 43→60 prims — legitimate retention). VERDICT: NO LEAK in either isolate; bots run = steady-state exemplar (both isolates flat). Bonus: ~20k-tick oracle long-soak 0 hash mismatches, worker never failed; baseline longtasks 1→1 with 48 live chewers = offload value visible in raw data. tsc 0; both tests green 7.8m.",
-      "verification": [
-        { "type": "file_exists", "path": "e2e/worker-heap.spec.ts" },
-        { "type": "file_contains", "path": "e2e/worker-heap.spec.ts", "needle": "readWorkerFloorMB" },
-        { "type": "file_contains", "path": "e2e/worker-heap.spec.ts", "needle": "HeapProfiler.collectGarbage" },
-        { "type": "file_contains", "path": "e2e/worker-heap.spec.ts", "needle": "stabilizedSample" },
-        { "type": "file_contains", "path": "e2e/worker-heap.spec.ts", "needle": "workerGrowthMB" }
-      ]
-    },
-    {
-      "id": "P4-bot-intelligence-research",
-      "label": "OWNER SCOPE AMENDMENT (Rule 16, approved same-message): research + design doc (NO gameplay code) for difficulty-tiered bot GAME KNOWLEDGE: (a) tier-gated combo/recipe books (harder bots know+seek TD structures and godly combos), (b) leader-awareness + raid-the-winner targeting, (c) sacrifice play (delete own constructions when it enables a better combination), (d) how these bind into the existing botBrain/botConfig FSM + determinism constraints. Output: BOT_INTELLIGENCE_DESIGN.md for owner review + Council consideration pass.",
-      "status": "completed",
-      "phase": "COMPLETED",
-      "tier": "Standard",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "reflexion_entries": [],
-      "checkpoint_commit": "3ba5cf3",
-      "real_context_tokens_at_close": 384868,
-      "real_context_pct_at_close": 38.49,
-      "check_method": "P4 bot-intelligence design shipped (3ba5cf3) — BOT_INTELLIGENCE_DESIGN.md, research+design ONLY (no gameplay code, per the owner's 'run a consideration and research' framing). RESEARCH GROUNDING (all code-verified): botBrain chooseGoal priority ladder + pickTargetSpark IGNORES spark type (the cheapest IQ win found); botConfig is already the per-tier capability registry; the game owns a machine-readable knowledge base (36-entry combo table w/ lookupCombo, pure recipe predicates for pentagram/lightningHub/laserTurret/helga/voltkin + stillValid shape validators = free plan-completion checkers; scoreByPlayer + income keystones = leader + his paying prims; botSpawnerSeed.ts = exact ring geometry already written); SELF-SEVER COSTS 0 CHARGES (LOCKED 13.11 amended S52, severBond.ts:65-69) → sacrifice legal+free under existing verbs, no new verb needed for v1; S104 M9's 'no scripted pentagram builder' rejection was a seeding-fix context, not an intelligence-feature bar. DESIGN: 3 layers — tier-gated KNOWLEDGE BOOK (data in botConfig), BLUEPRINT executor (the one new mechanism: static slots + game's own validators; 4th FSM family reusing TO_SPARK/HAUL), RAID + SACRIFICE goals on existing verbs. COUNCIL CONSIDERATION (Grok+Gemini R1 → R2 synthesis, full record in doc §9): CONFIRMED+adopted — executor dithering (TTL+progress+re-plan-cooldown), obstructed slots (CLEAR_SLOT), raid dogpile/blue-shell degeneracy (deterministic 1-raider cap, both seats converged), sacrifice thrash (STRUCTURAL fix: sacrifice only while Carrying the better piece — no revert window exists by sequencing, no cooldown state); REJECTED — Grok's kill-the-executor-for-greedy-utility (greedy never INITIATES a 5-slot ring: zero marginal utility until ~4 slots; initiation IS the owner's ask; desire-vector framing salvaged as PLAN_PICK weights); REFUTED w/ cites — shared-rng claim (per-seat streams botManager.ts:28), replay-join-order (roster fixed at START_GAME), BOND_FORMED timing (matcher inside the differential-gated pipeline, executor polls on think ticks). Gemini scorecard 5/4.5/4/4; personality tells adopted Phase C. 7 owner questions + A/B/C phasing (Standard/Full/Standard). Doc committed at repo root, mirrors TOWER_DEFENSE_DESIGN.md flow.",
-      "verification": [
-        { "type": "file_exists", "path": "BOT_INTELLIGENCE_DESIGN.md" },
-        { "type": "file_contains", "path": "BOT_INTELLIGENCE_DESIGN.md", "needle": "KNOWLEDGE BOOK" },
-        { "type": "file_contains", "path": "BOT_INTELLIGENCE_DESIGN.md", "needle": "1-raider cap" },
-        { "type": "file_contains", "path": "BOT_INTELLIGENCE_DESIGN.md", "needle": "Council consideration (S123 P4 — RECORD)" },
-        { "type": "file_contains", "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md", "needle": "STATUS S123 (2026-07-12) — WORKER DEFAULT-ON: DEV-COMPLETE, OWNER-GATED" }
-      ]
+      "check_completed": false,
+      "reflexion_entries": []
     }
   ],
   "carry_forward_priorities": [
-    "Bit-exact bot serialization (Council S123 (B) kernel): expose mulberry32 word + serialize BotController FSM ONLY IF replay/rewind/spectator-of-bot-internal-state ever ships (YAGNI now; differential gate is fresh-vs-fresh so (A) is sound).",
-    "D4 (host-mig hardening): zombie demotion, claim-timeout/next-successor fallback, POSTGAME/WIN interactions, LOCKED ledger amendments (13.7/13.20/epoch), PROTOCOL_VERSION bump ships with activation.",
-    "D4 addition (GEMINI S122 CHECK M3): at default-on, reconnect-vs-migration reconciliation must keep session.lastRoster alive through the loss window (teardown lifecycle).",
-    "F9 INTENT token-bucket; F10 Pixi-leak heap probe (P3 this session partially covers F10's worker side).",
-    "Grok ADD (S122): CI 2-browser migration + hash-equality lane once owner confirms Actions path decision.",
-    "OWNER: pick ONE deploy path (Actions auto vs manual gh-pages) — both ran S122 and converged; dual-writer race pending.",
-    "OWNER: weak-device playtest of spark-online.space/?worker=1 (gates the default-on flip).",
-    "Worker known-deltas (S122, documented): window e2e seams don't reach the worker (spawn rate rides INIT); DEV restoreWorld acts on the mirror; overlay abort-vs-fade pop under lag+catchup (GEMINI M3, cosmetic)."
+    "Worker default-on flip (owner weak-device playtest = the only gate)",
+    "Bot-intelligence Phase A (owner BOT_INTELLIGENCE_DESIGN.md section-7 answers pending)",
+    "Deploy-path decision (owner: Actions auto vs manual gh-pages)",
+    "Bit-exact bot serialization (YAGNI unless replay/spectator ships)",
+    "F9 INTENT token-bucket (owner-gated, before public matchmaking)",
+    "Hostmig v2: zombie auto-rejoin-as-client (epoch demotion path)"
   ],
-  "reflexion_entries_to_archive": [
-    "S123-P1 #verify-the-gates-mechanism-before-trusting-consensus: BOTH external Council seats simultaneously voted bit-exact serialization on the identical claim '(A) breaks the byte-identical differential gate' — a 2-seat consensus that collapsed on a 10-line read of the gate itself (fresh-vs-fresh from a pristine world, not a runtime handoff). Consensus across models is NOT independent evidence when both reason from the same unverified premise about how YOUR OWN test works; read the test before the vote, and weight seat-agreement at ~1 seat when their arguments share a load-bearing factual claim.",
-    "S123-P2 #probe-the-pipeline-before-blaming-the-new-layer: the worker-duel red (joiner sparks=0) LOOKED like a worker-wire bug; a 10-line scratch probe showed host mirror + joiner in PERFECT tick lockstep with 0 hash mismatches — the wire was innocent, the e2e ENVIRONMENT starves the fps-capped sim (drain clamp 3xfps → ~21 ticks/s → production 0.15/s spawn rate stretches to ~1 spark/18s wall). The fix was the established spawn-rate seam every sibling spec already used. When a NEW layer sits atop a slow substrate, measure the substrate's rate FIRST — and check what conventions sibling tests adopted, they encode prior sessions' fights with the same environment.",
-    "S123-P3 #a-suspicious-pass-is-a-finding: the v1 heap audit PASSED with −39MB 'growth' — a green that actually indicted the instrument (unsettled floor + wrong isolate). Both CHECK seats caught it because the recorded actuals made the anomaly visible; had the spec only asserted growth<limit without logging numbers, the meaningless pass would have shipped silently. Always RECORD the measured values a threshold consumes, treat a too-good/anomalous pass as a finding to explain, and when a platform API is absent (performance.memory in workers) probe what the platform DOES expose before writing off the measurement (Chromium /json/list turned out to list dedicated workers with their own debugger URLs — a 25-line raw-CDP read, no plumbing).",
-    "S123-P4 #fix-degeneracy-by-sequencing-not-by-knobs: two Council-confirmed design degeneracies (sacrifice thrash loops, raid dogpiles) both had knob fixes on offer (cooldown timers, raider quotas needing shared state) — and both dissolved under a SEQUENCING constraint instead: sacrifice only while already Carrying the replacement piece (no revert window can exist), raider = a pure deterministic function of world state every bot computes identically (no negotiation state). In deterministic lockstep systems, prefer making the bad interleaving UNREPRESENTABLE over damping it with tuned state; knobs need maintenance, sequencing constraints are proofs."
-  ],
-  "session_status": "S123 COMPLETE - 4/4 shipped (P1 worker-bots 9f48d50, P2 worker-duel e2e a8e073a, P3 GC audit c0eca11, P4 bot-intelligence design 3ba5cf3). ANALYZE done, handoff done.",
-  "analyze_completed": true,
-  "analyze_result": "S123 ANALYZE (3-seat, compact). ZERO: 4/4 shipped at 38% context (GREEN throughout); scope discipline held (P4 stayed research-only per owner framing; bit-exact bot serialization deferred whole as a logged carry-forward, never half-built); the worker default-on arc is now dev-COMPLETE — gated solely on the owner playtest. Method highlight: the PLATFORM CONSTRAINTS block (S122 ANALYZE-adopted) worked — zero SAB/platform mis-bets this session. GROK self-calibration: admits materially overconfident + low risk-accuracy — 2 fabrication events (P1 '50x loops/DevTools kills', P4 'bots share one rng stream'), both refuted by direct code; ~65% CHECK false-positive rate; ONLY well-calibrated round was P3 (transient-masking + worker-isolate CONFIRMED, both shipped). Self-prescribed S124 fix: 'pre-flight trace discipline' — no execution/break claim without an attached minimal repro (seed+<200LOC) or an explicit trace-not-possible waiver. GEMINI self-calibration: one miss (bit-exact over-constraint, REFUTED — fresh-vs-fresh is the correct invariant); high alignment elsewhere — cross-mode matrix, structuredClone freeze-guard, --expose-gc, jealousy-cap, CLEAR_SLOT, personality tells, +2 owner questions ALL adopted. Highest value-density: P2 wire-cadence counterexample (flaky-concurrency bug pre-empted as a same-session assert). CALIBRATION: Grok ~38% kernel-adoption but concentrated in P3/P4-degeneracy; near-zero in protocol/latch mechanics (P2 5/5 refuted) — the double-seat (B) vote (13th #empirical-refutes-plausible-criticals) confirms external seats can co-sign a shared false premise, so verify the mechanism before weighting agreement. GEMINI high-precision, load-bearing on quality/instrument fidelity. S124 QUALITY RISKS (both seats): (1) default-on flip → main-thread message-queue latency/input-drop — add queue-depth telemetry + verify seamless worker-crash fallback; (2) bot-intelligence Phase A → bot tick bleeding into physics or mutating state directly — enforce dispatch-only + read-only world view (already the S87 contract, keep it); (3) D4 → in-flight event loss/split-brain — require pause-and-buffer during the migration window with client-ack before unfreeze.",
+  "reflexion_entries_to_archive": [],
+  "session_status": "EXECUTING",
+  "analyze_completed": false,
   "totals": {
-    "turns": 0,
-    "budget_remaining": 1000000,
-    "budget_status": "GREEN"
+    "grok_calls": 2,
+    "gemini_calls": 2,
+    "budget_remaining": "GREEN"
+  },
+  "auto_fill_applied": {
+    "ts": "2026-07-17T10:37:19.507986Z",
+    "fields": [
+      "totals.budget_remaining"
+    ],
+    "validator_version": "s110-three-tier-v1"
   }
 }

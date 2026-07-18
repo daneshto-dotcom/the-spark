@@ -306,9 +306,15 @@ export class ClientSync {
 
   /**
    * S118 P1 (host-migration D2) — raise the minimum accepted epoch (D3 takeover fences a zombie host).
-   * DORMANT in D2 (no caller advances it), so the receive epoch gate stays inert at 0.
+   * S124 P1 (D4) — an epoch ADVANCE also resets the seq watermark: each term's HostSync starts at its
+   * own lastSeenSeq + MIGRATION_SEQ_JUMP, which already clears any survivor's watermark by arithmetic
+   * (≤150 seqs of skew vs a 10 000 jump) — the reset makes acceptance of the new term's first snapshot
+   * PROVABLE without that arithmetic, and heals the demoted-adopter path by construction (Council S124
+   * R2 GEMINI QD, refuted-then-hardened). Safe: the epoch gate above already drops every older-term
+   * snapshot before the seq gate can see it, so a zeroed watermark cannot re-admit zombie frames.
    */
   setEpoch(epoch: number): void {
+    if (epoch > this.currentEpoch) this.lastSeq = 0;
     this.currentEpoch = epoch;
   }
 

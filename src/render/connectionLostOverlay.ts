@@ -23,6 +23,12 @@ export interface ConnectionLostOverlayHandle {
    * Return-to-Title button stays available in both (a user can always bail early).
    */
   setReconnecting(reconnecting: boolean, secondsLeft?: number): void;
+  /**
+   * S124 P1 (host-migration D4) — the MIGRATING variant: the host is gone but the mesh
+   * survives, so a warranted survivor is taking over automatically (gold title; the
+   * countdown is the worst-case claim-ladder deadline). Same modal, same bail-out button.
+   */
+  setMigrating(secondsLeft?: number): void;
 }
 
 export function makeConnectionLostOverlay(
@@ -92,6 +98,15 @@ export function makeConnectionLostOverlay(
         lostText.style.fill = 0xff3b6b;
         lostHelp.text = 'peer dropped — return to title to retry';
       }
+    },
+    setMigrating(secondsLeft?: number): void {
+      const secs = secondsLeft !== undefined ? ` (${Math.max(0, Math.ceil(secondsLeft))}s)` : '';
+      if (lostText.text !== 'MIGRATING…') {
+        lostText.text = 'MIGRATING…';
+        lostText.style.fill = 0xffc93b;
+      }
+      const help = `host lost — a surviving player is taking over automatically${secs}`;
+      if (lostHelp.text !== help) lostHelp.text = help;
     },
   };
 }

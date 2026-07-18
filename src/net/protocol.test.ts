@@ -72,8 +72,8 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 14 (S113 Batch C bump from 13 — lightning-drone building: CreatureType lightningDrone + recipeId lightningHub)', () => {
-    expect(PROTOCOL_VERSION).toBe(14);
+  it('PROTOCOL_VERSION is 15 (S124 D4 bump from 14 — host-migration production-ON: MIGRATION_CLAIM live + epoch semantics)', () => {
+    expect(PROTOCOL_VERSION).toBe(15);
   });
 
   it('S102 #1 — RAID_CREATURE is an allowed CLIENT INTENT (a 1v1 joiner can raid an enemy chewer)', () => {
@@ -322,7 +322,8 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
     // all HOST-INTERNAL) + the additive-optional defenders[] snapshot field.
     // S110 P4 — bumped 12→13 for HELGA's walk rework (serialized 'WALK' state + prevPos/walkTargetPos).
     // S113 Batch C — bumped 13→14 for the lightning-drone building (CreatureType lightningDrone + recipeId lightningHub).
-    expect(PROTOCOL_VERSION).toBe(14);
+    // S124 P1 — bumped 14→15 for host-migration D4 production-ON (MIGRATION_CLAIM live, epoch ≥ 1 semantics).
+    expect(PROTOCOL_VERSION).toBe(15);
     expect(
       parseNetMessage({ kind: 'SOME_FUTURE_KIND', roster: [{ seat: 0, peerId: 'h', color: 1 }] }),
     ).toBeNull();

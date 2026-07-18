@@ -470,6 +470,11 @@ export class LobbyScreen {
     this.connectionLostHandle.setReconnecting(reconnecting, secondsLeft);
   }
 
+  /** S124 P1 (host-migration D4) — the MIGRATING overlay variant (successor takeover window). */
+  setConnectionLostMigrating(secondsLeft?: number): void {
+    this.connectionLostHandle.setMigrating(secondsLeft);
+  }
+
   /** Called by main.ts every frame; updates "Begin Match" + status based on peer count. */
   updatePeerStatus(peerCount: number): void {
     // S64 P1 — the errorLatched short-circuit, the hostConnected latch, the live

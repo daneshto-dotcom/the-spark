@@ -92,7 +92,13 @@ export type { NetSnapshot };
 // on the serialized creatures[] + a NEW recipeId 'lightningHub' on a SerializedSpawner. A stale v13
 // peer would receive a creature/recipe literal it can't render, so it is hard-rejected at HELLO. The
 // new actions (DRONE_EXPLODE / STRUCTURE_SELFDESTRUCT) are HOST-INTERNAL (never client INTENTs).
-export const PROTOCOL_VERSION = 14 as const;
+// S124 P1 (host-migration D4) — bumped 14->15: MIGRATION_CLAIM goes PRODUCTION-ON (the
+// __TEST_MIGRATION__ seam is now a timing override only, no longer an activation gate) and
+// NETSNAPSHOT epochs ≥ 1 become live semantics. A stale v14 peer in a migrated match would ignore
+// the claim, keep waiting on the dead host's peerId, and freeze forever — semantically breaking,
+// exactly the mixed-deploy class the version gate exists for (HOST_MIGRATION_DESIGN.md §7; the
+// S122 Council L4 no-bump ruling rested on the seam gate D4 removes). Hard-rejected at HELLO.
+export const PROTOCOL_VERSION = 15 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -138,7 +144,7 @@ export interface HelloMsg {
   readonly playerId: PlayerId;
   readonly color: number;
   /** Protocol version — bumped on wire-incompatible changes. S77 P3: 6→7 (seagull); S87 P4: 7→8 (LOBBY_READY quickmatch gate); S93: 8→9 (NONET SUDOKU_SOLVED intent + sudoku snapshot field); S100 P1: 9→10 (TD spawner lifecycle + creatureSpawners snapshot field); S102 #1: 10→11 (RAID_CREATURE intent + creature hp); S103 P2: 11→12 (generic defender lifecycle + defenders snapshot field); S110 P4: 12→13 (HELGA walk: serialized 'WALK' state + prevPos/walkTargetPos on defenders[]); S113 Batch C: 13→14 (lightning-drone building: new CreatureType 'lightningDrone' + recipeId 'lightningHub'). */
-  readonly protoVersion: 14;
+  readonly protoVersion: 15;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**
@@ -254,11 +260,12 @@ export interface NetSnapshotMsg {
   readonly snapshot: NetSnapshot;
   /**
    * S118 P1 (host-migration D2) — the term/epoch this snapshot was emitted under. 0 (or absent =
-   * treated as 0) for the ORIGINAL host's term; a migrated session (D3+) runs at epoch ≥ 1, letting a
+   * treated as 0) for the ORIGINAL host's term; a migrated session runs at epoch ≥ 1, letting a
    * survivor DROP late snapshots from a deposed zombie host (ClientSync epoch gate). ENVELOPE-ONLY —
    * it rides NetSnapshotMsg, NEVER enters NetSnapshot/save (save.replay stays byte-identical by
-   * construction). ADDITIVE-OPTIONAL: PROTOCOL_VERSION held 14; the gate is PROVABLY inert at 0
-   * (0 < 0 is false). D4 carry-forward: epoch-advance/reset + late-packet rules before activation.
+   * construction). S124 P1 (D4): LIVE — epochs ≥ 1 are production semantics under PROTOCOL_VERSION 15;
+   * epoch advance is claim-driven (monotonic per term, reset only at teardown/match end), and a
+   * migrated host watches INCOMING stale-epoch snapshots to fire its claim echo (zombie demotion).
    */
   readonly epoch?: number;
 }
@@ -365,11 +372,13 @@ interface GodlyTriggerMsg {
  */
 /**
  * S122 P2 (host-migration D3) — a warranted survivor claims host succession after loss+grace
- * (HOST_MIGRATION_DESIGN.md §5). SEAM-GATED: production peers never emit one (main.ts gates
- * activation on __TEST_MIGRATION__), and pre-D3 peers null the unknown kind at parseNetMessage
- * (the LOBBY_PRESENCE Fork-B no-bump precedent) — PROTOCOL_VERSION held; D4 owns the bump at
- * default-on (S122 Council L4). The signature binds (roomCode ‖ epoch ‖ seat ‖ SENDER peerId)
- * under the pubkey the ORIGINAL host warranted for that seat (net/migrationClaim.ts).
+ * (HOST_MIGRATION_DESIGN.md §5). S124 P1 (D4): PRODUCTION-ON under PROTOCOL_VERSION 15 — the
+ * __TEST_MIGRATION__ seam is a TIMING OVERRIDE only (starvation/grace/ladder ms for e2e), no
+ * longer an activation gate. Claims fire on the deterministic ladder (succession.ts
+ * computeClaimDelayMs) and are ALSO re-emitted by a migrated host as the CLAIM ECHO (zombie
+ * demotion + rejoiner support, ≥5s rate-limited). The signature binds
+ * (roomCode ‖ epoch ‖ seat ‖ SENDER peerId) under the pubkey the ORIGINAL host warranted for
+ * that seat (net/migrationClaim.ts) — a relayed/replayed claim from any other peer cannot verify.
  */
 export interface MigrationClaimMsg {
   readonly kind: 'MIGRATION_CLAIM';
