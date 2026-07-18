@@ -23,7 +23,11 @@
 > 2. **Worker default-on flip** (once playtest passes): remove the flag gate + fallback-latency telemetry (GEMINI S123 risk: message-queue depth assert).
 > 3. **Host-migration D4** — zombie demotion, claim-timeout, simultaneous-claim demotion, POSTGAME/WIN, LOCKED amendments, PROTOCOL bump, reconnect reconciliation + lastRoster lifecycle (+ GEMINI S123: pause-and-buffer during the migration window).
 > 4. **Bot-intelligence Phase A** (after owner answers): knowledge book + combo-aware pick/placement + raid w/ 1-raider cap — Standard tier, no new FSM.
-> 5. **B2 phase (c)** — collision-grid rebuild hoist 64→8/tick (still open; jumped by (d) — now worker-side, gates still lock it).
+> 5. ~~**B2 phase (c)** — collision-grid rebuild hoist 64→8/tick (still open; jumped by (d))~~ —
+>    **S124 RECONCILIATION: ALREADY SHIPPED in S120 P3 (commit `3fc6688`).** The hoist lives at
+>    `collision.ts:18-25` ("rebuilt ONCE per call = once per SUBSTEP, 8×/tick; was 64 insertAll/tick")
+>    and is empirically locked by `collision.pile.test.ts` (dense-pile invariants). This banner line
+>    was stale roadmap drift — the S114 G3b class of error, caught by the S124 A.0 state probe.
 > Owner-gated: F9 INTENT token-bucket (before public matchmaking) · G1b MOTION verb · G2 family traits. (F10 heap probe: worker side CLOSED by S123 P3; Pixi/render side remains.)
 
 ---
