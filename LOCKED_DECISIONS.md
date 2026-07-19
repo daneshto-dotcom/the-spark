@@ -1208,14 +1208,26 @@ activation gate). The locked rules:
   losing adopter demotes to client toward the winner (isHost off, HostSync dropped,
   one-shot claim latch + ClientSync seq watermark reset — `setEpoch` on an advance
   resets the watermark so the new term's first snapshot is admitted by construction).
-- **Zombie demotion, v1 = terminal overlay.** A deposed prior-term host demotes on a
+- **Zombie demotion.** A deposed prior-term host demotes on a
   VERIFIED claim at a higher epoch, PLUS local partition evidence (a main-loop freeze ≥
   the starvation window, or a total peer wipe-out, within a 60s TTL) — a healthy host can
   NEVER be deposed by a bare signed claim (anti-grief; PRIME-AUDIT addition). The
-  original host routes to the connection-lost overlay (auto-rejoin-as-client = v2). The
   migrated host answers stale-epoch snapshots and peer joins with a rate-limited (≥5s)
   re-send of its own signed claim (the echo — only the original claimant's re-send can
   verify, so the echo is replay-proof by construction). Unsigned snapshots never demote.
+  - ~~**v1 = terminal overlay** — the deposed original host routes to the connection-lost
+    overlay; auto-rejoin-as-client = v2.~~ **S125 P1 AMENDMENT — v2 AUTO-REJOIN-AS-CLIENT
+    SHIPPED.** The deposed original host no longer terminates: it nulls its ClientSync,
+    disconnects, and re-runs the S82 auto-reconnect path (`connectAsClient`) against the
+    SAME room code to FOLLOW the successor as a plain client (`demoteToClient` with
+    `reestablishTransport`). Same page ⇒ same Trystero selfId ⇒ the successor's frozen
+    peerId→seat map re-binds + drop-benches self-heal on the rejoiner's next intent; the
+    fresh ClientSync (epoch 0) + `setEpoch(successorEpoch)` admits the successor's snapshots
+    and fences the zombie's own residual epoch-0 frames by construction. It is seat 0 (warrant-
+    excluded), so it correctly NEVER re-claims but DOES follow a further migration as a client.
+    The terminal overlay is now the FAIL-SAFE ONLY (a deposed host holding no room code — can't
+    happen for a warranted host). Runtime-validated in e2e/hostmigration.spec.ts test 3 (freeze-
+    thaw rejoin, @quarantine-flaky); ClientSync lifecycle pinned in hostmigV2.test.ts.
 - **The migration window is PAUSE-ONLY.** While a warranted survivor observes host loss,
   local gameplay intents are neither optimistically applied nor sent (buffering REJECTED
   by Council: a ≥15s-stale intent materializing on a reseeded world is worse UX than the

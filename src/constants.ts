@@ -484,6 +484,21 @@ export const NET_SNAPSHOT_HZ = 10;
 export const NET_RENDER_DELAY_MS = 150;
 export const NET_ROOM_CODE_LENGTH = 6;
 
+// === S125 P2 (F9) — per-peer INTENT token-bucket (trust hardening, AUDIT_S116 F9) ===
+// The host validates INTENT *type* (isClientIntentAllowed) + *seat* (stampOrReject) but nothing
+// bounds how FAST a modified client can drive dispatch(). A token bucket per sender caps that:
+// each remote INTENT costs 1 token; the bucket refills at INTENT_BUCKET_REFILL_PER_SEC (cap
+// INTENT_BUCKET_CAPACITY); an empty bucket DROPS the intent (host-only guard — a drop is identical
+// to a network drop, so determinism is untouched; wall-clock refill is correct here).
+// Sizing (Council S125): legit peak is well under this — UPDATE_AVATAR_POS is already 10Hz
+// SENDER-throttled + human-paced builder actions, so even a multi-second tab-unfreeze burst
+// (~30 buffered pos + a few actions) stays < 40 « 90 and never starves a real placement. A flood
+// (thousands/s) is dropped after the 90-token burst, then held to 40/s. Playtest/telemetry
+// (world.diagnostics.intentThrottled) can retune; a movement/action QoS split is the documented v2
+// lever if action-drops ever show up.
+export const INTENT_BUCKET_CAPACITY = 90;
+export const INTENT_BUCKET_REFILL_PER_SEC = 40;
+
 // === Territorial Repulsion (Sym F, S49 P1) ===
 // R(complexity) = TERRITORY_BASE_RADIUS + TERRITORY_RADIUS_SCALE × log₂(complexity + 1)
 // Range in normal play: ~60px (0 prims) to ~140px (complexity ~100).

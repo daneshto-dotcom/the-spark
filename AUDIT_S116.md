@@ -62,7 +62,14 @@ The North Star (BACKLOG): *"connecting shape A to shape B IS the game."* Reality
 
 GitHub Actions is dead (account billing lock), so `npm run deploy` (local build → gh-pages) is the only path and `git push ≠ deploy`. Gemini flagged this as a **force-multiplier** risk: manual deploys make every other fix slower and riskier to ship. The code-side fix is trivial (revert Pages source to Actions); the blocker is owner-side (clear the billing lock). Same status for the 2-way→3-way Council (Gemini credits — **now resolved**, Council ran full 3-way this session).
 
-### F9 — No INTENT rate-limit on the authoritative host (Med / Small)
+### F9 — No INTENT rate-limit on the authoritative host (Med / Small) — ✅ RESOLVED S125 P2
+
+> **CLOSED (S125 P2):** shipped `net/intentRateLimiter.ts` — a per-peer token bucket (capacity 90 /
+> refill 40/s) wired at the TOP of BOTH host INTENT choke points (original host `hostHandlers.ts` +
+> migration successor `main.ts`), before allowlist/stamp. An empty bucket DROPS the intent + counts
+> `world.diagnostics.intentThrottled` (+ logs the dropped type). Pruned on peer-leave, reset per
+> fresh room. Wall-clock (host-only guard, determinism-neutral); no protocol bump. Council Full-tier
+> vetted the sizing (legit peak « 90; flood held to 40/s). Unit: `intentRateLimiter.test.ts` (10).
 
 The host validates INTENT *type* (`isClientIntentAllowed` allowlist) and *seat* (anti-spoof stamping), and there's a `flood guard` on the pre-verify buffer — but there is **no rate limit** on how fast a peer can drive `dispatch`. A modified client could spam INTENTs to burn host CPU. Practical risk is **low today** (griefing requires the room code = a friend), and valid placements are naturally bounded by carry-1 + spark availability — but raw INTENT parse/dispatch is unthrottled. Worth a token-bucket per peer before any public matchmaking. (Grok's #3 highest-leverage trust item.)
 

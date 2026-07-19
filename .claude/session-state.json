@@ -1,215 +1,59 @@
 {
- "tool_calls_session_total": 50,
- "session_id": "S124",
- "session_kind": "execution",
- "session_start": "2026-07-16T00:00:00.000Z",
- "prior_session_note": "S123 COMPLETE (4/4 + close f26f735/4c04938). S124 = host-migration D4 production-ON batch (user pre-approved: 'continue working exactly where we left off... highest possible best quality output' following the explicitly proposed P1/P2/P3 batch). A.0 found B2(c) ALREADY SHIPPED S120 P3 (3fc6688) -> P2 collapsed to BACKLOG reconciliation; F10 render probe promoted to P3.",
- "phase": "S124_CLOSED",
- "pdr_approved": true,
- "deliberation_completed": true,
- "unlock_source": "user",
- "user_approval_verbatim": "continue working exactly where we left off, work to the absolute best interests of this project and vision working to produce the highest possible best quality output.",
- "tier": "Full",
- "council_rounds": 2,
- "signals_fired": [
-  "protocol_bump",
-  "security_surface"
- ],
- "council_result": "S124 Full 3-way Council R1+R2 (GROK-DISRUPTOR grok-4.20-0309-reasoning + GEMINI-AUDITOR gemini-3.1-pro-preview) + PRIME-AUDIT. Both-seat CRITICAL 'premature coup' EMPIRICALLY REFUTED (gate c shipped S122, clientHandlers.ts:311-346; 14th #empirical-refutes-plausible-criticals, 2nd double-seat). ADOPTED: claim ladder 1500ms, monotonic epoch gate + same-epoch-lower-seat re-latch, demotion core (latch+watermark reset), roster-complete hostSeats (ghost seat-0 bench fix), fail-closed stamping both paths, claim echo (zombie+join triggers, 5s rate-limit), pause-only window (buffer REJECTED). REFUTED: watermark trap (hardened anyway), relay replay (sender-binding), lobby negotiation (HELLO ban), 3 fabricated Grok mechanics. Gemini quality 4.5/5.",
- "plan_file": ".claude/plans/2026-07-16_PDR_S124_HostMig_D4_Batch.md",
- "budget_total": "GREEN",
- "priorities": [
-  {
-   "id": "P1-hostmig-d4",
-   "label": "Host-migration D4 production-ON: PROTOCOL 14->15, seam->timing-only, claim ladder (CLAIM_LADDER_MS 1500), monotonic epoch acceptance + latchedClaimSeat, demoteToClient core (zombie v1 overlay + loser re-latch, watermark+latch reset, worker-stop), claim echo, hostSeats=full roster minus self (drop-bench inherits), fail-closed INTENT stamping both paths, pause-only migration window + peersGone split + MIGRATING overlay line, POSTGAME acceptance gate, LOCKED 13.7/13.20/new epoch clause + design-doc as-built, unit matrix + no-seam production e2e.",
-   "status": "completed",
-   "phase": "COMPLETED",
-   "tier": "Full",
-   "pdr_approved": true,
-   "deliberation_completed": true,
-   "unlock_source": "user",
-   "check_completed": true,
-   "reflexion_entries": [
-    "S124-P1 #triage-external-criticals-against-the-exact-arithmetic"
-   ],
-   "checkpoint_commit": "80f1058",
-   "check_method": "P1 hostmig D4 production-ON shipped (80f1058). GATES: tsc 0; vitest 1901/1901 (+17 hostmigD4.test.ts: ladder matrix, claimAcceptDecision matrix, stampOrReject fail-closed, setEpoch watermark reset, dead-host-seat drop-bench sweep via runHostTick integration); bundle 639.5/750 KiB; e2e hostmigration.spec 2/2 GREEN twice (before+after CHECK fix) incl NEW no-seam production-activation test (kill host -> real transport peer-left -> real 15s RECONNECT_GRACE_MS -> ladder rank-0 claim -> successor isHost epoch 1 + survivor follows). CHECK Triumvirate on raw diff: GEMINI F1 CONFIRMED (post-sign yield window; fixed with abort guard + latch re-arm, gates re-run green); REFUTED w/ code: Grok F1 (epoch arithmetic error - rival fires SAME epoch -> evidence-free same-epoch demotion path), Grok F2 (relatch-down makes final latch order-independent), Grok F3/F4 (design-settled), Gemini F2 (false premise - in-page reconnect keeps Trystero selfId), Gemini F3 FABRICATED (claimed setTimeout(grace+null); code has explicit ladderDelayMs!==null gate, per-frame polling). PRIME-AUDIT additions beyond Council: partition-evidence anti-grief gate w/ 60s TTL (a healthy host can never be deposed by one malicious warranted client); known-delta documented: asymmetric-partition rogue solo host (victim-only impact, v1-accepted).",
-   "real_context_tokens_at_close": 418734,
-   "real_context_pct_at_close": 41.87,
-   "verification": [
-    {
-     "type": "file_contains",
-     "path": "src/net/protocol.ts",
-     "needle": "export const PROTOCOL_VERSION = 15 as const;"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/succession.ts",
-     "needle": "export const CLAIM_LADDER_MS = 1500;"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/succession.ts",
-     "needle": "export function claimAcceptDecision("
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/intentStamp.ts",
-     "needle": "export function stampOrReject("
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/sync.ts",
-     "needle": "if (epoch > this.currentEpoch) this.lastSeq = 0;"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/hostHandlers.ts",
-     "needle": "onDeposed?: (claim: MigrationClaimMsg, fromPeerId: string) => void;"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/clientHandlers.ts",
-     "needle": "claimAcceptDecision("
-    },
-    {
-     "type": "file_contains",
-     "path": "src/main.ts",
-     "needle": "const demoteToClient = ("
-    },
-    {
-     "type": "file_contains",
-     "path": "src/main.ts",
-     "needle": "MIGRATION claim aborted post-sign"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/main.ts",
-     "needle": "hasFreshPartitionEvidence"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/render/connectionLostOverlay.ts",
-     "needle": "setMigrating(secondsLeft?: number): void {"
-    },
-    {
-     "type": "file_exists",
-     "path": "src/net/hostmigD4.test.ts"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/hostmigration.spec.ts",
-     "needle": "PRODUCTION activation: migration fires with NO seam"
-    },
-    {
-     "type": "file_contains",
-     "path": "LOCKED_DECISIONS.md",
-     "needle": "### 13.21 Host-migration epoch semantics (S124 P1 NEW"
-    }
-   ]
-  },
-  {
-   "id": "P2-b2c-reconciliation",
-   "label": "BACKLOG reconciliation: B2 phase (c) grid hoist ALREADY SHIPPED S120 P3 commit 3fc6688 (collision.ts:18-25, collision.pile.test.ts) - fix stale STATUS banner (S114 G3b precedent).",
-   "status": "completed",
-   "phase": "COMPLETED",
-   "tier": "Micro",
-   "pdr_approved": true,
-   "deliberation_completed": true,
-   "unlock_source": "user",
-   "check_completed": true,
-   "reflexion_entries": [
-    "S124-P2 #probe-the-backlog-against-git-before-planning"
-   ],
-   "checkpoint_commit": "0d1385a",
-   "check_method": "P2 docs-only reconciliation (0d1385a). VERIFY: the claim rests on direct code reads this session - collision.ts:18-25 documents the once-per-substep rebuild ('Was 64 insertAll/tick'), collision.pile.test.ts:5+88 locks it ('64 -> 8 rebuilds/tick', S120 P3 header), git log pins commit 3fc6688 'feat(s120-p3): B2 phase (c) - collision grid rebuild 64->8/tick + 8-bit cellKey guard'. BACKLOG NEXT-BIG-ROCKS item 5 struck through with the reconciliation note + evidence cites. No code touched; no gates affected.",
-   "real_context_tokens_at_close": 425000,
-   "real_context_pct_at_close": 42.5,
-   "verification": [
-    {
-     "type": "file_contains",
-     "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-     "needle": "S124 RECONCILIATION: ALREADY SHIPPED in S120 P3 (commit `3fc6688`)"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/physics/collision.ts",
-     "needle": "Was 64 insertAll/tick"
-    }
-   ]
-  },
-  {
-   "id": "P3-f10-render-heap",
-   "label": "F10 render-side heap probe: direct-mode long-soak e2e (worker-heap.spec S123 pattern) with stabilized GC floors + Pixi render census (textures/children) - closes F10's remaining half.",
-   "status": "completed",
-   "phase": "COMPLETED",
-   "tier": "Standard",
-   "pdr_approved": true,
-   "deliberation_completed": true,
-   "unlock_source": "user",
-   "check_completed": true,
-   "reflexion_entries": [
-    "S124-P3 #census-decoupling-beats-heap-noise"
-   ],
-   "checkpoint_commit": "5756060",
-   "check_method": "P3 F10 render-side heap/census audit shipped (5756060). INSTRUMENT: DEV-only __SPARK__.renderCensus (recursive app.stage display-object count + Pixi managedTextures length; -1 sentinel fails loudly if Pixi internals move) inside the import.meta.env.DEV block (verified line 870; bundle unchanged 639.5/750 = tree-shaken). SPEC: e2e/render-heap.spec.ts reuses the S123 CHECK-hardened stabilized double-GC floor machinery, direct-mode VS-BOTS 3xMID (churn-heavy render path: entity Graphics create/destroy per lifecycle). EMPIRICAL VERDICT (run log): ticks=10208, HEAP 30.7->33.8MB D+3.08MB with entity counts nearly doubling (prims 41->76, bonds 34->70) = organic-growth band, 308.6KB/ktick well under the >=1KB/tick leak signature; CENSUS 356->395 (D+39) tracks entity growth exactly (no decoupled renderer accumulation); textures 68->69 (one lazy atlas). All asserts green: 1 passed (5.4m). tsc 0. NO RENDER-SIDE LEAK - F10 closed on both halves (worker isolate S123 P3 c0eca11, render side here).",
-   "real_context_tokens_at_close": 450913,
-   "verification": [
-    {
-     "type": "file_exists",
-     "path": "e2e/render-heap.spec.ts"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/main.ts",
-     "needle": "get renderCensus(): { displayObjects: number; textures: number } {"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/render-heap.spec.ts",
-     "needle": "F10 RENDER-SIDE heap/census audit"
-    }
-   ],
-   "real_context_pct_at_close": 45.09
-  }
- ],
- "carry_forward_priorities": [
-  "Worker default-on flip (owner weak-device playtest = the only gate)",
-  "Bot-intelligence Phase A (owner BOT_INTELLIGENCE_DESIGN.md section-7 answers pending)",
-  "Deploy-path decision (owner: Actions auto vs manual gh-pages)",
-  "Bit-exact bot serialization (YAGNI unless replay/spectator ships)",
-  "F9 INTENT token-bucket (owner-gated, before public matchmaking)",
-  "Hostmig v2: zombie auto-rejoin-as-client (epoch demotion path)"
- ],
- "reflexion_entries_to_archive": [
-  {
-   "id": "S124-P1",
-   "tag": "#triage-external-criticals-against-the-exact-arithmetic",
-   "lesson": "Both CHECK seats filed CRITs on the D4 diff; the only real one (post-sign yield window) was found by checking WHERE the await yields, while two others died on exact arithmetic (a rival fires at the SAME epoch, not higher - routing to a different, safe code path) and one was fabricated (invented setTimeout(grace+null) when the code has an explicit null gate). Triage = re-derive the failing interleaving's numbers yourself against the shipped lines; severity labels from external reviewers carry zero evidential weight."
-  },
-  {
-   "id": "S124-P2",
-   "tag": "#probe-the-backlog-against-git-before-planning",
-   "lesson": "The S123 handoff and BACKLOG both listed B2(c) as open work worth a session slot; a 2-minute A.0 grep found it shipped 4 sessions earlier (S120 P3, 3fc6688) with its own lock test. Roadmap prose drifts; git+code never do. Every priority candidate gets a state probe before it enters a PDR - this is the second instance (S114 G3b), which makes it a pattern, not an accident."
-  },
-  {
-   "id": "S124-P3",
-   "tag": "#census-decoupling-beats-heap-noise",
-   "lesson": "A heap delta alone cannot distinguish a render leak from organic world growth (D+3.08MB looked ambiguous until the entity counts explained it). The display-object census made the verdict decisive for free: renderer leaks show as census growth DECOUPLED from entity counts, which is a structural signal immune to GC noise. When auditing a subsystem for leaks, instrument the subsystem's OWN object population, not just bytes."
-  }
- ],
- "session_status": "S124 CLOSED",
- "analyze_completed": true,
- "totals": {
-  "grok_calls": 4,
-  "gemini_calls": 3
- },
- "auto_fill_applied": {
-  "ts": "2026-07-17T10:37:19.507986Z",
-  "fields": [
-   "totals.budget_remaining"
+  "tool_calls_session_total": 0,
+  "session_id": "S125",
+  "session_kind": "execution",
+  "session_start": "2026-07-19T12:00:00.000Z",
+  "prior_session_note": "S124 CLOSED (3/3 + close 642e200). S125 = owner-directed batch of carry-forward + recommended priorities that need NO owner input ('work all carry forward and top recommended priorities that dont require my input in a super thorough batch ... highest possible best quality output', + 'continue working exactly where we left off'). A.0 state-discovery filtered owner-gated (worker default-on, bot-intel section-7, deploy path) + YAGNI (bit-exact serialization) + design-gated (G1b MOTION, G2 traits) OUT. Batch = P1 hostmig v2 (zombie auto-rejoin) + P2 F9 INTENT token-bucket.",
+  "phase": "S125_EXECUTING",
+  "pdr_approved": true,
+  "deliberation_completed": true,
+  "unlock_source": "user",
+  "user_approval_verbatim": "work all carry forward and top recommended priorities that dont require my input in a super thorough batch in the best interests of this project and vision to be best of your abilities producing the highest quality best output possible! ... continue working exactly where we left off!",
+  "tier": "Full",
+  "council_rounds": 2,
+  "signals_fired": [
+    "protocol_adjacent_migration",
+    "security_surface"
   ],
-  "validator_version": "s110-three-tier-v1"
- },
- "analyze_result": "S124 close: 3/3 shipped (80f1058 D4 production-ON live-verified, 0d1385a reconciliation, 5756060 F10 render NO-LEAK). Rule-22 audit clean (no placeholders; CI deploys SUCCESS x2 - Actions ALIVE discovery, stale billing-lock memory superseded). Reflexion 3 entries. Review gate approved (MCV exit 0 after abs-path binding fix)."
+  "council_result": "S125 Full 3-way Council R1+R2 (GROK-DISRUPTOR grok-4.20-0309-reasoning + GEMINI-AUDITOR gemini-3.1-pro-preview) + PRIME-AUDIT. R1 surfaced 7 findings; code-triage: transport disconnect->reconnect race (Grok CRIT/Gemini HIGH) REFUTED by S82 shipped precedent (identical sync pattern, reconnect.spec.ts) + old host transport handlers self-gate inert; ClientSync-reuse contamination (Gemini MED) FALSE PREMISE (original host never had a ClientSync) - hardened anyway with explicit clientSync=null; 'permanent demotion' cascade (Grok HIGH) REFUTED (seat 0 warrant-excluded, computeClaimDelayMs->null, follows as plain client via stored warrant). ADOPTED: unify demoteToClient(newEpoch, winner, {reestablishTransport}) (kills duplication), transient overlay via existing D4/S82 state-machine (no terminal latch), rate 90/40 + intentThrottled type-log (two-bucket QoS = documented v2 lever), cascade e2e + burst/isolation/forget-reset units + real-WebRTC rejoin e2e. R2: all resolutions HOLD, ZERO residual HIGH/CRITICAL, cleared. PRIME-AUDIT: no CRITICAL survived (15th instance external high-sev dies on exact mechanics); runtime-verified via real-WebRTC e2e; successor peer-join claim-echo re-teaches the rejoiner for free.",
+  "plan_file": ".claude/plans/2026-07-19_PDR_S125_HostMigV2_F9_Batch.md",
+  "budget_total": "GREEN",
+  "priorities": [
+    {
+      "id": "P1-hostmig-v2-rejoin",
+      "label": "Host-migration v2: deposed ORIGINAL host auto-rejoins as client (epoch demotion path) instead of the v1 terminal overlay. Unify demoteToClient(newEpoch, winner, {reestablishTransport}); reestablish=true nulls clientSync + disconnect + connectAsClient + setEpoch; wire onDeposed to pass the successor; remove terminal zombie latch for this path (existing D4/S82 overlay owns display incl. cascade); roomCode-null fail-safe -> v1 terminal. NO protocol bump. Unit (hostmigV2.test.ts) + real-WebRTC rejoin e2e + cascade test.",
+      "status": "in_progress",
+      "phase": "EXECUTING",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false
+    },
+    {
+      "id": "P2-f9-intent-token-bucket",
+      "label": "F9: per-peer INTENT token-bucket (trust hardening, pre-public-matchmaking). New pure src/net/intentRateLimiter.ts (capacity 90 / refill 40/s), wired at TOP of BOTH host INTENT handlers before allowlist/stamp; drop + world.diagnostics.intentThrottled++ (log dropped type) when empty; forget(peer) on leave + reset() at match boundary. Wall-clock (host-only guard, determinism-neutral). NO protocol bump. Unit (intentRateLimiter.test.ts) + flood-vs-legit integration.",
+      "status": "pending",
+      "phase": "PENDING",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false
+    }
+  ],
+  "carry_forward_priorities": [
+    "Worker default-on flip (owner weak-device playtest gate)",
+    "Bot-intelligence Phase A (owner BOT_INTELLIGENCE_DESIGN.md section-7 answers)",
+    "Deploy-path decision (owner: Actions auto vs manual gh-pages)",
+    "Bit-exact bot serialization (YAGNI unless replay/spectator ships)",
+    "G1b MOTION verb + G2 family traits (playtest/owner-design gated)"
+  ],
+  "reflexion_entries_to_archive": [],
+  "session_status": "S125 EXECUTING",
+  "totals": {
+    "grok_calls": 2,
+    "gemini_calls": 2,
+    "budget_remaining": "GREEN"
+  }
 }

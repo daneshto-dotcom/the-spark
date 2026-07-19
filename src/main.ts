@@ -29,6 +29,8 @@ import {
   MAX_PLAYERS,
   NET_RENDER_DELAY_MS,
   NET_SNAPSHOT_HZ,
+  INTENT_BUCKET_CAPACITY,
+  INTENT_BUCKET_REFILL_PER_SEC,
   PHYSICS_HZ,
   PHYSICS_SUBSTEPS,
   PLAYER_COLORS,
@@ -66,6 +68,7 @@ import { stampOrReject } from './net/intentStamp.ts';
 import { selfId as trysteroSelfId } from './net/transport.ts';
 import { HostSync } from './net/sync.ts';
 import { connectAsClient, createJoinAttemptHandler } from './net/clientHandlers.ts';
+import { IntentRateLimiter } from './net/intentRateLimiter.ts';
 // S87 P4 — QUICK MATCH. The ready-gate/presence helpers are eager-safe (no
 // Trystero import); the QuickmatchDiscovery class is the LAZY half, imported on
 // the first "Quick Match" click so the index chunk stays under charter.
@@ -755,8 +758,12 @@ async function bootstrap(): Promise<void> {
     stopQuickmatch();
     onBeginMatch();
   };
+  // S125 P2 (F9) — ONE per-peer INTENT token-bucket, shared by both host choke points (the original
+  // host below and a migration successor in the ticker) so a peer's flood budget is continuous
+  // across a migration. Reset per fresh room (createHostStartHandler); pruned on peer-leave.
+  const intentRateLimiter = new IntentRateLimiter(INTENT_BUCKET_CAPACITY, INTENT_BUCKET_REFILL_PER_SEC);
   const onHostStart = createHostStartHandler({
-    session, world, hostIdentity, onLobbyError, onPresence, onAutoBegin,
+    session, world, hostIdentity, onLobbyError, onPresence, onAutoBegin, intentRateLimiter,
     // S122 P1 — worker mode routes validated, seat-stamped remote INTENTs to the sim
     // worker (the mirror must never apply them authoritatively). Direct mode dispatches
     // into `world` exactly as before.
@@ -764,11 +771,18 @@ async function bootstrap(): Promise<void> {
       if (workerSimActive()) simWorkerDriver!.postIntent(action);
       else dispatch(world, action);
     },
-    // S124 P1 (D4) — zombie demotion wiring: a VERIFIED higher-epoch claim (checked in
-    // hostHandlers against the warrant WE signed) + local partition evidence ⇒ the match
-    // migrated around us while we were frozen/partitioned. v1: terminal overlay, no rejoin.
-    onDeposed: (claim) => {
-      demoteToClient(claim.epoch, null);
+    // S124 P1 (D4) / S125 P1 (v2) — zombie demotion wiring: a VERIFIED higher-epoch claim (checked
+    // in hostHandlers against the warrant WE signed) + local partition evidence ⇒ the match migrated
+    // around us while we were frozen/partitioned. S125: instead of the v1 terminal overlay we now
+    // AUTO-REJOIN as a client following the successor (fromPeerId is the successor's transport peer;
+    // claim.seat its warranted seat). Fail-safe to terminal only if we somehow hold no room code
+    // (never true for a warranted host, but total). LOCKED §13.21 v2.
+    onDeposed: (claim, fromPeerId) => {
+      if (session.roomCode !== null) {
+        demoteToClient(claim.epoch, { peerId: fromPeerId, seat: claim.seat }, { reestablishTransport: true });
+      } else {
+        demoteToClient(claim.epoch, null);
+      }
     },
     // Thunk (not a bare reference): hasFreshPartitionEvidence is declared later in this scope;
     // the deps object is built NOW, the check only runs at claim time (TDZ-safe by deferral).
@@ -1181,8 +1195,10 @@ async function bootstrap(): Promise<void> {
   //     claim may only demote us when such evidence exists (a healthy host refuses — a single
   //     malicious warranted client must not be able to depose it). Cleared at match boundaries.
   //   lastLoopNowMs — previous rAF timestamp for the freeze-gap detector.
-  //   zombieDeposed — v1 zombie terminal latch: forces the CONNECTION-LOST overlay (design §5:
-  //     the deposed original host does NOT auto-rejoin as a client; that is the v2 path).
+  //   zombieDeposed — TERMINAL FAIL-SAFE latch: forces the CONNECTION-LOST overlay. S125 P1 made
+  //     the ordinary deposed-host path AUTO-REJOIN as a client (LOCKED §13.21 v2), so this latch is
+  //     now reached only when a deposed host holds no room code to rejoin with (can't happen for a
+  //     warranted host — belt-and-suspenders).
   //   migrationPauseActive — pause-only window (Council D4: buffer REJECTED): while a survivor
   //     is inside a host-loss window with a warrant stored, local gameplay intents are neither
   //     optimistically applied NOR sent (the world is frozen; a ≥15s-stale intent materializing
@@ -1204,17 +1220,35 @@ async function bootstrap(): Promise<void> {
     hostPartitionEvidenceMs > 0 &&
     performance.now() - hostPartitionEvidenceMs < MIGRATION_EVIDENCE_TTL_MS;
 
-  // S124 P1 (D4) — the SHARED demotion core (design §5 zombie v1 + Council lowest-seat-wins).
-  // winner === null ⇒ ZOMBIE path (the deposed ORIGINAL/prior-term host): stop simulating and
-  // latch the terminal connection-lost overlay — no auto-rejoin in v1. winner ≠ null ⇒ the
-  // LOSER-ADOPTER path (a ladder race this peer lost): resume the CLIENT posture toward the
-  // winner — its ClientSync is still live (never destroyed during adoption), the epoch fence +
-  // seq-watermark reset (ClientSync.setEpoch) admit the winner's first snapshot, and the world
-  // is fully replaced by it (allocator/reseed residue from our brief adoption is inert on a
-  // client — spawner/allocators only run under isHost; the additive INTENT handler self-gates).
+  // S124 P1 (D4) / S125 P1 (v2) — the SHARED demotion core (design §5 + Council lowest-seat-wins).
+  // winner === null ⇒ TERMINAL FAIL-SAFE (a deposed host that cannot rejoin, i.e. no room code —
+  //   never true for a warranted host, but total): stop simulating + latch the connection-lost
+  //   overlay. This is now ONLY the fail-safe; S125 makes the ordinary deposed-host path rejoin.
+  // winner ≠ null, opts.reestablishTransport !== true ⇒ the LOSER-ADOPTER path (a ladder race this
+  //   peer lost): resume the CLIENT posture toward the winner — its ClientSync is still live (never
+  //   destroyed during adoption), the epoch fence + seq-watermark reset (setEpoch) admit the
+  //   winner's first snapshot, and the world is fully replaced by it (allocator/reseed residue from
+  //   our brief adoption is inert on a client — spawner/allocators only run under isHost).
+  // winner ≠ null, opts.reestablishTransport === true ⇒ S125 P1 (host-migration v2, LOCKED §13.21):
+  //   the deposed ORIGINAL host auto-rejoins as a client instead of the v1 terminal overlay. It was
+  //   authoritative-only (no ClientSync; its transport is a HOST transport), so it re-runs the SAME
+  //   S82 auto-reconnect path against the same room code — same page ⇒ same Trystero selfId ⇒ the
+  //   successor's frozen peerId→seat map re-binds + drop-benches self-heal on our next intent. Null
+  //   the clientSync first so connectAsClient mints a provably fresh one (empty snap buffer, epoch
+  //   0); setEpoch fences any residual epoch-0 frame. NOT terminal — the existing D4/S82 overlay
+  //   state-machine (reconnecting→migrating→terminal) owns the display, including a cascading
+  //   successor death, until the successor's first snapshot lands.
+  // S125 P1 — standalone so it reads session.clientSync FRESH: the `session.clientSync = null`
+  // assignment in the rejoin branch narrows the local flow type to `null`, and TS can't see that
+  // the opaque connectAsClient re-minted it (clientHandlers.ts:120). A separate function re-reads
+  // the property with its declared `ClientSync | null` type, so the epoch fence type-checks.
+  const fenceRejoinEpoch = (ep: number): void => {
+    session.clientSync?.setEpoch(ep);
+  };
   const demoteToClient = (
     newEpoch: number,
     winner: { peerId: string; seat: number } | null,
+    opts?: { reestablishTransport?: boolean },
   ): void => {
     world.isHost = false;
     session.hostSync = null;
@@ -1225,7 +1259,8 @@ async function bootstrap(): Promise<void> {
     if (simWorkerDriver !== null) {
       // A deposed worker-mode host must stop its authoritative isolate too — the main thread
       // stops FORWARDING its batches the instant isHost flips, but a live worker would keep
-      // simulating a divergent world for nothing (S124 Council R1 GROK Risk B).
+      // simulating a divergent world for nothing (S124 Council R1 GROK Risk B). The rejoin below
+      // comes back as a DIRECT-mode client (a mirror needs no worker).
       simWorkerDriver.terminate();
       simWorkerDriver = null;
     }
@@ -1233,15 +1268,25 @@ async function bootstrap(): Promise<void> {
       session.hostPeerId = winner.peerId;
       session.hostVerifiedPeerId = winner.peerId;
       session.latchedClaimSeat = winner.seat;
-      session.clientSync?.setEpoch(newEpoch);
-      console.info('[net] MIGRATION demotion — lost the term to a lower seat, following winner', {
-        winnerSeat: winner.seat, epoch: newEpoch,
-      });
+      if (opts?.reestablishTransport === true && session.roomCode !== null) {
+        session.clientSync = null; // provably-fresh ClientSync (empty buffer) on rejoin
+        session.netTransport?.disconnect();
+        connectAsClient(clientJoinDeps, session.roomCode);
+        fenceRejoinEpoch(newEpoch); // fence any residual epoch-0 frame (reads clientSync fresh)
+        console.info('[net] MIGRATION demotion — deposed original host auto-rejoining as client (v2)', {
+          winnerSeat: winner.seat, epoch: newEpoch,
+        });
+      } else {
+        session.clientSync?.setEpoch(newEpoch);
+        console.info('[net] MIGRATION demotion — lost the term to a lower seat, following winner', {
+          winnerSeat: winner.seat, epoch: newEpoch,
+        });
+      }
     } else {
       zombieDeposed = true;
       session.hostPeerId = null;
       session.hostVerifiedPeerId = null;
-      console.info('[net] MIGRATION demotion — deposed as zombie host (v1: terminal overlay)', {
+      console.info('[net] MIGRATION demotion — deposed with no room code (v1 fail-safe: terminal overlay)', {
         epoch: newEpoch,
       });
     }
@@ -2032,6 +2077,12 @@ async function bootstrap(): Promise<void> {
                     return;
                   }
                   if (m.kind !== 'INTENT') return;
+                  // S125 P2 (F9) — same per-peer INTENT rate-limit as the original host path
+                  // (shared limiter instance ⇒ a flooder's budget carries across the migration).
+                  if (!intentRateLimiter.tryConsume(fromPeer, performance.now())) {
+                    world.diagnostics.intentThrottled++;
+                    return;
+                  }
                   if (!isClientIntentAllowed(m.action.type)) {
                     world.diagnostics.raceRejects++;
                     return;
@@ -2049,8 +2100,10 @@ async function bootstrap(): Promise<void> {
                 });
                 // S124 P1 (D4) — peer-JOIN echo: a survivor that reconnect-cycled through the
                 // migration re-appears with its old latches; the echo re-teaches it the term.
-                transport.onPeerChange((_pid, joinKind) => {
+                // S125 P2 (F9) — prune a departed peer's INTENT bucket on the successor transport too.
+                transport.onPeerChange((pid, joinKind) => {
                   if (joinKind === 'join') maybeEchoClaim();
+                  else if (joinKind === 'leave') intentRateLimiter.forget(pid);
                 });
                 console.info('[net] MIGRATION TAKEOVER complete — this peer is now the host', {
                   seat: mySeat, epoch: newEpoch, seqBase: successorSync.currentSeq(),
@@ -2131,9 +2184,10 @@ async function bootstrap(): Promise<void> {
     migrationPauseActive = peersGone && !world.isHost && session.warrant !== null;
     let connectionLost = false;
     if (zombieDeposed) {
-      // S124 P1 (D4) — deposed zombie host, v1 terminal path (design §5): the match went on
-      // without us; hold the terminal overlay (Return to Title is the only exit — auto-rejoin
-      // as a client is the documented v2 path).
+      // S124 P1 (D4) / S125 P1 — TERMINAL FAIL-SAFE only: a deposed host with no room code to
+      // rejoin with (can't happen for a warranted host). The ordinary deposed-host path now
+      // AUTO-REJOINS as a client (demoteToClient reestablishTransport, LOCKED §13.21 v2) and
+      // flows through the peersGone/migrationCase overlay branch below instead of this latch.
       lobbyScreen.setConnectionLostReconnecting(false);
       lobbyScreen.setConnectionLostVisible(true);
       connectionLost = true;

@@ -35,6 +35,7 @@ import type { NetSession } from './session.ts';
 import { NetTransport, selfId } from './transport.ts';
 import { dispatch, type GameAction as GameActionForIntent, type World } from '../state/world.ts';
 import { stampOrReject } from './intentStamp.ts';
+import type { IntentRateLimiter } from './intentRateLimiter.ts';
 import { asPlayerId, type PlayerId } from '../types.ts';
 import { PLAYER_COLORS, MAX_PLAYERS } from '../constants.ts';
 
@@ -192,6 +193,14 @@ export interface HostStartDeps {
    * us regardless via hostAuthFilter + epoch gate, so a wrong refusal only affects our own UI).
    */
   hasPartitionEvidence?: () => boolean;
+  /**
+   * S125 P2 (F9) — the shared per-peer INTENT token-bucket. Consulted at the TOP of the INTENT
+   * receive path (before allowlist/stamp): an empty bucket DROPS the intent + counts it, bounding a
+   * modified client's ability to flood the authoritative dispatch. reset() on this fresh-host start;
+   * forget(peerId) on peer-leave. The SAME instance is reused by the migration-successor path in
+   * main.ts, so a peer's budget survives a takeover.
+   */
+  intentRateLimiter: IntentRateLimiter;
 }
 
 export function createHostStartHandler(deps: HostStartDeps): () => string {
@@ -218,6 +227,8 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
     // applyStartGame start-of-match hazard-clears (S72 belt-and-suspenders posture). A
     // fresh transport has no peers yet, so this runs before any onPeerChange can fire.
     deps.session.lobbySeats = new Map();
+    // S125 P2 (F9) — a fresh host starts with fresh per-peer INTENT budgets.
+    deps.intentRateLimiter.reset();
     // S20 P0 — surface NetTransport errors to the lobby statusText so users
     // see the failure layer rather than an indefinite "Waiting for Player 2..."
     // stall (the S19 P4-unresolved BLOCKER root cause: zero error plumbing).
@@ -249,7 +260,10 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
     // session.lobbySeats so Begin (buildMatchRoster) compacts the SAME assignment —
     // ONE source of truth (Council S73 Option 1b: no positional re-derivation that
     // could diverge from a back-filled hole).
-    transport.onPeerChange(() => {
+    transport.onPeerChange((peerId, kind) => {
+      // S125 P2 (F9) — drop a departed peer's INTENT token-bucket so buckets don't accumulate
+      // across a long-lived room's join/leave churn (a fresh join starts full again).
+      if (kind === 'leave') deps.intentRateLimiter.forget(peerId);
       // S87 P4 — broadcastQmPresence is the single host presence path: in a
       // friends lobby (session.quickmatch=false) it produces the SAME base
       // roster the pre-S87 inline reconcile+build+send+onPresence did
@@ -290,6 +304,15 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
       // wins host-receive order; loser's intent silently no-ops + increments
       // world.diagnostics.raceRejects (observable for tests).
       if (msg.kind === 'INTENT' && deps.session.hostSync !== null) {
+        // S125 P2 (F9) — per-peer INTENT RATE LIMIT (first gate, before parse-cost of
+        // allowlist/stamp): an empty token bucket DROPS the intent + counts it, bounding a modified
+        // client's ability to flood the authoritative dispatch. A drop is identical to a network
+        // drop (host-only guard — determinism untouched). The dropped type is logged for forensics.
+        if (!deps.intentRateLimiter.tryConsume(peerId, performance.now())) {
+          deps.world.diagnostics.intentThrottled++;
+          console.warn(`[net] INTENT rate-limited from ${peerId} (${msg.action.type})`);
+          return;
+        }
         // S82 P4(c) — CLIENT-INTENT ALLOWLIST (closes the any-GameAction hole): the
         // wire validator mirrors the FULL action union, so a modified client could
         // send host-internal actions (SPAWN_*, WIN_TRIGGER, START_GAME, *_TICK …) and

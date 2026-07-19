@@ -350,6 +350,7 @@ export function makeWorld(rngSeed: number): World {
         actorBenched: 0,
       },
       territoryBlockRejects: 0,
+      intentThrottled: 0,
     },
     localPlayerId: asPlayerId(0),
     botSeats: new Set(),

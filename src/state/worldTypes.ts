@@ -330,6 +330,14 @@ export interface World {
      * true). Carry preserved on each reject. Surfaced in debugOverlay.
      */
     territoryBlockRejects: number;
+    /**
+     * S125 P2 (F9) — count of remote INTENTs the host DROPPED because the
+     * sender's per-peer token bucket (net/intentRateLimiter.ts) was empty —
+     * a modified client flooding the authoritative dispatch. Host-local
+     * observability only (never serialized); the dropped intent's type is
+     * logged alongside for forensics/telemetry.
+     */
+    intentThrottled: number;
   };
   /**
    * S42 — local player id (non-serialized convention; client only mutates

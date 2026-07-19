@@ -184,8 +184,11 @@ for everyone (clients don't simulate) — no divergence accumulates by design.
 
 ## 10. Open questions (parked, answers not needed for D1–D2)
 
-1. Should the migrated match keep accepting LATE reconnects of the original
-   host as a *client*? (v2 epoch-demotion path — recommended yes, needs UX.)
+1. ~~Should the migrated match keep accepting LATE reconnects of the original
+   host as a *client*? (v2 epoch-demotion path — recommended yes, needs UX.)~~
+   **RESOLVED — S125 P1 (v2) SHIPPED: yes.** A deposed original host auto-rejoins as a
+   client (see §12); the "UX" is just the existing reconnecting→migrating overlay
+   state-machine — no bespoke screen needed.
 2. Warrant refresh on mid-match late-join (currently impossible — joins are
    lobby-only — so: no).
 3. Solo-survivor migration (1 peer left): technically trivial (it just becomes
@@ -230,6 +233,30 @@ Where the shipped D4 differs from (or extends) the sections above:
 7. **PROTOCOL_VERSION 14 → 15** (§7 said 7→8 — versions moved on underneath). The
    `__TEST_MIGRATION__` seam survives as a TIMING override only; e2e test 2 proves the
    production path with no seam under the real 15 s grace.
+
+## 12. v2 as-built — zombie auto-rejoin-as-client (S125 P1)
+
+Resolves §10 Q1. The deposed ORIGINAL host no longer routes to the terminal overlay (v1); it
+auto-rejoins the ongoing match as a client under the successor's term.
+
+1. **One demotion core.** `demoteToClient(newEpoch, winner, { reestablishTransport })` unifies all
+   three demotions: the loser-adopter (ladder race lost, ClientSync kept), the terminal fail-safe
+   (winner === null, no room code), and the v2 rejoin (`reestablishTransport: true`).
+2. **Rejoin = the S82 reconnect path.** The original host was authoritative-only (no ClientSync;
+   its transport is a HOST transport). On deposal it nulls its ClientSync, `disconnect()`s, and
+   `connectAsClient(roomCode)` — the exact in-page auto-reconnect flow — so a provably-fresh
+   ClientSync (empty buffer) starts following the successor. `setEpoch(newEpoch)` fences the term.
+3. **Admission + split-brain fence by construction.** The successor broadcasts epoch ≥ 1 at a
+   `+MIGRATION_SEQ_JUMP` seq base; a fresh ClientSync (epoch 0 / seq 0) admits it with no reset
+   handshake, while the fenced epoch drops the zombie's own residual epoch-0 frames at any seq.
+4. **Seat 0 is warrant-excluded**, so a rejoined ex-host correctly NEVER re-claims but DOES follow
+   a cascading further migration as a plain client (via its surviving `session.warrant`).
+5. **No new UX / no protocol bump.** The existing reconnecting→migrating→terminal overlay
+   state-machine owns the display; the successor's peer-join CLAIM ECHO re-teaches the term to the
+   rejoiner for free. No new wire field/kind — PROTOCOL_VERSION stays 15.
+6. **Council:** Full-tier R1+R2 + PRIME-AUDIT — the transport-hand-off "race" (Grok CRIT) refuted by
+   the shipped S82 precedent; "permanent demotion" (Grok HIGH) refuted by the seat-0 warrant
+   exclusion; zero residual HIGH/CRITICAL. Runtime-validated in e2e test 3 (freeze-thaw rejoin).
 
 ---
 *Grounding: all file references verified against working tree at commit d4a7d8b

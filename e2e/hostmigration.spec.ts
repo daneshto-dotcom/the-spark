@@ -243,4 +243,97 @@ test.describe('S122 P2 — host-migration D3 takeover @quarantine-flaky', () => 
       await hostCtx.close().catch(() => undefined);
     }
   });
+
+  test('S125 P1 — host-migration v2: a FROZEN-then-THAWED original host auto-rejoins as a client', async ({
+    browser,
+  }) => {
+    // v2 (LOCKED §13.21): unlike the kill-host tests above (host context CLOSED = gone forever),
+    // here the original host is only PARTITIONED — its main thread is frozen past the grace so the
+    // survivors migrate to epoch 1, then it THAWS. On thaw it carries an rAF-gap partition evidence
+    // (main.ts:2153) and resumes emitting epoch-0 snapshots; the successor answers the stale epoch
+    // with its signed CLAIM ECHO (main.ts:2052), which — verified against the warrant the host
+    // itself signed + the fresh partition evidence — DEPOSES it. Instead of the v1 terminal overlay
+    // it now nulls its ClientSync, disconnects, and re-runs connectAsClient (the S82 reconnect path)
+    // to FOLLOW the successor. Assert: the ex-host ends up isHost=false, currentEpoch=1, PLAYING,
+    // with its mirror tick advancing off the successor's snapshots.
+    test.setTimeout(300_000);
+    const mk = async (): Promise<BrowserContext> => {
+      const ctx = await browser.newContext();
+      await ctx.addInitScript((seam) => {
+        (window as { __TEST_MIGRATION__?: typeof seam }).__TEST_MIGRATION__ = seam;
+      }, SEAM);
+      return ctx;
+    };
+    const hostCtx = await mk();
+    const j1Ctx = await mk();
+    const j2Ctx = await mk();
+    try {
+      const hostPage = await hostCtx.newPage();
+      const j1 = await j1Ctx.newPage();
+      const j2 = await j2Ctx.newPage();
+
+      const code = await hostNewRoom(hostPage);
+      await joinRoom(j1, code);
+      await waitForWorld(hostPage, (w) => w.peerCount >= 1, 'host sees j1', 60_000);
+      await joinRoom(j2, code);
+      await waitForWorld(hostPage, (w) => w.peerCount >= 2, 'host sees j2', 60_000);
+
+      const pts = await lobbyUiPoints(hostPage);
+      const begin = await canvasToCss(hostPage, pts.beginButton.x, pts.beginButton.y);
+      await hostPage.mouse.click(begin.x, begin.y);
+      for (const [i, p] of [hostPage, j1, j2].entries()) {
+        await waitForWorld(p, (w) => w.gameState === 'PLAYING', `peer ${i} PLAYING`, 30_000);
+      }
+      for (const p of [j1, j2]) {
+        await p.waitForFunction(
+          () => {
+            const s = (window as unknown as {
+              __SPARK__: { netTransport: { peerCount(): number } | null };
+            }).__SPARK__;
+            return s.netTransport !== null && s.netTransport.peerCount() >= 2;
+          },
+          { timeout: 30_000 },
+        );
+      }
+      await j1.waitForTimeout(2_000);
+
+      // ── FREEZE the host's main thread (busy-loop) past starvation+grace so the survivors migrate
+      //    while it is silent; on return it carries a ≥ starvation rAF gap = partition evidence. ──
+      await hostPage.evaluate((ms) => {
+        const end = Date.now() + ms;
+        // Synchronous spin — blocks rAF/snapshot emission; Date.now() (wall clock) still advances.
+        while (Date.now() < end) {
+          /* intentionally blocking the main thread */
+        }
+      }, 8_000);
+
+      // ── The THAWED original host is deposed by the successor's claim echo and rejoins as client:
+      //    it stops being host, adopts the successor's epoch, and resumes PLAYING as a follower. ──
+      await hostPage.waitForFunction(
+        () =>
+          (window as unknown as { __SPARK__: { world: { isHost: boolean } } }).__SPARK__.world
+            .isHost === false,
+        { timeout: 60_000 },
+      );
+      await hostPage.waitForFunction(
+        () =>
+          (window as unknown as { __SPARK__: { currentEpoch: number } }).__SPARK__
+            .currentEpoch === 1,
+        { timeout: 30_000 },
+      );
+      await waitForWorld(hostPage, (w) => w.gameState === 'PLAYING', 'ex-host PLAYING as client', 20_000);
+      const exHostT0 = await readTick(hostPage);
+      await hostPage.waitForFunction(
+        (prev) =>
+          (window as unknown as { __SPARK__: { world: { tick: number } } }).__SPARK__.world.tick >
+          prev + 30,
+        exHostT0,
+        { timeout: 25_000 },
+      );
+    } finally {
+      await hostCtx.close().catch(() => undefined);
+      await j1Ctx.close();
+      await j2Ctx.close();
+    }
+  });
 });

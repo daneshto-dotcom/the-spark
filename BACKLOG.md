@@ -5,6 +5,23 @@
 
 ---
 
+# STATUS S125 (2026-07-19) — HOST-MIGRATION v2 (ZOMBIE AUTO-REJOIN) · F9 INTENT TOKEN-BUCKET
+
+> **S125 shipped a 2/2 owner-directed batch** ("work all carry-forward + recommended priorities
+> that need NO owner input") — Full-tier Council R1+R2 + PRIME-AUDIT (zero residual HIGH/CRITICAL):
+> **P1 host-migration v2** — a deposed ORIGINAL host now AUTO-REJOINS as a client (LOCKED §13.21 v2,
+> HOST_MIGRATION_DESIGN §12) instead of the v1 terminal overlay: `demoteToClient` unified with a
+> `reestablishTransport` mode that nulls the ClientSync + re-runs the S82 `connectAsClient` path to
+> follow the successor; fresh-sync epoch fence kills split-brain by construction; seat-0 warrant
+> exclusion means it follows (never re-claims) a cascade. NO protocol bump. Unit `hostmigV2.test.ts`
+> (3) + e2e test 3 freeze-thaw rejoin (@quarantine-flaky). **P2 F9 INTENT token-bucket** —
+> `net/intentRateLimiter.ts` (90/40) at BOTH host choke points, `intentThrottled` observability,
+> prune-on-leave; AUDIT_S116 F9 CLOSED. vitest **1914/1914** (+13) · tsc 0 · bundle **640.8/750** ·
+> NO protocol bump either priority. Owner gates unchanged (worker default-on playtest · §7 answers ·
+> deploy path), then bot-intelligence Phase A · G1b MOTION / G2 traits (design-gated).
+
+---
+
 # STATUS S124 (2026-07-19) — HOST-MIGRATION D4 LIVE IN PRODUCTION · F10 CLOSED BOTH HALVES
 
 > **S124 shipped 3/3 on the pre-approved batch:** **P1** host-migration **D4 PRODUCTION-ON**

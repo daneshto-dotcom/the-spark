@@ -148,6 +148,9 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   // S49 P1 (Sym F) — reset territory diagnostics + clear any active shrink
   // debuffs from the previous match so a fresh game starts at full radii.
   world.diagnostics.territoryBlockRejects = 0;
+  // S125 P2 (F9) — reset the per-match INTENT-throttle counter (the rate-limiter's
+  // per-peer buckets are cleared separately in main.ts on this same START_GAME).
+  world.diagnostics.intentThrottled = 0;
   for (const player of world.players.values()) {
     player.territorialShrinkUntilTick = null;
     // S72 P2 (Triumvirate CHECK) — a fresh match starts with NO hunter bench. The
@@ -279,6 +282,7 @@ export function applyReturnToTitle(world: World): World {
   world.diagnostics.rejectReasons.actorBenched = 0;
   // S49 P1 (Sym F) — reset territory block counter.
   world.diagnostics.territoryBlockRejects = 0;
+  world.diagnostics.intentThrottled = 0; // S125 P2 (F9) — per-match INTENT-throttle counter
   world.primitives.clear();
   world.bonds.clear();
   world.freeSparks.clear();
