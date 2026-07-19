@@ -1,10 +1,10 @@
 {
- "tool_calls_session_total": 22,
+ "tool_calls_session_total": 39,
  "session_id": "S124",
  "session_kind": "execution",
  "session_start": "2026-07-16T00:00:00.000Z",
  "prior_session_note": "S123 COMPLETE (4/4 + close f26f735/4c04938). S124 = host-migration D4 production-ON batch (user pre-approved: 'continue working exactly where we left off... highest possible best quality output' following the explicitly proposed P1/P2/P3 batch). A.0 found B2(c) ALREADY SHIPPED S120 P3 (3fc6688) -> P2 collapsed to BACKLOG reconciliation; F10 render probe promoted to P3.",
- "phase": "S124_EXECUTING",
+ "phase": "S124_CLOSED",
  "pdr_approved": true,
  "deliberation_completed": true,
  "unlock_source": "user",
@@ -141,14 +141,36 @@
   {
    "id": "P3-f10-render-heap",
    "label": "F10 render-side heap probe: direct-mode long-soak e2e (worker-heap.spec S123 pattern) with stabilized GC floors + Pixi render census (textures/children) - closes F10's remaining half.",
-   "status": "pending",
-   "phase": "PLAN",
+   "status": "completed",
+   "phase": "COMPLETED",
    "tier": "Standard",
    "pdr_approved": true,
    "deliberation_completed": true,
    "unlock_source": "user",
-   "check_completed": false,
-   "reflexion_entries": []
+   "check_completed": true,
+   "reflexion_entries": [
+    "S124-P3 #census-decoupling-beats-heap-noise"
+   ],
+   "checkpoint_commit": "5756060",
+   "check_method": "P3 F10 render-side heap/census audit shipped (5756060). INSTRUMENT: DEV-only __SPARK__.renderCensus (recursive app.stage display-object count + Pixi managedTextures length; -1 sentinel fails loudly if Pixi internals move) inside the import.meta.env.DEV block (verified line 870; bundle unchanged 639.5/750 = tree-shaken). SPEC: e2e/render-heap.spec.ts reuses the S123 CHECK-hardened stabilized double-GC floor machinery, direct-mode VS-BOTS 3xMID (churn-heavy render path: entity Graphics create/destroy per lifecycle). EMPIRICAL VERDICT (run log): ticks=10208, HEAP 30.7->33.8MB D+3.08MB with entity counts nearly doubling (prims 41->76, bonds 34->70) = organic-growth band, 308.6KB/ktick well under the >=1KB/tick leak signature; CENSUS 356->395 (D+39) tracks entity growth exactly (no decoupled renderer accumulation); textures 68->69 (one lazy atlas). All asserts green: 1 passed (5.4m). tsc 0. NO RENDER-SIDE LEAK - F10 closed on both halves (worker isolate S123 P3 c0eca11, render side here).",
+   "real_context_tokens_at_close": 450913,
+   "verification": [
+    {
+     "type": "file_exists",
+     "path": "e2e/render-heap.spec.ts"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/main.ts",
+     "needle": "get renderCensus(): { displayObjects: number; textures: number } {"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/render-heap.spec.ts",
+     "needle": "F10 RENDER-SIDE heap/census audit"
+    }
+   ],
+   "real_context_pct_at_close": 45.09
   }
  ],
  "carry_forward_priorities": [
@@ -169,10 +191,15 @@
    "id": "S124-P2",
    "tag": "#probe-the-backlog-against-git-before-planning",
    "lesson": "The S123 handoff and BACKLOG both listed B2(c) as open work worth a session slot; a 2-minute A.0 grep found it shipped 4 sessions earlier (S120 P3, 3fc6688) with its own lock test. Roadmap prose drifts; git+code never do. Every priority candidate gets a state probe before it enters a PDR - this is the second instance (S114 G3b), which makes it a pattern, not an accident."
+  },
+  {
+   "id": "S124-P3",
+   "tag": "#census-decoupling-beats-heap-noise",
+   "lesson": "A heap delta alone cannot distinguish a render leak from organic world growth (D+3.08MB looked ambiguous until the entity counts explained it). The display-object census made the verdict decisive for free: renderer leaks show as census growth DECOUPLED from entity counts, which is a structural signal immune to GC noise. When auditing a subsystem for leaks, instrument the subsystem's OWN object population, not just bytes."
   }
  ],
- "session_status": "EXECUTING",
- "analyze_completed": false,
+ "session_status": "S124 CLOSED",
+ "analyze_completed": true,
  "totals": {
   "grok_calls": 4,
   "gemini_calls": 3
@@ -183,5 +210,6 @@
    "totals.budget_remaining"
   ],
   "validator_version": "s110-three-tier-v1"
- }
+ },
+ "analyze_result": "S124 close: 3/3 shipped (80f1058 D4 production-ON live-verified, 0d1385a reconciliation, 5756060 F10 render NO-LEAK). Rule-22 audit clean (no placeholders; CI deploys SUCCESS x2 - Actions ALIVE discovery, stale billing-lock memory superseded). Reflexion 3 entries. Review gate approved (MCV exit 0 after abs-path binding fix)."
 }

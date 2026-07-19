@@ -5,6 +5,27 @@
 
 ---
 
+# STATUS S124 (2026-07-19) — HOST-MIGRATION D4 LIVE IN PRODUCTION · F10 CLOSED BOTH HALVES
+
+> **S124 shipped 3/3 on the pre-approved batch:** **P1** host-migration **D4 PRODUCTION-ON**
+> (`80f1058`, PROTOCOL_VERSION **14→15**): claim LADDER (rank·1500ms — stuck-successor deadlock dead),
+> monotonic epoch acceptance + lowest-seat-wins re-latch, zombie demotion (verified claims + partition-
+> evidence anti-grief gate, 60s TTL) + claim ECHO, roster-complete hostSeats (dead host's seat drop-
+> benches), fail-closed intent stamping BOTH host paths, pause-only migration window + MIGRATING overlay,
+> LOCKED **§13.21** NEW + §13.7/§13.20 amended. vitest 1901/1901 (+17) · e2e hostmigration 2/2 incl NEW
+> no-seam production test (real 15s grace) · **content-verified LIVE on spark-online.space** ·
+> **P2** B2(c) reconciliation (`0d1385a`, see struck item 5 below) · **P3** F10 render-side heap/census
+> audit (`5756060`): direct-mode 10k-tick bots soak, **NO LEAK** (Δ3.08MB organic, census tracks
+> entities) — **F10 closed on both halves** (worker S123 · render S124).
+> **DEPLOY DISCOVERY:** GitHub Actions are ALIVE again — **every master push auto-deploys to
+> production** (runs 29662201361/29682517245 SUCCESS). The "pick ONE deploy path" owner decision is
+> now urgent-ish: auto is the acting default.
+>
+> Owner gates + next big rocks: unchanged from S123 below (worker default-on playtest · §7 answers ·
+> deploy path), then bot-intelligence Phase A · hostmig v2 (zombie auto-rejoin) · F9 token-bucket.
+
+---
+
 # STATUS S123 (2026-07-12) — WORKER DEFAULT-ON: DEV-COMPLETE, OWNER-GATED
 
 > **S122** shipped B2 phase (d) — the `?worker=1` cutover (60Hz transferable positions + structural-batch
