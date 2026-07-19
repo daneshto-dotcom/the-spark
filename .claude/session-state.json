@@ -1,5 +1,5 @@
 {
- "tool_calls_session_total": 3,
+ "tool_calls_session_total": 22,
  "session_id": "S124",
  "session_kind": "execution",
  "session_start": "2026-07-16T00:00:00.000Z",
@@ -35,19 +35,108 @@
    "checkpoint_commit": "80f1058",
    "check_method": "P1 hostmig D4 production-ON shipped (80f1058). GATES: tsc 0; vitest 1901/1901 (+17 hostmigD4.test.ts: ladder matrix, claimAcceptDecision matrix, stampOrReject fail-closed, setEpoch watermark reset, dead-host-seat drop-bench sweep via runHostTick integration); bundle 639.5/750 KiB; e2e hostmigration.spec 2/2 GREEN twice (before+after CHECK fix) incl NEW no-seam production-activation test (kill host -> real transport peer-left -> real 15s RECONNECT_GRACE_MS -> ladder rank-0 claim -> successor isHost epoch 1 + survivor follows). CHECK Triumvirate on raw diff: GEMINI F1 CONFIRMED (post-sign yield window; fixed with abort guard + latch re-arm, gates re-run green); REFUTED w/ code: Grok F1 (epoch arithmetic error - rival fires SAME epoch -> evidence-free same-epoch demotion path), Grok F2 (relatch-down makes final latch order-independent), Grok F3/F4 (design-settled), Gemini F2 (false premise - in-page reconnect keeps Trystero selfId), Gemini F3 FABRICATED (claimed setTimeout(grace+null); code has explicit ladderDelayMs!==null gate, per-frame polling). PRIME-AUDIT additions beyond Council: partition-evidence anti-grief gate w/ 60s TTL (a healthy host can never be deposed by one malicious warranted client); known-delta documented: asymmetric-partition rogue solo host (victim-only impact, v1-accepted).",
    "real_context_tokens_at_close": 418734,
-   "real_context_pct_at_close": 41.87
+   "real_context_pct_at_close": 41.87,
+   "verification": [
+    {
+     "type": "file_contains",
+     "path": "src/net/protocol.ts",
+     "needle": "export const PROTOCOL_VERSION = 15 as const;"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/net/succession.ts",
+     "needle": "export const CLAIM_LADDER_MS = 1500;"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/net/succession.ts",
+     "needle": "export function claimAcceptDecision("
+    },
+    {
+     "type": "file_contains",
+     "path": "src/net/intentStamp.ts",
+     "needle": "export function stampOrReject("
+    },
+    {
+     "type": "file_contains",
+     "path": "src/net/sync.ts",
+     "needle": "if (epoch > this.currentEpoch) this.lastSeq = 0;"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/net/hostHandlers.ts",
+     "needle": "onDeposed?: (claim: MigrationClaimMsg, fromPeerId: string) => void;"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/net/clientHandlers.ts",
+     "needle": "claimAcceptDecision("
+    },
+    {
+     "type": "file_contains",
+     "path": "src/main.ts",
+     "needle": "const demoteToClient = ("
+    },
+    {
+     "type": "file_contains",
+     "path": "src/main.ts",
+     "needle": "MIGRATION claim aborted post-sign"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/main.ts",
+     "needle": "hasFreshPartitionEvidence"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/render/connectionLostOverlay.ts",
+     "needle": "setMigrating(secondsLeft?: number): void {"
+    },
+    {
+     "type": "file_exists",
+     "path": "src/net/hostmigD4.test.ts"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/hostmigration.spec.ts",
+     "needle": "PRODUCTION activation: migration fires with NO seam"
+    },
+    {
+     "type": "file_contains",
+     "path": "LOCKED_DECISIONS.md",
+     "needle": "### 13.21 Host-migration epoch semantics (S124 P1 NEW"
+    }
+   ]
   },
   {
    "id": "P2-b2c-reconciliation",
    "label": "BACKLOG reconciliation: B2 phase (c) grid hoist ALREADY SHIPPED S120 P3 commit 3fc6688 (collision.ts:18-25, collision.pile.test.ts) - fix stale STATUS banner (S114 G3b precedent).",
-   "status": "pending",
-   "phase": "PLAN",
+   "status": "completed",
+   "phase": "COMPLETED",
    "tier": "Micro",
    "pdr_approved": true,
    "deliberation_completed": true,
    "unlock_source": "user",
-   "check_completed": false,
-   "reflexion_entries": []
+   "check_completed": true,
+   "reflexion_entries": [
+    "S124-P2 #probe-the-backlog-against-git-before-planning"
+   ],
+   "checkpoint_commit": "0d1385a",
+   "check_method": "P2 docs-only reconciliation (0d1385a). VERIFY: the claim rests on direct code reads this session - collision.ts:18-25 documents the once-per-substep rebuild ('Was 64 insertAll/tick'), collision.pile.test.ts:5+88 locks it ('64 -> 8 rebuilds/tick', S120 P3 header), git log pins commit 3fc6688 'feat(s120-p3): B2 phase (c) - collision grid rebuild 64->8/tick + 8-bit cellKey guard'. BACKLOG NEXT-BIG-ROCKS item 5 struck through with the reconciliation note + evidence cites. No code touched; no gates affected.",
+   "real_context_tokens_at_close": 425000,
+   "real_context_pct_at_close": 42.5,
+   "verification": [
+    {
+     "type": "file_contains",
+     "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+     "needle": "S124 RECONCILIATION: ALREADY SHIPPED in S120 P3 (commit `3fc6688`)"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/physics/collision.ts",
+     "needle": "Was 64 insertAll/tick"
+    }
+   ]
   },
   {
    "id": "P3-f10-render-heap",
@@ -75,6 +164,11 @@
    "id": "S124-P1",
    "tag": "#triage-external-criticals-against-the-exact-arithmetic",
    "lesson": "Both CHECK seats filed CRITs on the D4 diff; the only real one (post-sign yield window) was found by checking WHERE the await yields, while two others died on exact arithmetic (a rival fires at the SAME epoch, not higher - routing to a different, safe code path) and one was fabricated (invented setTimeout(grace+null) when the code has an explicit null gate). Triage = re-derive the failing interleaving's numbers yourself against the shipped lines; severity labels from external reviewers carry zero evidential weight."
+  },
+  {
+   "id": "S124-P2",
+   "tag": "#probe-the-backlog-against-git-before-planning",
+   "lesson": "The S123 handoff and BACKLOG both listed B2(c) as open work worth a session slot; a 2-minute A.0 grep found it shipped 4 sessions earlier (S120 P3, 3fc6688) with its own lock test. Roadmap prose drifts; git+code never do. Every priority candidate gets a state probe before it enters a PDR - this is the second instance (S114 G3b), which makes it a pattern, not an accident."
   }
  ],
  "session_status": "EXECUTING",

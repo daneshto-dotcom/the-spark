@@ -900,6 +900,28 @@ async function bootstrap(): Promise<void> {
               hashMismatches: simWorkerDriver.hashMismatches,
             };
       },
+      // S124 P3 — F10 render-side census probe (e2e/render-heap.spec.ts): recursive
+      // display-object count over the whole stage + Pixi-managed texture count. A
+      // renderer leak (a Graphics/Sprite not destroyed with its entity) shows as census
+      // growth DECOUPLED from entity counts, even when heap noise masks it.
+      get renderCensus(): { displayObjects: number; textures: number } {
+        let n = 0;
+        const walk = (c: { children?: readonly unknown[] }): void => {
+          n++;
+          const kids = c.children;
+          if (kids !== undefined) {
+            for (const ch of kids) walk(ch as { children?: readonly unknown[] });
+          }
+        };
+        walk(app.stage);
+        const texSys = (app.renderer as unknown as {
+          texture?: { managedTextures?: { length: number } };
+        }).texture;
+        return {
+          displayObjects: n,
+          textures: texSys?.managedTextures?.length ?? -1,
+        };
+      },
       get fogRenderer() { return fogRenderer; },
       // S77 P2 — fog-exemption e2e: sync a global-reach entity + assert it renders
       // through the fog (aboveFogLayer sits above the fog container).
