@@ -1,35 +1,30 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-07-12 | Session: S123 (worker default-on prereqs + bot-intelligence design — 4/4 shipped)
+Generated: 2026-07-19 | Session: S124 (host-migration D4 production-ON batch, 3/3 shipped + live)
 
 ## Next Steps
-1. **OWNER (blocks the flip):** weak-device playtest of spark-online.space/?worker=1 — the ONLY remaining default-on gate (S123 closed VS-BOTS worker support, networked-duel e2e, GC audit).
-2. **OWNER:** answer `BOT_INTELLIGENCE_DESIGN.md` §7 (Q1 tier matrix · Q2 raid cap · Q3 reclaim verb · Q4 VOLTKIN chase · Q5 phasing · Q6 starvation · Q7 collateral) → then Bot-intelligence **Phase A** PDR (knowledge book + combo-aware pick/placement + raid, Standard tier, no new FSM).
-3. **OWNER:** pick ONE deploy path (Actions auto vs manual gh-pages — both ran S122; dual-writer race pending).
-4. **Worker default-on flip** (after playtest passes): remove the flag gate + add fallback-latency/message-queue-depth telemetry (GEMINI S123 risk).
-5. **Host-migration D4:** zombie demotion, claim-timeout, simultaneous-claim demotion, POSTGAME/WIN, LOCKED amendments, PROTOCOL bump, reconnect reconciliation + lastRoster lifecycle (+ pause-and-buffer during the migration window — GEMINI S123).
-6. **B2 phase (c)** collision-grid 64→8 hoist (still open, now worker-side); **F9** INTENT token-bucket; **F10** render-side heap probe (worker side CLOSED by S123 P3).
+1. OWNER: weak-device playtest of spark-online.space/?worker=1 — still the ONLY worker default-on gate. NOTE: the live site now runs S124/PROTOCOL 15 (D4 migration live); stale tabs get the refresh prompt.
+2. OWNER: answer BOT_INTELLIGENCE_DESIGN.md §7 (Q1–Q7) → unlocks bot-intelligence Phase A PDR (knowledge book + combo-aware pick/placement + raid; Standard, no new FSM).
+3. OWNER: pick ONE deploy path — Actions auto-deploy is the ACTING DEFAULT (verified S124: every master push ships to production, runs 29662201361/29682517245 SUCCESS) vs manual `npm run deploy`. Decide + kill the other.
+4. Worker default-on flip (after playtest): remove flag gate + fallback-latency/queue-depth telemetry.
+5. Hostmig v2 (owner-optional): zombie auto-rejoin-as-client (epoch demotion path); the v1 terminal-overlay behavior is LOCKED §13.21.
+6. F9 INTENT token-bucket (owner-gated, before public matchmaking) · G1b MOTION verb · G2 family traits.
 
 ## Blockers
-- **Owner weak-device `?worker=1` playtest** — gates default-on.
-- **Owner answers to `BOT_INTELLIGENCE_DESIGN.md` §7** — gates bot-intelligence Phase A.
-- **Owner deploy-path decision** (Actions vs manual — both alive since S121/S122).
+- All three top items are OWNER decisions (playtest / §7 answers / deploy path). No technical blockers.
+- Known-delta (v1-accepted, documented): asymmetric-partition rogue solo host — a survivor partitioned ONLY from the host can self-promote and host alone, unfollowed (victim-only impact, converges on its own overlay).
 
 ## Pending Backlog
-BACKLOG.md uses the STATUS-banner format (no `- [ ]` checkboxes) — updated this session to STATUS S123. Front of line: owner playtest/answers → worker default-on flip → host-mig D4 → bot-intelligence Phase A → B2 phase (c). The B2 WORKER-SIM ARC is dev-complete (a✅S119 · b✅closed-S120 · c open · d✅S122 · **default-on prereqs✅S123**); host-mig D1✅S115 D2✅S118 D3✅S122 (D4 open).
+- Worker default-on flip (owner playtest gate)
+- Bot-intelligence Phases A/B/C (owner §7 answers)
+- Host-mig v2 zombie auto-rejoin (owner-optional)
+- F9 INTENT token-bucket (owner-gated) · G1b MOTION · G2 traits (playtest-gated)
+- Bit-exact bot serialization (YAGNI unless replay/spectator ships)
 
 ## Recent Reflexion (last 2 sessions)
-
-## 2026-07-12 — Session 123: worker default-on prereqs + owner bot-intelligence amendment, 4/4 shipped. P1 VS-BOTS worker support fresh-from-seed (9f48d50) · P2 networked worker-duel e2e cross-mode (a8e073a) · P3 dual-isolate GC audit no-leak (c0eca11) · P4 BOT_INTELLIGENCE_DESIGN.md (3ba5cf3). tsc 0, vitest 1884/1884, bundle 635.5/750.
-
-- S123-P1 #verify-the-gates-mechanism-before-trusting-consensus: BOTH Council seats voted bit-exact serialization on the same claim that "(A) breaks the differential gate" — collapsed on a 10-line read (gate is fresh-vs-fresh, not a handoff). Consensus from a shared unverified premise ≈ 1 seat; read the test before the vote.
-- S123-P2 #probe-the-pipeline-before-blaming-the-new-layer: worker-duel red (joiner sparks=0) was e2e-environment starvation (fps-capped sim × 0.15/s spawn = 1 spark/18s), NOT the wire — host+joiner were in perfect lockstep. Measure the substrate rate first; sibling specs' spawn-seam convention was the fix.
-- S123-P3 #a-suspicious-pass-is-a-finding: the v1 heap audit "passed" at −39MB growth = instrument indictment (unsettled floor + wrong isolate). Record the actuals a threshold consumes; probe what the platform DOES expose (Chromium /json/list lists worker targets → 25-line raw-CDP read).
-- S123-P4 #fix-degeneracy-by-sequencing-not-by-knobs: sacrifice-thrash + raid-dogpile both dissolved under sequencing constraints (in-hand-only sacrifice; pure-function designated raider) instead of tuned cooldowns/quotas. Make the bad interleaving unrepresentable, don't damp it.
-
-## 2026-07-11 — Session 122: 4/4 shipped + live. P1 worker cutover (?worker=1, measured-first) 82ea2c3 · P2 hostmig D3 (kill-host e2e green first run, 3 real peers) 5f53b3a · P3 pulse cap 999e530 · P4 live. vitest 1882/1882.
-
-- S122-P1 #cross-check-oracle-catches-your-own-layer: order integrity checks to validate EXACTLY the layer under test before deliberate divergences re-enter.
-- S122-P1 #measure-first-changed-the-design: the pre-registered ROI rule + contingency ladder made escalation mechanical — the positions-buffer format came FROM the measurement.
-- S122-P2 #suppress-competing-recovery-paths: serialize recovery protocols sharing a transport; never let timers interleave.
-- S122 #both-deploy-paths-ran: dual-writer deploys converged harmlessly once; surface the owner decision until one is retired.
-- S122 #feed-platform-constraints-into-council-prompts: PLATFORM CONSTRAINTS block in R1 prompts — APPLIED S123, worked (zero SAB bets this session).
+- S124-P1 #triage-external-criticals-against-the-exact-arithmetic: the only real CHECK CRIT (post-sign yield window) was found by checking WHERE the await yields; two others died on exact arithmetic (rival fires the SAME epoch → different, safe code path) and one was fabricated. Re-derive interleaving numbers yourself against shipped lines; external severity labels carry zero evidential weight.
+- S124-P2 #probe-the-backlog-against-git-before-planning: B2(c) was listed as open work; a 2-minute grep found it shipped 4 sessions earlier. Roadmap prose drifts; git+code never do. State-probe every priority candidate before it enters a PDR (2nd instance — a pattern).
+- S124-P3 #census-decoupling-beats-heap-noise: heap deltas can't distinguish leaks from organic growth; the display-object census made the verdict decisive (leaks = census decoupled from entity counts). Instrument the subsystem's OWN object population, not just bytes.
+- S123-P1 #verify-the-gates-mechanism-before-trusting-consensus: 2-seat consensus is ~1 seat when arguments share a load-bearing unverified premise; read your own test before the vote.
+- S123-P2 #probe-the-pipeline-before-blaming-the-new-layer: measure the substrate's rate first; sibling tests encode prior fights with the same environment.
+- S123-P3 #a-suspicious-pass-is-a-finding: record the actuals a threshold consumes; a too-good pass indicts the instrument.
+- S123-P4 #fix-degeneracy-by-sequencing-not-by-knobs: make bad interleavings unrepresentable instead of damping them with tuned state.
