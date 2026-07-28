@@ -1,10 +1,10 @@
 {
-  "tool_calls_session_total": 92,
+  "tool_calls_session_total": 95,
   "session_id": "S126",
   "session_kind": "execution",
   "session_start": "2026-07-28T14:00:00.000Z",
   "prior_session_note": "S125 CLOSED (2/2 + close 433793a/d7bd548; d7bd548 was local-only at S126 boot). S126 booted systematically off HANDOFF_S125 per owner ask ('find latest spark handoff and start this session systematically off of the last handoff'). A Rule-21 A.0 empirical probe surfaced 6 deltas the S125 close missed — chiefly that the CI E2E GATING lane has been dead (timeout-cancelled) for 3+ weekly runs. Owner then settled the standing deploy-path decision: keep Actions auto-deploy, retire the manual gh-pages path.",
-  "phase": "S126_EXECUTING",
+  "phase": "S126_COMPLETE",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -16,6 +16,7 @@
     "deploy_path_change"
   ],
   "council_result": "S126 Standard 3-way Council R1 (GROK-DISRUPTOR grok-4.20-0309-reasoning + GEMINI-AUDITOR gemini-3.1-pro-preview) + PRIME-AUDIT. GROK CRITICAL (soak lane may exceed 50m / non-representative on SwiftShader) ADOPTED as a claim correction — first soak run is a MEASUREMENT with unknown outcome, promotion needs CI-side retuning not '2-3 green runs'; its GPU-runner suggestion not actionable on GitHub-hosted ubuntu-latest (self-flagged UNKNOWN). GROK HIGH (non-gating soak under-enforces) ADOPTED IN PART — true, but those tests enforce NOTHING today (never executed in CI), so non-gating-but-running is a strict improvement; recorded as a carry-forward with a retuning-based promotion criterion. GROK MED (per-job globalTimeout under-specified) ADOPTED — exact per-job env values + the invariant globalTimeout < timeout-minutes now stated. GEMINI HIGH F1 (deleting click removes the stability check) PRIMARY FIX REJECTED / ALTERNATIVE ADOPTED — the deleted call was never an assertion (no expect depends on it), Playwright's `stable` gate is far stricter than human clickability, and its proposed click({timeout:5000}) would STILL fail in CI and reinstall a permanent red; its rAF box-sampling diagnostic adopted as change 5b. GEMINI MED F2 (continue-on-error hides the outcome) REFUTED by direct observation in this repo — gh run view renders the continue-on-error e2e-quarantine job as 'X e2e-quarantine in 20m22s', so the job conclusion stays visible; its branch-protection fix is inapplicable (master is not branch-protected). GEMINI MED F3 (globalTimeout ms unit mismatch) ALREADY HANDLED — its fix was verbatim the PDR's existing *60_000, hardened further with a Number.isFinite && >0 guard. CONVERGED: three-lane split + all of P2 called CORRECT by both seats. 16th consecutive instance of an external finding dissolving under exact-mechanics triage (F2).",
+  "check_result": "S126 CHECK (2-way on the shipped diff 162b40f; GROK-ANALYST + GEMINI-AUDITOR). GROK: 'No residual findings' — all pre-fix failure modes addressed and empirically closed by the post-fix CI run. GEMINI filed 2, BOTH REFUTED AGAINST DISK: (1) HIGH 'the --reporter=list in e2e:soak/e2e:quarantine kills the html report so the shared if:always() upload step finds nothing and ALL debug artifacts are lost' — REFUTED: there IS no shared upload step. Parsing the YAML shows each job has its OWN: e2e -> playwright-report/, e2e-soak -> test-results-soak/ (if-no-files-found: ignore), e2e-quarantine -> test-results-quarantine/ (ignore). Since --output writes traces/videos/screenshots into precisely those dirs, they ARE uploaded. The only true residue (no HTML report / no GitHub annotations for the non-gating lanes) is the PRE-EXISTING DELIBERATE quarantine design, documented in the e2e.yml header lines 36-38 ('separate --output dir + --reporter=list so it never overwrites the gating lane's HTML report/traces and its flakes emit no GitHub annotations') — deliberately mirrored for soak. (2) LOW '.gitignore has test-results-soak/ but omits test-results-quarantine/' — FALSE: .gitignore lines 26-28 are test-results/, test-results-quarantine/, test-results-soak/. Gemini was not shown .gitignore and asserted an omission that does not exist — the known fabrication pattern ([[check-reviewer-fabricated-execution-claims]]). 17th consecutive instance of external high-sev findings dissolving under exact-mechanics triage. Also verified my header edit lost NO documentation: the diff removes exactly 6 lines, all intentionally replaced (TWO-JOBS header line, the e2e bullet, the gating-lane comment, timeout-minutes: 15).",
   "plan_file": ".claude/plans/2026-07-28_PDR_S126_CI_E2E_Revival_DeployPath.md",
   "budget_total": "GREEN",
   "boot_probe_deltas": [
@@ -31,35 +32,94 @@
     {
       "id": "P1-ci-e2e-gating-revival",
       "label": "Revive the CI E2E gating lane: three-lane tag-based split (new non-gating e2e-soak job for the 3 heap tests that consume 15.2m of a 16.8m suite), drop 3 redundant input.click() calls that fail the rAF `stable` gate on the SwiftShader runner, add per-job globalTimeout below each timeout-minutes so Playwright (not the runner) stops an overrun and flushes playwright-report/, plus an rAF box-sampling diagnostic to settle the residual cause.",
-      "status": "in_progress",
-      "phase": "DO",
+      "status": "completed",
+      "phase": "COMPLETED",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "checkpoint_commit": "162b40f",
+      "real_context_tokens_at_close": 292000,
+      "real_context_pct_at_close": 29.2,
+      "reflexion_entries": [
+        "S126-P1 #measure-the-composition-before-you-tune-the-budget",
+        "S126-BOOT #audit-run-conclusions-not-just-that-the-workflow-exists"
+      ],
+      "check_method": "P1 CI E2E gating revival shipped (162b40f) and VALIDATED IN CI via workflow_dispatch run 30374235685. LOCAL GATES: tsc 0; vitest 1914/1914 (unchanged — no unit regression); npm run build produced a BYTE-IDENTICAL entry hash assets/index-BD5X8Lx1.js at 640.8/750 KiB, which is the proof that zero src/ changed. LANE ROUTING verified by --list: fast 25 tests/10 files, soak 6/4, quarantine 19/5 (pre-change gating was 30/13; +1 new diagnostic; arithmetic closes). globalTimeout PLUMBING verified locally: PW_GLOBAL_TIMEOUT_MIN=0.1 aborted at 6s, confirming minutes->ms + env wiring. YAML parsed to assert the invariant globalTimeout < timeout-minutes on every lane (12<18, 44<50, 17<20). ROOT CAUSE CONFIRMED (not inferred) by a scratchpad probe on Playwright 1.60 using an element moved every rAF: fill() SUCCEEDS on a permanently-unstable element AND focuses it, while click() times out reproducing the CI call log line-for-line incl '2 x waiting for element to be visible, enabled and stable'. CI RESULTS: (a) GATING job `e2e` SUCCESS in 2m24s, '25 passed (1.6m)', playwright-report artifact 241,521 B uploaded — where the pre-fix step logged 'No files were found with the provided path: playwright-report/'. (b) D2 CLOSED — the RUN conclusion is `success`, NOT `cancelled`, even though 2 of 3 jobs failed (both non-gating). (c) DE-MASK PROVEN IN CI on two lanes: quarantine now ends at 17m41s with 'Process completed with exit code 1' (pre-fix: 20m22s with 'exceeded the maximum execution time' + 'The operation was canceled'), and soak ends at 44m54s with Playwright's own 'Timed out waiting 2640s for the test suite to run' — 2640s = exactly the configured 44m, i.e. Playwright and not the 50m runner cap landed the kill. (d) D3 CLOSED comprehensively: 3 artifacts totalling ~328 MB uploaded (soak 247,665,671 B; quarantine 79,480,683 B; gating report 241,521 B) where pre-fix ZERO survived the SIGKILL. SOAK LANE = A MEASUREMENT THAT FAILED, AS FLAGGED: it did not finish inside 44m. render-heap :124 failed 3x (6.9m/7.3m/6.9m) and worker-heap :333 failed 2x (6.9m/7.4m); worker-heap :243 baseline PASSED (6.0m, reached ticks=8487). The mechanism is now concrete: the audits are designed for ~10k ticks but CI reaches only ~2150-2300 ticks per attempt, so the per-ktick growth normalization becomes noise-dominated (observed spread across attempts of the SAME test: +2249.6 KB/ktick, +523.2 KB/ktick, and -308.6 KB/ktick). Grok's Council CRITICAL was therefore CORRECT and the PDR's 'promotion requires CI-side RETUNING, not merely green runs' is vindicated. Because the lane is continue-on-error by design this installed NO permanent red — the run still concludes success. DIAGNOSTIC (change 5b) VERDICT: distinctBoxes=1 across 12 consecutive rAF samples (all identical '680,306.65625,270.65625,44') with maxFrameGapMs=67 (~15fps vs ~33fps local). This RULES OUT persistent bounding-box oscillation — i.e. there is NO latent lobbyScreen positioning defect — and ~65ms frames are nowhere near starvation (2 frames = ~130ms << 60s). It did NOT reproduce the original failure, so the residual is only partially resolved; leading UNPROVEN hypothesis is cumulative state in the shared single worker (workers:1), since the diagnostic ran first-and-fresh in the soak lane whereas the 3 originals failed after ~13 prior tests in the gating lane. That is also a self-critique of my own diagnostic placement: to catch a late-in-suite condition it would need to run LATE in the gating lane. The fix is unaffected either way because fill() never consults `stable`.",
+      "verification": [
+        { "type": "file_contains", "path": ".github/workflows/e2e.yml", "needle": "e2e-soak" },
+        { "type": "file_contains", "path": ".github/workflows/e2e.yml", "needle": "PW_GLOBAL_TIMEOUT_MIN" },
+        { "type": "file_contains", "path": "playwright.config.ts", "needle": "PW_GLOBAL_TIMEOUT_MIN" },
+        { "type": "file_contains", "path": "package.json", "needle": "e2e:soak" },
+        { "type": "file_contains", "path": "e2e/worker-heap.spec.ts", "needle": "@soak" },
+        { "type": "file_contains", "path": "e2e/render-heap.spec.ts", "needle": "@soak" },
+        { "type": "file_contains", "path": "e2e/lobby-construction.spec.ts", "needle": "S126-DIAG" },
+        { "type": "file_contains", "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md", "needle": "CI E2E GATE REVIVED (3-LANE SPLIT)" }
+      ]
     },
     {
       "id": "P2-deploy-path-consolidation",
       "label": "Execute the owner's settled deploy decision: retire the manual gh-pages path (remove the `deploy` npm script + scripts/deploy-pages.sh) leaving Actions artifact auto-deploy as the single path; document the stale-Pages-metadata hazard and the recovery procedure. Flipping Pages build_type to 'workflow' and deleting origin/gh-pages remain owner-gated and out of scope.",
-      "status": "pending",
-      "phase": "PLAN",
+      "status": "completed",
+      "phase": "COMPLETED",
       "tier": "Micro",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "checkpoint_commit": "162b40f",
+      "check_method": "P2 deploy-path consolidation shipped (162b40f). `npm run deploy` REMOVED from package.json and scripts/deploy-pages.sh DELETED (git rm; `test -f` confirms GONE). Residual-reference sweep: `git grep` finds no live references — only frozen .claude/plans-archive/ history, intentionally not rewritten. A.0 STATE PROBE drove the decision and CORRECTED the assumed model: `gh api repos/:owner/:repo/pages` reports build_type 'legacy' + source.branch 'gh-pages', which is STALE METADATA — the empirical discriminator is the asset hash (stale gh-pages tip a321609 of 2026-07-11 -> assets/index-KQaaBM--.js, vs LIVE and a fresh local build of master HEAD BOTH -> assets/index-BD5X8Lx1.js), plus the deployments API showing Actions github-pages deployments at 433793a/5756060/80f1058/9f48d50. So the Actions artifact pipeline serves production. Reading the script before deleting it CORRECTED my own stated hazard: it does not serve stale code (it builds fresh first) — the real hazard is that it force-pushes gh-pages AND POSTs repos/.../pages/builds to trigger the LEGACY builder, flipping production onto the branch mechanism = two competing publishers; its header also still claimed Actions were dead from a billing lock (false since ~S122). LOCKED_DECISIONS.md gained §DEPLOY-PATH (one path, the stale-metadata trap, the OWNER-GATED build_type=workflow flip + gh-pages deletion in that order, the recovery procedure, and `git push` == shipping). BACKLOG's stale S110-era 'deploys are MANUAL' line annotated SUPERSEDED S126 rather than silently rewritten. RUNTIME-VERIFIED end-to-end: the push triggered deploy run 30374220506 SUCCESS (build 30s + deploy 10s) and the live site content-verified as assets/index-BD5X8Lx1.js — i.e. the sole remaining path demonstrably still ships. Memory files corrected so no future session runs the removed script.",
+      "real_context_tokens_at_close": 268000,
+      "real_context_pct_at_close": 26.8,
+      "reflexion_entries": [
+        "S126-P2 #read-the-thing-before-you-justify-deleting-it"
+      ],
+      "verification": [
+        { "type": "file_contains", "path": "LOCKED_DECISIONS.md", "needle": "ONE PATH ONLY (S126, owner decision)" },
+        { "type": "file_contains", "path": "LOCKED_DECISIONS.md", "needle": "were DELETED in S126" },
+        { "type": "file_contains", "path": "LOCKED_DECISIONS.md", "needle": "build_type=workflow" },
+        { "type": "file_contains", "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md", "needle": "SUPERSEDED S126" }
+      ]
     }
   ],
   "carry_forward_priorities": [
     "Worker default-on flip (owner weak-device ?worker=1 playtest gate)",
     "Bot-intelligence Phase A (owner BOT_INTELLIGENCE_DESIGN.md section-7 answers)",
-    "Soak-lane promotion to gating — requires CI-side heap-threshold RETUNING against observed runner numbers, not merely green runs",
-    "Residual: rAF-starvation vs genuine bounding-box oscillation on the CI runner — change 5b's diagnostic decides; if oscillation, a latent lobbyScreen issue needs its own PDR",
+    "SOAK LANE IS NOT CI-VIABLE AS WRITTEN (measured 2026-07-28, run 30374235685): it hit the 44m globalTimeout; render-heap :124 failed 3x and worker-heap :333 failed 2x because CI reaches only ~2150-2300 of the designed ~10k ticks per attempt, making the per-ktick normalization noise-dominated (same test gave +2249.6, +523.2 and -308.6 KB/ktick across attempts). worker-heap :243 baseline DID pass (6.0m, ticks=8487). Options for a follow-up PDR, in rough preference order: (a) give the CI runs a REDUCED tick budget with thresholds derived from it, (b) assert on an absolute post-GC ceiling instead of per-ktick slope so short runs are not noise-amplified, (c) drop retries for this lane (3 attempts x ~7m is what actually burned the 44m), (d) keep the heap audits local-only and delete the CI lane. NOT a regression — the lane is continue-on-error and the run still concludes success.",
+    "Residual (PARTIALLY resolved): the diagnostic RULED OUT bounding-box oscillation (distinctBoxes=1, maxFrameGapMs=67) so there is NO latent lobbyScreen defect, and frames are far from starvation. But it did NOT reproduce the original click() failure. Leading UNPROVEN hypothesis: cumulative state in the shared single worker (workers:1) — the diagnostic ran first-and-fresh in soak, while the 3 originals failed after ~13 prior tests in the gating lane. To test it, move/duplicate the diagnostic to run LATE in the GATING lane. Low priority: the fix bypasses `stable` regardless.",
     "OWNER-GATED: gh api PUT pages build_type=workflow (fixes stale legacy metadata at root) + optional origin/gh-pages deletion, in that order",
     "Bit-exact bot serialization (YAGNI unless replay/spectator ships)",
     "G1b MOTION verb + G2 family traits (playtest/owner-design gated)"
   ],
-  "reflexion_entries_to_archive": [],
-  "session_status": "S126 IN PROGRESS"
+  "reflexion_entries_to_archive": [
+    {
+      "id": "S126-P2",
+      "tag": "#read-the-thing-before-you-justify-deleting-it",
+      "lesson": "The PDR justified deleting scripts/deploy-pages.sh with 'running it risks serving 17-day-old S122 code as production'. Reading the 68-line script before deleting it REFUTED my own stated mechanism: it runs `npm run build` FIRST, so it would have served CURRENT code, not stale code. The real hazard was different and worse — it force-pushes dist/ to gh-pages AND explicitly POSTs repos/.../pages/builds to trigger the LEGACY builder, which flips production off the artifact pipeline onto the branch mechanism, leaving two competing publishers for one site. The right call survived (delete it) but for a materially different reason, and the doc I wrote into LOCKED_DECISIONS would have taught future sessions a false model. LESSON: 'look at the target before deleting' is not just a safety ritual against destroying something valuable — it is how you find out whether your REASON is true. A plausible hazard inferred from a filename plus surrounding evidence (a stale branch, a legacy Pages config) can be confidently wrong in its mechanism while accidentally right in its conclusion, and only the mechanism is what gets written down and reused."
+    },
+    {
+      "id": "S126-BOOT",
+      "tag": "#audit-run-conclusions-not-just-that-the-workflow-exists",
+      "lesson": "The S125 handoff recorded 'e2e: both hostmigration tests GREEN' and 'OPEN ISSUES: None' — true statements about a LOCAL run, which masked that CI's gating lane had been dead for 3 weekly runs. A job killed by timeout-minutes concludes `cancelled`, NOT `failure`: no failure email fires, `gh run list` renders a row that reads like a benign concurrency cancel, and the runner's SIGKILL pre-empts the reporter flush so no report/trace survives to debug from. Three independent masking layers, all of which look like 'nothing happened'. LESSON: at boot, audit run CONCLUSIONS (`gh run list`), not merely that a workflow exists and isn't visibly red; treat repeated `cancelled` as a red flag. And make overruns self-report by setting the test runner's own global timeout BELOW the job's timeout-minutes so the TOOL lands the kill (flushing artifacts, exiting non-zero) rather than the runner — converting a silent cancel into an honest failure with evidence."
+    },
+    {
+      "id": "S126-CHECK",
+      "tag": "#a-dissolving-streak-is-not-a-license-to-auto-dismiss",
+      "lesson": "This project had logged 16 consecutive instances of external Council high-sev findings dissolving under exact-mechanics triage, and I opened S126 primed by that pattern. In S126 the pattern BROKE in one direction and held in the other, and the difference is instructive. Grok's R1 CRITICAL — 'the soak lane will not be CI-viable; thresholds tuned on local hardware with a real GPU have never run on a 2-core runner' — was CORRECT: the lane hit its 44m ceiling with 5 threshold failures because CI reaches only ~2200 of the designed ~10k ticks, leaving the per-ktick slope noise-dominated (+2249.6 / +523.2 / -308.6 KB/ktick across attempts of the SAME test). Meanwhile Gemini's CHECK findings were both refuted against disk because it asserted about files it had not been shown (it invented a shared upload step and a .gitignore omission). DISCRIMINATOR: Grok's finding was about an EMPIRICAL UNKNOWN nobody had measured (a genuine gap in the evidence), whereas the dissolving findings are consistently about MECHANISMS that shipped code already determines and that can be checked. LESSON: triage by whether the claim targets an unmeasured unknown or a checkable mechanism — not by the reviewer's track record. A finding pointing at a real gap in your evidence deserves adoption even from a source that is usually wrong, and the correct response to it is to MEASURE (here: ship the lane non-gating so its first run is a measurement that cannot red the build), not to argue."
+    },
+    {
+      "id": "S126-P1",
+      "tag": "#measure-the-composition-before-you-tune-the-budget",
+      "lesson": "First diagnosis was 'the 3 failing tests waste 9m of the 15m cap, so raise the cap to 25m' — derived by extrapolating an observed CI pace (13 passes / 5m31s ~= 25.5s per test) across all 30 tests. The full local run refuted it: the suite is 16.8m and 15.2m of that is THREE soak tests (worker-heap 9.3m + render-heap 5.9m), which CI had never even reached because they sat among the 14 that never ran. The extrapolation assumed uniform per-test cost, and the unrun tail held the two most expensive files by a wide margin — so 25m would have failed too. The real defect was the lane's COMPOSITION, not its budget. Confirmed after the fix: CI ran the 25 fast tests in 1.6m, identical to local, meaning the fast tests were never slow at all and the missing ~4.5m in the old run was a heap test partially executing when the SIGKILL hit. LESSON: never extrapolate a per-unit average across a population you know to be heterogeneous, especially when the unmeasured members are precisely the ones that never got to run — measure the distribution, then fix the structure rather than tuning the number."
+    }
+  ],
+  "session_status": "S126 COMPLETE",
+  "analyze_completed": true,
+  "analyze_result": "S126 CLOSE: 2/2 shipped (162b40f) + CI-validated (run 30374235685, RUN conclusion SUCCESS). The session's value was mostly in the BOOT PROBE, not the code: a Rule-21 A.0 pass overturned the S125 handoff's 'OPEN ISSUES: None' and found the CI gating lane had been dead for 3 weekly runs behind three independent masking layers (timeout-cancel concludes `cancelled` not `failure`; no failure email; SIGKILL destroys the artifacts that would have explained it). Net outcome: gating lane 25/25 green in 2m24s with its report artifact, ~328 MB of artifacts now surviving across 3 lanes where previously zero did, and ONE deploy path with a documented footgun removed. CALIBRATION — TWO CORRECTIONS TO MY OWN WORK, both caught before they became doctrine: (1) I first proposed 'raise the cap 15m->25m' from an extrapolated per-test average; the full local run refuted it (16.8m suite, 15.2m of it 3 soak tests) and CI later confirmed the fast tests were never slow (1.6m, same as local) — the defect was COMPOSITION, not budget. (2) My PDR justified deleting scripts/deploy-pages.sh as 'risks serving 17-day-old code'; reading the script first refuted that (it builds fresh) — the real hazard is that it force-pushes gh-pages AND POSTs pages/builds to trigger the LEGACY builder, flipping production onto the branch mechanism. Right conclusion, wrong mechanism, and only the mechanism gets written into LOCKED_DECISIONS. COUNCIL CALIBRATION — IMPORTANT COUNTER-EXAMPLE: Grok's R1 CRITICAL (the soak lane will not be CI-viable / thresholds tuned on local hardware) proved CORRECT — the lane hit its 44m ceiling with 5 threshold failures. That breaks a 17-run streak of external high-sev findings dissolving under triage, and is logged specifically to prevent auto-dismissal bias. Gemini's CHECK findings, by contrast, were both refuted against disk (it invented a shared upload step and a .gitignore omission). Rule-22 runtime audit clean: no unrendered ${VAR}, no hallucinated flags, YAML parsed, invariant asserted on all 3 lanes, deploy verified live by asset hash. MCV exit 0 (12 assertions across both priorities, BACKLOG.md diff-bound). NO protocol bump, zero runtime code — nothing shipped to players.",
+  "totals": {
+    "grok_calls": 2,
+    "gemini_calls": 2,
+    "budget_remaining": "GREEN"
+  }
 }

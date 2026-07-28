@@ -1,29 +1,70 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-07-20 | Session: S125 (host-migration v2 zombie auto-rejoin + F9 INTENT token-bucket, 2/2 shipped + live)
+Generated: 2026-07-28 | Session: S126 (CI E2E gating revival via 3-lane split + ONE deploy path, 2/2 shipped + CI-validated)
 
 ## Next Steps
-1. OWNER: weak-device playtest of spark-online.space/?worker=1 — still the ONLY worker default-on gate.
-2. OWNER: answer BOT_INTELLIGENCE_DESIGN.md §7 (Q1–Q7) → unlocks bot-intelligence Phase A PDR (Standard, no new FSM).
-3. OWNER: pick ONE deploy path — Actions auto-deploy is the ACTING DEFAULT (every master push ships; S125 deploy run 29699637227 SUCCESS) vs manual `npm run deploy`. Decide + kill the other.
-4. Worker default-on flip (after playtest): remove flag gate + fallback-latency/queue-depth telemetry.
-5. Bot-intelligence Phase A (after §7): knowledge book + combo-aware pick/placement + raid w/ 1-raider cap.
-6. Gated/optional: G1b MOTION verb · G2 family traits (playtest/owner-design) · F9 movement/action QoS split IF telemetry (world.diagnostics.intentThrottled) shows action-drops · bit-exact bot serialization (YAGNI).
+1. **Soak-lane CI-viability follow-up PDR** — the one concrete NEW item. Measured: the lane hit its 44m
+   globalTimeout; CI reaches only ~2150–2300 of the designed ~10k ticks, so the per-ktick slope is
+   noise-dominated (same test: +2249.6 / +523.2 / −308.6 KB/ktick). Options, rough preference order:
+   (a) reduced CI tick budget with thresholds derived from it; (b) assert an absolute post-GC ceiling
+   instead of a per-ktick slope; (c) drop `retries` for this lane (3×~7m is what burned the 44m);
+   (d) keep heap audits local-only and delete the CI lane.
+2. OWNER: weak-device playtest of spark-online.space/?worker=1 — still the ONLY worker default-on gate.
+3. OWNER: answer BOT_INTELLIGENCE_DESIGN.md §7 (Q1–Q7) → unlocks bot-intelligence Phase A (Standard, no new FSM).
+4. OWNER-GATED deploy config, IN THIS ORDER: `gh api -X PUT repos/:owner/:repo/pages -f build_type=workflow`
+   (fixes stale legacy metadata at root), verify live, THEN optionally delete `origin/gh-pages`.
+5. Optional/low: move or duplicate the rAF box diagnostic to run LATE in the GATING lane, to test the
+   cumulative-shared-worker hypothesis (`workers:1`). The shipped fix bypasses `stable` regardless.
+6. Gated/optional: G1b MOTION verb · G2 family traits · F9 movement/action QoS split IF telemetry
+   (world.diagnostics.intentThrottled) shows action-drops · bit-exact bot serialization (YAGNI).
 
 ## Blockers
-- All three top items are OWNER decisions (playtest / §7 answers / deploy path). No technical blockers.
-- Known-delta (v1-accepted, documented §13.21): asymmetric-partition rogue-solo-host — a survivor partitioned ONLY from the host can self-promote and host alone, unfollowed (victim-only impact). Orthogonal to v2 rejoin.
+- Owner decisions: `?worker=1` playtest · §7 answers · the two Pages-config follow-ups. No technical blockers.
+- **The soak lane is NOT CI-viable as written** — non-gating, so it installs NO permanent red (run
+  conclusion is still `success`). Treat its failure as a measurement result, not a regression.
+- Known-delta (v1-accepted, LOCKED §13.21): asymmetric-partition rogue-solo-host — a survivor partitioned
+  ONLY from the host can self-promote and host alone, unfollowed (victim-only impact).
 
 ## Pending Backlog
+- Soak-lane CI viability (evidence-backed options above)
 - Worker default-on flip (owner playtest gate)
 - Bot-intelligence Phases A/B/C (owner §7 answers)
-- Deploy-path decision (owner: Actions auto vs manual gh-pages)
-- G1b MOTION · G2 traits (playtest/owner-design gated) · F9 QoS split (telemetry-gated)
-- Bit-exact bot serialization (YAGNI unless replay/spectator ships)
+- Pages `build_type=workflow` flip + optional gh-pages deletion (owner-gated, in that order)
+- rAF diagnostic re-placement (low) · G1b MOTION · G2 traits · F9 QoS split · bit-exact serialization (YAGNI)
+
+## CRITICAL TRAPS FOR THE NEXT SESSION
+- **Audit CI run CONCLUSIONS at boot, not just that a workflow exists.** A job killed by
+  `timeout-minutes` concludes **`cancelled`, not `failure`** → no failure email, looks like a benign
+  concurrency cancel, and the SIGKILL destroys the artifacts that would explain it. That combination hid
+  a dead gating lane for 3 weekly runs behind an "OPEN ISSUES: None" handoff.
+- **Do NOT trust `gh api repos/:owner/:repo/pages`.** It reports `build_type: "legacy"` +
+  `source.branch: "gh-pages"`, which is STALE and NOT what serves. Trust the **deployments API** and the
+  **live asset hash**. `npm run deploy` and `scripts/deploy-pages.sh` no longer exist — do not recreate
+  them; see `LOCKED_DECISIONS.md §DEPLOY-PATH` for the recovery procedure if Actions ever dies.
+- **`git push` on master == SHIPPING TO PRODUCTION** for any push touching src/public/index.html/
+  vite.config.ts/tsconfig.json/package.json/package-lock.json/deploy.yml.
+- **MCV bindings**: BACKLOG.md is diff-bound and needs an ABSOLUTE-path `verification[]` assertion on a
+  **completed** priority, or the Stop hook hard-fails as the "fabrication" class even when all claims are
+  true. This has now fired in BOTH S125 and S126.
 
 ## Recent Reflexion (last 2 sessions)
-- S125-P1 #reuse-a-shipped-proven-path-beats-new-migration-machinery: Council high-sev criticals on the zombie-rejoin all dissolved once it was seen as a REUSE of the shipped/e2e-proven S82 reconnect path — the deposed host is a seat-0 (warrant-excluded) peer re-running connectAsClient, so correctness reduces to two existing tested invariants. The freeze-thaw e2e passed first run because the mechanism was 90% shipped code. Re-pointing a wired path collapses the review surface to the seam.
-- S125-P2 #size-the-guard-to-the-measured-legit-ceiling: the proportionate F9 fix was to SIZE one bucket above the measured worst legit burst (avatar-pos 10Hz-throttled → ~38 « 90), not build a two-bucket QoS subsystem. Measure the legit ceiling first; reach for structure only when the number says the simple guard can't hold.
-- S125-CLOSE #bind-completion-claims-with-verification-not-just-prose: the close initially hard-failed MCV because verification[] bindings were omitted (claims were all TRUE — a process miss, not fabrication). At completion ALWAYS author verification[] binding each modified watch-root + representative files; a rich prose check_method can mask a missing binding.
-- S124-P1 #triage-external-criticals-against-the-exact-arithmetic: re-derive a failing interleaving's numbers against the shipped lines yourself; external severity labels carry zero evidential weight (two D4 CRITs died on exact arithmetic, one was fabricated).
-- S124-P2 #probe-the-backlog-against-git-before-planning: roadmap prose drifts; git+code never do — state-probe every priority candidate before it enters a PDR.
-- S124-P3 #census-decoupling-beats-heap-noise: instrument a subsystem's OWN object population, not just bytes — leaks show as census growth decoupled from entity counts.
+- S126-BOOT #audit-run-conclusions-not-just-that-the-workflow-exists: the S125 handoff's "e2e GREEN" was
+  true of a LOCAL run and masked 3 weeks of dead CI. Three masking layers, all of which look like nothing
+  happened. Fix pattern: set the test runner's own global timeout BELOW the job's `timeout-minutes` so the
+  TOOL lands the kill (flushing artifacts, exiting non-zero) instead of the runner.
+- S126-P1 #measure-the-composition-before-you-tune-the-budget: first diagnosis extrapolated a per-test
+  average (25.5s/test) and proposed raising the cap 15m→25m. The full local run refuted it — 15.2m of a
+  16.8m suite was 3 soak tests, and the unmeasured tail held the most expensive files. CI later confirmed
+  the fast tests were never slow (1.6m, same as local). Never extrapolate a per-unit average across a
+  population known to be heterogeneous, especially when the unmeasured members never got to run.
+- S126-CHECK #a-dissolving-streak-is-not-a-license-to-auto-dismiss: Grok's CRITICAL proved CORRECT
+  (the soak lane really wasn't CI-viable), breaking a 17-run streak of external findings dissolving.
+  Discriminator: it targeted an UNMEASURED empirical unknown, while dissolving findings target mechanisms
+  shipped code already determines. Triage by that distinction, not by the reviewer's track record.
+- S126-P2 #read-the-thing-before-you-justify-deleting-it: the PDR's stated hazard for deleting
+  deploy-pages.sh ("serves 17-day-old code") was refuted by reading it — it builds fresh. The real hazard
+  is that it force-pushes gh-pages AND triggers the LEGACY builder, flipping production onto the branch
+  mechanism. Right conclusion, wrong mechanism — and only the mechanism gets written down and reused.
+- S125-P1 #reuse-a-shipped-proven-path-beats-new-migration-machinery: Council high-sev criticals on the
+  zombie-rejoin all dissolved once it was seen as a REUSE of the shipped/e2e-proven S82 reconnect path.
+- S125-CLOSE #bind-completion-claims-with-verification-not-just-prose: a rich prose check_method can mask
+  a missing machine-checkable `verification[]` binding; the gate only trusts needles it can re-read.
