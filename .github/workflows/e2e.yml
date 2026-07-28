@@ -4,8 +4,12 @@
 # 2 separate Chromium contexts (= 2 WebRTC peers over real Trystero/Nostr
 # signaling) and asserts the full lobby → match-start → place → bond flow.
 #
-# Path filter mirrors deploy.yml — skip e2e on session-bookkeeping commits
-# (.claude/, HANDOFF_*.md, etc) to avoid wasting CI minutes on docs.
+# S127 — STALE DOC CORRECTED. This block used to claim "Path filter mirrors deploy.yml — skip
+# e2e on session-bookkeeping commits (.claude/, HANDOFF_*.md, etc)". There is NO `paths:` key in
+# the `on:` block below and there has not been one since S110 removed the per-push trigger: the
+# triggers are schedule + pull_request + workflow_dispatch, none of which a bookkeeping commit
+# fires. The filter is unnecessary rather than missing — but the comment described machinery that
+# does not exist, which is exactly the stale-reference class a Rule-22 runtime audit scans for.
 #
 # S98 P1 — FLAKE QUARANTINE, split into separate JOBS (was two steps in one job).
 # S126 — now THREE lanes: a slow SOAK lane was split off the gating lane (see below).
@@ -47,12 +51,21 @@ name: E2E (2-browser harness)
 
 on:
   # S110 — REMOVED the per-push trigger. This 2-job Playwright harness ran ~35 min on EVERY push to
-  # master and exhausted the PRIVATE repo's free GitHub Actions minutes — the spending-limit cap that
+  # master and exhausted the repo's free GitHub Actions minutes — the spending-limit cap that
   # blocked all S110 deploys (startup_failure / 0 jobs) AND spammed failure emails (two per push: this
   # + the Pages deploy). It now runs on a WEEKLY schedule + on PRs + on-demand, catching regressions
   # without the per-push minute drain. The cheap deploy.yml (Pages, ~2 min) still runs on every push,
-  # unchanged — so code still deploys on push (once the spending cap is lifted). Run a one-off check
-  # anytime via the Actions tab → "E2E (2-browser harness)" → Run workflow (workflow_dispatch).
+  # unchanged — so code still deploys on push. Run a one-off check anytime via the Actions tab →
+  # "E2E (2-browser harness)" → Run workflow (workflow_dispatch).
+  #
+  # ⚠ S127 CORRECTION — DO NOT REASON FROM BILLED MINUTES HERE ANY MORE. This block used to say
+  # "the PRIVATE repo's free minutes". Probed 2026-07-28: `gh repo view --json isPrivate,visibility`
+  # → {"isPrivate": false, "visibility": "PUBLIC"} for daneshto-dotcom/the-spark. GitHub Actions
+  # minutes are FREE AND UNLIMITED for public repos on standard runners, so the S110 minute-
+  # exhaustion story is HISTORY, not a live constraint. It had already leaked into an S127 Council
+  # round as a decisive argument for deleting the soak lane before the probe caught it. The real
+  # remaining costs are wall-clock feedback latency, the 6h per-job ceiling, runner concurrency and
+  # artifact storage — the weekly cadence above is retained on those grounds, not on minutes.
   schedule:
     - cron: '0 7 * * 1'  # Mondays 07:00 UTC — weekly regression sweep
   pull_request:
@@ -142,6 +155,15 @@ jobs:
       # Below timeout-minutes for the same reason as the gating lane: an overrun must
       # report as a failure WITH an uploaded report, never as a silent SIGKILL.
       PW_GLOBAL_TIMEOUT_MIN: 44
+      # S127 — NO RETRIES IN THIS LANE (the global default is `retries: CI ? 2 : 0`).
+      # A retry only helps a NON-deterministic failure. This lane's failure mode was
+      # structural: sim ticks are FRAME-bound (src/main.ts:1389 clamps dt to 0.05s with
+      # PHYSICS_HZ=60 ⇒ ≤3 ticks per rendered frame), so a tick shortfall on a 2-core
+      # SwiftShader runner reproduces identically every attempt. In run 30374235685 that
+      # burned ~21.2 of this lane's 44 minutes on 3 such attempts, and the globalTimeout
+      # then cut the suite off before the last test finished. Expected lane time after
+      # S127: ~20-25m. Gating + quarantine lanes leave this UNSET and keep retries: 2.
+      PW_RETRIES: 0
     steps:
       - name: Checkout
         uses: actions/checkout@v6

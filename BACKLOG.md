@@ -5,6 +5,154 @@
 
 ---
 
+# STATUS S127 (2026-07-28) — SOAK-LANE CI VIABILITY: FIX THE INSTRUMENTS, NOT THE BUDGET
+
+> **S127 booted off HANDOFF_S126 and the Rule-21 A.0 probe overturned the handoff's own framing
+> of its #1 carry-forward.** The handoff described the soak lane's 44m timeout as a per-ktick
+> slope going noise-dominated. The CI log says otherwise: **all 5 failures are one assertion,
+> `expect(measured).toBeGreaterThanOrEqual(MIN_MEASURED_TICKS /* 4000 */)`** (render-heap:183 ×3
+> receiving 2268/2184/2217; worker-heap:221 ×2 receiving 2301/2154) — and **ZERO** heap, census
+> or texture thresholds were breached on any attempt. The per-ktick slope is **never asserted**;
+> it lives only in a `console.log`. ⇒ handoff option (b) ("assert an absolute ceiling instead of
+> the slope") was a **FALSE PREMISE** — the assertion was already absolute. 3/3 Council converged.
+>
+> **ROOT MECHANISM (the finding that reframes everything): ticks are FRAME-bound, not
+> time-bound.** `src/main.ts:1389` clamps `dtSec = min(deltaMS/1000, 0.05)` and
+> `src/constants.ts:169` sets `PHYSICS_HZ = 60` ⇒ **at most 3 sim ticks advance per RENDERED
+> FRAME**. Measured: bots worlds manage **7.2-7.7 ticks/s** on a 2-core SwiftShader runner
+> (~2.5 fps) vs **25.5** locally and **28.3** for the non-bots CI baseline (which PASSED, 8487
+> ticks). So `TARGET_TICKS = 10_000` **has never been reached on any platform** — a local run
+> this session got **7653**. 10k would need ~22 min of window in CI, and worse than linear as
+> entities accumulate. **"Ticks achieved" measures the runner's GPU, not the code under test**,
+> which is precisely why that assertion is the one that failed. Every option that tries to buy
+> ticks with wall-clock is structurally doomed — including the raise-`WALL_CAP_MS` variant this
+> session proposed itself, then retracted.
+>
+> **P1 SHIPPED — recalibrate the instruments (no `src/` change, so no deploy).**
+> · **`PW_RETRIES` env override** (playwright.config.ts, same idiom as `PW_GLOBAL_TIMEOUT_MIN`)
+>   with `PW_RETRIES: 0` on `e2e-soak` only. Retries help non-deterministic failures; a
+>   frame-bound shortfall reproduces identically, and 3 such attempts burned **~21.2 of the 44
+>   minutes**. Guard is a strict all-digits test, NOT `Number.isInteger(Number(x)) && x >= 0` —
+>   `Number('') === 0`, so a defined-but-empty var would have zeroed retries in **every** lane.
+> · **Two-regime validity gate** replaces the hardware-speed floor. New `MIN_VALID_TICKS = 500`
+>   (floor of MEANING, hard-asserted, 4.3× under the observed CI min) + `MIN_STRICT_TICKS = 4000`
+>   which now only *selects* whether a per-tick byte claim is honest. Short windows log a loud
+>   `SHORT-WINDOW` line **and** push a `test.info().annotations` entry so the HTML report shows
+>   the degradation — a green can never read as fully gated.
+> · **The vacuous structural limits made load-bearing.** `CENSUS_LIMIT_OBJECTS` **1500 → 30** and
+>   `TEXTURE_LIMIT` **64 → 8**. Census is the PRIMARY instrument on this hardware: entity-bounded
+>   and tick-INSENSITIVE (Δ+4/+13/+4 in CI at ~2.2k ticks, Δ+11 locally at 7653 — max **13** over
+>   n=4). 1500 left **115× slack**. 30 sits strictly between noise (13) and signal: creatures
+>   spawn at 2/**SIM**-second and 2200 ticks = 36.7 SIM-seconds, so a total missed `destroy()`
+>   leaks only **~73** objects in CI (~255 locally) — a first pass at 75 would have sat ABOVE the
+>   signal and missed it.
+> · **Warm-up truncation fixed (2nd, independent noise source).** `waitForTick(t0+1200, 90_000)`
+>   needs 13.3 ticks/s — above what CI achieves — so CI warm-ups silently completed only
+>   **648-693 of 1200 ticks (54-58%)** and `s0` was sampled MID-JIT/pool-settling. New
+>   `WARMUP_WALL_CAP_MS = 240_000`, and `waitForTick` now RETURNS whether the cap bound plus the
+>   declining-rate tick curve, both logged. This plausibly explains why CI's byte spread (5.5MB)
+>   exceeds local's (3.9MB).
+> · **`GROWTH_LIMIT_MB` left at 10, deliberately NOT re-derived** — n=3 CI samples cannot support
+>   a new threshold value. Instead the false calibration comment was corrected: the docblock's
+>   "≥1KB/tick" intent actually needs **10 240 ticks**, and each run now logs the sensitivity it
+>   truly resolves (~4.7KB/tick at the CI window, where the ±2.7MB noise band already exceeds a
+>   1KB/tick signal of 2.2MB).
+> · **Stale premise corrected in-repo.** e2e.yml's header claimed a "PRIVATE repo" minute
+>   constraint. Probed: `gh repo view` → **`isPrivate: false, visibility: PUBLIC`**. Actions
+>   minutes are free/unlimited for public repos on standard runners. That stale comment had
+>   already leaked into a Council round as a decisive argument for DELETING the lane.
+>
+> Lane kept **`continue-on-error`** — e2e.yml:125-132 requires threshold retuning, not "a few
+> green runs", before promotion. Routing asserted INVARIANT: gating 25/10 · soak 6/4 ·
+> quarantine 19/5. `deploy.yml`'s path filter does not intersect this change set ⇒ **no prod deploy**.
+>
+> **CHECK (Triumvirate: RALPH:PATROL + GROK-ANALYST + GEMINI-AUDITOR) — 2 findings ADOPTED, 3
+> REJECTED with reasons.**
+> · **ADOPTED, Grok H1 (HIGH):** a set-but-malformed `PW_RETRIES` fell back to the default
+>   *silently*, so a typo would quietly restore `retries: 2`, evaporate the ~21-minute saving and
+>   say nothing — the same silent-degradation class as the S126 `cancelled` bug. Now **throws**;
+>   unset remains the well-defined no-override case (verified: unset→2, `"0"`→0, `""`/`" "`/`abc`/
+>   `0x0`→throw).
+> · **ADOPTED, Gemini (HIGH):** `MIN_VALID_TICKS = 500` was a **blind spot** — at 500 ticks
+>   (8.3 SIM-s) a *total* missed `destroy()` leaks only ~17 objects, UNDER the limit of 30, so a
+>   catastrophic 100 %-leak regression would have **PASSED**. The floor is now DERIVED from the
+>   census limit (`2 × floor/60 > 30` ⇒ floor > 900) ⇒ **`MIN_VALID_TICKS = 1_000`**, still 2.15×
+>   under the observed CI minimum. Census sensitivity (% of lifecycles detectable) is now logged.
+> · **REJECTED, Grok M1:** `CENSUS_LIMIT = 50` sits only 1.46× under the ~73 CI signal (30 gives
+>   2.4×), and on a `continue-on-error` lane a silent false NEGATIVE costs more than a visible ✗.
+>   Its tick-SCALED variant is empirically refuted — the largest census delta (+13) came at the
+>   *smallest* window (2 184) while 7 653→+11 and 8 150→0.
+> · **REJECTED, Grok M2** ("the unconditional `growthMB < 10` weakens detection"): compares against
+>   a counterfactual 4 000-tick CI window that never existed — at HEAD the test *failed outright*
+>   in CI and detected nothing. Gemini independently reached the same rejection.
+> · **REJECTED, Grok L1** (annotation is a no-op): an artifact of the redacted prompt; the shipped
+>   code populates the description. Gemini independently identified it as a hallucination.
+> · **RALPH:PATROL — SHIP-WITH-FIXES, all 5 applied.** **F1 (HIGH):** raising the warm-up cap
+>   90s→240s pushed the two sequential wall caps to 540s of a *hardcoded* 600s `test.setTimeout`,
+>   leaving ~50s for browser launch + bots-setup + two `stabilizedSample` calls — a 30% throughput
+>   dip would time out DURING `s1`, and since the evidence line prints AFTER `s1` that is a red with
+>   **no measurement**, the exact outcome S127 exists to prevent. Now an expression over the caps.
+>   **D1 (MED):** my throw-on-malformed (adopted from Grok) would kill the **GATING** lane at
+>   config-load with zero artifacts, because `env: X: ${{ vars.X }}` with an undefined var yields
+>   `""` not unset — now trim + empty-is-unset + throw only on genuinely unparseable, satisfying
+>   both reviewers. **A2:** annotate `warm.capped` (a baseline-invalidating degradation was
+>   reporting more weakly than a lesser one). **C2:** the stale "TARGET_TICKS never reached" claim
+>   survived in the very file that owns the counter-example. **E2:** the "HTML report shows the
+>   annotation" justification is FALSE for this lane — `--reporter=list` REPLACES the config
+>   reporters — fixed the comment rather than `package.json`, since that file is in `deploy.yml`'s
+>   push filter and editing it would have shipped a PRODUCTION DEPLOY for a reporting tweak.
+> · **CENSUS: THREE FIXED CONSTANTS FAILED, SO IT IS NOW NORMALIZED TO THE WINDOW.** 75 (wall-clock
+>   instead of SIM time ⇒ above the ~73 signal, would have missed a total leak) → 30 (fine at n=4
+>   max 13, then Δ20 landed ⇒ 1.5×) → 40 (then **Δ39** landed ⇒ **passed by ONE object**). The
+>   pattern, not any single number, was the signal. **I also had the mechanism backwards:** I called
+>   the delta "tick-INSENSITIVE / entity-bounded" and cited a Δ0/Δ20 pair as proof — at n=7 that Δ0
+>   is an outlier and the delta clearly scales with the window (~2.2k ⇒ max 13; ~7.6-8.9k ⇒ max 39;
+>   3.9× window vs 3.0× noise). **That means I was wrong to reject GROK-ANALYST's tick-SCALED
+>   proposal — I rejected the right shape on n=4 evidence.** Both leak signal (`t/30`) and noise
+>   (`~t/220`) scale, so their ratio is window-independent (~7.3×) ⇒ assert a FRACTION of the signal:
+>   `max(25, 0.35 × signal)`. That holds **~2.6× over noise AND ~2.9× under the total-leak signal at
+>   every window**, which no constant managed; all n=7 recorded runs pass, min margin 2.0×. It also
+>   **structurally dissolves** Gemini's blind spot and RALPH's F4 coupling concern — a 0.35 fraction
+>   can never exceed the signal — so `MIN_VALID_TICKS` is a plain liveness tripwire (1 300) again.
+> · **The coupling introduced a real bug that ONLY running the spec caught:** a temporal dead zone
+>   (`MIN_VALID_TICKS` referenced `CENSUS_LIMIT_OBJECTS` above its declaration ⇒ `ReferenceError` at
+>   module init). `tsc` would have caught it, but `tsconfig` is `include: ["src"]` — the R1 risk the
+>   PDR flagged, landing exactly as predicted. Fixed by reordering; `npx tsc` over `e2e/` now exits 0.
+>   **New standing habit recorded in LOCKED §15.4: after editing a spec run
+>   `npx playwright test <spec> --list`** — it evaluates the module in ~2s instead of failing 6
+>   minutes into a soak.
+>
+> **LOCAL VERIFICATION: 3/3 passed (15.6m)**, all three in the STRICT regime — render 8 150 ticks
+> (resolves 1.3 KB/tick), baseline 10 307 (1.0 KB/tick), bots-worker 8 073 (1.3 KB/tick). So
+> locally the byte instrument DOES meet its original ~1 KB/tick design intent; it is only the CI
+> bots window that degrades it. Worker isolate is the quietest channel of all (Δ−0.06 / +0.01 MB).
+>
+> **Corrections this session made to its OWN earlier claims** (all caught before shipping):
+> the A.0 packet called CI minutes a live constraint (repo is PUBLIC — free); it proposed raising
+> `WALL_CAP_MS` on a linear extrapolation (throughput DECLINES as the world grows); it sized the
+> census limit at 75 from wall-clock instead of SIM time (would have sat above the ~73 signal);
+> it recorded the worker determinism oracle as "stable across all attempts" when **for
+> `worker-heap:333` it never executed at all** — the tick-floor `expect()` at worker-heap:221
+> threw first, voiding every assertion below it in the shared helper (which makes this fix *more*
+> valuable than the PDR claimed: removing the floor is what lets the oracle actually run); and it
+> asserted **"`TARGET_TICKS` is never reached on ANY platform"** — falsified by the very
+> `capped`/curve logging this priority added, on its first run: the non-bots baseline reached
+> **10 307 ticks with `capped=false`**. The wall cap binds for BOTS worlds specifically (~3.8×
+> costlier per tick), not universally. Corrected in the specs and in LOCKED §15.1.
+>
+> **Carry-forward:** permanent window/threshold shape from the new tick-rate curve · whether the
+> byte-heap audit earns its ~14m of the lane at all (Grok argued DELETE; unproven, and the curve
+> settles it) · **tighten the worker-isolate ceiling 10MB → ~3MB — direction right (spread 0.76MB
+> vs main's 5.5MB ⇒ it would resolve ~1.4KB/tick, near the original design intent) but BLOCKED on
+> instrument repeatability: `readWorkerFloorMB()` is a single read at worker-heap:182, outside the
+> :174-181 stabilization loop** · **unexplored legit lever: Playwright `deviceScaleFactor` to cut
+> raster cost and buy real FPS⇒ticks, zero `src/` change (needs a before/after, since rasterization
+> is partly what the render audit measures)** · lane promotion · schedule-path validation (S126's
+> fix has only ever run via `workflow_dispatch`; next cron Mon 2026-08-03 07:00 UTC) · `e2e/**`
+> sits outside `tsconfig` (`include: ["src"]`) so spec edits have no `tsc` safety net.
+
+---
+
 # STATUS S126 (2026-07-28) — CI E2E GATE REVIVED (3-LANE SPLIT) · ONE DEPLOY PATH
 
 > **S126 booted systematically off HANDOFF_S125 and the Rule-21 A.0 probe found the S125

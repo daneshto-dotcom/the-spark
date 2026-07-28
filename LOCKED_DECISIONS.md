@@ -1307,4 +1307,195 @@ which cites this section.
 
 ---
 
+## 15 · SOAK-CALIBRATION — heap/census audit instruments on slow runners (S127 NEW, Standard-tier Council + PRIME-AUDIT)
+
+**Scope:** `e2e/render-heap.spec.ts`, `e2e/worker-heap.spec.ts`, and the non-gating `e2e-soak` CI
+lane. Written so no future session re-derives any of this from scratch.
+
+### 15.1 THE GOVERNING FACT — sim ticks are FRAME-bound, not time-bound
+`src/main.ts:1389` clamps `dtSec = Math.min(tickerObj.deltaMS / 1000, 0.05)`;
+`src/constants.ts:169` sets `PHYSICS_HZ = 60` (⇒ `PHYSICS_DT = 0.01667`); `src/main.ts:1413`
+fully drains the accumulator. Therefore **at most 3 sim ticks advance per RENDERED FRAME.**
+
+Measured throughput (all empirical, CI run 30374235685 + a local run, 2026-07-28):
+
+| world | ticks/s | ⇒ effective fps | ticks reached in the 300 s window |
+|---|---|---|---|
+| bots, CI (2-core SwiftShader) | 7.2–7.7 | ~2.5 | 2 154 – 2 301 |
+| bots, local | 25.5 | ~8.5 | 7 653 |
+| non-bots TD-heavy baseline, CI | 28.3 | ~9.4 | 8 487 (PASSES) |
+
+**LOCKED CONSEQUENCES:**
+1. **`TARGET_TICKS = 10_000` is unreachable for BOTS worlds on every platform** — 8 150 / 8 073
+   locally and 2 184-2 301 in CI, always `capped=true`. It is an aspiration for those two tests,
+   not an achieved window.
+   ⚠ **CORRECTION to the first S127 draft, which over-claimed "never reached on ANY platform":**
+   the NON-bots TD-heavy baseline DOES reach it — **10 307 ticks with `capped=false` in 176 s**,
+   i.e. it terminated on the tick target, not the wall cap. The wall cap binds for BOTS worlds
+   specifically, because they cost ~3.8× more per tick. Caught by the very `capped`/curve logging
+   this section introduced, on the first run after shipping it.
+2. **You cannot buy ticks with wall-clock.** 10k ticks in CI needs ~22 min of window and gets
+   *worse than linear* as entities accumulate (throughput falls as the world grows). **Do NOT
+   "fix" a short window by raising `WALL_CAP_MS`** — S127 proposed exactly that, then retracted it.
+3. **Never assert a floor on ticks-achieved as a pass/fail criterion.** That measures the
+   runner's GPU, not the code under test. It is what silently reduced the soak lane to a
+   hardware-speed test and produced 5/5 identical failures while every real threshold passed.
+   `MIN_VALID_TICKS` (500) exists only as a floor of MEANING — a frozen-sim tripwire.
+4. **Buying ticks by relaxing the dt clamp is REJECTED, not deferred.** `src/main.ts` is
+   production sim code on the deploy path, the clamp governs real gameplay catch-up, and
+   advancing more sim ticks per rendered frame would distort exactly what these audits measure
+   (per-frame render churn; per-frame transferable position buffers). Do not trade shipped game
+   behaviour for test speed. **Worker mode has a SECOND, independent tick ceiling** anyway:
+   `src/simWorkerDriver.ts:20` `MAX_CARRIED_TICKS = 10`, applied at :79, caps the worker drain at
+   10 ticks/frame — so 2 of the 3 soak tests could not be sped up this way even if one tried.
+5. **The one unexplored legitimate lever is RASTER COST, not the clamp.** FPS here is
+   SwiftShader fill-bound at the 1920×1080 viewport (`playwright.config.ts` `use.viewport`).
+   Lowering Playwright's `deviceScaleFactor` (a TEST-side option, zero `src/` change, zero
+   production impact) would cut pixels per frame and therefore buy real FPS ⇒ real ticks. NOT done
+   in S127: it changes how much the renderer actually rasterizes, which is part of what the
+   render-side audit is measuring, so it needs its own before/after comparison. Carry-forward.
+
+### 15.2 WHICH INSTRUMENT TO TRUST (ranked, by measured noise)
+1. **Display-object census + texture count — PRIMARY.** Integer, entity-bounded,
+   tick-INSENSITIVE: Δ+4/+13/+4 (CI, ~2.2k ticks) and Δ+11 (local, 7 653) ⇒ **max 13 over n=4**,
+   i.e. the variance is a two-sample term in a churning world, *not* a per-tick slope. Its blind
+   spot: anything that leaks without adding display objects (TypedArrays, closures, worker-side
+   buffers) — which is what the worker-isolate read covers.
+2. **Worker-isolate heap + the determinism oracle** (`failed === false`, `hashMismatches === 0`).
+   Quietest numbers of the set (Δ+0.38 / +0.43 / −0.33 MB). NOTE the oracle itself is **already
+   asserted in the GATING lane** (`worker.spec.ts:93-94`, `worker-bots.spec.ts:115-116`); only
+   the LONG-DURATION variant is unique to soak.
+
+   ⚠ **CORRECTION to the S127 evidence packet, worth knowing:** that packet listed the oracle as
+   "stable across all attempts" in CI. **False for `worker-heap:333`.** The old tick-floor
+   assertion at `worker-heap.spec.ts:221` threw FIRST, so the oracle assertions further down
+   (`expect(wk).not.toBeNull()`, `failed === false`, `hashMismatches === 0`) **never executed on
+   the runner** for the bots test — their CI values were never observed at all. This makes the
+   S127 fix strictly more valuable than its PDR claimed: removing the hardware-speed floor is
+   what lets the oracle actually RUN in a short window. Beware this failure shape generally — an
+   early `expect()` in a shared helper silently voids every assertion below it, and a
+   `continue-on-error` lane makes that invisible.
+
+   **Do NOT tighten the worker-isolate ceiling (10 MB) yet, despite the tempting SNR.** Its
+   observed spread is only 0.76 MB total (+0.38 / +0.43 / −0.33) vs the main thread's 5.5 MB, so a
+   ~3 MB ceiling would resolve ~1.4 KB/tick at the CI window — near the original design intent.
+   The blocker is instrument repeatability, not the number: `readWorkerFloorMB()` is called ONCE
+   at `worker-heap.spec.ts:182`, **outside** the `readMainFloorMB` stabilization loop at :174-181,
+   so it has no convergence check at all. Prerequisite for any tightening: give the worker read
+   the same stabilization (or a median-of-N), THEN re-measure. Direction right, magnitude unearned.
+3. **Main-thread byte heap — WEAKEST, and weak everywhere, not just in CI.** `GROWTH_LIMIT_MB=10`
+   resolves `10*1024/measured` KB/tick, so its historical "≥1 KB/tick" intent needs **10 240
+   ticks**. At the CI bots window it resolves only ~4.7 KB/tick while the observed same-test
+   spread is **−0.67 … +4.80 MB (±2.7 MB noise > the 2.2 MB signal)**. Local is better but not
+   clean: **−0.82 MB** (S127) vs **+3.08 MB** (S124) ⇒ ~3.9 MB local spread.
+
+### 15.3 CENSUS THRESHOLD DERIVATION (the arithmetic, so it is never guessed again)
+Creatures spawn at `__TEST_SPAWN_RATE_PER_SECOND__ = 2` per **SIM** second, and ticks are sim
+ticks at 60 Hz. So the window in SIM-seconds is `ticks / 60`, and a **total** missed `destroy()`
+leaks about `2 × ticks / 60` display objects:
+
+| window | SIM-seconds | ⇒ total-miss signal |
+|---|---|---|
+| 2 200 ticks (CI) | 36.7 | **~73 objects** |
+| 7 653 ticks (local) | 127.5 | ~255 objects |
+
+### THE RULE: **the census limit is NORMALIZED to the window, never a constant.**
+
+S127 tried three fixed constants and each was refuted by the next sample. Recorded so nobody
+retries them:
+
+| tried | why it failed |
+|---|---|
+| **1 500** (pre-S127) | 115× slack over observed deltas — a vacuous assertion |
+| **75** | derived from WALL-clock 300 s instead of 36.7 SIM seconds ⇒ sat *above* the ~73 CI signal, so it would have MISSED a total destroy-miss |
+| **30** | fine against an n=4 max of 13 — then Δ20 landed ⇒ 1.5× margin |
+| **40** | then Δ39 landed ⇒ it **passed by ONE object** |
+
+**⚠ CORRECTION — I had the mechanism backwards, and it cost three iterations.** Earlier S127 text
+(including an earlier version of this very section) called the census delta "entity-bounded /
+tick-INSENSITIVE" and cited a Δ0/Δ20 pair at ~8.2k ticks as proof. **Wrong.** With n=7 that Δ0 is an
+outlier, not a law — the delta plainly scales with the window:
+
+| window | observed healthy deltas | max |
+|---|---|---|
+| ~2 200 ticks (CI) | Δ4, Δ13, Δ4 | **13** |
+| ~7 650-8 890 ticks (local) | Δ11, Δ0, Δ20, Δ39 | **39** |
+
+a 3.9× window ratio against a 3.0× noise-max ratio. **This also means I was wrong to reject
+GROK-ANALYST's CHECK proposal for a tick-SCALED limit** — I rejected the right shape using n=4
+evidence. Credit where due.
+
+**The correct model.** Creatures spawn at 2 per SIM second and `t` ticks is `t/60` SIM seconds, so a
+TOTAL missed `destroy()` shows as `t/30` objects — and empirically the NOISE scales too, ≈`t/220`.
+Their RATIO is therefore window-independent (~7.3×), which is exactly what makes a **fraction of the
+signal** the right assertion and any constant the wrong one:
+
+```ts
+const censusSignal = (2 * measured) / 60;
+const censusLimit  = Math.max(CENSUS_FLOOR_OBJECTS /* 25 */, CENSUS_LEAK_FRACTION /* 0.35 */ * censusSignal);
+expect(censusGrowth).toBeLessThan(censusLimit);
+```
+This holds **~2.6× over observed noise AND ~2.9× under the total-leak signal at every window**
+(2.2k / 8.5k / 10.3k) — which no constant achieved. Validated against all n=7 recorded runs: every
+one passes, minimum margin 2.0×. Each run LOGS the detectable leak fraction, so a green never
+implies more than it earned. `TEXTURE_LIMIT = 8` stays a constant — textures ARE window-insensitive
+(atlases are load-time; observed Δ ≤ +1 across all runs).
+
+**The floor is consequently DECOUPLED again, and that is the improvement.** GEMINI-AUDITOR's HIGH
+finding (a fixed limit above the short-window signal is blind to a *total* leak — at floor 500 with
+limit 30 a 100 % destroy-miss leaks only ~17 and would have PASSED) and RALPH:PATROL's F4 (a prose
+"keep these in sync" note is too weak a link) are both **structurally dissolved** by normalizing:
+`0.35 × signal` can never exceed the signal, so the blind spot is designed out rather than held off
+by a derived constant. `MIN_VALID_TICKS = 1_300` is now a pure liveness tripwire in both specs.
+*(The intermediate `30 * CENSUS_LIMIT_OBJECTS + 100` expression is what caused the temporal-dead-zone
+`ReferenceError` — see §15.4's `--list` habit.)*
+
+**Rejected CHECK proposals, with reasons** (so they are not re-proposed): GROK-ANALYST wanted
+`CENSUS_LIMIT = 50` (≈4× noise) — rejected, 50 sits only 1.46× under the ~73 CI signal vs 30's
+2.4×, and on a `continue-on-error` lane a false NEGATIVE (missed leak, silent) costs more than a
+false positive (visible ✗, cannot red the run). It also wanted the limit tick-SCALED — rejected as
+empirically refuted: the census delta is entity-bounded, and the LARGEST observed delta (+13) came
+at the SMALLEST window (2 184) while 7 653 gave +11 and 8 150 gave 0.
+
+### 15.4 LANE RULES
+- `e2e-soak` sets **`PW_RETRIES: 0`**. Retries only help non-deterministic failures; a frame-bound
+  shortfall reproduces identically, and 3 such attempts burned ~21.2 of the lane's 44 minutes.
+- **The `PW_RETRIES` guard has THREE required properties. Do not "simplify" it — each one was a
+  CHECK finding, and two reviewers pulled in opposite directions before it converged:**
+  1. **Not** `Number.isInteger(Number(x)) && x >= 0` — `Number('') === 0`, so a defined-but-empty
+     var would zero retries in EVERY lane.
+  2. A genuinely malformed value **THROWS** rather than falling back silently (GROK-ANALYST H1):
+     a silent fallback restores `retries: 2`, evaporates the ~21-minute saving, and says nothing —
+     the same silent-degradation class as the S126 `cancelled` bug.
+  3. But **empty/whitespace must be treated as UNSET, never throw** (RALPH:PATROL D1): empty is
+     GitHub Actions' idiom for an undefined var (`env: X: ${{ vars.X }}`), and this module loads for
+     EVERY Playwright invocation — so a throw here kills the **GATING** lane at config-load, before
+     any test runs, leaving no `playwright-report/` for `upload-artifact`. That is the
+     red-with-no-trace outcome the globalTimeout work exists to prevent, one step earlier.
+  Net: `process.env.PW_RETRIES?.trim()`, absent-or-empty ⇒ no override, non-empty non-digits ⇒ throw.
+- **`test.setTimeout` must be an EXPRESSION over the wall caps, never a literal** (RALPH:PATROL F1):
+  `test.setTimeout(WARMUP_WALL_CAP_MS + WALL_CAP_MS + 120_000)`. Raising the warm-up cap 90 s→240 s
+  silently pushed the caps to 540 s of a hardcoded 600 s budget, leaving ~50 s for browser launch,
+  the bots-setup flow and TWO `stabilizedSample` calls. With `PW_RETRIES: 0` and the evidence line
+  printed only AFTER `s1`, a 30 % throughput dip would have produced a red with NO measurement.
+- **`e2e/**` is NOT type-checked** (`tsconfig.json` is `include: ["src"]`; both `npm run typecheck`
+  and `npm run build` are `tsc -b`). Consequence, learned the hard way in S127: coupling
+  `MIN_VALID_TICKS` to `CENSUS_LIMIT_OBJECTS` introduced a temporal-dead-zone
+  `ReferenceError: Cannot access 'CENSUS_LIMIT_OBJECTS' before initialization` that `tsc` WOULD
+  have caught. **After editing any spec, run `npx playwright test <spec> --list`** — it evaluates
+  the module in ~2 s and catches load-time errors without paying for a 16-minute soak.
+- The warm-up wall cap must exceed `WARMUP_TICKS / (slowest expected ticks-per-second)`. At the
+  old hardcoded 90 s that needed 13.3 ticks/s, so CI warm-ups silently ran **54-58 %** of
+  `WARMUP_TICKS` and `s0` was sampled mid-JIT-settling. `WARMUP_WALL_CAP_MS = 240_000`, and
+  truncation is now RETURNED and LOGGED, never swallowed.
+- Lane stays **`continue-on-error`** until thresholds are retuned against multiple observed CI
+  runs. Per e2e.yml:125-132, "a few green runs" is explicitly NOT sufficient for promotion.
+- **CI-minute cost is NOT a valid argument here.** The repo is PUBLIC
+  (`gh repo view` → `isPrivate: false`), so Actions minutes are free/unlimited on standard
+  runners. The S110 "exhausted the PRIVATE repo's minutes" story is history; it nonetheless
+  leaked into an S127 Council round as a decisive reason to delete the lane. Reason from
+  wall-clock latency, the 6 h job ceiling, concurrency and artifact storage instead.
+
+---
+
 ## End — All Phase 1 + Phase-2 Tier-0 (1v1 networked) + Phase-2 Tier-1 (Sever-as-disruption + multi-color bond rendering) + Audio subsystem (Suno BGM + procedural SFX + per-channel controls) + Phase-2 godly/creature system (Voltkin lifecycle + combat + NetSnapshot semantics) + Phase-2 Sym D (color-segregated bonding) + Sym G (Voltkin chain isolation) + Sym I (ENDGAME envelope) + Sym F (territorial repulsion) implementation decisions are locked. Phase 2+ remaining: Inject Spiral (D), Steal (E), Fog of war (A), Mega-combos via connector chain (G), Anvil second-creature (post-S34 P2-20 voltkin-config base). Audio polish remaining: OGG compression for mobile, PannerNode + auto-duck. Phase 3 net (Colyseus / Geckos.io) reserved for >2-player scalability.

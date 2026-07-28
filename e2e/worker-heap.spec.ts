@@ -24,8 +24,17 @@
  * sawtooth, so this bounds RETAINED growth) + the run doubles as a long-soak oracle
  * check (worker !failed, 0 hash mismatches). Entity counts at both samples are recorded
  * so legitimate world growth is distinguishable from leak growth in the log.
- * GROWTH_LIMIT_MB=10: a real per-frame leak (≥1KB/tick) shows as ≥10MB over the window;
- * organic world/entity growth measures ~1-3MB. Longtask count recorded (not asserted).
+ *
+ * GROWTH_LIMIT_MB=10 — CALIBRATION CORRECTED IN S127. The original claim here was "a real
+ * per-frame leak (≥1KB/tick) shows as ≥10MB over the window; organic world/entity growth
+ * measures ~1-3MB". That is only true at a 10 000-tick window, which the BOTS run never reaches
+ * (2 154-2 301 in CI, 8 073 locally) — though the non-bots BASELINE does (8 487 in CI, and 10 307
+ * locally with capped=false). The honest statement: this ceiling resolves 10*1024/measured KB/tick, so the
+ * ≥1KB/tick intent needs 10 240 ticks; at the bots CI window it resolves only ~4.7KB/tick, where
+ * the observed same-test noise band (±2.7MB) already exceeds a 1KB/tick signal (2.2MB). It is
+ * therefore a MACRO-leak detector at short windows, and each run LOGS which regime it was in.
+ * The tick-INSENSITIVE checks (worker-isolate bound + the determinism oracle) carry the signal
+ * on slow hardware. Longtask count recorded (not asserted).
  */
 import { test, expect, type Page } from '@playwright/test';
 import { canvasToCss, titleButtonCss, waitForWorld } from './helpers';
@@ -51,8 +60,43 @@ test.use({
 const WARMUP_TICKS = 1_200;
 const TARGET_TICKS = 10_000;
 const WALL_CAP_MS = 300_000; // measurement window wall cap; actual ticks recorded
-const MIN_MEASURED_TICKS = 4_000; // the window must be meaningful even if wall-capped
 const GROWTH_LIMIT_MB = 10;
+
+// ── S127 calibration — IDENTICAL reasoning to render-heap.spec.ts; kept in sync deliberately ──
+//
+// THE GOVERNING FACT: sim ticks are FRAME-bound, not time-bound. src/main.ts:1389 clamps
+// `dtSec = min(deltaMS/1000, 0.05)` and src/constants.ts:169 sets PHYSICS_HZ = 60 ⇒ at most 3
+// ticks advance per RENDERED FRAME. Measured: the VS-BOTS run manages ~7.2-7.7 ticks/s on a
+// 2-core SwiftShader CI runner, while the non-bots TD-heavy BASELINE below manages ~28.3 and
+// reached 8 487 ticks — i.e. the bots world is ~3.8x more expensive PER TICK, which is why
+// :333 failed in CI run 30374235685 and :243 passed. TARGET_TICKS = 10_000 is never reached BY THE
+// BOTS TEST (:424) — 8 073 locally, 2 154-2 301 in CI, always capped=true. The BASELINE (:334) DOES
+// reach it: 10 307 ticks with capped=false in 176 s. (S127 CHECK, RALPH:PATROL C2 — an earlier draft
+// of this very file claimed "never reached", full stop, while owning the counter-example.)
+// More ticks CANNOT be bought with wall-clock; do NOT "fix" a short window by raising WALL_CAP_MS.
+//
+// WARM-UP WALL CAP: was a hardcoded 90_000 ms, needing 13.3 ticks/s to cover WARMUP_TICKS —
+// above what CI achieves, so CI warm-ups were truncated to ~648-693 of 1 200 ticks (54-58 %) and
+// the s0 baseline was sampled MID-JIT/pool-settling. That is a second, independent source of the
+// byte-heap noise band. 240 s ⇒ 1.4x margin at the observed CI floor, and whether the cap bound
+// is now LOGGED rather than silently swallowed.
+const WARMUP_WALL_CAP_MS = 240_000;
+
+// Floor of MEANING, hard-asserted: below this nothing here carries information, so a red is honest
+// — the run produced NO measurement and must be RE-RUN, never re-tuned.
+//
+// This file has NO census assertion (census is render-side only), so the floor is PURELY a
+// liveness/meaning tripwire — a frozen sim or dead worker. The VALUE is matched to
+// render-heap.spec.ts so the two soak files agree on what "too short to mean anything" is.
+// 1_300 sits 1.66x under the observed CI minimum (2 154) and ~6x under local (8 484-10 315).
+const MIN_VALID_TICKS = 1_300;
+
+// Gate for the STRICT byte-heap regime — NOT a pass/fail criterion. The old
+// `MIN_MEASURED_TICKS = 4_000` was, and it is the assertion that failed both :333 attempts
+// (2 301 / 2 154) while every substantive threshold PASSED. Honesty note: the docblock's
+// "≥1KB/tick" intent needs 10 240 ticks at GROWTH_LIMIT_MB = 10 — unreachable on any platform
+// here — so each regime logs the sensitivity it ACTUALLY resolves.
+const MIN_STRICT_TICKS = 4_000;
 
 interface HeapSample {
   heapMB: number;
@@ -171,13 +215,32 @@ async function stabilizedSample(page: Page): Promise<HeapSample> {
   return { heapMB: prev, workerHeapMB, floorRounds: rounds, ...rest };
 }
 
-async function waitForTick(page: Page, target: number, wallCapMs: number): Promise<void> {
+interface WaitResult {
+  tick: number;
+  /** true ⇒ the WALL CAP ended the wait, not the tick target (the window was truncated). */
+  capped: boolean;
+  /** `<elapsed>s:<tick>` samples — the declining-rate curve. */
+  curve: string;
+}
+
+/**
+ * S127 — now REPORTS how the wait ended instead of returning void and hiding it: a truncated
+ * warm-up silently invalidated the s0 baseline in CI, and the frame-bound tick curve is the
+ * evidence a future session needs to set a permanent window (rather than extrapolating one
+ * average across a run whose throughput declines as the world grows).
+ */
+async function waitForTick(page: Page, target: number, wallCapMs: number): Promise<WaitResult> {
   const start = Date.now();
+  const samples: string[] = [];
   for (;;) {
     const tick = await page.evaluate(
       () => (window as unknown as { __SPARK__: { world: { tick: number } } }).__SPARK__.world.tick,
     );
-    if (tick >= target || Date.now() - start >= wallCapMs) return;
+    const elapsed = Date.now() - start;
+    samples.push(`${Math.round(elapsed / 1000)}s:${tick}`);
+    if (tick >= target || elapsed >= wallCapMs) {
+      return { tick, capped: tick < target, curve: samples.join(' ') };
+    }
     await page.waitForTimeout(5_000);
   }
 }
@@ -199,10 +262,26 @@ async function auditWindow(page: Page, tag: string): Promise<void> {
   const t0 = await page.evaluate(
     () => (window as unknown as { __SPARK__: { world: { tick: number } } }).__SPARK__.world.tick,
   );
-  await waitForTick(page, t0 + WARMUP_TICKS, 90_000);
+  const warm = await waitForTick(page, t0 + WARMUP_TICKS, WARMUP_WALL_CAP_MS);
+  // Never swallow a truncated warm-up: it invalidates the s0 baseline below.
+  console.log(
+    `[S123-P3 ${tag} warm-up] ticks=${warm.tick - t0}/${WARMUP_TICKS} ` +
+      `capped=${warm.capped} curve=[${warm.curve}]`,
+  );
+  // S127 CHECK (RALPH:PATROL A2) — annotate, not just log: a truncated warm-up invalidates the s0
+  // baseline, which is strictly worse than the short-window case below and must not report weaker.
+  if (warm.capped) {
+    test.info().annotations.push({
+      type: 'truncated-warmup',
+      description:
+        `${tag}: only ${warm.tick - t0}/${WARMUP_TICKS} warm-up ticks in ${WARMUP_WALL_CAP_MS}ms — ` +
+        `s0 baseline sampled MID-SETTLING, so the heap deltas below are inflated by JIT/pool churn`,
+    });
+  }
 
   const s0 = await stabilizedSample(page);
-  await waitForTick(page, s0.tick + TARGET_TICKS, WALL_CAP_MS);
+  const meas = await waitForTick(page, s0.tick + TARGET_TICKS, WALL_CAP_MS);
+  console.log(`[S123-P3 ${tag} window] capped=${meas.capped} curve=[${meas.curve}]`);
   const s1 = await stabilizedSample(page);
 
   const measured = s1.tick - s0.tick;
@@ -218,9 +297,41 @@ async function auditWindow(page: Page, tag: string): Promise<void> {
       `longtasks ${s0.longtasks}→${s1.longtasks}`,
   );
 
-  expect(measured).toBeGreaterThanOrEqual(MIN_MEASURED_TICKS);
+  // ── S127 two-regime validity gate (replaces the hard MIN_MEASURED_TICKS floor) ───────────
+  // The old `expect(measured).toBeGreaterThanOrEqual(4_000)` made the RUNNER'S RENDER THROUGHPUT
+  // a pass/fail criterion — it is what failed both :333 attempts in CI run 30374235685 while
+  // every substantive threshold PASSED. Liveness is still asserted; hardware speed is not.
+  expect(measured).toBeGreaterThanOrEqual(MIN_VALID_TICKS);
+  const resolvedKBPerTick = (GROWTH_LIMIT_MB * 1024) / measured;
+  if (measured < MIN_STRICT_TICKS) {
+    console.log(
+      `[S123-P3 ${tag} SHORT-WINDOW] measured=${measured} < ${MIN_STRICT_TICKS}: a per-tick ` +
+        `byte-leak claim is NOT honest at this window. MAIN Δ${growthMB.toFixed(2)}MB / WORKER ` +
+        `Δ${workerGrowthMB.toFixed(2)}MB are RECORDED AS MEASUREMENTS; the ${GROWTH_LIMIT_MB}MB ` +
+        `ceilings resolve only ≥${resolvedKBPerTick.toFixed(1)}KB/tick here (macro-leak ` +
+        `detectors). The determinism oracle + isolate bounds below are STILL ASSERTED.`,
+    );
+    // Annotated AND logged. NOTE (S127 CHECK, RALPH:PATROL E2): the annotation does NOT reach an
+    // HTML report in this lane — `e2e:soak` passes `--reporter=list`, which REPLACES the config
+    // reporters. The console.log above is the load-bearing record; the annotation is
+    // forward-compatible. See the fuller note in render-heap.spec.ts.
+    test.info().annotations.push({
+      type: 'short-window',
+      description:
+        `${tag}: measured=${measured} < MIN_STRICT_TICKS=${MIN_STRICT_TICKS}; byte-heap ` +
+        `sensitivity degraded to ≥${resolvedKBPerTick.toFixed(1)}KB/tick (frame-bound)`,
+    });
+  } else {
+    console.log(
+      `[S123-P3 ${tag} STRICT-WINDOW] measured=${measured} ⇒ the ${GROWTH_LIMIT_MB}MB ceilings ` +
+        `resolve ≥${resolvedKBPerTick.toFixed(1)}KB/tick.`,
+    );
+  }
+  // Asserted UNCONDITIONALLY, as macro-leak detectors at short windows. Deliberately NOT
+  // re-derived: n=2 CI samples per test cannot support a new threshold value.
   expect(growthMB).toBeLessThan(GROWTH_LIMIT_MB);
-  // The worker isolate — the sim's own heap — must be bounded too (the F2 CHECK fix).
+  // The worker isolate — the sim's own heap — must be bounded too (the F2 CHECK fix). This one
+  // is the QUIETEST instrument of the set: observed Δ+0.38 / +0.43 / −0.33MB across all runs.
   expect(workerGrowthMB).toBeLessThan(GROWTH_LIMIT_MB);
 
   // Long-soak oracle verdict: the worker survived the whole window, zero mismatches.
@@ -243,7 +354,14 @@ test.describe('S123 P3 — worker-mode GC/heap audit @soak', () => {
   test('baseline: TD-heavy solo worker world, bounded post-GC heap growth over ~10k ticks', async ({
     page,
   }) => {
-    test.setTimeout(600_000);
+    // S127 CHECK (RALPH:PATROL F1, HIGH) — DERIVED from the two sequential wall caps, never a bare
+    // literal. Raising WARMUP_WALL_CAP_MS 90s→240s pushed caps alone to 540s of a hardcoded 600s
+    // budget, leaving ~50s for browser launch + goto + the bots-setup flow + TWO stabilizedSample
+    // calls (each up to 10 double-GC rounds, and here also a CDP /json/list + WS handshake). A 30%
+    // throughput dip would then time out DURING s1 — and with PW_RETRIES: 0 and the evidence line
+    // printed only AFTER s1, that yields a red with NO measurement, the exact outcome S127 exists
+    // to prevent. Written as an expression so it cannot drift when a cap is retuned.
+    test.setTimeout(WARMUP_WALL_CAP_MS + WALL_CAP_MS + 120_000);
     await page.addInitScript({
       content:
         'window.__TEST_SPAWN_RATE_PER_SECOND__ = 2;' +
@@ -333,7 +451,14 @@ test.describe('S123 P3 — worker-mode GC/heap audit @soak', () => {
   test('bots: VS-BOTS worker run, bounded post-GC heap growth over ~10k ticks', async ({
     page,
   }) => {
-    test.setTimeout(600_000);
+    // S127 CHECK (RALPH:PATROL F1, HIGH) — DERIVED from the two sequential wall caps, never a bare
+    // literal. Raising WARMUP_WALL_CAP_MS 90s→240s pushed caps alone to 540s of a hardcoded 600s
+    // budget, leaving ~50s for browser launch + goto + the bots-setup flow + TWO stabilizedSample
+    // calls (each up to 10 double-GC rounds, and here also a CDP /json/list + WS handshake). A 30%
+    // throughput dip would then time out DURING s1 — and with PW_RETRIES: 0 and the evidence line
+    // printed only AFTER s1, that yields a red with NO measurement, the exact outcome S127 exists
+    // to prevent. Written as an expression so it cannot drift when a cap is retuned.
+    test.setTimeout(WARMUP_WALL_CAP_MS + WALL_CAP_MS + 120_000);
     await page.addInitScript({
       content:
         'window.__TEST_SPAWN_RATE_PER_SECOND__ = 2;' +

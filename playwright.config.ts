@@ -43,6 +43,47 @@ const gtMin = Number(process.env.PW_GLOBAL_TIMEOUT_MIN);
 const globalTimeout =
   Number.isFinite(gtMin) && gtMin > 0 ? gtMin * 60_000 : undefined;
 
+// S127 — per-lane RETRIES override, supplied by each CI job's `env:` (same idiom as
+// PW_GLOBAL_TIMEOUT_MIN above). Only `e2e-soak` sets it, to 0.
+//
+// Why: a retry only helps a NON-deterministic failure. The soak lane's failure mode is
+// structural — sim ticks are FRAME-bound (src/main.ts:1389 clamps dt to 0.05s and
+// PHYSICS_HZ=60, so at most 3 ticks advance per rendered frame), so a tick shortfall on a
+// 2-core SwiftShader runner reproduces identically every attempt. In run 30374235685 that
+// burned ~21.2 of the lane's 44 minutes on 3 such attempts, and the 44m globalTimeout then
+// cut the suite off before the last test finished.
+//
+// The guard is a strict non-empty all-digits test, NOT `Number.isInteger(Number(x)) && x >= 0`:
+// `Number('') === 0` and `Number.isInteger(0)` is true, so a DEFINED-BUT-EMPTY variable would
+// silently drop retries to 0 in EVERY lane — the exact opposite of degrading to current
+// behaviour. (PW_GLOBAL_TIMEOUT_MIN above is immune only because it additionally requires > 0.)
+// S127 CHECK — this guard is the synthesis of two reviewers who pulled in OPPOSITE directions, and
+// both were right about their own failure mode:
+//
+//  • GROK-ANALYST H1 (HIGH): a silent fallback means a typo'd/renamed value quietly restores
+//    retries: 2 in the soak lane, the ~21-minute saving evaporates, and NOTHING says so — the same
+//    silent-degradation class as the S126 `cancelled` bug. ⇒ a genuine typo must FAIL LOUDLY.
+//  • RALPH:PATROL D1 (MEDIUM): but throwing on the EMPTY string is dangerous, because empty is
+//    GitHub Actions' idiom for "unset" — `env: PW_RETRIES: ${{ vars.PW_RETRIES }}` with an
+//    undefined var yields "" , not an absent var. This module loads for EVERY Playwright
+//    invocation, so a throw here kills the GATING lane too, at config-load, before any test runs
+//    ⇒ no playwright-report/, nothing for upload-artifact to find. That is precisely the
+//    red-with-no-trace outcome the globalTimeout work above exists to eliminate — reintroduced one
+//    step earlier in the pipeline. A stray local `export PW_RETRIES=` does the same.
+//
+// Synthesis: trim, treat absent-or-empty as the well-defined "no override" case, and throw ONLY on
+// a non-empty value that is genuinely unparseable. Typos still fail loudly; the most likely
+// misconfiguration can no longer take down all three lanes.
+const retriesRaw = process.env.PW_RETRIES?.trim();
+if (retriesRaw !== undefined && retriesRaw !== '' && !/^\d+$/.test(retriesRaw)) {
+  throw new Error(
+    `PW_RETRIES is set but not a non-negative integer: ${JSON.stringify(process.env.PW_RETRIES)}. ` +
+      `Leave it UNSET (or empty) for the default (CI ? 2 : 0), or set an integer like "0".`,
+  );
+}
+const retriesOverride =
+  retriesRaw !== undefined && retriesRaw !== '' ? Number(retriesRaw) : undefined;
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
@@ -50,7 +91,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   fullyParallel: false, // 2-peer tests must run sequentially; each spec opens 2 contexts
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: retriesOverride ?? (process.env.CI ? 2 : 0),
   workers: 1, // single worker — 2-peer specs are inherently serialized
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
 
