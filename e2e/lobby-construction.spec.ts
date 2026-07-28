@@ -80,7 +80,14 @@ test.describe('S63 - lobby construction coverage (unblocks the deferred 548-LOC 
 
     // The input HANDLER is wired: a typed lowercase code is uppercased in the
     // VALUE (not just CSS text-transform) — proves sanitizeRoomCodeValue runs.
-    await input.click();
+    // S126 — DO NOT re-add an `await input.click()` here. Playwright's click
+    // actionability requires the rAF-based `stable` check (two consecutive frames
+    // with an identical box), which never settles on the CI SwiftShader runner:
+    // the 3 clicks in this file each burned 60s × 3 retries = 9m00s of the 15m
+    // gating budget, cancelling the whole job for 3+ weeks. `fill()` actionability
+    // is visible+enabled+editable — no `stable` gate — and it FOCUSES the element,
+    // so it drives the same input handler and any following press(). Verified
+    // against Playwright 1.60 with a permanently-unstable-element probe.
     await input.fill('abcde2');
     expect(await input.inputValue()).toBe('ABCDE2');
 
@@ -207,7 +214,7 @@ test.describe('S64 - lobby behavioral surfaces (net-extension; unblocks the defe
     await gotoLobbySelect(page);
     const input = page.locator('input[type="text"][maxlength="6"]');
     await expect(input).toBeVisible();
-    await input.click();
+    // S126 — no input.click(); see the `stable`-gate note on the sanitiser test above.
     await input.fill('ABCDEF'); // valid [2-9A-HJ-NP-Z]{6}
     await input.press('Enter'); // S17 keydown Enter -> attemptJoin (same path as Connect)
     // attemptJoin flips state synchronously before the async transport join.
@@ -268,7 +275,7 @@ test.describe('S70 - lobby presence rack (deterministic render path; gating)', (
     // so any isYou below must come from the presence roster (the P3 win).
     const input = page.locator('input[type="text"][maxlength="6"]');
     await expect(input).toBeVisible();
-    await input.click();
+    // S126 — no input.click(); see the `stable`-gate note on the sanitiser test above.
     await input.fill('ABCDEF');
     await input.press('Enter');
     expect((await lobbyDebug(page)).mode).toBe('joining');
@@ -302,5 +309,74 @@ test.describe('S70 - lobby presence rack (deterministic render path; gating)', (
     // reset() clears the presence roster → back to count-based (no own-seat).
     await resetLobby(page);
     expect((await readSeats(page)).some((s) => s.isYou)).toBe(false);
+  });
+});
+
+/**
+ * S126 — DIAGNOSTIC (non-gating, @soak lane). Settles the one question the S126
+ * root-cause probe could not: WHY the code input fails Playwright's `stable`
+ * actionability gate on the CI SwiftShader runner. Two rival causes produce an
+ * IDENTICAL call log, so they can only be told apart by measurement:
+ *
+ *   · rAF STARVATION  — the box never changes, but frames are so slow the
+ *                       two-frame stability probe cannot complete inside 60s.
+ *                       Signature: distinctBoxes === 1 AND a large maxFrameGapMs.
+ *   · box OSCILLATION — the box genuinely flaps (canvas rect churn), so no two
+ *                       consecutive frames ever agree. Signature: distinctBoxes > 1
+ *                       with normal frame gaps. This one would be a REAL app-level
+ *                       defect in lobbyScreen positioning and needs its own PDR.
+ *
+ * Report-oriented by design: it logs the evidence and asserts only that sampling
+ * worked, so it can never red the build. Read its stdout in the e2e-soak job.
+ */
+test.describe('S126 - code-input stability diagnostic @soak', () => {
+  test('samples the code input bounding box across consecutive rAF frames', async ({
+    page,
+  }) => {
+    await gotoLobbySelect(page);
+    const input = page.locator('input[type="text"][maxlength="6"]');
+    await expect(input).toBeVisible();
+
+    const samples = await page.evaluate(
+      () =>
+        new Promise<{ t: number; box: string }[]>((resolve) => {
+          const el = document.querySelector('input[type="text"][maxlength="6"]');
+          if (!el) {
+            resolve([]);
+            return;
+          }
+          const out: { t: number; box: string }[] = [];
+          const step = (): void => {
+            const r = el.getBoundingClientRect();
+            // Round-trip through a string so "same box" is an exact comparison.
+            out.push({
+              t: Math.round(performance.now()),
+              box: `${r.left},${r.top},${r.width},${r.height}`,
+            });
+            if (out.length < 12) requestAnimationFrame(step);
+            else resolve(out);
+          };
+          requestAnimationFrame(step);
+        }),
+    );
+
+    const distinctBoxes = new Set(samples.map((s) => s.box)).size;
+    const gaps = samples.slice(1).map((s, i) => s.t - samples[i].t);
+    const maxFrameGapMs = gaps.length ? Math.max(...gaps) : -1;
+    const verdict =
+      distinctBoxes > 1
+        ? 'OSCILLATION (box flaps → real lobbyScreen positioning defect, needs a PDR)'
+        : maxFrameGapMs > 500
+          ? 'rAF STARVATION (box steady, frames very slow → test-harness artifact only)'
+          : 'STABLE HERE (neither reproduced on this runner)';
+
+    console.log(
+      `[S126-DIAG] samples=${samples.length} distinctBoxes=${distinctBoxes} ` +
+        `maxFrameGapMs=${maxFrameGapMs} gaps=[${gaps.join(',')}] verdict=${verdict}`,
+    );
+    console.log(`[S126-DIAG] boxes=${JSON.stringify(samples.map((s) => s.box))}`);
+
+    // Assert only that sampling itself worked — the VALUE here is the log line.
+    expect(samples.length).toBeGreaterThan(1);
   });
 });

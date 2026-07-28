@@ -1,107 +1,65 @@
 {
-  "tool_calls_session_total": 26,
-  "session_id": "S125",
+  "tool_calls_session_total": 92,
+  "session_id": "S126",
   "session_kind": "execution",
-  "session_start": "2026-07-19T12:00:00.000Z",
-  "prior_session_note": "S124 CLOSED (3/3 + close 642e200). S125 = owner-directed batch of carry-forward + recommended priorities that need NO owner input ('work all carry forward and top recommended priorities that dont require my input ... highest possible best quality output' + 'continue working exactly where we left off'). A.0 filtered owner-gated + YAGNI + design-gated OUT. Batch = P1 hostmig v2 (zombie auto-rejoin) + P2 F9 INTENT token-bucket.",
-  "phase": "S125_COMPLETE",
+  "session_start": "2026-07-28T14:00:00.000Z",
+  "prior_session_note": "S125 CLOSED (2/2 + close 433793a/d7bd548; d7bd548 was local-only at S126 boot). S126 booted systematically off HANDOFF_S125 per owner ask ('find latest spark handoff and start this session systematically off of the last handoff'). A Rule-21 A.0 empirical probe surfaced 6 deltas the S125 close missed — chiefly that the CI E2E GATING lane has been dead (timeout-cancelled) for 3+ weekly runs. Owner then settled the standing deploy-path decision: keep Actions auto-deploy, retire the manual gh-pages path.",
+  "phase": "S126_EXECUTING",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "user_approval_verbatim": "work all carry forward and top recommended priorities that dont require my input in a super thorough batch in the best interests of this project and vision to be best of your abilities producing the highest quality best output possible! ... continue working exactly where we left off!",
-  "tier": "Full",
-  "council_rounds": 2,
+  "user_approval_verbatim": "approved",
+  "tier": "Standard",
+  "council_rounds": 1,
   "signals_fired": [
-    "protocol_adjacent_migration",
-    "security_surface"
+    "ci_infra",
+    "deploy_path_change"
   ],
-  "council_result": "S125 Full 3-way Council R1+R2 (GROK-DISRUPTOR grok-4.20-0309-reasoning + GEMINI-AUDITOR gemini-3.1-pro-preview) + PRIME-AUDIT + CHECK. R1: transport disconnect->reconnect race (Grok CRIT/Gemini HIGH) REFUTED by S82 shipped precedent; ClientSync-reuse contamination (Gemini MED) FALSE PREMISE; 'permanent demotion' cascade (Grok HIGH) REFUTED (seat 0 warrant-excluded, follows as client). ADOPTED: unify demoteToClient({reestablishTransport}), explicit clientSync=null hardening, existing overlay state-machine (no terminal latch), rate 90/40 + intentThrottled type-log, cascade+burst tests. R2: all HOLD, zero residual. CHECK (2-way, Gemini timed out): Grok HIGH (currentEpoch ordering) REFUTED (conflates session.currentEpoch vs ClientSync private currentEpoch; connectAsClient->fenceRejoinEpoch synchronous), Grok MED (limiter stale tokens) NON-ISSUE (client never consults limiter; per-page not cross-peer). 15th #triage-external-criticals-against-exact-arithmetic.",
-  "plan_file": ".claude/plans/2026-07-19_PDR_S125_HostMigV2_F9_Batch.md",
+  "council_result": "S126 Standard 3-way Council R1 (GROK-DISRUPTOR grok-4.20-0309-reasoning + GEMINI-AUDITOR gemini-3.1-pro-preview) + PRIME-AUDIT. GROK CRITICAL (soak lane may exceed 50m / non-representative on SwiftShader) ADOPTED as a claim correction — first soak run is a MEASUREMENT with unknown outcome, promotion needs CI-side retuning not '2-3 green runs'; its GPU-runner suggestion not actionable on GitHub-hosted ubuntu-latest (self-flagged UNKNOWN). GROK HIGH (non-gating soak under-enforces) ADOPTED IN PART — true, but those tests enforce NOTHING today (never executed in CI), so non-gating-but-running is a strict improvement; recorded as a carry-forward with a retuning-based promotion criterion. GROK MED (per-job globalTimeout under-specified) ADOPTED — exact per-job env values + the invariant globalTimeout < timeout-minutes now stated. GEMINI HIGH F1 (deleting click removes the stability check) PRIMARY FIX REJECTED / ALTERNATIVE ADOPTED — the deleted call was never an assertion (no expect depends on it), Playwright's `stable` gate is far stricter than human clickability, and its proposed click({timeout:5000}) would STILL fail in CI and reinstall a permanent red; its rAF box-sampling diagnostic adopted as change 5b. GEMINI MED F2 (continue-on-error hides the outcome) REFUTED by direct observation in this repo — gh run view renders the continue-on-error e2e-quarantine job as 'X e2e-quarantine in 20m22s', so the job conclusion stays visible; its branch-protection fix is inapplicable (master is not branch-protected). GEMINI MED F3 (globalTimeout ms unit mismatch) ALREADY HANDLED — its fix was verbatim the PDR's existing *60_000, hardened further with a Number.isFinite && >0 guard. CONVERGED: three-lane split + all of P2 called CORRECT by both seats. 16th consecutive instance of an external finding dissolving under exact-mechanics triage (F2).",
+  "plan_file": ".claude/plans/2026-07-28_PDR_S126_CI_E2E_Revival_DeployPath.md",
   "budget_total": "GREEN",
+  "boot_probe_deltas": [
+    "D1 CI gating e2e job timeout-CANCELLED on all 3 scheduled runs (2026-07-13/-07-20/-07-27); 13 of 30 tests completed, 3 failed, 14 never ran",
+    "D2 timeout-cancel concludes `cancelled` not `failure` => no failure email, reads as benign concurrency cancel",
+    "D3 runner SIGKILL pre-empts reporter flush => 'No files were found with the provided path: playwright-report/', no trace to debug",
+    "D4 d7bd548 (S125 close artifacts) local-only; origin/master was 433793a. Docs-only, excluded by deploy.yml paths allowlist",
+    "D5 all 7 lobby-construction tests pass locally incl CI=true => ubuntu-runner-specific, not a code regression",
+    "D6 (P2) Pages API reports build_type 'legacy' + source gh-pages, but live asset hash matches a fresh master build, NOT the 17-day-stale gh-pages content => Actions artifact deployment serves prod; `npm run deploy` is a production-rollback footgun",
+    "D7 root cause of the 3 failures CONFIRMED as Playwright's rAF-based `stable` actionability gate (scratchpad probe on PW 1.60 reproduced the CI call log line-for-line; fill() succeeds on a permanently-unstable element and focuses it)"
+  ],
   "priorities": [
     {
-      "id": "P1-hostmig-v2-rejoin",
-      "label": "Host-migration v2: deposed ORIGINAL host auto-rejoins as client (epoch demotion path) instead of the v1 terminal overlay. Unify demoteToClient(newEpoch, winner, {reestablishTransport}); reestablish nulls clientSync + disconnect + connectAsClient + setEpoch; onDeposed passes successor; terminal latch = no-room-code fail-safe only; existing D4/S82 overlay owns display incl. cascade. NO protocol bump.",
-      "status": "completed",
-      "phase": "COMPLETED",
-      "tier": "Full",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "51d8b2f",
-      "reflexion_entries": [
-        "S125-P1 #reuse-a-shipped-proven-path-beats-new-migration-machinery"
-      ],
-      "check_method": "P1 hostmig v2 shipped (51d8b2f). GATES: tsc 0; vitest 1914/1914 (+3 hostmigV2.test.ts: fresh-rejoin-sync admits successor epoch-1 at +MIGRATION_SEQ_JUMP seq base, fences zombie's own residual epoch-0 frames at any seq, follows a cascade epoch-2 as a plain client); bundle 640.8/750. E2E: NEW freeze-thaw rejoin test GREEN over real WebRTC (25.5s) — host frozen 8s busy-loop past grace -> survivors migrate to epoch 1 -> thaw arms rAF-gap partition evidence -> successor claim-echo deposes -> ex-host isHost=false + currentEpoch=1 + PLAYING + mirror tick advancing; existing D3 kill-host takeover STILL GREEN (20.2s, no regression from the demoteToClient refactor). Council Full R1+R2: transport-race (Grok CRIT) refuted by S82 precedent + inert self-gating old host handlers; 'permanent demotion' (Grok HIGH) refuted (seat 0 warrant-excluded via beginMatch 'if e.seat===0 continue', computeClaimDelayMs->null, follows as client via stored warrant); Gemini ClientSync-reuse FALSE PREMISE (original host never had a ClientSync). CHECK Grok HIGH (currentEpoch ordering) REFUTED: session.currentEpoch != ClientSync private currentEpoch, and connectAsClient->fenceRejoinEpoch is synchronous. Reuse-first: demoteToClient unified with reestablishTransport; the rejoin IS the shipped S82 auto-reconnect path (already e2e-proven), so it inherits proven robustness. LOCKED §13.21 v1->v2, HOST_MIGRATION_DESIGN §12 as-built + §10 Q1 resolved.",
-      "real_context_tokens_at_close": 312630,
-      "real_context_pct_at_close": 31.26,
-      "verification": [
-        { "type": "file_exists", "path": "src/net/hostmigV2.test.ts" },
-        { "type": "file_contains", "path": "src/main.ts", "needle": "reestablishTransport" },
-        { "type": "file_contains", "path": "src/main.ts", "needle": "const fenceRejoinEpoch" },
-        { "type": "file_contains", "path": "LOCKED_DECISIONS.md", "needle": "AUTO-REJOIN-AS-CLIENT" },
-        { "type": "file_contains", "path": "e2e/hostmigration.spec.ts", "needle": "FROZEN-then-THAWED" },
-        { "type": "file_contains", "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md", "needle": "HOST-MIGRATION v2 (ZOMBIE AUTO-REJOIN)" }
-      ]
-    },
-    {
-      "id": "P2-f9-intent-token-bucket",
-      "label": "F9 (AUDIT_S116): per-peer INTENT token-bucket (net/intentRateLimiter.ts, 90/40) at BOTH host INTENT choke points before allowlist/stamp; drop + world.diagnostics.intentThrottled++ (log type) when empty; forget(peer) on leave + reset() at fresh room. Wall-clock host-only guard. NO protocol bump.",
-      "status": "completed",
-      "phase": "COMPLETED",
+      "id": "P1-ci-e2e-gating-revival",
+      "label": "Revive the CI E2E gating lane: three-lane tag-based split (new non-gating e2e-soak job for the 3 heap tests that consume 15.2m of a 16.8m suite), drop 3 redundant input.click() calls that fail the rAF `stable` gate on the SwiftShader runner, add per-job globalTimeout below each timeout-minutes so Playwright (not the runner) stops an overrun and flushes playwright-report/, plus an rAF box-sampling diagnostic to settle the residual cause.",
+      "status": "in_progress",
+      "phase": "DO",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "51d8b2f",
-      "reflexion_entries": [
-        "S125-P2 #size-the-guard-to-the-measured-legit-ceiling"
-      ],
-      "check_method": "P2 F9 INTENT token-bucket shipped (51d8b2f). GATES: tsc 0; vitest 1914/1914 (+10 intentRateLimiter.test.ts: fresh-peer-full first burst, continuous refill 10/s -> 1 tok/100ms, cap on long idle, per-peer isolation, non-monotonic clock guard, forget/reset lifecycle, legit-paced 40/s stream passes 200/200, flood 1000/s held to ~90-140, shipped 90/40 absorbs 38-intent tab-unfreeze burst); bundle 640.8/750 (+1.3 KiB). Wired at TOP of BOTH host INTENT handlers (hostHandlers.ts original host + main.ts successor) before allowlist/stamp; empty bucket drops + intentThrottled++ + logs dropped type; forget on peer-leave (both transports); reset() in createHostStartHandler. diagnostics.intentThrottled added to worldTypes + world literal + gameMode START_GAME/RETURN_TO_TITLE resets (host-local, NOT serialized -> zero wire impact). Council: single generous bucket sized above the worst legit unfreeze burst (avatar-pos 10Hz sender-throttled -> ~38 « 90) beats a two-bucket QoS subsystem for a Med/Small item; two-bucket movement/action split documented as the v2 telemetry lever. CHECK Grok MED (stale tokens) NON-ISSUE (client never consults the limiter; per-page not cross-peer). AUDIT_S116 F9 CLOSED.",
-      "real_context_tokens_at_close": 312630,
-      "real_context_pct_at_close": 31.26,
-      "verification": [
-        { "type": "file_exists", "path": "src/net/intentRateLimiter.ts" },
-        { "type": "file_exists", "path": "src/net/intentRateLimiter.test.ts" },
-        { "type": "file_contains", "path": "src/constants.ts", "needle": "INTENT_BUCKET_CAPACITY" },
-        { "type": "file_contains", "path": "src/net/hostHandlers.ts", "needle": "intentRateLimiter" },
-        { "type": "file_contains", "path": "src/state/worldTypes.ts", "needle": "intentThrottled" }
-      ]
+      "check_completed": false
+    },
+    {
+      "id": "P2-deploy-path-consolidation",
+      "label": "Execute the owner's settled deploy decision: retire the manual gh-pages path (remove the `deploy` npm script + scripts/deploy-pages.sh) leaving Actions artifact auto-deploy as the single path; document the stale-Pages-metadata hazard and the recovery procedure. Flipping Pages build_type to 'workflow' and deleting origin/gh-pages remain owner-gated and out of scope.",
+      "status": "pending",
+      "phase": "PLAN",
+      "tier": "Micro",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false
     }
   ],
   "carry_forward_priorities": [
-    "Worker default-on flip (owner weak-device playtest gate)",
+    "Worker default-on flip (owner weak-device ?worker=1 playtest gate)",
     "Bot-intelligence Phase A (owner BOT_INTELLIGENCE_DESIGN.md section-7 answers)",
-    "Deploy-path decision (owner: Actions auto vs manual gh-pages)",
+    "Soak-lane promotion to gating — requires CI-side heap-threshold RETUNING against observed runner numbers, not merely green runs",
+    "Residual: rAF-starvation vs genuine bounding-box oscillation on the CI runner — change 5b's diagnostic decides; if oscillation, a latent lobbyScreen issue needs its own PDR",
+    "OWNER-GATED: gh api PUT pages build_type=workflow (fixes stale legacy metadata at root) + optional origin/gh-pages deletion, in that order",
     "Bit-exact bot serialization (YAGNI unless replay/spectator ships)",
-    "G1b MOTION verb + G2 family traits (playtest/owner-design gated)",
-    "Hostmig v2 follow-ons (owner-optional): F9 movement/action QoS split IF telemetry shows action-drops"
+    "G1b MOTION verb + G2 family traits (playtest/owner-design gated)"
   ],
-  "reflexion_entries_to_archive": [
-    {
-      "id": "S125-P1",
-      "tag": "#reuse-a-shipped-proven-path-beats-new-migration-machinery",
-      "lesson": "Both Council seats filed high-severity criticals on the zombie-rejoin (transport-tear race, permanent demotion, buffer contamination); every one dissolved once the design was recognized as a REUSE of the already-shipped, already-e2e-proven S82 auto-reconnect path rather than new machinery. The deposed original host is just a seat-0 (warrant-excluded) peer that re-runs connectAsClient — so it inherits reconnect's proven robustness and its correctness reduces to two existing, tested invariants (fresh-ClientSync epoch fence + seat-0 can't-ladder). The freeze-thaw e2e passed first run because the mechanism was 90% shipped code. When a 'new' feature can be expressed as re-pointing an existing wired path, the review surface collapses to the seam, not the whole subsystem."
-    },
-    {
-      "id": "S125-P2",
-      "tag": "#size-the-guard-to-the-measured-legit-ceiling",
-      "lesson": "Gemini's priority-inversion finding (a burst could drop a real placement while spending tokens on idempotent avatar-pos) was legitimate, but the proportionate fix for a Med/Small hardening item was to SIZE a single bucket above the measured worst legit burst (avatar-pos is 10Hz SENDER-throttled -> a 3s unfreeze buffers ~38 intents « capacity 90) rather than build a two-bucket QoS subsystem. Measuring the legit ceiling first turned a 'needs QoS architecture' finding into a one-constant decision + a documented v2 escalation lever. Reach for structure only after the number says the simple guard can't hold."
-    },
-    {
-      "id": "S125-CLOSE",
-      "tag": "#bind-completion-claims-with-verification-not-just-prose",
-      "lesson": "The S125 close INITIALLY hard-failed MCV (verify-session-claims.py exit 1): both completed priorities were UNCOVERED (0 assertions) and the BACKLOG.md watch-root was UNBOUND. Every claim was TRUE (gates green, e2e passed, code shipped+deployed) — the failure was a process omission: I wrote a rich prose check_method but skipped the machine-checkable verification[] bindings the S149 anti-fabrication gate requires. Prose is not disk-verifiable; the gate only trusts file_contains/file_exists assertions whose needles it can re-read. Reconciled by adding 11 assertions (incl. the absolute-path BACKLOG.md binding the diff-check matches). LESSON: at completion, ALWAYS author verification[] binding each modified watch-root + representative-per-priority files to file_contains needles — treat it as part of 'completed', not an afterthought. A too-rich check_method can mask a missing binding."
-    }
-  ],
-  "session_status": "S125 COMPLETE",
-  "analyze_completed": true,
-  "analyze_result": "S125 CLOSE: 2/2 shipped + live (51d8b2f feature, 433793a close; Deploy-to-Pages run 29699637227 SUCCESS 36s -> production). MCV reconciled (exit 0, 11 assertions, BACKLOG.md bound) after an initial verification[]-omission hard-fail — NOT a fabrication (all claims verified true on disk), a binding-authoring miss now captured as reflexion S125-CLOSE. CALIBRATION: 15th consecutive instance of external high-sev CHECK findings dissolving under exact-mechanics triage (Grok CRIT transport-race = shipped S82 precedent; Grok HIGH 'permanent demotion' = warrant-excluded seat 0 that follows-not-reclaims; Grok CHECK-HIGH conflated session.currentEpoch with ClientSync's private currentEpoch). Reflexion promotion candidate #empirical-refutes-plausible-criticals now at 8x (ADVISORY per constitution — review for a gate/eval, do NOT auto-codify). Runtime audit (Rule-22) clean: no unrendered ${VAR}, no hallucinated flags/files, deploy verified. 3 reflexion entries. Both priorities NO protocol bump (host-local) -> no forced client refresh.",
-  "totals": {
-    "grok_calls": 3,
-    "gemini_calls": 2,
-    "budget_remaining": "GREEN"
-  }
+  "reflexion_entries_to_archive": [],
+  "session_status": "S126 IN PROGRESS"
 }

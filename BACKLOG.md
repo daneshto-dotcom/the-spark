@@ -5,6 +5,56 @@
 
 ---
 
+# STATUS S126 (2026-07-28) — CI E2E GATE REVIVED (3-LANE SPLIT) · ONE DEPLOY PATH
+
+> **S126 booted systematically off HANDOFF_S125 and the Rule-21 A.0 probe found the S125
+> close's "OPEN ISSUES: None" was wrong.** The CI **gating** `e2e` job had been
+> timeout-**CANCELLED** on all 3 weekly runs (2026-07-13/-07-20/-07-27) — so SPARK had had
+> **no automated browser regression signal for 3+ weeks**, and it read as a benign
+> concurrency cancel rather than a failure.
+>
+> **Root cause was COMPOSITION, not budget.** A full local `e2e:gating` measured **16.8m**,
+> of which **15.2m was 3 soak tests** (`worker-heap` 9.3m + `render-heap` 5.9m). The suite
+> could not fit *any* sane cap. (An early estimate in-session said "raise the cap to 25m";
+> the measurement refuted it — 25m would still have failed.) Separately, 3 tests in
+> `lobby-construction.spec.ts` burned **9m00s** of the 15m in retry timeouts.
+>
+> **P1 — three-lane split + repair + de-mask.** New non-gating **`e2e-soak`** job (own
+> runner, parallel, 50m) takes `@soak`+`@perf-measure`; the fast **`e2e`** lane is now
+> **25 tests / 10 files** (~1.6m local, 18m cap). The 3 failures were CI-only: confirmed
+> via a Playwright-1.60 probe that the failing gate is click's **rAF-based `stable` check**
+> (reproduced the CI call log line-for-line), and that `fill()` — already on the next line —
+> is immune to it *and* focuses. Removed the 3 redundant `input.click()` calls; **no
+> assertion lost** (click-to-focus keeps its own dedicated test). Added per-job
+> **`globalTimeout`** always *below* each `timeout-minutes`, so **Playwright** ends an
+> overrun (flushing reporters + `playwright-report/`) instead of the runner SIGKILLing it —
+> killing both the `cancelled`-masquerade and the missing-artifacts failure modes.
+> Added a non-gating **rAF box-sampling diagnostic** (adopted from Gemini's alternative
+> fix) to settle whether the runner suffers rAF starvation or genuine box oscillation.
+>
+> **P2 — ONE deploy path (owner decision).** Actions artifact pipeline is the only
+> supported path; `npm run deploy` + `scripts/deploy-pages.sh` **DELETED**. That script
+> force-pushed `gh-pages` *and* POSTed `pages/builds` to trigger the **legacy** builder,
+> which would flip production onto the branch mechanism = two competing publishers. **Do
+> not trust `gh api .../pages`** — it still reports `build_type: legacy`/`gh-pages` while
+> the artifact pipeline actually serves; verified by asset hash (stale branch
+> `index-KQaaBM--.js` vs live+fresh-build `index-BD5X8Lx1.js`). Full entry + recovery
+> procedure: `LOCKED_DECISIONS.md §DEPLOY-PATH`.
+>
+> Gates: tsc 0 · vitest **1914/1914** (unchanged) · bundle **640.8/750** with a
+> **byte-identical** entry hash (proof zero `src/` changed) · lanes verified 25/6/19.
+> Standard-tier Council R1 + PRIME-AUDIT: Gemini's `continue-on-error` finding **REFUTED**
+> against this repo's own logs; its `click({timeout:5000})` fix rejected (would reinstall a
+> permanent red); its rAF-diagnostic alternative adopted. **NO protocol bump, zero runtime
+> code** — CI/test/docs only, nothing shipped to players.
+>
+> **Carry-forward:** soak-lane promotion needs CI-side heap-threshold **retuning** (not
+> "a few greens") · the rAF-vs-oscillation verdict from the diagnostic's first CI run ·
+> OWNER-GATED: `gh api -X PUT .../pages -f build_type=workflow`, then optionally delete
+> `origin/gh-pages` (in that order).
+
+---
+
 # STATUS S125 (2026-07-19) — HOST-MIGRATION v2 (ZOMBIE AUTO-REJOIN) · F9 INTENT TOKEN-BUCKET
 
 > **S125 shipped a 2/2 owner-directed batch** ("work all carry-forward + recommended priorities
@@ -82,7 +132,8 @@
 > P3 codex keeps the player **avatar visible** above the popup; **P4 = Batch B** (Helga full walk-to-target + melee, **v12→13**);
 > **P5 = Batch D** (matted on-model Voltkin art + Helga's own codex art). 5 commits `0d83eef`/`94a5097`/`8558f38`/`ae30daa`/`ffcde36`.
 > ~~🚨 NOT LIVE YET: the GitHub Actions deploy is blocked~~ **RESOLVED S111+** — repo went PUBLIC and deploys
-> are MANUAL via `npm run deploy` (gh-pages branch-mode, classic Pages builder; Actions remain dead under the
+> are MANUAL via ~~`npm run deploy`~~ [**SUPERSEDED S126** — `npm run deploy` + `scripts/deploy-pages.sh` are
+> DELETED; the ONE deploy path is the Actions artifact pipeline. See `LOCKED_DECISIONS.md §DEPLOY-PATH`.] (gh-pages branch-mode, classic Pages builder; Actions remain dead under the
 > account billing lock). The live site has tracked master ever since (currently S118 — see STATUS banner above).
 
 | Batch | Covers (owner points) | PDR / Plan file | Wire | Risk | Status |

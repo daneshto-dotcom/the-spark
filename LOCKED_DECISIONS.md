@@ -685,6 +685,44 @@ chosen over PeerJS (multi-strategy fallback negates rate-limit concern);
   (NOT "Deploy from a branch"). Enabled S16 P3 via `gh api -X POST
   /repos/.../pages -f build_type=workflow` after first deploy failed
   with 'Pages not enabled' error.
+- **§DEPLOY-PATH — ONE PATH ONLY (S126, owner decision).** The single
+  supported deploy path is the **GitHub Actions artifact pipeline**
+  (`deploy.yml` on push:master, `paths:`-filtered to code). The manual
+  gh-pages path is **RETIRED**: `npm run deploy` and
+  `scripts/deploy-pages.sh` were DELETED in S126.
+  · **Why retired.** That script force-pushed `dist/` to the `gh-pages`
+    branch AND explicitly POSTed `repos/.../pages/builds` to trigger the
+    **classic/legacy** builder. Running it would therefore flip production
+    off the artifact pipeline onto the branch mechanism, leaving two
+    competing publishers for one site — an ambiguous state that is
+    miserable to debug. Its own header also still asserted "the account is
+    billing-locked, Actions are dead", which S124 disproved (Actions have
+    auto-deployed every code push since ~2026-07-12).
+  · **Stale metadata — DO NOT be misled (verified 2026-07-28).**
+    `gh api repos/:owner/:repo/pages` still reports
+    `build_type: "legacy"` with `source.branch: "gh-pages"`, contradicting
+    the artifact pipeline it actually serves. Empirical discriminator:
+    `gh-pages` tip a321609 (2026-07-11) → `assets/index-KQaaBM--.js`,
+    while the LIVE site and a fresh build of master HEAD both →
+    `assets/index-BD5X8Lx1.js`. The deployments API confirms Actions
+    `github-pages` deployments at 433793a / 5756060 / 80f1058 / 9f48d50.
+    So: **trust the deployments API + the live asset hash, never the
+    `source`/`build_type` fields.** History: build_type WAS `workflow`
+    (S16 P3 above); it was flipped to legacy/gh-pages during the S110
+    billing-lock era to enable the manual path, and never flipped back.
+  · **OWNER-GATED follow-ups (NOT done in S126).** Flipping the config
+    back with `gh api -X PUT repos/:owner/:repo/pages -f
+    build_type=workflow` is what fixes this at the root; deleting
+    `origin/gh-pages` is optional cleanup. Correct ORDER if ever done:
+    flip build_type FIRST, verify live, THEN delete the branch.
+  · **Recovery if Actions ever dies again** (the S110 scenario): flip
+    Pages source to the `gh-pages` branch and restore the deleted script
+    from git history (`git show <pre-S126-sha>:scripts/deploy-pages.sh`).
+    The capability is recoverable; it is removed as a default, not lost.
+  · **`git push` == SHIPPING TO PRODUCTION** for any push touching
+    `src/**`, `public/**`, `index.html`, `vite.config.ts`, `tsconfig.json`,
+    `package.json`, `package-lock.json`, or `deploy.yml`. Never push a
+    known-broken state to master.
 - **CSP:** GitHub Pages has NO default CSP set (Council R1 Grok #5 risk
   defused). Trystero WebRTC bypasses `connect-src` via `RTCPeerConnection`
   anyway; Nostr signaling uses WSS to public relays which is also

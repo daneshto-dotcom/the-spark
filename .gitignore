@@ -25,6 +25,7 @@ tsconfig.tsbuildinfo
 playwright-report/
 test-results/
 test-results-quarantine/
+test-results-soak/
 .playwright-cache/
 
 # S74 — root handoff docs are ephemeral; the permanent copy lives in .handoff-archive/

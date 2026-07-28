@@ -235,7 +235,11 @@ async function auditWindow(page: Page, tag: string): Promise<void> {
   expect(wk!.hashMismatches).toBe(0);
 }
 
-test.describe('S123 P3 — worker-mode GC/heap audit', () => {
+// S126 — ` @soak` routes this file to the non-gating `e2e-soak` CI job. These two
+// 10k-tick audits cost ~9.3m locally and, with render-heap, made up 15.2m of a 16.8m
+// suite — which is why the 15m gating job was timeout-CANCELLED for 3+ weeks instead
+// of ever reporting. Slow soak/measurement work belongs on its own runner.
+test.describe('S123 P3 — worker-mode GC/heap audit @soak', () => {
   test('baseline: TD-heavy solo worker world, bounded post-GC heap growth over ~10k ticks', async ({
     page,
   }) => {

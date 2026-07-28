@@ -117,7 +117,10 @@ async function waitForTick(page: Page, target: number, wallCapMs: number): Promi
   }
 }
 
-test.describe('S124 P3 — F10 render-side heap/census audit (direct mode)', () => {
+// S126 — ` @soak` routes this file to the non-gating `e2e-soak` CI job (see the
+// matching note in worker-heap.spec.ts): ~5.9m locally, too slow for the fast
+// regression lane whose whole job is a crisp green/red signal.
+test.describe('S124 P3 — F10 render-side heap/census audit (direct mode) @soak', () => {
   test('VS-BOTS direct run: bounded post-GC heap + display-object census over ~10k ticks', async ({
     page,
   }) => {

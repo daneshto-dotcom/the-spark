@@ -7,9 +7,14 @@
 # Path filter mirrors deploy.yml — skip e2e on session-bookkeeping commits
 # (.claude/, HANDOFF_*.md, etc) to avoid wasting CI minutes on docs.
 #
-# S98 P1 — FLAKE QUARANTINE, now split into TWO JOBS (was two steps in one job):
-#   • job `e2e`            — GATING. Runs everything EXCEPT @quarantine-flaky
-#                            (--grep-invert). A red here == a real regression.
+# S98 P1 — FLAKE QUARANTINE, split into separate JOBS (was two steps in one job).
+# S126 — now THREE lanes: a slow SOAK lane was split off the gating lane (see below).
+#   • job `e2e`            — GATING. Runs everything EXCEPT @quarantine-flaky, @soak,
+#                            and @perf-measure. A red here == a real regression.
+#   • job `e2e-soak`       — NON-GATING (for now). The 10k-tick heap/census audits +
+#                            opt-in benchmarks. Split out in S126 because 3 soak tests
+#                            were 15.2m of a 16.8m suite and made the 15m gating cap
+#                            unmeetable — which silently killed the gate for 3+ weeks.
 #   • job `e2e-quarantine` — NON-GATING. Runs ONLY @quarantine-flaky, the real
 #                            multi-peer WebRTC tests that fail in the CI sandbox
 #                            on net::ERR_ADDRESS_UNREACHABLE (it can't hold P2P
@@ -62,11 +67,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # GATING lane — everything EXCEPT @quarantine-flaky. A failure here is a REAL
-  # regression and reds the run (the whole point of the quarantine split).
+  # GATING lane — the FAST regression net: everything EXCEPT @quarantine-flaky, @soak,
+  # and @perf-measure. A failure here is a REAL regression and reds the run.
+  #
+  # S126 — why the two extra exclusions exist. This lane used to run all 30 tests, but 3
+  # of them (worker-heap ×2 + render-heap ×1, all 10k-tick soak audits) accounted for
+  # 15.2m of a 16.8m local suite. It therefore could not fit ANY sane cap: the 15m
+  # timeout SIGKILLed it on every weekly run from 2026-07-13 through -07-27 — 13 of 30
+  # tests completed, 14 never started, and the run concluded `cancelled`, which reads as
+  # a benign concurrency cancel and sends no failure email. Three weeks with no E2E
+  # signal. The slow work now lives in `e2e-soak` on its own runner.
+  #
+  # Post-split this lane is ~25 tests / ~1.6m locally, so 18m is deliberate headroom for
+  # a 2-core SwiftShader runner (observed ~3-5× slower than local).
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 18
+    env:
+      # MUST stay strictly below timeout-minutes so PLAYWRIGHT ends an overrun, not the
+      # runner — that is what flushes reporters and writes playwright-report/. See the
+      # long note in playwright.config.ts.
+      PW_GLOBAL_TIMEOUT_MIN: 12
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -96,6 +117,61 @@ jobs:
           path: playwright-report/
           retention-days: 14
 
+  # SOAK / MEASUREMENT lane (S126) — the slow 10k-tick heap+census audits (@soak) plus
+  # the opt-in benchmarks (@perf-measure). Runs on its OWN runner in PARALLEL with the
+  # gating lane, so splitting it out costs no wall-clock; it simply stops 3 soak tests
+  # from eating the fast lane's entire budget.
+  #
+  # `continue-on-error: true` is DELIBERATE and TEMPORARY. These audits have NEVER
+  # executed on a GitHub runner — their thresholds were tuned on local hardware with a
+  # real GPU (S123/S124), so gating on them today would install a permanent red rather
+  # than a signal. The first runs are a MEASUREMENT, and their outcome is genuinely
+  # unknown. Promotion to gating requires RETUNING the thresholds against observed
+  # 2-core/SwiftShader numbers — NOT merely "a few green runs", which would be a
+  # rubber-stamp. A failure here is still plainly visible as `X e2e-soak` in
+  # `gh run view`; only the RUN-level conclusion ignores it.
+  #
+  # NOTE: @perf-measure tests self-skip unless SPARK_PERF=1, which is intentionally NOT
+  # set here — enabling never-run benchmarks is out of scope for this priority. Routing
+  # them is tidying, not a budget saving; the real cost is the 3 @soak tests.
+  e2e-soak:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    continue-on-error: true
+    env:
+      # Below timeout-minutes for the same reason as the gating lane: an overrun must
+      # report as a failure WITH an uploaded report, never as a silent SIGKILL.
+      PW_GLOBAL_TIMEOUT_MIN: 44
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E (soak — @soak + @perf-measure, non-gating)
+        run: npm run e2e:soak
+        env:
+          CI: 'true'
+
+      - name: Upload soak results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-soak-results
+          path: test-results-soak/
+          retention-days: 14
+          if-no-files-found: ignore
+
   # NON-GATING quarantine lane — ONLY @quarantine-flaky (multi-peer real-WebRTC).
   # `continue-on-error: true` at JOB level => its failure/timeout NEVER fails the
   # workflow run (no failure emails); independent runner + timeout => it can never
@@ -105,6 +181,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     continue-on-error: true
+    env:
+      # S126 — below timeout-minutes so this lane also exits via Playwright (flushing its
+      # results) instead of being SIGKILLed at the 20m cap, which is what happened on
+      # every weekly run from 2026-07-13 onward.
+      PW_GLOBAL_TIMEOUT_MIN: 17
     steps:
       - name: Checkout
         uses: actions/checkout@v6

@@ -23,9 +23,30 @@
  */
 import { defineConfig, devices } from '@playwright/test';
 
+// S126 — per-lane GLOBAL timeout, in MINUTES, supplied by each CI job's `env:`.
+//
+// Why this exists: when the runner's own `timeout-minutes` fires, GitHub SIGKILLs the
+// step. Playwright never flushes its reporters, so (a) the run concludes `cancelled`
+// rather than `failure` — no failure email, and `gh run list` reads it as a benign
+// concurrency cancel — and (b) the upload step finds no playwright-report/, leaving no
+// trace to debug. That combination hid a dead gating lane for 3+ weeks.
+//
+// Setting globalTimeout BELOW each job's timeout-minutes makes PLAYWRIGHT stop the
+// overrun instead: it exits non-zero, flushes reporters, and writes the report — so an
+// overrun reports honestly as a failure WITH artifacts. e2e.yml holds the invariant
+// globalTimeout < timeout-minutes for every lane (12<18 · 44<50 · 17<20).
+//
+// The finite-and-positive guard is deliberate: a typo'd or empty env var degrades to
+// "no global timeout" (previous behaviour) rather than Number('') === 0 or NaN
+// instantly aborting every lane at startup.
+const gtMin = Number(process.env.PW_GLOBAL_TIMEOUT_MIN);
+const globalTimeout =
+  Number.isFinite(gtMin) && gtMin > 0 ? gtMin * 60_000 : undefined;
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
+  globalTimeout,
   expect: { timeout: 10_000 },
   fullyParallel: false, // 2-peer tests must run sequentially; each spec opens 2 contexts
   forbidOnly: !!process.env.CI,
