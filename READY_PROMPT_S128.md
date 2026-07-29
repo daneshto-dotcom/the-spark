@@ -1,6 +1,6 @@
 Boot SPARK systematically off the last handoff: read HANDOFF_S127.md in the project root (durable
 copy: .handoff-archive/HANDOFF_S127.md), plus boot-snapshot.md and .claude/session-state.json.
-Latest commit 331ba16 on master.
+Latest commit a3405a0 on master (pushed; working tree clean, in sync with origin).
 
 State: tsc 0 · vitest 1914/1914 · bundle 640.8/750 KiB · PROTOCOL_VERSION 15 · live on
 spark-online.space. S127 shipped ONE priority: soak-lane CI viability, fixed by recalibrating the
@@ -28,16 +28,33 @@ achieved" measures the runner's GPU, not the code — which is why a tick-floor 
 thing failing 5/5 while every real threshold passed. Any option that buys ticks with wall-clock is
 structurally doomed; relaxing the dt clamp is REJECTED (production sim code on the deploy path).
 
-Top candidates, in order:
-1. Permanent window/threshold shape from the tick-rate curve now logged every run. Decide from data —
-   deciding from n=3-4 cost three iterations in S127.
-2. Tighten the worker-isolate ceiling 10MB → ~3MB. Direction is right (its spread is 0.76MB vs the
-   main thread's 5.5MB, so ~3MB would resolve ~1.4KB/tick — near the original design intent) but it is
-   BLOCKED on instrument repeatability: readWorkerFloorMB() is a SINGLE read at worker-heap.spec.ts:182,
-   outside the stabilization loop at :174-181. Add stabilization or median-of-N, THEN re-measure.
-3. Unexplored legitimate lever: Playwright deviceScaleFactor to cut raster cost and buy real FPS ⇒ real
-   ticks, with zero src/ change. Needs a before/after, since rasterization is partly what the
+WHERE THINGS ACTUALLY STAND — read this before picking work. The CI/test-harness track has hit
+diminishing returns; what is blocking real product work is OWNER DECISIONS, not code. Ask me which
+of the owner gates below I want to clear before proposing a technical priority.
+
+OWNER-GATED (do NOT start without my explicit go — but DO prompt me about them):
+  A. Pages `gh api -X PUT repos/:owner/:repo/pages -f build_type=workflow`, verify live, THEN
+     optionally delete origin/gh-pages — IN THAT ORDER. Two-minute action; it clears the stale
+     legacy/gh-pages metadata trap that has now bitten two sessions. Cheapest thing on the board.
+  B. BOT_INTELLIGENCE_DESIGN.md §7 (Q1-Q7) — answering these unblocks bot-intelligence Phase A,
+     the biggest queued feature. Standard tier, no new FSM.
+  C. ?worker=1 weak-device playtest of spark-online.space/?worker=1 — still the ONLY remaining gate
+     on flipping the worker default-on. Everything else for that shipped in S122/S123.
+
+TECHNICAL CANDIDATES (all real, none urgent — each needs its own PDR):
+1. Permanent window/threshold shape for the soak lane, from the tick-rate curves now logged every
+   run. DO NOT decide this yet on one CI run — deciding from n=3-4 cost three iterations in S127.
+   The weekly cron fires Mon 2026-08-03 07:00 UTC and adds the second sample set. Curves are in run
+   30395046615's soak artifacts.
+2. Tighten the worker-isolate ceiling 10MB -> ~3MB. Direction is right (its spread is 0.76MB vs the
+   main thread's 5.5MB, so ~3MB would resolve ~1.4KB/tick — near the original design intent) but it
+   is BLOCKED on instrument repeatability: readWorkerFloorMB() is a SINGLE read at
+   worker-heap.spec.ts:182, OUTSIDE the stabilization loop at :174-181. Add stabilization or
+   median-of-N, THEN re-measure. This is the cleanest standalone coding task if I want one.
+3. Unexplored legitimate lever: Playwright deviceScaleFactor to cut raster cost and buy real FPS =>
+   real ticks, with zero src/ change. Needs a before/after, since rasterization is partly what the
    render-side audit measures.
+4. e2e/** sits outside tsconfig coverage (include: ["src"]) — a real gap, deliberately not fixed.
 
 Five traps that cost real time in S127 — do not relearn them:
 1. A code comment is a CLAIM about external state, not evidence of it. I copied "CI minutes are a hard
@@ -65,7 +82,3 @@ legacy/gh-pages); trust the deployments API + live asset hash. `npm run deploy` 
 scripts/deploy-pages.sh no longer exist — do not recreate them (LOCKED §DEPLOY-PATH). And MCV
 hard-fails unless a **completed** priority carries an ABSOLUTE-path verification[] binding for
 BACKLOG.md — this fired in S125, S126, and again mid-S127 while the priority was still in_progress.
-
-Owner-gated (don't start these without my go): ?worker=1 weak-device playtest ·
-BOT_INTELLIGENCE_DESIGN.md §7 answers · `gh api -X PUT .../pages -f build_type=workflow` then
-optionally delete origin/gh-pages, in that order.
