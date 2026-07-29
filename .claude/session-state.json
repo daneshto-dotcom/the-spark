@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1,
+  "tool_calls_session_total": 29,
   "session_id": "S127",
   "session_kind": "pdca",
   "session_start": "2026-07-28",
@@ -192,9 +192,76 @@
       "body": "Coupling MIN_VALID_TICKS to CENSUS_LIMIT_OBJECTS introduced a temporal dead zone (ReferenceError at module init) that cost a full 16-minute soak run to discover, because e2e/** sits outside tsconfig.json's include:['src'] so neither `npm run typecheck` nor `npm run build` covers it. Two ~2-second checks would have caught it: `npx playwright test <spec> --list` (forces module evaluation) and `npx tsc --noEmit` pointed explicitly at the spec files. Both are now recorded as standing habits in LOCKED_DECISIONS §15.4. General rule: when a file is outside the project's type-check net, add an explicit cheap gate rather than relying on the expensive end-to-end run."
     }
   ],
-  "session_status": "P1_COMPLETE",
+  "session_status": "CLOSED",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "check_result": "2 findings ADOPTED from the external pair, 3 REJECTED with reasons, and RALPH:PATROL returned SHIP-WITH-FIXES with all 5 fixes applied. ADOPTED: Grok H1 (a set-but-malformed PW_RETRIES fell back silently, so a typo would quietly restore retries:2 and evaporate the ~21-minute saving with no signal); Gemini HIGH (MIN_VALID_TICKS=500 was a real blind spot — at 500 ticks a TOTAL missed destroy() leaks only ~17 objects, UNDER the then-limit of 30, so a catastrophic 100%-leak regression would have PASSED). RALPH: F1 HIGH (raising the warm-up cap pushed the two sequential wall caps to 540s of a hardcoded 600s test.setTimeout — a 30% throughput dip would time out DURING s1, and since the evidence line prints AFTER s1 that is a red with NO measurement); D1 (my throw-on-malformed would kill the GATING lane at config-load with zero artifacts, because GitHub Actions renders an undefined var as '' not unset); A2 (warm.capped logged but not annotated); C2 (the stale 'TARGET_TICKS never reached' claim survived in the very file that owns the counter-example); E2 (the 'HTML report shows the annotation' justification is FALSE for this lane — --reporter=list REPLACES the config reporters; fixed the comment rather than package.json, which is in deploy.yml's filter and would have shipped a prod deploy). REJECTED: Grok M2 (compares against a 4000-tick CI window that never existed — at HEAD the test failed outright and detected nothing; Gemini independently concurred) and L1 (an artifact of a redacted prompt). Grok M1's tick-SCALED census limit was initially REJECTED on n=4 evidence and is now ADOPTED — it was the right shape all along."
+  "check_result": "2 findings ADOPTED from the external pair, 3 REJECTED with reasons, and RALPH:PATROL returned SHIP-WITH-FIXES with all 5 fixes applied. ADOPTED: Grok H1 (a set-but-malformed PW_RETRIES fell back silently, so a typo would quietly restore retries:2 and evaporate the ~21-minute saving with no signal); Gemini HIGH (MIN_VALID_TICKS=500 was a real blind spot — at 500 ticks a TOTAL missed destroy() leaks only ~17 objects, UNDER the then-limit of 30, so a catastrophic 100%-leak regression would have PASSED). RALPH: F1 HIGH (raising the warm-up cap pushed the two sequential wall caps to 540s of a hardcoded 600s test.setTimeout — a 30% throughput dip would time out DURING s1, and since the evidence line prints AFTER s1 that is a red with NO measurement); D1 (my throw-on-malformed would kill the GATING lane at config-load with zero artifacts, because GitHub Actions renders an undefined var as '' not unset); A2 (warm.capped logged but not annotated); C2 (the stale 'TARGET_TICKS never reached' claim survived in the very file that owns the counter-example); E2 (the 'HTML report shows the annotation' justification is FALSE for this lane — --reporter=list REPLACES the config reporters; fixed the comment rather than package.json, which is in deploy.yml's filter and would have shipped a prod deploy). REJECTED: Grok M2 (compares against a 4000-tick CI window that never existed — at HEAD the test failed outright and detected nothing; Gemini independently concurred) and L1 (an artifact of a redacted prompt). Grok M1's tick-SCALED census limit was initially REJECTED on n=4 evidence and is now ADOPTED — it was the right shape all along.",
+  "analyze_completed": true,
+  "analyze_result": {
+    "tier": "Standard",
+    "priorities": "1/1 shipped (fae8c75) + close commit (331ba16), pushed to master",
+    "calibration": {
+      "own_errors_caught_pre_ship": 5,
+      "detail": [
+        "A.0 asserted a CI-minute constraint lifted from a STALE e2e.yml comment; the repo is PUBLIC so Actions minutes are free. It had already anchored Grok's delete-the-lane recommendation before the probe ran.",
+        "Extrapolated a tick rate linearly (WALL_CAP_MS 300->660s => 4752 ticks) across a run whose throughput DECLINES as the world grows. Retracted; later explained by the frame-bound mechanism.",
+        "Sized CENSUS_LIMIT from WALL-clock 300s instead of 36.7 SIM seconds => 75, which sat ABOVE the ~73 total-leak signal and would have missed the leak class it targets.",
+        "Recorded the worker determinism oracle as 'stable across all attempts' in CI when it had NEVER EXECUTED for worker-heap:333 — an earlier expect() in the shared helper threw first, voiding every assertion below it.",
+        "Claimed TARGET_TICKS is never reached on ANY platform; the capped/curve logging shipped in this very priority falsified it on its first run (baseline 10307, capped=false)."
+      ],
+      "reviewer_findings_adopted": [
+        "GROK-ANALYST H1 (HIGH) — silent PW_RETRIES fallback.",
+        "GEMINI-AUDITOR (HIGH) — MIN_VALID_TICKS=500 blind spot: a TOTAL leak (~17 objects) sat UNDER the then-limit of 30, so a 100%-destroy-miss would have PASSED.",
+        "RALPH:PATROL F1 (HIGH) — test.setTimeout budget consumed by the raised wall caps.",
+        "RALPH:PATROL D1/A2/C2/E2/F4 (MEDIUM) — gating-lane outage on empty env, warm-up annotation, stale claim in the file owning the counter-example, false HTML-report justification, constant coupling.",
+        "GROK-ANALYST M1 — tick-SCALED census limit: initially REJECTED by me on n=4 evidence, later ADOPTED. Grok had the right SHAPE from the start."
+      ],
+      "reviewer_findings_rejected": [
+        "GROK M2 ('unconditional growthMB<10 weakens detection') — compares against a 4000-tick CI window that never existed; at HEAD the test failed outright and detected nothing. Gemini independently concurred with the rejection.",
+        "GROK L1 (annotation is a no-op) — artifact of a redacted prompt; Gemini independently identified it as a hallucination.",
+        "GROK M1's CONSTANT alternative (50) — 1.46x under the signal vs 30's 2.4x; superseded entirely by adopting its scaling idea instead."
+      ],
+      "external_reviewer_signal": "S126 recorded that Grok's high-sev findings had started landing when they target an UNMEASURED empirical unknown. S127 confirms and SHARPENS that: Grok's H1 (unmeasured env-parsing behaviour) landed, its M2 (a mechanism shipped code already determines) dissolved, and its M1 landed on SHAPE while failing on VALUE. Gemini's one HIGH was its best contribution of the session and came from arithmetic, not opinion. RALPH:PATROL — reading the ACTUAL post-edit files rather than my description of them — produced the single most valuable finding (F1), and explicitly flagged that the files changed 3x mid-review. Lesson: give the local file-reading reviewer the LAST word, after edits settle."
+    },
+    "what_worked": [
+      "Pulling the raw CI job log first. The headline finding (all 5 failures are one tick-floor assertion, zero threshold breaches) inverted the handoff's framing and killed option (b) in the first 10 minutes.",
+      "Reading src/main.ts for the mechanism instead of curve-fitting the symptom. The dt clamp + PHYSICS_HZ=60 => <=3 ticks/rendered-frame explained the tick shortfall, killed three candidate options at once (including my own), and is now LOCKED so nobody re-derives it.",
+      "Spending 6 minutes on ONE local run to obtain the missing datum rather than adopting Gemini's census number on CI-only evidence.",
+      "Grep-verifying both peers' central claims before triage: Grok's anti-(e) baseline was phantom, Gemini's anti-(d) oracle claim was already covered by the GATING lane."
+    ],
+    "what_to_do_differently": [
+      "Probe every external-state noun in a premise, INCLUDING ones a repo file appears to answer. A code comment is a claim, not evidence.",
+      "When a threshold needs retuning a SECOND time, stop tuning and check the units. Three constants died before the dimensional model appeared.",
+      "Do not quote a small sample as a law, especially while rejecting a reviewer's shape — the same PDR that said 'n=3 cannot support a threshold' used n=4 to reject Grok M1.",
+      "Order cheap invariant assertions BEFORE environment-dependent gates, so a slow runner cannot silently void the assertions that actually matter.",
+      "For files outside tsconfig's include, add an explicit cheap gate (--list, targeted tsc) instead of discovering load-time errors 6 minutes into a soak."
+    ],
+    "rule_22_runtime_audit": "Ran over e52a4b2..HEAD. BUG-A (unrendered ${VAR}): 1 hit, triaged FALSE POSITIVE — a TS template literal inside a thrown Error message, not shell/YAML interpolation. BUG-B (references to non-existent files): scripts/deploy-pages.sh is correctly absent and has ZERO live references in code/config/workflows (all hits are historical .md PDRs/handoffs plus lines explicitly marked SUPERSEDED/RETIRED). BUG-C (hallucinated scripts/flags): npm run build + npm run typecheck both DEFINED. Restart-survival: PW_RETRIES: 0 confirmed present on e2e-soak ONLY via pyyaml parse, with globalTimeout < timeout-minutes intact on all three lanes (12<18, 44<50, 17<20). gitleaks detect: 807 commits, 18.89 MB, NO LEAKS (exit 0).",
+    "outstanding_unverified_claim": "NONE — CI run 30395046615 concluded success and every mechanism was verified in its log.",
+    "api_calls": {
+      "grok": 2,
+      "gemini": 2,
+      "note": "1 PLAN + 1 CHECK each"
+    },
+    "subagents": {
+      "workflow_agents": 17,
+      "ralph_patrol": 1,
+      "workflow_subagent_tokens": 1727745
+    },
+    "ci_dispatch_30395046615": {
+      "run_conclusion": "SUCCESS",
+      "e2e_gating": "success 4m06s — 24 passed + 1 flaky. Closes RALPH D1 empirically (the PW_RETRIES throw did NOT kill the gating lane at config-load) and proves retries:2 survives outside soak (the flake retried and passed).",
+      "e2e_soak": "SUCCESS 22m41s — 4 passed (21.9m), 0 failed, 0 flaky. Was 44m + globalTimeout ⇒ -48%.",
+      "e2e_quarantine": "failure 18m20s — expected, non-gating (CI cannot hold P2P data channels).",
+      "mechanisms_verified_in_log": [
+        "Warm-up COMPLETES on the runner: 1233/1200, 1284/1200, 1255/1200, all capped=false (pre-fix it truncated to 648-693, i.e. 54-58%).",
+        "Two-regime gate fired and declared its own sensitivity: render 2304 -> SHORT-WINDOW 4.4 KB/tick; baseline 8598 -> STRICT-WINDOW 1.2; bots-worker 2409 -> SHORT-WINDOW 4.3.",
+        "Scaled census exercised its floor path: D-4 vs limit 27 (25 floor, 0.35 x signal 77).",
+        "The determinism oracle EXECUTED in CI for worker-heap:333 for the FIRST time ever and PASSED — RALPH F2 resolved.",
+        "RALPH F3 did NOT materialize: measured ticks went UP with the full warm-up (2304/2409 vs 2154-2301), so MIN_VALID_TICKS=1300 has ~1.8x margin."
+      ],
+      "gating_flake_note": "The flake was worker-bots.spec.ts asserting hashMismatches===0 — the determinism oracle flaking under CI load. Carry-forward: do not read a future soak oracle failure as a real determinism regression without checking it reproduces."
+    }
+  }
 }
