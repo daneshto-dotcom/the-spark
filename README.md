@@ -73,6 +73,7 @@ Pushing to `master` triggers `.github/workflows/deploy.yml` → `actions/upload-
 
 Internal docs live in the repo root + `docs/`:
 
+- **[SPARK_v0.6_DESIGN.md](SPARK_v0.6_DESIGN.md)** — v0.6 design direction + S126–S150 roadmap (economy pivot, trophy meta, endgame ceremony). Supersedes the Blueprint where the two disagree; the Blueprint rewrite is S126's job.
 - **[SPARK_Blueprint.md](SPARK_Blueprint.md)** — full game design, FSM diagrams, physics tuning, scoring model
 - **[LOCKED_DECISIONS.md](LOCKED_DECISIONS.md)** — architectural decisions with rationale + revisit gates
 - **[BACKLOG.md](BACKLOG.md)** — session-by-session priority log
