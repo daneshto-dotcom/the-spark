@@ -21,6 +21,10 @@
  * lerp-interpolated snapshots + sends INTENT envelopes.
  */
 
+// V6-0.1 (S128) — MUST be the FIRST import: writes the `?spawn=` override onto
+// window.__TEST_SPAWN_RATE_PER_SECOND__ before constants.ts captures it at module init.
+// DEV-only; the whole module dead-code-eliminates in a production build. See its docblock.
+import './dev/probeBootstrap.ts';
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import {
   SPAWN_RATE_PER_SECOND,
@@ -43,6 +47,7 @@ import {
 // measured 566.9 on the eager build): the overlay loads on first VS-BOTS
 // click, the manager on match start. Type-only imports are erased at compile.
 import type { BotSetupOverlay } from './render/botSetupOverlay.ts';
+import { installProbeHarness } from './dev/probeHarness.ts';
 import type { BotManager } from './bots/botManager.ts';
 import type { BotDifficulty } from './bots/botTypes.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from './game/spawner.ts';
@@ -882,6 +887,16 @@ async function bootstrap(): Promise<void> {
   app.stage.addChild(hint);
 
   if (import.meta.env.DEV) {
+    // V6-0.1 (S128) — v0.6 economy probe harness, armed only by ?probe=1. Settles the B3
+    // faucet and B4 carve-down blockers before Phase 1 opens. Reaches the world through
+    // SPAWN_SPARK + PICKUP_SPARK only (both already allowlisted), so no reducer, protocol,
+    // save or stateHash surface changes. Solo-only; auto-disarms if bots/peers appear.
+    void installProbeHarness({
+      getWorld: () => world,
+      dispatch: dispatchFn,
+      playerId: P1,
+    });
+
     // S46 P1 — exposed lobbyScreen + titleScreen for Playwright E2E harness
     // (e2e/helpers.ts reads room code + clicks Pixi buttons via canvas coords).
     // Council C6/Δ1 — read live state via __SPARK__ instead of fragile visual
