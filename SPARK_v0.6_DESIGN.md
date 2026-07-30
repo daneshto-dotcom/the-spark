@@ -248,6 +248,8 @@ Two ceilings.
 - **NONET doubling and the leader.** May need a cap, trigger-bias toward trailing players, or nothing.
 - **How tier is computed and where it lives** before a backend exists.
 - **What happens to a castle when its owner is benched or eaten.** The bench gate assumes a player with no persistent world object. Now they have one.
+- **Bot resource starvation (§7 Q6).** Wait vs. re-rank when the needed spark type hasn't spawned — should scale with difficulty tier. Needs settling before the Phase A bot PDR.
+- **Free-spark density after the spawner shrink.** See §14 — the cap likely drops with the radius, but the number is a playtest dial.
 
 ---
 
@@ -260,15 +262,40 @@ Two ceilings.
 
 ---
 
-## 11 · STANDING GATES — three open owner decisions
+## 11 · STANDING GATES
 
-These predate the redesign and are still listed as blockers in `boot-snapshot.md`. All three become more urgent under the pivot.
-
-| Gate | Why it collides | Needed by |
+| Gate | Status | Needed by |
 |---|---|---|
-| **Sim-worker default-on** (weak-device playtest of `?worker=1`) | 30 autonomous agents is exactly the load the sim-worker exists to move off the main thread. Shipping the pivot flag-gated risks frame-time problems the architecture already solved. | **Before S129** |
-| **Bot intelligence §7 Q1–Q7** | Bots need to play the new economy for the S135 boredom gate to mean anything. | **Before S135** |
-| **Deploy path** (Actions auto vs manual gh-pages) | Both have run. 25 sessions with two live deploy mechanisms is how S100 got built, committed, pushed, and stayed off production for a week. | **Before S126** |
+| **Deploy path** | ✅ **RESOLVED — GitHub Actions auto-deploy.** Every push to `master` ships. The manual `npm run deploy` / gh-pages path is retired; remove it so only one mechanism is live. | Before S126 |
+| **Bot intelligence §7** | ✅ **RESOLVED — see below.** Q6 remains open with direction. | Before S135 |
+| **Sim-worker default-on** | ⏳ **OPEN.** Needs one weak-device playtest of `spark-online.space/?worker=1`. 30 autonomous agents is exactly the load the worker exists to move off the main thread; shipping the pivot flag-gated risks frame-time problems the architecture already solved. | Before S129 |
+
+### Bot intelligence — owner rulings
+
+**Q1 — Difficulty ladder (owner-revised; supersedes the §3 matrix).** Four tiers, each strictly additive:
+
+| Tier | Plays |
+|---|---|
+| **NOOB** | Basic combos |
+| **MID** | Combos + towers |
+| **HARD** | Combos + towers + raiding + godlies |
+| **IMBA** | All of the above + strategy and tactical thinking (sacrifice, and further improvements) |
+
+Note this shifts the original ladder down a step — godlies move from IMBA to HARD, and NOOB becomes a real tier rather than a degraded MID.
+
+**Q2 — Raid targeting (owner-revised; supersedes the 1-raider cap).** HARD and IMBA bots **all** raid, and pick the smartest target: the score leader, *or* the nearest enemy whose score sits closest above their own. NOOB and MID raid randomly.
+
+> This replaces the Council's one-concurrent-raider cap. The cap existed to stop uncapped `argmax` dogpiling the leader, which makes sandbagging in 2nd place the optimal human strategy. **The owner's rule largely dissolves that risk by construction:** "nearest enemy with the closest score above me" is a *laddered* target selection — each bot punches one rung up rather than everyone converging on first place — and the lower tiers raiding randomly distributes pressure further. Worth watching in playtest, but it is not the degenerate case the cap was guarding against.
+
+**Q3 — Bond-sever only. Confirmed, and it is a design feature, not a limitation.** There is no "delete a primitive" verb. Removal happens by severing bonds, and `severSplit` may cascade — *which is exactly why you must build smart, so you can delete some pieces without losing the rest.* That constraint is the sculpting skill the whole pivot is built to protect. A literal delete verb would also read as the AI cheating.
+
+**Q4 — Yes.** IMBA chases Voltkin with a fail-timer; falls back to Helga if the build isn't half-done in the window.
+
+**Q5 — Ship order approved.** Phase A (knowledge + combos) → B (TD structures + raid) → C (lightning hub + Helga + sacrifice + personality tells).
+
+**Q6 — OPEN, with direction.** When the arena hasn't spawned the spark type a bot's blueprint needs: wait, or switch to something buildable? Owner ruling is that it should **scale with tier** — adaptability and reaction speed are part of what separates a NOOB from an IMBA, exactly as with humans. Needs further consideration before the Phase A PDR. Working default: NOOB waits, IMBA re-ranks instantly, MID and HARD in between.
+
+**Q7 — Yes.** IMBA checks its own blast radius and stands back; HARD occasionally clips itself. Comedy plus a real skill gap.
 
 ### Existing backlog, reconciled
 
@@ -360,8 +387,10 @@ When something is severed, destroyed or stolen, the player learns what happened 
 Narrow `botBrain`'s goal union to a `WorkerGoal` set — COLLECT, DEPOSIT, RETURN. The brain is already pure, seeded and unit-tested on synthetic worlds; this is a narrowing, not a new AI. Behind a flag, solo only.
 *Tier: Full · Reuse: botBrain, botController, sim-worker determinism*
 
-### S130 — Castle entity + worker production
+### S130 — Castle entity + worker production + spawner shrink
 A castle world entity with position, ownership and a worker-emit cadence. Tick-deterministic, host-authoritative, modelled on the existing spawner-record pattern. Workers respawn from the castle on a timer — never permanent death.
+
+**Also: `SPAWNER_RADIUS` 250 → 188 (−25%).** Six castle keeps need real estate, and the canvas is fixed at 1920×1080. Shrinking the central zone is where that space comes from. See §14 for the two constants that must move with it.
 *Tier: Full · Wire: protocol bump · Reuse: creatureSpawner lifecycle*
 
 ### S131 — The bank
@@ -480,4 +509,27 @@ Three things run alongside and are not sessions: your friend's extra godly combo
 
 ---
 
-*SPARK v0.6 · Design direction · Supersedes Blueprint v0.5.1 · Not yet committed*
+---
+
+## 14 · SPATIAL BUDGET — making room for six castles
+
+The canvas is fixed at `CANVAS_WIDTH = 1920 × CANVAS_HEIGHT = 1080`. Six castle keeps are new persistent world objects that need real estate, and the only place to take it from is the centre.
+
+**`SPAWNER_RADIUS` 250 → 188 (−25%).** Owner call, lands in S130 alongside the castle entity.
+
+### Two constants must move with it
+
+Radius is linear; **area is not**. At r=250 the zone is ~196,000 px²; at r=188 it is ~111,000 px² — a **43% loss of area**, not 25%.
+
+- **`FREE_SPARK_SOFT_CAP = 50`** — unchanged, this raises free-spark density by roughly **77%**. The zone becomes a visibly denser churn, and worker pickup gets easier (more targets per unit of travel) while readability gets worse. **Recommend dropping the cap in step**, to ~28–30, to hold density roughly constant. Playtest dial.
+- **`R_PERSONAL = 75`** — the personal vision radius was tuned by eye against the old zone size across two sessions (300 → 150 → 75). It is not mathematically bound to `SPAWNER_RADIUS`, but the *feel* of "standing in the zone and seeing it" was calibrated against 250. Re-judge on playtest; do not pre-emptively change it.
+
+### Knock-ons to verify, not assume
+
+- **Castle placement** must not overlap the zone, and six of them must fit around it without crowding the corners — the geographic trade-off (fast cycles near the centre vs. concealment far out) depends on there being real distance to trade.
+- **`isInsideEnemyTerritory`** bubbles scale with complexity (`60 + 12·log₂(complexity+1)`). Six castles plus their territory bubbles in a smaller effective play area could make legal build space scarce late-match. Measure at six seats.
+- The **spawner build-ban** (§IX.5) rejects placement inside the ring. A smaller ring means more of the canvas is legal — a small, free win for the castle layout.
+
+---
+
+*SPARK v0.6 · Design direction · Supersedes Blueprint v0.5.1*
