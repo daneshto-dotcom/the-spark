@@ -2,32 +2,46 @@
 
 ### A Real-Time Multiplayer Game of Geometric Emergence
 
-**Game Design Blueprint — Version 0.5.1**
-*May 2026 · Status: Phase-1 complete + Phase-2 Tier-0 (1v1 Trystero/Nostr networked) + Phase-2 Tier-1 (Sever-as-disruption + multi-color bond rendering + audio + Voltkin godly) SHIPPED. Live at https://spark-online.space/. · v0.5.1 amends color/no-build rules*
+**Game Design Blueprint — Version 0.6**
+*2026-07-30 · Status: v0.5.1 shipped and playtested. v0.6 is the **economy pivot** — a redesign of how material reaches the player, driven by a diagnosis that the v0.5 loop is structurally unfun. Live at https://spark-online.space/*
 
-### v0.5.1 Changes (Patch — Session 4)
+**Companion documents:** [SPARK_v0.6_DESIGN.md](SPARK_v0.6_DESIGN.md) carries the diagnosis, the reasoning and the V6-0.1→V6-4.3 roadmap. [BACKLOG.md](BACKLOG.md) carries the canonical slot labels, ordering and the carry-forward ledger.
 
-Two clarifications surfaced during Phase-1 implementation. Neither is a schema or mechanic change — both make the user's intent explicit where v0.5 was ambiguous.
+**This document is the specification and it governs any RULE.** (Corrected in S128: the v0.6 drafts had this document defer to the design doc while the design doc claimed precedence only over this document's *predecessor* — a circular chain in which neither was authoritative. The design doc is authoritative on *rationale*, this one on *rules*.)
 
-1. **Free building blocks are colorless; ownership is the only color.** § IV's "Color override" rule is amended: free-floating shapes in the spawner zone render in a neutral off-white. Type identity is communicated by **shape geometry** (the six distinct shapes already defined in § IV). When a player places a shape into a structure, it permanently inherits the placer's player color. This makes color = ownership only — type and ownership do not share the color channel. (See § IV, § VI.4.)
-2. **No building inside the spawner zone.** § IX is amended with an explicit § IX.5: `PLACE_PRIMITIVE` is rejected when the carried shape's position is inside the spawner radius. The spawner zone is for spawning + collection only; building there would put the structure in the one always-visible-to-all-players region (§ III.4), collapsing the geographic trade-off (§ X.2). The connect-drag preview turns red and shows a "no-build" glyph when the cursor is inside the zone, so the rejection is never silent. (See § IX.5.)
+> **⛔ Two blockers gate the entire economy pivot** — the material faucet and the interaction between
+> directives, the bank cap and the carve-down tactic. Both need an owner ruling before §VII.3/§VII.4
+> are implemented. See `SPARK_v0.6_DESIGN.md` §2 (B3, B4) and §VII.4 below.
 
 ---
 
 ## 0 · Document Status
 
-This document is the canonical specification for the SPARK prototype. Decisions marked **LOCKED** are invariant — they are load-bearing and tuning them will collapse adjacent systems. Decisions marked **OPEN** are deliberately unresolved and must be settled before Phase 2. Decisions marked **DEFERRED** are out of scope for the prototype but reserved for v0.6+.
+This is the canonical specification for SPARK. Decisions marked **LOCKED** are invariant — they are load-bearing and tuning them will collapse adjacent systems. **OPEN** decisions are deliberately unresolved. **REVOKED** decisions were locked in v0.5.1 and are explicitly withdrawn here, with the evidence that withdrew them.
 
-### v0.5 Changes (Major)
+### v0.6 Changes (Pivot)
 
-Version 0.5 supersedes v0.4 with four substantive additions. The first three are core mechanic changes; the fourth is a closure/reveal mechanic.
+v0.6 does **not** change the genre. SPARK remains a six-player free-for-all race to build the most complex geometry on one shared canvas, with the same primitives, combos, godly recipes, hazards and towers. There are no waves. There is no co-op main mode. It is not a tower-defense reskin.
 
-1. **Structures are immobile post-construction.** Once a primitive is placed, it cannot be picked up, dragged, or relocated. Multi-structure linking is now performed by building a **connector chain** of intermediate primitives between two structures. (See § VI.5, § VI.3.)
-2. **Sparks are confined to the spawner zone.** Generated sparks remain within an invisible circular boundary at the canvas center. They do not drift outward. Players must travel into the spawner zone to collect them. (See § IX.)
-3. **Fog of war.** The canvas is no longer full-vision. Players see a personal radius around their spark plus permanent vision beacons around each of their own structures. The rest of the canvas is dark. (See § III.4, § X.4.)
-4. **Victory cinematic.** When the win condition triggers, the fog lifts entirely, all structures migrate to center, and they collapse in rank order — leaving the winner's "trophy" subgraph as the visual proof of their margin of victory. Provides closure for the no-HUD / fog-of-war information vacuum. (See § III.7, § XII.7.)
+**What changes is where the player's hands go.** In v0.5 they hauled. In v0.6 they command, decide, and sculpt.
 
-These changes interact: fog of war makes "build far" genuinely defensive (concealment), spawner confinement makes "build far" genuinely costly (longer trips), structure immobility makes mega-combo planning a real spatial commitment, and the cinematic closes the information loop without compromising the mid-game opacity.
+Seven substantive changes:
+
+1. **Workers haul; the player builds.** A castle produces worker sparks that collect primitives autonomously on player directives and deposit them into a capped bank. The player builds from the bank. (§ VII)
+2. **Carry-1 is relocated, not removed.** The rule moves from the player's hand to the worker's, and its strategic function moves to the bank cap. (§ III.3)
+3. **Two currencies.** Score wins the game and is never spent; Energy buys workers and upgrades and never wins. (§ VIII)
+4. **The player spark becomes a hero.** It sculpts, raids and defends. It no longer hauls. (§ VI.6)
+5. **A command layer.** Per-tower targeting priority and keyboard commands. The mouse issues orders instead of doing work. (§ XII)
+6. **The endgame ceremony ships.** The v0.5 victory cinematic, specified and never built, becomes the hinge between a match and the meta. (§ XIII)
+7. **A persistent meta.** Trophies, the cosmos, castle assembly, tier-as-budget. Winning compounds. (§ XIV)
+
+### Why v0.5.1 needed replacing
+
+The v0.5 loop was measured, not guessed. At `SCORE_INCOME_PER_COMPLEXITY_PER_SEC = 0.05` and `PHASE_1_WIN_SCORE = 1500`, a player placing one primitive every six seconds needs **~346 seconds of continuous, uninterrupted, optimal placement** to win — roughly 58 haul cycles back to back, assuming no hunter, no hazard, no contested pickup and no sever.
+
+The consequence is structural: **every second not spent placing a primitive is economically punished.** There is no room in the economy for idle time, watching, or conversation. The win score climbing 50 → 150 → 210 → 630 → 786 → 1500 across sessions was six attempts to patch one problem with the only lever available.
+
+Full diagnosis in `SPARK_v0.6_DESIGN.md § 1`.
 
 ---
 
@@ -35,32 +49,29 @@ These changes interact: fog of war makes "build far" genuinely defensive (concea
 
 A real-time, six-player canvas of geometric emergence.
 
-You are a single glowing spark on a black field. Six floating ingredients are confined to a glowing central spawner zone. You travel into the zone, grab one, return to your structure, combine — alone or in conflict with five other sparks — until one player's color claims the canvas.
+You command a glowing castle on a black field. It sends out sparks that gather geometric ingredients from a contested central zone and carry them home. You take what they bring and build — bonding primitives into structures, discovering combinations, carving finished shapes down into the exact geometry that brings a creature to life.
 
-**No HUD. No chat. No tutorial. No menu.** The game starts on launch. Discovery is the tutorial. Geometry is the language.
+The aesthetic is minimalist — soft glow on black, beautiful gradients of multi-player ownership, fragile structures rotating and snapping into being, hidden bases revealed only by scouting.
 
-The aesthetic is minimalist — soft glow on black, beautiful gradients of multi-player ownership, fragile structures rotating and snapping into being, hidden bases revealed only by scouting. The lineage is *Powder Toy* meets *Townscaper* meets *Auralux*, with a layer of *StarCraft* fog over the top.
+The lineage is *Powder Toy* meets *Townscaper* meets *Auralux*, with an RTS economy underneath and a layer of *StarCraft* fog over the top.
 
-The feel is **tactile**. Mouse-only controls. Drag to attract, drag to connect. Every interaction is geometric, not symbolic.
+**The feel is deliberate.** Your hands make decisions, not deliveries.
 
 ---
 
 ## II · Core Loop
 
-1. **Travel** to the central spawner zone.
-2. **Grab** one spark from inside the zone (your carry limit is exactly 1).
-3. **Return** to your structure (or build a new one anywhere on the canvas).
-4. **Combine** the carried spark with your structure — connect primitives to form emergent shapes. Most magic pairings now work in **either** order (S98); the Triangle↔Circle pair stays directional (Wheel vs Star).
-5. **Defend, Disrupt, or Scout.** Every 5 build actions earns 1 disruption charge (max 2 stored). Spend on enemies' structures, scout the canvas to find them, or keep building.
-6. **Claim Area.** Complex, stable structures claim more canvas area per primitive.
-7. **Win** when your color covers ≥ 51% of the canvas.
+1. **Direct.** Tell your workers what to collect. Switch as your plan changes.
+2. **Accumulate.** Workers shuttle to the spawner and back, filling your bank. The bank is capped — it fills whether you are watching or not, and it stalls when full.
+3. **Build.** Draw from the bank and place. Bond primitives into structures. Discover combinations.
+4. **Sculpt.** Carve structures down. Sever bonds deliberately to leave exactly the geometry a recipe needs. Trade score for capability.
+5. **Spend.** Convert energy into economy — more workers, faster workers, faster respawn.
+6. **Command.** Set tower targeting. Raid. Harass enemy workers. Defend your castle.
+7. **Win** on score — or lose by having your castle destroyed.
 
-The loop is short, repeatable, and decision-rich at every step. Every trip is a 4-way trade-off:
+The loop has two clocks running at once. **The economy runs on its own**, whether or not you touch it. **You run on yours** — and every decision you make is a decision, not a delivery.
 
-- **Speed** (build close to spawner, fast cycles)
-- **Safety** (build far, hidden by fog, harder to find)
-- **Information** (scout enemy positions, gather intel, lose build time)
-- **Pressure** (raid leaders to slow them, gain nothing direct)
+That asymmetry is the entire point of v0.6. It is what makes room for planning, for watching, and for a game you can play while talking to the person next to you.
 
 ---
 
@@ -68,813 +79,728 @@ The loop is short, repeatable, and decision-rich at every step. Every trip is a 
 
 ### III.1 — Player Count [LOCKED]
 
-**Exactly 6 players per canvas.** Asymmetric counts break the spawner economy and the central-resource competition density. Lobby fills to 6 or does not start.
+**Up to 6 players per canvas**, free-for-all. Networked play caps at 6; VS-BOTS may seat 1 human plus up to 6 bots.
 
-### III.2 — Win Condition [LOCKED]
+### III.2 — Win Conditions [LOCKED — amended v0.6]
 
-**Territory fill.** First player whose colored area-claim reaches **≥ 51% of canvas surface area** wins.
+Two ways to end a match:
 
-Area is computed from **claimed primitives × complexity multiplier** (see § VI). A simple Line claims `1 unit`; a stable rotating Circle-Triangle ring claims `5+ units`. Exact multiplier curve is **OPEN** (see § XIV).
+- **Score.** First player to reach `PHASE_1_WIN_SCORE` wins. Score accrues from standing structure complexity.
+- **Castle destruction.** A player whose castle is destroyed loses. (§ XIV.5)
 
-There is no scoreboard. The only feedback on who is winning is **visual** — and with fog of war (§ III.4), even the visual signal is information-gated. A leader can hide their dominance from players who haven't scouted them.
+Score remains the primary path. Castle destruction gives every match a second axis — defend and expand your home *and* don't lose the race — and gives raiding a decisive target rather than an attritional one.
 
-When the win condition triggers, the **victory cinematic** plays — fog lifts, all structures migrate to center, and the rank order is revealed through sequential collapse (see § III.7).
+### III.3 — Carry Limit [LOCKED — RELOCATED in v0.6]
 
-### III.3 — Carry Limit [HARD INVARIANT — LOCKED]
+**A worker carries exactly 1 primitive at any time.** Never more.
 
-**A player carries exactly 1 spark at any time.** Never more. Never less when active.
+v0.5 attached this rule to the *player's hand*. The reasoning was sound — it prevents hoarding, keeps the spawner contestable, makes travel meaningful, throttles build pace without a cooldown, and creates the build-vs-raid trade-off. **All of that reasoning survives. The altitude was wrong.**
 
-This single rule is **load-bearing** for every other system:
+Implemented as a dexterity constraint, carry-1 made the player a conveyor belt and cost ~6 seconds of manual labour per primitive. Relocated to the worker, it costs the player nothing and still throttles the economy exactly as intended.
 
-- It prevents hoarding inside the spawner zone (you cannot stockpile)
-- It makes the central spawner contestable instead of a vending machine
-- It makes travel time meaningful (each trip = 1 unit of progress)
-- It naturally throttles build pace without an explicit cooldown
-- It creates the build-vs-raid trade-off (every disruption is a build action you didn't make)
-- It interacts cleanly with spawner confinement (§ IX): every primitive requires a round-trip into the central zone
+**The strategic half of the rule now lives in the bank cap (§ VII.4).** Do not tune either in isolation — they are one mechanism in two places.
 
-**Do not tune this during playtesting. Tune everything else around it.** If a balance problem appears, the answer is never "let players carry 2."
+### III.4 — Vision (Fog of War) [LOCKED — amended v0.6]
 
-### III.4 — Vision (Fog of War) [LOCKED — major change from v0.4]
+The canvas is fogged. Players see:
 
-**The canvas is fogged. Players see only:**
+- A **personal vision radius** around their spark (`R_PERSONAL`)
+- A **vision radius around each of their own primitives** — permanent beacons (`R_BEACON`)
+- **Vision around each of their own workers** — new in v0.6
+- The **spawner zone**, always visible to all players
 
-- A **personal vision radius** around their spark (radius OPEN, see § XIV)
-- A **vision radius around each of their own structures** — permanent beacons
-- The **spawner zone**, which is always visible to all players (it is the one common space; it must be visible because collection requires entering it)
+Everything else renders as solid black (never observed) or dimmed memory-fog (previously seen, last observed state).
 
-Everything else is rendered with one of two states: **solid black** for areas you have never observed, or **dimmed/desaturated memory** for areas you have previously seen but no longer have in active vision (last observed state of any structures there).
+**v0.6 note:** workers carrying vision means **your economy is your scouting network.** Fog stops being purely an information tax on the player and starts being something your economy produces for free. This resolves a long-standing tension where scouting cost build time in a game that punished every non-building second.
 
-**Why fog of war replaced full vision:**
+### III.5 — HUD [REVOKED in v0.6 — was "No HUD"]
 
-- "Hiding far" now has real meaning — distant builds are genuinely concealed until scouted, not just expensive to reach
-- Decoy structures become strategically meaningful (build false bases to mislead enemy scouts)
-- Scouting becomes a real activity with real opportunity cost
-- The "no leaderboard" rule combines with fog to create two-layer information asymmetry — even the visible signal is partial
+v0.5.1 locked *no leaderboard, no score display, no minimap*, on the theory that information scarcity is strategic depth.
 
-**Vision uses memory-fog.** Once you have personally observed any structure, its location is remembered and rendered in a dimmed/desaturated style when out of current vision. Live state (color shifts, severs, new primitives) only updates when the structure is in your active vision radius. This is RTS-standard (StarCraft model) and was chosen over live-only fog because it preserves the disruption math: scouts pay the cost once per target, then can return to attack with knowledge intact.
+**Playtest falsified it.** Combined with fog (§ III.4) and no sever preview (§ IX.5), the player had no way to attribute an outcome to a decision. Action → outcome → improvement was broken in three places at once. A game you cannot get better at has no reason for a third session, and the field report was precisely that: *"you play twice and that's it."*
 
-**Vision overlaps additively.** When your spark approaches your own structure, the personal radius and the beacon radius overlap into one contiguous visible area. Multiple structures owned by you produce separate visible patches across the canvas. Walking between two of your own structures means traveling through fog between two islands of vision.
+**v0.6 ships legible state:** score and standing visible during play, tier pulses made felt, leader identifiable, and clear feedback when something of yours is severed, destroyed or stolen — including by whom.
 
-### III.5 — No HUD [LOCKED]
-
-**No leaderboard. No score display. No minimap.** The only persistent UI elements are:
-
-- The player's own carry indicator (what spark, if any, the player is holding)
-- The player's energy gauge (small, peripheral)
-- The player's disruption charge count (0, 1, or 2 dots)
-
-All other game state is read **visually from what the canvas reveals to you** (§ III.4). The leader is identified by the colored area you can see. If you've scouted three of six players, you have partial information. If you haven't left your base, you have almost none.
-
-This combines with fog of war to make information itself a strategic resource.
+Fog (§ III.4) is **retained** — concealment of *position* is load-bearing for the geographic trade-off. What is revoked is concealment of *your own outcomes*.
 
 ### III.6 — No Chat [LOCKED]
 
-**All inter-player interaction is geometric.** No text, no voice, no emotes. Cooperation and conflict are signaled through positioning, building, attacking, or color-coded contributions when visible.
+All inter-player interaction is geometric and positional. No text, no voice, no emotes.
 
-### III.7 — Victory Cinematic [LOCKED — added in v0.5]
+### III.7 — The Endgame Ceremony [LOCKED — specified v0.5, built v0.6]
 
-When the win condition triggers (any player ≥ 51% canvas claim), gameplay halts and a closing cinematic plays. This is the **information reveal** — the answer to "what was happening on the canvas I couldn't see?"
-
-**Sequence:**
-
-1. **Fog lift (≈ 1 s).** Memory-fog and active fog dissolve simultaneously. The full canvas becomes visible — every structure, every color, every primitive — for the first and only time in the round.
-2. **Migration (≈ 2 s).** All structures lift from their built positions and migrate toward canvas center. They retain shape, color, and topology during transit. (This deliberately violates § VI.5 structure immobility — it is a cinematic-state rule, not a gameplay rule. See § XII.7.)
-3. **Sequential collapse (≈ 4 s).** Structures dissolve in ascending rank order — 6th place first, then 5th, 4th, 3rd, 2nd. Each non-winner's structure dissolves *fully* (every primitive erased to free sparks that fade to nothing).
-4. **Trophy formation (≈ 1 s).** The winner's structure begins to dissolve, but stops when the remaining mass equals their **margin of victory over second place** (winner % − second %). The surviving subgraph is the **trophy** — the visual proof of margin.
-5. **Hold.** The trophy sits at center against the now-revealed canvas backdrop. Game enters POSTGAME state, no input accepted, return to lobby after 10 s or on player action.
-
-**Trophy selection rule [LOCKED]:** The surviving subgraph is the **most-recently-built contiguous region** of the winner's structure (highest `createdTick` values, grown greedily backward through time while maintaining connectivity). The trophy reflects late-game divergence — opening techniques converge across players (everyone learns the same magic-12 plays early), but late expansions are unique. Players who adapted, improvised, and committed late-round mega-combos get visually distinctive trophies. Players who stopped building early get a trophy of older, more generic geometry.
-
-**Trophy floor [TUNABLE — not a hard invariant]:** Default minimum trophy size = **5% of canvas area OR 10 primitives**, whichever is larger. The floor exists so razor-thin wins still produce visually substantial trophies. Below the floor, the winner's full structure is preserved. The exact number is not load-bearing — adjust during playtesting if trophies feel anticlimactic or oversized.
-
-**Cinematic state ruleset [LOCKED]:**
-
-- All player input is disabled
-- Structure immobility (§ VI.5) is suspended — structures can move
-- Spark physics (§ IX) is suspended — no spawning, no collisions
-- Disruption mechanics (§ VIII) are inert
-- Fog of war (§ III.4) is fully lifted and stays lifted
-
-**Persistence [LOCKED]:** A snapshot of the final cinematic state (revealed canvas + trophy) is saved as a **local replay/screenshot file** at the moment of trophy formation. No server-side accounts, no global leaderboards, no progression — just memorabilia. Players can save these locally if they want to keep them. (Anti-bloat charter § XV remains intact: no accounts, no unlocks.)
+When a match ends, a 28-second ceremony plays, and it is the hinge between the match and the meta. Full specification in § XIII.
 
 ---
 
-## IV · The Six Sparks
+## IV · The Six Sparks [LOCKED — unchanged]
 
-The atoms of the game. Each is visually distinct, behaviorally unique, and combinable with every other type in any order.
+The atoms of the game.
 
-| # | Type | Shape | Color | Glow | Behavior |
-|---|------|-------|-------|------|----------|
-| 1 | **Dot** | Small filled circle, 4 px | White `#FFFFFF` | Soft white halo | High mobility. Lightweight connector. Cheap. |
-| 2 | **Line** | Thin glowing rod, 24 px | Pale yellow `#FFE066` | Linear glow along axis | Creates straight extensions. Directional. |
-| 3 | **Triangle** | Equilateral, 16 px side | Crimson `#FF3B3B` | Sharp angular flare | Rigid. Adds structural stability. Anti-rotation. |
-| 4 | **Square** | Filled square, 14 px | Cobalt blue `#3B5BFF` | Boxy diffuse glow | Creates flat surfaces, grids, lattices. |
-| 5 | **Circle** | Hollow ring, 18 px diameter | Emerald `#3BFF7A` | Pulsing radial glow | Enables curves, loops, and rotation. |
-| 6 | **Spiral** | Tight spiral, 20 px | Violet `#A23BFF` | Twisting animated glow | Introduces dynamic, chaotic growth. Modifies adjacent combos. |
+| # | Type | Shape | Behaviour |
+|---|------|-------|-----------|
+| 1 | **Dot** | Small filled circle | High mobility. Lightweight connector. Cheap. |
+| 2 | **Line** | Thin glowing rod | Straight extensions. Directional. |
+| 3 | **Triangle** | Equilateral | Rigid. Structural stability. Anti-rotation. |
+| 4 | **Square** | Filled square | Flat surfaces, grids, lattices. |
+| 5 | **Circle** | Hollow ring | Curves, loops, rotation. |
+| 6 | **Spiral** | Tight spiral | Dynamic, chaotic growth. Modifies adjacent combos. |
 
-**Spark physics:** Free sparks are confined to the spawner zone (§ IX) and move freely within it, bouncing off the invisible boundary. They obey soft collisions with each other but do not interact with player structures (which are outside the zone). Once collected by a player, the spark is held in the carry slot until placed.
+**Colour encodes ownership only.** Free sparks in the spawner zone are colourless off-white; type is read from geometry alone. On placement, a primitive permanently inherits the placing player's colour. Canonical palette in `LOCKED_DECISIONS § 5`.
 
-**Color override [AMENDED v0.5.1]:** Free-floating shapes in the spawner zone are **colorless** — they render in a neutral off-white. The six type colors above (Dot=white, Line=pale yellow, etc.) are retained as a UI legend/key only and do not tint the actual free shapes. **Type is communicated by shape geometry alone** while a shape is free. Once placed into a structure, the shape permanently inherits the *placing player's color* (§ VI.4). This means color encodes ownership exclusively; shape encodes type. The two visual channels do not overlap.
-
-**Why the amendment:** v0.5's original rule (free = type color, placed = player color) created a confusing transition: a yellow Line free in the zone became a red Line in a P1 structure, with both color and meaning shifting at the moment of placement. With the amendment, the colorless-shape → player-color transition is the single visual event "this is mine now," making ownership read instantly across the canvas.
+**v0.6 note:** a spark being *carried by a worker* is colourless in transit and takes the owner's colour on placement, exactly as before. Ownership is established by the act of building, not the act of collecting.
 
 ---
 
 ## V · Combination System
 
-### V.1 — Order Dependence [LOCKED — S98 AMENDED to order-symmetry for the 8 one-way magics]
+### V.1 — Order Symmetry [LOCKED]
 
-**S98 amendment (Option B, user-approved):** the 8 one-way magic pairs are now **order-SYMMETRIC** — connecting the same two shapes makes the same magic in **either** order (the user's "connecting two shapes shouldn't feel arbitrary" fix). The original blanket order-dependence punished a player for carrying the "wrong" piece. The one **intentional directional dual is retained**: **Triangle → Circle = Wheel ≠ Circle → Triangle = Star** — two different magics from one pair, the Mortal-Kombat "input order is part of the input" principle where it adds genuine depth. Functional (placeholder) pairs are unaffected. See `LOCKED_DECISIONS.md §6` (S98) for the full pair list + rationale.
+The 8 one-way magic pairs are **order-symmetric** — connecting the same two shapes makes the same magic in either order. One intentional directional dual is retained: **Triangle → Circle = Wheel** versus **Circle → Triangle = Star**.
 
-The table still ships all 36 ordered keys (zero implementation cost); the 8 mirrored magics + the Wheel/Star dual keep directional intent where it's meaningful while removing the arbitrary-feeling duds.
+### V.2 — The Table [LOCKED SCOPE: 36 ordered pairs]
 
-### V.2 — Pair Combo Matrix [LOCKED SCOPE: 36 ordered pairs]
+All 6×6 = 36 ordered pairs are defined. 14 distinct magic names across 22 magic ordered entries, plus 14 functional entries.
 
-The prototype ships with all 6×6 = 36 ordered pair combos defined in a hand-crafted lookup table. Of these, expect:
+### V.3 — Magic vs Functional [AMENDED v0.6 — see § VIII]
 
-- **~12 magical** — visually striking, mechanically interesting, players will seek them deliberately
-- **~24 functional** — connective tissue, valid moves, but not memorable
+v0.5 treated functional combos as connective tissue with no purpose, and the "24 placeholders do nothing" complaint ran for many sessions. **v0.6 gives them a job**: functional bonds generate **Energy**, magic bonds generate **Score**. Every combo in the table now feeds one of the two economies.
 
-Design effort goes into the 12. Do not waste time trying to make Spiral → Spiral interesting.
+This retires the G2 "family traits" backlog item — every pair does something, without designing bespoke mechanics for each.
 
-### V.3 — Seed Examples (Suggestive, Not Locked)
+> **⚠ Count corrected in S128.** The functional set is **14 of the 36 ordered entries** (8 of 21
+> unordered shape-pairs), not 24: `grep -c "isMagical: true" src/combos.ts` = 14 forward, +8 mirrored
+> = 22 magic ordered entries, leaving 14 functional. §V.2 above already said 14 while this section
+> said 24 — 144 lines apart in the same document. **The Energy substrate is therefore 42% smaller
+> than the pivot advertised**, which bounds how much economy those bonds can carry.
 
-These are *seeds* for the magical-12 — to be validated and refined in playtesting:
+### V.4 — Combo Discovery
 
-| First → Second | Suggested Outcome |
-|----------------|-------------------|
-| Dot → Line | Anchored extension (line with stable origin) |
-| Line → Line | Longer line, axis-aligned |
-| Line → Triangle | Rigid corner — locks angle |
-| Triangle → Triangle | Diamond — high stability, anti-rotation |
-| Triangle → Circle | Rotating wheel — slow spin |
-| Circle → Triangle | Triangulated arc — partial stability |
-| Circle → Circle | Orbital — linked rotation, two bodies |
-| Square → Square | Grid lattice — flat tessellation |
-| Square → Circle | Capped tube — half-cylinder construction |
-| Spiral → anything | Chaos modifier — destabilizes the result, beautiful but fragile |
-| anything → Spiral | Dynamic growth — adds rotation/expansion to base |
-| Dot → Spiral | Fractal seed — small recursive sparkle |
-
-Lock the final 12 in a design session before Phase 1 implementation.
-
-### V.4 — Triple and Higher-Order Combos [DEFERRED]
-
-Sequences of 3+ primitives yielding compound shapes are reserved for v0.6. The prototype handles only pairs. If a player attempts to add a third primitive to an existing pair-combo, treat it as a fresh pair-combo against the most recent attachment point.
-
-### V.5 — Combo Discovery
-
-There is no in-game combo book. Players discover combos by experimentation. This is core to the design — the joy is reading geometry and predicting outcomes. A community wiki will emerge organically.
+Discovery is celebrated in-match (toast + counter) and recorded in the Codex across matches. Undiscovered combos render as silhouettes.
 
 ---
 
 ## VI · Build Mechanic
 
-### VI.1 — Controls (Mouse-Only) [LOCKED]
+### VI.1 — Controls [AMENDED v0.6]
 
 | Input | Action |
 |-------|--------|
-| Mouse movement | Spark follows cursor (smoothed, not 1:1) |
-| Left-click + drag | **Attract** — pulls the held spark toward your cursor for placement, or pulls a free spark in the spawner zone toward your spark for collection |
-| Right-click + drag | **Connect** — draw a bond between the held spark and a primitive in your structure |
-| Release drag | Apply current selection / commit the connection |
-| Double right-click on bond | **Spend energy** to break the bond (cost scales with structure complexity) |
+| Mouse movement | Hero spark follows cursor (smoothed) |
+| Left-click + drag | **Place** — draw a primitive from the bank and position it |
+| Right-click + drag | **Connect** — bond the placed primitive into a structure |
+| Right-click on a bond | **Sever** (costs a charge on enemy structures; free on your own) |
+| Click a tower | Open its **targeting priority** (§ XII.2) |
+| Keyboard | **Command layer** — select, order, abilities, mode switch (§ XII.3) |
 
-No keyboard. No menus. No macros. Pure tactile discovery.
+**"Mouse-only" is REVOKED.** v0.5.1 locked pure mouse input. That is correct for a three-minute arcade game and wrong for a ten-minute strategy game — see § XII.1 for the reasoning.
 
-### VI.2 — Bond Creation
+### VI.2 — Bond Creation [LOCKED]
 
-A bond is a spring constraint between two primitives. Bonds have:
+A bond is a spring constraint with a rest length set at creation, a stiffness from the combo type, and a break threshold from accumulated stress. Bonds render as gradient lines coloured by the ownership of their endpoints.
 
-- A **rest length** equal to the placement distance at creation
-- A **stiffness** that scales with the type combo (Triangle bonds are stiffer than Spiral bonds)
-- A **break threshold** based on accumulated stress
+### VI.3 — Structure Immobility [LOCKED]
 
-Bonds are rendered as thin glowing lines between primitives, colored by the combined ownership of the two endpoints (gradient if multi-player).
+Once placed, primitives do not move except under bond physics within their own structure. Structures cannot be picked up, dragged or relocated. The canvas geography is stable. (Suspended during the endgame ceremony — § XIII.)
 
-### VI.3 — Multi-Structure Mega-Combos via Connector Chain [LOCKED — UPDATED in v0.5]
+### VI.4 — Colour Inheritance [LOCKED]
 
-Players can build multiple separate structures and link them via a **connector chain** for a multiplier reward.
+Each primitive permanently retains the colour of the player who placed it. Multi-player structures are visibly multi-toned. The visual ownership map *is* the strategic ownership map, within the unfogged area.
 
-Because structures are immobile (§ VI.5), linking is **not** done by dragging structures together. It is done by physically building a chain of intermediate primitives that bridges the gap.
+### VI.5 — Sculpting [LOCKED — elevated to a first-class rule in v0.6]
 
-- **Mechanic:** Place individual primitives between the two structures, one carry-trip at a time, until the chain reaches and bonds into the second structure. The final bond — connecting the chain's terminal primitive to a primitive in the target structure — commits the merge.
-- **Reward:** When two stable substructures are bridged, the resulting combined structure earns an area-claim multiplier of **1.5× to 2.0×** (exact value OPEN, see § XIV) on the joined topology.
-- **Cost:** Building the connector takes real trips and primitives — typically 3–8 primitives depending on distance. This is a genuine investment, not a free reward.
-- **Vulnerability:** The connector chain is itself a target. A single sever cut anywhere in the bridge will split the merged structure back into two — and per § VIII.4, the smaller side deletes. **Long thin connectors are exactly the kind of structure that severs love.** Strategic players will build redundant connectors (two parallel bridges) or thicken the chain into a small lattice.
+**There is no verb that deletes a placed primitive.** Removal happens only by severing bonds, and a sever may cascade — `severSplit` deletes the smaller resulting component.
 
-**Strategic effect:** Mega-combos become powerful but spatially expensive and structurally risky. Encourages thoughtful map control — a player must scout the path between their two structures, build the connector through safe terrain, and accept the bridge as a defensive liability.
+This is a **design feature, not a limitation.** It means you must build structures deliberately enough that you can remove some pieces without losing the rest. Sculpting is a real skill with a real failure mode.
 
-### VI.4 — Color Inheritance [LOCKED]
+It is also the origin of the tactic that v0.6 exists to protect: **build large, then carve down to exactly the connections a recipe needs** — knowingly trading score for capability. That behaviour emerged in playtest with nobody designing it, and it is the clearest evidence available of what SPARK is actually about.
 
-**Each primitive permanently retains the color of the player who placed it.**
+> **The pivot's first job is to make sculpting available from minute one instead of minute five.** In v0.5 you needed a large structure before you could carve one, which put the best thing in the game behind the worst thing in the game.
 
-- Multi-player structures are visually multi-toned (gradient bonds, mixed primitives)
-- A "stolen" primitive (via Disruption — § VIII) changes color to its new owner
-- The visual ownership map *is* the strategic ownership map — but only within the visible (non-fogged) areas of the canvas
+### VI.6 — The Hero Spark [NEW in v0.6]
 
-This is a single rendering rule that does enormous design work: it makes raids visible (when scouted), makes alliances visible, makes contested zones visible, and creates aesthetic beauty as an emergent property of multiplayer interaction.
+The player's avatar remains in the world and changes job. It **sculpts, raids, defends, grabs the potato, cleans splats, and handles emergencies.** It does not haul.
 
-### VI.5 — Structure Immobility [LOCKED — new in v0.5]
+This preserves the tactile drag-to-connect feel for the moments worth feeling, keeps every existing hazard interaction meaningful, and stops the mouse becoming a pure menu pointer.
 
-**Once placed, primitives do not move (except as governed by bond physics within their own structure).**
-
-Players cannot pick up, drag, or relocate whole structures. A structure exists where it was built. Forever.
-
-This eliminates a class of edge cases:
-
-- What happens when two structures collide?
-- What if you drag a structure onto an enemy?
-- What about into the spawner zone?
-- Can you push other players' structures?
-
-All of these become non-questions. The canvas geography is stable. Where you place a primitive is a permanent commitment, and **mega-combos require building bridges**, not towing.
+**OPEN:** whether the hero is still needed once the command layer (§ XII) is mature. Currently assumed yes.
 
 ---
 
-## VII · Energy System
+## VII · The Economy [NEW in v0.6]
 
-### VII.1 — Sources
+### VII.1 — The Castle
 
-Energy is generated **passively** by structure complexity and stability. The richer your topology, the higher your tick income.
+Each player begins the match with a **castle** — a persistent, owned world entity with a position, hit points, and a worker-emit cadence.
 
-Initial formula (OPEN):
+The castle is assembled out-of-match from the player's trophies (§ XIV). It is the player's identity object, the thing they defend, and the visible display of their history. It is not a blank start — **from V6-3.4 ("Field your fortress") onward.** A placeholder keep ships with the castle entity at V6-1.2 and is replaced there, so a placeholder is the reality for 14 of the 25 slots. (`grep -rni castle src e2e --include=*.ts` = 0 hits today.)
 
-```
-energy_per_tick = sum_over_primitives(stability_score × complexity_score)
-```
+### VII.2 — Workers [LOCKED]
 
-Where:
+The castle emits **worker sparks** in the owner's colour on a timer.
 
-- `stability_score`: how rigid the local topology is (densely-bonded = high)
-- `complexity_score`: how many distinct combo types feed into that primitive's neighborhood
+- Each worker hauls **exactly one primitive per trip** (§ III.3).
+- Workers shuttle continuously: spawner → grab → castle → deposit → repeat.
+- **Workers do not die permanently.** A killed worker respawns from the castle on the respawn timer. The cost of losing one is tempo, not attrition.
+- Workers are **attackable**. A worker killed while loaded **drops its primitive**.
+- Workers carry vision (§ III.4).
 
-A single Dot generates negligible energy. A 12-primitive, multi-combo, anchored structure generates substantial energy.
+Workers **never build.** See § VII.5.
 
-### VII.2 — Sinks
+### VII.3 — Directives [LOCKED]
 
-Energy is spent on:
+The player issues a **collect directive** to their workers — for example, *squares only*. This is the input-choice mechanism, and it replaces v0.5's uniform-random gate.
 
-- **Breaking your own bonds** (refactoring, scaled by local complexity)
-- **Strong attraction drag** (pulling sparks across longer distances faster)
-- **Disruption actions** (see § VIII — though these are gated by build-action count, not raw energy)
+**Directive-filtered workers skip non-matching primitives**, so a specialised economy is slower than a generalist one. **Specialisation costs throughput.** That trade-off falls out of the mechanic without being designed, and it means directive-switching timing is a real skill.
 
-### VII.3 — No Cap, No Decay
+> Do not "fix" this when it appears in a playtest looking like a bug.
 
-Energy accumulates without ceiling and does not decay. A defensive turtling player builds up reserves; an aggressive raider stays near zero. This is intentional: energy is not the win condition, area is.
+Because the player can now steer what they receive, **godly recipes become plans instead of lotteries** — the single largest change to whether SPARK reads as strategic.
 
----
+### VII.4 — The Bank [LOCKED]
 
-## VIII · Disruption Mechanic
+Deposited primitives accumulate in a **capped bank** on the castle. Cap is ~8–10 (OPEN, § XVI).
 
-### VIII.1 — Earning [LOCKED]
+> **⛔ PROVISIONAL — the cap is BLOCKED on an owner ruling (B4), and it must never be tuned apart from
+> this table.** Every godly recipe is an **exact, isolated component** — the predicate fails if the
+> component holds anything else:
+>
+> | Recipe | Component size | Source |
+> |---|---|---|
+> | Pentagram | **5** Triangles, closed 5-cycle, nothing else in the component | `godlyRecipes/pentagram.ts:4-6` |
+> | Lightning hub | **6** — 1 Dot hub of degree 5 + 5 Circles | `lightningHub.ts:3-6` |
+> | Princess Helga | **7** — Triangle hub + 3 Spiral + 3 Circle | `princessHelga.ts:4` |
+> | Voltkin | **8** — linear Square×4 → Triangle×4, no filler | `voltkin.ts:4` |
+> | Laser turret | **8** — 1 Line + 7 Spiral leaves | `laserTurret.ts` |
+>
+> A cap of 8–10 is **≥ every recipe**, and scoring has **no per-component term**
+> (`scoring.ts:216-235`), so six isolated 5-rings score exactly what one 30-prim structure does.
+> Combined with a hard type filter this makes "assemble the exact recipe directly, first try"
+> rational — **which deletes the carve-down tactic §VI.5 identifies as the best thing in the game.**
+> Carving was never economically motivated; it was *forced* by random types + carry-1.
+> Recommended pre-probe starting point: **cap 4** (below pentagram's 5) with a **biasing** rather than
+> filtering directive. Settle from the V6-0.1 probe, not on paper.
 
-**1 disruption charge per 5 build actions.**
+At the cap, workers **stall**. So the player must spend to keep collecting, and there is continuous pressure to commit.
 
-A "build action" is the placement of a single primitive into your structure (i.e., one completed travel-grab-return-combine cycle). The counter is internal and not displayed numerically.
+**This is where carry-1's strategic function now lives** (§ III.3). Bank cap and worker count are one mechanism: it also means economy scaling is bounded by *build rate*, not worker count — extra workers only help if you are draining the bank fast enough to use them. That is the primary anti-snowball governor on first-come-first-served collection (§ X.3).
 
-### VIII.2 — Cap [LOCKED]
+### VII.5 — The Authorship Rule [LOCKED — the load-bearing rule of v0.6]
 
-**Maximum 2 stored charges.** When at cap, the gauge stops accumulating. Build progress continues normally — you do not pause or lose anything else.
+> ### Automate the labor. Never automate the authorship.
 
-This creates **mild FOMO** for raiders (every build past cap is "wasted potential disruption") and zero pressure for pure builders (they ignore the gauge). Both playstyles are valid.
+**Workers automate hauling.** Playtests proved hauling is not fun.
 
-Cap of 2 was chosen over 3 to favor faster tempo: more frequent small disruption events, more decision points per minute, more opportunities for emergent moments. Easier to balance up than down.
+**Workers never build.** Playtests proved building — specifically sculpting — *is* fun.
 
-### VIII.3 — Action Types [LOCKED]
+A worker that collects squares and assembles a Helga means the player did not build a Helga; they filled in a form and a script did the interesting part. The cinematic would fire and mean nothing.
 
-When you spend a charge, you choose **one** of three action types and a **target**. Targeting requires the target structure (or a portion of it) to be **visible to you** — fog of war (§ III.4) gates raiding on scouting.
+Every future automation proposal is measured against this rule. The single exception is § XIV.7 blueprints, where the player draws the plan and workers execute it — authorship stays with the player because they drew it and earned the right to build it.
 
-| Action | Effect |
-|--------|--------|
-| **Sever** | Cut a single bond in the target structure. The smaller side of the resulting split is deleted (see § VIII.4). |
-| **Inject Spiral** | Add a free Spiral primitive into the target structure at the chosen attachment point. The Spiral's chaos modifier propagates through neighboring combos, often destabilizing them. |
-| **Steal** | Detach one primitive from the target structure and add it to your own carry slot (overrides the 1-spark limit for this single bypassed instance — the steal *is* the carry). The stolen primitive changes color when placed. |
+### VII.6 — Upgrades
 
-The action is **deterministic**. The player chooses the target and the type. The *outcome variance* comes from the target's topology, not from RNG.
+Energy (§ VIII) is spent on the economy:
 
-### VIII.4 — Sever Topology Rules [LOCKED]
+- **More workers**
+- **Faster workers** (movement speed)
+- **Faster respawn** (worker cycle time)
 
-When **Sever** cuts a bond, the structure splits into two connected components.
+This creates the central tension of every replayable strategy game: **spend on economy, which compounds, or spend on power, which matters now.** Build order becomes a real skill.
 
-- **Default rule:** The component with **fewer primitives** is deleted (erased, sparks return to the global pool as free-floating *and respawn within the spawner zone*).
-- **Tiebreaker (50/50 split by primitive count):** **The side built last is deleted.** The foundation survives; the latest construction falls. "Last built" is determined by the timestamp of the most recently placed primitive on each side. The side whose newest primitive has a later timestamp is the "newer" side and is deleted.
-- **Edge case (single-primitive side):** Always deleted (smaller by definition).
-- **Edge case (cut isolates the player's anchor):** Currently treated as normal — the smaller side deletes regardless of which side has the anchor. The anchor itself is just another primitive. Revisit if playtesting shows this is too punishing.
-- **Edge case (cut on a connector chain):** Treated identically. A long thin bridge between two large structures is highly vulnerable: a cut anywhere in the bridge splits the mega-combo, and the bridge itself (small primitive count) is the "smaller side" and deletes. This is intentional — long connector chains are a real risk.
-
-### VIII.5 — No Preview [LOCKED]
-
-**The player does not see the predicted outcome before committing a sever.** You select a bond and click. The result is revealed only after the cut.
-
-This preserves the skill ceiling — experienced players learn to read structures and predict cut outcomes. It also preserves emergent surprise. Topology-reading becomes a real game skill.
-
-### VIII.6 — Disruption Math: Why Raiding is Viable
-
-The asymmetry:
-
-- **Earning** a disruption charge — passive byproduct of building (no opportunity cost)
-- **Damage** dealt — potentially massive (chunk deletion can erase 5+ primitives in one cut)
-- **Cost** to attacker — travel time + scout time + click — typically 10–20 seconds with fog of war
-- **Cost to target** — lost build value + lost time
-
-If a single sever erases 5 primitives that took the target 25+ seconds to build, the attacker has dealt ~25s of damage at ~15s of cost on the **first** attack. **~1.7× efficiency in attacker's favor** on the first hit, slightly reduced from v0.4 because fog of war added scouting cost. With memory-fog (§ III.4), the scout cost is paid once per target — repeat attacks on the same enemy structure cost only travel time, restoring the v0.4 ~2.5× efficiency on follow-ups. The system rewards cultivating a "favorite victim" — find them once, harass them repeatedly. Still viable; still in the canonical RTS harassment range.
+**Cost curve is OPEN** (§ XVI) — flat, escalating or capped determines the whole early-vs-late arc.
 
 ---
 
-## IX · Spawner & Resource Flow
+## VIII · Currency [REWRITTEN in v0.6]
 
-### IX.1 — Confined Central Spawner [LOCKED — major change from v0.4]
+### VIII.1 — Two Currencies [LOCKED]
 
-The center of the canvas contains an **invisible circular boundary** within which sparks spawn and are confined. Sparks generate at the zone center and move freely *within* the zone — bouncing softly off the invisible boundary — but **do not leave it**.
+| Currency | Earned from | Spent on | Wins? |
+|---|---|---|---|
+| **Score** | Magic bonds, structure complexity, objectives, kills | Nothing — **never spendable** | **Yes** |
+| **Energy** | Functional bonds, castle, economy throughput | Workers, upgrades, buildings, directives | **No** |
 
-**This means there is exactly one place in the universe to collect sparks: inside the spawner zone.** Travel from your build site to the zone is mandatory for every primitive you ever place.
+### VIII.2 — Why They Must Be Separate [LOCKED]
 
-The spawner zone is small relative to the canvas (size OPEN — see § XIV). Six players entering and leaving creates emergent traffic, congestion, and natural conflict at the center. With fog of war (§ III.4), the spawner zone is the one **always-visible common space** — players see each other only when both are inside the zone, or otherwise via scouting.
+If victory points both win the game and buy upgrades, spending moves you away from winning. Early game, spending is obviously correct; late game, obviously wrong; and there is a **crossover point where the maths flips.** Once players find it, optimal play is a fixed script — and worse, it reimports the "every second not optimising is punished" anxiety that v0.6 exists to remove.
 
-### IX.2 — Spawn Trigger [LOCKED]
+**The win condition is not a currency.** This is not a tuning preference; it is structural.
 
-**Per-tick base rate + bonus on player build events.**
+### VIII.3 — The Split Does Double Duty
 
-- **Base rate:** 1 spark every N ticks (N OPEN — calibrate so 6 players in steady state have ~1 spark visible per player inside the spawner zone at any moment)
-- **Bonus:** each completed build action by any player triggers an additional spark spawn (rewards game tempo, not the leader specifically)
-- **Type distribution:** uniform random across the 6 types. **No rarity tiers** — the design rejected per-type rarity because the geographic and fog-of-war trade-offs already create strategic differentiation.
+Score from **magic** bonds, energy from **functional** bonds, means the two currencies reward genuinely different building styles — an "eco build" and a "score build" become distinct strategies rather than the same structure counted twice.
 
-### IX.3 — Spark Behavior Within the Zone [LOCKED — replaces v0.4 outward drift]
+It also gives the **14** functional combos a purpose for the first time (§ V.3 — the "24" figure was wrong; see the note there).
 
-Sparks emerge at zone center with random initial velocity. They move freely within the spawner zone, bouncing off the invisible boundary on contact (soft elastic bounce). Soft collisions between sparks within the zone produce gentle scattering — visually a churning soup of geometric atoms.
+### VIII.4 — Energy Already Exists
 
-**No despawn rule needed.** With confinement, the population stabilizes naturally as players collect at roughly the spawn rate. If population grows too high, gradually slow the spawn rate (negative feedback) — but this is a tuning concern, not a hard rule.
+`player.energy` accrues at exactly **5.0/sec** (`ENERGY_PER_SECOND_FLAT`, dispatched unconditionally per player per tick at `physicsLoop.ts:107-109`), rides the wire in the protocol allowlist (`protocol.ts:463`) as a mandatory `SerializedPlayer` field, and renders as a thin right-edge gauge (`ui.ts:32-35,204-238`).
 
-### IX.4 — Sparks in Transit [LOCKED]
-
-**Sparks being carried by a player are not vulnerable.** Other players cannot intercept, steal, or knock them out of transit. The carry is committed.
-
-This is intentional. Vulnerability in transit was considered and rejected: it would over-punish travel and collapse the geographic trade-off.
-
-### IX.5 — No Building Inside the Spawner Zone [LOCKED — added in v0.5.1]
-
-**`PLACE_PRIMITIVE` is rejected if the carried shape is inside the spawner radius.** The carry slot is preserved on rejection — no spark loss; the player simply has to drag the carried shape outside the ring before committing. The connect-drag preview line turns red and a "no-build" glyph appears at the cursor while the rejection condition holds, so the player understands why the placement won't commit.
-
-**Why:** The zone is the one canvas region with a different vision contract — it is *always visible to all players* (§ III.4 spawner exception). Building there would (a) put your structure in everyone's permanent view, defeating fog-based concealment (§ X.2), and (b) clog the contested collection space, breaking the "central traffic" social dynamic (§ XI.8). The amended rule keeps the zone purely an ingress/collection ring.
-
-**Boundary semantics:** Strict inequality. Placing exactly on the ring is allowed (liminal — counts as outside). Inside the ring is rejected.
-
-**Implementation note:** Both the controls preview (red line + glyph) and the dispatch handler (silent reject + carry preserved) must check. The preview is for UX; the dispatch check is the defensive backstop.
+> **⚠ S128 corrections, all of which make the case stronger.** Energy has **ZERO READS**, not merely
+> zero sinks: grep for `ENERGY_MAX|energy -=|spendEnergy|canAfford|ENERGY_COST` across `src/` returns
+> nothing, and its only two consumers are the gauge renderer and the serializer ⇒ the consumption side
+> is **pure greenfield**. It has been idle **82 days** (introduced in `bc89a53`, 2026-05-09), not "a
+> year". Disruption was never *meant* to be the sink — the v0.5.1 blueprint itself specified
+> build-count gating; the genuinely specified-but-unbuilt sinks were **self-sever cost** and **strong
+> attraction drag**. And the gauge **clamps at `ENERGY_GAUGE_FULL = 100`** (`ui.ts:36,214`), so it pins
+> full at t≈20 s and stays there for 94–97% of a match — **raise the cap or new sinks are invisible.**
+> Finally, `FUNCTIONAL_BOND_COMPLEXITY` currently earns score, and removing it reverts an
+> owner-driven S84 P4 decision recorded verbatim at `constants.ts:227-231`; surface that before
+> implementing the split.
 
 ---
 
-## X · Map & Geography
+## IX · Disruption & Conflict
 
-### X.1 — Canvas
+### IX.1 — Earning [LOCKED]
 
-A rectangular black field, 16:9 aspect ratio. The central spawner zone (§ IX) sits at canvas center, occupying approximately 5–10% of canvas area (OPEN — see § XIV).
+1 disruption charge per 5 build actions, capped at 2 stored.
 
-Exact dimensions: **OPEN**. Constraint: fastest-trip (build adjacent to spawner) to slowest-trip (build in the farthest corner) ratio of approximately **3× to 5×**. Lower ratios make positioning trivial; higher ratios make corner-hiding too dominant.
+### IX.2 — Action Types [LOCKED]
 
-### X.2 — Geographic Trade-Off [LOCKED — UPDATED for fog of war]
+**Sever** cuts a bond; the smaller resulting component is deleted. **Inject Spiral** adds a chaos primitive. **Steal** detaches a primitive into your possession. Targeting requires the target to be visible.
 
-Every player chooses where to build, with three coupled consequences:
+### IX.3 — Sever Topology [LOCKED]
 
-| Position | Cycle Speed | Exposure to Traffic | Fog Concealment |
-|----------|-------------|---------------------|-----------------|
-| **Adjacent to spawner** | Fastest | Maximum (every player passes through) | Always discovered (everyone enters the zone) |
-| **Mid-canvas** | Moderate | Moderate (passing scouts may find) | Discovered only if scouted |
-| **Far corner** | Slowest | Low | Hidden until specifically scouted |
+The component with fewer primitives is deleted. Tiebreaker: the side built last is deleted — the foundation survives. A cut isolating a long thin connector chain deletes the chain.
 
-The geographic trade-off is now **three-dimensional**. With fog of war, "build far" gains a real defensive property (concealment) on top of low traffic. With the carry-1 + confined spawner, "build close" gains real economic value (fast cycles).
+### IX.4 — Worker Harassment [NEW in v0.6]
 
-### X.3 — Structure Vulnerability [LOCKED]
+**Workers are a legal target class** for hazards, creatures, towers and raids. A loaded worker drops its primitive when killed.
 
-**Your structure is vulnerable while you are away from it.**
+This is where competition lives in v0.6. v0.5's competition was mouse speed at the spawner; v0.6 moves it to **map control and economic pressure**, which is the correct altitude and is what the existing hazard roster already supports.
 
-This is the actual mechanism that makes "build far" defensive in a shallow sense (longer travel = harder for raiders to reach) but offensive in another sense (longer travel = your structure is unattended longer per trip).
+Because workers respawn, harassment is a **tempo weapon**, not an elimination one.
 
-With fog of war (§ III.4), enemies must first **scout** your structure before they can attack it. Scouting itself is an opportunity cost (time not spent building). A hidden far-corner base is doubly defended: hard to find AND hard to reach.
+### IX.5 — Sever Preview [OPEN — was LOCKED "no preview"]
 
-The vulnerability window is the time you are not adjacent to your structure. Defending requires being there. Building requires being away. The tension is the game.
+v0.5.1 locked *no predicted outcome before committing a sever*, to preserve a topology-reading skill ceiling.
 
-### X.4 — Vision System (Detail) [NEW in v0.5]
+Under review as part of the learnability revocation (§ III.5). The skill-ceiling argument is real; the problem is that it was the third of three simultaneous feedback removals. **Re-ratify or revoke on evidence**, narrowly — a post-hoc explanation of what a cut did may deliver the learning without giving away the prediction.
 
-Implementation of fog of war (§ III.4):
+### IX.6 — Defensive Combos [LOCKED]
 
-- **Personal radius:** A circular area centered on the player's spark, radius `R_personal` (OPEN — see § XIV). Always present, always travels with the spark.
-- **Structure beacons:** Each primitive in any of the player's structures provides a small radius `R_beacon` of permanent vision around itself. Coincident primitives' radii overlap into a single visible area covering the whole structure plus a margin.
-- **Additive composition:** Total visible area = personal radius UNION all structure-beacon radii. Multiple structures owned by the same player produce separate visible patches across the canvas.
-- **Memory-fog:** Once you have personally observed any structure, its position is remembered and rendered in dimmed/desaturated style when out of current vision. Live state (color shifts, severs, primitive additions) only updates when in active vision. RTS-standard (StarCraft model). Chosen over live-only fog because it preserves disruption math (scout cost paid once per target, not per attack).
-- **Spawner exception:** The spawner zone is *always visible to all players*, since collection requires entering it. It is the one common visible space.
-- **Rendering:** Areas never observed are rendered solid black. Vision edges should soft-fade (~20 px gradient) to avoid jarring boundaries. Memory-fogged areas use a desaturated, dimmed render of last observed state.
-
-**Default radius rule of thumb (OPEN):** `R_personal` ≈ size of the spawner zone. So when standing in the spawner zone, you see the whole zone and a small ring around it. When standing far from any of your own structures, you see only your immediate surroundings.
+A Diamond (Tri→Tri) or Lattice (Sq→Sq) costs an attacking player their entire disruption budget to hostile-sever. Physics, creature and bomb severs bypass this — anti-sabotage is not hazard-immunity.
 
 ---
 
-## XI · Strategic Layers (Emergent)
+## X · Spawner & Resource Flow
 
-These are not new rules. They are properties that emerge from the interaction of locked rules. They are documented here so they are not accidentally balanced away.
+### X.1 — Confined Central Spawner [LOCKED — resized v0.6]
 
-### XI.1 — Topology as Defense
+Sparks generate at canvas centre and are confined within an invisible circular boundary, bouncing softly off it. **There is exactly one place to collect primitives.**
 
-Because Sever deletes the smaller side of a cut, players will learn to build:
+**`SPAWNER_RADIUS` 250 → 188 (−25%) in v0.6.** Six castle keeps need canvas real estate and the canvas is fixed at 1920×1080; the centre is where that space comes from.
 
-- **Densely interconnected** structures (no long thin chains exposed to single-cut amputation)
-- **Multi-anchor** structures (no single point of failure)
-- **Decoy chains** (deliberately sacrificial arms protecting a robust core)
-- **Redundant connector bridges** for mega-combos (parallel chains so one sever doesn't break the merge)
+> **Radius is linear; area is not.** The zone loses **~43% of its area**, not 25% (π·250² = 196,350 →
+> π·188² = 111,036). Arithmetic verified exact in S128.
+>
+> **⚠ But `FREE_SPARK_SOFT_CAP = 50` is currently NON-BINDING and effectively dead code.** The real
+> control is the faucet: `SPAWN_RATE_PER_SECOND = 0.1875` × `FREE_SPARK_TTL_TICKS = 600` (10 s) ⇒ a
+> steady-state pool of **~1.9 sparks arena-wide** by Little's Law (probe-measured mean 2.2, peak 8
+> over 600 s). So re-derive the cap **after** the faucet ruling (B3); at that point 28 is the
+> constant-density value, not 30. `spatial.ts:3-4` already assumed "≤30 free sparks at 6P steady
+> state" while the cap sat at 50.
+>
+> **Six further constants move 62 px inward with the radius** — `botBrain.ts:275`/`:257`,
+> `gameMode.ts:109`, `creatureVerlet.ts:62`, `botSpawnerSeed.ts:48`/`:62` — **`SPAWNER_RADIUS` is also
+> a fog source** (`vision.ts:59`), so the always-visible region shrinks 43% and undercuts the very
+> rationale §X.5's build-ban rests on; and **four sites hardcode 250** and go stale silently
+> (`e2e/bomb.spec.ts:41`, `e2e/nplayer.spec.ts:197`, `src/state/world.test.ts:191`,
+> `e2e/smoke.spec.ts:483-484`). There is **no lock tripwire** on any of them:
+> `constants.lock.test.ts` contains exactly one assertion, on `MEMORY_FOG_COLOR`.
 
-The build mechanic now has both an aesthetic skill axis (what claims more area, what looks beautiful) and a defensive skill axis (what survives raids). **Topology is gameplay.**
+### X.2 — Spawn Trigger [LOCKED]
 
-### XI.2 — Build vs. Raid Dynamics
+Per-tick base rate. Type distribution is **uniform random with no rarity tiers** — steering happens through directives (§ VII.3), not through the spawn table.
 
-Each player navigates a continuous trade-off:
+> **⚠ Corrected in S128: the "bonus on player build events" was NEVER IMPLEMENTED.** `ratePerSecond` is
+> `readonly` (`spawner.ts:67`), assigned once at `:74`, and read only by `sampleInterarrival` (`:353`);
+> grep for `buildBonus|onBuild|SPAWN_ON_BUILD|BUILD_SPAWN` returns zero hits. It was specified in v0.5
+> and cited ever since as a shipped anti-snowball governor, which it is not. `SPAWN_RATE_PER_SECOND =
+> 0.1875` globally, one `Spawner` per world, pure Poisson — see §VII.4 and `SPARK_v0.6_DESIGN.md` §2 (B3).
 
-- **Pure builder:** ignores disruption charges, accumulates them at cap, focuses on territory. Will be slow to know about leaders due to fog.
-- **Hybrid:** builds primarily, scouts occasionally, raids opportunistically when enemies are visible
-- **Raider:** scouts aggressively, spends every charge as soon as it is earned, deliberately throttles enemies
+### X.3 — Collection is First-Come, First-Served [LOCKED — new in v0.6]
 
-All three are valid. The cap-of-2 design ensures pure builders are not punished while raiders are rewarded.
+Workers do not contest each other. Whichever worker reaches an eligible primitive first takes it.
 
-### XI.3 — Geographic Positioning
+Direct worker-vs-worker contest would reintroduce a micro race one level down — the same disease in a smaller font. FCFS keeps competition in the economy: **more workers, faster workers, a closer castle.**
 
-See § X.2. The build-near-vs-far trade-off is real and strategic, three-dimensional with fog of war added.
+Snowball governors: the bank cap bounds economy scaling by build rate (§ VII.4) and a distant castle pays a longer round trip. ⚠ **The "spawn rate scales with build events" governor does not exist** (§X.2), and at the shipped faucet the bank cap **cannot bind** while castle distance is a cliff rather than a gradient (B3) ⇒ **first-come-first-served currently has no working governor.** Re-opened as OPEN.
 
-### XI.4 — The Raider Role
+### X.4 — Sparks in Transit [LOCKED — amended v0.6]
 
-A player who falls behind on territory has a viable comeback path: switch to raiding. There is no explicit reward for raiding (no resources gained from severs), but the implicit payoff is that **the game stays open**. By slowing leaders, the raider preserves their own win condition. This is the same logic as attacking the leader in Diplomacy or sabotaging in Among Us.
+v0.5 made carried sparks invulnerable, to avoid over-punishing travel. **v0.6 reverses this for workers**: a loaded worker can be killed and drops its primitive.
 
-**Fog of war adds a scouting prerequisite to raiding.** A raider can no longer attack a leader they spotted from across the canvas — they must first locate the target. This adds skill ceiling and time cost to raiding, but the disruption math (§ VIII.6) still favors attacker over builder by ~1.7×, keeping raiding viable.
+The reasoning changed with the pivot. In v0.5 the carrier was the *player*, and punishing transit punished the player's own labour. In v0.6 the carrier is an *automated agent*, transit costs the player nothing, and interception is the pressure valve that keeps an automated economy contestable.
 
-### XI.5 — Color as Information (Gated)
+### X.5 — No Building Inside the Spawner Zone [LOCKED]
 
-Multi-color gradient structures reveal contributions and contested zones at a glance — but only **within scouted areas**. A structure that is 80% one color and 20% another is a half-conquered prize, but you have to be looking at it to see. Information about colors elsewhere on the canvas is unavailable until scouted.
-
-A player's mental model of "who owns what" is therefore always partial. This is a feature, not a bug.
-
-### XI.6 — Scouting [NEW in v0.5]
-
-With fog of war, **scouting is a real activity with real cost.** A player can:
-
-- Travel toward suspected enemy positions to reveal their structures
-- Travel along the canvas perimeter to discover hidden builds
-- Stay near home and rely on the spawner zone for incidental sightings (other players' colors visible only when they enter the zone)
-
-Scouting trades build cycles for information. A player who never scouts may not realize they are losing until the leader's color has already filled enough canvas to be obvious near the spawner. A player who over-scouts builds nothing and falls behind on territory.
-
-The optimal scouting rate is non-trivial and player-dependent — exactly the kind of strategic axis that makes a game replayable.
-
-### XI.7 — Decoy Bases [NEW in v0.5]
-
-Because vision is fog-of-war, **a player can build a small, deliberately visible structure as a decoy** to mislead enemy scouts about the location of their main base. The decoy costs primitives and area-claim potential, but might convince enemies to spend disruption charges on the wrong target — or, more importantly, might cause enemies to *stop scouting elsewhere*, leaving the real base concealed longer.
-
-This was meaningless in v0.4 (full vision) and is now genuinely strategic. It is also entirely emergent — no rule defines "decoy"; it's just a structure that the builder considers expendable.
-
-### XI.8 — The Spawner Zone as Social Hub
-
-Because the spawner zone is always visible to all players (§ III.4 exception), it is the **one place where direct multi-player encounters happen with full information.** Sparks colliding, cursors crossing, players grabbing the same target spark — this is where social game state is built. Outside the zone, encounters are partial, mediated by fog and topology.
-
-Expect playtesters to develop spawner-zone etiquette: who has priority on a contested spark, when is a "ram" considered hostile, etc. None of this is enforced; all of it is emergent.
+`PLACE_PRIMITIVE` is rejected inside the spawner radius; the carry is preserved and the preview shows a no-build glyph. The zone is the one always-visible region, and building there would defeat fog-based concealment and clog the contested collection space.
 
 ---
 
-## XII · Technical Architecture
+## XI · Map & Geography
 
-### XII.1 — Engine [RECOMMENDED]
+### XI.1 — Canvas [LOCKED]
 
-**Primary: Godot 4.x.** Reasons:
+1920 × 1080, black. Spawner zone at centre (§ X.1).
 
-- Native multiplayer support (high-level networking nodes)
-- Built-in 2D physics suitable for Verlet + spring constraints
-- Light-and-fog rendering via shaders or viewports
-- GDScript or C# — both viable
-- Free, open-source, lightweight, single-file export
+### XI.2 — The Geographic Trade-Off [LOCKED — amended v0.6]
 
-**Alternative: HTML5 Canvas + JavaScript (vanilla or p5.js).** Reasons:
+| Castle position | Economy | Exposure | Concealment |
+|---|---|---|---|
+| **Near spawner** | Fastest worker cycles | Maximum traffic | Always discovered |
+| **Mid-canvas** | Moderate | Moderate | Discovered if scouted |
+| **Far corner** | Slowest cycles | Low | Hidden until scouted |
 
-- Web-deployable, zero-install for playtesters
-- Custom physics (must implement Verlet + springs manually)
-- Custom fog rendering (offscreen canvas + composite operations)
-- WebSocket multiplayer (requires server)
+The trade-off survives the pivot intact, and gets *better*: in v0.5 "build close" saved the player's own time and effort, so the choice was partly about stamina. In v0.6 it is purely about **economy versus safety** — a strategic decision rather than an endurance one.
 
-**Godot is recommended** for the prototype because the physics, networking, and viewport-based fog all come "for free."
+### XI.3 — Spatial Budget [NEW in v0.6]
 
-### XII.2 — Physics Model
+Six castles are new persistent world objects competing for canvas with structures, territory bubbles and the spawner zone.
 
-- **Verlet integration** for primitive positions (more stable than Euler under spring constraints)
-- **Spring constraints** for bonds (Hooke's law, with configurable rest length, stiffness, and break threshold per combo type)
-- **Soft collisions** between free-floating sparks within the spawner zone (positional resolution, no rotational dynamics)
-- **Boundary physics** for the spawner zone — sparks bounce elastically off the invisible circular wall
-- **No rigid-body simulation** — primitives are point masses with rendered shapes
-- **Structures do not move** (§ VI.5) — physics applies *within* structures (bond springs) but the structure as a whole has no translational motion
+Verify at six seats, do not assume:
 
-Target: 200–400 active simulated entities at 60 fps on a mid-range laptop.
+- Castles must not overlap the spawner zone, and six must fit around it without crowding the corners — the geographic trade-off needs real distance to trade.
+- `isInsideEnemyTerritory` bubbles scale with complexity (`60 + 12·log₂(complexity+1)`). Six castles plus bubbles could make legal build space scarce late-match.
+- The smaller spawner ring frees slightly more legal canvas — a small free win.
 
-### XII.3 — Rendering Architecture (Fog of War)
+### XI.4 — Structure Vulnerability [LOCKED]
 
-Two-pass rendering per player viewport:
-
-1. **Scene pass:** Render everything (canvas, all sparks, all primitives, all bonds) to an offscreen texture.
-2. **Visibility mask pass:** Compute the union of (a) personal radius around the local player's spark, (b) beacon radii around each of the local player's primitives, (c) the always-visible spawner zone. Render this as a white-on-black mask with soft-faded edges.
-3. **Composite:** Multiply the scene texture by the mask. Output is the player's view: lit areas show, fogged areas are black.
-
-In Godot, this is straightforward via `SubViewport` + a shader. In HTML5, use offscreen `<canvas>` and `globalCompositeOperation = 'destination-in'`.
-
-**Performance note:** the visibility mask only needs updating when player position or primitive count changes — typically 5–10 Hz is fine, well below the 60 Hz scene pass.
-
-### XII.4 — Core Data Structures
-
-```
-Spark {
-  id: UUID
-  type: SparkType  // Dot, Line, Triangle, Square, Circle, Spiral
-  position: Vec2
-  velocity: Vec2
-  state: Free | Carried | Bonded
-  ownerColor: Color | null  // null while free or carried
-  carriedBy: PlayerId | null
-  bondedTo: List<BondId>
-}
-
-Bond {
-  id: UUID
-  sparkA: SparkId
-  sparkB: SparkId
-  restLength: float
-  stiffness: float
-  breakThreshold: float
-  comboType: ComboKey  // (typeA, typeB) ordered
-  createdTick: int
-}
-
-Structure {
-  id: UUID
-  rootSpark: SparkId  // anchor
-  member_sparks: List<SparkId>  // all primitives in this connected component
-  member_bonds: List<BondId>
-  totalAreaClaim: float  // computed
-  ownerColors: Map<Color, int>  // color -> primitive count
-  isImmobile: true  // structural invariant
-}
-
-Player {
-  id: PlayerId
-  color: Color
-  cursorPos: Vec2
-  carriedSpark: SparkId | null  // exactly 0 or 1
-  energy: float
-  buildActionCount: int  // mod 5 -> earns charge
-  disruptionCharges: int  // 0, 1, or 2
-  visionMask: BitMap  // computed per-frame, what this player can see
-}
-
-SpawnerZone {
-  center: Vec2
-  radius: float  // invisible boundary
-  containedSparks: List<SparkId>
-  isAlwaysVisible: true
-}
-
-ComboTable: Map<(SparkType, SparkType), ComboOutcome>
-  // 36 entries for ordered pairs
-
-ComboOutcome {
-  resultantBondStiffness: float
-  visualEffect: EffectId
-  areaClaimMultiplier: float
-}
-```
-
-### XII.5 — Game State Machine
-
-```
-SETUP -> WAITING_FOR_PLAYERS -> COUNTDOWN -> PLAYING -> WIN_CINEMATIC -> POSTGAME
-```
-
-- **SETUP:** World initialized, spawner zone placed at center, no players
-- **WAITING_FOR_PLAYERS:** Lobby fills to 6
-- **COUNTDOWN:** 3-second silent countdown, sparks begin spawning inside the zone
-- **PLAYING:** Main loop. Tick rate 60 Hz physics, 10 Hz network snapshots, 10 Hz vision-mask recompute
-- **WIN_CINEMATIC:** Triggered when any player's `totalAreaClaim` exceeds 51% of canvas area. Gameplay rules suspend; cinematic-state ruleset takes over (see § III.7, § XII.8). All player input disabled. Duration ~8 seconds.
-- **POSTGAME:** Trophy displayed against revealed canvas. Snapshot saved. No more actions. Return to lobby after 10s or on player action.
-
-### XII.6 — Networking [DEFERRED to Phase 3]
-
-- **Server-authoritative** for: spawner emissions, energy calculations, disruption resolution, win condition, vision masks
-- **Client-authoritative** for: cursor position, attraction inputs (smoothed and reconciled)
-- **Snapshot rate:** 10 Hz state, 30 Hz physics
-- **Lag compensation:** rewind for sever/steal targeting (player clicks based on what they see)
-- **Vision filtering:** server sends each client only the entities visible to that client (anti-cheat, since fog must be authoritative)
-
-**Networking is the highest-risk component.** It is intentionally Phase 3 work, after solo and local-MP have validated the gameplay.
-
-### XII.7 — Rendering Polish
-
-- Black background (`#000000`)
-- Sparks rendered as filled shapes with bloom/glow shader
-- Bonds rendered as gradient line segments (from `colorA` to `colorB`)
-- Subtle particle effects on bond creation, severing, and combo formation
-- **Fog-of-war layer:** opaque black overlay over canvas, with cutouts at vision sources (player spark, own structures, spawner zone). Cutout edges soft-faded (~20 px radial gradient) to avoid hard transitions.
-- **Memory-fog layer:** desaturated/dimmed render of last-observed state in areas the player has previously seen but is not currently observing. Renders below the live layer; live updates overwrite when an area re-enters vision.
-- Spawner zone rendered as a faint glow ring (so players can see where they need to enter)
-- 60 fps target, no compromise
-
-### XII.8 — Cinematic Implementation [NEW in v0.5]
-
-Implementation details for the victory cinematic (rule defined in § III.7).
-
-**Phase breakdown (target durations, total ~8 s):**
-
-| Phase | Duration | Engine behavior |
-|-------|----------|-----------------|
-| Fog Lift | 1.0 s | Linear alpha fade of fog and memory-fog layers from full opacity to zero. All structures progressively reveal. |
-| Migration | 2.0 s | Each structure interpolates from its built position toward an assigned slot near canvas center. Slots arranged in a ring, ordered by descending area-claim. Structures retain shape, color, and topology during transit (rigid translation, no rotation). |
-| Sequential Collapse | 4.0 s | Players ranked 6th → 2nd. Each player's structure dissolves over ~0.6 s: bonds break in topological order from periphery to anchor, primitives fade to free sparks, free sparks fade to nothing. Pause ~0.2 s between players. |
-| Trophy Formation | 1.0 s | Winner's structure begins dissolving identically. Dissolution **halts** when remaining mass equals `max(canvas_area × 0.05, 10 primitives, win_margin × canvas_area)`. The surviving subgraph is the **most-recently-built contiguous region** (highest `createdTick` values, grown greedily backward through time while maintaining connectivity). |
-
-**Trophy selection algorithm (deterministic):**
-
-```
-1. For each primitive in winner's structure, read createdTick (already
-   stored on each Bond; primitive's createdTick = max of its bond ticks)
-2. Initialize trophy_set = { primitive with highest createdTick }
-3. Loop:
-     a. Find all primitives bonded to trophy_set members but not yet in it
-     b. Pick the one with the highest createdTick among those candidates
-     c. Add it to trophy_set
-     d. Stop when trophy_set size >= floor (5% canvas OR 10 primitives)
-4. Dissolve all primitives NOT in trophy_set
-```
-
-This grows the trophy from the newest primitive backward through time, always staying connected. The result is the "leaf cluster" of the winner's most recent expansion — the unique, late-game part of their build.
-
-**Note:** The sever tiebreaker rule (§ VIII.4) deletes the last-built side in a 50/50 split. The trophy rule does the inverse: it preserves last-built. They are not contradictory — sever protects the foundation during gameplay (you want your core to survive damage); the trophy showcases divergence during the cinematic (you want the unique part to be the memorial). Different game states, different goals.
-
-**Cinematic-state ruleset (engine override):**
-
-- All input handlers detached
-- Physics integration paused for non-cinematic actors
-- Cinematic actors animated by tween system, not physics
-- Fog mask removed
-- Spawner deactivated
-- All player UI elements (carry indicator, energy gauge, charge dots) fade out at fog-lift start
-
-**Snapshot capture:**
-
-- Triggered at the end of Trophy Formation (T = 8.0 s)
-- Captures: full canvas render (no fog), trophy 3D-position, color metadata, win margin %, all six players' final claim percentages, timestamp
-- Saved as a local file: `spark_replay_<timestamp>.png` (image) + `spark_replay_<timestamp>.json` (metadata)
-- File location: OS-standard user data directory (e.g., `~/.local/share/spark/replays/` on Linux)
-- No upload, no server-side persistence in Phase 3 — local-only is the v0.5 spec
-
-**Phase 1 placeholder:** During Phase 1 prototyping, the cinematic is a single-frame canvas reveal with a "WIN" text overlay. The full sequence (with migration, collapse, trophy formation) lands in Phase 3 polish.
+Your structures are vulnerable while you are away from them. In v0.6 you are away far more often, because your hands are on decisions rather than deliveries — which makes towers, defenders and targeting priority (§ XII.2) load-bearing rather than optional.
 
 ---
 
-## XIII · Build Roadmap
+## XII · The Command Layer [NEW in v0.6]
 
-### Phase 1 — Solo Prototype [WEEKEND, ~12–16 HOURS]
+### XII.1 — Effector versus Commander [LOCKED]
 
-**Goal: Validate the build mechanic and combo discovery loop in absolute isolation. ONE spark, ONE player, no opponents (not even AI dummies).**
+The problem with v0.5 input was never the mouse. Every great strategy game is mouse-dominant — StarCraft, Age of Empires, Civilization, Factorio.
 
-- 1 player, 1 spark, no networking, no opponents
-- Mouse controls (attract, connect, sever your own structure)
-- 6 spark types implemented with distinct visuals
-- Confined central spawner with tick-based emission and bouncing within the zone
-- All 36 ordered pair combos defined (6–12 polished, rest functional placeholders)
-- Energy system computing passive income from complexity
-- Color system architecturally present (single-player monocolor for now — color-inheritance code-paths can be stubbed)
-- Win condition: reach a target area-claim threshold (single-player goal-driven; placeholder for multiplayer territory contest)
+The distinction is what the mouse *is*:
 
-**Day 1:** 6 spark types + drag physics + confined spawner + first 12 polished combos + carry mechanic.
+- **Commander.** You click; an agent acts. Hand speed converts into **decisions** per minute.
+- **Effector.** Your avatar *is* the cursor; proximity and speed determine outcomes directly. Hand speed converts into **physical work** per minute.
 
-**Day 2:** Energy system + self-sever + visual polish + win-state plumbing (placeholder cinematic = "WIN" text overlay).
+Mouse-as-effector works beautifully — in Osu!, agar.io, Fruit Ninja. That genre's contract is *2–5 minute rounds, instant restart, shallow depth, pure reflex expression.*
 
-**Out of scope for Phase 1:** networking, multiple players, AI opponents, fog of war (single-player doesn't need it), full disruption mechanic, color inheritance, mega-combos via connector chain, audio, menus, tutorial, victory cinematic (placeholder only).
+**v0.5 used an arcade input model with a strategy game's session length and depth.** Ten-minute matches, 36 combos, recipes, topology, territory, fog, economy — and no hands left to engage with any of it.
 
-The Phase 1 deliverable is a *single-player sandbox* — a player can come to the spawner, grab sparks, build, combine, sever, and watch their structure grow. That is the entire prototype goal. Adversarial systems land in Phase 2.
+v0.6 makes the mouse a commander.
 
-### Phase 2 — Local Multiplayer + Fog [WEEK 2]
+### XII.2 — Targeting Priority [LOCKED]
 
-**Goal: Validate adversarial play with all gameplay mechanics on, including fog of war.**
+**⚠ Correction (S128): towers DO auto-retarget today.** A `Defender` auto-acquires the nearest enemy **creature** on every IDLE tick (`findNearestEnemyCreatureFrom`, `defenderLifecycle.ts:159-185`), retries after `DEFENDER_REACQUIRE_TICKS = 12`, clears its target on RECOVER→IDLE and re-acquires from WINDUP. There is no priority field on `Defender` and **creatures are its only legal target class**. v0.6 therefore *replaces* an existing auto-acquire rather than adding policy to an inert tower.
 
-- 2 players, hot-seat or split-screen on one machine (each player gets their own viewport with their own fog mask)
-- Disruption mechanic fully online (sever, inject, steal)
-- Multi-color structures, color inheritance
-- Mega-combos (multi-structure bonding via connector chain with multiplier)
-- Fog of war with memory-fog implementation
-- Territory win condition (51% canvas claim)
-- Tuning pass on combo magic-12, area multipliers, energy formula, disruption damage, vision radii
+Under v0.6 the player clicks a tower and sets its priority — the Bloons TD interaction, with SPARK's categories:
 
-**Lock all open variables (§ XIV) by end of Phase 2.**
+| Priority | Targets |
+|---|---|
+| Offensive structures | Enemy spawners and emitters (pentagram, lightning hub) |
+| Defensive structures | Enemy turrets and defenders (laser turret, Helga) |
+| Fortress | The enemy castle |
+| Highest income | Whatever generates most points |
+| Workers | Enemy economy |
 
-### Phase 3 — Networked 6-Player [WEEK 3+]
+Requires a **structure taxonomy** — offensive / defensive / fortress / income — which is already latent in shipped content; every existing recipe slots in without redesign.
 
-**Goal: Ship a playable competitive prototype.**
+Deterministic tie-break on lowest id. Host-authoritative. Priority state rides the wire.
 
-- Server-authoritative architecture with per-player vision filtering (anti-cheat)
-- Lobby + matchmaking (basic — code-share or quick match)
-- State sync, lag compensation
-- Full victory cinematic implementation (§ XII.7)
-- Public playtesting to gather data on the magic-12, area multiplier curve, disruption math, and fog-of-war balance
+> **⚠ Two S128 findings this section depends on.**
+> **(1) Three of the five priorities have no damageable target.** `DEFENDER_HP = 1_000_000_000` is an
+> explicit sentinel ("defenders die by recipe-break, not damage (v1)", `constants.ts:989`);
+> `CreatureSpawner` has no `hp` field; the only damage function in the game is `damageCreature`
+> (`creatureLifecycle.ts:243`); and `CONNECTOR_HP` is implemented as the *attacker's* `chewProgress`
+> counter (`constants.ts:919-920`), which is not HP. **A "structure HP + `damageEntity` dispatcher"
+> must precede this work, or this work must follow §XIV.5 castle HP.**
+> **(2) "Highest income" has no backing data.** `computeComplexity` aggregates strictly per
+> `PlayerId` (`scoring.ts:206-237`); a "filament node" is a *bond* classified by `isFilamentCombo`,
+> not an entity with an income figure. Budget a per-component income scan on the host hot path, or
+> drop the row.
 
-### Phase 4 — Persistence, Achievements & Monetization [LONG-TERM]
+### XII.3 — Keyboard [LOCKED]
 
-**Goal: Build the long-term retention and revenue layer. Anti-bloat charter (§ XV) is relaxed for this phase.**
+The keyboard is a **command layer**: select, order, ability hotkeys, mode switch between build and command.
 
-- **Accounts:** Email-or-OAuth player accounts with persistent identity across sessions
-- **Match history:** Server-side replay storage of past games (last N matches per player, with a configurable cap)
-- **Achievements:** Cumulative goals across matches (e.g., first mega-combo, hidden-base win, raider streak, magic-12 mastery). Unlockable visual flourishes — never gameplay advantages.
-- **Trophy gallery:** Each saved cinematic snapshot becomes a viewable artifact in the player's profile, browsable like a portfolio
-- **Monetization (cosmetic-only):**
-  - Color palettes (alternative player-color sets — never gameplay-affecting)
-  - Spawner theme variants (different visual styles for the central zone)
-  - Trophy display frames (cosmetic borders for cinematic snapshots)
-  - Optional one-time unlock fee for the game itself (premium model) OR free-to-play with cosmetics
-- **No gameplay-affecting purchases.** No pay-to-win. The 6 sparks, the combos, the disruption mechanics, the win condition — all permanently equal across all players. This is non-negotiable; the integrity of the game depends on it.
-
-Phase 4 work begins ONLY after Phase 3 has shipped a playable, validated multiplayer prototype with verified retention. Build accounts when there's something worth retaining players for.
+**It is not a second puppet.** Driving a defender with WASD while the mouse drives the hero means controlling two real-time avatars on two independent effector channels. No successful game does this; the ones that flirt with it (Brothers, Overcooked) do so *because* the awkwardness is the joke. Games that genuinely combine WASD and mouse — shooters, MOBAs — always drive **one** body on two axes.
 
 ---
 
-## XIV · Open Questions (Lock Before Phase 2)
+## XIII · The Endgame Ceremony [NEW in v0.6 — specified in v0.5, never built]
 
-These are deliberately unresolved. Each must be specified before Phase 2 implementation begins.
+When a match ends, gameplay halts and a **28-second ceremony** plays. Every duration below is a music cue point.
 
-1. **Canvas dimensions** (in pixels or world units). Constraint: fastest-to-slowest trip ratio of ~3–5×.
-2. **Spawner zone radius** (% of canvas).
-3. **Spawn rate** (sparks per tick base).
-4. **Personal vision radius** `R_personal` (in canvas units / % of canvas diagonal). Default rule of thumb: ≈ spawner zone size.
-5. **Structure-beacon vision radius** `R_beacon` (per-primitive).
-6. **Vision-edge fade width** (hard cut vs. soft gradient).
-7. **Memory-fog visual style** — opacity and desaturation curve for previously-observed but not currently-visible areas. Affects readability vs. fog tension.
-8. **Energy formula** specifics — coefficient on `stability × complexity`.
-9. **Area-claim multiplier curve** — how much more does a complex combo claim than a simple primitive? Linear? Exponential? Capped?
-10. **Mega-combo multiplier** — exact value between 1.5× and 2.0×.
-11. **Connector chain** — minimum length, primitive cost, whether each connector primitive earns 1 build action toward disruption charge.
-12. **Bond stiffness / break-threshold** table per combo type.
-13. **The magic-12** — which 12 of the 36 ordered pairs get polish-level design.
-14. **Round time limit** (if any) — pure first-to-fill, or sudden-death timer?
-15. **Spectator mode** behavior on win.
+| Beat | Time | Behaviour |
+|---|---|---|
+| **Freeze** | 0:00–0:02 | Input detaches, physics pauses, score accrual stops. Held breath. |
+| **Fog lift** | 0:02–0:05 | Fog and memory-fog dissolve together. The entire canvas is visible for the first and only time in the round. |
+| **Migration** | 0:05–0:08 | All structures lift and drift to centre, retaining shape, colour and topology. |
+| **Procession** | 0:08–0:23 | Five beats of ~3s. Players dissolve in ascending rank — 6th, 5th, 4th, 3rd, 2nd. Each dissolution **mints that player's fragment**, which flies toward their cosmos. |
+| **Trophy** | 0:23–0:26 | The winner's structure dissolves too, but **halts**. The surviving subgraph is the trophy. |
+| **Flight** | 0:26–0:28 | Sound effect; the trophy leaves the world for the cosmos. |
 
-Items 1–7 are spawner/map/vision calibration — playtest in Phase 1.
-Items 8–12 are economic balance — playtest in Phase 2.
-Items 13–15 are content/UX — design in parallel.
+**The procession beat is parameterised** at ~3s per player — 15s at six seats, proportionally shorter for fewer. This is the single number to move if the music wants a different length.
 
----
+### XIII.1 — Trophy Selection [LOCKED]
 
-## XV · Anti-Bloat Charter
+The trophy is the **most-recently-built contiguous region** of the winner's structure — grown greedily backward through `createdTick` while maintaining connectivity.
 
-**Scope: This charter applies to Phases 1–3 (prototype through networked launch). Phase 4 (accounts, achievements, monetization) is a deliberate, planned expansion — see § XIII.4.**
+Opening technique converges across players because everyone learns the same plays. Late-game expansion is where players diverge. **The trophy therefore records what made this match yours**, not a generic opening.
 
-The following are forbidden in the prototype unless explicitly required by a locked rule:
+### XIII.2 — Everyone Leaves With Something [LOCKED — amended v0.6]
 
-- **No accounts, no progression, no unlocks, no cosmetics during Phases 1–3.** Every player has the same 6 sparks. Forever (in-game). Phase 4 introduces cosmetic-only unlocks; no gameplay-affecting purchases ever.
-- **No tutorial.** Discovery is the tutorial.
-- **No menus** in Phase 1. The game starts on launch.
-- **No audio** in Phase 1. (Reserved for v0.6 — ambient drone + combo sparkle sounds.)
-- **No animations** beyond spark glow + bond formation particles + sever erasure + fog edge gradient + the cinematic.
-- **No external dependencies** beyond the engine and a physics math library.
-- **No module over 500 lines.** Refactor or split.
-- **No frame-rate compromise.** 60 fps minimum on the dev machine. If a feature drops fps, the feature is wrong.
-- **No structure dragging during gameplay.** Ever. Structures are permanent fixtures during PLAYING state. (Cinematic state suspends this — § III.7.)
-- **No feature added** unless required by the spec or solving a real problem in playtesting.
-- **No second screen, no in-game stats, no analytics, no leaderboards.** The canvas is the entire game during PLAYING. Match history and the trophy gallery are Phase 4 features and live OUTSIDE the canvas.
+v0.5 gave a trophy only to first place. At six players that is **one trophy per six matches** — far too slow to feed a collection meta, and it hits new players hardest: few trophies, weak castle, keep losing.
 
-If a feature isn't being used in playtesting, **cut it**.
+**Every player mints a fragment, sized by finishing position.** The winner's is larger by a clear margin; sixth place keeps something small.
+
+This improves the ceremony rather than diluting it — the procession now visibly mints six trophies in ascending order of size, instead of erasing five players to spotlight one.
+
+### XIII.3 — Ceremony State Ruleset [LOCKED]
+
+Input disabled · structure immobility suspended · spark physics suspended · disruption inert · fog fully lifted · spawner deactivated · in-match UI faded out.
 
 ---
 
-## XVI · Glossary
+## XIV · The Meta [NEW in v0.6]
 
-- **Spark** — A floating geometric primitive (one of six types). Also: a player's avatar (overloaded term — context disambiguates).
-- **Primitive** — A spark that has been placed into a structure (i.e., is no longer free-floating).
-- **Bond** — A spring constraint connecting two primitives.
-- **Structure** — A connected component of primitives joined by bonds. Immobile once built (§ VI.5).
-- **Combo** — An ordered pair of spark types (typeA, typeB) and the resulting outcome from the combo table.
-- **Mega-combo** — Two separate structures joined by a connector chain, granting an area-claim multiplier.
-- **Connector chain** — A sequence of intermediate primitives built between two structures to bridge them into a mega-combo. Itself a vulnerable thin structure.
-- **Carry slot** — The single-spark holding capacity of a player. Always 0 or 1.
-- **Disruption charge** — A stored attack action, earned 1 per 5 builds, capped at 2.
-- **Sever** — A disruption action that cuts one bond and deletes the smaller side.
-- **Inject Spiral** — A disruption action that adds a chaos primitive to an enemy structure.
-- **Steal** — A disruption action that detaches a primitive from an enemy and adds it to your carry.
-- **Topology** — The shape and connectivity pattern of a structure. The strategic property defending against severs.
-- **Magic-12** — The 12 of 36 ordered pair combos that receive polish-level design.
-- **Spawner zone** — The invisible circular boundary at canvas center within which sparks are confined and generated. Always visible to all players.
-- **Fog of war** — The rendering rule that black-outs canvas areas outside the local player's vision. Real-time only, no memory.
-- **Personal radius** — The vision circle around the local player's spark.
-- **Beacon (vision beacon)** — A vision radius around each of the local player's own primitives. Permanent, additive with personal radius.
-- **Scouting** — The act of traveling across the canvas to reveal enemy structures or terrain via personal radius.
-- **Decoy base** — A small visible structure built deliberately to mislead enemy scouts.
-- **Structure immobility** — The locked rule that placed primitives do not move (§ VI.5).
+### XIV.1 — The Cosmos [LOCKED]
+
+Trophies live in **their own space** — a separate view where every structure the player has ever won floats freely, with ambient music and no clock. This is where castles are assembled, taken apart, and rearranged.
+
+This is SPARK's **third space**, and it is where a relaxed register actually belongs. That register was never going to fit inside a competitive real-time match — those are supposed to be tense. Attempting to make one mode be both relaxing and competitive is the root of what made v0.5 feel wrong. **It is two modes.**
+
+Postgame is also the strongest retention moment available: fresh trophy in hand, emotions still up, immediate reason to play again.
+
+### XIV.2 — Assembly [LOCKED]
+
+Castle assembly **reuses SPARK's own bond mechanics.** The player connects trophies exactly as they connect primitives in a match, without a clock or an opponent.
+
+Freeform in expression, structurally valid by construction, and it teaches the core interaction in the calmest possible setting. A bespoke editor would be more work and teach nothing.
+
+**OPEN:** how much constraint assembly needs to keep results coherent (§ XVI).
+
+### XIV.3 — Tier as Budget [LOCKED]
+
+> **Tier sets the power budget. Trophies set the shape.**
+
+Two players at the same tier have the **same power** and **radically different composition.** The library is a loadout, not a power level.
+
+This is the anti-snowball guarantee. Persistent-power metas fail when winners get *stronger*; they succeed when winners get *different*.
+
+### XIV.4 — Stakes [LOCKED]
+
+> **Stake attention and access. Never the artifact.**
+
+- **The library is permanent.** No trophy earned is ever lost.
+- **The tier moves** with results. It is the budget you can field.
+- **Bounty** — a rich castle is visibly worth more to destroy. Investing costs you *attention*, not property, and leader-targeting solves itself.
+- **Dormancy** — trophies in a lost castle return unusable for a match or two.
+
+**Permanent trophy loss is REJECTED.** It punishes the players who engage most with the best feature; it makes hoarding optimal, and a collection nobody dares field is a museum rather than a meta; loss aversion runs roughly 2:1 so symmetric risk reads as net negative; and it is tonally opposite to the game v0.6 exists to produce.
+
+### XIV.5 — Castle Damage and Repair [LOCKED]
+
+The castle has hit points and can be destroyed, which is the second loss condition (§ III.2).
+
+**Damage is repairable mid-match.** The player rebuilds what was destroyed by attaching connectors, if they can find or build the required shapes.
+
+Repair gives the bank and the workers a defensive purpose, turns a beating into a comeback opportunity, and prevents castle damage from becoming a death spiral.
+
+**OPEN:** whether castle destruction eliminates the player or leaves them playing at a deficit. Early elimination followed by eight minutes of spectating is a known FFA failure; repair partly mitigates it.
+
+### XIV.6 — Persistence [LOCKED]
+
+The player profile — library, castle composition, tier — is a **serialisable blob designed server-ready from day one**, stored locally to begin with.
+
+Local storage suffices for the library, assembly, the cosmos and single-device play. A server is required only for tier matchmaking, cross-device continuity, anti-tamper and leaderboards. **The backend therefore becomes a storage swap, not a rewrite**, and the decision can be deferred until the loop is proven.
+
+### XIV.7 — Trophies Are Blueprints [LOCKED]
+
+A trophy is a saved connected subgraph. A blueprint is a shape workers know how to build. **They are the same data structure.**
+
+A trophy is therefore simultaneously a socket in your castle and a shape you can field. Late-game, the player sketches a blueprint ghost and workers fill it in.
+
+This is the sole exception to the authorship rule (§ VII.5), and it holds because **the player drew the plan and earned the right to build it.**
 
 ---
 
-## End of Blueprint v0.5
+## XV · Technical Architecture
 
-**Status:** Frozen for Phase 1 implementation.
-**Supersedes:** v0.4 (3 major mechanic changes — see § 0).
-**Next revision:** v0.6 after Phase 2 playtesting, locking the OPEN items in § XIV.
-**Author:** Drafted with Claude · May 2026.
+### XV.1 — Stack [LOCKED]
 
-*"Geometry is the language. Fog is the canvas. The unseen is the game."*
+TypeScript 5 strict · Vite · PixiJS v8 · Vitest · Trystero/Nostr WebRTC. Full rationale in `LOCKED_DECISIONS § 1`.
+
+### XV.2 — Authority Model [LOCKED]
+
+Host runs the full simulation; clients render lerp-interpolated snapshots and send INTENT envelopes upstream. Clients never simulate. Per-direction sequence numbers reject out-of-order snapshots; `parseNetMessage` validates the peer wire boundary.
+
+### XV.3 — Determinism [LOCKED]
+
+Seeded RNG (mulberry32), fixed 60 Hz physics with sub-stepping, tick-based cadence everywhere — **never wall-clock, never `Math.random` in reducers.** Stateless `mix32` hashing for jitter that must consume no RNG stream. Deterministic tie-breaks on lowest id. Replay tests assert byte-identical snapshots across two identically-seeded runs.
+
+**Every v0.6 entity — castles, workers, banks, directives, upgrade state, targeting priorities — obeys this without exception.**
+
+### XV.4 — The Wire [CONSTRAINT]
+
+The host emits a **full-world JSON snapshot with no delta encoding.**
+
+> **⚠ Measured in S128; the earlier "~3 KB" was a stale aside in `save.ts:419`, never a measurement.**
+> **0.45 KB empty → 6.7–8.5 KB in a live 2-peer duel → 38.5 KB at six seats with a full board**
+> (the repo's own S122 TD measure was 49,684 B). Per-entity: prim+bond 269.8 B, free spark 153.9 B,
+> trimmed creature 106.6 B, a gatherer ~112–218 B ⇒ **+30 gatherers is +17%, not +100%.**
+>
+> Two further corrections. **10 Hz is a cap, not a delivered rate:** the send is frame-driven and the
+> repo measured it collapsing to **2.2 Hz** under a TD-heavy sim — below what the 150 ms render-delay
+> buffer needs (`constants.ts:484`). And **the host sends the full payload once per active transport
+> strategy** (`transport.ts:547-565`; `iceConfig.ts:69-73` enables both `nostr` and `torrent`, with
+> peer dedup on *receive* only), so upstream is multiplied, not shared.
+>
+> **Measure real six-seat upstream before Phase 1 commits.** Delta encoding is Phase-1-adjacent, not
+> V6-4.2 cleanup. Also note the 16 KiB wire guard's "worst case" fixture
+> (`save.replay.test.ts:715,776`) contains **zero free sparks**, so it under-tests by 2.35–3×.
+
+### XV.5 — The Bundle [CONSTRAINT]
+
+Main entry ≤ **750 KiB raw**, mechanically enforced by `scripts/check-bundle-size.mjs` as the last step of `npm run build`. Currently **640.8 KiB** — **109.2 KiB of headroom for the entire v0.6 roadmap.**
+
+> **⚠ The gate under-measures real download (S128).** It measures the **entry chunk alone** by explicit
+> design. `dist/assets/simWorker-*.js` is a further **120.1 KiB** outside the gate, so initial JS
+> actually fetched is **758.1 KiB — already 8.1 KiB above the charter number** before v0.6 adds a line.
+> Two perverse consequences: a slot can *lower* the gated number while download is unchanged, and every
+> new sim line is paid twice on download but once on the gate. Observed growth is ~2.6 KiB/session
+> (570.9 KiB at S100 → 640.8 at S127), and Phase 3's three new scenes are ~40–60 KiB — survivable
+> **only** if lazily code-split. Report BOTH numbers every slot.
+
+A breach **fails the build and blocks the deploy.** This is not a soft budget; mislabelling it as one is what kept a finished feature off production for a full session in S100.
+
+Heavy or optional UI stays lazily code-split. Large art and audio go to `public/`, never the bundle. **The cosmos background should be procedural** rather than an asset for exactly this reason.
+
+### XV.6 — Cross-Cutting Obligations [LOCKED]
+
+Every new world entity must be deliberately wired in. The four headline obligations are host
+migration, save/load/replay with byte-identical coverage, teardown parity at **every** site, and
+disconnect/rejoin.
+
+> **⚠ The real surface is 17 sites, not 4 (S128 audit).** Derived from `creatureSpawners` (S100) and
+> `defenders` (S103); defenders touched 12 of the 17. `clear-rehydrate-advance-nextId` is uniform
+> across 9 entity families in `applySnapshotCore` (`save.ts:857-1018`), so the template is unambiguous:
+>
+> `worldTypes.ts` World field + `nextXId` · `types.ts` branded id + `asXId` · `world.ts:318-322` init ·
+> `world.ts` dispatch cases → new `state/x/xLifecycle.ts` · `save.ts` `SerializedX` + optional snapshot
+> field · `save.ts:715-719` emit **sorted by id** · `save.ts:1008-1018` clear-rehydrate-advance-nextId
+> **plus a post-load re-phase for any timer** (`loadRephaseDefenders`) · `save.ts:792-814` mirror-trim
+> for host-only fields · **five** clear/teardown sites (`world.ts:449`/`:451`, `gameState.ts:127`/`:129`,
+> `gameMode.ts:198-202`, `gameMode.ts:339-343`, `godlyActions.ts:75-80`) · `protocol.ts:101` version bump
+> + `:146` changelog · `protocol.ts:538-558` `KNOWN_GAME_ACTION_TYPES_RECORD` and `:573-592`
+> `CLIENT_INTENT_TYPES_RECORD` · `migrationClaim.ts:147-164` + `main.ts:2009-2018` ·
+> `workerSim.ts:251-280` structuralSignature · `stateHash.ts:46-48` `HashableWorld` ·
+> `benchGate.ts:50-69` `BENCH_INTENT_POLICY`.
+>
+> **`benchGate` is a hard forcing function:** `benchGate.test.ts` asserts set-equality with
+> `CLIENT_INTENT_TYPES` in **both** directions, so every new v0.6 intent (bank draw, gatherer order,
+> directive, tower priority) fails the suite until an explicit allow/deny — which is exactly where
+> §XVI's "what happens to a benched player's castle" must land. Budget it as planned work, not a red test.
+>
+> **Two more traps.** `stateHash.ts:45-48` `HashableWorld` covers only
+> tick/primitives/bonds/freeSparks/scoreProgress/scoreByPlayer — **creatures, spawners, defenders,
+> bombs, hunters, potatoes, rainbows, seagulls and poops are ALL absent**, so the silent-desync oracle
+> is blind to any new entity by default. And the `despawnAtTick = 0` rehydration bug is **still live
+> and unguarded in three paths** (host save/load of a Voltkin, migration takeover of any creature,
+> worker-sim fallback repair) because all three `CREATURE_CONFIGS` are now `persistent:false` while
+> `save.ts` emits `despawnAtTick` only for chewers and defaults it to 0 — it is a present hazard, not
+> an anecdote.
+
+### XV.7 — Deploy [LOCKED — v0.6]
+
+**GitHub Actions auto-deploy.** Every push to `master` ships to production. The manual `npm run deploy` / gh-pages path is **retired** — two live deploy mechanisms is how a finished feature sat un-deployed for a week.
+
+### XV.8 — Platform [LOCKED — v0.6]
+
+**SPARK is a PC game.** Mobile is not a target.
+
+Playtest confirms the simulation runs smoothly on mobile hardware, but the game is not *playable* there: a finger-driven avatar occludes a large fraction of the screen and the interface reads worse than on desktop.
+
+**Reconsider after the pivot ships**, not before. The v0.6 command model is substantially more touch-compatible than v0.5's cursor-avatar — tapping to issue orders to an autonomous economy is a natural touch interaction in a way that dragging a cursor-body is not. Mobile may become viable as a side effect rather than a project.
+
+---
+
+## XVI · Open Questions
+
+**Economy**
+0. **⛔ The material faucet** — `SPAWN_RATE_PER_SECOND = 0.1875` with a 10 s TTL yields a standing pool of ~1.9 sparks arena-wide, so the bank cap cannot bind and a type-filtered directive starves. **Owner ruling required before §VII.3/§VII.4 ship** (B3). Must be ruled jointly with match length, since score is quadratic in time.
+1. **Bank cap** exact value (~8–10) — **⛔ now gated on B4**; 8–10 is ≥ every godly recipe size, which would delete the carve-down tactic. See §VII.4.
+2. **Upgrade cost curve** — flat, escalating, or capped. Determines the entire early-vs-late arc.
+3. **`FREE_SPARK_SOFT_CAP`** after the spawner shrink (~28–30 to hold density constant).
+4. **`R_PERSONAL`** — eye-tuned against the old zone size. Re-judge on playtest; do not pre-emptively change.
+
+**Meta**
+5. **Assembly constraint** — how much structure freeform assembly needs to stay coherent.
+6. **Elimination** — does castle destruction remove the player, or leave them at a deficit?
+7. **Tier computation** and where it lives before a backend exists.
+8. **Benched or eaten castle owners** — the bench gate assumes a player with no persistent world object.
+
+**Combat**
+9. **NONET doubling and the leader** — doubling favours whoever built most. May need a cap, trigger-bias toward trailing players, or nothing given the hunter already catches up at 75%.
+10. **Sever preview** (§ IX.5) — re-ratify or narrowly revoke.
+11. **Whether the hero unit is still needed** once the command layer matures.
+
+**Bots**
+12. **Resource starvation** — wait vs. re-rank when the needed spark type hasn't spawned. Should scale with difficulty tier.
+
+---
+
+## XVII · Anti-Bloat Charter [AMENDED v0.6]
+
+Still in force:
+
+- **No NEW module over 500 lines.** Refactor or split. ⚠ **Amended honestly in S128: 16 production modules already exceed 500 lines** — `main.ts` 2519, `save.ts` 1658, `audioManager.ts` 1525, `constants.ts` 1070, `controls.ts` 900, `protocol.ts` 746, `placePrimitive.ts` 699, `hostTick.ts` 637, `world.ts` 628, `gameMode.ts` 553 and others. They are **grandfathered with a scheduled split**, because v0.6 adds five new entities × the 17 registration sites (§XV.6) concentrated in exactly those files. Leaving the rule stated absolutely made it false rather than binding.
+- **No frame-rate compromise.** 60 fps minimum. A feature that drops frames is the wrong feature.
+- **No structure dragging during PLAYING.** Ever. (Ceremony suspends this.)
+- **No external dependencies** beyond the engine and math.
+- **No pay-to-win, ever.** The six sparks, the combos, the disruption mechanics and the win conditions are permanently equal across all players. Cosmetic-only monetisation if any. **Non-negotiable.**
+- **No feature added** unless required by the spec or solving a real problem found in playtesting.
+- **If a feature isn't used in playtesting, cut it.**
+
+**Amended by v0.6:**
+
+- ~~No tutorial — discovery is the tutorial.~~ **A 60–90 second guided introduction ships, shown on a machine's first-ever session only.** Never in a competitive round, never repeated. Every new player reported not knowing what to do; discovery was not teaching, it was gatekeeping. *It fixes comprehension, not fun — do not let a successful tutorial convince anyone the core loop is fixed.*
+- ~~No accounts, no progression, no unlocks.~~ **The trophy meta is core to v0.6**, not a bolt-on. It remains cosmetic-and-composition only — never a power advantage (§ XIV.3).
+- ~~No HUD, no in-game stats.~~ **Revoked** (§ III.5). A game that cannot be read cannot be learned.
+- ~~No audio.~~ Long since shipped.
+
+---
+
+## XVIII · Glossary
+
+- **Spark** — a floating geometric primitive; also a worker unit; also the player's hero avatar. Context disambiguates.
+- **Primitive** — a spark placed into a structure.
+- **Bond** — a spring constraint connecting two primitives.
+- **Structure** — a connected component of primitives. Immobile once built.
+- **Combo** — an ordered pair of spark types and its outcome.
+- **Castle** — a player's persistent home entity, assembled from trophies. Produces workers, holds the bank, can be destroyed.
+- **Worker** — an autonomous spark emitted by a castle. Hauls one primitive per trip. Respawns.
+- **Directive** — a collect order given to workers, filtering which primitive types they take.
+- **Bank** — the castle's capped store of deposited primitives. The player builds from it.
+- **Hero** — the player's own avatar. Sculpts, raids, defends. Does not haul.
+- **Sculpting** — deliberately severing bonds to carve a structure down to a target geometry.
+- **Trophy** — a connected subgraph preserved from a finished match. Also a blueprint.
+- **Endgame Ceremony** — the 28-second sequence between a match ending and the meta (§III.7, §XIII). The canonical name; "victory cinematic" and "victory ceremony" are the same thing.
+- **Cosmos** — the out-of-match space where trophies float and castles are assembled.
+- **Tier** — a player's power budget, moved by results. Distinct from the permanent library.
+- **Bounty** — the visible value of destroying a rich castle.
+- **Dormancy** — the temporary unavailability of trophies from a lost castle.
+- **Topology** — a structure's connectivity pattern; the property that defends against severs.
+- **Magic-14** — the 14 named magic combos.
+- **Spawner zone** — the confined central region where sparks generate. Always visible to all.
+
+---
+
+## End of Blueprint v0.6
+
+**Status:** Specification. Implementation roadmap in [SPARK_v0.6_DESIGN.md](SPARK_v0.6_DESIGN.md) § 13, sessions S126–S150.
+**Supersedes:** v0.5.1 — seven substantive changes, see § 0.
+**Revoked from v0.5.1:** no-HUD (§ III.5), mouse-only (§ VI.1), carry-1-as-player-constraint (§ III.3, relocated), no-tutorial (§ XVII), no-progression (§ XVII).
+**Authority:** this document > `LOCKED_DECISIONS.md` > session-level tuning. Where `SPARK_v0.6_DESIGN.md` and this document disagree on a **rule**, THIS document governs; the design doc governs **rationale** and carries the roadmap. `BACKLOG.md` carries slot labels, ordering and the carry-forward ledger.
+
+*"Geometry is the language. The castle is the home. The unseen is still the game."*

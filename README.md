@@ -18,10 +18,11 @@ Dev server opens a browser automatically. P2P 1v1 needs two browsers/devices and
 
 ## What it is
 
-Two players place geometric primitives (squares, triangles, circles, hex) onto a shared canvas, bond them into structures, and trigger "godly" cinematic effects when their structures match named recipes. First to a score threshold wins. Phase 2 added the Voltkin lightning creature — a multi-frame animated actor that spawns at cinematic handoff, charges, and severs enemy bonds over an 8-second active window.
+Up to six players place geometric primitives onto a shared canvas, bond them into structures, and bring those structures to life when the geometry matches a named recipe — cinematic "godly" creatures, chewer spawners, laser turrets, suicide drone hubs. Score accrues from standing structure complexity; first to the threshold wins.
 
-Phase 1: single-player physics + placement + scoring.
-Phase 2 (current): networked 1v1 + autonomous creature actors + procedural + sampled audio.
+**Shipped today (v0.5.1):** 6-player FFA over P2P WebRTC · 36 combos / 14 magic names · 5 godly recipes · 5 hazard systems · bots at four difficulties · host migration · NONET sudoku minigame.
+
+**In design (v0.6):** the economy pivot — a castle emits worker sparks that collect on your directives into a capped bank, and you build and sculpt from the bank instead of hauling. Two economy blockers (the material faucet, and whether a capped bank destroys the carve-down tactic) are open owner rulings gating Phase 1. See [SPARK_v0.6_DESIGN.md](SPARK_v0.6_DESIGN.md) and the roadmap in [BACKLOG.md](BACKLOG.md).
 
 ## Architecture
 
@@ -73,7 +74,8 @@ Pushing to `master` triggers `.github/workflows/deploy.yml` → `actions/upload-
 
 Internal docs live in the repo root + `docs/`:
 
-- **[SPARK_Blueprint.md](SPARK_Blueprint.md)** — full game design, FSM diagrams, physics tuning, scoring model
+- **[SPARK_v0.6_DESIGN.md](SPARK_v0.6_DESIGN.md)** — v0.6 design direction: the diagnosis, the reasoning, and the V6-0.1→V6-4.3 roadmap (economy pivot, trophy meta, endgame ceremony). Authoritative on **rationale**; the Blueprint governs any **rule**.
+- **[SPARK_Blueprint.md](SPARK_Blueprint.md)** — v0.6 specification: core loop, locked rules, economy, command layer, endgame, meta
 - **[LOCKED_DECISIONS.md](LOCKED_DECISIONS.md)** — architectural decisions with rationale + revisit gates
 - **[BACKLOG.md](BACKLOG.md)** — session-by-session priority log
 - **[AUDIT.md](AUDIT.md)** — most recent code audit (Pass 1, 2026-05-21)

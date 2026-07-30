@@ -7,6 +7,54 @@
 
 ---
 
+## ⚑ v0.6 AMENDMENT NOTICE (2026-07-30) — READ BEFORE TRUSTING ANY SECTION BELOW
+
+**[SPARK_Blueprint.md](SPARK_Blueprint.md) is now v0.6.** Per the authority chain above, Blueprint LOCKED rules outrank this document — so where a section below encodes a v0.5.1 rule that v0.6 revoked, **the Blueprint wins and this document is stale until S126 completes the unlock pass.**
+
+This notice exists so a future session does not read a withdrawn lock as current.
+
+> **STATUS (S128): the unlock pass is DONE for the sections that block Phase 1.** §2 vision
+> placeholders corrected, §3 energy rewritten with a v0.6 ruling in the section body, and §11's
+> Carry-1 implementation row ruled on (amended, not revoked — the one lock the roadmap silently
+> violated). Each ruling now lives **in the section it governs**, not in this header, so a reader who
+> jumps straight to a section cannot miss it. This header is now an index, not a warning.
+
+### Sections affected by the v0.6 pivot
+
+| § | Topic | v0.6 status |
+|---|---|---|
+| **§ 2** | Canvas, spawner, vision | **`SPAWNER_RADIUS` 250 → 188 (−25%)** lands S130 for castle real estate. Area falls ~43%, so `FREE_SPARK_SOFT_CAP` must drop in step (~28–30). `R_PERSONAL` re-judged on playtest, not pre-emptively. Vision gains a **worker** source. |
+| **§ 3** | Energy, area-claim, mega-combo | **Rewritten by Blueprint § VIII.** Energy becomes a real second currency with sinks (workers / speed / respawn); Score comes from magic bonds, Energy from functional bonds. `areaMultiplier` remains dead data. |
+| **§ 6** | Combo table schema | Table unchanged. **Functional combos gain a purpose** — they feed Energy. This retires the G2 "family traits" item without new mechanics. |
+| **§ 13** | Phase-2 networked play | Authority model, determinism rules and migration all survive intact. **Every new v0.6 entity** (castle, gatherer, bank, directive, upgrade state, targeting priority) must be wired in — and the real surface is **17 sites, not 4**; see `SPARK_Blueprint.md` §XV.6. Note `stateHash.ts:45-48` `HashableWorld` omits **every** entity family today, so the silent-desync oracle is blind to new entities by default. |
+| **§ 5** | Colour / ownership palette | Unchanged and RE-RATIFIED. A spark carried by a gatherer is colourless in transit and takes the owner's colour **on placement** — ownership is established by the act of building, not collecting. |
+| **§ 7** | Godly recipes | Table unchanged and RE-RATIFIED, but **the component sizes are now load-bearing for the economy**: pentagram 5 · lightningHub 6 · Helga 7 · Voltkin 8 · laserTurret 8, each an EXACT isolated component. A bank cap ≥ 5 makes direct assembly rational and deletes the carve-down tactic (B4). **Never tune the bank cap without this table in view.** |
+| **§ 8** | Hazards / disruption | Unchanged, but **V6-1.5 (hero unit) silently changes shipped hazard rules** if `CarryingPlayer` is deleted — see the §11 ruling. Also: disruption charges are earned in `placePrimitive.ts:584`; if that call site does not move to the bank-place path, the hero loses SEVER and SHRINK_TERRITORY. |
+| **§ 10** | Deploy / Pages | RE-RATIFIED as amended by §DEPLOY-PATH (S126). The manual path is **already deleted**; the surviving residual is the owner-gated `build_type=workflow` flip. **Never trust `gh api .../pages`** — trust the deployments API + the live asset hash. |
+| **§ 11** | Implementation map | **Carry-1 row RULED — amended, not revoked.** See the ruling in §11 itself. This was the one lock the v0.6 roadmap violated without an explicit decision. |
+
+### Blueprint locks REVOKED in v0.6
+
+Implementation decisions below that depend on any of these are stale:
+
+- **No HUD** (v0.5.1 § III.5) — revoked. Fog is retained; concealment of your *own outcomes* is not.
+- **Mouse-only input** (v0.5.1 § VI.1) — revoked. A keyboard command layer ships.
+- **Carry-1 as a player constraint** (v0.5.1 § III.3) — **relocated, not removed.** The rule now binds the *worker*; its strategic function moves to the bank cap.
+- **No tutorial** (v0.5.1 § XV) — revoked. A first-run-only guided intro ships.
+- **No progression** (v0.5.1 § XV) — revoked. The trophy meta is core to v0.6, and remains composition-only, never a power advantage.
+
+### Locks explicitly RE-RATIFIED (unchanged and load-bearing)
+
+Determinism (seeded RNG, tick-based cadence, no wall-clock, no `Math.random` in reducers, lowest-id tie-breaks, byte-identical replay) · host-authoritative simulation with non-simulating clients · structure immobility · colour-as-ownership · the bundle charter and its hard gate · no pay-to-win, ever.
+
+### Also settled 2026-07-30
+
+- **Deploy path — GitHub Actions auto-deploy.** Every `master` push ships. The manual `npm run deploy` / gh-pages path is **retired — already DELETED in S126 (`162b40f0`)**, so do not plan to remove it again and do not recreate it. Surviving residual is OWNER-GATED: `gh api -X PUT repos/:owner/:repo/pages -f build_type=workflow` → verify the live asset hash → *then* optionally delete `origin/gh-pages`, in that order. See §DEPLOY-PATH for the full record.
+- **Sim-worker default-on — playtest PASSED.** Flip the default and drop the `?worker=1` flag gate in S129.
+- **Platform — PC only.** Mobile revisited only after the pivot ships.
+
+---
+
 ## 1 · Engine & Stack
 
 | Choice | Value | Why |
@@ -157,8 +205,8 @@ A/B downgrade `trystero@0.20.0` to isolate the version-bump impact.
 | 1 | Canvas | **1920×1080 logical, CSS-scaled** | `object-fit: contain`; mouse coords scaled |
 | 2 | Spawner radius | **250 px** (~9% area) | Slightly above precise 7.5% for breathing room |
 | 3 | Spawn rate | **0.15/sec** Poisson [v2 amendment 2026-05-09] | Was 1.5/sec — S5 playtest amendment, see Open Items below |
-| 4 | `R_personal` | **300 px** [PHASE 2] | Placeholder |
-| 5 | `R_beacon` | **80 px** [PHASE 2] | Placeholder |
+| 4 | `R_personal` | **75 px** — SETTLED (S128) | Was recorded as "300 px [PHASE 2] Placeholder", which has been wrong for ~65 sessions. Real value `constants.ts:131`, tuned live 300→150 (S58) →75 (S63). **Not** mathematically bound to `SPAWNER_RADIUS`, but the *feel* was calibrated against r=250 — re-judge after the V6-1.2 shrink, do NOT pre-emptively change. |
+| 5 | `R_beacon` | **80 px** — verify before citing | Still marked "[PHASE 2] Placeholder"; confirm against `constants.ts` before relying on it, as item 4 shows this block went stale. Same caution for the fade radius and memory-fog rows below. |
 | 6 | Vision fade | **40 px** soft [PHASE 2] | Placeholder |
 | 7 | Memory-fog curve | Linear opacity 1.0→0.4, desat 0→0.7 over 30s [PHASE 2] | Placeholder |
 
@@ -184,12 +232,42 @@ These are CARRIED FORWARD as candidates for re-tuning after S6 user playtest. If
 
 | # | Item | Locked value |
 |---|---|---|
-| 8 | Energy | **+5.0/sec flat passive** (Phase 1 stub) |
+| 8 | Energy | **+5.0/sec flat passive** — **NO LONGER A STUB TO BE REPLACED; it is the shipped source, and v0.6 keeps it while adding SINKS.** See the v0.6 ruling below this table. |
 | 9 | Area-claim | `claim(n) = 1 + 0.1·(n-2)` capped at 2.0× |
 | 10 | Mega-combo mult | **1.75×** (mid-of-range) |
 | 11 | Connector chain | min 2 primitives, +1 build-action credit per [PHASE 2] |
 
 Full energy formula `Σ(stability × complexity)` deferred to Phase 2 once structures have meaning.
+
+> ### ⛑ v0.6 RULING — §3 energy is REWRITTEN (settled S128, replaces the header notice)
+>
+> **REVOKED:** "the full energy formula is deferred to Phase 2." v0.6 does not adopt
+> `Σ(stability × complexity)` at all. **Energy becomes a real second currency** — earned from
+> **functional** bonds, spent on gatherers / worker speed / respawn time, and **never a win
+> condition**. Score is earned from **magic** bonds and is **never spendable**. The separation is
+> structural, not a tuning preference: if one currency both wins and buys, spending moves you away
+> from winning and optimal play collapses to a fixed script. Spec: `SPARK_Blueprint.md` §VIII.
+>
+> **RE-RATIFIED:** the `+5.0/sec` flat accrual itself (`ENERGY_PER_SECOND_FLAT`, `constants.ts:192`,
+> dispatched per player per tick at `physicsLoop.ts:107-109`), its place in the protocol allowlist
+> (`protocol.ts:463`), and its serialization as a mandatory `SerializedPlayer` field.
+>
+> **Three facts a future session must not re-derive (S128 audit):**
+> 1. **Energy has ZERO READS**, not merely zero sinks — `ENERGY_MAX|energy -=|spendEnergy|canAfford|
+>    ENERGY_COST` all return nothing across `src/`. Its only two consumers are the gauge renderer and
+>    the serializer, so the consumption side is **pure greenfield**.
+> 2. The gauge **clamps at `ENERGY_GAUGE_FULL = 100`** (`ui.ts:36,214`), so it pins full at t≈20 s and
+>    stays there for 94–97% of a match. **Raise the cap or new sinks will be invisible.**
+> 3. Disruption was never meant to be the sink — the v0.5.1 blueprint itself specified build-count
+>    gating. The specified-but-unbuilt sinks were **self-sever cost** and **strong attraction drag**.
+>
+> **⚠ Carried hazard:** `FUNCTIONAL_BOND_COMPLEXITY` currently earns SCORE, and removing it to make
+> functional bonds energy-only reverts an owner-driven S84 P4 decision whose rationale is recorded
+> verbatim at `constants.ts:227-231` ("a fully-CONNECTED tree earned exactly what the same prims earn
+> scattered"). It also lengthens non-magic connected builds 12–14%. **Surface to the owner before the
+> V6-1.6 PDR** — it is the one place the pivot contradicts a decision he personally drove.
+>
+> `areaMultiplier` remains dead data (defined per combo, consumed by zero production code).
 
 ---
 
@@ -503,7 +581,33 @@ Stats overlay (toggle `~`) shows live ms per slice. If any slice consistently ex
 
 | Invariant | Enforcement | Where |
 |---|---|---|
-| Carry-1 (§ III.3) | Discriminated union `IdlePlayer \| CarryingPlayer` + runtime guard at FSM transitions | `src/game/player.ts` |
+| Carry-1 (§ III.3) | Discriminated union `IdlePlayer \| CarryingPlayer` + runtime guard at FSM transitions | `src/game/player.ts` — **⛑ v0.6 RULING, see below** |
+
+> ### ⛑ v0.6 RULING — the Carry-1 implementation lock is AMENDED, not revoked (settled S128)
+>
+> The v0.6 header notice listed "carry-1 as a player constraint" as relocated, but **this
+> implementation row was never ruled on** — and V6-1.3 (the bank) and V6-1.5 (the hero unit) cannot be
+> built without changing it. Ruling:
+>
+> **RE-RATIFIED — the invariant.** *At most one primitive is carried by any one carrier at any time.*
+> That survives v0.6 untouched; it moves from the player's hand to the gatherer's.
+>
+> **AMENDED — the representation.** `IdlePlayer | CarryingPlayer` as the *player-level* encoding is no
+> longer load-bearing for the player. Two consequences a PDR must budget for:
+> 1. **`placePrimitive.ts:105` throws unless `player.kind === 'Carrying'`** and `:107-108` reads
+>    `player.carriedSparkId`. The one existing no-carry path *fakes* a carry to reuse the reducer
+>    (`placeFromFree.ts:14-17`). Build-from-bank either forks that reducer or keeps faking.
+> 2. Moving carry to the gatherer widens `SparkState.Carried.carrierId` off `PlayerId` (`spark.ts:17`)
+>    and generalises `pickup`/`drop` off the `Player` type (`player.ts:115-117,144-146`). Both are
+>    **serialized and replicated** (`save.ts:294,1103,1181`) ⇒ this is a **wire + save change**, not a
+>    bot-layer detail. "Behind a flag, solo only" does not scope it.
+>
+> **NOT YET REVOKED — deleting `CarryingPlayer`.** ~15 shipped couplings branch on it, and deleting it
+> silently changes shipped hazard rules (the LMB hazard chain is gated on Idle at `controls.ts:245`, so
+> bomb/rainbow/potato would become always-grabbable; poop loses 3 of its 4 surfaces including its only
+> economic bite; the hunter loses confiscation). **Whether it is deleted at all depends on the V6-1.1
+> reversibility ruling** — option (B) additive-only keeps it functional to the end. Do not delete it
+> on the authority of the header notice.
 | Structure immobility (§ VI.5) | `readonly pos` after placement; `Object.freeze` post-place | `src/game/primitive.ts` |
 | Order-dependence (§ V.1) | Tuple key `[A,B]` (NOT sorted) in `COMBO_TABLE` | `src/combos.ts` (DONE) |
 | Sever topology (§ VIII.4) | BFS connected-component + tiebreaker assertion post-cut | `src/game/structure.ts` |

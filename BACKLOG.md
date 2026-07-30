@@ -1,7 +1,68 @@
 # SPARK — Build Backlog
 
-**Spec:** [SPARK_Blueprint.md](SPARK_Blueprint.md) v0.5.1 · **Locked:** [LOCKED_DECISIONS.md](LOCKED_DECISIONS.md) · **Live:** https://spark-online.space
+**Spec:** [SPARK_Blueprint.md](SPARK_Blueprint.md) **v0.6** · **Design + reasoning:** [SPARK_v0.6_DESIGN.md](SPARK_v0.6_DESIGN.md) · **Locked:** [LOCKED_DECISIONS.md](LOCKED_DECISIONS.md) · **Live:** https://spark-online.space
 **This file = the forward plan.** The ROADMAP below is the source of truth for what each session works on. Session history (newest first) follows after it; the authoritative per-session narrative is the handoff series in `.handoff-archive/`.
+
+---
+
+# ⚑ STATUS S128 (2026-07-30) — v0.6 PIVOT ADOPTED · ROADMAP REWRITTEN · 7 BLOCKERS LOGGED
+
+> **Owner-directed pivot, landed on master by content-merge from
+> `claude/spark-game-state-analysis-a3ot8i` (which forked at S125 and never saw S126/S127 — a
+> naive merge would have dropped 429 lines including LOCKED §DEPLOY-PATH and §15
+> SOAK-CALIBRATION; both verified present after the merge).**
+>
+> **The diagnosis, confirmed empirically** (A.0 sweep, 10 agents / 558 tool calls —
+> `.claude/plans/2026-07-30_S128_v06_PIVOT_A0_STATE_DISCOVERY_AUDIT.md`): at
+> `SCORE_INCOME_PER_COMPLEXITY_PER_SEC=0.05` × `PHASE_1_WIN_SCORE=1500` a win needs **~346 s of
+> continuous optimal placement (~58 cycles, exact)** — *but that is the solo all-magic BEST case;
+> the real range is 347 s (all-magic solo) to 654 s (non-combo FFA)*. Every second not placing is
+> economically punished. The 30× win-score climb (50→150→210→630→786→1500) was **five raises across
+> six values, all inside a 32-day window** — which sharpens rather than softens the point. Score is
+> **quadratic** in time (`score(T) = 0.0125·T²`), so match length scales as `1/√throughput`.
+>
+> **The pivot: workers haul, the player builds.** A castle emits worker sparks that collect on
+> player directives into a capped bank; the player builds and sculpts from the bank; the mouse
+> becomes a commander instead of an effector; trophies compound into a persistent castle. Genre
+> unchanged — still 6-player FFA geometric duel, no waves, no co-op main mode. Carry-1 survives,
+> relocated to the worker, with its strategic function moved to the bank cap.
+>
+> **Shipped this arc:** `SPARK_v0.6_DESIGN.md` (diagnosis + reasoning + roadmap) ·
+> `SPARK_Blueprint.md` rewritten **v0.5.1 → v0.6** (7 substantive changes; 5 locks revoked: no-HUD,
+> mouse-only, carry-1-as-player-constraint, no-tutorial, no-progression) · this ROADMAP replaced and
+> relabelled **V6-0.1 … V6-4.3** (phase-relative, decoupled from session numbers — the roadmap's
+> original S126–S150 collided with S126/S127, which were already spent on CI work).
+>
+> ### ⛔ TWO BLOCKERS THAT GATE PHASE 1 — owner rulings required
+>
+> **B3 · The faucet, not transport, is the bottleneck.** `SPAWN_RATE_PER_SECOND = 0.1875` globally
+> with `FREE_SPARK_TTL_TICKS = 600` (10 s, reaped every tick) ⇒ by Little's Law the standing
+> free-spark pool is **~1.9 sparks ARENA-WIDE**, and `FREE_SPARK_SOFT_CAP = 50` is unreachable dead
+> code. So an 8-slot bank at a fair 6-seat share fills in **~256 s**, not the specified 20–40 s
+> micro-pulse; a "squares only" directive is served by **one square per ~25 s for all six seats
+> combined**. Automating haulage does not help if there is nothing to haul. This constant appears
+> nowhere in the original pivot docs.
+>
+> **B4 · Directives + a bank of 8–10 would delete the carve-down tactic the pivot exists to
+> protect.** Every godly recipe is an **exact isolated component** — pentagram 5 · lightningHub 6 ·
+> princessHelga 7 · Voltkin 8 · laserTurret 8 — and `computeComplexity` has **no per-component
+> term**, so six isolated 5-rings score identically to one 30-prim structure. Carving was therefore
+> never economically motivated: it was *forced* by uniform-random types + carry-1. A hard type
+> filter plus a buffer ≥ every recipe size makes "assemble the exact recipe directly, first try"
+> rational. **Keep the recipe-size table beside the bank-cap number forever; never tune them
+> independently.**
+>
+> **Standing gates:** deploy path **already retired in S126** (`162b40f0` deleted `npm run deploy`
+> and `scripts/deploy-pages.sh`) — the surviving residual is OWNER-GATED: `gh api -X PUT
+> repos/:owner/:repo/pages -f build_type=workflow` → verify the live asset hash → *then* optionally
+> delete `origin/gh-pages`, in that order · sim-worker `?worker=1` playtest **PASSED**, flip the
+> default in V6-1.1 · bot-intelligence §7 **resolved** except Q6 (starvation policy, scales with
+> tier). **Platform: PC only** — mobile sim is smooth but the finger-driven avatar occludes too much
+> screen; revisit *after* the pivot, since the v0.6 command model is far more touch-compatible.
+>
+> **NEXT:** V6-0.1 is this session (doc reconciliation). Then the economy probe harness settles
+> B3/B4/B5 empirically **before** V6-1.1 opens. See the CARRY-FORWARD LEDGER under the roadmap for
+> the 23 engineering risks bound to their slots and the 4 parked CI items.
 
 ---
 
@@ -281,8 +342,9 @@
 > **P5 = Batch D** (matted on-model Voltkin art + Helga's own codex art). 5 commits `0d83eef`/`94a5097`/`8558f38`/`ae30daa`/`ffcde36`.
 > ~~🚨 NOT LIVE YET: the GitHub Actions deploy is blocked~~ **RESOLVED S111+** — repo went PUBLIC and deploys
 > are MANUAL via ~~`npm run deploy`~~ [**SUPERSEDED S126** — `npm run deploy` + `scripts/deploy-pages.sh` are
-> DELETED; the ONE deploy path is the Actions artifact pipeline. See `LOCKED_DECISIONS.md §DEPLOY-PATH`.] (gh-pages branch-mode, classic Pages builder; Actions remain dead under the
-> account billing lock). The live site has tracked master ever since (currently S118 — see STATUS banner above).
+> DELETED; the ONE deploy path is the Actions artifact pipeline. See `LOCKED_DECISIONS.md §DEPLOY-PATH`.] (gh-pages branch-mode, classic Pages builder; Actions were *believed* dead under the
+> account billing lock — **a premise S124 disproved**: the repo is PUBLIC, so Actions minutes are free, and
+> Actions have auto-deployed every code push since ~2026-07-12). The live site has tracked master ever since.
 
 | Batch | Covers (owner points) | PDR / Plan file | Wire | Risk | Status |
 |---|---|---|---|---|---|
@@ -301,70 +363,271 @@ poopyUntilTick all already on the wire). A bump is needed only when a NEW serial
 
 ---
 
-# ROADMAP — rewritten S86 (2026-06-12) on user mandate
+# ROADMAP — rewritten 2026-07-30 for v0.6 (owner-directed pivot)
 
-> User (S86, verbatim): *"organize our priority backlog to see what we actually need to do in order to IMPROVE on the game … like for example developing the geometric connections between the primitives, some of them dont do anything like dot to square or line to circle … the whole point is being a geometric builder game and we have least focused on that … rather than random stuff you have added to backlog which will or will not improve our gameplay."*
+> **Supersedes the S86 roadmap entirely.** The S86 mandate ("develop the geometric connections — the build system IS the game") was correct and stays true. What changed is the diagnosis of *why* it wasn't landing: the problem was never a shortage of combos, it was that the loop gave players no hands to use them with. See **[SPARK_v0.6_DESIGN.md](SPARK_v0.6_DESIGN.md)** for the full reasoning and **[SPARK_Blueprint.md](SPARK_Blueprint.md)** v0.6 for the spec.
 
 ## North star
 
-SPARK is a **geometric builder duel**. The build system — what happens when you connect primitive A to primitive B — IS the game. Hazards, fog, netcode, and lobbies exist to serve that loop, not the other way round.
+SPARK is a **geometric builder duel** — up to 6 players, FFA, racing to build the most complex geometry on one shared canvas. That does not change.
 
-## The honest gap (S86 code audit — measured, not vibes)
+**What changes in v0.6:** workers haul, the player builds. The mouse becomes a commander instead of an effector. Winning compounds into a persistent castle. Full thesis:
 
-The user's complaint is structurally correct. State of `src/combos.ts` (36 ordered pairs across 6 primitives):
+> You have a **castle** built from trophies you earned, assembled by hand in a calm postgame cosmos. It produces **workers** who gather on your directives into a **capped bank**. You spend **energy** on your economy and **build with your hands** from the bank — sculpting, carving, transmuting structure into autonomous agents. Your spark is a **hero**, not a laborer. You win on **score**; you can lose your castle.
+
+## The honest gap (measured from the constants, not vibes)
 
 | Fact | Evidence |
 |---|---|
-| **24 of 36 combos are literal placeholders** | `description: 'Functional placeholder — generic bond'` — Dot→Square, Line→Circle, Dot→Dot, Square→Triangle, Square→Line, most Spiral pairs… all identical generic bonds |
-| ~~**The magic 12 are visuals + physics stiffness ONLY**~~ — **S89–S90 UPDATE: 4 behaviors now shipped** | Vortex pull (S89 P6), Filament income trickle (S90 P1), Diamond/Lattice anti-sabotage resist (S90 P2) are implemented mechanics. Remaining magic descriptions (Wheel/Star rotation, Whip/Warped/Orbital/Capsule) are still visuals-only — see G1b MOTION (open). |
-| **`areaMultiplier` is dead data** | defined per combo, consumed by zero production code |
-| ~~**`isMagical` is dead outside combos.ts**~~ — **S88 CORRECTION: FALSE** | `isMagical` IS read in production in `scoring.ts` `computeComplexity`: a magic bond earns `MAGIC_BONUS = +2.0` (uncapped) vs a functional bond's `+0.25` (capped) — an **8× premium, live since S76**, with passing tests (`scoring.test.ts`). The original row mis-stated the code. The real magic gap is **behaviors (G1b)**, not scoring. |
-| **Discovery exists only as the title-screen Codex** | nothing in-match celebrates or even mentions discovering a new combo |
+| A win needs **~346s of continuous optimal placement** (~58 haul cycles) | `SCORE_INCOME_PER_COMPLEXITY_PER_SEC=0.05` × `PHASE_1_WIN_SCORE=1500` |
+| **Every second not placing is punished** — no room for idle, watching, or talking | Follows directly from the above |
+| Win score raised **30×** across sessions | 50 → 150 → 210 → 630 → 786 → 1500 — six patches to one problem |
+| **Zero** autonomous actors produce | Chewer, drone, turret, Helga, Voltkin, hunter all destroy or defend |
+| The game is **unlearnable** | III.4 fog + III.5 no-HUD + VIII.5 no-preview each remove a feedback channel; stacked they break action→outcome→improvement |
+| The fun players found themselves is **gated behind the grind** | Carve-a-structure-down-to-a-recipe needs a big structure first — best thing in the game behind the worst thing in the game |
 
-## TIER 1 — CORE GAME: make the geometry matter (USER-MANDATED, S86)
+## Standing gates (2026-07-30, reconciled against master in S128)
 
-Session-sized cuts, in recommended order:
+| Gate | Ruling |
+|---|---|
+| **Deploy path** | ✅ **ALREADY RETIRED in S126** (`162b40f0` deleted `npm run deploy` *and* `scripts/deploy-pages.sh`). GitHub Actions auto-deploy is the ONE path; every `master` push touching `src/**`, `public/**`, `index.html`, `vite.config.ts`, `tsconfig.json`, `package*.json` or `deploy.yml` **ships to production**. **Do not recreate the deleted scripts.** Surviving residual is OWNER-GATED: `gh api -X PUT repos/:owner/:repo/pages -f build_type=workflow` → verify the live asset hash → *then* optionally delete `origin/gh-pages`, **in that order**. Run `gh auth login` first (S128 audit found `gh auth` invalid). **Never trust `gh api .../pages`** — it reports stale `build_type: legacy` / `source: gh-pages`; trust the deployments API + the live asset hash. |
+| **Sim-worker default-on** | ✅ **PASSED** — owner playtested `?worker=1`, reported smooth. Flip the default and drop the flag gate in **V6-1.1**. Note the evidence was a phone browser; if a weak laptop later misbehaves, that configuration is what went untested. **5 files hard-code the flag** (`e2e/worker.spec.ts:32`, `worker-bots.spec.ts:35`, `worker-duel.spec.ts:69-70`, `worker-heap.spec.ts:433`). |
+| **Bot intelligence §7** | ✅ **RESOLVED** except Q6 — see below. |
+| **Platform** | **PC only.** Mobile sim is smooth but the game is not *playable* there — a finger-driven avatar occludes too much screen. Revisit *after* the pivot ships: the v0.6 command model is far more touch-compatible than a cursor-body, so mobile may become viable as a side effect rather than a project. |
 
-- **G1 — Magic combos MATTER mechanically.**
-  - ~~*G1a:* wire `isMagical` into scoring (+0.75 vs +0.25)~~ — **DROPPED (S88 PRIME-AUDIT).** Magic bonds ALREADY out-earn functional **+2.0 vs +0.25** (8×, uncapped, since S76 — `scoring.ts` `computeComplexity`); the proposed +0.75 would have been a **−62% nerf**. If magic should feel *even* stronger, the lever is tuning `MAGIC_BONUS` upward (touches `LOCKED_DECISIONS §6` + `constants.lock.test.ts`), playtest-gated — not a blind edit.
-  - *G1b (the real meat, ~1 session per archetype):* implement combo BEHAVIORS so the magic combos stop being paint. Every behavior is a pure function of synced state (determinism + 1v1 mirror), host-only.
-    - **ECONOMY** — ~~Vortex pulls free sparks toward it~~ **SHIPPED S89 P6** (`f425167`, host-only anchor-pull) · ~~Filament income trickle~~ **SHIPPED S90 P1** (`a448fd6`, +`FILAMENT_INCOME_COMPLEXITY` 0.6 on top of the magic premium + income-node cue; #1 playtest knob).
-    - **DEFENSE** — ~~Lattice/Diamond resist enemy sabotage~~ **SHIPPED S90 P2** (`f8adc57`, hostile player-sever costs the full `MAX_DISRUPTION_CHARGES`=2 budget; physics/creature/bomb still break it — anti-sabotage ≠ hazard-immunity).
-    - **MOTION (OPEN)** — Wheel/Star slow structure rotation; Capsule glow-trail. **S90 Council DEFERRED**: both reviewers rated *pure* rotation low player-value ("visual noise" without a mechanical verb) — revisit when it earns one. Impl note (research-confirmed feasible): direct rigid pose-write clone of `vortex.ts`, midpoint pivot, drift-free `baseAngle+tick·const` sin/cos precomputed at module load, component dedupe.
-- **G2 — Fill or fold the 24 placeholders.** Design decision first (user picks flavor): rule-based FAMILY traits so EVERY pair does *something* (e.g. Dot-pairs = cheap/weak filler, Square-pairs = sturdy/slow, Spiral-pairs = chaotic wobble) + promote 2–4 placeholder pairs to new named magic combos — starting with the two the user called out by name: **Dot→Square** and **Line→Circle**. Families + a few promotions, NOT 24 bespoke mechanics. **PROMO SHIPPED S91 P1 (Phase 1, visual-only):** **Anchor** (Dot→Square) + **Spindle** (Line→Circle) promoted to magic — distinct stroke-only silhouettes + discovery toast + the 8× magic income premium; Option A win-score rebalance (`PHASE_1_WIN_SCORE` 210→630, `SCORE_TIER_STEP` 70→210, exact-3× tier cadence preserved) offsets the jump (canonical combo build held ~152→157s; pure-blob ~3× longer, accepted v1 trade-off). Behaviors (Anchor anti-drift / Spindle tangential pull) DEFERRED to a Phase-2 PDR. **TRAITS still DEFERRED (gated):** it needs a `LOCKED_DECISIONS §6` lock-amendment (functional combos are locked as MID/1.0×/generic) + watch the S49 territorial `stiffnessMultiplier` stacking (a LOW family in enemy territory → ~0.06 effective, may feel floppy). Only `stiffnessTier` is a live mechanical axis; `areaMultiplier` is dead.
-- **G3 — Discovery loop. ✅ COMPLETE.** ~~*G3a:* in-match "NEW COMBO — Filament!" toast + per-match discovered counter~~ — **SHIPPED S88** (magic-12 toast + "Combos N/12" HUD; deterministic synced-tick render, additive-optional wire, no protocol bump). ~~*G3b:* Codex marks used combos; undiscovered render as silhouettes~~ — **SHIPPED S97** (`render/comboCodexStore.ts` + `codexOverlay.ts` COMBOS tab: discovered tiles show result-name + type glyphs in gold; undiscovered render as `???` + dim silhouette glyphs + "connect to reveal"; cross-match "discovered ever" persistence in localStorage). *(The roadmap stale-listed G3b as "next" until S114 reconciled it against the code.)*
-- **G4 — Build-feel juice** (carry-overs that genuinely serve the core loop): ~~bond-formation juice burst (S84 Gemini candidate)~~ — **SHIPPED** (`render/effects/bondCommit.ts` — expanding-ring BOND_COMMIT pop + per-combo silhouette flair) · ~~in-world leader crown~~ — **SHIPPED S114** (static gold crown over the score leader's avatar; pure `scoring.leaderPlayerId` + `avatarRenderer.shouldShowCrown`; render-only, no protocol bump; networked/bots + PLAYING + not-benched, agrees with the HUD `*`) · pooped-reject feedback cue — **DEFERRED (playtest-gated):** silent reject is the user-requested semantic; add a cue only if a playtest asks. **G4 effectively COMPLETE** — only the playtest-gated pooped cue remains.
+### Bot rulings (owner, supersedes `BOT_INTELLIGENCE_DESIGN.md` §3 matrix)
 
-## TIER 2 — Playtest loop (USER-driven)
+- **Q1 — four strictly-additive tiers.** NOOB = basic combos · MID = +towers · HARD = +raiding +godlies · IMBA = +strategy/tactics (sacrifice et al). Shifts the original ladder down a step: godlies move IMBA→HARD, NOOB becomes a real tier.
+- **Q2 — replaces the 1-concurrent-raider cap.** HARD and IMBA all raid, targeting the leader OR the nearest enemy whose score sits closest above their own; NOOB/MID raid randomly. *The cap guarded against argmax dogpiling the leader (making sandbagging at 2nd optimal); "closest score above me" is LADDERED targeting — each bot punches one rung up rather than converging on first — so the degenerate case is dissolved by construction.*
+- **Q3 — bond-sever only, confirmed, and it's a feature.** No delete verb; `severSplit` may cascade; that is exactly why you must build smart enough to remove some pieces without losing the rest. The constraint IS the sculpting skill.
+- **Q4/Q5/Q7 — defaults adopted.**
+- **Q6 — OPEN with direction.** Starvation policy (wait vs re-rank) should scale with tier — adaptability separates NOOB from IMBA as it does with humans. Settle before the Phase A bot PDR.
 
-- **Round 7** on spark-online.space: verify all four S86 fixes (black fog · no hazard-ring lines · eaten/pooped players truly locked out · OS cursor gone — the spark IS the pointer, faint ghost ring only while slowed/eaten) + judge the rounds-5/6 leftovers still pending eyes (yell audibility, big flyover, bond ownership patterns, hazard rings, lobby animations, match length 210, seat-stable leaderboard).
-- **NEW (S87) — VS BOTS + Multiplayer/Quick Match playtest:** (a) VS Bots feel across NOOB/MID/HARD/IMBA — do the bots read as *playing* (cruise, collect, haul, build bonded structures, sever, flee the hunter) and is the difficulty curve right? Tuning knobs all in `src/bots/botConfig.ts`. (b) Quick Match with a friend on two machines: does discovery pair you, does the all-ready gate start when both click READY, does the smallest-code convergence avoid split lobbies? (c) Confirm the "Multiplayer" rename + the friends Host/Join lobby still works byte-identically.
-- **Non-builder-win mechanism** (USER field report S84, unreproduced in vitro): instrumentation is live — if it recurs, screenshot the console (the WIN line dumps per-seat score+complexity). *S87 live-preview note: confirmed in vitro that bot builds attribute to their OWN seats and the human seat stays 0 with no input — no mis-attribution in bots mode.*
+## Reconciled from the S86 roadmap
 
-## TIER 3 — Resilience & infra (CLAUDE/COUNCIL-suggested — honest labels, plain language; only after Tier-1 ships or on explicit user ask)
-
-- **Host migration** ([HOST_MIGRATION_DESIGN.md](HOST_MIGRATION_DESIGN.md), design adopted S85). **Plain English:** in multiplayer one player's browser (the "host") runs the real game; everyone else mirrors it. Today, **if the host closes their tab or drops, the match dies for everyone**. This work makes a surviving player's browser take over automatically so the match continues. Four session-sized steps (D1 identity plumbing → D2 detection → D3 takeover → D4 hardening). Real value — but it only matters for matches that are already fun; hence Tier 3.
-- **S73 dense-compaction colour-shift at Begin** (sparse in-game seat palette) — CLAUDE-suggested polish.
-- **Periodic-scoreboard knob** (if real-time scores distort FFA play) — CLAUDE-suggested, playtest-gated.
-
-## TIER 4 — User-deferred (touch ONLY on explicit ask)
-
-- **VFX lightning-overlay library** — user said defer; procedural ARC_FLASH stays.
-
-## Session protocol going forward
-
-1. **Regression reports jump the queue** (S86 pattern: fix what the playtest broke, same session).
-2. Otherwise **every session leads with the top unfinished Tier-1 item**.
-3. Tier-3 infra and new polish ship only AFTER the session's Tier-1 item, or on explicit user ask.
-4. **New Claude/Council ideas do NOT enter Tiers 1–3 directly** — they land in PARKED and graduate only with user sign-off.
-5. This ROADMAP section is updated at every session close; completed items move to the session history.
-
-## PARKED (Claude/Council ideas awaiting user sign-off)
-
-- 10 Hz client-mirror pose-stepping smoothing (S84 advisory — judge in 1v1 playtest first).
+- **G1 magic-combo behaviors** — Vortex pull, Filament income, Diamond/Lattice resist, Spindle swirl all SHIPPED and survive the pivot unchanged.
+- **G2 family traits** — ✅ **RETIRES FREE.** It asked for rule-based traits so every placeholder combo does *something*. The v0.6 currency split does exactly that: functional bonds become the Energy economy, magic bonds the Score economy. No bespoke mechanics needed. ⚠ **But the substrate is 42% smaller than advertised:** the real count is **14 of 36 ordered entries** functional (8 of 21 unordered shape-pairs), not 24 — `grep -c "isMagical: true" src/combos.ts` = 14 forward, +8 mirrored = 22 magic ordered entries, leaving 14 functional. The Blueprint's own §V.2 already said 14 while §V.3 said 24, 144 lines apart. Corrected in S128.
+- **G1b MOTION** (Wheel/Star rotation, Capsule trails) — stays DEFERRED on its existing rationale: pure visual rotation with no mechanical verb. May earn one under the V6-2.1 taxonomy work; if not, stays parked.
+- **G3 discovery loop** — COMPLETE (S88 toast + S97 Codex). **G4 build-feel juice** — COMPLETE.
+- **Host migration** — SHIPPED (D4 production-live S124, v2 zombie auto-rejoin S125). Now a cross-cutting obligation for every new v0.6 entity rather than a roadmap item.
 
 ---
 
+# V0.6 EXECUTION PLAN — V6-0.1 … V6-4.3
+
+**Labels are phase-relative and deliberately decoupled from session numbers** (S128 owner ruling). The
+original roadmap numbered its slots S126–S150, which collided with S126 and S127 — both already spent
+on CI work and closed — and with S128 itself. Ordering constraints are all relative ("V6-2.5 must land
+before V6-3.1") and survive any insertion, so a regression session or an owner-directed batch can be
+slotted in without rewriting the plan. Full per-slot rationale in `SPARK_v0.6_DESIGN.md § 13`.
+
+Sequenced so the core loop is **playable by V6-1.7** and everything after lands on a validated base.
+
+> **Standing gate, every slot:** report bundle delta and snapshot bytes.
+> — **Bundle:** the gated artifact is the **entry chunk**, 640.8 KiB against a 750 KiB cap
+> (`scripts/check-bundle-size.mjs:19`), so **109.2 KiB of headroom for the whole roadmap**. A breach
+> **hard-fails `npm run build` and therefore blocks the deploy** — *not* merely "fails the session".
+> Resolve it *within* the slot; the S101 remedy is to RAISE the charter (`CAP_KIB` + the LOCKED clause
+> in lockstep), never to debug around it. ⚠ **The gate under-measures real download:** entry 640.8 +
+> `simWorker` chunk 120.1 = **758.1 KiB actually fetched**, already 8.1 KiB above the charter number
+> before v0.6 adds a line (R13).
+> — **Wire:** 0.45 KB empty → **6.7–8.5 KB measured in a live 2-peer duel** → **38.5 KB at six seats
+> with a full board**. Per-entity: prim+bond 269.8 B, free spark 153.9 B, trimmed creature 106.6 B.
+> So +30 gatherers is **+17%, not +100%** (the "~3 KB / roughly doubles" figures trace to a stale aside
+> at `save.ts:419`, never a measurement).
+
+> **Cross-cutting, EVERY slot** (not Phases 1–2 only — Blueprint §XV.6 is normative): host migration ·
+> save/load/replay with byte-identical coverage · teardown parity at **every** site · disconnect/rejoin.
+> The real registration surface is **17 sites**, not the 4 obligations the spec lists — see R15 in the
+> ledger below. A persistent creature once rehydrated with `despawnAtTick=0` and deleted itself
+> instantly, and that bug is **still live and unguarded in three paths**, so this is a present hazard
+> rather than a historical anecdote.
+
+## PHASE 0 — Foundation
+
+| ID | Priority | Tier | Executed in | Notes · bound risks |
+|---|---|---|---|---|
+| **V6-0.1** | Doc reconciliation + economy probe harness | Full | **S128** | Content-merge the pivot onto master preserving the S126/S127 record · 31 corrections · this relabel · carry-forward ledger · `LOCKED_DECISIONS` unlock pass · tag `v0.5.2-pre-pivot` · dev-build-only A/B probe harness settling B3/B4/B5. |
+| **V6-0.2** | Learnability I — make the score readable | Standard | — | ⚠ **Rescoped by audit: the no-HUD lock has been de-facto dead ~65 sessions.** An N-player leaderboard ranked by score with a `*` crown and `> …<YOU` marker already ships (`ui.ts:297-325`, S62); so does a "Combos N/14" counter (`:187-199`), the energy gauge (`:204`), and `SCORE_TIER` as a real rendered 48-tick effect (`effects.ts:81`, `render/effects/scoreTier.ts:21`). **Real residual:** (1) score/standing in **solo** — the leaderboard is gated `isNetworked(world)` at `ui.ts:295`; (2) make the existing tier pulse legible; (3) leader identification already ships (S114 crown). Budget *amplification*, not plumbing. |
+| **V6-0.3** | Learnability II — make failure attributable | Standard | — | Player learns what was severed/destroyed/stolen and by whom. Re-ratify III.4 fog + **§IX.5** sever-preview narrowly (the design doc's "VIII.5" is a typo). The learnability deficit is concentrated in fog + no-sever-preview, **not** three equal factors. |
+
+## PHASE 1 — The economy pivot ⭐ load-bearing
+
+> **⛔ TWO OWNER RULINGS GATE THIS ENTIRE PHASE — see B3 and B4 in the S128 status banner.** The probe
+> harness from V6-0.1 produces the evidence. Do **not** open V6-1.3 or V6-1.4 before they are ruled.
+>
+> **⛔ REVERSIBILITY, hard precondition on V6-1.1 (OWNER DECISION).** Phase 1 currently has no revert
+> point: `PROTOCOL_VERSION` is a hard drop-latch at HELLO so a flag cannot gate snapshot shape;
+> V6-1.3 forks the placement reducer (`placePrimitive.ts:105` throws unless `player.kind === 'Carrying'`);
+> V6-1.5 deletes a variant of the core `Player` union that ~15 shipped couplings branch on. Pick:
+> **(A)** develop Phase 1 on `pivot/phase1` off the `v0.5.2-pre-pivot` tag, no production deploys of
+> Phase-1 work until the gate passes; or **(B)** additive-only — castle/gatherer/bank as
+> additive-optional snapshot fields, `CarryingPlayer` retained and functional, build-from-bank as a
+> *parallel* reducer, and the deletion moves to V6-4.3. The tag ships in V6-0.1 either way.
+
+| ID | Priority | Tier | Executed in | Notes · bound risks |
+|---|---|---|---|---|
+| **V6-1.1** | Gatherer agent substrate + sim-worker default-on flip | Full | — | ⚠ **Not a "narrowing".** The real union is `BotGoal` with **8** members (`botBrain.ts:43-51`); `COLLECT`/`DEPOSIT`/`RETURN` appear nowhere in `src/`. It is a **new** goal union reusing `botBrain`'s arbitration *pattern*, `pickTargetSpark`, and `botController` plumbing. `pickTargetSpark` (`:159-177`) takes a predicate in ~2 lines and draws `rng()` exactly once regardless of candidate count, so **a filter cannot shift the replay stream** — the "specialisation costs throughput" mechanic really is free, and an empty candidate set already falls through to `REST` (`:152`). **R1:** `stateHash.ts:45-48` `HashableWorld` covers only tick/primitives/bonds/freeSparks/scoreProgress/scoreByPlayer — every entity family is absent, so the silent-desync oracle is BLIND to gatherers in the very slot that flips the worker default on. Add gatherers to `HashableWorld` *and* `workerSim.ts:251-280 structuralSignature`. **R3:** gatherer identity is unchosen and load-bearing (a `freeSparks` entry inherits the 10 s TTL reap and rim-snapping; a new map is invisible to R1/R2; a seated Player collides with `MAX_PLAYERS = 6`). "Carry-1 moves to the worker" widens `SparkState.Carried.carrierId` off `PlayerId` (`spark.ts:17`) ⇒ **a wire + save change**, not a bot-layer detail, which "behind a flag, solo only" does not scope. **R4:** agent RNG stream state has no serialization path (`BotManager` holds `mulberry32` streams privately; `rebuildAuthorityAllocators` rebuilds 4 numbers and touches it not at all) — use stateless `mix32(tick, id, salt)` per `constants.ts:885` "NO 6th RNG stream", precedent `rainbowLifecycle.ts:115`. **R23:** `nearestEnemySpawnerBond` (`:314-341`) and `nearestChewer` (`:348-359`) have ZERO test coverage and feed the SEVER/FLEE priorities — i.e. the exact arbitration block being rewritten. **Also decide here: the `worker`→`gatherer` rename.** |
+| **V6-1.2** | Castle entity + gatherer production + spawner shrink | Full | — | Model the **`creatureSpawner` LIFECYCLE** but the **DEFENDER's serialization**: `deserializeSpawner` (`save.ts:1277-1286`) **re-seeds** `nextSpawnTick` from the load tick and resets `spawnedCount`, so copying it verbatim resets every castle cadence and bank timer on save/load **and host migration** — a day-one failure of the migration obligation. **R9:** six castles cannot inherit `SPAWNER_RADIUS + 40` — seat spacing falls 290→228 px at r=188, and territory bubbles (`60 + 12·log₂(complexity+1)`) first touch at complexity **21.6** vs 134.6 today, i.e. inside the first minute; `isInsideEnemyTerritory` is a host-authoritative placement *reject*, so this is legal-build-space loss. Keep the seat ring near 290 absolute. **R10:** the r=188 flip **hard-fails** `collision.pile.test.ts` (worst residual overlap 2.89 px vs a 1.5 px assertion at `:116`) because `enforceSpawnerBounds` rim-compresses all 30 pile sparks each substep; dropping the free-spark cap does not fix it since `PILE_COUNT` is a literal 30. **Six derived constants move 62 px inward with the radius** (`botBrain.ts:275`/`:257`, `gameMode.ts:109`, `creatureVerlet.ts:62`, `botSpawnerSeed.ts:48`/`:62` — the last justifies its +240 offset "precisely so the ring stays reachable for the player's raid counterplay", judged against 250), **`SPAWNER_RADIUS` is also a fog source** (`vision.ts:59`) so the always-visible region shrinks 43% — undercutting the rationale the build-ban rests on — and **four sites hardcode 250 and go stale silently** (`e2e/bomb.spec.ts:41`, `e2e/nplayer.spec.ts:197`, `src/state/world.test.ts:191`, `e2e/smoke.spec.ts:483-484`). Protocol bump. |
+| **V6-1.3** | The bank | Full | — | 🔒 **BLOCKED on the B4 ruling.** Capped deposit store, stall at cap, build-from-bank input flow. **Where carry-1 formally relocates.** **Keep the recipe-size table (pentagram 5 · lightningHub 6 · Helga 7 · Voltkin 8 · laserTurret 8) adjacent to the cap number — never tune them independently.** **R8:** disruption charges are earned in `placePrimitive.ts:584` via `tickBuildAction` (`BUILD_ACTIONS_PER_CHARGE = 5`, cap 2); if that call site does not move to the bank-place path the hero silently loses SEVER and SHRINK_TERRITORY (which needs 2 charges). Add the supply-sufficiency pre-gate here so a B3 failure cannot masquerade as a sculpting failure at V6-1.7. |
+| **V6-1.4** | Directives | Standard | — | 🔒 **BLOCKED on the B3 + B4 rulings** (hard filter vs biased mix). Predicate on `pickTargetSpark`; per-castle collect filter; directive state syncs. |
+| **V6-1.5** | The hero unit | **Full** (was Standard) | — | ⚠ **Mis-tiered, and "every existing hazard interaction stays intact" is not survivable.** Carry is a variant of the top-level `Player` type (`player.ts:86-91`) and the FSM hand-carries every hazard debuff across the object rebuild (`pickup` `:115-141`, `drop` `:144-167`). Deleting it silently changes shipped rules: the LMB hazard chain is gated on Idle (`controls.ts:245`) so **bomb/rainbow/potato become always-grabbable**; poop loses 3 of its 4 surfaces including its *only* economic bite (the pickup-arrival gate `sparkLifecycle.ts:160-172`), leaving a pure movement slow; the hunter keeps bench+pursuit but loses confiscation (`hunterLifecycle.ts:195-206`) until V6-2.2, **two slots later**. Only splat-cleaning (`seagullLifecycle.ts:375-384`) and rainbow (`rainbowLifecycle.ts:102-129`) transfer cleanly. |
+| **V6-1.6** | Energy gets sinks | Full | — | Reuses `player.energy` + `TICK_ENERGY` (`ENERGY_PER_SECOND_FLAT = 5.0`, dispatched unconditionally per player per tick at `physicsLoop.ts:107-109`, in the protocol allowlist at `protocol.ts:463`, serialized as a mandatory `SerializedPlayer` field). **Stronger than the spec claims: energy has ZERO READS**, not merely zero sinks — grep for `ENERGY_MAX|energy -=|spendEnergy|canAfford|ENERGY_COST` returns nothing; its only two consumers are the gauge renderer and the serializer, so the consumption side is pure greenfield. Idle **82 days**, not "a year". ⚠ The gauge clamps at `ENERGY_GAUGE_FULL = 100` (`ui.ts:36,214`) so it pins full at t≈20 s and stays there for 94–97% of a match — **raise the cap or new sinks are invisible**. **R19:** removing `FUNCTIONAL_BOND_COMPLEXITY` from score reverts an owner-driven S84 P4 decision whose rationale is recorded verbatim at `constants.ts:227-231` ("a fully-CONNECTED tree earned exactly what the same prims earn scattered") and lengthens non-magic connected builds 12–14% — **surface to the owner before this PDR; it is the one place the pivot contradicts a decision he personally drove.** |
+| **V6-1.7** | Vs-bots integration + **the boredom gate** | Full | — | **R21: the gate is not falsifiable as written and runs on bots that don't play v0.6.** No instrument is defined; five concurrent changes confound attribution; and "bots must learn the new economy" is filed as cross-cutting ("not sessions") — i.e. the spec states the condition under which the gate lies and then doesn't schedule the fix. The replacement is ~130 of `botBrain`'s 402 lines (BUILD gate `:144-150`, collect-and-place `:155-277`) plus ~130 of `botController`'s 500. **Use the V6-0.1 harness's numeric proxies with pass bands agreed IN ADVANCE** (median seconds between player build actions, bank-stall seconds/match, idle-gatherer fraction, sculpt/sever events per match, time-to-win), and promote "bots play the v0.6 economy" to a real slot *before* the gate. |
+
+> ### ⛔ HARD GATE — V6-1.7
+> Acceptance criterion is **"is the player bored?"**, not "does it work." Removing the hauling does not
+> *make* placement fun — it **reveals** whether placement was ever fun. If sculpting doesn't carry the
+> game here, Phases 2–4 are **re-planned, not continued.** The revert path is whichever option was
+> chosen in the V6-1.1 precondition above; without one, "re-planned" is a git archaeology exercise.
+
+## PHASE 2 — Command and conflict
+
+| ID | Priority | Tier | Executed in | Notes · bound risks |
+|---|---|---|---|---|
+| **V6-2.1** | Structure taxonomy + targeting priority | Full | — | ⚠ **R6: there is no damageable target, so 3 of the 5 priorities would be dead UI.** `DEFENDER_HP = 1_000_000_000` is an explicit sentinel ("defenders die by recipe-break, not damage (v1)", `constants.ts:989`); `CreatureSpawner` has **no hp field**; the only damage function in the game is `damageCreature(world, creatureId, amount)` (`creatureLifecycle.ts:243`, the sole `export function damage*` in `src/`); and "bond HP" is not HP either — `CONNECTOR_HP` is implemented as the *attacker's* `chewProgress` counter (`constants.ts:919-920`). **OWNER DECISION: either insert a "structure HP + `damageEntity` dispatcher" slot before this one, or reorder this after V6-2.4.** Also: **"Highest income" has no backing data** — `computeComplexity` aggregates strictly per `PlayerId` (`scoring.ts:206-237`) with every intermediate map PlayerId-keyed, and a "filament node" is a *bond* classified by `isFilamentCombo`; budget a new per-component host-hot-path scan or drop the row. And **towers *do* auto-retarget today** (`findNearestEnemyCreatureFrom` on each IDLE tick, `DEFENDER_REACQUIRE_TICKS = 12`, target cleared on RECOVER→IDLE), so the spec's premise is inverted. |
+| **V6-2.2** | Gatherer vulnerability + harassment | Full | — | Attackable; a loaded gatherer drops its primitive; hazards/creatures gain gatherers as a legal target class. Restores the hunter-confiscation surface lost in V6-1.5. Respawn cost is the pressure valve, so harassment is a tempo weapon rather than an elimination one. |
+| **V6-2.3** | The command layer | Standard | — | Keyboard as commands: select, order, ability hotkeys, build/command mode switch. **Not** WASD puppeteering. Risk: mouse-only is a revoked lock — check every input path. |
+| **V6-2.4** | Castle HP, damage and repair | Full | — | Repairable mid-match by attaching connectors → gives the bank a defensive purpose and turns a beating into a comeback rather than a death spiral. Reuses the S102 HP *scale* but **must write a damage dispatcher** (R6). |
+| **V6-2.5** | NONET rework — double the structure | Full | — | **MUST land before V6-3.1.** ⚠ **The current swing is 5×, not 4×** — `NONET_WINNER_MULT = 2` and `NONET_LOSER_MULT = 0.4` (`sudokuEvent.ts:24-25`), i.e. a 60% haircut / ÷2.5, **not** "a division by 2"; "drop the ÷2" would silently revert the owner's own S106 ask. The **solver**, not the triggerer, is rewarded (`sudokuEvent.ts:89-99`, `world.ts:613-614`), which is exactly why a low-complexity player can win — already owner-reported. **R17: centroid-mirror is degenerate for the most likely shape** — a 9-in-a-row maps 9 of 9 primitives onto themselves, and there is **no primitive-vs-primitive collision system** to "respect" (`resolveCollisions` takes sparks only, `collision.ts:17`), while `bonds.ts:66` skips co-located pairs forever ⇒ any overlap created is **permanent**; a duplicate within `AUTO_BOND_RADIUS = 60` also fuses the two components; and the whole sim is frozen during a NONET trial. §7 never says *what* gets duplicated when the solver owns several components or none. **R18: the replacement is a *weaker* comeback engine than today** — 300 vs 900 currently becomes 600 vs 360 (a **+240 lead** for the solver); after the change it stays 300 vs 900 and a doubled C=75 income needs **160 s** to erase the gap, with **720 s** to match a +900 instant swing. Give the owner those numbers in the note they are asked to confirm. |
+
+## PHASE 3 — The compounding meta
+
+| ID | Priority | Tier | Executed in | Notes · bound risks |
+|---|---|---|---|---|
+| **V6-3.1** | Endgame Ceremony + trophy mint | Full | — | The 28 s sequence; every player mints a placement-sized fragment. Substrate confirmed present: `componentOf` (`structure.ts:21`, 14 live call sites, returns `{primitiveIds, bondIds}`), `createdTick` readonly on both Primitive and Bond and round-tripping both save paths, and `POSTGAME` a real state whose reducer is literally `return world.gameState`. **R5: `WIN_TRIGGER` destroys 7 entity families at t=0** (`world.ts:431-451`, including spawners and defenders) — a castle/gatherer/bank added to that list vanishes at second 0 of a 28-second ceremony, so this is a **V6-1.2 decision, not a V6-3.1 one**. POSTGAME is also input-hot: `main.ts:1012-1021` dispatches `RETURN_TO_TITLE` on **any** canvas click. Free wins the spec doesn't claim: `world.tick++` keeps advancing in WIN/POSTGAME (`hostTick.ts:139-142`) giving a monotonic replay-safe clock, the host keeps broadcasting snapshots there with `gameState` synced, and the fog-lift tween is **already implemented and smoothness-hardened** (`fogRenderer.ts:234-244`, one tween driving both fog and memory layers with mask recompose frozen during the lift) — only its *timing* is wrong. ⚠ Fog is never active in solo (`vision.ts:100-102`), so beat 2 is a 3 s dead hole there and "first and only time" is false in solo. **R16:** `WIN_DWELL_TICKS` is module-local and unexported (`gameState.ts:29`, `PHYSICS_HZ*2` = 120 ticks); a 28 s ceremony needs 1680. **Needs: victory cue + 2 SFX.** |
+| **V6-3.2** | The cosmos | Full | — | Separate space, trophies float freely, ambient music, no clock. Background **procedural**, not an asset (bundle headroom). Risk: new scene = bundle pressure, measure early. **Needs: cosmos ambient loop.** |
+| **V6-3.3** | Fortress assembly | Full | — | Reuses SPARK's own bond mechanics — structurally valid by construction, freeform in expression. OPEN: how much constraint it needs to stay coherent. |
+| **V6-3.4** | Field your fortress | Full | — | The assembled castle becomes the match start state, replacing the V6-1.2 placeholder. **Where the cold start dies and identity arrives.** Until this slot, "it is not a blank start" is false — a placeholder keep ships for 14 of the 25 slots. Composition syncs at match start. |
+| **V6-3.5** | Tier as budget | Standard | — | **R20: trophy *shape* is untaxed.** The budget is denominated in size, but capability comes from shape (every recipe triggers on an exact component) and complexity has no shape term (`scoring.ts:216-235`). Combined with V6-3.7 this makes a library trophy that *is* a laserTurret component a turret you order built from a plan you never solved. **Denominate the budget in capability** — the recipe predicates are pure read-only functions, so an "is this trophy recipe-complete?" surcharge is free at assembly time. Cross-reference V6-3.7. |
+| **V6-3.6** | Bounty and dormancy | Standard | — | A rich castle is visibly worth more to destroy, so investment costs *attention*, not property, and leader-targeting solves itself. Lost-castle trophies return dormant for a match or two. **Stake attention and access, never the artifact.** |
+| **V6-3.7** | Trophies as blueprints | Full | — | A trophy and a buildable shape are the same data structure. Sketch a ghost, gatherers fill it in. The one place gatherers touch building — and only from the player's own plan. Cross-reference V6-3.5 (R20). |
+
+## PHASE 4 — Onboarding, scale, close
+
+| ID | Priority | Tier | Executed in | Notes · bound risks |
+|---|---|---|---|---|
+| **V6-4.1** | First-run introduction | Standard | — | 60–90 **second** guided intro, **first-ever session per device only** — never in a competitive round, never repeated. Fixes comprehension, not fun; do not let a successful intro convince anyone the core is fixed. |
+| **V6-4.2** | Wire and bundle | Full | — | **R11: the 16 KiB wire guard's "worst case" fixture contains ZERO free sparks** (`save.replay.test.ts:715` `N_PRIMS = 40`, asserted `:776`) — adding the 27 free sparks a real duel measured puts it at 16,474 B, and the 6-seat plausible endgame at 38,536 B = **2.35× the ceiling** (the repo's own S122 measure was 49,684 B = 3.03×). **Fix the fixture in the same commit as any wire work — it will go red, and that is the honest starting state.** **R12:** the host serializes once then sends the full payload **per active strategy** (`transport.ts:547-565`; `iceConfig.ts:69-73` has both `nostr` and `torrent` on, with peer dedup on *receive* only), and 10 Hz is a **cap** not a delivered rate — the repo measured it collapsing to **2.2 Hz** under a TD-heavy sim, below what the 150 ms render-delay buffer needs. **Measure real 6-seat upstream before Phase 1 commits; delta encoding is Phase-1-adjacent, not Phase-4 cleanup.** **R14:** `deploy.yml`'s paths filter excludes `scripts/**`, so a charter raise editing `check-bundle-size.mjs` would **not ship the bundle it just authorised** — use `gh workflow run deploy.yml`. |
+| **V6-4.3** | Balance + v0.6 close | Full | — | Full 6-player playtest; tune upgrade costs, bank cap, gatherer cadence, castle HP, tier budgets. **B5 lives here or nowhere:** score is quadratic (`score(T) = 0.0125·T²`, from `scoring.ts:245,257`) so match length ∝ `1/√throughput` — automating haul at 3× flow wins in **~200 s**, at the 5× the upgrade tree explicitly targets **~155 s**, and the bank cap does not save this because it bounds *hoarding*, not *flow*. **No slot currently owns `PHASE_1_WIN_SCORE` or `SCORE_INCOME_PER_COMPLEXITY_PER_SEC`** — the original S135 balance list omitted both — so the pivot forces a seventh, larger raise of the very constant §1 condemns having been raised. Own it explicitly, informed by the V6-0.1 probe. Close the spec, archive the roadmap, decide whether the backend is worth building. |
+
+---
+
+# CARRY-FORWARD LEDGER (S128 — nothing silently dropped)
+
+Per the INTEGRITY-WARNING PROTOCOL. **Enforcement rides three carriers:** (a) each risk is bound to its
+slot's roadmap row above, so that slot's PDR author sees it at scoping time; (b) the risks with a precise
+code anchor also carry a `// V6-RISK(Rn):` comment at that line; (c) session-close `verification[]`
+bindings **must reference this ledger**. A markdown row alone is not enforcement.
+
+## A · Parked CI work from S126/S127 — NOT dropped
+
+Absent from the pivot roadmap only because the branch forked before S126. Parked with the blocking
+reason, not cancelled.
+
+1. **Permanent soak window/threshold shape** from the tick-rate curves now logged every run.
+   **BLOCKED:** needs the second sample set from the weekly cron (**Mon 2026-08-03 07:00 UTC**).
+   Deciding from n=3–4 cost three iterations in S127 — do not repeat it.
+2. **Worker-isolate heap ceiling 10 MB → ~3 MB.** Direction is right (its spread is 0.76 MB vs the main
+   thread's 5.5 MB, so ~3 MB resolves ~1.4 KB/tick, near the original design intent). **BLOCKED on
+   instrument repeatability:** `readWorkerFloorMB()` is a SINGLE read at `worker-heap.spec.ts:182`,
+   **outside** the `readMainFloorMB` stabilization loop at `:174-181`. Add stabilization or
+   median-of-N, THEN re-measure. Magnitude unearned until then.
+3. **Playwright `deviceScaleFactor`** — the one unexplored legitimate lever for raster cost (buys real
+   FPS ⇒ real ticks, zero `src/` change, zero production impact). Needs its own before/after, since
+   rasterization is part of what the render-side audit measures.
+4. **`e2e/**` sits outside tsconfig coverage** (`tsconfig.json` is `include: ["src"]`; both
+   `npm run typecheck` and `npm run build` are `tsc -b`). A real gap, deliberately unfixed. Until then:
+   after editing any spec run `npx playwright test <spec> --list` (~2 s module evaluation).
+
+## B · Owner-gated actions
+
+- **Pages `build_type` flip** — see the Standing gates table above. `gh auth login` first.
+- **B3 faucet rate + B4 directive semantics and bank cap** — the V6-0.1 probe produces the evidence.
+- **B6 reversibility option (A) or (B)** — hard precondition on V6-1.1.
+- **`worker` → `gatherer` rename** — deferred to V6-1.1, the slot that first creates the type. Not
+  applied in S128 because no code entity exists yet, so it is not yet forcing, and "worker sparks" is
+  the owner's own wording. **Forcing constraint on record:** the code identifier **cannot** be `Worker`
+  (the Web Worker owns the authoritative World; `workerSim.ts`, `workerSim.differential.test.ts`), and
+  both Council reviewers independently held that a split vocabulary (docs "worker" / code `Gatherer`)
+  is worse than either pure choice.
+
+## C · Engineering risks R1–R23 — bound to the slots above
+
+R1 desync-oracle blindness · R2 positions-buffer order coupling (`POSITION_SECTIONS = 8` at
+`workerSim.ts:293` with `buildPositions`/`applyPositions` hard-coding the same 8 sections in the same
+order and **no length/version check**, so a one-sided edit silently mis-reads every later section
+instead of throwing — prepend a version+length word and assert it) · R3 gatherer identity · R4 agent
+RNG serialization · R5 `WIN_TRIGGER` teardown + POSTGAME input · R6 no damageable target · R7
+hero-unit hazard couplings · R8 disruption-charge call site · R9 seat-ring spacing · R10 pile-test
+failure · R11 wire fixture · R12 dual-strategy upstream · R13 bundle gate under-measures real download ·
+R14 deploy paths filter · **R15 the 17-site registration checklist** (`worldTypes.ts` World field +
+`nextXId` · `types.ts` branded id + `asXId` · `world.ts:318-322` init · dispatch cases → new
+`state/x/xLifecycle.ts` · `save.ts` `SerializedX` + optional snapshot field · `save.ts:715-719` emit
+**sorted by id** · `save.ts:1008-1018` clear-rehydrate-advance-nextId **plus a post-load re-phase for
+any timer** · `save.ts:792-814` mirror-trim for host-only fields · **five** clear/teardown sites
+(`world.ts:449/451`, `gameState.ts:127/129`, `gameMode.ts:198-202`, `gameMode.ts:339-343`,
+`godlyActions.ts:75-80`) · `protocol.ts:101` version bump + `:146` changelog · `protocol.ts:538-558`
+`KNOWN_GAME_ACTION_TYPES_RECORD` and `:573-592` `CLIENT_INTENT_TYPES_RECORD` · `migrationClaim.ts:147-164`
++ `main.ts:2009-2018` · `workerSim.ts:251-280` structuralSignature · `stateHash.ts:46-48` HashableWorld ·
+`benchGate.ts:50-69` `BENCH_INTENT_POLICY`. That last is a **hard forcing function** —
+`benchGate.test.ts` asserts set-equality with `CLIENT_INTENT_TYPES` in both directions, so every new
+v0.6 intent fails the suite until an explicit allow/deny, and that is exactly where "what happens to a
+benched player's castle" must land. `clear-rehydrate-advance-nextId` is uniform across 9 entity families
+in `applySnapshotCore` (`save.ts:857-1018`), so the template is unambiguous; defenders, the most recent
+full entity, touched 12 of the 17) · R16 module-local constants (`WIN_DWELL_TICKS`,
+`HUNTER_TRIGGER_FRACTION`; note `constants.lock.test.ts` contains exactly ONE assertion, on
+`MEMORY_FOG_COLOR`, so **there is no lock tripwire on any constant this roadmap moves**) · R17/R18
+NONET · R19 functional-bond complexity · R20 trophy shape untaxed · R21 gate falsifiability · **R22 the
+anti-bloat charter is already violated** (16 production modules exceed the 500-line rule: `main.ts` 2519,
+`save.ts` 1658, `audioManager.ts` 1525, `constants.ts` 1070, `controls.ts` 900, `protocol.ts` 746,
+`placePrimitive.ts` 699, `hostTick.ts` 637, `world.ts` 628, `gameMode.ts` 553 … — and v0.6 adds five new
+entities × 17 sites concentrated in exactly those files; amend §XVII honestly or schedule a split before
+V6-1.2) · R23 untested `botBrain` helpers.
+
+Full evidence with file:line for every item:
+`.claude/plans/2026-07-30_S128_v06_PIVOT_A0_STATE_DISCOVERY_AUDIT.md`.
+
+## D · Stale code comments to fix opportunistically
+
+`constants.ts:938-940` reasons against "the protected `PHASE_1_WIN_SCORE=630` anchor" and cites
+"≈1/25200 of a win" — the real figures are 1500 and ≈1/60000 · `spawner.ts:5` documents "Poisson
+1.5/sec" (real 0.1875, and 1.5 is what the e2e seam overrides to) · `botManager.ts:10` documents
+`matchSeed ^ seat ^ 0xb07b07` but the code is `matchSeed ^ (seat * 0xb07b07)` (`:28`) ·
+`protocol.ts:146` changelog ends at 13→14 while the constant is 15 · `save.ts:8-10,100-102` cite
+"existing localStorage saves (S15-S41)" on a path that no longer exists · `ui.progress.test.ts:20`
+comment "589.5" implies win=786 · `collision.pile.test.ts:39` calls `{x:400,y:540}` "open field, away
+from the spawner ring" when it is 560 px from centre and every pile spark is rim-snapped each substep ·
+`sudokuEvent.ts:6`/`:102` and `world.ts:610-611` describe the NONET multipliers wrongly.
+
+---
+
+## External production calendar
+
+| Asset | Needed by | Blocking? |
+|---|---|---|
+| Victory cue — 28s one-shot (2s breath · 3s reveal · 3s gather · 15s procession in 5 countable pulses · 3s climax · 2s resolve) | **V6-3.1** | **YES** — the ceremony is built to its cue points |
+| Trophy mint SFX (fires 6×, pitch up per rank) + trophy flight/poof | **V6-3.1** | **YES** |
+| Cosmos ambient — 3–5 min seamless loop, no hard downbeat | **V6-3.2** | **YES** |
+| Castle keep art — 1 hand-designed core, 6 tints | **V6-3.4** | Partly — placeholder ships V6-1.2 |
+| Gatherer deposit + bank-full SFX | **V6-1.3** | No — procedural Web Audio likely covers both |
+| UI iconography (5 targeting + 3 upgrade + 4 taxonomy) | **V6-2.1** | No — vector, drawn in-engine |
+
+**Tooling: nothing new.** Existing seed → Veo → matte → atlas/webm path covers it. Two constraints carried forward: **Imagen reference-conditioning is non-functional in this auth setup** (consistency comes from Veo-from-one-seed); **video runs on its own clock, not `world.tick`** — fine for cosmos/ambient, wrong for anything combat-timed (must use the atlas path). Cosmos background should be **procedural**, not an asset — bundle headroom.
+
+## Session protocol
+
+1. **Regression reports jump the queue.**
+2. Otherwise every session leads with the next unstarted **V6-x.y** slot in order, and records the session number in that row's *Executed in* column at close. **Check the slot's bound risks in the CARRY-FORWARD LEDGER before writing its PDR** — the ledger is a scoping input, not a reading list.
+3. New Claude/Council ideas land in PARKED and graduate only with owner sign-off.
+4. This section is updated at every session close; completed items move to session history.
+
+## PARKED (awaiting owner sign-off)
+
+- 10 Hz client-mirror pose-stepping smoothing (S84 advisory).
+- Mobile playability rework — revisit only after v0.6 ships (Blueprint § XV.8).
+
+---
 # SESSION HISTORY (newest first)
 
 > **History gap S92–S99:** the per-session narrative for S92–S99 lives in the `.handoff-archive/` handoff series (this section was not maintained between S91 and S100). S92–S99 deploys all SUCCEEDED (verified via `gh run list --workflow=deploy.yml`).
