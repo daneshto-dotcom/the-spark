@@ -1,107 +1,137 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-07-28 | Session: S127 (soak-lane CI viability — fix the INSTRUMENTS, not the budget, 1/1 shipped)
+Generated: 2026-07-30 | Session: S128 (v0.6 pivot landed + economy probe harness — slot V6-0.1, 2/2 shipped)
 
-## CI STATUS — S127 IS FULLY VERIFIED, NOTHING LEFT OPEN
-Dispatch run **30395046615** concluded **`success`**:
-`e2e` (GATING) success 4m06s, 24 passed + 1 flaky · **`e2e-soak` SUCCESS 22m41s, 4 passed, 0 failed**
-(was 44m + globalTimeout, so **-48%**) · `e2e-quarantine` failure 18m20s (expected, non-gating).
+## ⛔ TWO BLOCKERS BEFORE ANY WORK
 
-Every mechanism verified in the CI log, not inferred: warm-up now COMPLETES (1233/1284/1255 of 1200,
-all `capped=false`, vs 648-693 pre-fix) · the two-regime gate fired and declared its own sensitivity
-(2304→SHORT 4.4 KB/tick, 8598→STRICT 1.2, 2409→SHORT 4.3) · the scaled census exercised its floor path
-(Δ-4 vs limit 27 = 25 floor, 0.35 × signal 77) · **the determinism oracle executed in CI for
-worker-heap:333 for the FIRST time ever and PASSED** (that was RALPH's F2, the one place a new red
-could appear).
+**1. NOTHING IS PUSHED. The GitHub token is invalid.** `gh auth status` → *"The token in default is
+invalid."* `git push` **hangs** (Git Credential Manager waiting on an invisible prompt) rather than
+erroring. **8 commits + tag `v0.5.2-pre-pivot` are local only.** Owner must run
+`gh auth login -h github.com`, then `git push origin master && git push origin v0.5.2-pre-pivot`.
+⚠ That push **fires a production deploy** (`c69d761` touches `src/`); the only production delta is
+**+114 B** of inert module record. It also blocks the Pages `build_type` flip and CI dispatch — so
+the **e2e gating lane was NOT run in S128** (unit suite + build stood in).
 
-⚠ The GATING lane's 1 flake was `worker-bots.spec.ts` asserting `hashMismatches === 0` — the
-determinism oracle flaking under CI load (it retried and passed, which also proves `retries: 2`
-survives outside the soak lane). Do NOT read a future soak oracle failure as a real determinism
-regression without checking it reproduces.
+**2. THE OWNER'S PLAYTEST GATES PHASE 1.** `npm run dev -- --port 16267` →
+`http://localhost:16267/?probe=1&regime=new&slots=8`. Keys `[` regime · `]` slots · `1`-`6` stock ·
+`Q` draw · `\` reset · `&spawn=N` sweeps λ. **Do not open V6-1.3 or V6-1.4 before B3/B4 are ruled.**
+
+## STATE
+tsc 0 · vitest **1922/1922** (126 files) · bundle **640.9/750 KiB** entry (+117.3 KiB simWorker =
+**758.1 KiB real download**) · PROTOCOL_VERSION 15 unchanged · HEAD `c3e8acb` · gitleaks clean.
+The live site is **unchanged** — no deploy has fired.
+
+## WHAT S128 DELIVERED (slot V6-0.1)
+The owner's v0.6 pivot is now on `master`, reconciled and corrected. Their branch forked at **S125**
+and never saw S126/S127, so a naive merge would have deleted **429 lines** including LOCKED
+`§DEPLOY-PATH` and all of `§15 SOAK-CALIBRATION`; merged keeping BOTH sides of the `BACKLOG.md`
+conflict, 5 gates asserted, both parents recorded, no force-push. Roadmap relabelled
+**`V6-0.1 … V6-4.3`** (phase-relative, decoupled from session numbers). 43 corrections landed.
+LOCKED unlock pass finished for everything gating Phase 1. A **CARRY-FORWARD LEDGER** now binds the
+4 parked CI items and 23 engineering risks to the slots that must clear them.
+
+Plus a **dev-build-only economy probe harness** (A/B: carry-1+uniform vs an exact-type N-slot
+inventory, slot dial 4/8/12/∞) to settle B3 and B4 empirically. Stripped from production — 0 grep
+hits for 4 needles.
+
+## THE TWO BLOCKERS IN THE DESIGN (now in the spec, marked PROVISIONAL — PRE-PROBE)
+- **B3 · the faucet, not transport, is the bottleneck.** `SPAWN_RATE_PER_SECOND = 0.1875` with
+  `FREE_SPARK_TTL_TICKS = 600` (10 s, reaped every tick) ⇒ standing pool **~1.9 sparks arena-wide**
+  (Little's Law). `FREE_SPARK_SOFT_CAP = 50` is unreachable dead code. An 8-slot bank fills in
+  **~256 s**, not the specified 20–40 s; "squares only" is served by one square per ~25 s for all six
+  seats combined. The constant appeared in **none** of the four pivot docs.
+- **B4 · directives + a bank of 8–10 would delete the carve-down tactic** the pivot exists to protect.
+  Every godly recipe is an **exact isolated component** (pentagram 5 · lightningHub 6 · Helga 7 ·
+  Voltkin 8 · laserTurret 8) and scoring has **no per-component term**, so a cap ≥ every recipe makes
+  "assemble it directly, first try" rational. Carving was never economically motivated — it was
+  *forced* by random types + carry-1. **Keep the recipe-size table beside the cap number forever.**
 
 ## Next Steps
-1. **Permanent window/threshold shape from the tick-rate curves** now logged every run. Decide from
-   data, not from n=3-4 — that mistake cost three iterations this session. Curves are in run
-   30395046615's soak artifacts and in every future run.
-2. **Worker-isolate ceiling 10MB → ~3MB.** Direction right (spread 0.76MB vs main's 5.5MB ⇒ resolves
-   ~1.4KB/tick, near the original design intent) but **BLOCKED**: `readWorkerFloorMB()` is a SINGLE
-   read at `worker-heap.spec.ts:182`, OUTSIDE the `readMainFloorMB` stabilization loop at :174-181.
-   Give it stabilization (or median-of-N) first, THEN re-measure. Magnitude is not yet earned.
-3. **Unexplored legitimate lever: Playwright `deviceScaleFactor`** — cuts raster cost, buys real
-   FPS ⇒ real ticks, zero `src/` change. Needs a before/after (rasterization is partly what the
-   render-side audit measures).
-4. OWNER: `?worker=1` weak-device playtest · BOT_INTELLIGENCE_DESIGN.md §7 (Q1-Q7) · Pages
-   `build_type=workflow` flip then optional `origin/gh-pages` deletion, IN THAT ORDER.
-5. Gated/optional: lane promotion off `continue-on-error` (needs multi-run retuning, NOT one green —
-   e2e.yml:125-132 says so explicitly) · G1b MOTION · G2 traits · F9 QoS split · bit-exact (YAGNI).
+1. **OWNER: `gh auth login` + push.** Then the Pages `build_type=workflow` flip → verify live asset
+   hash → *then* optionally delete `origin/gh-pages`, IN THAT ORDER.
+2. **OWNER: playtest the probe.** Falsification (still carving at 8 slots) is STRONG evidence;
+   confirmation is WEAK (you know the hypothesis; an inventory UI prompts optimal play) and authorises
+   a second probe, not a directive redesign. Drop to 4 slots to find the threshold.
+3. **OWNER: B6 reversibility** — (A) branch off `v0.5.2-pre-pivot`, or (B) additive-only keeping
+   `CarryingPlayer` live. Hard precondition on V6-1.1.
+4. **OWNER: `worker`→`gatherer`** — not applied; it's your word. The code identifier cannot be
+   `Worker` (the Web Worker owns the authoritative World).
+5. **V6-0.2 Learnability I** is next in the plan but was **rescoped**: no-HUD has been de-facto dead
+   ~65 sessions (leaderboard + crown + combos counter + tier pulse all ship). Real residual =
+   score/standing in **solo** (gated `isNetworked(world)` at `ui.ts:295`) + making the tier pulse
+   legible. Budget amplification, not plumbing.
 
 ## Blockers
-- No technical blockers. Owner decisions as in step 4.
-- **The census scaling law rests on n=7.** `0.35 × signal` with a `25` floor is the best-supported
-  calibration so far, NOT settled. The next CI run adds samples at the ~2200-tick end, the sparsest region.
-- ~~RALPH F3: thresholds calibrated against the truncated warm-up~~ **RESOLVED by the CI run** — with
-  the full warm-up, measured ticks went slightly UP (2304/2409 vs the pre-fix 2154-2301), not down.
-  `MIN_VALID_TICKS = 1300` has ~1.8× margin.
-- Known-delta (v1-accepted, LOCKED §13.21): asymmetric-partition rogue-solo-host.
+- Push + playtest, as above. No technical blockers in the code.
+- **V6-2.1 cannot be built as written (R6):** 3 of 5 targeting priorities have no damageable target
+  — `DEFENDER_HP = 1_000_000_000` is an explicit sentinel, `CreatureSpawner` has no hp field, and the
+  only damage function in the game is `damageCreature`. Insert a structure-HP + `damageEntity` slot
+  before it, or move it after V6-2.4. **Owner decision.**
+- **V6-1.5 is mis-tiered Standard→Full (R7):** deleting `CarryingPlayer` silently changes shipped
+  hazard rules — the LMB chain is gated on Idle (`controls.ts:245`) so bomb/rainbow/potato become
+  always-grabbable; poop loses 3 of 4 surfaces; the hunter loses confiscation until V6-2.2.
 
 ## Pending Backlog
-- Permanent window/threshold shape from the tick-rate curves (CI verdict already CLOSED: success)
-- Worker-isolate ceiling (blocked on instrument stabilization) · `deviceScaleFactor` lever
-- Worker default-on flip (owner) · Bot-intelligence Phases A/B/C (owner §7)
-- Pages `build_type=workflow` + optional gh-pages deletion (owner, in that order)
-- `e2e/**` outside tsconfig coverage · lane promotion · G1b · G2 · F9 · bit-exact (YAGNI)
+- **PARKED CI x4** (not dropped, each with its blocker): permanent soak window/threshold shape —
+  needs the **Mon 2026-08-03 07:00 UTC** cron sample, do NOT decide on n=3-4 · worker-isolate ceiling
+  10MB→~3MB — BLOCKED on `readWorkerFloorMB()` being a single read at `worker-heap.spec.ts:182`,
+  outside the stabilization loop at `:174-181` · Playwright `deviceScaleFactor` raster lever ·
+  `e2e/**` outside tsconfig coverage.
+- **23 engineering risks R1–R23**, each bound to its V6 slot in the ledger. Earliest-biting:
+  **R1** `stateHash.ts:45-48` `HashableWorld` omits every entity family, so the desync oracle is blind
+  to gatherers in the very slot that flips the worker default on · **R5** `WIN_TRIGGER` destroys 7
+  entity families at t=0 (`world.ts:431-451`), so castle survival into the ceremony is a V6-1.2
+  decision · **R10** the r=188 shrink hard-fails `collision.pile.test.ts` (2.89 px vs a 1.5 px
+  assertion) · **R12** the host sends the full payload once per active transport strategy and 10 Hz is
+  a cap measured collapsing to 2.2 Hz ⇒ delta encoding is Phase-1-adjacent, not V6-4.2 cleanup.
 
 ## CRITICAL TRAPS FOR THE NEXT SESSION
-- **Audit CI run CONCLUSIONS at boot, not just that a workflow exists.** A job killed by
-  `timeout-minutes` concludes `cancelled`, not `failure` — no email, reads as a benign concurrency
-  cancel, and the SIGKILL destroys the artifacts that would explain it. Hid a dead gating lane for 3
-  weekly runs behind an "OPEN ISSUES: None" handoff.
-- **NEW S127 — a code comment is a CLAIM about external state, not evidence of it.** I copied "CI
-  minutes are a hard constraint" out of `e2e.yml`'s own header into the A.0 packet as fact. Probe:
-  `gh repo view --json isPrivate,visibility` → **PUBLIC** ⇒ Actions minutes are free/unlimited on
-  standard runners. It had already anchored a Council recommendation to DELETE the lane. Probe every
-  external-state noun in a premise, **including the ones a repo file appears to answer.**
-- **NEW S127 — the SECOND time a threshold needs retuning, stop tuning and check the UNITS.** The
-  census limit went 1500 → 75 → 30 → 40 (the last passing by ONE object) before the dimensional model
-  appeared. Both signal (`t/30`) and noise (`~t/220`) scale with the window, so the correct assertion
-  was a FRACTION of the signal all along — which is the shape GROK proposed and I rejected on n=4.
-- **NEW S127 — an early `expect()` in a shared helper voids every assertion below it, invisibly on a
-  `continue-on-error` lane.** The determinism oracle had NEVER executed in CI for `worker-heap:333`.
-  When a test fails, the assertions after the failing line produced NO evidence — never cite them.
-- **NEW S127 — `e2e/**` is NOT type-checked** (`tsconfig include: ["src"]`; both `typecheck` and
-  `build` are `tsc -b`). After editing any spec run **`npx playwright test <spec> --list`** (~2s
-  module evaluation) and/or `npx tsc --noEmit` pointed at the spec. A temporal-dead-zone
-  `ReferenceError` cost a full 16-minute soak run to discover.
-- **Do NOT trust `gh api repos/:owner/:repo/pages`** — it reports `build_type: "legacy"` + source
-  `gh-pages`, which is STALE and NOT what serves. Trust the **deployments API** and the **live asset
-  hash**. `npm run deploy` / `scripts/deploy-pages.sh` no longer exist — do not recreate them
-  (LOCKED §DEPLOY-PATH).
-- **`git push` on master == SHIPPING TO PRODUCTION** for any push touching `src/`, `public/`,
-  `index.html`, `vite.config.ts`, `tsconfig.json`, `package.json`, `package-lock.json`, `deploy.yml`.
-  S127 touched NONE of those (verified: no deploy run fired). Note `package.json` is in that filter —
-  so a "harmless" npm-script tweak ships a production deploy.
-- **MCV bindings**: BACKLOG.md is diff-bound and needs an ABSOLUTE-path `verification[]` assertion on
-  a **`completed`** priority. It fired in S125, S126, **and mid-S127** — while P1 was still
-  `in_progress`, `completed=0` meant the binding was out of scope. Close the priority, don't relabel it.
-- **Before touching the `PW_RETRIES` guard, read LOCKED §15.4.** It has THREE required properties and
-  two reviewers pulled in OPPOSITE directions to get there; "simplifying" it re-opens either a silent
-  degradation or an all-lane config-load outage.
+- **NEW S128 — never run `python -c` through bash when the payload has backticks.** Shell command
+  substitution silently ate ~20 backticked identifiers from 3 markdown lines **while the script
+  reported "4 of 5 applied"** — a true success count over corrupt content. Write a script FILE. I hit
+  a heredoc quoting failure earlier in the same session, switched to files, then regressed.
+- **NEW S128 — a verification whose verdict comes from a pipeline's exit status tests the LAST
+  command.** `if grep -rl X dist/ | grep -v map | head -3; then` always takes the then-branch because
+  `head` exits 0; it could not report a pass for any input. Make the check emit a **number** and
+  assert on the number.
+- **NEW S128 — a hidden Browser pane pauses `requestAnimationFrame`**, so the Pixi ticker never
+  advances and the sim does not run. Synthetic canvas clicks do nothing; rAF-awaiting scripts time
+  out. DOM reads and window globals still work. Drop to the reducer level when a frame is needed.
+- **NEW S128 — run mechanical renames BEFORE edits that add new references to the old tokens.**
+  Corrections legitimately mention the real S126/S127; landing them before the relabel regex would
+  have rewritten true historical refs into V6 labels — a corruption that greps clean.
+- **NEW S128 — when an artifact's job is to MEASURE, audit the measurement path as a first-class
+  deliverable.** The probe's metric compared owned-primitive COUNTS, so a placement and a sever in the
+  same window cancelled to nothing and carving was under-reported — the exact false negative that
+  would have wrongly confirmed B4. "Does it run?" and "can it tell the difference?" are different
+  questions.
+- **Reviewers fabricate mechanisms — grep-verify before triage.** Third session running. S128:
+  GEMINI elevated to HIGH a claim that the overlay reads the URL for the spawn rate; it reads the
+  imported constant. GROK's 3 refuted claims included one conflating the gated entry chunk with real
+  download.
+- **Audit CI run CONCLUSIONS, not just that a workflow exists.** A job killed by `timeout-minutes`
+  concludes `cancelled`, not `failure` — no email, and the SIGKILL destroys the artifacts.
+- **`git push` on master IS a production deploy** for `src/ public/ index.html vite.config.ts
+  tsconfig.json package*.json deploy.yml` — note `package.json`, so a "harmless" npm-script tweak
+  ships. **Do NOT trust `gh api .../pages`** (reports stale legacy/gh-pages) — trust the deployments
+  API + live asset hash. `npm run deploy` / `scripts/deploy-pages.sh` are DELETED; do not recreate.
+- **`e2e/**` is NOT type-checked** (`tsconfig include: ["src"]`) — after editing a spec run
+  `npx playwright test <spec> --list` (~2 s module eval).
+- **MCV** needs an ABSOLUTE-path `verification[]` binding on a **completed** priority for
+  `BACKLOG.md`. Fired in S125, S126, mid-S127.
+- **Before touching the `PW_RETRIES` guard, read LOCKED §15.4** — three required properties, two
+  reviewers pulled in opposite directions to get there.
+- **MODEL DRIFT:** S128 ran `claude-opus-5` against a `claude-opus-4-8` pin (2 consecutive boots after
+  a run of 6). Root-cause the override before a long autonomous run.
 
-## Recent Reflexion (last 2 sessions)
-- S127-A0 #probe-external-state-even-when-a-code-comment-states-it: see trap 2 above. Rule 21 was
-  applied to git/CI/service state but not to repo visibility, and the stale premise propagated into
-  both Council legs before the probe ran.
-- S127-P1 #a-threshold-that-moves-three-times-is-the-wrong-SHAPE-not-the-wrong-number: three constants
-  died before the dimensional model appeared. A value repeatedly overtaken by the next sample is
-  dimensionally wrong, not merely mis-sized.
-- S127-CHECK #i-rejected-the-right-shape-using-too-little-data: I rejected GROK's tick-scaled census
-  limit citing n=4-plus-an-outlier, in the same session whose PDR said n=3 can't support a threshold,
-  then adopted the same shape after rediscovering it the long way. When rejecting a reviewer's SHAPE,
-  the bar is a mechanism or a power-adequate sample.
-- S127-CHECK #an-early-expect-in-a-shared-helper-voids-every-assertion-below-it: see trap 4.
-- S127-P1 #cheap-module-evaluation-beats-a-16-minute-feedback-loop: see trap 5.
-- S126-BOOT #audit-run-conclusions-not-just-that-the-workflow-exists: the S125 handoff's "e2e GREEN"
-  was true of a LOCAL run and masked 3 weeks of dead CI. Fix pattern: set the test runner's own global
-  timeout BELOW the job's `timeout-minutes` so the TOOL lands the kill, flushing artifacts.
-- S126-P1 #measure-the-composition-before-you-tune-the-budget: never extrapolate a per-unit average
-  across a heterogeneous population. **S127 repeated this exact error** (linear tick extrapolation)
-  one session after it was written down.
+## Recent Reflexion (S128)
+- **#the-same-blocker-was-nearly-missed-twice-at-two-different-layers** — B4 escaped once at DESIGN
+  (my first probe gave free material under carry-1, which forces the old behaviour; both Council legs
+  caught it independently) and once at IMPLEMENTATION (count-delta aliasing; GEMINI caught it, GROK
+  missed it). Same question, two layers, both caught by an adversarial reviewer rather than by me.
+- **#never-run-python--c-through-bash-when-the-payload-has-backticks** — see traps.
+- **#a-pipeline-verification-can-false-pass-because-the-last-command-decides-the-exit-status** — see traps.
+- **#measure-the-delta-by-building-both-sides-rather-than-trusting-a-remembered-baseline** — rebuilt
+  the true baseline by moving files aside; it reproduced exactly at 656186 B, making the delta a
+  precise +114 B rather than "unchanged" or "noise".
+- **#a-hidden-browser-pane-freezes-requestAnimationFrame-so-gameplay-cannot-be-driven** — see traps.
+- **#relabel-a-numbering-scheme-before-introducing-new-references-to-the-old-numbers** — see traps.
