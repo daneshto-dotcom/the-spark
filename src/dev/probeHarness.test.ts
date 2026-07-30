@@ -22,7 +22,7 @@ import { dispatch } from '../state/world.ts';
 import { makeFreeSpark } from '../game/spark.ts';
 import { SparkType, PHYSICS_HZ } from '../constants.ts';
 import { asSparkId, asPlayerId } from '../types.ts';
-import { PROBE_SENTINEL } from './probeHarness.ts';
+import { PROBE_SENTINEL, diffOwned } from './probeHarness.ts';
 
 const PROBE_ID_BASE = 1_000_000; // must match probeHarness.ts
 const PHYSICS_DT = 1 / PHYSICS_HZ;
@@ -83,6 +83,35 @@ describe('v0.6 economy probe harness — action contract', () => {
     expect(PROBE_ID_BASE).toBeGreaterThan(100_000);
     const secondsToCollide = PROBE_ID_BASE / 0.1875;
     expect(secondsToCollide / 86_400).toBeGreaterThan(30); // > 30 days
+  });
+
+  it('diffOwned does not alias a placement against a sever in the same sampling window', () => {
+    // THE DEFECT THIS PINS (S128 CHECK, GEMINI-AUDITOR, rated fatal). The first implementation
+    // compared counts: `owned > prev` => build, `owned < prev` => sculpt. Place one and sever one
+    // inside a single sampling window and the net change is ZERO, so BOTH events vanished. The bias
+    // ran in the worst possible direction for this instrument — it under-reports carving, which is
+    // precisely the reading that would wrongly "confirm" B4 and authorise redesigning directives.
+    const prev = new Set([1, 2, 3]);
+    const next = new Set([2, 3, 9]);           // removed 1, added 9 — a net count delta of ZERO
+    expect(next.size).toBe(prev.size);          // the aliasing precondition
+    expect(diffOwned(prev, next)).toEqual({ added: 1, removed: 1 });
+  });
+
+  it('diffOwned reports a multi-primitive sever as one action with its true magnitude', () => {
+    // A sever deletes the smaller resulting component, so one carving ACTION can remove many
+    // primitives. B4 asks *whether* the player carves, so actions are the unit — but the magnitude
+    // is still worth reporting, hence added/removed counts rather than booleans.
+    const prev = new Set([1, 2, 3, 4, 5, 6, 7]);
+    const next = new Set([1, 2, 3]);
+    expect(diffOwned(prev, next)).toEqual({ added: 0, removed: 4 });
+  });
+
+  it('diffOwned counts every placement in a window, not one event per window', () => {
+    // Rapid sequential placements (the direct-assembly behaviour B4 contrasts against) must not
+    // collapse into a single build event just because they share a sampler tick.
+    const prev = new Set<number>();
+    const next = new Set([10, 11, 12, 13]);
+    expect(diffOwned(prev, next)).toEqual({ added: 4, removed: 0 });
   });
 
   it('exposes a sentinel string that must be absent from production bundles', () => {

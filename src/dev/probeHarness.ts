@@ -80,6 +80,14 @@ const PROBE_ID_BASE = 1_000_000;
 
 const SLOT_LADDER: readonly number[] = [4, 8, 12, Number.POSITIVE_INFINITY];
 
+/**
+ * Sampler period. 100 ms rather than 250 ms because the median-build-gap statistic inherits this as
+ * its resolution (S128 CHECK, GEMINI-AUDITOR), and the overlay states the resolution rather than
+ * implying more precision than it has. Placement COUNTS are exact regardless — `diffOwned` reports
+ * every added id in the window, not one event per window.
+ */
+const SAMPLE_MS = 100;
+
 const TYPE_KEYS: Readonly<Record<string, SparkType>> = {
   '1': SparkType.Dot,
   '2': SparkType.Line,
@@ -116,10 +124,18 @@ export interface ProbeDeps {
 }
 
 interface Metrics {
-  /** Ticks at which a primitive count INCREASE was observed (a build action). */
+  /** Ticks at which at least one placement was observed. Resolution = the sampler interval. */
   buildTicks: number[];
-  /** Count of primitive-count DECREASES — only a sever can remove primitives ⇒ sculpt proxy. */
+  /** TOTAL primitives placed (not windows-with-a-placement) — see `diffOwned`. */
+  buildCount: number;
+  /**
+   * Count of SEVER ACTIONS, derived from set-difference rather than net count.
+   * A sever deletes the smaller resulting component, so one action can remove many primitives;
+   * what B4 asks is *whether* the player carves, so actions are the right unit, not primitives.
+   */
   sculptEvents: number;
+  /** Primitives removed in total, for context on how deep the carving goes. */
+  primitivesRemoved: number;
   /** Rolling max of primitives owned, to see whether "build large" actually happens. */
   peakPrimitives: number;
   /** Standing Free-spark samples, for the B3 pool measurement. */
@@ -132,9 +148,31 @@ interface Metrics {
 
 function freshMetrics(tick: number): Metrics {
   return {
-    buildTicks: [], sculptEvents: 0, peakPrimitives: 0, poolSamples: [],
-    regimeStartTick: tick, winAtSec: null,
+    buildTicks: [], buildCount: 0, sculptEvents: 0, primitivesRemoved: 0,
+    peakPrimitives: 0, poolSamples: [], regimeStartTick: tick, winAtSec: null,
   };
+}
+
+/**
+ * Compare two snapshots of the player's owned-primitive id set.
+ *
+ * WHY A SET DIFF AND NOT A COUNT DELTA — this is the fix for the defect the S128 CHECK phase
+ * called fatal. Comparing `count > prevCount` / `count < prevCount` ALIASES: if the player places
+ * one primitive and severs one within the same sampling window, the net change is zero and BOTH
+ * events vanish. Place two and sever one, and the sever vanishes. That bias runs in exactly the
+ * worst direction for this instrument — it under-reports carving, which is the reading that would
+ * wrongly "confirm" B4 and authorise redesigning directives. A set difference reports additions
+ * and removals independently, so co-occurring events cannot cancel.
+ *
+ * Exported purely so the aliasing property is directly testable.
+ */
+export function diffOwned(
+  prev: ReadonlySet<number>, next: ReadonlySet<number>,
+): { added: number; removed: number } {
+  let added = 0, removed = 0;
+  for (const id of next) if (!prev.has(id)) added++;
+  for (const id of prev) if (!next.has(id)) removed++;
+  return { added, removed };
 }
 
 function guardDev(): void {
@@ -174,6 +212,27 @@ export function installProbeHarness(deps: ProbeDeps): { dispose(): void } | null
   guardDev();
 
   const params = new URLSearchParams(window.location.search);
+
+  // ── REFUSE TO ARM IN SIM-WORKER MODE (S128 CHECK, GEMINI-AUDITOR finding, verified) ──
+  // `dispatchFn` routes to the worker as an INTENT when the sim-worker is active, and
+  // `SPAWN_SPARK` is ABSENT from `CLIENT_INTENT_TYPES_RECORD` while `PICKUP_SPARK: true` is
+  // present. So under ?worker=1 the spawn would be dropped and the pickup would then reference a
+  // spark that does not exist in the worker's authoritative world — a silent broken state, in the
+  // instrument whose whole job is to produce a trustworthy measurement. Refuse loudly instead.
+  if (params.get('worker') === '1') {
+    console.error(
+      `[probe] REFUSING TO ARM: ?worker=1 is set. SPAWN_SPARK is not a client intent, so the ` +
+      `NEW-regime draw cannot survive the sim-worker path. Drop ?worker=1 and reload.`,
+    );
+    return null;
+  }
+
+  // ── HMR SAFETY (S128 CHECK, both reviewers) ──
+  // main.ts discards the handle, so a Vite hot reload would otherwise stack overlays, keydown
+  // listeners and interval timers — each extra sampler double-counting into its own metrics.
+  const g = globalThis as { __SPARK_PROBE__?: { dispose(): void } };
+  g.__SPARK_PROBE__?.dispose();
+  for (const stale of Array.from(document.querySelectorAll(`[data-probe]`))) stale.remove();
   let regime: Regime = params.get('regime') === 'new' ? 'NEW' : 'OLD';
   let slotIdx = (() => {
     const want = Number(params.get('slots'));
@@ -183,12 +242,30 @@ export function installProbeHarness(deps: ProbeDeps): { dispose(): void } | null
 
   /** The exact-type inventory: types only, not entities. Drawn on demand. */
   const inventory: SparkType[] = [];
-  let nextProbeId = PROBE_ID_BASE;
   let disarmedReason: string | null = null;
 
-  let prevPrimCount = 0;
+  /**
+   * Owned-primitive id snapshot from the previous sample. Seeded from the LIVE world at install
+   * (S128 CHECK, confirmed by both reviewers): starting from an empty set would make the first
+   * sample report every pre-existing primitive as a fresh placement, inflating buildCount and
+   * peakPrimitives — a measurement error in the owner's favour, which is the worst kind here.
+   */
+  let prevOwned: Set<number> = new Set();
   let metrics = freshMetrics(0);
   let lastPoolSampleTick = -1;
+
+  /**
+   * Probe spark ids live above every id the Spawner has issued. Recomputed at install AND before
+   * every draw, rather than trusting a fixed constant: a long session or a loaded late-game save
+   * could in principle carry ids past a hardcoded base (S128 CHECK, both reviewers), and a
+   * duplicate SparkId would corrupt the very world being measured.
+   */
+  function nextFreeProbeId(world: World): number {
+    let max = PROBE_ID_BASE - 1;
+    for (const id of world.freeSparks.keys()) if ((id as number) > max) max = id as number;
+    for (const id of world.primitives.keys()) if ((id as number) > max) max = id as number;
+    return max + 1;
+  }
 
   const slots = (): number => SLOT_LADDER[slotIdx]!;
 
@@ -206,12 +283,17 @@ export function installProbeHarness(deps: ProbeDeps): { dispose(): void } | null
 
   function drawSparkFromInventory(world: World): void {
     if (regime !== 'NEW') return;
+    if (disarmedReason !== null) return;
+    // Re-check solo HERE, not only in the 250 ms sampler (S128 CHECK, GROK-ANALYST): a peer or bot
+    // could appear between two samples and a keypress land in that window, dispatching into a
+    // networked match. Two lines of insurance on a gate whose whole point is not to touch the wire.
+    if (world.players.size > 1 || world.botSeats.size > 0) return;
     const type = inventory.shift();
     if (type === undefined) return;
     const player = world.players.get(deps.playerId);
     if (player === undefined || player.kind !== 'Idle') return; // carry-1 still holds
     const at: Vec2 = { x: player.avatarPos.x, y: player.avatarPos.y };
-    const id: SparkId = asSparkId(nextProbeId++);
+    const id: SparkId = asSparkId(nextFreeProbeId(world));
     // Existing actions only: mint a Free spark, then claim it through the normal pickup path.
     deps.dispatch({
       type: 'SPAWN_SPARK',
@@ -230,7 +312,7 @@ export function installProbeHarness(deps: ProbeDeps): { dispose(): void } | null
       regime = regime === 'OLD' ? 'NEW' : 'OLD';
       inventory.length = 0;
       metrics = freshMetrics(world.tick);
-      prevPrimCount = countOwnedPrimitives(world);
+      prevOwned = ownedIds(world);
       return;
     }
     if (e.key === ']') { slotIdx = (slotIdx + 1) % SLOT_LADDER.length; return; }
@@ -245,10 +327,12 @@ export function installProbeHarness(deps: ProbeDeps): { dispose(): void } | null
   }
   window.addEventListener('keydown', onKey);
 
-  function countOwnedPrimitives(world: World): number {
-    let n = 0;
-    for (const p of world.primitives.values()) if (p.placedBy === deps.playerId) n++;
-    return n;
+  function ownedIds(world: World): Set<number> {
+    const s = new Set<number>();
+    for (const p of world.primitives.values()) {
+      if (p.placedBy === deps.playerId) s.add(p.id as number);
+    }
+    return s;
   }
 
   function sample(): void {
@@ -271,11 +355,20 @@ export function installProbeHarness(deps: ProbeDeps): { dispose(): void } | null
       metrics.poolSamples.push(free);
       if (metrics.poolSamples.length > 3600) metrics.poolSamples.shift();
 
-      const owned = countOwnedPrimitives(world);
-      if (owned > prevPrimCount) metrics.buildTicks.push(world.tick);
-      else if (owned < prevPrimCount) metrics.sculptEvents++;
-      prevPrimCount = owned;
-      metrics.peakPrimitives = Math.max(metrics.peakPrimitives, owned);
+      // Set difference, NOT a count delta — placements and severs in the same window must not
+      // cancel each other out. See `diffOwned`.
+      const owned = ownedIds(world);
+      const { added, removed } = diffOwned(prevOwned, owned);
+      if (added > 0) {
+        metrics.buildCount += added;
+        metrics.buildTicks.push(world.tick);
+      }
+      if (removed > 0) {
+        metrics.sculptEvents++;            // one carving ACTION per window in which anything went
+        metrics.primitivesRemoved += removed;
+      }
+      prevOwned = owned;
+      metrics.peakPrimitives = Math.max(metrics.peakPrimitives, owned.size);
 
       if (metrics.winAtSec === null && world.gameState !== 'PLAYING' && metrics.buildTicks.length > 0) {
         metrics.winAtSec = (world.tick - metrics.regimeStartTick) / PHYSICS_HZ;
@@ -301,6 +394,27 @@ export function installProbeHarness(deps: ProbeDeps): { dispose(): void } | null
     // Recipes that fit in ONE inventory load at this cap — the B4 mechanism, made visible.
     const fit = RECIPE_SIZES.filter(([, n]) => n <= cap).map(([name]) => name);
 
+    // A/B ISOLATION WARNING (S128 CHECK, GEMINI-AUDITOR — confirmed and unfixable in-harness).
+    // `[` resets the counters but CANNOT reset the world. If the owner builds large under OLD and
+    // then toggles to NEW, any carving of that pre-existing structure is attributed to NEW — which
+    // would falsely read as "players still carve under an inventory", the exact false-negative that
+    // matters most here. The honest fix is procedural, so say so on screen rather than in a doc.
+    const standing = prevOwned.size;
+    const carryoverWarning = standing > 0
+      ? `⚠ ${standing} of your primitives predate this counter reset.\n  For a clean A/B, RESTART the match after toggling regime.`
+      : '';
+
+    // λ MISMATCH (S128 CHECK). probeBootstrap depends on module import ORDER, so the override can
+    // silently fail. GEMINI claimed the overlay would then falsely report OVERRIDDEN — refuted:
+    // the value shown is the IMPORTED CONSTANT, so a failed override displays the true 0.1875.
+    // But a silent no-op is still a trap, so compare requested against observed and shout.
+    const requested = params.get('spawn');
+    const lambdaMismatch = requested !== null
+      && Number.isFinite(Number(requested)) && Number(requested) > 0
+      && Math.abs(Number(requested) - SPAWN_RATE_PER_SECOND) > 1e-9
+        ? `⚠ ?spawn=${requested} did NOT take effect (engine is running ${SPAWN_RATE_PER_SECOND}/s).\n  probeBootstrap.ts must be main.ts's FIRST import. B3 readings are INVALID.`
+        : '';
+
     const lines = [
       `▍v0.6 ECONOMY PROBE — ${regime}${disarmedReason !== null ? '  [DISARMED]' : ''}`,
       disarmedReason !== null ? `  ⚠ ${disarmedReason}` : '',
@@ -310,6 +424,7 @@ export function installProbeHarness(deps: ProbeDeps): { dispose(): void } | null
       regime === 'NEW' ? `INVENTORY 1-6 add · Q draw · ${inventory.length}/${capLabel}  ${inv}` : '',
       '',
       `── B3 · faucet ─────────────────────`,
+      lambdaMismatch,
       `λ observed      ${SPAWN_RATE_PER_SECOND.toFixed(4)}/s${Math.abs(SPAWN_RATE_PER_SECOND - 0.1875) > 1e-9 ? '  (OVERRIDDEN)' : '  (shipped default)'}`,
       `TTL             ${(FREE_SPARK_TTL_TICKS / PHYSICS_HZ).toFixed(0)}s`,
       `pool λ·W pred   ${predictedPool.toFixed(2)}`,
@@ -318,11 +433,13 @@ export function installProbeHarness(deps: ProbeDeps): { dispose(): void } | null
       `── B4 · does carving survive? ──────`,
       `recipes fitting one load: ${fit.length === 0 ? 'none' : fit.join(', ')}`,
       `peak primitives owned    ${metrics.peakPrimitives}`,
-      `sculpt/sever events      ${metrics.sculptEvents}`,
+      `sever actions            ${metrics.sculptEvents}`,
+      `primitives removed       ${metrics.primitivesRemoved}`,
+      carryoverWarning,
       '',
       `── V6-1.7 gate proxies ─────────────`,
-      `build actions   ${metrics.buildTicks.length}`,
-      `median gap      ${gap === null ? '—' : gap.toFixed(1) + 's'}`,
+      `placements      ${metrics.buildCount}`,
+      `median gap      ${gap === null ? '—' : gap.toFixed(1) + 's'}  (±${(SAMPLE_MS / 1000).toFixed(2)}s resolution)`,
       `elapsed         ${elapsed}s${metrics.winAtSec !== null ? `   WIN @ ${metrics.winAtSec.toFixed(0)}s` : ''}`,
       '',
       `\\ reset counters · ?spawn=N&slots=N&regime=new`,
@@ -330,7 +447,12 @@ export function installProbeHarness(deps: ProbeDeps): { dispose(): void } | null
     el.textContent = lines.filter((l) => l !== '').join('\n');
   }
 
-  const timer = window.setInterval(sample, 250);
+  // Seed the baseline from the LIVE world before the first sample, so pre-existing primitives are
+  // never mistaken for placements (S128 CHECK).
+  prevOwned = ownedIds(deps.getWorld());
+  metrics = freshMetrics(deps.getWorld().tick);
+
+  const timer = window.setInterval(sample, SAMPLE_MS);
   // Silence the unused-import complaint while keeping the visual-size constant documented as the
   // reason probe sparks need no bespoke sizing: makeFreeSpark already derives radius from it.
   void SPARK_VISUAL_SIZE;
@@ -340,11 +462,16 @@ export function installProbeHarness(deps: ProbeDeps): { dispose(): void } | null
     `λ=${SPAWN_RATE_PER_SECOND}. Keys: [ regime · ] slots · 1-6 stock · Q draw · \\ reset.`,
   );
 
-  return {
+  const handle = {
     dispose(): void {
       window.clearInterval(timer);
       window.removeEventListener('keydown', onKey);
       el.remove();
+      if (g.__SPARK_PROBE__ === handle) delete g.__SPARK_PROBE__;
     },
   };
+  // Published so a Vite hot reload can dispose the previous instance (see the HMR guard above)
+  // even though main.ts discards the handle.
+  g.__SPARK_PROBE__ = handle;
+  return handle;
 }
