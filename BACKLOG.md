@@ -1,7 +1,37 @@
 # SPARK — Build Backlog
 
-**Spec:** [SPARK_Blueprint.md](SPARK_Blueprint.md) v0.5.1 · **Locked:** [LOCKED_DECISIONS.md](LOCKED_DECISIONS.md) · **Live:** https://spark-online.space
+**Spec:** [SPARK_Blueprint.md](SPARK_Blueprint.md) **v0.6** · **Design + reasoning:** [SPARK_v0.6_DESIGN.md](SPARK_v0.6_DESIGN.md) · **Locked:** [LOCKED_DECISIONS.md](LOCKED_DECISIONS.md) · **Live:** https://spark-online.space
 **This file = the forward plan.** The ROADMAP below is the source of truth for what each session works on. Session history (newest first) follows after it; the authoritative per-session narrative is the handoff series in `.handoff-archive/`.
+
+---
+
+# ⚑ STATUS 2026-07-30 — v0.6 PIVOT ADOPTED · ROADMAP REWRITTEN · ALL GATES CLOSED
+
+> **Owner-directed design arc (no code shipped).** The v0.5 loop was diagnosed as structurally unfun from
+> the constants, not from vibes: at `SCORE_INCOME_PER_COMPLEXITY_PER_SEC=0.05` × `PHASE_1_WIN_SCORE=1500`
+> a win needs **~346s of continuous optimal placement (~58 haul cycles)**, so *every second not placing is
+> economically punished* — no room for idle, watching or conversation. The 30× win-score climb
+> (50→150→210→630→786→1500) was six patches to that one problem.
+>
+> **The pivot: workers haul, the player builds.** A castle emits worker sparks that collect on player
+> directives into a capped bank; the player builds and sculpts from the bank; the mouse becomes a
+> commander instead of an effector; trophies compound into a persistent castle. Genre unchanged — still
+> 6-player FFA geometric duel, no waves, no co-op main mode. Carry-1 survives, relocated to the worker,
+> with its strategic function moved to the bank cap.
+>
+> **Shipped this arc:** `SPARK_v0.6_DESIGN.md` (diagnosis + reasoning + 25-session roadmap) ·
+> `SPARK_Blueprint.md` rewritten **v0.5.1 → v0.6** (7 substantive changes; 5 locks revoked: no-HUD,
+> mouse-only, carry-1-as-player-constraint, no-tutorial, no-progression) · this ROADMAP replaced.
+>
+> **All three standing gates CLOSED:** deploy path = **Actions auto-deploy** (retire manual gh-pages) ·
+> sim-worker `?worker=1` **playtest PASSED** (owner, mobile, smooth) → flip default in S129 ·
+> bot-intelligence §7 **resolved** except Q6 (starvation policy, scales with tier).
+>
+> **Platform ruling: PC only.** Mobile sim is smooth but the finger-driven avatar occludes too much
+> screen. Revisit *after* the pivot — the v0.6 command model is far more touch-compatible.
+>
+> **NEXT:** S126 — finish the unlock pass in `LOCKED_DECISIONS.md` (Blueprint half is done) + retire the
+> manual deploy path. Then S127–S128 learnability, then the Phase 1 economy pivot.
 
 ---
 
@@ -102,70 +132,147 @@ poopyUntilTick all already on the wire). A bump is needed only when a NEW serial
 
 ---
 
-# ROADMAP — rewritten S86 (2026-06-12) on user mandate
+# ROADMAP — rewritten 2026-07-30 for v0.6 (owner-directed pivot)
 
-> User (S86, verbatim): *"organize our priority backlog to see what we actually need to do in order to IMPROVE on the game … like for example developing the geometric connections between the primitives, some of them dont do anything like dot to square or line to circle … the whole point is being a geometric builder game and we have least focused on that … rather than random stuff you have added to backlog which will or will not improve our gameplay."*
+> **Supersedes the S86 roadmap entirely.** The S86 mandate ("develop the geometric connections — the build system IS the game") was correct and stays true. What changed is the diagnosis of *why* it wasn't landing: the problem was never a shortage of combos, it was that the loop gave players no hands to use them with. See **[SPARK_v0.6_DESIGN.md](SPARK_v0.6_DESIGN.md)** for the full reasoning and **[SPARK_Blueprint.md](SPARK_Blueprint.md)** v0.6 for the spec.
 
 ## North star
 
-SPARK is a **geometric builder duel**. The build system — what happens when you connect primitive A to primitive B — IS the game. Hazards, fog, netcode, and lobbies exist to serve that loop, not the other way round.
+SPARK is a **geometric builder duel** — up to 6 players, FFA, racing to build the most complex geometry on one shared canvas. That does not change.
 
-## The honest gap (S86 code audit — measured, not vibes)
+**What changes in v0.6:** workers haul, the player builds. The mouse becomes a commander instead of an effector. Winning compounds into a persistent castle. Full thesis:
 
-The user's complaint is structurally correct. State of `src/combos.ts` (36 ordered pairs across 6 primitives):
+> You have a **castle** built from trophies you earned, assembled by hand in a calm postgame cosmos. It produces **workers** who gather on your directives into a **capped bank**. You spend **energy** on your economy and **build with your hands** from the bank — sculpting, carving, transmuting structure into autonomous agents. Your spark is a **hero**, not a laborer. You win on **score**; you can lose your castle.
+
+## The honest gap (measured from the constants, not vibes)
 
 | Fact | Evidence |
 |---|---|
-| **24 of 36 combos are literal placeholders** | `description: 'Functional placeholder — generic bond'` — Dot→Square, Line→Circle, Dot→Dot, Square→Triangle, Square→Line, most Spiral pairs… all identical generic bonds |
-| ~~**The magic 12 are visuals + physics stiffness ONLY**~~ — **S89–S90 UPDATE: 4 behaviors now shipped** | Vortex pull (S89 P6), Filament income trickle (S90 P1), Diamond/Lattice anti-sabotage resist (S90 P2) are implemented mechanics. Remaining magic descriptions (Wheel/Star rotation, Whip/Warped/Orbital/Capsule) are still visuals-only — see G1b MOTION (open). |
-| **`areaMultiplier` is dead data** | defined per combo, consumed by zero production code |
-| ~~**`isMagical` is dead outside combos.ts**~~ — **S88 CORRECTION: FALSE** | `isMagical` IS read in production in `scoring.ts` `computeComplexity`: a magic bond earns `MAGIC_BONUS = +2.0` (uncapped) vs a functional bond's `+0.25` (capped) — an **8× premium, live since S76**, with passing tests (`scoring.test.ts`). The original row mis-stated the code. The real magic gap is **behaviors (G1b)**, not scoring. |
-| **Discovery exists only as the title-screen Codex** | nothing in-match celebrates or even mentions discovering a new combo |
+| A win needs **~346s of continuous optimal placement** (~58 haul cycles) | `SCORE_INCOME_PER_COMPLEXITY_PER_SEC=0.05` × `PHASE_1_WIN_SCORE=1500` |
+| **Every second not placing is punished** — no room for idle, watching, or talking | Follows directly from the above |
+| Win score raised **30×** across sessions | 50 → 150 → 210 → 630 → 786 → 1500 — six patches to one problem |
+| **Zero** autonomous actors produce | Chewer, drone, turret, Helga, Voltkin, hunter all destroy or defend |
+| The game is **unlearnable** | III.4 fog + III.5 no-HUD + VIII.5 no-preview each remove a feedback channel; stacked they break action→outcome→improvement |
+| The fun players found themselves is **gated behind the grind** | Carve-a-structure-down-to-a-recipe needs a big structure first — best thing in the game behind the worst thing in the game |
 
-## TIER 1 — CORE GAME: make the geometry matter (USER-MANDATED, S86)
+## Standing gates — ALL CLOSED (2026-07-30)
 
-Session-sized cuts, in recommended order:
+| Gate | Ruling |
+|---|---|
+| **Deploy path** | ✅ **GitHub Actions auto-deploy.** Every `master` push ships. Manual `npm run deploy` / gh-pages is RETIRED — remove it so only one mechanism is live. |
+| **Sim-worker default-on** | ✅ **PASSED** — owner playtested `?worker=1` on mobile, reported smooth, not janky. Flip the default in S129 and drop the flag gate. |
+| **Bot intelligence §7** | ✅ **RESOLVED** except Q6 — see below. |
 
-- **G1 — Magic combos MATTER mechanically.**
-  - ~~*G1a:* wire `isMagical` into scoring (+0.75 vs +0.25)~~ — **DROPPED (S88 PRIME-AUDIT).** Magic bonds ALREADY out-earn functional **+2.0 vs +0.25** (8×, uncapped, since S76 — `scoring.ts` `computeComplexity`); the proposed +0.75 would have been a **−62% nerf**. If magic should feel *even* stronger, the lever is tuning `MAGIC_BONUS` upward (touches `LOCKED_DECISIONS §6` + `constants.lock.test.ts`), playtest-gated — not a blind edit.
-  - *G1b (the real meat, ~1 session per archetype):* implement combo BEHAVIORS so the magic combos stop being paint. Every behavior is a pure function of synced state (determinism + 1v1 mirror), host-only.
-    - **ECONOMY** — ~~Vortex pulls free sparks toward it~~ **SHIPPED S89 P6** (`f425167`, host-only anchor-pull) · ~~Filament income trickle~~ **SHIPPED S90 P1** (`a448fd6`, +`FILAMENT_INCOME_COMPLEXITY` 0.6 on top of the magic premium + income-node cue; #1 playtest knob).
-    - **DEFENSE** — ~~Lattice/Diamond resist enemy sabotage~~ **SHIPPED S90 P2** (`f8adc57`, hostile player-sever costs the full `MAX_DISRUPTION_CHARGES`=2 budget; physics/creature/bomb still break it — anti-sabotage ≠ hazard-immunity).
-    - **MOTION (OPEN)** — Wheel/Star slow structure rotation; Capsule glow-trail. **S90 Council DEFERRED**: both reviewers rated *pure* rotation low player-value ("visual noise" without a mechanical verb) — revisit when it earns one. Impl note (research-confirmed feasible): direct rigid pose-write clone of `vortex.ts`, midpoint pivot, drift-free `baseAngle+tick·const` sin/cos precomputed at module load, component dedupe.
-- **G2 — Fill or fold the 24 placeholders.** Design decision first (user picks flavor): rule-based FAMILY traits so EVERY pair does *something* (e.g. Dot-pairs = cheap/weak filler, Square-pairs = sturdy/slow, Spiral-pairs = chaotic wobble) + promote 2–4 placeholder pairs to new named magic combos — starting with the two the user called out by name: **Dot→Square** and **Line→Circle**. Families + a few promotions, NOT 24 bespoke mechanics. **PROMO SHIPPED S91 P1 (Phase 1, visual-only):** **Anchor** (Dot→Square) + **Spindle** (Line→Circle) promoted to magic — distinct stroke-only silhouettes + discovery toast + the 8× magic income premium; Option A win-score rebalance (`PHASE_1_WIN_SCORE` 210→630, `SCORE_TIER_STEP` 70→210, exact-3× tier cadence preserved) offsets the jump (canonical combo build held ~152→157s; pure-blob ~3× longer, accepted v1 trade-off). Behaviors (Anchor anti-drift / Spindle tangential pull) DEFERRED to a Phase-2 PDR. **TRAITS still DEFERRED (gated):** it needs a `LOCKED_DECISIONS §6` lock-amendment (functional combos are locked as MID/1.0×/generic) + watch the S49 territorial `stiffnessMultiplier` stacking (a LOW family in enemy territory → ~0.06 effective, may feel floppy). Only `stiffnessTier` is a live mechanical axis; `areaMultiplier` is dead.
-- **G3 — Discovery loop. ✅ COMPLETE.** ~~*G3a:* in-match "NEW COMBO — Filament!" toast + per-match discovered counter~~ — **SHIPPED S88** (magic-12 toast + "Combos N/12" HUD; deterministic synced-tick render, additive-optional wire, no protocol bump). ~~*G3b:* Codex marks used combos; undiscovered render as silhouettes~~ — **SHIPPED S97** (`render/comboCodexStore.ts` + `codexOverlay.ts` COMBOS tab: discovered tiles show result-name + type glyphs in gold; undiscovered render as `???` + dim silhouette glyphs + "connect to reveal"; cross-match "discovered ever" persistence in localStorage). *(The roadmap stale-listed G3b as "next" until S114 reconciled it against the code.)*
-- **G4 — Build-feel juice** (carry-overs that genuinely serve the core loop): ~~bond-formation juice burst (S84 Gemini candidate)~~ — **SHIPPED** (`render/effects/bondCommit.ts` — expanding-ring BOND_COMMIT pop + per-combo silhouette flair) · ~~in-world leader crown~~ — **SHIPPED S114** (static gold crown over the score leader's avatar; pure `scoring.leaderPlayerId` + `avatarRenderer.shouldShowCrown`; render-only, no protocol bump; networked/bots + PLAYING + not-benched, agrees with the HUD `*`) · pooped-reject feedback cue — **DEFERRED (playtest-gated):** silent reject is the user-requested semantic; add a cue only if a playtest asks. **G4 effectively COMPLETE** — only the playtest-gated pooped cue remains.
+### Bot rulings (owner, supersedes `BOT_INTELLIGENCE_DESIGN.md` §3 matrix)
 
-## TIER 2 — Playtest loop (USER-driven)
+- **Q1 — four strictly-additive tiers.** NOOB = basic combos · MID = +towers · HARD = +raiding +godlies · IMBA = +strategy/tactics (sacrifice et al). Shifts the original ladder down a step: godlies move IMBA→HARD, NOOB becomes a real tier.
+- **Q2 — replaces the 1-concurrent-raider cap.** HARD and IMBA all raid, targeting the leader OR the nearest enemy whose score sits closest above their own; NOOB/MID raid randomly. *The cap guarded against argmax dogpiling the leader (making sandbagging at 2nd optimal); "closest score above me" is LADDERED targeting — each bot punches one rung up rather than converging on first — so the degenerate case is dissolved by construction.*
+- **Q3 — bond-sever only, confirmed, and it's a feature.** No delete verb; `severSplit` may cascade; that is exactly why you must build smart enough to remove some pieces without losing the rest. The constraint IS the sculpting skill.
+- **Q4/Q5/Q7 — defaults adopted.**
+- **Q6 — OPEN with direction.** Starvation policy (wait vs re-rank) should scale with tier — adaptability separates NOOB from IMBA as it does with humans. Settle before the Phase A bot PDR.
 
-- **Round 7** on spark-online.space: verify all four S86 fixes (black fog · no hazard-ring lines · eaten/pooped players truly locked out · OS cursor gone — the spark IS the pointer, faint ghost ring only while slowed/eaten) + judge the rounds-5/6 leftovers still pending eyes (yell audibility, big flyover, bond ownership patterns, hazard rings, lobby animations, match length 210, seat-stable leaderboard).
-- **NEW (S87) — VS BOTS + Multiplayer/Quick Match playtest:** (a) VS Bots feel across NOOB/MID/HARD/IMBA — do the bots read as *playing* (cruise, collect, haul, build bonded structures, sever, flee the hunter) and is the difficulty curve right? Tuning knobs all in `src/bots/botConfig.ts`. (b) Quick Match with a friend on two machines: does discovery pair you, does the all-ready gate start when both click READY, does the smallest-code convergence avoid split lobbies? (c) Confirm the "Multiplayer" rename + the friends Host/Join lobby still works byte-identically.
-- **Non-builder-win mechanism** (USER field report S84, unreproduced in vitro): instrumentation is live — if it recurs, screenshot the console (the WIN line dumps per-seat score+complexity). *S87 live-preview note: confirmed in vitro that bot builds attribute to their OWN seats and the human seat stays 0 with no input — no mis-attribution in bots mode.*
+## Platform
 
-## TIER 3 — Resilience & infra (CLAUDE/COUNCIL-suggested — honest labels, plain language; only after Tier-1 ships or on explicit user ask)
+**PC only.** Mobile confirmed smooth on the sim but not playable — a finger-driven avatar occludes too much screen. Revisit *after* the pivot: the v0.6 command model is far more touch-compatible than a cursor-body, so mobile may become viable as a side effect rather than a project.
 
-- **Host migration** ([HOST_MIGRATION_DESIGN.md](HOST_MIGRATION_DESIGN.md), design adopted S85). **Plain English:** in multiplayer one player's browser (the "host") runs the real game; everyone else mirrors it. Today, **if the host closes their tab or drops, the match dies for everyone**. This work makes a surviving player's browser take over automatically so the match continues. Four session-sized steps (D1 identity plumbing → D2 detection → D3 takeover → D4 hardening). Real value — but it only matters for matches that are already fun; hence Tier 3.
-- **S73 dense-compaction colour-shift at Begin** (sparse in-game seat palette) — CLAUDE-suggested polish.
-- **Periodic-scoreboard knob** (if real-time scores distort FFA play) — CLAUDE-suggested, playtest-gated.
+## Reconciled from the S86 roadmap
 
-## TIER 4 — User-deferred (touch ONLY on explicit ask)
-
-- **VFX lightning-overlay library** — user said defer; procedural ARC_FLASH stays.
-
-## Session protocol going forward
-
-1. **Regression reports jump the queue** (S86 pattern: fix what the playtest broke, same session).
-2. Otherwise **every session leads with the top unfinished Tier-1 item**.
-3. Tier-3 infra and new polish ship only AFTER the session's Tier-1 item, or on explicit user ask.
-4. **New Claude/Council ideas do NOT enter Tiers 1–3 directly** — they land in PARKED and graduate only with user sign-off.
-5. This ROADMAP section is updated at every session close; completed items move to the session history.
-
-## PARKED (Claude/Council ideas awaiting user sign-off)
-
-- 10 Hz client-mirror pose-stepping smoothing (S84 advisory — judge in 1v1 playtest first).
+- **G1 magic-combo behaviors** — Vortex pull, Filament income, Diamond/Lattice resist, Spindle swirl all SHIPPED and survive the pivot unchanged.
+- **G2 family traits** — ✅ **RETIRES FREE.** It asked for rule-based traits so all 24 placeholder combos do *something*. The v0.6 currency split does exactly that: functional bonds become the Energy economy, magic bonds the Score economy. No bespoke mechanics needed.
+- **G1b MOTION** (Wheel/Star rotation, Capsule trails) — stays DEFERRED on its existing rationale: pure visual rotation with no mechanical verb. May earn one under the S136 taxonomy work; if not, stays parked.
+- **G3 discovery loop** — COMPLETE (S88 toast + S97 Codex).
+- **G4 build-feel juice** — COMPLETE.
+- **Host migration** — SHIPPED (D4 production-live S124, v2 zombie auto-rejoin S125). Now a cross-cutting obligation for every new v0.6 entity rather than a roadmap item.
 
 ---
 
+# V0.6 EXECUTION PLAN — S126 → S150
+
+Sequenced so the core loop is **playable by S135** and everything after lands on a validated base. One priority batch per session. Full per-session detail in `SPARK_v0.6_DESIGN.md § 13`.
+
+> **Standing gate, every session:** report bundle delta against the 750 KiB charter (currently ~640, so ~110 KiB headroom for the whole roadmap) and snapshot bytes against the wire budget. A breach fails the **session**, not the deploy — the S100 lesson.
+
+> **Cross-cutting, every session in Phases 1–2** (not separate items): host migration · save/load/replay with byte-identical coverage · teardown parity at every site · disconnect/rejoin. A persistent creature once rehydrated with `despawnAtTick=0` and deleted itself instantly; workers carry the same shape of risk.
+
+## PHASE 0 — Foundation (S126–S128)
+
+| S | Priority | Tier | Notes |
+|---|---|---|---|
+| **S126** | Blueprint v0.6 + `LOCKED_DECISIONS` unlock pass | Design | Blueprint DONE 2026-07-30. Remaining: walk every Tier-0 lock in `LOCKED_DECISIONS`, re-ratify or revoke on evidence. Retire the manual deploy path. |
+| **S127** | Learnability I — make the score readable | Standard | Score + standing visible in play; tier pulses at 500/1000 made legible; leader identifiable. The III.5 revocation in code. No wire change — data is already synced. |
+| **S128** | Learnability II — make failure attributable | Standard | Player learns what was severed/destroyed/stolen and by whom. Re-ratify III.4 fog + VIII.5 no-preview narrowly. **Without this, "is the player bored?" is unmeasurable.** |
+
+## PHASE 1 — The economy pivot (S129–S135) ⭐ load-bearing
+
+| S | Priority | Tier | Notes |
+|---|---|---|---|
+| **S129** | Worker agent substrate + worker default-on flip | Full | Narrow `botBrain`'s goal union to `WorkerGoal` (COLLECT/DEPOSIT/RETURN) — the brain is already pure, seeded and unit-tested, so this is a narrowing not a new AI. Also drop the `?worker=1` flag gate (playtest passed). Behind a flag, solo. |
+| **S130** | Castle entity + worker production + spawner shrink | Full | Castle world entity, ownership, worker-emit cadence, tick-deterministic, modelled on `creatureSpawner`. Workers respawn on a timer — never permanent death. **`SPAWNER_RADIUS` 250→188 (−25%)** for castle real estate; **area drops ~43%, so `FREE_SPARK_SOFT_CAP` 50→~28-30 in step** or density rises ~77%. Protocol bump. |
+| **S131** | The bank | Full | Capped deposit store (8–10), stall at cap, build-from-bank input flow. **Where carry-1 formally relocates.** |
+| **S132** | Directives | Standard | Per-castle collect filter as a predicate on `pickTargetSpark`. Filtered workers skip non-matching primitives → specialisation costs throughput by construction. Directive state syncs. |
+| **S133** | The hero unit | Standard | Player spark stops hauling; retains sculpt/raid/defend/potato/clean. Risk: the hazard roster assumes a hauling avatar in places. |
+| **S134** | Energy gets sinks | Full | Score from magic bonds, energy from functional bonds. Energy buys workers / speed / respawn. Reuses `player.energy`, `TICK_ENERGY` and the existing gauge — plumbed for a year with no sinks. |
+| **S135** | Vs-bots integration + **the boredom gate** | Full | Full loop vs bots. Balance worker count, cycle time, bank cap, upgrade costs. **Bots must play the new economy** or the gate reads false. |
+
+> ### ⛔ HARD GATE — S135
+> Acceptance criterion is **"is the player bored?"**, not "does it work." Removing the hauling does not *make* placement fun — it **reveals** whether placement was ever fun. If sculpting doesn't carry the game here, Phases 2–4 are **re-planned, not continued.**
+
+## PHASE 2 — Command and conflict (S136–S140)
+
+| S | Priority | Tier | Notes |
+|---|---|---|---|
+| **S136** | Structure taxonomy + targeting priority | Full | Classify every recipe offensive/defensive/fortress/income (already latent in shipped content → metadata + classifier). Click a tower, set priority — Bloons TD interaction, SPARK categories. Lowest-id tie-break, host-authoritative, priority on the wire. Protocol bump. |
+| **S137** | Worker vulnerability + harassment | Full | Workers attackable; loaded worker drops its primitive. Hazards/creatures gain workers as a target class. **Where competition lands after leaving the spawner.** Respawn cost is the pressure valve. |
+| **S138** | The command layer | Standard | Keyboard as commands: select, order, ability hotkeys, build/command mode switch. **Not** WASD puppeteering. Risk: mouse-only is a revoked lock — check every input path. |
+| **S139** | Castle HP, damage and repair | Full | Castle takes damage, can be destroyed. **Repairable mid-match** by attaching connectors → gives the bank a defensive purpose, turns a beating into a comeback. Reuses the S102 unified HP model. |
+| **S140** | NONET rework — double the structure | Full | `resolveSudoku`'s winner-×2/losers-÷2 lets a low-complexity player win, which would make the ceremony crown the smallest structure. Replace with physical duplication of the winner's structure (deterministic centroid-mirror; respects collisions, territory, spawner ban, bounds). Drop the loser ÷2. **Doubles income RATE, not banked score.** MUST land before S141. |
+
+## PHASE 3 — The compounding meta (S141–S147)
+
+| S | Priority | Tier | Notes |
+|---|---|---|---|
+| **S141** | Victory ceremony + trophy mint | Full | The 28s sequence (freeze / fog lift / migration / 5-beat procession / trophy / flight). **Every player mints a placement-sized fragment**, not just first — 1-in-6 is far too slow to feed a collection meta. `componentOf` + `save.ts` serialize → server-ready profile blob, stored locally. Implements the v0.5 trophy algorithm, unbuilt since specified. **Needs: victory cue + 2 SFX.** |
+| **S142** | The cosmos | Full | Separate space, trophies float freely, ambient music, no clock. Risk: new scene = bundle pressure, measure early. **Needs: cosmos ambient loop.** |
+| **S143** | Fortress assembly | Full | Assemble the castle from trophies using SPARK's own bond mechanics, no clock. Valid by construction, freeform in expression, teaches the core interaction calmly. OPEN: how much constraint it needs. |
+| **S144** | Field your fortress | Full | Assembled castle becomes the match start state, replacing the S130 placeholder. **Where the cold start dies and identity arrives.** Composition syncs at match start. |
+| **S145** | Tier as budget | Standard | Tier sets power budget, trophies set shape. Same tier = same power, different composition. Library permanent, tier moves. **The anti-snowball guarantee.** |
+| **S146** | Bounty and dormancy | Standard | Rich castle visibly worth more to destroy → investment costs attention, not property; leader-targeting solves itself. Lost-castle trophies return dormant for a match or two. **Stake attention and access, never the artifact.** |
+| **S147** | Trophies as blueprints | Full | A trophy and a buildable shape are the same data structure. Sketch a ghost, workers fill it in. The one place workers touch building — and only from the player's own plan. |
+
+## PHASE 4 — Onboarding, scale, close (S148–S150)
+
+| S | Priority | Tier | Notes |
+|---|---|---|---|
+| **S148** | First-run introduction | Standard | 60–90 **second** guided intro, **first-ever session per device only** — never in a competitive round, never repeated. Fixes comprehension, not fun. |
+| **S149** | Wire and bundle | Full | Delta encoding if the measured 6-player full-worker snapshot exceeds budget. Bundle reconciliation vs the 750 KiB charter; Council-gated raise only if the real cost demands it. **Measured, not estimated.** |
+| **S150** | Balance + v0.6 close | Full | Full 6-player playtest. Tune upgrade costs, bank cap, worker cadence, castle HP, tier budgets. Close the spec, archive the roadmap, decide whether the backend is worth building. |
+
+## External production calendar
+
+| Asset | Needed by | Blocking? |
+|---|---|---|
+| Victory cue — 28s one-shot (2s breath · 3s reveal · 3s gather · 15s procession in 5 countable pulses · 3s climax · 2s resolve) | S141 | **YES** — the ceremony is built to its cue points |
+| Trophy mint SFX (fires 6×, pitch up per rank) + trophy flight/poof | S141 | **YES** |
+| Cosmos ambient — 3–5 min seamless loop, no hard downbeat | S142 | **YES** |
+| Castle keep art — 1 hand-designed core, 6 tints | S144 | Partly — placeholder ships S130 |
+| Worker deposit + bank-full SFX | S131 | No — procedural Web Audio likely covers both |
+| UI iconography (5 targeting + 3 upgrade + 4 taxonomy) | S136 | No — vector, drawn in-engine |
+
+**Tooling: nothing new.** Existing seed → Veo → matte → atlas/webm path covers it. Two constraints carried forward: **Imagen reference-conditioning is non-functional in this auth setup** (consistency comes from Veo-from-one-seed); **video runs on its own clock, not `world.tick`** — fine for cosmos/ambient, wrong for anything combat-timed (must use the atlas path). Cosmos background should be **procedural**, not an asset — bundle headroom.
+
+## Session protocol
+
+1. **Regression reports jump the queue.**
+2. Otherwise every session leads with the next unstarted v0.6 priority in order.
+3. New Claude/Council ideas land in PARKED and graduate only with owner sign-off.
+4. This section is updated at every session close; completed items move to session history.
+
+## PARKED (awaiting owner sign-off)
+
+- 10 Hz client-mirror pose-stepping smoothing (S84 advisory).
+- Mobile playability rework — revisit only after v0.6 ships (§ XV.8).
+
+---
 # SESSION HISTORY (newest first)
 
 > **History gap S92–S99:** the per-session narrative for S92–S99 lives in the `.handoff-archive/` handoff series (this section was not maintained between S91 and S100). S92–S99 deploys all SUCCEEDED (verified via `gh run list --workflow=deploy.yml`).

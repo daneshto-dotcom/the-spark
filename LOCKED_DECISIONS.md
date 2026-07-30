@@ -7,6 +7,43 @@
 
 ---
 
+## ⚑ v0.6 AMENDMENT NOTICE (2026-07-30) — READ BEFORE TRUSTING ANY SECTION BELOW
+
+**[SPARK_Blueprint.md](SPARK_Blueprint.md) is now v0.6.** Per the authority chain above, Blueprint LOCKED rules outrank this document — so where a section below encodes a v0.5.1 rule that v0.6 revoked, **the Blueprint wins and this document is stale until S126 completes the unlock pass.**
+
+This notice exists so a future session does not read a withdrawn lock as current. It is deliberately a header rather than a rewrite: revoking locks section-by-section needs care and evidence, and that is S126's job.
+
+### Sections affected by the v0.6 pivot
+
+| § | Topic | v0.6 status |
+|---|---|---|
+| **§ 2** | Canvas, spawner, vision | **`SPAWNER_RADIUS` 250 → 188 (−25%)** lands S130 for castle real estate. Area falls ~43%, so `FREE_SPARK_SOFT_CAP` must drop in step (~28–30). `R_PERSONAL` re-judged on playtest, not pre-emptively. Vision gains a **worker** source. |
+| **§ 3** | Energy, area-claim, mega-combo | **Rewritten by Blueprint § VIII.** Energy becomes a real second currency with sinks (workers / speed / respawn); Score comes from magic bonds, Energy from functional bonds. `areaMultiplier` remains dead data. |
+| **§ 6** | Combo table schema | Table unchanged. **Functional combos gain a purpose** — they feed Energy. This retires the G2 "family traits" item without new mechanics. |
+| **§ 13** | Phase-2 networked play | Authority model, determinism rules and migration all survive intact. **Every new v0.6 entity** (castle, worker, bank, directive, upgrade state, targeting priority) must be wired into migration, save/load/replay, teardown parity and rejoin. |
+
+### Blueprint locks REVOKED in v0.6
+
+Implementation decisions below that depend on any of these are stale:
+
+- **No HUD** (v0.5.1 § III.5) — revoked. Fog is retained; concealment of your *own outcomes* is not.
+- **Mouse-only input** (v0.5.1 § VI.1) — revoked. A keyboard command layer ships.
+- **Carry-1 as a player constraint** (v0.5.1 § III.3) — **relocated, not removed.** The rule now binds the *worker*; its strategic function moves to the bank cap.
+- **No tutorial** (v0.5.1 § XV) — revoked. A first-run-only guided intro ships.
+- **No progression** (v0.5.1 § XV) — revoked. The trophy meta is core to v0.6, and remains composition-only, never a power advantage.
+
+### Locks explicitly RE-RATIFIED (unchanged and load-bearing)
+
+Determinism (seeded RNG, tick-based cadence, no wall-clock, no `Math.random` in reducers, lowest-id tie-breaks, byte-identical replay) · host-authoritative simulation with non-simulating clients · structure immobility · colour-as-ownership · the bundle charter and its hard gate · no pay-to-win, ever.
+
+### Also settled 2026-07-30
+
+- **Deploy path — GitHub Actions auto-deploy.** Every `master` push ships. The manual `npm run deploy` / gh-pages path is **retired**; S126 removes it. Two live mechanisms is how a finished feature stayed off production for a full session.
+- **Sim-worker default-on — playtest PASSED.** Flip the default and drop the `?worker=1` flag gate in S129.
+- **Platform — PC only.** Mobile revisited only after the pivot ships.
+
+---
+
 ## 1 · Engine & Stack
 
 | Choice | Value | Why |

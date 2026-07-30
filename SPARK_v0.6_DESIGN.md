@@ -268,7 +268,9 @@ Two ceilings.
 |---|---|---|
 | **Deploy path** | ✅ **RESOLVED — GitHub Actions auto-deploy.** Every push to `master` ships. The manual `npm run deploy` / gh-pages path is retired; remove it so only one mechanism is live. | Before S126 |
 | **Bot intelligence §7** | ✅ **RESOLVED — see below.** Q6 remains open with direction. | Before S135 |
-| **Sim-worker default-on** | ⏳ **OPEN.** Needs one weak-device playtest of `spark-online.space/?worker=1`. 30 autonomous agents is exactly the load the worker exists to move off the main thread; shipping the pivot flag-gated risks frame-time problems the architecture already solved. | Before S129 |
+| **Sim-worker default-on** | ✅ **RESOLVED — PASSED.** Owner playtested `?worker=1` on mobile: smooth, not janky. Flip the default and drop the flag gate in S129. *(Evidence was a phone browser, which is a fair weak-device proxy; if a weak laptop later shows problems, that configuration is what went untested.)* | S129 |
+
+**Platform ruling (2026-07-30): PC only.** The same playtest confirmed the game is not *playable* on mobile even though the sim runs fine — a finger-driven avatar occludes a large fraction of the screen and the interface reads worse than on desktop. **Revisit after the pivot ships, not before:** the v0.6 command model is substantially more touch-compatible than a cursor-body, since tapping to issue orders to an autonomous economy is a natural touch interaction. Mobile may become viable as a side effect rather than a project.
 
 ### Bot intelligence — owner rulings
 
@@ -366,8 +368,10 @@ Sequenced so the core loop is **playable by S135** and everything after lands on
 *Rewrite the spec, unlock what blocks the pivot, and make playtests readable — every measurement in the next 22 sessions depends on it.*
 
 ### S126 — Blueprint v0.6 + locked-decisions unlock pass
-Rewrite `SPARK_Blueprint.md` from this document rather than patching v0.5.1. Walk every Tier-0 lock and explicitly re-ratify or revoke against playtest evidence: carry-1 relocates to the worker, no-HUD revoked, mouse-as-effector revoked, continuous-income scoring replaced.
-*Tier: Design · Code: none · Wire: none*
+**Blueprint half DONE (2026-07-30):** `SPARK_Blueprint.md` rewritten v0.5.1 → v0.6 with five locks revoked (no-HUD, mouse-only, carry-1-as-player-constraint, no-tutorial, no-progression) and carry-1 relocated to the worker. `LOCKED_DECISIONS.md` carries a v0.6 amendment notice flagging §2/§3/§6/§13 as affected.
+
+**Remaining:** walk `LOCKED_DECISIONS.md` section by section and re-ratify or revoke each affected lock against evidence, replacing the header notice with settled rulings. Also **retire the manual `npm run deploy` / gh-pages path** so Actions auto-deploy is the only live mechanism.
+*Tier: Design + small code (deploy cleanup) · Wire: none*
 
 ### S127 — Learnability I: make the score readable
 Score and standing visible during play. Tier pulses at 500/1000 made legible. Leader state readable without scouting. The revocation of III.5 in code.
