@@ -1,10 +1,10 @@
 {
-  "tool_calls_session_total": 538,
+  "tool_calls_session_total": 540,
   "session_id": "S128",
   "session_kind": "batch",
   "session_start": "2026-07-28",
   "prior_session_note": "S127 CLOSED (soak-lane CI viability, CI-VALIDATED run 30395046615). S128 opens the v0.6 pivot arc: owner committed a design pivot on branch claude/spark-game-state-analysis-a3ot8i (forked at S125, never saw S126/S127).",
-  "phase": "DO",
+  "phase": "CHECK-COMPLETE",
   "user_approval_verbatim": "go",
   "tier": "Full",
   "council_rounds": 2,
@@ -27,15 +27,91 @@
     {
       "id": "P1-v06-doc-reconciliation",
       "label": "v0.6 doc reconciliation: content-rebase onto master + 31 corrections + V6-x.y relabel + carry-forward ledger + LOCKED unlock pass",
-      "status": "in_progress",
-      "phase": "DO",
+      "status": "completed",
+      "phase": "CHECK-COMPLETE",
       "tier": "Full",
-      "check_completed": false,
-      "verification": [],
-      "check_method": null,
-      "checkpoint_commit": null,
-      "real_context_tokens_at_close": null,
-      "real_context_pct_at_close": null,
+      "check_completed": true,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "CARRY-FORWARD LEDGER"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "V6-0.1"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "V6-4.3"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "# STATUS S126"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "# STATUS S127"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "readWorkerFloorMB"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "2026-08-03"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/LOCKED_DECISIONS.md",
+          "needle": "DEPLOY-PATH"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/LOCKED_DECISIONS.md",
+          "needle": "SOAK-CALIBRATION"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/LOCKED_DECISIONS.md",
+          "needle": "Carry-1 implementation lock is AMENDED"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/LOCKED_DECISIONS.md",
+          "needle": "energy is REWRITTEN"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/SPARK_v0.6_DESIGN.md",
+          "needle": "B3 — THE FAUCET IS THE BOTTLENECK"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/SPARK_v0.6_DESIGN.md",
+          "needle": "B4 — DIRECTIVES + A BANK OF 8–10"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/SPARK_Blueprint.md",
+          "needle": "17 sites, not 4"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/SPARK_Blueprint.md",
+          "needle": "godlyRecipes/pentagram.ts"
+        }
+      ],
+      "check_method": "RALPH:PATROL + scripted verification suite (47/47 PASS, scratchpad/verify_p1.py, re-run after every edit batch). MERGE-SAFETY (the B2 failure mode): the pivot branch forked at 433793a (S125) and never saw S126/S127, so a naive merge drops 429 lines. Merged with --no-commit, kept BOTH sides of the BACKLOG.md conflict, and asserted 5 gates before commit: LOCKED grep -c DEPLOY-PATH >=1 (got 3), grep -c SOAK-CALIBRATION >=1 (got 1), BACKLOG '# STATUS S126' present, '# STATUS S127' present, zero unannotated 'Actions remain dead'. Merge commit 058fd8a records BOTH parents (e69c65d + 54831a4) so the branch stays reachable as provenance; no force-push. CONFLICT RESIDUE: grep '^<<<<<<<|^=======|^>>>>>>>' across all 5 docs = 0. RELABEL: all 25 V6-x.y slots asserted present as table rows; 64 roadmap tokens relabelled in the design doc via a range-restricted regex (S126-S150 only, so historical refs <=S125 were untouched); 3 residual S126-S150 mentions verified to be deliberate references to the ORIGINAL numbering. CORRECTIONS: 18/18 design-doc subs + 18/18 Blueprint subs + 7/7 LOCKED subs applied, each re-grepped. SHELL-DAMAGE AUDIT: an early `python -c` inside bash ate backticked identifiers via command substitution on 3 lines (81, 522, 529 of the design doc); caught by a purpose-written scanner (scratchpad/scan_damage.py: odd-backtick-count + eaten-token patterns), repaired with exact Edits, and re-scanned clean. All later doc edits used script FILES, never `python -c`. DEPLOY SAFETY: git diff --name-only HEAD asserted zero files inside the deploy paths filter (src/, public/, index.html, vite.config.ts, tsconfig.json, package*.json, deploy.yml) => P1 cannot fire a deploy. TAG: v0.5.2-pre-pivot created (annotated) as the option-independent revert point for the B6 ruling.",
+      "checkpoint_commit": "c69d76155b0ba6cb1f4fab27f7dbd34a76a9f0b0",
+      "real_context_tokens_at_close": 471000,
+      "real_context_pct_at_close": 47.1,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
@@ -43,15 +119,51 @@
     {
       "id": "P2-economy-probe-harness",
       "label": "Dev-build-only economy probe harness: A/B OLD(carry-1+uniform) vs NEW(exact-type N-slot inventory, live dial 4/8/12/inf) + instrumentation; settles B3/B4/B5",
-      "status": "pending",
-      "phase": "PLAN",
+      "status": "completed",
+      "phase": "CHECK-COMPLETE",
       "tier": "Full",
-      "check_completed": false,
-      "verification": [],
-      "check_method": null,
-      "checkpoint_commit": null,
-      "real_context_tokens_at_close": null,
-      "real_context_pct_at_close": null,
+      "check_completed": true,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/dev/probeHarness.ts",
+          "needle": "SPARK_V06_ECONOMY_PROBE_HARNESS"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/dev/probeHarness.ts",
+          "needle": "import.meta.env.DEV"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/dev/probeHarness.ts",
+          "needle": "typeof window === 'undefined'"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/dev/probeBootstrap.ts",
+          "needle": "__TEST_SPAWN_RATE_PER_SECOND__"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/dev/probeHarness.test.ts",
+          "needle": "PICKUP_SPARK"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "installProbeHarness"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "./dev/probeBootstrap.ts"
+        }
+      ],
+      "check_method": "RALPH:PATROL + empirical build/runtime verification, NOT static parse. TYPECHECK: npx tsc --noEmit -p tsconfig.json = 0 errors (src/** IS type-checked, unlike e2e/**). It caught PHYSICS_DT not being exported from constants.ts (it is derived locally at spawner.ts:47) and placerId not existing on Primitive (real field: placedBy) - both fixed. TESTS: vitest 1919/1919 across 126 files, up from the 1914/125 baseline with 5 new contract tests; zero regressions, so the differential determinism suite (workerSim.differential.test.ts) still passes with the harness present but unarmed. One test FOUND A REAL GAP: installProbeHarness read window.location.search unguarded, so a Node-side import threw ReferenceError; fixed with the `typeof window === 'undefined'` idiom already used at constants.ts:101. PRODUCTION STRIPPING - the decisive runtime check, run twice (before and after the guard fix): after npm run build, grep across dist/assets/*.js excluding .map returned 0 files for each of SPARK_V06_ECONOMY_PROBE_HARNESS, installProbeHarness, and 'ECONOMY PROBE'. NOTE the first attempt at this check was INVALID - `if grep ... | head; then` always succeeds because head's exit status wins - so it was rewritten to count files. The single residual 'probe' string in the bundle was traced to pre-existing net code ('getRelaySockets probe failed'), not to this work. BUNDLE DELTA MEASURED, NOT ASSUMED: built the true baseline by moving src/dev aside and git-checkout-ing main.ts => 656186 B (hash BD5X8Lx1); restored => 656300 B (hash BuqJOYme). Delta = +114 B (+0.017%), an empty rollup module record for the side-effect bootstrap import. Reported as +114 B, NOT claimed as zero. Gate: 640.9/750 KiB, headroom 109.1 KiB, exit 0. LIVE BROWSER CHECK on the dev server (port 16267, .claude/launch.json updated off the hardcoded 37722 per PORT protocol): with ?probe=1&regime=new&slots=8&spawn=2.0 the overlay renders and reports 'lambda observed 2.0000/s (OVERRIDDEN)', which proves the fragile import-ORDER bootstrap actually reaches SPAWN_RATE_PER_SECOND; it also reports 'recipes fitting one load: pentagram, lightningHub, Helga, Voltkin, laserTurret', making the B4 mechanism visible at a glance. LIMIT STATED: live gameplay (inventory draw, regime toggle) could NOT be exercised in-browser because the Browser pane is hidden, so requestAnimationFrame is paused and the Pixi ticker never advances - the reason the synthetic solo-button click did not register. Substituted something stronger and permanent: reducer-level contract tests asserting the exact SPAWN_SPARK + PICKUP_SPARK sequence yields a Carrying player holding the requested type, for all six types. The owner's own playtest is the actual instrument for B3/B4 and remains outstanding.",
+      "checkpoint_commit": "c69d76155b0ba6cb1f4fab27f7dbd34a76a9f0b0",
+      "real_context_tokens_at_close": 471000,
+      "real_context_pct_at_close": 47.1,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
@@ -64,12 +176,38 @@
     "OWNER DECISION, deferred to V6-1.1 (the slot that first creates the type): worker->gatherer rename. Not applied this session - the owner did not answer, and no code entity exists yet so it is not yet forcing. Forcing constraint recorded in the spec: the code identifier CANNOT be `Worker` (Web Worker owns the authoritative World; workerSim.ts, workerSim.differential.test.ts), and both Council legs held a split vocabulary is worse than either pure choice.",
     "OWNER RULING needed before V6-1.3/V6-1.4 PDR: B3 faucet rate + B4 directive semantics (bias vs hard filter) and bank cap. Probe harness P2 produces the evidence."
   ],
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    {
+      "tag": "#never-run-python--c-through-bash-when-the-payload-has-backticks",
+      "priority": "P1",
+      "entry": "Applying doc corrections via `python -c \"...\"` inside a bash command let the shell perform command substitution on every backticked identifier in my markdown payload, silently deleting `pickTargetSpark`, `BotGoal`, `serializeSpawner` and ~20 more from 3 lines while REPORTING '4 of 5 applied'. The success count was true and the content was corrupt. Two compounding lessons: (1) for any payload containing backticks, braces or quotes, write a script FILE with the Write tool and execute that - never inline it through a shell; (2) an 'applied N/N' report from my own script is not verification of CONTENT, only of substring matching, so I wrote scan_damage.py to hunt the damage signature (odd backtick counts, doubled spaces, bare empty parens) rather than trusting the counter. I had already hit a heredoc quoting failure earlier in the same session and switched to files once; I regressed to `python -c` two steps later."
+    },
+    {
+      "tag": "#a-pipeline-verification-can-false-pass-because-the-last-command-decides-the-exit-status",
+      "priority": "P2",
+      "entry": "My first production-stripping check was `if grep -rl NEEDLE dist/ | grep -v map | head -3; then echo LEAKED; else echo ABSENT; fi`. It printed LEAKED for all three needles with no filenames - because `head` always exits 0, so the `if` ALWAYS took the then-branch. The check could not have reported ABSENT for any input, including a genuinely clean bundle. Rewritten to COUNT files (`grep -l ... | grep -cv '\\.map$'`), which then showed 0/0/0. Rule: a verification whose verdict comes from a pipeline's exit status is testing the LAST command, not the predicate. Make the check produce a NUMBER and assert on the number. Corollary that saved me here: I only doubted the result because it disagreed with the +114 B delta I expected - a cross-check from an independent measurement is what exposed the broken instrument."
+    },
+    {
+      "tag": "#measure-the-delta-by-building-both-sides-rather-than-trusting-a-remembered-baseline",
+      "priority": "P2",
+      "entry": "The bundle after my change was 656300 B against an audit-reported 656186 B baseline. I could have called that 'unchanged' or 'noise'. Instead I moved src/dev aside, git-checkout-ed main.ts, and rebuilt: the baseline reproduced EXACTLY at 656186 B (hash BD5X8Lx1), making the delta a precise +114 B rather than an estimate. That matters because the PDR's headline claim was 'zero production change', and the honest number is 'the harness logic is stripped; a 114-byte empty module record for the side-effect bootstrap import remains'. GROK's R2 attack on that exact claim ('false marketing') was wrong on the mechanism but right to demand the measurement."
+    },
+    {
+      "tag": "#a-hidden-browser-pane-freezes-requestAnimationFrame-so-gameplay-cannot-be-driven",
+      "priority": "P2",
+      "entry": "Synthetic pointer events on the Pixi canvas did nothing and an async rAF-awaiting script timed out at 30s. Root cause: with the Browser pane not displayed the page does not composite, so rAF never fires and the Pixi ticker - which drives the entire sim loop - does not advance. Static DOM reads (overlay text, window globals, the lambda override) still work fine, which is why the first checks succeeded and misled me into trying clicks. So: DOM/global assertions are available with a hidden pane; anything requiring a FRAME is not. When the game loop is needed and the pane is unavailable, drop to the reducer level - the contract test I wrote instead is deterministic, permanent regression coverage, and strictly better evidence than one browser click would have been."
+    },
+    {
+      "tag": "#relabel-a-numbering-scheme-before-introducing-new-references-to-the-old-numbers",
+      "priority": "P1",
+      "entry": "I ran the S126-S150 -> V6-x.y relabel and the factual corrections in one script, relabel first. That ordering was load-bearing and I nearly got it backwards: several corrections ADD genuine references to the real S126 and S127 (e.g. 'already retired in S126'), and had they landed before the regex pass those true historical references would have been rewritten into V6 slot labels - a silent corruption that greps clean. The header substitution did fail for exactly this reason (its source string still contained 'S126 -> S150', already rewritten), which surfaced the hazard cheaply. Rule: mechanical renames run BEFORE any edit that introduces new instances of the old token, and the rename regex must be range-restricted (S126-S150 only) so historical refs survive."
+    }
+  ],
   "session_status": "in_progress",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "check_result": null,
+  "check_result": "P1 47/47 scripted checks PASS. P2 tsc 0 / vitest 1919-1919 / bundle 640.9-750 KiB / harness stripped from production (0 grep hits, verified twice) / +114 B measured production delta. Two self-caught process errors, both fixed and both logged as reflexion: a bash command-substitution mangled backticked identifiers on 3 doc lines, and the first stripping check was a false-pass because head's exit status won the pipeline.",
   "analyze_completed": false,
   "analyze_result": null,
   "budget_total": 1000000,
