@@ -1,71 +1,22 @@
 {
-  "tool_calls_session_total": 29,
-  "session_id": "S127",
-  "session_kind": "pdca",
+  "tool_calls_session_total": 538,
+  "session_id": "S128",
+  "session_kind": "batch",
   "session_start": "2026-07-28",
-  "prior_session_note": "S126 closed 2/2 (CI E2E gating revival via 3-lane split + ONE deploy path), CI-validated run 30374235685. Carry-forward #1 was soak-lane CI viability - this session's P1.",
-  "phase": "CHECK-COMPLETE",
+  "prior_session_note": "S127 CLOSED (soak-lane CI viability, CI-VALIDATED run 30395046615). S128 opens the v0.6 pivot arc: owner committed a design pivot on branch claude/spark-game-state-analysis-a3ot8i (forked at S125, never saw S126/S127).",
+  "phase": "DO",
   "user_approval_verbatim": "go",
-  "tier": "Standard",
-  "council_rounds": 1,
+  "tier": "Full",
+  "council_rounds": 2,
   "signals_fired": [
     "A.0-state-discovery",
     "3-way-council",
     "prime-audit",
     "completeness-critic"
   ],
-  "council_result": "SPLIT resolved by evidence. GROK-ANALYST -> delete lane (option d); GEMINI-AUDITOR -> fix (c)+(e)+(a). Both CONFIRMED option (b) is a false premise (slope never asserted). Grok's anti-(e) objection VOID (phantom baseline: lane already runs only schedule/PR/dispatch). Gemini's anti-(d) determinism-oracle claim PARTIALLY REFUTED by grep (oracle already in GATING lane at worker.spec.ts:93-94, worker-bots.spec.ts:115-116; only long-DURATION coverage is unique to soak). Synthesis: fix the instruments, not the budget.",
-  "plan_file": "scratchpad/PDR-S127-P1.md",
-  "boot_probe_deltas": [
-    {
-      "check": "which assertion failed in soak",
-      "expected": "per-ktick slope noise-dominated (per handoff)",
-      "actual": "5/5 failures are expect(measured)>=MIN_MEASURED_TICKS(4000); ZERO threshold breaches; slope is console.log only",
-      "severity": "MATERIAL - invalidates handoff option (b)"
-    },
-    {
-      "check": "why CI reaches only ~2200 ticks",
-      "expected": "runner generically slow",
-      "actual": "STRUCTURAL: main.ts:1389 clamps dtSec to 0.05 + PHYSICS_HZ=60 => max 3 ticks/rendered frame; ticks are FRAME-bound. CI bots ~2.5fps",
-      "severity": "MATERIAL - kills every buy-ticks-with-wall-clock option incl. my own"
-    },
-    {
-      "check": "CI-minute cost is a hard constraint",
-      "expected": "TRUE (e2e.yml:49-55 'PRIVATE repo' + handoff)",
-      "actual": "FALSE - gh repo view: isPrivate=false, visibility=PUBLIC (daneshto-dotcom/the-spark). Actions minutes free/unlimited on standard runners. Stale in-repo comment.",
-      "severity": "MATERIAL - I asserted it; Grok built its delete recommendation on it"
-    },
-    {
-      "check": "TARGET_TICKS=10_000 achieved",
-      "expected": "yes locally",
-      "actual": "NO - local run this session reached 7653. The 300s WALL_CAP binds on every platform. Titles/comments claim a window never measured.",
-      "severity": "MODERATE - documentation defect"
-    },
-    {
-      "check": "CENSUS_LIMIT_OBJECTS=1500 is load-bearing",
-      "expected": "a real assertion",
-      "actual": "VACUOUS - census delta max 13 across n=4 runs spanning 2184..7653 ticks (115x slack). Entity-bounded, not tick-proportional.",
-      "severity": "MODERATE - tightening is a net strengthening"
-    },
-    {
-      "check": "warm-up completes before baseline sample s0",
-      "expected": "yes (1200 ticks)",
-      "actual": "NO in CI - waitForTick(t0+1200, 90_000) at render-heap:163 / worker-heap:202 yields only 648-693 ticks at 7.2-7.7 t/s = 54-58%. s0 sampled MID-WARMUP.",
-      "severity": "MATERIAL - 2nd independent noise source; found by judge lens, verified by me"
-    },
-    {
-      "check": "e2e/** is type-checked",
-      "expected": "assumed yes",
-      "actual": "NO - tsconfig.json include=['src']; typecheck and build are both 'tsc -b'. Spec edits have no compile safety net.",
-      "severity": "MODERATE - verification must RUN the specs"
-    },
-    {
-      "check": "does this change set trigger a PROD deploy",
-      "expected": "verify",
-      "actual": "NO - deploy.yml:24-33 filters src/**, public/**, index.html, vite.config.ts, tsconfig.json, package.json, package-lock.json, deploy.yml. Change set does NOT intersect (package.json deliberately untouched).",
-      "severity": "CONFIRMED SAFE"
-    }
-  ],
+  "council_result": "3-way, 2 rounds, quality gate PASS (Gemini). 3 Grok claims REFUTED empirically (no-new-action-type, bundle-over-charter, desync-oracle-scope); 7 amendments ADOPTED (dev-only harness, A/B regimes + slot dial, asymmetric evidence, verification[] cites ledger, seam auto-reset + override display, pre-pivot tag, single vocabulary); 3 DECLINED with reason (toggle-now, separate B5 probe, defer-all-docs). Grok dissent on record: did not reach ADOPT.",
+  "plan_file": ".claude/plans/2026-07-30_PDR_S128_v06_DocReconciliation_ProbeHarness_DRAFT.md",
+  "boot_probe_deltas": "A.0 state-discovery sweep (10 agents, 558 tool calls): 7 blockers, 31 doc corrections, 23 risks. Diagnosis CONFIRMED empirically. Key deltas: faucet is 0.1875/s with a 10s TTL => ~1.9 standing sparks arena-wide (absent from all 4 pivot docs); every godly recipe is an exact isolated component 5-8 prims, so a bank cap of 8-10 >= every recipe; branch forks at S125 so a naive merge drops 429 lines incl LOCKED DEPLOY-PATH + SOAK-CALIBRATION; roadmap S126-S128 collide with closed sessions. Audit: .claude/plans/2026-07-30_S128_v06_PIVOT_A0_STATE_DISCOVERY_AUDIT.md",
   "routing_baseline": {
     "gating": "25 tests / 10 files",
     "soak": "6 tests / 4 files",
@@ -74,194 +25,65 @@
   },
   "priorities": [
     {
-      "id": "P1-soak-lane-ci-viability",
-      "label": "Soak-lane CI viability - fix the instruments, not the budget",
-      "status": "completed",
-      "phase": "CHECK-COMPLETE",
-      "tier": "Standard",
-      "check_completed": true,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "playwright.config.ts",
-          "needle": "PW_RETRIES"
-        },
-        {
-          "type": "file_contains",
-          "path": ".github/workflows/e2e.yml",
-          "needle": "PW_RETRIES: 0"
-        },
-        {
-          "type": "file_contains",
-          "path": ".github/workflows/e2e.yml",
-          "needle": "PW_GLOBAL_TIMEOUT_MIN"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/render-heap.spec.ts",
-          "needle": "MIN_VALID_TICKS"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/worker-heap.spec.ts",
-          "needle": "MIN_VALID_TICKS"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/render-heap.spec.ts",
-          "needle": "MIN_STRICT_TICKS"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/worker-heap.spec.ts",
-          "needle": "MIN_STRICT_TICKS"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/render-heap.spec.ts",
-          "needle": "WARMUP_WALL_CAP_MS"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/worker-heap.spec.ts",
-          "needle": "WARMUP_WALL_CAP_MS"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/render-heap.spec.ts",
-          "needle": "@soak"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/worker-heap.spec.ts",
-          "needle": "@soak"
-        },
-        {
-          "type": "file_contains",
-          "path": "package.json",
-          "needle": "e2e:soak"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "SOAK-LANE CI VIABILITY"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\LOCKED_DECISIONS.md",
-          "needle": "SOAK-CALIBRATION"
-        }
-      ],
+      "id": "P1-v06-doc-reconciliation",
+      "label": "v0.6 doc reconciliation: content-rebase onto master + 31 corrections + V6-x.y relabel + carry-forward ledger + LOCKED unlock pass",
+      "status": "in_progress",
+      "phase": "DO",
+      "tier": "Full",
+      "check_completed": false,
+      "verification": [],
+      "check_method": null,
+      "checkpoint_commit": null,
+      "real_context_tokens_at_close": null,
+      "real_context_pct_at_close": null,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "checkpoint_commit": "fae8c75",
-      "real_context_tokens_at_close": 387448,
-      "real_context_pct_at_close": 38.74,
-      "check_method": "Triumvirate CHECK (RALPH:PATROL + GROK-ANALYST + GEMINI-AUDITOR) on the finalized diff, plus empirical local validation. GATES: `npm run typecheck` (tsc -b --noEmit) exit 0; `npx tsc --noEmit --strict` run EXPLICITLY over e2e/render-heap.spec.ts, e2e/worker-heap.spec.ts and playwright.config.ts exit 0 (necessary because tsconfig.json is include:['src'], so e2e/** is NOT type-checked by the normal gates); `npx playwright test <specs> --list` to force module evaluation (this is what caught a temporal-dead-zone ReferenceError from coupling MIN_VALID_TICKS to CENSUS_LIMIT_OBJECTS); lane routing asserted INVARIANT via --list counts pre/post at gating 25 tests/10 files, soak 6/4, quarantine 19/5; YAML parsed with pyyaml to confirm PW_RETRIES: 0 lands on e2e-soak ONLY and that globalTimeout < timeout-minutes still holds for all three lanes (12<18, 44<50, 17<20); PW_RETRIES guard truth-tabled in node (unset->2, ''->2, '  '->2, '0'->0, '3'->3, 'abc'->THROWS). LOCAL RUN: `npx playwright test e2e/render-heap.spec.ts e2e/worker-heap.spec.ts` => 3 passed (15.2m), all three in the STRICT regime — render 8690 ticks resolving 1.2 KB/tick, baseline 10256 resolving 1.0, bots-worker 8945 resolving 1.1; census D0 vs a scaled limit of 101; warm-up capped=false on all three (1218/1204/1207 of 1200 ticks). Additionally replayed all n=7 recorded census observations against the new scaled limit: every one passes, min margin 2.0x. Diff scope verified 6 tracked files with ZERO src/ files, and deploy.yml's push path filter (src/**, public/**, index.html, vite.config.ts, tsconfig.json, package.json, package-lock.json, deploy.yml) confirmed NON-INTERSECTING => this commit ships no production deploy. NOT YET VERIFIED IN CI: the lane's actual green + ~20-25m runtime is a workflow_dispatch away and is the one claim still outstanding."
+      "unlock_source": "user"
+    },
+    {
+      "id": "P2-economy-probe-harness",
+      "label": "Dev-build-only economy probe harness: A/B OLD(carry-1+uniform) vs NEW(exact-type N-slot inventory, live dial 4/8/12/inf) + instrumentation; settles B3/B4/B5",
+      "status": "pending",
+      "phase": "PLAN",
+      "tier": "Full",
+      "check_completed": false,
+      "verification": [],
+      "check_method": null,
+      "checkpoint_commit": null,
+      "real_context_tokens_at_close": null,
+      "real_context_pct_at_close": null,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     }
   ],
   "carry_forward_priorities": [
-    "Worker default-on flip (owner weak-device ?worker=1 playtest gate)",
-    "Bot-intelligence Phase A (owner BOT_INTELLIGENCE_DESIGN.md section-7 answers)",
-    "SOAK LANE IS NOT CI-VIABLE AS WRITTEN (measured 2026-07-28, run 30374235685): it hit the 44m globalTimeout; render-heap :124 failed 3x and worker-heap :333 failed 2x because CI reaches only ~2150-2300 of the designed ~10k ticks per attempt, making the per-ktick normalization noise-dominated (same test gave +2249.6, +523.2 and -308.6 KB/ktick across attempts). worker-heap :243 baseline DID pass (6.0m, ticks=8487). Options for a follow-up PDR, in rough preference order: (a) give the CI runs a REDUCED tick budget with thresholds derived from it, (b) assert on an absolute post-GC ceiling instead of per-ktick slope so short runs are not noise-amplified, (c) drop retries for this lane (3 attempts x ~7m is what actually burned the 44m), (d) keep the heap audits local-only and delete the CI lane. NOT a regression — the lane is continue-on-error and the run still concludes success.",
-    "Residual (PARTIALLY resolved): the diagnostic RULED OUT bounding-box oscillation (distinctBoxes=1, maxFrameGapMs=67) so there is NO latent lobbyScreen defect, and frames are far from starvation. But it did NOT reproduce the original click() failure. Leading UNPROVEN hypothesis: cumulative state in the shared single worker (workers:1) — the diagnostic ran first-and-fresh in soak, while the 3 originals failed after ~13 prior tests in the gating lane. To test it, move/duplicate the diagnostic to run LATE in the GATING lane. Low priority: the fix bypasses `stable` regardless.",
-    "OWNER-GATED: gh api PUT pages build_type=workflow (fixes stale legacy metadata at root) + optional origin/gh-pages deletion, in that order",
-    "Bit-exact bot serialization (YAGNI unless replay/spectator ships)",
-    "G1b MOTION verb + G2 family traits (playtest/owner-design gated)"
+    "S127 CI x4 (PARKED, not dropped): permanent soak window/threshold shape (BLOCKED: needs the Mon 2026-08-03 07:00 UTC cron sample; do NOT decide on n=3-4) | worker-isolate ceiling 10MB->~3MB (BLOCKED: readWorkerFloorMB() is a single read at worker-heap.spec.ts:182, outside the stabilization loop at :174-181) | Playwright deviceScaleFactor raster lever (needs before/after) | e2e/** outside tsconfig coverage",
+    "OWNER-GATED: Pages `gh api -X PUT repos/:owner/:repo/pages -f build_type=workflow` -> verify live asset hash -> THEN optionally delete origin/gh-pages, IN THAT ORDER. Run `gh auth login` first (audit found gh auth invalid).",
+    "OWNER DECISION, hard precondition on V6-1.1: B6 reversibility option (A) tag+branch, no prod deploys of Phase-1 work, or (B) additive-only keeping CarryingPlayer live + parallel bank-draw reducer. This session tags v0.5.2-pre-pivot regardless (option-independent).",
+    "OWNER DECISION, deferred to V6-1.1 (the slot that first creates the type): worker->gatherer rename. Not applied this session - the owner did not answer, and no code entity exists yet so it is not yet forcing. Forcing constraint recorded in the spec: the code identifier CANNOT be `Worker` (Web Worker owns the authoritative World; workerSim.ts, workerSim.differential.test.ts), and both Council legs held a split vocabulary is worse than either pure choice.",
+    "OWNER RULING needed before V6-1.3/V6-1.4 PDR: B3 faucet rate + B4 directive semantics (bias vs hard filter) and bank cap. Probe harness P2 produces the evidence."
   ],
-  "reflexion_entries_to_archive": [
-    {
-      "id": "S127-A0 #probe-external-state-even-when-a-code-comment-states-it",
-      "body": "I copied 'CI minutes are a hard constraint' out of e2e.yml's own header comment into my A.0 evidence packet as current fact. One probe refuted it: `gh repo view --json isPrivate,visibility` => PUBLIC, so Actions minutes are free/unlimited on standard runners and the S110 minute-exhaustion story is history. By then it had already reached BOTH Council peers, and Grok built its 'delete the lane' recommendation on it. An in-repo comment is a CLAIM about external state, not evidence of it — Rule 21 exists for exactly this and I applied it to git/CI/service state but not to repo visibility. Fix pattern: enumerate every external-state noun in the PDR's premises (visibility, billing, quotas, branch protection, service availability) and probe each one, including the ones a file appears to answer."
-    },
-    {
-      "id": "S127-P1 #a-threshold-that-moves-three-times-is-the-wrong-SHAPE-not-the-wrong-number",
-      "body": "The census limit went 1500 -> 75 -> 30 -> 40 and the last one passed by ONE object. I treated each failure as 'pick a better constant' and re-derived a constant three times. The actual message was in the PATTERN: a value that keeps being overtaken by the next sample is dimensionally wrong. Once I modelled it properly, both the leak signal (t/30) and the noise (~t/220) scaled with the window, so their ratio was window-independent (~7.3x) and the correct assertion was a FRACTION of the signal — which holds ~2.6x over noise and ~2.9x under signal at EVERY window, something no constant could do. It also dissolved two CHECK findings structurally instead of patching them. Trigger to watch for: the second time a threshold needs retuning, stop tuning and check the units."
-    },
-    {
-      "id": "S127-CHECK #i-rejected-the-right-shape-using-too-little-data",
-      "body": "GROK-ANALYST proposed a tick-SCALED census limit in CHECK. I rejected it as 'empirically refuted', citing that the largest delta (+13) came at the smallest window and that two ~8.2k windows gave D0 and D20. That reasoning was n=4-and-an-outlier. At n=7 the delta clearly scales (max 13 at ~2.2k vs max 39 at ~7.6-8.9k; 3.9x window vs 3.0x noise) and I adopted Grok's shape after rediscovering it the long way. The failure was not trusting-or-distrusting the reviewer — it was quoting a sample as if it were a law, in the same session whose own PDR said 'n=3 cannot support a new threshold value'. When rejecting a reviewer's SHAPE (not their number), the bar is a mechanism or a power-adequate sample, not the three points I happen to hold."
-    },
-    {
-      "id": "S127-CHECK #an-early-expect-in-a-shared-helper-voids-every-assertion-below-it",
-      "body": "My evidence packet recorded the worker determinism oracle (failed===false, hashMismatches===0) as 'stable across all attempts' in CI. It had NEVER EXECUTED for worker-heap:333: the tick-floor expect() earlier in the shared auditWindow() helper threw first, so every assertion below it was silently unreached — and on a continue-on-error lane that is invisible. I read the numbers that WERE logged and assumed the assertions that follow them had run. This also made the fix more valuable than the PDR claimed: removing the floor is what lets the oracle actually run. Fix pattern: when a test fails, the assertions AFTER the failing line produced no evidence at all — never cite them as passing, and prefer ordering cheap invariant checks BEFORE any environment-dependent gate."
-    },
-    {
-      "id": "S127-P1 #cheap-module-evaluation-beats-a-16-minute-feedback-loop",
-      "body": "Coupling MIN_VALID_TICKS to CENSUS_LIMIT_OBJECTS introduced a temporal dead zone (ReferenceError at module init) that cost a full 16-minute soak run to discover, because e2e/** sits outside tsconfig.json's include:['src'] so neither `npm run typecheck` nor `npm run build` covers it. Two ~2-second checks would have caught it: `npx playwright test <spec> --list` (forces module evaluation) and `npx tsc --noEmit` pointed explicitly at the spec files. Both are now recorded as standing habits in LOCKED_DECISIONS §15.4. General rule: when a file is outside the project's type-check net, add an explicit cheap gate rather than relying on the expensive end-to-end run."
-    }
-  ],
-  "session_status": "CLOSED",
+  "reflexion_entries_to_archive": [],
+  "session_status": "in_progress",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "check_result": "2 findings ADOPTED from the external pair, 3 REJECTED with reasons, and RALPH:PATROL returned SHIP-WITH-FIXES with all 5 fixes applied. ADOPTED: Grok H1 (a set-but-malformed PW_RETRIES fell back silently, so a typo would quietly restore retries:2 and evaporate the ~21-minute saving with no signal); Gemini HIGH (MIN_VALID_TICKS=500 was a real blind spot — at 500 ticks a TOTAL missed destroy() leaks only ~17 objects, UNDER the then-limit of 30, so a catastrophic 100%-leak regression would have PASSED). RALPH: F1 HIGH (raising the warm-up cap pushed the two sequential wall caps to 540s of a hardcoded 600s test.setTimeout — a 30% throughput dip would time out DURING s1, and since the evidence line prints AFTER s1 that is a red with NO measurement); D1 (my throw-on-malformed would kill the GATING lane at config-load with zero artifacts, because GitHub Actions renders an undefined var as '' not unset); A2 (warm.capped logged but not annotated); C2 (the stale 'TARGET_TICKS never reached' claim survived in the very file that owns the counter-example); E2 (the 'HTML report shows the annotation' justification is FALSE for this lane — --reporter=list REPLACES the config reporters; fixed the comment rather than package.json, which is in deploy.yml's filter and would have shipped a prod deploy). REJECTED: Grok M2 (compares against a 4000-tick CI window that never existed — at HEAD the test failed outright and detected nothing; Gemini independently concurred) and L1 (an artifact of a redacted prompt). Grok M1's tick-SCALED census limit was initially REJECTED on n=4 evidence and is now ADOPTED — it was the right shape all along.",
-  "analyze_completed": true,
-  "analyze_result": {
-    "tier": "Standard",
-    "priorities": "1/1 shipped (fae8c75) + close commit (331ba16), pushed to master",
-    "calibration": {
-      "own_errors_caught_pre_ship": 5,
-      "detail": [
-        "A.0 asserted a CI-minute constraint lifted from a STALE e2e.yml comment; the repo is PUBLIC so Actions minutes are free. It had already anchored Grok's delete-the-lane recommendation before the probe ran.",
-        "Extrapolated a tick rate linearly (WALL_CAP_MS 300->660s => 4752 ticks) across a run whose throughput DECLINES as the world grows. Retracted; later explained by the frame-bound mechanism.",
-        "Sized CENSUS_LIMIT from WALL-clock 300s instead of 36.7 SIM seconds => 75, which sat ABOVE the ~73 total-leak signal and would have missed the leak class it targets.",
-        "Recorded the worker determinism oracle as 'stable across all attempts' in CI when it had NEVER EXECUTED for worker-heap:333 — an earlier expect() in the shared helper threw first, voiding every assertion below it.",
-        "Claimed TARGET_TICKS is never reached on ANY platform; the capped/curve logging shipped in this very priority falsified it on its first run (baseline 10307, capped=false)."
-      ],
-      "reviewer_findings_adopted": [
-        "GROK-ANALYST H1 (HIGH) — silent PW_RETRIES fallback.",
-        "GEMINI-AUDITOR (HIGH) — MIN_VALID_TICKS=500 blind spot: a TOTAL leak (~17 objects) sat UNDER the then-limit of 30, so a 100%-destroy-miss would have PASSED.",
-        "RALPH:PATROL F1 (HIGH) — test.setTimeout budget consumed by the raised wall caps.",
-        "RALPH:PATROL D1/A2/C2/E2/F4 (MEDIUM) — gating-lane outage on empty env, warm-up annotation, stale claim in the file owning the counter-example, false HTML-report justification, constant coupling.",
-        "GROK-ANALYST M1 — tick-SCALED census limit: initially REJECTED by me on n=4 evidence, later ADOPTED. Grok had the right SHAPE from the start."
-      ],
-      "reviewer_findings_rejected": [
-        "GROK M2 ('unconditional growthMB<10 weakens detection') — compares against a 4000-tick CI window that never existed; at HEAD the test failed outright and detected nothing. Gemini independently concurred with the rejection.",
-        "GROK L1 (annotation is a no-op) — artifact of a redacted prompt; Gemini independently identified it as a hallucination.",
-        "GROK M1's CONSTANT alternative (50) — 1.46x under the signal vs 30's 2.4x; superseded entirely by adopting its scaling idea instead."
-      ],
-      "external_reviewer_signal": "S126 recorded that Grok's high-sev findings had started landing when they target an UNMEASURED empirical unknown. S127 confirms and SHARPENS that: Grok's H1 (unmeasured env-parsing behaviour) landed, its M2 (a mechanism shipped code already determines) dissolved, and its M1 landed on SHAPE while failing on VALUE. Gemini's one HIGH was its best contribution of the session and came from arithmetic, not opinion. RALPH:PATROL — reading the ACTUAL post-edit files rather than my description of them — produced the single most valuable finding (F1), and explicitly flagged that the files changed 3x mid-review. Lesson: give the local file-reading reviewer the LAST word, after edits settle."
-    },
-    "what_worked": [
-      "Pulling the raw CI job log first. The headline finding (all 5 failures are one tick-floor assertion, zero threshold breaches) inverted the handoff's framing and killed option (b) in the first 10 minutes.",
-      "Reading src/main.ts for the mechanism instead of curve-fitting the symptom. The dt clamp + PHYSICS_HZ=60 => <=3 ticks/rendered-frame explained the tick shortfall, killed three candidate options at once (including my own), and is now LOCKED so nobody re-derives it.",
-      "Spending 6 minutes on ONE local run to obtain the missing datum rather than adopting Gemini's census number on CI-only evidence.",
-      "Grep-verifying both peers' central claims before triage: Grok's anti-(e) baseline was phantom, Gemini's anti-(d) oracle claim was already covered by the GATING lane."
+  "check_result": null,
+  "analyze_completed": false,
+  "analyze_result": null,
+  "budget_total": 1000000,
+  "totals": {
+    "turns": 0,
+    "budget_remaining": 1000000,
+    "budget_status": "GREEN"
+  },
+  "auto_fill_applied": {
+    "ts": "2026-07-29T18:30:35.746532Z",
+    "fields": [
+      "budget_total",
+      "totals"
     ],
-    "what_to_do_differently": [
-      "Probe every external-state noun in a premise, INCLUDING ones a repo file appears to answer. A code comment is a claim, not evidence.",
-      "When a threshold needs retuning a SECOND time, stop tuning and check the units. Three constants died before the dimensional model appeared.",
-      "Do not quote a small sample as a law, especially while rejecting a reviewer's shape — the same PDR that said 'n=3 cannot support a threshold' used n=4 to reject Grok M1.",
-      "Order cheap invariant assertions BEFORE environment-dependent gates, so a slow runner cannot silently void the assertions that actually matter.",
-      "For files outside tsconfig's include, add an explicit cheap gate (--list, targeted tsc) instead of discovering load-time errors 6 minutes into a soak."
-    ],
-    "rule_22_runtime_audit": "Ran over e52a4b2..HEAD. BUG-A (unrendered ${VAR}): 1 hit, triaged FALSE POSITIVE — a TS template literal inside a thrown Error message, not shell/YAML interpolation. BUG-B (references to non-existent files): scripts/deploy-pages.sh is correctly absent and has ZERO live references in code/config/workflows (all hits are historical .md PDRs/handoffs plus lines explicitly marked SUPERSEDED/RETIRED). BUG-C (hallucinated scripts/flags): npm run build + npm run typecheck both DEFINED. Restart-survival: PW_RETRIES: 0 confirmed present on e2e-soak ONLY via pyyaml parse, with globalTimeout < timeout-minutes intact on all three lanes (12<18, 44<50, 17<20). gitleaks detect: 807 commits, 18.89 MB, NO LEAKS (exit 0).",
-    "outstanding_unverified_claim": "NONE — CI run 30395046615 concluded success and every mechanism was verified in its log.",
-    "api_calls": {
-      "grok": 2,
-      "gemini": 2,
-      "note": "1 PLAN + 1 CHECK each"
-    },
-    "subagents": {
-      "workflow_agents": 17,
-      "ralph_patrol": 1,
-      "workflow_subagent_tokens": 1727745
-    },
-    "ci_dispatch_30395046615": {
-      "run_conclusion": "SUCCESS",
-      "e2e_gating": "success 4m06s — 24 passed + 1 flaky. Closes RALPH D1 empirically (the PW_RETRIES throw did NOT kill the gating lane at config-load) and proves retries:2 survives outside soak (the flake retried and passed).",
-      "e2e_soak": "SUCCESS 22m41s — 4 passed (21.9m), 0 failed, 0 flaky. Was 44m + globalTimeout ⇒ -48%.",
-      "e2e_quarantine": "failure 18m20s — expected, non-gating (CI cannot hold P2P data channels).",
-      "mechanisms_verified_in_log": [
-        "Warm-up COMPLETES on the runner: 1233/1200, 1284/1200, 1255/1200, all capped=false (pre-fix it truncated to 648-693, i.e. 54-58%).",
-        "Two-regime gate fired and declared its own sensitivity: render 2304 -> SHORT-WINDOW 4.4 KB/tick; baseline 8598 -> STRICT-WINDOW 1.2; bots-worker 2409 -> SHORT-WINDOW 4.3.",
-        "Scaled census exercised its floor path: D-4 vs limit 27 (25 floor, 0.35 x signal 77).",
-        "The determinism oracle EXECUTED in CI for worker-heap:333 for the FIRST time ever and PASSED — RALPH F2 resolved.",
-        "RALPH F3 did NOT materialize: measured ticks went UP with the full warm-up (2304/2409 vs 2154-2301), so MIN_VALID_TICKS=1300 has ~1.8x margin."
-      ],
-      "gating_flake_note": "The flake was worker-bots.spec.ts asserting hashMismatches===0 — the determinism oracle flaking under CI load. Carry-forward: do not read a future soak oracle failure as a real determinism regression without checking it reproduces."
-    }
+    "validator_version": "s110-three-tier-v1"
   }
 }
