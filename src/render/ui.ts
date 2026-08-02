@@ -24,12 +24,55 @@ import {
   MAX_DISRUPTION_CHARGES,
   PHASE_1_WIN_SCORE,
   PLAYER_COLORS,
+  SCORE_TIER_STEP,
 } from '../constants.ts';
 import { isNetworked, type World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
 import { MAGIC_COMBO_KEYS } from '../combos.ts';
 
 const GAUGE_X = CANVAS_WIDTH - 24;
+
+/**
+ * V6-0.2 (S129) — tier banner hold, in FRAMES (render-only, so frames not ticks).
+ * ~2 s at 60 fps: long enough to register as a beat, short enough not to occlude play.
+ * The world-space pulse it complements runs 48 ticks (`SCORE_TIER_DURATION_TICKS`).
+ */
+export const TIER_BANNER_FRAMES = 120;
+
+/**
+ * V6-0.2 (S129) — banner label for a score-tier crossing. Pure, and exported for test, because
+ * the Browser pane cannot be driven headlessly (a hidden pane pauses requestAnimationFrame, so
+ * the Pixi ticker never advances) — so the arithmetic is verified here rather than by eye.
+ */
+export function formatTierBanner(tier: number): string {
+  return `TIER ${tier}  —  ${tier * SCORE_TIER_STEP}/${PHASE_1_WIN_SCORE}`;
+}
+
+/** V6-0.2 — solo score readout. Floors, matching the leaderboard's own formatting. */
+export function formatSoloScore(score: number): string {
+  return `SCORE ${Math.floor(score)}/${PHASE_1_WIN_SCORE}`;
+}
+
+/**
+ * V6-0.2 — banner opacity envelope: hold at full, then fade over the final third so the
+ * milestone reads as a beat rather than a flicker. `framesRemaining` counts DOWN to 0.
+ */
+/**
+ * V6-0.2 (S129 CHECK) — clear the tier-banner dedupe watermark when the sim clock has gone
+ * BACKWARDS, which happens when `applySnapshotCore` adopts a host tick (`world.tick = snap.tick`,
+ * save.ts:830) that is lower than one this client already observed. Without this, a long solo
+ * session followed by joining a freshly-started host would suppress the banner for that entire
+ * match. Returns the watermark to use.
+ */
+export function resetWatermarkIfRegressed(worldTick: number, lastTierTick: number): number {
+  return worldTick < lastTierTick ? -1 : lastTierTick;
+}
+
+export function tierBannerAlpha(framesRemaining: number, total: number = TIER_BANNER_FRAMES): number {
+  if (framesRemaining <= 0) return 0;
+  const f = Math.min(1, framesRemaining / total);
+  return f > 0.33 ? 1 : f / 0.33;
+}
 const GAUGE_Y_TOP = 80;
 const GAUGE_Y_BOTTOM = CANVAS_HEIGHT - 80;
 const GAUGE_WIDTH = 8;
@@ -89,6 +132,12 @@ export class HUD {
   private readonly qHintText: Text;
   /** S88 G3a — "Combos N/14" discovered counter (top-center, PLAYING, all modes). */
   private readonly comboCounterText: Text;
+  /** V6-0.2 (S129) — milestone banner fired by a SCORE_TIER crossing. */
+  private readonly tierBannerText: Text;
+  /** Frames remaining on the tier banner (render-only; never touches sim state). */
+  private tierBannerFrames = 0;
+  /** Dedupe key: the `tick` of the last SCORE_TIER effect consumed. */
+  private lastTierTick = -1;
   private displayEnergy = 0;
   private displayProgress = 0;
   private lastLocalScore = -1; // S106 P4 — detect a DROP in your own score (NONET halving) to flash the bar
@@ -169,6 +218,16 @@ export class HUD {
     this.comboCounterText.position.set(CANVAS_WIDTH / 2, 10);
     this.comboCounterText.visible = false;
     app.stage.addChild(this.comboCounterText);
+
+    // V6-0.2 (S129) — TIER MILESTONE BANNER. Top-center, just under the combo counter.
+    this.tierBannerText = new Text({
+      text: '',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 26, fill: 0xffffff, align: 'center' }),
+    });
+    this.tierBannerText.anchor.set(0.5, 0);
+    this.tierBannerText.position.set(CANVAS_WIDTH / 2, 34);
+    this.tierBannerText.visible = false;
+    app.stage.addChild(this.tierBannerText);
   }
 
   /** S15 P2 — main.ts sets this from netTransport.peerCount() each frame. */
@@ -182,6 +241,61 @@ export class HUD {
     this.drawWinState(world);
     this.drawMultiplayerHUD(world);
     this.drawComboCounter(world);
+    this.drawTierBanner(world);
+  }
+
+  /**
+   * V6-0.2 (S129) — make the score-tier crossing FELT, not merely drawn.
+   *
+   * `SCORE_TIER_STEP = 500` against `PHASE_1_WIN_SCORE = 1500` gives the match an exact
+   * three-act structure with pulses at 500 and 1000. The v0.6 diagnosis is that nobody can
+   * feel it. The pulse itself is not missing — `drawScoreTier` renders a ring + bloom for 48
+   * ticks (0.8 s) — but it draws in WORLD space at the placement position, on an open and
+   * partly fogged canvas, so it reads as "some effect happened" rather than "I crossed a
+   * threshold, and here is where that puts me".
+   *
+   * This does NOT revert S13 P4, which deliberately moved the pulse off a fixed HUD corner to
+   * the placement position "so the pulse lands where the player's eyes already are". That
+   * reasoning is sound and the world pulse is untouched. The two are complementary: the pulse
+   * says *something happened here*, the banner NAMES the milestone and anchors it to progress.
+   *
+   * Render-only: reads `world.effects`, writes nothing back, consumes no RNG, and is not
+   * synced. `world.effects` is wiped per frame by effectsRenderer, so the crossing is deduped
+   * by the effect's own `tick` rather than by object identity.
+   */
+  private drawTierBanner(world: World): void {
+    if (world.gameState !== 'PLAYING') {
+      this.tierBannerFrames = 0;
+      this.tierBannerText.visible = false;
+      // S129 CHECK (GROK-ANALYST) — the dedupe watermark MUST reset between matches. The HUD
+      // instance lives for the whole page, so a stale high watermark would suppress the banner
+      // for every future match. Every match transition passes through a non-PLAYING state.
+      this.lastTierTick = -1;
+      return;
+    }
+    // Second guard for a MID-MATCH backward tick jump, which the between-matches reset above
+    // cannot catch. GROK reported this as "world.tick resets on a new match" — that mechanism is
+    // wrong (neither applyStartGame nor applyReturnToTitle touches world.tick, so it is monotonic
+    // on the host). The real path is `applySnapshotCore` doing `world.tick = snap.tick`
+    // (save.ts:830) for both restore() and applyNetSnapshot(): play solo for ten minutes, then
+    // join a freshly-started host, and the adopted tick lands far BELOW the watermark. Right
+    // conclusion, wrong cause — so guard the cause that actually exists.
+    this.lastTierTick = resetWatermarkIfRegressed(world.tick, this.lastTierTick);
+    for (const e of world.effects) {
+      if (e.kind !== 'SCORE_TIER') continue;
+      if (e.tick <= this.lastTierTick) continue;
+      this.lastTierTick = e.tick;
+      this.tierBannerText.text = formatTierBanner(e.tier);
+      this.tierBannerText.style.fill = e.color;
+      this.tierBannerFrames = TIER_BANNER_FRAMES;
+    }
+    if (this.tierBannerFrames <= 0) {
+      this.tierBannerText.visible = false;
+      return;
+    }
+    this.tierBannerFrames--;
+    this.tierBannerText.alpha = tierBannerAlpha(this.tierBannerFrames);
+    this.tierBannerText.visible = true;
   }
 
   // S88 G3a — "Combos N/14" discovered-combo counter (top-center; total auto-follows
@@ -314,7 +428,30 @@ export class HUD {
             (world.scoreByPlayer.get(b.id) ?? 0) - (world.scoreByPlayer.get(a.id) ?? 0),
         )
       : [];
-    this.scoreTexts.forEach((t, i) => {
+    // V6-0.2 (S129) — SOLO NUMERIC SCORE. The `N/1500` readout above lives inside the
+    // leaderboard, which is gated `isNetworked` — correctly, since ranking one player is
+    // noise. But that left pure solo with a progress BAR and no number at all, i.e. no way to
+    // read "how far am I" except by eyeballing a bar. vs-bots is unaffected: `isNetworked` is
+    // `gameMode !== 'solo'` (gameMode.ts:95), so bots mode already gets the full leaderboard.
+    // Reuses row 0 rather than adding a Text object — same position, zero new bundle cost.
+    if (!isNetworked(world) && world.gameState === 'PLAYING') {
+      const t0 = this.scoreTexts[0];
+      if (t0 !== undefined) {
+        const score = world.scoreByPlayer.get(world.localPlayerId) ?? 0;
+        const me = world.players.get(world.localPlayerId);
+        t0.text = formatSoloScore(score);
+        t0.style.fill = me?.color ?? 0xffffff;
+        t0.position.set(12, 12);
+        t0.visible = true;
+      }
+      for (let i = 1; i < this.scoreTexts.length; i++) {
+        const t = this.scoreTexts[i];
+        if (t !== undefined) t.visible = false;
+      }
+      // NOTE: no early return — everything below (connection dot, charge dots) must still run.
+      // `connectionDot.clear()` in particular is unconditional, so skipping it would leave a
+      // stale dot on screen after returning from a networked match to solo.
+    } else this.scoreTexts.forEach((t, i) => {
       const p = ranked[i];
       if (p === undefined) {
         t.visible = false;

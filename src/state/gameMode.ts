@@ -89,8 +89,14 @@ export function applyBenchOfflinePlayer(world: World, action: BenchOfflinePlayer
  * S62 — is this a networked multiplayer match (2..MAX_PLAYERS, FFA)? True for
  * any non-solo mode. Replaces the ~17 scattered `gameMode === '1v1'` checks that
  * all meant "are we networked"; makes the count-agnostic intent explicit and
- * future-proof (a new mode value is networked by default). Behavior-identical
- * today (GameMode is only 'solo' | '1v1').
+ * future-proof (a new mode value is networked by default).
+ *
+ * ⚠ S129 correction: the old tail of this docblock read "Behavior-identical today (GameMode is
+ * only 'solo' | '1v1')", which has been false since S87 added 'bots' (`worldTypes.ts:51`). It
+ * matters because this predicate gates the score LEADERBOARD and its numeric `N/1500` readout in
+ * `render/ui.ts` — and 'bots' being networked-by-default is exactly why vs-bots, the primary
+ * mode, already shows the full HUD. Pure solo is the only mode that does not, which is what
+ * V6-0.2 addresses.
  */
 export function isNetworked(world: World): boolean {
   return world.gameMode !== 'solo';
