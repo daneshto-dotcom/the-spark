@@ -1,135 +1,97 @@
 {
-  "tool_calls_session_total": 622,
-  "session_id": "S129",
+  "tool_calls_session_total": 49,
+  "session_id": "S130",
   "session_kind": "single",
-  "session_start": "2026-07-28",
-  "prior_session_note": "S128 CLOSED (V6-0.1: pivot landed + probe harness). 9 commits unpushed - GitHub token invalid. Owner playtest still gates Phase 1.",
-  "phase": "CLOSED",
+  "session_start": "2026-08-03",
+  "prior_session_note": "S129 CLOSED (V6-0.2 learnability I shipped Micro after A.0 rescope; V6-0.3 pre-scoped). 15 commits unpushed - GitHub token STILL invalid (re-verified S130: 'The token in default is invalid', remote master at f0b8144, local at 9fa41b6). Owner playtest still gates all of Phase 1.",
+  "phase": "DO",
   "user_approval_verbatim": "go",
-  "tier": "Micro",
-  "council_rounds": 0,
+  "tier": "Standard",
+  "council_rounds": 1,
   "signals_fired": [
     "A.0-state-discovery",
-    "3-way-council",
     "prime-audit",
+    "3-way-council",
     "completeness-critic"
   ],
-  "council_result": "Micro tier - deliberation opt-in, auto-waived on the user-approval path (pdr_approved + unlock_source=user).",
   "plan_file": null,
-  "boot_probe_deltas": "A.0 for V6-0.2 RESCOPED the slot from Standard to Micro. Probed what actually renders: the progress bar (own+leader) ships in ALL modes (ui.ts:62-74); numeric N/1500 + rank + crown + <YOU> ship via the leaderboard (ui.ts:317-329); combos counter and energy gauge ship; the SCORE_TIER pulse ships as a 48-tick world-space ring+bloom. CORRECTED A PRIOR AUDIT CLAIM: vs-bots does NOT lose the HUD - isNetworked is `gameMode !== 'solo'` (gameMode.ts:95), so bots mode gets the full leaderboard. Genuine residual is only: (1) pure solo has no NUMERIC score, (2) the tier pulse is world-space with no HUD counterpart so the 500/1000 milestones are unfeelable.",
-  "routing_baseline": {
-    "gating": "25 tests / 10 files",
-    "soak": "6 tests / 4 files",
-    "quarantine": "19 tests / 5 files",
-    "note": "asserted INVARIANT across this change"
+  "boot_probe_deltas": "A.0 for V6-0.3 ran as a 6-probe + 6-adversarial-audit fan-out (12 agents, 0 errors). 4 of 6 probe MECHANISMS were refuted by their auditors while conclusions largely survived - consistent with the standing #verify-the-reviewer-s-MECHANISM pattern, now 4 sessions running. HEADLINE DELTA (supervisor-verified a third time by reading raw lines): V6-0.2's tier milestone banner, shipped S129 and marked DONE, PROVABLY CANNOT RENDER. drawTierBanner iterates world.effects (ui.ts:284) but hud.sync is called at main.ts:2515 while effectsRenderer.sync wipes world.effects at main.ts:2486 (effectsRenderer.ts:73); exactly one call site each, nothing between them writes world.effects. Compounding: SCORE_TIER is host-local-only (serializeEffect returns null, save.ts:1400) so even after an ordering fix it can never fire on a joining client. It passed CHECK because ui.tierBanner.test.ts pins only the pure helpers and its own docblock concedes the draw path cannot be driven headlessly. SECOND DELTA: the pre-scoped V6-0.3 plan was wrong in two places - (a) an actor id ALONE cannot answer 'am I the victim?' because BOND_SEVERED carries only {kind,tick,pos,cause} and the bond plus (in the delete case) its endpoints are removed before the emit; the cheap fix is primA.placedBy (primitive.ts:28, readonly PlayerId, immutable vs the mutable placerColor, and already used as the repo's own bond-victim derivation at creatureAI.ts:222 / creatureLifecycle.ts:207-216); (b) the cited reuse surface comboToastRenderer.ts NEVER reads world.effects - it reads synced world fields precisely because its docblock says an effects entry 'would miss the client ~5/6 of the time', so the plan cited a surface whose design point contradicts the carrier it chose. THIRD DELTA: the BACKLOG row's cause union is 4 members; the real union has SEVEN (effects.ts:136) and 'physics' passes a hardcoded asPlayerId(0) sentinel (physicsLoop.ts:170-181), so an unconditional populate would mis-attribute every overstretch sever to seat 0. FOURTH DELTA: PROTOCOL_VERSION needs NO bump (deserializeEffect is a named-field reconstruction not positional/packed, save.ts:1412-1453; parseNetMessage never descends into snapshot.effects, protocol.ts:680-697; ARC_FLASH.creatureId? is the exact shipped precedent, git-verified at commit 5a654e7) - BUT BACKLOG.md:362, marked 'do not re-litigate', says a bump IS needed for any new serialized field, which contradicts six shipped additive-optional wire fields. That is a governance ruling, not a code fact. FIFTH DELTA (process, material): NO CI job runs vitest or typecheck - grep of vitest|npm test|typecheck|check-bundle across .github/workflows/ returns ZERO hits; only deploy.yml's `npm run build` gates anything, and e2e.yml never runs on push. The per-session 'tsc 0 / vitest 1932/1932' figure has no mechanical carrier. Also package.json:13 is bare `vitest` = WATCH mode, so a PDR naming `npm test` hangs the session; run-once is `npx vitest run`. SIXTH DELTA: R15's 17-site checklist does NOT apply to an effect-variant field add (15 of 17 sites structurally N/A), so escalating to Full would buy ceremony, not coverage.",
+  "verified_baseline_s130": {
+    "vitest": "1932 passed / 1932, 127 files, exit 0 - RUN THIS SESSION via `npx vitest run`, not inherited from the handoff",
+    "bundle_entry": "dist/assets/index-BfmwMcYR.js = 657,766 B = 642.3 KiB against CAP_KIB=750 (scripts/check-bundle-size.mjs:19) => 107.7 KiB headroom. NOTE BACKLOG.md's standing-gate paragraph still says 640.8/109.2 - quote 642.3.",
+    "protocol_version": 15,
+    "gh_auth": "INVALID (re-verified). `gh auth status` -> 'The token in default is invalid.' Push HANGS on Git Credential Manager rather than erroring.",
+    "unpushed": "15 commits. remote master f0b8144, local 9fa41b6.",
+    "ci_gates": "NONE for units/types. Only deploy.yml `npm run build` (:72). e2e.yml is Playwright-only and never on push; last e2e run was S127."
+  },
+  "owner_rulings_recorded_s130": {
+    "note": "Collected via AskUserQuestion this session. These resolve four long-standing carry-forwards. NOT PDR approval - the V6-0.3 PDR still requires an explicit `go`.",
+    "probe_playtest": "NOT YET RUN. Phase 1 stays closed; V6-1.3/V6-1.4 must not be opened. B3 faucet rate + B4 directive semantics remain unruled.",
+    "B6_reversibility": "(A) BRANCH OFF THE TAG - develop Phase 1 on `pivot/phase1` off `v0.5.2-pre-pivot`, no production deploys of Phase-1 work until the V6-1.7 gate passes. Hard precondition on V6-1.1 now SATISFIED.",
+    "worker_gatherer_rename": "RENAME TO `gatherer` - prose and code both. Constraint still binds: the code identifier CANNOT be `Worker` (the Web Worker owns the authoritative World). Applies from V6-1.1, the slot that first creates the type.",
+    "V6_2_1_ordering": "INSERT A STRUCTURE-HP SLOT BEFORE V6-2.1, resolving risk R6 (3 of 5 targeting priorities currently have no damageable target: DEFENDER_HP is a 1e9 sentinel, CreatureSpawner has no hp field, the only damage fn is damageCreature). Adds a slot to Phase 2.",
+    "F1_carrier": "ACCEPT THE NARROW SHIP. Effect-borne now; 100% reliable in solo/bots (in-process, netTransport null). The ~5/6 remote loss MUST be named in-code at BOTH the emit and the consumer docblock with a pointer to the per-seat carry-forward, and the V6-0.3 roadmap row must NOT read as though the feature works everywhere.",
+    "F4_banner": "FOLDED into V6-0.3 as sub-item 1 in its OWN commit, with an owner playtest checkpoint before the toast work starts. Council was 2-1 for this over a separate priority.",
+    "F3C_bomb": "SUPPRESS. Two suppression clauses: (a) actor present && actor === victim; (b) cause === 'bomb' unconditionally. The show-it copy variant is kept as a one-line carry-forward, trivial to flip after a playtest.",
+    "CI_carrier": "ADD A GATING vitest + typecheck STEP to deploy.yml. OUTSIDE V6-0.3's scope, so per Rule 16 it lands as its own priority P2 with its own scope line. Cannot be exercised until the owner's push lands. A red test will then BLOCK a master-push deploy - that is the intended behaviour change.",
+    "IX5_assumption": "NOT asked - proceeding on a STATED ASSUMPTION: §IX.5 closes via branch 2, narrow revocation satisfied BY DELIVERY, because SPARK_Blueprint.md:379's own suggested narrow form ('a post-hoc explanation of what a cut did') is exactly this slot's toast. Zero extra code, all three Council legs reached it independently, reversible in one doc line. Owner did not object when presented."
   },
   "priorities": [
     {
-      "id": "P1-v06-0.2-learnability-I",
-      "label": "V6-0.2 Learnability I (rescoped Micro): numeric score in solo + legible tier pulse + stale isNetworked docblock",
-      "status": "completed",
-      "phase": "CHECK-COMPLETE",
-      "tier": "Micro",
-      "check_completed": true,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
-          "needle": "formatSoloScore"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
-          "needle": "drawTierBanner"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
-          "needle": "resetWatermarkIfRegressed"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
-          "needle": "TIER_BANNER_FRAMES"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.tierBanner.test.ts",
-          "needle": "clears the watermark when the sim clock goes backwards"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
-          "needle": "S129 correction"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "Learnability I — numeric score in solo + legible tier milestone"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "**Micro** (was Standard)"
-        }
-      ],
-      "check_method": "Micro-tier CHECK = RALPH:PATROL + GROK-ANALYST (per Rule 17), run on the real diff. ONE defect found, and its CONCLUSION was right while its MECHANISM was wrong - GROK said the lastTierTick dedupe watermark breaks because 'world.tick resets on a new match'. Verified against the code: it does NOT reset - neither applyStartGame nor applyReturnToTitle touches world.tick, so it is monotonic on the host for the page lifetime. The REAL path is applySnapshotCore doing `world.tick = snap.tick` (save.ts:830), used by both restore() and applyNetSnapshot(): a client that played a long solo session then joins a freshly-started host adopts a far LOWER tick, and the stale watermark suppresses the banner for that entire match. Fixed on BOTH paths (between-match reset on the non-PLAYING branch + a mid-match backward-jump guard), with the guard extracted as the pure `resetWatermarkIfRegressed` and pinned by 3 tests. GROK explicitly reported no other defects at material severity, and specifically cleared the solo/else branch split, the scoreTexts[0] pool reuse, and the world.effects per-frame-wipe race. I also caught one defect myself pre-commit: my first solo block used an early `return`, which would have skipped the UNCONDITIONAL connectionDot.clear() and left a stale connection dot after returning from a networked match to solo; restructured as if/else. VERIFICATION: tsc 0 - vitest 1932/1932 (127 files, +10 new) - npm run build exit 0, bundle 642.3/750 KiB with the delta MEASURED at +1,365 B vs the 640.9 KiB baseline - gitleaks no leaks. LIMIT STATED: the visual could not be verified in-browser because a hidden Browser pane pauses requestAnimationFrame, so the Pixi ticker never advances (same constraint as S128). App load was confirmed (41 stage children, no console errors, leaderboard rows correctly hidden at TITLE) and the arithmetic/envelope/watermark logic was extracted into pure functions and pinned. Placement and legibility remain for the owner's eye.",
-      "checkpoint_commit": "fae054997515164d4d967785c8cf4b9c9297df50",
-      "real_context_tokens_at_close": 548000,
-      "real_context_pct_at_close": 54.8,
+      "id": "P1-v06-03-learnability-II",
+      "label": "V6-0.3 Learnability II - make failure attributable. TWO COMMITS: (A) repair the dead V6-0.2 tier banner by splitting drawTierBanner into a PRE-WIPE drain + an in-place animate, then STOP for owner playtest; (B) sever attribution - two additive-optional fields (actor + victim) across all four coordinated wire sites, a per-cause populate table, a new pre-wipe toast drain delegating to one pure reducer, copy via the existing avatarNameplateText, three test guards, and the mandatory doc amendments.",
+      "status": "in_progress",
+      "phase": "DO",
+      "tier": "Standard",
+      "check_completed": false,
+      "commit_plan": "A = banner repair (STOP for playtest) | B = attribution work",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "id_note": "S130: dots REMOVED from the id deliberately. validate_priority_id (json_helpers.sh) allows only [A-Za-z0-9_-], so a dotted id like S129s P1-v06-0.2-learnability-I is rejected as malformed and glue_pdr_unlock returns WITHOUT minting unlock_source=user. That is why the hook handshake silently failed.",
+      "priority_state": "in_progress",
+      "unlock_source": "user",
+      "gate_note": "S130 THREE handshake bugs found and worked around, all worth a real fix later: (1) dotted priority ids fail validate_priority_id [A-Za-z0-9_-] so glue_pdr_unlock skips the mint entirely - S129 used a dotted id too, so its unlock_source=user was hand-written; (2) the mint awk uses sub() on an EXISTING unlock_source line and cannot insert the key, so a priority entry without it makes the mint a silent no-op WHILE the hook still prints \"Cleared ... Edits permitted\" unconditionally - a gate that lies about unlocking; (3) glue_pdr_unlock writes priority_state=\"unlocked\" but pdca-final-gate.sh:82 accepts only approved|in_progress|completed, so the unlock hook writes a state its own gate rejects. unlock_source itself remains HOOK-MINTED - Claude never wrote it."
+    },
+    {
+      "id": "P2-ci-carrier",
+      "label": "CI carrier (Rule 16 scope amendment, owner-ruled this session): add a GATING vitest + typecheck step to deploy.yml. Currently ZERO CI jobs run units or types - deploy.yml's only verification is `npm run build` - which is the structural reason V6-0.2 could ship green and dead. Not verifiable until the owner's push lands.",
+      "status": "pending",
+      "phase": "PLAN",
+      "tier": "Micro",
+      "check_completed": false,
+      "pdr_approved": true,
+      "deliberation_completed": true
     }
   ],
   "carry_forward_priorities": [
-    "S127 CI x4 (PARKED, not dropped): permanent soak window/threshold shape (BLOCKED: needs the Mon 2026-08-03 07:00 UTC cron sample; do NOT decide on n=3-4) | worker-isolate ceiling 10MB->~3MB (BLOCKED: readWorkerFloorMB() is a single read at worker-heap.spec.ts:182, outside the stabilization loop at :174-181) | Playwright deviceScaleFactor raster lever (needs before/after) | e2e/** outside tsconfig coverage",
-    "OWNER-GATED: Pages `gh api -X PUT repos/:owner/:repo/pages -f build_type=workflow` -> verify live asset hash -> THEN optionally delete origin/gh-pages, IN THAT ORDER. Run `gh auth login` first (audit found gh auth invalid).",
-    "OWNER DECISION, hard precondition on V6-1.1: B6 reversibility option (A) tag+branch, no prod deploys of Phase-1 work, or (B) additive-only keeping CarryingPlayer live + parallel bank-draw reducer. This session tags v0.5.2-pre-pivot regardless (option-independent).",
-    "OWNER DECISION, deferred to V6-1.1 (the slot that first creates the type): worker->gatherer rename. Not applied this session - the owner did not answer, and no code entity exists yet so it is not yet forcing. Forcing constraint recorded in the spec: the code identifier CANNOT be `Worker` (Web Worker owns the authoritative World; workerSim.ts, workerSim.differential.test.ts), and both Council legs held a split vocabulary is worse than either pure choice.",
-    "OWNER RULING needed before V6-1.3/V6-1.4 PDR: B3 faucet rate + B4 directive semantics (bias vs hard filter) and bank cap. Probe harness P2 produces the evidence."
+    "S127 CI x4 (PARKED, not dropped): permanent soak window/threshold shape (BLOCKED: needs the Mon 2026-08-03 07:00 UTC cron sample - TODAY, but unreadable while gh auth is invalid; do NOT decide on n=3-4) | worker-isolate ceiling 10MB->~3MB (BLOCKED: readWorkerFloorMB() is a single read at worker-heap.spec.ts:182, outside the stabilization loop at :174-181) | Playwright deviceScaleFactor raster lever (needs before/after) | e2e/** outside tsconfig coverage",
+    "OWNER ACTION, blocks everything: `gh auth login -h github.com` then `git push origin master && git push origin v0.5.2-pre-pivot`. Then the Pages `gh api -X PUT repos/:owner/:repo/pages -f build_type=workflow` -> verify live asset hash -> THEN optionally delete origin/gh-pages, IN THAT ORDER.",
+    "OWNER ACTION, gates all of Phase 1: probe playtest `/?probe=1&regime=new&slots=8` -> rules B3 + B4.",
+    "NEW S130 (process, material): NO CI job runs vitest or typecheck. The per-session tsc/vitest/bundle figures are local and self-reported. Consider adding a units+types job to .github/workflows/ - but note it cannot run until the push lands.",
+    "NEW S130: e2e smoke.spec.ts:637 asserts toContain('v9') while PROTOCOL_VERSION is 15 - stale for five bumps, surviving only because its describe is @quarantine-flaky (:595), excluded by package.json:15 --grep-invert and run continue-on-error in e2e.yml:202-205. The only runtime coverage of the version gate cannot fail the build.",
+    "NEW S130: the R11 NetSnapshot byte guard (save.replay.test.ts:776) runs on a ZERO-effects fixture, so it is structurally insensitive to any effects-payload change. A future effects regression would pass.",
+    "NEW S130: BACKLOG.md:518-521 claims risks with a code anchor carry a `// V6-RISK(Rn):` comment. That carrier DOES NOT EXIST - grep returns exactly one hit, V6-RISK(B3) at dev/probeBootstrap.ts:26. Zero of R1-R23 has a code anchor; enforcement rides only the markdown row plus session-close verification[] bindings.",
+    "NEW S130 (Council F1, bound): reliable per-seat synced-field carrier for sever attribution in NETWORKED play. Bound to whichever slot first makes remote play primary. The scalar form the BACKLOG cited (world.sudoku.solvedBy / world.comboToastTick) is recorded as ARCHITECTURALLY UNFIT - a sever is high-frequency and per-victim, so a global scalar triple is clobbered within one frame's up-to-3-tick drain. Needs a per-seat 6-slot array.",
+    "NEW S130 (Council F4, declined): SCORE_TIER on the wire for client tier-banner parity. Declined - it would be a new serialized LITERAL in the S110 'WALK' bump class, with a traced stale-peer hard crash path (deserializeEffect has no default case -> undefined pushed at save.ts:1028-1032 -> effectsRenderer derefs e.kind in the Pixi ticker outside sync.ts's try/catch). Consequence: after the S130 banner repair the tier banner works in solo/bots and stays DEAD for a 1v1 joiner.",
+    "NEW S130 (supervisor, verified - NO Council leg raised it): scoring.ts:99's single-owner rule carries its own expiry - 'If a future cross-player bond feature [e.g. Steal] is ever added, revisit this single-owner rule.' Steal is a Phase 2 feature. When Steal lands, primA.placedBy alone STOPS being a safe victim key and the V6-0.3 victim field needs a both-endpoints rule.",
+    "NEW S130 (Council F3-C, one-line flip): the 'show surprise self-harm' bomb copy variant ('YOUR BOMB CUT N OF YOUR OWN BONDS'). Owner ruled SUPPRESS for now; flip after a playtest if the suppression reads as the game hiding information.",
+    "NEW S130 (PRIME-AUDIT R-C, open by construction): the drain-order source lock protects only the consumers named in its allowlist. Nothing stops a future session adding an unlisted world.effects reader AFTER the wipe at main.ts:2486. The defect CLASS is mitigated for known consumers and OPEN for new ones.",
+    "NEW S130 (PRIME-AUDIT R-B, watch first in the playtest): physics-cause toast spam. No Council leg addressed frequency. Per-frame coalescing bounds it to one toast per frame, but under 'Overwrite = restart' a chronically rubber-banding structure holds a persistent OVERSTRETCHED toast. Cheapest mitigation is dropping the physics row entirely - it is the one row with no attribution to make.",
+    "NEW S130 (declined, logged): §IX.5 branch 3 - the pre-commit bond-hover cost preview (~120-200 LoC, ~8-12K). Declined on discipline: a new interactive mechanic does not belong in the same slot as a repair of a shipped-broken visual.",
+    "NEW S130 (logged, not fixed): protocol.ts:146 changelog ends at 13->14 while PROTOCOL_VERSION is 15 (the S124 bump is recorded only in the block comment at :95-99); and protocol.test.ts:300's test TITLE says 'PROTOCOL_VERSION is 14' while its body at :326 asserts 15.",
+    "NEW S130 (fog, carried): LOCKED_DECISIONS §2 items 5 (R_beacon) and 6 (vision fade) remain stale, and the worker-vision clause (SPARK_Blueprint.md:109, LOCKED_DECISIONS.md:26) CANNOT be ratified because no gatherer entity exists - computeVisionSources (vision.ts:57-74) has exactly four source classes. Bound to V6-1.1/V6-1.2. Touch NO radius: SPAWNER_RADIUS is still 250 (constants.ts:76) vs the Blueprint's v0.6 188, and LOCKED_DECISIONS:208 says re-judge only AFTER the V6-1.2 shrink."
   ],
-  "reflexion_entries_to_archive": [
-    {
-      "tag": "#probe-the-slot-before-believing-the-roadmap-s-estimate-of-it",
-      "priority": "P1",
-      "entry": "V6-0.2 was planned as a Standard-tier 'make the score readable' slot. Ten minutes of A.0 probing showed ~80% already ships - progress bar in all modes, numeric N/1500 + rank + crown in the leaderboard, combos counter, energy gauge, and the tier pulse as a 48-tick ring. The genuine gap was two narrow things, so the slot dropped to Micro. The probe also refuted a claim from my OWN prior audit (that vs-bots loses the HUD). Lesson: a roadmap slot's SIZE is a claim about external state like any other, and Rule 21 applies to it - probe before scoping, and let the scope shrink when the evidence says so rather than padding work to match the plan."
-    },
-    {
-      "tag": "#verify-the-reviewer-s-MECHANISM-not-just-its-conclusion",
-      "priority": "P1",
-      "entry": "GROK-ANALYST correctly found that the tier-banner dedupe watermark was broken, and attributed it to 'world.tick resets on a new match'. That mechanism is false - neither applyStartGame nor applyReturnToTitle touches world.tick. Had I accepted the conclusion and fixed the stated cause, I would have added a match-restart reset and left the ACTUAL path broken: applySnapshotCore's `world.tick = snap.tick` (save.ts:830), which makes a client adopt a lower tick when joining a fresh host after a long local session. Grep-verifying the mechanism produced a two-path fix instead of a one-path one. Third session running that a reviewer was directionally right and mechanically wrong; the conclusion is a hypothesis, the mechanism is the thing to check."
-    },
-    {
-      "tag": "#read-why-a-prior-decision-was-made-before-reversing-it",
-      "priority": "P1",
-      "entry": "The obvious fix for 'the tier pulse is easy to miss' was to move it back to a fixed HUD corner. The SCORE_TIER docblock records that S13 P4 moved it OFF the corner to the placement position deliberately, 'so the pulse lands where the player's eyes already are' - sound reasoning I would have silently undone. Instead the world pulse is untouched and a banner was ADDED to complement it. One grep of the docblock was the difference between reverting a playtested decision and building on it."
-    },
-    {
-      "tag": "#an-early-return-in-a-draw-method-can-skip-unconditional-cleanup",
-      "priority": "P1",
-      "entry": "My first solo-score block ended with `return`, which read as harmless because everything below it was networked-only. It was not: connectionDot.clear() runs UNCONDITIONALLY before its own isNetworked guard, so the early return would have left a stale connection dot on screen after returning from a networked match to solo. Caught by reading what came after the insertion point rather than only what I was inserting. In a per-frame draw method, an early return is a claim that NOTHING below it matters - check the whole tail, especially unconditional clear/reset calls."
-    }
-  ],
-  "session_status": "closed",
+  "reflexion_entries_to_archive": [],
+  "session_status": "in_progress",
   "pdr_approved": true,
   "deliberation_completed": true,
-  "unlock_source": "user",
-  "check_result": "Micro-tier CHECK = RALPH:PATROL + GROK-ANALYST (per Rule 17), run on the real diff. ONE defect found, and its CONCLUSION was right while its MECHANISM was wrong - GROK said the lastTierTick dedupe watermark breaks because 'world.tick resets on a new match'. Verified against the code: it does NOT reset - neither applyStartGame nor applyReturnToTitle touches world.tick, so it is monotonic on the host for the page lifetime. The REAL path is applySnapshotCore doing `world.tick = snap.tick` (save.ts:830), used by both restore() and applyNetSnapshot(): a client that played a long solo session then joins a freshly-started host adopts a far LOWER tick, and the stale watermark suppresses the banner for that entire match. Fixed on BOTH paths (between-match reset on the non-PLAYING branch + a mid-match backward-jump guard), with the guard extracted as the pure `resetWatermarkIfRegressed` and pinned by 3 tests. GROK explicitly reported no other defects at material severity, and specifically cleared the solo/else branch split, the scoreTexts[0] pool reuse, and the world.effects per-frame-wipe race. I also caught one defect myself pre-commit: my first solo block used an early `return`, which would have skipped the UNCONDITIONAL connectionDot.clear() and left a stale connection dot after returning from a networked match to solo; restructured as if/else. VERIFICATION: tsc 0 - vitest 1932/1932 (127 files, +10 new) - npm run build exit 0, bundle 642.3/750 KiB with the delta MEASURED at +1,365 B vs the 640.9 KiB baseline - gitleaks no leaks. LIMIT STATED: the visual could not be verified in-browser because a hidden Browser pane pauses requestAnimationFrame, so the Pixi ticker never advances (same constraint as S128). App load was confirmed (41 stage children, no console errors, leaderboard rows correctly hidden at TITLE) and the arithmetic/envelope/watermark logic was extracted into pure functions and pinned. Placement and legibility remain for the owner's eye.",
-  "analyze_completed": true,
-  "analyze_result": "CALIBRATION. Estimated ~8K Micro; actual implementation landed close, and the session's real cost was dominated by the A.0 probe that RESCOPED the slot before any code was written. That probe is the session's main result: the roadmap had V6-0.2 as a Standard-tier 'make the score readable' slot, and the shipped game already had ~80% of it. Scope shrank to two narrow fixes rather than being padded to match the plan. It also CORRECTED a claim from my own S128 audit (that vs-bots loses the HUD - it does not; isNetworked is `gameMode !== 'solo'`), which is the second session running where probing beat a plausible prior belief.\n\nWHAT THE PROCESS BOUGHT. Two defects were caught before they could ship, one by me and one by GROK, and neither would have been caught by the test suite as it stood: (a) my first solo branch used an early `return` that would have skipped the unconditional connectionDot.clear(), leaving a stale connection dot after a networked->solo transition; (b) the tier-banner dedupe watermark would have suppressed the banner permanently for a client that joins a host after a long local session. Both are the 'silently does nothing' failure class, which is exactly what a render-only change is prone to and exactly what a green suite does not catch.\n\nREVIEWER CALIBRATION, third session running: GROK reached the RIGHT conclusion via a WRONG mechanism, and the mechanism mattered - had I fixed only 'match restart' I would have left the client-join path broken, because world.tick does not in fact reset on restart. Grep-verifying the cited mechanism (not just the conclusion) is what produced the correct two-path fix. This is now a stable pattern across S127/S128/S129 and is a promotion candidate for a standing rule.\n\nDESIGN RESTRAINT WORTH RECORDING. The SCORE_TIER docblock records that S13 P4 moved the pulse OFF a fixed HUD corner to the placement position on purpose. The lazy fix would have been to move it back. Instead the world pulse is untouched and the banner complements it - the pulse says 'something happened here', the banner names the milestone. Reading why a prior decision was made before reversing it cost one grep and avoided undoing someone's playtested reasoning.\n\nNOT DONE, explicitly: the visual is unverified (hidden pane pauses rAF; substituted pure-function tests). Nothing is pushed - the GitHub token is still invalid, so this is now the 10th unpushed commit and the e2e lane still cannot be dispatched. The owner's probe playtest, which gates all of Phase 1, remains outstanding.",
+  "unlock_source": null,
   "budget_total": 1000000,
   "totals": {
     "turns": 0,
     "budget_remaining": 1000000,
     "budget_status": "statusline_dead"
   },
-  "auto_fill_applied": {
-    "ts": "2026-07-29T18:30:35.746532Z",
-    "fields": [
-      "budget_total",
-      "totals"
-    ],
-    "validator_version": "s110-three-tier-v1"
-  }
+  "council_result": "Standard tier -> MANDATORY 3-way Council. All 3 legs returned (CLAUDE-ARCHITECT, GROK-ANALYST via grok-4.20-0309-reasoning, GEMINI-AUDITOR via gemini-3.1-pro-preview). Battle Ledger: F1 CARRIER CONVERGED on (c) hybrid - effect-borne now with the per-seat synced carrier as a bound carry-forward; option (b) recorded as ARCHITECTURALLY UNFIT in its cited scalar form (world.sudoku.solvedBy / world.comboToastTick are global scalars for RARE singleton events, whereas a sever is high-frequency and per-victim - <=3 per drone, one per bot errand, up to 3 ticks drained per frame - so a scalar triple is clobbered within one frame; doing it right needs a per-seat 6-slot array). F2(i) CONVERGED NO-BUMP on three independently sufficient grounds. F2(ii) SPLIT on form, resolved append-only annotate (delete nothing). F3-A CONVERGED victim=primA.placedBy always / actor a distinct field - GROK caught its OWN leg inverting the two, which shipped as written would have told the victim they severed their own bond (highest-value correction of the Council). F3-B CONVERGED per-cause table with a TOLERANT default (not an exhaustive assert, because 'godly' is in the effect union but not the action union). F3-C SPLIT, resolved on a VERIFIED field-identity mismatch rather than taste: bombLifecycle.ts:110 selects its kill set on the MUTABLE placerColor while suppression compares the READONLY placedBy, so actor===victim is NOT guaranteed to fire and the explicit cause==='bomb' clause is not redundant. F4 2-1 fold-with-own-commit. F5 marked SPLIT DESPITE a CONVERGED headline - all three said 'render-side burst with a count' but produced THREE incompatible mixed-actor rules and TWO incompatible window rules, so the agreement was on transport not deliverable; resolved to degrade-to-actor-less on the ground that newest-wins can MISATTRIBUTE and misattribution in a learnability feature teaches the wrong causal model. F6 CONVERGED Standard (~24K); R15 structurally inapplicable so tier rests on deliberation depth, and Full would buy ceremony not coverage. The fog fork FLIPPED on a re-verified CI fact rather than a 2-1 count: with zero vitest/typecheck hits in .github/workflows/, constants.lock.test.ts is a LOCAL-only guard, so the stale prose at LOCKED_DECISIONS:212/:214 is the only defence a future session reads and leaving it armed would instruct the next session to re-arm the S85->S86 regression the owner locked twice.",
+  "prime_audit_result": "PRIME-AUDIT flagged 11 claims it could not verify rather than laundering them, and named its own weakest point: the ~5/6 remote-loss arithmetic on which the ENTIRE F1 ruling rests was inherited from the digest and never re-derived by any leg. SUPERVISOR VERIFIED THE LOAD-BEARING ONES DIRECTLY FROM RAW LINES: (1) the ~5/6 arithmetic CONFIRMED - SNAPSHOT_INTERVAL_TICKS = max(1, round(PHYSICS_HZ 60 / NET_SNAPSHOT_HZ 10)) = 6 at main.ts:204, NET_SNAPSHOT_INTERVAL_MS = 1000/10 = 100 at main.ts:1095, and the gate at main.ts:1803-1816 requires BOTH rate conditions AND !workerSimActive(); with the per-frame wipe at effectsRenderer.ts:73 an effect living one 60Hz frame survives only on a snapshot frame => 1 in 6. F1 stands on real arithmetic. (2) scoring.ts:99 CONFIRMED VERBATIM ('placedBy is readonly, so a bond's endpoints ALWAYS share one owner') - AND it carries a caveat NO leg quoted: 'If a future cross-player bond feature [e.g. Steal] is ever added, revisit this single-owner rule.' Steal is in Phase 2, so this is a NEW binding added by the supervisor. (3) creatureAttack.ts:142 CONFIRMED 'playerId: creature.ownerPlayerId' - and the path is src/state/creatures/, not src/state/ as the digest and all three legs had it. (4) intentStamp.ts CONFIRMED fail-closed (stampSenderSeat overwrites playerId on any action carrying it; stampOrReject returns null for an unseated peer), so 'player' attribution is host-authoritative and NOT spoofable. (5) world.localPlayerId CONFIRMED to have THREE writers including workerSim.ts:201, so the victim gate must be evaluated on the main thread only. FIVE PATH ERRORS corrected that the digest and all three legs carried: effects.ts and primitive.ts are src/game/, physicsLoop.ts is src/physics/, audioManager.ts is src/render/, creatureAttack.ts is src/state/creatures/. SUPERVISOR SELF-CORRECTION: my own A.0 digest asserted that BACKLOG.md:362 read literally MANDATES a bump. That inverts 'only when' - a necessary condition, not a sufficient one. The Council caught it; no owner ruling was needed on F2(ii) as a result. CLAIM-ADDRESSED-NOT-FIXED, adopted into the risk register rather than argued away: the drain-order lock pins TODAY'S six consumers and trips if any of them moves - it does NOT close the defect class, since nothing stops a future session adding an unlisted world.effects reader after the wipe; and naming the ~5/6 hole in a docblock fixes the DOCUMENTATION failure that produced the audioManager over-claim, not the attribution."
 }

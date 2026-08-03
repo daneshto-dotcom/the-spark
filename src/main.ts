@@ -2483,6 +2483,15 @@ async function bootstrap(): Promise<void> {
     // S23 P2 — debug overlay sync runs BEFORE effects wipe so chain-progress
     // sees this frame's bonds. Cheap when null (no-op).
     if (debugOverlay !== null) debugOverlay.sync(world, debugProbes);
+    // V6-0.3 (S130) — tier-banner CAPTURE. Must sit here, before effectsRenderer.sync wipes
+    // world.effects. V6-0.2 shipped this scan inside hud.sync (below, line ~2515) and the banner
+    // therefore never rendered once. See HUD.drainTierBanner. Everything above this line that
+    // reads world.effects is a pre-wipe consumer; everything below sees an EMPTY array.
+    //
+    // ⚠ IF YOU ADD A NEW world.effects CONSUMER, IT GOES ABOVE THIS LINE, NOT BELOW.
+    // ui.drainOrder.test.ts asserts that, but only for the consumers named in its allowlist — it
+    // cannot know about a reader you add later, so this comment is the other half of the guard.
+    hud.drainTierBanner(world);
     effectsRenderer.sync(world);
     avatarRenderer.sync(world, controls);
     // S98 P3 — pulsating preview of the bond(s) the dragged spark would form.

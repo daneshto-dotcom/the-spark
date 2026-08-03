@@ -73,6 +73,51 @@ export function tierBannerAlpha(framesRemaining: number, total: number = TIER_BA
   const f = Math.min(1, framesRemaining / total);
   return f > 0.33 ? 1 : f / 0.33;
 }
+
+/**
+ * What a tier-banner drain decided this frame. `text === null` means no crossing was captured and
+ * the caller must leave the banner's current state alone (it may be mid-animation from an earlier
+ * frame). `watermark` is always the value the caller should store back.
+ */
+export interface TierBannerCapture {
+  readonly watermark: number;
+  readonly text: string | null;
+  readonly color: number;
+}
+
+/**
+ * V6-0.3 (S130) — the tier banner's `world.effects` scan, extracted as a PURE function.
+ *
+ * WHY THIS IS A FREE FUNCTION AND NOT JUST A METHOD BODY. V6-0.2 shipped this scan inside a
+ * private HUD method, which meant the only way to test it was to construct a HUD — which needs a
+ * live Pixi `Application`. So the scan itself was never tested, only the arithmetic helpers around
+ * it, and the defect that the scan ran AFTER `effectsRenderer` wiped `world.effects` went
+ * unnoticed through a green suite (see the drain-order note on `drainTierBanner`). Extracting it
+ * makes the ordering itself assertable without Pixi: a test can run this against a live
+ * `world.effects`, simulate the wipe, run it again, and see the difference.
+ *
+ * Dedupe is by the effect's own `tick` rather than object identity, because `world.effects` is
+ * wiped every frame so identity is never stable. The scan takes the LAST crossing in the array if
+ * several land in one drained batch (main.ts steps up to 3 sim ticks per rendered frame), which is
+ * correct: only the newest tier is worth naming.
+ */
+export function captureTierBanner(
+  effects: readonly World['effects'][number][],
+  worldTick: number,
+  lastTierTick: number,
+): TierBannerCapture {
+  let watermark = resetWatermarkIfRegressed(worldTick, lastTierTick);
+  let text: string | null = null;
+  let color = 0xffffff;
+  for (const e of effects) {
+    if (e.kind !== 'SCORE_TIER') continue;
+    if (e.tick <= watermark) continue;
+    watermark = e.tick;
+    text = formatTierBanner(e.tier);
+    color = e.color;
+  }
+  return { watermark, text, color };
+}
 const GAUGE_Y_TOP = 80;
 const GAUGE_Y_BOTTOM = CANVAS_HEIGHT - 80;
 const GAUGE_WIDTH = 8;
@@ -241,7 +286,10 @@ export class HUD {
     this.drawWinState(world);
     this.drawMultiplayerHUD(world);
     this.drawComboCounter(world);
-    this.drawTierBanner(world);
+    // V6-0.3 (S130) — ANIMATE only. The `world.effects` scan that arms this banner lives in
+    // `drainTierBanner`, which main.ts calls BEFORE effectsRenderer wipes the array. Do NOT move
+    // the scan back in here: `sync` runs after the wipe, which is exactly the V6-0.2 defect.
+    this.animateTierBanner(world);
   }
 
   /**
@@ -259,35 +307,75 @@ export class HUD {
    * reasoning is sound and the world pulse is untouched. The two are complementary: the pulse
    * says *something happened here*, the banner NAMES the milestone and anchors it to progress.
    *
-   * Render-only: reads `world.effects`, writes nothing back, consumes no RNG, and is not
-   * synced. `world.effects` is wiped per frame by effectsRenderer, so the crossing is deduped
-   * by the effect's own `tick` rather than by object identity.
+   * Render-only: reads `world.effects`, writes nothing back, consumes no RNG, and is not synced.
+   *
+   * ⚠ V6-0.3 (S130) — SPLIT IN TWO, AND THE SPLIT IS LOAD-BEARING. The `world.effects` scan lives
+   * in `drainTierBanner` (which MUST run before the per-frame wipe) and the countdown lives in
+   * `animateTierBanner` (called from `sync`). As shipped in S129 the whole thing ran inside `sync`
+   * and therefore never rendered once, in any mode, for any player.
    */
-  private drawTierBanner(world: World): void {
+  /**
+   * V6-0.3 (S130) — CAPTURE half. MUST be called BEFORE `effectsRenderer.sync(world)`.
+   *
+   * THE DEFECT THIS FIXES. V6-0.2 shipped the `SCORE_TIER` scan inside `sync`, and `hud.sync` runs
+   * at main.ts:2515 while `effectsRenderer.sync` sets `world.effects.length = 0` at main.ts:2486
+   * (effectsRenderer.ts:73). Each has exactly ONE call site and nothing between them writes
+   * `world.effects`, so the loop always iterated ZERO entries. Nothing caught it because the unit
+   * tests pin only the pure helpers, and the draw path cannot be driven headlessly — a hidden
+   * Browser pane pauses requestAnimationFrame, so the Pixi ticker never advances.
+   *
+   * Every other working `world.effects` consumer is already pre-wipe and says so in a comment:
+   * `drainAudioEffects` (main.ts:2479) and `debugOverlay.sync` (main.ts:2485). The tier banner was
+   * the lone consumer on the wrong side. This method joins the correct side rather than relocating
+   * `hud.sync`, which would have required an argument about `hud.sync`'s order-independence
+   * relative to five other renderers.
+   *
+   * OWNERSHIP SPLIT, pinned deliberately — a sloppy split can produce a NEW never-renders variant,
+   * i.e. this same defect recurring inside its own fix. This half owns the PLAYING guard, the
+   * watermark (including the between-matches `-1` reset) and the WRITES: text, fill, and ARMING
+   * `tierBannerFrames`. `animateTierBanner` owns the countdown, the alpha and `visible`. The only
+   * field both touch is the non-PLAYING zeroing of `tierBannerFrames`, which is idempotent.
+   *
+   * SCOPE LIMIT, stated rather than discovered later: `SCORE_TIER` is host-local — `serializeEffect`
+   * returns null for it (save.ts:1400) — so this fixes solo and bots only. A 1v1 JOINER still never
+   * sees the banner. Putting the kind on the wire would make it a new serialized literal in the
+   * S110 `'WALK'` bump class, so that is a logged carry-forward, not a silent gap.
+   */
+  drainTierBanner(world: World): void {
     if (world.gameState !== 'PLAYING') {
       this.tierBannerFrames = 0;
-      this.tierBannerText.visible = false;
       // S129 CHECK (GROK-ANALYST) — the dedupe watermark MUST reset between matches. The HUD
       // instance lives for the whole page, so a stale high watermark would suppress the banner
       // for every future match. Every match transition passes through a non-PLAYING state.
       this.lastTierTick = -1;
       return;
     }
-    // Second guard for a MID-MATCH backward tick jump, which the between-matches reset above
-    // cannot catch. GROK reported this as "world.tick resets on a new match" — that mechanism is
-    // wrong (neither applyStartGame nor applyReturnToTitle touches world.tick, so it is monotonic
-    // on the host). The real path is `applySnapshotCore` doing `world.tick = snap.tick`
-    // (save.ts:830) for both restore() and applyNetSnapshot(): play solo for ten minutes, then
-    // join a freshly-started host, and the adopted tick lands far BELOW the watermark. Right
-    // conclusion, wrong cause — so guard the cause that actually exists.
-    this.lastTierTick = resetWatermarkIfRegressed(world.tick, this.lastTierTick);
-    for (const e of world.effects) {
-      if (e.kind !== 'SCORE_TIER') continue;
-      if (e.tick <= this.lastTierTick) continue;
-      this.lastTierTick = e.tick;
-      this.tierBannerText.text = formatTierBanner(e.tier);
-      this.tierBannerText.style.fill = e.color;
-      this.tierBannerFrames = TIER_BANNER_FRAMES;
+    // `captureTierBanner` also folds in the MID-MATCH backward-tick guard, which the
+    // between-matches reset above cannot catch. GROK reported that as "world.tick resets on a new
+    // match" — that mechanism is wrong (neither applyStartGame nor applyReturnToTitle touches
+    // world.tick, so it is monotonic on the host). The real path is `applySnapshotCore` doing
+    // `world.tick = snap.tick` (save.ts:830) for both restore() and applyNetSnapshot(): play solo
+    // for ten minutes, then join a freshly-started host, and the adopted tick lands far BELOW the
+    // watermark. Right conclusion, wrong cause — so guard the cause that actually exists.
+    const cap = captureTierBanner(world.effects, world.tick, this.lastTierTick);
+    this.lastTierTick = cap.watermark;
+    // `text === null` means no crossing this frame. Do NOT touch the banner state — it may be
+    // mid-animation from an earlier crossing, and clobbering it here would truncate the beat.
+    if (cap.text === null) return;
+    this.tierBannerText.text = cap.text;
+    this.tierBannerText.style.fill = cap.color;
+    this.tierBannerFrames = TIER_BANNER_FRAMES;
+  }
+
+  /**
+   * V6-0.3 (S130) — ANIMATE half. Runs inside `sync`, i.e. AFTER the wipe, which is safe precisely
+   * because it reads no effects. See `drainTierBanner` for the ownership split and why it exists.
+   */
+  private animateTierBanner(world: World): void {
+    if (world.gameState !== 'PLAYING') {
+      this.tierBannerFrames = 0;
+      this.tierBannerText.visible = false;
+      return;
     }
     if (this.tierBannerFrames <= 0) {
       this.tierBannerText.visible = false;
