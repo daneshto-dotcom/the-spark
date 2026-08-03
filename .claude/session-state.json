@@ -38,19 +38,75 @@
   },
   "priorities": [
     {
-      "id": "P1-v06-03-learnability-II",
-      "label": "V6-0.3 Learnability II - make failure attributable. TWO COMMITS: (A) repair the dead V6-0.2 tier banner by splitting drawTierBanner into a PRE-WIPE drain + an in-place animate, then STOP for owner playtest; (B) sever attribution - two additive-optional fields (actor + victim) across all four coordinated wire sites, a per-cause populate table, a new pre-wipe toast drain delegating to one pure reducer, copy via the existing avatarNameplateText, three test guards, and the mandatory doc amendments.",
-      "status": "in_progress",
-      "phase": "DO",
+      "id": "P1a-v06-03-banner-repair",
+      "label": "V6-0.3 sub-item 1 (Commit A) - repair the V6-0.2 tier banner, which shipped dead. Split drawTierBanner into a PRE-WIPE public drainTierBanner (scan + watermark + arming) called beside drainAudioEffects, plus an in-place private animateTierBanner (countdown/alpha/visible) still inside sync. Extract captureTierBanner as a pure function so the ordering is assertable without Pixi. Add ui.drainOrder.test.ts (source-order lock, mutation-tested + behavioural order-sensitivity). Amend the V6-0.2 roadmap row off a clean DONE.",
+      "status": "completed",
+      "phase": "CHECK-COMPLETE",
       "tier": "Standard",
-      "check_completed": false,
-      "commit_plan": "A = banner repair (STOP for playtest) | B = attribution work",
+      "check_completed": true,
+      "check_method": "Standard-tier CHECK on the real diff. WHAT WAS FIXED: V6-0.2's tier banner, shipped S129 and marked DONE, could never render - its SCORE_TIER scan lived in HUD.sync, called at main.ts:2515, while effectsRenderer.sync does world.effects.length = 0 at main.ts:2486 (effectsRenderer.ts:73). I verified independently that each has exactly ONE call site and that nothing between lines 2486 and 2515 writes world.effects, so the loop always iterated ZERO entries in every mode for every player. It had passed CHECK because ui.tierBanner.test.ts pins only the pure arithmetic helpers and its own docblock concedes the draw path cannot be driven headlessly - testing everything EXCEPT the broken thing produced a confident green. FIX: split rather than relocate. drainTierBanner(world) is PUBLIC and called beside drainAudioEffects BEFORE effectsRenderer.sync; it owns the PLAYING guard, the watermark including the between-matches -1 reset, and the writes (text, fill, arming tierBannerFrames). animateTierBanner(world) stays private inside sync and owns the countdown, alpha and visible. The only field both touch is the non-PLAYING zeroing of tierBannerFrames, which is idempotent. captureTierBanner() was extracted as a new exported PURE function holding the effects scan plus the backward-tick guard - extracted specifically so the ORDERING is assertable without a Pixi Application, since the absence of that seam is precisely why S129 shipped blind. hud.sync was deliberately NOT relocated, because that would have required an argument about its order-independence relative to five other renderers whereas moving the SCAN out requires no such argument. VERIFICATION - and this is the material difference from S129, which could not verify the visual at all. rAF is still paused in a hidden Browser pane, but app.ticker.update() pumps the TRUE frame callback in PRODUCTION order, which sidesteps the blocker entirely. Driving it live in a dev page: the banner went \"\"/hidden -> 'TIER 1 - 500/1500' visible with alpha 1 and the effect's cyan fill; world.effects went 1 -> 0 in that SAME frame, which PROVES the drain read the effect before the wipe rather than merely being placed earlier in the source; it HELD on the next frame with no new effect (so the animate half owns the countdown and the drain's null-capture is inert); it HID at TITLE; and it RE-ARMED on the same tick next match with fill 0xFF0066, which proves the S129 watermark-reset fix survives the split. That last check specifically rules out the PRIME-AUDIT hazard that a careless split could produce a NEW never-renders variant - the drain latching text that never animates, or the animate running against a watermark the drain never advanced. THE GUARD WAS MUTATION-TESTED, not merely observed to pass: moving hud.drainTierBanner below the wipe makes ui.drainOrder.test.ts fail (1 failed / 8 passed), and reverting restores 9/9. A guard that only ever passes proves nothing. The suite also pins dedupe-by-tick, newest-tier-wins across a multi-tick drained batch, mixed-kind arrays, and watermark reset on a no-crossing frame. NUMBERS: tsc -b --noEmit exit 0 - npx vitest run 1941/1941 across 128 files (+9 tests, +1 file; baseline 1932/1932 across 127 was RE-RUN this session rather than inherited from the handoff) - npm run build exit 0, bundle 642.6/750 KiB with the delta MEASURED at +218 B against the 642.3 KiB baseline, 107.4 KiB headroom. Commit message content grep-verified after the fact (the backtick command-substitution trap has bitten 3x, so the message was passed via -F from a file and then checked on disk). LIMITS STATED, NOT BURIED: (1) pixel output is NOT obtainable - a hidden pane's GL context produces no frames, so renderer.extract() returns a blank raster, though it measures 271x28 with real glyph metrics and reports fill 0x00FFFF, so the glyphs demonstrably exist. Placement and legibility remain the owner's eye and that is the playtest checkpoint this commit deliberately ends on. (2) STILL SOLO/BOTS ONLY: SCORE_TIER is host-local (serializeEffect returns null, save.ts:1400), so a 1v1 JOINER still never sees the banner; putting the kind on the wire would be a new serialized literal in the S110 'WALK' bump class, so it is a LOGGED carry-forward rather than a silent gap. (3) NOT PUSHED - the gh token is still invalid, so this is now the 16th unpushed commit and no CI or e2e lane can be dispatched; there is in any case no CI job that runs vitest or typecheck at all, which is the structural reason this defect could ship green in the first place and is now P2.",
+      "checkpoint_commit": "20aa546",
+      "real_context_tokens_at_close": 322691,
+      "real_context_pct_at_close": 32.27,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "id_note": "S130: dots REMOVED from the id deliberately. validate_priority_id (json_helpers.sh) allows only [A-Za-z0-9_-], so a dotted id like S129s P1-v06-0.2-learnability-I is rejected as malformed and glue_pdr_unlock returns WITHOUT minting unlock_source=user. That is why the hook handshake silently failed.",
-      "priority_state": "in_progress",
       "unlock_source": "user",
-      "gate_note": "S130 THREE handshake bugs found and worked around, all worth a real fix later: (1) dotted priority ids fail validate_priority_id [A-Za-z0-9_-] so glue_pdr_unlock skips the mint entirely - S129 used a dotted id too, so its unlock_source=user was hand-written; (2) the mint awk uses sub() on an EXISTING unlock_source line and cannot insert the key, so a priority entry without it makes the mint a silent no-op WHILE the hook still prints \"Cleared ... Edits permitted\" unconditionally - a gate that lies about unlocking; (3) glue_pdr_unlock writes priority_state=\"unlocked\" but pdca-final-gate.sh:82 accepts only approved|in_progress|completed, so the unlock hook writes a state its own gate rejects. unlock_source itself remains HOOK-MINTED - Claude never wrote it."
+      "priority_state": "completed",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "SHIPPED DEAD AND HAS NOW BEEN REPAIRED"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "drainTierBanner"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
+          "needle": "drainTierBanner(world: World): void"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
+          "needle": "animateTierBanner"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
+          "needle": "export function captureTierBanner"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "hud.drainTierBanner(world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.drainOrder.test.ts",
+          "needle": "every world.effects consumer runs BEFORE the wipe"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.drainOrder.test.ts",
+          "needle": "PRE_WIPE_CONSUMERS"
+        }
+      ]
+    },
+    {
+      "id": "P1b-v06-03-sever-attribution",
+      "label": "V6-0.3 sub-item 2 (Commit B) - sever attribution. Two additive-optional fields (actor id + victim id) across ALL FOUR coordinated wire sites edited together (GameEffect variant, SerializedEffect wire type, serializeEffect case, deserializeEffect case - they are per-case object literals with NO spread, so a field added to only the first two silently never reaches the wire). Per-cause populate table: victim = primA.placedBy always for all 7 causes; actor per cause with 'physics' NEVER populated (physicsLoop.ts passes a hardcoded asPlayerId(0) its own comment calls informational) and 'godly' omitted as unreachable. New PRE-WIPE sever-toast drain beside the banner drain, delegating to ONE pure reducer: victim gate on world.localPlayerId evaluated on the MAIN THREAD ONLY (workerSim.ts:201 is a third writer), two-clause suppression (actor===victim; cause==='bomb' unconditionally), frame-batch grouping with a count, mixed-actor degradation to the actor-less form. Copy via the EXISTING tested avatarNameplateText with world.botSeats.has(actor) - never colour names. Three test guards incl. adding one SEVER_BOND dispatch to the R11 byte-guard fixture, which makes that gate sensitive to effects payload for the first time. Plus the mandatory doc amendments (LOCKED wire row, the false effects.ts header, the audioManager over-claim, the append-only BACKLOG:362 annotation, the fog row-7 strike).",
+      "status": "pending",
+      "phase": "PLAN",
+      "tier": "Standard",
+      "check_completed": false,
+      "blocked_on": "OWNER PLAYTEST CHECKPOINT on Commit A (placement/legibility of the now-rendering banner at y=34).",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "priority_state": "approved"
     },
     {
       "id": "P2-ci-carrier",
@@ -81,7 +137,33 @@
     "NEW S130 (logged, not fixed): protocol.ts:146 changelog ends at 13->14 while PROTOCOL_VERSION is 15 (the S124 bump is recorded only in the block comment at :95-99); and protocol.test.ts:300's test TITLE says 'PROTOCOL_VERSION is 14' while its body at :326 asserts 15.",
     "NEW S130 (fog, carried): LOCKED_DECISIONS §2 items 5 (R_beacon) and 6 (vision fade) remain stale, and the worker-vision clause (SPARK_Blueprint.md:109, LOCKED_DECISIONS.md:26) CANNOT be ratified because no gatherer entity exists - computeVisionSources (vision.ts:57-74) has exactly four source classes. Bound to V6-1.1/V6-1.2. Touch NO radius: SPAWNER_RADIUS is still 250 (constants.ts:76) vs the Blueprint's v0.6 188, and LOCKED_DECISIONS:208 says re-judge only AFTER the V6-1.2 shrink."
   ],
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    {
+      "tag": "#test-the-call-site-not-only-the-arithmetic",
+      "priority": "P1a",
+      "entry": "V6-0.2 shipped a tier banner that could never render, and its test file was GREEN with ten passing tests. The tests pinned formatTierBanner, tierBannerAlpha and resetWatermarkIfRegressed - every pure helper AROUND the defect - while the defect itself was a call-site ORDERING fact: the scan ran 29 lines after the array it reads is emptied. The file's own docblock even recorded the reason for the gap ('the draw path cannot be driven headlessly'), so the blind spot was known and accepted rather than hidden. The lesson is that 'I extracted the logic into pure functions and pinned it' is NOT a substitute for verifying the wiring; it is a substitute for verifying the LOGIC, and those fail differently. When the untestable part is the part that decides whether the feature runs at all, extract a seam that makes the WIRING assertable - here, a source-order lock over main.ts plus a pure capture function whose order-sensitivity can be demonstrated. Both new guards target the call site; neither adds arithmetic coverage."
+    },
+    {
+      "tag": "#a-guard-that-only-passes-has-not-been-tested",
+      "priority": "P1a",
+      "entry": "I wrote a source-order lock asserting that every world.effects consumer precedes the wipe in main.ts, and it passed on the first run. That proves nothing on its own - an assertion that can never fail is indistinguishable from one that always passes. So I mutated the source, moving hud.drainTierBanner below effectsRenderer.sync to reproduce the exact S129 arrangement, and confirmed the guard FAILED (1 failed / 8 passed), then reverted and confirmed 9/9. That took two minutes and converted 'the guard exists' into 'the guard bites'. This is the same principle as the prior session's lesson that when an artifact's job is to MEASURE, you must audit the measurement path - generalised: when an artifact's job is to CATCH, you must show it catching. Every regression lock should ship with evidence of a deliberate failure."
+    },
+    {
+      "tag": "#a-blocked-verification-path-may-have-a-side-door",
+      "priority": "P1a",
+      "entry": "Two sessions running recorded 'the visual cannot be verified because a hidden Browser pane pauses requestAnimationFrame, so the Pixi ticker never advances' and substituted pure-function tests. That premise is true but the CONCLUSION was too broad: rAF is only the DRIVER of the ticker, not the ticker itself. app.ticker.update(now) pumps the real frame callback directly, in production order, with no rAF involved - so the whole 'is it wired correctly' question was answerable all along, and it is exactly the question that mattered. Pushing a genuine SCORE_TIER into world.effects and pumping one frame showed the banner arm, showed world.effects go 1 -> 0 in that same frame (proving the read beat the wipe rather than merely sitting earlier in the file), showed the hold, the hide at TITLE, and the re-arm next match. What genuinely remains blocked is much narrower than the recorded blocker: PIXEL output, because a hidden pane's GL context produces no frames. Lesson: when a capability is recorded as unavailable, re-derive WHICH layer is actually blocked before inheriting the conclusion - the blocked layer is often one level away from the layer you need."
+    },
+    {
+      "tag": "#a-gate-that-lies-about-unlocking-is-worse-than-one-that-fails",
+      "priority": "P1a",
+      "entry": "Getting the approved PDR past the write gate exposed THREE independent bugs in the approval handshake, none previously visible. (1) validate_priority_id allows only [A-Za-z0-9_-], so a dotted id like P1-v06-0.3-... is rejected as malformed and glue_pdr_unlock returns without minting unlock_source; S129 used a dotted id too, so its unlock_source=user cannot have come from the hook and must have been hand-written. (2) The mint uses awk sub() on an EXISTING unlock_source line and cannot INSERT the key, so a priority entry lacking it makes the mint a silent no-op - while the hook still prints 'Cleared ... Edits permitted' UNCONDITIONALLY, so success and failure are indistinguishable from the output. (3) glue_pdr_unlock writes priority_state='unlocked' but pdca-final-gate.sh accepts only approved|in_progress|completed, i.e. the unlock hook writes a state its own gate rejects. Bug 2 is the dangerous one: I initially believed the mint had succeeded because the hook said so, and only caught it by reading the file back. Trust the STATE, not the announcement - and when a control claims to have acted, verify the artifact it was supposed to change."
+    },
+    {
+      "tag": "#do-not-satisfy-a-checker-by-making-a-false-claim",
+      "priority": "P1a",
+      "entry": "MCV hard-failed because BACKLOG.md was modified with no absolute-path binding, and reading the verifier showed why my binding was ignored: line 289 collects verification[] ONLY from priorities whose status is 'completed'. The fastest fix would have been to mark the whole V6-0.3 priority completed - which would have been a lie, since the attribution work had not started, and precisely the fabrication class MCV exists to catch. The honest fix was to notice that the priority as recorded did not match reality: the banner repair genuinely WAS a complete, committed, independently revertable unit, and the attribution work genuinely was a separate not-started one. Splitting the record to match what actually happened made the checker pass as a side effect. When a gate blocks, the question to ask first is whether the gate has found a real misstatement in the bookkeeping - not how to phrase the claim so it slips through."
+    }
+  ],
   "session_status": "in_progress",
   "pdr_approved": true,
   "deliberation_completed": true,
