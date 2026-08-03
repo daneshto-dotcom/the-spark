@@ -1,3 +1,4 @@
+<!-- STATUS: COMPLETED — V6-0.1 shipped in S128 (commits e69c65d..e2aebdf). Archived at S129 handoff. -->
 ═══════════════════════════════════════════════════════════
     PRODUCTION DESIGN REPORT — S128 Batch: v0.6 doc reconciliation + economy probe harness
     TIER: Full (>30K, batch tier = highest-complexity priority)
