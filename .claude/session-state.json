@@ -1,10 +1,10 @@
 {
-  "tool_calls_session_total": 0,
+  "tool_calls_session_total": 3,
   "session_id": "S132",
   "session_kind": "pdca",
   "session_start": "2026-08-04",
   "prior_session_note": "S131 closed V6-0.3 end-to-end (4/4 priorities completed, both PDRs archived COMPLETED, 12 reflexion entries). Baseline re-verified empirically at S132 boot: tsc 0, vitest 1990/1990 across 130 files. Write auth STILL DEAD -- gh auth status reports 'The token in default is invalid'; 33 commits unpushed as measured by `git rev-list --count origin/master..master` (climbed from S131's 31 via handoff bookkeeping commits, exactly as the boot snapshot warned it would). No IN-PROGRESS plans carried in.",
-  "phase": "CHECK-COMPLETE",
+  "phase": "ANALYZE-COMPLETE",
   "user_approval_verbatim": "Selected 'Fix the probe, then you playtest (Recommended)' from the AskUserQuestion scope options, in direct reply to the A.0 findings naming DELTA-1 (solo-vs-6-seat faucet trap) and DELTA-2 (inventory.shift above the carry-1 guard). Explicit selection of the named scope = user-path approval; deliberation waived per Rule 17 Micro opt-in.",
   "tier": "Micro",
   "council_rounds": 0,
@@ -140,7 +140,7 @@
       "lesson": "Q IS double-bound between the probe draw and SHRINK_TERRITORY. It cannot fire only because decideKeyShrink returns false in solo and the probe is solo-only -- an unrelated guard is the sole thing preventing it. Refuted as a present defect, logged as a carry-forward, because the reason it is safe is not the reason anyone would assume."
     }
   ],
-  "session_status": "priority_complete",
+  "session_status": "analyze_complete",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -155,5 +155,44 @@
     "mutations_applied": 8,
     "mutations_caught": 8
   },
-  "prior_session_archive": ".claude/session-state.s131.bak"
+  "prior_session_archive": ".claude/session-state.s131.bak",
+  "analyze_result": {
+    "calibration": {
+      "summary": "2 commits, 9 files, +1317/-459. Test suite 1990/130 files at boot -> 2001/130 (+11 tests, 0 new files), every added assertion mutation-verified (8 mutations applied, 8 caught, 0 vacuous). Bundle 645.5 -> 645.5 KiB entry, and the artifact HASH was IDENTICAL across the before/after builds (index-C4WI_4XB.js, 661016 B both times) -- not merely 'no measurable delta' but proof of byte-for-byte equality, which is the strongest available evidence that a DEV-only module contributes zero production bytes. Cap 750, headroom 104.5 KiB, unchanged. PROTOCOL_VERSION 15, no bump (no wire or save surface touched -- probeHarness reaches the world only through SPAWN_SPARK + PICKUP_SPARK, both already allowlisted). Context 141.8K at A.0 close -> 237.5K at session close, 23.75 pct of a 1M window, GREEN throughout, never approached YELLOW.",
+      "tier_accuracy": "PDR declared Micro (<10K, 1 code file + 2 doc files). Actual: 1 code file + 1 test file + 2 doc files + plan/state bookkeeping. Micro was the RIGHT call on token cost and blast radius -- the whole change is DEV-only and cannot reach production -- but the file count ran over the Micro guideline of 1-2 because the fix needed its own test file edit and two docs carry the recipe the owner reads. Recording it as a borderline Micro rather than pretending it fit: no tier escalation was warranted, since escalating to Standard would have bought a 3-way Council on a 3-line reorder in a file that ships zero bytes.",
+      "estimate_vs_actual": "Predicted 'the shift-before-guard bug, an on-overlay seat-share caveat, and a corrected playtest recipe'. All three landed. UNPREDICTED and larger than any of them: the change itself contained two defects (44ch clipping, ramp threshold in the wrong units) that 2001 passing tests could not see, plus a pre-existing S128 clipping defect the widening incidentally fixed. Estimating 'small fix' was right about the code and wrong about the verification cost -- the screenshot pass found more than the reducer pass did.",
+      "a0_value": "A.0 was the entire session. The scoped work (a 3-line reorder) would have been worthless without it: the reason to touch this file at all came from driving the instrument, and the highest-value finding -- DELTA-1, the solo-vs-6-seat trap -- is not a code defect at all and no amount of reading would have produced it. Rule 21 paid for itself several times over here."
+    },
+    "retrospective": {
+      "what_worked": [
+        "Testing the INSTRUMENT before asking the human a fifth time. Four sessions had recorded the probe playtest as blocked on the owner; nobody had checked what would be handed to them. One session of driving it found a bank-draining bug and a framing trap that would have produced the wrong ruling on seven Full-tier slots.",
+        "Reading the boot snapshot's CRITICAL TRAPS as a live checklist rather than history. 'A blocked verification path usually has a side door one layer over' is precisely why the DOM overlay turned out to need no compositing at all -- two prior sessions had recorded HUD verification as impossible, and that constraint simply did not apply.",
+        "Restructuring so the bug class became testable instead of pinning it with prose. The reorder alone was unverifiable from vitest, and a source-order assertion was a known trap here -- my own new comment named `shift` four times and would have blinded it. Moving decision+consume into one unit that owns the array made 'consumed despite refusing' directly observable from Node.",
+        "Mutation-testing every assertion, 8 for 8, including a mutation that re-introduces the exact original bug. S131 broke 4 of its own 4 new guards this way; treating that as a standing requirement rather than a war story is what made these guards real.",
+        "Screenshotting the result. It found two defects in my own change that the full green suite structurally could not -- every string was correct; the viewport and the denominator were wrong.",
+        "Measuring throughput and per-spark lifetime instead of the standing pool. The pool is a consequence; throughput is the constraint that governs bank-fill time. That reframe is what turned two contradictory pool readings into a clean confirmation of B3."
+      ],
+      "what_i_got_wrong": [
+        "Called lambda*W 'wrong in both directions' from a 63s window on a 10s-TTL process and a 12s run held entirely inside the ramp. Both were artifacts of my reading protocol. The boot snapshot already carried #measure-inside-the-hold-not-on-the-edge-of-the-ramp from S131 and I walked into it anyway -- reading a lesson is not the same as having it.",
+        "Shipped a ramp warning whose threshold was in the wrong units (poolSamples.length vs sim ticks), so it demanded 360s while its own message promised 60s. I wrote a warning ABOUT sampling timescales and got the sampling timescale wrong inside it.",
+        "Reported a production LEAK from a recursive grep of dist/ when the only hit was a sourcemap's sourcesContent and the documented contract is dist/assets/*.js. Nearly escalated a non-defect; caught it by checking the mechanism.",
+        "Widened `git add -A .claude/` and swept in `.claude/session-state.s129.bak`, an untracked leftover that was not in the PDR's scope. Disclosed to the owner rather than left for them to find in a diff, but the right move was a narrower add.",
+        "Lost two tool calls to the project's own documented traps -- a heredoc mangled by apostrophes, and a `sed`/`grep` anchor that missed because the PDR's status line is bold markdown (`**STATUS: ...**`) rather than bare. Both were written down; I did not consult them until after they bit."
+      ],
+      "process_notes": [
+        "The AskUserQuestion selection of a named scope option functioned cleanly as user-path approval: it is explicit, it is verbatim-recordable, and it named the scope, so the Micro deliberation waiver applied without ambiguity.",
+        "Dot-free priority id (`P1-probe-instrument-repair`) and gate fields written at BOTH top level and per-priority. No approval-handshake breakage this session -- the three known OS-scale bugs did not fire.",
+        "GOV-28 caught that ANALYZE had not run. The completion protocol was followed through step 4 (reflexion entries) but the session-level ANALYZE phase was skipped because the session read as 'one priority, then hand off to the owner'. A single-priority session still owes an ANALYZE."
+      ]
+    },
+    "unverified_at_close": [
+      "The playtest itself -- B4 is a human judgment about whether carving survives an 8-slot exact-type inventory, and no headless run substitutes for it. STILL THE PHASE-1 GATE.",
+      "deploy.yml has STILL never executed with S131's CI gate -- no write auth, 35 commits unpushed. Static assertions only. Unchanged from S131 and now one session older.",
+      "The corrected `&spawn=0.03125` recipe is verified to RENDER correctly and to be accepted by `seatShareReadout`, but no one has yet played a full match under it. The supply arithmetic is confirmed; the resulting play experience is not.",
+      "`fillFairShareSec` is an equal-split idealisation. Real 6-seat contention was never measured -- the probe cannot measure it, being solo-only. Correct for ruling on aggregate supply, wrong for predicting any individual seat, and labelled as such on screen.",
+      "The Q double-binding is refuted as a PRESENT defect but not structurally prevented. It is held off only by `decideKeyShrink` returning false in solo plus the probe's solo-only auto-disarm -- an incidental guard, not a deliberate one.",
+      "Sourcemaps in `dist/` embed the full TypeScript of every DEV-only module including this harness. Not a code leak (the executable is clean, 0 probe identifiers), but whether `.map` files are actually deployed was NOT investigated this session."
+    ]
+  },
+  "analyze_completed": true
 }
