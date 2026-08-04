@@ -1,9 +1,19 @@
 /**
  * SPARK — visual effect events.
- * Effects are write-only telemetry from `dispatch` to the renderer:
+ * Effects are a one-frame queue from `dispatch` to the renderer:
  *   - dispatch pushes events onto `world.effects[]`
- *   - the renderer drains the queue each frame, spawns animated sprites
- *   - effects are NOT persisted (save.ts ignores them)
+ *   - every PRE-WIPE consumer drains the queue, then `effectsRenderer.sync` CLEARS it
+ *     (effectsRenderer.ts:73). Anything reading `world.effects` after that call sees an empty
+ *     array — that ordering trap shipped a dead tier banner in V6-0.2; see
+ *     `src/render/ui.drainOrder.test.ts`.
+ *
+ * V6-0.3 (S131) CORRECTION — this header previously claimed effects were "write-only telemetry"
+ * and "NOT persisted (save.ts ignores them)". Both were flatly false and had been for a long
+ * time: `serializeEffect` (save.ts:1349) puts FIVE kinds on the wire and into localStorage saves
+ * — ARC_FLASH, BOND_FORMED, BOND_SEVERED, CREATURE_CHARGE, BOMB_EXPLODE — and
+ * `deserializeEffect` (save.ts:1412) rehydrates them. The remaining kinds return null there and
+ * ARE host-local. Treating this docblock as authoritative is how a session concludes an effect
+ * field costs nothing on the wire.
  *
  * Each effect has a `tick` so the renderer knows the age in ticks for
  * easing curves. The renderer's effects layer ages them at PHYSICS_HZ —
@@ -11,7 +21,7 @@
  * pause matches the simulation pause exactly.
  */
 
-import type { BondId, PrimitiveId, Vec2 } from '../types.ts';
+import type { BondId, PlayerId, PrimitiveId, Vec2 } from '../types.ts';
 
 export type GameEffect =
   | {
@@ -134,6 +144,33 @@ export type GameEffect =
       // S113 Batch C — 'drone' added for a lightning-drone's detonation sever (audio drain treats it
       // like the lightning 'creature' crackle — see audioManager; the ARC_FLASH carries the visual).
       readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer' | 'drone';
+      /**
+       * V6-0.3 (S131) — SEVER ATTRIBUTION. Both fields are ADDITIVE-OPTIONAL, on the
+       * `ARC_FLASH.creatureId?` precedent immediately above (save.ts:357): a named-field
+       * reconstruction in `deserializeEffect`, not a positional/packed decode, so an older peer
+       * that omits them rehydrates without them and `PROTOCOL_VERSION` stays 15. Ruled in S130
+       * on three independently sufficient grounds — do not re-litigate.
+       *
+       * WHY TWO FIELDS AND NOT ONE. An actor id alone cannot answer the only question the toast
+       * exists to answer — "am I the victim?". By the time BOND_SEVERED is pushed
+       * (severBond.ts, AFTER `applySeverTopology`) the bond is gone and, on the delete path, so
+       * are its endpoints, so nothing downstream can re-derive the owner. The Council's own
+       * first draft inverted these two; shipped that way the feature would have told the victim
+       * they severed their own bond.
+       *
+       * `victim` is `primA.placedBy` for ALL SEVEN causes — readonly (primitive.ts:28) and
+       * single-owner, because a bond's endpoints always share one owner (scoring.ts:99). NOTE
+       * that same docblock's caveat: the single-owner rule must be revisited when Steal lands
+       * (Phase 2), which would let a bond span two owners and make "the victim" ambiguous.
+       *
+       * `actor` is populated per-cause and is DELIBERATELY absent for `'physics'`: that dispatch
+       * passes a hardcoded `asPlayerId(0)` its own comment calls informational
+       * (physicsLoop.ts:177), so populating it would blame seat 0 for every overstretch. Absent
+       * for `'godly'` too — unreachable, and it is in this effect union but NOT the SEVER_BOND
+       * action union (world.ts), so never write an exhaustive switch over `cause`.
+       */
+      readonly actor?: PlayerId;
+      readonly victim?: PlayerId;
     }
   | {
       /**

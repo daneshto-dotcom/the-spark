@@ -372,11 +372,17 @@ This is where competition lives in v0.6. v0.5's competition was mouse speed at t
 
 Because workers respawn, harassment is a **tempo weapon**, not an elimination one.
 
-### IX.5 — Sever Preview [OPEN — was LOCKED "no preview"]
+### IX.5 — Sever Preview [CLOSED V6-0.3 / S131 — narrowly revoked, satisfied BY DELIVERY]
 
 v0.5.1 locked *no predicted outcome before committing a sever*, to preserve a topology-reading skill ceiling.
 
 Under review as part of the learnability revocation (§ III.5). The skill-ceiling argument is real; the problem is that it was the third of three simultaneous feedback removals. **Re-ratify or revoke on evidence**, narrowly — a post-hoc explanation of what a cut did may deliver the learning without giving away the prediction.
+
+**RESOLVED (V6-0.3, S131) via the narrow branch this section itself proposes.** The sentence above is the ruling: *"a post-hoc explanation of what a cut did may deliver the learning without giving away the prediction."* V6-0.3 ships exactly that and nothing more — a sever toast telling the VICTIM what was cut and by whom, AFTER the fact (`src/render/severToastRenderer.ts`). Zero extra code was written for this section; the learnability need is met by delivery.
+
+- The **pre-commit** preview stays **LOCKED as "no preview"**. Nothing shows a predicted outcome before a sever is committed, so the topology-reading skill ceiling is fully preserved — the revocation is genuinely narrow, not a soft repeal.
+- The interactive hover-cost variant (~120-200 LoC; needs hit-test infrastructure that does not exist — there is no `bondHover`) is **DECLINED on scope discipline**, not on merit. It remains BACKLOG P7.
+- Known limitation, stated so this does not read as more than it is: the toast reaches a REMOTE victim only ~1/6 of the time (one-frame effect vs 6-tick snapshot cadence). On the host — solo, VS-BOTS, and the host seat of a 1v1 — it is 100%. The durable per-seat carrier is a logged carry-forward.
 
 ### IX.6 — Defensive Combos [LOCKED]
 
@@ -742,7 +748,7 @@ Playtest confirms the simulation runs smoothly on mobile hardware, but the game 
 
 **Combat**
 9. **NONET doubling and the leader** — doubling favours whoever built most. May need a cap, trigger-bias toward trailing players, or nothing given the hunter already catches up at 75%.
-10. **Sever preview** (§ IX.5) — re-ratify or narrowly revoke.
+10. ~~**Sever preview** (§ IX.5) — re-ratify or narrowly revoke.~~ **CLOSED V6-0.3 / S131** — narrowly revoked, satisfied by delivery of the post-hoc sever toast; the pre-commit preview stays locked. See § IX.5.
 11. **Whether the hero unit is still needed** once the command layer matures.
 
 **Bots**

@@ -367,6 +367,18 @@ type SerializedEffect =
       readonly tick: number;
       readonly pos: Vec2;
       readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer' | 'drone'; // S102 #2 — chewer gnaw sever; S113 — 'drone' lightning detonation sever
+      /**
+       * V6-0.3 (S131) — sever attribution, additive-optional on the `creatureId?` precedent
+       * above. NO `PROTOCOL_VERSION` bump and NO `schemaVersion` bump: `deserializeEffect`
+       * reconstructs by NAME, so a payload without these fields rehydrates to a GameEffect
+       * without them. See the GameEffect docblock (effects.ts) for why there are two.
+       *
+       * These four sites — this type, the GameEffect variant, `serializeEffect`'s BOND_SEVERED
+       * case and `deserializeEffect`'s — are per-case object literals with NO spread, so a field
+       * added to some of them silently never reaches the wire. Edit them together.
+       */
+      readonly actor?: PlayerId;
+      readonly victim?: PlayerId;
     }
   | {
       /**
@@ -1372,6 +1384,11 @@ function serializeEffect(e: GameEffect): SerializedEffect | null {
         tick: e.tick,
         pos: { x: e.pos.x, y: e.pos.y },
         cause: e.cause,
+        // V6-0.3 (S131) — pass-through; `undefined` for 'physics'/'godly' and for any
+        // pre-S131 effect. JSON.stringify drops undefined properties, so the wire stays
+        // byte-identical to pre-S131 for unattributed severs (creatureId precedent above).
+        actor: e.actor,
+        victim: e.victim,
       };
     case 'CREATURE_CHARGE':
       // S37 P7 — wire-mirror the lightning charge-up audio cue. Both host and
@@ -1435,6 +1452,11 @@ function deserializeEffect(s: SerializedEffect): GameEffect {
         tick: s.tick,
         pos: { x: s.pos.x, y: s.pos.y },
         cause: s.cause,
+        // V6-0.3 (S131) — pass-through. Pre-S131 payloads carry neither field; the
+        // rehydrated GameEffect then omits both and the sever-toast reducer degrades to
+        // its actor-less copy rather than naming a wrong seat.
+        actor: s.actor,
+        victim: s.victim,
       };
     case 'CREATURE_CHARGE':
       return {

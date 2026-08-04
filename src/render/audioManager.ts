@@ -1352,8 +1352,16 @@ export function drainAudioEffects(effects: ReadonlyArray<GameEffect>, currentTic
       duckMusic(700);
     } else if (effect.kind === 'BOND_SEVERED' && effect.cause === 'chewer') {
       // S102 #2 — a pencil chewer's FINAL bite severs the connector with a beaver GNAW
-      // crunch (NOT lightning). Wire-synced (BOND_SEVERED rides the snapshot) so a 1v1
-      // victim hears the connector break too. `final` = the lower/louder crunch variant.
+      // crunch (NOT lightning). `final` = the lower/louder crunch variant.
+      //
+      // V6-0.3 (S131) CORRECTION — this comment used to claim "wire-synced (BOND_SEVERED rides
+      // the snapshot) so a 1v1 victim hears the connector break too". That OVER-CLAIMS. The kind
+      // is serialized, but `world.effects` is wiped every rendered frame (effectsRenderer.ts:73)
+      // while snapshots leave on every 6th tick (SNAPSHOT_INTERVAL_TICKS=6, main.ts:204), so a
+      // one-frame effect only reaches a remote peer when it happens to land on a snapshot frame
+      // — roughly 1 time in 6, not "too". On the HOST (solo, VS-BOTS, and the host seat of a 1v1)
+      // it is 100%. Do not build a feature on this comment's old promise; the durable carrier is
+      // the per-seat synced array logged as a carry-forward in `severToastRenderer.ts`.
       void playGnawSFX(effect.pos, true);
     // S104 P1 — the non-final CHEW_BITE no longer plays audio HERE. The continuous chewing rasp
     // is now RENDER-DRIVEN in chewerRenderer (keyed on the WIRED state==='ATTACKING' + ticksInState

@@ -772,8 +772,39 @@ describe('S100 P1 — wire byte budget (R1) + TD host-only stripping', () => {
       });
     }
 
+    // V6-0.3 (S131) — ONE real sever, so this byte gate is no longer BLIND TO EFFECTS PAYLOAD.
+    //
+    // Until now the fixture carried zero effects, so `snapshot.effects` was absent from the wire
+    // entirely and this "realistic worst case" assertion could not have caught an effects-side
+    // regression of any size. One dispatch fixes that and, as a bonus, round-trips the two new
+    // attribution fields through the real serializer rather than a hand-built literal.
+    //
+    // cause 'chewer' is deliberate: it bypasses the charge + hostile-auth gates
+    // (disruptionManager.canSeverBond), so the sever LANDS without having to stage disruption
+    // charges — and the fixture's chewers are already pointed at bond 0. Actor is the chewer's
+    // owner (seat 0); the victim is seat 1, who placed every primitive above.
+    dispatch(host, {
+      type: 'SEVER_BOND',
+      bondId: asBondId(0),
+      playerId: asPlayerId(0),
+      cause: 'chewer',
+    });
+    const severed = host.effects.filter((e) => e.kind === 'BOND_SEVERED');
+    expect(severed).toHaveLength(1);
+    expect(severed[0]).toMatchObject({ cause: 'chewer', actor: asPlayerId(0), victim: asPlayerId(1) });
+
     const wire = JSON.stringify(netSnapshot(host));
     expect(wire.length).toBeLessThan(16 * 1024);
+
+    // The gate now genuinely sees effects: BOND_SEVERED is one of the five serialized kinds
+    // (save.ts serializeEffect), and both attribution fields must survive onto the wire. If a
+    // future edit adds a field to the GameEffect variant but not to serializeEffect's per-case
+    // literal — the exact silent failure mode that spec called out — this trips.
+    expect(wire).toContain('BOND_SEVERED');
+    expect(wire).toContain('"actor"');
+    expect(wire).toContain('"victim"');
+    // Host-local kinds must still NOT reach the wire (serializeEffect returns null for them).
+    expect(wire).not.toContain('SEVER_ERASE');
 
     // The host-only chewer fields MUST be stripped from the wire (render-trimmed shape).
     expect(wire).not.toContain('chewProgress');

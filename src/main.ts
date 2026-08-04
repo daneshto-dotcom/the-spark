@@ -147,6 +147,7 @@ import { PotatoRenderer } from './render/potatoRenderer.ts';
 import { RainbowRenderer } from './render/rainbowRenderer.ts';
 import { RainbowFlyoverRenderer } from './render/rainbowFlyoverRenderer.ts';
 import { ComboToastRenderer } from './render/comboToastRenderer.ts';
+import { SeverToastRenderer } from './render/severToastRenderer.ts';
 import { SeagullRenderer } from './render/seagullRenderer.ts';
 import { PoopRenderer } from './render/poopRenderer.ts';
 import { ScreenShake, shouldTriggerNonetResolveShake } from './render/screenShake.ts';
@@ -547,6 +548,10 @@ async function bootstrap(): Promise<void> {
   // container renders ABOVE the board/fog (HUD/main-stage layer, NOT aboveFogLayer —
   // a screen-space notification keeps the fog.spec children contract untouched).
   const comboToastRenderer = new ComboToastRenderer(app);
+  // V6-0.3 (S131) — sever-attribution toast. Same layering rationale as the combo toast above
+  // (constructed after the HUD, main-stage container, not aboveFogLayer). Its drain is PRE-WIPE
+  // and lives beside hud.drainTierBanner — see the ordering block further down.
+  const severToastRenderer = new SeverToastRenderer(app);
   const grid = new SpatialGrid(SPATIAL_CELL_SIZE);
 
   // ===== S22 P3 — godly cinematic overlay + counter-window vignette + Codex =====
@@ -2492,6 +2497,11 @@ async function bootstrap(): Promise<void> {
     // ui.drainOrder.test.ts asserts that, but only for the consumers named in its allowlist — it
     // cannot know about a reader you add later, so this comment is the other half of the guard.
     hud.drainTierBanner(world);
+    // V6-0.3 (S131) — sever-attribution toast CAPTURE. Pre-wipe for the same reason as the line
+    // above: it reads world.effects (BOND_SEVERED) and effectsRenderer.sync clears the array on
+    // the very next line. Unlike the banner this renderer has no separate animate half — one
+    // method, one call site, both on this side of the wipe, so there is no half to misplace.
+    severToastRenderer.drainSeverToast(world);
     effectsRenderer.sync(world);
     avatarRenderer.sync(world, controls);
     // S98 P3 — pulsating preview of the bond(s) the dragged spark would form.

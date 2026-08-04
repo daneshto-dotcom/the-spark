@@ -49,7 +49,23 @@ const PRE_WIPE_CONSUMERS = [
   'drainAudioEffects(world.effects, world.tick)',
   'debugOverlay.sync(world, debugProbes)',
   'hud.drainTierBanner(world)',
+  // V6-0.3 (S131) — the sever-attribution toast reads BOND_SEVERED from world.effects.
+  'severToastRenderer.drainSeverToast(world)',
 ] as const;
+
+/**
+ * S131 — WHY `seagullRenderer.sync` AND `poopRenderer.sync` ARE NOT IN THAT LIST, even though both
+ * sit above the wipe in main.ts and the V6-0.3 PDR asked for them here.
+ *
+ * They do not read `world.effects`. Verified: zero occurrences of `effects` in either
+ * `seagullRenderer.ts` or `poopRenderer.ts` — they are driven by synced world fields, like
+ * `rainbowFlyoverRenderer`. Listing them would make this file assert something false ABOUT them and,
+ * worse, would freeze their call position for a reason that does not exist — so a future session
+ * reordering them legitimately would hit a failure whose stated justification it could not verify.
+ *
+ * The list means "reads world.effects, therefore must precede the wipe". Membership has to be
+ * earned by actually reading the array.
+ */
 
 function scoreTier(tick: number, tier: number, color = 0xffffff): GameEffect {
   return { kind: 'SCORE_TIER', tick, tier, color, pos: { x: 0, y: 0 } };

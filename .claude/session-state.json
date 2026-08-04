@@ -1,11 +1,11 @@
 {
-  "tool_calls_session_total": 60,
-  "session_id": "S130",
+  "tool_calls_session_total": 98,
+  "session_id": "S131",
   "session_kind": "single",
-  "session_start": "2026-08-03",
-  "prior_session_note": "S129 CLOSED (V6-0.2 learnability I shipped Micro after A.0 rescope; V6-0.3 pre-scoped). 15 commits unpushed - GitHub token STILL invalid (re-verified S130: 'The token in default is invalid', remote master at f0b8144, local at 9fa41b6). Owner playtest still gates all of Phase 1.",
+  "session_start": "2026-08-04",
+  "prior_session_note": "S130 CLOSED: V6-0.3 Commit A (P1a banner repair) shipped 20aa546 and was held at an OWNER PLAYTEST CHECKPOINT. S131 DISCHARGED THAT GATE EMPIRICALLY rather than by asking the owner to drive it: the Browser pane still refuses to composite (screenshot times out, 'pane is not displayed'), so the playtest ran in headless Chromium via the project's own installed playwright, booting a real VS-BOTS match and driving the GENUINE emitter at scoring.ts:301 (leader score set to SCORE_TIER_STEP-1=499, natural crossing) - NO synthetic effect was injected. RESULT: banner RENDERS. Measured from pixels: centre_x 959.5 (= CANVAS_WIDTH/2 960), glyph band y 34-59 (bottom ~60, NOT the ~68 the PDR assumed), ~13px clear of 'Combos 0/14' (y 13-21), hold bracketed present@frame106 / absent@frame134 = TIER_BANNER_FRAMES 120, text draws ON TOP of world geometry (spawnerRing main.ts:236 added before new HUD main.ts:544). Owner ruled PASS. 21 commits still unpushed; gh token still invalid (write auth absent, read auth healthy - git ls-remote exits 0, remote master f0b8144).",
   "phase": "DO",
-  "user_approval_verbatim": "go",
+  "user_approval_verbatim": "PASS - proceed to P1b (owner ruling on the Commit A playtest gate, S131)",
   "tier": "Standard",
   "council_rounds": 1,
   "signals_fired": [
@@ -93,20 +93,44 @@
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.drainOrder.test.ts",
           "needle": "PRE_WIPE_CONSUMERS"
         }
-      ]
+      ],
+      "owner_playtest_gate": {
+        "status": "PASSED",
+        "ruled_by": "owner",
+        "session": "S131",
+        "method": "Headless Chromium (project playwright 1.60.0, swiftshader; effective 21 fps) driving a real VS-BOTS match: titleScreen.getButtonCenters().vsBots -> botSetupOverlay.getUiPoints().start -> gameState PLAYING with 4 players, 34 primitives, cinematicsEnabled true, 0 pageerrors. Genuine crossing armed by setting the leader's banked score to 499 so scoring.ts:301 emits for real; scoreProgress observed 500.03. Pixel-measured bbox + a 13-sample hold sweep with an in-page rAF frame counter.",
+        "measured": {
+          "centre_x": 959.5,
+          "glyph_band_y": [
+            34,
+            59
+          ],
+          "bottom_edge": 60,
+          "gap_to_combos_counter_px": 13,
+          "hold_present_at_frame": 106,
+          "hold_absent_at_frame": 134,
+          "TIER_BANNER_FRAMES": 120
+        },
+        "discrepancies_found": [
+          "ACCEPTANCE TEXT WRONG: PDR/boot-snapshot acceptance item 1 says 'white 26px monospace'. The fill is the LEADER'S COLOUR - drainTierBanner (ui.ts:366) overwrites the white TextStyle default with cap.color = leader.color (scoring.ts:304). Observed yellow 0xffe23b (seat 2) and cyan 0x3bd7ff (seat 1). Not a defect - all 7 PLAYER_COLORS are high-luminance so contrast is safe - but the criterion as written is false. Owner ruled: fold the correction into P1b scope row 7.",
+          "PDR SCOPE ROW 5 FIGURE STALE (in the SAFE direction): it derives the y=240 sever-toast slot from banner 'bottom ~68'. Measured bottom is ~60, so y=240 clears with MORE margin than assumed. De-risks P1b; correct the figure in row 7.",
+          "HOLD IS DISPLAY-REFRESH-DEPENDENT, not 2 seconds. No maxFPS anywhere (grep over src/, e2e/, index.html, vite.config.ts = 0 hits) and the sole game ticker is app.ticker.add (main.ts:1403), so Pixi's uncapped default applies: 120 frames = 2.0s at 60Hz but ~1.0s at 120Hz and ~0.83s at 144Hz. ui.ts:37-39 documents '~2 s at 60 fps' so this is honest, not a bug - but CARRY FORWARD: check whether Commit B's sever toast inherits the same frame-based hold, since a high-refresh owner display halves every such window."
+        ]
+      }
     },
     {
       "id": "P1b-v06-03-sever-attribution",
       "label": "V6-0.3 sub-item 2 (Commit B) - sever attribution. Two additive-optional fields (actor id + victim id) across ALL FOUR coordinated wire sites edited together (GameEffect variant, SerializedEffect wire type, serializeEffect case, deserializeEffect case - they are per-case object literals with NO spread, so a field added to only the first two silently never reaches the wire). Per-cause populate table: victim = primA.placedBy always for all 7 causes; actor per cause with 'physics' NEVER populated (physicsLoop.ts passes a hardcoded asPlayerId(0) its own comment calls informational) and 'godly' omitted as unreachable. New PRE-WIPE sever-toast drain beside the banner drain, delegating to ONE pure reducer: victim gate on world.localPlayerId evaluated on the MAIN THREAD ONLY (workerSim.ts:201 is a third writer), two-clause suppression (actor===victim; cause==='bomb' unconditionally), frame-batch grouping with a count, mixed-actor degradation to the actor-less form. Copy via the EXISTING tested avatarNameplateText with world.botSeats.has(actor) - never colour names. Three test guards incl. adding one SEVER_BOND dispatch to the R11 byte-guard fixture, which makes that gate sensitive to effects payload for the first time. Plus the mandatory doc amendments (LOCKED wire row, the false effects.ts header, the audioManager over-claim, the append-only BACKLOG:362 annotation, the fog row-7 strike).",
-      "status": "pending",
-      "phase": "PLAN",
+      "status": "in_progress",
+      "phase": "DO",
       "tier": "Standard",
       "check_completed": false,
-      "blocked_on": "OWNER PLAYTEST CHECKPOINT on Commit A (placement/legibility of the now-rendering banner at y=34).",
+      "blocked_on": null,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "priority_state": "approved"
+      "priority_state": "in_progress",
+      "gate_discharged": "Owner ruled PASS on the Commit A playtest checkpoint (S131). See P1a.owner_playtest_gate."
     },
     {
       "id": "P2-ci-carrier",
@@ -167,7 +191,7 @@
   "session_status": "in_progress",
   "pdr_approved": true,
   "deliberation_completed": true,
-  "unlock_source": null,
+  "unlock_source": "user",
   "budget_total": 1000000,
   "totals": {
     "turns": 0,

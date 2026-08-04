@@ -39,6 +39,7 @@ import {
   computeBaseCharge,
   computeSeverEraseEffects,
 } from './disruptionManager.ts';
+import type { PlayerId } from '../types.ts';
 import type { GameAction, World } from './world.ts';
 
 /** SeverBond-specific action narrowing (same derivation as disruptionManager.ts). */
@@ -83,7 +84,56 @@ export function applySeverBond(world: World, action: SeverBondAction): World {
     tick: world.tick,
     pos: severPos,
     cause: action.cause,
+    // V6-0.3 (S131) — ATTRIBUTION. Captured HERE because this is the last point where either
+    // party is still knowable: `applySeverTopology` above has already removed the bond and, on
+    // the delete path, its endpoints.
+    //
+    // ⚠ REACH IS ~1/6 FOR A REMOTE VICTIM, AND THAT IS A RULED LIMITATION, NOT AN OVERSIGHT.
+    // These fields ride the NetSnapshot, but `world.effects` is wiped every rendered frame
+    // (effectsRenderer.ts:73) while snapshots leave on every 6th tick (SNAPSHOT_INTERVAL_TICKS=6,
+    // main.ts:204), so a one-frame effect reaches a remote peer only when it lands on a snapshot
+    // frame. On the HOST — solo, VS-BOTS, and the host seat of a 1v1 — delivery is 100%, which is
+    // the mode V6-0.3 ships for (S130 owner ruling F1, "accept the narrow ship"). The durable fix
+    // is a per-seat synced carrier (a 6-slot array; NOT a global scalar — a sever is
+    // high-frequency and per-victim, so a scalar is clobbered inside one frame's <=3-tick drain)
+    // and is a logged carry-forward. Consumer-side note: src/render/severToastRenderer.ts.
+    actor: severActor(action),
+    // Victim for ALL SEVEN causes. `placedBy` is readonly (primitive.ts:28) and a bond's
+    // endpoints always share one owner (scoring.ts:99), so primA alone answers it — that is also
+    // how the repo already derives bond victims (creatureAI.ts:222, creatureLifecycle.ts:207).
+    // NOT `placerColor`: that one is MUTABLE (the rainbow shuffle remaps a whole empire
+    // mid-match), so colour-derived identity lies after the first switch.
+    // ⚠ EXPIRES WITH STEAL (Phase 2): scoring.ts:99's own caveat says the single-owner rule must
+    // be revisited if a cross-player bond feature is added, which would make "the victim" plural.
+    victim: primA.placedBy,
   });
 
   return world;
+}
+
+/**
+ * V6-0.3 (S131) — pure: which seat, if any, CAUSED this sever.
+ *
+ * Every dispatcher already puts the responsible seat in `action.playerId`, so this is one rule
+ * rather than a seven-arm table — verified at all six dispatch sites:
+ *   controls.ts:339        cause 'player'   playerId = the local human
+ *   botController.ts:403   cause 'player'   playerId = the bot's own seat
+ *   creatureAttack.ts:141  'creature'/'chewer'  playerId = creature.ownerPlayerId
+ *   droneLifecycle.ts:96   cause 'drone'    playerId = drone.ownerPlayerId
+ *   bombLifecycle.ts:146   cause 'bomb'     playerId = the picker who placed the bomb
+ *   physicsLoop.ts:177     cause 'physics'  playerId = a HARDCODED asPlayerId(0)
+ *
+ * That last one is the whole reason this function exists. The physics dispatch passes a sentinel
+ * its own comment calls "informational" — nobody severed anything, the constraint solver fired —
+ * so attributing it would blame seat 0 for every overstretch in the match. It is EXCLUDED, not
+ * defaulted.
+ *
+ * Deliberately a deny-list and NOT an exhaustive `switch` over `cause` (S130 risk R-E): `'godly'`
+ * exists in the BOND_SEVERED effect union but NOT in the SEVER_BOND action union (world.ts:188),
+ * so an exhaustive switch here either fails to compile or silently returns undefined. A cause
+ * added later therefore defaults to ATTRIBUTED — correct for every dispatcher that passes a real
+ * seat. If you add a cause whose playerId is a placeholder, add it to this list.
+ */
+export function severActor(action: SeverBondAction): PlayerId | undefined {
+  return action.cause === 'physics' ? undefined : action.playerId;
 }

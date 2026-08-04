@@ -592,6 +592,15 @@ export class HUD {
  * player at the given y. Filled circles when player has that many charges;
  * hollow stroke rings when not yet earned (Council R1 Grok #4 PARTIAL adoption
  * — kept HUD dots; bond-hover cost preview deferred to S18 polish).
+ *
+ * V6-0.3 (S131) — that deferral is now RESOLVED, and not by building the preview. Blueprint
+ * §IX.5 ("Sever Preview", `SPARK_Blueprint.md:375`) asked to re-ratify or narrowly revoke the
+ * locked "no preview" rule. It closes via BRANCH 2 — satisfied BY DELIVERY — because the
+ * Blueprint's own suggested narrow form is "a post-hoc explanation of what a cut did", which is
+ * exactly what the V6-0.3 sever toast now provides (`severToastRenderer.ts`). The PRE-commit
+ * hover-cost preview (branch 3, ~120-200 LoC of new hit-test infrastructure — `bondHover` still
+ * does not exist) stays DECLINED: a new interactive mechanic does not belong in the same slot as
+ * a repair of a shipped-broken visual. It remains BACKLOG P7.
  */
 function drawPlayerCharges(g: Graphics, player: { color: number; disruptionCharges: number } | undefined, y: number): void {
   if (player === undefined) return;
