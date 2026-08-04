@@ -75,6 +75,51 @@ export function tierBannerAlpha(framesRemaining: number, total: number = TIER_BA
 }
 
 /**
+ * Banner TOP edge. Named in S131 P3 because the plate geometry and the text position must agree —
+ * two copies of `34` is exactly how a plate ends up offset from its own label. MEASURED in the S131
+ * playtest: glyph band y 34–59, so the banner's bottom edge is ~60 (the V6-0.3 PDR's "bottom ≈68"
+ * was a conservative estimate, which is why the sever toast at y=240 clears it easily).
+ */
+const TIER_BANNER_Y = 34;
+/** P3 (S131) — banner plate padding. Wider than `betaBadgePlate`'s 9/4 because the font is 26px, not badge-size. */
+const BANNER_PLATE_PAD_X = 14;
+const BANNER_PLATE_PAD_Y = 5;
+/** P3 (S131) — plate fill, matching `betaBadgePlate` exactly (main.ts:286) so all HUD chrome reads as one system. */
+export const HUD_PLATE_FILL = { color: 0x05070a, alpha: 0.5 } as const;
+
+export interface PlateRect {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+}
+
+/**
+ * P3 (S131) — pure: the backing-plate rect for a TOP-ANCHORED, horizontally-CENTRED text.
+ *
+ * Extracted rather than inlined for the V6-0.2 reason: a plate is only correct if its geometry
+ * tracks the text it backs, and geometry inlined in a Pixi method can only be verified by
+ * constructing an `Application`. A plate that is one frame stale, or sized from the wrong anchor,
+ * shows up as a dark rectangle offset from its own label.
+ *
+ * Matches `tierBannerText`'s anchor of (0.5, 0): `centreX` is the text's horizontal centre and
+ * `topY` its TOP edge, not its middle.
+ */
+export function bannerPlateRect(
+  textWidth: number,
+  textHeight: number,
+  centreX: number,
+  topY: number,
+): PlateRect {
+  return {
+    x: centreX - textWidth / 2 - BANNER_PLATE_PAD_X,
+    y: topY - BANNER_PLATE_PAD_Y,
+    w: textWidth + BANNER_PLATE_PAD_X * 2,
+    h: textHeight + BANNER_PLATE_PAD_Y * 2,
+  };
+}
+
+/**
  * What a tier-banner drain decided this frame. `text === null` means no crossing was captured and
  * the caller must leave the banner's current state alone (it may be mid-animation from an earlier
  * frame). `watermark` is always the value the caller should store back.
@@ -179,6 +224,15 @@ export class HUD {
   private readonly comboCounterText: Text;
   /** V6-0.2 (S129) — milestone banner fired by a SCORE_TIER crossing. */
   private readonly tierBannerText: Text;
+  /**
+   * P3 (S131) — dark backing plate behind the banner, on the `betaBadgePlate` precedent
+   * (main.ts:277). The S131 playtest showed the banner's glyphs sitting on the spawner rings and
+   * the topmost structure: readable, because the text draws on top, but with thin cyan strokes
+   * running through the letterforms. This masks whatever world content is behind the one HUD line
+   * that exists to be READ. Redrawn whenever the text changes; alpha and visibility are driven by
+   * `animateTierBanner` in lockstep with the text, so the two are never visible apart.
+   */
+  private readonly tierBannerPlate: Graphics;
   /** Frames remaining on the tier banner (render-only; never touches sim state). */
   private tierBannerFrames = 0;
   /** Dedupe key: the `tick` of the last SCORE_TIER effect consumed. */
@@ -264,13 +318,18 @@ export class HUD {
     this.comboCounterText.visible = false;
     app.stage.addChild(this.comboCounterText);
 
+    // P3 (S131) — plate FIRST, so child-add order puts it behind the banner text (the
+    // betaBadge/betaBadgePlate idiom; no zIndex API needed).
+    this.tierBannerPlate = new Graphics();
+    this.tierBannerPlate.visible = false;
+    app.stage.addChild(this.tierBannerPlate);
     // V6-0.2 (S129) — TIER MILESTONE BANNER. Top-center, just under the combo counter.
     this.tierBannerText = new Text({
       text: '',
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 26, fill: 0xffffff, align: 'center' }),
     });
     this.tierBannerText.anchor.set(0.5, 0);
-    this.tierBannerText.position.set(CANVAS_WIDTH / 2, 34);
+    this.tierBannerText.position.set(CANVAS_WIDTH / 2, TIER_BANNER_Y);
     this.tierBannerText.visible = false;
     app.stage.addChild(this.tierBannerText);
   }
@@ -365,6 +424,16 @@ export class HUD {
     this.tierBannerText.text = cap.text;
     this.tierBannerText.style.fill = cap.color;
     this.tierBannerFrames = TIER_BANNER_FRAMES;
+    // P3 (S131) — resize the plate to the NEW label, here rather than in the animate half, because
+    // this is the only place the text can change. Pixi v8 Text measures synchronously, so .width
+    // and .height are already correct for the string just assigned (the betaBadgePlate precedent).
+    const r = bannerPlateRect(
+      this.tierBannerText.width,
+      this.tierBannerText.height,
+      CANVAS_WIDTH / 2,
+      TIER_BANNER_Y,
+    );
+    this.tierBannerPlate.clear().roundRect(r.x, r.y, r.w, r.h, 8).fill(HUD_PLATE_FILL);
   }
 
   /**
@@ -372,18 +441,28 @@ export class HUD {
    * because it reads no effects. See `drainTierBanner` for the ownership split and why it exists.
    */
   private animateTierBanner(world: World): void {
+    // P3 (S131) — the plate is toggled on EVERY path the text is, deliberately in the same
+    // statements: a plate that outlives its label is a black rectangle parked on the board, which
+    // is worse than the line-noise it was added to hide.
     if (world.gameState !== 'PLAYING') {
       this.tierBannerFrames = 0;
       this.tierBannerText.visible = false;
+      this.tierBannerPlate.visible = false;
       return;
     }
     if (this.tierBannerFrames <= 0) {
       this.tierBannerText.visible = false;
+      this.tierBannerPlate.visible = false;
       return;
     }
     this.tierBannerFrames--;
-    this.tierBannerText.alpha = tierBannerAlpha(this.tierBannerFrames);
+    const alpha = tierBannerAlpha(this.tierBannerFrames);
+    this.tierBannerText.alpha = alpha;
     this.tierBannerText.visible = true;
+    // Multiplies with HUD_PLATE_FILL's own 0.5, so the plate fades with the text rather than
+    // snapping off at the end of the hold.
+    this.tierBannerPlate.alpha = alpha;
+    this.tierBannerPlate.visible = true;
   }
 
   // S88 G3a — "Combos N/14" discovered-combo counter (top-center; total auto-follows

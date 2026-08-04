@@ -37,12 +37,13 @@
  * per-victim, so a scalar is clobbered within one frame's ≤3-tick drain) and is a logged
  * carry-forward. Do not read this file as though the feature works everywhere.
  */
-import { Container, Text, TextStyle, type Application } from 'pixi.js';
+import { Container, Graphics, Text, TextStyle, type Application } from 'pixi.js';
 import { CANVAS_WIDTH } from '../constants.ts';
 import type { GameEffect } from '../game/effects.ts';
 import type { PlayerId } from '../types.ts';
 import type { World } from '../state/world.ts';
 import { avatarNameplateText } from './avatarRenderer.ts';
+import { HUD_PLATE_FILL } from './ui.ts';
 
 /**
  * Hold window, in SIM TICKS (see the header on why not frames). 150 ticks = 2.5 s at PHYSICS_HZ 60,
@@ -209,8 +210,24 @@ export function captureSeverToast(
   return { text: severToastCopy(mixedCause ? null : cause, agent, count), count };
 }
 
+/** P3 (S131) — toast plate padding. Larger than the banner's because the font is 30px bold. */
+const TOAST_PLATE_PAD_X = 16;
+const TOAST_PLATE_PAD_Y = 7;
+
 export class SeverToastRenderer {
   private readonly container: Container;
+  /**
+   * P3 (S131) — inner group holding plate + text, positioned at the toast's centre with BOTH
+   * children centred on its local origin.
+   *
+   * WHY THE EXTRA CONTAINER. The pop-in animates `scale`. Scaling the text alone would leave the
+   * plate at full size behind a growing label; scaling the OUTER container would scale about (0,0),
+   * i.e. the top-left of the screen, dragging the toast diagonally in from the corner. Scaling this
+   * group scales both about the toast's own centre, which is the only one of the three that looks
+   * like one object growing in place.
+   */
+  private readonly group: Container;
+  private readonly plate: Graphics;
   private readonly text: Text;
   /** Sim tick the current window started on; undefined ⇒ no window in flight. */
   private shownTick: number | undefined = undefined;
@@ -219,6 +236,12 @@ export class SeverToastRenderer {
     this.container = new Container();
     this.container.eventMode = 'none';
     this.container.visible = false;
+    this.group = new Container();
+    this.group.position.set(CANVAS_WIDTH / 2, TOAST_Y);
+    this.container.addChild(this.group);
+    // Plate first: child-add order puts it behind the text (the betaBadgePlate idiom).
+    this.plate = new Graphics();
+    this.group.addChild(this.plate);
     this.text = new Text({
       text: '',
       style: new TextStyle({
@@ -232,9 +255,11 @@ export class SeverToastRenderer {
         align: 'center',
       }),
     });
+    // Centred on the GROUP's local origin, not on screen coords — the group carries the position,
+    // so plate and text share one transform and cannot drift apart.
     this.text.anchor.set(0.5);
-    this.text.position.set(CANVAS_WIDTH / 2, TOAST_Y);
-    this.container.addChild(this.text);
+    this.text.position.set(0, 0);
+    this.group.addChild(this.text);
     app.stage.addChild(this.container);
   }
 
@@ -264,6 +289,12 @@ export class SeverToastRenderer {
     if (cap.text !== null) {
       this.text.text = cap.text;
       this.shownTick = world.tick;
+      // P3 (S131) — resize the plate to the new label. Only here can the text change, and Pixi v8
+      // Text measures synchronously so .width/.height are already correct for the string just set.
+      // Both are centred on the group origin, hence the -w/2, -h/2 offsets.
+      const w = this.text.width + TOAST_PLATE_PAD_X * 2;
+      const h = this.text.height + TOAST_PLATE_PAD_Y * 2;
+      this.plate.clear().roundRect(-w / 2, -h / 2, w, h, 9).fill(HUD_PLATE_FILL);
     }
 
     const pose =
@@ -278,6 +309,7 @@ export class SeverToastRenderer {
     }
     this.container.visible = true;
     this.container.alpha = pose.alpha;
-    this.text.scale.set(pose.scale);
+    // Scale the GROUP, not the text: plate and label grow together about the toast's own centre.
+    this.group.scale.set(pose.scale);
   }
 }
