@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 159,
+  "tool_calls_session_total": 166,
   "session_id": "S131",
   "session_kind": "single",
   "session_start": "2026-08-04",
@@ -442,5 +442,69 @@
     "budget_status": "statusline_dead"
   },
   "council_result": "S131 CHECK — TRIUMVIRATE, run at the owner's explicit request ('go'). Three legs returned; the panel was deliberately split by STRENGTH rather than giving all three the same diff: internal agents that can READ the repo took code-level review (this project's documented failure mode is reviewers filing criticals against symbols that do not exist), while the external models took design-level adversarial reasoning with the decision-dense logic inline. RALPH (4 lenses + a refutation pass per finding, 10 agents, 0 errors): 6 raised, 4 CONFIRMED, 2 REFUTED. Every confirmation was empirical — the refuters RAN each mutation instead of arguing it. All 4 confirmed findings were guards written THIS SESSION that would pass while the thing they name was broken: (i) the deserialize half of the wire was unasserted, so deleting the actor/victim pass-through left 1981/1981 green and a joiner would get NO toast at all; (ii) the plate test never referenced the plate, so deleting both plate assignments left P3's banner half dead and green; (iii) the drain-order guard — the one that exists solely to prevent the V6-0.2 defect — used String.indexOf with no comment stripping, and main.ts already carried the consumer name in a comment one `(world)` token from blinding it, demonstrated live with the defect active and the full suite green; (iv) the CI guard pinned flat file order, not the job graph, so moving the gates into a sibling job (or deleting `needs:`) passed every assertion while deploy stopped waiting on the tests. All four fixed and re-mutation-verified (commit 05ea263). GROK-ANALYST (grok-4.20-0309-reasoning): 5 findings, 2 actionable and fixed in 2fd05b8 — the tolerant-default arm was asserting the 'player' mechanism, so a mixed creature+drone batch read as a direct hostile sever; and severActor's deny-list was replaced by an exhaustive switch over the six-member ACTION union with a `never` guard (verified: deleting a case now fails tsc with TS2322). Its other 3 (backwards-tick toast loss, alpha 0 on the capture frame, fade-to-0.03 boundary) were assessed and declined with reasons recorded in the commit message. GEMINI-AUDITOR (gemini-3.1-pro-preview): TIMED OUT at 120s on the first, 3-part brief; retried narrow and returned. Independently CONFIRMED the no-PROTOCOL_VERSION-bump claim in both skew directions and on the localStorage save path, on the grounds that deserialize maps named fields with no spread and JSON.stringify drops undefined keys. Its only observation was that an old client parses then discards the two fields. NET: the CHECK found nothing broken for users today — all 6 actioned findings were future-regression gaps — but it found that 4 of my own new guards were vacuous, which is exactly the class of defect that shipped V6-0.2 dead.",
-  "prime_audit_result": "PRIME-AUDIT on the S131 CHECK itself. WHAT WAS RUBBER-STAMPED: nothing silently — the two reducer/lifecycle lenses returned ZERO findings, and rather than treat that as a pass I note it is consistent with those surfaces having been the ones I derived most carefully from raw lines. WHAT SURVIVED CONSENSUS THAT SHOULD NOT: my own docblock's stated mechanism for bomb-suppression clause (b). A reviewer tried to prove the clause redundant and FAILED — the clause is needed — but its refutation established that my stated reason was wrong (within one match the rainbow shuffle applies one bijection to both player.color and placerColor and PRESERVES the correspondence; divergence needs the shuffle plus the next match's static re-seating, because colour is never reset and START_GAME leaves a seated player in place). Correct conclusion, wrong mechanism — the #verify-the-reviewer-s-MECHANISM pattern, now 5 sessions running, this time applied to my OWN comment. Corrected in code. REVIEWER PRECISION, AUDITED BOTH WAYS: 3 of 6 findings cited a line 20-40 lines off target, and one REFUTED finding was refuted PRIMARILY on a wrong-line citation — so the anti-fabrication posture earned its keep in both directions. No finding named a nonexistent symbol; the refuters existence-checked first, as instructed. One refuter also caught a factual error INSIDE a finding it confirmed (the claimed toast degradation was wrong; the real behaviour is no toast at all) and confirmed anyway because the error understated the harm — that is the right call. RUNTIME-VERIFIABILITY: the CI carrier remains STATIC-ONLY by necessity (no write auth, so deploy.yml has never run with its gate). Everything else in the session was verified with real pixels through genuine emitters, not static parse. WHAT REMAINS UNVERIFIED AND IS NOT BEING PRETENDED OTHERWISE: (a) deploy.yml has not executed once; (b) the networked ~1/6 sever-toast delivery path has no e2e coverage and the e2e lane has not run since S127; (c) the tick-driven toast hold is untested against a genuinely frozen sim clock while frames render. All three are carry-forwards, not claims."
+  "prime_audit_result": "PRIME-AUDIT on the S131 CHECK itself. WHAT WAS RUBBER-STAMPED: nothing silently — the two reducer/lifecycle lenses returned ZERO findings, and rather than treat that as a pass I note it is consistent with those surfaces having been the ones I derived most carefully from raw lines. WHAT SURVIVED CONSENSUS THAT SHOULD NOT: my own docblock's stated mechanism for bomb-suppression clause (b). A reviewer tried to prove the clause redundant and FAILED — the clause is needed — but its refutation established that my stated reason was wrong (within one match the rainbow shuffle applies one bijection to both player.color and placerColor and PRESERVES the correspondence; divergence needs the shuffle plus the next match's static re-seating, because colour is never reset and START_GAME leaves a seated player in place). Correct conclusion, wrong mechanism — the #verify-the-reviewer-s-MECHANISM pattern, now 5 sessions running, this time applied to my OWN comment. Corrected in code. REVIEWER PRECISION, AUDITED BOTH WAYS: 3 of 6 findings cited a line 20-40 lines off target, and one REFUTED finding was refuted PRIMARILY on a wrong-line citation — so the anti-fabrication posture earned its keep in both directions. No finding named a nonexistent symbol; the refuters existence-checked first, as instructed. One refuter also caught a factual error INSIDE a finding it confirmed (the claimed toast degradation was wrong; the real behaviour is no toast at all) and confirmed anyway because the error understated the harm — that is the right call. RUNTIME-VERIFIABILITY: the CI carrier remains STATIC-ONLY by necessity (no write auth, so deploy.yml has never run with its gate). Everything else in the session was verified with real pixels through genuine emitters, not static parse. WHAT REMAINS UNVERIFIED AND IS NOT BEING PRETENDED OTHERWISE: (a) deploy.yml has not executed once; (b) the networked ~1/6 sever-toast delivery path has no e2e coverage and the e2e lane has not run since S127; (c) the tick-driven toast hold is untested against a genuinely frozen sim clock while frames render. All three are carry-forwards, not claims.",
+  "analyze_completed": true,
+  "analyze_result": {
+    "calibration": {
+      "summary": "8 commits, 22 files, +1909/-46 across the session. Test suite 1941/128 files at boot -> 1990/130 (+49 tests, +2 files), every added test mutation-verified. Bundle 642.6 -> 645.5 KiB (+2.9 KiB total; cap 750, headroom 104.5). Context closed at 492,552/1,000,000 (49.3% GREEN) against a 1M budget.",
+      "per_priority": [
+        {
+          "id": "P1a-v06-03-banner-repair (gate only)",
+          "estimated": "S130 shipped the code; S131 owed only an owner playtest checkpoint",
+          "actual": "discharged empirically instead of by asking — headless Chromium via the project playwright",
+          "verdict": "UNDER — the gate was assumed to need a human and did not. The recorded blocker (\"a hidden pane pauses rAF\") was true of the PANE and had been generalised to the BROWSER for two sessions."
+        },
+        {
+          "id": "P1b-v06-03-sever-attribution",
+          "estimated": "Standard, ~24K (PDR §2 rows 2-8 summed 3+3+5+3+5+3+2)",
+          "actual": "16 files, +843/-30",
+          "verdict": "ACCURATE on scope. Three of the eight scope rows were WRONG about external state and were corrected before code rather than implemented as written — the estimate held because the corrections shrank work (a 7-arm table became 1 rule) as often as they added it."
+        },
+        {
+          "id": "P2-ci-carrier",
+          "estimated": "Micro, ~3K",
+          "actual": "5 files, +243/-7",
+          "verdict": "OVER by roughly 2x, and the overrun was worth it: the A.0 probe found the owner ruling rested on a half-false premise (typecheck was already gated transitively via npm run build), and the guard grew to cover the job graph after CHECK proved file-order assertions insufficient."
+        },
+        {
+          "id": "P3-toast-backing-plate",
+          "estimated": "Micro, 1-2 files",
+          "actual": "4 files, +188/-10",
+          "verdict": "SLIGHTLY OVER — the inner-container restructure for the pop-in scale was not foreseen when scoping \"add a plate\", and the plate needed a pure geometry seam to be testable at all."
+        },
+        {
+          "id": "CHECK remediation (unplanned)",
+          "estimated": "not estimated — the Triumvirate was an owner-approved extra, not a priority",
+          "actual": "9 files, +437/-29 across 2 commits",
+          "verdict": "The single largest unplanned block of the session, and the highest-value per line: it converted 4 vacuous guards into real ones and caught 1 live logic bug."
+        }
+      ],
+      "estimate_lesson": "Micro estimates were the least reliable, both OVER. The pattern: a Micro scope line names the ARTIFACT ('add a gating step', 'add a plate') and silently omits the seam needed to make it testable — a job-graph parse, a pure geometry function, an inner container. For this codebase, budget the testability seam INTO the Micro estimate, because the project's standing failure mode makes shipping it untested not an option."
+    },
+    "retrospective": {
+      "what_worked": [
+        "Splitting the CHECK panel by what each leg can actually VERIFY. Internal agents that can open files found 4 surviving mutations by RUNNING them; the external models, given design-level questions instead of a diff they cannot check, returned a real logic bug and an independent protocol-skew confirmation. Zero fabricated symbols this session — against a documented history of them.",
+        "Driving genuine emitters rather than injecting payloads. Setting the leader's score to STEP-1 and dispatching through the app's own controls.dispatchFn made the producer part of the evidence, not an assumption.",
+        "Proving ABSENCE as well as presence (toast band 0 -> 3759 -> 0 warm px). Verifying a feature appears is half a test; the plate's new failure mode was outliving its label.",
+        "Refusing three PDR instructions that were factually wrong, and recording each refusal with evidence instead of silently skipping or blindly complying."
+      ],
+      "what_to_change": [
+        "MUTATION-TEST EVERY NEW ASSERTION, not just the ones that look load-bearing. I mutation-tested 3 guards and shipped 4 untested ones; the panel broke all 4. There is no reliable intuition for which assertion is vacuous — only deletion tells you.",
+        "SWEEP FOR THE CLASS, not the instance. I fixed 'assert on extracted commands, not raw file text' in the CI guard and left the identical indexOf-matches-comments hole in the drain-order guard the same hour. When a class of bug is found, grep for its siblings immediately.",
+        "READ THE REASONING OF REFUTED FINDINGS. The most valuable correction of the session came from a finding that was REFUTED — the refutation proved my conclusion right and my stated mechanism wrong.",
+        "TREAT 'FULLY SPECCED, DO NOT RE-DERIVE' as covering the DECISION, never the external state it rests on. Rule 21 still applies to a plan's factual anchors: 3 of this plan's failed."
+      ],
+      "process_notes": [
+        "GEMINI-AUDITOR timed out at 120s on a 3-part brief and returned fine on a narrow one. Keep external-leg prompts single-question; the protocol's 'Gemini err -> 2-way' fallback was not needed, only a retry.",
+        "gemini-2.5-pro is retired — gemini-3.1-pro-preview must be passed explicitly, and the MCP tool's own default is still the retired id. Probing it at session start cost one call and avoided a mid-CHECK failure.",
+        "The heredoc-with-apostrophes trap fired once (bash 'unexpected EOF'). The standing rule (use a script FILE, never an inline heredoc for payloads) is correct and I violated it before honouring it."
+      ]
+    },
+    "unverified_at_close": [
+      "deploy.yml has NEVER executed with its new gate — no write auth. Static assertions only, stated as such in-file.",
+      "The networked ~1/6 sever-toast delivery path has no e2e coverage; the e2e lane has not run since S127.",
+      "The tick-driven toast hold is untested against a frozen sim clock while frames still render (PLAYING + no tick advance). The combo toast shares this exposure, so it is pattern-level, not new.",
+      "Whether the plates read well on the owner's actual display and at the owner's refresh rate — the banner's frame-based hold is ~2.0s at 60Hz but ~0.83s at 144Hz."
+    ]
+  }
 }
