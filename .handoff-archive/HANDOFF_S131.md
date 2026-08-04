@@ -17,7 +17,7 @@ Session: S131 — discharge S130's playtest gate empirically, ship V6-0.3 Commit
 - Bundle: **645.5 / 750 KiB** entry (+2.9 KiB this session, 104.5 KiB headroom)
 - MCV: **exit 0** — 38 `verification[]` bindings across 4 completed priorities, 0 unbound
 - gitleaks 8.30.1: **no leaks** (8 session commits + working tree)
-- Deployment: unchanged, **no deploy since S127** — 30 commits unpushed
+- Deployment: unchanged, **no deploy since S127** — 31 commits unpushed at close (run the count; it grows with bookkeeping commits)
 - PROTOCOL_VERSION: **15**, no bump (ruled S130, re-confirmed by Gemini in S131 CHECK)
 
 ## SESSION COST
@@ -75,7 +75,7 @@ Gemini independently confirmed the no-bump claim in both skew directions.
   to delete) and `.claude/REVIEW-PENDING.flag` (cleared at STEP 6).
 
 ## BLOCKED ON
-1. **OWNER: `gh auth login -h github.com` then push — 30 commits.** `gh auth status`: "The token in
+1. **OWNER: `gh auth login -h github.com` then push — 31 commits at close.** `gh auth status`: "The token in
    default is invalid". Read auth is healthy (`ls-remote` exits 0), so 30 is EXACT, not a lower bound.
 2. **OWNER: the probe playtest** — still not run; gates all of Phase 1 (B3 + B4).
 

@@ -9,8 +9,10 @@ Owner: `gh auth login -h github.com`, then `git push origin master && git push o
 ⚠ That push fires a production deploy (src/ touched) **and is the only way to learn whether S131's new
 CI gate works** — `deploy.yml` has never executed with it. It also unblocks the Pages `build_type` flip
 and CI dispatch; the e2e lane has not run since S127.
-⛑ Measure with `git rev-list --count origin/master..master` (= **30**). **NOT** `git log master..origin/master`,
-which tests the wrong direction and prints 0.
+⛑ Measure with `git rev-list --count origin/master..master` — **31 at handoff close**, and it climbs by
+one with each bookkeeping commit, so RUN THE COMMAND rather than trusting this number. **NOT**
+`git log master..origin/master`, which tests the wrong direction and prints 0 — that inversion is how a
+dead token went unnoticed for four sessions and reached 48 commits.
 
 ## STATE
 tsc 0 · vitest **1990/1990** (130 files; was 1941/128 at S131 boot) · bundle **645.5/750 KiB** entry
