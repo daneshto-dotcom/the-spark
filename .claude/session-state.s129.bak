@@ -1,0 +1,135 @@
+{
+  "tool_calls_session_total": 789,
+  "session_id": "S129",
+  "session_kind": "single",
+  "session_start": "2026-07-28",
+  "prior_session_note": "S128 CLOSED (V6-0.1: pivot landed + probe harness). 9 commits unpushed - GitHub token invalid. Owner playtest still gates Phase 1.",
+  "phase": "CLOSED",
+  "user_approval_verbatim": "go",
+  "tier": "Micro",
+  "council_rounds": 0,
+  "signals_fired": [
+    "A.0-state-discovery",
+    "3-way-council",
+    "prime-audit",
+    "completeness-critic"
+  ],
+  "council_result": "Micro tier - deliberation opt-in, auto-waived on the user-approval path (pdr_approved + unlock_source=user).",
+  "plan_file": null,
+  "boot_probe_deltas": "A.0 for V6-0.2 RESCOPED the slot from Standard to Micro. Probed what actually renders: the progress bar (own+leader) ships in ALL modes (ui.ts:62-74); numeric N/1500 + rank + crown + <YOU> ship via the leaderboard (ui.ts:317-329); combos counter and energy gauge ship; the SCORE_TIER pulse ships as a 48-tick world-space ring+bloom. CORRECTED A PRIOR AUDIT CLAIM: vs-bots does NOT lose the HUD - isNetworked is `gameMode !== 'solo'` (gameMode.ts:95), so bots mode gets the full leaderboard. Genuine residual is only: (1) pure solo has no NUMERIC score, (2) the tier pulse is world-space with no HUD counterpart so the 500/1000 milestones are unfeelable.",
+  "routing_baseline": {
+    "gating": "25 tests / 10 files",
+    "soak": "6 tests / 4 files",
+    "quarantine": "19 tests / 5 files",
+    "note": "asserted INVARIANT across this change"
+  },
+  "priorities": [
+    {
+      "id": "P1-v06-0.2-learnability-I",
+      "label": "V6-0.2 Learnability I (rescoped Micro): numeric score in solo + legible tier pulse + stale isNetworked docblock",
+      "status": "completed",
+      "phase": "CHECK-COMPLETE",
+      "tier": "Micro",
+      "check_completed": true,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
+          "needle": "formatSoloScore"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
+          "needle": "drawTierBanner"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
+          "needle": "resetWatermarkIfRegressed"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
+          "needle": "TIER_BANNER_FRAMES"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.tierBanner.test.ts",
+          "needle": "clears the watermark when the sim clock goes backwards"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
+          "needle": "S129 correction"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "Learnability I — numeric score in solo + legible tier milestone"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "**Micro** (was Standard)"
+        }
+      ],
+      "check_method": "Micro-tier CHECK = RALPH:PATROL + GROK-ANALYST (per Rule 17), run on the real diff. ONE defect found, and its CONCLUSION was right while its MECHANISM was wrong - GROK said the lastTierTick dedupe watermark breaks because 'world.tick resets on a new match'. Verified against the code: it does NOT reset - neither applyStartGame nor applyReturnToTitle touches world.tick, so it is monotonic on the host for the page lifetime. The REAL path is applySnapshotCore doing `world.tick = snap.tick` (save.ts:830), used by both restore() and applyNetSnapshot(): a client that played a long solo session then joins a freshly-started host adopts a far LOWER tick, and the stale watermark suppresses the banner for that entire match. Fixed on BOTH paths (between-match reset on the non-PLAYING branch + a mid-match backward-jump guard), with the guard extracted as the pure `resetWatermarkIfRegressed` and pinned by 3 tests. GROK explicitly reported no other defects at material severity, and specifically cleared the solo/else branch split, the scoreTexts[0] pool reuse, and the world.effects per-frame-wipe race. I also caught one defect myself pre-commit: my first solo block used an early `return`, which would have skipped the UNCONDITIONAL connectionDot.clear() and left a stale connection dot after returning from a networked match to solo; restructured as if/else. VERIFICATION: tsc 0 - vitest 1932/1932 (127 files, +10 new) - npm run build exit 0, bundle 642.3/750 KiB with the delta MEASURED at +1,365 B vs the 640.9 KiB baseline - gitleaks no leaks. LIMIT STATED: the visual could not be verified in-browser because a hidden Browser pane pauses requestAnimationFrame, so the Pixi ticker never advances (same constraint as S128). App load was confirmed (41 stage children, no console errors, leaderboard rows correctly hidden at TITLE) and the arithmetic/envelope/watermark logic was extracted into pure functions and pinned. Placement and legibility remain for the owner's eye.",
+      "checkpoint_commit": "fae054997515164d4d967785c8cf4b9c9297df50",
+      "real_context_tokens_at_close": 548000,
+      "real_context_pct_at_close": 54.8,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    }
+  ],
+  "carry_forward_priorities": [
+    "S127 CI x4 (PARKED, not dropped): permanent soak window/threshold shape (BLOCKED: needs the Mon 2026-08-03 07:00 UTC cron sample; do NOT decide on n=3-4) | worker-isolate ceiling 10MB->~3MB (BLOCKED: readWorkerFloorMB() is a single read at worker-heap.spec.ts:182, outside the stabilization loop at :174-181) | Playwright deviceScaleFactor raster lever (needs before/after) | e2e/** outside tsconfig coverage",
+    "OWNER-GATED: Pages `gh api -X PUT repos/:owner/:repo/pages -f build_type=workflow` -> verify live asset hash -> THEN optionally delete origin/gh-pages, IN THAT ORDER. Run `gh auth login` first (audit found gh auth invalid).",
+    "OWNER DECISION, hard precondition on V6-1.1: B6 reversibility option (A) tag+branch, no prod deploys of Phase-1 work, or (B) additive-only keeping CarryingPlayer live + parallel bank-draw reducer. This session tags v0.5.2-pre-pivot regardless (option-independent).",
+    "OWNER DECISION, deferred to V6-1.1 (the slot that first creates the type): worker->gatherer rename. Not applied this session - the owner did not answer, and no code entity exists yet so it is not yet forcing. Forcing constraint recorded in the spec: the code identifier CANNOT be `Worker` (Web Worker owns the authoritative World; workerSim.ts, workerSim.differential.test.ts), and both Council legs held a split vocabulary is worse than either pure choice.",
+    "OWNER RULING needed before V6-1.3/V6-1.4 PDR: B3 faucet rate + B4 directive semantics (bias vs hard filter) and bank cap. Probe harness P2 produces the evidence."
+  ],
+  "reflexion_entries_to_archive": [
+    {
+      "tag": "#probe-the-slot-before-believing-the-roadmap-s-estimate-of-it",
+      "priority": "P1",
+      "entry": "V6-0.2 was planned as a Standard-tier 'make the score readable' slot. Ten minutes of A.0 probing showed ~80% already ships - progress bar in all modes, numeric N/1500 + rank + crown in the leaderboard, combos counter, energy gauge, and the tier pulse as a 48-tick ring. The genuine gap was two narrow things, so the slot dropped to Micro. The probe also refuted a claim from my OWN prior audit (that vs-bots loses the HUD). Lesson: a roadmap slot's SIZE is a claim about external state like any other, and Rule 21 applies to it - probe before scoping, and let the scope shrink when the evidence says so rather than padding work to match the plan."
+    },
+    {
+      "tag": "#verify-the-reviewer-s-MECHANISM-not-just-its-conclusion",
+      "priority": "P1",
+      "entry": "GROK-ANALYST correctly found that the tier-banner dedupe watermark was broken, and attributed it to 'world.tick resets on a new match'. That mechanism is false - neither applyStartGame nor applyReturnToTitle touches world.tick. Had I accepted the conclusion and fixed the stated cause, I would have added a match-restart reset and left the ACTUAL path broken: applySnapshotCore's `world.tick = snap.tick` (save.ts:830), which makes a client adopt a lower tick when joining a fresh host after a long local session. Grep-verifying the mechanism produced a two-path fix instead of a one-path one. Third session running that a reviewer was directionally right and mechanically wrong; the conclusion is a hypothesis, the mechanism is the thing to check."
+    },
+    {
+      "tag": "#read-why-a-prior-decision-was-made-before-reversing-it",
+      "priority": "P1",
+      "entry": "The obvious fix for 'the tier pulse is easy to miss' was to move it back to a fixed HUD corner. The SCORE_TIER docblock records that S13 P4 moved it OFF the corner to the placement position deliberately, 'so the pulse lands where the player's eyes already are' - sound reasoning I would have silently undone. Instead the world pulse is untouched and a banner was ADDED to complement it. One grep of the docblock was the difference between reverting a playtested decision and building on it."
+    },
+    {
+      "tag": "#an-early-return-in-a-draw-method-can-skip-unconditional-cleanup",
+      "priority": "P1",
+      "entry": "My first solo-score block ended with `return`, which read as harmless because everything below it was networked-only. It was not: connectionDot.clear() runs UNCONDITIONALLY before its own isNetworked guard, so the early return would have left a stale connection dot on screen after returning from a networked match to solo. Caught by reading what came after the insertion point rather than only what I was inserting. In a per-frame draw method, an early return is a claim that NOTHING below it matters - check the whole tail, especially unconditional clear/reset calls."
+    }
+  ],
+  "session_status": "closed",
+  "pdr_approved": true,
+  "deliberation_completed": true,
+  "unlock_source": "user",
+  "check_result": "Micro-tier CHECK = RALPH:PATROL + GROK-ANALYST (per Rule 17), run on the real diff. ONE defect found, and its CONCLUSION was right while its MECHANISM was wrong - GROK said the lastTierTick dedupe watermark breaks because 'world.tick resets on a new match'. Verified against the code: it does NOT reset - neither applyStartGame nor applyReturnToTitle touches world.tick, so it is monotonic on the host for the page lifetime. The REAL path is applySnapshotCore doing `world.tick = snap.tick` (save.ts:830), used by both restore() and applyNetSnapshot(): a client that played a long solo session then joins a freshly-started host adopts a far LOWER tick, and the stale watermark suppresses the banner for that entire match. Fixed on BOTH paths (between-match reset on the non-PLAYING branch + a mid-match backward-jump guard), with the guard extracted as the pure `resetWatermarkIfRegressed` and pinned by 3 tests. GROK explicitly reported no other defects at material severity, and specifically cleared the solo/else branch split, the scoreTexts[0] pool reuse, and the world.effects per-frame-wipe race. I also caught one defect myself pre-commit: my first solo block used an early `return`, which would have skipped the UNCONDITIONAL connectionDot.clear() and left a stale connection dot after returning from a networked match to solo; restructured as if/else. VERIFICATION: tsc 0 - vitest 1932/1932 (127 files, +10 new) - npm run build exit 0, bundle 642.3/750 KiB with the delta MEASURED at +1,365 B vs the 640.9 KiB baseline - gitleaks no leaks. LIMIT STATED: the visual could not be verified in-browser because a hidden Browser pane pauses requestAnimationFrame, so the Pixi ticker never advances (same constraint as S128). App load was confirmed (41 stage children, no console errors, leaderboard rows correctly hidden at TITLE) and the arithmetic/envelope/watermark logic was extracted into pure functions and pinned. Placement and legibility remain for the owner's eye.",
+  "analyze_completed": true,
+  "analyze_result": "CALIBRATION. Estimated ~8K Micro; actual implementation landed close, and the session's real cost was dominated by the A.0 probe that RESCOPED the slot before any code was written. That probe is the session's main result: the roadmap had V6-0.2 as a Standard-tier 'make the score readable' slot, and the shipped game already had ~80% of it. Scope shrank to two narrow fixes rather than being padded to match the plan. It also CORRECTED a claim from my own S128 audit (that vs-bots loses the HUD - it does not; isNetworked is `gameMode !== 'solo'`), which is the second session running where probing beat a plausible prior belief.\n\nWHAT THE PROCESS BOUGHT. Two defects were caught before they could ship, one by me and one by GROK, and neither would have been caught by the test suite as it stood: (a) my first solo branch used an early `return` that would have skipped the unconditional connectionDot.clear(), leaving a stale connection dot after a networked->solo transition; (b) the tier-banner dedupe watermark would have suppressed the banner permanently for a client that joins a host after a long local session. Both are the 'silently does nothing' failure class, which is exactly what a render-only change is prone to and exactly what a green suite does not catch.\n\nREVIEWER CALIBRATION, third session running: GROK reached the RIGHT conclusion via a WRONG mechanism, and the mechanism mattered - had I fixed only 'match restart' I would have left the client-join path broken, because world.tick does not in fact reset on restart. Grep-verifying the cited mechanism (not just the conclusion) is what produced the correct two-path fix. This is now a stable pattern across S127/S128/S129 and is a promotion candidate for a standing rule.\n\nDESIGN RESTRAINT WORTH RECORDING. The SCORE_TIER docblock records that S13 P4 moved the pulse OFF a fixed HUD corner to the placement position on purpose. The lazy fix would have been to move it back. Instead the world pulse is untouched and the banner complements it - the pulse says 'something happened here', the banner names the milestone. Reading why a prior decision was made before reversing it cost one grep and avoided undoing someone's playtested reasoning.\n\nNOT DONE, explicitly: the visual is unverified (hidden pane pauses rAF; substituted pure-function tests). Nothing is pushed - the GitHub token is still invalid, so this is now the 10th unpushed commit and the e2e lane still cannot be dispatched. The owner's probe playtest, which gates all of Phase 1, remains outstanding.",
+  "budget_total": 1000000,
+  "totals": {
+    "turns": 0,
+    "budget_remaining": 1000000,
+    "budget_status": "statusline_dead"
+  },
+  "auto_fill_applied": {
+    "ts": "2026-07-29T18:30:35.746532Z",
+    "fields": [
+      "budget_total",
+      "totals"
+    ],
+    "validator_version": "s110-three-tier-v1"
+  }
+}

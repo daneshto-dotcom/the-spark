@@ -1,280 +1,50 @@
 {
-  "tool_calls_session_total": 177,
-  "session_id": "S131",
-  "session_kind": "single",
+  "tool_calls_session_total": 0,
+  "session_id": "S132",
+  "session_kind": "pdca",
   "session_start": "2026-08-04",
-  "prior_session_note": "S130 CLOSED: V6-0.3 Commit A (P1a banner repair) shipped 20aa546 and was held at an OWNER PLAYTEST CHECKPOINT. S131 DISCHARGED THAT GATE EMPIRICALLY rather than by asking the owner to drive it: the Browser pane still refuses to composite (screenshot times out, 'pane is not displayed'), so the playtest ran in headless Chromium via the project's own installed playwright, booting a real VS-BOTS match and driving the GENUINE emitter at scoring.ts:301 (leader score set to SCORE_TIER_STEP-1=499, natural crossing) - NO synthetic effect was injected. RESULT: banner RENDERS. Measured from pixels: centre_x 959.5 (= CANVAS_WIDTH/2 960), glyph band y 34-59 (bottom ~60, NOT the ~68 the PDR assumed), ~13px clear of 'Combos 0/14' (y 13-21), hold bracketed present@frame106 / absent@frame134 = TIER_BANNER_FRAMES 120, text draws ON TOP of world geometry (spawnerRing main.ts:236 added before new HUD main.ts:544). Owner ruled PASS. 21 commits still unpushed; gh token still invalid (write auth absent, read auth healthy - git ls-remote exits 0, remote master f0b8144).",
-  "phase": "DO",
-  "user_approval_verbatim": "go  (S131, in direct reply to the message naming all three follow-ups: P2 CI carrier, the centre-column backing plate, and the Triumvirate CHECK)",
-  "tier": "Standard",
-  "council_rounds": 1,
-  "signals_fired": [
-    "A.0-state-discovery",
-    "prime-audit",
-    "3-way-council",
-    "completeness-critic"
-  ],
-  "plan_file": ".claude/plans/2026-08-04_PDR_S131_P2_CI_carrier_plus_toast_plate.md",
-  "boot_probe_deltas": "A.0 for V6-0.3 ran as a 6-probe + 6-adversarial-audit fan-out (12 agents, 0 errors). 4 of 6 probe MECHANISMS were refuted by their auditors while conclusions largely survived - consistent with the standing #verify-the-reviewer-s-MECHANISM pattern, now 4 sessions running. HEADLINE DELTA (supervisor-verified a third time by reading raw lines): V6-0.2's tier milestone banner, shipped S129 and marked DONE, PROVABLY CANNOT RENDER. drawTierBanner iterates world.effects (ui.ts:284) but hud.sync is called at main.ts:2515 while effectsRenderer.sync wipes world.effects at main.ts:2486 (effectsRenderer.ts:73); exactly one call site each, nothing between them writes world.effects. Compounding: SCORE_TIER is host-local-only (serializeEffect returns null, save.ts:1400) so even after an ordering fix it can never fire on a joining client. It passed CHECK because ui.tierBanner.test.ts pins only the pure helpers and its own docblock concedes the draw path cannot be driven headlessly. SECOND DELTA: the pre-scoped V6-0.3 plan was wrong in two places - (a) an actor id ALONE cannot answer 'am I the victim?' because BOND_SEVERED carries only {kind,tick,pos,cause} and the bond plus (in the delete case) its endpoints are removed before the emit; the cheap fix is primA.placedBy (primitive.ts:28, readonly PlayerId, immutable vs the mutable placerColor, and already used as the repo's own bond-victim derivation at creatureAI.ts:222 / creatureLifecycle.ts:207-216); (b) the cited reuse surface comboToastRenderer.ts NEVER reads world.effects - it reads synced world fields precisely because its docblock says an effects entry 'would miss the client ~5/6 of the time', so the plan cited a surface whose design point contradicts the carrier it chose. THIRD DELTA: the BACKLOG row's cause union is 4 members; the real union has SEVEN (effects.ts:136) and 'physics' passes a hardcoded asPlayerId(0) sentinel (physicsLoop.ts:170-181), so an unconditional populate would mis-attribute every overstretch sever to seat 0. FOURTH DELTA: PROTOCOL_VERSION needs NO bump (deserializeEffect is a named-field reconstruction not positional/packed, save.ts:1412-1453; parseNetMessage never descends into snapshot.effects, protocol.ts:680-697; ARC_FLASH.creatureId? is the exact shipped precedent, git-verified at commit 5a654e7) - BUT BACKLOG.md:362, marked 'do not re-litigate', says a bump IS needed for any new serialized field, which contradicts six shipped additive-optional wire fields. That is a governance ruling, not a code fact. FIFTH DELTA (process, material): NO CI job runs vitest or typecheck - grep of vitest|npm test|typecheck|check-bundle across .github/workflows/ returns ZERO hits; only deploy.yml's `npm run build` gates anything, and e2e.yml never runs on push. The per-session 'tsc 0 / vitest 1932/1932' figure has no mechanical carrier. Also package.json:13 is bare `vitest` = WATCH mode, so a PDR naming `npm test` hangs the session; run-once is `npx vitest run`. SIXTH DELTA: R15's 17-site checklist does NOT apply to an effect-variant field add (15 of 17 sites structurally N/A), so escalating to Full would buy ceremony, not coverage.",
-  "verified_baseline_s130": {
-    "vitest": "1932 passed / 1932, 127 files, exit 0 - RUN THIS SESSION via `npx vitest run`, not inherited from the handoff",
-    "bundle_entry": "dist/assets/index-BfmwMcYR.js = 657,766 B = 642.3 KiB against CAP_KIB=750 (scripts/check-bundle-size.mjs:19) => 107.7 KiB headroom. NOTE BACKLOG.md's standing-gate paragraph still says 640.8/109.2 - quote 642.3.",
-    "protocol_version": 15,
-    "gh_auth": "INVALID (re-verified). `gh auth status` -> 'The token in default is invalid.' Push HANGS on Git Credential Manager rather than erroring.",
-    "unpushed": "15 commits. remote master f0b8144, local 9fa41b6.",
-    "ci_gates": "NONE for units/types. Only deploy.yml `npm run build` (:72). e2e.yml is Playwright-only and never on push; last e2e run was S127."
+  "prior_session_note": "S131 closed V6-0.3 end-to-end (4/4 priorities completed, both PDRs archived COMPLETED, 12 reflexion entries). Baseline re-verified empirically at S132 boot: tsc 0, vitest 1990/1990 across 130 files. Write auth STILL DEAD -- gh auth status reports 'The token in default is invalid'; 33 commits unpushed as measured by `git rev-list --count origin/master..master` (climbed from S131's 31 via handoff bookkeeping commits, exactly as the boot snapshot warned it would). No IN-PROGRESS plans carried in.",
+  "phase": "CHECK-COMPLETE",
+  "user_approval_verbatim": "Selected 'Fix the probe, then you playtest (Recommended)' from the AskUserQuestion scope options, in direct reply to the A.0 findings naming DELTA-1 (solo-vs-6-seat faucet trap) and DELTA-2 (inventory.shift above the carry-1 guard). Explicit selection of the named scope = user-path approval; deliberation waived per Rule 17 Micro opt-in.",
+  "tier": "Micro",
+  "council_rounds": 0,
+  "plan_file": ".claude/plans/2026-08-04_PDR_S132_Probe_Instrument_Repair.md",
+  "a0_state_discovery": {
+    "ran": true,
+    "method": "Headless Chromium via the project's own playwright (swiftshader), the S131 recipe. Three scratchpad drivers: probe-drive.mjs (arm + sample), probe-draw.mjs (draw path + ?spawn= override), probe-faucet.mjs (tick-locked census measuring throughput and per-spark lifetime rather than the standing pool).",
+    "confirmed": [
+      "probe arms on ?probe=1 (ARMED console line + [data-probe] DOM overlay)",
+      "sim advances 122 ticks / 2s = 61 Hz effective in headless chromium",
+      "probeBootstrap is main.ts's FIRST import (line 27; 1-26 are docblock)",
+      "keys 1-6 stock the inventory (8/8 Sqr x8)",
+      "Q draws: player Idle -> Carrying, so SPAWN_SPARK + PICKUP_SPARK both land",
+      "?spawn=N reaches constants.ts; throughput 1.866/s measured at lambda=2.0 (n=168/90s)",
+      "faucet throughput 0.1933/s vs lambda 0.1875 (n=29/150s, Poisson SE 0.036)",
+      "free-spark lifetime exactly 600 ticks, min=max=600 (no leak, no jitter)",
+      "standing pool 1.81 vs lambda*W 1.93 -- Little's Law holds",
+      "8-slot bank at a fair 1/6 share = 248s (BACKLOG B3 claims ~256s) -- B3 CONFIRMED",
+      "FREE_SPARK_SOFT_CAP=50 confirmed unreachable dead code (pool peaks at 4)"
+    ],
+    "deltas": [
+      "DELTA-1: probe is solo-only (auto-disarms on any peer/bot, probeHarness.ts:290,342) but B3/B4 are 6-seat claims. Solo receives the WHOLE arena faucet, so an 8-slot bank fills in 41s not 248s -- 6x more generous than the condition B3 describes. The handoff's playtest URL carries no correction and would produce a wrong B3 ruling. Fix: &spawn=0.03125.",
+      "DELTA-2: probeHarness.ts:291 calls inventory.shift() ABOVE the carry-1 guard at :294. Q-while-carrying silently destroys a slot. Measured 8/8 -> 7/8 (real draw) -> 6/8 (refused draw, item gone). buildCount/peakPrimitives under-read with it."
+    ],
+    "refuted": [
+      "Suspected Q was double-bound with SHRINK_TERRITORY (main.ts:888 advertises 'Q shrink territory'; probeHarness.ts:326 binds q/Q to draw). It CANNOT fire: decideKeyShrink returns false when gameMode==='solo' (controls.ts:868) and the probe auto-disarms outside solo. The collision is REAL -- the solo guard is the only thing preventing it. Becomes live if the probe ever gains a bots/networked mode. Carry-forward, not dismissed."
+    ],
+    "self_correction": "My first two readings called the lambda*W model wrong in both directions (pool 2.73 vs 1.88; 12.79 vs 20.00). Both were artifacts of my reading protocol, not the instrument: a 63s window on a 10s-TTL process carries ~6 independent samples, and the lambda=2.0 run was held only 12s -- entirely inside the ramp. Held past the ramp with a tick-locked census the model is correct. Re-learned the boot snapshot's own #measure-inside-the-hold-not-on-the-edge-of-the-ramp."
   },
-  "owner_rulings_recorded_s130": {
-    "note": "Collected via AskUserQuestion this session. These resolve four long-standing carry-forwards. NOT PDR approval - the V6-0.3 PDR still requires an explicit `go`.",
-    "probe_playtest": "NOT YET RUN. Phase 1 stays closed; V6-1.3/V6-1.4 must not be opened. B3 faucet rate + B4 directive semantics remain unruled.",
-    "B6_reversibility": "(A) BRANCH OFF THE TAG - develop Phase 1 on `pivot/phase1` off `v0.5.2-pre-pivot`, no production deploys of Phase-1 work until the V6-1.7 gate passes. Hard precondition on V6-1.1 now SATISFIED.",
-    "worker_gatherer_rename": "RENAME TO `gatherer` - prose and code both. Constraint still binds: the code identifier CANNOT be `Worker` (the Web Worker owns the authoritative World). Applies from V6-1.1, the slot that first creates the type.",
-    "V6_2_1_ordering": "INSERT A STRUCTURE-HP SLOT BEFORE V6-2.1, resolving risk R6 (3 of 5 targeting priorities currently have no damageable target: DEFENDER_HP is a 1e9 sentinel, CreatureSpawner has no hp field, the only damage fn is damageCreature). Adds a slot to Phase 2.",
-    "F1_carrier": "ACCEPT THE NARROW SHIP. Effect-borne now; 100% reliable in solo/bots (in-process, netTransport null). The ~5/6 remote loss MUST be named in-code at BOTH the emit and the consumer docblock with a pointer to the per-seat carry-forward, and the V6-0.3 roadmap row must NOT read as though the feature works everywhere.",
-    "F4_banner": "FOLDED into V6-0.3 as sub-item 1 in its OWN commit, with an owner playtest checkpoint before the toast work starts. Council was 2-1 for this over a separate priority.",
-    "F3C_bomb": "SUPPRESS. Two suppression clauses: (a) actor present && actor === victim; (b) cause === 'bomb' unconditionally. The show-it copy variant is kept as a one-line carry-forward, trivial to flip after a playtest.",
-    "CI_carrier": "ADD A GATING vitest + typecheck STEP to deploy.yml. OUTSIDE V6-0.3's scope, so per Rule 16 it lands as its own priority P2 with its own scope line. Cannot be exercised until the owner's push lands. A red test will then BLOCK a master-push deploy - that is the intended behaviour change.",
-    "IX5_assumption": "NOT asked - proceeding on a STATED ASSUMPTION: §IX.5 closes via branch 2, narrow revocation satisfied BY DELIVERY, because SPARK_Blueprint.md:379's own suggested narrow form ('a post-hoc explanation of what a cut did') is exactly this slot's toast. Zero extra code, all three Council legs reached it independently, reversible in one doc line. Owner did not object when presented."
+  "verified_baseline_s132_boot": {
+    "tsc": 0,
+    "vitest": "1990/1990 (130 files)",
+    "unpushed_commits": 33,
+    "gh_write_auth": "INVALID -- 'The token in default is invalid'",
+    "head": "8f4debb"
   },
   "priorities": [
     {
-      "id": "P1a-v06-03-banner-repair",
-      "label": "V6-0.3 sub-item 1 (Commit A) - repair the V6-0.2 tier banner, which shipped dead. Split drawTierBanner into a PRE-WIPE public drainTierBanner (scan + watermark + arming) called beside drainAudioEffects, plus an in-place private animateTierBanner (countdown/alpha/visible) still inside sync. Extract captureTierBanner as a pure function so the ordering is assertable without Pixi. Add ui.drainOrder.test.ts (source-order lock, mutation-tested + behavioural order-sensitivity). Amend the V6-0.2 roadmap row off a clean DONE.",
-      "status": "completed",
-      "phase": "CHECK-COMPLETE",
-      "tier": "Standard",
-      "check_completed": true,
-      "check_method": "Standard-tier CHECK on the real diff. WHAT WAS FIXED: V6-0.2's tier banner, shipped S129 and marked DONE, could never render - its SCORE_TIER scan lived in HUD.sync, called at main.ts:2515, while effectsRenderer.sync does world.effects.length = 0 at main.ts:2486 (effectsRenderer.ts:73). I verified independently that each has exactly ONE call site and that nothing between lines 2486 and 2515 writes world.effects, so the loop always iterated ZERO entries in every mode for every player. It had passed CHECK because ui.tierBanner.test.ts pins only the pure arithmetic helpers and its own docblock concedes the draw path cannot be driven headlessly - testing everything EXCEPT the broken thing produced a confident green. FIX: split rather than relocate. drainTierBanner(world) is PUBLIC and called beside drainAudioEffects BEFORE effectsRenderer.sync; it owns the PLAYING guard, the watermark including the between-matches -1 reset, and the writes (text, fill, arming tierBannerFrames). animateTierBanner(world) stays private inside sync and owns the countdown, alpha and visible. The only field both touch is the non-PLAYING zeroing of tierBannerFrames, which is idempotent. captureTierBanner() was extracted as a new exported PURE function holding the effects scan plus the backward-tick guard - extracted specifically so the ORDERING is assertable without a Pixi Application, since the absence of that seam is precisely why S129 shipped blind. hud.sync was deliberately NOT relocated, because that would have required an argument about its order-independence relative to five other renderers whereas moving the SCAN out requires no such argument. VERIFICATION - and this is the material difference from S129, which could not verify the visual at all. rAF is still paused in a hidden Browser pane, but app.ticker.update() pumps the TRUE frame callback in PRODUCTION order, which sidesteps the blocker entirely. Driving it live in a dev page: the banner went \"\"/hidden -> 'TIER 1 - 500/1500' visible with alpha 1 and the effect's cyan fill; world.effects went 1 -> 0 in that SAME frame, which PROVES the drain read the effect before the wipe rather than merely being placed earlier in the source; it HELD on the next frame with no new effect (so the animate half owns the countdown and the drain's null-capture is inert); it HID at TITLE; and it RE-ARMED on the same tick next match with fill 0xFF0066, which proves the S129 watermark-reset fix survives the split. That last check specifically rules out the PRIME-AUDIT hazard that a careless split could produce a NEW never-renders variant - the drain latching text that never animates, or the animate running against a watermark the drain never advanced. THE GUARD WAS MUTATION-TESTED, not merely observed to pass: moving hud.drainTierBanner below the wipe makes ui.drainOrder.test.ts fail (1 failed / 8 passed), and reverting restores 9/9. A guard that only ever passes proves nothing. The suite also pins dedupe-by-tick, newest-tier-wins across a multi-tick drained batch, mixed-kind arrays, and watermark reset on a no-crossing frame. NUMBERS: tsc -b --noEmit exit 0 - npx vitest run 1941/1941 across 128 files (+9 tests, +1 file; baseline 1932/1932 across 127 was RE-RUN this session rather than inherited from the handoff) - npm run build exit 0, bundle 642.6/750 KiB with the delta MEASURED at +218 B against the 642.3 KiB baseline, 107.4 KiB headroom. Commit message content grep-verified after the fact (the backtick command-substitution trap has bitten 3x, so the message was passed via -F from a file and then checked on disk). LIMITS STATED, NOT BURIED: (1) pixel output is NOT obtainable - a hidden pane's GL context produces no frames, so renderer.extract() returns a blank raster, though it measures 271x28 with real glyph metrics and reports fill 0x00FFFF, so the glyphs demonstrably exist. Placement and legibility remain the owner's eye and that is the playtest checkpoint this commit deliberately ends on. (2) STILL SOLO/BOTS ONLY: SCORE_TIER is host-local (serializeEffect returns null, save.ts:1400), so a 1v1 JOINER still never sees the banner; putting the kind on the wire would be a new serialized literal in the S110 'WALK' bump class, so it is a LOGGED carry-forward rather than a silent gap. (3) NOT PUSHED - the gh token is still invalid, so this is now the 16th unpushed commit and no CI or e2e lane can be dispatched; there is in any case no CI job that runs vitest or typecheck at all, which is the structural reason this defect could ship green in the first place and is now P2.",
-      "checkpoint_commit": "20aa546",
-      "real_context_tokens_at_close": 322691,
-      "real_context_pct_at_close": 32.27,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "priority_state": "completed",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "SHIPPED DEAD AND HAS NOW BEEN REPAIRED"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "drainTierBanner"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
-          "needle": "drainTierBanner(world: World): void"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
-          "needle": "animateTierBanner"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
-          "needle": "export function captureTierBanner"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "hud.drainTierBanner(world);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.drainOrder.test.ts",
-          "needle": "every world.effects consumer runs BEFORE the wipe"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.drainOrder.test.ts",
-          "needle": "PRE_WIPE_CONSUMERS"
-        }
-      ],
-      "owner_playtest_gate": {
-        "status": "PASSED",
-        "ruled_by": "owner",
-        "session": "S131",
-        "method": "Headless Chromium (project playwright 1.60.0, swiftshader; effective 21 fps) driving a real VS-BOTS match: titleScreen.getButtonCenters().vsBots -> botSetupOverlay.getUiPoints().start -> gameState PLAYING with 4 players, 34 primitives, cinematicsEnabled true, 0 pageerrors. Genuine crossing armed by setting the leader's banked score to 499 so scoring.ts:301 emits for real; scoreProgress observed 500.03. Pixel-measured bbox + a 13-sample hold sweep with an in-page rAF frame counter.",
-        "measured": {
-          "centre_x": 959.5,
-          "glyph_band_y": [
-            34,
-            59
-          ],
-          "bottom_edge": 60,
-          "gap_to_combos_counter_px": 13,
-          "hold_present_at_frame": 106,
-          "hold_absent_at_frame": 134,
-          "TIER_BANNER_FRAMES": 120
-        },
-        "discrepancies_found": [
-          "ACCEPTANCE TEXT WRONG: PDR/boot-snapshot acceptance item 1 says 'white 26px monospace'. The fill is the LEADER'S COLOUR - drainTierBanner (ui.ts:366) overwrites the white TextStyle default with cap.color = leader.color (scoring.ts:304). Observed yellow 0xffe23b (seat 2) and cyan 0x3bd7ff (seat 1). Not a defect - all 7 PLAYER_COLORS are high-luminance so contrast is safe - but the criterion as written is false. Owner ruled: fold the correction into P1b scope row 7.",
-          "PDR SCOPE ROW 5 FIGURE STALE (in the SAFE direction): it derives the y=240 sever-toast slot from banner 'bottom ~68'. Measured bottom is ~60, so y=240 clears with MORE margin than assumed. De-risks P1b; correct the figure in row 7.",
-          "HOLD IS DISPLAY-REFRESH-DEPENDENT, not 2 seconds. No maxFPS anywhere (grep over src/, e2e/, index.html, vite.config.ts = 0 hits) and the sole game ticker is app.ticker.add (main.ts:1403), so Pixi's uncapped default applies: 120 frames = 2.0s at 60Hz but ~1.0s at 120Hz and ~0.83s at 144Hz. ui.ts:37-39 documents '~2 s at 60 fps' so this is honest, not a bug - but CARRY FORWARD: check whether Commit B's sever toast inherits the same frame-based hold, since a high-refresh owner display halves every such window."
-        ]
-      }
-    },
-    {
-      "id": "P1b-v06-03-sever-attribution",
-      "label": "V6-0.3 sub-item 2 (Commit B) - sever attribution. Two additive-optional fields (actor id + victim id) across ALL FOUR coordinated wire sites edited together (GameEffect variant, SerializedEffect wire type, serializeEffect case, deserializeEffect case - they are per-case object literals with NO spread, so a field added to only the first two silently never reaches the wire). Per-cause populate table: victim = primA.placedBy always for all 7 causes; actor per cause with 'physics' NEVER populated (physicsLoop.ts passes a hardcoded asPlayerId(0) its own comment calls informational) and 'godly' omitted as unreachable. New PRE-WIPE sever-toast drain beside the banner drain, delegating to ONE pure reducer: victim gate on world.localPlayerId evaluated on the MAIN THREAD ONLY (workerSim.ts:201 is a third writer), two-clause suppression (actor===victim; cause==='bomb' unconditionally), frame-batch grouping with a count, mixed-actor degradation to the actor-less form. Copy via the EXISTING tested avatarNameplateText with world.botSeats.has(actor) - never colour names. Three test guards incl. adding one SEVER_BOND dispatch to the R11 byte-guard fixture, which makes that gate sensitive to effects payload for the first time. Plus the mandatory doc amendments (LOCKED wire row, the false effects.ts header, the audioManager over-claim, the append-only BACKLOG:362 annotation, the fog row-7 strike).",
-      "status": "completed",
-      "phase": "CHECK-COMPLETE",
-      "tier": "Standard",
-      "check_completed": true,
-      "blocked_on": null,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "priority_state": "completed",
-      "gate_discharged": "Owner ruled PASS on the Commit A playtest checkpoint (S131). See P1a.owner_playtest_gate.",
-      "checkpoint_commit": "c7b856f",
-      "real_context_tokens_at_close": 301836,
-      "real_context_pct_at_close": 30.18,
-      "check_method": "CHECK on the real diff, plus a RUNTIME pass because this slot exists precisely because V6-0.2 shipped dead through a green suite. (1) STATIC: tsc -b --noEmit exit 0; npx vitest run 1964/1964 across 129 files (was 1941/128 at boot, independently re-measured this session, so +23 tests / +1 file); npm run build exit 0 with bundle 644.7/750 KiB (+2.1 KiB measured against 642.6, 105.3 KiB headroom). (2) MUTATION-TESTED ALL THREE NEW GUARDS, because an assertion that has never failed is indistinguishable from one that cannot fail: moving severToastRenderer.drainSeverToast below effectsRenderer.sync made the source-order lock fail with the exact expected message; deleting the cause=='bomb' suppression clause failed 2 reducer tests; dropping actor from serializeEffect's BOND_SEVERED literal failed the R11 wire-byte guard. All three reverted and re-verified green (grep for MUTATION TEST returns nothing). (3) RUNTIME, REAL PIXELS, NO SYNTHETIC EFFECTS: headless Chromium (the project's own playwright, swiftshader, 21fps effective) booted a real VS-BOTS match. The tier banner was driven by setting the leader's banked score to SCORE_TIER_STEP-1 so scoring.ts:301 emitted naturally - measured centre_x 959.5, glyph band y 34-59, ~13px clear of the combos counter, hold bracketed present@frame106 / absent@frame134 confirming TIER_BANNER_FRAMES=120. The sever toast was driven by dispatching SEVER_BOND through the app's own live controls.dispatchFn against a bond a bot had actually built, so the BOND_SEVERED came out of applySeverBond itself (bond count observed 30->29). Toast measured at centre_x 960.0 exactly, glyph band y 228-249 (y=240 centre-anchored), effective alpha 0.96 = PEAK_ALPHA; rendered copy was the P1-possessive CREATURE line. Acceptance item 3 verified as a GENUINE NEGATIVE: a real self-sever produced NO toast. Zero pageerrors in both runs. (4) FOUR CLEARANCES measured from pixels rather than assumed: toast top 228 vs banner bottom 60 (168px), vs combo-toast band ~287-317 (38px), vs Combos counter y13-21 (207px), and horizontally clear of the leaderboard column (toast starts x739). (5) THREE PDR DEFECTS CAUGHT AND DELIBERATELY NOT IMPLEMENTED AS WRITTEN, each recorded rather than silently skipped: row 6(a) asked for seagullRenderer.sync and poopRenderer.sync in an allowlist documented as 'reads world.effects', but neither file contains a single world.effects reference, so listing them would have made the guard assert a falsehood about them AND frozen their call position for a reason that does not exist; row 7 cited ui.ts:506 for an IX.5 deferral comment that is not there (real anchor ui.ts:594; the section itself is SPARK_Blueprint.md:375); row 3's seven-arm per-cause actor table was replaced by ONE deny-list rule after reading all six dispatch sites and confirming each already passes the responsible seat in action.playerId - identical values, cannot drift as causes are added, and satisfies risk R-E structurally since an exhaustive switch over cause cannot compile ('godly' is in the effect union, not the action union).",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "APPEND-ONLY ANNOTATION (V6-0.3 / S131)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "OWNER PLAYTEST GATE DISCHARGED S131"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "MUTATION-TESTED rather than merely green"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/game/effects.ts",
-          "needle": "readonly actor?: PlayerId;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/game/effects.ts",
-          "needle": "readonly victim?: PlayerId;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
-          "needle": "actor: e.actor,"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
-          "needle": "actor: s.actor,"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/severBond.ts",
-          "needle": "export function severActor"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/severToastRenderer.ts",
-          "needle": "export function captureSeverToast"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/severToastRenderer.ts",
-          "needle": "SEVER_TOAST_DURATION_TICKS = 150"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "severToastRenderer.drainSeverToast(world);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.drainOrder.test.ts",
-          "needle": "severToastRenderer.drainSeverToast(world)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.replay.test.ts",
-          "needle": "cause: 'chewer',"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/LOCKED_DECISIONS.md",
-          "needle": "**SEVEN members**"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/SPARK_Blueprint.md",
-          "needle": "CLOSED V6-0.3 / S131"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/audioManager.ts",
-          "needle": "OVER-CLAIMS"
-        }
-      ]
-    },
-    {
-      "id": "P2-ci-carrier",
-      "label": "CI carrier - make a red test block a master-push deploy. A.0 STATE FINDING corrects the owner's ruling: the recorded claim 'NO CI job runs vitest OR typecheck' is HALF WRONG. package.json's build is 'tsc -b && vite build && check-bundle-size', so npm run build ALREADY runs tsc -b and already enforces the bundle cap - a type error already fails the deploy today, transitively. vitest is the genuine gap. Scope: gating 'npx vitest run' (NEVER 'npm test' - that script is bare vitest = watch mode and would hang the runner to its ceiling), an EXPLICIT 'npm run typecheck' step so the existing gate stops being invisible and fast-fails with the real reason, and timeout-minutes on both jobs (deploy.yml sets none today, so it inherits the 6-HOUR default). Steps go inside the existing build job before npm run build, reusing its npm ci. deploy.yml only.",
-      "status": "completed",
-      "phase": "CHECK-COMPLETE",
-      "tier": "Micro",
-      "check_completed": true,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "priority_state": "completed",
-      "unlock_source": "user",
-      "blocked_on": null,
-      "checkpoint_commit": "9b50c89",
-      "real_context_tokens_at_close": 387853,
-      "real_context_pct_at_close": 38.79,
-      "check_method": "Micro-tier CHECK on a workflow file, which cannot be exercised: the gh token has no write auth, so deploy.yml has NOT run since the gate was added. Verification is static BY NECESSITY and is recorded as such rather than implying a green CI run. (1) A.0 STATE PROBE THAT CORRECTED THE OWNER'S RULING (Rule 21): the ruling rested on the recorded claim 'NO CI job runs vitest OR typecheck - zero hits across .github/workflows/'. The grep is accurate and its conclusion is HALF FALSE - package.json defines build as 'tsc -b && vite build && node scripts/check-bundle-size.mjs', so npm run build has ALWAYS run tsc -b and always enforced the bundle cap. A type error has been failing this deploy all along, transitively; vitest was the only real gap. Corrected in the amended PDR, in LOCKED_DECISIONS.md (which had repeated the claim earlier in THIS session), and in the workflow itself. (2) YAML parsed with a real parser (not regex): both jobs present, steps in order npm ci -> npm run typecheck -> npx vitest run -> npm run build, timeout-minutes 15/10. (3) NEW GUARD src/ci.deployGate.test.ts, 6 tests, MUTATION-TESTED: swapping 'npx vitest run' for 'npm test' fails it (verified, reverted). The guard asserts on the EXTRACTED run: commands, not on file text, because deploy.yml deliberately mentions 'npm test' in the warning comment that prevents the mistake - a substring check would have failed on its own documentation. It also pins that the paths filter still includes src/**, since a perfect gate behind a filter that excludes source would never fire. (4) tsc 0; vitest 1970/1970 (130 files, +6). Bundle unchanged - no src/ runtime code touched. (5) HONEST LIMITS NAMED IN-FILE: a timeout kill still concludes 'cancelled' not 'failure' (no email, no artifacts), and vitest has no global-suite-timeout flag to place below the job timeout the way PW_GLOBAL_TIMEOUT_MIN sits below Playwright's - so this bounds the WASTE without closing the silent-signal class. package.json's bare-vitest watch-mode trap is left as a logged carry-forward (different file, different concern, Rule 16). (6) SIDE EFFECT WORTH NAMING: constants.lock.test.ts is now a CI-BLOCKING guard for the first time rather than a local tripwire - exactly what the S86 Council asked for after the S85->S86 fog regression ('Docs alone didn't stop it; a CI-blocking test does').",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.github/workflows/deploy.yml",
-          "needle": "run: npx vitest run"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.github/workflows/deploy.yml",
-          "needle": "run: npm run typecheck"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.github/workflows/deploy.yml",
-          "needle": "timeout-minutes: 15"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.github/workflows/deploy.yml",
-          "needle": "timeout-minutes: 10"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/ci.deployGate.test.ts",
-          "needle": "expect(RUN_COMMANDS).toContain('npx vitest run')"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/ci.deployGate.test.ts",
-          "needle": "expect(RUN_COMMANDS).not.toContain('npm test')"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/LOCKED_DECISIONS.md",
-          "needle": "CORRECTION + UPGRADE (S131 P2)"
-        }
-      ]
-    },
-    {
-      "id": "P3-toast-backing-plate",
-      "label": "Centre-column backing plate for the two V6-0.3 read-me surfaces. The S131 playtest showed the tier banner (glyph band y 34-59) and the sever toast (y 228-249) both rendering over live world geometry - spawner rings and structures pass behind the glyphs. Text draws on top so it stays readable, but it is avoidable noise on the two lines that exist to be READ. Add a dark semi-transparent plate behind each, on the shipped betaBadgePlate precedent (main.ts:540). Plate alpha must be driven by the SAME countdown/container alpha as its text so the two appear and fade as one object, and must be invisible whenever the text is - a plate outliving its text is a black rectangle on the board. NO repositioning: the owner ruled PASS on placement; this is legibility only.",
+      "id": "P1-probe-instrument-repair",
+      "label": "Repair the V6-0.1 economy probe harness so the Phase-1 gating playtest produces a trustworthy ruling. A.0 drove the instrument headlessly for the first time in four sessions: it WORKS (arms, draws, measures; B3 empirically CONFIRMED at pool 1.81 vs lambda*W 1.93, throughput 0.1933/s, 8-slot fair-share fill 248s vs BACKLOG's ~256s). Two deltas: (1) the probe is solo-only but B3/B4 are 6-seat claims, so solo fills an 8-slot bank in 41s not 248s and the owner would rule B3 the wrong way -- fix by surfacing the seat-share arithmetic on the overlay and adding &spawn=0.03125 to the recipe; (2) inventory.shift() sits ABOVE the carry-1 guard at probeHarness.ts:291, so Q-while-carrying silently destroys a slot (measured 8/8 -> 7/8 -> 6/8).",
       "status": "completed",
       "phase": "CHECK-COMPLETE",
       "tier": "Micro",
@@ -283,228 +53,107 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "checkpoint_commit": "1eb68e9",
-      "real_context_tokens_at_close": 387853,
-      "real_context_pct_at_close": 38.79,
-      "check_method": "Micro-tier CHECK, static + runtime. (1) STATIC: tsc 0; vitest 1976/1976 (130 files, +6 plate-geometry tests); build exit 0 with bundle 645.4/750 KiB (+0.7 KiB against 644.7, 104.6 KiB headroom). (2) GEOMETRY IS A PURE FUNCTION (bannerPlateRect) rather than inlined in a Pixi method, for the V6-0.2 reason: geometry buried in a method can only be verified by constructing an Application. Tests cover centring, four-sided containment, growth with the label, the dark-not-opaque fill, the shared alpha envelope, and specifically that it honours the TOP anchor (0.5,0) instead of reading y as the text centre - the mis-anchoring that would leave descenders bare. (3) NO IMPORT CYCLE: severToastRenderer now imports HUD_PLATE_FILL from ui.ts; verified one-way (ui.ts imports only pixi/constants/world/types/combos, and only main.ts imports severToastRenderer). Confirmed at runtime too - __SPARK__ came up, which a cycle would have broken at boot. (4) RUNTIME, REAL PIXELS, NOTHING SYNTHETIC: banner fired via the genuine emitter (leader score set to SCORE_TIER_STEP-1 so scoring.ts:301 emitted); toast fired via a genuine SEVER_BOND dispatch through the app's own controls.dispatchFn against a bond a bot had built. Both plates observed rendering BEHIND their text and masking the spawner rings / structure that previously ran through the glyphs. (5) THE CHECK IT WOULD HAVE BEEN EMBARRASSING TO SKIP - that neither plate OUTLIVES its text, since a lingering plate is a black rectangle on the board, worse than the noise it removes. Toast band warm-pixel count 0 (before) -> 3759 (peak, alpha 0.96) -> 0 (after expiry); banner band 968 -> 2136 -> 940 (back to its pre-crossing count); plus a separate capture at TITLE exercising the non-PLAYING branch. Zero pageerrors across both runs. (6) A MEASUREMENT ERROR CAUGHT BEFORE IT BECAME A FALSE PASS: the first capture shot the toast immediately after dispatch, i.e. inside the 12% fade-in (~18 ticks), so the glyphs barely cleared the brightness threshold and with-plate vs after-expiry differed by only 22 px - indistinguishable from 'still gone'. Re-captured inside the hold to measure at peak. (7) Retired a now-false claim in the file that made it: ui.tierBanner.test.ts's header said the banner's visual placement 'remains genuinely unverified... the owner's eye to judge'.",
+      "checkpoint_commit": "PENDING-SEE-FOLLOWUP",
+      "real_context_tokens_at_close": 141824,
+      "real_context_pct_at_close": 14.18,
+      "check_method": "Micro-tier CHECK, static + MUTATION + real-pixel. (1) STATIC: tsc 0; npx vitest run 2001/2001 across 130 files (+11 from the 1990 boot baseline); npm run build exit 0 with the entry chunk at 645.5 KiB / 750 cap, 104.5 KiB headroom -- and the entry HASH is byte-identical across the before/after builds (index-C4WI_4XB.js, 661016 B both times), which is independent proof the DEV-only module contributes zero production bytes. gitleaks 8.30.1 clean over 841 commits. (2) MUTATION -- 8 of 8 CAUGHT, ZERO VACUOUS. A green suite proves nothing until the defended line is broken and the test watched to fail (S131 broke 4 of 4 of its own new guards this way). M1 hoist the consume back above the carry-1 guard, i.e. the original bug -> RED (2 failed). M2 drop the player-exists half of the refusal -> RED (1). M3 representative tolerance 2 pct -> exact equality -> RED (1). M4 fair-share denominator MAX_PLAYERS -> hardcoded 5 -> RED (4). M5 Number.isFinite dropped so an infinite cap returns Infinity -> RED (1). M6 FIFO -> LIFO -> RED (1). M7 ramp threshold reverted to sample-count units -> RED (2). M8 settle window shortened to one TTL -> RED (2). Scripts: scratchpad/mutate.sh + mutate2.sh. (3) REAL PIXELS, genuine emitter, no synthetic payload -- headless Chromium via the project own playwright + swiftshader, booting a real solo match through the title screen live geometry getter and driving actual keydown events. DELTA-2 fixed and CONFIRMED in-browser: 8/8 -> 7/8 (genuine draw) -> 7/8 (refused draw, inventory intact); it read 6/8 before the fix. Seat-share block verified in BOTH conditions: shipped default renders NOT 6-seat-representative ... 6.0x more generous ... FIX: ?spawn=0.03125, with fills 43s vs 256s; the corrected recipe renders lambda 0.0313/s (OVERRIDDEN) and = ONE SEAT of a 6-seat match with both fills agreeing at 256s. At the fair share the pool reads 0.00 -- the arena is literally empty, which is B3 rendered rather than argued. (4) TWO DEFECTS IN MY OWN CHANGE, CAUGHT ONLY BY SCREENSHOTTING -- both invisible to a green suite because every string was correct: (a) max-width:44ch with white-space:pre CLIPS rather than wraps, and 44ch was already too narrow for content shipped in S128 (the REGIME line at 53 chars, a full 12-slot INVENTORY at 77, the recipes-fitting line at 77 were all cut off mid-word) -- widened to 80ch, which fixes the pre-existing clipping too; (b) the ramp warning compared poolSamples.length against TTL*6, but the sampler fires every 100ms (~10/s) while the sim runs 60 ticks/s, so it silently demanded 360s of hold while the on-screen message promised 60s -- the overlay still read ramping after a 63s hold. Re-denominated in SIM TICKS, pinned by M7/M8. (5) FALSE ALARM CORRECTED, mechanism verified rather than conclusion trusted: a recursive grep of dist/ for PROBE_SENTINEL reported a LEAK. It is not one -- the only hit is index-*.js.map, a sourcemap whose sourcesContent embeds the original TypeScript of all 432 modules by design. The repo own documented contract is dist/assets/*.js, where the sentinel is ABSENT and there are 0 occurrences of takeFromInventory / seatShareReadout / RAMP_SETTLE_TICKS. The docblock now warns the next reader off the broad grep form.",
       "verification": [
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
-          "needle": "export function bannerPlateRect"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/dev/probeHarness.ts",
+          "needle": "export function takeFromInventory",
+          "why": "DELTA-2 fix: decision and consume in ONE unit that owns the array, so consumed-despite-refusing is observable from a Node test. Mutation M1 (re-hoisting the consume) goes RED."
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
-          "needle": "export const HUD_PLATE_FILL"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/dev/probeHarness.ts",
+          "needle": "export function seatShareReadout",
+          "why": "DELTA-1 fix: the solo-vs-6-seat faucet gap, pure and testable. Mutations M3/M4/M5 all go RED."
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
-          "needle": "this.tierBannerPlate.visible = false;"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/dev/probeHarness.ts",
+          "needle": "export const RAMP_SETTLE_TICKS",
+          "why": "Ramp threshold in SIM TICKS, not sample count -- the units bug caught by screenshot. Mutations M7/M8 go RED."
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
-          "needle": "const TIER_BANNER_Y = 34;"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/dev/probeHarness.ts",
+          "needle": "max-width:80ch",
+          "why": "Overlay was clipping at 44ch with white-space:pre, including content shipped in S128. Verified legible in a real screenshot."
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/severToastRenderer.ts",
-          "needle": "this.group.scale.set(pose.scale);"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/dev/probeHarness.test.ts",
+          "needle": "takeFromInventory never consumes on a refused draw",
+          "why": "The DELTA-2 behavioural guard, mutation-proven non-vacuous (M1, M2, M6)."
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/severToastRenderer.ts",
-          "needle": "this.plate.clear()"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/dev/probeHarness.test.ts",
+          "needle": "seatShareReadout exposes the solo-vs-6-seat faucet gap",
+          "why": "The DELTA-1 guard, mutation-proven non-vacuous (M3, M4, M5)."
         },
         {
           "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.tierBanner.test.ts",
-          "needle": "banner backing plate geometry"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "SUPPLY SIDE IS NOW SETTLED EMPIRICALLY (S132)",
+          "why": "CARRY-FORWARD LEDGER section B updated: B3 confirmed with measured figures, the playtest-URL trap named, the Q double-binding logged as a live-if-mode-changes carry-forward. Required ABSOLUTE-path binding for the BACKLOG.md edit (MCV)."
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/boot-snapshot.md",
+          "needle": "IS NOT OPTIONAL",
+          "why": "The corrected playtest recipe the owner actually reads at boot."
         }
       ]
     }
   ],
-  "carry_forward_priorities": [
-    "S127 CI x4 (PARKED, not dropped): permanent soak window/threshold shape (BLOCKED: needs the Mon 2026-08-03 07:00 UTC cron sample - TODAY, but unreadable while gh auth is invalid; do NOT decide on n=3-4) | worker-isolate ceiling 10MB->~3MB (BLOCKED: readWorkerFloorMB() is a single read at worker-heap.spec.ts:182, outside the stabilization loop at :174-181) | Playwright deviceScaleFactor raster lever (needs before/after) | e2e/** outside tsconfig coverage",
-    "OWNER ACTION, blocks everything: `gh auth login -h github.com` then `git push origin master && git push origin v0.5.2-pre-pivot`. Then the Pages `gh api -X PUT repos/:owner/:repo/pages -f build_type=workflow` -> verify live asset hash -> THEN optionally delete origin/gh-pages, IN THAT ORDER.",
-    "OWNER ACTION, gates all of Phase 1: probe playtest `/?probe=1&regime=new&slots=8` -> rules B3 + B4.",
-    "NEW S130 (process, material): NO CI job runs vitest or typecheck. The per-session tsc/vitest/bundle figures are local and self-reported. Consider adding a units+types job to .github/workflows/ - but note it cannot run until the push lands.",
-    "NEW S130: e2e smoke.spec.ts:637 asserts toContain('v9') while PROTOCOL_VERSION is 15 - stale for five bumps, surviving only because its describe is @quarantine-flaky (:595), excluded by package.json:15 --grep-invert and run continue-on-error in e2e.yml:202-205. The only runtime coverage of the version gate cannot fail the build.",
-    "NEW S130: the R11 NetSnapshot byte guard (save.replay.test.ts:776) runs on a ZERO-effects fixture, so it is structurally insensitive to any effects-payload change. A future effects regression would pass.",
-    "NEW S130: BACKLOG.md:518-521 claims risks with a code anchor carry a `// V6-RISK(Rn):` comment. That carrier DOES NOT EXIST - grep returns exactly one hit, V6-RISK(B3) at dev/probeBootstrap.ts:26. Zero of R1-R23 has a code anchor; enforcement rides only the markdown row plus session-close verification[] bindings.",
-    "NEW S130 (Council F1, bound): reliable per-seat synced-field carrier for sever attribution in NETWORKED play. Bound to whichever slot first makes remote play primary. The scalar form the BACKLOG cited (world.sudoku.solvedBy / world.comboToastTick) is recorded as ARCHITECTURALLY UNFIT - a sever is high-frequency and per-victim, so a global scalar triple is clobbered within one frame's up-to-3-tick drain. Needs a per-seat 6-slot array.",
-    "NEW S130 (Council F4, declined): SCORE_TIER on the wire for client tier-banner parity. Declined - it would be a new serialized LITERAL in the S110 'WALK' bump class, with a traced stale-peer hard crash path (deserializeEffect has no default case -> undefined pushed at save.ts:1028-1032 -> effectsRenderer derefs e.kind in the Pixi ticker outside sync.ts's try/catch). Consequence: after the S130 banner repair the tier banner works in solo/bots and stays DEAD for a 1v1 joiner.",
-    "NEW S130 (supervisor, verified - NO Council leg raised it): scoring.ts:99's single-owner rule carries its own expiry - 'If a future cross-player bond feature [e.g. Steal] is ever added, revisit this single-owner rule.' Steal is a Phase 2 feature. When Steal lands, primA.placedBy alone STOPS being a safe victim key and the V6-0.3 victim field needs a both-endpoints rule.",
-    "NEW S130 (Council F3-C, one-line flip): the 'show surprise self-harm' bomb copy variant ('YOUR BOMB CUT N OF YOUR OWN BONDS'). Owner ruled SUPPRESS for now; flip after a playtest if the suppression reads as the game hiding information.",
-    "NEW S130 (PRIME-AUDIT R-C, open by construction): the drain-order source lock protects only the consumers named in its allowlist. Nothing stops a future session adding an unlisted world.effects reader AFTER the wipe at main.ts:2486. The defect CLASS is mitigated for known consumers and OPEN for new ones.",
-    "NEW S130 (PRIME-AUDIT R-B, watch first in the playtest): physics-cause toast spam. No Council leg addressed frequency. Per-frame coalescing bounds it to one toast per frame, but under 'Overwrite = restart' a chronically rubber-banding structure holds a persistent OVERSTRETCHED toast. Cheapest mitigation is dropping the physics row entirely - it is the one row with no attribution to make.",
-    "NEW S130 (declined, logged): §IX.5 branch 3 - the pre-commit bond-hover cost preview (~120-200 LoC, ~8-12K). Declined on discipline: a new interactive mechanic does not belong in the same slot as a repair of a shipped-broken visual.",
-    "NEW S130 (logged, not fixed): protocol.ts:146 changelog ends at 13->14 while PROTOCOL_VERSION is 15 (the S124 bump is recorded only in the block comment at :95-99); and protocol.test.ts:300's test TITLE says 'PROTOCOL_VERSION is 14' while its body at :326 asserts 15.",
-    "NEW S130 (fog, carried): LOCKED_DECISIONS §2 items 5 (R_beacon) and 6 (vision fade) remain stale, and the worker-vision clause (SPARK_Blueprint.md:109, LOCKED_DECISIONS.md:26) CANNOT be ratified because no gatherer entity exists - computeVisionSources (vision.ts:57-74) has exactly four source classes. Bound to V6-1.1/V6-1.2. Touch NO radius: SPAWNER_RADIUS is still 250 (constants.ts:76) vs the Blueprint's v0.6 188, and LOCKED_DECISIONS:208 says re-judge only AFTER the V6-1.2 shrink."
-  ],
+  "carry_forward_priorities": [],
   "reflexion_entries_to_archive": [
     {
-      "tag": "#test-the-call-site-not-only-the-arithmetic",
-      "priority": "P1a",
-      "entry": "V6-0.2 shipped a tier banner that could never render, and its test file was GREEN with ten passing tests. The tests pinned formatTierBanner, tierBannerAlpha and resetWatermarkIfRegressed - every pure helper AROUND the defect - while the defect itself was a call-site ORDERING fact: the scan ran 29 lines after the array it reads is emptied. The file's own docblock even recorded the reason for the gap ('the draw path cannot be driven headlessly'), so the blind spot was known and accepted rather than hidden. The lesson is that 'I extracted the logic into pure functions and pinned it' is NOT a substitute for verifying the wiring; it is a substitute for verifying the LOGIC, and those fail differently. When the untestable part is the part that decides whether the feature runs at all, extract a seam that makes the WIRING assertable - here, a source-order lock over main.ts plus a pure capture function whose order-sensitivity can be demonstrated. Both new guards target the call site; neither adds arithmetic coverage."
+      "tag": "#four-sessions-of-owner-hasnt-run-it-and-nobody-checked-the-instrument",
+      "lesson": "A gate unmet for four sessions is a hypothesis about the OWNER, and it was never tested. The probe harness gating all of Phase 1 had never once been exercised. Driving it took one session and found a bug that leaks the bank plus a framing trap that would have produced the wrong ruling. When a blocker is waiting on a human, check the thing you would be handing them FIRST."
     },
     {
-      "tag": "#a-guard-that-only-passes-has-not-been-tested",
-      "priority": "P1a",
-      "entry": "I wrote a source-order lock asserting that every world.effects consumer precedes the wipe in main.ts, and it passed on the first run. That proves nothing on its own - an assertion that can never fail is indistinguishable from one that always passes. So I mutated the source, moving hud.drainTierBanner below effectsRenderer.sync to reproduce the exact S129 arrangement, and confirmed the guard FAILED (1 failed / 8 passed), then reverted and confirmed 9/9. That took two minutes and converted 'the guard exists' into 'the guard bites'. This is the same principle as the prior session's lesson that when an artifact's job is to MEASURE, you must audit the measurement path - generalised: when an artifact's job is to CATCH, you must show it catching. Every regression lock should ship with evidence of a deliberate failure."
+      "tag": "#an-instrument-that-cannot-reproduce-its-own-test-condition",
+      "lesson": "The probe is solo-only by construction; B3/B4 are six-seat claims. Solo receives the whole arena faucet, so it fills an 8-slot bank 6x faster than the condition being ruled on. Correct code, correct measurements, wrong CONDITION -- and nothing in the harness said so. Ask what the instrument is a measurement OF, not only whether it measures accurately."
     },
     {
-      "tag": "#a-blocked-verification-path-may-have-a-side-door",
-      "priority": "P1a",
-      "entry": "Two sessions running recorded 'the visual cannot be verified because a hidden Browser pane pauses requestAnimationFrame, so the Pixi ticker never advances' and substituted pure-function tests. That premise is true but the CONCLUSION was too broad: rAF is only the DRIVER of the ticker, not the ticker itself. app.ticker.update(now) pumps the real frame callback directly, in production order, with no rAF involved - so the whole 'is it wired correctly' question was answerable all along, and it is exactly the question that mattered. Pushing a genuine SCORE_TIER into world.effects and pumping one frame showed the banner arm, showed world.effects go 1 -> 0 in that same frame (proving the read beat the wipe rather than merely sitting earlier in the file), showed the hold, the hide at TITLE, and the re-arm next match. What genuinely remains blocked is much narrower than the recorded blocker: PIXEL output, because a hidden pane's GL context produces no frames. Lesson: when a capability is recorded as unavailable, re-derive WHICH layer is actually blocked before inheriting the conclusion - the blocked layer is often one level away from the layer you need."
-    },
-    {
-      "tag": "#a-gate-that-lies-about-unlocking-is-worse-than-one-that-fails",
-      "priority": "P1a",
-      "entry": "Getting the approved PDR past the write gate exposed THREE independent bugs in the approval handshake, none previously visible. (1) validate_priority_id allows only [A-Za-z0-9_-], so a dotted id like P1-v06-0.3-... is rejected as malformed and glue_pdr_unlock returns without minting unlock_source; S129 used a dotted id too, so its unlock_source=user cannot have come from the hook and must have been hand-written. (2) The mint uses awk sub() on an EXISTING unlock_source line and cannot INSERT the key, so a priority entry lacking it makes the mint a silent no-op - while the hook still prints 'Cleared ... Edits permitted' UNCONDITIONALLY, so success and failure are indistinguishable from the output. (3) glue_pdr_unlock writes priority_state='unlocked' but pdca-final-gate.sh accepts only approved|in_progress|completed, i.e. the unlock hook writes a state its own gate rejects. Bug 2 is the dangerous one: I initially believed the mint had succeeded because the hook said so, and only caught it by reading the file back. Trust the STATE, not the announcement - and when a control claims to have acted, verify the artifact it was supposed to change."
-    },
-    {
-      "tag": "#do-not-satisfy-a-checker-by-making-a-false-claim",
-      "priority": "P1a",
-      "entry": "MCV hard-failed because BACKLOG.md was modified with no absolute-path binding, and reading the verifier showed why my binding was ignored: line 289 collects verification[] ONLY from priorities whose status is 'completed'. The fastest fix would have been to mark the whole V6-0.3 priority completed - which would have been a lie, since the attribution work had not started, and precisely the fabrication class MCV exists to catch. The honest fix was to notice that the priority as recorded did not match reality: the banner repair genuinely WAS a complete, committed, independently revertable unit, and the attribution work genuinely was a separate not-started one. Splitting the record to match what actually happened made the checker pass as a side effect. When a gate blocks, the question to ask first is whether the gate has found a real misstatement in the bookkeeping - not how to phrase the claim so it slips through."
-    },
-    {
-      "session": "S131",
-      "tag": "#a-blocked-verification-path-usually-has-a-side-door-one-layer-over",
-      "entry": "Two sessions recorded the banner's visual as unverifiable because the Browser pane will not composite. True, and not the whole board: the project already ships playwright, and headless Chromium composites fine. The blocked layer was the PANE, not the BROWSER. Before recording something as unverifiable, name the exact layer that is blocked and ask what else supplies it."
-    },
-    {
-      "session": "S131",
-      "tag": "#drive-the-real-emitter-not-a-lookalike-payload",
-      "entry": "It was tempting to push a hand-built SCORE_TIER into world.effects to make the banner appear. Setting the leader's score to STEP-1 and letting scoring.ts emit costs the same and proves strictly more: the emitter's own gates (cinematicsEnabled, leaderId, newTier>oldTier) become part of the evidence. Same for the toast, driven through the app's live dispatchFn. A synthetic payload verifies the consumer while quietly assuming the producer."
-    },
-    {
-      "session": "S131",
-      "tag": "#a-detector-can-fail-on-a-property-you-forgot-varies",
-      "entry": "My banner-presence check matched yellow pixels and reported ZERO hits across an entire hold sweep - because that run's leader was seat 1 (cyan) and the fill is the leader's colour. I nearly filed 'the banner does not render' off a detector measuring the wrong invariant. When an oracle returns all-negative, suspect the oracle before the subject."
-    },
-    {
-      "session": "S131",
-      "tag": "#a-fully-specced-plan-still-needs-its-anchors-probed",
-      "entry": "The handoff said FULLY SPECCED, DO NOT RE-DERIVE, and that was right about the DESIGN. It was not a reason to skip Rule 21 on the plan's factual anchors: three did not hold - two renderers the PDR wanted in a 'reads world.effects' allowlist read no effects at all, a cited comment did not exist at the cited line, and a seven-arm table collapsed to one rule once the six dispatch sites were actually read. Do not re-derive the decision; do verify the state it rests on."
-    },
-    {
-      "session": "S131",
-      "tag": "#a-frame-count-is-not-a-duration",
-      "entry": "TIER_BANNER_FRAMES=120 reads like 2 seconds and is not: nothing caps the Pixi ticker, so it is 2.0s at 60Hz and ~0.83s at 144Hz. The owner was being asked to judge legibility 'in the ~2s hold' on hardware where it may be under a second. The new toast holds in SIM TICKS instead. When a window exists for a human to READ something, measure it in time, not frames."
-    },
-    {
-      "session": "S131",
-      "tag": "#a-grep-proves-a-string-is-absent-not-a-behaviour",
-      "entry": "The claim 'NO CI job runs vitest OR typecheck - zero hits across .github/workflows/' was carried by several handoffs, drove an owner ruling, and I repeated it in LOCKED_DECISIONS.md earlier in this same session. The grep was correct; the inference was half wrong, because npm run build IS 'tsc -b && vite build && check-bundle-size'. A literal-string search cannot see through a script indirection. When a grep is load-bearing for a decision, follow the scripts it names."
-    },
-    {
-      "session": "S131",
       "tag": "#measure-inside-the-hold-not-on-the-edge-of-the-ramp",
-      "entry": "My first plate check compared with-plate against after-expiry and got a 22-pixel difference, which would have read as 'the plate never appeared'. The shot had landed inside the 0.3s fade-in. When a thing animates in, any measurement taken at t=0 measures the animation, not the thing. Sample in the steady state."
+      "lesson": "Re-learned the hard way from this repo own boot snapshot. I called lambda*W wrong in both directions from a 63s window on a 10s-TTL process and a 12s run held entirely inside the ramp. Both readings were artifacts of my protocol, not the instrument. A tick-locked census past the ramp showed the model exact: throughput 0.1933 vs 0.1875, lifetime 600/600/600."
     },
     {
-      "session": "S131",
-      "tag": "#a-plate-must-die-with-its-label",
-      "entry": "Adding a backing plate creates a new way to fail that the text alone did not have: the plate can outlive its label and sit on the board as a black rectangle. I wired visibility in the same statements on every path and then PROVED absence (0 -> 3759 -> 0 warm px) rather than only proving presence. Verifying that a feature appears is half a test."
+      "tag": "#a-green-suite-cannot-see-a-clipped-string",
+      "lesson": "Two defects in my own change survived 2001 passing tests and were caught by screenshotting the overlay: max-width:44ch clipping every long line (including content shipped in S128), and a ramp threshold in the wrong units that demanded 360s while promising 60s. Every string was CORRECT; the viewport and the denominator were wrong. Render the thing."
     },
     {
-      "session": "S131",
-      "tag": "#four-of-my-own-guards-were-vacuous-and-only-mutation-testing-found-it",
-      "entry": "I mutation-tested the guards I THOUGHT were load-bearing and shipped four others untested. A CHECK panel then broke all four by deleting one or two lines each, with the full suite staying green every time. Writing a test after fixing a bug is not the same as proving the test would have caught the bug. The rule that actually works: for every new assertion, delete the code it names and watch it fail — no exceptions for the ones that look obvious."
+      "tag": "#restructure-so-the-bug-class-is-testable-rather-than-text-pinned",
+      "lesson": "The one-line reorder fixing the consume-before-refuse bug was untestable: the live handler is unreachable from vitest, and a source-order assertion is a known trap here because indexOf matches your own comments -- and my new comment named shift four times. Moving decision+consume into one unit that owns the array made the bug class observable from Node instead of pinned by prose."
     },
     {
-      "session": "S131",
-      "tag": "#indexOf-over-source-text-matches-your-own-comments",
-      "entry": "The drain-order guard — written specifically because this defect already shipped once — could be blinded by adding one token to a COMMENT, because String.indexOf returns the first match and the file reads main.ts as raw text. I had already fixed this exact class in the CI guard the same hour (asserting on extracted `run:` commands rather than file text) and did not carry the lesson one file across. When you solve a class of problem, sweep for other instances immediately."
+      "tag": "#verify-the-mechanism-of-your-own-alarm",
+      "lesson": "A recursive grep of dist/ said PROBE_SENTINEL leaked into production. It had not -- the only hit was a sourcemap sourcesContent, and the documented contract is dist/assets/*.js specifically. I nearly reported a leak that was not there. Sixth consecutive session where verify-the-reviewer-MECHANISM applied, and this time the reviewer was me."
     },
     {
-      "session": "S131",
-      "tag": "#a-refutation-that-fails-can-still-correct-you",
-      "entry": "A reviewer tried to prove my bomb-suppression clause redundant, failed, and in failing showed my stated REASON for the clause was wrong — the rainbow shuffle preserves the correspondence I claimed it broke; the real path needs the next match's re-seating. I would have kept a true conclusion resting on a false mechanism, which is how the next session gets misled. Read the reasoning of findings that were REFUTED, not only the ones confirmed."
-    },
-    {
-      "session": "S131",
-      "tag": "#split-a-review-panel-by-what-each-leg-can-actually-verify",
-      "entry": "Giving all three legs the same diff would have had two of them guessing about code they cannot read. Internal agents that can open files took code-level review and found four surviving mutations by running them; the external models took design-level questions and returned a genuine logic bug and an independent protocol-skew confirmation. Match the lens to the leg's actual access instead of triplicating one review."
+      "tag": "#the-guard-that-saves-you-may-be-incidental",
+      "lesson": "Q IS double-bound between the probe draw and SHRINK_TERRITORY. It cannot fire only because decideKeyShrink returns false in solo and the probe is solo-only -- an unrelated guard is the sole thing preventing it. Refuted as a present defect, logged as a carry-forward, because the reason it is safe is not the reason anyone would assume."
     }
   ],
-  "session_status": "in_progress",
+  "session_status": "priority_complete",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
   "budget_total": 1000000,
   "totals": {
-    "turns": 0,
-    "budget_remaining": 1000000,
-    "budget_status": "statusline_dead"
+    "grok_calls": 0,
+    "grok_cost_usd": 0.0,
+    "gemini_calls": 0,
+    "gemini_cost_usd": 0.0,
+    "bundle_kib_entry": 645.5,
+    "vitest": "2001/2001 (130 files)",
+    "mutations_applied": 8,
+    "mutations_caught": 8
   },
-  "council_result": "S131 CHECK — TRIUMVIRATE, run at the owner's explicit request ('go'). Three legs returned; the panel was deliberately split by STRENGTH rather than giving all three the same diff: internal agents that can READ the repo took code-level review (this project's documented failure mode is reviewers filing criticals against symbols that do not exist), while the external models took design-level adversarial reasoning with the decision-dense logic inline. RALPH (4 lenses + a refutation pass per finding, 10 agents, 0 errors): 6 raised, 4 CONFIRMED, 2 REFUTED. Every confirmation was empirical — the refuters RAN each mutation instead of arguing it. All 4 confirmed findings were guards written THIS SESSION that would pass while the thing they name was broken: (i) the deserialize half of the wire was unasserted, so deleting the actor/victim pass-through left 1981/1981 green and a joiner would get NO toast at all; (ii) the plate test never referenced the plate, so deleting both plate assignments left P3's banner half dead and green; (iii) the drain-order guard — the one that exists solely to prevent the V6-0.2 defect — used String.indexOf with no comment stripping, and main.ts already carried the consumer name in a comment one `(world)` token from blinding it, demonstrated live with the defect active and the full suite green; (iv) the CI guard pinned flat file order, not the job graph, so moving the gates into a sibling job (or deleting `needs:`) passed every assertion while deploy stopped waiting on the tests. All four fixed and re-mutation-verified (commit 05ea263). GROK-ANALYST (grok-4.20-0309-reasoning): 5 findings, 2 actionable and fixed in 2fd05b8 — the tolerant-default arm was asserting the 'player' mechanism, so a mixed creature+drone batch read as a direct hostile sever; and severActor's deny-list was replaced by an exhaustive switch over the six-member ACTION union with a `never` guard (verified: deleting a case now fails tsc with TS2322). Its other 3 (backwards-tick toast loss, alpha 0 on the capture frame, fade-to-0.03 boundary) were assessed and declined with reasons recorded in the commit message. GEMINI-AUDITOR (gemini-3.1-pro-preview): TIMED OUT at 120s on the first, 3-part brief; retried narrow and returned. Independently CONFIRMED the no-PROTOCOL_VERSION-bump claim in both skew directions and on the localStorage save path, on the grounds that deserialize maps named fields with no spread and JSON.stringify drops undefined keys. Its only observation was that an old client parses then discards the two fields. NET: the CHECK found nothing broken for users today — all 6 actioned findings were future-regression gaps — but it found that 4 of my own new guards were vacuous, which is exactly the class of defect that shipped V6-0.2 dead.",
-  "prime_audit_result": "PRIME-AUDIT on the S131 CHECK itself. WHAT WAS RUBBER-STAMPED: nothing silently — the two reducer/lifecycle lenses returned ZERO findings, and rather than treat that as a pass I note it is consistent with those surfaces having been the ones I derived most carefully from raw lines. WHAT SURVIVED CONSENSUS THAT SHOULD NOT: my own docblock's stated mechanism for bomb-suppression clause (b). A reviewer tried to prove the clause redundant and FAILED — the clause is needed — but its refutation established that my stated reason was wrong (within one match the rainbow shuffle applies one bijection to both player.color and placerColor and PRESERVES the correspondence; divergence needs the shuffle plus the next match's static re-seating, because colour is never reset and START_GAME leaves a seated player in place). Correct conclusion, wrong mechanism — the #verify-the-reviewer-s-MECHANISM pattern, now 5 sessions running, this time applied to my OWN comment. Corrected in code. REVIEWER PRECISION, AUDITED BOTH WAYS: 3 of 6 findings cited a line 20-40 lines off target, and one REFUTED finding was refuted PRIMARILY on a wrong-line citation — so the anti-fabrication posture earned its keep in both directions. No finding named a nonexistent symbol; the refuters existence-checked first, as instructed. One refuter also caught a factual error INSIDE a finding it confirmed (the claimed toast degradation was wrong; the real behaviour is no toast at all) and confirmed anyway because the error understated the harm — that is the right call. RUNTIME-VERIFIABILITY: the CI carrier remains STATIC-ONLY by necessity (no write auth, so deploy.yml has never run with its gate). Everything else in the session was verified with real pixels through genuine emitters, not static parse. WHAT REMAINS UNVERIFIED AND IS NOT BEING PRETENDED OTHERWISE: (a) deploy.yml has not executed once; (b) the networked ~1/6 sever-toast delivery path has no e2e coverage and the e2e lane has not run since S127; (c) the tick-driven toast hold is untested against a genuinely frozen sim clock while frames render. All three are carry-forwards, not claims.",
-  "analyze_completed": true,
-  "analyze_result": {
-    "calibration": {
-      "summary": "8 commits, 22 files, +1909/-46 across the session. Test suite 1941/128 files at boot -> 1990/130 (+49 tests, +2 files), every added test mutation-verified. Bundle 642.6 -> 645.5 KiB (+2.9 KiB total; cap 750, headroom 104.5). Context closed at 492,552/1,000,000 (49.3% GREEN) against a 1M budget.",
-      "per_priority": [
-        {
-          "id": "P1a-v06-03-banner-repair (gate only)",
-          "estimated": "S130 shipped the code; S131 owed only an owner playtest checkpoint",
-          "actual": "discharged empirically instead of by asking — headless Chromium via the project playwright",
-          "verdict": "UNDER — the gate was assumed to need a human and did not. The recorded blocker (\"a hidden pane pauses rAF\") was true of the PANE and had been generalised to the BROWSER for two sessions."
-        },
-        {
-          "id": "P1b-v06-03-sever-attribution",
-          "estimated": "Standard, ~24K (PDR §2 rows 2-8 summed 3+3+5+3+5+3+2)",
-          "actual": "16 files, +843/-30",
-          "verdict": "ACCURATE on scope. Three of the eight scope rows were WRONG about external state and were corrected before code rather than implemented as written — the estimate held because the corrections shrank work (a 7-arm table became 1 rule) as often as they added it."
-        },
-        {
-          "id": "P2-ci-carrier",
-          "estimated": "Micro, ~3K",
-          "actual": "5 files, +243/-7",
-          "verdict": "OVER by roughly 2x, and the overrun was worth it: the A.0 probe found the owner ruling rested on a half-false premise (typecheck was already gated transitively via npm run build), and the guard grew to cover the job graph after CHECK proved file-order assertions insufficient."
-        },
-        {
-          "id": "P3-toast-backing-plate",
-          "estimated": "Micro, 1-2 files",
-          "actual": "4 files, +188/-10",
-          "verdict": "SLIGHTLY OVER — the inner-container restructure for the pop-in scale was not foreseen when scoping \"add a plate\", and the plate needed a pure geometry seam to be testable at all."
-        },
-        {
-          "id": "CHECK remediation (unplanned)",
-          "estimated": "not estimated — the Triumvirate was an owner-approved extra, not a priority",
-          "actual": "9 files, +437/-29 across 2 commits",
-          "verdict": "The single largest unplanned block of the session, and the highest-value per line: it converted 4 vacuous guards into real ones and caught 1 live logic bug."
-        }
-      ],
-      "estimate_lesson": "Micro estimates were the least reliable, both OVER. The pattern: a Micro scope line names the ARTIFACT ('add a gating step', 'add a plate') and silently omits the seam needed to make it testable — a job-graph parse, a pure geometry function, an inner container. For this codebase, budget the testability seam INTO the Micro estimate, because the project's standing failure mode makes shipping it untested not an option."
-    },
-    "retrospective": {
-      "what_worked": [
-        "Splitting the CHECK panel by what each leg can actually VERIFY. Internal agents that can open files found 4 surviving mutations by RUNNING them; the external models, given design-level questions instead of a diff they cannot check, returned a real logic bug and an independent protocol-skew confirmation. Zero fabricated symbols this session — against a documented history of them.",
-        "Driving genuine emitters rather than injecting payloads. Setting the leader's score to STEP-1 and dispatching through the app's own controls.dispatchFn made the producer part of the evidence, not an assumption.",
-        "Proving ABSENCE as well as presence (toast band 0 -> 3759 -> 0 warm px). Verifying a feature appears is half a test; the plate's new failure mode was outliving its label.",
-        "Refusing three PDR instructions that were factually wrong, and recording each refusal with evidence instead of silently skipping or blindly complying."
-      ],
-      "what_to_change": [
-        "MUTATION-TEST EVERY NEW ASSERTION, not just the ones that look load-bearing. I mutation-tested 3 guards and shipped 4 untested ones; the panel broke all 4. There is no reliable intuition for which assertion is vacuous — only deletion tells you.",
-        "SWEEP FOR THE CLASS, not the instance. I fixed 'assert on extracted commands, not raw file text' in the CI guard and left the identical indexOf-matches-comments hole in the drain-order guard the same hour. When a class of bug is found, grep for its siblings immediately.",
-        "READ THE REASONING OF REFUTED FINDINGS. The most valuable correction of the session came from a finding that was REFUTED — the refutation proved my conclusion right and my stated mechanism wrong.",
-        "TREAT 'FULLY SPECCED, DO NOT RE-DERIVE' as covering the DECISION, never the external state it rests on. Rule 21 still applies to a plan's factual anchors: 3 of this plan's failed."
-      ],
-      "process_notes": [
-        "GEMINI-AUDITOR timed out at 120s on a 3-part brief and returned fine on a narrow one. Keep external-leg prompts single-question; the protocol's 'Gemini err -> 2-way' fallback was not needed, only a retry.",
-        "gemini-2.5-pro is retired — gemini-3.1-pro-preview must be passed explicitly, and the MCP tool's own default is still the retired id. Probing it at session start cost one call and avoided a mid-CHECK failure.",
-        "The heredoc-with-apostrophes trap fired once (bash 'unexpected EOF'). The standing rule (use a script FILE, never an inline heredoc for payloads) is correct and I violated it before honouring it."
-      ]
-    },
-    "unverified_at_close": [
-      "deploy.yml has NEVER executed with its new gate — no write auth. Static assertions only, stated as such in-file.",
-      "The networked ~1/6 sever-toast delivery path has no e2e coverage; the e2e lane has not run since S127.",
-      "The tick-driven toast hold is untested against a frozen sim clock while frames still render (PLAYING + no tick advance). The combo toast shares this exposure, so it is pattern-level, not new.",
-      "Whether the plates read well on the owner's actual display and at the owner's refresh rate — the banner's frame-based hold is ~2.0s at 60Hz but ~0.83s at 144Hz."
-    ]
-  }
+  "prior_session_archive": ".claude/session-state.s131.bak"
 }

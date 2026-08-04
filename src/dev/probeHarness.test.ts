@@ -22,7 +22,10 @@ import { dispatch } from '../state/world.ts';
 import { makeFreeSpark } from '../game/spark.ts';
 import { SparkType, PHYSICS_HZ } from '../constants.ts';
 import { asSparkId, asPlayerId } from '../types.ts';
-import { PROBE_SENTINEL, diffOwned } from './probeHarness.ts';
+import {
+  PROBE_SENTINEL, diffOwned, takeFromInventory, seatShareReadout, RAMP_SETTLE_TICKS,
+} from './probeHarness.ts';
+import { MAX_PLAYERS, FREE_SPARK_TTL_TICKS } from '../constants.ts';
 
 const PROBE_ID_BASE = 1_000_000; // must match probeHarness.ts
 const PHYSICS_DT = 1 / PHYSICS_HZ;
@@ -112,6 +115,143 @@ describe('v0.6 economy probe harness — action contract', () => {
     const prev = new Set<number>();
     const next = new Set([10, 11, 12, 13]);
     expect(diffOwned(prev, next)).toEqual({ added: 4, removed: 0 });
+  });
+
+  // ── S132 · THE INVENTORY MUST NOT LEAK ON A REFUSED DRAW ──────────────────────────────────
+  // Found by driving the real harness in headless Chromium: 8/8 → 7/8 (genuine draw) → 6/8 (a
+  // REFUSED draw that consumed a slot anyway), because `inventory.shift()` sat above the carry-1
+  // guard. These assert the CONTRACT — refusal paths leave the array byte-identical — so they fail
+  // if the consume is ever hoisted back above a refusal, which is the whole bug class.
+  describe('S132 — takeFromInventory never consumes on a refused draw', () => {
+    const stocked = (): SparkType[] => [SparkType.Square, SparkType.Circle, SparkType.Dot];
+
+    it('consumes exactly one slot, from the FRONT, on a successful draw', () => {
+      const world = makeWorld(1);
+      dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
+      const inv = stocked();
+
+      const drawn = takeFromInventory(world, world.localPlayerId, inv);
+
+      expect(drawn).not.toBeNull();
+      expect(drawn!.type).toBe(SparkType.Square); // FIFO — the front, not the back
+      expect(inv).toEqual([SparkType.Circle, SparkType.Dot]);
+      // The draw position is the avatar's, so the spark is claimable by the normal pickup path.
+      const me = world.players.get(world.localPlayerId)!;
+      expect(drawn!.at).toEqual({ x: me.avatarPos.x, y: me.avatarPos.y });
+    });
+
+    it('refuses while the player is already Carrying, and leaves the inventory UNTOUCHED', () => {
+      const world = makeWorld(1);
+      dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
+      const playerId = world.localPlayerId;
+      const inv = stocked();
+
+      // First draw succeeds and puts the player in Carrying — the real precondition, reached
+      // through the shipped reducers rather than by hand-mutating a player into a fake state.
+      const first = takeFromInventory(world, playerId, inv);
+      expect(first).not.toBeNull();
+      const id = asSparkId(PROBE_ID_BASE);
+      dispatch(world, {
+        type: 'SPAWN_SPARK',
+        spark: makeFreeSpark({
+          id, type: first!.type, pos: first!.at,
+          velocity: { x: 0, y: 0 }, dt: PHYSICS_DT, createdTick: world.tick,
+        }),
+      });
+      dispatch(world, { type: 'PICKUP_SPARK', sparkId: id, playerId, pos: first!.at });
+      expect(world.players.get(playerId)!.kind).toBe('Carrying');
+
+      const before = [...inv];
+      // Three more presses while carrying — a human holds Q down. Not one, because an off-by-one
+      // consume would still pass a single-press assertion if the array happened to be long enough.
+      expect(takeFromInventory(world, playerId, inv)).toBeNull();
+      expect(takeFromInventory(world, playerId, inv)).toBeNull();
+      expect(takeFromInventory(world, playerId, inv)).toBeNull();
+      expect(inv).toEqual(before);
+      expect(inv).toHaveLength(2);
+    });
+
+    it('refuses on an empty inventory without throwing, and stays empty', () => {
+      const world = makeWorld(1);
+      dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
+      const inv: SparkType[] = [];
+      expect(takeFromInventory(world, world.localPlayerId, inv)).toBeNull();
+      expect(inv).toEqual([]);
+    });
+
+    it('refuses when the seat does not exist, and leaves the inventory UNTOUCHED', () => {
+      const world = makeWorld(1);
+      dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
+      const inv = stocked();
+      // Seat 5 is unoccupied in a 1-player world. The player-exists refusal must not consume
+      // either — it sat above the shift already, and must stay above it.
+      expect(takeFromInventory(world, asPlayerId(5), inv)).toBeNull();
+      expect(inv).toEqual(stocked());
+    });
+  });
+
+  // ── S132 · THE SEAT-SHARE TRAP ────────────────────────────────────────────────────────────
+  // B3 is a six-seat claim; the probe is solo-only, so solo receives the WHOLE arena faucet and
+  // fills an 8-slot bank ~6x faster than B3's condition. Measured: 41s solo vs 248s at a fair
+  // share. If this readout is wrong or absent the owner rules the blocker the wrong way.
+  describe('S132 — seatShareReadout exposes the solo-vs-6-seat faucet gap', () => {
+    const SHIPPED = 0.1875; // constants.ts:107 default, mirrored deliberately (see probeHarness.ts)
+
+    it('flags the shipped default as NOT representative, and quantifies by how much', () => {
+      const r = seatShareReadout(8, SHIPPED);
+      expect(r.representative).toBe(false);
+      expect(r.fairShareLambda).toBeCloseTo(SHIPPED / MAX_PLAYERS, 10);
+      // Solo fills 8 slots in ~43s; a fair 1/6 share needs ~256s. The ratio IS MAX_PLAYERS.
+      expect(r.fillHereSec).toBeCloseTo(8 / SHIPPED, 6);
+      expect(r.fillFairShareSec).toBeCloseTo(8 / (SHIPPED / MAX_PLAYERS), 6);
+      expect(r.fillFairShareSec! / r.fillHereSec!).toBeCloseTo(MAX_PLAYERS, 6);
+    });
+
+    it('accepts the documented ?spawn= value as representative', () => {
+      const r = seatShareReadout(8, SHIPPED / MAX_PLAYERS);
+      expect(r.representative).toBe(true);
+      // Once representative, both numbers agree — there is no gap left to misread.
+      expect(r.fillHereSec).toBeCloseTo(r.fillFairShareSec!, 6);
+      expect(r.fillFairShareSec).toBeCloseTo(256, 0); // the figure BACKLOG B3 quotes
+    });
+
+    it('tolerates a hand-typed 4-decimal ?spawn=0.0313 but rejects a merely-close value', () => {
+      expect(seatShareReadout(8, 0.0313).representative).toBe(true);
+      // 2% band: 0.0313 is +0.16% off and must pass; 0.04 is +28% off and must NOT.
+      expect(seatShareReadout(8, 0.04).representative).toBe(false);
+    });
+
+    it('returns null fill times for the unlimited bank rather than Infinity', () => {
+      const r = seatShareReadout(Number.POSITIVE_INFINITY, SHIPPED);
+      expect(r.fillHereSec).toBeNull();
+      expect(r.fillFairShareSec).toBeNull();
+      // The fair-share lambda is still meaningful with an unlimited cap.
+      expect(r.fairShareLambda).toBeCloseTo(SHIPPED / MAX_PLAYERS, 10);
+    });
+
+    it('returns a null fill time for a zero lambda instead of Infinity', () => {
+      expect(seatShareReadout(8, 0).fillHereSec).toBeNull();
+    });
+  });
+
+  // ── S132 · THE RAMP THRESHOLD IS IN TICKS, AND ITS HUMAN-FACING NUMBER IS 60s ──────────────
+  // The first cut of the ramp warning compared `poolSamples.length` against `TTL * 6`. The sampler
+  // fires every 100 ms (~10 samples/s) while the sim runs at 60 ticks/s, so it silently demanded
+  // 360 s of hold while the on-screen message promised 60 s — the overlay still read "ramping"
+  // after a 63 s hold. Caught by screenshotting the overlay, not by any test, because every string
+  // was correct and only the UNIT was wrong. This pins the seconds the message quotes, so a
+  // regression back to sample-count units cannot keep the advertised number honest.
+  describe('S132 — the pool ramp threshold is denominated in sim ticks', () => {
+    it('settles after exactly 60s of SIM TIME (six TTLs), the number the overlay prints', () => {
+      expect(RAMP_SETTLE_TICKS / PHYSICS_HZ).toBe(60);
+      expect(RAMP_SETTLE_TICKS).toBe(FREE_SPARK_TTL_TICKS * 6);
+    });
+
+    it('is long enough to contain several TTLs — a 1-TTL window is all ramp', () => {
+      // The defect this defends against is a threshold so short the reading is meaningless, so
+      // assert the RATIO rather than the literal: at least 4 TTLs, or the ramp dominates.
+      expect(RAMP_SETTLE_TICKS / FREE_SPARK_TTL_TICKS).toBeGreaterThanOrEqual(4);
+    });
   });
 
   it('exposes a sentinel string that must be absent from production bundles', () => {

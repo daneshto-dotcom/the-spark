@@ -561,6 +561,45 @@ reason, not cancelled.
 
 - **Pages `build_type` flip** — see the Standing gates table above. `gh auth login` first.
 - **B3 faucet rate + B4 directive semantics and bank cap** — the V6-0.1 probe produces the evidence.
+  ✅ **B3's SUPPLY SIDE IS NOW SETTLED EMPIRICALLY (S132).** The probe had never been exercised in the
+  four sessions it sat outstanding; S132 drove it in headless Chromium (the project's own `playwright`
+  + swiftshader) and it works — arms, stocks, draws, measures. Measured with a tick-locked census, not
+  read off the overlay: throughput **0.1933/s** against λ 0.1875 (n=29 over 150 s, Poisson SE 0.036) ·
+  free-spark lifetime **exactly 600 ticks, min = max = 600** (no leak, no jitter) · standing pool
+  **1.81** vs λ·W 1.93, so **Little's Law holds** · 8-slot bank at a fair 1/6 share **248 s** against
+  the ~256 s this ledger claimed · `FREE_SPARK_SOFT_CAP = 50` **confirmed unreachable dead code** (the
+  pool peaks at 4). **Every B3 number in this backlog was right.** What remains owner-gated is the
+  DECISION (raise λ? re-shape the bank? both?) and all of B4, which is a human judgment no headless
+  run substitutes for.
+  ⛔ **BUT THE PLAYTEST URL WAS A TRAP, AND IS NOW CORRECTED — use `&spawn=0.03125`.** The probe is
+  solo-only by construction (`probeHarness.ts:290,342` refuse to draw and auto-disarm the moment a
+  peer or bot appears, precisely so the wire is never touched), yet B3/B4 are **six-seat** claims. In
+  solo the local player receives the **entire arena faucet**, so an 8-slot bank fills in **41 s
+  measured** rather than 248 s — a faucet **6× more generous than the condition B3 describes**. A run
+  without the override would very likely have produced a "starvation isn't real" ruling, on seven
+  Full-tier slots. The instrument cannot reproduce the condition it exists to test, so it now **states
+  which condition it IS reproducing** on the overlay (`✅ representative of ONE SEAT in a 6-seat match`
+  vs `⚠ NOT 6-seat-representative … 6.0× more generous`), with both fill numbers side by side.
+  ⚠ `fillFairShareSec` is an **equal-split idealisation** and must never be quoted as a per-seat
+  prediction — six seats contend for one shared pool, so the leader takes more than a sixth. It is the
+  right number for ruling on *aggregate* supply and the wrong one for predicting any single seat.
+  ⚠ **Judge the pool inside a ≥60 s hold.** It mixes on the 10 s TTL, so a 60 s window carries only
+  ~6 independent samples and an early read is dominated by the ramp from zero. S132 misread it twice
+  before getting it right (2.73 and 12.79, both artifacts) and the overlay now prints
+  `⚠ still ramping` until the hold is long enough.
+  🐞 **Bug found and fixed in the instrument (S132):** `inventory.shift()` sat ABOVE the carry-1 guard,
+  so pressing `Q` while already carrying silently destroyed one slot — measured `8/8` → `7/8` (genuine
+  draw) → `6/8` (refused draw, item gone anyway). Players hold `Q` down, so the bank leaked under
+  exactly the input pattern a B4 playtest generates, and `buildCount`/`peakPrimitives` under-read with
+  it. Decision and consume now live in one unit (`takeFromInventory`) that owns the array, so
+  "consumed despite refusing" is directly observable from a Node test — **6 of 6 mutations caught,
+  including a re-hoist of the consume**. Verified fixed in a real browser: `8/8` → `7/8` → `7/8`.
+  📌 **Carry-forward, NOT dismissed:** `Q` genuinely IS double-bound (`main.ts:888` advertises "Q
+  shrink territory"; `probeHarness.ts:326` binds `q`/`Q` to draw). It cannot fire today only because
+  `decideKeyShrink` returns false when `gameMode === 'solo'` (`controls.ts:868`) and the probe
+  auto-disarms outside solo — i.e. **the solo guard is the only thing preventing the collision.** If
+  the probe ever gains a bots or networked mode, this goes live and a draw would also drain a
+  disruption charge.
 - **B6 reversibility option (A) or (B)** — hard precondition on V6-1.1.
 - **`worker` → `gatherer` rename** — deferred to V6-1.1, the slot that first creates the type. Not
   applied in S128 because no code entity exists yet, so it is not yet forcing, and "worker sparks" is

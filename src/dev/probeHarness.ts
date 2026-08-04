@@ -50,6 +50,12 @@
  * · DEV builds only. `import.meta.env.DEV` is statically replaced with `false` in production, so
  *   this entire module dead-code-eliminates. Verify, don't trust: after `npm run build`, grep the
  *   production bundle for PROBE_SENTINEL — it must be ABSENT.
+ *   ⚠ GREP `dist/assets/*.js`, **NOT** `dist/` (S132). A recursive grep also hits
+ *   `index-*.js.map`, whose `sourcesContent` embeds the original TypeScript of every module by
+ *   design — so the broad form reports a LEAK that isn't one. S132 tripped over exactly this.
+ *   The executable contract, re-verified S132: zero occurrences of `probeHarness`,
+ *   `takeFromInventory` or `seatShareReadout` in the entry chunk, and the entry stayed byte-for-byte
+ *   at 645.5 KiB across this file's +120 lines — which is itself independent evidence of stripping.
  * · A redundant runtime guard throws if any entry point is somehow reached in a non-dev build.
  *   It lives INSIDE the stripped module, so it costs production zero bytes (Council R2 resolution
  *   between GROK's "don't rely on the bundler alone" and GEMINI's "don't add prod bytes").
@@ -62,7 +68,16 @@
  *   stream"), so an armed probe cannot shift the replay draw order.
  */
 
-import { SparkType, SPARK_VISUAL_SIZE, SPAWN_RATE_PER_SECOND, FREE_SPARK_TTL_TICKS, PHYSICS_HZ } from '../constants.ts';
+import { SparkType, SPARK_VISUAL_SIZE, SPAWN_RATE_PER_SECOND, FREE_SPARK_TTL_TICKS, PHYSICS_HZ, MAX_PLAYERS } from '../constants.ts';
+
+/**
+ * The SHIPPED faucet, as a name rather than a magic number (S132). `SPAWN_RATE_PER_SECOND` is
+ * `readTestSpawnRate() ?? 0.1875`, so once `?spawn=` overrides it the shipped value is no longer
+ * recoverable from the constant — but both the OVERRIDDEN badge and the seat-share readout need it
+ * to say anything true. This literal was already duplicated inline in `render()`; naming it removes
+ * a magic number instead of adding one. Keep in lockstep with `constants.ts:107`.
+ */
+const SHIPPED_SPAWN_RATE_PER_SECOND = 0.1875;
 
 /** Mirrors `spawner.ts:47` — PHYSICS_DT is derived there, not exported from constants.ts. */
 const PHYSICS_DT = 1 / PHYSICS_HZ;
@@ -87,6 +102,22 @@ const SLOT_LADDER: readonly number[] = [4, 8, 12, Number.POSITIVE_INFINITY];
  * every added id in the window, not one event per window.
  */
 const SAMPLE_MS = 100;
+
+/**
+ * How long the pool must be observed before its mean means anything (S132).
+ *
+ * The standing pool mixes on the TTL timescale, so a window of a few TTLs is dominated by the ramp
+ * up from zero and carries only a handful of independent samples. Six TTLs = 60 s is the point at
+ * which the ramp is ~1/6 of the window and the reading stops moving. S132 misread this pool twice
+ * before measuring it properly (2.73 and 12.79 — both ramp/variance artifacts, not defects).
+ *
+ * ⚠ Counted in SIM TICKS, deliberately **not** in `poolSamples.length`. The sampler fires every
+ * `SAMPLE_MS` (100 ms → ~10 samples/s) while the sim runs at 60 ticks/s, so a sample-count
+ * threshold of `TTL * 6` would silently demand 360 s of hold while the message promised 60 s —
+ * which is exactly the bug the first cut of this warning shipped, caught only by screenshotting
+ * the overlay after a 63 s hold and seeing it still say "ramping".
+ */
+export const RAMP_SETTLE_TICKS = FREE_SPARK_TTL_TICKS * 6;
 
 const TYPE_KEYS: Readonly<Record<string, SparkType>> = {
   '1': SparkType.Dot,
@@ -189,6 +220,11 @@ function mean(xs: readonly number[]): number {
   return xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length;
 }
 
+/** Seconds for the overlay. `null` (an unlimited bank) prints '—', never 'Infinity' or 'NaN'. */
+function fmtSec(s: number | null): string {
+  return s === null ? '—' : `${s.toFixed(0)}s`;
+}
+
 /** Median gap between consecutive build actions, in seconds. The V6-1.7 "is the player bored?" proxy. */
 function medianBuildGapSec(buildTicks: readonly number[]): number | null {
   if (buildTicks.length < 2) return null;
@@ -197,6 +233,88 @@ function medianBuildGapSec(buildTicks: readonly number[]): number | null {
   gaps.sort((a, b) => a - b);
   const mid = Math.floor(gaps.length / 2);
   return gaps.length % 2 === 1 ? gaps[mid]! : (gaps[mid - 1]! + gaps[mid]!) / 2;
+}
+
+/**
+ * Take one type off the inventory — **but only if the draw can actually happen** (S132).
+ *
+ * WHY THIS IS ITS OWN FUNCTION, AND WHY IT OWNS THE ARRAY
+ * ------------------------------------------------------
+ * This existed inline, and the carry-1 refusal sat BELOW the `shift()`. So pressing Q while
+ * already carrying silently DESTROYED one slot — measured in a real browser as 8/8 → 7/8 (a
+ * genuine draw) → 6/8 (a REFUSED draw, item gone anyway). Players press Q while carrying
+ * constantly, so the bank leaked under exactly the input pattern the B4 playtest generates, and
+ * `buildCount`/`peakPrimitives` under-read along with it. This is the instrument that settles a
+ * blocker gating seven Full-tier slots, so a silent drain here corrupts the ruling.
+ *
+ * The reorder alone would be a one-line fix that the next edit could silently undo, and the live
+ * handler is unreachable from vitest (Node has no `window`, so `installProbeHarness` returns
+ * null). A source-text order assertion is the other tempting option and is a known trap in this
+ * repo: `indexOf` over source matches your own COMMENTS, and the paragraph you are reading names
+ * `shift` several times. So instead the decision and the consume live in ONE unit that owns the
+ * array — which makes "consumed despite refusing" directly observable from a Node test, and makes
+ * the bug class structurally hard to reintroduce rather than merely pinned by a comment.
+ *
+ * CONTRACT: returns `null` and leaves `inventory` **byte-identical** on every refusal path.
+ * Mutates it by exactly one `shift()` iff it returns non-null.
+ */
+export function takeFromInventory(
+  world: World,
+  playerId: PlayerId,
+  inventory: SparkType[],
+): { readonly type: SparkType; readonly at: Vec2 } | null {
+  const player = world.players.get(playerId);
+  // carry-1 still holds: a player already holding a spark cannot draw another.
+  if (player === undefined || player.kind !== 'Idle') return null;
+  const type = inventory[0];
+  if (type === undefined) return null;
+  inventory.shift();
+  return { type, at: { x: player.avatarPos.x, y: player.avatarPos.y } };
+}
+
+export interface SeatShareReadout {
+  /** Seconds to fill `cap` slots at the CURRENT λ — what THIS run actually delivers. */
+  readonly fillHereSec: number | null;
+  /** The λ a single seat receives in a full 6-seat match at the SHIPPED faucet. */
+  readonly fairShareLambda: number;
+  /** Seconds to fill `cap` slots at that fair share — the number B3's ruling turns on. */
+  readonly fillFairShareSec: number | null;
+  /** True iff this run's λ already equals a fair 1/6 share, i.e. the run IS representative. */
+  readonly representative: boolean;
+}
+
+/**
+ * THE SEAT-SHARE TRAP (S132) — pure, so it is testable without a DOM or a browser.
+ *
+ * B3 is a **six-seat** claim, but this probe is **solo-only** by construction: it refuses to draw
+ * and auto-disarms the moment a peer or bot appears, precisely so it never touches the wire. So the
+ * local player receives the **entire arena faucet**, and at the shipped λ an 8-slot bank fills in
+ * ~43 s here against ~256 s at a fair 1/6 share — a faucet **6× more generous than the condition
+ * B3 describes**. Measured, S132: solo 41 s observed vs 248 s at a fair share.
+ *
+ * Reading the solo number as B3's number rules the blocker the WRONG WAY, and that ruling gates
+ * seven Full-tier slots. The instrument cannot reproduce the condition it exists to test, so it
+ * must at minimum say which condition it IS reproducing rather than leaving the division to the
+ * reader. `?spawn=<shipped λ / MAX_PLAYERS>` makes a solo run representative.
+ *
+ * ⚠ `fillFairShareSec` is an IDEALISATION and must not be quoted as a prediction. Six seats do not
+ * each receive λ/6; they contend for one shared pool, so a stronger player takes more than a sixth
+ * and a weaker one less. It is the right number for ruling on *aggregate* supply, and the wrong
+ * number for predicting any individual seat.
+ */
+export function seatShareReadout(cap: number, lambda: number): SeatShareReadout {
+  const fairShareLambda = SHIPPED_SPAWN_RATE_PER_SECOND / MAX_PLAYERS;
+  // An unlimited bank (SLOT_LADDER's ∞) has no fill time; so does a nonsensical λ. Return null
+  // rather than Infinity/NaN so the renderer prints '—' instead of a number that looks measured.
+  const finite = Number.isFinite(cap) && cap > 0;
+  return {
+    fillHereSec: finite && lambda > 0 ? cap / lambda : null,
+    fairShareLambda,
+    fillFairShareSec: finite ? cap / fairShareLambda : null,
+    // Relative tolerance: 0.1875/6 = 0.03125 is exact in binary, but a hand-typed ?spawn=0.0313
+    // should still read as representative rather than silently failing an equality check.
+    representative: Math.abs(lambda - fairShareLambda) <= fairShareLambda * 0.02,
+  };
 }
 
 /**
@@ -277,7 +395,12 @@ export function installProbeHarness(deps: ProbeDeps): { dispose(): void } | null
     'font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace',
     'background:rgba(8,10,18,0.88)', 'color:#cfe3ff', 'padding:9px 11px',
     'border:1px solid #2c4a7a', 'border-radius:5px', 'white-space:pre',
-    'pointer-events:none', 'max-width:44ch',
+    // 80ch, not 44ch (S132). `white-space:pre` never wraps, so max-width CLIPS instead — and 44ch
+    // was already too narrow for content that shipped in S128: the REGIME line (53), a full 12-slot
+    // INVENTORY (77) and the recipes-fitting line (77) were all silently cut off mid-word. Found by
+    // screenshotting the overlay rather than reading its source, which is the only way this class of
+    // defect shows up: every string was correct, only the viewport was wrong.
+    'pointer-events:none', 'max-width:80ch',
   ].join(';');
   document.body.appendChild(el);
 
@@ -288,11 +411,9 @@ export function installProbeHarness(deps: ProbeDeps): { dispose(): void } | null
     // could appear between two samples and a keypress land in that window, dispatching into a
     // networked match. Two lines of insurance on a gate whose whole point is not to touch the wire.
     if (world.players.size > 1 || world.botSeats.size > 0) return;
-    const type = inventory.shift();
-    if (type === undefined) return;
-    const player = world.players.get(deps.playerId);
-    if (player === undefined || player.kind !== 'Idle') return; // carry-1 still holds
-    const at: Vec2 = { x: player.avatarPos.x, y: player.avatarPos.y };
+    const drawn = takeFromInventory(world, deps.playerId, inventory);
+    if (drawn === null) return;
+    const { type, at } = drawn;
     const id: SparkId = asSparkId(nextFreeProbeId(world));
     // Existing actions only: mint a Free spark, then claim it through the normal pickup path.
     deps.dispatch({
@@ -384,7 +505,9 @@ export function installProbeHarness(deps: ProbeDeps): { dispose(): void } | null
       ? '(empty)'
       : inventory.map((t) => TYPE_NAMES[t]).join(' ');
     const gap = medianBuildGapSec(metrics.buildTicks);
-    const elapsed = ((world.tick - metrics.regimeStartTick) / PHYSICS_HZ).toFixed(0);
+    const elapsedTicks = world.tick - metrics.regimeStartTick;
+    const elapsed = (elapsedTicks / PHYSICS_HZ).toFixed(0);
+    const seat = seatShareReadout(cap, SPAWN_RATE_PER_SECOND);
 
     // λ·W predicts the standing pool. Show the PREDICTION beside the MEASUREMENT so the
     // Little's-Law claim in the spec is checked against the running game, not asserted.
@@ -425,10 +548,29 @@ export function installProbeHarness(deps: ProbeDeps): { dispose(): void } | null
       '',
       `── B3 · faucet ─────────────────────`,
       lambdaMismatch,
-      `λ observed      ${SPAWN_RATE_PER_SECOND.toFixed(4)}/s${Math.abs(SPAWN_RATE_PER_SECOND - 0.1875) > 1e-9 ? '  (OVERRIDDEN)' : '  (shipped default)'}`,
+      `λ observed      ${SPAWN_RATE_PER_SECOND.toFixed(4)}/s${Math.abs(SPAWN_RATE_PER_SECOND - SHIPPED_SPAWN_RATE_PER_SECOND) > 1e-9 ? '  (OVERRIDDEN)' : '  (shipped default)'}`,
       `TTL             ${(FREE_SPARK_TTL_TICKS / PHYSICS_HZ).toFixed(0)}s`,
       `pool λ·W pred   ${predictedPool.toFixed(2)}`,
       `pool observed   ${observedPool.toFixed(2)}   (n=${metrics.poolSamples.length})`,
+      // ⚠ Judge the pool inside a long hold, never on the edge of the ramp. See RAMP_SETTLE_TICKS
+      // for why this counts SIM TICKS and not `poolSamples.length`.
+      elapsedTicks < RAMP_SETTLE_TICKS
+        ? `  ⚠ ramping — hold ${(RAMP_SETTLE_TICKS / PHYSICS_HZ).toFixed(0)}s`
+          + ` (${Math.ceil((RAMP_SETTLE_TICKS - elapsedTicks) / PHYSICS_HZ)}s to go)`
+        : '  ✅ past the ramp — pool reading is settled',
+      '',
+      `── B3 · SEAT SHARE · READ FIRST ────`,
+      `fill ${capLabel} slots, THIS run   ${fmtSec(seat.fillHereSec)}`,
+      `fill ${capLabel} slots @ 1/6 share ${fmtSec(seat.fillFairShareSec)}  ← B3`,
+      seat.representative
+        ? `✅ = ONE SEAT of a ${MAX_PLAYERS}-seat match.`
+        : `⚠ NOT ${MAX_PLAYERS}-seat-representative:\n`
+          + `  solo takes the WHOLE faucet, so this run\n`
+          + `  is ${(SPAWN_RATE_PER_SECOND / seat.fairShareLambda).toFixed(1)}× more generous than B3's case.\n`
+          + `  FIX:  ?spawn=${seat.fairShareLambda}`,
+      `  (1/6 = equal-split idealisation. Six seats\n`
+      + `   contend for one pool, so the leader takes\n`
+      + `   more. Aggregate supply only.)`,
       '',
       `── B4 · does carving survive? ──────`,
       `recipes fitting one load: ${fit.length === 0 ? 'none' : fit.join(', ')}`,

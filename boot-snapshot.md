@@ -29,9 +29,22 @@ package.json script is a logged carry-forward.)
 ## Next Steps
 1. **OWNER: `gh auth login -h github.com` + push (30 commits).** Everything below is downstream of it.
 2. **OWNER: the probe playtest — STILL NOT RUN.** It gates ALL of Phase 1 (B3 + B4).
-   `npm run dev -- --port $SESSION_PORT` → `/?probe=1&regime=new&slots=8`. Keys `[` regime · `]` slots ·
-   `1`-`6` stock · `Q` draw · `\` reset · `&spawn=N`. Do NOT open V6-1.3/V6-1.4 before B3/B4 are ruled.
-   Falsification (still carving at 8 slots) is STRONG; confirmation is WEAK.
+   `npm run dev -- --port $SESSION_PORT` → **`/?probe=1&regime=new&slots=8&spawn=0.03125`**
+   ⛑ **THE `&spawn=0.03125` IS NOT OPTIONAL — S132.** The probe is solo-only by construction, but
+   B3/B4 are SIX-SEAT claims, so a solo run hands you the WHOLE arena faucet: an 8-slot bank fills
+   in **41 s measured** instead of **248 s** at a fair 1/6 share. Run it without the override and
+   you are testing a faucet **6× more generous** than the one B3 describes — you would very likely
+   rule "starvation isn't real" and be wrong. `0.03125` = `0.1875 / 6`. The overlay now states which
+   condition it is reproducing (`✅ representative` vs `⚠ NOT 6-seat-representative … 6.0×`), so
+   check that line before trusting a reading.
+   Keys `[` regime · `]` slots · `1`-`6` stock · `Q` draw · `\` reset. Do NOT open V6-1.3/V6-1.4
+   before B3/B4 are ruled. Falsification (still carving at 8 slots) is STRONG; confirmation is WEAK.
+   ✅ **THE INSTRUMENT ITSELF IS NOW VERIFIED** (S132, headless Chromium, first time in 4 sessions):
+   arms, draws, measures. **B3 is EMPIRICALLY CONFIRMED** — throughput 0.1933/s vs λ 0.1875
+   (n=29/150 s), lifetime exactly 600 ticks (min=max), standing pool 1.81 vs λ·W 1.93, fair-share
+   fill 248 s vs the BACKLOG's ~256 s, and `FREE_SPARK_SOFT_CAP=50` confirmed dead (pool peaks at 4).
+   ⚠ Judge the pool inside a **≥60 s hold** — it mixes on the 10 s TTL, so an early read is all ramp.
+   The overlay now says `⚠ still ramping` until the hold is long enough.
 3. **After the push lands: confirm the new CI gate actually ran.** `gh run list --workflow=deploy.yml`.
    ⚠ Audit run CONCLUSIONS, not just the absence of failure mail — a timeout-killed job reports
    `cancelled`, not `failure`, and vitest has no global-suite-timeout to sit below the job timeout the
