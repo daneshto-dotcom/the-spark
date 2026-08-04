@@ -7,7 +7,7 @@ repaired it and verified it rendering. Commit B (sever attribution) held at the 
 
 ## PROJECT
 - Name: spark v0.1.0 · Working dir: `C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark`
-- Branch: `master` · HEAD: `5c45dd6` chore(s130): session-state counter tick at handoff
+- Branch: `master` · code commit: `20aa546` (banner repair) · handoff commits follow it — run `git log -1` for the exact tip
 - Stack: TypeScript · Pixi.js v8 · Vite · Vitest · Playwright · host-authoritative P2P (Trystero) + optional sim worker
 - PROTOCOL_VERSION 15 (no bump — ruled this session)
 
@@ -75,10 +75,15 @@ expires when Steal lands**) · `creatureAttack.ts:142` (CONFIRMED; path is `src/
 carried by the digest and all three legs were corrected.
 
 ## OPEN ISSUES
-- ⚠ **17 COMMITS UNPUSHED.** Diagnosis REFINED: the READ credential is HEALTHY (`ls-remote` exit 0,
+- **[STEP 5 check failed: main-is-synced-with-origin]** — `git rev-list --count origin/master..master`
+  = **20** at final verification (the count grew from 17 as this handoff's own commits landed).
+  Remediation: `gh auth login -h github.com`, then `git push origin master && git push origin v0.5.2-pre-pivot`.
+  ⚠ That push fires a production deploy. This is the FOURTH-plus consecutive session closing with a
+  non-zero unpushed count; per the /handoff skill it must be said out loud every time until it is 0.
+- ⚠ **20 COMMITS UNPUSHED.** Diagnosis REFINED: the READ credential is HEALTHY (`ls-remote` exit 0,
   remote master `f0b8144`) but **WRITE auth is ABSENT** — `push --dry-run` asks for a username then
   times out. So the inherited "the token is dead" was half right. Measured with
-  `git rev-list --count origin/master..master` = **17**; the wrong-direction `git log master..origin/master`
+  `git rev-list --count origin/master..master` = **20**; the wrong-direction `git log master..origin/master`
   prints 0, which is how this went unnoticed for sessions.
 - ⚠ **The banner's placement/legibility are UNVERIFIED.** A hidden pane's GL context produces no
   frames, so `renderer.extract()` returns a blank raster (it measures 271×28 with real glyph metrics

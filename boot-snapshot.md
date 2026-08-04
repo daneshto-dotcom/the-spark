@@ -2,13 +2,13 @@
 Generated: 2026-08-03 | Session: S130 (V6-0.3 Commit A shipped; Commit B held at playtest)
 
 ## ⛔ TWO OWNER ACTIONS STILL GATE EVERYTHING
-**1. 17 COMMITS UNPUSHED.** Diagnosis REFINED this session: the READ credential is healthy
+**1. 20 COMMITS UNPUSHED.** Diagnosis REFINED this session: the READ credential is healthy
 (`git ls-remote origin` exits 0, remote master = `f0b8144`), but **WRITE auth is absent** —
 `git push --dry-run` asks for a username and then times out. So "the token is dead" was half right.
 Owner: `gh auth login -h github.com`, then `git push origin master && git push origin v0.5.2-pre-pivot`.
 ⚠ That push **fires a production deploy** (src/ touched). It also blocks the Pages `build_type` flip
 and CI dispatch — **the e2e lane has not run since S127**.
-⛑ Measure unpushed with `git rev-list --count origin/master..master` (= **17**).
+⛑ Measure unpushed with `git rev-list --count origin/master..master` (= **20**).
 **NOT** `git log master..origin/master`, which tests the wrong direction and prints 0.
 
 **2. THE PROBE PLAYTEST GATES ALL OF PHASE 1.** Owner confirmed S130: **not yet run.**
@@ -19,7 +19,7 @@ Falsification (still carving at 8 slots) is STRONG; confirmation is WEAK.
 ## STATE
 tsc 0 · vitest **1941/1941** (128 files) · bundle **642.6/750 KiB** entry (+218 B measured this
 session; 107.4 KiB headroom — note the BACKLOG gate paragraph still says 640.8/109.2) ·
-PROTOCOL_VERSION **15** (no bump; ruled) · HEAD `5c45dd6` · master · **MCV exit 0** (8/8 bindings) ·
+PROTOCOL_VERSION **15** (no bump; ruled) · code commit `20aa546` · master (handoff commits follow — check `git log -1`) · **MCV exit 0** (8/8 bindings) ·
 review gate APPROVED. Live site unchanged — no deploy since S127.
 ⚠ **NO CI JOB RUNS vitest OR typecheck** — zero hits across `.github/workflows/`. `deploy.yml`'s only
 verification is `npm run build`. Every "tsc 0 / 1941 passing" figure is LOCAL and self-reported.
