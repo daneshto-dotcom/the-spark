@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 98,
+  "tool_calls_session_total": 100,
   "session_id": "S131",
   "session_kind": "single",
   "session_start": "2026-08-04",
@@ -121,16 +121,102 @@
     {
       "id": "P1b-v06-03-sever-attribution",
       "label": "V6-0.3 sub-item 2 (Commit B) - sever attribution. Two additive-optional fields (actor id + victim id) across ALL FOUR coordinated wire sites edited together (GameEffect variant, SerializedEffect wire type, serializeEffect case, deserializeEffect case - they are per-case object literals with NO spread, so a field added to only the first two silently never reaches the wire). Per-cause populate table: victim = primA.placedBy always for all 7 causes; actor per cause with 'physics' NEVER populated (physicsLoop.ts passes a hardcoded asPlayerId(0) its own comment calls informational) and 'godly' omitted as unreachable. New PRE-WIPE sever-toast drain beside the banner drain, delegating to ONE pure reducer: victim gate on world.localPlayerId evaluated on the MAIN THREAD ONLY (workerSim.ts:201 is a third writer), two-clause suppression (actor===victim; cause==='bomb' unconditionally), frame-batch grouping with a count, mixed-actor degradation to the actor-less form. Copy via the EXISTING tested avatarNameplateText with world.botSeats.has(actor) - never colour names. Three test guards incl. adding one SEVER_BOND dispatch to the R11 byte-guard fixture, which makes that gate sensitive to effects payload for the first time. Plus the mandatory doc amendments (LOCKED wire row, the false effects.ts header, the audioManager over-claim, the append-only BACKLOG:362 annotation, the fog row-7 strike).",
-      "status": "in_progress",
-      "phase": "DO",
+      "status": "completed",
+      "phase": "CHECK-COMPLETE",
       "tier": "Standard",
-      "check_completed": false,
+      "check_completed": true,
       "blocked_on": null,
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "priority_state": "in_progress",
-      "gate_discharged": "Owner ruled PASS on the Commit A playtest checkpoint (S131). See P1a.owner_playtest_gate."
+      "priority_state": "completed",
+      "gate_discharged": "Owner ruled PASS on the Commit A playtest checkpoint (S131). See P1a.owner_playtest_gate.",
+      "checkpoint_commit": "c7b856f",
+      "real_context_tokens_at_close": 301836,
+      "real_context_pct_at_close": 30.18,
+      "check_method": "CHECK on the real diff, plus a RUNTIME pass because this slot exists precisely because V6-0.2 shipped dead through a green suite. (1) STATIC: tsc -b --noEmit exit 0; npx vitest run 1964/1964 across 129 files (was 1941/128 at boot, independently re-measured this session, so +23 tests / +1 file); npm run build exit 0 with bundle 644.7/750 KiB (+2.1 KiB measured against 642.6, 105.3 KiB headroom). (2) MUTATION-TESTED ALL THREE NEW GUARDS, because an assertion that has never failed is indistinguishable from one that cannot fail: moving severToastRenderer.drainSeverToast below effectsRenderer.sync made the source-order lock fail with the exact expected message; deleting the cause=='bomb' suppression clause failed 2 reducer tests; dropping actor from serializeEffect's BOND_SEVERED literal failed the R11 wire-byte guard. All three reverted and re-verified green (grep for MUTATION TEST returns nothing). (3) RUNTIME, REAL PIXELS, NO SYNTHETIC EFFECTS: headless Chromium (the project's own playwright, swiftshader, 21fps effective) booted a real VS-BOTS match. The tier banner was driven by setting the leader's banked score to SCORE_TIER_STEP-1 so scoring.ts:301 emitted naturally - measured centre_x 959.5, glyph band y 34-59, ~13px clear of the combos counter, hold bracketed present@frame106 / absent@frame134 confirming TIER_BANNER_FRAMES=120. The sever toast was driven by dispatching SEVER_BOND through the app's own live controls.dispatchFn against a bond a bot had actually built, so the BOND_SEVERED came out of applySeverBond itself (bond count observed 30->29). Toast measured at centre_x 960.0 exactly, glyph band y 228-249 (y=240 centre-anchored), effective alpha 0.96 = PEAK_ALPHA; rendered copy was the P1-possessive CREATURE line. Acceptance item 3 verified as a GENUINE NEGATIVE: a real self-sever produced NO toast. Zero pageerrors in both runs. (4) FOUR CLEARANCES measured from pixels rather than assumed: toast top 228 vs banner bottom 60 (168px), vs combo-toast band ~287-317 (38px), vs Combos counter y13-21 (207px), and horizontally clear of the leaderboard column (toast starts x739). (5) THREE PDR DEFECTS CAUGHT AND DELIBERATELY NOT IMPLEMENTED AS WRITTEN, each recorded rather than silently skipped: row 6(a) asked for seagullRenderer.sync and poopRenderer.sync in an allowlist documented as 'reads world.effects', but neither file contains a single world.effects reference, so listing them would have made the guard assert a falsehood about them AND frozen their call position for a reason that does not exist; row 7 cited ui.ts:506 for an IX.5 deferral comment that is not there (real anchor ui.ts:594; the section itself is SPARK_Blueprint.md:375); row 3's seven-arm per-cause actor table was replaced by ONE deny-list rule after reading all six dispatch sites and confirming each already passes the responsible seat in action.playerId - identical values, cannot drift as causes are added, and satisfies risk R-E structurally since an exhaustive switch over cause cannot compile ('godly' is in the effect union, not the action union).",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "APPEND-ONLY ANNOTATION (V6-0.3 / S131)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "OWNER PLAYTEST GATE DISCHARGED S131"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "MUTATION-TESTED rather than merely green"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/game/effects.ts",
+          "needle": "readonly actor?: PlayerId;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/game/effects.ts",
+          "needle": "readonly victim?: PlayerId;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "actor: e.actor,"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "actor: s.actor,"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/severBond.ts",
+          "needle": "export function severActor"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/severToastRenderer.ts",
+          "needle": "export function captureSeverToast"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/severToastRenderer.ts",
+          "needle": "SEVER_TOAST_DURATION_TICKS = 150"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "severToastRenderer.drainSeverToast(world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.drainOrder.test.ts",
+          "needle": "severToastRenderer.drainSeverToast(world)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.replay.test.ts",
+          "needle": "cause: 'chewer',"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/LOCKED_DECISIONS.md",
+          "needle": "**SEVEN members**"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/SPARK_Blueprint.md",
+          "needle": "CLOSED V6-0.3 / S131"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/audioManager.ts",
+          "needle": "OVER-CLAIMS"
+        }
+      ]
     },
     {
       "id": "P2-ci-carrier",
@@ -186,6 +272,31 @@
       "tag": "#do-not-satisfy-a-checker-by-making-a-false-claim",
       "priority": "P1a",
       "entry": "MCV hard-failed because BACKLOG.md was modified with no absolute-path binding, and reading the verifier showed why my binding was ignored: line 289 collects verification[] ONLY from priorities whose status is 'completed'. The fastest fix would have been to mark the whole V6-0.3 priority completed - which would have been a lie, since the attribution work had not started, and precisely the fabrication class MCV exists to catch. The honest fix was to notice that the priority as recorded did not match reality: the banner repair genuinely WAS a complete, committed, independently revertable unit, and the attribution work genuinely was a separate not-started one. Splitting the record to match what actually happened made the checker pass as a side effect. When a gate blocks, the question to ask first is whether the gate has found a real misstatement in the bookkeeping - not how to phrase the claim so it slips through."
+    },
+    {
+      "session": "S131",
+      "tag": "#a-blocked-verification-path-usually-has-a-side-door-one-layer-over",
+      "entry": "Two sessions recorded the banner's visual as unverifiable because the Browser pane will not composite. True, and not the whole board: the project already ships playwright, and headless Chromium composites fine. The blocked layer was the PANE, not the BROWSER. Before recording something as unverifiable, name the exact layer that is blocked and ask what else supplies it."
+    },
+    {
+      "session": "S131",
+      "tag": "#drive-the-real-emitter-not-a-lookalike-payload",
+      "entry": "It was tempting to push a hand-built SCORE_TIER into world.effects to make the banner appear. Setting the leader's score to STEP-1 and letting scoring.ts emit costs the same and proves strictly more: the emitter's own gates (cinematicsEnabled, leaderId, newTier>oldTier) become part of the evidence. Same for the toast, driven through the app's live dispatchFn. A synthetic payload verifies the consumer while quietly assuming the producer."
+    },
+    {
+      "session": "S131",
+      "tag": "#a-detector-can-fail-on-a-property-you-forgot-varies",
+      "entry": "My banner-presence check matched yellow pixels and reported ZERO hits across an entire hold sweep - because that run's leader was seat 1 (cyan) and the fill is the leader's colour. I nearly filed 'the banner does not render' off a detector measuring the wrong invariant. When an oracle returns all-negative, suspect the oracle before the subject."
+    },
+    {
+      "session": "S131",
+      "tag": "#a-fully-specced-plan-still-needs-its-anchors-probed",
+      "entry": "The handoff said FULLY SPECCED, DO NOT RE-DERIVE, and that was right about the DESIGN. It was not a reason to skip Rule 21 on the plan's factual anchors: three did not hold - two renderers the PDR wanted in a 'reads world.effects' allowlist read no effects at all, a cited comment did not exist at the cited line, and a seven-arm table collapsed to one rule once the six dispatch sites were actually read. Do not re-derive the decision; do verify the state it rests on."
+    },
+    {
+      "session": "S131",
+      "tag": "#a-frame-count-is-not-a-duration",
+      "entry": "TIER_BANNER_FRAMES=120 reads like 2 seconds and is not: nothing caps the Pixi ticker, so it is 2.0s at 60Hz and ~0.83s at 144Hz. The owner was being asked to judge legibility 'in the ~2s hold' on hardware where it may be under a second. The new toast holds in SIM TICKS instead. When a window exists for a human to READ something, measure it in time, not frames."
     }
   ],
   "session_status": "in_progress",
