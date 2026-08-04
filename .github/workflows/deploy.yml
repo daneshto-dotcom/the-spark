@@ -55,6 +55,17 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # S131 P2 — this job had NO timeout, so it inherited GitHub's 6-hour default and a single hung
+    # step could burn six hours of wall clock. e2e.yml already pairs every lane with a timeout; this
+    # file was simply never given one. 15 min is ~7x the observed run (~2 min).
+    #
+    # ⚠ HONEST LIMIT: when timeout-minutes fires, GitHub SIGKILLs the step and the run concludes
+    # `cancelled`, NOT `failure` — no failure email, and `gh run list` reads it as a benign
+    # concurrency cancel. e2e.yml solves that by giving Playwright its own globalTimeout BELOW the
+    # job timeout (PW_GLOBAL_TIMEOUT_MIN), so the TOOL ends the overrun and exits non-zero. Vitest
+    # has no global-suite-timeout flag to do the same with, so this bounds the WASTE without fixing
+    # the silent-signal class. Audit run CONCLUSIONS, not just the absence of failure mail.
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -68,7 +79,35 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build (vite + tsc)
+      # ════════════════════════════════════════════════════════════════════════════════════════
+      # S131 P2 — THE CI CARRIER. Until now this workflow gated on `npm run build` alone, so every
+      # "vitest 1964/1964" figure in every handoff was LOCAL and self-reported with no mechanical
+      # carrier. A red test could not stop a deploy. These two steps are that carrier.
+      #
+      # A NOTE ON WHAT WAS ACTUALLY MISSING, because the record had it wrong. The standing claim was
+      # "NO CI job runs vitest OR typecheck — zero hits across .github/workflows/". That grep is
+      # true and its conclusion is half false: package.json defines
+      #   build = tsc -b && vite build && node scripts/check-bundle-size.mjs
+      # so `npm run build` below ALREADY runs `tsc -b` and already enforces the bundle cap. A type
+      # error has been failing this deploy all along, transitively. **vitest was the real gap.**
+      # The typecheck step below is therefore not new coverage — it makes an INVISIBLE gate visible
+      # and fails in seconds naming types as the reason, instead of surfacing as a generic build
+      # failure minutes later.
+      #
+      # Ordering is cheapest-first: typecheck (seconds) → unit tests (~10 s) → full build (~2 min).
+      # ════════════════════════════════════════════════════════════════════════════════════════
+      - name: Typecheck (tsc -b --noEmit)
+        run: npm run typecheck
+
+      # ⚠ `npx vitest run`, NOT `npm test`. package.json's `test` script is bare `vitest`, which is
+      # WATCH mode — it never exits, so `npm test` here would hang this job until the timeout above
+      # and then report `cancelled` rather than failing. The durable fix is a `test:run` script in
+      # package.json; that is a different file and a different concern (Rule 16), logged as a
+      # carry-forward. Until it lands, this comment is the guard.
+      - name: Unit tests (gating — a red test now blocks the deploy)
+        run: npx vitest run
+
+      - name: Build (vite + tsc + bundle cap)
         run: npm run build
 
       - name: Upload Pages artifact
@@ -83,6 +122,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    # S131 P2 — same reasoning as the build job: no timeout meant the 6-hour default. This job is a
+    # single Pages API call, so 10 min is already generous.
+    timeout-minutes: 10
     # PRIME-AUDIT #1: environment binding required for deploy-pages@v4
     environment:
       name: github-pages

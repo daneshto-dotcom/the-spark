@@ -1,11 +1,11 @@
 {
-  "tool_calls_session_total": 100,
+  "tool_calls_session_total": 103,
   "session_id": "S131",
   "session_kind": "single",
   "session_start": "2026-08-04",
   "prior_session_note": "S130 CLOSED: V6-0.3 Commit A (P1a banner repair) shipped 20aa546 and was held at an OWNER PLAYTEST CHECKPOINT. S131 DISCHARGED THAT GATE EMPIRICALLY rather than by asking the owner to drive it: the Browser pane still refuses to composite (screenshot times out, 'pane is not displayed'), so the playtest ran in headless Chromium via the project's own installed playwright, booting a real VS-BOTS match and driving the GENUINE emitter at scoring.ts:301 (leader score set to SCORE_TIER_STEP-1=499, natural crossing) - NO synthetic effect was injected. RESULT: banner RENDERS. Measured from pixels: centre_x 959.5 (= CANVAS_WIDTH/2 960), glyph band y 34-59 (bottom ~60, NOT the ~68 the PDR assumed), ~13px clear of 'Combos 0/14' (y 13-21), hold bracketed present@frame106 / absent@frame134 = TIER_BANNER_FRAMES 120, text draws ON TOP of world geometry (spawnerRing main.ts:236 added before new HUD main.ts:544). Owner ruled PASS. 21 commits still unpushed; gh token still invalid (write auth absent, read auth healthy - git ls-remote exits 0, remote master f0b8144).",
   "phase": "DO",
-  "user_approval_verbatim": "PASS - proceed to P1b (owner ruling on the Commit A playtest gate, S131)",
+  "user_approval_verbatim": "go  (S131, in direct reply to the message naming all three follow-ups: P2 CI carrier, the centre-column backing plate, and the Triumvirate CHECK)",
   "tier": "Standard",
   "council_rounds": 1,
   "signals_fired": [
@@ -14,7 +14,7 @@
     "3-way-council",
     "completeness-critic"
   ],
-  "plan_file": null,
+  "plan_file": ".claude/plans/2026-08-04_PDR_S131_P2_CI_carrier_plus_toast_plate.md",
   "boot_probe_deltas": "A.0 for V6-0.3 ran as a 6-probe + 6-adversarial-audit fan-out (12 agents, 0 errors). 4 of 6 probe MECHANISMS were refuted by their auditors while conclusions largely survived - consistent with the standing #verify-the-reviewer-s-MECHANISM pattern, now 4 sessions running. HEADLINE DELTA (supervisor-verified a third time by reading raw lines): V6-0.2's tier milestone banner, shipped S129 and marked DONE, PROVABLY CANNOT RENDER. drawTierBanner iterates world.effects (ui.ts:284) but hud.sync is called at main.ts:2515 while effectsRenderer.sync wipes world.effects at main.ts:2486 (effectsRenderer.ts:73); exactly one call site each, nothing between them writes world.effects. Compounding: SCORE_TIER is host-local-only (serializeEffect returns null, save.ts:1400) so even after an ordering fix it can never fire on a joining client. It passed CHECK because ui.tierBanner.test.ts pins only the pure helpers and its own docblock concedes the draw path cannot be driven headlessly. SECOND DELTA: the pre-scoped V6-0.3 plan was wrong in two places - (a) an actor id ALONE cannot answer 'am I the victim?' because BOND_SEVERED carries only {kind,tick,pos,cause} and the bond plus (in the delete case) its endpoints are removed before the emit; the cheap fix is primA.placedBy (primitive.ts:28, readonly PlayerId, immutable vs the mutable placerColor, and already used as the repo's own bond-victim derivation at creatureAI.ts:222 / creatureLifecycle.ts:207-216); (b) the cited reuse surface comboToastRenderer.ts NEVER reads world.effects - it reads synced world fields precisely because its docblock says an effects entry 'would miss the client ~5/6 of the time', so the plan cited a surface whose design point contradicts the carrier it chose. THIRD DELTA: the BACKLOG row's cause union is 4 members; the real union has SEVEN (effects.ts:136) and 'physics' passes a hardcoded asPlayerId(0) sentinel (physicsLoop.ts:170-181), so an unconditional populate would mis-attribute every overstretch sever to seat 0. FOURTH DELTA: PROTOCOL_VERSION needs NO bump (deserializeEffect is a named-field reconstruction not positional/packed, save.ts:1412-1453; parseNetMessage never descends into snapshot.effects, protocol.ts:680-697; ARC_FLASH.creatureId? is the exact shipped precedent, git-verified at commit 5a654e7) - BUT BACKLOG.md:362, marked 'do not re-litigate', says a bump IS needed for any new serialized field, which contradicts six shipped additive-optional wire fields. That is a governance ruling, not a code fact. FIFTH DELTA (process, material): NO CI job runs vitest or typecheck - grep of vitest|npm test|typecheck|check-bundle across .github/workflows/ returns ZERO hits; only deploy.yml's `npm run build` gates anything, and e2e.yml never runs on push. The per-session 'tsc 0 / vitest 1932/1932' figure has no mechanical carrier. Also package.json:13 is bare `vitest` = WATCH mode, so a PDR naming `npm test` hangs the session; run-once is `npx vitest run`. SIXTH DELTA: R15's 17-site checklist does NOT apply to an effect-variant field add (15 of 17 sites structurally N/A), so escalating to Full would buy ceremony, not coverage.",
   "verified_baseline_s130": {
     "vitest": "1932 passed / 1932, 127 files, exit 0 - RUN THIS SESSION via `npx vitest run`, not inherited from the handoff",
@@ -220,13 +220,28 @@
     },
     {
       "id": "P2-ci-carrier",
-      "label": "CI carrier (Rule 16 scope amendment, owner-ruled this session): add a GATING vitest + typecheck step to deploy.yml. Currently ZERO CI jobs run units or types - deploy.yml's only verification is `npm run build` - which is the structural reason V6-0.2 could ship green and dead. Not verifiable until the owner's push lands.",
+      "label": "CI carrier - make a red test block a master-push deploy. A.0 STATE FINDING corrects the owner's ruling: the recorded claim 'NO CI job runs vitest OR typecheck' is HALF WRONG. package.json's build is 'tsc -b && vite build && check-bundle-size', so npm run build ALREADY runs tsc -b and already enforces the bundle cap - a type error already fails the deploy today, transitively. vitest is the genuine gap. Scope: gating 'npx vitest run' (NEVER 'npm test' - that script is bare vitest = watch mode and would hang the runner to its ceiling), an EXPLICIT 'npm run typecheck' step so the existing gate stops being invisible and fast-fails with the real reason, and timeout-minutes on both jobs (deploy.yml sets none today, so it inherits the 6-HOUR default). Steps go inside the existing build job before npm run build, reusing its npm ci. deploy.yml only.",
+      "status": "in_progress",
+      "phase": "DO",
+      "tier": "Micro",
+      "check_completed": false,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "priority_state": "in_progress",
+      "unlock_source": "user",
+      "blocked_on": null
+    },
+    {
+      "id": "P3-toast-backing-plate",
+      "label": "Centre-column backing plate for the two V6-0.3 read-me surfaces. The S131 playtest showed the tier banner (glyph band y 34-59) and the sever toast (y 228-249) both rendering over live world geometry - spawner rings and structures pass behind the glyphs. Text draws on top so it stays readable, but it is avoidable noise on the two lines that exist to be READ. Add a dark semi-transparent plate behind each, on the shipped betaBadgePlate precedent (main.ts:540). Plate alpha must be driven by the SAME countdown/container alpha as its text so the two appear and fade as one object, and must be invisible whenever the text is - a plate outliving its text is a black rectangle on the board. NO repositioning: the owner ruled PASS on placement; this is legibility only.",
       "status": "pending",
       "phase": "PLAN",
       "tier": "Micro",
       "check_completed": false,
+      "priority_state": "approved",
       "pdr_approved": true,
-      "deliberation_completed": true
+      "deliberation_completed": true,
+      "unlock_source": "user"
     }
   ],
   "carry_forward_priorities": [
