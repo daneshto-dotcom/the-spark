@@ -128,12 +128,41 @@ export function applySeverBond(world: World, action: SeverBondAction): World {
  * so attributing it would blame seat 0 for every overstretch in the match. It is EXCLUDED, not
  * defaulted.
  *
- * Deliberately a deny-list and NOT an exhaustive `switch` over `cause` (S130 risk R-E): `'godly'`
- * exists in the BOND_SEVERED effect union but NOT in the SEVER_BOND action union (world.ts:188),
- * so an exhaustive switch here either fails to compile or silently returns undefined. A cause
- * added later therefore defaults to ATTRIBUTED — correct for every dispatcher that passes a real
- * seat. If you add a cause whose playerId is a placeholder, add it to this list.
+ * EXHAUSTIVE ON PURPOSE, AND THIS DOES NOT CONTRADICT S130 RISK R-E — read before "simplifying" it
+ * back to a one-line deny-list. R-E warns that an exhaustive switch over `cause` is a latent crash
+ * because `'godly'` is in the BOND_SEVERED EFFECT union but not the action union. That is true of
+ * the RENDER side, which sees effects and therefore uses a tolerant default (see
+ * `severToastCopy`). Here the input is `SeverBondAction['cause']`, the SIX-member ACTION union,
+ * which has no `'godly'` — so exhaustiveness is both reachable and checkable.
+ *
+ * It started life as `cause === 'physics' ? undefined : action.playerId`. GROK-ANALYST argued in the
+ * S131 CHECK that a deny-list silently ATTRIBUTES any cause added later, so a future dispatcher that
+ * passes a placeholder seat would ship mis-attribution with no compile-time warning — exactly the
+ * `'physics'` bug, re-introduced. The `never` guard below converts that into a build failure that
+ * forces a decision. Same behaviour today, strictly safer tomorrow.
  */
 export function severActor(action: SeverBondAction): PlayerId | undefined {
-  return action.cause === 'physics' ? undefined : action.playerId;
+  switch (action.cause) {
+    // Nobody severed anything — the constraint solver fired. physicsLoop.ts:177 passes a hardcoded
+    // asPlayerId(0) that its own comment calls informational, so attributing it would blame seat 0
+    // for every overstretch in the match. EXCLUDED, not defaulted.
+    case 'physics':
+      return undefined;
+    // Verified at each dispatch site to carry the responsible seat: controls.ts:339 (local human),
+    // botController.ts:403 (the bot's own seat), creatureAttack.ts:141 (creature.ownerPlayerId, for
+    // both 'creature' and 'chewer'), droneLifecycle.ts:96 (drone.ownerPlayerId), bombLifecycle.ts:146
+    // (the picker who placed the bomb).
+    case 'player':
+    case 'creature':
+    case 'chewer':
+    case 'drone':
+    case 'bomb':
+      return action.playerId;
+    default: {
+      // Adding a member to SEVER_BOND's `cause` union breaks the BUILD here until someone decides
+      // whether that dispatcher's playerId is a real actor or a placeholder like physics's.
+      const unhandled: never = action.cause;
+      return unhandled;
+    }
+  }
 }

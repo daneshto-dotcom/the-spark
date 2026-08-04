@@ -18,7 +18,7 @@ import type { Primitive } from '../game/primitive.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import { asBondId, asPlayerId, asPrimitiveId } from '../types.ts';
 import { makeWorld, type World } from './world.ts';
-import { applySeverBond } from './severBond.ts';
+import { applySeverBond, severActor } from './severBond.ts';
 
 const P1 = asPlayerId(0);
 const RED = PLAYER_COLORS[0];
@@ -127,5 +127,40 @@ describe('severBond — applySeverBond (S61 P1 charge-consume lock)', () => {
       expect(last.cause).toBe('player');
       expect(last.pos).toEqual({ x: primA.pos.x, y: primA.pos.y });
     }
+  });
+});
+
+
+describe('V6-0.3 (S131) — severActor: which seat, if any, CAUSED the sever', () => {
+  const A = asPlayerId(3);
+  const act = (cause: 'player' | 'physics' | 'creature' | 'bomb' | 'chewer' | 'drone') =>
+    ({ type: 'SEVER_BOND', bondId: asBondId(0), playerId: A, cause }) as const;
+
+  it("attributes every cause whose dispatcher passes a real seat", () => {
+    // Verified at the dispatch sites: controls.ts (local human), botController.ts (the bot's own
+    // seat), creatureAttack.ts (creature.ownerPlayerId, for both 'creature' and 'chewer'),
+    // droneLifecycle.ts (drone.ownerPlayerId), bombLifecycle.ts (the bomb's picker).
+    for (const cause of ['player', 'creature', 'chewer', 'drone', 'bomb'] as const) {
+      expect(severActor(act(cause)), `cause ${cause} must attribute`).toBe(A);
+    }
+  });
+
+  it("NEVER attributes 'physics' — the solver fired, nobody severed anything", () => {
+    // physicsLoop.ts dispatches with a hardcoded asPlayerId(0) its own comment calls informational.
+    // Attributing it would blame seat 0 for every overstretch in the match. Note the sentinel is a
+    // VALID seat, so this cannot be caught downstream by a range check — it has to be excluded here.
+    expect(severActor(act('physics'))).toBeUndefined();
+    expect(severActor({ type: 'SEVER_BOND', bondId: asBondId(0), playerId: asPlayerId(0), cause: 'physics' })).toBeUndefined();
+  });
+
+  it('is exhaustive over the ACTION cause union, so a new cause cannot slip through unattributed', () => {
+    // The compile-time half is a `never` guard in severActor (adding a cause breaks the build).
+    // This is the runtime half: every member of the union is accounted for, and exactly one of them
+    // is excluded. If a future session widens the union without updating severActor, tsc fails; if
+    // they update it carelessly and attribute a placeholder, this count changes.
+    const ALL = ['player', 'physics', 'creature', 'bomb', 'chewer', 'drone'] as const;
+    const attributed = ALL.filter((c) => severActor(act(c)) !== undefined);
+    expect(attributed).toHaveLength(ALL.length - 1);
+    expect(ALL.filter((c) => severActor(act(c)) === undefined)).toEqual(['physics']);
   });
 });

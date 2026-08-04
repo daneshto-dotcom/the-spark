@@ -189,12 +189,44 @@ describe('V6-0.3 — frame batching and mixed-actor degradation', () => {
   });
 
   it('same actor, mixed CAUSES → keeps the actor, drops the mechanism claim', () => {
+    // S131 CHECK (GROK-ANALYST) — this test's NAME was always right and its assertion was wrong: it
+    // demanded 'B2 SEVERED YOUR BOND', which is the verb of the 'player' cause, i.e. the very
+    // mechanism claim the name says to drop. One seat whose creature and drone each cut a bond in
+    // the same frame was being reported as a direct hostile sever. The tolerant default now says
+    // BROKE — responsibility without a mechanism.
     const cap = captureSeverToast(
       [sever({ actor: B2, cause: 'player' }), sever({ actor: B2, cause: 'creature' })],
       ME,
       BOTS,
     );
-    expect(cap.text).toBe('B2 SEVERED YOUR BOND ×2');
+    expect(cap.text).toBe('B2 BROKE YOUR BOND ×2');
+    // The point of the fix, asserted directly rather than only via the exact string: a mixed batch
+    // must not borrow any single cause's verb.
+    expect(cap.text).not.toContain('SEVERED');
+    expect(cap.text).not.toContain('CREATURE');
+  });
+
+  it('a mixed batch of two NON-player mechanisms also refuses to pick a verb', () => {
+    // The batch Grok named: same actor, creature + drone. Neither verb is truthful for both.
+    const cap = captureSeverToast(
+      [sever({ actor: B3, cause: 'creature' }), sever({ actor: B3, cause: 'drone' })],
+      ME,
+      BOTS,
+    );
+    expect(cap.text).toBe('B3 BROKE YOUR BOND ×2');
+    for (const verb of ['SEVERED', 'CREATURE', 'DRONE', 'GNAWED']) {
+      expect(cap.text, `mixed batch must not claim ${verb}`).not.toContain(verb);
+    }
+  });
+
+  it('the neutral verb is distinct from every specific verb', () => {
+    // If BROKE ever collided with one of the four specific arms, the degradation would be invisible.
+    const neutral = severToastCopy(null, 'B2', 1);
+    const specific = (['player', 'creature', 'chewer', 'drone'] as const).map((c) =>
+      severToastCopy(c, 'B2', 1),
+    );
+    expect(specific).not.toContain(neutral);
+    expect(new Set([neutral, ...specific]).size).toBe(5);
   });
 
   it('ignores non-BOND_SEVERED effects sharing the array', () => {

@@ -145,10 +145,22 @@ export function severToastCopy(
       return `${agent}'S CHEWER GNAWED YOUR BOND${burst}`;
     case 'drone':
       return `${agent}'S DRONE CUT YOUR BOND${burst}`;
-    // 'bomb' is suppressed upstream and 'godly' is unreachable; both fall through to the tolerant
-    // default, which names the agent without asserting a mechanism it cannot vouch for.
+    /*
+     * TOLERANT DEFAULT — reached by a MIXED-mechanism batch (`cause === null`) whose severs all
+     * share one actor, by `'godly'` (unreachable), by `'bomb'` (suppressed upstream), and by any
+     * cause added later.
+     *
+     * The verb is deliberately "BROKE" and NOT "SEVERED". GROK-ANALYST caught this in the S131
+     * CHECK: this arm used to return the same string as the `'player'` case, so one seat whose
+     * CREATURE and DRONE each cut a bond in the same frame was reported as
+     * "P6 SEVERED YOUR BOND ×2" — asserting a direct hostile sever the code cannot vouch for, and
+     * contradicting this docblock's own promise not to claim a mechanism. "BROKE" attributes
+     * responsibility (which IS known — the actor agreed across the batch) while staying silent on
+     * the means, and stays distinct from SEVERED / CUT / GNAWED so the player can still learn the
+     * specific verbs.
+     */
     default:
-      return `${agent} SEVERED YOUR BOND${burst}`;
+      return `${agent} BROKE YOUR BOND${burst}`;
   }
 }
 
