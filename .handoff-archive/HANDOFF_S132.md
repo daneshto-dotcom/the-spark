@@ -85,8 +85,15 @@ playtest-URL trap, and logs the `Q` double-binding. `boot-snapshot.md` carries t
 `probeHarness.ts` docblock now warns the next reader off the broad `dist/` grep form.
 
 ## OPEN ISSUES
-- **36 commits unpushed** — `gh auth status`: "The token in default is invalid". READ auth healthy
+- **[STEP 5 check failed: main-is-synced-with-origin]** — `git rev-list --count origin/master..master`
+  returned **37**, and the check requires `0`. Remediation: `gh auth login -h github.com` then
+  `git push origin master`. This is the only STEP 5 check that failed; 1, 2, 4, 5, 6, 7, 8 all passed.
+- **37 commits unpushed** — `gh auth status`: "The token in default is invalid". READ auth healthy
   (`ls-remote` exit 0), so the count is **exact, not a lower bound**. Fifth consecutive session.
+  ⛑ **The number climbs with every bookkeeping commit — MEASURE it, do not trust this figure:**
+  `git rev-list --count origin/master..master`. It was 33 at boot, 36 pre-handoff, 37 at close. Do
+  **NOT** use `git log master..origin/master` — that tests the wrong direction and prints 0 while any
+  number sit unpushed, which is how a dead token went unnoticed for four sessions and reached 48.
 - **`deploy.yml` has still never executed with S131's CI gate** — static assertions only.
 - **`npm test` is bare `vitest` = watch mode, hangs the session.** Use `npx vitest run`. Still unfixed.
 - **`Q` is genuinely double-bound** between the probe's draw and `SHRINK_TERRITORY` (`main.ts:888`

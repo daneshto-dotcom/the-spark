@@ -2,9 +2,11 @@
 Generated: 2026-08-04 | Session: S132 (probe instrument repaired · B3 settled empirically)
 
 ## ⛔ TWO OWNER ACTIONS GATE EVERYTHING — AND ONE JUST GOT CHEAPER
-**36 COMMITS UNPUSHED.** `gh auth status` still says "The token in default is invalid" — WRITE auth
-absent, READ auth healthy (`git ls-remote origin -h refs/heads/master` exits **0**, so the count is
-**EXACT, not a lower bound**). Owner: `gh auth login -h github.com`, then
+**37 COMMITS UNPUSHED** at S132 close — and it was 33 at S132 boot, so **RUN THE COMMAND, do not
+trust this number:** `git rev-list --count origin/master..master`. `gh auth status` still says "The
+token in default is invalid" — WRITE auth absent, READ auth healthy
+(`git ls-remote origin -h refs/heads/master` exits **0**, so whatever the count reads is **EXACT, not
+a lower bound**). Owner: `gh auth login -h github.com`, then
 `git push origin master && git push origin v0.5.2-pre-pivot`.
 ⚠ That push fires a production deploy (src/ touched) **and is still the only way to learn whether
 S131's CI gate works** — `deploy.yml` has never executed with it. Fifth session running.
