@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 103,
+  "tool_calls_session_total": 104,
   "session_id": "S131",
   "session_kind": "single",
   "session_start": "2026-08-04",
@@ -221,27 +221,109 @@
     {
       "id": "P2-ci-carrier",
       "label": "CI carrier - make a red test block a master-push deploy. A.0 STATE FINDING corrects the owner's ruling: the recorded claim 'NO CI job runs vitest OR typecheck' is HALF WRONG. package.json's build is 'tsc -b && vite build && check-bundle-size', so npm run build ALREADY runs tsc -b and already enforces the bundle cap - a type error already fails the deploy today, transitively. vitest is the genuine gap. Scope: gating 'npx vitest run' (NEVER 'npm test' - that script is bare vitest = watch mode and would hang the runner to its ceiling), an EXPLICIT 'npm run typecheck' step so the existing gate stops being invisible and fast-fails with the real reason, and timeout-minutes on both jobs (deploy.yml sets none today, so it inherits the 6-HOUR default). Steps go inside the existing build job before npm run build, reusing its npm ci. deploy.yml only.",
-      "status": "in_progress",
-      "phase": "DO",
+      "status": "completed",
+      "phase": "CHECK-COMPLETE",
       "tier": "Micro",
-      "check_completed": false,
+      "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "priority_state": "in_progress",
+      "priority_state": "completed",
       "unlock_source": "user",
-      "blocked_on": null
+      "blocked_on": null,
+      "checkpoint_commit": "9b50c89",
+      "real_context_tokens_at_close": 387853,
+      "real_context_pct_at_close": 38.79,
+      "check_method": "Micro-tier CHECK on a workflow file, which cannot be exercised: the gh token has no write auth, so deploy.yml has NOT run since the gate was added. Verification is static BY NECESSITY and is recorded as such rather than implying a green CI run. (1) A.0 STATE PROBE THAT CORRECTED THE OWNER'S RULING (Rule 21): the ruling rested on the recorded claim 'NO CI job runs vitest OR typecheck - zero hits across .github/workflows/'. The grep is accurate and its conclusion is HALF FALSE - package.json defines build as 'tsc -b && vite build && node scripts/check-bundle-size.mjs', so npm run build has ALWAYS run tsc -b and always enforced the bundle cap. A type error has been failing this deploy all along, transitively; vitest was the only real gap. Corrected in the amended PDR, in LOCKED_DECISIONS.md (which had repeated the claim earlier in THIS session), and in the workflow itself. (2) YAML parsed with a real parser (not regex): both jobs present, steps in order npm ci -> npm run typecheck -> npx vitest run -> npm run build, timeout-minutes 15/10. (3) NEW GUARD src/ci.deployGate.test.ts, 6 tests, MUTATION-TESTED: swapping 'npx vitest run' for 'npm test' fails it (verified, reverted). The guard asserts on the EXTRACTED run: commands, not on file text, because deploy.yml deliberately mentions 'npm test' in the warning comment that prevents the mistake - a substring check would have failed on its own documentation. It also pins that the paths filter still includes src/**, since a perfect gate behind a filter that excludes source would never fire. (4) tsc 0; vitest 1970/1970 (130 files, +6). Bundle unchanged - no src/ runtime code touched. (5) HONEST LIMITS NAMED IN-FILE: a timeout kill still concludes 'cancelled' not 'failure' (no email, no artifacts), and vitest has no global-suite-timeout flag to place below the job timeout the way PW_GLOBAL_TIMEOUT_MIN sits below Playwright's - so this bounds the WASTE without closing the silent-signal class. package.json's bare-vitest watch-mode trap is left as a logged carry-forward (different file, different concern, Rule 16). (6) SIDE EFFECT WORTH NAMING: constants.lock.test.ts is now a CI-BLOCKING guard for the first time rather than a local tripwire - exactly what the S86 Council asked for after the S85->S86 fog regression ('Docs alone didn't stop it; a CI-blocking test does').",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.github/workflows/deploy.yml",
+          "needle": "run: npx vitest run"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.github/workflows/deploy.yml",
+          "needle": "run: npm run typecheck"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.github/workflows/deploy.yml",
+          "needle": "timeout-minutes: 15"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.github/workflows/deploy.yml",
+          "needle": "timeout-minutes: 10"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/ci.deployGate.test.ts",
+          "needle": "expect(RUN_COMMANDS).toContain('npx vitest run')"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/ci.deployGate.test.ts",
+          "needle": "expect(RUN_COMMANDS).not.toContain('npm test')"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/LOCKED_DECISIONS.md",
+          "needle": "CORRECTION + UPGRADE (S131 P2)"
+        }
+      ]
     },
     {
       "id": "P3-toast-backing-plate",
       "label": "Centre-column backing plate for the two V6-0.3 read-me surfaces. The S131 playtest showed the tier banner (glyph band y 34-59) and the sever toast (y 228-249) both rendering over live world geometry - spawner rings and structures pass behind the glyphs. Text draws on top so it stays readable, but it is avoidable noise on the two lines that exist to be READ. Add a dark semi-transparent plate behind each, on the shipped betaBadgePlate precedent (main.ts:540). Plate alpha must be driven by the SAME countdown/container alpha as its text so the two appear and fade as one object, and must be invisible whenever the text is - a plate outliving its text is a black rectangle on the board. NO repositioning: the owner ruled PASS on placement; this is legibility only.",
-      "status": "pending",
-      "phase": "PLAN",
+      "status": "completed",
+      "phase": "CHECK-COMPLETE",
       "tier": "Micro",
-      "check_completed": false,
-      "priority_state": "approved",
+      "check_completed": true,
+      "priority_state": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "checkpoint_commit": "1eb68e9",
+      "real_context_tokens_at_close": 387853,
+      "real_context_pct_at_close": 38.79,
+      "check_method": "Micro-tier CHECK, static + runtime. (1) STATIC: tsc 0; vitest 1976/1976 (130 files, +6 plate-geometry tests); build exit 0 with bundle 645.4/750 KiB (+0.7 KiB against 644.7, 104.6 KiB headroom). (2) GEOMETRY IS A PURE FUNCTION (bannerPlateRect) rather than inlined in a Pixi method, for the V6-0.2 reason: geometry buried in a method can only be verified by constructing an Application. Tests cover centring, four-sided containment, growth with the label, the dark-not-opaque fill, the shared alpha envelope, and specifically that it honours the TOP anchor (0.5,0) instead of reading y as the text centre - the mis-anchoring that would leave descenders bare. (3) NO IMPORT CYCLE: severToastRenderer now imports HUD_PLATE_FILL from ui.ts; verified one-way (ui.ts imports only pixi/constants/world/types/combos, and only main.ts imports severToastRenderer). Confirmed at runtime too - __SPARK__ came up, which a cycle would have broken at boot. (4) RUNTIME, REAL PIXELS, NOTHING SYNTHETIC: banner fired via the genuine emitter (leader score set to SCORE_TIER_STEP-1 so scoring.ts:301 emitted); toast fired via a genuine SEVER_BOND dispatch through the app's own controls.dispatchFn against a bond a bot had built. Both plates observed rendering BEHIND their text and masking the spawner rings / structure that previously ran through the glyphs. (5) THE CHECK IT WOULD HAVE BEEN EMBARRASSING TO SKIP - that neither plate OUTLIVES its text, since a lingering plate is a black rectangle on the board, worse than the noise it removes. Toast band warm-pixel count 0 (before) -> 3759 (peak, alpha 0.96) -> 0 (after expiry); banner band 968 -> 2136 -> 940 (back to its pre-crossing count); plus a separate capture at TITLE exercising the non-PLAYING branch. Zero pageerrors across both runs. (6) A MEASUREMENT ERROR CAUGHT BEFORE IT BECAME A FALSE PASS: the first capture shot the toast immediately after dispatch, i.e. inside the 12% fade-in (~18 ticks), so the glyphs barely cleared the brightness threshold and with-plate vs after-expiry differed by only 22 px - indistinguishable from 'still gone'. Re-captured inside the hold to measure at peak. (7) Retired a now-false claim in the file that made it: ui.tierBanner.test.ts's header said the banner's visual placement 'remains genuinely unverified... the owner's eye to judge'.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
+          "needle": "export function bannerPlateRect"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
+          "needle": "export const HUD_PLATE_FILL"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
+          "needle": "this.tierBannerPlate.visible = false;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.ts",
+          "needle": "const TIER_BANNER_Y = 34;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/severToastRenderer.ts",
+          "needle": "this.group.scale.set(pose.scale);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/severToastRenderer.ts",
+          "needle": "this.plate.clear()"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/ui.tierBanner.test.ts",
+          "needle": "banner backing plate geometry"
+        }
+      ]
     }
   ],
   "carry_forward_priorities": [
@@ -312,6 +394,21 @@
       "session": "S131",
       "tag": "#a-frame-count-is-not-a-duration",
       "entry": "TIER_BANNER_FRAMES=120 reads like 2 seconds and is not: nothing caps the Pixi ticker, so it is 2.0s at 60Hz and ~0.83s at 144Hz. The owner was being asked to judge legibility 'in the ~2s hold' on hardware where it may be under a second. The new toast holds in SIM TICKS instead. When a window exists for a human to READ something, measure it in time, not frames."
+    },
+    {
+      "session": "S131",
+      "tag": "#a-grep-proves-a-string-is-absent-not-a-behaviour",
+      "entry": "The claim 'NO CI job runs vitest OR typecheck - zero hits across .github/workflows/' was carried by several handoffs, drove an owner ruling, and I repeated it in LOCKED_DECISIONS.md earlier in this same session. The grep was correct; the inference was half wrong, because npm run build IS 'tsc -b && vite build && check-bundle-size'. A literal-string search cannot see through a script indirection. When a grep is load-bearing for a decision, follow the scripts it names."
+    },
+    {
+      "session": "S131",
+      "tag": "#measure-inside-the-hold-not-on-the-edge-of-the-ramp",
+      "entry": "My first plate check compared with-plate against after-expiry and got a 22-pixel difference, which would have read as 'the plate never appeared'. The shot had landed inside the 0.3s fade-in. When a thing animates in, any measurement taken at t=0 measures the animation, not the thing. Sample in the steady state."
+    },
+    {
+      "session": "S131",
+      "tag": "#a-plate-must-die-with-its-label",
+      "entry": "Adding a backing plate creates a new way to fail that the text alone did not have: the plate can outlive its label and sit on the board as a black rectangle. I wired visibility in the same statements on every path and then PROVED absence (0 -> 3759 -> 0 warm px) rather than only proving presence. Verifying that a feature appears is half a test."
     }
   ],
   "session_status": "in_progress",
