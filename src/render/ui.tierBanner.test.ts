@@ -19,6 +19,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import {
   formatTierBanner,
   formatSoloScore,
@@ -29,6 +31,13 @@ import {
   HUD_PLATE_FILL,
 } from './ui.ts';
 import { PHASE_1_WIN_SCORE, SCORE_TIER_STEP } from '../constants.ts';
+
+/**
+ * S131 P3 — ui.ts read as TEXT, for the plate/text lockstep. `HUD` cannot be instantiated without a
+ * live Pixi `Application`, which is exactly why the plate had no mechanical coverage until a CHECK
+ * reviewer deleted its two assignments and watched the suite stay green.
+ */
+const UI_TS = readFileSync(fileURLToPath(new URL('./ui.ts', import.meta.url)), 'utf8');
 
 describe('V6-0.2 — tier milestone banner', () => {
   it('names the tier and anchors it to progress', () => {
@@ -168,10 +177,59 @@ describe('P3 (S131) — banner backing plate geometry', () => {
   });
 
   it('fades with the banner: plate alpha is driven by the same envelope as the text', () => {
-    // animateTierBanner assigns tierBannerAlpha() to BOTH, which multiplies with the fill's own
-    // alpha. If the plate were left at a constant alpha it would outlive the fade as a dark bar.
+    // NOTE ON WHAT THIS DOES AND DOES NOT COVER — S131 CHECK (RALPH) caught that this test, whose
+    // title claims to cover the plate, did not mention the plate at all: it only re-asserted
+    // tierBannerAlpha values already pinned identically above. Deleting BOTH plate assignments from
+    // animateTierBanner left the whole suite green with P3's banner half dead. The envelope
+    // assertions below are still worth keeping, but the actual plate/text lockstep is pinned
+    // structurally in the next test, because HUD needs a live Pixi Application to instantiate.
     expect(tierBannerAlpha(TIER_BANNER_FRAMES)).toBe(1);
     expect(tierBannerAlpha(0)).toBe(0);
     expect(tierBannerAlpha(1)).toBeLessThan(1);
+  });
+
+  it('animateTierBanner drives the PLATE on every path it drives the TEXT', () => {
+    // THE GUARD THE TITLE ABOVE ONLY PRETENDED TO BE. HUD cannot be constructed without a Pixi
+    // Application, so the lockstep is pinned by reading the source — the same technique
+    // ui.drainOrder.test.ts uses on main.ts, and for the same reason: the property that matters is a
+    // CALL-SITE fact, not arithmetic.
+    //
+    // Two mutations this is written to catch, both of which previously left the suite fully green:
+    //   (a) delete the plate's `visible = true` / `alpha = alpha` writes -> the plate is constructed
+    //       visible=false, so it never renders a pixel in any mode and P3's banner half is dead;
+    //   (b) delete the plate's `visible = false` from the non-PLAYING branch -> a dark rounded
+    //       rectangle is parked on the title/win screen, the exact "plate outliving its text"
+    //       failure the plan forbids.
+    const body = /private animateTierBanner\(world: World\): void \{([\s\S]*?)\n  \}/.exec(UI_TS)?.[1];
+    expect(body, 'animateTierBanner must exist in ui.ts').toBeDefined();
+    const count = (hay: string, needle: string): number => hay.split(needle).length - 1;
+
+    // Every visibility decision reaches BOTH objects...
+    expect(count(body!, 'this.tierBannerText.visible')).toBeGreaterThan(0);
+    expect(count(body!, 'this.tierBannerPlate.visible')).toBe(
+      count(body!, 'this.tierBannerText.visible'),
+    );
+    // ...including both `false` paths (non-PLAYING, and frames exhausted).
+    expect(count(body!, 'this.tierBannerPlate.visible = false;')).toBe(2);
+    expect(count(body!, 'this.tierBannerPlate.visible = true;')).toBe(1);
+    // ...and so does the alpha, from the same computed value rather than a literal.
+    expect(count(body!, 'this.tierBannerPlate.alpha = alpha;')).toBe(1);
+    expect(count(body!, 'this.tierBannerText.alpha = alpha;')).toBe(1);
+  });
+
+  it('the plate is created hidden, so it can never precede its first label', () => {
+    // If it were constructed visible, it would show as an empty chip sized to '' before any
+    // crossing armed the banner.
+    expect(UI_TS).toContain('this.tierBannerPlate.visible = false;\n    app.stage.addChild(this.tierBannerPlate);');
+  });
+
+  it('the plate is added to the stage BEFORE the text, so it renders behind it', () => {
+    // Pixi has no zIndex here; child-add order IS the z-order (the betaBadge/betaBadgePlate idiom).
+    // Reversing these two lines would draw a dark chip OVER the label.
+    const plateAt = UI_TS.indexOf('app.stage.addChild(this.tierBannerPlate)');
+    const textAt = UI_TS.indexOf('app.stage.addChild(this.tierBannerText)');
+    expect(plateAt).toBeGreaterThan(-1);
+    expect(textAt).toBeGreaterThan(-1);
+    expect(plateAt, 'plate must be added before the text').toBeLessThan(textAt);
   });
 });

@@ -178,11 +178,22 @@ export function severToastCopy(
  * SUPPRESSION IS TWO CLAUSES, AND THE SECOND IS NOT REDUNDANT:
  *   (a) `actor === victim` — you cut your own bond on purpose; narrating it is noise.
  *   (b) `cause === 'bomb'` unconditionally. It looks like a special case of (a) and is not:
- *       `bombLifecycle.ts:110` selects its kill set on the MUTABLE `placerColor`, while (a)
- *       compares the READONLY `placedBy`. After a rainbow shuffle those two disagree, so a bomb
- *       can destroy a bond whose `placedBy` is someone else and (a) would fire a toast blaming the
- *       bomb's picker for collateral they did not aim at. Owner ruled SUPPRESS (S130 F3-C); the
- *       show-it variant is a one-line flip here if a playtest wants it.
+ *       `bombLifecycle.ts` selects its kill set on the MUTABLE `placerColor`, while (a) compares the
+ *       READONLY `placedBy`. A bomb can therefore destroy a bond whose `placedBy` is someone else,
+ *       and (a) would fire a toast blaming the picker for collateral they never aimed at. Owner
+ *       ruled SUPPRESS (S130 F3-C); the show-it variant is a one-line flip here if a playtest wants it.
+ *
+ *       ⚠ THE MECHANISM, CORRECTED IN S131 CHECK — the earlier wording here said "after a rainbow
+ *       shuffle those two disagree", and that is NOT how the divergence happens. A reviewer set out
+ *       to prove clause (b) redundant and, in failing, established the real path: within a single
+ *       match the shuffle applies ONE bijection to both `player.color` and `placerColor`, so it
+ *       PRESERVES the placerColor→placedBy correspondence. Divergence needs the shuffle PLUS the
+ *       next match's seating: colour is never reset (neither START_GAME, RETURN_TO_TITLE nor
+ *       softReset touches it) and START_GAME leaves an already-seated player in place, so a host
+ *       whose seat was recoloured by a rainbow can end up sharing a palette colour with a joiner
+ *       seated at that same static colour. Two live players on one colour is what lets a bomb reach
+ *       a bond it does not own. The conclusion stood; the stated reason did not — which is the whole
+ *       argument for checking a reviewer's mechanism rather than only its verdict.
  */
 export function captureSeverToast(
   effects: readonly GameEffect[],

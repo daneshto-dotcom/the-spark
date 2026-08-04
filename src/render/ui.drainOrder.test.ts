@@ -86,6 +86,25 @@ describe('V6-0.3 — drain order (the V6-0.2 regression lock)', () => {
     const wipeAt = MAIN_TS.indexOf(WIPE);
     expect(wipeAt).toBeGreaterThan(-1);
     for (const consumer of PRE_WIPE_CONSUMERS) {
+      // S131 CHECK (RALPH) — THE OCCURRENCE COUNT IS LOAD-BEARING, not defensive padding.
+      //
+      // `indexOf` returns the FIRST match, and this file reads main.ts as raw text with no comment
+      // stripping. So ANY mention of a consumer's exact call text in a comment above the wipe
+      // satisfies the position assertion no matter where the real call sits. That was not
+      // hypothetical: main.ts:553 already carried the substring `hud.drainTierBanner` in a comment
+      // ~1,950 lines above the wipe, one `(world)` away from blinding this guard — and a reviewer
+      // demonstrated it by adding that token, moving the real call below the wipe, and watching all
+      // 9 tests here plus the full 1981-test suite stay green with the V6-0.2 defect live.
+      //
+      // Pinning the count to exactly 1 closes it: a comment mentioning the call becomes a SECOND
+      // occurrence and fails loudly. Test 1 above already does this for the wipe itself; the
+      // consumer loop simply never got the same treatment.
+      const occurrences = MAIN_TS.split(consumer).length - 1;
+      expect(
+        occurrences,
+        `${consumer} must appear EXACTLY once in main.ts (a comment mentioning it would let indexOf ` +
+          `resolve to the comment and blind this guard). Found ${occurrences}.`,
+      ).toBe(1);
       const at = MAIN_TS.indexOf(consumer);
       expect(at, `${consumer} must exist in main.ts`).toBeGreaterThan(-1);
       expect(at, `${consumer} must run BEFORE ${WIPE}`).toBeLessThan(wipeAt);

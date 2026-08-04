@@ -8,7 +8,7 @@ import { makeFreeSpark } from '../game/spark.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import { asPlayerId, asPotatoId, asSparkId } from '../types.ts';
 import { dispatch, makeWorld } from './world.ts';
-import { netSnapshot, restore, snapshot } from './save.ts';
+import { applyNetSnapshot, netSnapshot, restore, snapshot } from './save.ts';
 import { applySpawnBomb } from './bombLifecycle.ts';
 import { applySpawnHunter } from './hunters/hunterLifecycle.ts';
 import { applyPickupPotato, applySpawnPotato } from './potatoLifecycle.ts';
@@ -892,5 +892,79 @@ describe('save — S97 P5 godlyFiredThisMatch round-trip', () => {
     const legacy = snapshot(makeWorld(0)); // empty world → no godlyFiredThisMatch on the wire
     restore(JSON.parse(JSON.stringify(legacy)), w2);
     expect(w2.godlyFiredThisMatch.size).toBe(0);
+  });
+});
+
+
+describe('V6-0.3 (S131) — sever attribution survives the WIRE, in BOTH directions', () => {
+  // WHY THIS EXISTS. S131 shipped actor?/victim? across four coordinated sites and guarded only the
+  // SERIALIZE direction (save.replay.test.ts asserts the outgoing JSON string contains the keys).
+  // A CHECK reviewer deleted `actor: s.actor` / `victim: s.victim` from deserializeEffect's
+  // BOND_SEVERED case and the ENTIRE suite stayed green — 130 files, 1981 tests — because every
+  // other test either inspects the outgoing string or builds GameEffect literals by hand and never
+  // routes through the deserializer.
+  //
+  // That is the exact hazard save.ts's own comment warns about ("per-case object literals with NO
+  // spread ... Edit them together"), and the unasserted half was the half every non-host consumer
+  // depends on: a 1v1 joiner's ONLY source of BOND_SEVERED is the wire. Both fields are OPTIONAL,
+  // so the compiler cannot catch a partial edit either — only a round-trip assertion can.
+  //
+  // Worth stating precisely, because it is worse than "the toast loses the name": with `victim`
+  // gone, captureSeverToast's victim gate skips the effect entirely, count stays 0, and the joiner
+  // gets NO TOAST AT ALL rather than an anonymous one.
+
+  const HOST = asPlayerId(0);
+  const VICTIM = asPlayerId(1);
+
+  it('applyNetSnapshot rehydrates actor AND victim (the 1v1 joiner path)', () => {
+    const host = makeWorld(0);
+    host.effects.push({
+      kind: 'BOND_SEVERED', tick: 77, pos: { x: 10, y: 20 },
+      cause: 'creature', actor: HOST, victim: VICTIM,
+    });
+    const joiner = makeWorld(0);
+    applyNetSnapshot(JSON.parse(JSON.stringify(netSnapshot(host))), joiner);
+
+    const severed = joiner.effects.filter((e) => e.kind === 'BOND_SEVERED');
+    expect(severed).toHaveLength(1);
+    const e = severed[0];
+    if (e.kind !== 'BOND_SEVERED') throw new Error('narrowing');
+    expect(e.actor, 'actor must survive deserializeEffect').toBe(HOST);
+    expect(e.victim, 'victim must survive deserializeEffect').toBe(VICTIM);
+    expect(e.cause).toBe('creature');
+  });
+
+  it('snapshot/restore rehydrates both fields too (the localStorage save path)', () => {
+    const w1 = makeWorld(0);
+    w1.effects.push({
+      kind: 'BOND_SEVERED', tick: 42, pos: { x: 1, y: 2 },
+      cause: 'player', actor: VICTIM, victim: HOST,
+    });
+    const w2 = makeWorld(0);
+    restore(JSON.parse(JSON.stringify(snapshot(w1))), w2);
+    const e = w2.effects.find((x) => x.kind === 'BOND_SEVERED');
+    expect(e).toBeDefined();
+    if (!e || e.kind !== 'BOND_SEVERED') throw new Error('narrowing');
+    expect(e.actor).toBe(VICTIM);
+    expect(e.victim).toBe(HOST);
+  });
+
+  it('an UNATTRIBUTED sever round-trips cleanly, with both fields absent', () => {
+    // The pre-S131 wire shape, and the live shape for cause 'physics'. JSON.stringify drops
+    // undefined-valued keys, so the payload must be byte-clean and rehydrate without the fields
+    // rather than materialising them as null (which would defeat the `=== undefined` victim gate).
+    const host = makeWorld(0);
+    host.effects.push({ kind: 'BOND_SEVERED', tick: 9, pos: { x: 0, y: 0 }, cause: 'physics' });
+    const wire = JSON.stringify(netSnapshot(host));
+    expect(wire).toContain('BOND_SEVERED');
+    expect(wire).not.toContain('"actor"');
+    expect(wire).not.toContain('"victim"');
+
+    const joiner = makeWorld(0);
+    applyNetSnapshot(JSON.parse(wire), joiner);
+    const e = joiner.effects.find((x) => x.kind === 'BOND_SEVERED');
+    if (!e || e.kind !== 'BOND_SEVERED') throw new Error('narrowing');
+    expect(e.actor).toBeUndefined();
+    expect(e.victim).toBeUndefined();
   });
 });
