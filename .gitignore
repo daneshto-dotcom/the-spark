@@ -36,3 +36,5 @@ test-results-soak/
 /build-out.txt
 /*-out.txt
 /e2e-watch-*.log
+# S133 — transient pre-handoff review flag (created/cleared by pre-handoff-review.py)
+.claude/REVIEW-PENDING.flag
