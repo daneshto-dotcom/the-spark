@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 31,
+  "tool_calls_session_total": 37,
   "session_id": "S133",
   "session_kind": "pdca",
   "session_start": "2026-08-05",
@@ -51,7 +51,7 @@
       ],
       "real_context_tokens_at_close": 358550,
       "real_context_pct_at_close": 35.86,
-      "check_method": "Standard-tier CHECK = Triumvirate (RALPH:PATROL + GROK-ANALYST + GEMINI-AUDITOR), all three adversarial with distinct lenses, then remediation commit 36d3b35. (1) STATIC: tsc 0; npx vitest run 2020/2020 across 132 files (from 2001/130 at boot, +19 tests +2 files); npm run build bundle 645.4 KiB / 750 cap, entry 660,916 B — DOWN 100 B from the S132 baseline 661,016 B, which is proof rather than inference that the wide test-only hash ships zero production bytes. (2) MUTATION: 14/14 CAUGHT, each verified to fire in the INTENDED guard rather than a downstream fixture (checked explicitly for M4, where the first reported error came from sync.test.ts). Matrix covers: dropping a family from the coverage map; adding a new Map family to World; dropping a field from a projection list; adding a field to an already-hashed entity; the wide hash going blind to hp and to chewProgress; removing the id sort; marking a narrow-hashed family 'acknowledged'; restoring each of the three wire strips independently; deleting an entire projection loop; adding hp to Primitive; adding a Record-typed field to World. (3) TWO OF MY OWN GUARDS WERE VACUOUS AND MUTATION FOUND BOTH: M9 (the hp test asserted on a creature that hits trimMirrorCreature's early return, so it could never fail) and the spawnedAtTick characterization (asserted against a fixture value of 0, the exact number the deserializer hardcodes). Both fixed, then re-mutated to CAUGHT. (4) CHECK found my own correction was WRONG in three committed places: 'a Voltkin's expiry is re-derivable from spawnedAtTick, which does ride the wire' is false — spawnedAtTick is not a SerializedCreature field, is never emitted, and rehydrates to 0. I verified that by hand before acting on the reviewer's word. The real consequence is worse: despawnAtTick rehydrates to 0 and a PROMOTED client runs the lifetime gate, so creatureLifecycle deletes every live Voltkin on its first creature tick. NOT fixable by un-stripping (serializeCreature only emits despawnAtTick for chewers), so characterized + logged with the mechanism. (5) MEASURED, not estimated: wire 12,413 B -> 12,821 B = +408 B (+3.3%) on the 12-chewer worst case, 3,563 B under the 16 KiB R1 ceiling, taken by running the guard with the strip both restored and removed. (6) HONEST NEGATIVES: widening found NO latent divergence — both differential harnesses pass even with rngSeed, allocator cursors and primitive colours added; I expected red and did not get it. save.replay.test.ts had asserted not.toContain('chewProgress'), i.e. it had LOCKED IN the bug; inverted rather than deleted so the contract change is visible in the diff. (7) GROK's aliasing finding REFUTED by reading save.ts:646 — serializeCreature returns a fresh literal, so trimMirrorCreature never sees live world objects.",
+      "check_method": "Standard-tier CHECK = Triumvirate (RALPH:PATROL + GROK-ANALYST + GEMINI-AUDITOR), all three adversarial with distinct lenses, then remediation commit 36d3b35. (1) STATIC: tsc 0; npx vitest run 2020/2020 across 132 files (from 2001/130 at boot, +19 tests +2 files); npm run build bundle 645.4 KiB / 750 cap, entry 660,916 B \u2014 DOWN 100 B from the S132 baseline 661,016 B, which is proof rather than inference that the wide test-only hash ships zero production bytes. (2) MUTATION: 14/14 CAUGHT, each verified to fire in the INTENDED guard rather than a downstream fixture (checked explicitly for M4, where the first reported error came from sync.test.ts). Matrix covers: dropping a family from the coverage map; adding a new Map family to World; dropping a field from a projection list; adding a field to an already-hashed entity; the wide hash going blind to hp and to chewProgress; removing the id sort; marking a narrow-hashed family 'acknowledged'; restoring each of the three wire strips independently; deleting an entire projection loop; adding hp to Primitive; adding a Record-typed field to World. (3) TWO OF MY OWN GUARDS WERE VACUOUS AND MUTATION FOUND BOTH: M9 (the hp test asserted on a creature that hits trimMirrorCreature's early return, so it could never fail) and the spawnedAtTick characterization (asserted against a fixture value of 0, the exact number the deserializer hardcodes). Both fixed, then re-mutated to CAUGHT. (4) CHECK found my own correction was WRONG in three committed places: 'a Voltkin's expiry is re-derivable from spawnedAtTick, which does ride the wire' is false \u2014 spawnedAtTick is not a SerializedCreature field, is never emitted, and rehydrates to 0. I verified that by hand before acting on the reviewer's word. The real consequence is worse: despawnAtTick rehydrates to 0 and a PROMOTED client runs the lifetime gate, so creatureLifecycle deletes every live Voltkin on its first creature tick. NOT fixable by un-stripping (serializeCreature only emits despawnAtTick for chewers), so characterized + logged with the mechanism. (5) MEASURED, not estimated: wire 12,413 B -> 12,821 B = +408 B (+3.3%) on the 12-chewer worst case, 3,563 B under the 16 KiB R1 ceiling, taken by running the guard with the strip both restored and removed. (6) HONEST NEGATIVES: widening found NO latent divergence \u2014 both differential harnesses pass even with rngSeed, allocator cursors and primitive colours added; I expected red and did not get it. save.replay.test.ts had asserted not.toContain('chewProgress'), i.e. it had LOCKED IN the bug; inverted rather than deleted so the contract change is visible in the diff. (7) GROK's aliasing finding REFUTED by reading save.ts:646 \u2014 serializeCreature returns a fresh literal, so trimMirrorCreature never sees live world objects.",
       "verification": [
         {
           "type": "file_contains",
@@ -96,18 +96,18 @@
       "checkpoint_commit": "8c46e6a",
       "real_context_tokens_at_close": 467819,
       "real_context_pct_at_close": 46.78,
-      "check_method": "Micro-tier CHECK (RALPH + self-verification; no external Council for Micro). (1) STATIC: tsc 0; vitest 2020/2020 across 132 files; bundle 645.4 KiB with the entry chunk BYTE-IDENTICAL at 660,916 B, since every production edit in P2 was a comment. (2) BEHAVIOURAL, not inferred: `npm test` was RUN and now EXITS with 2020/2020 instead of hanging in watch mode — that is the fix demonstrated rather than argued. (3) e2e is NOT type-checked, so `npx playwright test e2e/smoke.spec.ts --list` was used as the parse gate: 12 tests, and the listed title now reads v16, which is how the SIBLING staleness was caught in the first place. (4) ANCHOR COUNT: `grep -rn V6-RISK src/` returns 5 (R1, R5, R10, R12 + the pre-existing B3) where it returned 1 — carrier (b) of the ledger is now real for the four earliest-biting risks and explicitly documented as FALSE for the remaining 19. (5) TWO OF FOUR LOGGED ITEMS WERE WRONG AS LOGGED and are closed by correcting the record: P2-18 'godly' is REJECTED with three verified grounds (wire-serialized member; the in-code comment naming back-compat as the reason it stays; a deliberately tolerant consumer), and the V6-RISK item was cited at the wrong lines and understated a never-built enforcement carrier. (6) SELF-CAUGHT ATTRIBUTION ERROR: I first wrote 'PROTOCOL_VERSION 15 since S115' and git-verified it to S124 P1 (`80f1058`) before committing. (7) FOUND, NOT LOGGED: smoke.spec.ts:657's newer-peer test used a v10 override against a v15 host, so it had silently stopped exercising the branch in its own title; raised to v16 with the strictly-greater-than invariant written down at both sites.",
+      "check_method": "Micro-tier CHECK (RALPH + self-verification; no external Council for Micro). (1) STATIC: tsc 0; vitest 2020/2020 across 132 files; bundle 645.4 KiB with the entry chunk BYTE-IDENTICAL at 660,916 B, since every production edit in P2 was a comment. (2) BEHAVIOURAL, not inferred: `npm test` was RUN and now EXITS with 2020/2020 instead of hanging in watch mode \u2014 that is the fix demonstrated rather than argued. (3) e2e is NOT type-checked, so `npx playwright test e2e/smoke.spec.ts --list` was used as the parse gate: 12 tests, and the listed title now reads v16, which is how the SIBLING staleness was caught in the first place. (4) ANCHOR COUNT: `grep -rn V6-RISK src/` returns 5 (R1, R5, R10, R12 + the pre-existing B3) where it returned 1 \u2014 carrier (b) of the ledger is now real for the four earliest-biting risks and explicitly documented as FALSE for the remaining 19. (5) TWO OF FOUR LOGGED ITEMS WERE WRONG AS LOGGED and are closed by correcting the record: P2-18 'godly' is REJECTED with three verified grounds (wire-serialized member; the in-code comment naming back-compat as the reason it stays; a deliberately tolerant consumer), and the V6-RISK item was cited at the wrong lines and understated a never-built enforcement carrier. (6) SELF-CAUGHT ATTRIBUTION ERROR: I first wrote 'PROTOCOL_VERSION 15 since S115' and git-verified it to S124 P1 (`80f1058`) before committing. (7) FOUND, NOT LOGGED: smoke.spec.ts:657's newer-peer test used a v10 override against a v15 host, so it had silently stopped exercising the branch in its own title; raised to v16 with the strictly-greater-than invariant written down at both sites.",
       "verification": [
         {
           "type": "file_contains",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "REJECTED — CLOSED S133 P2. DO NOT RE-OPEN."
+          "needle": "REJECTED \u2014 CLOSED S133 P2. DO NOT RE-OPEN."
         },
         {
           "type": "file_contains",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "CORRECTED S133 P2 — CARRIER (b) DID NOT EXIST",
-          "ledger_ref": "CARRY-FORWARD LEDGER — enforcement carrier (b)"
+          "needle": "CORRECTED S133 P2 \u2014 CARRIER (b) DID NOT EXIST",
+          "ledger_ref": "CARRY-FORWARD LEDGER \u2014 enforcement carrier (b)"
         },
         {
           "type": "file_contains",
@@ -153,7 +153,7 @@
   "reflexion_entries_to_archive": [
     {
       "tag": "#my-own-correction-was-also-wrong-and-i-shipped-it-to-three-places",
-      "note": "I found a false claim in a docblock, corrected it, and the CORRECTION was false too — 're-derivable from spawnedAtTick, which does ride the wire', about a field that is not on the wire at all. It reached a docblock, a test comment and a commit message before CHECK caught it. The first draft was wrong by guessing; the second was wrong by reading a NEIGHBOURING comment ('re-derivable from spawnedAtTick on the trimmed-rehydrate path') and trusting its premise instead of grepping whether the field was serialized. A correction deserves the same verification as the thing it corrects — more, because it arrives wearing the authority of a fix."
+      "note": "I found a false claim in a docblock, corrected it, and the CORRECTION was false too \u2014 're-derivable from spawnedAtTick, which does ride the wire', about a field that is not on the wire at all. It reached a docblock, a test comment and a commit message before CHECK caught it. The first draft was wrong by guessing; the second was wrong by reading a NEIGHBOURING comment ('re-derivable from spawnedAtTick on the trimmed-rehydrate path') and trusting its premise instead of grepping whether the field was serialized. A correction deserves the same verification as the thing it corrects \u2014 more, because it arrives wearing the authority of a fix."
     },
     {
       "tag": "#a-guard-can-be-vacuous-because-the-FIXTURE-takes-a-different-code-path",
@@ -161,11 +161,11 @@
     },
     {
       "tag": "#shape-detection-is-the-wrong-shape-of-forcing-function",
-      "note": "I derived a coverage contract from 'collection-shaped' fields (Map|Set|Array) and called it derived-from-the-type. Record, ReadonlyMap, WeakMap and Float64Array all walked straight through, and every scalar was outside the contract by construction — including rngSeed, the canonical desync root. Keying on `keyof World` instead is more verbose and completely closed. When a guard enumerates what it RECOGNISES, the escape hatch is everything it does not; enumerate the whole domain and classify."
+      "note": "I derived a coverage contract from 'collection-shaped' fields (Map|Set|Array) and called it derived-from-the-type. Record, ReadonlyMap, WeakMap and Float64Array all walked straight through, and every scalar was outside the contract by construction \u2014 including rngSeed, the canonical desync root. Keying on `keyof World` instead is more verbose and completely closed. When a guard enumerates what it RECOGNISES, the escape hatch is everything it does not; enumerate the whole domain and classify."
     },
     {
       "tag": "#a-label-is-not-a-link-tie-the-claim-to-the-runtime",
-      "note": "FAMILY_COVERAGE said hunters: 'hashed'. RALPH deleted the entire hunters projection loop and tsc stayed 0 with every test green, because nothing connected the string to the code. A type-level claim about runtime behaviour needs a runtime witness — exporting the parts list and asserting each 'hashed' family contributes one is what made the label true."
+      "note": "FAMILY_COVERAGE said hunters: 'hashed'. RALPH deleted the entire hunters projection loop and tsc stayed 0 with every test green, because nothing connected the string to the code. A type-level claim about runtime behaviour needs a runtime witness \u2014 exporting the parts list and asserting each 'hashed' family contributes one is what made the label true."
     },
     {
       "tag": "#the-test-that-locked-in-the-bug",
@@ -173,15 +173,15 @@
     },
     {
       "tag": "#i-expected-red-and-got-green-and-that-is-a-result",
-      "note": "The PDR predicted the widened hash would expose latent entity divergence and pre-committed to reporting red-as-found. It went green — twice, including after adding rngSeed and the allocator cursors. Worth recording as a measurement rather than quietly dropping: the sims genuinely agree across entity families, so the value delivered was the TRIPWIRE for future state, not a bug found today."
+      "note": "The PDR predicted the widened hash would expose latent entity divergence and pre-committed to reporting red-as-found. It went green \u2014 twice, including after adding rngSeed and the allocator cursors. Worth recording as a measurement rather than quietly dropping: the sims genuinely agree across entity families, so the value delivered was the TRIPWIRE for future state, not a bug found today."
     },
     {
       "tag": "#verify-the-reviewer-s-MECHANISM-not-just-its-conclusion",
-      "note": "Seven sessions running. This time it cut both ways: RALPH's F1 was RIGHT and I had to verify it before believing my own committed text was wrong; GROK's aliasing finding was WRONG and I had to read save.ts:646 to refute it rather than accept a plausible-sounding break. Same discipline, opposite outcomes — which is exactly why the rule is about mechanism and not about who is usually right."
+      "note": "Seven sessions running. This time it cut both ways: RALPH's F1 was RIGHT and I had to verify it before believing my own committed text was wrong; GROK's aliasing finding was WRONG and I had to read save.ts:646 to refute it rather than accept a plausible-sounding break. Same discipline, opposite outcomes \u2014 which is exactly why the rule is about mechanism and not about who is usually right."
     },
     {
       "tag": "#a-logged-item-can-itself-be-the-defect",
-      "note": "Two of P2's four items were wrong AS LOGGED. P2-18 'godly' had been adjudicated a false positive in S30/S33, and re-entered four consecutive handoffs as outstanding work — doing it would have shipped a back-compat regression while looking like housekeeping. The V6-RISK item was cited at the wrong lines and understated a never-built enforcement carrier. A carry-forward is a CLAIM, and it inherits authority from repetition rather than from evidence. Re-verify the item before executing it, especially the small ones — nobody re-derives a one-liner."
+      "note": "Two of P2's four items were wrong AS LOGGED. P2-18 'godly' had been adjudicated a false positive in S30/S33, and re-entered four consecutive handoffs as outstanding work \u2014 doing it would have shipped a back-compat regression while looking like housekeeping. The V6-RISK item was cited at the wrong lines and understated a never-built enforcement carrier. A carry-forward is a CLAIM, and it inherits authority from repetition rather than from evidence. Re-verify the item before executing it, especially the small ones \u2014 nobody re-derives a one-liner."
     },
     {
       "tag": "#no-live-emitter-is-not-dead-code-when-a-deserializer-must-accept-it",
@@ -189,11 +189,11 @@
     },
     {
       "tag": "#fixing-a-stale-literal-surfaced-its-untracked-sibling",
-      "note": "The logged item was one stale version literal (v9 vs 15). Fixing it put `--list` output on screen, which revealed a SIBLING test overriding to v10 to exercise a 'newer peer' branch against a v15 host — older, not newer, so it had quietly stopped testing the thing its own title names. Nothing failed, because both live in a non-gating quarantine lane. Version literals in an un-type-checked, non-gating lane rot invisibly and in PAIRS; when you find one, grep the file for the rest and write the invariant down."
+      "note": "The logged item was one stale version literal (v9 vs 15). Fixing it put `--list` output on screen, which revealed a SIBLING test overriding to v10 to exercise a 'newer peer' branch against a v15 host \u2014 older, not newer, so it had quietly stopped testing the thing its own title names. Nothing failed, because both live in a non-gating quarantine lane. Version literals in an un-type-checked, non-gating lane rot invisibly and in PAIRS; when you find one, grep the file for the rest and write the invariant down."
     },
     {
       "tag": "#i-invented-a-schema-value-and-it-looked-right-because-it-looked-like-the-others",
-      "note": "MCV hard-failed at session close: I had written verification[] entries of type \"file_absent_string\", which does not exist. The supported set is file_exists / file_absent / file_contains / file_lacks / grep_count / json_field / syntax_ok / nonce_match — and it is listed in the verifier docstring EIGHT LINES IN, a file I never opened. I pattern-matched off the file_contains entries I had just written and generated a plausible sibling name. Two compounding lessons: (1) an INVENTED IDENTIFIER in a declarative config fails silently at author time — there is no compiler for a JSON string, so the only feedback is the consumer, and I shipped it into two completed priorities before the hook spoke; read the consumer schema before emitting values for it. (2) The near-miss: file_lacks PASSES VACUOUSLY when the file is absent, so an absence-only binding would have gone green on a deleted file. I paired each with a positive file_contains companion. This session mutation-tested every code guard and then hand-wrote un-mutated ASSERTIONS ABOUT those guards — the meta-level guard got none of the scrutiny the object level got."
+      "note": "MCV hard-failed at session close: I had written verification[] entries of type \"file_absent_string\", which does not exist. The supported set is file_exists / file_absent / file_contains / file_lacks / grep_count / json_field / syntax_ok / nonce_match \u2014 and it is listed in the verifier docstring EIGHT LINES IN, a file I never opened. I pattern-matched off the file_contains entries I had just written and generated a plausible sibling name. Two compounding lessons: (1) an INVENTED IDENTIFIER in a declarative config fails silently at author time \u2014 there is no compiler for a JSON string, so the only feedback is the consumer, and I shipped it into two completed priorities before the hook spoke; read the consumer schema before emitting values for it. (2) The near-miss: file_lacks PASSES VACUOUSLY when the file is absent, so an absence-only binding would have gone green on a deleted file. I paired each with a positive file_contains companion. This session mutation-tested every code guard and then hand-wrote un-mutated ASSERTIONS ABOUT those guards \u2014 the meta-level guard got none of the scrutiny the object level got."
     }
   ],
   "session_status": "in_progress",
@@ -209,7 +209,8 @@
     "bundle_kib_entry": 645.5,
     "vitest": "2001/2001 (130 files)",
     "mutations_applied": 8,
-    "mutations_caught": 8
+    "mutations_caught": 8,
+    "budget_remaining": 1000000
   },
   "prior_session_archive": ".claude/session-state.s132.bak",
   "analyze_result": {},
@@ -236,5 +237,12 @@
       "MessagePack + delta encoding - that IS the V6-4.2 slot",
       "'rejecting godly is theater' - Grok lacked the fact that the member is wire-serialized with deliberately tolerant consumers, so removal is a back-compat regression"
     ]
+  },
+  "auto_fill_applied": {
+    "ts": "2026-08-06T21:57:13.598409Z",
+    "fields": [
+      "totals.budget_remaining"
+    ],
+    "validator_version": "s110-three-tier-v1"
   }
 }
