@@ -160,9 +160,9 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "checkpoint_commit": "PENDING",
-      "real_context_tokens_at_close": 0,
-      "real_context_pct_at_close": 0.0,
+      "checkpoint_commit": "fd1029b",
+      "real_context_tokens_at_close": 545000,
+      "real_context_pct_at_close": 54.5,
       "check_method": "Micro-tier CHECK (self-verification; Micro waives external Council). (1) STATIC: node --check on the new .mjs; tsc 0 (script is .mjs, outside tsconfig); npm test 2020/2020 across 132 files; bundle 645.4 KiB entry 660,916 B UNCHANGED (P3 touched no src/). (2) THE VERIFIER PASSES ON REAL STATE: 4/4 carriers — REMOTE remote==d2d1c34a, RUN 1 run for that SHA, VERDICT run 31128874492 success, LIVE live entry asset == local build index-CgC_LFzg.js (content-hash equality). (3) MUTATION-TESTED 3/3 CAUGHT, because a verifier that cannot fail is worthless: M1 bogus SHA -> RUN + VERDICT FAIL naming the falsified-trigger case; M2 bogus expected asset -> LIVE FAIL ('prod is NOT what you built'); M3 flipped the success predicate to 'cancelled' -> VERDICT FAIL on a successful run, which PROVES the conclusion is genuinely discriminated and therefore that a real 'cancelled' run cannot pass. That third mutation exists because this repo has two silently-cancelled runs in its history. (4) EXIT CODES verified WITHOUT pipeline masking (the logged ${PIPESTATUS[0]} trap): direct node exit 0 on pass / 1 on fail; npm run exit 0. An earlier reading of 127 was an artifact of a compound command, re-tested clean. (5) THE VERIFIER FOUND A REAL DEFECT ON ITS FIRST RUN: dist/ held TWO orphaned index-*.js entry chunks, so globbing dist/assets could not identify the current build. Redesigned to read dist/index.html — the authoritative local pointer, matching check-bundle-size.mjs:39's existing idiom, and exactly symmetric with how the live side is read. NOTE: the destructive-command guardrail blocked `rm -rf dist` and I did NOT bypass it; the guard pushed me to the better design. (6) SCOPE HONESTY: root cause of GitHub's trigger miss is NOT determined and is not guessed at. Probe table recorded in the BACKLOG ledger so it is not re-derived.",
       "verification": [
         {
