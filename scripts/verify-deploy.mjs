@@ -79,6 +79,43 @@ try {
   record('REMOTE', false, `could not read git/remote: ${err.message.split('\n')[0]}`);
 }
 
+/**
+ * Is a deploy run even REQUIRED for this SHA?
+ *
+ * `deploy.yml`'s paths filter exists on purpose (S40 P2): session-bookkeeping commits
+ * (.claude/, HANDOFF_*.md, boot-snapshot.md) must NOT trigger deploys, because a
+ * close/handoff push landing minutes after a code push would cancel the in-flight code
+ * deploy via the github-pages environment's concurrency. So "no run for HEAD" is the
+ * CORRECT outcome for a docs-only commit, and demanding one would make this script cry
+ * wolf on every handoff — a check that is usually wrong gets ignored, which is worse
+ * than no check.
+ *
+ * The path list is PARSED OUT OF deploy.yml rather than copied here, so it cannot drift
+ * from the workflow it is meant to mirror. (Drift between a claim and its enforcement is
+ * the exact defect class S133 spent its whole budget on.)
+ */
+function deployRelevantChanges(sinceSha) {
+  const wf = '.github/workflows/deploy.yml';
+  if (!existsSync(wf)) return { known: false, files: [], paths: [] };
+  const yml = readFileSync(wf, 'utf8');
+  // Grab the `paths:` block that follows `push:` and collect its `- 'glob'` entries.
+  // `\r?\n` throughout, and [ \t] instead of \s for indentation: these workflow files are
+  // CRLF, and a bare \n anchor matched NOTHING on the first attempt — the third time the
+  // CRLF trap bit an edit in this session. \s also swallows newlines, which makes an
+  // indentation matcher quietly wrong.
+  const block = yml.match(/\r?\n[ \t]{4}paths:\r?\n((?:[ \t]{6}-[ \t]*'[^']+'\r?\n)+)/);
+  if (block === null) return { known: false, files: [], paths: [] };
+  const globs = [...block[1].matchAll(/-\s*'([^']+)'/g)].map((m) => m[1]);
+  // 'src/**' -> 'src' (git treats a directory pathspec as everything under it).
+  const pathspecs = globs.map((g) => g.replace(/\/\*\*$/, ''));
+  try {
+    const out = sh('git', ['diff', '--name-only', `${sinceSha}..HEAD`, '--', ...pathspecs]);
+    return { known: true, files: out ? out.split('\n').filter(Boolean) : [], paths: pathspecs };
+  } catch {
+    return { known: false, files: [], paths: pathspecs };
+  }
+}
+
 // ── 2+3. RUN + VERDICT ───────────────────────────────────────────────────────
 // `cancelled` is explicitly NOT success: a timeout-killed job reports cancelled,
 // sends no mail and uploads no artifacts, which is how a dead gate hides.
@@ -93,13 +130,31 @@ try {
   const runs = JSON.parse(raw);
   const mine = runs.filter((r) => r.sha === sha);
   if (mine.length === 0) {
-    record(
-      'RUN',
-      false,
-      `no ${WORKFLOW} run exists for ${sha.slice(0, 8)} — THE FALSIFIED-TRIGGER CASE. ` +
-        `Remedy: gh workflow run ${WORKFLOW} --ref master`,
-    );
-    record('VERDICT', false, 'skipped — there is no run to judge');
+    // Before calling this a failure, ask whether a deploy was OWED for this SHA at all.
+    const lastGood = runs.find((r) => r.status === 'completed' && r.conclusion === 'success');
+    const delta = lastGood ? deployRelevantChanges(lastGood.sha) : { known: false, files: [] };
+    if (delta.known && delta.files.length === 0) {
+      record(
+        'RUN',
+        true,
+        `no run for ${sha.slice(0, 8)}, and none is OWED — nothing under deploy.yml's paths filter ` +
+          `changed since the last successful deploy (${lastGood.sha.slice(0, 8)}). Docs/session-only commit.`,
+      );
+      record('VERDICT', true, `inherited from ${lastGood.sha.slice(0, 8)} (still the deployed SHA)`);
+      runOk = true;
+    } else {
+      const why = delta.known
+        ? `${delta.files.length} deploy-relevant file(s) changed since ${lastGood.sha.slice(0, 8)}: ` +
+          delta.files.slice(0, 5).join(', ') + (delta.files.length > 5 ? ', …' : '')
+        : 'could not compute the path delta, so a run is assumed required';
+      record(
+        'RUN',
+        false,
+        `no ${WORKFLOW} run exists for ${sha.slice(0, 8)} — THE FALSIFIED-TRIGGER CASE. ${why}. ` +
+          `Remedy: gh workflow run ${WORKFLOW} --ref master`,
+      );
+      record('VERDICT', false, 'skipped — there is no run to judge');
+    }
   } else {
     record('RUN', true, `${mine.length} run(s) for ${sha.slice(0, 8)} (newest event=${mine[0].event})`);
     const good = mine.find((r) => r.status === 'completed' && r.conclusion === 'success');
