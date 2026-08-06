@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 59,
+  "tool_calls_session_total": 60,
   "session_id": "S133",
   "session_kind": "pdca",
   "session_start": "2026-08-05",
@@ -160,9 +160,9 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "checkpoint_commit": "fd1029b",
-      "real_context_tokens_at_close": 545000,
-      "real_context_pct_at_close": 54.5,
+      "checkpoint_commit": "e56b3ae",
+      "real_context_tokens_at_close": 574679,
+      "real_context_pct_at_close": 57.47,
       "check_method": "Micro-tier CHECK (self-verification; Micro waives external Council). (1) STATIC: node --check on the new .mjs; tsc 0 (script is .mjs, outside tsconfig); npm test 2020/2020 across 132 files; bundle 645.4 KiB entry 660,916 B UNCHANGED (P3 touched no src/). (2) THE VERIFIER PASSES ON REAL STATE: 4/4 carriers — REMOTE remote==d2d1c34a, RUN 1 run for that SHA, VERDICT run 31128874492 success, LIVE live entry asset == local build index-CgC_LFzg.js (content-hash equality). (3) MUTATION-TESTED 3/3 CAUGHT, because a verifier that cannot fail is worthless: M1 bogus SHA -> RUN + VERDICT FAIL naming the falsified-trigger case; M2 bogus expected asset -> LIVE FAIL ('prod is NOT what you built'); M3 flipped the success predicate to 'cancelled' -> VERDICT FAIL on a successful run, which PROVES the conclusion is genuinely discriminated and therefore that a real 'cancelled' run cannot pass. That third mutation exists because this repo has two silently-cancelled runs in its history. (4) EXIT CODES verified WITHOUT pipeline masking (the logged ${PIPESTATUS[0]} trap): direct node exit 0 on pass / 1 on fail; npm run exit 0. An earlier reading of 127 was an artifact of a compound command, re-tested clean. (5) THE VERIFIER FOUND A REAL DEFECT ON ITS FIRST RUN: dist/ held TWO orphaned index-*.js entry chunks, so globbing dist/assets could not identify the current build. Redesigned to read dist/index.html — the authoritative local pointer, matching check-bundle-size.mjs:39's existing idiom, and exactly symmetric with how the live side is read. NOTE: the destructive-command guardrail blocked `rm -rf dist` and I did NOT bypass it; the guard pushed me to the better design. (6) SCOPE HONESTY: root cause of GitHub's trigger miss is NOT determined and is not guessed at. Probe table recorded in the BACKLOG ledger so it is not re-derived. (7) REFINEMENT AFTER FIRST OPERATIONAL USE + 2 MORE MUTATIONS (matrix now 5/5): the initial version demanded a run for EVERY head, which would cry wolf on every docs/session push — deploy.yml's paths filter deliberately skips those (S40 P2, to stop a handoff push cancelling an in-flight code deploy). Now the RUN carrier asks whether a deploy was OWED, by PARSING deploy.yml's own paths list (not a copy — drift between a claim and its enforcement is the defect class this whole session is about) and diffing against the last successful deploy SHA. M4: narrowing deploy.yml's filter so package.json no longer matches flipped RUN from FAIL to PASS-not-owed, which PROVES the parse is live rather than hardcoded. M5: making the workflow file unreadable produced 'could not compute the path delta, so a run is assumed required' — FAIL-CLOSED confirmed. ⚠ M5 FIRST REPORTED A FALSE PASS: a shell-escaped python replace silently no-op'd, and the tell was output byte-identical before and after the supposed mutation. Redone via Edit. Reporting that as caught would have been exactly the fabricated-result class this session kept catching in others. (8) CRLF bit a third time: the paths regex used bare \n against CRLF workflow files and matched NOTHING; fixed to \r?\n with [ \t] for indentation (\\s swallows newlines).",
       "verification": [
         {
@@ -195,6 +195,18 @@
           "type": "file_lacks",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/SPARK_Blueprint.md",
           "needle": "**GitHub Actions auto-deploy.** Every push to `master` ships to production."
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/scripts/verify-deploy.mjs",
+          "needle": "deployRelevantChanges",
+          "note": "the paths-aware RUN carrier exists (symbol, not prose)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/scripts/verify-deploy.mjs",
+          "needle": "and none is OWED",
+          "note": "the not-owed branch is present"
         }
       ]
     }
@@ -256,6 +268,10 @@
     {
       "tag": "#the-verifier-found-a-defect-on-its-first-run",
       "note": "verify-deploy's LIVE carrier failed immediately — not a false alarm: dist/ held two orphaned entry chunks from an interrupted build, so there was genuinely no unambiguous 'local build' to compare against. Refusing to guess between two candidates was the correct behaviour and I kept that strictness. A new check earning its keep before it is even committed is the cheapest possible evidence that it is not decorative."
+    },
+    {
+      "tag": "#i-wrote-three-assertions-from-memory-and-all-three-were-wrong",
+      "note": "Third instance of ONE root pattern in a single session: (1) invented the MCV assertion type \"file_absent_string\" by pattern-matching my own neighbouring entries; (2) claimed a Voltkin's expiry was re-derivable from spawnedAtTick by trusting an adjacent comment's premise; (3) wrote the needle \"was a deploy even REQUIRED\" when the file says \"Is a deploy run even REQUIRED for this SHA?\". Each time I was generating text ABOUT an artifact while not looking AT it, and each time the result was plausible — which is exactly why it survived my own review. The fix is mechanical, not attitudinal: any assertion whose subject is a literal in a file must be COPY-PASTED from that file, or expressed as a symbol name a compiler/grep can bind. Prefer symbols over prose for needles: \"deployRelevantChanges\" cannot drift the way a sentence can."
     }
   ],
   "session_status": "in_progress",
@@ -306,5 +322,15 @@
       "totals.budget_remaining"
     ],
     "validator_version": "s110-three-tier-v1"
+  },
+  "deploy_verified_s133": {
+    "head": "e56b3ae",
+    "runs": [
+      31128874492,
+      31129081146
+    ],
+    "carriers": "4/4 PASS",
+    "live_asset": "index-CgC_LFzg.js",
+    "note": "push trigger reproducibly does NOT fire; deploys done via workflow_dispatch"
   }
 }
