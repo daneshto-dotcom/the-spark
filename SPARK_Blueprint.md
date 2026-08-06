@@ -730,7 +730,31 @@ disconnect/rejoin.
 
 ### XV.7 — Deploy [LOCKED — v0.6]
 
-**GitHub Actions auto-deploy.** Every push to `master` ships to production. The manual `npm run deploy` / gh-pages path is **retired** — two live deploy mechanisms is how a finished feature sat un-deployed for a week.
+**GitHub Actions auto-deploy.** The manual `npm run deploy` / gh-pages path is **retired** — two live deploy mechanisms is how a finished feature sat un-deployed for a week.
+
+> ⛔ **"Every push to `master` ships to production" was FALSIFIED on 2026-08-06 (S133 P3). Do not
+> rely on it.** A 45-commit push (`f0b8144..d2d1c34`) landed on the remote and GitHub logged the
+> `PushEvent` — and **no workflow run was ever created.** No email, no red run, nothing to notice.
+> Every precondition checked out: Actions `enabled:true`, all three workflows `active`, the paths
+> filter matched **32** files (incl. `deploy.yml` itself), repo public (so unlimited minutes), both
+> workflow YAMLs valid, 45 commits / 59 files — far under GitHub's 1,000-commit path-skip threshold.
+> Re-checked after the fact: no late-arriving run, so it was **not** latency. Root cause is not
+> determinable from outside GitHub and is deliberately NOT guessed at.
+>
+> **The deploy only happened via `gh workflow run deploy.yml --ref master`** (which R14 already
+> prescribes for the different reason that `scripts/**` is excluded from the paths filter).
+>
+> ✅ **So verify, never infer: `npm run verify-deploy`.** Four independent carriers — remote SHA ==
+> local HEAD · a `deploy.yml` run exists FOR THAT SHA · that run concluded `success` (**`cancelled`
+> is treated as FAILURE**, per the two silently-`cancelled` runs already in this repo's history) ·
+> and the LIVE entry-asset content-hash equals the local `dist/` build. Only that last carrier
+> proves the bytes a player downloads are the bytes you built. Exits nonzero and names the carrier
+> that broke.
+>
+> ✅ **Also settled here, after six sessions of not knowing: S131's gating unit-test step WORKS.**
+> Its first-ever execution passed — `✓ Unit tests (gating — a red test now blocks the deploy)`,
+> build 1m4s, deploy 11s — and the deploy was confirmed by both carriers (deployments API
+> `22:16:46Z sha d2d1c34a`; live asset byte-identical to the local build).
 
 ### XV.8 — Platform [LOCKED — v0.6]
 

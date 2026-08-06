@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build && node scripts/check-bundle-size.mjs",
     "size": "node scripts/check-bundle-size.mjs",
+    "verify-deploy": "node scripts/verify-deploy.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",

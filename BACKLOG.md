@@ -537,6 +537,39 @@ slot's roadmap row above, so that slot's PDR author sees it at scoping time; (b)
 code anchor also carry a `// V6-RISK(Rn):` comment at that line; (c) session-close `verification[]`
 bindings **must reference this ledger**. A markdown row alone is not enforcement.
 
+> ⛔ **NEW S133 P3 — "PUSH = DEPLOYED" IS FALSIFIED. A push can land and deploy NOTHING.**
+> On 2026-08-06 the owner's long-blocked push finally went through: 45 commits, `f0b8144..d2d1c34`.
+> It landed (`git ls-remote` confirms) and GitHub logged the `PushEvent` at 22:10:08Z — and **zero
+> workflow runs were created.** The full probe table, so nobody re-derives it:
+>
+> | Precondition | Result |
+> |---|---|
+> | Push on remote | `d2d1c34` ✅ |
+> | GitHub saw it | `PushEvent refs/heads/master d2d1c34a` ✅ |
+> | Run created | ⛔ **NONE** (newest was 2026-08-03) |
+> | Actions enabled | `{"enabled":true,"allowed_actions":"all"}` ✅ |
+> | Workflows active | all three `active` ✅ |
+> | Paths filter matched | **32** files incl. `deploy.yml` itself ✅ |
+> | Repo state | `private:false archived:false disabled:false` ⇒ unlimited minutes ✅ |
+> | YAML valid | both workflows parse ✅ |
+> | Under path-skip threshold | 45 commits / 59 files vs GitHub's 1,000-commit rule ✅ |
+> | Late-arriving run | ⛔ none — **not latency** |
+> | `workflow_dispatch` | ✅ worked instantly (run `31128874492`) |
+>
+> **Root cause is NOT determinable from outside GitHub and is deliberately not guessed at.** Remedy
+> that DID work: `gh workflow run deploy.yml --ref master`. Same silent-failure family as the two
+> `cancelled` runs already in the history (2026-07-20, 2026-07-27) — cancelled is not failure, so no
+> mail and no artifacts. ✅ **Mitigation shipped: `npm run verify-deploy`** (4 carriers, exits
+> nonzero, names the failing one; mutation-tested 3/3). §XV.7 of the Blueprint corrected.
+> **Run it after every push. Never report "shipped" from a green push alone.**
+>
+> ✅ **Settled at the same time: S131's gating unit-test step WORKS** — first-ever execution passed,
+> and prod is hash-verified equal to the local build.
+>
+> ⚠ Minor, noted while building the verifier: `dist/` can accumulate **orphaned entry chunks** from
+> an interrupted build (two `index-*.js` were present). Read `dist/index.html` for the authoritative
+> entry, never a glob of `dist/assets` — which is what `check-bundle-size.mjs:39` already does.
+>
 > ⛔ **CORRECTED S133 P2 — CARRIER (b) DID NOT EXIST.** From S128 until S133 this paragraph claimed
 > an enforcement mechanism that had never been built: a repo-wide grep for `V6-RISK` returned
 > **exactly one** hit, `// V6-RISK(B3)` in `src/dev/probeBootstrap.ts:26` — and that is a
