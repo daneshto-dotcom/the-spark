@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 26,
+  "tool_calls_session_total": 31,
   "session_id": "S133",
   "session_kind": "pdca",
   "session_start": "2026-08-05",
@@ -69,9 +69,16 @@
           "needle": "does not heal across the wire"
         },
         {
-          "type": "file_absent_string",
+          "type": "file_lacks",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
-          "needle": "hp: _h,"
+          "needle": "hp: _h,",
+          "note": "the hp strip is GONE from trimMirrorCreature"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "are NO LONGER STRIPPED",
+          "note": "and the amendment that removed it is present"
         }
       ]
     },
@@ -128,9 +135,16 @@
           "needle": "V6-RISK(R12)"
         },
         {
-          "type": "file_absent_string",
+          "type": "file_lacks",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/smoke.spec.ts",
-          "needle": "toContain('v9')"
+          "needle": "toContain('v9')",
+          "note": "the stale v9 literal is gone"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/smoke.spec.ts",
+          "needle": "toContain('v15')",
+          "note": "and the correct one replaced it (file_lacks alone passes vacuously on a deleted file)"
         }
       ]
     }
@@ -176,6 +190,10 @@
     {
       "tag": "#fixing-a-stale-literal-surfaced-its-untracked-sibling",
       "note": "The logged item was one stale version literal (v9 vs 15). Fixing it put `--list` output on screen, which revealed a SIBLING test overriding to v10 to exercise a 'newer peer' branch against a v15 host — older, not newer, so it had quietly stopped testing the thing its own title names. Nothing failed, because both live in a non-gating quarantine lane. Version literals in an un-type-checked, non-gating lane rot invisibly and in PAIRS; when you find one, grep the file for the rest and write the invariant down."
+    },
+    {
+      "tag": "#i-invented-a-schema-value-and-it-looked-right-because-it-looked-like-the-others",
+      "note": "MCV hard-failed at session close: I had written verification[] entries of type \"file_absent_string\", which does not exist. The supported set is file_exists / file_absent / file_contains / file_lacks / grep_count / json_field / syntax_ok / nonce_match — and it is listed in the verifier docstring EIGHT LINES IN, a file I never opened. I pattern-matched off the file_contains entries I had just written and generated a plausible sibling name. Two compounding lessons: (1) an INVENTED IDENTIFIER in a declarative config fails silently at author time — there is no compiler for a JSON string, so the only feedback is the consumer, and I shipped it into two completed priorities before the hook spoke; read the consumer schema before emitting values for it. (2) The near-miss: file_lacks PASSES VACUOUSLY when the file is absent, so an absence-only binding would have gone green on a deleted file. I paired each with a positive file_contains companion. This session mutation-tested every code guard and then hand-wrote un-mutated ASSERTIONS ABOUT those guards — the meta-level guard got none of the scrutiny the object level got."
     }
   ],
   "session_status": "in_progress",
