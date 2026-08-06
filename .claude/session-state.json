@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 23,
+  "tool_calls_session_total": 26,
   "session_id": "S133",
   "session_kind": "pdca",
   "session_start": "2026-08-05",
@@ -86,9 +86,9 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "checkpoint_commit": "PENDING-SET-AFTER-COMMIT",
-      "real_context_tokens_at_close": 0,
-      "real_context_pct_at_close": 0.0,
+      "checkpoint_commit": "8c46e6a",
+      "real_context_tokens_at_close": 467819,
+      "real_context_pct_at_close": 46.78,
       "check_method": "Micro-tier CHECK (RALPH + self-verification; no external Council for Micro). (1) STATIC: tsc 0; vitest 2020/2020 across 132 files; bundle 645.4 KiB with the entry chunk BYTE-IDENTICAL at 660,916 B, since every production edit in P2 was a comment. (2) BEHAVIOURAL, not inferred: `npm test` was RUN and now EXITS with 2020/2020 instead of hanging in watch mode — that is the fix demonstrated rather than argued. (3) e2e is NOT type-checked, so `npx playwright test e2e/smoke.spec.ts --list` was used as the parse gate: 12 tests, and the listed title now reads v16, which is how the SIBLING staleness was caught in the first place. (4) ANCHOR COUNT: `grep -rn V6-RISK src/` returns 5 (R1, R5, R10, R12 + the pre-existing B3) where it returned 1 — carrier (b) of the ledger is now real for the four earliest-biting risks and explicitly documented as FALSE for the remaining 19. (5) TWO OF FOUR LOGGED ITEMS WERE WRONG AS LOGGED and are closed by correcting the record: P2-18 'godly' is REJECTED with three verified grounds (wire-serialized member; the in-code comment naming back-compat as the reason it stays; a deliberately tolerant consumer), and the V6-RISK item was cited at the wrong lines and understated a never-built enforcement carrier. (6) SELF-CAUGHT ATTRIBUTION ERROR: I first wrote 'PROTOCOL_VERSION 15 since S115' and git-verified it to S124 P1 (`80f1058`) before committing. (7) FOUND, NOT LOGGED: smoke.spec.ts:657's newer-peer test used a v10 override against a v15 host, so it had silently stopped exercising the branch in its own title; raised to v16 with the strictly-greater-than invariant written down at both sites.",
       "verification": [
         {
