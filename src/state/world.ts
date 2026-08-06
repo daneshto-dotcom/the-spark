@@ -428,6 +428,11 @@ export function dispatch(world: World, action: GameAction): World {
     case 'TICK_ENERGY':
       return applyTickEnergy(world, action);
 
+    // V6-RISK(R5): this reducer DESTROYS seven entity families at t=0 of the win, spawners and
+    // defenders included. A castle / gatherer / bank added to the teardown list below therefore
+    // VANISHES at second 0 of the planned 28-second V6-3.1 endgame ceremony — which makes it a
+    // **V6-1.2 decision, not a V6-3.1 one**: whoever adds those families must decide here whether
+    // they survive into WIN/POSTGAME. See BACKLOG CARRY-FORWARD LEDGER.
     case 'WIN_TRIGGER':
       world.gameState = 'WIN';
       world.lastWinnerId = action.winnerId;

@@ -484,7 +484,7 @@ Sequenced so the core loop is **playable by V6-1.7** and everything after lands 
 
 | ID | Priority | Tier | Executed in | Notes · bound risks |
 |---|---|---|---|---|
-| **V6-1.1** | Gatherer agent substrate + sim-worker default-on flip | Full | — | ⚠ **Not a "narrowing".** The real union is `BotGoal` with **8** members (`botBrain.ts:43-51`); `COLLECT`/`DEPOSIT`/`RETURN` appear nowhere in `src/`. It is a **new** goal union reusing `botBrain`'s arbitration *pattern*, `pickTargetSpark`, and `botController` plumbing. `pickTargetSpark` (`:159-177`) takes a predicate in ~2 lines and draws `rng()` exactly once regardless of candidate count, so **a filter cannot shift the replay stream** — the "specialisation costs throughput" mechanic really is free, and an empty candidate set already falls through to `REST` (`:152`). **R1:** `stateHash.ts:45-48` `HashableWorld` covers only tick/primitives/bonds/freeSparks/scoreProgress/scoreByPlayer — every entity family is absent, so the silent-desync oracle is BLIND to gatherers in the very slot that flips the worker default on. Add gatherers to `HashableWorld` *and* `workerSim.ts:251-280 structuralSignature`. **R3:** gatherer identity is unchosen and load-bearing (a `freeSparks` entry inherits the 10 s TTL reap and rim-snapping; a new map is invisible to R1/R2; a seated Player collides with `MAX_PLAYERS = 6`). "Carry-1 moves to the worker" widens `SparkState.Carried.carrierId` off `PlayerId` (`spark.ts:17`) ⇒ **a wire + save change**, not a bot-layer detail, which "behind a flag, solo only" does not scope. **R4:** agent RNG stream state has no serialization path (`BotManager` holds `mulberry32` streams privately; `rebuildAuthorityAllocators` rebuilds 4 numbers and touches it not at all) — use stateless `mix32(tick, id, salt)` per `constants.ts:885` "NO 6th RNG stream", precedent `rainbowLifecycle.ts:115`. **R23:** `nearestEnemySpawnerBond` (`:314-341`) and `nearestChewer` (`:348-359`) have ZERO test coverage and feed the SEVER/FLEE priorities — i.e. the exact arbitration block being rewritten. **Also decide here: the `worker`→`gatherer` rename.** |
+| **V6-1.1** | Gatherer agent substrate + sim-worker default-on flip | Full | — | ⚠ **Not a "narrowing".** The real union is `BotGoal` with **8** members (`botBrain.ts:43-51`); `COLLECT`/`DEPOSIT`/`RETURN` appear nowhere in `src/`. It is a **new** goal union reusing `botBrain`'s arbitration *pattern*, `pickTargetSpark`, and `botController` plumbing. `pickTargetSpark` (`:159-177`) takes a predicate in ~2 lines and draws `rng()` exactly once regardless of candidate count, so **a filter cannot shift the replay stream** — the "specialisation costs throughput" mechanic really is free, and an empty candidate set already falls through to `REST` (`:152`). **R1 — ⚠ SUPERSEDED S133, READ THE CORRECTION:** `HashableWorld` (now `stateHash.ts:75-78`) does cover only tick/primitives/bonds/freeSparks/scoreProgress/scoreByPlayer, and that much was right. But the remedy as written — *"Add gatherers to `HashableWorld` **and** `workerSim.ts:251-280 structuralSignature`"* — **treats two NON-symmetric levers as symmetric and is wrong on both counts.** (a) `structuralSignature` is a **SIZE-ONLY** fingerprint (`.size` of 15 collections + scalars; its own docblock: *"Collection sizes catch spawn/despawn; the scalar fields catch the state-machine transitions"*), so a per-entity field **cannot** be expressed in it, and widening it to per-entity granularity turns O(families) into O(entities) at a per-batch call site built to avoid exactly that. (b) `HashableWorld` must **stay narrow**: its one production consumer (`main.ts:1706`) compares the main-thread mirror against the WORKER'S OWN hash — one authority, so it is an apply-fidelity check, not a desync check — and widening it buys nothing at runtime while adding a per-entity projection to a hot path. **✅ WHAT TO ACTUALLY DO:** add the new family to **`FIELD_COVERAGE` in `src/state/stateHashFull.ts`**, which since S133 is a compile-time forcing function keyed on `keyof World` — omit it and `tsc` fails naming your field, and a field-level guard fails again if you add a field to an already-hashed entity. The four differential harnesses already consume that wide hash. **A `// V6-RISK(R1):` anchor now exists at `stateHash.ts` above `NARROW_HASHED_FAMILIES`.** **R3:** gatherer identity is unchosen and load-bearing (a `freeSparks` entry inherits the 10 s TTL reap and rim-snapping; a new map is invisible to R1/R2; a seated Player collides with `MAX_PLAYERS = 6`). "Carry-1 moves to the worker" widens `SparkState.Carried.carrierId` off `PlayerId` (`spark.ts:17`) ⇒ **a wire + save change**, not a bot-layer detail, which "behind a flag, solo only" does not scope. **R4:** agent RNG stream state has no serialization path (`BotManager` holds `mulberry32` streams privately; `rebuildAuthorityAllocators` rebuilds 4 numbers and touches it not at all) — use stateless `mix32(tick, id, salt)` per `constants.ts:885` "NO 6th RNG stream", precedent `rainbowLifecycle.ts:115`. **R23:** `nearestEnemySpawnerBond` (`:314-341`) and `nearestChewer` (`:348-359`) have ZERO test coverage and feed the SEVER/FLEE priorities — i.e. the exact arbitration block being rewritten. **Also decide here: the `worker`→`gatherer` rename.** |
 | **V6-1.2** | Castle entity + gatherer production + spawner shrink | Full | — | Model the **`creatureSpawner` LIFECYCLE** but the **DEFENDER's serialization**: `deserializeSpawner` (`save.ts:1277-1286`) **re-seeds** `nextSpawnTick` from the load tick and resets `spawnedCount`, so copying it verbatim resets every castle cadence and bank timer on save/load **and host migration** — a day-one failure of the migration obligation. **R9:** six castles cannot inherit `SPAWNER_RADIUS + 40` — seat spacing falls 290→228 px at r=188, and territory bubbles (`60 + 12·log₂(complexity+1)`) first touch at complexity **21.6** vs 134.6 today, i.e. inside the first minute; `isInsideEnemyTerritory` is a host-authoritative placement *reject*, so this is legal-build-space loss. Keep the seat ring near 290 absolute. **R10:** the r=188 flip **hard-fails** `collision.pile.test.ts` (worst residual overlap 2.89 px vs a 1.5 px assertion at `:116`) because `enforceSpawnerBounds` rim-compresses all 30 pile sparks each substep; dropping the free-spark cap does not fix it since `PILE_COUNT` is a literal 30. **Six derived constants move 62 px inward with the radius** (`botBrain.ts:275`/`:257`, `gameMode.ts:109`, `creatureVerlet.ts:62`, `botSpawnerSeed.ts:48`/`:62` — the last justifies its +240 offset "precisely so the ring stays reachable for the player's raid counterplay", judged against 250), **`SPAWNER_RADIUS` is also a fog source** (`vision.ts:59`) so the always-visible region shrinks 43% — undercutting the rationale the build-ban rests on — and **four sites hardcode 250 and go stale silently** (`e2e/bomb.spec.ts:41`, `e2e/nplayer.spec.ts:197`, `src/state/world.test.ts:191`, `e2e/smoke.spec.ts:483-484`). Protocol bump. |
 | **V6-1.3** | The bank | Full | — | 🔒 **BLOCKED on the B4 ruling.** Capped deposit store, stall at cap, build-from-bank input flow. **Where carry-1 formally relocates.** **Keep the recipe-size table (pentagram 5 · lightningHub 6 · Helga 7 · Voltkin 8 · laserTurret 8) adjacent to the cap number — never tune them independently.** **R8:** disruption charges are earned in `placePrimitive.ts:584` via `tickBuildAction` (`BUILD_ACTIONS_PER_CHARGE = 5`, cap 2); if that call site does not move to the bank-place path the hero silently loses SEVER and SHRINK_TERRITORY (which needs 2 charges). Add the supply-sufficiency pre-gate here so a B3 failure cannot masquerade as a sculpting failure at V6-1.7. |
 | **V6-1.4** | Directives | Standard | — | 🔒 **BLOCKED on the B3 + B4 rulings** (hard filter vs biased mix). Predicate on `pickTargetSpark`; per-castle collect filter; directive state syncs. |
@@ -536,6 +536,19 @@ Per the INTEGRITY-WARNING PROTOCOL. **Enforcement rides three carriers:** (a) ea
 slot's roadmap row above, so that slot's PDR author sees it at scoping time; (b) the risks with a precise
 code anchor also carry a `// V6-RISK(Rn):` comment at that line; (c) session-close `verification[]`
 bindings **must reference this ledger**. A markdown row alone is not enforcement.
+
+> ⛔ **CORRECTED S133 P2 — CARRIER (b) DID NOT EXIST.** From S128 until S133 this paragraph claimed
+> an enforcement mechanism that had never been built: a repo-wide grep for `V6-RISK` returned
+> **exactly one** hit, `// V6-RISK(B3)` in `src/dev/probeBootstrap.ts:26` — and that is a
+> **B-question anchor, not an R-risk anchor**, so the count of `V6-RISK(Rn)` comments across all
+> **23 risks R1–R23 was ZERO**. A ledger that names a defence it does not have is worse than one
+> that names none, because the next author reads (b) and assumes the code will stop them.
+> **S133 P2 planted the four earliest-biting anchors for real** — R1 (`stateHash.ts`, now also
+> `stateHashFull.ts`), R5 (`world.ts` WIN_TRIGGER destroy list), R10 (`collision.pile.test.ts`
+> radius assertion), R12 (`transport.ts` per-strategy send) — so (b) is now true FOR THOSE FOUR
+> and false for the rest. **The remaining 19 have carriers (a) and (c) only.** Do not read (b) as
+> blanket coverage; grep before relying on it.
+> ⚠ Also note the S132 handoff cited this claim at "BACKLOG:518-521". Wrong lines — it lives here.
 
 ## A · Parked CI work from S126/S127 — NOT dropped
 
@@ -625,7 +638,10 @@ any timer** · `save.ts:792-814` mirror-trim for host-only fields · **five** cl
 (`world.ts:449/451`, `gameState.ts:127/129`, `gameMode.ts:198-202`, `gameMode.ts:339-343`,
 `godlyActions.ts:75-80`) · `protocol.ts:101` version bump + `:146` changelog · `protocol.ts:538-558`
 `KNOWN_GAME_ACTION_TYPES_RECORD` and `:573-592` `CLIENT_INTENT_TYPES_RECORD` · `migrationClaim.ts:147-164`
-+ `main.ts:2009-2018` · `workerSim.ts:251-280` structuralSignature · `stateHash.ts:46-48` HashableWorld ·
++ `main.ts:2009-2018` · `workerSim.ts:251-280` structuralSignature (SIZE-ONLY — sizes/scalars, never a
+per-entity field) · **`stateHashFull.ts` `FIELD_COVERAGE`** — ⚠ S133 REDIRECT: register a new family
+THERE, not in `stateHash.ts`'s `HashableWorld`, which stays deliberately narrow for the `main.ts:1706`
+hot path; `FIELD_COVERAGE` is keyed on `keyof World` so omitting your field fails `tsc` by name ·
 `benchGate.ts:50-69` `BENCH_INTENT_POLICY`. That last is a **hard forcing function** —
 `benchGate.test.ts` asserts set-equality with `CLIENT_INTENT_TYPES` in both directions, so every new
 v0.6 intent fails the suite until an explicit allow/deny, and that is exactly where "what happens to a
@@ -904,7 +920,23 @@ User-reported "voltkin video + bg music gone" turned out to be browser cache. Em
 
 - **P2-16** `ScreenShake.reset()` + `creatureRenderer.destroy()` wired into teardown (largely folded into S31 P0-2; verify carry-over completeness)
 - **P2-17** `seekForce` exported in `creatureVerlet.ts` but unused in prod (delete or annotate as test-only)
-- **P2-18** Dead `'godly'` variant in `BOND_SEVERED.cause` union (no live emitter post-S27)
+- ~~**P2-18** Dead `'godly'` variant in `BOND_SEVERED.cause` union (no live emitter post-S27)~~
+  ⛔ **REJECTED — CLOSED S133 P2. DO NOT RE-OPEN.** This was already adjudicated a false positive
+  once (see the Phase A note at line ~836: *"P2-18 dropped per false-positive pattern (existing
+  comment documents intentional back-compat)"*), then silently re-entered the last four handoffs
+  as outstanding work. Three independent grounds, each verified this session:
+  (1) the member is **WIRE-SERIALIZED** — it is a literal in the `cause` union on
+  `SerializedEffect` (`src/state/save.ts:369`), so removing it is a back-compat break against any
+  peer or save carrying `cause:'godly'`, not a dead-code cleanup;
+  (2) `src/game/effects.ts:136` states the intent in-code — *"'godly' kept for back-compat (no
+  emitter post-S27)"* — so "no live emitter" is the DOCUMENTED REASON it stays, not evidence it
+  should go;
+  (3) `src/render/severToastRenderer.ts:120` is deliberately a **TOLERANT lookup with a default
+  rather than an exhaustive switch** *because* `'godly'` is in the union; removing the member
+  would leave that defensive shape with no stated justification and invite a later "simplification"
+  into an exhaustive switch that then breaks on old data.
+  **"No live emitter" is a property of the EMIT side; wire compatibility is a property of the READ
+  side. A union member with no emitter is not dead if a deserializer must still accept it.**
 - **P2-19** LOCKED_DECISIONS §13.15+ codification of Phase-2 godly/creature system (lifetimes, FIRE_TICK 30, SEEKING_LEAN_MAX_RAD ≈0.262, sustainedEffectMs=500, ARC_FLASH_DURATION_TICKS=24, ScreenShake 6-tick decay ±2px)
 - **P2-20** `voltkin-config.ts` (Gemini Q2 carry from S26+S27+S28 — per-type CreatureConfig table; lift hardcoded constants from 6 files); prereq for Anvil ship
 - **P2-21** `pendingCreatureSpawn` clear on `START_GAME` (largely folded into S31 P0-2; verify)

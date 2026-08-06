@@ -544,6 +544,14 @@ export class NetTransport {
     }
   }
 
+  /**
+   * V6-RISK(R12): the host serializes ONCE here and then sends the full payload **per active
+   * strategy** — `iceConfig` has both `nostr` and `torrent` on, and peer dedup happens on
+   * RECEIVE only. So the 10 Hz snapshot cadence is a CAP, not a delivered rate: this repo has
+   * measured it collapsing to 2.2 Hz under a TD-heavy sim, below what the 150 ms render-delay
+   * buffer needs. Measure real 6-seat upstream BEFORE Phase 1 commits — delta encoding is
+   * Phase-1-adjacent, not V6-4.2 cleanup. See BACKLOG CARRY-FORWARD LEDGER.
+   */
   send(msg: NetMessage): void {
     if (!this.connected) {
       throw new Error('NetTransport not connected');

@@ -133,14 +133,21 @@ describe('S133 P1 — damage survives the mirror wire (host-migration fidelity)'
     expect(Number(host.creatures.get(VOLTKIN)!.targetCreatureId)).toBe(Number(CHEWER));
     expect(client.creatures.get(VOLTKIN)!.targetCreatureId).toBeNull();
 
-    // ⛔ THE SHARPEST REMAINING CASE, and it is worse than a mis-timed expiry: a
-    // non-persistent creature is DELETED on the successor. `despawnAtTick` rehydrates to
-    // 0, and on PROMOTION the ex-client starts running the lifetime gate
-    // (`creatureLifecycle.ts`: delete when `world.tick >= despawnAtTick`), which 0 makes
-    // unconditionally true. NOT fixable by un-stripping — `serializeCreature` only emits
-    // `despawnAtTick` for chewers, so a Voltkin's value never reaches the wire at all.
+    // ⛔ THE SHARPEST REMAINING CASE, and it is worse than a mis-timed expiry: the
+    // successor DELETES ITS ENTIRE CREATURE POPULATION on the first creature tick.
+    // `despawnAtTick` rehydrates to 0; on PROMOTION the ex-client starts running the
+    // lifetime gate (`creatureLifecycle.ts`: delete when `world.tick >= despawnAtTick`),
+    // which 0 makes unconditionally true; and ALL THREE `CREATURE_CONFIGS` are
+    // `persistent: false` (Voltkin, chewer since S104 P1, lightning drone) so the gate
+    // applies to every type. Already recorded in `SPARK_Blueprint.md` §XV.6 as a live
+    // hazard in three paths — S133 CHECK rediscovered it; the Blueprint got there first.
+    // Only PARTLY fixable by un-stripping: serializeCreature emits `despawnAtTick` for
+    // chewers ONLY, so that would rescue one of three types. Deliberately not shipped.
     expect(host.creatures.get(VOLTKIN)!.despawnAtTick).toBeGreaterThan(0);
     expect(client.creatures.get(VOLTKIN)!.despawnAtTick).toBe(0);
+    // The CHEWER's value IS emitted by the serializer — and still lands at 0, because this
+    // function strips it. That is the half the un-strip could have rescued.
+    expect(client.creatures.get(CHEWER)!.despawnAtTick).toBe(0);
     // And `spawnedAtTick` cannot rescue it: it is not a SerializedCreature field, is never
     // emitted, and is hardcoded to 0 on rehydrate. Two earlier S133 drafts claimed the
     // expiry was "re-derivable from spawnedAtTick" — this pins that it is not.

@@ -831,20 +831,32 @@ export function netSnapshot(world: World): NetSnapshot {
  * `sourceSpawnerId`, `despawnAtTick` and `targetCreatureId` — so a successor's chewer
  * forgets its parent spawner, and a Voltkin mid-zap forgets its target.
  *
- * ⛔ AND ONE STRICTLY WORSE CONSEQUENCE, FOUND BY CHECK (S133) AFTER TWO WRONG DRAFTS OF
- * THIS COMMENT. A non-persistent creature is DELETED on the successor, not merely
- * mis-timed. `deserializeCreature` defaults `despawnAtTick` to 0 (correct for a CLIENT,
- * whose comment rightly says "the client never runs the lifetime gate"), but on PROMOTION
- * that client becomes the host and DOES run it: `creatureLifecycle.ts` deletes any
- * `!config.persistent` creature once `world.tick >= creature.despawnAtTick`, and
- * `world.tick >= 0` is always true. So every live Voltkin evaporates on the successor's
- * first creature tick.
+ * ⛔ AND ONE STRICTLY WORSE CONSEQUENCE — ALREADY DOCUMENTED, NOT DISCOVERED HERE.
+ * `SPARK_Blueprint.md` §XV.6 already records this as *"the `despawnAtTick = 0` rehydration
+ * bug … still live and unguarded in three paths (host save/load of a Voltkin, migration
+ * takeover of any creature, worker-sim fallback repair) … a present hazard, not an
+ * anecdote."* S133's CHECK rediscovered it independently; the Blueprint got there first.
  *
- * ⛔ AND IT IS NOT FIXABLE BY UN-STRIPPING, which is why it is not fixed here:
+ * The mechanism: `deserializeCreature` defaults `despawnAtTick` to 0 — correct for a CLIENT,
+ * whose comment rightly says "the client never runs the lifetime gate" — but on PROMOTION
+ * that client becomes the host and DOES run it. `creatureLifecycle.ts` deletes any
+ * `!config.persistent` creature once `world.tick >= creature.despawnAtTick`, and
+ * `world.tick >= 0` is always true.
+ *
+ * ⛔ AND IT IS EVERY CREATURE, NOT JUST VOLTKINS (two S133 drafts of this comment said
+ * "every live Voltkin" — too narrow). ALL THREE `CREATURE_CONFIGS` are `persistent: false`:
+ * Voltkin, the chewer (S104 P1, "was true"), and the lightning drone. So on takeover the
+ * successor deletes its ENTIRE creature population on the first creature tick.
+ *
+ * ⛔ AND IT IS ONLY PARTLY FIXABLE BY UN-STRIPPING, which is why it is not fixed here:
  * `serializeCreature` emits `despawnAtTick` ONLY when `sourceSpawnerId !== null`, i.e. for
- * chewers — a Voltkin's value never reaches the wire at all, so there is nothing for this
- * function to stop stripping. The fix has to change the SERIALIZER's emit condition, which
- * is a wire-shape decision of its own.
+ * chewers. So un-stripping it here would rescue **chewers only** — a Voltkin's and a
+ * drone's value never reach the wire at all. A deliberate decision NOT to ship that
+ * one-line partial: it would leave two of three creature types still evaporating while
+ * making the surviving behaviour type-dependent and harder to reason about. The real fix
+ * changes the SERIALIZER's emit condition (and pays the wire bytes for it), and it must
+ * also cover the Blueprint's other two paths — host save/load, and worker-sim fallback
+ * repair — so it is its own slot, not a drive-by.
  *
  * ⚠ Two earlier S133 drafts of this comment claimed a Voltkin's expiry was "re-derivable
  * from `spawnedAtTick`". FALSE, and recorded here because the mistake is instructive:

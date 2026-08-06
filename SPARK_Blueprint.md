@@ -700,7 +700,9 @@ disconnect/rejoin.
 > `gameMode.ts:198-202`, `gameMode.ts:339-343`, `godlyActions.ts:75-80`) · `protocol.ts:101` version bump
 > + `:146` changelog · `protocol.ts:538-558` `KNOWN_GAME_ACTION_TYPES_RECORD` and `:573-592`
 > `CLIENT_INTENT_TYPES_RECORD` · `migrationClaim.ts:147-164` + `main.ts:2009-2018` ·
-> `workerSim.ts:251-280` structuralSignature · `stateHash.ts:46-48` `HashableWorld` ·
+> `workerSim.ts:251-280` structuralSignature (SIZE-ONLY) · **`stateHashFull.ts` `FIELD_COVERAGE`**
+> (⚠ S133 REDIRECT — register new families there, NOT in `stateHash.ts`'s deliberately-narrow
+> `HashableWorld`; `FIELD_COVERAGE` is keyed on `keyof World` and fails `tsc` by name) ·
 > `benchGate.ts:50-69` `BENCH_INTENT_POLICY`.
 >
 > **`benchGate` is a hard forcing function:** `benchGate.test.ts` asserts set-equality with
@@ -708,10 +710,19 @@ disconnect/rejoin.
 > directive, tower priority) fails the suite until an explicit allow/deny — which is exactly where
 > §XVI's "what happens to a benched player's castle" must land. Budget it as planned work, not a red test.
 >
-> **Two more traps.** `stateHash.ts:45-48` `HashableWorld` covers only
+> **Two more traps.** `HashableWorld` (`stateHash.ts:75-78`) covers only
 > tick/primitives/bonds/freeSparks/scoreProgress/scoreByPlayer — **creatures, spawners, defenders,
 > bombs, hunters, potatoes, rainbows, seagulls and poops are ALL absent**, so the silent-desync oracle
-> is blind to any new entity by default. And the `despawnAtTick = 0` rehydration bug is **still live
+> is blind to any new entity by default.
+> ✅ **PARTLY ADDRESSED S133:** a WIDE, test-only `hashWorldStateFull` now covers every family AND the
+> world scalars (`rngSeed` included, which no oracle saw before), the four differential harnesses
+> consume it, and `FIELD_COVERAGE` is a compile-time forcing function keyed on `keyof World`. What is
+> STILL missing is the RUNTIME half: `stateHash` has zero importers under `src/net/`, no checksum rides
+> the wire, and the one production consumer (`main.ts:1706`) compares a mirror against the worker's own
+> hash — a single authority, so it is apply-fidelity, not desync detection. **A host-vs-remote-client
+> oracle still does not exist**, and it is gated on the wire budget (R11: a 6-seat endgame already
+> measures 2.35× the 16 KiB guard ceiling).
+> And the `despawnAtTick = 0` rehydration bug is **still live
 > and unguarded in three paths** (host save/load of a Voltkin, migration takeover of any creature,
 > worker-sim fallback repair) because all three `CREATURE_CONFIGS` are now `persistent:false` while
 > `save.ts` emits `despawnAtTick` only for chewers and defaults it to 0 — it is a present hazard, not

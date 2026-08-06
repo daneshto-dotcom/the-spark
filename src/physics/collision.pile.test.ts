@@ -113,6 +113,11 @@ describe('S120 P3 — dense-pile collision hardening (grid-rebuild hoist guard)'
         if (overlap > worstOverlap) worstOverlap = overlap;
       }
     }
+    // V6-RISK(R10): this 1.5 px assertion is what HARD-FAILS the V6-1.2 spawner shrink to
+    // r=188 — measured worst residual overlap becomes 2.89 px, because enforceSpawnerBounds
+    // rim-compresses all 30 pile sparks each substep and `PILE_COUNT` is a literal 30, so
+    // dropping the free-spark cap does not relieve it. Budget the fix INSIDE V6-1.2; do not
+    // relax this number to make the shrink pass. See BACKLOG CARRY-FORWARD LEDGER.
     expect(worstOverlap, `worst residual overlap ${worstOverlap.toFixed(2)}px`).toBeLessThan(1.5);
 
     // No explosion/tunneling canary: report the worst drift, bound it loosely.

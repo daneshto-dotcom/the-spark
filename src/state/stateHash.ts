@@ -70,6 +70,15 @@ export function fnv1a32(s: string, seed = 0x811c9dc5): number {
  * `FAMILY_COVERAGE`, which is what makes the narrow/wide split unable to drift:
  * narrowing or widening this list re-runs that check automatically.
  */
+/**
+ * V6-RISK(R1): this narrow set is the reason the silent-desync oracle is BLIND to every entity
+ * family. The V6-1.1 gatherer slot — which also flips the sim-worker default ON — must add its new
+ * family to `FIELD_COVERAGE` in `stateHashFull.ts` (a compile-time forcing function since S133), NOT
+ * here: widening this list puts a per-entity projection on the `main.ts:1706` hot path.
+ * ⚠ BACKLOG R1's instruction to "add gatherers to HashableWorld AND structuralSignature" treats two
+ * NON-symmetric levers as symmetric — `structuralSignature` is a SIZE-ONLY fingerprint and cannot
+ * express a per-entity field. See BACKLOG CARRY-FORWARD LEDGER.
+ */
 export const NARROW_HASHED_FAMILIES = ['primitives', 'bonds', 'freeSparks', 'scoreByPlayer'] as const;
 
 type HashableWorld = Pick<
