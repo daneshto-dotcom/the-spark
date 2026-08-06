@@ -30,6 +30,7 @@ import { makeHostTickState, runHostTick, type HostTickDeps } from './hostTick.ts
 import { mulberry32 } from './rng.ts';
 import { applyNetSnapshot, netSnapshot, snapshot } from './save.ts';
 import { hashWorldState } from './stateHash.ts';
+import { hashWorldStateFull } from './stateHashFull.ts';
 import { mintNonetSeed, startSudoku, tickSudoku } from './sudokuEvent.ts';
 import {
   applyPositions,
@@ -126,6 +127,14 @@ function buildReferenceRig(world: World, botManager: BotManager | null = null): 
       if (world.gameState === 'PLAYING') runGodlyMatcherCore(world, matcherCursor);
       tickWorkerCinematics(world, cinematics);
       const json = JSON.stringify(netSnapshot(world));
+      // S133 P1 — deliberately the NARROW hash here, and it must STAY narrow: the
+      // batch rig's counterpart value is `applyTickBatch(...).hash`, computed by
+      // PRODUCTION `workerSim.ts`, which the S133 Council ruling keeps narrow (widening
+      // it would put a per-entity projection on the main.ts:1706 hot path). Comparing a
+      // wide hash against that prod value would compare two different functions and
+      // fail for a reason that is not a divergence — it did, before this comment.
+      // The WIDE two-simulation comparison lives in the frame loops below, computed on
+      // both Worlds directly, where it is apples-to-apples.
       const hash = hashWorldState(world);
       world.effects.length = 0;
       return { json, hash };
@@ -224,7 +233,7 @@ describe('S122 P1 — worker-sim batch envelope differential (HARD GATE)', () =>
     const batch = buildBatchRig(refWorld);
 
     // INIT adoption must be bit-exact BEFORE any tick.
-    expect(hashWorldState(batch.world)).toBe(hashWorldState(refWorld));
+    expect(hashWorldStateFull(batch.world)).toBe(hashWorldStateFull(refWorld));
 
     for (let f = 0; f < 300; f++) {
       const inputs = scriptInputs(refWorld, f);
@@ -242,6 +251,16 @@ describe('S122 P1 — worker-sim batch envelope differential (HARD GATE)', () =>
             `(json equal: ${a.json === b.json})`,
         );
       }
+      // S133 P1 — WIDE per-frame comparison, computed on both Worlds directly.
+      // Neither signal above can see it: `json` is netSnapshot, whose
+      // `trimMirrorCreature` STRIPS `hp` and `chewProgress`; and `hash` is the narrow
+      // six-field Pick. So before this line, the game's only two damage fields were
+      // invisible to this HARD GATE in both of its channels.
+      const wideRef = hashWorldStateFull(refWorld);
+      const wideBatch = hashWorldStateFull(batch.world);
+      if (wideRef !== wideBatch) {
+        throw new Error(`WIDE (entity-family) divergence at frame ${f}: ref=${wideRef} batch=${wideBatch}`);
+      }
     }
     // The run must have actually exercised the interesting paths.
     expect(refWorld.primitives.size).toBeGreaterThan(3); // placements landed
@@ -258,7 +277,7 @@ describe('S122 P1 — worker-sim batch envelope differential (HARD GATE)', () =>
     const batch = buildBatchRig(refWorld, { difficulties: BOT_DIFFS, seed: BOT_SEED });
 
     // INIT adoption must be bit-exact BEFORE any tick (bots included in the roster).
-    expect(hashWorldState(batch.world)).toBe(hashWorldState(refWorld));
+    expect(hashWorldStateFull(batch.world)).toBe(hashWorldStateFull(refWorld));
     expect(batch.world.botSeats.size).toBe(BOT_DIFFS.length);
 
     for (let f = 0; f < 300; f++) {
@@ -271,6 +290,16 @@ describe('S122 P1 — worker-sim batch envelope differential (HARD GATE)', () =>
             `(json equal: ${a.json === b.json})`,
         );
       }
+      // S133 P1 — WIDE entity-family comparison (see the solo loop above). This is the
+      // scenario where it matters most: HARD/IMBA bots sever, clean and spawn creatures,
+      // so chewers with live `chewProgress` and damaged `hp` actually exist here.
+      const wideRef = hashWorldStateFull(refWorld);
+      const wideBatch = hashWorldStateFull(batch.world);
+      if (wideRef !== wideBatch) {
+        throw new Error(
+          `BOTS WIDE (entity-family) divergence at frame ${f}: ref=${wideRef} batch=${wideBatch}`,
+        );
+      }
     }
     // The run must have actually exercised the bots: at least one BOT-authored primitive
     // (placedBy !== human seat 0) — otherwise this scenario silently tests nothing.
@@ -280,6 +309,23 @@ describe('S122 P1 — worker-sim batch envelope differential (HARD GATE)', () =>
     }
     expect(botPlaced).toBeGreaterThan(0);
     expect(refWorld.tick).toBeGreaterThan(500);
+
+    // S133 P1 — the WIDE per-frame compare above is only MEANINGFUL if entities in the
+    // newly-hashed families actually exist in this run. Asserted rather than assumed: a
+    // run with an empty entity world would make the new guard decorative while looking
+    // green, which is the failure mode this whole priority exists to remove.
+    const newlyHashedEntities =
+      refWorld.creatures.size +
+      refWorld.creatureSpawners.size +
+      refWorld.defenders.size +
+      refWorld.bombs.size +
+      refWorld.hunters.size +
+      refWorld.potatoes.size +
+      refWorld.rainbows.size +
+      refWorld.seagulls.size +
+      refWorld.poops.size +
+      refWorld.fouledPrimitives.size;
+    expect(newlyHashedEntities).toBeGreaterThan(0);
   });
 
   it('S123 P1 — INIT bot-config round-trip: factory receives the exact difficulties + seed', () => {
@@ -390,6 +436,7 @@ describe('S122 P1 — worker-sim batch envelope differential (HARD GATE)', () =>
       nowMs: 151,
     });
     expect(withIntent.snapshot).toBeDefined();
+    // NARROW by contract — `withIntent.hash` is produced by production applyTickBatch.
     expect(withIntent.hash).toBe(hashWorldState(sim.world));
     // Signature sanity: the fingerprint reacts to a structural change.
     const sigBefore = structuralSignature(sim.world);

@@ -70,7 +70,7 @@ import { snapshot } from './save.ts';
 import { tickScoring } from './scoring.ts';
 import { canAvatarCleanSplat } from './seagulls/seagullLifecycle.ts';
 import { recipeStillSatisfied } from './spawners/spawnerLifecycle.ts';
-import { hashWorldState } from './stateHash.ts';
+import { hashWorldStateFull } from './stateHashFull.ts';
 import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
 import { asPlayerId, asPrimitiveId, asSparkId, asSpawnerId, type PlayerId } from '../types.ts';
 import { dispatch, isNetworked, makeWorld, type World } from './world.ts';
@@ -520,8 +520,15 @@ function runDifferential(scen: Scenario): void {
     ref.peerIdsFn = scen.net !== undefined ? () => scen.net!.alive(t) : null;
     referenceHostTick(worldRef, ref);
 
-    const hNew = hashWorldState(worldNew);
-    const hRef = hashWorldState(worldRef);
+    // S133 P1 — WIDE hash. The narrow `hashWorldState` used here previously covered
+    // only primitives/bonds/freeSparks/score, so a per-tick divergence in creatures,
+    // spawners, defenders or any hazard family produced an IDENTICAL hash. The
+    // end-of-run `determinismJson` compare (a full `snapshot()`) did cover those, so
+    // what this swap actually buys is (a) per-TICK localization of an entity
+    // divergence and (b) detection of a TRANSIENT divergence that reconverges before
+    // the final compare — which the end-state check cannot see by construction.
+    const hNew = hashWorldStateFull(worldNew);
+    const hRef = hashWorldStateFull(worldRef);
     if (hNew !== hRef) {
       throw new Error(`differential divergence at tick ${t}: new=${hNew} ref=${hRef}`);
     }

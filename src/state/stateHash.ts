@@ -10,17 +10,37 @@
  * behind a Web Worker boundary (host render-only == client; worker boundary ==
  * future dedicated-server boundary), host / worker / client must be able to
  * cross-CHECK that they computed byte-identical state WITHOUT shipping the full
- * ~O(world) snapshot JSON every tick. Each side hashes its world and compares a
- * single u32; a mismatch flags a silent desync immediately (e.g. behind
- * `?DEBUG_HASH=1`). It is ALSO a cheaper, sharper determinism oracle for the
- * replay tests than a full-JSON diff (a hash mismatch localizes nothing, but
- * proves divergence in one comparison; the tests keep the full-JSON compare too
- * for the diagnostic).
+ * ~O(world) snapshot JSON every tick. It is ALSO a cheaper, sharper determinism
+ * oracle for the replay tests than a full-JSON diff (a hash mismatch localizes
+ * nothing, but proves divergence in one comparison; the tests keep the full-JSON
+ * compare too for the diagnostic).
  *
- * NOT serialized on the wire yet — there is no worker/cross-context consumer in
- * this session, and shipping a per-snapshot field with no reader would be
- * premature (see WORKER_SIM_FOUNDATION.md for the sequenced cutover plan). When
- * the cutover lands, add it to the NetSnapshot as an additive-optional field.
+ * ⚠ CORRECTED S133 — WHAT THIS ACTUALLY IS TODAY. This docblock previously read
+ * "Each side hashes its world and compares a single u32; a mismatch flags a
+ * silent desync immediately", which overstated it in a way BACKLOG R1 then
+ * inherited. The truth, verified:
+ *   • There is NO host-vs-remote-client desync check. This module has ZERO
+ *     importers under `src/net/`, and no checksum field rides the wire.
+ *   • The ONE production consumer is `main.ts:1706`, on the worker↔main-mirror
+ *     boundary. It applies the WORKER'S OWN snapshot and then compares the
+ *     mirror's hash to the worker's — so both sides derive from a SINGLE
+ *     authority. That is an APPLY-FIDELITY check, not a two-simulation desync
+ *     check, exactly as the comment at that call site says.
+ *   • The real two-simulation oracles are the TEST harnesses
+ *     (`hostTick.differential`, `workerSim.differential`, the two replay suites).
+ * A runtime host↔client oracle would need an additive-optional NetSnapshot field
+ * (see WORKER_SIM_FOUNDATION.md) and is gated on the wire budget — R11 measures a
+ * 6-seat endgame at 2.35× the 16 KiB guard ceiling BEFORE anything is added.
+ *
+ * ⚠ THIS HASH IS DELIBERATELY NARROW. It covers only the families in
+ * `NARROW_HASHED_FAMILIES` below; every other entity family (creatures,
+ * spawners, defenders, bombs, hunters, potatoes, rainbows, seagulls, poops,
+ * fouledPrimitives) is INVISIBLE to it, so it CANNOT see an entity desync. That
+ * is intentional now rather than accidental: widening it would put a per-entity
+ * projection on the `main.ts:1706` hot path for no runtime gain (see above).
+ * The WIDE, test-only counterpart is `hashWorldStateFull` in `stateHashFull.ts`,
+ * whose `FAMILY_COVERAGE` map is a compile-time forcing function over every
+ * World collection. **Add a family there, not here.**
  *
  * DETERMINISM NOTE (cross-context): within a single browser the main thread and
  * a Web Worker share the SAME V8 isolate semantics, so float results +
@@ -42,9 +62,19 @@ export function fnv1a32(s: string, seed = 0x811c9dc5): number {
   return h >>> 0;
 }
 
+/**
+ * The COLLECTION families this narrow hash reads — a runtime list so it is a
+ * single source of truth with the `HashableWorld` type below (S133).
+ *
+ * `stateHashFull.test.ts` asserts every entry here is marked `'hashed'` in
+ * `FAMILY_COVERAGE`, which is what makes the narrow/wide split unable to drift:
+ * narrowing or widening this list re-runs that check automatically.
+ */
+export const NARROW_HASHED_FAMILIES = ['primitives', 'bonds', 'freeSparks', 'scoreByPlayer'] as const;
+
 type HashableWorld = Pick<
   World,
-  'tick' | 'primitives' | 'bonds' | 'freeSparks' | 'scoreProgress' | 'scoreByPlayer'
+  'tick' | 'scoreProgress' | (typeof NARROW_HASHED_FAMILIES)[number]
 >;
 
 /**

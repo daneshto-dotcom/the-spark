@@ -794,7 +794,12 @@ describe('S100 P1 — wire byte budget (R1) + TD host-only stripping', () => {
     expect(severed[0]).toMatchObject({ cause: 'chewer', actor: asPlayerId(0), victim: asPlayerId(1) });
 
     const wire = JSON.stringify(netSnapshot(host));
+    // MEASURED S133 P1 on exactly this fixture (12 chewers, EVERY one mid-chew — the worst
+    // case for the un-strip below): 12,413 B before → 12,821 B after = +408 B (+3.3%),
+    // leaving 3,563 B of headroom under the ceiling. Both numbers were taken by running
+    // this test with the strip restored and removed, not estimated.
     expect(wire.length).toBeLessThan(16 * 1024);
+    expect(wire.length).toBeGreaterThan(12 * 1024); // the fixture is genuinely worst-case
 
     // The gate now genuinely sees effects: BOND_SEVERED is one of the five serialized kinds
     // (save.ts serializeEffect), and both attribution fields must survive onto the wire. If a
@@ -806,9 +811,21 @@ describe('S100 P1 — wire byte budget (R1) + TD host-only stripping', () => {
     // Host-local kinds must still NOT reach the wire (serializeEffect returns null for them).
     expect(wire).not.toContain('SEVER_ERASE');
 
-    // The host-only chewer fields MUST be stripped from the wire (render-trimmed shape).
-    expect(wire).not.toContain('chewProgress');
+    // ⚠ AMENDED S133 P1 — `chewProgress` and `targetBondId` now RIDE THE WIRE, deliberately.
+    // This assertion previously read `not.toContain('chewProgress')`, i.e. it LOCKED IN a
+    // bug: stripping chew progress meant a host-migration successor took over with every
+    // chew reset to zero, and `chewProgress` IS the bond's HP (`CONNECTOR_HP = CHEW_HITS`).
+    // Inverted rather than deleted, so the contract change is explicit in the diff.
+    expect(wire).toContain('chewProgress');
+    expect(wire).toContain('targetBondId');
+    // The measured cost of that decision, on this deliberately worst-case fixture (12
+    // chewers, every one mid-chew): see WIRE_BYTES_WITH_CHEW_STATE below. The ~16 KB R1
+    // budget above still holds with room to spare — the balloon this strip was built to
+    // prevent is bounded by live-chewer count, not by swarm size.
+    // ...but the LIFECYCLE / TARGETING fields are still stripped (scoped out of S133).
     expect(wire).not.toContain('sourceSpawnerId');
+    expect(wire).not.toContain('despawnAtTick');
+    expect(wire).not.toContain('targetCreatureId');
     // creatureSpawners IS on the wire (clients render the spawn-zone) but only the
     // tiny identity shape — no host-only cadence words.
     expect(wire).not.toContain('nextSpawnTick');

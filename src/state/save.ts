@@ -779,9 +779,12 @@ export function netSnapshot(world: World): NetSnapshot {
   } = full;
   void _savedAt; void _rngSeed; void _nextPrimitiveId; void _nextBondId; void _spawner;
   // S100 P1 (TD Phase 1a) — strip the HOST-SAVE-ONLY persistent chewer fields from the
-  // wire (TOWER_DEFENSE_DESIGN.md §3.3/§3.5 R1+R3: the render-trimmed creature wire shape
-  // is id/type/ownerPlayerId/pos/state/ticksInState/killCount only). `snapshot()` emits
-  // sourceSpawnerId/despawnAtTick/chewProgress/targetBondId for the HOST save round-trip;
+  // wire (TOWER_DEFENSE_DESIGN.md §3.3/§3.5 R1+R3).
+  // ⚠ AMENDED S133 P1 — the stripped set is now sourceSpawnerId/despawnAtTick/
+  // targetCreatureId ONLY. `hp`, `chewProgress` and `targetBondId` now RIDE THE WIRE,
+  // because stripping them meant a host-migration successor took over with all damage
+  // reverted — see the trimMirrorCreature docblock for the full reasoning and for the
+  // lifecycle fields that are still stripped.
   // here we re-map `creatures` to drop them so a swarm doesn't balloon the 10 Hz full-world
   // payload, and the client (which never simulates) rehydrates them neutral (null/0). When
   // no chewer is live this re-map is a no-op (Voltkin emits none of those keys anyway), so
@@ -795,9 +798,43 @@ export function netSnapshot(world: World): NetSnapshot {
 }
 
 /**
- * S100 P1 (TD Phase 1a) — produce the render-trimmed wire shape of a serialized creature:
- * drop the four HOST-SAVE-ONLY persistent fields (sourceSpawnerId/despawnAtTick/
- * chewProgress/targetBondId). For a Voltkin (which never carries them) this returns the
+ * ⚠ AMENDED S133 P1 — `hp`, `chewProgress` and `targetBondId` are NO LONGER STRIPPED.
+ *
+ * THE BUG THIS FIXES. A client builds its world from `applyNetSnapshot`. When a client is
+ * promoted on host migration it becomes AUTHORITATIVE from that world. Because this
+ * function stripped `hp` and `chewProgress`, and `deserializeCreature` rehydrates
+ * `hp: s.hp ?? getCreatureConfig(s.type).hp`, the successor took over with **every
+ * damaged creature healed to full and every chew reset to zero** — i.e. BOTH of the
+ * game's damage models silently reverted on every host handoff. (`CONNECTOR_HP` is not a
+ * field: it IS `chewProgress`, so chew progress is the bond's HP.) Meanwhile
+ * `defender.hp` is non-optional on the wire and DID survive, so the two hp fields had
+ * opposite migration behaviour.
+ *
+ * WHY `targetBondId` COMES ALONG. It is not decoration: this docblock's own words are
+ * that `chewProgress` is "the in-flight chew accumulator **vs the committed bond**".
+ * Shipping progress while dropping the bond it is progress AGAINST would hand the
+ * successor 4-of-5 chews with no target, to be re-aimed at whatever it re-acquires —
+ * strictly worse than resetting. The damage-coherent set is the triple, or nothing.
+ *
+ * COST. These fields exist only on live chewers (a Voltkin emits none of them), and only
+ * `hp` when actually damaged — `serializeCreature` omits it at full health. So the 10 Hz
+ * balloon this trim was built to prevent is bounded by live-chewer count, not swarm size.
+ * No `PROTOCOL_VERSION` bump: all three are already ADDITIVE-OPTIONAL on
+ * `SerializedCreature`, `deserializeCreature` already defaults them, and
+ * `parseNetMessage` gates on `schemaVersion` only — never on extra keys.
+ *
+ * ⚠ STILL STRIPPED, SAME BUG CLASS, DELIBERATELY OUT OF SCOPE (logged S133):
+ * `sourceSpawnerId`, `despawnAtTick` and `targetCreatureId` — so a successor's chewer
+ * forgets its parent spawner, and a Voltkin mid-zap forgets its target. That is a
+ * lifecycle/targeting reset rather than a damage reset, and it wants its own measured
+ * decision — do not read this amendment as having fixed it.
+ * ⚠ And do NOT read it as a Voltkin lifetime bug (an earlier S133 draft of this comment
+ * claimed that, wrongly): `serializeCreature` emits `despawnAtTick` ONLY when
+ * `sourceSpawnerId !== null`, i.e. for chewers, precisely because a Voltkin's expiry is
+ * re-derivable from `spawnedAtTick`, which does ride the wire.
+ *
+ * S100 P1 (TD Phase 1a) — produce the render-trimmed wire shape of a serialized creature.
+ * For a Voltkin (which never carries them) this returns the
  * input shape unchanged (no allocation cost beyond the spread), so the pre-S100 wire is
  * byte-identical; for a chewer it strips the host-only sim state.
  */
@@ -805,23 +842,17 @@ function trimMirrorCreature(c: SerializedCreature): SerializedCreature {
   if (
     c.sourceSpawnerId === undefined &&
     c.despawnAtTick === undefined &&
-    c.chewProgress === undefined &&
-    c.targetBondId === undefined &&
-    c.targetCreatureId === undefined && // S103 #8 — host-only too (stripped below)
-    c.hp === undefined // S102 — hp is host-only too (stripped below)
+    c.targetCreatureId === undefined // S103 #8 — host-only (stripped below)
   ) {
     return c; // Voltkin / no host-only fields — already in wire shape
   }
   const {
     sourceSpawnerId: _s,
     despawnAtTick: _d,
-    chewProgress: _c,
-    targetBondId: _t,
     targetCreatureId: _tc, // S103 #8 — strip the opportunistic creature target from the wire
-    hp: _h, // S102 — strip damaged-hp from the wire (client rehydrates the config default)
     ...wire
   } = c;
-  void _s; void _d; void _c; void _t; void _tc; void _h;
+  void _s; void _d; void _tc;
   return wire;
 }
 

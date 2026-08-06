@@ -1,0 +1,198 @@
+{
+  "tool_calls_session_total": 18,
+  "session_id": "S132",
+  "session_kind": "pdca",
+  "session_start": "2026-08-04",
+  "prior_session_note": "S131 closed V6-0.3 end-to-end (4/4 priorities completed, both PDRs archived COMPLETED, 12 reflexion entries). Baseline re-verified empirically at S132 boot: tsc 0, vitest 1990/1990 across 130 files. Write auth STILL DEAD -- gh auth status reports 'The token in default is invalid'; 33 commits unpushed as measured by `git rev-list --count origin/master..master` (climbed from S131's 31 via handoff bookkeeping commits, exactly as the boot snapshot warned it would). No IN-PROGRESS plans carried in.",
+  "phase": "ANALYZE-COMPLETE",
+  "user_approval_verbatim": "Selected 'Fix the probe, then you playtest (Recommended)' from the AskUserQuestion scope options, in direct reply to the A.0 findings naming DELTA-1 (solo-vs-6-seat faucet trap) and DELTA-2 (inventory.shift above the carry-1 guard). Explicit selection of the named scope = user-path approval; deliberation waived per Rule 17 Micro opt-in.",
+  "tier": "Micro",
+  "council_rounds": 0,
+  "plan_file": ".claude/plans/2026-08-04_PDR_S132_Probe_Instrument_Repair.md",
+  "a0_state_discovery": {
+    "ran": true,
+    "method": "Headless Chromium via the project's own playwright (swiftshader), the S131 recipe. Three scratchpad drivers: probe-drive.mjs (arm + sample), probe-draw.mjs (draw path + ?spawn= override), probe-faucet.mjs (tick-locked census measuring throughput and per-spark lifetime rather than the standing pool).",
+    "confirmed": [
+      "probe arms on ?probe=1 (ARMED console line + [data-probe] DOM overlay)",
+      "sim advances 122 ticks / 2s = 61 Hz effective in headless chromium",
+      "probeBootstrap is main.ts's FIRST import (line 27; 1-26 are docblock)",
+      "keys 1-6 stock the inventory (8/8 Sqr x8)",
+      "Q draws: player Idle -> Carrying, so SPAWN_SPARK + PICKUP_SPARK both land",
+      "?spawn=N reaches constants.ts; throughput 1.866/s measured at lambda=2.0 (n=168/90s)",
+      "faucet throughput 0.1933/s vs lambda 0.1875 (n=29/150s, Poisson SE 0.036)",
+      "free-spark lifetime exactly 600 ticks, min=max=600 (no leak, no jitter)",
+      "standing pool 1.81 vs lambda*W 1.93 -- Little's Law holds",
+      "8-slot bank at a fair 1/6 share = 248s (BACKLOG B3 claims ~256s) -- B3 CONFIRMED",
+      "FREE_SPARK_SOFT_CAP=50 confirmed unreachable dead code (pool peaks at 4)"
+    ],
+    "deltas": [
+      "DELTA-1: probe is solo-only (auto-disarms on any peer/bot, probeHarness.ts:290,342) but B3/B4 are 6-seat claims. Solo receives the WHOLE arena faucet, so an 8-slot bank fills in 41s not 248s -- 6x more generous than the condition B3 describes. The handoff's playtest URL carries no correction and would produce a wrong B3 ruling. Fix: &spawn=0.03125.",
+      "DELTA-2: probeHarness.ts:291 calls inventory.shift() ABOVE the carry-1 guard at :294. Q-while-carrying silently destroys a slot. Measured 8/8 -> 7/8 (real draw) -> 6/8 (refused draw, item gone). buildCount/peakPrimitives under-read with it."
+    ],
+    "refuted": [
+      "Suspected Q was double-bound with SHRINK_TERRITORY (main.ts:888 advertises 'Q shrink territory'; probeHarness.ts:326 binds q/Q to draw). It CANNOT fire: decideKeyShrink returns false when gameMode==='solo' (controls.ts:868) and the probe auto-disarms outside solo. The collision is REAL -- the solo guard is the only thing preventing it. Becomes live if the probe ever gains a bots/networked mode. Carry-forward, not dismissed."
+    ],
+    "self_correction": "My first two readings called the lambda*W model wrong in both directions (pool 2.73 vs 1.88; 12.79 vs 20.00). Both were artifacts of my reading protocol, not the instrument: a 63s window on a 10s-TTL process carries ~6 independent samples, and the lambda=2.0 run was held only 12s -- entirely inside the ramp. Held past the ramp with a tick-locked census the model is correct. Re-learned the boot snapshot's own #measure-inside-the-hold-not-on-the-edge-of-the-ramp."
+  },
+  "verified_baseline_s132_boot": {
+    "tsc": 0,
+    "vitest": "1990/1990 (130 files)",
+    "unpushed_commits": 33,
+    "gh_write_auth": "INVALID -- 'The token in default is invalid'",
+    "head": "8f4debb"
+  },
+  "priorities": [
+    {
+      "id": "P1-probe-instrument-repair",
+      "label": "Repair the V6-0.1 economy probe harness so the Phase-1 gating playtest produces a trustworthy ruling. A.0 drove the instrument headlessly for the first time in four sessions: it WORKS (arms, draws, measures; B3 empirically CONFIRMED at pool 1.81 vs lambda*W 1.93, throughput 0.1933/s, 8-slot fair-share fill 248s vs BACKLOG's ~256s). Two deltas: (1) the probe is solo-only but B3/B4 are 6-seat claims, so solo fills an 8-slot bank in 41s not 248s and the owner would rule B3 the wrong way -- fix by surfacing the seat-share arithmetic on the overlay and adding &spawn=0.03125 to the recipe; (2) inventory.shift() sits ABOVE the carry-1 guard at probeHarness.ts:291, so Q-while-carrying silently destroys a slot (measured 8/8 -> 7/8 -> 6/8).",
+      "status": "completed",
+      "phase": "CHECK-COMPLETE",
+      "tier": "Micro",
+      "check_completed": true,
+      "priority_state": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "checkpoint_commit": "0a6144f",
+      "real_context_tokens_at_close": 141824,
+      "real_context_pct_at_close": 14.18,
+      "check_method": "Micro-tier CHECK, static + MUTATION + real-pixel. (1) STATIC: tsc 0; npx vitest run 2001/2001 across 130 files (+11 from the 1990 boot baseline); npm run build exit 0 with the entry chunk at 645.5 KiB / 750 cap, 104.5 KiB headroom -- and the entry HASH is byte-identical across the before/after builds (index-C4WI_4XB.js, 661016 B both times), which is independent proof the DEV-only module contributes zero production bytes. gitleaks 8.30.1 clean over 841 commits. (2) MUTATION -- 8 of 8 CAUGHT, ZERO VACUOUS. A green suite proves nothing until the defended line is broken and the test watched to fail (S131 broke 4 of 4 of its own new guards this way). M1 hoist the consume back above the carry-1 guard, i.e. the original bug -> RED (2 failed). M2 drop the player-exists half of the refusal -> RED (1). M3 representative tolerance 2 pct -> exact equality -> RED (1). M4 fair-share denominator MAX_PLAYERS -> hardcoded 5 -> RED (4). M5 Number.isFinite dropped so an infinite cap returns Infinity -> RED (1). M6 FIFO -> LIFO -> RED (1). M7 ramp threshold reverted to sample-count units -> RED (2). M8 settle window shortened to one TTL -> RED (2). Scripts: scratchpad/mutate.sh + mutate2.sh. (3) REAL PIXELS, genuine emitter, no synthetic payload -- headless Chromium via the project own playwright + swiftshader, booting a real solo match through the title screen live geometry getter and driving actual keydown events. DELTA-2 fixed and CONFIRMED in-browser: 8/8 -> 7/8 (genuine draw) -> 7/8 (refused draw, inventory intact); it read 6/8 before the fix. Seat-share block verified in BOTH conditions: shipped default renders NOT 6-seat-representative ... 6.0x more generous ... FIX: ?spawn=0.03125, with fills 43s vs 256s; the corrected recipe renders lambda 0.0313/s (OVERRIDDEN) and = ONE SEAT of a 6-seat match with both fills agreeing at 256s. At the fair share the pool reads 0.00 -- the arena is literally empty, which is B3 rendered rather than argued. (4) TWO DEFECTS IN MY OWN CHANGE, CAUGHT ONLY BY SCREENSHOTTING -- both invisible to a green suite because every string was correct: (a) max-width:44ch with white-space:pre CLIPS rather than wraps, and 44ch was already too narrow for content shipped in S128 (the REGIME line at 53 chars, a full 12-slot INVENTORY at 77, the recipes-fitting line at 77 were all cut off mid-word) -- widened to 80ch, which fixes the pre-existing clipping too; (b) the ramp warning compared poolSamples.length against TTL*6, but the sampler fires every 100ms (~10/s) while the sim runs 60 ticks/s, so it silently demanded 360s of hold while the on-screen message promised 60s -- the overlay still read ramping after a 63s hold. Re-denominated in SIM TICKS, pinned by M7/M8. (5) FALSE ALARM CORRECTED, mechanism verified rather than conclusion trusted: a recursive grep of dist/ for PROBE_SENTINEL reported a LEAK. It is not one -- the only hit is index-*.js.map, a sourcemap whose sourcesContent embeds the original TypeScript of all 432 modules by design. The repo own documented contract is dist/assets/*.js, where the sentinel is ABSENT and there are 0 occurrences of takeFromInventory / seatShareReadout / RAMP_SETTLE_TICKS. The docblock now warns the next reader off the broad grep form.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/dev/probeHarness.ts",
+          "needle": "export function takeFromInventory",
+          "why": "DELTA-2 fix: decision and consume in ONE unit that owns the array, so consumed-despite-refusing is observable from a Node test. Mutation M1 (re-hoisting the consume) goes RED."
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/dev/probeHarness.ts",
+          "needle": "export function seatShareReadout",
+          "why": "DELTA-1 fix: the solo-vs-6-seat faucet gap, pure and testable. Mutations M3/M4/M5 all go RED."
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/dev/probeHarness.ts",
+          "needle": "export const RAMP_SETTLE_TICKS",
+          "why": "Ramp threshold in SIM TICKS, not sample count -- the units bug caught by screenshot. Mutations M7/M8 go RED."
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/dev/probeHarness.ts",
+          "needle": "max-width:80ch",
+          "why": "Overlay was clipping at 44ch with white-space:pre, including content shipped in S128. Verified legible in a real screenshot."
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/dev/probeHarness.test.ts",
+          "needle": "takeFromInventory never consumes on a refused draw",
+          "why": "The DELTA-2 behavioural guard, mutation-proven non-vacuous (M1, M2, M6)."
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/dev/probeHarness.test.ts",
+          "needle": "seatShareReadout exposes the solo-vs-6-seat faucet gap",
+          "why": "The DELTA-1 guard, mutation-proven non-vacuous (M3, M4, M5)."
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "SUPPLY SIDE IS NOW SETTLED EMPIRICALLY (S132)",
+          "why": "CARRY-FORWARD LEDGER section B updated: B3 confirmed with measured figures, the playtest-URL trap named, the Q double-binding logged as a live-if-mode-changes carry-forward. Required ABSOLUTE-path binding for the BACKLOG.md edit (MCV)."
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/boot-snapshot.md",
+          "needle": "IS NOT OPTIONAL",
+          "why": "The corrected playtest recipe the owner actually reads at boot."
+        }
+      ]
+    }
+  ],
+  "carry_forward_priorities": [],
+  "reflexion_entries_to_archive": [
+    {
+      "tag": "#four-sessions-of-owner-hasnt-run-it-and-nobody-checked-the-instrument",
+      "lesson": "A gate unmet for four sessions is a hypothesis about the OWNER, and it was never tested. The probe harness gating all of Phase 1 had never once been exercised. Driving it took one session and found a bug that leaks the bank plus a framing trap that would have produced the wrong ruling. When a blocker is waiting on a human, check the thing you would be handing them FIRST."
+    },
+    {
+      "tag": "#an-instrument-that-cannot-reproduce-its-own-test-condition",
+      "lesson": "The probe is solo-only by construction; B3/B4 are six-seat claims. Solo receives the whole arena faucet, so it fills an 8-slot bank 6x faster than the condition being ruled on. Correct code, correct measurements, wrong CONDITION -- and nothing in the harness said so. Ask what the instrument is a measurement OF, not only whether it measures accurately."
+    },
+    {
+      "tag": "#measure-inside-the-hold-not-on-the-edge-of-the-ramp",
+      "lesson": "Re-learned the hard way from this repo own boot snapshot. I called lambda*W wrong in both directions from a 63s window on a 10s-TTL process and a 12s run held entirely inside the ramp. Both readings were artifacts of my protocol, not the instrument. A tick-locked census past the ramp showed the model exact: throughput 0.1933 vs 0.1875, lifetime 600/600/600."
+    },
+    {
+      "tag": "#a-green-suite-cannot-see-a-clipped-string",
+      "lesson": "Two defects in my own change survived 2001 passing tests and were caught by screenshotting the overlay: max-width:44ch clipping every long line (including content shipped in S128), and a ramp threshold in the wrong units that demanded 360s while promising 60s. Every string was CORRECT; the viewport and the denominator were wrong. Render the thing."
+    },
+    {
+      "tag": "#restructure-so-the-bug-class-is-testable-rather-than-text-pinned",
+      "lesson": "The one-line reorder fixing the consume-before-refuse bug was untestable: the live handler is unreachable from vitest, and a source-order assertion is a known trap here because indexOf matches your own comments -- and my new comment named shift four times. Moving decision+consume into one unit that owns the array made the bug class observable from Node instead of pinned by prose."
+    },
+    {
+      "tag": "#verify-the-mechanism-of-your-own-alarm",
+      "lesson": "A recursive grep of dist/ said PROBE_SENTINEL leaked into production. It had not -- the only hit was a sourcemap sourcesContent, and the documented contract is dist/assets/*.js specifically. I nearly reported a leak that was not there. Sixth consecutive session where verify-the-reviewer-MECHANISM applied, and this time the reviewer was me."
+    },
+    {
+      "tag": "#the-guard-that-saves-you-may-be-incidental",
+      "lesson": "Q IS double-bound between the probe draw and SHRINK_TERRITORY. It cannot fire only because decideKeyShrink returns false in solo and the probe is solo-only -- an unrelated guard is the sole thing preventing it. Refuted as a present defect, logged as a carry-forward, because the reason it is safe is not the reason anyone would assume."
+    }
+  ],
+  "session_status": "analyze_complete",
+  "pdr_approved": true,
+  "deliberation_completed": true,
+  "unlock_source": "user",
+  "budget_total": 1000000,
+  "totals": {
+    "grok_calls": 0,
+    "grok_cost_usd": 0.0,
+    "gemini_calls": 0,
+    "gemini_cost_usd": 0.0,
+    "bundle_kib_entry": 645.5,
+    "vitest": "2001/2001 (130 files)",
+    "mutations_applied": 8,
+    "mutations_caught": 8
+  },
+  "prior_session_archive": ".claude/session-state.s131.bak",
+  "analyze_result": {
+    "calibration": {
+      "summary": "2 commits, 9 files, +1317/-459. Test suite 1990/130 files at boot -> 2001/130 (+11 tests, 0 new files), every added assertion mutation-verified (8 mutations applied, 8 caught, 0 vacuous). Bundle 645.5 -> 645.5 KiB entry, and the artifact HASH was IDENTICAL across the before/after builds (index-C4WI_4XB.js, 661016 B both times) -- not merely 'no measurable delta' but proof of byte-for-byte equality, which is the strongest available evidence that a DEV-only module contributes zero production bytes. Cap 750, headroom 104.5 KiB, unchanged. PROTOCOL_VERSION 15, no bump (no wire or save surface touched -- probeHarness reaches the world only through SPAWN_SPARK + PICKUP_SPARK, both already allowlisted). Context 141.8K at A.0 close -> 237.5K at session close, 23.75 pct of a 1M window, GREEN throughout, never approached YELLOW.",
+      "tier_accuracy": "PDR declared Micro (<10K, 1 code file + 2 doc files). Actual: 1 code file + 1 test file + 2 doc files + plan/state bookkeeping. Micro was the RIGHT call on token cost and blast radius -- the whole change is DEV-only and cannot reach production -- but the file count ran over the Micro guideline of 1-2 because the fix needed its own test file edit and two docs carry the recipe the owner reads. Recording it as a borderline Micro rather than pretending it fit: no tier escalation was warranted, since escalating to Standard would have bought a 3-way Council on a 3-line reorder in a file that ships zero bytes.",
+      "estimate_vs_actual": "Predicted 'the shift-before-guard bug, an on-overlay seat-share caveat, and a corrected playtest recipe'. All three landed. UNPREDICTED and larger than any of them: the change itself contained two defects (44ch clipping, ramp threshold in the wrong units) that 2001 passing tests could not see, plus a pre-existing S128 clipping defect the widening incidentally fixed. Estimating 'small fix' was right about the code and wrong about the verification cost -- the screenshot pass found more than the reducer pass did.",
+      "a0_value": "A.0 was the entire session. The scoped work (a 3-line reorder) would have been worthless without it: the reason to touch this file at all came from driving the instrument, and the highest-value finding -- DELTA-1, the solo-vs-6-seat trap -- is not a code defect at all and no amount of reading would have produced it. Rule 21 paid for itself several times over here."
+    },
+    "retrospective": {
+      "what_worked": [
+        "Testing the INSTRUMENT before asking the human a fifth time. Four sessions had recorded the probe playtest as blocked on the owner; nobody had checked what would be handed to them. One session of driving it found a bank-draining bug and a framing trap that would have produced the wrong ruling on seven Full-tier slots.",
+        "Reading the boot snapshot's CRITICAL TRAPS as a live checklist rather than history. 'A blocked verification path usually has a side door one layer over' is precisely why the DOM overlay turned out to need no compositing at all -- two prior sessions had recorded HUD verification as impossible, and that constraint simply did not apply.",
+        "Restructuring so the bug class became testable instead of pinning it with prose. The reorder alone was unverifiable from vitest, and a source-order assertion was a known trap here -- my own new comment named `shift` four times and would have blinded it. Moving decision+consume into one unit that owns the array made 'consumed despite refusing' directly observable from Node.",
+        "Mutation-testing every assertion, 8 for 8, including a mutation that re-introduces the exact original bug. S131 broke 4 of its own 4 new guards this way; treating that as a standing requirement rather than a war story is what made these guards real.",
+        "Screenshotting the result. It found two defects in my own change that the full green suite structurally could not -- every string was correct; the viewport and the denominator were wrong.",
+        "Measuring throughput and per-spark lifetime instead of the standing pool. The pool is a consequence; throughput is the constraint that governs bank-fill time. That reframe is what turned two contradictory pool readings into a clean confirmation of B3."
+      ],
+      "what_i_got_wrong": [
+        "Called lambda*W 'wrong in both directions' from a 63s window on a 10s-TTL process and a 12s run held entirely inside the ramp. Both were artifacts of my reading protocol. The boot snapshot already carried #measure-inside-the-hold-not-on-the-edge-of-the-ramp from S131 and I walked into it anyway -- reading a lesson is not the same as having it.",
+        "Shipped a ramp warning whose threshold was in the wrong units (poolSamples.length vs sim ticks), so it demanded 360s while its own message promised 60s. I wrote a warning ABOUT sampling timescales and got the sampling timescale wrong inside it.",
+        "Reported a production LEAK from a recursive grep of dist/ when the only hit was a sourcemap's sourcesContent and the documented contract is dist/assets/*.js. Nearly escalated a non-defect; caught it by checking the mechanism.",
+        "Widened `git add -A .claude/` and swept in `.claude/session-state.s129.bak`, an untracked leftover that was not in the PDR's scope. Disclosed to the owner rather than left for them to find in a diff, but the right move was a narrower add.",
+        "Lost two tool calls to the project's own documented traps -- a heredoc mangled by apostrophes, and a `sed`/`grep` anchor that missed because the PDR's status line is bold markdown (`**STATUS: ...**`) rather than bare. Both were written down; I did not consult them until after they bit."
+      ],
+      "process_notes": [
+        "The AskUserQuestion selection of a named scope option functioned cleanly as user-path approval: it is explicit, it is verbatim-recordable, and it named the scope, so the Micro deliberation waiver applied without ambiguity.",
+        "Dot-free priority id (`P1-probe-instrument-repair`) and gate fields written at BOTH top level and per-priority. No approval-handshake breakage this session -- the three known OS-scale bugs did not fire.",
+        "GOV-28 caught that ANALYZE had not run. The completion protocol was followed through step 4 (reflexion entries) but the session-level ANALYZE phase was skipped because the session read as 'one priority, then hand off to the owner'. A single-priority session still owes an ANALYZE."
+      ]
+    },
+    "unverified_at_close": [
+      "The playtest itself -- B4 is a human judgment about whether carving survives an 8-slot exact-type inventory, and no headless run substitutes for it. STILL THE PHASE-1 GATE.",
+      "deploy.yml has STILL never executed with S131's CI gate -- no write auth, 35 commits unpushed. Static assertions only. Unchanged from S131 and now one session older.",
+      "The corrected `&spawn=0.03125` recipe is verified to RENDER correctly and to be accepted by `seatShareReadout`, but no one has yet played a full match under it. The supply arithmetic is confirmed; the resulting play experience is not.",
+      "`fillFairShareSec` is an equal-split idealisation. Real 6-seat contention was never measured -- the probe cannot measure it, being solo-only. Correct for ruling on aggregate supply, wrong for predicting any individual seat, and labelled as such on screen.",
+      "The Q double-binding is refuted as a PRESENT defect but not structurally prevented. It is held off only by `decideKeyShrink` returning false in solo plus the probe's solo-only auto-disarm -- an incidental guard, not a deliberate one.",
+      "Sourcemaps in `dist/` embed the full TypeScript of every DEV-only module including this harness. Not a code leak (the executable is clean, 0 probe identifiers), but whether `.map` files are actually deployed was NOT investigated this session."
+    ]
+  },
+  "analyze_completed": true
+}
