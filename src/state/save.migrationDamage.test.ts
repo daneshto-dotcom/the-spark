@@ -64,8 +64,11 @@ function hostWorldWithDamage(): World {
       ownerPlayerId: P0,
       pos: { x: 400, y: 400 },
       targetPos: { x: 401, y: 401 },
-      spawnedAtTick: 0,
-      sourceSpawnerId: null, // Voltkin — lifetime-bound
+      // NON-ZERO deliberately: the lifecycle characterization below distinguishes "the
+      // value travelled" from "the value happened to equal the rehydrate default". With
+      // spawnedAtTick 0 that test passed for the wrong reason (CHECK finding F1).
+      spawnedAtTick: 500,
+      sourceSpawnerId: null, // Voltkin — lifetime-bound, so makeCreature sets despawnAtTick
     }),
     targetCreatureId: CHEWER, // mid-zap at the chewer
   };
@@ -130,13 +133,18 @@ describe('S133 P1 — damage survives the mirror wire (host-migration fidelity)'
     expect(Number(host.creatures.get(VOLTKIN)!.targetCreatureId)).toBe(Number(CHEWER));
     expect(client.creatures.get(VOLTKIN)!.targetCreatureId).toBeNull();
 
-    // ⚠ NOT a gap, recorded to correct an earlier reading of this code: a VOLTKIN's
-    // remaining lifetime is NOT lost. `serializeCreature` emits `despawnAtTick` only when
-    // `sourceSpawnerId !== null` (chewers), because a Voltkin's expiry is re-derivable
-    // from `spawnedAtTick` — which IS on the wire — and its FSM is lifetime-bound. So
-    // "a migration mid-summon changes when the Voltkin expires" would be FALSE.
-    expect(client.creatures.get(VOLTKIN)!.spawnedAtTick).toBe(
-      host.creatures.get(VOLTKIN)!.spawnedAtTick,
-    );
+    // ⛔ THE SHARPEST REMAINING CASE, and it is worse than a mis-timed expiry: a
+    // non-persistent creature is DELETED on the successor. `despawnAtTick` rehydrates to
+    // 0, and on PROMOTION the ex-client starts running the lifetime gate
+    // (`creatureLifecycle.ts`: delete when `world.tick >= despawnAtTick`), which 0 makes
+    // unconditionally true. NOT fixable by un-stripping — `serializeCreature` only emits
+    // `despawnAtTick` for chewers, so a Voltkin's value never reaches the wire at all.
+    expect(host.creatures.get(VOLTKIN)!.despawnAtTick).toBeGreaterThan(0);
+    expect(client.creatures.get(VOLTKIN)!.despawnAtTick).toBe(0);
+    // And `spawnedAtTick` cannot rescue it: it is not a SerializedCreature field, is never
+    // emitted, and is hardcoded to 0 on rehydrate. Two earlier S133 drafts claimed the
+    // expiry was "re-derivable from spawnedAtTick" — this pins that it is not.
+    expect(host.creatures.get(VOLTKIN)!.spawnedAtTick).toBeGreaterThan(0);
+    expect(client.creatures.get(VOLTKIN)!.spawnedAtTick).toBe(0);
   });
 });

@@ -1,14 +1,15 @@
 /**
- * SPARK — WIDE determinism hash + the entity-family COVERAGE CONTRACT (S133 P1).
+ * SPARK — WIDE determinism hash + the World COVERAGE CONTRACT (S133 P1).
  *
  * ============================ WHY THIS FILE EXISTS ============================
  * `hashWorldState` (stateHash.ts) is a SIX-field `Pick`: tick, primitives, bonds,
  * freeSparks, scoreProgress, scoreByPlayer. Every other entity family — creatures,
  * spawners, defenders, bombs, hunters, potatoes, rainbows, seagulls, poops,
- * fouledPrimitives — is INVISIBLE to it. A desync in any of them produces an
- * identical hash on both sides, so four differential harnesses that assert hash
- * equality (two independently-seeded sims every tick; main-vs-worker across 300
- * frames; two replay suites) were structurally unable to see it.
+ * fouledPrimitives — is INVISIBLE to it, as is every world scalar including
+ * `rngSeed`. A desync in any of them produced an identical hash on both sides, so
+ * four differential harnesses that assert hash equality (two independently-seeded
+ * sims every tick; main-vs-worker across 300 frames; two replay suites) were
+ * structurally unable to see it.
  *
  * S133 A.0 also found there was NO forcing function on either determinism site:
  * `stateHash.test.ts` never constructs a creature/defender/spawner, and
@@ -20,21 +21,33 @@
  * site (main.ts:1706, per worker batch). Widening it in place would have made a
  * per-entity string projection run on the worker hot path — and for no runtime
  * benefit, because that call site compares the main-thread mirror against the
- * WORKER'S OWN snapshot hash: both sides derive from one authority, so it is an
- * apply-fidelity check, not a two-simulation desync check (its own comment says
+ * WORKER'S OWN snapshot hash: both sides derive from a SINGLE authority, so it is
+ * an apply-fidelity check, not a two-simulation desync check (its own comment says
  * so). Therefore:
  *
  *   • `hashWorldState`     — NARROW, production, cost UNCHANGED by this file.
  *   • `hashWorldStateFull` — WIDE, test-only. Never imported by main.ts, so it
- *                            contributes ZERO bytes to the prod entry chunk.
+ *                            contributes ZERO bytes to the prod entry chunk
+ *                            (verified: entry chunk went DOWN 100 B in S133).
  *
- * The obvious failure mode of a two-function split is DRIFT (Grok's
- * R-ORACLE-FRAGILITY). That is closed structurally, not by convention: every
- * family the NARROW hash covers must be marked `'hashed'` in FAMILY_COVERAGE
- * below, and `stateHashFull.test.ts` asserts the narrow hash's own key set is a
- * strict subset of the wide one's. The two cannot silently diverge.
+ * ⚠ TWO-ORACLE HAZARD, NAMED SO IT CANNOT SURPRISE ANYONE. Green differential
+ * tests now prove more than the production oracle can see. If the narrow hash is
+ * ever repurposed for host-migration validation, telemetry or anti-cheat, it will
+ * be blind to everything below. It is a PARTIAL apply-fidelity check, not a
+ * determinism hash — treat it as such. Drift between the two is closed
+ * structurally: `NARROW_HASHED_FAMILIES` is a runtime list that `HashableWorld`
+ * derives FROM, and `stateHashFull.test.ts` asserts every entry is `'hashed'`
+ * here.
  *
- * ⚠ `players` is deliberately ACKNOWLEDGED rather than hashed — see the entry.
+ * ⚠ CORRECTED AFTER CHECK (S133). The first version of this contract derived its
+ * key set from "collection-shaped" fields (`Map | Set | readonly unknown[]`).
+ * RALPH:PATROL broke that with a repro: `Record<K,V>` object-maps, `ReadonlyMap`,
+ * `WeakMap` and typed arrays (`Float64Array` — already used by the S122 worker
+ * positions buffer) ALL escaped it silently, and every world SCALAR was outside
+ * the contract by construction, `rngSeed` included. Shape-detection was the wrong
+ * idea. `FIELD_COVERAGE` below is now keyed on `keyof World`, so EVERY field of
+ * ANY shape must be classified or `tsc` fails by name. That is the only version
+ * of this claim that is actually true.
  */
 
 import type { World } from './worldTypes.ts';
@@ -45,40 +58,25 @@ import { fnv1a32 } from './stateHash.ts';
  * ========================================================================== */
 
 /**
- * Every collection-valued key of `World`, DERIVED from the type rather than
- * listed by hand. This is the load-bearing trick: a new `gatherers: Map<…>` or
- * `castles: Map<…>` field on World appears in this union AUTOMATICALLY, which
- * makes `FAMILY_COVERAGE` below non-exhaustive and fails `tsc` by name.
+ * ⛔ EVERY field of `World` must appear here — not just collections. This is the
+ * FORCING FUNCTION (S133 P1b; field granularity per Council decision #5, whole-
+ * World keying after the CHECK repro above).
  *
- * Covers Map, Set AND array fields — an array-valued family would otherwise be
- * exactly the silent gap this contract exists to prevent.
+ * Add ANY field to `World` and omit it here ⇒ **`tsc` fails**, naming the missing
+ * key. `'hashed'` means `hashWorldStateFull` projects it below; `'acknowledged'`
+ * means it is deliberately excluded AND the reason is written down. An exclusion
+ * is allowed — an UNDOCUMENTED one is not.
  */
-type CollectionKeys<T> = {
-  [K in keyof T]-?: NonNullable<T[K]> extends Map<unknown, unknown> | Set<unknown> | readonly unknown[]
-    ? K
-    : never;
-}[keyof T];
-
-/** Every entity/collection family on World. Derived — never edit by hand. */
-export type WorldFamily = CollectionKeys<World>;
-
-/**
- * ⛔ EVERY family must appear here. This is the FORCING FUNCTION (S133 P1b,
- * field granularity added by Council decision #5).
- *
- * Add a collection to `World` and omit it here ⇒ **`tsc` fails**, naming the
- * missing key. `'hashed'` means `hashWorldStateFull` projects it below;
- * `'acknowledged'` means it is deliberately excluded AND the reason is written
- * down. An exclusion is allowed — an UNDOCUMENTED one is not.
- */
-export const FAMILY_COVERAGE: Readonly<Record<WorldFamily, 'hashed' | 'acknowledged'>> = {
-  // ---- narrow-hash families (MUST stay 'hashed' — the subset test enforces it) ----
+export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledged'>> = {
+  // ---- narrow-hash surface (MUST stay 'hashed' — the drift test enforces it) ----
+  tick: 'hashed',
   primitives: 'hashed',
   bonds: 'hashed',
   freeSparks: 'hashed',
+  scoreProgress: 'hashed',
   scoreByPlayer: 'hashed',
 
-  // ---- families S133 made visible for the first time ----
+  // ---- entity families S133 made visible for the first time ----
   creatures: 'hashed',
   creatureSpawners: 'hashed',
   defenders: 'hashed',
@@ -92,58 +90,117 @@ export const FAMILY_COVERAGE: Readonly<Record<WorldFamily, 'hashed' | 'acknowled
   discoveredCombos: 'hashed',
   godlyFiredThisMatch: 'hashed',
 
+  // ---- world scalars: sim-authoritative, and previously outside ANY contract ----
+  /** The canonical desync root. Its absence from every oracle was CHECK finding F8. */
+  rngSeed: 'hashed',
+  gameState: 'hashed',
+  lastWinnerId: 'hashed',
+  hunterSpawned: 'hashed',
+  rainbowSwitchTick: 'hashed',
+  sudokuFiredThisMatch: 'hashed',
+  activeCinematicPlayerId: 'hashed',
+  // Allocator cursors — two sims that allocated different id counts have diverged
+  // even when the surviving entities happen to match.
+  nextPrimitiveId: 'hashed',
+  nextBondId: 'hashed',
+  nextCreatureId: 'hashed',
+  nextSpawnerId: 'hashed',
+  nextDefenderId: 'hashed',
+  nextBombId: 'hashed',
+  nextHunterId: 'hashed',
+  nextPotatoId: 'hashed',
+  nextRainbowId: 'hashed',
+  nextSeagullId: 'hashed',
+  nextPoopId: 'hashed',
+  /** The NONET trial FREEZES the sim, so its presence and identity are sim state. */
+  sudoku: 'hashed',
+  /** A queued spawn is pending sim work, not presentation. Discriminant only (see body). */
+  pendingCreatureSpawn: 'hashed',
+
+  // ---- ACKNOWLEDGED, each with its reason ----
   /**
-   * ACKNOWLEDGED — `players` is the one family where main-thread divergence from
-   * authority is BY DESIGN: main.ts:1701-1704 documents a deliberate
-   * drag-preserve restore that "diverges the locked spark from authority (the
-   * S56 client-prediction posture)". Hashing avatar state would therefore make
-   * the oracle report client prediction as a desync. `scoreByPlayer` (the
-   * authoritative per-seat scalar) IS hashed, so seat scoring is still covered.
-   * ⚠ Re-open this when V6-1.5 lands: deleting `CarryingPlayer` reshapes the
-   * union, and carry state moving to the bank may make it hashable.
+   * `players` is the one family where main-thread divergence from authority is BY
+   * DESIGN: main.ts:1701-1704 documents a deliberate drag-preserve restore that
+   * "diverges the locked spark from authority (the S56 client-prediction
+   * posture)". Hashing avatar state would make the oracle report client
+   * prediction as a desync. `scoreByPlayer` (the authoritative per-seat scalar) IS
+   * hashed, so seat scoring stays covered.
+   * ⚠ Re-open when V6-1.5 lands: deleting `CarryingPlayer` reshapes the union.
    */
   players: 'acknowledged',
-
   /**
-   * ACKNOWLEDGED — `effects` is per-FRAME render telemetry, wiped every frame by
-   * `effectsRenderer.sync` (`world.effects.length = 0`). It is not sim state and
-   * its lifetime is shorter than a tick, so both sides legitimately hold
-   * different contents at any instant.
+   * Per-FRAME render telemetry, wiped every frame by `effectsRenderer.sync`
+   * (`world.effects.length = 0`). Its lifetime is shorter than a tick, so both
+   * sides legitimately hold different contents at any instant.
    */
   effects: 'acknowledged',
-
-  /**
-   * ACKNOWLEDGED — cinematic queue is presentation sequencing consumed by the
-   * renderer; the authoritative gating scalar (`godlyFiredThisMatch`) IS hashed.
-   */
+  /** Presentation sequencing; the authoritative gate (`godlyFiredThisMatch`) IS hashed. */
   pendingCinematics: 'acknowledged',
-
-  /** ACKNOWLEDGED — display strings derived from `discoveredCombos`, which is hashed. */
+  /** Presentation-only; `activeCinematicPlayerId` carries the sim-visible part. */
+  currentCinematicEvent: 'acknowledged',
+  /** Display strings derived from `discoveredCombos`, which is hashed. */
   lastDiscoveredComboNames: 'acknowledged',
-
-  /** ACKNOWLEDGED — match configuration, fixed at match start and never mutated in-tick. */
+  /** Presentation timer for the combo toast; no sim branch reads it. */
+  comboToastTick: 'acknowledged',
+  /**
+   * ⛔ MUST stay acknowledged — `isHost` and `localPlayerId` differ between host
+   * and client BY DEFINITION. Hashing either would make every host-vs-client
+   * comparison fail and destroy the oracle.
+   */
+  isHost: 'acknowledged',
+  localPlayerId: 'acknowledged',
+  /** Match configuration, fixed at match start and never mutated in-tick. */
   botSeats: 'acknowledged',
+  gameMode: 'acknowledged',
+  /** A client-side rendering preference; not sim state. */
+  cinematicsEnabled: 'acknowledged',
+  /**
+   * Host-local diagnostic counters (`raceRejects`, `rejectReasons`, the pickup-failure
+   * tallies, `territoryBlockRejects`, `intentThrottled` … all NESTED inside this one
+   * field). Not sim state: they count REJECTED actions, so a host that rejected an
+   * intent and a client that never saw it legitimately differ.
+   * ⚠ Being one field means the contract does NOT force new counters to be classified.
+   * That is acceptable precisely because the whole subtree is non-sim telemetry — but if
+   * anything sim-authoritative is ever added under `diagnostics`, it escapes silently.
+   */
+  diagnostics: 'acknowledged',
 };
 
 /** Resolves to `true` only when `U` is `never`; otherwise a branded error object. */
 type NoUncovered<U> = [U] extends [never] ? true : { ERROR_UNCOVERED_FIELD: U };
 
 /**
- * Field-level guard (Council decision #5 — Gemini's catch: a family-level guard
- * would let a NEW FIELD on an already-hashed family slip through silently, e.g.
- * `creature.armor`). Each assertion below fails `tsc` **naming the new field**.
+ * Field-level guards (Council decision #5 — Gemini's catch: a family-level guard
+ * would let a NEW FIELD on an already-hashed family slip through silently).
+ *
+ * ⚠ EXTENDED AFTER CHECK (S133): `primitives`, `bonds` and `freeSparks` — the
+ * three families that PREDATE this file — originally had no field guard at all,
+ * and RALPH:PATROL proved the consequence with a repro: adding `hp?: number` to
+ * `Primitive`, which is EXACTLY the owner-ruled next slot this priority exists to
+ * prepare for, passed tsc and every test. They are guarded now.
  */
-type CreatureF = keyof NonNullable<ReturnType<World['creatures']['get']>>;
-type SpawnerF = keyof NonNullable<ReturnType<World['creatureSpawners']['get']>>;
-type DefenderF = keyof NonNullable<ReturnType<World['defenders']['get']>>;
-type BombF = keyof NonNullable<ReturnType<World['bombs']['get']>>;
-type HunterF = keyof NonNullable<ReturnType<World['hunters']['get']>>;
-type PotatoF = keyof NonNullable<ReturnType<World['potatoes']['get']>>;
-type RainbowF = keyof NonNullable<ReturnType<World['rainbows']['get']>>;
-type SeagullF = keyof NonNullable<ReturnType<World['seagulls']['get']>>;
-type PoopF = keyof NonNullable<ReturnType<World['poops']['get']>>;
+type ElemOf<M> = NonNullable<ReturnType<M extends { get: (k: never) => infer R } ? () => R : never>>;
+type PrimitiveF = keyof ElemOf<World['primitives']>;
+type BondF = keyof ElemOf<World['bonds']>;
+type SparkF = keyof ElemOf<World['freeSparks']>;
+type CreatureF = keyof ElemOf<World['creatures']>;
+type SpawnerF = keyof ElemOf<World['creatureSpawners']>;
+type DefenderF = keyof ElemOf<World['defenders']>;
+type BombF = keyof ElemOf<World['bombs']>;
+type HunterF = keyof ElemOf<World['hunters']>;
+type PotatoF = keyof ElemOf<World['potatoes']>;
+type RainbowF = keyof ElemOf<World['rainbows']>;
+type SeagullF = keyof ElemOf<World['seagulls']>;
+type PoopF = keyof ElemOf<World['poops']>;
 
 // Every field name below is projected by hashWorldStateFull. Keep in lockstep.
+type PrimitiveHashed =
+  | 'id' | 'type' | 'pos' | 'prevPos' | 'placerColor' | 'placedBy' | 'ownerColor'
+  | 'lastOwnershipChange' | 'radius' | 'createdTick' | 'bonds';
+type BondHashed =
+  | 'id' | 'aId' | 'bId' | 'restLength' | 'stiffnessTier' | 'createdTick'
+  | 'stiffnessMultiplier' | 'a' | 'b';
+type SparkHashed = 'id' | 'type' | 'pos' | 'prevPos' | 'radius' | 'createdTick' | 'state' | 'poopyUntilTick';
 type CreatureHashed =
   | 'id' | 'type' | 'ownerPlayerId' | 'pos' | 'prevPos' | 'targetPos' | 'targetBondId'
   | 'targetCreatureId' | 'state' | 'ticksInState' | 'killCount' | 'spawnedAtTick'
@@ -168,6 +225,9 @@ type PoopHashed =
   | 'id' | 'pos' | 'prevPos' | 'state' | 'spawnedAtTick' | 'landedAtTick' | 'fouledPrimId';
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
+const _primComplete: NoUncovered<Exclude<PrimitiveF, PrimitiveHashed>> = true;
+const _bondComplete: NoUncovered<Exclude<BondF, BondHashed>> = true;
+const _sparkComplete: NoUncovered<Exclude<SparkF, SparkHashed>> = true;
 const _creatureComplete: NoUncovered<Exclude<CreatureF, CreatureHashed>> = true;
 const _spawnerComplete: NoUncovered<Exclude<SpawnerF, SpawnerHashed>> = true;
 const _defenderComplete: NoUncovered<Exclude<DefenderF, DefenderHashed>> = true;
@@ -177,9 +237,9 @@ const _potatoComplete: NoUncovered<Exclude<PotatoF, PotatoHashed>> = true;
 const _rainbowComplete: NoUncovered<Exclude<RainbowF, RainbowHashed>> = true;
 const _seagullComplete: NoUncovered<Exclude<SeagullF, SeagullHashed>> = true;
 const _poopComplete: NoUncovered<Exclude<PoopF, PoopHashed>> = true;
-void _creatureComplete; void _spawnerComplete; void _defenderComplete; void _bombComplete;
-void _hunterComplete; void _potatoComplete; void _rainbowComplete; void _seagullComplete;
-void _poopComplete;
+void _primComplete; void _bondComplete; void _sparkComplete; void _creatureComplete;
+void _spawnerComplete; void _defenderComplete; void _bombComplete; void _hunterComplete;
+void _potatoComplete; void _rainbowComplete; void _seagullComplete; void _poopComplete;
 /* eslint-enable @typescript-eslint/no-unused-vars */
 
 /* ========================================================================== *
@@ -190,35 +250,87 @@ const n = (id: { valueOf?: () => number } | number | undefined | null): string =
   id === undefined || id === null ? '_' : String(id as unknown as number);
 
 /** Optional scalar → stable token (`_` for absent, never `undefined`/`null` text). */
-const o = (v: number | string | undefined | null): string => (v === undefined || v === null ? '_' : String(v));
+const o = (v: number | string | boolean | undefined | null): string =>
+  v === undefined || v === null ? '_' : String(v);
 
 /** Optional Vec2 → stable token. */
 const v2 = (p: { x: number; y: number } | undefined | null): string => (p ? `${p.x},${p.y}` : '_');
 
+/** Sorted numeric id list from a Set of branded ids. */
+const idSet = (s: ReadonlySet<unknown>): string =>
+  [...s]
+    .map((i) => Number(i))
+    .sort((a, b) => a - b)
+    .join(',');
+
 /**
- * WIDE deterministic 32-bit fingerprint — every family marked `'hashed'` above.
+ * The parts list behind `hashWorldStateFull`, exported so tests can assert that a
+ * family marked `'hashed'` actually CONTRIBUTES — CHECK finding F4: the label was
+ * a hand-written string with no executable link to this body, and deleting an
+ * entire projection loop left tsc at 0 and every test green.
  *
  * TEST-ONLY. Collections are sorted by stable numeric id so the result is
  * invariant to Map insertion order, matching `hashWorldState`'s posture. Sets of
- * ids are sorted numerically; `discoveredCombos` is a string Set, sorted
- * lexicographically.
+ * ids are sorted numerically; string Sets lexicographically.
  */
-export function hashWorldStateFull(world: World): number {
-  const parts: string[] = [`t${world.tick}`, `sp${world.scoreProgress}`];
+export function determinismParts(world: World): string[] {
+  const parts: string[] = [
+    `t${world.tick}`,
+    `sp${world.scoreProgress}`,
+    // World scalars (CHECK F8 — rngSeed is the canonical desync root and was
+    // invisible to BOTH channels of the worker HARD GATE before S133).
+    `rs${world.rngSeed}`,
+    `gs${world.gameState}`,
+    `lw${n(world.lastWinnerId)}`,
+    `hs${o(world.hunterSpawned)}`,
+    `rw${o(world.rainbowSwitchTick)}`,
+    `sf${o(world.sudokuFiredThisMatch)}`,
+    `ac${n(world.activeCinematicPlayerId)}`,
+    `nx${world.nextPrimitiveId},${world.nextBondId},${world.nextCreatureId},` +
+      `${world.nextSpawnerId},${world.nextDefenderId},${world.nextBombId},` +
+      `${world.nextHunterId},${world.nextPotatoId},${world.nextRainbowId},` +
+      `${world.nextSeagullId},${world.nextPoopId}`,
+    // `sudoku` freezes the sim, so its presence and identity are sim state. Stringified
+    // wholesale: it is a small flat record, only non-null during a NONET trial, and its
+    // key order is fixed by its construction site.
+    `sk${world.sudoku === null ? '_' : JSON.stringify(world.sudoku)}`,
+    // A queued spawn is pending sim work. Discriminant only — the spawn's payload is
+    // consumed on the next tick and lands in `creatures`, which is hashed in full.
+    `pc${world.pendingCreatureSpawn === null ? '_' : '1'}`,
+  ];
 
   const scores = [...world.scoreByPlayer.entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
   for (const [id, s] of scores) parts.push(`P${n(id)}=${s}`);
 
   const prims = [...world.primitives.values()].sort((a, b) => Number(a.id) - Number(b.id));
-  for (const p of prims) parts.push(`p${n(p.id)}:${p.pos.x},${p.pos.y}`);
+  for (const p of prims) {
+    // CHECK F3 repro B: before S133's remediation this projected id+pos ONLY, so a
+    // rainbow's global colour derangement — which drives territory and cross-colour bond
+    // segregation — was invisible to the oracle.
+    parts.push(
+      `p${n(p.id)}:${p.type}:${p.pos.x},${p.pos.y}:${v2(p.prevPos)}:pc${p.placerColor}` +
+        `:pb${n(p.placedBy)}:oc${p.ownerColor}:lo${p.lastOwnershipChange}:r${p.radius}` +
+        `:ct${p.createdTick}:bn${idSet(p.bonds)}`,
+    );
+  }
 
   const bonds = [...world.bonds.values()].sort((a, b) => Number(a.id) - Number(b.id));
-  for (const b of bonds) parts.push(`b${n(b.id)}:${n(b.aId)}-${n(b.bId)}`);
+  for (const b of bonds) {
+    // `a`/`b` are object references to primitives already hashed above; their IDENTITY is
+    // captured by aId/bId, so they are covered without a second traversal.
+    parts.push(
+      `b${n(b.id)}:${n(b.aId)}-${n(b.bId)}:rl${b.restLength}:st${b.stiffnessTier}` +
+        `:ct${b.createdTick}:sm${o(b.stiffnessMultiplier)}`,
+    );
+  }
 
   const sparks = [...world.freeSparks.values()].sort((a, b) => Number(a.id) - Number(b.id));
-  for (const s of sparks) parts.push(`s${n(s.id)}:${s.pos.x},${s.pos.y}`);
-
-  // ---- families S133 added ----
+  for (const s of sparks) {
+    parts.push(
+      `s${n(s.id)}:${s.type}:${s.pos.x},${s.pos.y}:${v2(s.prevPos)}:r${s.radius}` +
+        `:ct${s.createdTick}:st${JSON.stringify(s.state)}:pu${o(s.poopyUntilTick)}`,
+    );
+  }
 
   const creatures = [...world.creatures.values()].sort((a, b) => Number(a.id) - Number(b.id));
   for (const c of creatures) {
@@ -291,14 +403,14 @@ export function hashWorldStateFull(world: World): number {
     );
   }
 
-  const fouled = [...world.fouledPrimitives].map((i) => Number(i)).sort((a, b) => a - b);
-  parts.push(`fo:${fouled.join(',')}`);
+  parts.push(`fo:${idSet(world.fouledPrimitives)}`);
+  parts.push(`dc:${[...world.discoveredCombos].map(String).sort().join(',')}`);
+  parts.push(`gf:${[...world.godlyFiredThisMatch].map(String).sort().join(',')}`);
 
-  const combos = [...world.discoveredCombos].map(String).sort();
-  parts.push(`dc:${combos.join(',')}`);
+  return parts;
+}
 
-  const godly = [...world.godlyFiredThisMatch].map(String).sort();
-  parts.push(`gf:${godly.join(',')}`);
-
-  return fnv1a32(parts.join('|'));
+/** WIDE deterministic 32-bit fingerprint — every family/scalar marked `'hashed'`. */
+export function hashWorldStateFull(world: World): number {
+  return fnv1a32(determinismParts(world).join('|'));
 }

@@ -248,8 +248,11 @@ export interface Creature {
    * the chewer does NOT re-run `findNearestBondTarget` — it commits to the bond
    * (R9). Resets to 0 only when `world.bonds.has(targetBondId)` is false.
    *
-   * Host-only — STRIPPED from the wire but ROUND-TRIPPED through host save/load
-   * so a mid-chew chewer survives a save (R3). `0` for Voltkin (it never chews).
+   * ⚠ AMENDED S133 — NO LONGER STRIPPED FROM THE WIRE. It was, and that meant a
+   * host-migration successor inherited every chew reset to zero; since `CONNECTOR_HP`
+   * IS this counter, that silently reverted all bond damage on every handoff. Still
+   * ROUND-TRIPPED through host save/load so a mid-chew chewer survives a save (R3).
+   * `0` for Voltkin (it never chews).
    * Mutable. Later layers own the increment/reset logic; this layer declares it
    * and the factory defaults it to 0.
    */

@@ -1,7 +1,7 @@
 # PDR S133 — Determinism tripwire + small-items batch
 
 **Tier:** Standard (batch tier = highest member; P1 Standard, P2 Micro)
-**STATUS: AWAITING COUNCIL**
+**STATUS: P1 COMPLETED (amended — see §AMENDMENT-1) · P2 IN PROGRESS**
 **Priority ids:** `P1-determinism-tripwire`, `P2-small-items-batch` (dot-free — a dotted id fails
 `validate_priority_id` and the unlock mint silently no-ops)
 **Deliberation:** Standard ⇒ MANDATORY 3-way Council (Rule 17). NOT waivable on the user path.
@@ -164,6 +164,30 @@ to be checked.**
 ---
 
 ## 3. SCOPE — OUT (carry-forward, nothing dropped)
+
+> ## ⚠ AMENDMENT-1 (Rule 16 scope amendment — authorised in-session by the owner)
+>
+> **The owner selected "Include the fix (Recommended)" via AskUserQuestion**, overriding
+> §2(d)'s characterize-only scope after the Council (Grok + Gemini, 2.75 v 1.0) both called
+> characterizing-only indefensible. Therefore, superseding the two bullets below:
+>
+> - **DELTA-4 IS FIXED, not merely characterized.** `trimMirrorCreature` no longer strips
+>   `hp`, `chewProgress` or `targetBondId`. `targetBondId` joins them by necessity, not
+>   scope creep: chew progress without the bond it is progress against is incoherent.
+> - **§6 ROLLBACK's "no wire, no save format" is therefore FALSE of this commit.** P1 DOES
+>   change production wire content. Corrected rollback statement: the change is additive and
+>   version-neutral (all three fields were already additive-optional, the deserializer
+>   already defaulted them, `parseNetMessage` gates on `schemaVersion` only), so a revert
+>   cannot strand a save or a peer — but it is a wire change and must be read as one.
+>   Measured cost: **+408 B (+3.3%)** on the worst case, 3,563 B under the 16 KiB ceiling.
+>
+> **Still OUT, and now precisely characterized rather than vaguely deferred:** the lifecycle
+> trio (`sourceSpawnerId`, `despawnAtTick`, `targetCreatureId`). CHECK found the sharpest
+> case is worse than a reset — with `despawnAtTick` rehydrating to 0, a promoted client runs
+> the lifetime gate and **DELETES every non-persistent creature (every live Voltkin) on its
+> first creature tick.** It is NOT fixable by un-stripping, because `serializeCreature` only
+> emits `despawnAtTick` for chewers; the fix must change the serializer's emit condition.
+> Logged as a carry-forward with that mechanism recorded.
 
 - **The structure-HP + `damageEntity` slot itself.** This PDR is its prerequisite. It stays owner-ruled
   to precede V6-2.1, and its two most interesting dispatch targets (castle, gatherer) do not exist

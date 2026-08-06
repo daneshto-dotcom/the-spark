@@ -444,10 +444,12 @@ interface SerializedCreature {
    * S100 P1 (TD Phase 1a) — HOST-SAVE-ONLY persistent chewer fields. These are
    * ROUND-TRIPPED through the host save path (`snapshot()` → `restore()`) so a
    * persistent mid-chew chewer survives a save/load (TOWER_DEFENSE_DESIGN.md §3.5,
-   * R3) — the SerializedBomb.dissipateAtTick precedent — but they are STRIPPED from
-   * the wire by `netSnapshot()` (host-authoritative; the client never simulates and
-   * only renders the trimmed id/type/pos/state/ticksInState/killCount shape, R1
-   * bandwidth budget). All four are additive-optional + emitted ONLY when non-default
+   * R3) — the SerializedBomb.dissipateAtTick precedent.
+   * ⚠ AMENDED S133 — only THREE of these are still stripped from the wire by
+   * `netSnapshot()` (sourceSpawnerId / despawnAtTick / targetCreatureId). `chewProgress`
+   * and `targetBondId` now RIDE THE WIRE: stripping them meant a host-migration successor
+   * inherited every chew reset to zero, and chewProgress IS the bond's HP. See
+   * trimMirrorCreature. All four are additive-optional + emitted ONLY when non-default
    * (a Voltkin — sourceSpawnerId:null / chewProgress:0 / targetBondId:null — emits
    * NONE of them, so every pre-S100 save + the Voltkin replay byte-equivalence stay
    * byte-identical, and the wire shape for a Voltkin is unchanged).
@@ -475,8 +477,10 @@ interface SerializedCreature {
    */
   readonly targetCreatureId?: CreatureId;
   /**
-   * S102 (unified HP model) — remaining creature hit-points. HOST-SAVE-ONLY (stripped
-   * from the wire by trimMirrorCreature; the client rehydrates the config default).
+   * S102 (unified HP model) — remaining creature hit-points.
+   * ⚠ AMENDED S133 — this now RIDES THE WIRE. It was host-save-only and stripped by
+   * trimMirrorCreature, which meant a host-migration successor took over with every
+   * damaged creature healed to full.
    * Emitted by serializeCreature ONLY when DAMAGED (hp < config.hp) so an undamaged
    * creature (every creature in normal play until P3's combat) stays byte-identical to
    * a pre-S102 save. deserializeCreature defaults a missing value to the per-type config.
@@ -825,13 +829,28 @@ export function netSnapshot(world: World): NetSnapshot {
  *
  * ⚠ STILL STRIPPED, SAME BUG CLASS, DELIBERATELY OUT OF SCOPE (logged S133):
  * `sourceSpawnerId`, `despawnAtTick` and `targetCreatureId` — so a successor's chewer
- * forgets its parent spawner, and a Voltkin mid-zap forgets its target. That is a
- * lifecycle/targeting reset rather than a damage reset, and it wants its own measured
- * decision — do not read this amendment as having fixed it.
- * ⚠ And do NOT read it as a Voltkin lifetime bug (an earlier S133 draft of this comment
- * claimed that, wrongly): `serializeCreature` emits `despawnAtTick` ONLY when
- * `sourceSpawnerId !== null`, i.e. for chewers, precisely because a Voltkin's expiry is
- * re-derivable from `spawnedAtTick`, which does ride the wire.
+ * forgets its parent spawner, and a Voltkin mid-zap forgets its target.
+ *
+ * ⛔ AND ONE STRICTLY WORSE CONSEQUENCE, FOUND BY CHECK (S133) AFTER TWO WRONG DRAFTS OF
+ * THIS COMMENT. A non-persistent creature is DELETED on the successor, not merely
+ * mis-timed. `deserializeCreature` defaults `despawnAtTick` to 0 (correct for a CLIENT,
+ * whose comment rightly says "the client never runs the lifetime gate"), but on PROMOTION
+ * that client becomes the host and DOES run it: `creatureLifecycle.ts` deletes any
+ * `!config.persistent` creature once `world.tick >= creature.despawnAtTick`, and
+ * `world.tick >= 0` is always true. So every live Voltkin evaporates on the successor's
+ * first creature tick.
+ *
+ * ⛔ AND IT IS NOT FIXABLE BY UN-STRIPPING, which is why it is not fixed here:
+ * `serializeCreature` emits `despawnAtTick` ONLY when `sourceSpawnerId !== null`, i.e. for
+ * chewers — a Voltkin's value never reaches the wire at all, so there is nothing for this
+ * function to stop stripping. The fix has to change the SERIALIZER's emit condition, which
+ * is a wire-shape decision of its own.
+ *
+ * ⚠ Two earlier S133 drafts of this comment claimed a Voltkin's expiry was "re-derivable
+ * from `spawnedAtTick`". FALSE, and recorded here because the mistake is instructive:
+ * `spawnedAtTick` is NOT a field on `SerializedCreature` at all, `serializeCreature` never
+ * emits it, and `deserializeCreature` hardcodes it to 0. Nothing is re-derivable from a
+ * value that does not travel.
  *
  * S100 P1 (TD Phase 1a) — produce the render-trimmed wire shape of a serialized creature.
  * For a Voltkin (which never carries them) this returns the
@@ -1279,12 +1298,18 @@ function serializeCreature(c: Creature): SerializedCreature {
     // these keys, so every pre-S100 save + the Voltkin replay byte-equivalence stay
     // byte-identical). These four are HOST-SAVE-ONLY: `serializeCreature` always emits
     // them here (so `snapshot()`→`restore()` round-trips a mid-chew chewer, R3), and
-    // `netSnapshot()` STRIPS them from the wire afterward (trimMirrorCreature) — the
-    // client never simulates and rehydrates them neutral (null/0). `despawnAtTick` is
-    // emitted only for a chewer (sourceSpawnerId != null) since a Voltkin's value is
-    // re-derivable from spawnedAtTick on the trimmed-rehydrate path (deserializeCreature
-    // defaults it to 0 and the FSM is lifetime-bound), and the existing pre-S100 wire
-    // shape never carried it — keep that byte-identical.
+    // `netSnapshot()` strips SOME of them from the wire afterward (trimMirrorCreature).
+    // ⚠ AMENDED S133 — chewProgress and targetBondId are NO LONGER stripped; only
+    // sourceSpawnerId / despawnAtTick / targetCreatureId are.
+    // `despawnAtTick` is emitted only for a chewer (sourceSpawnerId != null), and the
+    // existing pre-S100 wire shape never carried it — keep that byte-identical.
+    // ⛔ S133 CORRECTION: the old justification here — that a Voltkin's value is
+    // "re-derivable from spawnedAtTick on the trimmed-rehydrate path" — is FALSE.
+    // `spawnedAtTick` is not a SerializedCreature field, is never emitted, and rehydrates
+    // to 0. The real consequence is worse than a mis-timed expiry: on PROMOTION the
+    // ex-client runs the lifetime gate with despawnAtTick 0, so every live Voltkin is
+    // DELETED on its first creature tick. Fixing it means changing THIS emit condition;
+    // logged S133, deliberately not done there.
     ...(c.sourceSpawnerId !== null
       ? { sourceSpawnerId: c.sourceSpawnerId, despawnAtTick: c.despawnAtTick }
       : {}),
@@ -1516,9 +1541,10 @@ function deserializeEffect(s: SerializedEffect): GameEffect {
  * the client fog mask reveals around OWN creatures. Pre-S58 NetSnapshots omit
  * the field → nullish-coalesce to 0 (old data stays valid).
  * S100 P1 (TD Phase 1a) — on the HOST SAVE path `snapshot()` ROUND-TRIPS despawnAtTick /
- * targetBondId / sourceSpawnerId / chewProgress for a persistent mid-chew chewer (R3);
- * the wire strips them (netSnapshot → trimMirrorCreature) so the same nullish-coalescing
- * defaults below rehydrate a client mirror neutral. prevPos/targetPos/spawnedAtTick stay
+ * targetBondId / sourceSpawnerId / chewProgress for a persistent mid-chew chewer (R3).
+ * ⚠ AMENDED S133 — the wire now strips only sourceSpawnerId / despawnAtTick /
+ * targetCreatureId; chewProgress and targetBondId arrive intact, so their nullish-coalescing
+ * defaults below are no longer the normal path for a mirror. prevPos/targetPos/spawnedAtTick stay
  * host-derived/neutral as before (a chewer's pos-relative steering re-derives next tick).
  */
 function deserializeCreature(s: SerializedCreature): Creature {
@@ -1540,12 +1566,14 @@ function deserializeCreature(s: SerializedCreature): Creature {
     // S100 P1 (TD Phase 1a) — host-save round-trip + wire-neutral rehydrate (one path
     // serves both, R3). The HOST save path (`snapshot()`) emits the four persistent
     // chewer fields, so a mid-chew chewer rehydrates with its real despawnAtTick /
-    // chewProgress / sourceSpawnerId / targetBondId. The WIRE strips them (netSnapshot
-    // → trimMirrorCreature), so a 1v1 client mirror rehydrates them NEUTRAL via the
-    // nullish-coalescing defaults below — sourceSpawnerId:null (Voltkin-population),
-    // chewProgress:0 (no chew), despawnAtTick:0 (client never runs the lifetime gate),
-    // targetBondId:null (client never runs the AI). A Voltkin omits all four either way,
-    // so its rehydrate is byte-identical to pre-S100.
+    // chewProgress / sourceSpawnerId / targetBondId.
+    // ⚠ AMENDED S133 — the WIRE now strips only sourceSpawnerId / despawnAtTick /
+    // targetCreatureId, so a mirror rehydrates NEUTRAL for those alone:
+    // sourceSpawnerId:null (Voltkin-population) and despawnAtTick:0. That last default is
+    // right for a client — which never runs the lifetime gate — but ⛔ on PROMOTION the
+    // ex-client DOES run it, and 0 makes the gate unconditionally true, deleting every
+    // non-persistent creature. Logged S133; the fix belongs in serializeCreature's emit
+    // condition, not here. chewProgress and targetBondId now arrive with real values.
     despawnAtTick: s.despawnAtTick ?? 0,
     targetBondId: s.targetBondId ?? null,
     // S103 #8 — host save carries a mid-zap Voltkin's creature target; the wire strips it so a

@@ -798,8 +798,10 @@ describe('S100 P1 — wire byte budget (R1) + TD host-only stripping', () => {
     // case for the un-strip below): 12,413 B before → 12,821 B after = +408 B (+3.3%),
     // leaving 3,563 B of headroom under the ceiling. Both numbers were taken by running
     // this test with the strip restored and removed, not estimated.
+    // ⚠ Deliberately a ONE-SIDED budget assertion. An earlier S133 draft added a
+    // `toBeGreaterThan(12 * 1024)` floor, which turned a BUDGET test into a two-sided clamp
+    // with 533 B of slack — any legitimate ~4% wire reduction would have gone red (CHECK F10).
     expect(wire.length).toBeLessThan(16 * 1024);
-    expect(wire.length).toBeGreaterThan(12 * 1024); // the fixture is genuinely worst-case
 
     // The gate now genuinely sees effects: BOND_SEVERED is one of the five serialized kinds
     // (save.ts serializeEffect), and both attribution fields must survive onto the wire. If a
@@ -823,9 +825,15 @@ describe('S100 P1 — wire byte budget (R1) + TD host-only stripping', () => {
     // budget above still holds with room to spare — the balloon this strip was built to
     // prevent is bounded by live-chewer count, not by swarm size.
     // ...but the LIFECYCLE / TARGETING fields are still stripped (scoped out of S133).
-    expect(wire).not.toContain('sourceSpawnerId');
-    expect(wire).not.toContain('despawnAtTick');
-    expect(wire).not.toContain('targetCreatureId');
+    // ⚠ Asserted against the CREATURES array only, not the whole wire string. An earlier
+    // S133 draft used `expect(wire).not.toContain('targetCreatureId')`, which would have
+    // gone red for a perfectly correct trim as soon as the fixture gained a defender —
+    // `SerializedDefender` legitimately emits `targetCreatureId` when a turret has a live
+    // target. It passed only because this fixture happens to have no defenders (CHECK F7).
+    const creaturesWire = JSON.stringify(netSnapshot(host).creatures);
+    expect(creaturesWire).not.toContain('sourceSpawnerId');
+    expect(creaturesWire).not.toContain('despawnAtTick');
+    expect(creaturesWire).not.toContain('targetCreatureId');
     // creatureSpawners IS on the wire (clients render the spawn-zone) but only the
     // tiny identity shape — no host-only cadence words.
     expect(wire).not.toContain('nextSpawnTick');

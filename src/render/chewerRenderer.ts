@@ -95,8 +95,12 @@ export class ChewerRenderer {
    *  (which now passes through DESPAWNING — fade, NOT green-goo splat). Mirrors creatureRenderer. */
   private readonly lastSeenState: Map<CreatureId, CreatureState> = new Map();
   /** S104 P1 — last CHEW_INTERVAL bucket (floor(ticksInState / CHEW_INTERVAL_TICKS)) per chewer, for
-   *  the render-driven gnaw. Keyed on the WIRED state+ticksInState (chewProgress is stripped from the
-   *  client mirror), so the gnaw fires on host AND the 1v1 joiner as each bite lands. */
+   *  the render-driven gnaw. Keyed on the WIRED state+ticksInState, so the gnaw fires on host AND
+   *  the 1v1 joiner as each bite lands.
+   *  ⚠ AMENDED S133 — the original reason given here was that "chewProgress is stripped from the
+   *  client mirror". That is no longer true (S133 put it on the wire). The bucket approach is kept
+   *  ON ITS OWN MERITS: it is derived from state+ticksInState, which is what makes the cadence
+   *  frame-rate-independent. Do not "simplify" it to read chewProgress without re-deriving that. */
   private readonly lastChewBucket: Map<CreatureId, number> = new Map();
   /** S102 #1 — active green-goo splats (a chewer that vanished = was killed). Render-only;
    *  outlives the chewer that spawned it, so it is drawn unconditionally each frame + culled
@@ -133,9 +137,10 @@ export class ChewerRenderer {
       this.lastSeenState.set(c.id, c.state);
 
       // ── S104 P1: render-driven CHEWING gnaw (host + 1v1 client). Keyed on the WIRED
-      // state + ticksInState (chewProgress is stripped from the client mirror, so we must
-      // NOT use it, and NEVER use performance.now as the cadence — host/client frame-rate
-      // would diverge and it'd play while backgrounded). A bite lands each CHEW_INTERVAL_TICKS;
+      // state + ticksInState. (⚠ S133: chewProgress IS on the wire now — the old reason
+      // "so we must NOT use it" no longer applies. The live reason is the second one:
+      // NEVER use performance.now as the cadence — host/client frame-rate would diverge
+      // and it'd play while backgrounded.) A bite lands each CHEW_INTERVAL_TICKS;
       // fire one rasp when the bucket increments while ATTACKING (≈ CHEW_HITS bites/bond at 1/s).
       const bucket = c.state === 'ATTACKING' ? Math.floor(c.ticksInState / CHEW_INTERVAL_TICKS) : -1;
       const prevBucket = this.lastChewBucket.get(c.id) ?? -1;
