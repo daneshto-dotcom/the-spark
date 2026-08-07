@@ -1,336 +1,44 @@
 {
-  "tool_calls_session_total": 70,
-  "session_id": "S133",
+  "tool_calls_session_total": 77,
+  "session_id": "S134",
   "session_kind": "pdca",
-  "session_start": "2026-08-05",
-  "prior_session_note": "S132 repaired the V6-0.1 probe instrument and settled B3 empirically. Both owner gates still unmet at S133 boot: 39 commits unpushed (write auth invalid), probe playtest not run.",
-  "phase": "DO",
-  "user_approval_verbatim": "'go' on option C (fix the determinism gap before any V6 slot adds mutable per-entity state, small items batched in); then AskUserQuestion -> 'Include the fix (Recommended)' authorising the host-migration damage-reset fix as a scope amendment (Rule 16).",
-  "tier": "Standard",
-  "council_rounds": 1,
-  "plan_file": ".claude/plans/2026-08-06_PDR_S133_P3_Deploy_Verification.md",
-  "a0_state_discovery": {
-    "method": "12 agents (6 empirical probes + 6 adversarial audits) via Workflow, then every load-bearing claim re-verified by hand by the supervisor.",
-    "findings": 78,
-    "deltas": 39,
-    "refutations": 34,
-    "fabricated_citations_caught": 4,
-    "key_deltas": [
-      "HashableWorld is a 6-field Pick; all 10 entity families unhashed (R1 confirmed verbatim).",
-      "structuralSignature is SIZE-ONLY; BACKLOG R1's 'add to both' treats non-symmetric levers as symmetric.",
-      "Zero forcing function on either site: adding a family to one and not the other fails ZERO tests.",
-      "trimMirrorCreature strips hp AND chewProgress, so BOTH damage models reset on host migration; defender.hp survives -> opposite behaviour.",
-      "'.hp -=' occurs exactly once in the tree; defender.hp is dead state.",
-      "SUPERVISOR CORRECTION of an audit overstatement: a test-time differential oracle DOES exist (4 harnesses); what is missing is the hash's COVERAGE. This is why the plan widens coverage rather than building a new oracle.",
-      "The un-strip needs NO protocol bump: hp?/chewProgress? already optional, receive path already defaults, parseNetMessage gates only on schemaVersion."
-    ]
-  },
-  "verified_baseline_s132_boot": {
-    "tsc": 0,
-    "vitest": "1990/1990 (130 files)",
-    "unpushed_commits": 33,
-    "gh_write_auth": "INVALID -- 'The token in default is invalid'",
-    "head": "8f4debb"
-  },
-  "priorities": [
-    {
-      "id": "P1-determinism-tripwire",
-      "label": "Make entity state observable to the determinism oracles that already run, install a field-level forcing function so a future family/field cannot be omitted silently, and FIX the host-migration damage reset (Council-overruled from characterize-only).",
-      "status": "completed",
-      "phase": "CHECK-COMPLETE",
-      "tier": "Standard",
-      "priority_state": "completed",
-      "check_completed": true,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "checkpoint_commit": "36d3b35",
-      "commits": [
-        "2019005",
-        "36d3b35"
-      ],
-      "real_context_tokens_at_close": 358550,
-      "real_context_pct_at_close": 35.86,
-      "check_method": "Standard-tier CHECK = Triumvirate (RALPH:PATROL + GROK-ANALYST + GEMINI-AUDITOR), all three adversarial with distinct lenses, then remediation commit 36d3b35. (1) STATIC: tsc 0; npx vitest run 2020/2020 across 132 files (from 2001/130 at boot, +19 tests +2 files); npm run build bundle 645.4 KiB / 750 cap, entry 660,916 B — DOWN 100 B from the S132 baseline 661,016 B, which is proof rather than inference that the wide test-only hash ships zero production bytes. (2) MUTATION: 14/14 CAUGHT, each verified to fire in the INTENDED guard rather than a downstream fixture (checked explicitly for M4, where the first reported error came from sync.test.ts). Matrix covers: dropping a family from the coverage map; adding a new Map family to World; dropping a field from a projection list; adding a field to an already-hashed entity; the wide hash going blind to hp and to chewProgress; removing the id sort; marking a narrow-hashed family 'acknowledged'; restoring each of the three wire strips independently; deleting an entire projection loop; adding hp to Primitive; adding a Record-typed field to World. (3) TWO OF MY OWN GUARDS WERE VACUOUS AND MUTATION FOUND BOTH: M9 (the hp test asserted on a creature that hits trimMirrorCreature's early return, so it could never fail) and the spawnedAtTick characterization (asserted against a fixture value of 0, the exact number the deserializer hardcodes). Both fixed, then re-mutated to CAUGHT. (4) CHECK found my own correction was WRONG in three committed places: 'a Voltkin's expiry is re-derivable from spawnedAtTick, which does ride the wire' is false — spawnedAtTick is not a SerializedCreature field, is never emitted, and rehydrates to 0. I verified that by hand before acting on the reviewer's word. The real consequence is worse: despawnAtTick rehydrates to 0 and a PROMOTED client runs the lifetime gate, so creatureLifecycle deletes every live Voltkin on its first creature tick. NOT fixable by un-stripping (serializeCreature only emits despawnAtTick for chewers), so characterized + logged with the mechanism. (5) MEASURED, not estimated: wire 12,413 B -> 12,821 B = +408 B (+3.3%) on the 12-chewer worst case, 3,563 B under the 16 KiB R1 ceiling, taken by running the guard with the strip both restored and removed. (6) HONEST NEGATIVES: widening found NO latent divergence — both differential harnesses pass even with rngSeed, allocator cursors and primitive colours added; I expected red and did not get it. save.replay.test.ts had asserted not.toContain('chewProgress'), i.e. it had LOCKED IN the bug; inverted rather than deleted so the contract change is visible in the diff. (7) GROK's aliasing finding REFUTED by reading save.ts:646 — serializeCreature returns a fresh literal, so trimMirrorCreature never sees live world objects.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/stateHashFull.ts",
-          "needle": "FIELD_COVERAGE"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/stateHashFull.ts",
-          "needle": "determinismParts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.migrationDamage.test.ts",
-          "needle": "does not heal across the wire"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
-          "needle": "hp: _h,",
-          "note": "the hp strip is GONE from trimMirrorCreature"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
-          "needle": "are NO LONGER STRIPPED",
-          "note": "and the amendment that removed it is present"
-        }
-      ]
-    },
-    {
-      "id": "P2-small-items-batch",
-      "label": "Four logged small items: vitest watch-mode script, stale v9 e2e assertion + stale test title, formal REJECTION of the P2-18 'godly' false positive, and real V6-RISK code anchors for the ledger carrier that claims to exist.",
-      "status": "completed",
-      "phase": "CHECK-COMPLETE",
-      "tier": "Micro",
-      "priority_state": "completed",
-      "check_completed": true,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "checkpoint_commit": "8c46e6a",
-      "real_context_tokens_at_close": 467819,
-      "real_context_pct_at_close": 46.78,
-      "check_method": "Micro-tier CHECK (RALPH + self-verification; no external Council for Micro). (1) STATIC: tsc 0; vitest 2020/2020 across 132 files; bundle 645.4 KiB with the entry chunk BYTE-IDENTICAL at 660,916 B, since every production edit in P2 was a comment. (2) BEHAVIOURAL, not inferred: `npm test` was RUN and now EXITS with 2020/2020 instead of hanging in watch mode — that is the fix demonstrated rather than argued. (3) e2e is NOT type-checked, so `npx playwright test e2e/smoke.spec.ts --list` was used as the parse gate: 12 tests, and the listed title now reads v16, which is how the SIBLING staleness was caught in the first place. (4) ANCHOR COUNT: `grep -rn V6-RISK src/` returns 5 (R1, R5, R10, R12 + the pre-existing B3) where it returned 1 — carrier (b) of the ledger is now real for the four earliest-biting risks and explicitly documented as FALSE for the remaining 19. (5) TWO OF FOUR LOGGED ITEMS WERE WRONG AS LOGGED and are closed by correcting the record: P2-18 'godly' is REJECTED with three verified grounds (wire-serialized member; the in-code comment naming back-compat as the reason it stays; a deliberately tolerant consumer), and the V6-RISK item was cited at the wrong lines and understated a never-built enforcement carrier. (6) SELF-CAUGHT ATTRIBUTION ERROR: I first wrote 'PROTOCOL_VERSION 15 since S115' and git-verified it to S124 P1 (`80f1058`) before committing. (7) FOUND, NOT LOGGED: smoke.spec.ts:657's newer-peer test used a v10 override against a v15 host, so it had silently stopped exercising the branch in its own title; raised to v16 with the strictly-greater-than invariant written down at both sites.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "REJECTED — CLOSED S133 P2. DO NOT RE-OPEN."
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "CORRECTED S133 P2 — CARRIER (b) DID NOT EXIST",
-          "ledger_ref": "CARRY-FORWARD LEDGER — enforcement carrier (b)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/package.json",
-          "needle": "\"test\": \"vitest run\""
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/stateHash.ts",
-          "needle": "V6-RISK(R1)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/world.ts",
-          "needle": "V6-RISK(R5)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/physics/collision.pile.test.ts",
-          "needle": "V6-RISK(R10)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/transport.ts",
-          "needle": "V6-RISK(R12)"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/smoke.spec.ts",
-          "needle": "toContain('v9')",
-          "note": "the stale v9 literal is gone"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/smoke.spec.ts",
-          "needle": "toContain('v15')",
-          "note": "and the correct one replaced it (file_lacks alone passes vacuously on a deleted file)"
-        }
-      ]
-    },
-    {
-      "id": "P3-deploy-verification",
-      "label": "Convert \"assume the push deployed\" into \"verify the push deployed\". The 45-commit push landed and GitHub logged the PushEvent, but NO workflow run was ever created — so the charter claim \"every push to master ships to production\" is empirically false. Ship a one-command verifier + correct the docs.",
-      "status": "completed",
-      "phase": "CHECK-COMPLETE",
-      "tier": "Micro",
-      "priority_state": "completed",
-      "check_completed": true,
-      "plan_file": ".claude/plans/2026-08-06_PDR_S133_P3_Deploy_Verification.md",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "checkpoint_commit": "e56b3ae",
-      "real_context_tokens_at_close": 574679,
-      "real_context_pct_at_close": 57.47,
-      "check_method": "Micro-tier CHECK (self-verification; Micro waives external Council). (1) STATIC: node --check on the new .mjs; tsc 0 (script is .mjs, outside tsconfig); npm test 2020/2020 across 132 files; bundle 645.4 KiB entry 660,916 B UNCHANGED (P3 touched no src/). (2) THE VERIFIER PASSES ON REAL STATE: 4/4 carriers — REMOTE remote==d2d1c34a, RUN 1 run for that SHA, VERDICT run 31128874492 success, LIVE live entry asset == local build index-CgC_LFzg.js (content-hash equality). (3) MUTATION-TESTED 3/3 CAUGHT, because a verifier that cannot fail is worthless: M1 bogus SHA -> RUN + VERDICT FAIL naming the falsified-trigger case; M2 bogus expected asset -> LIVE FAIL ('prod is NOT what you built'); M3 flipped the success predicate to 'cancelled' -> VERDICT FAIL on a successful run, which PROVES the conclusion is genuinely discriminated and therefore that a real 'cancelled' run cannot pass. That third mutation exists because this repo has two silently-cancelled runs in its history. (4) EXIT CODES verified WITHOUT pipeline masking (the logged ${PIPESTATUS[0]} trap): direct node exit 0 on pass / 1 on fail; npm run exit 0. An earlier reading of 127 was an artifact of a compound command, re-tested clean. (5) THE VERIFIER FOUND A REAL DEFECT ON ITS FIRST RUN: dist/ held TWO orphaned index-*.js entry chunks, so globbing dist/assets could not identify the current build. Redesigned to read dist/index.html — the authoritative local pointer, matching check-bundle-size.mjs:39's existing idiom, and exactly symmetric with how the live side is read. NOTE: the destructive-command guardrail blocked `rm -rf dist` and I did NOT bypass it; the guard pushed me to the better design. (6) SCOPE HONESTY: root cause of GitHub's trigger miss is NOT determined and is not guessed at. Probe table recorded in the BACKLOG ledger so it is not re-derived. (7) REFINEMENT AFTER FIRST OPERATIONAL USE + 2 MORE MUTATIONS (matrix now 5/5): the initial version demanded a run for EVERY head, which would cry wolf on every docs/session push — deploy.yml's paths filter deliberately skips those (S40 P2, to stop a handoff push cancelling an in-flight code deploy). Now the RUN carrier asks whether a deploy was OWED, by PARSING deploy.yml's own paths list (not a copy — drift between a claim and its enforcement is the defect class this whole session is about) and diffing against the last successful deploy SHA. M4: narrowing deploy.yml's filter so package.json no longer matches flipped RUN from FAIL to PASS-not-owed, which PROVES the parse is live rather than hardcoded. M5: making the workflow file unreadable produced 'could not compute the path delta, so a run is assumed required' — FAIL-CLOSED confirmed. ⚠ M5 FIRST REPORTED A FALSE PASS: a shell-escaped python replace silently no-op'd, and the tell was output byte-identical before and after the supposed mutation. Redone via Edit. Reporting that as caught would have been exactly the fabricated-result class this session kept catching in others. (8) CRLF bit a third time: the paths regex used bare \n against CRLF workflow files and matched NOTHING; fixed to \r?\n with [ \t] for indentation (\\s swallows newlines).",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/scripts/verify-deploy.mjs",
-          "needle": "four independent carriers"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/scripts/verify-deploy.mjs",
-          "needle": "THE FALSIFIED-TRIGGER CASE"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/package.json",
-          "needle": "\"verify-deploy\": \"node scripts/verify-deploy.mjs\""
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "NEW S133 P3 — \"PUSH = DEPLOYED\" IS FALSIFIED",
-          "ledger_ref": "CARRY-FORWARD LEDGER — deploy-trigger anomaly + verify-deploy mitigation"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/SPARK_Blueprint.md",
-          "needle": "was FALSIFIED on 2026-08-06"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/SPARK_Blueprint.md",
-          "needle": "**GitHub Actions auto-deploy.** Every push to `master` ships to production."
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/scripts/verify-deploy.mjs",
-          "needle": "deployRelevantChanges",
-          "note": "the paths-aware RUN carrier exists (symbol, not prose)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/scripts/verify-deploy.mjs",
-          "needle": "and none is OWED",
-          "note": "the not-owed branch is present"
-        }
-      ]
-    }
-  ],
-  "carry_forward_priorities": [],
-  "reflexion_entries_to_archive": [
-    {
-      "tag": "#my-own-correction-was-also-wrong-and-i-shipped-it-to-three-places",
-      "note": "I found a false claim in a docblock, corrected it, and the CORRECTION was false too — 're-derivable from spawnedAtTick, which does ride the wire', about a field that is not on the wire at all. It reached a docblock, a test comment and a commit message before CHECK caught it. The first draft was wrong by guessing; the second was wrong by reading a NEIGHBOURING comment ('re-derivable from spawnedAtTick on the trimmed-rehydrate path') and trusting its premise instead of grepping whether the field was serialized. A correction deserves the same verification as the thing it corrects — more, because it arrives wearing the authority of a fix."
-    },
-    {
-      "tag": "#a-guard-can-be-vacuous-because-the-FIXTURE-takes-a-different-code-path",
-      "note": "M9 said VACUOUS: restoring the hp strip did not fail the hp test. Not because the assertion was wrong, but because the fixture creature hit trimMirrorCreature's EARLY RETURN and was never destructured. The test exercised a path where the code under test does not run. Every previous vacuity lesson in this repo was about the ASSERTION; this one was about the FIXTURE reaching the branch. Ask which branch the fixture takes, not just what the assertion says."
-    },
-    {
-      "tag": "#shape-detection-is-the-wrong-shape-of-forcing-function",
-      "note": "I derived a coverage contract from 'collection-shaped' fields (Map|Set|Array) and called it derived-from-the-type. Record, ReadonlyMap, WeakMap and Float64Array all walked straight through, and every scalar was outside the contract by construction — including rngSeed, the canonical desync root. Keying on `keyof World` instead is more verbose and completely closed. When a guard enumerates what it RECOGNISES, the escape hatch is everything it does not; enumerate the whole domain and classify."
-    },
-    {
-      "tag": "#a-label-is-not-a-link-tie-the-claim-to-the-runtime",
-      "note": "FAMILY_COVERAGE said hunters: 'hashed'. RALPH deleted the entire hunters projection loop and tsc stayed 0 with every test green, because nothing connected the string to the code. A type-level claim about runtime behaviour needs a runtime witness — exporting the parts list and asserting each 'hashed' family contributes one is what made the label true."
-    },
-    {
-      "tag": "#the-test-that-locked-in-the-bug",
-      "note": "save.replay.test.ts asserted not.toContain('chewProgress'). It was not merely stale: it was a guard whose whole function was to keep a bug in place, and it had been green for 30+ sessions. A passing test is evidence that behaviour is INTENTIONAL, not that it is CORRECT. Inverted rather than deleted, so the contract change shows up in the diff where a reviewer will see it."
-    },
-    {
-      "tag": "#i-expected-red-and-got-green-and-that-is-a-result",
-      "note": "The PDR predicted the widened hash would expose latent entity divergence and pre-committed to reporting red-as-found. It went green — twice, including after adding rngSeed and the allocator cursors. Worth recording as a measurement rather than quietly dropping: the sims genuinely agree across entity families, so the value delivered was the TRIPWIRE for future state, not a bug found today."
-    },
-    {
-      "tag": "#verify-the-reviewer-s-MECHANISM-not-just-its-conclusion",
-      "note": "Seven sessions running. This time it cut both ways: RALPH's F1 was RIGHT and I had to verify it before believing my own committed text was wrong; GROK's aliasing finding was WRONG and I had to read save.ts:646 to refute it rather than accept a plausible-sounding break. Same discipline, opposite outcomes — which is exactly why the rule is about mechanism and not about who is usually right."
-    },
-    {
-      "tag": "#a-logged-item-can-itself-be-the-defect",
-      "note": "Two of P2's four items were wrong AS LOGGED. P2-18 'godly' had been adjudicated a false positive in S30/S33, and re-entered four consecutive handoffs as outstanding work — doing it would have shipped a back-compat regression while looking like housekeeping. The V6-RISK item was cited at the wrong lines and understated a never-built enforcement carrier. A carry-forward is a CLAIM, and it inherits authority from repetition rather than from evidence. Re-verify the item before executing it, especially the small ones — nobody re-derives a one-liner."
-    },
-    {
-      "tag": "#no-live-emitter-is-not-dead-code-when-a-deserializer-must-accept-it",
-      "note": "The whole 'godly' item rested on 'no live emitter post-S27'. True, and irrelevant: the member is a literal in a WIRE-SERIALIZED union, so the read side must still accept it. Deadness is a property of the emit side; compatibility is a property of the read side. For any union that crosses a wire or a save, 'nothing produces this' never implies 'nothing must consume this'."
-    },
-    {
-      "tag": "#fixing-a-stale-literal-surfaced-its-untracked-sibling",
-      "note": "The logged item was one stale version literal (v9 vs 15). Fixing it put `--list` output on screen, which revealed a SIBLING test overriding to v10 to exercise a 'newer peer' branch against a v15 host — older, not newer, so it had quietly stopped testing the thing its own title names. Nothing failed, because both live in a non-gating quarantine lane. Version literals in an un-type-checked, non-gating lane rot invisibly and in PAIRS; when you find one, grep the file for the rest and write the invariant down."
-    },
-    {
-      "tag": "#i-invented-a-schema-value-and-it-looked-right-because-it-looked-like-the-others",
-      "note": "MCV hard-failed at session close: I had written verification[] entries of type \"file_absent_string\", which does not exist. The supported set is file_exists / file_absent / file_contains / file_lacks / grep_count / json_field / syntax_ok / nonce_match — and it is listed in the verifier docstring EIGHT LINES IN, a file I never opened. I pattern-matched off the file_contains entries I had just written and generated a plausible sibling name. Two compounding lessons: (1) an INVENTED IDENTIFIER in a declarative config fails silently at author time — there is no compiler for a JSON string, so the only feedback is the consumer, and I shipped it into two completed priorities before the hook spoke; read the consumer schema before emitting values for it. (2) The near-miss: file_lacks PASSES VACUOUSLY when the file is absent, so an absence-only binding would have gone green on a deleted file. I paired each with a positive file_contains companion. This session mutation-tested every code guard and then hand-wrote un-mutated ASSERTIONS ABOUT those guards — the meta-level guard got none of the scrutiny the object level got."
-    },
-    {
-      "tag": "#the-push-landed-and-deployed-nothing",
-      "note": "Six sessions of 'the push is the only way to learn whether CI works' — and when it finally happened, the push landed, GitHub logged the PushEvent, and NO run was created. Every precondition I could probe was satisfied (Actions enabled, workflows active, 32 filtered files matched, public repo, valid YAML, well under the commit threshold, no late arrival). The lesson is not about GitHub: it is that 'the mechanism fired' and 'the outcome happened' are separate propositions, and the project's charter had collapsed them into one sentence. I could not root-cause it and deliberately did not invent a cause — I shipped a verifier instead, because a check that catches the failure is worth more than a theory about it."
-    },
-    {
-      "tag": "#a-blocked-destructive-command-pointed-at-a-better-design",
-      "note": "`rm -rf dist` was blocked by the guardrail. I did not bypass it — an autonomous-run approval is not approval of a specific destructive command. Forced to solve it without deleting, I found the right answer: read dist/index.html for the entry rather than globbing dist/assets, which is both immune to the orphaned chunks that caused the problem AND already the repo's idiom in check-bundle-size.mjs. The guardrail did not cost me a workaround; it cost me a worse design."
-    },
-    {
-      "tag": "#the-verifier-found-a-defect-on-its-first-run",
-      "note": "verify-deploy's LIVE carrier failed immediately — not a false alarm: dist/ held two orphaned entry chunks from an interrupted build, so there was genuinely no unambiguous 'local build' to compare against. Refusing to guess between two candidates was the correct behaviour and I kept that strictness. A new check earning its keep before it is even committed is the cheapest possible evidence that it is not decorative."
-    },
-    {
-      "tag": "#i-wrote-three-assertions-from-memory-and-all-three-were-wrong",
-      "note": "Third instance of ONE root pattern in a single session: (1) invented the MCV assertion type \"file_absent_string\" by pattern-matching my own neighbouring entries; (2) claimed a Voltkin's expiry was re-derivable from spawnedAtTick by trusting an adjacent comment's premise; (3) wrote the needle \"was a deploy even REQUIRED\" when the file says \"Is a deploy run even REQUIRED for this SHA?\". Each time I was generating text ABOUT an artifact while not looking AT it, and each time the result was plausible — which is exactly why it survived my own review. The fix is mechanical, not attitudinal: any assertion whose subject is a literal in a file must be COPY-PASTED from that file, or expressed as a symbol name a compiler/grep can bind. Prefer symbols over prose for needles: \"deployRelevantChanges\" cannot drift the way a sentence can."
-    }
-  ],
+  "session_start": "2026-08-07T08:16:48",
+  "prior_session_note": "S133 shipped 3/3 (determinism oracle widened + host-migration damage fix + verify-deploy). Its close chain DID run in-repo (HANDOFF_S133 + archive + boot-snapshot + 15 reflexion entries appended and pruned, all committed ab8d50e) but its session-state.json was left mid-flight: session_status stayed in_progress, phase stayed DO, analyze_completed stayed false, and reflexion_entries_to_archive still held the 15 already-archived entries. S134 verified 15/15 landed in reflexion_log.md before clearing. NOT verified: whether a formal ANALYZE pass ran in S133 (no ANALYZE section in HANDOFF_S133.md) — deliberately NOT asserted true. Same residue class as the S128 close (reflexion_log.md:101).",
+  "phase": "PLAN",
+  "tier": null,
+  "council_rounds": 0,
+  "plan_file": null,
   "session_status": "in_progress",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
   "budget_total": 1000000,
-  "totals": {
-    "grok_calls": 0,
-    "grok_cost_usd": 0.0,
-    "gemini_calls": 0,
-    "gemini_cost_usd": 0.0,
-    "bundle_kib_entry": 645.5,
-    "vitest": "2001/2001 (130 files)",
-    "mutations_applied": 8,
-    "mutations_caught": 8,
-    "budget_remaining": 1000000
-  },
-  "prior_session_archive": ".claude/session-state.s132.bak",
-  "analyze_result": {},
+  "prior_session_archive": ".claude/session-state.s133.bak",
   "analyze_completed": false,
-  "council_s133": {
-    "tier": "Standard",
-    "rounds": 1,
-    "participants": [
-      "claude-opus-5",
-      "grok-4.20-0309-reasoning",
-      "gemini-3.1-pro-preview"
-    ],
-    "resolutions": {
-      "1_widen_vs_new_oracle": "SYNTHESIS - narrow prod hash kept, wide test hash added, narrow asserted a strict subset of wide to kill the drift Grok raised",
-      "2_chewProgress_in_hash": "OVERRULED Grok on evidence - the bond stores no damage state, so excluding chewProgress would leave bond-damage desync permanently invisible",
-      "3_fix_migration_reset": "CONCEDED to Grok+Gemini (2.75 v 1.0) - fix it; verification showed it additive and bump-free",
-      "4_defer_wire_oracle": "SYNTHESIS - deferral stands but becomes a scheduled gate with a measurement precondition, not a passive log",
-      "5_forcing_function_granularity": "ADDED BY GEMINI - field-level, not family-level",
-      "6_red_ci_strategy": "ADDED BY GEMINI - never leave master red; quarantine with a logged reason if divergence is found"
-    },
-    "rejected_from_grok": [
-      "rolling/incremental per-family hash - a missed mutation site yields a SILENTLY WRONG hash with no forcing function on mutation sites; strictly worse than the O(N) cost it saves",
-      "delete structuralSignature - distinct cheap contract, out of scope",
-      "MessagePack + delta encoding - that IS the V6-4.2 slot",
-      "'rejecting godly is theater' - Grok lacked the fact that the member is wire-serialized with deliberately tolerant consumers, so removal is a back-compat regression"
-    ]
+  "priorities": [
+    {
+      "id": "P1-creature-lifetime-serialization",
+      "title": "Creature lifetime serialization — despawnAtTick + sourceSpawnerId reach every snapshot consumer",
+      "status": "in_progress",
+      "tier": "Standard",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false,
+      "pdr_file": ".claude/plans/2026-08-07_PDR_S134_Creature_Lifetime_Serialization.md"
+    }
+  ],
+  "reflexion_entries_to_archive": [],
+  "totals": {
+    "turns": 0,
+    "budget_remaining": 1000000,
+    "budget_status": "statusline_dead"
   },
   "auto_fill_applied": {
-    "ts": "2026-08-06T21:57:13.598409Z",
+    "ts": "2026-08-07T10:58:16.295211Z",
     "fields": [
-      "totals.budget_remaining"
+      "totals"
     ],
     "validator_version": "s110-three-tier-v1"
-  },
-  "deploy_verified_s133": {
-    "head": "e56b3ae",
-    "runs": [
-      31128874492,
-      31129081146
-    ],
-    "carriers": "4/4 PASS",
-    "live_asset": "index-CgC_LFzg.js",
-    "note": "push trigger reproducibly does NOT fire; deploys done via workflow_dispatch"
   }
 }

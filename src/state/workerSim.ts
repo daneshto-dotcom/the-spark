@@ -196,6 +196,18 @@ export function makeWorkerSim(
 ): WorkerSim {
   const world = makeWorld(1);
   const snap = JSON.parse(init.saveJson) as WorldSnapshot;
+  // ⛔ S134 P1 — THIS IS AN AUTHORITATIVE CONSUMER OF THE DISK SERIALIZER, not a mirror.
+  // `main.ts` builds `init.saveJson` with `snapshot(world, ...)` and two lines below we set
+  // `isHost = true`, so from here on this world RUNS THE SIM. Any creature/entity field the
+  // host sim reads must therefore be emitted by `serializeCreature` UNCONDITIONALLY — it is
+  // not enough for it to be "on the wire" or "in the save", and a field emitted only for
+  // some entity subtype silently corrupts the others.
+  // This bit for real: until S134 `despawnAtTick` was emitted only when
+  // `sourceSpawnerId !== null`, and a Voltkin hardcodes null — so under `?worker=1` a
+  // Voltkin arrived here with despawnAtTick 0 and was deleted on the worker's FIRST
+  // creature tick, on the ORIGINAL host, with no peer and no migration involved.
+  // MEASURED pre-fix: host 1700 → 0 here, while the chewer's 3600 survived.
+  // Do not "optimise" this path back onto the trimmed wire shape.
   restore(snap, world);
   world.isHost = true;
   world.localPlayerId = asPlayerId(init.localPlayerId);

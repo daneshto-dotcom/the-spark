@@ -794,13 +794,22 @@ describe('S100 P1 — wire byte budget (R1) + TD host-only stripping', () => {
     expect(severed[0]).toMatchObject({ cause: 'chewer', actor: asPlayerId(0), victim: asPlayerId(1) });
 
     const wire = JSON.stringify(netSnapshot(host));
-    // MEASURED S133 P1 on exactly this fixture (12 chewers, EVERY one mid-chew — the worst
-    // case for the un-strip below): 12,413 B before → 12,821 B after = +408 B (+3.3%),
-    // leaving 3,563 B of headroom under the ceiling. Both numbers were taken by running
-    // this test with the strip restored and removed, not estimated.
+    // MEASURED on exactly this fixture (12 chewers, EVERY one mid-chew — the worst case for
+    // the un-strips below), each number taken by running this test with the strip restored
+    // and removed, never estimated:
+    //   S133  12,413 B → 12,821 B  (+408 B, +3.3%)  un-strip chewProgress + targetBondId
+    //   S134  12,821 B → 13,313 B  (+492 B, +3.8%)  un-strip despawnAtTick + sourceSpawnerId
+    // Headroom under the ceiling: 3,071 B.
     // ⚠ Deliberately a ONE-SIDED budget assertion. An earlier S133 draft added a
     // `toBeGreaterThan(12 * 1024)` floor, which turned a BUDGET test into a two-sided clamp
     // with 533 B of slack — any legitimate ~4% wire reduction would have gone red (CHECK F10).
+    // ⛔ S134 — DO NOT CITE THIS CEILING AS EVIDENCE ABOUT PRODUCTION. It is fixture-scoped
+    // and enforces nothing at runtime. This fixture holds ZERO free sparks and ZERO
+    // Voltkins; the repo's own live measurements are 6.7-8.5 KB in a 2-peer duel and
+    // ~38.5 KB at six seats with a full board — i.e. reality already exceeds 16 KiB by
+    // ~2.4x. `transport.ts` also sends the full payload per ACTIVE STRATEGY per peer with
+    // both nostr and torrent on, so real upstream is a multiple of this again. Re-basing
+    // this number on a realistic fixture is logged as its own item, not done here.
     expect(wire.length).toBeLessThan(16 * 1024);
 
     // The gate now genuinely sees effects: BOND_SEVERED is one of the five serialized kinds
@@ -831,8 +840,19 @@ describe('S100 P1 — wire byte budget (R1) + TD host-only stripping', () => {
     // `SerializedDefender` legitimately emits `targetCreatureId` when a turret has a live
     // target. It passed only because this fixture happens to have no defenders (CHECK F7).
     const creaturesWire = JSON.stringify(netSnapshot(host).creatures);
-    expect(creaturesWire).not.toContain('sourceSpawnerId');
-    expect(creaturesWire).not.toContain('despawnAtTick');
+    // ⚠ AMENDED S134 P1 — `sourceSpawnerId` and `despawnAtTick` now RIDE THE WIRE too.
+    // Both assertions read `not.toContain(...)` until S134, i.e. they LOCKED IN the bug:
+    // with `despawnAtTick` stripped, `deserializeCreature` rehydrates 0, and 0 makes
+    // `creatureLifecycle`'s `world.tick >= despawnAtTick` AND `hostTick` Step 1.5's
+    // `world.tick >= despawnAtTick - 1` both unconditionally true — a promoted host deleted
+    // its entire creature population, after first detonating every inherited drone.
+    // `sourceSpawnerId` travels in the same change because the deletion was MASKING two
+    // further defects it causes (per-spawner caps disabled; a rehydrated chewer counted as
+    // its owner's Voltkin), which are untestable while the creatures are being deleted.
+    // Inverted rather than deleted, so the contract change is explicit in the diff.
+    // `targetCreatureId` stays stripped — host AI re-acquires it every IDLE tick.
+    expect(creaturesWire).toContain('sourceSpawnerId');
+    expect(creaturesWire).toContain('despawnAtTick');
     expect(creaturesWire).not.toContain('targetCreatureId');
     // creatureSpawners IS on the wire (clients render the spawn-zone) but only the
     // tiny identity shape — no host-only cadence words.

@@ -13,10 +13,18 @@
  * strip and were verified doing so (mutation M5/M6/M7 in the session's mutation matrix)
  * — not written after the fix and assumed to cover it.
  *
- * The last test is a CHARACTERIZATION of what is still broken on purpose: the lifecycle
- * trio (`sourceSpawnerId`, `despawnAtTick`, `targetCreatureId`) is still stripped, so a
- * Voltkin's remaining lifetime still resets across a migration. Scoped out deliberately;
- * pinned here so it cannot be mistaken for fixed, and so the fix has a red target.
+ * ✅ AMENDED S134 P1 — the last test's red target HAS NOW BEEN HIT and its assertions are
+ * flipped in place. `sourceSpawnerId` and `despawnAtTick` now survive the wire; only
+ * `targetCreatureId` is still stripped (correctly — host AI re-acquires it every IDLE
+ * tick), and `spawnedAtTick` still does not travel at all (no serializer surface).
+ *
+ * ⚠ WHY THIS FILE COULD NOT HAVE CAUGHT S134's BUG ON ITS OWN, worth keeping in mind when
+ * writing the next characterization: every assertion here runs through `netSnapshot`, so
+ * the "fix the emit condition" change that three save.ts docblocks recommended would have
+ * left this file entirely GREEN while the wire stayed byte-identical and host migration
+ * stayed broken. The S134 red target that actually bit is in `save.creatureLifetime.test.ts`,
+ * which exercises the DISK/worker-INIT path (`snapshot()` → `restore()`) as well — a
+ * production, authority-assuming consumer that needs no migration at all.
  */
 import { describe, expect, it } from 'vitest';
 import { applyNetSnapshot, netSnapshot } from './save.ts';
@@ -120,37 +128,43 @@ describe('S133 P1 — damage survives the mirror wire (host-migration fidelity)'
     expect(host.creatures.get(VOLTKIN)!.hp).toBe(1);
   });
 
-  it('CHARACTERIZATION — the lifecycle/targeting fields still reset (known, scoped out of S133)', () => {
+  it('S134 — the lifecycle fields now SURVIVE; only targeting + the untravelled trio reset', () => {
     const host = hostWorldWithDamage();
     const client = throughTheMirrorWire(host);
 
-    // A chewer loses its parent spawner. Still stripped by trimMirrorCreature; pinned so
-    // it cannot silently be called fixed — when it IS fixed this expectation flips.
+    // ✅ FLIPPED IN S134. This assertion was `.toBeNull()` and was authored as the red
+    // target ("when it IS fixed this expectation flips"). A chewer now keeps its parent
+    // spawner across the wire, which is what re-arms CHEWER_MAX_PER_SPAWNER on a promoted
+    // host and stops `applySpawnCreature` counting it as the owner's Voltkin population.
     expect(Number(host.creatures.get(CHEWER)!.sourceSpawnerId)).toBe(5);
-    expect(client.creatures.get(CHEWER)!.sourceSpawnerId).toBeNull();
+    expect(Number(client.creatures.get(CHEWER)!.sourceSpawnerId)).toBe(5);
 
-    // A Voltkin mid-zap forgets what it was zapping.
+    // STILL STRIPPED, AND CORRECTLY SO — a Voltkin mid-zap forgets what it was zapping.
+    // `targetCreatureId` is re-acquired every IDLE tick by host AI a client never runs.
     expect(Number(host.creatures.get(VOLTKIN)!.targetCreatureId)).toBe(Number(CHEWER));
     expect(client.creatures.get(VOLTKIN)!.targetCreatureId).toBeNull();
 
-    // ⛔ THE SHARPEST REMAINING CASE, and it is worse than a mis-timed expiry: the
-    // successor DELETES ITS ENTIRE CREATURE POPULATION on the first creature tick.
-    // `despawnAtTick` rehydrates to 0; on PROMOTION the ex-client starts running the
-    // lifetime gate (`creatureLifecycle.ts`: delete when `world.tick >= despawnAtTick`),
-    // which 0 makes unconditionally true; and ALL THREE `CREATURE_CONFIGS` are
-    // `persistent: false` (Voltkin, chewer since S104 P1, lightning drone) so the gate
-    // applies to every type. Already recorded in `SPARK_Blueprint.md` §XV.6 as a live
-    // hazard in three paths — S133 CHECK rediscovered it; the Blueprint got there first.
-    // Only PARTLY fixable by un-stripping: serializeCreature emits `despawnAtTick` for
-    // chewers ONLY, so that would rescue one of three types. Deliberately not shipped.
+    // ✅ FLIPPED IN S134 — both were `.toBe(0)`. The successor no longer deletes its whole
+    // creature population (and no longer mass-detonates its drones, which fired EARLIER
+    // than the lifetime gate via hostTick Step 1.5's `world.tick >= despawnAtTick - 1`).
+    // Note the two types took DIFFERENT broken paths pre-fix, which is why both are
+    // asserted: the Voltkin's value was never EMITTED (the emit was coupled to
+    // `sourceSpawnerId !== null` and a Voltkin hardcodes null), while the chewer's was
+    // emitted and then STRIPPED by trimMirrorCreature. Fixing either alone left the other.
     expect(host.creatures.get(VOLTKIN)!.despawnAtTick).toBeGreaterThan(0);
-    expect(client.creatures.get(VOLTKIN)!.despawnAtTick).toBe(0);
-    // The CHEWER's value IS emitted by the serializer — and still lands at 0, because this
-    // function strips it. That is the half the un-strip could have rescued.
-    expect(client.creatures.get(CHEWER)!.despawnAtTick).toBe(0);
-    // And `spawnedAtTick` cannot rescue it: it is not a SerializedCreature field, is never
-    // emitted, and is hardcoded to 0 on rehydrate. Two earlier S133 drafts claimed the
-    // expiry was "re-derivable from spawnedAtTick" — this pins that it is not.
+    expect(client.creatures.get(VOLTKIN)!.despawnAtTick).toBe(
+      host.creatures.get(VOLTKIN)!.despawnAtTick,
+    );
+    expect(client.creatures.get(CHEWER)!.despawnAtTick).toBe(
+      host.creatures.get(CHEWER)!.despawnAtTick,
+    );
+
+    // ⚠ STILL BROKEN ON PURPOSE, KEPT AS THE LIVE CHARACTERIZATION. `spawnedAtTick` is not
+    // a SerializedCreature field at all, is never emitted, and is hardcoded to 0 on
+    // rehydrate. The fixture's Voltkin uses spawnedAtTick 500 precisely so this stays
+    // distinguishable from "the value happened to equal the default" (CHECK finding F1).
+    // Because of this the successor's world is NOT equal to the predecessor's — do not
+    // write a host-vs-successor hashWorldStateFull equality test expecting it to pass.
     expect(host.creatures.get(VOLTKIN)!.spawnedAtTick).toBeGreaterThan(0);
     expect(client.creatures.get(VOLTKIN)!.spawnedAtTick).toBe(0);
   });

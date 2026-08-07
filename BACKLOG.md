@@ -532,6 +532,73 @@ Sequenced so the core loop is **playable by V6-1.7** and everything after lands 
 
 # CARRY-FORWARD LEDGER (S128 — nothing silently dropped)
 
+> ✅ **CLOSED S134 P1 — CREATURE LIFETIME SERIALIZATION. Three consumers, only one of which
+> was host migration.** `serializeCreature` coupled the `despawnAtTick` emit to
+> `sourceSpawnerId !== null` and `trimMirrorCreature` then stripped it from the wire
+> unconditionally, so `deserializeCreature` rehydrated 0 — a **DETONATION default**, not a
+> neutral one. Fixed by emitting `despawnAtTick` unconditionally and removing both it and
+> `sourceSpawnerId` from the trim. No `PROTOCOL_VERSION` bump (stays 15).
+>
+> 🐞 **NEW FINDING, LOGGED SEPARATELY PER THE OWNER RULING — the worker-INIT path was live
+> on today's build with NO migration at all.** `main.ts:1630` → `workerSim.ts` `restore()`
+> + `isHost = true` runs the DISK serializer, so under `?worker=1` a Voltkin's lifetime was
+> destroyed **on the original host**, no peer and no disconnect. MEASURED pre-fix: host
+> 1700 → rehydrated 0, while the chewer's 3600 survived (the chewer has a non-null spawner
+> and so took the emitted branch). This matters for **V6-1.1**, which flips `?worker=1` ON
+> BY DEFAULT — the bug would have gone from opt-in to universal in that slot. Regression
+> test: `save.creatureLifetime.test.ts` TEST A. Anchor comment planted at the `restore()`
+> call site.
+>
+> ⛔ **AND IT WAS WORSE THAN "CREATURES GET DELETED".** `hostTick.ts` Step 1.5 runs BEFORE
+> the lifetime gate and fires DRONE_EXPLODE on `world.tick >= despawnAtTick - 1` — with 0
+> that is `>= -1`, unconditionally true. Every inherited drone detonated on the successor's
+> first tick, each severing up to `DRONE_MAX_CONNECTORS` (3) enemy bonds, up to
+> `DRONE_MAX_GLOBAL` (12) drones ⇒ **up to 36 irreversible, score-affecting severs caused
+> purely by a host handoff.** Covered by TEST C.
+>
+> ⚠ **`sourceSpawnerId` SHIPPED IN THE SAME COMMIT, DELIBERATELY.** The deletion was MASKING
+> two further defects it causes: `applySpawnCreature` counts any null-spawner creature as
+> its owner's Voltkin population (a rehydrated chewer BLOCKED that owner's summon), and the
+> perSpawner terms in `underChewerCaps`/`underDroneCaps` compare against a real SpawnerId,
+> so a rehydrated null silently disabled `CHEWER_MAX_PER_SPAWNER` (4) and
+> `DRONE_MAX_PER_SPAWNER` (3), degrading both to the global 12. Those are **untestable while
+> the creatures are being deleted**, so splitting the fix would have shipped an ungatable
+> regression. ⚠ **VISIBLE GAMEPLAY CHANGE, owner-acknowledged:** a promoted host now spawns
+> FEWER creatures than before. Correct, but a playtester may file it as a regression.
+>
+> ⛔ **THREE `save.ts` DOCBLOCKS SAID THE FIX BELONGED IN THE EMIT CONDITION. ALL WRONG, AND
+> THAT TEXT IS WHY S133 SCOPED THIS OUT.** `netSnapshot()` post-trims after serializing, so
+> an emit-only change leaves the wire byte-identical and migration untouched — and would
+> have left the whole suite GREEN, because `save.migrationDamage.test.ts` asserts through
+> `netSnapshot`. A fourth docblock still claimed `hp` was stripped (untrue since S133). All
+> four rewritten. **Lesson for the next author: a docblock in this file is not evidence.**
+>
+> **MEASURED, not estimated.** Wire on the worst-case fixture (12 chewers, all mid-chew):
+> 12,821 B → **13,313 B (+492 B, +3.8%)**, 3,071 B headroom under the fixture ceiling.
+> Bundle 645.3/750 KiB (**−88 B** — the trim got simpler). tsc 0 · vitest **2028/2028**
+> (133 files, +8 tests / +1 file) · **mutation matrix 3/3** with the load-bearing asymmetry
+> confirmed: M1 (re-couple emit) reds TEST A; M2 (restore wire strip) reds B/B2/C while
+> **TEST A stays GREEN**; M3 (restore spawner strip) reds D/D2 only.
+> 🐞 **The first draft of that matrix reported a FALSE PASS twice over** — first because
+> CRLF anchors silently matched nothing (guard added, refuses to report an unapplied
+> mutation), then because the fixture gave no creature a `targetCreatureId`, so every
+> creature took `trimMirrorCreature`'s EARLY RETURN and M2/M3 mutated **dead code** while
+> 8/8 stayed green. That is the S133 M9 lesson verbatim. Fixture now carries a mid-zap
+> Voltkin AND a spawner-emitted mid-zap drone to force the destructure branch.
+>
+> 📌 **STILL OPEN, logged not fixed:** (a) `prevPos`/`targetPos`/`spawnedAtTick` have **no
+> serializer surface at all**, so the successor's world is NOT equal to the predecessor's —
+> do not write a host-vs-successor `hashWorldStateFull` equality test expecting it to pass;
+> (b) the **mixed-build window** — no bump means a pre-S134 predecessor still sends
+> lifetime-less snapshots and its successor still mass-deletes; owner ACCEPTED this as one
+> refresh wide, with a HELLO capability marker (additive-optional, no bump) as the preferred
+> hardening if migration ever gets its own slot; (c) `e2e/hostmigration.spec.ts` is
+> `@quarantine-flaky`, excluded from the gating lane, and contains **zero** occurrences of
+> "creature" — the vitest lane is the only gate, and it mocks the wire with
+> `JSON.parse(JSON.stringify(...))`; the real two-tab boot-then-smoke is a follow-up;
+> (d) the **16 KiB wire assertion is fiction** — fixture-scoped, enforces nothing at runtime,
+> and reality is ~38.5 KB at six seats; annotated in-test, re-baselining not done here.
+
 Per the INTEGRITY-WARNING PROTOCOL. **Enforcement rides three carriers:** (a) each risk is bound to its
 slot's roadmap row above, so that slot's PDR author sees it at scoping time; (b) the risks with a precise
 code anchor also carry a `// V6-RISK(Rn):` comment at that line; (c) session-close `verification[]`
