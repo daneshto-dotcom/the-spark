@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 210,
+  "tool_calls_session_total": 216,
   "session_id": "S134",
   "session_kind": "pdca",
   "session_start": "2026-08-07T08:16:48",
@@ -130,6 +130,16 @@
           "key": "owner_rulings_s134.B4b_bank_slots",
           "op": "==",
           "value": 5
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "AN ORDERED BUILD QUEUE, RRTS-STYLE"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "| **B4** | Directive semantics | **Exact type filters** |"
         }
       ]
     }
@@ -194,12 +204,14 @@
   },
   "owner_rulings_s134": {
     "B3_spark_rate": "6x more sparks",
-    "B4_directives": "exact type filters",
+    "B4_directives": "AMENDED — an ordered RTS-style BUILD QUEUE of individual primitives, NOT a filter. Click a shape N times => xN queued; ordered and consumed (leftmost next, each delivery pops one); ONE queue per player; empty queue => gatherers collect nearest (priority override, not on/off); bank full => a loaded gatherer walks home and WAITS at the castle holding its item, depositing the moment a slot frees; all controls live in a FOOTER BAR at the bottom of the screen.",
     "B4b_bank_slots": 5,
     "B6_reversibility": "option B — additive-only, CarryingPlayer retained, deletion moves to V6-4.3",
     "naming": "gatherer everywhere (docs + code)",
     "R19_connected_bond_bonus": "KEEP — owner re-affirmed his S84 decision",
     "B5_match_length": "NOT RULED — stays in V6-4.3",
-    "note": "All six ruled 2026-08-07 via terminal picker. Phase 1 unblocked; the ?probe=1 playtest is NOT a precondition (S132 already measured supply; owner reported the overlay is not actionable for him)."
+    "note": "All six ruled 2026-08-07 via terminal picker. Phase 1 unblocked; the ?probe=1 playtest is NOT a precondition (S132 already measured supply; owner reported the overlay is not actionable for him).",
+    "B4_amendment_note": "The first recording of this ruling said \"exact type filters\" and was WRONG — corrected by the owner in the same session, before any code existed. Recipes are explicitly out of scope for the initial queue.",
+    "B4_watch_item": "Effective burst capacity is 5 + gatherers-waiting-loaded, not 5, because each spend is topped up immediately. With 4 waiting that exceeds the 8-piece Voltkin/laserTurret recipes, partially re-opening the hazard the 5-slot cap closes. Judge the cap against 5+N. UNCONFIRMED: whether an UNLOADED gatherer sets out when the bank is already full — owner phrasing (\"their last haul\") reads NO, which bounds N to the in-flight count."
   }
 }

@@ -440,11 +440,46 @@ empirically and the owner reported the overlay gives him nothing further to act 
 | # | Decision | RULING | Consequence to honour |
 |---|---|---|---|
 | **B3** | Spark spawn rate | **6× more sparks** | Raise `SPAWN_RATE_PER_SECOND` from `0.1875` toward ~`1.125` so a bank fills in the 20–40 s the design assumes rather than ~248 s. ⚠ Re-check `FREE_SPARK_SOFT_CAP = 50` — S132 proved it unreachable dead code at the old rate; at 6× it becomes **live** and must be re-derived, not left. |
-| **B4** | Directive semantics | **Exact type filters** | Players may order "collect only squares". Predicate on `pickTargetSpark` (~2 lines, draws `rng()` once regardless of candidate count, so it **cannot** shift the replay stream). |
+| **B4** | Directive semantics | **AN ORDERED BUILD QUEUE, RRTS-STYLE — *NOT* A FILTER** | ⛔ **AMENDED same session — the first recording of this ruling said "exact type filters" and was WRONG.** See the dedicated section below. |
 | **B4b** | Bank capacity | **5 slots** | ⭐ **THE PAIRING IS THE POINT — NEVER TUNE THESE TWO APART.** Exact filters would delete carving only if the bank ≥ the biggest recipe. At 5 slots only the **pentagram (5)** is directly assemblable; lightningHub 6 · Helga 7 · Voltkin 8 · laserTurret 8 all still require staging and improvising. **Keep this recipe-size table adjacent to the cap number forever** (the S128 standing instruction). |
 | **B6** | Reversibility | **Option (B) — additive-only** | Castle/gatherer/bank ship as **additive-optional** snapshot fields; `CarryingPlayer` is RETAINED and functional; build-from-bank is a **parallel** reducer, not a fork of `placePrimitive`. ⇒ **The V6-1.5 `CarryingPlayer` deletion moves to V6-4.3.** No `pivot/phase1` branch; work lands on master behind additive shape. |
 | **Naming** | `worker` → `gatherer` | **Gatherer everywhere** | Docs AND code. The identifier **cannot** be `Worker` (the Web Worker owns the authoritative World). Applies from V6-1.1, the slot that first creates the type. Rename the doc prose in the same change so no split vocabulary ever exists. |
 | **R19** | Connected-structure score bonus | **KEEP IT** | `FUNCTIONAL_BOND_COMPLEXITY` stays in scoring. The owner re-affirmed his own S84 decision (rationale recorded verbatim at `constants.ts:227-231`). ⇒ **V6-1.6 must NOT remove it**, and the 12–14% lengthening of non-magic connected builds is accepted, not a regression to fix. |
+
+## B4 IN FULL — THE GATHERER ORDER QUEUE (owner-specified S134, supersedes "filters")
+
+⛔ **DO NOT IMPLEMENT A PREDICATE/FILTER. The first draft of this ruling recorded "exact type
+filters" and the owner corrected it.** A filter is a standing rule ("always prefer squares").
+That is **not** the mechanic. The mechanic is an **ordered, consumed production queue**, the
+Red Alert / Command & Conquer idiom the owner named directly.
+
+**The model, in his words:** *"there should be a queue that you just select what the gatherer
+should target next … you're not selecting whole recipes (at least not in the beginning) but
+clicking one by one on the shapes (primitives) that they collect in a queue. like in red alert
+you click on a type of a soldier like x8 times, it will be built 8 times."*
+
+| Aspect | RULING |
+|---|---|
+| Unit of ordering | **A single PRIMITIVE**, never a recipe. Recipes are explicitly out of scope "at least in the beginning" — do not smuggle a recipe button into V6-1.4. |
+| Interaction | **Click a shape N times ⇒ N queued.** Coalesce into one chip with an `×N` badge (RTS convention), not N separate entries. Cancel per chip. |
+| Ordering | **Ordered and consumed.** Leftmost is next; each delivery POPS one. Order matters — this is a list, not a set. |
+| Scope | **ONE queue per player**, shared by all that player's gatherers. Not per-gatherer — no unit-selection UI in Phase 1. |
+| Empty queue | **Gatherers collect whatever is nearest.** The queue is a PRIORITY OVERRIDE, never an on/off switch — an unattended player still earns. This also means `pickTargetSpark`'s existing fall-through stays the default path. |
+| Bank full (5/5) | **Owner-specified, and better than any option offered:** a gatherer already carrying **still walks home and WAITS AT THE CASTLE holding its item** — nothing is dropped, destroyed, or stalled in the field. The instant the player spends a slot, it deposits and resumes. |
+| UI | **A FOOTER BAR along the bottom of the screen** holding every automation control: the shape buttons, the queue, the bank meter, and the gatherers-on toggle. Owner-specified placement. ⚠ Note this finally breaks the long-dead **no-HUD** lock (already revoked in the v0.6 Blueprint rewrite) — the footer is now a first-class surface, not an overlay. |
+
+⚠ **CONSEQUENCE TO WATCH AT BALANCE TIME — the waiting-gatherer buffer softens the 5-slot cap.**
+Effective burst capacity is **5 + (gatherers waiting loaded at the castle)**, because each spend
+is immediately topped up by a waiting unit. Placement consumes one primitive at a time, so with
+4 loaded gatherers waiting a player can place ~9 pieces in a burst without any new hauling —
+which is **more than the 8-piece Voltkin / laserTurret recipes**. That partially re-opens the
+exact hazard the 5-slot cap was chosen to close. **Not a reason to change the ruling** — the
+waiting cluster is a deliberate and legible signal — but the bank cap and the recipe-size table
+must be judged against `5 + N`, never against `5`.
+📌 **NEEDS ONE CONFIRMATION before V6-1.4 ships:** does an **unloaded** gatherer still set out
+when the bank is already full? The owner's phrasing ("they bring their *last haul*") reads as
+NO — only units already mid-haul come home and wait — which bounds `N` to the in-flight count
+rather than the whole gatherer population. Implement that reading; flag it at playtest.
 
 ⚠ **B5 (match length) is NOT ruled and still lives in V6-4.3.** Score is quadratic
 (`score(T) = 0.0125·T²`), so a 6× faucet compresses match length by ~1/√throughput. The
