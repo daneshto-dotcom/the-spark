@@ -903,9 +903,12 @@ export const CHEW_INTERVAL_TICKS = 60; // 1 s/hit → CHEW_HITS × this = 5 s/co
 // Council (S104) reconciled the raise DOWN from a proposed 18/6: 12/4 is a measured, modest step
 // (the original TOWER_DEFENSE_DESIGN spec'd 14 before the conservative drop to 8); 18 stays a
 // documented post-playtest ceiling, not the ship value. WIRE: a trimMirrorCreature'd chewer is
-// ~124 B JSON; the full world rides the DataChannel every 100ms (NET_SNAPSHOT_HZ, no delta-encode),
-// so 12 chewers ≈ +1.5 KiB/snapshot vs 8 — trivial on WebRTC (Trystero auto-chunks), guarded by the
-// wire-size assertion in save.replay.test.ts. CHEWER_MAX_PER_VICTIM (below) stays the governor of how
+// ⚠ CORRECTED S134 (the old "~124 B" was never measured, in either era) — MEASURED ~139.5 B JSON
+// mid-chew after S133's chewProgress/targetBondId un-strip, and ~+41 B/creature more after S134's
+// despawnAtTick/sourceSpawnerId un-strip. The full world rides the DataChannel every 100ms
+// (NET_SNAPSHOT_HZ, no delta-encode), so 12 chewers ≈ +558 B/snapshot vs 8 — the old "≈ +1.5 KiB"
+// was ~3× high. Trivial on WebRTC (Trystero auto-chunks), guarded by the
+// wire-size assertion in save.replay.test.ts — ⚠ which is FIXTURE-scoped and not a runtime budget. CHEWER_MAX_PER_VICTIM (below) stays the governor of how
 // many can attack ONE player at once in 1v1/vs-bots; the global cap mostly matters in FFA.
 export const CHEWER_MAX_GLOBAL = 12; // hard ceiling on live chewers (overlap buffer; post-playtest ceiling 18)
 export const CHEWER_MAX_PER_SPAWNER = 4; // overlap buffer above the ~3.3 steady-state; destruction rate scales with this

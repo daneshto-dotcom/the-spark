@@ -586,6 +586,34 @@ Sequenced so the core loop is **playable by V6-1.7** and everything after lands 
 > 8/8 stayed green. That is the S133 M9 lesson verbatim. Fixture now carries a mid-zap
 > Voltkin AND a spawner-emitted mid-zap drone to force the destructure branch.
 >
+> 🐞 **NEW CARRY-FORWARD — THE HUNTER HAS THE IDENTICAL DEFECT, ONE ENTITY FAMILY OVER.**
+> Found by CHECK (RALPH:PATROL), verified by reading: `serializeHunter` (`save.ts:1658-1665`)
+> emits **no lifetime field at all** and `deserializeHunter` **hardcodes `despawnAtTick: 0`**
+> (`save.ts:1683`), while `hunterLifecycle.ts:148` is `if (world.tick >= hunter.despawnAtTick) {`
+> on the SEEKING branch. Both seams reach it — `snapshot()` serializes hunters and
+> `applySnapshotCore` rehydrates them via the same `restore()` the worker sim calls. So on
+> host migration **or** worker-failure direct-resume, a live hunter escapes to DESPAWNING on
+> the successor's first hunter tick, and because `world.hunterSpawned` DOES serialize, the
+> once-per-match gate blocks a respawn ⇒ **the leader-punish mechanic is silently gone for
+> the rest of the match.** MEDIUM not CRITICAL: bounded to one hunter per match, and the
+> outcome is a silent escape rather than a detonation.
+> **NOT fixed in S134 — deliberately out of scope, logged here per INTEGRITY-WARNING.** The
+> fix is the same shape: emit `despawnAtTick` from `serializeHunter`, rehydrate
+> `s.despawnAtTick ?? 0`, and add a test that puts a SEEKING hunter through the wire and
+> asserts it is still SEEKING after 5 `runHostTick`s. ⚠ **`SPARK_Blueprint.md:725-729` still
+> declares this bug "still live and unguarded in three paths" — strike that paragraph in the
+> SAME change that closes the hunter case, not before**, since its three paths do not include
+> hunters and it is now the only accurate warning left.
+>
+> 🔭 **AND THE SYSTEMIC GAP THAT LET BOTH HIDE.** `workerSim.differential.test.ts:236` is the
+> repo's strongest `restore()` guard — a bit-exact `hashWorldStateFull` INIT comparison that
+> DOES hash `sourceSpawnerId` and `despawnAtTick` — but it runs on a world built by
+> dispatching `START_GAME`, so **`world.creatures` and `world.hunters` are both EMPTY** at the
+> moment it hashes. It is structurally blind to every creature/hunter serializer omission,
+> which is why this defect had to be found by a manual `?worker=1` measurement. Seeding that
+> rig with one Voltkin, one spawner-emitted chewer and one hunter would turn it into a real
+> omission detector for the next field. Follow-up, not a blocker.
+>
 > 📌 **STILL OPEN, logged not fixed:** (a) `prevPos`/`targetPos`/`spawnedAtTick` have **no
 > serializer surface at all**, so the successor's world is NOT equal to the predecessor's —
 > do not write a host-vs-successor `hashWorldStateFull` equality test expecting it to pass;

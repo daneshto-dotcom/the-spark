@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 78,
+  "tool_calls_session_total": 200,
   "session_id": "S134",
   "session_kind": "pdca",
   "session_start": "2026-08-07T08:16:48",
@@ -29,7 +29,92 @@
       "checkpoint_commit": "b3e02b4",
       "check_method": "RED-FIRST + MUTATION MATRIX, all observed not predicted. (1) Wrote save.creatureLifetime.test.ts BEFORE any production edit and ran it: 6 failed / 2 passed, incl. TEST B2 showing creatures.size==0 after 5 real runHostTicks (end-to-end population deletion) and TEST D2 showing P0 null-spawner population 2 instead of 1 (the masked Voltkin-summon-block defect). (2) Applied the two edits; tsc 0; full suite 2 failed / 2026 passed with BOTH failures being the intentional characterization locks (save.migrationDamage.test.ts CHARACTERIZATION, save.replay.test.ts wire budget) and NO third failure — the number the Council held me to. (3) Inverted both locks in place per the S133 precedent, keeping the still-broken spawnedAtTick assertions live. (4) Full gate: tsc 0, vitest 2028/2028 across 133 files (+8 tests /+1 file vs the 2020/132 baseline), npm run build OK, bundle 645.3/750 KiB = -88 B vs S133. (5) Wire re-measured in-test on the worst-case 12-mid-chew-chewer fixture: 12,821 -> 13,313 B (+492 B, +3.8%), independently reproducing the Council figure to the byte. (6) MUTATION MATRIX 3/3 via a script FILE with an anchor-count guard: M1 (re-couple emit) reds TEST A/B/B2; M2 (restore wire strip) reds B/B2/C while TEST A STAYS GREEN; M3 (restore spawner strip) reds D/D2 only. That M1-vs-M2 asymmetry is the proof the two edits fix DIFFERENT consumers and neither alone suffices. (7) TWO FALSE PASSES CAUGHT AND FIXED IN THE MATRIX ITSELF: first CRLF anchors matched 0 times (save.ts is 1780 CRLF / 0 LF) and the guard refused to report; then M2/M3 passed 8/8 because no fixture creature had a targetCreatureId, so every creature took trimMirrorCreature EARLY RETURN and the mutations hit dead code — the S133 M9 lesson verbatim. Fixture now carries a mid-zap Voltkin AND a spawner-emitted mid-zap drone. (8) gitleaks: 859 commits, no leaks. NOT VERIFIED AT RUNTIME: no two-tab boot-then-smoke; e2e/hostmigration.spec.ts is @quarantine-flaky, excluded from the gating lane, and contains zero occurrences of creature. Logged as a follow-up, not claimed as done.",
       "real_context_tokens_at_close": 283125,
-      "real_context_pct_at_close": 28.31
+      "real_context_pct_at_close": 28.31,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "CLOSED S134 P1",
+          "note": "the carry-forward ledger records the fix + the separately-logged worker-INIT finding (owner ruling 3). THIS is the binding whose absence hard-failed MCV."
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "destroyed **on the original host**, no peer and no disconnect.",
+          "note": "ledger records the worker-INIT defect as live WITHOUT migration (owner ruling 3: its own logged finding, not silently absorbed)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "despawnAtTick: c.despawnAtTick,",
+          "note": "Edit 1 — the emit is now UNCONDITIONAL, decoupled from the sourceSpawnerId spread (save.ts:1340)"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "sourceSpawnerId: c.sourceSpawnerId, despawnAtTick: c.despawnAtTick",
+          "note": "the old COUPLED spread is gone — verified count 0 on disk"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "despawnAtTick: _d",
+          "note": "Edit 2 — the wire strip of despawnAtTick is gone from trimMirrorCreature. This is the load-bearing half; without it Edit 1 is a no-op for host migration."
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "sourceSpawnerId: _s",
+          "note": "the wire strip of sourceSpawnerId is gone — re-arms CHEWER_MAX_PER_SPAWNER / DRONE_MAX_PER_SPAWNER on a promoted host"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "targetCreatureId: _tc,",
+          "note": "targetCreatureId IS still stripped, correctly — host AI re-acquires it every IDLE tick (save.ts:892)"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.creatureLifetime.test.ts",
+          "note": "the new RED-first suite: TEST A disk/worker-INIT, B/B2 promotion, C drone detonation, D/D2 caps"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.creatureLifetime.test.ts",
+          "needle": "the M3 detector",
+          "note": "the fixture carries a spawner-emitted mid-zap DRONE — without it M2/M3 mutate dead code behind trimMirrorCreature early return and pass 8/8"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.migrationDamage.test.ts",
+          "needle": "expect(Number(client.creatures.get(CHEWER)!.sourceSpawnerId)).toBe(5);",
+          "note": "S133 characterization lock INVERTED in place, not deleted (line 140)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.replay.test.ts",
+          "needle": "expect(creaturesWire).toContain('despawnAtTick');",
+          "note": "wire-shape lock inverted (line 855)"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.replay.test.ts",
+          "needle": "not.toContain('despawnAtTick')",
+          "note": "the assertion that LOCKED IN the bug is gone — verified count 0 on disk"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/workerSim.ts",
+          "needle": "AUTHORITATIVE CONSUMER OF THE DISK SERIALIZER",
+          "note": "Edit 7 anchor at workerSim.ts:199 — stops a future perf pass re-trimming this path"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.claude/plans/2026-08-07_PDR_S134_Creature_Lifetime_Serialization.md",
+          "needle": "HOT_PATH_REFACTOR: true",
+          "note": "Standard-tier 8-field PDR, Council R1 completed before the PDR was written"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [

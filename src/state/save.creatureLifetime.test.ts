@@ -19,17 +19,25 @@
  * covers that path; TEST B/C cover promotion; TEST D covers the masked caps defect.
  *
  * Every test here was observed RED against the pre-S134 code before the fix was written,
- * and each is pinned by a named mutation in the session's mutation matrix:
- *   M1 restore the emit coupling            → TEST A re-RED (B/C/D unaffected)
- *   M2 restore `despawnAtTick` in the trim   → TESTS B + C re-RED, TEST A stays GREEN
- *   M3 restore `sourceSpawnerId` in the trim → TEST D re-RED
- * The M1/M2 asymmetry is the point: the two edits fix DIFFERENT consumers and neither
- * alone is sufficient. Three separate docblocks in `save.ts` claimed the emit condition
- * was the whole fix; it is not, because the trim runs afterward.
+ * and each is pinned by a named mutation, re-validated after every fixture change:
+ *   M1 restore the emit coupling             → TESTS A, B, B2 re-RED
+ *   M2 restore `despawnAtTick` in the trim    → TESTS B, B2, C re-RED; TEST A stays GREEN
+ *   M3 restore `sourceSpawnerId` in the trim  → TESTS D, D2 re-RED
+ * THE M1/M2 ASYMMETRY IS THE POINT: TEST A goes through `snapshot()`/`restore()` and never
+ * touches the trim, so it is red under M1 and green under M2. That is what demonstrates the
+ * two edits repair DIFFERENT consumers and neither alone is sufficient — three docblocks in
+ * `save.ts` claimed the emit condition was the whole fix, and it is not.
+ *
+ * ⚠ RE-RUN THE MATRIX AFTER ANY FIXTURE CHANGE. It has produced a false all-green twice in
+ * this file's history, both times because the fixture routed around the mutated line rather
+ * than because an assertion was weak — first with no zap target at all (every creature took
+ * the trim's early return), then with the P1-owned creature being the CHEWER, which has no
+ * zap target and is therefore immune to M3. A mutation that fails to red is not evidence the
+ * code is covered; it is evidence the mutated line never executed.
  */
 import { describe, expect, it } from 'vitest';
 import { applyNetSnapshot, netSnapshot, restore, snapshot } from './save.ts';
-import { dispatch, makeWorld } from './world.ts';
+import { makeWorld } from './world.ts';
 import { makeCreature } from './creatures/creature.ts';
 import { applySpawnCreature } from './creatures/creatureLifecycle.ts';
 import {
@@ -44,7 +52,6 @@ import { DEFAULT_SPAWNER_CONFIG, Spawner } from '../game/spawner.ts';
 import { SpatialGrid } from '../physics/spatial.ts';
 import type { ControlsLike } from '../input/controlsCore.ts';
 import {
-  asBondId,
   asCreatureId,
   asPlayerId,
   asPrimitiveId,
@@ -123,10 +130,19 @@ function hostWorldWithLifetimes(): World {
     targetCreatureId: CHEWER, // mid-zap ⇒ forces the trim DESTRUCTURE branch
   });
 
+  // ⚠ THE DRONE IS OWNED BY P1, AND THAT IS LOAD-BEARING — two earlier drafts got it wrong.
+  // TEST D2 asserts that a rehydrated spawner-emitted creature is not mis-counted as the
+  // summoning player's Voltkin, so the P1-owned creature must be one that mutation M3 can
+  // actually strip. Draft 1 owned everything with P0 and summoned as P1, so P0's creatures
+  // could never block the gate and the assertion passed unconditionally. Draft 2 moved the
+  // CHEWER to P1 — still wrong, because the chewer has no zap target, takes
+  // `trimMirrorCreature`'s EARLY RETURN, and is therefore IMMUNE to M3. Only a creature
+  // with BOTH a spawner and a zap target reaches the destructure, and the drone is the one
+  // realistic creature that carries both.
   w.creatures.set(DRONE, {
     ...makeCreature(LIGHTNING_DRONE_CONFIG, {
       id: DRONE,
-      ownerPlayerId: P0,
+      ownerPlayerId: P1,
       pos: { x: 500, y: 500 },
       targetPos: { x: 900, y: 900 },
       spawnedAtTick: DRONE_SPAWNED,
@@ -222,15 +238,37 @@ describe('S134 P1 — creature lifetime survives serialization', () => {
     const client = throughTheWire(host);
     client.isHost = true;
 
-    // hostTick Step 1.5: `fuseExpiring = world.tick >= despawnAtTick - 1`. With the
-    // rehydrated 0 that is `700 >= -1` — unconditionally true — so DRONE_EXPLODE fires on
-    // the successor's FIRST tick, BEFORE the lifetime gate, severing up to
-    // DRONE_MAX_CONNECTORS enemy bonds per drone. With the lifetime intact the fuse is far
-    // from expiring and the drone simply flies on.
     const inherited = client.creatures.get(DRONE);
     expect(inherited).toBeDefined();
     expect(inherited!.despawnAtTick).toBe(DRONE_EXPIRY);
-    expect(client.tick >= inherited!.despawnAtTick - 1).toBe(false);
+
+    // ⚠ The state must be re-asserted ON THE CLIENT. `state` does ride the wire, but the
+    // drone is put back into SEEKING explicitly here so this test cannot quietly stop
+    // exercising hostTick Step 1.5 if the FSM's post-apply state ever changes — the branch
+    // is gated on `droneCandidate.state === 'SEEKING'` and a SPAWNING drone skips it
+    // entirely (LIGHTNING_DRONE_CONFIG.spawnTicks is 30, so a freshly-made drone cannot
+    // reach SEEKING inside this loop).
+    (client.creatures.get(DRONE) as { state: string }).state = 'SEEKING';
+
+    const deps: HostTickDeps = {
+      spawner: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(1)),
+      grid: new SpatialGrid(32),
+      controls: { state: { kind: 'Idle' }, applyPerSubstep() {} } as unknown as ControlsLike,
+      botManager: null,
+      gameStateExtras: makeGameStateExtras(),
+      alivePeerIds: null,
+      hostSeats: new Map(),
+    };
+    const state = makeHostTickState(client);
+
+    // ⛔ RUNS THE REAL BRANCH rather than re-deriving its predicate. An earlier draft
+    // asserted `client.tick >= despawnAtTick - 1` — a hand-copy of hostTick Step 1.5's
+    // `fuseExpiring` — which would stay green if that predicate ever changed field or
+    // offset. Now the production tick actually executes: with despawnAtTick rehydrated 0
+    // the fuse reads `700 >= -1`, unconditionally true, and DRONE_EXPLODE deletes the drone
+    // (and severs up to DRONE_MAX_CONNECTORS enemy bonds) on the very first tick.
+    for (let t = 0; t < 5; t++) runHostTick(client, deps, state);
+    expect(client.creatures.has(DRONE)).toBe(true);
   });
 
   it('TEST D — per-spawner caps still work on a promoted host (sourceSpawnerId survives)', () => {
@@ -258,22 +296,21 @@ describe('S134 P1 — creature lifetime survives serialization', () => {
     expect(client.creatures.get(VOLTKIN)!.sourceSpawnerId).toBeNull();
   });
 
-  it('TEST D2 — a rehydrated chewer is NOT counted as its owner Voltkin population', () => {
+  it('TEST D2 — a rehydrated spawner-emitted creature is NOT counted as a Voltkin', () => {
     const client = throughTheWire(hostWorldWithLifetimes());
     client.isHost = true;
     client.tick = HOST_TICK;
 
     // `applySpawnCreature` routes on `sourceSpawnerId === null` to the Voltkin branch and
-    // enforces max-1 per owner over the null-spawner population. With the chewer's spawner
-    // rehydrated null it was counted as P0's Voltkin, blocking P0's own summon. P0 already
-    // has a real Voltkin here, so use P1 — whose only null-spawner creature pre-fix was
-    // the mis-attributed... nothing; the assertion is that P1 CAN summon, and that P0's
-    // count is exactly its one genuine Voltkin.
-    const nullSpawnerForP0 = [...client.creatures.values()].filter(
-      (c) => c.sourceSpawnerId === null && c.ownerPlayerId === P0,
+    // rejects when a null-spawner creature belongs to the SUMMONING player
+    // (`creatureLifecycle.ts`: `c.sourceSpawnerId === null && c.ownerPlayerId === action.ownerPlayerId`).
+    // P1 owns exactly one creature — the spawner-emitted DRONE — and no genuine Voltkin.
+    // Pre-fix that drone rehydrated with a null spawner, was mis-read as P1's Voltkin, and
+    // BLOCKED P1's own summon. Post-fix it keeps spawner 5 and the summon lands.
+    const nullSpawnerForP1 = [...client.creatures.values()].filter(
+      (c) => c.sourceSpawnerId === null && c.ownerPlayerId === P1,
     );
-    expect(nullSpawnerForP0).toHaveLength(1);
-    expect(nullSpawnerForP0[0]!.id).toBe(VOLTKIN);
+    expect(nullSpawnerForP1).toHaveLength(0);
 
     const before = client.creatures.size;
     applySpawnCreature(client, {
@@ -285,6 +322,8 @@ describe('S134 P1 — creature lifetime survives serialization', () => {
       sourceSpawnerId: null,
       anchorPrimitiveId: asPrimitiveId(1),
     } as never);
+    // THE M3 DETECTOR. Under mutation M3 the chewer's spawner rehydrates null, P1 appears
+    // to already own a Voltkin, and this spawn is silently refused ⇒ size unchanged.
     expect(client.creatures.size).toBe(before + 1);
   });
 
@@ -308,7 +347,5 @@ describe('S134 P1 — creature lifetime survives serialization', () => {
     expect(v.spawnedAtTick).toBe(0);
     expect(v.prevPos).toEqual(v.pos);
     expect(v.targetPos).toEqual(v.pos);
-    void asBondId;
-    void dispatch;
   });
 });

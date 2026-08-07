@@ -198,10 +198,16 @@ export function makeWorkerSim(
   const snap = JSON.parse(init.saveJson) as WorldSnapshot;
   // ⛔ S134 P1 — THIS IS AN AUTHORITATIVE CONSUMER OF THE DISK SERIALIZER, not a mirror.
   // `main.ts` builds `init.saveJson` with `snapshot(world, ...)` and two lines below we set
-  // `isHost = true`, so from here on this world RUNS THE SIM. Any creature/entity field the
-  // host sim reads must therefore be emitted by `serializeCreature` UNCONDITIONALLY — it is
-  // not enough for it to be "on the wire" or "in the save", and a field emitted only for
-  // some entity subtype silently corrupts the others.
+  // `isHost = true`, so from here on this world RUNS THE SIM. Any entity field the host sim
+  // reads must therefore SURVIVE this round-trip for EVERY subtype — a field emitted only
+  // for some subtype silently corrupts the others. Emitting unconditionally is the way to
+  // get that when the field has no safe absent-value; where absence rehydrates to the
+  // correct value it may stay conditional (`sourceSpawnerId` is emitted only when non-null
+  // precisely because `?? null` restores a Voltkin's null exactly).
+  // ⚠ KNOWN VIOLATION, logged not fixed: `serializeHunter` emits no lifetime and
+  // `deserializeHunter` hardcodes `despawnAtTick: 0`, so a SEEKING hunter arriving through
+  // here escapes to DESPAWNING on the successor's first hunter tick. Same field, same `>=`
+  // gate, same seam. See the S134 carry-forward in BACKLOG.md.
   // This bit for real: until S134 `despawnAtTick` was emitted only when
   // `sourceSpawnerId !== null`, and a Voltkin hardcodes null — so under `?worker=1` a
   // Voltkin arrived here with despawnAtTick 0 and was deleted on the worker's FIRST

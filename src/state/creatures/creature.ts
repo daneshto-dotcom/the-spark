@@ -228,9 +228,11 @@ export interface Creature {
    * Voltkin (lifetime-bound, summoned via the godly cinematic single-slot);
    * a `SpawnerId` for a chewer (persistent, emitted by that spawner-structure).
    *
-   * Host-only — STRIPPED from the wire (`netSnapshot`) but ROUND-TRIPPED through
-   * the host save path (the SerializedBomb.dissipateAtTick precedent), so a
-   * persistent chewer rehydrated host-side keeps its provenance. Drives:
+   * ⚠ CORRECTED S134 — NO LONGER stripped from the wire. It was host-save-only (the
+   * SerializedBomb.dissipateAtTick precedent), which meant a promoted successor lost every
+   * creature's provenance: the per-spawner caps silently degraded to the global cap and a
+   * rehydrated chewer/drone was mis-counted as its owner's Voltkin, blocking their summon.
+   * Now round-trips on BOTH the save and the wire. Drives:
    *   - the split max-1 cap (Voltkin `null`-population counted independently of
    *     the chewer `SpawnerId`-population) so a swarm never blocks a summon (R10);
    *   - FFA target-spread (`mix32(creatureId, sourceSpawnerId)`);

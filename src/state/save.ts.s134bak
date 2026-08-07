@@ -111,12 +111,8 @@ export interface WorldSnapshot {
    * S27 RALPH Δ8 visual regression where client saw bonds vanish without
    * visible creature/ARC_FLASH). Council Q4 2/3 B trimmed render-only shape:
    * client doesn't simulate AI so targetBondId/targetPos/prevPos/spawnedAtTick/
-   * despawnAtTick/ownerPlayerId were all omitted (~36 B/creature × max 2 = ~72 B per
-   * snapshot — negligible vs prims/bonds payload).
-   * ⚠ CORRECTED S134 — that list is HISTORY, not the current contract. `ownerPlayerId`
-   * (S58), `targetBondId` (S133) and `despawnAtTick` (S134) all ride the wire now. Only
-   * `targetCreatureId` is stripped; `targetPos`/`prevPos`/`spawnedAtTick` have no
-   * serializer surface at all. The single source of truth is `trimMirrorCreature`. Pre-S28 saves omit this
+   * despawnAtTick/ownerPlayerId all omitted (~36 B/creature × max 2 = ~72 B per
+   * snapshot — negligible vs prims/bonds payload). Pre-S28 saves omit this
    * field; applySnapshotCore handles `undefined` via nullish-coalescing (Δ3).
    */
   creatures?: SerializedCreature[];
@@ -449,17 +445,14 @@ interface SerializedCreature {
    * ROUND-TRIPPED through the host save path (`snapshot()` → `restore()`) so a
    * persistent mid-chew chewer survives a save/load (TOWER_DEFENSE_DESIGN.md §3.5,
    * R3) — the SerializedBomb.dissipateAtTick precedent.
-   * ⚠ AMENDED S134 — ONLY `targetCreatureId` is still stripped from the wire by
-   * `netSnapshot()`. `chewProgress` + `targetBondId` were un-stripped in S133 (a successor
-   * inherited every chew reset to zero, and chewProgress IS the bond's HP);
-   * `despawnAtTick` + `sourceSpawnerId` in S134 (a successor deleted its whole creature
-   * population and mass-detonated its drones). See `trimMirrorCreature`.
-   * ⛔ THE VOLTKIN BYTE-IDENTITY PROPERTY IS DELIBERATELY BROKEN AS OF S134 — do not cite
-   * it as a constraint. `despawnAtTick` is now emitted for EVERY creature including a
-   * Voltkin, so the Voltkin wire shape HAS changed and pre-S100 byte-equivalence no longer
-   * holds for it. That was the price of the fix and it was paid knowingly (+21 B/Voltkin,
-   * +41 B/chewer, measured). `sourceSpawnerId` stays conditional NOT to preserve that
-   * property but because absence rehydrates to the correct value via `?? null`.
+   * ⚠ AMENDED S133 — only THREE of these are still stripped from the wire by
+   * `netSnapshot()` (sourceSpawnerId / despawnAtTick / targetCreatureId). `chewProgress`
+   * and `targetBondId` now RIDE THE WIRE: stripping them meant a host-migration successor
+   * inherited every chew reset to zero, and chewProgress IS the bond's HP. See
+   * trimMirrorCreature. All four are additive-optional + emitted ONLY when non-default
+   * (a Voltkin — sourceSpawnerId:null / chewProgress:0 / targetBondId:null — emits
+   * NONE of them, so every pre-S100 save + the Voltkin replay byte-equivalence stay
+   * byte-identical, and the wire shape for a Voltkin is unchanged).
    *
    *  - despawnAtTick: a persistent chewer's lifetime is governed by the FSM
    *    `!config.persistent` gate, but `deserializeCreature` defaults despawnAtTick=0
@@ -467,8 +460,7 @@ interface SerializedCreature {
    *    save/load preserves the construction-time value.
    *  - chewProgress: the in-flight chew accumulator vs the committed bond.
    *  - sourceSpawnerId: provenance (which spawner minted it) — drives the split caps
-   *    + FFA target-spread + scoped stickiness. ⚠ CORRECTED S134 — NO LONGER lost on the
-   *    wire; it survives, which is what keeps the per-spawner caps armed on a successor.
+   *    + FFA target-spread + scoped stickiness; lost on the wire (rehydrates null).
    *  - targetBondId: the committed bond the chewer is chewing; round-tripped so a
    *    mid-chew save resumes against the same bond (the wire rehydrates it null since
    *    the client doesn't run the AI).
@@ -792,10 +784,11 @@ export function netSnapshot(world: World): NetSnapshot {
   void _savedAt; void _rngSeed; void _nextPrimitiveId; void _nextBondId; void _spawner;
   // S100 P1 (TD Phase 1a) — strip the HOST-SAVE-ONLY persistent chewer fields from the
   // wire (TOWER_DEFENSE_DESIGN.md §3.3/§3.5 R1+R3).
-  // ⚠ AMENDED S134 — the stripped set is now `targetCreatureId` ONLY. `hp`/`chewProgress`/
-  // `targetBondId` were un-stripped in S133 (damage reverted on every handoff);
-  // `despawnAtTick`/`sourceSpawnerId` in S134 (the successor deleted its entire creature
-  // population and mass-detonated its drones) — see the trimMirrorCreature docblock.
+  // ⚠ AMENDED S133 P1 — the stripped set is now sourceSpawnerId/despawnAtTick/
+  // targetCreatureId ONLY. `hp`, `chewProgress` and `targetBondId` now RIDE THE WIRE,
+  // because stripping them meant a host-migration successor took over with all damage
+  // reverted — see the trimMirrorCreature docblock for the full reasoning and for the
+  // lifecycle fields that are still stripped.
   // here we re-map `creatures` to drop them so a swarm doesn't balloon the 10 Hz full-world
   // payload, and the client (which never simulates) rehydrates them neutral (null/0). When
   // no chewer is live this re-map is a no-op (Voltkin emits none of those keys anyway), so
@@ -1299,14 +1292,9 @@ function serializePlayer(p: Player): SerializedPlayer {
 
 /**
  * S28 P0 — Voltkin Phase 2D Council Q4 2/3 B trimmed shape: only fields the
- * client renderer needs (id/type/pos/state/ticksInState).
- * ⚠ CORRECTED S134 — the old sentence here said the AI + lifecycle fields
- * "(targetBondId, targetPos, prevPos, spawnedAtTick, despawnAtTick) stay omitted — host
- * runs FSM, client only renders". That is no longer true and its survival mattered: it sat
- * 44 lines above the emit it described and helped a real bug live an extra session.
- * `targetBondId` (S133) and `despawnAtTick` (S134) ARE emitted; `despawnAtTick`
- * unconditionally, because a promoted client DOES run the FSM. Only `targetPos`, `prevPos`
- * and `spawnedAtTick` are genuinely omitted — they have no `SerializedCreature` field.
+ * client renderer needs (id/type/pos/state/ticksInState). AI + lifecycle fields
+ * (targetBondId, targetPos, prevPos, spawnedAtTick, despawnAtTick) stay omitted
+ * — host runs FSM, client only renders.
  * S58 (#3) — `ownerPlayerId` is now emitted: the client fog mask reveals around
  * OWN creatures, so the joiner needs to know which creatures are its own.
  */
@@ -1575,23 +1563,18 @@ function deserializeEffect(s: SerializedEffect): GameEffect {
 
 /**
  * S28 P0 — rehydrate a SerializedCreature. On the WIRE (client mirror) the sim-only
- * fields (prevPos, targetPos, spawnedAtTick) are reconstructed with neutral defaults:
- * prevPos snaps to pos (zero implicit velocity — client never integrates anyway),
- * targetPos snaps to pos (no AI), spawnedAtTick=0.
- * ⛔ CORRECTED S134 — this list used to include `targetBondId` and `despawnAtTick` and
- * called `despawnAtTick=0` a neutral default the "renderer ignores — host owns the despawn
- * dispatch". BOTH CLAIMS WERE FALSE and this exact sentence is why the bug survived S133:
- * a promoted client BECOMES the host and runs the despawn dispatch itself, and 0 is a
- * DETONATION value there, not a neutral one (it makes the lifetime gate and the drone fuse
- * unconditionally true). `targetBondId` has ridden the wire since S133 and `despawnAtTick`
- * since S134; their coalesces below are stale-peer back-compat, not the normal path.
+ * fields (prevPos, targetPos, targetBondId, spawnedAtTick, despawnAtTick) are
+ * reconstructed with neutral defaults: prevPos snaps to pos (zero implicit velocity —
+ * client never integrates anyway), targetPos snaps to pos (no AI), spawnedAtTick=0,
+ * and (when absent) targetBondId=null + despawnAtTick=0 (renderer ignores — host owns
+ * the despawn dispatch).
  * S58 (#3) — `ownerPlayerId` now rehydrates from the wire (was hardcoded 0);
  * the client fog mask reveals around OWN creatures. Pre-S58 NetSnapshots omit
  * the field → nullish-coalesce to 0 (old data stays valid).
  * S100 P1 (TD Phase 1a) — on the HOST SAVE path `snapshot()` ROUND-TRIPS despawnAtTick /
  * targetBondId / sourceSpawnerId / chewProgress for a persistent mid-chew chewer (R3).
- * ⚠ AMENDED S134 — the wire now strips only targetCreatureId; chewProgress, targetBondId,
- * despawnAtTick and sourceSpawnerId all arrive intact, so their nullish-coalescing
+ * ⚠ AMENDED S133 — the wire now strips only sourceSpawnerId / despawnAtTick /
+ * targetCreatureId; chewProgress and targetBondId arrive intact, so their nullish-coalescing
  * defaults below are no longer the normal path for a mirror. prevPos/targetPos/spawnedAtTick stay
  * host-derived/neutral as before (a chewer's pos-relative steering re-derives next tick).
  */
