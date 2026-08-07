@@ -430,6 +430,34 @@ SPARK is a **geometric builder duel** — up to 6 players, FFA, racing to build 
 
 ---
 
+# ✅ OWNER RULINGS — S134 (2026-08-07). PHASE 1 IS UNBLOCKED.
+
+**All six open v0.6 economy decisions were ruled by the owner in S134.** B3, B4, B5-adjacent
+and B6 are now SETTLED. Nothing in Phase 1 waits on a playtest any more — the `?probe=1`
+harness is NOT required to open V6-1.1, because S132 already measured the supply side
+empirically and the owner reported the overlay gives him nothing further to act on.
+
+| # | Decision | RULING | Consequence to honour |
+|---|---|---|---|
+| **B3** | Spark spawn rate | **6× more sparks** | Raise `SPAWN_RATE_PER_SECOND` from `0.1875` toward ~`1.125` so a bank fills in the 20–40 s the design assumes rather than ~248 s. ⚠ Re-check `FREE_SPARK_SOFT_CAP = 50` — S132 proved it unreachable dead code at the old rate; at 6× it becomes **live** and must be re-derived, not left. |
+| **B4** | Directive semantics | **Exact type filters** | Players may order "collect only squares". Predicate on `pickTargetSpark` (~2 lines, draws `rng()` once regardless of candidate count, so it **cannot** shift the replay stream). |
+| **B4b** | Bank capacity | **5 slots** | ⭐ **THE PAIRING IS THE POINT — NEVER TUNE THESE TWO APART.** Exact filters would delete carving only if the bank ≥ the biggest recipe. At 5 slots only the **pentagram (5)** is directly assemblable; lightningHub 6 · Helga 7 · Voltkin 8 · laserTurret 8 all still require staging and improvising. **Keep this recipe-size table adjacent to the cap number forever** (the S128 standing instruction). |
+| **B6** | Reversibility | **Option (B) — additive-only** | Castle/gatherer/bank ship as **additive-optional** snapshot fields; `CarryingPlayer` is RETAINED and functional; build-from-bank is a **parallel** reducer, not a fork of `placePrimitive`. ⇒ **The V6-1.5 `CarryingPlayer` deletion moves to V6-4.3.** No `pivot/phase1` branch; work lands on master behind additive shape. |
+| **Naming** | `worker` → `gatherer` | **Gatherer everywhere** | Docs AND code. The identifier **cannot** be `Worker` (the Web Worker owns the authoritative World). Applies from V6-1.1, the slot that first creates the type. Rename the doc prose in the same change so no split vocabulary ever exists. |
+| **R19** | Connected-structure score bonus | **KEEP IT** | `FUNCTIONAL_BOND_COMPLEXITY` stays in scoring. The owner re-affirmed his own S84 decision (rationale recorded verbatim at `constants.ts:227-231`). ⇒ **V6-1.6 must NOT remove it**, and the 12–14% lengthening of non-magic connected builds is accepted, not a regression to fix. |
+
+⚠ **B5 (match length) is NOT ruled and still lives in V6-4.3.** Score is quadratic
+(`score(T) = 0.0125·T²`), so a 6× faucet compresses match length by ~1/√throughput. The
+`PHASE_1_WIN_SCORE` / `SCORE_INCOME_PER_COMPLEXITY_PER_SEC` raise that implies is owned by
+V6-4.3 and by nothing before it — **do not silently re-tune either constant in Phase 1.**
+
+**NEXT SLOT: V6-1.1** (gatherer substrate + sim-worker default-on flip). Its three
+preconditions are now discharged. ⛔ Before writing that PDR, read R1/R3/R4/R23 in the ledger
+and note that flipping `?worker=1` on by default makes the S134 worker-INIT serialization
+hazard universal rather than opt-in — the creature case is fixed, **the hunter case is not.**
+
+---
+
 # V0.6 EXECUTION PLAN — V6-0.1 … V6-4.3
 
 **Labels are phase-relative and deliberately decoupled from session numbers** (S128 owner ruling). The

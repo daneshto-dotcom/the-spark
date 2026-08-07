@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 203,
+  "tool_calls_session_total": 210,
   "session_id": "S134",
   "session_kind": "pdca",
   "session_start": "2026-08-07T08:16:48",
@@ -113,6 +113,23 @@
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.claude/plans/2026-08-07_PDR_S134_Creature_Lifetime_Serialization.md",
           "needle": "HOT_PATH_REFACTOR: true",
           "note": "Standard-tier 8-field PDR, Council R1 completed before the PDR was written"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "OWNER RULINGS — S134 (2026-08-07). PHASE 1 IS UNBLOCKED."
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "THE PAIRING IS THE POINT — NEVER TUNE THESE TWO APART."
+        },
+        {
+          "type": "json_field",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.claude/session-state.json",
+          "key": "owner_rulings_s134.B4b_bank_slots",
+          "op": "==",
+          "value": 5
         }
       ]
     }
@@ -174,5 +191,15 @@
     "process_delta": "RE-RUN THE MUTATION MATRIX AFTER EVERY FIXTURE CHANGE, not once at the end — it produced a false green twice in one file, both times from branch-routing rather than weak assertions. And when a session diagnoses stale documentation as a root cause, grep the WHOLE file for the same stale claim before claiming it is corrected.",
     "owner_calls_resolved": "1 accept the mixed-build window (one refresh, bounded by tab lifetime not by refresh — corrected by the Rule-22 auditor); 2 caps re-enablement shipped and called out as a visible gameplay change; 3 worker-INIT defect given its own BACKLOG entry rather than silent absorption; 4 two-tab boot-then-smoke is a follow-up, since the e2e migration spec is quarantined and gates nothing today; 5 16 KiB budget flagged in-test, not re-based.",
     "not_verified": "No runtime verification of any kind. The vitest lane mocks the wire with JSON.parse(JSON.stringify(...)); nothing chains wire -> promote -> snapshot() -> restore(), which is exactly where the Voltkin died. e2e/hostmigration.spec.ts is quarantine-flaky, excluded from the gating lane, and contains zero occurrences of creature. NOT PUSHED — 3 commits local."
+  },
+  "owner_rulings_s134": {
+    "B3_spark_rate": "6x more sparks",
+    "B4_directives": "exact type filters",
+    "B4b_bank_slots": 5,
+    "B6_reversibility": "option B — additive-only, CarryingPlayer retained, deletion moves to V6-4.3",
+    "naming": "gatherer everywhere (docs + code)",
+    "R19_connected_bond_bonus": "KEEP — owner re-affirmed his S84 decision",
+    "B5_match_length": "NOT RULED — stays in V6-4.3",
+    "note": "All six ruled 2026-08-07 via terminal picker. Phase 1 unblocked; the ?probe=1 playtest is NOT a precondition (S132 already measured supply; owner reported the overlay is not actionable for him)."
   }
 }
