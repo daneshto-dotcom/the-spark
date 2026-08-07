@@ -481,6 +481,40 @@ when the bank is already full? The owner's phrasing ("they bring their *last hau
 NO — only units already mid-haul come home and wait — which bounds `N` to the in-flight count
 rather than the whole gatherer population. Implement that reading; flag it at playtest.
 
+## V6-1.1 RULINGS — S134 (the slot is now specified, not just unblocked)
+
+| # | Decision | RULING |
+|---|---|---|
+| **Gatherer count** | How many per player | **START AT 1.** More are BOUGHT from the castle — the count is a player decision, not a constant. ⇒ pulls a minimal production path forward out of V6-1.2. |
+| **⭐ Gatherer cost** | What they are bought with | **VICTORY POINTS — score becomes a CURRENCY.** See the dedicated note below; this is the most consequential ruling of the session. |
+| **Price** | Per gatherer | **~100**, ≈7% of `PHASE_1_WIN_SCORE` 1500. A flat price, not a rising curve — tune after it is playable. |
+| **Spend model** | Does buying cost you the win | **ONE POOL. Spending SETS YOU BACK.** Buy at 900 and you are at 800. No separate lifetime-earned total, no rising win threshold. One number on screen. |
+| **Art** | What a gatherer looks like | **A SHAPESHIFTING SPARK.** It looks like the player's own spark/cruiser and continuously morphs through the six primitives. **PROCEDURAL — no asset, no veo session, no bundle cost**, and it reads instantly as "this thing carries shapes". ⚠ Not literally per-tick (60 Hz would strobe) — a continuous cycle. |
+| **Morph semantics** | Does the shown shape mean anything | **PURELY COSMETIC.** ⇒ **RENDERER-ONLY.** It must NOT become world state: no `SerializedGatherer` field, no `FIELD_COVERAGE` entry, no wire cost, and it therefore cannot desync. Drive it from a pure function of `(tick, gathererId)` at render time. |
+| **Sim-worker flip** | Bundled into this slot? | **SPLIT OUT.** V6-1.1 no longer carries it. Close the S134 hunter residual FIRST, then flip in its own slot — flipping makes that serialization path universal instead of opt-in, and shipping a new entity family into a newly-universal path with a known open bug is the S133/S134 pattern repeating. |
+| **Slot split** | 1.1 vs 1.2 boundary | **Minimal keep in V6-1.1** — a placeholder castle that can take 100 score and emit a gatherer, which is the minimum that makes "start at 1" a real decision. V6-1.2 keeps the full castle entity, the spawner shrink (R9/R10) and the cadence work. |
+
+### ⭐ SCORE IS NOW A CURRENCY — the ruling with the widest blast radius
+
+Until now score was **write-only and monotonic**: accumulate `scoreProgress` toward
+`PHASE_1_WIN_SCORE = 1500` and nothing ever spent it. Buying gatherers makes it **spendable and
+non-monotonic**, which touches far more than V6-1.1:
+
+- **It is the first genuine score SINK in the game.** V6-1.6 ("energy gets sinks") was going to
+  invent one on `player.energy` — a field with **zero reads today**. Re-scope V6-1.6 against this:
+  two competing currencies may be one too many, and score is the one players already understand.
+- **Monotonicity assumptions must be audited.** `scoreByPlayer` is in `NARROW_HASHED_FAMILIES`
+  (`stateHash.ts`), so it is already hashed and synced — good — but anything that assumes score
+  only ever rises (progress bars, the leaderboard, the tier ring at 500/1000, `SCORE_TIER`
+  watermarking, the win check) must be re-read before this ships. **A tier crossing can now
+  happen DOWNWARD.**
+- **It interacts with B5 and the 6× faucet.** Spending lengthens matches; the 6× faucet shortens
+  them. They partially cancel, which is convenient but must not be mistaken for a plan —
+  **B5 is still owned by V6-4.3 and still unruled.**
+- **It gives the "invest vs cash out" decision the pivot was missing.** Every gatherer is a bet
+  that faster income beats the ground surrendered. That is the strategic core of the v0.6
+  economy, and it arrived from the owner rather than from the roadmap.
+
 ⚠ **B5 (match length) is NOT ruled and still lives in V6-4.3.** Score is quadratic
 (`score(T) = 0.0125·T²`), so a 6× faucet compresses match length by ~1/√throughput. The
 `PHASE_1_WIN_SCORE` / `SCORE_INCOME_PER_COMPLEXITY_PER_SEC` raise that implies is owned by

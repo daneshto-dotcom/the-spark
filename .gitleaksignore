@@ -1,0 +1,15 @@
+# gitleaks false-positive allowlist — FINGERPRINT-SCOPED ONLY.
+#
+# Each line pins ONE exact finding (commit:path:rule:line). Never add a rule-wide or
+# path-wide ignore here: a broad entry would silently suppress a real credential in the
+# same file forever, which is strictly worse than re-triaging a false positive.
+#
+# S134 — `generic-api-key` fires on the literal pattern `"key": "<high-entropy string>"`.
+# MCV verification bindings in .claude/session-state.json use a property named `key` whose
+# value is a dotted state path, e.g. `"key": "owner_rulings_s134.B4b_bank_slots"`. That
+# scores 4.11 entropy and trips the rule. It is a JSON pointer to a bank-slot count, not a
+# secret. Verified by reading the flagged line at the flagged commit before allowlisting.
+#
+# ⚠ Every future `json_field` MCV binding will trip this the same way. Triage each one by
+# actually reading the line — do NOT assume a new hit is this same pattern.
+438ad4258977433ad98f0f6e2665d69b6ffaf510:.claude/session-state.json:generic-api-key:130
