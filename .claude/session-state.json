@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 230,
+  "tool_calls_session_total": 239,
   "session_id": "S134",
   "session_kind": "pdca",
   "session_start": "2026-08-07T08:16:48",
@@ -26,7 +26,7 @@
       "unlock_source": "user",
       "check_completed": true,
       "pdr_file": ".claude/plans/2026-08-07_PDR_S134_Creature_Lifetime_Serialization.md",
-      "checkpoint_commit": "c98e2e2",
+      "checkpoint_commit": "d902571",
       "check_method": "RED-FIRST + MUTATION MATRIX, all observed not predicted. (1) Wrote save.creatureLifetime.test.ts BEFORE any production edit and ran it: 6 failed / 2 passed, incl. TEST B2 showing creatures.size==0 after 5 real runHostTicks (end-to-end population deletion) and TEST D2 showing P0 null-spawner population 2 instead of 1 (the masked Voltkin-summon-block defect). (2) Applied the two edits; tsc 0; full suite 2 failed / 2026 passed with BOTH failures being the intentional characterization locks (save.migrationDamage.test.ts CHARACTERIZATION, save.replay.test.ts wire budget) and NO third failure — the number the Council held me to. (3) Inverted both locks in place per the S133 precedent, keeping the still-broken spawnedAtTick assertions live. (4) Full gate: tsc 0, vitest 2028/2028 across 133 files (+8 tests /+1 file vs the 2020/132 baseline), npm run build OK, bundle 645.3/750 KiB = -88 B vs S133. (5) Wire re-measured in-test on the worst-case 12-mid-chew-chewer fixture: 12,821 -> 13,313 B (+492 B, +3.8%), independently reproducing the Council figure to the byte. (6) MUTATION MATRIX 3/3 via a script FILE with an anchor-count guard: M1 (re-couple emit) reds TEST A/B/B2; M2 (restore wire strip) reds B/B2/C while TEST A STAYS GREEN; M3 (restore spawner strip) reds D/D2 only. That M1-vs-M2 asymmetry is the proof the two edits fix DIFFERENT consumers and neither alone suffices. (7) TWO FALSE PASSES CAUGHT AND FIXED IN THE MATRIX ITSELF: first CRLF anchors matched 0 times (save.ts is 1780 CRLF / 0 LF) and the guard refused to report; then M2/M3 passed 8/8 because no fixture creature had a targetCreatureId, so every creature took trimMirrorCreature EARLY RETURN and the mutations hit dead code — the S133 M9 lesson verbatim. Fixture now carries a mid-zap Voltkin AND a spawner-emitted mid-zap drone. (8) gitleaks: 859 commits, no leaks. NOT VERIFIED AT RUNTIME: no two-tab boot-then-smoke; e2e/hostmigration.spec.ts is @quarantine-flaky, excluded from the gating lane, and contains zero occurrences of creature. Logged as a follow-up, not claimed as done.",
       "real_context_tokens_at_close": 283125,
       "real_context_pct_at_close": 28.31,
@@ -192,7 +192,7 @@
     ],
     "validator_version": "s110-three-tier-v1"
   },
-  "checkpoint_commit": "c98e2e2",
+  "checkpoint_commit": "d902571",
   "analyze_result": {
     "calibration": "PDR estimated ~28K for a Standard-tier serialization fix. The CODE was that size; the surrounding verification was not. Two full workflows (A.0 8 agents, Council 7 agents) plus CHECK (5 agents) ran ~2.0M subagent tokens against a two-line production change. Justified here — the A.0 and the Council each independently caught a BLOCKER that would have shipped a green no-op — but the ratio should be named, not hidden: deliberation cost ~100x the diff.",
     "what_worked": [
@@ -234,5 +234,14 @@
       "slot_split": "Minimal placeholder keep in V6-1.1 (can take 100 score, emit a gatherer). Full castle entity + spawner shrink + cadence stay in V6-1.2."
     },
     "score_currency_blast_radius": "Score was write-only and monotonic; it is now spendable and non-monotonic. (a) First genuine score SINK — re-scope V6-1.6, which was going to invent one on player.energy, a field with zero reads today. (b) Audit every monotonicity assumption: progress bar, leaderboard, SCORE_TIER ring + watermark, win check — a tier crossing can now go DOWNWARD. (c) scoreByPlayer is already in NARROW_HASHED_FAMILIES so it is hashed and synced. (d) Spending lengthens matches while the 6x faucet shortens them; they partially cancel but that is not a plan — B5 still unruled, still owned by V6-4.3."
+  },
+  "deploy_verified_s134": {
+    "pushed": "ab8d50e..d902571",
+    "unpushed_after": 0,
+    "run_id": "31181718138",
+    "conclusion": "success",
+    "head_sha": "d902571d9ec140cbd5198783475ffb60e9bae2e5",
+    "verify_deploy": "PASS 4/4 — REMOTE d902571d, RUN 1 run (event=push), VERDICT success, LIVE index-BxmxAHDO.js content-hash identical to local build",
+    "note": "The push DID auto-trigger a run this time. That is NOT evidence the trigger is reliable — two earlier qualifying pushes created zero runs. Verify, never infer."
   }
 }

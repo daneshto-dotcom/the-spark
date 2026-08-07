@@ -1,11 +1,26 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-08-07 | Session: S134 (1/1 priority · 3 commits · ⛔ NOT PUSHED)
+Generated: 2026-08-07 | Session: S134 (1/1 priority · 8 commits · ✅ PUSHED + DEPLOYED + VERIFIED)
 
-## ⛔ THREE COMMITS ARE LOCAL AND UNPUSHED — THAT IS DELIBERATE, NOT AN OVERSIGHT
-`c98e2e2` · `8a93ca4` · `b3e02b4`. Pushing master ships to prod, and the owner had not
-given a push decision when the session closed. **A push also does not reliably deploy** —
-use `gh workflow run deploy.yml --ref master`, then ALWAYS `npm run verify-deploy` (4
-carriers, exits nonzero, names the failure). Never report "shipped" from a green push.
+## ✅ SHIPPED AND VERIFIED LIVE
+`ab8d50e..d902571`, 0 unpushed. Deploy run `31181718138` **success**, and
+`npm run verify-deploy` passes **4/4 carriers** — live entry asset `index-BxmxAHDO.js` is
+content-hash identical to the local build. ⚠ The push DID auto-trigger a run this time, but
+that is not evidence the trigger is reliable: two earlier qualifying pushes created **zero**
+runs. **Still verify, never infer.** Fallback remains `gh workflow run deploy.yml --ref master`.
+
+## ⭐ THE BIGGEST THING THAT HAPPENED THIS SESSION WAS NOT THE BUG FIX
+**All six open v0.6 economy decisions were ruled, plus the whole of V6-1.1. PHASE 1 IS
+UNBLOCKED AND SPECIFIED** after six sessions of waiting. See the OWNER RULINGS table at the
+top of `BACKLOG.md`, the B4 queue section, and the V6-1.1 section. Headlines:
+- **B4 is an ordered RTS BUILD QUEUE, not a filter** — the first recording said "filters" and
+  the owner corrected it. Click a shape N times ⇒ ×N; ordered and consumed; one queue per
+  player; empty queue ⇒ collect nearest; controls live in a **footer bar**.
+- **⭐ SCORE IS NOW A CURRENCY.** Gatherers are bought with victory points (~100 of 1500),
+  **ONE POOL — spending sets you back toward the win.** Score was write-only and monotonic;
+  it is now spendable and non-monotonic. **Audit every monotonicity assumption before this
+  ships — a tier crossing can now go DOWNWARD** — and re-scope V6-1.6, whose energy sink is
+  now redundant.
+- **The sim-worker default-on flip is SPLIT OUT of V6-1.1** — close the hunter residual first.
 
 ## WHAT S134 DID
 Fixed creature lifetime serialization. `serializeCreature` coupled the `despawnAtTick` emit
@@ -34,14 +49,17 @@ wire 12,821 → **13,313 B** (+492 B, +3.8%) measured · PROTOCOL_VERSION **15**
 adopted items landed in `c98e2e2`.
 
 ## Next Steps
-1. **OWNER: push + deploy?** Three commits waiting. `gh workflow run deploy.yml --ref master`
-   then `npm run verify-deploy`.
-2. **OWNER: the six v0.6 design questions** — presented as a terminal widget in S134 and
-   NOT answered. They are B3 (spawn rate), B4 (directive filters), bank size, B6
-   (reversibility), the worker→gatherer rename, and the S84 connected-structure bonus.
-   ⛑ **The `?probe=1` playtest is NOT required to answer them** — S132 already measured the
-   supply side, and the owner reported the probe overlay tells him nothing he can act on.
-   Answering these opens **V6-1.1** and is the ONLY thing that makes the game look different.
+1. **THE HUNTER RESIDUAL, AND IT IS NOW SEQUENCING-CRITICAL** — it must close BEFORE the
+   sim-worker default-on flip, per the owner's S134 ruling. Details in step 3 below.
+2. **V6-1.1 — gatherer substrate.** Fully specified now (see BACKLOG's V6-1.1 table); needs a
+   Full-tier PDR. Scope: new entity family across the R15 17-site checklist · a minimal
+   placeholder keep that takes 100 score and emits a gatherer · the score-spend path (the
+   monotonicity audit above is part of THIS slot) · the procedural shapeshift renderer
+   (renderer-only, must not become world state) · `gatherer` naming everywhere.
+   ⛔ **Does NOT include the sim-worker flip** — owner split it out.
+   Read R1/R3/R4/R23 in the ledger first. **R3 (gatherer identity) is still unchosen and
+   load-bearing**: a `freeSparks` entry inherits the 10 s TTL reap and rim-snapping; a new map
+   is invisible to R1/R2; a seated Player collides with `MAX_PLAYERS = 6`. Pick deliberately.
 3. **The hunter residual — identical bug, one family over.** `serializeHunter` emits no
    lifetime, `deserializeHunter` hardcodes `despawnAtTick: 0`, `hunterLifecycle.ts:148` gates
    on it. A live hunter silently escapes on migration/worker-resume and `hunterSpawned` blocks
