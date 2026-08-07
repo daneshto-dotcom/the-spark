@@ -1,93 +1,102 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-08-06 | Session: S133 (3/3 priorities · 51 commits PUSHED · deploy verified live)
+Generated: 2026-08-07 | Session: S134 (1/1 priority · 3 commits · ⛔ NOT PUSHED)
 
-## ✅ THE TWO GATES THAT BLOCKED SIX SESSIONS ARE BOTH RESOLVED OR ANSWERED
-**Auth is fixed and everything is pushed. `git rev-list --count origin/master..master` = 0.**
-S131's CI gate **WORKS** — first-ever execution passed (`✓ Unit tests (gating — a red test now
-blocks the deploy)`, build 1m4s, deploy 11s). Prod is verified live and hash-identical to the
-local build. HEAD `24f13fa`. Live: https://daneshto-dotcom.github.io/the-spark/
+## ⛔ THREE COMMITS ARE LOCAL AND UNPUSHED — THAT IS DELIBERATE, NOT AN OVERSIGHT
+`c98e2e2` · `8a93ca4` · `b3e02b4`. Pushing master ships to prod, and the owner had not
+given a push decision when the session closed. **A push also does not reliably deploy** —
+use `gh workflow run deploy.yml --ref master`, then ALWAYS `npm run verify-deploy` (4
+carriers, exits nonzero, names the failure). Never report "shipped" from a green push.
 
-## ⛔ ONE NEW HAZARD, AND IT IS THE MOST IMPORTANT THING ON THIS PAGE
-**A PUSH DOES NOT RELIABLY DEPLOY. VERIFY, NEVER INFER.**
-Two consecutive qualifying pushes landed and created **ZERO workflow runs** (45-commit, then a
-2-commit one touching `package.json`). GitHub logged the `PushEvent` both times. Actions
-`enabled:true`, workflows `active`, paths filter matched, public repo, valid YAML, far under the
-1,000-commit threshold, no late-arriving run. **Root cause unknown and deliberately not guessed at.**
-- **Deploy with:** `gh workflow run deploy.yml --ref master`
-- **Then ALWAYS:** `npm run verify-deploy` — 4 carriers (REMOTE / RUN / VERDICT / LIVE), exits
-  nonzero, names the failing one. `cancelled` counts as FAILURE. Mutation-tested 5/5.
-- Full probe table in `BACKLOG.md` CARRY-FORWARD LEDGER; `SPARK_Blueprint.md` §XV.7 corrected.
+## WHAT S134 DID
+Fixed creature lifetime serialization. `serializeCreature` coupled the `despawnAtTick` emit
+to `sourceSpawnerId !== null` and `trimMirrorCreature` then stripped it from the wire, so
+`deserializeCreature` rehydrated 0 — a **DETONATION default**, not a neutral one.
+
+⚠ **IT WAS NOT PRIMARILY A HOST-MIGRATION BUG.** Three consumers share that serializer, and
+the third is live on today's build with no peer and no disconnect: `main.ts:1630` →
+`workerSim` `restore()` + `isHost = true`. MEASURED pre-fix: a Voltkin at 1700 rehydrated to
+**0** under `?worker=1`, on the ORIGINAL host. **V6-1.1 flips `?worker=1` on by default**, so
+this would have gone opt-in → universal in that slot.
+
+⚠ **AND WORSE THAN DELETION.** `hostTick` Step 1.5 runs BEFORE the lifetime gate and fires
+DRONE_EXPLODE on `world.tick >= despawnAtTick - 1` = `>= -1`, always true ⇒ every inherited
+drone detonated, severing up to 3 enemy bonds each, up to 12 drones = **up to 36 irreversible
+severs per handoff**.
+
+`sourceSpawnerId` shipped in the SAME commit: the deletion was MASKING two defects it causes
+(per-spawner caps silently disabled; a rehydrated chewer counted as its owner's Voltkin,
+blocking their summon), and those are untestable while creatures are being deleted.
 
 ## STATE
-tsc 0 · vitest **2020/2020** (132 files; was 2001/130 at boot) · bundle **645.4/750 KiB** entry
-**660,916 B — DOWN 100 B** from S132 · PROTOCOL_VERSION **15** (no bump) · **MCV exit 0** (22
-bindings, 3/3 priorities) · review gate APPROVED · `npm test` now EXITS (was watch mode — fixed).
-⚠ `origin/gh-pages` still exists with 1 commit not on master — **its deletion is the owner's call**,
-deliberately not actioned.
+tsc 0 · vitest **2028/2028** (133 files, +8/+1) · bundle **645.3/750 KiB (−88 B)** ·
+wire 12,821 → **13,313 B** (+492 B, +3.8%) measured · PROTOCOL_VERSION **15** (no bump) ·
+**MCV exit 0** (14 bindings) · gitleaks clean · CHECK verdict **SHIP-WITH-FIXES**, all 5
+adopted items landed in `c98e2e2`.
 
 ## Next Steps
-1. **Structure-HP + `damageEntity` slot** — owner-ruled (S130) to precede V6-2.1, and S133 built its
-   prerequisite. It is now MUCH safer to attempt: adding `hp` to `Primitive` **fails `tsc` by name**
-   via `FIELD_COVERAGE` in `src/state/stateHashFull.ts` (mutation M13 proves it). Register new
-   families/fields THERE, never in `stateHash.ts`'s deliberately-narrow `HashableWorld`.
-2. **OWNER: the probe playtest** — still the only thing gating ALL of Phase 1 (B3 supply is settled;
-   B4 is the open human judgment). `npm run dev` → `/?probe=1&regime=new&slots=8&spawn=0.03125`.
-   ⛑ `&spawn=` is NOT optional — without it the faucet is 6× too generous and you would rule wrongly.
-   Confirm the overlay reads `✅ = ONE SEAT of a 6-seat match`; hold ≥60 s for `✅ past the ramp`.
-3. **Creature deletion on host migration** — a NOW-VERIFIED live bug, and worse than logged: ALL
-   THREE `CREATURE_CONFIGS` are `persistent:false`, `despawnAtTick` rehydrates to 0, and a promoted
-   client runs the lifetime gate ⇒ **the successor deletes its entire creature population on the
-   first creature tick.** Already in `SPARK_Blueprint.md` §XV.6 as a 3-path hazard. **NOT fixable by
-   un-stripping** — `serializeCreature` emits `despawnAtTick` for chewers only, so the fix must change
-   the SERIALIZER's emit condition. Characterization test pins current behaviour in
-   `src/state/save.migrationDamage.test.ts`.
-4. **Runtime host↔client desync oracle** — genuinely does not exist (`stateHash` has zero importers
-   under `src/net/`; no checksum on the wire). Needs a `PROTOCOL_VERSION` bump + the R15 17-site
-   checklist ⇒ Full tier, and R11 already measures a 6-seat wire at **2.35× its 16 KiB ceiling**.
-5. **Small + logged:** the lifecycle trio still stripped (`sourceSpawnerId`/`despawnAtTick`/
-   `targetCreatureId`) · `diagnostics` is ONE World field so new counters under it escape
-   `FIELD_COVERAGE` · the two-oracle hazard is named in `stateHashFull.ts`'s header.
+1. **OWNER: push + deploy?** Three commits waiting. `gh workflow run deploy.yml --ref master`
+   then `npm run verify-deploy`.
+2. **OWNER: the six v0.6 design questions** — presented as a terminal widget in S134 and
+   NOT answered. They are B3 (spawn rate), B4 (directive filters), bank size, B6
+   (reversibility), the worker→gatherer rename, and the S84 connected-structure bonus.
+   ⛑ **The `?probe=1` playtest is NOT required to answer them** — S132 already measured the
+   supply side, and the owner reported the probe overlay tells him nothing he can act on.
+   Answering these opens **V6-1.1** and is the ONLY thing that makes the game look different.
+3. **The hunter residual — identical bug, one family over.** `serializeHunter` emits no
+   lifetime, `deserializeHunter` hardcodes `despawnAtTick: 0`, `hunterLifecycle.ts:148` gates
+   on it. A live hunter silently escapes on migration/worker-resume and `hunterSpawned` blocks
+   respawn. Full entry in BACKLOG's ledger. ⚠ **Strike `SPARK_Blueprint.md:725-729` only in
+   the same change that closes it** — until then it is the only accurate warning left.
+4. **Seed `workerSim.differential.test.ts`.** Its `hashWorldStateFull` INIT compare is the
+   repo's strongest `restore()` guard and it runs on an EMPTY creature+hunter set, so it is
+   structurally blind to this whole bug class. That is why this defect needed a manual
+   `?worker=1` measurement to find.
+5. Two-tab boot-then-smoke for migration (nothing gates it today; the e2e spec is quarantined
+   and contains zero occurrences of "creature").
 
 ## Blockers
-- **The probe playtest (owner-only human judgment).** No technical blockers in the code.
-- **V6-2.1 (R6)** still needs the structure-HP slot first (S130 ruling).
-- **V6-1.5 mis-tiered Standard→Full** — deleting `CarryingPlayer` silently changes shipped hazard rules.
-- Tier banner + sever toast remain SOLO/BOTS-ONLY in practice (`SCORE_TIER` is host-local; the sever
-  toast reaches a remote victim ~1/6 of the time, 100% on the host). Ruled and named in-code.
+- **The six design questions.** Everything in Phase 1 waits on them. No technical blocker.
+- **V6-2.1** still needs the structure-HP slot first (S130 ruling). ⚠ That ruling is REAL
+  (`HANDOFF_S130.md:142`) but `BACKLOG.md:505` still records it as an unresolved binary and
+  **no numbered row for the slot exists** — it must be authored before it can be built.
 
-## Pending Backlog
-No `- [ ]` checkbox items in BACKLOG.md (it tracks work as V6-x.y slot rows + the CARRY-FORWARD
-LEDGER, not checkboxes). **Read the LEDGER first** — S133 added the deploy-trigger probe table there,
-corrected R1's remedy, and marked carrier (b) true for only 4 of 23 risks.
+## CRITICAL TRAPS (S134 additions first)
+- **A DOCBLOCK IN `save.ts` IS NOT EVIDENCE.** Three said the fix belonged in the emit
+  condition; all wrong, and that text is why S133 scoped the bug out. S134 then **repeated
+  the mistake** — its own commit message claimed "all four rewritten" while seven stale sites
+  survived, including `serializeCreature`'s OWN header 44 lines above the emit it changed.
+  **When you diagnose stale docs as a root cause, grep the WHOLE file before claiming a fix.**
+- **A MUTATION THAT FAILS TO RED MAY MEAN THE LINE NEVER RAN.** This file produced a false
+  all-green **twice**, both from fixture branch-routing, not weak assertions: first no
+  creature had a `targetCreatureId` so all took `trimMirrorCreature`'s early return; then the
+  P1-owned creature was the CHEWER, which has no zap target and is therefore immune to M3.
+  **Re-run the matrix after EVERY fixture change** — one proven against the old fixture proves
+  nothing about the new one.
+- **CRLF AGAIN (4th session running).** `save.ts` is 1780 CRLF / 0 LF. Bare-`\n` anchors
+  matched **nothing** and would have reported three mutations as passes. Use `\r?\n`, `[ \t]`,
+  and put an **anchor-count guard** in any mutation harness — it is what caught this.
+- **AN MCV NEEDLE WRITTEN FROM MEMORY FAILED.** Same class as S133's three-from-memory
+  assertions. Copy literals off disk. MCV caught it; I did not.
+- **REVIEWER FABRICATION IS REAL AND CONCENTRATED.** Of 22 CHECK findings, 6 cited symbols
+  that do not exist (a non-existent `export function trimMirrorCreature`, a guard
+  `if (c.despawnAtTick === undefined)`), all from one reviewer's second pass. The two
+  reviewers working directly against disk produced zero. **Grep-verify every citation.**
+- **`0` IS NOT A NEUTRAL DEFAULT FOR A TICK FIELD.** It makes every `>=` gate true. Check
+  what a rehydrate default MEANS to the gates that read it.
+- A PUSH IS NOT A DEPLOY · `npm run verify-deploy` after every push.
+- MCV needs an ABSOLUTE-path `verification[]` binding on a **completed** priority for
+  `BACKLOG.md`, and supports only file_exists/file_absent/file_contains/file_lacks/
+  grep_count/json_field/syntax_ok/nonce_match.
 
-## CRITICAL TRAPS (S133 additions first)
-- **A PUSH IS NOT A DEPLOY.** See above. `npm run verify-deploy` after every push.
-- **ASSERTIONS WRITTEN FROM MEMORY WERE WRONG THREE TIMES IN ONE SESSION** — an invented MCV type
-  (`file_absent_string`; the real one is `file_lacks`), a docblock claim trusted from a neighbouring
-  comment, and a needle recalled instead of copied. **Copy literals from the file, or use a SYMBOL.**
-- **A GUARD CAN BE VACUOUS BECAUSE THE FIXTURE TAKES A DIFFERENT BRANCH** — not only because the
-  assertion is weak. Mutation M9 passed while the code under test never ran.
-- **CRLF BIT THREE TIMES.** Workflow/source files are CRLF; a bare `\n` regex anchor matches NOTHING
-  and can fail silently. Use `\r?\n`, and `[ \t]` (not `\s`) for indentation.
-- **A LOGGED CARRY-FORWARD CAN ITSELF BE THE DEFECT** — `P2-18 'godly'` was a false positive
-  re-carried across four handoffs; doing it would have been a back-compat regression. Now REJECTED
-  in BACKLOG with three grounds. Re-verify small items before executing them.
-- **`${PIPESTATUS[0]}`** — a pipeline's exit status tests the LAST command; `$?` after a pipe lied
-  about the verifier's exit code this session.
-- Use a **script FILE** for payloads — shell-escaped python silently no-op'd a mutation and produced
-  a FALSE PASS; the tell was output identical before and after the "mutation".
-- `.claude/plans/` is EPHEMERAL and can lie — `plans-archive/` is the source of truth (104 archived).
-- MCV needs an ABSOLUTE-path `verification[]` binding on a **completed** priority for `BACKLOG.md`.
-- A GREEN SUITE PROVES NOTHING until you delete the code and watch it fail — and it cannot see a
-  clipped string. S133 mutation matrices: **14/14** (P1) and **5/5** (P3).
+## COMMUNICATION NOTE (owner feedback, S134)
+The owner said outright he could not follow six turns of output: "your wording of everything
+is super obscure". He also pointed out the game **looks identical to two weeks ago** — true,
+and the honest answer is that nothing player-visible has shipped since the v0.6 pivot landed.
+**Lead in plain English, lead with what changed for the player, and put decisions in a widget
+rather than in prose.**
 
-## Recent Reflexion (last 2 sessions)
-See `.claude/reflexion_log.md` — S133's 15 entries are at the top (49 entries / 6 blocks after the
-STEP 2.8.B prune; S124–S127 preserved in `.handoff-archive/`). Highest-signal S133 entries:
-`#my-own-correction-was-also-wrong-and-i-shipped-it-to-three-places` ·
-`#i-wrote-three-assertions-from-memory-and-all-three-were-wrong` ·
-`#a-guard-can-be-vacuous-because-the-FIXTURE-takes-a-different-code-path` ·
-`#the-push-landed-and-deployed-nothing` · `#a-check-that-is-usually-wrong-gets-ignored` ·
-`#a-blocked-destructive-command-pointed-at-a-better-design`.
-S132: `#four-sessions-of-owner-hasnt-run-it-and-nobody-checked-the-instrument` ·
-`#an-instrument-that-cannot-reproduce-its-own-test-condition`.
+## Recent Reflexion
+`.claude/reflexion_log.md` + 6 S134 entries in session-state. Highest-signal:
+`#a-logged-fix-location-can-be-the-defect` · `#the-bug-was-not-where-the-title-said` ·
+`#my-mutation-matrix-lied-twice-before-it-told-the-truth` · `#fixing-one-bug-can-unmask-two` ·
+`#the-user-could-not-understand-my-output`.
