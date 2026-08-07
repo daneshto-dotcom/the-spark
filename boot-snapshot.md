@@ -113,8 +113,22 @@ and the honest answer is that nothing player-visible has shipped since the v0.6 
 **Lead in plain English, lead with what changed for the player, and put decisions in a widget
 rather than in prose.**
 
-## Recent Reflexion
-`.claude/reflexion_log.md` + 6 S134 entries in session-state. Highest-signal:
-`#a-logged-fix-location-can-be-the-defect` · `#the-bug-was-not-where-the-title-said` ·
-`#my-mutation-matrix-lied-twice-before-it-told-the-truth` · `#fixing-one-bug-can-unmask-two` ·
-`#the-user-could-not-understand-my-output`.
+## Recent Reflexion (last 2 sessions)
+`.claude/reflexion_log.md` — 48 entries / 5 blocks after the S134 prune (S129 + S128 dropped;
+both preserved in `.handoff-archive/`). **S134's 9 entries are at the top.** Highest-signal:
+- `#a-logged-fix-location-can-be-the-defect` — the handoff AND three docblocks all named the
+  wrong fix site, in a way that would have left the suite green.
+- `#the-bug-was-not-where-the-title-said` — the reframe came from MEASURING a shared
+  serializer's consumers, not from reasoning about the reported symptom.
+- `#my-mutation-matrix-lied-twice-before-it-told-the-truth` — CRLF anchors, then dead-code
+  mutation. A passing mutation proves nothing until the mutated line is shown to EXECUTE.
+- `#my-first-fix-for-a-vacuous-test-was-also-vacuous`
+- `#i-repeated-the-exact-failure-i-had-just-diagnosed`
+- `#three-assertions-from-memory-again-one-session-after-logging-it` — reading the S133 entry
+  did NOT change the behaviour; the machine-checkable guard did.
+- `#the-user-could-not-understand-my-output` — read this one before writing to the owner.
+- `#the-owner-gave-a-better-answer-than-any-option-i-offered`
+
+S133: `#my-own-correction-was-also-wrong-and-i-shipped-it-to-three-places` ·
+`#a-guard-can-be-vacuous-because-the-FIXTURE-takes-a-different-code-path` ·
+`#the-push-landed-and-deployed-nothing`.
