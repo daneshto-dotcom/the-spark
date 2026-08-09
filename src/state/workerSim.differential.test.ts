@@ -43,6 +43,8 @@ import {
 } from './workerSim.ts';
 import { dispatch, makeWorld, type GameAction, type World } from './world.ts';
 import { asPlayerId, asSparkId } from '../types.ts';
+import { applySpawnHunter } from './hunters/hunterLifecycle.ts';
+import { HUNTER_HUNT_TICKS } from '../constants.ts';
 
 const P0 = asPlayerId(0);
 const SEED = 0x51220042;
@@ -442,5 +444,31 @@ describe('S122 P1 — worker-sim batch envelope differential (HARD GATE)', () =>
     const sigBefore = structuralSignature(sim.world);
     dispatch(sim.world, { type: 'UPDATE_AVATAR_POS', playerId: P0, pos: { x: 20, y: 20 } });
     expect(structuralSignature(sim.world)).toBe(sigBefore); // avatar move is NOT structural
+  });
+});
+
+describe('S135 P0 — hunter lifetime survives the real makeWorkerSim INIT (regression)', () => {
+  it('a seeded SEEKING hunter round-trips through the ?worker=1 INIT seam with a byte-exact full-world hash', () => {
+    // The empty-world INIT compares above (lines ~236/280) are structurally blind to the
+    // hunter serializer because buildSoloWorld/buildBotsWorld spawn no hunter. Seed one and
+    // drive the EXACT production main.ts INIT seam (snapshot -> makeWorkerSim INIT).
+    const w = buildSoloWorld();
+    w.scoreByPlayer.set(P0, 10); // guarantee a leader so applySpawnHunter mints a hunter
+    w.tick = 500;
+    applySpawnHunter(w, { type: 'SPAWN_HUNTER' });
+    w.tick = 700;
+    expect(w.hunters.size).toBe(1);
+    expect([...w.hunters.values()][0].despawnAtTick).toBe(500 + HUNTER_HUNT_TICKS); // 2300, not 0
+
+    const spawner = new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(1));
+    const saveJson = JSON.stringify(snapshot(w, { spawnerState: spawner.getState() }));
+    const sim = makeWorkerSim({ type: 'INIT', saveJson, hostSeats: [], localPlayerId: 0 });
+
+    // Pre-fix the hunter rehydrated despawnAtTick 0 + spawnedAtTick 0, so this full-world
+    // hash diverged (RED); post-fix every hunter field travels and INIT adoption is bit-exact.
+    expect(hashWorldStateFull(sim.world)).toBe(hashWorldStateFull(w));
+    const after = [...sim.world.hunters.values()][0];
+    expect(after.despawnAtTick).toBe(500 + HUNTER_HUNT_TICKS);
+    expect(after.spawnedAtTick).toBe(500);
   });
 });

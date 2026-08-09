@@ -1,185 +1,47 @@
 {
-  "tool_calls_session_total": 259,
-  "session_id": "S134",
+  "tool_calls_session_total": 0,
+  "session_id": "S135",
   "session_kind": "pdca",
-  "session_start": "2026-08-07T08:16:48",
-  "prior_session_note": "S133 shipped 3/3 (determinism oracle widened + host-migration damage fix + verify-deploy). Its close chain DID run in-repo (HANDOFF_S133 + archive + boot-snapshot + 15 reflexion entries appended and pruned, all committed ab8d50e) but its session-state.json was left mid-flight: session_status stayed in_progress, phase stayed DO, analyze_completed stayed false, and reflexion_entries_to_archive still held the 15 already-archived entries. S134 verified 15/15 landed in reflexion_log.md before clearing. NOT verified: whether a formal ANALYZE pass ran in S133 (no ANALYZE section in HANDOFF_S133.md) — deliberately NOT asserted true. Same residue class as the S128 close (reflexion_log.md:101).",
-  "phase": "PLAN",
-  "tier": null,
+  "session_start": "2026-08-09T00:00:00",
+  "prior_session_note": "S134 shipped 1/1 (creature lifetime serialization) and ran its close chain (HANDOFF_S134 + boot-snapshot + reflexion appended to reflexion_log.md + deploy verified live d902571, verify-deploy 4/4). Its session-state.json was left S134-shaped (session_status in_progress, S134 priority present, 6 reflexion entries still in reflexion_entries_to_archive though already in reflexion_log.md) — same residue class the file's own prior_session_note documented for S133. S135 reset the header to S135, cleared the already-archived reflexion residue, and opened the S135 batch (P0 hunter residual + P1 V6-1.1 gatherers/castle). owner_rulings_s134 + deploy_verified_s134 preserved verbatim as authoritative references.",
+  "phase": "DO",
+  "tier": "Full",
   "council_rounds": 0,
-  "plan_file": null,
+  "plan_file": ".claude/plans/2026-08-09_PDR_S135_V6-1.1_gatherers_castle_batch.md",
   "session_status": "in_progress",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
   "budget_total": 1000000,
-  "prior_session_archive": ".claude/session-state.s133.bak",
-  "analyze_completed": true,
+  "prior_session_archive": ".claude/session-state.s134.bak",
+  "analyze_completed": false,
   "priorities": [
     {
-      "id": "P1-creature-lifetime-serialization",
-      "title": "Creature lifetime serialization — despawnAtTick + sourceSpawnerId reach every snapshot consumer",
-      "status": "completed",
+      "id": "P0-hunter-lifetime-serialization",
+      "title": "Hunter lifetime serialization — despawnAtTick/spawnedAtTick/prevPos reach every snapshot consumer so a rehydrated SEEKING hunter keeps chasing",
+      "status": "in_progress",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": true,
-      "pdr_file": ".claude/plans/2026-08-07_PDR_S134_Creature_Lifetime_Serialization.md",
-      "checkpoint_commit": "d902571",
-      "check_method": "RED-FIRST + MUTATION MATRIX, all observed not predicted. (1) Wrote save.creatureLifetime.test.ts BEFORE any production edit and ran it: 6 failed / 2 passed, incl. TEST B2 showing creatures.size==0 after 5 real runHostTicks (end-to-end population deletion) and TEST D2 showing P0 null-spawner population 2 instead of 1 (the masked Voltkin-summon-block defect). (2) Applied the two edits; tsc 0; full suite 2 failed / 2026 passed with BOTH failures being the intentional characterization locks (save.migrationDamage.test.ts CHARACTERIZATION, save.replay.test.ts wire budget) and NO third failure — the number the Council held me to. (3) Inverted both locks in place per the S133 precedent, keeping the still-broken spawnedAtTick assertions live. (4) Full gate: tsc 0, vitest 2028/2028 across 133 files (+8 tests /+1 file vs the 2020/132 baseline), npm run build OK, bundle 645.3/750 KiB = -88 B vs S133. (5) Wire re-measured in-test on the worst-case 12-mid-chew-chewer fixture: 12,821 -> 13,313 B (+492 B, +3.8%), independently reproducing the Council figure to the byte. (6) MUTATION MATRIX 3/3 via a script FILE with an anchor-count guard: M1 (re-couple emit) reds TEST A/B/B2; M2 (restore wire strip) reds B/B2/C while TEST A STAYS GREEN; M3 (restore spawner strip) reds D/D2 only. That M1-vs-M2 asymmetry is the proof the two edits fix DIFFERENT consumers and neither alone suffices. (7) TWO FALSE PASSES CAUGHT AND FIXED IN THE MATRIX ITSELF: first CRLF anchors matched 0 times (save.ts is 1780 CRLF / 0 LF) and the guard refused to report; then M2/M3 passed 8/8 because no fixture creature had a targetCreatureId, so every creature took trimMirrorCreature EARLY RETURN and the mutations hit dead code — the S133 M9 lesson verbatim. Fixture now carries a mid-zap Voltkin AND a spawner-emitted mid-zap drone. (8) gitleaks: 859 commits, no leaks. NOT VERIFIED AT RUNTIME: no two-tab boot-then-smoke; e2e/hostmigration.spec.ts is @quarantine-flaky, excluded from the gating lane, and contains zero occurrences of creature. Logged as a follow-up, not claimed as done.",
-      "real_context_tokens_at_close": 283125,
-      "real_context_pct_at_close": 28.31,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "CLOSED S134 P1",
-          "note": "the carry-forward ledger records the fix + the separately-logged worker-INIT finding (owner ruling 3). THIS is the binding whose absence hard-failed MCV."
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "destroyed **on the original host**, no peer and no disconnect.",
-          "note": "ledger records the worker-INIT defect as live WITHOUT migration (owner ruling 3: its own logged finding, not silently absorbed)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
-          "needle": "despawnAtTick: c.despawnAtTick,",
-          "note": "Edit 1 — the emit is now UNCONDITIONAL, decoupled from the sourceSpawnerId spread (save.ts:1340)"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
-          "needle": "sourceSpawnerId: c.sourceSpawnerId, despawnAtTick: c.despawnAtTick",
-          "note": "the old COUPLED spread is gone — verified count 0 on disk"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
-          "needle": "despawnAtTick: _d",
-          "note": "Edit 2 — the wire strip of despawnAtTick is gone from trimMirrorCreature. This is the load-bearing half; without it Edit 1 is a no-op for host migration."
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
-          "needle": "sourceSpawnerId: _s",
-          "note": "the wire strip of sourceSpawnerId is gone — re-arms CHEWER_MAX_PER_SPAWNER / DRONE_MAX_PER_SPAWNER on a promoted host"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
-          "needle": "targetCreatureId: _tc,",
-          "note": "targetCreatureId IS still stripped, correctly — host AI re-acquires it every IDLE tick (save.ts:892)"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.creatureLifetime.test.ts",
-          "note": "the new RED-first suite: TEST A disk/worker-INIT, B/B2 promotion, C drone detonation, D/D2 caps"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.creatureLifetime.test.ts",
-          "needle": "the M3 detector",
-          "note": "the fixture carries a spawner-emitted mid-zap DRONE — without it M2/M3 mutate dead code behind trimMirrorCreature early return and pass 8/8"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.migrationDamage.test.ts",
-          "needle": "expect(Number(client.creatures.get(CHEWER)!.sourceSpawnerId)).toBe(5);",
-          "note": "S133 characterization lock INVERTED in place, not deleted (line 140)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.replay.test.ts",
-          "needle": "expect(creaturesWire).toContain('despawnAtTick');",
-          "note": "wire-shape lock inverted (line 855)"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.replay.test.ts",
-          "needle": "not.toContain('despawnAtTick')",
-          "note": "the assertion that LOCKED IN the bug is gone — verified count 0 on disk"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/workerSim.ts",
-          "needle": "AUTHORITATIVE CONSUMER OF THE DISK SERIALIZER",
-          "note": "Edit 7 anchor at workerSim.ts:199 — stops a future perf pass re-trimming this path"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.claude/plans/2026-08-07_PDR_S134_Creature_Lifetime_Serialization.md",
-          "needle": "HOT_PATH_REFACTOR: true",
-          "note": "Standard-tier 8-field PDR, Council R1 completed before the PDR was written"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "OWNER RULINGS — S134 (2026-08-07). PHASE 1 IS UNBLOCKED."
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "THE PAIRING IS THE POINT — NEVER TUNE THESE TWO APART."
-        },
-        {
-          "type": "json_field",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.claude/session-state.json",
-          "key": "owner_rulings_s134.B4b_bank_slots",
-          "op": "==",
-          "value": 5
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "AN ORDERED BUILD QUEUE, RRTS-STYLE"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "| **B4** | Directive semantics | **Exact type filters** |"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "SCORE IS NOW A CURRENCY"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.claude/session-state.json",
-          "needle": "ONE POOL — spending SETS YOU BACK toward the win"
-        }
-      ]
+      "check_completed": false,
+      "pdr_file": ".claude/plans/2026-08-09_PDR_S135_V6-1.1_gatherers_castle_batch.md",
+      "deliberation_note": "3-agent disk-grounded adversarial review (wf_9b715b7d-3cd): VERIFY confirmed all 10 defect claims with zero deltas; DESIGN surfaced a FOURTH stale docblock (workerSim.ts:207) + recommended traveling prevPos for full fidelity + optional fields; TEST caught the nextHunterId hash FALSE-RED trap (seed via applySpawnHunter, not raw makeHunter+set), the target-player-seating requirement, and the assert-state-not-presence rule. All folded into the PDR."
+    },
+    {
+      "id": "P1-v6-1.1-gatherers-castle-buy-score-currency",
+      "title": "V6-1.1 — gatherer entity + placeholder keep + buy button + score-as-currency (first player-visible feature since the v0.6 pivot)",
+      "status": "pending",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false,
+      "pdr_file": ".claude/plans/2026-08-09_PDR_S135_V6-1.1_gatherers_castle_batch.md",
+      "deliberation_note": "6-agent disk-grounded subsystem map (wf_f41487a0-ec8). R3 identity = brand-new entity Map (both entity + castle agents converged). Score already non-monotonic in code (leader-decay scoring.ts:273; Nonet x0.4 sudokuEvent.ts:113) so the two genuine new deltas are tier-pulse re-crossing + HUD drop-flash. Castle = render-only placeholder (no world state). Owner scope this session: gatherer appears at keep + shapeshifts (on-plan slice); roaming/fetching deferred to the immediate next step per owner declining to expand scope."
     }
   ],
-  "reflexion_entries_to_archive": [
-    {
-      "id": "a-logged-fix-location-can-be-the-defect",
-      "note": "HANDOFF_S133 and THREE save.ts docblocks all said the creature-lifetime fix belonged in serializeCreature emit condition. All four were wrong: netSnapshot post-trims, so an emit-only change leaves the wire byte-identical AND leaves the whole suite green, because the existing characterization asserts through netSnapshot. The carried instruction was not just incomplete, it was self-concealing. Re-derive a logged fix LOCATION from source, never inherit it."
-    },
-    {
-      "id": "the-bug-was-not-where-the-title-said",
-      "note": "Everyone framed this as a host-migration bug. The Council synthesis measured a third consumer nobody named: main.ts -> workerSim restore() + isHost=true runs the DISK serializer, so a Voltkin lifetime died on the ORIGINAL host under ?worker=1, no peer involved. Live on today build, and V6-1.1 flips ?worker=1 default-on. Ask which consumers share a serializer before scoping any serialization fix."
-    },
-    {
-      "id": "my-mutation-matrix-lied-twice-before-it-told-the-truth",
-      "note": "First run: all three mutations reported ANCHOR MATCHED 0 TIMES because save.ts is pure CRLF and my anchors used bare LF — only caught because I had built an anchor-count guard that refuses to report an unapplied mutation. Second run: M2/M3 passed 8/8 against deliberately broken code because no fixture creature had a targetCreatureId, so every creature took trimMirrorCreature EARLY RETURN and the mutation sat in dead code. That is the S133 M9 lesson repeating on me one session later. A mutation that passes is not evidence the guard works until you prove the mutated line EXECUTED."
-    },
-    {
-      "id": "fixing-one-bug-can-unmask-two",
-      "note": "The creature deletion was MASKING the sourceSpawnerId strip: while creatures are deleted you cannot observe that per-spawner caps are disabled or that a rehydrated chewer blocks its owner Voltkin summon. Shipping the lifetime fix alone would have traded one loud bug for two silent, ungatable ones. When a fix makes previously-dead state reachable, enumerate what starts running."
-    },
-    {
-      "id": "an-asymmetric-mutation-result-is-the-real-proof",
-      "note": "The load-bearing evidence was not that all three mutations went red — it was that under M2 TEST A STAYED GREEN while B/B2/C went red. That asymmetry is what demonstrates the two edits repair different consumers. A matrix where every mutation reds everything proves far less than one that reds a specific, predicted subset."
-    },
-    {
-      "id": "the-user-could-not-understand-my-output",
-      "note": "Six turns of dense project shorthand (PRIME-AUDIT, A.0, carriers, tiers) and the owner said outright he had no idea what I was doing. The work was sound and the communication was useless, which makes the work useless. He also pointed out the game looks identical to two weeks ago — true, and I should have led with that rather than with a PDR. Lead with plain English and with what changed for the player."
-    }
-  ],
+  "reflexion_entries_to_archive": [],
   "totals": {
     "turns": 0,
     "budget_remaining": 1000000,
@@ -192,26 +54,7 @@
     ],
     "validator_version": "s110-three-tier-v1"
   },
-  "checkpoint_commit": "d902571",
-  "analyze_result": {
-    "calibration": "PDR estimated ~28K for a Standard-tier serialization fix. The CODE was that size; the surrounding verification was not. Two full workflows (A.0 8 agents, Council 7 agents) plus CHECK (5 agents) ran ~2.0M subagent tokens against a two-line production change. Justified here — the A.0 and the Council each independently caught a BLOCKER that would have shipped a green no-op — but the ratio should be named, not hidden: deliberation cost ~100x the diff.",
-    "what_worked": [
-      "RED-FIRST was decisive. Every claim in this session rests on an observed failure, not a predicted one — including the two the reviewers later overturned.",
-      "The A.0 probe caught that the handoff fix location was insufficient BEFORE any code was written. An emit-only change would have passed tsc, passed 2020/2020, and fixed nothing.",
-      "The Council synthesis found a third consumer (worker INIT) that none of its three position-holders found, by MEASURING rather than reasoning. That reframed the bug from theoretical-on-migration to live-on-today-build.",
-      "The mutation harness anchor-count guard paid for itself immediately — it refused to report three CRLF no-op mutations as passes.",
-      "CHECK triage grep-verified every citation and caught 6 fabrications, all from one reviewer pass. The two reviewers working directly against disk produced zero."
-    ],
-    "what_failed": [
-      "I wrote an MCV needle from memory and it failed — the exact error class this repo logs, committed while writing the fix for a bug caused by trusting stale text.",
-      "My own commit message overclaimed: it said all four docblocks were rewritten when seven more stale sites remained, including serializeCreature OWN header 44 lines above the emit I changed. I reproduced the failure mode I had just diagnosed.",
-      "The first mutation matrix reported a false all-green because the fixture routed around the mutated line. Then the FIRST FIX for that was also wrong (chewer takes the early return, immune to M3) and only re-running the matrix caught it. Two vacuity bugs in one test file.",
-      "Six turns of internal jargon before the owner said he could not follow any of it. The work was sound and the communication made it unusable."
-    ],
-    "process_delta": "RE-RUN THE MUTATION MATRIX AFTER EVERY FIXTURE CHANGE, not once at the end — it produced a false green twice in one file, both times from branch-routing rather than weak assertions. And when a session diagnoses stale documentation as a root cause, grep the WHOLE file for the same stale claim before claiming it is corrected.",
-    "owner_calls_resolved": "1 accept the mixed-build window (one refresh, bounded by tab lifetime not by refresh — corrected by the Rule-22 auditor); 2 caps re-enablement shipped and called out as a visible gameplay change; 3 worker-INIT defect given its own BACKLOG entry rather than silent absorption; 4 two-tab boot-then-smoke is a follow-up, since the e2e migration spec is quarantined and gates nothing today; 5 16 KiB budget flagged in-test, not re-based.",
-    "not_verified": "No runtime verification of any kind. The vitest lane mocks the wire with JSON.parse(JSON.stringify(...)); nothing chains wire -> promote -> snapshot() -> restore(), which is exactly where the Voltkin died. e2e/hostmigration.spec.ts is quarantine-flaky, excluded from the gating lane, and contains zero occurrences of creature. NOT PUSHED — 3 commits local."
-  },
+  "checkpoint_commit": "7b92713",
   "owner_rulings_s134": {
     "B3_spark_rate": "6x more sparks",
     "B4_directives": "AMENDED — an ordered RTS-style BUILD QUEUE of individual primitives, NOT a filter. Click a shape N times => xN queued; ordered and consumed (leftmost next, each delivery pops one); ONE queue per player; empty queue => gatherers collect nearest (priority override, not on/off); bank full => a loaded gatherer walks home and WAITS at the castle holding its item, depositing the moment a slot frees; all controls live in a FOOTER BAR at the bottom of the screen.",
@@ -221,19 +64,18 @@
     "R19_connected_bond_bonus": "KEEP — owner re-affirmed his S84 decision",
     "B5_match_length": "NOT RULED — stays in V6-4.3",
     "note": "All six ruled 2026-08-07 via terminal picker. Phase 1 unblocked; the ?probe=1 playtest is NOT a precondition (S132 already measured supply; owner reported the overlay is not actionable for him).",
-    "B4_amendment_note": "The first recording of this ruling said \"exact type filters\" and was WRONG — corrected by the owner in the same session, before any code existed. Recipes are explicitly out of scope for the initial queue.",
-    "B4_watch_item": "Effective burst capacity is 5 + gatherers-waiting-loaded, not 5, because each spend is topped up immediately. With 4 waiting that exceeds the 8-piece Voltkin/laserTurret recipes, partially re-opening the hazard the 5-slot cap closes. Judge the cap against 5+N. UNCONFIRMED: whether an UNLOADED gatherer sets out when the bank is already full — owner phrasing (\"their last haul\") reads NO, which bounds N to the in-flight count.",
     "V6_1_1": {
       "gatherer_count": "START AT 1; more are BOUGHT from the castle",
       "gatherer_cost": "VICTORY POINTS — score becomes a spendable currency (first real score sink in the game)",
-      "price": "~100, about 7% of PHASE_1_WIN_SCORE 1500, flat not rising",
+      "price": "105 (owner precise figure 2026-08-09; ~7% of PHASE_1_WIN_SCORE 1500), flat not rising",
       "spend_model": "ONE POOL — spending SETS YOU BACK toward the win. No lifetime-earned split, no rising threshold.",
       "art": "A shapeshifting spark: looks like the player spark/cruiser, continuously morphs through the six primitives. PROCEDURAL — no asset, no veo, no bundle cost. Not literally per-tick (60Hz would strobe).",
-      "morph_semantics": "PURELY COSMETIC ⇒ RENDERER-ONLY. Must NOT become world state: no serialized field, no FIELD_COVERAGE entry, no wire cost, cannot desync. Drive from a pure fn of (tick, gathererId) at render time.",
-      "worker_flip": "SPLIT OUT of V6-1.1. Close the S134 hunter residual FIRST, then flip in its own slot.",
-      "slot_split": "Minimal placeholder keep in V6-1.1 (can take 100 score, emit a gatherer). Full castle entity + spawner shrink + cadence stay in V6-1.2."
+      "morph_semantics": "PURELY COSMETIC => RENDERER-ONLY. Must NOT become world state: no serialized field, no FIELD_COVERAGE entry, no wire cost, cannot desync. Drive from a pure fn of (tick, gathererId) at render time.",
+      "worker_flip": "SPLIT OUT of V6-1.1. Close the S134 hunter residual FIRST (S135 P0), then flip in its own slot.",
+      "slot_split": "Minimal placeholder keep in V6-1.1 (render-only box, can take 105 score, emit a gatherer). Full castle entity + spawner shrink + cadence stay in V6-1.2.",
+      "castle_placeholder": "Owner 2026-08-09: identical placeholder keep for every player now. The full build-from-leftover-trophies fortress in a separate screen is SPARK_v0.6_DESIGN.md §5, its own later spec (V6-3.x)."
     },
-    "score_currency_blast_radius": "Score was write-only and monotonic; it is now spendable and non-monotonic. (a) First genuine score SINK — re-scope V6-1.6, which was going to invent one on player.energy, a field with zero reads today. (b) Audit every monotonicity assumption: progress bar, leaderboard, SCORE_TIER ring + watermark, win check — a tier crossing can now go DOWNWARD. (c) scoreByPlayer is already in NARROW_HASHED_FAMILIES so it is hashed and synced. (d) Spending lengthens matches while the 6x faucet shortens them; they partially cancel but that is not a plan — B5 still unruled, still owned by V6-4.3."
+    "score_currency_blast_radius": "Score was framed write-only+monotonic; the S135 map found it is ALREADY non-monotonic in code (leader-decay scoring.ts:273-286 floors at 1125; Nonet x0.4 sudokuEvent.ts:113-127), so read sites already tolerate a drop and the HUD already flashes on it. The two GENUINE new deltas for a voluntary spend: (a) SCORE_TIER re-crossing replays the milestone banner (add a persistent max-tier watermark); (b) HUD drop-flash fires red on a deliberate buy (suppress on the spend tick). scoreByPlayer already in NARROW_HASHED_FAMILIES (synced+desync-checked). Re-scope V6-1.6 (redundant energy sink). B5 still unruled, still V6-4.3."
   },
   "deploy_verified_s134": {
     "pushed": "ab8d50e..d902571",
@@ -242,6 +84,6 @@
     "conclusion": "success",
     "head_sha": "d902571d9ec140cbd5198783475ffb60e9bae2e5",
     "verify_deploy": "PASS 4/4 — REMOTE d902571d, RUN 1 run (event=push), VERDICT success, LIVE index-BxmxAHDO.js content-hash identical to local build",
-    "note": "The push DID auto-trigger a run this time. That is NOT evidence the trigger is reliable — two earlier qualifying pushes created zero runs. Verify, never infer."
+    "note": "S135 boot re-verified: verify-deploy PASS 4/4 at HEAD 7b92713 (docs/session-only commits since d902571; no deploy owed). The push DID auto-trigger a run in S134 but that is NOT evidence the trigger is reliable — two earlier qualifying pushes created zero runs. Verify, never infer."
   }
 }

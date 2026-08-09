@@ -491,7 +491,7 @@ rather than the whole gatherer population. Implement that reading; flag it at pl
 | **Spend model** | Does buying cost you the win | **ONE POOL. Spending SETS YOU BACK.** Buy at 900 and you are at 800. No separate lifetime-earned total, no rising win threshold. One number on screen. |
 | **Art** | What a gatherer looks like | **A SHAPESHIFTING SPARK.** It looks like the player's own spark/cruiser and continuously morphs through the six primitives. **PROCEDURAL — no asset, no veo session, no bundle cost**, and it reads instantly as "this thing carries shapes". ⚠ Not literally per-tick (60 Hz would strobe) — a continuous cycle. |
 | **Morph semantics** | Does the shown shape mean anything | **PURELY COSMETIC.** ⇒ **RENDERER-ONLY.** It must NOT become world state: no `SerializedGatherer` field, no `FIELD_COVERAGE` entry, no wire cost, and it therefore cannot desync. Drive it from a pure function of `(tick, gathererId)` at render time. |
-| **Sim-worker flip** | Bundled into this slot? | **SPLIT OUT.** V6-1.1 no longer carries it. Close the S134 hunter residual FIRST, then flip in its own slot — flipping makes that serialization path universal instead of opt-in, and shipping a new entity family into a newly-universal path with a known open bug is the S133/S134 pattern repeating. |
+| **Sim-worker flip** | Bundled into this slot? | **SPLIT OUT.** V6-1.1 no longer carries it. Close the S134 hunter residual FIRST (✅ done S135 P0), then flip in its own slot — flipping makes that serialization path universal instead of opt-in, and shipping a new entity family into a newly-universal path with a known open bug is the S133/S134 pattern repeating. |
 | **Slot split** | 1.1 vs 1.2 boundary | **Minimal keep in V6-1.1** — a placeholder castle that can take 100 score and emit a gatherer, which is the minimum that makes "start at 1" a real decision. V6-1.2 keeps the full castle entity, the spawner shrink (R9/R10) and the cadence work. |
 
 ### ⭐ SCORE IS NOW A CURRENCY — the ruling with the widest blast radius
@@ -523,7 +523,7 @@ V6-4.3 and by nothing before it — **do not silently re-tune either constant in
 **NEXT SLOT: V6-1.1** (gatherer substrate + sim-worker default-on flip). Its three
 preconditions are now discharged. ⛔ Before writing that PDR, read R1/R3/R4/R23 in the ledger
 and note that flipping `?worker=1` on by default makes the S134 worker-INIT serialization
-hazard universal rather than opt-in — the creature case is fixed, **the hunter case is not.**
+hazard universal rather than opt-in — the creature case is fixed, **and the hunter case is now fixed too (S135 P0).**
 
 ---
 
@@ -683,7 +683,7 @@ Sequenced so the core loop is **playable by V6-1.7** and everything after lands 
 > 8/8 stayed green. That is the S133 M9 lesson verbatim. Fixture now carries a mid-zap
 > Voltkin AND a spawner-emitted mid-zap drone to force the destructure branch.
 >
-> 🐞 **NEW CARRY-FORWARD — THE HUNTER HAS THE IDENTICAL DEFECT, ONE ENTITY FAMILY OVER.**
+> ✅ **CLOSED S135 P0 — HUNTER LIFETIME SERIALIZATION FIXED.** (Historical: was a NEW CARRY-FORWARD — the hunter had the identical defect one entity family over.)
 > Found by CHECK (RALPH:PATROL), verified by reading: `serializeHunter` (`save.ts:1658-1665`)
 > emits **no lifetime field at all** and `deserializeHunter` **hardcodes `despawnAtTick: 0`**
 > (`save.ts:1683`), while `hunterLifecycle.ts:148` is `if (world.tick >= hunter.despawnAtTick) {`
@@ -694,7 +694,7 @@ Sequenced so the core loop is **playable by V6-1.7** and everything after lands 
 > once-per-match gate blocks a respawn ⇒ **the leader-punish mechanic is silently gone for
 > the rest of the match.** MEDIUM not CRITICAL: bounded to one hunter per match, and the
 > outcome is a silent escape rather than a detonation.
-> **NOT fixed in S134 — deliberately out of scope, logged here per INTEGRITY-WARNING.** The
+> **FIXED in S135 P0** (was: NOT fixed in S134, deliberately out of scope). The
 > fix is the same shape: emit `despawnAtTick` from `serializeHunter`, rehydrate
 > `s.despawnAtTick ?? 0`, and add a test that puts a SEEKING hunter through the wire and
 > asserts it is still SEEKING after 5 `runHostTick`s. ⚠ **`SPARK_Blueprint.md:725-729` still
@@ -709,7 +709,7 @@ Sequenced so the core loop is **playable by V6-1.7** and everything after lands 
 > moment it hashes. It is structurally blind to every creature/hunter serializer omission,
 > which is why this defect had to be found by a manual `?worker=1` measurement. Seeding that
 > rig with one Voltkin, one spawner-emitted chewer and one hunter would turn it into a real
-> omission detector for the next field. Follow-up, not a blocker.
+> omission detector for the next field. ✅ S135 P0 seeded it with a hunter round-trip (a start). Follow-up for the creature/spawner seeds, not a blocker.
 >
 > 📌 **STILL OPEN, logged not fixed:** (a) `prevPos`/`targetPos`/`spawnedAtTick` have **no
 > serializer surface at all**, so the successor's world is NOT equal to the predecessor's —

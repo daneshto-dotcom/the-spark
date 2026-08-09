@@ -557,11 +557,15 @@ interface SerializedBomb {
 }
 
 /**
- * S72 P2 — render-trimmed hunter wire shape (mirrors the SerializedCreature
- * approach). The client renderer derives the wedge facing + chomp from
- * (state, ticksInState, targetPlayerId) and the target's avatarPos in the same
- * snapshot — so prevPos / spawnedAtTick / despawnAtTick are host-only + omitted.
- * Additive-optional → no schemaVersion bump.
+ * S72 P2 / S135 P0 — hunter wire shape. The client renderer derives the wedge facing +
+ * chomp from (state, ticksInState, targetPlayerId) and the target's avatarPos, so on the
+ * pure client-render path prevPos is snapped to pos.
+ * spawnedAtTick / despawnAtTick / prevPos NOW RIDE (additive-optional, no schemaVersion
+ * bump). They are HOST-AUTHORITATIVE, not render fields: restore() (workerSim INIT + host
+ * save/load) and applyNetSnapshot() (promoted successor) both rehydrate through
+ * deserializeHunter, where hardcoding despawnAtTick=0 made hunterLifecycle.ts SEEKING
+ * escape gate (world.tick >= despawnAtTick) unconditionally true and a live hunter
+ * abandoned its chase on the first post-rehydrate tick. prevPos travels so momentum survives.
  */
 interface SerializedHunter {
   readonly id: HunterId;
@@ -569,6 +573,9 @@ interface SerializedHunter {
   readonly state: HunterState;
   readonly ticksInState: number;
   readonly targetPlayerId: PlayerId;
+  readonly spawnedAtTick?: number;
+  readonly despawnAtTick?: number;
+  readonly prevPos?: Vec2;
 }
 
 /**
@@ -1668,9 +1675,11 @@ function deserializeBomb(s: SerializedBomb): Bomb {
 }
 
 /**
- * S72 P2 — render-trimmed hunter serialize (mirrors serializeCreature). Sim-only
- * fields (prevPos, spawnedAtTick, despawnAtTick) are host-only + omitted; the client
- * renderer needs only id/pos/state/ticksInState/targetPlayerId.
+ * S72 P2 / S135 P0 — hunter serialize. The client renderer needs only
+ * id/pos/state/ticksInState/targetPlayerId, but spawnedAtTick / despawnAtTick / prevPos
+ * are now emitted UNCONDITIONALLY: they are read by the host-authoritative rehydrate
+ * (deserializeHunter, reached by restore() and applyNetSnapshot()), and emitting them is
+ * what keeps a rehydrated SEEKING hunter chasing instead of escaping on its first tick.
  */
 function serializeHunter(h: Hunter): SerializedHunter {
   return {
@@ -1679,25 +1688,32 @@ function serializeHunter(h: Hunter): SerializedHunter {
     state: h.state,
     ticksInState: h.ticksInState,
     targetPlayerId: h.targetPlayerId,
+    spawnedAtTick: h.spawnedAtTick,
+    despawnAtTick: h.despawnAtTick,
+    prevPos: { x: h.prevPos.x, y: h.prevPos.y },
   };
 }
 
 /**
- * S72 P2 — rehydrate a SerializedHunter on the client. Sim-only fields get neutral
- * defaults: prevPos snaps to pos (client never integrates), spawnedAtTick=0 +
- * despawnAtTick=0 (renderer ignores; host owns the despawn). targetPlayerId carries
- * so the renderer can face the wedge toward the chased player's avatar.
+ * S72 P2 / S135 P0 — rehydrate a SerializedHunter. spawnedAtTick, despawnAtTick and prevPos
+ * now travel and are restored from the wire; the ?? 0 / ?? pos fallbacks fire ONLY for a
+ * pre-S135 save that predates the fix. For a hunter a rehydrated despawnAtTick of 0 is a
+ * benign EARLY ESCAPE (SEEKING -> DESPAWNING, one hunter, no cascade), NOT the creature
+ * "detonation default"; do not carry that framing here. The old claim "renderer ignores;
+ * host owns the despawn" was FALSE and is deleted: restore() (workerSim INIT + host
+ * save/load) and applyNetSnapshot() (promoted successor) are both host-authoritative
+ * consumers that run applyHunterTick.
  */
 function deserializeHunter(s: SerializedHunter): Hunter {
   return {
     id: s.id,
     pos: { x: s.pos.x, y: s.pos.y },
-    prevPos: { x: s.pos.x, y: s.pos.y },
+    prevPos: s.prevPos !== undefined ? { x: s.prevPos.x, y: s.prevPos.y } : { x: s.pos.x, y: s.pos.y },
     state: s.state,
     ticksInState: s.ticksInState,
     targetPlayerId: s.targetPlayerId,
-    spawnedAtTick: 0,
-    despawnAtTick: 0,
+    spawnedAtTick: s.spawnedAtTick ?? 0,
+    despawnAtTick: s.despawnAtTick ?? 0,
   };
 }
 

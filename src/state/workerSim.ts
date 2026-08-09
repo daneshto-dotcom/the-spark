@@ -204,10 +204,10 @@ export function makeWorkerSim(
   // get that when the field has no safe absent-value; where absence rehydrates to the
   // correct value it may stay conditional (`sourceSpawnerId` is emitted only when non-null
   // precisely because `?? null` restores a Voltkin's null exactly).
-  // ⚠ KNOWN VIOLATION, logged not fixed: `serializeHunter` emits no lifetime and
-  // `deserializeHunter` hardcodes `despawnAtTick: 0`, so a SEEKING hunter arriving through
-  // here escapes to DESPAWNING on the successor's first hunter tick. Same field, same `>=`
-  // gate, same seam. See the S134 carry-forward in BACKLOG.md.
+  // ✅ S135 P0 — the hunter case that used to be the KNOWN VIOLATION here is now CLOSED.
+  // `serializeHunter` emits spawnedAtTick/despawnAtTick/prevPos and `deserializeHunter`
+  // restores them, so a SEEKING hunter arriving through this authoritative path keeps its
+  // chase instead of escaping to DESPAWNING on tick 1. Guarded by save.hunterLifetime.test.ts.
   // This bit for real: until S134 `despawnAtTick` was emitted only when
   // `sourceSpawnerId !== null`, and a Voltkin hardcodes null — so under `?worker=1` a
   // Voltkin arrived here with despawnAtTick 0 and was deleted on the worker's FIRST

@@ -722,11 +722,11 @@ disconnect/rejoin.
 > hash — a single authority, so it is apply-fidelity, not desync detection. **A host-vs-remote-client
 > oracle still does not exist**, and it is gated on the wire budget (R11: a 6-seat endgame already
 > measures 2.35× the 16 KiB guard ceiling).
-> And the `despawnAtTick = 0` rehydration bug is **still live
-> and unguarded in three paths** (host save/load of a Voltkin, migration takeover of any creature,
-> worker-sim fallback repair) because all three `CREATURE_CONFIGS` are now `persistent:false` while
-> `save.ts` emits `despawnAtTick` only for chewers and defaults it to 0 — it is a present hazard, not
-> an anecdote.
+> ✅ CLOSED — the `despawnAtTick = 0` rehydration hazard CLASS is now fully closed. The creature
+> paths (Voltkin save/load, creature migration takeover, worker-sim fallback) were fixed in S134;
+> the hunter path (`serializeHunter`/`deserializeHunter`), the last member of the class, was fixed
+> in S135 P0 — which travels `despawnAtTick`/`spawnedAtTick`/`prevPos` on the wire and adds
+> `save.hunterLifetime.test.ts`. No rehydrate now defaults a lifetime tick to a gate-tripping 0.
 
 ### XV.7 — Deploy [LOCKED — v0.6]
 
