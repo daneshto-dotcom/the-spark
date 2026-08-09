@@ -1,10 +1,10 @@
 {
-  "tool_calls_session_total": 0,
+  "tool_calls_session_total": 5,
   "session_id": "S135",
   "session_kind": "pdca",
   "session_start": "2026-08-09T00:00:00",
   "prior_session_note": "S134 shipped 1/1 (creature lifetime serialization) and ran its close chain (HANDOFF_S134 + boot-snapshot + reflexion appended to reflexion_log.md + deploy verified live d902571, verify-deploy 4/4). Its session-state.json was left S134-shaped (session_status in_progress, S134 priority present, 6 reflexion entries still in reflexion_entries_to_archive though already in reflexion_log.md) — same residue class the file's own prior_session_note documented for S133. S135 reset the header to S135, cleared the already-archived reflexion residue, and opened the S135 batch (P0 hunter residual + P1 V6-1.1 gatherers/castle). owner_rulings_s134 + deploy_verified_s134 preserved verbatim as authoritative references.",
-  "phase": "DO",
+  "phase": "CHECK",
   "tier": "Full",
   "council_rounds": 0,
   "plan_file": ".claude/plans/2026-08-09_PDR_S135_V6-1.1_gatherers_castle_batch.md",
@@ -78,24 +78,141 @@
     {
       "id": "P1-v6-1.1-gatherers-castle-buy-score-currency",
       "title": "V6-1.1 — gatherer entity + placeholder keep + buy button + score-as-currency (first player-visible feature since the v0.6 pivot)",
-      "status": "in_progress",
+      "status": "completed",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
+      "check_completed": true,
       "pdr_file": ".claude/plans/2026-08-09_PDR_S135_V6-1.1_gatherers_castle_batch.md",
-      "deliberation_note": "6-agent disk-grounded subsystem map (wf_f41487a0-ec8). R3 identity = brand-new entity Map (both entity + castle agents converged). Score already non-monotonic in code (leader-decay scoring.ts:273; Nonet x0.4 sudokuEvent.ts:113) so the two genuine new deltas are tier-pulse re-crossing + HUD drop-flash. Castle = render-only placeholder (no world state). Owner scope this session: gatherer appears at keep + shapeshifts (on-plan slice); roaming/fetching deferred to the immediate next step per owner declining to expand scope."
+      "deliberation_note": "6-agent disk-grounded subsystem map (wf_f41487a0-ec8). R3 identity = brand-new entity Map (both entity + castle agents converged). Score already non-monotonic in code (leader-decay scoring.ts:273; Nonet x0.4 sudokuEvent.ts:113) so the two genuine new deltas are tier-pulse re-crossing + HUD drop-flash. Castle = render-only placeholder (no world state). Owner scope this session: gatherer appears at keep + shapeshifts (on-plan slice); roaming/fetching deferred to the immediate next step per owner declining to expand scope.",
+      "checkpoint_commit": "bf08f56",
+      "real_context_tokens_at_close": 577919,
+      "real_context_pct_at_close": 57.79,
+      "check_method": "RED-FIRST + MUTATION MATRIX + REAL-BROWSER SMOKE. (1) 15 unit tests: the buy transaction, teardown parity at all five sites, and the serialization round-trip on BOTH host-authoritative consumers — applying the S134/S135 lesson at ADD time rather than retrofitting it after a bug. (2) Mutation matrix 5/5 — M1 drop affordability guard, M2 snapshot omits gatherers, M3 WIN_TRIGGER skips teardown, M4 hash projection removed: all RED as predicted. M5 (the spendScore 0-clamp) initially STAYED GREEN, which exposed that the clamp is unreachable behind the reducer guard; pinned spendScore directly rather than leaving its contract resting on one caller, after which M5 went RED. (3) Gate: tsc 0, vitest 2051/2051 across 135 files, build OK, bundle 650.7/750 KiB. (4) REAL BROWSER, not only unit tests: booted the dev server, drove a solo match and pressed the ACTUAL footer button — 900 to 795 to 690 to 585 (exactly 105 each), three gatherers minted at their keeps, eight buys from 900 then correctly refused with the button dimming, the footer guard blocked a world-grab inside the bar while the same spark above it still grabbed normally, zero console errors. (5) Deploy verified 4/4 carriers.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gatherer.ts",
+          "note": "the gatherer entity + castleAnchor (R3 = a brand-new World Map)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const GATHERER_PRICE = 105",
+          "note": "owner precise price (7% of PHASE_1_WIN_SCORE)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/stateHashFull.ts",
+          "needle": "gatherers: 'hashed'",
+          "note": "R1 remedy: the WIDE oracle only — NARROW_HASHED_FAMILIES deliberately untouched"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
+          "needle": "export function spendScore",
+          "note": "the clamped currency primitive (NOT raw addScore)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "| **V6-1.1** | Gatherer substrate + placeholder keep + buy button + score-as-currency | Full | **S135** |",
+          "note": "roadmap row marked executed (MCV binding for the BACKLOG.md edit)"
+        }
+      ]
+    },
+    {
+      "id": "P2-gatherer-haul-cycle",
+      "title": "V6-1.2 (owner scope amendment) — gatherers HAUL: spawn zone to keep, the grab moves to the keep, speed upgrade, start-at-1 + 100 points, half-size spawn zone, per-gatherer preference",
+      "status": "completed",
+      "tier": "Full",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "88ef3b5",
+      "real_context_tokens_at_close": 577919,
+      "real_context_pct_at_close": 57.79,
+      "pdr_file": ".claude/plans/2026-08-09_PDR_S135_V6-1.1_gatherers_castle_batch.md",
+      "scope_amendment": "Rule 16 amendment written and committed (530b8e0) BEFORE any code, after the owner playtested P1 and reported that the gatherers do not move.",
+      "check_method": "RED-FIRST + MUTATION MATRIX + REAL-BROWSER HAUL SMOKE. (1) 18 new tests: gathererHaul.test.ts (full cycle, cargo tracking, preference-beats-distance with an explicit geometry sanity assertion, target/cargo vanishing, no double-claim, speed upgrade, preference ownership) and gathererEscrow.test.ts (all three escrow exemptions driven through the REAL stepPhysics, each with a live control proving the force actually ran; wire round-trip; the player-grab gate in both directions). (2) MY OWN TESTS CAUGHT MY OWN MISTIMING: the first draft asserted HAULING after 420 ticks and failed against WORKING code — pickup lands at ~154 and delivery completes by ~310, so the unit had already banked and re-sought. Rewritten to wait on the observable EVENT (tickUntil) instead of a tick count, which also survives future speed/distance tuning. (3) Mutation matrix 6/6 accounted: M1 reap ignores escrow, M2 rim-snap ignores escrow, M3 never picks up, M4 harvests outside the zone, M6 preference ignored — all RED. M5 (drop the owns-nothing guard) stayed GREEN; I investigated instead of assuming weak coverage and proved the guard REDUNDANT — [].every() is vacuously true so the cap guard already covers it, and deleting BOTH guards does go RED — then documented the redundancy in place. (4) Gate: tsc 0, vitest 2069/2069 across 137 files, build OK, bundle 657.2/750 KiB. (5) REAL BROWSER with real runHostTicks: start = 1 gatherer + 100 points, everHauled true, four shapes BANKED at the keep with one in flight, zero console errors; the screenshot shows the stockpile under the keep, the half-size quarry, and SPEED lit while BUY is dimmed at 100 points. (6) Deploy verified 4/4 — the FIRST verify FAILED on LIVE because the local dist predated the final audit fixes; rebuilt and re-verified rather than explaining it away.",
+      "audit_fixes_included": "The 5-lens adversarial audit of the P0/P1 diff produced 31 findings. Fixed here: castleAnchor seat-6 collision (ring divided by MAX_PLAYERS 6 while VS-BOTS seats 7, so bot seat 6 keep landed exactly on seat 0); the renderer tinting from the STATIC palette instead of live player.color (after a rainbow shuffle your own property rendered in a hue the derangement had given an opponent); nextGathererId declared hashed but never projected; the footer guard blacking out the whole bottom strip instead of the control rects; both footer buttons ignoring the input locks the canvas path honours; the drop-flash suppression latch never expiring; the energy gauge overlapping the footer by 4 px; the orphaned and newly-false hunter docblocks; two BACKLOG self-contradictions; the un-executed NAMING ruling on doc prose; and the tracked save.ts.s134bak still carrying the pre-fix FALSE hunter docblocks.",
+      "deferred": "Not done, logged for next session: the deposit-slot column can still grow past the footer for the two bottom seats at very high gatherer counts; the SCORE_TIER corner-bloom still replays on a re-cross (only the HUD banner is watermarked); the carried-potato onUp footer branch can strand pointer capture; boot-snapshot.md still describes the pre-S135 state (regenerated by /handoff).",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gathererHaul.test.ts",
+          "note": "the haul-cycle suite — asserts the unit CLOSES DISTANCE, which is exactly what the owner report needed"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gathererEscrow.test.ts",
+          "note": "the three escrow exemptions + the player-grab gate"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/game/spark.ts",
+          "needle": "escrow?: 'hauled' | 'banked'",
+          "note": "the one additive field the whole loop rests on"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const SPAWNER_RADIUS = 125",
+          "note": "spawn zone halved (owner instruction)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const STARTING_VICTORY_POINTS = 100",
+          "note": "opening balance (owner instruction); pairs with START AT 1"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gathererLifecycle.ts",
+          "needle": "export function applyGathererTick",
+          "note": "the haul FSM"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/input/controls.ts",
+          "needle": "if (isInsideSpawnZone(s.pos) && s.escrow === undefined) continue;",
+          "note": "THE GRAB MOVED: the spawn zone is gatherer-only, the keep is the player stockpile"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "the hunter case is not.",
+          "note": "carry-forward reconciled (MCV binding for the BACKLOG.md edit)"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
     {
       "id": "the-mutation-matrix-lied-a-third-time-but-a-second-detector-caught-it",
-      "note": "S135 P0. My hunter-lifetime mutation matrix reported a FALSE all-green on its first run — every mutation showed failCount 0 while STAYING GREEN — the exact S134 disease one session later. This time I had built TWO independent detectors into the harness: a per-test x/✗ scan AND a summary 'Tests N failed' regex. They DISAGREED (the x-scan found [TEST A,B,C] failing while failCount read 0), and that disagreement is what exposed the real bug: ANSI colour codes broke the summary regex, not the mutations. Fix was to key the RED signal off execSync's non-zero exit, not a fragile summary parse. LESSON: a single pass/fail parser of tool output is untrustworthy; build a second, differently-shaped detector and treat any disagreement between them as 'my harness is lying', not 'the code passed'. The redundancy, not my judgement, caught it."
+      "note": "S135 P0. My hunter mutation matrix reported a FALSE all-green on its first run — every mutation showed failCount 0 while staying GREEN, the exact S134 disease one session later. This time the harness had TWO independent detectors: a per-test x-scan and a summary regex. They DISAGREED (x-scan found TEST A/B/C failing while failCount read 0), and that disagreement is what exposed the real fault: ANSI colour codes broke the summary regex, not the mutations. Fix was to key RED off execSync non-zero exit. LESSON: a single parser of tool output is untrustworthy; build a second, differently-shaped detector and treat any disagreement between them as \"my harness is lying\", not \"the code passed\". The redundancy caught it, not my judgement."
     },
     {
       "id": "the-adversarial-review-caught-a-false-red-trap-i-would-have-shipped",
-      "note": "S135 P0. My draft test plan said 'seed a hunter via makeHunter and assert hashWorldStateFull equality'. The TEST agent (disk-grounded) found that restore reconstructs nextHunterId=maxId+1 while a raw-seeded source stays at 0, and nextHunterId is hashed — so the equality would have been a FALSE-RED that no correct fix could turn green, pressuring a later session to weaken the assertion. Seeding via applySpawnHunter (which advances the same counter) fixes it. LESSON: for any host-vs-successor hash-equality assertion, enumerate EVERY hashed world scalar the rehydrate path reconstructs (nextXId counters, tick, hunterSpawned) and make the source produce them the same way — or the strongest guard becomes an un-passable trap. Verified tick round-trips via applySnapshotCore on BOTH paths before trusting the assertion."
+      "note": "S135 P0. My draft test plan said \"seed a hunter via makeHunter and assert hashWorldStateFull equality\". The disk-grounded TEST agent found that restore reconstructs nextHunterId = maxId+1 while a raw-seeded source stays at 0, and nextHunterId IS hashed — so the equality would have been a FALSE-RED no correct fix could turn green, pressuring a later session to weaken the strongest assertion in the file. Seeding via applySpawnHunter (which advances the same cursor) fixes it. LESSON: before writing any host-vs-successor hash-equality assertion, enumerate EVERY hashed world scalar the rehydrate path RECONSTRUCTS (nextXId cursors, tick, guard flags) and make the source produce them the same way — otherwise the best guard becomes an un-passable trap."
+    },
+    {
+      "id": "my-own-test-was-wrong-not-the-code",
+      "note": "S135 P2. The haul tests failed with \"expected SEEKING to be HAULING\" and my first instinct was a bug in the FSM. I traced it instead of patching: pickup lands at tick ~154 and delivery completes by ~310, so at my hard-coded 420-tick assertion the gatherer had already banked its shape and gone back to work. The CODE was right; the TEST encoded my arithmetic. Rewrote it to wait on the observable event (tickUntil) rather than a tick count — which is also immune to the speed, distance and radius tuning this very slot changed. LESSON: when a new test fails, first ask whether the assertion or the code is wrong, and prefer waiting on events over counting ticks in any test of a timed process."
+    },
+    {
+      "id": "a-surviving-mutation-is-not-automatically-a-weak-test",
+      "note": "S135 P2. Mutation M5 (delete the owns-nothing guard in the speed upgrade) stayed GREEN. The reflex reading is \"blind test, strengthen it\". I checked instead and found [].every(...) is vacuously TRUE, so the level-cap guard below already returns early for a player owning nothing — the deleted line was REDUNDANT, not uncovered. Proved it by deleting BOTH guards, which went RED. Documented the redundancy in place so a later reader does not chase a phantom gap. LESSON: a mutation that survives means the line did not change behaviour — that is either weak coverage OR a redundant line, and the two demand opposite responses. Distinguish them before acting."
+    },
+    {
+      "id": "the-forcing-functions-did-the-work-i-would-have-forgotten",
+      "note": "S135 P1/P2. Adding a new entity family touches ~17 sites. I did not remember them: tsc named them. FIELD_COVERAGE (keyed on keyof World), KNOWN_GAME_ACTION_TYPES_RECORD (Record over GameAction type), the HelloMsg protoVersion literal and the benchGate two-way set-equality test each failed BY NAME until registered. The two sites with NO forcing function were exactly the two the audit later caught: structuralSignature (a size-only line) and the positions buffer — and nextGathererId, which I marked hashed but never projected, slipping through because the test list of non-family scalars silently absorbed it. LESSON: when adding to a family, list the tsc-forced sites and the UNFORCED ones separately, and treat the unforced list as the real review surface."
+    },
+    {
+      "id": "ship-the-loop-not-the-substrate",
+      "note": "S135. P1 shipped exactly the approved slice — a bought gatherer that stands at its keep — and the owner played it and said the decisive thing: they do not move. The slice was correct by the plan and useless by the game. The plan had even stated the consequence in writing (\"a bought-but-idle gatherer is expected, not a defect\"), which made it a KNOWN dead end rather than an accident. LESSON: when a slice deliberately stops short of a working loop, say so in the owner-facing summary in plain words BEFORE building it, and offer the smallest extension that closes the loop — a feature whose payoff is entirely in the next slot is a feature the owner cannot evaluate."
     }
   ],
   "totals": {
@@ -110,7 +227,7 @@
     ],
     "validator_version": "s110-three-tier-v1"
   },
-  "checkpoint_commit": "7b92713",
+  "checkpoint_commit": "88ef3b5",
   "owner_rulings_s134": {
     "B3_spark_rate": "6x more sparks",
     "B4_directives": "AMENDED — an ordered RTS-style BUILD QUEUE of individual primitives, NOT a filter. Click a shape N times => xN queued; ordered and consumed (leftmost next, each delivery pops one); ONE queue per player; empty queue => gatherers collect nearest (priority override, not on/off); bank full => a loaded gatherer walks home and WAITS at the castle holding its item, depositing the moment a slot frees; all controls live in a FOOTER BAR at the bottom of the screen.",
@@ -141,5 +258,14 @@
     "head_sha": "d902571d9ec140cbd5198783475ffb60e9bae2e5",
     "verify_deploy": "PASS 4/4 — REMOTE d902571d, RUN 1 run (event=push), VERDICT success, LIVE index-BxmxAHDO.js content-hash identical to local build",
     "note": "S135 boot re-verified: verify-deploy PASS 4/4 at HEAD 7b92713 (docs/session-only commits since d902571; no deploy owed). The push DID auto-trigger a run in S134 but that is NOT evidence the trigger is reliable — two earlier qualifying pushes created zero runs. Verify, never infer."
+  },
+  "deploy_verified_s135": {
+    "pushed": "7b92713..88ef3b5",
+    "unpushed_after": 0,
+    "run_id": "31334062347",
+    "conclusion": "success",
+    "head_sha": "88ef3b55",
+    "verify_deploy": "PASS 4/4 — REMOTE 88ef3b55, RUN 1 (event=push), VERDICT success, LIVE index-9CNgDMfY.js content-hash identical to the local build",
+    "note": "The FIRST verify-deploy FAILED on the LIVE carrier because the local dist was stale (built before the final audit fixes), so the hashes could not match. Rebuilt from committed source and re-verified 4/4. Recorded because rebuild-then-re-verify is the correct response to a LIVE mismatch — not assuming CDN lag."
   }
 }
