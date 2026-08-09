@@ -43,6 +43,18 @@ export interface Spark {
    * Additive-optional on the wire so clients render the tint.
    */
   poopyUntilTick?: number;
+  /**
+   * V6-1.2 — GATHERER ESCROW. A spark under escrow is still `Free` (so the player grabs a banked one
+   * through the EXISTING pickup path — no parallel mechanic, B6-compliant), but it is exempt from
+   * the three forces that would otherwise destroy the haul loop:
+   *   'hauled' — a gatherer is carrying it; its pos is slaved to the gatherer each tick.
+   *   'banked' — deposited at its owner's keep, waiting for the player to build with it.
+   * ⚠ THE EXEMPTIONS ARE LOAD-BEARING, not polish. Without them: `reapExpiredFreeSparks` deletes the
+   * shape mid-carry at the 10 s TTL, `enforceFreeSparkCap` can evict it as "oldest", and
+   * `enforceSpawnerBounds` rim-snaps it straight back into the spawn disc the moment the gatherer
+   * carries it past the boundary. Additive-optional on the wire; undefined = an ordinary free spark.
+   */
+  escrow?: 'hauled' | 'banked';
 }
 
 const SPARK_BASE_RADIUS = 9;

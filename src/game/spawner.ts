@@ -448,6 +448,10 @@ export function enforceSpawnerBounds(
   for (let i = 0; i < sparks.length; i++) {
     const s = sparks[i];
     if (s.state.kind !== 'Free') continue;
+    // V6-1.2 — an ESCROWED spark has left the quarry on purpose. Without this exemption the rim-snap
+    // teleports every hauled shape straight back into the disc the instant a gatherer carries it
+    // past the boundary, and a banked stockpile outside the zone would be dragged home every tick.
+    if (s.escrow !== undefined) continue;
     if (exemptSparkId !== null && s.id === exemptSparkId) continue;
     const dx = s.pos.x - cx;
     const dy = s.pos.y - cy;

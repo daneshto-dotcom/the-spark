@@ -16,17 +16,51 @@
  * later slots (V6-1.2/1.3); this entity carries only identity, owner, position and birth tick.
  */
 
-import { MAX_PLAYERS, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS } from '../../constants.ts';
-import type { GathererId, PlayerId, Vec2 } from '../../types.ts';
+import {
+  GATHERER_BASE_SPEED,
+  GATHERER_MAX_SPEED_LEVEL,
+  GATHERER_SPEED_PER_LEVEL,
+  KEEP_RING_SEATS,
+  SPAWNER_CENTER_X,
+  SPAWNER_CENTER_Y,
+  SPAWNER_RADIUS,
+  type SparkType,
+} from '../../constants.ts';
+import type { GathererId, PlayerId, SparkId, Vec2 } from '../../types.ts';
+
+/**
+ * V6-1.2 — the haul cycle. SEEKING: walking to the chosen spark in the spawn zone. HAULING:
+ * carrying it home to the owner's keep. Deposit flips it straight back to SEEKING, so a gatherer
+ * is never idle while shapes exist.
+ */
+export type GathererState = 'SEEKING' | 'HAULING';
 
 export interface Gatherer {
   readonly id: GathererId;
   /** The owning seat — drives the keep it belongs to and its tint (looks like that player's spark). */
   readonly ownerPlayerId: PlayerId;
-  /** Where it sits. Static in V6-1.1 (parked at the keep); mutable for the V6-1.2 roaming FSM. */
+  /** Where it is. Mutated each host tick by the movement step. */
   pos: Vec2;
-  /** Birth tick (deterministic; reserved for future cadence — no runtime reader in V6-1.1). */
+  /** Birth tick (deterministic; reserved for future cadence — no runtime reader yet). */
   readonly spawnedAtTick: number;
+  /** V6-1.2 — haul-cycle FSM state. */
+  state: GathererState;
+  /** The spark it is walking toward while SEEKING. Re-validated every tick (it can be taken/reaped). */
+  targetSparkId: SparkId | null;
+  /** The spark it is carrying while HAULING (escrow 'hauled'; its pos follows this gatherer). */
+  carriedSparkId: SparkId | null;
+  /**
+   * V6-1.2 — purchased speed upgrades. Travel speed is
+   * GATHERER_BASE_SPEED + speedLevel * GATHERER_SPEED_PER_LEVEL, capped at GATHERER_MAX_SPEED_LEVEL.
+   */
+  speedLevel: number;
+  /**
+   * V6-1.2 — the shape this gatherer prefers to fetch, or null for "nearest, any type" (the B4
+   * empty-queue fall-through the owner ruled: a filter is a PRIORITY OVERRIDE, never an on/off
+   * switch — if no spark of the preferred type exists, it still fetches the nearest of any type,
+   * so an unattended player never stops earning).
+   */
+  preferredType: SparkType | null;
 }
 
 /**
@@ -43,7 +77,18 @@ export function makeGatherer(args: {
     ownerPlayerId: args.ownerPlayerId,
     pos: { x: args.pos.x, y: args.pos.y },
     spawnedAtTick: args.spawnedAtTick,
+    state: 'SEEKING',
+    targetSparkId: null,
+    carriedSparkId: null,
+    speedLevel: 0,
+    preferredType: null,
   };
+}
+
+/** Travel speed in px/tick for a gatherer at `speedLevel` (pure — shared by sim and any preview). */
+export function gathererSpeed(speedLevel: number): number {
+  const lvl = Math.max(0, Math.min(GATHERER_MAX_SPEED_LEVEL, speedLevel));
+  return GATHERER_BASE_SPEED + lvl * GATHERER_SPEED_PER_LEVEL;
 }
 
 /**
@@ -55,7 +100,15 @@ export function makeGatherer(args: {
  * replay-stable across the host and the worker/mirror.
  */
 export function castleAnchor(seat: number): Vec2 {
-  const angle = Math.PI + (seat / MAX_PLAYERS) * Math.PI * 2;
+  // ⚠ DIVIDE BY KEEP_RING_SEATS, NOT MAX_PLAYERS. MAX_PLAYERS is 6, but VS-BOTS seats SEVEN
+  // (1 human + up to 6 bots — constants.ts documents exactly this, which is why PLAYER_COLORS has a
+  // 7th entry). Dividing by 6 makes castleAnchor(6) numerically identical to castleAnchor(0), so in
+  // a full bots match the 7th seat's keep lands EXACTLY on the human's and its gatherers spawn
+  // inside the human's stockpile. Caught by the S135 end-of-session audit.
+  // The divisor must be a CONSTANT, never a live roster size: a gatherer's spawn pos is hashed
+  // host-authoritative state, so a seat-count-dependent ring would move every keep (and diverge the
+  // hash) the moment a player joins or drops.
+  const angle = Math.PI + (seat / KEEP_RING_SEATS) * Math.PI * 2;
   const r = SPAWNER_RADIUS + 150;
   return {
     x: SPAWNER_CENTER_X + Math.cos(angle) * r,

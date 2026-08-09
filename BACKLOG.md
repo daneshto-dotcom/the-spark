@@ -21,11 +21,11 @@
 > six values, all inside a 32-day window** — which sharpens rather than softens the point. Score is
 > **quadratic** in time (`score(T) = 0.0125·T²`), so match length scales as `1/√throughput`.
 >
-> **The pivot: workers haul, the player builds.** A castle emits worker sparks that collect on
+> **The pivot: gatherers haul, the player builds.** A castle emits gatherer sparks that collect on
 > player directives into a capped bank; the player builds and sculpts from the bank; the mouse
 > becomes a commander instead of an effector; trophies compound into a persistent castle. Genre
 > unchanged — still 6-player FFA geometric duel, no waves, no co-op main mode. Carry-1 survives,
-> relocated to the worker, with its strategic function moved to the bank cap.
+> relocated to the gatherer, with its strategic function moved to the bank cap.
 >
 > **Shipped this arc:** `SPARK_v0.6_DESIGN.md` (diagnosis + reasoning + roadmap) ·
 > `SPARK_Blueprint.md` rewritten **v0.5.1 → v0.6** (7 substantive changes; 5 locks revoked: no-HUD,
@@ -184,15 +184,15 @@
 >   minutes into a soak.
 >
 > **LOCAL VERIFICATION: 3/3 passed (15.6m)**, all three in the STRICT regime — render 8 150 ticks
-> (resolves 1.3 KB/tick), baseline 10 307 (1.0 KB/tick), bots-worker 8 073 (1.3 KB/tick). So
+> (resolves 1.3 KB/tick), baseline 10 307 (1.0 KB/tick), bots-gatherer 8 073 (1.3 KB/tick). So
 > locally the byte instrument DOES meet its original ~1 KB/tick design intent; it is only the CI
-> bots window that degrades it. Worker isolate is the quietest channel of all (Δ−0.06 / +0.01 MB).
+> bots window that degrades it. Gatherer isolate is the quietest channel of all (Δ−0.06 / +0.01 MB).
 >
 > **Corrections this session made to its OWN earlier claims** (all caught before shipping):
 > the A.0 packet called CI minutes a live constraint (repo is PUBLIC — free); it proposed raising
 > `WALL_CAP_MS` on a linear extrapolation (throughput DECLINES as the world grows); it sized the
 > census limit at 75 from wall-clock instead of SIM time (would have sat above the ~73 signal);
-> it recorded the worker determinism oracle as "stable across all attempts" when **for
+> it recorded the gatherer determinism oracle as "stable across all attempts" when **for
 > `worker-heap:333` it never executed at all** — the tick-floor `expect()` at worker-heap:221
 > threw first, voiding every assertion below it in the shared helper (which makes this fix *more*
 > valuable than the PDR claimed: removing the floor is what lets the oracle actually run); and it
@@ -203,7 +203,7 @@
 >
 > **Carry-forward:** permanent window/threshold shape from the new tick-rate curve · whether the
 > byte-heap audit earns its ~14m of the lane at all (Grok argued DELETE; unproven, and the curve
-> settles it) · **tighten the worker-isolate ceiling 10MB → ~3MB — direction right (spread 0.76MB
+> settles it) · **tighten the gatherer-isolate ceiling 10MB → ~3MB — direction right (spread 0.76MB
 > vs main's 5.5MB ⇒ it would resolve ~1.4KB/tick, near the original design intent) but BLOCKED on
 > instrument repeatability: `readWorkerFloorMB()` is a single read at worker-heap:182, outside the
 > :174-181 stabilization loop** · **unexplored legit lever: Playwright `deviceScaleFactor` to cut
@@ -276,7 +276,7 @@
 > (3) + e2e test 3 freeze-thaw rejoin (@quarantine-flaky). **P2 F9 INTENT token-bucket** —
 > `net/intentRateLimiter.ts` (90/40) at BOTH host choke points, `intentThrottled` observability,
 > prune-on-leave; AUDIT_S116 F9 CLOSED. vitest **1914/1914** (+13) · tsc 0 · bundle **640.8/750** ·
-> NO protocol bump either priority. Owner gates unchanged (worker default-on playtest · §7 answers ·
+> NO protocol bump either priority. Owner gates unchanged (gatherer default-on playtest · §7 answers ·
 > deploy path), then bot-intelligence Phase A · G1b MOTION / G2 traits (design-gated).
 
 ---
@@ -292,12 +292,12 @@
 > no-seam production test (real 15s grace) · **content-verified LIVE on spark-online.space** ·
 > **P2** B2(c) reconciliation (`0d1385a`, see struck item 5 below) · **P3** F10 render-side heap/census
 > audit (`5756060`): direct-mode 10k-tick bots soak, **NO LEAK** (Δ3.08MB organic, census tracks
-> entities) — **F10 closed on both halves** (worker S123 · render S124).
+> entities) — **F10 closed on both halves** (gatherer S123 · render S124).
 > **DEPLOY DISCOVERY:** GitHub Actions are ALIVE again — **every master push auto-deploys to
 > production** (runs 29662201361/29682517245 SUCCESS). The "pick ONE deploy path" owner decision is
 > now urgent-ish: auto is the acting default.
 >
-> Owner gates + next big rocks: unchanged from S123 below (worker default-on playtest · §7 answers ·
+> Owner gates + next big rocks: unchanged from S123 below (gatherer default-on playtest · §7 answers ·
 > deploy path), then bot-intelligence Phase A · hostmig v2 (zombie auto-rejoin) · F9 token-bucket.
 
 ---
@@ -306,7 +306,7 @@
 
 > **S122** shipped B2 phase (d) — the `?worker=1` cutover (60Hz transferable positions + structural-batch
 > snapshots + hash oracle) AND host-migration D3 (MIGRATION_CLAIM behind `__TEST_MIGRATION__`), both live.
-> **S123** closed the default-on prereqs: **P1** VS-BOTS worker support (fresh-from-seed BotManager via
+> **S123** closed the default-on prereqs: **P1** VS-BOTS gatherer support (fresh-from-seed BotManager via
 > factory seam; bots differential HARD gate byte-identical; e2e green first run — 9f48d50) · **P2** networked
 > worker-duel e2e over real WebRTC (merged cross-mode matrix, remote-INTENT round-trip, 4–30Hz wire-cadence
 > bound — a8e073a) · **P3** dual-isolate 10k-tick GC audit (stabilized floors + raw-CDP worker-heap reads:
@@ -317,7 +317,7 @@
 >
 > **NEXT BIG ROCKS (in order):**
 > 1. **OWNER:** weak-device `?worker=1` playtest (flips default-on) · answer `BOT_INTELLIGENCE_DESIGN.md` §7 (Q1–Q7) · pick ONE deploy path (Actions auto vs manual gh-pages — both ran S122).
-> 2. **Worker default-on flip** (once playtest passes): remove the flag gate + fallback-latency telemetry (GEMINI S123 risk: message-queue depth assert).
+> 2. **Gatherer default-on flip** (once playtest passes): remove the flag gate + fallback-latency telemetry (GEMINI S123 risk: message-queue depth assert).
 > 3. **Host-migration D4** — zombie demotion, claim-timeout, simultaneous-claim demotion, POSTGAME/WIN, LOCKED amendments, PROTOCOL bump, reconnect reconciliation + lastRoster lifecycle (+ GEMINI S123: pause-and-buffer during the migration window).
 > 4. **Bot-intelligence Phase A** (after owner answers): knowledge book + combo-aware pick/placement + raid w/ 1-raider cap — Standard tier, no new FSM.
 > 5. ~~**B2 phase (c)** — collision-grid rebuild hoist 64→8/tick (still open; jumped by (d))~~ —
@@ -325,7 +325,7 @@
 >    `collision.ts:18-25` ("rebuilt ONCE per call = once per SUBSTEP, 8×/tick; was 64 insertAll/tick")
 >    and is empirically locked by `collision.pile.test.ts` (dense-pile invariants). This banner line
 >    was stale roadmap drift — the S114 G3b class of error, caught by the S124 A.0 state probe.
-> Owner-gated: F9 INTENT token-bucket (before public matchmaking) · G1b MOTION verb · G2 family traits. (F10 heap probe: worker side CLOSED by S123 P3; Pixi/render side remains.)
+> Owner-gated: F9 INTENT token-bucket (before public matchmaking) · G1b MOTION verb · G2 family traits. (F10 heap probe: gatherer side CLOSED by S123 P3; Pixi/render side remains.)
 
 ---
 
@@ -388,9 +388,9 @@ to skip bumps.
 
 SPARK is a **geometric builder duel** — up to 6 players, FFA, racing to build the most complex geometry on one shared canvas. That does not change.
 
-**What changes in v0.6:** workers haul, the player builds. The mouse becomes a commander instead of an effector. Winning compounds into a persistent castle. Full thesis:
+**What changes in v0.6:** gatherers haul, the player builds. The mouse becomes a commander instead of an effector. Winning compounds into a persistent castle. Full thesis:
 
-> You have a **castle** built from trophies you earned, assembled by hand in a calm postgame cosmos. It produces **workers** who gather on your directives into a **capped bank**. You spend **energy** on your economy and **build with your hands** from the bank — sculpting, carving, transmuting structure into autonomous agents. Your spark is a **hero**, not a laborer. You win on **score**; you can lose your castle.
+> You have a **castle** built from trophies you earned, assembled by hand in a calm postgame cosmos. It produces **gatherers** who gather on your directives into a **capped bank**. You spend **energy** on your economy and **build with your hands** from the bank — sculpting, carving, transmuting structure into autonomous agents. Your spark is a **hero**, not a laborer. You win on **score**; you can lose your castle.
 
 ## The honest gap (measured from the constants, not vibes)
 
@@ -554,7 +554,7 @@ Sequenced so the core loop is **playable by V6-1.7** and everything after lands 
 > save/load/replay with byte-identical coverage · teardown parity at **every** site · disconnect/rejoin.
 > The real registration surface is **17 sites**, not the 4 obligations the spec lists — see R15 in the
 > ledger below. A persistent creature once rehydrated with `despawnAtTick=0` and deleted itself
-> instantly, and that bug is **still live and unguarded in three paths**, so this is a present hazard
+> instantly. ✅ That bug is now CLOSED in all paths (creatures S134, hunter S135 P0); the lesson below
 > rather than a historical anecdote.
 
 ## PHASE 0 — Foundation
@@ -581,8 +581,8 @@ Sequenced so the core loop is **playable by V6-1.7** and everything after lands 
 
 | ID | Priority | Tier | Executed in | Notes · bound risks |
 |---|---|---|---|---|
-| **V6-1.1** | Gatherer agent substrate + sim-worker default-on flip | Full | — | ⚠ **Not a "narrowing".** The real union is `BotGoal` with **8** members (`botBrain.ts:43-51`); `COLLECT`/`DEPOSIT`/`RETURN` appear nowhere in `src/`. It is a **new** goal union reusing `botBrain`'s arbitration *pattern*, `pickTargetSpark`, and `botController` plumbing. `pickTargetSpark` (`:159-177`) takes a predicate in ~2 lines and draws `rng()` exactly once regardless of candidate count, so **a filter cannot shift the replay stream** — the "specialisation costs throughput" mechanic really is free, and an empty candidate set already falls through to `REST` (`:152`). **R1 — ⚠ SUPERSEDED S133, READ THE CORRECTION:** `HashableWorld` (now `stateHash.ts:75-78`) does cover only tick/primitives/bonds/freeSparks/scoreProgress/scoreByPlayer, and that much was right. But the remedy as written — *"Add gatherers to `HashableWorld` **and** `workerSim.ts:251-280 structuralSignature`"* — **treats two NON-symmetric levers as symmetric and is wrong on both counts.** (a) `structuralSignature` is a **SIZE-ONLY** fingerprint (`.size` of 15 collections + scalars; its own docblock: *"Collection sizes catch spawn/despawn; the scalar fields catch the state-machine transitions"*), so a per-entity field **cannot** be expressed in it, and widening it to per-entity granularity turns O(families) into O(entities) at a per-batch call site built to avoid exactly that. (b) `HashableWorld` must **stay narrow**: its one production consumer (`main.ts:1706`) compares the main-thread mirror against the WORKER'S OWN hash — one authority, so it is an apply-fidelity check, not a desync check — and widening it buys nothing at runtime while adding a per-entity projection to a hot path. **✅ WHAT TO ACTUALLY DO:** add the new family to **`FIELD_COVERAGE` in `src/state/stateHashFull.ts`**, which since S133 is a compile-time forcing function keyed on `keyof World` — omit it and `tsc` fails naming your field, and a field-level guard fails again if you add a field to an already-hashed entity. The four differential harnesses already consume that wide hash. **A `// V6-RISK(R1):` anchor now exists at `stateHash.ts` above `NARROW_HASHED_FAMILIES`.** **R3:** gatherer identity is unchosen and load-bearing (a `freeSparks` entry inherits the 10 s TTL reap and rim-snapping; a new map is invisible to R1/R2; a seated Player collides with `MAX_PLAYERS = 6`). "Carry-1 moves to the worker" widens `SparkState.Carried.carrierId` off `PlayerId` (`spark.ts:17`) ⇒ **a wire + save change**, not a bot-layer detail, which "behind a flag, solo only" does not scope. **R4:** agent RNG stream state has no serialization path (`BotManager` holds `mulberry32` streams privately; `rebuildAuthorityAllocators` rebuilds 4 numbers and touches it not at all) — use stateless `mix32(tick, id, salt)` per `constants.ts:885` "NO 6th RNG stream", precedent `rainbowLifecycle.ts:115`. **R23:** `nearestEnemySpawnerBond` (`:314-341`) and `nearestChewer` (`:348-359`) have ZERO test coverage and feed the SEVER/FLEE priorities — i.e. the exact arbitration block being rewritten. **Also decide here: the `worker`→`gatherer` rename.** |
-| **V6-1.2** | Castle entity + gatherer production + spawner shrink | Full | — | Model the **`creatureSpawner` LIFECYCLE** but the **DEFENDER's serialization**: `deserializeSpawner` (`save.ts:1277-1286`) **re-seeds** `nextSpawnTick` from the load tick and resets `spawnedCount`, so copying it verbatim resets every castle cadence and bank timer on save/load **and host migration** — a day-one failure of the migration obligation. **R9:** six castles cannot inherit `SPAWNER_RADIUS + 40` — seat spacing falls 290→228 px at r=188, and territory bubbles (`60 + 12·log₂(complexity+1)`) first touch at complexity **21.6** vs 134.6 today, i.e. inside the first minute; `isInsideEnemyTerritory` is a host-authoritative placement *reject*, so this is legal-build-space loss. Keep the seat ring near 290 absolute. **R10:** the r=188 flip **hard-fails** `collision.pile.test.ts` (worst residual overlap 2.89 px vs a 1.5 px assertion at `:116`) because `enforceSpawnerBounds` rim-compresses all 30 pile sparks each substep; dropping the free-spark cap does not fix it since `PILE_COUNT` is a literal 30. **Six derived constants move 62 px inward with the radius** (`botBrain.ts:275`/`:257`, `gameMode.ts:109`, `creatureVerlet.ts:62`, `botSpawnerSeed.ts:48`/`:62` — the last justifies its +240 offset "precisely so the ring stays reachable for the player's raid counterplay", judged against 250), **`SPAWNER_RADIUS` is also a fog source** (`vision.ts:59`) so the always-visible region shrinks 43% — undercutting the rationale the build-ban rests on — and **four sites hardcode 250 and go stale silently** (`e2e/bomb.spec.ts:41`, `e2e/nplayer.spec.ts:197`, `src/state/world.test.ts:191`, `e2e/smoke.spec.ts:483-484`). Protocol bump. |
+| **V6-1.1** | Gatherer substrate + placeholder keep + buy button + score-as-currency | Full | **S135** | ⚠ **Not a "narrowing".** The real union is `BotGoal` with **8** members (`botBrain.ts:43-51`); `COLLECT`/`DEPOSIT`/`RETURN` appear nowhere in `src/`. It is a **new** goal union reusing `botBrain`'s arbitration *pattern*, `pickTargetSpark`, and `botController` plumbing. `pickTargetSpark` (`:159-177`) takes a predicate in ~2 lines and draws `rng()` exactly once regardless of candidate count, so **a filter cannot shift the replay stream** — the "specialisation costs throughput" mechanic really is free, and an empty candidate set already falls through to `REST` (`:152`). **R1 — ⚠ SUPERSEDED S133, READ THE CORRECTION:** `HashableWorld` (now `stateHash.ts:75-78`) does cover only tick/primitives/bonds/freeSparks/scoreProgress/scoreByPlayer, and that much was right. But the remedy as written — *"Add gatherers to `HashableWorld` **and** `workerSim.ts:251-280 structuralSignature`"* — **treats two NON-symmetric levers as symmetric and is wrong on both counts.** (a) `structuralSignature` is a **SIZE-ONLY** fingerprint (`.size` of 15 collections + scalars; its own docblock: *"Collection sizes catch spawn/despawn; the scalar fields catch the state-machine transitions"*), so a per-entity field **cannot** be expressed in it, and widening it to per-entity granularity turns O(families) into O(entities) at a per-batch call site built to avoid exactly that. (b) `HashableWorld` must **stay narrow**: its one production consumer (`main.ts:1706`) compares the main-thread mirror against the WORKER'S OWN hash — one authority, so it is an apply-fidelity check, not a desync check — and widening it buys nothing at runtime while adding a per-entity projection to a hot path. **✅ WHAT TO ACTUALLY DO:** add the new family to **`FIELD_COVERAGE` in `src/state/stateHashFull.ts`**, which since S133 is a compile-time forcing function keyed on `keyof World` — omit it and `tsc` fails naming your field, and a field-level guard fails again if you add a field to an already-hashed entity. The four differential harnesses already consume that wide hash. **A `// V6-RISK(R1):` anchor now exists at `stateHash.ts` above `NARROW_HASHED_FAMILIES`.** **R3:** gatherer identity is unchosen and load-bearing (a `freeSparks` entry inherits the 10 s TTL reap and rim-snapping; a new map is invisible to R1/R2; a seated Player collides with `MAX_PLAYERS = 6`). "Carry-1 moves to the worker" widens `SparkState.Carried.carrierId` off `PlayerId` (`spark.ts:17`) ⇒ **a wire + save change**, not a bot-layer detail, which "behind a flag, solo only" does not scope. **R4:** agent RNG stream state has no serialization path (`BotManager` holds `mulberry32` streams privately; `rebuildAuthorityAllocators` rebuilds 4 numbers and touches it not at all) — use stateless `mix32(tick, id, salt)` per `constants.ts:885` "NO 6th RNG stream", precedent `rainbowLifecycle.ts:115`. **R23:** `nearestEnemySpawnerBond` (`:314-341`) and `nearestChewer` (`:348-359`) have ZERO test coverage and feed the SEVER/FLEE priorities — i.e. the exact arbitration block being rewritten. **Also decide here: the `worker`→`gatherer` rename.** |
+| **V6-1.2** | Castle entity + gatherer production + spawner shrink | Full | **S135 (partial)** | Model the **`creatureSpawner` LIFECYCLE** but the **DEFENDER's serialization**: `deserializeSpawner` (`save.ts:1277-1286`) **re-seeds** `nextSpawnTick` from the load tick and resets `spawnedCount`, so copying it verbatim resets every castle cadence and bank timer on save/load **and host migration** — a day-one failure of the migration obligation. **R9:** six castles cannot inherit `SPAWNER_RADIUS + 40` — seat spacing falls 290→228 px at r=188, and territory bubbles (`60 + 12·log₂(complexity+1)`) first touch at complexity **21.6** vs 134.6 today, i.e. inside the first minute; `isInsideEnemyTerritory` is a host-authoritative placement *reject*, so this is legal-build-space loss. Keep the seat ring near 290 absolute. **R10:** the r=188 flip **hard-fails** `collision.pile.test.ts` (worst residual overlap 2.89 px vs a 1.5 px assertion at `:116`) because `enforceSpawnerBounds` rim-compresses all 30 pile sparks each substep; dropping the free-spark cap does not fix it since `PILE_COUNT` is a literal 30. **Six derived constants move 62 px inward with the radius** (`botBrain.ts:275`/`:257`, `gameMode.ts:109`, `creatureVerlet.ts:62`, `botSpawnerSeed.ts:48`/`:62` — the last justifies its +240 offset "precisely so the ring stays reachable for the player's raid counterplay", judged against 250), **`SPAWNER_RADIUS` is also a fog source** (`vision.ts:59`) so the always-visible region shrinks 43% — undercutting the rationale the build-ban rests on — and **four sites hardcode 250 and go stale silently** (`e2e/bomb.spec.ts:41`, `e2e/nplayer.spec.ts:197`, `src/state/world.test.ts:191`, `e2e/smoke.spec.ts:483-484`). Protocol bump. |
 | **V6-1.3** | The bank | Full | — | 🔒 **BLOCKED on the B4 ruling.** Capped deposit store, stall at cap, build-from-bank input flow. **Where carry-1 formally relocates.** **Keep the recipe-size table (pentagram 5 · lightningHub 6 · Helga 7 · Voltkin 8 · laserTurret 8) adjacent to the cap number — never tune them independently.** **R8:** disruption charges are earned in `placePrimitive.ts:584` via `tickBuildAction` (`BUILD_ACTIONS_PER_CHARGE = 5`, cap 2); if that call site does not move to the bank-place path the hero silently loses SEVER and SHRINK_TERRITORY (which needs 2 charges). Add the supply-sufficiency pre-gate here so a B3 failure cannot masquerade as a sculpting failure at V6-1.7. |
 | **V6-1.4** | Directives | Standard | — | 🔒 **BLOCKED on the B3 + B4 rulings** (hard filter vs biased mix). Predicate on `pickTargetSpark`; per-castle collect filter; directive state syncs. |
 | **V6-1.5** | The hero unit | **Full** (was Standard) | — | ⚠ **Mis-tiered, and "every existing hazard interaction stays intact" is not survivable.** Carry is a variant of the top-level `Player` type (`player.ts:86-91`) and the FSM hand-carries every hazard debuff across the object rebuild (`pickup` `:115-141`, `drop` `:144-167`). Deleting it silently changes shipped rules: the LMB hazard chain is gated on Idle (`controls.ts:245`) so **bomb/rainbow/potato become always-grabbable**; poop loses 3 of its 4 surfaces including its *only* economic bite (the pickup-arrival gate `sparkLifecycle.ts:160-172`), leaving a pure movement slow; the hunter keeps bench+pursuit but loses confiscation (`hunterLifecycle.ts:195-206`) until V6-2.2, **two slots later**. Only splat-cleaning (`seagullLifecycle.ts:375-384`) and rainbow (`rainbowLifecycle.ts:102-129`) transfer cleanly. |
@@ -636,7 +636,7 @@ Sequenced so the core loop is **playable by V6-1.7** and everything after lands 
 > neutral one. Fixed by emitting `despawnAtTick` unconditionally and removing both it and
 > `sourceSpawnerId` from the trim. No `PROTOCOL_VERSION` bump (stays 15).
 >
-> 🐞 **NEW FINDING, LOGGED SEPARATELY PER THE OWNER RULING — the worker-INIT path was live
+> 🐞 **NEW FINDING, LOGGED SEPARATELY PER THE OWNER RULING — the gatherer-INIT path was live
 > on today's build with NO migration at all.** `main.ts:1630` → `workerSim.ts` `restore()`
 > + `isHost = true` runs the DISK serializer, so under `?worker=1` a Voltkin's lifetime was
 > destroyed **on the original host**, no peer and no disconnect. MEASURED pre-fix: host
@@ -689,7 +689,7 @@ Sequenced so the core loop is **playable by V6-1.7** and everything after lands 
 > (`save.ts:1683`), while `hunterLifecycle.ts:148` is `if (world.tick >= hunter.despawnAtTick) {`
 > on the SEEKING branch. Both seams reach it — `snapshot()` serializes hunters and
 > `applySnapshotCore` rehydrates them via the same `restore()` the worker sim calls. So on
-> host migration **or** worker-failure direct-resume, a live hunter escapes to DESPAWNING on
+> host migration **or** gatherer-failure direct-resume, a live hunter escapes to DESPAWNING on
 > the successor's first hunter tick, and because `world.hunterSpawned` DOES serialize, the
 > once-per-match gate blocks a respawn ⇒ **the leader-punish mechanic is silently gone for
 > the rest of the match.** MEDIUM not CRITICAL: bounded to one hunter per match, and the
@@ -697,10 +697,9 @@ Sequenced so the core loop is **playable by V6-1.7** and everything after lands 
 > **FIXED in S135 P0** (was: NOT fixed in S134, deliberately out of scope). The
 > fix is the same shape: emit `despawnAtTick` from `serializeHunter`, rehydrate
 > `s.despawnAtTick ?? 0`, and add a test that puts a SEEKING hunter through the wire and
-> asserts it is still SEEKING after 5 `runHostTick`s. ⚠ **`SPARK_Blueprint.md:725-729` still
-> declares this bug "still live and unguarded in three paths" — strike that paragraph in the
-> SAME change that closes the hunter case, not before**, since its three paths do not include
-> hunters and it is now the only accurate warning left.
+> asserts it is still SEEKING after 5 `runHostTick`s. ✅ **DONE in S135 P0**, which additionally
+> travelled `spawnedAtTick`/`prevPos` and struck the now-closed `SPARK_Blueprint.md` hazard
+> paragraph in the same commit.
 >
 > 🔭 **AND THE SYSTEMIC GAP THAT LET BOTH HIDE.** `workerSim.differential.test.ts:236` is the
 > repo's strongest `restore()` guard — a bit-exact `hashWorldStateFull` INIT comparison that
@@ -711,7 +710,8 @@ Sequenced so the core loop is **playable by V6-1.7** and everything after lands 
 > rig with one Voltkin, one spawner-emitted chewer and one hunter would turn it into a real
 > omission detector for the next field. ✅ S135 P0 seeded it with a hunter round-trip (a start). Follow-up for the creature/spawner seeds, not a blocker.
 >
-> 📌 **STILL OPEN, logged not fixed:** (a) `prevPos`/`targetPos`/`spawnedAtTick` have **no
+> 📌 **STILL OPEN, logged not fixed (CREATURES ONLY — hunters are exempt since S135 P0, which makes
+> all three travel; see `save.hunterLifetime.test.ts` TEST A):** (a) `prevPos`/`targetPos`/`spawnedAtTick` have **no
 > serializer surface at all**, so the successor's world is NOT equal to the predecessor's —
 > do not write a host-vs-successor `hashWorldStateFull` equality test expecting it to pass;
 > (b) the **mixed-build window** — no bump means a pre-S134 predecessor still sends
@@ -783,7 +783,7 @@ reason, not cancelled.
 1. **Permanent soak window/threshold shape** from the tick-rate curves now logged every run.
    **BLOCKED:** needs the second sample set from the weekly cron (**Mon 2026-08-03 07:00 UTC**).
    Deciding from n=3–4 cost three iterations in S127 — do not repeat it.
-2. **Worker-isolate heap ceiling 10 MB → ~3 MB.** Direction is right (its spread is 0.76 MB vs the main
+2. **Gatherer-isolate heap ceiling 10 MB → ~3 MB.** Direction is right (its spread is 0.76 MB vs the main
    thread's 5.5 MB, so ~3 MB resolves ~1.4 KB/tick, near the original design intent). **BLOCKED on
    instrument repeatability:** `readWorkerFloorMB()` is a SINGLE read at `worker-heap.spec.ts:182`,
    **outside** the `readMainFloorMB` stabilization loop at `:174-181`. Add stabilization or
@@ -839,11 +839,11 @@ reason, not cancelled.
   the probe ever gains a bots or networked mode, this goes live and a draw would also drain a
   disruption charge.
 - **B6 reversibility option (A) or (B)** — hard precondition on V6-1.1.
-- **`worker` → `gatherer` rename** — deferred to V6-1.1, the slot that first creates the type. Not
-  applied in S128 because no code entity exists yet, so it is not yet forcing, and "worker sparks" is
-  the owner's own wording. **Forcing constraint on record:** the code identifier **cannot** be `Worker`
+- **`gatherer` → `gatherer` rename** — deferred to V6-1.1, the slot that first creates the type. Not
+  applied in S128 because no code entity exists yet, so it is not yet forcing, and "gatherer sparks" is
+  the owner's own wording. **Forcing constraint on record:** the code identifier **cannot** be `Gatherer`
   (the Web Worker owns the authoritative World; `workerSim.ts`, `workerSim.differential.test.ts`), and
-  both Council reviewers independently held that a split vocabulary (docs "worker" / code `Gatherer`)
+  both Council reviewers independently held that a split vocabulary (docs "gatherer" / code `Gatherer`)
   is worse than either pure choice.
 
 ## C · Engineering risks R1–R23 — bound to the slots above

@@ -329,6 +329,19 @@ function referenceHostTick(world: World, ref: RefCtx): void {
         player.benchedUntilTick = undefined;
       }
     }
+    // V6-1.2 — gatherer haul-cycle fan-out, mirrored here in LOCKSTEP with hostTick.ts.
+    // ⚠ WHY THE FROZEN REFERENCE GAINS A LINE. This transcription exists to prove a REFACTOR did
+    // not change behaviour; it is not a museum piece. A genuinely NEW entity tick must be added to
+    // both sides in the same change, exactly as the hunter and defender fan-outs above were —
+    // otherwise the gate silently degrades into "no new feature may ever ship", and the first
+    // person to hit it deletes the assertion instead of the divergence. Verified by construction:
+    // this loop is a character-for-character copy of the hostTick.ts block, so the gate still
+    // detects any ORDERING or CONDITION drift between the two.
+    if (world.gatherers.size > 0) {
+      for (const gid of Array.from(world.gatherers.keys())) {
+        dispatch(world, { type: 'GATHERER_TICK', gathererId: gid });
+      }
+    }
   }
 
   if (world.gameState === 'PLAYING' && !isClient && world.potatoes.size > 0) {

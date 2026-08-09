@@ -21,7 +21,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { PHASE_1_WIN_SCORE, PHYSICS_HZ, PLAYER_COLORS, SparkType } from '../constants.ts';
+import { PHASE_1_WIN_SCORE, PHYSICS_HZ, PLAYER_COLORS, SparkType,
+  STARTING_VICTORY_POINTS,
+} from '../constants.ts';
 import { makeFreeSpark } from './spark.ts';
 import { asPlayerId, asSparkId, type PrimitiveId } from '../types.ts';
 import { addScore, dispatch, makeWorld } from '../state/world.ts';
@@ -86,7 +88,8 @@ describe('S15 P2 — gameState FSM extension', () => {
     const p2 = w.players.get(P2);
     expect(p2).toBeDefined();
     expect(p2!.color).toBe(0x3bd7ff); // PLAYER_COLORS[1] cyan
-    expect(w.scoreByPlayer.get(P2)).toBe(0);
+    // V6-1.2 — a freshly seated player opens with STARTING_VICTORY_POINTS, not 0.
+    expect(w.scoreByPlayer.get(P2)).toBe(STARTING_VICTORY_POINTS);
   });
 
   it('tickGameState is a no-op in TITLE and LOBBY', () => {
@@ -319,13 +322,15 @@ describe('S15 P2 — scoreByPlayer + winner attribution', () => {
 
     // Switch to 1v1 and add for P2.
     dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    // V6-1.2 — START_GAME now stamps EVERY seat to STARTING_VICTORY_POINTS (it is the opening
+    // balance, not an increment), so P1's pre-START 5 is overwritten too. The behaviour under test
+    // — addScore is per-player and scoreProgress is the running max — is unchanged.
     addScore(w, P2, 7);
-    expect(w.scoreByPlayer.get(P2)).toBe(7);
-    // In 1v1, scoreProgress = max(scoreByPlayer.values()) = max(5, 7) = 7
-    expect(w.scoreProgress).toBe(7);
-    addScore(w, P1, 10); // P1 now 15, P2 still 7
-    expect(w.scoreByPlayer.get(P1)).toBe(15);
-    expect(w.scoreProgress).toBe(15); // P1 is now leader
+    expect(w.scoreByPlayer.get(P2)).toBe(STARTING_VICTORY_POINTS + 7);
+    expect(w.scoreProgress).toBe(STARTING_VICTORY_POINTS + 7);
+    addScore(w, P1, 10);
+    expect(w.scoreByPlayer.get(P1)).toBe(STARTING_VICTORY_POINTS + 10);
+    expect(w.scoreProgress).toBe(STARTING_VICTORY_POINTS + 10); // P1 is now leader
   });
 
   it('1v1 WIN_TRIGGER attributes winner to the highest-score player', () => {
@@ -504,15 +509,20 @@ describe('S15 P2 — save format', () => {
 
     const snap = snapshot(w1);
     expect(snap.gameMode).toBe('1v1');
-    expect(snap.scoreByPlayer).toEqual(expect.arrayContaining([[P1, 12], [P2, 8]]));
+    // V6-1.2 — the opening balance rides on top of the added points (START_GAME stamps every
+    // seat to STARTING_VICTORY_POINTS). What this test pins is the ROUND-TRIP, so it asserts the
+    // values actually present rather than re-deriving the economy.
+    expect(snap.scoreByPlayer).toEqual(
+      expect.arrayContaining([[P1, STARTING_VICTORY_POINTS + 12], [P2, STARTING_VICTORY_POINTS + 8]]),
+    );
     // S42 — currentPlayerId no longer emitted in new saves.
     expect(snap.currentPlayerId).toBeUndefined();
 
     const w2 = makeWorld(0);
     restore(JSON.parse(JSON.stringify(snap)), w2);
     expect(w2.gameMode).toBe('1v1');
-    expect(w2.scoreByPlayer.get(P1)).toBe(12);
-    expect(w2.scoreByPlayer.get(P2)).toBe(8);
+    expect(w2.scoreByPlayer.get(P1)).toBe(STARTING_VICTORY_POINTS + 12);
+    expect(w2.scoreByPlayer.get(P2)).toBe(STARTING_VICTORY_POINTS + 8);
   });
 
   it('S42 — pre-S42 saves with currentPlayerId field still parse (back-compat ignored-slot)', () => {

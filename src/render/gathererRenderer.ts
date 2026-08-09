@@ -22,7 +22,7 @@
 import { Application, Container, Graphics } from 'pixi.js';
 import { PLAYER_COLORS, SparkType } from '../constants.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
-import type { GathererId } from '../types.ts';
+import type { GathererId, SparkId } from '../types.ts';
 import type { World } from '../state/world.ts';
 
 /** Ticks each primitive is held before morphing to the next (~1.2 s at 60 Hz — never per-tick). */
@@ -57,18 +57,40 @@ export class GathererRenderer {
     g.clear();
     if (world.gameState !== 'PLAYING') return;
 
-    for (const seat of world.players.keys()) {
-      this.drawKeep(g, seat as unknown as number);
+    // ⚠ TINT FROM THE LIVE PLAYER, NOT THE STATIC PALETTE. `applyTriggerRainbow` remaps every
+    // player's `color` through a DERANGEMENT mid-match, so a seat-indexed lookup would draw your
+    // keep and your units in a hue that now belongs to an opponent — they would read as enemy
+    // property. Every other ownership surface (avatarRenderer) reads the live value for exactly
+    // this reason. Caught by the S135 end-of-session audit.
+    for (const [seat, player] of world.players) {
+      this.drawKeep(g, seat as unknown as number, player.color);
     }
     for (const gatherer of world.gatherers.values()) {
-      this.drawGatherer(g, gatherer.pos.x, gatherer.pos.y, seatColor(gatherer.ownerPlayerId as unknown as number), gathererMorphShape(world.tick, gatherer.id));
+      const owner = world.players.get(gatherer.ownerPlayerId);
+      const color = owner?.color ?? seatColor(gatherer.ownerPlayerId as unknown as number);
+      this.drawGatherer(
+        g,
+        gatherer.pos.x,
+        gatherer.pos.y,
+        color,
+        // While HAULING it wears its CARGO's real shape (you can see what is being brought home);
+        // while seeking it cycles cosmetically. Both are render-time reads — never world state.
+        this.carriedShape(world, gatherer) ?? gathererMorphShape(world.tick, gatherer.id),
+        gatherer.state === 'HAULING',
+        gatherer.preferredType,
+      );
     }
   }
 
+  /** The real type of the shape this gatherer is carrying, or null when its hands are empty. */
+  private carriedShape(world: World, gatherer: { carriedSparkId: SparkId | null }): SparkType | null {
+    if (gatherer.carriedSparkId === null) return null;
+    return world.freeSparks.get(gatherer.carriedSparkId)?.type ?? null;
+  }
+
   /** The placeholder keep: a battlemented box at the seat's fixed anchor, tinted to the seat. */
-  private drawKeep(g: Graphics, seat: number): void {
+  private drawKeep(g: Graphics, seat: number, color: number): void {
     const { x, y } = castleAnchor(seat);
-    const color = seatColor(seat);
     const left = x - KEEP_W / 2;
     const top = y - KEEP_H / 2;
 
@@ -87,10 +109,22 @@ export class GathererRenderer {
   }
 
   /** A gatherer: the owner's spark, currently wearing one of the six primitive shapes. */
-  private drawGatherer(g: Graphics, x: number, y: number, color: number, shape: SparkType): void {
+  private drawGatherer(
+    g: Graphics,
+    x: number,
+    y: number,
+    color: number,
+    shape: SparkType,
+    hauling: boolean,
+    preferred: SparkType | null,
+  ): void {
     const r = GATHERER_RADIUS;
-    // Soft aura so it reads as "one of your sparks" at a glance.
-    g.circle(x, y, r + 4).fill({ color, alpha: 0.16 });
+    // Soft aura so it reads as "one of your sparks" at a glance; brighter while carrying, so a
+    // loaded unit is legible at a distance without any HUD.
+    g.circle(x, y, r + 4).fill({ color, alpha: hauling ? 0.3 : 0.16 });
+    if (hauling) g.circle(x, y, r + 7).stroke({ width: 1.5, color, alpha: 0.5 });
+    // A standing order shows as a small ring: "this one is filtered". Cosmetic, render-only.
+    if (preferred !== null) g.circle(x, y, r + 11).stroke({ width: 1, color: 0xffffff, alpha: 0.45 });
 
     const fill = { color, alpha: 0.55 } as const;
     const line = { width: 2, color, alpha: 0.95 } as const;

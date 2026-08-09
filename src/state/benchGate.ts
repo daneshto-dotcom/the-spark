@@ -70,6 +70,12 @@ export const BENCH_INTENT_POLICY = {
   // denied while eaten, exactly like PICKUP_SPARK / PLACE_*. Being benched should cost you tempo;
   // spending from the bench would hand the victim a free economic action mid-punish.
   BUY_GATHERER: 'deny',
+  // V6-1.2 — buying speed is the same acquisitive spend as buying a unit: denied while eaten.
+  UPGRADE_GATHERER_SPEED: 'deny',
+  // V6-1.2 — re-tasking an EXISTING unit costs nothing and gains nothing; it is the economic
+  // equivalent of moving your cursor. Allowed while benched, like UPDATE_AVATAR_POS: the bench is
+  // meant to stop you ACQUIRING, not to freeze standing orders you already paid for.
+  SET_GATHERER_PREFERENCE: 'allow',
 } as const satisfies Partial<Record<GameAction['type'], BenchPolicy>>;
 
 /**

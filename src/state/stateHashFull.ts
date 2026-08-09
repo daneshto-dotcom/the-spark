@@ -205,7 +205,9 @@ type PrimitiveHashed =
 type BondHashed =
   | 'id' | 'aId' | 'bId' | 'restLength' | 'stiffnessTier' | 'createdTick'
   | 'stiffnessMultiplier' | 'a' | 'b';
-type SparkHashed = 'id' | 'type' | 'pos' | 'prevPos' | 'radius' | 'createdTick' | 'state' | 'poopyUntilTick';
+type SparkHashed =
+  | 'id' | 'type' | 'pos' | 'prevPos' | 'radius' | 'createdTick' | 'state' | 'poopyUntilTick'
+  | 'escrow';
 type CreatureHashed =
   | 'id' | 'type' | 'ownerPlayerId' | 'pos' | 'prevPos' | 'targetPos' | 'targetBondId'
   | 'targetCreatureId' | 'state' | 'ticksInState' | 'killCount' | 'spawnedAtTick'
@@ -230,7 +232,9 @@ type PoopHashed =
   | 'id' | 'pos' | 'prevPos' | 'state' | 'spawnedAtTick' | 'landedAtTick' | 'fouledPrimId';
 // V6-1.1 — the cosmetic shapeshift is NOT here because it is NOT world state (renderer-only,
 // a pure fn of (tick, gathererId)). Every field the entity DOES carry is hashed.
-type GathererHashed = 'id' | 'ownerPlayerId' | 'pos' | 'spawnedAtTick';
+type GathererHashed =
+  | 'id' | 'ownerPlayerId' | 'pos' | 'spawnedAtTick' | 'state' | 'targetSparkId'
+  | 'carriedSparkId' | 'speedLevel' | 'preferredType';
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 const _primComplete: NoUncovered<Exclude<PrimitiveF, PrimitiveHashed>> = true;
@@ -299,7 +303,7 @@ export function determinismParts(world: World): string[] {
     `nx${world.nextPrimitiveId},${world.nextBondId},${world.nextCreatureId},` +
       `${world.nextSpawnerId},${world.nextDefenderId},${world.nextBombId},` +
       `${world.nextHunterId},${world.nextPotatoId},${world.nextRainbowId},` +
-      `${world.nextSeagullId},${world.nextPoopId}`,
+      `${world.nextSeagullId},${world.nextPoopId},${world.nextGathererId}`,
     // `sudoku` freezes the sim, so its presence and identity are sim state. Stringified
     // wholesale: it is a small flat record, only non-null during a NONET trial, and its
     // key order is fixed by its construction site.
@@ -338,7 +342,8 @@ export function determinismParts(world: World): string[] {
   for (const s of sparks) {
     parts.push(
       `s${n(s.id)}:${s.type}:${s.pos.x},${s.pos.y}:${v2(s.prevPos)}:r${s.radius}` +
-        `:ct${s.createdTick}:st${JSON.stringify(s.state)}:pu${o(s.poopyUntilTick)}`,
+        `:ct${s.createdTick}:st${JSON.stringify(s.state)}:pu${o(s.poopyUntilTick)}` +
+        `:es${o(s.escrow)}`,
     );
   }
 
@@ -373,7 +378,11 @@ export function determinismParts(world: World): string[] {
 
   const gatherers = [...world.gatherers.values()].sort((a, b) => Number(a.id) - Number(b.id));
   for (const g of gatherers) {
-    parts.push(`ga${n(g.id)}:${n(g.ownerPlayerId)}:${g.pos.x},${g.pos.y}:sa${o(g.spawnedAtTick)}`);
+    parts.push(
+      `ga${n(g.id)}:${n(g.ownerPlayerId)}:${g.pos.x},${g.pos.y}:sa${o(g.spawnedAtTick)}` +
+        `:${g.state}:tg${n(g.targetSparkId)}:cy${n(g.carriedSparkId)}:sl${g.speedLevel}` +
+        `:pf${o(g.preferredType)}`,
+    );
   }
 
   const bombs = [...world.bombs.values()].sort((a, b) => Number(a.id) - Number(b.id));

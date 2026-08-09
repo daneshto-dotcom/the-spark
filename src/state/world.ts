@@ -146,8 +146,14 @@ import {
 } from './defenders/defenderLifecycle.ts';
 import {
   applyBuyGatherer,
+  applyGathererTick,
+  applySetGathererPreference,
+  applyUpgradeGathererSpeed,
   teardownGatherers,
   type BuyGathererAction,
+  type GathererTickAction,
+  type SetGathererPreferenceAction,
+  type UpgradeGathererSpeedAction,
 } from './gatherers/gathererLifecycle.ts';
 
 // Re-export addScore from gameMode.ts for back-compat with placePrimitive.ts
@@ -295,6 +301,12 @@ export type GameAction =
   // V6-1.1 — buy a gatherer from the placeholder keep. A CLIENT INTENT (a 1v1 joiner can buy);
   // the host applies it authoritatively. Reducer in gatherers/gathererLifecycle.ts. PROTOCOL bump.
   | BuyGathererAction
+  // V6-1.2 — the haul cycle. GATHERER_TICK is HOST-INTERNAL (fanned out from runHostTick, never a
+  // client intent); UPGRADE_GATHERER_SPEED and SET_GATHERER_PREFERENCE are CLIENT INTENTs (a joiner
+  // can buy speed and re-task their own unit — both are ownership- and affordability-gated on the host).
+  | GathererTickAction
+  | UpgradeGathererSpeedAction
+  | SetGathererPreferenceAction
   // S93 — NONET: a player submits a completed Sudoku grid (client INTENT or host/solo local);
   // the host validates first-valid-wins. playerId is host-stamped to the sender's seat.
   | { readonly type: 'SUDOKU_SOLVED'; readonly playerId: PlayerId; readonly grid: readonly number[] };
@@ -629,6 +641,15 @@ export function dispatch(world: World, action: GameAction): World {
     // V6-1.1 — buy a gatherer from the placeholder keep (spend victory points, mint one unit).
     case 'BUY_GATHERER':
       return applyBuyGatherer(world, action);
+
+    case 'GATHERER_TICK':
+      return applyGathererTick(world, action);
+
+    case 'UPGRADE_GATHERER_SPEED':
+      return applyUpgradeGathererSpeed(world, action);
+
+    case 'SET_GATHERER_PREFERENCE':
+      return applySetGathererPreference(world, action);
 
     // S93 — NONET solve submission (host-authoritative; first valid grid wins). On the host this
     // applies the ×2/÷2; on a client this case never runs (clients send it as an INTENT, the host

@@ -26,10 +26,10 @@
 
 import type { Application } from 'pixi.js';
 import {
+  ALL_SPARK_TYPES,
   AUTO_BOND_RADIUS,
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
-  FOOTER_TOP_Y,
   MERGE_REACH_RADIUS,
   POTATO_RADIUS,
   RAINBOW_RADIUS,
@@ -51,7 +51,7 @@ import { cssToCanvasCoords } from '../render/lobbyScreen.ts';
 import { dispatch, isNetworked } from '../state/world.ts';
 import type { World } from '../state/world.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
-import type { BombId, BondId, CreatureId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 } from '../types.ts';
+import type { BombId, BondId, CreatureId, GathererId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 } from '../types.ts';
 import { pickRedundantBondTargets } from './redundantBondTargets.ts';
 import { isInsideEnemyTerritory } from '../state/territory.ts';
 
@@ -65,6 +65,26 @@ import { isInsideEnemyTerritory } from '../state/territory.ts';
 // S122 P1 — moved to controlsCore.ts (DOM/Pixi-free); re-exported for existing consumers.
 export type { ControlsDispatchFn, ControlState, ControlsLike } from './controlsCore.ts';
 export { applyControlsPerSubstep, stepAttractLerp } from './controlsCore.ts';
+import { isOverFooterControl } from '../render/ui.ts';
+
+/**
+ * V6-1.2 — PURE: the next value in a gatherer's preference cycle (Any → the six primitives → Any).
+ * Extracted as a free function so the cycle is unit-testable without a Pixi Application / DOM —
+ * the ui.ts `captureTierBanner` precedent, and the reason V6-0.2's untestable scan shipped broken.
+ */
+export function nextPreference(current: SparkType | null): SparkType | null {
+  if (current === null) return ALL_SPARK_TYPES[0]!;
+  const i = ALL_SPARK_TYPES.indexOf(current);
+  if (i < 0 || i === ALL_SPARK_TYPES.length - 1) return null;
+  return ALL_SPARK_TYPES[i + 1]!;
+}
+
+/** V6-1.2 — is this position inside the (now half-size) spawn disc? Shared by the pickup gate. */
+function isInsideSpawnZone(p: { x: number; y: number }): boolean {
+  const dx = p.x - SPAWNER_CENTER_X;
+  const dy = p.y - SPAWNER_CENTER_Y;
+  return dx * dx + dy * dy <= SPAWNER_RADIUS * SPAWNER_RADIUS;
+}
 import {
   applyControlsPerSubstep,
   type ControlsDispatchFn,
@@ -244,8 +264,28 @@ export class Controls {
    * The footer only EXISTS during PLAYING (see HUD.drawFooter), so the guard is scoped to that
    * state — otherwise the bottom strip of the title/win screens would go inert for no reason.
    */
+  /** V6-1.2 — one gatherer under the cursor, if any (click = cycle its shape preference). */
+  private pickGatherer(): GathererId | null {
+    let bestId: GathererId | null = null;
+    let bestDistSq = 26 * 26;
+    for (const g of this.world.gatherers.values()) {
+      if (g.ownerPlayerId !== this.playerId) continue; // only re-task your OWN units
+      const dx = g.pos.x - this.cursor.x;
+      const dy = g.pos.y - this.cursor.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestDistSq) {
+        bestId = g.id;
+        bestDistSq = d2;
+      }
+    }
+    return bestId;
+  }
+
   private isPointerOverFooter(): boolean {
-    return this.world.gameState === 'PLAYING' && this.cursor.y >= FOOTER_TOP_Y;
+    return (
+      this.world.gameState === 'PLAYING' &&
+      isOverFooterControl(this.cursor.x, this.cursor.y)
+    );
   }
 
   private onDown = (e: PointerEvent): void => {
@@ -266,6 +306,22 @@ export class Controls {
         // carry. No client prediction / pointer capture — the host applies and the
         // severed bonds arrive in the next snapshot (~RTT/2). Rushing players who
         // misclick the orb pay the price.
+        // V6-1.2 — CLICK YOUR OWN GATHERER to cycle what it prefers to fetch:
+        // Any → Dot → Line → Triangle → Square → Circle → Spiral → Any. This is the owner's
+        // "selection of his preferences" in its minimal usable form; the full picker + the ordered
+        // build queue are V6-1.4. Priority is ABOVE spark pickup so a gatherer standing over a
+        // banked shape is still clickable, and below the bomb hazard.
+        const gathererId = this.pickGatherer();
+        if (gathererId !== null) {
+          const g = this.world.gatherers.get(gathererId)!;
+          this.dispatchFn({
+            type: 'SET_GATHERER_PREFERENCE',
+            playerId: this.playerId,
+            gathererId,
+            preferredType: nextPreference(g.preferredType),
+          });
+          return;
+        }
         const bombId = this.pickBomb();
         if (bombId !== null) {
           this.dispatchFn({ type: 'TRIGGER_BOMB', bombId, playerId: this.playerId });
@@ -630,6 +686,12 @@ export class Controls {
     let bestDistSq = PICK_RADIUS * PICK_RADIUS;
     for (const s of this.world.freeSparks.values()) {
       if (s.state.kind !== 'Free') continue;
+      // ⭐ V6-1.2 (owner instruction 2026-08-09) — THE GRAB MOVED, IT DID NOT DISAPPEAR. Harvesting
+      // the spawn zone is now the gatherers' job; the player builds from what is parked at their
+      // keep. So a spark INSIDE the spawn disc is not player-pickable, while a banked (or in-flight)
+      // shape outside it is grabbed through this same, unchanged path. `CarryingPlayer` therefore
+      // stays fully functional — B6 additive-only is honoured; only the SOURCE narrows.
+      if (isInsideSpawnZone(s.pos) && s.escrow === undefined) continue;
       const dx = s.pos.x - this.cursor.x;
       const dy = s.pos.y - this.cursor.y;
       const d2 = dx * dx + dy * dy;

@@ -8,7 +8,12 @@
  * exactly the creature/hunter defect class one entity family over.
  */
 import { describe, expect, it } from 'vitest';
-import { GATHERER_PRICE, MAX_PLAYERS, PLAYER_COLORS } from '../../constants.ts';
+import {
+  GATHERER_PRICE,
+  KEEP_RING_SEATS,
+  PLAYER_COLORS,
+  STARTING_VICTORY_POINTS,
+} from '../../constants.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
 import { spendScore } from '../gameMode.ts';
 import { asPlayerId } from '../../types.ts';
@@ -202,13 +207,22 @@ describe('V6-1.1 — teardown parity', () => {
     expect(w.gatherers.size).toBe(0);
   });
 
-  it('START_GAME and RETURN_TO_TITLE both clear gatherers (no unit survives a match boundary)', () => {
+  it('START_GAME clears bought units then SEEDS exactly one per seat (the "START AT 1" ruling)', () => {
     const started = worldWithScore(900);
-    buy(started);
-    dispatch(started, { type: 'START_GAME', mode: 'solo', isHost: true });
-    expect(started.gatherers.size).toBe(0);
-    expect(started.nextGathererId).toBe(0);
+    buy(started); buy(started); buy(started);
+    expect(started.gatherers.size).toBe(3);
 
+    dispatch(started, { type: 'START_GAME', mode: 'solo', isHost: true });
+    // V6-1.2 — a match boundary wipes the previous match's units (no unit survives it) and then
+    // seeds the opening state: ONE gatherer per seated player + the opening point balance.
+    expect(started.gatherers.size).toBe(1);
+    expect([...started.gatherers.values()][0]!.ownerPlayerId).toBe(P0);
+    expect(started.scoreByPlayer.get(P0)).toBe(STARTING_VICTORY_POINTS);
+    // The mint cursor advanced past the seeded unit rather than colliding with it.
+    expect(started.nextGathererId).toBe(1);
+  });
+
+  it('RETURN_TO_TITLE clears gatherers outright (the title screen owns no units)', () => {
     const returned = worldWithScore(900);
     buy(returned);
     dispatch(returned, { type: 'RETURN_TO_TITLE' });
@@ -229,11 +243,14 @@ describe('V6-1.1 — castleAnchor', () => {
   it('is pure + deterministic and gives every seat a DISTINCT keep', () => {
     expect(castleAnchor(0)).toEqual(castleAnchor(0));
     const seen = new Set<string>();
-    for (let seat = 0; seat < MAX_PLAYERS; seat++) {
+    // ⚠ LOOPS TO KEEP_RING_SEATS (7), NOT MAX_PLAYERS (6). VS-BOTS seats 1 human + up to 6 bots, and
+    // the original MAX_PLAYERS ring made seat 6's keep land EXACTLY on seat 0's — a collision this
+    // very test was blind to because it stopped at seat 5. Caught by the S135 end-of-session audit.
+    for (let seat = 0; seat < KEEP_RING_SEATS; seat++) {
       const a = castleAnchor(seat);
       expect(Number.isFinite(a.x) && Number.isFinite(a.y)).toBe(true);
       seen.add(`${Math.round(a.x)},${Math.round(a.y)}`);
     }
-    expect(seen.size).toBe(MAX_PLAYERS);
+    expect(seen.size).toBe(KEEP_RING_SEATS);
   });
 });

@@ -168,6 +168,9 @@ export function applyPickupSpark(world: World, action: PickupSparkAction): World
   }
   const next = fsmPickup(player, action.sparkId);
   world.players.set(next.id, next);
+  // V6-1.2 — the player has taken this shape out of the keep stockpile: clear the gatherer
+  // escrow so it behaves as an ordinary carried spark from here (and, if dropped, reaps normally).
+  spark.escrow = undefined;
   spark.state = { kind: 'Carried', carrierId: action.playerId };
   // S46 P2 — unified snap to action.pos (authoritative cursor at LMB-up).
   // Pre-S45 behavior (kill velocity, leave pos) and S45 behavior (snap to

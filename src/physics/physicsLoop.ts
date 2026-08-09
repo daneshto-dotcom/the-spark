@@ -218,7 +218,14 @@ export function freeSparkArray(map: ReadonlyMap<SparkId, Spark>): Spark[] {
 export function reapExpiredFreeSparks(world: Parameters<typeof dispatch>[0]): void {
   const expired: SparkId[] = [];
   for (const s of world.freeSparks.values()) {
-    if (s.state.kind === 'Free' && world.tick - s.createdTick >= FREE_SPARK_TTL_TICKS) {
+    // V6-1.2 — an ESCROWED spark (a gatherer is hauling it, or it is banked at a keep) never
+    // expires. Without this the 10 s TTL deletes the shape mid-carry and the whole haul loop
+    // silently fails; a banked stockpile would evaporate while the player is mid-build.
+    if (
+      s.state.kind === 'Free' &&
+      s.escrow === undefined &&
+      world.tick - s.createdTick >= FREE_SPARK_TTL_TICKS
+    ) {
       expired.push(s.id);
     }
   }
@@ -228,15 +235,17 @@ export function reapExpiredFreeSparks(world: Parameters<typeof dispatch>[0]): vo
 }
 
 function enforceFreeSparkCap(world: Parameters<typeof dispatch>[0]): void {
+  // V6-1.2 — escrowed sparks are neither counted nor evictable: they are a player's in-flight haul
+  // and banked stockpile, not spawn-zone clutter, so the cap must not treat them as "oldest Free".
   let freeCount = 0;
   for (const s of world.freeSparks.values()) {
-    if (s.state.kind === 'Free') freeCount++;
+    if (s.state.kind === 'Free' && s.escrow === undefined) freeCount++;
   }
   if (freeCount <= FREE_SPARK_SOFT_CAP) return;
 
   const candidates: Spark[] = [];
   for (const s of world.freeSparks.values()) {
-    if (s.state.kind === 'Free') candidates.push(s);
+    if (s.state.kind === 'Free' && s.escrow === undefined) candidates.push(s);
   }
   candidates.sort((a, b) => a.createdTick - b.createdTick);
 

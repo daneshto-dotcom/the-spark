@@ -508,6 +508,15 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         player.benchedUntilTick = undefined;
       }
     }
+    // V6-1.2 — the gatherer haul cycle. Host-only and tick-deterministic, fanned out per unit like
+    // the hunter loop above. Keys are snapshotted first: a tick can mutate the population in a
+    // future slot (respawn/harassment, V6-2.2), and iterating a live Map while it changes is the
+    // bug class the creature fan-out already guards against.
+    if (world.gatherers.size > 0) {
+      for (const gid of Array.from(world.gatherers.keys())) {
+        dispatch(world, { type: 'GATHERER_TICK', gathererId: gid });
+      }
+    }
   }
 
   // S72 P3 — potato poll (host-only, beside the bomb dissipate). For each potato:

@@ -25,6 +25,7 @@ import {
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
+  STARTING_VICTORY_POINTS,
 } from '../constants.ts';
 
 const RIM = SPAWNER_RADIUS + 40; // 290
@@ -161,7 +162,9 @@ describe('S63 — applyStartGame seats N=4/5/6 deterministically (FFA to MAX_PLA
         const p = w.players.get(asPlayerId(seat));
         expect(p?.avatarPos).toEqual(radialSpawnPos(seat, N));
         expect(p?.color).toBe(PLAYER_COLORS[seat]);
-        expect(w.scoreByPlayer.get(asPlayerId(seat))).toBe(0);
+        // V6-1.2 — every seat opens with STARTING_VICTORY_POINTS (owner instruction 2026-08-09),
+        // not 0. Asserted against the constant so this contract tracks the balance if it is tuned.
+        expect(w.scoreByPlayer.get(asPlayerId(seat))).toBe(STARTING_VICTORY_POINTS);
       }
       expect(w.gameState).toBe('PLAYING');
       expect(w.gameMode).toBe('1v1');

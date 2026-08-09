@@ -73,7 +73,12 @@ export const MAX_BOTS = 6;
 // === Canvas, Spawner, Vision ===
 export const CANVAS_WIDTH = 1920;
 export const CANVAS_HEIGHT = 1080;
-export const SPAWNER_RADIUS = 250;
+// V6-1.2 (owner instruction 2026-08-09) — HALVED 250 -> 125. The spawn zone is no longer the place
+// the player works; it is the gatherers' quarry, and a tighter disc makes the haul legible (a
+// gatherer visibly leaves the zone, crosses open ground, and arrives home). Tests derive from this
+// constant rather than hard-coding 250, so they follow it. Note this shrinks the no-build zone too,
+// which gives the player MORE buildable ground near the centre — intended.
+export const SPAWNER_RADIUS = 125;
 export const SPAWNER_CENTER_X = CANVAS_WIDTH / 2;
 export const SPAWNER_CENTER_Y = CANVAS_HEIGHT / 2;
 /**
@@ -320,6 +325,30 @@ export const FOOTER_TOP_Y = CANVAS_HEIGHT - FOOTER_HEIGHT;
 // spending victory points SETS YOU BACK toward the win. Flat, not a rising curve — tune after
 // it is playable. B5/match-length retune is owned by V6-4.3; do NOT re-tune the win score here.
 export const GATHERER_PRICE = 105;
+
+// V6-1.2 — every player STARTS owning one gatherer (the S134 "START AT 1" ruling) plus this many
+// victory points. 100 against a 105 price is deliberate: you cannot instantly buy a second unit, so
+// the opening decision is "two speed upgrades now, or save toward another hauler".
+export const STARTING_VICTORY_POINTS = 100;
+/**
+ * V6-1.2 — how many keeps the castle ring is divided into. MUST cover every seat the game can
+ * actually seat, which is PLAYER_COLORS.length (7), NOT MAX_PLAYERS (6): VS-BOTS seats 1 human +
+ * up to MAX_BOTS bots. A 6-way ring makes seat 6's keep land exactly on seat 0's. Constant (never a
+ * live roster size) because a gatherer's spawn position is hashed host-authoritative state.
+ */
+export const KEEP_RING_SEATS = PLAYER_COLORS.length;
+/** V6-1.2 — flat price of ONE speed upgrade; steps every gatherer the buyer owns. */
+export const GATHERER_SPEED_UPGRADE_PRICE = 50;
+/** Base gatherer travel speed, px/tick. */
+export const GATHERER_BASE_SPEED = 1.9;
+/** Added to the base speed per purchased upgrade level. */
+export const GATHERER_SPEED_PER_LEVEL = 0.8;
+/** Upgrade levels are capped so the price stays meaningful and a gatherer cannot outrun its target. */
+export const GATHERER_MAX_SPEED_LEVEL = 5;
+/** How close a gatherer must be to a spark to pick it up / to its keep to deposit. */
+export const GATHERER_REACH = 22;
+/** Where a hauled shape is parked, relative to the owner's keep anchor. */
+export const GATHERER_DEPOSIT_OFFSET_Y = 74;
 
 // === Spawner physics ===
 export const SPAWNER_BOUNCE_DAMPING = 0.92;

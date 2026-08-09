@@ -229,6 +229,9 @@ export function applyPlaceFromFree(world: World, action: PlaceFromFreeAction): W
 
   // Step C: world.players.set + spark.state assignment. Infallible Map ops.
   world.players.set(carrying.id, carrying);
+  // V6-1.2 — the player has taken this shape out of the keep stockpile: clear the gatherer
+  // escrow so it behaves as an ordinary carried spark from here (and, if dropped, reaps normally).
+  spark.escrow = undefined;
   spark.state = { kind: 'Carried', carrierId: action.playerId };
 
   // Step D: delegate to placePrimitive. Because we've already validated all

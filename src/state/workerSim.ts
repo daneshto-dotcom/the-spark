@@ -308,16 +308,21 @@ export function structuralSignature(world: World): string {
 //   [0] tick   [1] scoreProgress
 //   then 8 sections, each: [count, (id, x, y) × count]
 //   section order: players(avatarPos), primitives, freeSparks, creatures,
-//                  hunters, seagulls, poops, potatoes
+//                  hunters, seagulls, poops, potatoes, gatherers
 // Static-while-alive entities (bonds derive from prims; bombs/rainbows never move) are
 // excluded — their spawn/despawn is structural by definition.
+// ⚠ V6-1.2 — GATHERERS ARE IN THIS LIST BECAUSE THEY MOVE. They shipped static in V6-1.1 and were
+// correctly excluded then; the haul cycle makes their pos change every tick, and a moving entity
+// left out of this stream only reaches the mirror on the ~10 Hz structural snapshot, so it would
+// visibly teleport. Any future entity that starts moving must be added here in the same change.
 
-const POSITION_SECTIONS = 8;
+const POSITION_SECTIONS = 9;
 
 export function buildPositions(world: World): Float64Array {
   const n =
     world.players.size + world.primitives.size + world.freeSparks.size + world.creatures.size +
-    world.hunters.size + world.seagulls.size + world.poops.size + world.potatoes.size;
+    world.hunters.size + world.seagulls.size + world.poops.size + world.potatoes.size +
+    world.gatherers.size;
   const out = new Float64Array(2 + POSITION_SECTIONS + n * 3);
   let o = 0;
   out[o++] = world.tick;
@@ -343,6 +348,7 @@ export function buildPositions(world: World): Float64Array {
   section(world.seagulls.values(), world.seagulls.size);
   section(world.poops.values(), world.poops.size);
   section(world.potatoes.values(), world.potatoes.size);
+  section(world.gatherers.values(), world.gatherers.size); // V6-1.2 — they move now
   return out;
 }
 
@@ -382,6 +388,7 @@ export function applyPositions(
   section(world.seagulls as unknown as Map<never, { pos: Vec2 }>);
   section(world.poops as unknown as Map<never, { pos: Vec2 }>);
   section(world.potatoes as unknown as Map<never, { pos: Vec2 }>);
+  section(world.gatherers as unknown as Map<never, { pos: Vec2 }>); // V6-1.2 — they move now
 }
 
 // ── The batch application (the drain loop, relocated) ───────────────────────────────────

@@ -20,7 +20,7 @@ S126–S150 numbering collided with S126/S127, which were already spent on CI wo
 
 ## THE DESIGN — one paragraph
 
-> You have a **castle** built from trophies you earned, assembled by hand in a calm postgame cosmos. It produces **workers** who gather on your directives into a **capped bank**. You spend **energy** on your economy and **build with your hands** from the bank — sculpting, carving, transmuting structure into autonomous agents. Your spark is a **hero**, not a laborer. You win on **score**; you can lose your castle. Investing in your castle makes you a **target**, and losing costs you access to your best pieces for a while.
+> You have a **castle** built from trophies you earned, assembled by hand in a calm postgame cosmos. It produces **gatherers** who gather on your directives into a **capped bank**. You spend **energy** on your economy and **build with your hands** from the bank — sculpting, carving, transmuting structure into autonomous agents. Your spark is a **hero**, not a laborer. You win on **score**; you can lose your castle. Investing in your castle makes you a **target**, and losing costs you access to your best pieces for a while.
 
 The game does not change genre. It stays a six-player free-for-all race to build the most complex geometry, on one shared canvas, with the same primitives, combos, godly recipes, hazards and towers that ship today. **No waves. No co-op as the main mode. No tower-defense reskin.**
 
@@ -69,21 +69,21 @@ It is gated behind five minutes of hauling, because you need a large structure b
 
 ---
 
-## 2 · CORE LOOP — workers haul, you build
+## 2 · CORE LOOP — gatherers haul, you build
 
 ### The economy
 
-- Your **castle produces worker sparks** — the same coloured sparks already on screen.
-- Each worker hauls **exactly one primitive per trip**. The locked carry-1 rule survives; it moves from the player's hand to the worker's.
-- Workers shuttle continuously: spawner → grab → castle → deposit → repeat. **They do not die permanently.**
-- Pickup is **first-come, first-served**. No worker-vs-worker contest, so competition lives in economy rather than reflex.
+- Your **castle produces gatherer sparks** — the same coloured sparks already on screen.
+- Each gatherer hauls **exactly one primitive per trip**. The locked carry-1 rule survives; it moves from the player's hand to the gatherer's.
+- Gatherers shuttle continuously: spawner → grab → castle → deposit → repeat. **They do not die permanently.**
+- Pickup is **first-come, first-served**. No gatherer-vs-gatherer contest, so competition lives in economy rather than reflex.
 - **Directives** are the input-choice mechanism — "collect only squares" replaces any hand-of-three UI. It's an order you give, not a menu you operate. ⚠ **PROVISIONAL — PRE-PROBE:** whether a directive HARD-FILTERS or only BIASES the mix is an open owner ruling (B4).
-- Directive-filtered workers skip non-matching primitives, so **specialisation costs throughput**. That tradeoff falls out of the mechanic for free — *do not "fix" it when it shows up in a playtest looking like a bug.* ⚠ **PROVISIONAL — PRE-PROBE:** at the shipped faucet this is not a throughput cost but an economy shutdown (B3). Confirmed free on the code side, though: `pickTargetSpark` draws `rng()` exactly once regardless of candidate count (`botBrain.ts:176`), so **a directive filter cannot shift the replay stream**, and an empty candidate set already falls through to `REST` (`botBrain.ts:152`).
+- Directive-filtered gatherers skip non-matching primitives, so **specialisation costs throughput**. That tradeoff falls out of the mechanic for free — *do not "fix" it when it shows up in a playtest looking like a bug.* ⚠ **PROVISIONAL — PRE-PROBE:** at the shipped faucet this is not a throughput cost but an economy shutdown (B3). Confirmed free on the code side, though: `pickTargetSpark` draws `rng()` exactly once regardless of candidate count (`botBrain.ts:176`), so **a directive filter cannot shift the replay stream**, and an empty candidate set already falls through to `REST` (`botBrain.ts:152`).
 - Primitives deposit into a **castle bank capped around 8–10**. ⚠ **PROVISIONAL — PRE-PROBE:** see B3/B4 below. The recommended pre-probe starting point is **4**, because 8–10 is ≥ every godly recipe's exact size.
 
 ### Why the bank cap matters more than it looks
 
-A capped bank means you must spend to keep collecting. Workers stall at the ceiling, so there is continuous pressure to commit. That is precisely the function carry-1 was performing — preventing hoarding, throttling pace without a cooldown, forcing a build-vs-raid tradeoff.
+A capped bank means you must spend to keep collecting. Gatherers stall at the ceiling, so there is continuous pressure to commit. That is precisely the function carry-1 was performing — preventing hoarding, throttling pace without a cooldown, forcing a build-vs-raid tradeoff.
 
 v0.5.1 reasoned about that function correctly and implemented it at the wrong altitude: a dexterity constraint on the hand rather than a strategic constraint on the economy. **The bank cap is carry-1, promoted to where it always belonged.**
 
@@ -107,9 +107,9 @@ code. Every consequence below contradicts a load-bearing claim made elsewhere in
 
 | The claim | The reality at λ=0.1875, TTL=10 s |
 |---|---|
-| "Workers stall at the ceiling, so there is continuous pressure to commit" | A fair 6-seat share is 0.031 prims/s ⇒ an 8-slot bank takes **~256 s** to fill. Workers starve at the floor; **the cap never binds.** |
+| "Gatherers stall at the ceiling, so there is continuous pressure to commit" | A fair 6-seat share is 0.031 prims/s ⇒ an 8-slot bank takes **~256 s** to fill. Gatherers starve at the floor; **the cap never binds.** |
 | A "20–40 s bank micro-pulse" as the new rhythm (§8 #72) | A **~256 s** pulse. |
-| "Directive-filtered workers skip non-matching primitives, so specialisation costs throughput" | Uniform over 6 types ⇒ "squares only" is served by **one square per ~25 s for the whole arena, all six seats combined.** That is not a throughput cost, it is an economy shutdown. |
+| "Directive-filtered gatherers skip non-matching primitives, so specialisation costs throughput" | Uniform over 6 types ⇒ "squares only" is served by **one square per ~25 s for the whole arena, all six seats combined.** That is not a throughput cost, it is an economy shutdown. |
 | "~30 agents" (§8 #86) | ~30 agents chasing a mean of **~1.9** sparks. |
 | §1's own 346 s / 58 prims (0.168 prims/s for one player) | Attainable only in **solo**, where one consumer takes ~89% of total arena supply. **It is not a 6-player figure.** |
 | The geographic trade-off's "far corner = slowest cycles" (§XI.2) | Under a 10 s TTL it is a **cliff, not a gradient**: a far castle loses every first-come-first-served race, or the spark expires en route. |
@@ -167,7 +167,7 @@ Recommended starting point: **(a)+(b) — bank 4, biasing directive.**
 
 > **Automate the labor. Never automate the authorship.**
 
-Workers never build. A worker that collects squares and assembles Helga means *you did not build Helga* — you filled in a form and a script did the interesting part. Workers automate hauling, which playtests proved is not fun. Sculpting stays entirely with the player, because playtests proved that **is**.
+Gatherers never build. A gatherer that collects squares and assembles Helga means *you did not build Helga* — you filled in a form and a script did the interesting part. Gatherers automate hauling, which playtests proved is not fun. Sculpting stays entirely with the player, because playtests proved that **is**.
 
 Immediate payoff: with material available from minute one, the carve-down-to-a-recipe tactic is available from minute one too.
 
@@ -175,7 +175,7 @@ Immediate payoff: with material available from minute one, the carve-down-to-a-r
 
 The player avatar stays and changes job — sculpts, raids, defends, grabs the potato, cleans splats, handles emergencies. It no longer hauls. Keeps the tactile drag-to-connect feel for the moments worth feeling, keeps every hazard meaningful, stops the mouse becoming a menu pointer.
 
-Workers carry vision, so fog finally does something useful — your economy is your scouting network. A worker killed while loaded **drops its primitive**, which is what makes intercepting one feel good.
+Gatherers carry vision, so fog finally does something useful — your economy is your scouting network. A gatherer killed while loaded **drops its primitive**, which is what makes intercepting one feel good.
 
 ---
 
@@ -195,7 +195,7 @@ The v0.6 intent stands: **you click a tower and choose its targeting priority**,
 | Defensive structures | Enemy turrets and defenders | Laser turret, Helga |
 | Fortress | The enemy castle itself | New — castle entity |
 | Highest income | Whatever generates most points | ⚠ **No backing data exists** — see the note below |
-| Workers | Enemy economy | New — worker agents |
+| Gatherers | Enemy economy | New — gatherer agents |
 
 This requires a **structure taxonomy** that doesn't exist yet — offensive / defensive / fortress / income. It is already latent in shipped content; every recipe slots in without redesign.
 
@@ -221,14 +221,14 @@ The keyboard becomes a **command layer**: select, order, ability hotkeys, mode s
 
 ## 4 · CURRENCY — two of them, and the second already exists
 
-Purchasable upgrades — more workers, faster workers, faster respawn — create the central tension of every replayable strategy game: **spend on economy (compounds) or spend on power (matters now)?**
+Purchasable upgrades — more gatherers, faster gatherers, faster respawn — create the central tension of every replayable strategy game: **spend on economy (compounds) or spend on power (matters now)?**
 
 But **the win condition cannot be the currency.** If VP both wins and buys, spending moves you away from winning: early game spending is obviously right, late game obviously wrong, and there's a crossover where the maths flips. Once players find it, optimal play is a fixed script — and it reintroduces the exact "every second not optimising is punished" anxiety the pivot exists to remove.
 
 | Currency | Earned from | Spent on | Wins? |
 |---|---|---|---|
 | **Score / VP** | Structure complexity, objectives, kills | Nothing — never spendable | Yes |
-| **Energy** | Economy throughput, castle, functional bonds | Workers, upgrades, buildings, directives | No |
+| **Energy** | Economy throughput, castle, functional bonds | Gatherers, upgrades, buildings, directives | No |
 
 `player.energy` already accrues +5/sec via `TICK_ENERGY` in the physics loop (`physicsLoop.ts:107-109` → `player.ts:182-184`), rides the wire in the protocol allowlist (`protocol.ts:463`) as a mandatory `SerializedPlayer` field, and renders as a gauge on the right edge (`ui.ts:32-35,204-238`). ⚠ **Correction (S128 audit):** the v0.5.1 blueprint *itself* specified build-count gating (`SPARK_Blueprint.md:321` — "though these are gated by build-action count, not raw energy"), so disruption was never meant to be an energy sink. The genuinely specified-but-never-built sinks are **self-sever cost** and **strong attraction drag**. Either way, **energy has accumulated forever and been spent on nothing since the first commit** — `ENERGY_PER_SECOND_FLAT` was introduced in `bc89a53` on 2026-05-09, i.e. **82 days**, not a year (S128 audit). A fully plumbed, networked, serialised, rendered second currency waiting for a job. ⚠ **Stronger than stated: energy has ZERO READS, not merely zero sinks** — grep for `ENERGY_MAX|energy -=|spendEnergy|canAfford|ENERGY_COST` across `src/` returns nothing, and its only two consumers are the gauge renderer and the serializer. Two additions: the gauge clamps at `ENERGY_GAUGE_FULL = 100` (`ui.ts:36,214`) so it pins full at t≈20 s and stays there for 94–97% of a match — **raise the cap or new sinks are invisible** — and the energy *source* is itself an unbuilt v0.5 stub, so v0.6 replaces a stub rather than a working formula.
 
@@ -265,11 +265,11 @@ Instead:
 
 Losing your castle is a second loss condition alongside the score race, so every match has two goals: defend and expand your home, and don't lose the race.
 
-**Castle damage is repairable mid-match** — you rebuild what was destroyed by attaching connectors, if you can find or build the required shapes. That gives the bank and your workers a defensive purpose, turns a beating into a comeback, and stops castle damage being a death spiral.
+**Castle damage is repairable mid-match** — you rebuild what was destroyed by attaching connectors, if you can find or build the required shapes. That gives the bank and your gatherers a defensive purpose, turns a beating into a comeback, and stops castle damage being a death spiral.
 
 ### Trophies are blueprints
 
-A trophy is a saved connected subgraph. A blueprint is a shape workers know how to build. **They are the same data structure.** So a trophy is simultaneously a socket in your castle and a shape you can field. Late game, you sketch a blueprint ghost and workers fill it in — authorship stays yours because you drew it and you earned it.
+A trophy is a saved connected subgraph. A blueprint is a shape gatherers know how to build. **They are the same data structure.** So a trophy is simultaneously a socket in your castle and a shape you can field. Late game, you sketch a blueprint ghost and gatherers fill it in — authorship stays yours because you drew it and you earned it.
 
 Capture is nearly free: `componentOf` already extracts connected subgraphs, `save.ts` already serialises primitives and bonds, and `POSTGAME` is already a real game state doing nothing.
 
@@ -331,8 +331,8 @@ The NONET winner's **built structure is physically duplicated on the canvas.** S
 **#50 — Should energy and score reward different building styles?**
 Yes. **Score comes from magic bonds** (the artistry, the named combos, the recipes). **Energy comes from functional bonds** (the connective tissue). Gives the two currencies genuinely different incentives, so "eco build" and "score build" become distinct strategies. And it retires the S86 complaint that most combos are placeholders: they become **the economy substrate** — without designing bespoke mechanics. ⚠ **Corrected count (S128 audit): 14 of 36 ordered entries are functional placeholders (8 of 21 unordered shape-pairs), not 24.** `grep -c "isMagical: true" src/combos.ts` = 14 forward, +8 mirrored = 22 magic ordered entries, leaving 14 functional. `SPARK_Blueprint.md` §V.2 already stated 14 while §V.3 said 24, 144 lines apart. **The energy substrate is therefore 42% smaller than advertised** — which matters for how much economy those bonds can actually carry.
 
-**#51 — Does first-come-first-served let worker count snowball?**
-Less than it looks: **the bank cap already governs it.** Past a certain worker count you stall at the ceiling — extra workers only help if you're spending fast enough to keep draining the bank. Economy scaling is bounded by build rate, not worker count. One secondary governor exists: a distant castle pays a longer round trip. ⚠ **The often-cited "spawn rate scales with build events" governor was NEVER IMPLEMENTED** (S128 audit): `ratePerSecond` is `readonly` (`spawner.ts:67`), assigned once at `:74`, and read only by `sampleInterarrival` (`:353`); grep for `buildBonus|onBuild|SPAWN_ON_BUILD|BUILD_SPAWN` returns zero hits. So #51 is **re-opened as OPEN** — with the faucet as it stands (see §2), the bank cap cannot bind and castle distance is a cliff rather than a gradient, which leaves first-come-first-served with no working governor at all.
+**#51 — Does first-come-first-served let gatherer count snowball?**
+Less than it looks: **the bank cap already governs it.** Past a certain gatherer count you stall at the ceiling — extra gatherers only help if you're spending fast enough to keep draining the bank. Economy scaling is bounded by build rate, not gatherer count. One secondary governor exists: a distant castle pays a longer round trip. ⚠ **The often-cited "spawn rate scales with build events" governor was NEVER IMPLEMENTED** (S128 audit): `ratePerSecond` is `readonly` (`spawner.ts:67`), assigned once at `:74`, and read only by `sampleInterarrival` (`:353`); grep for `buildBonus|onBuild|SPAWN_ON_BUILD|BUILD_SPAWN` returns zero hits. So #51 is **re-opened as OPEN** — with the faucet as it stands (see §2), the bank cap cannot bind and castle distance is a cliff rather than a gradient, which leaves first-come-first-served with no working governor at all.
 
 **#68 — Does the trophy meta require a backend?**
 Only partly. **Local storage is sufficient** for the trophy library, castle assembly, the cosmos, and single-device play. **A server is required** only for tier matchmaking, cross-device continuity, anti-tamper, and leaderboards. Stance: design the profile as a **serialisable blob that is server-ready from day one**, store it locally to begin with. The backend becomes a storage swap, not a rewrite. No decision needed now.
@@ -377,10 +377,10 @@ Two ceilings.
 
 ## 10 · CROSS-CUTTING (not sessions — they touch all of them)
 
-- **Host migration.** Castles, workers, banks, directives, upgrade state and targeting priorities must survive a handover. Migration is production-live as of S124/S125; every new world entity has to enter it deliberately.
-- **Save/load and replay.** Every new entity needs the clear-rehydrate-advance-nextId pattern plus byte-identical replay coverage. ⚠ **This is present tense, not history (S128 audit): the bug is still LIVE and unguarded in three paths** — host save/load of a Voltkin, migration takeover of any creature, and worker-sim fallback repair. All three `CREATURE_CONFIGS` are now `persistent:false` (`voltkin-config.ts:196,253,287`) so the despawn gate (`creatureLifecycle.ts:294-302`) runs for **every** type, while `save.ts:1245-1247` emits `despawnAtTick` only for chewers and `:1486`/`:1496` default both it and `spawnedAtTick` to 0. `save.replay.test.ts:647-700` covers only the chewer branch and `:551-557` exercises a Voltkin **without** a save/load — so a green suite is fully consistent with a Voltkin that self-deletes on every restore. Workers have the same shape of risk, on top of a defect that is already there.
-- **Bots must learn the new economy.** `botBrain` assumes a hauling avatar. After the pivot, bots need to manage workers, set directives and buy upgrades, or vs-bots playtests give a false balance reading — which matters because vs-bots is the primary mode and the V6-1.7 gate runs there.
-- **Disconnect and rejoin.** A rejoining player now has a castle, a worker population and a bank to restore, not just a cursor.
+- **Host migration.** Castles, gatherers, banks, directives, upgrade state and targeting priorities must survive a handover. Migration is production-live as of S124/S125; every new world entity has to enter it deliberately.
+- **Save/load and replay.** Every new entity needs the clear-rehydrate-advance-nextId pattern plus byte-identical replay coverage. ⚠ **This is present tense, not history (S128 audit): the bug is still LIVE and unguarded in three paths** — host save/load of a Voltkin, migration takeover of any creature, and gatherer-sim fallback repair. All three `CREATURE_CONFIGS` are now `persistent:false` (`voltkin-config.ts:196,253,287`) so the despawn gate (`creatureLifecycle.ts:294-302`) runs for **every** type, while `save.ts:1245-1247` emits `despawnAtTick` only for chewers and `:1486`/`:1496` default both it and `spawnedAtTick` to 0. `save.replay.test.ts:647-700` covers only the chewer branch and `:551-557` exercises a Voltkin **without** a save/load — so a green suite is fully consistent with a Voltkin that self-deletes on every restore. Gatherers have the same shape of risk, on top of a defect that is already there.
+- **Bots must learn the new economy.** `botBrain` assumes a hauling avatar. After the pivot, bots need to manage gatherers, set directives and buy upgrades, or vs-bots playtests give a false balance reading — which matters because vs-bots is the primary mode and the V6-1.7 gate runs there.
+- **Disconnect and rejoin.** A rejoining player now has a castle, a gatherer population and a bank to restore, not just a cursor.
 
 ---
 
@@ -442,7 +442,7 @@ The procession's five pulses want to be **audibly countable** — one per player
 
 - **Trophy mint** — short, fires six times during the procession. Pitching it up per rank gives the ceremony a rising line for free.
 - **Trophy flight / poof** — the winner's exit into the cosmos.
-- **Worker deposit** — fires constantly, so it must be quiet, short and non-fatiguing. The most easily-annoying sound in the game.
+- **Gatherer deposit** — fires constantly, so it must be quiet, short and non-fatiguing. The most easily-annoying sound in the game.
 - **Bank full** — the stall signal. Must read as "spend me," not as an error.
 
 The existing procedural Web Audio path in `audioManager` can likely cover the last two without new assets.
@@ -450,7 +450,7 @@ The existing procedural Web Audio path in `audioManager` can likely cover the la
 ### Art — 1 that matters, the rest procedural
 
 - **The castle keep** — the one genuinely important asset. A hand-designed core that trophies bond around, tinted per player colour, so a freeform assembly always reads as a fortress rather than a pile. **One asset, six tints.**
-- **Worker spark** — likely the existing spark render, tinted and scaled. Probably free.
+- **Gatherer spark** — likely the existing spark render, tinted and scaled. Probably free.
 - **UI iconography** — 5 targeting-priority icons, 3 upgrade icons, 4 taxonomy markers. Vector, drawn in-engine, cheap.
 - **The cosmos background** — **procedural** starfield and drift via Canvas/WebGL rather than an asset. The bundle has ~110 KiB of headroom for this entire roadmap; a background image would eat a meaningful share.
 
@@ -470,7 +470,7 @@ The castle keep is one seed image plus a matte; the cosmos is code.
 | Trophy mint + flight SFX | V6-3.1 | **Yes** |
 | Cosmos ambient — 3–5 min loop | V6-3.2 | **Yes** |
 | Castle keep art | V6-3.4 | Partly — placeholder ships at V6-1.2, replaced here |
-| Worker deposit + bank-full SFX | V6-1.3 | No — procedural Web Audio likely covers both |
+| Gatherer deposit + bank-full SFX | V6-1.3 | No — procedural Web Audio likely covers both |
 | UI iconography | V6-2.1 | No — drawn in-engine |
 
 Everything with a hard dependency lands in Phase 3, around session fifteen. **Comfortable runway to write two pieces of music.**
@@ -497,7 +497,7 @@ Sequenced so the core loop is **playable by V6-1.7** and everything after lands 
 *Rewrite the spec, unlock what blocks the pivot, and make playtests readable — every measurement in the next 22 sessions depends on it.*
 
 ### V6-0.1 — Blueprint v0.6 + locked-decisions unlock pass
-**Blueprint half DONE (2026-07-30):** `SPARK_Blueprint.md` rewritten v0.5.1 → v0.6 with five locks revoked (no-HUD, mouse-only, carry-1-as-player-constraint, no-tutorial, no-progression) and carry-1 relocated to the worker. `LOCKED_DECISIONS.md` carries a v0.6 amendment notice flagging §2/§3/§6/§13 as affected.
+**Blueprint half DONE (2026-07-30):** `SPARK_Blueprint.md` rewritten v0.5.1 → v0.6 with five locks revoked (no-HUD, mouse-only, carry-1-as-player-constraint, no-tutorial, no-progression) and carry-1 relocated to the gatherer. `LOCKED_DECISIONS.md` carries a v0.6 amendment notice flagging §2/§3/§6/§13 as affected.
 
 **Remaining:** walk `LOCKED_DECISIONS.md` section by section and re-ratify or revoke each affected lock against evidence, replacing the header notice with settled rulings. Also **retire the manual `npm run deploy` / gh-pages path** so Actions auto-deploy is the only live mechanism.
 *Tier: Design + small code (deploy cleanup) · Wire: none*
@@ -514,26 +514,26 @@ When something is severed, destroyed or stolen, the player learns what happened 
 
 ## PHASE 1 — The economy pivot · V6-1.1–V6-1.7
 
-*The load-bearing arc. Workers haul, you build. Everything downstream assumes this works.*
+*The load-bearing arc. Gatherers haul, you build. Everything downstream assumes this works.*
 
-### V6-1.1 — Worker agent substrate
-Narrow `botBrain`'s goal union to a `WorkerGoal` set — COLLECT, DEPOSIT, RETURN. The brain is already pure, seeded and unit-tested on synthetic worlds; this is a narrowing, not a new AI. Behind a flag, solo only.
+### V6-1.1 — Gatherer agent substrate
+Narrow `botBrain`'s goal union to a `GathererGoal` set — COLLECT, DEPOSIT, RETURN. The brain is already pure, seeded and unit-tested on synthetic worlds; this is a narrowing, not a new AI. Behind a flag, solo only.
 *Tier: Full · Reuse: botBrain's arbitration PATTERN, pickTargetSpark, botController plumbing*
 ⚠ **Corrections (S128 audit).** This is **not a narrowing**: the real union is `BotGoal` with **8** members (`botBrain.ts:43-51`), and `COLLECT`/`DEPOSIT`/`RETURN` appear nowhere in `src/` — it is a NEW goal union that reuses `botBrain`'s arbitration *pattern*, `pickTargetSpark`, and the `botController` movement plumbing. Purity confirmed, with one precision: it is pure *given a fixed `rng()` draw order* (`botBrain.ts:5-12`), so a rewrite must preserve draw order **and** count. **Also in scope here:** the sim-worker default-on flip (§11 requires it; 5 files hard-code `?worker=1`). **Also decide here:** the `worker`→`gatherer` rename — the code identifier cannot be `Worker`, which already names the Web Worker that owns the authoritative World. **Blocking risks R1/R3/R4/R23 are bound to this slot in `BACKLOG.md`.** R1 is the sharpest: `stateHash.ts:45-48` `HashableWorld` omits every entity family, so the silent-desync oracle is blind to gatherers in the very slot that flips the worker default on.
 
-### V6-1.2 — Castle entity + worker production + spawner shrink
-A castle world entity with position, ownership and a worker-emit cadence. Tick-deterministic, host-authoritative, modelled on the existing spawner-record pattern. Workers respawn from the castle on a timer — never permanent death.
+### V6-1.2 — Castle entity + gatherer production + spawner shrink
+A castle world entity with position, ownership and a gatherer-emit cadence. Tick-deterministic, host-authoritative, modelled on the existing spawner-record pattern. Gatherers respawn from the castle on a timer — never permanent death.
 
 **Also: `SPAWNER_RADIUS` 250 → 188 (−25%).** Six castle keeps need real estate, and the canvas is fixed at 1920×1080. Shrinking the central zone is where that space comes from. See §14 for the two constants that must move with it.
 *Tier: Full · Wire: protocol bump · Reuse: creatureSpawner LIFECYCLE + the DEFENDER's serialization*
 ⚠ **Correction (S128 audit): reuse the `creatureSpawner` LIFECYCLE, but the DEFENDER's serialization — do NOT copy `serializeSpawner`.** `deserializeSpawner` (`save.ts:1277-1286`) **re-seeds** `nextSpawnTick` from the load tick and resets `spawnedCount`, so a verbatim copy resets every castle cadence and bank timer on save/load **and on host migration** — a day-one failure of §10. Use the defender's full-fidelity pattern (`save.ts:1288-1293`) plus a post-load re-phase, as `loadRephaseDefenders` does. **Blocking risks R5/R9/R10 are bound here.** R5 is the one that bites earliest: `WIN_TRIGGER` destroys 7 entity families at t=0 (`world.ts:431-451`, including spawners and defenders), so **whether a castle survives into the 28-second ceremony is decided in THIS slot, not V6-3.1.**
 
 ### V6-1.3 — The bank
-Capped deposit store on the castle, 8–10 slots. Deposit on worker arrival, stall at the cap. Then the build-from-bank input flow: the player draws from the bank instead of a carried spark.
+Capped deposit store on the castle, 8–10 slots. Deposit on gatherer arrival, stall at the cap. Then the build-from-bank input flow: the player draws from the bank instead of a carried spark.
 *Tier: Full · Note: this is where carry-1 formally relocates*
 
 ### V6-1.4 — Directives
-Per-castle collect filter — "squares only" — applied as a predicate on `pickTargetSpark`. Directive UI on the castle. Filtered workers skip non-matching primitives, so specialisation costs throughput by construction.
+Per-castle collect filter — "squares only" — applied as a predicate on `pickTargetSpark`. Directive UI on the castle. Filtered gatherers skip non-matching primitives, so specialisation costs throughput by construction.
 *Tier: Standard · Wire: directive state syncs*
 
 ### V6-1.5 — The hero unit
@@ -541,11 +541,11 @@ Player spark stops hauling. Retains sculpting, raiding, defending, potato grabs,
 *Tier: Standard · Risk: the hazard roster assumes a hauling avatar in places*
 
 ### V6-1.6 — Energy gets sinks
-Split the currencies. Score from magic bonds, energy from functional bonds. Energy buys extra workers, worker speed and respawn time. The gauge that has been decorating the screen for **82 days** starts meaning something — and note it **clamps at `ENERGY_GAUGE_FULL = 100`** (`ui.ts:36,214`), pinning full at t≈20 s, so the cap must rise or new sinks stay invisible. ⚠ Removing `FUNCTIONAL_BOND_COMPLEXITY` from score reverts an owner-driven S84 P4 decision (`constants.ts:227-231`) and lengthens non-magic connected builds 12–14% — **surface it to the owner before this PDR.**
+Split the currencies. Score from magic bonds, energy from functional bonds. Energy buys extra gatherers, gatherer speed and respawn time. The gauge that has been decorating the screen for **82 days** starts meaning something — and note it **clamps at `ENERGY_GAUGE_FULL = 100`** (`ui.ts:36,214`), pinning full at t≈20 s, so the cap must rise or new sinks stay invisible. ⚠ Removing `FUNCTIONAL_BOND_COMPLEXITY` from score reverts an owner-driven S84 P4 decision (`constants.ts:227-231`) and lengthens non-magic connected builds 12–14% — **surface it to the owner before this PDR.**
 *Tier: Full · Reuse: player.energy, TICK_ENERGY, the existing gauge*
 
 ### V6-1.7 — Vs-bots integration + the boredom gate
-Full loop playable against bots. Balance pass on worker count, cycle time, bank cap and upgrade costs.
+Full loop playable against bots. Balance pass on gatherer count, cycle time, bank cap and upgrade costs.
 *Tier: Full*
 
 > **⛔ HARD GATE — V6-1.7.** The acceptance criterion is **"is the player bored?"**, not "does it work." Removing the hauling does not make placement fun — it *reveals* whether placement was ever fun. If sculpting does not carry the game here, Phases 2–4 are **re-planned, not continued.**
@@ -560,8 +560,8 @@ Full loop playable against bots. Balance pass on worker count, cycle time, bank 
 Classify every recipe as offensive / defensive / fortress / income — already latent in shipped content, so it's recipe metadata plus a classifier. Then: click a tower, choose its priority. Bloons TD's interaction, Spark's categories. Deterministic tie-break on lowest id, host-authoritative, priority state on the wire.
 *Tier: Full · Wire: protocol bump · Reuse: findNearestBondTarget family*
 
-### V6-2.2 — Worker vulnerability + harassment
-Workers become attackable; a loaded worker drops its primitive on death. Existing hazards and creatures gain workers as a legal target class. This is where competition lands after leaving the spawner.
+### V6-2.2 — Gatherer vulnerability + harassment
+Gatherers become attackable; a loaded gatherer drops its primitive on death. Existing hazards and creatures gain gatherers as a legal target class. This is where competition lands after leaving the spawner.
 *Tier: Full · Balance: respawn cost is the pressure valve*
 
 ### V6-2.3 — The command layer
@@ -607,8 +607,8 @@ A rich castle is visibly worth more to destroy, so investment costs attention ra
 *Tier: Standard · Rule: stake attention and access, never the artifact*
 
 ### V6-3.7 — Trophies as blueprints
-A trophy and a buildable shape are the same data structure. Sketch a blueprint ghost in-match and workers fill it in — the answer to manual placement becoming labour again at scale, with authorship intact because you drew it and earned it.
-*Tier: Full · Note: the one place workers touch building, and only from your plan*
+A trophy and a buildable shape are the same data structure. Sketch a blueprint ghost in-match and gatherers fill it in — the answer to manual placement becoming labour again at scale, with authorship intact because you drew it and earned it.
+*Tier: Full · Note: the one place gatherers touch building, and only from your plan*
 
 ---
 
@@ -621,11 +621,11 @@ A 60–90 **second** guided intro shown on a machine's **first ever session only
 *Tier: Standard · Trigger: first run per device*
 
 ### V6-4.2 — Wire and bundle
-Delta encoding if the measured snapshot at six players with full worker counts exceeds budget. Bundle reconciliation against the 750 KiB charter, with a Council-gated raise if the roadmap's real cost demands it.
+Delta encoding if the measured snapshot at six players with full gatherer counts exceeds budget. Bundle reconciliation against the 750 KiB charter, with a Council-gated raise if the roadmap's real cost demands it.
 *Tier: Full · Gate: measured, not estimated*
 
 ### V6-4.3 — Balance and v0.6 close
-Full six-player playtest. Tune upgrade costs, bank cap, worker cadence, castle HP, tier budgets. Close the spec, archive the roadmap, decide whether the backend is now worth building.
+Full six-player playtest. Tune upgrade costs, bank cap, gatherer cadence, castle HP, tier budgets. Close the spec, archive the roadmap, decide whether the backend is now worth building.
 *Tier: Full · Exit: v0.6 shipped and playtested at six seats*
 
 ---
@@ -635,7 +635,7 @@ Full six-player playtest. Tune upgrade costs, bank cap, worker cadence, castle H
 | Phase | Sessions | Delivers | Risk |
 |---|---|---|---|
 | **0 · Foundation** | V6-0.1–128 | Spec rewrite, unlock pass, learnability | Low — mostly revocation |
-| **1 · Economy pivot** | V6-1.1–135 | Workers, castle, bank, directives, energy | **Highest** — everything depends on it |
+| **1 · Economy pivot** | V6-1.1–135 | Gatherers, castle, bank, directives, energy | **Highest** — everything depends on it |
 | **2 · Command** | V6-2.1–140 | Targeting, harassment, castle HP, NONET rework | Medium — protocol churn |
 | **3 · Meta** | V6-3.1–147 | Cinematic, trophies, cosmos, assembly, tier, blueprints | Medium — new scene, bundle pressure |
 | **4 · Close** | V6-4.1–150 | Onboarding, wire, balance | Low — mostly measurement |
@@ -656,7 +656,7 @@ The canvas is fixed at `CANVAS_WIDTH = 1920 × CANVAS_HEIGHT = 1080`. Six castle
 
 Radius is linear; **area is not**. At r=250 the zone is ~196,000 px²; at r=188 it is ~111,000 px² — a **43% loss of area**, not 25%.
 
-- **`FREE_SPARK_SOFT_CAP = 50`** — unchanged, this raises free-spark density by roughly **77%**. The zone becomes a visibly denser churn, and worker pickup gets easier (more targets per unit of travel) while readability gets worse. **Recommend dropping the cap in step**, to ~28–30, to hold density roughly constant. Playtest dial.
+- **`FREE_SPARK_SOFT_CAP = 50`** — unchanged, this raises free-spark density by roughly **77%**. The zone becomes a visibly denser churn, and gatherer pickup gets easier (more targets per unit of travel) while readability gets worse. **Recommend dropping the cap in step**, to ~28–30, to hold density roughly constant. Playtest dial.
 - **`R_PERSONAL = 75`** — the personal vision radius was tuned by eye against the old zone size across two sessions (300 → 150 → 75). It is not mathematically bound to `SPAWNER_RADIUS`, but the *feel* of "standing in the zone and seeing it" was calibrated against 250. Re-judge on playtest; do not pre-emptively change it.
 
 ### Knock-ons to verify, not assume

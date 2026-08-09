@@ -726,7 +726,9 @@ disconnect/rejoin.
 > paths (Voltkin save/load, creature migration takeover, worker-sim fallback) were fixed in S134;
 > the hunter path (`serializeHunter`/`deserializeHunter`), the last member of the class, was fixed
 > in S135 P0 — which travels `despawnAtTick`/`spawnedAtTick`/`prevPos` on the wire and adds
-> `save.hunterLifetime.test.ts`. No rehydrate now defaults a lifetime tick to a gate-tripping 0.
+> `save.hunterLifetime.test.ts`. No CURRENT-FORMAT snapshot now defaults a lifetime tick to a
+> gate-tripping 0; the `?? 0` fallbacks remain only for pre-S135 saves, where a hunter 0 is a benign
+> early escape rather than the creature detonation default.
 
 ### XV.7 — Deploy [LOCKED — v0.6]
 

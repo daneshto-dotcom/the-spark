@@ -460,8 +460,12 @@ export function parseRoomCode(input: string, length = 6): string | null {
  * "wire silently rejects valid INTENT" failure mode is now caught at typecheck.
  */
 const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
-  // V6-1.1 — buy a gatherer from the placeholder keep (also a CLIENT INTENT, see below).
+  // V6-1.1/1.2 — the gatherer economy. BUY_GATHERER / UPGRADE_GATHERER_SPEED /
+  // SET_GATHERER_PREFERENCE are also CLIENT INTENTs (see below); GATHERER_TICK is host-internal.
   BUY_GATHERER: true,
+  GATHERER_TICK: true,
+  UPGRADE_GATHERER_SPEED: true,
+  SET_GATHERER_PREFERENCE: true,
   SPAWN_SPARK: true,
   DESPAWN_SPARK: true,
   PICKUP_SPARK: true,
@@ -603,6 +607,10 @@ const CLIENT_INTENT_TYPES_RECORD = {
   // V6-1.1 — a 1v1 joiner can buy a gatherer from their keep; the host affordability-gates it and
   // spends from that seat's own score pool (the reducer never trusts the client's view of the price).
   BUY_GATHERER: true,
+  // V6-1.2 — a joiner can buy speed for their own gatherers and re-task them. Both are
+  // ownership- and affordability-gated in the reducer, so the host never trusts the client's view.
+  UPGRADE_GATHERER_SPEED: true,
+  SET_GATHERER_PREFERENCE: true,
 } as const satisfies Partial<Record<GameAction['type'], true>>;
 
 export const CLIENT_INTENT_TYPES: ReadonlySet<string> = new Set(

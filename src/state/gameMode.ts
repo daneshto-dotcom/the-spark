@@ -19,15 +19,18 @@
  */
 
 import {
+  GATHERER_DEPOSIT_OFFSET_Y,
   PLAYER_COLORS,
   POOP_CRUISER_MAX_SPEED,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_KILL_REWARD,
   SPAWNER_RADIUS,
+  STARTING_VICTORY_POINTS,
 } from '../constants.ts';
 import { makeIdlePlayer, type Player } from '../game/player.ts';
-import { asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
+import { castleAnchor, makeGatherer } from './gatherers/gatherer.ts';
+import { asGathererId, asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
 import type { GameMode, World } from './world.ts';
 import type { CreatureSpawner } from './spawners/spawner.ts';
 import { seedBotSpawners } from './spawners/botSpawnerSeed.ts';
@@ -252,7 +255,39 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   // turret/HELGA/Voltkin have live ENEMY chewers to fire on (deterministic, zero bot-RNG draws).
   // No-op outside 'bots' mode. MUST run AFTER seating (resolves the owner colour from the player).
   seedBotSpawners(world);
+  // V6-1.2 — OPENING STATE: every seat starts owning ONE gatherer (the S134 "START AT 1" ruling)
+  // and STARTING_VICTORY_POINTS in the bank. Runs LAST, after every seat exists, so each player
+  // gets exactly one unit at their own keep. 100 points against a 105 gatherer is deliberate: the
+  // opening choice is "two speed upgrades now" vs "save toward a second hauler".
+  seedStartingGatherers(world);
   return world;
+}
+
+/** V6-1.2 — one gatherer + the opening point balance per seated player. Idempotent per seat. */
+function seedStartingGatherers(world: World): void {
+  for (const pid of world.players.keys()) {
+    world.scoreByPlayer.set(pid, STARTING_VICTORY_POINTS);
+    let owns = false;
+    for (const g of world.gatherers.values()) {
+      if (g.ownerPlayerId === pid) { owns = true; break; }
+    }
+    if (owns) continue;
+    const anchor = castleAnchor(pid as unknown as number);
+    const id = asGathererId(world.nextGathererId++);
+    world.gatherers.set(
+      id,
+      makeGatherer({
+        id,
+        ownerPlayerId: pid,
+        pos: { x: anchor.x, y: anchor.y + GATHERER_DEPOSIT_OFFSET_Y },
+        spawnedAtTick: world.tick,
+      }),
+    );
+  }
+  // scoreProgress = max over seats, recomputed so the HUD/win gate agree from tick 0.
+  let max = 0;
+  for (const v of world.scoreByPlayer.values()) if (v > max) max = v;
+  world.scoreProgress = max;
 }
 
 /**

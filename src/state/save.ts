@@ -59,7 +59,7 @@ import type { SpawnerState } from '../game/spawner.ts';
 import type { Bomb } from './bomb.ts';
 import type { Creature, CreatureState, CreatureType } from './creatures/creature.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
-import type { Gatherer } from './gatherers/gatherer.ts';
+import type { Gatherer, GathererState } from './gatherers/gatherer.ts';
 import type { Hunter, HunterState } from './hunters/hunter.ts';
 import type { Potato, PotatoState } from './potato.ts';
 import type { Rainbow } from './rainbow.ts';
@@ -274,6 +274,8 @@ interface SerializedSpark {
   state: SparkState;
   /** S77 P3 — "poopy" debuff expiry tick (clients render the brown tint). Omitted when un-poopy. */
   poopyUntilTick?: number;
+  /** V6-1.2 — gatherer escrow (hauled/banked). Additive-optional; undefined = an ordinary free spark. */
+  escrow?: 'hauled' | 'banked';
 }
 
 interface SerializedPrimitive {
@@ -568,7 +570,8 @@ interface SerializedBomb {
 /**
  * S72 P2 / S135 P0 — hunter wire shape. The client renderer derives the wedge facing +
  * chomp from (state, ticksInState, targetPlayerId) and the target's avatarPos, so on the
- * pure client-render path prevPos is snapped to pos.
+ * client-render path prevPos USED TO be snapped to pos; since S135 P0 it travels and is restored
+ * on every path (the `?? pos` fallback fires only for a pre-S135 sender).
  * spawnedAtTick / despawnAtTick / prevPos NOW RIDE (additive-optional, no schemaVersion
  * bump). They are HOST-AUTHORITATIVE, not render fields: restore() (workerSim INIT + host
  * save/load) and applyNetSnapshot() (promoted successor) both rehydrate through
@@ -601,6 +604,17 @@ interface SerializedGatherer {
   readonly ownerPlayerId: PlayerId;
   readonly pos: Vec2;
   readonly spawnedAtTick: number;
+  /**
+   * V6-1.2 — the haul cycle rides the wire in full. A successor that inherited a gatherer without
+   * its FSM state would drop the cargo it is holding (the spark stays escrowed forever = a leaked,
+   * un-reapable, un-grabbable shape) and re-seek from scratch. Additive-optional: a pre-V6-1.2
+   * gatherer rehydrates as an idle SEEKER, which is the correct degradation.
+   */
+  readonly state?: GathererState;
+  readonly targetSparkId?: SparkId | null;
+  readonly carriedSparkId?: SparkId | null;
+  readonly speedLevel?: number;
+  readonly preferredType?: SparkType | null;
 }
 
 /**
@@ -1186,6 +1200,7 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       prevPos: { ...s.prevPos },
       state: s.state,
       poopyUntilTick: s.poopyUntilTick, // S77 P3 — round-trip the "poopy" slow (clients tint it)
+      escrow: s.escrow, // V6-1.2 — gatherer haul/bank escrow
     };
     world.freeSparks.set(spark.id, spark);
   }
@@ -1282,6 +1297,9 @@ function serializeSpark(s: Spark): SerializedSpark {
     createdTick: s.createdTick,
     state: s.state,
     poopyUntilTick: s.poopyUntilTick, // S77 P3 — "poopy" slow expiry (clients render the tint)
+    // V6-1.2 — escrow MUST round-trip: a successor that loses it would reap a hauled shape at the
+    // 10 s TTL and rim-snap a banked stockpile back into the spawn disc.
+    escrow: s.escrow,
   };
 }
 
@@ -1761,6 +1779,11 @@ function serializeGatherer(g: Gatherer): SerializedGatherer {
     ownerPlayerId: g.ownerPlayerId,
     pos: { x: g.pos.x, y: g.pos.y },
     spawnedAtTick: g.spawnedAtTick,
+    state: g.state,
+    targetSparkId: g.targetSparkId,
+    carriedSparkId: g.carriedSparkId,
+    speedLevel: g.speedLevel,
+    preferredType: g.preferredType,
   };
 }
 
@@ -1770,6 +1793,11 @@ function deserializeGatherer(s: SerializedGatherer): Gatherer {
     ownerPlayerId: s.ownerPlayerId,
     pos: { x: s.pos.x, y: s.pos.y },
     spawnedAtTick: s.spawnedAtTick,
+    state: s.state ?? 'SEEKING',
+    targetSparkId: s.targetSparkId ?? null,
+    carriedSparkId: s.carriedSparkId ?? null,
+    speedLevel: s.speedLevel ?? 0,
+    preferredType: s.preferredType ?? null,
   };
 }
 

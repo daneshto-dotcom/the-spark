@@ -556,6 +556,10 @@ async function bootstrap(): Promise<void> {
   hud.setBuyGathererHandler(() => {
     dispatchFn({ type: 'BUY_GATHERER', playerId: world.localPlayerId });
   });
+  // V6-1.2 — one purchase steps every gatherer this seat owns.
+  hud.setUpgradeSpeedHandler(() => {
+    dispatchFn({ type: 'UPGRADE_GATHERER_SPEED', playerId: world.localPlayerId });
+  });
   const stats = new StatsOverlay(app);
   // S88 G3a — in-match discovery toast. Constructed AFTER the HUD so its main-stage
   // container renders ABOVE the board/fog (HUD/main-stage layer, NOT aboveFogLayer —
