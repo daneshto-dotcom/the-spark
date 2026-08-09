@@ -144,6 +144,11 @@ import {
   type RemoveDefenderAction,
   type DefenderTickAction,
 } from './defenders/defenderLifecycle.ts';
+import {
+  applyBuyGatherer,
+  teardownGatherers,
+  type BuyGathererAction,
+} from './gatherers/gathererLifecycle.ts';
 
 // Re-export addScore from gameMode.ts for back-compat with placePrimitive.ts
 // and session15.test.ts (S16 P0 extraction preserved external import paths).
@@ -287,6 +292,9 @@ export type GameAction =
   | RegisterDefenderAction
   | RemoveDefenderAction
   | DefenderTickAction
+  // V6-1.1 — buy a gatherer from the placeholder keep. A CLIENT INTENT (a 1v1 joiner can buy);
+  // the host applies it authoritatively. Reducer in gatherers/gathererLifecycle.ts. PROTOCOL bump.
+  | BuyGathererAction
   // S93 — NONET: a player submits a completed Sudoku grid (client INTENT or host/solo local);
   // the host validates first-valid-wins. playerId is host-stamped to the sender's seat.
   | { readonly type: 'SUDOKU_SOLVED'; readonly playerId: PlayerId; readonly grid: readonly number[] };
@@ -320,6 +328,9 @@ export function makeWorld(rngSeed: number): World {
     // S103 P2 — host-authoritative generic defenders; empty at world birth.
     defenders: new Map(),
     nextDefenderId: 0,
+    // V6-1.1 — player-owned gatherers; empty at world birth (bought from the keep).
+    gatherers: new Map(),
+    nextGathererId: 0,
     pendingCreatureSpawn: null,
     bombs: new Map(),
     nextBombId: 0,
@@ -454,6 +465,9 @@ export function dispatch(world: World, action: GameAction): World {
       teardownSpawners(world);
       // S103 P2 — and defenders (a lingering turret/HELGA would keep firing onto the win screen).
       teardownDefenders(world);
+      // V6-1.1 (R5 decision) — and gatherers: they get NO endgame-ceremony role in V6-1.1, so tear
+      // them down on the PLAYING->WIN edge like the hazards. Revisit if V6-3.1 wants them to linger.
+      teardownGatherers(world);
       return world;
 
     case 'START_GAME':
@@ -611,6 +625,10 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'DEFENDER_TICK':
       return applyDefenderTick(world, action);
+
+    // V6-1.1 — buy a gatherer from the placeholder keep (spend victory points, mint one unit).
+    case 'BUY_GATHERER':
+      return applyBuyGatherer(world, action);
 
     // S93 — NONET solve submission (host-authoritative; first valid grid wins). On the host this
     // applies the ×2/÷2; on a client this case never runs (clients send it as an INTENT, the host

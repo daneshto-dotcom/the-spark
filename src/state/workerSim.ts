@@ -280,6 +280,10 @@ export function structuralSignature(world: World): string {
     world.creatures.size,
     world.creatureSpawners.size,
     world.defenders.size,
+    // V6-1.1 — a bought gatherer must force a full snapshot to the mirror (this signature is NOT
+    // tsc-forced, unlike FIELD_COVERAGE: omitting this line would make a purchase invisible to the
+    // mirror until the 100 ms floor elapsed).
+    world.gatherers.size,
     world.bombs.size,
     world.hunters.size,
     world.potatoes.size,

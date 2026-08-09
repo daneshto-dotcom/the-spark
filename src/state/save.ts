@@ -40,6 +40,7 @@ import {
   type BombId,
   type BondId,
   type CreatureId,
+  type GathererId,
   type HunterId,
   type PlayerId,
   type PotatoId,
@@ -58,6 +59,7 @@ import type { SpawnerState } from '../game/spawner.ts';
 import type { Bomb } from './bomb.ts';
 import type { Creature, CreatureState, CreatureType } from './creatures/creature.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
+import type { Gatherer } from './gatherers/gatherer.ts';
 import type { Hunter, HunterState } from './hunters/hunter.ts';
 import type { Potato, PotatoState } from './potato.ts';
 import type { Rainbow } from './rainbow.ts';
@@ -132,6 +134,13 @@ export interface WorldSnapshot {
    * Emitted only when non-empty so pre-S72 saves stay byte-identical on the wire.
    */
   hunters?: SerializedHunter[];
+  /**
+   * V6-1.1 — bought gatherer units. Additive-optional (creature/hunter precedent); emitted only
+   * when non-empty so a pre-V6 save stays byte-identical. MUST round-trip: a gatherer costs 105
+   * victory points, so losing one on host migration / worker resume would silently burn the
+   * purchase.
+   */
+  gatherers?: SerializedGatherer[];
   /**
    * S72 P2 — once-per-game hunter-spawned guard. Additive-optional; emitted only
    * when true so a host save/load mid-game does not re-spawn a second hunter on
@@ -579,6 +588,22 @@ interface SerializedHunter {
 }
 
 /**
+ * V6-1.1 — gatherer wire shape. FULL FIDELITY on purpose (every field the entity carries
+ * travels), which is the S134/S135 lesson applied at add-time rather than retrofitted: this
+ * family is rehydrated by BOTH host-authoritative consumers (restore → workerSim INIT + host
+ * save/load; applyNetSnapshot → promoted successor), so a field omitted here is a field the
+ * successor invents. The cosmetic shapeshift is deliberately ABSENT — it is renderer-only, a
+ * pure fn of (tick, gathererId), so it carries no wire cost and cannot desync.
+ * Additive-optional → no schemaVersion bump (PROTOCOL_VERSION 15→16 covers the peer gate).
+ */
+interface SerializedGatherer {
+  readonly id: GathererId;
+  readonly ownerPlayerId: PlayerId;
+  readonly pos: Vec2;
+  readonly spawnedAtTick: number;
+}
+
+/**
  * S72 P3 — potato wire shape. detonateAtTick MUST round-trip (a HOST save/load resumes
  * the fuse poll from it; the client also reads it for the fuse-countdown VFX). prevPos
  * + spawnedAtTick are host-only and omitted. Additive-optional → no schemaVersion bump.
@@ -673,6 +698,10 @@ export function snapshot(
     // (the field stays undefined and JSON.stringify drops it).
     hunters: world.hunters.size > 0
       ? [...world.hunters.values()].map(serializeHunter)
+      : undefined,
+    // V6-1.1 — emit gatherers only when present so pre-V6 saves stay byte-identical.
+    gatherers: world.gatherers.size > 0
+      ? [...world.gatherers.values()].map(serializeGatherer)
       : undefined,
     // S72 P2 — emit the once-per-game guard only when true (byte-identical pre-S72).
     hunterSpawned: world.hunterSpawned ? true : undefined,
@@ -991,6 +1020,20 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       if ((h.id as number) > maxHunterId) maxHunterId = h.id as number;
     }
     if (maxHunterId >= 0) world.nextHunterId = maxHunterId + 1;
+  }
+
+  // V6-1.1 — gatherers: clear + rehydrate (mirror of the hunter/bomb/creature pattern). Reset the
+  // mint counter past the max loaded id so a host save/load (or a promoted successor) never mints a
+  // colliding id on the next BUY_GATHERER. Client never mints (no-op there).
+  world.gatherers.clear();
+  world.nextGathererId = 0;
+  if (snap.gatherers !== undefined) {
+    let maxGathererId = -1;
+    for (const g of snap.gatherers) {
+      world.gatherers.set(g.id, deserializeGatherer(g));
+      if ((g.id as number) > maxGathererId) maxGathererId = g.id as number;
+    }
+    if (maxGathererId >= 0) world.nextGathererId = maxGathererId + 1;
   }
 
   // S72 P3 — potatoes: clear + rehydrate (mirror of the bomb/hunter pattern). Reset the
@@ -1704,6 +1747,32 @@ function serializeHunter(h: Hunter): SerializedHunter {
  * save/load) and applyNetSnapshot() (promoted successor) are both host-authoritative
  * consumers that run applyHunterTick.
  */
+/**
+ * V6-1.1 — gatherer serialize/deserialize. FULL FIDELITY: every field round-trips, so a
+ * successor's gatherer is byte-equal to the predecessor's and `hashWorldStateFull` equality holds.
+ * No neutral-default rehydration anywhere in this pair — that is the whole S134/S135 lesson
+ * (a `?? 0` on a tick field is a gate-tripping value, not a neutral one), so there is nothing here
+ * to default. The cosmetic morph is NOT serialized: it is a pure fn of (tick, gathererId) at
+ * render time.
+ */
+function serializeGatherer(g: Gatherer): SerializedGatherer {
+  return {
+    id: g.id,
+    ownerPlayerId: g.ownerPlayerId,
+    pos: { x: g.pos.x, y: g.pos.y },
+    spawnedAtTick: g.spawnedAtTick,
+  };
+}
+
+function deserializeGatherer(s: SerializedGatherer): Gatherer {
+  return {
+    id: s.id,
+    ownerPlayerId: s.ownerPlayerId,
+    pos: { x: s.pos.x, y: s.pos.y },
+    spawnedAtTick: s.spawnedAtTick,
+  };
+}
+
 function deserializeHunter(s: SerializedHunter): Hunter {
   return {
     id: s.id,

@@ -16,10 +16,13 @@
  * row 3 + Δ4 — drops fallback chain in favor of explicit guard).
  */
 
-import { Application, Graphics, Text, TextStyle } from 'pixi.js';
+import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  FOOTER_HEIGHT,
+  FOOTER_TOP_Y,
+  GATHERER_PRICE,
   LEADER_DECAY_THRESHOLD_FRACTION,
   MAX_DISRUPTION_CHARGES,
   PHASE_1_WIN_SCORE,
@@ -128,6 +131,15 @@ export interface TierBannerCapture {
   readonly watermark: number;
   readonly text: string | null;
   readonly color: number;
+  /**
+   * V6-1.1 — the tier the captured crossing announces (0 when nothing was captured). Score became
+   * SPENDABLE in V6-1.1, so scoreProgress can now fall below a 500/1000 boundary and re-cross it
+   * upward, emitting a fresh SCORE_TIER effect at a NEW tick. The tick watermark cannot dedupe
+   * that (the tick genuinely is newer), so the caller additionally suppresses any tier it has
+   * already announced this match. Before spending existed this could not happen: leader-decay
+   * floors at 1125, above both boundaries.
+   */
+  readonly tier: number;
 }
 
 /**
@@ -154,14 +166,16 @@ export function captureTierBanner(
   let watermark = resetWatermarkIfRegressed(worldTick, lastTierTick);
   let text: string | null = null;
   let color = 0xffffff;
+  let tier = 0;
   for (const e of effects) {
     if (e.kind !== 'SCORE_TIER') continue;
     if (e.tick <= watermark) continue;
     watermark = e.tick;
     text = formatTierBanner(e.tier);
     color = e.color;
+    tier = e.tier;
   }
-  return { watermark, text, color };
+  return { watermark, text, color, tier };
 }
 const GAUGE_Y_TOP = 80;
 const GAUGE_Y_BOTTOM = CANVAS_HEIGHT - 80;
@@ -169,9 +183,16 @@ const GAUGE_WIDTH = 8;
 const ENERGY_GAUGE_FULL = 100;
 
 const PROGRESS_X = 12;
-const PROGRESS_Y_TOP = CANVAS_HEIGHT - 80;
-const PROGRESS_Y_BOTTOM = CANVAS_HEIGHT - 40;
+// V6-1.1 — RELOCATED above the new footer bar. These were CANVAS_HEIGHT-80/-40 (y 1000..1040),
+// which sits ENTIRELY inside the footer strip (FOOTER_TOP_Y = 996): the bar would have been drawn
+// underneath the automation bar and its clicks swallowed by the footer guard. Anchored to
+// FOOTER_TOP_Y so the two can never silently overlap again if the footer height changes.
+const PROGRESS_Y_TOP = FOOTER_TOP_Y - 76;
+const PROGRESS_Y_BOTTOM = FOOTER_TOP_Y - 36;
 const PROGRESS_WIDTH = 80;
+/** V6-1.1 — buy-button box (the footer's only control this slot). */
+const BUY_BTN_W = 232;
+const BUY_BTN_H = 46;
 
 // S84 P4 — the S62 colour-name labels (RED/CYAN/…) are GONE: the rainbow shuffle
 // migrates colours mid-match, so colour names lied after the first switch. Rows
@@ -237,10 +258,41 @@ export class HUD {
   private tierBannerFrames = 0;
   /** Dedupe key: the `tick` of the last SCORE_TIER effect consumed. */
   private lastTierTick = -1;
+  /**
+   * V6-1.1 — the automation FOOTER BAR (owner ruling S134: every automation control lives in a bar
+   * along the bottom). V6-1.1 ships exactly ONE control in it — "BUY GATHERER 105" — but the
+   * container reserves the full strip so the shape buttons / build queue / bank meter (V6-1.4) drop
+   * in without a relayout. Canvas (Pixi), never DOM: every other HUD element is canvas, so this
+   * inherits the object-fit:contain letterbox mapping and the stage z-order for free.
+   */
+  private readonly footer: Container;
+  private readonly footerPlate: Graphics;
+  private readonly buyButton: Container;
+  private readonly buyButtonBg: Graphics;
+  private readonly buyButtonText: Text;
+  /** Set by main.ts — dispatches BUY_GATHERER for the local seat. */
+  private onBuyGatherer: (() => void) | null = null;
+  private buyHover = false;
+  /** Affordability latch, recomputed every frame from the local seat's own score. */
+  private buyEnabled = false;
   private displayEnergy = 0;
   private displayProgress = 0;
   private lastLocalScore = -1; // S106 P4 — detect a DROP in your own score (NONET halving) to flash the bar
   private dropFlash = 0; // S106 P4 — 1 on a score drop, decays per frame (render-only cosmetic)
+  /**
+   * V6-1.1 — suppress the red drop-flash for ONE score-drop event, armed when the local player
+   * buys. The flash exists to make an INVOLUNTARY loss (a NONET halving) felt; a purchase is a
+   * deliberate investment, so flashing "you lost points" at it reads as a penalty for playing well.
+   * The score still visibly falls — only the alarm colour is withheld.
+   */
+  private suppressNextDropFlash = false;
+  /**
+   * V6-1.1 — highest SCORE_TIER milestone already announced this match. Score is now SPENDABLE, so
+   * scoreProgress can fall back below 500/1000 and re-cross UPWARD, which would replay a milestone
+   * banner the player already saw. Watermarking makes each milestone a once-per-match event.
+   * Render-only (never synced): a re-announcement is a cosmetic annoyance, not sim state.
+   */
+  private tierWatermark = 0;
   private winTextAlphaTarget = 0;
   private winTextAlpha = 0;
   /** S15 P2 — set by main.ts each frame; reflects netTransport.peerCount(). */
@@ -332,11 +384,51 @@ export class HUD {
     this.tierBannerText.position.set(CANVAS_WIDTH / 2, TIER_BANNER_Y);
     this.tierBannerText.visible = false;
     app.stage.addChild(this.tierBannerText);
+
+    // V6-1.1 — the automation footer bar + its single control. Added LAST so it renders above the
+    // rest of the HUD (child-add order, the betaBadgePlate idiom — no zIndex needed).
+    this.footer = new Container();
+    this.footerPlate = new Graphics();
+    this.footer.addChild(this.footerPlate);
+
+    this.buyButtonBg = new Graphics();
+    this.buyButtonText = new Text({
+      text: `BUY GATHERER  ${GATHERER_PRICE}`,
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 17, fill: 0xffffff }),
+    });
+    this.buyButtonText.anchor.set(0.5);
+    this.buyButtonText.position.set(BUY_BTN_W / 2, BUY_BTN_H / 2);
+
+    this.buyButton = new Container();
+    this.buyButton.addChild(this.buyButtonBg);
+    this.buyButton.addChild(this.buyButtonText);
+    this.buyButton.position.set(CANVAS_WIDTH - BUY_BTN_W - 28, FOOTER_TOP_Y + (FOOTER_HEIGHT - BUY_BTN_H) / 2);
+    this.buyButton.eventMode = 'static';
+    this.buyButton.cursor = 'pointer';
+    this.buyButton.on('pointertap', () => {
+      // Affordability is re-checked authoritatively in the reducer; this only avoids firing a
+      // no-op intent (and the arming of the drop-flash suppression) on an unaffordable click.
+      if (this.buyEnabled && this.onBuyGatherer !== null) {
+        this.suppressNextDropFlash = true;
+        this.onBuyGatherer();
+      }
+    });
+    this.buyButton.on('pointerover', () => { this.buyHover = true; });
+    this.buyButton.on('pointerout', () => { this.buyHover = false; });
+    this.footer.addChild(this.buyButton);
+
+    this.footer.visible = false;
+    app.stage.addChild(this.footer);
   }
 
   /** S15 P2 — main.ts sets this from netTransport.peerCount() each frame. */
   setConnectionPeers(peers: number): void {
     this.connectedPeers = peers;
+  }
+
+  /** V6-1.1 — main.ts injects the BUY_GATHERER dispatch for the local seat. */
+  setBuyGathererHandler(fn: () => void): void {
+    this.onBuyGatherer = fn;
   }
 
   sync(world: World): void {
@@ -345,6 +437,7 @@ export class HUD {
     this.drawWinState(world);
     this.drawMultiplayerHUD(world);
     this.drawComboCounter(world);
+    this.drawFooter(world);
     // V6-0.3 (S130) — ANIMATE only. The `world.effects` scan that arms this banner lives in
     // `drainTierBanner`, which main.ts calls BEFORE effectsRenderer wipes the array. Do NOT move
     // the scan back in here: `sync` runs after the wipe, which is exactly the V6-0.2 defect.
@@ -407,6 +500,9 @@ export class HUD {
       // instance lives for the whole page, so a stale high watermark would suppress the banner
       // for every future match. Every match transition passes through a non-PLAYING state.
       this.lastTierTick = -1;
+      // V6-1.1 — the TIER watermark resets on the same edge and for the identical reason: a stale
+      // high tier would suppress every milestone of the next match.
+      this.tierWatermark = 0;
       return;
     }
     // `captureTierBanner` also folds in the MID-MATCH backward-tick guard, which the
@@ -421,6 +517,11 @@ export class HUD {
     // `text === null` means no crossing this frame. Do NOT touch the banner state — it may be
     // mid-animation from an earlier crossing, and clobbering it here would truncate the beat.
     if (cap.text === null) return;
+    // V6-1.1 — SPEND-AWARE dedupe. A gatherer purchase can drop scoreProgress back below a tier
+    // boundary; re-climbing emits a genuinely-new SCORE_TIER effect that the tick watermark above
+    // cannot filter. Announce each milestone at most once per match.
+    if (cap.tier <= this.tierWatermark) return;
+    this.tierWatermark = cap.tier;
     this.tierBannerText.text = cap.text;
     this.tierBannerText.style.fill = cap.color;
     this.tierBannerFrames = TIER_BANNER_FRAMES;
@@ -518,6 +619,36 @@ export class HUD {
     }
   }
 
+  /**
+   * V6-1.1 — the automation footer bar. Shown during PLAYING only (same gate as the combo counter),
+   * so the title/win screens are untouched. The button dims when the local player cannot afford a
+   * gatherer; the reducer re-checks affordability authoritatively regardless, so a stale/laggy
+   * enabled state on a joiner can never produce a negative score.
+   */
+  private drawFooter(world: World): void {
+    const playing = world.gameState === 'PLAYING';
+    this.footer.visible = playing;
+    if (!playing) return;
+
+    const g = this.footerPlate;
+    g.clear();
+    g.rect(0, FOOTER_TOP_Y, CANVAS_WIDTH, FOOTER_HEIGHT).fill({ color: 0x0a1622, alpha: 0.82 });
+    g.moveTo(0, FOOTER_TOP_Y).lineTo(CANVAS_WIDTH, FOOTER_TOP_Y).stroke({ width: 1, color: 0x2a4055, alpha: 0.9 });
+
+    const score = world.scoreByPlayer.get(world.localPlayerId) ?? 0;
+    this.buyEnabled = Math.floor(score) >= GATHERER_PRICE;
+
+    const bg = this.buyButtonBg;
+    bg.clear();
+    const fill = this.buyEnabled ? (this.buyHover ? 0x1f5f9e : 0x17497a) : 0x1a2530;
+    const border = this.buyEnabled ? 0x85b7eb : 0x3a4a58;
+    bg.roundRect(0, 0, BUY_BTN_W, BUY_BTN_H, 6)
+      .fill({ color: fill, alpha: 0.95 })
+      .stroke({ width: 2, color: border, alpha: 0.95 });
+    this.buyButtonText.style.fill = this.buyEnabled ? 0xffffff : 0x6b7a88;
+    this.buyButton.cursor = this.buyEnabled ? 'pointer' : 'default';
+  }
+
   private drawProgress(world: World): void {
     // S106 P4 — the PRIMARY bar tracks YOUR OWN score (own), with the LEADER as a ghost-tick. See
     // progressBarFractions: this makes a NONET halving VISIBLE (your bar drops) where the old shared
@@ -526,7 +657,13 @@ export class HUD {
     this.displayProgress += (own - this.displayProgress) * 0.18;
 
     const localScore = world.scoreByPlayer.get(world.localPlayerId) ?? world.scoreProgress;
-    if (this.lastLocalScore >= 0 && localScore < this.lastLocalScore - 0.5) this.dropFlash = 1;
+    if (this.lastLocalScore >= 0 && localScore < this.lastLocalScore - 0.5) {
+      // V6-1.1 — a VOLUNTARY spend (buying a gatherer) must not trip the loss alarm. The drop is
+      // still fully visible in the bar and the number; only the red "you were robbed" flash is
+      // withheld, and only for the single drop the purchase caused.
+      if (this.suppressNextDropFlash) this.suppressNextDropFlash = false;
+      else this.dropFlash = 1;
+    }
     this.lastLocalScore = localScore;
     this.dropFlash = Math.max(0, this.dropFlash - 0.04);
 

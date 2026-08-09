@@ -143,6 +143,7 @@ import { PrincessRenderer } from './render/princessRenderer.ts';
 import { SpawnerZoneRenderer } from './render/spawnerZoneRenderer.ts';
 import { BombRenderer } from './render/bombRenderer.ts';
 import { HunterRenderer } from './render/hunterRenderer.ts';
+import { GathererRenderer } from './render/gathererRenderer.ts';
 import { PotatoRenderer } from './render/potatoRenderer.ts';
 import { RainbowRenderer } from './render/rainbowRenderer.ts';
 import { RainbowFlyoverRenderer } from './render/rainbowFlyoverRenderer.ts';
@@ -498,6 +499,10 @@ async function bootstrap(): Promise<void> {
   // S72 P2 — Pac-Man hunter; S77 P2 -> aboveFogLayer (a board-wide chaser, visible to all).
   // Pure Pixi vector (no assets); renders host + client. Cheap no-op when world.hunters is empty.
   const hunterRenderer = new HunterRenderer(app, aboveFogLayer);
+  // V6-1.1 — placeholder keeps + bought gatherers. aboveFogLayer: a keep marks a seat's home and a
+  // gatherer is a board-wide economic unit, so both follow the "visible-to-all iff can-affect-all"
+  // rule the hunter uses. Pure Pixi vector (no assets — the shapeshift is procedural).
+  const gathererRenderer = new GathererRenderer(app, aboveFogLayer);
   // S72 P3 — potato (FREE/CARRIED/ARMED + fuse VFX); S77 P2 -> aboveFogLayer (owner-agnostic AoE,
   // visible to all). Pure Pixi vector; renders host + client. Cheap no-op when world.potatoes empty.
   const potatoRenderer = new PotatoRenderer(app, aboveFogLayer);
@@ -543,6 +548,14 @@ async function bootstrap(): Promise<void> {
   app.stage.addChild(muteIndicator);
   app.stage.addChild(settingsIcon);
   const hud = new HUD(app);
+  // V6-1.1 — the footer BUY GATHERER control dispatches through the SAME `dispatchFn` seam every
+  // other player intent uses, so it routes correctly on all three paths (networked joiner → wire
+  // intent; worker mode → postIntent; solo/host → direct dispatch). BUY_GATHERER is deliberately
+  // NOT in PREDICTABLE_ACTIONS: optimistically minting locally would allocate a gatherer id the
+  // host has not issued, so the unit appears when the authoritative snapshot lands instead.
+  hud.setBuyGathererHandler(() => {
+    dispatchFn({ type: 'BUY_GATHERER', playerId: world.localPlayerId });
+  });
   const stats = new StatsOverlay(app);
   // S88 G3a — in-match discovery toast. Constructed AFTER the HUD so its main-stage
   // container renders ABOVE the board/fog (HUD/main-stage layer, NOT aboveFogLayer —
@@ -1575,6 +1588,8 @@ async function bootstrap(): Promise<void> {
         bombRenderer.clear();
         // S72 P2 — drop the hunter graphic on title-return (reducer clears world.hunters).
         hunterRenderer.clear();
+        // V6-1.1 — drop keeps + gatherers on title-return (reducer clears world.gatherers).
+        gathererRenderer.clear();
         // S72 P3 — drop the potato graphic on title-return (reducer clears world.potatoes).
         potatoRenderer.clear();
         godlyState.lastCinematicOwner = null;
@@ -2468,6 +2483,9 @@ async function bootstrap(): Promise<void> {
     // S72 P2 — hunter wedge (after bombs, before the effects wipe). Faces the chased
     // player's avatar; chomp + catch-burst + escape-fade are FSM-driven from state.
     hunterRenderer.sync(world);
+    // V6-1.1 — placeholder keeps + bought gatherers (the shapeshift is computed here, at render
+    // time, from (world.tick, gathererId) — it is never world state).
+    gathererRenderer.sync(world);
     // S72 P3 — potato (FREE/CARRIED/ARMED + fuse-countdown VFX), before the effects wipe.
     potatoRenderer.sync(world);
     // S75 P3 — rainbow (dumb arc + tooth + bob), before the effects wipe.

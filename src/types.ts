@@ -28,6 +28,8 @@ export type PoopId = number & { readonly __brand: 'PoopId' };
 export type SpawnerId = number & { readonly __brand: 'SpawnerId' };
 // S103 P2 — generic tower-defense DEFENDER (laser turret / HELGA princess) entity id.
 export type DefenderId = number & { readonly __brand: 'DefenderId' };
+// V6-1.1 — bought hauler unit ("gatherer"; NEVER "Worker" — the Web Worker owns the World).
+export type GathererId = number & { readonly __brand: 'GathererId' };
 
 export const asSparkId = (n: number): SparkId => n as SparkId;
 export const asPrimitiveId = (n: number): PrimitiveId => n as PrimitiveId;
@@ -42,5 +44,6 @@ export const asSeagullId = (n: number): SeagullId => n as SeagullId;
 export const asPoopId = (n: number): PoopId => n as PoopId;
 export const asSpawnerId = (n: number): SpawnerId => n as SpawnerId;
 export const asDefenderId = (n: number): DefenderId => n as DefenderId;
+export const asGathererId = (n: number): GathererId => n as GathererId;
 
 export const v2copy = (v: Vec2): Vec2 => ({ x: v.x, y: v.y });

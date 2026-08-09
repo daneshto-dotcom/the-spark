@@ -29,6 +29,7 @@ import {
   AUTO_BOND_RADIUS,
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  FOOTER_TOP_Y,
   MERGE_REACH_RADIUS,
   POTATO_RADIUS,
   RAINBOW_RADIUS,
@@ -236,9 +237,26 @@ export class Controls {
     return false;
   }
 
+  /**
+   * V6-1.1 — is the cursor inside the HUD footer strip? `this.cursor` is already mapped to
+   * 1920x1080 logical canvas space by `updateCursor` (letterbox/object-fit-contain aware), and the
+   * footer lives in that same space, so this is a plain rect test with no extra coordinate math.
+   * The footer only EXISTS during PLAYING (see HUD.drawFooter), so the guard is scoped to that
+   * state — otherwise the bottom strip of the title/win screens would go inert for no reason.
+   */
+  private isPointerOverFooter(): boolean {
+    return this.world.gameState === 'PLAYING' && this.cursor.y >= FOOTER_TOP_Y;
+  }
+
   private onDown = (e: PointerEvent): void => {
     if (this.isInputLocked()) return;
     this.updateCursor(e);
+    // V6-1.1 — HUD FOOTER GUARD, and it is not optional. This raw canvas handler hit-tests WORLD
+    // objects (bombs, rainbows, potatoes, sparks, bonds, creatures) with no notion of HUD elements,
+    // and Pixi's `pointertap` on the footer button does NOT suppress it — both fire for one physical
+    // click. Without this early-return, clicking BUY GATHERER would ALSO grab a spark / sever a bond
+    // / pop a creature under the cursor. Mirrored in `onUp` so a placement cannot commit onto the bar.
+    if (this.isPointerOverFooter()) return;
     if (e.button === 0) {
       // LMB
       const player = this.world.players.get(this.playerId);
@@ -356,7 +374,10 @@ export class Controls {
     // AttractDrag). Plant it ARMED at the cursor + release the gesture capture.
     if (e.button === 0) {
       const meNow = this.world.players.get(this.playerId);
-      if (meNow !== undefined && meNow.carriedPotatoId !== undefined) {
+      // V6-1.1 — do not PLANT a potato onto the footer bar (it would be hidden under the HUD).
+      // The potato simply stays carried, which is fully reversible — unlike onDown, blocking here
+      // cannot strand state.
+      if (meNow !== undefined && meNow.carriedPotatoId !== undefined && !this.isPointerOverFooter()) {
         this.dispatchFn({
           type: 'PLACE_POTATO',
           playerId: this.playerId,
@@ -434,7 +455,11 @@ export class Controls {
             pos: { x: this.cursor.x, y: this.cursor.y },
           });
         }
-        if (gates.commit) {
+        // V6-1.1 — releasing over the footer bar is a REJECTED placement, not a blocked event: the
+        // DROP_SPARK above has already released the claim, so the spark stays Free where physics
+        // put it and the player is Idle. Routing through the existing reject path (rather than an
+        // early return) is what guarantees no stuck "glued spark" state — the S52/S58 lesson.
+        if (gates.commit && !this.isPointerOverFooter()) {
           // S52 P1 — atomic PLACE_FROM_FREE single intent replaces the S5-era
           // PICKUP_SPARK+PLACE_PRIMITIVE burst. The burst pattern had a
           // critical defect for the joiner: when PLACE_PRIMITIVE silently

@@ -98,7 +98,12 @@ export type { NetSnapshot };
 // the claim, keep waiting on the dead host's peerId, and freeze forever — semantically breaking,
 // exactly the mixed-deploy class the version gate exists for (HOST_MIGRATION_DESIGN.md §7; the
 // S122 Council L4 no-bump ruling rested on the seam gate D4 removes). Hard-rejected at HELLO.
-export const PROTOCOL_VERSION = 15 as const;
+// V6-1.1 — bumped 15->16: the gatherer economy adds a NEW additive-optional `gatherers[]` family to
+// the snapshot AND a NEW client INTENT (BUY_GATHERER). A stale v15 peer would silently ignore both:
+// it would never render a bought gatherer, and its own buy would be dropped by the host's allowlist —
+// so the two seats would disagree about what a player owns and about their spent score. Hard-rejected
+// at HELLO, same lockstep as the S103 defender bump.
+export const PROTOCOL_VERSION = 16 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -145,8 +150,11 @@ export interface HelloMsg {
   readonly color: number;
   /** Protocol version — bumped on wire-incompatible changes. S77 P3: 6→7 (seagull); S87 P4: 7→8 (LOBBY_READY quickmatch gate); S93: 8→9 (NONET SUDOKU_SOLVED intent + sudoku snapshot field); S100 P1: 9→10 (TD spawner lifecycle + creatureSpawners snapshot field); S102 #1: 10→11 (RAID_CREATURE intent + creature hp); S103 P2: 11→12 (generic defender lifecycle + defenders snapshot field); S110 P4: 12→13 (HELGA walk: serialized 'WALK' state + prevPos/walkTargetPos on defenders[]); S113 Batch C: 13→14 (lightning-drone building: new CreatureType 'lightningDrone' + recipeId 'lightningHub'); S124 P1: 14→15 (host-migration D4 production-ON — MIGRATION_CLAIM live, epoch ≥ 1 semantics). S133 P2 filled in that last entry, which had been missing while the literal below already read 15.
    * ⚠ S133: adding `hp`/`chewProgress`/`targetBondId` back onto the creature wire did NOT bump this —
-   * all three were already additive-optional and `parseNetMessage` gates on schemaVersion only. */
-  readonly protoVersion: 15;
+   * all three were already additive-optional and `parseNetMessage` gates on schemaVersion only.
+   * V6-1.1: 15→16 (gatherer economy — additive-optional `gatherers[]` snapshot field AND the new
+   * BUY_GATHERER client intent; a stale v15 peer would neither render a bought gatherer nor have
+   * its own purchase accepted, so the seats would disagree about units owned and points spent). */
+  readonly protoVersion: 16;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**
@@ -452,6 +460,8 @@ export function parseRoomCode(input: string, length = 6): string | null {
  * "wire silently rejects valid INTENT" failure mode is now caught at typecheck.
  */
 const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
+  // V6-1.1 — buy a gatherer from the placeholder keep (also a CLIENT INTENT, see below).
+  BUY_GATHERER: true,
   SPAWN_SPARK: true,
   DESPAWN_SPARK: true,
   PICKUP_SPARK: true,
@@ -590,6 +600,9 @@ const CLIENT_INTENT_TYPES_RECORD = {
   SUDOKU_SOLVED: true,
   // S102 #1 — a 1v1 client can raid an enemy chewer (right-click); host charge-gates + enemy-checks.
   RAID_CREATURE: true,
+  // V6-1.1 — a 1v1 joiner can buy a gatherer from their keep; the host affordability-gates it and
+  // spends from that seat's own score pool (the reducer never trusts the client's view of the price).
+  BUY_GATHERER: true,
 } as const satisfies Partial<Record<GameAction['type'], true>>;
 
 export const CLIENT_INTENT_TYPES: ReadonlySet<string> = new Set(

@@ -80,6 +80,9 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   creatures: 'hashed',
   creatureSpawners: 'hashed',
   defenders: 'hashed',
+  // V6-1.1 — bought gatherer units. Hashed HERE (the wide oracle), deliberately NOT added to
+  // stateHash.ts NARROW_HASHED_FAMILIES (R1: the narrow set stays narrow — it is on the prod hot path).
+  gatherers: 'hashed',
   bombs: 'hashed',
   hunters: 'hashed',
   potatoes: 'hashed',
@@ -106,6 +109,7 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   nextCreatureId: 'hashed',
   nextSpawnerId: 'hashed',
   nextDefenderId: 'hashed',
+  nextGathererId: 'hashed',
   nextBombId: 'hashed',
   nextHunterId: 'hashed',
   nextPotatoId: 'hashed',
@@ -192,6 +196,7 @@ type PotatoF = keyof ElemOf<World['potatoes']>;
 type RainbowF = keyof ElemOf<World['rainbows']>;
 type SeagullF = keyof ElemOf<World['seagulls']>;
 type PoopF = keyof ElemOf<World['poops']>;
+type GathererF = keyof ElemOf<World['gatherers']>;
 
 // Every field name below is projected by hashWorldStateFull. Keep in lockstep.
 type PrimitiveHashed =
@@ -223,6 +228,9 @@ type RainbowHashed = 'id' | 'pos' | 'spawnedAtTick' | 'dissipateAtTick';
 type SeagullHashed = 'id' | 'pos' | 'prevPos' | 'vx' | 'baseY' | 'spawnedAtTick' | 'lastPoopTick';
 type PoopHashed =
   | 'id' | 'pos' | 'prevPos' | 'state' | 'spawnedAtTick' | 'landedAtTick' | 'fouledPrimId';
+// V6-1.1 — the cosmetic shapeshift is NOT here because it is NOT world state (renderer-only,
+// a pure fn of (tick, gathererId)). Every field the entity DOES carry is hashed.
+type GathererHashed = 'id' | 'ownerPlayerId' | 'pos' | 'spawnedAtTick';
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 const _primComplete: NoUncovered<Exclude<PrimitiveF, PrimitiveHashed>> = true;
@@ -237,9 +245,11 @@ const _potatoComplete: NoUncovered<Exclude<PotatoF, PotatoHashed>> = true;
 const _rainbowComplete: NoUncovered<Exclude<RainbowF, RainbowHashed>> = true;
 const _seagullComplete: NoUncovered<Exclude<SeagullF, SeagullHashed>> = true;
 const _poopComplete: NoUncovered<Exclude<PoopF, PoopHashed>> = true;
+const _gathererComplete: NoUncovered<Exclude<GathererF, GathererHashed>> = true;
 void _primComplete; void _bondComplete; void _sparkComplete; void _creatureComplete;
 void _spawnerComplete; void _defenderComplete; void _bombComplete; void _hunterComplete;
 void _potatoComplete; void _rainbowComplete; void _seagullComplete; void _poopComplete;
+void _gathererComplete;
 /* eslint-enable @typescript-eslint/no-unused-vars */
 
 /* ========================================================================== *
@@ -359,6 +369,11 @@ export function determinismParts(world: World): string[] {
         `:${d.state}:${d.ticksInState}:hp${o(d.hp)}:nf${o(d.nextFireTick)}` +
         `:tc${n(d.targetCreatureId)}:ls${v2(d.lastStrikePos)}`,
     );
+  }
+
+  const gatherers = [...world.gatherers.values()].sort((a, b) => Number(a.id) - Number(b.id));
+  for (const g of gatherers) {
+    parts.push(`ga${n(g.id)}:${n(g.ownerPlayerId)}:${g.pos.x},${g.pos.y}:sa${o(g.spawnedAtTick)}`);
   }
 
   const bombs = [...world.bombs.values()].sort((a, b) => Number(a.id) - Number(b.id));

@@ -307,6 +307,20 @@ function readTestWinScore(): number | null {
 // 500/1000, WIN at 1500). HUNTER_TRIGGER_SCORE auto-scales to floor(1500×0.75)=1125. Owner-approved S110.
 export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 1500;
 
+// V6-1.1 — the automation FOOTER BAR occupies the bottom strip of the 1920x1080 logical canvas.
+// V6-1.1 ships ONE control in it (the buy button); the shape buttons / build queue / bank meter
+// (V6-1.4) slot into the same reserved strip later without a relayout. SHARED with controls.ts:
+// the raw canvas pointerdown handler hit-tests world objects with no notion of HUD elements, so it
+// early-returns inside this rect — otherwise every buy click ALSO grabs a spark or severs a bond.
+export const FOOTER_HEIGHT = 84;
+export const FOOTER_TOP_Y = CANVAS_HEIGHT - FOOTER_HEIGHT;
+
+// V6-1.1 — flat price of one gatherer, bought from the placeholder keep. ~7% of
+// PHASE_1_WIN_SCORE (owner ruling S134; precise figure 105 confirmed 2026-08-09). ONE POOL:
+// spending victory points SETS YOU BACK toward the win. Flat, not a rising curve — tune after
+// it is playable. B5/match-length retune is owned by V6-4.3; do NOT re-tune the win score here.
+export const GATHERER_PRICE = 105;
+
 // === Spawner physics ===
 export const SPAWNER_BOUNCE_DAMPING = 0.92;
 // S110 P2 — UNIFORM spawn speed (owner live-playtest: "same speed but random shapes").

@@ -206,6 +206,9 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   // S103 P2 — clear any lingering defender at match start (same all-hazards invariant).
   world.defenders.clear();
   world.nextDefenderId = 0;
+  // V6-1.1 — clear any lingering gatherer at match start (same all-hazards invariant).
+  world.gatherers.clear();
+  world.nextGathererId = 0;
   // S34 P2-21 defensive clear (see JSDoc above).
   world.pendingCreatureSpawn = null;
   // S87 — bot-seat identity is per-match: rebuild from the action (empty for
@@ -347,6 +350,9 @@ export function applyReturnToTitle(world: World): World {
   // S103 P2 — clear defenders on title-return (mirror of the other hazards).
   world.defenders.clear();
   world.nextDefenderId = 0;
+  // V6-1.1 — clear gatherers on title-return (mirror of the other hazards).
+  world.gatherers.clear();
+  world.nextGathererId = 0;
   world.activeCinematicPlayerId = null;
   world.currentCinematicEvent = null;
   world.pendingCinematics.length = 0;
@@ -517,6 +523,30 @@ export function addScore(world: World, playerId: PlayerId, delta: number): void 
   // rule, and this matches state/scoring.ts:tickScoring's per-tick recompute. addScore
   // remains for tests + any manual one-shot adjustment; production point-gain accrues in
   // tickScoring (complexity-income), not here.
+  let max = 0;
+  let any = false;
+  for (const v of world.scoreByPlayer.values()) {
+    if (!any || v > max) {
+      max = v;
+      any = true;
+    }
+  }
+  world.scoreProgress = any ? max : 0;
+}
+
+/**
+ * V6-1.1 — spend victory points from ONE pool (the buyer's own scoreByPlayer). Clamps at 0 so a
+ * spend can never drive a player negative (defense-in-depth; callers also affordability-guard),
+ * then recomputes scoreProgress = max exactly like addScore/tickScoring. This is the game's first
+ * real score SINK: scoreProgress can now cross a SCORE_TIER boundary DOWNWARD, and the HUD's
+ * point-drop flash was built for NONET losses — both are handled at the spend's UI seam so a
+ * voluntary buy does not read as a penalty. Score stays monotonic-safe everywhere that latches
+ * (hunterSpawned, a reached WIN) because those gate on a threshold already crossed, not on the
+ * current value falling back below it.
+ */
+export function spendScore(world: World, playerId: PlayerId, cost: number): void {
+  const prev = world.scoreByPlayer.get(playerId) ?? 0;
+  world.scoreByPlayer.set(playerId, Math.max(0, prev - cost));
   let max = 0;
   let any = false;
   for (const v of world.scoreByPlayer.values()) {

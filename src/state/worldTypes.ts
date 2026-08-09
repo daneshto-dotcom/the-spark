@@ -24,9 +24,10 @@ import type { Rainbow } from './rainbow.ts';
 import type { Poop, Seagull } from './seagulls/seagull.ts';
 import type { CreatureSpawner } from './spawners/spawner.ts';
 import type { Defender } from './defenders/defender.ts';
+import type { Gatherer } from './gatherers/gatherer.ts';
 import type { GodlyId, GodlyTriggerEvent } from './godlyRecipes/types.ts';
 import type { ComboKey } from '../combos.ts';
-import type { BombId, BondId, CreatureId, DefenderId, HunterId, PlayerId, PoopId, PotatoId, PrimitiveId, RainbowId, SeagullId, SparkId, SpawnerId } from '../types.ts';
+import type { BombId, BondId, CreatureId, DefenderId, GathererId, HunterId, PlayerId, PoopId, PotatoId, PrimitiveId, RainbowId, SeagullId, SparkId, SpawnerId } from '../types.ts';
 
 /**
  * S15 P2: extended FSM. Solo path TITLE→PLAYING→WIN→POSTGAME→TITLE. 1v1
@@ -151,6 +152,17 @@ export interface World {
   defenders: Map<DefenderId, Defender>;
   /** S103 P2 — monotonic counter for defender IDs. Host-only mint authority. */
   nextDefenderId: number;
+  /**
+   * V6-1.1 — player-owned "gatherer" hauler units, bought from the placeholder keep for
+   * GATHERER_PRICE victory points. Host-authoritative, serialized (additive-optional `gatherers[]`
+   * so a bought unit survives host migration / save-load / worker resume). Static in V6-1.1
+   * (parked at the keep; the shapeshifting look is renderer-only, NOT world state); roaming/hauling
+   * + the bank are V6-1.2/1.3. Registered in stateHashFull FIELD_COVERAGE (NOT the narrow hash, R1).
+   * Cleared on teardown (all five sites). NEVER named `Worker` (the Web Worker owns the World).
+   */
+  gatherers: Map<GathererId, Gatherer>;
+  /** V6-1.1 — monotonic counter for gatherer IDs. Host-only mint authority. */
+  nextGathererId: number;
   /**
    * S28 P0 — tick-deterministic pending-spawn schedule (Council Q2 UNANIMOUS A
    * single-slot). Replaces S25's wall-clock `setTimeout(handoff, cinematicMs)`

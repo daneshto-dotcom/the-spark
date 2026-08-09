@@ -19,19 +19,66 @@
     {
       "id": "P0-hunter-lifetime-serialization",
       "title": "Hunter lifetime serialization — despawnAtTick/spawnedAtTick/prevPos reach every snapshot consumer so a rehydrated SEEKING hunter keeps chasing",
-      "status": "in_progress",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
+      "check_completed": true,
+      "checkpoint_commit": "95911d1",
+      "real_context_tokens_at_close": 426138,
+      "real_context_pct_at_close": 42.61,
       "pdr_file": ".claude/plans/2026-08-09_PDR_S135_V6-1.1_gatherers_castle_batch.md",
-      "deliberation_note": "3-agent disk-grounded adversarial review (wf_9b715b7d-3cd): VERIFY confirmed all 10 defect claims with zero deltas; DESIGN surfaced a FOURTH stale docblock (workerSim.ts:207) + recommended traveling prevPos for full fidelity + optional fields; TEST caught the nextHunterId hash FALSE-RED trap (seed via applySpawnHunter, not raw makeHunter+set), the target-player-seating requirement, and the assert-state-not-presence rule. All folded into the PDR."
+      "deliberation_note": "3-agent disk-grounded adversarial review (wf_9b715b7d-3cd): VERIFY confirmed all 10 defect claims with zero deltas; DESIGN surfaced a FOURTH stale docblock (workerSim.ts:207) + recommended traveling prevPos for full fidelity + optional fields; TEST caught the nextHunterId hash FALSE-RED trap (seed via applySpawnHunter, not raw makeHunter+set), the target-player-seating requirement, and the assert-state-not-presence rule. All folded into the PDR.",
+      "check_method": "RED-FIRST via mutation matrix (fix already applied, so re-introduced the bug on each edited line). BASELINE fixed code 0 failed. M1 deserialize despawnAtTick->0 => TEST A/B/C RED (3 failed) as predicted; M2 deserialize spawnedAtTick->0 => TEST A/B RED (2 failed), TEST C GREEN (applyHunterTick is blind to spawnedAtTick — the asymmetry proving the tests discriminate the field); M3 serialize drop despawnAtTick => A/B/C RED; M4 serialize drop spawnedAtTick => A/B RED. save.ts restored byte-identical after the matrix (guarded, anchor-count==1 per mutation, CRLF-aware). First matrix run reported a FALSE all-green (0 failCount but populated failed-set) from an ANSI-broken summary regex — fixed the parser to key off execSync non-zero exit, re-ran, self-consistent. Differential seed (workerSim.differential.test.ts new it()) separately proven RED under M1 then GREEN restored. Full gate: tsc 0, vitest 2033/2033 across 134 files (+5 tests/+1 file vs S134 2028/133), npm run build OK, bundle 645.5/750 KiB (+0.2 KiB). NOT verified at runtime: no two-tab boot-then-smoke; vitest mocks the wire with JSON.parse(JSON.stringify).",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "despawnAtTick: h.despawnAtTick,",
+          "note": "serializeHunter now emits the lifetime unconditionally"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "despawnAtTick: s.despawnAtTick ?? 0,",
+          "note": "deserializeHunter reads it (fallback only for pre-S135 saves)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "readonly despawnAtTick?: number;",
+          "note": "SerializedHunter interface carries the field (additive-optional)"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.hunterLifetime.test.ts",
+          "note": "the RED-first regression suite (4 tests + mutation matrix docblock)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/workerSim.ts",
+          "needle": "S135 P0 — the hunter case that used to be the KNOWN VIOLATION here is now CLOSED",
+          "note": "the FOURTH stale docblock reconciled (INTEGRITY-WARNING)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "CLOSED S135 P0 — HUNTER LIFETIME SERIALIZATION FIXED",
+          "note": "carry-forward reconciled — the binding whose absence hard-fails MCV on a BACKLOG.md edit"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/SPARK_Blueprint.md",
+          "needle": "hazard CLASS is now fully closed",
+          "note": "blueprint hazard paragraph struck as the class-close, not a false 'hunter fix closed the creature paths' claim"
+        }
+      ]
     },
     {
       "id": "P1-v6-1.1-gatherers-castle-buy-score-currency",
       "title": "V6-1.1 — gatherer entity + placeholder keep + buy button + score-as-currency (first player-visible feature since the v0.6 pivot)",
-      "status": "pending",
+      "status": "in_progress",
       "tier": "Full",
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -41,7 +88,16 @@
       "deliberation_note": "6-agent disk-grounded subsystem map (wf_f41487a0-ec8). R3 identity = brand-new entity Map (both entity + castle agents converged). Score already non-monotonic in code (leader-decay scoring.ts:273; Nonet x0.4 sudokuEvent.ts:113) so the two genuine new deltas are tier-pulse re-crossing + HUD drop-flash. Castle = render-only placeholder (no world state). Owner scope this session: gatherer appears at keep + shapeshifts (on-plan slice); roaming/fetching deferred to the immediate next step per owner declining to expand scope."
     }
   ],
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    {
+      "id": "the-mutation-matrix-lied-a-third-time-but-a-second-detector-caught-it",
+      "note": "S135 P0. My hunter-lifetime mutation matrix reported a FALSE all-green on its first run — every mutation showed failCount 0 while STAYING GREEN — the exact S134 disease one session later. This time I had built TWO independent detectors into the harness: a per-test x/✗ scan AND a summary 'Tests N failed' regex. They DISAGREED (the x-scan found [TEST A,B,C] failing while failCount read 0), and that disagreement is what exposed the real bug: ANSI colour codes broke the summary regex, not the mutations. Fix was to key the RED signal off execSync's non-zero exit, not a fragile summary parse. LESSON: a single pass/fail parser of tool output is untrustworthy; build a second, differently-shaped detector and treat any disagreement between them as 'my harness is lying', not 'the code passed'. The redundancy, not my judgement, caught it."
+    },
+    {
+      "id": "the-adversarial-review-caught-a-false-red-trap-i-would-have-shipped",
+      "note": "S135 P0. My draft test plan said 'seed a hunter via makeHunter and assert hashWorldStateFull equality'. The TEST agent (disk-grounded) found that restore reconstructs nextHunterId=maxId+1 while a raw-seeded source stays at 0, and nextHunterId is hashed — so the equality would have been a FALSE-RED that no correct fix could turn green, pressuring a later session to weaken the assertion. Seeding via applySpawnHunter (which advances the same counter) fixes it. LESSON: for any host-vs-successor hash-equality assertion, enumerate EVERY hashed world scalar the rehydrate path reconstructs (nextXId counters, tick, hunterSpawned) and make the source produce them the same way — or the strongest guard becomes an un-passable trap. Verified tick round-trips via applySnapshotCore on BOTH paths before trusting the assertion."
+    }
+  ],
   "totals": {
     "turns": 0,
     "budget_remaining": 1000000,

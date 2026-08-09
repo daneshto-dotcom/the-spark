@@ -66,6 +66,10 @@ export const BENCH_INTENT_POLICY = {
   // S93 — the NONET trial is a universal puzzle race in a separate realm; the bench gates
   // building/acquisition, not puzzle participation (a benched player solving is a fair comeback).
   SUDOKU_SOLVED: 'allow',
+  // V6-1.1 — buying a gatherer is ACQUISITIVE (it converts victory points into a unit), so it is
+  // denied while eaten, exactly like PICKUP_SPARK / PLACE_*. Being benched should cost you tempo;
+  // spending from the bench would hand the victim a free economic action mid-punish.
+  BUY_GATHERER: 'deny',
 } as const satisfies Partial<Record<GameAction['type'], BenchPolicy>>;
 
 /**

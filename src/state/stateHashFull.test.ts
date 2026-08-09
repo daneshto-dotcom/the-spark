@@ -26,6 +26,7 @@ import { makeCreature } from './creatures/creature.ts';
 import { CHEWER_CONFIG } from './creatures/voltkin-config.ts';
 import { makeSpawner } from './spawners/spawner.ts';
 import { makeDefender } from './defenders/defender.ts';
+import { makeGatherer } from './gatherers/gatherer.ts';
 import { makeFreeSpark } from '../game/spark.ts';
 import { SparkType } from '../constants.ts';
 import {
@@ -33,6 +34,7 @@ import {
   asBondId,
   asCreatureId,
   asDefenderId,
+  asGathererId,
   asHunterId,
   asPlayerId,
   asPoopId,
@@ -61,6 +63,8 @@ const HASHED_NON_FAMILY: ReadonlySet<string> = new Set([
   'nextPrimitiveId', 'nextBondId', 'nextCreatureId', 'nextSpawnerId', 'nextDefenderId',
   'nextBombId', 'nextHunterId', 'nextPotatoId', 'nextRainbowId', 'nextSeagullId',
   'nextPoopId', 'sudoku', 'pendingCreatureSpawn',
+  // V6-1.1 — the gatherer allocator cursor (a scalar, like every other nextXId above).
+  'nextGathererId',
 ]);
 
 /** Adds one primitive, one bond between two primitives, and one free spark. */
@@ -298,6 +302,11 @@ describe('FIELD_COVERAGE — the forcing function', () => {
       makeSeagull({ id: asSeagullId(1), pos: { x: 50, y: 50 }, vx: 2, spawnedAtTick: 1 }),
     );
     w.poops.set(asPoopId(1), makePoop({ id: asPoopId(1), pos: { x: 60, y: 60 }, spawnedAtTick: 1 }));
+    // V6-1.1 — a bought gatherer, so the new family contributes a part here too.
+    w.gatherers.set(
+      asGathererId(1),
+      makeGatherer({ id: asGathererId(1), ownerPlayerId: P0, pos: { x: 70, y: 70 }, spawnedAtTick: 1 }),
+    );
     w.fouledPrimitives.add(asPrimitiveId(3));
     w.discoveredCombos.add('0->1');
     w.godlyFiredThisMatch.add('voltkin');
@@ -311,6 +320,7 @@ describe('FIELD_COVERAGE — the forcing function', () => {
       ['creatures', /^c\d+:/],
       ['creatureSpawners', /^cs\d+:/],
       ['defenders', /^d\d+:/],
+      ['gatherers', /^ga\d+:/],
       ['bombs', /^bo\d+:/],
       ['hunters', /^h\d+:/],
       ['potatoes', /^po\d+:/],

@@ -79,5 +79,9 @@ export function applyGodlyAbort(world: World): World {
   // keeping godlyActions.ts free of a runtime teardownDefenders import — mirrors the lines above).
   world.defenders.clear();
   world.nextDefenderId = 0;
+  // V6-1.1 — cascade-clear gatherers alongside creatures/spawners/defenders on abort (inline,
+  // keeping godlyActions.ts free of a runtime teardownGatherers import — mirrors the lines above).
+  world.gatherers.clear();
+  world.nextGathererId = 0;
   return world;
 }
