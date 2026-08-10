@@ -39,6 +39,52 @@ free, every match, whether or not anything is unlocked in the Codex. Three roles
 systems. The swordsman is HELGA's pursue-and-strike behaviour retuned; the archer is that plus a
 projectile; the tower is the `turret` kind plus an aura and a death effect.
 
+> ### ⛔ AMENDED S138 — THE CONSEQUENCE ABOVE WAS FALSE FOR 2 OF THE 3 UNITS
+>
+> S138's A.0 verified, by grep, that when this was written **nothing in the game could be damaged
+> except a creature**: `damageCreature` (`creatureLifecycle.ts:243`) was the ONLY exported damage
+> function in `src/`; `DEFENDER_HP` was a `1e9` sentinel; primitives had no `hp`; `CONNECTOR_HP` is
+> the *attacker's* `chewProgress` counter, not hp; and a defender could only ever target a creature
+> (`targetCreatureId: CreatureId | null`, acquisition solely via `findNearestEnemyCreatureFrom`).
+>
+> So **"walks toward the nearest enemy structure"** (swordsman + archer) and **"each bag is its own
+> destructible part with its own HP"** (§4b B) were not "config + art" — they needed a damage
+> substrate that did not exist, which `BACKLOG.md` V6-2.1 R6 already filed as an *unbuilt
+> prerequisite slot*. Only a defence-flavoured reading (goblins fight chewers, like HELGA) was ever
+> as cheap as this table claims.
+>
+> **✅ RESOLVED — the prerequisite SHIPPED in S138 P1**, on the owner's "dispatcher first, starters
+> after" ruling: `Primitive.hp` + `PRIMITIVE_MAX_HP` (1000), real per-kind defender hp replacing the
+> sentinel, and `state/damage.ts damageEntity` as the one damage path. The rest of §2 stands, and
+> the FSM/art/slow/atlas reuse claims were all re-verified as correct. Read §2b before Session A.
+
+## 2b. WHAT S138 P1 HANDED SESSION A (and the three questions it left open)
+
+**Available now** — `import { damageEntity } from 'state/damage.ts'`:
+
+| piece | detail |
+|---|---|
+| `damageEntity(world, target, amount, source)` | `target` is `{kind:'creature'\|'primitive'\|'defender', id}`. Returns `true` iff the target died. THE one damage path — `damageCreature` is delegated to, never bypassed |
+| `PRIMITIVE_MAX_HP = 1000` | chosen so % authoring is INTEGER: 1% = 10, 2.5% = 25, 5% = 50. Integer damage cannot drift ⇒ no float-determinism risk on the host/worker differential |
+| `TURRET_DEFENDER_MAX_HP` 3000 / `PRINCESS_DEFENDER_MAX_HP` 2000 | ⚠ FIRST-PASS, unvalidated by play — nothing dealt damage when they were written. **Tune them in Session A**, against the attacker that first exercises them |
+| `razePrimitives(world, primIds, alsoBonds?)` | the ONE way a primitive leaves the world (bonds off both endpoints → bonds deleted → prims deleted → `snapPrevPosForUnbonded` → `reconcileFouledPrimitives`). Never hand-roll it |
+| integer guard | a fractional `amount` THROWS, naming the cause. This is the S137 "5% per tick" footgun made impossible to reintroduce silently |
+
+**Three open questions S138 could not answer, carried deliberately:**
+
+1. **⚠ "Nearest enemy structure" is undefined** now that primitives die independently. Is a structure
+   the largest connected component, any primitive with hp, or the defender's anchor?
+   `findNearestEnemyCreatureFrom` **cannot** be reused — it is creature-typed. The goblins need a
+   new acquisition function, and `Defender.targetCreatureId` is `CreatureId | null`, so widening it
+   to a target union is a **serialized** change (a bump, folded into the starters bump).
+2. **⚠ AoE vs the 5 bags.** With per-primitive hp, one AoE hit damages all 5 bags at once, so the
+   Stink Tower absorbs **5× the AoE damage** of a single-primitive structure. Decide whether that is
+   a feature (it is fragile to splash) or needs a per-structure damage cap.
+3. **Killing a defender razes its ANCHOR** (S138, verified: `runDefenderIgnition` re-mints any recipe
+   match whose anchor has no live defender on ANY topology change, so a plain delete yields an
+   IMMORTAL defender). Confirm that reads right for the goblins, which are *units*, not emplacements —
+   a unit whose "anchor" is razed on death may want a different rule.
+
 ## 3. UNIT SPECS
 
 ### 3.1 Goblin Swordsman — offence, melee

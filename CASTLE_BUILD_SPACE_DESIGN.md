@@ -163,7 +163,19 @@ manually" works for free.
 rim-snapped, so this does not apply if the structure lands as primitives; any variant that leaves
 **free sparks** on the board must keep `escrow` set.
 
-## 7. ⚠ THE ONE THING THE RULINGS BROKE — decide before coding
+## 7. ✅ RESOLVED — §1b R1 RULED **REAL STORAGE (B)**. Kept below for the reasoning.
+
+> **Do not re-open this.** §1b R1 (2026-08-10, round-2 rulings) settles §7: **architecture = REAL
+> STORAGE (B)** — shapes physically move into the build space. `CASTLE_BANK_CAP` is likewise ruled
+> (§1b R2 → **12–13**), which is what pays for B's storage requirement, together with the C1 panel
+> regrid (5-wide × 3 rows).
+>
+> ⚠ **S138 correction to the S137 handoff:** `boot-snapshot.md` and the S137 carry-forwards both said
+> §7 was *"the ONE thing left to decide"* and that `CASTLE_BANK_CAP` was *"still UNRULED"*. **Both
+> claims were STALE** — written before the round-2 addendum landed in `ab091ca`. The recommendation
+> below still argues for A; it is superseded by R1 and retained only as the record of the trade-off.
+
+## 7b. ⚠ THE ORIGINAL ANALYSIS (superseded by §1b R1 — retained for the reasoning)
 
 The original design kept the staging **render-local** (never serialized/hashed/wired), which is what
 made it free of `FIELD_COVERAGE` + save + protocol + `structuralSignature` + positions-buffer cost
