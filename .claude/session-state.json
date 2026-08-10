@@ -1,11 +1,11 @@
 {
-  "tool_calls_session_total": 0,
+  "tool_calls_session_total": 6,
   "session_id": "S138",
   "session_kind": "batch",
   "session_start": "2026-08-10",
   "prior_session_note": "S137 closed GREEN 32/0; build space + starter designs fully designed and owner-ruled but NOT implemented.",
   "prior_session_archive": ".handoff-archive/HANDOFF_S137.md",
-  "phase": "DO",
+  "phase": "CHECK",
   "tier": "Full",
   "council_rounds": 1,
   "council_seats": [
@@ -68,7 +68,7 @@
     {
       "id": "P1-damage-substrate",
       "title": "Structure HP + a single damageEntity dispatcher; extract a shared razePrimitives helper; PROTOCOL_VERSION 16->17 + deploy + 2-peer",
-      "status": "in_progress",
+      "status": "completed",
       "tier": "Full",
       "notes": "The verified prerequisite blocking the offence goblins and the Stink Tower's destructible bags. Also unblocks BACKLOG V6-2.1 (targeting priority) and V6-2.4 (castle HP/repair). Execution step 1 is EMPIRICAL: add hp to Primitive, run tsc, confirm the field-level guard fails BY NAME before the design rests on it.",
       "pdr_approved": true,
@@ -86,14 +86,239 @@
         "The three starter units (next session)",
         "The build space (its own session per owner ruling 3)",
         "Any structure-targeting AI"
+      ],
+      "check_completed": true,
+      "checkpoint_commit": "c7ec3c0",
+      "check_method": "RALPH:PATROL + a 3-way Council in PLAN + a Grok CHECK pass on the raw shipped code, with EVERY reviewer claim re-verified on disk before triage. (1) THE GUARD WAS PROVEN EMPIRICALLY, NOT READ: execution step 1 added hp to Primitive and ran tsc, which failed with 'Type boolean is not assignable to type { ERROR_UNCOVERED_FIELD: \"hp\" }' at stateHashFull.ts:246 - naming the field, exactly as the S133 docblock claimed. That docblock also records RALPH:PATROL having run this same hp?:number-on-Primitive repro, so the codebase anticipated this priority. (2) FOUR CONVERGENT COUNCIL CHALLENGES REFUTED ON DISK: Gemini's 'adding hp silently bypasses the guard' is false (PrimitiveF = keyof ElemOf<World[primitives]> at stateHashFull.ts:193 is a real field-level guard); both seats' 'the differential rig is blind to non-lethal hp because structuralSignature is size-only' is false (workerSim.differential.test.ts compares hashWorldStateFull at :238/:261-262/:282/:298-299/:469; structuralSignature appears only in a NEGATIVE assertion at :444-446) - so Gemini's prescribed XOR-checksum remedy was unnecessary work; both seats' chewProgress double-damage/null-deref is false (creatureLifecycle.ts:411-418 resets chewProgress=0 and drops to SEEKING whenever the committed bond is missing, docblock: 'or another actor severed it'). (3) THE ONE FINDING ADOPTED corrected MY OWN draft: there was NO shared raze path - only two ad-hoc primitives.delete sites (disruptionManager.ts:188, potatoLifecycle.ts:258) duplicating an identical 4-step cleanup contract - so razePrimitives was extracted and all three callers routed through it, committed separately (72e1542) and proven behaviour-preserving at tsc 0 / vitest 2119/2119 BEFORE any new behaviour was added. (4) A REAL BUG FOUND BY VERIFICATION, not by either reviewer: runDefenderIgnition (godlyMatcherCore.ts:156-168) re-registers any recipe match whose anchor has no live defender on ANY topology change, so plainly deleting a dead defender yields an IMMORTAL one that returns on the next BOND_FORMED anywhere on the board; fixed by razing the ANCHOR so the recipe can never re-match. (5) REQUIRED (not optional) hp immediately earned itself: tsc named three PRODUCTION sites (botSpawnerSeed.ts:92,159,180) that would have minted primitives with hp:undefined, poisoning every later subtraction into NaN. (6) SCOPE REDUCED ON EVIDENCE: P1 needed NO protocol bump - hp is additive-optional emitted only when damaged, nothing damages primitives yet, no renderer reads .hp anywhere, and the narrow prod hash projects primitives as p{id}:{x},{y} only; protocol.ts:152 is the precedent (re-adding creature hp to the wire did not bump). Reported to the owner rather than performing a theatrical bump. (7) Grok's CHECK Sev-1 ('a bond could survive whose endpoint lacks the back-ref') REFUTED: 5 of 6 bond-creation sites register both endpoints explicitly and the 6th (save.ts:1285, restore) recovers them from the serialized per-primitive list (save.ts:1248) - and the original potato code derived incident bonds from prim.bonds identically, so this is a pre-existing invariant dependency, not new exposure. Sev 2/3/4 are non-regressions (canonical sort present; a deleted Bond is unreachable; Map.delete idempotent). (8) 22 new tests incl. real-physics acceptance through the ACTUAL solveBonds substep loop. tsc caught PHYSICS_DT not being exported from constants, which had made SUBSTEP_DT silently NaN while the test still passed - it now imports the real dt from physicsLoop and asserts it is finite. Two of my own test bugs are recorded in the commit: restore() takes (snap, world) and I had the args flipped, and a 200px yank on a 32px bond exceeds the strain-break ratio where solveBonds `continue`s WITHOUT correcting, so the original assertion would have proven nothing. tsc 0 - vitest 2141/2141 - build 661.6 KiB - e2e:gating 32/0 - deploy 4/4.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/damage.ts",
+          "needle": "export function damageEntity"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/damage.ts",
+          "needle": "razePrimitives(world, [defender.anchorPrimitiveId])"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/damage.ts",
+          "needle": "non-negative INTEGER"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/razePrimitives.ts",
+          "needle": "export function razePrimitives"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/razePrimitives.ts",
+          "needle": "reconcileFouledPrimitives(world)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/game/primitive.ts",
+          "needle": "hp: number"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/game/primitive.ts",
+          "needle": "hp: PRIMITIVE_MAX_HP"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const PRIMITIVE_MAX_HP = 1000"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const TURRET_DEFENDER_MAX_HP"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const DEFENDER_HP"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/stateHashFull.ts",
+          "needle": "'createdTick' | 'bonds' | 'hp'"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "p.hp < PRIMITIVE_MAX_HP ? { hp: p.hp } : {}"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "hp: p.hp ?? PRIMITIVE_MAX_HP"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/disruptionManager.ts",
+          "needle": "razePrimitives(world, split.del, [bond.id, ...split.delBonds])"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/potatoLifecycle.ts",
+          "needle": "razePrimitives(world, victims)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/damage.test.ts",
+          "needle": "Council C2 refuted"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/damage.test.ts",
+          "pattern": "  it\\(",
+          "op": ">=",
+          "value": 20
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "R6 IS NOW CLOSED"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "damageEntity"
+        }
+      ]
+    },
+    {
+      "id": "P2-owner-playtest-fixes",
+      "title": "Owner playtest: keeps to the extremities, delete the outward anti-magnetism puff, bots off the shared quarry; PROTOCOL_VERSION 16->17",
+      "status": "completed",
+      "tier": "Standard",
+      "amendment_note": "SCOPE AMENDMENT (Rule 16) - raised mid-session by the owner after playing the live build, with the explicit instruction \"i want you to fix all of those things before checking and analyzing and /handoff\". That instruction is the approval. Plan: .claude/plans/2026-08-10_SCOPE_AMENDMENT_S138_playtest_fixes.md",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "cc4e382",
+      "check_method": "A.0 located each of the three symptoms in the code BEFORE any edit, and one of them was NOT what it looked like. (1) KEEP RING: castleAnchor used r = SPAWNER_RADIUS + 150 = 275; there is no startingZone/homeZone concept anywhere in the codebase (grep), so 'the extremities of each player's zone' is actionable only as the radius - now a named KEEP_RING_RADIUS = 420, with 4 new tests asserting all 7 seats sit exactly on it and that the KEEP box AND the porch slots stay on-canvas. MEASURED CONSEQUENCE SURFACED, NOT BURIED: the quarry-rim-to-keep haul goes 150->295px (1.97x) so gatherer throughput DROPS; the CASTLE_BANK_CAP 12-13 raise is the intended counterweight and is deliberately NOT in this change. (2) ANTI-MAGNETISM: the owner said 'each primitive pushes another primitive away' and the obvious suspect - collision - was REFUTED: anchorStabilize.ts:9-11 states placed primitives are never free-integrated and resolveCollisions is spark-only, so placed shapes cannot shove each other at all. The real source was STRUCTURE_GROW_IMPULSE (S13 P2): an OUTWARD verlet impulse written into every primitive of the primary's pre-existing component on EVERY placement (placePrimitive.ts:552, p.prevPos -= unit_outward*MAG). Constant + application both deleted; the STRUCTURE_GROW visual flash KEPT; MERGE_IMPULSE (opposite sign, INWARD, cross-structure merges only) left alone. The 5 tests that PINNED the puff were INVERTED rather than deleted, and one new test asserts the split explicitly (the cand component still receives the inward impulse while the primary's prims stay exactly at rest). (3) BOTS: pickTargetSpark scanned ALL of world.freeSparks, so a bot ran two income channels - its gatherer hauling into its bank AND its cruiser raiding the shared quarry (every seat already gets a gatherer at match start, gameMode.ts:260-264). Now scoped to the seat's OWN porch via a new pure isOwnPorchSpark, plus a new BotGoal 'PULL' dispatching the already-shipped PULL_FROM_BANK client intent when the porch is empty and the bank has stock. Two facts made this safe and were VERIFIED not assumed: pickTargetSpark draws rng() exactly ONCE on the sloppy path and ZERO times on the smart path regardless of candidate count (so narrowing the candidate set cannot shift the seeded replay stream), and BotGoal has NO wire surface (grep of save.ts + net/). 3 new bot tests assert a quarry spark yields REST, another seat's porch is off-limits, and a stocked bank yields PULL. Four bot fixtures that seeded the quarry were rewritten to supply via the BANK - which makes them exercise the real new pipeline end to end - with an expect(made > 0) guard so a silently-empty bank cannot make the assertions pass vacuously. (4) PROTOCOL 16->17 for the ring move: not a new field or literal but a SHARED CONSTANT BOTH PEERS COMPUTE FROM (the client calls castleAnchor to draw keep boxes, hit-test keep clicks and derive porch slots), so a stale v16 peer would place all seven castles on the old ring and disagree about where a castle is; 4 version-lock tests updated, titles included. (5) THE RING MOVE BROKE 4 e2e TESTS AND THE CAUSE IS ITSELF THE LESSON: castle-panel.spec.ts:24 hardcoded 'CANVAS_WIDTH / 2 - (125 + 150)', a hand-copy of the old ring formula, so all four of its clicks landed on empty board. Fixed by ASKING THE APP - a new exported keepAnchor -> __SPARK__.keepCenter -> the shipped castleAnchor - rather than updating the copy, which is the duplicated-geometry class that getter exists to delete. tsc 0 - vitest 2148/2148 across 142 files - build 661.4 KiB (88.6 KiB headroom) - e2e:gating 32/0 - CI conclusion=success - deploy verified 4/4 live.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const KEEP_RING_RADIUS = 420"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const STRUCTURE_GROW_IMPULSE"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gatherer.ts",
+          "needle": "const r = KEEP_RING_RADIUS"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gatherer.ts",
+          "needle": "const r = SPAWNER_RADIUS + 150"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/placePrimitive.ts",
+          "needle": "STRUCTURE_GROW_IMPULSE / dmag"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/castleBank.ts",
+          "needle": "export function isOwnPorchSpark"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/bots/botBrain.ts",
+          "needle": "isOwnPorchSpark(seatIndex, s.pos)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/bots/botBrain.ts",
+          "needle": "return { kind: 'PULL' }"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/bots/botController.ts",
+          "needle": "type: 'PULL_FROM_BANK'"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 17 as const"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+          "needle": "readonly protoVersion: 17"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/helpers.ts",
+          "needle": "export async function keepAnchor"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/castle-panel.spec.ts",
+          "needle": "const KEEP0"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/game/session13.test.ts",
+          "needle": "outward impulse is DELETED"
+        }
       ]
     }
   ],
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    {
+      "tag": "#a-council-fed-a-partial-fact-set-agrees-confidently-and-wrongly",
+      "text": "S138 P1: my Council prompt stated that structuralSignature is SIZE-ONLY (true) but never mentioned that the differential rig actually compares hashWorldStateFull. Both Grok and Gemini then reasoned correctly from that incomplete set and CONVERGED on the same wrong conclusion - abandon per-primitive hp, the rig will be blind to non-lethal damage. Gemini even prescribed a remedy (add an XOR checksum of primitive hps to the worker signature) that was pure unnecessary work. The failure mode is the dangerous one: a partial fact set does not make a Council say 'uncertain', it makes them AGREE, and agreement reads as confirmation. Two independent seats converging is only evidence if the premises were complete. Fix: when briefing external reviewers, state not just what a mechanism IS but which consumers actually call it - and treat unanimous agreement with my own framing as the weakest possible signal, not the strongest."
+    },
+    {
+      "tag": "#prove-the-guard-dont-read-it",
+      "text": "S138 P1: the whole design rested on a claim in a docblock - that stateHashFull has a FIELD-LEVEL guard which fails tsc by name if you add a field to an already-hashed entity. That is a claim ABOUT a compile-time behaviour, which is exactly the class PRIME-AUDIT's runtime-verifiability question exists for. So step 1 of execution was to add hp?: number to Primitive, touch nothing else, and run tsc. It failed with ERROR_UNCOVERED_FIELD: \"hp\" at stateHashFull.ts:246. Two minutes, and it converted a cited assumption into a fact - and simultaneously refuted a reviewer who had asserted the opposite. When a docblock makes a falsifiable claim you are about to depend on, run it."
+    },
+    {
+      "tag": "#the-obvious-suspect-can-be-refuted-by-a-docblock",
+      "text": "S138 P2: the owner reported 'each primitive pushes another primitive away as anti-magnetism'. The obvious suspect was the collision solver, and I could have spent the session tuning resolveCollisions. anchorStabilize.ts:9-11 refuted it outright in prose someone had already written down: placed primitives are NOT free-integrated, verletStepAll steps only freeSparks, resolveCollisions is spark-only, a structure is held purely by solveBonds constraints. The real culprit was STRUCTURE_GROW_IMPULSE - a cosmetic 'puff' from S13 that was in fact an unconditional outward physics impulse written into settled geometry on EVERY placement. Lesson: before chasing the plausible subsystem, grep for whether someone already documented that it CANNOT be the cause. The codebase often knows."
+    },
+    {
+      "tag": "#a-hardcoded-copy-of-a-formula-is-a-time-bomb-with-someone-elses-name-on-it",
+      "text": "S138 P2: moving the keep ring 275 -> 420 broke 4 e2e tests that had nothing to do with keeps. Cause: castle-panel.spec.ts:24 contained 'CANVAS_WIDTH / 2 - (125 + 150)' - a hand-copy of SPAWNER_RADIUS + 150 - under a comment explaining the derivation. The comment made it look careful; it was the bug. e2e/helpers.ts had ALREADY learned this exact lesson in S137 and installed __SPARK__.keepCenter with a note that 'the harness now cannot disagree with the game about where a castle is' - but only one file adopted it. Fix was to export keepAnchor and ask the app, never to update the copy. When you delete a duplicated constant, grep for every OTHER transcription of the same formula in the same commit."
+    },
+    {
+      "tag": "#required-beats-optional-because-tsc-becomes-the-auditor",
+      "text": "S138 P1: I made Primitive.hp REQUIRED rather than hp?: number, arguing that an optional field forces 'hp ?? MAX' at every read and the forgotten one is the bug. The choice paid for itself within one tsc run: 57 errors, of which three were PRODUCTION sites (botSpawnerSeed.ts:92,159,180) that construct Primitive literals directly and would have minted shapes with hp: undefined - turning every later 'prim.hp -= amount' into NaN, a silent un-killable primitive that no test would have caught. The other 54 were test fixtures, i.e. cheap. Paying a mechanical fixture cost to convert a whole class of silent runtime bug into a compile error is almost always the right trade."
+    },
+    {
+      "tag": "#file_lacks-needles-match-my-own-explanatory-comments",
+      "text": "S138 close: MCV hard-failed on two file_lacks assertions - lacks('SPAWNER_RADIUS + 150') and lacks('CANVAS_WIDTH / 2 - (125 + 150)') - because the very commits that REMOVED those expressions from the code added comments QUOTING them to explain what changed and why. S137 recorded this exact trap ('file_lacks needles match COMMENTS too') and I walked into it again, because good commenting practice actively creates the collision: the better you document a removal, the more likely the needle survives. Durable fix: never assert file_lacks on a bare expression. Assert the CODE form that prose cannot plausibly reproduce - 'const r = SPAWNER_RADIUS + 150', 'const KEEP0' - or assert file_contains on the replacement instead."
+    },
+    {
+      "tag": "#a-test-can-pass-while-running-on-NaN",
+      "text": "S138 P1: my real-physics acceptance test imported PHYSICS_DT from constants.ts, where it does not exist (it lives in physicsLoop.ts). vitest does not typecheck, so SUBSTEP_DT was NaN and the test PASSED - because solveBonds is purely positional and the fixture had no free sparks for verletStepAll to ruin. So the assertions were valid but the test was not exercising what its name claimed. Only tsc caught it. Two habits from this: run tsc before believing a new test, and add a cheap guard (expect(Number.isFinite(SUBSTEP_DT))) so a degenerate input can never masquerade as a pass again."
+    },
+    {
+      "tag": "#invert-the-tests-that-pinned-the-behaviour-you-just-deleted",
+      "text": "S138 P2: removing STRUCTURE_GROW_IMPULSE broke 5 tests in session13.test.ts that existed specifically to assert the outward puff, with careful comments deriving the expected 0.8px offsets. Deleting them would have erased the record that the behaviour was ever deliberate, and left no guard against someone reintroducing it. I inverted them instead - same fixtures, now asserting prevPos === pos - with a header explaining that the owner reclassified the behaviour as a defect, plus one NEW test proving only the OUTWARD half went (the inward MERGE_IMPULSE still fires on a merge). A test that pinned a removed behaviour is not dead weight; inverted, it is the strongest guard you have against the removal being quietly undone."
+    }
+  ],
   "totals": {
     "budget_remaining": 1000000
   },
   "budget_total": 1000000,
-  "e2e_gating_status": "GREEN 32/0 at boot",
-  "closed": false
+  "e2e_gating_status": "GREEN 32/0 (re-run after every priority)",
+  "closed": false,
+  "real_context_tokens_at_close": 450673,
+  "real_context_pct_at_close": 45.07,
+  "checkpoint_commit": "cc4e382",
+  "deploy_verified_s138": "PASS 4/4 - live entry index-vSzv8e82.js == local build; CI conclusion=success (checked explicitly, not inferred from absence-of-failure)",
+  "protocol_version": 17
 }
