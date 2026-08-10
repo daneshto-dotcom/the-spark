@@ -1,6 +1,6 @@
 # HANDOFF — S137 (2026-08-10)
 
-**3 of 4 shipped. The gating lane is GREEN for the first time in two sessions (29/2 → 32/0), both
+**4 shipped, 1 carried. The gating lane is GREEN for the first time in two sessions (29/2 → 32/0), both
 S136 failures fixed at the ROOT and neither quarantined. The owner's two pending playtest questions
 are both answered — one with screenshots, one with measurements. P1 was deliberately NOT implemented
 on a verified protocol blocker; its design shipped instead.**

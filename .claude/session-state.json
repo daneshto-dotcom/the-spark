@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 93,
+  "tool_calls_session_total": 94,
   "session_id": "S137",
   "session_kind": "batch",
   "session_start": "2026-08-10",
@@ -256,6 +256,10 @@
     {
       "tag": "#a-passing-visual-test-that-produced-no-image",
       "text": "S137 P2: the rainbow-castle spec passed on its first run and wrote its screenshots via testInfo.attach. There were no images on disk -- attachments live in the HTML report bundle and are discarded under --reporter=list on a PASSING test. The entire point of the priority was that a human could look at the thing, and it had silently produced nothing to look at. Green does not mean the artifact exists. When a deliverable is a FILE, assert the file, or write it to an explicit path."
+    },
+    {
+      "tag": "#a-claim-is-not-verified-until-a-machine-rechecks-it",
+      "text": "S137 close: verification[] written as free prose was rejected by MCV as unknown assertion type; prose ABOUT verification is not verification. Use the typed vocabulary and needles that cannot match comments."
     }
   ],
   "totals": {
@@ -273,5 +277,6 @@
     "A 6-agent A.0 discovery fleet died on the individual spend cap after ~454K subagent tokens with zero output — the SAME failure mode that killed S136 two fleets. Redirected to direct empirical discovery, which is what actually produced every finding this session. Do not launch large fleets on this account.",
     "Priority order changed: P2 and P3 were taken ahead of P1. Reason: both are cheap and directly serve the imminent owner playtest, whereas a half-implemented interactive panel feature would actively harm it.",
     "P1 not implemented — see its check_method for the verified PROTOCOL_VERSION blocker."
-  ]
+  ],
+  "mcv_status": "PASS hard_fail=0 warn=0 exit 0 (22 typed assertions, 0 unbound) after reconciling 13 hard-fails"
 }

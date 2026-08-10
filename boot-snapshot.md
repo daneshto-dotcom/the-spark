@@ -1,7 +1,7 @@
 # Boot Snapshot (auto-generated at handoff)
 Generated: 2026-08-10 | Session: S137 | Commit: 37f90a6 | Branch: master
 
-**S137 shipped 3 of 4 and the GATING LANE IS GREEN for the first time in two sessions (29/2 -> 32/0).**
+**S137 shipped 4 (+1 carried) and the GATING LANE IS GREEN for the first time in two sessions (29/2 -> 32/0).**
 Both S136 failures were fixed at the ROOT, neither quarantined. The owner's two pending playtest
 questions are both answered - the rainbow castle party with screenshots, the bank bottleneck with
 measurements. P1 was deliberately NOT implemented on a verified protocol blocker; its design shipped.
@@ -19,6 +19,7 @@ Deploy verified 4/4 live (index-D7oQlyv1.js). git 0 ahead / 0 behind. Context at
 - **P3 (98c2b72)** - bank measured, NOTHING tuned. Cap does not reduce stall (88.7/94.1/90.8% at
   5/6/8); output over a run == the cap. The constraint is CONSUMPTION, not capacity.
 - **P1 (37f90a6)** - DESIGNED only: CASTLE_BUILD_SPACE_DESIGN.md.
+- **P4 (37f90a6)** - BACKLOG.md:411 worker-flag facts corrected (6 literals / 4 files, not "5 files").
 
 ## THE BLOCKER on P1 (verified, not caution)
 PULL_STRUCTURE_FROM_BANK is a new CLIENT INTENT. protocol.ts:101-106 records that V6-1.1 bumped
@@ -40,6 +41,12 @@ fires at 1,025 earned. Phase 1 is silently ~6.7% shorter than every comment clai
 5. H3 - does periodic consumption remove the stall? Needs a dispatch seam __SPARK__ lacks.
 
 ## Traps from S137
+- **verification[] must be TYPED.** The MCV close-gate hard-failed 13x because I wrote
+  {file, assertion:"free text"}; verify-session-claims dispatches on a `type` field and scored every
+  priority WEAK. Use file_contains / file_lacks / grep_count / json_field with ABSOLUTE paths. A
+  watch-root file modified with no binding assertion is also a hard fail.
+- **file_lacks needles match COMMENTS too.** My first fix asserted file_lacks "toBe(13)" - it failed
+  because that string survives in the comment explaining what the contract used to be.
 - **An under-powered window reads as a null result.** The bank measurement at 22s reported
   "0.0% WAITING at every cap" = "no bottleneck". False. The bank did not saturate until 20.2s. At 60s
   it is 88.7-94.1%. A window shorter than the phenomenon returns a CONFIDENT FALSE NEGATIVE.
