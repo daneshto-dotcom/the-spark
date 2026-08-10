@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 85,
+  "tool_calls_session_total": 93,
   "session_id": "S137",
   "session_kind": "batch",
   "session_start": "2026-08-10",
@@ -56,20 +56,51 @@
       "check_method": "RALPH:PATROL + empirical runtime verification, all four claims re-run on disk, not narrated. (1) fog.spec: expected child list was MEASURED first (deliberate __MEASURE_ME__ failure printed the received array) and the measured type sequence -- _Container at indices 1/5/11 -- matches the independent static roll call of every parent.addChild into aboveFogLayer across 12 renderers, which is what confirms index 7 = gathererRenderer (main.ts:506, S135). fog.spec 6/6 green. (2) hunter.spec: root cause MEASURED not inferred -- new readInputLockDiagnostics printed lockedByBench=true, benchedUntilTick=1925 at tick 330, hunterSpawned=true, hunters=[] (already despawned), which refuted the working assumption that the bench had not yet landed by tick 261 and proved the t=0 spawn. hunter.spec 1/1 green after the seam fix. (3) FULL gating lane re-run end to end: 31 passed / 0 failed, up from 29/2; neither test marked @quarantine-flaky. (4) unit suite 2119 passed / 141 files, typecheck exit 0, build OK at 661.5 KiB with 88.5 KiB headroom. (5) P0c prod-inertness VERIFIED not assumed: __SPARK__ sits behind if (import.meta.env.DEV) (main.ts:928) and grep -c keepCenter on dist/assets/index-DGsKtma2.js returns 0, and the entry content-hash is byte-identical to the live deploy.",
       "verification": [
         {
-          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/fog.spec.ts",
-          "assertion": "aboveFogChildNames asserted as an ordered 14-entry constructor-name roll call with per-line renderer attribution; no bare count remains"
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/fog.spec.ts",
+          "needle": "aboveFogChildNames"
         },
         {
-          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/hunter.spec.ts",
-          "assertion": "__TEST_HUNTER_TRIGGER_SCORE__ raised to 200 (above the 100 opening balance) and the injection to 250; spec passes"
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/fog.spec.ts",
+          "needle": "aboveFogChildren"
         },
         {
-          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/helpers.ts",
-          "assertion": "readInputLockDiagnostics reports all three isInputLocked clauses; pullFromBank consumes __SPARK__.keepCenter instead of transcribing castleAnchor"
+          "type": "grep_count",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/fog.spec.ts",
+          "pattern": "'_(?:Graphics|Container)',",
+          "op": "==",
+          "value": 14
         },
         {
-          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "assertion": "keepCenter(seat) exposed inside the import.meta.env.DEV __SPARK__ block; 0 occurrences in the production bundle"
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/hunter.spec.ts",
+          "needle": "__TEST_HUNTER_TRIGGER_SCORE__ = 200"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/hunter.spec.ts",
+          "needle": "scoreByPlayer.set(0, 250)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/helpers.ts",
+          "needle": "readInputLockDiagnostics"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/helpers.ts",
+          "needle": "lockedByBench"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/helpers.ts",
+          "needle": "keepCenter"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "keepCenter(seat: number)"
         }
       ]
     },
@@ -86,12 +117,14 @@
       "check_method": "Scoped empirically, then DELIBERATELY NOT IMPLEMENTED on a verified blocking fact rather than on caution. PULL_STRUCTURE_FROM_BANK is a new CLIENT INTENT; protocol.ts:101-106 records that V6-1.1 bumped PROTOCOL_VERSION 15->16 for exactly one new intent (BUY_GATHERER) because a stale peer is HARD-REJECTED AT HELLO, and protocol.ts:476-478 shows the same for PLACE_FROM_FREE (2->3). So this feature forces 16->17 and breaks multiplayer against every already-deployed client until both sides reload -- a lockstep-deploy change, made unattended, hours before the owner playtests a LIVE game. Same risk class as the worker flip this session already deferred, and it could break the very playtest it was meant to serve. Shipped CASTLE_BUILD_SPACE_DESIGN.md instead, fully cited: render-local staging (zero new serialized/hashed/wired state), the host-validation contract, bonding reuse via AUTO_BOND_RADIUS=60, required tests, and 4 open owner questions. Two traps recorded: bankTake splices so every removal shifts later indices (taking [0,1,2] naively yields shapes 0,2,4), and the escrow/enforceSpawnerBounds rim-snap that cost S136 a 194px teleport and that no unit test can catch.",
       "verification": [
         {
-          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/CASTLE_BUILD_SPACE_DESIGN.md",
-          "assertion": "design doc exists with the PROTOCOL_VERSION 16->17 blocker in section 3, host-validation contract in section 5, and 4 open owner questions in section 8"
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/CASTLE_BUILD_SPACE_DESIGN.md",
+          "needle": "PROTOCOL_VERSION"
         },
         {
-          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "assertion": "line 411 corrected from \"5 files hard-code the flag\" to \"6 literals across 4 files\" with worker-heap.spec.ts:468 added and the probeHarness refuse-by-default finding appended"
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/CASTLE_BUILD_SPACE_DESIGN.md",
+          "needle": "bankTake"
         }
       ]
     },
@@ -108,12 +141,24 @@
       "check_method": "RALPH:PATROL + VISUAL verification, which is the whole point of the priority. New e2e/rainbow-castle.spec.ts reads REAL COMPOSITED PIXELS off the keep body stroke (the fog.spec extract idiom) and asserts four things pure unit tests structurally cannot: the castle is actually drawn (guards a vacuous pass on an empty board), >=3 DISTINCT composited colours appear inside the flyover window, at least one differs from the resting colour, and past RAINBOW_FLYOVER_DURATION_TICKS it reverts. Determinism without a real rainbow pickup: rainbowSwitchTick is BACK-DATED to tick-age so the renderer sees a chosen age without touching the sim clock, and sync+extract run inside ONE page.evaluate so no rAF frame can interleave at a drifted age. THEN I ACTUALLY LOOKED AT THE IMAGES rather than trusting the green tick: resting = crimson keep (seat colour 0xff3b6b), party frames = magenta then orange with the flyover wash recolouring the background in step. Found and fixed two real defects while doing it: testInfo.attach images are discarded under --reporter=list on a passing test (first run produced NO images at all despite passing), and page.screenshot clip is CSS pixels while the canvas is letterboxed/scaled, so a canvas-coord clip crops the wrong region. Full gating lane re-run 32/0.",
       "verification": [
         {
-          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/rainbow-castle.spec.ts",
-          "assertion": "pixel-level assertions on the composited keep: drawn, >=3 distinct hues in-window, differs from resting, reverts after the window"
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/rainbow-castle.spec.ts",
+          "needle": "rainbowSwitchTick"
         },
         {
-          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "assertion": "gathererRenderer exposed on the DEV-only __SPARK__ global (import.meta.env.DEV guarded)"
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/rainbow-castle.spec.ts",
+          "needle": "extract.pixels"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/rainbow-castle.spec.ts",
+          "needle": "castle-party-"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "get gathererRenderer()"
         }
       ]
     },
@@ -130,16 +175,63 @@
       "check_method": "RALPH:PATROL + a real browser measurement with a pre-registered falsifiable prediction. e2e/bank-throughput.spec.ts varies CASTLE_BANK_CAP over 5/6/8 via a new __TEST_CASTLE_BANK_CAP__ seam (mirrors the four existing seams) and measures in a REAL browser with REAL physics, because no unit test here runs the physics loop. Guards its own premise: asserts the seam actually reached the running game, asserts samples>20 and banked>0 so a dead economy cannot print a table of zeros, and FAILS if any cap never saturates inside the window. MEASURED: cap5 88.7% / cap6 94.1% / cap8 90.8% steady-state WAITING, banked exactly == cap in every run. H2 CONFIRMED (cap does not reduce stall); H1 NOT cleanly supported (cap 6 filled faster than cap 5) and reported as such rather than dropped. ⭐ The first cut of this measurement was WRONG at a 22s window -- it ended before saturation and reported 0.0% WAITING at every cap, i.e. no bottleneck, the exact opposite of the truth; caught by noticing time-to-full 20.2s sat at the window edge. NOTHING WAS TUNED: CASTLE_BANK_CAP still ships as 5.",
       "verification": [
         {
-          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/bank-throughput.spec.ts",
-          "assertion": "measures steady-state WAITING across caps 5/6/8; fails loudly if a cap never saturates or the seam did not apply"
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/bank-throughput.spec.ts",
+          "needle": "__TEST_CASTLE_BANK_CAP__"
         },
         {
-          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "assertion": "readTestCastleBankCap seam added; production default unconditionally 5"
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/bank-throughput.spec.ts",
+          "needle": "ssWaiting"
         },
         {
-          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BANK_CAP_MEASUREMENT_S137.md",
-          "assertion": "measurement table + per-cap recipe mapping + recommendation, with caveats and the under-powered-first-cut error recorded"
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "readTestCastleBankCap"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "CASTLE_BANK_CAP = readTestCastleBankCap() ?? 5"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BANK_CAP_MEASUREMENT_S137.md",
+          "needle": "88.7"
+        }
+      ]
+    },
+    {
+      "id": "P4-backlog-fact-correction",
+      "title": "Correct BACKLOG.md:411 worker-flag facts verified in A.0",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "amendment_note": "In-session amendment (Rule 16): not in the original PDR body, but recorded there under NON-SCOPE as a verified A.0 fact. Correcting a doc error found during A.0 discharges the never-silently-drop-a-finding duty; scoped to one line of BACKLOG.md.",
+      "check_completed": true,
+      "checkpoint_commit": "37f90a6",
+      "check_method": "A.0 grep over the whole repo enumerated every ?worker=1 literal in source/e2e: worker.spec.ts:32, worker-bots.spec.ts:35, worker-duel.spec.ts:69 and :70, worker-heap.spec.ts:433 and :468 = 6 literals across 4 files. BACKLOG.md:411 claimed \"5 files hard-code the flag\" and then listed only 4 files with 5 line refs, omitting worker-heap.spec.ts:468 entirely - so it was wrong on both the file count and the literal set. Corrected in place, and the probeHarness.ts:339-345 refuse-to-arm finding (verified verbatim) appended beside it because that guard becomes refuse-BY-DEFAULT after a default-on flip and must be inverted in the same change.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "6 literals across 4 files hard-code the flag"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "**5 files hard-code the flag**"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "worker-heap.spec.ts:433,468"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "refuse-**by-default**"
         }
       ]
     }
