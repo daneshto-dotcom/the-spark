@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 173,
+  "tool_calls_session_total": 176,
   "session_id": "S136",
   "session_kind": "pdca",
   "session_start": "2026-08-10T00:00:00",
@@ -106,12 +106,87 @@
       "id": "P1-in-castle-storage-bank-cap-pull",
       "title": "Storage moves INSIDE the castle as a typed inventory (deletes depositSlot + world-space banked sparks, killing the stack/fling bug structurally); bank cap 5 with the recipe-size table adjacent; bank-full waiting-gatherer rule; PULL one shape into the hand (HARD-COUPLED: without it the player cannot build at all)",
       "tier": "Full",
-      "status": "pending",
+      "status": "completed",
       "pdr_file": ".claude/plans/2026-08-10_PDR_S136_owner_playtest_batch.md",
-      "check_completed": false,
+      "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "checkpoint_commit": "e93dc1f",
+      "real_context_tokens_at_close": 479207,
+      "real_context_pct_at_close": 47.92,
+      "check_method": "ROOT-CAUSE-FIRST then RUNTIME-PROVEN. (1) Owner item 3 diagnosed to TWO independent defects: depositSlot (gathererLifecycle.ts:259-269) chose its slot by COUNTING banked sparks, so a hole collapses the index mapping and the next deposit lands exactly on an occupied slot; and collision.ts:36 resolvePair early-returns under EPSILON so an exact stack is INERT until perturbed, at which point dist~0 with overlap~minDist/2 applies a near-maximal positional correction that Verlet converts into a large velocity. Banked sparks were never collision-exempt (the escrow===undefined tests at physicsLoop.ts:226,242,248 cover only the soft cap and the TTL reap). Fixed structurally per owner item 4: a stored shape leaves freeSparks entirely, so neither defect has a surface. (2) MUTATION MATRIX 8/8 RED-caught. The decisive one is M3, which re-introduces the exact V6-1.2 count-based slot selection and IS caught by the co-location invariant — so the regression test provably detects the original bug. Others: cap ignored; deposit not deleting from the world; bankTake bounds; prevPos not reset; WAITING never retrying; RETURN_TO_TITLE forgetting the bank; bank-full dropping instead of waiting. Baseline verified green after every restore. (3) A BUG ONLY THE RUNTIME PASS COULD FIND. The first cut CLEARED escrow on pull so the shape would be \"an ordinary free spark\". enforceSpawnerBounds (spawner.ts:454) rim-snaps every Free spark with escrow===undefined back into the spawn disc, so the pulled shape was teleported off the porch (685,614 -> 888,569, a ~194px jump) — a WORSE version of the fling being fixed. 18 unit tests plus the mutation matrix were all green; no test in the suite runs the physics loop, so none of them COULD see it. escrow now stays set (reusing the banked literal, so no new wire literal). (4) A TEARDOWN GAP THE TESTS CAUGHT. My first comment claimed that clearing the bank inside teardownGatherers meant no path could forget it. False: FIVE sites clear world.gatherers and THREE do it INLINE (gameMode.applyStartGame, gameMode.applyReturnToTitle, the godlyActions abort cascade). Caught by asserting teardown through a dispatched RETURN_TO_TITLE rather than by calling the helper. All three fixed; the comment now states the real situation. (5) ALL FIVE SERIALIZATION SITES COVERED, including the two UNFORCED ones the S135 audit flagged: FIELD_COVERAGE (order-significant, because pulls are index-addressed); save serialize+deserialize (additive-optional so pre-S136 saves stay byte-identical, with deserializeSpark extracted so the bank and freeSparks round-trips cannot drift); protocol.ts KNOWN + CLIENT_INTENT records; benchGate deny (pulling is the first move of building); and structuralSignature — where seat-count alone is INSUFFICIENT because a deposit MOVES a spark, so freeSparks.size falls as the bank grows and the two cancel in any size-only view (hence bankedShapeTotal). (6) GATE: tsc 0 errors; vitest 2111/2111 across 140 files (+18 tests / +1 file vs P0); npm run build OK with bundle 661.3/750 KiB (88.7 KiB headroom); RUNTIME 13/13 driving the real app on a clean boot (never ?debug=1) — a haul lands in the bank, the shape leaves freeSparks, the panel shows it in a slot, a click pulls it to the exact porch slot (640,614), NO SPARK PAIR IS EVER CLOSER THAN 68px across 40 samples, max per-sample displacement 31px (was 194 before the escrow fix), and a pulled shape PLACES into a primitive so the loop closes. NOT VERIFIED: no 2-peer/joiner run (the bank rides the wire as a client intent + snapshot field but was not exercised across a real transport); no host-migration round-trip; P2 in-bubble prebuild not started.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/castleBank.ts",
+          "note": "the bank + the corrected occupancy-based porch slotting"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/castleBank.ts",
+          "needle": "export function firstFreePorchSlot",
+          "note": "asks whether a slot is clear instead of deriving an index from a count"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const CASTLE_BANK_CAP = 5;",
+          "note": "owner ruling B4b, with the recipe-size table adjacent"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "NONET         9",
+          "note": "the sixth exact-size gate the prior recipe table omitted"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gathererLifecycle.ts",
+          "needle": "export function applyPullFromBank",
+          "note": "PULL returns the same spark to the porch"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gatherer.ts",
+          "needle": "'SEEKING' | 'HAULING' | 'WAITING'",
+          "note": "the bank-full waiting rule"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/stateHashFull.ts",
+          "needle": "castleBanks:",
+          "note": "FIELD_COVERAGE forcing function satisfied"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "function serializeCastleBanks",
+          "note": "save round-trip, additive-optional"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/workerSim.ts",
+          "needle": "bankedShapeTotal",
+          "note": "the UNFORCED structuralSignature site — seat count alone is insufficient"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+          "needle": "PULL_FROM_BANK: true",
+          "note": "client intent allowlist"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/castleBank.test.ts",
+          "note": "18 tests incl. the co-location invariant as an owner-bug regression"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/sparkGlyph.ts",
+          "note": "shared glyph so bank swatches match the board shapes"
+        }
+      ]
     },
     {
       "id": "P2-in-bubble-build-space",
@@ -185,6 +260,32 @@
         "#policy-not-instance"
       ],
       "entry": "Deleting an EXPORTED function (isOverFooterControl) and an entire render method (drawFooter) left the suite at exactly 2069/2069 green. That is not reassurance, it is a measurement: the controls had zero coverage, which is the structural reason the owner had to find this by playing. When a deletion breaks nothing, treat the untouched test count as the finding and write the missing test before the feature."
+    },
+    {
+      "session": "S136",
+      "priority": "P1",
+      "tags": [
+        "#runtime-finds-what-units-cannot",
+        "#physics-invariants-invisible-to-unit-tests"
+      ],
+      "entry": "Eighteen unit tests and an 8/8 mutation matrix all passed on a PULL that was fundamentally broken. I cleared escrow so the pulled shape would be \"an ordinary free spark\", and enforceSpawnerBounds promptly rim-snapped it off the porch back into the quarry — a 194px teleport, i.e. a worse version of the very fling I was fixing. No test in the suite runs the physics loop, so none of them COULD catch it. Rule: when a change puts an entity into the world at a new position, the acceptance test must run real physics for several frames and assert the entity is STILL THERE. Position is not established by the reducer that wrote it."
+    },
+    {
+      "session": "S136",
+      "priority": "P1",
+      "tags": [
+        "#comments-claiming-completeness-need-a-grep-first",
+        "#policy-not-instance"
+      ],
+      "entry": "I wrote a comment asserting that clearing the bank inside teardownGatherers meant no teardown path could forget it. That was false the moment it was written: five sites clear world.gatherers and three do it inline. A test dispatching RETURN_TO_TITLE caught it. Two lessons: any comment claiming \"this covers every site\" is a claim that needs a grep BEFORE it is written, and a teardown test must exercise the PUBLIC action — calling the helper directly would have passed and hidden all three gaps."
+    },
+    {
+      "session": "S136",
+      "priority": "P1",
+      "tags": [
+        "#delete-the-surface-not-the-symptom"
+      ],
+      "entry": "The stacking and fling bugs had two different mechanisms (count-derived slot indices; EPSILON-guarded co-location turning into velocity via Verlet) and each could have been patched on its own. Taking the owner literally instead — store it INSIDE the castle — removed the shared precondition (the shape being a positioned physics entity) and both defects stopped existing rather than being handled. The change that deletes the surface is usually also the smaller diff."
     }
   ],
   "totals": {},
