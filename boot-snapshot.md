@@ -33,7 +33,12 @@ HUNTER (hostTick.ts:498, 1125) gate on it. So a match ends after 1,400 EARNED po
 fires at 1,025 earned. Phase 1 is silently ~6.7% shorter than every comment claims.
 
 ## Next steps
-1. P1 - answer CASTLE_BUILD_SPACE_DESIGN.md section 8 (4 questions), then implement FIRST in session.
+1. P1 - OWNER RULED all 4 questions (design doc section 1, verbatim): both pull paths coexist, drop
+   anywhere, capacity NOT capped by the bank (Voltkin 8 / NONET 9), 2D freeform grid, arbitrary
+   non-combo structures, UX is an acceptance criterion. ONE thing left to decide first (section 7):
+   BLUEPRINT (grid = a plan, shapes stay banked, zero serialization -- RECOMMENDED) vs REAL STORAGE
+   (shapes move in, forces new serialized World state). Then implement FIRST in the session, together
+   with the PROTOCOL_VERSION 16->17 bump + deploy + 2-peer check. CASTLE_BANK_CAP still UNRULED.
 2. B5 match length - now has real input (the 6.7% discount + the x6 faucet). Owner-unruled.
 3. Bank cap ruling - BANK_CAP_MEASUREMENT_S137.md; decide together with P1 section 8.3.
 4. Sim-worker flip - 6 literals / 4 files (BACKLOG corrected); probeHarness.ts:339-345 becomes

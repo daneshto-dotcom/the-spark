@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 94,
+  "tool_calls_session_total": 97,
   "session_id": "S137",
   "session_kind": "batch",
   "session_start": "2026-08-10",
@@ -38,7 +38,8 @@
     "S135 untouched: SCORE_TIER corner-bloom replay; carried-potato onUp pointer capture; deposit-slot column overflow.",
     "No 2-peer/joiner exercise of the castle bank; no host-migration round-trip for it.",
     "P1 in-bubble build space: DESIGNED (CASTLE_BUILD_SPACE_DESIGN.md), blocked on a PROTOCOL_VERSION 16->17 bump that hard-rejects deployed peers at HELLO. Take it at the START of a session with a deploy + 2-peer check in the same session. 4 open owner questions in section 8.",
-    "H3 from the bank measurement NOT measured: whether periodic consumption removes the hauler stall at every cap. Needs a dispatch seam __SPARK__ does not expose."
+    "H3 from the bank measurement NOT measured: whether periodic consumption removes the hauler stall at every cap. Needs a dispatch seam __SPARK__ does not expose.",
+    "P1 OWNER-RULED 2026-08-10 (all 4 questions). ONE open decision blocks implementation: BLUEPRINT (grid is a plan, shapes stay banked, capacity free, zero serialization/desync -- RECOMMENDED) vs REAL STORAGE (shapes move into the space, forces new serialized World state). See CASTLE_BUILD_SPACE_DESIGN.md section 7."
   ],
   "priorities": [
     {
@@ -278,5 +279,13 @@
     "Priority order changed: P2 and P3 were taken ahead of P1. Reason: both are cheap and directly serve the imminent owner playtest, whereas a half-implemented interactive panel feature would actively harm it.",
     "P1 not implemented — see its check_method for the verified PROTOCOL_VERSION blocker."
   ],
-  "mcv_status": "PASS hard_fail=0 warn=0 exit 0 (22 typed assertions, 0 unbound) after reconciling 13 hard-fails"
+  "mcv_status": "PASS hard_fail=0 warn=0 exit 0 (22 typed assertions, 0 unbound) after reconciling 13 hard-fails",
+  "owner_rulings_s137": {
+    "date": "2026-08-10",
+    "q1_pull_output": "BOTH loose-on-porch AND one draggable assembly, coexisting; must support arbitrary NON-COMBO structures and manual combo assembly",
+    "q2_placement": "wherever you drop it (same legality rules as today)",
+    "q3_capacity": "NOT capped by CASTLE_BANK_CAP -- \"as many as you want\"; Voltkin 8 (4 squares then 4 triangles), NONET 9 same-kind; plus a UX mandate: smart, comfortable, super high tech, coherent, accessible, easy to understand",
+    "q4_arrangement": "2D freeform grid",
+    "still_unruled": "CASTLE_BANK_CAP itself"
+  }
 }

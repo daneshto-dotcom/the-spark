@@ -106,7 +106,21 @@ are cheap to hit and expensive to find:
 - the `escrow` / `enforceSpawnerBounds` rim-snap that cost S136 a 194 px teleport, invisible to unit
   tests because none of them run physics.
 
-**§8 has 4 open owner questions** — answer them before implementing.
+**OWNER RULED all 4 questions on 2026-08-10** (recorded verbatim in §1): BOTH the one-by-one porch
+pull AND a draggable assembly, coexisting · drop it wherever you like · **capacity NOT capped by the
+bank** ("as many as you want"; Voltkin 8, NONET 9) · **2D freeform grid**. Also ruled: the space must
+support **arbitrary non-combo structures** and manual combo assembly, and the UX itself is an
+acceptance criterion ("smart... super high tech... coherent, accessible, easy to understand").
+
+⚠ **One consequence needs answering before code (§7).** "As many as you want" + 2D + prebuilding over
+time breaks the render-local premise the design rested on: losing a nine-shape arrangement on reload
+would destroy minutes of gatherer labour, which is the exact thing the bank exists to prevent. Two
+routes, ~an order of magnitude apart in cost — **(A) BLUEPRINT**: the grid is a PLAN, shapes stay
+banked, so capacity is free, `CASTLE_BANK_CAP` need not rise at all, and it stays zero-serialization
+and zero-desync; or **(B) REAL STORAGE**: shapes move into the space, which forces new serialized
+World state (FIELD_COVERAGE + save + protocol + structuralSignature + hash). **A is recommended** and
+matches the owner's own phrasing about prebuilding *while* gatherers are still collecting.
+`CASTLE_BANK_CAP` itself remains UNRULED.
 
 ---
 
