@@ -405,8 +405,23 @@ export const GATHERER_DEPOSIT_OFFSET_Y = 74;
  *
  * All six sizes were re-verified against the real recipe modules in S136 A.0; the five original
  * numbers were correct.
+ *
+ * ⚠ S137 P3 — MEASUREMENT SEAM ONLY, and it is NOT a licence to retune the cap on its own. The
+ * table above is the reason: the cap and the recipe sizes are ONE decision. Changing 5 without
+ * re-reading that list is how a cap gets chosen that cannot hold any recipe outright.
+ * `__TEST_CASTLE_BANK_CAP__` exists so `e2e/bank-throughput.spec.ts` can measure haul throughput at
+ * several caps in a REAL browser running REAL physics — because the numbers the owner needs to rule
+ * on B4b cannot be obtained without varying it, and this repo's standing lesson is that no unit test
+ * runs the physics loop. Mirrors the four existing seams (__TEST_WIN_SCORE__,
+ * __TEST_SPAWN_RATE_PER_SECOND__, __TEST_HUNTER_TRIGGER_SCORE__, __TEST_FLYOVER_DURATION_TICKS__):
+ * read once at module-init, absent in production, so the shipped default is unconditionally 5.
  */
-export const CASTLE_BANK_CAP = 5;
+function readTestCastleBankCap(): number | null {
+  if (typeof window === 'undefined') return null;
+  const v = (window as { __TEST_CASTLE_BANK_CAP__?: number }).__TEST_CASTLE_BANK_CAP__;
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : null;
+}
+export const CASTLE_BANK_CAP = readTestCastleBankCap() ?? 5;
 
 /**
  * S136 P1 — how many PORCH slots sit outside the castle gate, and where.
