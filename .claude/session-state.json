@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 153,
+  "tool_calls_session_total": 159,
   "session_id": "S137",
   "session_kind": "batch",
   "session_start": "2026-08-10",
@@ -32,14 +32,13 @@
     "dev port 40843 collided with another session -> moved launch.json to SESSION_PORT 24300"
   ],
   "carry_forward": [
-    "B5 MATCH LENGTH (owner-unruled): STARTING_VICTORY_POINTS=100 is counted into scoreProgress, so WIN fires at 1400 EARNED (not 1500) and HUNTER at 1025 earned (not 1125) - Phase 1 is ~6.7% shorter than every comment claims. Found via Council challenge, verified independently. NOT fixed unattended.",
+    "THREE STARTER DESIGNS — specced + art spiked + veo pipeline proven. Session A = behaviour on the existing defender FSM; B = atlases + ~8 audio clips; C = free-design tier.",
+    "P1 BUILD SPACE — owner RULED: REAL STORAGE (B), 2D freeform, capacity NOT bank-capped, both pull paths coexist. Blocked only on the PROTOCOL_VERSION 16->17 bump, which must be ONE bump shared with the 3 new DefenderKinds.",
     "Sim-worker default-on flip: 6 ?worker=1 literals / 4 files; probeHarness refuse-by-default after flip. Deferred: owner would playtest a freshly-changed authoritative execution model.",
-    "BACKLOG.md:411 says \"5 files hard-code the flag\" - wrong, it is 4 files / 6 literals.",
     "S135 untouched: SCORE_TIER corner-bloom replay; carried-potato onUp pointer capture; deposit-slot column overflow.",
     "No 2-peer/joiner exercise of the castle bank; no host-migration round-trip for it.",
     "P1 in-bubble build space: DESIGNED (CASTLE_BUILD_SPACE_DESIGN.md), blocked on a PROTOCOL_VERSION 16->17 bump that hard-rejects deployed peers at HELLO. Take it at the START of a session with a deploy + 2-peer check in the same session. 4 open owner questions in section 8.",
     "H3 from the bank measurement NOT measured: whether periodic consumption removes the hauler stall at every cap. Needs a dispatch seam __SPARK__ does not expose.",
-    "P1 OWNER-RULED 2026-08-10 (all 4 questions). ONE open decision blocks implementation: BLUEPRINT (grid is a plan, shapes stay banked, capacity free, zero serialization/desync -- RECOMMENDED) vs REAL STORAGE (shapes move into the space, forces new serialized World state). See CASTLE_BUILD_SPACE_DESIGN.md section 7.",
     "ART/ANIM (Session B): veo does NOT reliably hold character/prop consistency across a 4s clip — a grip-fix prompt still dropped the cleaver in one frame AND hallucinated a tail. Fix is FRAME-LEVEL CURATION (2-3 takes per state, hand-pick ~6-10 clean frames), not better prompting. Budget takes accordingly.",
     "Starter designs: art spiked + fully specced + veo pipeline proven. Session A = behaviour on the existing defender FSM with placeholder art; Session B = atlases + audio; Session C = free-design tier into the build space."
   ],
@@ -310,5 +309,10 @@
     "friendly_fire": "aura = enemies only; death burst = EVERYONE including owner troops",
     "recipes": "4 shapes each; MEASURED FREE — combos.ts ComboKey is a 2-shape PAIR type and godlies are 5-9, so nothing uses 4-shape today",
     "animation": "real veo loops not procedural; personalities per unit; ~8 audio clips (2 attack grunts + 1 death cry per goblin)"
-  }
+  },
+  "resolved_this_session": [
+    "B5 match length: RULED CLOSED by owner (6.7% shorter accepted, not a defect) - LOCKED_DECISIONS.md",
+    "BACKLOG.md:411 5-files error: CORRECTED to 6 literals/4 files",
+    "Build space A-vs-B: RULED REAL STORAGE"
+  ]
 }
