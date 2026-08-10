@@ -3,6 +3,12 @@
  * Keeps per-pair collision below O(N²) at the spawner densities we expect
  * (≤30 free sparks at 6P steady-state).
  *
+ * S136 P4 — that ≤30 is now ENFORCED rather than merely assumed. The B3 ×6 faucet raised
+ * SPAWN_RATE_PER_SECOND to 1.125, which took the measured pool from mean 2.2 / peak 4 up to mean 8.9
+ * / peak 18, and FREE_SPARK_SOFT_CAP was re-derived from those measurements to 24 — deliberately
+ * chosen to stay under this figure. If the cap is ever raised above 30, this sizing comment is the
+ * thing that has to be re-examined first.
+ *
  * Cell size = 2 × max-radius keeps a body's neighbors confined to its 3×3
  * cell window. We rebuild every substep; bucket indices stay flat arrays
  * so GC pressure stays near zero.

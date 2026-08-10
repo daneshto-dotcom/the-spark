@@ -109,7 +109,31 @@ function readTestSpawnRate(): number | null {
     .__TEST_SPAWN_RATE_PER_SECOND__;
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
 }
-export const SPAWN_RATE_PER_SECOND = readTestSpawnRate() ?? 0.1875;
+/**
+ * S136 P4 — B3, THE FAUCET: 0.1875 → 1.125 (×6). OWNER-RULED.
+ *
+ * WHY. The v0.6 pivot made gatherers, not the player, do the hauling — and the S128 A.0 audit
+ * established that the faucet, not transport, is the bottleneck. By Little's Law the standing
+ * arena-wide free-spark pool at λ=0.1875 with FREE_SPARK_TTL_TICKS=600 (10 s) is λ·W = 1.875
+ * sparks; the S132 probe MEASURED a mean of 2.2 and a peak of 4. With one gatherer per seat that
+ * means a hauler routinely arrives at the quarry to find NOTHING to fetch and idles at its keep,
+ * which is exactly what the S135 handoff predicted the owner would feel. At ×6 the standing pool is
+ * λ·W = 11.25, so there is essentially always something to fetch.
+ *
+ * ⚠ THIS SUPERSEDES THE S105 AMENDMENT ABOVE, which itself superseded LOCKED_DECISIONS Item 3. The
+ * S5 "strategic bet — wait for the type you need" feel is now DELIBERATELY GONE: it is the feel that
+ * directives and per-gatherer preferences replace, and the owner ruled the ×6 explicitly. Recorded as
+ * a sanctioned revocation rather than left as an unexplained contradiction of the lock.
+ *
+ * Determinism is unaffected: λ scales the interarrival only, never the RNG draw ORDER, so replay
+ * byte-identity for a fixed seed holds exactly as it did across the 0.15 → 0.1875 change.
+ *
+ * ⚠ MATCH LENGTH GETS SHORTER AND THAT IS NOT COMPENSATED HERE. Score is quadratic in time, so match
+ * length scales as 1/sqrt(throughput). B5 (match length) is UNRULED and owned by V6-4.3, and no slot
+ * yet owns PHASE_1_WIN_SCORE or SCORE_INCOME_PER_COMPLEXITY_PER_SEC — so this change deliberately
+ * touches neither. Logged as a carry-forward, not silently absorbed.
+ */
+export const SPAWN_RATE_PER_SECOND = readTestSpawnRate() ?? 1.125;
 
 // S46 P2 Δ1 — host treats joiner's PICKUP_SPARK.pos as untrusted input;
 // validates plausibility within REASONABLE_PICKUP_REACH of joiner's last
@@ -418,10 +442,34 @@ export const SPAWNER_BOUNCE_DAMPING = 0.92;
 export const SPARK_INITIAL_VELOCITY_MIN = 12;
 export const SPARK_INITIAL_VELOCITY_MAX = 12;
 
-// Phase-1 soft-cap. Despawn-on-overflow keeps the spawner zone playable
-// during long sandbox sessions. Oldest Free sparks despawn first; Carried
-// sparks never despawn (they belong to the player FSM).
-export const FREE_SPARK_SOFT_CAP = 50;
+/**
+ * Phase-1 soft-cap. Despawn-on-overflow keeps the spawner zone playable during long sandbox
+ * sessions. Oldest Free sparks despawn first; Carried sparks never despawn (they belong to the
+ * player FSM), and escrowed ones are exempt (a haul in flight / a shape on the porch).
+ *
+ * S136 P4 — RE-DERIVED FROM MEASUREMENT: 50 → 24.
+ *
+ * At the old λ=0.1875 this constant was PROVABLY DEAD CODE: Little's Law gives a standing pool of
+ * λ·W = 1.875 and the S132 probe measured mean 2.2 / peak 4, so nothing could ever approach 50. The
+ * B3 ×6 faucet changes that, and the new number comes from actually watching the game rather than
+ * from arithmetic alone — measured this session over 100 s per mode with the cap still at 50, so the
+ * natural distribution was unmasked:
+ *
+ *     solo   mean 8.92   median 10   p95 15   PEAK 18     (1 gatherer consuming)
+ *     bots   mean 4.48   median  2   p95 13   PEAK 14     (4 gatherers consuming)
+ *
+ * Little's Law predicts λ·W = 1.125 × 10 s = 11.25; solo's 8.92 sits just under it, the difference
+ * being the gatherer eating from the pool. λ is GLOBAL, so seat count does not raise the mean — more
+ * players means more consumption, i.e. the solo figure is the conservative one.
+ *
+ * 24 is chosen so the cap is a SAFETY VALVE rather than a throttle: comfortably above the observed
+ * p95 (15) and peak (18) so ordinary play never touches it, low enough to be genuinely reachable in
+ * a long unattended session (which is what the cap exists for), and still under the "≤30 free sparks
+ * at 6P steady-state" assumption that src/physics/spatial.ts is sized against. Density check against
+ * the S135-halved zone (SPAWNER_RADIUS 125): 24 sparks of r≈10 cover ~15% of the disc — dense enough
+ * to read as a busy quarry, not a soup.
+ */
+export const FREE_SPARK_SOFT_CAP = 24;
 
 // S109 P1 — un-claimed shapes self-despawn after 10s so the spawn zone never
 // piles into chaos (owner playtest #6). This is a TTL reap that runs BEFORE the

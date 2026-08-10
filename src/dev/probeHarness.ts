@@ -77,7 +77,9 @@ import { SparkType, SPARK_VISUAL_SIZE, SPAWN_RATE_PER_SECOND, FREE_SPARK_TTL_TIC
  * to say anything true. This literal was already duplicated inline in `render()`; naming it removes
  * a magic number instead of adding one. Keep in lockstep with `constants.ts:107`.
  */
-const SHIPPED_SPAWN_RATE_PER_SECOND = 0.1875;
+// S136 P4 — tracks the constants.ts default. MUST move with it: this value exists only to detect
+// whether a ?spawn= override is in effect, so a stale copy would report an override as "shipped".
+const SHIPPED_SPAWN_RATE_PER_SECOND = 1.125;
 
 /** Mirrors `spawner.ts:47` — PHYSICS_DT is derived there, not exported from constants.ts. */
 const PHYSICS_DT = 1 / PHYSICS_HZ;
@@ -311,8 +313,8 @@ export function seatShareReadout(cap: number, lambda: number): SeatShareReadout 
     fillHereSec: finite && lambda > 0 ? cap / lambda : null,
     fairShareLambda,
     fillFairShareSec: finite ? cap / fairShareLambda : null,
-    // Relative tolerance: 0.1875/6 = 0.03125 is exact in binary, but a hand-typed ?spawn=0.0313
-    // should still read as representative rather than silently failing an equality check.
+    // Relative tolerance: a hand-typed, rounded ?spawn= should read as representative rather than
+    // silently failing an equality check. S136 P4 — the fair share is now 1.125/6 = 0.1875.
     representative: Math.abs(lambda - fairShareLambda) <= fairShareLambda * 0.02,
   };
 }

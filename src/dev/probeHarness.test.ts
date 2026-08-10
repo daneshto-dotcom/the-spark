@@ -81,11 +81,15 @@ describe('v0.6 economy probe harness — action contract', () => {
 
   it('mints ids in a range disjoint from the spawner allocator', () => {
     // The Spawner starts at 0 and increments monotonically (spawner.ts:332,144). A session would
-    // need a million spawns to reach PROBE_ID_BASE; at the shipped 0.1875/s that is ~61 days of
+    // need a million spawns to reach PROBE_ID_BASE; at the shipped 1.125/s that is ~10 days of
     // continuous play, so the ranges cannot realistically meet.
     expect(PROBE_ID_BASE).toBeGreaterThan(100_000);
-    const secondsToCollide = PROBE_ID_BASE / 0.1875;
-    expect(secondsToCollide / 86_400).toBeGreaterThan(30); // > 30 days
+    const secondsToCollide = PROBE_ID_BASE / 1.125;
+    // S136 P4 — the B3 x6 faucet shortens this horizon from ~61 days to ~10.3 days. The CLAIM being
+    // pinned is "unreachable in any real session", not a specific number of days, so the bound moves
+    // with the faucet rather than the assertion being deleted. A week of continuous uninterrupted
+    // spawning is still far beyond any match (PHASE_1_WIN_SCORE resolves in minutes).
+    expect(secondsToCollide / 86_400).toBeGreaterThan(7); // > 1 week of continuous spawning
   });
 
   it('diffOwned does not alias a placement against a sever in the same sampling window', () => {
@@ -192,16 +196,19 @@ describe('v0.6 economy probe harness — action contract', () => {
 
   // ── S132 · THE SEAT-SHARE TRAP ────────────────────────────────────────────────────────────
   // B3 is a six-seat claim; the probe is solo-only, so solo receives the WHOLE arena faucet and
-  // fills an 8-slot bank ~6x faster than B3's condition. Measured: 41s solo vs 248s at a fair
-  // share. If this readout is wrong or absent the owner rules the blocker the wrong way.
+  // fills an 8-slot bank ~6x faster than B3's condition. The RATIO is what matters and it is exactly
+  // MAX_PLAYERS; the absolute seconds move with the faucet. S136 P4 (the x6 raise) takes them from
+  // 41s solo / 248s fair-share to ~7.1s solo / ~42.7s fair-share. If this readout is wrong or absent
+  // the owner rules the blocker the wrong way.
   describe('S132 — seatShareReadout exposes the solo-vs-6-seat faucet gap', () => {
-    const SHIPPED = 0.1875; // constants.ts:107 default, mirrored deliberately (see probeHarness.ts)
+    const SHIPPED = 1.125; // S136 P4 — constants.ts default (B3 6x), mirrored deliberately
 
     it('flags the shipped default as NOT representative, and quantifies by how much', () => {
       const r = seatShareReadout(8, SHIPPED);
       expect(r.representative).toBe(false);
       expect(r.fairShareLambda).toBeCloseTo(SHIPPED / MAX_PLAYERS, 10);
-      // Solo fills 8 slots in ~43s; a fair 1/6 share needs ~256s. The ratio IS MAX_PLAYERS.
+      // Solo fills 8 slots in ~7.1s; a fair 1/6 share needs ~42.7s. The ratio IS MAX_PLAYERS, and
+      // that invariant is what this asserts — the absolute times are derived, never hardcoded.
       expect(r.fillHereSec).toBeCloseTo(8 / SHIPPED, 6);
       expect(r.fillFairShareSec).toBeCloseTo(8 / (SHIPPED / MAX_PLAYERS), 6);
       expect(r.fillFairShareSec! / r.fillHereSec!).toBeCloseTo(MAX_PLAYERS, 6);
@@ -212,13 +219,18 @@ describe('v0.6 economy probe harness — action contract', () => {
       expect(r.representative).toBe(true);
       // Once representative, both numbers agree — there is no gap left to misread.
       expect(r.fillHereSec).toBeCloseTo(r.fillFairShareSec!, 6);
-      expect(r.fillFairShareSec).toBeCloseTo(256, 0); // the figure BACKLOG B3 quotes
+      // S136 P4 — was 256s at the old lambda (the figure BACKLOG B3 quotes); the x6 faucet makes it
+      // ~42.7s. Derived from the constants rather than restated as a literal, so the next faucet
+      // change updates it automatically instead of failing here.
+      expect(r.fillFairShareSec).toBeCloseTo(8 / (SHIPPED / MAX_PLAYERS), 6);
     });
 
-    it('tolerates a hand-typed 4-decimal ?spawn=0.0313 but rejects a merely-close value', () => {
-      expect(seatShareReadout(8, 0.0313).representative).toBe(true);
-      // 2% band: 0.0313 is +0.16% off and must pass; 0.04 is +28% off and must NOT.
-      expect(seatShareReadout(8, 0.04).representative).toBe(false);
+    it('tolerates a hand-typed rounded ?spawn= value but rejects a merely-close one', () => {
+      // S136 P4 — the fair share is now 1.125/6 = 0.1875 (was 0.03125). 0.188 is the plausible
+      // hand-typed rounding and must pass; 0.24 is +28% off and must NOT. The 2% band is the thing
+      // under test, not either literal.
+      expect(seatShareReadout(8, 0.188).representative).toBe(true);
+      expect(seatShareReadout(8, 0.24).representative).toBe(false);
     });
 
     it('returns null fill times for the unlimited bank rather than Infinity', () => {
