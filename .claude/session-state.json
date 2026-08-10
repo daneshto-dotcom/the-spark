@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 71,
+  "tool_calls_session_total": 74,
   "session_id": "S136",
   "session_kind": "pdca",
   "session_start": "2026-08-10T00:00:00",
@@ -33,12 +33,74 @@
       "id": "P0-castle-selection-context-panel",
       "title": "Castle click -> context panel holding BUY GATHERER + SPEED; retire the always-on footer controls; a disabled control states its reason; fix the ?debug=1 overlay confound and add the first e2e coverage of these controls",
       "tier": "Full",
-      "status": "pending",
+      "status": "completed",
       "pdr_file": ".claude/plans/2026-08-10_PDR_S136_owner_playtest_batch.md",
-      "check_completed": false,
+      "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "checkpoint_commit": "f08ea7d",
+      "real_context_tokens_at_close": 326605,
+      "real_context_pct_at_close": 32.66,
+      "check_method": "RUNTIME-FIRST, because the owner report was about behaviour a unit test cannot see. (1) A.0 repro in headless Chromium (swiftshader; the Browser pane cannot composite — S131) across a 6-cell matrix solo|bots x 1920x1080|1536x864|1366x768: hitTest at the SPEED centre returned the button, cursor=pointer, and the click WORKED (100->50, speedLevel 0->1) in ALL SIX. So item 1 was NOT a click bug. (2) FALSE REPRO CAUGHT AND DISCARDED: my first run showed it DEAD — cause was ?debug=1, whose DOM overlay (fixed, z-index 1001, measured 425x972 at top 230/right 24) covers both buttons so elementFromPoint returns its <pre> and the canvas never sees pointerdown. Every e2e spec boots ?debug=1 => the harness could never have caught a control regression. Fixed by pointer-events:none on the body + auto on the title strip (the click listener is on the root, so click-to-copy still bubbles). (3) The real item-1 defect was legibility: BUY disabled from t=0 (100 vs 105) with no stated reason. Every disabled row now names its blocker. (4) MUTATION MATRIX 8 mutations, 7 RED-caught (buy-reason blanked, NO-UNITS->price, keep box squared to KEEP_W on both axes, panel never flips left, locked check dropped, allMaxed ignored, owner filter dropped). M5 (Math.floor removed) SURVIVED and is CORRECT: prices are integers so floor(x)>=P iff x>=P — a provably redundant line, documented in the test instead of being papered over with a fake assertion (the S135 surviving-mutation-is-not-a-weak-test lesson). Baseline verified green after every restore; no .bak left behind. (5) A DEFECT NO ASSERTION CAUGHT: the disabled label overflowed its row box — found by LOOKING at the verification screenshot while all 28 runtime checks were green. Reason is now folded into the label, PANEL_W 244->268, and a unit test asserts label*advance <= ROW_INNER_W across all five reachable states. (6) Gate: tsc 0 - vitest 2093/2093 across 139 files (+24 tests/+2 files vs the 2069/137 baseline captured at open) - npm run build OK, bundle 658.0/750 KiB (92.0 KiB headroom) - 6 new e2e in castle-panel.spec.ts, the FIRST e2e coverage these controls have ever had, booting CLEAN (no ?debug=1) - runtime verify 28/28 in BOTH a clean boot and ?debug=1. NOT VERIFIED: multiplayer/joiner (selection is render-local so there is nothing on the wire, but no 2-peer run was made); no touch/mobile pass.",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.ts",
+          "note": "the new context panel + its pure model/geometry"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.ts",
+          "needle": "export function castleControlsModel",
+          "note": "pure world-only model so the reason matrix is testable without a renderer (S130 lesson)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.ts",
+          "needle": "NEED ${GATHERER_PRICE}",
+          "note": "a disabled BUY names the price — the actual owner item-1 defect"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gatherer.ts",
+          "needle": "export function isPointInKeep",
+          "note": "the castle click target, pure, beside castleAnchor"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const KEEP_W = 74;",
+          "note": "keep box promoted to constants so hit test and renderer share it"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/input/controls.ts",
+          "needle": "private isPointerOverPanel()",
+          "note": "the footer click guard replaced, not left orphaned over an empty band"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/debugOverlay.ts",
+          "needle": "root.style.pointerEvents = 'none'",
+          "note": "the ?debug=1 overlay no longer swallows canvas clicks"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/castle-panel.spec.ts",
+          "note": "first-ever e2e coverage of these controls; boots clean, no ?debug=1"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.test.ts",
+          "note": "20 unit tests: reason matrix, label fit, panel geometry"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/keepHitTest.test.ts",
+          "note": "4 unit tests pinning the keep click target per seat"
+        }
+      ]
     },
     {
       "id": "P1-in-castle-storage-bank-cap-pull",
@@ -96,7 +158,35 @@
       "unlock_source": "user"
     }
   ],
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    {
+      "session": "S136",
+      "priority": "P0",
+      "tags": [
+        "#false-repro-from-harness-flag",
+        "#empirical-refutes-plausible-criticals"
+      ],
+      "entry": "My first repro of the owner's \"buttons not clickable\" showed the click DEAD — and it was WRONG. The cause was ?debug=1, a DOM overlay covering the button column, which I had added myself by copying the harness convention. Two lessons: (a) reproduce in the configuration the USER actually ran, not the one the test suite uses; (b) when a bug report and a repro agree, that is when to look hardest for a shared confound, because agreement feels like confirmation. The tell was that the canvas received NO pointerdown at all while document did — a DOM-level fact that no amount of Pixi-side reasoning would have explained."
+    },
+    {
+      "session": "S136",
+      "priority": "P0",
+      "tags": [
+        "#look-at-the-render",
+        "#assertions-cannot-see-layout"
+      ],
+      "entry": "28/28 runtime assertions passed while the disabled button label visibly overflowed its own box. State assertions can prove a control is enabled, priced and clickable and still say nothing about whether the text fits. I only caught it by opening the screenshot. Any UI priority must include LOOKING at the render as a distinct step, plus a cheap numeric fit guard (label length x advance <= inner width) so the next one fails in vitest instead of on the owner's screen."
+    },
+    {
+      "session": "S136",
+      "priority": "P0",
+      "tags": [
+        "#zero-coverage-is-a-finding",
+        "#policy-not-instance"
+      ],
+      "entry": "Deleting an EXPORTED function (isOverFooterControl) and an entire render method (drawFooter) left the suite at exactly 2069/2069 green. That is not reassurance, it is a measurement: the controls had zero coverage, which is the structural reason the owner had to find this by playing. When a deletion breaks nothing, treat the untouched test count as the finding and write the missing test before the feature."
+    }
+  ],
   "totals": {},
   "owner_rulings_s134": {
     "B3_spark_rate": "6x more sparks",
