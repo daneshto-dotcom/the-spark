@@ -103,7 +103,21 @@ export type { NetSnapshot };
 // it would never render a bought gatherer, and its own buy would be dropped by the host's allowlist —
 // so the two seats would disagree about what a player owns and about their spent score. Hard-rejected
 // at HELLO, same lockstep as the S103 defender bump.
-export const PROTOCOL_VERSION = 16 as const;
+// S138 P2 — bumped 16->17: the KEEP RING MOVED. `castleAnchor` (gatherers/gatherer.ts) now reads
+// `KEEP_RING_RADIUS = 420` instead of `SPAWNER_RADIUS + 150` (275), on the owner's playtest ruling
+// that castles belong at the extremities. This is NOT a new field or literal — it is a SHARED
+// CONSTANT BOTH PEERS COMPUTE FROM: the client calls `castleAnchor` to draw every keep box, to
+// hit-test keep clicks (which is what opens the castle panel), and to derive porch slot positions.
+// A stale v16 peer would therefore draw all seven keeps on the old 275 ring, mis-hit-test them, and
+// disagree with the host about where a castle physically IS — so it is hard-rejected at HELLO, the
+// same posture as any wire-incompatible change.
+//
+// ⚠ NOTE FOR THE NEXT SESSION: S138 P1's damage substrate (`Primitive.hp` + a real per-kind defender
+// hp) did NOT need this bump and did not get one on its own — `hp` is additive-optional and emitted
+// only when damaged, so an undamaged board is byte-identical to v16 (the protocol.ts:152 precedent:
+// re-adding creature hp/chewProgress/targetBondId to the wire did not bump either). The bump is
+// being spent on the keep-ring move; it now covers both.
+export const PROTOCOL_VERSION = 17 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -153,8 +167,11 @@ export interface HelloMsg {
    * all three were already additive-optional and `parseNetMessage` gates on schemaVersion only.
    * V6-1.1: 15→16 (gatherer economy — additive-optional `gatherers[]` snapshot field AND the new
    * BUY_GATHERER client intent; a stale v15 peer would neither render a bought gatherer nor have
-   * its own purchase accepted, so the seats would disagree about units owned and points spent). */
-  readonly protoVersion: 16;
+   * its own purchase accepted, so the seats would disagree about units owned and points spent).
+   * S138 P2: 16→17 (the keep ring moved to KEEP_RING_RADIUS = 420 — a SHARED CONSTANT both peers
+   * compute from via castleAnchor, so a stale peer would draw and hit-test every keep in the wrong
+   * place). Also covers S138 P1's additive-optional Primitive.hp, which needed no bump alone. */
+  readonly protoVersion: 17;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

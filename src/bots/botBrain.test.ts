@@ -6,12 +6,16 @@ import { describe, expect, it } from 'vitest';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  CASTLE_PORCH_SLOTS,
+  KEEP_RING_SEATS,
   PLAYER_COLORS,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
   SparkType,
 } from '../constants.ts';
+import { bankPush, porchSlot } from '../state/castleBank.ts';
+import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import { makeHunter } from '../state/hunters/hunter.ts';
 import { mulberry32 } from '../state/rng.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
@@ -87,11 +91,37 @@ function placeOwnPrim(world: World, seat: PlayerId, x: number, y: number, sparkI
 }
 
 describe('S87 botBrain.chooseGoal — priority arbitration', () => {
-  it('default: BUILD when sparks exist and cooldown elapsed', () => {
+  // ⛔ S138 P2 — the spark now has to be on the bot's OWN PORCH. Seeded in the quarry (as this test
+  // did before) the bot correctly REFUSES to build, which is the point of the change.
+  it('default: BUILD when a shape sits on my own porch and cooldown elapsed', () => {
+    const world = botsWorld();
+    const slot = porchSlot(SEAT as unknown as number, 0);
+    addFreeSpark(world, 1, slot.x, slot.y);
+    const goal = chooseGoal(world, SEAT, BOT_CONFIGS.NOOB, mulberry32(1), true);
+    expect(goal.kind).toBe('BUILD');
+  });
+
+  it('⭐ a quarry spark alone does NOT produce BUILD — the bot has no claim on it', () => {
     const world = botsWorld();
     addFreeSpark(world, 1, SPAWNER_CENTER_X, SPAWNER_CENTER_Y);
     const goal = chooseGoal(world, SEAT, BOT_CONFIGS.NOOB, mulberry32(1), true);
-    expect(goal.kind).toBe('BUILD');
+    expect(goal.kind).toBe('REST'); // empty bank + empty porch ⇒ nothing legitimate to do
+  });
+
+  it('⭐ PULLs from its own bank when the porch is empty but the bank has stock', () => {
+    const world = botsWorld();
+    const home = castleAnchor(SEAT as unknown as number);
+    bankPush(world.castleBanks, SEAT, {
+      id: asSparkId(900),
+      type: SparkType.Dot,
+      pos: { x: home.x, y: home.y },
+      prevPos: { x: home.x, y: home.y },
+      radius: 8,
+      createdTick: 0,
+      state: { kind: 'Free' as const },
+    });
+    const goal = chooseGoal(world, SEAT, BOT_CONFIGS.NOOB, mulberry32(1), true);
+    expect(goal.kind).toBe('PULL');
   });
 
   it('RESTs when build is on cooldown and nothing else to do', () => {
@@ -187,16 +217,46 @@ describe('S87 botBrain — build placement', () => {
 });
 
 describe('S87 botBrain — helpers', () => {
-  it('pickTargetSpark: smart takes nearest; sloppy stays within the nearest 5', () => {
+  // ⛔ S138 P2 — REWRITTEN, and the premise changed. This test used to scatter free sparks around the
+  // bot's avatar (i.e. in the shared quarry) and assert the bot picked one. That behaviour is the
+  // owner-reported defect: "the bots in vs bots mode can still grab primitives with their cruisers
+  // ... which is not fair". A bot may now only collect from its OWN porch, so the fixture places
+  // shapes in real porch slots and a companion test asserts the quarry is ignored.
+  it('pickTargetSpark: smart takes nearest OWN-PORCH shape; sloppy stays within the nearest few', () => {
     const world = botsWorld();
     const me = world.players.get(SEAT)!;
-    for (let i = 0; i < 8; i++) {
-      addFreeSpark(world, 100 + i, me.avatarPos.x + 30 + i * 40, me.avatarPos.y);
-    }
-    const smart = pickTargetSpark(world, me.avatarPos, BOT_CONFIGS.IMBA, mulberry32(5));
-    expect(smart).toBe(asSparkId(100));
-    const sloppy = pickTargetSpark(world, me.avatarPos, BOT_CONFIGS.NOOB, mulberry32(5));
-    expect([100, 101, 102, 103, 104].map(asSparkId)).toContain(sloppy);
+    const seatIndex = SEAT as unknown as number;
+    // One shape per porch slot, nearest-slot-first relative to the bot.
+    const slots = Array.from({ length: CASTLE_PORCH_SLOTS }, (_, i) => porchSlot(seatIndex, i));
+    const ordered = slots
+      .map((p, i) => ({ i, d: (p.x - me.avatarPos.x) ** 2 + (p.y - me.avatarPos.y) ** 2 }))
+      .sort((a, b) => a.d - b.d);
+    for (let i = 0; i < slots.length; i++) addFreeSpark(world, 100 + i, slots[i].x, slots[i].y);
+
+    const smart = pickTargetSpark(world, me.avatarPos, BOT_CONFIGS.IMBA, mulberry32(5), SEAT);
+    expect(smart).toBe(asSparkId(100 + ordered[0].i));
+
+    const sloppy = pickTargetSpark(world, me.avatarPos, BOT_CONFIGS.NOOB, mulberry32(5), SEAT);
+    expect(slots.map((_, i) => asSparkId(100 + i))).toContain(sloppy);
+  });
+
+  it('⭐ pickTargetSpark IGNORES the shared quarry — a bot cruiser cannot take a loose spark', () => {
+    const world = botsWorld();
+    const me = world.players.get(SEAT)!;
+    // Sparks right next to the bot AND in the middle of the quarry: all off-limits now.
+    addFreeSpark(world, 200, me.avatarPos.x + 20, me.avatarPos.y);
+    addFreeSpark(world, 201, SPAWNER_CENTER_X, SPAWNER_CENTER_Y);
+    expect(pickTargetSpark(world, me.avatarPos, BOT_CONFIGS.IMBA, mulberry32(5), SEAT)).toBeNull();
+    expect(pickTargetSpark(world, me.avatarPos, BOT_CONFIGS.NOOB, mulberry32(5), SEAT)).toBeNull();
+  });
+
+  it("pickTargetSpark will not take a shape off ANOTHER seat's porch", () => {
+    const world = botsWorld();
+    const me = world.players.get(SEAT)!;
+    const other = ((SEAT as unknown as number) + 1) % KEEP_RING_SEATS;
+    const theirs = porchSlot(other, 0);
+    addFreeSpark(world, 300, theirs.x, theirs.y);
+    expect(pickTargetSpark(world, me.avatarPos, BOT_CONFIGS.IMBA, mulberry32(5), SEAT)).toBeNull();
   });
 
   it('nearestEnemyBond skips own bonds', () => {

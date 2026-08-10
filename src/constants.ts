@@ -361,6 +361,26 @@ export const STARTING_VICTORY_POINTS = 100;
  * live roster size) because a gatherer's spawn position is hashed host-authoritative state.
  */
 export const KEEP_RING_SEATS = PLAYER_COLORS.length;
+
+/**
+ * S138 P2 — distance from arena centre to each seat's keep, in px.
+ *
+ * Owner playtest, verbatim: *"the castles should all be first put at the extremities of the map of
+ * each players zone, so that you cant all build at the middle from the start and make a mess of
+ * it."* This is R4 of `CASTLE_BUILD_SPACE_DESIGN.md` §1b, pulled forward.
+ *
+ * Was `SPAWNER_RADIUS + 150` = **275**. There is no "starting zone" concept in the code (verified by
+ * grep — no `startingZone`/`homeZone`), so the actionable form of "the extremities" is this radius.
+ * On-canvas fit was verified for the 7-seat ring: 275 / 360 / 420 / 460 all fit inside 1920×1080.
+ * 420 is chosen for a comfortable margin while nearly doubling the quarry-rim→keep gap.
+ *
+ * ⚠ MEASURED CONSEQUENCE, not a guess (design-doc C2): the quarry rim sits at `SPAWNER_RADIUS` = 125,
+ * so the haul goes from **150 px to 295 px — 1.97×**. Gatherer throughput therefore DROPS; at bank
+ * cap 5 the economy banked ~5 shapes/60 s before this. The `CASTLE_BANK_CAP` raise to 12–13 (§1b R2)
+ * is the intended counterweight and is NOT part of this change. Re-measure with
+ * `e2e/bank-throughput.spec.ts` and retune gatherer speed/count in the build-space session.
+ */
+export const KEEP_RING_RADIUS = 420;
 /**
  * S136 P0 — the keep BOX, promoted out of gathererRenderer.ts because it is no longer only a
  * drawing: clicking it is what opens the castle panel (owner playtest, item 2 — "that footer with
@@ -566,24 +586,23 @@ export const AUTO_BOND_RADIUS = 60;
 // stays green and the per-match tier-pulse cadence is still 2 pulses before WIN.
 export const SCORE_TIER_STEP = 500;
 
-// S13 P2 — outward verlet impulse for STRUCTURE_GROW. Applied to each
-// primitive in the *primary's pre-existing component* (the structure
-// being added to) on placement, pushing outward from the component's
-// local centroid. 0.8 px on a 30+ px bond ≈ 2.7% strain (well under
-// HIGH-tier 25% break threshold). Bonds resist; net effect = brief
-// outward "puff" the user sees as the structure physically growing.
+// ⛔ S138 P2 — `STRUCTURE_GROW_IMPULSE` (S13 P2, 0.8 px) IS DELETED. DO NOT REINTRODUCE IT.
 //
-// Counteracted on the OTHER side of a cross-structure merge by
-// MERGE_IMPULSE on cand components (INWARD). Net visual on a merge:
-// existing structure puffs out while absorbed components snap in —
-// distinct signatures across the post-merge component.
+// It applied an OUTWARD verlet impulse to every primitive in the primary's pre-existing component
+// on each placement, pushing them away from the component's local centroid (via `prevPos -=
+// unit_outward × MAG`, so the implied velocity pointed outward). It was authored as a cosmetic
+// "the structure is growing" puff.
 //
-// Unlike MERGE_IMPULSE (S10 P3, unconditional physics), this is gated
-// on world.cinematicsEnabled: a NEW physics mechanic the user has not
-// designated physics-over-visual. If they toggle C off, both halves
-// (visual flash + physical puff) disappear together — cleaner mental
-// model for the debug toggle.
-export const STRUCTURE_GROW_IMPULSE = 0.8;
+// The owner played the live build and reported it as a DEFECT, verbatim: *"each primitive pushes
+// another primitive away as anti-magnetism. get rid of it."* They are right about the mechanism —
+// because placed primitives are held ONLY by `solveBonds` distance constraints and are never
+// free-integrated (see `anchorStabilize.ts:9-11`), an injected outward velocity has nothing damping
+// it except the bonds, so it reads as the shapes repelling each other on every single placement.
+//
+// The VISUAL half is retained: the `STRUCTURE_GROW` effect still emits under `cinematicsEnabled`, so
+// the hop-by-hop flash is unchanged. Only the physics shove is gone (`placePrimitive.ts`).
+// `MERGE_IMPULSE_MAGNITUDE` below is the OPPOSITE sign (INWARD, cross-structure merges only) and is
+// deliberately KEPT — `session13.test.ts` asserts that split explicitly.
 
 // === S14 P2.1 — multi-endpoint redundant bonding ===
 // Maximum total bonds a single placement can create to its primary's

@@ -21,11 +21,11 @@ import {
   GATHERER_MAX_SPEED_LEVEL,
   GATHERER_SPEED_PER_LEVEL,
   KEEP_H,
+  KEEP_RING_RADIUS,
   KEEP_RING_SEATS,
   KEEP_W,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
-  SPAWNER_RADIUS,
   type SparkType,
 } from '../../constants.ts';
 import type { GathererId, PlayerId, SparkId, Vec2 } from '../../types.ts';
@@ -117,7 +117,11 @@ export function castleAnchor(seat: number): Vec2 {
   // host-authoritative state, so a seat-count-dependent ring would move every keep (and diverge the
   // hash) the moment a player joins or drops.
   const angle = Math.PI + (seat / KEEP_RING_SEATS) * Math.PI * 2;
-  const r = SPAWNER_RADIUS + 150;
+  // S138 P2 — was `SPAWNER_RADIUS + 150` (275). Now a named constant at 420 so the keeps sit at the
+  // extremities instead of clustered near the quarry (owner playtest: "so that you cant all build at
+  // the middle from the start and make a mess of it"). See KEEP_RING_RADIUS for the measured
+  // throughput consequence — this nearly doubles the haul.
+  const r = KEEP_RING_RADIUS;
   return {
     x: SPAWNER_CENTER_X + Math.cos(angle) * r,
     y: SPAWNER_CENTER_Y + Math.sin(angle) * r,

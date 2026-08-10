@@ -18,10 +18,12 @@
  * because they hard-coded 420 ticks for a ~154-tick pickup. Everything here waits on world state.
  */
 import { expect, test } from '@playwright/test';
-import { CANVAS_HEIGHT, CANVAS_WIDTH, canvasToCss, readWorldState, waitForWorld } from './helpers.ts';
+import { CANVAS_WIDTH, canvasToCss, keepAnchor, readWorldState, waitForWorld } from './helpers.ts';
 
-/** Seat 0's keep anchor: castleAnchor(0) has angle PI, so it is (cx - (SPAWNER_RADIUS+150), cy). */
-const KEEP0 = { x: CANVAS_WIDTH / 2 - (125 + 150), y: CANVAS_HEIGHT / 2 };
+// ⛔ S138 P2 — seat 0's keep position is now ASKED OF THE APP (`keepAnchor` → `__SPARK__.keepCenter`
+// → the shipped `castleAnchor`). It used to be a hardcoded `CANVAS_WIDTH / 2 - (125 + 150)`, i.e. a
+// hand-copy of the old `SPAWNER_RADIUS + 150` ring, and moving the ring to KEEP_RING_RADIUS = 420
+// made all four tests in this file click empty board. Never transcribe the formula again.
 
 interface PanelPoints {
   open: boolean;
@@ -72,7 +74,8 @@ test.describe('S136 P0 — castle context panel', () => {
     await bootSolo(page);
     expect((await readPanel(page)).open).toBe(false);
 
-    await clickCanvas(page, KEEP0.x, KEEP0.y);
+    const keep0 = await keepAnchor(page, 0);
+    await clickCanvas(page, keep0.x, keep0.y);
     const open = await readPanel(page);
     expect(open.open).toBe(true);
     expect(open.rowCenters.map((r) => r.key)).toEqual(['buyGatherer', 'upgradeSpeed']);
@@ -83,13 +86,14 @@ test.describe('S136 P0 — castle context panel', () => {
 
   test('clicking the castle again closes it; clicking the board also closes it', async ({ page }) => {
     await bootSolo(page);
-    await clickCanvas(page, KEEP0.x, KEEP0.y);
+    const keep0 = await keepAnchor(page, 0);
+    await clickCanvas(page, keep0.x, keep0.y);
     expect((await readPanel(page)).open).toBe(true);
 
-    await clickCanvas(page, KEEP0.x, KEEP0.y);
+    await clickCanvas(page, keep0.x, keep0.y);
     expect((await readPanel(page)).open).toBe(false);
 
-    await clickCanvas(page, KEEP0.x, KEEP0.y);
+    await clickCanvas(page, keep0.x, keep0.y);
     expect((await readPanel(page)).open).toBe(true);
     await clickCanvas(page, CANVAS_WIDTH / 2, 120); // empty sky, clear of the spawn disc and keeps
     expect((await readPanel(page)).open).toBe(false);
@@ -99,7 +103,8 @@ test.describe('S136 P0 — castle context panel', () => {
     // This is the whole owner report. 100 starting points against a 105 price is deliberate design,
     // but the old footer rendered it as an unexplained dim box.
     await bootSolo(page);
-    await clickCanvas(page, KEEP0.x, KEEP0.y);
+    const keep0 = await keepAnchor(page, 0);
+    await clickCanvas(page, keep0.x, keep0.y);
     const buy = (await readPanel(page)).rowCenters.find((r) => r.key === 'buyGatherer')!;
     expect(buy.enabled).toBe(false);
     expect(buy.reason).toBe('NEED 105');
@@ -107,7 +112,8 @@ test.describe('S136 P0 — castle context panel', () => {
 
   test('SPEED is live at the opening balance and a click really spends and upgrades', async ({ page }) => {
     await bootSolo(page);
-    await clickCanvas(page, KEEP0.x, KEEP0.y);
+    const keep0 = await keepAnchor(page, 0);
+    await clickCanvas(page, keep0.x, keep0.y);
     const before = await readWorldState(page);
     const scoreBefore = before.scoreByPlayer.find(([id]) => id === before.localPlayerId)![1];
 
@@ -134,7 +140,8 @@ test.describe('S136 P0 — castle context panel', () => {
     // The raw canvas handler hit-tests world objects with no notion of UI, and Pixi's `pointertap`
     // does not suppress it — this is what `Controls.isPointerOverPanel` exists to stop.
     await bootSolo(page);
-    await clickCanvas(page, KEEP0.x, KEEP0.y);
+    const keep0 = await keepAnchor(page, 0);
+    await clickCanvas(page, keep0.x, keep0.y);
     const primsBefore = (await readWorldState(page)).primitives.length;
     const rows = (await readPanel(page)).rowCenters;
     for (const r of rows) await clickCanvas(page, r.x, r.y);

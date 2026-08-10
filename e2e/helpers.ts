@@ -734,3 +734,26 @@ export async function waitForSeats(
     `waitForSeats timeout (${timeoutMs}ms): ${description}\nFinal seats: ${JSON.stringify(final)}`,
   );
 }
+
+/**
+ * S138 P2 — canvas-space centre of `seat`'s keep, read from the APP, never re-derived.
+ *
+ * Extracted so no spec transcribes the ring formula again. `castle-panel.spec.ts` had inlined
+ * `CANVAS_WIDTH / 2 - (125 + 150)` — a hand-copy of `SPAWNER_RADIUS + 150` — and when S138 P2 moved
+ * the ring to `KEEP_RING_RADIUS = 420` all four of its tests started clicking empty board. That is
+ * precisely the duplicated-geometry failure the `__SPARK__.keepCenter` getter exists to prevent, so
+ * the fix is to use the getter rather than to update the copy.
+ */
+export async function keepAnchor(
+  page: Page,
+  seat: number,
+): Promise<{ x: number; y: number }> {
+  return page.evaluate((s: number) => {
+    const sp = (window as { __SPARK__?: { keepCenter?: (n: number) => { x: number; y: number } } })
+      .__SPARK__;
+    if (sp?.keepCenter === undefined) {
+      throw new Error('__SPARK__.keepCenter unavailable — geometry getter missing');
+    }
+    return sp.keepCenter(s);
+  }, seat);
+}

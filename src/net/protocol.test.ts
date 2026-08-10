@@ -72,8 +72,8 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 16 (V6-1.1 bump from 15 — gatherer economy: additive-optional gatherers[] snapshot field + the BUY_GATHERER client intent)', () => {
-    expect(PROTOCOL_VERSION).toBe(16);
+  it('PROTOCOL_VERSION is 17 (S138 P2 bump from 16 — the keep ring moved to KEEP_RING_RADIUS 420; castleAnchor is a SHARED CONSTANT both peers compute from, so a stale peer would draw and hit-test every keep in the wrong place)', () => {
+    expect(PROTOCOL_VERSION).toBe(17);
   });
 
   it('S102 #1 — RAID_CREATURE is an allowed CLIENT INTENT (a 1v1 joiner can raid an enemy chewer)', () => {
@@ -301,7 +301,7 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
   // constant has been 15 since S124 P1 (`80f1058`, host-migration D4 production-ON). The
   // assertion below reads the constant, so the test was never wrong — only its name was, and a
   // stale name on a GATING test is what a future session greps to learn the current version.
-  it('S70 graceful-degradation contract holds; PROTOCOL_VERSION is 16 (V6-1.1 gatherer-economy bump)', () => {
+  it('S70 graceful-degradation contract holds; PROTOCOL_VERSION is 17 (S138 P2 keep-ring bump)', () => {
     // S70's LOBBY_PRESENCE was cosmetic and did NOT bump the version on its own:
     // unknown kinds fail CLOSED (fall through parseNetMessage's default → null, not
     // a throw), so a stale peer degrades to the count-based rack and can still play.
@@ -327,7 +327,7 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
     // S110 P4 — bumped 12→13 for HELGA's walk rework (serialized 'WALK' state + prevPos/walkTargetPos).
     // S113 Batch C — bumped 13→14 for the lightning-drone building (CreatureType lightningDrone + recipeId lightningHub).
     // S124 P1 — bumped 14→15 for host-migration D4 production-ON (MIGRATION_CLAIM live, epoch ≥ 1 semantics).
-    expect(PROTOCOL_VERSION).toBe(16);
+    expect(PROTOCOL_VERSION).toBe(17);
     expect(
       parseNetMessage({ kind: 'SOME_FUTURE_KIND', roster: [{ seat: 0, peerId: 'h', color: 1 }] }),
     ).toBeNull();

@@ -126,8 +126,8 @@ describe('S115 P3 — host-migration D1: signWarrant + verifyWarrant', () => {
 });
 
 describe('S115 P3 — host-migration D1: additive-optional HELLO clientPubkeyB64 (no protocol bump)', () => {
-  it('protocol version is 16 after the V6-1.1 gatherer-economy bump (D1 itself added no wire-breaking field)', () => {
-    expect(PROTOCOL_VERSION).toBe(16);
+  it('protocol version is 17 after the S138 P2 keep-ring bump (D1 itself added no wire-breaking field)', () => {
+    expect(PROTOCOL_VERSION).toBe(17);
   });
 
   it('a HELLO WITHOUT the pubkey still parses (legacy / host HELLO)', () => {

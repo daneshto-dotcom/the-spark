@@ -17,7 +17,6 @@ import {
   PHYSICS_HZ,
   SCORE_TIER_STEP,
   SparkType,
-  STRUCTURE_GROW_IMPULSE,
 } from '../constants.ts';
 import { makeFreeSpark } from './spark.ts';
 import { componentOf } from './structure.ts';
@@ -160,46 +159,33 @@ describe('S13 P1 — multi-structure merge reach (90+ px spacing)', () => {
   });
 });
 
-describe('S13 P2 — STRUCTURE_GROW outward impulse on primary pre-existing component', () => {
-  it('STRUCTURE_GROW_IMPULSE constant is 0.8 px', () => {
-    expect(STRUCTURE_GROW_IMPULSE).toBe(0.8);
-  });
+describe('S138 P2 — the STRUCTURE_GROW outward impulse is DELETED (owner playtest)', () => {
+  // ⛔ THESE TESTS WERE INVERTED, NOT DELETED. Until S138 P2 this block asserted that every
+  // primitive in the primary's pre-existing component got shoved OUTWARD from the component
+  // centroid by STRUCTURE_GROW_IMPULSE (0.8 px) on each placement. The owner played the live build
+  // and reported it verbatim as "each primitive pushes another primitive away as anti-magnetism.
+  // get rid of it" — so the behaviour these tests locked is now a DEFECT, and they lock its absence
+  // instead. The constant is gone from constants.ts.
+  //
+  // The VISUAL half is deliberately retained (the STRUCTURE_GROW effect still emits under
+  // cinematicsEnabled) and MERGE_IMPULSE — the opposite sign, INWARD, cross-structure merges only —
+  // is untouched. The last test here is what proves that split really happened.
 
-  it('2-prim primary (single anchor) + new prim: anchor pushed outward from centroid', () => {
-    // Anchor at (200, 200). New prim placed at (300, 200) with primary
-    // bond into anchor. Centroid of {anchor, new prim} = (250, 200).
-    // Anchor outward direction: (200 - 250, 0) / 50 = (-1, 0). New
-    // prevPos.x = pos.x - (-1 × 0.8) = 200 - (-0.8) = wait... prevPos -=
-    // (-1) × 0.8 means prevPos.x -= -0.8, i.e., prevPos.x = 200 + 0.8 =
-    // 200.8. Velocity = pos - prevPos = 200 - 200.8 = -0.8 (away from
-    // centroid at x=250, in -x direction). ✓ outward.
+  it('placing into a 1-prim structure does NOT move the existing prim (was: pushed outward)', () => {
     const world = makeWorld(0);
     const a = placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
     const aPrim = world.primitives.get(a)!;
     expect(aPrim.prevPos.x).toBeCloseTo(200, 1);
 
-    placeAt(world, {
-      sparkRawId: 2,
-      type: SparkType.Dot,
-      pos: { x: 300, y: 200 },
-      targetId: a,
-    });
+    placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 300, y: 200 }, targetId: a });
 
-    // Anchor's prevPos shifted away from centroid (250, 200) by full
-    // STRUCTURE_GROW_IMPULSE.
-    expect(aPrim.prevPos.x).toBeCloseTo(200 + STRUCTURE_GROW_IMPULSE, 3);
-    // Velocity = pos - prevPos points outward (toward -x, away from centroid).
-    expect(aPrim.pos.x - aPrim.prevPos.x).toBeCloseTo(-STRUCTURE_GROW_IMPULSE, 3);
+    // prevPos === pos ⇒ ZERO implied verlet velocity. Previously this was 200.8, i.e. a 0.8 px/tick
+    // outward velocity injected into an already-placed shape.
+    expect(aPrim.prevPos.x).toBeCloseTo(aPrim.pos.x, 6);
+    expect(aPrim.prevPos.y).toBeCloseTo(aPrim.pos.y, 6);
   });
 
-  it('3-prim chain primary: each pre-existing prim pushed outward from full-component centroid', () => {
-    // Chain: a(200,200) — b(220,200) — c(240,200). New prim at (260,200)
-    // with primary bond into c. Post-bond component = {a,b,c,new}.
-    // Centroid = (200+220+240+260)/4 = 230, y=200. Outward directions:
-    //   a: (200-230, 0)/30 = (-1, 0)  → prevPos.x += 0.8 → vel=-0.8 (left)
-    //   b: (220-230, 0)/10 = (-1, 0)  → prevPos.x += 0.8 → vel=-0.8 (left)
-    //   c: (240-230, 0)/10 = (+1, 0)  → prevPos.x -= 0.8 → vel=+0.8 (right)
-    //   new prim: NOT in primaryPreExistingPrims → no impulse.
+  it('a 3-prim chain is completely undisturbed by a 4th placement', () => {
     const world = makeWorld(0);
     const a = placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
     const b = placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 220, y: 200 }, targetId: a });
@@ -207,78 +193,45 @@ describe('S13 P2 — STRUCTURE_GROW outward impulse on primary pre-existing comp
     const aPrim = world.primitives.get(a)!;
     const bPrim = world.primitives.get(b)!;
     const cPrim = world.primitives.get(c)!;
-    // Pre-placement: each prim's prevPos already shifted by prior placements'
-    // P2 impulses. Snapshot baseline before the new placement.
-    const aPrev = aPrim.prevPos.x;
-    const bPrev = bPrim.prevPos.x;
-    const cPrev = cPrim.prevPos.x;
+    const before = [aPrim.prevPos.x, bPrim.prevPos.x, cPrim.prevPos.x];
 
-    const newP = placeAt(world, {
-      sparkRawId: 4,
-      type: SparkType.Dot,
-      pos: { x: 260, y: 200 },
-      targetId: c,
-    });
+    placeAt(world, { sparkRawId: 4, type: SparkType.Dot, pos: { x: 260, y: 200 }, targetId: c });
 
-    // Centroid for THIS placement = (200+220+240+260)/4 = 230.
-    // Outward from centroid:
-    //   a at x=200: dx=-30, unit_outward=(-1,0). delta prevPos = -(-1)*0.8 = +0.8.
-    //   b at x=220: dx=-10, unit_outward=(-1,0). delta prevPos = +0.8.
-    //   c at x=240: dx=+10, unit_outward=(+1,0). delta prevPos = -0.8.
-    expect(aPrim.prevPos.x - aPrev).toBeCloseTo(+STRUCTURE_GROW_IMPULSE, 3);
-    expect(bPrim.prevPos.x - bPrev).toBeCloseTo(+STRUCTURE_GROW_IMPULSE, 3);
-    expect(cPrim.prevPos.x - cPrev).toBeCloseTo(-STRUCTURE_GROW_IMPULSE, 3);
-
-    // New prim itself NOT impulsed (excluded from primaryPreExistingPrims).
-    const newPrim = world.primitives.get(newP)!;
-    expect(newPrim.prevPos.x).toBeCloseTo(newPrim.pos.x, 3);
-    expect(newPrim.prevPos.y).toBeCloseTo(newPrim.pos.y, 3);
+    // Not one of the three moved. Previously: +0.8 / +0.8 / -0.8.
+    expect(aPrim.prevPos.x - before[0]).toBeCloseTo(0, 6);
+    expect(bPrim.prevPos.x - before[1]).toBeCloseTo(0, 6);
+    expect(cPrim.prevPos.x - before[2]).toBeCloseTo(0, 6);
   });
 
-  it('anchor placement (no primary target): no STRUCTURE_GROW impulse — primary structure empty', () => {
-    // Sole anchor placement has no pre-existing structure to grow.
-    // primaryPreExistingPrims is empty; the impulse block is skipped.
+  it('an anchor placement still lands at rest (prevPos === pos)', () => {
     const world = makeWorld(0);
     const a = placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
     const aPrim = world.primitives.get(a)!;
-    // Anchor placement: prevPos == pos (no impulse applied).
-    expect(aPrim.prevPos.x).toBeCloseTo(200, 3);
-    expect(aPrim.prevPos.y).toBeCloseTo(200, 3);
+    expect(aPrim.prevPos.x).toBeCloseTo(200, 6);
+    expect(aPrim.prevPos.y).toBeCloseTo(200, 6);
   });
 
-  it('cinematicsEnabled=false suppresses STRUCTURE_GROW outward impulse (paired with visual gate)', () => {
-    // Both halves disappear together — cleaner mental model for the
-    // C-keybind debug toggle than MERGE_IMPULSE's unconditional pattern.
+  it('the STRUCTURE_GROW VISUAL is KEPT and still gated on cinematicsEnabled', () => {
     const world = makeWorld(0);
     const a = placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
-    const aPrim = world.primitives.get(a)!;
-    expect(aPrim.prevPos.x).toBeCloseTo(200, 1);
 
+    // ON (default) → the flash still emits. Removing the shove must not have removed the effect.
+    let before = world.effects.length;
+    placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 300, y: 200 }, targetId: a });
+    expect(
+      world.effects.slice(before).filter((e) => e.kind === 'STRUCTURE_GROW').length,
+    ).toBe(1);
+
+    // OFF → still suppressed.
     world.cinematicsEnabled = false;
-    // Snapshot effects length before the second placement so we only
-    // check effects emitted under cinematicsEnabled=false (the first
-    // anchor placement above ran with cinematicsEnabled=true default).
-    const effectsBefore = world.effects.length;
-    placeAt(world, {
-      sparkRawId: 2,
-      type: SparkType.Dot,
-      pos: { x: 300, y: 200 },
-      targetId: a,
-    });
-
-    // Anchor's prevPos unchanged — no P2 outward impulse fired.
-    expect(aPrim.prevPos.x).toBeCloseTo(200, 3);
-    // No STRUCTURE_GROW effect emitted FROM THIS PLACEMENT.
-    const newEffects = world.effects.slice(effectsBefore);
-    expect(newEffects.filter((e) => e.kind === 'STRUCTURE_GROW').length).toBe(0);
+    before = world.effects.length;
+    placeAt(world, { sparkRawId: 3, type: SparkType.Dot, pos: { x: 340, y: 200 }, targetId: a });
+    expect(
+      world.effects.slice(before).filter((e) => e.kind === 'STRUCTURE_GROW').length,
+    ).toBe(0);
   });
 
-  it('cand-component prims (in merge sweep) do NOT receive STRUCTURE_GROW outward impulse — only inward MERGE_IMPULSE', () => {
-    // Two single-prim anchors. Bridge with primary into a, merge into b.
-    // a is in primary's pre-existing component → P2 outward impulse.
-    // b is in cand component → P3 inward impulse only, NOT P2 outward.
-    // This is the visual signature split: existing puffs out, absorbed
-    // snaps in.
+  it('⭐ only the OUTWARD half went: MERGE_IMPULSE (inward) still fires on a cross-structure merge', () => {
     const world = makeWorld(0);
     const a = placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 200, y: 200 }, targetId: null });
     const b = placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 300, y: 200 }, targetId: null });
@@ -294,17 +247,12 @@ describe('S13 P2 — STRUCTURE_GROW outward impulse on primary pre-existing comp
       mergeCandidateIds: [a, b],
     });
 
-    // b is in cand component → ONLY P3 inward impulse. Expected shift =
-    // +MERGE_IMPULSE_MAGNITUDE (away from bridge at x=250; impulse axis
-    // is +x → prevPos.x += MAG → velocity points -x, inward toward bridge).
-    // NO P2 outward impulse (b not in primary's pre-existing component).
+    // b is in the CAND component → the INWARD merge impulse is unchanged and must still be there.
     expect(bPrim.prevPos.x - 300).toBeCloseTo(MERGE_IMPULSE_MAGNITUDE, 2);
-
-    // a is in primary's pre-existing component → P2 outward impulse only.
-    // Centroid of primary post-bond {a, bridge} = (200+250)/2 = 225.
-    // a's outward direction: (200-225)/25 = (-1, 0). prevPos.x +=
-    // STRUCTURE_GROW_IMPULSE. Expected: 200 + 0.8 = 200.8.
-    expect(aPrim.prevPos.x).toBeCloseTo(200 + STRUCTURE_GROW_IMPULSE, 3);
+    // a is in the primary's pre-existing component → previously 200.8 from the outward puff, now
+    // exactly at rest. This assertion is the whole point: the two impulses were separate mechanisms
+    // and only the outward one was removed.
+    expect(aPrim.prevPos.x).toBeCloseTo(aPrim.pos.x, 6);
   });
 });
 

@@ -19,6 +19,8 @@ import {
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
 } from '../constants.ts';
+// S138 P2 — a bot's supply is now its own bank + its own porch, never the shared quarry.
+import { bankCount, isOwnPorchSpark } from '../state/castleBank.ts';
 import { isInsideEnemyTerritory } from '../state/territory.ts';
 import { componentOf } from '../game/structure.ts';
 import type { World } from '../state/world.ts';
@@ -48,6 +50,12 @@ export type BotGoal =
   | { readonly kind: 'POTATO_GRAB'; readonly potatoId: PotatoId; readonly pos: Vec2 }
   | { readonly kind: 'SHRINK' }
   | { readonly kind: 'FLEE'; readonly pos: Vec2 }
+  /**
+   * S138 P2 — take one banked shape out onto my own porch via the shipped `PULL_FROM_BANK` client
+   * intent. A castle command, so it needs no travel. `BotGoal` has NO wire surface (grep of save.ts
+   * and net/ finds nothing), so adding a member costs no serialization, hash or protocol change.
+   */
+  | { readonly kind: 'PULL' }
   | { readonly kind: 'REST' };
 
 /**
@@ -145,8 +153,12 @@ export function chooseGoal(
   // throws carry-1 (the controller self-heals that state before thinking,
   // but the brain must never PROPOSE it).
   if (buildReady && me.kind === 'Idle' && me.carriedPotatoId === undefined) {
-    const sparkId = pickTargetSpark(world, me.avatarPos, cfg, rng);
+    const sparkId = pickTargetSpark(world, me.avatarPos, cfg, rng, me.id);
     if (sparkId !== null) return { kind: 'BUILD', sparkId };
+    // S138 P2 — nothing on my porch. If my gatherer has banked anything, pull one out onto the porch
+    // (the shipped PULL_FROM_BANK client intent) and collect it on a later think. This is the whole
+    // of a bot's supply now: gatherer -> bank -> porch -> place. It can no longer touch the quarry.
+    if (bankCount(world.castleBanks, me.id) > 0) return { kind: 'PULL' };
   }
 
   return { kind: 'REST' };
@@ -155,16 +167,31 @@ export function chooseGoal(
 /**
  * Pick the free spark to go collect. Smart bots take the nearest; sloppy
  * bots draw from the nearest few at random (visible indecision).
+ *
+ * ⛔ S138 P2 — SCOPED TO THE BOT'S OWN PORCH. Owner playtest, verbatim: *"the bots in vs bots mode
+ * can still grab primitives with their cruisers (original sparks and not with their gatherers which
+ * is not fair)"*. This used to scan ALL of `world.freeSparks`, i.e. the shared quarry, so a bot ran
+ * two income channels at once: its gatherer hauling into its bank AND its avatar reaching into the
+ * common pile. Now a bot may only collect shapes standing in its OWN porch slots — shapes its own
+ * gatherer hauled and that it then pulled out of its own bank. The quarry is off-limits to a bot.
+ *
+ * ⭐ REPLAY-SAFE BY CONSTRUCTION: this function draws `rng()` exactly ONCE on the sloppy path and
+ * ZERO times on the smart path, regardless of how many candidates there are. Narrowing the candidate
+ * set therefore cannot shift the seeded replay stream — which is the property that made this change
+ * safe to make at all.
  */
 export function pickTargetSpark(
   world: World,
   from: Vec2,
   cfg: BotConfig,
   rng: () => number,
+  seat: PlayerId,
 ): SparkId | null {
+  const seatIndex = seat as unknown as number;
   const free: Array<{ id: SparkId; d: number }> = [];
   for (const s of world.freeSparks.values()) {
     if (s.state.kind !== 'Free') continue;
+    if (!isOwnPorchSpark(seatIndex, s.pos)) continue; // S138 P2 — own porch only, never the quarry
     const dx = s.pos.x - from.x;
     const dy = s.pos.y - from.y;
     free.push({ id: s.id, d: dx * dx + dy * dy });

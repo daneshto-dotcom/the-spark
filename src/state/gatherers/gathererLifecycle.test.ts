@@ -9,9 +9,18 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  CANVAS_HEIGHT,
+  CANVAS_WIDTH,
+  CASTLE_PORCH_SLOTS,
   GATHERER_PRICE,
+  KEEP_H,
+  KEEP_RING_RADIUS,
   KEEP_RING_SEATS,
+  KEEP_W,
   PLAYER_COLORS,
+  SPAWNER_CENTER_X,
+  SPAWNER_CENTER_Y,
+  SPAWNER_RADIUS,
   STARTING_VICTORY_POINTS,
 } from '../../constants.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
@@ -20,6 +29,7 @@ import { asPlayerId } from '../../types.ts';
 import { applyNetSnapshot, netSnapshot, restore, snapshot } from '../save.ts';
 import { hashWorldStateFull } from '../stateHashFull.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
+import { porchSlot } from '../castleBank.ts';
 import { castleAnchor } from './gatherer.ts';
 import { teardownGatherers } from './gathererLifecycle.ts';
 
@@ -252,5 +262,46 @@ describe('V6-1.1 — castleAnchor', () => {
       seen.add(`${Math.round(a.x)},${Math.round(a.y)}`);
     }
     expect(seen.size).toBe(KEEP_RING_SEATS);
+  });
+});
+
+describe('S138 P2 — the keep ring sits at the extremities (owner playtest)', () => {
+  // Owner, verbatim: "the castles should all be first put at the extremities of the map of each
+  // players zone, so that you cant all build at the middle from the start and make a mess of it."
+  // Was SPAWNER_RADIUS + 150 = 275; now KEEP_RING_RADIUS = 420.
+  it('every seat lands exactly on KEEP_RING_RADIUS from the arena centre', () => {
+    for (let seat = 0; seat < KEEP_RING_SEATS; seat++) {
+      const a = castleAnchor(seat);
+      const d = Math.hypot(a.x - SPAWNER_CENTER_X, a.y - SPAWNER_CENTER_Y);
+      expect(d).toBeCloseTo(KEEP_RING_RADIUS, 6);
+    }
+  });
+
+  it('the ring moved OUTWARD from the old 275 and is further from the quarry rim', () => {
+    expect(KEEP_RING_RADIUS).toBeGreaterThan(SPAWNER_RADIUS + 150);
+    // The haul a gatherer must walk each way: quarry rim -> keep. Was 150 px.
+    expect(KEEP_RING_RADIUS - SPAWNER_RADIUS).toBeGreaterThan(2 * 150 * 0.95);
+  });
+
+  it('all 7 keeps (incl. the KEEP box) stay inside the canvas at the new radius', () => {
+    for (let seat = 0; seat < KEEP_RING_SEATS; seat++) {
+      const a = castleAnchor(seat);
+      expect(a.x - KEEP_W / 2).toBeGreaterThanOrEqual(0);
+      expect(a.x + KEEP_W / 2).toBeLessThanOrEqual(CANVAS_WIDTH);
+      expect(a.y - KEEP_H / 2).toBeGreaterThanOrEqual(0);
+      expect(a.y + KEEP_H / 2).toBeLessThanOrEqual(CANVAS_HEIGHT);
+    }
+  });
+
+  it('the porch slots also stay on-canvas (they hang off the keep)', () => {
+    for (let seat = 0; seat < KEEP_RING_SEATS; seat++) {
+      for (let i = 0; i < CASTLE_PORCH_SLOTS; i++) {
+        const p = porchSlot(seat, i);
+        expect(p.x).toBeGreaterThanOrEqual(0);
+        expect(p.x).toBeLessThanOrEqual(CANVAS_WIDTH);
+        expect(p.y).toBeGreaterThanOrEqual(0);
+        expect(p.y).toBeLessThanOrEqual(CANVAS_HEIGHT);
+      }
+    }
   });
 });

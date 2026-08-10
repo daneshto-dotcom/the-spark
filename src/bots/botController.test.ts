@@ -10,7 +10,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { PLAYER_COLORS, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SparkType } from '../constants.ts';
+import { PLAYER_COLORS, SparkType } from '../constants.ts';
+import { bankPush } from '../state/castleBank.ts';
+import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
 import { asPlayerId, asSparkId } from '../types.ts';
 import { BotManager } from './botManager.ts';
@@ -33,22 +35,38 @@ function botsWorld(botCount: number, seed = 0xbeef): World {
   return world;
 }
 
+/**
+ * ⛔ S138 P2 — REWRITTEN. This used to scatter free sparks in a ring around the spawner centre (the
+ * shared quarry), because that was where bots reached in with their avatars. That is precisely the
+ * behaviour the owner reported as unfair, and `pickTargetSpark` no longer sees the quarry at all.
+ *
+ * A bot's supply is now its OWN bank, so the fixture fills each bot seat's bank instead — which also
+ * makes these tests exercise the real new pipeline end to end: bank → `PULL_FROM_BANK` → own porch →
+ * pick up → place. Capped per seat by `CASTLE_BANK_CAP`, so `count` is a request, not a guarantee;
+ * shapes that do not fit are simply not seeded (the same wait-at-cap rule the gatherer obeys).
+ */
 function seedSparks(world: World, count: number): void {
-  // Ring of free sparks around the spawner center (where real spawns live).
+  const botSeats = [...world.players.keys()].filter((id) => (id as unknown as number) !== 0);
+  let made = 0;
   for (let i = 0; i < count; i++) {
-    const a = (i / count) * Math.PI * 2;
-    const x = SPAWNER_CENTER_X + Math.cos(a) * 120;
-    const y = SPAWNER_CENTER_Y + Math.sin(a) * 120;
-    world.freeSparks.set(asSparkId(1000 + i), {
-      id: asSparkId(1000 + i),
+    const seat = botSeats[i % botSeats.length];
+    if (seat === undefined) break;
+    const id = asSparkId(1000 + i);
+    const home = castleAnchor(seat as unknown as number);
+    const spark = {
+      id,
       type: (i % 6) as SparkType,
-      pos: { x, y },
-      prevPos: { x, y },
+      pos: { x: home.x, y: home.y },
+      prevPos: { x: home.x, y: home.y },
       radius: 8,
       createdTick: 0,
-      state: { kind: 'Free' },
-    });
+      state: { kind: 'Free' as const },
+    };
+    if (bankPush(world.castleBanks, seat, spark)) made++;
   }
+  // Guard the fixture's own premise: a silently-empty bank would make every bot REST and the
+  // assertions below would pass vacuously ("NOOB built 0, IMBA built 0").
+  expect(made).toBeGreaterThan(0);
 }
 
 /** Drive N host ticks: bots act, then the tick advances (main.ts order). */

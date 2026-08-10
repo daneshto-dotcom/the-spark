@@ -126,6 +126,30 @@ export function porchSlot(seat: number, i: number): Vec2 {
 }
 
 /**
+ * S138 P2 — PURE: is `pos` sitting in one of `seat`'s own porch slots?
+ *
+ * Exists because of an owner playtest report: *"the bots in vs bots mode can still grab primitives
+ * with their cruisers (original sparks and not with their gatherers which is not fair)"*. A bot used
+ * to run TWO income channels — its gatherer hauling into its bank AND its avatar reaching into the
+ * shared quarry via `PICKUP_SPARK`. This predicate is what narrows a bot's reach to shapes its OWN
+ * gatherer paid for, so the quarry is off-limits to a bot cruiser.
+ *
+ * Uses the same `CASTLE_PORCH_SLOT_CLEAR_RADIUS` tolerance as `firstFreePorchSlot`, so "occupies a
+ * slot" and "is a shape I may collect" are the same question asked from opposite sides — they cannot
+ * drift apart.
+ */
+export function isOwnPorchSpark(seat: number, pos: Vec2): boolean {
+  const r2 = CASTLE_PORCH_SLOT_CLEAR_RADIUS * CASTLE_PORCH_SLOT_CLEAR_RADIUS;
+  for (let i = 0; i < CASTLE_PORCH_SLOTS; i++) {
+    const s = porchSlot(seat, i);
+    const dx = pos.x - s.x;
+    const dy = pos.y - s.y;
+    if (dx * dx + dy * dy <= r2) return true;
+  }
+  return false;
+}
+
+/**
  * PURE — the index of the first porch slot with nothing sitting in it, or null when the porch is
  * full.
  *

@@ -7,7 +7,15 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { PLAYER_COLORS, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SparkType } from '../constants.ts';
+import {
+  CASTLE_BANK_CAP,
+  PLAYER_COLORS,
+  SPAWNER_CENTER_X,
+  SPAWNER_CENTER_Y,
+  SparkType,
+} from '../constants.ts';
+import { bankPush } from '../state/castleBank.ts';
+import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import { makeHunter } from '../state/hunters/hunter.ts';
 import { makeRainbow } from '../state/rainbow.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
@@ -169,27 +177,34 @@ describe('S87 P3 — disruptive/reactive bot behaviors (real pipeline)', () => {
 
   it('smart placement weaves redundancy bonds (denser web than prim chain)', () => {
     const world = botsWorld(0x77);
-    // Seed plenty of sparks so the IMBA bot can build a real web.
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
-      world.freeSparks.set(asSparkId(2000 + i), {
-        id: asSparkId(2000 + i),
-        type: SparkType.Dot,
-        pos: {
-          x: SPAWNER_CENTER_X + Math.cos(a) * 130,
-          y: SPAWNER_CENTER_Y + Math.sin(a) * 130,
-        },
-        prevPos: {
-          x: SPAWNER_CENTER_X + Math.cos(a) * 130,
-          y: SPAWNER_CENTER_Y + Math.sin(a) * 130,
-        },
-        radius: 8,
-        createdTick: 0,
-        state: { kind: 'Free' },
-      });
-    }
+    // ⛔ S138 P2 — was: 16 free sparks in a ring around the spawner centre. A bot can no longer
+    // reach into the shared quarry (owner playtest: grabbing with cruisers "is not fair"), so the
+    // supply now arrives the legitimate way — through the bot's own bank, topped up between chunks
+    // the way a working gatherer would keep hauling. `CASTLE_BANK_CAP` bounds each top-up, which is
+    // why this refills instead of seeding 16 at once.
+    let nextSparkId = 2000;
+    const topUpBank = (): void => {
+      for (let i = 0; i < CASTLE_BANK_CAP; i++) {
+        const home = castleAnchor(BOT as unknown as number);
+        const ok = bankPush(world.castleBanks, BOT, {
+          id: asSparkId(nextSparkId),
+          type: SparkType.Dot,
+          pos: { x: home.x, y: home.y },
+          prevPos: { x: home.x, y: home.y },
+          radius: 8,
+          createdTick: 0,
+          state: { kind: 'Free' as const },
+        });
+        if (!ok) break; // at cap — the gatherer would wait, so do we
+        nextSparkId++;
+      }
+    };
+
     const manager = new BotManager(['IMBA'], 0x77);
-    run(world, manager, 60 * 40);
+    for (let chunk = 0; chunk < 8; chunk++) {
+      topUpBank();
+      run(world, manager, 60 * 5);
+    }
     const prims = [...world.primitives.values()].filter((p) => p.placedBy === BOT);
     expect(prims.length).toBeGreaterThanOrEqual(4);
     // A pure chain has prims-1 bonds; redundancy weaving should exceed that

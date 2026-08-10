@@ -28,7 +28,6 @@ import {
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
-  STRUCTURE_GROW_IMPULSE,
   type StiffnessTier,
 } from '../constants.ts';
 import { CarryViolation, drop as fsmDrop, tickBuildAction } from '../game/player.ts';
@@ -524,38 +523,21 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
       maxHop: hopMap.maxHop,
     });
 
-    if (primaryPreExistingPrims.length > 0) {
-      // Centroid of primary's full post-bond component (pre-existing prims
-      // + new prim). Including the new prim in the centroid makes a
-      // 2-prim structure (single anchor + new prim) produce a non-zero
-      // outward direction for the anchor — otherwise centroid=anchor.pos
-      // and the anchor gets no impulse.
-      let cx = prim.pos.x;
-      let cy = prim.pos.y;
-      for (const id of primaryPreExistingPrims) {
-        const p = world.primitives.get(id);
-        if (p === undefined) continue;
-        cx += p.pos.x;
-        cy += p.pos.y;
-      }
-      const n = primaryPreExistingPrims.length + 1;
-      cx /= n;
-      cy /= n;
-
-      for (const id of primaryPreExistingPrims) {
-        const p = world.primitives.get(id);
-        if (p === undefined) continue;
-        const dx = p.pos.x - cx;
-        const dy = p.pos.y - cy;
-        const dmag = Math.hypot(dx, dy);
-        if (dmag < 1) continue; // co-located with centroid → NaN-safe skip
-        const inv = STRUCTURE_GROW_IMPULSE / dmag;
-        // prevPos -= unit_outward × MAG → velocity = pos - prevPos =
-        // +unit_outward × MAG → primitive accelerates AWAY from centroid.
-        p.prevPos.x -= dx * inv;
-        p.prevPos.y -= dy * inv;
-      }
-    }
+    // ⛔ S138 P2 — THE OUTWARD PUFF IS DELETED (owner playtest, verbatim: "each primitive pushes
+    // another primitive away as anti-magnetism. get rid of it").
+    //
+    // What used to live here: a per-primitive verlet impulse (`STRUCTURE_GROW_IMPULSE`, S13 P2) that
+    // shoved every primitive in the primary's pre-existing component OUTWARD from the component's
+    // local centroid on every placement, by writing `p.prevPos -= unit_outward × MAG`. Because
+    // placed primitives are held ONLY by `solveBonds` distance constraints (they are not
+    // free-integrated — see anchorStabilize.ts:9-11), that impulse read to the player as the shapes
+    // repelling one another. It was authored as a cosmetic "structure grows" puff; it was in fact a
+    // real, unconditional physics perturbation of already-placed geometry.
+    //
+    // The VISUAL half is deliberately kept — the `STRUCTURE_GROW` effect above still emits, so the
+    // hop-by-hop flash still plays. Only the shove is gone. `MERGE_IMPULSE` (S10 P3) is the OPPOSITE
+    // sign (INWARD, cross-structure merges only) and is intentionally left alone; if the owner wants
+    // absorbed components to stop snapping in too, that is the constant to revisit.
   }
 
   // S18 P1 — audio: emit ONE BOND_FORMED per placement if any bonds formed.

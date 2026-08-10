@@ -181,6 +181,17 @@ export class BotController {
       case 'BUILD':
         this.state = { kind: 'TO_SPARK', sparkId: goal.sparkId, since: t };
         return;
+      case 'PULL':
+        // S138 P2 — a CASTLE command, not an errand: no travel, dispatched immediately, exactly as a
+        // human clicking a filled bank slot in the castle panel. Index 0 is the oldest banked shape
+        // (bankTake splices, so 0 is always valid whenever bankCount > 0 — the brain checked that).
+        // The host re-validates ownership and porch occupancy; a refused pull loses nothing (the
+        // shape STAYS BANKED), so there is no failure state to model here.
+        send({ type: 'PULL_FROM_BANK', playerId: this.seat, index: 0 });
+        // Stay IDLE: the pulled shape lands on the porch this tick and the NEXT think picks it up
+        // through pickTargetSpark, which now only sees this seat's porch.
+        this.state = { kind: 'IDLE' };
+        return;
       case 'SEVER':
         this.state = { kind: 'ERRAND', verb: 'SEVER', targetPos: goal.pos, refId: goal.bondId as number, since: t };
         return;
