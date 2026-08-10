@@ -20,7 +20,14 @@
  */
 
 import { Application, Container, Graphics } from 'pixi.js';
-import { CASTLE_BANK_CAP, KEEP_H, KEEP_W, PLAYER_COLORS, SparkType } from '../constants.ts';
+import {
+  CASTLE_BANK_CAP,
+  KEEP_H,
+  KEEP_W,
+  PLAYER_COLORS,
+  RAINBOW_FLYOVER_DURATION_TICKS,
+  SparkType,
+} from '../constants.ts';
 import { bankOf } from '../state/castleBank.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import { drawSparkGlyph } from './sparkGlyph.ts';
@@ -42,6 +49,44 @@ const KEEP_BATTLEMENT_H = 10;
 export function gathererMorphShape(tick: number, id: GathererId): SparkType {
   const phase = Math.floor(tick / MORPH_TICKS) + (id as unknown as number);
   return (((phase % 6) + 6) % 6) as SparkType;
+}
+
+/**
+ * S136 P3 — THE RAINBOW MAKES THE CASTLE PARTY TOO (owner playtest item 6: "when there is the
+ * rainbow it should change the castle color too!").
+ *
+ * ⚠ FINDING FIRST, so nobody re-fixes this later: the castle's HUE ALREADY FOLLOWED THE RAINBOW
+ * before this change. `applyTriggerRainbow` remaps `player.color` through a derangement, and `sync`
+ * tints the keep from the LIVE player value (the S135 audit made sure of that) — so the box genuinely
+ * changed colour on every switch. What was MISSING is that the castle never PARTICIPATED in the
+ * celebration: the flyover, the background wash and the yell all fired while the keep just quietly
+ * became a different flat colour, which is easy to miss entirely.
+ *
+ * So this adds the celebration, not the recolour: for the flyover window the keep cycles the palette
+ * and then settles on its new colour.
+ *
+ * ⚠ THE PER-SEAT OFFSET IS LOAD-BEARING, not decoration. Without it every keep on the board shows the
+ * SAME hue on the same tick, so for four seconds you cannot tell your castle from an enemy's — the
+ * exact ownership-legibility failure the S135 audit fixed in this file's `sync`. Offsetting by seat
+ * keeps all seats distinct at every instant while still reading as a rainbow.
+ *
+ * PURE, and exported for tests: keyed only off (tick, switchTick, seat) — the shipped
+ * rainbowFlyoverRenderer pattern. No RNG, no wall-clock, identical on host and on a 10 Hz client,
+ * and never world state, so it costs nothing on the wire and cannot desync. Extracted rather than
+ * left inline because a draw path cannot be driven in vitest (the S130 lesson).
+ */
+export function keepRainbowTint(
+  tick: number,
+  switchTick: number | undefined,
+  seat: number,
+  ownColor: number,
+): number {
+  if (switchTick === undefined) return ownColor;
+  const age = tick - switchTick;
+  if (age < 0 || age >= RAINBOW_FLYOVER_DURATION_TICKS) return ownColor;
+  // ~6 palette steps/second: fast enough to read as "rainbow", slow enough not to strobe.
+  const step = Math.floor(age / 10) + seat;
+  return PLAYER_COLORS[((step % PLAYER_COLORS.length) + PLAYER_COLORS.length) % PLAYER_COLORS.length]!;
 }
 
 const seatColor = (seat: number): number => PLAYER_COLORS[seat % PLAYER_COLORS.length]!;
@@ -66,12 +111,21 @@ export class GathererRenderer {
     // property. Every other ownership surface (avatarRenderer) reads the live value for exactly
     // this reason. Caught by the S135 end-of-session audit.
     for (const [seat, player] of world.players) {
-      this.drawKeep(g, seat as unknown as number, player.color);
+      // S136 P3 — during the rainbow window the keep cycles the palette instead of showing its flat
+      // colour, so the castle joins the celebration (owner item 6). Its hue already followed the
+      // derangement; see keepTint for why that was not enough.
+      const keepColor = keepRainbowTint(
+        world.tick,
+        world.rainbowSwitchTick,
+        seat as unknown as number,
+        player.color,
+      );
+      this.drawKeep(g, seat as unknown as number, keepColor);
       // S136 P1 — the shapes HELD INSIDE this castle, drawn in its doorway. Owner item 4 asked for
       // storage to live in the castle rather than on the ground beside it; without a mark on the
       // keep itself, "stored" would be invisible until the panel is opened, and a full bank (which
       // stalls your haulers) has to be readable at a glance from the board.
-      this.drawStoredShapes(g, seat as unknown as number, player.color, bankOf(world.castleBanks, seat));
+      this.drawStoredShapes(g, seat as unknown as number, keepColor, bankOf(world.castleBanks, seat));
     }
     for (const gatherer of world.gatherers.values()) {
       const owner = world.players.get(gatherer.ownerPlayerId);
