@@ -4,12 +4,24 @@
 # path-wide ignore here: a broad entry would silently suppress a real credential in the
 # same file forever, which is strictly worse than re-triaging a false positive.
 #
-# S134 — `generic-api-key` fires on the literal pattern `"key": "<high-entropy string>"`.
-# MCV verification bindings in .claude/session-state.json use a property named `key` whose
-# value is a dotted state path, e.g. `"key": "owner_rulings_s134.B4b_bank_slots"`. That
-# scores 4.11 entropy and trips the rule. It is a JSON pointer to a bank-slot count, not a
-# secret. Verified by reading the flagged line at the flagged commit before allowlisting.
+# S134 — `generic-api-key` fires when a JSON property named `key` carries a high-entropy
+# value. MCV verification bindings in .claude/session-state.json do exactly that: the value is
+# a dotted state path (an owner-rulings section name, then a dotted field name). It scores
+# ~4.11 entropy and trips the rule. It is a JSON pointer to a bank-slot count, not a secret.
+# Verified by reading the flagged line at the flagged commit before allowlisting.
+#
+# ⚠ S138 — DO NOT WRITE THAT PATTERN OUT LITERALLY IN THIS FILE. The original version of the
+# comment above quoted a full worked example in quoted-JSON form, which made THIS ALLOWLIST
+# FILE trip the very rule it exists to document — a fresh `generic-api-key` hit on line 9 of
+# .gitleaksignore itself, self-referential and permanent. Describe the shape in prose instead.
+# (Same trap as an MCV `file_lacks` needle matching the comment that explains the removal:
+# documenting a pattern reproduces it.)
 #
 # ⚠ Every future `json_field` MCV binding will trip this the same way. Triage each one by
 # actually reading the line — do NOT assume a new hit is this same pattern.
 438ad4258977433ad98f0f6e2665d69b6ffaf510:.claude/session-state.json:generic-api-key:130
+# S138 — the self-referential hit described above, pinned at the commit that still carries the
+# old worked-example comment. The WORKING TREE is clean (the example is now prose), but git
+# history is immutable, so the historical blob needs a fingerprint. Verified before allowlisting:
+# the flagged value is a dotted session-state path, not a credential.
+d902571d9ec140cbd5198783475ffb60e9bae2e5:.gitleaksignore:generic-api-key:9

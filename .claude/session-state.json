@@ -1,11 +1,11 @@
 {
-  "tool_calls_session_total": 6,
+  "tool_calls_session_total": 24,
   "session_id": "S138",
   "session_kind": "batch",
   "session_start": "2026-08-10",
   "prior_session_note": "S137 closed GREEN 32/0; build space + starter designs fully designed and owner-ruled but NOT implemented.",
   "prior_session_archive": ".handoff-archive/HANDOFF_S137.md",
-  "phase": "CHECK",
+  "phase": "ANALYZE",
   "tier": "Full",
   "council_rounds": 1,
   "council_seats": [
@@ -320,5 +320,26 @@
   "real_context_pct_at_close": 45.07,
   "checkpoint_commit": "cc4e382",
   "deploy_verified_s138": "PASS 4/4 - live entry index-vSzv8e82.js == local build; CI conclusion=success (checked explicitly, not inferred from absence-of-failure)",
-  "protocol_version": 17
+  "protocol_version": 17,
+  "analyze_completed": true,
+  "gitleaks_status": "CLEAN — history (907 commits) and working tree both report \"no leaks found\". One finding was triaged during the close chain: generic-api-key on .gitleaksignore:9 itself, from commit d902571d (S134, pre-dating this session). SELF-REFERENTIAL FALSE POSITIVE — the allowlist's own comment quoted a full worked example of the \"key\": \"<high-entropy>\" pattern it exists to document, so the file tripped its own rule. Fixed the live comment to describe the shape in prose (working tree now clean) and pinned a fingerprint for the immutable historical blob. The flagged value is a dotted session-state path, not a credential — verified by reading it.",
+  "analyze": {
+    "calibration": [
+      "BUMP PREDICTION WRONG, TWICE OVER, AND BOTH TIMES USEFULLY. The PDR asserted P1 needed PROTOCOL_VERSION 16->17. Verification refuted that: Primitive.hp is additive-optional emitted only when damaged, nothing damages primitives yet, no renderer reads .hp, and the narrow prod hash projects primitives as p{id}:{x},{y} only — so the wire was byte-identical and the bump was theatre. I reported the reduction instead of performing it. Then P2's keep-ring move DID force 16->17 for a completely different reason (a shared constant both peers compute from, which is not a schema change at all). Net: the bump shipped, for the right reason, and the owner's 'two bumps' ruling is now achievable — starters + build space can share the next one, instead of the three I warned them about.",
+      "COUNCIL YIELD WAS LOW BUT NOT ZERO, AND THE DISTRIBUTION MATTERS. Of ~8 challenges across two seats, 4 were technically specific and ALL 4 were empirically false; the one adopted finding (there is no shared raze path — two ad-hoc primitives.delete sites duplicating a 4-step contract) corrected my own draft and materially de-risked the change. So the honest scoring is 1 material hit, 4 refuted criticals, 3 carry-forwards. That is the tenth recorded firing of #empirical-refutes-plausible-criticals — the pattern is now stable enough that the default posture on any reviewer critical should be 'grep it first', not 'triage it'.",
+      "MY SCOPE ESTIMATE FOR ITEM 3 WAS TOO HIGH, THE SAME DIRECTION AS S137's ORDER-OF-MAGNITUDE MISS. I flagged 'bots use gatherers' as potentially V6-1.7-scale (BACKLOG estimates ~130 lines of botBrain + ~130 of botController). Actual production change: roughly 40 lines — one pure predicate (isOwnPorchSpark), one candidate filter, one BotGoal member, one dispatch case. It was cheap because PULL_FROM_BANK, the bank, and per-seat gatherers had ALREADY shipped, and because pickTargetSpark draws rng() exactly once so filtering was replay-free. Same lesson as S137: when the codebase already contains most of the machinery, cost is a COUNT, not a guess — and A.0 is what converts one into the other.",
+      "THE THREE OWNER ITEMS WERE NOT EQUALLY WELL-DIAGNOSED BY THE OWNER, AND THAT IS THE POINT OF A.0. Item 1 mapped cleanly to an already-ruled design item (R4). Item 3 was exactly right — bots really did have two income channels. Item 2's MECHANISM was wrong (it was never collision; placed primitives are not free-integrated at all) while the SYMPTOM was completely real. Taking the report seriously while re-deriving the cause is what found STRUCTURE_GROW_IMPULSE — a five-year-old cosmetic 'puff' that was in fact unconditional physics on settled geometry."
+    ],
+    "retrospective": [
+      "BRIEF EXTERNAL REVIEWERS WITH CONSUMERS, NOT JUST MECHANISMS. Saying 'structuralSignature is size-only' was true and produced a confident, unanimous, wrong verdict because I omitted '...and the differential rig compares hashWorldStateFull instead'. Next Council prompt: for every mechanism cited, name who actually calls it.",
+      "WHEN CHANGING A CONSTANT, GREP FOR ITS TRANSCRIPTIONS IN THE SAME COMMIT. The keep-ring move broke 4 e2e tests via a hand-copied 'CANVAS_WIDTH / 2 - (125 + 150)'. helpers.ts had already learned this in S137 and installed the __SPARK__.keepCenter getter — but only one file adopted it. A constant change is a search-and-adopt task, not an edit.",
+      "NEVER WRITE A LITERAL EXAMPLE OF A PATTERN INSIDE THE FILE THAT SUPPRESSES THAT PATTERN. This session hit the same shape THREE times: two MCV file_lacks needles matched the comments explaining the removals, and .gitleaksignore tripped its own rule by quoting a worked example. Documenting a pattern reproduces it. Assert on the CODE form; describe suppressed patterns in prose.",
+      "THE STRONGEST TEST THIS SESSION IS THE ONE THAT PINS A REFUTATION. damage.test.ts asserts that a NON-LETHAL 10-hp divergence changes hashWorldStateFull while every collection size stays identical. That encodes the Council's claim, the evidence against it, and a guard against anyone dropping hp from the wide projection later. Refutations are worth pinning, not just reporting."
+    ],
+    "process_deviations": [
+      "Both external CHECK reviewers TIMED OUT (120s) on the first, long raw-diff prompts. Grok succeeded on a retry with a tightened prompt; Gemini did not. So CHECK ran as CLAUDE + GROK-ANALYST, i.e. a 2-way rather than the Full-tier Triumvirate — stated as a deviation, not presented as compliance. Every Grok finding was re-verified on disk regardless (all 4 non-defects/non-regressions). PLAN's Council was a full 3-way.",
+      "P2 was an in-session SCOPE AMENDMENT (Rule 16) from an owner playtest, taken ahead of the CHECK/ANALYZE/handoff chain on the owner's explicit instruction to fix the three items first.",
+      "The gitleaks finding was pre-existing (S134) rather than introduced here, but it was fixed in this session's close chain rather than logged as a carry-forward, because the fix was two lines and leaving a security gate red is not a deferrable state."
+    ]
+  }
 }
