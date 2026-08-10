@@ -1,101 +1,67 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-08-10 | Session: S136 | Commit: a08c4e3 | Branch: master
+Generated: 2026-08-10 | Session: S137 | Commit: 37f90a6 | Branch: master
 
-**S136 shipped 4 of 6 and the v0.6 economy loop now works END TO END.** The owner playtested the
-S135 haul build mid-session, reported six items, and approved a full autonomous batch. The
-automation controls moved off the permanent footer into a panel that opens when you click your
-castle; hauled shapes are now stored INSIDE the castle (which structurally deleted the stacking and
-fling bugs rather than patching them); the spark faucet is 6× and the soft cap was re-derived from
-measurement; and the rainbow now makes the castle party. Everything pushed, deploy verified 4/4.
+**S137 shipped 3 of 4 and the GATING LANE IS GREEN for the first time in two sessions (29/2 -> 32/0).**
+Both S136 failures were fixed at the ROOT, neither quarantined. The owner's two pending playtest
+questions are both answered - the rainbow castle party with screenshots, the bank bottleneck with
+measurements. P1 was deliberately NOT implemented on a verified protocol blocker; its design shipped.
 
-## ⛔ FIRST: THE GATING E2E LANE IS 2 RED (was 5; I fixed 3)
-The lane was passing **by luck** and the x6 faucet removed it: since V6-1.2 an un-escrowed spark
-inside the spawn disc is NOT player-pickable, but the drag helpers still picked any Free spark near
-centre (the pre-V6-1.2 rule). It only worked because at the old rate the ~2-spark pool was usually
-the escrowed one. I re-based `e2e/helpers.ts` onto the real loop (`isPorchSpark`, `pullFromBank`,
-state-aware panel open, bounded 4x8s retry) -> **5 failed/26 passed becomes 2 failed/29 passed**.
-Key finding: **pickable != draggable** — an in-flight haul passes the pickup gate but
-`applyGathererTick` re-pins its position every tick, so only a CASTLE-PORCH shape can be dragged.
-Still red, both diagnosed, NEITHER masked as @quarantine-flaky:
-- `fog.spec.ts:104` asserts aboveFogLayer has 13 children; it is STABLY 14. Its own comment says to
-  bump deliberately with the renderer list — I did NOT, because I could not attribute the 14th child
-  and an unexplained number defeats the contract. Dump the child names first; prime suspect is
-  S135's `GathererRenderer(app, aboveFogLayer)`, which would mean the contract went stale in S135.
-- `hunter.spec.ts:67` -> "castle panel did not open": the player looks input-locked (that spec's
-  subject IS the hunter benching them) during a build that now needs several pull cycles.
+Deploy verified 4/4 live (index-D7oQlyv1.js). git 0 ahead / 0 behind. Context at close 33.0% GREEN.
 
-## Next Steps
-1. **PLAYTEST — two specific judgements are wanted.** (a) The bottleneck MOVED by design: the ×6
-   faucet drove gatherer idling from chronic to 1.2%, but with one gatherer and nobody spending the
-   5-slot bank fills in ~10 s and the hauler then sits WAITING (247 of 338 samples). That is the
-   B4b pressure working — amber double-ring = stalled — but bank capacity, not spark supply, now
-   gates throughput. (b) The rainbow castle party is UNVERIFIED VISUALLY (the harness cannot trigger
-   a real rainbow pickup); logic is pinned by pure tests, the look is not.
-2. **P2 — the in-bubble build space** (owner item 5's ambitious half): prebuild a structure inside
-   the castle popup's own space, then pull the whole assembly out. The one-by-one pull already
-   shipped, so this is purely additive. Largest remaining owner item; take it first.
-3. **Bank tuning informed by (1a)** — is cap 5 right now that it is the binding constraint? ⭐ NEVER
-   tune the cap apart from the recipe-size table; both live together at `CASTLE_BANK_CAP` in
-   constants.ts, and the table now carries the NONET-9 row every prior copy omitted.
-4. **P5 — sim-worker default-on flip.** Unblocked but deliberately not started unattended. Verified:
-   6 `?worker=1` literals across **4** files (the BACKLOG says 5 — wrong), `probeHarness.ts:340`
-   refuses to arm when the flag is set so it becomes refuse-by-default after a flip, and 6
-   non-worker-only main-thread paths become dead or universal.
-5. **B5 / match length** — still UNRULED, owned by V6-4.3. The ×6 faucet SHORTENS matches and this
-   session deliberately did not compensate; PHASE_1_WIN_SCORE and
-   SCORE_INCOME_PER_COMPLEXITY_PER_SEC are untouched and no slot owns them.
+## What shipped
+- **P0 (2a3cd55)** - fog contract is now an ordered constructor-name ROLL CALL, not a count; the 14th
+  child is gathererRenderer (main.ts:506, went stale in S135). hunter.spec's premise was stale:
+  STARTING_VICTORY_POINTS=100 made scoreProgress 100 from tick 0, so a forced trigger of 1 spawned the
+  hunter ~90s early, benched the player, and controls.ts:345 swallowed the keep click. Seam -> 200.
+  Found by INSTRUMENTING the throw with all three isInputLocked clauses, not by reasoning.
+- **P2 (5eac4e4)** - rainbow castle party VISUALLY verified from real composited pixels, and the
+  images were actually looked at: resting crimson -> magenta -> orange with the wash in step.
+- **P3 (98c2b72)** - bank measured, NOTHING tuned. Cap does not reduce stall (88.7/94.1/90.8% at
+  5/6/8); output over a run == the cap. The constraint is CONSUMPTION, not capacity.
+- **P1 (37f90a6)** - DESIGNED only: CASTLE_BUILD_SPACE_DESIGN.md.
 
-## Blockers
-None. Nothing waits on the owner except the two playtest judgements in step 1.
+## THE BLOCKER on P1 (verified, not caution)
+PULL_STRUCTURE_FROM_BANK is a new CLIENT INTENT. protocol.ts:101-106 records that V6-1.1 bumped
+PROTOCOL_VERSION 15->16 for exactly one new intent because stale peers are HARD-REJECTED AT HELLO.
+This forces 16->17 and breaks multiplayer against every deployed client until both sides reload.
+Take it at the START of a session, with a deploy + 2-peer check in the same session.
+
+## NEW PRODUCT FINDING - verified, NOT fixed (B5, owner-unruled)
+scoreProgress INCLUDES the 100-point opening balance, and both WIN (gameState.ts:62, 1500) and
+HUNTER (hostTick.ts:498, 1125) gate on it. So a match ends after 1,400 EARNED points and the hunter
+fires at 1,025 earned. Phase 1 is silently ~6.7% shorter than every comment claims.
+
+## Next steps
+1. P1 - answer CASTLE_BUILD_SPACE_DESIGN.md section 8 (4 questions), then implement FIRST in session.
+2. B5 match length - now has real input (the 6.7% discount + the x6 faucet). Owner-unruled.
+3. Bank cap ruling - BANK_CAP_MEASUREMENT_S137.md; decide together with P1 section 8.3.
+4. Sim-worker flip - 6 literals / 4 files (BACKLOG corrected); probeHarness.ts:339-345 becomes
+   refuse-by-default after the flip.
+5. H3 - does periodic consumption remove the stall? Needs a dispatch seam __SPARK__ lacks.
+
+## Traps from S137
+- **An under-powered window reads as a null result.** The bank measurement at 22s reported
+  "0.0% WAITING at every cap" = "no bottleneck". False. The bank did not saturate until 20.2s. At 60s
+  it is 88.7-94.1%. A window shorter than the phenomenon returns a CONFIDENT FALSE NEGATIVE.
+- **A passing visual test that produced no image.** testInfo.attach lives in the HTML report bundle
+  and is DISCARDED under --reporter=list on a passing test. Green does not mean the artifact exists.
+- **Instrument before you infer.** The hunter root cause was settled in ONE run by making the throw
+  print all three isInputLocked clauses. ~30 lines replaced an open-ended hunt.
+- **A count is a contract without a name.** If a test pins a NUMBER that stands for a LIST, pin the list.
+- **Do not parse TypeScript with a regex.** A comma-split of PLAYER_COLORS returned 9 (comment commas);
+  it is 7. Nearly shipped a confident, wrong "helpers.ts geometry is broken".
+- **page.screenshot clip is CSS pixels**, not canvas coords - the canvas is letterboxed and scaled.
+- **Do NOT launch large agent fleets on this account** - a 6-agent fleet died on the spend cap after
+  ~454K tokens with zero output, the same failure that killed two S136 fleets.
+
+## Process deviations
+- Rule 17 Council ran 2-WAY: gemini-3.1-pro-preview returned HTTP 429, prepayment credits depleted.
+  Gemini billing needs topping up before the next Council-tier session.
+- Priority order changed: P2/P3 ahead of P1 (cheap + directly serving the imminent playtest).
 
 ## Open items carried
-- ⚠ `e2e-quarantine` lane RED **and already red before this session** — the known
-  `@quarantine-flaky` host-migration D3 test (`hostmigration.spec.ts:34`), non-gating by design.
-- No 2-peer/joiner run of the castle bank (it rides the wire but was never exercised across a real
-  transport); no host-migration round-trip test.
-- From S135, untouched: deposit-slot column overflow, `SCORE_TIER` corner-bloom replay,
-  carried-potato `onUp` pointer capture, `origin/gh-pages` deletion (OWNER-GATED).
-
-## Pending Backlog
-- [ ] P2 / V6-1.3 remainder: in-bubble prebuild + pull-the-whole-structure
-- [ ] Sim-worker default-on flip (unblocked; risk surface enumerated above)
-- [ ] V6-1.4 ordered build queue + full footer controls
-- [ ] V6-1.2 remainder: full castle ENTITY + spawner shrink R9/R10 + cadence
-- [ ] B5 match length (unruled, V6-4.3)
-- [ ] Two-tab boot-then-smoke for host migration
-
-## Traps that bit this session
-- **Never reproduce a bug under `?debug=1`.** Its DOM overlay (fixed, z-index 1001, 425×972) covers
-  the right-hand column including the old footer controls, so `elementFromPoint` returns its `<pre>`
-  and the canvas never sees pointerdown. Every e2e spec boots `?debug=1`, so the harness could not
-  have caught a control regression — and it gave me a FALSE "reproduced" on the owner's report.
-  Reproduce in the configuration the PLAYER ran. (Fixed: body is now pointer-events:none.)
-- **Runtime finds what unit tests structurally cannot.** 18 unit tests + an 8/8 mutation matrix all
-  passed on a PULL that was broken: clearing `escrow` let `enforceSpawnerBounds` rim-snap the shape
-  off the porch back into the quarry (194 px teleport — a worse fling than the one being fixed). NO
-  TEST IN THE SUITE RUNS THE PHYSICS LOOP. If a change places an entity at a position, the
-  acceptance test must run real physics for several frames and assert it is still there.
-- **Look at the render.** 28/28 runtime assertions passed while a disabled label visibly overflowed
-  its box. State assertions cannot see layout.
-- **A comment claiming "covers every site" needs a grep first.** Five sites clear `world.gatherers`;
-  three do it inline. Caught only because the test dispatched the real `RETURN_TO_TITLE` instead of
-  calling the helper.
-- **When a deletion breaks nothing, that IS the finding** — removing an exported fn + a whole render
-  method left the suite at exactly 2069/2069: the measurement of zero coverage.
-- **A surviving mutation may be a redundant line, not a weak test** (`Math.floor` on an
-  integer-priced comparison cannot change the verdict).
-- **CRLF vs LF differs PER FILE** (`save.ts` CRLF, most others LF) — bit an edit script again.
-
-## Process deviations (S136)
-- Rule 17's 3-way Council was NOT run: two A.0 subagent fleets died on a spend cap after ~1.7 M
-  tokens returning zero output. Budget redirected into direct empirical A.0 (recorded in
-  session-state `a0_state_discovery`) + a written per-priority audit. Stated, not presented as
-  compliance.
-- Priority order changed mid-session (P4/P3 taken ahead of P2 at YELLOW context); carry-forward
-  reasons recorded in session-state.
-
-## Recent Reflexion (last 2 sessions)
-See `.claude/reflexion_log.md` — the S136 block (9 entries: false-repro-from-harness-flag,
-look-at-the-render, zero-coverage-is-a-finding, runtime-finds-what-units-cannot,
-comments-claiming-completeness-need-a-grep, delete-the-surface-not-the-symptom, measure-then-set,
-fixing-a-bottleneck-moves-it, verify-the-bug-exists-before-fixing-it) sits above the S135 block.
+- e2e-quarantine lane red (known @quarantine-flaky host-migration D3), non-gating by design.
+- No 2-peer/joiner exercise of the castle bank; no host-migration round-trip for it.
+- S135 untouched: SCORE_TIER corner-bloom replay, carried-potato onUp pointer capture, deposit-slot
+  column overflow.
+- origin/gh-pages deletion - OWNER-GATED.

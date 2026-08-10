@@ -1,11 +1,11 @@
 {
-  "tool_calls_session_total": 71,
+  "tool_calls_session_total": 80,
   "session_id": "S137",
   "session_kind": "batch",
   "session_start": "2026-08-10",
   "prior_session_note": "S136 closed; 2 red gating e2e handed off diagnosed-but-unfixed.",
   "prior_session_archive": ".handoff-archive/HANDOFF_S136.md",
-  "phase": "DO",
+  "phase": "CLOSE",
   "tier": "Full",
   "council_rounds": 1,
   "council_seats": [
@@ -14,7 +14,7 @@
   ],
   "council_deviation": "GEMINI-AUDITOR unavailable: gemini-3.1-pro-preview HTTP 429 prepayment credits depleted. Ran as protocol-sanctioned 2-way fallback.",
   "plan_file": ".claude/plans/2026-08-10_PDR_S137_batch.md",
-  "session_status": "in_progress",
+  "session_status": "completed",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -36,7 +36,9 @@
     "Sim-worker default-on flip: 6 ?worker=1 literals / 4 files; probeHarness refuse-by-default after flip. Deferred: owner would playtest a freshly-changed authoritative execution model.",
     "BACKLOG.md:411 says \"5 files hard-code the flag\" - wrong, it is 4 files / 6 literals.",
     "S135 untouched: SCORE_TIER corner-bloom replay; carried-potato onUp pointer capture; deposit-slot column overflow.",
-    "No 2-peer/joiner exercise of the castle bank; no host-migration round-trip for it."
+    "No 2-peer/joiner exercise of the castle bank; no host-migration round-trip for it.",
+    "P1 in-bubble build space: DESIGNED (CASTLE_BUILD_SPACE_DESIGN.md), blocked on a PROTOCOL_VERSION 16->17 bump that hard-rejects deployed peers at HELLO. Take it at the START of a session with a deploy + 2-peer check in the same session. 4 open owner questions in section 8.",
+    "H3 from the bank measurement NOT measured: whether periodic consumption removes the hauler stall at every cap. Needs a dispatch seam __SPARK__ does not expose."
   ],
   "priorities": [
     {
@@ -74,11 +76,24 @@
     {
       "id": "P1-in-bubble-build-space",
       "title": "V6-1.3 P2: prebuild a structure inside the castle popup and pull the whole assembly out",
-      "status": "pending",
+      "status": "carried_forward",
       "notes": "Render-local arrangement (zero new World fields). One host-validated reducer action. MUST have a real-physics acceptance test (S136 lesson R3).",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "37f90a6",
+      "check_method": "Scoped empirically, then DELIBERATELY NOT IMPLEMENTED on a verified blocking fact rather than on caution. PULL_STRUCTURE_FROM_BANK is a new CLIENT INTENT; protocol.ts:101-106 records that V6-1.1 bumped PROTOCOL_VERSION 15->16 for exactly one new intent (BUY_GATHERER) because a stale peer is HARD-REJECTED AT HELLO, and protocol.ts:476-478 shows the same for PLACE_FROM_FREE (2->3). So this feature forces 16->17 and breaks multiplayer against every already-deployed client until both sides reload -- a lockstep-deploy change, made unattended, hours before the owner playtests a LIVE game. Same risk class as the worker flip this session already deferred, and it could break the very playtest it was meant to serve. Shipped CASTLE_BUILD_SPACE_DESIGN.md instead, fully cited: render-local staging (zero new serialized/hashed/wired state), the host-validation contract, bonding reuse via AUTO_BOND_RADIUS=60, required tests, and 4 open owner questions. Two traps recorded: bankTake splices so every removal shifts later indices (taking [0,1,2] naively yields shapes 0,2,4), and the escrow/enforceSpawnerBounds rim-snap that cost S136 a 194px teleport and that no unit test can catch.",
+      "verification": [
+        {
+          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/CASTLE_BUILD_SPACE_DESIGN.md",
+          "assertion": "design doc exists with the PROTOCOL_VERSION 16->17 blocker in section 3, host-validation contract in section 5, and 4 open owner questions in section 8"
+        },
+        {
+          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "assertion": "line 411 corrected from \"5 files hard-code the flag\" to \"6 literals across 4 files\" with worker-heap.spec.ts:468 added and the probeHarness refuse-by-default finding appended"
+        }
+      ]
     },
     {
       "id": "P2-rainbow-castle-visual",
@@ -155,5 +170,16 @@
     "budget_remaining": 1000000
   },
   "budget_total": 1000000,
-  "e2e_gating_status": "GREEN 31/0 (was 29/2)"
+  "e2e_gating_status": "GREEN 32/0 (was 29/2 at boot)",
+  "closed": true,
+  "real_context_tokens_at_close": 329686,
+  "real_context_pct_at_close": 32.97,
+  "checkpoint_commit": "37f90a6",
+  "deploy_verified_s137": "PASS 4/4 — live entry index-D7oQlyv1.js == local build",
+  "deviations": [
+    "Rule 17 Council ran 2-WAY, not 3-way: gemini-3.1-pro-preview returned HTTP 429 (prepayment credits depleted). Protocol-sanctioned fallback (Gemini err -> 2-way). Stated, not presented as compliance.",
+    "A 6-agent A.0 discovery fleet died on the individual spend cap after ~454K subagent tokens with zero output — the SAME failure mode that killed S136 two fleets. Redirected to direct empirical discovery, which is what actually produced every finding this session. Do not launch large fleets on this account.",
+    "Priority order changed: P2 and P3 were taken ahead of P1. Reason: both are cheap and directly serve the imminent owner playtest, whereas a half-implemented interactive panel feature would actively harm it.",
+    "P1 not implemented — see its check_method for the verified PROTOCOL_VERSION blocker."
+  ]
 }
