@@ -80,7 +80,97 @@ death) → frame extraction → one atlas PNG + manifest per unit, following
 `public/godly/helga/anim/`. Owner ruling on file: **real video loops, not procedural sprite
 transforms.**
 
-## 5. OPEN QUESTIONS — must be answered before implementation
+## 4b. OWNER RULINGS — ROUND 2 (2026-08-10). §5 is now ANSWERED; kept below as the record.
+
+### A. The damage-tick model (owner: "make the tick rate logical, look at Legion TD 2")
+
+Six rules, chosen so the numbers stay honest regardless of engine tick rate:
+
+1. **Balance in TOTALS, never per-engine-tick.** Every DoT is authored as *"X% of max HP over N
+   seconds"* and the per-application value is derived. This is the single fix for the footgun that
+   made "5% per tick" mean death in 0.33 s.
+2. **A DAMAGE CADENCE decoupled from `PHYSICS_HZ`.** One application every **30 physics ticks
+   (0.5 s)** — 2/sec. The WC3/Legion-TD lineage uses ~1 s; 0.5 s reads smoother and still costs
+   nothing.
+3. **% of MAX HP, never current HP.** Percent-of-current can never actually kill (Zeno) — a classic
+   DoT bug.
+4. **REFRESH, do not STACK.** Re-entering the field refreshes the remaining duration; it never adds
+   a second instance. Otherwise camping in the aura is instant death and two towers are 2× lethal.
+5. **Tick-domain and deterministic.** Store `stinkUntilTick` + `lastStinkApplyTick`; never
+   wall-clock. Exactly how `benchedUntilTick` and `poopyUntilTick` already work.
+6. **The burst's "random directions" must NOT use `Math.random`, and should not draw from the seeded
+   RNG stream either** — perturbing draw order is a documented desync hazard (S128). Use a PURE
+   function of `(defenderId, tick, index)`, the pattern already shipped in `gathererMorphShape` and
+   `keepRainbowTint`. Same on every peer, zero RNG cost, cannot desync.
+
+**Resulting numbers**
+
+| effect | per application | rate | duration | hits |
+|---|---|---|---|---|
+| **Stink aura** | 1% max HP / 0.5 s | **2 %/s** | while inside + 2 s lingering | **enemies only** |
+| **Death burst DoT** | 2.5% max HP / 0.5 s | **5 %/s** | **50% of the aura's lingering** (owner ruling) | **everyone, incl. the owner's own troops** |
+| **Death burst slow** | — | **−50% speed** — reuse `POOP_SLOW_MULTIPLIER` (already exactly 0.5) | `POOP_SLOW_TICKS` | everyone |
+
+Sanity: a unit that never leaves the aura dies in ~50 s — genuinely "real low damage". The burst is
+~10% max HP plus a heavy slow: punishing, not lethal on its own.
+
+### B. REAL AGGRO — the bags are destructible, and that IS the mechanic
+
+Owner: *"real aggro. real enemy spawn that come within range try to destroy the bags of shit and then
+eventually the tower itself, losing time and health while doing it."*
+
+- The tower carries **5 hanging bags** — matching the spiked art exactly.
+- **Each bag is its own destructible part with its own HP.** Enemy units acquire the nearest bag.
+- **The core is untargetable while any bag remains.** That is what converts the tower into a
+  time-sink instead of a single health bar.
+- **Popping a bag costs the attacker**: a small local splash on the popper. So clearing the tower
+  bleeds you — the owner's "losing time and health while doing it", made mechanical.
+- Only once all 5 bags are gone does the core become attackable; killing it fires the full burst.
+
+This is real aggro (targeting is forced onto the bags), not merely emergent annoyance.
+
+### C. Recipes — ⚠ Q3 is RESOLVED: the 4-shape space is FREE
+
+Measured, not assumed: `src/combos.ts` defines `type ComboKey = \`${SparkType}->${SparkType}\`` —
+the **Magic-14 combos are two-shape PAIRS**, so they occupy only the 2-shape space. The godly
+recipes are 5–9 shapes. **Nothing in the game currently uses a 4-shape recipe**, so the owner's
+"4 shapes each, not colliding with the TD towers or the godlies" is satisfiable with zero collision
+risk. Exact triples/quads to be assigned in Session A against the live registry.
+
+### D. Animation — "move like real characters, not like stickers"
+
+Owner ruling reaffirmed: **real veo image-to-video loops, not procedural sprite transforms** (the
+S96 "PowerPoint spin" rejection). **PIPELINE PROVEN THIS SESSION** on the swordsman: veo 3.1,
+image-to-video from the key art, 4 s @ 720p, 96 frames @ 24 fps. Camera stayed locked, the character
+stayed centred, the ink outlines and cel shading survived, and the background stayed flat white —
+i.e. it is atlas-able through exactly the HELGA path.
+
+⚠ **Two defects found by LOOKING at the frames, both fixable in-prompt:**
+1. **He lets go of the cleaver.** Around frame 4 veo reads "swing" as partly a *throw*: the blade
+   detaches and flies off with a motion puff. A melee unit must never release its weapon — the
+   prompt must state that the weapon stays gripped at all times.
+2. **Scale/position drift** between frames. Normal for veo; handled at extraction by cropping every
+   frame to a consistent bounding box + anchor before atlasing.
+
+States to generate per unit: goblins **idle / walk / attack / death**; tower **idle (bags sway,
+flies circle) / lob / burst**.
+
+### E. Audio — grunts, sparingly (owner: "not too many but enough for it to be interesting")
+
+Per the established audio taste (dry and punchy beats noisy; deep beats high; **audition the .ogg on
+the desktop before wiring**): **2 attack grunts + 1 death cry per goblin**, alternating so repetition
+does not set in, plus a tower idle burp and a burst splat. ~8 clips total.
+
+### F. Personality — each one distinct (owner: "give them personality of their own")
+
+- **Goblin Swordsman — the reckless one.** Over-eager, charges first, cackles mid-swing, over-commits
+  and stumbles on recovery. Cocky little bruiser.
+- **Goblin Archer — the sly coward.** Keeps his distance, takes potshots, smug when one lands,
+  visibly panics and backpedals when something closes on him.
+- **Stink Tower — the obnoxious one.** Not a character but full of attitude: it burps, sags, perks
+  up when someone approaches, flies orbiting it. Gleefully repellent.
+
+## 5. OPEN QUESTIONS — ANSWERED IN §4b (record retained)
 
 **Q1 — the DoT numbers do not survive contact with the tick rate.** `PHYSICS_HZ` is 60. Taken
 literally, *"5% dot hp per tick"* kills a full-health target in **20 ticks = 0.33 seconds**, and the
