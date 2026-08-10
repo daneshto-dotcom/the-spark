@@ -136,7 +136,15 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       const stage = app.stage;
       const aboveIdx = stage.getChildIndex(s.aboveFogLayer);
       const fogIdx = stage.getChildIndex(fog.container);
-      const aboveFogChildren = s.aboveFogLayer.children.length;
+      // S137 P0a — the ROLL CALL, not a bare count. The old contract asserted only
+      // `children.length === 13`, so when it went to 14 the failure said "expected 13, received 14"
+      // and nothing else — attributing the 14th child cost an entire session. Reporting the ordered
+      // constructor names makes the diff point straight at the index that moved, and it also catches
+      // what a count structurally cannot: one renderer leaking a second child while another adds
+      // none still sums to 14.
+      const aboveFogChildNames = (s.aboveFogLayer.children as any[]).map(
+        (c: any): string => (c?.constructor?.name ?? 'unknown') as string,
+      );
 
       // Draw the potato (into aboveFogLayer) + compose the fog — both synchronous (no rAF).
       s.potatoRenderer.sync(w);
@@ -150,7 +158,7 @@ test.describe('S57 Fog of War — client-side render mask', () => {
         return [out.pixels[i], out.pixels[i + 1], out.pixels[i + 2], out.pixels[i + 3]];
       };
       return {
-        aboveIdx, fogIdx, aboveFogChildren,
+        aboveIdx, fogIdx, aboveFogChildNames,
         potatoOnStage: read(stagePx, 1400, 300),    // potato center — brown body if it shows through
         boardNearPotato: read(stagePx, 1560, 300),  // 160px away, no entity — fogged board
         maskAtPotato: read(maskPx, 1400, 300),       // potato is NOT a vision source — mask stays opaque
@@ -158,14 +166,39 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       /* eslint-enable @typescript-eslint/no-explicit-any */
     });
 
-    // Z-order: the global-reach layer sits above the fog, with all global-reach renderers routed
-    // into it — P2's 4 (creature/hunter/potato/rainbow) + P3's seagull + poop = 6, + S84 P2's
-    // flyover celebration (overlay wash/beams + character container) = 8, + S100 P1's two TD
-    // renderers (spawnerZoneRenderer aura + chewerRenderer swarm) = 10, + S103's three TD-defender
-    // additions (P1 creatureRenderer lightning-cloud gfx, P3 turretRenderer, P4 princessRenderer) = 13.
-    // This count is the layer CONTRACT: bump it deliberately (with the renderer list above) on every addition.
+    // Z-order: the global-reach layer sits above the fog, with every global-reach renderer routed
+    // into it.
+    //
+    // ⭐ S137 P0a — THIS IS THE LAYER CONTRACT, and it is now a ROLL CALL rather than a count.
+    //
+    // It used to be `expect(children.length).toBe(13)`. That number went stale in S135 when V6-1.1
+    // added `GathererRenderer(app, aboveFogLayer)` (main.ts:506) without bumping it, and the
+    // resulting failure read "Expected: 13 / Received: 14" — a number, with no way to tell WHICH
+    // renderer the 14th child belonged to. Attributing it took an entire session. So the assertion
+    // now names every child in ADD ORDER: a failure diff points straight at the index that moved,
+    // and the comment on that line names its owner. It also catches what a bare count structurally
+    // cannot — one renderer leaking a second child while another adds none still sums to 14.
+    //
+    // Entries are Pixi display objects, NOT renderer instances (a renderer does
+    // `parent.addChild(this.graphics)`), so these are Pixi v8's own class names — hence the
+    // leading underscore. Order is main.ts's construction order; keep them in sync.
     expect(r.aboveIdx).toBeGreaterThan(r.fogIdx);
-    expect(r.aboveFogChildren).toBe(13);
+    expect(r.aboveFogChildNames).toEqual([
+      '_Graphics',  //  0 — spawnerZoneRenderer          (main.ts:486, S100 P1)
+      '_Container', //  1 — creatureRenderer.container   (main.ts:489, S25 P0 → S77 P2)
+      '_Graphics',  //  2 — creatureRenderer.cloudGfx    (S103 P1 lightning cloud)
+      '_Graphics',  //  3 — chewerRenderer               (main.ts:493, S100 P1)
+      '_Graphics',  //  4 — turretRenderer               (main.ts:495, S103 P3)
+      '_Container', //  5 — princessRenderer.container   (main.ts:496, S103 P4)
+      '_Graphics',  //  6 — hunterRenderer               (main.ts:502, S72 P2)
+      '_Graphics',  //  7 — gathererRenderer             (main.ts:506, V6-1.1/S135) ← the 14th child
+      '_Graphics',  //  8 — potatoRenderer               (main.ts:509, S72 P3)
+      '_Graphics',  //  9 — rainbowRenderer              (main.ts:512, S75 P3)
+      '_Graphics',  // 10 — rainbowFlyoverRenderer.overlay (main.ts:516, S84 P2)
+      '_Container', // 11 — rainbowFlyoverRenderer.char
+      '_Graphics',  // 12 — seagullRenderer              (main.ts:519, S77 P3)
+      '_Graphics',  // 13 — poopRenderer                 (main.ts:520, S77 P3)
+    ]);
     // The potato punches THROUGH the fog — its brown body (BODY_COLOR 0xb5651d, r≈181) shows on the
     // composited stage as a strong red channel, clearly not the fog's pure black.
     expect(r.potatoOnStage[0]).toBeGreaterThan(90);                 // red channel present → visible

@@ -125,6 +125,9 @@ import { DragPreviewRenderer } from './render/dragPreviewRenderer.ts';
 import { TitleScreen } from './render/titleScreen.ts';
 import { HUD } from './render/ui.ts';
 import { CastlePanel } from './render/castlePanel.ts';
+// S137 P0c — re-exported through the DEV __SPARK__ global as live keep geometry for e2e. Already in
+// the bundle (castlePanel.ts + gathererRenderer.ts both import it), so this costs no bundle bytes.
+import { castleAnchor } from './state/gatherers/gatherer.ts';
 import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
 import type { SudokuOverlay } from './render/sudokuOverlay.ts';
 // S97 G3b / S104 P3 — the Magic-14 combos are now a TAB inside the unified CodexOverlay (the
@@ -947,6 +950,14 @@ async function bootstrap(): Promise<void> {
       // buy/speed controls had ZERO e2e coverage, which is exactly why a control that is disabled
       // for a legitimate reason was indistinguishable from a broken one.
       get castlePanel() { return castlePanel; },
+      // S137 P0c — LIVE KEEP GEOMETRY for the e2e harness (the S85 P4c geometry-getter convention).
+      // e2e/helpers.ts used to re-derive the keep centre with its own transcription of
+      // `castleAnchor` — including a hardcoded seat divisor and a comment asserting
+      // PLAYER_COLORS.length. That transcription happens to be correct today, and seat 0 is
+      // cos(π)-identical regardless, so it was latent rather than broken; but it is precisely the
+      // duplicated-coordinate class that S50 P5 shipped as a real bug (a hardcoded button centre
+      // drifting from the screen's own layout) and that S85 P4c introduced these getters to delete.
+      keepCenter(seat: number): { x: number; y: number } { return castleAnchor(seat); },
       // S87 — VS-BOTS e2e probes: setup-overlay geometry/state + live manager.
       // S123 P1 — in worker mode this manager is FROZEN (the worker owns the
       // authoritative bots); e2e asserts bot-authored WORLD changes instead of FSM labels.

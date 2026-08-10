@@ -78,7 +78,30 @@ test.describe('S72 P2 — Pac-Man hunter (solo, gating)', () => {
 
     await page.addInitScript({ content: 'window.__TEST_SPAWN_RATE_PER_SECOND__ = 1.5;' });
     await page.addInitScript({ content: 'window.__TEST_WIN_SCORE__ = 999;' }); // never win first
-    await page.addInitScript({ content: 'window.__TEST_HUNTER_TRIGGER_SCORE__ = 1;' }); // spawn at score 1
+    // ⭐ S137 P0b — THE TRIGGER SEAM MUST SIT ABOVE THE OPENING BALANCE, and this is the whole
+    // reason this spec broke. It used to be 1.
+    //
+    // V6-1.2 gave every seat an OPENING BALANCE of STARTING_VICTORY_POINTS = 100
+    // (constants.ts:356 → gameMode.ts:271), and `scoreProgress` is `max(scoreByPlayer)`
+    // (scoring.ts:264). So from the very first tick `scoreProgress` is already 100, and
+    // hostTick.ts:498 (`floor(scoreProgress) >= HUNTER_TRIGGER_SCORE`) fired against a seam of 1
+    // INSTANTLY — the hunter spawned at tick ~1 instead of when this spec injects the score below,
+    // roughly 90 s early. Measured: by tick 330 it had already caught the player
+    // (benchedUntilTick 1925) and despawned, so `hunters` was EMPTY before the spec ever looked.
+    //
+    // That broke the spec twice over: (a) a benched player is fully input-locked
+    // (controls.ts:345), so the V6-1.3 castle-pull the placement now needs could not click the
+    // keep — surfacing as the misleading "castle panel did not open"; and (b) the wait for
+    // `count === 1` below could never pass on an already-despawned hunter.
+    //
+    // It went unnoticed because the pre-V6-1.3 placement was instant — it finished before the
+    // t=0 hunter could reach anyone. The slower pull-from-bank loop exposed it.
+    //
+    // The seam is therefore set ABOVE 100 so the spawn is once again CAUSED by this spec's own
+    // injection, which is what "spawns once at the 75% trigger" is supposed to be testing.
+    // Production is unaffected either way: there the seam is
+    // floor(PHASE_1_WIN_SCORE * 0.75) = floor(1500 * 0.75) = 1125, comfortably above 100.
+    await page.addInitScript({ content: 'window.__TEST_HUNTER_TRIGGER_SCORE__ = 200;' });
 
     await page.goto('/?debug=1');
     await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE');
@@ -100,7 +123,9 @@ test.describe('S72 P2 — Pac-Man hunter (solo, gating)', () => {
     await page.evaluate(() => {
       const w = (window as unknown as { __SPARK__: { world: { scoreByPlayer: Map<number, number> } } })
         .__SPARK__.world;
-      w.scoreByPlayer.set(0, 5); // > __TEST_HUNTER_TRIGGER_SCORE__ (1), << __TEST_WIN_SCORE__ (999)
+      // S137 P0b — 250 > the 200 seam (and > the 100 opening balance that silently made the old
+      // value of 5 a no-op), and still << __TEST_WIN_SCORE__ (999) so the match cannot end first.
+      w.scoreByPlayer.set(0, 250);
     });
 
     // (a) main.ts 75% trigger fires once → exactly one hunter, SEEKING, targeting P0.

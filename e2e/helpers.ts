@@ -98,9 +98,21 @@ export async function pullFromBank(page: Page, timeoutMs = 30_000): Promise<void
 
   // 2. open the castle panel (click the local seat's keep)
   const seat = (await readWorldState(page)).localPlayerId;
-  const angle = Math.PI + (seat / 7) * Math.PI * 2; // KEEP_RING_SEATS = PLAYER_COLORS.length = 7
-  const r = SPAWNER_RADIUS + 150;
-  const keep = await canvasToCss(page, ZONE_CX + Math.cos(angle) * r, ZONE_CY + Math.sin(angle) * r);
+  // S137 P0c — ASK THE APP WHERE THE KEEP IS; do not re-derive it. This used to transcribe
+  // `castleAnchor`'s formula (`Math.PI + (seat / 7) * Math.PI * 2`, radius SPAWNER_RADIUS + 150)
+  // into this file, with the seat divisor hardcoded to 7 under a comment asserting
+  // PLAYER_COLORS.length. That transcription was correct — but it is exactly the duplicated-geometry
+  // class the S85 P4c getter convention exists to delete, and the S50 P5 regression (a hardcoded
+  // button centre silently drifting from the screen's own layout) is what it looks like when it
+  // finally goes wrong. `__SPARK__.keepCenter` is the shipped `castleAnchor`, so the harness now
+  // cannot disagree with the game about where a castle is.
+  const anchor = await page.evaluate((s: number) => {
+    const sp = (window as { __SPARK__?: { keepCenter?: (n: number) => { x: number; y: number } } })
+      .__SPARK__;
+    if (sp?.keepCenter === undefined) throw new Error('__SPARK__.keepCenter unavailable — geometry getter missing');
+    return sp.keepCenter(s);
+  }, seat);
+  const keep = await canvasToCss(page, anchor.x, anchor.y);
   // ⚠ THE KEEP CLICK TOGGLES, so this must be STATE-AWARE rather than blindly clicking. A panel left
   // open by a previous call would be CLOSED by an "open" click, and the pull would then fail with
   // "panel did not open" — which is exactly how hunter.spec failed once the retry loop started calling
@@ -126,9 +138,20 @@ export async function pullFromBank(page: Page, timeoutMs = 30_000): Promise<void
     if (g === undefined) throw new Error('castlePanel.getUiPoints unavailable — geometry getter missing');
     return g;
   });
-  if (!pts.open) throw new Error('pullFromBank: castle panel did not open on the keep click');
+  if (!pts.open) {
+    throw new Error(
+      `pullFromBank: castle panel did not open on the keep click at canvas(${Math.round(
+        anchor.x,
+      )}, ${Math.round(anchor.y)}) seat=${seat}` + (await readInputLockDiagnostics(page)),
+    );
+  }
   const filled = pts.slotCenters.find((x) => x.filled);
-  if (filled === undefined) throw new Error('pullFromBank: bank reported non-empty but no slot rendered filled');
+  if (filled === undefined) {
+    throw new Error(
+      'pullFromBank: bank reported non-empty but no slot rendered filled' +
+        (await readInputLockDiagnostics(page)),
+    );
+  }
   const slot = await canvasToCss(page, filled.x, filled.y);
   await page.mouse.click(slot.x, slot.y);
 
@@ -145,6 +168,57 @@ export async function pullFromBank(page: Page, timeoutMs = 30_000): Promise<void
     await page.mouse.click(keep.x, keep.y);
     await page.waitForTimeout(120);
   }
+}
+
+/**
+ * S137 P0b — WHY DID THE CLICK NOT LAND? Every input path in `controls.ts` is fronted by
+ * `onDown`'s `if (this.isInputLocked()) return;` (controls.ts:345), and `isInputLocked` is true
+ * under THREE independent conditions — a NONET sudoku trial, an active cinematic for this seat, or
+ * a player BENCHED by the Pac-Man hunter. A pointer event silently swallowed by any of them is
+ * indistinguishable from a mis-aimed click, from bad geometry, or from a genuinely broken panel.
+ *
+ * S136 lost time to exactly that ambiguity: the failure said only "castle panel did not open", so
+ * the cause had to be guessed. A throw that reports the live lock state instead names it. This
+ * repo's own convention is fail-loud-with-diagnostics; a bare message is the anti-pattern.
+ */
+async function readInputLockDiagnostics(page: Page): Promise<string> {
+  const d = await page
+    .evaluate(() => {
+      const s = (window as {
+        __SPARK__?: {
+          world: {
+            tick: number;
+            gameState: string;
+            localPlayerId: number;
+            sudoku: unknown;
+            activeCinematicPlayerId: number | null;
+            hunterSpawned: boolean;
+            hunters: Map<number, { state: string; targetPlayerId: number }>;
+            players: Map<number, { benchedUntilTick?: number }>;
+            castleBanks: Map<number, unknown[]>;
+          };
+        };
+      }).__SPARK__;
+      if (s === undefined) return null;
+      const w = s.world;
+      const me = w.players.get(w.localPlayerId);
+      const benchedUntilTick = me?.benchedUntilTick;
+      return {
+        tick: w.tick,
+        gameState: w.gameState,
+        // The three isInputLocked() clauses, reported individually so the guilty one is named.
+        lockedBySudoku: w.sudoku !== null,
+        lockedByCinematic: w.activeCinematicPlayerId === w.localPlayerId,
+        lockedByBench:
+          benchedUntilTick !== undefined && w.tick < benchedUntilTick,
+        benchedUntilTick,
+        hunterSpawned: w.hunterSpawned,
+        hunters: Array.from(w.hunters.values()).map((h) => h.state),
+        bank: w.castleBanks.get(w.localPlayerId)?.length ?? 0,
+      };
+    })
+    .catch(() => null);
+  return d === null ? ' [diagnostics unavailable]' : `\n  input-lock diagnostics: ${JSON.stringify(d)}`;
 }
 
 /** S136 — is the castle panel currently open? Read through the shipped geometry getter. */

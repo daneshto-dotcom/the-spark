@@ -1,460 +1,84 @@
 {
-  "tool_calls_session_total": 249,
-  "session_id": "S136",
-  "session_kind": "pdca",
-  "session_start": "2026-08-10T00:00:00",
-  "prior_session_note": "S135 shipped 3/3 (hunter lifetime serialization, V6-1.1 gatherers/castle/buy/score-as-currency, V6-1.2 gatherer HAUL cycle) and ran its full close chain; deploy verified 4/4. S136 opens on the OWNER PLAYTEST of that haul build: he reported 6 items (upgrade buttons unclickable, footer should become a click-the-castle popup, deposited shapes stack and fling when grabbed, storage should live inside the castle, a popup build-space with pull-one-by-one or prebuild-then-pull, and rainbow should recolor the castle) and approved a full autonomous batch. S135 priorities archived to .claude/session-state.s135.bak.",
-  "phase": "ANALYZE",
+  "tool_calls_session_total": 27,
+  "session_id": "S137",
+  "session_kind": "batch",
+  "session_start": "2026-08-10",
+  "prior_session_note": "S136 closed; 2 red gating e2e handed off diagnosed-but-unfixed.",
+  "prior_session_archive": ".handoff-archive/HANDOFF_S136.md",
+  "phase": "DO",
   "tier": "Full",
-  "council_rounds": 0,
-  "plan_file": ".claude/plans-archive/2026-08-10_PDR_S136_owner_playtest_batch_COMPLETED.md",
-  "session_status": "completed",
+  "council_rounds": 1,
+  "council_seats": [
+    "CLAUDE",
+    "GROK-PLAN"
+  ],
+  "council_deviation": "GEMINI-AUDITOR unavailable: gemini-3.1-pro-preview HTTP 429 prepayment credits depleted. Ran as protocol-sanctioned 2-way fallback.",
+  "plan_file": ".claude/plans/2026-08-10_PDR_S137_batch.md",
+  "session_status": "in_progress",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "budget_total": 1000000,
-  "prior_session_archive": ".claude/session-state.s135.bak",
-  "analyze_completed": true,
-  "a0_state_discovery": {
-    "rule": "Rule 21 A.0 — run directly this session; both subagent probe fleets died on a spend cap returning nothing.",
-    "findings": [
-      "Owner item 1 is NOT a click bug: headless-Chromium matrix (solo|bots x 1920x1080|1536x864|1366x768) shows hitTest returns the SPEED button, cursor=pointer, and the click WORKS (score 100->50, speedLevel 0->1). The real defect is BUY GATHERER disabled from t=0 with no stated reason (STARTING_VICTORY_POINTS=100 vs GATHERER_PRICE=105) plus near-zero early income (complexity 0 => solo score sat at 50 through tick 5580).",
-      "FALSE REPRO CAUGHT: the first run showed the click dead, caused by ?debug=1 whose DOM panel (fixed, z-index 1001, rect 1471,230->1896,1202) covers both buttons. The whole e2e harness boots ?debug=1, so it could never have caught a footer click regression.",
-      "Owner item 3 ROOT CAUSE: depositSlot (gathererLifecycle.ts:259-269) indexes by COUNTING currently-banked sparks, so any hole collapses the mapping and a later deposit lands exactly on an occupied slot. The fling is collision.ts:36 resolvePair — exact co-location early-returns on distSq<EPSILON (inert stack), but once a grab perturbs the pair, dist~0 with overlap~minDist/2 applies a near-maximal positional correction that Verlet converts to a large velocity.",
-      "Banked shapes are real freeSparks physics entities (escrow:banked, spark.ts:47-57); the escrow===undefined tests at physicsLoop.ts:226,242,248 exempt them only from the soft cap and TTL reap, NOT from collision.",
-      "Recipe sizes verified against the real registry: pentagram 5, lightningHub 6, Helga 7, Voltkin 8, laserTurret 8 — plus an UNDOCUMENTED 6th exact-size gate, NONET at 9 (sudokuEvent.ts:20), missing from the bank-cap table.",
-      "R8 verified: exactly ONE production tickBuildAction call site (placePrimitive.ts:584); PLACE_FROM_FREE delegates to placePrimitive (placeFromFree.ts:244), so a bank-place path routed through it keeps earning disruption charges.",
-      "Sim-worker flip: 6 ?worker=1 literals across 4 files (BACKLOG says 5 files); probeHarness.ts:340 REFUSES TO ARM when the flag is set (becomes refuse-by-default after a flip); 6 non-worker-only main-thread paths exist.",
-      "e2e has ZERO gatherer/footer-control coverage — the reason this shipped unverifiable."
-    ]
-  },
+  "unlock_evidence": "Owner in chat: \"i pre approve top recommended top value highest levarage priorities in a thorough and pedantic batch ... APPROVED full session and autonomous work\"",
+  "a0_state_discovery": [
+    "git 0 ahead/0 behind, clean but session-state.json",
+    "npm run verify-deploy PASS 4/4 (live hash index-DGsKtma2.js)",
+    "npm run e2e:gating = 2 failed / 29 passed (reproduced as handed off)",
+    "fog 14th aboveFogLayer child ATTRIBUTED to gathererRenderer (main.ts:506, S135); static roll call of parent.addChild sums to exactly 14",
+    "hunter spawns tick~1: gameMode.ts:271 stamps 100 VP -> scoring.ts:264 scoreProgress=100 >= forced trigger 1 (hostTick.ts:498)",
+    "REFUTED: e2e/helpers.ts keep geometry is CORRECT (KEEP_RING_SEATS=PLAYER_COLORS.length=7 verified by direct read; a regex count wrongly said 9)",
+    "CONFIRMED probeHarness.ts:339-345 refuses to arm under ?worker=1",
+    "CONFIRMED 6 ?worker=1 literals across 4 e2e files; BACKLOG.md:411 \"5 files\" is WRONG",
+    "CASTLE_BANK_CAP=5 with 6-row recipe table incl NONET-9 present at constants.ts:395-409",
+    "dev port 40843 collided with another session -> moved launch.json to SESSION_PORT 24300"
+  ],
+  "carry_forward": [
+    "B5 MATCH LENGTH (owner-unruled): STARTING_VICTORY_POINTS=100 is counted into scoreProgress, so WIN fires at 1400 EARNED (not 1500) and HUNTER at 1025 earned (not 1125) - Phase 1 is ~6.7% shorter than every comment claims. Found via Council challenge, verified independently. NOT fixed unattended.",
+    "Sim-worker default-on flip: 6 ?worker=1 literals / 4 files; probeHarness refuse-by-default after flip. Deferred: owner would playtest a freshly-changed authoritative execution model.",
+    "BACKLOG.md:411 says \"5 files hard-code the flag\" - wrong, it is 4 files / 6 literals.",
+    "S135 untouched: SCORE_TIER corner-bloom replay; carried-potato onUp pointer capture; deposit-slot column overflow.",
+    "No 2-peer/joiner exercise of the castle bank; no host-migration round-trip for it."
+  ],
   "priorities": [
     {
-      "id": "P0-castle-selection-context-panel",
-      "title": "Castle click -> context panel holding BUY GATHERER + SPEED; retire the always-on footer controls; a disabled control states its reason; fix the ?debug=1 overlay confound and add the first e2e coverage of these controls",
-      "tier": "Full",
-      "status": "completed",
-      "pdr_file": ".claude/plans-archive/2026-08-10_PDR_S136_owner_playtest_batch_COMPLETED.md",
-      "check_completed": true,
+      "id": "P0-green-the-gating-lane",
+      "title": "Fix both gating e2e failures at the root (fog layer contract + hunter stale premise); no quarantine masking",
+      "status": "pending",
+      "notes": "fog: semantic constructor-name roll call (Council ADOPT-1) instead of a bumped magic number. hunter: instrument the helper throw, MEASURE the cause, then fix the stale trigger premise.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "checkpoint_commit": "f08ea7d",
-      "real_context_tokens_at_close": 326605,
-      "real_context_pct_at_close": 32.66,
-      "check_method": "RUNTIME-FIRST, because the owner report was about behaviour a unit test cannot see. (1) A.0 repro in headless Chromium (swiftshader; the Browser pane cannot composite — S131) across a 6-cell matrix solo|bots x 1920x1080|1536x864|1366x768: hitTest at the SPEED centre returned the button, cursor=pointer, and the click WORKED (100->50, speedLevel 0->1) in ALL SIX. So item 1 was NOT a click bug. (2) FALSE REPRO CAUGHT AND DISCARDED: my first run showed it DEAD — cause was ?debug=1, whose DOM overlay (fixed, z-index 1001, measured 425x972 at top 230/right 24) covers both buttons so elementFromPoint returns its <pre> and the canvas never sees pointerdown. Every e2e spec boots ?debug=1 => the harness could never have caught a control regression. Fixed by pointer-events:none on the body + auto on the title strip (the click listener is on the root, so click-to-copy still bubbles). (3) The real item-1 defect was legibility: BUY disabled from t=0 (100 vs 105) with no stated reason. Every disabled row now names its blocker. (4) MUTATION MATRIX 8 mutations, 7 RED-caught (buy-reason blanked, NO-UNITS->price, keep box squared to KEEP_W on both axes, panel never flips left, locked check dropped, allMaxed ignored, owner filter dropped). M5 (Math.floor removed) SURVIVED and is CORRECT: prices are integers so floor(x)>=P iff x>=P — a provably redundant line, documented in the test instead of being papered over with a fake assertion (the S135 surviving-mutation-is-not-a-weak-test lesson). Baseline verified green after every restore; no .bak left behind. (5) A DEFECT NO ASSERTION CAUGHT: the disabled label overflowed its row box — found by LOOKING at the verification screenshot while all 28 runtime checks were green. Reason is now folded into the label, PANEL_W 244->268, and a unit test asserts label*advance <= ROW_INNER_W across all five reachable states. (6) Gate: tsc 0 - vitest 2093/2093 across 139 files (+24 tests/+2 files vs the 2069/137 baseline captured at open) - npm run build OK, bundle 658.0/750 KiB (92.0 KiB headroom) - 6 new e2e in castle-panel.spec.ts, the FIRST e2e coverage these controls have ever had, booting CLEAN (no ?debug=1) - runtime verify 28/28 in BOTH a clean boot and ?debug=1. NOT VERIFIED: multiplayer/joiner (selection is render-local so there is nothing on the wire, but no 2-peer run was made); no touch/mobile pass.",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.ts",
-          "note": "the new context panel + its pure model/geometry"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.ts",
-          "needle": "export function castleControlsModel",
-          "note": "pure world-only model so the reason matrix is testable without a renderer (S130 lesson)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.ts",
-          "needle": "NEED ${GATHERER_PRICE}",
-          "note": "a disabled BUY names the price — the actual owner item-1 defect"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gatherer.ts",
-          "needle": "export function isPointInKeep",
-          "note": "the castle click target, pure, beside castleAnchor"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const KEEP_W = 74;",
-          "note": "keep box promoted to constants so hit test and renderer share it"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/input/controls.ts",
-          "needle": "private isPointerOverPanel()",
-          "note": "the footer click guard replaced, not left orphaned over an empty band"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/debugOverlay.ts",
-          "needle": "root.style.pointerEvents = 'none'",
-          "note": "the ?debug=1 overlay no longer swallows canvas clicks"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/castle-panel.spec.ts",
-          "note": "first-ever e2e coverage of these controls; boots clean, no ?debug=1"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.test.ts",
-          "note": "20 unit tests: reason matrix, label fit, panel geometry"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/keepHitTest.test.ts",
-          "note": "4 unit tests pinning the keep click target per seat"
-        }
-      ]
+      "unlock_source": "user"
     },
     {
-      "id": "P1-in-castle-storage-bank-cap-pull",
-      "title": "Storage moves INSIDE the castle as a typed inventory (deletes depositSlot + world-space banked sparks, killing the stack/fling bug structurally); bank cap 5 with the recipe-size table adjacent; bank-full waiting-gatherer rule; PULL one shape into the hand (HARD-COUPLED: without it the player cannot build at all)",
-      "tier": "Full",
-      "status": "completed",
-      "pdr_file": ".claude/plans-archive/2026-08-10_PDR_S136_owner_playtest_batch_COMPLETED.md",
-      "check_completed": true,
+      "id": "P1-in-bubble-build-space",
+      "title": "V6-1.3 P2: prebuild a structure inside the castle popup and pull the whole assembly out",
+      "status": "pending",
+      "notes": "Render-local arrangement (zero new World fields). One host-validated reducer action. MUST have a real-physics acceptance test (S136 lesson R3).",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "checkpoint_commit": "e93dc1f",
-      "real_context_tokens_at_close": 479207,
-      "real_context_pct_at_close": 47.92,
-      "check_method": "ROOT-CAUSE-FIRST then RUNTIME-PROVEN. (1) Owner item 3 diagnosed to TWO independent defects: depositSlot (gathererLifecycle.ts:259-269) chose its slot by COUNTING banked sparks, so a hole collapses the index mapping and the next deposit lands exactly on an occupied slot; and collision.ts:36 resolvePair early-returns under EPSILON so an exact stack is INERT until perturbed, at which point dist~0 with overlap~minDist/2 applies a near-maximal positional correction that Verlet converts into a large velocity. Banked sparks were never collision-exempt (the escrow===undefined tests at physicsLoop.ts:226,242,248 cover only the soft cap and the TTL reap). Fixed structurally per owner item 4: a stored shape leaves freeSparks entirely, so neither defect has a surface. (2) MUTATION MATRIX 8/8 RED-caught. The decisive one is M3, which re-introduces the exact V6-1.2 count-based slot selection and IS caught by the co-location invariant — so the regression test provably detects the original bug. Others: cap ignored; deposit not deleting from the world; bankTake bounds; prevPos not reset; WAITING never retrying; RETURN_TO_TITLE forgetting the bank; bank-full dropping instead of waiting. Baseline verified green after every restore. (3) A BUG ONLY THE RUNTIME PASS COULD FIND. The first cut CLEARED escrow on pull so the shape would be \"an ordinary free spark\". enforceSpawnerBounds (spawner.ts:454) rim-snaps every Free spark with escrow===undefined back into the spawn disc, so the pulled shape was teleported off the porch (685,614 -> 888,569, a ~194px jump) — a WORSE version of the fling being fixed. 18 unit tests plus the mutation matrix were all green; no test in the suite runs the physics loop, so none of them COULD see it. escrow now stays set (reusing the banked literal, so no new wire literal). (4) A TEARDOWN GAP THE TESTS CAUGHT. My first comment claimed that clearing the bank inside teardownGatherers meant no path could forget it. False: FIVE sites clear world.gatherers and THREE do it INLINE (gameMode.applyStartGame, gameMode.applyReturnToTitle, the godlyActions abort cascade). Caught by asserting teardown through a dispatched RETURN_TO_TITLE rather than by calling the helper. All three fixed; the comment now states the real situation. (5) ALL FIVE SERIALIZATION SITES COVERED, including the two UNFORCED ones the S135 audit flagged: FIELD_COVERAGE (order-significant, because pulls are index-addressed); save serialize+deserialize (additive-optional so pre-S136 saves stay byte-identical, with deserializeSpark extracted so the bank and freeSparks round-trips cannot drift); protocol.ts KNOWN + CLIENT_INTENT records; benchGate deny (pulling is the first move of building); and structuralSignature — where seat-count alone is INSUFFICIENT because a deposit MOVES a spark, so freeSparks.size falls as the bank grows and the two cancel in any size-only view (hence bankedShapeTotal). (6) GATE: tsc 0 errors; vitest 2111/2111 across 140 files (+18 tests / +1 file vs P0); npm run build OK with bundle 661.3/750 KiB (88.7 KiB headroom); RUNTIME 13/13 driving the real app on a clean boot (never ?debug=1) — a haul lands in the bank, the shape leaves freeSparks, the panel shows it in a slot, a click pulls it to the exact porch slot (640,614), NO SPARK PAIR IS EVER CLOSER THAN 68px across 40 samples, max per-sample displacement 31px (was 194 before the escrow fix), and a pulled shape PLACES into a primitive so the loop closes. NOT VERIFIED: no 2-peer/joiner run (the bank rides the wire as a client intent + snapshot field but was not exercised across a real transport); no host-migration round-trip; P2 in-bubble prebuild not started.",
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/castleBank.ts",
-          "note": "the bank + the corrected occupancy-based porch slotting"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/castleBank.ts",
-          "needle": "export function firstFreePorchSlot",
-          "note": "asks whether a slot is clear instead of deriving an index from a count"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const CASTLE_BANK_CAP = 5;",
-          "note": "owner ruling B4b, with the recipe-size table adjacent"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "NONET         9",
-          "note": "the sixth exact-size gate the prior recipe table omitted"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gathererLifecycle.ts",
-          "needle": "export function applyPullFromBank",
-          "note": "PULL returns the same spark to the porch"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gatherer.ts",
-          "needle": "'SEEKING' | 'HAULING' | 'WAITING'",
-          "note": "the bank-full waiting rule"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/stateHashFull.ts",
-          "needle": "castleBanks:",
-          "note": "FIELD_COVERAGE forcing function satisfied"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
-          "needle": "function serializeCastleBanks",
-          "note": "save round-trip, additive-optional"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/workerSim.ts",
-          "needle": "bankedShapeTotal",
-          "note": "the UNFORCED structuralSignature site — seat count alone is insufficient"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
-          "needle": "PULL_FROM_BANK: true",
-          "note": "client intent allowlist"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/castleBank.test.ts",
-          "note": "18 tests incl. the co-location invariant as an owner-bug regression"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/sparkGlyph.ts",
-          "note": "shared glyph so bank swatches match the board shapes"
-        }
-      ]
+      "unlock_source": "user"
     },
     {
-      "id": "P2-in-bubble-build-space",
-      "title": "Prebuild a structure inside the castle popup space, then pull the whole assembly out (owner item 5, ambitious half; additive over P1d)",
-      "tier": "Full",
-      "status": "carried_forward",
-      "pdr_file": ".claude/plans-archive/2026-08-10_PDR_S136_owner_playtest_batch_COMPLETED.md",
-      "check_completed": false,
+      "id": "P2-rainbow-castle-visual",
+      "title": "Visually verify the S136 rainbow castle party and produce screenshots for the owner",
+      "status": "pending",
+      "notes": "Logic is pinned by pure tests; the LOOK has never been observed.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "carry_forward_reason": "Context reached YELLOW (>500K/1M) after P4. Scope tightened per the token protocol: the two remaining cheap owner-ruled items (P4 faucet, P3 rainbow) were taken ahead of these, and both of these are left UNSTARTED rather than half-shipped. P2 (in-bubble prebuild) is a Full-tier feature and its one-by-one half already shipped in P1d, so the game is fully playable without it. P5 (sim-worker default-on) is invisible to the player and carries a real risk surface (6 literals across 4 files, the probeHarness refuse-by-default that a flip creates, and 6 non-worker-only main-thread paths) — not work to start unattended at YELLOW."
+      "unlock_source": "user"
     },
     {
-      "id": "P3-rainbow-recolors-castle",
-      "title": "Rainbow recolors the castle too (owner item 6); renderer-only if the rainbow is client-side, STOP for a ruling if it turns out to be serialized sim state",
-      "tier": "Standard",
-      "status": "completed",
-      "pdr_file": ".claude/plans-archive/2026-08-10_PDR_S136_owner_playtest_batch_COMPLETED.md",
-      "check_completed": true,
+      "id": "P3-bank-throughput-measurement",
+      "title": "Measure haul throughput at CASTLE_BANK_CAP 5/6/8 and hand the owner a table + recommendation",
+      "status": "pending",
+      "notes": "MEASURE ONLY - do not change the constant. Explicit FIRST CUT if budget runs short.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "checkpoint_commit": "a08c4e3",
-      "real_context_tokens_at_close": 537253,
-      "real_context_pct_at_close": 53.73,
-      "check_method": "FINDING BEFORE FIX. The obvious reading of owner item 6 was ALREADY TRUE: applyTriggerRainbow remaps player.color through a derangement and gathererRenderer.sync tints the keep from the LIVE player value (the S135 audit ensured that), so the castle did change colour on every switch. Verified by reading both paths rather than assuming a bug existed. What was genuinely missing is that the castle never PARTICIPATED in the celebration — flyover, wash and yell all fire while the keep just quietly becomes a different flat colour. So the change adds the celebration, not the recolour, and the finding is recorded in the code so nobody \"fixes\" the hue again. Implementation: keepRainbowTint cycles the palette for the flyover window keyed purely off (tick - rainbowSwitchTick) — the shipped rainbowFlyoverRenderer pattern. Deterministic, no RNG, no wall-clock, identical on host and a 10 Hz client, never world state, zero wire cost, cannot desync. Extracted as a PURE EXPORTED function because a draw path cannot be driven in vitest (the S130 lesson). THE PER-SEAT OFFSET IS LOAD-BEARING: without it every keep shows the same hue on the same tick and for 4s you cannot tell your castle from an enemy’s — the identical ownership-legibility failure the S135 audit fixed elsewhere in this file. That invariant (\"every seat a different colour at EVERY tick of the window\") is the primary test, not a comment. MUTATION MATRIX 5/5 RED-caught: offset removed (all castles same hue), window never ends, a FUTURE switchTick partying early (the joiner-snapshot case), no cycle at all, and strobing every tick instead of holding ~10. Gate: tsc 0; vitest 2119/2119 across 141 files (+8 tests/+1 file); build OK, bundle 661.5/750 KiB. NOT VERIFIED: no runtime screenshot of the effect mid-window — triggering a real rainbow pickup requires the hazard to spawn and be clicked, which the probe harness does not drive. Logic is pinned by pure tests; the VISUAL remains unconfirmed and is flagged for the owner’s next playtest.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/gathererRenderer.ts",
-          "needle": "export function keepRainbowTint",
-          "note": "pure, testable, per-seat offset"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/gathererRenderer.ts",
-          "needle": "ALREADY FOLLOWED THE RAINBOW",
-          "note": "the finding recorded so the hue is not re-fixed"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/keepRainbowTint.test.ts",
-          "note": "8 tests incl. the all-seats-distinct invariant"
-        }
-      ]
-    },
-    {
-      "id": "P4-b3-faucet-6x-resoftcap",
-      "title": "B3 (owner-ruled): SPAWN_RATE_PER_SECOND 0.1875 -> 1.125 and RE-DERIVE FREE_SPARK_SOFT_CAP (dead at the old rate, live at 6x); sequenced after P1 so the 6x faucet never multiplies the pile bug",
-      "tier": "Standard",
-      "status": "completed",
-      "pdr_file": ".claude/plans-archive/2026-08-10_PDR_S136_owner_playtest_batch_COMPLETED.md",
-      "check_completed": true,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "checkpoint_commit": "678eddc",
-      "real_context_tokens_at_close": 537253,
-      "real_context_pct_at_close": 53.73,
-      "check_method": "MEASURE-THEN-SET, not derive-then-hope. (1) lambda 0.1875 -> 1.125 (owner-ruled x6). Recorded in constants.ts as a sanctioned REVOCATION of the S105 amendment (which itself superseded LOCKED_DECISIONS Item 3): the S5 \"strategic bet\" feel is deliberately gone, being the feel directives/preferences replace. (2) FREE_SPARK_SOFT_CAP 50 -> 24 RE-DERIVED FROM OBSERVATION. Measured 100s per mode in headless Chromium with the cap still at 50 so the natural distribution was unmasked: solo mean 8.92 / median 10 / p95 15 / PEAK 18 (1 gatherer consuming); bots mean 4.48 / median 2 / p95 13 / PEAK 14 (4 consuming). Little’s Law predicts lambda*W = 11.25; solo’s 8.92 sits just under it, the gap being the gatherer eating from the pool. lambda is GLOBAL so seat count does not raise the mean (more seats = more consumption), making solo the conservative case. 24 clears the observed p95 and peak so ordinary play never touches it, is reachable in a long unattended session (what a soft cap is for), and stays under the \"<=30 free sparks at 6P\" figure spatial.ts is sized against — a link now recorded IN spatial.ts so a future raise has to confront it. (3) RUNTIME CONFIRMATION of the actual goal, 90s solo at the new rate: pool mean 9.49, peak 22, and ZERO of 338 samples at or over the cap (a safety valve, not a throttle). Gatherer IDLE fraction 1.2% — the starvation B3 exists to eliminate is gone. (4) A CONSEQUENCE WORTH THE OWNER’S ATTENTION, found by the same run: the bottleneck MOVED, as designed. With one gatherer and nobody spending, the 5-slot bank fills in ~10s and the hauler then spends most of its time WAITING (247 of 338 samples). That is the B4b pressure working and P1’s amber stalled ring makes it legible — but bank capacity, not spark supply, is now what gates throughput. (5) Three test failures, all \"the test encoded the old lambda\", each reworked to assert the INVARIANT and DERIVE the number rather than restate a literal: the probe id-collision horizon (~61d -> ~10.3d, bound restated as \"> 1 week of continuous spawning\"), the seat-share fair-share fill (256s -> derived from the constants), and the hand-typed ?spawn= tolerance case (fair share is now 0.1875, not 0.03125). SHIPPED_SPAWN_RATE_PER_SECOND in probeHarness.ts moved WITH the default — it exists only to detect an override, so a stale copy would report an override as \"shipped\". (6) Gate: tsc 0; vitest 2111/2111 (140 files); build OK, bundle 661.3/750 KiB. NOT DONE / DELIBERATE: PHASE_1_WIN_SCORE and SCORE_INCOME_PER_COMPLEXITY_PER_SEC untouched. Score is quadratic in time so match length scales as 1/sqrt(throughput) and this SHORTENS matches; B5 is UNRULED and owned by V6-4.3. Logged as a carry-forward, not absorbed.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "readTestSpawnRate() ?? 1.125",
-          "note": "the B3 x6 faucet"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const FREE_SPARK_SOFT_CAP = 24;",
-          "note": "cap re-derived from measurement"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "solo   mean 8.92",
-          "note": "the measurements the cap was derived from, recorded in situ"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/physics/spatial.ts",
-          "needle": "S136 P4",
-          "note": "the <=30 sizing assumption now linked to the cap"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/dev/probeHarness.ts",
-          "needle": "SHIPPED_SPAWN_RATE_PER_SECOND = 1.125",
-          "note": "the override detector moved with the default"
-        }
-      ]
-    },
-    {
-      "id": "P5-sim-worker-default-on",
-      "title": "Sim-worker default-on flip: drop the flag gate, update 6 literals across 4 files, and resolve the probeHarness refuse-by-default that a flip creates",
-      "tier": "Full",
-      "status": "carried_forward",
-      "pdr_file": ".claude/plans-archive/2026-08-10_PDR_S136_owner_playtest_batch_COMPLETED.md",
-      "check_completed": false,
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "carry_forward_reason": "Context reached YELLOW (>500K/1M) after P4. Scope tightened per the token protocol: the two remaining cheap owner-ruled items (P4 faucet, P3 rainbow) were taken ahead of these, and both of these are left UNSTARTED rather than half-shipped. P2 (in-bubble prebuild) is a Full-tier feature and its one-by-one half already shipped in P1d, so the game is fully playable without it. P5 (sim-worker default-on) is invisible to the player and carries a real risk surface (6 literals across 4 files, the probeHarness refuse-by-default that a flip creates, and 6 non-worker-only main-thread paths) — not work to start unattended at YELLOW."
+      "unlock_source": "user"
     }
   ],
-  "reflexion_entries_to_archive": [
-    {
-      "session": "S136",
-      "priority": "P0",
-      "tags": [
-        "#false-repro-from-harness-flag",
-        "#empirical-refutes-plausible-criticals"
-      ],
-      "entry": "My first repro of the owner's \"buttons not clickable\" showed the click DEAD — and it was WRONG. The cause was ?debug=1, a DOM overlay covering the button column, which I had added myself by copying the harness convention. Two lessons: (a) reproduce in the configuration the USER actually ran, not the one the test suite uses; (b) when a bug report and a repro agree, that is when to look hardest for a shared confound, because agreement feels like confirmation. The tell was that the canvas received NO pointerdown at all while document did — a DOM-level fact that no amount of Pixi-side reasoning would have explained."
-    },
-    {
-      "session": "S136",
-      "priority": "P0",
-      "tags": [
-        "#look-at-the-render",
-        "#assertions-cannot-see-layout"
-      ],
-      "entry": "28/28 runtime assertions passed while the disabled button label visibly overflowed its own box. State assertions can prove a control is enabled, priced and clickable and still say nothing about whether the text fits. I only caught it by opening the screenshot. Any UI priority must include LOOKING at the render as a distinct step, plus a cheap numeric fit guard (label length x advance <= inner width) so the next one fails in vitest instead of on the owner's screen."
-    },
-    {
-      "session": "S136",
-      "priority": "P0",
-      "tags": [
-        "#zero-coverage-is-a-finding",
-        "#policy-not-instance"
-      ],
-      "entry": "Deleting an EXPORTED function (isOverFooterControl) and an entire render method (drawFooter) left the suite at exactly 2069/2069 green. That is not reassurance, it is a measurement: the controls had zero coverage, which is the structural reason the owner had to find this by playing. When a deletion breaks nothing, treat the untouched test count as the finding and write the missing test before the feature."
-    },
-    {
-      "session": "S136",
-      "priority": "P1",
-      "tags": [
-        "#runtime-finds-what-units-cannot",
-        "#physics-invariants-invisible-to-unit-tests"
-      ],
-      "entry": "Eighteen unit tests and an 8/8 mutation matrix all passed on a PULL that was fundamentally broken. I cleared escrow so the pulled shape would be \"an ordinary free spark\", and enforceSpawnerBounds promptly rim-snapped it off the porch back into the quarry — a 194px teleport, i.e. a worse version of the very fling I was fixing. No test in the suite runs the physics loop, so none of them COULD catch it. Rule: when a change puts an entity into the world at a new position, the acceptance test must run real physics for several frames and assert the entity is STILL THERE. Position is not established by the reducer that wrote it."
-    },
-    {
-      "session": "S136",
-      "priority": "P1",
-      "tags": [
-        "#comments-claiming-completeness-need-a-grep-first",
-        "#policy-not-instance"
-      ],
-      "entry": "I wrote a comment asserting that clearing the bank inside teardownGatherers meant no teardown path could forget it. That was false the moment it was written: five sites clear world.gatherers and three do it inline. A test dispatching RETURN_TO_TITLE caught it. Two lessons: any comment claiming \"this covers every site\" is a claim that needs a grep BEFORE it is written, and a teardown test must exercise the PUBLIC action — calling the helper directly would have passed and hidden all three gaps."
-    },
-    {
-      "session": "S136",
-      "priority": "P1",
-      "tags": [
-        "#delete-the-surface-not-the-symptom"
-      ],
-      "entry": "The stacking and fling bugs had two different mechanisms (count-derived slot indices; EPSILON-guarded co-location turning into velocity via Verlet) and each could have been patched on its own. Taking the owner literally instead — store it INSIDE the castle — removed the shared precondition (the shape being a positioned physics entity) and both defects stopped existing rather than being handled. The change that deletes the surface is usually also the smaller diff."
-    },
-    {
-      "session": "S136",
-      "priority": "P4",
-      "tags": [
-        "#measure-then-set",
-        "#dead-constant-is-a-finding"
-      ],
-      "entry": "FREE_SPARK_SOFT_CAP had been 50 while the pool peaked at 4 — provably dead code for months. Rather than pick a new number by arithmetic I ran the game with the cap still at its dead value so the natural distribution was unmasked, then set the cap from the measured p95/peak. The measurements are recorded IN the constant’s docblock, so the next person to touch it inherits the evidence instead of re-deriving it. Rule: when re-tuning a constant that was never binding, measure it unbound FIRST — the arithmetic prediction (11.25) and the observed mean (8.92) differed by exactly the consumption the model omits."
-    },
-    {
-      "session": "S136",
-      "priority": "P4",
-      "tags": [
-        "#fixing-a-bottleneck-moves-it",
-        "#report-the-new-constraint"
-      ],
-      "entry": "The x6 faucet drove gatherer idling from chronic to 1.2% — and immediately made the 5-slot bank the binding constraint instead (247 of 338 samples WAITING with nobody spending). Both facts come from the same 90s run. Fixing a throughput bottleneck does not remove the bottleneck, it relocates it, so the acceptance measurement should report where it went. Saying only \"idle fraction 1.2%, done\" would have been true and misleading."
-    },
-    {
-      "session": "S136",
-      "priority": "P3",
-      "tags": [
-        "#verify-the-bug-exists-before-fixing-it",
-        "#empirical-refutes-plausible-criticals"
-      ],
-      "entry": "Owner item 6 was \"the rainbow should change the castle colour too\" — and reading the code showed it already did (the derangement remaps player.color; the keep tints from the live value). The real gap was that the castle did not join the CELEBRATION. Had I implemented the literal request I would have written a redundant recolour and reported a fix for a working feature. Rule: for any \"X does not do Y\" report, locate the code path that would do Y and confirm it is absent BEFORE writing a replacement — and when the mechanism already exists, say so explicitly in the commit so the finding is not lost."
-    },
-    {
-      "session": "S136",
-      "priority": "CLOSE",
-      "tags": [
-        "#green-by-luck-is-not-green",
-        "#a-perf-change-exposes-stale-test-contracts"
-      ],
-      "entry": "The gating e2e lane was green for two slots while encoding a rule the game had already deleted: the helpers grabbed sparks from the quarry, which V6-1.2 made un-pickable. It only passed because the old faucet left ~2 sparks and the one available was usually the escrowed (pickable) one. A 6x throughput change turned that luck off and five specs went red at once. Two lessons: (a) a suite can be green because the state space is too small to expose it, so a capacity/rate change is a legitimate way to DISCOVER stale contracts rather than a thing that broke them; (b) when a spec depends on a game rule, the helper should assert the SAME predicate the production code does — my fix was to mirror controls.pickSpark, and the deeper finding (pickable != draggable, because a hauled spark is re-pinned every tick) only appeared once the predicate was explicit."
-    },
-    {
-      "session": "S136",
-      "priority": "CLOSE",
-      "tags": [
-        "#do-not-encode-a-number-you-cannot-attribute"
-      ],
-      "entry": "fog.spec asserts aboveFogLayer has exactly 13 children and it is stably 14, with the test comment inviting me to bump it. I did not: I could not identify WHICH renderer the 14th child is, and a contract whose number is updated without attribution stops being a contract — it becomes a rubber stamp that will absorb the next real leak silently. Left red with the diagnosis and the prime suspect named. Preferring an honest red to a green I cannot justify is the right trade when the test exists precisely to catch unnoticed additions."
-    }
-  ],
-  "totals": {},
-  "owner_rulings_s134": {
-    "B3_spark_rate": "6x more sparks",
-    "B4_directives": "AMENDED — an ordered RTS-style BUILD QUEUE of individual primitives, NOT a filter. Click a shape N times => xN queued; ordered and consumed (leftmost next, each delivery pops one); ONE queue per player; empty queue => gatherers collect nearest (priority override, not on/off); bank full => a loaded gatherer walks home and WAITS at the castle holding its item, depositing the moment a slot frees; all controls live in a FOOTER BAR at the bottom of the screen.",
-    "B4b_bank_slots": 5,
-    "B6_reversibility": "option B — additive-only, CarryingPlayer retained, deletion moves to V6-4.3",
-    "naming": "gatherer everywhere (docs + code)",
-    "R19_connected_bond_bonus": "KEEP — owner re-affirmed his S84 decision",
-    "B5_match_length": "NOT RULED — stays in V6-4.3",
-    "note": "All six ruled 2026-08-07 via terminal picker. Phase 1 unblocked; the ?probe=1 playtest is NOT a precondition (S132 already measured supply; owner reported the overlay is not actionable for him).",
-    "V6_1_1": {
-      "gatherer_count": "START AT 1; more are BOUGHT from the castle",
-      "gatherer_cost": "VICTORY POINTS — score becomes a spendable currency (first real score sink in the game)",
-      "price": "105 (owner precise figure 2026-08-09; ~7% of PHASE_1_WIN_SCORE 1500), flat not rising",
-      "spend_model": "ONE POOL — spending SETS YOU BACK toward the win. No lifetime-earned split, no rising threshold.",
-      "art": "A shapeshifting spark: looks like the player spark/cruiser, continuously morphs through the six primitives. PROCEDURAL — no asset, no veo, no bundle cost. Not literally per-tick (60Hz would strobe).",
-      "morph_semantics": "PURELY COSMETIC => RENDERER-ONLY. Must NOT become world state: no serialized field, no FIELD_COVERAGE entry, no wire cost, cannot desync. Drive from a pure fn of (tick, gathererId) at render time.",
-      "worker_flip": "SPLIT OUT of V6-1.1. Close the S134 hunter residual FIRST (S135 P0), then flip in its own slot.",
-      "slot_split": "Minimal placeholder keep in V6-1.1 (render-only box, can take 105 score, emit a gatherer). Full castle entity + spawner shrink + cadence stay in V6-1.2.",
-      "castle_placeholder": "Owner 2026-08-09: identical placeholder keep for every player now. The full build-from-leftover-trophies fortress in a separate screen is SPARK_v0.6_DESIGN.md §5, its own later spec (V6-3.x)."
-    },
-    "score_currency_blast_radius": "Score was framed write-only+monotonic; the S135 map found it is ALREADY non-monotonic in code (leader-decay scoring.ts:273-286 floors at 1125; Nonet x0.4 sudokuEvent.ts:113-127), so read sites already tolerate a drop and the HUD already flashes on it. The two GENUINE new deltas for a voluntary spend: (a) SCORE_TIER re-crossing replays the milestone banner (add a persistent max-tier watermark); (b) HUD drop-flash fires red on a deliberate buy (suppress on the spend tick). scoreByPlayer already in NARROW_HASHED_FAMILIES (synced+desync-checked). Re-scope V6-1.6 (redundant energy sink). B5 still unruled, still V6-4.3."
+  "reflexion_entries_to_archive": [],
+  "totals": {
+    "budget_remaining": 1000000
   },
-  "owner_playtest_s136": {
-    "source": "owner message, in-session, 2026-08-10 — verbatim items",
-    "items": [
-      "1. the build extra gatherer or increase speed is not even clickable",
-      "2. that footer with those options should be clickable once you click on the castle and not always there, because eventually different towers and stuff will have different upgrades and they will pop up when you click on them",
-      "3. when the gatherer brings primitives and drops them near base if there are multiple they are dropped on top of each other and when you try to grab one the other flies to all hells",
-      "4. he should just store them within the castle and not outside",
-      "5. when you click on castle there is a small popup bubble where you can either pull them and build them one by one or prebuild within the bubble dimentional space and then pull the whole structure",
-      "6. when there is the rainbow it should change the castle color too",
-      "plus: other than all of those things continue building all the other specs in order"
-    ],
-    "approval": "i approve full siession prioritry bathc and full autonomous run and iil be going to bed. work in the absolute best interests of this project and vision producing the highest qualityu of work and best output!"
-  },
-  "deploy_verified_s135": {
-    "pushed": "7b92713..88ef3b5",
-    "unpushed_after": 0,
-    "run_id": "31334062347",
-    "conclusion": "success",
-    "head_sha": "88ef3b55",
-    "verify_deploy": "PASS 4/4 — REMOTE 88ef3b55, RUN 1 (event=push), VERDICT success, LIVE index-9CNgDMfY.js content-hash identical to the local build",
-    "note": "The FIRST verify-deploy FAILED on the LIVE carrier because the local dist was stale (built before the final audit fixes), so the hashes could not match. Rebuilt from committed source and re-verified 4/4. Recorded because rebuild-then-re-verify is the correct response to a LIVE mismatch — not assuming CDN lag."
-  },
-  "deviations": [
-    "Rule 17 3-way Council NOT run. Two A.0 probe fleets died on an individual spend cap after ~1.7M subagent tokens returning zero output. Deliberation budget was redirected into direct empirical A.0 (recorded above) plus a written PRIME-AUDIT per priority. Stated as a deviation, NOT presented as compliance."
-  ],
-  "real_context_tokens_at_close": 670000,
-  "e2e_gating_status": {
-    "result": "2 failed / 29 passed (was 5 failed / 26 passed at session open on S135 code+faucet)",
-    "cause": "The lane was passing BY LUCK. Since V6-1.2 an un-escrowed spark inside the spawn disc is not player-pickable (controls.ts pickSpark), but e2e/helpers.ts still picked any Free spark within 200px of centre — the pre-V6-1.2 rule. At lambda=0.1875 the ~2-spark pool was usually the escrowed (pickable) one, so it worked. The B3 x6 faucet made the pool ~9, mostly un-escrowed, and 5 specs failed with \"placement landed (prims 0 -> >=1)\".",
-    "fixed": "e2e/helpers.ts re-based onto the shipped loop: isPorchSpark (pickable != draggable — an in-flight haul is re-pinned to the gatherer every tick, so only a castle-porch shape can be dragged), pullFromBank via the real UI + getUiPoints geometry getter, state-aware panel open (the keep click TOGGLES), and a bounded 4x8s full-cycle retry.",
-    "still_red": [
-      "fog.spec.ts:104 — asserts aboveFogLayer has exactly 13 children; STABLY 14 across runs (structural, not timing). The test comment says to bump deliberately with its renderer list; NOT bumped because the 14th child could not be attributed and an unexplained number defeats the contract. Prime suspect: S135 GathererRenderer(app, aboveFogLayer), which would mean the contract went stale in S135.",
-      "hunter.spec.ts:67 — \"pullFromBank: castle panel did not open\". The player appears input-locked (that spec's subject IS the hunter benching them) during a build that now needs several pull cycles."
-    ],
-    "not_masked": "Neither was tagged @quarantine-flaky. #1 next-session item."
-  },
-  "deploy_verified_s136": {
-    "verified": "npm run verify-deploy 4/4 at a08c4e38 (REMOTE + RUN + VERDICT + LIVE content-hash equality)",
-    "runs": "4 Deploy-to-Pages runs, all success (P0 f08ea7d, P1 e93dc1f, P4 678eddc, P3 a08c4e3)",
-    "note": "The final e2e-helpers commit touches e2e/ only — outside deploy.yml paths — so no new deploy was owed."
-  }
+  "budget_total": 1000000
 }
