@@ -46,6 +46,62 @@ game, accessible, easy to understand.* Treat that as an acceptance criterion, no
 
 **Still NOT ruled:** `CASTLE_BANK_CAP` itself. Q3 ruled the *build space*, not the bank. See §7.
 
+## 1b. ROUND-2 OWNER RULINGS (2026-08-10, after the creative/architectural council)
+
+| # | ruling | status |
+|---|---|---|
+| R1 | **Architecture = REAL STORAGE (B).** Shapes physically move into the space | settles §7 |
+| R2 | **`CASTLE_BANK_CAP` → 12–13** ("real leeway") | ⚠ see C1 |
+| R3 | **Per-gatherer submenu** — click a gatherer, get its OWN footer/panel to choose which shapes it focuses on | cheap, see C5 |
+| R4 | **Castles start at the extremities of the starting zone, further from the quarry** | ⚠ see C2, C3 |
+| R5 | **Gatherers deposit STRAIGHT into the castle/build space** (auto-routing) | answers open Q2 |
+| R6 | **A third castle control** beside BUY GATHERER / SPEED: **"BUILD SPACE" / "DIMENSION"**, given a striking graphic. Opens the space to build in, or to pull single shapes out. Must be convenient and intuitive | |
+| R7 | **Design library starts EMPTY.** You UNLOCK a design in the Codex → it saves to your library → you click it and it builds for you | see C4 |
+| R8 | **Free starter designs**: every player gets the same design(s) free EVERY game whether unlocked or not — "like the drones or pencil chewers or other towers (**not godlies**)" | ⚠ see C6 |
+
+### Consequences found by checking these against the code
+
+**C1 — cap 13 breaks the bank strip layout.** `castlePanel.ts` lays the bank out as ONE row of
+`CASTLE_BANK_CAP` slots (`slotOrigin`, `SLOT_W` 40 + `SLOT_GAP` 6) inside a `PANEL_W` of **268**.
+13 slots in a row is **592 px** — it overflows by more than double. Fix: a **5-wide grid, 3 rows**
+(224 × 132 px), which fits the existing panel. Small change, but `slotOrigin` and the panel-height
+maths both assume a single row today.
+
+**C2 — R4 and R2 push the economy in OPPOSITE directions.** The keep ring is
+`SPAWNER_RADIUS + 150` = **275 px** from centre, so the quarry-rim→keep gap is **150 px**. Moving the
+ring to ~420 makes that gap **295 px — a 1.97× longer haul**, so throughput *drops* while the bank
+gets *bigger*. Both changes are wanted, but they are not independent: measured today at cap 5 the
+economy banks ~5 shapes/60 s, and doubling the haul will cut that materially. **We already have the
+harness to measure it** (`e2e/bank-throughput.spec.ts`) — so this should be re-measured after the
+move rather than guessed, and gatherer speed / count re-tuned against the result.
+
+**C3 — there is no "starting zone" in the code.** Grep finds no `startingZone` / `homeZone` concept;
+keeps sit on a fixed ring around the arena centre. So R4's actionable form is **"increase the keep
+ring radius"**. Verified on-canvas fit for the 7-seat ring: **R = 275 (today) · 360 · 420 · 460 all
+fit**; 460 puts the extreme keeps at y = 63…1017 inside a 1080 canvas. Recommend **~420** (comfortable
+margin, nearly double the haul distance).
+
+**C4 — the design-library infrastructure ALREADY EXISTS.** `render/codexStore.ts` is a
+localStorage-backed unlock store with `loadUnlockedSet(): Set<GodlyId>` / `unlockGodly(id)`, and
+`comboCodexStore.ts` does the same for discovered combos. R7 is therefore close to free: the library
+IS the unlocked set, and "click it and it builds for you" is the template loader from §1 Q3.
+
+**C5 — R3 is what the panel was designed for.** `castlePanel.ts:11-14` already says the panel is
+built around a `PanelControl` descriptor list *because* "different towers and stuff will have their
+own upgrades and pop up when you click on them". A gatherer panel is a second descriptor list, not a
+new system. Note it REPLACES today's click-to-cycle preference (`controls.ts` `SET_GATHERER_PREFERENCE`
+cycles Any→Dot→…→Any) with an explicit picker — better, and the reducer already exists and takes a
+resolved value, so no new intent is needed for the picking itself.
+
+**C6 — ⚠ THE FREE STARTER DESIGNS DO NOT EXIST YET.** `godlyRecipes/` contains exactly five recipes —
+pentagram, lightningHub, voltkin, laserTurret, princessHelga — and **all five are godlies**, including
+laserTurret. So there is currently **no non-godly buildable recipe at all**. R8 therefore is not a
+"grant what we have for free" change; it is **new content that must be authored** (a wall? a block? a
+spike? a simple tower?). This is the single biggest unscoped item in the whole feature and it is a
+DESIGN question, not an engineering one. Chewers appear to be hostile creatures that EAT structures
+(`hostTick.ts:303` "a chewer ate the structure"), not player-buildable — so "pencil chewers" as a free
+design needs the owner to confirm what they mean.
+
 ## 2. What already ships (verified)
 
 | piece | where | behaviour |
