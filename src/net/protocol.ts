@@ -466,6 +466,8 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   GATHERER_TICK: true,
   UPGRADE_GATHERER_SPEED: true,
   SET_GATHERER_PREFERENCE: true,
+  // S136 P1 (V6-1.3) — PULL_FROM_BANK is also a CLIENT INTENT (see below).
+  PULL_FROM_BANK: true,
   SPAWN_SPARK: true,
   DESPAWN_SPARK: true,
   PICKUP_SPARK: true,
@@ -611,6 +613,10 @@ const CLIENT_INTENT_TYPES_RECORD = {
   // ownership- and affordability-gated in the reducer, so the host never trusts the client's view.
   UPGRADE_GATHERER_SPEED: true,
   SET_GATHERER_PREFERENCE: true,
+  // S136 P1 (V6-1.3) — a joiner pulls from THEIR OWN castle bank to build. The host applies it
+  // against its own authoritative bank, so a client acting on a stale index simply no-ops rather
+  // than taking the wrong shape; nothing about the client's view of the bank is trusted.
+  PULL_FROM_BANK: true,
 } as const satisfies Partial<Record<GameAction['type'], true>>;
 
 export const CLIENT_INTENT_TYPES: ReadonlySet<string> = new Set(

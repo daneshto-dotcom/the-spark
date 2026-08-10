@@ -20,16 +20,19 @@
  */
 
 import { Application, Container, Graphics } from 'pixi.js';
-import { PLAYER_COLORS, SparkType } from '../constants.ts';
+import { CASTLE_BANK_CAP, KEEP_H, KEEP_W, PLAYER_COLORS, SparkType } from '../constants.ts';
+import { bankOf } from '../state/castleBank.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
+import { drawSparkGlyph } from './sparkGlyph.ts';
 import type { GathererId, SparkId } from '../types.ts';
 import type { World } from '../state/world.ts';
 
 /** Ticks each primitive is held before morphing to the next (~1.2 s at 60 Hz — never per-tick). */
 const MORPH_TICKS = 72;
 const GATHERER_RADIUS = 11;
-const KEEP_W = 74;
-const KEEP_H = 58;
+// S136 P0 — KEEP_W / KEEP_H were promoted to constants.ts so the click target (isPointInKeep) and
+// this drawing read the same numbers. Only the battlement height stays local: nothing outside this
+// renderer has any use for it.
 const KEEP_BATTLEMENT_H = 10;
 
 /**
@@ -64,6 +67,11 @@ export class GathererRenderer {
     // this reason. Caught by the S135 end-of-session audit.
     for (const [seat, player] of world.players) {
       this.drawKeep(g, seat as unknown as number, player.color);
+      // S136 P1 — the shapes HELD INSIDE this castle, drawn in its doorway. Owner item 4 asked for
+      // storage to live in the castle rather than on the ground beside it; without a mark on the
+      // keep itself, "stored" would be invisible until the panel is opened, and a full bank (which
+      // stalls your haulers) has to be readable at a glance from the board.
+      this.drawStoredShapes(g, seat as unknown as number, player.color, bankOf(world.castleBanks, seat));
     }
     for (const gatherer of world.gatherers.values()) {
       const owner = world.players.get(gatherer.ownerPlayerId);
@@ -76,8 +84,13 @@ export class GathererRenderer {
         // While HAULING it wears its CARGO's real shape (you can see what is being brought home);
         // while seeking it cycles cosmetically. Both are render-time reads — never world state.
         this.carriedShape(world, gatherer) ?? gathererMorphShape(world.tick, gatherer.id),
-        gatherer.state === 'HAULING',
+        // S136 P1 — a WAITING unit is LOADED too (bank full, standing at the keep still holding its
+        // shape), so it must wear the carrying look. Testing `!== 'SEEKING'` rather than adding
+        // WAITING to a list means a future state is loaded-by-default, which is the safer direction:
+        // a new carrying state that forgot to opt in would silently render as empty-handed.
+        gatherer.state !== 'SEEKING',
         gatherer.preferredType,
+        gatherer.state === 'WAITING',
       );
     }
   }
@@ -108,6 +121,31 @@ export class GathererRenderer {
     g.rect(x - 9, top + KEEP_H - 18, 18, 18).fill({ color: 0x000000, alpha: 0.45 });
   }
 
+  /**
+   * S136 P1 — the castle's stored shapes, as a compact row of real glyphs across the keep's face.
+   *
+   * Drawn INSIDE the keep box (not below it) so the reading is "the castle holds these", which is the
+   * whole point of owner item 4. Capped by CASTLE_BANK_CAP, so the row cannot outgrow the box — the
+   * pitch is derived from the cap rather than hardcoded, so raising the cap re-spaces itself instead
+   * of silently overflowing the art.
+   */
+  private drawStoredShapes(
+    g: Graphics,
+    seat: number,
+    color: number,
+    stored: readonly { type: SparkType }[],
+  ): void {
+    if (stored.length === 0) return;
+    const { x, y } = castleAnchor(seat);
+    const pitch = (KEEP_W - 14) / CASTLE_BANK_CAP;
+    const r = Math.min(5.5, pitch * 0.38);
+    const left = x - ((stored.length - 1) * pitch) / 2;
+    const row = y + KEEP_BATTLEMENT_H / 2 - 2;
+    for (let i = 0; i < stored.length; i++) {
+      drawSparkGlyph(g, left + i * pitch, row, r, stored[i]!.type, color);
+    }
+  }
+
   /** A gatherer: the owner's spark, currently wearing one of the six primitive shapes. */
   private drawGatherer(
     g: Graphics,
@@ -117,48 +155,27 @@ export class GathererRenderer {
     shape: SparkType,
     hauling: boolean,
     preferred: SparkType | null,
+    waiting = false,
   ): void {
     const r = GATHERER_RADIUS;
     // Soft aura so it reads as "one of your sparks" at a glance; brighter while carrying, so a
     // loaded unit is legible at a distance without any HUD.
     g.circle(x, y, r + 4).fill({ color, alpha: hauling ? 0.3 : 0.16 });
     if (hauling) g.circle(x, y, r + 7).stroke({ width: 1.5, color, alpha: 0.5 });
+    // S136 P1 — STALLED: bank full, holding a shape it cannot deposit. Drawn as a warm dashed-look
+    // double ring so "my haulers have stopped earning" is visible ON THE BOARD, not just as a number
+    // in a panel. The cap is only strategic pressure if the player can SEE it biting.
+    if (waiting) {
+      g.circle(x, y, r + 10).stroke({ width: 2, color: 0xffb03b, alpha: 0.85 });
+      g.circle(x, y, r + 14).stroke({ width: 1, color: 0xffb03b, alpha: 0.4 });
+    }
     // A standing order shows as a small ring: "this one is filtered". Cosmetic, render-only.
     if (preferred !== null) g.circle(x, y, r + 11).stroke({ width: 1, color: 0xffffff, alpha: 0.45 });
 
-    const fill = { color, alpha: 0.55 } as const;
-    const line = { width: 2, color, alpha: 0.95 } as const;
-
-    switch (shape) {
-      case SparkType.Dot:
-        g.circle(x, y, r * 0.55).fill(fill).stroke(line);
-        break;
-      case SparkType.Line:
-        g.moveTo(x - r, y).lineTo(x + r, y).stroke({ width: 3, color, alpha: 0.95 });
-        break;
-      case SparkType.Triangle:
-        g.moveTo(x, y - r).lineTo(x + r * 0.9, y + r * 0.7).lineTo(x - r * 0.9, y + r * 0.7).closePath().fill(fill).stroke(line);
-        break;
-      case SparkType.Square:
-        g.rect(x - r * 0.75, y - r * 0.75, r * 1.5, r * 1.5).fill(fill).stroke(line);
-        break;
-      case SparkType.Circle:
-        g.circle(x, y, r * 0.85).fill(fill).stroke(line);
-        break;
-      case SparkType.Spiral: {
-        // Two-turn spiral, sampled — cheap and unmistakably "the spiral primitive".
-        const turns = 2;
-        const steps = 26;
-        g.moveTo(x, y);
-        for (let i = 1; i <= steps; i++) {
-          const t = i / steps;
-          const a = t * turns * Math.PI * 2;
-          g.lineTo(x + Math.cos(a) * r * t, y + Math.sin(a) * r * t);
-        }
-        g.stroke({ width: 2, color, alpha: 0.95 });
-        break;
-      }
-    }
+    // S136 P1 — the shape switch moved to render/sparkGlyph.ts so the castle panel can draw the
+    // SAME marks for the shapes held in its bank. A stored triangle that did not look like a board
+    // triangle would make the bank unreadable.
+    drawSparkGlyph(g, x, y, r, shape, color);
   }
 
   /** Drop everything (title-return parity with the other renderers). */

@@ -4,7 +4,12 @@
  * The owner played the V6-1.1 build and reported the decisive defect: the gatherers do not move.
  * These tests exist so that can never silently regress — the first one asserts the unit actually
  * CLOSES DISTANCE, not merely that some state field flipped, and the cycle test follows one shape
- * all the way from the quarry to a banked stockpile beside the keep.
+ * all the way from the quarry into the owner's castle bank.
+ *
+ * S136 P1 — the DESTINATION of that cycle changed on the owner's next playtest ("he should just
+ * store them within the castle and not outside"): a delivered shape is lifted OUT of `freeSparks`
+ * into `world.castleBanks` instead of being parked on the ground beside the keep. See the Phase 3
+ * comment for why the replacement assertions are stronger than the ones they retired.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -30,6 +35,7 @@ import {
 } from '../../types.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
 import { castleAnchor, gathererSpeed, makeGatherer } from './gatherer.ts';
+import { bankCount, bankOf } from '../castleBank.ts';
 import { pickGathererTarget } from './gathererLifecycle.ts';
 
 const P0 = asPlayerId(0);
@@ -117,17 +123,27 @@ describe('V6-1.2 — the haul cycle (spawn zone → keep)', () => {
     expect(g.carriedSparkId).toBe(sid);
     expect(spark.escrow).toBe('hauled');
 
-    // Phase 3 — DELIVER, then return to work.
-    expect(tickUntil(w, gid, () => spark.escrow === 'banked')).toBeGreaterThan(0);
-    expect(spark.escrow).toBe('banked');
+    // Phase 3 — DELIVER INTO THE CASTLE, then return to work.
+    //
+    // ⚠ S136 P1 CHANGED THIS CONTRACT ON PURPOSE (owner playtest item 4: "he should just store them
+    // within the castle and not outside"). V6-1.2 asserted `spark.escrow === 'banked'` and a world
+    // position near the keep — i.e. the shape stayed a physics entity parked on the ground, which is
+    // precisely what produced the stacking and fling reports. The delivered shape now leaves the
+    // world entirely, so the assertions below are STRICTLY STRONGER than the ones they replace:
+    // "not in freeSparks at all" implies "not sitting in the quarry" and cannot be satisfied by a
+    // shape that is merely somewhere else on the board.
+    expect(tickUntil(w, gid, () => bankCount(w.castleBanks, P0) === 1)).toBeGreaterThan(0);
     expect(g.carriedSparkId).toBeNull();
     expect(g.state).toBe('SEEKING');
-    const anchor = castleAnchor(0);
-    expect(Math.hypot(spark.pos.x - anchor.x, spark.pos.y - anchor.y)).toBeLessThan(220);
-    // And it genuinely LEFT the quarry — the whole point of the haul.
-    expect(
-      Math.hypot(spark.pos.x - SPAWNER_CENTER_X, spark.pos.y - SPAWNER_CENTER_Y),
-    ).toBeGreaterThan(SPAWNER_RADIUS);
+    // It is OUT of the world — invisible to collision, the spatial grid, the soft cap and the reap.
+    expect(w.freeSparks.has(sid)).toBe(false);
+    // And it is the SAME entity, id intact, so a pull returns the shape that was actually hauled.
+    const banked = bankOf(w.castleBanks, P0);
+    expect(banked).toHaveLength(1);
+    expect(banked[0]!.id).toBe(sid);
+    expect(banked[0]!.type).toBe(spark.type);
+    // The in-transit escrow marker is cleared on the way in: it is held, not hauling.
+    expect(banked[0]!.escrow).toBeUndefined();
   });
 
   it('a hauled spark rides WITH the gatherer (it is not left behind in the zone)', () => {

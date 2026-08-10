@@ -360,6 +360,53 @@ export const GATHERER_REACH = 22;
 /** Where a hauled shape is parked, relative to the owner's keep anchor. */
 export const GATHERER_DEPOSIT_OFFSET_Y = 74;
 
+/**
+ * S136 P1 (V6-1.3) — CASTLE BANK CAPACITY. Owner ruling B4b: **5 slots**.
+ *
+ * ⭐ THE PAIRING IS THE POINT — NEVER TUNE THIS NUMBER APART FROM THE TABLE BELOW. Exact-size
+ * recipe filters would delete the carve-down tactic the v0.6 pivot exists to protect if the bank
+ * were ever >= the biggest recipe. At 5 slots only the PENTAGRAM is directly assemblable; every
+ * other target still requires staging and improvising. (Standing S128 instruction: keep the
+ * recipe-size table adjacent to the cap, forever.)
+ *
+ *   pentagram     5   <-- the only recipe the bank can hold outright at cap 5
+ *   lightningHub  6
+ *   Helga         7
+ *   Voltkin       8
+ *   laserTurret   8
+ *   NONET         9   <-- S136 A.0 addition: a SIXTH exact-size gate the prior table omitted.
+ *                        Verified at sudokuEvent.ts NONET_SHAPE_COUNT — 9 same-type primitives.
+ *                        It is not in the godlyRecipes registry (S94 made it a synthetic Codex
+ *                        entry) which is exactly why it kept falling out of this list.
+ *
+ * All six sizes were re-verified against the real recipe modules in S136 A.0; the five original
+ * numbers were correct.
+ */
+export const CASTLE_BANK_CAP = 5;
+
+/**
+ * S136 P1 — how many PORCH slots sit outside the castle gate, and where.
+ *
+ * A stored shape is PULLED from the bank onto the porch, one at a time, on the player's command
+ * (owner item 5: "you can either pull them and build them one by one"). The pulled shape is an
+ * ordinary Free spark, so the shipped drag-and-place flow handles it with zero changes.
+ *
+ * ⚠ WHY SLOTS AND NOT ONE POINT. The V6-1.2 deposit bug was `depositSlot` choosing a slot by
+ * COUNTING banked shapes: the count is an occupancy TOTAL, not a high-water index, so grabbing one
+ * from the middle collapsed the mapping and the next shape landed exactly on top of an existing one.
+ * Two sparks at the same position sit inert (resolvePair early-returns under EPSILON) until a grab
+ * perturbs them, at which point a near-zero distance with a near-maximal overlap gets converted by
+ * Verlet into a large velocity — the owner's "the other flies to all hells". The pull path picks the
+ * first slot that is actually UNOCCUPIED (see `firstFreePorchSlot`), which cannot co-locate by
+ * construction, and refuses the pull when the porch is full.
+ */
+export const CASTLE_PORCH_SLOTS = 4;
+/** Porch row offset below the keep anchor, and the horizontal pitch between slots. */
+export const CASTLE_PORCH_OFFSET_Y = 74;
+export const CASTLE_PORCH_PITCH_X = 30;
+/** A porch slot counts as occupied if any spark is within this radius of it. */
+export const CASTLE_PORCH_SLOT_CLEAR_RADIUS = 17;
+
 // === Spawner physics ===
 export const SPAWNER_BOUNCE_DAMPING = 0.92;
 // S110 P2 — UNIFORM spawn speed (owner live-playtest: "same speed but random shapes").

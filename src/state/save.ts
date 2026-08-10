@@ -142,6 +142,19 @@ export interface WorldSnapshot {
    */
   gatherers?: SerializedGatherer[];
   /**
+   * S136 P1 (V6-1.3) — per-seat CASTLE BANKS: shapes held INSIDE the castle, out of `freeSparks`.
+   *
+   * Additive-optional (the creature/hunter/gatherer precedent): emitted only when a bank is
+   * non-empty, so every pre-S136 save stays byte-identical and loads with empty banks.
+   *
+   * MUST round-trip. A banked shape is work the player's gatherer already paid travel time for, and
+   * it is NOT in `freeSparks` — so a successor that inherited a world without this field would lose
+   * every stored shape silently, with no entity left behind to notice. Same failure class as the
+   * S135 hunter-lifetime gap, which is why the entries carry the FULL SerializedSpark rather than a
+   * bare type: the spark that comes back out of a pull is the same entity that went in, id included.
+   */
+  castleBanks?: Array<{ seat: PlayerId; shapes: SerializedSpark[] }>;
+  /**
    * S72 P2 — once-per-game hunter-spawned guard. Additive-optional; emitted only
    * when true so a host save/load mid-game does not re-spawn a second hunter on
    * reload. Pre-S72 saves omit it → rehydrates false.
@@ -717,6 +730,8 @@ export function snapshot(
     gatherers: world.gatherers.size > 0
       ? [...world.gatherers.values()].map(serializeGatherer)
       : undefined,
+    // S136 P1 (V6-1.3) — the castle banks (omitted entirely when every bank is empty).
+    castleBanks: serializeCastleBanks(world),
     // S72 P2 — emit the once-per-game guard only when true (byte-identical pre-S72).
     hunterSpawned: world.hunterSpawned ? true : undefined,
     // S72 P3 — emit potatoes only when present (byte-identical pre-S72-P3).
@@ -1187,22 +1202,18 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   }
 
   for (const s of snap.freeSparks) {
-    const spark: Spark = {
-      ...makeFreeSpark({
-        id: s.id,
-        type: s.type,
-        pos: s.pos,
-        velocity: { x: 0, y: 0 },
-        dt: PHYSICS_DT,
-        createdTick: s.createdTick,
-      }),
-      pos: { ...s.pos },
-      prevPos: { ...s.prevPos },
-      state: s.state,
-      poopyUntilTick: s.poopyUntilTick, // S77 P3 — round-trip the "poopy" slow (clients tint it)
-      escrow: s.escrow, // V6-1.2 — gatherer haul/bank escrow
-    };
+    const spark = deserializeSpark(s);
     world.freeSparks.set(spark.id, spark);
+  }
+
+  // S136 P1 (V6-1.3) — castle banks: clear + rehydrate. Banked shapes are NOT in freeSparks, so this
+  // is the only path that restores them; a missing field means "no banks" (a pre-S136 save), never
+  // "leave whatever was there" — otherwise a promoted successor inherits stale banks.
+  world.castleBanks.clear();
+  if (snap.castleBanks !== undefined) {
+    for (const entry of snap.castleBanks) {
+      world.castleBanks.set(entry.seat, entry.shapes.map(deserializeSpark));
+    }
   }
 
   for (const p of snap.primitives) {
@@ -1285,6 +1296,44 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
         : { ...base, kind: 'Idle' };
     world.players.set(player.id, player);
   }
+}
+
+/**
+ * S136 P1 — the inverse of `serializeSpark`, extracted from the inline `freeSparks` loop so the
+ * castle-bank round-trip cannot drift from the free-spark one. Any field added to SerializedSpark
+ * now has exactly ONE place to be rehydrated, serving both consumers.
+ */
+function deserializeSpark(s: SerializedSpark): Spark {
+  return {
+    ...makeFreeSpark({
+      id: s.id,
+      type: s.type,
+      pos: s.pos,
+      velocity: { x: 0, y: 0 },
+      dt: PHYSICS_DT,
+      createdTick: s.createdTick,
+    }),
+    pos: { ...s.pos },
+    prevPos: { ...s.prevPos },
+    state: s.state,
+    poopyUntilTick: s.poopyUntilTick, // S77 P3 — round-trip the "poopy" slow (clients tint it)
+    escrow: s.escrow, // V6-1.2 — gatherer haul/bank escrow
+  };
+}
+
+/**
+ * S136 P1 — emit only non-empty banks; undefined when no seat holds anything, so a pre-S136 world
+ * round-trips byte-identically.
+ */
+function serializeCastleBanks(
+  world: World,
+): Array<{ seat: PlayerId; shapes: SerializedSpark[] }> | undefined {
+  const out: Array<{ seat: PlayerId; shapes: SerializedSpark[] }> = [];
+  for (const [seat, bank] of world.castleBanks) {
+    if (bank.length === 0) continue;
+    out.push({ seat, shapes: bank.map(serializeSpark) });
+  }
+  return out.length > 0 ? out : undefined;
 }
 
 function serializeSpark(s: Spark): SerializedSpark {

@@ -212,6 +212,8 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   // V6-1.1 — clear any lingering gatherer at match start (same all-hazards invariant).
   world.gatherers.clear();
   world.nextGathererId = 0;
+  // S136 P1 — and its castle bank. A fresh match must never inherit last match's stored shapes.
+  world.castleBanks.clear();
   // S34 P2-21 defensive clear (see JSDoc above).
   world.pendingCreatureSpawn = null;
   // S87 — bot-seat identity is per-match: rebuild from the action (empty for
@@ -388,6 +390,8 @@ export function applyReturnToTitle(world: World): World {
   // V6-1.1 — clear gatherers on title-return (mirror of the other hazards).
   world.gatherers.clear();
   world.nextGathererId = 0;
+  // S136 P1 — and its castle bank, or a title-return would carry stored shapes into the next match.
+  world.castleBanks.clear();
   world.activeCinematicPlayerId = null;
   world.currentCinematicEvent = null;
   world.pendingCinematics.length = 0;

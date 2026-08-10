@@ -307,6 +307,19 @@ describe('FIELD_COVERAGE — the forcing function', () => {
       asGathererId(1),
       makeGatherer({ id: asGathererId(1), ownerPlayerId: P0, pos: { x: 70, y: 70 }, spawnedAtTick: 1 }),
     );
+    // S136 P1 — a shape banked INSIDE a castle, so the new family contributes a part here too.
+    // Deliberately NOT also added to w.freeSparks: a banked shape is OUT of the world, which is the
+    // entire point of the bank (see castleBank.ts) and what makes the stacking/fling class impossible.
+    w.castleBanks.set(P0, [
+      makeFreeSpark({
+        id: asSparkId(909),
+        type: SparkType.Triangle,
+        pos: { x: 80, y: 80 },
+        velocity: { x: 0, y: 0 },
+        dt: 1 / 60,
+        createdTick: 1,
+      }),
+    ]);
     w.fouledPrimitives.add(asPrimitiveId(3));
     w.discoveredCombos.add('0->1');
     w.godlyFiredThisMatch.add('voltkin');
@@ -321,6 +334,7 @@ describe('FIELD_COVERAGE — the forcing function', () => {
       ['creatureSpawners', /^cs\d+:/],
       ['defenders', /^d\d+:/],
       ['gatherers', /^ga\d+:/],
+      ['castleBanks', /^cb\d+:/],
       ['bombs', /^bo\d+:/],
       ['hunters', /^h\d+:/],
       ['potatoes', /^po\d+:/],

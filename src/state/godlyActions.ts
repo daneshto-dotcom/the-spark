@@ -83,5 +83,7 @@ export function applyGodlyAbort(world: World): World {
   // keeping godlyActions.ts free of a runtime teardownGatherers import — mirrors the lines above).
   world.gatherers.clear();
   world.nextGathererId = 0;
+  // S136 P1 — and the castle banks, on the same inline rationale as the line above.
+  world.castleBanks.clear();
   return world;
 }

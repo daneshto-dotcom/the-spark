@@ -34,8 +34,14 @@ import type { GathererId, PlayerId, SparkId, Vec2 } from '../../types.ts';
  * V6-1.2 — the haul cycle. SEEKING: walking to the chosen spark in the spawn zone. HAULING:
  * carrying it home to the owner's keep. Deposit flips it straight back to SEEKING, so a gatherer
  * is never idle while shapes exist.
+ *
+ * S136 P1 (V6-1.3) — WAITING: arrived at the keep with cargo, but the castle bank is at
+ * CASTLE_BANK_CAP, so the unit STANDS THERE STILL HOLDING ITS SHAPE and deposits the moment a slot
+ * frees (owner ruling: "bank full => a loaded gatherer walks home and WAITS holding its item").
+ * Holding rather than dropping is what turns the cap into strategic pressure — your haulers visibly
+ * stall until you spend — instead of silently destroying work the player already paid for.
  */
-export type GathererState = 'SEEKING' | 'HAULING';
+export type GathererState = 'SEEKING' | 'HAULING' | 'WAITING';
 
 export interface Gatherer {
   readonly id: GathererId;

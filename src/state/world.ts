@@ -147,11 +147,13 @@ import {
 import {
   applyBuyGatherer,
   applyGathererTick,
+  applyPullFromBank,
   applySetGathererPreference,
   applyUpgradeGathererSpeed,
   teardownGatherers,
   type BuyGathererAction,
   type GathererTickAction,
+  type PullFromBankAction,
   type SetGathererPreferenceAction,
   type UpgradeGathererSpeedAction,
 } from './gatherers/gathererLifecycle.ts';
@@ -307,6 +309,10 @@ export type GameAction =
   | GathererTickAction
   | UpgradeGathererSpeedAction
   | SetGathererPreferenceAction
+  // S136 P1 (V6-1.3) — PULL_FROM_BANK takes one stored shape out of the castle onto the porch. A
+  // CLIENT INTENT (a joiner builds from their own bank); ownership is the action's own playerId and
+  // the host applies it authoritatively against ITS bank, so a stale client index simply no-ops.
+  | PullFromBankAction
   // S93 — NONET: a player submits a completed Sudoku grid (client INTENT or host/solo local);
   // the host validates first-valid-wins. playerId is host-stamped to the sender's seat.
   | { readonly type: 'SUDOKU_SOLVED'; readonly playerId: PlayerId; readonly grid: readonly number[] };
@@ -342,6 +348,8 @@ export function makeWorld(rngSeed: number): World {
     nextDefenderId: 0,
     // V6-1.1 — player-owned gatherers; empty at world birth (bought from the keep).
     gatherers: new Map(),
+    // S136 P1 (V6-1.3) — per-seat castle bank; seats are populated lazily on first deposit.
+    castleBanks: new Map(),
     nextGathererId: 0,
     pendingCreatureSpawn: null,
     bombs: new Map(),
@@ -647,6 +655,9 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'UPGRADE_GATHERER_SPEED':
       return applyUpgradeGathererSpeed(world, action);
+
+    case 'PULL_FROM_BANK':
+      return applyPullFromBank(world, action);
 
     case 'SET_GATHERER_PREFERENCE':
       return applySetGathererPreference(world, action);

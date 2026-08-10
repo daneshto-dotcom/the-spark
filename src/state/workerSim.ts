@@ -266,6 +266,20 @@ export function makeWorkerSim(
  * Same-batch spawn+despawn pairs that leave a size unchanged are covered by the effects/
  * intents triggers upstream and, worst case, the 100 ms floor (documented known-delta).
  */
+/**
+ * S136 P1 — total shapes held across all castle banks.
+ *
+ * `castleBanks.size` alone counts SEATS, not contents, so it never changes once every seat has
+ * banked once — and a deposit or a pull would then be invisible to this signature. The per-seat map
+ * size and this total are both needed: the first catches a seat's first-ever deposit, the second
+ * catches every one after it.
+ */
+function bankedShapeTotal(world: World): number {
+  let n = 0;
+  for (const bank of world.castleBanks.values()) n += bank.length;
+  return n;
+}
+
 export function structuralSignature(world: World): string {
   let benched = 0;
   for (const p of world.players.values()) {
@@ -284,6 +298,13 @@ export function structuralSignature(world: World): string {
     // tsc-forced, unlike FIELD_COVERAGE: omitting this line would make a purchase invisible to the
     // mirror until the 100 ms floor elapsed).
     world.gatherers.size,
+    // S136 P1 (V6-1.3) — the castle bank. A deposit MOVES a spark out of freeSparks and into a bank,
+    // so freeSparks.size falls by one while the bank grows by one: without this term the two changes
+    // cancel in every size-only view and the mirror would never be told the shape moved. This is one
+    // of the two UNFORCED serialization sites (structuralSignature and the positions buffer) that the
+    // S135 audit caught being missed — nothing makes tsc fail if it is omitted.
+    world.castleBanks.size,
+    bankedShapeTotal(world),
     world.bombs.size,
     world.hunters.size,
     world.potatoes.size,

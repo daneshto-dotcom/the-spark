@@ -76,6 +76,11 @@ export const BENCH_INTENT_POLICY = {
   // equivalent of moving your cursor. Allowed while benched, like UPDATE_AVATAR_POS: the bench is
   // meant to stop you ACQUIRING, not to freeze standing orders you already paid for.
   SET_GATHERER_PREFERENCE: 'allow',
+  // S136 P1 (V6-1.3) — pulling from your own bank is the first move of BUILDING, and building is
+  // exactly what the bench exists to stop (PLACE_* and PICKUP_SPARK are both denied). Allowing it
+  // would let an eaten player stage shapes on the porch and place them the instant the bench lifts,
+  // converting the punish window into free setup time. The shape is not lost — it stays banked.
+  PULL_FROM_BANK: 'deny',
 } as const satisfies Partial<Record<GameAction['type'], BenchPolicy>>;
 
 /**

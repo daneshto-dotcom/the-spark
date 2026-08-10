@@ -83,6 +83,12 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   // V6-1.1 — bought gatherer units. Hashed HERE (the wide oracle), deliberately NOT added to
   // stateHash.ts NARROW_HASHED_FAMILIES (R1: the narrow set stays narrow — it is on the prod hot path).
   gatherers: 'hashed',
+  // S136 P1 (V6-1.3) — the castle bank. Hashed HERE (the wide oracle) on the same rationale as
+  // gatherers, and deliberately NOT added to stateHash.ts NARROW_HASHED_FAMILIES (R1: the narrow
+  // set is on the prod hot path and stays narrow). This field is what a hauled shape BECOMES, so a
+  // successor that inherited a world without it would silently lose every banked shape — the exact
+  // failure class the S135 hunter-lifetime work existed to close.
+  castleBanks: 'hashed',
   bombs: 'hashed',
   hunters: 'hashed',
   potatoes: 'hashed',
@@ -383,6 +389,20 @@ export function determinismParts(world: World): string[] {
         `:${g.state}:tg${n(g.targetSparkId)}:cy${n(g.carriedSparkId)}:sl${g.speedLevel}` +
         `:pf${o(g.preferredType)}`,
     );
+  }
+
+  // S136 P1 — castle banks, seat-sorted. ORDER WITHIN A BANK IS SIGNIFICANT and is hashed as-is:
+  // the player pulls BY INDEX from the panel, so two banks holding the same multiset in a different
+  // order are genuinely different states and must not hash equal.
+  const bankSeats = [...world.castleBanks.keys()].sort((a, b) => Number(a) - Number(b));
+  for (const seat of bankSeats) {
+    const bank = world.castleBanks.get(seat) ?? [];
+    // A banked entry is a whole Spark held out-of-world, so hash its IDENTITY and TYPE — the two
+    // fields that survive banking and matter after a pull. Position is deliberately EXCLUDED: a
+    // stored shape has no meaningful position (it is out of `freeSparks`, so no system reads it) and
+    // `applyPullFromBank` overwrites pos/prevPos from the porch slot on the way out. Hashing a dead
+    // field would make two functionally identical worlds disagree.
+    parts.push(`cb${n(seat)}:${bank.map((s) => `${n(s.id)}/${o(s.type)}`).join('.')}`);
   }
 
   const bombs = [...world.bombs.values()].sort((a, b) => Number(a.id) - Number(b.id));

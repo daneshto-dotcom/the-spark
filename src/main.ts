@@ -565,6 +565,11 @@ async function bootstrap(): Promise<void> {
   castlePanel.setUpgradeSpeedHandler(() => {
     dispatchFn({ type: 'UPGRADE_GATHERER_SPEED', playerId: world.localPlayerId });
   });
+  // S136 P1 (V6-1.3) — pull a stored shape out of the castle onto the porch, where the ordinary
+  // drag-and-place flow takes over. Same dispatchFn seam, so it routes on all three paths.
+  castlePanel.setPullHandler((index) => {
+    dispatchFn({ type: 'PULL_FROM_BANK', playerId: world.localPlayerId, index });
+  });
   // S136 P0 — the input layer needs the panel for two things: the click guard (a panel row's
   // pointertap does NOT suppress the raw canvas world hit-test) and the own-castle click that
   // opens it. Injected after construction because Controls is built before the renderers.

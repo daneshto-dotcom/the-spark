@@ -25,6 +25,7 @@ import type { Poop, Seagull } from './seagulls/seagull.ts';
 import type { CreatureSpawner } from './spawners/spawner.ts';
 import type { Defender } from './defenders/defender.ts';
 import type { Gatherer } from './gatherers/gatherer.ts';
+import type { CastleBank } from './castleBank.ts';
 import type { GodlyId, GodlyTriggerEvent } from './godlyRecipes/types.ts';
 import type { ComboKey } from '../combos.ts';
 import type { BombId, BondId, CreatureId, DefenderId, GathererId, HunterId, PlayerId, PoopId, PotatoId, PrimitiveId, RainbowId, SeagullId, SparkId, SpawnerId } from '../types.ts';
@@ -163,6 +164,21 @@ export interface World {
   gatherers: Map<GathererId, Gatherer>;
   /** V6-1.1 — monotonic counter for gatherer IDs. Host-only mint authority. */
   nextGathererId: number;
+  /**
+   * S136 P1 (V6-1.3) — THE CASTLE BANK: per-seat stored shapes, held INSIDE the castle.
+   *
+   * Owner playtest item 4 ("he should just store them within the castle and not outside"). This
+   * REPLACES V6-1.2's stockpile of `escrow:'banked'` free sparks parked in world space, which
+   * produced both the stacking bug and the grab-flings-the-other bug (see castleBank.ts for the
+   * full mechanism of each). A stored shape is now a TYPE in a list — no position, no radius, no
+   * collision, no TTL — so neither defect has a surface to occur on.
+   *
+   * Capped at CASTLE_BANK_CAP (5, owner ruling B4b — the number and the recipe-size table live
+   * together in constants.ts and must never be tuned apart). Host-authoritative and serialized
+   * (additive-optional, so a pre-S136 save loads with empty banks); registered in stateHashFull
+   * FIELD_COVERAGE and folded into workerSim's structuralSignature. Cleared on teardown.
+   */
+  castleBanks: Map<PlayerId, CastleBank>;
   /**
    * S28 P0 — tick-deterministic pending-spawn schedule (Council Q2 UNANIMOUS A
    * single-slot). Replaces S25's wall-clock `setTimeout(handoff, cinematicMs)`

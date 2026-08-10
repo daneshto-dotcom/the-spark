@@ -36,11 +36,14 @@ import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  CASTLE_BANK_CAP,
   GATHERER_MAX_SPEED_LEVEL,
   GATHERER_PRICE,
   GATHERER_SPEED_UPGRADE_PRICE,
   KEEP_H,
 } from '../constants.ts';
+import { bankOf } from '../state/castleBank.ts';
+import { drawSparkGlyph } from './sparkGlyph.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
 import type { World } from '../state/world.ts';
@@ -63,6 +66,17 @@ export const ROW_FONT_ADVANCE = 10.2;
 const ROW_H = 44;
 const ROW_GAP = 8;
 const TITLE_H = 26;
+/**
+ * S136 P1 — the BANK STRIP: one clickable swatch per CASTLE_BANK_CAP slot, under the title.
+ *
+ * Clicking a filled slot PULLS that shape onto the porch (owner item 5, "pull them and build them one
+ * by one"). Slots are shown even when empty so the cap is legible at a glance — the player can see
+ * that five is all they get, which is the strategic pressure the cap exists to create.
+ */
+const SLOT_W = 40;
+const SLOT_H = 40;
+const SLOT_GAP = 6;
+const BANK_STRIP_H = SLOT_H + 12;
 /** Gap between the keep box and the panel edge, so the panel never covers the castle it describes. */
 const ANCHOR_GAP = 14;
 
@@ -146,7 +160,7 @@ export function castleControlsModel(world: World): Array<Omit<PanelControl, 'onA
  * kind of edge that is invisible until a specific seat plays.
  */
 export function panelOrigin(ax: number, ay: number, rows: number): { x: number; y: number } {
-  const h = TITLE_H + rows * ROW_H + (rows - 1) * ROW_GAP + PANEL_PAD * 2;
+  const h = panelHeight(rows);
   let x = ax + KEEP_H / 2 + ANCHOR_GAP;
   if (x + PANEL_W > CANVAS_WIDTH - 8) x = ax - KEEP_H / 2 - ANCHOR_GAP - PANEL_W;
   if (x < 8) x = 8;
@@ -156,17 +170,24 @@ export function panelOrigin(ax: number, ay: number, rows: number): { x: number; 
   return { x, y };
 }
 
+/** PURE — total panel height for `rows` control rows, including the bank strip. */
+export function panelHeight(rows: number): number {
+  return TITLE_H + BANK_STRIP_H + rows * ROW_H + (rows - 1) * ROW_GAP + PANEL_PAD * 2;
+}
+
 /** PURE — the panel's full rect, given its origin and row count. */
 export function panelRect(
   origin: { x: number; y: number },
   rows: number,
 ): { x: number; y: number; w: number; h: number } {
-  return {
-    x: origin.x,
-    y: origin.y,
-    w: PANEL_W,
-    h: TITLE_H + rows * ROW_H + (rows - 1) * ROW_GAP + PANEL_PAD * 2,
-  };
+  return { x: origin.x, y: origin.y, w: PANEL_W, h: panelHeight(rows) };
+}
+
+/** PURE — the top-left of bank slot `i`, panel-local. */
+export function slotOrigin(i: number): { x: number; y: number } {
+  const total = CASTLE_BANK_CAP * SLOT_W + (CASTLE_BANK_CAP - 1) * SLOT_GAP;
+  const left = (PANEL_W - total) / 2;
+  return { x: left + i * (SLOT_W + SLOT_GAP), y: PANEL_PAD + TITLE_H };
 }
 
 export class CastlePanel {
@@ -174,6 +195,15 @@ export class CastlePanel {
   private readonly plate: Graphics;
   private readonly titleText: Text;
   private readonly rows: Array<{ box: Container; bg: Graphics; label: Text; hover: boolean }> = [];
+  /** S136 P1 — bank slot swatches; `filled` latches per frame so a click on an empty slot no-ops. */
+  private readonly slots: Array<{
+    box: Container;
+    bg: Graphics;
+    glyph: Graphics;
+    hover: boolean;
+    filled: boolean;
+  }> = [];
+  private onPull: ((index: number) => void) | null = null;
   /** Render-local selection. null = closed. Never serialized (see the file docblock). */
   private selected: number | null = null;
   private onBuyGatherer: (() => void) | null = null;
@@ -207,7 +237,7 @@ export class CastlePanel {
       const box = new Container();
       box.addChild(bg); // ⚠ Graphics child supplies containsPoint — do not remove (see docblock).
       box.addChild(label);
-      box.position.set(PANEL_PAD, PANEL_PAD + TITLE_H + i * (ROW_H + ROW_GAP));
+      box.position.set(PANEL_PAD, PANEL_PAD + TITLE_H + BANK_STRIP_H + i * (ROW_H + ROW_GAP));
       box.eventMode = 'static';
       box.cursor = 'pointer';
       const idx = i;
@@ -218,8 +248,40 @@ export class CastlePanel {
       this.rows.push({ box, bg, label, hover: false });
     }
 
+    // S136 P1 — the BANK STRIP. One box per slot; a filled one is clickable and pulls that shape.
+    // Same Container+Graphics-child idiom as the rows (the Graphics supplies `containsPoint`).
+    for (let i = 0; i < CASTLE_BANK_CAP; i++) {
+      const bg = new Graphics();
+      const glyph = new Graphics();
+      const box = new Container();
+      box.addChild(bg);
+      box.addChild(glyph);
+      const o = slotOrigin(i);
+      box.position.set(o.x, o.y);
+      box.eventMode = 'static';
+      const idx = i;
+      box.on('pointertap', () => this.pull(idx));
+      box.on('pointerover', () => { this.slots[idx].hover = true; });
+      box.on('pointerout', () => { this.slots[idx].hover = false; });
+      this.container.addChild(box);
+      this.slots.push({ box, bg, glyph, hover: false, filled: false });
+    }
+
     this.container.visible = false;
     app.stage.addChild(this.container);
+  }
+
+  private pull(index: number): void {
+    // Empty slot => nothing to pull. The reducer re-checks the index authoritatively anyway (and a
+    // stale index simply no-ops there), so this only avoids firing a pointless intent.
+    if (this.slots[index]?.filled !== true) return;
+    if (this.onPull === null) return;
+    this.onPull(index);
+  }
+
+  /** main.ts injects the PULL_FROM_BANK dispatch for the local seat. */
+  setPullHandler(fn: (index: number) => void): void {
+    this.onPull = fn;
   }
 
   /** main.ts injects the BUY_GATHERER dispatch for the local seat. */
@@ -291,18 +353,38 @@ export class CastlePanel {
     open: boolean;
     rect: { x: number; y: number; w: number; h: number } | null;
     rowCenters: Array<{ key: string; x: number; y: number; enabled: boolean; reason: string }>;
+    bank: { count: number; cap: number };
+    slotCenters: Array<{ index: number; x: number; y: number; filled: boolean }>;
   } {
-    if (this.selected === null) return { open: false, rect: null, rowCenters: [] };
+    if (this.selected === null) {
+      return {
+        open: false,
+        rect: null,
+        rowCenters: [],
+        bank: { count: 0, cap: CASTLE_BANK_CAP },
+        slotCenters: [],
+      };
+    }
     const a = castleAnchor(this.selected);
     const o = panelOrigin(a.x, a.y, this.rows.length);
     const keys = ['buyGatherer', 'upgradeSpeed'];
     return {
       open: true,
       rect: panelRect(o, this.rows.length),
+      bank: { count: this.slots.filter((s) => s.filled).length, cap: CASTLE_BANK_CAP },
+      slotCenters: this.slots.map((s, i) => {
+        const so = slotOrigin(i);
+        return {
+          index: i,
+          x: o.x + so.x + SLOT_W / 2,
+          y: o.y + so.y + SLOT_H / 2,
+          filled: s.filled,
+        };
+      }),
       rowCenters: this.rows.map((_, i) => ({
         key: keys[i],
         x: o.x + PANEL_PAD + (PANEL_W - PANEL_PAD * 2) / 2,
-        y: o.y + PANEL_PAD + TITLE_H + i * (ROW_H + ROW_GAP) + ROW_H / 2,
+        y: o.y + PANEL_PAD + TITLE_H + BANK_STRIP_H + i * (ROW_H + ROW_GAP) + ROW_H / 2,
         enabled: this.enabled[i] === true,
         reason: this.reasons[i] ?? '',
       })),
@@ -335,6 +417,30 @@ export class CastlePanel {
       .fill({ color: 0x0a1622, alpha: 0.94 })
       .stroke({ width: 2, color: tint, alpha: 0.85 });
     this.titleText.style.fill = tint;
+
+    // S136 P1 — the bank strip. `n/CAP` in the title makes the cap legible without a second label.
+    const bank = bankOf(world.castleBanks, world.localPlayerId);
+    this.titleText.text = `CASTLE   BANK ${bank.length}/${CASTLE_BANK_CAP}`;
+    for (let i = 0; i < this.slots.length; i++) {
+      const slot = this.slots[i];
+      const held = bank[i];
+      slot.filled = held !== undefined;
+      slot.box.cursor = slot.filled ? 'pointer' : 'default';
+      const sbg = slot.bg;
+      sbg.clear();
+      sbg.roundRect(0, 0, SLOT_W, SLOT_H, 5)
+        .fill({ color: slot.filled ? (slot.hover ? 0x1f5f9e : 0x14283c) : 0x101a26, alpha: 0.95 })
+        .stroke({
+          width: slot.filled ? 2 : 1,
+          color: slot.filled ? tint : 0x2a3a4a,
+          alpha: slot.filled ? 0.9 : 0.7,
+        });
+      const gl = slot.glyph;
+      gl.clear();
+      // The SAME glyph the board draws (render/sparkGlyph.ts) — a stored shape must be recognisable
+      // as the shape it is, or choosing which one to pull is guesswork.
+      if (held !== undefined) drawSparkGlyph(gl, SLOT_W / 2, SLOT_H / 2, 12, held.type, tint);
+    }
 
     for (let i = 0; i < this.rows.length; i++) {
       const row = this.rows[i];
