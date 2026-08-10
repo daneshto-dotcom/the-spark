@@ -20,7 +20,9 @@ import {
   GATHERER_BASE_SPEED,
   GATHERER_MAX_SPEED_LEVEL,
   GATHERER_SPEED_PER_LEVEL,
+  KEEP_H,
   KEEP_RING_SEATS,
+  KEEP_W,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
@@ -114,4 +116,29 @@ export function castleAnchor(seat: number): Vec2 {
     x: SPAWNER_CENTER_X + Math.cos(angle) * r,
     y: SPAWNER_CENTER_Y + Math.sin(angle) * r,
   };
+}
+
+/**
+ * S136 P0 — is this canvas-space point inside `seat`'s keep box?
+ *
+ * Clicking your own keep is what OPENS the castle panel (owner playtest item 2: the automation
+ * controls stop being a permanent footer and become a panel that opens on the castle, "because
+ * eventually different towers and stuff will have different upgrades and they will pop up when you
+ * click on them").
+ *
+ * Lives HERE, next to `castleAnchor`, deliberately: the anchor is already the single source of
+ * truth shared by the renderer and the gatherer spawn position, and KEEP_W/KEEP_H were promoted to
+ * constants.ts in the same change, so the hit target is derived from exactly the numbers the box is
+ * drawn from. Pure, no Pixi, no world read — so `controls.ts` can call it on the raw pointer path
+ * and a unit test can pin it without a renderer.
+ *
+ * ⚠ Render-only consumer. Selection is NOT world state: it is never serialized, never hashed and
+ * never put on the wire (a second player must not see your panel open), so nothing here may be
+ * called from a reducer.
+ */
+export function isPointInKeep(x: number, y: number, seat: number): boolean {
+  const { x: cx, y: cy } = castleAnchor(seat);
+  return (
+    x >= cx - KEEP_W / 2 && x <= cx + KEEP_W / 2 && y >= cy - KEEP_H / 2 && y <= cy + KEEP_H / 2
+  );
 }

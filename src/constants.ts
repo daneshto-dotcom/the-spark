@@ -337,6 +337,16 @@ export const STARTING_VICTORY_POINTS = 100;
  * live roster size) because a gatherer's spawn position is hashed host-authoritative state.
  */
 export const KEEP_RING_SEATS = PLAYER_COLORS.length;
+/**
+ * S136 P0 — the keep BOX, promoted out of gathererRenderer.ts because it is no longer only a
+ * drawing: clicking it is what opens the castle panel (owner playtest, item 2 — "that footer with
+ * those options should be clickable once you click on the castle and not always there"). The hit
+ * test (`isPointInKeep`) and the renderer now read the SAME two numbers, so a resized keep can
+ * never leave a click target floating off the art — the drift class that `isOverFooterControl`
+ * already documents for the footer buttons.
+ */
+export const KEEP_W = 74;
+export const KEEP_H = 58;
 /** V6-1.2 — flat price of ONE speed upgrade; steps every gatherer the buyer owns. */
 export const GATHERER_SPEED_UPGRADE_PRICE = 50;
 /** Base gatherer travel speed, px/tick. */

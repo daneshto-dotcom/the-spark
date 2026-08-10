@@ -65,7 +65,22 @@ import { isInsideEnemyTerritory } from '../state/territory.ts';
 // S122 P1 — moved to controlsCore.ts (DOM/Pixi-free); re-exported for existing consumers.
 export type { ControlsDispatchFn, ControlState, ControlsLike } from './controlsCore.ts';
 export { applyControlsPerSubstep, stepAttractLerp } from './controlsCore.ts';
-import { isOverFooterControl } from '../render/ui.ts';
+import { isPointInKeep } from '../state/gatherers/gatherer.ts';
+
+/**
+ * S136 P0 — the narrow view of `CastlePanel` that the input layer needs.
+ *
+ * Declared as an interface rather than importing the class so `controls.ts` keeps no dependency on
+ * the panel's rendering (and so a unit test can drive the castle-click path with a 4-line stub). The
+ * panel is constructed AFTER Controls in main.ts, so it arrives via `setCastlePanel`, and every call
+ * site tolerates it being absent.
+ */
+export interface CastlePanelLike {
+  isOpen(): boolean;
+  toggle(seat: number): void;
+  close(): void;
+  isOverPanel(x: number, y: number): boolean;
+}
 
 /**
  * V6-1.2 — PURE: the next value in a gatherer's preference cycle (Any → the six primitives → Any).
@@ -257,13 +272,6 @@ export class Controls {
     return false;
   }
 
-  /**
-   * V6-1.1 — is the cursor inside the HUD footer strip? `this.cursor` is already mapped to
-   * 1920x1080 logical canvas space by `updateCursor` (letterbox/object-fit-contain aware), and the
-   * footer lives in that same space, so this is a plain rect test with no extra coordinate math.
-   * The footer only EXISTS during PLAYING (see HUD.drawFooter), so the guard is scoped to that
-   * state — otherwise the bottom strip of the title/win screens would go inert for no reason.
-   */
   /** V6-1.2 — one gatherer under the cursor, if any (click = cycle its shape preference). */
   private pickGatherer(): GathererId | null {
     let bestId: GathererId | null = null;
@@ -281,22 +289,69 @@ export class Controls {
     return bestId;
   }
 
-  private isPointerOverFooter(): boolean {
+  /**
+   * S136 P0 — main.ts injects the castle panel after construction (it is built after Controls).
+   */
+  setCastlePanel(panel: CastlePanelLike): void {
+    this.castlePanel = panel;
+  }
+
+  private castlePanel: CastlePanelLike | null = null;
+
+  /**
+   * S136 P0 — is the cursor over the open castle panel? Replaces `isPointerOverFooter`.
+   *
+   * `this.cursor` is already mapped to 1920x1080 logical canvas space by `updateCursor`
+   * (letterbox/object-fit-contain aware) and the panel lives in that same space, so this is a plain
+   * rect test with no extra coordinate math. Scoped to PLAYING because the panel only exists there.
+   *
+   * WHY IT IS STILL NEEDED after the buttons moved: this raw canvas handler hit-tests WORLD objects
+   * with no notion of UI, and Pixi's `pointertap` on a panel row does NOT suppress it — both fire
+   * for one physical click. Without the guard, pressing BUY GATHERER would ALSO grab a spark /
+   * sever a bond / pop a creature underneath the panel.
+   */
+  private isPointerOverPanel(): boolean {
     return (
       this.world.gameState === 'PLAYING' &&
-      isOverFooterControl(this.cursor.x, this.cursor.y)
+      this.castlePanel !== null &&
+      this.castlePanel.isOverPanel(this.cursor.x, this.cursor.y)
     );
+  }
+
+  /**
+   * S136 P0 — OWN-CASTLE CLICK (owner playtest item 2). Opens the context panel; clicking the same
+   * castle again closes it. Returns true when the click was consumed.
+   *
+   * Deliberately your OWN keep only: there is nothing to upgrade on an opponent's castle, and
+   * opening a panel of controls you cannot use would read as a bug. Tested BEFORE the gatherer
+   * preference cycle and the world hit-tests, so the castle box always wins its own footprint —
+   * the two do not overlap today (a gatherer spawns at anchor.y + GATHERER_DEPOSIT_OFFSET_Y = +74,
+   * outside the KEEP_H/2 = 29 box), but ordering it explicitly keeps that a fact rather than a
+   * coincidence that a future keep resize could silently invert.
+   */
+  private handleCastleClick(): boolean {
+    if (this.castlePanel === null || this.world.gameState !== 'PLAYING') return false;
+    if (isPointInKeep(this.cursor.x, this.cursor.y, this.playerId as unknown as number)) {
+      this.castlePanel.toggle(this.playerId as unknown as number);
+      return true;
+    }
+    // A click anywhere else dismisses an open panel, then falls through so the same click still acts
+    // on the board — the RTS convention, and it keeps the game from feeling like it ate an input.
+    if (this.castlePanel.isOpen()) this.castlePanel.close();
+    return false;
   }
 
   private onDown = (e: PointerEvent): void => {
     if (this.isInputLocked()) return;
     this.updateCursor(e);
-    // V6-1.1 — HUD FOOTER GUARD, and it is not optional. This raw canvas handler hit-tests WORLD
-    // objects (bombs, rainbows, potatoes, sparks, bonds, creatures) with no notion of HUD elements,
-    // and Pixi's `pointertap` on the footer button does NOT suppress it — both fire for one physical
+    // S136 P0 — CASTLE PANEL GUARD, and it is not optional. This raw canvas handler hit-tests WORLD
+    // objects (bombs, rainbows, potatoes, sparks, bonds, creatures) with no notion of UI elements,
+    // and Pixi's `pointertap` on a panel row does NOT suppress it — both fire for one physical
     // click. Without this early-return, clicking BUY GATHERER would ALSO grab a spark / sever a bond
-    // / pop a creature under the cursor. Mirrored in `onUp` so a placement cannot commit onto the bar.
-    if (this.isPointerOverFooter()) return;
+    // / pop a creature under the cursor. Mirrored in `onUp` so a placement cannot commit onto it.
+    if (this.isPointerOverPanel()) return;
+    // S136 P0 — then the castle itself: clicking your own keep opens/closes its control panel.
+    if (e.button === 0 && this.handleCastleClick()) return;
     if (e.button === 0) {
       // LMB
       const player = this.world.players.get(this.playerId);
@@ -430,10 +485,10 @@ export class Controls {
     // AttractDrag). Plant it ARMED at the cursor + release the gesture capture.
     if (e.button === 0) {
       const meNow = this.world.players.get(this.playerId);
-      // V6-1.1 — do not PLANT a potato onto the footer bar (it would be hidden under the HUD).
+      // S136 P0 — do not PLANT a potato under the castle panel (it would be hidden beneath it).
       // The potato simply stays carried, which is fully reversible — unlike onDown, blocking here
       // cannot strand state.
-      if (meNow !== undefined && meNow.carriedPotatoId !== undefined && !this.isPointerOverFooter()) {
+      if (meNow !== undefined && meNow.carriedPotatoId !== undefined && !this.isPointerOverPanel()) {
         this.dispatchFn({
           type: 'PLACE_POTATO',
           playerId: this.playerId,
@@ -511,11 +566,11 @@ export class Controls {
             pos: { x: this.cursor.x, y: this.cursor.y },
           });
         }
-        // V6-1.1 — releasing over the footer bar is a REJECTED placement, not a blocked event: the
+        // S136 P0 — releasing over the castle panel is a REJECTED placement, not a blocked event: the
         // DROP_SPARK above has already released the claim, so the spark stays Free where physics
         // put it and the player is Idle. Routing through the existing reject path (rather than an
         // early return) is what guarantees no stuck "glued spark" state — the S52/S58 lesson.
-        if (gates.commit && !this.isPointerOverFooter()) {
+        if (gates.commit && !this.isPointerOverPanel()) {
           // S52 P1 — atomic PLACE_FROM_FREE single intent replaces the S5-era
           // PICKUP_SPARK+PLACE_PRIMITIVE burst. The burst pattern had a
           // critical defect for the joiner: when PLACE_PRIMITIVE silently

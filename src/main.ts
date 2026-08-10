@@ -124,6 +124,7 @@ import { KeystoneTelegraphRenderer } from './render/keystoneTelegraphRenderer.ts
 import { DragPreviewRenderer } from './render/dragPreviewRenderer.ts';
 import { TitleScreen } from './render/titleScreen.ts';
 import { HUD } from './render/ui.ts';
+import { CastlePanel } from './render/castlePanel.ts';
 import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
 import type { SudokuOverlay } from './render/sudokuOverlay.ts';
 // S97 G3b / S104 P3 — the Magic-14 combos are now a TAB inside the unified CodexOverlay (the
@@ -548,18 +549,26 @@ async function bootstrap(): Promise<void> {
   app.stage.addChild(muteIndicator);
   app.stage.addChild(settingsIcon);
   const hud = new HUD(app);
-  // V6-1.1 — the footer BUY GATHERER control dispatches through the SAME `dispatchFn` seam every
+  // S136 P0 — the automation controls moved OFF the permanent footer and into a panel that opens
+  // when you click your castle (owner playtest item 2). Constructed after the HUD so it renders
+  // above it (child-add order, the betaBadgePlate idiom — no zIndex needed).
+  const castlePanel = new CastlePanel(app);
+  // V6-1.1 — the BUY GATHERER control dispatches through the SAME `dispatchFn` seam every
   // other player intent uses, so it routes correctly on all three paths (networked joiner → wire
   // intent; worker mode → postIntent; solo/host → direct dispatch). BUY_GATHERER is deliberately
   // NOT in PREDICTABLE_ACTIONS: optimistically minting locally would allocate a gatherer id the
   // host has not issued, so the unit appears when the authoritative snapshot lands instead.
-  hud.setBuyGathererHandler(() => {
+  castlePanel.setBuyGathererHandler(() => {
     dispatchFn({ type: 'BUY_GATHERER', playerId: world.localPlayerId });
   });
   // V6-1.2 — one purchase steps every gatherer this seat owns.
-  hud.setUpgradeSpeedHandler(() => {
+  castlePanel.setUpgradeSpeedHandler(() => {
     dispatchFn({ type: 'UPGRADE_GATHERER_SPEED', playerId: world.localPlayerId });
   });
+  // S136 P0 — the input layer needs the panel for two things: the click guard (a panel row's
+  // pointertap does NOT suppress the raw canvas world hit-test) and the own-castle click that
+  // opens it. Injected after construction because Controls is built before the renderers.
+  controls.setCastlePanel(castlePanel);
   const stats = new StatsOverlay(app);
   // S88 G3a — in-match discovery toast. Constructed AFTER the HUD so its main-stage
   // container renders ABOVE the board/fog (HUD/main-stage layer, NOT aboveFogLayer —
@@ -929,6 +938,10 @@ async function bootstrap(): Promise<void> {
       get netTransport(): NetTransport | null { return session.netTransport; },
       get lobbyScreen() { return lobbyScreen; },
       get titleScreen() { return titleScreen; },
+      // S136 P0 — castle-panel geometry + per-row enabled/reason, for e2e. Before this session the
+      // buy/speed controls had ZERO e2e coverage, which is exactly why a control that is disabled
+      // for a legitimate reason was indistinguishable from a broken one.
+      get castlePanel() { return castlePanel; },
       // S87 — VS-BOTS e2e probes: setup-overlay geometry/state + live manager.
       // S123 P1 — in worker mode this manager is FROZEN (the worker owns the
       // authoritative bots); e2e asserts bot-authored WORLD changes instead of FSM labels.
@@ -2553,7 +2566,12 @@ async function bootstrap(): Promise<void> {
     // S57 P1 — fog mask. Live cursor = personal-vision centre (lag-free);
     // ticker.deltaMS drives the win-lift fade. Cheap no-op in solo / once lifted.
     fogRenderer.sync(world, controls.cursor, app.ticker.deltaMS / 1000);
+    // S136 P0 — forward a VOLUNTARY spend from the castle panel to the HUD so its red drop-flash
+    // (which exists to make an INVOLUNTARY NONET halving felt) is withheld for that one drop. Must
+    // run BEFORE hud.sync, which is where drawProgress reads the latch and compares scores.
+    if (castlePanel.consumeSpendArmed()) hud.armSpendSuppression();
     hud.sync(world);
+    castlePanel.sync(world);
     // S88 G3a — discovery toast window (keyed off the synced comboToastTick, like the
     // rainbow flyover — see comboToastRenderer docblock). HUD-tier, after hud.sync.
     comboToastRenderer.sync(world);

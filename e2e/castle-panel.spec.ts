@@ -1,0 +1,158 @@
+/**
+ * SPARK — S136 P0 E2E: the castle context panel.
+ *
+ * WHY THIS FILE EXISTS. Before this session the buy/speed controls had **zero** e2e coverage —
+ * deleting their exported click-guard broke no test at all. That is precisely why the owner's
+ * report ("the build extra gatherer or increase speed is not even clickable") could not be
+ * adjudicated from the suite, and why a control that was disabled for a legitimate reason was
+ * indistinguishable from a dead one.
+ *
+ * ⚠ THIS SPEC BOOTS CLEAN — NO `?debug=1`. That flag mounts a `position:fixed; z-index:1001` DOM
+ * panel on the right-hand column, measured at 425x972, which covered the old footer controls;
+ * `elementFromPoint` there returned its <pre> and the canvas never saw pointerdown. Every other
+ * spec in this directory boots `?debug=1`, so the harness was structurally incapable of catching a
+ * control-click regression. S136 P0 also made that overlay's body `pointer-events:none`, so the
+ * flag is no longer disqualifying — but a control spec should not depend on that fix holding.
+ *
+ * ⚠ ASSERT ON EVENTS/STATE, NEVER ON TICK COUNTS. The S135 haul tests failed against working code
+ * because they hard-coded 420 ticks for a ~154-tick pickup. Everything here waits on world state.
+ */
+import { expect, test } from '@playwright/test';
+import { CANVAS_HEIGHT, CANVAS_WIDTH, canvasToCss, readWorldState, waitForWorld } from './helpers.ts';
+
+/** Seat 0's keep anchor: castleAnchor(0) has angle PI, so it is (cx - (SPAWNER_RADIUS+150), cy). */
+const KEEP0 = { x: CANVAS_WIDTH / 2 - (125 + 150), y: CANVAS_HEIGHT / 2 };
+
+interface PanelPoints {
+  open: boolean;
+  rect: { x: number; y: number; w: number; h: number } | null;
+  rowCenters: Array<{ key: string; x: number; y: number; enabled: boolean; reason: string }>;
+}
+
+const readPanel = (page: import('@playwright/test').Page): Promise<PanelPoints> =>
+  page.evaluate(() => {
+    const s = (window as { __SPARK__?: { castlePanel?: { getUiPoints?: () => unknown } } }).__SPARK__;
+    const pts = s?.castlePanel?.getUiPoints?.();
+    if (pts === undefined) throw new Error('castlePanel.getUiPoints unavailable — geometry getter missing');
+    return pts as never;
+  });
+
+/** Click a canvas-space point with an explicit down/up so `pointertap` resolves on one target. */
+async function clickCanvas(
+  page: import('@playwright/test').Page,
+  cx: number,
+  cy: number,
+): Promise<void> {
+  const p = await canvasToCss(page, cx, cy);
+  await page.mouse.move(p.x, p.y);
+  await page.waitForTimeout(80);
+  await page.mouse.down();
+  await page.waitForTimeout(60);
+  await page.mouse.up();
+}
+
+async function bootSolo(page: import('@playwright/test').Page): Promise<void> {
+  await page.goto('/'); // deliberately clean — see the file docblock
+  await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE');
+  const centers = await page.evaluate(() => {
+    const s = (window as {
+      __SPARK__?: { titleScreen?: { getButtonCenters?: () => Record<string, { x: number; y: number }> } };
+    }).__SPARK__;
+    const c = s?.titleScreen?.getButtonCenters?.();
+    if (c === undefined) throw new Error('titleScreen.getButtonCenters unavailable');
+    return c;
+  });
+  const solo = await canvasToCss(page, centers.solo.x, centers.solo.y);
+  await page.mouse.click(solo.x, solo.y);
+  await waitForWorld(page, (w) => w.gameState === 'PLAYING' && w.gameMode === 'solo', 'PLAYING (solo)');
+}
+
+test.describe('S136 P0 — castle context panel', () => {
+  test('the panel is closed until you click your castle, then opens', async ({ page }) => {
+    await bootSolo(page);
+    expect((await readPanel(page)).open).toBe(false);
+
+    await clickCanvas(page, KEEP0.x, KEEP0.y);
+    const open = await readPanel(page);
+    expect(open.open).toBe(true);
+    expect(open.rowCenters.map((r) => r.key)).toEqual(['buyGatherer', 'upgradeSpeed']);
+    // On-canvas for this seat — panelOrigin flips the box when it would overflow.
+    expect(open.rect!.x).toBeGreaterThanOrEqual(0);
+    expect(open.rect!.x + open.rect!.w).toBeLessThanOrEqual(CANVAS_WIDTH);
+  });
+
+  test('clicking the castle again closes it; clicking the board also closes it', async ({ page }) => {
+    await bootSolo(page);
+    await clickCanvas(page, KEEP0.x, KEEP0.y);
+    expect((await readPanel(page)).open).toBe(true);
+
+    await clickCanvas(page, KEEP0.x, KEEP0.y);
+    expect((await readPanel(page)).open).toBe(false);
+
+    await clickCanvas(page, KEEP0.x, KEEP0.y);
+    expect((await readPanel(page)).open).toBe(true);
+    await clickCanvas(page, CANVAS_WIDTH / 2, 120); // empty sky, clear of the spawn disc and keeps
+    expect((await readPanel(page)).open).toBe(false);
+  });
+
+  test('BUY GATHERER is disabled at the opening balance AND STATES WHY (owner item 1)', async ({ page }) => {
+    // This is the whole owner report. 100 starting points against a 105 price is deliberate design,
+    // but the old footer rendered it as an unexplained dim box.
+    await bootSolo(page);
+    await clickCanvas(page, KEEP0.x, KEEP0.y);
+    const buy = (await readPanel(page)).rowCenters.find((r) => r.key === 'buyGatherer')!;
+    expect(buy.enabled).toBe(false);
+    expect(buy.reason).toBe('NEED 105');
+  });
+
+  test('SPEED is live at the opening balance and a click really spends and upgrades', async ({ page }) => {
+    await bootSolo(page);
+    await clickCanvas(page, KEEP0.x, KEEP0.y);
+    const before = await readWorldState(page);
+    const scoreBefore = before.scoreByPlayer.find(([id]) => id === before.localPlayerId)![1];
+
+    const speed = (await readPanel(page)).rowCenters.find((r) => r.key === 'upgradeSpeed')!;
+    expect(speed.enabled).toBe(true);
+    expect(speed.reason).toBe('');
+
+    await clickCanvas(page, speed.x, speed.y);
+    // Wait on the STATE CHANGE, not on a tick budget.
+    await waitForWorld(
+      page,
+      (w) => (w.scoreByPlayer.find(([id]) => id === w.localPlayerId)?.[1] ?? scoreBefore) < scoreBefore,
+      'score debited by the SPEED purchase',
+    );
+    const lvl = await page.evaluate(() => {
+      const w = (window as { __SPARK__: { world: { gatherers: Map<number, { speedLevel: number }> } } })
+        .__SPARK__.world;
+      return Array.from(w.gatherers.values()).map((g) => g.speedLevel);
+    });
+    expect(Math.max(...lvl)).toBeGreaterThanOrEqual(1);
+  });
+
+  test('a click on a panel row does NOT also act on the board underneath it', async ({ page }) => {
+    // The raw canvas handler hit-tests world objects with no notion of UI, and Pixi's `pointertap`
+    // does not suppress it — this is what `Controls.isPointerOverPanel` exists to stop.
+    await bootSolo(page);
+    await clickCanvas(page, KEEP0.x, KEEP0.y);
+    const primsBefore = (await readWorldState(page)).primitives.length;
+    const rows = (await readPanel(page)).rowCenters;
+    for (const r of rows) await clickCanvas(page, r.x, r.y);
+    await page.waitForTimeout(400);
+    expect((await readWorldState(page)).primitives.length).toBe(primsBefore);
+  });
+
+  test('the retired footer control positions are inert (no orphaned hit areas)', async ({ page }) => {
+    await bootSolo(page);
+    const hits = await page.evaluate(() => {
+      const app = (window as {
+        __SPARK__: { controls: { app: { renderer: { events: { rootBoundary: { hitTest: (x: number, y: number) => unknown } } } } } };
+      }).__SPARK__.controls.app;
+      const b = app.renderer.events.rootBoundary;
+      // The exact centres the V6-1.1/1.2 footer buttons occupied.
+      return { speed: b.hitTest(1569, 1038) !== null, buy: b.hitTest(1776, 1038) !== null };
+    });
+    expect(hits.speed).toBe(false);
+    expect(hits.buy).toBe(false);
+  });
+});

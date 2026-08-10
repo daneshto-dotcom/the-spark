@@ -16,14 +16,11 @@
  * row 3 + Δ4 — drops fallback chain in favor of explicit guard).
  */
 
-import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { Application, Graphics, Text, TextStyle } from 'pixi.js';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
-  FOOTER_HEIGHT,
   FOOTER_TOP_Y,
-  GATHERER_PRICE,
-  GATHERER_SPEED_UPGRADE_PRICE,
   LEADER_DECAY_THRESHOLD_FRACTION,
   MAX_DISRUPTION_CHARGES,
   PHASE_1_WIN_SCORE,
@@ -31,7 +28,6 @@ import {
   SCORE_TIER_STEP,
 } from '../constants.ts';
 import { isNetworked, type World } from '../state/world.ts';
-import { isBenched } from '../state/hunters/hunter.ts';
 import { asPlayerId } from '../types.ts';
 import { MAGIC_COMBO_KEYS } from '../combos.ts';
 
@@ -194,31 +190,19 @@ const PROGRESS_X = 12;
 const PROGRESS_Y_TOP = FOOTER_TOP_Y - 76;
 const PROGRESS_Y_BOTTOM = FOOTER_TOP_Y - 36;
 const PROGRESS_WIDTH = 80;
-/** V6-1.1 — buy-button box (the footer's only control this slot). */
-const BUY_BTN_W = 232;
-/** V6-1.2 — speed-upgrade button width (sits left of BUY in the same footer strip). */
-const UPGRADE_BTN_W = 150;
-
 /**
- * V6-1.2 — is this canvas-space point over an actual footer CONTROL?
+ * S136 P0 — THE FOOTER CONTROLS AND THEIR CLICK GUARD ARE GONE. Both moved to
+ * `render/castlePanel.ts` on the owner's playtest ruling: the automation controls are no longer a
+ * permanent bar, they open on a click on the castle. `isOverFooterControl` was replaced by
+ * `CastlePanel.isOverPanel` — and it had to move WITH the buttons, not linger here, or the guard
+ * would still be swallowing world clicks in a bottom band that no longer holds anything (the
+ * inverse of the bug its own docblock warned about).
  *
- * ⚠ WHY THIS IS NOT "is it in the footer strip". The first cut of the click guard early-returned on
- * the whole 1920x84 bottom band, which made every world object in the bottom 7.8% of the board
- * permanently unclickable during PLAYING — including structures the bot seeder deliberately places
- * down there. The guard exists to stop ONE thing: a button click ALSO firing the raw canvas
- * hit-test (Pixi's pointertap does not suppress it). So it must cover the buttons, not the band.
- * Exported and derived from the same constants the buttons are positioned from, so the two cannot
- * drift apart.
+ * `FOOTER_TOP_Y` / `FOOTER_HEIGHT` are deliberately RETAINED as pure layout constants: the energy
+ * gauge and the progress bar are anchored to them (see GAUGE_Y_BOTTOM / PROGRESS_Y_TOP below) so
+ * that they cannot drift into the bottom strip. Keeping the anchors means this change moves no
+ * existing HUD element — the plate and the two buttons are simply no longer drawn.
  */
-export function isOverFooterControl(x: number, y: number): boolean {
-  const top = FOOTER_TOP_Y + (FOOTER_HEIGHT - BUY_BTN_H) / 2;
-  if (y < top || y > top + BUY_BTN_H) return false;
-  const buyLeft = CANVAS_WIDTH - BUY_BTN_W - 28;
-  if (x >= buyLeft && x <= buyLeft + BUY_BTN_W) return true;
-  const upLeft = CANVAS_WIDTH - BUY_BTN_W - UPGRADE_BTN_W - 44;
-  return x >= upLeft && x <= upLeft + UPGRADE_BTN_W;
-}
-const BUY_BTN_H = 46;
 
 // S84 P4 — the S62 colour-name labels (RED/CYAN/…) are GONE: the rainbow shuffle
 // migrates colours mid-match, so colour names lied after the first switch. Rows
@@ -291,22 +275,6 @@ export class HUD {
    * in without a relayout. Canvas (Pixi), never DOM: every other HUD element is canvas, so this
    * inherits the object-fit:contain letterbox mapping and the stage z-order for free.
    */
-  private readonly footer: Container;
-  private readonly footerPlate: Graphics;
-  private readonly buyButton: Container;
-  private readonly upgradeButton: Container;
-  private readonly upgradeButtonBg: Graphics;
-  private readonly upgradeButtonText: Text;
-  private onUpgradeSpeed: (() => void) | null = null;
-  private upgradeHover = false;
-  private upgradeEnabled = false;
-  private readonly buyButtonBg: Graphics;
-  private readonly buyButtonText: Text;
-  /** Set by main.ts — dispatches BUY_GATHERER for the local seat. */
-  private onBuyGatherer: (() => void) | null = null;
-  private buyHover = false;
-  /** Affordability latch, recomputed every frame from the local seat's own score. */
-  private buyEnabled = false;
   private displayEnergy = 0;
   private displayProgress = 0;
   private lastLocalScore = -1; // S106 P4 — detect a DROP in your own score (NONET halving) to flash the bar
@@ -424,71 +392,6 @@ export class HUD {
     this.tierBannerText.visible = false;
     app.stage.addChild(this.tierBannerText);
 
-    // V6-1.1 — the automation footer bar + its single control. Added LAST so it renders above the
-    // rest of the HUD (child-add order, the betaBadgePlate idiom — no zIndex needed).
-    this.footer = new Container();
-    this.footerPlate = new Graphics();
-    this.footer.addChild(this.footerPlate);
-
-    this.buyButtonBg = new Graphics();
-    this.buyButtonText = new Text({
-      text: `BUY GATHERER  ${GATHERER_PRICE}`,
-      style: new TextStyle({ fontFamily: 'monospace', fontSize: 17, fill: 0xffffff }),
-    });
-    this.buyButtonText.anchor.set(0.5);
-    this.buyButtonText.position.set(BUY_BTN_W / 2, BUY_BTN_H / 2);
-
-    this.buyButton = new Container();
-    this.buyButton.addChild(this.buyButtonBg);
-    this.buyButton.addChild(this.buyButtonText);
-    this.buyButton.position.set(CANVAS_WIDTH - BUY_BTN_W - 28, FOOTER_TOP_Y + (FOOTER_HEIGHT - BUY_BTN_H) / 2);
-    this.buyButton.eventMode = 'static';
-    this.buyButton.cursor = 'pointer';
-    this.buyButton.on('pointertap', () => {
-      // Affordability is re-checked authoritatively in the reducer; this only avoids firing a
-      // no-op intent (and the arming of the drop-flash suppression) on an unaffordable click.
-      if (this.buyEnabled && this.onBuyGatherer !== null) {
-        this.suppressNextDropFlash = true;
-        this.suppressFramesLeft = 60;
-        this.onBuyGatherer();
-      }
-    });
-    this.buyButton.on('pointerover', () => { this.buyHover = true; });
-    this.buyButton.on('pointerout', () => { this.buyHover = false; });
-    this.footer.addChild(this.buyButton);
-
-    // V6-1.2 — SPEED UPGRADE. Sits immediately left of BUY; steps every gatherer the player
-    // owns (there is no unit-selection UI until V6-1.4, so a per-unit upgrade would be
-    // unspendable). Same button idiom, same footer strip.
-    this.upgradeButtonBg = new Graphics();
-    this.upgradeButtonText = new Text({
-      text: `SPEED  ${GATHERER_SPEED_UPGRADE_PRICE}`,
-      style: new TextStyle({ fontFamily: 'monospace', fontSize: 17, fill: 0xffffff }),
-    });
-    this.upgradeButtonText.anchor.set(0.5);
-    this.upgradeButtonText.position.set(UPGRADE_BTN_W / 2, BUY_BTN_H / 2);
-    this.upgradeButton = new Container();
-    this.upgradeButton.addChild(this.upgradeButtonBg);
-    this.upgradeButton.addChild(this.upgradeButtonText);
-    this.upgradeButton.position.set(
-      CANVAS_WIDTH - BUY_BTN_W - UPGRADE_BTN_W - 44,
-      FOOTER_TOP_Y + (FOOTER_HEIGHT - BUY_BTN_H) / 2,
-    );
-    this.upgradeButton.eventMode = 'static';
-    this.upgradeButton.cursor = 'pointer';
-    this.upgradeButton.on('pointertap', () => {
-      if (this.upgradeEnabled && this.onUpgradeSpeed !== null) {
-        this.suppressNextDropFlash = true;
-        this.suppressFramesLeft = 60;
-        this.onUpgradeSpeed();
-      }
-    });
-    this.upgradeButton.on('pointerover', () => { this.upgradeHover = true; });
-    this.upgradeButton.on('pointerout', () => { this.upgradeHover = false; });
-    this.footer.addChild(this.upgradeButton);
-
-    this.footer.visible = false;
-    app.stage.addChild(this.footer);
   }
 
   /** S15 P2 — main.ts sets this from netTransport.peerCount() each frame. */
@@ -496,14 +399,20 @@ export class HUD {
     this.connectedPeers = peers;
   }
 
-  /** V6-1.1 — main.ts injects the BUY_GATHERER dispatch for the local seat. */
-  setBuyGathererHandler(fn: () => void): void {
-    this.onBuyGatherer = fn;
-  }
-
-  /** V6-1.2 — main.ts injects the UPGRADE_GATHERER_SPEED dispatch for the local seat. */
-  setUpgradeSpeedHandler(fn: () => void): void {
-    this.onUpgradeSpeed = fn;
+  /**
+   * S136 P0 — arm the one-shot drop-flash suppression for a VOLUNTARY spend.
+   *
+   * The buy/upgrade buttons moved to `CastlePanel`, so the latch is now armed from outside: main.ts
+   * forwards `castlePanel.consumeSpendArmed()` here. The behaviour it protects is unchanged and
+   * still load-bearing — the red flash exists to make an INVOLUNTARY loss (a NONET halving) felt,
+   * and firing it at a purchase reads as a penalty for playing well. The frame budget stays here
+   * with the flash it guards: the spend can still be REFUSED after the click (benched, migration
+   * pause, a joiner on a stale mirror), and without an expiry a refused buy strands the latch and
+   * silently swallows the next genuine involuntary loss.
+   */
+  armSpendSuppression(): void {
+    this.suppressNextDropFlash = true;
+    this.suppressFramesLeft = 60;
   }
 
   sync(world: World): void {
@@ -512,7 +421,6 @@ export class HUD {
     this.drawWinState(world);
     this.drawMultiplayerHUD(world);
     this.drawComboCounter(world);
-    this.drawFooter(world);
     // V6-0.3 (S130) — ANIMATE only. The `world.effects` scan that arms this banner lives in
     // `drainTierBanner`, which main.ts calls BEFORE effectsRenderer wipes the array. Do NOT move
     // the scan back in here: `sync` runs after the wipe, which is exactly the V6-0.2 defect.
@@ -692,64 +600,6 @@ export class HUD {
         2,
       ).fill({ color: local.color, alpha: 0.5 });
     }
-  }
-
-  /**
-   * V6-1.1 — the automation footer bar. Shown during PLAYING only (same gate as the combo counter),
-   * so the title/win screens are untouched. The button dims when the local player cannot afford a
-   * gatherer; the reducer re-checks affordability authoritatively regardless, so a stale/laggy
-   * enabled state on a joiner can never produce a negative score.
-   */
-  private drawFooter(world: World): void {
-    const playing = world.gameState === 'PLAYING';
-    this.footer.visible = playing;
-    if (!playing) return;
-
-    const g = this.footerPlate;
-    g.clear();
-    g.rect(0, FOOTER_TOP_Y, CANVAS_WIDTH, FOOTER_HEIGHT).fill({ color: 0x0a1622, alpha: 0.82 });
-    g.moveTo(0, FOOTER_TOP_Y).lineTo(CANVAS_WIDTH, FOOTER_TOP_Y).stroke({ width: 1, color: 0x2a4055, alpha: 0.9 });
-
-    const score = world.scoreByPlayer.get(world.localPlayerId) ?? 0;
-    // ⚠ HONOUR THE SAME INPUT LOCKS THE CANVAS PATH DOES. These buttons live on app.stage and
-    // their pointertap never passes through Controls.isInputLocked(), so without this a benched
-    // (eaten) player — or one mid-cinematic / mid-NONET, where full-screen overlays do not all
-    // capture pointers — could spend victory points on an invisible button. The reducer denies a
-    // benched buy anyway (BENCH_INTENT_POLICY), but a lit button that silently no-ops is worse
-    // than a dim one. Caught by the S135 end-of-session audit.
-    const me = world.players.get(world.localPlayerId);
-    const locked =
-      world.sudoku !== null ||
-      world.activeCinematicPlayerId === world.localPlayerId ||
-      (me !== undefined && isBenched(me.benchedUntilTick, world.tick));
-    this.buyEnabled = !locked && Math.floor(score) >= GATHERER_PRICE;
-
-    const bg = this.buyButtonBg;
-    bg.clear();
-    const fill = this.buyEnabled ? (this.buyHover ? 0x1f5f9e : 0x17497a) : 0x1a2530;
-    const border = this.buyEnabled ? 0x85b7eb : 0x3a4a58;
-    bg.roundRect(0, 0, BUY_BTN_W, BUY_BTN_H, 6)
-      .fill({ color: fill, alpha: 0.95 })
-      .stroke({ width: 2, color: border, alpha: 0.95 });
-    this.buyButtonText.style.fill = this.buyEnabled ? 0xffffff : 0x6b7a88;
-    this.buyButton.cursor = this.buyEnabled ? 'pointer' : 'default';
-
-    // Upgrade: affordable AND you actually own a gatherer to upgrade (the reducer refuses to
-    // charge for nothing, and the button must say so rather than look clickable).
-    let ownsGatherer = false;
-    for (const gg of world.gatherers.values()) {
-      if (gg.ownerPlayerId === world.localPlayerId) { ownsGatherer = true; break; }
-    }
-    this.upgradeEnabled = !locked && ownsGatherer && Math.floor(score) >= GATHERER_SPEED_UPGRADE_PRICE;
-    const ubg = this.upgradeButtonBg;
-    ubg.clear();
-    const ufill = this.upgradeEnabled ? (this.upgradeHover ? 0x1f5f9e : 0x17497a) : 0x1a2530;
-    const uborder = this.upgradeEnabled ? 0x85b7eb : 0x3a4a58;
-    ubg.roundRect(0, 0, UPGRADE_BTN_W, BUY_BTN_H, 6)
-      .fill({ color: ufill, alpha: 0.95 })
-      .stroke({ width: 2, color: uborder, alpha: 0.95 });
-    this.upgradeButtonText.style.fill = this.upgradeEnabled ? 0xffffff : 0x6b7a88;
-    this.upgradeButton.cursor = this.upgradeEnabled ? 'pointer' : 'default';
   }
 
   private drawProgress(world: World): void {

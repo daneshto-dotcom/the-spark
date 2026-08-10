@@ -12,8 +12,11 @@
  * Per-frame update via sync(world). Cheap — ~25 DOM writes per frame, all
  * static positions, no layout thrash.
  *
- * Click the panel to copy the full snapshot as text to the clipboard for
- * pasting into chat with Claude.
+ * Click the panel's TITLE strip to copy the full snapshot as text to the clipboard for
+ * pasting into chat with Claude. S136 P0 — the BODY is deliberately `pointer-events: none`; it is
+ * a tall fixed overlay on the right-hand column and was swallowing canvas clicks (including the
+ * footer controls) whenever ?debug=1 was on. The `click` listener stays on the root, so a click on
+ * the pointer-enabled title still bubbles to it and copy is unaffected.
  */
 
 import { inspectAudioChain, type AudioChainSnapshot } from './audioManager.ts';
@@ -69,9 +72,20 @@ export function createDebugOverlay(): DebugOverlayHandle {
   root.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.5)';
   root.style.cursor = 'pointer';
   root.title = 'click to copy snapshot to clipboard';
+  // S136 P0 — THE PANEL BODY MUST NOT EAT CANVAS CLICKS, and this was a real bug, not hygiene.
+  // This overlay is `position:fixed; z-index:1001` at top 230px / right 24px and grows with the
+  // snapshot text — measured at 425x972, i.e. it covered the whole right-hand column INCLUDING the
+  // footer controls. `elementFromPoint` there returned this <pre>, so the canvas never received
+  // pointerdown and the buttons were genuinely dead *whenever ?debug=1 was on*. Every e2e spec
+  // boots `?debug=1`, so the harness could not have caught a control regression even in principle —
+  // and it cost this session a false "reproduced" on the owner's report. Making the body
+  // pointer-transparent restores the clicks; the TITLE strip below re-enables pointer events so
+  // click-to-copy still works.
+  root.style.pointerEvents = 'none';
 
   const title = document.createElement('div');
-  title.textContent = 'DEBUG  (click to copy)';
+  title.style.pointerEvents = 'auto'; // the click-to-copy target (see the note above)
+  title.textContent = 'DEBUG  (click title to copy)';
   title.style.color = '#ff3b3b';
   title.style.letterSpacing = '0.2em';
   title.style.marginBottom = '6px';
