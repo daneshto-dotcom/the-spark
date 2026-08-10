@@ -1,20 +1,20 @@
 {
-  "tool_calls_session_total": 244,
+  "tool_calls_session_total": 249,
   "session_id": "S136",
   "session_kind": "pdca",
   "session_start": "2026-08-10T00:00:00",
   "prior_session_note": "S135 shipped 3/3 (hunter lifetime serialization, V6-1.1 gatherers/castle/buy/score-as-currency, V6-1.2 gatherer HAUL cycle) and ran its full close chain; deploy verified 4/4. S136 opens on the OWNER PLAYTEST of that haul build: he reported 6 items (upgrade buttons unclickable, footer should become a click-the-castle popup, deposited shapes stack and fling when grabbed, storage should live inside the castle, a popup build-space with pull-one-by-one or prebuild-then-pull, and rainbow should recolor the castle) and approved a full autonomous batch. S135 priorities archived to .claude/session-state.s135.bak.",
-  "phase": "DO",
+  "phase": "ANALYZE",
   "tier": "Full",
   "council_rounds": 0,
-  "plan_file": ".claude/plans/2026-08-10_PDR_S136_owner_playtest_batch.md",
-  "session_status": "in_progress",
+  "plan_file": ".claude/plans-archive/2026-08-10_PDR_S136_owner_playtest_batch_COMPLETED.md",
+  "session_status": "completed",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
   "budget_total": 1000000,
   "prior_session_archive": ".claude/session-state.s135.bak",
-  "analyze_completed": false,
+  "analyze_completed": true,
   "a0_state_discovery": {
     "rule": "Rule 21 A.0 — run directly this session; both subagent probe fleets died on a spend cap returning nothing.",
     "findings": [
@@ -34,7 +34,7 @@
       "title": "Castle click -> context panel holding BUY GATHERER + SPEED; retire the always-on footer controls; a disabled control states its reason; fix the ?debug=1 overlay confound and add the first e2e coverage of these controls",
       "tier": "Full",
       "status": "completed",
-      "pdr_file": ".claude/plans/2026-08-10_PDR_S136_owner_playtest_batch.md",
+      "pdr_file": ".claude/plans-archive/2026-08-10_PDR_S136_owner_playtest_batch_COMPLETED.md",
       "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -107,7 +107,7 @@
       "title": "Storage moves INSIDE the castle as a typed inventory (deletes depositSlot + world-space banked sparks, killing the stack/fling bug structurally); bank cap 5 with the recipe-size table adjacent; bank-full waiting-gatherer rule; PULL one shape into the hand (HARD-COUPLED: without it the player cannot build at all)",
       "tier": "Full",
       "status": "completed",
-      "pdr_file": ".claude/plans/2026-08-10_PDR_S136_owner_playtest_batch.md",
+      "pdr_file": ".claude/plans-archive/2026-08-10_PDR_S136_owner_playtest_batch_COMPLETED.md",
       "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -193,7 +193,7 @@
       "title": "Prebuild a structure inside the castle popup space, then pull the whole assembly out (owner item 5, ambitious half; additive over P1d)",
       "tier": "Full",
       "status": "carried_forward",
-      "pdr_file": ".claude/plans/2026-08-10_PDR_S136_owner_playtest_batch.md",
+      "pdr_file": ".claude/plans-archive/2026-08-10_PDR_S136_owner_playtest_batch_COMPLETED.md",
       "check_completed": false,
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -205,7 +205,7 @@
       "title": "Rainbow recolors the castle too (owner item 6); renderer-only if the rainbow is client-side, STOP for a ruling if it turns out to be serialized sim state",
       "tier": "Standard",
       "status": "completed",
-      "pdr_file": ".claude/plans/2026-08-10_PDR_S136_owner_playtest_batch.md",
+      "pdr_file": ".claude/plans-archive/2026-08-10_PDR_S136_owner_playtest_batch_COMPLETED.md",
       "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -239,7 +239,7 @@
       "title": "B3 (owner-ruled): SPAWN_RATE_PER_SECOND 0.1875 -> 1.125 and RE-DERIVE FREE_SPARK_SOFT_CAP (dead at the old rate, live at 6x); sequenced after P1 so the 6x faucet never multiplies the pile bug",
       "tier": "Standard",
       "status": "completed",
-      "pdr_file": ".claude/plans/2026-08-10_PDR_S136_owner_playtest_batch.md",
+      "pdr_file": ".claude/plans-archive/2026-08-10_PDR_S136_owner_playtest_batch_COMPLETED.md",
       "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -286,7 +286,7 @@
       "title": "Sim-worker default-on flip: drop the flag gate, update 6 literals across 4 files, and resolve the probeHarness refuse-by-default that a flip creates",
       "tier": "Full",
       "status": "carried_forward",
-      "pdr_file": ".claude/plans/2026-08-10_PDR_S136_owner_playtest_batch.md",
+      "pdr_file": ".claude/plans-archive/2026-08-10_PDR_S136_owner_playtest_batch_COMPLETED.md",
       "check_completed": false,
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -374,6 +374,23 @@
         "#empirical-refutes-plausible-criticals"
       ],
       "entry": "Owner item 6 was \"the rainbow should change the castle colour too\" — and reading the code showed it already did (the derangement remaps player.color; the keep tints from the live value). The real gap was that the castle did not join the CELEBRATION. Had I implemented the literal request I would have written a redundant recolour and reported a fix for a working feature. Rule: for any \"X does not do Y\" report, locate the code path that would do Y and confirm it is absent BEFORE writing a replacement — and when the mechanism already exists, say so explicitly in the commit so the finding is not lost."
+    },
+    {
+      "session": "S136",
+      "priority": "CLOSE",
+      "tags": [
+        "#green-by-luck-is-not-green",
+        "#a-perf-change-exposes-stale-test-contracts"
+      ],
+      "entry": "The gating e2e lane was green for two slots while encoding a rule the game had already deleted: the helpers grabbed sparks from the quarry, which V6-1.2 made un-pickable. It only passed because the old faucet left ~2 sparks and the one available was usually the escrowed (pickable) one. A 6x throughput change turned that luck off and five specs went red at once. Two lessons: (a) a suite can be green because the state space is too small to expose it, so a capacity/rate change is a legitimate way to DISCOVER stale contracts rather than a thing that broke them; (b) when a spec depends on a game rule, the helper should assert the SAME predicate the production code does — my fix was to mirror controls.pickSpark, and the deeper finding (pickable != draggable, because a hauled spark is re-pinned every tick) only appeared once the predicate was explicit."
+    },
+    {
+      "session": "S136",
+      "priority": "CLOSE",
+      "tags": [
+        "#do-not-encode-a-number-you-cannot-attribute"
+      ],
+      "entry": "fog.spec asserts aboveFogLayer has exactly 13 children and it is stably 14, with the test comment inviting me to bump it. I did not: I could not identify WHICH renderer the 14th child is, and a contract whose number is updated without attribution stops being a contract — it becomes a rubber stamp that will absorb the next real leak silently. Left red with the diagnosis and the prime suspect named. Preferring an honest red to a green I cannot justify is the right trade when the test exists precisely to catch unnoticed additions."
     }
   ],
   "totals": {},
@@ -423,5 +440,21 @@
   },
   "deviations": [
     "Rule 17 3-way Council NOT run. Two A.0 probe fleets died on an individual spend cap after ~1.7M subagent tokens returning zero output. Deliberation budget was redirected into direct empirical A.0 (recorded above) plus a written PRIME-AUDIT per priority. Stated as a deviation, NOT presented as compliance."
-  ]
+  ],
+  "real_context_tokens_at_close": 670000,
+  "e2e_gating_status": {
+    "result": "2 failed / 29 passed (was 5 failed / 26 passed at session open on S135 code+faucet)",
+    "cause": "The lane was passing BY LUCK. Since V6-1.2 an un-escrowed spark inside the spawn disc is not player-pickable (controls.ts pickSpark), but e2e/helpers.ts still picked any Free spark within 200px of centre — the pre-V6-1.2 rule. At lambda=0.1875 the ~2-spark pool was usually the escrowed (pickable) one, so it worked. The B3 x6 faucet made the pool ~9, mostly un-escrowed, and 5 specs failed with \"placement landed (prims 0 -> >=1)\".",
+    "fixed": "e2e/helpers.ts re-based onto the shipped loop: isPorchSpark (pickable != draggable — an in-flight haul is re-pinned to the gatherer every tick, so only a castle-porch shape can be dragged), pullFromBank via the real UI + getUiPoints geometry getter, state-aware panel open (the keep click TOGGLES), and a bounded 4x8s full-cycle retry.",
+    "still_red": [
+      "fog.spec.ts:104 — asserts aboveFogLayer has exactly 13 children; STABLY 14 across runs (structural, not timing). The test comment says to bump deliberately with its renderer list; NOT bumped because the 14th child could not be attributed and an unexplained number defeats the contract. Prime suspect: S135 GathererRenderer(app, aboveFogLayer), which would mean the contract went stale in S135.",
+      "hunter.spec.ts:67 — \"pullFromBank: castle panel did not open\". The player appears input-locked (that spec's subject IS the hunter benching them) during a build that now needs several pull cycles."
+    ],
+    "not_masked": "Neither was tagged @quarantine-flaky. #1 next-session item."
+  },
+  "deploy_verified_s136": {
+    "verified": "npm run verify-deploy 4/4 at a08c4e38 (REMOTE + RUN + VERDICT + LIVE content-hash equality)",
+    "runs": "4 Deploy-to-Pages runs, all success (P0 f08ea7d, P1 e93dc1f, P4 678eddc, P3 a08c4e3)",
+    "note": "The final e2e-helpers commit touches e2e/ only — outside deploy.yml paths — so no new deploy was owed."
+  }
 }

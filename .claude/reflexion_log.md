@@ -1,3 +1,38 @@
+## S136 — 2026-08-10 (owner playtest batch: 4/6 shipped)
+
+- **[P0] #false-repro-from-harness-flag #empirical-refutes-plausible-criticals**
+  My first repro of the owner's "buttons not clickable" showed the click DEAD — and it was WRONG. The cause was ?debug=1, a DOM overlay covering the button column, which I had added myself by copying the harness convention. Two lessons: (a) reproduce in the configuration the USER actually ran, not the one the test suite uses; (b) when a bug report and a repro agree, that is when to look hardest for a shared confound, because agreement feels like confirmation. The tell was that the canvas received NO pointerdown at all while document did — a DOM-level fact that no amount of Pixi-side reasoning would have explained.
+
+- **[P0] #look-at-the-render #assertions-cannot-see-layout**
+  28/28 runtime assertions passed while the disabled button label visibly overflowed its own box. State assertions can prove a control is enabled, priced and clickable and still say nothing about whether the text fits. I only caught it by opening the screenshot. Any UI priority must include LOOKING at the render as a distinct step, plus a cheap numeric fit guard (label length x advance <= inner width) so the next one fails in vitest instead of on the owner's screen.
+
+- **[P0] #zero-coverage-is-a-finding #policy-not-instance**
+  Deleting an EXPORTED function (isOverFooterControl) and an entire render method (drawFooter) left the suite at exactly 2069/2069 green. That is not reassurance, it is a measurement: the controls had zero coverage, which is the structural reason the owner had to find this by playing. When a deletion breaks nothing, treat the untouched test count as the finding and write the missing test before the feature.
+
+- **[P1] #runtime-finds-what-units-cannot #physics-invariants-invisible-to-unit-tests**
+  Eighteen unit tests and an 8/8 mutation matrix all passed on a PULL that was fundamentally broken. I cleared escrow so the pulled shape would be "an ordinary free spark", and enforceSpawnerBounds promptly rim-snapped it off the porch back into the quarry — a 194px teleport, i.e. a worse version of the very fling I was fixing. No test in the suite runs the physics loop, so none of them COULD catch it. Rule: when a change puts an entity into the world at a new position, the acceptance test must run real physics for several frames and assert the entity is STILL THERE. Position is not established by the reducer that wrote it.
+
+- **[P1] #comments-claiming-completeness-need-a-grep-first #policy-not-instance**
+  I wrote a comment asserting that clearing the bank inside teardownGatherers meant no teardown path could forget it. That was false the moment it was written: five sites clear world.gatherers and three do it inline. A test dispatching RETURN_TO_TITLE caught it. Two lessons: any comment claiming "this covers every site" is a claim that needs a grep BEFORE it is written, and a teardown test must exercise the PUBLIC action — calling the helper directly would have passed and hidden all three gaps.
+
+- **[P1] #delete-the-surface-not-the-symptom**
+  The stacking and fling bugs had two different mechanisms (count-derived slot indices; EPSILON-guarded co-location turning into velocity via Verlet) and each could have been patched on its own. Taking the owner literally instead — store it INSIDE the castle — removed the shared precondition (the shape being a positioned physics entity) and both defects stopped existing rather than being handled. The change that deletes the surface is usually also the smaller diff.
+
+- **[P4] #measure-then-set #dead-constant-is-a-finding**
+  FREE_SPARK_SOFT_CAP had been 50 while the pool peaked at 4 — provably dead code for months. Rather than pick a new number by arithmetic I ran the game with the cap still at its dead value so the natural distribution was unmasked, then set the cap from the measured p95/peak. The measurements are recorded IN the constant’s docblock, so the next person to touch it inherits the evidence instead of re-deriving it. Rule: when re-tuning a constant that was never binding, measure it unbound FIRST — the arithmetic prediction (11.25) and the observed mean (8.92) differed by exactly the consumption the model omits.
+
+- **[P4] #fixing-a-bottleneck-moves-it #report-the-new-constraint**
+  The x6 faucet drove gatherer idling from chronic to 1.2% — and immediately made the 5-slot bank the binding constraint instead (247 of 338 samples WAITING with nobody spending). Both facts come from the same 90s run. Fixing a throughput bottleneck does not remove the bottleneck, it relocates it, so the acceptance measurement should report where it went. Saying only "idle fraction 1.2%, done" would have been true and misleading.
+
+- **[P3] #verify-the-bug-exists-before-fixing-it #empirical-refutes-plausible-criticals**
+  Owner item 6 was "the rainbow should change the castle colour too" — and reading the code showed it already did (the derangement remaps player.color; the keep tints from the live value). The real gap was that the castle did not join the CELEBRATION. Had I implemented the literal request I would have written a redundant recolour and reported a fix for a working feature. Rule: for any "X does not do Y" report, locate the code path that would do Y and confirm it is absent BEFORE writing a replacement — and when the mechanism already exists, say so explicitly in the commit so the finding is not lost.
+
+- **[CLOSE] #green-by-luck-is-not-green #a-perf-change-exposes-stale-test-contracts**
+  The gating e2e lane was green for two slots while encoding a rule the game had already deleted: the helpers grabbed sparks from the quarry, which V6-1.2 made un-pickable. It only passed because the old faucet left ~2 sparks and the one available was usually the escrowed (pickable) one. A 6x throughput change turned that luck off and five specs went red at once. Two lessons: (a) a suite can be green because the state space is too small to expose it, so a capacity/rate change is a legitimate way to DISCOVER stale contracts rather than a thing that broke them; (b) when a spec depends on a game rule, the helper should assert the SAME predicate the production code does — my fix was to mirror controls.pickSpark, and the deeper finding (pickable != draggable, because a hauled spark is re-pinned every tick) only appeared once the predicate was explicit.
+
+- **[CLOSE] #do-not-encode-a-number-you-cannot-attribute**
+  fog.spec asserts aboveFogLayer has exactly 13 children and it is stably 14, with the test comment inviting me to bump it. I did not: I could not identify WHICH renderer the 14th child is, and a contract whose number is updated without attribution stops being a contract — it becomes a rubber stamp that will absorb the next real leak silently. Left red with the diagnosis and the prime suspect named. Preferring an honest red to a green I cannot justify is the right trade when the test exists precisely to catch unnoticed additions.
+
 # Reflexion Log — The Spark
 
 Cross-session learnings, newest first. Each `## DATE — Session N` block holds that session's reflexion entries. Pruned to ≤50 entries; older entries live in the archived handoff docs.

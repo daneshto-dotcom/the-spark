@@ -8,6 +8,22 @@ castle; hauled shapes are now stored INSIDE the castle (which structurally delet
 fling bugs rather than patching them); the spark faucet is 6× and the soft cap was re-derived from
 measurement; and the rainbow now makes the castle party. Everything pushed, deploy verified 4/4.
 
+## ⛔ FIRST: THE GATING E2E LANE IS 2 RED (was 5; I fixed 3)
+The lane was passing **by luck** and the x6 faucet removed it: since V6-1.2 an un-escrowed spark
+inside the spawn disc is NOT player-pickable, but the drag helpers still picked any Free spark near
+centre (the pre-V6-1.2 rule). It only worked because at the old rate the ~2-spark pool was usually
+the escrowed one. I re-based `e2e/helpers.ts` onto the real loop (`isPorchSpark`, `pullFromBank`,
+state-aware panel open, bounded 4x8s retry) -> **5 failed/26 passed becomes 2 failed/29 passed**.
+Key finding: **pickable != draggable** — an in-flight haul passes the pickup gate but
+`applyGathererTick` re-pins its position every tick, so only a CASTLE-PORCH shape can be dragged.
+Still red, both diagnosed, NEITHER masked as @quarantine-flaky:
+- `fog.spec.ts:104` asserts aboveFogLayer has 13 children; it is STABLY 14. Its own comment says to
+  bump deliberately with the renderer list — I did NOT, because I could not attribute the 14th child
+  and an unexplained number defeats the contract. Dump the child names first; prime suspect is
+  S135's `GathererRenderer(app, aboveFogLayer)`, which would mean the contract went stale in S135.
+- `hunter.spec.ts:67` -> "castle panel did not open": the player looks input-locked (that spec's
+  subject IS the hunter benching them) during a build that now needs several pull cycles.
+
 ## Next Steps
 1. **PLAYTEST — two specific judgements are wanted.** (a) The bottleneck MOVED by design: the ×6
    faucet drove gatherer idling from chronic to 1.2%, but with one gatherer and nobody spending the
