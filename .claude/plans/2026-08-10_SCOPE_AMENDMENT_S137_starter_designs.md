@@ -155,6 +155,18 @@ i.e. it is atlas-able through exactly the HELGA path.
 States to generate per unit: goblins **idle / walk / attack / death**; tower **idle (bags sway,
 flies circle) / lob / burst**.
 
+⚠ **SECOND TAKE, AND THE HONEST RESULT: veo does NOT reliably hold character/prop consistency across
+a full 4 s clip at this style.** A re-run with an explicit "the cleaver stays GRIPPED, never thrown"
+instruction plus a personality direction improved grip retention in most frames — **but one frame
+still shows the blade detached, and veo additionally hallucinated a TAIL the source art does not
+have.** Prompting alone did not close it.
+
+**The fix is not a better prompt — it is FRAME-LEVEL CURATION.** An atlas state needs only ~6-10 good
+frames, not a flawless 4 s. So the animation session should: generate 2-3 takes per state (~$0.50
+each), extract at 24 fps, and hand-pick a clean, consistent subset — rejecting any frame where the
+weapon detaches, a limb/prop drifts, or scale jumps. Budget takes accordingly; do not assume one
+generation per state.
+
 ### E. Audio — grunts, sparingly (owner: "not too many but enough for it to be interesting")
 
 Per the established audio taste (dry and punchy beats noisy; deep beats high; **audition the .ogg on

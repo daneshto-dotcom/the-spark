@@ -32,6 +32,19 @@ scoreProgress INCLUDES the 100-point opening balance, and both WIN (gameState.ts
 HUNTER (hostTick.ts:498, 1125) gate on it. So a match ends after 1,400 EARNED points and the hunter
 fires at 1,025 earned. Phase 1 is silently ~6.7% shorter than every comment claims.
 
+## AFTER THE BATCH: a design session (all committed, NONE implemented)
+- B5 match length RULED CLOSED by the owner ("6.7% shorter is fine, we don't care") - LOCKED_DECISIONS.md.
+- Build space = REAL STORAGE, 2D freeform, uncapped. CASTLE_BUILD_SPACE_DESIGN.md.
+- THREE free non-godly starter designs specced + art spiked: goblin swordsman, goblin archer, stink
+  tower. .claude/plans/2026-08-10_SCOPE_AMENDMENT_S137_starter_designs.md
+- Measured, not guessed: the 4-shape recipe space is FREE (combos.ts ComboKey is a 2-shape PAIR type,
+  godlies are 5-9). And my A-vs-B cost advice was wrong by ~4x - castleBanks costs ~25 lines/10 files.
+- veo pipeline PROVEN but veo does NOT hold prop consistency across 4s (threw the cleaver twice, once
+  after an explicit grip instruction, and hallucinated a tail). Fix = FRAME-LEVEL CURATION, 2-3 takes
+  per state. Never use the word "sticker" in a prompt (white die-cut halo).
+- ONE PROTOCOL BUMP: build space + 3 new DefenderKinds both force 16->17. Single bump, start of a
+  session, with deploy + 2-peer check.
+
 ## Next steps
 1. P1 - OWNER RULED all 4 questions (design doc section 1, verbatim): both pull paths coexist, drop
    anywhere, capacity NOT capped by the bank (Voltkin 8 / NONET 9), 2D freeform grid, arbitrary

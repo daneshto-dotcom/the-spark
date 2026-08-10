@@ -169,3 +169,68 @@ This is **owner-unruled B5 (match length)**, and the ×6 faucet already shortens
 - S135 untouched: SCORE_TIER corner-bloom replay · carried-potato `onUp` pointer capture ·
   deposit-slot column overflow.
 - `origin/gh-pages` deletion — OWNER-GATED.
+
+---
+
+# S137 ADDENDUM — design session after the batch closed (2026-08-10)
+
+The batch (P0-P3) closed green. Everything below is DESIGN + ART, committed, **none of it implemented**.
+
+## Owner rulings now LOCKED (see LOCKED_DECISIONS.md)
+
+- **B5 match length — CLOSED.** The 100-point opening balance counts toward both the WIN (1500) and
+  HUNTER (1125) thresholds, so Phase 1 is ~6.7% shorter than the comments claim. **Owner: "fine for
+  now, we don't care."** NOT a defect. Stop re-raising it as unruled.
+- **Build space = REAL STORAGE**, 2D freeform, capacity NOT capped by the bank, both pull paths
+  coexist, arbitrary non-combo structures. `CASTLE_BUILD_SPACE_DESIGN.md`.
+- **Three free non-godly starter designs** — goblin swordsman (melee), goblin archer (short ranged),
+  stink tower (area defence). 4 shapes each.
+  `.claude/plans/2026-08-10_SCOPE_AMENDMENT_S137_starter_designs.md`.
+
+## Two things settled by MEASUREMENT, not opinion
+
+1. **My A-vs-B cost advice was wrong by ~4x.** I told the owner they differed by "an order of
+   magnitude"; `castleBanks` (shipped one session earlier) is a serialized per-seat
+   `Map<PlayerId, Spark[]>` costing ~25 lines across 10 files — a ONE-LINE hash-coverage entry
+   included. B is ~2-3x A. The owner's instinct beat my analysis.
+2. **The 4-shape recipe space is FREE.** `src/combos.ts` types `ComboKey` as
+   `` `${SparkType}->${SparkType}` `` — the Magic-14 are two-shape PAIRS; godlies are 5-9. Nothing
+   uses 4 shapes today, so the starter recipes cannot collide.
+
+## Art + animation: PIPELINE PROVEN, with a hard constraint found
+
+Imagen 4 Ultra key art for all three, matched to HELGA's house style, all ORIGINAL (no franchise
+likeness). veo 3.1 image-to-video proved motion: camera locked, character centred, ink outlines and
+cel shading preserved, flat white background -> atlas-able via the HELGA path.
+
+⚠ **veo does NOT hold character/prop consistency across a 4s clip.** Take 1 had the goblin THROW his
+cleaver. Take 2, with an explicit "stays gripped, never thrown" instruction, still dropped it in one
+frame AND hallucinated a tail the source art lacks. **Prompting did not close it.** The fix is
+FRAME-LEVEL CURATION: an atlas state needs ~6-10 good frames, not a perfect clip -> generate 2-3
+takes per state (~$0.50 each) and hand-pick. Also banned: the word "sticker" in prompts (it produced
+a literal white die-cut halo, the exact artefact the owner rejected on the old sprite).
+
+## Damage model (owner: "make it logical, like Legion TD 2")
+
+Author DoT as **TOTALS**, not per engine tick: a 0.5s damage cadence decoupled from `PHYSICS_HZ`,
+**% of MAX** hp (percent-of-current can never kill), **refresh not stack**, tick-domain state, and
+burst directions from a **PURE fn of (id, tick, index)** — never `Math.random`, and not from the
+seeded RNG stream either (draw-order perturbation is a documented desync hazard).
+Aura 2%/s enemies-only; death burst 5%/s + `POOP_SLOW_MULTIPLIER` (already exactly 0.5) hitting
+**everyone including your own troops**.
+
+## Real aggro
+5 destructible bags, each with own HP. **Core untargetable while any bag remains**; popping a bag
+splashes the popper. That is what makes clearing the tower cost time AND health.
+
+## Next session, in order
+1. **Session A** — three units playable: extend `DefenderKind`, per-kind config, behaviours on the
+   EXISTING defender FSM, procedural-puppet placeholder art. Assign the 4-shape recipes.
+2. **Session B** — veo loops (2-3 takes/state + curation) -> atlases + manifests + ~8 audio clips.
+3. **Session C** — free-design tier into the build space / Codex library.
+
+⚠ **ONE PROTOCOL BUMP.** The build space AND the three new `DefenderKind`s each force
+`PROTOCOL_VERSION` 16->17, which hard-rejects deployed peers at HELLO. Do them in a SINGLE bump, at
+the START of a session, with a deploy + 2-peer check in that same session.
+
+⚠ Gemini billing still depleted (HTTP 429) — Councils are running 2-way until topped up.

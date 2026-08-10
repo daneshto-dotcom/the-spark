@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 142,
+  "tool_calls_session_total": 150,
   "session_id": "S137",
   "session_kind": "batch",
   "session_start": "2026-08-10",
@@ -39,7 +39,9 @@
     "No 2-peer/joiner exercise of the castle bank; no host-migration round-trip for it.",
     "P1 in-bubble build space: DESIGNED (CASTLE_BUILD_SPACE_DESIGN.md), blocked on a PROTOCOL_VERSION 16->17 bump that hard-rejects deployed peers at HELLO. Take it at the START of a session with a deploy + 2-peer check in the same session. 4 open owner questions in section 8.",
     "H3 from the bank measurement NOT measured: whether periodic consumption removes the hauler stall at every cap. Needs a dispatch seam __SPARK__ does not expose.",
-    "P1 OWNER-RULED 2026-08-10 (all 4 questions). ONE open decision blocks implementation: BLUEPRINT (grid is a plan, shapes stay banked, capacity free, zero serialization/desync -- RECOMMENDED) vs REAL STORAGE (shapes move into the space, forces new serialized World state). See CASTLE_BUILD_SPACE_DESIGN.md section 7."
+    "P1 OWNER-RULED 2026-08-10 (all 4 questions). ONE open decision blocks implementation: BLUEPRINT (grid is a plan, shapes stay banked, capacity free, zero serialization/desync -- RECOMMENDED) vs REAL STORAGE (shapes move into the space, forces new serialized World state). See CASTLE_BUILD_SPACE_DESIGN.md section 7.",
+    "ART/ANIM (Session B): veo does NOT reliably hold character/prop consistency across a 4s clip — a grip-fix prompt still dropped the cleaver in one frame AND hallucinated a tail. Fix is FRAME-LEVEL CURATION (2-3 takes per state, hand-pick ~6-10 clean frames), not better prompting. Budget takes accordingly.",
+    "Starter designs: art spiked + fully specced + veo pipeline proven. Session A = behaviour on the existing defender FSM with placeholder art; Session B = atlases + audio; Session C = free-design tier into the build space."
   ],
   "priorities": [
     {
@@ -261,6 +263,18 @@
     {
       "tag": "#a-claim-is-not-verified-until-a-machine-rechecks-it",
       "text": "S137 close: verification[] written as free prose was rejected by MCV as unknown assertion type; prose ABOUT verification is not verification. Use the typed vocabulary and needles that cannot match comments."
+    },
+    {
+      "tag": "#my-cost-estimate-was-an-order-of-magnitude-wrong",
+      "text": "S137: I told the owner options A and B differed by \"roughly an order of magnitude\" in cost, and they said they leaned B anyway. Measuring instead of estimating showed B was ~2-3x, not 10x: castleBanks — added ONE session earlier — is already a serialized per-seat Map<PlayerId,Spark[]> whose entire production footprint is ~25 lines across 10 files, including a ONE-LINE hash coverage entry, and even the subtle trap (structural signature must count CONTENTS not seats) was already solved in a docblock. My estimate came from imagining the work rather than counting an existing instance of it. When a codebase already contains a near-identical feature, the cost of the next one is a COUNT, not a guess — and the owner s instinct beat my analysis."
+    },
+    {
+      "tag": "#the-owners-number-may-not-survive-the-tick-rate",
+      "text": "S137: the owner specified a DoT as \"5% hp per tick\" and a \"2% dot\". At PHYSICS_HZ 60 that is death in 20 ticks (0.33s) and 0.83s — certainly not what was meant. The failure mode is that the number SOUNDS reasonable and only becomes absurd once multiplied by the engine rate. Fix adopted as a rule: author every DoT as a TOTAL (\"X% of max HP over N seconds\") on a damage cadence decoupled from the physics rate, and derive the per-application value. Also: percent-of-CURRENT hp can never kill (Zeno), and refresh-not-stack, or camping an aura is instant death."
+    },
+    {
+      "tag": "#prompting-cannot-fix-model-inconsistency",
+      "text": "S137: the first veo attack loop had the goblin LET GO of his cleaver mid-swing. I wrote an explicit, emphatic \"the cleaver stays GRIPPED, never thrown\" instruction and regenerated. It improved most frames but STILL dropped the blade in one — and newly hallucinated a tail the source art does not have. The lesson is not \"prompt harder\": generative video does not hold prop/character consistency across a whole clip. The real fix was reframing the requirement — an atlas needs ~6-10 GOOD FRAMES, not a flawless 4s clip — so the answer is 2-3 takes plus frame-level curation. When a model fails a constraint twice, stop tuning the prompt and change what you need from the output."
     }
   ],
   "totals": {
@@ -287,5 +301,14 @@
     "q3_capacity": "NOT capped by CASTLE_BANK_CAP -- \"as many as you want\"; Voltkin 8 (4 squares then 4 triangles), NONET 9 same-kind; plus a UX mandate: smart, comfortable, super high tech, coherent, accessible, easy to understand",
     "q4_arrangement": "2D freeform grid",
     "still_unruled": "CASTLE_BANK_CAP itself"
+  },
+  "owner_rulings_s137_round3": {
+    "date": "2026-08-10",
+    "b5_match_length": "RULED CLOSED — \"6.7% shorter is fine for now, we dont care\". NOT a defect. Recorded in LOCKED_DECISIONS.md so it stops resurfacing as unruled.",
+    "dot_model": "author DoT as TOTALS on a 0.5s damage cadence decoupled from PHYSICS_HZ; % of MAX hp; refresh not stack; tick-domain; burst directions a PURE fn of (id,tick,index) not RNG",
+    "aggro": "REAL aggro — 5 destructible bags each with own HP; core untargetable while any bag remains; popping a bag splashes the popper",
+    "friendly_fire": "aura = enemies only; death burst = EVERYONE including owner troops",
+    "recipes": "4 shapes each; MEASURED FREE — combos.ts ComboKey is a 2-shape PAIR type and godlies are 5-9, so nothing uses 4-shape today",
+    "animation": "real veo loops not procedural; personalities per unit; ~8 audio clips (2 attack grunts + 1 death cry per goblin)"
   }
 }

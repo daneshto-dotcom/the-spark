@@ -1608,3 +1608,22 @@ at the SMALLEST window (2 184) while 7 653 gave +11 and 8 150 gave 0.
 ---
 
 ## End — All Phase 1 + Phase-2 Tier-0 (1v1 networked) + Phase-2 Tier-1 (Sever-as-disruption + multi-color bond rendering) + Audio subsystem (Suno BGM + procedural SFX + per-channel controls) + Phase-2 godly/creature system (Voltkin lifecycle + combat + NetSnapshot semantics) + Phase-2 Sym D (color-segregated bonding) + Sym G (Voltkin chain isolation) + Sym I (ENDGAME envelope) + Sym F (territorial repulsion) implementation decisions are locked. Phase 2+ remaining: Inject Spiral (D), Steal (E), Fog of war (A), Mega-combos via connector chain (G), Anvil second-creature (post-S34 P2-20 voltkin-config base). Audio polish remaining: OGG compression for mobile, PannerNode + auto-duck. Phase 3 net (Colyseus / Geckos.io) reserved for >2-player scalability.
+
+---
+
+## S137 (2026-08-10) — owner rulings
+
+- **B5 MATCH LENGTH — RULED: ACCEPTED AS-IS, CLOSED.** S137 found that `STARTING_VICTORY_POINTS = 100`
+  is counted into `scoreProgress` (`gameMode.ts:271` -> `scoring.ts:264`), and BOTH thresholds gate on
+  that same inflated number — WIN at `PHASE_1_WIN_SCORE` 1500 (`gameState.ts:62`) and HUNTER at 1125
+  (`hostTick.ts:498`). So a match really ends after **1,400 EARNED** points and the hunter fires at
+  **1,025 earned**: Phase 1 is ~6.7% shorter than the comments claim. **Owner ruling: "6.7% shorter is
+  fine for now, we don't care about that."** This is NOT a defect and must stop being re-raised as an
+  unruled item every session. Revisit only if match pacing is deliberately retuned.
+
+- **BUILD SPACE = REAL STORAGE (B)**, 2D freeform, capacity NOT capped by the bank, both pull paths
+  coexist, arbitrary non-combo structures supported. See `CASTLE_BUILD_SPACE_DESIGN.md`.
+
+- **THREE FREE STARTER DESIGNS** (goblin swordsman / goblin archer / stink tower), non-godly, granted
+  free to every player every match. 4 shapes each. Damage authored as TOTALS on a 0.5s cadence, never
+  per engine tick. See `.claude/plans/2026-08-10_SCOPE_AMENDMENT_S137_starter_designs.md`.
