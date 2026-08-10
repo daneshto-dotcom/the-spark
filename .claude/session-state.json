@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 62,
+  "tool_calls_session_total": 71,
   "session_id": "S137",
   "session_kind": "batch",
   "session_start": "2026-08-10",
@@ -83,20 +83,50 @@
     {
       "id": "P2-rainbow-castle-visual",
       "title": "Visually verify the S136 rainbow castle party and produce screenshots for the owner",
-      "status": "pending",
+      "status": "completed",
       "notes": "Logic is pinned by pure tests; the LOOK has never been observed.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "5eac4e4",
+      "check_method": "RALPH:PATROL + VISUAL verification, which is the whole point of the priority. New e2e/rainbow-castle.spec.ts reads REAL COMPOSITED PIXELS off the keep body stroke (the fog.spec extract idiom) and asserts four things pure unit tests structurally cannot: the castle is actually drawn (guards a vacuous pass on an empty board), >=3 DISTINCT composited colours appear inside the flyover window, at least one differs from the resting colour, and past RAINBOW_FLYOVER_DURATION_TICKS it reverts. Determinism without a real rainbow pickup: rainbowSwitchTick is BACK-DATED to tick-age so the renderer sees a chosen age without touching the sim clock, and sync+extract run inside ONE page.evaluate so no rAF frame can interleave at a drifted age. THEN I ACTUALLY LOOKED AT THE IMAGES rather than trusting the green tick: resting = crimson keep (seat colour 0xff3b6b), party frames = magenta then orange with the flyover wash recolouring the background in step. Found and fixed two real defects while doing it: testInfo.attach images are discarded under --reporter=list on a passing test (first run produced NO images at all despite passing), and page.screenshot clip is CSS pixels while the canvas is letterboxed/scaled, so a canvas-coord clip crops the wrong region. Full gating lane re-run 32/0.",
+      "verification": [
+        {
+          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/rainbow-castle.spec.ts",
+          "assertion": "pixel-level assertions on the composited keep: drawn, >=3 distinct hues in-window, differs from resting, reverts after the window"
+        },
+        {
+          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "assertion": "gathererRenderer exposed on the DEV-only __SPARK__ global (import.meta.env.DEV guarded)"
+        }
+      ]
     },
     {
       "id": "P3-bank-throughput-measurement",
       "title": "Measure haul throughput at CASTLE_BANK_CAP 5/6/8 and hand the owner a table + recommendation",
-      "status": "pending",
+      "status": "completed",
       "notes": "MEASURE ONLY - do not change the constant. Explicit FIRST CUT if budget runs short.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "98c2b72",
+      "check_method": "RALPH:PATROL + a real browser measurement with a pre-registered falsifiable prediction. e2e/bank-throughput.spec.ts varies CASTLE_BANK_CAP over 5/6/8 via a new __TEST_CASTLE_BANK_CAP__ seam (mirrors the four existing seams) and measures in a REAL browser with REAL physics, because no unit test here runs the physics loop. Guards its own premise: asserts the seam actually reached the running game, asserts samples>20 and banked>0 so a dead economy cannot print a table of zeros, and FAILS if any cap never saturates inside the window. MEASURED: cap5 88.7% / cap6 94.1% / cap8 90.8% steady-state WAITING, banked exactly == cap in every run. H2 CONFIRMED (cap does not reduce stall); H1 NOT cleanly supported (cap 6 filled faster than cap 5) and reported as such rather than dropped. ⭐ The first cut of this measurement was WRONG at a 22s window -- it ended before saturation and reported 0.0% WAITING at every cap, i.e. no bottleneck, the exact opposite of the truth; caught by noticing time-to-full 20.2s sat at the window edge. NOTHING WAS TUNED: CASTLE_BANK_CAP still ships as 5.",
+      "verification": [
+        {
+          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/bank-throughput.spec.ts",
+          "assertion": "measures steady-state WAITING across caps 5/6/8; fails loudly if a cap never saturates or the seam did not apply"
+        },
+        {
+          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "assertion": "readTestCastleBankCap seam added; production default unconditionally 5"
+        },
+        {
+          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BANK_CAP_MEASUREMENT_S137.md",
+          "assertion": "measurement table + per-cap recipe mapping + recommendation, with caveats and the under-powered-first-cut error recorded"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
@@ -111,6 +141,14 @@
     {
       "tag": "#dont-parse-typescript-with-a-regex",
       "text": "S137 A.0: a one-line regex count of PLAYER_COLORS returned 9 because it split on commas inside the block COMMENTS. I was one step from reporting \"e2e/helpers.ts hardcodes /7 but there are 9 seats -- the keep geometry is broken\", a confident and completely wrong finding. Reading the declaration directly showed 7. A measurement that is cheap to take is not automatically safe to trust; for anything that will become a CLAIM, read the source of truth rather than a derived count."
+    },
+    {
+      "tag": "#an-underpowered-window-reads-as-a-null-result",
+      "text": "S137 P3: my first bank measurement ran a 22s window and reported 0.0% hauler WAITING at every cap -- a clean, confident table that said there is no bottleneck. It was wrong. The cap-5 bank did not saturate until 20.2s, so the run simply ended before the quantity I was measuring could exist. The tell was that time-to-full sat right at the window edge. At 60s the same experiment reports 88.7-94.1%. A measurement whose window is shorter than the phenomenon does not return no signal, it returns a CONFIDENT FALSE NEGATIVE, and it is indistinguishable from good news. Fix applied: the spec now splits pre/post-saturation and FAILS if any condition never saturates, so the error cannot recur silently."
+    },
+    {
+      "tag": "#a-passing-visual-test-that-produced-no-image",
+      "text": "S137 P2: the rainbow-castle spec passed on its first run and wrote its screenshots via testInfo.attach. There were no images on disk -- attachments live in the HTML report bundle and are discarded under --reporter=list on a PASSING test. The entire point of the priority was that a human could look at the thing, and it had silently produced nothing to look at. Green does not mean the artifact exists. When a deliverable is a FILE, assert the file, or write it to an explicit path."
     }
   ],
   "totals": {
