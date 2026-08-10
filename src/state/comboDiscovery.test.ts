@@ -5,7 +5,7 @@
  * Line→Line = Cable (magic), Triangle→Triangle = Diamond (magic), Dot→Dot = placeholder.
  */
 import { describe, expect, it } from 'vitest';
-import { PLAYER_COLORS, SparkType } from '../constants.ts';
+import { PLAYER_COLORS, SparkType, PRIMITIVE_MAX_HP } from '../constants.ts';
 import { comboKey, lookupCombo } from '../combos.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { asBondId, asPlayerId, asPrimitiveId, type PlayerId } from '../types.ts';
@@ -21,7 +21,7 @@ function addPrim(world: World, type: SparkType): Primitive {
   const prim: Primitive = {
     id, type, placerColor: color, placedBy: P0, createdTick: 0,
     pos: { x: 0, y: 0 }, prevPos: { x: 0, y: 0 }, bonds: new Set(),
-    ownerColor: color, lastOwnershipChange: 0, radius: 8,
+    ownerColor: color, lastOwnershipChange: 0, radius: 8, hp: PRIMITIVE_MAX_HP,
   };
   world.primitives.set(id, prim);
   return prim;

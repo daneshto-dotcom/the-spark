@@ -21,6 +21,7 @@ import {
   POOP_CRUISER_SLOW_TICKS,
   POOP_FALL_SPEED,
   SparkType,
+  PRIMITIVE_MAX_HP,
 } from '../constants.ts';
 import { makeIdlePlayer, pickup } from '../game/player.ts';
 import { makeFreeSpark } from '../game/spark.ts';
@@ -71,6 +72,7 @@ function addPrim(world: World, id: number, x: number, y: number): Primitive {
     ownerColor: RED,
     lastOwnershipChange: 0,
     radius: 8,
+    hp: PRIMITIVE_MAX_HP,
   };
   world.primitives.set(p.id, p);
   return p;

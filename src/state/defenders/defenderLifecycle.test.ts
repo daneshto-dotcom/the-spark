@@ -15,7 +15,12 @@
 import { describe, expect, it } from 'vitest';
 import { makeWorld, type World } from '../world.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
-import { PLAYER_COLORS, SparkType, PRINCESS_SLAP_INTERVAL_TICKS } from '../../constants.ts';
+import {
+  PLAYER_COLORS,
+  SparkType,
+  PRINCESS_SLAP_INTERVAL_TICKS,
+  PRIMITIVE_MAX_HP,
+} from '../../constants.ts';
 import {
   asCreatureId, asPlayerId, asPrimitiveId, asSpawnerId, type PrimitiveId,
 } from '../../types.ts';
@@ -42,7 +47,7 @@ function addAnchor(w: World, id: number, x: number, y: number): PrimitiveId {
   const p: Primitive = {
     id: asPrimitiveId(id), type: SparkType.Triangle, placerColor: PLAYER_COLORS[0], placedBy: P0,
     createdTick: 0, pos: { x, y }, prevPos: { x, y }, bonds: new Set(),
-    ownerColor: PLAYER_COLORS[0], lastOwnershipChange: 0, radius: 8,
+    ownerColor: PLAYER_COLORS[0], lastOwnershipChange: 0, radius: 8, hp: PRIMITIVE_MAX_HP,
   };
   w.primitives.set(p.id, p);
   return p.id;

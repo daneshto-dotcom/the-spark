@@ -31,6 +31,7 @@ import {
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
   SparkType,
+  PRIMITIVE_MAX_HP,
 } from '../../constants.ts';
 import { asBondId, asPrimitiveId, type PlayerId, type PrimitiveId } from '../../types.ts';
 import type { Primitive } from '../../game/primitive.ts';
@@ -101,6 +102,7 @@ export function seedBotSpawners(world: World): void {
         ownerColor: color,
         lastOwnershipChange: world.tick,
         radius: TRIANGLE_RADIUS,
+        hp: PRIMITIVE_MAX_HP,
       };
       world.primitives.set(id, prim);
       ids.push(id);
@@ -168,6 +170,7 @@ function seedOneLightningHub(world: World, seat: PlayerId, color: number, total:
     ownerColor: color,
     lastOwnershipChange: world.tick,
     radius: HUB_DOT_RADIUS,
+    hp: PRIMITIVE_MAX_HP,
   };
   world.primitives.set(hubId, hub);
 
@@ -189,6 +192,7 @@ function seedOneLightningHub(world: World, seat: PlayerId, color: number, total:
       ownerColor: color,
       lastOwnershipChange: world.tick,
       radius: HUB_CIRCLE_RADIUS,
+      hp: PRIMITIVE_MAX_HP,
     };
     world.primitives.set(leafId, leaf);
     const restLength = Math.hypot(px - cx, py - cy);

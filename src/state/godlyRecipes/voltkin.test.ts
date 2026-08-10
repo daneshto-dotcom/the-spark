@@ -10,7 +10,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { makeWorld, type World } from '../world.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
 import { asPlayerId, type BondId, type PrimitiveId } from '../../types.ts';
-import { SparkType } from '../../constants.ts';
+import { PRIMITIVE_MAX_HP, SparkType } from '../../constants.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import type { Bond } from '../../physics/bonds.ts';
 import { voltkinPredicate, findVoltkinChain, findLongestVoltkinPartial } from './voltkin.ts';
@@ -34,6 +34,7 @@ function makePrim(
     ownerColor: placerColor,
     lastOwnershipChange: 0,
     radius: 8,
+    hp: PRIMITIVE_MAX_HP,
   };
 }
 

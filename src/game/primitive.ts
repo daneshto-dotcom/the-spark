@@ -9,7 +9,7 @@
  * applied because it would freeze pos and break the bond solver.
  */
 
-import { SPARK_VISUAL_SIZE, type SparkType } from '../constants.ts';
+import { PRIMITIVE_MAX_HP, SPARK_VISUAL_SIZE, type SparkType } from '../constants.ts';
 import type { BondId, PlayerId, PrimitiveId, Vec2 } from '../types.ts';
 import { v2copy } from '../types.ts';
 import type { Spark } from './spark.ts';
@@ -37,6 +37,15 @@ export interface Primitive {
   lastOwnershipChange: number;
   /** Soft-collision radius (matches the spark's radius). */
   readonly radius: number;
+  /**
+   * S138 P1 — remaining hit points, `PRIMITIVE_MAX_HP` at placement. Mutated ONLY through
+   * `state/damage.ts damageEntity`; at ≤ 0 the primitive is razed via `razePrimitives`.
+   *
+   * REQUIRED (not `hp?`) on purpose: an optional field forces `hp ?? PRIMITIVE_MAX_HP` at every
+   * read site, and the one that gets forgotten is the bug. The wire stays cheap anyway —
+   * `serializePrimitive` emits it ONLY when damaged, the same trick `serializeCreature` uses.
+   */
+  hp: number;
 }
 
 export function makePrimitiveFromSpark(args: {
@@ -58,5 +67,6 @@ export function makePrimitiveFromSpark(args: {
     ownerColor: args.placerColor,
     lastOwnershipChange: args.tick,
     radius: Math.max(8, SPARK_VISUAL_SIZE[args.spark.type] * 0.45),
+    hp: PRIMITIVE_MAX_HP, // S138 P1 — full health at placement
   };
 }

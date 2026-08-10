@@ -41,7 +41,7 @@ import {
 import { CHEWER_CONFIG } from './voltkin-config.ts';
 import { computeCreatureAlpha } from '../../render/creatureRenderer.ts';
 import { asBondId, asPlayerId, asPrimitiveId, asSpawnerId } from '../../types.ts';
-import { PLAYER_COLORS, SparkType } from '../../constants.ts';
+import { PLAYER_COLORS, SparkType, PRIMITIVE_MAX_HP } from '../../constants.ts';
 import type { Bond } from '../../physics/bonds.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
@@ -251,6 +251,7 @@ describe('applyCreatureTick — S27 P0 SEEKING ↔ ATTACKING transitions', () =>
       ownerColor: PLAYER_COLORS[1],
       lastOwnershipChange: 0,
       radius: 8,
+      hp: PRIMITIVE_MAX_HP,
     };
     const primB: Primitive = {
       id: asPrimitiveId(2),
@@ -264,6 +265,7 @@ describe('applyCreatureTick — S27 P0 SEEKING ↔ ATTACKING transitions', () =>
       ownerColor: PLAYER_COLORS[1],
       lastOwnershipChange: 0,
       radius: 8,
+      hp: PRIMITIVE_MAX_HP,
     };
     w.primitives.set(primA.id, primA);
     w.primitives.set(primB.id, primB);

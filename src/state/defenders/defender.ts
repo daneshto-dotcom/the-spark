@@ -20,18 +20,22 @@
  *
  * Identity = the shape-defining anchor primitive (the Line for a turret, the Triangle hub for
  * HELGA) — unique within its recipe by construction, stable, and re-validated each poll
- * (`recipeStillSatisfied`). Removal is recipe-break-driven (a chewer eats the structure) — `hp`
- * is a high sentinel kept for a future direct-attack lever (Council MF8), not used in v1.
+ * (`recipeStillSatisfied`). Removal is recipe-break-driven (a chewer eats the structure).
+ * ⚠ AMENDED S138 P1: `hp` is no longer a sentinel. The direct-attack lever MF8 pre-provisioned has
+ * been cashed in — each kind carries real hp and can be killed through `state/damage.ts
+ * damageEntity`. Recipe-break removal is unchanged and still primary; hp is a second, additive
+ * death path.
  */
 
 import {
-  DEFENDER_HP,
+  PRINCESS_DEFENDER_MAX_HP,
   PRINCESS_MELEE_RANGE,
   PRINCESS_MOVE_ACCEL,
   PRINCESS_SLAP_INTERVAL_TICKS,
   PRINCESS_SLAP_RANGE,
   PRINCESS_WINDUP_TICKS,
   TURRET_ATTACK_RANGE,
+  TURRET_DEFENDER_MAX_HP,
   TURRET_FIRE_INTERVAL_TICKS,
   TURRET_WINDUP_TICKS,
 } from '../../constants.ts';
@@ -119,7 +123,7 @@ export interface DefenderConfig {
    * princess meleeRange is small (must be adjacent).
    */
   readonly meleeRange: number;
-  /** Sentinel hp (see DEFENDER_HP). */
+  /** S138 P1 — real max hp for this kind (was the shared DEFENDER_HP sentinel). */
   readonly hp: number;
 }
 
@@ -130,7 +134,7 @@ export const TURRET_DEFENDER_CONFIG: DefenderConfig = {
   attackRange: TURRET_ATTACK_RANGE,
   moveAccel: 0, // stationary — a turret never walks (its FSM stays byte-identical to pre-S110)
   meleeRange: TURRET_ATTACK_RANGE, // strikes at acquisition range → always "in melee" → never WALKs
-  hp: DEFENDER_HP,
+  hp: TURRET_DEFENDER_MAX_HP, // S138 P1 — real hp (was the 1e9 sentinel)
 };
 
 export const PRINCESS_DEFENDER_CONFIG: DefenderConfig = {
@@ -140,7 +144,7 @@ export const PRINCESS_DEFENDER_CONFIG: DefenderConfig = {
   attackRange: PRINCESS_SLAP_RANGE, // S110 P4 — acquisition + chase-leash radius (from her hub)
   moveAccel: PRINCESS_MOVE_ACCEL, // S110 P4 — she walks to her target
   meleeRange: PRINCESS_MELEE_RANGE, // S110 P4 — must be adjacent to slap
-  hp: DEFENDER_HP,
+  hp: PRINCESS_DEFENDER_MAX_HP, // S138 P1 — real hp (was the 1e9 sentinel)
 };
 
 export const DEFENDER_CONFIGS: Readonly<Record<DefenderKind, DefenderConfig>> = {

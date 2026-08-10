@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { PLAYER_COLORS, RAINBOW_TTL_TICKS, SparkType } from '../constants.ts';
+import { PLAYER_COLORS, RAINBOW_TTL_TICKS, SparkType, PRIMITIVE_MAX_HP } from '../constants.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import { asPlayerId, asPrimitiveId, asRainbowId } from '../types.ts';
@@ -39,6 +39,7 @@ function makePrim(id: number, placerColor: number): Primitive {
     ownerColor: placerColor,
     lastOwnershipChange: 0,
     radius: 8,
+    hp: PRIMITIVE_MAX_HP,
   };
 }
 

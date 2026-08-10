@@ -16,7 +16,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { makeWorld, type World } from '../world.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
 import { asBondId, asPlayerId, asPrimitiveId, type BondId, type PrimitiveId } from '../../types.ts';
-import { SparkType } from '../../constants.ts';
+import { SparkType, PRIMITIVE_MAX_HP } from '../../constants.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import type { Bond } from '../../physics/bonds.ts';
 import {
@@ -57,6 +57,7 @@ function makePrim(
     ownerColor: color,
     lastOwnershipChange: 0,
     radius: 8,
+    hp: PRIMITIVE_MAX_HP,
   };
 }
 

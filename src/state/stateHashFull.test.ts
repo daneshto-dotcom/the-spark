@@ -28,7 +28,7 @@ import { makeSpawner } from './spawners/spawner.ts';
 import { makeDefender } from './defenders/defender.ts';
 import { makeGatherer } from './gatherers/gatherer.ts';
 import { makeFreeSpark } from '../game/spark.ts';
-import { SparkType } from '../constants.ts';
+import { SparkType, PRIMITIVE_MAX_HP } from '../constants.ts';
 import {
   asBombId,
   asBondId,
@@ -72,7 +72,7 @@ function addPrimBondSpark(w: World): void {
   const mk = (id: number, x: number): Primitive => ({
     id: asPrimitiveId(id), type: SparkType.Dot, placerColor: 0xffffff, placedBy: P0,
     createdTick: 0, pos: { x, y: 0 }, prevPos: { x, y: 0 }, bonds: new Set(),
-    ownerColor: 0xffffff, lastOwnershipChange: 0, radius: 8,
+    ownerColor: 0xffffff, lastOwnershipChange: 0, radius: 8, hp: PRIMITIVE_MAX_HP,
   });
   const a = mk(101, 10);
   const b = mk(102, 40);

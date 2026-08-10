@@ -18,7 +18,7 @@ import type { NetSnapshotMsg } from './protocol.ts';
 import { asCreatureId, asHunterId, asPlayerId, asSparkId, type CreatureId } from '../types.ts';
 import { makeHunter } from '../state/hunters/hunter.ts';
 import { currentFrameKey, type VoltkinFrameKey } from '../render/voltkinFrames.ts';
-import { SparkType } from '../constants.ts';
+import { SparkType, PRIMITIVE_MAX_HP } from '../constants.ts';
 import type { CreatureState } from '../state/creatures/creature.ts';
 
 function mkSnapMsg(seq: number, snap: NetSnapshot): NetSnapshotMsg {
@@ -595,6 +595,7 @@ describe('S15 P2 — interpolatePositions', () => {
       ownerColor: 0xff3b6b,
       lastOwnershipChange: 0,
       radius: 8,
+      hp: PRIMITIVE_MAX_HP,
     });
     interpolatePositions(prev, current, 0, w);
     expect(w.primitives.get(primId)!.pos).toEqual({ x: 10, y: 10 });
@@ -632,6 +633,7 @@ describe('S15 P2 — interpolatePositions', () => {
       ownerColor: 0xff3b6b,
       lastOwnershipChange: 0,
       radius: 8,
+      hp: PRIMITIVE_MAX_HP,
     });
     interpolatePositions(prev, current, 1, w);
     expect(w.primitives.get(primId)!.pos).toEqual({ x: 100, y: 100 });
@@ -669,6 +671,7 @@ describe('S15 P2 — interpolatePositions', () => {
       ownerColor: 0xff3b6b,
       lastOwnershipChange: 0,
       radius: 8,
+      hp: PRIMITIVE_MAX_HP,
     });
     interpolatePositions(prev, current, 0.5, w);
     expect(w.primitives.get(primId)!.pos).toEqual({ x: 50, y: 100 });

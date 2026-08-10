@@ -1145,14 +1145,41 @@ export const LIGHTNING_DRONE_SPRITE_SCALE = 0.5; // the Voltkin rig at 50% (owne
 //   • LASER TURRET (#9, P3): 1 Line(deg7) + 7 Spiral 'Whip' leaves — a slow heavy beam.
 //   • HELGA PRINCESS (#10, P4): a Triangle hub + 3 'Warped Anchor' + 3 'Star' — a fast slapper.
 // Defenders are removed by RECIPE-BREAK (a chewer eats the structure's bonds → the shape no
-// longer matches → REMOVE_DEFENDER), NOT by direct combat in v1 — `DEFENDER_HP` is a high
-// sentinel kept for a future direct-attack lever (Council MF8) so adding it needs no re-bump.
+// longer matches → REMOVE_DEFENDER). ⚠ AMENDED S138 P1: that is no longer the ONLY way. The old
+// `DEFENDER_HP = 1e9` sentinel — kept "for a future direct-attack lever (Council MF8) so adding it
+// needs no re-bump" — has been cashed in for real per-kind hp (TURRET/PRINCESS_DEFENDER_MAX_HP).
+// Recipe-break is unchanged and still primary; hp is additive.
 // ALL tick-based + host-authoritative + replay-deterministic (no wall-clock, no Math.random).
 export const DEFENDER_FIRE_HOLD_TICKS = 12; // FIRE state held ≥2 snapshot intervals so the 1v1
 // client reliably observes it + renders the beam/slap VFX (Council MF1 — state is the event bus).
 export const DEFENDER_RECOVER_TICKS = 12; // post-fire recovery before returning to IDLE
 export const DEFENDER_REACQUIRE_TICKS = 12; // IDLE retry cadence when no enemy creature is in range
-export const DEFENDER_HP = 1_000_000_000; // sentinel — defenders die by recipe-break, not damage (v1)
+// ─────────────────────────────────────────────────────────────────────────────
+// === S138 P1 — THE DAMAGE SUBSTRATE: one HP scale, one dispatcher ===
+// Before S138 `damageCreature` was the ONLY damage function in src/ and NOTHING else in the
+// game could be damaged: primitives had no hp, `DEFENDER_HP` was a 1e9 sentinel, and
+// `CONNECTOR_HP` is not hp at all (it is the ATTACKER's `chewProgress` commit counter). That
+// blocked the offence starter units ("walk toward the nearest enemy structure") and the Stink
+// Tower's individually-destructible bags, both of which need a real target with real hp.
+//
+// ⭐ WHY THE SCALE IS 1000 AND NOT 100. The owner-ruled DoT model authors every damage-over-time
+// effect as a PERCENTAGE OF MAX HP applied on a 0.5 s cadence (never per engine tick — at
+// PHYSICS_HZ 60 "5% per tick" is death in 0.33 s). At a max of 1000, every percentage the design
+// actually uses lands on an INTEGER: 1% = 10, 2.5% = 25, 5% = 50. Integer damage arithmetic
+// cannot drift, which removes float-determinism risk from the host/worker differential outright
+// rather than relying on both sides rounding identically. Do not lower this to 100 — 2.5% of 100
+// is 2.5 and reintroduces exactly that hazard.
+export const PRIMITIVE_MAX_HP = 1000; // a single placed shape
+// Defenders now carry REAL hp instead of the old 1e9 sentinel. The S103 substrate deliberately
+// pre-provisioned this: the sentinel was "kept for a future direct-attack lever (Council MF8) so
+// adding it needs no re-bump", and `Defender.hp` has been serialized non-optional + hashed since
+// S103. Recipe-break removal (REMOVE_DEFENDER) is UNCHANGED and remains the primary counterplay;
+// hp is the second, additive way a defender can die.
+// ⚠ FIRST-PASS BALANCE. Nothing in the game deals damage to a defender yet, so these numbers are
+// unvalidated by play. They are tuned in the starters session, alongside the attacker that first
+// exercises them — see the S138 carry-forward on authoring damage as totals over seconds.
+export const TURRET_DEFENDER_MAX_HP = 3000; // a heavy emplacement — 3 primitives' worth
+export const PRINCESS_DEFENDER_MAX_HP = 2000; // mobile and lighter than the turret
 // Laser turret (#9) — slow + heavy; the windup is shown via 5 rings derived from nextFireTick.
 export const TURRET_FIRE_INTERVAL_TICKS = 1800; // 30 s @ 60 Hz (owner spec: "every 30s")
 export const TURRET_WINDUP_TICKS = 18; // brief pre-beam tell after the long charge completes

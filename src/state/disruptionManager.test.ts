@@ -9,7 +9,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { DEFENSIVE_SEVER_CHARGE_COST, PLAYER_COLORS, SparkType } from '../constants.ts';
+import {
+  DEFENSIVE_SEVER_CHARGE_COST,
+  PLAYER_COLORS,
+  SparkType,
+  PRIMITIVE_MAX_HP,
+} from '../constants.ts';
 import type { Bond } from '../physics/bonds.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { makeIdlePlayer } from '../game/player.ts';
@@ -54,6 +59,7 @@ function makePrim(
     ownerColor: placerColor,
     lastOwnershipChange: 0,
     radius,
+    hp: PRIMITIVE_MAX_HP,
   };
 }
 

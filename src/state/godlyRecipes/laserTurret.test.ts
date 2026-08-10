@@ -9,8 +9,16 @@
 import { describe, expect, it } from 'vitest';
 import { makeWorld, type World } from '../world.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
-import { PLAYER_COLORS, SparkType } from '../../constants.ts';
-import { asBondId, asCreatureId, asDefenderId, asPlayerId, asPrimitiveId, asSpawnerId, type PrimitiveId } from '../../types.ts';
+import { PLAYER_COLORS, SparkType, PRIMITIVE_MAX_HP } from '../../constants.ts';
+import {
+  asBondId,
+  asCreatureId,
+  asDefenderId,
+  asPlayerId,
+  asPrimitiveId,
+  asSpawnerId,
+  type PrimitiveId,
+} from '../../types.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import type { Bond } from '../../physics/bonds.ts';
 import { isLaserTurretComponent, laserTurretPredicate } from './laserTurret.ts';
@@ -32,7 +40,7 @@ function addPrim(w: World, id: number, type: SparkType, x: number, y: number): P
   const p: Primitive = {
     id: asPrimitiveId(id), type, placerColor: PLAYER_COLORS[0], placedBy: P0,
     createdTick: 0, pos: { x, y }, prevPos: { x, y }, bonds: new Set(),
-    ownerColor: PLAYER_COLORS[0], lastOwnershipChange: 0, radius: 8,
+    ownerColor: PLAYER_COLORS[0], lastOwnershipChange: 0, radius: 8, hp: PRIMITIVE_MAX_HP,
   };
   w.primitives.set(p.id, p);
   return p;

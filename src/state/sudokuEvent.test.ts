@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PLAYER_COLORS, SparkType } from '../constants.ts';
+import { PLAYER_COLORS, SparkType, PRIMITIVE_MAX_HP } from '../constants.ts';
 import type { Bond } from '../physics/bonds.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { makeIdlePlayer } from '../game/player.ts';
@@ -33,6 +33,7 @@ function makePrim(id: number, type: SparkType, placedBy: PlayerId): Primitive {
     ownerColor: 0,
     lastOwnershipChange: 0,
     radius: 8,
+    hp: PRIMITIVE_MAX_HP,
   };
 }
 

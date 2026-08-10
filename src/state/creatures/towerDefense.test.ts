@@ -40,6 +40,7 @@ import {
   CHEWER_MAX_PER_VICTIM,
   PLAYER_COLORS,
   SparkType,
+  PRIMITIVE_MAX_HP,
 } from '../../constants.ts';
 import { asPlayerId, asPrimitiveId, asSpawnerId, type BondId } from '../../types.ts';
 import type { Primitive } from '../../game/primitive.ts';
@@ -70,6 +71,7 @@ function addEnemyBond(
     ownerColor,
     lastOwnershipChange: 0,
     radius: 8,
+    hp: PRIMITIVE_MAX_HP,
   };
   const primB: Primitive = {
     id: asPrimitiveId(primBId),
@@ -83,6 +85,7 @@ function addEnemyBond(
     ownerColor,
     lastOwnershipChange: 0,
     radius: 8,
+    hp: PRIMITIVE_MAX_HP,
   };
   world.primitives.set(primA.id, primA);
   world.primitives.set(primB.id, primB);

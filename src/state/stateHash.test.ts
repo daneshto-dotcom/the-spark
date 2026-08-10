@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { fnv1a32, hashWorldState } from './stateHash.ts';
 import { makeWorld } from './world.ts';
 import { asBondId, asPlayerId, asPrimitiveId, type PlayerId } from '../types.ts';
-import { SparkType } from '../constants.ts';
+import { SparkType, PRIMITIVE_MAX_HP } from '../constants.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { World } from './worldTypes.ts';
 
@@ -18,7 +18,7 @@ function addPrim(w: World, player: PlayerId, x: number, y: number): Primitive {
   const prim: Primitive = {
     id, type: SparkType.Dot, placerColor: 0xffffff, placedBy: player, createdTick: 0,
     pos: { x, y }, prevPos: { x, y }, bonds: new Set(), ownerColor: 0xffffff,
-    lastOwnershipChange: 0, radius: 8,
+    lastOwnershipChange: 0, radius: 8, hp: PRIMITIVE_MAX_HP,
   };
   w.primitives.set(id, prim);
   return prim;

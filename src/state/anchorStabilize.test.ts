@@ -14,6 +14,7 @@ import {
   PLAYER_COLORS,
   SparkType,
   TERRITORY_ENGULF_STIFFNESS,
+  PRIMITIVE_MAX_HP,
 } from '../constants.ts';
 import type { Bond } from '../physics/bonds.ts';
 import type { Primitive } from '../game/primitive.ts';
@@ -46,6 +47,7 @@ function addPrim(w: World, id: number, type: SparkType, x: number, y: number): P
     ownerColor: RED,
     lastOwnershipChange: 0,
     radius: 8,
+    hp: PRIMITIVE_MAX_HP,
   };
   w.primitives.set(p.id, p);
   return p;

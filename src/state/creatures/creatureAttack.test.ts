@@ -16,7 +16,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { PLAYER_COLORS, SparkType } from '../../constants.ts';
+import { PLAYER_COLORS, SparkType, PRIMITIVE_MAX_HP } from '../../constants.ts';
 import {
   asBondId,
   asPlayerId,
@@ -50,6 +50,7 @@ function makePrim(id: number, placerColor: number, x: number, y: number): Primit
     ownerColor: placerColor,
     lastOwnershipChange: 0,
     radius: 8,
+    hp: PRIMITIVE_MAX_HP,
   };
 }
 

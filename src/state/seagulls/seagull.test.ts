@@ -20,6 +20,7 @@ import {
   POOP_FOUL_TICKS,
   POOP_GROUND_TTL_TICKS,
   POOP_SLOW_TICKS,
+  PRIMITIVE_MAX_HP,
   SEAGULL_MAX_ACTIVE,
   SEAGULL_SPEED,
   SparkType,
@@ -29,7 +30,15 @@ import type { Primitive } from '../../game/primitive.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
 import { makeFreeSpark } from '../../game/spark.ts';
 import { makeVoltkinCreature } from '../creatures/creature.ts';
-import { asBondId, asCreatureId, asPlayerId, asPoopId, asPrimitiveId, asSeagullId, asSparkId } from '../../types.ts';
+import {
+  asBondId,
+  asCreatureId,
+  asPlayerId,
+  asPoopId,
+  asPrimitiveId,
+  asSeagullId,
+  asSparkId,
+} from '../../types.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
 import { computeComplexity } from '../scoring.ts';
 import { restore, snapshot } from '../save.ts';
@@ -74,6 +83,7 @@ function addPrim(world: World, id: number, x: number, y: number): Primitive {
     ownerColor: RED,
     lastOwnershipChange: 0,
     radius: 8,
+    hp: PRIMITIVE_MAX_HP,
   };
   world.primitives.set(p.id, p);
   return p;

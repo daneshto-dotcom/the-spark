@@ -21,7 +21,12 @@
  * authority — clients never mint IDs).
  */
 
-import { SPAWN_INTERVAL_TICKS, type StiffnessTier } from '../constants.ts';
+import {
+  PRIMITIVE_MAX_HP,
+  SPAWN_INTERVAL_TICKS,
+  type StiffnessTier,
+  type SparkType,
+} from '../constants.ts';
 import { type GameEffect } from '../game/effects.ts';
 import { makePrimitiveFromSpark, type Primitive } from '../game/primitive.ts';
 import {
@@ -30,7 +35,6 @@ import {
   type SparkState,
 } from '../game/spark.ts';
 import { type Bond } from '../physics/bonds.ts';
-import { type SparkType } from '../constants.ts';
 import { type ComboKey } from '../combos.ts';
 import { type GodlyId } from './godlyRecipes/types.ts';
 import { generateSudoku } from './sudoku.ts';
@@ -65,7 +69,12 @@ import type { Potato, PotatoState } from './potato.ts';
 import type { Rainbow } from './rainbow.ts';
 import type { Poop, PoopState, Seagull } from './seagulls/seagull.ts';
 import { makeSpawner, type CreatureSpawner } from './spawners/spawner.ts';
-import { makeDefender, type Defender, type DefenderKind, type DefenderState } from './defenders/defender.ts';
+import {
+  makeDefender,
+  type Defender,
+  type DefenderKind,
+  type DefenderState,
+} from './defenders/defender.ts';
 import { loadRephaseDefenders } from './defenders/defenderLifecycle.ts';
 // Audit Pass 1 fix 3c8630d7 (Δ4) + Pass 2 refactor 622a7c7f: on restore,
 // world.tick may jump backward relative to the audio drain cursor. Without
@@ -303,6 +312,16 @@ interface SerializedPrimitive {
   ownerColor: number;
   lastOwnershipChange: number;
   radius: number;
+  /**
+   * S138 P1 — ADDITIVE-OPTIONAL, emitted by serializePrimitive ONLY when DAMAGED
+   * (`hp < PRIMITIVE_MAX_HP`), exactly as `serializeCreature` does for creature hp. An undamaged
+   * board therefore serializes byte-for-byte as it did pre-S138, which is why this needed no
+   * PROTOCOL_VERSION bump (protocol.ts:152 precedent: re-adding creature `hp`/`chewProgress`/
+   * `targetBondId` to the wire did not bump either — additive-optional, schemaVersion-gated).
+   * ⚠ Consequence, stated rather than discovered later: a pre-S138 save restores every primitive
+   * at FULL health, because absence means undamaged. That is correct, not lossy.
+   */
+  hp?: number;
 }
 
 interface SerializedBond {
@@ -1239,6 +1258,10 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       ownerColor: p.ownerColor,
       lastOwnershipChange: p.lastOwnershipChange,
       radius: p.radius,
+      // S138 P1 — the coalesce covers BOTH the emit-only-when-damaged case and every pre-S138
+      // save/snapshot, which carry no `hp` at all: absent means undamaged. Mirrors the
+      // `s.hp ?? getCreatureConfig(s.type).hp` restore used for creatures.
+      hp: p.hp ?? PRIMITIVE_MAX_HP,
     };
     world.primitives.set(prim.id, prim);
   }
@@ -1365,6 +1388,9 @@ function serializePrimitive(p: Primitive): SerializedPrimitive {
     ownerColor: p.ownerColor,
     lastOwnershipChange: p.lastOwnershipChange,
     radius: p.radius,
+    // S138 P1 — emit ONLY when damaged (the serializeCreature trick at the c.hp site below), so an
+    // undamaged board is byte-identical to the pre-S138 wire.
+    ...(p.hp < PRIMITIVE_MAX_HP ? { hp: p.hp } : {}),
   };
 }
 

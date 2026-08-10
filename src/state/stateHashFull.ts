@@ -207,7 +207,7 @@ type GathererF = keyof ElemOf<World['gatherers']>;
 // Every field name below is projected by hashWorldStateFull. Keep in lockstep.
 type PrimitiveHashed =
   | 'id' | 'type' | 'pos' | 'prevPos' | 'placerColor' | 'placedBy' | 'ownerColor'
-  | 'lastOwnershipChange' | 'radius' | 'createdTick' | 'bonds';
+  | 'lastOwnershipChange' | 'radius' | 'createdTick' | 'bonds' | 'hp';
 type BondHashed =
   | 'id' | 'aId' | 'bId' | 'restLength' | 'stiffnessTier' | 'createdTick'
   | 'stiffnessMultiplier' | 'a' | 'b';
@@ -327,10 +327,15 @@ export function determinismParts(world: World): string[] {
     // CHECK F3 repro B: before S133's remediation this projected id+pos ONLY, so a
     // rainbow's global colour derangement — which drives territory and cross-colour bond
     // segregation — was invisible to the oracle.
+    // S138 P1 — `hp` is projected HERE (the wide oracle) and deliberately NOT in stateHash.ts's
+    // narrow prod projection, which stays `p{id}:{x},{y}` on the main.ts:1706 hot path (R1: the
+    // narrow set stays narrow). This is what makes the host-vs-worker differential able to see a
+    // NON-LETHAL damage divergence — without it the rig would only notice on the tick a primitive
+    // finally died, because a collection SIZE is the one thing structuralSignature can observe.
     parts.push(
       `p${n(p.id)}:${p.type}:${p.pos.x},${p.pos.y}:${v2(p.prevPos)}:pc${p.placerColor}` +
         `:pb${n(p.placedBy)}:oc${p.ownerColor}:lo${p.lastOwnershipChange}:r${p.radius}` +
-        `:ct${p.createdTick}:bn${idSet(p.bonds)}`,
+        `:ct${p.createdTick}:bn${idSet(p.bonds)}:hp${o(p.hp)}`,
     );
   }
 

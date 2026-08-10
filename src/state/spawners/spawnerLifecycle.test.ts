@@ -24,8 +24,7 @@ import {
   teardownSpawners,
 } from './spawnerLifecycle.ts';
 import { makeSpawner } from './spawner.ts';
-import { SparkType } from '../../constants.ts';
-import { SPAWN_INTERVAL_TICKS } from '../../constants.ts';
+import { SparkType, SPAWN_INTERVAL_TICKS, PRIMITIVE_MAX_HP } from '../../constants.ts';
 import {
   asPlayerId,
   asPrimitiveId,
@@ -52,6 +51,7 @@ function makePrim(id: number, x: number, y: number, type: SparkType = SparkType.
     ownerColor: P0_COLOR,
     lastOwnershipChange: 0,
     radius: 8,
+    hp: PRIMITIVE_MAX_HP,
   };
 }
 

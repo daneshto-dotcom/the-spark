@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { PLAYER_COLORS, SparkType } from '../constants.ts';
+import { PLAYER_COLORS, SparkType, PRIMITIVE_MAX_HP } from '../constants.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
 import {
   asBondId,
@@ -159,6 +159,7 @@ describe('GODLY_TRIGGER reducer', () => {
       ownerColor: PLAYER_COLORS[0],
       lastOwnershipChange: 0,
       radius: 8,
+      hp: PRIMITIVE_MAX_HP,
     };
     const primB: Primitive = {
       id: asPrimitiveId(11),
@@ -172,6 +173,7 @@ describe('GODLY_TRIGGER reducer', () => {
       ownerColor: PLAYER_COLORS[0],
       lastOwnershipChange: 0,
       radius: 8,
+      hp: PRIMITIVE_MAX_HP,
     };
     world.primitives.set(primA.id, primA);
     world.primitives.set(primB.id, primB);
@@ -218,6 +220,7 @@ describe('GODLY_TRIGGER reducer', () => {
       ownerColor: PLAYER_COLORS[0],
       lastOwnershipChange: 0,
       radius: 8,
+      hp: PRIMITIVE_MAX_HP,
     };
     const primB: Primitive = {
       id: asPrimitiveId(21),
@@ -231,6 +234,7 @@ describe('GODLY_TRIGGER reducer', () => {
       ownerColor: PLAYER_COLORS[0],
       lastOwnershipChange: 0,
       radius: 8,
+      hp: PRIMITIVE_MAX_HP,
     };
     world.primitives.set(primA.id, primA);
     world.primitives.set(primB.id, primB);

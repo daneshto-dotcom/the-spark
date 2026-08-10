@@ -10,7 +10,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { makeWorld, type World } from './world.ts';
-import { SparkType } from '../constants.ts';
+import { SparkType, PRIMITIVE_MAX_HP } from '../constants.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { Bond } from '../physics/bonds.ts';
 import { asBondId, asPlayerId, asPrimitiveId } from '../types.ts';
@@ -52,6 +52,7 @@ function buildValidChain(world: World, color: number): void {
     ownerColor: color,
     lastOwnershipChange: 0,
     radius: 8,
+    hp: PRIMITIVE_MAX_HP,
   }));
   for (const p of prims) world.primitives.set(p.id, p);
   for (let i = 0; i < prims.length - 1; i++) {

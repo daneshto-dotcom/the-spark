@@ -19,7 +19,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { SparkType } from '../constants.ts';
+import { SparkType, PRIMITIVE_MAX_HP } from '../constants.ts';
 import { makeFreeSpark } from '../game/spark.ts';
 import { asBondId, asPlayerId, asPrimitiveId, asSparkId, asSpawnerId } from '../types.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
@@ -243,6 +243,7 @@ function runChewerStress(world: World, iterations: number): void {
       ownerColor: 0x00ff00,
       lastOwnershipChange: 0,
       radius: 8,
+      hp: PRIMITIVE_MAX_HP,
     };
     world.primitives.set(prim.id, prim);
   }
@@ -341,7 +342,7 @@ function runVoltkinVsChewerStress(world: World, iterations: number): number {
     const prim: import('../game/primitive.ts').Primitive = {
       id: asPrimitiveId(900 + i), type: SparkType.Dot, placerColor: 0x00ff00, placedBy: P2,
       createdTick: 0, pos: { x: 100 + i * 20, y: 100 }, prevPos: { x: 100 + i * 20, y: 100 },
-      bonds: new Set(), ownerColor: 0x00ff00, lastOwnershipChange: 0, radius: 8,
+      bonds: new Set(), ownerColor: 0x00ff00, lastOwnershipChange: 0, radius: 8, hp: PRIMITIVE_MAX_HP,
     };
     world.primitives.set(prim.id, prim);
   }
@@ -455,7 +456,7 @@ function runDefenderStress(world: World, iterations: number): void {
     world.primitives.set(asPrimitiveId(pid), {
       id: asPrimitiveId(pid), type: SparkType.Triangle, placerColor: 0xff0000, placedBy: P1,
       createdTick: 0, pos: { x, y }, prevPos: { x, y }, bonds: new Set(),
-      ownerColor: 0xff0000, lastOwnershipChange: 0, radius: 8,
+      ownerColor: 0xff0000, lastOwnershipChange: 0, radius: 8, hp: PRIMITIVE_MAX_HP,
     });
   }
   dispatch(world, { type: 'REGISTER_DEFENDER', defenderKind: 'princess', ownerPlayerId: P1, anchorPrimitiveId: asPrimitiveId(800), recipeId: 'helga', pos: { x: 100, y: 100 } });
@@ -654,12 +655,12 @@ describe('S100 P1 — host save/load round-trips a mid-chew chewer (R3)', () => 
     const primA: import('../game/primitive.ts').Primitive = {
       id: asPrimitiveId(10), type: SparkType.Dot, placerColor: 0x00ff00, placedBy: P2,
       createdTick: 0, pos: { x: 40, y: 0 }, prevPos: { x: 40, y: 0 }, bonds: new Set(),
-      ownerColor: 0x00ff00, lastOwnershipChange: 0, radius: 8,
+      ownerColor: 0x00ff00, lastOwnershipChange: 0, radius: 8, hp: PRIMITIVE_MAX_HP,
     };
     const primB: import('../game/primitive.ts').Primitive = {
       id: asPrimitiveId(11), type: SparkType.Dot, placerColor: 0x00ff00, placedBy: P2,
       createdTick: 0, pos: { x: 60, y: 0 }, prevPos: { x: 60, y: 0 }, bonds: new Set(),
-      ownerColor: 0x00ff00, lastOwnershipChange: 0, radius: 8,
+      ownerColor: 0x00ff00, lastOwnershipChange: 0, radius: 8, hp: PRIMITIVE_MAX_HP,
     };
     host.primitives.set(primA.id, primA);
     host.primitives.set(primB.id, primB);
@@ -730,7 +731,7 @@ describe('S100 P1 — wire byte budget (R1) + TD host-only stripping', () => {
         id: asPrimitiveId(i), type: SparkType.Triangle, placerColor: 0x00ff00, placedBy: asPlayerId(1),
         createdTick: 0, pos: { x: (i % 10) * 30, y: Math.floor(i / 10) * 30 },
         prevPos: { x: (i % 10) * 30, y: Math.floor(i / 10) * 30 },
-        bonds: new Set(), ownerColor: 0x00ff00, lastOwnershipChange: 0, radius: 8,
+        bonds: new Set(), ownerColor: 0x00ff00, lastOwnershipChange: 0, radius: 8, hp: PRIMITIVE_MAX_HP,
       });
     }
     for (let i = 0; i < N_PRIMS - 1; i++) {

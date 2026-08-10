@@ -19,6 +19,7 @@ import {
   SCORE_FUNCTIONAL_BOND,
   SCORE_MAGIC_BOND,
   SparkType,
+  PRIMITIVE_MAX_HP,
 } from '../constants.ts';
 import type { Bond } from '../physics/bonds.ts';
 import type { Primitive } from '../game/primitive.ts';
@@ -50,6 +51,7 @@ function addPrim(w: World, id: number, type: SparkType, x: number): Primitive {
     ownerColor: RED,
     lastOwnershipChange: 0,
     radius: 8,
+    hp: PRIMITIVE_MAX_HP,
   };
   w.primitives.set(p.id, p);
   return p;

@@ -26,6 +26,7 @@ import {
   SCORE_MAGIC_BOND,
   SCORE_TIER_STEP,
   SparkType,
+  PRIMITIVE_MAX_HP,
 } from '../constants.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import type { Primitive } from '../game/primitive.ts';
@@ -50,7 +51,7 @@ function addPrim(world: World, playerId: PlayerId, type: SparkType, x: number, y
   const prim: Primitive = {
     id, type, placerColor: color, placedBy: playerId, createdTick: 0,
     pos: { x, y }, prevPos: { x, y }, bonds: new Set(),
-    ownerColor: color, lastOwnershipChange: 0, radius: 8,
+    ownerColor: color, lastOwnershipChange: 0, radius: 8, hp: PRIMITIVE_MAX_HP,
   };
   world.primitives.set(id, prim);
   return prim;

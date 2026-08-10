@@ -24,6 +24,7 @@ import {
   PLAYER_COLORS,
   SparkType,
   STRUCTURE_SELFDESTRUCT_RADIUS,
+  PRIMITIVE_MAX_HP,
 } from '../constants.ts';
 import {
   asBondId,
@@ -36,7 +37,10 @@ import {
 } from '../types.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { Bond } from '../physics/bonds.ts';
-import { isLightningHubComponent, findAllLightningHubAnchors } from './godlyRecipes/lightningHub.ts';
+import {
+  isLightningHubComponent,
+  findAllLightningHubAnchors,
+} from './godlyRecipes/lightningHub.ts';
 import { recipeStillSatisfied } from './spawners/spawnerLifecycle.ts';
 import { makeSpawner } from './spawners/spawner.ts';
 import { underDroneCaps } from './droneLifecycle.ts';
@@ -62,6 +66,7 @@ function makePrim(id: number, x: number, y: number, type: SparkType, color: numb
     ownerColor: color,
     lastOwnershipChange: 0,
     radius: 8,
+    hp: PRIMITIVE_MAX_HP,
   };
 }
 

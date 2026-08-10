@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { PLAYER_COLORS, SparkType } from '../constants.ts';
+import { PLAYER_COLORS, SparkType, PRIMITIVE_MAX_HP } from '../constants.ts';
 import type { Bond } from '../physics/bonds.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { makeFreeSpark, type Spark } from '../game/spark.ts';
@@ -37,6 +37,7 @@ function addPrim(w: World, id: number, type: SparkType, x: number, y: number): P
     ownerColor: RED,
     lastOwnershipChange: 0,
     radius: 8,
+    hp: PRIMITIVE_MAX_HP,
   };
   w.primitives.set(p.id, p);
   return p;

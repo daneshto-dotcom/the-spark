@@ -24,6 +24,7 @@ import {
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
   SparkType,
+  PRIMITIVE_MAX_HP,
 } from '../constants.ts';
 import { asPlayerId, asPrimitiveId, asCreatureId } from '../types.ts';
 import type { Primitive } from '../game/primitive.ts';
@@ -56,6 +57,7 @@ function addPrimAt(world: World, playerIndex: 0 | 1, x: number, y: number): Prim
     ownerColor: player.color,
     lastOwnershipChange: 0,
     radius: 9,
+    hp: PRIMITIVE_MAX_HP,
   };
   world.primitives.set(primId, prim);
   return prim;

@@ -27,6 +27,7 @@ import {
   TERRITORY_ENGULF_STIFFNESS,
   TERRITORY_RADIUS_SCALE,
   SparkType,
+  PRIMITIVE_MAX_HP,
 } from '../constants.ts';
 import { componentOf } from '../game/structure.ts';
 import { asPlayerId, asPrimitiveId, asBondId, type PlayerId } from '../types.ts';
@@ -60,6 +61,7 @@ function addPrimAt(world: World, playerIndex: 0 | 1, x: number, y: number): Prim
     ownerColor: player.color,
     lastOwnershipChange: 0,
     radius: 9,
+    hp: PRIMITIVE_MAX_HP,
   };
   world.primitives.set(primId, prim);
   return prim;

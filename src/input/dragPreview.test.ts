@@ -15,6 +15,7 @@ import {
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SparkType,
+  PRIMITIVE_MAX_HP,
 } from '../constants.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { asBondId, asPlayerId, asPrimitiveId, type PlayerId } from '../types.ts';
@@ -34,7 +35,7 @@ function addPrim(world: World, type: SparkType, x: number, y: number, color: num
   const prim: Primitive = {
     id, type, placerColor: color, placedBy: P0, createdTick: 0,
     pos: { x, y }, prevPos: { x, y }, bonds: new Set(),
-    ownerColor: color, lastOwnershipChange: 0, radius: 8,
+    ownerColor: color, lastOwnershipChange: 0, radius: 8, hp: PRIMITIVE_MAX_HP,
   };
   world.primitives.set(id, prim);
   return prim;
