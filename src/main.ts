@@ -1006,6 +1006,13 @@ async function bootstrap(): Promise<void> {
       // S77 P2 — fog-exemption e2e: sync a global-reach entity + assert it renders
       // through the fog (aboveFogLayer sits above the fog container).
       get potatoRenderer() { return potatoRenderer; },
+      // S137 P2 — the keep/gatherer draw path, exposed for the SAME reason potatoRenderer was in
+      // S77 P2: so a spec can drive `sync(world)` synchronously and read real composited pixels.
+      // The S136 rainbow-castle effect is pinned by pure unit tests over `keepRainbowTint`, but
+      // "the pure function returns a different number" is not the same claim as "the castle visibly
+      // changes colour on screen" — state assertions cannot see the render (the S136 lesson, learned
+      // when 28/28 runtime assertions passed while a label visibly overflowed its box).
+      get gathererRenderer() { return gathererRenderer; },
       get aboveFogLayer() { return aboveFogLayer; },
       // S84 P2 — flyover e2e probe: active-window flag for rainbow.spec assertions.
       get rainbowFlyoverActive() { return rainbowFlyoverRenderer.isActive(); },

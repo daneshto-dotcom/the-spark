@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 27,
+  "tool_calls_session_total": 49,
   "session_id": "S137",
   "session_kind": "batch",
   "session_start": "2026-08-10",
@@ -42,11 +42,34 @@
     {
       "id": "P0-green-the-gating-lane",
       "title": "Fix both gating e2e failures at the root (fog layer contract + hunter stale premise); no quarantine masking",
-      "status": "pending",
+      "status": "completed",
       "notes": "fog: semantic constructor-name roll call (Council ADOPT-1) instead of a bumped magic number. hunter: instrument the helper throw, MEASURE the cause, then fix the stale trigger premise.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "2a3cd55",
+      "real_context_tokens_at_close": 247793,
+      "real_context_pct_at_close": 24.78,
+      "check_method": "RALPH:PATROL + empirical runtime verification, all four claims re-run on disk, not narrated. (1) fog.spec: expected child list was MEASURED first (deliberate __MEASURE_ME__ failure printed the received array) and the measured type sequence -- _Container at indices 1/5/11 -- matches the independent static roll call of every parent.addChild into aboveFogLayer across 12 renderers, which is what confirms index 7 = gathererRenderer (main.ts:506, S135). fog.spec 6/6 green. (2) hunter.spec: root cause MEASURED not inferred -- new readInputLockDiagnostics printed lockedByBench=true, benchedUntilTick=1925 at tick 330, hunterSpawned=true, hunters=[] (already despawned), which refuted the working assumption that the bench had not yet landed by tick 261 and proved the t=0 spawn. hunter.spec 1/1 green after the seam fix. (3) FULL gating lane re-run end to end: 31 passed / 0 failed, up from 29/2; neither test marked @quarantine-flaky. (4) unit suite 2119 passed / 141 files, typecheck exit 0, build OK at 661.5 KiB with 88.5 KiB headroom. (5) P0c prod-inertness VERIFIED not assumed: __SPARK__ sits behind if (import.meta.env.DEV) (main.ts:928) and grep -c keepCenter on dist/assets/index-DGsKtma2.js returns 0, and the entry content-hash is byte-identical to the live deploy.",
+      "verification": [
+        {
+          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/fog.spec.ts",
+          "assertion": "aboveFogChildNames asserted as an ordered 14-entry constructor-name roll call with per-line renderer attribution; no bare count remains"
+        },
+        {
+          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/hunter.spec.ts",
+          "assertion": "__TEST_HUNTER_TRIGGER_SCORE__ raised to 200 (above the 100 opening balance) and the injection to 250; spec passes"
+        },
+        {
+          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/helpers.ts",
+          "assertion": "readInputLockDiagnostics reports all three isInputLocked clauses; pullFromBank consumes __SPARK__.keepCenter instead of transcribing castleAnchor"
+        },
+        {
+          "file": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "assertion": "keepCenter(seat) exposed inside the import.meta.env.DEV __SPARK__ block; 0 occurrences in the production bundle"
+        }
+      ]
     },
     {
       "id": "P1-in-bubble-build-space",
@@ -76,9 +99,23 @@
       "unlock_source": "user"
     }
   ],
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    {
+      "tag": "#instrument-before-you-infer",
+      "text": "S137 P0b: the handoff, and my own static chain, both blamed the hunter bench for a swallowed click -- but the failure snapshot showed tick 261 against a ~400-tick catch, so the inference looked WRONG and I nearly went hunting for a second cause. Adding one diagnostic to the throw (all three isInputLocked clauses, printed individually) settled it in a single run: lockedByBench=true, benchedUntilTick=1925 at tick 330, hunters already empty. The estimate was stale, not the theory. When a failure message names a SYMPTOM (\"panel did not open\") rather than a CAUSE, the cheapest next move is almost never more reading -- it is making the failure say why. Cost: ~30 lines. Saved: an open-ended hunt."
+    },
+    {
+      "tag": "#a-count-is-a-contract-without-a-name",
+      "text": "S137 P0a: fog.spec asserted aboveFogLayer.children.length === 13. When it became 14 the failure said \"Expected 13 / Received 14\" and nothing else, and attributing the extra child cost an entire prior session. Replacing the count with an ORDERED CONSTRUCTOR-NAME list (each line commented with its owning renderer) makes the diff point at the index that moved, and catches what a count structurally cannot -- one renderer leaking a second child while another adds none still sums to 14. Rule: if a test pins a NUMBER that stands for a LIST, pin the list. Also: I MEASURED the expected list (deliberate failing assertion printed the received array) rather than writing what I believed, and the measured Container positions then independently confirmed the static attribution."
+    },
+    {
+      "tag": "#dont-parse-typescript-with-a-regex",
+      "text": "S137 A.0: a one-line regex count of PLAYER_COLORS returned 9 because it split on commas inside the block COMMENTS. I was one step from reporting \"e2e/helpers.ts hardcodes /7 but there are 9 seats -- the keep geometry is broken\", a confident and completely wrong finding. Reading the declaration directly showed 7. A measurement that is cheap to take is not automatically safe to trust; for anything that will become a CLAIM, read the source of truth rather than a derived count."
+    }
+  ],
   "totals": {
     "budget_remaining": 1000000
   },
-  "budget_total": 1000000
+  "budget_total": 1000000,
+  "e2e_gating_status": "GREEN 31/0 (was 29/2)"
 }
