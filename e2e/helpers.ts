@@ -17,6 +17,145 @@ import { type Page, expect } from '@playwright/test';
 /** Canonical canvas dimensions — matches src/constants.ts CANVAS_WIDTH/HEIGHT. */
 export const CANVAS_WIDTH = 1920;
 export const CANVAS_HEIGHT = 1080;
+/** Mirrors src/constants.ts SPAWNER_RADIUS (halved 250 → 125 in S135) + the disc centre. */
+export const SPAWNER_RADIUS = 125;
+const ZONE_CX = CANVAS_WIDTH / 2;
+const ZONE_CY = CANVAS_HEIGHT / 2;
+
+/**
+ * S136 — IS THIS SPARK ACTUALLY GRABBABLE BY THE PLAYER? Mirrors `Controls.pickSpark`
+ * (src/input/controls.ts): a spark INSIDE the spawn disc that is NOT escrowed is deliberately NOT
+ * player-pickable, because V6-1.2 moved harvesting to the gatherers — the player builds from what is
+ * parked at their keep. An escrowed shape (a gatherer's in-flight haul, or one sitting on the castle
+ * porch) IS grabbable through the same unchanged path, as is anything outside the disc.
+ *
+ * ⚠ WHY THIS EXISTS. Before S136 the drag helpers just picked any Free spark within 200 px of the
+ * arena centre, which encoded the PRE-V6-1.2 rule that the zone was the player's larder. Those specs
+ * kept passing anyway, but ONLY BY LUCK: at λ=0.1875 the standing pool was ~2 sparks and a gatherer
+ * was usually carrying one, so the spark the helper happened to grab was usually the escrowed (and
+ * therefore pickable) one. The S136 B3 ×6 faucet removed that luck — the pool is now ~9, most of it
+ * un-escrowed zone sparks — and five gating specs (bomb, fog, hunter, rainbow, worker) began failing
+ * with "placement landed (prims 0 → >=1)" because the pickup silently never happened.
+ *
+ * So this is not a workaround for the faucet: it is the helper finally asserting the same rule the
+ * game has enforced since V6-1.2.
+ */
+function isPlayerPickable(s: {
+  pos: { x: number; y: number };
+  state: { kind: string };
+  escrow?: string;
+}): boolean {
+  if (s.state.kind !== 'Free') return false;
+  if (s.escrow !== undefined) return true; // in-flight haul or a porch shape — grabbable
+  const dx = s.pos.x - ZONE_CX;
+  const dy = s.pos.y - ZONE_CY;
+  return dx * dx + dy * dy > SPAWNER_RADIUS * SPAWNER_RADIUS; // outside the disc
+}
+
+/**
+ * S136 — A SPARK THE PLAYER CAN ACTUALLY DRAG, which is a strictly smaller set than `isPlayerPickable`.
+ *
+ * `isPlayerPickable` mirrors the pickup gate, but passing that gate is NOT sufficient to move a shape:
+ * a gatherer's in-flight haul is escrowed 'hauled' and `applyGathererTick` re-pins its pos/prevPos to
+ * the unit EVERY TICK (both while HAULING and while WAITING at a full bank), so the drag is overwritten
+ * as fast as it is applied and the release then fails the MAX_RELEASE_REACH gate. Diagnosed by watching
+ * the placement silently never land.
+ *
+ * The only genuinely draggable source post-V6-1.3 is a shape standing on the CASTLE PORCH — escrow
+ * 'banked', outside the quarry disc, pinned by nothing. That is not a harness quirk, it IS the shipped
+ * loop: gatherers fill the bank, the player pulls one out, then builds with it.
+ */
+function isPorchSpark(s: {
+  pos: { x: number; y: number };
+  state: { kind: string };
+  escrow?: string;
+}): boolean {
+  return s.state.kind === 'Free' && s.escrow === 'banked';
+}
+
+/**
+ * S136 — PUT A SHAPE ON THE PORCH, through the real UI, so a spec can then drag and place it.
+ *
+ * Waits for a gatherer to bank something (the economy runs on its own — at the B3 ×6 faucet this takes
+ * a few seconds), then clicks the local player's castle to open its panel and clicks the first filled
+ * bank slot. Uses the shipped geometry getter (`__SPARK__.castlePanel.getUiPoints`) rather than
+ * duplicated coordinates — the S85 P4c convention, and the reason a panel relayout cannot silently
+ * break every spec that builds something.
+ *
+ * No-op when a porch shape is already present, so callers can invoke it freely.
+ */
+export async function pullFromBank(page: Page, timeoutMs = 30_000): Promise<void> {
+  const already = (await readWorldState(page)).freeSparks.some(isPorchSpark);
+  if (already) return;
+
+  // 1. wait for the gatherers to actually bank a shape
+  await waitForWorld(
+    page,
+    (w) => (w.castleBanks.find(([seat]) => seat === w.localPlayerId)?.[1] ?? 0) > 0,
+    'a gatherer banks a shape into the local castle',
+    timeoutMs,
+  );
+
+  // 2. open the castle panel (click the local seat's keep)
+  const seat = (await readWorldState(page)).localPlayerId;
+  const angle = Math.PI + (seat / 7) * Math.PI * 2; // KEEP_RING_SEATS = PLAYER_COLORS.length = 7
+  const r = SPAWNER_RADIUS + 150;
+  const keep = await canvasToCss(page, ZONE_CX + Math.cos(angle) * r, ZONE_CY + Math.sin(angle) * r);
+  // ⚠ THE KEEP CLICK TOGGLES, so this must be STATE-AWARE rather than blindly clicking. A panel left
+  // open by a previous call would be CLOSED by an "open" click, and the pull would then fail with
+  // "panel did not open" — which is exactly how hunter.spec failed once the retry loop started calling
+  // this more than once per test. Read the panel state, act only if needed, and retry once.
+  for (let attempt = 0; attempt < 2 && !(await panelIsOpen(page)); attempt++) {
+    await page.mouse.click(keep.x, keep.y);
+    await page.waitForTimeout(220);
+  }
+
+  // 3. click the first FILLED slot — live geometry, never duplicated coords
+  const pts = await page.evaluate(() => {
+    const sp = (window as {
+      __SPARK__?: {
+        castlePanel?: {
+          getUiPoints?: () => {
+            open: boolean;
+            slotCenters: Array<{ index: number; x: number; y: number; filled: boolean }>;
+          };
+        };
+      };
+    }).__SPARK__;
+    const g = sp?.castlePanel?.getUiPoints?.();
+    if (g === undefined) throw new Error('castlePanel.getUiPoints unavailable — geometry getter missing');
+    return g;
+  });
+  if (!pts.open) throw new Error('pullFromBank: castle panel did not open on the keep click');
+  const filled = pts.slotCenters.find((x) => x.filled);
+  if (filled === undefined) throw new Error('pullFromBank: bank reported non-empty but no slot rendered filled');
+  const slot = await canvasToCss(page, filled.x, filled.y);
+  await page.mouse.click(slot.x, slot.y);
+
+  // 4. confirm the shape really reached the porch
+  await waitForWorld(
+    page,
+    (w) => w.freeSparks.some(isPorchSpark),
+    'the pulled shape appears on the castle porch',
+    timeoutMs,
+  );
+  // Close the panel so it cannot swallow the caller's subsequent drag — again state-aware, so a
+  // panel that already closed itself is not re-opened by a stray toggle.
+  if (await panelIsOpen(page)) {
+    await page.mouse.click(keep.x, keep.y);
+    await page.waitForTimeout(120);
+  }
+}
+
+/** S136 — is the castle panel currently open? Read through the shipped geometry getter. */
+async function panelIsOpen(page: Page): Promise<boolean> {
+  return await page.evaluate(() => {
+    const sp = (window as {
+      __SPARK__?: { castlePanel?: { getUiPoints?: () => { open: boolean } } };
+    }).__SPARK__;
+    return sp?.castlePanel?.getUiPoints?.().open === true;
+  });
+}
 
 /**
  * Map a canvas-space coordinate to a CSS-space coordinate (page-relative)
@@ -66,10 +205,17 @@ export async function readWorldState(page: Page): Promise<{
   tick: number;
   localPlayerId: number;
   players: Array<{ id: number; color: number; kind: string; avatarPos: { x: number; y: number } }>;
-  freeSparks: Array<{ id: number; pos: { x: number; y: number }; state: { kind: string; carrierId?: number } }>;
+  freeSparks: Array<{
+    id: number;
+    pos: { x: number; y: number };
+    state: { kind: string; carrierId?: number };
+    escrow?: 'hauled' | 'banked';
+  }>;
   primitives: Array<{ id: number; pos: { x: number; y: number }; placerColor: number; placedBy: number; bondCount: number }>;
   bonds: Array<{ id: number; aId: number; bId: number }>;
   scoreByPlayer: Array<[number, number]>;
+  /** S136 — per-seat castle bank sizes: [seat, shapesHeld]. */
+  castleBanks: Array<[number, number]>;
   peerCount: number;
 }> {
   return await page.evaluate(() => {
@@ -79,10 +225,11 @@ export async function readWorldState(page: Page): Promise<{
       gameState: string; gameMode: string; isHost: boolean; tick: number;
       localPlayerId: number;
       players: Map<number, { id: number; color: number; kind: string; avatarPos: { x: number; y: number }; carriedSparkId?: number }>;
-      freeSparks: Map<number, { id: number; pos: { x: number; y: number }; state: { kind: string; carrierId?: number } }>;
+      freeSparks: Map<number, { id: number; pos: { x: number; y: number }; state: { kind: string; carrierId?: number }; escrow?: 'hauled' | 'banked' }>;
       primitives: Map<number, { id: number; pos: { x: number; y: number }; placerColor: number; placedBy: number; bonds: Set<number> }>;
       bonds: Map<number, { id: number; aId: number; bId: number }>;
       scoreByPlayer: Map<number, number>;
+      castleBanks: Map<number, unknown[]>;
     };
     const nt = spark.netTransport as { peerCount: () => number } | null;
     return {
@@ -98,6 +245,9 @@ export async function readWorldState(page: Page): Promise<{
       freeSparks: Array.from(w.freeSparks.values()).map((s) => ({
         id: s.id, pos: { x: s.pos.x, y: s.pos.y },
         state: { kind: s.state.kind, carrierId: s.state.carrierId },
+        // S136 — needed by isPlayerPickable: an escrowed shape (gatherer haul / castle porch) is
+        // grabbable, an un-escrowed one inside the spawn disc is not.
+        escrow: s.escrow,
       })),
       primitives: Array.from(w.primitives.values()).map((p) => ({
         id: p.id, pos: { x: p.pos.x, y: p.pos.y },
@@ -108,6 +258,7 @@ export async function readWorldState(page: Page): Promise<{
         id: b.id, aId: b.aId, bId: b.bId,
       })),
       scoreByPlayer: Array.from(w.scoreByPlayer.entries()),
+      castleBanks: Array.from(w.castleBanks.entries()).map(([seat, b]) => [seat, b.length] as [number, number]),
       peerCount: nt ? nt.peerCount() : 0,
     };
   });
@@ -265,13 +416,10 @@ export async function dragSparkTo(
   targetY: number,
   opts?: { holdAtTargetMs?: number },
 ): Promise<number | null> {
-  // Read current free sparks; pick one inside spawner zone.
+  // S136 — pick a spark the PLAYER can actually grab (see isPlayerPickable). Was "any Free spark
+  // within 200px of centre", which encoded the pre-V6-1.2 rule that the zone was the player's larder.
   const state = await readWorldState(page);
-  const spawnerSpark = state.freeSparks.find((s) => {
-    const dx = s.pos.x - CANVAS_WIDTH / 2;
-    const dy = s.pos.y - CANVAS_HEIGHT / 2;
-    return dx * dx + dy * dy < 200 * 200 && s.state.kind === 'Free';
-  });
+  const spawnerSpark = state.freeSparks.find(isPorchSpark);
   if (!spawnerSpark) return null;
 
   const startCss = await canvasToCss(page, spawnerSpark.pos.x, spawnerSpark.pos.y);
@@ -326,14 +474,12 @@ export async function placeFreeSparkAndConfirm(
   targetY: number,
   timeoutMs = 15_000,
 ): Promise<number> {
+  // S136 — THE PLAYER'S SHAPE SOURCE IS THE CASTLE PORCH, NOT THE QUARRY. Ensure one is standing
+  // there before we try to drag anything (see pullFromBank for the full reasoning).
+  await pullFromBank(page, timeoutMs);
   const hasZoneSpark = (
     w: Awaited<ReturnType<typeof readWorldState>>,
-  ): boolean =>
-    w.freeSparks.some((s) => {
-      const dx = s.pos.x - CANVAS_WIDTH / 2;
-      const dy = s.pos.y - CANVAS_HEIGHT / 2;
-      return s.state.kind === 'Free' && dx * dx + dy * dy < 200 * 200;
-    });
+  ): boolean => w.freeSparks.some(isPorchSpark);
 
   await waitForWorld(
     page,
@@ -362,12 +508,39 @@ export async function placeFreeSparkAndConfirm(
     );
   }
 
-  await waitForWorld(
-    page,
-    (w) => w.primitives.length >= before + 1,
-    `placement landed near (${targetX}, ${targetY}) (prims ${before} → >=${before + 1})`,
-    timeoutMs,
-  );
+  // S136 — CONFIRM, AND RETRY THE WHOLE PULL+DRAG CYCLE, not just the pick.
+  //
+  // The pre-existing retry covered only "the pick found nothing". Post-V6-1.3 the drag itself can fail
+  // to commit for reasons that are transient rather than structural: the AttractDrag force-lerp has to
+  // carry the shape ~880 px from the castle porch to a build site, and if the spark has not caught up
+  // to the cursor by mouse-up the release fails the MAX_RELEASE_REACH gate and the placement silently
+  // does not happen. Observed intermittently on the THIRD placement of the bomb/rainbow clusters while
+  // the first two landed every time. A bounded retry of the full cycle (pull a fresh shape, drag
+  // again) is the file's own documented convention — fail loud after a fixed number of attempts,
+  // never silently.
+  // 4 attempts with an 8s inner budget: bomb/rainbow passed in ISOLATION but failed in the full lane
+  // at 3x4s, i.e. the shortfall is wall-clock under load (the sim is frame-bound, so a busy runner
+  // advances fewer ticks per second and the AttractDrag needs longer to carry a shape ~880px).
+  const ATTEMPTS = 4;
+  const INNER_MS = 8_000;
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    try {
+      await waitForWorld(
+        page,
+        (w) => w.primitives.length >= before + 1,
+        `placement landed near (${targetX}, ${targetY}) (prims ${before} → >=${before + 1})`,
+        attempt === ATTEMPTS ? timeoutMs : INNER_MS,
+      );
+      return sparkId;
+    } catch (err) {
+      if (attempt === ATTEMPTS) throw err;
+      // Re-stock the porch and drag again. A shape left mid-board from a failed attempt is an
+      // ordinary free spark and reaps on its own TTL, so this cannot accumulate litter.
+      await pullFromBank(page, timeoutMs);
+      const again = await dragSparkTo(page, targetX, targetY);
+      if (again !== null) sparkId = again;
+    }
+  }
   return sparkId;
 }
 

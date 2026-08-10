@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 204,
+  "tool_calls_session_total": 244,
   "session_id": "S136",
   "session_kind": "pdca",
   "session_start": "2026-08-10T00:00:00",
@@ -192,45 +192,106 @@
       "id": "P2-in-bubble-build-space",
       "title": "Prebuild a structure inside the castle popup space, then pull the whole assembly out (owner item 5, ambitious half; additive over P1d)",
       "tier": "Full",
-      "status": "pending",
+      "status": "carried_forward",
       "pdr_file": ".claude/plans/2026-08-10_PDR_S136_owner_playtest_batch.md",
       "check_completed": false,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "carry_forward_reason": "Context reached YELLOW (>500K/1M) after P4. Scope tightened per the token protocol: the two remaining cheap owner-ruled items (P4 faucet, P3 rainbow) were taken ahead of these, and both of these are left UNSTARTED rather than half-shipped. P2 (in-bubble prebuild) is a Full-tier feature and its one-by-one half already shipped in P1d, so the game is fully playable without it. P5 (sim-worker default-on) is invisible to the player and carries a real risk surface (6 literals across 4 files, the probeHarness refuse-by-default that a flip creates, and 6 non-worker-only main-thread paths) — not work to start unattended at YELLOW."
     },
     {
       "id": "P3-rainbow-recolors-castle",
       "title": "Rainbow recolors the castle too (owner item 6); renderer-only if the rainbow is client-side, STOP for a ruling if it turns out to be serialized sim state",
       "tier": "Standard",
-      "status": "pending",
+      "status": "completed",
       "pdr_file": ".claude/plans/2026-08-10_PDR_S136_owner_playtest_batch.md",
-      "check_completed": false,
+      "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "checkpoint_commit": "a08c4e3",
+      "real_context_tokens_at_close": 537253,
+      "real_context_pct_at_close": 53.73,
+      "check_method": "FINDING BEFORE FIX. The obvious reading of owner item 6 was ALREADY TRUE: applyTriggerRainbow remaps player.color through a derangement and gathererRenderer.sync tints the keep from the LIVE player value (the S135 audit ensured that), so the castle did change colour on every switch. Verified by reading both paths rather than assuming a bug existed. What was genuinely missing is that the castle never PARTICIPATED in the celebration — flyover, wash and yell all fire while the keep just quietly becomes a different flat colour. So the change adds the celebration, not the recolour, and the finding is recorded in the code so nobody \"fixes\" the hue again. Implementation: keepRainbowTint cycles the palette for the flyover window keyed purely off (tick - rainbowSwitchTick) — the shipped rainbowFlyoverRenderer pattern. Deterministic, no RNG, no wall-clock, identical on host and a 10 Hz client, never world state, zero wire cost, cannot desync. Extracted as a PURE EXPORTED function because a draw path cannot be driven in vitest (the S130 lesson). THE PER-SEAT OFFSET IS LOAD-BEARING: without it every keep shows the same hue on the same tick and for 4s you cannot tell your castle from an enemy’s — the identical ownership-legibility failure the S135 audit fixed elsewhere in this file. That invariant (\"every seat a different colour at EVERY tick of the window\") is the primary test, not a comment. MUTATION MATRIX 5/5 RED-caught: offset removed (all castles same hue), window never ends, a FUTURE switchTick partying early (the joiner-snapshot case), no cycle at all, and strobing every tick instead of holding ~10. Gate: tsc 0; vitest 2119/2119 across 141 files (+8 tests/+1 file); build OK, bundle 661.5/750 KiB. NOT VERIFIED: no runtime screenshot of the effect mid-window — triggering a real rainbow pickup requires the hazard to spawn and be clicked, which the probe harness does not drive. Logic is pinned by pure tests; the VISUAL remains unconfirmed and is flagged for the owner’s next playtest.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/gathererRenderer.ts",
+          "needle": "export function keepRainbowTint",
+          "note": "pure, testable, per-seat offset"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/gathererRenderer.ts",
+          "needle": "ALREADY FOLLOWED THE RAINBOW",
+          "note": "the finding recorded so the hue is not re-fixed"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/keepRainbowTint.test.ts",
+          "note": "8 tests incl. the all-seats-distinct invariant"
+        }
+      ]
     },
     {
       "id": "P4-b3-faucet-6x-resoftcap",
       "title": "B3 (owner-ruled): SPAWN_RATE_PER_SECOND 0.1875 -> 1.125 and RE-DERIVE FREE_SPARK_SOFT_CAP (dead at the old rate, live at 6x); sequenced after P1 so the 6x faucet never multiplies the pile bug",
       "tier": "Standard",
-      "status": "pending",
+      "status": "completed",
       "pdr_file": ".claude/plans/2026-08-10_PDR_S136_owner_playtest_batch.md",
-      "check_completed": false,
+      "check_completed": true,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "checkpoint_commit": "678eddc",
+      "real_context_tokens_at_close": 537253,
+      "real_context_pct_at_close": 53.73,
+      "check_method": "MEASURE-THEN-SET, not derive-then-hope. (1) lambda 0.1875 -> 1.125 (owner-ruled x6). Recorded in constants.ts as a sanctioned REVOCATION of the S105 amendment (which itself superseded LOCKED_DECISIONS Item 3): the S5 \"strategic bet\" feel is deliberately gone, being the feel directives/preferences replace. (2) FREE_SPARK_SOFT_CAP 50 -> 24 RE-DERIVED FROM OBSERVATION. Measured 100s per mode in headless Chromium with the cap still at 50 so the natural distribution was unmasked: solo mean 8.92 / median 10 / p95 15 / PEAK 18 (1 gatherer consuming); bots mean 4.48 / median 2 / p95 13 / PEAK 14 (4 consuming). Little’s Law predicts lambda*W = 11.25; solo’s 8.92 sits just under it, the gap being the gatherer eating from the pool. lambda is GLOBAL so seat count does not raise the mean (more seats = more consumption), making solo the conservative case. 24 clears the observed p95 and peak so ordinary play never touches it, is reachable in a long unattended session (what a soft cap is for), and stays under the \"<=30 free sparks at 6P\" figure spatial.ts is sized against — a link now recorded IN spatial.ts so a future raise has to confront it. (3) RUNTIME CONFIRMATION of the actual goal, 90s solo at the new rate: pool mean 9.49, peak 22, and ZERO of 338 samples at or over the cap (a safety valve, not a throttle). Gatherer IDLE fraction 1.2% — the starvation B3 exists to eliminate is gone. (4) A CONSEQUENCE WORTH THE OWNER’S ATTENTION, found by the same run: the bottleneck MOVED, as designed. With one gatherer and nobody spending, the 5-slot bank fills in ~10s and the hauler then spends most of its time WAITING (247 of 338 samples). That is the B4b pressure working and P1’s amber stalled ring makes it legible — but bank capacity, not spark supply, is now what gates throughput. (5) Three test failures, all \"the test encoded the old lambda\", each reworked to assert the INVARIANT and DERIVE the number rather than restate a literal: the probe id-collision horizon (~61d -> ~10.3d, bound restated as \"> 1 week of continuous spawning\"), the seat-share fair-share fill (256s -> derived from the constants), and the hand-typed ?spawn= tolerance case (fair share is now 0.1875, not 0.03125). SHIPPED_SPAWN_RATE_PER_SECOND in probeHarness.ts moved WITH the default — it exists only to detect an override, so a stale copy would report an override as \"shipped\". (6) Gate: tsc 0; vitest 2111/2111 (140 files); build OK, bundle 661.3/750 KiB. NOT DONE / DELIBERATE: PHASE_1_WIN_SCORE and SCORE_INCOME_PER_COMPLEXITY_PER_SEC untouched. Score is quadratic in time so match length scales as 1/sqrt(throughput) and this SHORTENS matches; B5 is UNRULED and owned by V6-4.3. Logged as a carry-forward, not absorbed.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "readTestSpawnRate() ?? 1.125",
+          "note": "the B3 x6 faucet"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const FREE_SPARK_SOFT_CAP = 24;",
+          "note": "cap re-derived from measurement"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "solo   mean 8.92",
+          "note": "the measurements the cap was derived from, recorded in situ"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/physics/spatial.ts",
+          "needle": "S136 P4",
+          "note": "the <=30 sizing assumption now linked to the cap"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/dev/probeHarness.ts",
+          "needle": "SHIPPED_SPAWN_RATE_PER_SECOND = 1.125",
+          "note": "the override detector moved with the default"
+        }
+      ]
     },
     {
       "id": "P5-sim-worker-default-on",
       "title": "Sim-worker default-on flip: drop the flag gate, update 6 literals across 4 files, and resolve the probeHarness refuse-by-default that a flip creates",
       "tier": "Full",
-      "status": "pending",
+      "status": "carried_forward",
       "pdr_file": ".claude/plans/2026-08-10_PDR_S136_owner_playtest_batch.md",
       "check_completed": false,
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "carry_forward_reason": "Context reached YELLOW (>500K/1M) after P4. Scope tightened per the token protocol: the two remaining cheap owner-ruled items (P4 faucet, P3 rainbow) were taken ahead of these, and both of these are left UNSTARTED rather than half-shipped. P2 (in-bubble prebuild) is a Full-tier feature and its one-by-one half already shipped in P1d, so the game is fully playable without it. P5 (sim-worker default-on) is invisible to the player and carries a real risk surface (6 literals across 4 files, the probeHarness refuse-by-default that a flip creates, and 6 non-worker-only main-thread paths) — not work to start unattended at YELLOW."
     }
   ],
   "reflexion_entries_to_archive": [
@@ -286,6 +347,33 @@
         "#delete-the-surface-not-the-symptom"
       ],
       "entry": "The stacking and fling bugs had two different mechanisms (count-derived slot indices; EPSILON-guarded co-location turning into velocity via Verlet) and each could have been patched on its own. Taking the owner literally instead — store it INSIDE the castle — removed the shared precondition (the shape being a positioned physics entity) and both defects stopped existing rather than being handled. The change that deletes the surface is usually also the smaller diff."
+    },
+    {
+      "session": "S136",
+      "priority": "P4",
+      "tags": [
+        "#measure-then-set",
+        "#dead-constant-is-a-finding"
+      ],
+      "entry": "FREE_SPARK_SOFT_CAP had been 50 while the pool peaked at 4 — provably dead code for months. Rather than pick a new number by arithmetic I ran the game with the cap still at its dead value so the natural distribution was unmasked, then set the cap from the measured p95/peak. The measurements are recorded IN the constant’s docblock, so the next person to touch it inherits the evidence instead of re-deriving it. Rule: when re-tuning a constant that was never binding, measure it unbound FIRST — the arithmetic prediction (11.25) and the observed mean (8.92) differed by exactly the consumption the model omits."
+    },
+    {
+      "session": "S136",
+      "priority": "P4",
+      "tags": [
+        "#fixing-a-bottleneck-moves-it",
+        "#report-the-new-constraint"
+      ],
+      "entry": "The x6 faucet drove gatherer idling from chronic to 1.2% — and immediately made the 5-slot bank the binding constraint instead (247 of 338 samples WAITING with nobody spending). Both facts come from the same 90s run. Fixing a throughput bottleneck does not remove the bottleneck, it relocates it, so the acceptance measurement should report where it went. Saying only \"idle fraction 1.2%, done\" would have been true and misleading."
+    },
+    {
+      "session": "S136",
+      "priority": "P3",
+      "tags": [
+        "#verify-the-bug-exists-before-fixing-it",
+        "#empirical-refutes-plausible-criticals"
+      ],
+      "entry": "Owner item 6 was \"the rainbow should change the castle colour too\" — and reading the code showed it already did (the derangement remaps player.color; the keep tints from the live value). The real gap was that the castle did not join the CELEBRATION. Had I implemented the literal request I would have written a redundant recolour and reported a fix for a working feature. Rule: for any \"X does not do Y\" report, locate the code path that would do Y and confirm it is absent BEFORE writing a replacement — and when the mechanism already exists, say so explicitly in the commit so the finding is not lost."
     }
   ],
   "totals": {},
