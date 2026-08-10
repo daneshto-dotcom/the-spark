@@ -38,11 +38,10 @@
 import { isDefensiveCombo } from '../combos.ts';
 import { DEFENSIVE_SEVER_CHARGE_COST } from '../constants.ts';
 import type { GameEffect } from '../game/effects.ts';
-import { snapPrevPosForUnbonded } from '../game/invariants.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { severSplit } from '../game/structure.ts';
 import type { Bond } from '../physics/bonds.ts';
-import { reconcileFouledPrimitives } from './seagulls/seagullLifecycle.ts';
+import { razePrimitives } from './razePrimitives.ts';
 import type { World, GameAction } from './world.ts';
 
 /** SeverBond-specific action narrowing. */
@@ -166,32 +165,18 @@ export function computeSeverEraseEffects(
  * Apply the topological mutation of a sever: remove the severed bond
  * from both endpoints' bond sets, delete it from world.bonds, then
  * cascade-delete dependent bonds + primitives in `split.delBonds` /
- * `split.del`. Calls snapPrevPosForUnbonded unconditionally to refresh
- * verlet history for primitives whose bond count changed.
+ * `split.del`. Refreshes verlet history for primitives whose bond count
+ * changed, and re-derives the fouled set.
+ *
+ * S138 P1 — the four-step raze contract this used to hand-roll now lives in ONE place
+ * (`state/razePrimitives.ts`), shared with the potato blast and with hp-death. The severed
+ * bond and `split.delBonds` ride the `alsoBonds` parameter because a sever kills bonds while
+ * BOTH endpoint primitives can survive — a pure split deletes no primitive at all, so
+ * deriving bonds from `split.del` alone would leave the severed bond in place.
  *
  * Does NOT touch player.disruptionCharges and does NOT emit any effects —
  * orchestrator owns those (Gemini AUDITOR findings #2 + #3).
  */
 export function applySeverTopology(world: World, bond: Bond, split: SeverSplit): void {
-  world.primitives.get(bond.aId)?.bonds.delete(bond.id);
-  world.primitives.get(bond.bId)?.bonds.delete(bond.id);
-  world.bonds.delete(bond.id);
-
-  for (const bondId of split.delBonds) {
-    const lost = world.bonds.get(bondId);
-    if (lost === undefined) continue;
-    world.primitives.get(lost.aId)?.bonds.delete(bondId);
-    world.primitives.get(lost.bId)?.bonds.delete(bondId);
-    world.bonds.delete(bondId);
-  }
-
-  for (const primId of split.del) world.primitives.delete(primId);
-
-  snapPrevPosForUnbonded(world.primitives);
-
-  // S79 P3 (HIGH-1) — a sever (player / physics / creature / bomb all route here) can delete
-  // fouled prims AND split a fouled component off its splat-anchor. Re-derive the foul set
-  // from the live splats so no stale id leaks and no splat-less fragment stays income-0
-  // un-cleanable. Early-outs when nothing is fouled.
-  reconcileFouledPrimitives(world);
+  razePrimitives(world, split.del, [bond.id, ...split.delBonds]);
 }

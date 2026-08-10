@@ -21,10 +21,9 @@
  */
 
 import { POTATO_BLAST_RADIUS, POTATO_CARRIER_BENCH_TICKS, POTATO_HOLD_DETONATE_TICKS } from '../constants.ts';
-import { snapPrevPosForUnbonded } from '../game/invariants.ts';
-import { asPotatoId, type BondId, type CreatureId, type PlayerId, type PotatoId, type PrimitiveId, type Vec2 } from '../types.ts';
+import { asPotatoId, type CreatureId, type PlayerId, type PotatoId, type PrimitiveId, type Vec2 } from '../types.ts';
 import { makePotato, type Potato } from './potato.ts';
-import { reconcileFouledPrimitives } from './seagulls/seagullLifecycle.ts';
+import { razePrimitives } from './razePrimitives.ts';
 import type { Creature } from './creatures/creature.ts';
 import type { World } from './worldTypes.ts';
 
@@ -239,25 +238,18 @@ export function applyRadialClear(
   victims.sort((a, b) => (a as number) - (b as number));
   if (victims.length === 0) return world;
 
-  const incidentBonds = new Set<BondId>();
+  // The per-victim SEVER_ERASE is CALLER semantics (effect kind + position), so it stays here
+  // and must run BEFORE the raze while the primitives are still readable.
   for (const pid of victims) {
     const prim = world.primitives.get(pid);
     if (prim === undefined) continue;
     world.effects.push({ kind: 'SEVER_ERASE', tick: world.tick, pos: { x: prim.pos.x, y: prim.pos.y }, color: prim.placerColor, radius: prim.radius });
-    for (const bondId of prim.bonds) incidentBonds.add(bondId);
   }
 
-  for (const bondId of [...incidentBonds].sort((a, b) => (a as number) - (b as number))) {
-    const bond = world.bonds.get(bondId);
-    if (bond === undefined) continue;
-    world.primitives.get(bond.aId)?.bonds.delete(bondId);
-    world.primitives.get(bond.bId)?.bonds.delete(bondId);
-    world.bonds.delete(bondId);
-  }
-
-  for (const pid of victims) world.primitives.delete(pid);
-  snapPrevPosForUnbonded(world.primitives);
-  reconcileFouledPrimitives(world);
+  // S138 P1 — bond teardown (SORTED BondId), prim deletion, snapPrevPos and the fouled-set
+  // reconcile are the shared raze contract, now in state/razePrimitives.ts. Behaviour is
+  // unchanged: this site is where that sort order came from.
+  razePrimitives(world, victims);
   return world;
 }
 

@@ -1,318 +1,99 @@
 {
-  "tool_calls_session_total": 159,
-  "session_id": "S137",
+  "tool_calls_session_total": 0,
+  "session_id": "S138",
   "session_kind": "batch",
   "session_start": "2026-08-10",
-  "prior_session_note": "S136 closed; 2 red gating e2e handed off diagnosed-but-unfixed.",
-  "prior_session_archive": ".handoff-archive/HANDOFF_S136.md",
-  "phase": "CLOSE",
+  "prior_session_note": "S137 closed GREEN 32/0; build space + starter designs fully designed and owner-ruled but NOT implemented.",
+  "prior_session_archive": ".handoff-archive/HANDOFF_S137.md",
+  "phase": "DO",
   "tier": "Full",
   "council_rounds": 1,
   "council_seats": [
     "CLAUDE",
-    "GROK-PLAN"
+    "GROK-ARCHITECT",
+    "GEMINI-AUDITOR"
   ],
-  "council_deviation": "GEMINI-AUDITOR unavailable: gemini-3.1-pro-preview HTTP 429 prepayment credits depleted. Ran as protocol-sanctioned 2-way fallback.",
-  "plan_file": ".claude/plans/2026-08-10_PDR_S137_batch.md",
-  "session_status": "completed",
+  "council_deviation": "None — 3-way Council ran in full. gemini-3.1-pro-preview responded normally (the S137 HTTP 429 prepayment depletion has cleared).",
+  "plan_file": ".claude/plans/2026-08-10_PDR_S138_damage_substrate.md",
+  "session_status": "in_progress",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "unlock_evidence": "Owner in chat: \"i pre approve top recommended top value highest levarage priorities in a thorough and pedantic batch ... APPROVED full session and autonomous work\"",
+  "unlock_evidence": "Owner in chat: \"go!\" — explicit approval of the presented S138 P1 PDR (damage substrate, Full tier), following three AskUserQuestion rulings in the same turn sequence.",
+  "owner_rulings_s138": {
+    "date": "2026-08-10",
+    "offence_gap": "DISPATCHER FIRST, starters after. Build structure HP + a damageEntity dispatcher as its own priority, replacing the DEFENDER_HP=1e9 sentinel; starters land next session with genuine offence and real bag aggro.",
+    "bump_policy": "ALLOW TWO BUMPS, spread out. Each bump gets its own deploy + 2-peer check. SPARK has no external playerbase so the real cost is the owner reloading. Claude flagged that dispatcher-first actually implies THREE bumps (17 dispatcher / 18 build space / 19 starters) and offered a 2-bump re-sequence; owner said go without re-sequencing.",
+    "build_space_scope": "EVERYTHING including the R4 keep-ring move (~R420). Warning accepted: C2 measured this nearly doubles the haul (150->295px), so throughput drops while the bank grows — needs re-measurement and gatherer retuning in the same session. This is a LATER session, not S138."
+  },
   "a0_state_discovery": [
-    "git 0 ahead/0 behind, clean but session-state.json",
-    "npm run verify-deploy PASS 4/4 (live hash index-DGsKtma2.js)",
-    "npm run e2e:gating = 2 failed / 29 passed (reproduced as handed off)",
-    "fog 14th aboveFogLayer child ATTRIBUTED to gathererRenderer (main.ts:506, S135); static roll call of parent.addChild sums to exactly 14",
-    "hunter spawns tick~1: gameMode.ts:271 stamps 100 VP -> scoring.ts:264 scoreProgress=100 >= forced trigger 1 (hostTick.ts:498)",
-    "REFUTED: e2e/helpers.ts keep geometry is CORRECT (KEEP_RING_SEATS=PLAYER_COLORS.length=7 verified by direct read; a regex count wrongly said 9)",
-    "CONFIRMED probeHarness.ts:339-345 refuses to arm under ?worker=1",
-    "CONFIRMED 6 ?worker=1 literals across 4 e2e files; BACKLOG.md:411 \"5 files\" is WRONG",
-    "CASTLE_BANK_CAP=5 with 6-row recipe table incl NONET-9 present at constants.ts:395-409",
-    "dev port 40843 collided with another session -> moved launch.json to SESSION_PORT 24300"
+    "git 0 ahead / 0 behind origin/master; only session-state.json dirty at boot",
+    "npm run verify-deploy PASS 4/4 (live entry index-D7oQlyv1.js == local build)",
+    "npm run e2e:gating = 32 passed / 0 failed (green at boot, matching the handoff claim)",
+    "context at PDR time 117,604 / 1,000,000 = 11.76% GREEN",
+    "CONFIRMED damageCreature (creatureLifecycle.ts:243) is the ONLY exported damage function in src/ — grep 'export function damage' returns exactly 1 hit",
+    "CONFIRMED DEFENDER_HP = 1_000_000_000 (constants.ts:1155) is an explicit sentinel: 'defenders die by recipe-break, not damage (v1)'",
+    "CONFIRMED primitives have NO hp field; no structure HP, castle HP or player HP exists anywhere",
+    "CONFIRMED CONNECTOR_HP = CHEW_HITS = 5 is NOT hp — it is the attacker's chewProgress counter on bonds",
+    "CONFIRMED Defender.targetCreatureId is CreatureId|null (defender.ts:92); acquisition solely findNearestEnemyCreatureFrom => defenders can ONLY target creatures",
+    "CONFIRMED Defender.hp is ALREADY serialized non-optional (save.ts:1532 emit / :1558 restore) and ALREADY hashed (stateHashFull.ts:380) — so for defenders this is a VALUE change, not a schema change",
+    "CONFIRMED PROTOCOL_VERSION = 16 (protocol.ts:106); S102 bumped 10->11 for creature hp because 'kill semantics differ'; S110 bumped 12->13 for ONE serialized defender state literal 'WALK'",
+    "DELTA vs the S137 handoff/boot-snapshot: CASTLE_BUILD_SPACE_DESIGN.md section 7 (BLUEPRINT vs REAL STORAGE) is ALREADY RULED at :53 (R1 = REAL STORAGE), and CASTLE_BANK_CAP is ALREADY RULED at :54 (R2 = 12-13). boot-snapshot.md's 'ONE thing left to decide' and 'CASTLE_BANK_CAP still UNRULED' are both STALE — written before the round-2 addendum landed in ab091ca.",
+    "DELTA vs the S137 scope amendment: its section 2 headline claim that all three starter units are 'new DefenderKinds with per-kind config + art, not new systems' is FALSE for 2 of 3 as specced. The two offence goblins ('walk toward the nearest enemy structure') and the Stink Tower's 5 individually-destructible bags all require structure HP + a damage dispatcher, which BACKLOG.md:602 (V6-2.1 R6) already files as an UNBUILT prerequisite slot.",
+    "REFUTED (Gemini V1): 'adding hp to Primitive silently bypasses the compile-time guard'. stateHashFull.ts:186-191 records that S133 RALPH:PATROL ran EXACTLY that repro — adding hp?: number to Primitive — found it passed tsc, and CLOSED it. PrimitiveF = keyof ElemOf<World['primitives']> (:193) is a real field-level guard. The docblock states this guard exists specifically to prepare for 'the owner-ruled next slot', i.e. this priority.",
+    "REFUTED (both Councils, C2): 'the differential rig is blind to non-lethal HP because structuralSignature is size-only'. workerSim.differential.test.ts compares hashWorldStateFull (the WIDE oracle) at :238, :261-262, :282, :298-299, :469; structuralSignature appears only in a NEGATIVE assertion (:444-446). Once the field guard forces the projection extension, non-lethal HP deltas are visible every compared tick. Gemini's prescribed XOR-checksum remedy is unnecessary work.",
+    "REFUTED (both Councils, C3): 'chewProgress is never cleared / null-deref when a primitive dies'. creatureLifecycle.ts:411-418 resets chewProgress=0 and drops to SEEKING whenever the committed bond is missing, with the docblock stating this covers 'another actor severed it'. HP-death introduces no new dangling-reference class.",
+    "SURVIVING FINDING (upgraded from Grok Q3 by direct probe): there is NO shared primitive-raze path. Only two ad-hoc primitives.delete sites exist — disruptionManager.ts:188 and potatoLifecycle.ts:258 — and they DUPLICATE an identical 4-step cleanup contract: unregister incident bonds from both endpoint primitives, delete the bonds, delete the primitives, snapPrevPosForUnbonded, reconcileFouledPrimitives. The PDR draft's phrase 'razed via the EXISTING removal path' was imprecise; a third copy is how the copies diverge."
   ],
+  "prime_audit_s138": {
+    "rubber_stamped": "None adopted unverified — all 4 technically-specific Council challenges were re-checked on disk and all 4 were refuted. This is reflexion pattern #empirical-refutes-plausible-criticals firing for the 9th recorded time.",
+    "self_indictment": "The false consensus was partly MY fault. My Council prompt stated fact 12 (structuralSignature is size-only — true) WITHOUT stating that the differential rig actually compares hashWorldStateFull. Both models then reasoned correctly from an incomplete fact set and converged on the same wrong conclusion (abandon per-primitive HP). Lesson: a Council fed a partial fact set does not return 'uncertain' — it returns confident agreement on a wrong answer, which is far more dangerous than disagreement.",
+    "runtime_verifiability": "The field-level-guard claim is a DOCBLOCK CLAIM about a compile-time behaviour, not a verified fact. Static reading is not runtime validation. Mitigation promoted to execution step 1: actually add hp to Primitive, run tsc, and confirm it fails BY NAME before any design rests on it.",
+    "synthesis_vs_r1": "Materially better than R1. R1 (mine) said 'raze via the existing removal path'; synthesis established there is no such path and that extracting one shared helper is the de-risking step. That correction is the concrete value the deliberation produced."
+  },
   "carry_forward": [
-    "THREE STARTER DESIGNS — specced + art spiked + veo pipeline proven. Session A = behaviour on the existing defender FSM; B = atlases + ~8 audio clips; C = free-design tier.",
-    "P1 BUILD SPACE — owner RULED: REAL STORAGE (B), 2D freeform, capacity NOT bank-capped, both pull paths coexist. Blocked only on the PROTOCOL_VERSION 16->17 bump, which must be ONE bump shared with the 3 new DefenderKinds.",
-    "Sim-worker default-on flip: 6 ?worker=1 literals / 4 files; probeHarness refuse-by-default after flip. Deferred: owner would playtest a freshly-changed authoritative execution model.",
+    "STARTER DESIGNS (next session, after this dispatcher): 3 new DefenderKinds + per-kind config + behaviours on the existing defender FSM + procedural-puppet placeholder art + 4-shape recipes. Forces its own PROTOCOL_VERSION bump.",
+    "BUILD SPACE — owner ruled EVERYTHING incl. R4 keep-ring move to ~R420. REAL STORAGE (B), 2D freeform, capacity NOT bank-capped, CASTLE_BANK_CAP -> 12-13 with a 5-wide x 3-row panel regrid (C1). R4 requires re-measuring haul throughput and retuning gatherer speed/count IN THE SAME SESSION (C2: haul goes 150->295px).",
+    "NEW (Gemini S138): per-primitive HP means an AoE hit on the Stink Tower damages all 5 bags at once, so the tower takes 5x the AoE damage of a single-primitive structure. Balance consequence to resolve in the starters session.",
+    "NEW (Grok S138): 'nearest enemy structure' is UNDEFINED once primitives can die independently — is a structure the largest connected component, any primitive with hp, or the defender anchor point? findNearestEnemyCreatureFrom cannot be reused. Must be defined in the starters session.",
+    "NEW (both S138): author all HP/damage as TOTALS over seconds on the 0.5s cadence, never per engine tick. Reaffirms the S137 DoT ruling; applies to the new dispatcher's callers.",
+    "Sim-worker default-on flip: 6 ?worker=1 literals / 4 files; probeHarness.ts:339-345 becomes refuse-by-default after the flip. NOTE: BACKLOG V6-1.1 warns against flipping in the same session as a new serialized entity family — do NOT pair it with this priority.",
     "S135 untouched: SCORE_TIER corner-bloom replay; carried-potato onUp pointer capture; deposit-slot column overflow.",
     "No 2-peer/joiner exercise of the castle bank; no host-migration round-trip for it.",
-    "P1 in-bubble build space: DESIGNED (CASTLE_BUILD_SPACE_DESIGN.md), blocked on a PROTOCOL_VERSION 16->17 bump that hard-rejects deployed peers at HELLO. Take it at the START of a session with a deploy + 2-peer check in the same session. 4 open owner questions in section 8.",
     "H3 from the bank measurement NOT measured: whether periodic consumption removes the hauler stall at every cap. Needs a dispatch seam __SPARK__ does not expose.",
-    "ART/ANIM (Session B): veo does NOT reliably hold character/prop consistency across a 4s clip — a grip-fix prompt still dropped the cleaver in one frame AND hallucinated a tail. Fix is FRAME-LEVEL CURATION (2-3 takes per state, hand-pick ~6-10 clean frames), not better prompting. Budget takes accordingly.",
-    "Starter designs: art spiked + fully specced + veo pipeline proven. Session A = behaviour on the existing defender FSM with placeholder art; Session B = atlases + audio; Session C = free-design tier into the build space."
+    "ART/ANIM (starters Session B): veo does NOT hold prop/character consistency across a 4s clip. Fix is FRAME-LEVEL CURATION (2-3 takes per state, hand-pick ~6-10 clean frames). Never use the word 'sticker' in a prompt (white die-cut halo).",
+    "origin/gh-pages deletion — OWNER-GATED, unchanged."
   ],
   "priorities": [
     {
-      "id": "P0-green-the-gating-lane",
-      "title": "Fix both gating e2e failures at the root (fog layer contract + hunter stale premise); no quarantine masking",
-      "status": "completed",
-      "notes": "fog: semantic constructor-name roll call (Council ADOPT-1) instead of a bumped magic number. hunter: instrument the helper throw, MEASURE the cause, then fix the stale trigger premise.",
+      "id": "P1-damage-substrate",
+      "title": "Structure HP + a single damageEntity dispatcher; extract a shared razePrimitives helper; PROTOCOL_VERSION 16->17 + deploy + 2-peer",
+      "status": "in_progress",
+      "tier": "Full",
+      "notes": "The verified prerequisite blocking the offence goblins and the Stink Tower's destructible bags. Also unblocks BACKLOG V6-2.1 (targeting priority) and V6-2.4 (castle HP/repair). Execution step 1 is EMPIRICAL: add hp to Primitive, run tsc, confirm the field-level guard fails BY NAME before the design rests on it.",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "2a3cd55",
-      "real_context_tokens_at_close": 247793,
-      "real_context_pct_at_close": 24.78,
-      "check_method": "RALPH:PATROL + empirical runtime verification, all four claims re-run on disk, not narrated. (1) fog.spec: expected child list was MEASURED first (deliberate __MEASURE_ME__ failure printed the received array) and the measured type sequence -- _Container at indices 1/5/11 -- matches the independent static roll call of every parent.addChild into aboveFogLayer across 12 renderers, which is what confirms index 7 = gathererRenderer (main.ts:506, S135). fog.spec 6/6 green. (2) hunter.spec: root cause MEASURED not inferred -- new readInputLockDiagnostics printed lockedByBench=true, benchedUntilTick=1925 at tick 330, hunterSpawned=true, hunters=[] (already despawned), which refuted the working assumption that the bench had not yet landed by tick 261 and proved the t=0 spawn. hunter.spec 1/1 green after the seam fix. (3) FULL gating lane re-run end to end: 31 passed / 0 failed, up from 29/2; neither test marked @quarantine-flaky. (4) unit suite 2119 passed / 141 files, typecheck exit 0, build OK at 661.5 KiB with 88.5 KiB headroom. (5) P0c prod-inertness VERIFIED not assumed: __SPARK__ sits behind if (import.meta.env.DEV) (main.ts:928) and grep -c keepCenter on dist/assets/index-DGsKtma2.js returns 0, and the entry content-hash is byte-identical to the live deploy.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/fog.spec.ts",
-          "needle": "aboveFogChildNames"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/fog.spec.ts",
-          "needle": "aboveFogChildren"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/fog.spec.ts",
-          "pattern": "'_(?:Graphics|Container)',",
-          "op": "==",
-          "value": 14
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/hunter.spec.ts",
-          "needle": "__TEST_HUNTER_TRIGGER_SCORE__ = 200"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/hunter.spec.ts",
-          "needle": "scoreByPlayer.set(0, 250)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/helpers.ts",
-          "needle": "readInputLockDiagnostics"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/helpers.ts",
-          "needle": "lockedByBench"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/helpers.ts",
-          "needle": "keepCenter"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "keepCenter(seat: number)"
-        }
-      ]
-    },
-    {
-      "id": "P1-in-bubble-build-space",
-      "title": "V6-1.3 P2: prebuild a structure inside the castle popup and pull the whole assembly out",
-      "status": "carried_forward",
-      "notes": "Render-local arrangement (zero new World fields). One host-validated reducer action. MUST have a real-physics acceptance test (S136 lesson R3).",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "37f90a6",
-      "check_method": "Scoped empirically, then DELIBERATELY NOT IMPLEMENTED on a verified blocking fact rather than on caution. PULL_STRUCTURE_FROM_BANK is a new CLIENT INTENT; protocol.ts:101-106 records that V6-1.1 bumped PROTOCOL_VERSION 15->16 for exactly one new intent (BUY_GATHERER) because a stale peer is HARD-REJECTED AT HELLO, and protocol.ts:476-478 shows the same for PLACE_FROM_FREE (2->3). So this feature forces 16->17 and breaks multiplayer against every already-deployed client until both sides reload -- a lockstep-deploy change, made unattended, hours before the owner playtests a LIVE game. Same risk class as the worker flip this session already deferred, and it could break the very playtest it was meant to serve. Shipped CASTLE_BUILD_SPACE_DESIGN.md instead, fully cited: render-local staging (zero new serialized/hashed/wired state), the host-validation contract, bonding reuse via AUTO_BOND_RADIUS=60, required tests, and 4 open owner questions. Two traps recorded: bankTake splices so every removal shifts later indices (taking [0,1,2] naively yields shapes 0,2,4), and the escrow/enforceSpawnerBounds rim-snap that cost S136 a 194px teleport and that no unit test can catch.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/CASTLE_BUILD_SPACE_DESIGN.md",
-          "needle": "PROTOCOL_VERSION"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/CASTLE_BUILD_SPACE_DESIGN.md",
-          "needle": "bankTake"
-        }
-      ]
-    },
-    {
-      "id": "P2-rainbow-castle-visual",
-      "title": "Visually verify the S136 rainbow castle party and produce screenshots for the owner",
-      "status": "completed",
-      "notes": "Logic is pinned by pure tests; the LOOK has never been observed.",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "5eac4e4",
-      "check_method": "RALPH:PATROL + VISUAL verification, which is the whole point of the priority. New e2e/rainbow-castle.spec.ts reads REAL COMPOSITED PIXELS off the keep body stroke (the fog.spec extract idiom) and asserts four things pure unit tests structurally cannot: the castle is actually drawn (guards a vacuous pass on an empty board), >=3 DISTINCT composited colours appear inside the flyover window, at least one differs from the resting colour, and past RAINBOW_FLYOVER_DURATION_TICKS it reverts. Determinism without a real rainbow pickup: rainbowSwitchTick is BACK-DATED to tick-age so the renderer sees a chosen age without touching the sim clock, and sync+extract run inside ONE page.evaluate so no rAF frame can interleave at a drifted age. THEN I ACTUALLY LOOKED AT THE IMAGES rather than trusting the green tick: resting = crimson keep (seat colour 0xff3b6b), party frames = magenta then orange with the flyover wash recolouring the background in step. Found and fixed two real defects while doing it: testInfo.attach images are discarded under --reporter=list on a passing test (first run produced NO images at all despite passing), and page.screenshot clip is CSS pixels while the canvas is letterboxed/scaled, so a canvas-coord clip crops the wrong region. Full gating lane re-run 32/0.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/rainbow-castle.spec.ts",
-          "needle": "rainbowSwitchTick"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/rainbow-castle.spec.ts",
-          "needle": "extract.pixels"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/rainbow-castle.spec.ts",
-          "needle": "castle-party-"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "get gathererRenderer()"
-        }
-      ]
-    },
-    {
-      "id": "P3-bank-throughput-measurement",
-      "title": "Measure haul throughput at CASTLE_BANK_CAP 5/6/8 and hand the owner a table + recommendation",
-      "status": "completed",
-      "notes": "MEASURE ONLY - do not change the constant. Explicit FIRST CUT if budget runs short.",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "checkpoint_commit": "98c2b72",
-      "check_method": "RALPH:PATROL + a real browser measurement with a pre-registered falsifiable prediction. e2e/bank-throughput.spec.ts varies CASTLE_BANK_CAP over 5/6/8 via a new __TEST_CASTLE_BANK_CAP__ seam (mirrors the four existing seams) and measures in a REAL browser with REAL physics, because no unit test here runs the physics loop. Guards its own premise: asserts the seam actually reached the running game, asserts samples>20 and banked>0 so a dead economy cannot print a table of zeros, and FAILS if any cap never saturates inside the window. MEASURED: cap5 88.7% / cap6 94.1% / cap8 90.8% steady-state WAITING, banked exactly == cap in every run. H2 CONFIRMED (cap does not reduce stall); H1 NOT cleanly supported (cap 6 filled faster than cap 5) and reported as such rather than dropped. ⭐ The first cut of this measurement was WRONG at a 22s window -- it ended before saturation and reported 0.0% WAITING at every cap, i.e. no bottleneck, the exact opposite of the truth; caught by noticing time-to-full 20.2s sat at the window edge. NOTHING WAS TUNED: CASTLE_BANK_CAP still ships as 5.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/bank-throughput.spec.ts",
-          "needle": "__TEST_CASTLE_BANK_CAP__"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/bank-throughput.spec.ts",
-          "needle": "ssWaiting"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "readTestCastleBankCap"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "CASTLE_BANK_CAP = readTestCastleBankCap() ?? 5"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BANK_CAP_MEASUREMENT_S137.md",
-          "needle": "88.7"
-        }
-      ]
-    },
-    {
-      "id": "P4-backlog-fact-correction",
-      "title": "Correct BACKLOG.md:411 worker-flag facts verified in A.0",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "amendment_note": "In-session amendment (Rule 16): not in the original PDR body, but recorded there under NON-SCOPE as a verified A.0 fact. Correcting a doc error found during A.0 discharges the never-silently-drop-a-finding duty; scoped to one line of BACKLOG.md.",
-      "check_completed": true,
-      "checkpoint_commit": "37f90a6",
-      "check_method": "A.0 grep over the whole repo enumerated every ?worker=1 literal in source/e2e: worker.spec.ts:32, worker-bots.spec.ts:35, worker-duel.spec.ts:69 and :70, worker-heap.spec.ts:433 and :468 = 6 literals across 4 files. BACKLOG.md:411 claimed \"5 files hard-code the flag\" and then listed only 4 files with 5 line refs, omitting worker-heap.spec.ts:468 entirely - so it was wrong on both the file count and the literal set. Corrected in place, and the probeHarness.ts:339-345 refuse-to-arm finding (verified verbatim) appended beside it because that guard becomes refuse-BY-DEFAULT after a default-on flip and must be inverted in the same change.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "6 literals across 4 files hard-code the flag"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "**5 files hard-code the flag**"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "worker-heap.spec.ts:433,468"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "refuse-**by-default**"
-        }
+      "scope": [
+        "hp on Primitive, additive-optional emit-only-when-damaged (save.ts:1483 pattern) + extend the PrimitiveF projection in stateHashFull.ts",
+        "DEFENDER_HP sentinel -> real per-kind config HP (value change; wire + hash already exist)",
+        "Extract a shared razePrimitives() helper carrying the 4-step cleanup contract; route disruptionManager.ts:188, potatoLifecycle.ts:258 and the new HP-death path through it",
+        "damageEntity(world, ref, amount, source) as the single damage path; damageCreature delegates; host-only assert in the dispatcher",
+        "PROTOCOL_VERSION 16->17 + deploy + 2-peer check in-session",
+        "Capture the offence-gap finding + 3 carry-forwards into BACKLOG.md and the design docs"
+      ],
+      "out_of_scope": [
+        "The three starter units (next session)",
+        "The build space (its own session per owner ruling 3)",
+        "Any structure-targeting AI"
       ]
     }
   ],
-  "reflexion_entries_to_archive": [
-    {
-      "tag": "#instrument-before-you-infer",
-      "text": "S137 P0b: the handoff, and my own static chain, both blamed the hunter bench for a swallowed click -- but the failure snapshot showed tick 261 against a ~400-tick catch, so the inference looked WRONG and I nearly went hunting for a second cause. Adding one diagnostic to the throw (all three isInputLocked clauses, printed individually) settled it in a single run: lockedByBench=true, benchedUntilTick=1925 at tick 330, hunters already empty. The estimate was stale, not the theory. When a failure message names a SYMPTOM (\"panel did not open\") rather than a CAUSE, the cheapest next move is almost never more reading -- it is making the failure say why. Cost: ~30 lines. Saved: an open-ended hunt."
-    },
-    {
-      "tag": "#a-count-is-a-contract-without-a-name",
-      "text": "S137 P0a: fog.spec asserted aboveFogLayer.children.length === 13. When it became 14 the failure said \"Expected 13 / Received 14\" and nothing else, and attributing the extra child cost an entire prior session. Replacing the count with an ORDERED CONSTRUCTOR-NAME list (each line commented with its owning renderer) makes the diff point at the index that moved, and catches what a count structurally cannot -- one renderer leaking a second child while another adds none still sums to 14. Rule: if a test pins a NUMBER that stands for a LIST, pin the list. Also: I MEASURED the expected list (deliberate failing assertion printed the received array) rather than writing what I believed, and the measured Container positions then independently confirmed the static attribution."
-    },
-    {
-      "tag": "#dont-parse-typescript-with-a-regex",
-      "text": "S137 A.0: a one-line regex count of PLAYER_COLORS returned 9 because it split on commas inside the block COMMENTS. I was one step from reporting \"e2e/helpers.ts hardcodes /7 but there are 9 seats -- the keep geometry is broken\", a confident and completely wrong finding. Reading the declaration directly showed 7. A measurement that is cheap to take is not automatically safe to trust; for anything that will become a CLAIM, read the source of truth rather than a derived count."
-    },
-    {
-      "tag": "#an-underpowered-window-reads-as-a-null-result",
-      "text": "S137 P3: my first bank measurement ran a 22s window and reported 0.0% hauler WAITING at every cap -- a clean, confident table that said there is no bottleneck. It was wrong. The cap-5 bank did not saturate until 20.2s, so the run simply ended before the quantity I was measuring could exist. The tell was that time-to-full sat right at the window edge. At 60s the same experiment reports 88.7-94.1%. A measurement whose window is shorter than the phenomenon does not return no signal, it returns a CONFIDENT FALSE NEGATIVE, and it is indistinguishable from good news. Fix applied: the spec now splits pre/post-saturation and FAILS if any condition never saturates, so the error cannot recur silently."
-    },
-    {
-      "tag": "#a-passing-visual-test-that-produced-no-image",
-      "text": "S137 P2: the rainbow-castle spec passed on its first run and wrote its screenshots via testInfo.attach. There were no images on disk -- attachments live in the HTML report bundle and are discarded under --reporter=list on a PASSING test. The entire point of the priority was that a human could look at the thing, and it had silently produced nothing to look at. Green does not mean the artifact exists. When a deliverable is a FILE, assert the file, or write it to an explicit path."
-    },
-    {
-      "tag": "#a-claim-is-not-verified-until-a-machine-rechecks-it",
-      "text": "S137 close: verification[] written as free prose was rejected by MCV as unknown assertion type; prose ABOUT verification is not verification. Use the typed vocabulary and needles that cannot match comments."
-    },
-    {
-      "tag": "#my-cost-estimate-was-an-order-of-magnitude-wrong",
-      "text": "S137: I told the owner options A and B differed by \"roughly an order of magnitude\" in cost, and they said they leaned B anyway. Measuring instead of estimating showed B was ~2-3x, not 10x: castleBanks — added ONE session earlier — is already a serialized per-seat Map<PlayerId,Spark[]> whose entire production footprint is ~25 lines across 10 files, including a ONE-LINE hash coverage entry, and even the subtle trap (structural signature must count CONTENTS not seats) was already solved in a docblock. My estimate came from imagining the work rather than counting an existing instance of it. When a codebase already contains a near-identical feature, the cost of the next one is a COUNT, not a guess — and the owner s instinct beat my analysis."
-    },
-    {
-      "tag": "#the-owners-number-may-not-survive-the-tick-rate",
-      "text": "S137: the owner specified a DoT as \"5% hp per tick\" and a \"2% dot\". At PHYSICS_HZ 60 that is death in 20 ticks (0.33s) and 0.83s — certainly not what was meant. The failure mode is that the number SOUNDS reasonable and only becomes absurd once multiplied by the engine rate. Fix adopted as a rule: author every DoT as a TOTAL (\"X% of max HP over N seconds\") on a damage cadence decoupled from the physics rate, and derive the per-application value. Also: percent-of-CURRENT hp can never kill (Zeno), and refresh-not-stack, or camping an aura is instant death."
-    },
-    {
-      "tag": "#prompting-cannot-fix-model-inconsistency",
-      "text": "S137: the first veo attack loop had the goblin LET GO of his cleaver mid-swing. I wrote an explicit, emphatic \"the cleaver stays GRIPPED, never thrown\" instruction and regenerated. It improved most frames but STILL dropped the blade in one — and newly hallucinated a tail the source art does not have. The lesson is not \"prompt harder\": generative video does not hold prop/character consistency across a whole clip. The real fix was reframing the requirement — an atlas needs ~6-10 GOOD FRAMES, not a flawless 4s clip — so the answer is 2-3 takes plus frame-level curation. When a model fails a constraint twice, stop tuning the prompt and change what you need from the output."
-    }
-  ],
+  "reflexion_entries_to_archive": [],
   "totals": {
     "budget_remaining": 1000000
   },
   "budget_total": 1000000,
-  "e2e_gating_status": "GREEN 32/0 (was 29/2 at boot)",
-  "closed": true,
-  "real_context_tokens_at_close": 329686,
-  "real_context_pct_at_close": 32.97,
-  "checkpoint_commit": "37f90a6",
-  "deploy_verified_s137": "PASS 4/4 — live entry index-D7oQlyv1.js == local build",
-  "deviations": [
-    "Rule 17 Council ran 2-WAY, not 3-way: gemini-3.1-pro-preview returned HTTP 429 (prepayment credits depleted). Protocol-sanctioned fallback (Gemini err -> 2-way). Stated, not presented as compliance.",
-    "A 6-agent A.0 discovery fleet died on the individual spend cap after ~454K subagent tokens with zero output — the SAME failure mode that killed S136 two fleets. Redirected to direct empirical discovery, which is what actually produced every finding this session. Do not launch large fleets on this account.",
-    "Priority order changed: P2 and P3 were taken ahead of P1. Reason: both are cheap and directly serve the imminent owner playtest, whereas a half-implemented interactive panel feature would actively harm it.",
-    "P1 not implemented — see its check_method for the verified PROTOCOL_VERSION blocker."
-  ],
-  "mcv_status": "PASS hard_fail=0 warn=0 exit 0 (22 typed assertions, 0 unbound) after reconciling 13 hard-fails",
-  "owner_rulings_s137": {
-    "date": "2026-08-10",
-    "q1_pull_output": "BOTH loose-on-porch AND one draggable assembly, coexisting; must support arbitrary NON-COMBO structures and manual combo assembly",
-    "q2_placement": "wherever you drop it (same legality rules as today)",
-    "q3_capacity": "NOT capped by CASTLE_BANK_CAP -- \"as many as you want\"; Voltkin 8 (4 squares then 4 triangles), NONET 9 same-kind; plus a UX mandate: smart, comfortable, super high tech, coherent, accessible, easy to understand",
-    "q4_arrangement": "2D freeform grid",
-    "still_unruled": "CASTLE_BANK_CAP itself"
-  },
-  "owner_rulings_s137_round3": {
-    "date": "2026-08-10",
-    "b5_match_length": "RULED CLOSED — \"6.7% shorter is fine for now, we dont care\". NOT a defect. Recorded in LOCKED_DECISIONS.md so it stops resurfacing as unruled.",
-    "dot_model": "author DoT as TOTALS on a 0.5s damage cadence decoupled from PHYSICS_HZ; % of MAX hp; refresh not stack; tick-domain; burst directions a PURE fn of (id,tick,index) not RNG",
-    "aggro": "REAL aggro — 5 destructible bags each with own HP; core untargetable while any bag remains; popping a bag splashes the popper",
-    "friendly_fire": "aura = enemies only; death burst = EVERYONE including owner troops",
-    "recipes": "4 shapes each; MEASURED FREE — combos.ts ComboKey is a 2-shape PAIR type and godlies are 5-9, so nothing uses 4-shape today",
-    "animation": "real veo loops not procedural; personalities per unit; ~8 audio clips (2 attack grunts + 1 death cry per goblin)"
-  },
-  "resolved_this_session": [
-    "B5 match length: RULED CLOSED by owner (6.7% shorter accepted, not a defect) - LOCKED_DECISIONS.md",
-    "BACKLOG.md:411 5-files error: CORRECTED to 6 literals/4 files",
-    "Build space A-vs-B: RULED REAL STORAGE"
-  ]
+  "e2e_gating_status": "GREEN 32/0 at boot",
+  "closed": false
 }
