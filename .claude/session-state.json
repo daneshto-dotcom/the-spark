@@ -1,11 +1,11 @@
 {
-  "tool_calls_session_total": 513,
+  "tool_calls_session_total": 519,
   "session_id": "S140",
   "session_kind": "batch",
   "session_start": "2026-08-11",
   "prior_session_note": "S138 closed GREEN: damage substrate (P1) + three owner playtest fixes (P2). PROTOCOL_VERSION 17. Starters + build space designed + owner-ruled, NOT implemented.",
   "prior_session_archive": ".handoff-archive/HANDOFF_S138.md",
-  "phase": "DO",
+  "phase": "CHECK_COMPLETE",
   "tier": "Standard",
   "plan_file": ".claude/plans/2026-08-12_PDR_S140_bank_cap_7_and_turret_retune.md",
   "session_status": "in_progress",
@@ -80,12 +80,12 @@
     {
       "id": "P1-bank-cap-7-turret-retune",
       "title": "CASTLE_BANK_CAP 5->7 + laserTurret 8->7 + multi-row bank strip + panel test coverage",
-      "status": "in_progress",
+      "status": "completed",
       "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false,
+      "check_completed": true,
       "owner_ruling": "Owner selected cap 7 + laserTurret 8->7 and scope cap+regrid+tests, after being shown all 5 Council seats rejected the retune 5-0. Reaffirmed = executed in full.",
       "scope": [
         "multi-row bank strip derived from panel width (pixel-identical at cap 5)",
@@ -101,6 +101,185 @@
         "R7 design library",
         "economy retuning",
         "origin/gh-pages deletion"
+      ],
+      "checkpoint_commit": "55894e37",
+      "check_method": "RALPH:PATROL in-loop + full empirical re-verification. (1) tsc --noEmit exit 0. (2) vitest FULL suite 2187/2187 passed across 144 files (S139 baseline 2172; +15 net from 11 swept bank-strip invariants, the old-arithmetic witness, 2 laserTurret tests incl. the 7-leaf trap witness and the Helga non-collision, and the codex stale-'seven' copy test). (3) npm run e2e:gating 34/34 exit 0 (was 32) — includes the 2 NEW runtime specs that render the real two-row Pixi panel, and worker-bots.spec.ts which had flaked at boot now green in the full lane. (4) npm run build: bundle 667.5 KiB against the 750 KiB charter cap, 82.5 KiB headroom, exit 0. (5) git push -> Actions run 31623126653 concluded success; npm run verify-deploy PASS 4/4 with LIVE entry asset index-C7ThMkRL.js content-hash-equal to the local build. (6) Stale-'seven' grep sweep over src/ and e2e/: zero surviving player-visible or gate-relevant references (only deliberate S140 history notes remain). (7) The regrid was verified as a PROVABLE NO-OP at cap 5 (panel+bank tests green) BEFORE the cap constant moved, and I1b reproduces the pre-S140 arithmetic and asserts it violates the new bound — the guard is proven red-capable, not just read. (8) The old value tripwire castleBank.test.ts:100 DID fire on the cap change, was confronted rather than bypassed, and was replaced with relationship invariants.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const CASTLE_BANK_CAP = readTestCastleBankCap() ?? 7;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "readTestCastleBankCap() ?? 5"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "laserTurret   7   directly holdable"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "Voltkin       8   still requires staging"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.ts",
+          "needle": "export function bankSlotsPerRow(cap: number = CASTLE_BANK_CAP): number {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.ts",
+          "needle": "export function bankStripHeight(cap: number = CASTLE_BANK_CAP): number {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.ts",
+          "needle": "export function slotOrigin(i: number, cap: number = CASTLE_BANK_CAP)"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.ts",
+          "needle": "BANK_STRIP_H"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.test.ts",
+          "needle": "S140 P1 — bank strip geometry, swept across caps"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.test.ts",
+          "needle": "expect(oldLeft).toBe(-24);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.test.ts",
+          "needle": "`seat ${seat} bottom`).toBeLessThanOrEqual(CANVAS_HEIGHT)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/godlyRecipes/laserTurret.ts",
+          "needle": "export const TURRET_SIZE = 7;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/godlyRecipes/laserTurret.ts",
+          "needle": "export const TURRET_HUB_DEGREE = 6;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/godlyRecipes/laserTurret.test.ts",
+          "needle": "expect(isLaserTurretComponent(w, buildTurret(w, 1, 7))).toBe(false);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/godlyRecipes/laserTurret.test.ts",
+          "needle": "expect(TURRET_SIZE).toBe(HELGA_SIZE);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/godlyRecipes/princessHelga.ts",
+          "needle": "export const HELGA_SIZE = 7;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/godlyRecipes/voltkin.ts",
+          "needle": "export const VOLTKIN_SIZE = 8;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/codexPresentation.test.ts",
+          "needle": "expect(layout.nodes).toHaveLength(TURRET_HUB_DEGREE);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/codexPresentation.test.ts",
+          "needle": "expect(text).not.toMatch(/seven/i);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/codexPresentation.ts",
+          "needle": "nodes: 6, nodeType: SparkType.Spiral"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/codexPresentation.ts",
+          "needle": "(Seven. Not four.)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 19 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+          "needle": "readonly protoVersion: 19;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+          "needle": "S139 P2: 17→18"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/smoke.spec.ts",
+          "needle": "const LOCAL_PROTO_V = 19;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/castleBank.test.ts",
+          "needle": "'cap must hold the LASER TURRET outright').toBeGreaterThanOrEqual("
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/castleBank.test.ts",
+          "needle": "toBeLessThan(VOLTKIN_SIZE)"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/castleBank.test.ts",
+          "needle": "expect(CASTLE_BANK_CAP).toBe(5);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/castle-panel.spec.ts",
+          "needle": "S140 P1 — multi-row bank strip (runtime, not the oracle)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/castle-panel.spec.ts",
+          "needle": "panel closed => the last slot is outside the plate"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/gathererRenderer.ts",
+          "needle": "const KEEP_STORED_GLYPHS_PER_ROW = 5;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/LOCKED_DECISIONS.md",
+          "needle": "CORRECTION, S140 P1:"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "**7 slots** (S140 P1; was 5)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "laserTurret 7 [S140 P1, was 8]"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defender.ts",
+          "needle": "STATIONARY\" WAS WRONG AND THIS FILE CONTRADICTED ITSELF"
+        }
       ]
     }
   ],
@@ -134,7 +313,7 @@
     "budget_remaining": 1000000
   },
   "budget_total": 1000000,
-  "e2e_gating_status": "GREEN 32/0 (re-run after P2+P4; one bomb.spec flake under full-lane contention passed 2/2 in isolation and 32/32 on the following full run)",
+  "e2e_gating_status": "34/34 exit 0 (was 32/32; +2 new gating runtime specs)",
   "closed": false,
   "a0_deviation": "The A.0 sweep's adversarial re-check stage (24 independent re-verifications of every non-CONFIRMED verdict) and its synthesis agent ALL failed on an individual spend limit after the 10 probes completed. Probe payloads were recovered from journal.jsonl and triaged by Claude directly. STATED AS A DEVIATION, NOT PRESENTED AS COMPLIANCE: single-probe findings carry ONE source. The two highest-consequence findings (damageEntity dead code; CI red) were personally re-verified by Claude with direct greps and gh calls before being reported.",
   "ci_finding": "e2e.yml newest run 31366201100 = FAILURE, all 3 lanes, headSha 33 commits behind HEAD, predates two gating fixes. No push trigger exists so nothing re-runs it. Fresh workflow_dispatch on current HEAD = run 31509968212, result pending. deploy.yml is 3/3 success. gh issue list = empty.",
@@ -203,9 +382,9 @@
     "runtime_verifiability_boot_then_smoke": "THE decisive question for this session, given the headline A.0 finding was a whole subsystem that static-parsed perfectly and was never called. Static parsing is NOT validation here. Mandatory runtime gates before any priority is marked complete: (1) a REAL-PHYSICS acceptance test that runs the actual physics loop and asserts the goblin closes distance and the target primitive's hp actually decreases - a state-only assertion is not evidence (S136); (2) PHYSICS_DT imported from physicsLoop.ts, never re-derived, because constants.ts does not export it and a test once silently ran on NaN (S138); (3) an explicit assertion that damageEntity now HAS production call sites, i.e. the exact grep that exposed the dead substrate becomes a permanent test; (4) LOOK AT THE RENDER - a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches, and no state assertion can see 'nothing was drawn'.",
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
-  "real_context_tokens_at_close": 613451,
-  "real_context_pct_at_close": 61.35,
-  "checkpoint_commit": "fd48d3d",
+  "real_context_tokens_at_close": 329159,
+  "real_context_pct_at_close": 32.92,
+  "checkpoint_commit": "55894e37",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": false,
   "gitleaks_status": "CLEAN — 913 commits scanned, ~21.15 MB, 'no leaks found'. No findings to triage.",
@@ -228,5 +407,6 @@
     "synthesis": "C",
     "prime_audit_verdict": "ADOPT_WITH_DELTA",
     "owner_override": "A (cap 7 + laserTurret 8->7) — ruled by owner against 5-0 advice"
-  }
+  },
+  "deploy_verified_s140": "verify-deploy PASS 4/4 — run 31623126653 success, LIVE asset index-C7ThMkRL.js hash-equal to local build"
 }
