@@ -6,6 +6,11 @@
  * fills in ~10 s and the hauler then stands WAITING (measured 247 of 338 samples). The owner's open
  * question is "is cap 5 still right now that it is the binding constraint?".
  *
+ * ⚠ S140 P1 — THAT QUESTION IS NOW RULED: the owner set the cap to 7 (and retuned laserTurret 8→7 so
+ * both towers fit). This spec remains useful as a THROUGHPUT harness, but it is no longer the open
+ * decision it was written to inform. Its sweep still varies 5/6/8 via the seam, which is fine — the
+ * seam is independent of the shipped default.
+ *
  * ⭐ THIS SPEC DELIBERATELY DOES NOT TUNE ANYTHING. `CASTLE_BANK_CAP` and the recipe-size table it
  * sits beside in constants.ts are ONE decision (the table exists precisely so nobody picks a cap
  * that cannot hold a recipe outright), and the ruling is the owner's. This produces the NUMBERS the

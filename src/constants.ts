@@ -376,8 +376,9 @@ export const KEEP_RING_SEATS = PLAYER_COLORS.length;
  *
  * ⚠ MEASURED CONSEQUENCE, not a guess (design-doc C2): the quarry rim sits at `SPAWNER_RADIUS` = 125,
  * so the haul goes from **150 px to 295 px — 1.97×**. Gatherer throughput therefore DROPS; at bank
- * cap 5 the economy banked ~5 shapes/60 s before this. The `CASTLE_BANK_CAP` raise to 12–13 (§1b R2)
- * is the intended counterweight and is NOT part of this change. Re-measure with
+ * cap 5 the economy banked ~5 shapes/60 s before this. A `CASTLE_BANK_CAP` raise is the intended
+ * counterweight and was NOT part of this change. ⚠ S140 P1: §1b R2's "12–13" is SUPERSEDED — the owner
+ * ruled the cap to **7**, decided together with the recipe-size table (see CASTLE_BANK_CAP below). Re-measure with
  * `e2e/bank-throughput.spec.ts` and retune gatherer speed/count in the build-space session.
  */
 export const KEEP_RING_RADIUS = 420;

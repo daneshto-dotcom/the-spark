@@ -71,7 +71,10 @@ const TITLE_H = 26;
  *
  * Clicking a filled slot PULLS that shape onto the porch (owner item 5, "pull them and build them one
  * by one"). Slots are shown even when empty so the cap is legible at a glance — the player can see
- * that five is all they get, which is the strategic pressure the cap exists to create.
+ * exactly how much they get, which is the strategic pressure the cap exists to create.
+ *
+ * S140 P1 — the strip is now MULTI-ROW and derived from the panel width, not the cap; at the shipped
+ * cap of 7 it renders as a 4-slot row above a 3-slot row. See `bankSlotsPerRow` below.
  */
 export const SLOT_W = 40;
 export const SLOT_H = 40;
