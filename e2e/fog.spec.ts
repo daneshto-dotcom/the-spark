@@ -177,7 +177,7 @@ test.describe('S57 Fog of War — client-side render mask', () => {
     // renderer the 14th child belonged to. Attributing it took an entire session. So the assertion
     // now names every child in ADD ORDER: a failure diff points straight at the index that moved,
     // and the comment on that line names its owner. It also catches what a bare count structurally
-    // cannot — one renderer leaking a second child while another adds none still sums to 14.
+    // cannot — one renderer leaking a second child while another adds none still sums to the same total.
     //
     // Entries are Pixi display objects, NOT renderer instances (a renderer does
     // `parent.addChild(this.graphics)`), so these are Pixi v8's own class names — hence the
@@ -188,16 +188,17 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       '_Container', //  1 — creatureRenderer.container   (main.ts:489, S25 P0 → S77 P2)
       '_Graphics',  //  2 — creatureRenderer.cloudGfx    (S103 P1 lightning cloud)
       '_Graphics',  //  3 — chewerRenderer               (main.ts:493, S100 P1)
-      '_Graphics',  //  4 — turretRenderer               (main.ts:495, S103 P3)
-      '_Container', //  5 — princessRenderer.container   (main.ts:496, S103 P4)
-      '_Graphics',  //  6 — hunterRenderer               (main.ts:502, S72 P2)
-      '_Graphics',  //  7 — gathererRenderer             (main.ts:506, V6-1.1/S135) ← the 14th child
-      '_Graphics',  //  8 — potatoRenderer               (main.ts:509, S72 P3)
-      '_Graphics',  //  9 — rainbowRenderer              (main.ts:512, S75 P3)
-      '_Graphics',  // 10 — rainbowFlyoverRenderer.overlay (main.ts:516, S84 P2)
-      '_Container', // 11 — rainbowFlyoverRenderer.char
-      '_Graphics',  // 12 — seagullRenderer              (main.ts:519, S77 P3)
-      '_Graphics',  // 13 — poopRenderer                 (main.ts:520, S77 P3)
+      '_Graphics',  //  4 — goblinRenderer               (S139 P2) ← the 15th child
+      '_Graphics',  //  5 — turretRenderer               (main.ts:495, S103 P3)
+      '_Container', //  6 — princessRenderer.container   (main.ts:496, S103 P4)
+      '_Graphics',  //  7 — hunterRenderer               (main.ts:502, S72 P2)
+      '_Graphics',  //  8 — gathererRenderer             (main.ts:506, V6-1.1/S135)
+      '_Graphics',  //  9 — potatoRenderer               (main.ts:509, S72 P3)
+      '_Graphics',  // 10 — rainbowRenderer              (main.ts:512, S75 P3)
+      '_Graphics',  // 11 — rainbowFlyoverRenderer.overlay (main.ts:516, S84 P2)
+      '_Container', // 12 — rainbowFlyoverRenderer.char
+      '_Graphics',  // 13 — seagullRenderer              (main.ts:519, S77 P3)
+      '_Graphics',  // 14 — poopRenderer                 (main.ts:520, S77 P3)
     ]);
     // The potato punches THROUGH the fog — its brown body (BODY_COLOR 0xb5651d, r≈181) shows on the
     // composited stage as a strong red channel, clearly not the fog's pure black.

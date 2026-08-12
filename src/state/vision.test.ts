@@ -38,6 +38,13 @@ function make1v1(localPlayerIndex: 0 | 1): World {
   dispatch(world, { type: 'START_GAME', mode: '1v1', isHost: localPlayerIndex === 0 });
   world.localPlayerId = asPlayerId(localPlayerIndex);
   world.gameState = 'PLAYING';
+  // S139 P2 — drop the free starter goblins each seat is granted at START_GAME. A creature is
+  // an R_CREATURE_VISION source, so leaving them in shifts every count in this file by one and
+  // would invert the meaning of the 'EXCLUDES enemy creatures' case (which asserts ZERO).
+  // Vision behaviour OF the goblin is deliberately covered by its own tests, not by re-baselining
+  // these; a bumped constant here would have hidden the real consequence instead of recording it.
+  world.creatures.clear();
+  world.nextCreatureId = 0;
   return world;
 }
 

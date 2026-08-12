@@ -397,6 +397,12 @@ describe('S15 P2 — RETURN_TO_TITLE', () => {
   it('S31 P0-2 — clears all 6 Phase-2 cinematic/creature fields (creatures, nextCreatureId, activeCinematicPlayerId, currentCinematicEvent, pendingCinematics, pendingCreatureSpawn)', () => {
     const w = makeWorld(0);
     dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    // S139 P2 — drop the free starter goblins granted at START_GAME. This test asserts an EXACT
+    // creature count (it is verifying that RETURN_TO_TITLE clears creature state), so the granted
+    // units are cleared here to keep the manual one-creature setup below exact. Re-baselining the
+    // numbers instead would couple this test to the per-seat grant count.
+    w.creatures.clear();
+    w.nextCreatureId = 0;
 
     const fakeEvent = {
       godlyId: 'voltkin' as const,
@@ -439,6 +445,12 @@ describe('S15 P2 — RETURN_TO_TITLE', () => {
   it('S31 P0-2 / E-01 — post-RETURN_TO_TITLE: creatures+activeCinematic overlap is FALSE', () => {
     const w = makeWorld(0);
     dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    // S139 P2 — drop the free starter goblins granted at START_GAME. This test asserts an EXACT
+    // creature count (it is verifying that RETURN_TO_TITLE clears creature state), so the granted
+    // units are cleared here to keep the manual one-creature setup below exact. Re-baselining the
+    // numbers instead would couple this test to the per-seat grant count.
+    w.creatures.clear();
+    w.nextCreatureId = 0;
     w.activeCinematicPlayerId = P1;
     dispatch(w, {
       type: 'SPAWN_CREATURE',
@@ -465,6 +477,10 @@ describe('S15 P2 — RETURN_TO_TITLE', () => {
   it('S31 P0-2 T-01 — GODLY_ABORT (peer-drop path) clears all cinematic + creature state', () => {
     const w = makeWorld(0);
     dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    // S139 P2 — see the note on the sibling test above: exact creature counts, so the free
+    // starter goblins granted at START_GAME are cleared to keep the manual setup exact.
+    w.creatures.clear();
+    w.nextCreatureId = 0;
 
     const fakeEvent = {
       godlyId: 'voltkin' as const,

@@ -216,7 +216,7 @@ type SparkHashed =
   | 'escrow';
 type CreatureHashed =
   | 'id' | 'type' | 'ownerPlayerId' | 'pos' | 'prevPos' | 'targetPos' | 'targetBondId'
-  | 'targetCreatureId' | 'state' | 'ticksInState' | 'killCount' | 'spawnedAtTick'
+  | 'targetCreatureId' | 'targetPrimitiveId' | 'state' | 'ticksInState' | 'killCount' | 'spawnedAtTick'
   | 'despawnAtTick' | 'sourceSpawnerId' | 'chewProgress' | 'hp' | 'poopyUntilTick';
 type SpawnerHashed =
   | 'id' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'nextSpawnTick'
@@ -363,7 +363,8 @@ export function determinismParts(world: World): string[] {
     parts.push(
       `c${n(c.id)}:${c.type}:${c.pos.x},${c.pos.y}:${v2(c.prevPos)}:${v2(c.targetPos)}` +
         `:${c.state}:${c.ticksInState}:hp${o(c.hp)}:cw${o(c.chewProgress)}` +
-        `:tb${n(c.targetBondId)}:tc${n(c.targetCreatureId)}:ss${n(c.sourceSpawnerId)}` +
+        `:tb${n(c.targetBondId)}:tc${n(c.targetCreatureId)}:tp${n(c.targetPrimitiveId)}` +
+        `:ss${n(c.sourceSpawnerId)}` +
         `:ow${n(c.ownerPlayerId)}:sa${o(c.spawnedAtTick)}:da${o(c.despawnAtTick)}` +
         `:kc${o(c.killCount)}:pu${o(c.poopyUntilTick)}`,
     );

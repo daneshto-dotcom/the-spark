@@ -120,16 +120,24 @@ export function computeSteeringAccel(c: Creature, tick = 0): Vec2 {
   // already bakes hopSpeedMul into maxAccel (200 × 0.6 = 120) → the slower, readable
   // hop. The per-behavior helpers take the same effective cap so the arrive/repulse
   // ramps scale with it (not just the post-sum clamp).
-  const maxAccel = getCreatureConfig(c.type).maxAccel;
+  const config = getCreatureConfig(c.type);
+  const maxAccel = config.maxAccel;
   const arrive = arriveForce(c, c.targetPos, CREATURE_ARRIVE_RADIUS, maxAccel);
   // S102 #3 — the SPAWNER_POS repulse is the canvas-CENTRE spark-spawner zone (legacy
   // Voltkin scaffolding). A CHEWER must close ONTO its target connector to chew it at
   // melee range, not be held ~300px off by a phantom centre-repulse — so it is skipped
   // for chewers (`sourceSpawnerId !== null`). Voltkin (`sourceSpawnerId === null`) keeps
   // the repulse byte-identical (its locomotion is the replay-equivalence guard).
-  const repulse = c.sourceSpawnerId === null
-    ? repulseForce(c, SPAWNER_POS, CREATURE_SPAWNER_REPULSE_RADIUS, maxAccel)
-    : ZERO_ACCEL;
+  // S139 P2 — a STRUCTURE-ATTACKER is also exempt, for the same reason a chewer is. The goblin is
+  // granted with `sourceSpawnerId === null` (it comes from the match-start seeder, not a spawner), so
+  // on the provenance test alone it would have inherited Voltkin's phantom ~300 px centre-repulse and
+  // been physically unable to close on any shape built near the middle of the board. The exemption is
+  // keyed on the CONFIG flag rather than widened provenance, so Voltkin's locomotion — which is the
+  // replay-equivalence guard — stays byte-identical.
+  const repulse =
+    c.sourceSpawnerId === null && !config.targetsStructures
+      ? repulseForce(c, SPAWNER_POS, CREATURE_SPAWNER_REPULSE_RADIUS, maxAccel)
+      : ZERO_ACCEL;
   let ax = arrive.x + repulse.x;
   let ay = arrive.y + repulse.y;
   const mag = Math.hypot(ax, ay);

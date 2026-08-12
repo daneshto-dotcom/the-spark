@@ -112,12 +112,25 @@ export type { NetSnapshot };
 // disagree with the host about where a castle physically IS — so it is hard-rejected at HELLO, the
 // same posture as any wire-incompatible change.
 //
-// ⚠ NOTE FOR THE NEXT SESSION: S138 P1's damage substrate (`Primitive.hp` + a real per-kind defender
-// hp) did NOT need this bump and did not get one on its own — `hp` is additive-optional and emitted
-// only when damaged, so an undamaged board is byte-identical to v16 (the protocol.ts:152 precedent:
-// re-adding creature hp/chewProgress/targetBondId to the wire did not bump either). The bump is
-// being spent on the keep-ring move; it now covers both.
-export const PROTOCOL_VERSION = 17 as const;
+// ⚠ NOTE (S138): S138 P1's damage substrate (`Primitive.hp` + a real per-kind defender hp) did NOT
+// need the 16->17 bump and did not get one on its own — `hp` is additive-optional and emitted only
+// when damaged, so an undamaged board is byte-identical to v16 (the protocol.ts:152 precedent:
+// re-adding creature hp/chewProgress/targetBondId to the wire did not bump either). That bump was
+// spent on the keep-ring move.
+// S139 P2 — bumped 17->18: THE GOBLIN. Two independent reasons, either of which alone would force it.
+//   (1) A NEW SERIALIZED `CreatureType` LITERAL, 'goblinMelee'. `deserializeCreature` writes
+//       `type: s.type` with NO runtime whitelist and there is no CreatureType validator anywhere in
+//       src/net/, so a stale v17 peer would accept the unknown string and then read
+//       `getCreatureConfig('goblinMelee')` as undefined on its own mirror. This is exactly the class
+//       that bumped 13->14 for 'lightningDrone'.
+//   (2) A NEW SERIALIZED `Creature` FIELD, `targetPrimitiveId`. Additive-optional (emitted only when
+//       non-null), so an idle board stays byte-identical — but it is HASHED, so a v17 peer that
+//       cannot see it would disagree with the host's `hashWorldStateFull` the moment any goblin
+//       commits to a shape.
+//   Also newly shared-constant-bearing: every seat is GRANTED a goblin at START_GAME, and the joiner
+//   dispatches its own local START_GAME — so both peers must mint the same unit at the same position
+//   from the same tick. Hard-rejected at HELLO, same lockstep posture as every bump above.
+export const PROTOCOL_VERSION = 18 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -171,7 +184,7 @@ export interface HelloMsg {
    * S138 P2: 16→17 (the keep ring moved to KEEP_RING_RADIUS = 420 — a SHARED CONSTANT both peers
    * compute from via castleAnchor, so a stale peer would draw and hit-test every keep in the wrong
    * place). Also covers S138 P1's additive-optional Primitive.hp, which needed no bump alone. */
-  readonly protoVersion: 17;
+  readonly protoVersion: 18;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

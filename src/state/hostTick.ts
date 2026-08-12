@@ -59,6 +59,7 @@ import {
   bondMidpoint,
   findNearestBondTarget,
   findNearestEnemyCreature,
+  findNearestEnemyPrimitiveFrom,
   isWithinAttackRange,
 } from './creatures/creatureAI.ts';
 import { underChewerCaps } from './creatures/creatureLifecycle.ts';
@@ -371,6 +372,41 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
             creature.targetPos.y = mid.y;
           }
         }
+      } else if (
+        creature !== undefined &&
+        creature.state === 'SEEKING' &&
+        getCreatureConfig(creature.type).targetsStructures
+      ) {
+        // ── S139 P2 — STRUCTURE-ATTACKER (goblin) target selection ─────────────────────────
+        // A separate `else if` placed AHEAD of the existing branch rather than an `if` nested
+        // inside it: the shipped Voltkin/chewer/drone selection below is a byte-equivalence
+        // guard pinned by creatureAI.test.ts, hostTick.differential.test.ts and
+        // save.replay.test.ts, so it is left textually untouched.
+        //
+        // Owner ruling: goblins go for "the closest enemy structure", and fight "each other".
+        //  - The SHAPE is the navigation + strike target (`targetPrimitiveId`, enemy-only with no
+        //    own-shape fallback — see findNearestEnemyPrimitiveFrom on why that fallback is a
+        //    Voltkin feature that must NOT be inherited).
+        //  - `targetBondId` is forced null: a goblin never commits to a connector, and leaving a
+        //    stale bond id would make the SEEKING→ATTACKING range test below fire on the wrong
+        //    thing.
+        //  - The enemy-CREATURE target is set with the same range-gated, lowest-id opportunism
+        //    Voltkin uses, which is what makes "or each other" work for free. It is checked FIRST
+        //    at strike time, so a goblin defends itself instead of ignoring an attacker to keep
+        //    hitting a wall.
+        // Re-selected every tick (no stickiness): a goblin is not glued to a shape the way a
+        // chewer is glued to a bond, so it retargets the moment its shape dies under it.
+        const nextPrim = findNearestEnemyPrimitiveFrom(world, creature);
+        creature.targetPrimitiveId = nextPrim;
+        creature.targetBondId = null;
+        if (nextPrim !== null) {
+          const prim = world.primitives.get(nextPrim);
+          if (prim !== undefined) {
+            creature.targetPos.x = prim.pos.x;
+            creature.targetPos.y = prim.pos.y;
+          }
+        }
+        creature.targetCreatureId = findNearestEnemyCreature(world, creature);
       } else if (creature !== undefined && creature.state === 'SEEKING') {
         const isChewer = creature.sourceSpawnerId !== null;
         let doReselect: boolean;
@@ -449,7 +485,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         after !== undefined &&
         after.state === 'ATTACKING' &&
         after.ticksInState === getCreatureConfig(after.type).attackFireTick &&
-        (after.targetCreatureId !== null || after.targetBondId !== null)
+        // S139 P2 — a goblin's strike target is a PRIMITIVE, so neither of the two shipped
+        // conditions holds for it and without this third clause it would enter ATTACKING, run its
+        // whole cadence and never actually hit anything. `applyCreatureAttack` reads the shape from
+        // `targetPrimitiveId` when `bondId` is null, so the dispatch below needs no new branch.
+        (after.targetCreatureId !== null ||
+          after.targetBondId !== null ||
+          after.targetPrimitiveId !== null)
       ) {
         // S103 #8 — creature-FIRST: a Voltkin zaps an in-range enemy creature this cycle if
         // it has one (the chewer right next to it is the immediate threat), else severs its

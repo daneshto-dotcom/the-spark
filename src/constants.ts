@@ -1204,6 +1204,32 @@ export const PRIMITIVE_MAX_HP = 1000; // a single placed shape
 // smoother and costs nothing. Pair it with an INTEGER per-application amount (see PRIMITIVE_MAX_HP)
 // so `damageEntity`'s integer guard can never fire at runtime.
 export const DOT_CADENCE_TICKS = 0.5 * PHYSICS_HZ; // 30 — one damage application every 0.5 s
+
+// ─────────────────────────────────────────────────────────────────────────────
+// === S139 P2 — THE GOBLIN: the first free, non-godly unit; the first STRUCTURE attacker ===
+// Owner spec: "each player starts with one goblin of every kind that either attack the closest
+// enemy structure or each other. takes them 6 attacks to destroy a connector or a UNIT."
+//
+// ⭐ WHY 167 AND NOT 166. The owner's rule is "6 attacks", and `damageEntity` THROWS on a
+// fractional amount, so the per-hit number must be an integer that reaches PRIMITIVE_MAX_HP in
+// exactly 6. 1000/6 = 166.67, so 166 gives 996 after six hits (a shape that survives on 4 hp — the
+// rule silently becomes SEVEN attacks) while 167 gives 1002 ≥ 1000 on the sixth. The overshoot is
+// inert: damageEntity does `hp -= amount` then tests `hp > 0`, so a negative residual simply dies.
+// The lock test pins the RELATIONSHIP (6 hits fells a full-hp shape), not the literal 167 — because
+// if PRIMITIVE_MAX_HP ever moves, 167 silently stops meaning six.
+export const GOBLIN_DAMAGE_VS_PRIMITIVE = 167; // 6 × 167 = 1002 ≥ PRIMITIVE_MAX_HP 1000
+// Unit-vs-unit runs on the OTHER hp scale. Creature hp is a hit COUNT (CHEWER_HP 1, VOLTKIN_HP 2)
+// and every single-target hit deals CREATURE_HIT_DAMAGE = 1, so "6 attacks to destroy a UNIT" is
+// expressed as the goblin's own hp being 6. Two scales, one owner-visible rule, all integers.
+export const GOBLIN_MELEE_HP = 6; // 6 × CREATURE_HIT_DAMAGE(1) — the owner's "6 attacks" for a unit
+export const GOBLIN_ATTACK_CADENCE_TICKS = 60; // 1 s per swing — the Voltkin ATTACKING→SEEKING bounce
+export const GOBLIN_ATTACK_FIRE_TICK = 30; // damage lands mid-cycle (Voltkin's shipped fire tick)
+export const GOBLIN_ATTACK_RANGE = 35; // true melee — same as the chewer, closes onto its target
+export const GOBLIN_MAX_ACCEL = 140; // between a chewer (120) and a Voltkin (200): eager but readable
+// PERSISTENT + a long lifetime: a free starter unit that evaporated on a timer would make the
+// owner's "starts with one" meaningless within a minute. `persistent: true` routes it away from the
+// DESPAWNING fade entirely, so it lives until something kills it.
+export const GOBLIN_LIFETIME_TICKS = 60 * 60 * 60; // 60 min — effectively match-length
 // Defenders now carry REAL hp instead of the old 1e9 sentinel. The S103 substrate deliberately
 // pre-provisioned this: the sentinel was "kept for a future direct-attack lever (Council MF8) so
 // adding it needs no re-bump", and `Defender.hp` has been serialized non-optional + hashed since

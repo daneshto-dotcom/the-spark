@@ -18,7 +18,7 @@
  * selection (nearest enemy bond / fallback own).
  */
 
-import type { BondId, PlayerId, Vec2, SpawnerId } from '../../types.ts';
+import type { BondId, PlayerId, PrimitiveId, Vec2, SpawnerId } from '../../types.ts';
 import type { CreatureId } from '../../types.ts';
 import { VOLTKIN_CONFIG, type CreatureConfig } from './voltkin-config.ts';
 
@@ -146,7 +146,17 @@ export function cinematicMsToTicks(ms: number): number {
 // NEW `selfExplode` config discriminator (see LIGHTNING_DRONE_CONFIG in voltkin-config.ts). Adding
 // it here forces a CREATURE_CONFIGS entry (exhaustiveness) + a drone branch wherever a CreatureConfig
 // is consumed (the main.ts fan-out explode hook + the drone FSM gating).
-export type CreatureType = 'voltkin' | 'chewer' | 'lightningDrone';
+// S139 P2 — 'goblinMelee' is the first FREE, NON-GODLY unit and the first creature that attacks
+// STRUCTURES (primitives) rather than connectors. It follows the `lightningDrone` precedent exactly:
+// a new member here forces a CREATURE_CONFIGS entry (that Record is compile-time exhaustive), and the
+// behaviour is selected by a CONFIG DISCRIMINATOR (`targetsStructures`, cf. the drone's
+// `selfExplode`) rather than by branching on `sourceSpawnerId`. That distinction matters — A.0b
+// measured FIVE separate places where `sourceSpawnerId === null` is overloaded to mean "is a
+// Voltkin", and adding a fourth type by riding that overload would have inherited Voltkin's
+// own-bond fallback, its phantom centre-repulse and its un-raidability all at once.
+// ⚠ This literal is SERIALIZED (`deserializeCreature` writes `type: s.type` with no whitelist), so
+// it forces a PROTOCOL_VERSION bump — the same class as 'lightningDrone', which bumped 13→14.
+export type CreatureType = 'voltkin' | 'chewer' | 'lightningDrone' | 'goblinMelee';
 
 /**
  * Full 4-state FSM per blueprint Q2. S25 only USES SPAWNING + DESPAWNING; SEEKING + ATTACKING
@@ -202,6 +212,24 @@ export interface Creature {
    * P1 adds ZERO wire surface and needs NO protocol bump (Council MF6).
    */
   targetCreatureId: CreatureId | null;
+  /**
+   * S139 P2 — the committed enemy PRIMITIVE for a structure-attacking creature (the goblin).
+   *
+   * A PARALLEL NULLABLE FIELD, deliberately, rather than widening `targetCreatureId` into a target
+   * union. That follows the shipped precedent standing two lines above: `Creature` already carries
+   * `targetBondId` AND `targetCreatureId` side by side, each independently serialized and hashed.
+   * Widening the existing field instead would have forced a new hash ENCODING (the projection uses
+   * `n()`, which expects a numeric id) and touched ~18 read/write sites for no behavioural gain.
+   *
+   * Why it is stored at all rather than re-derived: three separate sites need to agree on which shape
+   * the goblin is committed to — the SEEKING→ATTACKING range test, the attack-fire guard in the
+   * hostTick fan-out, and the strike itself. Re-deriving "nearest enemy primitive" independently in
+   * each could let them disagree within a single tick (a nearer shape appearing between the range
+   * test and the strike), which is precisely the class of drift that desyncs a host from its mirror.
+   *
+   * `null` for every existing creature type, so all three are byte-identical.
+   */
+  targetPrimitiveId: PrimitiveId | null;
   state: CreatureState;
   /** Ticks elapsed since entering current `state`. Resets on transition. */
   ticksInState: number;
@@ -318,6 +346,7 @@ export function makeCreature(
     targetPos: { x: args.targetPos.x, y: args.targetPos.y },
     targetBondId: null,
     targetCreatureId: null, // S103 #8 — set opportunistically (Voltkin) by the main.ts fan-out
+    targetPrimitiveId: null, // S139 P2 — set only for a structure-attacker (goblin)
     state: 'SPAWNING',
     ticksInState: 0,
     killCount: 0,

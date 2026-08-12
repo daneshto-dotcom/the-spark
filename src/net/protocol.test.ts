@@ -73,7 +73,7 @@ describe('S15 P2 — room code parsing', () => {
 
 describe('S22 P3 — parseNetMessage validator', () => {
   it('PROTOCOL_VERSION is 17 (S138 P2 bump from 16 — the keep ring moved to KEEP_RING_RADIUS 420; castleAnchor is a SHARED CONSTANT both peers compute from, so a stale peer would draw and hit-test every keep in the wrong place)', () => {
-    expect(PROTOCOL_VERSION).toBe(17);
+    expect(PROTOCOL_VERSION).toBe(18);
   });
 
   it('S102 #1 — RAID_CREATURE is an allowed CLIENT INTENT (a 1v1 joiner can raid an enemy chewer)', () => {
@@ -327,7 +327,7 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
     // S110 P4 — bumped 12→13 for HELGA's walk rework (serialized 'WALK' state + prevPos/walkTargetPos).
     // S113 Batch C — bumped 13→14 for the lightning-drone building (CreatureType lightningDrone + recipeId lightningHub).
     // S124 P1 — bumped 14→15 for host-migration D4 production-ON (MIGRATION_CLAIM live, epoch ≥ 1 semantics).
-    expect(PROTOCOL_VERSION).toBe(17);
+    expect(PROTOCOL_VERSION).toBe(18);
     expect(
       parseNetMessage({ kind: 'SOME_FUTURE_KIND', roster: [{ seat: 0, peerId: 'h', color: 1 }] }),
     ).toBeNull();

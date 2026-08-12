@@ -147,7 +147,9 @@ describe('CREATURE_CONFIGS lookup table', () => {
     // will fail at the new type's entry — that failure is the intentional
     // reminder to add the new XYZ_CONFIG to the table.
     const keys = Object.keys(CREATURE_CONFIGS).sort();
-    expect(keys).toEqual(['chewer', 'lightningDrone', 'voltkin']);
+    // S139 P2 — 'goblinMelee' added. This assertion is the runtime half of the
+    // Record<CreatureType,...> exhaustiveness guard and it fired exactly as designed.
+    expect(keys).toEqual(['chewer', 'goblinMelee', 'lightningDrone', 'voltkin']);
   });
 
   it('voltkin entry is === VOLTKIN_CONFIG (reference equality, not just deep-equal)', () => {

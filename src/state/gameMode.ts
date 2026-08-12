@@ -30,6 +30,7 @@ import {
 } from '../constants.ts';
 import { makeIdlePlayer, type Player } from '../game/player.ts';
 import { castleAnchor, makeGatherer } from './gatherers/gatherer.ts';
+import { applySpawnCreature } from './creatures/creatureLifecycle.ts';
 import { asGathererId, asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
 import type { GameMode, World } from './world.ts';
 import type { CreatureSpawner } from './spawners/spawner.ts';
@@ -262,7 +263,66 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   // gets exactly one unit at their own keep. 100 points against a 105 gatherer is deliberate: the
   // opening choice is "two speed upgrades now" vs "save toward a second hauler".
   seedStartingGatherers(world);
+  seedStartingUnits(world);
   return world;
+}
+
+/**
+ * S139 P2 — grant every seated player their FREE starter unit.
+ *
+ * Owner spec: *"each player starts with one goblin of every kind"*. This is the first per-player
+ * ENTITY grant in the game; before it, the only match-start grant of any kind was
+ * `STARTING_VICTORY_POINTS`.
+ *
+ * ## ⚠ THE DETERMINISM CONSTRAINT THAT SHAPES EVERY LINE BELOW
+ *
+ * This seeder does NOT run host-only. `clientHandlers.ts` has the JOINER dispatch its own local
+ * `START_GAME`, so **every peer mints these units itself** and the two must agree exactly. The
+ * existing gatherer seeder survives that only because it happens to use zero randomness and pure
+ * functions. So, deliberately:
+ *
+ *  - **No RNG.** Not `Math.random`, and not the seeded stream either — drawing from the seeded RNG
+ *    here would perturb draw ORDER for every later consumer, which is a documented desync class.
+ *  - **No wall-clock.** Position and tick come from `world`.
+ *  - **Position from `castleAnchor(seat)` only** — never from live roster size. `castleAnchor` divides
+ *    by `KEEP_RING_SEATS`, and its docblock records the exact bug from dividing by a roster count
+ *    instead: every keep moved the moment a player joined or dropped.
+ *  - **A UNIT, never a recipe or a primitive.** A tower-style grant would consume
+ *    `world.nextPrimitiveId` / `nextBondId`, and A.0b measured that divergence in those allocators is
+ *    PERMANENT on the joiner rather than self-correcting at the next snapshot.
+ *
+ * Minting goes through `applySpawnCreature` rather than constructing a `Creature` inline, so there
+ * stays exactly ONE mint path — the same principle this session applied to `damageEntity`. That
+ * reducer's per-(owner, type) population gate then makes this idempotent for free.
+ *
+ * The local `owns` check is a genuine guard here, unlike the gatherer seeder's: `applyStartGame`
+ * clears hunters, potatoes, bombs, rainbows, seagulls, poops and creatureSpawners but NOT
+ * `world.creatures`, so a re-applied START_GAME really can find a live goblin already present.
+ */
+function seedStartingUnits(world: World): void {
+  for (const pid of world.players.keys()) {
+    let owns = false;
+    for (const c of world.creatures.values()) {
+      if (c.ownerPlayerId === pid && c.type === 'goblinMelee') {
+        owns = true;
+        break;
+      }
+    }
+    if (owns) continue;
+    const anchor = castleAnchor(pid as unknown as number);
+    // Offset onto the porch side of the keep so the unit is not born inside the keep box.
+    const pos = { x: anchor.x, y: anchor.y + GATHERER_DEPOSIT_OFFSET_Y };
+    applySpawnCreature(world, {
+      type: 'SPAWN_CREATURE',
+      creatureType: 'goblinMelee',
+      ownerPlayerId: pid,
+      pos,
+      // Seeded with its birth position as the steering target; the hostTick structure-targeting
+      // branch overwrites this on its first SEEKING tick with the nearest enemy shape.
+      targetPos: { x: pos.x, y: pos.y },
+      sourceSpawnerId: null,
+    });
+  }
 }
 
 /** V6-1.2 — one gatherer + the opening point balance per seated player. Idempotent per seat. */

@@ -38,9 +38,10 @@
 import type { World } from '../world.ts';
 import { dispatch } from '../world.ts';
 import type { BondId, CreatureId, Vec2 } from '../../types.ts';
-import { bondMidpoint } from './creatureAI.ts';
+import { bondMidpoint, distSq } from './creatureAI.ts';
+import { getCreatureConfig } from './voltkin-config.ts';
 import { damageEntity } from '../damage.ts';
-import { CREATURE_HIT_DAMAGE } from '../../constants.ts';
+import { CREATURE_HIT_DAMAGE, GOBLIN_DAMAGE_VS_PRIMITIVE } from '../../constants.ts';
 
 /**
  * Action shape — exported for `world.ts` GameAction union composition.
@@ -119,6 +120,50 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
       end: arcEnd,
       creatureId: creature.id,
     });
+    return world;
+  }
+
+  // ── S139 P2 — STRUCTURE strike (goblin) ──────────────────────────────────────────────────
+  // Reached when the hostTick fan-out fired with `bondId: null` and no creature target, which for a
+  // structure-attacker means "hit the shape you are committed to". Ordered AFTER the creature branch
+  // above so a goblin under attack defends itself rather than ignoring an attacker to keep hitting a
+  // wall — that ordering is the whole reason the fan-out checks `targetCreatureId` first.
+  //
+  // NO NEW EFFECT KIND IS PUSHED, deliberately. A new `GameEffect` member costs four separate
+  // exhaustive switches (serializeEffect, deserializeEffect, effectLifetime, effectsRenderer.draw),
+  // and a one-shot effect is an unreliable client channel anyway: the 10 Hz snapshot samples
+  // `world.effects` while the renderer wipes it every frame, so it is lost ~5/6 of the time. The
+  // strike is already legible from SYNCED HELD STATE (ATTACKING + ticksInState + targetPos), and a
+  // LETHAL hit emits SEVER_ERASE from inside `damageEntity`. That is the shipped "state IS the event
+  // bus" ruling, and it keeps this feature at zero new wire surface.
+  const attackerConfig = getCreatureConfig(creature.type);
+  if (attackerConfig.targetsStructures && creature.targetPrimitiveId !== null) {
+    const prim = world.primitives.get(creature.targetPrimitiveId);
+    // The shape died between target selection and this fire tick (another goblin, a potato, a
+    // sever cascade). Release the commit; the FSM re-seeks next tick.
+    if (prim === undefined) {
+      creature.targetPrimitiveId = null;
+      return world;
+    }
+    // Range re-check at STRIKE time, not just at engage time: the goblin may have been pushed off
+    // by the physics solver during its windup, and a hit landing from out of range would read as a
+    // shape taking damage from nothing.
+    const reach = attackerConfig.attackRange * attackerConfig.attackRange;
+    if (distSq(creature.pos, prim.pos) > reach) return world;
+
+    // GOBLIN_DAMAGE_VS_PRIMITIVE is an INTEGER chosen so six strikes fell a full-hp shape
+    // (6 × 167 = 1002 ≥ PRIMITIVE_MAX_HP 1000) — the owner's "6 attacks". `damageEntity` throws on a
+    // fractional amount, so authoring this as PRIMITIVE_MAX_HP/6 would be a runtime crash.
+    const died = damageEntity(
+      world,
+      { kind: 'primitive', id: creature.targetPrimitiveId },
+      GOBLIN_DAMAGE_VS_PRIMITIVE,
+      'creature',
+    );
+    if (died) {
+      creature.killCount += 1;
+      creature.targetPrimitiveId = null; // commit released — re-seek next tick
+    }
     return world;
   }
 

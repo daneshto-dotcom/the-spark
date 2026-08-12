@@ -528,6 +528,15 @@ interface SerializedCreature {
    */
   readonly targetCreatureId?: CreatureId;
   /**
+   * S139 P2 — the goblin's committed enemy shape. Additive-optional: emitted ONLY when non-null, so
+   * every pre-goblin snapshot stays byte-identical and an older save deserializes to `null`.
+   * ⚠ NOT stripped from the wire. `trimMirrorCreature` strips `targetCreatureId` alone, and S133/S134
+   * had to UN-strip four creature fields after host-migration successors silently healed damaged
+   * creatures and re-detonated spent ones — so the default posture for a new gameplay-bearing field
+   * is "keep it on the wire" unless there is a measured reason not to.
+   */
+  readonly targetPrimitiveId?: PrimitiveId;
+  /**
    * S102 (unified HP model) — remaining creature hit-points.
    * ⚠ AMENDED S133 — this now RIDES THE WIRE. It was host-save-only and stripped by
    * trimMirrorCreature, which meant a host-migration successor took over with every
@@ -1504,6 +1513,7 @@ function serializeCreature(c: Creature): SerializedCreature {
     // S103 #8 — host-save-only; emit only when a Voltkin is mid-zap (non-null) so an idle/
     // no-creature world stays byte-identical to a pre-S103 save. Stripped from the wire.
     ...(c.targetCreatureId !== null ? { targetCreatureId: c.targetCreatureId } : {}),
+    ...(c.targetPrimitiveId !== null ? { targetPrimitiveId: c.targetPrimitiveId } : {}),
     // S102 — emit hp ONLY when damaged (below the per-type config default) so an undamaged
     // creature stays byte-identical to a pre-S102 save (every creature until P3 combat).
     ...(c.hp < getCreatureConfig(c.type).hp ? { hp: c.hp } : {}),
@@ -1773,6 +1783,7 @@ function deserializeCreature(s: SerializedCreature): Creature {
     // S103 #8 — host save carries a mid-zap Voltkin's creature target; the wire strips it so a
     // client mirror (+ pre-S103 save) rehydrates null (the client never runs the AI).
     targetCreatureId: s.targetCreatureId ?? null,
+    targetPrimitiveId: s.targetPrimitiveId ?? null,
     // ⚠ AMENDED S134 — the wire no longer strips this, so a mirror now rehydrates the
     // REAL parent spawner. `?? null` is correct for a genuine Voltkin (emitted only when
     // non-null, since absence here IS neutral) and for a pre-S134 peer. It is what

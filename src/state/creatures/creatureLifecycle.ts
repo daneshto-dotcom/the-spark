@@ -106,17 +106,51 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
     // (S100 P1, R10): count ONLY the `sourceSpawnerId == null` creatures so a live
     // chewer swarm (non-null population) can never block a Voltkin summon. Voltkin
     // path is otherwise byte-identical (same makeVoltkinCreature, same id mint).
+    // ⚠⚠ S139 P2 — TWO MEASURED BUGS FIXED HERE. Both were silent and neither was type-checkable.
+    //
+    // (1) THE GATE WAS TYPE-BLIND. It read `c.sourceSpawnerId === null && c.ownerPlayerId === owner`
+    //     and returned early — i.e. ONE null-spawner creature per player, of ANY type. The owner's
+    //     "each player starts with one goblin of every kind" means several null-spawner creatures per
+    //     player, so under the old gate the FIRST free goblin would make every later free-unit spawn
+    //     a silent no-op AND would permanently block that player's Voltkin summon for the whole
+    //     match. Now scoped per (owner, type), which preserves the original blueprint-Q10 invariant
+    //     ("max 1 Voltkin per owner") exactly while letting distinct free units coexist.
+    //
+    // (2) THE FACTORY IGNORED `action.creatureType`. `makeVoltkinCreature` was called
+    //     UNCONDITIONALLY on this branch, so `SPAWN_CREATURE{creatureType:'goblinMelee'}` with no
+    //     spawner would have spawned a VOLTKIN. tsc cannot catch that — the field is simply never
+    //     read — and no existing test covered it because 'voltkin' was the only value ever passed.
+    //
+    // The Voltkin path is deliberately left calling `makeVoltkinCreature` verbatim rather than
+    // routed through the generic factory, so its construction stays byte-identical and the replay
+    // guards (save.replay.test.ts) cannot shift.
     for (const c of world.creatures.values()) {
-      if (c.sourceSpawnerId === null && c.ownerPlayerId === action.ownerPlayerId) return world;
+      if (
+        c.sourceSpawnerId === null &&
+        c.ownerPlayerId === action.ownerPlayerId &&
+        c.type === action.creatureType
+      ) {
+        return world;
+      }
     }
     const id = asCreatureId(world.nextCreatureId++);
-    const creature = makeVoltkinCreature({
-      id,
-      ownerPlayerId: action.ownerPlayerId,
-      pos: action.pos,
-      targetPos: action.targetPos,
-      spawnedAtTick: world.tick,
-    });
+    const creature =
+      action.creatureType === 'voltkin'
+        ? makeVoltkinCreature({
+            id,
+            ownerPlayerId: action.ownerPlayerId,
+            pos: action.pos,
+            targetPos: action.targetPos,
+            spawnedAtTick: world.tick,
+          })
+        : makeCreature(getCreatureConfig(action.creatureType), {
+            id,
+            ownerPlayerId: action.ownerPlayerId,
+            pos: action.pos,
+            targetPos: action.targetPos,
+            spawnedAtTick: world.tick,
+            sourceSpawnerId: null,
+          });
     world.creatures.set(id, creature);
     return world;
   }
@@ -380,10 +414,24 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
   //    it while it has no structure in reach (Council MF3: opportunistic, never navigated to).
   //    `targetCreatureId` is set by the main.ts fan-out via `findNearestEnemyCreature`, which
   //    is range-gated to this creature's attackRange. Chewers never set it → byte-identical.
+  // S139 P2 — a STRUCTURE-ATTACKER (goblin) engages when its committed enemy SHAPE is within
+  // `attackRange`. `isWithinAttackRange` is bond-specific (it measures to a bond midpoint), so the
+  // shape test is written inline against the same squared-distance discipline. Ordered LAST in the
+  // condition so every shipped type short-circuits before evaluating it.
+  const structureInReach =
+    config.targetsStructures &&
+    creature.targetPrimitiveId !== null &&
+    (() => {
+      const prim = world.primitives.get(creature.targetPrimitiveId);
+      if (prim === undefined) return false;
+      return distSq(creature.pos, prim.pos) <= config.attackRange * config.attackRange;
+    })();
+
   if (
     creature.state === 'SEEKING' &&
     ((creature.targetBondId !== null && isWithinAttackRange(world, creature, creature.targetBondId)) ||
-      creature.targetCreatureId !== null)
+      creature.targetCreatureId !== null ||
+      structureInReach)
   ) {
     creature.state = 'ATTACKING';
     creature.ticksInState = 0;
@@ -488,13 +536,32 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
     const bondValid = creature.targetBondId !== null && world.bonds.has(creature.targetBondId);
     const creatureValid =
       creature.targetCreatureId !== null && world.creatures.has(creature.targetCreatureId);
+    // ⭐ S139 P2 — THE THIRD ARM, and the whole reason a real-physics test was mandatory.
+    //
+    // This is the same amendment S103 #8 made one line above for creature targets, applied to shapes.
+    // Without it a goblin was provably broken in a way NO state assertion would reveal: it reached
+    // ATTACKING correctly, but `bondValid` and `creatureValid` are both false for a structure
+    // attacker, so `targetGoneEarly` was TRUE on every tick from 0..attackFireTick and it bounced
+    // straight back to SEEKING before its strike could ever land. Traced live: the unit entered
+    // ATTACKING at tick 112 and `ticksInState` was still being reset to 0 at tick 320, with the
+    // target shape at full hp the whole time. It closed distance, played the approach, and did
+    // literally nothing — the exact "static-parses but never fires" shape as P1's dead dispatcher.
+    const primitiveValid =
+      creature.targetPrimitiveId !== null && world.primitives.has(creature.targetPrimitiveId);
     const targetGoneEarly =
-      creature.ticksInState <= config.attackFireTick && !bondValid && !creatureValid;
+      creature.ticksInState <= config.attackFireTick &&
+      !bondValid &&
+      !creatureValid &&
+      !primitiveValid;
     if (cadenceElapsed || targetGoneEarly) {
       creature.state = 'SEEKING';
       creature.ticksInState = 0;
       creature.targetBondId = null;
       creature.targetCreatureId = null; // S103 #8 — release the opportunistic creature target
+      // S139 P2 — release the shape commit too. Symmetry matters here: the hostTick structure branch
+      // re-selects every SEEKING tick anyway, and leaving a stale id on a creature that has bounced
+      // out would keep `primitiveValid` true against a shape it is no longer approaching.
+      creature.targetPrimitiveId = null;
     }
   }
 

@@ -41,6 +41,18 @@ import {
 } from './helpers';
 
 /**
+ * S139 P2 — the ONLY place a protocol version number is written in this file.
+ *
+ * `LOCAL_PROTO_V` must track src/net/protocol.ts's PROTOCOL_VERSION (kept as a literal on purpose:
+ * no e2e spec imports from src/, because that would drag protocol.ts's dependency graph into the
+ * Playwright process). `NEWER_PEER_V` is DERIVED so the newer-peer test can never again degrade
+ * into an older-peer test — the failure mode that survived two bumps behind a @quarantine-flaky
+ * tag that the gating lane grep-inverts, so nothing could go red.
+ */
+const LOCAL_PROTO_V = 18;
+const NEWER_PEER_V = LOCAL_PROTO_V + 1;
+
+/**
  * Open 2 independent browser contexts so each is its own WebRTC peer.
  * Helper returns { hostCtx, hostPage, joinerCtx, joinerPage }.
  *
@@ -639,13 +651,13 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
       // whole describe block is @quarantine-flaky and `npm run e2e:gating` grep-inverts that tag.
       // ⚠ DELIBERATELY A LITERAL, not an import: no e2e spec imports from src/, and pulling in
       // src/net/protocol.ts would drag its dependency graph into the Playwright process.
-      // ⛔ A FUTURE PROTOCOL_VERSION BUMP MUST UPDATE THIS LINE AND THE TWO BELOW.
-      expect(hostStatus).toContain('v15'); // local PROTOCOL_VERSION rendered
+      // ⛔ ON A PROTOCOL_VERSION BUMP, UPDATE `LOCAL_PROTO_V` AT THE TOP OF THIS FILE — one number,
+      //    and NEWER_PEER_V follows from it. Do not re-introduce loose literals here.
+      expect(hostStatus).toContain(`v${LOCAL_PROTO_V}`); // local PROTOCOL_VERSION rendered
       expect(hostStatus.toLowerCase()).toContain('older'); // "The other player's version is older"
 
       // Send-side-only + context-isolation: the joiner's REAL version is current
-      // (v15 — the override is send-side only), so it saw the host's matching
-      // HELLO(v15) and shows NO mismatch.
+      // (the override is send-side only), so it saw the host's matching HELLO and shows NO mismatch.
       const joinerStatus = await readLobbyStatus(joinerPage);
       expect(joinerStatus).not.toContain('Protocol mismatch');
     } finally {
@@ -654,7 +666,7 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
     }
   });
 
-  test('Newer-version joiner (v16): host shows "your version is older" branch', async ({ browser }) => {
+  test('Newer-version joiner (LOCAL+1): host shows "your version is older" branch', async ({ browser }) => {
     const hostCtx = await browser.newContext();
     const joinerCtx = await browser.newContext();
     try {
@@ -663,8 +675,14 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
       // the branch named in its own title — it would have taken the "other player's version is
       // older" arm instead. The override must stay STRICTLY GREATER than PROTOCOL_VERSION for
       // the newer-peer case to be the newer-peer case.
-      // ⛔ A FUTURE BUMP PAST 16 MUST RAISE THIS AND THE TWO LITERALS BELOW.
-      await joinerCtx.addInitScript({ content: 'window.__TEST_PROTO_VERSION_OVERRIDE__ = 16;' });
+      // S139 P2 — DERIVED, not a literal. This bug was already fixed once (S133 P2) and RECURRED
+      // anyway, because three hand-synced numbers in three places is not a maintainable invariant:
+      // by S139 the override was 16 against a host on 17, so a test titled "newer-version joiner"
+      // was quietly exercising the OLDER-peer branch. Deriving it from LOCAL_PROTO_V makes that
+      // inversion impossible by construction rather than merely warned against.
+      await joinerCtx.addInitScript({
+        content: `window.__TEST_PROTO_VERSION_OVERRIDE__ = ${NEWER_PEER_V};`,
+      });
       const hostPage = await hostCtx.newPage();
       const joinerPage = await joinerCtx.newPage();
 
@@ -672,12 +690,12 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
       await joinRoom(joinerPage, code);
       await waitForWorld(hostPage, (w) => w.peerCount >= 1, 'host sees joiner connected', 60_000);
 
-      await waitForRejected(hostPage, 1, 'host rejected the joiner v16 HELLO');
+      await waitForRejected(hostPage, 1, `host rejected the joiner v${NEWER_PEER_V} HELLO`);
 
-      // peerV (16) > local (15) → the "your version is older" advice branch.
+      // peerV (LOCAL+1) > local → the "your version is older" advice branch, by construction.
       const hostStatus = await readLobbyStatus(hostPage);
       expect(hostStatus).toContain('Protocol mismatch');
-      expect(hostStatus).toContain('v16');
+      expect(hostStatus).toContain(`v${NEWER_PEER_V}`);
       expect(hostStatus.toLowerCase()).toContain('your version is older');
     } finally {
       await hostCtx.close();

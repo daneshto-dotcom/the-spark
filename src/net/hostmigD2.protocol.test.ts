@@ -28,7 +28,7 @@ const validWarrant = { epoch: 0, seats: [{ seat: 1, spkiB64: 'pk' }], sigB64: 's
 
 describe('S118 P1 — D2 wire: HELLO clientPubkeyPopB64 (additive-optional)', () => {
   it('protocol version is 17 after the S138 P2 keep-ring bump (D2 itself added no wire-breaking field)', () => {
-    expect(PROTOCOL_VERSION).toBe(17);
+    expect(PROTOCOL_VERSION).toBe(18);
   });
 
   it('buildHello threads pubkey + PoP together; the message parses', () => {

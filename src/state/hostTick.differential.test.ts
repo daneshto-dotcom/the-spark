@@ -458,6 +458,16 @@ function buildScenarioWorld(scen: Scenario): World {
     }));
     const botSeats = Array.from({ length: scen.botCount }, (_, i) => i + 1);
     dispatch(world, { type: 'START_GAME', mode: 'bots', isHost: true, roster, botSeats });
+    // ⚠ S139 P2 — REMOVE the free starter goblins from this fixture, deliberately.
+    // `referenceHostTick` above is a FROZEN COPY of the pre-S119 host tick, so it cannot
+    // contain the structure-targeting branch a goblin needs. With goblins present the two
+    // implementations diverge the moment SPAWNING ends (tick 30) — which says nothing about
+    // whether the S119 refactor preserved behaviour, and that is the ONLY thing this gate is
+    // for. Note D3 (voltkin + chewer + drone fan-out) still passes untouched, which is the
+    // positive evidence that the new branch does not perturb the shipped creature paths.
+    // Goblin determinism is covered by its own same-world double-run test instead.
+    world.creatures.clear();
+    world.nextCreatureId = 0;
   } else {
     world.gameState = 'PLAYING';
   }

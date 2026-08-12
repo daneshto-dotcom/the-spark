@@ -46,6 +46,12 @@ import {
   VOLTKIN_HP,
   DRONE_LIFETIME_TICKS,
   DRONE_EXPLODE_RADIUS,
+  GOBLIN_ATTACK_CADENCE_TICKS,
+  GOBLIN_ATTACK_FIRE_TICK,
+  GOBLIN_ATTACK_RANGE,
+  GOBLIN_LIFETIME_TICKS,
+  GOBLIN_MAX_ACCEL,
+  GOBLIN_MELEE_HP,
 } from '../../constants.ts';
 
 /**
@@ -170,6 +176,22 @@ export interface CreatureConfig {
    * step the generic FSM. Voltkin/chewer = `false` (byte-identical — they never explode).
    */
   readonly selfExplode: boolean;
+  /**
+   * S139 P2 — THE STRUCTURE-ATTACKER DISCRIMINATOR (sibling of `selfExplode`).
+   *
+   * `true` ⇒ this creature navigates to and attacks the nearest enemy PRIMITIVE via
+   * `findNearestEnemyPrimitiveFrom` + `damageEntity({kind:'primitive'})`, instead of committing to a
+   * connector (chewer) or zapping a creature (Voltkin). `targetBondId` stays null for its whole life.
+   *
+   * ⚠ WHY THIS IS A CONFIG FLAG AND NOT A `sourceSpawnerId` TEST. A.0b measured five separate
+   * places where `sourceSpawnerId === null` is overloaded to mean "is a Voltkin": the target-mode
+   * selection (hostTick), the own-bond fallback (`enemyOnly`), the canvas-centre repulse
+   * (creatureVerlet), the raid gate (world.ts) and the population cap (creatureLifecycle). Riding
+   * that overload to add a fourth type would inherit all five behaviours silently. Adding a named
+   * flag is the same move S113 made for the drone, and it keeps every existing type byte-identical
+   * because all three are explicitly `false`.
+   */
+  readonly targetsStructures: boolean;
 }
 
 /**
@@ -199,6 +221,7 @@ export const VOLTKIN_CONFIG: CreatureConfig = {
   maxAccel: 200,
   hp: VOLTKIN_HP, // 2 — godly, takes 2 hits (S102 unified HP model)
   selfExplode: false, // a Voltkin zaps; it never self-detonates
+  targetsStructures: false, // a Voltkin targets connectors + creatures, never shapes
 };
 
 /**
@@ -256,6 +279,7 @@ export const CHEWER_CONFIG: CreatureConfig = {
   maxAccel: 120, // 200 (CREATURE_MAX_ACCEL) × hopSpeedMul 0.6
   hp: CHEWER_HP, // 1 — dies in a single hit (S102 unified HP model)
   selfExplode: false, // a chewer gnaws bonds; it never self-detonates
+  targetsStructures: false, // a chewer commits to a CONNECTOR, not a shape
 };
 
 /**
@@ -290,6 +314,51 @@ export const LIGHTNING_DRONE_CONFIG: CreatureConfig = {
   maxAccel: 240, // 200 (Voltkin) × 1.2
   hp: CHEWER_HP, // 1 — a single hit (raid/laser/slap/potato) shoots it down
   selfExplode: true, // THE drone discriminator
+  targetsStructures: false, // a drone detonates on a CONNECTOR
+};
+
+/**
+ * S139 P2 — GOBLIN (melee). The first FREE, NON-GODLY unit in SPARK, and the first creature that
+ * attacks STRUCTURES.
+ *
+ * Owner spec: *"each player starts with one goblin of every kind that either attack the closest
+ * enemy structure or each other. takes them 6 attacks to destroy a connector or a UNIT."*
+ *
+ * Shape of the behaviour, and why each field is what it is:
+ *  - `targetsStructures: true` — THE discriminator. Navigates to the nearest enemy PRIMITIVE
+ *    (`findNearestEnemyPrimitiveFrom`, enemy-only with NO own-shape fallback) and damages it through
+ *    `damageEntity`. `targetBondId` is never set.
+ *  - `chewHits: 0` — deliberately NOT the chewer path. A.0b measured that the chew branch
+ *    (`config.chewHits > 0`) handles ONLY bonds and bounces straight back to SEEKING when
+ *    `targetBondId` is null, so a chewHits>0 goblin would exit ATTACKING before ever reaching
+ *    `attackFireTick`. Zero routes it down the Voltkin ATTACKING→SEEKING cadence bounce, which is
+ *    exactly the repeat-swing rhythm a melee unit wants.
+ *  - `hp: GOBLIN_MELEE_HP` (6) — the owner's "6 attacks" on the CREATURE hp scale, where every
+ *    single-target hit deals CREATURE_HIT_DAMAGE (1). Its damage against a shape is the other scale
+ *    (GOBLIN_DAMAGE_VS_PRIMITIVE 167 × 6 = 1002 ≥ PRIMITIVE_MAX_HP), so one owner-visible rule holds
+ *    on both.
+ *  - `persistent: true` + a match-length lifetime — a granted starter unit that faded on a timer
+ *    would make "you start with one" meaningless a minute in.
+ *  - `attackRange` 35 = true melee: it closes ONTO the shape, like the chewer, rather than being
+ *    held off at Voltkin's ranged band.
+ */
+export const GOBLIN_MELEE_CONFIG: CreatureConfig = {
+  type: 'goblinMelee',
+  hp: GOBLIN_MELEE_HP,
+  lifetimeTicks: GOBLIN_LIFETIME_TICKS,
+  spawnTicks: 30, // 0.5 s materialize — a swarm-scale unit, not a 1 s godly reveal
+  despawningTicks: 30,
+  fadeTicks: 15,
+  attackRange: GOBLIN_ATTACK_RANGE,
+  attackCadenceTicks: GOBLIN_ATTACK_CADENCE_TICKS,
+  attackFireTick: GOBLIN_ATTACK_FIRE_TICK,
+  attackChargeEngageTick: 0, // no charge-up tell: it just swings
+  persistent: true,
+  chewHits: 0, // NOT the chew path — see the docblock above
+  hopSpeedMul: 0.7,
+  maxAccel: GOBLIN_MAX_ACCEL,
+  selfExplode: false,
+  targetsStructures: true, // THE goblin discriminator
 };
 
 /**
@@ -301,6 +370,7 @@ export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = 
   voltkin: VOLTKIN_CONFIG,
   chewer: CHEWER_CONFIG,
   lightningDrone: LIGHTNING_DRONE_CONFIG,
+  goblinMelee: GOBLIN_MELEE_CONFIG,
 };
 
 /**

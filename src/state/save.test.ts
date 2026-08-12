@@ -126,6 +126,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         targetPos: { x: 200, y: 500 },
         targetBondId: null,
         targetCreatureId: null,
+        targetPrimitiveId: null,
         state: 'SEEKING',
         ticksInState: 42,
         killCount: 0,
@@ -172,6 +173,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         targetPos: { x: 110, y: 210 },
         targetBondId: null,
         targetCreatureId: null,
+        targetPrimitiveId: null,
         state: 'DESPAWNING',
         ticksInState: 0,
         killCount: 3,
@@ -203,7 +205,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
       prevPos: { x: 100, y: 200 },
       targetPos: { x: 110, y: 210 },
       targetBondId: null,
-      targetCreatureId: 7 as unknown as import('../types.ts').CreatureId, // mid-zap, committed to creature 7
+      targetCreatureId: 7 as unknown as import('../types.ts').CreatureId, targetPrimitiveId: null, // mid-zap, committed to creature 7
       state: 'ATTACKING',
       ticksInState: 10,
       killCount: 0,
@@ -235,7 +237,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
     w1.creatures.set(CID, {
       id: CID, type: 'voltkin', ownerPlayerId: P1,
       pos: { x: 1, y: 2 }, prevPos: { x: 1, y: 2 }, targetPos: { x: 1, y: 2 },
-      targetBondId: null, targetCreatureId: null, state: 'SEEKING', ticksInState: 0,
+      targetBondId: null, targetCreatureId: null, targetPrimitiveId: null, state: 'SEEKING', ticksInState: 0,
       killCount: 0, spawnedAtTick: 0, despawnAtTick: 1200, sourceSpawnerId: null, chewProgress: 0, hp: 2,
     });
     expect(snapshot(w1).creatures?.[0].targetCreatureId).toBeUndefined();
@@ -254,6 +256,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         targetPos: { x: 110, y: 210 },
         targetBondId: null,
         targetCreatureId: null,
+        targetPrimitiveId: null,
         state: 'DESPAWNING',
         ticksInState: 0,
         killCount: 0,
@@ -308,6 +311,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         targetPos: { x: 60, y: 60 },
         targetBondId: null,
         targetCreatureId: null,
+        targetPrimitiveId: null,
         state: 'SPAWNING',
         ticksInState: 5,
         killCount: 0,
@@ -329,6 +333,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         targetPos: { x: 110, y: 110 },
         targetBondId: null,
         targetCreatureId: null,
+        targetPrimitiveId: null,
         state: 'SEEKING',
         ticksInState: 12,
         killCount: 0,

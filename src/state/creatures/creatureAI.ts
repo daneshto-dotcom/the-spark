@@ -33,7 +33,7 @@
 
 import type { Bond } from '../../physics/bonds.ts';
 import { PLAYER_COLORS } from '../../constants.ts';
-import type { BondId, CreatureId, PlayerId, Vec2 } from '../../types.ts';
+import type { BondId, CreatureId, PlayerId, PrimitiveId, Vec2 } from '../../types.ts';
 import type { World } from '../world.ts';
 import type { Creature } from './creature.ts';
 import { getCreatureConfig } from './voltkin-config.ts';
@@ -124,6 +124,59 @@ function isEnemyBondWithColor(world: World, ownerColor: number, bond: Bond): boo
   const primB = world.primitives.get(bond.bId);
   if (primA === undefined || primB === undefined) return false;
   return primA.placerColor !== ownerColor || primB.placerColor !== ownerColor;
+}
+
+/**
+ * S139 P2 — find the nearest enemy PRIMITIVE for a structure-targeting creature (the goblin).
+ *
+ * ## Why this is a new sibling rather than a generalisation of the bond scan
+ *
+ * The owner ruled that goblins target "the nearest enemy primitive with hp". `findNearestBondTarget`
+ * cannot be widened to serve that: it is `BondId`-returning and iterates `world.bonds`, and its
+ * locomotion/selection output is a REPLAY-EQUIVALENCE GUARD for Voltkin (creatureAI.test.ts,
+ * hostTick.differential.test.ts and save.replay.test.ts all pin byte-identical Voltkin behaviour).
+ * Refactoring it into a generic scan would perturb that guarded path for zero benefit, so this is a
+ * deliberate ~30-line sibling. Same shape, same disciplines:
+ *
+ * - Owner colour resolved ONCE (`creatureOwnerColor`), then a pure colour compare per primitive —
+ *   the §3.4 R7 perf mitigation, not re-resolved in the hot loop.
+ * - `placerColor` is the enemy discriminant, matching `isEnemyBondWithColor` exactly. NOT
+ *   `ownerColor`: a territory-captured primitive keeps its original allegiance for targeting, which
+ *   is the shipped semantics for bonds and must not silently differ for primitives.
+ * - Tie-break on the lower `PrimitiveId`, so selection is deterministic across peers regardless of
+ *   Map insertion order.
+ * - **ENEMY-ONLY, with no own-target fallback.** This is the R8 lesson applied one family over: the
+ *   Voltkin's `bestEnemyId ?? bestOwnId` fallback is a *Voltkin feature*, and inheriting it here
+ *   would have goblins demolish their own player's shapes the moment no enemy shape existed. With
+ *   no enemy primitive this returns null and the goblin idles harmlessly.
+ * - `hp > 0` is required, per the owner's phrasing. Belt-and-braces: `damageEntity` already razes a
+ *   primitive at hp ≤ 0 so a live zero-hp primitive should not exist, but asserting it here means a
+ *   goblin can never commit to a corpse mid-raze.
+ *
+ * Pure. Does not mutate world or creature.
+ */
+export function findNearestEnemyPrimitiveFrom(
+  world: World,
+  creature: Creature,
+): PrimitiveId | null {
+  let bestId: PrimitiveId | null = null;
+  let bestDistSq = Infinity;
+  const ownerColor = creatureOwnerColor(world, creature);
+
+  for (const [primId, prim] of world.primitives) {
+    if (prim.placerColor === ownerColor) continue; // never your own builder's shapes
+    if (prim.hp <= 0) continue;
+    const dSq = distSq(creature.pos, prim.pos);
+    if (
+      dSq < bestDistSq ||
+      (dSq === bestDistSq &&
+        (bestId === null || (primId as unknown as number) < (bestId as unknown as number)))
+    ) {
+      bestDistSq = dSq;
+      bestId = primId;
+    }
+  }
+  return bestId;
 }
 
 /**

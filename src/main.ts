@@ -142,6 +142,7 @@ import { makeCinematicVignette } from './render/cinematicVignette.ts';
 import type { CodexOverlay } from './render/codexOverlay.ts';
 import { CreatureRenderer } from './render/creatureRenderer.ts';
 import { ChewerRenderer } from './render/chewerRenderer.ts';
+import { GoblinRenderer } from './render/goblinRenderer.ts';
 import { TurretRenderer } from './render/turretRenderer.ts';
 import { PrincessRenderer } from './render/princessRenderer.ts';
 import { SpawnerZoneRenderer } from './render/spawnerZoneRenderer.ts';
@@ -494,6 +495,9 @@ async function bootstrap(): Promise<void> {
   // pencil sketch + physics-driven hop); creatureRenderer keeps Voltkin. Both drain world.creatures
   // partitioned by creature.type. aboveFogLayer for the same cross-player-reach fog rule.
   const chewerRenderer = new ChewerRenderer(app, aboveFogLayer);
+  // S139 P2 — the goblin needs its OWN renderer: both shipped creature renderers are
+  // exclusion filters and there is no registry, so a 4th CreatureType draws nothing.
+  const goblinRenderer = new GoblinRenderer(app, aboveFogLayer);
   // S103 P3/P4 — turret + (P4) HELGA defenders render above the fog (cross-player reach, like chewers).
   const turretRenderer = new TurretRenderer(app, aboveFogLayer);
   const princessRenderer = new PrincessRenderer(app, aboveFogLayer);
@@ -1617,6 +1621,7 @@ async function bootstrap(): Promise<void> {
         // title-return (reducer teardownSpawners clears creatureSpawners and the
         // chewers; this closes the one-frame orphan window + resets the hop phase).
         chewerRenderer.clear();
+        goblinRenderer.clear();
         // S103 P3 — drop turret graphics + per-turret SFX-edge state on title-return.
         turretRenderer.clear();
         // S103 P4 — drop HELGA graphics + per-princess facing/SFX state on title-return.
@@ -2514,6 +2519,7 @@ async function bootstrap(): Promise<void> {
     creatureRenderer.sync(world);
     // S100 P1 (TD Phase 1a) — chewer pencil-sketch + physics hop. Cheap when no chewer is live.
     chewerRenderer.sync(world);
+    goblinRenderer.sync(world);
     // S103 P3 — laser-turret defenders (charge/beam off synced state). Cheap when none live.
     turretRenderer.sync(world);
     // S103 P4 — HELGA princess defenders (articulated slap rig off synced state). Cheap when none live.
