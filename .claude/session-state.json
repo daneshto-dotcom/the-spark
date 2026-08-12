@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 527,
+  "tool_calls_session_total": 534,
   "session_id": "S140",
   "session_kind": "batch",
   "session_start": "2026-08-11",
@@ -382,9 +382,9 @@
     "runtime_verifiability_boot_then_smoke": "THE decisive question for this session, given the headline A.0 finding was a whole subsystem that static-parsed perfectly and was never called. Static parsing is NOT validation here. Mandatory runtime gates before any priority is marked complete: (1) a REAL-PHYSICS acceptance test that runs the actual physics loop and asserts the goblin closes distance and the target primitive's hp actually decreases - a state-only assertion is not evidence (S136); (2) PHYSICS_DT imported from physicsLoop.ts, never re-derived, because constants.ts does not export it and a test once silently ran on NaN (S138); (3) an explicit assertion that damageEntity now HAS production call sites, i.e. the exact grep that exposed the dead substrate becomes a permanent test; (4) LOOK AT THE RENDER - a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches, and no state assertion can see 'nothing was drawn'.",
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
-  "real_context_tokens_at_close": 329159,
+  "real_context_tokens_at_close": 365000,
   "real_context_pct_at_close": 32.92,
-  "checkpoint_commit": "55894e37",
+  "checkpoint_commit": "443b8ee7",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean — 917 commits scanned, no leaks found (2026-08-12)",
@@ -417,7 +417,7 @@
     "prime_audit_verdict": "ADOPT_WITH_DELTA",
     "owner_override": "A (cap 7 + laserTurret 8->7) — ruled by owner against 5-0 advice"
   },
-  "deploy_verified_s140": "verify-deploy PASS 4/4 — run 31623126653 success, LIVE asset index-C7ThMkRL.js hash-equal to local build",
+  "deploy_verified_s140": "verify-deploy PASS 4/4 at 443b8ee7 (run 31624225002 success). Bundle hash UNCHANGED (index-C7ThMkRL.js) across the close commit, confirming it was comment-only.",
   "council_deviation_s140": "Council v1 (10 agents) died ENTIRELY on a spend limit after burning 461K subagent tokens and wrote ZERO results — journal.jsonl held only 'started' lines, so unlike S139 nothing was recoverable. Re-ran as a leaner v2 (8 agents) once the limit reset, sharpened with primary sources I had dug up by hand in the interim. Stated as a deviation: the v1 spend was pure loss.",
   "prime_audit_s140": {
     "verdict": "ADOPT_WITH_DELTA — 2 CRITICAL + 4 MAJOR found in the Council synthesis",
