@@ -1,9 +1,14 @@
 /**
  * SPARK — S103 P3 (#9) laser-turret recipe tests.
  *
- * Covers the strict 1-Line + 7-Spiral-leaf star predicate (reject 6 / 8 leaves, a non-Spiral leaf,
+ * Covers the strict 1-Line + 6-Spiral-leaf star predicate (reject 5 / 7 leaves, a non-Spiral leaf,
  * a leaf bonded elsewhere, an extra attached shape), the buildable-anchor scan (skips already-live
  * defenders + ascending-id determinism), and that the predicate yields the Line as the anchor/pos.
+ *
+ * ⚠ S140 P1 — THE LEAF COUNT MOVED 7 → 6 (owner retune, so the recipe fits CASTLE_BANK_CAP 7). The
+ * counts below are bound to the recipe's exported TURRET_HUB_DEGREE wherever the number is the thing
+ * under test, so a future retune does not require rewriting this file — which is exactly the drift
+ * that made the S140 retune expensive.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -21,7 +26,13 @@ import {
 } from '../../types.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import type { Bond } from '../../physics/bonds.ts';
-import { isLaserTurretComponent, laserTurretPredicate } from './laserTurret.ts';
+import {
+  isLaserTurretComponent,
+  laserTurretPredicate,
+  TURRET_HUB_DEGREE,
+  TURRET_SIZE,
+} from './laserTurret.ts';
+import { HELGA_SIZE } from './princessHelga.ts';
 import { findDefenderMatches } from './index.ts';
 import { applyDefenderTick, applyRegisterDefender } from '../defenders/defenderLifecycle.ts';
 import { getDefenderConfig } from '../defenders/defender.ts';
@@ -63,32 +74,52 @@ function buildTurret(w: World, lineId: number, leaves: number, leafType: SparkTy
   return hub.id;
 }
 
-describe('isLaserTurretComponent — strict 1-Line + 7-Spiral-leaf star', () => {
-  it('accepts exactly 1 Line(deg7) + 7 Spiral leaves', () => {
+describe('isLaserTurretComponent — strict 1-Line + 6-Spiral-leaf star', () => {
+  it('accepts exactly 1 Line + TURRET_HUB_DEGREE Spiral leaves', () => {
     const w = setup();
-    const line = buildTurret(w, 1, 7);
+    const line = buildTurret(w, 1, TURRET_HUB_DEGREE);
     expect(isLaserTurretComponent(w, line)).toBe(true);
   });
 
-  it('rejects 6 leaves (degree 6) and 8 leaves (degree 8)', () => {
-    const w6 = setup();
-    expect(isLaserTurretComponent(w6, buildTurret(w6, 1, 6))).toBe(false);
-    const w8 = setup();
-    expect(isLaserTurretComponent(w8, buildTurret(w8, 1, 8))).toBe(false);
+  it('rejects one leaf FEWER and one leaf MORE than the gate (no tolerance either side)', () => {
+    const wLow = setup();
+    expect(isLaserTurretComponent(wLow, buildTurret(wLow, 1, TURRET_HUB_DEGREE - 1))).toBe(false);
+    const wHigh = setup();
+    expect(isLaserTurretComponent(wHigh, buildTurret(wHigh, 1, TURRET_HUB_DEGREE + 1))).toBe(false);
+  });
+
+  it('⛔ THE S140 TRAP: a SEVENTH spiral — what the old copy told players to build — is REJECTED', () => {
+    // This is the regression witness for "builds at six, dies at seven". Before S140 this was the
+    // accept case. It is now the reject case, and the gate has no upper tolerance, so a player
+    // following stale copy would watch the host tear the turret down within 0.5 s. Any codex text
+    // still saying seven is a trap — codexPresentation.test.ts asserts none survives.
+    const w = setup();
+    expect(isLaserTurretComponent(w, buildTurret(w, 1, 7))).toBe(false);
+  });
+
+  it('does NOT collide with HELGA, which now shares its size AND hub degree', () => {
+    // S140 P1 compressed the ladder: laserTurret and princessHelga are both 7 prims with a degree-6
+    // hub. Hub TYPE is the whole separation now, so pin it from both directions.
+    expect(TURRET_SIZE).toBe(HELGA_SIZE);
+    const w = setup();
+    const tri = addPrim(w, 1, SparkType.Triangle, 200, 200);
+    for (let i = 0; i < 3; i++) bond(w, 100 + i, tri, addPrim(w, 200 + i, SparkType.Spiral, 230, 200 + i));
+    for (let i = 0; i < 3; i++) bond(w, 110 + i, tri, addPrim(w, 210 + i, SparkType.Circle, 170, 200 + i));
+    expect(isLaserTurretComponent(w, tri.id)).toBe(false); // a Helga is never a turret
   });
 
   it('rejects when a leaf is the wrong type (a Circle instead of a Spiral)', () => {
     const w = setup();
     const hub = addPrim(w, 1, SparkType.Line, 200, 200);
-    for (let i = 0; i < 6; i++) bond(w, 100 + i, hub, addPrim(w, 200 + i, SparkType.Spiral, 230, 200 + i));
-    bond(w, 199, hub, addPrim(w, 299, SparkType.Circle, 170, 200)); // 7th leaf is a Circle
+    for (let i = 0; i < 5; i++) bond(w, 100 + i, hub, addPrim(w, 200 + i, SparkType.Spiral, 230, 200 + i));
+    bond(w, 199, hub, addPrim(w, 299, SparkType.Circle, 170, 200)); // 6th leaf is a Circle
     expect(isLaserTurretComponent(w, hub.id)).toBe(false);
   });
 
-  it('rejects an EXTRA attached shape (a leaf bonded to an external prim grows the component past 8)', () => {
+  it('rejects an EXTRA attached shape (a leaf bonded to an external prim grows the component past 7)', () => {
     const w = setup();
-    const line = buildTurret(w, 1, 7);
-    // Attach an external Dot to one leaf → the component grows to 9 → size mismatch → reject.
+    const line = buildTurret(w, 1, TURRET_HUB_DEGREE);
+    // Attach an external Dot to one leaf → the component grows past TURRET_SIZE → reject.
     const leaf = w.primitives.get(asPrimitiveId(101))!;
     bond(w, 9999, leaf, addPrim(w, 5000, SparkType.Dot, 260, 260));
     expect(isLaserTurretComponent(w, line)).toBe(false);
@@ -96,9 +127,9 @@ describe('isLaserTurretComponent — strict 1-Line + 7-Spiral-leaf star', () => 
 
   it('TOLERATES inter-leaf auto-bonds (Council CHECK — fixes the dense-7-leaf silent no-build)', () => {
     const w = setup();
-    const line = buildTurret(w, 1, 7);
+    const line = buildTurret(w, 1, TURRET_HUB_DEGREE);
     // AUTO_BOND can bond two adjacent Spiral leaves together → a leaf of degree 2, but still
-    // 8 prims / hub degree 7 / all Spirals → it IS a valid turret (was a frequent silent no-build).
+    // TURRET_SIZE prims / hub at TURRET_HUB_DEGREE / all Spirals → it IS a valid turret.
     const a = w.primitives.get(asPrimitiveId(101))!;
     const b = w.primitives.get(asPrimitiveId(102))!;
     bond(w, 8888, a, b);
@@ -115,7 +146,7 @@ describe('isLaserTurretComponent — strict 1-Line + 7-Spiral-leaf star', () => 
 describe('laserTurretPredicate', () => {
   it('yields the Line as the anchor + its pos', () => {
     const w = setup();
-    buildTurret(w, 1, 7);
+    buildTurret(w, 1, TURRET_HUB_DEGREE);
     const match = laserTurretPredicate(w, { x: 0, y: 0 });
     expect(match).not.toBeNull();
     expect(match!.anchorPrimitiveId).toBe(asPrimitiveId(1));
@@ -125,7 +156,7 @@ describe('laserTurretPredicate', () => {
 
   it('skips an anchor that is already a live defender (no double-build; rebuild after removal)', () => {
     const w = setup();
-    buildTurret(w, 1, 7);
+    buildTurret(w, 1, TURRET_HUB_DEGREE);
     // Mark the Line as already a live defender → predicate must skip it (returns null, no 2nd turret).
     w.defenders.set(asDefenderId(0), {
       id: asDefenderId(0), kind: 'turret', ownerPlayerId: P0, anchorPrimitiveId: asPrimitiveId(1),
@@ -138,7 +169,7 @@ describe('laserTurretPredicate', () => {
 
   it('end-to-end: geometry → findDefenderMatches → REGISTER_DEFENDER → the turret FIRES + kills a chewer', () => {
     const w = setup();
-    buildTurret(w, 1, 7);
+    buildTurret(w, 1, TURRET_HUB_DEGREE);
     w.players.set(asPlayerId(1), makeIdlePlayer(asPlayerId(1), PLAYER_COLORS[1]));
     const chewer = makeCreature(CHEWER_CONFIG, {
       id: asCreatureId(70), ownerPlayerId: asPlayerId(1),

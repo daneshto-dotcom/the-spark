@@ -28,7 +28,11 @@ import type { PlayerId, PrimitiveId } from '../../types.ts';
 import type { DefenderGodlyRecipe, DefenderRecipePredicate } from './types.ts';
 import { registerRecipe } from './index.ts';
 
-const HELGA_SIZE = 7; // 1 Triangle hub + 3 Spiral + 3 Circle leaves
+/**
+ * S140 P1 — exported so `castleBank.test.ts` can pin the RELATIONSHIP between the bank cap and the
+ * recipe ladder rather than the cap's literal value ("pin the relationship, not the value").
+ */
+export const HELGA_SIZE = 7; // 1 Triangle hub + 3 Spiral + 3 Circle leaves
 const HUB_DEGREE = 6;
 const SPIRAL_LEAVES = 3; // 3 Warped Anchors
 const CIRCLE_LEAVES = 3; // 3 Stars (unordered {Triangle,Circle} type-set)

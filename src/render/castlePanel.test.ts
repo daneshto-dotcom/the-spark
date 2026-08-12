@@ -19,7 +19,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  CASTLE_BANK_CAP,
   GATHERER_MAX_SPEED_LEVEL,
   GATHERER_PRICE,
   GATHERER_SPEED_UPGRADE_PRICE,
@@ -31,11 +33,20 @@ import { castleAnchor, makeGatherer } from '../state/gatherers/gatherer.ts';
 import { makeWorld, type World } from '../state/world.ts';
 import { asGathererId, asPlayerId } from '../types.ts';
 import {
+  bankRowCount,
+  bankSlotsPerRow,
+  bankSlotsPerRowSpread,
+  bankStripHeight,
   castleControlsModel,
+  PANEL_W,
   panelOrigin,
   panelRect,
   ROW_FONT_ADVANCE,
   ROW_INNER_W,
+  SLOT_GAP,
+  SLOT_H,
+  SLOT_W,
+  slotOrigin,
 } from './castlePanel.ts';
 
 const P0 = asPlayerId(0);
@@ -219,6 +230,10 @@ describe('S136 P0 — panelOrigin / panelRect geometry', () => {
       expect(r.x, `seat ${seat} left`).toBeGreaterThanOrEqual(0);
       expect(r.y, `seat ${seat} top`).toBeGreaterThanOrEqual(0);
       expect(r.x + r.w, `seat ${seat} right`).toBeLessThanOrEqual(CANVAS_WIDTH);
+      // ⚠ S140 P1 — THE MISSING FOURTH SIDE. This sweep shipped asserting three edges. HEIGHT is
+      // precisely the dimension a bank-strip regrid grows (52 -> 98 at cap 7), so the one test that
+      // looks like it guards the panel envelope was blind to this entire change class.
+      expect(r.y + r.h, `seat ${seat} bottom`).toBeLessThanOrEqual(CANVAS_HEIGHT);
     }
   });
 
@@ -242,5 +257,164 @@ describe('S136 P0 — panelOrigin / panelRect geometry', () => {
     expect(panelRect(panelOrigin(400, 540, 4), 4).h).toBeGreaterThan(
       panelRect(panelOrigin(400, 540, 2), 2).h,
     );
+  });
+});
+
+/**
+ * S140 P1 — THE BANK STRIP. This block did not exist, and its absence is the finding.
+ *
+ * ⚠ WHY IT MATTERS THAT THIS WAS EMPTY. The shipped S136 strip was ONE row of `CASTLE_BANK_CAP`
+ * slots, so its width grew with the cap without bound. At cap 7 that is 316 px inside a 268 px plate:
+ * `slotOrigin(0)` returned **x = -24** and the row hung 24 px off both edges. Every test in this file
+ * stayed green, because not one of them touched a slot. The owner's cap raise would have shipped a
+ * visibly broken panel with a clean CI run — the exact "perfect, tested, and never called" shape this
+ * repo keeps re-learning, in its layout form.
+ *
+ * These are SWEPT INVARIANTS, not pinned values: the standing lesson is "pin the relationship, not the
+ * value", so raising the cap again must never require editing this block. I1 is the one that goes red
+ * against the pre-S140 code.
+ */
+describe('S140 P1 — bank strip geometry, swept across caps', () => {
+  const CAPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 15, 20] as const;
+  const PANEL_PAD = (PANEL_W - ROW_INNER_W) / 2;
+
+  it('I1 — every slot sits INSIDE the plate, at every cap (the -24px overflow guard)', () => {
+    for (const cap of CAPS) {
+      for (let i = 0; i < cap; i++) {
+        const o = slotOrigin(i, cap);
+        expect(o.x, `cap ${cap} slot ${i} left`).toBeGreaterThanOrEqual(PANEL_PAD);
+        expect(o.x + SLOT_W, `cap ${cap} slot ${i} right`).toBeLessThanOrEqual(PANEL_W - PANEL_PAD);
+      }
+    }
+  });
+
+  it('I1b — WITNESS: the pre-S140 single-row formula genuinely fails I1 at cap 7', () => {
+    // ⚠ PROVE THE GUARD, DON'T READ IT. An invariant that has never been red is a wish. This
+    // reproduces the exact shipped S136 arithmetic and shows it puts slot 0 at x = -24 — 24 px
+    // outside the plate — which is what I1 now forbids. If someone "simplifies" slotOrigin back to a
+    // single row, I1 fails and this test explains why.
+    const cap = 7;
+    const oldTotal = cap * SLOT_W + (cap - 1) * SLOT_GAP;
+    const oldLeft = (PANEL_W - oldTotal) / 2;
+    expect(oldTotal).toBe(316);
+    expect(oldLeft).toBe(-24);
+    expect(oldLeft).toBeLessThan(PANEL_PAD); // the violation I1 catches
+    // …and the derived layout puts that same slot back inside the plate.
+    expect(slotOrigin(0, cap).x).toBeGreaterThanOrEqual(PANEL_PAD);
+  });
+
+  it('I2 — every slot sits inside the strip its own height reserves', () => {
+    for (const cap of CAPS) {
+      const stripTop = PANEL_PAD + 26; // TITLE_H
+      for (let i = 0; i < cap; i++) {
+        const o = slotOrigin(i, cap);
+        expect(o.y, `cap ${cap} slot ${i} top`).toBeGreaterThanOrEqual(stripTop);
+        expect(o.y + SLOT_H, `cap ${cap} slot ${i} bottom`).toBeLessThanOrEqual(
+          stripTop + bankStripHeight(cap),
+        );
+      }
+    }
+  });
+
+  it('I3 — no two slots overlap, at any cap', () => {
+    for (const cap of CAPS) {
+      const rects = Array.from({ length: cap }, (_, i) => slotOrigin(i, cap));
+      for (let a = 0; a < rects.length; a++) {
+        for (let b = a + 1; b < rects.length; b++) {
+          const ra = rects[a]!;
+          const rb = rects[b]!;
+          const disjoint =
+            ra.x + SLOT_W <= rb.x ||
+            rb.x + SLOT_W <= ra.x ||
+            ra.y + SLOT_H <= rb.y ||
+            rb.y + SLOT_H <= ra.y;
+          expect(disjoint, `cap ${cap}: slot ${a} overlaps slot ${b}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('I4 — ZERO DEAD BOXES: rows hold exactly `cap` slots between them', () => {
+    // A fixed 4-wide grid at cap 7 renders 8 boxes for 7 slots. Spreading + per-row centring means the
+    // number of drawn boxes always equals the cap exactly.
+    for (const cap of CAPS) {
+      const rows = bankRowCount(cap);
+      const per = bankSlotsPerRowSpread(cap);
+      const lastRow = cap - (rows - 1) * per;
+      expect(lastRow, `cap ${cap} last row count`).toBeGreaterThanOrEqual(1);
+      expect(lastRow, `cap ${cap} last row count`).toBeLessThanOrEqual(per);
+      expect(per, `cap ${cap} per-row fits the plate`).toBeLessThanOrEqual(bankSlotsPerRow(cap));
+    }
+  });
+
+  it('I5 — each row is centred on its OWN occupancy, so a short last row is not left-aligned', () => {
+    // cap 7 = a 4-slot row above a 3-slot row; the narrower row must start further right.
+    const rowTop = slotOrigin(0, 7);
+    const rowBottom = slotOrigin(4, 7);
+    expect(rowBottom.y).toBeGreaterThan(rowTop.y);
+    expect(rowBottom.x).toBeGreaterThan(rowTop.x);
+    // And it is genuinely centred: left margin === right margin.
+    const leftMargin = rowBottom.x;
+    const rightMargin = PANEL_W - (rowBottom.x + 3 * SLOT_W + 2 * SLOT_GAP);
+    expect(leftMargin).toBeCloseTo(rightMargin, 5);
+  });
+
+  it('I6 — panelHeight ACCOUNTS for the strip: a taller strip makes a taller panel', () => {
+    const twoRowCap = 7;
+    expect(bankRowCount(twoRowCap)).toBe(2);
+    expect(panelRect(panelOrigin(400, 540, 2, twoRowCap), 2, twoRowCap).h).toBeGreaterThan(
+      panelRect(panelOrigin(400, 540, 2, 5), 2, 5).h,
+    );
+    expect(bankStripHeight(7) - bankStripHeight(5)).toBe(SLOT_H + SLOT_GAP);
+  });
+
+  it('I7 — the panel still fits the canvas for EVERY seat at EVERY cap', () => {
+    for (const cap of CAPS) {
+      for (let seat = 0; seat < KEEP_RING_SEATS; seat++) {
+        const a = castleAnchor(seat);
+        const r = panelRect(panelOrigin(a.x, a.y, 2, cap), 2, cap);
+        expect(r.x, `cap ${cap} seat ${seat} left`).toBeGreaterThanOrEqual(0);
+        expect(r.y, `cap ${cap} seat ${seat} top`).toBeGreaterThanOrEqual(0);
+        expect(r.x + r.w, `cap ${cap} seat ${seat} right`).toBeLessThanOrEqual(CANVAS_WIDTH);
+        expect(r.y + r.h, `cap ${cap} seat ${seat} bottom`).toBeLessThanOrEqual(CANVAS_HEIGHT);
+      }
+    }
+  });
+
+  it('I8 — slot index round-trips: a point in slot i resolves back to i, at every cap', () => {
+    // This is the assertion that binds the DRAW geometry to the CLICK geometry. The renderer sets each
+    // box position from slotOrigin(i) and Pixi hit-tests the box, so if the two ever disagreed the
+    // player would pull the wrong shape — silent, and invisible to a state assertion.
+    for (const cap of CAPS) {
+      for (let i = 0; i < cap; i++) {
+        const o = slotOrigin(i, cap);
+        const cx = o.x + SLOT_W / 2;
+        const cy = o.y + SLOT_H / 2;
+        let hit = -1;
+        for (let j = 0; j < cap; j++) {
+          const p = slotOrigin(j, cap);
+          if (cx >= p.x && cx <= p.x + SLOT_W && cy >= p.y && cy <= p.y + SLOT_H) hit = j;
+        }
+        expect(hit, `cap ${cap} slot ${i} round-trip`).toBe(i);
+      }
+    }
+  });
+
+  it('I9 — the SHIPPED cap is laid out sanely (whatever it currently is)', () => {
+    expect(bankRowCount(CASTLE_BANK_CAP)).toBeGreaterThanOrEqual(1);
+    for (let i = 0; i < CASTLE_BANK_CAP; i++) {
+      const o = slotOrigin(i);
+      expect(o.x, `shipped cap slot ${i}`).toBeGreaterThanOrEqual(PANEL_PAD);
+      expect(o.x + SLOT_W).toBeLessThanOrEqual(PANEL_W - PANEL_PAD);
+    }
+  });
+
+  it('I10 — cap 5 is BYTE-IDENTICAL to the pre-S140 single-row layout', () => {
+    // The regrid must be a provable no-op at the old cap, so it could ship before the cap moved.
+    expect(bankRowCount(5)).toBe(1);
+    expect(bankStripHeight(5)).toBe(52);
+    for (let i = 0; i < 5; i++) {
+      expect(slotOrigin(i, 5)).toEqual({ x: 22 + i * 46, y: 36 });
+    }
   });
 });

@@ -26,6 +26,11 @@ import type { CinematicGodlyRecipe, RecipePredicate } from './types.ts';
 import type { PrimitiveId } from '../../types.ts';
 import { registerRecipe } from './index.ts';
 
+/**
+ * S140 P1 — exported so the bank-cap tests can pin "Voltkin still requires staging" against the real
+ * chain length instead of a hand-copied 8 ("pin the relationship, not the value").
+ */
+export const VOLTKIN_SIZE = 8;
 const EXPECTED_CHAIN: ReadonlyArray<SparkType> = [
   SparkType.Square,
   SparkType.Square,

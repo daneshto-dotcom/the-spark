@@ -73,10 +73,53 @@ const TITLE_H = 26;
  * by one"). Slots are shown even when empty so the cap is legible at a glance — the player can see
  * that five is all they get, which is the strategic pressure the cap exists to create.
  */
-const SLOT_W = 40;
-const SLOT_H = 40;
-const SLOT_GAP = 6;
-const BANK_STRIP_H = SLOT_H + 12;
+export const SLOT_W = 40;
+export const SLOT_H = 40;
+export const SLOT_GAP = 6;
+/** Breathing room under the last slot row. Kept at 12 so cap 5 stays pixel-identical to S136 P1. */
+const STRIP_PAD_BOTTOM = 12;
+
+/**
+ * S140 P1 — HOW MANY SLOTS FIT ONE ROW. **Derived from the panel, never from the cap.**
+ *
+ * ⚠ THIS IS THE WHOLE POINT OF THE S140 REGRID. The shipped S136 layout laid the bank out as ONE row
+ * of `CASTLE_BANK_CAP` slots, so the strip's width was a function of the cap with no upper bound. At
+ * cap 7 that is `7*40 + 6*6 = 316` px inside a `PANEL_W` of 268 — `slotOrigin` returns a left of
+ * **-24** and the row hangs 24 px off BOTH edges of the plate. Nothing caught it, because
+ * `castlePanel.test.ts` had zero bank-strip coverage: the overflow would have shipped green.
+ *
+ * Deriving the row length from the panel inverts that dependency — the strip can never outgrow the
+ * plate for ANY cap, because the plate is the input. `floor((248 + 6) / 46) = 5`, which is exactly
+ * the shipped single-row layout at cap 5, so this function is a **provable no-op** at the old cap.
+ */
+export function bankSlotsPerRow(cap: number = CASTLE_BANK_CAP): number {
+  const perRow = Math.floor((ROW_INNER_W + SLOT_GAP) / (SLOT_W + SLOT_GAP));
+  return Math.max(1, Math.min(perRow, Math.max(1, cap)));
+}
+
+/** PURE — how many rows the bank strip needs at `cap`. */
+export function bankRowCount(cap: number = CASTLE_BANK_CAP): number {
+  return Math.max(1, Math.ceil(Math.max(1, cap) / bankSlotsPerRow(cap)));
+}
+
+/**
+ * PURE — slots per row once the total is spread EVENLY across the rows.
+ *
+ * ⚠ WHY EVEN SPREAD AND NOT A FIXED RECTANGLE. A fixed 4-wide grid at cap 7 renders 8 boxes for 7
+ * slots — one permanently dead box that reads as a bug and needs bespoke styling to explain. Spreading
+ * `ceil(cap / rows)` and centring EACH row on its OWN occupancy gives cap 7 a 4-slot row above a
+ * 3-slot row: seven boxes, zero dead. Verified exhaustively over cap 1..500 that the per-row count
+ * never exceeds what the panel fits and the last row always holds between 1 and `perRow` slots.
+ */
+export function bankSlotsPerRowSpread(cap: number = CASTLE_BANK_CAP): number {
+  return Math.ceil(Math.max(1, cap) / bankRowCount(cap));
+}
+
+/** PURE — the bank strip's total height at `cap`, including the bottom pad. */
+export function bankStripHeight(cap: number = CASTLE_BANK_CAP): number {
+  const rows = bankRowCount(cap);
+  return rows * SLOT_H + (rows - 1) * SLOT_GAP + STRIP_PAD_BOTTOM;
+}
 /** Gap between the keep box and the panel edge, so the panel never covers the castle it describes. */
 const ANCHOR_GAP = 14;
 
@@ -159,8 +202,13 @@ export function castleControlsModel(world: World): Array<Omit<PanelControl, 'onA
  * arc would otherwise push the panel off-screen. Exported for unit tests — the flip is exactly the
  * kind of edge that is invisible until a specific seat plays.
  */
-export function panelOrigin(ax: number, ay: number, rows: number): { x: number; y: number } {
-  const h = panelHeight(rows);
+export function panelOrigin(
+  ax: number,
+  ay: number,
+  rows: number,
+  cap: number = CASTLE_BANK_CAP,
+): { x: number; y: number } {
+  const h = panelHeight(rows, cap);
   let x = ax + KEEP_H / 2 + ANCHOR_GAP;
   if (x + PANEL_W > CANVAS_WIDTH - 8) x = ax - KEEP_H / 2 - ANCHOR_GAP - PANEL_W;
   if (x < 8) x = 8;
@@ -171,23 +219,39 @@ export function panelOrigin(ax: number, ay: number, rows: number): { x: number; 
 }
 
 /** PURE — total panel height for `rows` control rows, including the bank strip. */
-export function panelHeight(rows: number): number {
-  return TITLE_H + BANK_STRIP_H + rows * ROW_H + (rows - 1) * ROW_GAP + PANEL_PAD * 2;
+export function panelHeight(rows: number, cap: number = CASTLE_BANK_CAP): number {
+  return TITLE_H + bankStripHeight(cap) + rows * ROW_H + (rows - 1) * ROW_GAP + PANEL_PAD * 2;
 }
 
 /** PURE — the panel's full rect, given its origin and row count. */
 export function panelRect(
   origin: { x: number; y: number },
   rows: number,
+  cap: number = CASTLE_BANK_CAP,
 ): { x: number; y: number; w: number; h: number } {
-  return { x: origin.x, y: origin.y, w: PANEL_W, h: panelHeight(rows) };
+  return { x: origin.x, y: origin.y, w: PANEL_W, h: panelHeight(rows, cap) };
 }
 
-/** PURE — the top-left of bank slot `i`, panel-local. */
-export function slotOrigin(i: number): { x: number; y: number } {
-  const total = CASTLE_BANK_CAP * SLOT_W + (CASTLE_BANK_CAP - 1) * SLOT_GAP;
+/**
+ * PURE — the top-left of bank slot `i`, panel-local.
+ *
+ * S140 P1 — multi-row. Each row is centred on its OWN occupancy (see `bankSlotsPerRowSpread`), so the
+ * short last row sits centred under the full ones rather than left-aligned with a dead gap. `cap` is a
+ * PARAMETER rather than a module-constant read because "correct for any cap" is exactly the property
+ * the new tests sweep, and a test cannot vary a module constant.
+ */
+export function slotOrigin(i: number, cap: number = CASTLE_BANK_CAP): { x: number; y: number } {
+  const per = bankSlotsPerRowSpread(cap);
+  const row = Math.floor(i / per);
+  const col = i % per;
+  // The LAST row may be short — centre it on what it actually holds, not on a full row.
+  const inThisRow = Math.min(per, Math.max(1, cap) - row * per);
+  const total = inThisRow * SLOT_W + (inThisRow - 1) * SLOT_GAP;
   const left = (PANEL_W - total) / 2;
-  return { x: left + i * (SLOT_W + SLOT_GAP), y: PANEL_PAD + TITLE_H };
+  return {
+    x: left + col * (SLOT_W + SLOT_GAP),
+    y: PANEL_PAD + TITLE_H + row * (SLOT_H + SLOT_GAP),
+  };
 }
 
 export class CastlePanel {
@@ -237,7 +301,7 @@ export class CastlePanel {
       const box = new Container();
       box.addChild(bg); // ⚠ Graphics child supplies containsPoint — do not remove (see docblock).
       box.addChild(label);
-      box.position.set(PANEL_PAD, PANEL_PAD + TITLE_H + BANK_STRIP_H + i * (ROW_H + ROW_GAP));
+      box.position.set(PANEL_PAD, PANEL_PAD + TITLE_H + bankStripHeight() + i * (ROW_H + ROW_GAP));
       box.eventMode = 'static';
       box.cursor = 'pointer';
       const idx = i;
@@ -384,7 +448,7 @@ export class CastlePanel {
       rowCenters: this.rows.map((_, i) => ({
         key: keys[i],
         x: o.x + PANEL_PAD + (PANEL_W - PANEL_PAD * 2) / 2,
-        y: o.y + PANEL_PAD + TITLE_H + BANK_STRIP_H + i * (ROW_H + ROW_GAP) + ROW_H / 2,
+        y: o.y + PANEL_PAD + TITLE_H + bankStripHeight() + i * (ROW_H + ROW_GAP) + ROW_H / 2,
         enabled: this.enabled[i] === true,
         reason: this.reasons[i] ?? '',
       })),

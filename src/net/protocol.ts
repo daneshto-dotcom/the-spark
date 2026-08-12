@@ -130,7 +130,21 @@ export type { NetSnapshot };
 //   Also newly shared-constant-bearing: every seat is GRANTED a goblin at START_GAME, and the joiner
 //   dispatches its own local START_GAME — so both peers must mint the same unit at the same position
 //   from the same tick. Hard-rejected at HELLO, same lockstep posture as every bump above.
-export const PROTOCOL_VERSION = 18 as const;
+// S140 P1 — bumped 18->19: THE CASTLE BANK CAP MOVED (5 -> 7) and the LASER TURRET RECIPE SHRANK
+// (1 Line deg-7 + 7 Spirals -> deg-6 + 6 Spirals). Neither is a new field, a new literal or a new
+// intent — `castleBanks` is an unbounded serialized array and the recipe gate is host-only — so on the
+// narrow wire test this needed no bump. It gets one under the SAME precedent as the 16->17 keep-ring
+// move: a SHARED CONSTANT BOTH PEERS COMPUTE FROM.
+//   (1) THE CAP. `castlePanel` builds exactly CASTLE_BANK_CAP clickable slot boxes ONCE at
+//       construction and `applyNetSnapshot` rehydrates the bank with NO clamp, so a stale v18 peer
+//       (cap 5) handed a 7-entry bank stores and hashes all seven, renders five, and can NEVER pull
+//       indices 5-6 — a permanent reachability soft-lock on its own shapes, while its title text
+//       reads "CASTLE BANK 7/5". Silent: there is no host-vs-client hash check at runtime.
+//   (2) THE RECIPE. A stale peer's codex would still instruct SEVEN spirals against a host gating on
+//       six, and the gate has no upper tolerance — so following the stale copy builds a turret the
+//       host tears down 0.5 s later.
+// Hard-rejected at HELLO, same lockstep posture as every bump above.
+export const PROTOCOL_VERSION = 19 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -183,8 +197,18 @@ export interface HelloMsg {
    * its own purchase accepted, so the seats would disagree about units owned and points spent).
    * S138 P2: 16→17 (the keep ring moved to KEEP_RING_RADIUS = 420 — a SHARED CONSTANT both peers
    * compute from via castleAnchor, so a stale peer would draw and hit-test every keep in the wrong
-   * place). Also covers S138 P1's additive-optional Primitive.hp, which needed no bump alone. */
-  readonly protoVersion: 18;
+   * place). Also covers S138 P1's additive-optional Primitive.hp, which needed no bump alone.
+   * S139 P2: 17→18 (THE GOBLIN — a new serialized CreatureType literal 'goblinMelee' with no runtime
+   * whitelist on the receive path, plus the hashed additive-optional Creature.targetPrimitiveId).
+   * S140 P1: 18→19 (CASTLE_BANK_CAP 5→7 and the laser-turret recipe 8→7 shapes / hub degree 7→6 —
+   * both SHARED CONSTANTS both peers compute from: a stale peer can never pull bank indices 5-6 and
+   * its codex would instruct a seventh spiral the host's gate now rejects).
+   *
+   * ⚠ THIS LIST DRIFTS IF YOU LET IT. It has now been caught stale twice: S133 P2 backfilled the
+   * 14→15 entry while the literal already read 15, and S140 P1 backfilled 17→18 for the same reason.
+   * Bumping `PROTOCOL_VERSION` means editing THREE things — the const, this list, and the type
+   * literal below. */
+  readonly protoVersion: 19;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

@@ -126,8 +126,14 @@ describe('S115 P3 — host-migration D1: signWarrant + verifyWarrant', () => {
 });
 
 describe('S115 P3 — host-migration D1: additive-optional HELLO clientPubkeyB64 (no protocol bump)', () => {
-  it('protocol version is 17 after the S138 P2 keep-ring bump (D1 itself added no wire-breaking field)', () => {
-    expect(PROTOCOL_VERSION).toBe(18);
+  it('the HELLO it builds carries the LIVE PROTOCOL_VERSION (not a hand-copied literal)', () => {
+    // ⚠ S140 P1 — THIS REPLACED `expect(PROTOCOL_VERSION).toBe(18)`, whose own title still read
+    // "protocol version is 17". Four copies of the version literal had drifted out of sync with the
+    // const AND with their own titles — the exact "three hand-synced numbers is not an invariant"
+    // defect S139 fixed once in smoke.spec.ts. This test is about an ADDITIVE-OPTIONAL field, not
+    // about which integer the version happens to be, so it now asserts the real invariant: the
+    // built HELLO and the exported const agree. It can never go stale.
+    expect(buildHello(asPlayerId(0), 0xff0000).protoVersion).toBe(PROTOCOL_VERSION);
   });
 
   it('a HELLO WITHOUT the pubkey still parses (legacy / host HELLO)', () => {

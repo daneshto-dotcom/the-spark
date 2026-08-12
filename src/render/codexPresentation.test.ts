@@ -9,13 +9,14 @@
  *      both; and NO non-Voltkin entry may point at Voltkin art (the S121 owner bug: pentagram /
  *      laser turret / lightning hub all wore the voltkin-zap placeholder).
  *   3. EMBLEM TRUTH — emblemLayout must depict the REAL recipe: 5 ring triangles for the
- *      pentagram, 1 line + 7 spirals for the turret, 1 dot + 5 circles for the hub — with the
+ *      pentagram, 1 line + 6 spirals for the turret (S140 P1 retune), 1 dot + 5 circles for the hub — with the
  *      right bond topology (ring vs spokes).
  */
 
 import { describe, expect, it } from 'vitest';
 import { SparkType } from '../constants.ts';
 import { CODEX_COPY, codexCopyFor, emblemLayout } from './codexPresentation.ts';
+import { TURRET_HUB_DEGREE, TURRET_SIZE } from '../state/godlyRecipes/laserTurret.ts';
 
 const ALL_IDS = ['voltkin', 'nonet', 'pentagram', 'lightningHub', 'laserTurret', 'helga'] as const;
 
@@ -83,15 +84,36 @@ describe('S121 P4 — emblem truth (the tile depicts the REAL recipe)', () => {
     expect(layout.bonds).toHaveLength(5); // a closed 5-ring has exactly 5 edges
   });
 
-  it('LASER TURRET: 1 Line hub + 7 Spirals, every Spiral bonded to the Line', () => {
+  it('LASER TURRET: the emblem shows exactly as many Spirals as the PREDICATE demands', () => {
+    // ⚠ S140 P1 — THIS TEST NOW READS THE RECIPE, NOT A LITERAL. It used to hardcode `7` with the
+    // comment "seven. not four.", which meant the owner's retune to six required DELETING the very
+    // guard that existed to stop the emblem and the predicate disagreeing. Binding it to
+    // TURRET_HUB_DEGREE makes it survive any future retune and makes it STRONGER than the version it
+    // replaces: the emblem is now provably a picture of the shipped gate, at whatever value that gate
+    // holds. This matters because the predicate is strict `!==` with no upper tolerance — a codex that
+    // says seven while the gate says six builds a turret and then kills it 0.5 s later.
     const spec = CODEX_COPY['laserTurret'].emblem;
     expect(spec).toBeDefined();
     const layout = emblemLayout(spec!);
     expect(layout.hub?.type).toBe(SparkType.Line);
-    expect(layout.nodes).toHaveLength(7); // seven. not four.
+    expect(layout.nodes).toHaveLength(TURRET_HUB_DEGREE);
     for (const n of layout.nodes) expect(n.type).toBe(SparkType.Spiral);
-    expect(layout.bonds).toHaveLength(7); // one spoke per spiral
+    expect(layout.bonds).toHaveLength(TURRET_HUB_DEGREE); // one spoke per spiral
     for (const b of layout.bonds) expect([b.x1, b.y1]).toEqual([0, 0]); // all spokes from the hub
+    // The star is 1 hub + N leaves, so the emblem also pins the component size the predicate gates on.
+    expect(layout.nodes.length + 1).toBe(TURRET_SIZE);
+  });
+
+  it('LASER TURRET: no stale "seven" survives in player-visible copy (the S140 retune trap)', () => {
+    // ⛔ "BUILDS AT SIX, DIES AT SEVEN." A player who follows copy that still says seven adds a
+    // seventh Spiral, which pushes the hub past TURRET_HUB_DEGREE — stillValid goes false and the
+    // host removes the turret within 0.5 s. So stale copy is not cosmetic here; it is a trap that
+    // destroys the thing the player just built. This asserts the copy agrees with the gate.
+    const copy = CODEX_COPY['laserTurret'];
+    const text = `${copy.name} ${copy.power} ${copy.recipe}`;
+    expect(text).not.toMatch(/seven/i);
+    expect(text).not.toMatch(/\b7\b/);
+    expect(copy.recipe).toContain(String(TURRET_HUB_DEGREE));
   });
 
   it('LIGHTNING HUB: 1 Dot hub + 5 Circles, every Circle bonded to the Dot', () => {

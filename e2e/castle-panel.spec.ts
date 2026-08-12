@@ -29,6 +29,8 @@ interface PanelPoints {
   open: boolean;
   rect: { x: number; y: number; w: number; h: number } | null;
   rowCenters: Array<{ key: string; x: number; y: number; enabled: boolean; reason: string }>;
+  bank: { count: number; cap: number };
+  slotCenters: Array<{ index: number; x: number; y: number; filled: boolean }>;
 }
 
 const readPanel = (page: import('@playwright/test').Page): Promise<PanelPoints> =>
@@ -161,5 +163,73 @@ test.describe('S136 P0 — castle context panel', () => {
     });
     expect(hits.speed).toBe(false);
     expect(hits.buy).toBe(false);
+  });
+});
+
+/**
+ * SPARK — S140 P1 E2E: THE BANK STRIP ACTUALLY RENDERS ITS SECOND ROW.
+ *
+ * ⚠ WHY THIS IS A SEPARATE, GATING SPEC AND NOT A UNIT TEST. The S140 regrid is covered by eleven
+ * swept invariants in `castlePanel.test.ts` — but those exercise PURE FUNCTIONS. The thing that can
+ * still be wrong is the Pixi runtime: each slot box's `position` is set ONCE in the constructor from
+ * `slotOrigin(i)`, and hit-testing is delegated to a Graphics child. The oracle and the scene graph
+ * can therefore disagree with every unit test green, which is this repo's standing failure shape
+ * ("a subsystem can be perfect, tested, and never called").
+ *
+ * The load-bearing assertion is the LAST-SLOT CLICK. At cap 7 the last slot lives on the second row.
+ * If the strip overflowed the plate — which is exactly what the pre-S140 single-row maths did, putting
+ * slot 0 at x = -24 — that click would land on the BOARD instead of the panel, and the board-click
+ * handler CLOSES the panel. So "panel is still open after clicking the last slot" is a real runtime
+ * proof that the second row is inside the plate and wired to the hit test.
+ *
+ * Untagged on purpose: `e2e:gating` excludes only @quarantine-flaky/@soak/@perf-measure, so this
+ * spec genuinely reds the build.
+ */
+test.describe('S140 P1 — multi-row bank strip (runtime, not the oracle)', () => {
+  test('the shipped cap renders every slot INSIDE the plate, across two rows', async ({ page }) => {
+    await bootSolo(page);
+    const keep0 = await keepAnchor(page, 0);
+    await clickCanvas(page, keep0.x, keep0.y);
+
+    const p = await readPanel(page);
+    expect(p.open).toBe(true);
+
+    // The RUNNING app's cap — not a value transcribed from constants.ts into this file.
+    expect(p.bank.cap).toBeGreaterThanOrEqual(1);
+    expect(p.slotCenters).toHaveLength(p.bank.cap);
+
+    // Every slot centre must sit inside the panel rect the app itself reports.
+    const r = p.rect!;
+    for (const s of p.slotCenters) {
+      expect(s.x, `slot ${s.index} left of plate`).toBeGreaterThanOrEqual(r.x);
+      expect(s.x, `slot ${s.index} right of plate`).toBeLessThanOrEqual(r.x + r.w);
+      expect(s.y, `slot ${s.index} above plate`).toBeGreaterThanOrEqual(r.y);
+      expect(s.y, `slot ${s.index} below plate`).toBeLessThanOrEqual(r.y + r.h);
+    }
+
+    // …and at the shipped cap of 7 the strip must genuinely WRAP: more than one distinct row y.
+    const rowYs = new Set(p.slotCenters.map((s) => Math.round(s.y)));
+    expect(rowYs.size, `cap ${p.bank.cap} should wrap to >1 row`).toBeGreaterThan(1);
+  });
+
+  test('clicking the LAST slot hits the panel, not the board (the overflow proof)', async ({ page }) => {
+    await bootSolo(page);
+    const keep0 = await keepAnchor(page, 0);
+    await clickCanvas(page, keep0.x, keep0.y);
+
+    const before = await readPanel(page);
+    expect(before.open).toBe(true);
+    const last = before.slotCenters[before.slotCenters.length - 1]!;
+    expect(last.index).toBe(before.bank.cap - 1);
+
+    const primsBefore = (await readWorldState(page)).primitives.length;
+    await clickCanvas(page, last.x, last.y);
+
+    // The slot is empty at boot, so the pull is a no-op — but the PANEL MUST STILL BE OPEN. An
+    // off-plate slot would have delivered this click to the board, which closes the panel.
+    const after = await readPanel(page);
+    expect(after.open, 'panel closed => the last slot is outside the plate').toBe(true);
+    // And an empty-slot click must not conjure a primitive onto the porch.
+    expect((await readWorldState(page)).primitives.length).toBe(primsBefore);
   });
 });

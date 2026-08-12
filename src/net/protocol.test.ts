@@ -72,8 +72,19 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 17 (S138 P2 bump from 16 — the keep ring moved to KEEP_RING_RADIUS 420; castleAnchor is a SHARED CONSTANT both peers compute from, so a stale peer would draw and hit-test every keep in the wrong place)', () => {
-    expect(PROTOCOL_VERSION).toBe(18);
+  it('PROTOCOL_VERSION is 19 — THE ONE DELIBERATE PIN: a bump must be a decision, never a side effect', () => {
+    // ⭐ S140 P1 — THIS IS NOW THE ONLY HARDCODED COPY OF THE VERSION IN THE UNIT SUITE (the e2e
+    // lane keeps its own single `LOCAL_PROTO_V`). There were FOUR, and every one of their titles had
+    // gone stale — all three of the others said "is 17" while asserting 18. Copies of a number do not
+    // enforce it, they just multiply the places it can rot; the other three now assert the real
+    // invariant (built HELLO === exported const) instead.
+    //
+    // This single pin stays deliberate on purpose: bumping the wire version hard-rejects every
+    // already-deployed peer at HELLO, so it must be an explicit choice with a ledger entry, not
+    // something that rides along with an unrelated edit. If you are here because this went red:
+    // update the const, the narrative history JSDoc, the `protoVersion` type literal, this number,
+    // and e2e/smoke.spec.ts's LOCAL_PROTO_V.
+    expect(PROTOCOL_VERSION).toBe(19);
   });
 
   it('S102 #1 — RAID_CREATURE is an allowed CLIENT INTENT (a 1v1 joiner can raid an enemy chewer)', () => {
@@ -327,7 +338,9 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
     // S110 P4 — bumped 12→13 for HELGA's walk rework (serialized 'WALK' state + prevPos/walkTargetPos).
     // S113 Batch C — bumped 13→14 for the lightning-drone building (CreatureType lightningDrone + recipeId lightningHub).
     // S124 P1 — bumped 14→15 for host-migration D4 production-ON (MIGRATION_CLAIM live, epoch ≥ 1 semantics).
-    expect(PROTOCOL_VERSION).toBe(18);
+    // S140 P1 — was a second hardcoded `toBe(18)`. The bump ledger above is documentation; the
+    // assertion this test actually needs is that an UNKNOWN message kind is rejected.
+    expect(PROTOCOL_VERSION).toBeGreaterThan(0);
     expect(
       parseNetMessage({ kind: 'SOME_FUTURE_KIND', roster: [{ seat: 0, peerId: 'h', color: 1 }] }),
     ).toBeNull();

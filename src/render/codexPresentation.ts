@@ -15,7 +15,8 @@
  *
  * `emblemLayout` is a pure function (no Pixi) so the emblem geometry — node counts, hub, ring bonds —
  * is unit-testable against the real recipe requirements (anti-drift: the laser turret emblem must show
- * SEVEN spirals because the recipe demands seven).
+ * exactly as many spirals as the PREDICATE demands. S140 P1 binds that test to the recipe's exported
+ * TURRET_HUB_DEGREE rather than a literal, so a retune can never silently desync art from gate).
  */
 
 import { Graphics } from 'pixi.js';
@@ -27,7 +28,7 @@ import { SHAPE_GLYPHS } from './shapes.ts';
 export interface CodexCopy {
   /** Proper display name (not a raw id) — fits the tile header. */
   readonly name: string;
-  /** One-line epigraph shown when unlocked — the entry's soul, ≤44 chars. */
+  /** One-line epigraph shown when unlocked — the entry's soul, ≤34 chars (enforced by the test). */
   readonly power: string;
   /** Precise build recipe + what it does — ≤150 chars so it always fits the tile text zone. */
   readonly recipe: string;
@@ -72,10 +73,12 @@ export const CODEX_COPY: Readonly<Record<string, CodexCopy>> = {
   },
   laserTurret: {
     name: 'LASER TURRET',
-    power: 'Eight shapes. One judgment beam.',
+    // S140 P1 — was 'Eight shapes. One judgment beam.' (32 chars). Budget is 34, enforced by
+    // codexPresentation.test.ts — NOT the 44 this file's own comment claims.
+    power: 'Six shapes. One judgment beam.',
     recipe:
-      'Bond 7 Spirals to 1 Line — all seven on the same rod. Its beam turns enemy chewers to ash. (Seven. Not four.)',
-    emblem: { kind: 'star', hubType: SparkType.Line, nodes: 7, nodeType: SparkType.Spiral, radius: 46 },
+      'Bond 6 Spirals to 1 Line — all six on the same rod. Its beam turns enemy chewers to ash. (Six. Not four.)',
+    emblem: { kind: 'star', hubType: SparkType.Line, nodes: 6, nodeType: SparkType.Spiral, radius: 46 },
   },
   helga: {
     name: 'HELGA',

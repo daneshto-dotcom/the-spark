@@ -405,29 +405,46 @@ export const GATHERER_REACH = 22;
 export const GATHERER_DEPOSIT_OFFSET_Y = 74;
 
 /**
- * S136 P1 (V6-1.3) — CASTLE BANK CAPACITY. Owner ruling B4b: **5 slots**.
+ * S140 P1 — CASTLE BANK CAPACITY: **7 slots** (owner ruling, 2026-08-12). Was 5 (S136 P1, B4b).
  *
- * ⭐ THE PAIRING IS THE POINT — NEVER TUNE THIS NUMBER APART FROM THE TABLE BELOW. Exact-size
- * recipe filters would delete the carve-down tactic the v0.6 pivot exists to protect if the bank
- * were ever >= the biggest recipe. At 5 slots only the PENTAGRAM is directly assemblable; every
- * other target still requires staging and improvising. (Standing S128 instruction: keep the
- * recipe-size table adjacent to the cap, forever.)
+ * ⭐ THE PAIRING IS THE POINT — NEVER TUNE THIS NUMBER APART FROM THE TABLE BELOW. (Standing S128
+ * instruction: keep the recipe-size table adjacent to the cap, forever.) This raise was ruled WITH
+ * the table in view, which is what B4b actually demands — and the table itself moved in the same
+ * commit, because the owner also retuned the laser turret so both TOWER recipes fit under 7.
  *
- *   pentagram     5   <-- the only recipe the bank can hold outright at cap 5
- *   lightningHub  6
- *   Helga         7
- *   Voltkin       8
- *   laserTurret   8
- *   NONET         9   <-- S136 A.0 addition: a SIXTH exact-size gate the prior table omitted.
- *                        Verified at sudokuEvent.ts NONET_SHAPE_COUNT — 9 same-type primitives.
- *                        It is not in the godlyRecipes registry (S94 made it a synthetic Codex
- *                        entry) which is exactly why it kept falling out of this list.
+ *   pentagram     5   directly holdable
+ *   lightningHub  6   directly holdable  <-- newly, at cap 7
+ *   Helga         7   directly holdable  <-- newly, at cap 7 (a TOWER)
+ *   laserTurret   7   directly holdable  <-- newly, at cap 7 (a TOWER); RETUNED from 8 in S140 P1
+ *   Voltkin       8   still requires staging  <-- "not the big godlies"
+ *   NONET         9   still requires staging. Verified at sudokuEvent.ts NONET_SHAPE_COUNT — 9
+ *                     same-type primitives. NOT a buildable recipe and NOT in the godlyRecipes
+ *                     registry: it is an EVENT (S94 made it a synthetic Codex entry), which is
+ *                     exactly why it kept falling out of this list.
  *
- * All six sizes were re-verified against the real recipe modules in S136 A.0; the five original
- * numbers were correct.
+ * ⚠ OWNER RULING, AND THE ADVICE IT OVERRODE — recorded so a later session does not "fix" it back.
+ * The owner's stated intent was "let players assemble complete tower structures directly, but not the
+ * big godlies", and he ruled cap 7 + laserTurret 8->7 after being shown that all five S140 Council
+ * seats rejected the retune 5-0 (they split E/B/C on the cap and were unanimous only against the
+ * retune). The accepted trade-offs are: the recipe's authored "seven" identity is spent (see
+ * laserTurret.ts), Helga and laserTurret now share size 7 AND hub degree 6 — the first doubly-occupied
+ * rung of the size ladder, separated only by hub type — and the measured value is ~4 s of refill wait
+ * (BANK_CAP_MEASUREMENT_S137.md: 20.2 s fill at cap 5, 28.6 s at cap 8, at the shipped 1.125/s faucet).
+ *
+ * ⚠ THE CARVE-DOWN CLAUSE, STATED CORRECTLY. Three project documents disagreed about the threshold.
+ * BACKLOG B4 and this file both say the danger is a bank ">= the biggest recipe" (9, the NONET);
+ * LOCKED_DECISIONS §7 compressed that to ">= 5", which is wrong and is corrected there in S140 P1.
+ * The tactic the owner actually plays — "build big, erase to 9 of a type" (sudokuEvent.ts:36) — is
+ * gated at 9 and survives this raise untouched. B4's OTHER conjunct (a hard type filter) was ruled out
+ * of the game entirely in S134: directives are "AN ORDERED BUILD QUEUE, RRTS-STYLE — *NOT* A FILTER".
+ *
+ * ⚠ AND THE CAP IS NOT THE ONLY BUFFER. BACKLOG.md:561-568 records that effective burst capacity is
+ * already `cap + (gatherers waiting loaded at the castle)`, because a gatherer arriving at a full bank
+ * enters WAITING and holds its cargo. Do not reason about "what can be built in one go" from this
+ * number alone.
  *
  * ⚠ S137 P3 — MEASUREMENT SEAM ONLY, and it is NOT a licence to retune the cap on its own. The
- * table above is the reason: the cap and the recipe sizes are ONE decision. Changing 5 without
+ * table above is the reason: the cap and the recipe sizes are ONE decision. Changing the cap without
  * re-reading that list is how a cap gets chosen that cannot hold any recipe outright.
  * `__TEST_CASTLE_BANK_CAP__` exists so `e2e/bank-throughput.spec.ts` can measure haul throughput at
  * several caps in a REAL browser running REAL physics — because the numbers the owner needs to rule
@@ -441,7 +458,7 @@ function readTestCastleBankCap(): number | null {
   const v = (window as { __TEST_CASTLE_BANK_CAP__?: number }).__TEST_CASTLE_BANK_CAP__;
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : null;
 }
-export const CASTLE_BANK_CAP = readTestCastleBankCap() ?? 5;
+export const CASTLE_BANK_CAP = readTestCastleBankCap() ?? 7;
 
 /**
  * S136 P1 — how many PORCH slots sit outside the castle gate, and where.
@@ -1168,7 +1185,7 @@ export const LIGHTNING_DRONE_SPRITE_SCALE = 0.5; // the Voltkin rig at 50% (owne
 // A player builds a geometric recipe that "comes alive" as a stationary DEFENDER which
 // auto-attacks the nearest enemy CREATURE in range via the unified `damageCreature` path
 // (chewer dies in 1, Voltkin in 2 → lightning-cloud). Two kinds stand on ONE substrate:
-//   • LASER TURRET (#9, P3): 1 Line(deg7) + 7 Spiral 'Whip' leaves — a slow heavy beam.
+//   • LASER TURRET (#9, P3): 1 Line(deg6) + 6 Spiral 'Whip' leaves — a slow heavy beam (S140 P1).
 //   • HELGA PRINCESS (#10, P4): a Triangle hub + 3 'Warped Anchor' + 3 'Star' — a fast slapper.
 // Defenders are removed by RECIPE-BREAK (a chewer eats the structure's bonds → the shape no
 // longer matches → REMOVE_DEFENDER). ⚠ AMENDED S138 P1: that is no longer the ONLY way. The old

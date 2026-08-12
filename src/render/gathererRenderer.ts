@@ -41,6 +41,15 @@ const GATHERER_RADIUS = 11;
 // this drawing read the same numbers. Only the battlement height stays local: nothing outside this
 // renderer has any use for it.
 const KEEP_BATTLEMENT_H = 10;
+/**
+ * S140 P1 — how many stored-shape glyphs fit ONE row across the keep face before wrapping.
+ *
+ * 5 is the value the pitch was implicitly tuned to when the bank cap was 5 (radius 4.56 px against
+ * `drawSparkGlyph`'s constant 2 px stroke). Pinning the ROW LENGTH rather than the cap means the
+ * glyph size is now independent of `CASTLE_BANK_CAP` — raising the cap adds a row instead of
+ * shrinking every glyph toward illegibility.
+ */
+const KEEP_STORED_GLYPHS_PER_ROW = 5;
 
 /**
  * The cosmetic shape a gatherer is currently wearing. PURE — same (tick, id) always yields the
@@ -191,12 +200,25 @@ export class GathererRenderer {
   ): void {
     if (stored.length === 0) return;
     const { x, y } = castleAnchor(seat);
-    const pitch = (KEEP_W - 14) / CASTLE_BANK_CAP;
+    // S140 P1 — WRAP INSTEAD OF SHRINKING. The pitch was `(KEEP_W - 14) / CASTLE_BANK_CAP`, so the
+    // glyph radius fell with the cap: 4.56 px at 5, 3.26 px at 7, 2.85 px at 8. `drawSparkGlyph` uses
+    // a CONSTANT 2 px stroke, so past ~3.5 px the Dot, Circle and Spiral stop being distinguishable —
+    // and because the pull is index-addressed off this very readout, an illegible keep face attacks
+    // the exact mechanic the cap raise exists to serve. Capping the row length and wrapping keeps the
+    // pitch (and therefore the radius) at its cap-5 value no matter how high the cap goes.
+    const perRow = Math.min(CASTLE_BANK_CAP, KEEP_STORED_GLYPHS_PER_ROW);
+    const pitch = (KEEP_W - 14) / Math.max(1, perRow);
     const r = Math.min(5.5, pitch * 0.38);
-    const left = x - ((stored.length - 1) * pitch) / 2;
-    const row = y + KEEP_BATTLEMENT_H / 2 - 2;
+    const rows = Math.max(1, Math.ceil(stored.length / perRow));
+    const rowPitch = r * 2 + 1;
+    // Keep the block vertically centred on the old single-row baseline so cap 5 is unchanged.
+    const top = y + KEEP_BATTLEMENT_H / 2 - 2 - ((rows - 1) * rowPitch) / 2;
     for (let i = 0; i < stored.length; i++) {
-      drawSparkGlyph(g, left + i * pitch, row, r, stored[i]!.type, color);
+      const row = Math.floor(i / perRow);
+      const col = i % perRow;
+      const inThisRow = Math.min(perRow, stored.length - row * perRow);
+      const left = x - ((inThisRow - 1) * pitch) / 2;
+      drawSparkGlyph(g, left + col * pitch, top + row * rowPitch, r, stored[i]!.type, color);
     }
   }
 

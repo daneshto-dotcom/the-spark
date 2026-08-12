@@ -5,9 +5,16 @@
  * imports `Defender` from here (no worldTypes <-> defenderLifecycle cycle); this module never
  * imports world.ts.
  *
- * A Defender is the per-structure identity that makes a built RECIPE "come alive" as a
- * STATIONARY auto-attacker. ONE substrate, two `kind`s (Council MF7 — generalize, don't clone):
- *   • 'turret'   (#9, P3): a slow heavy laser (1 Line deg-7 + 7 Spiral 'Whip' leaves).
+ * A Defender is the per-structure identity that makes a built RECIPE "come alive" as an
+ * auto-attacker rooted on its anchor structure. ONE substrate, two `kind`s (Council MF7 —
+ * generalize, don't clone):
+ *
+ * ⚠ S140 P1 — "STATIONARY" WAS WRONG AND THIS FILE CONTRADICTED ITSELF FOR THIRTY SESSIONS. This
+ * line read "a STATIONARY auto-attacker" while :56 below adds a 'WALK' state for HELGA's
+ * walk-to-target locomotion (S110 P4). Only the TURRET is stationary (moveAccel 0 + meleeRange ==
+ * attackRange, so its FSM never enters WALK). The distinction became decision-relevant in S140 when
+ * the owner had to rule on what counts as a "tower".
+ *   • 'turret'   (#9, P3): a slow heavy laser (1 Line deg-6 + 6 Spiral 'Whip' leaves; S140 P1 retune).
  *   • 'princess' (#10, P4): HELGA, a fast slapper (Triangle hub + 3 'Warped Anchor' + 3 'Star').
  * Both target the nearest enemy CREATURE in range via the unified `damageCreature` path.
  *

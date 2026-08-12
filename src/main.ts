@@ -177,7 +177,7 @@ import './state/godlyRecipes/pentagram.ts';
 // finds it. (Also imported transitively by godlyOrchestration/spawnerLifecycle; registerRecipe is idempotent.)
 import './state/godlyRecipes/lightningHub.ts';
 // S103 P3 — side-effect import registers the LASER TURRET defender recipe (calls registerRecipe at
-// module tail) so runDefenderIgnition + recipeStillSatisfied find it. (#9 — 1 Line + 7 Spiral Whips.)
+// module tail) so runDefenderIgnition + recipeStillSatisfied find it. (#9 — 1 Line + 6 Spiral Whips.)
 import './state/godlyRecipes/laserTurret.ts';
 // S103 P4 — side-effect import registers the HELGA princess defender recipe (#10 — Triangle hub +
 // 3 Warped Anchors + 3 Stars).

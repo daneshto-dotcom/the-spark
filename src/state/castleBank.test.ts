@@ -23,6 +23,10 @@ import { makeIdlePlayer } from '../game/player.ts';
 import { asGathererId, asPlayerId, asSparkId, type GathererId, type SparkId } from '../types.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
 import { bankCount, bankIsFull, bankOf, firstFreePorchSlot, porchSlot } from './castleBank.ts';
+import { HELGA_SIZE } from './godlyRecipes/princessHelga.ts';
+import { TURRET_SIZE } from './godlyRecipes/laserTurret.ts';
+import { VOLTKIN_SIZE } from './godlyRecipes/voltkin.ts';
+import { NONET_SHAPE_COUNT } from './sudokuEvent.ts';
 import { castleAnchor, makeGatherer } from './gatherers/gatherer.ts';
 
 const P0 = asPlayerId(0);
@@ -93,11 +97,33 @@ const tickG = (w: World, gid: GathererId, n = 1): void => {
   }
 };
 
-describe('S136 P1 — the cap (owner ruling B4b: 5 slots)', () => {
-  it('is 5, and the recipe table it is paired with says only the pentagram fits', () => {
-    // The pairing is the point (standing S128 instruction). If someone raises the cap to 6+ this
-    // assertion is what makes them come here and confront the lightningHub row.
-    expect(CASTLE_BANK_CAP).toBe(5);
+describe('S140 P1 — the cap, pinned to the RECIPE LADDER rather than to a literal', () => {
+  /**
+   * ⚠ THIS REPLACED A HARD `expect(CASTLE_BANK_CAP).toBe(5)`.
+   *
+   * That tripwire existed to enforce B4b's "never tune this number apart from the table", and it
+   * worked — it went red the moment S140 raised the cap and forced the table to be re-read. But a
+   * pinned VALUE can only ever say "someone changed this"; it cannot say what the number is FOR, and
+   * it has to be hand-edited on every legitimate change, which is how the three-hand-synced-numbers
+   * failure starts (S139's `smoke.spec.ts` asserted 'v15' against a v17 host for exactly this reason).
+   *
+   * So the assertions below pin the RELATIONSHIP the owner actually ruled on: both TOWER recipes fit
+   * in the bank outright, and the big cinematic godly still does not. Raising or lowering the cap now
+   * fails only if it breaks that intent — and the failure message says which half broke.
+   */
+  it('holds BOTH tower recipes outright — the S140 owner ruling, as an invariant', () => {
+    expect(CASTLE_BANK_CAP, 'cap must hold HELGA outright').toBeGreaterThanOrEqual(HELGA_SIZE);
+    expect(CASTLE_BANK_CAP, 'cap must hold the LASER TURRET outright').toBeGreaterThanOrEqual(
+      TURRET_SIZE,
+    );
+  });
+
+  it('still EXCLUDES the big godlies — "but not the big godlies"', () => {
+    // Voltkin (8, an ordered 4-Square/4-Triangle chain) and the NONET (9 same-type) must still
+    // require staging. This is the clause that stops a future cap raise from quietly flattening the
+    // whole ladder — at cap 9 there would be no staging gate left in the game at all.
+    expect(CASTLE_BANK_CAP, 'Voltkin must still require staging').toBeLessThan(VOLTKIN_SIZE);
+    expect(CASTLE_BANK_CAP, 'the NONET must still require staging').toBeLessThan(NONET_SHAPE_COUNT);
   });
 
   it('accepts up to the cap and then REFUSES, storing nothing extra', () => {
