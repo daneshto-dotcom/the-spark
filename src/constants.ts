@@ -1098,17 +1098,24 @@ export const CHEWER_MAX_PER_VICTIM = 3; // one swarm can't fully strip a single 
 
 // === S102 — UNIFIED HP / DAMAGE MODEL (owner correction OC2: "coherent, logical, epic") ===
 // ONE damage scale across the whole game. Two kinds of destructible thing have HP:
-//   • CONNECTORS (bonds): CONNECTOR_HP, chipped by chewers (CHEW_DAMAGE per chew). 5 chews sever a
-//     connector (= the owner's "5 chews to destroy a connector"). A player RAID and a godly Voltkin
-//     still INSTANT-sever a connector (decisive teardown) — they don't chip; the chewer is the only
-//     thing that whittles connector HP. (Implemented as the chewer's commit-counter `chewProgress`;
-//     CONNECTOR_HP is tied to CHEW_HITS so the model reads coherently.)
+//   • CONNECTORS (bonds): 5 chews sever a connector (= the owner's "5 chews to destroy a
+//     connector"). A player RAID and a godly Voltkin still INSTANT-sever a connector (decisive
+//     teardown) — they don't chip; the chewer is the only thing that whittles a connector down.
+//     ⚠ S139 P1 — READ THIS BEFORE TRUSTING THE NAME BELOW. A bond has NO hp field of any kind
+//     (`BondHashed` in stateHashFull.ts proves it). The whittling is implemented ENTIRELY as the
+//     ATTACKER's commit counter `chewProgress`, and the real per-type ceiling is
+//     `CREATURE_CONFIGS[type].chewHits`. `CONNECTOR_HP` below is therefore documentation shorthand
+//     with ZERO code consumers — measured, not assumed. Its sibling `CHEW_DAMAGE` had zero
+//     references of any kind and was DELETED in S139 P1 rather than left to imply a chip-damage
+//     mechanism that does not exist. A constant that reads like the mechanism but drives nothing is
+//     how the S137 "5% per tick" footgun happened.
 //   • CREATURES (spawn): per-type hit-count HP. A pencil chewer dies in 1 hit; a godly Voltkin takes
 //     2 (twice as tough). A "hit" = a player RAID (P3), a Voltkin zap on a chewer (P3), and next
 //     session the laser beam + HELGA's slap. Each single-target hit deals 1; AoE (potato) = lethal.
 // Creature death VFX: chewer -> green-goo splat; Voltkin -> discombobulated lightning-cloud (P3).
-export const CONNECTOR_HP = CHEW_HITS; // 5 — a connector withstands 5 chews
-export const CHEW_DAMAGE = 1; // damage one chew deals to a connector (CONNECTOR_HP / CHEW_DAMAGE = CHEW_HITS)
+// ⚠ DOCUMENTATION SHORTHAND, NOT A MECHANISM — zero code consumers (S139 P1, verified by grep:
+// every reference in src/ is a prose comment). The live ceiling is `CREATURE_CONFIGS[t].chewHits`.
+export const CONNECTOR_HP = CHEW_HITS; // 5 — reads as "a connector withstands 5 chews"
 export const CHEWER_HP = 1; // a pencil chewer dies in 1 single-target hit (raid / Voltkin / laser / slap)
 export const VOLTKIN_HP = 2; // a godly Voltkin takes 2 hits — twice as tough as a chewer
 export const RAID_CREATURE_DAMAGE = 1; // a player raid (right-click a creature) deals 1 (P3)
@@ -1189,6 +1196,14 @@ export const DEFENDER_REACQUIRE_TICKS = 12; // IDLE retry cadence when no enemy 
 // rather than relying on both sides rounding identically. Do not lower this to 100 — 2.5% of 100
 // is 2.5 and reintroduces exactly that hazard.
 export const PRIMITIVE_MAX_HP = 1000; // a single placed shape
+// ⭐ S139 P1 — THE CADENCE THE PARAGRAPH ABOVE HAS ALWAYS SPECIFIED AND NEVER DECLARED.
+// S138 wrote the "% of max hp on a 0.5 s cadence" model into the comment above but minted no
+// constant for it, so every future DoT author would have re-derived `0.5 * PHYSICS_HZ` by hand —
+// and a hand-derived cadence is how "5% per tick" became death in 0.33 s in the first place.
+// One application every 30 ticks = 2/sec. The WC3/Legion-TD lineage uses ~1 s; 0.5 s reads
+// smoother and costs nothing. Pair it with an INTEGER per-application amount (see PRIMITIVE_MAX_HP)
+// so `damageEntity`'s integer guard can never fire at runtime.
+export const DOT_CADENCE_TICKS = 0.5 * PHYSICS_HZ; // 30 — one damage application every 0.5 s
 // Defenders now carry REAL hp instead of the old 1e9 sentinel. The S103 substrate deliberately
 // pre-provisioned this: the sentinel was "kept for a future direct-attack lever (Council MF8) so
 // adding it needs no re-bump", and `Defender.hp` has been serialized non-optional + hashed since

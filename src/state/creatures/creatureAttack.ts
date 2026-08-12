@@ -39,7 +39,7 @@ import type { World } from '../world.ts';
 import { dispatch } from '../world.ts';
 import type { BondId, CreatureId, Vec2 } from '../../types.ts';
 import { bondMidpoint } from './creatureAI.ts';
-import { damageCreature } from './creatureLifecycle.ts';
+import { damageEntity } from '../damage.ts';
 import { CREATURE_HIT_DAMAGE } from '../../constants.ts';
 
 /**
@@ -100,7 +100,15 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
     if (victim === undefined) return world;
     const arcStart: Vec2 = { x: creature.pos.x, y: creature.pos.y };
     const arcEnd: Vec2 = { x: victim.pos.x, y: victim.pos.y };
-    const died = damageCreature(world, action.targetCreatureId, CREATURE_HIT_DAMAGE);
+    // S139 P1 — routed through the `damageEntity` dispatcher rather than calling `damageCreature`
+    // directly. Behaviour is identical (the dispatcher delegates the creature arm straight to
+    // `damageCreature`), but the call now passes through the integer guard and carries attribution.
+    const died = damageEntity(
+      world,
+      { kind: 'creature', id: action.targetCreatureId },
+      CREATURE_HIT_DAMAGE,
+      'creature',
+    );
     if (died) creature.killCount += 1;
     // A chewer never zaps a creature (it only chews bonds); this branch is Voltkin/lightning only,
     // so always emit ARC_FLASH + let main.ts trigger the screen-shake (the existing ARC_FLASH gate).

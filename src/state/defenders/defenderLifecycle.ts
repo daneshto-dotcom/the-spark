@@ -36,7 +36,7 @@ import {
 import type { GodlyId } from '../godlyRecipes/types.ts';
 import { getDefenderRecipe } from '../godlyRecipes/index.ts';
 import { findNearestEnemyCreatureFrom } from '../creatures/creatureAI.ts';
-import { damageCreature } from '../creatures/creatureLifecycle.ts';
+import { damageEntity } from '../damage.ts';
 import type { World } from '../worldTypes.ts';
 import { getDefenderConfig, makeDefender, type Defender, type DefenderConfig, type DefenderKind } from './defender.ts';
 import { stepDefenderWalk, freezeDefender, distSq } from './defenderMotion.ts';
@@ -242,7 +242,9 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
         const victim = d.targetCreatureId !== null ? world.creatures.get(d.targetCreatureId) : undefined;
         if (victim !== undefined) {
           d.lastStrikePos = { x: victim.pos.x, y: victim.pos.y };
-          damageCreature(world, victim.id, CREATURE_HIT_DAMAGE);
+          // S139 P1 — through the dispatcher (identical behaviour; the creature arm delegates to
+          // `damageCreature`), so the turret beam / HELGA slap now carry a `'defender'` source.
+          damageEntity(world, { kind: 'creature', id: victim.id }, CREATURE_HIT_DAMAGE, 'defender');
         }
         d.state = 'FIRE';
         d.ticksInState = 0;

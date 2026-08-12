@@ -60,11 +60,11 @@ import {
   applyCreatureTick,
   applyDespawnCreature,
   applySpawnCreature,
-  damageCreature,
   type CreatureTickAction,
   type DespawnCreatureAction,
   type SpawnCreatureAction,
 } from './creatures/creatureLifecycle.ts';
+import { damageEntity } from './damage.ts';
 import {
   applyCreatureAttack,
   type CreatureAttackAction,
@@ -556,7 +556,14 @@ export function dispatch(world: World, action: GameAction): World {
       if (target.sourceSpawnerId === null) return world; // chewers only this session
       if (target.ownerPlayerId === action.playerId) return world; // enemy-only — never your own
       raider.disruptionCharges--;
-      damageCreature(world, action.creatureId, RAID_CREATURE_DAMAGE);
+      // S139 P1 — through the dispatcher; source `'player'` distinguishes a raid from a creature
+      // zap or a defender strike for future threat/reward rules.
+      damageEntity(
+        world,
+        { kind: 'creature', id: action.creatureId },
+        RAID_CREATURE_DAMAGE,
+        'player',
+      );
       return world;
     }
 
