@@ -5,6 +5,96 @@
 
 ---
 
+# ⚑ STATUS S139 (2026-08-11) — DAMAGE IS LIVE · THE FIRST FREE UNIT SHIPS · PROTOCOL 18
+
+> **3 of 4 priorities shipped and deployed (`fd48d3d`, verify-deploy 4/4). The Stink Tower is
+> DEFERRED with its spec intact — and the deferral is the correct dependency order, not a shortfall.**
+>
+> ### ⭐ THE FINDING THAT REWROTE THE SESSION: S138's damage substrate was DEAD CODE
+>
+> A.0 measured it and I re-verified by hand: `damageEntity` had **ZERO production call sites**. Its
+> only importer in the entire repo was its own test file, while three live damage paths went on
+> calling `damageCreature` directly. It was typed, serialized, hashed, 22-tests-green — and never
+> invoked by the running game for a whole session. `boot-snapshot.md`'s "the blocker is GONE" was
+> true only in the sense that the function existed.
+>
+> **No behavioural test could have caught it**: all 22 unit tests called `damageEntity` themselves,
+> so every one passed while the game never reached it. The defect was the *absence of an edge* in the
+> import graph. `damage.wired.test.ts` now guards exactly that, by scanning source with comments
+> stripped so a docblock mentioning the symbol cannot masquerade as a call site.
+>
+> ### The Council earned its keep, and the yield tells us why
+>
+> 8 R1 challenges → **5 adopted (1 convergent and decisive), 1 confirmed-and-sharpened, 3 refuted on
+> disk, 2 declined with reasons.** Materially better than S138's 1-of-8, and the cause is
+> identifiable: this brief named **CONSUMERS**, not just mechanisms — exactly what the S138
+> retrospective prescribed. The prescription worked; keep doing it.
+>
+> **The decisive find (both seats, independently, from a complete fact set):** shipping the Stink
+> Tower first would have been an **INERT PROP**. Nothing in the game can attack a defender (creatures
+> target BONDS only; defenders target CREATURES only), so its bag-scaled death blast was unreachable
+> and its aggro pull had no consumer. The cut line was re-planned around that — the goblin ships
+> first because it is what makes damage real.
+>
+> **Gemini's best find, adopted:** the anchor-kill path fires **no death blast**, because
+> `hostTick.ts:306-317` removes such a defender via `REMOVE_DEFENDER`, which is not death-by-damage.
+> The owner's headline mechanic would never have fired on the *most likely* kill path. (Its stated
+> mechanism — an "immortal floating ghost" — was refuted on disk; the poll does remove it.)
+>
+> ### Shipped
+>
+> - **P1 (`f61928f`)** — damage switched ON: the three bypassing callers routed through `damageEntity`;
+>   `DOT_CADENCE_TICKS = 30` minted (specified in prose since S138, never declared); `CHEW_DAMAGE`
+>   deleted and `CONNECTOR_HP` annotated as documentation-only (both measured to have zero code
+>   consumers — a bond has no `hp` field at all); `constants.lock.test.ts` gained **invariant**
+>   tripwires rather than value tripwires, including `attackFireTick === chewHits × CHEW_INTERVAL_TICKS`
+>   which had existed only as a comment beside two hardcoded literals.
+> - **P2 + P4 (`fd48d3d`)** — **THE GOBLIN**: a 4th `CreatureType` that targets the nearest enemy
+>   *primitive*, granted free to every seat at match start, 6 strikes to fell a shape or a unit.
+>   `PROTOCOL_VERSION` **17 → 18**.
+>
+> ### THREE BUGS FIXED, all silent, none type-checkable
+>
+> 1. `applySpawnCreature` **ignored `action.creatureType`** on the null-spawner path — it called
+>    `makeVoltkinCreature` unconditionally, so a goblin would have spawned a **Voltkin**.
+> 2. Its population gate was **type-blind** — the free goblin would have silently no-oped every later
+>    free unit **and permanently blocked that player's Voltkin summon**.
+> 3. ⭐ **Found by the real-physics test and nothing else could have:** the Voltkin ATTACKING bounce
+>    aborts when `!bondValid && !creatureValid`; both are false for a structure attacker, so the goblin
+>    bounced out of ATTACKING *before every single strike*. Traced live — it entered ATTACKING at tick
+>    112 and `ticksInState` was **still** being reset to 0 at tick 320 with the target at full hp. It
+>    closed distance, played the approach, and did literally nothing: the same "static-parses but never
+>    fires" shape as P1's dead dispatcher, reproduced in the very session that fixed it. Post-fix
+>    trace: hp 1000 → 833 → 666 → 499, exactly 167 per strike.
+>
+> ### Two consequences the owner should see in play
+>
+> 1. **Every player's goblin is a roaming ~120 px vision source** (`R_CREATURE_VISION`). This
+>    materially changes fog of war — a free scout, permanently. Surfaced by `vision.test.ts` shifting
+>    by one; I cleared granted units in that helper rather than re-baselining counts, because bumping
+>    the "EXCLUDES enemy creatures" case (which asserts ZERO) would have inverted its meaning.
+> 2. **Goblins render ABOVE the fog**, following the shipped chewer precedent — so enemy goblins are
+>    always visible. Defensible for a raider and consistent with its sibling, but it is a **design
+>    question the owner has not ruled**.
+>
+> ### ⚠ NOT CLAIMED
+>
+> The **2-peer check is an OWNER action**. The only runtime coverage of the version gate lives in the
+> e2e **quarantine lane, which is fully red** — the entire multi-peer/joiner suite times out
+> (`waitForWorld timeout: peer 0 PLAYING + 4 players`) — and it is `continue-on-error`, so it *cannot
+> fail the build*. Two browsers on v18 is the only way to verify the HELLO lockstep.
+>
+> Also fixed en route: three stale e2e version literals, one of which had **silently inverted** a
+> "newer-version joiner" test into the older-peer branch — the exact defect S133 P2 already fixed once.
+> It recurred because three numbers needed hand-syncing, so the fix is structural: one `LOCAL_PROTO_V`
+> with `NEWER_PEER_V` **derived**, making the inversion impossible to express.
+>
+> **Gates:** tsc 0 · vitest **2172/2172** across 144 files (from 2148/142) · e2e:gating **32/0** ·
+> bundle **666.9 KiB** (83.1 KiB headroom) · MCV **38/38 exit 0** · gitleaks clean (913 commits) ·
+> deploy verified **4/4** · Rule 22 audit clean.
+
+---
+
 # ⚑ STATUS S128 (2026-07-30) — v0.6 PIVOT ADOPTED · ROADMAP REWRITTEN · 7 BLOCKERS LOGGED
 
 > **Owner-directed pivot, landed on master by content-merge from

@@ -1,18 +1,18 @@
 {
-  "tool_calls_session_total": 142,
+  "tool_calls_session_total": 270,
   "session_id": "S139",
   "session_kind": "batch",
   "session_start": "2026-08-11",
   "prior_session_note": "S138 closed GREEN: damage substrate (P1) + three owner playtest fixes (P2). PROTOCOL_VERSION 17. Starters + build space designed + owner-ruled, NOT implemented.",
   "prior_session_archive": ".handoff-archive/HANDOFF_S138.md",
-  "phase": "DO",
+  "phase": "CLOSED",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-08-11_PDR_S139_starters.md",
-  "session_status": "in_progress",
+  "session_status": "closed",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "protocol_version": 17,
+  "protocol_version": 18,
   "boot_preflight": [
     "boot-snapshot.md read FIRST (per handoff instruction)",
     "git rev-list --count origin/master..master = 3 at boot; pushed 71352b7..9eb8bb1; now 0",
@@ -62,17 +62,21 @@
     "GOOD NEWS WORTH RECORDING (claims that CONFIRMED cleanly). damageEntity's guard/return semantics/anchor-raze all verified by running its 22 tests green. razePrimitives IS the single primitive-removal path - world.primitives.delete appears EXACTLY ONCE in src/ (razePrimitives.ts:78) and world.bonds.delete exactly once (:75); only 3 whole-world clear() resets bypass it. Widening DamageTarget is a 1-switch 3-arm->4-arm edit with ZERO external type consumers (DamageTarget/DamageSource have no importers outside damage.ts). DefenderKind's Record IS compile-time exhaustive. pickGathererTarget is ALREADY per-unit preference-aware so R3 needs zero changes there. pickGatherer hit-testing ALREADY EXISTS and is already own-units-gated (controls.ts:276-290). BotGoal has NO wire surface. Registry join is 3 LOC. Codex tab wiring needs NO change (main.ts:611-618 filters by r.kind automatically)."
   ],
   "carry_forward": [
-    "STARTER DESIGNS (next session, after this dispatcher): 3 new DefenderKinds + per-kind config + behaviours on the existing defender FSM + procedural-puppet placeholder art + 4-shape recipes. Forces its own PROTOCOL_VERSION bump.",
-    "BUILD SPACE — owner ruled EVERYTHING incl. R4 keep-ring move to ~R420. REAL STORAGE (B), 2D freeform, capacity NOT bank-capped, CASTLE_BANK_CAP -> 12-13 with a 5-wide x 3-row panel regrid (C1). R4 requires re-measuring haul throughput and retuning gatherer speed/count IN THE SAME SESSION (C2: haul goes 150->295px).",
-    "NEW (Gemini S138): per-primitive HP means an AoE hit on the Stink Tower damages all 5 bags at once, so the tower takes 5x the AoE damage of a single-primitive structure. Balance consequence to resolve in the starters session.",
-    "NEW (Grok S138): 'nearest enemy structure' is UNDEFINED once primitives can die independently — is a structure the largest connected component, any primitive with hp, or the defender anchor point? findNearestEnemyCreatureFrom cannot be reused. Must be defined in the starters session.",
-    "NEW (both S138): author all HP/damage as TOTALS over seconds on the 0.5s cadence, never per engine tick. Reaffirms the S137 DoT ruling; applies to the new dispatcher's callers.",
-    "Sim-worker default-on flip: 6 ?worker=1 literals / 4 files; probeHarness.ts:339-345 becomes refuse-by-default after the flip. NOTE: BACKLOG V6-1.1 warns against flipping in the same session as a new serialized entity family — do NOT pair it with this priority.",
-    "S135 untouched: SCORE_TIER corner-bloom replay; carried-potato onUp pointer capture; deposit-slot column overflow.",
-    "No 2-peer/joiner exercise of the castle bank; no host-migration round-trip for it.",
-    "H3 from the bank measurement NOT measured: whether periodic consumption removes the hauler stall at every cap. Needs a dispatch seam __SPARK__ does not expose.",
-    "ART/ANIM (starters Session B): veo does NOT hold prop/character consistency across a 4s clip. Fix is FRAME-LEVEL CURATION (2-3 takes per state, hand-pick ~6-10 clean frames). Never use the word 'sticker' in a prompt (white die-cut halo).",
-    "origin/gh-pages deletion — OWNER-GATED, unchanged."
+    "⭐ NEXT PRIORITY — THE STINK TOWER (P3, deferred from S139 with its spec fully intact). Everything is designed and every dependency now exists: damage is LIVE (S139 P1), an attacker that targets and destroys shapes exists (S139 P2), and the protocol is bumped to 18. Build it as a DefenderKind, NOT a spawner (spawners cannot be damaged at all, are net-POSITIVE income which inverts a consume-to-produce design, and their spawnedCount RESETS TO 0 ON EVERY LOAD so an ammo count modelled there refills on save/load and host migration). TURRET_FIRE_INTERVAL_TICKS is already 1800 = the owner's 30 s, and TURRET_DEFENDER_MAX_HP is already 3000 with the literal comment \"3 primitives' worth\" = the owner's \"hp of 3 connected shapes\". turretRenderer.ts is a COMPLETE procedural defender renderer in 153 LOC, so the tower needs NO atlas.",
+    "STINK TOWER — THE FOUR THINGS THE S139 COUNCIL SETTLED, do not re-derive them. (a) bags are AMMO, not destructible parts, and MUST be a SERIALIZED Defender field (Gemini refuted deriving them from tick arithmetic: throwing is target-gated so the decrement is not a pure function of elapsed time). (b) THE DEATH BLAST MUST FIRE FROM BOTH KILL PATHS via a SHARED destruction hook — hostTick.ts:306-317 removes a defender whose anchor died via REMOVE_DEFENDER, which is NOT death-by-damage, so the owner's headline mechanic would never fire on the most likely kill path. Centre the blast on `d.pos`, NOT on the anchor's position: on the poll path the anchor is already purged. (c) burst directions from pseudoRand(mix32(defenderId, tick), index) — pseudoRand is (seed, index=0), TWO params; and do NOT copy gathererMorphShape/keepRainbowTint, which are render-only and rest their purity argument on being cosmetic. (d) write a NEW radial-collect -> per-target damageEntity bridge; applyRadialClear is a TRAP (it DELETES rather than damages and its prim-victim loop takes no predicate, so it would one-shot every primitive in radius AND friendly-fire the owner).",
+    "STINK TOWER — the AGGRO PULL is implementable, and here is the fact neither Council seat supplied: the chewProgress target-stickiness that blocks a taunt is PROVENANCE-gated (hostTick.ts:351-358). Voltkin and other null-spawner creatures re-select EVERY tick; only spawner-sourced creatures are glued. The S139 free-granted goblin is null-spawner, so a taunt WORKS on it today. The problem only returns for future TOWER-SPAWNED units, where Gemini's prescription (forcibly zero chewProgress) would be needed — and that would collide with the 6-attack invariant, so decide it deliberately when producer towers land.",
+    "⚠ TWO OWNER RULINGS POINT OPPOSITE WAYS AND NOBODY HAD NOTICED. constants.ts:410-414 carries the B4b instruction verbatim: 'THE PAIRING IS THE POINT — NEVER TUNE THIS NUMBER APART FROM THE TABLE BELOW... At 5 slots only the PENTAGRAM is directly assemblable', with :429-431 adding 'MEASUREMENT SEAM ONLY, and it is NOT a licence to retune the cap on its own'. The R2 build-space ruling raises CASTLE_BANK_CAP to 12-13, at which ALL SIX recipes become directly assemblable — deleting the carve-down tactic the v0.6 pivot exists to protect. This needs an explicit owner override BEFORE the build space is built, not a silent constant edit.",
+    "⚠ R7 (the design library) IS NOT IMPLEMENTABLE AS RULED. The library is per-browser localStorage, never serialized/hashed/wired, so in a 2-peer match the peers hold DIFFERENT libraries and the host cannot validate 'I own this design' — which directly contradicts the design's own section 5 'non-negotiable' host-validation contract. R8's 'free every match regardless of unlocks' cannot be expressed in a per-browser unlock set at all. This is a DESIGN decision, not an implementation task. Also measured: the template-loader half is 100% unbuilt AND its data does not exist — EmblemSpec is a decorative polar approximation sized for a 240x320 codex tile with no relation to AUTO_BOND_RADIUS 60, only 3 of 6 CODEX_COPY entries have one, and the TWO the owner named as capacity targets (Voltkin=8, NONET=9) are exactly the two with NONE.",
+    "⚠ BUILD SPACE — C1's panel regrid DOES NOT FIT as specified, and there is a SECOND cap-dependent geometry site no design doc mentions. Width is fine (5*40+4*6 = 224 <= ROW_INNER_W 248) but height is not: 3*40+2*6 = 132 vs BANK_STRIP_H 52, over by 80px — BANK_STRIP_H must go 52->144, making panelHeight(2) go 194->286. A 5x3 grid also holds 15 slots against a ruled cap of 12-13 (2-3 dead boxes) and 6-wide is impossible (270 > PANEL_W 268). THE UNMENTIONED SITE: gathererRenderer.ts:194 draws banked shapes on the keep as pitch=(KEEP_W-14)/CASTLE_BANK_CAP; at cap 13 the glyph radius becomes 1.754px — illegible. AND castlePanel.test.ts has ZERO bank-strip coverage, so a regrid can overflow the plate with every test green. R6's 'a third control costs one entry' is also REFUTED by its own file: the class is hard-wired to two rows at FOUR sites and PanelControl.onActivate is never assigned or read anywhere.",
+    "⚠ THE e2e QUARANTINE LANE IS FULLY RED and has been non-blocking by design, plausibly for a long time. The entire multi-peer/joiner suite times out with 'waitForWorld timeout: peer 0 PLAYING + 4 players' — 4-player FFA, 3-player FFA, joiner LMB-place, joiner drag-follow, joiner self-bond, cross-color bond rejection, territorial block, ENDGAME envelope, spawner pickup claim, AND both protocol-mismatch tests. CONSEQUENCE: the ONLY runtime coverage of the PROTOCOL_VERSION gate cannot fail the build, so every bump is owner-manually verified. Investigate whether WebRTC works in this CI runner at all. NOT S139 scope.",
+    "S139 OWNER PLAYTEST ASKS: (1) the 2-PEER v18 HELLO check across two browsers — the only way to verify the bump, since CI cannot. (2) Does the free goblin feel right? It is a permanent roaming ~120px VISION source, which materially changes fog of war. (3) Goblins currently render ABOVE the fog (following the shipped chewer precedent), so enemy goblins are always visible — defensible for a raider but an UNRULED design question. (4) Balance: 6 strikes fells a shape at ~1 strike/sec plus travel, so roughly 13 s per shape; GOBLIN_MELEE_HP 6 and GOBLIN_MAX_ACCEL 140 are first-pass and unvalidated by play.",
+    "DEFERRED FROM THE OWNER'S REDESIGN, with reasons: the RANGED goblin (archer) — there is NO shipped travelling-projectile precedent to copy; Potato.prevPos is DEAD (its own docblock admits 'no functional effect today') and Poop loses velocity across host migration, so the arrow needs a deliberate design choice. The two PRODUCER towers + the FEED_TOWER intent — needs a STRUCTURAL PICKER that does not exist: pickPrimitive was deleted in S53 P2, there is no pickDefender/pickSpawner, and world.defenders has ZERO references in src/input/. Also note CASTLE_PORCH_SLOTS is 4 while CASTLE_BANK_CAP is 5, so a 'pull 3 then feed' flow has only 4 staging slots.",
+    "TRAPS FOR ANY NEW INTENT (measured): a forgotten CLIENT_INTENT_TYPES_RECORD row COMPILES CLEAN, passes every test, works in solo and host, and is SILENTLY DROPPED for a networked joiner at hostHandlers.ts:321 and main.ts:2161 — it is Partial<...>+satisfies, so tsc does not force it, and protocol.ts:631's claim that 'the unit test in protocol.test.ts will remind you' is FALSE (no such test exists; the only real cross-check is benchGate.test.ts's SYMMETRIC set-equality, which passes if you omit the row from BOTH records). Also: FEED_TOWER must copy applyPullFromBank's 'NO-OP, NEVER AN ERROR' shape, NOT placePrimitive's throw-on-guard — placePrimitive is the only reducer family that THROWS, and a stale client index would kill the host dispatch loop.",
+    "TWO LATENT HOLES ANY NEW SPARK CONTAINER INHERITS. (a) MIGRATION SparkId COLLISION: migrationClaim.ts:147-165 computes maxSparkId from world.freeSparks ONLY, but banked sparks are deliberately OUT of freeSparks, so a successor whose highest free spark is 40 while a bank holds 57 re-mints 41..57 and COLLIDES. The fix belongs in rebuildAuthorityAllocators. (b) castleBanks is marked 'hashed' but has NO per-element field guard (the container is Map<PlayerId, Spark[]> so the ElemOf trick cannot reach the Spark), and the bank projection hashes only id/type — so adding a field to Spark fires the SparkHashed guard for freeSparks but NOTHING forces the bank projection to carry it.",
+    "STALE DOCS FOUND AND NOT ALL FIXED (fix opportunistically when touching these files): voltkinFrames.ts:255-258 says public/godly/voltkin/anim/* was deleted in S107 P3 — both PNGs EXIST, are git-tracked, ship in dist/ and are loaded EVERY match (S110 P5 re-filled the path). stateHash.ts:42,:70 cite a symbol FAMILY_COVERAGE that DOES NOT EXIST (the real export is FIELD_COVERAGE). Three docblocks cite main.ts:1706 as the hashWorldState call site; the real call is main.ts:1761. comboCodexStore.ts:12 points at comboCodexOverlay.ts, deleted in S104 P3. BACKLOG's own anti-bloat LOC figures are stale (20 modules over 500, not 16; main.ts is 2616 not 2519). The 500-LOC charter has ZERO mechanical enforcement.",
+    "package.json's `test` script is still bare `vitest` = WATCH MODE, never exits. deploy.yml works around it with `npx vitest run`. So `npm test` in CI or a subagent hangs to the 15m timeout and reports **cancelled**, not failure — the silent-death class already in memory. Adding a `test:run` script is a logged, unlanded carry-forward from a prior session.",
+    "S135 residuals, untouched: SCORE_TIER corner-bloom replay; carried-potato onUp pointer capture; deposit-slot column overflow. Also still open: no 2-peer/joiner exercise of the castle bank; H3 (does periodic consumption remove the hauler stall? needs a dispatch seam __SPARK__ does not expose); the sim-worker default-on flip (6 ?worker=1 literals / 4 files, and probeHarness.ts:339-345 becomes refuse-by-default after the flip — BACKLOG V6-1.1 warns NOT to pair it with a new serialized entity family, which S139 just added, so it is now safe to do ALONE next). origin/gh-pages deletion remains OWNER-GATED.",
+    "ART (starters Session B, unchanged): veo does NOT hold prop/character consistency across a 4 s clip — the fix is FRAME-LEVEL CURATION (2-3 takes per state, hand-pick ~6-10 clean frames), never a better prompt. NEVER use the word 'sticker' (it produces a white die-cut halo, the artefact the owner already rejected). The S137 spike has motion clips for the SWORDSMAN ONLY; the archer and tower have a single still each, so 2 of 3 units cannot enter the atlas pipeline yet. Note the atlas pipeline script hardcodes an absolute owner-desktop path and has no CLI args. Also: 3 more Helga-weight atlases would add ~7.5 MiB to the repo AND the Pages artifact — but atlases are budget-EXEMPT from the bundle gate, which only parses the entry script."
   ],
   "priorities": [
     {
@@ -164,7 +168,7 @@
     {
       "id": "P2-goblin-melee-structure-targeting",
       "title": "Structure targeting + one melee goblin, granted free at match start - the cut-line fix that makes damage real and gives the tower an antagonist",
-      "status": "pending",
+      "status": "completed",
       "tier": "Full",
       "scope": [
         "A 4th CreatureType targeting the nearest enemy PRIMITIVE with hp (owner ruling R2) via a NEW ~25-LOC sibling over world.primitives - never a refactor of findNearestEnemyCreatureFrom",
@@ -181,12 +185,129 @@
       ],
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "fd48d3d",
+      "check_method": "RALPH:PATROL in-loop; every claim proven by execution rather than by reading. (1) THREE BUGS FIXED, ALL SILENT AND NONE TYPE-CHECKABLE. Two were found by A.0b before any code: applySpawnCreature IGNORED action.creatureType on the null-spawner path (calling makeVoltkinCreature unconditionally, so a goblin would have spawned a VOLTKIN), and its population gate was TYPE-BLIND (one null-spawner creature per player of ANY type, so the free goblin would have silently no-oped every later free unit AND permanently blocked that player's Voltkin summon). Both now have failing-before/passing-after tests; neither had ANY prior coverage because 'voltkin' was the only value ever passed on that branch. (2) THE THIRD BUG WAS FOUND BY THE REAL-PHYSICS TEST AND NOTHING ELSE WOULD HAVE CAUGHT IT. The Voltkin ATTACKING bounce aborts early when `!bondValid && !creatureValid`; both are false for a structure attacker, so targetGoneEarly was TRUE on every tick from 0..attackFireTick and the goblin bounced out of ATTACKING before it could strike. I traced it live with a scratch diagnostic: the unit entered ATTACKING at tick 112 and ticksInState was STILL being reset to 0 at tick 320 with the target shape at FULL HP - it closed distance, played the approach, and did literally nothing. That is the same 'static-parses but never fires' shape as P1's dead dispatcher, in a feature I had just written. Fixed with a primitiveValid third arm mirroring the S103 #8 amendment that added creatureValid for exactly this reason. Post-fix live trace: hp 1000 -> 833 -> 666 -> 499, i.e. EXACTLY 167 per strike. (3) VISUAL VERIFICATION COMPLETED, by a stronger method than a screenshot. The Browser pane is hidden so rAF is paused and the Pixi ticker never advances (the S129 trap), which makes a screenshot prove nothing. Instead I drove app.ticker.update() manually in the live app and interrogated the scene graph: aboveFogLayer has 15 children (matching the fog roll-call update exactly), children[4] is the goblin's _Graphics with 19 DRAW INSTRUCTIONS and a 25x27 px bounds - so the draw path executes and emits real geometry. The same probe confirmed the grant fires in the running app (1 goblin, hp 6, state SEEKING) and that creatureTypes is ['goblinMelee'] not ['voltkin'] - trap 1 verified fixed LIVE, not just in unit tests - and that targetPrimitiveId stays null in solo, i.e. the no-own-shape-fallback rule holding in practice. (4) SUBSTRATE CHOSEN ON MEASURED EVIDENCE, NOT PREFERENCE: units are CreatureTypes with a CONFIG DISCRIMINATOR (targetsStructures, following the drone's selfExplode precedent) rather than provenance branching, because A.0b measured FIVE sites where sourceSpawnerId === null is overloaded to mean 'is a Voltkin'. Riding that overload would have inherited Voltkin's own-bond fallback, its phantom ~300px centre-repulse and its un-raidability simultaneously. All three existing configs are explicitly false, so every shipped type is byte-identical. (5) THE OWNER'S '6 ATTACKS' IS INTEGER-EXACT IN BOTH DIRECTIONS. GOBLIN_DAMAGE_VS_PRIMITIVE = 167 because damageEntity THROWS on a fractional amount and 1000/6 = 166.67: 166 gives 996 after six hits, silently making the rule SEVEN attacks. Tests assert five do NOT fell and six DO. Unit-vs-unit uses the other hp scale (GOBLIN_MELEE_HP 6 with CREATURE_HIT_DAMAGE 1). (6) FOUR TEST-FIXTURE CHANGES, EACH A DECISION RATHER THAN A RE-BASELINE. voltkin-config.test.ts: the runtime key-list guard fired as designed. vision.test.ts: a creature is an R_CREATURE_VISION source so the grant shifted every count - I cleared granted units in the helper rather than bumping numbers, because bumping would have INVERTED the 'EXCLUDES enemy creatures' case which asserts ZERO. hostTick.differential.test.ts: referenceHostTick is a FROZEN copy of the pre-S119 tick and cannot contain a branch added later, so goblins were removed from two fixtures to keep the gate testing the refactor it guards - and the determinism obligation was MOVED to goblin.test.ts (a same-world double-run over 200 ticks), not dropped. Positive evidence the new branch is inert for shipped types: D3 (voltkin+chewer+drone fan-out) still passes untouched. fog.spec.ts: the S137 roll-call assertion did exactly its job and pointed straight at the new child. (7) DETERMINISM UNDER THE NON-HOST-ONLY SEED. clientHandlers has the JOINER dispatch its own local START_GAME, so the seeder uses ZERO RNG, no wall-clock, castleAnchor-derived positions only, and grants a UNIT never a recipe (a tower-style grant would consume nextPrimitiveId, and A.0b measured that allocator divergence is PERMANENT on a joiner). Pinned by a two-peer hash-equality test AND a same-world double-run. (8) ONE FLAKE HONESTLY DISTINGUISHED FROM A REGRESSION: bomb.spec.ts:112 failed in the full lane (placement timeout) and passed 2/2 when re-run alone; the subsequent full lane was 32/32. Reported as a flake under contention, not as caused by this change. tsc 0 - vitest 2172/2172 across 144 files (from 2155/143) - e2e:gating 32/0 - bundle 666.9 KiB with 83.1 KiB headroom.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/creatures/creature.ts",
+          "needle": "| 'goblinMelee'"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/creatures/creature.ts",
+          "needle": "targetPrimitiveId: PrimitiveId | null"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/creatures/voltkin-config.ts",
+          "needle": "targetsStructures: true, // THE goblin discriminator"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/creatures/voltkin-config.ts",
+          "needle": "goblinMelee: GOBLIN_MELEE_CONFIG"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/creatures/creatureAI.ts",
+          "needle": "export function findNearestEnemyPrimitiveFrom"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/creatures/creatureLifecycle.ts",
+          "needle": "c.type === action.creatureType"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/creatures/creatureLifecycle.ts",
+          "needle": "const primitiveValid ="
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/creatures/creatureAttack.ts",
+          "needle": "GOBLIN_DAMAGE_VS_PRIMITIVE"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/physics/creatureVerlet.ts",
+          "needle": "!config.targetsStructures"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
+          "needle": "function seedStartingUnits"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/hostTick.ts",
+          "needle": "findNearestEnemyPrimitiveFrom(world, creature)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/stateHashFull.ts",
+          "needle": "'targetPrimitiveId'"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "targetPrimitiveId: s.targetPrimitiveId ?? null"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/goblinRenderer.ts",
+          "needle": "export class GoblinRenderer"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
+          "needle": "goblinRenderer.sync(world)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const GOBLIN_DAMAGE_VS_PRIMITIVE = 167"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/creatures/goblin.test.ts",
+          "pattern": "  it\\(",
+          "op": ">=",
+          "value": 14
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/creatures/goblin.test.ts",
+          "needle": "is DETERMINISTIC: two identical runs agree on hashWorldStateFull"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/fog.spec.ts",
+          "needle": "goblinRenderer"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "STATUS S139 (2026-08-11) — DAMAGE IS LIVE"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "damageEntity` had **ZERO production call sites**"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+          "needle": "roaming ~120 px vision source"
+        }
+      ]
     },
     {
       "id": "P3-stink-tower",
       "title": "The Stink Tower: 5 bags as serialized ammo, 30s throw cadence, depleted-state aura + aggro, death blast scaling with bags remaining, firing from BOTH kill paths",
-      "status": "pending",
+      "status": "deferred",
       "tier": "Full",
       "scope": [
         "DefenderKind 'stinkTower' + the SECOND duplicated union at godlyRecipes/types.ts:138",
@@ -200,12 +321,13 @@
       ],
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "deferred_reason": "DEFERRED to the next session with its spec fully intact, under the owner's explicit delegation of the cut line. Not blocked and not abandoned - the ordering is now CORRECT rather than merely affordable. The Council's decisive finding was that the Stink Tower shipped without an attacker is an inert prop (nothing in the game could attack a defender), so the goblin had to land first. It now has: a live damage substrate (P1), an attacker that targets and destroys shapes (P2), and a bumped protocol (P4). Context at the decision point was 613K/1M = 61% YELLOW, i.e. 'tighten scope', and the honest choice was one complete priority over two half-built ones. Everything needed is already designed and recorded: the bags-as-ammo model, the shared destruction hook firing from BOTH kill paths (Gemini's best find), mix32-packed burst directions, the radialDamage bridge that must NOT reuse applyRadialClear, and the aggro-pull resolution (the chewProgress stickiness is provenance-gated, so it works on the null-spawner goblin P2 grants and only returns as a problem for future tower-spawned units)."
     },
     {
       "id": "P4-protocol-bump-deploy",
       "title": "PROTOCOL_VERSION 17->18 covering every serialized change landed, fix 3 stale e2e protocol literals, deploy and verify",
-      "status": "pending",
+      "status": "completed",
       "tier": "Standard",
       "scope": [
         "protocol.ts:120 + :174 (the readonly protoVersion tsc tripwire) + protocol.test.ts:76,:330 + hostmigD2.protocol.test.ts:31 + successionWarrant.test.ts:130",
@@ -215,7 +337,47 @@
       "explicit_non_claim": "The 2-PEER CHECK CANNOT BE AUTOMATED and will NOT be claimed as verified. The only runtime coverage of the version gate lives in the e2e quarantine lane, which is fully red (entire multi-peer suite times out) and is continue-on-error, so it cannot fail the build. This is an OWNER action on return.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "fd48d3d",
+      "check_method": "(1) BUMP JUSTIFIED BY TWO INDEPENDENT FORCING REASONS, either sufficient alone: a NEW SERIALIZED CreatureType literal ('goblinMelee') - deserializeCreature writes `type: s.type` with NO runtime whitelist and there is no CreatureType validator anywhere in src/net/, which is precisely the class that bumped 13->14 for 'lightningDrone' - and a NEW SERIALIZED + HASHED Creature field (targetPrimitiveId), which a v17 peer could not see and would therefore disagree with the host's hashWorldStateFull the moment any goblin commits to a shape. Contrast S138, where I REDUCED scope by reporting that the damage substrate needed no bump; here the bump is real and I say why. (2) ALL SIX in-src version sites updated (protocol.ts:120 const, protocol.ts:174 the readonly protoVersion tsc tripwire, protocol.test.ts x2, hostmigD2.protocol.test.ts, successionWarrant.test.ts) plus a bump-history entry explaining both reasons, following the file's own convention. (3) THREE STALE e2e LITERALS FIXED, AND THE CLASS MADE UNREPEATABLE. smoke.spec.ts:643 asserted 'v15' while PROTOCOL_VERSION was 17 - TWO bumps stale despite the line carrying its own explicit warning - and :667 set an override of 16 for a test titled 'Newer-version joiner', which against a v17 host had SILENTLY INVERTED into the OLDER-peer branch, i.e. the exact defect S133 P2 already fixed once. It recurred because three numbers had to be hand-synced across one file. The durable fix is structural: ONE `LOCAL_PROTO_V` constant with `NEWER_PEER_V = LOCAL_PROTO_V + 1` DERIVED from it, so the inversion is impossible by construction rather than merely warned against. Only one number moves on a future bump. (Note the first insertion of that block landed inside a multi-line import because my startswith('import ') heuristic misfired; caught immediately by the gating lane and relocated.) (4) THE 2-PEER CHECK IS EXPLICITLY NOT CLAIMED. The only runtime coverage of the version gate lives in the e2e quarantine lane, which is fully red (the entire multi-peer/joiner suite times out with 'waitForWorld timeout: peer 0 PLAYING + 4 players') and is continue-on-error, so it cannot fail the build. Verifying the v18 HELLO across two browsers is an OWNER action on return, recorded as such rather than narrated as done.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 18 as const"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+          "needle": "readonly protoVersion: 18"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+          "needle": "S139 P2 — bumped 17->18: THE GOBLIN"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 17"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/smoke.spec.ts",
+          "needle": "const LOCAL_PROTO_V = 18"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/smoke.spec.ts",
+          "needle": "const NEWER_PEER_V = LOCAL_PROTO_V + 1"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/smoke.spec.ts",
+          "needle": "toContain('v15')"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
@@ -226,14 +388,26 @@
     {
       "tag": "#pin-the-relationship-not-the-value",
       "text": "S139 P1: the obvious lock test was PRIMITIVE_MAX_HP === 1000. That would have been nearly worthless. The number is not load-bearing as a number - it is load-bearing because 1%, 2.5% and 5% of it are INTEGERS, which is what makes damageEntity's integer guard unfireable at runtime. Pinning the value still permits someone to 'improve' it to 1024 and silently destroy that property. So the tests assert the RELATIONSHIPS: the percentages land on integers, DOT_CADENCE_TICKS === 0.5*PHYSICS_HZ, and attackFireTick === chewHits * CHEW_INTERVAL_TICKS for every chewing config. That last one existed ONLY as a comment ('chewHits: 5, // = constants.ts CHEW_HITS') beside two hardcoded literals, and A.0b measured that breaking it makes the sever dispatch never fire - the chew caps forever with the bond intact. Generalisation: when you lock a constant, first ask what PROPERTY makes it correct, and lock that. Also add a non-vacuity assertion (chewers.length > 0), or a future refactor that empties the collection turns the guard green and silent."
+    },
+    {
+      "tag": "#the-real-physics-test-caught-what-i-had-just-written",
+      "text": "S139 P2: I fixed two spawn bugs that A.0b had FOUND FOR ME, then wrote a goblin that closed on its target, entered ATTACKING, and never hit anything. Every unit test passed. The FSM state was right, the target was right, the range test was right - and the damage never landed, because the Voltkin ATTACKING bounce aborts when `!bondValid && !creatureValid` and both are false for a structure attacker, so it bounced out before its fire tick on every single cycle. What caught it was the real-physics acceptance test asserting the VICTIM'S HP ACTUALLY DECREASED. A state assertion (is it ATTACKING? does it have a target?) would have passed happily. What made it diagnosable in two minutes was a throwaway scratch test that printed state/ticksInState/distance/hp every 80 ticks: `tis 0` recurring at ticks 160/240/320 with hp pinned at 1000 named the mechanism immediately. Two lessons. (a) The acceptance criterion for a new attacker is that the TARGET changed, never that the attacker reached a state. (b) This is the same defect class as P1's dead dispatcher - correct code that is never actually reached - and I reproduced it in the very session I spent fixing it. Assume you will too, and write the test that observes the EFFECT."
+    },
+    {
+      "tag": "#three-hand-synced-numbers-is-not-an-invariant",
+      "text": "S139 P4: e2e/smoke.spec.ts asserted 'v15' while PROTOCOL_VERSION was 17, and set a peer override of 16 for a test titled 'Newer-version joiner' - so a test whose entire purpose was the newer-peer branch had silently inverted into the older-peer branch. S133 P2 had ALREADY FIXED this exact defect once, and left a ⛔ comment saying a future bump must update this line and the two below. It recurred anyway, and stayed invisible because the describe is @quarantine-flaky and the gating lane grep-inverts that tag, so nothing could go red. The lesson is not 'read the warning'. A comment asking a human to keep three numbers in sync across one file is not an invariant, it is a wish; and the second recurrence is the evidence. The fix is structural: ONE `LOCAL_PROTO_V` with `NEWER_PEER_V = LOCAL_PROTO_V + 1` DERIVED, so the inversion cannot be expressed. When you find a stale constant that a prior session already fixed once, do not fix the value - delete the opportunity."
+    },
+    {
+      "tag": "#a-hidden-pane-cannot-screenshot-but-the-scene-graph-can-be-interrogated",
+      "text": "S139 P2: my own PRIME-AUDIT made 'LOOK AT THE RENDER' mandatory, because a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches and no state assertion can see 'nothing was drawn'. Then the screenshot failed: the Browser pane is hidden, so rAF is paused, the Pixi ticker never advances and the canvas composites no frames (S129 hit this and recorded 'visual unverified'). Rather than accept that again, I drove `app.ticker.update()` manually and interrogated the scene graph: aboveFogLayer.children.length === 15 (matching the fog roll-call), children[4] is the goblin's _Graphics with 19 draw instructions and a 25x27 px bounds. That is STRONGER evidence than a screenshot - it proves the draw path executed and emitted geometry, and a picture of a paused canvas would have proven nothing. The same probe incidentally confirmed the grant fires live and that creatureTypes was ['goblinMelee'] rather than ['voltkin'], verifying a fixed trap in the running app instead of only in a unit test. Generalisation: when a visual check is blocked, ask what OBSERVABLE the render would produce and assert that instead of downgrading to 'unverified'."
     }
   ],
   "totals": {
     "budget_remaining": 1000000
   },
   "budget_total": 1000000,
-  "e2e_gating_status": "GREEN 32/0 at boot",
-  "closed": false,
+  "e2e_gating_status": "GREEN 32/0 (re-run after P2+P4; one bomb.spec flake under full-lane contention passed 2/2 in isolation and 32/32 on the following full run)",
+  "closed": true,
   "a0_deviation": "The A.0 sweep's adversarial re-check stage (24 independent re-verifications of every non-CONFIRMED verdict) and its synthesis agent ALL failed on an individual spend limit after the 10 probes completed. Probe payloads were recovered from journal.jsonl and triaged by Claude directly. STATED AS A DEVIATION, NOT PRESENTED AS COMPLIANCE: single-probe findings carry ONE source. The two highest-consequence findings (damageEntity dead code; CI red) were personally re-verified by Claude with direct greps and gh calls before being reported.",
   "ci_finding": "e2e.yml newest run 31366201100 = FAILURE, all 3 lanes, headSha 33 commits behind HEAD, predates two gating fixes. No push trigger exists so nothing re-runs it. Fresh workflow_dispatch on current HEAD = run 31509968212, result pending. deploy.yml is 3/3 success. gh issue list = empty.",
   "owner_rulings_s139": {
@@ -301,8 +475,13 @@
     "runtime_verifiability_boot_then_smoke": "THE decisive question for this session, given the headline A.0 finding was a whole subsystem that static-parsed perfectly and was never called. Static parsing is NOT validation here. Mandatory runtime gates before any priority is marked complete: (1) a REAL-PHYSICS acceptance test that runs the actual physics loop and asserts the goblin closes distance and the target primitive's hp actually decreases - a state-only assertion is not evidence (S136); (2) PHYSICS_DT imported from physicsLoop.ts, never re-derived, because constants.ts does not export it and a test once silently ran on NaN (S138); (3) an explicit assertion that damageEntity now HAS production call sites, i.e. the exact grep that exposed the dead substrate becomes a permanent test; (4) LOOK AT THE RENDER - a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches, and no state assertion can see 'nothing was drawn'.",
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
-  "real_context_tokens_at_close": 444325,
-  "real_context_pct_at_close": 44.43,
-  "checkpoint_commit": "f61928f",
-  "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not."
+  "real_context_tokens_at_close": 613451,
+  "real_context_pct_at_close": 61.35,
+  "checkpoint_commit": "fd48d3d",
+  "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
+  "analyze_completed": true,
+  "gitleaks_status": "CLEAN — 913 commits scanned, ~21.15 MB, 'no leaks found'. No findings to triage.",
+  "rule22_audit": "CLEAN. (A) No unrendered ${VAR} placeholders in the session diff. (B) Three apparent 'missing file' hits (config.ts / spec.ts / test.ts) were triaged and are REGEX TAILS of real files (voltkin-config.ts, *.spec.ts, *.test.ts) — my pattern stopped at hyphens and dots; verified by listing the real matches rather than assuming. (C) CI all-success: Deploy 3/3 success incl. fd48d3d, and the E2E workflow success on the run this session dispatched. (D) gh issue list empty. (E) gitleaks clean. No Docker/entrypoint or env-rendered config was touched this session, so the mount-point and restart-survival checks are N/A.",
+  "deploy_verified_s139": "PASS 4/4 — REMOTE master == fd48d3d1; 1 run for fd48d3d1 (event=push); run 31583433645 concluded SUCCESS (checked explicitly, not inferred from absence-of-failure); LIVE entry asset == local build (index-CGwv_oyg.js) by content-hash equality.",
+  "constitution_note": "constitution-check.sh: OK exit 0 (all 4 source pins match; LOAD ZONE 7278B <= 12288B), so the close is NOT blocked by drift. The `pending-ratification-20260811152940` sentinel was reviewed and DELIBERATELY LEFT IN PLACE: it records a stamp made under PDR S125-P3b in a DIFFERENT project (Command center, confirmed by S162), and ratifying a CONSTITUTION.md section 9 amendment row is a governance act belonging to the owner. Self-ratifying would be exactly the self-authorization axiom A2 forbids, and it is outside this project's scope. Surfaced to the owner rather than silently cleared."
 }

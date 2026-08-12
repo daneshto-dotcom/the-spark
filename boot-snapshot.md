@@ -1,112 +1,147 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-08-11 | Session: S138 | Commit: 0067e6f | Branch: master
+Generated: 2026-08-11 | Session: S139 | Commit: fd48d3d | Branch: master | PROTOCOL_VERSION: **18**
 
-**S138 shipped 2 priorities: the damage substrate the whole offence/TD direction was blocked on, and
-the owner's three live-playtest fixes. `PROTOCOL_VERSION` is now 17 — BOTH PEERS MUST RELOAD.**
+**S139 shipped 3 of 4 priorities: damage went LIVE, and the first free non-godly unit — the GOBLIN —
+is in the game and deployed. `PROTOCOL_VERSION` is now 18 — BOTH PEERS MUST RELOAD.**
 
-Deploy verified 4/4 live (`index-vSzv8e82.js`). tsc 0 · vitest 2148/2148 (142 files) ·
-e2e:gating 32/0 · build 661.4 KiB (88.6 KiB headroom) · MCV exit 0 · gitleaks clean.
-⚠ **1 commit unpushed** (`0067e6f`, the ANALYZE + gitleaks commit) — credential healthy, count exact.
+Deploy verified 4/4 (`index-CGwv_oyg.js`). tsc 0 · vitest **2172/2172** (144 files) ·
+e2e:gating **32/0** · bundle 666.9 KiB (83.1 KiB headroom) · MCV **38/38 exit 0** ·
+gitleaks clean (913 commits) · Rule 22 audit clean · 0 commits unpushed.
+
+## ⭐ READ THIS FIRST — the finding that should change how you read handoffs
+
+**S138's damage substrate was DEAD CODE.** `damageEntity` had **zero production call sites** for an
+entire session. Its only importer in the whole repo was its own test file, while three live damage
+paths went on calling `damageCreature` directly. It was typed, serialized, hashed, 22-tests-green,
+and documented as "the ONE way anything in the world takes damage" — and the game never called it.
+The previous boot snapshot said "the blocker is GONE (P1 built it)", which was true only in the sense
+that the function existed.
+
+**No behavioural test could have caught it**: all 22 of its unit tests called it themselves, so every
+one passed while the game never reached it. The defect was the *absence of an edge* in the import
+graph. `src/state/damage.wired.test.ts` now guards exactly that.
+
+Then I reproduced the same class of bug in the very session that fixed it (see P2 bug #3 below).
+**Treat "shipped" as meaning CALLED, not present-and-green.**
 
 ## What shipped
-- **P1 (c7ec3c0)** — `Primitive.hp` + `PRIMITIVE_MAX_HP = 1000` (scale chosen so the ruled "% of max
-  HP on a 0.5 s cadence" DoT model lands on INTEGERS: 1% = 10, 2.5% = 25, 5% = 50 ⇒ no float drift),
-  real per-kind defender HP replacing the `1e9` sentinel, `state/damage.ts damageEntity` as the ONE
-  damage path (delegating to `damageCreature`), and `state/razePrimitives.ts` as the ONE
-  primitive-removal path. 22 new tests.
-- **P2 (cc4e382)** — keeps to `KEEP_RING_RADIUS = 420`; the outward `STRUCTURE_GROW_IMPULSE` deleted;
-  bots scoped off the shared quarry to their own porch + a new `PULL` goal on the shipped
-  `PULL_FROM_BANK`. `PROTOCOL_VERSION` 16→17.
 
-## ⚠ TWO CONSEQUENCES NEEDING AN OWNER PLAYTEST (both are direct results of P2, not defects)
-1. **vs-bots is now EASIER.** Bots are gated on gatherer throughput, compounded by the longer haul.
-2. **The opening economy is SLOWER.** The keep move makes the haul 150→295 px (**1.97×**) while
-   `CASTLE_BANK_CAP` is still 5. The ruled raise to **12–13** is the counterweight and was
-   deliberately NOT included. Re-measure with `e2e/bank-throughput.spec.ts` and retune gatherer
-   speed/count when it lands.
+- **P1 (`f61928f`)** — damage switched ON. The three bypassing callers
+  (`creatures/creatureAttack.ts`, `defenders/defenderLifecycle.ts`, `world.ts`) now route through
+  `damageEntity`. `DOT_CADENCE_TICKS = 30` minted (specified in prose since S138, never declared).
+  `CHEW_DAMAGE` deleted and `CONNECTOR_HP` annotated as documentation-only — both measured to have
+  **zero code consumers**; a bond has no `hp` field at all. `constants.lock.test.ts` gained
+  **invariant** tripwires instead of value tripwires, incl.
+  `attackFireTick === chewHits × CHEW_INTERVAL_TICKS`, which existed only as a comment beside two
+  hardcoded literals.
+- **P2 + P4 (`fd48d3d`)** — **THE GOBLIN.** A 4th `CreatureType` that walks to the nearest enemy
+  *primitive* and destroys it in 6 strikes; granted free to every seat at match start; fights other
+  units. New procedural `goblinRenderer.ts` (no atlas). `PROTOCOL_VERSION` **17 → 18**.
 
-## Next Steps
-1. **STARTER DESIGNS — Session A.** The blocker is GONE (P1 built it). Extend `DefenderKind` with
-   goblinSword / goblinArcher / stinkTower, per-kind config, behaviours on the existing defender FSM,
-   procedural-puppet placeholder art, 4-shape recipes (the 4-shape space is MEASURED FREE). Read
-   §2b of the archived amendment first — it hands you the API and THREE open questions.
-2. **BUILD SPACE** — full scope per the owner: REAL STORAGE (§1b R1), `CASTLE_BANK_CAP` → 12–13 with
-   the 5-wide × 3-row panel regrid (C1), R3 per-gatherer submenu, R6 BUILD SPACE control, R7 library.
-   R4 (the keep-ring move) is **already done** in S138.
-3. **ONE MORE BUMP COVERS BOTH.** Starters (new serialized `DefenderKind` literals) and the build
-   space (`PULL_STRUCTURE_FROM_BANK` intent) each force a bump; do them in a SINGLE 17→18, with a
-   deploy + 2-peer check in the same session.
-4. Bank-cap re-measurement + gatherer retune (pairs with #2).
-5. Sim-worker default-on flip — 6 `?worker=1` literals / 4 files; `probeHarness.ts:339-345` becomes
-   refuse-by-default. ⚠ BACKLOG V6-1.1 warns: do NOT pair with a new serialized entity family.
+## THREE BUGS FIXED — all silent, none type-checkable
+
+1. `applySpawnCreature` **ignored `action.creatureType`** on the null-spawner path — it called
+   `makeVoltkinCreature` unconditionally, so a goblin would have spawned a **Voltkin**.
+2. Its population gate was **type-blind** — the free goblin would have silently no-oped every later
+   free unit **and permanently blocked that player's Voltkin summon**.
+3. ⭐ **Caught by the real-physics test and nothing else could have.** The Voltkin ATTACKING bounce
+   aborts when `!bondValid && !creatureValid`; both are false for a structure attacker, so the goblin
+   bounced out of ATTACKING *before every strike*. Traced live: entered ATTACKING at tick 112,
+   `ticksInState` **still** resetting to 0 at tick 320, target at full hp. It closed distance, played
+   the approach, and did nothing. Post-fix: hp 1000 → 833 → 666 → 499, exactly 167/strike.
+
+## WHAT TO DO NEXT (priority order)
+
+1. **⚠ 2-PEER CHECK — only you can do this.** Open two browsers on v18 and confirm the HELLO
+   lockstep. The only runtime coverage of the version gate is the e2e **quarantine lane, which is
+   fully red** and `continue-on-error`, so CI *cannot* verify it. This is not optional bookkeeping —
+   it is the one gate on a protocol bump.
+2. **PLAYTEST the goblin** and answer two design questions it raises: (a) every goblin is a permanent
+   roaming ~120 px **vision source**, which materially changes fog of war; (b) goblins render **above
+   the fog** (following the shipped chewer precedent), so enemy goblins are always visible — sensible
+   for a raider, but **unruled**.
+3. **THE STINK TOWER** — the deferred P3, next up. All four Council rulings are recorded in
+   `session-state.json → carry_forward`; do not re-derive them. Build it as a **DefenderKind, not a
+   spawner** (spawners cannot be damaged, are net-positive income, and their `spawnedCount` resets on
+   every load so ammo would refill on save/load *and host migration*).
+   `TURRET_FIRE_INTERVAL_TICKS` is already the owner's 30 s and `TURRET_DEFENDER_MAX_HP` already
+   carries the comment "3 primitives' worth" = the owner's "hp of 3 connected shapes".
+4. **BUILD SPACE** — blocked on **two owner rulings that contradict each other** (see Blockers).
 
 ## Blockers
-- **None blocking.** Owner-gated only: `origin/gh-pages` deletion (unchanged, standing).
-- Open design questions for the starters session (from the S138 Council, logged not dropped):
-  **(a)** "nearest enemy structure" is UNDEFINED now that primitives die independently — largest
-  connected component, any primitive with hp, or the anchor? `findNearestEnemyCreatureFrom` cannot be
-  reused, and `Defender.targetCreatureId` is `CreatureId`-typed so widening it is a SERIALIZED change.
-  **(b)** AoE hits all 5 stink-tower bags at once ⇒ the tower absorbs 5× the AoE damage of a
-  single-primitive structure — feature, or per-structure cap?
-  **(c)** Defender death razes its ANCHOR (S138, to stop the igniter re-minting an immortal
-  defender) — confirm that reads right for goblins, which are UNITS, not emplacements.
-- Defender HP numbers (turret 3000 / princess 2000) are **first-pass, unvalidated by play** — nothing
-  dealt damage when they were written. Tune them in the starters session.
+
+- **⛔ TWO OWNER RULINGS POINT OPPOSITE WAYS.** `constants.ts:410-414` carries B4b verbatim: *"THE
+  PAIRING IS THE POINT — NEVER TUNE THIS NUMBER APART FROM THE TABLE BELOW"*, plus *"NOT a licence to
+  retune the cap on its own"*. The R2 build-space ruling raises `CASTLE_BANK_CAP` to 12–13, at which
+  **all six recipes become directly assemblable**, deleting the carve-down tactic the v0.6 pivot
+  exists to protect. Needs an explicit override before the build space is built.
+- **⛔ R7 (design library) IS NOT IMPLEMENTABLE AS RULED.** The library is per-browser localStorage,
+  never serialized/hashed/wired, so peers hold *different* libraries and the host cannot validate "I
+  own this design" — contradicting the design's own §5 non-negotiable host-validation contract. A
+  design decision, not an implementation task.
+- **Owner-gated, standing:** `origin/gh-pages` deletion.
+
+## Traps from S139 (the first two are the same shape)
+
+- **A subsystem can be perfect, tested, and never called.** See the top of this file. The acceptance
+  criterion for a new dispatcher/attacker is a named production caller, or an assertion that the
+  *target* changed — never that the actor reached a state.
+- **The real-physics test earned its place.** A state assertion (is it ATTACKING? has it a target?)
+  would have passed on a goblin that never dealt damage. Assert the **effect**, and keep a throwaway
+  scratch test that prints state/ticks/distance/hp — it named the mechanism in two minutes.
+- **Three hand-synced numbers is not an invariant, it's a wish.** `smoke.spec.ts` asserted `'v15'`
+  against a v17 host and had silently inverted a "newer-version joiner" test into the older-peer
+  branch — the exact defect S133 P2 already fixed once, invisible because the lane is
+  `@quarantine-flaky` and gating grep-inverts that tag. Fixed structurally: one `LOCAL_PROTO_V`, with
+  `NEWER_PEER_V` **derived**. When you find a stale constant a prior session already fixed, delete the
+  *opportunity*, not the value.
+- **A hidden Browser pane can't screenshot, but the scene graph can be interrogated.** rAF is paused
+  so the canvas composites nothing (S129 recorded "visual unverified"). Instead I drove
+  `app.ticker.update()` by hand and read the graph: `aboveFogLayer` has 15 children, `children[4]` is
+  the goblin's `_Graphics` with **19 draw instructions** and 25×27 px bounds. Stronger than a
+  screenshot — and it incidentally proved the grant fires live and spawned a goblin, not a Voltkin.
+- **Naming CONSUMERS instead of mechanisms tripled the Council's yield.** 5 of 8 challenges adopted
+  vs S138's 1 of 8. The S138 retrospective prescribed exactly this; it worked.
+- **Distinguish a flake from a regression before reporting either.** `bomb.spec.ts` failed in the full
+  lane, passed 2/2 alone, and the next full lane was 32/32.
 
 ## Pending Backlog
-BACKLOG.md uses a roadmap table, not checkboxes. Next slot is the starters work above; V6-1.3 P2 is
-the build space. ✅ **V6-2.1 R6 is now CLOSED** — the "no damageable target" premise that gated
-V6-2.1 (targeting priority) and V6-2.4 (castle HP/repair) is false as of S138.
-Also still open: S135 residuals (SCORE_TIER corner-bloom replay, carried-potato onUp pointer capture,
-deposit-slot column overflow) · no 2-peer/joiner exercise of the castle bank · H3 (does periodic
-consumption remove the hauler stall? needs a dispatch seam `__SPARK__` lacks).
 
-## Traps from S138 (read these — three are the SAME shape)
-- **Documenting a pattern REPRODUCES it. This bit three times in one session.** Two MCV `file_lacks`
-  needles matched the comments explaining the removals, and `.gitleaksignore` tripped its own
-  `generic-api-key` rule by quoting a worked example of the pattern it suppresses. Rule: assert on the
-  CODE form (`const r = SPAWNER_RADIUS + 150`, `const KEEP0`), describe suppressed patterns in prose.
-- **A unanimous Council can be unanimously wrong if you briefed it incompletely.** I said
-  `structuralSignature` is size-only without saying the rig compares `hashWorldStateFull`; both seats
-  converged on a wrong conclusion and one prescribed unnecessary work. Name the CONSUMERS, not just
-  the mechanism. All 4 technically-specific criticals were refuted on disk (10th such firing).
-- **A hardcoded copy of a formula is a time bomb.** `castle-panel.spec.ts` inlined the old ring
-  formula; moving the ring broke 4 unrelated e2e tests. `helpers.ts` had already installed the
-  `__SPARK__.keepCenter` getter in S137 but only one file adopted it. Changing a constant is a
-  search-and-adopt task.
-- **A test can pass while running on NaN.** `PHYSICS_DT` isn't exported from `constants.ts`;
-  `SUBSTEP_DT` was NaN and the test passed anyway because `solveBonds` is purely positional. Only tsc
-  caught it. Run tsc before believing a new test.
-- **Prove a guard, don't read it.** The field-level hash guard was a docblock claim; adding `hp` and
-  running tsc turned it into a fact in two minutes — and refuted a reviewer who claimed the opposite.
-- **The owner's symptom can be right while their mechanism is wrong.** "Primitives push each other"
-  was real, but it was never collision (`anchorStabilize.ts:9-11` says placed prims aren't
-  free-integrated). It was a cosmetic S13 "puff" that was actually unconditional physics.
+BACKLOG.md uses a roadmap table. Next slot is the Stink Tower (deferred P3), then the build space
+(blocked on the two contradictions above). 15 carry-forwards are recorded in
+`session-state.json → carry_forward` — including the fully-red e2e quarantine lane, the migration
+`SparkId` collision hole, the `castleBanks` missing per-element hash guard, `npm test` being watch-mode
+(so it reports **cancelled**, not failure), and five stale docblocks found but not all fixed.
 
 ## Recent Reflexion (last 2 sessions)
+
+### S139 (2026-08-11)
+`#a-subsystem-can-be-perfect-tested-and-never-called` · `#pin-the-relationship-not-the-value` ·
+`#the-real-physics-test-caught-what-i-had-just-written` ·
+`#three-hand-synced-numbers-is-not-an-invariant` ·
+`#a-hidden-pane-cannot-screenshot-but-the-scene-graph-can-be-interrogated`
+
 ### S138 (2026-08-11)
-`#a-council-fed-a-partial-fact-set-agrees-confidently-and-wrongly` ·
-`#prove-the-guard-dont-read-it` · `#the-obvious-suspect-can-be-refuted-by-a-docblock` ·
+`#a-council-fed-a-partial-fact-set-agrees-confidently-and-wrongly` · `#prove-the-guard-dont-read-it` ·
+`#the-obvious-suspect-can-be-refuted-by-a-docblock` ·
 `#a-hardcoded-copy-of-a-formula-is-a-time-bomb-with-someone-elses-name-on-it` ·
 `#required-beats-optional-because-tsc-becomes-the-auditor` ·
 `#file_lacks-needles-match-my-own-explanatory-comments` · `#a-test-can-pass-while-running-on-NaN` ·
 `#invert-the-tests-that-pinned-the-behaviour-you-just-deleted`
 
-### S137 (2026-08-10)
-`#my-cost-estimate-was-an-order-of-magnitude-wrong` · `#the-owners-number-may-not-survive-the-tick-rate` ·
-`#prompting-cannot-fix-model-inconsistency` · `#a-claim-is-not-verified-until-a-machine-rechecks-it` ·
-`#instrument-before-you-infer` · `#a-count-is-a-contract-without-a-name` ·
-`#dont-parse-typescript-with-a-regex` · `#an-underpowered-window-reads-as-a-null-result` ·
-`#a-passing-visual-test-that-produced-no-image`
+Full text: `.claude/reflexion_log.md` (37 tagged entries, under the 50 cap).
 
-Full text: `.claude/reflexion_log.md` (43 entries; the S133 block was pruned at 58 > 50 and lives on
-in `.handoff-archive/`).
+## Process deviations (S139)
 
-## Process deviations (S138)
-- CHECK ran **2-way** (CLAUDE + GROK-ANALYST), not the Full-tier Triumvirate: both reviewers timed out
-  at 120 s on the first long raw-diff prompts; Grok recovered on a tightened retry, Gemini did not.
-  Stated as a deviation, not presented as compliance. PLAN's Council was a full 3-way.
-- P2 was an in-session Rule 16 SCOPE AMENDMENT from an owner playtest, taken ahead of
-  CHECK/ANALYZE/handoff on the owner's explicit instruction.
-- The gitleaks finding was pre-existing (S134) but fixed here rather than carried — a red security gate
-  is not a deferrable state.
+- **The A.0 sweep's adversarial re-check stage and its synthesis agent ALL died on a spend limit**
+  after the 10 probes completed. Probe payloads were recovered from `journal.jsonl` and triaged by
+  hand instead. Stated as a deviation, not compliance: single-probe findings carry ONE source. The two
+  highest-consequence findings (damageEntity dead; CI red) were personally re-verified with direct
+  greps and `gh` calls before being reported.
+- **CHECK ran as RALPH:PATROL in-loop plus the PLAN Council, not a separate Full-tier CHECK
+  Triumvirate.** The two external seats were spent on PLAN (2 rounds), where they changed the cut
+  line; verification leaned on tsc + 2172 tests + 38 MCV bindings + a live scene-graph probe + the
+  Rule 22 audit. Stated plainly rather than presented as a full Triumvirate.
+- **The owner delegated the cut line** ("full autonomous run on this session priority batch") after
+  being told the batch was likely more than one session. P3 was deferred under that delegation, and
+  the ordering turned out to be *correct* rather than merely affordable.
