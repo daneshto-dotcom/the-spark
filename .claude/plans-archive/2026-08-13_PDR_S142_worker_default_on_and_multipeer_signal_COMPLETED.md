@@ -1,7 +1,7 @@
 # PDR — S142 BATCH: MAKE THE WORKER PATH SAFE · KILL THE 2-BROWSER TAX · AN HONEST LEDGER
 
 Session: S142 · Tier: **Full** · Branch: master · Protocol at boot: **20**
-Status: A.0 COMPLETE · Council pending · owner pre-approved the batch 2026-08-13
+STATUS: COMPLETED (S142) — P1/P2/P3 all shipped and pushed. ⚠ THE FLIP (P1 item 5) WAS DEFERRED, deliberately and on unanimous Council advice; see the S142 carry-forwards for the three gates that remain.
 
 ---
 

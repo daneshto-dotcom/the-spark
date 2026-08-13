@@ -86,6 +86,12 @@ round-tripped the **same field** since S77 P3. **65 sessions of disagreement.** 
 - **Cap the fan-out.** 7 agents died on the spend limit with **zero** recoverable results; 3 tight
   probes landed 3/3. **Third consecutive session.** Read the highest-risk area by hand FIRST.
 - **Rebuild before `verify-deploy`.**
+- ⛔ **RUN THE `/handoff` SKILL — DO NOT HAND-AUTHOR THE HANDOFF DOCS.** Found at S142 close:
+  `.claude/reflexion_log.md` contained **no S140 and no S141 block at all**. Both sessions wrote
+  their entries to `session-state.json` and neither ever reached the log, because both (and S142,
+  until caught) hand-wrote the handoff documents instead of invoking the skill — which skips STEP
+  2.8.A. Both were recovered verbatim from git and restored. The docs looking right is not evidence
+  the procedure ran.
 
 ## Pending Backlog
 
