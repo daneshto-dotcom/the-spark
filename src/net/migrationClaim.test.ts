@@ -21,6 +21,7 @@ import {
 import { parseNetMessage, type MigrationClaimMsg, type RosterEntry } from './protocol.ts';
 import type { SuccessionWarrant } from './successionWarrant.ts';
 import { dispatch, makeWorld } from '../state/world.ts';
+import { asPlayerId } from '../types.ts';
 
 function bytesEq(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
@@ -144,6 +145,41 @@ describe('S122 P2 — D-A authority rebuild', () => {
     expect(r.reseed('K7Q2', 5000)).toBe(r.reseed('K7Q2', 5000));
     expect(r.reseed('K7Q2', 5000)).not.toBe(r.reseed('K7Q2', 5001));
     expect(fnv1a32('K7Q2')).toBe(fnv1a32('K7Q2'));
+  });
+
+  it('⭐ S141 P3 — maxSparkId COVERS BANKED SPARKS, which are deliberately OUT of freeSparks', () => {
+    // ⛔ THE REGRESSION THIS PINS. `depositIntoCastle` removes a hauled shape from `world.freeSparks`
+    // on purpose — that removal is what exempts a stored shape from collision, the grid, the renderer,
+    // the soft cap and the TTL reap at once — and holds the whole entity in `world.castleBanks`. The
+    // allocator scanned only `freeSparks`, so a successor re-minted ids that collided with live banked
+    // entities. Silent and peer-consistent: every survivor applies the same successor snapshot, so the
+    // state hash AGREES on a corrupt world.
+    //
+    // ⚠ THE BANK ID MUST SIT ABOVE THE HIGHEST FREE ID or this test passes for the wrong reason.
+    const world = makeWorld(7);
+    world.gameState = 'TITLE';
+    dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
+    world.freeSparks.set(40 as never, { id: 40 } as never);
+    world.castleBanks.set(asPlayerId(0), [{ id: 57 } as never]);
+    expect(rebuildAuthorityAllocators(world).maxSparkId).toBe(57);
+  });
+
+  it('S141 P3 — a bank id BELOW the free max does not lower the allocator', () => {
+    const world = makeWorld(7);
+    world.gameState = 'TITLE';
+    dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
+    world.freeSparks.set(900 as never, { id: 900 } as never);
+    world.castleBanks.set(asPlayerId(0), [{ id: 12 } as never]);
+    expect(rebuildAuthorityAllocators(world).maxSparkId).toBe(900);
+  });
+
+  it('S141 P3 — EVERY seat bank is scanned, not just the first', () => {
+    const world = makeWorld(7);
+    world.gameState = 'TITLE';
+    dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
+    world.castleBanks.set(asPlayerId(0), [{ id: 5 } as never]);
+    world.castleBanks.set(asPlayerId(3), [{ id: 88 } as never]);
+    expect(rebuildAuthorityAllocators(world).maxSparkId).toBe(88);
   });
 });
 

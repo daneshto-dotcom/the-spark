@@ -1740,16 +1740,19 @@ async function bootstrap(): Promise<void> {
       // reseeded (a one-time cadence discontinuity — the ratified reconnect UX class).
       if (simWorkerDriver !== null && simWorkerDriver.failed && !workerFallbackRepaired) {
         workerFallbackRepaired = true;
-        let maxPrim = 0;
-        for (const id of world.primitives.keys()) if ((id as number) > maxPrim) maxPrim = id as number;
-        let maxBond = 0;
-        for (const id of world.bonds.keys()) if ((id as number) > maxBond) maxBond = id as number;
-        world.nextPrimitiveId = maxPrim + 1;
-        world.nextBondId = maxBond + 1;
-        let maxSpark = 0;
-        for (const id of world.freeSparks.keys()) if ((id as number) > maxSpark) maxSpark = id as number;
+        // ⛔ S141 P3 — THIS USED TO BE A HAND-INLINED COPY OF THE THREE-LOOP SCAN, AND IT CARRIED THE
+        // IDENTICAL freeSparks-ONLY BUG. It is now a CALL to the one shared helper.
+        //
+        // This matters more than the migration path it was copied from: this branch fires on a plain
+        // worker crash in a SOLO or VS-BOTS match — no peer, no migration, no host handoff — so it is
+        // far more reachable than the host-migration path everyone was looking at. Duplicated logic
+        // with no shared definition is why fixing `rebuildAuthorityAllocators` alone would have left
+        // the more common path broken; the duplication is deleted rather than the second copy patched.
+        const allocs = rebuildAuthorityAllocators(world);
+        world.nextPrimitiveId = allocs.nextPrimitiveId;
+        world.nextBondId = allocs.nextBondId;
         const st = spawner.getState();
-        if (st !== null) spawner.restoreState({ ...st, nextId: maxSpark + 1 });
+        if (st !== null) spawner.restoreState({ ...st, nextId: allocs.maxSparkId + 1 });
         const repairSeed = Math.floor(Math.random() * 0x1_0000_0000) >>> 0;
         spawner.reseed(repairSeed); // keeps nextId; re-seeds streams + countdowns
         world.rngSeed = repairSeed;

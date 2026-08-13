@@ -252,7 +252,40 @@ type GathererHashed =
   | 'id' | 'ownerPlayerId' | 'pos' | 'spawnedAtTick' | 'state' | 'targetSparkId'
   | 'carriedSparkId' | 'speedLevel' | 'preferredType';
 
+/**
+ * S141 P3 — THE CASTLE-BANK PROJECTION GUARD.
+ *
+ * `castleBanks` is `Map<PlayerId, Spark[]>`, so the `ElemOf` trick above cannot reach the `Spark`
+ * inside it — the element type is an ARRAY, not the entity. The consequence was a real hole: adding a
+ * field to `Spark` fires `_sparkComplete` (via `freeSparks`) and is therefore forced into
+ * `SparkHashed`, but NOTHING forced it into the BANK projection, which hashes only id/type. Two worlds
+ * whose banked shapes differed in that new field would hash EQUAL — the wide oracle blind exactly
+ * where the S136 bank work put a whole entity family out of the live map.
+ *
+ * The fix is a second classification of the SAME field set, from the bank's point of view. Every
+ * `Spark` field must be named either as hashed-in-the-bank or as deliberately excluded WITH a reason,
+ * and a new field satisfies neither until someone decides which it is.
+ */
+type BankedSparkHashed = 'id' | 'type';
+/**
+ * Deliberately EXCLUDED from the bank projection, each for a stated reason:
+ *  - `pos`/`prevPos`: a stored shape has no meaningful position. It is out of `freeSparks` so nothing
+ *    reads them, and `applyPullFromBank` overwrites both from the porch slot on the way out. Hashing a
+ *    dead field would make two functionally identical worlds disagree.
+ *  - `state`: always `Free` for a banked shape (the deposit path sets it, the pull path re-sets it).
+ *  - `escrow`: cleared on deposit and re-set on pull; it describes transit, not storage.
+ *  - `radius`: derived from `type`, which IS hashed.
+ *  - `createdTick`: rewritten to the pull tick on the way out, so the stored value is not observable.
+ *  - `poopyUntilTick`: a hazard timer on a world-resident shape; a banked shape is not in the world.
+ */
+type BankedSparkAcknowledged =
+  | 'pos' | 'prevPos' | 'state' | 'escrow' | 'radius' | 'createdTick' | 'poopyUntilTick';
+
 /* eslint-disable @typescript-eslint/no-unused-vars */
+const _bankedSparkComplete: NoUncovered<
+  Exclude<SparkF, BankedSparkHashed | BankedSparkAcknowledged>
+> = true;
+void _bankedSparkComplete;
 const _primComplete: NoUncovered<Exclude<PrimitiveF, PrimitiveHashed>> = true;
 const _bondComplete: NoUncovered<Exclude<BondF, BondHashed>> = true;
 const _sparkComplete: NoUncovered<Exclude<SparkF, SparkHashed>> = true;
