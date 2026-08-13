@@ -19,6 +19,51 @@ import type { WorkerBatchResultMsg, WorkerInitMsg } from './state/workerSim.ts';
 /** A hiccup longer than this many pending fixed steps is dropped (time dilation). */
 const MAX_CARRIED_TICKS = 10;
 
+/**
+ * S143 P1 — THE BATCH WATCHDOG DEADLINE.
+ *
+ * `failed` was previously set ONLY by an explicit error event: `onerror`, or an `INIT_FAILED`
+ * message. A worker that stops responding WITHOUT throwing — an infinite loop inside a reducer,
+ * a lost `BATCH_RESULT` — left `inFlight` latched true forever, so `pump` early-returned on
+ * every subsequent frame while `failed` stayed FALSE and `isReady` stayed TRUE. main.ts then
+ * went on treating the mirror as authoritative: the game freezes solid, permanently, and
+ * nothing anywhere reports it. The existing fallback-to-direct-sim repair could never fire,
+ * because the only thing that arms it is the flag this hang cannot set.
+ *
+ * That is survivable while the worker is opt-in behind `?worker=1`. It is not survivable as the
+ * default, which is why this ships BEFORE the flip rather than with it.
+ *
+ * ⚠ DELIBERATELY VERY GENEROUS. A batch is at most `MAX_CARRIED_TICKS` (10) fixed steps, which
+ * even the 2-core SwiftShader CI runner completes in well under a second (S127 measured whole
+ * bots FRAMES at ~11/s there). 10 s is ~3 orders of magnitude above the real cost, so this can
+ * only ever trip on a genuine hang — never on a slow machine. A watchdog that false-positives
+ * would be strictly worse than none, since it would drop players out of the worker path for
+ * being on modest hardware, which is the exact population the worker exists to help.
+ *
+ * Background tabs are NOT a false-positive source: `pump` is driven by the render ticker, so
+ * the clock is only ever read on a frame we were actually given, and `onmessage` still delivers
+ * `BATCH_RESULT` in a throttled tab — so a backgrounded tab returns with `inFlight` already
+ * cleared rather than with a stale deadline.
+ */
+export const WORKER_BATCH_DEADLINE_MS = 10_000;
+
+/**
+ * Pure decision half of the watchdog, so the rule is testable without a real `Worker`
+ * (there is none in vitest). Returns true iff an in-flight batch has outlived the deadline.
+ *
+ * Written as `>` rather than `>=` so a deadline of 0 in a test still requires elapsed time,
+ * and guarded on `inFlight` so a driver sitting idle can never trip it.
+ */
+export function batchDeadlineExceeded(
+  inFlight: boolean,
+  inFlightSinceMs: number,
+  nowMs: number,
+  deadlineMs: number = WORKER_BATCH_DEADLINE_MS,
+): boolean {
+  if (!inFlight) return false;
+  return nowMs - inFlightSinceMs > deadlineMs;
+}
+
 export class SimWorkerDriver {
   private readonly worker: Worker;
   private pendingIntents: GameAction[] = [];
@@ -27,6 +72,10 @@ export class SimWorkerDriver {
   private carriedTicks = 0;
   private latest: WorkerBatchResultMsg | null = null;
   private ready = false;
+  /** `performance.now()` at which the in-flight batch was posted (S143 P1 watchdog). */
+  private inFlightSinceMs = 0;
+  /** Set when the watchdog — not an error event — is what condemned the worker. Forensics. */
+  watchdogTripped = false;
   /** Set on worker error / INIT failure — main falls back to the direct path. */
   failed = false;
   /** Mirror-vs-worker hash mismatches observed (forensics; surfaced on __SPARK__). */
@@ -77,12 +126,30 @@ export class SimWorkerDriver {
     alivePeerIds: readonly string[] | null,
   ): void {
     this.carriedTicks = Math.min(this.carriedTicks + ticks, MAX_CARRIED_TICKS);
-    if (!this.ready || this.failed || this.inFlight) return;
+    if (!this.ready || this.failed) return;
+    // S143 P1 — watchdog. Same early return as before for a healthy in-flight batch; the only
+    // new behaviour is condemning a batch that has outlived the deadline, so the direct-sim
+    // fallback main.ts already implements can actually be reached by a non-throwing hang.
+    if (this.inFlight) {
+      if (batchDeadlineExceeded(this.inFlight, this.inFlightSinceMs, performance.now())) {
+        console.error(
+          `[simWorkerDriver] batch ${this.batchSeq} exceeded ${WORKER_BATCH_DEADLINE_MS}ms with no ` +
+          `BATCH_RESULT — condemning the worker and falling back to direct sim.`,
+        );
+        this.watchdogTripped = true;
+        this.failed = true;
+      }
+      return;
+    }
     if (this.carriedTicks === 0 && this.pendingIntents.length === 0) return;
     const intents = this.pendingIntents;
     this.pendingIntents = [];
     this.batchSeq++;
     this.inFlight = true;
+    // S143 P1 — ONE clock read, shared by the worker's `nowMs` and the watchdog's start stamp,
+    // so the deadline is measured from exactly the instant the batch was handed over.
+    const postedAtMs = performance.now();
+    this.inFlightSinceMs = postedAtMs;
     this.worker.postMessage({
       type: 'TICK_BATCH',
       batchSeq: this.batchSeq,
@@ -90,7 +157,7 @@ export class SimWorkerDriver {
       control: { state: control.state, cursor: { x: control.cursor.x, y: control.cursor.y } },
       alivePeerIds: alivePeerIds !== null ? [...alivePeerIds] : null,
       intents,
-      nowMs: performance.now(),
+      nowMs: postedAtMs,
     });
     this.carriedTicks = 0;
   }

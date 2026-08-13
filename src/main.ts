@@ -206,6 +206,9 @@ import { applyNetSnapshot, netSnapshot, restore, snapshot, type WorldSnapshot } 
 import { makeGameStateExtras, softReset, tickGameState } from './state/gameState.ts';
 import { mintNonetSeed, startSudoku, submitSudokuSolve, tickSudoku } from './state/sudokuEvent.ts';
 import { asPlayerId } from './types.ts';
+// S143 P1 — the ONE sim-worker flag predicate. Shared with probeHarness so a default-on flip
+// moves both together; see workerFlag.ts for why two independent `=== '1'` reads was a bug.
+import { isSimWorkerRequestedHere } from './workerFlag.ts';
 
 // S50 P2 — PHYSICS_DT / SUBSTEP_DT extracted to physicsLoop.ts; PHYSICS_DT
 // re-imported (above) for the outer ticker accumulator.
@@ -414,8 +417,10 @@ async function bootstrap(): Promise<void> {
   // object here becomes a render MIRROR (the client's exact posture): positions apply every
   // frame from a transferable buffer, full snapshots on structural batches, and every local
   // action routes to the worker as an intent (with the client's optimistic-prediction set).
-  const workerFlagWanted =
-    new URLSearchParams(window.location.search).get('worker') === '1';
+  // S143 P1 — routed through the ONE shared predicate (`workerFlag.ts`), which also gives the
+  // `?worker=0` opt-out that did not exist before. The default itself lives in that module, so
+  // flipping it moves this call site and probeHarness's refuse-to-arm guard together.
+  const workerFlagWanted = isSimWorkerRequestedHere();
   let simWorkerDriver: SimWorkerDriver | null = null;
   // One-shot latch for the worker-failure → direct-resume allocator repair (see below).
   let workerFallbackRepaired = false;
@@ -429,6 +434,28 @@ async function bootstrap(): Promise<void> {
   } | null = null;
   const workerSimActive = (): boolean =>
     simWorkerDriver !== null && !simWorkerDriver.failed;
+
+  /**
+   * ⛔ S143 P1 — THE ONE WAY A HOST APPLIES A VALIDATED REMOTE INTENT.
+   *
+   * There are TWO host INTENT apply paths, and until now only one of them was worker-aware:
+   * the original host (`createHostStartHandler`'s `dispatchAction`) routed to the worker, while
+   * the MIGRATION SUCCESSOR — which installs its own `transport.on` handler at TAKEOVER —
+   * open-coded `dispatch(world, stamped)` unconditionally.
+   *
+   * That is correct TODAY only by accident: a promoted host's `simWorkerDriver` is null (clients
+   * never adopt), so `workerSimActive()` is false and the direct dispatch is what should happen.
+   * The instant the worker is default-on, a promoted host that adopts the worker would keep
+   * applying remote players' actions to what is now only a render MIRROR — the authoritative
+   * world in the worker would never see them, and they would be silently overwritten by the next
+   * snapshot. Every other peer's input would simply stop counting, with no error anywhere.
+   *
+   * Both call sites now go through this function, so the divergence cannot be re-expressed.
+   */
+  const applyRemoteIntentAuthoritatively = (action: GameAction): void => {
+    if (workerSimActive()) simWorkerDriver!.postIntent(action);
+    else dispatch(world, action);
+  };
 
   const dispatchFn: ControlsDispatchFn = (action: GameAction) => {
     if (
@@ -837,10 +864,8 @@ async function bootstrap(): Promise<void> {
     // S122 P1 — worker mode routes validated, seat-stamped remote INTENTs to the sim
     // worker (the mirror must never apply them authoritatively). Direct mode dispatches
     // into `world` exactly as before.
-    dispatchAction: (action) => {
-      if (workerSimActive()) simWorkerDriver!.postIntent(action);
-      else dispatch(world, action);
-    },
+    // S143 P1 — shared with the migration-successor path; see applyRemoteIntentAuthoritatively.
+    dispatchAction: applyRemoteIntentAuthoritatively,
     // S124 P1 (D4) / S125 P1 (v2) — zombie demotion wiring: a VERIFIED higher-epoch claim (checked
     // in hostHandlers against the warrant WE signed) + local partition evidence ⇒ the match migrated
     // around us while we were frozen/partitioned. S125: instead of the v1 terminal overlay we now
@@ -2200,7 +2225,11 @@ async function bootstrap(): Promise<void> {
                     return;
                   }
                   try {
-                    dispatch(world, stamped);
+                    // S143 P1 — was `dispatch(world, stamped)`, the ONLY host INTENT apply path
+                    // that was not worker-aware. Under a default-on worker this successor would
+                    // have written every remote player's action into a render mirror and had it
+                    // silently overwritten by the next snapshot.
+                    applyRemoteIntentAuthoritatively(stamped);
                   } catch {
                     /* reducer reject — same posture as the host path */
                   }

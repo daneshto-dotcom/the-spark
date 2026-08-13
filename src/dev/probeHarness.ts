@@ -88,6 +88,9 @@ import { asSparkId } from '../types.ts';
 import type { PlayerId, SparkId, Vec2 } from '../types.ts';
 import type { World } from '../state/worldTypes.ts';
 import type { GameAction } from '../state/world.ts';
+// S143 P1 — the ONE sim-worker flag predicate, shared with main.ts. The refuse-to-arm guard
+// below MUST track the worker's actual activation, not the spelling of a URL parameter.
+import { isSimWorkerRequestedHere } from '../workerFlag.ts';
 
 /** Grep target proving DEV-only stripping. MUST NOT appear in a production bundle. */
 export const PROBE_SENTINEL = 'SPARK_V06_ECONOMY_PROBE_HARNESS';
@@ -336,13 +339,21 @@ export function installProbeHarness(deps: ProbeDeps): { dispose(): void } | null
   // ── REFUSE TO ARM IN SIM-WORKER MODE (S128 CHECK, GEMINI-AUDITOR finding, verified) ──
   // `dispatchFn` routes to the worker as an INTENT when the sim-worker is active, and
   // `SPAWN_SPARK` is ABSENT from `CLIENT_INTENT_TYPES_RECORD` while `PICKUP_SPARK: true` is
-  // present. So under ?worker=1 the spawn would be dropped and the pickup would then reference a
-  // spark that does not exist in the worker's authoritative world — a silent broken state, in the
-  // instrument whose whole job is to produce a trustworthy measurement. Refuse loudly instead.
-  if (params.get('worker') === '1') {
+  // present. So with the worker active the spawn would be dropped and the pickup would then
+  // reference a spark that does not exist in the worker's authoritative world — a silent broken
+  // state, in the instrument whose whole job is to produce a trustworthy measurement.
+  //
+  // ⛔ S143 P1 — THIS GUARD USED TO READ `params.get('worker') === '1'` AND THAT WAS BACKWARDS
+  // FOR THE ONE CASE IT MATTERS IN. It asked about the SPELLING OF A URL PARAMETER, not about
+  // the state it guards. With worker-on-by-default the param is ABSENT, so the old test was
+  // FALSE, so the harness ARMED WHILE THE WORKER WAS ACTIVE — the exact broken-instrument state
+  // this block exists to prevent, reached by the flip it was supposed to survive. It now asks
+  // the same shared predicate `main.ts` uses to decide whether to construct the driver at all,
+  // so the two can no longer disagree. See `workerFlag.ts`.
+  if (isSimWorkerRequestedHere()) {
     console.error(
-      `[probe] REFUSING TO ARM: ?worker=1 is set. SPAWN_SPARK is not a client intent, so the ` +
-      `NEW-regime draw cannot survive the sim-worker path. Drop ?worker=1 and reload.`,
+      `[probe] REFUSING TO ARM: the sim worker is active. SPAWN_SPARK is not a client intent, ` +
+      `so the NEW-regime draw cannot survive the sim-worker path. Reload with ?worker=0.`,
     );
     return null;
   }
