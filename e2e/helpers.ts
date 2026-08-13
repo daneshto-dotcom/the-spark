@@ -405,18 +405,41 @@ export async function waitForWorld(
   timeoutMs = 30_000,
 ): Promise<void> {
   const start = Date.now();
+  // ⛔ S142 P2 — REMEMBER THE LAST POLL ERROR. The bare `catch {}` that used to be here is
+  // the single reason nobody has ever diagnosed the quarantine lane: `readWorldState` throwing
+  // on EVERY poll (page crashed, bundle failed to load, __SPARK__ never installed,
+  // net::ERR_ADDRESS_UNREACHABLE) is indistinguishable from the predicate simply not being
+  // satisfied yet. Both produced the identical "waitForWorld timeout" message, so two
+  // completely different failures — a dead page and a slow one — read the same in every log.
+  // Two competing causal stories about this lane have sat in the repo for sessions, neither
+  // substantiated by any captured log, precisely because of this swallow.
+  let lastPollError: string | null = null;
+  let pollErrorCount = 0;
   while (Date.now() - start < timeoutMs) {
     try {
       const state = await readWorldState(page);
       if (predicate(state)) return;
-    } catch {
-      // __SPARK__ may not exist yet during boot
+      // A poll that SUCCEEDS clears the memory: earlier boot-time throws (__SPARK__ not
+      // installed yet) are expected and must not be reported as the cause of a later timeout.
+      lastPollError = null;
+    } catch (err) {
+      lastPollError = err instanceof Error ? err.message : String(err);
+      pollErrorCount++;
     }
     await page.waitForTimeout(200);
   }
   const finalState = await readWorldState(page).catch(() => null);
+  // Only surfaced when the LAST poll was still failing — i.e. the page never recovered.
+  // A timeout with no trailing error is a genuine predicate-never-satisfied timeout.
+  const diag =
+    lastPollError !== null
+      ? `\n⚠ The final poll was still THROWING (${pollErrorCount} polls threw). This is very ` +
+        `likely a dead/unreachable page rather than an unmet predicate.\nLast poll error: ${lastPollError}`
+      : pollErrorCount > 0
+        ? `\n(note: ${pollErrorCount} early polls threw and then recovered — normal during boot)`
+        : '';
   throw new Error(
-    `waitForWorld timeout (${timeoutMs}ms): ${description}\nFinal state: ${JSON.stringify(finalState, null, 2)}`,
+    `waitForWorld timeout (${timeoutMs}ms): ${description}${diag}\nFinal state: ${JSON.stringify(finalState, null, 2)}`,
   );
 }
 

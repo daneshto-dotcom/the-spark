@@ -24,6 +24,25 @@
  * transport is rejected (real P2P IS the surface under test) — LOCKED_DECISIONS. RULE:
  * any NEW test added here is real-WebRTC → keep the ` @quarantine-flaky` tag in its
  * describe title.
+ *
+ * ⭐ S142 P2 — ONE DESCRIBE IN THIS FILE NOW ALSO RUNS IN A GATING LANE, AND ITS TAG STAYS.
+ * The `Protocol mismatch` describe below is additionally executed by the `e2e-protocol` job
+ * in .github/workflows/e2e.yml, via `npm run e2e:protocol` (`--grep "Protocol mismatch"`),
+ * which is NOT continue-on-error. Both selections are deliberate and neither is redundant:
+ * the tag keeps it out of the shared gating lane (preserving the S98 rule above), while the
+ * grep gives the protocol gate a binding signal of its own.
+ *
+ * WHY: every session close asked the OWNER to open two browsers by hand, on the stated
+ * grounds that "CI cannot verify a PROTOCOL_VERSION bump". Measured 2026-08-13 in CI run
+ * 31707927282, that was false — both tests below PASSED in the sandbox, 5.6s each, over
+ * real WebRTC, covering both direction arms. They were simply never surfaced.
+ *
+ * ⛔ SO: do NOT "tidy up" by deleting the grep lane because the tag implies non-gating, and
+ * do NOT drop the tag because the lane implies it is stable. Changing either one silently
+ * hands that chore back to a human. The header claim above — that the sandbox "cannot
+ * reliably hold those data channels" — is TOO BROAD as written: in the same measured run,
+ * 9 of 18 quarantined tests PASSED in CI, so the honest statement is that a SUBSET is
+ * unreliable, not the transport.
  */
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import {

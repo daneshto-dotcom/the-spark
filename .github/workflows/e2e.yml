@@ -1,8 +1,18 @@
 # S46 P1 (BUG-CRITICAL-5) — Playwright 2-browser E2E harness CI workflow.
 #
-# Runs on every push to master + every PR. Spec at e2e/smoke.spec.ts drives
-# 2 separate Chromium contexts (= 2 WebRTC peers over real Trystero/Nostr
-# signaling) and asserts the full lobby → match-start → place → bond flow.
+# ⛔ S142 — CORRECTED. This line used to read "Runs on every push to master + every PR",
+# which the S127 note DIRECTLY BELOW already contradicted: S110 removed the per-push trigger.
+# The file disagreed with itself six lines apart, and the wrong half came first.
+# ACTUAL triggers (see the `on:` block): schedule + pull_request + workflow_dispatch.
+#
+# CONSEQUENCE, WORTH STATING PLAINLY BECAUSE IT BIT ON 2026-08-13: a push to master does NOT
+# run these lanes, so the GATING `e2e` job can sit RED for an unbounded time with nobody
+# notified. It was in fact red on clean master that day (worker-bots, 3/3 attempts) and the
+# only reason anyone found out was a manual `gh workflow run`. If you change nothing else
+# here, know that green-on-your-last-PR is not evidence that master is green now.
+#
+# Spec at e2e/smoke.spec.ts drives 2 separate Chromium contexts (= 2 WebRTC peers over real
+# Trystero/Nostr signaling) and asserts the full lobby → match-start → place → bond flow.
 #
 # S127 — STALE DOC CORRECTED. This block used to claim "Path filter mirrors deploy.yml — skip
 # e2e on session-bookkeeping commits (.claude/, HANDOFF_*.md, etc)". There is NO `paths:` key in
@@ -194,6 +204,65 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
+  # ⭐ S142 P2 — THE PROTOCOL-GATE LANE. GATING (no continue-on-error).
+  #
+  # THIS JOB EXISTS TO DELETE A RECURRING MANUAL CHORE. Every session close for many sessions
+  # ended with "⚠ 2-PEER CHECK ON vN — ONLY YOU CAN DO THIS; CI cannot verify a protocol bump."
+  # MEASURED 2026-08-13 (run 31707927282), that was FALSE: both real-WebRTC protocol-mismatch
+  # tests PASSED IN CI, 5.6s each, covering BOTH direction arms (older peer and newer peer).
+  # They produced no signal only because they live in smoke.spec.ts behind @quarantine-flaky,
+  # which the gating lane grep-inverts and whose job is continue-on-error.
+  #
+  # WHY A SEPARATE JOB RATHER THAN PROMOTING THEM INTO THE GATING LANE. smoke.spec.ts carries an
+  # explicit S98 P1 rule — every test in it is real Trystero/Nostr P2P, keep the tag — and S126
+  # spent an entire session undoing the damage of flaky multi-peer tests reddening the main gate.
+  # Isolating them keeps that rule intact: if a relay hiccups, THIS lane goes red and says exactly
+  # what broke, without taking the 36-test gating lane down with it.
+  #
+  # Retries are left at the default (2) DELIBERATELY, unlike the quarantine lane above: a relay
+  # hiccup is genuinely transient, which is the one case retries are for. Budget is not a concern
+  # at ~11s of tests.
+  #
+  # ESCAPE HATCH, stated so nobody has to rediscover it: if this lane proves flaky in practice,
+  # add `continue-on-error: true` here — do NOT delete it, and do NOT re-tag the tests. A noisy
+  # signal is still strictly better than the manual chore it replaces.
+  e2e-protocol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      # Below timeout-minutes so Playwright ends an overrun and flushes results, per the
+      # standing rule for every lane in this file.
+      PW_GLOBAL_TIMEOUT_MIN: 9
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E (protocol mismatch — the 2-peer HELLO gate, GATING)
+        run: npm run e2e:protocol
+        env:
+          CI: 'true'
+
+      - name: Upload protocol-lane results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-protocol-results
+          path: test-results-protocol/
+          retention-days: 14
+          if-no-files-found: ignore
+
   # NON-GATING quarantine lane — ONLY @quarantine-flaky (multi-peer real-WebRTC).
   # `continue-on-error: true` at JOB level => its failure/timeout NEVER fails the
   # workflow run (no failure emails); independent runner + timeout => it can never
@@ -208,6 +277,14 @@ jobs:
       # results) instead of being SIGKILLed at the 20m cap, which is what happened on
       # every weekly run from 2026-07-13 onward.
       PW_GLOBAL_TIMEOUT_MIN: 17
+      # ⛔ S142 P2 — RETRIES OFF, the exact S127 precedent from the soak lane.
+      # MEASURED 2026-08-13 (run 31707927282): this lane ran 17.0m — the FULL cap — and
+      # still finished "8 failed / 9 passed / 1 DID NOT RUN". The tests that fail here fail
+      # STRUCTURALLY, so all three attempts fail identically and the two extra ones buy
+      # nothing while costing 3x. That is what pushed the lane past its budget and left a
+      # test unexecuted, which is ALSO why the lane reads as "fully red" in the backlog when
+      # it is in fact roughly half green.
+      PW_RETRIES: '0'
     steps:
       - name: Checkout
         uses: actions/checkout@v6

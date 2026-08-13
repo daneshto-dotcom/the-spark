@@ -17,6 +17,7 @@
     "e2e:gating": "playwright test --grep-invert \"@quarantine-flaky|@soak|@perf-measure\"",
     "e2e:soak": "playwright test --grep \"@soak|@perf-measure\" --output=test-results-soak --reporter=list",
     "e2e:quarantine": "playwright test --grep @quarantine-flaky --output=test-results-quarantine --reporter=list",
+    "e2e:protocol": "playwright test --grep \"Protocol mismatch\" --output=test-results-protocol --reporter=list",
     "e2e:headed": "playwright test --headed",
     "e2e:ui": "playwright test --ui",
     "probe-relays": "node scripts/probe-relays.mjs"
