@@ -26,7 +26,12 @@ import type { World } from '../world.ts';
 // Circles -> a suicide-drone emitter). Like 'pentagram' it is non-cinematic: it dispatches
 // REGISTER_SPAWNER (never GODLY_TRIGGER), never occupies activeCinematicPlayerId, and is excluded
 // from the per-type godlyFiredThisMatch gate (a spawner is rebuildable + multi-instance).
-export type GodlyId = 'voltkin' | 'pentagram' | 'laserTurret' | 'helga' | 'lightningHub';
+// S141 P1 — 'stinkTower' widens GodlyId for the first NON-GODLY buildable: a 4-shape DEFENDER recipe
+// (1 Square hub deg-3 + 3 Circle 'Capsule' leaves). Like the other defender recipes it is
+// non-cinematic — it dispatches REGISTER_DEFENDER, never GODLY_TRIGGER, never occupies
+// activeCinematicPlayerId, and is excluded from the per-type godlyFiredThisMatch gate.
+export type GodlyId =
+  | 'voltkin' | 'pentagram' | 'laserTurret' | 'helga' | 'lightningHub' | 'stinkTower';
 
 export interface GodlyMatch {
   readonly triggererPlayerId: PlayerId;
@@ -127,15 +132,19 @@ export interface SpawnerGodlyRecipe {
 
 /**
  * S103 P2 — a non-cinematic recipe whose match mints a generic stationary DEFENDER (laser turret
- * / HELGA). Carries `defenderKind` (which substrate variant), a `stillValid` re-validation rule
- * (the host poll calls it each tick — a broken structure removes the defender), and a Codex
- * sprite. `defenderKind` is the 2-literal union inlined here (NOT imported from defenders/defender
+ * / HELGA / the Stink Tower). Carries `defenderKind` (which substrate variant), a `stillValid`
+ * re-validation rule (the host poll calls it each tick — a broken structure removes the defender),
+ * and a Codex sprite. `defenderKind` is the union inlined here (NOT imported from defenders/defender
  * to avoid a types <-> defender import cycle — it stays assignable to DefenderKind).
+ *
+ * ⛔ THIS IS THE SECOND COPY OF `DefenderKind`. The first is `defenders/defender.ts`. They do not
+ * cross-check, so a new kind MUST be added to BOTH in the same commit — see the warning on the
+ * canonical union for the two distinct silent failures each half-edit produces.
  */
 export interface DefenderGodlyRecipe {
   readonly kind: 'defender';
   readonly id: GodlyId;
-  readonly defenderKind: 'turret' | 'princess';
+  readonly defenderKind: 'turret' | 'princess' | 'stinkTower';
   readonly predicate: DefenderRecipePredicate;
   /** Re-validation: does the recipe STILL hold at this anchor? (false → REMOVE_DEFENDER). */
   readonly stillValid: (world: World, anchorPrimitiveId: PrimitiveId) => boolean;

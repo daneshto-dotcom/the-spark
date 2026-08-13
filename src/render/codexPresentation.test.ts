@@ -17,11 +17,16 @@ import { describe, expect, it } from 'vitest';
 import { SparkType } from '../constants.ts';
 import { CODEX_COPY, codexCopyFor, emblemLayout } from './codexPresentation.ts';
 import { TURRET_HUB_DEGREE, TURRET_SIZE } from '../state/godlyRecipes/laserTurret.ts';
+import { STINK_HUB_TYPE, STINK_LEAF_TYPE } from '../state/godlyRecipes/stinkTower.ts';
+import { STINK_TOWER_HUB_DEGREE, STINK_TOWER_SIZE } from '../constants.ts';
 
-const ALL_IDS = ['voltkin', 'nonet', 'pentagram', 'lightningHub', 'laserTurret', 'helga'] as const;
+const ALL_IDS = [
+  'voltkin', 'nonet', 'pentagram', 'lightningHub', 'laserTurret', 'helga',
+  'stinkTower', // S141 P1 — the first NON-GODLY entry
+] as const;
 
 describe('S121 P4 — codex copy budgets (the anti-overflow contract)', () => {
-  it('covers every codex entry (2 godly + 4 towers)', () => {
+  it('covers every codex entry (2 godly + 5 towers)', () => {
     for (const id of ALL_IDS) expect(CODEX_COPY[id], id).toBeDefined();
     expect(Object.keys(CODEX_COPY).sort()).toEqual([...ALL_IDS].sort());
   });
@@ -114,6 +119,33 @@ describe('S121 P4 — emblem truth (the tile depicts the REAL recipe)', () => {
     expect(text).not.toMatch(/seven/i);
     expect(text).not.toMatch(/\b7\b/);
     expect(copy.recipe).toContain(String(TURRET_HUB_DEGREE));
+  });
+
+  it('STINK TOWER: the emblem is a picture of the SHIPPED gate, at whatever value that gate holds', () => {
+    // S141 P1 — authored the S140 way from day one: this reads the recipe's own constants, so a
+    // retune of the shapes moves the emblem's contract with it and a retune that forgets the codex
+    // fails HERE rather than shipping a tile that instructs a build the host rejects. The recipe is
+    // explicitly flagged as a Claude ruling the owner may overturn, which makes binding rather than
+    // hardcoding the difference between a one-line retune and another copy migration.
+    const spec = CODEX_COPY['stinkTower'].emblem;
+    expect(spec).toBeDefined();
+    const layout = emblemLayout(spec!);
+    expect(layout.hub?.type).toBe(STINK_HUB_TYPE);
+    expect(layout.nodes).toHaveLength(STINK_TOWER_HUB_DEGREE);
+    for (const n of layout.nodes) expect(n.type).toBe(STINK_LEAF_TYPE);
+    expect(layout.bonds).toHaveLength(STINK_TOWER_HUB_DEGREE); // one spoke per leaf
+    for (const b of layout.bonds) expect([b.x1, b.y1]).toEqual([0, 0]);
+    // 1 hub + N leaves, so the emblem also pins the component size the predicate gates on.
+    expect(layout.nodes.length + 1).toBe(STINK_TOWER_SIZE);
+  });
+
+  it('STINK TOWER: the copy states the SAME leaf count the predicate demands', () => {
+    // The laserTurret trap generalised: this recipe's gate is also a strict equality with no upper
+    // tolerance, so copy that names a different number would tell the player to build something the
+    // host tears down 0.5 s later. Assert the shipped copy contains the shipped degree.
+    const copy = CODEX_COPY['stinkTower'];
+    expect(copy.recipe).toContain(String(STINK_TOWER_HUB_DEGREE));
+    expect(`${copy.name} ${copy.power} ${copy.recipe}`).not.toMatch(/\bfive\b/i);
   });
 
   it('LIGHTNING HUB: 1 Dot hub + 5 Circles, every Circle bonded to the Dot', () => {

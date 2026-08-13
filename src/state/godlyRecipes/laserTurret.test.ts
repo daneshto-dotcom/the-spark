@@ -161,7 +161,7 @@ describe('laserTurretPredicate', () => {
     w.defenders.set(asDefenderId(0), {
       id: asDefenderId(0), kind: 'turret', ownerPlayerId: P0, anchorPrimitiveId: asPrimitiveId(1),
       recipeId: 'laserTurret', pos: { x: 200, y: 200 }, prevPos: { x: 200, y: 200 }, walkTargetPos: null,
-      state: 'IDLE', ticksInState: 0, hp: 1,
+      state: 'IDLE', ticksInState: 0, hp: 1, bagsRemaining: 0, // S141 P1 — no magazine on a turret
       nextFireTick: 0, targetCreatureId: null, lastStrikePos: null,
     });
     expect(laserTurretPredicate(w, { x: 0, y: 0 })).toBeNull();

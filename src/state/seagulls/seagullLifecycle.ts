@@ -51,6 +51,7 @@ import type { Creature } from '../creatures/creature.ts';
 import type { Player } from '../../game/player.ts';
 import type { Spark } from '../../game/spark.ts';
 import { asPoopId, asSeagullId, type PoopId, type PrimitiveId, type SeagullId, type Vec2 } from '../../types.ts';
+import { mix32 } from '../rng.ts';
 import type { World } from '../worldTypes.ts';
 import { makePoop, makeSeagull, type Poop } from './seagull.ts';
 
@@ -64,16 +65,12 @@ const POOP_FLOOR_Y = CANVAS_HEIGHT;
 /**
  * S81 P3 — avalanche-mix two uint32s into one (murmur3-finalizer shape). Pure + branchless;
  * the bit stirring makes consecutive lastPoopTick values land anywhere in [0, 2^32).
+ *
+ * ⚠ S141 P1 — THE BODY MOVED TO `state/rng.ts`; this file now imports it. It was one of two
+ * byte-identical private copies (the other in `creatures/creatureAI.ts`), kept in agreement only by
+ * a comment — and a third copy was about to be written for the Stink Tower. The math is unchanged,
+ * so every poop interval this function has ever produced is reproduced exactly.
  */
-function mix32(a: number, b: number): number {
-  let h = (Math.imul(a | 0, 0x9e3779b9) ^ Math.imul(b | 0, 0x85ebca6b)) >>> 0;
-  h ^= h >>> 16;
-  h = Math.imul(h, 0x45d9f3b) >>> 0;
-  h ^= h >>> 16;
-  h = Math.imul(h, 0x45d9f3b) >>> 0;
-  h ^= h >>> 16;
-  return h >>> 0;
-}
 
 /**
  * S81 P3 — per-drop poop interval in [POOP_DROP_MIN_TICKS, POOP_DROP_MAX_TICKS], derived from

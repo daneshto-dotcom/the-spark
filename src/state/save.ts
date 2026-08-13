@@ -584,6 +584,8 @@ interface SerializedDefender {
   readonly ticksInState: number;
   readonly hp: number;
   readonly nextFireTick: number;
+  /** S141 P1 — Stink Tower ammo. Additive-optional: absent ⇒ 0, so no other kind pays a byte. */
+  readonly bagsRemaining?: number;
   readonly targetCreatureId?: CreatureId;
   readonly lastStrikePos?: Vec2;
   // S110 P4 (Batch B) — HELGA walk locomotion. Both additive-optional: prevPos is emitted only while
@@ -1567,6 +1569,10 @@ function serializeDefender(d: Defender): SerializedDefender {
     ticksInState: d.ticksInState,
     hp: d.hp,
     nextFireTick: d.nextFireTick,
+    // S141 P1 — STINK TOWER AMMO. Additive-optional: emitted only when NON-ZERO, so every turret and
+    // HELGA on the wire stays byte-identical to pre-S141 (they carry 0 and always will). Only a kind
+    // with a magazine pays a byte.
+    ...(d.bagsRemaining !== 0 ? { bagsRemaining: d.bagsRemaining } : {}),
     ...(d.targetCreatureId !== null ? { targetCreatureId: d.targetCreatureId } : {}),
     ...(d.lastStrikePos !== null ? { lastStrikePos: { x: d.lastStrikePos.x, y: d.lastStrikePos.y } } : {}),
     // S110 P4 — emit prevPos only while moving (≠ pos) so a stationary defender stays byte-identical.
@@ -1578,7 +1584,15 @@ function serializeDefender(d: Defender): SerializedDefender {
 
 /** S103 P2 — rehydrate a SerializedDefender, preserving the full mid-cycle FSM state (a defender
  *  mid-windup resumes there). makeDefender seeds the immutable identity; the FSM fields are then
- *  overwritten from the saved values (makeDefender would reset to IDLE). */
+ *  overwritten from the saved values (makeDefender would reset to IDLE).
+ *
+ *  ⛔ THERE IS NO SPREAD HERE AND THAT MAKES OMISSIONS SILENT. `makeDefender` returns a COMPLETE
+ *  Defender, so forgetting an assignment below leaves the FACTORY DEFAULT in place and `tsc` sees
+ *  nothing wrong — the object is fully typed either way. That is the `despawnAtTick = 0` /
+ *  `hp`-healed bug class that cost S133 and S134 a session each. For `bagsRemaining` specifically
+ *  the factory default is a FULL magazine, so a missing assignment would mean every Stink Tower
+ *  silently RELOADS on save/load, on host migration and on every `?worker=1` restore — a tower you
+ *  starved would come back armed. Guarded by an explicit round-trip test rather than by hope. */
 function deserializeDefender(s: SerializedDefender): Defender {
   const d = makeDefender({
     id: s.id,
@@ -1593,6 +1607,9 @@ function deserializeDefender(s: SerializedDefender): Defender {
   d.ticksInState = s.ticksInState;
   d.hp = s.hp;
   d.nextFireTick = s.nextFireTick;
+  // S141 P1 — absent means ZERO (the additive-optional emit skips 0), NOT the factory's full
+  // magazine. `?? 0` rather than `?? config.bags` is the whole point: a spent tower must stay spent.
+  d.bagsRemaining = s.bagsRemaining ?? 0;
   d.targetCreatureId = s.targetCreatureId ?? null;
   d.lastStrikePos = s.lastStrikePos !== undefined ? { x: s.lastStrikePos.x, y: s.lastStrikePos.y } : null;
   // S110 P4 — prevPos defaults to pos (at rest) when omitted; walkTargetPos defaults to null.

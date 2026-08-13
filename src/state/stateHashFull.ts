@@ -221,10 +221,15 @@ type CreatureHashed =
 type SpawnerHashed =
   | 'id' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'nextSpawnTick'
   | 'lastValidatedTick' | 'spawnedCount' | 'ignitedAtTick';
+// ⚠ ADDING A NAME HERE IS NOT ENOUGH — IT ONLY SILENCES `tsc`. The projection below is a
+// hand-written string template with NO executable link to this union, so a field listed here but
+// absent from the template compiles clean, passes every existing test, and leaves the wide
+// determinism oracle BLIND to that field diverging between host and worker/replay. Both must move
+// together, and `stateHashFull.test.ts` now carries a per-field contribution test for exactly this.
 type DefenderHashed =
   | 'id' | 'kind' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'pos' | 'prevPos'
   | 'walkTargetPos' | 'state' | 'ticksInState' | 'hp' | 'nextFireTick' | 'targetCreatureId'
-  | 'lastStrikePos';
+  | 'lastStrikePos' | 'bagsRemaining';
 type BombHashed = 'id' | 'pos' | 'radius' | 'spawnedAtTick' | 'dissipateAtTick';
 type HunterHashed =
   | 'id' | 'pos' | 'prevPos' | 'state' | 'ticksInState' | 'targetPlayerId' | 'spawnedAtTick'
@@ -384,7 +389,7 @@ export function determinismParts(world: World): string[] {
       `d${n(d.id)}:${d.kind}:${n(d.ownerPlayerId)}:${n(d.anchorPrimitiveId)}:${d.recipeId}` +
         `:${d.pos.x},${d.pos.y}:${v2(d.prevPos)}:${v2(d.walkTargetPos)}` +
         `:${d.state}:${d.ticksInState}:hp${o(d.hp)}:nf${o(d.nextFireTick)}` +
-        `:tc${n(d.targetCreatureId)}:ls${v2(d.lastStrikePos)}`,
+        `:tc${n(d.targetCreatureId)}:ls${v2(d.lastStrikePos)}:bg${o(d.bagsRemaining)}`,
     );
   }
 

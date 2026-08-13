@@ -1,24 +1,24 @@
 {
-  "tool_calls_session_total": 534,
-  "session_id": "S140",
-  "session_kind": "batch",
-  "session_start": "2026-08-11",
+  "tool_calls_session_total": 570,
+  "session_id": "S141",
+  "session_kind": "full-batch",
+  "session_start": "2026-08-13",
   "prior_session_note": "S138 closed GREEN: damage substrate (P1) + three owner playtest fixes (P2). PROTOCOL_VERSION 17. Starters + build space designed + owner-ruled, NOT implemented.",
   "prior_session_archive": ".handoff-archive/HANDOFF_S138.md",
-  "phase": "ANALYZE",
-  "tier": "Standard",
-  "plan_file": ".claude/plans/2026-08-12_PDR_S140_bank_cap_7_and_turret_retune.md",
-  "session_status": "closed",
+  "phase": "DO",
+  "tier": "Full",
+  "plan_file": ".claude/plans/2026-08-13_PDR_S141_stink_tower_and_order_queue.md",
+  "session_status": "in_progress",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
   "protocol_version": 18,
   "boot_preflight": {
     "boot_snapshot_read": true,
-    "commits_unpushed": 0,
-    "verify_deploy": "4/4",
-    "e2e_gating": "31 passed / 1 failed (worker-bots) — 2/2 green isolated, zero code commits since S139 => load flake, not regression",
-    "protocol_version": 18
+    "unpushed_commits": 0,
+    "verify_deploy": "PASS 4/4 index-C7ThMkRL.js",
+    "e2e_gating": "34 passed / 0 failed (2.2m)",
+    "protocol_version": 19
   },
   "owner_rulings_inherited": {
     "date": "2026-08-10",
@@ -78,209 +78,40 @@
   ],
   "priorities": [
     {
-      "id": "P1-bank-cap-7-turret-retune",
-      "title": "CASTLE_BANK_CAP 5->7 + laserTurret 8->7 + multi-row bank strip + panel test coverage",
-      "status": "completed",
-      "tier": "Standard",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": true,
-      "owner_ruling": "Owner selected cap 7 + laserTurret 8->7 and scope cap+regrid+tests, after being shown all 5 Council seats rejected the retune 5-0. Reaffirmed = executed in full.",
-      "scope": [
-        "multi-row bank strip derived from panel width (pixel-identical at cap 5)",
-        "CASTLE_BANK_CAP 5->7 + recipe table + relationship tripwire",
-        "laserTurret TURRET_SIZE 8->7 / HUB_DEGREE 7->6 + every seven site",
-        "castlePanel bank-strip test coverage (zero today) + gating two-row e2e",
-        "PROTOCOL_VERSION 18->19 + stale JSDoc history",
-        "doc integrity: LOCKED_DECISIONS S7 threshold, defender.ts STATIONARY"
-      ],
-      "out_of_scope": [
-        "Stink Tower",
-        "2D build space",
-        "R7 design library",
-        "economy retuning",
-        "origin/gh-pages deletion"
-      ],
-      "checkpoint_commit": "55894e37",
-      "check_method": "RALPH:PATROL in-loop + full empirical re-verification. (1) tsc --noEmit exit 0. (2) vitest FULL suite 2187/2187 passed across 144 files (S139 baseline 2172; +15 net from 11 swept bank-strip invariants, the old-arithmetic witness, 2 laserTurret tests incl. the 7-leaf trap witness and the Helga non-collision, and the codex stale-'seven' copy test). (3) npm run e2e:gating 34/34 exit 0 (was 32) — includes the 2 NEW runtime specs that render the real two-row Pixi panel, and worker-bots.spec.ts which had flaked at boot now green in the full lane. (4) npm run build: bundle 667.5 KiB against the 750 KiB charter cap, 82.5 KiB headroom, exit 0. (5) git push -> Actions run 31623126653 concluded success; npm run verify-deploy PASS 4/4 with LIVE entry asset index-C7ThMkRL.js content-hash-equal to the local build. (6) Stale-'seven' grep sweep over src/ and e2e/: zero surviving player-visible or gate-relevant references (only deliberate S140 history notes remain). (7) The regrid was verified as a PROVABLE NO-OP at cap 5 (panel+bank tests green) BEFORE the cap constant moved, and I1b reproduces the pre-S140 arithmetic and asserts it violates the new bound — the guard is proven red-capable, not just read. (8) The old value tripwire castleBank.test.ts:100 DID fire on the cap change, was confronted rather than bypassed, and was replaced with relationship invariants.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const CASTLE_BANK_CAP = readTestCastleBankCap() ?? 7;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "readTestCastleBankCap() ?? 5"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "laserTurret   7   directly holdable"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "Voltkin       8   still requires staging"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.ts",
-          "needle": "export function bankSlotsPerRow(cap: number = CASTLE_BANK_CAP): number {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.ts",
-          "needle": "export function bankStripHeight(cap: number = CASTLE_BANK_CAP): number {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.ts",
-          "needle": "export function slotOrigin(i: number, cap: number = CASTLE_BANK_CAP)"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.ts",
-          "needle": "BANK_STRIP_H"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.test.ts",
-          "needle": "S140 P1 — bank strip geometry, swept across caps"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.test.ts",
-          "needle": "expect(oldLeft).toBe(-24);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.test.ts",
-          "needle": "`seat ${seat} bottom`).toBeLessThanOrEqual(CANVAS_HEIGHT)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/godlyRecipes/laserTurret.ts",
-          "needle": "export const TURRET_SIZE = 7;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/godlyRecipes/laserTurret.ts",
-          "needle": "export const TURRET_HUB_DEGREE = 6;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/godlyRecipes/laserTurret.test.ts",
-          "needle": "expect(isLaserTurretComponent(w, buildTurret(w, 1, 7))).toBe(false);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/godlyRecipes/laserTurret.test.ts",
-          "needle": "expect(TURRET_SIZE).toBe(HELGA_SIZE);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/godlyRecipes/princessHelga.ts",
-          "needle": "export const HELGA_SIZE = 7;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/godlyRecipes/voltkin.ts",
-          "needle": "export const VOLTKIN_SIZE = 8;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/codexPresentation.test.ts",
-          "needle": "expect(layout.nodes).toHaveLength(TURRET_HUB_DEGREE);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/codexPresentation.test.ts",
-          "needle": "expect(text).not.toMatch(/seven/i);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/codexPresentation.ts",
-          "needle": "nodes: 6, nodeType: SparkType.Spiral"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/codexPresentation.ts",
-          "needle": "(Seven. Not four.)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 19 as const;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
-          "needle": "readonly protoVersion: 19;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
-          "needle": "S139 P2: 17→18"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/smoke.spec.ts",
-          "needle": "const LOCAL_PROTO_V = 19;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/castleBank.test.ts",
-          "needle": "'cap must hold the LASER TURRET outright').toBeGreaterThanOrEqual("
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/castleBank.test.ts",
-          "needle": "toBeLessThan(VOLTKIN_SIZE)"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/castleBank.test.ts",
-          "needle": "expect(CASTLE_BANK_CAP).toBe(5);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/castle-panel.spec.ts",
-          "needle": "S140 P1 — multi-row bank strip (runtime, not the oracle)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/castle-panel.spec.ts",
-          "needle": "panel closed => the last slot is outside the plate"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/gathererRenderer.ts",
-          "needle": "const KEEP_STORED_GLYPHS_PER_ROW = 5;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/LOCKED_DECISIONS.md",
-          "needle": "CORRECTION, S140 P1:"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "**7 slots** (S140 P1; was 5)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "laserTurret 7 [S140 P1, was 8]"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defender.ts",
-          "needle": "STATIONARY\" WAS WRONG AND THIS FILE CONTRADICTED ITSELF"
-        }
-      ]
+      "id": "P1",
+      "name": "THE STINK TOWER (4-shape DefenderKind)",
+      "status": "in_progress",
+      "verification": []
+    },
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": "P2",
+      "name": "THE GATHERER ORDER QUEUE (V6-1.4 / owner ruling B4)",
+      "status": "pending",
+      "verification": []
+    },
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": "P3",
+      "name": "Latent correctness holes (SparkId allocator x2, bank hash guard)",
+      "status": "pending",
+      "verification": []
+    },
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": "P4",
+      "name": "Hygiene, PROTOCOL_VERSION 19->20, deploy, close",
+      "status": "pending",
+      "verification": []
     }
   ],
   "reflexion_entries_to_archive": [
@@ -345,7 +176,7 @@
     "GEMINI-AUDITOR"
   ],
   "council_deviation": "None - full 3-way, 2 rounds. gemini-3.1-pro-preview passed explicitly (2.5-pro is retired per memory); grok-4.20-0309-reasoning default (strongest tier).",
-  "unlock_evidence": "Owner in chat 2026-08-11, twice and explicitly: \"i will pre-approve the full pdr priority batch... i approve full autonomous run on this session priority batch!\" and on resume \"i approve full session priority batch! get to work... after full session batch run a thorough end of session procedures and a methodical /handoff\". Owner also explicitly delegated the cut line by authorising a full autonomous run after Claude stated plainly that the batch was likely more than one session's work.",
+  "unlock_evidence": "Owner 2026-08-13: 'I approve full session batch and full autonomous run on the main priorities in backlog that you can implement in the game' + reaffirmed 'dont put a choice just get cooking~! I approve this batch!'",
   "council_battle_ledger_s139": {
     "round1_challenges": 8,
     "adopted": [
@@ -435,5 +266,80 @@
     "ruled": "Cap 7 + laserTurret 8->7; scope = cap + regrid + tests only",
     "council_advice": "A (the retune) was rejected 5-0 by every seat. Cap itself split: GROK=E, GEMINI=B, game-design=E, engineering-risk=E, owner-intent=C, synthesis=C.",
     "disposition": "Owner reaffirmed after being shown the objections => executed IN FULL. Trade-offs recorded in code (constants.ts + laserTurret.ts docblocks) rather than suppressed. Guards were UPGRADED rather than deleted: the anti-drift emblem test now reads TURRET_HUB_DEGREE instead of the literal it would have had to lose."
+  },
+  "mcv_session_nonce": "S141-2026-08-13-stink-tower-order-queue",
+  "a0_state_discovery_s141": {
+    "method": "Workflow fan-out, 7 read-only probes + adversarial verification",
+    "outcome": "6/7 probes returned; probe:recipe-and-codex and ALL verifications died on an individual spend limit",
+    "subagent_tokens": 1848357,
+    "tool_uses": 443,
+    "gap_filled_by": "hand-reading combos.ts, godlyRecipes/*.ts, types.ts, index.ts, codexPresentation.ts",
+    "deviation": "Second session running (S140 also lost a Council to a spend limit). Lesson: cap A.0 fan-out."
+  },
+  "council_s141": {
+    "seats": [
+      "CLAUDE (fable-5)",
+      "GROK-ANALYST (grok-4.20-0309-reasoning)",
+      "GEMINI-AUDITOR (gemini-2.5-pro)"
+    ],
+    "rounds": 1,
+    "note": "Lean 1-round Council by direct MCP call rather than a workflow fan-out, after A.0 hit the spend limit.",
+    "battle_ledger": [
+      {
+        "id": "D1",
+        "grok": "REJECT",
+        "gemini": "REJECT",
+        "final": "ADOPT-WITH-CHANGE",
+        "finding": "REAL: a Square dropped among 3 loose Circles auto-bonds to Square(deg3)+3 Circle and matches.",
+        "both_fixes_rejected": "Gemini's 'no bonds outside the component' is a NO-OP (componentOf follows every bond, so an outside bond already pushes size past 4). Grok's degree-1-leaf requirement reintroduces the documented frequent-silent-no-build that laserTurret/lightningHub deliberately tolerate inter-leaf bonds to avoid.",
+        "missed_by_both": "stillValid re-checks on an EXACT size gate every 0.5s, so an accidental tower SELF-HEALS when the player keeps building."
+      },
+      {
+        "id": "D1xD2",
+        "grok": "-",
+        "gemini": "-",
+        "final": "ADOPT (my own finding, the severe one)",
+        "finding": "Combining D1 and D2, the self-healing removal would fire a death blast on the player OWN structure.",
+        "fix": "The blast fires ONLY when the anchor is GONE (destroyed). Anchor alive + component changed = deconstruction, never a blast."
+      },
+      {
+        "id": "D2",
+        "grok": "REJECT",
+        "gemini": "REJECT",
+        "final": "REFUTED ON DISK",
+        "refutation": "Both assume the defender lingers for the poll. damage.ts:125 deletes it in the SAME call and the poll iterates [...world.defenders]. No double-fire.",
+        "rejected": "Gemini's dying:boolean = a new serialized+hashed field for nothing. Grok's route-teardown-through-the-hook would blast into a torn-down world at every match end.",
+        "adopted": "Structural idempotence: destroyDefender removes FIRST, then blasts from the captured entity."
+      },
+      {
+        "id": "D3",
+        "grok": "REJECT",
+        "gemini": "ADOPT-WITH-CHANGE",
+        "final": "ADOPT",
+        "rejected": "Grok's store-bags-on-the-anchor-primitive fails outright: the anchor is RAZED on death, so the count is gone before the blast can scale on it.",
+        "adopted": "Gemini is right that the risk is the hand-written hash projection + the spread-less deserializer. Both were already A.0 findings; both get a field-level test."
+      },
+      {
+        "id": "D4",
+        "grok": "ADOPT-WITH-CHANGE",
+        "gemini": "REJECT",
+        "final": "ADOPT-WITH-CHANGE",
+        "finding": "REAL: ranking over the DYNAMIC seeking subset is unstable, so a gatherer re-ranks whenever any peer claims.",
+        "fix": "Rank over ALL of the player gatherers sorted by GathererId (a stable set).",
+        "missed_by_both": "pickGathererTarget only runs when the current target is already invalid (gathererLifecycle.ts:357), so mid-walk thrash was already bounded. Stable rank is still strictly better and free."
+      },
+      {
+        "id": "D5",
+        "grok": "ADOPT-WITH-CHANGE",
+        "gemini": "REJECT",
+        "final": "REFUTED ON DISK",
+        "refutation": "Both claim gatherer-carried sparks are missed. A hauled spark IS in freeSparks with escrow=hauled (gathererLifecycle.ts:294 reads it from there); only DEPOSIT removes it. Same for a player-carried spark (placePrimitive.ts:106). castleBanks is the ONLY hole.",
+        "rejected": "Gemini's one-canonical-Map refactor inverts the bank's entire purpose (the bank exists to take sparks OUT of freeSparks so collision/reap/render skip them)."
+      }
+    ],
+    "adopted_unlisted_hazards": [
+      "Grok: teardown bypasses the hook so a reset never blasts - CORRECT AND INTENDED, now documented rather than left implicit.",
+      "Gemini: renderer + FSM omission for a third kind - upgrade to a tsc-exhaustive switch on d.kind for motion posture (the S140 upgrade-the-guard lesson)."
+    ]
   }
 }

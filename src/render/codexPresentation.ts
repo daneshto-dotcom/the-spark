@@ -80,6 +80,19 @@ export const CODEX_COPY: Readonly<Record<string, CodexCopy>> = {
       'Bond 6 Spirals to 1 Line — all six on the same rod. Its beam turns enemy chewers to ash. (Six. Not four.)',
     emblem: { kind: 'star', hubType: SparkType.Line, nodes: 6, nodeType: SparkType.Spiral, radius: 46 },
   },
+  // S141 P1 — the first NON-GODLY entry in the codex, and the cheapest thing in this table.
+  // ⚠ The emblem's `nodes` / `hubType` / `nodeType` are bound to the recipe constants by
+  // codexPresentation.test.ts, NOT hand-copied — the S140 anti-drift lesson. A retune of the recipe
+  // moves this tile automatically; a retune that forgets this tile fails the build.
+  stinkTower: {
+    name: 'STINK TOWER',
+    power: 'Four shapes. It throws filth.', // ⚠ 34-char budget, enforced by codexPresentation.test
+    // 145 chars against the 150 budget — measured, not estimated. The first draft ran to 191 and the
+    // budget test caught it, which is exactly what that test is for.
+    recipe:
+      'Bond 3 Circles to 1 Square — the cheapest tower there is. It lobs stink bags that splash; spent, it festers. Kill it full and it takes the block.',
+    emblem: { kind: 'star', hubType: SparkType.Square, nodes: 3, nodeType: SparkType.Circle, radius: 38 },
+  },
   helga: {
     name: 'HELGA',
     power: 'The princess answers in slaps.',

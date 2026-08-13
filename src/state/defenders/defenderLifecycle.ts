@@ -28,6 +28,7 @@ import {
 } from '../../constants.ts';
 import {
   asDefenderId,
+  type CreatureId,
   type DefenderId,
   type PlayerId,
   type PrimitiveId,
@@ -36,7 +37,9 @@ import {
 import type { GodlyId } from '../godlyRecipes/types.ts';
 import { getDefenderRecipe } from '../godlyRecipes/index.ts';
 import { findNearestEnemyCreatureFrom } from '../creatures/creatureAI.ts';
-import { damageEntity } from '../damage.ts';
+import { getCreatureConfig } from '../creatures/voltkin-config.ts';
+import { applyRadialDamage, damageEntity, destroyDefender } from '../damage.ts';
+import { stinkAggroTargets, stinkAuraTick, stinkIsDepleted, stinkThrowBag } from './stinkTower.ts';
 import type { World } from '../worldTypes.ts';
 import { getDefenderConfig, makeDefender, type Defender, type DefenderConfig, type DefenderKind } from './defender.ts';
 import { stepDefenderWalk, freezeDefender, distSq } from './defenderMotion.ts';
@@ -86,11 +89,48 @@ export function applyRegisterDefender(world: World, action: RegisterDefenderActi
 
 /**
  * Host-only: remove a defender (its auto-attack stops instantly). Dispatched by the re-validation
- * poll when the structure is broken, and by teardown. No-op on a missing id (stale fan-out guard).
+ * poll when the structure is broken. No-op on a missing id (stale fan-out guard).
+ *
+ * ⚠ S141 P1 — THIS NO LONGER DELETES DIRECTLY. It routes through `destroyDefender`, which is the ONE
+ * place a defender leaves the world mid-match, so per-kind death behaviour (the Stink Tower's blast)
+ * fires on THIS path too. That matters more than it sounds: the S139 Council found that the poll —
+ * not the damage path — is the way a tower most often actually dies, so a death effect wired only
+ * into `damageEntity` would essentially never fire.
+ *
+ * `cause: 'recipeBreak'` is what stops this path razing the anchor. Either the anchor is already
+ * gone (something destroyed it), or it is alive and the player merely reshaped the structure — and
+ * razing a primitive the player is still building with would be destroying their work. The blast
+ * itself is gated inside `destroyDefender` on the anchor being GONE, so reshaping never detonates.
+ *
+ * ⚠ Teardown does NOT come through here — `teardownDefenders` and the four inline reset sites use
+ * `world.defenders.clear()`, which bypasses this function entirely. That is deliberate: a reset is
+ * not a death, and blasting on match end would push effects into a world being discarded.
  */
 export function applyRemoveDefender(world: World, action: RemoveDefenderAction): World {
-  world.defenders.delete(action.defenderId);
+  const d = world.defenders.get(action.defenderId);
+  if (d === undefined) return world;
+  destroyDefender(world, d, 'recipeBreak');
   return world;
+}
+
+/**
+ * S141 P1 — how each kind holds position. EXHAUSTIVE: adding a `DefenderKind` without adding a case
+ * here fails `tsc` at the `never` assignment, naming the kind you forgot. See the call site for why
+ * this branch specifically is the one worth a compile-time guard.
+ */
+function motionPostureOf(kind: DefenderKind): 'pinned' | 'mobile' {
+  switch (kind) {
+    case 'turret':
+      return 'pinned'; // moveAccel 0 + meleeRange == attackRange ⇒ never enters WALK
+    case 'stinkTower':
+      return 'pinned'; // a tower does not walk
+    case 'princess':
+      return 'mobile'; // S110 P4 — HELGA walks to her target
+    default: {
+      const unreachable: never = kind;
+      return unreachable;
+    }
+  }
 }
 
 /** Is the defender's current target still a valid, in-range enemy creature? */
@@ -119,16 +159,56 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
   // hold the last pos — the host re-validation poll will REMOVE_DEFENDER on its next throttle slot.
   const anchor = world.primitives.get(d.anchorPrimitiveId);
   const homePos: Vec2 = anchor !== undefined ? { x: anchor.pos.x, y: anchor.pos.y } : { x: d.pos.x, y: d.pos.y };
-  // A TURRET is STATIONARY — pinned to its anchor every tick (unchanged pre-S110 behavior); prevPos
-  // tracks pos so its (unused) implicit velocity is always zero. A PRINCESS (S110 P4) is MOBILE: her
+  // ── MOTION POSTURE ─────────────────────────────────────────────────────────────────────────────
+  //
+  // A TURRET and a STINK TOWER are STATIONARY — pinned to the anchor every tick, with prevPos
+  // tracking pos so the implicit Verlet velocity is always zero. A PRINCESS (S110 P4) is MOBILE: her
   // pos is managed per FSM state below (IDLE walks home / snaps when home; WALK integrates toward the
-  // target; WINDUP/FIRE/RECOVER freeze her in place). She is NEVER pinned here.
-  if (d.kind === 'turret') {
+  // target; WINDUP/FIRE/RECOVER freeze her). She is NEVER pinned here.
+  //
+  // ⚠ S141 P1 — THIS WAS AN `if (d.kind === 'turret')` AND IS NOW AN EXHAUSTIVE SWITCH, DELIBERATELY.
+  // Every kind-conditioned branch in this function is an `if` with no default, so a NEW DefenderKind
+  // silently inherits "neither pinned nor frozen": its pos is never refreshed from a drifting anchor,
+  // and `prevPos` is never resynced — and `prevPos` IS HASHED, so any accidental pos write injects a
+  // permanent implicit velocity and diverges the state hash. That is a desync with no compile error
+  // and no failing test. Making the POSTURE branch a `switch` with an exhaustive `never` check turns
+  // "you forgot to decide how this kind moves" into a build failure. The other kind-branches below
+  // are behavioural opt-ins where silence is a safe default; THIS one is not, which is why it is the
+  // one that got the guard.
+  const posture: 'pinned' | 'mobile' = motionPostureOf(d.kind);
+  if (posture === 'pinned') {
     d.pos.x = homePos.x;
     d.pos.y = homePos.y;
     freezeDefender(d);
   }
   d.ticksInState++;
+
+  // S141 P1 — a DEPLETED Stink Tower is a passive area denier: it ticks its aura on the shared DoT
+  // cadence regardless of FSM state, and taunts nearby enemy creatures into coming to it. Runs before
+  // the FSM so a spent tower still contributes on the tick it runs dry.
+  if (d.kind === 'stinkTower' && stinkIsDepleted(d)) {
+    stinkAuraTick(world, d, applyRadialDamage);
+    for (const cid of stinkAggroTargets(world, d)) {
+      const c = world.creatures.get(cid as unknown as CreatureId);
+      if (c === undefined) continue;
+      // ⚠ TWO GATES, AND THE SECOND ONE BOUNDS WHAT THIS FEATURE ACTUALLY DOES TODAY.
+      //
+      // (1) Provenance: a spawner-sourced creature mid-chew is GLUED to its bond by design, and
+      //     overriding that would collide with the 6-attack invariant. Only null-spawner units
+      //     (Voltkin, the free goblin) re-select freely.
+      // (2) `targetsStructures`: `targetPrimitiveId` is only ever READ by the structure-attack path
+      //     (`creatureAttack.ts`), which is gated on this config flag. Writing it on a creature that
+      //     targets BONDS — a Voltkin, a chewer — sets a field nothing will look at. So the taunt
+      //     genuinely pulls GOBLINS and only goblins right now.
+      //
+      // That is a real limitation, not a bug, and it is stated rather than papered over: the goblin
+      // is the unit every seat is granted for free, so "the tower pulls the thing most likely to be
+      // walking past" holds — but a Voltkin will sail straight by, and a playtester should expect it.
+      if (c.sourceSpawnerId !== null) continue;
+      if (!getCreatureConfig(c.type).targetsStructures) continue;
+      c.targetPrimitiveId = d.anchorPrimitiveId;
+    }
+  }
 
   // S109 P2 — a pooped TURRET stops firing until the owner cleans it ("shouldn't work until
   // cleaned"). Force it back to IDLE and hold the fire clock just ahead of now so a cleaned turret
@@ -242,9 +322,19 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
         const victim = d.targetCreatureId !== null ? world.creatures.get(d.targetCreatureId) : undefined;
         if (victim !== undefined) {
           d.lastStrikePos = { x: victim.pos.x, y: victim.pos.y };
-          // S139 P1 — through the dispatcher (identical behaviour; the creature arm delegates to
-          // `damageCreature`), so the turret beam / HELGA slap now carry a `'defender'` source.
-          damageEntity(world, { kind: 'creature', id: victim.id }, CREATURE_HIT_DAMAGE, 'defender');
+          if (d.kind === 'stinkTower') {
+            // S141 P1 — a STINK TOWER lobs a bag that SPLASHES at the target's position, rather than
+            // dealing the shared single-target hit. It spends a bag; when the magazine is empty the
+            // throw simply does not happen and the tower falls through to its depleted aura (handled
+            // above, before the FSM). Note the splash is what makes it a structure-breaker: unlike the
+            // turret beam it damages primitives, so it can chew an enemy build rather than only its
+            // units.
+            stinkThrowBag(world, d, d.lastStrikePos, applyRadialDamage);
+          } else {
+            // S139 P1 — through the dispatcher (identical behaviour; the creature arm delegates to
+            // `damageCreature`), so the turret beam / HELGA slap now carry a `'defender'` source.
+            damageEntity(world, { kind: 'creature', id: victim.id }, CREATURE_HIT_DAMAGE, 'defender');
+          }
         }
         d.state = 'FIRE';
         d.ticksInState = 0;

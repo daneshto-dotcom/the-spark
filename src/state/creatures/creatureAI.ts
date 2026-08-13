@@ -34,27 +34,24 @@
 import type { Bond } from '../../physics/bonds.ts';
 import { PLAYER_COLORS } from '../../constants.ts';
 import type { BondId, CreatureId, PlayerId, PrimitiveId, Vec2 } from '../../types.ts';
+import { mix32 } from '../rng.ts';
 import type { World } from '../world.ts';
 import type { Creature } from './creature.ts';
 import { getCreatureConfig } from './voltkin-config.ts';
 
 /**
- * S100 P1 (TD Phase 1a) — avalanche-mix two uint32s into one (murmur3-finalizer
- * shape; identical to the seagull `mix32` idiom at seagullLifecycle.ts:67). Pure +
- * branchless; consumes NO RNG stream and reads NO wall-clock, so the existing
- * spark/bomb/potato/rainbow/seagull byte sequences stay byte-identical (§3.2 rule 3).
- * Used by the chewer FFA target-spread to deterministically bias a chewer toward a
- * particular enemy player keyed on (creatureId, sourceSpawnerId).
+ * S100 P1 (TD Phase 1a) — avalanche-mix two uint32s into one (murmur3-finalizer shape). Used by the
+ * chewer FFA target-spread to deterministically bias a chewer toward a particular enemy player keyed
+ * on (creatureId, sourceSpawnerId).
+ *
+ * ⚠ S141 P1 — THE BODY MOVED TO `state/rng.ts` AND THIS IS NOW A RE-EXPORT. It used to be a private
+ * copy, byte-identical to a second private copy in `seagulls/seagullLifecycle.ts`, and this
+ * docblock cited that sibling as "seagullLifecycle.ts:67" — a line number that had already drifted
+ * to :68. Two hand-maintained copies of a hash whose only guarantee of agreement was a stale comment
+ * is a silent-desync waiting to happen, so both now delegate to the one exported definition. The
+ * math is unchanged, so every existing byte sequence is preserved (§3.2 rule 3).
  */
-function mix32(a: number, b: number): number {
-  let h = (Math.imul(a | 0, 0x9e3779b9) ^ Math.imul(b | 0, 0x85ebca6b)) >>> 0;
-  h ^= h >>> 16;
-  h = Math.imul(h, 0x45d9f3b) >>> 0;
-  h ^= h >>> 16;
-  h = Math.imul(h, 0x45d9f3b) >>> 0;
-  h ^= h >>> 16;
-  return h >>> 0;
-}
+// (imported at the top of the file — see the `mix32` entry in the import block)
 
 /**
  * Squared distance between two Vec2 points. Avoids sqrt for hot-path compare.

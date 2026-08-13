@@ -413,6 +413,7 @@ export const GATHERER_DEPOSIT_OFFSET_Y = 74;
  * the table in view, which is what B4b actually demands — and the table itself moved in the same
  * commit, because the owner also retuned the laser turret so both TOWER recipes fit under 7.
  *
+ *   stinkTower    4   directly holdable  <-- S141 P1, the first NON-GODLY recipe and the new floor
  *   pentagram     5   directly holdable
  *   lightningHub  6   directly holdable  <-- newly, at cap 7
  *   Helga         7   directly holdable  <-- newly, at cap 7 (a TOWER)
@@ -452,7 +453,12 @@ export const GATHERER_DEPOSIT_OFFSET_Y = 74;
  * on B4b cannot be obtained without varying it, and this repo's standing lesson is that no unit test
  * runs the physics loop. Mirrors the four existing seams (__TEST_WIN_SCORE__,
  * __TEST_SPAWN_RATE_PER_SECOND__, __TEST_HUNTER_TRIGGER_SCORE__, __TEST_FLYOVER_DURATION_TICKS__):
- * read once at module-init, absent in production, so the shipped default is unconditionally 5.
+ * read once at module-init and absent in production, so the shipped default is unconditionally the
+ * fallback literal on the declaration line below.
+ * ⚠ S141 P1 — this sentence used to name that fallback as "5" and had been wrong since S140 P1 moved
+ * it to 7, twelve lines above the code it describes. It now points AT the declaration instead of
+ * restating it, so it cannot rot again on the next retune. (Same fix shape as the S140 tripwires:
+ * bind to the constant, never re-state the value.)
  */
 function readTestCastleBankCap(): number | null {
   if (typeof window === 'undefined') return null;
@@ -1263,6 +1269,61 @@ export const TURRET_FIRE_INTERVAL_TICKS = 1800; // 30 s @ 60 Hz (owner spec: "ev
 export const TURRET_WINDUP_TICKS = 18; // brief pre-beam tell after the long charge completes
 export const TURRET_WINDUP_RINGS = 5; // client-visible charge rings across the fire interval (owner: "5 rings")
 export const TURRET_ATTACK_RANGE = 420; // long reach (it's a turret)
+
+// === S141 P1 — THE STINK TOWER: the first NON-GODLY, 4-shape buildable defender ===
+//
+// Recipe: 1 Square hub of bond-degree 3 + 3 Circle leaves = "1 Square + 3 Capsules" (every
+// {Square,Circle} bond is the 'Capsule' magic combo). Four shapes, so at CASTLE_BANK_CAP = 7 it is
+// holdable outright with three slots to spare — this is the cheapest, most accessible tower in the
+// game and the first that is not a godly.
+//
+// ⚠ THE SHAPES ARE A CLAUDE RULING, NOT AN OWNER RULING — RETUNE FREELY. The S139 spec forbade
+// guessing them; the owner then pre-approved a full autonomous run and was asleep. They were chosen
+// on measured disjointness (see godlyRecipes/stinkTower.ts for the full collision sweep): Square is
+// the ONLY primitive never used as a hub by any shipped recipe, and size 4 / hub-degree 3 are both
+// unoccupied rungs of the ladder. Every consumer reads the four constants below, and every test pins
+// the RELATIONSHIP rather than a literal, so changing them is one edit — not the copy migration the
+// S140 laserTurret retune turned into.
+//
+// ⚠ AND IT IS THE EASIEST RECIPE IN THE GAME TO TRIGGER BY ACCIDENT — stated, not hidden. Degree 3
+// with three leaves is far easier to hit than the shipped degree-5/6 stars, so dropping a Square
+// among three loose Circles WILL build one. Two things make that benign rather than a bug: the
+// component-size gate is EXACT and re-checked every REVALIDATE_INTERVAL_TICKS, so the tower
+// self-removes the moment the player keeps building; and the death blast is gated on the anchor
+// being GONE, so a deconstruction never detonates on the player's own structure. Watch it in
+// playtest anyway — it is the single most likely thing to feel wrong.
+export const STINK_TOWER_SIZE = 4; // 1 Square hub + 3 Circle leaves
+export const STINK_TOWER_HUB_DEGREE = 3;
+export const STINK_TOWER_MAX_HP = 1200; // flimsier than either godly tower — it is cheap and early
+// Ammo. Bags are a SERIALIZED count, never derived: throwing is target-gated, so the number thrown
+// is not a pure function of elapsed time, and the analogous spawner counter (`spawnedCount`) resets
+// to 0 on every load — which would refill a derived magazine on every save, host migration and
+// worker restore.
+export const STINK_TOWER_BAGS = 5;
+// One bag every 8 s. ⚠ MUST BE NON-ZERO: `loadRephaseDefenders` takes `% fireIntervalTicks` with no
+// zero guard, so an interval of 0 would write NaN into nextFireTick on every load and migration.
+export const STINK_THROW_INTERVAL_TICKS = 8 * PHYSICS_HZ; // 480
+export const STINK_TOWER_WINDUP_TICKS = 20; // a visible lob wind-up
+export const STINK_TOWER_ATTACK_RANGE = 260; // short — it lobs, it does not snipe (turret is 420)
+// Bag impact: a small radial splash. Authored as an INTEGER because `damageEntity` THROWS on a
+// fractional amount — 15 % of a primitive's 1000 max hp.
+export const STINK_BAG_DAMAGE = 150;
+export const STINK_BAG_RADIUS = 90;
+// DEPLETED (0 bags): the tower stops throwing and becomes a passive area denier on the shared DoT
+// beat. 2 % of max hp per application — integer at PRIMITIVE_MAX_HP 1000, and slow enough that it
+// pressures rather than deletes.
+export const STINK_AURA_DAMAGE = 20;
+export const STINK_AURA_RADIUS = 120;
+// Death blast — the owner's "bigger cooler explosion", scaling with the bags left unthrown. A tower
+// killed while full is a bomb; one killed after it has spent its magazine is nearly harmless. That
+// is the whole tactical read: starve it first, or eat the blast.
+export const STINK_DEATH_BLAST_BASE_DAMAGE = 100;
+export const STINK_DEATH_BLAST_PER_BAG_DAMAGE = 60; // full 5 bags => 100 + 300 = 400
+export const STINK_DEATH_BLAST_BASE_RADIUS = 110;
+export const STINK_DEATH_BLAST_PER_BAG_RADIUS = 26; // full 5 bags => 110 + 130 = 240
+// How many debris shards the blast throws, for the renderer + the deterministic burst directions.
+export const STINK_DEATH_BLAST_SHARDS = 9;
+
 // HELGA princess (#10) — fast melee-ish swatter; she only acts when an enemy creature is near.
 export const PRINCESS_SLAP_INTERVAL_TICKS = 90; // 1.5 s between slaps
 export const PRINCESS_WINDUP_TICKS = 14; // arm pulls back (a visible wind-up, not a twitch)

@@ -41,6 +41,11 @@ import {
   PRINCESS_SLAP_INTERVAL_TICKS,
   PRINCESS_SLAP_RANGE,
   PRINCESS_WINDUP_TICKS,
+  STINK_THROW_INTERVAL_TICKS,
+  STINK_TOWER_ATTACK_RANGE,
+  STINK_TOWER_BAGS,
+  STINK_TOWER_MAX_HP,
+  STINK_TOWER_WINDUP_TICKS,
   TURRET_ATTACK_RANGE,
   TURRET_DEFENDER_MAX_HP,
   TURRET_FIRE_INTERVAL_TICKS,
@@ -49,8 +54,17 @@ import {
 import type { CreatureId, DefenderId, PlayerId, PrimitiveId, Vec2 } from '../../types.ts';
 import type { GodlyId } from '../godlyRecipes/types.ts';
 
-/** Which kind of defender — selects the FSM tuning (config) + the renderer. */
-export type DefenderKind = 'turret' | 'princess';
+/**
+ * Which kind of defender — selects the FSM tuning (config) + the renderer.
+ *
+ * ⛔ THIS UNION IS DUPLICATED. A second, inlined copy lives at `godlyRecipes/types.ts`
+ * (`DefenderGodlyRecipe.defenderKind`), deliberately, to break a types <-> defender import cycle.
+ * ADD A KIND TO BOTH, IN THE SAME COMMIT. Adding it only here means no recipe can declare it; adding
+ * it only there compiles clean at the recipe site and then mints a REGISTER_DEFENDER whose kind is
+ * absent from `DEFENDER_CONFIGS` — and `getDefenderConfig` is a bare Record index with no default, so
+ * it returns `undefined` and throws on the first field read inside `makeDefender`.
+ */
+export type DefenderKind = 'turret' | 'princess' | 'stinkTower';
 
 /**
  * Generic defender FSM. Both kinds share it; the per-kind config tunes the durations.
@@ -92,8 +106,31 @@ export interface Defender {
   state: DefenderState;
   /** Ticks since entering `state`. */
   ticksInState: number;
-  /** Sentinel hp (recipe-break removal in v1; a future direct-attack lever routes through here). */
+  /**
+   * Real hp. ⚠ S141 P1 — this comment used to read "Sentinel hp (… a FUTURE direct-attack lever
+   * routes through here)", which S138 P1 had already made false: `state/damage.ts` kills defenders
+   * through this field today, and the file header thirty lines above says so. The stale wording
+   * survived because nothing links a field's doc to its consumers. Reading it would have produced a
+   * design that assumes hp is inert.
+   */
   hp: number;
+  /**
+   * S141 P1 — STINK TOWER AMMO. How many stink bags remain unthrown. Meaningless for the other kinds
+   * (seeded 0 and never read), which is why it is a plain non-optional number rather than a
+   * per-kind sub-object: `Record<DefenderKind, …>` variance would force every consumer to narrow.
+   *
+   * ⚠ SERIALIZED ON PURPOSE, AND DERIVATION WAS CONSIDERED AND REJECTED. A count derived from tick
+   * arithmetic cannot work: throwing is TARGET-GATED, so bags spent is not a pure function of
+   * elapsed time. And the nearest existing analogue — the spawner's `spawnedCount` — RESETS TO 0 ON
+   * EVERY LOAD, so a magazine modelled that way silently refills on save/load, on host migration and
+   * on `?worker=1` restore.
+   *
+   * ⚠ FOUR SITES OR IT DESYNCS: this type, `SerializedDefender` + `serializeDefender` +
+   * `deserializeDefender` (save.ts), and BOTH the `DefenderHashed` union AND the hand-written hash
+   * projection in `stateHashFull.ts`. Only the hash UNION has a tsc tripwire; the projection and the
+   * serializer are hand-maintained mirrors with no compile pressure at all.
+   */
+  bagsRemaining: number;
   /**
    * Tick the next fire ATTEMPT begins. SYNCED so the client derives the laser windup rings from
    * `nextFireTick - world.tick`. Re-phased on load to avoid an insta-fire (Council MF5).
@@ -132,6 +169,11 @@ export interface DefenderConfig {
   readonly meleeRange: number;
   /** S138 P1 — real max hp for this kind (was the shared DEFENDER_HP sentinel). */
   readonly hp: number;
+  /**
+   * S141 P1 — how many bags this kind starts with. 0 for every kind that has no magazine, which is
+   * also what makes `bagsRemaining` inert for them.
+   */
+  readonly bags: number;
 }
 
 export const TURRET_DEFENDER_CONFIG: DefenderConfig = {
@@ -142,6 +184,25 @@ export const TURRET_DEFENDER_CONFIG: DefenderConfig = {
   moveAccel: 0, // stationary — a turret never walks (its FSM stays byte-identical to pre-S110)
   meleeRange: TURRET_ATTACK_RANGE, // strikes at acquisition range → always "in melee" → never WALKs
   hp: TURRET_DEFENDER_MAX_HP, // S138 P1 — real hp (was the 1e9 sentinel)
+  bags: 0, // no magazine — the laser is not ammo-limited
+};
+
+/**
+ * S141 P1 — the STINK TOWER. Stationary like the turret (moveAccel 0 + meleeRange == attackRange, so
+ * its FSM can never enter WALK), but short-ranged and ammo-limited: it lobs `bags` stink bags on a
+ * slow cadence, then becomes a passive area denier when the magazine runs dry.
+ */
+export const STINK_TOWER_DEFENDER_CONFIG: DefenderConfig = {
+  kind: 'stinkTower',
+  // ⚠ NON-ZERO IS LOAD-BEARING: `loadRephaseDefenders` computes `% fireIntervalTicks` with no zero
+  // guard, so a 0 here writes NaN into nextFireTick on every save/load and host migration.
+  fireIntervalTicks: STINK_THROW_INTERVAL_TICKS,
+  windupTicks: STINK_TOWER_WINDUP_TICKS,
+  attackRange: STINK_TOWER_ATTACK_RANGE,
+  moveAccel: 0, // stationary — a tower does not walk
+  meleeRange: STINK_TOWER_ATTACK_RANGE, // lobs at acquisition range → always "in melee" → never WALKs
+  hp: STINK_TOWER_MAX_HP,
+  bags: STINK_TOWER_BAGS,
 };
 
 export const PRINCESS_DEFENDER_CONFIG: DefenderConfig = {
@@ -152,11 +213,13 @@ export const PRINCESS_DEFENDER_CONFIG: DefenderConfig = {
   moveAccel: PRINCESS_MOVE_ACCEL, // S110 P4 — she walks to her target
   meleeRange: PRINCESS_MELEE_RANGE, // S110 P4 — must be adjacent to slap
   hp: PRINCESS_DEFENDER_MAX_HP, // S138 P1 — real hp (was the 1e9 sentinel)
+  bags: 0, // no magazine — she slaps
 };
 
 export const DEFENDER_CONFIGS: Readonly<Record<DefenderKind, DefenderConfig>> = {
   turret: TURRET_DEFENDER_CONFIG,
   princess: PRINCESS_DEFENDER_CONFIG,
+  stinkTower: STINK_TOWER_DEFENDER_CONFIG,
 };
 
 export function getDefenderConfig(kind: DefenderKind): DefenderConfig {
@@ -191,6 +254,7 @@ export function makeDefender(args: {
     state: 'IDLE',
     ticksInState: 0,
     hp: config.hp,
+    bagsRemaining: config.bags, // S141 P1 — 0 for every kind without a magazine
     nextFireTick: args.registeredAtTick + config.fireIntervalTicks,
     targetCreatureId: null,
     lastStrikePos: null,

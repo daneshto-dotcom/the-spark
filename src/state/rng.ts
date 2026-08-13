@@ -65,3 +65,30 @@ export function pseudoRand(seed: number, index: number = 0): number {
   x = (x ^ (x >>> 16)) >>> 0;
   return (x / 0x80000000) - 1;
 }
+
+/**
+ * S141 P1 — avalanche-mix two uint32s into one (murmur3-finalizer shape). Pure + branchless;
+ * consumes NO RNG stream and reads NO wall-clock, so adding a caller cannot perturb any existing
+ * spark/bomb/potato/rainbow/seagull byte sequence.
+ *
+ * ⚠ THIS IS A CONSOLIDATION, NOT A NEW FUNCTION, AND THAT IS THE POINT. Two byte-identical private
+ * copies had already been hand-written — `creatures/creatureAI.ts` (S100 P1) and
+ * `seagulls/seagullLifecycle.ts` (S81 P3) — and each one's docblock cited the OTHER by a line number
+ * that had since drifted. A third hand-rolled copy is exactly the divergence class `razePrimitives.ts`
+ * was created to stop: three copies of a hash cannot be kept bit-equal by hope, and a one-bit
+ * difference between them is a silent cross-peer desync rather than a failing test. Both original
+ * copies now delegate here; the math is unchanged, so every existing sequence stays byte-identical.
+ *
+ * Pair it with `pseudoRand` when you need a differentiated stream from entity state:
+ * `pseudoRand(mix32(entityId, tick), index)` — deterministic, stateless, and replay-safe, with none
+ * of the draw-order perturbation hazard that reaching into a seeded `mulberry32` stream carries.
+ */
+export function mix32(a: number, b: number): number {
+  let h = (Math.imul(a | 0, 0x9e3779b9) ^ Math.imul(b | 0, 0x85ebca6b)) >>> 0;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x45d9f3b) >>> 0;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x45d9f3b) >>> 0;
+  h ^= h >>> 16;
+  return h >>> 0;
+}

@@ -36,8 +36,10 @@
  */
 
 import { PRIMITIVE_MAX_HP } from '../constants.ts';
-import type { CreatureId, DefenderId, PrimitiveId } from '../types.ts';
+import type { CreatureId, DefenderId, PlayerId, PrimitiveId } from '../types.ts';
 import { damageCreature } from './creatures/creatureLifecycle.ts';
+import type { Defender } from './defenders/defender.ts';
+import { stinkDeathBlast } from './defenders/stinkTower.ts';
 import { razePrimitives } from './razePrimitives.ts';
 import type { World } from './worldTypes.ts';
 
@@ -97,35 +99,191 @@ export function damageEntity(
       if (defender === undefined) return false;
       defender.hp -= amount;
       if (defender.hp > 0) return false;
-      // ⭐ VERIFIED HAZARD — do not "simplify" this to `world.defenders.delete(id)`.
-      //
-      // `runDefenderIgnition` (godlyMatcherCore.ts:156-168) fires on ANY topology change
-      // (`BOND_FORMED`, or a player-caused `BOND_SEVERED`) and re-registers every recipe match
-      // whose anchor has no live defender. So deleting the defender while its recipe geometry is
-      // still intact does NOT kill it — it comes back for free the next time any bond forms
-      // anywhere on the board, which is an IMMORTAL defender.
-      //
-      // Razing the ANCHOR primitive is what actually kills it: the recipe stops matching, so the
-      // igniter can never re-mint it, and the shipped REMOVE_DEFENDER recipe-break path does the
-      // removal itself on the next poll — the same counterplay a chewer already triggers. Zero new
-      // world state, zero new wire surface. Fiction: kill the defender and its keystone shatters.
-      const anchor = world.primitives.get(defender.anchorPrimitiveId);
-      if (anchor !== undefined) {
-        world.effects.push({
-          kind: 'SEVER_ERASE',
-          tick: world.tick,
-          pos: { x: anchor.pos.x, y: anchor.pos.y },
-          color: anchor.placerColor,
-          radius: anchor.radius,
-        });
-        razePrimitives(world, [defender.anchorPrimitiveId]);
-      }
-      // Remove it here too rather than waiting for the poll, so it stops firing on the very tick
-      // it died. The recipe-break path is now a belt-and-braces backstop, not the sole mechanism.
-      world.defenders.delete(target.id);
+      destroyDefender(world, defender, 'damage');
       return true;
     }
   }
+}
+
+/** Why a defender is leaving the world. Selects whether its anchor is razed — see `destroyDefender`. */
+export type DefenderDeathCause = 'damage' | 'recipeBreak';
+
+/**
+ * S141 P1 — THE ONE PLACE A DEFENDER LEAVES THE WORLD MID-MATCH.
+ *
+ * Before this existed there were TWO removal paths sharing no code — the damage arm above, and
+ * `applyRemoveDefender` driven by the host's recipe-revalidation poll — and any per-kind death
+ * behaviour bolted onto one of them would simply not happen on the other. The S139 Council found
+ * this the decisive way round: the poll path (`REMOVE_DEFENDER`, fired when the anchor dies) is the
+ * MOST LIKELY way a tower actually dies, so a death effect wired only into `damageEntity` would
+ * essentially never fire.
+ *
+ * ⚠ NOT CALLED FROM TEARDOWN, DELIBERATELY. `teardownDefenders` uses `world.defenders.clear()`, and
+ * so do four inline sites (match start, return-to-title, the win trigger, the godly abort cascade).
+ * Those must stay silent: firing death blasts into a world that is being torn down would push
+ * effects onto the win screen and damage primitives that are about to be discarded. "A reset is not
+ * a death" is the rule; `.clear()` bypassing this function is how it is enforced.
+ *
+ * ⚠ REMOVAL HAPPENS FIRST, WHICH MAKES THIS STRUCTURALLY IDEMPOTENT. A second call for the same
+ * defender cannot find it in the map, so it cannot double-fire — no `dying` flag needed, and
+ * therefore no new serialized+hashed field. It also means the tower stops firing on the very tick
+ * it died rather than surviving until the next poll slot.
+ *
+ * ⚠ RE-ENTRANCY IS SAFE BY CONSTRUCTION. The blast damages primitives, which can break OTHER
+ * defenders' recipes while `runHostTick` is mid-iteration. That is fine: the poll iterates a
+ * SNAPSHOT (`[...world.defenders]`), and both `applyDefenderTick` and `applyRemoveDefender` no-op on
+ * an id that has since vanished. A defender whose anchor this blast razed simply falls out on its
+ * own poll slot.
+ */
+export function destroyDefender(world: World, d: Defender, cause: DefenderDeathCause): void {
+  // 1. Out of the map first (idempotence + stop it acting on its death tick).
+  world.defenders.delete(d.id);
+
+  // 2. ⭐ VERIFIED HAZARD — on the DAMAGE path the anchor MUST be razed, and this is not optional.
+  //
+  // `runDefenderIgnition` (godlyMatcherCore.ts, `runDefenderIgnition`) fires on ANY topology change
+  // (`BOND_FORMED`, or a player-caused `BOND_SEVERED`) and re-registers every recipe match whose
+  // anchor has no live defender. So deleting a defender while its recipe geometry is still intact
+  // does NOT kill it — it returns for free the next time any bond forms anywhere on the board. That
+  // is an IMMORTAL defender.
+  //
+  // Razing the ANCHOR is what actually kills it: the recipe stops matching, so the igniter can never
+  // re-mint it. Fiction: kill the tower and its keystone shatters.
+  //
+  // On the recipeBreak path we must NOT raze. Either the anchor is already gone (something destroyed
+  // it — nothing to do), or the anchor is alive and the player simply changed the shape, in which
+  // case razing would destroy a primitive they still own and are still building with.
+  if (cause === 'damage') {
+    const anchor = world.primitives.get(d.anchorPrimitiveId);
+    if (anchor !== undefined) {
+      world.effects.push({
+        kind: 'SEVER_ERASE',
+        tick: world.tick,
+        pos: { x: anchor.pos.x, y: anchor.pos.y },
+        color: anchor.placerColor,
+        radius: anchor.radius,
+      });
+      razePrimitives(world, [d.anchorPrimitiveId]);
+    }
+  }
+
+  // 3. ⭐ THE DESTROYED-vs-DECONSTRUCTED DISCRIMINATOR, and it is the load-bearing line in this file.
+  //
+  // A death effect must fire when the tower is DESTROYED and must NOT fire when it is merely
+  // DECONSTRUCTED. The world itself answers that without a parameter anyone could pass wrongly: if
+  // the anchor is GONE, something killed it (damage razed it just above, or an enemy razed it and
+  // the poll noticed). If the anchor is STILL STANDING, the recipe stopped matching because the
+  // player added, moved or removed a shape — that is building, not dying.
+  //
+  // ⚠ WHY THIS MATTERS MORE THAN IT LOOKS, and it is specific to the Stink Tower. Its recipe is the
+  // easiest in the game to satisfy by accident (a Square dropped among three loose Circles), and the
+  // component-size gate is exact, so an accidental tower REMOVES ITSELF the moment the player bonds
+  // a fourth shape on. Without this discriminator, continuing your own build would detonate a stink
+  // blast in the middle of your own structure. Deriving the answer from the anchor — rather than
+  // trusting the call site — is what makes that unrepresentable.
+  if (!world.primitives.has(d.anchorPrimitiveId)) {
+    onDefenderDestroyed(world, d);
+  }
+}
+
+/** Per-kind death behaviour. Kinds with nothing to do are silent — no default branch to forget. */
+function onDefenderDestroyed(world: World, d: Defender): void {
+  if (d.kind === 'stinkTower') stinkDeathBlast(world, d, applyRadialDamage);
+}
+
+export interface RadialDamageResult {
+  readonly primitivesHit: number;
+  readonly creaturesHit: number;
+  readonly defendersHit: number;
+}
+
+/**
+ * S141 P1 — the radial-collect → per-target `damageEntity` bridge.
+ *
+ * ## Why this is NOT `applyRadialClear`
+ *
+ * `applyRadialClear` (potatoLifecycle.ts) looks like the AoE helper and is a TRAP for anything that
+ * wants to HURT rather than ERASE. Three reasons, each read off its body:
+ *
+ *  1. **It DELETES primitives, it does not damage them** — it collects everything in radius and
+ *     hands the whole list to `razePrimitives`, with no hp subtraction anywhere. A stink bag routed
+ *     through it would one-shot a full-health 1000-hp shape, making `Primitive.hp` — the entire
+ *     point of the S138 damage substrate — invisible to the newest damage source in the game.
+ *  2. **Its predicate filters CREATURES ONLY.** The `creatureKill` callback gates the creature loop;
+ *     the primitive loop takes no predicate at all, which is why the lightningHub self-destruct
+ *     passes `() => true` and razes friendly shapes by design. A bag that flattens the thrower's own
+ *     tower is not a mechanic, it is a bug.
+ *  3. **It never consults `world.defenders`.** A blast that cannot hurt a tower cannot be counterplay
+ *     to towers.
+ *
+ * What IS worth copying from it, and is copied here, is its ITERATION DISCIPLINE: collect victims
+ * into an array, sort by numeric id, and only then mutate. Map iteration order is insertion order,
+ * which differs between a host that built its world by play and a client that rebuilt it from a
+ * snapshot — sorting is what makes the damage order identical on both, which is what keeps the state
+ * hash agreeing. Copy the discipline, never the body.
+ *
+ * ⚠ NO FALLOFF, deliberately. Falloff needs a rounding rule, and a rounded fraction at the rim is
+ * exactly how a host and a `?worker=1` mirror end up disagreeing by one hp. Flat integers cannot
+ * drift, and `damageEntity` throws on a fraction anyway.
+ *
+ * `sparePlayerId` is the OWNER FILTER: pass the blast owner's seat and nothing they own is touched.
+ * ⚠ Ownership is a DIFFERENT FIELD per family and they are not interchangeable. Creatures and
+ * defenders carry `ownerPlayerId`; a primitive does not — it carries `placedBy`. `placerColor` is
+ * deliberately NOT used: the rainbow hazard REMAPS colours mid-match, so a colour comparison would
+ * silently start sparing the wrong player's shapes the moment a rainbow fires.
+ */
+export function applyRadialDamage(
+  world: World,
+  cx: number,
+  cy: number,
+  radius: number,
+  amount: number,
+  source: DamageSource,
+  sparePlayerId: PlayerId | null,
+): RadialDamageResult {
+  const r2 = radius * radius;
+  const inRange = (x: number, y: number): boolean => {
+    const dx = x - cx;
+    const dy = y - cy;
+    return dx * dx + dy * dy <= r2;
+  };
+
+  // ── collect first, mutate second (see the iteration-discipline note above) ──
+  const creatureVictims: CreatureId[] = [];
+  for (const [cid, c] of world.creatures) {
+    if (sparePlayerId !== null && c.ownerPlayerId === sparePlayerId) continue;
+    if (inRange(c.pos.x, c.pos.y)) creatureVictims.push(cid);
+  }
+  creatureVictims.sort((a, b) => (a as number) - (b as number));
+
+  const defenderVictims: DefenderId[] = [];
+  for (const [did, dd] of world.defenders) {
+    if (sparePlayerId !== null && dd.ownerPlayerId === sparePlayerId) continue;
+    if (inRange(dd.pos.x, dd.pos.y)) defenderVictims.push(did);
+  }
+  defenderVictims.sort((a, b) => (a as number) - (b as number));
+
+  const primVictims: PrimitiveId[] = [];
+  for (const [pid, p] of world.primitives) {
+    if (sparePlayerId !== null && p.placedBy === sparePlayerId) continue;
+    if (inRange(p.pos.x, p.pos.y)) primVictims.push(pid);
+  }
+  primVictims.sort((a, b) => (a as number) - (b as number));
+
+  // ── apply ──
+  // Defenders before primitives: killing a defender RAZES ITS ANCHOR, so doing it first means the
+  // primitive loop never damages a shape that is about to be razed anyway. `damageEntity` no-ops on
+  // a missing id either way, so this is legibility rather than correctness — but it keeps "what did
+  // this blast do" a question with exactly one answer.
+  for (const cid of creatureVictims) damageEntity(world, { kind: 'creature', id: cid }, amount, source);
+  for (const did of defenderVictims) damageEntity(world, { kind: 'defender', id: did }, amount, source);
+  for (const pid of primVictims) damageEntity(world, { kind: 'primitive', id: pid }, amount, source);
+
+  return {
+    creaturesHit: creatureVictims.length,
+    defendersHit: defenderVictims.length,
+    primitivesHit: primVictims.length,
+  };
 }
 
 /** Full health for a freshly-placed primitive. Re-exported so callers need one import, not two. */
