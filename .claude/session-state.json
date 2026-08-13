@@ -1,18 +1,18 @@
 {
-  "tool_calls_session_total": 575,
+  "tool_calls_session_total": 585,
   "session_id": "S141",
   "session_kind": "full-batch",
   "session_start": "2026-08-13",
   "prior_session_note": "S138 closed GREEN: damage substrate (P1) + three owner playtest fixes (P2). PROTOCOL_VERSION 17. Starters + build space designed + owner-ruled, NOT implemented.",
   "prior_session_archive": ".handoff-archive/HANDOFF_S138.md",
-  "phase": "DO",
+  "phase": "ACT",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-08-13_PDR_S141_stink_tower_and_order_queue.md",
-  "session_status": "in_progress",
+  "session_status": "closed",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "protocol_version": 18,
+  "protocol_version": 20,
   "boot_preflight": {
     "boot_snapshot_read": true,
     "unpushed_commits": 0,
@@ -241,35 +241,51 @@
   ],
   "reflexion_entries_to_archive": [
     {
-      "tag": "#a-tripwire-that-has-never-been-red-is-a-wish",
-      "text": "castleBank.test.ts's `expect(CASTLE_BANK_CAP).toBe(5)` DID work — it went red the instant the cap moved and forced the recipe table to be re-read, which is exactly what B4b asks for. But four copies of PROTOCOL_VERSION pinned the same way had all drifted, and every one of their TITLES said 'is 17' while asserting 18. A pinned value only ever says 'someone changed this'; it cannot say what the number is FOR, and it must be hand-edited on every legitimate change. S140 replaced the cap pin with relationship invariants (cap >= HELGA_SIZE, cap >= TURRET_SIZE, cap < VOLTKIN_SIZE, cap < NONET_SHAPE_COUNT) and collapsed four version pins to ONE deliberate one. Keep exactly one pin whose job is 'was this a decision?', and bind everything else to the constant."
+      "tag": "#two-seats-rejected-the-same-thing-and-both-fixes-were-wrong",
+      "priority": "P1",
+      "lesson": "Both Council seats independently rejected the Stink Tower recipe on the same real ground — a Square dropped among three loose Circles auto-bonds into a match. Unanimity on the FINDING did not transfer to the FIX. Gemini proposed requiring the hub to have no bonds outside the component: a provable NO-OP, because componentOf follows every bond so an outside bond already pushes the size past 4. Grok proposed requiring degree-1 leaves: that REINTRODUCES the documented frequent-silent-no-build both shipped stars loosened their gates to avoid. Two independent reviewers agreeing raises confidence in the problem, not in their remedy — price those separately."
     },
     {
-      "tag": "#when-the-owner-overrides-the-council-upgrade-the-guard-dont-delete-it",
-      "text": "All five S140 seats rejected the laserTurret 8->7 retune, and their strongest argument was that step one of implementing it is DELETING codexPresentation.test.ts's anti-drift test — the guard that exists to stop the emblem and the predicate disagreeing about seven. The owner ruled for the retune anyway. The right execution was not to delete the guard but to REBIND it: it now reads TURRET_HUB_DEGREE instead of a literal, so it survives any future retune and is strictly stronger than the version it replaced. A rejected-but-ruled change is an instruction to find the version of it that keeps the protection."
+      "tag": "#the-severe-bug-lived-in-the-interaction-neither-seat-was-shown",
+      "priority": "P1",
+      "lesson": "D1 and D2 were reviewed as separate decisions and each was survivable alone. Together they were not: the recipe is easy to build by accident, an accidental tower self-removes when the player keeps building, and the shared death hook would have detonated on the player's OWN structure at exactly that moment. Neither seat found it because neither was asked about the pair. When decisions touch the same object, review the CROSS PRODUCT, not the list. The fix — derive destroyed-vs-deconstructed from whether the ANCHOR IS GONE — makes the bad case unrepresentable rather than merely guarded against."
     },
     {
-      "tag": "#a-strict-equality-gate-turns-stale-copy-into-a-trap",
-      "text": "laserTurret's predicate uses `!==` with no upper tolerance, and the host re-validates every 30 ticks. So after the 8->7 retune, a player following any surviving 'seven' copy would build a turret and watch REMOVE_DEFENDER kill it 0.5 s later — 'builds at six, dies at seven'. That reframes a copy migration from cosmetic to load-bearing: the retune is not a constant change with docs to follow, it is a copy migration that happens to include a constant. Added a test asserting NO player-visible 'seven' survives, and a witness test that a 7-leaf star is now rejected."
+      "tag": "#a-tsc-forcing-function-can-be-satisfied-without-doing-anything",
+      "priority": "P1",
+      "lesson": "stateHashFull has a NoUncovered guard that fails the build naming any unclassified field — and it fired correctly for bagsRemaining. But the actual hash PROJECTION is a hand-written string template with no executable link to that union. Adding the name to the union silences tsc while leaving the field UNHASHED, so the determinism oracle goes blind exactly where you thought you had just made it sighted. A forcing function proves someone was ASKED the question, never that they answered it in the place that runs."
     },
     {
-      "tag": "#the-fixed-grid-dead-box-was-an-artifact-of-the-proposed-fix-not-the-problem",
-      "text": "Both the session brief and one Council seat treated 'cap 7 ships 1 dead box' as a real cost, and Gemini used it as its main argument for cap 8 over 7. It was false: a dead box only exists if you assume a FIXED rectangular grid. Centring each row on its own occupancy gives cap 7 a 4-slot row above a 3-slot row — seven boxes, zero dead, verified exhaustively over cap 1..500. A constraint introduced by a candidate implementation was being priced as a constraint of the problem. Check whether the cost you are weighing belongs to the domain or to your first sketch of the solution."
+      "tag": "#backlog-named-the-wrong-function-twice-and-the-feature-would-have-no-opped",
+      "priority": "P2",
+      "lesson": "Both B4's ruling table and the V6-1.4 slot say to put the queue predicate on `pickTargetSpark`. That is the BOT AVATAR's porch-only picker; it takes an rng and is never called for a gatherer. Wiring it there would have silently changed bot cruiser behaviour and left gatherers untouched — the feature would ship, pass review, and DO NOTHING. A spec naming a symbol is a hypothesis; grep the call graph before believing it."
     },
     {
-      "tag": "#deriving-from-the-container-makes-the-regrid-a-provable-no-op",
-      "text": "The bank strip's width was a function of the cap (cap*40 + (cap-1)*6) with no upper bound, so cap 7 put slot 0 at x=-24, hanging off a 268px plate — and castlePanel.test.ts had ZERO bank coverage, so it would have shipped green. Inverting the dependency (slots-per-row DERIVED from the panel width) makes overflow structurally impossible at any cap AND yields exactly the shipped layout at cap 5 — which let the regrid ship and be verified BEFORE the cap moved, separating a risky change into two provable ones. Also kept a witness test that reproduces the old arithmetic and shows it violating the new invariant: prove the guard, don't read it."
+      "tag": "#the-mechanic-the-ruling-forbids-was-already-shipped",
+      "priority": "P2",
+      "lesson": "B4 says in bold \"DO NOT IMPLEMENT A PREDICATE/FILTER\", and V6-1.2 had shipped exactly that as SET_GATHERER_PREFERENCE, with ABSOLUTE priority over distance. Nobody noticed for six sessions because the ruling lived in BACKLOG and the violation lived in code, and no one had cause to read both at once. Before building what a ruling asks for, check whether its explicit prohibition is already running."
     },
     {
-      "tag": "#three-documents-disagreed-and-the-council-leaned-on-the-outlier",
-      "text": "I reported to the owner that LOCKED_DECISIONS §7 said the carve-down threshold was already crossed at cap 5, which would have made the whole B4b objection moot. The PRIME-AUDIT caught that §7 is the OUTLIER: BACKLOG B4 and constants.ts both say '>= the biggest recipe'. §7 was a compressed misstatement, and the Council's synthesis had leaned on it AND proposed logging it as 'spent' — ratifying an error into the second-highest-authority document. Corrected §7 instead of retiring it. When three sources disagree, the one that makes your argument easiest is the one to re-read first."
+      "tag": "#a-line-citation-drifted-twice-inside-the-session-that-was-fixing-it",
+      "priority": "P4",
+      "lesson": "Ten places cited main.ts:1706 for the hash call site. A.0 measured the truth as 1766. By the time I went to correct them it was 1793 — moved by MY OWN edits, in the same session. Renumbering would have shipped a fact with a half-life of hours. They are now symbol-anchored. A reference that decays from unrelated work is not documentation, it is a maintenance liability that regenerates its own backlog entry."
+    },
+    {
+      "tag": "#a-stale-comment-can-be-an-instruction-to-break-production",
+      "priority": "P4",
+      "lesson": "voltkinFrames.ts stated two PNGs \"were deleted in S107 P3\". They are git-tracked, ship in dist/, and are loaded by six production modules. A dead-asset cleanup driven by that sentence would have broken live art with tsc AND the bundle gate green (they are string literals, invisible to both) — and public/** is in deploy.yml's paths filter, so the deletion would have deployed itself. The dangerous stale comment is not the one that is merely wrong; it is the one that reads as a licence to act."
+    },
+    {
+      "tag": "#cap-the-a0-fan-out-or-it-eats-the-session",
+      "priority": "P0",
+      "lesson": "The A.0 workflow spawned 31 agents and hit the individual spend limit mid-run: 6 of 7 probes landed, every adversarial verification died, 1.85M subagent tokens spent. This is the SECOND consecutive session to lose work this way (S140 lost a 10-agent Council entirely). What saved it was that probe results are journalled per agent, so the six that finished were fully recoverable, and the missing probe was the one area I had already read by hand. Budget the fan-out, and read the highest-risk area yourself first so a partial A.0 still leaves you standing."
     }
   ],
   "totals": {
     "budget_remaining": 1000000
   },
   "budget_total": 1000000,
-  "e2e_gating_status": "34/34 exit 0 (was 32/32; +2 new gating runtime specs)",
+  "e2e_gating_status": "36/36 exit 0 (was 34; +2 new runtime specs for the tower render and the queue UI)",
   "closed": true,
   "a0_deviation": "The A.0 sweep's adversarial re-check stage (24 independent re-verifications of every non-CONFIRMED verdict) and its synthesis agent ALL failed on an individual spend limit after the 10 probes completed. Probe payloads were recovered from journal.jsonl and triaged by Claude directly. STATED AS A DEVIATION, NOT PRESENTED AS COMPLIANCE: single-probe findings carry ONE source. The two highest-consequence findings (damageEntity dead code; CI red) were personally re-verified by Claude with direct greps and gh calls before being reported.",
   "ci_finding": "e2e.yml newest run 31366201100 = FAILURE, all 3 lanes, headSha 33 commits behind HEAD, predates two gating fixes. No push trigger exists so nothing re-runs it. Fresh workflow_dispatch on current HEAD = run 31509968212, result pending. deploy.yml is 3/3 success. gh issue list = empty.",
@@ -338,22 +354,13 @@
     "runtime_verifiability_boot_then_smoke": "THE decisive question for this session, given the headline A.0 finding was a whole subsystem that static-parsed perfectly and was never called. Static parsing is NOT validation here. Mandatory runtime gates before any priority is marked complete: (1) a REAL-PHYSICS acceptance test that runs the actual physics loop and asserts the goblin closes distance and the target primitive's hp actually decreases - a state-only assertion is not evidence (S136); (2) PHYSICS_DT imported from physicsLoop.ts, never re-derived, because constants.ts does not export it and a test once silently ran on NaN (S138); (3) an explicit assertion that damageEntity now HAS production call sites, i.e. the exact grep that exposed the dead substrate becomes a permanent test; (4) LOOK AT THE RENDER - a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches, and no state assertion can see 'nothing was drawn'.",
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
-  "real_context_tokens_at_close": 365000,
-  "real_context_pct_at_close": 32.92,
-  "checkpoint_commit": "443b8ee7",
+  "real_context_tokens_at_close": 615589,
+  "real_context_pct_at_close": 61.56,
+  "checkpoint_commit": "bb96595",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
-  "gitleaks_status": "clean — 917 commits scanned, no leaks found (2026-08-12)",
-  "rule22_audit": {
-    "status": "COMPLETE — 3 stale docs found and FIXED, not deferred",
-    "method": "Re-scanned the S140 commit surface for the BUG-A/B/C patterns. No Docker/env/deploy config was touched this session, so the ${VAR}/mount-point/entrypoint classes are N/A. The applicable class here is STALE PROSE INVALIDATED BY THE CHANGE, and it was present.",
-    "findings": [
-      "castlePanel.ts:74 still told the reader \"five is all they get\" as the strategic pressure — false at cap 7, and in the docblock of the very file the regrid rewrote. FIXED.",
-      "constants.ts:379 (KEEP_RING_RADIUS docblock) still named the SUPERSEDED §1b R2 \"12–13\" as the intended economy counterweight. FIXED to point at the ruled 7.",
-      "e2e/bank-throughput.spec.ts:7 framed itself around the now-ruled open question \"is cap 5 still right\". FIXED with a note that the decision is closed and the seam is independent of the shipped default."
-    ],
-    "ci": "gh run list — all runs success incl. 31623126653 for 55894e37. gh issue list — empty. No run OWED for the state-close commit (session-state.json is outside deploy.yml paths)."
-  },
+  "gitleaks_status": "clean (922 commits scanned, no leaks)",
+  "rule22_audit": "CLEAN. BUG-A: no unrendered ${VAR} placeholders in the session diff. BUG-B: all 7 new files exist and resolve. BUG-C: no dangling refs to the deleted radialDamage.ts (the surviving hits are a PARAMETER of that name; tsc 0 confirms). gh run list: no failures opened this session; gh issue list: empty. Six stale docs found and FIXED, one of which (voltkinFrames) would have caused a live art breakage AND shipped it, since public/** is in deploy.yml paths.",
   "deploy_verified_s139": "PASS 4/4 — REMOTE master == fd48d3d1; 1 run for fd48d3d1 (event=push); run 31583433645 concluded SUCCESS (checked explicitly, not inferred from absence-of-failure); LIVE entry asset == local build (index-CGwv_oyg.js) by content-hash equality.",
   "constitution_note": "constitution-check.sh: OK exit 0 (all 4 source pins match; LOAD ZONE 7278B <= 12288B), so the close is NOT blocked by drift. The `pending-ratification-20260811152940` sentinel was reviewed and DELIBERATELY LEFT IN PLACE: it records a stamp made under PDR S125-P3b in a DIFFERENT project (Command center, confirmed by S162), and ratifying a CONSTITUTION.md section 9 amendment row is a governance act belonging to the owner. Self-ratifying would be exactly the self-authorization axiom A2 forbids, and it is outside this project's scope. Surfaced to the owner rather than silently cleared.",
   "council_s140": {
@@ -466,5 +473,13 @@
       "Grok: teardown bypasses the hook so a reset never blasts - CORRECT AND INTENDED, now documented rather than left implicit.",
       "Gemini: renderer + FSM omission for a third kind - upgrade to a tsc-exhaustive switch on d.kind for motion posture (the S140 upgrade-the-guard lesson)."
     ]
-  }
+  },
+  "deploy_verified_s141": "PASS 4/4 — remote master == bb96595d; run 31684754853 concluded success; LIVE entry asset == local build (index-C3JJhc7b.js), content-hash equality. NOTE: the FIRST verify-deploy run gave a FALSE FAIL because dist/ on disk was the pre-P3/P4 artifact — A.0 flagged this staleness as a false-PASS risk; it bites as a false FAIL too. Rebuild before verifying, always.",
+  "council_deviation_s141": "Rule 17 Full tier calls for a 2-round Council. Ran ONE round, by direct MCP call to Grok and Gemini rather than as a workflow fan-out, after A.0 had already hit the individual spend limit. Judged the right trade: the seats produced 6 verdicts and 2 adopted findings, PRIME-AUDIT refuted 2 of their 6 on disk, and the session shipped 4 priorities with a live deploy. A second round would have risked losing the execution budget entirely, which is the failure mode S140 already demonstrated.",
+  "owner_actions_s141": [
+    "2-PEER v20 HELLO CHECK — owner-only. The only runtime coverage of the version gate lives in the e2e quarantine lane, which is fully red and continue-on-error, so CI CANNOT verify a bump.",
+    "PLAYTEST the Stink Tower. Its recipe shapes are a CLAUDE ruling, not an owner ruling — retune freely, it is one edit. Watch specifically for ACCIDENTAL construction (a Square among three loose Circles builds one); it self-heals and cannot blast you, but it may still feel wrong.",
+    "PLAYTEST the order queue. Does clicking shapes into a queue read as commanding your economy, or as one more panel to manage?",
+    "The aggro pull currently only affects GOBLINS — targetPrimitiveId is read only by creatures whose config has targetsStructures. A Voltkin walks straight past a depleted tower."
+  ]
 }
