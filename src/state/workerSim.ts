@@ -280,6 +280,25 @@ function bankedShapeTotal(world: World): number {
   return n;
 }
 
+/**
+ * S143 P3 — total entries queued across all per-player gatherer order queues.
+ *
+ * Exactly the `bankedShapeTotal` argument, one family over. `gathererOrders.size` counts SEATS
+ * WITH A QUEUE, so it stops changing once each seat has queued once — and the queue's whole
+ * lifecycle after that is POPs (one consumed per delivery) and pushes, none of which move the map
+ * size. Without this total, a mirror whose queue had drained to a different depth than the
+ * worker's would present an identical signature while sending its gatherers somewhere else.
+ *
+ * ⚠ A total, not a hash of contents: this signature is a SIZE-ONLY fingerprint by design (its
+ * docblock above), and per-entity granularity belongs in `FIELD_COVERAGE`, which already carries
+ * the ordered queue contents. Order changes with an unchanged depth are caught there, not here.
+ */
+function queuedOrderTotal(world: World): number {
+  let n = 0;
+  for (const q of world.gathererOrders.values()) n += q.length;
+  return n;
+}
+
 export function structuralSignature(world: World): string {
   let benched = 0;
   for (const p of world.players.values()) {
@@ -305,6 +324,14 @@ export function structuralSignature(world: World): string {
     // S135 audit caught being missed — nothing makes tsc fail if it is omitted.
     world.castleBanks.size,
     bankedShapeTotal(world),
+    // S143 P3 (V6-1.4) — the per-player gatherer order queue, on the castleBanks rationale exactly.
+    // It was registered in `FIELD_COVERAGE` (which IS tsc-forced) but MISSED here, the other of the
+    // two UNFORCED sites named above. It belongs for the same reason the bank does: the queue is an
+    // authoritative input to `pickGathererTarget`, so two sims holding different queues send their
+    // gatherers to different sparks and diverge — and a POP on delivery changes only the queue,
+    // which every other size term in this signature is blind to.
+    world.gathererOrders.size,
+    queuedOrderTotal(world),
     world.bombs.size,
     world.hunters.size,
     world.potatoes.size,
