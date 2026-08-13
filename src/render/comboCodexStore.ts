@@ -8,8 +8,10 @@
  * in-match set into THIS browser-persisted "discovered ever" set whenever it
  * grows (host + the 1v1 client mirror each persist their own witnessed view —
  * the client mirrors the host's authoritative set via the snapshot). Mirrors the
- * codexStore.ts (godly) pattern: tiny, eager, localStorage-backed; the heavy
- * Pixi overlay (comboCodexOverlay.ts) stays lazy.
+ * codexStore.ts (godly) pattern: tiny, eager, localStorage-backed; the heavy Pixi overlay stays lazy.
+ * ⚠ S141 — that overlay used to be named here as `comboCodexOverlay.ts`, which was DELETED in
+ * S104 P3 when the combo codex was folded into the unified `codexOverlay.ts`. The pointer sent
+ * readers to a file that has not existed for thirty-seven sessions.
  *
  * Pixi-FREE on purpose so the vitest node env (the project default — no
  * jsdom/localStorage) can exercise it with an injected localStorage mock.

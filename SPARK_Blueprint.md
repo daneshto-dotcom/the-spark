@@ -718,7 +718,7 @@ disconnect/rejoin.
 > world scalars (`rngSeed` included, which no oracle saw before), the four differential harnesses
 > consume it, and `FIELD_COVERAGE` is a compile-time forcing function keyed on `keyof World`. What is
 > STILL missing is the RUNTIME half: `stateHash` has zero importers under `src/net/`, no checksum rides
-> the wire, and the one production consumer (`main.ts:1706`) compares a mirror against the worker's own
+> the wire, and the one production consumer (`main.ts's `hashWorldState(world)` call site`) compares a mirror against the worker's own
 > hash — a single authority, so it is apply-fidelity, not desync detection. **A host-vs-remote-client
 > oracle still does not exist**, and it is gated on the wire budget (R11: a 6-seat endgame already
 > measures 2.35× the 16 KiB guard ceiling).

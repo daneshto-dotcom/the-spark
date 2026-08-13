@@ -290,6 +290,10 @@ export async function readWorldState(page: Page): Promise<{
   scoreByPlayer: Array<[number, number]>;
   /** S136 — per-seat castle bank sizes: [seat, shapesHeld]. */
   castleBanks: Array<[number, number]>;
+  /** S141 P1 — live defenders, so a spec can wait on a KIND existing rather than on a tick count. */
+  defenders: Array<{ id: number; kind: string; bagsRemaining: number; pos: { x: number; y: number } }>;
+  /** S141 P2 — per-seat gatherer order queues, ORDER PRESERVED (it is a list, not a set). */
+  gathererOrders: Array<{ seat: number; types: number[] }>;
   peerCount: number;
 }> {
   return await page.evaluate(() => {
@@ -304,6 +308,8 @@ export async function readWorldState(page: Page): Promise<{
       bonds: Map<number, { id: number; aId: number; bId: number }>;
       scoreByPlayer: Map<number, number>;
       castleBanks: Map<number, unknown[]>;
+      defenders: Map<number, { id: number; kind: string; bagsRemaining: number; pos: { x: number; y: number } }>;
+      gathererOrders: Map<number, number[]>;
     };
     const nt = spark.netTransport as { peerCount: () => number } | null;
     return {
@@ -333,6 +339,11 @@ export async function readWorldState(page: Page): Promise<{
       })),
       scoreByPlayer: Array.from(w.scoreByPlayer.entries()),
       castleBanks: Array.from(w.castleBanks.entries()).map(([seat, b]) => [seat, b.length] as [number, number]),
+      defenders: Array.from(w.defenders.values()).map((d) => ({
+        id: d.id, kind: d.kind, bagsRemaining: d.bagsRemaining, pos: { x: d.pos.x, y: d.pos.y },
+      })),
+      // Copy the array — never alias live world state into a probe result.
+      gathererOrders: Array.from(w.gathererOrders.entries()).map(([seat, q]) => ({ seat, types: [...q] })),
       peerCount: nt ? nt.peerCount() : 0,
     };
   });

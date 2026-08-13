@@ -144,7 +144,23 @@ export type { NetSnapshot };
 //       six, and the gate has no upper tolerance — so following the stale copy builds a turret the
 //       host tears down 0.5 s later.
 // Hard-rejected at HELLO, same lockstep posture as every bump above.
-export const PROTOCOL_VERSION = 19 as const;
+// S141 — bumped 19->20: THE STINK TOWER + THE GATHERER ORDER QUEUE. Four independent reasons, any
+// ONE of which alone would force it.
+//   (1) A NEW SERIALIZED `DefenderKind` LITERAL, 'stinkTower'. `kind` is serialized NON-OPTIONAL and
+//       `deserializeDefender` writes it with no runtime whitelist, so a stale v19 peer would accept
+//       the unknown string and then read `getDefenderConfig('stinkTower')` as undefined — a bare
+//       Record index with no default — and THROW on the first field read inside makeDefender. This
+//       is precisely the class that bumped 12->13 for the 'WALK' state literal.
+//   (2) A NEW SERIALIZED `GodlyId` LITERAL in `recipeId`, same shape, same receive path.
+//   (3) TWO NEW CLIENT INTENTS (ENQUEUE_/CANCEL_GATHERER_ORDER). A v19 host has neither row in its
+//       CLIENT_INTENT allowlist, so a v20 joiner's orders would be silently dropped while the host
+//       seat's own worked — seat asymmetry, which is the worst kind because it looks like lag.
+//   (4) A NEW HASHED WORLD FIELD, `gathererOrders`. Additive-optional on the wire, so an idle board
+//       stays byte-identical — but it IS hashed, so a v19 peer that cannot see it would disagree with
+//       the host's `hashWorldStateFull` the moment anything is queued. `Defender.bagsRemaining` is the
+//       same shape (additive-optional-when-nonzero, hashed).
+// Hard-rejected at HELLO, same lockstep posture as every bump above.
+export const PROTOCOL_VERSION = 20 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -203,12 +219,16 @@ export interface HelloMsg {
    * S140 P1: 18→19 (CASTLE_BANK_CAP 5→7 and the laser-turret recipe 8→7 shapes / hub degree 7→6 —
    * both SHARED CONSTANTS both peers compute from: a stale peer can never pull bank indices 5-6 and
    * its codex would instruct a seventh spiral the host's gate now rejects).
+   * S141: 19→20 (THE STINK TOWER + THE GATHERER ORDER QUEUE — a new serialized DefenderKind literal
+   * 'stinkTower' with no runtime whitelist on the receive path, a matching new GodlyId literal, TWO
+   * new client intents, and the new HASHED world field `gathererOrders`. See the block above the
+   * constant for why each one alone would force this).
    *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT. It has now been caught stale twice: S133 P2 backfilled the
    * 14→15 entry while the literal already read 15, and S140 P1 backfilled 17→18 for the same reason.
    * Bumping `PROTOCOL_VERSION` means editing THREE things — the const, this list, and the type
    * literal below. */
-  readonly protoVersion: 19;
+  readonly protoVersion: 20;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

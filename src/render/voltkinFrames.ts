@@ -252,9 +252,19 @@ export { VOLTKIN_ATTACK_CADENCE_TICKS };
 //
 // HISTORY: per-state Veo-generated clips were packed into ONE atlas, built by
 // scripts/build-voltkin-atlas.py. The S106 procedural Pixi.Graphics rig replaced
-// BOTH the legacy 6-pose frame flip AND this atlas path, so neither the atlas
-// (public/godly/voltkin/anim/*) nor its build script is loaded/used at runtime —
-// all three were deleted in S107 P3. The pure `currentAnimCell` mapping below is
+// BOTH the legacy 6-pose frame flip AND this atlas path, so the atlas PATH is no longer
+// driven by this module.
+//
+// ⛔ S141 CORRECTION — THIS PARAGRAPH USED TO SAY THE PNGs THEMSELVES WERE DELETED, AND ACTING ON
+// THAT WOULD HAVE BROKEN THE LIVE GAME. It read: "neither the atlas (public/godly/voltkin/anim/*)
+// nor its build script is loaded/used at runtime — all three were deleted in S107 P3." The build
+// SCRIPT is genuinely gone. The two PNGs are NOT: `voltkin-idle.png` and `voltkin-zap.png` are
+// git-tracked, ship in dist/, and are loaded by SIX production modules — creatureRenderer, the
+// codex presentation card, and the character sprite of three godly recipes (S110 P5 re-filled that
+// path). A dead-asset cleanup pass driven by this comment would delete both, and the failure would
+// be RUNTIME-ONLY: they are referenced as string literals, so tsc and the bundle gate both stay
+// green and the deploy ships broken art. Worse, `public/**` is in deploy.yml's paths filter, so the
+// deletion would ship itself immediately. The pure `currentAnimCell` mapping below is
 // retained as a tested spec (voltkinFrames.anim.test.ts drives it from an inline
 // manifest), kept for provenance + as a reference for any future atlas revival.
 //

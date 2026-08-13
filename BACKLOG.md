@@ -5,6 +5,71 @@
 
 ---
 
+# ⚑ STATUS S141 (2026-08-13) — THE STINK TOWER + THE GATHERER ORDER QUEUE · PROTOCOL 20
+
+> **4 of 4 priorities shipped and deployed. `PROTOCOL_VERSION` is now 20 — BOTH PEERS MUST RELOAD,
+> and a v19 peer is hard-rejected at HELLO.**
+>
+> ### What shipped
+>
+> - **P1 — THE STINK TOWER**, the deferred S139 P3 and the first NON-GODLY buildable in the game. A
+>   4-shape `DefenderKind`: **1 Square hub (deg 3) + 3 Circle leaves = "1 Square + 3 Capsules"**. At
+>   `CASTLE_BANK_CAP` 7 it is holdable outright with three slots spare. It lobs a splashing bag every
+>   8 s from a SERIALIZED magazine, becomes a passive area denier when spent, and dies in a blast
+>   scaled by the bags it never threw — full is a bomb, spent is nearly harmless.
+> - **P2 — THE GATHERER ORDER QUEUE** (V6-1.4, owner ruling **B4**, ruled S134 and never built). An
+>   ordered, consumed, per-player RTS production queue. ⛔ What had actually shipped was
+>   `SET_GATHERER_PREFERENCE` — a per-unit type **filter**, the exact mechanic B4 forbids in bold. The
+>   queue now takes precedence; the filter is retained as its fallback (B6 additive-only).
+> - **P3 — the banked-`SparkId` collision hole, in BOTH places**, plus a `castleBanks` hash guard.
+> - **P4 — protocol bump + a stale-doc sweep**, including one docblock whose instruction would have
+>   broken the live game.
+>
+> ### ⭐ THE FINDING NEITHER COUNCIL SEAT MADE
+>
+> Both external seats rejected the recipe because a Square dropped among three loose Circles
+> auto-bonds into a match. Correct — and **both proposed fixes were wrong**: Gemini's ("the hub must
+> have no bonds outside the component") is a provable **no-op**, since `componentOf` follows every
+> bond and an outside bond already pushes the size past 4; Grok's (require degree-1 leaves)
+> **reintroduces the documented frequent-silent-no-build** that `laserTurret`/`lightningHub`
+> deliberately loosened their gates to avoid.
+>
+> The real hazard is the **interaction with the death blast**: an accidental tower self-removes the
+> instant the player bonds a fourth shape on, and that removal would have **detonated on the player's
+> own structure**. `destroyDefender` now derives *destroyed vs deconstructed* from **whether the
+> ANCHOR IS GONE**, so continuing your own build can never blast it. Two seats, two rejections, and
+> the thing that actually mattered was in neither.
+>
+> ### Two Council findings ADOPTED, two REFUTED ON DISK
+>
+> - **ADOPTED (D4, both seats):** ranking gatherers among the *currently-SEEKING* units is unstable —
+>   the set changes whenever any peer claims or deposits, so a unit re-ranks and thrashes. Rank is now
+>   over **all** owned units by `GathererId`. (Both seats missed that `pickGathererTarget` only runs
+>   when the current target is already invalid, so the thrash was bounded anyway.)
+> - **REFUTED (D2):** both predicted a double-fire of the death blast. `damage.ts` deletes the
+>   defender **in the same call**, and the poll iterates a snapshot — no double-fire. Gemini's
+>   `dying: boolean` would have added a serialized+hashed field for nothing.
+> - **REFUTED (D5):** both claimed gatherer-carried sparks are missed by the allocator. A hauled spark
+>   **is** in `freeSparks` (escrow `'hauled'`); only *deposit* removes it. `castleBanks` was the only
+>   hole.
+>
+> ### ⚠ THE RECIPE SHAPES ARE A CLAUDE RULING — RETUNE FREELY
+>
+> The S139 spec forbade guessing them; the owner pre-approved a full autonomous run and was asleep.
+> Chosen on a measured collision sweep — **Square is the only primitive never used as a hub**, and
+> size 4 / degree 3 are both free rungs — with every partial build of all five shipped recipes tested
+> for collision. Every consumer reads the constants and every test pins the RELATIONSHIP, so a retune
+> is one edit, not the copy migration S140's laserTurret became.
+>
+> **Gates:** tsc 0 · vitest **2266/2266** (147 files, from 2187/144) · e2e:gating **36/36** (was 34) ·
+> bundle **677.2 KiB** (72.8 KiB headroom) · mutation matrix **2/2** on the new P3 guards ·
+> `PROTOCOL_VERSION` **19 → 20**.
+>
+> **⚠ NOT CLAIMED:** the 2-peer v20 HELLO check is an OWNER action. The only runtime coverage of the
+> version gate is the e2e quarantine lane, which is fully red and `continue-on-error`.
+
+---
+
 # ⚑ STATUS S139 (2026-08-11) — DAMAGE IS LIVE · THE FIRST FREE UNIT SHIPS · PROTOCOL 18
 
 > **3 of 4 priorities shipped and deployed (`fd48d3d`, verify-deploy 4/4). The Stink Tower is
@@ -671,7 +736,7 @@ Sequenced so the core loop is **playable by V6-1.7** and everything after lands 
 
 | ID | Priority | Tier | Executed in | Notes · bound risks |
 |---|---|---|---|---|
-| **V6-1.1** | Gatherer substrate + placeholder keep + buy button + score-as-currency | Full | **S135** | ⚠ **Not a "narrowing".** The real union is `BotGoal` with **8** members (`botBrain.ts:43-51`); `COLLECT`/`DEPOSIT`/`RETURN` appear nowhere in `src/`. It is a **new** goal union reusing `botBrain`'s arbitration *pattern*, `pickTargetSpark`, and `botController` plumbing. `pickTargetSpark` (`:159-177`) takes a predicate in ~2 lines and draws `rng()` exactly once regardless of candidate count, so **a filter cannot shift the replay stream** — the "specialisation costs throughput" mechanic really is free, and an empty candidate set already falls through to `REST` (`:152`). **R1 — ⚠ SUPERSEDED S133, READ THE CORRECTION:** `HashableWorld` (now `stateHash.ts:75-78`) does cover only tick/primitives/bonds/freeSparks/scoreProgress/scoreByPlayer, and that much was right. But the remedy as written — *"Add gatherers to `HashableWorld` **and** `workerSim.ts:251-280 structuralSignature`"* — **treats two NON-symmetric levers as symmetric and is wrong on both counts.** (a) `structuralSignature` is a **SIZE-ONLY** fingerprint (`.size` of 15 collections + scalars; its own docblock: *"Collection sizes catch spawn/despawn; the scalar fields catch the state-machine transitions"*), so a per-entity field **cannot** be expressed in it, and widening it to per-entity granularity turns O(families) into O(entities) at a per-batch call site built to avoid exactly that. (b) `HashableWorld` must **stay narrow**: its one production consumer (`main.ts:1706`) compares the main-thread mirror against the WORKER'S OWN hash — one authority, so it is an apply-fidelity check, not a desync check — and widening it buys nothing at runtime while adding a per-entity projection to a hot path. **✅ WHAT TO ACTUALLY DO:** add the new family to **`FIELD_COVERAGE` in `src/state/stateHashFull.ts`**, which since S133 is a compile-time forcing function keyed on `keyof World` — omit it and `tsc` fails naming your field, and a field-level guard fails again if you add a field to an already-hashed entity. The four differential harnesses already consume that wide hash. **A `// V6-RISK(R1):` anchor now exists at `stateHash.ts` above `NARROW_HASHED_FAMILIES`.** **R3:** gatherer identity is unchosen and load-bearing (a `freeSparks` entry inherits the 10 s TTL reap and rim-snapping; a new map is invisible to R1/R2; a seated Player collides with `MAX_PLAYERS = 6`). "Carry-1 moves to the worker" widens `SparkState.Carried.carrierId` off `PlayerId` (`spark.ts:17`) ⇒ **a wire + save change**, not a bot-layer detail, which "behind a flag, solo only" does not scope. **R4:** agent RNG stream state has no serialization path (`BotManager` holds `mulberry32` streams privately; `rebuildAuthorityAllocators` rebuilds 4 numbers and touches it not at all) — use stateless `mix32(tick, id, salt)` per `constants.ts:885` "NO 6th RNG stream", precedent `rainbowLifecycle.ts:115`. **R23:** `nearestEnemySpawnerBond` (`:314-341`) and `nearestChewer` (`:348-359`) have ZERO test coverage and feed the SEVER/FLEE priorities — i.e. the exact arbitration block being rewritten. **Also decide here: the `worker`→`gatherer` rename.** |
+| **V6-1.1** | Gatherer substrate + placeholder keep + buy button + score-as-currency | Full | **S135** | ⚠ **Not a "narrowing".** The real union is `BotGoal` with **8** members (`botBrain.ts:43-51`); `COLLECT`/`DEPOSIT`/`RETURN` appear nowhere in `src/`. It is a **new** goal union reusing `botBrain`'s arbitration *pattern*, `pickTargetSpark`, and `botController` plumbing. `pickTargetSpark` (`:159-177`) takes a predicate in ~2 lines and draws `rng()` exactly once regardless of candidate count, so **a filter cannot shift the replay stream** — the "specialisation costs throughput" mechanic really is free, and an empty candidate set already falls through to `REST` (`:152`). **R1 — ⚠ SUPERSEDED S133, READ THE CORRECTION:** `HashableWorld` (now `stateHash.ts:75-78`) does cover only tick/primitives/bonds/freeSparks/scoreProgress/scoreByPlayer, and that much was right. But the remedy as written — *"Add gatherers to `HashableWorld` **and** `workerSim.ts:251-280 structuralSignature`"* — **treats two NON-symmetric levers as symmetric and is wrong on both counts.** (a) `structuralSignature` is a **SIZE-ONLY** fingerprint (`.size` of 15 collections + scalars; its own docblock: *"Collection sizes catch spawn/despawn; the scalar fields catch the state-machine transitions"*), so a per-entity field **cannot** be expressed in it, and widening it to per-entity granularity turns O(families) into O(entities) at a per-batch call site built to avoid exactly that. (b) `HashableWorld` must **stay narrow**: its one production consumer (`main.ts's `hashWorldState(world)` call site`) compares the main-thread mirror against the WORKER'S OWN hash — one authority, so it is an apply-fidelity check, not a desync check — and widening it buys nothing at runtime while adding a per-entity projection to a hot path. **✅ WHAT TO ACTUALLY DO:** add the new family to **`FIELD_COVERAGE` in `src/state/stateHashFull.ts`**, which since S133 is a compile-time forcing function keyed on `keyof World` — omit it and `tsc` fails naming your field, and a field-level guard fails again if you add a field to an already-hashed entity. The four differential harnesses already consume that wide hash. **A `// V6-RISK(R1):` anchor now exists at `stateHash.ts` above `NARROW_HASHED_FAMILIES`.** **R3:** gatherer identity is unchosen and load-bearing (a `freeSparks` entry inherits the 10 s TTL reap and rim-snapping; a new map is invisible to R1/R2; a seated Player collides with `MAX_PLAYERS = 6`). "Carry-1 moves to the worker" widens `SparkState.Carried.carrierId` off `PlayerId` (`spark.ts:17`) ⇒ **a wire + save change**, not a bot-layer detail, which "behind a flag, solo only" does not scope. **R4:** agent RNG stream state has no serialization path (`BotManager` holds `mulberry32` streams privately; `rebuildAuthorityAllocators` rebuilds 4 numbers and touches it not at all) — use stateless `mix32(tick, id, salt)` per `constants.ts:885` "NO 6th RNG stream", precedent `rainbowLifecycle.ts:115`. **R23:** `nearestEnemySpawnerBond` (`:314-341`) and `nearestChewer` (`:348-359`) have ZERO test coverage and feed the SEVER/FLEE priorities — i.e. the exact arbitration block being rewritten. **Also decide here: the `worker`→`gatherer` rename.** |
 | **V6-1.2** | Castle entity + gatherer production + spawner shrink | Full | **S135 (partial)** | Model the **`creatureSpawner` LIFECYCLE** but the **DEFENDER's serialization**: `deserializeSpawner` (`save.ts:1277-1286`) **re-seeds** `nextSpawnTick` from the load tick and resets `spawnedCount`, so copying it verbatim resets every castle cadence and bank timer on save/load **and host migration** — a day-one failure of the migration obligation. **R9:** six castles cannot inherit `SPAWNER_RADIUS + 40` — seat spacing falls 290→228 px at r=188, and territory bubbles (`60 + 12·log₂(complexity+1)`) first touch at complexity **21.6** vs 134.6 today, i.e. inside the first minute; `isInsideEnemyTerritory` is a host-authoritative placement *reject*, so this is legal-build-space loss. Keep the seat ring near 290 absolute. **R10:** the r=188 flip **hard-fails** `collision.pile.test.ts` (worst residual overlap 2.89 px vs a 1.5 px assertion at `:116`) because `enforceSpawnerBounds` rim-compresses all 30 pile sparks each substep; dropping the free-spark cap does not fix it since `PILE_COUNT` is a literal 30. **Six derived constants move 62 px inward with the radius** (`botBrain.ts:275`/`:257`, `gameMode.ts:109`, `creatureVerlet.ts:62`, `botSpawnerSeed.ts:48`/`:62` — the last justifies its +240 offset "precisely so the ring stays reachable for the player's raid counterplay", judged against 250), **`SPAWNER_RADIUS` is also a fog source** (`vision.ts:59`) so the always-visible region shrinks 43% — undercutting the rationale the build-ban rests on — and **four sites hardcode 250 and go stale silently** (`e2e/bomb.spec.ts:41`, `e2e/nplayer.spec.ts:197`, `src/state/world.test.ts:191`, `e2e/smoke.spec.ts:483-484`). Protocol bump. |
 | **V6-1.3** | The bank | Full | — | 🔒 **BLOCKED on the B4 ruling.** Capped deposit store, stall at cap, build-from-bank input flow. **Where carry-1 formally relocates.** **Keep the recipe-size table (pentagram 5 · lightningHub 6 · Helga 7 · laserTurret 7 [S140 P1, was 8] · Voltkin 8) adjacent to the cap number — never tune them independently.** **R8:** disruption charges are earned in `placePrimitive.ts:584` via `tickBuildAction` (`BUILD_ACTIONS_PER_CHARGE = 5`, cap 2); if that call site does not move to the bank-place path the hero silently loses SEVER and SHRINK_TERRITORY (which needs 2 charges). Add the supply-sufficiency pre-gate here so a B3 failure cannot masquerade as a sculpting failure at V6-1.7. |
 | **V6-1.4** | Directives | Standard | — | 🔒 **BLOCKED on the B3 + B4 rulings** (hard filter vs biased mix). Predicate on `pickTargetSpark`; per-castle collect filter; directive state syncs. |
@@ -955,7 +1020,7 @@ any timer** · `save.ts:792-814` mirror-trim for host-only fields · **five** cl
 `KNOWN_GAME_ACTION_TYPES_RECORD` and `:573-592` `CLIENT_INTENT_TYPES_RECORD` · `migrationClaim.ts:147-164`
 + `main.ts:2009-2018` · `workerSim.ts:251-280` structuralSignature (SIZE-ONLY — sizes/scalars, never a
 per-entity field) · **`stateHashFull.ts` `FIELD_COVERAGE`** — ⚠ S133 REDIRECT: register a new family
-THERE, not in `stateHash.ts`'s `HashableWorld`, which stays deliberately narrow for the `main.ts:1706`
+THERE, not in `stateHash.ts`'s `HashableWorld`, which stays deliberately narrow for the `main.ts's `hashWorldState(world)` call site`
 hot path; `FIELD_COVERAGE` is keyed on `keyof World` so omitting your field fails `tsc` by name ·
 `benchGate.ts:50-69` `BENCH_INTENT_POLICY`. That last is a **hard forcing function** —
 `benchGate.test.ts` asserts set-equality with `CLIENT_INTENT_TYPES` in both directions, so every new

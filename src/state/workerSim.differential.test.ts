@@ -132,7 +132,7 @@ function buildReferenceRig(world: World, botManager: BotManager | null = null): 
       // S133 P1 — deliberately the NARROW hash here, and it must STAY narrow: the
       // batch rig's counterpart value is `applyTickBatch(...).hash`, computed by
       // PRODUCTION `workerSim.ts`, which the S133 Council ruling keeps narrow (widening
-      // it would put a per-entity projection on the main.ts:1706 hot path). Comparing a
+      // it would put a per-entity projection on the main.ts's `hashWorldState(world)` call site hot path). Comparing a
       // wide hash against that prod value would compare two different functions and
       // fail for a reason that is not a divergence — it did, before this comment.
       // The WIDE two-simulation comparison lives in the frame loops below, computed on

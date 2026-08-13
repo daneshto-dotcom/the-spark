@@ -116,9 +116,9 @@ export function applySeverBond(world: World, action: SeverBondAction): World {
  *
  * Every dispatcher already puts the responsible seat in `action.playerId`, so this is one rule
  * rather than a seven-arm table — verified at all six dispatch sites:
- *   controls.ts:339        cause 'player'   playerId = the local human
- *   botController.ts:403   cause 'player'   playerId = the bot's own seat
- *   creatureAttack.ts:141  'creature'/'chewer'  playerId = creature.ownerPlayerId
+ *   controls.ts (LMB sever)   cause 'player'   playerId = the local human
+ *   botController.ts (bot sever)  cause 'player'   playerId = the bot's own seat
+ *   creatureAttack.ts         'creature'/'chewer'  playerId = creature.ownerPlayerId
  *   droneLifecycle.ts:96   cause 'drone'    playerId = drone.ownerPlayerId
  *   bombLifecycle.ts:146   cause 'bomb'     playerId = the picker who placed the bomb
  *   physicsLoop.ts:177     cause 'physics'  playerId = a HARDCODED asPlayerId(0)
@@ -149,7 +149,7 @@ export function severActor(action: SeverBondAction): PlayerId | undefined {
     case 'physics':
       return undefined;
     // Verified at each dispatch site to carry the responsible seat: controls.ts:339 (local human),
-    // botController.ts:403 (the bot's own seat), creatureAttack.ts:141 (creature.ownerPlayerId, for
+    // botController.ts (bot sever)(the bot's own seat), creatureAttack.ts        (creature.ownerPlayerId, for
     // both 'creature' and 'chewer'), droneLifecycle.ts:96 (drone.ownerPlayerId), bombLifecycle.ts:146
     // (the picker who placed the bomb).
     case 'player':

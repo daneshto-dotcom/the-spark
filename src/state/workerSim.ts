@@ -455,7 +455,12 @@ export function applyTickBatch(
     hostSeats: sim.hostSeats,
   };
   for (let i = 0; i < batch.ticks; i++) {
-    // S93 NONET freeze — the drain-loop branch, verbatim semantics (main.ts:1095).
+    // S93 NONET freeze — the drain-loop branch, verbatim semantics with main.ts's own NONET freeze
+    // guard. ⚠ S141 — this used to cite "main.ts:1095", which is a RETURN_TO_TITLE dispatch; anyone
+    // re-verifying worker/host parity from that line read unrelated code and the actual verbatim-ness
+    // went unchecked — on the determinism path the whole stateHash apparatus exists to police. The
+    // real guard carries two extra conditions this copy does not (`!isClient && !workerActive`),
+    // which are main-thread-only concerns and correctly absent here.
     if (world.gameState === 'PLAYING' && world.sudoku !== null) {
       world.tick++;
       tickSudoku(world);

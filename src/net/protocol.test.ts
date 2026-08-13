@@ -72,7 +72,7 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 19 — THE ONE DELIBERATE PIN: a bump must be a decision, never a side effect', () => {
+  it('PROTOCOL_VERSION is 20 — THE ONE DELIBERATE PIN: a bump must be a decision, never a side effect', () => {
     // ⭐ S140 P1 — THIS IS NOW THE ONLY HARDCODED COPY OF THE VERSION IN THE UNIT SUITE (the e2e
     // lane keeps its own single `LOCAL_PROTO_V`). There were FOUR, and every one of their titles had
     // gone stale — all three of the others said "is 17" while asserting 18. Copies of a number do not
@@ -84,7 +84,7 @@ describe('S22 P3 — parseNetMessage validator', () => {
     // something that rides along with an unrelated edit. If you are here because this went red:
     // update the const, the narrative history JSDoc, the `protoVersion` type literal, this number,
     // and e2e/smoke.spec.ts's LOCAL_PROTO_V.
-    expect(PROTOCOL_VERSION).toBe(19);
+    expect(PROTOCOL_VERSION).toBe(20);
   });
 
   it('S102 #1 — RAID_CREATURE is an allowed CLIENT INTENT (a 1v1 joiner can raid an enemy chewer)', () => {
@@ -312,7 +312,11 @@ describe('S70 P1 — LOBBY_PRESENCE envelope (cosmetic lobby roster, NO version 
   // constant has been 15 since S124 P1 (`80f1058`, host-migration D4 production-ON). The
   // assertion below reads the constant, so the test was never wrong — only its name was, and a
   // stale name on a GATING test is what a future session greps to learn the current version.
-  it('S70 graceful-degradation contract holds; PROTOCOL_VERSION is 17 (S138 P2 keep-ring bump)', () => {
+  // ⚠ S141 — THIS TITLE SAID "is 17" WHILE THE CONSTANT WAS 19. It is the LAST surviving artefact of
+  // the four-pin rot S140 fixed everywhere else, and it sits on a GATING test — exactly what a future
+  // session greps to learn the current version. The name no longer states a number at all, so it
+  // cannot rot again: the assertion below reads the constant, which is the only honest source.
+  it('S70 graceful-degradation contract holds at the CURRENT PROTOCOL_VERSION', () => {
     // S70's LOBBY_PRESENCE was cosmetic and did NOT bump the version on its own:
     // unknown kinds fail CLOSED (fall through parseNetMessage's default → null, not
     // a throw), so a stale peer degrades to the count-based rack and can still play.

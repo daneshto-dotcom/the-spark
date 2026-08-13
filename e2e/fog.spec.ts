@@ -191,14 +191,15 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       '_Graphics',  //  4 — goblinRenderer               (S139 P2) ← the 15th child
       '_Graphics',  //  5 — turretRenderer               (main.ts:495, S103 P3)
       '_Container', //  6 — princessRenderer.container   (main.ts:496, S103 P4)
-      '_Graphics',  //  7 — hunterRenderer               (main.ts:502, S72 P2)
-      '_Graphics',  //  8 — gathererRenderer             (main.ts:506, V6-1.1/S135)
-      '_Graphics',  //  9 — potatoRenderer               (main.ts:509, S72 P3)
-      '_Graphics',  // 10 — rainbowRenderer              (main.ts:512, S75 P3)
-      '_Graphics',  // 11 — rainbowFlyoverRenderer.overlay (main.ts:516, S84 P2)
-      '_Container', // 12 — rainbowFlyoverRenderer.char
-      '_Graphics',  // 13 — seagullRenderer              (main.ts:519, S77 P3)
-      '_Graphics',  // 14 — poopRenderer                 (main.ts:520, S77 P3)
+      '_Graphics',  //  7 — stinkTowerRenderer           (S141 P1) ← the 16th child
+      '_Graphics',  //  8 — hunterRenderer               (main.ts:502, S72 P2)
+      '_Graphics',  //  9 — gathererRenderer             (main.ts:506, V6-1.1/S135)
+      '_Graphics',  // 10 — potatoRenderer               (main.ts:509, S72 P3)
+      '_Graphics',  // 11 — rainbowRenderer              (main.ts:512, S75 P3)
+      '_Graphics',  // 12 — rainbowFlyoverRenderer.overlay (main.ts:516, S84 P2)
+      '_Container', // 13 — rainbowFlyoverRenderer.char
+      '_Graphics',  // 14 — seagullRenderer              (main.ts:519, S77 P3)
+      '_Graphics',  // 15 — poopRenderer                 (main.ts:520, S77 P3)
     ]);
     // The potato punches THROUGH the fog — its brown body (BODY_COLOR 0xb5651d, r≈181) shows on the
     // composited stage as a strong red channel, clearly not the fog's pure black.

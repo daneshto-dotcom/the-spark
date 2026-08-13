@@ -18,7 +18,7 @@
  *
  * ===================== WHY TWO HASHES INSTEAD OF ONE WIDE ONE =================
  * Council S133 decision #1 (SYNTHESIS). `hashWorldState` has a PRODUCTION call
- * site (main.ts:1706, per worker batch). Widening it in place would have made a
+ * site (main.ts's `hashWorldState(world)` call site, per worker batch). Widening it in place would have made a
  * per-entity string projection run on the worker hot path — and for no runtime
  * benefit, because that call site compares the main-thread mirror against the
  * WORKER'S OWN snapshot hash: both sides derive from a SINGLE authority, so it is
@@ -135,7 +135,7 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   // ---- ACKNOWLEDGED, each with its reason ----
   /**
    * `players` is the one family where main-thread divergence from authority is BY
-   * DESIGN: main.ts:1701-1704 documents a deliberate drag-preserve restore that
+   * DESIGN: main.ts's worker-result apply block documents a deliberate drag-preserve restore that
    * "diverges the locked spark from authority (the S56 client-prediction
    * posture)". Hashing avatar state would make the oracle report client
    * prediction as a desync. `scoreByPlayer` (the authoritative per-seat scalar) IS
@@ -371,7 +371,7 @@ export function determinismParts(world: World): string[] {
     // rainbow's global colour derangement — which drives territory and cross-colour bond
     // segregation — was invisible to the oracle.
     // S138 P1 — `hp` is projected HERE (the wide oracle) and deliberately NOT in stateHash.ts's
-    // narrow prod projection, which stays `p{id}:{x},{y}` on the main.ts:1706 hot path (R1: the
+    // narrow prod projection, which stays `p{id}:{x},{y}` on the main.ts's `hashWorldState(world)` call site hot path (R1: the
     // narrow set stays narrow). This is what makes the host-vs-worker differential able to see a
     // NON-LETHAL damage divergence — without it the rig would only notice on the tick a primitive
     // finally died, because a collection SIZE is the one thing structuralSignature can observe.

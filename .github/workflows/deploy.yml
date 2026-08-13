@@ -99,11 +99,14 @@ jobs:
       - name: Typecheck (tsc -b --noEmit)
         run: npm run typecheck
 
-      # ⚠ `npx vitest run`, NOT `npm test`. package.json's `test` script is bare `vitest`, which is
-      # WATCH mode — it never exits, so `npm test` here would hang this job until the timeout above
-      # and then report `cancelled` rather than failing. The durable fix is a `test:run` script in
-      # package.json; that is a different file and a different concern (Rule 16), logged as a
-      # carry-forward. Until it lands, this comment is the guard.
+      # ⚠ S141 — THIS WARNING WAS STALE IN THE OPPOSITE DIRECTION AND WAS STEERING CI DESIGN.
+      # It said `npm test` is bare `vitest` (watch mode) and booked a `test:run` script as an open
+      # carry-forward. Both are false: S133 already fixed package.json — `test` is `vitest run` and
+      # the watch variant moved to `test:watch`. A maintainer "closing the carry-forward" would have
+      # added a redundant script; one trusting the warning keeps hand-rolling `npx vitest run` in
+      # every new lane forever. `npx vitest run` is kept here anyway — it is explicit about running
+      # once and does not depend on a package script keeping its meaning — but it is now a CHOICE
+      # rather than a workaround for a bug that no longer exists.
       - name: Unit tests (gating — a red test now blocks the deploy)
         run: npx vitest run
 

@@ -49,7 +49,7 @@ import {
  * into an older-peer test — the failure mode that survived two bumps behind a @quarantine-flaky
  * tag that the gating lane grep-inverts, so nothing could go red.
  */
-const LOCAL_PROTO_V = 19;
+const LOCAL_PROTO_V = 20; // S141 — 19 -> 20 (stink tower + gatherer order queue)
 const NEWER_PEER_V = LOCAL_PROTO_V + 1;
 
 /**

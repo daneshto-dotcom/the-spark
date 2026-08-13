@@ -11,7 +11,7 @@
  * Note the DIRECTION of its narrow-hash assertion: it asserts the narrow hash is
  * UNCHANGED. That is a characterization of a deliberate limitation, not an
  * aspiration — if the narrow hash is ever widened (putting a per-entity
- * projection on the `main.ts:1706` hot path), this test SHOULD fail and force
+ * projection on the `main.ts's `hashWorldState(world)` call site` hot path), this test SHOULD fail and force
  * that decision to be made explicitly.
  */
 import { describe, expect, it } from 'vitest';
