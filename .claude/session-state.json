@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 824,
+  "tool_calls_session_total": 830,
   "session_id": "S143",
   "session_kind": "full-batch",
   "session_start": "2026-08-13",
@@ -292,6 +292,46 @@
         {
           "tag": "#i-made-the-flip-testable-in-a-regime-the-build-is-not-in",
           "text": "isSimWorkerRequested takes an optional defaultOn so the suite pins BOTH regimes today. The inversion survived because every existing test exercised only the regime where the two questions agree. Verifying a flip BEFORE taking it requires exercising the post-flip regime, not the current one."
+        }
+      ]
+    },
+    {
+      "session": "S143",
+      "priority": "P2",
+      "entries": [
+        {
+          "tag": "#three-sessions-called-it-throughput-and-it-was-an-unsatisfiable-assertion",
+          "text": "The gating red was on record as \"CI throughput OR a real stall — unresolved\". Both were wrong. `primitives.length > sampleA` is a strict-increase test on a NON-MONOTONIC counter: razePrimitives deletes entries and MID bots sever deliberately. One CI attempt sampled 33 and failed at 32 — BELOW its own sample. No timeout, retry, or faster runner could ever have made it pass. Before debugging an environment, check whether the assertion can be satisfied AT ALL."
+        },
+        {
+          "tag": "#the-error-message-was-why-it-stayed-unresolved",
+          "text": "One message covered dead page, unmet predicate, and out-of-runway. Three sessions could not choose between hypotheses because the instrument never distinguished them. The fix that mattered most was not the oracle — it was making the failure SAY which of the three it is, including saying outright when a signal must NOT be read as a product failure."
+        },
+        {
+          "tag": "#my-first-oracle-confidently-asserted-a-product-failure-that-did-not-exist",
+          "text": "I built the growth oracle on nextPrimitiveId. It is HOST-ONLY and excluded from NetSnapshot, so on a worker mirror it is FROZEN — my new diagnostic printed \"INSTRUMENT OK, PREDICATE GENUINELY UNMET: this is a real product failure\" while the game was building normally. Caught only by dumping the state and seeing cursor 33 against a live primitive with id 38. An assertive diagnostic is not a correct one; I had written the very warning it violated one function above."
+        },
+        {
+          "tag": "#i-invalidated-my-own-test-run-by-editing-source-during-it",
+          "text": "A full gating run reported 4 failures. I had edited src/state/workerSim.ts WHILE it executed against a live vite dev server, including a window where queuedOrderTotal was referenced before it existed. The clean rerun was 36/36. I nearly attributed 3 phantom regressions to my own correct changes — never run a suite and edit its sources concurrently, and treat an unexplained multi-failure jump as suspect first."
+        }
+      ]
+    },
+    {
+      "session": "S143",
+      "priority": "P3",
+      "entries": [
+        {
+          "tag": "#a-sum-cannot-see-a-per-family-hole",
+          "text": "The guard that existed specifically to stop the wide compare being decorative added TEN family sizes and compared >0 — satisfied by any one. Measured: defenders 0 for all 300 frames while the guard sat green on poops. An aggregate assertion over N things proves something about the aggregate and nothing about any member; if the point is per-member coverage, the assertion must be per-member."
+        },
+        {
+          "tag": "#my-own-new-guard-caught-my-own-first-version-of-it",
+          "text": "The first per-family table read the FINAL frame and failed on rainbows — 0, but only because a rainbow spawns and despawns mid-run, so it WAS compared on every frame it existed. A final-frame read under-reports every transient family. Now the PEAK across compared frames. The guard was right and my use of it was wrong, which is the good failure mode."
+        },
+        {
+          "tag": "#the-fix-for-an-unforced-site-was-itself-unforced",
+          "text": "I added gathererOrders to structuralSignature citing its docblock about UNFORCED sites — then mutation-tested it and deleting BOTH terms left the entire suite green. My fix for a decorative site was decorative. Only after adding a test pinning the map-size term AND the depth term (a second enqueue leaves .size unchanged) did both mutations go red. Mutation-test the guard, never just the code."
         }
       ]
     }
