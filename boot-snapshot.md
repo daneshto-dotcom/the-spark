@@ -1,105 +1,115 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-08-13 | Session: S142 | Commit: `fee81c1` | Branch: master | PROTOCOL_VERSION: **20**
+Generated: 2026-08-13 | Session: S143 | Commit: `d19618a` | Branch: master | PROTOCOL_VERSION: **20**
 
-**S142 set out to flip the sim worker default-on — a ruling LOCKED for S129, 13 sessions overdue,
-with the owner's playtest already passed. Measuring first proved the flip is UNSAFE, for a reason in
-no document. The flip is DEFERRED. What shipped instead: the safety work that has to precede it, and
-the deletion of a manual chore the owner has been performing every session for no reason.**
+**S143 closed all three measured gates on the sim-worker default-on flip. The flip is STILL NOT
+TAKEN — deliberately — but it is now a ONE-CONSTANT change: `WORKER_DEFAULT_ON` in
+`src/workerFlag.ts`. The 3-week "intermittent" CI red is fixed and PROVEN with two consecutive
+green gating runs.**
 
-Deploy verified 4/4 (`index-DqNeLZuz.js`). tsc 0 · vitest **2275/2275** (150 files, was 2266/147) ·
-e2e:gating **36/36** · bundle 677.7 KiB (72.3 KiB headroom) · **no protocol bump** (still 20).
+Deploy verified 4/4 (`index-BY0XKCq3.js`). tsc 0 · vitest **2304/2304** (153 files, was 2275/150) ·
+e2e:gating **36/36** · mutation matrix **7/7** · bundle 678.2 KiB (71.8 KiB headroom) ·
+**no protocol bump** (still 20) · MCV 26/26 · Rule 22: 14/14 cited symbols verified on disk.
 
-## ⭐ STOP DOING THE 2-BROWSER CHECK. CI DOES IT NOW.
+## ⭐ THE 3-WEEK CI RED WAS NEVER A THROUGHPUT QUESTION
 
-Every session close has told you: *"⚠ 2-PEER CHECK ON vN — ONLY YOU CAN DO THIS. CI cannot verify a
-protocol bump."* **That was false.** In CI run `31707927282`, **both real-WebRTC protocol-mismatch
-tests PASSED — 5.6 s each, covering both direction arms** (older peer *and* newer peer). They
-produced no signal only because they sit in `smoke.spec.ts` behind `@quarantine-flaky`, which the
-gating lane grep-inverts, inside a `continue-on-error` job.
+It was on record as *"CI throughput **or** a real stall — UNRESOLVED"*. **Neither.** It was
+**three defects in one assertion**, and the headline one **no timeout, retry or faster runner
+could ever have fixed**:
 
-S142 gives them a dedicated **GATING** lane, `e2e-protocol` (~11 s), and it is **runtime-proven**:
-run `31712230199` concluded **success**. A bump now verifies its own HELLO lockstep.
+1. `primitives.length > sampleA` is a strict-increase test on a **counter that FALLS** — razing
+   deletes primitives and MID bots sever deliberately (severChance 0.25). A real CI attempt
+   sampled **33** and failed at **32**. **Unsatisfiable by construction.** Measured locally in one
+   run: 29 primitives alive, max id 38.
+2. A **wall-clock budget on a sim-time quantity**. Ticks are frame-bound (≤3 per rendered frame),
+   so 60 s buys ~1530 ticks locally and **~670** in CI.
+3. **The error message could not tell those apart** — which is exactly why it survived three
+   sessions of investigation.
 
-*Not* covered: the relay/ICE path under adverse conditions, and whether a genuinely OLD BUNDLE is
-rejected — the HELLO is synthesized through the send-side override seam, not an actually-stale build.
+## ⭐ TWO DEFECTS FOUND EN ROUTE THAT WERE IN NO DOCUMENT
 
-## ⭐ THE BUG THAT BLOCKED THE FLIP — again in the space BETWEEN two correct decisions
-
-- `deserializeSpawner` re-seeds spawner cadence and resets `spawnedCount`. Correct for save/load.
-- Host-migration TAKEOVER sets `world.isHost = true` **mid-match** on a peer whose
-  `simWorkerDriver` is null (clients never adopt).
-
-Together, after a default-on flip that promoted host's **very next frame** adopts the worker **with
-live spawners** — and `spawnedCount` is not telemetry: `hostTick` self-destructs a structure spawner
-at `STRUCTURE_SELFDESTRUCT_DRONE_COUNT`. So it silently granted the new host a **fresh self-destruct
-lifetime**. Invisible to everything: spawners are absent from `NARROW_HASHED_FAMILIES` (the only hash
-compared at runtime) and a mismatch merely increments a counter.
-
-## BOTH COUNCIL SEATS PROPOSED A BROKEN FIX. THIRD SESSION RUNNING.
-
-- **Grok:** a `preserveLiveCadence` flag at the call site — a **provable NO-OP**. `serializeSpawner`
-  emitted only the four *readonly identity* fields; there was nothing in the payload to preserve.
-- **Grok's evidence:** twelve named fields allegedly sharing the defect. All twelve grepped. **None
-  exist.** It also asserted "no comment treats these fields as ephemeral" — the comment was in the
-  docblock it was reasoning about.
-- **Gemini:** "just add them to the serializer" — which ships the **upcoming spawn schedule to
-  modified clients** (rngSeed-exclusion precedent, TOWER_DEFENSE_DESIGN §3.3).
-- **And my own PDR was wrong:** I claimed "hash-oracle divergence". The runtime oracle cannot see
-  spawners at all.
-
-**Shipped:** cadence serialized for the LOCAL consumers (disk save + worker INIT), **stripped from
-the wire** by a new `trimMirrorSpawner` — same place and posture as every other host-only field.
-Wire stays byte-identical; clients rehydrate through the exact re-seed path they always used.
-Mutation-tested both ways.
-
-## The generalised method found a second bug the specific fix would have missed
-
-Compare each entity's **mutable** fields against what its serializer emits.
-`Creature.poopyUntilTick` was read every physics tick (`creatureVerlet` halves a poop-slowed
-creature's accel) but `SerializedCreature` never declared it — while `SerializedSpark` has
-round-tripped the **same field** since S77 P3. **65 sessions of disagreement.** Method recorded as
-`src/state/serializerCompletenessSweep.test.ts`.
+- **The migration successor's INTENT arm bypassed the worker route entirely.** Correct *today only
+  by accident* (a promoted host's driver is null). Under default-on it would write every remote
+  player's action into a render **MIRROR**, silently overwritten by the next snapshot — **every
+  other peer's input stops counting, with no error anywhere.**
+- **The driver had NO watchdog.** `failed` was set only by an explicit error event, so a worker
+  hanging *without throwing* froze the game permanently — and the direct-sim fallback could never
+  fire, because the only thing that arms it is the flag a silent hang cannot set.
 
 ## WHAT TO DO NEXT
 
-1. **PLAYTEST — that is the only thing genuinely waiting on you.** The Stink Tower (recipe shapes are
-   still a *Claude* ruling — retune freely, it is one edit), the order queue, and the S139 goblin
-   (permanent roaming ~120 px vision source, renders above fog — still unruled).
-2. **The worker flip is now a SMALL, well-understood change** — but three things gate it: the
-   intermittent `worker-bots` CI failure, the differential harness seeding **none** of the families
-   shipped since S135, and the shared-predicate/`?worker=0` work (see below).
-3. **`?worker=0` DOES NOT EXIST.** Every read is `=== '1'`. There is no escape hatch today.
+1. **PLAYTEST — still the only thing genuinely waiting on you.** Stink Tower (recipe shapes remain
+   a *Claude* ruling — retune is one edit), the gatherer order queue, and the S139 goblin
+   (permanent ~120 px roaming vision source that renders above fog — **still unruled**).
+   ⭐ **Do NOT do the 2-browser HELLO check** — the `e2e-protocol` GATING lane does it (~11 s).
+2. **The flip is one constant now.** Two things gate it: seed `defenders` in the differential
+   harness (below), and one owner playtest on `?worker=1` after S143's changes.
+3. **Seed `defenders`** — the last real hole, ~2–4 h. It is NOT a one-line intent: `hostTick`
+   re-validates every defender each tick and tears an injected one down within a tick, so the
+   fixture must build **real stinkTower recipe geometry** (3 Circles bonded to 1 Square).
+4. **`gh workflow run e2e.yml` at boot** — `e2e.yml` still has no push trigger, so nothing else
+   reports the gating lane.
+5. **Next roadmap slot is V6-1.5 (the hero unit), Full.** ⚠ Strategically: **V6-1.7 is a designed
+   STOP SIGN** ("is the player bored?") two slots away, and *everything in Phases 2–4 is
+   provisional until it runs*.
 
 ## ⚠ TRAPS
 
-- **The BACKLOG described the `probeHarness` guard BACKWARDS** (now corrected in place). It said the
-  harness "becomes refuse-by-default" — benign. The truth: with worker-on-by-default the param is
-  **ABSENT**, the guard is **FALSE**, and the harness **ARMS WHILE THE WORKER IS ACTIVE**. Root
-  cause: the flag is parsed **twice, independently**. Fix = ONE shared predicate.
-- **"Fully red" was HALF GREEN in both environments.** The quarantine lane: local 9/9, CI 8 failed /
-  9 passed / 1 never ran. Peers **do** connect. The real defect was `retries: 2` blowing the budget
-  (fixed, `PW_RETRIES: 0`). A remembered failure string had become settled fact nobody re-measured.
-- **The gating lane fails INTERMITTENTLY in CI and nothing reports it** — `e2e.yml` has no push
-  trigger. Dispatch it at boot. Green-on-your-last-PR is not evidence master is green.
-- **A reviewer will assert it searched when it did not.** Grep-verify every cited symbol.
-- **Unanimity on a FINDING still does not transfer to the FIX.** Third session running.
-- **Cap the fan-out.** 7 agents died on the spend limit with **zero** recoverable results; 3 tight
-  probes landed 3/3. **Third consecutive session.** Read the highest-risk area by hand FIRST.
+- **`nextPrimitiveId` is HOST-ONLY and FROZEN on a `?worker=1` mirror** — excluded from
+  NetSnapshot. It looks exactly like the cumulative-placement counter you want. An oracle built on
+  it reports "no placements ever happened" with total confidence while the game builds normally
+  (measured: cursor 33 vs a live primitive with id 38). **Use `maxPrimitiveId`.** I shipped this
+  mistake for one iteration.
+- **A run-level `cancelled` can hide TWO GREEN gating jobs.** Dispatching a second e2e run cancels
+  the first; the run-level conclusion reads `cancelled` even when `e2e` and `e2e-protocol` had
+  already concluded **success** (run 31737846412). S126's lesson was that `cancelled` can hide a
+  FAILURE; this is the mirror image. **Audit JOB conclusions, never the run conclusion.** Also:
+  `gh run view --log-failed` refuses to serve logs while any job is still in progress, so a red
+  gating job is unreadable until the 25-minute soak lane finishes.
+- **Never edit sources while their suite runs.** A gating run reported 4 failures purely because I
+  edited `src/` mid-run against a live vite dev server. The clean rerun was 36/36. I nearly
+  attributed 3 phantom regressions to my own correct changes.
+- **An aggregate assertion proves nothing about any member.** The differential guard was a SUM of
+  10 family sizes; `defenders` was 0 for all 300 frames while it sat green on poops.
+- **Mutation-test the guard, not just the code.** My fix for a documented "unforced site" was
+  itself unforced — deleting both terms left the whole suite green.
+- **Cap the A.0 fan-out at 3 agents.** 3/3 returned this session; three prior sessions lost work.
 - **Rebuild before `verify-deploy`.**
-- ⛔ **RUN THE `/handoff` SKILL — DO NOT HAND-AUTHOR THE HANDOFF DOCS.** Found at S142 close:
-  `.claude/reflexion_log.md` contained **no S140 and no S141 block at all**. Both sessions wrote
-  their entries to `session-state.json` and neither ever reached the log, because both (and S142,
-  until caught) hand-wrote the handoff documents instead of invoking the skill — which skips STEP
-  2.8.A. Both were recovered verbatim from git and restored. The docs looking right is not evidence
-  the procedure ran.
+- ⛔ **RUN THE `/handoff` SKILL — never hand-author these docs** (S140–S142 all lost reflexion
+  entries this way; S143 ran the skill and STEP 2.8.A appended 11 real entries).
 
 ## Pending Backlog
 
-15 entries in `session-state.json → carry_forward` (4 struck, 4 added this session). Live: the
-intermittent gating failure, the deferred P1 remainder (shared predicate + `?worker=0` + differential
-harness seeding), ~8 genuinely failing joiner tests, the deferred ranged goblin / producer towers.
+18 entries in `session-state.json → carry_forward` (3 added this session). Live: seed `defenders`;
+the `nextPrimitiveId` mirror trap; the `cancelled`-hides-a-PASS finding; ~8 genuinely failing
+joiner tests in the quarantine lane; the deferred ranged goblin / producer towers; and the
+owner-gated set below.
+
+## Blockers (owner-gated — only you can rule these)
+
+1. ⚠ **`CASTLE_BANK_CAP` 7 vs 12–13 — two of your own rulings point OPPOSITE ways.** At 12–13 all
+   six recipes become directly assemblable, deleting the carve-down tactic the pivot exists to protect.
+2. **R7 design library is not implementable as ruled** (per-browser localStorage cannot satisfy its
+   own host-validation contract). A design decision, not an implementation task.
+3. **Energy vs score as the currency** (V6-1.6) — score is already spendable; `player.energy` has
+   *zero reads*.
+4. **The S139 goblin** — renders above fog + permanent vision source. Unruled.
+5. **Stink Tower recipe shapes** — a Claude ruling awaiting your blessing or retune.
+6. **Q6 bot starvation policy** — last open bot question.
+7. Standing: `origin/gh-pages` deletion · Pages `build_type` flip.
 
 ## Recent Reflexion (last 2 sessions)
+
+### S143 (2026-08-13)
+`#three-sessions-called-it-throughput-and-it-was-an-unsatisfiable-assertion` ·
+`#the-error-message-is-why-it-stayed-unresolved-for-three-sessions` ·
+`#my-own-new-diagnostic-confidently-asserted-a-product-failure-that-did-not-exist` ·
+`#the-guard-asked-about-a-url-spelling-not-the-state-it-guarded` ·
+`#the-second-path-was-correct-only-by-accident` ·
+`#the-only-thing-that-arms-the-fallback-was-the-flag-a-hang-cannot-set` ·
+`#a-sum-cannot-see-a-per-family-hole` · `#my-own-new-guard-caught-my-own-first-version-of-it` ·
+`#the-fix-for-an-unforced-site-was-itself-unforced` ·
+`#i-invalidated-my-own-test-run-by-editing-source-during-it` ·
+`SESSION #verify-the-probe-before-you-act-on-it`
 
 ### S142 (2026-08-13)
 `#a0-killed-the-headline-priority-and-that-was-the-win` ·
@@ -112,17 +122,12 @@ harness seeding), ~8 genuinely failing joiner tests, the deferred ranged goblin 
 `#the-generalised-method-found-a-second-bug-the-specific-fix-would-have-missed` ·
 `#cap-the-fan-out-third-consecutive-session`
 
-### S141 (2026-08-13)
-`#two-seats-rejected-the-same-thing-and-both-fixes-were-wrong` ·
-`#the-severe-bug-lived-in-the-interaction-neither-seat-was-shown` ·
-`#a-tsc-forcing-function-can-be-satisfied-without-doing-anything` ·
-`#a-stale-comment-can-be-an-instruction-to-break-production`
+## Process deviations (S143)
 
-## Process deviations (S142)
-
-- **The 7-agent A.0 fan-out died on the individual spend limit with ZERO recoverable results** —
-  journal.jsonl held only `started` lines. **Third consecutive session** losing work this way. Re-run
-  as **3 tight probes**, which landed 3/3 for 274K. The highest-risk area was read by hand first, so
-  the loss cost nothing but time.
-- **Council R2 ran with both seats** (unlike S141's single round), but Grok's R1 evidence was so
-  unreliable — a no-op fix plus 12 fabricated symbols — that its R2 was scoped to two questions.
+- **I invalidated my own gating run** by editing `src/state/workerSim.ts` while it executed against
+  a live vite dev server (including a window where a function was referenced before it existed).
+  Reported 4 failures; the clean rerun was 36/36. Cost: one wasted 3-minute run and a near-miss on
+  misattributing 3 phantom regressions.
+- **Three self-corrections were caught by instruments written minutes earlier** — the frozen-cursor
+  oracle, the final-frame seeding table, and the decorative signature fix. All three are recorded
+  in the reflexion log rather than quietly fixed.
