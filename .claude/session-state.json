@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 808,
+  "tool_calls_session_total": 824,
   "session_id": "S143",
   "session_kind": "full-batch",
   "session_start": "2026-08-13",
@@ -77,32 +77,189 @@
     "⚠ S142 — THE GATING e2e LANE FAILS INTERMITTENTLY IN CI, AND NOTHING REPORTS IT. CORRECTED WITHIN THE SAME SESSION: run 31707927282 (on cb7b891) FAILED the gating `e2e` job — worker-bots.spec.ts \"bots place through the worker\", 3/3 attempts, `waitForWorld timeout (60000ms): bot placements continue (prims 33 -> >33)`, final state tick 611 with 33 prims and all four seats scoring. My first write-up of this entry called it RED ON MASTER, implying deterministic. It is NOT: run 31712230199, a few hours later on fee81c1, reported `e2e: success`. So the failure is INTERMITTENT, which shifts the weight decisively toward the CI-THROUGHPUT hypothesis over a real product stall — S127 measured bots worlds at 7.2-7.7 ticks/s on the 2-core SwiftShader runner vs 25.5 locally, and tick 611 after 60s sits right in that band, so the 60s budget is simply marginal for this test on that hardware. It passes locally in ~13s. ⚠ STILL WORTH FIXING AND STILL BLOCKING THE FLIP: (a) an intermittently-red GATE is worse than a reliably-red one, because it trains everyone to re-run rather than read it; (b) e2e.yml has NO push trigger (schedule + pull_request + workflow_dispatch only), so nobody is notified either way; and (c) it is the WORKER-BOTS path — exactly what a sim-worker default-on flip would make universal. CHEAPEST HONEST FIX: give that specific wait a budget derived from measured tick-rate rather than a flat 60s (the S127 two-regime precedent), instead of raising a magic number.",
     "S142 P1 REMAINDER — NOT DONE, deliberately deferred with the flip. The shared worker-flag predicate + `?worker=0` opt-out + the probeHarness guard (PDR items 4) and the differential-harness family seeding (item 3) were scoped for S142 and NOT executed; the flip they protect was deferred on unanimous Council advice, so they are preparation for it rather than live fixes. ⚠ THE probeHarness ITEM IS A REAL TRAP AND THE BACKLOG DESCRIBES IT BACKWARDS: it refuses to arm on `get(\"worker\") === \"1\"`, so with worker-on-by-default the param is ABSENT, the guard is FALSE, and the harness ARMS WHILE THE WORKER IS ACTIVE — the exact broken-instrument state it exists to prevent. The BACKLOG calls this \"becomes refuse-by-default\", which reads as benign and is the opposite of the truth. Root cause: the flag is parsed TWICE, independently (main.ts and probeHarness.ts) — the duplicated-decision class S141 P3 deleted in the allocator repair. Fix = ONE shared predicate both read.",
     "S142 SWEEP RESIDUAL — known-and-deliberate serializer omissions, DO NOT \"fix\" them from the S142 example: `prevPos` on Creature/Potato/Seagull/Poop and `targetPos`/`spawnedAtTick` on Creature. `prevPos` IS Verlet velocity, so restoring it is a physics decision with real consequences (the known \"poop loses velocity across host migration\" item), NOT a completeness bug. The sweep METHOD is now recorded as a test: src/state/serializerCompletenessSweep.test.ts.",
-    "⭐ S142 P2 IS RUNTIME-PROVEN, NOT STATIC-PARSED. The new `e2e-protocol` GATING job concluded SUCCESS in CI (run 31712230199) — so a PROTOCOL_VERSION bump now verifies its own 2-peer HELLO lockstep, both direction arms, in CI, in ~11s. THE OWNER SHOULD STOP DOING THE MANUAL 2-BROWSER CHECK. It is no longer required as a release gate; do it only if you WANT to see it. Precisely what is verified: the job conclusion is `success` (the job runs `npm run e2e:protocol`); the per-test evidence (✓ both arms, 5.6s each) was captured in the earlier run 31707927282, and locally the same command selects exactly 2 tests and passes in 10.4s. NOT covered by it: the real relay/ICE path under adverse conditions, and whether a genuinely OLD BUNDLE is rejected (the HELLO is synthesized via the send-side __TEST_PROTO_VERSION_OVERRIDE__ seam, not an actually-stale build)."
+    "⭐ S142 P2 IS RUNTIME-PROVEN, NOT STATIC-PARSED. The new `e2e-protocol` GATING job concluded SUCCESS in CI (run 31712230199) — so a PROTOCOL_VERSION bump now verifies its own 2-peer HELLO lockstep, both direction arms, in CI, in ~11s. THE OWNER SHOULD STOP DOING THE MANUAL 2-BROWSER CHECK. It is no longer required as a release gate; do it only if you WANT to see it. Precisely what is verified: the job conclusion is `success` (the job runs `npm run e2e:protocol`); the per-test evidence (✓ both arms, 5.6s each) was captured in the earlier run 31707927282, and locally the same command selects exactly 2 tests and passes in 10.4s. NOT covered by it: the real relay/ICE path under adverse conditions, and whether a genuinely OLD BUNDLE is rejected (the HELLO is synthesized via the send-side __TEST_PROTO_VERSION_OVERRIDE__ seam, not an actually-stale build).",
+    "S143 P3 RESIDUAL — `defenders` IS STILL UNSEEDED IN EVERY DIFFERENTIAL HARNESS, now acknowledged IN CODE and PRINTED on every run rather than hidden inside a sum. Seeding it is NOT a one-line intent: hostTick re-validates every defender each tick against anchor-primitive existence AND defenderRecipeStillSatisfied, dispatching REMOVE_DEFENDER on failure, so an injected REGISTER_DEFENDER is torn down within one tick. The fixture must build REAL recipe geometry — the stinkTower (3 Circles bonded to 1 Square) is the cheapest shape and also the newest defender kind (S141 P1). Note the scripted placements pass targetPrimitiveId: null, which is also why ZERO bonds ever form in the SOLO scenario. ~2-4h.",
+    "⛔ S143 TRAP FOR ANY E2E AUTHOR — `nextPrimitiveId` IS HOST-ONLY AND FROZEN ON A ?worker=1 MIRROR. It is excluded from NetSnapshot (save.ts:1071 \"does not write host-only counters\"), so the authoritative cursor advances inside the worker while the mirror copy does not. MEASURED S143: a live mirror reported nextPrimitiveId 33 while holding a primitive with id 38. An oracle built on it reports \"no placements ever happened\" with total confidence while the game builds normally — I shipped exactly that mistake for one iteration. Use maxPrimitiveId (exposed in readWorldState with the warning attached). Same class as the S142 spawner finding: a field that is correct on the host and silently absent on the mirror.",
+    "⚠ S143 — A RUN-LEVEL `cancelled` CAN HIDE TWO GREEN GATING JOBS. Dispatching a second e2e run cancels the first via the concurrency group, and the run-level conclusion becomes `cancelled` even when `e2e` and `e2e-protocol` had ALREADY concluded success (measured: run 31737846412). The S126 lesson was that `cancelled` can hide a FAILURE; this is the mirror image — it can also hide a PASS. Audit JOB conclusions, never the run conclusion. Also note `gh run view --log-failed` REFUSES to serve logs while any job in the run is still in progress, so a red gating job is unreadable until the 25-minute soak lane finishes."
   ],
   "priorities": [
     {
       "id": "P1",
       "title": "Flip safety prerequisites: shared worker-flag predicate + ?worker=0 + probeHarness guard inversion + successor INTENT bypass + driver watchdog",
-      "status": "in_progress",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "RALPH:PATROL + first-hand disk verification. Every load-bearing claim grep-verified before use (main.ts:2203 successor bypass CONFIRMED; simWorkerDriver 108 lines with NO watchdog CONFIRMED; probeHarness.ts:342 vs main.ts:418 double-parse CONFIRMED). MUTATION MATRIX 4/4 CAUGHT, each mutation asserted as landed on disk before its spec ran (CRLF false-pass lesson): M1 revert probe guard to params.get('worker')==='1' -> RED; M2 revert successor to dispatch(world,stamped) -> RED; M3 drop batchDeadlineExceeded !inFlight guard -> RED; M4 relax boundary > to >= -> RED. Two fixes are STRUCTURAL (nothing forces a call site to use a shared helper), so they are held by workerFlag.wired.test.ts, a comment-stripped source scan following the damage.wired.test.ts idiom. Gates: tsc 0, vitest 2303/2303 (153 files, from 2275/150), bundle 678.2/750 KiB (71.8 KiB headroom, +519 B), no PROTOCOL bump (stays 20).",
+      "checkpoint_commit": "2e1b5ec",
+      "real_context_tokens_at_close": 245287,
+      "real_context_pct_at_close": 24.53,
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\workerFlag.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\workerFlag.ts",
+          "needle": "export const WORKER_DEFAULT_ON = false"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\workerFlag.ts",
+          "needle": "export function isSimWorkerRequested"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\dev\\probeHarness.ts",
+          "needle": "if (isSimWorkerRequestedHere()) {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "needle": "const applyRemoteIntentAuthoritatively"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "needle": "dispatchAction: applyRemoteIntentAuthoritatively"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "pattern": "^\\s*applyRemoteIntentAuthoritatively\\(stamped\\);",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "pattern": "^\\s*dispatch\\(world, stamped\\);",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\simWorkerDriver.ts",
+          "needle": "export function batchDeadlineExceeded"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\simWorkerDriver.ts",
+          "needle": "this.watchdogTripped = true"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\workerFlag.wired.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\simWorkerDriver.watchdog.test.ts"
+        }
+      ]
     },
     {
       "id": "P2",
       "title": "Repair worker-bots gating test: tick-budgeted wait + cumulative-creation oracle",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "RALPH:PATROL + local reproduction. The CI failure was reproduced and DIAGNOSED from the real job log (run 31707927282, 3 attempts: ticks 611/807/752, all frozen at exactly 33 prims). Root cause is THREE defects in one assertion, verified on disk: (1) primitives.length is NON-MONOTONIC — razePrimitives.ts:78 deletes entries; measured locally 29 alive with max id 38, and a CI attempt sampled 33 then failed at 32, so the assertion was UNSATISFIABLE; (2) waitForWorld bounds on Date.now() (helpers.ts:418 CONFIRMED) while ticks are frame-bound (main.ts dtSec clamp 0.05, PHYSICS_HZ 60 => <=3 ticks/frame CONFIRMED); (3) the error message could not distinguish dead-page / unmet-predicate / out-of-runway. SELF-CORRECTION: my first oracle used nextPrimitiveId, which is HOST-ONLY and frozen on a worker mirror (save.ts:1071) — caught by measuring cursor 33 vs primitive id 38, i.e. the instrument asserted a product failure that did not exist. Gates: e2e:gating 36/36 local (2.8m), tsc 0, worker-bots standalone 15.0s. CI verification dispatched as run 31737846412 — NOT yet claimed. ✅ CI VERIFIED: TWO consecutive green gating runs on the fix — 31737846412 (e2e: success) and 31738493370 (e2e: success). The lane was red in 2 of the 3 runs before it (31707927282 failure, 31730999721 failure, 31712230199 success).",
+      "checkpoint_commit": "4781be8",
+      "real_context_tokens_at_close": null,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\helpers.ts",
+          "needle": "export async function waitForWorldWithinTicks"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\helpers.ts",
+          "needle": "maxPrimitiveId: Array.from(w.primitives.values())"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\worker-bots.spec.ts",
+          "needle": "const GROWTH_BUDGET_TICKS = 1_200"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\worker-bots.spec.ts",
+          "needle": "(w) => w.maxPrimitiveId > sampleA"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\worker-bots.spec.ts",
+          "pattern": "^\\s*\\(w\\) => w\\.primitives\\.length > sampleA",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\worker-bots.spec.ts",
+          "needle": "test.describe.configure({ retries: 0 })"
+        }
+      ]
     },
     {
       "id": "P3",
       "title": "Differential harness: seed gathererOrders + per-family meaningfulness guard + structuralSignature parity",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "RALPH:PATROL + mutation matrix 3/3. Probe claims re-verified first-hand before acting: the newlyHashedEntities guard IS a 10-family SUM with one >0 (workerSim.differential.test.ts:319-330 CONFIRMED); structuralSignature carries castleBanks.size but NOT gathererOrders (CONFIRMED). SELF-CORRECTION CAUGHT BY MY OWN NEW GUARD: the first per-family table read sizes at the FINAL frame and failed on rainbows — correctly 0, but because a rainbow spawns and despawns mid-run, so a final-frame read under-reports every transient family. Now tracks PEAK size across compared frames. SECOND SELF-CORRECTION: the structuralSignature addition was initially DECORATIVE — mutation M6 deleting both terms left the whole suite GREEN — so an explicit forcing test was added pinning both the map-size term and the depth term. Mutations: drop seeding -> RED; drop both signature terms -> RED; drop ONLY queuedOrderTotal -> RED. Gates: tsc 0, vitest 2304/2304 (153 files), e2e:gating 36/36.",
+      "checkpoint_commit": "b3b6b77",
+      "real_context_tokens_at_close": null,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\workerSim.ts",
+          "needle": "function queuedOrderTotal"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\workerSim.ts",
+          "needle": "world.gathererOrders.size,"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\workerSim.differential.test.ts",
+          "needle": "SEEDING_COVERAGE"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\workerSim.differential.test.ts",
+          "needle": "ENQUEUE_GATHERER_ORDER"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\workerSim.differential.test.ts",
+          "needle": "const observePeaks"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\workerSim.differential.test.ts",
+          "pattern": "const newlyHashedEntities",
+          "op": "==",
+          "value": 0
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "needle": "# ⚑ STATUS S143 (2026-08-13)"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
+          "needle": "TWO consecutive green gating runs"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
@@ -115,7 +272,29 @@
     "#the-instrument-was-hiding-its-own-diagnosis - waitForWorld swallowed every poll error, so a dead page and a slow one produced identical messages. Two competing causal stories survived in-repo for sessions because of one bare catch.",
     "#the-gating-lane-was-red-on-clean-master-and-nothing-reported-it - e2e.yml has no push trigger. Dispatch it at boot; green-on-your-last-PR is not evidence that master is green now.",
     "#the-generalised-method-found-a-second-bug-the-specific-fix-would-have-missed - comparing mutable fields against serializer output found a 65-session-old debuff hole. Fix the class, not the instance.",
-    "#cap-the-fan-out-third-consecutive-session - 7 agents died on the spend limit with ZERO recoverable results; 3 tight probes landed 3/3. Read the highest-risk area by hand FIRST."
+    "#cap-the-fan-out-third-consecutive-session - 7 agents died on the spend limit with ZERO recoverable results; 3 tight probes landed 3/3. Read the highest-risk area by hand FIRST.",
+    {
+      "session": "S143",
+      "priority": "P1",
+      "entries": [
+        {
+          "tag": "#the-guard-asked-about-a-url-spelling-not-the-state-it-guarded",
+          "text": "probeHarness refused to arm on `get(\"worker\")===\"1\"`. That is not a parse bug — both call sites parsed identically and correctly. It is a bug in the QUESTION: it needed \"is the worker active?\" and asked \"does the URL literally say worker=1?\". Those agree in todays regime and are OPPOSITE the moment the default flips, so the guard would have armed the instrument precisely when it was needed. The BACKLOG described the consequence BACKWARDS as refuse-by-default, i.e. benign. Lesson: a guard phrased against the spelling of an input silently stops tracking the state it guards when the default moves."
+        },
+        {
+          "tag": "#the-second-path-was-correct-only-by-accident",
+          "text": "Two host INTENT apply paths exist and only one was worker-aware; the migration successor open-coded dispatch(world, stamped). No test could distinguish them because BOTH are correct today (a promoted host has a null driver). The divergence only becomes a bug in a regime that does not exist yet. Behavioural tests cannot see this class at all — it is a property of the call graph — so it is held by a source scan."
+        },
+        {
+          "tag": "#the-only-thing-that-arms-the-fallback-is-the-flag-a-hang-cannot-set",
+          "text": "simWorkerDriver set `failed` ONLY from an explicit error event. A worker hanging WITHOUT throwing latched inFlight forever while isReady stayed true, freezing the game permanently and silently — and the direct-sim fallback could never fire, because the sole thing that arms it is the flag the hang cannot set. A recovery path is only real if the failure it recovers from can actually reach it."
+        },
+        {
+          "tag": "#i-made-the-flip-testable-in-a-regime-the-build-is-not-in",
+          "text": "isSimWorkerRequested takes an optional defaultOn so the suite pins BOTH regimes today. The inversion survived because every existing test exercised only the regime where the two questions agree. Verifying a flip BEFORE taking it requires exercising the post-flip regime, not the current one."
+        }
+      ]
+    }
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -373,5 +552,24 @@
       "simWorkerDriver.ts 108 lines NO watchdog CONFIRMED",
       "probeHarness.ts:342 vs main.ts:418 double-parse CONFIRMED"
     ]
+  },
+  "ci_verification_s143": {
+    "pre_fix": {
+      "31707927282": "e2e FAILURE (worker-bots, 3 attempts)",
+      "31730999721": "e2e FAILURE (worker-bots, 3 attempts)",
+      "31712230199": "e2e success"
+    },
+    "post_fix": {
+      "31737846412": "e2e success + e2e-protocol success",
+      "31738493370": "e2e success"
+    }
+  },
+  "rule22_audit_s143": {
+    "symbols_cited_vs_disk": "14/14 EXIST (razePrimitives, buildCooldownTicks, defenderRecipeStillSatisfied, REMOVE_DEFENDER, readTestSpawnRate, trimMirrorSpawner, bankedShapeTotal, queuedOrderTotal, isSimWorkerRequestedHere, applyRemoteIntentAuthoritatively, batchDeadlineExceeded, maxPrimitiveId, waitForWorldWithinTicks, severChance) — no fabricated symbol shipped",
+    "flip_state": "WORKER_DEFAULT_ON = false — the flip was DELIBERATELY NOT taken this session",
+    "protocol_version": "20, unchanged — no bump, so no 2-peer action required",
+    "deploy": "verify-deploy 4/4, live entry index-BY0XKCq3.js == local build",
+    "ci_open_failures": "none; 0 open issues",
+    "cancelled_run_investigated": "run 31737846412 reads run-level `cancelled` but BOTH GATING jobs concluded success (e2e, e2e-protocol); only the non-gating soak/quarantine lanes were cancelled by the concurrency group when I dispatched the confirmation run. Benign — but it is the S126 `cancelled`-masquerade shape and would mislead a future session reading run conclusions alone."
   }
 }

@@ -5,6 +5,79 @@
 
 ---
 
+# ⚑ STATUS S143 (2026-08-13) — THE THREE FLIP GATES ARE CLOSED · THE 3-WEEK CI RED IS FIXED AND PROVEN
+
+> **3 of 3 priorities shipped, deployed (4/4), and CI-verified. The sim-worker flip is STILL NOT
+> TAKEN — deliberately — but every measured thing that was blocking it is now closed, and the flip
+> itself is a ONE-CONSTANT change (`WORKER_DEFAULT_ON` in `src/workerFlag.ts`).**
+>
+> ### ⭐ THE 3-WEEK "INTERMITTENT" CI RED WAS NEVER ABOUT THROUGHPUT
+>
+> The gating lane failed intermittently for three weeks and the cause was on record as *"CI
+> throughput **or** a real stall — UNRESOLVED"*. It is **neither**. It is **three defects in one
+> assertion**, and the headline one **no timeout, retry, or faster runner could ever have fixed**:
+>
+> 1. **`primitives.length > sampleA` is a strict-increase test on a NON-MONOTONIC counter.**
+>    `razePrimitives` deletes entries and MID bots sever deliberately. A real CI attempt sampled
+>    **33** and then failed at **32** — the assertion was **unsatisfiable**. Measured locally in one
+>    run: **29 primitives alive, max id 38.** Now sampled on the highest primitive id.
+> 2. **A wall-clock budget on a sim-time quantity.** Ticks are frame-bound (≤3 per rendered frame),
+>    so 60 s buys ~1530 ticks locally and **~670** in CI. The spec's own *"60 s is generous
+>    headroom"* silently assumed wall-time ≈ sim-time. Now budgeted in **TICKS**.
+> 3. **The error message could not tell those apart** — which is precisely why it sat unresolved for
+>    three sessions. It now distinguishes DEAD PAGE / PREDICATE-GENUINELY-UNMET / OUT-OF-RUNWAY.
+>
+> **Proven, not asserted: TWO consecutive green gating runs** (`31737846412`, `31738493370`) against
+> failures in 2 of the 3 runs before it.
+>
+> ### ⭐ A FLIP-CAUSED REGRESSION THAT WAS IN NO DOCUMENT
+>
+> There are **TWO** host INTENT apply paths and only one was worker-aware. The migration successor
+> open-codes `dispatch(world, stamped)`. Correct **today only by accident** (a promoted host's driver
+> is null) — under default-on it would write every remote player's action into a render **MIRROR**,
+> to be silently overwritten by the next snapshot. **Every other peer's input stops counting, with no
+> error anywhere.** Both paths now share one thunk.
+>
+> ### ⭐ THE GUARD ASKED ABOUT A URL SPELLING, NOT THE STATE IT GUARDED
+>
+> `probeHarness` refused to arm on `get('worker') === '1'`. Not a parse bug — a bug in the
+> **question**: it needed *"is the worker active?"*. Those agree today and are **opposite** once the
+> default flips, so the harness would arm exactly when it must not. One shared predicate now, plus
+> the **`?worker=0` escape hatch that did not exist at all** — shipped BEFORE the flip so the flip
+> cannot strand anyone. And a **watchdog**: `failed` was set only by an explicit error event, so a
+> worker hanging *without throwing* froze the game permanently while the direct-sim fallback could
+> never fire — the only thing that arms it was the flag the hang cannot set.
+>
+> ### TWO SELF-CORRECTIONS, BOTH CAUGHT BY MEASUREMENT
+>
+> - **My first growth oracle used `nextPrimitiveId` — host-only and FROZEN on a worker mirror.**
+>   It reported "no placements ever happened" with total confidence while the game built normally.
+>   Caught by measuring **cursor 33 while a primitive with id 38 was on screen.** Now a documented
+>   trap in `readWorldState` rather than a lesson for the next author.
+> - **My first per-family seeding table read the FINAL frame** and failed on `rainbows` — correctly
+>   0, but because a rainbow spawns and despawns *mid-run*. It now tracks the **PEAK** across
+>   compared frames. And the `structuralSignature` addition was initially **decorative**: a mutation
+>   deleting both terms left the whole suite green, so an explicit forcing test was added.
+>
+> ### The differential gate's meaningfulness guard was a SUM
+>
+> Ten family sizes added and compared `> 0` — satisfied by any ONE. Measured: **`defenders` was 0 for
+> all 300 frames** while the guard sat green on poops. Now a per-family table on the `FIELD_COVERAGE`
+> contract: SEEDED (asserted) or ACKNOWLEDGED with a reason **printed every run**. `gathererOrders`
+> seeded for the first time — it was marked `'hashed'` and projected, but never non-empty, so its
+> projection loop was **dead code in every two-simulation comparison the repo runs**.
+>
+> **Gates:** tsc 0 · vitest **2304/2304** (153 files, from 2275/150) · e2e:gating **36/36** local ·
+> **mutation matrix 7/7** · bundle **678.2 KiB** (71.8 KiB headroom) · deploy **4/4** ·
+> **no `PROTOCOL_VERSION` bump** (stays **20**) · Rule 22 audit: **14/14 cited symbols verified on
+> disk**.
+>
+> **⛔ STILL OPEN BEFORE THE FLIP:** `defenders` remains unseeded in every differential harness
+> (acknowledged in code, ~2–4 h — needs real stinkTower recipe geometry), and the flip wants one
+> owner playtest on `?worker=1` after these changes.
+
+---
+
 # ⚑ STATUS S142 (2026-08-13) — A.0 KILLED THE HEADLINE PRIORITY, AND THAT WAS THE WIN
 
 > **The session set out to flip the sim worker default-on — LOCKED for S129, 13 sessions overdue,
@@ -633,7 +706,7 @@ SPARK is a **geometric builder duel** — up to 6 players, FFA, racing to build 
 | Gate | Ruling |
 |---|---|
 | **Deploy path** | ✅ **ALREADY RETIRED in S126** (`162b40f0` deleted `npm run deploy` *and* `scripts/deploy-pages.sh`). GitHub Actions auto-deploy is the ONE path; every `master` push touching `src/**`, `public/**`, `index.html`, `vite.config.ts`, `tsconfig.json`, `package*.json` or `deploy.yml` **ships to production**. **Do not recreate the deleted scripts.** Surviving residual is OWNER-GATED: `gh api -X PUT repos/:owner/:repo/pages -f build_type=workflow` → verify the live asset hash → *then* optionally delete `origin/gh-pages`, **in that order**. Run `gh auth login` first (S128 audit found `gh auth` invalid). **Never trust `gh api .../pages`** — it reports stale `build_type: legacy` / `source: gh-pages`; trust the deployments API + the live asset hash. |
-| **Sim-worker default-on** | ⛔ **BLOCKED S142 — THE PLAYTEST GATE PASSED BUT THE CODE IS NOT SAFE TO FLIP.** Owner playtested `?worker=1` and reported smooth, so the *owner* gate is discharged; a Rule-21 A.0 probe then found an engineering blocker in no document. Host-migration TAKEOVER sets `world.isHost = true` **mid-match** on a peer whose `simWorkerDriver` is null, so after a default-on flip its very next frame adopts the worker **with live `creatureSpawners`** — and `deserializeSpawner` re-seeded their cadence and reset `spawnedCount`, a live self-destruct cap, silently. **That half is FIXED in S142 P1** (cadence now serialized for local consumers, stripped from the wire by `trimMirrorSpawner` — the schedule must never reach a modified client, TOWER_DEFENSE_DESIGN §3.3). **Still outstanding before any flip:** (1) the **CI gating lane is RED on clean master** and the failing test is `worker-bots` — *precisely* the path the flip makes universal (run 31707927282; passes locally in 13.5s, so it is CI-throughput-vs-real-stall and UNRESOLVED); (2) the differential equivalence harness seeds **none** of the families shipped since S135, so they are unproven while green; (3) the flag/guard work below. Both Council seats independently ruled the flip must not ship in the same session as its own safety fixes. **6 literals across 4 files hard-code the flag** (`worker.spec.ts`, `worker-bots.spec.ts`, `worker-duel.spec.ts` ×2, `worker-heap.spec.ts` ×2) — the S137 count is CONFIRMED correct. ⚠ **And note only 5 of 21 spec files carry the flag, so a flip silently re-points the other 16 onto the worker path.** ⛔ **THIS ROW USED TO DESCRIBE THE probeHarness GUARD BACKWARDS.** It said the harness "becomes refuse-**by-default**", which reads as merely annoying. The truth is the opposite and it is dangerous: the guard fires on `get('worker') === '1'`, so with worker-on-by-default the param is **ABSENT**, the guard is **FALSE**, and the harness **ARMS WHILE THE WORKER IS ACTIVE** — exactly the silent broken-instrument state it exists to prevent. Root cause: the flag is parsed **twice, independently** (`main.ts` and `probeHarness.ts`). Fix = ONE shared predicate both read, plus a `?worker=0` opt-out, which **does not exist today** (every read is `=== '1'`). |
+| **Sim-worker default-on** | ⛔ **BLOCKED S142 — THE PLAYTEST GATE PASSED BUT THE CODE IS NOT SAFE TO FLIP.** Owner playtested `?worker=1` and reported smooth, so the *owner* gate is discharged; a Rule-21 A.0 probe then found an engineering blocker in no document. Host-migration TAKEOVER sets `world.isHost = true` **mid-match** on a peer whose `simWorkerDriver` is null, so after a default-on flip its very next frame adopts the worker **with live `creatureSpawners`** — and `deserializeSpawner` re-seeded their cadence and reset `spawnedCount`, a live self-destruct cap, silently. **That half is FIXED in S142 P1** (cadence now serialized for local consumers, stripped from the wire by `trimMirrorSpawner` — the schedule must never reach a modified client, TOWER_DEFENSE_DESIGN §3.3). ✅ **ALL THREE OUTSTANDING ITEMS CLOSED IN S143 — the flip is now a ONE-CONSTANT change (`WORKER_DEFAULT_ON` in `src/workerFlag.ts`), deliberately NOT taken in the same session as its own safety work.** (1) ⛔ **The CI red was NEVER a throughput-vs-stall question** — it was a **non-monotonic predicate**: `primitives.length > sampleA` is a strict-increase test on a counter that FALLS (razing + deliberate MID severs), and a real attempt sampled 33 then failed at **32**, so it was **unsatisfiable by construction**. Fixed on the highest-primitive-id oracle and budgeted in TICKS; **two consecutive green gating runs** (`31737846412`, `31738493370`). (2) ⚠ **"seeds none of the families since S135" was FALSE AS WRITTEN** — measured, `gatherers`, `castleBanks` and the S139 goblin ARE seeded and hashing. The real gap was exactly **two**: `gathererOrders` (now seeded) and `defenders` (still open, acknowledged in code and printed every run — needs real stinkTower recipe geometry, ~2–4 h). The guard that was supposed to catch this was a **SUM**, so one poop satisfied it for all ten families; it is now per-family. (3) The flag/guard work SHIPPED, plus **two defects found en route that were in no document**: the migration successor's INTENT arm bypassed the worker route entirely (every remote player's input would silently stop counting on a promoted host), and the driver had **no watchdog**, so a worker hanging *without throwing* froze the game permanently while the direct-sim fallback could never fire. **Remaining before the flip: seed `defenders`, and one owner playtest on `?worker=1`.** Both Council seats independently ruled the flip must not ship in the same session as its own safety fixes. **6 literals across 4 files hard-code the flag** (`worker.spec.ts`, `worker-bots.spec.ts`, `worker-duel.spec.ts` ×2, `worker-heap.spec.ts` ×2) — the S137 count is CONFIRMED correct. ⚠ **And note only 5 of 21 spec files carry the flag, so a flip silently re-points the other 16 onto the worker path.** ⛔ **THIS ROW USED TO DESCRIBE THE probeHarness GUARD BACKWARDS.** It said the harness "becomes refuse-**by-default**", which reads as merely annoying. The truth is the opposite and it is dangerous: the guard fires on `get('worker') === '1'`, so with worker-on-by-default the param is **ABSENT**, the guard is **FALSE**, and the harness **ARMS WHILE THE WORKER IS ACTIVE** — exactly the silent broken-instrument state it exists to prevent. Root cause: the flag is parsed **twice, independently** (`main.ts` and `probeHarness.ts`). Fix = ONE shared predicate both read, plus a `?worker=0` opt-out, which **does not exist today** (every read is `=== '1'`). |
 | **Bot intelligence §7** | ✅ **RESOLVED** except Q6 — see below. |
 | **Platform** | **PC only.** Mobile sim is smooth but the game is not *playable* there — a finger-driven avatar occludes too much screen. Revisit *after* the pivot ships: the v0.6 command model is far more touch-compatible than a cursor-body, so mobile may become viable as a side effect rather than a project. |
 
