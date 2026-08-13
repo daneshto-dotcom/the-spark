@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 700,
+  "tool_calls_session_total": 705,
   "session_id": "S142",
   "session_kind": "full-batch",
   "session_start": "2026-08-13",
@@ -8,7 +8,7 @@
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-08-13_PDR_S142_worker_default_on_and_multipeer_signal.md",
-  "session_status": "in-progress",
+  "session_status": "priorities-complete",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -84,32 +84,68 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "id": "P1",
-      "name": "Make the worker path safe: serialize spawner cadence, worker-INIT assertion, defect-class sweep, differential harness, shared worker-flag predicate + ?worker=0",
-      "status": "in-progress"
+      "name": "Serializer-completeness defect class: spawner cadence (worker-INIT / host-migration) + Creature.poopyUntilTick",
+      "status": "completed",
+      "checkpoint_commit": "37a0f87",
+      "check_completed": true,
+      "check_method": "A.0 (Rule 21) surfaced it; reachability verified BY HAND link-by-link: deserializeSpawner re-seeds cadence -> host-migration TAKEOVER sets world.isHost=true MID-MATCH on a peer whose simWorkerDriver is null -> the adoption gate passes on the next frame -> restore() runs with LIVE creatureSpawners -> spawnedCount resets, which is a live self-destruct cap (hostTick STRUCTURE_SELFDESTRUCT_DRONE_COUNT), not telemetry. Council R1+R2, both seats. BOTH PROPOSED FIXES REFUTED ON DISK: Grok's preserveLiveCadence flag is a PROVABLE NO-OP (serializeSpawner emitted only the 4 readonly identity fields, so nothing was in the payload to preserve); Gemini's 'just serialize them' would leak the upcoming spawn schedule to modified clients (rngSeed-exclusion precedent, TOWER_DEFENSE_DESIGN 3.3) - a constraint written in the very docblock both seats were reasoning about, which Grok explicitly asserted did not exist. Grok also named 12 supporting symbols; all 12 grepped, NONE exist (3rd recorded fabrication). I ALSO REFUTED MY OWN PDR: I claimed 'hash-oracle divergence', but NARROW_HASHED_FAMILIES excludes spawners, so the only runtime hash cannot see it and a mismatch merely increments a counter - it is a SILENT gameplay divergence. Shipped: cadence serialized for LOCAL consumers (disk save + worker INIT), stripped from the wire by a new trimMirrorSpawner. MUTATION-TESTED BOTH WAYS: reverting the deserializer reds the round-trip (2/3 fail); deleting the wire strip reds the anti-cheat guard and prints the nextSpawnTick:900 schedule that would have shipped. GENERALISED via the omitted-from-serializer method, which found a SECOND live instance - Creature.poopyUntilTick, read every physics tick by creatureVerlet but never declared on SerializedCreature, while SerializedSpark has round-tripped the same field since S77 P3 (65 sessions of disagreement); its guard is mutation-tested too. tsc 0 | vitest 2269/2269 (148 files).",
+      "verification": [
+        "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+        "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/spawners/spawnerCadenceRoundTrip.test.ts",
+        "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/serializerCompletenessSweep.test.ts",
+        "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.replay.test.ts"
+      ]
     },
     {
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "id": "P2",
-      "name": "Make the PROTOCOL_VERSION bump self-verifying in CI (kill the 2-browser owner tax) + quarantine lane budget/diagnosability",
-      "status": "pending"
+      "name": "A protocol bump verifies itself in CI: e2e-protocol gating lane, LOCAL_PROTO_V sync gate, quarantine budget, waitForWorld diagnosability",
+      "status": "completed",
+      "checkpoint_commit": "37911c2",
+      "check_completed": true,
+      "check_method": "EVIDENCE-FIRST rather than designed against the remembered failure string. Dispatched CI run 31707927282 on clean master and read the real logs: BOTH protocol-mismatch tests PASSED IN CI (5.6s each, both direction arms, real WebRTC) - so the standing 'CI cannot verify a bump / only the owner can' claim is FALSE. Measured the quarantine lane twice: LOCAL 9 passed / 9 failed / 1 skipped (7.5m); CI 8 failed / 9 PASSED / 1 never ran at the full 17m cap. That refutes 'fully red' and shows peers DO connect in the sandbox (real assertion failures at 7.5s and 49.8s, not uniform socket timeouts); the actual defect was retries:2 multiplying structurally-identical failures until the budget blew - fixed with PW_RETRIES:0, the exact S127 soak precedent. DESIGN CHOICE: a SEPARATE gating job rather than promoting the tests into the shared gating lane, because smoke.spec.ts carries an explicit S98 keep-the-tag rule and S126 spent a whole session undoing flaky multi-peer tests reddening the main gate; the escape hatch is documented inside the job. Verified the new lane locally: selects exactly 2 tests, 10.4s, both green. protocolVersionSync.test.ts MUTATION-TESTED (pinning 19 against a live 20 goes red) and asserts on comment-stripped code per the ci.deployGate lesson. Full gating lane re-run 36/36 after the change (one bomb-spec flake on the first run did not reproduce, and the P2/P3 diff touches no src/ runtime file). tsc 0 | vitest 2275/2275 (150 files) | bundle 677.7 KiB. Also caught my own gap: the new output dir was missing from .gitignore and its artifact had been committed (fixed in b40d7f2).",
+      "verification": [
+        "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.github/workflows/e2e.yml",
+        "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocolVersionSync.test.ts",
+        "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/helpers.ts",
+        "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/package.json"
+      ]
     },
     {
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "id": "P3",
-      "name": "An honest ledger: strike closed/stale carry-forwards, correct the backwards probeHarness rationale, roadmap Executed-in rows",
-      "status": "pending"
+      "name": "An honest ledger: strike closed/stale carry-forwards, correct the backwards probeHarness rationale, fix roadmap rows advertising shipped slots as blocked",
+      "status": "completed",
+      "checkpoint_commit": "37911c2",
+      "check_completed": true,
+      "check_method": "Every strike verified ON DISK before removal, never from a document: stink tower (stinkTower.ts exists and is wired in defender.ts), npm test (package.json test is already 'vitest run' with a separate test:watch), the bank (CASTLE_BANK_CAP + world.castleBanks + serializeCastleBanks), the order queue (GATHERER_ORDER_QUEUE_MAX=24 + world.gathererOrders + ENQUEUE_/CANCEL_GATHERER_ORDER intents). carry_forward 15 -> 14: 4 struck, 3 NEW entries ADDED rather than silently dropped (the red gating lane, the deferred P1 remainder, the deliberate-omission sweep residual). Corrected the BACKLOG probeHarness note, which described the hazard BACKWARDS - it said 'becomes refuse-by-default' (benign) when the param actually goes ABSENT, the guard goes FALSE, and the harness ARMS WHILE THE WORKER IS ACTIVE. Corrected V6-1.3 and V6-1.4, which both read '-/BLOCKED' while live in production, and V6-1.4's description was wrong in KIND (it specified a filter, the exact mechanic owner ruling B4 forbids in bold). Re-verified the S141 voltkinFrames correction is intact rather than assuming it.",
+      "verification": [
+        "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
+        "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.claude/session-state.json"
+      ]
     }
   ],
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    "#a0-killed-the-headline-priority-and-that-was-the-win - the flip was LOCKED, 13 sessions overdue and playtest-passed; measuring first proved it unsafe. A.0 pays most exactly when the priority looks settled.",
+    "#both-seats-proposed-a-broken-fix-again-third-session-running - Grok a provable no-op, Gemini an anti-cheat regression, and the constraint refuting Gemini was IN THE DOCBLOCK BOTH WERE READING. Price the diagnosis and the prescription apart, every time.",
+    "#a-reviewer-asserted-it-had-searched-and-had-not - Grok stated no comment treated those fields as ephemeral; the comment was in the interface it was reasoning about. It also named 12 symbols, 0 of which exist. Grep-verify every cited symbol before triage.",
+    "#i-had-to-refute-my-own-pdr - I claimed hash-oracle divergence; the runtime oracle cannot see spawners at all. PRIME-AUDIT your own severity claims, not only the reviewers'.",
+    "#the-owner-was-doing-a-chore-ci-already-performed - 'CI cannot verify a protocol bump' was false for an unknown number of sessions; both tests pass in CI in 5.6s. Before writing a manual step into a handoff, check whether something already covers it.",
+    "#fully-red-was-half-green-in-both-environments - the quarantine lane was ~50% passing locally AND in CI. A remembered failure string had become a settled fact nobody re-measured.",
+    "#the-instrument-was-hiding-its-own-diagnosis - waitForWorld swallowed every poll error, so a dead page and a slow one produced identical messages. Two competing causal stories survived in-repo for sessions because of one bare catch.",
+    "#the-gating-lane-was-red-on-clean-master-and-nothing-reported-it - e2e.yml has no push trigger. Dispatch it at boot; green-on-your-last-PR is not evidence that master is green now.",
+    "#the-generalised-method-found-a-second-bug-the-specific-fix-would-have-missed - comparing mutable fields against serializer output found a 65-session-old debuff hole. Fix the class, not the instance.",
+    "#cap-the-fan-out-third-consecutive-session - 7 agents died on the spend limit with ZERO recoverable results; 3 tight probes landed 3/3. Read the highest-risk area by hand FIRST."
+  ],
   "totals": {
     "budget_remaining": 1000000
   },
   "budget_total": 1000000,
-  "e2e_gating_status": "36/36 exit 0 (was 34; +2 new runtime specs for the tower render and the queue UI)",
+  "e2e_gating_status": "36/36 local (re-run confirmed; one bomb-spec flake on the first run did not reproduce)",
   "closed": false,
   "a0_deviation": "The A.0 sweep's adversarial re-check stage (24 independent re-verifications of every non-CONFIRMED verdict) and its synthesis agent ALL failed on an individual spend limit after the 10 probes completed. Probe payloads were recovered from journal.jsonl and triaged by Claude directly. STATED AS A DEVIATION, NOT PRESENTED AS COMPLIANCE: single-probe findings carry ONE source. The two highest-consequence findings (damageEntity dead code; CI red) were personally re-verified by Claude with direct greps and gh calls before being reported.",
   "ci_finding": "e2e.yml newest run 31366201100 = FAILURE, all 3 lanes, headSha 33 commits behind HEAD, predates two gating fixes. No push trigger exists so nothing re-runs it. Fresh workflow_dispatch on current HEAD = run 31509968212, result pending. deploy.yml is 3/3 success. gh issue list = empty.",
@@ -178,9 +214,9 @@
     "runtime_verifiability_boot_then_smoke": "THE decisive question for this session, given the headline A.0 finding was a whole subsystem that static-parsed perfectly and was never called. Static parsing is NOT validation here. Mandatory runtime gates before any priority is marked complete: (1) a REAL-PHYSICS acceptance test that runs the actual physics loop and asserts the goblin closes distance and the target primitive's hp actually decreases - a state-only assertion is not evidence (S136); (2) PHYSICS_DT imported from physicsLoop.ts, never re-derived, because constants.ts does not export it and a test once silently ran on NaN (S138); (3) an explicit assertion that damageEntity now HAS production call sites, i.e. the exact grep that exposed the dead substrate becomes a permanent test; (4) LOOK AT THE RENDER - a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches, and no state assertion can see 'nothing was drawn'.",
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
-  "real_context_tokens_at_close": 615589,
-  "real_context_pct_at_close": 61.56,
-  "checkpoint_commit": "bb96595",
+  "real_context_tokens_at_close": 379632,
+  "real_context_pct_at_close": 38.0,
+  "checkpoint_commit": "b40d7f2",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
