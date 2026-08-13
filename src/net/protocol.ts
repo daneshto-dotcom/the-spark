@@ -522,6 +522,9 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   SET_GATHERER_PREFERENCE: true,
   // S136 P1 (V6-1.3) — PULL_FROM_BANK is also a CLIENT INTENT (see below).
   PULL_FROM_BANK: true,
+  // S141 P2 (V6-1.4) — the gatherer ORDER QUEUE. Both are also CLIENT INTENTs (see below).
+  ENQUEUE_GATHERER_ORDER: true,
+  CANCEL_GATHERER_ORDER: true,
   SPAWN_SPARK: true,
   DESPAWN_SPARK: true,
   PICKUP_SPARK: true,
@@ -671,6 +674,14 @@ const CLIENT_INTENT_TYPES_RECORD = {
   // against its own authoritative bank, so a client acting on a stale index simply no-ops rather
   // than taking the wrong shape; nothing about the client's view of the bank is trusted.
   PULL_FROM_BANK: true,
+  // S141 P2 (V6-1.4) — a joiner queues and cancels orders for THEIR OWN gatherers. Ownership is
+  // enforced in the reducer against the action's own playerId, and both reducers are NO-OP-never-throw
+  // (the applyPullFromBank shape, NOT placePrimitive's throw-on-guard), so a stale client view costs
+  // nothing. ⚠ A row omitted HERE compiles clean and passes every test, then the host SILENTLY DROPS
+  // the intent for a networked joiner while the host seat's own works — the classic seat-asymmetry
+  // desync. The one real cross-check is benchGate.test.ts's set-equality against BENCH_INTENT_POLICY.
+  ENQUEUE_GATHERER_ORDER: true,
+  CANCEL_GATHERER_ORDER: true,
 } as const satisfies Partial<Record<GameAction['type'], true>>;
 
 export const CLIENT_INTENT_TYPES: ReadonlySet<string> = new Set(

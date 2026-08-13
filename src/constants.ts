@@ -406,6 +406,17 @@ export const GATHERER_REACH = 22;
 export const GATHERER_DEPOSIT_OFFSET_Y = 74;
 
 /**
+ * S141 P2 (V6-1.4) — how many entries one player's gatherer ORDER QUEUE may hold.
+ *
+ * A bound is REQUIRED, not defensive nicety: the queue is SERIALIZED AND HASHED, so an unbounded
+ * array is an unbounded wire payload and an unbounded hash input that a player can grow by holding a
+ * mouse button down. Hitting the cap is a silent no-op, the same shape as a full porch refusing a
+ * pull. 24 is far past any real queue (the largest recipe is 9 shapes) and small enough that a stuck
+ * button cannot affect the match.
+ */
+export const GATHERER_ORDER_QUEUE_MAX = 24;
+
+/**
  * S140 P1 — CASTLE BANK CAPACITY: **7 slots** (owner ruling, 2026-08-12). Was 5 (S136 P1, B4b).
  *
  * ⭐ THE PAIRING IS THE POINT — NEVER TUNE THIS NUMBER APART FROM THE TABLE BELOW. (Standing S128

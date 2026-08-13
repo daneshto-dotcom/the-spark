@@ -81,6 +81,14 @@ export const BENCH_INTENT_POLICY = {
   // would let an eaten player stage shapes on the porch and place them the instant the bench lifts,
   // converting the punish window into free setup time. The shape is not lost — it stays banked.
   PULL_FROM_BANK: 'deny',
+  // S141 P2 (V6-1.4) — queueing an order is the same class as SET_GATHERER_PREFERENCE, not the same
+  // class as BUY_GATHERER: it acquires nothing, spends nothing, and moves nothing. It is a standing
+  // instruction to units the player already paid for, so it is ALLOWED while benched — the bench
+  // exists to stop you ACQUIRING and BUILDING during the punish window, not to make you forget what
+  // you wanted. The shapes it causes to be hauled still land in a bank the benched player cannot
+  // PULL_FROM (denied above), so no build is enabled by this.
+  ENQUEUE_GATHERER_ORDER: 'allow',
+  CANCEL_GATHERER_ORDER: 'allow',
 } as const satisfies Partial<Record<GameAction['type'], BenchPolicy>>;
 
 /**

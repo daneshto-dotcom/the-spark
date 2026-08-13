@@ -19,6 +19,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  ALL_SPARK_TYPES,
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   CASTLE_BANK_CAP,
@@ -38,7 +39,17 @@ import {
   bankSlotsPerRowSpread,
   bankStripHeight,
   castleControlsModel,
+  CHIP_H,
+  CHIP_W,
+  chipOrigin,
+  MAX_CHIPS,
+  PALETTE_BTN,
+  PALETTE_TYPES,
+  paletteOrigin,
+  paletteStripHeight,
+  queueStripHeight,
   PANEL_W,
+  panelHeight,
   panelOrigin,
   panelRect,
   ROW_FONT_ADVANCE,
@@ -416,5 +427,65 @@ describe('S140 P1 — bank strip geometry, swept across caps', () => {
     for (let i = 0; i < 5; i++) {
       expect(slotOrigin(i, 5)).toEqual({ x: 22 + i * 46, y: 36 });
     }
+  });
+});
+
+/* ========================================================================== *
+ *   S141 P2 (V6-1.4) — the order-queue strips
+ * ========================================================================== */
+
+/** TITLE_H is module-private in castlePanel.ts; mirrored here so the layout maths is assertable. */
+const TITLE_H_PROBE = 26;
+
+describe('S141 P2 — the palette + queue strips fit the plate at every count', () => {
+  it('the panel still fits the canvas with both new strips added', () => {
+    // panelHeight feeds panelOrigin's clamp, so a strip added to the panel WITHOUT being added to
+    // panelHeight would silently push the plate off-screen for keeps on the lower arc of the ring.
+    const h = panelHeight(2);
+    expect(h).toBeGreaterThan(0);
+    expect(h).toBeLessThan(CANVAS_HEIGHT - 16);
+    // and it is genuinely taller than before the strips existed
+    expect(h).toBeGreaterThan(TITLE_H_PROBE + bankStripHeight());
+  });
+
+  it('every palette button sits INSIDE the plate horizontally', () => {
+    for (let i = 0; i < PALETTE_TYPES.length; i++) {
+      const o = paletteOrigin(i);
+      expect(o.x, `palette ${i} left`).toBeGreaterThanOrEqual(0);
+      expect(o.x + PALETTE_BTN, `palette ${i} right`).toBeLessThanOrEqual(PANEL_W);
+    }
+  });
+
+  it('the palette holds one button per primitive type, in enum order', () => {
+    expect(PALETTE_TYPES.length).toBe(6);
+    expect([...PALETTE_TYPES]).toEqual([...ALL_SPARK_TYPES]);
+  });
+
+  it('every chip sits INSIDE the plate, at every chip count 1..MAX_CHIPS', () => {
+    for (let n = 1; n <= MAX_CHIPS; n++) {
+      for (let i = 0; i < n; i++) {
+        const o = chipOrigin(i, n);
+        expect(o.x, `chip ${i}/${n} left`).toBeGreaterThanOrEqual(0);
+        expect(o.x + CHIP_W, `chip ${i}/${n} right`).toBeLessThanOrEqual(PANEL_W);
+      }
+    }
+  });
+
+  it('each strip sits BELOW the one above it — no overlap', () => {
+    const bankBottom = bankStripHeight();
+    const paletteTop = paletteOrigin(0).y;
+    const chipTop = chipOrigin(0, 1).y;
+    expect(paletteTop).toBeGreaterThanOrEqual(bankBottom);
+    expect(chipTop).toBeGreaterThanOrEqual(paletteTop + PALETTE_BTN);
+  });
+
+  it('the control rows sit below BOTH new strips (they were pushed down, not overlapped)', () => {
+    const rows = castleControlsModel(makeWorld(0));
+    expect(rows.length).toBe(2);
+    // The chip strip's bottom must clear the top of the first control row.
+    const chipBottom = chipOrigin(0, 1).y + CHIP_H;
+    const firstRowTop = 10 /* PANEL_PAD */ + TITLE_H_PROBE + bankStripHeight()
+      + paletteStripHeight() + queueStripHeight();
+    expect(firstRowTop).toBeGreaterThanOrEqual(chipBottom);
   });
 });

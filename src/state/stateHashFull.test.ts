@@ -320,6 +320,8 @@ describe('FIELD_COVERAGE — the forcing function', () => {
         createdTick: 1,
       }),
     ]);
+    // S141 P2 — a queued order, so the new family contributes a part here too.
+    w.gathererOrders.set(P0, [SparkType.Square, SparkType.Circle, SparkType.Square]);
     w.fouledPrimitives.add(asPrimitiveId(3));
     w.discoveredCombos.add('0->1');
     w.godlyFiredThisMatch.add('voltkin');
@@ -335,6 +337,7 @@ describe('FIELD_COVERAGE — the forcing function', () => {
       ['defenders', /^d\d+:/],
       ['gatherers', /^ga\d+:/],
       ['castleBanks', /^cb\d+:/],
+      ['gathererOrders', /^go\d+:/],
       ['bombs', /^bo\d+:/],
       ['hunters', /^h\d+:/],
       ['potatoes', /^po\d+:/],

@@ -1,18 +1,29 @@
 /**
- * SPARK — V6-1.1 gatherer lifecycle reducers.
+ * SPARK — gatherer lifecycle reducers (V6-1.1 → V6-1.4).
  *
- * Mirrors the creature/hunter/defender lifecycle shape: pure case-body helpers consumed by
- * world.ts dispatch. ONE action in V6-1.1:
- *   BUY_GATHERER — a CLIENT INTENT. Spends GATHERER_PRICE victory points from the buyer's own
- *                  scoreByPlayer (ONE POOL — spending sets you back) and mints one gatherer at
- *                  the buyer's keep. Host-authoritative: a joiner's intent routes here on the host.
+ * ⚠ S141 P2 — THIS HEADER WAS WRONG IN TWO WAYS AND IS CORRECTED HERE. It said "ONE action in
+ * V6-1.1" while the module declared five, and it said "the gatherer is static … parked at the keep"
+ * fifty lines above a full three-state haul FSM. Both statements had been false since V6-1.2. A
+ * reader scoping a change from this header would have concluded the file was a stub.
  *
- * The gatherer is static in V6-1.1 (parked at the keep, cosmetically shapeshifting via a
- * renderer-only pure fn of (tick, gathererId)). Roaming/hauling + the bank are later slots.
+ * Mirrors the creature/hunter/defender lifecycle shape: pure case-body helpers consumed by world.ts
+ * dispatch. SEVEN actions today:
+ *   BUY_GATHERER            — CLIENT INTENT. Spends GATHERER_PRICE victory points from the buyer's own
+ *                             scoreByPlayer (ONE POOL — spending sets you back) and mints one unit.
+ *   UPGRADE_GATHERER_SPEED  — CLIENT INTENT. Steps every unit the player owns (no unit-selection UI).
+ *   SET_GATHERER_PREFERENCE — CLIENT INTENT. The V6-1.2 per-unit type filter. ⚠ Superseded in
+ *                             precedence by the order queue below; retained as its fallback.
+ *   PULL_FROM_BANK          — CLIENT INTENT. Moves one stored shape onto the porch to build with.
+ *   ENQUEUE/CANCEL_GATHERER_ORDER — CLIENT INTENTs. The V6-1.4 ordered build queue (owner ruling B4).
+ *   GATHERER_TICK           — host-internal. The SEEKING → HAULING → WAITING haul FSM.
+ *
+ * Host-authoritative throughout: a joiner's intent routes here on the host, and no reducer trusts the
+ * client's view of price, ownership, bank contents or queue contents.
  */
 
 import {
   GATHERER_DEPOSIT_OFFSET_Y,
+  GATHERER_ORDER_QUEUE_MAX,
   GATHERER_MAX_SPEED_LEVEL,
   GATHERER_PRICE,
   GATHERER_REACH,
@@ -47,6 +58,27 @@ export interface SetGathererPreferenceAction {
   readonly gathererId: GathererId;
   readonly preferredType: SparkType | null;
 }
+/**
+ * S141 P2 (V6-1.4) — append ONE primitive type to the player's order queue. Owner ruling B4:
+ * "click a shape N times ⇒ N queued". N clicks are N dispatches; the panel COALESCES them into one
+ * `×N` chip for display, but the queue itself stays a flat ordered list because that is what makes
+ * "leftmost is next" true without a second concept.
+ */
+export interface EnqueueGathererOrderAction {
+  readonly type: 'ENQUEUE_GATHERER_ORDER';
+  readonly playerId: PlayerId;
+  readonly sparkType: SparkType;
+}
+/**
+ * S141 P2 — remove ONE queued entry of `sparkType` (the LAST one, so cancelling undoes the most
+ * recent click — the RTS convention, and the only one that makes repeated click/cancel symmetric).
+ */
+export interface CancelGathererOrderAction {
+  readonly type: 'CANCEL_GATHERER_ORDER';
+  readonly playerId: PlayerId;
+  readonly sparkType: SparkType;
+}
+
 /**
  * S136 P1 (V6-1.3) — pull one stored shape out of the castle onto the porch, so the player can
  * build with it. Owner item 5: "you can either pull them and build them one by one".
@@ -128,6 +160,10 @@ export function applyUpgradeGathererSpeed(world: World, action: UpgradeGathererS
  */
 function depositIntoCastle(world: World, seat: PlayerId, carried: Spark): boolean {
   if (!bankPush(world.castleBanks, seat, carried)) return false;
+  // S141 P2 — a DELIVERY consumes one matching order (owner ruling B4: "each delivery POPS one").
+  // Deliberately AFTER the cap check: a gatherer turned away by a full bank has not delivered
+  // anything, so it must not eat an order it will still have to fulfil.
+  consumeGathererOrder(world, seat, carried.type);
   world.freeSparks.delete(carried.id);
   // Held, not hauled: the escrow marker described a spark in transit and would otherwise make a
   // banked shape look mid-haul to anything that inspects the bank.
@@ -213,6 +249,94 @@ export function applySetGathererPreference(world: World, action: SetGathererPref
   return world;
 }
 
+/**
+ * S141 P2 — the ORDER QUEUE reducers. Both follow `applyPullFromBank`'s NO-OP-NEVER-AN-ERROR shape,
+ * NOT `placePrimitive`'s throw-on-guard: `placePrimitive` is the only reducer family that throws, and
+ * a stale client index reaching a throwing reducer would kill the host's dispatch loop.
+ */
+export function applyEnqueueGathererOrder(world: World, action: EnqueueGathererOrderAction): World {
+  if (world.players.get(action.playerId) === undefined) return world;
+  const q = world.gathererOrders.get(action.playerId);
+  if (q === undefined) {
+    world.gathererOrders.set(action.playerId, [action.sparkType]);
+    return world;
+  }
+  // ⚠ BOUNDED. Without a cap a player can hold the mouse down and grow an unbounded array that is
+  // SERIALIZED AND HASHED — i.e. a self-inflicted wire and hash cost with no gameplay meaning. The
+  // cap is generous enough that no real queue reaches it and small enough that a stuck button cannot
+  // hurt the match. Hitting it is a silent no-op, exactly like a full porch refusing a pull.
+  if (q.length >= GATHERER_ORDER_QUEUE_MAX) return world;
+  q.push(action.sparkType);
+  return world;
+}
+
+export function applyCancelGathererOrder(world: World, action: CancelGathererOrderAction): World {
+  const q = world.gathererOrders.get(action.playerId);
+  if (q === undefined) return world;
+  // LAST matching entry, so click-then-cancel is symmetric.
+  for (let i = q.length - 1; i >= 0; i--) {
+    if (q[i] === action.sparkType) {
+      q.splice(i, 1);
+      break;
+    }
+  }
+  // Drop the empty array rather than leaving it: an empty queue and no queue must be the SAME state,
+  // or two functionally identical worlds would hash differently.
+  if (q.length === 0) world.gathererOrders.delete(action.playerId);
+  return world;
+}
+
+/**
+ * PURE — the order this gatherer should be working on, or null when the queue cannot supply one.
+ *
+ * ⭐ THE RANK IS TAKEN OVER **ALL** OF THE OWNER'S GATHERERS, NOT THE SEEKING SUBSET, AND THAT IS A
+ * COUNCIL FIX. Both external seats independently rejected the first design, which ranked over the
+ * currently-SEEKING units: that set changes every time ANY of the player's gatherers claims a spark
+ * or deposits, so a unit that was rank 0 becomes rank 1 next tick, retargets, and can thrash
+ * indefinitely without ever completing a haul. Ranking over the full owned set — a set that only
+ * changes when a gatherer is bought — makes each unit's slot STABLE for the life of the match.
+ *
+ * (Both seats also missed that `pickGathererTarget` is only called when the current target has become
+ * invalid, so mid-walk thrash was already bounded. The stable rank is still strictly better, and it
+ * is free.)
+ *
+ * Parallelism is the point: three gatherers against [Square, Square, Triangle] fetch all three at
+ * once, which is the RTS feel the ruling describes. A gatherer whose rank exceeds the queue length
+ * gets null and falls through to nearest-of-any-type, so extra units are never idled by a short queue.
+ */
+export function orderForGatherer(world: World, g: Gatherer): SparkType | null {
+  const q = world.gathererOrders.get(g.ownerPlayerId);
+  if (q === undefined || q.length === 0) return null;
+  let rank = 0;
+  for (const other of world.gatherers.values()) {
+    if (other.ownerPlayerId !== g.ownerPlayerId) continue;
+    // Deterministic: ids are unique and totally ordered, so this is the same on host, worker and replay.
+    if ((other.id as unknown as number) < (g.id as unknown as number)) rank++;
+  }
+  return rank < q.length ? q[rank] : null;
+}
+
+/**
+ * S141 P2 — CONSUME one order on DELIVERY. Owner ruling: "each delivery POPS one".
+ *
+ * Pops the FIRST entry matching the delivered type. A delivery that matches nothing pops nothing —
+ * that was an opportunistic nearest-fetch (the empty-queue or rank-overflow fall-through), and it did
+ * not fulfil an order.
+ *
+ * ⚠ ON DEPOSIT, NOT ON CLAIM, and the difference is real: popping at claim time would consume an
+ * order for cargo that can still be lost mid-haul (the carrier can be despawned, the shape reaped),
+ * leaving the player's queue silently shorter than the work actually done.
+ */
+export function consumeGathererOrder(world: World, seat: PlayerId, delivered: SparkType): boolean {
+  const q = world.gathererOrders.get(seat);
+  if (q === undefined) return false;
+  const i = q.indexOf(delivered);
+  if (i === -1) return false;
+  q.splice(i, 1);
+  if (q.length === 0) world.gathererOrders.delete(seat);
+  return true;
+}
+
 /** Squared distance — the per-tick target scan is sqrt-free. */
 const distSq = (a: Vec2, b: Vec2): number => {
   const dx = a.x - b.x;
@@ -229,19 +353,30 @@ function isHarvestable(s: Spark): boolean {
 }
 
 /**
- * Choose what to fetch: the NEAREST harvestable spark of the gatherer's preferred type, falling back
- * to the nearest of ANY type when the preference is unset or currently unavailable. That fall-back is
- * the owner's B4 ruling made concrete — the filter is a PRIORITY OVERRIDE, never an on/off switch, so
- * an unattended player keeps earning. Deterministic: pure distance math with a lowest-id tie-break
- * (never RNG), so host, worker and replay all pick the same spark.
+ * Choose what to fetch: the NEAREST harvestable spark of the WANTED type, falling back to the nearest
+ * of ANY type when nothing is wanted or none is available. That fall-back is the owner's B4 ruling
+ * made concrete — a want is a PRIORITY OVERRIDE, never an on/off switch, so an unattended player keeps
+ * earning. Deterministic: pure distance math with a lowest-id tie-break (never RNG), so host, worker
+ * and replay all pick the same spark.
+ *
+ * S141 P2 — WHAT "WANTED" MEANS, AND THE PRECEDENCE THAT RESOLVES A CONTRADICTION IN THE RECORD.
+ * Two mechanics now exist for the same job and the owner ruled against one of them:
+ *   1. `world.gathererOrders` — the per-player ORDERED QUEUE (owner ruling B4). WINS.
+ *   2. `Gatherer.preferredType` — a per-unit standing FILTER shipped in V6-1.2, which is precisely the
+ *      "predicate/filter" B4 forbids in bold.
+ * The queue takes precedence and the filter survives only as the fallback when the queue has nothing
+ * for this unit. The filter is RETAINED rather than deleted because B6 ruled the phase additive-only
+ * and it is a serialized + hashed field — removing it is a wire change with no gameplay upside, and
+ * keeping it means the whole priority reverts in one line if the owner dislikes the queue.
  */
 export function pickGathererTarget(world: World, g: Gatherer): SparkId | null {
   let best: SparkId | null = null;
   let bestD = Infinity;
   let bestPreferred = false;
+  const wanted = orderForGatherer(world, g) ?? g.preferredType;
   for (const s of world.freeSparks.values()) {
     if (!isHarvestable(s)) continue;
-    const preferred = g.preferredType !== null && s.type === g.preferredType;
+    const preferred = wanted !== null && s.type === wanted;
     const d = distSq(s.pos, g.pos);
     // A preferred-type spark always beats a non-preferred one, regardless of distance.
     const better =
@@ -309,7 +444,11 @@ export function applyGathererTick(world: World, action: GathererTickAction): Wor
     if (arrived) {
       // S136 P1 (V6-1.3) — DEPOSIT INTO THE CASTLE, not onto the ground beside it.
       //
-      // The shape's TYPE is stored in the owner's bank and the spark entity is DESTROYED. This is
+      // ⚠ S141 P2 CORRECTION: this used to say "the shape's TYPE is stored and the spark entity is
+      // DESTROYED". Both halves are false and always were — `bankPush` stores the WHOLE live Spark
+      // and `depositIntoCastle` merely removes it from `freeSparks`. The distinction matters: the
+      // pull path depends on the SAME entity coming back out with its original id, which is exactly
+      // why the bank holds entities rather than types (see castleBank.ts). This is
       // owner playtest item 4 ("he should just store them within the castle and not outside"), and
       // it is what structurally deletes items 3's two defects: V6-1.2 parked the shape as a real
       // physics entity at a count-derived slot, which co-located shapes whenever the player took one
@@ -378,8 +517,10 @@ export function applyGathererTick(world: World, action: GathererTickAction): Wor
  * S136 P1 — `depositSlot` and `isNearKeep` ARE DELETED, not fixed.
  *
  * They existed to place a banked shape in world space. Nothing is placed in world space any more:
- * a deposit writes a TYPE into `world.castleBanks` and destroys the spark (see the DEPOSIT branch
- * above and the castleBank.ts docblock). The count-based slot arithmetic that produced the owner's
+ * a deposit LIFTS THE WHOLE SPARK out of `world.freeSparks` and holds it in `world.castleBanks`
+ * (see the DEPOSIT branch above and the castleBank.ts docblock). ⚠ S141 P2 — this sentence used to
+ * say a deposit "writes a TYPE … and destroys the spark", which is false in both halves; the entity
+ * survives, which is what lets a pull return the same id. The count-based slot arithmetic that produced the owner's
  * stacking report has no replacement here BY DESIGN — its corrected form lives in
  * `firstFreePorchSlot`, which asks whether a spot is actually clear instead of deriving an index
  * from an occupancy total, and it governs the PULL path where exactly one shape appears at a time.
@@ -399,4 +540,7 @@ export function teardownGatherers(world: World): void {
   // castleBank.test.ts caught the omission via RETURN_TO_TITLE — which is the whole reason to assert
   // teardown through a real dispatched action rather than by calling this helper directly.
   world.castleBanks.clear();
+  // S141 P2 — the order queues tear down with the units they instruct. A queue that outlived its
+  // gatherers would be a standing instruction to nobody, and would leak across matches.
+  world.gathererOrders.clear();
 }

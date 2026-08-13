@@ -10,6 +10,7 @@
  * no cycle: worldTypes -> leaf domain types only.
  */
 
+import type { SparkType } from '../constants.ts';
 import type { GameEffect } from '../game/effects.ts';
 import type { Player } from '../game/player.ts';
 import type { Primitive } from '../game/primitive.ts';
@@ -179,6 +180,32 @@ export interface World {
    * FIELD_COVERAGE and folded into workerSim's structuralSignature. Cleared on teardown.
    */
   castleBanks: Map<PlayerId, CastleBank>;
+  /**
+   * S141 P2 (V6-1.4) — THE GATHERER ORDER QUEUE. Owner ruling B4, ruled in full in S134 and never
+   * built until now.
+   *
+   * An ORDERED, CONSUMED production queue of PRIMITIVE TYPES, in the Red Alert / C&C idiom the owner
+   * named directly: *"there should be a queue that you just select what the gatherer should target
+   * next … you're not selecting whole recipes but clicking one by one on the shapes (primitives) that
+   * they collect in a queue. like in red alert you click on a type of a soldier like x8 times, it
+   * will be built 8 times."*
+   *
+   * ⛔ IT IS NOT A FILTER, AND THE RULING SAYS SO IN BOLD. A filter is a standing rule ("always prefer
+   * squares"); this is a list that is consumed. The distinction is load-bearing — the first recording
+   * of B4 said "exact type filters" and the owner corrected it. Note that a per-gatherer filter
+   * (`Gatherer.preferredType`) DID ship in V6-1.2 and is exactly the mechanic the ruling forbids; it
+   * is retained as a FALLBACK rather than deleted (B6 additive-only), and the queue takes precedence.
+   *
+   * ONE QUEUE PER PLAYER, shared by every gatherer that player owns — not per-unit, because Phase 1
+   * deliberately has no unit-selection UI. Leftmost is next; each DELIVERY of a matching type pops one.
+   * An EMPTY queue falls through to nearest-of-any-type, so it is a PRIORITY OVERRIDE and never an
+   * on/off switch: an unattended player keeps earning.
+   *
+   * Host-authoritative and SERIALIZED (additive-optional, so a pre-S141 save loads with no queues);
+   * registered in stateHashFull FIELD_COVERAGE. Cleared on teardown with the rest of the gatherer
+   * economy — a queue is an instruction to units that no longer exist.
+   */
+  gathererOrders: Map<PlayerId, SparkType[]>;
   /**
    * S28 P0 — tick-deterministic pending-spawn schedule (Council Q2 UNANIMOUS A
    * single-slot). Replaces S25's wall-clock `setTimeout(handoff, cinematicMs)`

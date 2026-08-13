@@ -164,6 +164,17 @@ export interface WorldSnapshot {
    */
   castleBanks?: Array<{ seat: PlayerId; shapes: SerializedSpark[] }>;
   /**
+   * S141 P2 (V6-1.4) — the per-player gatherer ORDER QUEUE. Additive-optional: emitted only for seats
+   * with a non-empty queue, so a pre-S141 world round-trips byte-identically and an idle match pays
+   * nothing.
+   *
+   * MUST round-trip for the same reason `castleBanks` does. A queue is host-authoritative input to
+   * `pickGathererTarget`, so a successor that inherited a world without it would silently re-point
+   * every one of that player's gatherers to "nearest, any type" — the player's standing instructions
+   * would evaporate at a host migration with no entity left behind to notice.
+   */
+  gathererOrders?: Array<{ seat: PlayerId; types: SparkType[] }>;
+  /**
    * S72 P2 — once-per-game hunter-spawned guard. Additive-optional; emitted only
    * when true so a host save/load mid-game does not re-spawn a second hunter on
    * reload. Pre-S72 saves omit it → rehydrates false.
@@ -762,6 +773,7 @@ export function snapshot(
       : undefined,
     // S136 P1 (V6-1.3) — the castle banks (omitted entirely when every bank is empty).
     castleBanks: serializeCastleBanks(world),
+    gathererOrders: serializeGathererOrders(world),
     // S72 P2 — emit the once-per-game guard only when true (byte-identical pre-S72).
     hunterSpawned: world.hunterSpawned ? true : undefined,
     // S72 P3 — emit potatoes only when present (byte-identical pre-S72-P3).
@@ -1240,9 +1252,17 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   // is the only path that restores them; a missing field means "no banks" (a pre-S136 save), never
   // "leave whatever was there" — otherwise a promoted successor inherits stale banks.
   world.castleBanks.clear();
+  world.gathererOrders.clear(); // S141 P2 — the order queues tear down with the gatherer economy
   if (snap.castleBanks !== undefined) {
     for (const entry of snap.castleBanks) {
       world.castleBanks.set(entry.seat, entry.shapes.map(deserializeSpark));
+    }
+  }
+  // S141 P2 — same contract as the banks above: the clear() already ran, so a MISSING field means
+  // "no queues" (a pre-S141 save), never "leave whatever was there".
+  if (snap.gathererOrders !== undefined) {
+    for (const entry of snap.gathererOrders) {
+      if (entry.types.length > 0) world.gathererOrders.set(entry.seat, [...entry.types]);
     }
   }
 
@@ -1366,6 +1386,21 @@ function serializeCastleBanks(
   for (const [seat, bank] of world.castleBanks) {
     if (bank.length === 0) continue;
     out.push({ seat, shapes: bank.map(serializeSpark) });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+/**
+ * S141 P2 — emit only non-empty queues; undefined when no seat has one, so a pre-S141 world
+ * round-trips byte-identically. Order within a queue is significant and preserved as-is.
+ */
+function serializeGathererOrders(
+  world: World,
+): Array<{ seat: PlayerId; types: SparkType[] }> | undefined {
+  const out: Array<{ seat: PlayerId; types: SparkType[] }> = [];
+  for (const [seat, q] of world.gathererOrders) {
+    if (q.length === 0) continue;
+    out.push({ seat, types: [...q] }); // copy — never alias live world state into a snapshot
   }
   return out.length > 0 ? out : undefined;
 }

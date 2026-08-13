@@ -155,6 +155,10 @@ import {
   type GathererTickAction,
   type PullFromBankAction,
   type SetGathererPreferenceAction,
+  applyCancelGathererOrder,
+  applyEnqueueGathererOrder,
+  type CancelGathererOrderAction,
+  type EnqueueGathererOrderAction,
   type UpgradeGathererSpeedAction,
 } from './gatherers/gathererLifecycle.ts';
 
@@ -309,6 +313,8 @@ export type GameAction =
   | GathererTickAction
   | UpgradeGathererSpeedAction
   | SetGathererPreferenceAction
+  | EnqueueGathererOrderAction
+  | CancelGathererOrderAction
   // S136 P1 (V6-1.3) — PULL_FROM_BANK takes one stored shape out of the castle onto the porch. A
   // CLIENT INTENT (a joiner builds from their own bank); ownership is the action's own playerId and
   // the host applies it authoritatively against ITS bank, so a stale client index simply no-ops.
@@ -350,6 +356,7 @@ export function makeWorld(rngSeed: number): World {
     gatherers: new Map(),
     // S136 P1 (V6-1.3) — per-seat castle bank; seats are populated lazily on first deposit.
     castleBanks: new Map(),
+    gathererOrders: new Map(), // S141 P2 (V6-1.4) — the per-player ordered build queue
     nextGathererId: 0,
     pendingCreatureSpawn: null,
     bombs: new Map(),
@@ -668,6 +675,15 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'SET_GATHERER_PREFERENCE':
       return applySetGathererPreference(world, action);
+
+    // S141 P2 (V6-1.4) — the gatherer ORDER QUEUE (owner ruling B4). Both are CLIENT INTENTs and both
+    // are NO-OP-never-throw, so a joiner acting on a stale view of its own queue simply changes
+    // nothing rather than killing the host's dispatch loop.
+    case 'ENQUEUE_GATHERER_ORDER':
+      return applyEnqueueGathererOrder(world, action);
+
+    case 'CANCEL_GATHERER_ORDER':
+      return applyCancelGathererOrder(world, action);
 
     // S93 — NONET solve submission (host-authoritative; first valid grid wins). On the host this
     // applies the ×2/÷2; on a client this case never runs (clients send it as an INTENT, the host

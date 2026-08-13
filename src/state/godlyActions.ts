@@ -85,5 +85,6 @@ export function applyGodlyAbort(world: World): World {
   world.nextGathererId = 0;
   // S136 P1 — and the castle banks, on the same inline rationale as the line above.
   world.castleBanks.clear();
+  world.gathererOrders.clear(); // S141 P2 — the order queues tear down with the gatherer economy
   return world;
 }

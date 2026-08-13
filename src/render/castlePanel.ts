@@ -34,9 +34,11 @@
 
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import {
+  ALL_SPARK_TYPES,
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   CASTLE_BANK_CAP,
+  SparkType,
   GATHERER_MAX_SPEED_LEVEL,
   GATHERER_PRICE,
   GATHERER_SPEED_UPGRADE_PRICE,
@@ -122,6 +124,93 @@ export function bankSlotsPerRowSpread(cap: number = CASTLE_BANK_CAP): number {
 export function bankStripHeight(cap: number = CASTLE_BANK_CAP): number {
   const rows = bankRowCount(cap);
   return rows * SLOT_H + (rows - 1) * SLOT_GAP + STRIP_PAD_BOTTOM;
+}
+
+/* ========================================================================== *
+ *   S141 P2 (V6-1.4) — THE GATHERER ORDER QUEUE strip (owner ruling B4)
+ * ========================================================================== */
+
+/**
+ * ⚠ WHY THIS LIVES IN THE PANEL AND NOT IN A FOOTER — two owner rulings conflict, and the LATER one
+ * wins. B4 (S134) specifies *"A FOOTER BAR along the bottom of the screen"* holding the shape buttons
+ * and the queue. But S136 P0 — a later playtest ruling — deleted the footer outright: *"that footer
+ * with those options should be clickable once you click on the castle and not always there. because
+ * eventually different towers and stuff will have different upgrades and they will pop up when you
+ * click on them."* Building B4's footer verbatim would re-introduce the exact surface the owner asked
+ * to have removed, plus the 1920-wide click-guard band whose removal this file documents as
+ * load-bearing. Recorded here rather than silently diverged from the written ruling.
+ *
+ * Two rows, both derived from the panel width (the S140 lesson — derive from the CONTAINER, never
+ * from the contents, so nothing can outgrow the plate at any count):
+ *   • the PALETTE — one button per primitive type; each click queues one of that shape.
+ *   • the QUEUE   — coalesced `×N` chips, leftmost first; clicking a chip cancels one.
+ */
+export const PALETTE_BTN = 30;
+export const PALETTE_GAP = 5;
+const PALETTE_PAD_BOTTOM = 8;
+export const CHIP_W = 38;
+export const CHIP_H = 30;
+const CHIP_GAP = 5;
+const QUEUE_PAD_BOTTOM = 10;
+/** The six primitives, in enum order — the palette's fixed left-to-right layout. */
+export const PALETTE_TYPES: readonly SparkType[] = ALL_SPARK_TYPES;
+/**
+ * How many chips the strip can SHOW. The queue itself is capped at GATHERER_ORDER_QUEUE_MAX, but only
+ * this many distinct coalesced chips fit one row — and since chips coalesce by type there can never
+ * be more than one per primitive type, so a full palette always fits by construction.
+ */
+export const MAX_CHIPS = 6;
+
+/** PURE — height of the palette row. */
+export function paletteStripHeight(): number {
+  return PALETTE_BTN + PALETTE_PAD_BOTTOM;
+}
+/** PURE — height of the queue-chip row. */
+export function queueStripHeight(): number {
+  return CHIP_H + QUEUE_PAD_BOTTOM;
+}
+
+/** PURE — the top-left of palette button `i`, panel-local. Centred on the panel like the bank rows. */
+export function paletteOrigin(i: number): { x: number; y: number } {
+  const n = PALETTE_TYPES.length;
+  const total = n * PALETTE_BTN + (n - 1) * PALETTE_GAP;
+  const left = (PANEL_W - total) / 2;
+  return {
+    x: left + i * (PALETTE_BTN + PALETTE_GAP),
+    y: PANEL_PAD + TITLE_H + bankStripHeight(),
+  };
+}
+
+/** PURE — the top-left of queue chip `i`, panel-local. */
+export function chipOrigin(i: number, chipCount: number): { x: number; y: number } {
+  const n = Math.max(1, Math.min(MAX_CHIPS, chipCount));
+  const total = n * CHIP_W + (n - 1) * CHIP_GAP;
+  const left = (PANEL_W - total) / 2;
+  return {
+    x: left + i * (CHIP_W + CHIP_GAP),
+    y: PANEL_PAD + TITLE_H + bankStripHeight() + paletteStripHeight(),
+  };
+}
+
+/**
+ * PURE — collapse an ordered queue into display chips, preserving FIRST-APPEARANCE order.
+ *
+ * Owner ruling B4: *"Coalesce into one chip with an `×N` badge (RTS convention), not N separate
+ * entries."* First-appearance order is what keeps "leftmost is next" true after coalescing — sorting
+ * by count or by type would put a chip the player is not waiting for at the front and make the
+ * display lie about what happens next.
+ *
+ * Exported and world-free so a test can pin the coalescing without a renderer (the S130 lesson: a
+ * draw path that cannot be driven headlessly must not be the only place logic lives).
+ */
+export function coalesceOrders(queue: readonly SparkType[]): Array<{ type: SparkType; count: number }> {
+  const out: Array<{ type: SparkType; count: number }> = [];
+  for (const t of queue) {
+    const hit = out.find((c) => c.type === t);
+    if (hit !== undefined) hit.count++;
+    else out.push({ type: t, count: 1 });
+  }
+  return out;
 }
 /** Gap between the keep box and the panel edge, so the panel never covers the castle it describes. */
 const ANCHOR_GAP = 14;
@@ -221,9 +310,18 @@ export function panelOrigin(
   return { x, y };
 }
 
-/** PURE — total panel height for `rows` control rows, including the bank strip. */
+/**
+ * PURE — total panel height for `rows` control rows, including the bank strip and (S141 P2) the
+ * palette + queue strips.
+ *
+ * ⚠ This feeds `panelOrigin`'s vertical clamp, so every strip added here must be added BEFORE the
+ * origin is computed or the panel will hang off the canvas for keeps on the lower arc of the ring.
+ */
 export function panelHeight(rows: number, cap: number = CASTLE_BANK_CAP): number {
-  return TITLE_H + bankStripHeight(cap) + rows * ROW_H + (rows - 1) * ROW_GAP + PANEL_PAD * 2;
+  return (
+    TITLE_H + bankStripHeight(cap) + paletteStripHeight() + queueStripHeight() +
+    rows * ROW_H + (rows - 1) * ROW_GAP + PANEL_PAD * 2
+  );
 }
 
 /** PURE — the panel's full rect, given its origin and row count. */
@@ -271,6 +369,14 @@ export class CastlePanel {
     filled: boolean;
   }> = [];
   private onPull: ((index: number) => void) | null = null;
+  /** S141 P2 — palette buttons (one per primitive) and coalesced queue chips. */
+  private readonly palette: Array<{ box: Container; bg: Graphics; glyph: Graphics; hover: boolean }> = [];
+  private readonly chips: Array<{
+    box: Container; bg: Graphics; glyph: Graphics; badge: Text; hover: boolean;
+    type: SparkType | null;
+  }> = [];
+  private onEnqueue: ((t: SparkType) => void) | null = null;
+  private onCancel: ((t: SparkType) => void) | null = null;
   /** Render-local selection. null = closed. Never serialized (see the file docblock). */
   private selected: number | null = null;
   private onBuyGatherer: (() => void) | null = null;
@@ -304,7 +410,11 @@ export class CastlePanel {
       const box = new Container();
       box.addChild(bg); // ⚠ Graphics child supplies containsPoint — do not remove (see docblock).
       box.addChild(label);
-      box.position.set(PANEL_PAD, PANEL_PAD + TITLE_H + bankStripHeight() + i * (ROW_H + ROW_GAP));
+      box.position.set(
+        PANEL_PAD,
+        PANEL_PAD + TITLE_H + bankStripHeight() + paletteStripHeight() + queueStripHeight() +
+          i * (ROW_H + ROW_GAP),
+      );
       box.eventMode = 'static';
       box.cursor = 'pointer';
       const idx = i;
@@ -334,6 +444,56 @@ export class CastlePanel {
       this.slots.push({ box, bg, glyph, hover: false, filled: false });
     }
 
+    // S141 P2 — THE PALETTE: one button per primitive type. Click to queue one of that shape.
+    for (let i = 0; i < PALETTE_TYPES.length; i++) {
+      const bg = new Graphics();
+      const glyph = new Graphics();
+      const box = new Container();
+      box.addChild(bg); // Graphics child supplies containsPoint — same idiom as the rows/slots.
+      box.addChild(glyph);
+      const o = paletteOrigin(i);
+      box.position.set(o.x, o.y);
+      box.eventMode = 'static';
+      box.cursor = 'pointer';
+      const t = PALETTE_TYPES[i];
+      const idx = i;
+      box.on('pointertap', () => this.onEnqueue?.(t));
+      box.on('pointerover', () => { this.palette[idx].hover = true; });
+      box.on('pointerout', () => { this.palette[idx].hover = false; });
+      this.container.addChild(box);
+      this.palette.push({ box, bg, glyph, hover: false });
+    }
+
+    // S141 P2 — THE QUEUE CHIPS. ⚠ Built ONCE at a fixed maximum and shown/hidden in sync(), NOT
+    // created per frame: the bank strip's children are also constructor-built, and a variable-length
+    // strip that adds children in sync() would leak Pixi objects every frame. Chips coalesce by type
+    // so there can never be more than one per primitive — MAX_CHIPS always suffices.
+    for (let i = 0; i < MAX_CHIPS; i++) {
+      const bg = new Graphics();
+      const glyph = new Graphics();
+      const badge = new Text({
+        text: '',
+        style: new TextStyle({ fontFamily: 'monospace', fontSize: 11, fill: 0xffffff }),
+      });
+      badge.anchor.set(1, 1);
+      badge.position.set(CHIP_W - 3, CHIP_H - 2);
+      const box = new Container();
+      box.addChild(bg);
+      box.addChild(glyph);
+      box.addChild(badge);
+      box.eventMode = 'static';
+      box.cursor = 'pointer';
+      const idx = i;
+      box.on('pointertap', () => {
+        const t = this.chips[idx].type;
+        if (t !== null) this.onCancel?.(t);
+      });
+      box.on('pointerover', () => { this.chips[idx].hover = true; });
+      box.on('pointerout', () => { this.chips[idx].hover = false; });
+      this.container.addChild(box);
+      this.chips.push({ box, bg, glyph, badge, hover: false, type: null });
+    }
+
     this.container.visible = false;
     app.stage.addChild(this.container);
   }
@@ -349,6 +509,12 @@ export class CastlePanel {
   /** main.ts injects the PULL_FROM_BANK dispatch for the local seat. */
   setPullHandler(fn: (index: number) => void): void {
     this.onPull = fn;
+  }
+
+  /** S141 P2 — main.ts injects the ENQUEUE/CANCEL_GATHERER_ORDER dispatches for the local seat. */
+  setOrderHandlers(enqueue: (t: SparkType) => void, cancel: (t: SparkType) => void): void {
+    this.onEnqueue = enqueue;
+    this.onCancel = cancel;
   }
 
   /** main.ts injects the BUY_GATHERER dispatch for the local seat. */
@@ -422,6 +588,9 @@ export class CastlePanel {
     rowCenters: Array<{ key: string; x: number; y: number; enabled: boolean; reason: string }>;
     bank: { count: number; cap: number };
     slotCenters: Array<{ index: number; x: number; y: number; filled: boolean }>;
+    /** S141 P2 — live click geometry for the order queue (the S85 P4c geometry-getter convention). */
+    paletteCenters: Array<{ type: number; x: number; y: number }>;
+    chipCenters: Array<{ index: number; type: number; count: number; x: number; y: number }>;
   } {
     if (this.selected === null) {
       return {
@@ -430,6 +599,8 @@ export class CastlePanel {
         rowCenters: [],
         bank: { count: 0, cap: CASTLE_BANK_CAP },
         slotCenters: [],
+        paletteCenters: [],
+        chipCenters: [],
       };
     }
     const a = castleAnchor(this.selected);
@@ -448,10 +619,25 @@ export class CastlePanel {
           filled: s.filled,
         };
       }),
+      paletteCenters: PALETTE_TYPES.map((t, i) => {
+        const po = paletteOrigin(i);
+        return { type: t as unknown as number, x: o.x + po.x + PALETTE_BTN / 2, y: o.y + po.y + PALETTE_BTN / 2 };
+      }),
+      chipCenters: this.chips
+        .map((c, i) => ({ c, i }))
+        .filter(({ c }) => c.box.visible && c.type !== null)
+        .map(({ c, i }) => ({
+          index: i,
+          type: c.type as unknown as number,
+          count: c.badge.text === '' ? 1 : Number(c.badge.text.slice(1)),
+          x: o.x + c.box.position.x + CHIP_W / 2,
+          y: o.y + c.box.position.y + CHIP_H / 2,
+        })),
       rowCenters: this.rows.map((_, i) => ({
         key: keys[i],
         x: o.x + PANEL_PAD + (PANEL_W - PANEL_PAD * 2) / 2,
-        y: o.y + PANEL_PAD + TITLE_H + bankStripHeight() + i * (ROW_H + ROW_GAP) + ROW_H / 2,
+        y: o.y + PANEL_PAD + TITLE_H + bankStripHeight() + paletteStripHeight() + queueStripHeight() +
+          i * (ROW_H + ROW_GAP) + ROW_H / 2,
         enabled: this.enabled[i] === true,
         reason: this.reasons[i] ?? '',
       })),
@@ -507,6 +693,42 @@ export class CastlePanel {
       // The SAME glyph the board draws (render/sparkGlyph.ts) — a stored shape must be recognisable
       // as the shape it is, or choosing which one to pull is guesswork.
       if (held !== undefined) drawSparkGlyph(gl, SLOT_W / 2, SLOT_H / 2, 12, held.type, tint);
+    }
+
+    // S141 P2 — THE PALETTE. Every button is always enabled: queueing costs nothing and is allowed
+    // even while benched (see BENCH_INTENT_POLICY), so there is no disabled state to explain here.
+    for (let i = 0; i < this.palette.length; i++) {
+      const b = this.palette[i];
+      b.bg.clear();
+      b.bg.roundRect(0, 0, PALETTE_BTN, PALETTE_BTN, 5)
+        .fill({ color: b.hover ? 0x1f5f9e : 0x14283c, alpha: 0.95 })
+        .stroke({ width: 1.5, color: b.hover ? tint : 0x2a3a4a, alpha: 0.85 });
+      b.glyph.clear();
+      drawSparkGlyph(b.glyph, PALETTE_BTN / 2, PALETTE_BTN / 2, 9, PALETTE_TYPES[i], tint);
+    }
+
+    // S141 P2 — THE QUEUE. Coalesced to one chip per type with an xN badge (owner ruling B4), in
+    // FIRST-APPEARANCE order so the leftmost chip really is what gets fetched next.
+    const orders = world.gathererOrders.get(world.localPlayerId) ?? [];
+    const chips = coalesceOrders(orders).slice(0, MAX_CHIPS);
+    for (let i = 0; i < this.chips.length; i++) {
+      const c = this.chips[i];
+      const model = chips[i];
+      c.type = model?.type ?? null;
+      c.box.visible = model !== undefined;
+      if (model === undefined) continue;
+      const co = chipOrigin(i, chips.length);
+      c.box.position.set(co.x, co.y);
+      // The NEXT chip is highlighted: "leftmost is next" has to be visible, not merely true.
+      const isNext = i === 0;
+      c.bg.clear();
+      c.bg.roundRect(0, 0, CHIP_W, CHIP_H, 5)
+        .fill({ color: c.hover ? 0x7a2c2c : isNext ? 0x1b4a76 : 0x14283c, alpha: 0.95 })
+        .stroke({ width: isNext ? 2 : 1, color: c.hover ? 0xd46a6a : tint, alpha: isNext ? 0.95 : 0.6 });
+      c.glyph.clear();
+      drawSparkGlyph(c.glyph, CHIP_W / 2 - 3, CHIP_H / 2, 8, model.type, tint);
+      // Only badge a real multiple — "x1" on every chip is noise.
+      c.badge.text = model.count > 1 ? `x${model.count}` : '';
     }
 
     for (let i = 0; i < this.rows.length; i++) {

@@ -89,6 +89,11 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   // successor that inherited a world without it would silently lose every banked shape — the exact
   // failure class the S135 hunter-lifetime work existed to close.
   castleBanks: 'hashed',
+  // S141 P2 (V6-1.4) — the per-player gatherer order queue. HASHED, and not optional: the queue is
+  // an authoritative input to `pickGathererTarget`, so two sims holding different queues will send
+  // their gatherers to different sparks and diverge within a tick. This is exactly the class the
+  // wide oracle exists to catch, so it must contribute.
+  gathererOrders: 'hashed',
   bombs: 'hashed',
   hunters: 'hashed',
   potatoes: 'hashed',
@@ -414,6 +419,15 @@ export function determinismParts(world: World): string[] {
     // `applyPullFromBank` overwrites pos/prevPos from the porch slot on the way out. Hashing a dead
     // field would make two functionally identical worlds disagree.
     parts.push(`cb${n(seat)}:${bank.map((s) => `${n(s.id)}/${o(s.type)}`).join('.')}`);
+  }
+
+  // S141 P2 — the gatherer order queues, seat-sorted. ORDER IS THE WHOLE POINT and is hashed as-is:
+  // this is a consumed LIST, not a set, so [Square, Circle] and [Circle, Square] send the player's
+  // gatherers to different sparks and are genuinely different states.
+  const orderSeats = [...world.gathererOrders.keys()].sort((a, b) => Number(a) - Number(b));
+  for (const seat of orderSeats) {
+    const q = world.gathererOrders.get(seat) ?? [];
+    parts.push(`go${n(seat)}:${q.map((t) => o(t)).join('.')}`);
   }
 
   const bombs = [...world.bombs.values()].sort((a, b) => Number(a.id) - Number(b.id));

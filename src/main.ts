@@ -585,6 +585,20 @@ async function bootstrap(): Promise<void> {
   castlePanel.setPullHandler((index) => {
     dispatchFn({ type: 'PULL_FROM_BANK', playerId: world.localPlayerId, index });
   });
+  // S141 P2 (V6-1.4) — the gatherer ORDER QUEUE (owner ruling B4). Same dispatchFn seam as every
+  // other panel control, so it routes on all three paths (networked joiner → wire intent; worker
+  // mode → postIntent; solo/host → direct dispatch). Deliberately NOT in PREDICTABLE_ACTIONS: the
+  // queue is authoritative input to target selection, so a local optimistic push could send this
+  // seat's gatherers somewhere the host never agreed to and show a phantom chip if the intent is
+  // dropped. The chip appears when the snapshot lands, which is also what makes it honest.
+  castlePanel.setOrderHandlers(
+    (sparkType) => {
+      dispatchFn({ type: 'ENQUEUE_GATHERER_ORDER', playerId: world.localPlayerId, sparkType });
+    },
+    (sparkType) => {
+      dispatchFn({ type: 'CANCEL_GATHERER_ORDER', playerId: world.localPlayerId, sparkType });
+    },
+  );
   // S136 P0 — the input layer needs the panel for two things: the click guard (a panel row's
   // pointertap does NOT suppress the raw canvas world hit-test) and the own-castle click that
   // opens it. Injected after construction because Controls is built before the renderers.
