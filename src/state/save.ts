@@ -557,25 +557,71 @@ interface SerializedCreature {
    * a pre-S102 save. deserializeCreature defaults a missing value to the per-type config.
    */
   readonly hp?: number;
+  /**
+   * ⛔ S142 P1 — ADDED. `Creature.poopyUntilTick` existed and was READ at runtime
+   * (`creatureVerlet` halves a poop-slowed creature's steering accel while
+   * `tick < poopyUntilTick`), but `SerializedCreature` had no such field — so the debuff was
+   * silently erased by every save/load, every host migration and every sim-worker INIT.
+   *
+   * Found by the S142 defect-class sweep, which is the generalisation of the spawner-cadence
+   * bug in the same session: compare each entity interface's MUTABLE fields against what its
+   * serializer actually emits, because a field that is simply absent from the payload can
+   * never round-trip and nothing in the type system complains.
+   *
+   * `SerializedSpark` has round-tripped this exact field since S77 P3 — so the two halves of
+   * one debuff disagreed for 65 sessions. Emitted only when defined, so an un-poopy world
+   * stays byte-identical. Kept ON the wire per the S133/S134 default posture recorded above.
+   */
+  readonly poopyUntilTick?: number;
 }
 
 /**
- * S100 P1 (TD Phase 1a) — tiny additive-optional spawner wire/save shape. Only the
- * persistent identity (id/ownerPlayerId/anchorPrimitiveId/recipeId) round-trips; the
- * cadence state (nextSpawnTick/lastValidatedTick/spawnedCount/ignitedAtTick) is HOST-
- * ONLY (rngSeed-exclusion precedent — never ship the upcoming spawn schedule to a
- * modified client, TOWER_DEFENSE_DESIGN.md §3.3). On rehydrate, makeSpawner re-seeds
- * the cadence from `world.tick` so a save/load resumes deterministically (a host
- * save/load with a live spawner can't desync because both peers re-derive cadence the
- * same way). Emitted only when `creatureSpawners` is non-empty (creature/hunter
- * precedent), so every pre-S100 save AND every networked NetSnapshot (where a spawner
- * can exist) stays byte-identical when no spawner is live.
+ * S100 P1 (TD Phase 1a) — tiny additive-optional spawner wire/save shape.
+ *
+ * ⛔ S142 P1 — AMENDED, AND THE OLD DOCBLOCK'S DEFENCE WAS FALSE ON ONE PATH.
+ * It used to read: "the cadence state is HOST-ONLY … on rehydrate makeSpawner re-seeds
+ * from `world.tick` … a host save/load with a live spawner can't desync because both
+ * peers re-derive cadence the same way."
+ *
+ * The ANTI-CHEAT half is real and is PRESERVED below: the upcoming spawn schedule must
+ * never reach a modified client (rngSeed-exclusion precedent, TOWER_DEFENSE_DESIGN.md
+ * §3.3). But "both peers re-derive identically" is FALSE on the sim-worker INIT path,
+ * where only ONE side re-derives: `makeWorkerSim` runs `restore()` while the main thread
+ * keeps its ORIGINAL spawner objects. And in solo / VS-BOTS there is no NetSnapshot at
+ * all, so nothing ever re-syncs it.
+ *
+ * That mattered because host-migration TAKEOVER sets `world.isHost = true` MID-MATCH on a
+ * peer whose `simWorkerDriver` is null, so its next frame adopts the worker with LIVE
+ * spawners. `spawnedCount` is not telemetry — `hostTick` self-destructs a structure
+ * spawner at `STRUCTURE_SELFDESTRUCT_DRONE_COUNT` — so re-seeding silently granted the
+ * promoted host a FRESH self-destruct lifetime. Invisible to every runtime instrument:
+ * spawners are absent from `NARROW_HASHED_FAMILIES` (the only hash compared at runtime),
+ * and a mismatch merely increments a counter.
+ *
+ * ⇒ The four cadence fields are now ADDITIVE-OPTIONAL and are emitted by
+ * `serializeSpawner` for the LOCAL consumers (disk save + worker INIT), and STRIPPED from
+ * the wire by `trimMirrorSpawner` in `netSnapshot()` — the same place, and the same
+ * defence-in-depth posture, as every other host-only field. A client therefore receives
+ * exactly the pre-S142 identity shape and `deserializeSpawner` re-seeds for it as before,
+ * so the wire stays byte-identical and the client path is provably unchanged.
+ *
+ * Emitted only when `creatureSpawners` is non-empty (creature/hunter precedent), so every
+ * pre-S100 save stays byte-identical when no spawner is live.
  */
 interface SerializedSpawner {
   readonly id: SpawnerId;
   readonly ownerPlayerId: PlayerId;
   readonly anchorPrimitiveId: PrimitiveId;
   readonly recipeId: GodlyId;
+  /**
+   * S142 P1 — host-local cadence. Present on disk saves and the worker INIT snapshot;
+   * ALWAYS absent on the wire (stripped by `trimMirrorSpawner`). Absent ⇒ re-seed, which
+   * is exactly the client/legacy-save case.
+   */
+  readonly nextSpawnTick?: number;
+  readonly lastValidatedTick?: number;
+  readonly spawnedCount?: number;
+  readonly ignitedAtTick?: number;
 }
 
 /**
@@ -907,10 +953,20 @@ export function netSnapshot(world: World): NetSnapshot {
   // payload, and the client (which never simulates) rehydrates them neutral (null/0). When
   // no chewer is live this re-map is a no-op (Voltkin emits none of those keys anyway), so
   // the Voltkin wire shape stays byte-identical. `creatureSpawners` IS kept on the wire
-  // (clients render the live spawn-zone) — its host-only cadence is already off via the
-  // tiny SerializedSpawner identity shape.
+  // (clients render the live spawn-zone) — but as of S142 P1 its host-local cadence is no
+  // longer absent BY OMISSION, so it must be stripped HERE, explicitly.
   if (rest.creatures !== undefined) {
     rest.creatures = rest.creatures.map(trimMirrorCreature);
+  }
+  // ⛔ S142 P1 — LOAD-BEARING ANTI-CHEAT STRIP, NOT A SIZE OPTIMISATION.
+  // `serializeSpawner` now emits nextSpawnTick/lastValidatedTick/spawnedCount/ignitedAtTick
+  // so the LOCAL consumers (disk save, sim-worker INIT) can round-trip an authority handoff
+  // losslessly. Those four fields ARE the upcoming spawn schedule, and shipping them would
+  // hand a modified client perfect knowledge of when the next chewer arrives — the exact
+  // thing the rngSeed-exclusion precedent forbids (TOWER_DEFENSE_DESIGN.md §3.3).
+  // Deleting this line re-introduces that leak with tsc and the bundle gate both GREEN.
+  if (rest.creatureSpawners !== undefined) {
+    rest.creatureSpawners = rest.creatureSpawners.map(trimMirrorSpawner);
   }
   return rest;
 }
@@ -1554,36 +1610,74 @@ function serializeCreature(c: Creature): SerializedCreature {
     // S102 — emit hp ONLY when damaged (below the per-type config default) so an undamaged
     // creature stays byte-identical to a pre-S102 save (every creature until P3 combat).
     ...(c.hp < getCreatureConfig(c.type).hp ? { hp: c.hp } : {}),
+    // ⛔ S142 P1 — the poop slow now round-trips (see the SerializedCreature field docblock).
+    // Conditional, so an un-poopy creature — i.e. nearly every creature, nearly always —
+    // stays byte-identical to every prior save.
+    ...(c.poopyUntilTick !== undefined ? { poopyUntilTick: c.poopyUntilTick } : {}),
   };
 }
 
-/** S100 P1 (TD Phase 1a) — tiny spawner identity round-trip (see SerializedSpawner). */
+/**
+ * S100 P1 (TD Phase 1a) — spawner round-trip.
+ * S142 P1 — now carries the host-local cadence too (see SerializedSpawner). The wire copy
+ * is trimmed back to the identity shape by `trimMirrorSpawner` inside `netSnapshot()`.
+ */
 function serializeSpawner(sp: CreatureSpawner): SerializedSpawner {
   return {
     id: sp.id,
     ownerPlayerId: sp.ownerPlayerId,
     anchorPrimitiveId: sp.anchorPrimitiveId,
     recipeId: sp.recipeId,
+    nextSpawnTick: sp.nextSpawnTick,
+    lastValidatedTick: sp.lastValidatedTick,
+    spawnedCount: sp.spawnedCount,
+    ignitedAtTick: sp.ignitedAtTick,
   };
 }
 
 /**
- * S100 P1 (TD Phase 1a) — rehydrate a SerializedSpawner. The host-only cadence state
- * (nextSpawnTick/lastValidatedTick/spawnedCount/ignitedAtTick) is NOT on the wire/save,
- * so makeSpawner re-seeds it deterministically from `tick`: the first chewer emits one
- * full SPAWN_INTERVAL after the load (the register-reducer seeding rule), and the first
- * re-validation runs one throttle window later. A host save/load can't desync because
- * every peer re-derives the cadence identically; the next NetSnapshot re-syncs anyway.
+ * S142 P1 — the wire trim, mirroring `trimMirrorCreature`. Drops the four host-local
+ * cadence fields so the upcoming spawn schedule never reaches a modified client
+ * (TOWER_DEFENSE_DESIGN.md §3.3, rngSeed-exclusion precedent). The result is EXACTLY the
+ * pre-S142 identity shape, so the wire stays byte-identical and a client rehydrates via
+ * the same re-seed path it always used.
  */
-function deserializeSpawner(s: SerializedSpawner, tick: number): CreatureSpawner {
-  return makeSpawner({
+function trimMirrorSpawner(s: SerializedSpawner): SerializedSpawner {
+  return {
     id: s.id,
     ownerPlayerId: s.ownerPlayerId,
     anchorPrimitiveId: s.anchorPrimitiveId,
     recipeId: s.recipeId,
-    ignitedAtTick: tick,
-    nextSpawnTick: tick + SPAWN_INTERVAL_TICKS,
+  };
+}
+
+/**
+ * S100 P1 (TD Phase 1a) — rehydrate a SerializedSpawner.
+ *
+ * S142 P1 — cadence is applied VERBATIM when present (disk save + worker INIT). It is
+ * absent only on the wire, where `trimMirrorSpawner` removed it, and in pre-S142 saves —
+ * and for both of those the historical re-seed is exactly right: the first chewer emits
+ * one full SPAWN_INTERVAL after the load (the register-reducer seeding rule) and the first
+ * re-validation runs one throttle window later.
+ *
+ * ⚠ Do NOT "simplify" this to an unconditional re-seed. That is the S142 P1 defect: it
+ * silently reset `spawnedCount` — a live self-destruct cap, not telemetry — every time a
+ * migration-promoted host adopted the sim worker mid-match.
+ */
+function deserializeSpawner(s: SerializedSpawner, tick: number): CreatureSpawner {
+  const sp = makeSpawner({
+    id: s.id,
+    ownerPlayerId: s.ownerPlayerId,
+    anchorPrimitiveId: s.anchorPrimitiveId,
+    recipeId: s.recipeId,
+    ignitedAtTick: s.ignitedAtTick ?? tick,
+    nextSpawnTick: s.nextSpawnTick ?? tick + SPAWN_INTERVAL_TICKS,
   });
+  // `makeSpawner` seeds these two from ignitedAtTick / 0 (the fresh-ignition contract).
+  // Restore them when the payload carried them, so an authority handoff is lossless.
+  if (s.lastValidatedTick !== undefined) sp.lastValidatedTick = s.lastValidatedTick;
+  if (s.spawnedCount !== undefined) sp.spawnedCount = s.spawnedCount;
+  return sp;
 }
 
 /**
@@ -1849,6 +1943,10 @@ function deserializeCreature(s: SerializedCreature): Creature {
     // The coalesce covers the emit-only-when-damaged case (`hp < config.hp`) and pre-S102
     // saves, defaulting to the per-type config hp (chewer 1 / Voltkin 2).
     hp: s.hp ?? getCreatureConfig(s.type).hp,
+    // ⛔ S142 P1 — the poop slow survives the round-trip now. `undefined` is the genuinely
+    // neutral value here (it means "not poopy"), unlike `despawnAtTick`'s 0 above, because
+    // every reader gates on `!== undefined && tick < poopyUntilTick`.
+    poopyUntilTick: s.poopyUntilTick,
   };
 }
 

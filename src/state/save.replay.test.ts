@@ -857,8 +857,25 @@ describe('S100 P1 — wire byte budget (R1) + TD host-only stripping', () => {
     expect(creaturesWire).not.toContain('targetCreatureId');
     // creatureSpawners IS on the wire (clients render the spawn-zone) but only the
     // tiny identity shape — no host-only cadence words.
-    expect(wire).not.toContain('nextSpawnTick');
-    expect(wire).not.toContain('lastValidatedTick');
+    // ⛔ S142 P1 — THIS GUARD IS NOW LOAD-BEARING IN A WAY IT WAS NOT BEFORE.
+    // Until S142 these fields were absent from the wire BY OMISSION: `serializeSpawner`
+    // never emitted them, so the assertion could not fail no matter what `netSnapshot`
+    // did. They are now emitted for the LOCAL consumers (disk save + sim-worker INIT) and
+    // removed from the wire by an EXPLICIT `trimMirrorSpawner` call — so this assertion is
+    // the thing standing between the repo and shipping the upcoming spawn schedule to a
+    // modified client (TOWER_DEFENSE_DESIGN.md §3.3). Delete that call and this goes red.
+    // ⚠ Scoped to the creatureSpawners array, per the CHECK F7 lesson recorded above:
+    // asserting against the whole wire string breaks the moment another entity family
+    // legitimately emits a same-named key.
+    const spawnersWire = JSON.stringify(netSnapshot(host).creatureSpawners);
+    expect(spawnersWire).not.toContain('nextSpawnTick');
+    expect(spawnersWire).not.toContain('lastValidatedTick');
+    expect(spawnersWire).not.toContain('spawnedCount');
+    expect(spawnersWire).not.toContain('ignitedAtTick');
+    // ...and the identity half MUST still be there (an over-eager trim that emptied the
+    // array would otherwise satisfy every assertion above — the vacuity trap).
+    expect(spawnersWire).toContain('anchorPrimitiveId');
+    expect(spawnersWire).toContain('recipeId');
   });
 });
 

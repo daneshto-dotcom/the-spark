@@ -1,24 +1,27 @@
 {
-  "tool_calls_session_total": 585,
-  "session_id": "S141",
+  "tool_calls_session_total": 676,
+  "session_id": "S142",
   "session_kind": "full-batch",
   "session_start": "2026-08-13",
-  "prior_session_note": "S138 closed GREEN: damage substrate (P1) + three owner playtest fixes (P2). PROTOCOL_VERSION 17. Starters + build space designed + owner-ruled, NOT implemented.",
+  "prior_session_note": "S141 CLOSED at cb7b891 — Stink Tower, gatherer order queue, banked-SparkId collision fix, PROTOCOL_VERSION 20. Deploy verified 4/4.",
   "prior_session_archive": ".handoff-archive/HANDOFF_S138.md",
-  "phase": "ACT",
+  "phase": "DO",
   "tier": "Full",
-  "plan_file": ".claude/plans/2026-08-13_PDR_S141_stink_tower_and_order_queue.md",
-  "session_status": "closed",
+  "plan_file": ".claude/plans/2026-08-13_PDR_S142_worker_default_on_and_multipeer_signal.md",
+  "session_status": "in-progress",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
   "protocol_version": 20,
   "boot_preflight": {
     "boot_snapshot_read": true,
+    "handoff_read": "HANDOFF_S141.md",
     "unpushed_commits": 0,
-    "verify_deploy": "PASS 4/4 index-C7ThMkRL.js",
-    "e2e_gating": "34 passed / 0 failed (2.2m)",
-    "protocol_version": 19
+    "build": "PASS — entry index-C3JJhc7b.js, 677.1 KiB, 72.9 KiB headroom (rebuilt BEFORE verify-deploy per S141 trap)",
+    "verify_deploy": "PASS 4/4 — remote/run/verdict/live all agree at cb7b8913 (live entry index-C3JJhc7b.js)",
+    "e2e_gating": "36 passed / 0 failed (2.2m)",
+    "protocol_version": 20,
+    "ci_runs_audited": "gh run list — 12 most recent all `completed success`; 0 open issues. No cancelled/silent-death runs."
   },
   "owner_rulings_inherited": {
     "date": "2026-08-10",
@@ -82,211 +85,33 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "id": "P1",
-      "name": "THE STINK TOWER (4-shape non-godly DefenderKind)",
-      "status": "completed",
-      "checkpoint_commit": "6992b37",
-      "check_completed": true,
-      "check_method": "tsc 0; vitest 2227/2227 (+40); e2e stink-tower.spec RUNTIME-verified in a real browser (the tower ignites from a real 1 Square + 3 Circle component, carries a full magazine, and the renderer EMITS GEOMETRY covering its position, 0 pageerrors) - R1 (a new DefenderKind renders as nothing, silently) discharged by looking at the render, not at state. Both kill paths tested separately plus the deconstruction case that must NOT detonate.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defender.ts",
-          "needle": "export type DefenderKind = 'turret' | 'princess' | 'stinkTower';"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/godlyRecipes/stinkTower.ts",
-          "needle": "export function isStinkTowerComponent"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/stinkTowerRenderer.ts",
-          "needle": "export class StinkTowerRenderer"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/damage.ts",
-          "needle": "export function destroyDefender"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/damage.ts",
-          "needle": "if (!world.primitives.has(d.anchorPrimitiveId)) {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/rng.ts",
-          "needle": "export function mix32("
-        }
-      ]
+      "name": "Make the worker path safe: serialize spawner cadence, worker-INIT assertion, defect-class sweep, differential harness, shared worker-flag predicate + ?worker=0",
+      "status": "in-progress"
     },
     {
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "id": "P2",
-      "name": "THE GATHERER ORDER QUEUE (V6-1.4 / owner ruling B4)",
-      "status": "completed",
-      "checkpoint_commit": "752b0b6",
-      "check_completed": true,
-      "check_method": "tsc 0; vitest 2263/2263 (+36); e2e stink-tower.spec RUNTIME-verified: the panel opens on the own-keep click, all six palette buttons sit INSIDE the plate, three clicks coalesce into ONE chip with count 3, and clicking the chip cancels exactly one. Council D4 fix applied (rank over ALL owned units, not the SEEKING subset) with the thrash case pinned.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/worldTypes.ts",
-          "needle": "gathererOrders: Map<PlayerId, SparkType[]>;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gathererLifecycle.ts",
-          "needle": "export function orderForGatherer"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gathererLifecycle.ts",
-          "needle": "export function consumeGathererOrder"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/render/castlePanel.ts",
-          "needle": "export function coalesceOrders"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
-          "needle": "ENQUEUE_GATHERER_ORDER: true,"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/benchGate.ts",
-          "needle": "CANCEL_GATHERER_ORDER: 'allow',"
-        }
-      ]
+      "name": "Make the PROTOCOL_VERSION bump self-verifying in CI (kill the 2-browser owner tax) + quarantine lane budget/diagnosability",
+      "status": "pending"
     },
     {
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "id": "P3",
-      "name": "Latent correctness holes (SparkId allocator x2, castleBanks hash guard)",
-      "status": "completed",
-      "checkpoint_commit": "70cdc28",
-      "check_completed": true,
-      "check_method": "tsc 0; vitest 2266/2266 (+3). MUTATION MATRIX 2/2 - M1 (drop escrow from the bank classification) fails tsc NAMING escrow; M2 (remove the bank scan) reds the regression test with \"expected 40 to be 57\". The regression fixture deliberately uses a bank id ABOVE the highest free id, so it cannot pass for the wrong reason. Both allocator sites fixed: the shared helper AND the hand-inlined duplicate in main.ts, which is deleted in favour of a call.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/migrationClaim.ts",
-          "needle": "for (const bank of world.castleBanks.values()) {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "const allocs = rebuildAuthorityAllocators(world);"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/main.ts",
-          "needle": "for (const id of world.freeSparks.keys()) if ((id as number) > maxSpark) maxSpark = id as number;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/stateHashFull.ts",
-          "needle": "type BankedSparkHashed"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/stateHashFull.ts",
-          "needle": "_bankedSparkComplete"
-        }
-      ]
-    },
-    {
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "id": "P4",
-      "name": "PROTOCOL_VERSION 19->20, stale-doc sweep, deploy, close",
-      "status": "completed",
-      "check_completed": true,
-      "check_method": "tsc 0; vitest 2266/2266; e2e:gating 36/36 (was 34). PROTOCOL_VERSION bumped across all THREE records plus the one deliberate pin and e2e LOCAL_PROTO_V. Stale-doc sweep: the voltkinFrames claim that two SHIPPING PNGs were deleted (acting on it would have broken live art AND shipped the breakage, since public/** is in the deploy paths filter); deploy.yml stale in the OPPOSITE direction (npm test was fixed in S133); FAMILY_COVERAGE which never existed; and 11 main.ts:1706 citations re-anchored to a SYMBOL after the real line drifted twice inside this one session.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 20 as const;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
-          "needle": "readonly protoVersion: 20;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/stateHash.ts",
-          "needle": "FAMILY_COVERAGE"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/BACKLOG.md",
-          "needle": "STATUS S141 (2026-08-13)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/stink-tower.spec.ts",
-          "needle": "the renderer actually DRAWS"
-        }
-      ]
+      "name": "An honest ledger: strike closed/stale carry-forwards, correct the backwards probeHarness rationale, roadmap Executed-in rows",
+      "status": "pending"
     }
   ],
-  "reflexion_entries_to_archive": [
-    {
-      "tag": "#two-seats-rejected-the-same-thing-and-both-fixes-were-wrong",
-      "priority": "P1",
-      "lesson": "Both Council seats independently rejected the Stink Tower recipe on the same real ground — a Square dropped among three loose Circles auto-bonds into a match. Unanimity on the FINDING did not transfer to the FIX. Gemini proposed requiring the hub to have no bonds outside the component: a provable NO-OP, because componentOf follows every bond so an outside bond already pushes the size past 4. Grok proposed requiring degree-1 leaves: that REINTRODUCES the documented frequent-silent-no-build both shipped stars loosened their gates to avoid. Two independent reviewers agreeing raises confidence in the problem, not in their remedy — price those separately."
-    },
-    {
-      "tag": "#the-severe-bug-lived-in-the-interaction-neither-seat-was-shown",
-      "priority": "P1",
-      "lesson": "D1 and D2 were reviewed as separate decisions and each was survivable alone. Together they were not: the recipe is easy to build by accident, an accidental tower self-removes when the player keeps building, and the shared death hook would have detonated on the player's OWN structure at exactly that moment. Neither seat found it because neither was asked about the pair. When decisions touch the same object, review the CROSS PRODUCT, not the list. The fix — derive destroyed-vs-deconstructed from whether the ANCHOR IS GONE — makes the bad case unrepresentable rather than merely guarded against."
-    },
-    {
-      "tag": "#a-tsc-forcing-function-can-be-satisfied-without-doing-anything",
-      "priority": "P1",
-      "lesson": "stateHashFull has a NoUncovered guard that fails the build naming any unclassified field — and it fired correctly for bagsRemaining. But the actual hash PROJECTION is a hand-written string template with no executable link to that union. Adding the name to the union silences tsc while leaving the field UNHASHED, so the determinism oracle goes blind exactly where you thought you had just made it sighted. A forcing function proves someone was ASKED the question, never that they answered it in the place that runs."
-    },
-    {
-      "tag": "#backlog-named-the-wrong-function-twice-and-the-feature-would-have-no-opped",
-      "priority": "P2",
-      "lesson": "Both B4's ruling table and the V6-1.4 slot say to put the queue predicate on `pickTargetSpark`. That is the BOT AVATAR's porch-only picker; it takes an rng and is never called for a gatherer. Wiring it there would have silently changed bot cruiser behaviour and left gatherers untouched — the feature would ship, pass review, and DO NOTHING. A spec naming a symbol is a hypothesis; grep the call graph before believing it."
-    },
-    {
-      "tag": "#the-mechanic-the-ruling-forbids-was-already-shipped",
-      "priority": "P2",
-      "lesson": "B4 says in bold \"DO NOT IMPLEMENT A PREDICATE/FILTER\", and V6-1.2 had shipped exactly that as SET_GATHERER_PREFERENCE, with ABSOLUTE priority over distance. Nobody noticed for six sessions because the ruling lived in BACKLOG and the violation lived in code, and no one had cause to read both at once. Before building what a ruling asks for, check whether its explicit prohibition is already running."
-    },
-    {
-      "tag": "#a-line-citation-drifted-twice-inside-the-session-that-was-fixing-it",
-      "priority": "P4",
-      "lesson": "Ten places cited main.ts:1706 for the hash call site. A.0 measured the truth as 1766. By the time I went to correct them it was 1793 — moved by MY OWN edits, in the same session. Renumbering would have shipped a fact with a half-life of hours. They are now symbol-anchored. A reference that decays from unrelated work is not documentation, it is a maintenance liability that regenerates its own backlog entry."
-    },
-    {
-      "tag": "#a-stale-comment-can-be-an-instruction-to-break-production",
-      "priority": "P4",
-      "lesson": "voltkinFrames.ts stated two PNGs \"were deleted in S107 P3\". They are git-tracked, ship in dist/, and are loaded by six production modules. A dead-asset cleanup driven by that sentence would have broken live art with tsc AND the bundle gate green (they are string literals, invisible to both) — and public/** is in deploy.yml's paths filter, so the deletion would have deployed itself. The dangerous stale comment is not the one that is merely wrong; it is the one that reads as a licence to act."
-    },
-    {
-      "tag": "#cap-the-a0-fan-out-or-it-eats-the-session",
-      "priority": "P0",
-      "lesson": "The A.0 workflow spawned 31 agents and hit the individual spend limit mid-run: 6 of 7 probes landed, every adversarial verification died, 1.85M subagent tokens spent. This is the SECOND consecutive session to lose work this way (S140 lost a 10-agent Council entirely). What saved it was that probe results are journalled per agent, so the six that finished were fully recoverable, and the missing probe was the one area I had already read by hand. Budget the fan-out, and read the highest-risk area yourself first so a partial A.0 still leaves you standing."
-    }
-  ],
+  "reflexion_entries_to_archive": [],
   "totals": {
     "budget_remaining": 1000000
   },
   "budget_total": 1000000,
   "e2e_gating_status": "36/36 exit 0 (was 34; +2 new runtime specs for the tower render and the queue UI)",
-  "closed": true,
+  "closed": false,
   "a0_deviation": "The A.0 sweep's adversarial re-check stage (24 independent re-verifications of every non-CONFIRMED verdict) and its synthesis agent ALL failed on an individual spend limit after the 10 probes completed. Probe payloads were recovered from journal.jsonl and triaged by Claude directly. STATED AS A DEVIATION, NOT PRESENTED AS COMPLIANCE: single-probe findings carry ONE source. The two highest-consequence findings (damageEntity dead code; CI red) were personally re-verified by Claude with direct greps and gh calls before being reported.",
   "ci_finding": "e2e.yml newest run 31366201100 = FAILURE, all 3 lanes, headSha 33 commits behind HEAD, predates two gating fixes. No push trigger exists so nothing re-runs it. Fresh workflow_dispatch on current HEAD = run 31509968212, result pending. deploy.yml is 3/3 success. gh issue list = empty.",
   "owner_rulings_s139": {
@@ -317,7 +142,7 @@
     "GEMINI-AUDITOR"
   ],
   "council_deviation": "None - full 3-way, 2 rounds. gemini-3.1-pro-preview passed explicitly (2.5-pro is retired per memory); grok-4.20-0309-reasoning default (strongest tier).",
-  "unlock_evidence": "Owner 2026-08-13: 'I approve full session batch and full autonomous run on the main priorities in backlog that you can implement in the game' + reaffirmed 'dont put a choice just get cooking~! I approve this batch!'",
+  "unlock_evidence": "Owner message 2026-08-13: \"i approve full session top priority batch pdr. work according to procedures in the absolute best interests of this project and vision producing the highest quality of output\"",
   "council_battle_ledger_s139": {
     "round1_challenges": 8,
     "adopted": [
@@ -481,5 +306,28 @@
     "PLAYTEST the Stink Tower. Its recipe shapes are a CLAUDE ruling, not an owner ruling — retune freely, it is one edit. Watch specifically for ACCIDENTAL construction (a Square among three loose Circles builds one); it self-heals and cannot blast you, but it may still feel wrong.",
     "PLAYTEST the order queue. Does clicking shapes into a queue read as commanding your economy, or as one more panel to manage?",
     "The aggro pull currently only affects GOBLINS — targetPrimitiveId is read only by creatures whose config has targetsStructures. A Voltkin walks straight past a depleted tower."
-  ]
+  ],
+  "council_s142": {
+    "tier": "Full",
+    "rounds": "R1 both seats; R2 both seats",
+    "headline": "A.0 killed the priority as written: the sim-worker default-on flip is UNSAFE today. Host-migration TAKEOVER promotes a client to host mid-match with simWorkerDriver null; after a default-on flip its next frame satisfies every adoption condition, so it adopts the worker mid-match with live creatureSpawners and deserializeSpawner re-seeds their cadence + resets spawnedCount (a live gameplay cap).",
+    "battle_ledger": {
+      "D1_finding": "UPHELD by both seats + disk. Reachability chain confirmed link-by-link.",
+      "D1_grok_fix": "REFUTED ON DISK — provable NO-OP. Grok proposed a preserveLiveCadence flag at the call site; serializeSpawner emits only 4 readonly identity fields, so none of the 4 mutable fields are in the payload. Nothing to preserve.",
+      "D1_gemini_fix": "ADOPTED — the deserializer cannot do better with an incomplete payload; fix the SERIALIZER. Gemini search strategy #3 (interface fields omitted from serialize) is the generalization and is adopted as the method.",
+      "grok_evidence": "REFUTED — 12 of 12 named symbols (ResourceNode, regenTick, lastHarvestTick, remainingYield, aiIgnition, hungerAtTick, lastDecisionTick, pulseCadence, aggroResetTick, lastPathfindTick, issuedAt, expiresAt) DO NOT EXIST. Zero files each. The documented reviewer-fabrication pattern, third occurrence.",
+      "grok_escalation": "REFUTED — predicted rebuildAuthorityAllocators oscillation / worker never sticks. A hash mismatch only increments hashMismatches + console.error; the worker stays authoritative.",
+      "claude_self_refutation": "MY OWN PDR WAS WRONG: I claimed hash-oracle divergence. NARROW_HASHED_FAMILIES = primitives/bonds/freeSparks/scoreByPlayer + tick + scoreProgress — spawners are INVISIBLE to the only runtime hash. D1 stays CRITICAL but as a SILENT gameplay divergence no runtime instrument can see.",
+      "D4_both_wrong": "I rated gathererOrders->structuralSignature HIGH; Gemini rejected it as thrashing because \"queues mutate constantly\" (false: it mutates on human click + delivery, not per frame). Correct verdict DROP, correct reason: absent from the narrow hash, so the only cost is <=100ms queue-chip UI lag. Downgraded HIGH->LOW.",
+      "flip_deferred": "BOTH seats independently ruled the flip must not ship with its own safety fixes; owner cannot playtest. ADOPTED.",
+      "gemini_r2_adopted": "(b) worker-INIT absence is impossible (same bundle) so it must fail LOUDLY; (e) the differential harness must assert on the WIDE hash, never the runtime narrow one.",
+      "grok_r2": "(a) warned the INIT assertion must check PRESENCE not absence, and must be tested against both payload shapes. (b) conceded it cannot construct any case that the 4 fields were deliberately left unserialized."
+    }
+  },
+  "a0_state_discovery_s142": {
+    "method": "7-agent fan-out DIED on the individual spend limit with ZERO recoverable results (3rd consecutive session). Re-run as 3 TIGHT probes (3/3 landed, 274K). Highest-risk area read BY HAND first.",
+    "preflight": "5/5 green",
+    "quarantine_lane_measured": "LOCAL run: 9 passed / 9 failed / 1 skipped (7.5m). Refutes the ledger claim that the lane is FULLY red. The 2 protocol-mismatch tests PASS locally in 9.8s.",
+    "deltas": 13
+  }
 }
