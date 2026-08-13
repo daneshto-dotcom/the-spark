@@ -294,6 +294,37 @@ export async function readWorldState(page: Page): Promise<{
   defenders: Array<{ id: number; kind: string; bagsRemaining: number; pos: { x: number; y: number } }>;
   /** S141 P2 — per-seat gatherer order queues, ORDER PRESERVED (it is a list, not a set). */
   gathererOrders: Array<{ seat: number; types: number[] }>;
+  /**
+   * ⛔ S143 P2 — HOST-ONLY, AND FROZEN ON A `?worker=1` MIRROR. DO NOT USE AS AN ORACLE.
+   *
+   * Exposed deliberately, with this warning, because it is an inviting trap: it LOOKS like the
+   * cumulative-placement counter you want. It is not, on the surface a spec can see.
+   * `nextPrimitiveId` is a host-only allocator cursor, explicitly excluded from `NetSnapshot`
+   * (`save.ts` `applyNetSnapshot` omits it — "does not write host-only counters"), so under the
+   * sim worker the authoritative cursor advances inside the worker while the main-thread mirror's
+   * copy stays where it was.
+   *
+   * MEASURED, S143 P2, which is how this was caught: a live mirror reported
+   * `nextPrimitiveId: 33` while holding a primitive with **id 38**. An oracle built on it reports
+   * "no placements ever happened" with total confidence while the game is building normally.
+   *
+   * Use `maxPrimitiveId` for growth. Use this only to reason about the HOST's own allocator.
+   */
+  nextPrimitiveId: number;
+  /**
+   * S143 P2 — the growth oracle: the highest primitive id present on the mirror.
+   *
+   * Ids are allocated strictly increasing, so ANY new placement yields an id above every id that
+   * existed when you sampled — which makes `maxPrimitiveId > sampled` a sound "another placement
+   * arrived" test even though the value itself can dip when the current maximum is razed.
+   *
+   * `primitives.length` cannot do this job: `razePrimitives` deletes entries and MID bots sever
+   * deliberately (severChance 0.25), so the count is NOT monotonic. Measured in the same run:
+   * 29 primitives alive with a maximum id of 38. A real CI attempt sampled 33 and then failed at
+   * 32 — `primitives.length > 33` was unsatisfiable no matter how long it waited, and the failure
+   * was reported as a frozen worker bridge for three sessions.
+   */
+  maxPrimitiveId: number;
   peerCount: number;
 }> {
   return await page.evaluate(() => {
@@ -310,6 +341,7 @@ export async function readWorldState(page: Page): Promise<{
       castleBanks: Map<number, unknown[]>;
       defenders: Map<number, { id: number; kind: string; bagsRemaining: number; pos: { x: number; y: number } }>;
       gathererOrders: Map<number, number[]>;
+      nextPrimitiveId: number;
     };
     const nt = spark.netTransport as { peerCount: () => number } | null;
     return {
@@ -344,6 +376,10 @@ export async function readWorldState(page: Page): Promise<{
       })),
       // Copy the array — never alias live world state into a probe result.
       gathererOrders: Array.from(w.gathererOrders.entries()).map(([seat, q]) => ({ seat, types: [...q] })),
+      // S143 P2 — host-only cursor (a TRAP on a worker mirror) + the real growth oracle.
+      // See both docblocks above; they are not interchangeable.
+      nextPrimitiveId: w.nextPrimitiveId,
+      maxPrimitiveId: Array.from(w.primitives.values()).reduce((m, p) => (p.id > m ? p.id : m), 0),
       peerCount: nt ? nt.peerCount() : 0,
     };
   });
@@ -440,6 +476,81 @@ export async function waitForWorld(
         : '';
   throw new Error(
     `waitForWorld timeout (${timeoutMs}ms): ${description}${diag}\nFinal state: ${JSON.stringify(finalState, null, 2)}`,
+  );
+}
+
+/**
+ * ⛔ S143 P2 — WAIT IN **SIM TICKS**, NOT WALL-CLOCK.
+ *
+ * `waitForWorld` bounds on `Date.now()`. That is right for "did the page reach TITLE" and wrong
+ * for anything the SIMULATION has to do, because ticks are FRAME-bound, not time-bound:
+ * `main.ts` clamps `dtSec = min(deltaMS/1000, 0.05)` at `PHYSICS_HZ = 60`, so **at most 3 sim
+ * ticks advance per RENDERED FRAME**. A 60 s budget therefore buys ~1530 ticks locally and
+ * ~670 on the 2-core SwiftShader CI runner — a 2.3× difference in how much GAME the same
+ * assertion is allowed to observe. Any threshold tuned locally is then a coin flip in CI, and
+ * the failure reads as a product stall rather than as the instrument running out of runway.
+ *
+ * This is the same defect class S127 fixed for the soak lane (`WARMUP_WALL_CAP_MS`), and the
+ * `waitForTick` helper it introduced was left private to the two soak specs. Promoted here so
+ * every spec can bound on the quantity it actually depends on.
+ *
+ * The wall-clock argument survives as a BACKSTOP only: it exists so a genuinely dead page fails
+ * in bounded time, not to decide pass/fail on a live one. Keep it generous.
+ *
+ * It returns the MOMENT the predicate holds, so a fast machine pays nothing for the generous
+ * budget — the budget only decides how much runway the SIM gets before we call it a failure.
+ *
+ * @param budgetTicks how many sim ticks the world may consume before the predicate is declared
+ *                    unmet. Denominate this in the game's own units (build cooldowns, spawn
+ *                    intervals), never in seconds.
+ * @param wallCapMs   hard backstop for a DEAD page (NOT a throughput budget). Keep it generous.
+ */
+export async function waitForWorldWithinTicks(
+  page: Page,
+  predicate: (state: Awaited<ReturnType<typeof readWorldState>>) => boolean,
+  description: string,
+  budgetTicks: number,
+  wallCapMs = 240_000,
+): Promise<void> {
+  const t0 = (await readWorldState(page)).tick;
+  const start = Date.now();
+  let lastTick = t0;
+  let lastPollError: string | null = null;
+  while (Date.now() - start < wallCapMs) {
+    try {
+      const state = await readWorldState(page);
+      lastPollError = null;
+      lastTick = state.tick;
+      if (predicate(state)) return;
+      if (state.tick - t0 >= budgetTicks) break; // the SIM had its runway — a real failure
+    } catch (err) {
+      lastPollError = err instanceof Error ? err.message : String(err);
+    }
+    await page.waitForTimeout(200);
+  }
+
+  const elapsedS = (Date.now() - start) / 1000;
+  const spent = lastTick - t0;
+  const rate = (spent / Math.max(elapsedS, 0.001)).toFixed(2);
+  const finalState = await readWorldState(page).catch(() => null);
+
+  // Distinguish the three failure modes explicitly. Conflating them is precisely why the
+  // worker-bots red was misread for three sessions as "CI throughput or a real stall, unresolved".
+  const why =
+    lastPollError !== null
+      ? `\n⚠ The final poll was still THROWING — very likely a DEAD page, not an unmet predicate.` +
+        `\nLast poll error: ${lastPollError}`
+      : spent >= budgetTicks
+        ? `\n✅ INSTRUMENT OK, PREDICATE GENUINELY UNMET: the sim advanced the full budget of ` +
+          `${budgetTicks} ticks (${t0} → ${lastTick}) in ${elapsedS.toFixed(1)}s (≈${rate} ticks/s) ` +
+          `and the condition never held. This is a real product failure, not a slow runner.`
+        : `\n⚠ WALL BACKSTOP BOUND FIRST — the sim only advanced ${spent}/${budgetTicks} ticks in ` +
+          `${elapsedS.toFixed(1)}s (≈${rate} ticks/s). The predicate was NEVER GIVEN ITS BUDGET, so ` +
+          `this says nothing about the game. Raise wallCapMs or speed up the runner; do NOT ` +
+          `"fix" the product from this signal.`;
+
+  throw new Error(
+    `waitForWorldWithinTicks failed: ${description}${why}\nFinal state: ${JSON.stringify(finalState, null, 2)}`,
   );
 }
 
