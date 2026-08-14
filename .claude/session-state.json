@@ -1,8 +1,8 @@
 {
-  "tool_calls_session_total": 875,
+  "tool_calls_session_total": 889,
   "session_id": "S144",
   "session_kind": "pdca-batch",
-  "session_start": "2026-08-13",
+  "session_start": "2026-08-14",
   "prior_session_note": "S141 CLOSED at cb7b891 — Stink Tower, gatherer order queue, banked-SparkId collision fix, PROTOCOL_VERSION 20. Deploy verified 4/4.",
   "prior_session_archive": ".handoff-archive/HANDOFF_S138.md",
   "phase": "DO",
@@ -111,11 +111,110 @@
       "check_method": "P1 CHECK - click-to-build engine. (1) tsc --noEmit 0 errors. (2) vitest FULL 2389/2389 across 155 files (was 2304/153): +85 tests, +2 files, ZERO regressions. (3) The Council-upheld acceptance gate: blueprintBuild.test.ts stamps each of the 6 recipes through the REAL reducer, runs the REAL runGodlyMatcherCore, asserts ignition into the correct registry (defenders/creatureSpawners/GodlyTriggerEvent), then asserts recipeStillSatisfied stays true across 40 consecutive REVALIDATE_INTERVAL_TICKS polls with the tick advancing - per recipe, never aggregated (S143: a SUM cannot see a per-family hole). (4) NEGATIVE CONTROL proves the survival assertion can fail: deleting a stamped LEAF (not the anchor, so the anchor-exists fallback cannot mask it) flips it false for all 3 defender recipes. (5) blueprints.test.ts cross-checks every mirrored count against the recipe modules' real exports (TURRET_SIZE/TURRET_HUB_DEGREE, HELGA_SIZE, VOLTKIN_SIZE, STINK_HUB_TYPE/STINK_LEAF_TYPE) + topology invariants (pentagram all-deg-2 and n edges; voltkin endpoints deg 1, interior deg 2, n-1 edges; stars hub deg n-1 and all leaves deg 1) + connectivity (one component) + spacing 30..60px and no-overlap >22px so a fresh stamp is strain-free. (6) Refused-build cases assert NOTHING is consumed: unaffordable, illegal site (quarry centre), unknown player, carried porch spark. (7) Protocol bump 20->21 verified at all 4 pin sites (const, HelloMsg literal type, version-history list, e2e LOCAL_PROTO_V) - protocol.test.ts + protocolVersionSync.test.ts green. (8) npm run build 681.4 KiB, 68.6 KiB headroom under the 750 charter. TWO SELF-CAUGHT DEFECTS: (a) PRIME-AUDIT - my first verification read only the CALL SITE and concluded the matcher was a structural scan affecting only voltkin; reading the callee guards reversed it to all 6 and made the BOND_FORMED emit mandatory. (b) My side-effect import of recipe modules in blueprints.ts reached the whole codebase via world.ts and broke a SHIPPED test (defenderLifecycle.test.ts unregistered-recipe fallback); fixed by mirroring counts locally + cross-check test, restoring zero global state.",
       "checkpoint_commit": "b484263",
       "verification": [
-        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprints.ts",
-        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.ts",
-        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintLegality.ts",
-        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.test.ts",
-        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprints.test.ts"
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprints.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintLegality.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprints.test.ts"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.ts",
+          "pattern": "kind: 'BOND_FORMED'",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.ts",
+          "pattern": "detectComboDiscoveries",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.ts",
+          "pattern": "eligiblePorchSparks",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.ts",
+          "pattern": "state\\.kind === 'Free'",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.test.ts",
+          "pattern": "recipeStillSatisfied",
+          "op": ">=",
+          "value": 3
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.test.ts",
+          "pattern": "runGodlyMatcherCore",
+          "op": ">=",
+          "value": 3
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "pattern": "PROTOCOL_VERSION = 21",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "pattern": "readonly protoVersion: 21",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "pattern": "BUILD_BLUEPRINT",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\smoke.spec.ts",
+          "pattern": "LOCAL_PROTO_V = 21",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\benchGate.ts",
+          "pattern": "BUILD_BLUEPRINT: 'deny'",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprints.ts",
+          "pattern": "from './godlyRecipes/(laserTurret|princessHelga|voltkin|stinkTower|pentagram|lightningHub)",
+          "op": "==",
+          "value": 0
+        }
       ],
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -129,10 +228,70 @@
       "check_method": "P2 CHECK - castle panel build grid. (1) tsc 0. (2) vitest 2402/2402 across 156 files (was 2389/155), +13 tests, ZERO regressions. (3) castlePanel.structures.test.ts pins: all 6 recipes listed in ALL_BLUEPRINT_IDS order with real names (asserts name != raw id, the leak this catches), epigraphs and true costs; empty bank disables all 6 and EVERY dim row has a non-empty reason (this file's 'a disabled control must say why' contract); funding stinkTower enables exactly it; benched => all LOCKED; per-shape shortfall reports {type,need,have} not a bare boolean. (4) THE SHARING CONTRACT asserted directly: for 5 different funding states, every row's `enabled` equals planBlueprintPayment(...) !== null - the same function the reducer uses - so a bright tile is always buildable and a dim one never would have built. (5) THE S140 OVERFLOW CLASS covered, which shipped green last time because the bank strip had no test at all: 3 columns fit ROW_INNER_W; every tile is inside the panel horizontally AND vertically; tiles never overlap; the grid ends above rowsTop() so it cannot collide with the control rows; panelHeight accounts for the new strip; and panelRect stays fully on canvas for ALL 6 seats (the lower-arc clamp). (6) VISUAL VERIFICATION - the lesson this file documents ('does the text fit is not something a state assertion can see. Look at the render'). Drove solo in headless Chromium via Playwright + the shipped __SPARK__.castlePanel.getUiPoints geometry getter, captured 5 screenshots, and confirmed by eye: 3x2 grid renders, per-shape SPARK_COLORS read correctly (blue Square hub + green Circles for stinkTower, red Triangle ring for pentagram, purple Spirals for laserTurret, mixed star for helga), armed tile draws white-outlined, cost badges legible, caption shows 'STINK TOWER  4' + 'Four shapes. It throws filth.', and getUiPoints reported armed:stinkTower after the click. (7) npm run build 688.4 KiB, 61.6 KiB headroom. TWO THINGS THE RENDER CAUGHT THAT NO ASSERTION DID: (a) voltkin's 304px 8-chain scales to ~0.21 in a square tile and at a 2px glyph floor rendered as invisible specks - floor raised to 3px. (b) A REAL GAMEPLAY FINDING: gatherers haul random shapes, so the bank hits 7/7 FULL with every tile still reading NEED n MORE, and a full bank blocks new deliveries. Reported to the owner rather than fixed - it is downstream of their open CASTLE_BANK_CAP 7-vs-12/13 ruling, which I must not pre-empt.",
       "checkpoint_commit": "e57e1a9",
       "verification": [
-        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
-        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\blueprintGlyph.ts",
-        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.structures.test.ts",
-        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.ts"
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\blueprintGlyph.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.structures.test.ts"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
+          "pattern": "castleStructuresModel",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
+          "pattern": "ALL_BLUEPRINT_IDS",
+          "op": ">=",
+          "value": 3
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
+          "pattern": "drawBlueprintThumb",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
+          "pattern": "rowsTop\\(",
+          "op": ">=",
+          "value": 3
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
+          "pattern": "structuresStripHeight",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
+          "pattern": "planBlueprintPayment",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.structures.test.ts",
+          "pattern": "planBlueprintPayment",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\blueprintGlyph.ts",
+          "pattern": "Math\\.max\\(3, 9 \\* scale\\)",
+          "op": ">=",
+          "value": 1
+        }
       ],
       "pdr_approved": true,
       "deliberation_completed": true,
@@ -146,11 +305,81 @@
       "check_method": "P3 CHECK - cruiser drag-to-place. (1) tsc 0. (2) vitest 2430/2430 across 157 files (was 2402/156), +28 tests, ZERO regressions. (3) blueprintLegality.test.ts (28) pins the refusals that protect the SIM, not the fiction: quarry and every canvas edge refused by FOOTPRINT not centre (voltkin is 304px wide - a centre-only check would let three quarters of a chain hang off the arena); clearance measured by BOND REACH (AUTO_BOND_RADIUS) not overlap; and the crux case - a LEAF landing on existing geometry while the centre is clear must be BLOCKED, because a tower born fused to a neighbour breaks the exact-degree recipes. Refusal strings asserted short + uppercase since the ghost prints them verbatim. (4) e2e/click-to-build.spec.ts NEW in the GATING lane (3 tests): all six recipes listed with every dim tile naming its blocker; arm -> place -> exactly 4 primitives + 3 bonds + defender 'stinkTower' ignited + bank spent to 0 + disarmed + STILL ALIVE after ~6 revalidation polls; illegal drop (quarry) builds nothing, spends nothing, and KEEPS the tower in hand. (5) e2e:gating 39/39. (6) build 690.0 KiB, 60.0 KiB headroom. (7) MANUAL VISUAL PROOF via Playwright in solo: ghost renders GREEN with a footprint ring over a legal spot and RED naming 'QUARRY' over the quarry; after one click the world went 0->4 primitives, 0->3 bonds, defenders ['stinkTower'], and the HUD's combo counter moved 0/14 -> 1/14, proving detectComboDiscoveries fires for a menu-built tower exactly as for a hand-built one; the tower was still standing 4s (~248 ticks) later. THREE DEFECTS FOUND, TWO BY THE E2E TEST RATHER THAN BY REASONING: (a) carrying was killed by the panel closing - every outside click closes the panel, so my own 'keep it in hand on an illegal click' rule could never fire and a misjudged drop silently cost the player their selection; carrying is now independent of the panel. (b) getUiPoints() hardcoded armed:null in its closed-panel branch, reporting the player empty-handed while a ghost was on their cursor - a reporting lie that READ as defect (a). (c) CORRECTION ON RECORD: I concluded from one pass + one fail that a bomb.spec failure was my regression. It was not - it is the repo's known hand-drag placement flake (15s timeout), which surfaced in bomb.spec once and rainbow.spec once, each green on rerun, final gating 39/39.",
       "checkpoint_commit": "76a6e28",
       "verification": [
-        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\blueprintGhost.ts",
-        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
-        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintLegality.test.ts",
-        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\click-to-build.spec.ts"
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\blueprintGhost.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\click-to-build.spec.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintLegality.test.ts"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
+          "pattern": "armedBlueprint",
+          "op": ">=",
+          "value": 3
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
+          "pattern": "canStampAt",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
+          "pattern": "setBuildBlueprintHandler",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "pattern": "blueprintGhost\\.sync",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "pattern": "BUILD_BLUEPRINT",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\blueprintGhost.ts",
+          "pattern": "stampRefusalAt",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
+          "pattern": "armed: this\\.armed",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\click-to-build.spec.ts",
+          "pattern": "toContain\\('stinkTower'\\)",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\click-to-build.spec.ts",
+          "pattern": "^\\s*test\\('",
+          "op": ">=",
+          "value": 3
+        }
       ],
       "pdr_approved": true,
       "deliberation_completed": true,
