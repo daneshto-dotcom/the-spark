@@ -1,133 +1,103 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-08-13 | Session: S143 | Commit: `d19618a` | Branch: master | PROTOCOL_VERSION: **20**
+Generated: 2026-08-14 | Session: S144 | Commit: `6bebc98` | Branch: master | PROTOCOL_VERSION: **21**
 
-**S143 closed all three measured gates on the sim-worker default-on flip. The flip is STILL NOT
-TAKEN — deliberately — but it is now a ONE-CONSTANT change: `WORKER_DEFAULT_ON` in
-`src/workerFlag.ts`. The 3-week "intermittent" CI red is fixed and PROVEN with two consecutive
-green gating runs.**
+**S144 answered the owner's playtest complaint. Clicking the castle used to show a panel with NO
+TOWERS IN IT — that was the "blob". It is now a 3×2 BUILD GRID: click a tower, it is built from your
+banked shapes, and your cursor carries it to where you want it. All six recipes, live and verified.**
 
-Deploy verified 4/4 (`index-BY0XKCq3.js`). tsc 0 · vitest **2304/2304** (153 files, was 2275/150) ·
-e2e:gating **36/36** · mutation matrix **7/7** · bundle 678.2 KiB (71.8 KiB headroom) ·
-**no protocol bump** (still 20) · MCV 26/26 · Rule 22: 14/14 cited symbols verified on disk.
+Deploy verified 4/4 (`index-nR6yeWrW.js`). tsc 0 · vitest **2430/2430** (157 files, was 2304/153) ·
+e2e:gating **39/39** (3 new click-to-build gating tests) · bundle 690.0 KiB (60.0 KiB headroom) ·
+**PROTOCOL_VERSION bumped 20 → 21** (new `BUILD_BLUEPRINT` client intent) · MCV 39/39 · Rule 22:
+41/41 cited symbols verified on disk.
 
-## ⭐ THE 3-WEEK CI RED WAS NEVER A THROUGHPUT QUESTION
+## ⭐ WHY THE FEATURE WORKS THE WAY IT DOES
 
-It was on record as *"CI throughput **or** a real stall — UNRESOLVED"*. **Neither.** It was
-**three defects in one assertion**, and the headline one **no timeout, retry or faster runner
-could ever have fixed**:
+"It builds it for you" could NOT mean minting a tower record. Every defender is re-validated against
+its recipe every `REVALIDATE_INTERVAL_TICKS` (0.5 s); a tower with no primitives under it fails the
+first poll and is deleted. So a blueprint stamps the recipe's **real primitives and bonds**, and the
+existing structural matcher ignites it exactly as if you had built it by hand. The player never sees
+this. It is why there is zero per-kind special-casing — defender, spawner and cinematic recipes all
+work through one mechanism.
 
-1. `primitives.length > sampleA` is a strict-increase test on a **counter that FALLS** — razing
-   deletes primitives and MID bots sever deliberately (severChance 0.25). A real CI attempt
-   sampled **33** and failed at **32**. **Unsatisfiable by construction.** Measured locally in one
-   run: 29 primitives alive, max id 38.
-2. A **wall-clock budget on a sim-time quantity**. Ticks are frame-bound (≤3 per rendered frame),
-   so 60 s buys ~1530 ticks locally and **~670** in CI.
-3. **The error message could not tell those apart** — which is exactly why it survived three
-   sessions of investigation.
+## ⭐ THE DEFECT THAT WOULD HAVE SHIPPED A DEAD FEATURE
 
-## ⭐ TWO DEFECTS FOUND EN ROUTE THAT WERE IN NO DOCUMENT
-
-- **The migration successor's INTENT arm bypassed the worker route entirely.** Correct *today only
-  by accident* (a promoted host's driver is null). Under default-on it would write every remote
-  player's action into a render **MIRROR**, silently overwritten by the next snapshot — **every
-  other peer's input stops counting, with no error anywhere.**
-- **The driver had NO watchdog.** `failed` was set only by an explicit error event, so a worker
-  hanging *without throwing* froze the game permanently — and the direct-sim fallback could never
-  fire, because the only thing that arms it is the flag a silent hang cannot set.
+`runDefenderIgnition` and `runSpawnerIgnition` are called unconditionally every host tick, which makes
+them LOOK like structural scans. **They are not.** Each opens with its own `hasTopologyChange` sweep
+over `world.effects` and `if (!hasTopologyChange) return;`. Writing bonds directly with no
+`BOND_FORMED` emitted leaves **all six** recipes inert — no tower, no error, no log line. Caught only
+by reading the callee guards; reading the call site said the opposite (my first pass concluded "only
+voltkin is affected" — it was 6 of 6). **Do not remove the emit in `blueprintBuild.ts`.**
 
 ## WHAT TO DO NEXT
 
-1. **PLAYTEST — still the only thing genuinely waiting on you.** Stink Tower (recipe shapes remain
-   a *Claude* ruling — retune is one edit), the gatherer order queue, and the S139 goblin
-   (permanent ~120 px roaming vision source that renders above fog — **still unruled**).
-   ⭐ **Do NOT do the 2-browser HELLO check** — the `e2e-protocol` GATING lane does it (~11 s).
-2. **The flip is one constant now.** Two things gate it: seed `defenders` in the differential
-   harness (below), and one owner playtest on `?worker=1` after S143's changes.
-3. **Seed `defenders`** — the last real hole, ~2–4 h. It is NOT a one-line intent: `hostTick`
-   re-validates every defender each tick and tears an injected one down within a tick, so the
-   fixture must build **real stinkTower recipe geometry** (3 Circles bonded to 1 Square).
-4. **`gh workflow run e2e.yml` at boot** — `e2e.yml` still has no push trigger, so nothing else
-   reports the gating lane.
-5. **Next roadmap slot is V6-1.5 (the hero unit), Full.** ⚠ Strategically: **V6-1.7 is a designed
-   STOP SIGN** ("is the player bored?") two slots away, and *everything in Phases 2–4 is
-   provisional until it runs*.
+1. **PLAYTEST THE BUILD GRID — the only thing waiting on you.** Open a castle, look at the 6 tiles,
+   click one, drag it, place it. ⭐ Then rule on **CF1 below**, which the playtest will hit immediately.
+2. **⚠ CF1 — a full bank can build NOTHING.** Measured in a real solo run: gatherers haul random
+   shapes, so the bank reaches **7/7 with every tile still reading "NEED n MORE"**, and a full bank
+   blocks new deliveries. The order queue is the intended remedy and porch shapes stay spendable, but
+   a 7-shape recipe needs the bank to be exactly those 7. **This is your `CASTLE_BANK_CAP` 7-vs-12/13
+   ruling, now forced by a shipped feature.** I did not pre-empt it.
+3. **Rule on the drag interpretation (CF4).** Shipped as classical-TD: the tower rides your cursor and
+   stamps on release. The literal reading of *"the spark drags it"* — build at the castle, then haul the
+   finished tower — needs dragging a BONDED component, which does not exist. New priority if you want it.
+4. **Stink Tower recipe shapes** are still a *Claude* ruling awaiting your blessing or retune.
+5. Then the roadmap: **V6-1.5 (hero unit)** → V6-1.6 → **V6-1.7, the boredom gate** — a designed STOP
+   SIGN, and everything in Phases 2–4 is provisional until it runs.
 
 ## ⚠ TRAPS
 
-- **`nextPrimitiveId` is HOST-ONLY and FROZEN on a `?worker=1` mirror** — excluded from
-  NetSnapshot. It looks exactly like the cumulative-placement counter you want. An oracle built on
-  it reports "no placements ever happened" with total confidence while the game builds normally
-  (measured: cursor 33 vs a live primitive with id 38). **Use `maxPrimitiveId`.** I shipped this
-  mistake for one iteration.
-- **A run-level `cancelled` can hide TWO GREEN gating jobs.** Dispatching a second e2e run cancels
-  the first; the run-level conclusion reads `cancelled` even when `e2e` and `e2e-protocol` had
-  already concluded **success** (run 31737846412). S126's lesson was that `cancelled` can hide a
-  FAILURE; this is the mirror image. **Audit JOB conclusions, never the run conclusion.** Also:
-  `gh run view --log-failed` refuses to serve logs while any job is still in progress, so a red
-  gating job is unreadable until the 25-minute soak lane finishes.
-- **Never edit sources while their suite runs.** A gating run reported 4 failures purely because I
-  edited `src/` mid-run against a live vite dev server. The clean rerun was 36/36. I nearly
-  attributed 3 phantom regressions to my own correct changes.
-- **An aggregate assertion proves nothing about any member.** The differential guard was a SUM of
-  10 family sizes; `defenders` was 0 for all 300 frames while it sat green on poops.
-- **Mutation-test the guard, not just the code.** My fix for a documented "unforced site" was
-  itself unforced — deleting both terms left the whole suite green.
-- **Cap the A.0 fan-out at 3 agents.** 3/3 returned this session; three prior sessions lost work.
-- **Rebuild before `verify-deploy`.**
-- ⛔ **RUN THE `/handoff` SKILL — never hand-author these docs** (S140–S142 all lost reflexion
-  entries this way; S143 ran the skill and STEP 2.8.A appended 11 real entries).
+- **NEVER import a recipe module for its constants.** Every `godlyRecipes/*` calls `registerRecipe` at
+  its tail, and via `world.ts → blueprintBuild.ts → blueprints.ts` that registers every recipe for
+  essentially the whole repo — which makes `recipeStillSatisfied`'s unregistered-recipe fallback
+  unreachable and breaks `defenderLifecycle.test.ts`. `blueprints.ts` MIRRORS four counts instead, with
+  `blueprints.test.ts` cross-checking them. A retune must update both.
+- **Hand-drag placement e2e tests are flaky** (15 s placement timeout). `bomb.spec` and `rainbow.spec`
+  each failed once this session and passed on rerun; final gating 39/39. I mis-attributed the first to
+  my own change on one-pass-one-fail evidence. **Do not bisect a single failure as a regression.**
+- **A run-level `cancelled` can hide TWO GREEN gating jobs** — audit JOB conclusions, never the run.
+  (Verified again this session on run 31738493370.)
+- **`e2e-quarantine` failing is EXPECTED** (~8 genuinely failing joiner tests). Do not chase it.
+- **`nextPrimitiveId` is frozen on a `?worker=1` mirror** — use `maxPrimitiveId` (S143 trap, still live).
+- **Look at the render.** 13 green layout assertions missed both a voltkin thumbnail rendering as
+  invisible specks AND the full-bank-builds-nothing finding. Screenshots caught both.
+- **Rebuild before `verify-deploy`.** Cap A.0 fan-out ≤3 agents. Run `/handoff`, never hand-write it.
 
 ## Pending Backlog
 
-18 entries in `session-state.json → carry_forward` (3 added this session). Live: seed `defenders`;
-the `nextPrimitiveId` mirror trap; the `cancelled`-hides-a-PASS finding; ~8 genuinely failing
-joiner tests in the quarantine lane; the deferred ranged goblin / producer towers; and the
+22 entries in `session-state.json → carry_forward` (4 added this session: the full-bank finding, the
+placement flake, the recipe-import hazard, and the drag-interpretation flag). Still live from before:
+seed `defenders` in the differential harness (the last real gate on the sim-worker flip, which remains
+a ONE-CONSTANT change — `WORKER_DEFAULT_ON`), the deferred ranged goblin / producer towers, and the
 owner-gated set below.
 
 ## Blockers (owner-gated — only you can rule these)
 
-1. ⚠ **`CASTLE_BANK_CAP` 7 vs 12–13 — two of your own rulings point OPPOSITE ways.** At 12–13 all
-   six recipes become directly assemblable, deleting the carve-down tactic the pivot exists to protect.
-2. **R7 design library is not implementable as ruled** (per-browser localStorage cannot satisfy its
-   own host-validation contract). A design decision, not an implementation task.
-3. **Energy vs score as the currency** (V6-1.6) — score is already spendable; `player.energy` has
-   *zero reads*.
-4. **The S139 goblin** — renders above fog + permanent vision source. Unruled.
-5. **Stink Tower recipe shapes** — a Claude ruling awaiting your blessing or retune.
+1. ⚠ **`CASTLE_BANK_CAP` 7 vs 12–13** — two of your own rulings point OPPOSITE ways, and **CF1 now
+   forces the question**: at 7 a random full bank can build nothing.
+2. **R7 design library is not implementable as ruled** (per-browser localStorage cannot satisfy its own
+   host-validation contract). A design decision, not an implementation task.
+3. **Energy vs score as the currency** (V6-1.6) — score is already spendable; `player.energy` has zero reads.
+4. **The S139 goblin** — renders above fog + permanent ~120 px vision source. Unruled.
+5. **Stink Tower recipe shapes** — a Claude ruling awaiting blessing or retune.
 6. **Q6 bot starvation policy** — last open bot question.
 7. Standing: `origin/gh-pages` deletion · Pages `build_type` flip.
 
 ## Recent Reflexion (last 2 sessions)
 
+### S144 (2026-08-14)
+`#the-blob-was-not-ugly-the-towers-were-simply-absent` ·
+`#the-call-site-said-structural-the-callee-guard-said-event-driven` ·
+`#my-pure-geometry-module-silently-rewired-the-whole-codebase` ·
+`#the-strongest-challenge-came-from-the-seat-that-voted-adopt` ·
+`#the-render-caught-two-things-thirteen-green-assertions-could-not` ·
+`#one-pass-and-one-fail-is-not-attribution` ·
+`#my-own-safety-cleanup-made-the-feature-i-was-building-impossible` ·
+`#the-getter-lied-and-the-lie-looked-exactly-like-the-bug`
+
 ### S143 (2026-08-13)
 `#three-sessions-called-it-throughput-and-it-was-an-unsatisfiable-assertion` ·
 `#the-error-message-is-why-it-stayed-unresolved-for-three-sessions` ·
 `#my-own-new-diagnostic-confidently-asserted-a-product-failure-that-did-not-exist` ·
-`#the-guard-asked-about-a-url-spelling-not-the-state-it-guarded` ·
 `#the-second-path-was-correct-only-by-accident` ·
-`#the-only-thing-that-arms-the-fallback-was-the-flag-a-hang-cannot-set` ·
-`#a-sum-cannot-see-a-per-family-hole` · `#my-own-new-guard-caught-my-own-first-version-of-it` ·
-`#the-fix-for-an-unforced-site-was-itself-unforced` ·
-`#i-invalidated-my-own-test-run-by-editing-source-during-it` ·
-`SESSION #verify-the-probe-before-you-act-on-it`
-
-### S142 (2026-08-13)
-`#a0-killed-the-headline-priority-and-that-was-the-win` ·
-`#both-seats-proposed-a-broken-fix-again-third-session-running` ·
-`#a-reviewer-asserted-it-had-searched-and-had-not` · `#i-had-to-refute-my-own-pdr` ·
-`#the-owner-was-doing-a-chore-ci-already-performed` ·
-`#fully-red-was-half-green-in-both-environments` ·
-`#the-instrument-was-hiding-its-own-diagnosis` ·
-`#the-gating-lane-was-red-on-clean-master-and-nothing-reported-it` ·
-`#the-generalised-method-found-a-second-bug-the-specific-fix-would-have-missed` ·
-`#cap-the-fan-out-third-consecutive-session`
-
-## Process deviations (S143)
-
-- **I invalidated my own gating run** by editing `src/state/workerSim.ts` while it executed against
-  a live vite dev server (including a window where a function was referenced before it existed).
-  Reported 4 failures; the clean rerun was 36/36. Cost: one wasted 3-minute run and a near-miss on
-  misattributing 3 phantom regressions.
-- **Three self-corrections were caught by instruments written minutes earlier** — the frozen-cursor
-  oracle, the final-frame seeding table, and the decorative signature fix. All three are recorded
-  in the reflexion log rather than quietly fixed.
+`#a-sum-cannot-see-a-per-family-hole` · `#the-fix-for-an-unforced-site-was-itself-unforced` ·
+`#i-invalidated-my-own-test-run-by-editing-source-during-it`
