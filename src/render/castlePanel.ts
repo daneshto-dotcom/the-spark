@@ -45,7 +45,13 @@ import {
   KEEP_H,
 } from '../constants.ts';
 import { bankOf } from '../state/castleBank.ts';
+import { ALL_BLUEPRINT_IDS, blueprintBill, blueprintCost } from '../state/blueprints.ts';
+import { availableShapeCounts, planBlueprintPayment } from '../state/blueprintBuild.ts';
+import { drawBlueprintThumb } from './blueprintGlyph.ts';
+import { codexCopyFor } from './codexPresentation.ts';
+import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { drawSparkGlyph } from './sparkGlyph.ts';
+import { fitTextToWidth } from './textFit.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
 import type { World } from '../state/world.ts';
@@ -212,6 +218,119 @@ export function coalesceOrders(queue: readonly SparkType[]): Array<{ type: Spark
   }
   return out;
 }
+/* ========================================================================== *
+ *   S144 P2 — THE BUILD GRID (owner playtest: "its a blob ... make it easy")
+ * ========================================================================== */
+
+/**
+ * The owner's complaint was not that this panel was ugly in the abstract — it was that clicking the
+ * castle showed **no towers at all**. This file previously contained zero references to any recipe;
+ * its six palette buttons are PRIMITIVES, which reads as "the towers are in here somewhere, badly
+ * drawn". They were not in here.
+ *
+ * So: a 3x2 grid of build tiles, one per recipe, each drawing the tower's REAL stamped geometry via
+ * `drawBlueprintThumb` — the same `blueprints.ts` data the reducer stamps and the P3 ghost previews,
+ * so the picture you click is the structure you get. Per-shape colours are the board's own
+ * `SPARK_COLORS`, so a blue Square in the tile is a blue Square in the arena.
+ *
+ * ⚠ ALL SIX ARE ALWAYS LISTED, deliberately. Owner: *"for now everyone should have all the recipes
+ * just to test it all out"* — and this costs nothing, because the codex is a localStorage GALLERY
+ * record that nothing in `src/state/` reads. Recipes were never gated by it.
+ *
+ * Sizing follows this file's hard-won rule: derive from the PANEL, never from the contents. Three
+ * columns of `TILE` fit `ROW_INNER_W` with room to spare at any tile count, so the grid can never
+ * outgrow the plate (the S140 bank-strip overflow, which shipped green because nothing tested it).
+ */
+export const TILE = 76;
+export const TILE_GAP = 6;
+export const TILE_COLS = 3;
+const SECTION_LABEL_H = 16;
+/** Two lines: the hovered tower's name + cost, then its one-line epigraph. */
+const CAPTION_H = 32;
+const STRUCTURES_PAD_BOTTOM = 10;
+
+/** PURE — how many tile rows the grid needs. */
+export function structureRowCount(count: number = ALL_BLUEPRINT_IDS.length): number {
+  return Math.max(1, Math.ceil(count / TILE_COLS));
+}
+
+/** PURE — total height of the build section, label and caption included. */
+export function structuresStripHeight(count: number = ALL_BLUEPRINT_IDS.length): number {
+  const rows = structureRowCount(count);
+  return SECTION_LABEL_H + rows * TILE + (rows - 1) * TILE_GAP + CAPTION_H + STRUCTURES_PAD_BOTTOM;
+}
+
+/** PURE — the top-left of build tile `i`, panel-local. Each row is centred on its own occupancy. */
+export function tileOrigin(i: number, count: number = ALL_BLUEPRINT_IDS.length): { x: number; y: number } {
+  const row = Math.floor(i / TILE_COLS);
+  const col = i % TILE_COLS;
+  const inThisRow = Math.min(TILE_COLS, count - row * TILE_COLS);
+  const total = inThisRow * TILE + (inThisRow - 1) * TILE_GAP;
+  const left = (PANEL_W - total) / 2;
+  return {
+    x: left + col * (TILE + TILE_GAP),
+    y: PANEL_PAD + TITLE_H + bankStripHeight() + paletteStripHeight() + queueStripHeight()
+      + SECTION_LABEL_H + row * (TILE + TILE_GAP),
+  };
+}
+
+/** One build tile's model: what it is, whether you can afford it, and why not. */
+export interface StructureRow {
+  readonly id: GodlyId;
+  readonly name: string;
+  /** The ≤34-char epigraph from the codex — shown in the caption, not on the tile. */
+  readonly tagline: string;
+  /** Total shapes the build consumes. */
+  readonly cost: number;
+  readonly enabled: boolean;
+  /** Non-empty exactly when `enabled` is false — never left blank (this file's standing contract). */
+  readonly reason: string;
+  /** Per-shape shortfall, for the caption's "need" readout. Empty when affordable. */
+  readonly missing: ReadonlyArray<{ type: SparkType; need: number; have: number }>;
+}
+
+/**
+ * PURE — every buildable structure for `world`'s local seat, with affordability and the reason for
+ * each refusal. World-only (no Pixi) so the matrix is unit-testable headlessly — the S130 lesson.
+ *
+ * ⚠ Affordability is decided by `planBlueprintPayment`, THE SAME function the reducer uses, not by a
+ * lookalike count comparison. A tile that says "buildable" while the reducer refuses (or the reverse)
+ * is the defect this sharing exists to prevent. `availableShapeCounts` is used ONLY to explain the
+ * shortfall, never to decide it.
+ */
+export function castleStructuresModel(world: World): StructureRow[] {
+  const me = world.players.get(world.localPlayerId);
+  // Honour the same input locks the control rows do — these tiles live on app.stage and their
+  // pointertap never passes through Controls.isInputLocked().
+  const locked =
+    world.sudoku !== null ||
+    world.activeCinematicPlayerId === world.localPlayerId ||
+    (me !== undefined && isBenched(me.benchedUntilTick, world.tick));
+
+  const have = availableShapeCounts(world, world.localPlayerId);
+
+  return ALL_BLUEPRINT_IDS.map((id) => {
+    const copy = codexCopyFor(id);
+    const missing: Array<{ type: SparkType; need: number; have: number }> = [];
+    for (const [type, need] of blueprintBill(id)) {
+      const got = have.get(type) ?? 0;
+      if (got < need) missing.push({ type, need, have: got });
+    }
+    const affordable = planBlueprintPayment(world, world.localPlayerId, id) !== null;
+    const short = missing.reduce((n, m) => n + (m.need - m.have), 0);
+    const reason = locked ? 'LOCKED' : affordable ? '' : `NEED ${short} MORE`;
+    return {
+      id,
+      name: copy.name,
+      tagline: copy.power,
+      cost: blueprintCost(id),
+      enabled: reason === '',
+      reason,
+      missing,
+    };
+  });
+}
+
 /** Gap between the keep box and the panel edge, so the panel never covers the castle it describes. */
 const ANCHOR_GAP = 14;
 
@@ -320,7 +439,24 @@ export function panelOrigin(
 export function panelHeight(rows: number, cap: number = CASTLE_BANK_CAP): number {
   return (
     TITLE_H + bankStripHeight(cap) + paletteStripHeight() + queueStripHeight() +
+    structuresStripHeight() +
     rows * ROW_H + (rows - 1) * ROW_GAP + PANEL_PAD * 2
+  );
+}
+
+/**
+ * PURE — the panel-local y of the FIRST control row, i.e. the bottom of every strip above it.
+ *
+ * ⚠ EXTRACTED IN S144 P2 BECAUSE THIS EXPRESSION WAS WRITTEN OUT THREE TIMES — in the constructor,
+ * in `getUiPoints`, and (as a sum) in `panelHeight`. Adding the build grid meant editing all three in
+ * lockstep, and the failure mode of missing one is silent and seat-specific: the rows would DRAW at
+ * one y while `getUiPoints` reported another, so every e2e click on BUY GATHERER would land on empty
+ * plate while looking perfectly correct in a screenshot. One definition, three callers.
+ */
+export function rowsTop(cap: number = CASTLE_BANK_CAP): number {
+  return (
+    PANEL_PAD + TITLE_H + bankStripHeight(cap) + paletteStripHeight() + queueStripHeight()
+    + structuresStripHeight()
   );
 }
 
@@ -377,6 +513,25 @@ export class CastlePanel {
   }> = [];
   private onEnqueue: ((t: SparkType) => void) | null = null;
   private onCancel: ((t: SparkType) => void) | null = null;
+  /**
+   * S144 P2 — the BUILD GRID. One tile per recipe, built ONCE in the constructor at a fixed count and
+   * repainted in sync() — never created per frame (the bank strip's lesson: a variable-length strip
+   * that adds children in sync() leaks Pixi objects every frame).
+   */
+  private readonly tiles: Array<{
+    box: Container; bg: Graphics; art: Graphics; cost: Text; hover: boolean; enabled: boolean;
+  }> = [];
+  private sectionLabel: Text;
+  private captionName: Text;
+  private captionTag: Text;
+  /**
+   * The tower the player has picked up, or null. RENDER-LOCAL and never serialized — the same ruling
+   * as `selected` (see the file docblock): a World field would owe FIELD_COVERAGE / save / protocol /
+   * structuralSignature / the positions buffer, and an opponent must not see what you are about to
+   * build. P3 reads this to draw the cursor ghost and to commit BUILD_BLUEPRINT on release.
+   */
+  private armed: GodlyId | null = null;
+  private onArm: ((id: GodlyId | null) => void) | null = null;
   /** Render-local selection. null = closed. Never serialized (see the file docblock). */
   private selected: number | null = null;
   private onBuyGatherer: (() => void) | null = null;
@@ -410,11 +565,7 @@ export class CastlePanel {
       const box = new Container();
       box.addChild(bg); // ⚠ Graphics child supplies containsPoint — do not remove (see docblock).
       box.addChild(label);
-      box.position.set(
-        PANEL_PAD,
-        PANEL_PAD + TITLE_H + bankStripHeight() + paletteStripHeight() + queueStripHeight() +
-          i * (ROW_H + ROW_GAP),
-      );
+      box.position.set(PANEL_PAD, rowsTop() + i * (ROW_H + ROW_GAP));
       box.eventMode = 'static';
       box.cursor = 'pointer';
       const idx = i;
@@ -463,6 +614,51 @@ export class CastlePanel {
       this.container.addChild(box);
       this.palette.push({ box, bg, glyph, hover: false });
     }
+
+    // S144 P2 — THE BUILD GRID + its caption. Same Container+Graphics-child idiom as every other
+    // clickable here (the Graphics child supplies `containsPoint`; a bare Container has none and
+    // Pixi's hitTest falls through to false — see the file docblock).
+    this.sectionLabel = new Text({
+      text: 'BUILD',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 11, fill: 0x7c93a8 }),
+    });
+    this.container.addChild(this.sectionLabel);
+
+    for (let i = 0; i < ALL_BLUEPRINT_IDS.length; i++) {
+      const bg = new Graphics();
+      const art = new Graphics();
+      const cost = new Text({
+        text: '',
+        style: new TextStyle({ fontFamily: 'monospace', fontSize: 10, fill: 0xffffff }),
+      });
+      cost.anchor.set(1, 1);
+      cost.position.set(TILE - 4, TILE - 2);
+      const box = new Container();
+      box.addChild(bg);
+      box.addChild(art);
+      box.addChild(cost);
+      const o = tileOrigin(i);
+      box.position.set(o.x, o.y);
+      box.eventMode = 'static';
+      box.cursor = 'pointer';
+      const idx = i;
+      box.on('pointertap', () => this.armTile(idx));
+      box.on('pointerover', () => { this.tiles[idx].hover = true; });
+      box.on('pointerout', () => { this.tiles[idx].hover = false; });
+      this.container.addChild(box);
+      this.tiles.push({ box, bg, art, cost, hover: false, enabled: false });
+    }
+
+    this.captionName = new Text({
+      text: '',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 12, fill: 0xffffff }),
+    });
+    this.captionTag = new Text({
+      text: '',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 10, fill: 0x8fa6ba }),
+    });
+    this.container.addChild(this.captionName);
+    this.container.addChild(this.captionTag);
 
     // S141 P2 — THE QUEUE CHIPS. ⚠ Built ONCE at a fixed maximum and shown/hidden in sync(), NOT
     // created per frame: the bank strip's children are also constructor-built, and a variable-length
@@ -525,6 +721,40 @@ export class CastlePanel {
   /** main.ts injects the UPGRADE_GATHERER_SPEED dispatch for the local seat. */
   setUpgradeSpeedHandler(fn: () => void): void {
     this.onUpgradeSpeed = fn;
+  }
+
+  /**
+   * S144 P2 — pick up (or put down) a tower.
+   *
+   * Clicking an affordable tile ARMS it; clicking the armed tile again disarms — the same toggle the
+   * castle click itself uses, so there is always a way to change your mind without committing. A
+   * disabled tile does nothing: `enabled` is latched per frame from `castleStructuresModel`, so a
+   * pointertap can never fire a build the model says is unaffordable (the same latch the control rows
+   * use, and for the same reason).
+   */
+  private armTile(idx: number): void {
+    const tile = this.tiles[idx];
+    if (tile === undefined || !tile.enabled) return;
+    const id = ALL_BLUEPRINT_IDS[idx];
+    this.armed = this.armed === id ? null : id;
+    this.onArm?.(this.armed);
+  }
+
+  /** P3 — main.ts injects this to raise/lower the cursor ghost as tiles are armed. */
+  setArmHandler(fn: (id: GodlyId | null) => void): void {
+    this.onArm = fn;
+  }
+
+  /** The tower currently held on the cursor, or null. Read by the P3 ghost + commit path. */
+  armedBlueprint(): GodlyId | null {
+    return this.armed;
+  }
+
+  /** Put the held tower down without building it (Escape, right-click, a lost gesture, a state exit). */
+  disarm(): void {
+    if (this.armed === null) return;
+    this.armed = null;
+    this.onArm?.(null);
   }
 
   private activate(idx: number): void {
@@ -591,6 +821,9 @@ export class CastlePanel {
     /** S141 P2 — live click geometry for the order queue (the S85 P4c geometry-getter convention). */
     paletteCenters: Array<{ type: number; x: number; y: number }>;
     chipCenters: Array<{ index: number; type: number; count: number; x: number; y: number }>;
+    /** S144 P2 — live click geometry for the build grid (the S85 P4c geometry-getter convention). */
+    structureCenters: Array<{ id: string; x: number; y: number; enabled: boolean; reason: string }>;
+    armed: string | null;
   } {
     if (this.selected === null) {
       return {
@@ -601,6 +834,8 @@ export class CastlePanel {
         slotCenters: [],
         paletteCenters: [],
         chipCenters: [],
+        structureCenters: [],
+        armed: null,
       };
     }
     const a = castleAnchor(this.selected);
@@ -619,6 +854,17 @@ export class CastlePanel {
           filled: s.filled,
         };
       }),
+      structureCenters: ALL_BLUEPRINT_IDS.map((id, i) => {
+        const to = tileOrigin(i);
+        return {
+          id: id as string,
+          x: o.x + to.x + TILE / 2,
+          y: o.y + to.y + TILE / 2,
+          enabled: this.tiles[i]?.enabled === true,
+          reason: this.structureReasons[i] ?? '',
+        };
+      }),
+      armed: this.armed,
       paletteCenters: PALETTE_TYPES.map((t, i) => {
         const po = paletteOrigin(i);
         return { type: t as unknown as number, x: o.x + po.x + PALETTE_BTN / 2, y: o.y + po.y + PALETTE_BTN / 2 };
@@ -636,8 +882,7 @@ export class CastlePanel {
       rowCenters: this.rows.map((_, i) => ({
         key: keys[i],
         x: o.x + PANEL_PAD + (PANEL_W - PANEL_PAD * 2) / 2,
-        y: o.y + PANEL_PAD + TITLE_H + bankStripHeight() + paletteStripHeight() + queueStripHeight() +
-          i * (ROW_H + ROW_GAP) + ROW_H / 2,
+        y: o.y + rowsTop() + i * (ROW_H + ROW_GAP) + ROW_H / 2,
         enabled: this.enabled[i] === true,
         reason: this.reasons[i] ?? '',
       })),
@@ -645,13 +890,20 @@ export class CastlePanel {
   }
 
   private reasons: string[] = [];
+  /** S144 P2 — per-tile blocker, latched in sync() so getUiPoints reports what the caption showed. */
+  private structureReasons: string[] = [];
 
   sync(world: World): void {
     // The panel is a PLAYING-only affordance; any other state closes it so it cannot survive into
     // the title/win screens (the same scoping the footer had, and the reason its watermark reset).
     if (world.gameState !== 'PLAYING') this.selected = null;
     this.container.visible = this.selected !== null;
-    if (this.selected === null) return;
+    // A held tower must not survive the panel closing or the match ending — otherwise a ghost stays
+    // stuck to the cursor with no panel to put it back in, and the next click would build it.
+    if (this.selected === null) {
+      this.disarm();
+      return;
+    }
 
     const model = castleControlsModel(world);
     this.enabled = model.map((m) => m.enabled);
@@ -730,6 +982,75 @@ export class CastlePanel {
       // Only badge a real multiple — "x1" on every chip is noise.
       c.badge.text = model.count > 1 ? `x${model.count}` : '';
     }
+
+    // S144 P2 — THE BUILD GRID. Affordability comes from `castleStructuresModel`, which decides it
+    // with the SAME `planBlueprintPayment` the reducer uses — so a bright tile is always buildable.
+    const structures = castleStructuresModel(world);
+    this.sectionLabel.position.set(
+      PANEL_PAD,
+      PANEL_PAD + TITLE_H + bankStripHeight() + paletteStripHeight() + queueStripHeight(),
+    );
+    this.sectionLabel.style.fill = tint;
+
+    let captionFor: StructureRow | null = null;
+    for (let i = 0; i < this.tiles.length; i++) {
+      const t = this.tiles[i];
+      const m = structures[i];
+      t.enabled = m.enabled;
+      const isArmed = this.armed === m.id;
+      // The hovered tile wins the caption; otherwise the held one explains itself, so the player can
+      // always see WHAT they are carrying while they look for somewhere to put it.
+      if (t.hover) captionFor = m;
+      else if (isArmed && captionFor === null) captionFor = m;
+
+      t.box.cursor = m.enabled ? 'pointer' : 'default';
+      t.bg.clear();
+      t.bg.roundRect(0, 0, TILE, TILE, 6)
+        .fill({
+          color: isArmed ? 0x1f5f9e : m.enabled ? (t.hover ? 0x17497a : 0x14283c) : 0x101a26,
+          alpha: 0.95,
+        })
+        .stroke({
+          width: isArmed ? 3 : m.enabled ? 2 : 1,
+          color: isArmed ? 0xffffff : m.enabled ? tint : 0x2a3a4a,
+          alpha: isArmed ? 1 : m.enabled ? 0.9 : 0.7,
+        });
+
+      // The tower's REAL stamped geometry, auto-scaled to the tile. An unaffordable one is drawn in
+      // flat grey rather than hidden — you must be able to see what you are saving up for.
+      t.art.clear();
+      t.art.alpha = m.enabled ? 1 : 0.45;
+      drawBlueprintThumb(
+        t.art, m.id, TILE / 2, TILE / 2 - 4, TILE - 12,
+        m.enabled ? {} : { tint: 0x6b7a88 },
+      );
+
+      this.structureReasons[i] = m.reason;
+      t.cost.text = `${m.cost}`;
+      t.cost.style.fill = m.enabled ? 0xffffff : 0x6b7a88;
+    }
+
+    // CAPTION. Names the hovered/held tower and its epigraph; when nothing is picked it says what to
+    // do. A dim tile's blocker is shown HERE rather than on the tile — a 76 px box cannot hold
+    // "NEED 3 MORE" legibly, but the panel's contract that a disabled thing explains itself still
+    // has to be met somewhere.
+    const capY = PANEL_PAD + TITLE_H + bankStripHeight() + paletteStripHeight() + queueStripHeight()
+      + SECTION_LABEL_H + structureRowCount() * TILE + (structureRowCount() - 1) * TILE_GAP + 6;
+    this.captionName.position.set(PANEL_PAD, capY);
+    this.captionTag.position.set(PANEL_PAD, capY + 14);
+    if (captionFor === null) {
+      this.captionName.text = 'PICK A TOWER';
+      this.captionName.style.fill = 0x7c93a8;
+      this.captionTag.text = 'costs shapes from your bank';
+    } else {
+      this.captionName.text = captionFor.enabled
+        ? `${captionFor.name}  ${captionFor.cost}`
+        : `${captionFor.name}  ${captionFor.reason}`;
+      this.captionName.style.fill = captionFor.enabled ? 0xffffff : 0xd4956a;
+      this.captionTag.text = captionFor.tagline;
+    }
+    fitTextToWidth(this.captionName, ROW_INNER_W);
+    fitTextToWidth(this.captionTag, ROW_INNER_W);
 
     for (let i = 0; i < this.rows.length; i++) {
       const row = this.rows[i];

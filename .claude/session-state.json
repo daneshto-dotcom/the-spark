@@ -86,11 +86,17 @@
     {
       "id": "P1",
       "title": "Blueprint build engine: bills + geometry stamp + BUILD_BLUEPRINT wire action",
-      "status": "in_progress",
-      "check_completed": false,
-      "check_method": "",
-      "checkpoint_commit": "",
-      "verification": [],
+      "status": "completed",
+      "check_completed": true,
+      "check_method": "P1 CHECK - click-to-build engine. (1) tsc --noEmit 0 errors. (2) vitest FULL 2389/2389 across 155 files (was 2304/153): +85 tests, +2 files, ZERO regressions. (3) The Council-upheld acceptance gate: blueprintBuild.test.ts stamps each of the 6 recipes through the REAL reducer, runs the REAL runGodlyMatcherCore, asserts ignition into the correct registry (defenders/creatureSpawners/GodlyTriggerEvent), then asserts recipeStillSatisfied stays true across 40 consecutive REVALIDATE_INTERVAL_TICKS polls with the tick advancing - per recipe, never aggregated (S143: a SUM cannot see a per-family hole). (4) NEGATIVE CONTROL proves the survival assertion can fail: deleting a stamped LEAF (not the anchor, so the anchor-exists fallback cannot mask it) flips it false for all 3 defender recipes. (5) blueprints.test.ts cross-checks every mirrored count against the recipe modules' real exports (TURRET_SIZE/TURRET_HUB_DEGREE, HELGA_SIZE, VOLTKIN_SIZE, STINK_HUB_TYPE/STINK_LEAF_TYPE) + topology invariants (pentagram all-deg-2 and n edges; voltkin endpoints deg 1, interior deg 2, n-1 edges; stars hub deg n-1 and all leaves deg 1) + connectivity (one component) + spacing 30..60px and no-overlap >22px so a fresh stamp is strain-free. (6) Refused-build cases assert NOTHING is consumed: unaffordable, illegal site (quarry centre), unknown player, carried porch spark. (7) Protocol bump 20->21 verified at all 4 pin sites (const, HelloMsg literal type, version-history list, e2e LOCAL_PROTO_V) - protocol.test.ts + protocolVersionSync.test.ts green. (8) npm run build 681.4 KiB, 68.6 KiB headroom under the 750 charter. TWO SELF-CAUGHT DEFECTS: (a) PRIME-AUDIT - my first verification read only the CALL SITE and concluded the matcher was a structural scan affecting only voltkin; reading the callee guards reversed it to all 6 and made the BOND_FORMED emit mandatory. (b) My side-effect import of recipe modules in blueprints.ts reached the whole codebase via world.ts and broke a SHIPPED test (defenderLifecycle.test.ts unregistered-recipe fallback); fixed by mirroring counts locally + cross-check test, restoring zero global state.",
+      "checkpoint_commit": "b484263",
+      "verification": [
+        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprints.ts",
+        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.ts",
+        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintLegality.ts",
+        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.test.ts",
+        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprints.test.ts"
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
@@ -98,7 +104,7 @@
     {
       "id": "P2",
       "title": "Castle panel STRUCTURES section: all 6 recipes, glyph bills, affordability",
-      "status": "pending",
+      "status": "in_progress",
       "check_completed": false,
       "check_method": "",
       "checkpoint_commit": "",
@@ -192,6 +198,18 @@
           "text": "I added gathererOrders to structuralSignature citing its docblock about UNFORCED sites — then mutation-tested it and deleting BOTH terms left the entire suite green. My fix for a decorative site was decorative. Only after adding a test pinning the map-size term AND the depth term (a second enqueue leaves .size unchanged) did both mutations go red. Mutation-test the guard, never just the code."
         }
       ]
+    },
+    {
+      "tag": "#the-call-site-said-structural-the-callee-guard-said-event-driven",
+      "body": "Gemini's C2 claimed bypassing the bonding functions would leave stamped shapes inert. I verified it by reading the CALL SITE - runGodlyMatcherCore calls runSpawnerIgnition and runDefenderIgnition unconditionally, before any effects scan - and concluded 'structural scan, only voltkin is affected'. Wrong. Both callees OPEN with their own hasTopologyChange sweep and early-return without one. It was 6 of 6, not 1 of 6, and without the emit the whole feature would have shipped dead with no error anywhere. An unconditional call proves nothing about whether the callee runs."
+    },
+    {
+      "tag": "#my-pure-geometry-module-silently-rewired-the-whole-codebase",
+      "body": "I imported recipe modules into blueprints.ts for their constants and documented the side-effect registration as a deliberate BENEFIT. The real blast radius was the entire repo: world.ts imports the blueprint reducer, so every module got all six recipes registered, which made recipeStillSatisfied's documented unregistered-recipe fallback unreachable and broke a shipped test. I reasoned about the hazard, talked myself into it, and was wrong about its scope. Mirror-plus-cross-check-test was the right answer."
+    },
+    {
+      "tag": "#the-strongest-challenge-came-from-the-seat-that-voted-adopt",
+      "body": "Grok voted REJECT with 5 challenges; 4 were disproportionate (frozen geometry would delete the documented self-healing contract AND make towers immune to creature chewing) and Gemini overruled all 4. But Gemini - which voted ADOPT-WITH-CHANGES - supplied the one critical defect. A REJECT vote is not a proxy for finding real bugs. Read the challenges, not votes."
     }
   ],
   "totals": {
@@ -267,8 +285,8 @@
     "runtime_verifiability_boot_then_smoke": "THE decisive question for this session, given the headline A.0 finding was a whole subsystem that static-parsed perfectly and was never called. Static parsing is NOT validation here. Mandatory runtime gates before any priority is marked complete: (1) a REAL-PHYSICS acceptance test that runs the actual physics loop and asserts the goblin closes distance and the target primitive's hp actually decreases - a state-only assertion is not evidence (S136); (2) PHYSICS_DT imported from physicsLoop.ts, never re-derived, because constants.ts does not export it and a test once silently ran on NaN (S138); (3) an explicit assertion that damageEntity now HAS production call sites, i.e. the exact grep that exposed the dead substrate becomes a permanent test; (4) LOOK AT THE RENDER - a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches, and no state assertion can see 'nothing was drawn'.",
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
-  "real_context_tokens_at_close": 379632,
-  "real_context_pct_at_close": 38.0,
+  "real_context_tokens_at_close": 277004,
+  "real_context_pct_at_close": 27.7,
   "checkpoint_commit": "b40d7f2",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,

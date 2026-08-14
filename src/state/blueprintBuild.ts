@@ -60,6 +60,7 @@ import type { GodlyId } from './godlyRecipes/types.ts';
 import type { Spark } from '../game/spark.ts';
 import type { World } from './world.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
+import type { SparkType } from '../constants.ts';
 
 export interface BuildBlueprintAction {
   readonly type: 'BUILD_BLUEPRINT';
@@ -73,6 +74,40 @@ export interface BuildBlueprintAction {
 type Payment =
   | { readonly from: 'bank'; readonly index: number; readonly spark: Spark }
   | { readonly from: 'porch'; readonly spark: Spark };
+
+/**
+ * PURE — the porch shapes this seat may spend, in deterministic id order.
+ *
+ * THE single definition of porch eligibility, so the panel's "can I afford this?" readout and the
+ * reducer's payment plan can never disagree about what counts. Two rules:
+ *   • it must be sitting on THIS seat's porch (`isOwnPorchSpark`);
+ *   • it must be `Free` — a spark mid-carry by a player or a gatherer is excluded, because consuming
+ *     it would strand its carrier holding a spark that no longer exists.
+ * Sorted by id because `Map` iteration is insertion order, which is host-history-dependent; sorting
+ * keeps the same bill resolving the same way on every peer.
+ */
+export function eligiblePorchSparks(world: World, playerId: PlayerId): Spark[] {
+  const seat = playerId as unknown as number;
+  return [...world.freeSparks.values()]
+    .filter((s) => s.state.kind === 'Free' && isOwnPorchSpark(seat, s.pos))
+    .sort((a, b) => (a.id as unknown as number) - (b.id as unknown as number));
+}
+
+/**
+ * PURE — how many of each `SparkType` this seat could spend right now (bank ∪ eligible porch).
+ *
+ * Drives the panel's per-shape have/need readout. Deliberately a COUNT rather than a re-implementation
+ * of the payment search: `planBlueprintPayment` is the authority on whether a specific bill can be
+ * covered (and the panel calls it for exactly that), while this answers the different question the UI
+ * needs — "what am I short, and by how much?".
+ */
+export function availableShapeCounts(world: World, playerId: PlayerId): Map<SparkType, number> {
+  const counts = new Map<SparkType, number>();
+  const bump = (t: SparkType): void => { counts.set(t, (counts.get(t) ?? 0) + 1); };
+  for (const s of bankOf(world.castleBanks, playerId)) bump(s.type);
+  for (const s of eligiblePorchSparks(world, playerId)) bump(s.type);
+  return counts;
+}
 
 /**
  * PURE-ish (reads world, mutates nothing) — resolve who pays for every node, or null if the player
@@ -93,13 +128,8 @@ export function planBlueprintPayment(
 ): Payment[] | null {
   const bp = blueprintFor(blueprintId);
   if (bp === undefined) return null;
-  const seat = playerId as unknown as number;
   const bank = bankOf(world.castleBanks, playerId);
-  // Deterministic porch order: ascending spark id. Iteration order of a Map is insertion order,
-  // which is host-history-dependent — sorting keeps the same bill resolving the same way on any peer.
-  const porch = [...world.freeSparks.values()]
-    .filter((s) => s.state.kind === 'Free' && isOwnPorchSpark(seat, s.pos))
-    .sort((a, b) => (a.id as unknown as number) - (b.id as unknown as number));
+  const porch = eligiblePorchSparks(world, playerId);
 
   const usedBank = new Set<number>();
   const usedPorch = new Set<Spark>();
