@@ -835,7 +835,11 @@ export class CastlePanel {
         paletteCenters: [],
         chipCenters: [],
         structureCenters: [],
-        armed: null,
+        // ⚠ NOT hardcoded null. A held tower outlives the panel closing (see `sync`), so reporting
+        // null here would tell the harness — and any future consumer — that the player is empty-handed
+        // while a ghost is visibly following their cursor. The first version did exactly that, and the
+        // e2e test read it as "the illegal drop lost my tower" when the tower was in fact still held.
+        armed: this.armed,
       };
     }
     const a = castleAnchor(this.selected);
@@ -896,14 +900,25 @@ export class CastlePanel {
   sync(world: World): void {
     // The panel is a PLAYING-only affordance; any other state closes it so it cannot survive into
     // the title/win screens (the same scoping the footer had, and the reason its watermark reset).
-    if (world.gameState !== 'PLAYING') this.selected = null;
-    this.container.visible = this.selected !== null;
-    // A held tower must not survive the panel closing or the match ending — otherwise a ghost stays
-    // stuck to the cursor with no panel to put it back in, and the next click would build it.
-    if (this.selected === null) {
+    // ⚠ A HELD TOWER OUTLIVES THE PANEL, BUT NOT THE MATCH.
+    //
+    // The first cut disarmed whenever the panel closed, which quietly made the whole carry flow
+    // impossible: EVERY click outside the panel closes it (`handleCastleClick`), including the click
+    // that places the tower and — the case that caught this — a click on an ILLEGAL spot. So a player
+    // who misjudged a drop lost their selection with no explanation, and the "keep it in hand on an
+    // illegal click" rule in `controls.ts` could never actually fire. Found by the e2e test, not by
+    // reasoning.
+    //
+    // Carrying is therefore independent of the panel being open: you picked a tower up, you are
+    // holding it, and the panel has nothing more to say until you put it down. Escape and RMB remain
+    // the explicit ways out, and leaving PLAYING force-drops it so a ghost can never survive into the
+    // title/win screens.
+    if (world.gameState !== 'PLAYING') {
+      this.selected = null;
       this.disarm();
-      return;
     }
+    this.container.visible = this.selected !== null;
+    if (this.selected === null) return;
 
     const model = castleControlsModel(world);
     this.enabled = model.map((m) => m.enabled);

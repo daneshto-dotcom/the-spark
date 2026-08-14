@@ -104,11 +104,16 @@
     {
       "id": "P2",
       "title": "Castle panel STRUCTURES section: all 6 recipes, glyph bills, affordability",
-      "status": "in_progress",
-      "check_completed": false,
-      "check_method": "",
-      "checkpoint_commit": "",
-      "verification": [],
+      "status": "completed",
+      "check_completed": true,
+      "check_method": "P2 CHECK - castle panel build grid. (1) tsc 0. (2) vitest 2402/2402 across 156 files (was 2389/155), +13 tests, ZERO regressions. (3) castlePanel.structures.test.ts pins: all 6 recipes listed in ALL_BLUEPRINT_IDS order with real names (asserts name != raw id, the leak this catches), epigraphs and true costs; empty bank disables all 6 and EVERY dim row has a non-empty reason (this file's 'a disabled control must say why' contract); funding stinkTower enables exactly it; benched => all LOCKED; per-shape shortfall reports {type,need,have} not a bare boolean. (4) THE SHARING CONTRACT asserted directly: for 5 different funding states, every row's `enabled` equals planBlueprintPayment(...) !== null - the same function the reducer uses - so a bright tile is always buildable and a dim one never would have built. (5) THE S140 OVERFLOW CLASS covered, which shipped green last time because the bank strip had no test at all: 3 columns fit ROW_INNER_W; every tile is inside the panel horizontally AND vertically; tiles never overlap; the grid ends above rowsTop() so it cannot collide with the control rows; panelHeight accounts for the new strip; and panelRect stays fully on canvas for ALL 6 seats (the lower-arc clamp). (6) VISUAL VERIFICATION - the lesson this file documents ('does the text fit is not something a state assertion can see. Look at the render'). Drove solo in headless Chromium via Playwright + the shipped __SPARK__.castlePanel.getUiPoints geometry getter, captured 5 screenshots, and confirmed by eye: 3x2 grid renders, per-shape SPARK_COLORS read correctly (blue Square hub + green Circles for stinkTower, red Triangle ring for pentagram, purple Spirals for laserTurret, mixed star for helga), armed tile draws white-outlined, cost badges legible, caption shows 'STINK TOWER  4' + 'Four shapes. It throws filth.', and getUiPoints reported armed:stinkTower after the click. (7) npm run build 688.4 KiB, 61.6 KiB headroom. TWO THINGS THE RENDER CAUGHT THAT NO ASSERTION DID: (a) voltkin's 304px 8-chain scales to ~0.21 in a square tile and at a 2px glyph floor rendered as invisible specks - floor raised to 3px. (b) A REAL GAMEPLAY FINDING: gatherers haul random shapes, so the bank hits 7/7 FULL with every tile still reading NEED n MORE, and a full bank blocks new deliveries. Reported to the owner rather than fixed - it is downstream of their open CASTLE_BANK_CAP 7-vs-12/13 ruling, which I must not pre-empt.",
+      "checkpoint_commit": "e57e1a9",
+      "verification": [
+        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
+        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\blueprintGlyph.ts",
+        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.structures.test.ts",
+        "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.ts"
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
@@ -116,7 +121,7 @@
     {
       "id": "P3",
       "title": "Cruiser drag-to-place: armed blueprint, legality-tinted ghost, commit on release",
-      "status": "pending",
+      "status": "in_progress",
       "check_completed": false,
       "check_method": "",
       "checkpoint_commit": "",
@@ -210,6 +215,14 @@
     {
       "tag": "#the-strongest-challenge-came-from-the-seat-that-voted-adopt",
       "body": "Grok voted REJECT with 5 challenges; 4 were disproportionate (frozen geometry would delete the documented self-healing contract AND make towers immune to creature chewing) and Gemini overruled all 4. But Gemini - which voted ADOPT-WITH-CHANGES - supplied the one critical defect. A REJECT vote is not a proxy for finding real bugs. Read the challenges, not votes."
+    },
+    {
+      "tag": "#the-blob-was-not-ugly-the-towers-were-simply-absent",
+      "body": "The owner said the castle panel 'is a blob' and should 'actually prebuild towers or godlies'. I could have spent the priority restyling. The A.0 probe found the real defect: castlePanel.ts contained ZERO references to any tower or recipe and imported nothing from godlyRecipes/ or codex*. Its six buttons are PRIMITIVES, which reads as ugly recipes. Nothing needed prettifying; the content was missing. Read what the surface actually contains before interpreting an aesthetic complaint as an aesthetic problem."
+    },
+    {
+      "tag": "#the-render-caught-two-things-thirteen-green-assertions-could-not",
+      "body": "13/13 layout assertions passed and both remaining defects were invisible to them. Screenshotting the real panel showed voltkin's 8-chain rendering as invisible specks at tile scale, and surfaced a gameplay fact no unit test would model: a 7/7 FULL bank of randomly-hauled shapes satisfies NO recipe, and a full bank blocks further deliveries. castlePanel.ts already warned 'Look at the render' from a prior session's overflow bug. Obeying it paid twice."
     }
   ],
   "totals": {

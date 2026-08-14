@@ -49,7 +49,9 @@ import type { Primitive } from '../game/primitive.ts';
 import { componentOf } from '../game/structure.ts';
 import { cssToCanvasCoords } from '../render/lobbyScreen.ts';
 import { dispatch, isNetworked } from '../state/world.ts';
+import { canStampAt } from '../state/blueprintLegality.ts';
 import type { World } from '../state/world.ts';
+import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
 import type { BombId, BondId, CreatureId, GathererId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 } from '../types.ts';
 import { pickRedundantBondTargets } from './redundantBondTargets.ts';
@@ -80,6 +82,10 @@ export interface CastlePanelLike {
   toggle(seat: number): void;
   close(): void;
   isOverPanel(x: number, y: number): boolean;
+  /** S144 P3 — the tower the player picked from the build grid, or null. */
+  armedBlueprint(): GodlyId | null;
+  /** S144 P3 — put a held tower back without building it. */
+  disarm(): void;
 }
 
 /**
@@ -157,6 +163,8 @@ const PENDING_PLACE_DRAG_LOCK_MS = 300;
 export class Controls {
   state: ControlState = { kind: 'Idle' };
   cursor: Vec2 = { x: 0, y: 0 };
+  /** S144 P3 — injected BUILD_BLUEPRINT dispatcher; absent until main.ts wires it. */
+  private onBuildBlueprint: ((id: GodlyId, centre: Vec2) => void) | null = null;
   /**
    * S15 P2 — mutable (was readonly). Solo / host stays at playerId 0; joiner
    * client is set to playerId 1 by main.ts after lobby completes.
@@ -292,6 +300,11 @@ export class Controls {
   /**
    * S136 P0 — main.ts injects the castle panel after construction (it is built after Controls).
    */
+  /** S144 P3 — main.ts injects the BUILD_BLUEPRINT dispatch for the local seat. */
+  setBuildBlueprintHandler(fn: (id: GodlyId, centre: Vec2) => void): void {
+    this.onBuildBlueprint = fn;
+  }
+
   setCastlePanel(panel: CastlePanelLike): void {
     this.castlePanel = panel;
   }
@@ -352,6 +365,34 @@ export class Controls {
     if (this.isPointerOverPanel()) return;
     // S136 P0 — then the castle itself: clicking your own keep opens/closes its control panel.
     if (e.button === 0 && this.handleCastleClick()) return;
+    // S144 P3 — A HELD TOWER OWNS THE NEXT CLICK. This must sit above every world hit-test: without
+    // it, placing a tower would ALSO grab the spark under the cursor / sever a bond / pop a creature,
+    // which is the identical failure the castle-panel guard above exists to prevent. RMB (or Escape,
+    // in onKeyDown) puts it back instead.
+    const armed = this.castlePanel?.armedBlueprint() ?? null;
+    if (armed !== null) {
+      if (e.button === 2) {
+        this.castlePanel?.disarm();
+        return;
+      }
+      if (e.button === 0) {
+        const centre = { x: this.cursor.x, y: this.cursor.y };
+        // ⚠ THE LOCAL GATE DECIDES WHETHER TO *KEEP HOLDING*, NOT WHETHER THE BUILD IS LEGAL.
+        //
+        // The host is still the authority — it re-runs `stampRefusalAt` against its own world and a
+        // refusal is a documented no-op. But clicking a spot the ghost is already showing as RED must
+        // not silently cost the player their selection: they would have to reopen the panel and pick
+        // the tower again, with nothing explaining why. So an illegal click keeps the tower in hand and
+        // sends nothing (the ghost is already naming the blocker), and only a legal click commits.
+        // Same `gateLocally` shape `dragPreview.ts` uses for single-primitive placement.
+        if (!canStampAt(this.world, centre, this.playerId, armed)) return;
+        this.onBuildBlueprint?.(armed, centre);
+        // One pick = one tower. Staying armed would let a single pick spam structures across the map
+        // on every subsequent click.
+        this.castlePanel?.disarm();
+        return;
+      }
+    }
     if (e.button === 0) {
       // LMB
       const player = this.world.players.get(this.playerId);
@@ -670,6 +711,12 @@ export class Controls {
   // prevents charge drain in solo / LOBBY / WIN states and when typing into
   // an input field.
   private onKeyDown = (e: KeyboardEvent): void => {
+    // S144 P3 — Escape puts a held tower down. Checked BEFORE the sudoku guard's sibling checks so
+    // there is always a keyboard way out of a picked-up state, even if the pointer path is confused.
+    if (e.key === 'Escape' && this.castlePanel?.armedBlueprint() != null) {
+      this.castlePanel.disarm();
+      return;
+    }
     // S93 — the NONET overlay owns the keyboard during a trial (digits 1–6).
     if (this.world.sudoku !== null) return;
     // S55 P3 — the full guard set is the pure decideKeyShrink (testable without

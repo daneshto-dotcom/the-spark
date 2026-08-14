@@ -125,6 +125,7 @@ import { DragPreviewRenderer } from './render/dragPreviewRenderer.ts';
 import { TitleScreen } from './render/titleScreen.ts';
 import { HUD } from './render/ui.ts';
 import { CastlePanel } from './render/castlePanel.ts';
+import { BlueprintGhost } from './render/blueprintGhost.ts';
 // S137 P0c — re-exported through the DEV __SPARK__ global as live keep geometry for e2e. Already in
 // the bundle (castlePanel.ts + gathererRenderer.ts both import it), so this costs no bundle bytes.
 import { castleAnchor } from './state/gatherers/gatherer.ts';
@@ -626,10 +627,25 @@ async function bootstrap(): Promise<void> {
       dispatchFn({ type: 'CANCEL_GATHERER_ORDER', playerId: world.localPlayerId, sparkType });
     },
   );
+  // S144 P3 — CLICK-TO-BUILD's commit. Same dispatchFn seam as every other panel control, so it
+  // routes on all three paths (networked joiner -> wire intent; worker mode -> postIntent; solo/host
+  // -> direct dispatch).
+  //
+  // ⚠ DELIBERATELY NOT IN PREDICTABLE_ACTIONS, and this is the S143 migration lesson applied: an
+  // optimistic local stamp would mint primitives and bonds into a RENDER MIRROR on a joiner (or a
+  // promoted host), where the next snapshot silently overwrites them — a tower that appears, then
+  // vanishes, with no error. The structure appears when the host's snapshot lands, which is also what
+  // makes it honest.
+  controls.setBuildBlueprintHandler((blueprintId, centre) => {
+    dispatchFn({ type: 'BUILD_BLUEPRINT', playerId: world.localPlayerId, blueprintId, centre });
+  });
   // S136 P0 — the input layer needs the panel for two things: the click guard (a panel row's
   // pointertap does NOT suppress the raw canvas world hit-test) and the own-castle click that
   // opens it. Injected after construction because Controls is built before the renderers.
   controls.setCastlePanel(castlePanel);
+  // S144 P3 — the held tower's ghost. Constructed AFTER the panel so it draws above the board; it is
+  // eventMode 'none', so it cannot swallow the click that places it.
+  const blueprintGhost = new BlueprintGhost(app);
   const stats = new StatsOverlay(app);
   // S88 G3a — in-match discovery toast. Constructed AFTER the HUD so its main-stage
   // container renders ABOVE the board/fog (HUD/main-stage layer, NOT aboveFogLayer —
@@ -2659,6 +2675,11 @@ async function bootstrap(): Promise<void> {
     if (castlePanel.consumeSpendArmed()) hud.armSpendSuppression();
     hud.sync(world);
     castlePanel.sync(world);
+    // S144 P3 — the ghost follows the cursor. Synced AFTER the panel so the armed id it reads is the
+    // one this frame's panel just latched, and fed `controls.cursor` (already mapped to 1920x1080
+    // logical space, letterbox-aware) rather than re-deriving pointer coords here — the duplicated
+    // coordinate class the geometry getters exist to delete.
+    blueprintGhost.sync(world, controls.cursor, castlePanel.armedBlueprint());
     // S88 G3a — discovery toast window (keyed off the synced comboToastTick, like the
     // rainbow flyover — see comboToastRenderer docblock). HUD-tier, after hud.sync.
     comboToastRenderer.sync(world);
