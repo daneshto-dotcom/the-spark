@@ -144,6 +144,7 @@ import {
   type RemoveDefenderAction,
   type DefenderTickAction,
 } from './defenders/defenderLifecycle.ts';
+import { applyBuildBlueprint, type BuildBlueprintAction } from './blueprintBuild.ts';
 import {
   applyBuyGatherer,
   applyGathererTick,
@@ -319,6 +320,8 @@ export type GameAction =
   // CLIENT INTENT (a joiner builds from their own bank); ownership is the action's own playerId and
   // the host applies it authoritatively against ITS bank, so a stale client index simply no-ops.
   | PullFromBankAction
+  // S144 P1 — click-to-build: stamps a recipe's real geometry from banked shapes.
+  | BuildBlueprintAction
   // S93 — NONET: a player submits a completed Sudoku grid (client INTENT or host/solo local);
   // the host validates first-valid-wins. playerId is host-stamped to the sender's seat.
   | { readonly type: 'SUDOKU_SOLVED'; readonly playerId: PlayerId; readonly grid: readonly number[] };
@@ -672,6 +675,11 @@ export function dispatch(world: World, action: GameAction): World {
 
     case 'PULL_FROM_BANK':
       return applyPullFromBank(world, action);
+
+    // S144 P1 — BUILD_BLUEPRINT. NO-OP-never-throw like PULL_FROM_BANK: it is a CLIENT INTENT and a
+    // joiner can raise it against a stale view of its own bank.
+    case 'BUILD_BLUEPRINT':
+      return applyBuildBlueprint(world, action);
 
     case 'SET_GATHERER_PREFERENCE':
       return applySetGathererPreference(world, action);

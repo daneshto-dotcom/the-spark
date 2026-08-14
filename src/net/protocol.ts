@@ -160,7 +160,7 @@ export type { NetSnapshot };
 //       the host's `hashWorldStateFull` the moment anything is queued. `Defender.bagsRemaining` is the
 //       same shape (additive-optional-when-nonzero, hashed).
 // Hard-rejected at HELLO, same lockstep posture as every bump above.
-export const PROTOCOL_VERSION = 20 as const;
+export const PROTOCOL_VERSION = 21 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -223,12 +223,17 @@ export interface HelloMsg {
    * 'stinkTower' with no runtime whitelist on the receive path, a matching new GodlyId literal, TWO
    * new client intents, and the new HASHED world field `gathererOrders`. See the block above the
    * constant for why each one alone would force this).
+   * S144 P1: 20->21 (CLICK-TO-BUILD — the new BUILD_BLUEPRINT client intent. A stale v20 peer would
+   * reject the message outright, so its seat could never build from the panel while the other seat
+   * could, and the two worlds would diverge on primitives, bonds and defenders. Note the blueprint
+   * GEOMETRY itself needs no wire representation: the reducer stamps ordinary primitives and bonds
+   * that already serialize, and the carried-blueprint arming state is render-local by design.)
    *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT. It has now been caught stale twice: S133 P2 backfilled the
    * 14→15 entry while the literal already read 15, and S140 P1 backfilled 17→18 for the same reason.
    * Bumping `PROTOCOL_VERSION` means editing THREE things — the const, this list, and the type
    * literal below. */
-  readonly protoVersion: 20;
+  readonly protoVersion: 21;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**
@@ -542,6 +547,9 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   SET_GATHERER_PREFERENCE: true,
   // S136 P1 (V6-1.3) — PULL_FROM_BANK is also a CLIENT INTENT (see below).
   PULL_FROM_BANK: true,
+  // S144 P1 — BUILD_BLUEPRINT is also a CLIENT INTENT (see below). PROTOCOL_VERSION bumped 20->21;
+  // an old peer cannot receive this, but its HELLO is already rejected at handshake.
+  BUILD_BLUEPRINT: true,
   // S141 P2 (V6-1.4) — the gatherer ORDER QUEUE. Both are also CLIENT INTENTs (see below).
   ENQUEUE_GATHERER_ORDER: true,
   CANCEL_GATHERER_ORDER: true,
@@ -702,6 +710,12 @@ const CLIENT_INTENT_TYPES_RECORD = {
   // desync. The one real cross-check is benchGate.test.ts's set-equality against BENCH_INTENT_POLICY.
   ENQUEUE_GATHERER_ORDER: true,
   CANCEL_GATHERER_ORDER: true,
+  // S144 P1 — a joiner clicks a tower in its own castle panel and drags it into place. The host
+  // re-resolves BOTH gates authoritatively: `stampRefusalAt` against its own world (the joiner tinted
+  // its ghost against a lagged snapshot, so the host's answer is the real one) and
+  // `planBlueprintPayment` against its own bank/porch. A stale client view therefore no-ops instead of
+  // building the wrong thing or paying with shapes it no longer owns.
+  BUILD_BLUEPRINT: true,
 } as const satisfies Partial<Record<GameAction['type'], true>>;
 
 export const CLIENT_INTENT_TYPES: ReadonlySet<string> = new Set(

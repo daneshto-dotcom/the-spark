@@ -89,6 +89,11 @@ export const BENCH_INTENT_POLICY = {
   // PULL_FROM (denied above), so no build is enabled by this.
   ENQUEUE_GATHERER_ORDER: 'allow',
   CANCEL_GATHERER_ORDER: 'allow',
+  // S144 P1 — click-to-build IS building, and it both SPENDS banked shapes and mints geometry. Same
+  // ruling as PULL_FROM_BANK for the same reason: the bench exists to stop you BUILDING during the
+  // punish window, and allowing this would be strictly worse than allowing PULL_FROM_BANK (it skips
+  // the porch step entirely). Nothing is lost — the shapes stay banked until the bench lifts.
+  BUILD_BLUEPRINT: 'deny',
 } as const satisfies Partial<Record<GameAction['type'], BenchPolicy>>;
 
 /**

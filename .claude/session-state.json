@@ -1,13 +1,13 @@
 {
-  "tool_calls_session_total": 841,
-  "session_id": "S143",
-  "session_kind": "full-batch",
+  "tool_calls_session_total": 870,
+  "session_id": "S144",
+  "session_kind": "pdca-batch",
   "session_start": "2026-08-13",
   "prior_session_note": "S141 CLOSED at cb7b891 — Stink Tower, gatherer order queue, banked-SparkId collision fix, PROTOCOL_VERSION 20. Deploy verified 4/4.",
   "prior_session_archive": ".handoff-archive/HANDOFF_S138.md",
   "phase": "DO",
-  "tier": "Standard",
-  "plan_file": ".claude/plans/2026-08-13_PDR_S143_worker_flip_gates.md",
+  "tier": "Full",
+  "plan_file": ".claude/plans/2026-08-13_PDR_S144_BLUEPRINT_BUILD_DRAG.md",
   "session_status": "in_progress",
   "pdr_approved": true,
   "deliberation_completed": true,
@@ -85,181 +85,39 @@
   "priorities": [
     {
       "id": "P1",
-      "title": "Flip safety prerequisites: shared worker-flag predicate + ?worker=0 + probeHarness guard inversion + successor INTENT bypass + driver watchdog",
-      "status": "completed",
+      "title": "Blueprint build engine: bills + geometry stamp + BUILD_BLUEPRINT wire action",
+      "status": "in_progress",
+      "check_completed": false,
+      "check_method": "",
+      "checkpoint_commit": "",
+      "verification": [],
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "RALPH:PATROL + first-hand disk verification. Every load-bearing claim grep-verified before use (main.ts:2203 successor bypass CONFIRMED; simWorkerDriver 108 lines with NO watchdog CONFIRMED; probeHarness.ts:342 vs main.ts:418 double-parse CONFIRMED). MUTATION MATRIX 4/4 CAUGHT, each mutation asserted as landed on disk before its spec ran (CRLF false-pass lesson): M1 revert probe guard to params.get('worker')==='1' -> RED; M2 revert successor to dispatch(world,stamped) -> RED; M3 drop batchDeadlineExceeded !inFlight guard -> RED; M4 relax boundary > to >= -> RED. Two fixes are STRUCTURAL (nothing forces a call site to use a shared helper), so they are held by workerFlag.wired.test.ts, a comment-stripped source scan following the damage.wired.test.ts idiom. Gates: tsc 0, vitest 2303/2303 (153 files, from 2275/150), bundle 678.2/750 KiB (71.8 KiB headroom, +519 B), no PROTOCOL bump (stays 20).",
-      "checkpoint_commit": "2e1b5ec",
-      "real_context_tokens_at_close": 245287,
-      "real_context_pct_at_close": 24.53,
-      "verification": [
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\workerFlag.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\workerFlag.ts",
-          "needle": "export const WORKER_DEFAULT_ON = false"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\workerFlag.ts",
-          "needle": "export function isSimWorkerRequested"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\dev\\probeHarness.ts",
-          "needle": "if (isSimWorkerRequestedHere()) {"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "const applyRemoteIntentAuthoritatively"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "needle": "dispatchAction: applyRemoteIntentAuthoritatively"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "pattern": "^\\s*applyRemoteIntentAuthoritatively\\(stamped\\);",
-          "op": ">=",
-          "value": 1
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
-          "pattern": "^\\s*dispatch\\(world, stamped\\);",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\simWorkerDriver.ts",
-          "needle": "export function batchDeadlineExceeded"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\simWorkerDriver.ts",
-          "needle": "this.watchdogTripped = true"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\workerFlag.wired.test.ts"
-        },
-        {
-          "type": "file_exists",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\simWorkerDriver.watchdog.test.ts"
-        }
-      ]
+      "unlock_source": "user"
     },
     {
       "id": "P2",
-      "title": "Repair worker-bots gating test: tick-budgeted wait + cumulative-creation oracle",
-      "status": "completed",
+      "title": "Castle panel STRUCTURES section: all 6 recipes, glyph bills, affordability",
+      "status": "pending",
+      "check_completed": false,
+      "check_method": "",
+      "checkpoint_commit": "",
+      "verification": [],
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "RALPH:PATROL + local reproduction. The CI failure was reproduced and DIAGNOSED from the real job log (run 31707927282, 3 attempts: ticks 611/807/752, all frozen at exactly 33 prims). Root cause is THREE defects in one assertion, verified on disk: (1) primitives.length is NON-MONOTONIC — razePrimitives.ts:78 deletes entries; measured locally 29 alive with max id 38, and a CI attempt sampled 33 then failed at 32, so the assertion was UNSATISFIABLE; (2) waitForWorld bounds on Date.now() (helpers.ts:418 CONFIRMED) while ticks are frame-bound (main.ts dtSec clamp 0.05, PHYSICS_HZ 60 => <=3 ticks/frame CONFIRMED); (3) the error message could not distinguish dead-page / unmet-predicate / out-of-runway. SELF-CORRECTION: my first oracle used nextPrimitiveId, which is HOST-ONLY and frozen on a worker mirror (save.ts:1071) — caught by measuring cursor 33 vs primitive id 38, i.e. the instrument asserted a product failure that did not exist. Gates: e2e:gating 36/36 local (2.8m), tsc 0, worker-bots standalone 15.0s. CI verification dispatched as run 31737846412 — NOT yet claimed. ✅ CI VERIFIED: TWO consecutive green gating runs on the fix — 31737846412 (e2e: success) and 31738493370 (e2e: success). The lane was red in 2 of the 3 runs before it (31707927282 failure, 31730999721 failure, 31712230199 success).",
-      "checkpoint_commit": "4781be8",
-      "real_context_tokens_at_close": null,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\helpers.ts",
-          "needle": "export async function waitForWorldWithinTicks"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\helpers.ts",
-          "needle": "maxPrimitiveId: Array.from(w.primitives.values())"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\worker-bots.spec.ts",
-          "needle": "const GROWTH_BUDGET_TICKS = 1_200"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\worker-bots.spec.ts",
-          "needle": "(w) => w.maxPrimitiveId > sampleA"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\worker-bots.spec.ts",
-          "pattern": "^\\s*\\(w\\) => w\\.primitives\\.length > sampleA",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\worker-bots.spec.ts",
-          "needle": "test.describe.configure({ retries: 0 })"
-        }
-      ]
+      "unlock_source": "user"
     },
     {
       "id": "P3",
-      "title": "Differential harness: seed gathererOrders + per-family meaningfulness guard + structuralSignature parity",
-      "status": "completed",
+      "title": "Cruiser drag-to-place: armed blueprint, legality-tinted ghost, commit on release",
+      "status": "pending",
+      "check_completed": false,
+      "check_method": "",
+      "checkpoint_commit": "",
+      "verification": [],
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "RALPH:PATROL + mutation matrix 3/3. Probe claims re-verified first-hand before acting: the newlyHashedEntities guard IS a 10-family SUM with one >0 (workerSim.differential.test.ts:319-330 CONFIRMED); structuralSignature carries castleBanks.size but NOT gathererOrders (CONFIRMED). SELF-CORRECTION CAUGHT BY MY OWN NEW GUARD: the first per-family table read sizes at the FINAL frame and failed on rainbows — correctly 0, but because a rainbow spawns and despawns mid-run, so a final-frame read under-reports every transient family. Now tracks PEAK size across compared frames. SECOND SELF-CORRECTION: the structuralSignature addition was initially DECORATIVE — mutation M6 deleting both terms left the whole suite GREEN — so an explicit forcing test was added pinning both the map-size term and the depth term. Mutations: drop seeding -> RED; drop both signature terms -> RED; drop ONLY queuedOrderTotal -> RED. Gates: tsc 0, vitest 2304/2304 (153 files), e2e:gating 36/36.",
-      "checkpoint_commit": "b3b6b77",
-      "real_context_tokens_at_close": null,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\workerSim.ts",
-          "needle": "function queuedOrderTotal"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\workerSim.ts",
-          "needle": "world.gathererOrders.size,"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\workerSim.differential.test.ts",
-          "needle": "SEEDING_COVERAGE"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\workerSim.differential.test.ts",
-          "needle": "ENQUEUE_GATHERER_ORDER"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\workerSim.differential.test.ts",
-          "needle": "const observePeaks"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\workerSim.differential.test.ts",
-          "pattern": "const newlyHashedEntities",
-          "op": "==",
-          "value": 0
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "# ⚑ STATUS S143 (2026-08-13)"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\BACKLOG.md",
-          "needle": "TWO consecutive green gating runs"
-        }
-      ]
+      "unlock_source": "user"
     }
   ],
   "reflexion_entries_to_archive": [
@@ -368,11 +226,11 @@
   "council_rounds": 2,
   "council_seats": [
     "CLAUDE",
-    "GROK-ARCHITECT",
-    "GEMINI-AUDITOR"
+    "GROK-ANALYST(grok-4.20-0309-reasoning)",
+    "GEMINI-AUDITOR(gemini-3.1-pro-preview)"
   ],
   "council_deviation": "None - full 3-way, 2 rounds. gemini-3.1-pro-preview passed explicitly (2.5-pro is retired per memory); grok-4.20-0309-reasoning default (strongest tier).",
-  "unlock_evidence": "Owner message 2026-08-13: \"i approve full session top priority batch pdr. work according to procedures in the absolute best interests of this project and vision producing the highest quality of output\"",
+  "unlock_evidence": "Owner 2026-08-13: 'i approve full session top priority top leverage top value batch ... i pre-approve full dpr bath and full autonomous run!' + decisive mechanic ruling: 'the gatherers gather ur items and you have a place to click on the tower (you dont even need to build it physically) and it builds it for you. then the spark (your cruiser) just drags it to where you want it to be!' + 'like a classical TD (more or less)' + 'later we wil make it more TD but for now do what i say and make it so!'",
   "council_battle_ledger_s139": {
     "round1_challenges": 8,
     "adopted": [
@@ -611,5 +469,44 @@
     "deploy": "verify-deploy 4/4, live entry index-BY0XKCq3.js == local build",
     "ci_open_failures": "none; 0 open issues",
     "cancelled_run_investigated": "run 31737846412 reads run-level `cancelled` but BOTH GATING jobs concluded success (e2e, e2e-protocol); only the non-gating soak/quarantine lanes were cancelled by the concurrency group when I dispatched the confirmation run. Benign — but it is the S126 `cancelled`-masquerade shape and would mislead a future session reading run conclusions alone."
+  },
+  "council_s144": {
+    "grok_vote": "REJECT",
+    "gemini_vote": "ADOPT-WITH-CHANGES",
+    "synthesis": "ADOPT-WITH-CHANGES",
+    "adopted": [
+      "G-TOOL per-recipe stamp->ignite->survive-N-revalidations acceptance test",
+      "G2 partial: bank-first, porch overflow only, pooled count shown",
+      "M2 CRITICAL: mandatory collapsed BOND_FORMED emission + detectComboDiscoveries",
+      "M3 modified: consume only own-porch sparks with state.kind Free (uncarried)"
+    ],
+    "rejected_with_reason": [
+      "G1 isDefenderFrozen — deletes the documented self-healing/no-punish contract and makes towers immune to creature chewing; premise false (bonds form only at placement)",
+      "G3 virtual anchor entity — would duplicate the entire defender lifecycle; misreads owner scope",
+      "G-QUALITY RecipeRegistry predicate generator — disproportionate rewrite of 6 tuned predicates (Gemini: textbook over-engineering)",
+      "G2 blocking on CASTLE_BANK_CAP ruling — pre-empting an owner ruling is forbidden; only 1 of 6 recipes affected",
+      "M1 build-at-castle-then-haul — dragging a bonded multi-primitive component is unsupported; owner also said classical TD"
+    ]
+  },
+  "prime_audit_s144": {
+    "finding": "CRITICAL. runDefenderIgnition AND runSpawnerIgnition each open with their own hasTopologyChange sweep over world.effects and early-return without one (godlyMatcherCore.ts:137 and :155). Writing bonds directly with no BOND_FORMED emitted leaves ALL SIX recipes inert with no error anywhere.",
+    "self_correction": "My first verification pass read only the CALL SITE (runGodlyMatcherCore calls both unconditionally) and concluded \"structural scan, only voltkin affected\". Wrong. Reading the callee guards reversed it from 1-of-6 to 6-of-6.",
+    "lesson": "An unconditional call proves nothing about whether the callee runs. Read the guard, not the call site.",
+    "mandatory_fix": "applyBuildBlueprint pushes exactly one collapsed {kind:'BOND_FORMED', tick:world.tick, pos, bondCount} per stamp (placePrimitive.ts:550 shape) + calls detectComboDiscoveries.",
+    "carried_trap": "Cinematic cursor uses strict <, and dispatches between physics ticks emit with an un-advanced world.tick. Voltkin ignition must be verified empirically, not assumed.",
+    "verifier_gap": "The A.0 workflow symbol-verifier agent died on a spend limit (agents_error 1), so the 3 probe reports are NOT independently symbol-checked. Every load-bearing fact was read first-hand on disk instead."
+  },
+  "a0_state_discovery_s144": {
+    "agents": 3,
+    "returned": 3,
+    "capped_at": 3,
+    "key_findings": [
+      "castlePanel.ts contains ZERO reference to any tower/godly/recipe — it imports nothing from godlyRecipes/ or codex*. The \"blob\" is 6 PRIMITIVE palette buttons, easily misread as ugly recipes; the recipes are not there at all.",
+      "codexStore.ts is localStorage-only (loadUnlockedSet/unlockGodly) and NOTHING in src/state/ reads it — recipes are not gated, so \"everyone has all recipes\" costs nothing in the sim.",
+      "stillValid re-validates every defender every REVALIDATE_INTERVAL_TICKS=30 (0.5s) — injecting a defender record without real geometry self-destructs.",
+      "Ordinary placement adds primary + up to K-1 redundancy + cross-component merge bonds (dragPreview.ts computePreviewBonds), which would break pentagram deg-2 and voltkin chain degrees.",
+      "CASTLE_BANK_CAP=7 < voltkin 8; CASTLE_PORCH_SLOTS=4 so bank+porch=11 covers it without touching the open cap ruling.",
+      "codexOverlay.ts already has the polished idiom to reuse: CODEX_COPY, drawEmblem/emblemLayout, fitTextToWidth/fitTextToBox, entryFromRecipe."
+    ]
   }
 }

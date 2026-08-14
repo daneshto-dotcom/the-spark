@@ -659,7 +659,13 @@ export function collectSpawnerLockedPrimitiveIds(world: World): ReadonlySet<Prim
   return locked;
 }
 
-function makeBond(
+/**
+ * S144 P1 — EXPORTED so `blueprintBuild.ts` mints its bonds through the same constructor rather than
+ * a second copy of the rest-length floor and the id/tick bookkeeping. A blueprint stamp needs
+ * identical bond semantics to a hand-placed bond (that is the whole basis for the stamped geometry
+ * satisfying the same predicates), so a divergent copy would be a silent correctness hazard.
+ */
+export function makeBond(
   world: World,
   a: Primitive,
   b: Primitive,
