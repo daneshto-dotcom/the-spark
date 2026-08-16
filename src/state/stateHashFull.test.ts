@@ -15,6 +15,7 @@
  * that decision to be made explicitly.
  */
 import { describe, expect, it } from 'vitest';
+import { makeCastleBank } from './castleBank.ts';
 import { hashWorldState, NARROW_HASHED_FAMILIES } from './stateHash.ts';
 import { determinismParts, FIELD_COVERAGE, hashWorldStateFull } from './stateHashFull.ts';
 import { makeHunter } from './hunters/hunter.ts';
@@ -65,6 +66,8 @@ const HASHED_NON_FAMILY: ReadonlySet<string> = new Set([
   'nextPoopId', 'sudoku', 'pendingCreatureSpawn',
   // V6-1.1 — the gatherer allocator cursor (a scalar, like every other nextXId above).
   'nextGathererId',
+  // S146 P2 — the descending NEGATIVE allocator for reducer-minted pulls. Also a scalar.
+  'nextPulledSparkId',
 ]);
 
 /** Adds one primitive, one bond between two primitives, and one free spark. */
@@ -307,19 +310,11 @@ describe('FIELD_COVERAGE — the forcing function', () => {
       asGathererId(1),
       makeGatherer({ id: asGathererId(1), ownerPlayerId: P0, pos: { x: 70, y: 70 }, spawnedAtTick: 1 }),
     );
-    // S136 P1 — a shape banked INSIDE a castle, so the new family contributes a part here too.
-    // Deliberately NOT also added to w.freeSparks: a banked shape is OUT of the world, which is the
-    // entire point of the bank (see castleBank.ts) and what makes the stacking/fling class impossible.
-    w.castleBanks.set(P0, [
-      makeFreeSpark({
-        id: asSparkId(909),
-        type: SparkType.Triangle,
-        pos: { x: 80, y: 80 },
-        velocity: { x: 0, y: 0 },
-        dt: 1 / 60,
-        createdTick: 1,
-      }),
-    ]);
+    // S146 P2 — a shape held in a castle INVENTORY, so the family contributes a part here too.
+    // The inventory is a per-type TALLY, not a list of out-of-world entities.
+    const invBank = makeCastleBank();
+    invBank[SparkType.Triangle as number] = 1;
+    w.castleBanks.set(P0, invBank);
     // S141 P2 — a queued order, so the new family contributes a part here too.
     w.gathererOrders.set(P0, [SparkType.Square, SparkType.Circle, SparkType.Square]);
     w.fouledPrimitives.add(asPrimitiveId(3));

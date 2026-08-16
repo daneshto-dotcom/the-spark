@@ -181,10 +181,13 @@ export function rebuildAuthorityAllocators(world: World): {
   for (const id of world.bonds.keys()) if ((id as number) > maxBond) maxBond = id as number;
   let maxSpark = 0;
   for (const id of world.freeSparks.keys()) if ((id as number) > maxSpark) maxSpark = id as number;
-  // S141 P3 — the banked shapes, which are out of `freeSparks` BY DESIGN. See the docblock above.
-  for (const bank of world.castleBanks.values()) {
-    for (const s of bank) if ((s.id as unknown as number) > maxSpark) maxSpark = s.id as unknown as number;
-  }
+  // ✅ S146 P2 — THE BANK SCAN IS GONE BECAUSE THE HAZARD IS GONE, not because it was re-judged safe.
+  // The S141 P3 fix below this line used to walk `castleBanks` for spark ids, since a banked shape
+  // was a LIVE entity deliberately outside `freeSparks`. The castle inventory is now a per-type
+  // TALLY holding no entities and therefore no ids, so there is nothing here to collide with. Note
+  // `freeSparks` may now contain NEGATIVE ids (reducer-minted pulls, see worldTypes
+  // `nextPulledSparkId`); they can never raise `maxSpark`, which is correct — the Spawner this value
+  // repairs only ever mints ascending non-negatives.
   return {
     nextPrimitiveId: maxPrim + 1,
     nextBondId: maxBond + 1,

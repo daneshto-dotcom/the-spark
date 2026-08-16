@@ -45,6 +45,8 @@ import { componentOf } from '../game/structure.ts';
 import type { Player } from '../game/player.ts';
 import { pickRedundantBondTargets } from '../input/redundantBondTargets.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
+import { ALL_SPARK_TYPES } from '../constants.ts';
+import { bankCountOf } from '../state/castleBank.ts';
 import { pickHostTargetPrimitive } from '../state/placePrimitive.ts';
 import type { GameAction, World } from '../state/world.ts';
 import type { BondId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 } from '../types.ts';
@@ -181,17 +183,27 @@ export class BotController {
       case 'BUILD':
         this.state = { kind: 'TO_SPARK', sparkId: goal.sparkId, since: t };
         return;
-      case 'PULL':
+      case 'PULL': {
         // S138 P2 — a CASTLE command, not an errand: no travel, dispatched immediately, exactly as a
         // human clicking a filled bank slot in the castle panel. Index 0 is the oldest banked shape
         // (bankTake splices, so 0 is always valid whenever bankCount > 0 — the brain checked that).
         // The host re-validates ownership and porch occupancy; a refused pull loses nothing (the
         // shape STAYS BANKED), so there is no failure state to model here.
-        send({ type: 'PULL_FROM_BANK', playerId: this.seat, index: 0 });
+        // ⭐ S146 P2 — TYPE-ADDRESSED. The inventory is a per-type tally, so there is no "index 0
+        // = oldest shape" any more. The brain only proposes PULL when the seat holds SOMETHING, so
+        // some type has a positive count; take the first in canonical SparkType order for
+        // determinism (never RNG — this runs inside the seeded bot think).
+        const holding = ALL_SPARK_TYPES.find(
+          (candidate) => bankCountOf(world.castleBanks, this.seat, candidate) > 0,
+        );
+        if (holding !== undefined) {
+          send({ type: 'PULL_FROM_BANK', playerId: this.seat, sparkType: holding });
+        }
         // Stay IDLE: the pulled shape lands on the porch this tick and the NEXT think picks it up
         // through pickTargetSpark, which now only sees this seat's porch.
         this.state = { kind: 'IDLE' };
         return;
+      }
       case 'SEVER':
         this.state = { kind: 'ERRAND', verb: 'SEVER', targetPos: goal.pos, refId: goal.bondId as number, since: t };
         return;

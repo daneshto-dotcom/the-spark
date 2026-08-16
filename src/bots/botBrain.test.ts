@@ -14,8 +14,7 @@ import {
   SPAWNER_RADIUS,
   SparkType,
 } from '../constants.ts';
-import { bankPush, porchSlot } from '../state/castleBank.ts';
-import { castleAnchor } from '../state/gatherers/gatherer.ts';
+import { bankAdd, porchSlot } from '../state/castleBank.ts';
 import { makeHunter } from '../state/hunters/hunter.ts';
 import { mulberry32 } from '../state/rng.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
@@ -110,16 +109,7 @@ describe('S87 botBrain.chooseGoal — priority arbitration', () => {
 
   it('⭐ PULLs from its own bank when the porch is empty but the bank has stock', () => {
     const world = botsWorld();
-    const home = castleAnchor(SEAT as unknown as number);
-    bankPush(world.castleBanks, SEAT, {
-      id: asSparkId(900),
-      type: SparkType.Dot,
-      pos: { x: home.x, y: home.y },
-      prevPos: { x: home.x, y: home.y },
-      radius: 8,
-      createdTick: 0,
-      state: { kind: 'Free' as const },
-    });
+    bankAdd(world.castleBanks, SEAT, SparkType.Dot);
     const goal = chooseGoal(world, SEAT, BOT_CONFIGS.NOOB, mulberry32(1), true);
     expect(goal.kind).toBe('PULL');
   });

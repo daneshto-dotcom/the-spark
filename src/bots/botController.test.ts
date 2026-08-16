@@ -11,7 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { PLAYER_COLORS, SparkType } from '../constants.ts';
-import { bankPush } from '../state/castleBank.ts';
+import { bankAdd } from '../state/castleBank.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
 import { asPlayerId, asSparkId } from '../types.ts';
@@ -62,7 +62,8 @@ function seedSparks(world: World, count: number): void {
       createdTick: 0,
       state: { kind: 'Free' as const },
     };
-    if (bankPush(world.castleBanks, seat, spark)) made++;
+    bankAdd(world.castleBanks, seat, spark.type);
+    made++;
   }
   // Guard the fixture's own premise: a silently-empty bank would make every bot REST and the
   // assertions below would pass vacuously ("NOOB built 0, IMBA built 0").

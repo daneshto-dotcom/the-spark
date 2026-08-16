@@ -68,7 +68,7 @@ import {
  * into an older-peer test — the failure mode that survived two bumps behind a @quarantine-flaky
  * tag that the gating lane grep-inverts, so nothing could go red.
  */
-const LOCAL_PROTO_V = 21; // S144 P1 — 20 -> 21 (BUILD_BLUEPRINT click-to-build client intent)
+const LOCAL_PROTO_V = 22; // S146 P2 — 21 -> 22 (limitless per-type castle inventory; PULL_FROM_BANK is type-addressed)
 const NEWER_PEER_V = LOCAL_PROTO_V + 1;
 
 /**

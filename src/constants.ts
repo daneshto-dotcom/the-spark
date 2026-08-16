@@ -417,79 +417,26 @@ export const GATHERER_DEPOSIT_OFFSET_Y = 74;
 export const GATHERER_ORDER_QUEUE_MAX = 24;
 
 /**
- * S140 P1 — CASTLE BANK CAPACITY: **7 slots** (owner ruling, 2026-08-12). Was 5 (S136 P1, B4b).
+ * ⛔ S146 P2 — `CASTLE_BANK_CAP` IS DELETED. THE CASTLE INVENTORY IS LIMITLESS.
  *
- * ⭐ THE PAIRING IS THE POINT — NEVER TUNE THIS NUMBER APART FROM THE TABLE BELOW. (Standing S128
- * instruction: keep the recipe-size table adjacent to the cap, forever.) This raise was ruled WITH
- * the table in view, which is what B4b actually demands — and the table itself moved in the same
- * commit, because the owner also retuned the laser turret so both TOWER recipes fit under 7.
+ * Owner ruling: *"we will continue developing this by giving the castle limitless primitive place in
+ * the inventory... just hold the 6 shape parts and show how many you have of each"*. This closes the
+ * long-open 7-vs-12/13 question by removing the dial rather than turning it.
  *
- *   stinkTower    4   directly holdable  <-- S141 P1, the first NON-GODLY recipe and the new floor
- *   pentagram     5   directly holdable
- *   lightningHub  6   directly holdable  <-- newly, at cap 7
- *   Helga         7   directly holdable  <-- newly, at cap 7 (a TOWER)
- *   laserTurret   7   directly holdable  <-- newly, at cap 7 (a TOWER); RETUNED from 8 in S140 P1
- *   Voltkin       8   still requires staging  <-- "not the big godlies"
- *   NONET         9   still requires staging. Verified at sudokuEvent.ts NONET_SHAPE_COUNT — 9
- *                     same-type primitives. NOT a buildable recipe and NOT in the godlyRecipes
- *                     registry: it is an EVENT (S94 made it a synthetic Codex entry), which is
- *                     exactly why it kept falling out of this list.
+ * WHAT THE CAP COST, RECORDED SO THE DECISION IS NOT RE-LITIGATED FROM MEMORY. Measured twice in a
+ * real browser, solo, no seeding: the 7-slot bank filled in ~46 s and its composition then FROZE for
+ * 11,449 further ticks — every build tile reading "NEED n MORE" forever, zero towers ever built, zero
+ * errors. The cap also forced a whole apparatus into existence (a WAITING-on-full gatherer state, a
+ * park-cargo-on-porch release, a decant-to-make-room click, free-slot arithmetic in four modules),
+ * every line of which is now gone with it.
  *
- * ⚠ OWNER RULING, AND THE ADVICE IT OVERRODE — recorded so a later session does not "fix" it back.
- * The owner's stated intent was "let players assemble complete tower structures directly, but not the
- * big godlies", and he ruled cap 7 + laserTurret 8->7 after being shown that all five S140 Council
- * seats rejected the retune 5-0 (they split E/B/C on the cap and were unanimous only against the
- * retune). The accepted trade-offs are: the recipe's authored "seven" identity is spent (see
- * laserTurret.ts), Helga and laserTurret now share size 7 AND hub degree 6 — the first doubly-occupied
- * rung of the size ladder, separated only by hub type — and the measured value is ~4 s of refill wait
- * (BANK_CAP_MEASUREMENT_S137.md: 20.2 s fill at cap 5, 28.6 s at cap 8, at the shipped 1.125/s faucet).
+ * The `__TEST_CASTLE_BANK_CAP__` measurement seam went too: it existed so `bank-throughput.spec.ts`
+ * could compare haul throughput ACROSS caps, and there is nothing left to compare.
  *
- * ⚠ THE CARVE-DOWN CLAUSE, STATED CORRECTLY. Three project documents disagreed about the threshold.
- * BACKLOG B4 and this file both say the danger is a bank ">= the biggest recipe" (9, the NONET);
- * LOCKED_DECISIONS §7 compressed that to ">= 5", which is wrong and is corrected there in S140 P1.
- * The tactic the owner actually plays — "build big, erase to 9 of a type" (sudokuEvent.ts:36) — is
- * gated at 9 and survives this raise untouched. B4's OTHER conjunct (a hard type filter) was ruled out
- * of the game entirely in S134: directives are "AN ORDERED BUILD QUEUE, RRTS-STYLE — *NOT* A FILTER".
- *
- * ⚠ AND THE CAP IS NOT THE ONLY BUFFER. BACKLOG.md:561-568 records that effective burst capacity is
- * already `cap + (gatherers waiting loaded at the castle)`, because a gatherer arriving at a full bank
- * enters WAITING and holds its cargo. Do not reason about "what can be built in one go" from this
- * number alone.
- *
- * ⚠ S145 — AND THE REAL SPENDABLE POOL IS `cap + CASTLE_PORCH_SLOTS` = 11, NOT `cap`. `blueprintBuild`
- * pays a bill from bank ∪ own porch (which is why voltkin at 8 is buildable at all), so a shape moved
- * to the porch has left the bank WITHOUT leaving the player's pool. S145 P2 leans on exactly that: a
- * short build tile decants bank→porch to make room for what it orders, and destroys nothing.
- *
- * ⚠ S145 — WHAT THIS CAP COST, MEASURED, so the next retune argues from data. At 7 the bank fills in
- * ~46 s of solo play and its composition then FREEZES: two independent 4-minute runs ended with every
- * build tile reading "NEED n MORE" and ZERO towers ever built. That was a MECHANISM failure (a parked
- * hauler could not be reached by the order queue), fixed in S145 P1/P2 without touching this number —
- * deliberately, because the 7-vs-12/13 question is the owner's and two of his rulings point opposite
- * ways. The mechanism fix means the cap is no longer load-bearing for playability; it is now purely a
- * pacing dial. Re-measure with `e2e/bank-throughput.spec.ts` before moving it.
- *
- * ⚠ S137 P3 — MEASUREMENT SEAM ONLY, and it is NOT a licence to retune the cap on its own. The
- * table above is the reason: the cap and the recipe sizes are ONE decision. Changing the cap without
- * re-reading that list is how a cap gets chosen that cannot hold any recipe outright.
- * `__TEST_CASTLE_BANK_CAP__` exists so `e2e/bank-throughput.spec.ts` can measure haul throughput at
- * several caps in a REAL browser running REAL physics — because the numbers the owner needs to rule
- * on B4b cannot be obtained without varying it, and this repo's standing lesson is that no unit test
- * runs the physics loop. Mirrors the four existing seams (__TEST_WIN_SCORE__,
- * __TEST_SPAWN_RATE_PER_SECOND__, __TEST_HUNTER_TRIGGER_SCORE__, __TEST_FLYOVER_DURATION_TICKS__):
- * read once at module-init and absent in production, so the shipped default is unconditionally the
- * fallback literal on the declaration line below.
- * ⚠ S141 P1 — this sentence used to name that fallback as "5" and had been wrong since S140 P1 moved
- * it to 7, twelve lines above the code it describes. It now points AT the declaration instead of
- * restating it, so it cannot rot again on the next retune. (Same fix shape as the S140 tripwires:
- * bind to the constant, never re-state the value.)
+ * ⚠ DO NOT REINTRODUCE A CAP HERE without a new owner ruling. `bankAdd` returns `void` specifically
+ * so that a failure branch cannot be added back at a call site by accident (see castleBank.ts).
  */
-function readTestCastleBankCap(): number | null {
-  if (typeof window === 'undefined') return null;
-  const v = (window as { __TEST_CASTLE_BANK_CAP__?: number }).__TEST_CASTLE_BANK_CAP__;
-  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : null;
-}
-export const CASTLE_BANK_CAP = readTestCastleBankCap() ?? 7;
+
 
 /**
  * S136 P1 — how many PORCH slots sit outside the castle gate, and where.

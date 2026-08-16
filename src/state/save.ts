@@ -76,6 +76,7 @@ import {
   type DefenderState,
 } from './defenders/defender.ts';
 import { loadRephaseDefenders } from './defenders/defenderLifecycle.ts';
+import { makeCastleBank } from './castleBank.ts';
 // Audit Pass 1 fix 3c8630d7 (Δ4) + Pass 2 refactor 622a7c7f: on restore,
 // world.tick may jump backward relative to the audio drain cursor. Without
 // resetting the cursor, audio effects whose tick straddles the cursor are
@@ -162,7 +163,14 @@ export interface WorldSnapshot {
    * S135 hunter-lifetime gap, which is why the entries carry the FULL SerializedSpark rather than a
    * bare type: the spark that comes back out of a pull is the same entity that went in, id included.
    */
-  castleBanks?: Array<{ seat: PlayerId; shapes: SerializedSpark[] }>;
+  /**
+   * S146 P2 — per-seat shape TALLY indexed by SparkType (length 6), uncapped. Emitted only for seats
+   * holding something, so an empty-castle world stays byte-identical.
+   *
+   * `shapes` (the pre-S146 entity list) is accepted on LOAD for disk back-compat and tallied; it is
+   * never emitted. See applySnapshotCore.
+   */
+  castleBanks?: Array<{ seat: PlayerId; counts?: number[]; shapes?: SerializedSpark[] }>;
   /**
    * S141 P2 (V6-1.4) — the per-player gatherer ORDER QUEUE. Additive-optional: emitted only for seats
    * with a non-empty queue, so a pre-S141 world round-trips byte-identically and an idle match pays
@@ -1311,7 +1319,21 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   world.gathererOrders.clear(); // S141 P2 — the order queues tear down with the gatherer economy
   if (snap.castleBanks !== undefined) {
     for (const entry of snap.castleBanks) {
-      world.castleBanks.set(entry.seat, entry.shapes.map(deserializeSpark));
+      // ⭐ S146 P2 — ACCEPT BOTH SHAPES. `counts` is the current tally. `shapes` is the pre-S146
+      // entity list, which still arrives from a v21 disk save; it is TALLIED rather than rejected so
+      // an old save keeps the player's stored shapes instead of silently loading an empty castle.
+      // (Cross-VERSION peers cannot mix — protocol.ts hard-rejects a PROTOCOL_VERSION mismatch at
+      // HELLO — so this branch is a disk-compat path only, never a live-wire one.)
+      const legacy = (entry as { shapes?: SerializedSpark[] }).shapes;
+      if (entry.counts !== undefined) {
+        const bank = makeCastleBank();
+        for (let i = 0; i < bank.length; i++) bank[i] = entry.counts[i] ?? 0;
+        world.castleBanks.set(entry.seat, bank);
+      } else if (legacy !== undefined) {
+        const bank = makeCastleBank();
+        for (const ss of legacy) bank[ss.type as number] = (bank[ss.type as number] ?? 0) + 1;
+        world.castleBanks.set(entry.seat, bank);
+      }
     }
   }
   // S141 P2 — same contract as the banks above: the clear() already ran, so a MISSING field means
@@ -1437,11 +1459,13 @@ function deserializeSpark(s: SerializedSpark): Spark {
  */
 function serializeCastleBanks(
   world: World,
-): Array<{ seat: PlayerId; shapes: SerializedSpark[] }> | undefined {
-  const out: Array<{ seat: PlayerId; shapes: SerializedSpark[] }> = [];
+): Array<{ seat: PlayerId; counts: number[] }> | undefined {
+  const out: Array<{ seat: PlayerId; counts: number[] }> = [];
   for (const [seat, bank] of world.castleBanks) {
-    if (bank.length === 0) continue;
-    out.push({ seat, shapes: bank.map(serializeSpark) });
+    let total = 0;
+    for (const nn of bank) total += nn;
+    if (total === 0) continue;
+    out.push({ seat, counts: [...bank] });
   }
   return out.length > 0 ? out : undefined;
 }

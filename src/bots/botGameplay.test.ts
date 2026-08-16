@@ -8,14 +8,12 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CASTLE_BANK_CAP,
   PLAYER_COLORS,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SparkType,
 } from '../constants.ts';
-import { bankPush } from '../state/castleBank.ts';
-import { castleAnchor } from '../state/gatherers/gatherer.ts';
+import { bankAdd } from '../state/castleBank.ts';
 import { makeHunter } from '../state/hunters/hunter.ts';
 import { makeRainbow } from '../state/rainbow.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
@@ -182,22 +180,12 @@ describe('S87 P3 — disruptive/reactive bot behaviors (real pipeline)', () => {
     // supply now arrives the legitimate way — through the bot's own bank, topped up between chunks
     // the way a working gatherer would keep hauling. `CASTLE_BANK_CAP` bounds each top-up, which is
     // why this refills instead of seeding 16 at once.
-    let nextSparkId = 2000;
+    // S146 P2 — the inventory is limitless, so a "top up" is just: put some shapes in. The old
+    // loop pushed up to CASTLE_BANK_CAP whole Spark entities and counted refusals; there is no cap
+    // and no refusal now, so the fixture states the stock it wants directly.
+    const TOP_UP = 7;
     const topUpBank = (): void => {
-      for (let i = 0; i < CASTLE_BANK_CAP; i++) {
-        const home = castleAnchor(BOT as unknown as number);
-        const ok = bankPush(world.castleBanks, BOT, {
-          id: asSparkId(nextSparkId),
-          type: SparkType.Dot,
-          pos: { x: home.x, y: home.y },
-          prevPos: { x: home.x, y: home.y },
-          radius: 8,
-          createdTick: 0,
-          state: { kind: 'Free' as const },
-        });
-        if (!ok) break; // at cap — the gatherer would wait, so do we
-        nextSparkId++;
-      }
+      for (let i = 0; i < TOP_UP; i++) bankAdd(world.castleBanks, BOT, SparkType.Dot);
     };
 
     const manager = new BotManager(['IMBA'], 0x77);

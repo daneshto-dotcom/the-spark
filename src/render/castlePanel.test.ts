@@ -22,7 +22,6 @@ import {
   ALL_SPARK_TYPES,
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
-  CASTLE_BANK_CAP,
   GATHERER_MAX_SPEED_LEVEL,
   GATHERER_PRICE,
   GATHERER_SPEED_UPGRADE_PRICE,
@@ -412,8 +411,9 @@ describe('S140 P1 — bank strip geometry, swept across caps', () => {
   });
 
   it('I9 — the SHIPPED cap is laid out sanely (whatever it currently is)', () => {
-    expect(bankRowCount(CASTLE_BANK_CAP)).toBeGreaterThanOrEqual(1);
-    for (let i = 0; i < CASTLE_BANK_CAP; i++) {
+    // S146 P2 — the strip is one swatch PER SHAPE TYPE now, not one per bank slot.
+    expect(bankRowCount(ALL_SPARK_TYPES.length)).toBeGreaterThanOrEqual(1);
+    for (let i = 0; i < ALL_SPARK_TYPES.length; i++) {
       const o = slotOrigin(i);
       expect(o.x, `shipped cap slot ${i}`).toBeGreaterThanOrEqual(PANEL_PAD);
       expect(o.x + SLOT_W).toBeLessThanOrEqual(PANEL_W - PANEL_PAD);

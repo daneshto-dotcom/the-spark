@@ -35,7 +35,7 @@ import {
 } from '../../types.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
 import { castleAnchor, gathererSpeed, makeGatherer } from './gatherer.ts';
-import { bankCount, bankOf } from '../castleBank.ts';
+import { bankCount, bankCountOf } from '../castleBank.ts';
 import { pickGathererTarget } from './gathererLifecycle.ts';
 
 const P0 = asPlayerId(0);
@@ -137,13 +137,12 @@ describe('V6-1.2 — the haul cycle (spawn zone → keep)', () => {
     expect(g.state).toBe('SEEKING');
     // It is OUT of the world — invisible to collision, the spatial grid, the soft cap and the reap.
     expect(w.freeSparks.has(sid)).toBe(false);
-    // And it is the SAME entity, id intact, so a pull returns the shape that was actually hauled.
-    const banked = bankOf(w.castleBanks, P0);
-    expect(banked).toHaveLength(1);
-    expect(banked[0]!.id).toBe(sid);
-    expect(banked[0]!.type).toBe(spark.type);
-    // The in-transit escrow marker is cleared on the way in: it is held, not hauling.
-    expect(banked[0]!.escrow).toBeUndefined();
+    // ⭐ S146 P2 — the inventory is a per-TYPE TALLY, so what survives a deposit is the TYPE, not
+    // the entity. The old assertions checked id-identity because a pull used to hand the very same
+    // Spark back; a pull now MINTS one, so identity is no longer a property this can (or should)
+    // assert. Exactly one of the hauled type is held, and nothing else is.
+    expect(bankCountOf(w.castleBanks, P0, spark.type)).toBe(1);
+    expect(bankCount(w.castleBanks, P0)).toBe(1);
   });
 
   it('a hauled spark rides WITH the gatherer (it is not left behind in the zone)', () => {

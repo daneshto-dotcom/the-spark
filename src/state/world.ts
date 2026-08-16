@@ -337,6 +337,8 @@ export function makeWorld(rngSeed: number): World {
     gameState: 'PLAYING', // test contract; main.ts overrides to 'TITLE' at boot
     nextPrimitiveId: 0,
     nextBondId: 0,
+    // S146 P2 — descending negative allocator for reducer-minted (pulled) sparks. See worldTypes.
+    nextPulledSparkId: -1,
     lastWinnerId: null,
     effects: [],
     scoreProgress: 0,

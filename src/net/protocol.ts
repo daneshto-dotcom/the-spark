@@ -160,7 +160,22 @@ export type { NetSnapshot };
 //       the host's `hashWorldStateFull` the moment anything is queued. `Defender.bagsRemaining` is the
 //       same shape (additive-optional-when-nonzero, hashed).
 // Hard-rejected at HELLO, same lockstep posture as every bump above.
-export const PROTOCOL_VERSION = 21 as const;
+// S146 P2 — bumped 21->22: THE CASTLE INVENTORY BECAME A LIMITLESS PER-TYPE TALLY. Three independent
+// reasons, any ONE of which alone would force it.
+//   (1) THE SNAPSHOT FIELD CHANGED SHAPE. `castleBanks` went from
+//       `Array<{seat, shapes: SerializedSpark[]}>` to `Array<{seat, counts: number[]}>`. A v21 peer
+//       reads `entry.shapes` and finds it absent, so it renders and HASHES an empty castle while the
+//       host holds a full one — a silent, permanent divergence on a field that IS hashed.
+//   (2) A CLIENT INTENT CHANGED ITS PAYLOAD. `PULL_FROM_BANK` is type-addressed (`sparkType`) rather
+//       than index-addressed (`index`). A v21 joiner would send `{index: 0}`, which a v22 host reads
+//       as `sparkType: undefined` — the pull silently no-ops on the joiner seat only, while the host
+//       seat's works. Seat asymmetry, the worst kind, because it reads as lag.
+//   (3) A SHARED CONSTANT BOTH PEERS COMPUTE FROM WAS DELETED. `CASTLE_BANK_CAP` is gone. A v21 peer
+//       still gates deposits at 7 and still lays out exactly 7 clickable slot boxes, so it could
+//       neither see nor reach anything past the seventh shape — the same reachability soft-lock class
+//       as the 18->19 cap move, which is the precedent this follows.
+// Hard-rejected at HELLO, same lockstep posture as every bump above.
+export const PROTOCOL_VERSION = 22 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -233,7 +248,7 @@ export interface HelloMsg {
    * 14→15 entry while the literal already read 15, and S140 P1 backfilled 17→18 for the same reason.
    * Bumping `PROTOCOL_VERSION` means editing THREE things — the const, this list, and the type
    * literal below. */
-  readonly protoVersion: 21;
+  readonly protoVersion: 22;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

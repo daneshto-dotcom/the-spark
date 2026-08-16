@@ -27,17 +27,18 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import type { Spark } from '../game/spark.ts';
 import { makeWorld, type World } from './world.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import { makeFreeSpark } from '../game/spark.ts';
-import { CASTLE_BANK_CAP, PLAYER_COLORS, SparkType } from '../constants.ts';
+import { PLAYER_COLORS, SparkType } from '../constants.ts';
 import { asPlayerId, asSparkId, type Vec2 } from '../types.ts';
 import { ALL_BLUEPRINT_IDS, blueprintBill, blueprintCost, blueprintFor } from './blueprints.ts';
 import { applyBuildBlueprint, planBlueprintPayment } from './blueprintBuild.ts';
 import { stampRefusalAt } from './blueprintLegality.ts';
 import { runGodlyMatcherCore } from './godlyMatcherCore.ts';
 import { recipeStillSatisfied } from './defenders/defenderLifecycle.ts';
-import { porchSlot } from './castleBank.ts';
+import { bankCount, bankRemove, makeCastleBank, porchSlot } from './castleBank.ts';
 // ⚠ SIDE-EFFECT IMPORTS, REQUIRED. The recipe registry is populated by each module calling
 // `registerRecipe` at its tail. `blueprints.ts` deliberately does NOT import these (doing so
 // registered every recipe globally via `world.ts` and broke `defenderLifecycle.test.ts`'s
@@ -89,12 +90,11 @@ function spawnSpark(type: SparkType, pos: Vec2) {
  * bank∪porch sourcing rule works rather than merely compiles.
  */
 function fund(w: World, id: GodlyId): void {
-  const bank = [];
-  const porch = [];
+  const bank = makeCastleBank();
+  const porch: Spark[] = [];
   for (const [type, count] of blueprintBill(id)) {
     for (let i = 0; i < count; i++) {
-      if (bank.length < CASTLE_BANK_CAP) bank.push(spawnSpark(type, { x: 0, y: 0 }));
-      else porch.push(spawnSpark(type, porchSlot(SEAT0, porch.length)));
+      bank[type as number] = (bank[type as number] ?? 0) + 1;
     }
   }
   w.castleBanks.set(P0, bank);
@@ -121,7 +121,7 @@ describe('applyBuildBlueprint — stamps geometry that IGNITES and SURVIVES (per
     expect(w.primitives.size).toBe(blueprintCost(id));
     expect(w.bonds.size).toBe(bp.bonds.length);
     // Everything the build was funded with is now spent — nothing left banked or loose on the porch.
-    expect(w.castleBanks.get(P0)).toEqual([]);
+    expect(bankCount(w.castleBanks, P0), 'the bill emptied the inventory').toBe(0);
     expect(w.freeSparks.size).toBe(0);
   });
 
@@ -205,16 +205,18 @@ describe('applyBuildBlueprint — refuses without spending (NO-OP, never an erro
   it('an unaffordable build consumes NOTHING', () => {
     const w = setup();
     fund(w, 'stinkTower');
-    // Remove one shape so the bill can no longer be covered.
-    w.castleBanks.get(P0)!.pop();
-    const before = w.castleBanks.get(P0)!.length;
+    // Remove one shape so the bill can no longer be covered. The bill's first type is guaranteed
+    // present by `fund`, so decrementing it is always a real shortfall.
+    const firstType = [...blueprintBill('stinkTower')][0]![0];
+    bankRemove(w.castleBanks, P0, firstType);
+    const before = bankCount(w.castleBanks, P0);
 
     applyBuildBlueprint(w, {
       type: 'BUILD_BLUEPRINT', playerId: P0, blueprintId: 'stinkTower', centre: SITE,
     });
 
     // The whole payment is planned before anything is taken, so a refused build cannot half-spend.
-    expect(w.castleBanks.get(P0)!.length).toBe(before);
+    expect(bankCount(w.castleBanks, P0)).toBe(before);
     expect(w.primitives.size).toBe(0);
     expect(w.bonds.size).toBe(0);
   });
@@ -229,7 +231,7 @@ describe('applyBuildBlueprint — refuses without spending (NO-OP, never an erro
     });
 
     expect(w.primitives.size).toBe(0);
-    expect(w.castleBanks.get(P0)!.length).toBe(blueprintCost('stinkTower'));
+    expect(bankCount(w.castleBanks, P0)).toBe(blueprintCost('stinkTower'));
   });
 
   it('an unknown player consumes NOTHING and does not throw', () => {
@@ -245,12 +247,12 @@ describe('applyBuildBlueprint — refuses without spending (NO-OP, never an erro
     const w = setup();
     // Fund stinkTower entirely on the porch, then mark one shape as carried.
     const bill: Array<[SparkType, number]> = [...blueprintBill('stinkTower')];
-    const porch = [];
+    const porch: Spark[] = [];
     for (const [type, count] of bill) {
       for (let i = 0; i < count; i++) porch.push(spawnSpark(type, porchSlot(SEAT0, porch.length)));
     }
     for (const s of porch) w.freeSparks.set(s.id, s);
-    w.castleBanks.set(P0, []);
+    w.castleBanks.set(P0, makeCastleBank());
     expect(planBlueprintPayment(w, P0, 'stinkTower')).not.toBeNull();
 
     // Consuming a mid-carry spark would strand whoever is holding it.

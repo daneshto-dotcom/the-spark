@@ -65,6 +65,20 @@ export interface World {
   nextPrimitiveId: number;
   /** Monotonic counter for bond IDs. */
   nextBondId: number;
+  /**
+   * S146 P2 — DESCENDING NEGATIVE allocator for sparks MINTED BY A REDUCER (`PULL_FROM_BANK` taking
+   * a shape out of the counted castle inventory onto the porch). −1, −2, −3 …
+   *
+   * ⛔ THE SIGN IS THE WHOLE SAFETY ARGUMENT. The `Spawner` owns spark-id minting through its private
+   * ascending `nextId` (spawner.ts) and no reducer can reach it. Rather than have two allocators
+   * agree to stay out of each other's range — an agreement every future edit could break silently —
+   * this one runs the other way down the number line. A collision is not unlikely here; it is
+   * arithmetically impossible.
+   *
+   * Host-only, exactly like `nextPrimitiveId`/`nextBondId`: stripped from `NetSnapshot` and rebuilt
+   * by `rebuildAuthorityAllocators` at a migration takeover (scan `freeSparks` for the MINIMUM id).
+   */
+  nextPulledSparkId: number;
   /** Telemetry / debug — not persisted. */
   lastWinnerId: PlayerId | null;
   effects: GameEffect[];
@@ -174,10 +188,15 @@ export interface World {
    * full mechanism of each). A stored shape is now a TYPE in a list — no position, no radius, no
    * collision, no TTL — so neither defect has a surface to occur on.
    *
-   * Capped at CASTLE_BANK_CAP (5, owner ruling B4b — the number and the recipe-size table live
-   * together in constants.ts and must never be tuned apart). Host-authoritative and serialized
-   * (additive-optional, so a pre-S136 save loads with empty banks); registered in stateHashFull
-   * FIELD_COVERAGE and folded into workerSim's structuralSignature. Cleared on teardown.
+   * ⭐ S146 P2 — UNCAPPED, AND COUNTED BY TYPE. Owner ruling: *"giving the castle limitless primitive
+   * place in the inventory... just hold the 6 shape parts and show how many you have of each"*. This
+   * is a fixed 6-entry tally indexed by `SparkType`, not a list of entities and not a `Map` (see the
+   * castleBank.ts docblock for why the fixed array is a determinism requirement, not a style call).
+   * `CASTLE_BANK_CAP` is GONE — do not reintroduce a cap here without a new owner ruling.
+   *
+   * Host-authoritative and serialized (additive-optional, so a pre-S136 save loads with empty
+   * inventories); registered in stateHashFull FIELD_COVERAGE and folded into workerSim's
+   * structuralSignature. Cleared on teardown.
    */
   castleBanks: Map<PlayerId, CastleBank>;
   /**

@@ -43,8 +43,6 @@ import {
   SPAWNER_RADIUS,
   // S145 P2 — how much room the build-grid click must make before the ordered shapes can land, and
   // the ceiling on how much of the bank one click may decant.
-  CASTLE_BANK_CAP,
-  CASTLE_PORCH_SLOTS,
 } from './constants.ts';
 // S87 — VS-BOTS mode. BOTH the setup overlay AND the BotManager are LAZY
 // chunks (the overlay alone pushed the index chunk over the 550 kB charter —
@@ -132,9 +130,6 @@ import { BlueprintGhost } from './render/blueprintGhost.ts';
 // S137 P0c — re-exported through the DEV __SPARK__ global as live keep geometry for e2e. Already in
 // the bundle (castlePanel.ts + gathererRenderer.ts both import it), so this costs no bundle bytes.
 import { castleAnchor } from './state/gatherers/gatherer.ts';
-// S145 P2 — the build grid's "order the missing shapes" click needs to know how much room the bank
-// has before it can make enough. Read through the bank's own accessor, never `.length` on the map.
-import { bankCount } from './state/castleBank.ts';
 import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
 import type { SudokuOverlay } from './render/sudokuOverlay.ts';
 // S97 G3b / S104 P3 — the Magic-14 combos are now a TAB inside the unified CodexOverlay (the
@@ -615,8 +610,8 @@ async function bootstrap(): Promise<void> {
   });
   // S136 P1 (V6-1.3) — pull a stored shape out of the castle onto the porch, where the ordinary
   // drag-and-place flow takes over. Same dispatchFn seam, so it routes on all three paths.
-  castlePanel.setPullHandler((index) => {
-    dispatchFn({ type: 'PULL_FROM_BANK', playerId: world.localPlayerId, index });
+  castlePanel.setPullHandler((sparkType) => {
+    dispatchFn({ type: 'PULL_FROM_BANK', playerId: world.localPlayerId, sparkType });
   });
   // S141 P2 (V6-1.4) — the gatherer ORDER QUEUE (owner ruling B4). Same dispatchFn seam as every
   // other panel control, so it routes on all three paths (networked joiner → wire intent; worker
@@ -657,36 +652,12 @@ async function bootstrap(): Promise<void> {
         dispatchFn({ type: 'ENQUEUE_GATHERER_ORDER', playerId: seat, sparkType: m.type });
       }
     }
-    // A FULL BANK CANNOT ACCEPT WHAT WAS JUST ORDERED — that is the deadlock itself. Decant enough
-    // slots for the WHOLE shortfall, always from index 0 (the OLDEST shape: `bankPush` appends, so
-    // index 0 has waited longest and is least likely to be part of what the player is assembling).
+    // ✅ S146 P2 — THE DECANT IS GONE, AND SO IS THE CONDITION IT SERVED.
     //
-    // ⚠ ENOUGH, NOT ONE. The first cut freed a single slot per click, and the e2e proved the cost:
-    // a 4-shape bill then needed ~6 separate clicks on the same tile to come alive. The owner's ask
-    // was "you have a place to click on the tower and it builds it for you" — one click has to be
-    // enough to set the whole thing in motion.
-    //
-    // ⚠ THE COUNT IS COMPUTED UP FRONT, AND THAT IS NOT A STYLE CHOICE — IT IS WHAT MAKES THIS WORK
-    // OFF THE HOST. Two earlier cuts were both wrong, and each failed silently:
-    //
-    //   • guarding on `bankIsFull` freed exactly ONE slot, because the bank stops being full the
-    //     moment you free one. The tower stalled two shapes short — "NEED 2 MORE" forever, a quieter
-    //     copy of the very deadlock being fixed. The e2e caught it.
-    //   • re-reading `bankCount` after each dispatch works ONLY on solo/host, where `dispatchFn` is a
-    //     synchronous local reducer call. Under `?worker=1` (postIntent) and on a networked joiner
-    //     (wire intent) the local count cannot move within this handler, so a feedback-driven loop
-    //     stops after one iteration and the player is back to clicking the tile repeatedly.
-    //
-    // So: decide how many slots the bill needs, then ask for exactly that many. No dispatch depends
-    // on observing the effect of the previous one, which is the only formulation that behaves
-    // identically on all three transport paths. Bounded by the shortfall and by the porch's own
-    // capacity, and `applyPullFromBank` is no-op-never-throw on a full porch, so an over-ask is safe.
-    const short = missing.reduce((n, m) => n + (m.need - m.have), 0);
-    const free = CASTLE_BANK_CAP - bankCount(world.castleBanks, seat);
-    const toDecant = Math.min(short - free, CASTLE_PORCH_SLOTS);
-    for (let n = 0; n < toDecant; n++) {
-      dispatchFn({ type: 'PULL_FROM_BANK', playerId: seat, index: 0 });
-    }
+    // S145 added "one click orders the shortfall AND makes room for it", because a full 7-slot bank
+    // could not accept what had just been ordered — that was the measured deadlock. The inventory is
+    // limitless now, so there is never any room to make: ordering is the whole of the click.
+    // Deleting this also removes the last consumer of `CASTLE_BANK_CAP` outside the panel geometry.
   });
   // S144 P3 — CLICK-TO-BUILD's commit. Same dispatchFn seam as every other panel control, so it
   // routes on all three paths (networked joiner -> wire intent; worker mode -> postIntent; solo/host

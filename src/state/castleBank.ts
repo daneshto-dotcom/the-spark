@@ -1,120 +1,138 @@
 /**
- * SPARK — S136 P1 (V6-1.3): THE CASTLE BANK.
+ * SPARK — S146 P2 (V6-1.5): THE CASTLE INVENTORY — LIMITLESS, AND COUNTED BY TYPE.
  *
- * WHY THIS REPLACES THE V6-1.2 STOCKPILE. The owner played the haul build and reported:
+ * ## THE OWNER RULING THAT REPLACED THE SLOT BANK
  *
- *   "when the gatherer brings primitives and drops them near base if there are multiple they are
- *    dropped on top of each other and when you try to grab one the other flies to all hells"
- *   "he should just store them within the castle and not outside"
+ * *"we will continue developing this by giving the castle limitless primitive place in the inventory.
+ * and instead of putting them in their own boxes within the castle just hold the 6 shape parts and
+ * show how many you have of each as the gatherer collects them by showing for example spiral x 6,
+ * square x 2, etc... seeing how it is more of a tower defence we need to allow for that so that you
+ * can actually use the codex library to build your shapes."*
  *
- * V6-1.2 stored a hauled shape as a REAL `freeSparks` physics entity parked at a computed world
- * position with `escrow:'banked'`. Two independent defects came out of that:
+ * This closes the long-open `CASTLE_BANK_CAP` question (7 vs 12–13) by deleting the cap rather than
+ * retuning it. Everything the cap existed to create — the full-bank stall, the WAITING-on-full
+ * gatherer, the decant-to-make-room click, the "NEED n MORE" that could never be satisfied because
+ * the composition was frozen — goes with it.
  *
- *  1. STACKING. `depositSlot` chose its slot by COUNTING currently-banked sparks
- *     (`x = home.x - 54 + (banked % 5) * 27`). A count is an occupancy total, not a high-water
- *     index, so any hole collapsed the mapping: bank 3, grab the 1st, the count falls 3 -> 2, and
- *     the next deposit is written to index 2 — exactly on top of the shape already sitting there.
+ * ## WHY A FIXED 6-SLOT COUNT ARRAY AND NOT A `Map<SparkType, number>`
  *
- *  2. THE FLING. Not a divide-by-zero. `resolvePair` early-returns when `distSq < EPSILON`, so an
- *     EXACT stack is inert — which is why it looked fine until touched. The moment a grab perturbs
- *     the pair off exact-zero, `dist` is ~0 while `overlap` is ~`minDist/2`, so one substep applies
- *     a near-maximal positional correction, and the collision module's own docblock notes that
- *     momentum "is recovered implicitly by Verlet on the next substep" — which turns that jab into
- *     a large velocity. Banked sparks were never exempt from collision; the `escrow === undefined`
- *     tests in physicsLoop exempt them only from the soft cap and the TTL reap.
+ * `SparkType` is a contiguous numeric enum, `Dot = 0 … Spiral = 5`, so a plain array indexed BY the
+ * enum is a total function over the type space: every seat's inventory has exactly
+ * `ALL_SPARK_TYPES.length` entries, always, with no absent-vs-zero distinction to get wrong.
  *
- * THE FIX IS STRUCTURAL, NOT A PATCH. A banked shape stops being IN THE WORLD at all: it is lifted
- * out of `world.freeSparks` and held in the owner's bank, INSIDE the castle. Nothing to co-locate,
- * nothing for the collision solver to see, nothing for the reap to find. Both defects cease to have
- * a surface — which is why this is the owner's fix (item 4) and not merely a slot-index correction.
+ * That is not a style preference — it removes a determinism hazard. A `Map` iterates in INSERTION
+ * order, so a host that banked a Square before a Circle and a client that received them the other way
+ * round would hash the same inventory differently and desync, for free, with no incorrect logic
+ * anywhere. (GEMINI-AUDITOR raised exactly this in Council; the fixed array makes the question
+ * unaskable rather than answering it with a sort at every hash site.)
  *
- * The player gets a shape back by PULLING it onto the castle porch (owner item 5, "pull them and
- * build them one by one"): the SAME spark is put back into `freeSparks` at the first genuinely
- * UNOCCUPIED porch slot, and the shipped drag-and-place flow takes it from there. That occupancy
- * test — rather than a count — is the actual lesson of defect 1, applied.
+ * ## WHAT THIS REPLACED, AND THE ONE THING THAT GOT HARDER
+ *
+ * The V6-1.3 bank stored WHOLE `Spark` ENTITIES, capped at 7. Its docblock argued that a count-only
+ * bank was not viable, because `PULL_FROM_BANK` would then have to MINT a spark, and spark ids come
+ * from the `Spawner`'s private `nextId`, which no reducer can reach — so a reducer-side mint would
+ * need a second id space plus an argument for why the two can never collide.
+ *
+ * That argument was correct, and it is discharged rather than dodged: pulled shapes are minted from a
+ * **descending NEGATIVE id space** (`world.nextPulledSparkId`, −1, −2, −3 …) while the Spawner only
+ * ever mints ascending non-negatives. Disjointness is therefore structural — not a range agreement
+ * two allocators have to keep honouring, but two number lines that cannot meet.
+ *
+ * ⭐ AND IT DELETED A HAZARD CLASS. `rebuildAuthorityAllocators` (migrationClaim.ts) used to have to
+ * scan `castleBanks` for spark ids, because a banked entity was live-but-outside `freeSparks` — an
+ * S141 P3 bug fix whose absence silently corrupted a promoted host's world. A counted inventory holds
+ * NO ids at all, so that scan is not merely fixed, it is unnecessary.
  */
 
+import { ALL_SPARK_TYPES, SparkType } from '../constants.ts';
 import {
-  CASTLE_BANK_CAP,
   CASTLE_PORCH_OFFSET_Y,
   CASTLE_PORCH_PITCH_X,
   CASTLE_PORCH_SLOT_CLEAR_RADIUS,
   CASTLE_PORCH_SLOTS,
 } from '../constants.ts';
-import type { Spark } from '../game/spark.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
 
 /**
- * A seat's stored shapes, oldest first. Length is capped at CASTLE_BANK_CAP.
- *
- * ⚠ WHY THIS HOLDS THE WHOLE `Spark` AND NOT JUST ITS `SparkType`. A type-only bank would force the
- * PULL path to MINT a new spark, and spark ids are minted by the Spawner's own `nextId` counter
- * (spawner.ts) which no reducer can reach — so a reducer-side mint would need a second, disjoint id
- * space and an argument about why the two can never collide. Storing the entity sidesteps that
- * entirely: the shape the gatherer carried home is the SAME object that comes back out, keeping its
- * original id, and serialization reuses the shipped serializeSpark/deserializeSpark pair rather than
- * inventing a parallel wire shape.
- *
- * A banked spark is REMOVED from `world.freeSparks`, which is what makes it genuinely out-of-world:
- * collision, the spatial grid, the renderer, the soft cap and the TTL reap all iterate `freeSparks`,
- * so a stored shape is invisible to every one of them by construction. That is strictly stronger
- * than V6-1.2's `escrow` marker, which had to be checked at each site and was honoured by the cap
- * and the reap but NOT by the collision solver — the omission behind the owner's fling report.
+ * A seat's stored shapes as a tally indexed by `SparkType`. Length is always
+ * `ALL_SPARK_TYPES.length` (6). **Uncapped** — any entry may grow without bound.
  */
-export type CastleBank = Spark[];
+export type CastleBank = number[];
 
-/** The bank for `seat`, or an empty list. Never mutates the map (read path). */
+/** A fresh, empty tally. Never share one instance between seats — each seat mutates its own. */
+export function makeCastleBank(): CastleBank {
+  return new Array<number>(ALL_SPARK_TYPES.length).fill(0);
+}
+
+/** Shared read-only zero tally for the "seat has banked nothing yet" read path. */
+const EMPTY_BANK: readonly number[] = Object.freeze(
+  new Array<number>(ALL_SPARK_TYPES.length).fill(0),
+);
+
+/** The tally for `seat`, or an all-zero tally. Never mutates the map (read path). */
 export function bankOf(
   banks: ReadonlyMap<PlayerId, CastleBank>,
   seat: PlayerId,
-): readonly Spark[] {
-  return banks.get(seat) ?? [];
+): readonly number[] {
+  return banks.get(seat) ?? EMPTY_BANK;
 }
 
+/** How many of ONE type `seat` is holding. */
+export function bankCountOf(
+  banks: ReadonlyMap<PlayerId, CastleBank>,
+  seat: PlayerId,
+  type: SparkType,
+): number {
+  return bankOf(banks, seat)[type as number] ?? 0;
+}
+
+/** TOTAL shapes held by `seat`, across all six types. */
 export function bankCount(banks: ReadonlyMap<PlayerId, CastleBank>, seat: PlayerId): number {
-  return bankOf(banks, seat).length;
-}
-
-export function bankIsFull(banks: ReadonlyMap<PlayerId, CastleBank>, seat: PlayerId): boolean {
-  return bankCount(banks, seat) >= CASTLE_BANK_CAP;
+  let total = 0;
+  for (const n of bankOf(banks, seat)) total += n;
+  return total;
 }
 
 /**
- * Store one shape. Returns false (and stores nothing) when the bank is at cap — the caller is
- * expected to leave the gatherer holding its cargo and WAIT, which is the owner's ruled behaviour
- * rather than dropping or destroying the shape.
+ * Store one shape of `type`.
+ *
+ * ⛔ THIS CANNOT FAIL, AND CALLERS MUST NOT REINTRODUCE A FAILURE PATH. The predecessor returned
+ * `false` at cap and every caller grew a branch for it — the gatherer's WAITING-on-full stall, the
+ * decant-to-make-room click, the free-slot arithmetic. Those branches are the deadlock the owner
+ * played. A `void` return is the guarantee, in the type system, that no such branch can come back.
  */
-export function bankPush(
+export function bankAdd(
   banks: Map<PlayerId, CastleBank>,
   seat: PlayerId,
-  spark: Spark,
+  type: SparkType,
+): void {
+  let cur = banks.get(seat);
+  if (cur === undefined) {
+    cur = makeCastleBank();
+    banks.set(seat, cur);
+  }
+  cur[type as number] = (cur[type as number] ?? 0) + 1;
+}
+
+/**
+ * Spend one shape of `type`. Returns false (and spends nothing) when the seat holds none.
+ *
+ * Used by both `PULL_FROM_BANK` (which then mints the entity) and `blueprintBuild`'s payment. Never
+ * decrements below zero, so a raced double-spend degrades to a refused build rather than a negative
+ * inventory that renders as `SQUARE x -1`.
+ */
+export function bankRemove(
+  banks: Map<PlayerId, CastleBank>,
+  seat: PlayerId,
+  type: SparkType,
 ): boolean {
   const cur = banks.get(seat);
-  if (cur === undefined) {
-    banks.set(seat, [spark]);
-    return true;
-  }
-  if (cur.length >= CASTLE_BANK_CAP) return false;
-  cur.push(spark);
+  if (cur === undefined) return false;
+  const have = cur[type as number] ?? 0;
+  if (have <= 0) return false;
+  cur[type as number] = have - 1;
   return true;
-}
-
-/**
- * Remove and return the shape at `index`, or null when the index is out of range. Index-addressed
- * (not FIFO) because the castle panel shows the held shapes and the player picks the one they want
- * — the whole point of a bank over a queue is choosing what to build next.
- */
-export function bankTake(
-  banks: Map<PlayerId, CastleBank>,
-  seat: PlayerId,
-  index: number,
-): Spark | null {
-  const cur = banks.get(seat);
-  if (cur === undefined) return null;
-  if (!Number.isInteger(index) || index < 0 || index >= cur.length) return null;
-  const [taken] = cur.splice(index, 1);
-  return taken ?? null;
 }
 
 /** PURE — the world position of porch slot `i` for `seat`. Deterministic; hashed-state safe. */
@@ -180,7 +198,7 @@ export function firstFreePorchSlot(
   return null;
 }
 
-/** Clear every seat's bank (teardown parity with the other entity families). */
+/** Clear every seat's inventory (teardown parity with the other entity families). */
 export function teardownCastleBanks(banks: Map<PlayerId, CastleBank>): void {
   banks.clear();
 }

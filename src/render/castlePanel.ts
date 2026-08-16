@@ -37,7 +37,6 @@ import {
   ALL_SPARK_TYPES,
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
-  CASTLE_BANK_CAP,
   SparkType,
   GATHERER_MAX_SPEED_LEVEL,
   GATHERER_PRICE,
@@ -103,13 +102,13 @@ const STRIP_PAD_BOTTOM = 12;
  * plate for ANY cap, because the plate is the input. `floor((248 + 6) / 46) = 5`, which is exactly
  * the shipped single-row layout at cap 5, so this function is a **provable no-op** at the old cap.
  */
-export function bankSlotsPerRow(cap: number = CASTLE_BANK_CAP): number {
+export function bankSlotsPerRow(cap: number = INVENTORY_SLOTS): number {
   const perRow = Math.floor((ROW_INNER_W + SLOT_GAP) / (SLOT_W + SLOT_GAP));
   return Math.max(1, Math.min(perRow, Math.max(1, cap)));
 }
 
 /** PURE — how many rows the bank strip needs at `cap`. */
-export function bankRowCount(cap: number = CASTLE_BANK_CAP): number {
+export function bankRowCount(cap: number = INVENTORY_SLOTS): number {
   return Math.max(1, Math.ceil(Math.max(1, cap) / bankSlotsPerRow(cap)));
 }
 
@@ -122,15 +121,18 @@ export function bankRowCount(cap: number = CASTLE_BANK_CAP): number {
  * 3-slot row: seven boxes, zero dead. Verified exhaustively over cap 1..500 that the per-row count
  * never exceeds what the panel fits and the last row always holds between 1 and `perRow` slots.
  */
-export function bankSlotsPerRowSpread(cap: number = CASTLE_BANK_CAP): number {
+export function bankSlotsPerRowSpread(cap: number = INVENTORY_SLOTS): number {
   return Math.ceil(Math.max(1, cap) / bankRowCount(cap));
 }
 
 /** PURE — the bank strip's total height at `cap`, including the bottom pad. */
-export function bankStripHeight(cap: number = CASTLE_BANK_CAP): number {
+export function bankStripHeight(cap: number = INVENTORY_SLOTS): number {
   const rows = bankRowCount(cap);
   return rows * SLOT_H + (rows - 1) * SLOT_GAP + STRIP_PAD_BOTTOM;
 }
+
+/** S146 P2 — the inventory strip has exactly one swatch per shape type. */
+const INVENTORY_SLOTS = ALL_SPARK_TYPES.length;
 
 /* ========================================================================== *
  *   S141 P2 (V6-1.4) — THE GATHERER ORDER QUEUE strip (owner ruling B4)
@@ -417,7 +419,7 @@ export function panelOrigin(
   ax: number,
   ay: number,
   rows: number,
-  cap: number = CASTLE_BANK_CAP,
+  cap: number = INVENTORY_SLOTS,
 ): { x: number; y: number } {
   const h = panelHeight(rows, cap);
   let x = ax + KEEP_H / 2 + ANCHOR_GAP;
@@ -436,7 +438,7 @@ export function panelOrigin(
  * ⚠ This feeds `panelOrigin`'s vertical clamp, so every strip added here must be added BEFORE the
  * origin is computed or the panel will hang off the canvas for keeps on the lower arc of the ring.
  */
-export function panelHeight(rows: number, cap: number = CASTLE_BANK_CAP): number {
+export function panelHeight(rows: number, cap: number = INVENTORY_SLOTS): number {
   return (
     TITLE_H + bankStripHeight(cap) + paletteStripHeight() + queueStripHeight() +
     structuresStripHeight() +
@@ -453,7 +455,7 @@ export function panelHeight(rows: number, cap: number = CASTLE_BANK_CAP): number
  * one y while `getUiPoints` reported another, so every e2e click on BUY GATHERER would land on empty
  * plate while looking perfectly correct in a screenshot. One definition, three callers.
  */
-export function rowsTop(cap: number = CASTLE_BANK_CAP): number {
+export function rowsTop(cap: number = INVENTORY_SLOTS): number {
   return (
     PANEL_PAD + TITLE_H + bankStripHeight(cap) + paletteStripHeight() + queueStripHeight()
     + structuresStripHeight()
@@ -464,7 +466,7 @@ export function rowsTop(cap: number = CASTLE_BANK_CAP): number {
 export function panelRect(
   origin: { x: number; y: number },
   rows: number,
-  cap: number = CASTLE_BANK_CAP,
+  cap: number = INVENTORY_SLOTS,
 ): { x: number; y: number; w: number; h: number } {
   return { x: origin.x, y: origin.y, w: PANEL_W, h: panelHeight(rows, cap) };
 }
@@ -477,7 +479,7 @@ export function panelRect(
  * PARAMETER rather than a module-constant read because "correct for any cap" is exactly the property
  * the new tests sweep, and a test cannot vary a module constant.
  */
-export function slotOrigin(i: number, cap: number = CASTLE_BANK_CAP): { x: number; y: number } {
+export function slotOrigin(i: number, cap: number = INVENTORY_SLOTS): { x: number; y: number } {
   const per = bankSlotsPerRowSpread(cap);
   const row = Math.floor(i / per);
   const col = i % per;
@@ -496,15 +498,19 @@ export class CastlePanel {
   private readonly plate: Graphics;
   private readonly titleText: Text;
   private readonly rows: Array<{ box: Container; bg: Graphics; label: Text; hover: boolean }> = [];
-  /** S136 P1 — bank slot swatches; `filled` latches per frame so a click on an empty slot no-ops. */
+  /**
+   * S146 P2 — INVENTORY swatches: exactly ONE PER `SparkType`, showing that type's count.
+   * `filled` latches per frame so a click on a type you hold none of no-ops.
+   */
   private readonly slots: Array<{
     box: Container;
     bg: Graphics;
     glyph: Graphics;
+    count: Text;
     hover: boolean;
     filled: boolean;
   }> = [];
-  private onPull: ((index: number) => void) | null = null;
+  private onPull: ((sparkType: SparkType) => void) | null = null;
   /** S141 P2 — palette buttons (one per primitive) and coalesced queue chips. */
   private readonly palette: Array<{ box: Container; bg: Graphics; glyph: Graphics; hover: boolean }> = [];
   private readonly chips: Array<{
@@ -580,23 +586,32 @@ export class CastlePanel {
       this.rows.push({ box, bg, label, hover: false });
     }
 
-    // S136 P1 — the BANK STRIP. One box per slot; a filled one is clickable and pulls that shape.
-    // Same Container+Graphics-child idiom as the rows (the Graphics supplies `containsPoint`).
-    for (let i = 0; i < CASTLE_BANK_CAP; i++) {
+    // S146 P2 — THE INVENTORY STRIP. One box PER SHAPE TYPE (six, always), each showing that
+    // type's glyph and how many the castle holds. Clicking a type you hold pulls one onto the
+    // porch, which is the same gesture the old per-slot strip had.
+    for (let i = 0; i < INVENTORY_SLOTS; i++) {
       const bg = new Graphics();
       const glyph = new Graphics();
+      const count = new Text({
+        text: '',
+        style: new TextStyle({ fontFamily: 'monospace', fontSize: 11, fill: 0x9fc4e8 }),
+      });
+      count.anchor.set(1, 1);
+      count.position.set(SLOT_W - 3, SLOT_H - 1);
       const box = new Container();
       box.addChild(bg);
       box.addChild(glyph);
+      box.addChild(count);
       const o = slotOrigin(i);
       box.position.set(o.x, o.y);
       box.eventMode = 'static';
       const idx = i;
-      box.on('pointertap', () => this.pull(idx));
+      const sparkType = ALL_SPARK_TYPES[i]!;
+      box.on('pointertap', () => this.pull(sparkType));
       box.on('pointerover', () => { this.slots[idx].hover = true; });
       box.on('pointerout', () => { this.slots[idx].hover = false; });
       this.container.addChild(box);
-      this.slots.push({ box, bg, glyph, hover: false, filled: false });
+      this.slots.push({ box, bg, glyph, count, hover: false, filled: false });
     }
 
     // S141 P2 — THE PALETTE: one button per primitive type. Click to queue one of that shape.
@@ -698,16 +713,16 @@ export class CastlePanel {
     app.stage.addChild(this.container);
   }
 
-  private pull(index: number): void {
-    // Empty slot => nothing to pull. The reducer re-checks the index authoritatively anyway (and a
-    // stale index simply no-ops there), so this only avoids firing a pointless intent.
-    if (this.slots[index]?.filled !== true) return;
+  private pull(sparkType: SparkType): void {
+    // Hold none of this type => nothing to pull. The reducer re-checks authoritatively anyway (it
+    // spends nothing at count zero), so this only avoids firing a pointless intent.
+    if (this.slots[sparkType as number]?.filled !== true) return;
     if (this.onPull === null) return;
-    this.onPull(index);
+    this.onPull(sparkType);
   }
 
   /** main.ts injects the PULL_FROM_BANK dispatch for the local seat. */
-  setPullHandler(fn: (index: number) => void): void {
+  setPullHandler(fn: (sparkType: SparkType) => void): void {
     this.onPull = fn;
   }
 
@@ -866,7 +881,7 @@ export class CastlePanel {
         open: false,
         rect: null,
         rowCenters: [],
-        bank: { count: 0, cap: CASTLE_BANK_CAP },
+        bank: { count: 0, cap: INVENTORY_SLOTS },
         slotCenters: [],
         paletteCenters: [],
         chipCenters: [],
@@ -884,7 +899,7 @@ export class CastlePanel {
     return {
       open: true,
       rect: panelRect(o, this.rows.length),
-      bank: { count: this.slots.filter((s) => s.filled).length, cap: CASTLE_BANK_CAP },
+      bank: { count: this.slots.filter((s) => s.filled).length, cap: INVENTORY_SLOTS },
       slotCenters: this.slots.map((s, i) => {
         const so = slotOrigin(i);
         return {
@@ -976,13 +991,19 @@ export class CastlePanel {
       .stroke({ width: 2, color: tint, alpha: 0.85 });
     this.titleText.style.fill = tint;
 
-    // S136 P1 — the bank strip. `n/CAP` in the title makes the cap legible without a second label.
+    // S146 P2 — the INVENTORY strip. No `n/CAP` in the title any more: there is no cap, so the
+    // total is just a total. The per-type numbers live on the swatches themselves.
     const bank = bankOf(world.castleBanks, world.localPlayerId);
-    this.titleText.text = `CASTLE   BANK ${bank.length}/${CASTLE_BANK_CAP}`;
+    let bankTotal = 0;
+    for (const c of bank) bankTotal += c;
+    this.titleText.text = `CASTLE   INVENTORY ${bankTotal}`;
     for (let i = 0; i < this.slots.length; i++) {
       const slot = this.slots[i];
-      const held = bank[i];
-      slot.filled = held !== undefined;
+      const slotType = ALL_SPARK_TYPES[i]!;
+      const held = bank[slotType as number] ?? 0;
+      slot.filled = held > 0;
+      slot.count.text = held > 0 ? `x${held}` : '';
+      slot.count.style.fill = tint;
       slot.box.cursor = slot.filled ? 'pointer' : 'default';
       const sbg = slot.bg;
       sbg.clear();
@@ -995,9 +1016,9 @@ export class CastlePanel {
         });
       const gl = slot.glyph;
       gl.clear();
-      // The SAME glyph the board draws (render/sparkGlyph.ts) — a stored shape must be recognisable
-      // as the shape it is, or choosing which one to pull is guesswork.
-      if (held !== undefined) drawSparkGlyph(gl, SLOT_W / 2, SLOT_H / 2, 12, held.type, tint);
+      // The SAME glyph the board draws (render/sparkGlyph.ts). Drawn even at ZERO, dimmed, so the
+      // six swatches are a stable legend rather than a list that reflows as the inventory changes.
+      drawSparkGlyph(gl, SLOT_W / 2 - 5, SLOT_H / 2, 12, slotType, held > 0 ? tint : 0x2a3a4a);
     }
 
     // S141 P2 — THE PALETTE. Every button is always enabled: queueing costs nothing and is allowed

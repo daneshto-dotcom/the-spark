@@ -49,18 +49,19 @@
  */
 
 import { lookupCombo } from '../combos.ts';
-import { bankOf, bankTake, isOwnPorchSpark } from './castleBank.ts';
+import { bankOf, bankRemove, isOwnPorchSpark } from './castleBank.ts';
 import { blueprintFor } from './blueprints.ts';
 import { stampRefusalAt } from './blueprintLegality.ts';
 import { detectComboDiscoveries } from './comboDiscovery.ts';
 import { makePrimitiveFromSpark } from '../game/primitive.ts';
+import { makeFreeSpark } from '../game/spark.ts';
 import { makeBond } from './placePrimitive.ts';
-import { asPrimitiveId } from '../types.ts';
+import { asPrimitiveId, asSparkId } from '../types.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
 import type { Spark } from '../game/spark.ts';
 import type { World } from './world.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
-import type { SparkType } from '../constants.ts';
+import { ALL_SPARK_TYPES, type SparkType } from '../constants.ts';
 
 export interface BuildBlueprintAction {
   readonly type: 'BUILD_BLUEPRINT';
@@ -70,9 +71,15 @@ export interface BuildBlueprintAction {
   readonly centre: Vec2;
 }
 
-/** One resolved payment: which spark pays for node `nodeIndex`, and where it came from. */
+/**
+ * One resolved payment for a node, and where it comes from.
+ *
+ * ⭐ S146 P2 — A BANK PAYMENT NO LONGER CARRIES AN ENTITY. The castle inventory is a per-type tally,
+ * so "the bank pays for this node" is fully described by the TYPE. Only a porch payment names a real
+ * spark, because that one has to be deleted out of `world.freeSparks`.
+ */
 type Payment =
-  | { readonly from: 'bank'; readonly index: number; readonly spark: Spark }
+  | { readonly from: 'bank'; readonly sparkType: SparkType }
   | { readonly from: 'porch'; readonly spark: Spark };
 
 /**
@@ -104,7 +111,11 @@ export function eligiblePorchSparks(world: World, playerId: PlayerId): Spark[] {
 export function availableShapeCounts(world: World, playerId: PlayerId): Map<SparkType, number> {
   const counts = new Map<SparkType, number>();
   const bump = (t: SparkType): void => { counts.set(t, (counts.get(t) ?? 0) + 1); };
-  for (const s of bankOf(world.castleBanks, playerId)) bump(s.type);
+  const bank = bankOf(world.castleBanks, playerId);
+  for (const t of ALL_SPARK_TYPES) {
+    const n = bank[t as number] ?? 0;
+    if (n > 0) counts.set(t, (counts.get(t) ?? 0) + n);
+  }
   for (const s of eligiblePorchSparks(world, playerId)) bump(s.type);
   return counts;
 }
@@ -131,17 +142,17 @@ export function planBlueprintPayment(
   const bank = bankOf(world.castleBanks, playerId);
   const porch = eligiblePorchSparks(world, playerId);
 
-  const usedBank = new Set<number>();
+  // How many of each type the inventory has left to commit as we walk the bill. A local copy, so
+  // planning stays PURE — nothing is spent until `applyBuildBlueprint` decides the whole build works.
+  const bankLeft = ALL_SPARK_TYPES.map((t) => bank[t as number] ?? 0);
   const usedPorch = new Set<Spark>();
   const payments: Payment[] = [];
 
   for (const node of bp.nodes) {
     let paid: Payment | null = null;
-    for (let i = 0; i < bank.length; i++) {
-      if (usedBank.has(i) || bank[i].type !== node.type) continue;
-      usedBank.add(i);
-      paid = { from: 'bank', index: i, spark: bank[i] };
-      break;
+    if ((bankLeft[node.type as number] ?? 0) > 0) {
+      bankLeft[node.type as number] = (bankLeft[node.type as number] ?? 0) - 1;
+      paid = { from: 'bank', sparkType: node.type };
     }
     if (paid === null) {
       for (const s of porch) {
@@ -178,16 +189,13 @@ export function applyBuildBlueprint(world: World, action: BuildBlueprintAction):
   if (payments === null) return world; // unaffordable → nothing consumed
 
   // ── CONSUME ────────────────────────────────────────────────────────────────────────────────────
-  // Bank entries are removed by DESCENDING index: `bankTake` splices, so taking a low index first
-  // would shift every higher index and consume the wrong shapes. The Spark objects themselves were
-  // captured during planning, so the splice order cannot affect which shape pays for which node.
-  const bankIndices = payments
-    .filter((p): p is Extract<Payment, { from: 'bank' }> => p.from === 'bank')
-    .map((p) => p.index)
-    .sort((a, b) => b - a);
-  for (const i of bankIndices) bankTake(world.castleBanks, action.playerId, i);
+  // ⭐ S146 P2 — no more descending-index splice dance. The old bank was an array and `bankTake`
+  // spliced, so consuming a low index first shifted every higher one and paid the wrong shapes; the
+  // fix was to sort indices descending. A per-type tally has no indices to invalidate, so the whole
+  // hazard is gone and the order of these decrements cannot matter.
   for (const p of payments) {
-    if (p.from === 'porch') world.freeSparks.delete(p.spark.id);
+    if (p.from === 'bank') bankRemove(world.castleBanks, action.playerId, p.sparkType);
+    else world.freeSparks.delete(p.spark.id);
   }
 
   // ── MINT PRIMITIVES ────────────────────────────────────────────────────────────────────────────
@@ -195,7 +203,23 @@ export function applyBuildBlueprint(world: World, action: BuildBlueprintAction):
   // your gatherers hauled home are literally the shapes standing in the tower.
   const minted = payments.map((p, i) => {
     const node = bp.nodes[i];
-    const spark = p.spark;
+    // A porch payment converts the REAL spark that was standing there. A bank payment has no entity
+    // to convert (the inventory is a tally), so a TRANSIENT source is synthesized for the node's
+    // type. It is never inserted into any collection and its id is never observed:
+    // `makePrimitiveFromSpark` reads only `type` and `pos`, and the primitive is minted with its own
+    // `nextPrimitiveId`. Using the shared allocator here would burn negative ids for objects that do
+    // not survive the statement.
+    const spark: Spark =
+      p.from === 'porch'
+        ? p.spark
+        : makeFreeSpark({
+            id: asSparkId(0),
+            type: p.sparkType,
+            pos: { x: action.centre.x + node.dx, y: action.centre.y + node.dy },
+            velocity: { x: 0, y: 0 },
+            dt: 1,
+            createdTick: world.tick,
+          });
     // makePrimitiveFromSpark copies spark.pos into BOTH pos and prevPos (zero implied velocity), so
     // the position must be set before the call. Zero velocity + rest-length bonds = zero initial
     // strain, which is what keeps a fresh stamp from tearing itself apart (see blueprintLegality).

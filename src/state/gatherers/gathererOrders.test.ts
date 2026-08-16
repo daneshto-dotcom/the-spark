@@ -10,6 +10,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { bankCount, bankCountOf } from '../castleBank.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
 import {
@@ -259,7 +260,11 @@ describe('S141 P2 — a DELIVERY consumes one order', () => {
       w.tick = t;
       applyGathererTick(w, { type: 'GATHERER_TICK', gathererId: g.id });
     }
-    expect(w.castleBanks.get(P0)?.map((s) => s.id)).toEqual([target.id]);
+    // S146 P2 — the inventory is a per-TYPE tally, so the delivery is asserted by TYPE. It cannot
+    // be asserted by spark id any more: the entity is discarded on deposit and a pull mints a new
+    // one. What the order queue actually promises is that the ORDERED TYPE arrived, which is this.
+    expect(bankCountOf(w.castleBanks, P0, target.type)).toBe(1);
+    expect(bankCount(w.castleBanks, P0)).toBe(1);
     expect(w.gathererOrders.has(P0)).toBe(false); // the order was consumed by the delivery
   });
 });

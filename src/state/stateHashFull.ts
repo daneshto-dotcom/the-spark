@@ -117,6 +117,7 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   // even when the surviving entities happen to match.
   nextPrimitiveId: 'hashed',
   nextBondId: 'hashed',
+  nextPulledSparkId: 'hashed',
   nextCreatureId: 'hashed',
   nextSpawnerId: 'hashed',
   nextDefenderId: 'hashed',
@@ -352,7 +353,9 @@ export function determinismParts(world: World): string[] {
     `nx${world.nextPrimitiveId},${world.nextBondId},${world.nextCreatureId},` +
       `${world.nextSpawnerId},${world.nextDefenderId},${world.nextBombId},` +
       `${world.nextHunterId},${world.nextPotatoId},${world.nextRainbowId},` +
-      `${world.nextSeagullId},${world.nextPoopId},${world.nextGathererId}`,
+      `${world.nextSeagullId},${world.nextPoopId},${world.nextGathererId},` +
+      // S146 P2 — the descending negative allocator for reducer-minted (pulled) sparks.
+      `${world.nextPulledSparkId}`,
     // `sudoku` freezes the sim, so its presence and identity are sim state. Stringified
     // wholesale: it is a small flat record, only non-null during a NONET trial, and its
     // key order is fixed by its construction site.
@@ -440,18 +443,20 @@ export function determinismParts(world: World): string[] {
     );
   }
 
-  // S136 P1 — castle banks, seat-sorted. ORDER WITHIN A BANK IS SIGNIFICANT and is hashed as-is:
-  // the player pulls BY INDEX from the panel, so two banks holding the same multiset in a different
-  // order are genuinely different states and must not hash equal.
+  // S146 P2 — castle inventories, seat-sorted, hashed as the per-type TALLY.
+  //
+  // ⭐ ORDER IS NO LONGER A STATE DIMENSION, AND THAT IS A SIMPLIFICATION, NOT A LOSS. The old bank
+  // was an ordered array of whole Sparks and this comment used to argue the order was significant
+  // because "the player pulls BY INDEX". Pulls are TYPE-addressed now, so two castles holding the
+  // same multiset genuinely ARE the same state and must hash equal — which the tally gives for free.
+  //
+  // The tally is a FIXED-LENGTH array indexed by SparkType, so this projection is positional and
+  // needs no sort: a `Map` would have made the hash depend on the order shapes happened to arrive in
+  // (see castleBank.ts). Seats are still sorted, because `castleBanks` itself is a Map.
   const bankSeats = [...world.castleBanks.keys()].sort((a, b) => Number(a) - Number(b));
   for (const seat of bankSeats) {
     const bank = world.castleBanks.get(seat) ?? [];
-    // A banked entry is a whole Spark held out-of-world, so hash its IDENTITY and TYPE — the two
-    // fields that survive banking and matter after a pull. Position is deliberately EXCLUDED: a
-    // stored shape has no meaningful position (it is out of `freeSparks`, so no system reads it) and
-    // `applyPullFromBank` overwrites pos/prevPos from the porch slot on the way out. Hashing a dead
-    // field would make two functionally identical worlds disagree.
-    parts.push(`cb${n(seat)}:${bank.map((s) => `${n(s.id)}/${o(s.type)}`).join('.')}`);
+    parts.push(`cb${n(seat)}:${bank.map((c) => n(c)).join('.')}`);
   }
 
   // S141 P2 — the gatherer order queues, seat-sorted. ORDER IS THE WHOLE POINT and is hashed as-is:

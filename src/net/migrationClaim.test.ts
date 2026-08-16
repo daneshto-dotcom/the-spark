@@ -9,6 +9,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { SparkType } from '../constants.ts';
+import { bankAdd } from '../state/castleBank.ts';
 import { generateClientIdentity } from './hostIdentity.ts';
 import {
   buildClaimPayload,
@@ -147,39 +149,35 @@ describe('S122 P2 — D-A authority rebuild', () => {
     expect(fnv1a32('K7Q2')).toBe(fnv1a32('K7Q2'));
   });
 
-  it('⭐ S141 P3 — maxSparkId COVERS BANKED SPARKS, which are deliberately OUT of freeSparks', () => {
-    // ⛔ THE REGRESSION THIS PINS. `depositIntoCastle` removes a hauled shape from `world.freeSparks`
-    // on purpose — that removal is what exempts a stored shape from collision, the grid, the renderer,
-    // the soft cap and the TTL reap at once — and holds the whole entity in `world.castleBanks`. The
-    // allocator scanned only `freeSparks`, so a successor re-minted ids that collided with live banked
-    // entities. Silent and peer-consistent: every survivor applies the same successor snapshot, so the
-    // state hash AGREES on a corrupt world.
+  it('⭐ S146 P2 — a COUNTED inventory holds no ids, so it cannot contribute a collision', () => {
+    // ⛔ WHAT THIS REPLACED, AND WHY IT IS NOT A WEAKENING. Three S141 P3 tests used to pin that
+    // `maxSparkId` SCANNED `world.castleBanks`, because a banked shape was a live entity that had
+    // deliberately left `freeSparks` — so a successor that ignored it re-minted colliding ids, and
+    // the corruption was peer-consistent (every survivor applied the same successor snapshot, so the
+    // state hash AGREED on a broken world).
     //
-    // ⚠ THE BANK ID MUST SIT ABOVE THE HIGHEST FREE ID or this test passes for the wrong reason.
+    // The castle inventory is now a per-type TALLY. It holds no entities and therefore no ids, so
+    // the hazard is DELETED rather than defended against — there is no longer anything to scan. This
+    // test pins the new invariant: a fat inventory cannot move the allocator at all.
     const world = makeWorld(7);
     world.gameState = 'TITLE';
     dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
     world.freeSparks.set(40 as never, { id: 40 } as never);
-    world.castleBanks.set(asPlayerId(0), [{ id: 57 } as never]);
-    expect(rebuildAuthorityAllocators(world).maxSparkId).toBe(57);
+    for (let i = 0; i < 99; i++) bankAdd(world.castleBanks, asPlayerId(0), SparkType.Square);
+    expect(rebuildAuthorityAllocators(world).maxSparkId).toBe(40);
   });
 
-  it('S141 P3 — a bank id BELOW the free max does not lower the allocator', () => {
+  it('⭐ S146 P2 — NEGATIVE pulled-spark ids never raise the allocator', () => {
+    // Reducer-minted (pulled) sparks live in `freeSparks` with DESCENDING NEGATIVE ids, which is what
+    // makes them disjoint from the Spawner's ascending non-negatives. `maxSparkId` repairs the
+    // SPAWNER, so a negative id must never influence it — otherwise a world whose only loose shapes
+    // were pulled ones would hand the Spawner a nonsense cursor.
     const world = makeWorld(7);
     world.gameState = 'TITLE';
     dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
-    world.freeSparks.set(900 as never, { id: 900 } as never);
-    world.castleBanks.set(asPlayerId(0), [{ id: 12 } as never]);
-    expect(rebuildAuthorityAllocators(world).maxSparkId).toBe(900);
-  });
-
-  it('S141 P3 — EVERY seat bank is scanned, not just the first', () => {
-    const world = makeWorld(7);
-    world.gameState = 'TITLE';
-    dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
-    world.castleBanks.set(asPlayerId(0), [{ id: 5 } as never]);
-    world.castleBanks.set(asPlayerId(3), [{ id: 88 } as never]);
-    expect(rebuildAuthorityAllocators(world).maxSparkId).toBe(88);
+    world.freeSparks.set(-5 as never, { id: -5 } as never);
+    world.freeSparks.set(12 as never, { id: 12 } as never);
+    expect(rebuildAuthorityAllocators(world).maxSparkId).toBe(12);
   });
 });
 

@@ -16,13 +16,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { makeCastleBank } from '../state/castleBank.ts';
 import { makeWorld, type World } from '../state/world.ts';
 import { makeIdlePlayer } from '../game/player.ts';
-import { makeFreeSpark } from '../game/spark.ts';
 import {
-  CANVAS_HEIGHT, CANVAS_WIDTH, CASTLE_BANK_CAP, MAX_PLAYERS, PLAYER_COLORS, SparkType,
+  CANVAS_HEIGHT, CANVAS_WIDTH, MAX_PLAYERS, PLAYER_COLORS, SparkType,
 } from '../constants.ts';
-import { asPlayerId, asSparkId } from '../types.ts';
+import { asPlayerId } from '../types.ts';
 import { ALL_BLUEPRINT_IDS, blueprintBill, blueprintCost } from '../state/blueprints.ts';
 import { planBlueprintPayment } from '../state/blueprintBuild.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
@@ -40,17 +40,12 @@ function setup(): World {
   w.localPlayerId = P0;
   return w;
 }
-
-let nextId = 1;
 /** Bank exactly the bill for `id`, so that one tile is affordable and (mostly) the others are not. */
 function fund(w: World, id: GodlyId): void {
-  const bank = [];
+  const bank = makeCastleBank();
   for (const [type, count] of blueprintBill(id)) {
-    for (let i = 0; i < count && bank.length < CASTLE_BANK_CAP; i++) {
-      bank.push(makeFreeSpark({
-        id: asSparkId(nextId++), type, pos: { x: 0, y: 0 },
-        velocity: { x: 0, y: 0 }, dt: 1 / 60, createdTick: 0,
-      }));
+    for (let i = 0; i < count; i++) {
+      bank[type as number] = (bank[type as number] ?? 0) + 1;
     }
   }
   w.castleBanks.set(P0, bank);
@@ -110,11 +105,11 @@ describe('castleStructuresModel — all six, always', () => {
   it('a shortfall reports have/need per shape, never a bare boolean', () => {
     const w = setup();
     // One Circle short of a stink tower (1 Square + 3 Circles).
-    w.castleBanks.set(P0, [SparkType.Square, SparkType.Circle, SparkType.Circle].map((type) =>
-      makeFreeSpark({
-        id: asSparkId(nextId++), type, pos: { x: 0, y: 0 },
-        velocity: { x: 0, y: 0 }, dt: 1 / 60, createdTick: 0,
-      })));
+    const short = makeCastleBank();
+    for (const type of [SparkType.Square, SparkType.Circle, SparkType.Circle]) {
+      short[type as number] = (short[type as number] ?? 0) + 1;
+    }
+    w.castleBanks.set(P0, short);
     const stink = castleStructuresModel(w).find((r) => r.id === 'stinkTower')!;
     expect(stink.enabled).toBe(false);
     expect(stink.missing).toEqual([{ type: SparkType.Circle, need: 3, have: 2 }]);
