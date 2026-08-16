@@ -1,27 +1,27 @@
 {
-  "tool_calls_session_total": 1014,
-  "session_id": "S145",
+  "tool_calls_session_total": 938,
+  "session_id": "S144",
   "session_kind": "pdca-batch",
-  "session_start": "2026-08-16",
-  "prior_session_note": "S144 CLOSED at 5952434 — click-to-build build grid + drag-to-place shipped, deploy 4/4.",
+  "session_start": "2026-08-14",
+  "prior_session_note": "S141 CLOSED at cb7b891 — Stink Tower, gatherer order queue, banked-SparkId collision fix, PROTOCOL_VERSION 20. Deploy verified 4/4.",
   "prior_session_archive": ".handoff-archive/HANDOFF_S138.md",
-  "phase": "CHECK",
+  "phase": "DO",
   "tier": "Full",
-  "plan_file": ".claude/plans/2026-08-16_PDR_S145_BANK_DEADLOCK_IN-PROGRESS.md",
-  "session_status": "in_progress",
+  "plan_file": ".claude/plans/2026-08-13_PDR_S144_BLUEPRINT_BUILD_DRAG.md",
+  "session_status": "priorities_complete_pending_handoff",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "protocol_version": 21,
+  "protocol_version": 20,
   "boot_preflight": {
     "boot_snapshot_read": true,
-    "handoff_read": "HANDOFF_2026-08-14.md",
+    "handoff_read": "HANDOFF_S141.md",
     "unpushed_commits": 0,
-    "build": "PASS — entry index-nR6yeWrW.js, 690.0 KiB, 60.0 KiB headroom",
-    "verify_deploy": "PASS 4/4 — remote/run/verdict/live agree; live entry index-nR6yeWrW.js",
-    "custom_domain_check": "spark-online.space serves index-nR6yeWrW.js (same hash as local build) — the deploy the owner played WAS the S144 build",
-    "ci_runs_audited": "gh run list — 3 most recent deploy runs success; two older E2E dispatches `cancelled` (known S143 pattern, not new); gh issue list empty",
-    "in_progress_plans": "none live in .claude/plans/ (the S137 starter-designs IN-PROGRESS file the pre-flight WARN named is in .claude/plans-archive/ — false positive)"
+    "build": "PASS — entry index-C3JJhc7b.js, 677.1 KiB, 72.9 KiB headroom (rebuilt BEFORE verify-deploy per S141 trap)",
+    "verify_deploy": "PASS 4/4 — remote/run/verdict/live all agree at cb7b8913 (live entry index-C3JJhc7b.js)",
+    "e2e_gating": "36 passed / 0 failed (2.2m)",
+    "protocol_version": 20,
+    "ci_runs_audited": "gh run list — 12 most recent all `completed success`; 0 open issues. No cancelled/silent-death runs."
   },
   "owner_rulings_inherited": {
     "date": "2026-08-10",
@@ -104,32 +104,116 @@
   ],
   "priorities": [
     {
-      "id": 1,
-      "title": "Break the full-bank deadlock — bank swap on ordered delivery",
+      "id": "P1",
+      "title": "Blueprint build engine: bills + geometry stamp + BUILD_BLUEPRINT wire action",
       "status": "completed",
       "check_completed": true,
-      "check_method": "RALPH:PATROL + empirical. tsc clean; vitest 2438/2438 (158 files, +8 new in gathererWaitingRelease.test.ts). Mechanism re-verified in a REAL browser: probe2 re-run on the fixed code flipped \"any tile buildable now?\" from NO to YES with stinkTower enabled, because the WAITING gatherer parked its stale cargo on the porch and the porch counts toward the bill. The strict-ordering repair was itself driven by a diagnostic timeline (probe3) showing 3 of 4 player-freed slots being spent on unordered shapes.",
-      "checkpoint_commit": "bb32079",
+      "check_method": "P1 CHECK - click-to-build engine. (1) tsc --noEmit 0 errors. (2) vitest FULL 2389/2389 across 155 files (was 2304/153): +85 tests, +2 files, ZERO regressions. (3) The Council-upheld acceptance gate: blueprintBuild.test.ts stamps each of the 6 recipes through the REAL reducer, runs the REAL runGodlyMatcherCore, asserts ignition into the correct registry (defenders/creatureSpawners/GodlyTriggerEvent), then asserts recipeStillSatisfied stays true across 40 consecutive REVALIDATE_INTERVAL_TICKS polls with the tick advancing - per recipe, never aggregated (S143: a SUM cannot see a per-family hole). (4) NEGATIVE CONTROL proves the survival assertion can fail: deleting a stamped LEAF (not the anchor, so the anchor-exists fallback cannot mask it) flips it false for all 3 defender recipes. (5) blueprints.test.ts cross-checks every mirrored count against the recipe modules' real exports (TURRET_SIZE/TURRET_HUB_DEGREE, HELGA_SIZE, VOLTKIN_SIZE, STINK_HUB_TYPE/STINK_LEAF_TYPE) + topology invariants (pentagram all-deg-2 and n edges; voltkin endpoints deg 1, interior deg 2, n-1 edges; stars hub deg n-1 and all leaves deg 1) + connectivity (one component) + spacing 30..60px and no-overlap >22px so a fresh stamp is strain-free. (6) Refused-build cases assert NOTHING is consumed: unaffordable, illegal site (quarry centre), unknown player, carried porch spark. (7) Protocol bump 20->21 verified at all 4 pin sites (const, HelloMsg literal type, version-history list, e2e LOCAL_PROTO_V) - protocol.test.ts + protocolVersionSync.test.ts green. (8) npm run build 681.4 KiB, 68.6 KiB headroom under the 750 charter. TWO SELF-CAUGHT DEFECTS: (a) PRIME-AUDIT - my first verification read only the CALL SITE and concluded the matcher was a structural scan affecting only voltkin; reading the callee guards reversed it to all 6 and made the BOND_FORMED emit mandatory. (b) My side-effect import of recipe modules in blueprints.ts reached the whole codebase via world.ts and broke a SHIPPED test (defenderLifecycle.test.ts unregistered-recipe fallback); fixed by mirroring counts locally + cross-check test, restoring zero global state.",
+      "checkpoint_commit": "b484263",
       "verification": [
         {
-          "type": "file_contains",
-          "path": "src/state/gatherers/gathererLifecycle.ts",
-          "pattern": "shouldReleaseWaitingCargo"
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprints.ts"
         },
         {
-          "type": "file_contains",
-          "path": "src/state/gatherers/gathererLifecycle.ts",
-          "pattern": "parkCargoOnPorch"
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.ts"
         },
         {
-          "type": "file_contains",
-          "path": "src/state/gatherers/gathererLifecycle.ts",
-          "pattern": "pendingOrderCount"
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintLegality.ts"
         },
         {
-          "type": "file_contains",
-          "path": "src/state/gatherers/gathererWaitingRelease.test.ts",
-          "pattern": "the spin-loop"
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprints.test.ts"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.ts",
+          "pattern": "kind: 'BOND_FORMED'",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.ts",
+          "pattern": "detectComboDiscoveries",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.ts",
+          "pattern": "eligiblePorchSparks",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.ts",
+          "pattern": "state\\.kind === 'Free'",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.test.ts",
+          "pattern": "recipeStillSatisfied",
+          "op": ">=",
+          "value": 3
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintBuild.test.ts",
+          "pattern": "runGodlyMatcherCore",
+          "op": ">=",
+          "value": 3
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "pattern": "PROTOCOL_VERSION = 21",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "pattern": "readonly protoVersion: 21",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\net\\protocol.ts",
+          "pattern": "BUILD_BLUEPRINT",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\smoke.spec.ts",
+          "pattern": "LOCAL_PROTO_V = 21",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\benchGate.ts",
+          "pattern": "BUILD_BLUEPRINT: 'deny'",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprints.ts",
+          "pattern": "from './godlyRecipes/(laserTurret|princessHelga|voltkin|stinkTower|pentagram|lightningHub)",
+          "op": "==",
+          "value": 0
         }
       ],
       "pdr_approved": true,
@@ -137,32 +221,76 @@
       "unlock_source": "user"
     },
     {
-      "id": 2,
-      "title": "Wire the build grid to the order queue — a short tile orders its missing shapes",
+      "id": "P2",
+      "title": "Castle panel STRUCTURES section: all 6 recipes, glyph bills, affordability",
       "status": "completed",
       "check_completed": true,
-      "check_method": "RALPH:PATROL + empirical acceptance. e2e:gating 41/41 (was 39/39; +2 new in bank-deadlock.spec.ts). OWNER-FLOW acceptance probe, solo, ZERO seeding: bank jams at tick 2338 [1,1,1,3,3,4,5] stinkTower NEED 2 MORE; ONE click -> orders [4,4], bank 7->5, porch [1,4]; tile lit 15 s later; click+place -> defenders [\"stinkTower\"], survives revalidation; 0 page errors. Two silent defects in my own first cut were caught by the e2e and fixed: the bankIsFull loop guard freed only one slot, and one click was not enough.",
-      "checkpoint_commit": "994f734",
+      "check_method": "P2 CHECK - castle panel build grid. (1) tsc 0. (2) vitest 2402/2402 across 156 files (was 2389/155), +13 tests, ZERO regressions. (3) castlePanel.structures.test.ts pins: all 6 recipes listed in ALL_BLUEPRINT_IDS order with real names (asserts name != raw id, the leak this catches), epigraphs and true costs; empty bank disables all 6 and EVERY dim row has a non-empty reason (this file's 'a disabled control must say why' contract); funding stinkTower enables exactly it; benched => all LOCKED; per-shape shortfall reports {type,need,have} not a bare boolean. (4) THE SHARING CONTRACT asserted directly: for 5 different funding states, every row's `enabled` equals planBlueprintPayment(...) !== null - the same function the reducer uses - so a bright tile is always buildable and a dim one never would have built. (5) THE S140 OVERFLOW CLASS covered, which shipped green last time because the bank strip had no test at all: 3 columns fit ROW_INNER_W; every tile is inside the panel horizontally AND vertically; tiles never overlap; the grid ends above rowsTop() so it cannot collide with the control rows; panelHeight accounts for the new strip; and panelRect stays fully on canvas for ALL 6 seats (the lower-arc clamp). (6) VISUAL VERIFICATION - the lesson this file documents ('does the text fit is not something a state assertion can see. Look at the render'). Drove solo in headless Chromium via Playwright + the shipped __SPARK__.castlePanel.getUiPoints geometry getter, captured 5 screenshots, and confirmed by eye: 3x2 grid renders, per-shape SPARK_COLORS read correctly (blue Square hub + green Circles for stinkTower, red Triangle ring for pentagram, purple Spirals for laserTurret, mixed star for helga), armed tile draws white-outlined, cost badges legible, caption shows 'STINK TOWER  4' + 'Four shapes. It throws filth.', and getUiPoints reported armed:stinkTower after the click. (7) npm run build 688.4 KiB, 61.6 KiB headroom. TWO THINGS THE RENDER CAUGHT THAT NO ASSERTION DID: (a) voltkin's 304px 8-chain scales to ~0.21 in a square tile and at a 2px glyph floor rendered as invisible specks - floor raised to 3px. (b) A REAL GAMEPLAY FINDING: gatherers haul random shapes, so the bank hits 7/7 FULL with every tile still reading NEED n MORE, and a full bank blocks new deliveries. Reported to the owner rather than fixed - it is downstream of their open CASTLE_BANK_CAP 7-vs-12/13 ruling, which I must not pre-empt.",
+      "checkpoint_commit": "e57e1a9",
       "verification": [
         {
-          "type": "file_contains",
-          "path": "src/render/castlePanel.ts",
-          "pattern": "setRequestShapesHandler"
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\blueprintGlyph.ts"
         },
         {
-          "type": "file_contains",
-          "path": "src/render/castlePanel.ts",
-          "pattern": "CLICK TO ORDER THE MISSING SHAPES"
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.structures.test.ts"
         },
         {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "pattern": "setRequestShapesHandler"
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
+          "pattern": "castleStructuresModel",
+          "op": ">=",
+          "value": 2
         },
         {
-          "type": "file_contains",
-          "path": "e2e/bank-deadlock.spec.ts",
-          "pattern": "THE WHOLE POINT"
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
+          "pattern": "ALL_BLUEPRINT_IDS",
+          "op": ">=",
+          "value": 3
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
+          "pattern": "drawBlueprintThumb",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
+          "pattern": "rowsTop\\(",
+          "op": ">=",
+          "value": 3
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
+          "pattern": "structuresStripHeight",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
+          "pattern": "planBlueprintPayment",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.structures.test.ts",
+          "pattern": "planBlueprintPayment",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\blueprintGlyph.ts",
+          "pattern": "Math\\.max\\(3, 9 \\* scale\\)",
+          "op": ">=",
+          "value": 1
         }
       ],
       "pdr_approved": true,
@@ -170,39 +298,199 @@
       "unlock_source": "user"
     },
     {
-      "id": 3,
-      "title": "Full coherence audit of the new game state",
-      "status": "in_progress",
-      "check_completed": false,
-      "check_method": "",
-      "checkpoint_commit": "",
-      "verification": [],
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user"
-    },
-    {
-      "id": 4,
-      "title": "Ship — build, tests, e2e gating, push, verify live",
-      "status": "pending",
-      "check_completed": false,
-      "check_method": "",
-      "checkpoint_commit": "",
-      "verification": [],
+      "id": "P3",
+      "title": "Cruiser drag-to-place: armed blueprint, legality-tinted ghost, commit on release",
+      "status": "completed",
+      "check_completed": true,
+      "check_method": "P3 CHECK - cruiser drag-to-place. (1) tsc 0. (2) vitest 2430/2430 across 157 files (was 2402/156), +28 tests, ZERO regressions. (3) blueprintLegality.test.ts (28) pins the refusals that protect the SIM, not the fiction: quarry and every canvas edge refused by FOOTPRINT not centre (voltkin is 304px wide - a centre-only check would let three quarters of a chain hang off the arena); clearance measured by BOND REACH (AUTO_BOND_RADIUS) not overlap; and the crux case - a LEAF landing on existing geometry while the centre is clear must be BLOCKED, because a tower born fused to a neighbour breaks the exact-degree recipes. Refusal strings asserted short + uppercase since the ghost prints them verbatim. (4) e2e/click-to-build.spec.ts NEW in the GATING lane (3 tests): all six recipes listed with every dim tile naming its blocker; arm -> place -> exactly 4 primitives + 3 bonds + defender 'stinkTower' ignited + bank spent to 0 + disarmed + STILL ALIVE after ~6 revalidation polls; illegal drop (quarry) builds nothing, spends nothing, and KEEPS the tower in hand. (5) e2e:gating 39/39. (6) build 690.0 KiB, 60.0 KiB headroom. (7) MANUAL VISUAL PROOF via Playwright in solo: ghost renders GREEN with a footprint ring over a legal spot and RED naming 'QUARRY' over the quarry; after one click the world went 0->4 primitives, 0->3 bonds, defenders ['stinkTower'], and the HUD's combo counter moved 0/14 -> 1/14, proving detectComboDiscoveries fires for a menu-built tower exactly as for a hand-built one; the tower was still standing 4s (~248 ticks) later. THREE DEFECTS FOUND, TWO BY THE E2E TEST RATHER THAN BY REASONING: (a) carrying was killed by the panel closing - every outside click closes the panel, so my own 'keep it in hand on an illegal click' rule could never fire and a misjudged drop silently cost the player their selection; carrying is now independent of the panel. (b) getUiPoints() hardcoded armed:null in its closed-panel branch, reporting the player empty-handed while a ghost was on their cursor - a reporting lie that READ as defect (a). (c) CORRECTION ON RECORD: I concluded from one pass + one fail that a bomb.spec failure was my regression. It was not - it is the repo's known hand-drag placement flake (15s timeout), which surfaced in bomb.spec once and rainbow.spec once, each green on rerun, final gating 39/39.",
+      "checkpoint_commit": "76a6e28",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\blueprintGhost.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\click-to-build.spec.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\state\\blueprintLegality.test.ts"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
+          "pattern": "armedBlueprint",
+          "op": ">=",
+          "value": 3
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
+          "pattern": "canStampAt",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\input\\controls.ts",
+          "pattern": "setBuildBlueprintHandler",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "pattern": "blueprintGhost\\.sync",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\main.ts",
+          "pattern": "BUILD_BLUEPRINT",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\blueprintGhost.ts",
+          "pattern": "stampRefusalAt",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\src\\render\\castlePanel.ts",
+          "pattern": "armed: this\\.armed",
+          "op": ">=",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\click-to-build.spec.ts",
+          "pattern": "toContain\\('stinkTower'\\)",
+          "op": ">=",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "C:\\Users\\onesh\\OneDrive\\Desktop\\Claude\\Founder DNA\\Extension Projects\\The Spark\\e2e\\click-to-build.spec.ts",
+          "pattern": "^\\s*test\\('",
+          "op": ">=",
+          "value": 3
+        }
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
     }
   ],
   "reflexion_entries_to_archive": [
-    "#the-workaround-in-the-test-was-a-description-of-the-bug — click-to-build.spec.ts seeds the bank and its own comment says why: \"a full bank of the wrong mix satisfies nothing\". That sentence IS the defect. The suite was green and the shipped game was unplayable, because the workaround that made the test viable also made it blind. When a test comment explains why the real path is not testable, read it as a bug report.",
-    "#two-features-that-solve-each-other-and-have-never-been-introduced — the S141 order queue was the remedy for the S144 build grid deadlock, and grep showed ZERO references between them. Neither was broken alone. The defect lived in the gap, which is exactly where no unit test looks.",
-    "#the-council-was-confidently-wrong-about-my-own-codebase-twice — GEMINI staked its strongest challenge on \"you cannot satisfy an 8-shape bill from a 7-slot bank\" (bank u porch = 11, and voltkin@8 is literally why it exists) and on \"host-only mutation = desync\" (this is snapshot-authoritative, not lockstep). Both were reasoned from my prompt rather than the code. Verify every cited mechanism before adopting a REJECT.",
-    "#groks-strictly-dominating-fix-did-not-fix-it — \"drop stale cargo and re-seek\" repairs staleness, but the bank is still FULL so the correct shape cannot be deposited either. A simpler fix is only dominant if it actually closes the loop; check it against the measured mechanism, not against elegance.",
-    "#my-loop-guard-went-false-after-the-first-iteration — bankIsFull stops being true the moment you free one slot, so \"free room while the bank is full\" freed exactly one. The tower stalled two shapes short: a quieter copy of the very deadlock I was fixing. The guard has to be the POSTCONDITION you want (room for the whole bill), never the state you are leaving.",
-    "#vitest-does-not-typecheck-so-my-tests-passed-on-a-type-that-does-not-exist — SparkType.Pentagon is undefined; eight assertions ran green against undefined cargo. tsc caught it, the test run never would have. Run tsc before believing a new test file.",
-    "#the-fallthrough-that-kept-an-idle-player-earning-spent-the-slots-an-active-player-had-just-freed — B4 nearest-of-any is correct for an unattended player and a leak for a directed one. A rule ruled for one regime should be suspended in the regime it was never ruled about, not deleted.",
-    "#the-owner-said-it-didnt-work-and-the-deploy-was-perfect — 0 unpushed, live hash byte-identical, verify-deploy 4/4, 0 console errors. Everything the pipeline could check was green; the game was simply unwinnable. Check the GAME, not the delivery, when a playtest fails."
+    "#a0-killed-the-headline-priority-and-that-was-the-win - the flip was LOCKED, 13 sessions overdue and playtest-passed; measuring first proved it unsafe. A.0 pays most exactly when the priority looks settled.",
+    "#both-seats-proposed-a-broken-fix-again-third-session-running - Grok a provable no-op, Gemini an anti-cheat regression, and the constraint refuting Gemini was IN THE DOCBLOCK BOTH WERE READING. Price the diagnosis and the prescription apart, every time.",
+    "#a-reviewer-asserted-it-had-searched-and-had-not - Grok stated no comment treated those fields as ephemeral; the comment was in the interface it was reasoning about. It also named 12 symbols, 0 of which exist. Grep-verify every cited symbol before triage.",
+    "#i-had-to-refute-my-own-pdr - I claimed hash-oracle divergence; the runtime oracle cannot see spawners at all. PRIME-AUDIT your own severity claims, not only the reviewers'.",
+    "#the-owner-was-doing-a-chore-ci-already-performed - 'CI cannot verify a protocol bump' was false for an unknown number of sessions; both tests pass in CI in 5.6s. Before writing a manual step into a handoff, check whether something already covers it.",
+    "#fully-red-was-half-green-in-both-environments - the quarantine lane was ~50% passing locally AND in CI. A remembered failure string had become a settled fact nobody re-measured.",
+    "#the-instrument-was-hiding-its-own-diagnosis - waitForWorld swallowed every poll error, so a dead page and a slow one produced identical messages. Two competing causal stories survived in-repo for sessions because of one bare catch.",
+    "#the-gating-lane-was-red-on-clean-master-and-nothing-reported-it - e2e.yml has no push trigger. Dispatch it at boot; green-on-your-last-PR is not evidence that master is green now.",
+    "#the-generalised-method-found-a-second-bug-the-specific-fix-would-have-missed - comparing mutable fields against serializer output found a 65-session-old debuff hole. Fix the class, not the instance.",
+    "#cap-the-fan-out-third-consecutive-session - 7 agents died on the spend limit with ZERO recoverable results; 3 tight probes landed 3/3. Read the highest-risk area by hand FIRST.",
+    {
+      "session": "S143",
+      "priority": "P1",
+      "entries": [
+        {
+          "tag": "#the-guard-asked-about-a-url-spelling-not-the-state-it-guarded",
+          "text": "probeHarness refused to arm on `get(\"worker\")===\"1\"`. That is not a parse bug — both call sites parsed identically and correctly. It is a bug in the QUESTION: it needed \"is the worker active?\" and asked \"does the URL literally say worker=1?\". Those agree in todays regime and are OPPOSITE the moment the default flips, so the guard would have armed the instrument precisely when it was needed. The BACKLOG described the consequence BACKWARDS as refuse-by-default, i.e. benign. Lesson: a guard phrased against the spelling of an input silently stops tracking the state it guards when the default moves."
+        },
+        {
+          "tag": "#the-second-path-was-correct-only-by-accident",
+          "text": "Two host INTENT apply paths exist and only one was worker-aware; the migration successor open-coded dispatch(world, stamped). No test could distinguish them because BOTH are correct today (a promoted host has a null driver). The divergence only becomes a bug in a regime that does not exist yet. Behavioural tests cannot see this class at all — it is a property of the call graph — so it is held by a source scan."
+        },
+        {
+          "tag": "#the-only-thing-that-arms-the-fallback-is-the-flag-a-hang-cannot-set",
+          "text": "simWorkerDriver set `failed` ONLY from an explicit error event. A worker hanging WITHOUT throwing latched inFlight forever while isReady stayed true, freezing the game permanently and silently — and the direct-sim fallback could never fire, because the sole thing that arms it is the flag the hang cannot set. A recovery path is only real if the failure it recovers from can actually reach it."
+        },
+        {
+          "tag": "#i-made-the-flip-testable-in-a-regime-the-build-is-not-in",
+          "text": "isSimWorkerRequested takes an optional defaultOn so the suite pins BOTH regimes today. The inversion survived because every existing test exercised only the regime where the two questions agree. Verifying a flip BEFORE taking it requires exercising the post-flip regime, not the current one."
+        }
+      ]
+    },
+    {
+      "session": "S143",
+      "priority": "P2",
+      "entries": [
+        {
+          "tag": "#three-sessions-called-it-throughput-and-it-was-an-unsatisfiable-assertion",
+          "text": "The gating red was on record as \"CI throughput OR a real stall — unresolved\". Both were wrong. `primitives.length > sampleA` is a strict-increase test on a NON-MONOTONIC counter: razePrimitives deletes entries and MID bots sever deliberately. One CI attempt sampled 33 and failed at 32 — BELOW its own sample. No timeout, retry, or faster runner could ever have made it pass. Before debugging an environment, check whether the assertion can be satisfied AT ALL."
+        },
+        {
+          "tag": "#the-error-message-was-why-it-stayed-unresolved",
+          "text": "One message covered dead page, unmet predicate, and out-of-runway. Three sessions could not choose between hypotheses because the instrument never distinguished them. The fix that mattered most was not the oracle — it was making the failure SAY which of the three it is, including saying outright when a signal must NOT be read as a product failure."
+        },
+        {
+          "tag": "#my-first-oracle-confidently-asserted-a-product-failure-that-did-not-exist",
+          "text": "I built the growth oracle on nextPrimitiveId. It is HOST-ONLY and excluded from NetSnapshot, so on a worker mirror it is FROZEN — my new diagnostic printed \"INSTRUMENT OK, PREDICATE GENUINELY UNMET: this is a real product failure\" while the game was building normally. Caught only by dumping the state and seeing cursor 33 against a live primitive with id 38. An assertive diagnostic is not a correct one; I had written the very warning it violated one function above."
+        },
+        {
+          "tag": "#i-invalidated-my-own-test-run-by-editing-source-during-it",
+          "text": "A full gating run reported 4 failures. I had edited src/state/workerSim.ts WHILE it executed against a live vite dev server, including a window where queuedOrderTotal was referenced before it existed. The clean rerun was 36/36. I nearly attributed 3 phantom regressions to my own correct changes — never run a suite and edit its sources concurrently, and treat an unexplained multi-failure jump as suspect first."
+        }
+      ]
+    },
+    {
+      "session": "S143",
+      "priority": "P3",
+      "entries": [
+        {
+          "tag": "#a-sum-cannot-see-a-per-family-hole",
+          "text": "The guard that existed specifically to stop the wide compare being decorative added TEN family sizes and compared >0 — satisfied by any one. Measured: defenders 0 for all 300 frames while the guard sat green on poops. An aggregate assertion over N things proves something about the aggregate and nothing about any member; if the point is per-member coverage, the assertion must be per-member."
+        },
+        {
+          "tag": "#my-own-new-guard-caught-my-own-first-version-of-it",
+          "text": "The first per-family table read the FINAL frame and failed on rainbows — 0, but only because a rainbow spawns and despawns mid-run, so it WAS compared on every frame it existed. A final-frame read under-reports every transient family. Now the PEAK across compared frames. The guard was right and my use of it was wrong, which is the good failure mode."
+        },
+        {
+          "tag": "#the-fix-for-an-unforced-site-was-itself-unforced",
+          "text": "I added gathererOrders to structuralSignature citing its docblock about UNFORCED sites — then mutation-tested it and deleting BOTH terms left the entire suite green. My fix for a decorative site was decorative. Only after adding a test pinning the map-size term AND the depth term (a second enqueue leaves .size unchanged) did both mutations go red. Mutation-test the guard, never just the code."
+        }
+      ]
+    },
+    {
+      "tag": "#the-call-site-said-structural-the-callee-guard-said-event-driven",
+      "body": "Gemini's C2 claimed bypassing the bonding functions would leave stamped shapes inert. I verified it by reading the CALL SITE - runGodlyMatcherCore calls runSpawnerIgnition and runDefenderIgnition unconditionally, before any effects scan - and concluded 'structural scan, only voltkin is affected'. Wrong. Both callees OPEN with their own hasTopologyChange sweep and early-return without one. It was 6 of 6, not 1 of 6, and without the emit the whole feature would have shipped dead with no error anywhere. An unconditional call proves nothing about whether the callee runs."
+    },
+    {
+      "tag": "#my-pure-geometry-module-silently-rewired-the-whole-codebase",
+      "body": "I imported recipe modules into blueprints.ts for their constants and documented the side-effect registration as a deliberate BENEFIT. The real blast radius was the entire repo: world.ts imports the blueprint reducer, so every module got all six recipes registered, which made recipeStillSatisfied's documented unregistered-recipe fallback unreachable and broke a shipped test. I reasoned about the hazard, talked myself into it, and was wrong about its scope. Mirror-plus-cross-check-test was the right answer."
+    },
+    {
+      "tag": "#the-strongest-challenge-came-from-the-seat-that-voted-adopt",
+      "body": "Grok voted REJECT with 5 challenges; 4 were disproportionate (frozen geometry would delete the documented self-healing contract AND make towers immune to creature chewing) and Gemini overruled all 4. But Gemini - which voted ADOPT-WITH-CHANGES - supplied the one critical defect. A REJECT vote is not a proxy for finding real bugs. Read the challenges, not votes."
+    },
+    {
+      "tag": "#the-blob-was-not-ugly-the-towers-were-simply-absent",
+      "body": "The owner said the castle panel 'is a blob' and should 'actually prebuild towers or godlies'. I could have spent the priority restyling. The A.0 probe found the real defect: castlePanel.ts contained ZERO references to any tower or recipe and imported nothing from godlyRecipes/ or codex*. Its six buttons are PRIMITIVES, which reads as ugly recipes. Nothing needed prettifying; the content was missing. Read what the surface actually contains before interpreting an aesthetic complaint as an aesthetic problem."
+    },
+    {
+      "tag": "#the-render-caught-two-things-thirteen-green-assertions-could-not",
+      "body": "13/13 layout assertions passed and both remaining defects were invisible to them. Screenshotting the real panel showed voltkin's 8-chain rendering as invisible specks at tile scale, and surfaced a gameplay fact no unit test would model: a 7/7 FULL bank of randomly-hauled shapes satisfies NO recipe, and a full bank blocks further deliveries. castlePanel.ts already warned 'Look at the render' from a prior session's overflow bug. Obeying it paid twice."
+    },
+    {
+      "tag": "#one-pass-and-one-fail-is-not-attribution",
+      "body": "A bomb.spec placement test failed, passed without my changes, and failed again with them. I wrote 'confirmed: it IS my regression' on that evidence and started bisecting. It was the repo's known hand-drag placement flake: the same failure then appeared in rainbow.spec, both went green on rerun, and the final gating lane was 39/39. For a timing-sensitive test, one pass plus one fail is noise, not a verdict - and I had already been handed a bisect result that pointed at a file whose diff was provably inert."
+    },
+    {
+      "tag": "#my-own-safety-cleanup-made-the-feature-i-was-building-impossible",
+      "body": "I disarmed the held tower whenever the panel closed, reasoning that a ghost must not outlive its panel. But EVERY click outside the panel closes it - including the placing click and an illegal-spot click. So the 'keep it in hand on an illegal click' rule I had just written for better UX could never fire, and a misjudged drop silently cost the player their selection. A defensive cleanup that sounded obviously right silently deleted a feature; the e2e test caught it, reasoning had not."
+    },
+    {
+      "tag": "#the-getter-lied-and-the-lie-looked-exactly-like-the-bug",
+      "body": "getUiPoints() hardcoded armed:null in its closed-panel early-return. Once carrying could outlive the panel, that made the harness report an empty-handed player while a ghost was visibly following the cursor - and the false report was indistinguishable from the real behaviour bug I had just fixed, so I nearly 'fixed' working behaviour twice. An instrument's early-return branches need the same care as its main path."
+    }
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -240,7 +528,7 @@
     "GEMINI-AUDITOR(gemini-3.1-pro-preview)"
   ],
   "council_deviation": "None - full 3-way, 2 rounds. gemini-3.1-pro-preview passed explicitly (2.5-pro is retired per memory); grok-4.20-0309-reasoning default (strongest tier).",
-  "unlock_evidence": "Owner, in-session, twice verbatim: \"I approve full session priority batch!\" and \"remember i approve full session batch\". Owner then went to nap, asking for methodical consistent execution.",
+  "unlock_evidence": "Owner 2026-08-13: 'i approve full session top priority top leverage top value batch ... i pre-approve full dpr bath and full autonomous run!' + decisive mechanic ruling: 'the gatherers gather ur items and you have a place to click on the tower (you dont even need to build it physically) and it builds it for you. then the spark (your cruiser) just drags it to where you want it to be!' + 'like a classical TD (more or less)' + 'later we wil make it more TD but for now do what i say and make it so!'",
   "council_battle_ledger_s139": {
     "round1_challenges": 8,
     "adopted": [
@@ -281,7 +569,7 @@
   "real_context_pct_at_close": 41.17,
   "checkpoint_commit": "76a6e28",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
-  "analyze_completed": false,
+  "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
   "rule22_audit": "CLEAN. BUG-A: no unrendered ${VAR} placeholders in the session diff. BUG-B: all 7 new files exist and resolve. BUG-C: no dangling refs to the deleted radialDamage.ts (the surviving hits are a PARAMETER of that name; tsc 0 confirms). gh run list: no failures opened this session; gh issue list: empty. Six stale docs found and FIXED, one of which (voltkinFrames) would have caused a live art breakage AND shipped it, since public/** is in deploy.yml paths.",
   "deploy_verified_s139": "PASS 4/4 — REMOTE master == fd48d3d1; 1 run for fd48d3d1 (event=push); run 31583433645 concluded SUCCESS (checked explicitly, not inferred from absence-of-failure); LIVE entry asset == local build (index-CGwv_oyg.js) by content-hash equality.",
@@ -526,31 +814,5 @@
     "ci_audit": "gh issue list EMPTY. All 3 S144 deploy runs (31825645142 P1, 31827187107 P2, 31829910526 P3) concluded SUCCESS. Boot-dispatched e2e run 31740554476 audited at JOB level (never run level, per the S143 trap): e2e SUCCESS, e2e-protocol SUCCESS, e2e-soak SUCCESS, e2e-quarantine FAILURE (pre-existing ~8 joiner tests, documented in the S143 handoff as expected). Run 31738493370 is the documented trap itself: run-level \"cancelled\" hiding e2e SUCCESS + e2e-protocol SUCCESS.",
     "restart_survival": "the feature is pure game source; no mitigation depends on a restart path. Carrying state is render-local by design and force-dropped on leaving PLAYING (asserted in sync())."
   },
-  "deploy_verified_s144": "4/4 PASS at 76a6e285 - REMOTE + RUN + VERDICT (run 31829910526 success) + LIVE (index-nR6yeWrW.js content-hash equality). Rebuilt before verifying.",
-  "a0_state_discovery_s145": [
-    "METHOD: 3 Playwright probes against a REAL browser + REAL physics (dev build, solo, NO bank seeding, no cheats). Scratchpad specs, not committed. 2 independent 4-min solo runs + 1 escape-hatch run.",
-    "REFUTED \"not pushed/not deployed\": origin/master..master = 0 unpushed; spark-online.space serves index-nR6yeWrW.js byte-identical to a local npm run build; verify-deploy 4/4. The owner played the real S144 build.",
-    "REFUTED \"the feature errors\": castle panel opens on keep click (open:true); 0 console errors and 0 page errors across all 3 runs.",
-    "*** CONFIRMED + ESCALATED *** S144 CF1 said a full bank CAN build nothing. Measured: it is the TERMINAL STATE OF EVERY SOLO GAME, reached in ~46 s. Run 1: bank full at tick 2753, composition [0,0,2,3,4,4,5] frozen for 11,449 further ticks, ANY tile ever buildable = NO. Run 2 (independent): full at tick 2756, [0,0,1,3,3,4,5] frozen for 11,453 ticks, NO. Final tiles run 1: stinkTower NEED 1 MORE / pentagram 4 / lightningHub 3 / laserTurret 5 / helga 3 / voltkin 6. Zero defenders ever built.",
-    "*** H1 REFUTES THE INTENDED REMEDY *** The order queue is INERT against a full bank. Ordered type 4 twice through the real palette UI; queue accepted [4,4]; after 60 s the bank composition NEVER changed and both orders were still queued.",
-    "*** H2 *** Freeing a slot (PULL_FROM_BANK) does not rescue it either: a WAITING gatherer instantly dumps STALE cargo (a 5, not the ordered 4) into the freed slot and the bank re-locks at 7/7. Composition random-walks +/-1 per manual pull and never converges.",
-    "MECHANISM, read off gathererLifecycle.ts: pickGathererTarget (:372) is called ONLY in SEEKING and only when the current target is invalid. Arriving at a full bank sets state=WAITING (:466) holding cargo chosen BEFORE any order existed. WAITING (:472) never re-picks a target and never releases cargo — its only exit is a successful depositIntoCastle, which needs a free slot, which needs a build, which needs a satisfied bill, which needs a composition change, which needs a delivery. CLOSED LOOP. orderForGatherer can never reach a gatherer that is already WAITING.",
-    "COHERENCE FINDING: the S141 order queue and the S144 build grid have NO reference to one another anywhere in the codebase. Each solves the other feature problem; neither is wired to the other."
-  ],
-  "out_of_scope_s145": "CASTLE_BANK_CAP NOT changed — owner-gated with two contradicting rulings and the owner is asleep. P1 fixes the mechanism instead; raising the cap only delays the same terminal state. Also out: Stink Tower recipe shapes (owner ruling pending), drag interpretation, sim-worker flip.",
-  "council_s145": {
-    "seats": "CLAUDE (chair) + GROK-ANALYST (grok-4.20-0309-reasoning) + GEMINI-AUDITOR (gemini-3.1-pro-preview)",
-    "rounds": 1,
-    "raw_verdicts": "GROK REJECT / GEMINI REJECT — both against the original \"bank eviction\" P1.",
-    "prime_audit": [
-      "REFUTED (Gemini, strongest-challenge): \"you cannot satisfy an 8-shape bill from a 7-slot bank; you MUST raise CASTLE_BANK_CAP or the game is fundamentally broken.\" FALSE for this codebase. blueprintBuild.ts:29-35 sources bank UNION own-porch; the docblock literally says \"Bank u porch is 11\" and names voltkin@8 as the reason it exists. eligiblePorchSparks + planBlueprintPayment implement it. Gemini reasoned from the numbers in my prompt, not from the code. Verified by reading the file.",
-      "REFUTED (Gemini): \"host-only mutation = fatal architectural contradiction, hash mismatch, desync.\" FALSE. protocol.ts:4 — \"S 11 LOCKED: host-authoritative, Trystero transport\"; joiners receive applyNetSnapshot. This is snapshot-authoritative, NOT deterministic lockstep. Gemini assumed lockstep. The existing consumeGathererOrder is already a host-only mutation on the very deposit path in question.",
-      "REFUTED (Grok, its \"strictly dominating\" fix): \"WAITING gatherer drops stale cargo and re-seeks — solves the measured bug, eviction unnecessary.\" INSUFFICIENT. The bank is still FULL, so the CORRECT type cannot be deposited either; the unit would drop, fetch, return, and WAIT again forever. It repairs staleness, not the deadlock.",
-      "SUSTAINED (Grok #1): the eviction policy livelocks across competing recipes in a tight window. Concrete: two recipes sharing a pool oscillate, hashes still match, zero towers. Killed the eviction design.",
-      "SUSTAINED (Gemini #5): auto-eviction neuters the OWNER RULING recorded verbatim at gathererLifecycle.ts:466 — \"Holding rather than discarding is what makes the cap a strategic pressure (your haulers stall until you spend)\". I must not silently overturn an owner ruling while the owner is asleep.",
-      "UNANIMOUS ADOPT on P2 (wire the build grid to the order queue). Neither seat challenged it."
-    ],
-    "synthesis": "ABANDON bank eviction entirely. Two mechanism repairs that destroy nothing and overturn no owner ruling: (P1) a WAITING gatherer holding cargo that satisfies NO live order releases it and re-seeks — but ONLY when an ordered-type spark is actually harvestable somewhere, which deterministically kills the drop/re-grab spin-loop Grok flagged; (P2) clicking a SHORT build tile enqueues exactly its missing types AND, if the bank is full, pulls the least-useful bank shape onto a free porch slot. The porch is not a bin: blueprintBuild sources bank UNION porch, so an overflowed shape is STILL SPENDABLE and nothing is destroyed. Total pool stays hard-capped at 11 (7+4), so the owner strategic pressure survives intact. NO new wire action and NO PROTOCOL_VERSION bump: the panel dispatches only the already-shipped ENQUEUE_GATHERER_ORDER and PULL_FROM_BANK through the same dispatchFn seam.",
-    "cap_decision": "CASTLE_BANK_CAP left at 7, untouched. Owner-gated with two contradicting rulings and the owner is asleep. Grok argued raising it dominates once P2 lands; that is a TUNING opinion on an owner-reserved constant, so it is surfaced for the wake-up review rather than acted on."
-  }
+  "deploy_verified_s144": "4/4 PASS at 76a6e285 - REMOTE + RUN + VERDICT (run 31829910526 success) + LIVE (index-nR6yeWrW.js content-hash equality). Rebuilt before verifying."
 }

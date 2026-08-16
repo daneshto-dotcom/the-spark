@@ -456,6 +456,19 @@ export const GATHERER_ORDER_QUEUE_MAX = 24;
  * enters WAITING and holds its cargo. Do not reason about "what can be built in one go" from this
  * number alone.
  *
+ * ⚠ S145 — AND THE REAL SPENDABLE POOL IS `cap + CASTLE_PORCH_SLOTS` = 11, NOT `cap`. `blueprintBuild`
+ * pays a bill from bank ∪ own porch (which is why voltkin at 8 is buildable at all), so a shape moved
+ * to the porch has left the bank WITHOUT leaving the player's pool. S145 P2 leans on exactly that: a
+ * short build tile decants bank→porch to make room for what it orders, and destroys nothing.
+ *
+ * ⚠ S145 — WHAT THIS CAP COST, MEASURED, so the next retune argues from data. At 7 the bank fills in
+ * ~46 s of solo play and its composition then FREEZES: two independent 4-minute runs ended with every
+ * build tile reading "NEED n MORE" and ZERO towers ever built. That was a MECHANISM failure (a parked
+ * hauler could not be reached by the order queue), fixed in S145 P1/P2 without touching this number —
+ * deliberately, because the 7-vs-12/13 question is the owner's and two of his rulings point opposite
+ * ways. The mechanism fix means the cap is no longer load-bearing for playability; it is now purely a
+ * pacing dial. Re-measure with `e2e/bank-throughput.spec.ts` before moving it.
+ *
  * ⚠ S137 P3 — MEASUREMENT SEAM ONLY, and it is NOT a licence to retune the cap on its own. The
  * table above is the reason: the cap and the recipe sizes are ONE decision. Changing the cap without
  * re-reading that list is how a cap gets chosen that cannot hold any recipe outright.

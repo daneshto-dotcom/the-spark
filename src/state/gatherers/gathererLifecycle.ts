@@ -584,6 +584,12 @@ export function applyGathererTick(world: World, action: GathererTickAction): Wor
         // destroyed — the unit stands at its keep still carrying, and deposits the moment a slot
         // frees. Holding rather than discarding is what makes the cap a strategic pressure (your
         // haulers stall until you spend) instead of a silent leak of the player's work.
+        //
+        // ⚠ S145 P1 — WAITING IS NO LONGER UNCONDITIONALLY TERMINAL, and this comment used to imply
+        // it was. A unit parked here may now PARK ITS CARGO ON THE PORCH and go fetch what the player
+        // actually ordered — see `shouldReleaseWaitingCargo` for the measured deadlock that forced
+        // it. The ruling above is untouched: the porch is not a bin (a parked shape still pays a
+        // bill), so nothing is discarded and the pool is still capped.
         g.state = 'WAITING';
       }
     }

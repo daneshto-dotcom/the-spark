@@ -70,9 +70,19 @@ Determinism (seeded RNG, tick-based cadence, no wall-clock, no `Math.random` in 
 
 **Engine path:** Spec § XII.1 listed Godot recommended + HTML5 alt. We chose Pixi+TS — engine choice is NOT in the LOCKED list, so this is allowed. Phase 3 networking via web-native libs.
 
-### Bundle charter — main entry ≤ 750 KiB raw (S95 P1; raised 560→750 S101, 2026-06-24)
+### Bundle charter — main entry ≤ 900 KiB raw (S95 P1; 560→750 S101; raised 750→900 S145, 2026-08-16)
 
 The main entry chunk (`dist/assets/index-*.js`) must stay **≤ 750 KiB raw** (= 768,000 bytes; raw byte size / 1024, NOT gzip). History: a "550 KiB" soft cap was raised from 500 in S57 but lived only in handoff prose — no `LOCKED_DECISIONS` entry, no CI guard — so it silently crept to 553.0 KiB by S94. S95 set it to **560 KiB** AND made it **mechanically enforced**: `scripts/check-bundle-size.mjs` runs as the last step of `npm run build`, so `deploy.yml` CI (`npm ci && npm run build`) fails on a regression. **S101 raises it to 750 KiB (owner directive).** Rationale: S100's tower-defense slice put the entry at 570.9 KiB — 10.9 KiB over — which **hard-failed the deploy build and silently kept the feature off the live site for a whole session** while it sat "done" in git. The cap is self-imposed, not a platform limit; the gzipped transfer is ~185 KiB (fine for a WebGL game), so the gate's failure mode (block deploy) was far costlier than the few-KiB-gzip it guarded. 750 gives real headroom for the rest of TD Phase 1 while keeping the mechanical tripwire against *unbounded* creep. A future breach is a **deploy-blocker to fix before marking a priority done** — NOT a "soft budget" to wave past (that mislabel was S100's root failure). Heavy/optional UI (codex, bots, debug, NONET overlay, quickmatch) still stays **lazy code-split**; big art/audio goes to `public/` assets, never the bundle. To change the cap: bump `CAP_KIB` in the script AND this clause together.
+
+**S145 raises it 750 → 900 KiB**, acting on the script's OWN instruction rather than waiting for the
+breach. The S145 build printed `⚠ WARNING: only 58.5 KiB headroom … Per S101 policy, RAISE the charter
+NOW … before it hard-fails a deploy` at 691.5 KiB. That warning exists precisely because S101's
+post-mortem was that a self-imposed cap **hard-failed the deploy build and silently kept a finished
+feature off the live site for a whole session**. Raising on the warning, not on the failure, is the
+whole point of the warning — the guard's job is to catch *unbounded* creep, and 900 keeps a
+mechanical tripwire while removing the deploy-blocking cliff. Gzipped transfer at 691.5 KiB raw is
+~222 KiB, still unremarkable for a WebGL game. Lazy code-splitting for heavy/optional UI and
+`public/` for art/audio remain unchanged.
 
 ### NOTE (S19 P4, 2026-05-12) — Trystero relay pin
 

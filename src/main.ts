@@ -41,8 +41,10 @@ import {
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
-  // S145 P2 — how much room the build-grid click must make before the ordered shapes can land.
+  // S145 P2 — how much room the build-grid click must make before the ordered shapes can land, and
+  // the ceiling on how much of the bank one click may decant.
   CASTLE_BANK_CAP,
+  CASTLE_PORCH_SLOTS,
 } from './constants.ts';
 // S87 — VS-BOTS mode. BOTH the setup overlay AND the BotManager are LAZY
 // chunks (the overlay alone pushed the index chunk over the 550 kB charter —
@@ -666,22 +668,26 @@ async function bootstrap(): Promise<void> {
     // was "you have a place to click on the tower and it builds it for you" — one click has to be
     // enough to set the whole thing in motion.
     //
-    // ⚠ THE GUARD IS "IS THERE ROOM FOR THE WHOLE BILL", NOT `bankIsFull`. The first cut used
-    // `bankIsFull` and the e2e caught it immediately: the bank stops being FULL after the very first
-    // pull, so the loop freed exactly one slot and the tower stalled two shapes short — "NEED 2 MORE"
-    // forever, a quieter version of the very deadlock being fixed.
+    // ⚠ THE COUNT IS COMPUTED UP FRONT, AND THAT IS NOT A STYLE CHOICE — IT IS WHAT MAKES THIS WORK
+    // OFF THE HOST. Two earlier cuts were both wrong, and each failed silently:
     //
-    // Bounded three ways, so this cannot run away: by `short` iterations, by the room test itself,
-    // and by `applyPullFromBank`'s no-op on a FULL PORCH — which is why the loop also breaks when a
-    // pull fails to change the count, rather than spinning against a porch that cannot take more.
-    // On a networked joiner the dispatch is a wire intent so the local count cannot update; the
-    // `moved` check then breaks after one iteration and the host resolves the rest authoritatively.
+    //   • guarding on `bankIsFull` freed exactly ONE slot, because the bank stops being full the
+    //     moment you free one. The tower stalled two shapes short — "NEED 2 MORE" forever, a quieter
+    //     copy of the very deadlock being fixed. The e2e caught it.
+    //   • re-reading `bankCount` after each dispatch works ONLY on solo/host, where `dispatchFn` is a
+    //     synchronous local reducer call. Under `?worker=1` (postIntent) and on a networked joiner
+    //     (wire intent) the local count cannot move within this handler, so a feedback-driven loop
+    //     stops after one iteration and the player is back to clicking the tile repeatedly.
+    //
+    // So: decide how many slots the bill needs, then ask for exactly that many. No dispatch depends
+    // on observing the effect of the previous one, which is the only formulation that behaves
+    // identically on all three transport paths. Bounded by the shortfall and by the porch's own
+    // capacity, and `applyPullFromBank` is no-op-never-throw on a full porch, so an over-ask is safe.
     const short = missing.reduce((n, m) => n + (m.need - m.have), 0);
-    const roomFor = (): boolean => bankCount(world.castleBanks, seat) + short > CASTLE_BANK_CAP;
-    for (let n = 0; n < short && roomFor(); n++) {
-      const was = bankCount(world.castleBanks, seat);
+    const free = CASTLE_BANK_CAP - bankCount(world.castleBanks, seat);
+    const toDecant = Math.min(short - free, CASTLE_PORCH_SLOTS);
+    for (let n = 0; n < toDecant; n++) {
       dispatchFn({ type: 'PULL_FROM_BANK', playerId: seat, index: 0 });
-      if (bankCount(world.castleBanks, seat) === was) break; // porch full (or remote) — stop asking
     }
   });
   // S144 P3 — CLICK-TO-BUILD's commit. Same dispatchFn seam as every other panel control, so it
