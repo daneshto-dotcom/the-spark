@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 1014,
+  "tool_calls_session_total": 1015,
   "session_id": "S145",
   "session_kind": "pdca-batch",
   "session_start": "2026-08-16",
   "prior_session_note": "S144 CLOSED at 5952434 — click-to-build build grid + drag-to-place shipped, deploy 4/4.",
   "prior_session_archive": ".handoff-archive/HANDOFF_S138.md",
-  "phase": "CHECK",
+  "phase": "ANALYZE",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-08-16_PDR_S145_BANK_DEADLOCK_IN-PROGRESS.md",
-  "session_status": "in_progress",
+  "session_status": "priorities_complete_pending_handoff",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -63,6 +63,30 @@
     "GOOD NEWS WORTH RECORDING (claims that CONFIRMED cleanly). damageEntity's guard/return semantics/anchor-raze all verified by running its 22 tests green. razePrimitives IS the single primitive-removal path - world.primitives.delete appears EXACTLY ONCE in src/ (razePrimitives.ts:78) and world.bonds.delete exactly once (:75); only 3 whole-world clear() resets bypass it. Widening DamageTarget is a 1-switch 3-arm->4-arm edit with ZERO external type consumers (DamageTarget/DamageSource have no importers outside damage.ts). DefenderKind's Record IS compile-time exhaustive. pickGathererTarget is ALREADY per-unit preference-aware so R3 needs zero changes there. pickGatherer hit-testing ALREADY EXISTS and is already own-units-gated (controls.ts:276-290). BotGoal has NO wire surface. Registry join is 3 LOC. Codex tab wiring needs NO change (main.ts:611-618 filters by r.kind automatically)."
   ],
   "carry_forward": [
+    {
+      "id": "S145-CF1",
+      "severity": "HIGH — BLOCKER ON THE SIM-WORKER FLIP",
+      "status": "open",
+      "title": "BUILD_BLUEPRINT spends the shapes but never ignites under ?worker=1 — the player pays and gets nothing",
+      "detail": "MEASURED S145, twice, solo ?worker=1, real browser. Arming works (armed==\"stinkTower\"). The placement click works (armed->null). The geometry LANDS: world.primitives.size == 4. The shapes are SPENT: bank [1,2,2,3,4,4,5] -> [1,2,2,5], i.e. the Square + 3 Circles were consumed. And world.defenders stays EMPTY, before and after revalidation. So the structure never ignites and the player is charged for nothing. This is the exact silent-death mode boot-snapshot.md documents for S144: runDefenderIgnition/runSpawnerIgnition are event-driven behind their own hasTopologyChange sweep over world.effects, so geometry written without a BOND_FORMED reaching the matcher leaves the recipe inert with no tower, no error and no log line.",
+      "is_it_new": "PRE-EXISTING S144, not introduced by S145 — the S145 diffs touch neither blueprintBuild.ts nor any ignition path. It was never caught because e2e/click-to-build.spec.ts runs only on the default (non-worker) path, and this session is the first time the build grid was exercised under ?worker=1.",
+      "blast_radius": "ZERO on the live game today: WORKER_DEFAULT_ON is false, so ?worker=1 is opt-in and nobody reaches it by accident. It becomes a headline-feature regression the moment the worker flip lands.",
+      "next_step": "Before flipping WORKER_DEFAULT_ON, reproduce with the probe idiom above and check whether the BOND_FORMED effect emitted by applyBuildBlueprint survives the worker boundary / the effects drain ordering inside the worker tick. Add a ?worker=1 lane to bank-deadlock.spec.ts or click-to-build.spec.ts so it can never regress silently again."
+    },
+    {
+      "id": "S145-CF2",
+      "severity": "MEDIUM",
+      "status": "open-owner-gated",
+      "title": "CASTLE_BANK_CAP 7 vs 12-13 is now a PACING dial, not a playability blocker",
+      "detail": "S145 P1/P2 fixed the mechanism, so a full bank is no longer terminal at any cap. The two contradicting owner rulings therefore no longer block anything — the question is purely how much buffer the economy should have. constants.ts now records what cap 7 measurably cost (bank full in ~46 s, composition frozen, zero towers in two 4-minute runs) so the ruling can argue from data. GROK argued in Council that raising the cap dominates once the build-grid wiring lands; that is a tuning opinion on an owner-reserved constant and was NOT acted on."
+    },
+    {
+      "id": "S145-CF3",
+      "severity": "LOW",
+      "status": "open",
+      "title": "click-to-build.spec.ts seeds the bank, and its own comment explains why the real path was untestable",
+      "detail": "Its comment reads: \"waiting for gatherers to haul a MATCHING set is not viable in a gating lane (they fetch whatever they find, and a full bank of the wrong mix satisfies nothing)\". That sentence is a description of the S145 deadlock, written a session before it was diagnosed. e2e/bank-deadlock.spec.ts now covers the unseeded property. Worth a sweep for other specs whose seeding hides a real-path failure."
+    },
     "⚠ TWO OWNER RULINGS POINT OPPOSITE WAYS AND NOBODY HAD NOTICED. constants.ts:410-414 carries the B4b instruction verbatim: 'THE PAIRING IS THE POINT — NEVER TUNE THIS NUMBER APART FROM THE TABLE BELOW... At 5 slots only the PENTAGRAM is directly assemblable', with :429-431 adding 'MEASUREMENT SEAM ONLY, and it is NOT a licence to retune the cap on its own'. The R2 build-space ruling raises CASTLE_BANK_CAP to 12-13, at which ALL SIX recipes become directly assemblable — deleting the carve-down tactic the v0.6 pivot exists to protect. This needs an explicit owner override BEFORE the build space is built, not a silent constant edit.",
     "⚠ R7 (the design library) IS NOT IMPLEMENTABLE AS RULED. The library is per-browser localStorage, never serialized/hashed/wired, so in a 2-peer match the peers hold DIFFERENT libraries and the host cannot validate 'I own this design' — which directly contradicts the design's own section 5 'non-negotiable' host-validation contract. R8's 'free every match regardless of unlocks' cannot be expressed in a per-browser unlock set at all. This is a DESIGN decision, not an implementation task. Also measured: the template-loader half is 100% unbuilt AND its data does not exist — EmblemSpec is a decorative polar approximation sized for a 240x320 codex tile with no relation to AUTO_BOND_RADIUS 60, only 3 of 6 CODEX_COPY entries have one, and the TWO the owner named as capacity targets (Voltkin=8, NONET=9) are exactly the two with NONE.",
     "⚠ BUILD SPACE — C1's panel regrid DOES NOT FIT as specified, and there is a SECOND cap-dependent geometry site no design doc mentions. Width is fine (5*40+4*6 = 224 <= ROW_INNER_W 248) but height is not: 3*40+2*6 = 132 vs BANK_STRIP_H 52, over by 80px — BANK_STRIP_H must go 52->144, making panelHeight(2) go 194->286. A 5x3 grid also holds 15 slots against a ruled cap of 12-13 (2-3 dead boxes) and 6-wide is impossible (270 > PANEL_W 268). THE UNMENTIONED SITE: gathererRenderer.ts:194 draws banked shapes on the keep as pitch=(KEEP_W-14)/CASTLE_BANK_CAP; at cap 13 the glyph radius becomes 1.754px — illegible. AND castlePanel.test.ts has ZERO bank-strip coverage, so a regrid can overflow the plate with every test green. R6's 'a third control costs one entry' is also REFUTED by its own file: the class is hard-wired to two rows at FOUR sites and PanelControl.onActivate is never assigned or read anywhere.",
@@ -172,11 +196,37 @@
     {
       "id": 3,
       "title": "Full coherence audit of the new game state",
-      "status": "in_progress",
-      "check_completed": false,
-      "check_method": "",
-      "checkpoint_commit": "",
-      "verification": [],
+      "status": "completed",
+      "check_completed": true,
+      "check_method": "RALPH:PATROL audit sweep + empirical worker-mode probe. Clean: 0 TODO/FIXME/unimplemented in src/; all 21 CLIENT_INTENT_TYPES have a real dispatch site (no unfinished pathways). 3 findings fixed: (a) my own P2 room-making loop was host-only — it re-read bankCount after each dispatch, which cannot move under postIntent/wire, so only ONE pull was sent off-host; now computed up front, verified live under ?worker=1 (one click -> orders, bank 7->5, tile lit 25 s later); (b) the V6-1.3 WAITING owner-ruling comment implied WAITING was terminal, now false; (c) CASTLE_BANK_CAP docblock now records the real pool (cap + porch = 11) and what cap 7 measurably cost. Bundle charter 750->900 on the build script own instruction (58.5 KiB headroom warning). tsc clean, vitest 2438/2438, e2e:gating 41/41 (bomb.spec flaked once, passed on rerun — documented trap, not bisected).",
+      "checkpoint_commit": "63c00e6",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "pattern": "computed UP FRONT"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "pattern": "CASTLE_PORCH_SLOTS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/gatherers/gathererLifecycle.ts",
+          "pattern": "WAITING IS NO LONGER UNCONDITIONALLY TERMINAL"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/check-bundle-size.mjs",
+          "pattern": "CAP_KIB = 900"
+        },
+        {
+          "type": "file_contains",
+          "path": "LOCKED_DECISIONS.md",
+          "pattern": "raised 750→900 S145"
+        }
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
@@ -184,11 +234,17 @@
     {
       "id": 4,
       "title": "Ship — build, tests, e2e gating, push, verify live",
-      "status": "pending",
-      "check_completed": false,
-      "check_method": "",
-      "checkpoint_commit": "",
-      "verification": [],
+      "status": "completed",
+      "check_completed": true,
+      "check_method": "Shipped and verified on the real site. 3 commits pushed (bb32079, 994f734, 63c00e6), 0 unpushed. All 3 deploy runs concluded success (31942852777, 31943692389). verify-deploy 4/4 — remote/run/verdict/live agree at 63c00e61, live entry index-Blrtx25J.js by content-hash equality. spark-online.space (the URL the owner actually plays, NOT the github.io one verify-deploy probes) independently confirmed serving index-Blrtx25J.js. Live-site smoke on the production build: canvas renders, 0 page errors and 0 console errors over ~30 s of play.",
+      "checkpoint_commit": "63c00e6",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": ".claude/session-state.json",
+          "pattern": "index-Blrtx25J.js"
+        }
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
@@ -208,7 +264,7 @@
     "budget_remaining": 1000000
   },
   "budget_total": 1000000,
-  "e2e_gating_status": "39/39 GREEN (local, 76a6e28) - includes 3 new click-to-build gating tests",
+  "e2e_gating_status": "41/41 (39 prior + 2 new in bank-deadlock.spec.ts). bomb.spec flaked once and passed on rerun — the documented placement flake.",
   "closed": false,
   "a0_deviation": "The A.0 sweep's adversarial re-check stage (24 independent re-verifications of every non-CONFIRMED verdict) and its synthesis agent ALL failed on an individual spend limit after the 10 probes completed. Probe payloads were recovered from journal.jsonl and triaged by Claude directly. STATED AS A DEVIATION, NOT PRESENTED AS COMPLIANCE: single-probe findings carry ONE source. The two highest-consequence findings (damageEntity dead code; CI red) were personally re-verified by Claude with direct greps and gh calls before being reported.",
   "ci_finding": "e2e.yml newest run 31366201100 = FAILURE, all 3 lanes, headSha 33 commits behind HEAD, predates two gating fixes. No push trigger exists so nothing re-runs it. Fresh workflow_dispatch on current HEAD = run 31509968212, result pending. deploy.yml is 3/3 success. gh issue list = empty.",
@@ -552,5 +608,6 @@
     ],
     "synthesis": "ABANDON bank eviction entirely. Two mechanism repairs that destroy nothing and overturn no owner ruling: (P1) a WAITING gatherer holding cargo that satisfies NO live order releases it and re-seeks — but ONLY when an ordered-type spark is actually harvestable somewhere, which deterministically kills the drop/re-grab spin-loop Grok flagged; (P2) clicking a SHORT build tile enqueues exactly its missing types AND, if the bank is full, pulls the least-useful bank shape onto a free porch slot. The porch is not a bin: blueprintBuild sources bank UNION porch, so an overflowed shape is STILL SPENDABLE and nothing is destroyed. Total pool stays hard-capped at 11 (7+4), so the owner strategic pressure survives intact. NO new wire action and NO PROTOCOL_VERSION bump: the panel dispatches only the already-shipped ENQUEUE_GATHERER_ORDER and PULL_FROM_BANK through the same dispatchFn seam.",
     "cap_decision": "CASTLE_BANK_CAP left at 7, untouched. Owner-gated with two contradicting rulings and the owner is asleep. Grok argued raising it dominates once P2 lands; that is a TUNING opinion on an owner-reserved constant, so it is surfaced for the wake-up review rather than acted on."
-  }
+  },
+  "deploy_verified_s145": "4/4 at 63c00e61, live entry index-Blrtx25J.js; spark-online.space confirmed independently; live smoke 0 errors."
 }
