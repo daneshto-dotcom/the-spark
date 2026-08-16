@@ -1,11 +1,11 @@
 {
-  "tool_calls_session_total": 1106,
+  "tool_calls_session_total": 1112,
   "session_id": "S146",
   "session_kind": "pdca-batch",
   "session_start": "2026-08-16",
   "prior_session_note": "S145 closed 4/4. S146 redirected by owner mid-boot: limitless counts inventory + remove loose-spark repulsion + stink tower blessing.",
   "prior_session_archive": ".handoff-archive/HANDOFF_S138.md",
-  "phase": "DO",
+  "phase": "ANALYZE",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-08-16_PDR_S146_limitless_inventory_no_repulsion.md",
   "session_status": "in_progress",
@@ -133,47 +133,106 @@
     {
       "id": 1,
       "name": "Kill loose-spark repulsion (resolveCollisions on freeSparks)",
-      "status": "in_progress",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "e85931d",
+      "check_method": "RALPH:PATROL + empirical. resolveCollisions and the SpatialGrid are DELETED, not disabled: grep confirmed insertAll/forEachNearbyPair had no consumer outside collision.ts, so removing the call left the grid with zero consumers and noUnusedParameters forced the cleanup through stepPhysics -> HostTickDeps -> workerSim -> main.ts. Replaced collision.pile.test.ts (which locked the DELETED behaviour) with noSparkRepulsion.test.ts, asserting the property BEHAVIOURALLY through the real stepPhysics entry point so a reintroduced inline separation force still fails it. SELF-CORRECTION during CHECK: the pile assertion first measured absolute distance from the seed origin and failed, because enforceSpawnerBounds legitimately translates the WHOLE cluster; rewritten to measure PAIRWISE spread, which is the property actually under test. Also caught by running tsc on the new spec: makeFreeSpark takes an args OBJECT and my first draft called it positionally — vitest does not typecheck, so those assertions would have run green against undefined (the S145 trap, avoided by policy). tsc 0; vitest 2436/2436; bundle 690.1 KiB.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_absent",
+          "path": "src/physics/collision.ts"
+        },
+        {
+          "type": "file_absent",
+          "path": "src/physics/spatial.ts"
+        },
+        {
+          "type": "file_absent",
+          "path": "src/physics/collision.pile.test.ts"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/physics/physicsLoop.ts",
+          "needle": "resolveCollisions("
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/hostTick.ts",
+          "needle": "deps.grid"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/physics/noSparkRepulsion.test.ts",
+          "needle": "no spark"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/physics/physicsLoop.ts",
+          "needle": "THERE IS NO SPARK"
+        }
+      ]
     },
     {
       "id": 2,
       "name": "Limitless per-SparkType counts inventory; castle panel = inventory ONLY; PULL mint; PROTOCOL 21->22",
-      "status": "pending",
+      "status": "completed",
+      "check_completed": true,
+      "checkpoint_commit": "7da9107",
+      "check_method": "RALPH:PATROL + GROK-ANALYST + GEMINI-AUDITOR (Council on HOW only, per explicit owner instruction). tsc 0; vitest 2425/2425 across 157 files; e2e:gating 39/39; bundle 689.3 KiB under the 900 charter; pushed, 0 unpushed. FOUR Council claims were REFUTED on disk before acting (see council_s146.prime_audit_refutations) — the decisive one being that BOTH seats recommended retiring PULL_FROM_BANK, which would have left every bot opponent unable to build (botBrain.ts:161 + botController.ts:190 make PULL the entire bot supply chain). TWO REAL DEFECTS CAUGHT BY THE PROJECT'S OWN TRIPWIRES DURING CHECK, both of which would have shipped: (1) I marked nextPulledSparkId as hashed in FIELD_COVERAGE but never added it to the scalar projection — stateHashFull.test.ts's forcing function failed and named it; (2) protocolVersionSync.test.ts caught that e2e/smoke.spec.ts pins LOCAL_PROTO_V as a literal that must track the bump. A THIRD was caught by reasoning rather than a test: the e2e helpers read bank.length, which is 6 for a fixed 6-entry tally even when the castle is EMPTY, so every wait-for-stock helper would have passed instantly and vacuously — summed everywhere instead.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/castleBank.ts",
+          "needle": "export type CastleBank = number[];"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/castleBank.ts",
+          "needle": "export function bankAdd("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/worldTypes.ts",
+          "needle": "nextPulledSparkId: number;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 22 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stateHashFull.ts",
+          "needle": "nextPulledSparkId"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/blueprintBuild.ts",
+          "needle": "readonly from: 'bank'; readonly sparkType: SparkType"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "INVENTORY_SLOTS"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/constants.ts",
+          "needle": "export const CASTLE_BANK_CAP"
+        }
+      ],
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
     },
     {
       "id": 3,
-      "name": "FOOTER build band — all towers/godlies, enabled by castle inventory (re-host castleStructuresModel)",
-      "status": "pending",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user"
-    },
-    {
-      "id": 4,
-      "name": "Gatherer click menu — PREFERENCE: CLOSEST/TRIANGLE/SPIRAL/... standing per-gatherer preference",
-      "status": "pending",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user"
-    },
-    {
-      "id": 5,
-      "name": "Stink tower — owner blessing recorded, confirm buildable + visible",
-      "status": "pending",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user"
-    },
-    {
-      "id": 6,
-      "name": "Ship — build, tsc, vitest, e2e:gating, push, verify-deploy 4/4",
-      "status": "pending",
+      "name": "FOOTER build band + gatherer PREFERENCE menu + stink-tower blessing",
+      "status": "deferred",
+      "reason": "DEFERRED INTO THE ROADMAP, NOT DROPPED. The owner asked for these, then sent handwritten notes + two hand-drawn maps redefining SPARK as a classical tower defence (90 s build stage -> 90 s fight stage, gatherers hide inside the castle and its weapon system arms, four zones around a central spawn disc, win at 1500 points OR by destroying the enemy castle), and then asked whether the game should be REBUILT FROM SCRATCH rather than mutated. Both surfaces are match-structure UI. Building them against the old structure hours before the structure is redesigned would be work done twice, so they become roadmap items where the footer is specified against the real fight/build loop.",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
