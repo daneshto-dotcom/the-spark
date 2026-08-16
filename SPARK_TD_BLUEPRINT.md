@@ -246,6 +246,27 @@ Per-race castle weapons, tower command depth, the everchanging-environment goal 
 
 ---
 
+## 6A. OWNER RULINGS — REVIEW ROUND 1
+
+Given while reading the blueprint. These are settled.
+
+| # | Ruling |
+|---|---|
+| R1 | **4-player is ALL VS ALL** — every player may attack every other. Tower behaviour comes from each tower's own **specs** + the **commands** the player gives it (attack/defence preference + unit choice). |
+| R2 | **No 3-player map.** Three players use the 4-player board with one quadrant simply empty. |
+| R3 | **Stages repeat forever.** Points accrue **during the FIGHT stage ONLY** — there is no point tick during BUILD. |
+| R4 | When the walls drop, enemies fight and **towers come alive doing whatever their skill is**. ⚠ *"need to rework some towers to be more coherent"* — a real work item, scope TBD. |
+| R5 | **Walls cannot be attacked while they are up.** Invulnerable for the whole build stage. |
+| R6 | **A gatherer can never be caught outside** — they are built to come in **exactly 1 s before the walls drop**, regardless of speed upgrade. Exact mechanism to be defined later. |
+
+⚠ **R3 HAS A CONSEQUENCE THAT NEEDS AN ANSWER BEFORE THE ROADMAP LOCKS.** Score today is earned by
+BUILDING (placements). R3 turns scoring off during the only stage in which you can build, so the
+shipped scoring engine produces **zero points per match** under the new rules. The 1500-point win
+condition therefore has no engine behind it until we decide what a fight actually pays out for. This
+is open question Q1 below and it is the highest-priority one.
+
+---
+
 ## 7. WHAT THIS PLAN DELIBERATELY DOES NOT DECIDE
 
 Flagged rather than guessed, because guessing owner rulings is how this project has burned sessions before.
