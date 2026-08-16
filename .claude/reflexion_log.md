@@ -1,3 +1,27 @@
+## S146 (2026-08-16) — the owner pivoted the game mid-session; two of my confident readings were wrong
+
+Shipped 2/2 code priorities (loose-spark repulsion deleted; the castle inventory became a limitless per-type tally,
+PROTOCOL 21->22), live and deploy-verified 4/4. The owner then redefined SPARK as a classical tower defence via
+handwritten notes and two hand-drawn maps, and the session became a design + planning session: 40 rulings across six
+review rounds, a 3-way Council on rewrite-vs-adapt (unanimous ADAPT), and an 11-session build spec written for
+autonomous execution. The audit of my own plan found more than the plan did.
+
+- #the-council-told-me-to-delete-the-bots-supply-chain — BOTH external seats independently recommended retiring PULL_FROM_BANK as dead weight under a limitless inventory. botBrain.ts:161 + botController.ts:190 make PULL the ENTIRE bot supply chain (gatherer -> bank -> porch -> place); retiring it leaves every bot opponent unable to build, in every mode. Neither seat reads the codebase. Grep the consumers of anything a reviewer calls vestigial BEFORE agreeing.
+
+- #empirical-refutes-plausible-criticals — four confident Council claims about MY codebase, all refuted on disk in minutes: "spatial-grid degeneration" (the grid had no consumer outside the function being deleted), "an exact stack becomes unpickable, 65-80%" (pickSpark is a linear nearest-cursor scan that never touched the grid), "mixed-version host migration corrupts the bank, 1 in 6" (protocol.ts hard-rejects mismatch at HELLO, so the scenario is unreachable), and the PULL one above.
+
+- #the-forcing-function-caught-what-i-forgot — I added nextPulledSparkId to FIELD_COVERAGE as 'hashed' and never added it to the projection. stateHashFull.test.ts failed and NAMED the field. A registry that fails the build on omission is worth more than any amount of care; never route around one.
+
+- #length-is-six-even-when-empty — the e2e helpers read `bank.length` to mean "how much is stored". The inventory became a FIXED 6-entry tally indexed by SparkType, so .length is 6 for an EMPTY castle: every wait-for-stock helper would have passed instantly, forever, measuring nothing, all green. Changing a collection's SHAPE silently reinterprets every length/size read of it.
+
+- #my-own-patch-deleted-the-thing-i-was-documenting — writing the roadmap replaced the span from "## 6. THE ROADMAP" to "## 7. ...", and the owner's 30 rulings lived at "## 6A", BETWEEN those anchors. The document still read as complete and coherent afterwards. Anchor-to-anchor replacement silently eats whatever moved in between; verify a span's CONTENTS, not just its endpoints.
+
+- #an-audit-that-only-checks-rulings-misses-the-notes — audit pass 1 verified all 30 numbered rulings were covered and reported CLEAN, while the CASTLE WEAPON SYSTEM had no session at all. It came from the owner's prose notes, not a numbered ruling, so the audit was structurally blind to it. An audit inherits the blind spots of whatever index it iterates; add a second lens over the ORIGINAL source.
+
+- #the-feature-was-already-shipped — the owner specified an income model (scaled by tower complexity, degrading with remaining connectors, plain structures earning too) as if it were new work. scoring.ts has done exactly that since S76: complexity = #prims + 2x#magicBonds, and it never cared whether the shapes formed a recipe. The "new" requirement reduced to ONE phase guard. Check whether a requested mechanic already exists before scoping it as a build.
+
+- #the-owner-corrected-my-reading-twice-and-both-mattered — I read the hand-drawn map as "castles on a ring, which is what we already ship" (wrong: the ZONE is primary and the castle derives from it, changing haul distance 2.6x) and then as "two variants of one layout" (wrong: a 1v1 pitch and a 4-player quadrant board). Both were confident, lazy pattern-matches onto what the code already did. When a drawing resembles the current system, that resemblance is the thing to distrust.
+
 ## S145 (2026-08-16) — the playtest was right and the pipeline was green: a full bank was a hard deadlock
 
 4 of 4 priorities shipped, live, deploy 4/4. The owner reported "the playtest didnt work" while 0 commits were
@@ -98,30 +122,3 @@ Four self-corrections this session, three of them caught by instruments I had ju
 - #i-invalidated-my-own-test-run-by-editing-source-during-it - a gating run reported 4 failures; I had edited src/ WHILE it executed against a live vite dev server, including a window where a function was referenced before it existed. The clean rerun was 36/36. I nearly attributed 3 phantom regressions to my own correct changes. Never edit sources while their suite runs, and treat an unexplained multi-failure jump as suspect first.
 
 - SESSION #verify-the-probe-before-you-act-on-it - the A.0 probes were excellent and still wrong in places: one reported "seeds none of the families since S135" which measurement refuted (the real gap was exactly two). Every load-bearing claim was grep-verified before use, and 14/14 symbols cited in new comments were confirmed on disk. Probes are evidence to check, not conclusions to adopt.
-
-## S142 (2026-08-13) — A.0 killed the headline priority; the owner's 2-browser chore was never necessary
-
-3 of 3 priorities shipped. The session set out to flip the sim worker default-on (LOCKED for S129, 13 sessions
-overdue, playtest already passed) and measuring first proved the flip unsafe — so the flip was DEFERRED and the
-safety work shipped instead. Separately: both real-WebRTC protocol-mismatch tests were found PASSING IN CI, so
-the standing "only the owner can verify a bump" ritual was false and is now a dedicated gating lane.
-
-- #a0-killed-the-headline-priority-and-that-was-the-win - the flip was LOCKED, 13 sessions overdue and playtest-passed; measuring first proved it unsafe. A.0 pays most exactly when the priority looks settled.
-
-- #both-seats-proposed-a-broken-fix-again-third-session-running - Grok a provable no-op, Gemini an anti-cheat regression, and the constraint refuting Gemini was IN THE DOCBLOCK BOTH WERE READING. Price the diagnosis and the prescription apart, every time.
-
-- #a-reviewer-asserted-it-had-searched-and-had-not - Grok stated no comment treated those fields as ephemeral; the comment was in the interface it was reasoning about. It also named 12 symbols, 0 of which exist. Grep-verify every cited symbol before triage.
-
-- #i-had-to-refute-my-own-pdr - I claimed hash-oracle divergence; the runtime oracle cannot see spawners at all. PRIME-AUDIT your own severity claims, not only the reviewers'.
-
-- #the-owner-was-doing-a-chore-ci-already-performed - 'CI cannot verify a protocol bump' was false for an unknown number of sessions; both tests pass in CI in 5.6s. Before writing a manual step into a handoff, check whether something already covers it.
-
-- #fully-red-was-half-green-in-both-environments - the quarantine lane was ~50% passing locally AND in CI. A remembered failure string had become a settled fact nobody re-measured.
-
-- #the-instrument-was-hiding-its-own-diagnosis - waitForWorld swallowed every poll error, so a dead page and a slow one produced identical messages. Two competing causal stories survived in-repo for sessions because of one bare catch.
-
-- #the-gating-lane-was-red-on-clean-master-and-nothing-reported-it - e2e.yml has no push trigger. Dispatch it at boot; green-on-your-last-PR is not evidence that master is green now.
-
-- #the-generalised-method-found-a-second-bug-the-specific-fix-would-have-missed - comparing mutable fields against serializer output found a 65-session-old debuff hole. Fix the class, not the instance.
-
-- #cap-the-fan-out-third-consecutive-session - 7 agents died on the spend limit with ZERO recoverable results; 3 tight probes landed 3/3. Read the highest-risk area by hand FIRST.

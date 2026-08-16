@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1169,
+  "tool_calls_session_total": 1180,
   "session_id": "S146",
   "session_kind": "pdca-batch",
   "session_start": "2026-08-16",
@@ -8,7 +8,7 @@
   "phase": "ANALYZE",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-08-16_PDR_S146_limitless_inventory_no_repulsion.md",
-  "session_status": "in_progress",
+  "session_status": "closed",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -239,21 +239,21 @@
     }
   ],
   "reflexion_entries_to_archive": [
-    "#the-workaround-in-the-test-was-a-description-of-the-bug — click-to-build.spec.ts seeds the bank and its own comment says why: \"a full bank of the wrong mix satisfies nothing\". That sentence IS the defect. The suite was green and the shipped game was unplayable, because the workaround that made the test viable also made it blind. When a test comment explains why the real path is not testable, read it as a bug report.",
-    "#two-features-that-solve-each-other-and-have-never-been-introduced — the S141 order queue was the remedy for the S144 build grid deadlock, and grep showed ZERO references between them. Neither was broken alone. The defect lived in the gap, which is exactly where no unit test looks.",
-    "#the-council-was-confidently-wrong-about-my-own-codebase-twice — GEMINI staked its strongest challenge on \"you cannot satisfy an 8-shape bill from a 7-slot bank\" (bank u porch = 11, and voltkin@8 is literally why it exists) and on \"host-only mutation = desync\" (this is snapshot-authoritative, not lockstep). Both were reasoned from my prompt rather than the code. Verify every cited mechanism before adopting a REJECT.",
-    "#groks-strictly-dominating-fix-did-not-fix-it — \"drop stale cargo and re-seek\" repairs staleness, but the bank is still FULL so the correct shape cannot be deposited either. A simpler fix is only dominant if it actually closes the loop; check it against the measured mechanism, not against elegance.",
-    "#my-loop-guard-went-false-after-the-first-iteration — bankIsFull stops being true the moment you free one slot, so \"free room while the bank is full\" freed exactly one. The tower stalled two shapes short: a quieter copy of the very deadlock I was fixing. The guard has to be the POSTCONDITION you want (room for the whole bill), never the state you are leaving.",
-    "#vitest-does-not-typecheck-so-my-tests-passed-on-a-type-that-does-not-exist — SparkType.Pentagon is undefined; eight assertions ran green against undefined cargo. tsc caught it, the test run never would have. Run tsc before believing a new test file.",
-    "#the-fallthrough-that-kept-an-idle-player-earning-spent-the-slots-an-active-player-had-just-freed — B4 nearest-of-any is correct for an unattended player and a leak for a directed one. A rule ruled for one regime should be suspended in the regime it was never ruled about, not deleted.",
-    "#the-owner-said-it-didnt-work-and-the-deploy-was-perfect — 0 unpushed, live hash byte-identical, verify-deploy 4/4, 0 console errors. Everything the pipeline could check was green; the game was simply unwinnable. Check the GAME, not the delivery, when a playtest fails."
+    "P0 #s146-council-told-me-to-delete-the-bots-supply-chain: BOTH external seats independently recommended retiring PULL_FROM_BANK as dead weight under a limitless inventory. botBrain.ts:161 + botController.ts:190 make PULL the ENTIRE bot supply chain (gatherer -> bank -> porch -> place); retiring it leaves every bot opponent unable to build, in every mode. Neither seat reads the codebase. Grep the consumers of anything a reviewer calls vestigial BEFORE agreeing.",
+    "P0 #s146-empirical-refutes-plausible-criticals: four confident Council claims about MY codebase, all refuted on disk in minutes — 'spatial-grid degeneration' (the grid had no consumer outside the function being deleted), 'an exact stack becomes unpickable, 65-80%' (pickSpark is a linear nearest-cursor scan that never touched the grid), 'mixed-version host migration corrupts the bank, 1 in 6' (protocol.ts hard-rejects version mismatch at HELLO, so the scenario is unreachable), and the PULL one above. Pattern now at 9 occurrences.",
+    "P1 #s146-the-forcing-function-caught-what-i-forgot: I added nextPulledSparkId to FIELD_COVERAGE as 'hashed' and never added it to the projection. stateHashFull.test.ts failed and NAMED the field. A registry that fails the build on omission is worth more than any amount of care — never route around one.",
+    "P2 #s146-length-is-six-even-when-empty: the e2e helpers read `bank.length` to mean 'how much is stored'. The inventory became a FIXED 6-entry tally indexed by SparkType, so .length is 6 for an EMPTY castle — every wait-for-stock helper would have passed instantly, forever, measuring nothing, all green. Changing a collection's SHAPE silently reinterprets every length/size read of it.",
+    "SESSION #s146-my-own-patch-deleted-the-thing-i-was-documenting: writing the roadmap replaced the span from '## 6. THE ROADMAP' to '## 7. ...' — and the owner's 30 rulings lived at '## 6A', BETWEEN those anchors. The doc still read as complete and coherent afterwards. Anchor-to-anchor replacement silently eats anything that moved in between; verify a span's CONTENTS, not just its endpoints.",
+    "SESSION #s146-an-audit-that-only-checks-rulings-misses-the-notes: audit pass 1 verified all 30 numbered rulings were covered and reported CLEAN, while the CASTLE WEAPON SYSTEM — a headline feature — had no session at all. It came from the owner's prose notes, not a numbered ruling, so the audit was structurally blind to it. An audit inherits the blind spots of whatever index it iterates; add a second lens over the ORIGINAL source.",
+    "SESSION #s146-the-feature-was-already-shipped: the owner specified an income model (scaled by tower complexity, degrading with remaining connectors, plain structures earning too) as if it were new work. scoring.ts has done exactly that since S76 — complexity = #prims + 2x#magicBonds, and it never cared whether the shapes formed a recipe. The 'new' requirement reduced to ONE phase guard. Check whether a requested mechanic already exists before scoping it as a build.",
+    "SESSION #s146-the-owner-corrected-my-reading-twice-and-both-mattered: I read the hand-drawn map as 'castles on a ring, which is what we already ship' (wrong — the ZONE is primary and the castle derives from it, changing haul distance 2.6x) and then as 'two variants of one layout' (wrong — a 1v1 pitch and a 4-player quadrant board). Both readings were confident and both were lazy pattern-matches onto what the code already did. When a drawing resembles the current system, that resemblance is the thing to distrust."
   ],
   "totals": {
     "budget_remaining": 1000000
   },
   "budget_total": 1000000,
   "e2e_gating_status": "41/41 (39 prior + 2 new in bank-deadlock.spec.ts). bomb.spec flaked once and passed on rerun — the documented placement flake.",
-  "closed": false,
+  "closed": true,
   "a0_deviation": "The A.0 sweep's adversarial re-check stage (24 independent re-verifications of every non-CONFIRMED verdict) and its synthesis agent ALL failed on an individual spend limit after the 10 probes completed. Probe payloads were recovered from journal.jsonl and triaged by Claude directly. STATED AS A DEVIATION, NOT PRESENTED AS COMPLIANCE: single-probe findings carry ONE source. The two highest-consequence findings (damageEntity dead code; CI red) were personally re-verified by Claude with direct greps and gh calls before being reported.",
   "ci_finding": "e2e.yml newest run 31366201100 = FAILURE, all 3 lanes, headSha 33 commits behind HEAD, predates two gating fixes. No push trigger exists so nothing re-runs it. Fresh workflow_dispatch on current HEAD = run 31509968212, result pending. deploy.yml is 3/3 success. gh issue list = empty.",
   "owner_rulings_s139": {
@@ -321,11 +321,11 @@
     "runtime_verifiability_boot_then_smoke": "THE decisive question for this session, given the headline A.0 finding was a whole subsystem that static-parsed perfectly and was never called. Static parsing is NOT validation here. Mandatory runtime gates before any priority is marked complete: (1) a REAL-PHYSICS acceptance test that runs the actual physics loop and asserts the goblin closes distance and the target primitive's hp actually decreases - a state-only assertion is not evidence (S136); (2) PHYSICS_DT imported from physicsLoop.ts, never re-derived, because constants.ts does not export it and a test once silently ran on NaN (S138); (3) an explicit assertion that damageEntity now HAS production call sites, i.e. the exact grep that exposed the dead substrate becomes a permanent test; (4) LOOK AT THE RENDER - a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches, and no state assertion can see 'nothing was drawn'.",
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
-  "real_context_tokens_at_close": 411700,
-  "real_context_pct_at_close": 41.17,
-  "checkpoint_commit": "76a6e28",
+  "real_context_tokens_at_close": 622712,
+  "real_context_pct_at_close": 62.27,
+  "checkpoint_commit": "36eb4b6",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
-  "analyze_completed": false,
+  "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
   "rule22_audit": "CLEAN. BUG-A: no unrendered ${VAR} placeholders in the session diff. BUG-B: all 7 new files exist and resolve. BUG-C: no dangling refs to the deleted radialDamage.ts (the surviving hits are a PARAMETER of that name; tsc 0 confirms). gh run list: no failures opened this session; gh issue list: empty. Six stale docs found and FIXED, one of which (voltkinFrames) would have caused a live art breakage AND shipped it, since public/** is in deploy.yml paths.",
   "deploy_verified_s139": "PASS 4/4 — REMOTE master == fd48d3d1; 1 run for fd48d3d1 (event=push); run 31583433645 concluded SUCCESS (checked explicitly, not inferred from absence-of-failure); LIVE entry asset == local build (index-CGwv_oyg.js) by content-hash equality.",
@@ -665,5 +665,12 @@
     "verbatim": "when you click on the gatherer it opens small menue like the castle has now and there is a line reading preference: closest and when you click it it toggles to preference:triangle, preference:spiral, Preference:square, etc etc etc... (the castle will only show the inventory of what has arrived and how many primitives it holds and what kinds (how many of each type). then to build the different towers or godlies you will have a footer with all of them shown and they become available once the castle holds the primitives that you need for that recipe. that way its truly like a classical tower defence (where all the towers are on the bottom footer band). makes mense? this simplifies things and makes it all separate and cleaner. you can use the already built specs (use what we already made just restructure the architecture based on what i said)",
     "reading": "RESTRUCTURE, not rebuild. Castle=inventory only. Footer=build bar gated on inventory, re-hosting the shipped castleStructuresModel affordability logic. Gatherer=standing pickup preference re-surfacing the shipped S141 order-queue targeting.",
     "supersedes": "The S145 build-grid ORDER button and the decant-to-make-room path: with limitless inventory there is no room to make, and the build tiles move to the footer."
+  },
+  "deploy_verified_s146": "4/4 at 7da9107, live entry index-d98_KqN1.js; run 31948817968 concluded success; content-hash equality confirmed.",
+  "analyze_s146": {
+    "calibration": "Predicted the inventory rework as the session. It was HALF the session — the owner pivoted the whole game mid-flight and the second half became design + planning. Correctly refused to build P3 (footer/gatherer menu) against a match structure that was being redefined; that was the single best scope call of the session.",
+    "process_finding": "My audit found more defects in MY OWN PLAN than in the code: a doc patch that deleted all 30 rulings, a headline feature (castle weapon system) with no session, and an R15/R24 contradiction. Auditing your own artifact with a mechanical check beats re-reading it.",
+    "what_i_would_do_differently": "Anchor-to-anchor document replacement is unsafe when sections can be inserted between the anchors. Should have replaced by explicit section boundary, or re-read the span before overwriting.",
+    "scope_discipline": "Two Rule-16 scope amendments recorded before execution (the castle/footer/gatherer restructure, then the full TD pivot). No ad-hoc implementation happened after the pivot — everything went into the plan instead."
   }
 }
