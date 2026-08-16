@@ -64,6 +64,7 @@ So no session stalls waiting on a decision.
 | Q9 | ⚠ **R15 vs R24 conflict** | R15 said *"simple towers for our archer and melee goblins"* (plural); R24 said **one** tower producing all six by shape. **R24 supersedes** — later and more specific. **One goblin tower, six outputs.** Flagged rather than silently resolved. |
 | Q10 | Tower dormancy — do towers keep HP through BUILD? | **[CLAUDE — overridable]** Yes. Damage persists across the cycle; that is what makes FIX (S152) matter. |
 | Q11 | Default target preference for a new tower | **[CLAUDE — overridable]** `NEAREST` — the current behaviour, so an unset tower behaves exactly as today. |
+| Q13 | Can tower orders be changed DURING the fight? | **[CLAUDE — overridable]** **Yes.** R26 already lets you feed the goblin tower mid-fight, so commanding mid-fight is the symmetric case — and without it the fight stage is something you watch rather than play. Re-targeting is a command, not a build, so it is not covered by "building stops". |
 | Q12 | Does the match start in BUILD? | **[CLAUDE — overridable]** Yes, a full 90 s BUILD, so nobody is attacked before they can build. |
 
 ---
