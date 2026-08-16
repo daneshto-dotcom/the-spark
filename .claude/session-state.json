@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1051,
+  "tool_calls_session_total": 1053,
   "session_id": "S145",
   "session_kind": "pdca-batch",
   "session_start": "2026-08-16",
@@ -8,7 +8,7 @@
   "phase": "ANALYZE",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-08-16_PDR_S145_BANK_DEADLOCK_IN-PROGRESS.md",
-  "session_status": "priorities_complete_pending_handoff",
+  "session_status": "closed",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -268,7 +268,7 @@
   },
   "budget_total": 1000000,
   "e2e_gating_status": "41/41 (39 prior + 2 new in bank-deadlock.spec.ts). bomb.spec flaked once and passed on rerun — the documented placement flake.",
-  "closed": false,
+  "closed": true,
   "a0_deviation": "The A.0 sweep's adversarial re-check stage (24 independent re-verifications of every non-CONFIRMED verdict) and its synthesis agent ALL failed on an individual spend limit after the 10 probes completed. Probe payloads were recovered from journal.jsonl and triaged by Claude directly. STATED AS A DEVIATION, NOT PRESENTED AS COMPLIANCE: single-probe findings carry ONE source. The two highest-consequence findings (damageEntity dead code; CI red) were personally re-verified by Claude with direct greps and gh calls before being reported.",
   "ci_finding": "e2e.yml newest run 31366201100 = FAILURE, all 3 lanes, headSha 33 commits behind HEAD, predates two gating fixes. No push trigger exists so nothing re-runs it. Fresh workflow_dispatch on current HEAD = run 31509968212, result pending. deploy.yml is 3/3 success. gh issue list = empty.",
   "owner_rulings_s139": {
