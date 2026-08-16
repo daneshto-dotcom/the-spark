@@ -1,5 +1,7 @@
 # PDR — S145 (BATCH, Full tier)
 
+**STATUS: COMPLETED** — all 4 priorities shipped, deploy verified 4/4 at `63c00e61` / live `index-Blrtx25J.js`.
+
 **Owner approval:** explicit, twice, in-session — *"I approve full session priority batch!"* and
 *"remember i approve full session batch"*. `unlock_source=user`.
 

@@ -1,88 +1,98 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-08-14 | Session: S144 | Commit: `6bebc98` | Branch: master | PROTOCOL_VERSION: **21**
+Generated: 2026-08-16 | Session: S145 | Commit: `e76fe5d` | Branch: master | PROTOCOL_VERSION: **21**
 
-**S144 answered the owner's playtest complaint. Clicking the castle used to show a panel with NO
-TOWERS IN IT — that was the "blob". It is now a 3×2 BUILD GRID: click a tower, it is built from your
-banked shapes, and your cursor carries it to where you want it. All six recipes, live and verified.**
+**S145 fixed the owner's "the playtest didnt work". The deploy was PERFECT — 0 unpushed, live hash
+byte-identical, verify-deploy 4/4, zero console errors — and the game was still unwinnable. Measured
+twice in a real browser with no seeding: the castle bank fills in ~46 s and its composition then
+FREEZES for 11,449 further ticks, every build tile reading "NEED n MORE" forever, ZERO towers ever
+built. A short build tile is now the ORDER button: one click orders the shortfall AND makes room for
+it. Owner flow verified end to end — bank jams, one click, tile lights in 15 s, tower built.**
 
-Deploy verified 4/4 (`index-nR6yeWrW.js`). tsc 0 · vitest **2430/2430** (157 files, was 2304/153) ·
-e2e:gating **39/39** (3 new click-to-build gating tests) · bundle 690.0 KiB (60.0 KiB headroom) ·
-**PROTOCOL_VERSION bumped 20 → 21** (new `BUILD_BLUEPRINT` client intent) · MCV 39/39 · Rule 22:
-41/41 cited symbols verified on disk.
+Deploy verified 4/4 (`index-Blrtx25J.js`, confirmed on spark-online.space itself, not just the
+github.io URL) · tsc 0 · vitest **2438/2438** (158 files) · e2e:gating **41/41** (was 39/39) ·
+bundle 691.5 KiB, charter raised 750 → **900** KiB · MCV 14/14, exit 0.
 
-## ⭐ WHY THE FEATURE WORKS THE WAY IT DOES
+## ⭐ WHY THE GAME WAS UNWINNABLE (the closed loop)
 
-"It builds it for you" could NOT mean minting a tower record. Every defender is re-validated against
-its recipe every `REVALIDATE_INTERVAL_TICKS` (0.5 s); a tower with no primitives under it fails the
-first poll and is deleted. So a blueprint stamps the recipe's **real primitives and bonds**, and the
-existing structural matcher ignites it exactly as if you had built it by hand. The player never sees
-this. It is why there is zero per-kind special-casing — defender, spawner and cinematic recipes all
-work through one mechanism.
+`pickGathererTarget` runs ONLY in `SEEKING`, and only when the current target is invalid. A gatherer
+that reached a full bank sat in `WAITING` holding cargo chosen **before** the player ordered anything.
+`WAITING`'s only exit was a successful deposit → which needed a free slot → which only freed by
+building → which needed a satisfied bill → which needed a composition change → which needed a
+delivery. So `orderForGatherer` could never reach a parked unit. **Measured: ordering the missing type
+twice through the real UI left the composition unchanged 60 s later with both orders still queued.**
+Freeing a slot by hand did not help either — the parked unit instantly refilled it with the STALE
+shape, not the ordered one.
 
-## ⭐ THE DEFECT THAT WOULD HAVE SHIPPED A DEAD FEATURE
+## ⭐ THE TWO FEATURES THAT SOLVED EACH OTHER AND HAD NEVER MET
 
-`runDefenderIgnition` and `runSpawnerIgnition` are called unconditionally every host tick, which makes
-them LOOK like structural scans. **They are not.** Each opens with its own `hasTopologyChange` sweep
-over `world.effects` and `if (!hasTopologyChange) return;`. Writing bonds directly with no
-`BOND_FORMED` emitted leaves **all six** recipes inert — no tower, no error, no log line. Caught only
-by reading the callee guards; reading the call site said the opposite (my first pass concluded "only
-voltkin is affected" — it was 6 of 6). **Do not remove the emit in `blueprintBuild.ts`.**
+The S141 gatherer order queue was the remedy for the S144 build-grid deadlock, and grep showed **zero
+references between them anywhere in the codebase**. Neither was broken alone. The defect lived in the
+gap, which is exactly where no unit test looks.
 
 ## WHAT TO DO NEXT
 
-1. **PLAYTEST THE BUILD GRID — the only thing waiting on you.** Open a castle, look at the 6 tiles,
-   click one, drag it, place it. ⭐ Then rule on **CF1 below**, which the playtest will hit immediately.
-2. **⚠ CF1 — a full bank can build NOTHING.** Measured in a real solo run: gatherers haul random
-   shapes, so the bank reaches **7/7 with every tile still reading "NEED n MORE"**, and a full bank
-   blocks new deliveries. The order queue is the intended remedy and porch shapes stay spendable, but
-   a 7-shape recipe needs the bank to be exactly those 7. **This is your `CASTLE_BANK_CAP` 7-vs-12/13
-   ruling, now forced by a shipped feature.** I did not pre-empt it.
-3. **Rule on the drag interpretation (CF4).** Shipped as classical-TD: the tower rides your cursor and
-   stamps on release. The literal reading of *"the spark drags it"* — build at the castle, then haul the
-   finished tower — needs dragging a BONDED component, which does not exist. New priority if you want it.
-4. **Stink Tower recipe shapes** are still a *Claude* ruling awaiting your blessing or retune.
-5. Then the roadmap: **V6-1.5 (hero unit)** → V6-1.6 → **V6-1.7, the boredom gate** — a designed STOP
-   SIGN, and everything in Phases 2–4 is provisional until it runs.
+1. **PLAYTEST — click a tower you cannot afford.** It should order the missing shapes, decant your
+   bank to the porch, and light up within ~15–25 s. Then click it again to build and drag it out.
+2. **⚠ CF1 — click-to-build under `?worker=1` SPENDS YOUR SHAPES AND BUILDS NOTHING.** 4 primitives
+   stamped, bank debited, `defenders: []`. PRE-EXISTING S144, invisible because no test ever ran the
+   build grid under the worker. Harmless today (`WORKER_DEFAULT_ON` false) — **a hard blocker on the
+   worker flip.** Root-cause lead + cheapest discriminator are in `session-state.json → carry_forward`.
+3. **CF2 — `CASTLE_BANK_CAP` 7 vs 12–13 is now only a PACING dial.** P1/P2 fixed the mechanism, so a
+   full bank is no longer terminal at any cap. `constants.ts` now records what cap 7 measurably cost,
+   so the ruling can argue from data. Still yours to make; NOT touched this session.
+4. Stink Tower recipe shapes — still a Claude ruling awaiting your blessing or retune.
+5. Then: seed `defenders` in the differential harness (last gate on the worker flip — but see CF1
+   first, it may be the bigger blocker), or V6-1.5 hero unit → V6-1.6 → V6-1.7 the boredom gate.
 
 ## ⚠ TRAPS
 
-- **NEVER import a recipe module for its constants.** Every `godlyRecipes/*` calls `registerRecipe` at
-  its tail, and via `world.ts → blueprintBuild.ts → blueprints.ts` that registers every recipe for
-  essentially the whole repo — which makes `recipeStillSatisfied`'s unregistered-recipe fallback
-  unreachable and breaks `defenderLifecycle.test.ts`. `blueprints.ts` MIRRORS four counts instead, with
-  `blueprints.test.ts` cross-checking them. A retune must update both.
-- **Hand-drag placement e2e tests are flaky** (15 s placement timeout). `bomb.spec` and `rainbow.spec`
-  each failed once this session and passed on rerun; final gating 39/39. I mis-attributed the first to
-  my own change on one-pass-one-fail evidence. **Do not bisect a single failure as a regression.**
-- **A run-level `cancelled` can hide TWO GREEN gating jobs** — audit JOB conclusions, never the run.
-  (Verified again this session on run 31738493370.)
-- **`e2e-quarantine` failing is EXPECTED** (~8 genuinely failing joiner tests). Do not chase it.
-- **`nextPrimitiveId` is frozen on a `?worker=1` mirror** — use `maxPrimitiveId` (S143 trap, still live).
-- **Look at the render.** 13 green layout assertions missed both a voltkin thumbnail rendering as
-  invisible specks AND the full-bank-builds-nothing finding. Screenshots caught both.
-- **Rebuild before `verify-deploy`.** Cap A.0 fan-out ≤3 agents. Run `/handoff`, never hand-write it.
+- **A green pipeline is not a playable game.** Everything the deploy could check was green while the
+  game was unwinnable. When a playtest fails, check the GAME, not the delivery.
+- **A test's workaround can be a bug report.** `click-to-build.spec.ts` seeds the bank, and its own
+  comment says why: *"a full bank of the wrong mix satisfies nothing."* That sentence WAS the defect,
+  written a session before it was diagnosed. `e2e/bank-deadlock.spec.ts` now covers the unseeded path.
+- **MCV `file_contains` wants `needle`, NOT `pattern`.** Objects with `pattern` parse fine and every
+  priority silently reads WEAK (hard_fail=18). The memory note says "assertion objects" — the KEY
+  matters too.
+- **vitest does not typecheck.** `SparkType.Pentagon` does not exist; 8 assertions ran green against
+  `undefined`. Run `tsc` before believing a new test file.
+- **Under `?worker=1`, `__SPARK__.world` is the RENDER MIRROR.** Seeding into it (the
+  `stink-tower.spec.ts` idiom) never reaches the authoritative world.
+- **NEVER import a `godlyRecipes/*` module for its constants** (S144 trap, still live) ·
+  **`nextPrimitiveId` is frozen on a worker mirror** — use `maxPrimitiveId` (S143 trap, still live).
+- **Hand-drag placement e2e is flaky** — `bomb.spec` failed once this session and passed on rerun. Do
+  NOT bisect a single failure as a regression. **`e2e-quarantine` failing is EXPECTED.**
+- **A run-level `cancelled` can hide GREEN jobs** — audit JOB conclusions, never the run.
+- **Rebuild before `verify-deploy`.** Run `/handoff`, never hand-write it.
 
 ## Pending Backlog
 
-22 entries in `session-state.json → carry_forward` (4 added this session: the full-bank finding, the
-placement flake, the recipe-import hazard, and the drag-interpretation flag). Still live from before:
-seed `defenders` in the differential harness (the last real gate on the sim-worker flip, which remains
-a ONE-CONSTANT change — `WORKER_DEFAULT_ON`), the deferred ranged goblin / producer towers, and the
-owner-gated set below.
+25 entries in `session-state.json → carry_forward` (3 new this session: CF1 the worker ignition
+blocker, CF2 the cap now being a pacing dial, CF3 the seeding-hides-failures sweep). Still live from
+before: the deferred ranged goblin / producer towers, and the owner-gated set below.
 
 ## Blockers (owner-gated — only you can rule these)
 
-1. ⚠ **`CASTLE_BANK_CAP` 7 vs 12–13** — two of your own rulings point OPPOSITE ways, and **CF1 now
-   forces the question**: at 7 a random full bank can build nothing.
-2. **R7 design library is not implementable as ruled** (per-browser localStorage cannot satisfy its own
-   host-validation contract). A design decision, not an implementation task.
-3. **Energy vs score as the currency** (V6-1.6) — score is already spendable; `player.energy` has zero reads.
+1. **`CASTLE_BANK_CAP` 7 vs 12–13** — no longer blocks playability, now a pacing choice (CF2).
+2. **R7 design library is not implementable as ruled** (per-browser localStorage cannot satisfy its
+   own host-validation contract). A design decision, not an implementation task.
+3. **Energy vs score as the currency** (V6-1.6) — `player.energy` still has zero reads.
 4. **The S139 goblin** — renders above fog + permanent ~120 px vision source. Unruled.
 5. **Stink Tower recipe shapes** — a Claude ruling awaiting blessing or retune.
 6. **Q6 bot starvation policy** — last open bot question.
 7. Standing: `origin/gh-pages` deletion · Pages `build_type` flip.
 
 ## Recent Reflexion (last 2 sessions)
+
+### S145 (2026-08-16)
+`#the-workaround-in-the-test-was-a-description-of-the-bug` ·
+`#two-features-that-solve-each-other-and-have-never-been-introduced` ·
+`#the-council-was-confidently-wrong-about-my-own-codebase-twice` ·
+`#groks-strictly-dominating-fix-did-not-fix-it` ·
+`#my-loop-guard-went-false-after-the-first-iteration` ·
+`#vitest-does-not-typecheck-so-my-tests-passed-on-a-type-that-does-not-exist` ·
+`#the-fallthrough-that-kept-an-idle-player-earning-spent-the-slots-an-active-player-had-just-freed` ·
+`#the-owner-said-it-didnt-work-and-the-deploy-was-perfect`
 
 ### S144 (2026-08-14)
 `#the-blob-was-not-ugly-the-towers-were-simply-absent` ·
@@ -93,11 +103,3 @@ owner-gated set below.
 `#one-pass-and-one-fail-is-not-attribution` ·
 `#my-own-safety-cleanup-made-the-feature-i-was-building-impossible` ·
 `#the-getter-lied-and-the-lie-looked-exactly-like-the-bug`
-
-### S143 (2026-08-13)
-`#three-sessions-called-it-throughput-and-it-was-an-unsatisfiable-assertion` ·
-`#the-error-message-is-why-it-stayed-unresolved-for-three-sessions` ·
-`#my-own-new-diagnostic-confidently-asserted-a-product-failure-that-did-not-exist` ·
-`#the-second-path-was-correct-only-by-accident` ·
-`#a-sum-cannot-see-a-per-family-hole` · `#the-fix-for-an-unforced-site-was-itself-unforced` ·
-`#i-invalidated-my-own-test-run-by-editing-source-during-it`

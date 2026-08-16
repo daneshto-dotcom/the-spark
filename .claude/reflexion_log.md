@@ -1,3 +1,27 @@
+## S145 (2026-08-16) — the playtest was right and the pipeline was green: a full bank was a hard deadlock
+
+4 of 4 priorities shipped, live, deploy 4/4. The owner reported "the playtest didnt work" while 0 commits were
+unpushed, the live hash was byte-identical to a local build and there were zero console errors. Measured twice in a
+real browser: the castle bank fills in ~46 s and its composition then FREEZES for 11,449 further ticks — every build
+tile "NEED n MORE" forever, zero towers ever built. Two shipped features each solved the other's problem and had
+never been wired together. Four self-caught defects, two found by the e2e rather than by reasoning.
+
+- #the-workaround-in-the-test-was-a-description-of-the-bug — click-to-build.spec.ts seeds the bank and its own comment says why: "a full bank of the wrong mix satisfies nothing". That sentence IS the defect. The suite was green and the shipped game was unplayable, because the workaround that made the test viable also made it blind. When a test comment explains why the real path is not testable, read it as a bug report.
+
+- #two-features-that-solve-each-other-and-have-never-been-introduced — the S141 order queue was the remedy for the S144 build grid deadlock, and grep showed ZERO references between them. Neither was broken alone. The defect lived in the gap, which is exactly where no unit test looks.
+
+- #the-council-was-confidently-wrong-about-my-own-codebase-twice — GEMINI staked its strongest challenge on "you cannot satisfy an 8-shape bill from a 7-slot bank" (bank u porch = 11, and voltkin@8 is literally why it exists) and on "host-only mutation = desync" (this is snapshot-authoritative, not lockstep). Both were reasoned from my prompt rather than the code. Verify every cited mechanism before adopting a REJECT.
+
+- #groks-strictly-dominating-fix-did-not-fix-it — "drop stale cargo and re-seek" repairs staleness, but the bank is still FULL so the correct shape cannot be deposited either. A simpler fix is only dominant if it actually closes the loop; check it against the measured mechanism, not against elegance.
+
+- #my-loop-guard-went-false-after-the-first-iteration — bankIsFull stops being true the moment you free one slot, so "free room while the bank is full" freed exactly one. The tower stalled two shapes short: a quieter copy of the very deadlock I was fixing. The guard has to be the POSTCONDITION you want (room for the whole bill), never the state you are leaving.
+
+- #vitest-does-not-typecheck-so-my-tests-passed-on-a-type-that-does-not-exist — SparkType.Pentagon is undefined; eight assertions ran green against undefined cargo. tsc caught it, the test run never would have. Run tsc before believing a new test file.
+
+- #the-fallthrough-that-kept-an-idle-player-earning-spent-the-slots-an-active-player-had-just-freed — B4 nearest-of-any is correct for an unattended player and a leak for a directed one. A rule ruled for one regime should be suspended in the regime it was never ruled about, not deleted.
+
+- #the-owner-said-it-didnt-work-and-the-deploy-was-perfect — 0 unpushed, live hash byte-identical, verify-deploy 4/4, 0 console errors. Everything the pipeline could check was green; the game was simply unwinnable. Check the GAME, not the delivery, when a playtest fails.
+
 ## S144 (2026-08-14) — the castle "blob" became a TD build grid: click a tower, drag it, place it
 
 3 of 3 priorities shipped, live, deploy 4/4. The owner's playtest complaint was not that the castle panel was
@@ -101,24 +125,3 @@ the standing "only the owner can verify a bump" ritual was false and is now a de
 - #the-generalised-method-found-a-second-bug-the-specific-fix-would-have-missed - comparing mutable fields against serializer output found a 65-session-old debuff hole. Fix the class, not the instance.
 
 - #cap-the-fan-out-third-consecutive-session - 7 agents died on the spend limit with ZERO recoverable results; 3 tight probes landed 3/3. Read the highest-risk area by hand FIRST.
-
-## S141 (2026-08-13) — the Stink Tower + the gatherer order queue + PROTOCOL 19→20
-
-⚠ RECOVERED IN S142: these entries were written to session-state at S141 close but NEVER appended to this log —
-the exact silent-loss class STEP 2.8.A exists to prevent. Restored verbatim from git (cb7b891).
-
-- P1 #two-seats-rejected-the-same-thing-and-both-fixes-were-wrong: Both Council seats independently rejected the Stink Tower recipe on the same real ground — a Square dropped among three loose Circles auto-bonds into a match. Unanimity on the FINDING did not transfer to the FIX. Gemini proposed requiring the hub to have no bonds outside the component: a provable NO-OP, because componentOf follows every bond so an outside bond already pushes the size past 4. Grok proposed requiring degree-1 leaves: that REINTRODUCES the documented frequent-silent-no-build both shipped stars loosened their gates to avoid. Two independent reviewers agreeing raises confidence in the problem, not in their remedy — price those separately.
-
-- P1 #the-severe-bug-lived-in-the-interaction-neither-seat-was-shown: D1 and D2 were reviewed as separate decisions and each was survivable alone. Together they were not: the recipe is easy to build by accident, an accidental tower self-removes when the player keeps building, and the shared death hook would have detonated on the player's OWN structure at exactly that moment. Neither seat found it because neither was asked about the pair. When decisions touch the same object, review the CROSS PRODUCT, not the list. The fix — derive destroyed-vs-deconstructed from whether the ANCHOR IS GONE — makes the bad case unrepresentable rather than merely guarded against.
-
-- P1 #a-tsc-forcing-function-can-be-satisfied-without-doing-anything: stateHashFull has a NoUncovered guard that fails the build naming any unclassified field — and it fired correctly for bagsRemaining. But the actual hash PROJECTION is a hand-written string template with no executable link to that union. Adding the name to the union silences tsc while leaving the field UNHASHED, so the determinism oracle goes blind exactly where you thought you had just made it sighted. A forcing function proves someone was ASKED the question, never that they answered it in the place that runs.
-
-- P2 #backlog-named-the-wrong-function-twice-and-the-feature-would-have-no-opped: Both B4's ruling table and the V6-1.4 slot say to put the queue predicate on `pickTargetSpark`. That is the BOT AVATAR's porch-only picker; it takes an rng and is never called for a gatherer. Wiring it there would have silently changed bot cruiser behaviour and left gatherers untouched — the feature would ship, pass review, and DO NOTHING. A spec naming a symbol is a hypothesis; grep the call graph before believing it.
-
-- P2 #the-mechanic-the-ruling-forbids-was-already-shipped: B4 says in bold "DO NOT IMPLEMENT A PREDICATE/FILTER", and V6-1.2 had shipped exactly that as SET_GATHERER_PREFERENCE, with ABSOLUTE priority over distance. Nobody noticed for six sessions because the ruling lived in BACKLOG and the violation lived in code, and no one had cause to read both at once. Before building what a ruling asks for, check whether its explicit prohibition is already running.
-
-- P4 #a-line-citation-drifted-twice-inside-the-session-that-was-fixing-it: Ten places cited main.ts:1706 for the hash call site. A.0 measured the truth as 1766. By the time I went to correct them it was 1793 — moved by MY OWN edits, in the same session. Renumbering would have shipped a fact with a half-life of hours. They are now symbol-anchored. A reference that decays from unrelated work is not documentation, it is a maintenance liability that regenerates its own backlog entry.
-
-- P4 #a-stale-comment-can-be-an-instruction-to-break-production: voltkinFrames.ts stated two PNGs "were deleted in S107 P3". They are git-tracked, ship in dist/, and are loaded by six production modules. A dead-asset cleanup driven by that sentence would have broken live art with tsc AND the bundle gate green (they are string literals, invisible to both) — and public/** is in deploy.yml's paths filter, so the deletion would have deployed itself. The dangerous stale comment is not the one that is merely wrong; it is the one that reads as a licence to act.
-
-- P0 #cap-the-a0-fan-out-or-it-eats-the-session: The A.0 workflow spawned 31 agents and hit the individual spend limit mid-run: 6 of 7 probes landed, every adversarial verification died, 1.85M subagent tokens spent. This is the SECOND consecutive session to lose work this way (S140 lost a 10-agent Council entirely). What saved it was that probe results are journalled per agent, so the six that finished were fully recoverable, and the missing probe was the one area I had already read by hand. Budget the fan-out, and read the highest-risk area yourself first so a partial A.0 still leaves you standing.
