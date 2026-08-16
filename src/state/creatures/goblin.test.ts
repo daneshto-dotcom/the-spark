@@ -22,7 +22,6 @@ import { describe, expect, it } from 'vitest';
 import { makeWorld, dispatch, type World } from '../world.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from '../hostTick.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../../game/spawner.ts';
-import { SpatialGrid } from '../../physics/spatial.ts';
 import { makeGameStateExtras } from '../gameState.ts';
 import { mulberry32 } from '../rng.ts';
 import { hashWorldStateFull } from '../stateHashFull.ts';
@@ -46,7 +45,6 @@ const stubControls = { state: { kind: 'Idle' }, applyPerSubstep() {} } as unknow
 function deps(seed = 1): HostTickDeps {
   return {
     spawner: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(seed)),
-    grid: new SpatialGrid(32),
     controls: stubControls,
     botManager: null,
     gameStateExtras: makeGameStateExtras(),

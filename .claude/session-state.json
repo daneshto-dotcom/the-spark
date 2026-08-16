@@ -1,14 +1,14 @@
 {
-  "tool_calls_session_total": 1068,
-  "session_id": "S145",
+  "tool_calls_session_total": 1106,
+  "session_id": "S146",
   "session_kind": "pdca-batch",
   "session_start": "2026-08-16",
-  "prior_session_note": "S144 CLOSED at 5952434 — click-to-build build grid + drag-to-place shipped, deploy 4/4.",
+  "prior_session_note": "S145 closed 4/4. S146 redirected by owner mid-boot: limitless counts inventory + remove loose-spark repulsion + stink tower blessing.",
   "prior_session_archive": ".handoff-archive/HANDOFF_S138.md",
-  "phase": "ANALYZE",
+  "phase": "DO",
   "tier": "Full",
-  "plan_file": ".claude/plans/2026-08-16_PDR_S145_BANK_DEADLOCK_IN-PROGRESS.md",
-  "session_status": "closed",
+  "plan_file": ".claude/plans/2026-08-16_PDR_S146_limitless_inventory_no_repulsion.md",
+  "session_status": "in_progress",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
@@ -132,122 +132,48 @@
   "priorities": [
     {
       "id": 1,
-      "title": "Break the full-bank deadlock — bank swap on ordered delivery",
-      "status": "completed",
-      "check_completed": true,
-      "check_method": "RALPH:PATROL + empirical. tsc clean; vitest 2438/2438 (158 files, +8 new in gathererWaitingRelease.test.ts). Mechanism re-verified in a REAL browser: probe2 re-run on the fixed code flipped \"any tile buildable now?\" from NO to YES with stinkTower enabled, because the WAITING gatherer parked its stale cargo on the porch and the porch counts toward the bill. The strict-ordering repair was itself driven by a diagnostic timeline (probe3) showing 3 of 4 player-freed slots being spent on unordered shapes.",
-      "checkpoint_commit": "bb32079",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/gatherers/gathererLifecycle.ts",
-          "needle": "shouldReleaseWaitingCargo"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/gatherers/gathererLifecycle.ts",
-          "needle": "parkCargoOnPorch"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/gatherers/gathererLifecycle.ts",
-          "needle": "pendingOrderCount"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/gatherers/gathererWaitingRelease.test.ts",
-          "needle": "the spin-loop"
-        }
-      ],
+      "name": "Kill loose-spark repulsion (resolveCollisions on freeSparks)",
+      "status": "in_progress",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
     },
     {
       "id": 2,
-      "title": "Wire the build grid to the order queue — a short tile orders its missing shapes",
-      "status": "completed",
-      "check_completed": true,
-      "check_method": "RALPH:PATROL + empirical acceptance. e2e:gating 41/41 (was 39/39; +2 new in bank-deadlock.spec.ts). OWNER-FLOW acceptance probe, solo, ZERO seeding: bank jams at tick 2338 [1,1,1,3,3,4,5] stinkTower NEED 2 MORE; ONE click -> orders [4,4], bank 7->5, porch [1,4]; tile lit 15 s later; click+place -> defenders [\"stinkTower\"], survives revalidation; 0 page errors. Two silent defects in my own first cut were caught by the e2e and fixed: the bankIsFull loop guard freed only one slot, and one click was not enough.",
-      "checkpoint_commit": "994f734",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/render/castlePanel.ts",
-          "needle": "setRequestShapesHandler"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/castlePanel.ts",
-          "needle": "CLICK TO ORDER THE MISSING SHAPES"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "setRequestShapesHandler"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/bank-deadlock.spec.ts",
-          "needle": "THE WHOLE POINT"
-        }
-      ],
+      "name": "Limitless per-SparkType counts inventory; castle panel = inventory ONLY; PULL mint; PROTOCOL 21->22",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
     },
     {
       "id": 3,
-      "title": "Full coherence audit of the new game state",
-      "status": "completed",
-      "check_completed": true,
-      "check_method": "RALPH:PATROL audit sweep + empirical worker-mode probe. Clean: 0 TODO/FIXME/unimplemented in src/; all 21 CLIENT_INTENT_TYPES have a real dispatch site (no unfinished pathways). 3 findings fixed: (a) my own P2 room-making loop was host-only — it re-read bankCount after each dispatch, which cannot move under postIntent/wire, so only ONE pull was sent off-host; now computed up front, verified live under ?worker=1 (one click -> orders, bank 7->5, tile lit 25 s later); (b) the V6-1.3 WAITING owner-ruling comment implied WAITING was terminal, now false; (c) CASTLE_BANK_CAP docblock now records the real pool (cap + porch = 11) and what cap 7 measurably cost. Bundle charter 750->900 on the build script own instruction (58.5 KiB headroom warning). tsc clean, vitest 2438/2438, e2e:gating 41/41 (bomb.spec flaked once, passed on rerun — documented trap, not bisected).",
-      "checkpoint_commit": "63c00e6",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "THE COUNT IS COMPUTED UP FRONT"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/main.ts",
-          "needle": "CASTLE_PORCH_SLOTS"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/gatherers/gathererLifecycle.ts",
-          "needle": "WAITING IS NO LONGER UNCONDITIONALLY TERMINAL"
-        },
-        {
-          "type": "file_contains",
-          "path": "scripts/check-bundle-size.mjs",
-          "needle": "CAP_KIB = 900"
-        },
-        {
-          "type": "file_contains",
-          "path": "LOCKED_DECISIONS.md",
-          "needle": "raised 750→900 S145"
-        }
-      ],
+      "name": "FOOTER build band — all towers/godlies, enabled by castle inventory (re-host castleStructuresModel)",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
     },
     {
       "id": 4,
-      "title": "Ship — build, tests, e2e gating, push, verify live",
-      "status": "completed",
-      "check_completed": true,
-      "check_method": "Shipped and verified on the real site. 3 commits pushed (bb32079, 994f734, 63c00e6), 0 unpushed. All 3 deploy runs concluded success (31942852777, 31943692389). verify-deploy 4/4 — remote/run/verdict/live agree at 63c00e61, live entry index-Blrtx25J.js by content-hash equality. spark-online.space (the URL the owner actually plays, NOT the github.io one verify-deploy probes) independently confirmed serving index-Blrtx25J.js. Live-site smoke on the production build: canvas renders, 0 page errors and 0 console errors over ~30 s of play.",
-      "checkpoint_commit": "63c00e6",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": ".claude/session-state.json",
-          "needle": "index-Blrtx25J.js"
-        }
-      ],
+      "name": "Gatherer click menu — PREFERENCE: CLOSEST/TRIANGLE/SPIRAL/... standing per-gatherer preference",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 5,
+      "name": "Stink tower — owner blessing recorded, confirm buildable + visible",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": 6,
+      "name": "Ship — build, tsc, vitest, e2e:gating, push, verify-deploy 4/4",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
@@ -268,7 +194,7 @@
   },
   "budget_total": 1000000,
   "e2e_gating_status": "41/41 (39 prior + 2 new in bank-deadlock.spec.ts). bomb.spec flaked once and passed on rerun — the documented placement flake.",
-  "closed": true,
+  "closed": false,
   "a0_deviation": "The A.0 sweep's adversarial re-check stage (24 independent re-verifications of every non-CONFIRMED verdict) and its synthesis agent ALL failed on an individual spend limit after the 10 probes completed. Probe payloads were recovered from journal.jsonl and triaged by Claude directly. STATED AS A DEVIATION, NOT PRESENTED AS COMPLIANCE: single-probe findings carry ONE source. The two highest-consequence findings (damageEntity dead code; CI red) were personally re-verified by Claude with direct greps and gh calls before being reported.",
   "ci_finding": "e2e.yml newest run 31366201100 = FAILURE, all 3 lanes, headSha 33 commits behind HEAD, predates two gating fixes. No push trigger exists so nothing re-runs it. Fresh workflow_dispatch on current HEAD = run 31509968212, result pending. deploy.yml is 3/3 success. gh issue list = empty.",
   "owner_rulings_s139": {
@@ -340,7 +266,7 @@
   "real_context_pct_at_close": 41.17,
   "checkpoint_commit": "76a6e28",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
-  "analyze_completed": true,
+  "analyze_completed": false,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
   "rule22_audit": "CLEAN. BUG-A: no unrendered ${VAR} placeholders in the session diff. BUG-B: all 7 new files exist and resolve. BUG-C: no dangling refs to the deleted radialDamage.ts (the surviving hits are a PARAMETER of that name; tsc 0 confirms). gh run list: no failures opened this session; gh issue list: empty. Six stale docs found and FIXED, one of which (voltkinFrames) would have caused a live art breakage AND shipped it, since public/** is in deploy.yml paths.",
   "deploy_verified_s139": "PASS 4/4 — REMOTE master == fd48d3d1; 1 run for fd48d3d1 (event=push); run 31583433645 concluded SUCCESS (checked explicitly, not inferred from absence-of-failure); LIVE entry asset == local build (index-CGwv_oyg.js) by content-hash equality.",
@@ -655,5 +581,30 @@
     "process_finding": "The MCV binding error recurred for the 4th time (S125, S126, S142, S144, now S145) DESPITE a dedicated memory file about it. The memory said entries are objects \"{type, path, pattern/needle}\" — that slash is exactly the ambiguity that bit: file_contains reads a[\"needle\"] and nothing else, so \"pattern\" parses fine and silently yields WEAK on every priority (hard_fail=18). The memory has been corrected to name the key unambiguously rather than offer two.",
     "what_i_would_do_differently": "Run the acceptance probe (owner flow, zero seeding) BEFORE writing the fix, not after. I built P1, then P2, then discovered via probe3 that unordered deliveries were eating the freed slots — a third repair. Had I scripted the owner-flow probe first and watched it fail, the strict-ordering requirement would have been visible in the design rather than discovered in the third iteration.",
     "scope_discipline": "One genuine new defect (CF1, ?worker=1 ignition) was found during the P3 audit and deliberately NOT fixed: different subsystem, determinism-critical, zero live blast radius, and the owner was asleep. Traced to a root-cause lead and logged with a discriminator instead. Rule 16 respected — no silent scope expansion."
+  },
+  "owner_directive_s146": {
+    "verbatim_repulsion": "the primitives push each other off like an antimagnet which becomes a mess after there are too many of them in spawn zone or outside (when you click on your castle and they spawn outside - then when you click to drag one it pushes the other out of the way). before we left it as a spec so you can grab one and push others away but now that we have gatherers there is no use for that anymore",
+    "verbatim_inventory": "we will continue developing this by giving the castle limitless primitive place in the inventory. and instead of putting them in their own boxes within the castle just hold the 6 shape parts and show how many you have of each as the gatherer collects them by showing for example spiral x 6, square x 2, etc... seeing how it is more of a tower defence we need to allow for that so that you can actually use the codex library to build your shapes",
+    "verbatim_process": "dont argue with me or run council about wether to implement it or not i said make it happen so make it happen, you can run council on how to make it happen if needed",
+    "verbatim_stink": "i approve the stink tower art for now just build it!",
+    "supersedes": "CF2 (CASTLE_BANK_CAP 7 vs 12-13) is RULED: limitless. The cap is deleted, not retuned."
+  },
+  "council_s146": {
+    "scope": "HOW ONLY, per explicit owner instruction not to deliberate WHETHER.",
+    "seats": "GROK-PLAN (grok-4.20-0309-reasoning) + GEMINI-AUDITOR (gemini-3.1-pro-preview) + Claude",
+    "converged": "delete loose-spark repulsion; counts-only inventory; PROTOCOL bump 21->22; keep the gatherer WAITING case but force an exit so a restored unit cannot strand; fixed-key/sorted hashing.",
+    "prime_audit_refutations": [
+      "REFUTED spatial-grid degeneration: grid.insertAll/forEachNearbyPair appear ONLY inside resolveCollisions; nothing else queries the grid (vortex.ts:64 declines to). Deleting collision removes its only consumer.",
+      "REFUTED unpickable stack (Grok 65-80%, Gemini permanent shielding): controls.ts:786 pickSpark is a linear nearest-cursor scan over freeSparks, never the grid, and skips non-Free — so a stack peels one per click.",
+      "REFUTED mixed-version host-migration corruption (Grok 1-in-6): protocol.ts hard-rejects version mismatch at HELLO, so peers of differing PROTOCOL_VERSION can never share a match.",
+      "REFUTED retire PULL_FROM_BANK (BOTH seats recommended it): botBrain.ts:161 + botController.ts:190 make PULL the entire bot supply chain. Retiring it leaves every bot unable to build. PULL is KEPT and re-implemented with a negative-descending mint id space."
+    ],
+    "kept_from_council": "counts-vs-entity wire cost; deterministic fixed-key hashing; the stranded-FSM-state warning."
+  },
+  "scope_amendment_1_s146": {
+    "rule": "Rule 16 SCOPE AMENDMENT — owner follow-up expanding scope, recorded before execution.",
+    "verbatim": "when you click on the gatherer it opens small menue like the castle has now and there is a line reading preference: closest and when you click it it toggles to preference:triangle, preference:spiral, Preference:square, etc etc etc... (the castle will only show the inventory of what has arrived and how many primitives it holds and what kinds (how many of each type). then to build the different towers or godlies you will have a footer with all of them shown and they become available once the castle holds the primitives that you need for that recipe. that way its truly like a classical tower defence (where all the towers are on the bottom footer band). makes mense? this simplifies things and makes it all separate and cleaner. you can use the already built specs (use what we already made just restructure the architecture based on what i said)",
+    "reading": "RESTRUCTURE, not rebuild. Castle=inventory only. Footer=build bar gated on inventory, re-hosting the shipped castleStructuresModel affordability logic. Gatherer=standing pickup preference re-surfacing the shipped S141 order-queue targeting.",
+    "supersedes": "The S145 build-grid ORDER button and the decant-to-make-room path: with limitless inventory there is no room to make, and the build tiles move to the footer."
   }
 }

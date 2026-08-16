@@ -44,7 +44,6 @@ import {
   type ControlsLike,
   type ControlState,
 } from '../input/controlsCore.ts';
-import { SpatialGrid } from '../physics/spatial.ts';
 import { makeGameStateExtras, type GameStateExtras } from './gameState.ts';
 import {
   makeWorkerCinematicState,
@@ -62,8 +61,6 @@ import { tickSudoku } from './sudokuEvent.ts';
 import { dispatch, makeWorld, type GameAction, type World } from './world.ts';
 import { asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
 
-// The host grid cell size — mirrors main.ts's module-const SPATIAL_CELL_SIZE (=32, main.ts:164).
-const SPATIAL_CELL_SIZE_MIRROR = 32;
 
 // ── Message protocol ────────────────────────────────────────────────────────────────────
 
@@ -168,7 +165,6 @@ export class WorkerControls implements ControlsLike {
 export interface WorkerSim {
   readonly world: World;
   readonly spawner: Spawner;
-  readonly grid: SpatialGrid;
   readonly controls: WorkerControls;
   readonly gameStateExtras: GameStateExtras;
   readonly hostTickState: HostTickState;
@@ -243,7 +239,6 @@ export function makeWorkerSim(
   const sim: WorkerSim = {
     world,
     spawner,
-    grid: new SpatialGrid(SPATIAL_CELL_SIZE_MIRROR),
     controls: new WorkerControls(world, asPlayerId(init.localPlayerId)),
     gameStateExtras: makeGameStateExtras(),
     hostTickState: makeHostTickState(world),
@@ -472,7 +467,6 @@ export function applyTickBatch(
   sim.controls.setFrame(batch.control);
   const deps: HostTickDeps = {
     spawner: sim.spawner,
-    grid: sim.grid,
     controls: sim.controls,
     // S123 P1 — worker-authoritative bots: ticked inside runHostTick at the exact
     // direct-path site (hostTick.ts), same dispatch-only actuation + gates.

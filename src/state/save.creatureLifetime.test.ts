@@ -49,7 +49,6 @@ import { makeGameStateExtras } from './gameState.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from './hostTick.ts';
 import { mulberry32 } from './rng.ts';
 import { DEFAULT_SPAWNER_CONFIG, Spawner } from '../game/spawner.ts';
-import { SpatialGrid } from '../physics/spatial.ts';
 import type { ControlsLike } from '../input/controlsCore.ts';
 import {
   asCreatureId,
@@ -216,7 +215,6 @@ describe('S134 P1 — creature lifetime survives serialization', () => {
 
     const deps: HostTickDeps = {
       spawner: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(1)),
-      grid: new SpatialGrid(32),
       controls: { state: { kind: 'Idle' }, applyPerSubstep() {} } as unknown as ControlsLike,
       botManager: null,
       gameStateExtras: makeGameStateExtras(),
@@ -252,7 +250,6 @@ describe('S134 P1 — creature lifetime survives serialization', () => {
 
     const deps: HostTickDeps = {
       spawner: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(1)),
-      grid: new SpatialGrid(32),
       controls: { state: { kind: 'Idle' }, applyPerSubstep() {} } as unknown as ControlsLike,
       botManager: null,
       gameStateExtras: makeGameStateExtras(),

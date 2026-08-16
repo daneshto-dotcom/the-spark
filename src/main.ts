@@ -11,7 +11,7 @@
  *       verletStepAll
  *       solveBonds
  *       enforceBounds              (only for Free sparks)
- *       resolveCollisions
+ *       [S146 P1 — the spark<->spark collision pass was REMOVED by owner ruling]
  *
  * S15 P2 (§ 11 LOCKED): gameState FSM extended with TITLE + LOBBY screens
  * for 1v1 networked play via Trystero. Boot enters TITLE; user picks
@@ -92,7 +92,6 @@ import {
   HOST_STARVATION_MS,
 } from './net/succession.ts';
 import { formatStrategySummary } from './net/strategySummary.ts';
-import { SpatialGrid } from './physics/spatial.ts';
 // S50 P2 — physics tick orchestration extracted to physicsLoop.ts (Council
 // Standard-tier refactor, Battle Ledger C2). main.ts pre-S50 was 1221 LOC;
 // stepPhysics + enforceFreeSparkCap + freeSparkArray + PHYSICS_DT/SUBSTEP_DT
@@ -220,7 +219,6 @@ import { isSimWorkerRequestedHere } from './workerFlag.ts';
 
 // S50 P2 — PHYSICS_DT / SUBSTEP_DT extracted to physicsLoop.ts; PHYSICS_DT
 // re-imported (above) for the outer ticker accumulator.
-const SPATIAL_CELL_SIZE = 32;
 const P1 = asPlayerId(0);
 
 // S119 P1 — CHEWER_SEEK_RESELECT_TICKS moved to state/hostTick.ts with the
@@ -718,7 +716,6 @@ async function bootstrap(): Promise<void> {
   // (constructed after the HUD, main-stage container, not aboveFogLayer). Its drain is PRE-WIPE
   // and lives beside hud.drainTierBanner — see the ordering block further down.
   const severToastRenderer = new SeverToastRenderer(app);
-  const grid = new SpatialGrid(SPATIAL_CELL_SIZE);
 
   // ===== S22 P3 — godly cinematic overlay + counter-window vignette + Codex =====
   // S104 P3 / S105 P2 — every godly/tower shows a PRECISE, checkable build recipe (even locked).
@@ -1600,7 +1597,6 @@ async function bootstrap(): Promise<void> {
     // empirically re-verified per-tick-vs-per-frame in hostTick.differential.test.ts).
     const hostTickDeps: HostTickDeps = {
       spawner,
-      grid,
       controls,
       botManager,
       gameStateExtras,

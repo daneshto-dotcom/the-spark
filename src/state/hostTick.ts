@@ -54,7 +54,6 @@ import {
 import type { ControlsLike } from '../input/controlsCore.ts';
 import { computeStubTargetPos } from '../physics/creatureVerlet.ts';
 import { stepPhysics } from '../physics/physicsLoop.ts';
-import type { SpatialGrid } from '../physics/spatial.ts';
 import {
   bondMidpoint,
   findNearestBondTarget,
@@ -94,7 +93,6 @@ const CHEWER_SEEK_RESELECT_TICKS = 6;
 /** Everything the host tick needs from the main thread, as plain data/handles. */
 export interface HostTickDeps {
   spawner: Spawner;
-  grid: SpatialGrid;
   controls: ControlsLike;
   /** Null until a VS-BOTS match starts (lazy chunk); read fresh per frame. */
   botManager: BotManager | null;
@@ -138,7 +136,7 @@ export function makeHostTickState(world: World): HostTickState {
  */
 export function runHostTick(world: World, deps: HostTickDeps, state: HostTickState): void {
   if (world.gameState === 'PLAYING') {
-    stepPhysics(world, deps.spawner, deps.grid, deps.controls);
+    stepPhysics(world, deps.spawner, deps.controls);
   } else {
     world.tick++;
   }

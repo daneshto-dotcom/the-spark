@@ -20,7 +20,6 @@ import {
 import { makeFreeSpark, type Spark } from '../../game/spark.ts';
 import { DEFAULT_SPAWNER_CONFIG, Spawner } from '../../game/spawner.ts';
 import { stepPhysics } from '../../physics/physicsLoop.ts';
-import { SpatialGrid } from '../../physics/spatial.ts';
 import { mulberry32 } from '../rng.ts';
 import type { ControlsLike } from '../../input/controlsCore.ts';
 import { asPlayerId, asSparkId, type SparkId } from '../../types.ts';
@@ -56,11 +55,10 @@ function addSpark(w: World, id: number, pos: { x: number; y: number }, escrow?: 
 /** Run the REAL physics step (reap + cap + spawner bounds all live inside it). */
 function runPhysics(w: World, ticks = 2): void {
   const spawner = new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(1));
-  const grid = new SpatialGrid(32);
   const stubControls = { state: { kind: 'Idle' }, applyPerSubstep() {} } as unknown as ControlsLike;
   for (let i = 0; i < ticks; i++) {
     w.tick++;
-    stepPhysics(w, spawner, grid, stubControls);
+    stepPhysics(w, spawner, stubControls);
   }
 }
 

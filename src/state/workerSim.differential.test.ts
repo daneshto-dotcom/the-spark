@@ -19,7 +19,6 @@ import { describe, expect, it } from 'vitest';
 import { BotManager } from '../bots/botManager.ts';
 import type { BotDifficulty } from '../bots/botTypes.ts';
 import { DEFAULT_SPAWNER_CONFIG, Spawner } from '../game/spawner.ts';
-import { SpatialGrid } from '../physics/spatial.ts';
 import { makeGameStateExtras } from './gameState.ts';
 import {
   makeWorkerCinematicState,
@@ -93,7 +92,6 @@ function buildReferenceRig(world: World, botManager: BotManager | null = null): 
     mulberry32(4),
     mulberry32(5),
   );
-  const grid = new SpatialGrid(32);
   const controls = new WorkerControls(world, P0);
   const gameStateExtras = makeGameStateExtras();
   const hostTickState = makeHostTickState(world);
@@ -112,7 +110,6 @@ function buildReferenceRig(world: World, botManager: BotManager | null = null): 
       controls.setFrame(batch.control);
       const deps: HostTickDeps = {
         spawner,
-        grid,
         controls,
         botManager,
         gameStateExtras,

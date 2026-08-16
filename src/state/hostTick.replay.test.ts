@@ -18,7 +18,6 @@ import { PLAYER_COLORS } from '../constants.ts';
 import { BotManager } from '../bots/botManager.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../game/spawner.ts';
 import type { Controls } from '../input/controls.ts';
-import { SpatialGrid } from '../physics/spatial.ts';
 import { makeGameStateExtras } from './gameState.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps, type HostTickState } from './hostTick.ts';
 import { mulberry32 } from './rng.ts';
@@ -56,7 +55,6 @@ function buildBotsRig(seed: number): HostRig {
   dispatch(world, { type: 'START_GAME', mode: 'bots', isHost: true, roster, botSeats: [1, 2] });
   const deps: HostTickDeps = {
     spawner: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(seed)),
-    grid: new SpatialGrid(32),
     controls: stubControls,
     botManager: new BotManager(['MID', 'HARD'], seed),
     gameStateExtras: makeGameStateExtras(),

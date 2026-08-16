@@ -16,8 +16,34 @@
  *   3. TICK_ENERGY for each player
  *   4. computeTerritorialInfluence (S49 Sym F, per-tick not per-substep)
  *   5. PHYSICS_SUBSTEPS × [controls per-substep + verletStepAll + solveBonds +
- *      enforceSpawnerBounds + resolveCollisions]
+ *      enforceSpawnerBounds]
  *   6. world.tick++
+ *
+ * ⛔ S146 P1 — THERE IS NO SPARK↔SPARK COLLISION PASS ANY MORE, BY OWNER RULING.
+ *
+ * `resolveCollisions` used to run here, 8 iterations per substep, pushing overlapping FREE sparks
+ * apart along their separation vector. The owner played it and reported it as a defect, verbatim:
+ * *"the primitives push each other off like an antimagnet which becomes a mess after there are too
+ * many of them in spawn zone or outside... when you click to drag one it pushes the other out of the
+ * way... now that we have gatherers there is no use for that anymore."*
+ *
+ * They are right about the mechanism AND about the obsolescence. `resolvePair` applied a symmetric
+ * positional correction of `(minDist - dist) * 0.5`, and because Verlet reconstructs velocity from
+ * the position delta on the next substep, a positional shove IS an impulse — so dragging one spark
+ * through a cluster flung the rest. The feature it existed for (shoulder your way into a pile to
+ * grab the shape you want) was made redundant by the gatherers, which now do all the harvesting:
+ * `pickSpark` (controls.ts) already refuses to pick anything inside the spawn zone.
+ *
+ * ⚠ AN EXACT PILE IS STILL FULLY PLAYABLE — checked on disk, not assumed. `pickSpark` is a LINEAR
+ * nearest-to-cursor scan over `freeSparks` that never consulted the spatial grid, and it skips any
+ * spark whose `state.kind !== 'Free'`. So a perfectly-overlapping stack peels ONE PER CLICK rather
+ * than becoming unpickable. Both external Council seats predicted the opposite (Grok: "65-80% of
+ * visible sparks unpickable"; Gemini: "the top spark permanently shields the bottom ones") and both
+ * were wrong about this codebase.
+ *
+ * The `SpatialGrid` went with it: `insertAll`/`forEachNearbyPair` had no consumer outside
+ * `resolveCollisions` (`vortex.ts` explicitly declines to use it), so the grid was dead the moment
+ * this call went. Nothing else broadphases. Do not reintroduce one without a second consumer.
  */
 
 import {
@@ -34,12 +60,10 @@ import { Spawner, enforceSpawnerBounds, type BombSpawnRequest, type PotatoSpawnR
 import type { Spark } from '../game/spark.ts';
 import type { ControlsLike } from '../input/controlsCore.ts';
 import { solveBonds, type Bond } from './bonds.ts';
-import { resolveCollisions } from './collision.ts';
 import {
   computeSteeringAccel,
   creatureVerletStep,
 } from './creatureVerlet.ts';
-import type { SpatialGrid } from './spatial.ts';
 import { verletStepAll } from './verlet.ts';
 import { tickCruiserChase } from '../state/gameMode.ts';
 import { computeTerritorialInfluence } from '../state/territory.ts';
@@ -60,7 +84,6 @@ const SUBSTEP_DT = PHYSICS_DT / PHYSICS_SUBSTEPS;
 export function stepPhysics(
   world: Parameters<typeof dispatch>[0],
   spawner: Spawner,
-  grid: SpatialGrid,
   controls: ControlsLike,
 ): void {
   // SPAWN — dispatched as actions for the audit log seam (§ 10.2).
@@ -187,7 +210,7 @@ export function stepPhysics(
     // S26 P0 — Voltkin Phase 2B: integrate creatures via Verlet per substep AFTER
     // bond solver (so the constraint solver never sees creatures — phase-through
     // by construction; creatures are NOT in sparkArr or bondArr) and BEFORE
-    // enforceSpawnerBounds + resolveCollisions (which operate on sparkArr only).
+    // enforceSpawnerBounds (which operates on sparkArr only).
     // Steering force returns ZERO_ACCEL during SPAWNING / DESPAWNING (Δ4), so
     // creatures appear stationary during the 1s spawn animation + 1s despawn
     // fade. Caller stepPhysics() is host-only-gated at call site. Empty
@@ -197,7 +220,6 @@ export function stepPhysics(
       creatureVerletStep(c, SUBSTEP_DT, computeSteeringAccel(c, world.tick));
     }
     enforceSpawnerBounds(sparkArr, undefined, attractedId);
-    resolveCollisions(sparkArr, grid);
   }
   world.tick++;
 }

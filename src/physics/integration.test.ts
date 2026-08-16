@@ -27,15 +27,12 @@ import {
 import type { Spark } from '../game/spark.ts';
 import { DEFAULT_SPAWNER_CONFIG, Spawner, enforceSpawnerBounds } from '../game/spawner.ts';
 import { mulberry32 } from '../state/rng.ts';
-import { resolveCollisions } from './collision.ts';
 import { solveBonds } from './bonds.ts';
 import type { Bond } from './bonds.ts';
-import { SpatialGrid } from './spatial.ts';
 import { verletStepAll } from './verlet.ts';
 
 const PHYSICS_DT = 1 / PHYSICS_HZ;
 const SUBSTEP_DT = PHYSICS_DT / PHYSICS_SUBSTEPS;
-const SPATIAL_CELL_SIZE = 32;
 
 describe('Session-1 exit gate (60s integration)', () => {
   it('runs the full physics loop for 60s with stable, in-bounds, type-diverse sparks', () => {
@@ -44,7 +41,6 @@ describe('Session-1 exit gate (60s integration)', () => {
     const rng = mulberry32(0xc0ffee);
     // Stress-rate (1.5/sec) — see file header.
     const spawner = new Spawner({ ...DEFAULT_SPAWNER_CONFIG, ratePerSecond: 1.5 }, rng);
-    const grid = new SpatialGrid(SPATIAL_CELL_SIZE);
 
     const TICKS = 60 * PHYSICS_HZ;
     const tickTimes: number[] = [];
@@ -56,7 +52,6 @@ describe('Session-1 exit gate (60s integration)', () => {
         verletStepAll(sparks, SUBSTEP_DT);
         if (bonds.length > 0) solveBonds(bonds);
         enforceSpawnerBounds(sparks);
-        resolveCollisions(sparks, grid);
       }
       tickTimes.push(performance.now() - t0);
     }

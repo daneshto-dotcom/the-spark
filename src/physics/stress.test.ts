@@ -21,9 +21,7 @@ import {
 import { makeFreeSpark, type Spark } from '../game/spark.ts';
 import { snapshotInvariants, verifyInvariants } from '../game/invariants.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG, enforceSpawnerBounds } from '../game/spawner.ts';
-import { resolveCollisions } from './collision.ts';
 import { solveBonds } from './bonds.ts';
-import { SpatialGrid } from './spatial.ts';
 import { verletStepAll } from './verlet.ts';
 import { mulberry32 } from '../state/rng.ts';
 import { dispatch, makeWorld } from '../state/world.ts';
@@ -47,7 +45,6 @@ describe('stress', () => {
     const world = makeWorld(SEED);
     const rng = mulberry32(SEED);
     const spawner = new Spawner(DEFAULT_SPAWNER_CONFIG, rng);
-    const grid = new SpatialGrid(32);
     const P1 = asPlayerId(0);
 
     // Build a 30-primitive chain anchored near center, spaced 50 px apart
@@ -97,7 +94,6 @@ describe('stress', () => {
           }
         }
         enforceSpawnerBounds(sparkArr);
-        resolveCollisions(sparkArr, grid);
       }
       world.tick++;
 

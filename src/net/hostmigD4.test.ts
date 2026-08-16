@@ -27,7 +27,6 @@ import { netSnapshot, type NetSnapshot } from '../state/save.ts';
 import type { NetSnapshotMsg } from './protocol.ts';
 import type { SuccessionWarrant } from './successionWarrant.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../game/spawner.ts';
-import { SpatialGrid } from '../physics/spatial.ts';
 import { makeGameStateExtras } from '../state/gameState.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from '../state/hostTick.ts';
 import { mulberry32 } from '../state/rng.ts';
@@ -182,7 +181,6 @@ describe('S124 P1 — roster-complete takeover hostSeats feed the S82 drop-bench
     // the dead ORIGINAL HOST (seat 0) is present with a transport-dead peerId.
     const deps: HostTickDeps = {
       spawner: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(7)),
-      grid: new SpatialGrid(32),
       controls: stubControls,
       botManager: null,
       gameStateExtras: makeGameStateExtras(),

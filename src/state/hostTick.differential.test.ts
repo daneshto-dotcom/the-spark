@@ -49,7 +49,6 @@ import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../game/spawner.ts';
 import type { Controls } from '../input/controls.ts';
 import { computeStubTargetPos } from '../physics/creatureVerlet.ts';
 import { stepPhysics } from '../physics/physicsLoop.ts';
-import { SpatialGrid } from '../physics/spatial.ts';
 import {
   bondMidpoint,
   findNearestBondTarget,
@@ -93,7 +92,6 @@ function determinismJson(world: World): string {
 
 interface RefCtx {
   spawner: Spawner;
-  grid: SpatialGrid;
   controls: Controls;
   botManager: BotManager | null;
   gameStateExtras: GameStateExtras;
@@ -106,7 +104,7 @@ interface RefCtx {
 function referenceHostTick(world: World, ref: RefCtx): void {
   const isClient = false;
   if (world.gameState === 'PLAYING' && !isClient) {
-    stepPhysics(world, ref.spawner, ref.grid, ref.controls);
+    stepPhysics(world, ref.spawner, ref.controls);
   } else {
     world.tick++;
   }
@@ -511,7 +509,6 @@ function runDifferential(scen: Scenario): void {
   const stateNew = makeHostTickState(worldNew);
   const ref: RefCtx = {
     spawner: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(scen.seed)),
-    grid: new SpatialGrid(32),
     controls: stubControls,
     botManager: scen.botCount > 0 ? new BotManager(['MID', 'HARD'].slice(0, scen.botCount) as never, scen.seed) : null,
     gameStateExtras: makeGameStateExtras(),
@@ -520,7 +517,6 @@ function runDifferential(scen: Scenario): void {
     peerAbsentSinceTick: new Map(),
   };
   const spawnerNew = new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(scen.seed));
-  const gridNew = new SpatialGrid(32);
   const botsNew = scen.botCount > 0 ? new BotManager(['MID', 'HARD'].slice(0, scen.botCount) as never, scen.seed) : null;
   const extrasNew = makeGameStateExtras();
 
@@ -531,7 +527,6 @@ function runDifferential(scen: Scenario): void {
     // per-frame alive-set — the exact main.ts wiring.
     const depsNew: HostTickDeps = {
       spawner: spawnerNew,
-      grid: gridNew,
       controls: stubControls,
       botManager: botsNew,
       gameStateExtras: extrasNew,
