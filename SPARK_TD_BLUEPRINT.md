@@ -245,6 +245,19 @@ Given while reading the blueprint. These are settled.
 | R35 | ⭐ **BUILD THE TRAVELLING-PROJECTILE SYSTEM NOW**, as reusable infrastructure rather than one unit's feature — the owner has *"a lot more ranged units/towers in mind"*. SPARK has no shipped precedent: every attack today is instant-hit. |
 | R36 | **The footer band is indexed by CONNECTOR COUNT, not a flat list of towers.** It shows just the numbers in the world's current range (4, 5, 6, 7 …); clicking a number opens the build menu for towers of that complexity. Keeps the bar clean instead of messy from the start. |
 
+### RULINGS — REVIEW ROUND 6 (line of fire)
+
+| # | Ruling |
+|---|---|
+| R37 | ⭐ **PROJECTILES ARE BLOCKED BY WHATEVER IS IN FRONT OF THEM.** SPARK is 2D with no height axis, so there is no shooting *over* anything: a projectile hits the **first thing in its path**, damages it, and **disappears**. The next shot then repeats against whatever is now in front. Enemy fire therefore has to **chew through your fence connectors and structures** before it can reach what is behind them. ⭐ **This is what makes R17 pay off twice** — plain shape-walls stop being merely point generators and become **ARMOUR**, and where you put a tower relative to your own walls becomes a real decision. |
+
+⚠ **THIS CORRECTS MY Q5 ANSWER, WHICH CONFLATED TWO DIFFERENT KINDS OF WALL.** There are two:
+* **PHASE BORDER WALLS** — the coloured zone dividers. They exist only during BUILD and are down
+  before the first shot, so they genuinely never meet a projectile. That half of Q5 stands.
+* **PLAYER-BUILT WALLS AND STRUCTURES** — raised from loose shapes (R17). These **stand through the
+  FIGHT and absolutely do block projectiles.** My answer missed them entirely by treating "wall" as
+  one thing.
+
 ### ⭐ A.0 FINDING — THE INCOME MODEL R16/R17 DESCRIBES IS **ALREADY SHIPPED**
 
 Verified on disk, not assumed. `state/scoring.ts` `tickScoring` has accrued per-tick income since

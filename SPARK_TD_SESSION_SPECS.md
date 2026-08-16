@@ -57,7 +57,7 @@ So no session stalls waiting on a decision.
 | Q2 | How is "gatherers are in 1 s before the walls drop, whatever their speed" guaranteed? | **[CLAUDE — overridable]** Do **not** race pathfinding against the clock. At exactly `phaseEndsAtTick − 60`, every gatherer unconditionally enters `SHELTERED`: removed from the field, cargo auto-deposited. Deterministic, speed-independent, and impossible to fail. Nothing can attack during BUILD, so the snap is unobservable as unfairness. |
 | Q3 | Castle HP / defence / attack numbers | **[CLAUDE — overridable, first pass]** HP **3000**; attack range **300 px**; damage **8** per shot; fire interval **45 ticks**. Identical for every player (R29). All four are playtest dials. |
 | Q4 | Castle targeting rule | **[OWNER, from the notes]** *"castle attacks any enemy units that attack it"* → **retaliation-only**. Concretely: it acquires any enemy unit in range that has damaged this castle **within the last 300 ticks (5 s)**; timer length is **[CLAUDE — overridable]**. |
-| Q5 | Do walls block projectiles? | **The question dissolves.** Walls exist only during BUILD, are invulnerable, and nothing can attack during BUILD. They are a movement/visual boundary only, and are gone before the first shot. |
+| Q5 | Do walls block projectiles? | **[OWNER — R37] CORRECTED.** My first answer conflated two kinds of wall. **PHASE BORDER WALLS** are down before the first shot, so they never meet a projectile — that half stands. **PLAYER-BUILT WALLS AND STRUCTURES** stand through the FIGHT and **do** block: 2D, no height, so a projectile hits the first thing in its path, damages it and vanishes; the next shot repeats. Enemy fire must chew through your fences to reach what is behind them. |
 | Q6 | Do walls block gatherers reaching the quarry? | **No, by geometry.** Walls run from the quarry rim *outward* along the zone borders, so every zone has unobstructed access to its own slice of the quarry. |
 | Q7 | The 2.6× haul re-tune | **Measured, not guessed** (S148). Instrument one build stage and set the gatherer base speed so a first 4-connector tower is affordable inside one 90 s BUILD. |
 | Q8 | Footer connector range | **Derived from the recipe registry, never hardcoded.** Shipped recipes span 4–9 shapes (stink 4 · pentagram 5 · lightningHub 6 · helga 7 · turret 7 · voltkin 8 · NONET 9). |
@@ -290,8 +290,19 @@ projectiles: Map<ProjectileId, {
   spawnedAtTick; expiresAtTick; targetKind;
 }>
 ```
-Stepped in `hostTick` before collision resolution; hits the first valid enemy entity it overlaps;
-expires on lifetime. All fields hashed; ids from a world-level allocator (`nextProjectileId`).
+**⭐ FIRST-BLOCKER COLLISION, NOT SEEK-THE-TARGET (R37).** A projectile is stepped in `hostTick` and
+hits **the first blocking entity along its path**, whatever that is — a primitive, a bond/fence
+connector, a tower, a unit, a castle. It damages that entity and is **removed**. It does not pass
+over, through, or around anything: SPARK is 2D with no height axis.
+
+Implementation: swept-segment test from `pos` to `pos + vel*dt` each tick against candidate entities,
+taking the **nearest** intersection along the segment (never the first found in map order — that
+would make the result depend on iteration order and desync). Ties broken by lowest entity id.
+
+Consequence to build for, not against: this is what turns R17's plain shape-walls into **armour**, and
+it means firing lines are a genuine part of where you place a tower.
+
+All fields hashed; ids from a world-level allocator (`nextProjectileId`).
 
 **Its own differential test before a single goblin uses it** — spawn tick, velocity and lifetime are
 all hashed state.
@@ -321,7 +332,11 @@ all hashed state.
 **Tests.**
 - *Projectile (before any goblin uses it):* a differential test proving spawn tick, travel, hit and
   expiry are identical host-vs-worker; a projectile that hits nothing expires exactly on its lifetime
-  tick; an owner's projectile cannot damage its owner.
+  tick.
+- *First-blocker (R37):* a projectile fired at a distant tower **with a wall in between hits the
+  WALL**, not the tower, and is removed. Repeated fire chews through the wall and only then reaches
+  the tower. Nearest-intersection is asserted explicitly, so a regression to map-iteration order —
+  which would desync — fails loudly.
 - *Mapping:* each of the six shapes produces exactly its mapped goblin (Q1), asserted per shape so a
   future edit cannot silently re-map one.
 - *Queue:* shapes fed during FIGHT emerge at the **next** fight start, not immediately (R26).
