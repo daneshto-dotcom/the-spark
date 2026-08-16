@@ -52,14 +52,14 @@ async function bootSolo(page: import('@playwright/test').Page): Promise<void> {
 async function seedBank(page: import('@playwright/test').Page): Promise<void> {
   await page.evaluate(({ sq, ci }) => {
     const w = (window as { __SPARK__?: { world?: unknown } }).__SPARK__?.world as {
-      castleBanks: Map<number, unknown[]>;
+      castleBanks: Map<number, number[]>;
     };
-    const mk = (id: number, type: number): unknown => ({
-      id, type,
-      pos: { x: 0, y: 0 }, prevPos: { x: 0, y: 0 },
-      radius: 8, createdTick: 0, state: { kind: 'Free' },
-    });
-    w.castleBanks.set(0, [mk(9001, sq), mk(9002, ci), mk(9003, ci), mk(9004, ci)]);
+    // S146 P2 — the inventory is a fixed 6-entry tally indexed by SparkType, not a list of
+    // entities. Seeding it is now literally "put 1 Square and 3 Circles in the castle".
+    const tally = [0, 0, 0, 0, 0, 0];
+    tally[sq] = 1;
+    tally[ci] = 3;
+    w.castleBanks.set(0, tally);
   }, { sq: SQUARE, ci: CIRCLE });
 }
 
@@ -82,13 +82,13 @@ async function counts(page: import('@playwright/test').Page) {
     const w = (window as { __SPARK__?: { world?: unknown } }).__SPARK__?.world as {
       primitives: Map<number, unknown>; bonds: Map<number, unknown>;
       defenders: Map<number, { recipeId: string }>;
-      castleBanks: Map<number, unknown[]>;
+      castleBanks: Map<number, number[]>;
     };
     return {
       primitives: w.primitives.size,
       bonds: w.bonds.size,
       defenders: [...w.defenders.values()].map((d) => d.recipeId),
-      bank: (w.castleBanks.get(0) ?? []).length,
+      bank: (w.castleBanks.get(0) ?? []).reduce((a, b) => a + b, 0),
     };
   });
 }

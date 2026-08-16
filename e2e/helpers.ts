@@ -195,7 +195,7 @@ async function readInputLockDiagnostics(page: Page): Promise<string> {
             hunterSpawned: boolean;
             hunters: Map<number, { state: string; targetPlayerId: number }>;
             players: Map<number, { benchedUntilTick?: number }>;
-            castleBanks: Map<number, unknown[]>;
+            castleBanks: Map<number, number[]>;
           };
         };
       }).__SPARK__;
@@ -214,7 +214,11 @@ async function readInputLockDiagnostics(page: Page): Promise<string> {
         benchedUntilTick,
         hunterSpawned: w.hunterSpawned,
         hunters: Array.from(w.hunters.values()).map((h) => h.state),
-        bank: w.castleBanks.get(w.localPlayerId)?.length ?? 0,
+        // ⚠ S146 P2 — SUM THE TALLY, NEVER `.length`. The inventory is a fixed 6-entry array
+        // indexed by SparkType, so `.length` is 6 even when the castle is EMPTY — a probe reading
+        // it would report a stocked castle forever and every wait-for-stock helper would pass
+        // instantly and vacuously.
+        bank: (w.castleBanks.get(w.localPlayerId) ?? []).reduce((a, b) => a + b, 0),
       };
     })
     .catch(() => null);
@@ -338,7 +342,7 @@ export async function readWorldState(page: Page): Promise<{
       primitives: Map<number, { id: number; pos: { x: number; y: number }; placerColor: number; placedBy: number; bonds: Set<number> }>;
       bonds: Map<number, { id: number; aId: number; bId: number }>;
       scoreByPlayer: Map<number, number>;
-      castleBanks: Map<number, unknown[]>;
+      castleBanks: Map<number, number[]>;
       defenders: Map<number, { id: number; kind: string; bagsRemaining: number; pos: { x: number; y: number } }>;
       gathererOrders: Map<number, number[]>;
       nextPrimitiveId: number;
@@ -370,7 +374,7 @@ export async function readWorldState(page: Page): Promise<{
         id: b.id, aId: b.aId, bId: b.bId,
       })),
       scoreByPlayer: Array.from(w.scoreByPlayer.entries()),
-      castleBanks: Array.from(w.castleBanks.entries()).map(([seat, b]) => [seat, b.length] as [number, number]),
+      castleBanks: Array.from(w.castleBanks.entries()).map(([seat, b]) => [seat, b.reduce((x, y) => x + y, 0)] as [number, number]),
       defenders: Array.from(w.defenders.values()).map((d) => ({
         id: d.id, kind: d.kind, bagsRemaining: d.bagsRemaining, pos: { x: d.pos.x, y: d.pos.y },
       })),
