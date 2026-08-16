@@ -41,6 +41,8 @@ import {
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
+  // S145 P2 — how much room the build-grid click must make before the ordered shapes can land.
+  CASTLE_BANK_CAP,
 } from './constants.ts';
 // S87 — VS-BOTS mode. BOTH the setup overlay AND the BotManager are LAZY
 // chunks (the overlay alone pushed the index chunk over the 550 kB charter —
@@ -129,6 +131,9 @@ import { BlueprintGhost } from './render/blueprintGhost.ts';
 // S137 P0c — re-exported through the DEV __SPARK__ global as live keep geometry for e2e. Already in
 // the bundle (castlePanel.ts + gathererRenderer.ts both import it), so this costs no bundle bytes.
 import { castleAnchor } from './state/gatherers/gatherer.ts';
+// S145 P2 — the build grid's "order the missing shapes" click needs to know how much room the bank
+// has before it can make enough. Read through the bank's own accessor, never `.length` on the map.
+import { bankCount } from './state/castleBank.ts';
 import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
 import type { SudokuOverlay } from './render/sudokuOverlay.ts';
 // S97 G3b / S104 P3 — the Magic-14 combos are now a TAB inside the unified CodexOverlay (the
@@ -627,6 +632,58 @@ async function bootstrap(): Promise<void> {
       dispatchFn({ type: 'CANCEL_GATHERER_ORDER', playerId: world.localPlayerId, sparkType });
     },
   );
+  // S145 P2 — "I WANT THIS TOWER." Clicking a tile that is short of shapes now orders exactly the
+  // shortfall, and makes room for it if the bank is full.
+  //
+  // ⚠ WHY THIS DISPATCHES TWO EXISTING ACTIONS INSTEAD OF ADDING ONE. Everything below is already
+  // shipped, already serialized, already routed on all three transport paths — so this closes the
+  // measured deadlock with NO new wire action and NO PROTOCOL_VERSION bump, which is the difference
+  // between a fix the owner can play tonight and one gated on a lockstep redeploy.
+  //
+  // ⭐ AND WHY MAKING ROOM IS NOT "DISCARDING", which would have overturned an owner ruling. The
+  // V6-1.3 ruling at the `WAITING` assignment says a full bank must stall haulers rather than leak
+  // the player's work. PULL_FROM_BANK moves a shape onto the PORCH, and `blueprintBuild` pays a bill
+  // from bank ∪ own porch — so the shape stays fully spendable, the total pool is unchanged, and the
+  // pool is still hard-capped (CASTLE_BANK_CAP + CASTLE_PORCH_SLOTS). Nothing is destroyed; the
+  // strategic pressure survives. A full porch simply refuses, no-op-never-throw, and the player is
+  // told by the tile they just clicked still reading its shortfall.
+  castlePanel.setRequestShapesHandler((missing) => {
+    const seat = world.localPlayerId;
+    // Order the shortfall, in blueprint order, one intent per missing shape. `ENQUEUE_GATHERER_ORDER`
+    // is itself bounded by GATHERER_ORDER_QUEUE_MAX and no-ops at the cap, so a player mashing a tile
+    // cannot grow the queue without bound — the guarantee is the reducer's, not this call site's.
+    for (const m of missing) {
+      for (let n = 0; n < m.need - m.have; n++) {
+        dispatchFn({ type: 'ENQUEUE_GATHERER_ORDER', playerId: seat, sparkType: m.type });
+      }
+    }
+    // A FULL BANK CANNOT ACCEPT WHAT WAS JUST ORDERED — that is the deadlock itself. Decant enough
+    // slots for the WHOLE shortfall, always from index 0 (the OLDEST shape: `bankPush` appends, so
+    // index 0 has waited longest and is least likely to be part of what the player is assembling).
+    //
+    // ⚠ ENOUGH, NOT ONE. The first cut freed a single slot per click, and the e2e proved the cost:
+    // a 4-shape bill then needed ~6 separate clicks on the same tile to come alive. The owner's ask
+    // was "you have a place to click on the tower and it builds it for you" — one click has to be
+    // enough to set the whole thing in motion.
+    //
+    // ⚠ THE GUARD IS "IS THERE ROOM FOR THE WHOLE BILL", NOT `bankIsFull`. The first cut used
+    // `bankIsFull` and the e2e caught it immediately: the bank stops being FULL after the very first
+    // pull, so the loop freed exactly one slot and the tower stalled two shapes short — "NEED 2 MORE"
+    // forever, a quieter version of the very deadlock being fixed.
+    //
+    // Bounded three ways, so this cannot run away: by `short` iterations, by the room test itself,
+    // and by `applyPullFromBank`'s no-op on a FULL PORCH — which is why the loop also breaks when a
+    // pull fails to change the count, rather than spinning against a porch that cannot take more.
+    // On a networked joiner the dispatch is a wire intent so the local count cannot update; the
+    // `moved` check then breaks after one iteration and the host resolves the rest authoritatively.
+    const short = missing.reduce((n, m) => n + (m.need - m.have), 0);
+    const roomFor = (): boolean => bankCount(world.castleBanks, seat) + short > CASTLE_BANK_CAP;
+    for (let n = 0; n < short && roomFor(); n++) {
+      const was = bankCount(world.castleBanks, seat);
+      dispatchFn({ type: 'PULL_FROM_BANK', playerId: seat, index: 0 });
+      if (bankCount(world.castleBanks, seat) === was) break; // porch full (or remote) — stop asking
+    }
+  });
   // S144 P3 — CLICK-TO-BUILD's commit. Same dispatchFn seam as every other panel control, so it
   // routes on all three paths (networked joiner -> wire intent; worker mode -> postIntent; solo/host
   // -> direct dispatch).

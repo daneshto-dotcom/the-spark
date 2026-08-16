@@ -532,6 +532,10 @@ export class CastlePanel {
    */
   private armed: GodlyId | null = null;
   private onArm: ((id: GodlyId | null) => void) | null = null;
+  /** S145 P2 — "I want this tower": order its missing shapes. Injected by main.ts. */
+  private onRequestShapes:
+    | ((missing: ReadonlyArray<{ type: SparkType; need: number; have: number }>) => void)
+    | null = null;
   /** Render-local selection. null = closed. Never serialized (see the file docblock). */
   private selected: number | null = null;
   private onBuyGatherer: (() => void) | null = null;
@@ -727,17 +731,49 @@ export class CastlePanel {
    * S144 P2 — pick up (or put down) a tower.
    *
    * Clicking an affordable tile ARMS it; clicking the armed tile again disarms — the same toggle the
-   * castle click itself uses, so there is always a way to change your mind without committing. A
-   * disabled tile does nothing: `enabled` is latched per frame from `castleStructuresModel`, so a
-   * pointertap can never fire a build the model says is unaffordable (the same latch the control rows
-   * use, and for the same reason).
+   * castle click itself uses, so there is always a way to change your mind without committing.
+   *
+   * ⚠ S145 P2 — THIS USED TO SAY "a disabled tile does nothing", AND THAT WAS THE BUG. `enabled` is
+   * still latched per frame from `castleStructuresModel`, so a pointertap still cannot fire a BUILD
+   * the model says is unaffordable — that guarantee is unchanged. What changed is that a tile short
+   * of shapes now ORDERS them instead of silently swallowing the click. See the branch below.
    */
   private armTile(idx: number): void {
     const tile = this.tiles[idx];
-    if (tile === undefined || !tile.enabled) return;
+    if (tile === undefined) return;
     const id = ALL_BLUEPRINT_IDS[idx];
+    if (!tile.enabled) {
+      // S145 P2 — A SHORT TILE IS NOT A DEAD TILE: IT IS THE ORDER BUTTON.
+      //
+      // ⚠ THE DEFECT THIS CLOSES, measured in two independent solo runs. The S141 gatherer ORDER
+      // QUEUE and the S144 build grid each solve the other's problem, and before this line they had
+      // ZERO references to one another anywhere in the codebase. A player staring at "NEED 3 MORE"
+      // had no way to discover that ordering those three shapes was even possible — so the bank
+      // filled with whatever the haulers happened to find, froze, and no tower was ever built.
+      // Clicking the thing you want is the only discovery path that needs no documentation.
+      //
+      // LOCKED is excluded deliberately: a sudoku trial / cinematic / bench is a TEMPORARY input
+      // lock, not a shortage, and silently queueing work from a click the player could not otherwise
+      // make would be the panel acting behind an input lock it is supposed to honour.
+      const missing = this.structureMissing[idx] ?? [];
+      if (this.structureReasons[idx] === 'LOCKED' || missing.length === 0) return;
+      this.onRequestShapes?.(missing);
+      return;
+    }
     this.armed = this.armed === id ? null : id;
     this.onArm?.(this.armed);
+  }
+
+  /**
+   * S145 P2 — main.ts injects what a click on a SHORT tile should do: order the missing shapes and,
+   * if the bank is full, make room for them. Injected rather than dispatched here for the same
+   * reason every other panel control is — the panel must not know which of the three transport
+   * paths (local, worker, wire) this seat is on.
+   */
+  setRequestShapesHandler(
+    fn: (missing: ReadonlyArray<{ type: SparkType; need: number; have: number }>) => void,
+  ): void {
+    this.onRequestShapes = fn;
   }
 
   /** P3 — main.ts injects this to raise/lower the cursor ghost as tiles are armed. */
@@ -896,6 +932,8 @@ export class CastlePanel {
   private reasons: string[] = [];
   /** S144 P2 — per-tile blocker, latched in sync() so getUiPoints reports what the caption showed. */
   private structureReasons: string[] = [];
+  /** S145 P2 — per-tile shortfall, latched per frame beside `structureReasons`. */
+  private structureMissing: Array<ReadonlyArray<{ type: SparkType; need: number; have: number }>> = [];
 
   sync(world: World): void {
     // The panel is a PLAYING-only affordance; any other state closes it so it cannot survive into
@@ -1018,7 +1056,9 @@ export class CastlePanel {
       if (t.hover) captionFor = m;
       else if (isArmed && captionFor === null) captionFor = m;
 
-      t.box.cursor = m.enabled ? 'pointer' : 'default';
+      // S145 P2 — a short tile is actionable now (it orders its shapes), so it keeps the pointer.
+      // Only a LOCKED tile is genuinely inert.
+      t.box.cursor = m.reason === 'LOCKED' ? 'default' : 'pointer';
       t.bg.clear();
       t.bg.roundRect(0, 0, TILE, TILE, 6)
         .fill({
@@ -1041,6 +1081,9 @@ export class CastlePanel {
       );
 
       this.structureReasons[i] = m.reason;
+      // S145 P2 — latched alongside the reason, and for the same reason: the click handler must act
+      // on what the model said THIS FRAME, never on a fresh recompute at pointer time.
+      this.structureMissing[i] = m.missing;
       t.cost.text = `${m.cost}`;
       t.cost.style.fill = m.enabled ? 0xffffff : 0x6b7a88;
     }
@@ -1062,7 +1105,13 @@ export class CastlePanel {
         ? `${captionFor.name}  ${captionFor.cost}`
         : `${captionFor.name}  ${captionFor.reason}`;
       this.captionName.style.fill = captionFor.enabled ? 0xffffff : 0xd4956a;
-      this.captionTag.text = captionFor.tagline;
+      // S145 P2 — a short tile must SAY that clicking it orders the shortfall. Naming the blocker
+      // was never enough: the player could read "NEED 3 MORE" all match and still have no idea that
+      // asking for those three was a thing the game let them do. The epigraph is the lesser loss.
+      this.captionTag.text =
+        captionFor.enabled || captionFor.reason === 'LOCKED'
+          ? captionFor.tagline
+          : 'CLICK TO ORDER THE MISSING SHAPES';
     }
     fitTextToWidth(this.captionName, ROW_INNER_W);
     fitTextToWidth(this.captionTag, ROW_INNER_W);
