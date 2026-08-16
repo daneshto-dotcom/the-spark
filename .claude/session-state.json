@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1029,
+  "tool_calls_session_total": 1038,
   "session_id": "S145",
   "session_kind": "pdca-batch",
   "session_start": "2026-08-16",
@@ -141,22 +141,22 @@
         {
           "type": "file_contains",
           "path": "src/state/gatherers/gathererLifecycle.ts",
-          "pattern": "shouldReleaseWaitingCargo"
+          "needle": "shouldReleaseWaitingCargo"
         },
         {
           "type": "file_contains",
           "path": "src/state/gatherers/gathererLifecycle.ts",
-          "pattern": "parkCargoOnPorch"
+          "needle": "parkCargoOnPorch"
         },
         {
           "type": "file_contains",
           "path": "src/state/gatherers/gathererLifecycle.ts",
-          "pattern": "pendingOrderCount"
+          "needle": "pendingOrderCount"
         },
         {
           "type": "file_contains",
           "path": "src/state/gatherers/gathererWaitingRelease.test.ts",
-          "pattern": "the spin-loop"
+          "needle": "the spin-loop"
         }
       ],
       "pdr_approved": true,
@@ -174,22 +174,22 @@
         {
           "type": "file_contains",
           "path": "src/render/castlePanel.ts",
-          "pattern": "setRequestShapesHandler"
+          "needle": "setRequestShapesHandler"
         },
         {
           "type": "file_contains",
           "path": "src/render/castlePanel.ts",
-          "pattern": "CLICK TO ORDER THE MISSING SHAPES"
+          "needle": "CLICK TO ORDER THE MISSING SHAPES"
         },
         {
           "type": "file_contains",
           "path": "src/main.ts",
-          "pattern": "setRequestShapesHandler"
+          "needle": "setRequestShapesHandler"
         },
         {
           "type": "file_contains",
           "path": "e2e/bank-deadlock.spec.ts",
-          "pattern": "THE WHOLE POINT"
+          "needle": "THE WHOLE POINT"
         }
       ],
       "pdr_approved": true,
@@ -207,27 +207,27 @@
         {
           "type": "file_contains",
           "path": "src/main.ts",
-          "pattern": "computed UP FRONT"
+          "needle": "THE COUNT IS COMPUTED UP FRONT"
         },
         {
           "type": "file_contains",
           "path": "src/main.ts",
-          "pattern": "CASTLE_PORCH_SLOTS"
+          "needle": "CASTLE_PORCH_SLOTS"
         },
         {
           "type": "file_contains",
           "path": "src/state/gatherers/gathererLifecycle.ts",
-          "pattern": "WAITING IS NO LONGER UNCONDITIONALLY TERMINAL"
+          "needle": "WAITING IS NO LONGER UNCONDITIONALLY TERMINAL"
         },
         {
           "type": "file_contains",
           "path": "scripts/check-bundle-size.mjs",
-          "pattern": "CAP_KIB = 900"
+          "needle": "CAP_KIB = 900"
         },
         {
           "type": "file_contains",
           "path": "LOCKED_DECISIONS.md",
-          "pattern": "raised 750→900 S145"
+          "needle": "raised 750→900 S145"
         }
       ],
       "pdr_approved": true,
@@ -245,7 +245,7 @@
         {
           "type": "file_contains",
           "path": ".claude/session-state.json",
-          "pattern": "index-Blrtx25J.js"
+          "needle": "index-Blrtx25J.js"
         }
       ],
       "pdr_approved": true,
