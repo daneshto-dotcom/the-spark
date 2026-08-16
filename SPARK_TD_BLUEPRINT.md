@@ -273,6 +273,48 @@ Given while reading the blueprint. These are settled.
 | R14 | **CUT FOR NOW: potato bomb, regular bomb, poop bird (seagull), rainbow.** Simplification; restoration decided later. **Claude recommendation, pending owner nod: DISABLE (cadence → 0), do not delete** — restoring then costs one line instead of an archaeology session. |
 | R15 | **Tower roster work:** the laser tower should be offensive as well as defensive, likely others too; and **add simple towers built around the archer goblin and the melee goblin** to widen the buildable selection. |
 
+### RULINGS — REVIEW ROUND 3 (income, army, attrition)
+
+| # | Ruling |
+|---|---|
+| R16 | **Points scale on TOWER COMPLEXITY**, and a damaged structure earns less **based on remaining CONNECTORS**. Explicitly: *"we keep current point per tick function"*. |
+| R17 | ⭐ **PLAIN STRUCTURES AND WALLS GENERATE POINTS.** The pivot would otherwise orphan freeform shape-connecting — *"simple intershape connectors are impossible and dont do anything"*. So during BUILD a player may raise simple structures/walls from loose shapes that do nothing but **generate points and act as targets / shields for other structures**. |
+| R18 | **GOBLIN TOWERS PRODUCE UNITS.** A simple ~4-connector tower; feed it shapes from inventory and it makes **1 goblin per shape**, letting leftover inventory become an army. Intended tactical split: *"some players will rather loose more points this round to build better towers next round and some will want to create moving armies to blitz"*. |
+| R19 | **FIX and SCRAP are BUILD-stage only.** |
+| R20 | **1500 points = INSTANT WIN** (for now). Remaining places are then ordered by score. |
+| R21 | **SCRAP returns only the shapes still standing.** Destroyed ones are gone. |
+| R22 | **The quarry does NOT produce during FIGHT** — build stage only. May change later. |
+| R23 | Confirmed: the four hazards are **switched OFF, not deleted**. |
+
+### ⭐ A.0 FINDING — THE INCOME MODEL R16/R17 DESCRIBES IS **ALREADY SHIPPED**
+
+Verified on disk, not assumed. `state/scoring.ts` `tickScoring` has accrued per-tick income since
+S76 P3:
+
+```
+scoreByPlayer[p] += SCORE_INCOME_PER_COMPLEXITY_PER_SEC (0.05) x complexity(p) / PHYSICS_HZ
+complexity(p)    = #primitives + 2 x #magicBonds  (+ FILAMENT_INCOME_COMPLEXITY per Filament)
+```
+
+Point by point against the rulings:
+
+| Ruling | Already true? |
+|---|---|
+| R16 income scales with complexity | ✅ literally the same word and the same formula |
+| R16 damaged structure earns less, by remaining connectors | ✅ severed bonds lower complexity, so income falls continuously |
+| R17 plain structures generate points | ✅ `computeComplexity` counts ALL primitives + bonds; it has never cared whether they form a recipe |
+
+**So the scoring work is not "build an income engine" — it is "GATE the shipped one to the FIGHT
+stage".** That is a phase check at one call site, not a new subsystem. It also removes the last doubt
+about ADAPT-vs-REWRITE: the freeform building system the pivot looked like it would orphan turns out
+to be the thing that powers the economy.
+
+⚠ **ONE CONFLICT TO RULE ON.** S107 added an **anti-coast LEADER SCORE-DECAY** — the leader's score
+gently decays as a rubber-band. Under the new design, scoring already stops for half of every cycle,
+so decay may now double-punish the leader. Keep, retune, or remove — see open questions.
+
+---
+
 ⚠ **R7 RESOLVES THE R3 PROBLEM.** The earlier note here flagged that R3 (no scoring during BUILD) left
 the shipped scoring engine — which pays for PLACEMENTS — producing zero points per match. R7 replaces
 that engine outright: points come from live towers ticking during FIGHT. The 1500-point win condition
