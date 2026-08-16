@@ -251,6 +251,9 @@ Given while reading the blueprint. These are settled.
 |---|---|
 | R37 | ⭐ **PROJECTILES ARE BLOCKED BY WHATEVER IS IN FRONT OF THEM.** SPARK is 2D with no height axis, so there is no shooting *over* anything: a projectile hits the **first thing in its path**, damages it, and **disappears**. The next shot then repeats against whatever is now in front. Enemy fire therefore has to **chew through your fence connectors and structures** before it can reach what is behind them. ⭐ **This is what makes R17 pay off twice** — plain shape-walls stop being merely point generators and become **ARMOUR**, and where you put a tower relative to your own walls becomes a real decision. |
 
+| R38 | **FRIENDLY STRUCTURES ARE TRANSPARENT TO YOUR OWN FIRE.** A projectile is blocked only by **ENEMY** entities. Your own walls and towers can never shadow your own guns, so a defensive ring is pure upside and nobody can accidentally blind themselves. It also **simplifies the collision test** — it only ever considers enemy entities. |
+| R39 | **GROUND UNITS ARE BLOCKED BY STRUCTURES** — a goblin or chewer must **chew through or go around**, unlike a projectile which simply stops. So a wall is a real barrier to armies as well as armour against fire. |
+
 ⚠ **THIS CORRECTS MY Q5 ANSWER, WHICH CONFLATED TWO DIFFERENT KINDS OF WALL.** There are two:
 * **PHASE BORDER WALLS** — the coloured zone dividers. They exist only during BUILD and are down
   before the first shot, so they genuinely never meet a projectile. That half of Q5 stands.
