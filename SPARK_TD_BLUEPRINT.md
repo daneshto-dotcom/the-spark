@@ -180,148 +180,144 @@ snapshot-authoritative sim policed by a state hash. Ranked by Council:
 
 ---
 
-## 6. THE ROADMAP
+## 6. THE ROADMAP — SESSION BY SESSION
 
-One session per stage unless noted. Every stage ends shippable and playable — no stage leaves the
-game broken, which is the specific defence against *"a million bugs along the way"*.
+Ordered by **determinism risk**, not by feature appeal. Every session ends shippable and playable;
+none leaves the game broken. That sequencing IS the answer to *"a million bugs along the way"*.
 
-### ⭐ S147 — THE MATCH CLOCK (build first, and alone)
+Each entry states its **exit gate** — the thing that must be true before the next session starts.
 
-Both Council seats picked this independently, for the same reason: **if temporal state is unstable,
-spatial state does not matter.**
+---
 
-- `MatchPhase = 'BUILD' | 'FIGHT'` + `phaseEndsAtTick`, both in `World`, both serialized + hashed,
-  both registered in `FIELD_COVERAGE`.
-- Derived from `world.tick` ONLY. Never `Date.now()`. 90 s = 5400 ticks at 60 Hz.
+### S147 · THE MATCH CLOCK  ⭐ build this first, and almost alone
+
+Both Council seats picked this independently: *if temporal state is unstable, nothing built on top of
+it can be trusted.*
+
+- **Step 0 (subtractive warm-up):** switch OFF potato bomb, regular bomb, poop bird, rainbow — cadence
+  to zero, **code retained** (R14/R23). Purely subtractive, and it removes four moving parts the clock
+  would otherwise have to be proven against.
+- `MatchPhase = 'BUILD' | 'FIGHT'` + `phaseEndsAtTick` on `World`, serialized, hashed, and registered
+  in `FIELD_COVERAGE` (the forcing function will fail the build if I forget the projection — it
+  already caught exactly that mistake this session).
+- **Tick-derived only. Never `Date.now()`.** 90 s = 5400 ticks @ 60 Hz.
+- Gate `tickScoring` to FIGHT (R3). This is a phase check at ONE call site — the income engine itself
+  is already correct (see the A.0 finding).
+- Switch off the anti-coast leader decay (R28).
 - HUD: phase name + countdown.
-- Nothing else changes behaviour yet — towers still always-on, no walls. **The whole session is
-  proving the sim can cycle phases deterministically, including across a host migration.**
-- **Exit gate:** a differential test cycling BUILD→FIGHT→BUILD with identical hashes host-vs-worker,
-  plus a migration across a phase edge.
+- Nothing else changes behaviour — towers stay always-on, no walls, no zones.
 
-### S148 — ZONES + CASTLE ANCHORS + BUILD LEGALITY
-
-- Zone partition as a **per-map-layout** pure function, not one hardcoded shape: `zoneOf(pos, layout)`
-  and `zoneOwner(seat, layout)`, with `layout ∈ { PITCH_2P, QUADRANTS_4P }`. The 1v1 pitch is a
-  single vertical split; the 4-player board is the cross. Both must exist from the start — they are
-  different maps for different player counts, not a constant to flip between.
-- `castleAnchor` → derived from the zone extremity per layout: goalmouth on the pitch, outer corner
-  on the quadrant board.
-- Build legality: "own zone only", swapped in at the three existing refusal sites.
-- ⚠ **Re-tune the economy in this session, not later.** The 2.6× haul distance will otherwise make the
-  90 s build phase unfundable. Gemini flagged this as the thing the evidence does not settle.
-
-### S149 — BORDER WALLS + GATHERER RETREAT
-
-- Walls on interior zone borders, in the owner's colour, raised in BUILD and dropped in FIGHT.
-- Gatherers path home and stow inside the castle at the BUILD→FIGHT edge; released at FIGHT→BUILD.
-
-### S150 — CASTLE HP + THE SECOND WIN CONDITION
-
-- Castle becomes a damageable entity on the shipped damage pipeline.
-- Win = 1500 points **OR** an enemy castle destroyed. Closes the core loop — **this is the session the
-  game first becomes the game in the notes.**
-
-### S151 — CASTLE WEAPON SYSTEM
-
-- Castle guns arm at the BUILD→FIGHT edge and engage attackers.
-- Per-castle style/race hooks stubbed; stats identical across players at first, per the notes.
-
-### S152 — TOWERS COME ALIVE + THE FOOTER BAND
-
-- Towers dormant in BUILD, active in FIGHT.
-- Per-tower **commands**: attack/defence preference + unit choice.
-- **The footer build band** (all towers along the bottom, enabled by inventory) — deferred from S146
-  and specified here against the real loop instead of the old one.
-- The **gatherer PREFERENCE menu** (click a gatherer → `PREFERENCE: CLOSEST → TRIANGLE → …`), which is
-  a UI over the already-serialized `preferredType`.
-
-### S153 — MODES & TEAMS
-
-1v1 · 2v2 · 4-player deathmatch · solo-vs-bots · codex.
-
-### S154+ — BALANCE, ART, DEPTH
-
-Per-race castle weapons, tower command depth, the everchanging-environment goal from the notes.
+**Exit gate:** a differential test cycling BUILD→FIGHT→BUILD with identical state hashes host-vs-worker,
+plus a host migration across a phase edge. Score is 0 during BUILD and rising during FIGHT.
 
 ---
 
-## 6A. OWNER RULINGS — REVIEW ROUND 1
+### S148 · ZONES, CASTLE ANCHORS, BUILD LEGALITY
 
-Given while reading the blueprint. These are settled.
+- `zoneOf(pos, layout)` / `zoneOwner(seat, layout)` as pure functions, with
+  `layout ∈ { PITCH_2P, QUADRANTS_4P }`. **Both from the start** — they are different maps for
+  different player counts (§1.2), not a constant to flip.
+- `castleAnchor` → derived from the zone extremity: goalmouth on the pitch, outer corner on the
+  quadrant board. ⚠ This is hashed state that host migration rebuilds from a mirror, so it must be
+  bit-identical across host / worker / promoted successor.
+- Build legality "own zone only", swapped in at the three EXISTING refusal sites
+  (`placePrimitive.ts:125`, `placeFromFree.ts:173`, `blueprintLegality.stampRefusalAt`).
+- ⚠ **Re-tune the economy in THIS session.** The haul grows ~2.6×; a 90 s build stage must still be
+  fundable. This is the item Council flagged as unsettled by evidence.
 
-| # | Ruling |
-|---|---|
-| R1 | **4-player is ALL VS ALL** — every player may attack every other. Tower behaviour comes from each tower's own **specs** + the **commands** the player gives it (attack/defence preference + unit choice). |
-| R2 | **No 3-player map.** Three players use the 4-player board with one quadrant simply empty. |
-| R3 | **Stages repeat forever.** Points accrue **during the FIGHT stage ONLY** — there is no point tick during BUILD. |
-| R4 | When the walls drop, enemies fight and **towers come alive doing whatever their skill is**. ⚠ *"need to rework some towers to be more coherent"* — a real work item, scope TBD. |
-| R5 | **Walls cannot be attacked while they are up.** Invulnerable for the whole build stage. |
-| R6 | **A gatherer can never be caught outside** — they are built to come in **exactly 1 s before the walls drop**, regardless of speed upgrade. Exact mechanism to be defined later. |
-
-### RULINGS — REVIEW ROUND 2 (the fight economy)
-
-| # | Ruling |
-|---|---|
-| R7 | ⭐ **TOWERS TICK POINTS during the FIGHT stage.** This is the scoring engine, and it answers the R3 problem: score is no longer earned by building, it is earned by *owning live towers while fighting*. Destroying an enemy tower is therefore TWO blows — it removes a defender AND cuts their income. "Who is winning" and "who should I attack" collapse into the same question. |
-| R8 | **"Unit choice" = TARGET PREFERENCE, per tower.** Click a built tower and set who it goes for first: a specific player (1/2/3/4), or strongest / weakest, etc. Every tower carries its own preference; defensive towers too. Gatherers already have the equivalent (`preferredType`, shipped + serialized). **NOT unit production.** |
-| R9 | **Towers may strike into enemy zones if in RANGE**, per each tower's own function and specs — e.g. a laser tower near a border can hit enemy towers. Creates the core placement tension: **near the border = more reach but likelier targeted; ringing your castle = safe but reaches nothing.** |
-| R10 | **All-vs-all is LAST ONE STANDING.** Others place 2nd / 3rd / last as they fall. An eliminated player may **spectate**. |
-| R11 | **2v2 uses the QUADRANT board** for now; revisit after playtest. |
-| R12 | **Gatherers are SAFE inside the castle** — garrison semantics, explicitly like Warcraft / Empire Earth. Shapes gathered but not yet spent simply wait in inventory for the next build stage. |
-| R13 | **Towers PERSIST across cycles**, with an attrition economy: **FIX** (one click; if inventory holds the exact shapes the structure lost, it repairs automatically using them) and **SCRAP** (tear down, surviving parts return to inventory for reuse). |
-| R14 | **CUT FOR NOW: potato bomb, regular bomb, poop bird (seagull), rainbow.** Simplification; restoration decided later. **Claude recommendation, pending owner nod: DISABLE (cadence → 0), do not delete** — restoring then costs one line instead of an archaeology session. |
-| R15 | **Tower roster work:** the laser tower should be offensive as well as defensive, likely others too; and **add simple towers built around the archer goblin and the melee goblin** to widen the buildable selection. |
-
-### RULINGS — REVIEW ROUND 3 (income, army, attrition)
-
-| # | Ruling |
-|---|---|
-| R16 | **Points scale on TOWER COMPLEXITY**, and a damaged structure earns less **based on remaining CONNECTORS**. Explicitly: *"we keep current point per tick function"*. |
-| R17 | ⭐ **PLAIN STRUCTURES AND WALLS GENERATE POINTS.** The pivot would otherwise orphan freeform shape-connecting — *"simple intershape connectors are impossible and dont do anything"*. So during BUILD a player may raise simple structures/walls from loose shapes that do nothing but **generate points and act as targets / shields for other structures**. |
-| R18 | **GOBLIN TOWERS PRODUCE UNITS.** A simple ~4-connector tower; feed it shapes from inventory and it makes **1 goblin per shape**, letting leftover inventory become an army. Intended tactical split: *"some players will rather loose more points this round to build better towers next round and some will want to create moving armies to blitz"*. |
-| R19 | **FIX and SCRAP are BUILD-stage only.** |
-| R20 | **1500 points = INSTANT WIN** (for now). Remaining places are then ordered by score. |
-| R21 | **SCRAP returns only the shapes still standing.** Destroyed ones are gone. |
-| R22 | **The quarry does NOT produce during FIGHT** — build stage only. May change later. |
-| R23 | Confirmed: the four hazards are **switched OFF, not deleted**. |
-
-### ⭐ A.0 FINDING — THE INCOME MODEL R16/R17 DESCRIBES IS **ALREADY SHIPPED**
-
-Verified on disk, not assumed. `state/scoring.ts` `tickScoring` has accrued per-tick income since
-S76 P3:
-
-```
-scoreByPlayer[p] += SCORE_INCOME_PER_COMPLEXITY_PER_SEC (0.05) x complexity(p) / PHYSICS_HZ
-complexity(p)    = #primitives + 2 x #magicBonds  (+ FILAMENT_INCOME_COMPLEXITY per Filament)
-```
-
-Point by point against the rulings:
-
-| Ruling | Already true? |
-|---|---|
-| R16 income scales with complexity | ✅ literally the same word and the same formula |
-| R16 damaged structure earns less, by remaining connectors | ✅ severed bonds lower complexity, so income falls continuously |
-| R17 plain structures generate points | ✅ `computeComplexity` counts ALL primitives + bonds; it has never cared whether they form a recipe |
-
-**So the scoring work is not "build an income engine" — it is "GATE the shipped one to the FIGHT
-stage".** That is a phase check at one call site, not a new subsystem. It also removes the last doubt
-about ADAPT-vs-REWRITE: the freeform building system the pivot looked like it would orphan turns out
-to be the thing that powers the economy.
-
-⚠ **ONE CONFLICT TO RULE ON.** S107 added an **anti-coast LEADER SCORE-DECAY** — the leader's score
-gently decays as a rubber-band. Under the new design, scoring already stops for half of every cycle,
-so decay may now double-punish the leader. Keep, retune, or remove — see open questions.
+**Exit gate:** a 4-player and a 2-player match both fund a first tower inside one build stage.
 
 ---
 
-⚠ **R7 RESOLVES THE R3 PROBLEM.** The earlier note here flagged that R3 (no scoring during BUILD) left
-the shipped scoring engine — which pays for PLACEMENTS — producing zero points per match. R7 replaces
-that engine outright: points come from live towers ticking during FIGHT. The 1500-point win condition
-now has something driving it. **What is NOT yet ruled is the RATE** (flat per tower, or scaled by build
-cost) and whether a damaged tower earns less — see the open questions.
+### S149 · BORDER WALLS + GATHERER SHELTER
+
+- Player-coloured walls on interior zone borders. Up during BUILD and **invulnerable** (R5); down
+  during FIGHT.
+- Gatherers return home and shelter inside, garrison-style (R12), arriving **exactly 1 s before the
+  drop regardless of speed upgrade** (R6) — so one can never be caught out.
+- The quarry stops producing during FIGHT (R22).
+
+**Exit gate:** no gatherer is ever outside at a wall-drop, at any speed-upgrade level.
 
 ---
+
+### S150 · CASTLE HP · ELIMINATION · PLACINGS
+
+- Castle becomes a damageable entity on the shipped damage pipeline. **Neutral: generates no
+  points** (R29).
+- Destroying a castle eliminates that player; **last one standing wins** (R10); 1500 points is an
+  **instant win** (R20); remaining places ordered by score; eliminated players may spectate.
+
+**Exit gate:** both win conditions fire correctly, and a 4-player match produces a full 1st–4th ranking.
+**This is the session the game first becomes the game in the notes.**
+
+---
+
+### S151 · TOWERS COME ALIVE + TARGET PREFERENCE
+
+- Towers dormant in BUILD, live in FIGHT (R4).
+- Per-tower **target preference**: a specific player, or strongest / weakest (R8) — reusing the
+  intent/snapshot path that already carries order queues.
+- Range may cross zone borders once walls are down (R9), which is what makes placement a real decision.
+
+**Exit gate:** a border-adjacent tower demonstrably strikes into a neighbouring zone; a castle-ringed
+one demonstrably cannot.
+
+---
+
+### S152 · FIX + SCRAP (the attrition economy)
+
+- **FIX**: build-stage only (R19); one click; consumes exactly the shapes the structure lost.
+- **SCRAP**: returns only the shapes still standing (R21); destroyed ones are gone.
+
+**Exit gate:** fix-then-scrap round-trips conserve inventory exactly, with no shape duplication.
+
+---
+
+### S153 · THE GOBLIN TOWER + SIX GOBLINS
+
+- A simple ~4-connector tower. **Feed a shape → get the goblin that shape maps to** (R24):
+  swordsman · archer · shield · hound · suicide · bat rider.
+- Feed during BUILD *or* FIGHT; **the whole queue emerges at the next fight start** (R26).
+- Six distinct stat spreads, all weakest-class (R25).
+- Panel UI: goblin options, each showing the shape it costs.
+
+⚠ The **archer** needs a travelling projectile, and the carry-forward record says there is **no shipped
+travelling-projectile precedent** — that is the one genuinely new piece of tech in this session.
+
+**Exit gate:** all six spawn, obey their stat spread, and persist across a cycle boundary per R27.
+
+---
+
+### S154 · TOWER ROSTER REWORK
+
+- Laser tower becomes offensive as well as defensive; other towers reviewed for coherence (R15).
+- Retire or rework anything that no longer makes sense in a phased tower defence.
+
+---
+
+### S155 · THE FOOTER BAND + GATHERER PREFERENCE MENU
+
+Deferred from S146 deliberately, and specified here against the real loop instead of the old one.
+
+- Bottom footer band: every tower, enabled the moment the castle inventory covers its recipe.
+- Castle panel = inventory only.
+- Click a gatherer → `PREFERENCE: CLOSEST → TRIANGLE → SPIRAL → …` (a UI over the already-shipped,
+  already-serialized `preferredType`).
+
+---
+
+### S156 · MODES & TEAMS
+
+1v1 on the pitch · 2v2 on quadrants (R11) · 4-way deathmatch · single player · vs bots · codex.
+Three players use the quadrant board with one zone empty (R2).
+
+---
+
+### S157+ · THE BALANCE PASS
+
+The full unit + player stat rethink (R30), castle HP/defence/attack upgrades (R29), per-race castle
+weapon systems, and the art the new roster needs.
 
 ## 7. WHAT THIS PLAN DELIBERATELY DOES NOT DECIDE
 
