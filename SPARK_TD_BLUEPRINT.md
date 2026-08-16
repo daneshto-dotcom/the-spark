@@ -259,11 +259,25 @@ Given while reading the blueprint. These are settled.
 | R5 | **Walls cannot be attacked while they are up.** Invulnerable for the whole build stage. |
 | R6 | **A gatherer can never be caught outside** — they are built to come in **exactly 1 s before the walls drop**, regardless of speed upgrade. Exact mechanism to be defined later. |
 
-⚠ **R3 HAS A CONSEQUENCE THAT NEEDS AN ANSWER BEFORE THE ROADMAP LOCKS.** Score today is earned by
-BUILDING (placements). R3 turns scoring off during the only stage in which you can build, so the
-shipped scoring engine produces **zero points per match** under the new rules. The 1500-point win
-condition therefore has no engine behind it until we decide what a fight actually pays out for. This
-is open question Q1 below and it is the highest-priority one.
+### RULINGS — REVIEW ROUND 2 (the fight economy)
+
+| # | Ruling |
+|---|---|
+| R7 | ⭐ **TOWERS TICK POINTS during the FIGHT stage.** This is the scoring engine, and it answers the R3 problem: score is no longer earned by building, it is earned by *owning live towers while fighting*. Destroying an enemy tower is therefore TWO blows — it removes a defender AND cuts their income. "Who is winning" and "who should I attack" collapse into the same question. |
+| R8 | **"Unit choice" = TARGET PREFERENCE, per tower.** Click a built tower and set who it goes for first: a specific player (1/2/3/4), or strongest / weakest, etc. Every tower carries its own preference; defensive towers too. Gatherers already have the equivalent (`preferredType`, shipped + serialized). **NOT unit production.** |
+| R9 | **Towers may strike into enemy zones if in RANGE**, per each tower's own function and specs — e.g. a laser tower near a border can hit enemy towers. Creates the core placement tension: **near the border = more reach but likelier targeted; ringing your castle = safe but reaches nothing.** |
+| R10 | **All-vs-all is LAST ONE STANDING.** Others place 2nd / 3rd / last as they fall. An eliminated player may **spectate**. |
+| R11 | **2v2 uses the QUADRANT board** for now; revisit after playtest. |
+| R12 | **Gatherers are SAFE inside the castle** — garrison semantics, explicitly like Warcraft / Empire Earth. Shapes gathered but not yet spent simply wait in inventory for the next build stage. |
+| R13 | **Towers PERSIST across cycles**, with an attrition economy: **FIX** (one click; if inventory holds the exact shapes the structure lost, it repairs automatically using them) and **SCRAP** (tear down, surviving parts return to inventory for reuse). |
+| R14 | **CUT FOR NOW: potato bomb, regular bomb, poop bird (seagull), rainbow.** Simplification; restoration decided later. **Claude recommendation, pending owner nod: DISABLE (cadence → 0), do not delete** — restoring then costs one line instead of an archaeology session. |
+| R15 | **Tower roster work:** the laser tower should be offensive as well as defensive, likely others too; and **add simple towers built around the archer goblin and the melee goblin** to widen the buildable selection. |
+
+⚠ **R7 RESOLVES THE R3 PROBLEM.** The earlier note here flagged that R3 (no scoring during BUILD) left
+the shipped scoring engine — which pays for PLACEMENTS — producing zero points per match. R7 replaces
+that engine outright: points come from live towers ticking during FIGHT. The 1500-point win condition
+now has something driving it. **What is NOT yet ruled is the RATE** (flat per tower, or scaled by build
+cost) and whether a damaged tower earns less — see the open questions.
 
 ---
 
