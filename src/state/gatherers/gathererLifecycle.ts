@@ -22,6 +22,7 @@
  */
 
 import {
+  CASTLE_BANK_CAP,
   GATHERER_DEPOSIT_OFFSET_Y,
   GATHERER_ORDER_QUEUE_MAX,
   GATHERER_MAX_SPEED_LEVEL,
@@ -35,7 +36,7 @@ import {
 } from '../../constants.ts';
 import type { Spark } from '../../game/spark.ts';
 import { asGathererId, type GathererId, type PlayerId, type SparkId, type Vec2 } from '../../types.ts';
-import { bankPush, bankTake, firstFreePorchSlot, porchSlot } from '../castleBank.ts';
+import { bankCount, bankPush, bankTake, firstFreePorchSlot, porchSlot } from '../castleBank.ts';
 import { spendScore } from '../gameMode.ts';
 import type { World } from '../worldTypes.ts';
 import { castleAnchor, gathererSpeed, makeGatherer, type Gatherer } from './gatherer.ts';
@@ -337,6 +338,98 @@ export function consumeGathererOrder(world: World, seat: PlayerId, delivered: Sp
   return true;
 }
 
+/** S145 P1 — how many bank slots this seat still has. */
+function bankFreeSlots(world: World, seat: PlayerId): number {
+  return CASTLE_BANK_CAP - bankCount(world.castleBanks, seat);
+}
+
+/** S145 P1 — how many shapes this seat has outstanding on its order queue. */
+function pendingOrderCount(world: World, seat: PlayerId): number {
+  return world.gathererOrders.get(seat)?.length ?? 0;
+}
+
+/**
+ * S145 P1 — MAY THIS `WAITING` UNIT PUT DOWN WHAT IT IS HOLDING?
+ *
+ * ⚠ THE MEASURED DEADLOCK THIS EXISTS TO BREAK (two independent 4-minute solo runs, real browser,
+ * real physics, no seeding). The bank fills to `CASTLE_BANK_CAP` in ~46 s and its composition then
+ * FREEZES FOR THE REST OF THE MATCH — 11,449 further ticks with an identical multiset, every build
+ * tile reading "NEED n MORE" forever, zero towers ever built, zero errors. The loop is closed:
+ *
+ *   `pickGathererTarget` runs ONLY in SEEKING → a unit that reached a full bank is parked in WAITING
+ *   holding cargo it chose BEFORE the player ordered anything → WAITING's only exit is a successful
+ *   deposit → that needs a free slot → a slot frees only by building → building needs a satisfied
+ *   bill → which needs a composition change → which needs a delivery.
+ *
+ * So `orderForGatherer` could never reach a unit that was already WAITING, and the order queue was
+ * measurably INERT: ordered type 4 twice through the real UI, and 60 s later the composition was
+ * unchanged with both orders still queued. Freeing a slot by hand did not help either — the WAITING
+ * unit instantly refilled it with the STALE shape, not the ordered one.
+ *
+ * THE THREE CONDITIONS, AND WHY EACH IS LOAD-BEARING:
+ *  1. the player has actually ordered something — with an empty queue there is no "wants" to disagree
+ *     with, and an idle player must keep banking whatever is nearest (the owner's B4 fall-through);
+ *  2. this cargo satisfies NO queued order — a unit holding what was asked for must keep holding it;
+ *  3. ⭐ a spark of some ordered type is genuinely harvestable RIGHT NOW. Without (3) the unit would
+ *     put its cargo down, find nothing better to fetch, and be free to pick the same shape up again —
+ *     the drop/re-grab spin-loop GROK-ANALYST flagged in Council. With (3) the release is only ever
+ *     taken when there is strictly better work to go and do, so it cannot cycle.
+ *
+ * Note (3) is belt-and-braces rather than the only defence: `isHarvestable` also requires the spark
+ * to be INSIDE the quarry disc, and cargo is parked on the porch at `KEEP_RING_RADIUS`, far outside
+ * it — so a parked shape is not re-targetable at all. Both facts are stated because the spatial one
+ * is a property of the porch's position, and a future re-siting of the porch must not silently
+ * re-open the spin-loop.
+ */
+export function shouldReleaseWaitingCargo(world: World, g: Gatherer, carried: Spark): boolean {
+  const q = world.gathererOrders.get(g.ownerPlayerId);
+  if (q === undefined || q.length === 0) return false;
+  if (q.includes(carried.type)) return false;
+  for (const s of world.freeSparks.values()) {
+    if (isHarvestable(s) && q.includes(s.type)) return true;
+  }
+  return false;
+}
+
+/**
+ * S145 P1 — put the held shape on the owner's PORCH, and return whether it landed.
+ *
+ * ⭐ THE PORCH IS NOT A BIN, AND THAT IS THE WHOLE REASON THIS IS ALLOWED TO EXIST. `blueprintBuild`
+ * pays a bill from bank ∪ own porch (`availableShapeCounts`/`planBlueprintPayment`), so a parked
+ * shape is STILL FULLY SPENDABLE — the player's total pool is unchanged. Nothing is destroyed and
+ * nothing leaks, which is what keeps the owner's V6-1.3 ruling at the `WAITING` assignment intact:
+ * *"Holding rather than discarding is what makes the cap a strategic pressure … instead of a silent
+ * leak of the player's work."* The pressure survives too, because bank ∪ porch is still hard-capped
+ * (`CASTLE_BANK_CAP` + `CASTLE_PORCH_SLOTS`).
+ *
+ * A FULL PORCH REFUSES, and the unit simply keeps waiting — the same no-op-never-throw contract
+ * `applyPullFromBank` uses, and for the same reason: a refused park must lose nothing.
+ *
+ * The escrow/Verlet/`createdTick` handling is `applyPullFromBank`'s, deliberately: `escrow:'banked'`
+ * is what stops `enforceSpawnerBounds` rim-snapping the shape back to the quarry every substep (the
+ * defect that file documents at length), and it also exempts the shape from the TTL reap so a parked
+ * shape waits for the player instead of evaporating.
+ */
+function parkCargoOnPorch(world: World, g: Gatherer, carried: Spark): boolean {
+  const seat = g.ownerPlayerId as unknown as number;
+  const occupied = [...world.freeSparks.values()]
+    .filter((s) => s.id !== carried.id)
+    .map((s) => s.pos);
+  const slotIndex = firstFreePorchSlot(seat, occupied);
+  if (slotIndex === null) return false; // porch full → keep holding it
+  const at = porchSlot(seat, slotIndex);
+  carried.pos.x = at.x;
+  carried.pos.y = at.y;
+  carried.prevPos.x = at.x;
+  carried.prevPos.y = at.y;
+  carried.escrow = 'banked';
+  carried.state = { kind: 'Free' };
+  carried.createdTick = world.tick;
+  g.carriedSparkId = null;
+  g.targetSparkId = null;
+  return true;
+}
+
 /** Squared distance — the per-tick target scan is sqrt-free. */
 const distSq = (a: Vec2, b: Vec2): number => {
   const dx = a.x - b.x;
@@ -373,7 +466,35 @@ export function pickGathererTarget(world: World, g: Gatherer): SparkId | null {
   let best: SparkId | null = null;
   let bestD = Infinity;
   let bestPreferred = false;
-  const wanted = orderForGatherer(world, g) ?? g.preferredType;
+  const ordered = orderForGatherer(world, g);
+  const wanted = ordered ?? g.preferredType;
+  // ⚠ S145 P1 — WHEN THE SLOTS ARE SCARCER THAN THE ORDERS, THE FALL-THROUGH IS A LEAK.
+  //
+  // MEASURED (diagnostic run, junk-full bank, one click on the stink-tower tile): the click freed 4
+  // bank slots and queued [Square, Circle, Circle, Circle] — and the economy then spent three of
+  // those four slots on a Triangle, a Line and a Dot that nobody had asked for, because no spark of
+  // the wanted type happened to be harvestable at that instant. The bank re-locked at 7/7 and the
+  // ordered Circle ended up stuck in the gatherer's hands, one slot away, for the remaining 4,600
+  // ticks. A quieter re-run of the very deadlock this session exists to fix.
+  //
+  // So the B4 fall-through is kept EXACTLY as ruled — *"a want is a PRIORITY OVERRIDE, never an
+  // on/off switch, so an unattended player keeps earning"* — for every case it was ruled about: no
+  // orders at all, or orders with room to spare. It is suspended ONLY while this seat's free bank
+  // slots are no more numerous than its outstanding orders, i.e. precisely when an opportunistic haul
+  // must cost an ordered one its slot. An unattended player has no queue, so nothing changes for them.
+  if (ordered !== null && bankFreeSlots(world, g.ownerPlayerId) <= pendingOrderCount(world, g.ownerPlayerId)) {
+    for (const s of world.freeSparks.values()) {
+      if (!isHarvestable(s) || s.type !== ordered) continue;
+      const d = distSq(s.pos, g.pos);
+      if (best === null || d < bestD || (d === bestD && (s.id as unknown as number) < (best as unknown as number))) {
+        best = s.id;
+        bestD = d;
+      }
+    }
+    // Nothing of the ordered type in the quarry right now: hold rather than spend the slot on junk.
+    // The spawner produces every type, so this is a pause of a few seconds, never a stall.
+    return best;
+  }
   for (const s of world.freeSparks.values()) {
     if (!isHarvestable(s)) continue;
     const preferred = wanted !== null && s.type === wanted;
@@ -486,6 +607,13 @@ export function applyGathererTick(world: World, action: GathererTickAction): Wor
     if (depositIntoCastle(world, g.ownerPlayerId, carried)) {
       g.carriedSparkId = null;
       g.targetSparkId = null;
+      g.state = 'SEEKING';
+      return world;
+    }
+    // S145 P1 — PUT DOWN CARGO THE PLAYER NO LONGER WANTS, so the order queue can finally reach a
+    // unit that is already parked. Both helpers are no-op-never-throw; the state only advances when
+    // the shape actually landed on the porch.
+    if (shouldReleaseWaitingCargo(world, g, carried) && parkCargoOnPorch(world, g, carried)) {
       g.state = 'SEEKING';
     }
     return world;
