@@ -234,6 +234,17 @@ Given while reading the blueprint. These are settled.
 | R29 | **The castle is NEUTRAL: it generates NO points.** It has **HP / defence / attack**, and shapes may later be spent to raise them. Full spec deferred. |
 | R30 | ⚠ **A full unit + player STAT REBALANCE is required** for the new game state. Its own session, after the mechanics land. |
 
+### RULINGS — REVIEW ROUND 5 (command, incentive, projectiles, footer)
+
+| # | Ruling |
+|---|---|
+| R31 | ⭐ **THE TOWER TAKES THE ORDERS, NOT THE GOBLINS.** You select the goblin tower that spawned a brood and set *its* attack preference; its goblins inherit it. **This is what makes multiple goblin towers worth building** — otherwise one tower would do and there would be no reason for a second. |
+| R32 | **Each goblin tower also spawns 1 RANDOM goblin per round**, on top of anything you feed it. A second, passive incentive to own more towers. ⚠ **DETERMINISM:** "random" must be drawn from the seeded host RNG stream (the `mulberry32` precedent in `spawner.ts`), never `Math.random()` — a client-side draw would desync instantly. |
+| R33 | **Suicide goblin = a contact bomber.** Explosive vest, detonates on contact with any target (the C&C *Generals* Terrorist as the mechanical reference). Roughly **half the blast radius** of the existing suicide-drone tower, so it stays the weaker option. *Art note: it reads as a goblin bomber — the mechanic is the reference, not the real-world styling.* |
+| R34 | **Surviving goblins return INTO their tower** at the end of a fight and wait there for the next round. |
+| R35 | ⭐ **BUILD THE TRAVELLING-PROJECTILE SYSTEM NOW**, as reusable infrastructure rather than one unit's feature — the owner has *"a lot more ranged units/towers in mind"*. SPARK has no shipped precedent: every attack today is instant-hit. |
+| R36 | **The footer band is indexed by CONNECTOR COUNT, not a flat list of towers.** It shows just the numbers in the world's current range (4, 5, 6, 7 …); clicking a number opens the build menu for towers of that complexity. Keeps the bar clean instead of messy from the start. |
+
 ### ⭐ A.0 FINDING — THE INCOME MODEL R16/R17 DESCRIBES IS **ALREADY SHIPPED**
 
 Verified on disk, not assumed. `state/scoring.ts` `tickScoring` has accrued per-tick income since
@@ -340,10 +351,19 @@ plus a host migration across a phase edge. Score is 0 during BUILD and rising du
 
 ---
 
-### S150 · CASTLE HP · ELIMINATION · PLACINGS
+### S150 · THE CASTLE BECOMES REAL — HP, GUNS, ELIMINATION, PLACINGS
+
+⚠ **SECOND AUDIT MISS, FOUND AND FIXED.** The castle WEAPON SYSTEM had no session at all. It comes
+from the notes (*"the castles weapon system gets activated — castle attacks any enemy units that
+attack it"*) rather than from a numbered ruling, and my first audit only checked R-numbered rulings —
+so it verified 30 rulings and still missed a headline feature. Folded in here, where it belongs:
+the castle stops being scenery and becomes an entity in one session.
 
 - Castle becomes a damageable entity on the shipped damage pipeline. **Neutral: generates no
   points** (R29).
+- **Castle weapon system**: arms at the BUILD→FIGHT edge, stands down at FIGHT→BUILD, and defends
+  against anything attacking it. Per-castle style/race hooks stubbed; stats identical across players
+  at first, exactly as the notes specify.
 - Destroying a castle eliminates that player; **last one standing wins** (R10); 1500 points is an
   **instant win** (R20); remaining places ordered by score; eliminated players may spectate.
 
@@ -379,13 +399,21 @@ one demonstrably cannot.
 - A simple ~4-connector tower. **Feed a shape → get the goblin that shape maps to** (R24):
   swordsman · archer · shield · hound · suicide · bat rider.
 - Feed during BUILD *or* FIGHT; **the whole queue emerges at the next fight start** (R26).
-- Six distinct stat spreads, all weakest-class (R25).
+- Six distinct stat spreads, all weakest-class (R25); the suicide goblin is a contact bomber at
+  roughly half the drone tower's blast radius (R33).
+- **Each tower also spawns 1 RANDOM goblin per round** from the SEEDED host stream (R32).
+- **Orders live on the TOWER, not the goblins** (R31) — which is the whole reason to own several.
+- Survivors **return into their tower** between rounds (R34).
 - Panel UI: goblin options, each showing the shape it costs.
 
-⚠ The **archer** needs a travelling projectile, and the carry-forward record says there is **no shipped
-travelling-projectile precedent** — that is the one genuinely new piece of tech in this session.
+⭐ **BUILD THE TRAVELLING-PROJECTILE SYSTEM FIRST, INSIDE THIS SESSION** (R35). Every attack in SPARK
+today is instant-hit, so this is the one genuinely new piece of tech in the whole roadmap — and it is
+INFRASTRUCTURE, not the archer's private feature: more ranged towers and units are planned, and the
+laser rework in S154 will want it too. Determinism-critical (spawn tick, velocity and lifetime are all
+hashed state), so it gets its own differential test before a single goblin uses it.
 
-**Exit gate:** all six spawn, obey their stat spread, and persist across a cycle boundary per R27.
+**Exit gate:** a projectile fires, travels, hits and expires identically host-vs-worker; all six
+goblins spawn, obey their stat spread, take their tower's orders, and persist across a cycle per R27.
 
 ---
 
@@ -400,7 +428,10 @@ travelling-projectile precedent** — that is the one genuinely new piece of tec
 
 Deferred from S146 deliberately, and specified here against the real loop instead of the old one.
 
-- Bottom footer band: every tower, enabled the moment the castle inventory covers its recipe.
+- Bottom footer band **indexed by CONNECTOR COUNT** (R36): the bar shows only the numbers in the
+  world's current range — 4, 5, 6, 7 … — and clicking one opens the build menu for towers of that
+  complexity, each enabled the moment the castle inventory covers its recipe. This is what keeps the
+  bar readable instead of a wall of towers from the first second.
 - Castle panel = inventory only.
 - Click a gatherer → `PREFERENCE: CLOSEST → TRIANGLE → SPIRAL → …` (a UI over the already-shipped,
   already-serialized `preferredType`).
