@@ -180,7 +180,100 @@ snapshot-authoritative sim policed by a state hash. Ranked by Council:
 
 ---
 
-## 6. THE ROADMAP — SESSION BY SESSION
+## 6. OWNER RULINGS — R1 THROUGH R30
+
+### REVIEW ROUND 1
+
+Given while reading the blueprint. These are settled.
+
+| # | Ruling |
+|---|---|
+| R1 | **4-player is ALL VS ALL** — every player may attack every other. Tower behaviour comes from each tower's own **specs** + the **commands** the player gives it (attack/defence preference + unit choice). |
+| R2 | **No 3-player map.** Three players use the 4-player board with one quadrant simply empty. |
+| R3 | **Stages repeat forever.** Points accrue **during the FIGHT stage ONLY** — there is no point tick during BUILD. |
+| R4 | When the walls drop, enemies fight and **towers come alive doing whatever their skill is**. ⚠ *"need to rework some towers to be more coherent"* — a real work item, scope TBD. |
+| R5 | **Walls cannot be attacked while they are up.** Invulnerable for the whole build stage. |
+| R6 | **A gatherer can never be caught outside** — they are built to come in **exactly 1 s before the walls drop**, regardless of speed upgrade. Exact mechanism to be defined later. |
+
+### RULINGS — REVIEW ROUND 2 (the fight economy)
+
+| # | Ruling |
+|---|---|
+| R7 | ⭐ **TOWERS TICK POINTS during the FIGHT stage.** This is the scoring engine, and it answers the R3 problem: score is no longer earned by building, it is earned by *owning live towers while fighting*. Destroying an enemy tower is therefore TWO blows — it removes a defender AND cuts their income. "Who is winning" and "who should I attack" collapse into the same question. |
+| R8 | **"Unit choice" = TARGET PREFERENCE, per tower.** Click a built tower and set who it goes for first: a specific player (1/2/3/4), or strongest / weakest, etc. Every tower carries its own preference; defensive towers too. Gatherers already have the equivalent (`preferredType`, shipped + serialized). **NOT unit production.** |
+| R9 | **Towers may strike into enemy zones if in RANGE**, per each tower's own function and specs — e.g. a laser tower near a border can hit enemy towers. Creates the core placement tension: **near the border = more reach but likelier targeted; ringing your castle = safe but reaches nothing.** |
+| R10 | **All-vs-all is LAST ONE STANDING.** Others place 2nd / 3rd / last as they fall. An eliminated player may **spectate**. |
+| R11 | **2v2 uses the QUADRANT board** for now; revisit after playtest. |
+| R12 | **Gatherers are SAFE inside the castle** — garrison semantics, explicitly like Warcraft / Empire Earth. Shapes gathered but not yet spent simply wait in inventory for the next build stage. |
+| R13 | **Towers PERSIST across cycles**, with an attrition economy: **FIX** (one click; if inventory holds the exact shapes the structure lost, it repairs automatically using them) and **SCRAP** (tear down, surviving parts return to inventory for reuse). |
+| R14 | **CUT FOR NOW: potato bomb, regular bomb, poop bird (seagull), rainbow.** Simplification; restoration decided later. **Claude recommendation, pending owner nod: DISABLE (cadence → 0), do not delete** — restoring then costs one line instead of an archaeology session. |
+| R15 | **Tower roster work:** the laser tower should be offensive as well as defensive, likely others too; and **add simple towers built around the archer goblin and the melee goblin** to widen the buildable selection. |
+
+### RULINGS — REVIEW ROUND 3 (income, army, attrition)
+
+| # | Ruling |
+|---|---|
+| R16 | **Points scale on TOWER COMPLEXITY**, and a damaged structure earns less **based on remaining CONNECTORS**. Explicitly: *"we keep current point per tick function"*. |
+| R17 | ⭐ **PLAIN STRUCTURES AND WALLS GENERATE POINTS.** The pivot would otherwise orphan freeform shape-connecting — *"simple intershape connectors are impossible and dont do anything"*. So during BUILD a player may raise simple structures/walls from loose shapes that do nothing but **generate points and act as targets / shields for other structures**. |
+| R18 | **GOBLIN TOWERS PRODUCE UNITS.** A simple ~4-connector tower; feed it shapes from inventory and it makes **1 goblin per shape**, letting leftover inventory become an army. Intended tactical split: *"some players will rather loose more points this round to build better towers next round and some will want to create moving armies to blitz"*. |
+| R19 | **FIX and SCRAP are BUILD-stage only.** |
+| R20 | **1500 points = INSTANT WIN** (for now). Remaining places are then ordered by score. |
+| R21 | **SCRAP returns only the shapes still standing.** Destroyed ones are gone. |
+| R22 | **The quarry does NOT produce during FIGHT** — build stage only. May change later. |
+| R23 | Confirmed: the four hazards are **switched OFF, not deleted**. |
+
+### RULINGS — REVIEW ROUND 4 (the army, and the castle)
+
+| # | Ruling |
+|---|---|
+| R24 | **THE SHAPE YOU FEED DECIDES THE GOBLIN.** One simple tower produces up to **six** types — **swordsman · archer · shield goblin · goblin hound · suicide goblin · goblin bat rider**. Your inventory mix literally constrains your army composition. |
+| R25 | **Goblins are the WEAKEST creature class**, differentiated by stat spread rather than power: shield goblin = very low attack / very high HP (still under Voltkin or HELGA); goblin hound = very fast, low defence, decent attack; goblin bat = fast, low attack, decent defence. |
+| R26 | **Feed the goblin tower during BUILD *and* during FIGHT — the queue all comes out when the next fight starts.** UI: click the tower and the goblin options each show the shape they need. |
+| R27 | **Creatures PERSIST across rounds unless destroyed** — but this does not override per-unit lifetimes. Owner's example: a Voltkin attacks ~20 s, then is killed or despawns, and **unless its tower is destroyed it respawns next wave under the same conditions**. So for timed units the SPAWNER is the persistent thing; produced goblins persist as units. |
+| R28 | **Anti-coast LEADER SCORE-DECAY is switched OFF** (retained, not deleted). |
+| R29 | **The castle is NEUTRAL: it generates NO points.** It has **HP / defence / attack**, and shapes may later be spent to raise them. Full spec deferred. |
+| R30 | ⚠ **A full unit + player STAT REBALANCE is required** for the new game state. Its own session, after the mechanics land. |
+
+### ⭐ A.0 FINDING — THE INCOME MODEL R16/R17 DESCRIBES IS **ALREADY SHIPPED**
+
+Verified on disk, not assumed. `state/scoring.ts` `tickScoring` has accrued per-tick income since
+S76 P3:
+
+```
+scoreByPlayer[p] += SCORE_INCOME_PER_COMPLEXITY_PER_SEC (0.05) x complexity(p) / PHYSICS_HZ
+complexity(p)    = #primitives + 2 x #magicBonds  (+ FILAMENT_INCOME_COMPLEXITY per Filament)
+```
+
+Point by point against the rulings:
+
+| Ruling | Already true? |
+|---|---|
+| R16 income scales with complexity | ✅ literally the same word and the same formula |
+| R16 damaged structure earns less, by remaining connectors | ✅ severed bonds lower complexity, so income falls continuously |
+| R17 plain structures generate points | ✅ `computeComplexity` counts ALL primitives + bonds; it has never cared whether they form a recipe |
+
+**So the scoring work is not "build an income engine" — it is "GATE the shipped one to the FIGHT
+stage".** That is a phase check at one call site, not a new subsystem. It also removes the last doubt
+about ADAPT-vs-REWRITE: the freeform building system the pivot looked like it would orphan turns out
+to be the thing that powers the economy.
+
+⚠ **ONE CONFLICT TO RULE ON.** S107 added an **anti-coast LEADER SCORE-DECAY** — the leader's score
+gently decays as a rubber-band. Under the new design, scoring already stops for half of every cycle,
+so decay may now double-punish the leader. Keep, retune, or remove — see open questions.
+
+---
+
+⚠ **R7 RESOLVES THE R3 PROBLEM.** The earlier note here flagged that R3 (no scoring during BUILD) left
+the shipped scoring engine — which pays for PLACEMENTS — producing zero points per match. R7 replaces
+that engine outright: points come from live towers ticking during FIGHT. The 1500-point win condition
+now has something driving it. **What is NOT yet ruled is the RATE** (flat per tower, or scaled by build
+cost) and whether a damaged tower earns less — see the open questions.
+
+---
+
+---
+
+## 6B. THE ROADMAP — SESSION BY SESSION
 
 Ordered by **determinism risk**, not by feature appeal. Every session ends shippable and playable;
 none leaves the game broken. That sequencing IS the answer to *"a million bugs along the way"*.
@@ -201,8 +294,14 @@ it can be trusted.*
   in `FIELD_COVERAGE` (the forcing function will fail the build if I forget the projection — it
   already caught exactly that mistake this session).
 - **Tick-derived only. Never `Date.now()`.** 90 s = 5400 ticks @ 60 Hz.
-- Gate `tickScoring` to FIGHT (R3). This is a phase check at ONE call site — the income engine itself
-  is already correct (see the A.0 finding).
+- Gate `tickScoring` to FIGHT (**R3 / R7 / R16**). This is a phase check at ONE call site — the income
+  engine itself is already correct (see the A.0 finding): it already scales with complexity and already
+  falls as connectors are severed.
+- ✅ **R17 needs NO work and is recorded here so it is not mistaken for a gap.** "Plain structures and
+  walls generate points" is already true — `computeComplexity` counts every primitive and bond and has
+  never cared whether they form a recipe, and freeform building already ships. S148 then confines it to
+  your own zone. The only open piece is whether such structures should physically BLOCK movement, which
+  is folded into S149's wall work.
 - Switch off the anti-coast leader decay (R28).
 - HUD: phase name + countdown.
 - Nothing else changes behaviour — towers stay always-on, no walls, no zones.
@@ -256,8 +355,9 @@ plus a host migration across a phase edge. Score is 0 during BUILD and rising du
 ### S151 · TOWERS COME ALIVE + TARGET PREFERENCE
 
 - Towers dormant in BUILD, live in FIGHT (R4).
-- Per-tower **target preference**: a specific player, or strongest / weakest (R8) — reusing the
-  intent/snapshot path that already carries order queues.
+- Per-tower **target preference**: a specific player, or strongest / weakest (**R1 / R8**) — reusing
+  the intent/snapshot path that already carries order queues. All-vs-all means any player is a legal
+  target.
 - Range may cross zone borders once walls are down (R9), which is what makes placement a real decision.
 
 **Exit gate:** a border-adjacent tower demonstrably strikes into a neighbouring zone; a castle-ringed
@@ -265,7 +365,7 @@ one demonstrably cannot.
 
 ---
 
-### S152 · FIX + SCRAP (the attrition economy)
+### S152 · FIX + SCRAP (the attrition economy — R13)
 
 - **FIX**: build-stage only (R19); one click; consumes exactly the shapes the structure lost.
 - **SCRAP**: returns only the shapes still standing (R21); destroyed ones are gone.
@@ -274,7 +374,7 @@ one demonstrably cannot.
 
 ---
 
-### S153 · THE GOBLIN TOWER + SIX GOBLINS
+### S153 · THE GOBLIN TOWER + SIX GOBLINS (R18)
 
 - A simple ~4-connector tower. **Feed a shape → get the goblin that shape maps to** (R24):
   swordsman · archer · shield · hound · suicide · bat rider.
