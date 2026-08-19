@@ -1,27 +1,28 @@
 {
-  "tool_calls_session_total": 1180,
-  "session_id": "S146",
+  "tool_calls_session_total": 1221,
+  "session_id": "S147",
   "session_kind": "pdca-batch",
   "session_start": "2026-08-16",
-  "prior_session_note": "S145 closed 4/4. S146 redirected by owner mid-boot: limitless counts inventory + remove loose-spark repulsion + stink tower blessing.",
-  "prior_session_archive": ".handoff-archive/HANDOFF_S138.md",
-  "phase": "ANALYZE",
+  "prior_session_note": "S146 closed: limitless per-type castle inventory + loose-spark antimagnet removed, then the owner PIVOTED SPARK to a classical tower defence. S146 produced SPARK_TD_BLUEPRINT.md (40 rulings, unanimous ADAPT-not-rewrite) and SPARK_TD_SESSION_SPECS.md (11 sessions). S147 is the first build session of that roadmap.",
+  "prior_session_archive": ".handoff-archive/HANDOFF_S146.md",
+  "phase": "CHECK",
   "tier": "Full",
-  "plan_file": ".claude/plans/2026-08-16_PDR_S146_limitless_inventory_no_repulsion.md",
-  "session_status": "closed",
+  "plan_file": ".claude/plans/2026-08-16_PDR_S147_MATCH_CLOCK.md",
+  "session_status": "active",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "protocol_version": 21,
+  "protocol_version": 23,
   "boot_preflight": {
     "boot_snapshot_read": true,
-    "handoff_read": "HANDOFF_2026-08-14.md",
+    "handoff_read": "HANDOFF_2026-08-16_S146.md (via boot-snapshot.md + inline handoff prompt)",
     "unpushed_commits": 0,
-    "build": "PASS — entry index-nR6yeWrW.js, 690.0 KiB, 60.0 KiB headroom",
-    "verify_deploy": "PASS 4/4 — remote/run/verdict/live agree; live entry index-nR6yeWrW.js",
-    "custom_domain_check": "spark-online.space serves index-nR6yeWrW.js (same hash as local build) — the deploy the owner played WAS the S144 build",
-    "ci_runs_audited": "gh run list — 3 most recent deploy runs success; two older E2E dispatches `cancelled` (known S143 pattern, not new); gh issue list empty",
-    "in_progress_plans": "none live in .claude/plans/ (the S137 starter-designs IN-PROGRESS file the pre-flight WARN named is in .claude/plans-archive/ — false positive)"
+    "build": "PASS - entry assets/index-d98_KqN1.js 689.3 KiB, cap 900 KiB, headroom 210.7 KiB",
+    "verify_deploy": "PASS 4/4 - remote/run/verdict/live all agree; RUN carrier correctly reports \"none OWED\" (docs-only commit since 7da9107c)",
+    "e2e_gating": "PASS 39/39 in 2.3m",
+    "ci_runs_audited": "gh run list: 5 most recent Deploy runs all conclusion=success, ZERO cancelled (the silent-death pattern in memory did NOT recur). gh issue list: empty.",
+    "context_at_boot": "98,979 / 1,000,000 (9.9% GREEN)",
+    "in_progress_plans": "THREE .claude/plans/ files grep-match in-progress. Triaged: S133 = \"COMPLETED\" (false positive); S126 = \"AWAITING APPROVAL\" but S126 shipped and the deploy path is SETTLED (memory) - stale header, not live work; S137 SCOPE_AMENDMENT = genuinely \"IN-PROGRESS - designed + art spiked, NOT implemented\" BUT explicitly SUPERSEDED by the TD pivot per boot-snapshot.md (\"owner-gated leftovers now superseded\"). No live plan competes with S147."
   },
   "owner_rulings_inherited": {
     "date": "2026-08-10",
@@ -63,179 +64,303 @@
     "GOOD NEWS WORTH RECORDING (claims that CONFIRMED cleanly). damageEntity's guard/return semantics/anchor-raze all verified by running its 22 tests green. razePrimitives IS the single primitive-removal path - world.primitives.delete appears EXACTLY ONCE in src/ (razePrimitives.ts:78) and world.bonds.delete exactly once (:75); only 3 whole-world clear() resets bypass it. Widening DamageTarget is a 1-switch 3-arm->4-arm edit with ZERO external type consumers (DamageTarget/DamageSource have no importers outside damage.ts). DefenderKind's Record IS compile-time exhaustive. pickGathererTarget is ALREADY per-unit preference-aware so R3 needs zero changes there. pickGatherer hit-testing ALREADY EXISTS and is already own-units-gated (controls.ts:276-290). BotGoal has NO wire surface. Registry join is 3 LOC. Codex tab wiring needs NO change (main.ts:611-618 filters by r.kind automatically)."
   ],
   "carry_forward": [
-    {
-      "id": "S145-CF1",
-      "severity": "HIGH — BLOCKER ON THE SIM-WORKER FLIP",
-      "status": "open",
-      "title": "BUILD_BLUEPRINT spends the shapes but never ignites under ?worker=1 — the player pays and gets nothing",
-      "detail": "MEASURED S145, twice, solo ?worker=1, real browser. Arming works (armed==\"stinkTower\"). The placement click works (armed->null). The geometry LANDS: world.primitives.size == 4. The shapes are SPENT: bank [1,2,2,3,4,4,5] -> [1,2,2,5], i.e. the Square + 3 Circles were consumed. And world.defenders stays EMPTY, before and after revalidation. So the structure never ignites and the player is charged for nothing. This is the exact silent-death mode boot-snapshot.md documents for S144: runDefenderIgnition/runSpawnerIgnition are event-driven behind their own hasTopologyChange sweep over world.effects, so geometry written without a BOND_FORMED reaching the matcher leaves the recipe inert with no tower, no error and no log line.",
-      "is_it_new": "PRE-EXISTING S144, not introduced by S145 — the S145 diffs touch neither blueprintBuild.ts nor any ignition path. It was never caught because e2e/click-to-build.spec.ts runs only on the default (non-worker) path, and this session is the first time the build grid was exercised under ?worker=1.",
-      "blast_radius": "ZERO on the live game today: WORKER_DEFAULT_ON is false, so ?worker=1 is opt-in and nobody reaches it by accident. It becomes a headline-feature regression the moment the worker flip lands.",
-      "next_step": "Before flipping WORKER_DEFAULT_ON, reproduce with the probe idiom above and check whether the BOND_FORMED effect emitted by applyBuildBlueprint survives the worker boundary / the effects drain ordering inside the worker tick. Add a ?worker=1 lane to bank-deadlock.spec.ts or click-to-build.spec.ts so it can never regress silently again.",
-      "root_cause_lead": "TRACED, not guessed. Ignition is NOT in runHostTick — grep for runDefenderIgnition over src/ shows it is called ONLY from runGodlyMatcherCore (godlyMatcherCore.ts:62 runSpawnerIgnition, :64 runDefenderIgnition), and that function opens with `if (!world.isHost) return null;`. Two candidate mechanisms follow, and they are cheap to discriminate: (1) the worker world own `isHost` is false after INIT save-adoption, so BOTH ignition paths return before doing anything — which would mean NO defender or spawner has EVER ignited under ?worker=1, not just blueprint builds; (2) it is a cadence/ordering issue — workerSim.applyTickBatch calls runGodlyMatcherCore exactly ONCE per batch, after the tick loop, whereas the direct path calls it per frame. REFUTED along the way: the recipe registry IS populated inside the worker bundle (godlyMatcherCore.ts imports godlyRecipes/index.ts, so the registerRecipe side effects run), and the effects wipe is NOT the cause — world.effects.length = 0 happens at the END of applyTickBatch, after the matcher, so the BOND_FORMED pushed by the intent is still present when ignition sweeps.",
-      "cheapest_discriminator": "Build a stink tower BY HAND under ?worker=1 and see whether it ignites. ⚠ NOTE THE TRAP: e2e/stink-tower.spec.ts seeds the recipe by writing primitives/bonds straight into __SPARK__.world via page.evaluate, and under ?worker=1 that object is the RENDER MIRROR, not the authoritative world — the seed would never reach the worker and the test would \"fail\" for a reason that has nothing to do with ignition. The discriminator must therefore go through the real drag flow (PLACE_FROM_FREE intents, which DO route to the worker), or instrument the worker directly. If a hand-built tower also fails to ignite it is mechanism (1) — general defender/spawner ignition is dead under the worker, a hard blocker on WORKER_DEFAULT_ON and much larger than click-to-build. If it ignites, it is mechanism (2) or blueprint-specific.",
-      "scope_note": "NOT fixed in S145 deliberately. It is a different subsystem from the approved batch (worker intent/ignition ordering vs the bank deadlock), it is determinism-critical code behind the stateHash apparatus, and it cannot affect the live game while WORKER_DEFAULT_ON is false. Landing an unreviewed change there while the owner slept would have been the wrong trade."
-    },
-    {
-      "id": "S145-CF2",
-      "severity": "MEDIUM",
-      "status": "open-owner-gated",
-      "title": "CASTLE_BANK_CAP 7 vs 12-13 is now a PACING dial, not a playability blocker",
-      "detail": "S145 P1/P2 fixed the mechanism, so a full bank is no longer terminal at any cap. The two contradicting owner rulings therefore no longer block anything — the question is purely how much buffer the economy should have. constants.ts now records what cap 7 measurably cost (bank full in ~46 s, composition frozen, zero towers in two 4-minute runs) so the ruling can argue from data. GROK argued in Council that raising the cap dominates once the build-grid wiring lands; that is a tuning opinion on an owner-reserved constant and was NOT acted on."
-    },
-    {
-      "id": "S145-CF3",
-      "severity": "LOW",
-      "status": "open",
-      "title": "click-to-build.spec.ts seeds the bank, and its own comment explains why the real path was untestable",
-      "detail": "Its comment reads: \"waiting for gatherers to haul a MATCHING set is not viable in a gating lane (they fetch whatever they find, and a full bank of the wrong mix satisfies nothing)\". That sentence is a description of the S145 deadlock, written a session before it was diagnosed. e2e/bank-deadlock.spec.ts now covers the unseeded property. Worth a sweep for other specs whose seeding hides a real-path failure."
-    },
-    "⚠ TWO OWNER RULINGS POINT OPPOSITE WAYS AND NOBODY HAD NOTICED. constants.ts:410-414 carries the B4b instruction verbatim: 'THE PAIRING IS THE POINT — NEVER TUNE THIS NUMBER APART FROM THE TABLE BELOW... At 5 slots only the PENTAGRAM is directly assemblable', with :429-431 adding 'MEASUREMENT SEAM ONLY, and it is NOT a licence to retune the cap on its own'. The R2 build-space ruling raises CASTLE_BANK_CAP to 12-13, at which ALL SIX recipes become directly assemblable — deleting the carve-down tactic the v0.6 pivot exists to protect. This needs an explicit owner override BEFORE the build space is built, not a silent constant edit.",
-    "⚠ R7 (the design library) IS NOT IMPLEMENTABLE AS RULED. The library is per-browser localStorage, never serialized/hashed/wired, so in a 2-peer match the peers hold DIFFERENT libraries and the host cannot validate 'I own this design' — which directly contradicts the design's own section 5 'non-negotiable' host-validation contract. R8's 'free every match regardless of unlocks' cannot be expressed in a per-browser unlock set at all. This is a DESIGN decision, not an implementation task. Also measured: the template-loader half is 100% unbuilt AND its data does not exist — EmblemSpec is a decorative polar approximation sized for a 240x320 codex tile with no relation to AUTO_BOND_RADIUS 60, only 3 of 6 CODEX_COPY entries have one, and the TWO the owner named as capacity targets (Voltkin=8, NONET=9) are exactly the two with NONE.",
-    "⚠ BUILD SPACE — C1's panel regrid DOES NOT FIT as specified, and there is a SECOND cap-dependent geometry site no design doc mentions. Width is fine (5*40+4*6 = 224 <= ROW_INNER_W 248) but height is not: 3*40+2*6 = 132 vs BANK_STRIP_H 52, over by 80px — BANK_STRIP_H must go 52->144, making panelHeight(2) go 194->286. A 5x3 grid also holds 15 slots against a ruled cap of 12-13 (2-3 dead boxes) and 6-wide is impossible (270 > PANEL_W 268). THE UNMENTIONED SITE: gathererRenderer.ts:194 draws banked shapes on the keep as pitch=(KEEP_W-14)/CASTLE_BANK_CAP; at cap 13 the glyph radius becomes 1.754px — illegible. AND castlePanel.test.ts has ZERO bank-strip coverage, so a regrid can overflow the plate with every test green. R6's 'a third control costs one entry' is also REFUTED by its own file: the class is hard-wired to two rows at FOUR sites and PanelControl.onActivate is never assigned or read anywhere.",
-    "⚠ CORRECTED S142 — THE QUARANTINE LANE IS NOT \"FULLY RED\", AND IT NEVER WAS. This entry claimed the ENTIRE multi-peer/joiner suite times out, naming both protocol-mismatch tests among the dead. MEASURED TWICE on 2026-08-13: LOCALLY 9 passed / 9 failed / 1 skipped (7.5m), and in CI (run 31707927282) 8 failed / 9 PASSED / 1 did not run (17.0m = the full cap). It is roughly HALF GREEN in both environments. ⭐ BOTH PROTOCOL-MISMATCH TESTS PASS IN CI, 5.6s each, over real WebRTC, covering both direction arms — so \"CI cannot verify a PROTOCOL_VERSION bump\" was FALSE and the owner has been doing a manual 2-browser check that CI already performed. S142 P2 gives them a dedicated GATING lane (`e2e-protocol`). Peers DO connect in the sandbox (tests fail on real assertions at 7.5s/49.8s, not uniform socket timeouts), so the in-repo \"cannot hold data channels\" story is too broad. What is REALLY wrong: the lane ran retries:2, so 32 tests x 3 structurally-identical attempts blew the 17-minute cap and left a test unexecuted — fixed in S142 P2 with PW_RETRIES: 0. STILL OPEN: the ~8 genuinely failing joiner/multi-peer tests. ✅ PW_RETRIES:0 SHIPPED AND EXERCISED: run 31712230199's quarantine job still concluded `failure` (expected — ~8 genuinely failing joiner tests remain), but it is now the FAILURES that fail rather than the budget. Re-measure the pass/fail split and the wall-clock on the next scheduled run to confirm the '1 did not run' truncation is gone.",
-    "S139 OWNER PLAYTEST ASKS: (1) the 2-PEER v18 HELLO check across two browsers — the only way to verify the bump, since CI cannot. (2) Does the free goblin feel right? It is a permanent roaming ~120px VISION source, which materially changes fog of war. (3) Goblins currently render ABOVE the fog (following the shipped chewer precedent), so enemy goblins are always visible — defensible for a raider but an UNRULED design question. (4) Balance: 6 strikes fells a shape at ~1 strike/sec plus travel, so roughly 13 s per shape; GOBLIN_MELEE_HP 6 and GOBLIN_MAX_ACCEL 140 are first-pass and unvalidated by play.",
-    "DEFERRED FROM THE OWNER'S REDESIGN, with reasons: the RANGED goblin (archer) — there is NO shipped travelling-projectile precedent to copy; Potato.prevPos is DEAD (its own docblock admits 'no functional effect today') and Poop loses velocity across host migration, so the arrow needs a deliberate design choice. The two PRODUCER towers + the FEED_TOWER intent — needs a STRUCTURAL PICKER that does not exist: pickPrimitive was deleted in S53 P2, there is no pickDefender/pickSpawner, and world.defenders has ZERO references in src/input/. Also note CASTLE_PORCH_SLOTS is 4 while CASTLE_BANK_CAP is 5, so a 'pull 3 then feed' flow has only 4 staging slots.",
-    "TRAPS FOR ANY NEW INTENT (measured): a forgotten CLIENT_INTENT_TYPES_RECORD row COMPILES CLEAN, passes every test, works in solo and host, and is SILENTLY DROPPED for a networked joiner at hostHandlers.ts:321 and main.ts:2161 — it is Partial<...>+satisfies, so tsc does not force it, and protocol.ts:631's claim that 'the unit test in protocol.test.ts will remind you' is FALSE (no such test exists; the only real cross-check is benchGate.test.ts's SYMMETRIC set-equality, which passes if you omit the row from BOTH records). Also: FEED_TOWER must copy applyPullFromBank's 'NO-OP, NEVER AN ERROR' shape, NOT placePrimitive's throw-on-guard — placePrimitive is the only reducer family that THROWS, and a stale client index would kill the host dispatch loop.",
-    "TWO LATENT HOLES ANY NEW SPARK CONTAINER INHERITS. (a) MIGRATION SparkId COLLISION: migrationClaim.ts:147-165 computes maxSparkId from world.freeSparks ONLY, but banked sparks are deliberately OUT of freeSparks, so a successor whose highest free spark is 40 while a bank holds 57 re-mints 41..57 and COLLIDES. The fix belongs in rebuildAuthorityAllocators. (b) castleBanks is marked 'hashed' but has NO per-element field guard (the container is Map<PlayerId, Spark[]> so the ElemOf trick cannot reach the Spark), and the bank projection hashes only id/type — so adding a field to Spark fires the SparkHashed guard for freeSparks but NOTHING forces the bank projection to carry it.",
-    "STALE DOCS FOUND AND NOT ALL FIXED (fix opportunistically when touching these files): voltkinFrames.ts:255-258 says public/godly/voltkin/anim/* was deleted in S107 P3 — both PNGs EXIST, are git-tracked, ship in dist/ and are loaded EVERY match (S110 P5 re-filled the path). stateHash.ts:42,:70 cite a symbol FAMILY_COVERAGE that DOES NOT EXIST (the real export is FIELD_COVERAGE). Three docblocks cite main.ts:1706 as the hashWorldState call site; the real call is main.ts:1761. comboCodexStore.ts:12 points at comboCodexOverlay.ts, deleted in S104 P3. BACKLOG's own anti-bloat LOC figures are stale (20 modules over 500, not 16; main.ts is 2616 not 2519). The 500-LOC charter has ZERO mechanical enforcement.",
-    "S135 residuals, untouched: SCORE_TIER corner-bloom replay; carried-potato onUp pointer capture; deposit-slot column overflow. Also still open: no 2-peer/joiner exercise of the castle bank; H3 (does periodic consumption remove the hauler stall? needs a dispatch seam __SPARK__ does not expose); the sim-worker default-on flip (6 ?worker=1 literals / 4 files, and probeHarness.ts:339-345 becomes refuse-by-default after the flip — BACKLOG V6-1.1 warns NOT to pair it with a new serialized entity family, which S139 just added, so it is now safe to do ALONE next). origin/gh-pages deletion remains OWNER-GATED.",
-    "ART (starters Session B, unchanged): veo does NOT hold prop/character consistency across a 4 s clip — the fix is FRAME-LEVEL CURATION (2-3 takes per state, hand-pick ~6-10 clean frames), never a better prompt. NEVER use the word 'sticker' (it produces a white die-cut halo, the artefact the owner already rejected). The S137 spike has motion clips for the SWORDSMAN ONLY; the archer and tower have a single still each, so 2 of 3 units cannot enter the atlas pipeline yet. Note the atlas pipeline script hardcodes an absolute owner-desktop path and has no CLI args. Also: 3 more Helga-weight atlases would add ~7.5 MiB to the repo AND the Pages artifact — but atlases are budget-EXEMPT from the bundle gate, which only parses the entry script.",
-    "⚠ S142 — THE GATING e2e LANE FAILS INTERMITTENTLY IN CI, AND NOTHING REPORTS IT. CORRECTED WITHIN THE SAME SESSION: run 31707927282 (on cb7b891) FAILED the gating `e2e` job — worker-bots.spec.ts \"bots place through the worker\", 3/3 attempts, `waitForWorld timeout (60000ms): bot placements continue (prims 33 -> >33)`, final state tick 611 with 33 prims and all four seats scoring. My first write-up of this entry called it RED ON MASTER, implying deterministic. It is NOT: run 31712230199, a few hours later on fee81c1, reported `e2e: success`. So the failure is INTERMITTENT, which shifts the weight decisively toward the CI-THROUGHPUT hypothesis over a real product stall — S127 measured bots worlds at 7.2-7.7 ticks/s on the 2-core SwiftShader runner vs 25.5 locally, and tick 611 after 60s sits right in that band, so the 60s budget is simply marginal for this test on that hardware. It passes locally in ~13s. ⚠ STILL WORTH FIXING AND STILL BLOCKING THE FLIP: (a) an intermittently-red GATE is worse than a reliably-red one, because it trains everyone to re-run rather than read it; (b) e2e.yml has NO push trigger (schedule + pull_request + workflow_dispatch only), so nobody is notified either way; and (c) it is the WORKER-BOTS path — exactly what a sim-worker default-on flip would make universal. CHEAPEST HONEST FIX: give that specific wait a budget derived from measured tick-rate rather than a flat 60s (the S127 two-regime precedent), instead of raising a magic number.",
-    "S142 P1 REMAINDER — NOT DONE, deliberately deferred with the flip. The shared worker-flag predicate + `?worker=0` opt-out + the probeHarness guard (PDR items 4) and the differential-harness family seeding (item 3) were scoped for S142 and NOT executed; the flip they protect was deferred on unanimous Council advice, so they are preparation for it rather than live fixes. ⚠ THE probeHarness ITEM IS A REAL TRAP AND THE BACKLOG DESCRIBES IT BACKWARDS: it refuses to arm on `get(\"worker\") === \"1\"`, so with worker-on-by-default the param is ABSENT, the guard is FALSE, and the harness ARMS WHILE THE WORKER IS ACTIVE — the exact broken-instrument state it exists to prevent. The BACKLOG calls this \"becomes refuse-by-default\", which reads as benign and is the opposite of the truth. Root cause: the flag is parsed TWICE, independently (main.ts and probeHarness.ts) — the duplicated-decision class S141 P3 deleted in the allocator repair. Fix = ONE shared predicate both read.",
-    "S142 SWEEP RESIDUAL — known-and-deliberate serializer omissions, DO NOT \"fix\" them from the S142 example: `prevPos` on Creature/Potato/Seagull/Poop and `targetPos`/`spawnedAtTick` on Creature. `prevPos` IS Verlet velocity, so restoring it is a physics decision with real consequences (the known \"poop loses velocity across host migration\" item), NOT a completeness bug. The sweep METHOD is now recorded as a test: src/state/serializerCompletenessSweep.test.ts.",
-    "⭐ S142 P2 IS RUNTIME-PROVEN, NOT STATIC-PARSED. The new `e2e-protocol` GATING job concluded SUCCESS in CI (run 31712230199) — so a PROTOCOL_VERSION bump now verifies its own 2-peer HELLO lockstep, both direction arms, in CI, in ~11s. THE OWNER SHOULD STOP DOING THE MANUAL 2-BROWSER CHECK. It is no longer required as a release gate; do it only if you WANT to see it. Precisely what is verified: the job conclusion is `success` (the job runs `npm run e2e:protocol`); the per-test evidence (✓ both arms, 5.6s each) was captured in the earlier run 31707927282, and locally the same command selects exactly 2 tests and passes in 10.4s. NOT covered by it: the real relay/ICE path under adverse conditions, and whether a genuinely OLD BUNDLE is rejected (the HELLO is synthesized via the send-side __TEST_PROTO_VERSION_OVERRIDE__ seam, not an actually-stale build).",
-    "S143 P3 RESIDUAL — `defenders` IS STILL UNSEEDED IN EVERY DIFFERENTIAL HARNESS, now acknowledged IN CODE and PRINTED on every run rather than hidden inside a sum. Seeding it is NOT a one-line intent: hostTick re-validates every defender each tick against anchor-primitive existence AND defenderRecipeStillSatisfied, dispatching REMOVE_DEFENDER on failure, so an injected REGISTER_DEFENDER is torn down within one tick. The fixture must build REAL recipe geometry — the stinkTower (3 Circles bonded to 1 Square) is the cheapest shape and also the newest defender kind (S141 P1). Note the scripted placements pass targetPrimitiveId: null, which is also why ZERO bonds ever form in the SOLO scenario. ~2-4h.",
-    "⛔ S143 TRAP FOR ANY E2E AUTHOR — `nextPrimitiveId` IS HOST-ONLY AND FROZEN ON A ?worker=1 MIRROR. It is excluded from NetSnapshot (save.ts:1071 \"does not write host-only counters\"), so the authoritative cursor advances inside the worker while the mirror copy does not. MEASURED S143: a live mirror reported nextPrimitiveId 33 while holding a primitive with id 38. An oracle built on it reports \"no placements ever happened\" with total confidence while the game builds normally — I shipped exactly that mistake for one iteration. Use maxPrimitiveId (exposed in readWorldState with the warning attached). Same class as the S142 spawner finding: a field that is correct on the host and silently absent on the mirror.",
-    "⚠ S143 — A RUN-LEVEL `cancelled` CAN HIDE TWO GREEN GATING JOBS. Dispatching a second e2e run cancels the first via the concurrency group, and the run-level conclusion becomes `cancelled` even when `e2e` and `e2e-protocol` had ALREADY concluded success (measured: run 31737846412). The S126 lesson was that `cancelled` can hide a FAILURE; this is the mirror image — it can also hide a PASS. Audit JOB conclusions, never the run conclusion. Also note `gh run view --log-failed` REFUSES to serve logs while any job in the run is still in progress, so a red gating job is unreadable until the 25-minute soak lane finishes.",
-    {
-      "id": "S144-CF1",
-      "title": "A full bank of random shapes can satisfy NO recipe",
-      "description": "MEASURED IN A REAL SOLO RUN, not theorised: gatherers haul whatever they find, so the bank reaches 7/7 CASTLE_BANK_CAP with every build tile still reading \"NEED n MORE\", and a full bank blocks further deliveries. The order queue (palette buttons) is the intended remedy and pulled-to-porch shapes stay spendable (bank union porch), but building a 7-shape recipe needs the bank to be exactly those 7. This is downstream of the OWNER-GATED CASTLE_BANK_CAP 7-vs-12/13 ruling and was deliberately NOT resolved. Owner decision required."
-    },
-    {
-      "id": "S144-CF2",
-      "title": "Hand-drag placement e2e tests are flaky (15s placement timeout)",
-      "description": "bomb.spec and rainbow.spec each failed once this session with \"placement landed near (x,y) (prims N -> >=N+1)\" after a 15s waitForWorld, and each passed on rerun; final gating 39/39. Same mechanic both times (mouse drag -> PLACE_FROM_FREE). I mis-attributed the first one to my own change on one-pass-one-fail evidence. Either raise that specific timeout or tag the family, but do NOT bisect a single failure as a regression."
-    },
-    {
-      "id": "S144-CF3",
-      "title": "Never import a recipe module for its constants",
-      "description": "Every godlyRecipes/* module calls registerRecipe at its tail. A VALUE import therefore registers it, and because world.ts -> blueprintBuild.ts -> blueprints.ts, importing one from that chain registers recipes for essentially the whole codebase - which makes recipeStillSatisfied's documented unregistered-recipe fallback unreachable and breaks defenderLifecycle.test.ts. blueprints.ts now MIRRORS the four in-module counts with a cross-check test (blueprints.test.ts). If a recipe is retuned, update blueprints.ts and keep that test red-honest."
-    },
-    {
-      "id": "S144-CF4",
-      "title": "Owner interpretation flagged: ghost-on-cursor vs literal cruiser haul",
-      "description": "Owner said \"then the spark (your cruiser) just drags it to where you want it to be\". Shipped as the classical-TD flow: the tower is held on your cursor and stamped on release. A Council seat argued for the literal reading (build it at the castle, then physically HAUL the finished tower), which would require dragging a BONDED multi-primitive component - an unsupported operation and a large new mechanic. Owner also said \"like a classical TD (more or less)\". If they want the literal haul, that is a new priority, not a tweak."
-    }
+    "CF1 OPEN (inherited, unrelated to S147): under ?worker=1 click-to-build spends shapes and builds nothing. Opt-in only (WORKER_DEFAULT_ON=false), zero live blast radius. S146 REFUTED its leading theory (workerSim.ts:218 does set world.isHost=true; netSnapshot does carry defenders; applySnapshotCore does rehydrate them). Needs a runtime probe. Blocks the worker flip, not the TD roadmap.",
+    "CF3 OPEN (inherited).",
+    "CF-S147-a: three stale protocol COMMENTS + the already-stale HelloMsg JSDoc changelog (protocol.ts:223-250, missing S146 21->22). Being swept inside S147 P1 as a free rider on the bump.",
+    "CF-S147-b: the authoritative protocol-bump checklist lives only in a test comment (protocol.test.ts:84-86). Recommend promoting it to LOCKED_DECISIONS.md - this drift has recurred 4x. NOT done in S147 (out of scope); logged so it is not lost."
   ],
   "priorities": [
     {
       "id": 1,
-      "name": "Kill loose-spark repulsion (resolveCollisions on freeSparks)",
+      "name": "S147 THE MATCH CLOCK - BUILD/FIGHT phases, tick-derived, hashed, protocol 22->23; Step 0 hazards OFF",
       "status": "completed",
-      "check_completed": true,
-      "checkpoint_commit": "e85931d",
-      "check_method": "RALPH:PATROL + empirical. resolveCollisions and the SpatialGrid are DELETED, not disabled: grep confirmed insertAll/forEachNearbyPair had no consumer outside collision.ts, so removing the call left the grid with zero consumers and noUnusedParameters forced the cleanup through stepPhysics -> HostTickDeps -> workerSim -> main.ts. Replaced collision.pile.test.ts (which locked the DELETED behaviour) with noSparkRepulsion.test.ts, asserting the property BEHAVIOURALLY through the real stepPhysics entry point so a reintroduced inline separation force still fails it. SELF-CORRECTION during CHECK: the pile assertion first measured absolute distance from the seed origin and failed, because enforceSpawnerBounds legitimately translates the WHOLE cluster; rewritten to measure PAIRWISE spread, which is the property actually under test. Also caught by running tsc on the new spec: makeFreeSpark takes an args OBJECT and my first draft called it positionally — vitest does not typecheck, so those assertions would have run green against undefined (the S145 trap, avoided by policy). tsc 0; vitest 2436/2436; bundle 690.1 KiB.",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "verification": [
         {
-          "type": "file_absent",
-          "path": "src/physics/collision.ts"
-        },
-        {
-          "type": "file_absent",
-          "path": "src/physics/spatial.ts"
-        },
-        {
-          "type": "file_absent",
-          "path": "src/physics/collision.pile.test.ts"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/physics/physicsLoop.ts",
-          "needle": "resolveCollisions("
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/state/hostTick.ts",
-          "needle": "deps.grid"
-        },
-        {
           "type": "file_contains",
-          "path": "src/physics/noSparkRepulsion.test.ts",
-          "needle": "no spark"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/physics/physicsLoop.ts",
-          "needle": "THERE IS NO SPARK"
-        }
-      ]
-    },
-    {
-      "id": 2,
-      "name": "Limitless per-SparkType counts inventory; castle panel = inventory ONLY; PULL mint; PROTOCOL 21->22",
-      "status": "completed",
-      "check_completed": true,
-      "checkpoint_commit": "7da9107",
-      "check_method": "RALPH:PATROL + GROK-ANALYST + GEMINI-AUDITOR (Council on HOW only, per explicit owner instruction). tsc 0; vitest 2425/2425 across 157 files; e2e:gating 39/39; bundle 689.3 KiB under the 900 charter; pushed, 0 unpushed. FOUR Council claims were REFUTED on disk before acting (see council_s146.prime_audit_refutations) — the decisive one being that BOTH seats recommended retiring PULL_FROM_BANK, which would have left every bot opponent unable to build (botBrain.ts:161 + botController.ts:190 make PULL the entire bot supply chain). TWO REAL DEFECTS CAUGHT BY THE PROJECT'S OWN TRIPWIRES DURING CHECK, both of which would have shipped: (1) I marked nextPulledSparkId as hashed in FIELD_COVERAGE but never added it to the scalar projection — stateHashFull.test.ts's forcing function failed and named it; (2) protocolVersionSync.test.ts caught that e2e/smoke.spec.ts pins LOCAL_PROTO_V as a literal that must track the bump. A THIRD was caught by reasoning rather than a test: the e2e helpers read bank.length, which is 6 for a fixed 6-entry tally even when the castle is EMPTY, so every wait-for-stock helper would have passed instantly and vacuously — summed everywhere instead.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/castleBank.ts",
-          "needle": "export type CastleBank = number[];"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/castleBank.ts",
-          "needle": "export function bankAdd("
+          "path": "src/state/worldTypes.ts",
+          "needle": "export type MatchPhase = 'BUILD' | 'FIGHT';"
         },
         {
           "type": "file_contains",
           "path": "src/state/worldTypes.ts",
-          "needle": "nextPulledSparkId: number;"
+          "needle": "matchPhase: MatchPhase;"
         },
         {
           "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 22 as const;"
+          "path": "src/state/worldTypes.ts",
+          "needle": "phaseEndsAtTick: number;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const PHASE_DURATION_TICKS = 90 * PHYSICS_HZ;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "while (world.tick >= world.phaseEndsAtTick) {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "world.phaseEndsAtTick += PHASE_DURATION_TICKS;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/hostTick.ts",
+          "needle": "world.phaseEndsAtTick = world.tick + PHASE_DURATION_TICKS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "world.gameState === 'PLAYING' && world.matchPhase === 'FIGHT'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/gameMode.ts",
+          "needle": "if (world.matchPhase !== 'FIGHT') return;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const LEADER_DECAY_ENABLED = false;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/scoring.ts",
+          "needle": "export function applyLeaderDecay("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/scoring.ts",
+          "needle": "if (LEADER_DECAY_ENABLED) applyLeaderDecay(world, leaderId);"
         },
         {
           "type": "file_contains",
           "path": "src/state/stateHashFull.ts",
-          "needle": "nextPulledSparkId"
+          "needle": "matchPhase: 'hashed',"
         },
         {
           "type": "file_contains",
-          "path": "src/state/blueprintBuild.ts",
-          "needle": "readonly from: 'bank'; readonly sparkType: SparkType"
+          "path": "src/state/stateHashFull.ts",
+          "needle": "phaseEndsAtTick: 'hashed',"
         },
         {
           "type": "file_contains",
-          "path": "src/render/castlePanel.ts",
-          "needle": "INVENTORY_SLOTS"
+          "path": "src/state/stateHashFull.ts",
+          "needle": "`mp${world.matchPhase}`,"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stateHashFull.ts",
+          "needle": "`pe${world.phaseEndsAtTick}`,"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/save.ts",
+          "needle": "matchPhase?: MatchPhase;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/save.ts",
+          "needle": "matchPhase: world.matchPhase,"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/save.ts",
+          "needle": "world.matchPhase = snap.matchPhase ?? 'BUILD';"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/save.ts",
+          "needle": "world.phaseEndsAtTick = snap.phaseEndsAtTick ?? snap.tick + PHASE_DURATION_TICKS;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/world.ts",
+          "needle": "matchPhase: 'BUILD',"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/world.ts",
+          "needle": "phaseEndsAtTick: PHASE_DURATION_TICKS,"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/gameMode.ts",
+          "pattern": "world\\.phaseEndsAtTick\\ =\\ world\\.tick\\ \\+\\ PHASE_DURATION_TICKS;",
+          "op": "==",
+          "value": 2
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/workerSim.ts",
+          "needle": "world.matchPhase,"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const HAZARD_SPAWN_ENABLED = readTestHazardsEnabled() ?? false;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/physics/physicsLoop.ts",
+          "pattern": "HAZARD_SPAWN_ENABLED\\ \\&\\&",
+          "op": "==",
+          "value": 4
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const BOMB_SPAWN_MIN_SPARKS = _BOMB_TEST_CADENCE ?? 8;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const SEAGULL_SPAWN_MIN_SPARKS = _SEAGULL_TEST_CADENCE ?? 7;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const BOMB_MAX_ACTIVE = 1;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 23 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "readonly protoVersion: 23;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "S147 P1 — bumped 22->23: THE MATCH CLOCK."
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.test.ts",
+          "needle": "expect(PROTOCOL_VERSION).toBe(23);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.test.ts",
+          "needle": "it('PROTOCOL_VERSION is 23 — THE ONE DELIBERATE PIN"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/smoke.spec.ts",
+          "needle": "const LOCAL_PROTO_V = 23;"
         },
         {
           "type": "file_lacks",
-          "path": "src/constants.ts",
-          "needle": "export const CASTLE_BANK_CAP"
+          "path": "src/net/protocol.test.ts",
+          "needle": "expect(PROTOCOL_VERSION).toBe(22);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/ui.ts",
+          "needle": "export function formatPhaseBanner(phase: MatchPhase, ticksRemaining: number): string {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/ui.ts",
+          "needle": "private lastSeenPhase: MatchPhase | null = null;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/hostTick.ts",
+          "needle": "type: 'PHASE_CHANGED'"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/game/effects.ts",
+          "needle": "PHASE_CHANGED"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/physics/physicsLoop.ts",
+          "needle": "Date.now("
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/gameMode.ts",
+          "needle": "Math.random("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.differential.test.ts",
+          "needle": "world.matchPhase = 'FIGHT';"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/matchPhase.test.ts",
+          "needle": "a PROMOTED SUCCESSOR flips on the same tick"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/matchPhase.test.ts",
+          "needle": "preserves phase PARITY across a skip longer than a whole phase"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/matchPhase.test.ts",
+          "needle": "expect(PHASE_DURATION_TICKS).toBeGreaterThan(800);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/game/spawnerRngInvariance.test.ts",
+          "needle": "STILL mints bomb/potato/rainbow/seagull requests while hazards are disabled"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/match-clock.spec.ts",
+          "needle": "hazards do NOT spawn even on a forced fast cadence"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/workerSim.differential.test.ts",
+          "needle": "a full BUILD→FIGHT→BUILD cycle must have completed on the ref side"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/potato.spec.ts",
+          "needle": "__TEST_HAZARDS_ENABLED__"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/bomb.spec.ts",
+          "needle": "__TEST_HAZARDS_ENABLED__"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/rainbow.spec.ts",
+          "needle": "__TEST_HAZARDS_ENABLED__"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/2026-08-16_PDR_S147_MATCH_CLOCK.md",
+          "needle": "PRIME-AUDIT DELTA TABLE"
         }
       ],
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user"
+      "checkpoint_commit": "599d45ae154ac0dd3fb70fd181fc7a8760d70e00",
+      "check_completed": true,
+      "check_method": "S147 P1 THE MATCH CLOCK — shipped, pushed as %s. RUNTIME-VERIFIED, not static-parsed (Rule 20 runtime-verifiability): only ONE of the nine per-field serialization sites is tsc-forced, so a green tsc proves almost nothing here and every gate below is an execution gate.\n\nGATES: tsc 0 errors · vitest 2459/2459 across 159 files (was 2425/157 at boot => +34 tests, +2 files) · e2e:gating 42/42 in a real browser (was 39/39 => +3 match-clock specs) · e2e:protocol 2/2 over real WebRTC (the S142 gating lane, no continue-on-error) · npm run build 690.6 KiB entry vs 900 KiB cap (209.4 KiB headroom).\n\nEXIT GATE, all four items met: (1) a full BUILD->FIGHT->BUILD cycle with identical hashes host-vs-worker (workerSim.differential 300 frames, netSnapshot JSON + wide hash compared EVERY frame, both edges forced and asserted to have fired); (2) host migration across a phase edge preserves phase AND deadline, proven on the REAL migration path netSnapshot->applyNetSnapshot (not just snapshot->restore, which is the disk path — the S134 lesson that one path can stay green while the other is broken); (3) score is exactly 0 across a whole BUILD and rises in FIGHT, asserted in unit AND in a live-browser e2e; (4) all four gates above.\n\nWHAT A.0 PREDICTED AND THE BUILD CONFIRMED: gating tickScoring to FIGHT broke ALL EIGHT hostTick.differential scenarios, exactly as delta D3 said it would, because that harness is live-vs-FROZEN transcription (which scores unconditionally), not host-vs-worker. Fixed by pinning matchPhase=FIGHT in the harness factory — an equivalence statement (the frozen body IS the always-scoring phase), following the S139 P2 goblin-removal precedent already in that same file. Phase behaviour is proven only where BOTH sides run the LIVE body.\n\nFIVE BREAKS FOUND AND FIXED DURING EXECUTION, none of them silent: (a) the 8 differential scenarios [predicted]; (b) 3 scoring.test decay tests — fixed by EXTRACTING applyLeaderDecay so R28 \"retained, not deleted\" keeps its arithmetic under test rather than deleting the coverage; (c) stateHashFull drift test — the two fields are SCALARS so they belong in HASHED_NON_FAMILY, not the collection-family EXPECTED list; (d) workerSim.differential asserted six hazard families as SEEDED which Step 0 makes unreachable — ACKNOWLEDGED with reasons (still console-reported every run) rather than back-door seeded, because seeding them would exercise a path production can no longer reach; (e) hunter.spec.ts — a REAL regression: it writes scoreByPlayer directly and relied on tickScoring to re-derive scoreProgress, which the FIGHT gate suppresses in BUILD. Production is unaffected (addScore/spendScore each recompute scoreProgress at their own call sites); fixed in the spec with that reasoning recorded so nobody \"fixes\" the sim from it.\n\nTWO OF MY OWN ERRORS, CAUGHT AND CORRECTED: (i) my python writes converted 13 files LF->CRLF (core.autocrlf is true with an LF working tree), which broke a source-text assertion in ui.tierBanner.test.ts and would have passed CI while failing locally — normalized back to LF and subsequent writes use newline=''. My first grep-based line-ending audit was itself unreliable (the pattern degenerated to an empty match); the authoritative check is a byte count. (ii) my first hazards-off e2e asserted zero hazards after 2.5 s, which was guaranteed regardless of the flag — the shipped spark rate is 0.15/s and hazard cadences are measured in SPARKS, so the first hazard is ~50-120 s away even ENABLED. Its own anti-vacuity check failed honestly and caught it; rewritten as a real negative control (12 sparks/s + 2-spark cadence, flag withheld) that also asserts the ID ALLOCATORS never advanced — proving nothing was minted-then-reaped.\n\nDESIGN FIDELITY: zero design change. Council was held to HOW-only per the owner's mid-session directive; the one proposal that would have altered the named data model (Grok C4, replace phaseEndsAtTick with {phaseStartedAtTick, phaseDurationTicks}) was REJECTED on evidence and on that rule. All 40 owner rulings intact."
     },
     {
-      "id": 3,
-      "name": "FOOTER build band + gatherer PREFERENCE menu + stink-tower blessing",
+      "id": 2,
+      "name": "S148 zones + castle anchors + build legality + measured economy re-tune",
       "status": "deferred",
-      "reason": "DEFERRED INTO THE ROADMAP, NOT DROPPED. The owner asked for these, then sent handwritten notes + two hand-drawn maps redefining SPARK as a classical tower defence (90 s build stage -> 90 s fight stage, gatherers hide inside the castle and its weapon system arms, four zones around a central spawn disc, win at 1500 points OR by destroying the enemy castle), and then asked whether the game should be REBUILT FROM SCRATCH rather than mutated. Both surfaces are match-structure UI. Building them against the old structure hours before the structure is redesigned would be work done twice, so they become roadmap items where the footer is specified against the real fight/build loop.",
+      "reason": "CONDITIONAL / deliberately deferred, not omitted. SPARK_TD_BLUEPRINT.md:313 says S147 ships \"first, and almost alone\", and SPARK_TD_SESSION_SPECS.md §3 makes S148 a HARD dependency on a PROVEN clock. Batching them would build zones on an unverified phase heartbeat - the exact failure the risk-ordered sequencing exists to prevent. Revisit only if P1 clears its full exit gate with context still GREEN.",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "verification": []
     }
   ],
   "reflexion_entries_to_archive": [
@@ -252,7 +377,7 @@
     "budget_remaining": 1000000
   },
   "budget_total": 1000000,
-  "e2e_gating_status": "41/41 (39 prior + 2 new in bank-deadlock.spec.ts). bomb.spec flaked once and passed on rerun — the documented placement flake.",
+  "e2e_gating_status": "PASS 42/42 (was 39/39 at boot; +3 match-clock specs). e2e:protocol 2/2 (gating lane, real WebRTC).",
   "closed": true,
   "a0_deviation": "The A.0 sweep's adversarial re-check stage (24 independent re-verifications of every non-CONFIRMED verdict) and its synthesis agent ALL failed on an individual spend limit after the 10 probes completed. Probe payloads were recovered from journal.jsonl and triaged by Claude directly. STATED AS A DEVIATION, NOT PRESENTED AS COMPLIANCE: single-probe findings carry ONE source. The two highest-consequence findings (damageEntity dead code; CI red) were personally re-verified by Claude with direct greps and gh calls before being reported.",
   "ci_finding": "e2e.yml newest run 31366201100 = FAILURE, all 3 lanes, headSha 33 commits behind HEAD, predates two gating fixes. No push trigger exists so nothing re-runs it. Fresh workflow_dispatch on current HEAD = run 31509968212, result pending. deploy.yml is 3/3 success. gh issue list = empty.",
@@ -284,7 +409,7 @@
     "GEMINI-AUDITOR(gemini-3.1-pro-preview)"
   ],
   "council_deviation": "None - full 3-way, 2 rounds. gemini-3.1-pro-preview passed explicitly (2.5-pro is retired per memory); grok-4.20-0309-reasoning default (strongest tier).",
-  "unlock_evidence": "Owner, in-session, twice verbatim: \"I approve full session priority batch!\" and \"remember i approve full session batch\". Owner then went to nap, asking for methodical consistent execution.",
+  "unlock_evidence": "Owner, this session, verbatim: \"after full methodical and pedantic session boot continue working top priority session batch and top value top leverage priorities in batch. approve full run!\" then \"full session priority pdr approved!\" — explicit approval, user-path, same-turn execution permitted.",
   "council_battle_ledger_s139": {
     "round1_challenges": 8,
     "adopted": [
@@ -323,7 +448,7 @@
   },
   "real_context_tokens_at_close": 622712,
   "real_context_pct_at_close": 62.27,
-  "checkpoint_commit": "36eb4b6",
+  "checkpoint_commit": "599d45ae154ac0dd3fb70fd181fc7a8760d70e00",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -672,5 +797,100 @@
     "process_finding": "My audit found more defects in MY OWN PLAN than in the code: a doc patch that deleted all 30 rulings, a headline feature (castle weapon system) with no session, and an R15/R24 contradiction. Auditing your own artifact with a mechanical check beats re-reading it.",
     "what_i_would_do_differently": "Anchor-to-anchor document replacement is unsafe when sections can be inserted between the anchors. Should have replaced by explicit section boundary, or re-read the span before overwriting.",
     "scope_discipline": "Two Rule-16 scope amendments recorded before execution (the castle/footer/gatherer restructure, then the full TD pivot). No ad-hoc implementation happened after the pivot — everything went into the plan instead."
-  }
+  },
+  "a0_state_discovery_s147": [
+    "METHOD DEVIATION, STATED: an 8-probe Workflow was launched; 7 probes + the synthesis stage DIED on the individual spend limit (the exact S140/S141 failure in memory: cap the fan-out). Only probe 5 (protocol/e2e literals) returned. journal.jsonl held exactly 1 recoverable result. The remaining 7 probes were then RE-RUN BY HAND via targeted Bash greps/reads by Claude directly - so every delta below is SELF-VERIFIED against a line actually read, but is SINGLE-SOURCE (no independent adversarial re-check ran).",
+    "*** D1 REFUTED, HIGHEST-CONSEQUENCE-FOR-STEP-0 *** \"set their spawner cadences to zero\" (SPARK_TD_SESSION_SPECS.md:83 + R14) WOULD DO THE OPPOSITE OF OFF. The cadence is a SPARK COUNTDOWN, not a tick rate: spawner.ts:359/377/395/413 compute MIN + Math.floor(rng() * (MAX - MIN + 1)). With MIN=MAX=0 the span is 1 and the countdown is 0, so --sparksUntilX <= 0 fires on the VERY NEXT SPARK => all four hazards spawn at MAXIMUM frequency. The correct switch is the four DISPATCH sites at physicsLoop.ts:100,107,114,121, gated behind a new HAZARD_SPAWN_ENABLED=false.",
+    "*** D2 REFUTED *** Editing MIN/MAX_SPARKS is NOT determinism-safe. The spawner is skip-and-redraw (spawner.ts:215-245): it mints the request AND redraws its countdown regardless of whether dispatch caps it, each on a SEPARATE per-hazard RNG stream, and the shipped comments state the spark/bomb/potato/rainbow sequences \"stay byte-identical\". Changing MIN/MAX changes the DRAW VALUES and perturbs replay. Gating at the dispatch site leaves every RNG stream byte-identical => zero replay churn. So the correct fix is also the cheapest.",
+    "*** D3 REFUTED, HIGHEST CONSEQUENCE OVERALL *** The spec's exit gate \"differential BUILD->FIGHT->BUILD with identical hashes HOST-VS-WORKER\" (SESSION_SPECS:108) misnames the test. hostTick.differential.test.ts is runHostTick vs a FROZEN VERBATIM TRANSCRIPTION of the pre-S119 main.ts body (docblock :1-31), and that reference calls tickScoring UNCONDITIONALLY. runDifferential builds both worlds from the same buildScenarioWorld (:506-508). CONSEQUENCE: gating tickScoring to FIGHT while matchPhase defaults to BUILD means the new path accrues NO score while the reference DOES => the S133 wide hash diverges on scoreProgress/scoreByPlayer => ALL EIGHT scenarios D1-D8 FAIL. This is a build-breaking interaction the spec never mentions. FIX: buildScenarioWorld sets matchPhase=FIGHT (one harness line) so the frozen reference stays byte-valid. The REAL host-vs-worker gate is workerSim.differential.test.ts (300 frames, netSnapshot JSON + hashWorldState identical).",
+    "D4 PARTIAL - the field cost is ~9 sites, not ~3, and only ONE is compiler-enforced. Traced rainbowSwitchTick (a hashed tick scalar, the exact analogue of phaseEndsAtTick): worldTypes.ts:296 decl / stateHashFull.ts:113 FIELD_COVERAGE row (TSC-FORCED, Record<keyof World,...> at :70) / stateHashFull.ts:350 determinismParts term / save.ts:208 WorldSnapshot decl / save.ts:842 snapshot() emit / save.ts:1200 applySnapshotCore rehydrate / workerSim.ts:341 / gameMode.ts:191 + :429 two reset sites. EIGHT of the nine are SILENT. Also confirmed NetSnapshot = Omit<WorldSnapshot, savedAt|rngSeed|nextPrimitiveId|nextBondId|spawner> (save.ts:930) so a new field IS wire-visible by default - which is what the clock wants.",
+    "D5 PARTIAL - world.tick++ exists at THREE sites, not one. hostTick.ts:141 (the host path, inside the non-PLAYING else-branch; when PLAYING the tick advances INSIDE stepPhysics at :139), main.ts:1593 (the NONET-freeze branch, which advances the tick and then `continue`s PAST runHostTick entirely), and main.ts:1637 (the client path, which runs tickGameState but never tickScoring). CONSEQUENCE: a NONET Sudoku trial burns match-clock time and the phase flip lands on the first post-resume tick (absorbed by the >= boundary). Deterministic, but it is behaviour to document and test rather than discover in a later session.",
+    "D6 CONFIRMED + a free win. The HUD is class HUD at render/ui.ts:243 (796 LOC, PIXI Text, monospace) and the file already establishes the right pattern: pure exported formatters (formatSoloScore :53, formatTierBanner :48, progressBarFractions :226) unit-tested in ui.progress.test.ts without PIXI. No countdown/timer precedent exists anywhere in render/ - this is the first. BONUS: because the client advances world.tick locally at 60 Hz (main.ts:1637) while both new fields ride the 10 Hz snapshot, the countdown renders SMOOTHLY on a joiner for free - no interpolation work.",
+    "*** D7 REFUTED *** The protocol bump is FIVE sites, not the two the spec names (SESSION_SPECS:103 + ground rule 7 at :30-32). Confirmed at current value 22: net/protocol.ts:178 the const; net/protocol.ts:251 readonly protoVersion: 22 (a deliberate TSC TRIPWIRE); net/protocol.ts:60-177 the narrative changelog; net/protocol.test.ts:75 the test TITLE plus :87 expect(PROTOCOL_VERSION).toBe(22) (a GATING vitest test); e2e/smoke.spec.ts:71 LOCAL_PROTO_V (NEWER_PEER_V derives from it). Following the spec literally would fail tsc at :251 and red protocol.test.ts:87. The authoritative checklist exists ONLY as a comment at protocol.test.ts:84-86 - there is no CONTRIBUTING file and LOCKED_DECISIONS has no bump procedure. This drift has recurred four times (S133/S139/S140/S141).",
+    "D8 REFUTED-AS-OBSOLETE - and this is a lesson about carrying prior audits forward. All THREE stale-literal findings the S138 a0 recorded for e2e/smoke.spec.ts are DEAD: the v15 toContain, the \"update the two below\" comment, and the hardcoded __TEST_PROTO_VERSION_OVERRIDE__=16. The file now DERIVES everything from LOCAL_PROTO_V (:675, :702-704, :712, :717) and its own comment at :673-674 forbids re-introducing loose literals. S147 must NOT plan those edits. Residual: three stale COMMENTS only (smoke.spec.ts:644,658 cite v2/v8/v9; hostmigration.spec.ts:14 cites v15) plus the HelloMsg JSDoc changelog at protocol.ts:223-250 which is ALREADY STALE (missing the S146 21->22 entry while :251 already reads 22) - cheap free sweep.",
+    "D9 CONFIRMED-ABSENT (a cost that is NOT there): grep for golden hash literals (toBe with a hex string) in save.replay.test.ts and hostTick.differential.test.ts returns NOTHING. Adding two hashed World fields therefore requires ZERO re-recording of recorded hashes - the tests compare the two live runs against each other, not against a frozen digest.",
+    "D10 PARTIAL - the seemingly-equivalent MAX_ACTIVE=0 switch is a trap. Only the SEAGULL reducer self-gates (seagullLifecycle.ts:134 `if (world.seagulls.size >= SEAGULL_MAX_ACTIVE) return world`); bomb/potato/rainbow reducers do not. So MAX_ACTIVE=0 would silently turn hostTick.differential D4's dispatch(SPAWN_SEAGULL) into a NO-OP (quietly deleting seagull coverage from the determinism gate) and would break seagull.test.ts. Gating at the dispatch site instead leaves every reducer reachable, so direct dispatch(...) in tests keeps working and NO unit test needs touching.",
+    "D11 PARTIAL, favourable - the \"nothing ever runs the version gate\" escape hatch is CLOSED. The Protocol-mismatch describe is still tagged @quarantine-flaky (smoke.spec.ts:626) and e2e:gating still grep-inverts it, BUT since S142 P2 a dedicated GATING lane runs it: package.json e2e:protocol + the e2e-protocol job at .github/workflows/e2e.yml:229-255, with NO continue-on-error by design. S147's bump is therefore verified twice - statically by protocolVersionSync.test.ts and at runtime over real WebRTC. Do not drop the tag and do not delete the lane.",
+    "D12 PARTIAL - mcv_session_nonce IS present but STALE (value \"S141-2026-08-13-stink-tower-order-queue\"). Per the standing lesson, S147 verification[] entries use file_contains / file_lacks / grep_count only, never nonce_match. Confirmed the assertion object shape from the S146 P1 entries: {type, path, needle} - the key is \"needle\", there is NO \"pattern\" key.",
+    "GREENFIELD CONFIRMED: grep -rn for matchPhase|MatchPhase|phaseEndsAtTick|PHASE_DURATION across src/ and e2e/ returns ZERO hits. No symbol collision, no save migration, no stale partial implementation to reconcile. World factory is makeWorld(rngSeed) at src/state/world.ts:329."
+  ],
+  "session_port": 35379,
+  "owner_directive_s147": "OWNER, verbatim mid-session: \"make sure to build actually what we have planned and not stray too far because of council considerations. they are just here now to help you figure HOW to build it all and not change our original new game design!!\" => CONSTITUTIONAL SCOPE RULE FOR S147: Council is advisory on IMPLEMENTATION (HOW) only. It has NO authority over the game design (WHAT). Any Council proposal that alters a ruling, a field the design names, or the phase structure is REJECTED on sight. Applied below: Grok's representation change was rejected under this rule AND on independent evidence.",
+  "council_s147": {
+    "tier": "Full",
+    "seats": [
+      "Claude (Supervisor)",
+      "GROK-PLAN grok-4.20-0309-reasoning",
+      "GEMINI-AUDITOR gemini-3.1-pro-preview"
+    ],
+    "rounds_run": 1,
+    "round_2_deviation": "R2 NOT RUN - deliberate, and stated rather than hidden. Two reasons: (1) the owner ruled mid-session that Council is a HOW-helper with no design authority, so a second round carried real design-drift risk for no decision value; (2) the individual spend limit already killed 7 of 8 A.0 probes this session, so further fan-out was a live operational risk. All R1 challenges were resolved to a concrete, empirically-verified disposition below - none were left open, which is the actual purpose of R2.",
+    "verdicts_r1": {
+      "GROK-PLAN": "ADOPT-WITH-CHANGES",
+      "GEMINI-AUDITOR": "REJECT",
+      "Claude (post-audit)": "ADOPT-WITH-CHANGES"
+    },
+    "battle_ledger": [
+      {
+        "id": "C1",
+        "seat": "GEMINI",
+        "type": "TOOL / test-integrity",
+        "challenge": "The planned 9th differential scenario is a LOGICAL IMPOSSIBILITY: the frozen reference scores unconditionally, so any scenario that spends ticks in BUILD diverges on score by construction. You cannot feature-test a state-mutating phase gate inside a strict invariant-refactor harness.",
+        "audit": "CONFIRMED, and it is a real correction to my plan. Grok reached the same place via its \"laundering\" framing. My D9-in-the-frozen-harness was wrong.",
+        "disposition": "ADOPTED (pure HOW - test PLACEMENT, zero design impact). Phase-cycle coverage moves to harnesses where BOTH sides run the LIVE body: workerSim.differential.test.ts (the real host-vs-worker gate) + a dedicated matchPhase.test.ts + the migration-across-edge test. hostTick.differential.test.ts keeps its 8 scenarios with matchPhase=FIGHT set in the harness factory - NOT laundering, because the frozen reference literally encodes the pre-phase always-scoring world, which IS the FIGHT phase. Laundering would be editing the reference BODY; setting the phase states the equivalence the reference already is."
+      },
+      {
+        "id": "C2",
+        "seat": "GEMINI",
+        "type": "DETERMINISM (its REJECT basis)",
+        "challenge": "phaseEndsAtTick = tick + DURATION desyncs against the NONET freeze: a host that skips N ticks resumes at deadline+N and stamps the next boundary N late, while a worker that did not freeze stamps it on time => permanent N-tick drift on every future boundary.",
+        "audit": "PREMISE REFUTED EMPIRICALLY. The worker DOES implement the freeze: workerSim.ts:485 `if (world.gameState === 'PLAYING' && world.sudoku !== null)` -> tickSudoku at :487, and world.sudoku is HASHED (stateHashFull.ts:132) so the freeze state rides the snapshot. Host and worker freeze symmetrically; a networked client never simulates at all. So the asymmetric scenario Gemini describes cannot occur, and its REJECT does not stand on its stated grounds. This is the third time an external seat has been confidently wrong about this codebase - the standing lesson held.",
+        "disposition": "FIX ADOPTED ANYWAY, on better grounds than the challenge gave (pure HOW). phaseEndsAtTick += PHASE_DURATION_TICKS is drift-free by construction and costs nothing, so it removes the entire bug CLASS rather than the one refuted instance. Hardened further than Gemini proposed: a bare `+=` under a single `if` would flip only once after a freeze longer than a whole phase, silently losing phase parity. Shipped shape is a WHILE loop with the PLAYING guard HOISTED OUT of the loop condition (the S145 reflexion \"my loop guard went false after the first iteration\"): if (PLAYING) { while (tick >= phaseEndsAtTick) { flip; phaseEndsAtTick += DURATION } }. Terminates (each pass adds 5400), preserves parity across any freeze length, drift-free."
+      },
+      {
+        "id": "C3",
+        "seat": "GEMINI",
+        "type": "QUALITY / 3-session rot",
+        "challenge": "A transient PHASE_CHANGED effect emitted inside the sim tick is an anti-pattern under snapshot rehydration: a joiner or a post-migration client gets matchPhase already flipped and the ephemeral event is lost, so transition audio/animation silently never fires for them.",
+        "audit": "CONFIRMED, and the repo already agrees. The shipped pattern is exactly the derive-by-diff one Gemini recommends: audioManager.ts:1413 syncRainbowYellAudio fires \"when a fresh world.rainbowSwitchTick is FIRST observed\", and creatureRenderer.ts:288-306 is a renderer-side watcher that diffs a last-seen set. Note the SPEC said \"emit a PHASE_CHANGED effect\" - so this corrects the SPEC, not the design.",
+        "disposition": "ADOPTED (pure HOW - the phase transition still happens and is still seen/heard; only the plumbing changes). NO PHASE_CHANGED sim effect, no new hashed state, no wire cost. The renderer/audio derives the edge by diffing observed matchPhase. Works identically for host, joiner, worker mirror and a promoted successor."
+      },
+      {
+        "id": "C4",
+        "seat": "GROK",
+        "type": "TOOL / representation",
+        "challenge": "Replace phaseEndsAtTick with {phaseStartedAtTick, phaseDurationTicks} because migration, late joiners, save/load and a future mid-match duration change all need the current phase length to stay knowable.",
+        "audit": "REFUTED on two independent grounds. (1) EVIDENCE: an absolute deadline is MORE migration-safe, not less - it is hashed and rides NetSnapshot, so a promoted successor inherits the exact boundary with zero recomputation, whereas a countdown would need per-tick mutation (more desync surface). Phase progress is fully derivable today because PHASE_DURATION_TICKS is a constant. (2) The mid-match-duration-change requirement appears in NO owner ruling (R1-R40); it is speculative. (3) OWNER RULE: this is a WHAT change to a field the design explicitly names, so Council has no authority over it.",
+        "disposition": "REJECTED. Keeping matchPhase + phaseEndsAtTick exactly as the design names them. Recorded for a future session: IF a ruling ever asks for mid-match phase-length change, adding phaseDurationTicks is a purely ADDITIVE follow-on - nothing in S147 forecloses it."
+      },
+      {
+        "id": "C5",
+        "seat": "GROK",
+        "type": "QUALITY / 3-session rot",
+        "challenge": "Gating four separate dispatch sites behind a compile-time flag plus a magic window seam is fragile: a later hazard will re-introduce an RNG call inside the gated block, or a new e2e will forget the seam, silently destroying determinism coverage. \"Sequences stay byte-identical\" only holds while the spawner never changes.",
+        "audit": "PARTIALLY CONFIRMED - the risk is real but mis-located. The gate sits DOWNSTREAM of every draw: the spawner has already minted the request and redrawn its countdown (spawner.ts:215-245) before physicsLoop ever consults the flag, so no RNG call can be inside the gated block by construction today. The durable risk is a future edit MOVING a draw below the gate.",
+        "disposition": "ADOPTED as a test, not just a comment (pure HOW, additive). Shipping (i) an explicit invariant comment at the gate - \"gate AFTER the draw, never at the draw\" - and (ii) a REGRESSION TEST asserting the spawner RNG stream is byte-identical with HAZARD_SPAWN_ENABLED false vs true. That test, not the comment, is what actually catches the rot Grok describes."
+      }
+    ],
+    "adopted_changes": [
+      "HOW-1 (Gemini C2): flip uses `phaseEndsAtTick += PHASE_DURATION_TICKS` inside a WHILE loop with the PLAYING guard hoisted out - drift-free, parity-preserving across any freeze length, terminating.",
+      "HOW-2 (Gemini C1): NO phase scenario in the frozen differential harness. Phase-cycle determinism is proven where both sides run the LIVE body (workerSim differential + dedicated matchPhase test + migration test); the frozen harness gets only the one-line matchPhase=FIGHT equivalence set.",
+      "HOW-3 (Gemini C3): NO PHASE_CHANGED sim effect. Render/audio derives the phase edge by diffing observed matchPhase, per the shipped rainbowSwitchTick / creatureRenderer precedent. Corrects the SPEC, not the design.",
+      "HOW-4 (Grok C5): a spawner-RNG-invariance regression test for hazards-off, plus the gate-after-the-draw invariant comment."
+    ],
+    "design_unchanged_assertion": "ZERO design change. 90 s BUILD -> 90 s FIGHT repeating; score accrues in FIGHT only (R3/R7/R16); the four hazards OFF with code retained (R14/R23); leader decay off (R28); 1500-point win intact; matchPhase + phaseEndsAtTick are the exact fields SPARK_TD_SESSION_SPECS.md names. All 40 owner rulings untouched. Every adopted change is an implementation mechanism; the one proposal that would have altered the named data model (Grok C4) was rejected."
+  },
+  "prime_audit_s147": {
+    "what_was_rubber_stamped": "Nothing was accepted on authority. Both seats were audited against files read directly, and the audit REFUTED the stated basis of Gemini's REJECT (worker freeze symmetry, workerSim.ts:485 + stateHashFull.ts:132) and the whole of Grok's headline change (C4). Two of five challenges survived intact (C1, C3); one survived on better grounds than it was argued (C2); one was re-aimed into a test (C5).",
+    "claim_addressed_not_fixed": "Grok C5 is the honest one to flag: the invariant comment alone would have been claim-addressed-not-fixed, which is why it was converted into an actual RNG-invariance regression test. Called out rather than left as a comment pretending to be a mitigation.",
+    "where_consensus_masked_disagreement": "The two seats reached the same conclusion about the differential harness from opposite directions - Grok called it laundering, Gemini called it logically impossible - and only Gemini supplied the correct remedy. Had I counted verdicts (1 ADOPT-WITH-CHANGES vs 1 REJECT) instead of auditing reasoning, I would have either shipped a broken 9th scenario or rewritten the data model for a requirement no ruling asks for.",
+    "runtime_verifiability": "BOOT-THEN-SMOKE, not static parse. Static parse alone cannot prove any of this: the FIELD_COVERAGE row is the ONLY tsc-forced site out of nine per field, so eight silent sites need RUNTIME proof. Accordingly the exit gate is runtime: full vitest incl. the wide-hash differential every tick, the 300-frame worker netSnapshot JSON + hash byte-equality, a real host migration across a phase edge, e2e:gating 39/39 over a real browser, the e2e-protocol lane over real WebRTC, then npm run build + verify-deploy 4/4 against the live asset hash. A green tsc is explicitly NOT accepted as evidence here.",
+    "edge_cases_remaining": [
+      "A NONET trial longer than a full 5400-tick phase: handled deterministically by the WHILE loop (correct number of flips, parity preserved) and to be asserted in matchPhase.test.ts rather than assumed.",
+      "A joiner arriving mid-phase renders the countdown from (phaseEndsAtTick - tick) with tick advancing locally at 60 Hz between 10 Hz snapshots - smooth by construction, but worth an eye during the 2-peer check.",
+      "Phase length below 800 ticks would break frozen-harness scenarios D1-D8; guarded by an explicit named test."
+    ],
+    "materially_better_than_r1": "YES, and specifically: R1 would have shipped (a) a 9th differential scenario that cannot pass, (b) a drift-prone absolute-restamp flip, and (c) a PHASE_CHANGED effect invisible to joiners and post-migration clients. All three are corrected. Independently, A.0 had already corrected the SPEC on three further points (cadence-zero inverts the intent; the 5-site protocol bump; the frozen harness is not host-vs-worker)."
+  },
+  "rule22_audit_s147": "END-OF-SESSION RUNTIME AUDIT (Rule 22). Re-scanned the S147 commit diff for the BUG-A/B/C patterns: no unrendered ${VAR} placeholders (no deploy/env artifacts touched this session); no references to non-existent files (every path in the diff was opened and read); no mitigation that fails to survive a restart (the clock is snapshot-carried and rebuilt from the mirror at migration, proven by the promoted-successor test on the netSnapshot path); no mount-point divergence (no Docker/entrypoint change); no hallucinated CLI flags (every npm script used was read from package.json verbatim). CI: gh run list showed 5/5 recent Deploy runs success and ZERO cancelled at boot, gh issue list empty; the deploy for this commit is verified separately by verify-deploy 4/4. ONE REAL SELF-INFLICTED DEFECT FOUND AND FIXED IN-SESSION: 13 files were converted LF->CRLF by my own python writes, which broke a source-text assertion locally while git would have normalized it on commit — i.e. it would have PASSED CI and failed only on a developer machine. Normalized back to LF and verified by byte count, not by grep."
 }
