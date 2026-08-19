@@ -42,6 +42,14 @@ const GAUGE_X = CANVAS_WIDTH - 24;
 export const TIER_BANNER_FRAMES = 120;
 
 /**
+ * S147 P1 — how far the match-clock banner swells on a BUILD↔FIGHT transition, before easing back to
+ * rest. Named rather than inlined because the pulse and its DECAY live in two different methods, and a
+ * magic number in one of them is exactly how the first version shipped a banner that grew and never
+ * shrank.
+ */
+export const PHASE_EDGE_PULSE_SCALE = 1.6;
+
+/**
  * V6-0.2 (S129) — banner label for a score-tier crossing. Pure, and exported for test, because
  * the Browser pane cannot be driven headlessly (a hidden pane pauses requestAnimationFrame, so
  * the Pixi ticker never advances) — so the arithmetic is verified here rather than by eye.
@@ -638,6 +646,16 @@ export class HUD {
     this.phaseBannerText.style.fill = world.matchPhase === 'FIGHT' ? 0xffb347 : 0xcfe8ff;
     this.phaseBannerText.visible = true;
 
+    // ⚠ DECAY THE EDGE PULSE BACK TO REST, every frame. Found by LOOKING at a captured screenshot,
+    // not by a test: `onPhaseEdge` sets scale 1.6 and nothing brought it back, so after the very
+    // first transition the banner stayed permanently oversized for the rest of the match. No unit
+    // test could have caught it — the formatter is pure and knows nothing about scale, and the Pixi
+    // ticker cannot run in a headless pane. Geometric ease toward 1: fast enough to read as a beat,
+    // and it settles rather than snapping. Render-only, so frames not ticks (the TIER_BANNER_FRAMES
+    // precedent in this file).
+    const s = this.phaseBannerText.scale.x;
+    this.phaseBannerText.scale.set(s > 1.005 ? 1 + (s - 1) * 0.88 : 1);
+
     // The phase EDGE. Fires once per transition, and deliberately NOT on the very first observation
     // (lastSeenPhase === null) — joining a match already in progress is not a transition.
     if (this.lastSeenPhase !== null && this.lastSeenPhase !== world.matchPhase) {
@@ -650,9 +668,12 @@ export class HUD {
    * S147 P1 — one place for everything that should happen when the cycle turns over. Intentionally
    * minimal in S147 (the clock ships alone): it pulses the banner so the change is unmissable.
    * S149+ hangs the wall-drop cue, the gatherer-shelter beat and the phase sting off this seam.
+   *
+   * ⚠ Whatever this sets must be RETURNED TO REST by `drawPhaseBanner` above. The first version set a
+   * scale here with no decay anywhere and the banner never shrank back.
    */
   private onPhaseEdge(_phase: MatchPhase): void {
-    this.phaseBannerText.scale.set(1.6);
+    this.phaseBannerText.scale.set(PHASE_EDGE_PULSE_SCALE);
     this.phaseBannerText.alpha = 1;
   }
 
