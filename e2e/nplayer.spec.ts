@@ -40,10 +40,16 @@ import {
 // Mirror of src/constants.ts PLAYER_COLORS (e2e/ is bundled separately from src/,
 // so no import — the values are asserted against the live world below + locked by
 // src/state/nplayerSeating.test.ts's distinctness guard).
-const PLAYER_COLORS = [0xff3b6b, 0x3bd7ff, 0xffe23b, 0x44ff5e, 0xff8c1a, 0xd73bff, 0xc0c8d0]; // S87: +bots-only silver
+// S147 R41 - the bots-only 7th silver (0xc0c8d0) is RETIRED: a 4-player cap cannot seat a 7th
+// player. Swept here in the SAME commit as src/, which is exactly what the palette canary in
+// src/state/nplayerSeating.test.ts exists to force. R45: the palette stays SIX (a race roster).
+const PLAYER_COLORS = [0xff3b6b, 0x3bd7ff, 0xffe23b, 0x44ff5e, 0xff8c1a, 0xd73bff];
 // S87 — the NETWORKED seat palette is the first MAX_PLAYERS=6 (the 7th silver is
 // reachable only in local VS-BOTS mode, which has no e2e wire path).
-const NETWORKED_COLORS = PLAYER_COLORS.slice(0, 6);
+// S147 R41 - a match seats at most MAX_PLAYERS=4, so a networked game uses the first FOUR colours.
+// The palette keeps six entries because the other two are unchosen RACES (R45), not dead seats.
+const SEAT_CAP = 4; // mirror of src/constants.ts MAX_PLAYERS
+const NETWORKED_COLORS = PLAYER_COLORS.slice(0, SEAT_CAP);
 
 /** Seam injection mirror of smoke.spec.ts: fog off (swiftshader perf) + fast spawn + low win. */
 async function prepCtx(ctx: BrowserContext, spawnRate = 1.5, winScore = 3): Promise<void> {
@@ -158,8 +164,8 @@ test.describe('S63 - 4-player FFA: roster broadcast + distinct seats/colors + FF
   });
 });
 
-test.describe('S63 - 6-player render: MAX_PLAYERS seated + avatars/HUD render without error', () => {
-  test('6 distinctly-coloured players render for 1s with zero pageerror (deterministic)', async ({
+test.describe('S63 / S147 R41 - FULL-TABLE render: MAX_PLAYERS seated + avatars/HUD render without error', () => {
+  test('a full table of distinct-coloured players renders for 1s with zero pageerror (deterministic)', async ({
     page,
   }) => {
     const pageErrors: string[] = [];
@@ -202,7 +208,7 @@ test.describe('S63 - 6-player render: MAX_PLAYERS seated + avatars/HUD render wi
       w.gameMode = '1v1';
       w.gameState = 'PLAYING';
       w.localPlayerId = 0;
-      for (let seat = 0; seat < 6; seat++) {
+      for (let seat = 0; seat < colors.length; seat++) {
         w.players.set(seat, {
           id: seat,
           color: colors[seat],
@@ -224,13 +230,13 @@ test.describe('S63 - 6-player render: MAX_PLAYERS seated + avatars/HUD render wi
     await page.waitForTimeout(1000);
 
     const s = await readWorldState(page);
-    expect(s.players.length).toBe(6);
+    expect(s.players.length).toBe(SEAT_CAP);
     // The 6 live colours == the 6 NETWORKED seat colours (incl orange + magenta).
     expect(s.players.map((p) => p.color).sort((x, y) => x - y)).toEqual(
       [...NETWORKED_COLORS].sort((x, y) => x - y),
     );
     // 6 distinct radial positions (no overlap at MAX_PLAYERS).
-    expect(new Set(s.players.map((p) => `${p.avatarPos.x},${p.avatarPos.y}`)).size).toBe(6);
+    expect(new Set(s.players.map((p) => `${p.avatarPos.x},${p.avatarPos.y}`)).size).toBe(SEAT_CAP);
 
     // Programmatic RENDER proof (S63 CHECK / Grok #1): "world has 6 players + no
     // pageerror" alone does NOT prove the renderer DREW them — so extract the
@@ -275,9 +281,11 @@ test.describe('S63 - 6-player render: MAX_PLAYERS seated + avatars/HUD render wi
     expect(
       renderedColors,
       `every networked PLAYER_COLOR must be drawn on the canvas; found=${JSON.stringify(renderedColors)}`,
-    ).toEqual([true, true, true, true, true, true]);
+      // S147 R41 - derived from the seat cap, not a fixed row of six `true`s. Every SEATED colour must
+      // be drawn; the two unchosen race colours (R45) are not on the board and must not be expected.
+    ).toEqual(NETWORKED_COLORS.map(() => true));
 
-    await page.screenshot({ path: 'test-results/s63-6player-hud.png' });
+    await page.screenshot({ path: 'test-results/s63-full-table-hud.png' });
 
     // The render loop ran over 6 players with no thrown error.
     expect(pageErrors, `pageerrors during 6-player render: ${pageErrors.join(' | ')}`).toEqual([]);

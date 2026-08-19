@@ -212,32 +212,40 @@ describe('S84 P2 — rainbowSwitchTick (flyover celebration window)', () => {
   });
 });
 
-describe('S94 BUGFIX — rainbow shuffles only the 6 human colours, never the bots-only Silver', () => {
-  const SILVER = PLAYER_COLORS[6]; // 0xc0c8d0, bots-only, near-white — the "stuck white" culprit
-  const HUMAN = PLAYER_COLORS.slice(0, 6);
+describe('S147 R41 — the rainbow shuffles the WHOLE palette (bots-only Silver is retired)', () => {
+  // *** WHAT CHANGED AND WHY THIS BLOCK WAS REWRITTEN, NOT DELETED.
+  //
+  // S94 fixed a real bug: the derangement used to include PLAYER_COLORS[6], the bots-only near-white
+  // "Silver", so a HUMAN could be shuffled INTO it and read as "stuck white". The fix excluded it.
+  //
+  // S147 R41 caps the game at 4 players, so a 7th seat cannot exist and Silver is retired from the
+  // palette entirely (it survives as the non-seat BOT_ACCENT_COLOR for bot-setup chrome). The
+  // exclusion therefore has nothing left to exclude, and the S94 defect is now IMPOSSIBLE BY
+  // CONSTRUCTION rather than prevented by a filter.
+  //
+  // These tests keep the INVARIANT that mattered - the owner's hard rule that no two players may share
+  // a colour, and that a shuffle always visibly changes an active colour - and drop only the
+  // Silver-specific special-casing. Deleting the block outright would have lost the uniqueness
+  // coverage, which is the part that still protects players.
 
-  it('buildShuffleColorMap never has Silver as a key or value, over any seed', () => {
+  it('buildShuffleColorMap is a bijection over the FULL palette, over many seeds', () => {
     for (let seed = 0; seed < 300; seed++) {
       const map = buildShuffleColorMap(mulberry32(seed), new Set([PLAYER_COLORS[0], PLAYER_COLORS[1]]));
-      expect(map.has(SILVER)).toBe(false);
-      for (const v of map.values()) expect(v).not.toBe(SILVER);
-      // bijection over exactly the 6 human colours
-      expect([...map.keys()].sort((a, b) => a - b)).toEqual([...HUMAN].sort((a, b) => a - b));
+      // every palette colour is a key (no colour is excluded any more)
+      expect([...map.keys()].sort((a, b) => a - b)).toEqual([...PLAYER_COLORS].sort((a, b) => a - b));
+      // and the image is a permutation of the same palette => uniqueness can never break
+      expect(new Set(map.values()).size).toBe(PLAYER_COLORS.length);
+      expect(new Set(map.values())).toEqual(new Set(PLAYER_COLORS));
     }
   });
 
-  it('a Silver bot keeps Silver (not in the map → unchanged via the ?? fallback)', () => {
-    const map = buildShuffleColorMap(mulberry32(7), new Set([PLAYER_COLORS[0], SILVER]));
-    expect(map.get(SILVER)).toBeUndefined();
-  });
-
-  it('applyTriggerRainbow never leaves a human player stuck Silver (200 seeds)', () => {
+  it('no palette colour is a fixed point while it is ACTIVE (the visible-change guarantee)', () => {
+    // The derangement is best-effort by design (bounded re-roll), but for a 2-colour active set it
+    // must always find a change - otherwise a rainbow would visibly do nothing.
     for (let seed = 0; seed < 200; seed++) {
-      const w = duelWorld();
-      w.rngSeed = seed;
-      applySpawnRainbow(w, { type: 'SPAWN_RAINBOW', pos: { x: 100, y: 100 } });
-      applyTriggerRainbow(w, { type: 'TRIGGER_RAINBOW', rainbowId: asRainbowId(0), playerId: P0 });
-      for (const p of w.players.values()) expect(p.color).not.toBe(SILVER);
+      const active = new Set([PLAYER_COLORS[0], PLAYER_COLORS[1]]);
+      const map = buildShuffleColorMap(mulberry32(seed), active);
+      for (const c of active) expect(map.get(c)).not.toBe(c);
     }
   });
 });

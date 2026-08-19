@@ -54,21 +54,42 @@ export const PLAYER_COLORS = [
   0x44ff5e, // P4 Green
   0xff8c1a, // P5 Orange
   0xd73bff, // P6 Magenta
-  // S87 — 7th seat exists ONLY for VS-BOTS mode (1 human + up to 6 bots = 7
-  // seats; user-mandated "up to 6 bots"). Networked play stays capped at
-  // MAX_PLAYERS=6 — every wire/lobby validator keeps that cap. Silver reads
-  // "robot"; seat identity beyond 3 players is carried by the B{n}/P{n}
-  // nameplates anyway (S62 council note), so hue distinctness is secondary.
-  0xc0c8d0, // B7 Silver (bots-mode only)
 ] as const;
 
-// S62 — max seats per NETWORKED FFA match. Seats are 0..MAX_PLAYERS-1; seat →
-// PLAYER_COLORS[seat]. S87: VS-BOTS mode alone may seat MAX_BOTS+1 players
-// (human seat 0 + bot seats 1..MAX_BOTS); wire/lobby validators use THIS cap.
-export const MAX_PLAYERS = 6;
-// S87 — bots-mode caps. Local-only mode (no wire surface); PLAYER_COLORS must
-// cover MAX_BOTS+1 seats (tsc-visible via the array literal above).
-export const MAX_BOTS = 6;
+/**
+ * S147 R45 — THE 7th "SILVER" SEAT COLOUR IS RETIRED, and the palette above is now SIX entries.
+ *
+ * It only ever existed because VS-BOTS could seat SEVEN (1 human + up to 6 bots). R41 caps the game at
+ * FOUR players total, so a 7th seat cannot exist and nothing can be seated in Silver.
+ *
+ * ⚠ THE PALETTE IS A RACE/CLASS ROSTER, NOT A SEAT-COUNT PROXY (owner, R45): *"its ok to have 6
+ * colors with only 4 players max — in the future we'll make each color a class/race and give players
+ * an option to choose... during pregame lobby stage be able to chose your color."* So do NOT shrink
+ * `PLAYER_COLORS` to match `MAX_PLAYERS`, now or later — six colours are six future races, of which at
+ * most four are in play at once. `PLAYER_COLORS[seat]` is therefore only ever a DEFAULT assignment,
+ * never an invariant; the authority is `Player.color`, which already rides the wire as
+ * `RosterEntry.color` and is what every sim consumer actually reads.
+ */
+export const BOT_ACCENT_COLOR = 0xc0c8d0;
+
+/**
+ * S62 / S147 R41 — max seats in a match. Seats are 0..MAX_PLAYERS-1. Wire and lobby validators all
+ * cap on THIS constant, so lowering it is a wire-behaviour change and owes a `PROTOCOL_VERSION` bump.
+ *
+ * ⭐ S147 R41 — 6 → 4, on the owner's ruling: *"from now on the game will be only upto 4 players"*.
+ * This is not cosmetic: it is the precondition for the tower-defence zone partition. `QUADRANTS_4P`
+ * has exactly FOUR zones, so at a cap of 6 `zoneOwner(seat)` would have no total answer for seats 4
+ * and 5, and the whole partition would be incoherent.
+ *
+ * ⚠ NOT the size of `PLAYER_COLORS` (6, and deliberately larger — see R45 above). Never use the
+ * palette length as a proxy for the seat cap, or a future race-selection screen breaks the mechanics.
+ */
+export const MAX_PLAYERS = 4;
+/**
+ * S87 / S147 R41 — bots-mode cap, 6 → 3: one human at seat 0 plus up to 3 bots = MAX_PLAYERS.
+ * Local-only mode (no wire surface).
+ */
+export const MAX_BOTS = MAX_PLAYERS - 1;
 
 // === Canvas, Spawner, Vision ===
 export const CANVAS_WIDTH = 1920;
@@ -413,12 +434,23 @@ export const GATHERER_PRICE = 105;
 // the opening decision is "two speed upgrades now, or save toward another hauler".
 export const STARTING_VICTORY_POINTS = 100;
 /**
- * V6-1.2 — how many keeps the castle ring is divided into. MUST cover every seat the game can
- * actually seat, which is PLAYER_COLORS.length (7), NOT MAX_PLAYERS (6): VS-BOTS seats 1 human +
- * up to MAX_BOTS bots. A 6-way ring makes seat 6's keep land exactly on seat 0's. Constant (never a
- * live roster size) because a gatherer's spawn position is hashed host-authoritative state.
+ * V6-1.2 — how many keeps the castle ring is divided into. Constant (never a live roster size)
+ * because a gatherer's spawn position is hashed host-authoritative state.
+ *
+ * ⭐ S147 R41/R45 — PINNED TO A LITERAL 7, no longer `PLAYER_COLORS.length`. Two reasons, and the
+ * decoupling is the point:
+ *   1. Palette size must never drive MECHANICS. `PLAYER_COLORS` is a race/class roster that will grow
+ *      or shrink for design reasons (R45); keep geometry must not move when it does.
+ *   2. Keeping the literal at 7 preserves the CURRENT keep positions exactly. Deriving it from the
+ *      now-6-entry palette would silently re-place every seat's keep — and those positions are hashed
+ *      host-authoritative state that gatherer spawns derive from, so it would be a gratuitous
+ *      determinism event in a session that is about to replace this function outright.
+ *
+ * ⚠ THIS WHOLE CONSTANT DIES IN S148, along with the polar ring, when `castleAnchor` becomes
+ * zone-derived (`zoneCastleAnchor`). It is pinned rather than re-tuned precisely so the ring is not
+ * moved twice in one session.
  */
-export const KEEP_RING_SEATS = PLAYER_COLORS.length;
+export const KEEP_RING_SEATS = 7;
 
 /**
  * S138 P2 — distance from arena centre to each seat's keep, in px.

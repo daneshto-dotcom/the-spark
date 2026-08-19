@@ -23,7 +23,16 @@ export const BUTTON_HEIGHT = 48;
 // PLAYER_COLORS[i]. Pure layout; getSeatRect below derives per-seat canvas rects.
 // Only SEAT_W/SEAT_H are exported (seatRack.ts renders within those bounds); the
 // rest are module-private (consumed only by getSeatRect) to keep knip at zero.
-const SEAT_COLS = 3;
+// *** S147 R41 - 2x3 (6 seats) -> 2x2 (4 seats), following MAX_PLAYERS down from 6 to 4. Rack width
+// goes 3x380+2x40 = 1220 -> 2x380+1x40 = 800, so it re-centres at x=560 instead of x=350 and gains
+// breathing room rather than losing it.
+//
+// WARNING: kept as an explicit literal rather than derived from MAX_PLAYERS by arithmetic. A formula
+// such as ceil(sqrt(MAX_PLAYERS)) happens to give 2 here but silently produces an ugly rack at other
+// counts. lobbyGeometry.test.ts instead asserts the rack holds exactly MAX_PLAYERS seats with no
+// overflow, so changing the cap without re-checking this layout fails loudly - which matters because
+// this repo has a standing lesson about panel geometry that overflows while every test stays green.
+const SEAT_COLS = 2;
 export const SEAT_W = 380;
 export const SEAT_H = 150;
 const SEAT_GAP = 40;
@@ -222,7 +231,7 @@ export function getJoinPaneOrigin(): { x: number; y: number } {
 }
 
 /**
- * S69 P2 — canvas-space rect of seat `i` in the 2x3 rack (i in 0..MAX_PLAYERS-1).
+ * S69 P2 — canvas-space rect of seat `i` in the 2x2 rack (i in 0..MAX_PLAYERS-1).
  * Pure; exported for seatRack.ts rendering AND vitest bounds/non-overlap coverage.
  * Row-major: seats 0,1,2 on the top row; 3,4,5 on the bottom row.
  */

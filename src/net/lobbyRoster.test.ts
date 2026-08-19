@@ -47,20 +47,25 @@ describe('reconcileLobbySeats (S73 P1 — stable, non-compacting lobby seat-map)
   });
 
   it('fills MULTIPLE holes with MULTIPLE joiners in one reconcile — lowest holes first (CHECK Gemini f)', () => {
-    const m1 = reconcileLobbySeats(new Map(), ['A', 'B', 'C', 'D']); // {A:1,B:2,C:3,D:4}
-    const m2 = reconcileLobbySeats(m1, ['A', 'C']); // B,D leave → holes at 2 and 4
-    expect(norm(m2)).toEqual({ A: 1, C: 3 });
-    const m3 = reconcileLobbySeats(m2, ['A', 'C', 'E', 'F']); // E,F join in the SAME step
-    expect(m3.get('E')).toBe(2); // lowest hole
-    expect(m3.get('F')).toBe(4); // next hole — NOT seat 5
-    expect(norm(m3)).toEqual({ A: 1, C: 3, E: 2, F: 4 });
+    // S147 R41 - re-pinned to the 3 remote seats the cap now allows. Still TWO holes filled by TWO
+    // joiners in ONE reconcile, lowest hole first, which is the whole point of the test.
+    const m1 = reconcileLobbySeats(new Map(), ['A', 'B', 'C']); // {A:1,B:2,C:3}
+    const m2 = reconcileLobbySeats(m1, ['B']); // A,C leave → holes at 1 and 3
+    expect(norm(m2)).toEqual({ B: 2 });
+    const m3 = reconcileLobbySeats(m2, ['B', 'E', 'F']); // E,F join in the SAME step
+    expect(m3.get('E')).toBe(1); // lowest hole
+    expect(m3.get('F')).toBe(3); // next hole — NOT a 4th seat
+    expect(norm(m3)).toEqual({ B: 2, E: 1, F: 3 });
   });
 
   it('caps at MAX_PLAYERS-1 remotes; over-cap peers are left unseated (host-authoritative)', () => {
     const peers = Array.from({ length: MAX_PLAYERS + 2 }, (_, i) => `p${i}`);
     const m = reconcileLobbySeats(new Map(), peers);
     expect(m.size).toBe(MAX_PLAYERS - 1);
-    expect([...m.values()].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5]);
+    // S147 R41 — derived from the cap: remotes fill seats 1..MAX_PLAYERS-1, over-cap peers stay unseated.
+    expect([...m.values()].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: MAX_PLAYERS - 1 }, (_, i) => i + 1),
+    );
     expect(m.has(`p${MAX_PLAYERS - 2}`)).toBe(true); // last seated
     expect(m.has(`p${MAX_PLAYERS - 1}`)).toBe(false); // first dropped
   });
@@ -158,12 +163,14 @@ describe('buildMatchRoster (S73 P1 — DENSE authoritative-Begin projection)', (
   });
 
   it('densifies in ascending stable-seat order (preserves join order across a hole)', () => {
-    const m = fold([['A', 'B', 'C', 'D'], ['A', 'C', 'D']]); // hole at 2; stable A1 C3 D4
+    // S147 R41 - only MAX_PLAYERS-1 = 3 remotes fit now, so this uses 3 rather than 4. The property
+    // under test is unchanged: a mid-lobby leave leaves a HOLE in stable seats, and Begin DENSIFIES
+    // them in ascending stable order, preserving join order.
+    const m = fold([['A', 'B', 'C'], ['A', 'C']]); // hole at 2; stable A1 C3
     expect(buildMatchRoster(m, HOST)).toEqual([
       { seat: 0, peerId: HOST, color: PLAYER_COLORS[0] },
       { seat: 1, peerId: 'A', color: PLAYER_COLORS[1] },
       { seat: 2, peerId: 'C', color: PLAYER_COLORS[2] },
-      { seat: 3, peerId: 'D', color: PLAYER_COLORS[3] },
     ]);
   });
 });

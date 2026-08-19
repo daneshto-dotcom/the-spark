@@ -65,7 +65,16 @@ export function applySpawnRainbow(world: World, action: SpawnRainbowAction): Wor
 // and read as "stuck white" after a rainbow (and a poop-foul on that structure then reverts to
 // the same Silver). Excluding it: humans shuffle among the 6 real colours, and a Silver bot's
 // colour isn't in the map so the `?? p.color` fallback leaves it unchanged. MAX_PLAYERS=6.
-const SHUFFLE_PALETTE = PLAYER_COLORS.slice(0, 6);
+// *** S147 R41/R45 - THE SLICE IS NOW A NO-OP AND IS REMOVED. The bots-only 7th "Silver" seat colour
+// is retired (R41 caps the game at 4 players, so a 7th seat cannot exist), leaving PLAYER_COLORS as
+// exactly the SIX race colours - every one of which is human-eligible. The exclusion above existed
+// solely to keep a human from being deranged INTO the near-white bots-only hue.
+//
+// NO HUMAN-VISIBLE BEHAVIOUR CHANGE: humans always shuffled among these same six, so slice(0,6) of a
+// six-entry tuple is the tuple itself. Referencing the palette directly also removes a magic 6 that
+// would otherwise silently omit a seventh RACE colour from the shuffle if one were ever added - and
+// R45 says the palette grows for design reasons, so that rot was a real risk.
+const SHUFFLE_PALETTE = PLAYER_COLORS;
 
 export function buildShuffleColorMap(rng: Rng, activeColors: ReadonlySet<number>): Map<number, number> {
   const n = SHUFFLE_PALETTE.length;

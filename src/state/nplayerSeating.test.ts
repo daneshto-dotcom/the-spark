@@ -63,13 +63,15 @@ describe('S62 — radialSpawnPos (deterministic per-seat rim placement)', () => 
     }
   });
 
-  it('no two seats spawn on the same pixel (up to 6 players)', () => {
+  it('no two seats spawn on the same pixel (a full table)', () => {
+    // S147 R41 - derived from MAX_PLAYERS; 6 seats can no longer occur, so testing 6 would assert an
+    // unreachable configuration.
     const seen = new Set<string>();
-    for (let s = 0; s < 6; s++) {
-      const p = radialSpawnPos(s, 6);
+    for (let s = 0; s < MAX_PLAYERS; s++) {
+      const p = radialSpawnPos(s, MAX_PLAYERS);
       seen.add(`${p.x},${p.y}`);
     }
-    expect(seen.size).toBe(6);
+    expect(seen.size).toBe(MAX_PLAYERS);
   });
 });
 
@@ -212,12 +214,16 @@ describe('S63 — PLAYER_COLORS distinctness regression guard', () => {
     return Math.hypot(ar - br, ag - bg, ab - bb);
   };
 
-  it('covers every NETWORKED seat plus the S87 bots-only 7th, all unique', () => {
+  it('is a RACE ROSTER at least as large as the seat cap, all unique (R45)', () => {
     // S87 — the palette grew to MAX_PLAYERS+1: seats 0..5 are the networked
     // cap (UNCHANGED — wire/lobby validators still use MAX_PLAYERS=6); index 6
     // is reachable ONLY as the 6th bot's seat in VS-BOTS mode.
-    expect(PLAYER_COLORS.length).toBe(MAX_PLAYERS + 1);
-    expect(new Set(PLAYER_COLORS).size).toBe(MAX_PLAYERS + 1);
+    // *** S147 R41/R45 - was `=== MAX_PLAYERS + 1`, which tied palette SIZE to the seat cap. The owner
+    // ruled the palette is a RACE/CLASS roster players pick from in the pre-game lobby ("its ok to have
+    // 6 colors with only 4 players max"), so the real contract is >= : a surplus of unchosen races is
+    // CORRECT. Asserting equality would have quietly forced the palette to shrink with the cap.
+    expect(PLAYER_COLORS.length).toBeGreaterThanOrEqual(MAX_PLAYERS);
+    expect(new Set(PLAYER_COLORS).size).toBe(PLAYER_COLORS.length); // still all distinct
   });
 
   // S63 CHECK / Grok #4 — canary: the e2e specs hardcode these exact hexes inline
@@ -232,7 +238,8 @@ describe('S63 — PLAYER_COLORS distinctness regression guard', () => {
       0x44ff5e, // P4 Green
       0xff8c1a, // P5 Orange
       0xd73bff, // P6 Magenta
-      0xc0c8d0, // B7 Silver — S87 bots-mode-only 7th seat (e2e literal swept same commit)
+      // S147 R41 - the 7th (bots-only Silver 0xc0c8d0) is RETIRED: a 4-player cap cannot seat a 7th
+      // player. It survives as the non-seat BOT_ACCENT_COLOR used for bot-setup chrome.
     ]);
   });
 

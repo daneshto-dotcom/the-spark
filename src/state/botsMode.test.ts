@@ -131,34 +131,37 @@ describe('S87 bots mode — save/restore round-trip (additive)', () => {
   });
 });
 
-describe('S87 — 7-seat invariants (Council F2 overrule evidence)', () => {
-  it('PLAYER_COLORS covers MAX_BOTS+1 seats with distinct colors', () => {
-    expect(PLAYER_COLORS.length).toBe(MAX_BOTS + 1);
-    expect(new Set(PLAYER_COLORS).size).toBe(PLAYER_COLORS.length);
-    // Wire/lobby cap untouched.
-    expect(MAX_PLAYERS).toBe(6);
+describe('S147 R41 — 4-SEAT invariants (was S87 7-seat; the cap came down to 4)', () => {
+  it('the palette is a RACE ROSTER, so it may be LARGER than the seat cap — never equal to it', () => {
+    // *** R45, and this assertion is the guard on it. The owner ruled: "its ok to have 6 colors with
+    // only 4 players max ... in the future we'll make each color a class/race and give players an
+    // option to choose". So the correct relationship is >=, NOT ==. The previous version asserted
+    // PLAYER_COLORS.length === MAX_BOTS + 1, which would force the palette to shrink with the cap and
+    // quietly destroy the race roster the moment anyone 'fixed' the failing test.
+    expect(PLAYER_COLORS.length).toBeGreaterThanOrEqual(MAX_PLAYERS);
+    expect(new Set(PLAYER_COLORS).size).toBe(PLAYER_COLORS.length); // still all distinct
+    expect(MAX_PLAYERS).toBe(4);
+    expect(MAX_BOTS).toBe(MAX_PLAYERS - 1); // 1 human + 3 bots fills the match
   });
 
-  it('radialSpawnPos yields 7 distinct rim positions at total=7', () => {
+  it('radialSpawnPos yields MAX_PLAYERS distinct rim positions at a full table', () => {
     const seen = new Set<string>();
-    for (let seat = 0; seat < 7; seat++) {
-      const p = radialSpawnPos(seat, 7);
+    for (let seat = 0; seat < MAX_PLAYERS; seat++) {
+      const p = radialSpawnPos(seat, MAX_PLAYERS);
       seen.add(`${p.x},${p.y}`);
     }
-    expect(seen.size).toBe(7);
+    expect(seen.size).toBe(MAX_PLAYERS);
   });
 
-  it('rainbow keeps all 7 bots-mode seats distinct: 6 humans shuffle, Silver bot stays Silver (S94)', () => {
-    // S94 — the derangement permutes only the 6 human colours; the bots-only Silver
-    // (PLAYER_COLORS[6], near-white) is FIXED so a human is never deranged into it. 7-seat
-    // uniqueness still holds: 6 shuffled (distinct) + Silver (untouched, distinct from the 6).
-    const SILVER = PLAYER_COLORS[6];
-    const human = PLAYER_COLORS.slice(0, 6);
+  it('every seat colour stays distinct after a rainbow shuffle (Silver is retired)', () => {
+    // Replaces the old 'Silver bot stays Silver' test. That behaviour no longer exists: the bots-only
+    // 7th colour is gone, so ALL palette colours are human-eligible and the derangement covers the
+    // whole palette. The user's HARD constraint is what still matters and is what is asserted here —
+    // no two players may share a colour — so this keeps the real invariant and drops the special case.
     const map = buildShuffleColorMap(mulberry32(42), new Set(PLAYER_COLORS));
-    expect(map.has(SILVER)).toBe(false); // Silver bot keeps Silver via the ?? fallback
-    const humanOut = human.map((c) => map.get(c)!);
-    expect(new Set(humanOut)).toEqual(new Set(human)); // bijection over the 6 human colours
-    expect(new Set([...humanOut, SILVER]).size).toBe(7); // all 7 seats remain distinct
+    const out = PLAYER_COLORS.map((c) => map.get(c) ?? c);
+    expect(new Set(out).size).toBe(PLAYER_COLORS.length); // a bijection: uniqueness preserved
+    expect(new Set(out)).toEqual(new Set(PLAYER_COLORS)); // and onto the same palette
   });
 });
 

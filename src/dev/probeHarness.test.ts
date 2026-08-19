@@ -229,8 +229,14 @@ describe('v0.6 economy probe harness — action contract', () => {
       // S136 P4 — the fair share is now 1.125/6 = 0.1875 (was 0.03125). 0.188 is the plausible
       // hand-typed rounding and must pass; 0.24 is +28% off and must NOT. The 2% band is the thing
       // under test, not either literal.
-      expect(seatShareReadout(8, 0.188).representative).toBe(true);
-      expect(seatShareReadout(8, 0.24).representative).toBe(false);
+      // S147 R41 - the cap moved 6 -> 4, so the fair share moved 1.125/6 = 0.1875 -> 1.125/4 = 0.28125.
+      // DERIVED now instead of restated as a literal, because that is precisely what rotted: 0.188
+      // silently stopped being "the plausible hand-typed rounding" the moment the cap changed. The 2%
+      // band is the thing under test, not either number.
+      const fair = SHIPPED / MAX_PLAYERS;
+      const rounded = Math.round(fair * 1000) / 1000; // what a human would actually type
+      expect(seatShareReadout(8, rounded).representative).toBe(true);
+      expect(seatShareReadout(8, fair * 1.28).representative).toBe(false); // +28% is not representative
     });
 
     it('returns null fill times for the unlimited bank rather than Infinity', () => {

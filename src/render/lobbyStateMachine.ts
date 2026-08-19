@@ -61,7 +61,10 @@ export function hostingConnectedStatus(peerCount: number): string {
   // lobby a 7th+ peer can connect before the host's Begin drops it, which would
   // otherwise render the self-contradictory "7 players ... (up to 6)".
   const shown = Math.min(peerCount + 1, MAX_PLAYERS);
-  return `${shown} players connected — press Begin Match (up to 6).`;
+  // S147 R41/R42 — the cap is INTERPOLATED, not written in prose. This literally said "(up to 6)"
+  // while MAX_PLAYERS came down to 4, i.e. the dashboard told the player a number the host would
+  // refuse to honour. The owner's R42 ask ("the dashboard ... needs to be adapted") is exactly this.
+  return `${shown} players connected — press Begin Match (up to ${MAX_PLAYERS}).`;
 }
 
 export interface LobbyState {

@@ -14,7 +14,7 @@
  */
 
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
-import { CANVAS_HEIGHT, CANVAS_WIDTH, MAX_BOTS, PLAYER_COLORS } from '../constants.ts';
+import { BOT_ACCENT_COLOR, CANVAS_HEIGHT, CANVAS_WIDTH, MAX_BOTS, PLAYER_COLORS } from '../constants.ts';
 import {
   BOT_DIFFICULTIES,
   BOT_DIFFICULTY_COLORS,
@@ -71,7 +71,7 @@ export class BotSetupOverlay {
         fontFamily: 'monospace',
         fontSize: 56,
         fontWeight: 'bold',
-        fill: PLAYER_COLORS[6],
+        fill: BOT_ACCENT_COLOR,
         letterSpacing: 8,
       }),
     });
@@ -287,7 +287,7 @@ export class BotSetupOverlay {
     const bg = new Graphics();
     bg.roundRect(-180, -36, 360, 72, 12)
       .fill({ color: 0x111111, alpha: 0.92 })
-      .stroke({ width: 2, color: PLAYER_COLORS[6], alpha: 0.9 });
+      .stroke({ width: 2, color: BOT_ACCENT_COLOR, alpha: 0.9 });
     c.addChild(bg);
     const t = new Text({
       text: label,
@@ -295,7 +295,7 @@ export class BotSetupOverlay {
         fontFamily: 'monospace',
         fontSize: 24,
         fontWeight: 'bold',
-        fill: PLAYER_COLORS[6],
+        fill: BOT_ACCENT_COLOR,
       }),
     });
     t.anchor.set(0.5);

@@ -193,7 +193,20 @@ export type { NetSnapshot };
 // Step 0 switched the four cut hazards off (R14/R23) at their dispatch sites behind
 // HAZARD_SPAWN_ENABLED, deliberately leaving every spawner RNG stream byte-identical.
 // Hard-rejected at HELLO, same lockstep posture as every bump above.
-export const PROTOCOL_VERSION = 23 as const;
+// S147 P2 - bumped 23->24: THE GAME IS CAPPED AT FOUR PLAYERS (owner R41). This is a WIRE change,
+// not a UI preference, because MAX_PLAYERS is what the wire VALIDATORS cap on:
+//   (1) `validateRoster` rejects any roster longer than MAX_PLAYERS, and `parseHostAttest` rejects an
+//       attestation carrying more than MAX_PLAYERS seats. A v23 host legitimately offers a 5- or
+//       6-seat roster; a v24 peer now refuses it outright. Left unbumped, the joiner would drop the
+//       lobby broadcast and sit at an empty seat rack with no error - the worst kind of failure,
+//       because it looks like a network problem rather than a version problem.
+//   (2) `MAX_BOTS` follows to 3 (one human + three bots fills the match), and the lobby seat rack
+//       goes 2x3 -> 2x2, so the two peers no longer even agree on how many seats exist to draw.
+// The 7th bots-only "Silver" seat colour is retired with it; PLAYER_COLORS deliberately STAYS at six
+// entries because it is a RACE/CLASS roster the player will pick from in the pre-game lobby (R45), not
+// a seat-count proxy - so palette length must never be used as a player cap again.
+// Hard-rejected at HELLO, same lockstep posture as every bump above.
+export const PROTOCOL_VERSION = 24 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -285,8 +298,13 @@ export interface HelloMsg {
    *   4. the `protoVersion` type literal immediately below (a deliberate tsc tripwire);
    *   5. `protocol.test.ts`'s pinned `expect(PROTOCOL_VERSION).toBe(N)` **and its test title**, plus
    *      `LOCAL_PROTO_V` at the top of `e2e/smoke.spec.ts`.
-   * `protocolVersionSync.test.ts` enforces the const/e2e pair; nothing enforces this prose. */
-  readonly protoVersion: 23;
+   * `protocolVersionSync.test.ts` enforces the const/e2e pair; nothing enforces this prose.
+   *
+   * S147 P2: 23->24 (FOUR-PLAYER CAP - MAX_PLAYERS 6->4 and MAX_BOTS 6->3. The wire validators
+   * `validateRoster` and `parseHostAttest` both cap on MAX_PLAYERS, so a v23 host's 5-6 seat roster is
+   * refused by a v24 peer; and the lobby rack geometry changes 2x3 -> 2x2, so the peers disagree about
+   * how many seats exist. PLAYER_COLORS stays at 6 on purpose - it is a race roster, not a cap.) */
+  readonly protoVersion: 24;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

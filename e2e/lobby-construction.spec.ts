@@ -291,7 +291,8 @@ test.describe('S70 - lobby presence rack (deterministic render path; gating)', (
       { seat: 2, color: 0xffe23b, isYou: true },
     ]);
     let seats = await readSeats(page);
-    expect(seats.map((s) => s.occupied)).toEqual([true, true, true, false, false, false]);
+    // S147 R41 - the rack is MAX_PLAYERS=4 seats now, not 6. Three occupied + one empty.
+    expect(seats.map((s) => s.occupied)).toEqual([true, true, true, false]);
     expect(seats[2]).toMatchObject({ occupied: true, isYou: true, color: 0xffe23b });
     expect(seats[0]).toMatchObject({ isHost: true, isYou: false });
     expect(seats.filter((s) => s.isYou)).toHaveLength(1);
@@ -303,7 +304,8 @@ test.describe('S70 - lobby presence rack (deterministic render path; gating)', (
       { seat: 1, color: 0xffe23b, isYou: true },
     ]);
     seats = await readSeats(page);
-    expect(seats.map((s) => s.occupied)).toEqual([true, true, false, false, false, false]);
+    // S147 R41 - MAX_PLAYERS=4 rack: after the drop, two occupied + two empty.
+    expect(seats.map((s) => s.occupied)).toEqual([true, true, false, false]);
     expect(seats[1].isYou).toBe(true);
 
     // reset() clears the presence roster → back to count-based (no own-seat).

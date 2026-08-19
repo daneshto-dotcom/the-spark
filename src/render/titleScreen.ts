@@ -19,7 +19,7 @@
  */
 
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
-import { CANVAS_HEIGHT, CANVAS_WIDTH, PLAYER_COLORS } from '../constants.ts';
+import { BOT_ACCENT_COLOR, CANVAS_HEIGHT, CANVAS_WIDTH, PLAYER_COLORS } from '../constants.ts';
 import { fitTextToWidth } from './textFit.ts';
 
 // S121 P4 — 360 was too narrow for the sublabels (the CODEX one ran ~490px wide and escaped the
@@ -111,7 +111,7 @@ export class TitleScreen {
     const btnVsBots = this.makeButton(
       'VS Bots',
       'battle 1–6 AI sparks · set each bot’s difficulty',
-      PLAYER_COLORS[6],
+      BOT_ACCENT_COLOR,
       CANVAS_WIDTH / 2,
       CANVAS_HEIGHT / 2 + 40 + (BUTTON_HEIGHT + BUTTON_GAP) * 2,
       callbacks.onVsBotsSelected,

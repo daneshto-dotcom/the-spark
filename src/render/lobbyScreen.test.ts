@@ -307,7 +307,7 @@ describe('S17 P0\' — button positioning regression (Connect off-screen bug)', 
   });
 });
 
-describe('S69 P2 — getSeatRect (6-seat 2x3 rack layout)', () => {
+describe('S69 P2 / S147 R41 — getSeatRect (4-seat 2x2 rack layout)', () => {
   const rects = Array.from({ length: MAX_PLAYERS }, (_, i) => getSeatRect(i));
 
   it('produces MAX_PLAYERS in-bounds rects', () => {
@@ -335,15 +335,40 @@ describe('S69 P2 — getSeatRect (6-seat 2x3 rack layout)', () => {
     }
   });
 
-  it('lays out row-major 2x3: seats 0-2 top row, 3-5 bottom row', () => {
-    expect(rects[0].y).toBe(rects[1].y);
-    expect(rects[1].y).toBe(rects[2].y);
-    expect(rects[3].y).toBe(rects[4].y);
-    expect(rects[4].y).toBe(rects[5].y);
-    expect(rects[3].y).toBeGreaterThan(rects[0].y);
-    expect(rects[0].x).toBeLessThan(rects[1].x);
-    expect(rects[1].x).toBeLessThan(rects[2].x);
-    expect(rects[0].x).toBe(rects[3].x); // same column across rows shares x
+  it('lays out row-major 2x2: seats 0-1 top row, 2-3 bottom row', () => {
+    // S147 R41 — was 2x3 for 6 seats. Same row-major CONTRACT, one column narrower.
+    expect(rects[0].y).toBe(rects[1].y); // top row shares y
+    expect(rects[2].y).toBe(rects[3].y); // bottom row shares y
+    expect(rects[2].y).toBeGreaterThan(rects[0].y); // and sits below it
+    expect(rects[0].x).toBeLessThan(rects[1].x); // left-to-right within a row
+    expect(rects[2].x).toBeLessThan(rects[3].x);
+    expect(rects[0].x).toBe(rects[2].x); // same column across rows shares x
+    expect(rects[1].x).toBe(rects[3].x);
+  });
+
+  /**
+   * *** S147 R41 - THE PROMISE MADE IN lobbyGeometry.ts's COMMENT, MADE ENFORCEABLE.
+   *
+   * SEAT_COLS is an explicit literal (2), not derived from MAX_PLAYERS by arithmetic, because a formula
+   * that happens to work at 4 seats produces an ugly rack at other counts. The trade is that the cap and
+   * the layout can silently disagree - so this asserts they cannot: the rack must hold EXACTLY
+   * MAX_PLAYERS seats, in full rows, entirely on-canvas.
+   *
+   * This repo has a standing lesson about panel geometry that overflows while every test stays green
+   * (the S140 bank strip). This is the guard for the lobby's version of that.
+   */
+  it('the rack holds EXACTLY MAX_PLAYERS seats, in full rows, with no overflow', () => {
+    expect(rects).toHaveLength(MAX_PLAYERS);
+    const cols = new Set(rects.map((r) => r.x)).size;
+    const rows = new Set(rects.map((r) => r.y)).size;
+    // No partial row: every row is completely filled, so the rack never renders a ragged gap.
+    expect(cols * rows).toBe(MAX_PLAYERS);
+    // And the whole rack is on-canvas with a real margin on both sides (it is centred).
+    const minX = Math.min(...rects.map((r) => r.x));
+    const maxX = Math.max(...rects.map((r) => r.x + r.w));
+    expect(minX).toBeGreaterThan(0);
+    expect(maxX).toBeLessThan(CANVAS_WIDTH);
+    expect(Math.round(minX)).toBe(Math.round(CANVAS_WIDTH - maxX)); // symmetric => centred
   });
 
   it('all seats share identical dimensions', () => {

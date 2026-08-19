@@ -22,6 +22,16 @@ import {
 } from './lobbyStateMachine.ts';
 import { MAX_PLAYERS, PLAYER_COLORS } from '../constants.ts';
 
+/**
+ * S147 R41 — expected seat-occupancy, DERIVED from MAX_PLAYERS.
+ *
+ * These assertions used to be hardcoded 6-element arrays like [true,true,true,false,false,false],
+ * which broke the moment the cap moved 6 -> 4 and told us nothing about the behaviour under test (the
+ * rack projection). `occ(n)` says the real thing: the first n seats are occupied and the rest of the
+ * rack is empty, whatever the rack's size happens to be.
+ */
+const occ = (n: number): boolean[] => Array.from({ length: MAX_PLAYERS }, (_, i) => i < n);
+
 const VALID_CODE = 'ABCDEF'; // [2-9A-HJ-NP-Z]{6}
 const HOST_CODE = 'A2B3C4';
 
@@ -203,12 +213,13 @@ describe('S64 P1 — PEER_STATUS (hosting)', () => {
     const s = lobbyReduce(hosting, { type: 'PEER_STATUS', peerCount: 1 });
     expect(s.hostConnected).toBe(true);
     expect(s.beginVisible).toBe(true);
-    expect(s.status).toBe('2 players connected — press Begin Match (up to 6).');
+    expect(s.status).toBe(`2 players connected — press Begin Match (up to ${MAX_PLAYERS}).`);
   });
 
-  it('reflects the live count for N up to 6 (peerCount + 1)', () => {
-    expect(lobbyReduce(hosting, { type: 'PEER_STATUS', peerCount: 5 }).status).toBe(
-      '6 players connected — press Begin Match (up to 6).',
+  it('reflects the live count for N up to MAX_PLAYERS (peerCount + 1)', () => {
+    // S147 R41 — derived from MAX_PLAYERS so the cap can move again without a stale literal here.
+    expect(lobbyReduce(hosting, { type: 'PEER_STATUS', peerCount: MAX_PLAYERS - 1 }).status).toBe(
+      `${MAX_PLAYERS} players connected — press Begin Match (up to ${MAX_PLAYERS}).`,
     );
   });
 
@@ -222,7 +233,7 @@ describe('S64 P1 — PEER_STATUS (hosting)', () => {
     const s1 = lobbyReduce(hosting, { type: 'PEER_STATUS', peerCount: 1 });
     const s2 = lobbyReduce(s1, { type: 'PEER_STATUS', peerCount: 2 });
     expect(s2).not.toBe(s1);
-    expect(s2.status).toBe('3 players connected — press Begin Match (up to 6).');
+    expect(s2.status).toBe(`3 players connected — press Begin Match (up to ${MAX_PLAYERS}).`);
     expect(s2.hostConnected).toBe(true); // latch stays
   });
 
@@ -348,7 +359,7 @@ describe('S69 P2 — lobbyView seat rack derivation', () => {
   it('hosting with N peers: occupancy = peerCount + 1 in seat order', () => {
     const v = hostingN(2); // 3 players
     expect(v.totalPlayers).toBe(3);
-    expect(v.seats.map((s) => s.occupied)).toEqual([true, true, true, false, false, false]);
+    expect(v.seats.map((s) => s.occupied)).toEqual(occ(3));
   });
 
   it('hosting full (peerCount 5): all 6 occupied, roomFull true', () => {
@@ -395,11 +406,13 @@ describe('S64 P1 — literal CANARY (src-pinning; e2e asserts substrings of thes
     expect(LOBBY_STATUS.CONNECTING).toBe('Connecting...');
     expect(LOBBY_STATUS.JOIN_INVALID).toBe('Code must be 6 chars (excludes 0, O, 1, I).');
     expect(LOBBY_STATUS.JOINED_WAIT).toBe('Connected. Waiting for host to begin...');
-    expect(hostingConnectedStatus(1)).toBe('2 players connected — press Begin Match (up to 6).');
+    expect(hostingConnectedStatus(1)).toBe(`2 players connected — press Begin Match (up to ${MAX_PLAYERS}).`);
     // The exact substring the P3 e2e net (lobby-construction.spec.ts) asserts:
     expect(hostingConnectedStatus(1)).toContain('players connected');
     // S69 P2 CHECK (Grok-2): displayed count caps at MAX_PLAYERS (no "7 ... up to 6").
-    expect(hostingConnectedStatus(6)).toBe('6 players connected — press Begin Match (up to 6).');
+    expect(hostingConnectedStatus(MAX_PLAYERS)).toBe(
+      `${MAX_PLAYERS} players connected — press Begin Match (up to ${MAX_PLAYERS}).`,
+    );
   });
 
   it('status colours are the pinned values', () => {
@@ -514,14 +527,14 @@ describe('S70 P1 — lobbyView roster-derived seats (joiner own-seat + drop-on-l
       { seat: 1, color: PLAYER_COLORS[1], isYou: false },
       { seat: 2, color: PLAYER_COLORS[2], isYou: true },
     ]);
-    expect(full.seats.map((x) => x.occupied)).toEqual([true, true, true, false, false, false]);
+    expect(full.seats.map((x) => x.occupied)).toEqual(occ(3));
     // The peer in seat 1 leaves → host re-broadcasts a compacted 2-seat roster
     // (the joiner compacts seat 2→1, consistent with the Begin formula).
     const afterLeave = joinWith([
       { seat: 0, color: PLAYER_COLORS[0], isYou: false },
       { seat: 1, color: PLAYER_COLORS[2], isYou: true },
     ]);
-    expect(afterLeave.seats.map((x) => x.occupied)).toEqual([true, true, false, false, false, false]);
+    expect(afterLeave.seats.map((x) => x.occupied)).toEqual(occ(2));
     expect(afterLeave.totalPlayers).toBe(2);
     expect(afterLeave.seats[1].isYou).toBe(true);
   });
@@ -538,7 +551,7 @@ describe('S70 P1 — lobbyView roster-derived seats (joiner own-seat + drop-on-l
     });
     const v = lobbyView(s);
     expect(v.totalPlayers).toBe(2);
-    expect(v.seats.map((x) => x.occupied)).toEqual([true, true, false, false, false, false]);
+    expect(v.seats.map((x) => x.occupied)).toEqual(occ(2));
   });
 
   it('FALLBACK: with no roster yet the joiner stays count-based (no own-seat) — pre-beacon window', () => {
