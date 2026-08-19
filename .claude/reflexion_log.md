@@ -1,3 +1,50 @@
+## S147 (2026-08-19) — the tower-defence roadmap starts; A.0 predicted the big break, and the owner stopped me deleting a design axis
+
+Shipped 2/2 code priorities, both live and deploy-verified 4/4. P1 THE MATCH CLOCK gave the sim a
+deterministic BUILD/FIGHT heartbeat (PROTOCOL 22->23); P2 capped the game at FOUR players and made the
+dashboard tell the truth about it (23->24). P3 (S148 zones) was deliberately NOT started at 58% YELLOW
+rather than stop half-way through a hashed-geometry migration. The state-discovery pass paid for itself
+twice over: it predicted the exact eight-scenario determinism break before a line was written, and it
+caught that the spec's own Step 0 instruction would have done the OPPOSITE of what the ruling intended.
+
+- #a0-predicted-the-exact-break-and-that-is-the-whole-value — A.0 delta D3 predicted that gating tickScoring to FIGHT would break ALL EIGHT hostTick.differential scenarios, because that harness is live-vs-FROZEN-transcription (which scores unconditionally), not the host-vs-worker gate the spec called it. The build then broke exactly those eight and nothing else. The value was not the fix — it was that a wall of red in the determinism gate arrived as a KNOWN, pre-reasoned event instead of a desync panic. Read what a test harness actually IS before trusting the name a plan gives it.
+
+- #cadence-zero-would-have-meant-maximum-frequency — Both the blueprint (R14) and the session spec said to switch the four hazards off by setting "cadence to zero". Measuring the mechanism showed that would have shipped the OPPOSITE: the cadence is a spark COUNTDOWN (MIN + floor(rng()*(MAX-MIN+1))), so zero fires on the very next spark. The owner-approved spec was WRONG about its own implementation while being right about its intent. Implement the INTENT, verified against the mechanism — and gating at the dispatch site turned out to be cheaper too, because it leaves every RNG stream byte-identical.
+
+- #the-council-rejected-me-on-a-premise-i-could-refute-and-i-took-the-fix-anyway — GEMINI-AUDITOR returned REJECT on a specific desync: the host freezes for NONET while a worker does not, so re-stamping the deadline from the current tick drifts. The premise was empirically FALSE — workerSim.ts:485 implements the same freeze and world.sudoku is hashed, so both freeze symmetrically. But the recommended fix (+= instead of = tick +) was still strictly better, so I adopted it on better grounds than it was argued, and hardened it further (a WHILE loop with the guard hoisted, which Gemini did not propose and which is what actually preserves phase parity across a long freeze). Audit the reasoning, not the verdict: a wrong argument can still point at a real improvement, and a REJECT is not a veto.
+
+- #counting-council-verdicts-would-have-shipped-two-defects — R1 came back 1 ADOPT-WITH-CHANGES vs 1 REJECT. Tallying verdicts would have led either to a 9th differential scenario that CANNOT pass (both seats spotted the harness problem; only Gemini gave the correct remedy) or to rewriting a data model the design names for a requirement no ruling asks for (Grok C4, rejected). The two seats agreed from opposite directions and only one supplied a usable fix. Battle Ledgers must record the REASONING per challenge, because that is the part that decides.
+
+- #the-owner-scoped-the-council-mid-session-and-it-was-the-right-call — Mid-execution the owner ruled: Council is here to help decide HOW, never to change the game design. That instantly resolved Grok C4 (replace the named phaseEndsAtTick field) as out of bounds regardless of its merits, and it matched where the evidence already pointed. Externally sourced advice drifts toward redesign because redesign is the easiest thing to have an opinion about; the owner's scope rule is the cheapest defence against it. Record it as constitutional for the session, not as a passing remark.
+
+- #my-own-anti-vacuity-check-caught-my-own-useless-test — I wrote an e2e asserting no hazards spawn in 2.5 s. At the shipped 0.15 sparks/s rate with cadences measured in SPARKS, the first hazard is ~50-120 s away even ENABLED — so the test was guaranteed to pass regardless of the flag. The only reason it did not ship green-and-worthless is that I had added an anti-vacuity assertion (sparks > 0), which failed honestly. Every negative test needs a positive control proving the thing it watches for was actually POSSIBLE. Rewritten as a real control: 12 sparks/s + 2-spark cadence with the flag withheld, asserting the ID allocators never advanced (so nothing was minted-then-reaped).
+
+- #retained-not-deleted-has-to-mean-still-tested — R28 said the leader decay is "switched OFF (retained, not deleted)". Gating the call site alone satisfied the letter of that and quietly broke three S107 tests, whose only green paths would have been deletion or weakening into asserting nothing. Extracting applyLeaderDecay as an export let the tests drive the mechanic directly, so the arithmetic stays verified for the balance session that is expected to re-enable it. "Retained" means reachable and still proven, not merely still present in the file.
+
+- #i-converted-thirteen-files-to-crlf-and-it-would-have-passed-ci — My python patch writes flipped 13 files LF->CRLF (Windows text-mode newline translation against an LF tree with core.autocrlf=true). Git normalizes on commit, so the diffs looked tiny and CI would have been GREEN while a source-text assertion failed on the developer machine — the worst direction for a defect to point. Write with newline=''. And my first line-ending audit was itself junk: grep -c $'\r' degenerated to an empty match and reported every line. Verify byte facts with a byte count.
+
+- #grep-count-uses-pattern-not-needle — Two of 53 MCV bindings hard-failed with "assertion missing field 'pattern'": grep_count takes {path, pattern (a REGEX), op, value}, while file_contains/file_lacks take {path, needle}. My memory said "the key is needle, there is no pattern key" — true per-type, wrong as a generalisation. A third binding was logically wrong rather than malformed: file_lacks "PHASE_CHANGED" failed because the file legitimately MENTIONS the token in the comment explaining why no such effect is emitted. Running the verifier is not optional; it found 3 real defects.
+
+- #the-spend-limit-ate-seven-of-eight-probes-and-hand-work-was-better-anyway — The 8-probe A.0 Workflow lost 7 probes plus synthesis to the individual spend limit — the third session running (S140, S141, now S147). One result was salvageable from journal.jsonl. Re-running the seven by hand with targeted greps cost far less, was fully self-verified, and produced the session's two highest-consequence findings (D1 cadence inversion, D3 frozen harness). For forensic probes on a codebase I can read directly, hand-work beats fan-out; save the fan-out for genuinely parallel breadth.
+
+- #two-jobs-in-one-function-made-a-test-regress-for-a-non-bug — tickScoring both accrues income AND re-derives scoreProgress = max(scoreByPlayer). Gating the whole call to FIGHT therefore also gated the derivation, which regressed hunter.spec.ts — it writes scoreByPlayer directly and leaned on tickScoring to notice. Production was never affected (addScore/spendScore each recompute scoreProgress at their own call sites), so the right fix was in the spec, with the reasoning written down so a future session does not "fix" the sim from that line. When gating a function, enumerate everything it does, not just the thing you are gating.
+
+- #the-owner-stopped-me-deleting-a-design-axis — I found PLAYER_COLORS had 7 entries against a new 4-player cap, called it a trap, and proposed cutting the palette to 4. The owner corrected me: each colour is a future CLASS/RACE picked in the pre-game lobby, so six colours with a four-player cap is CORRECT. My 'fix' would have deleted a design axis and had to be undone later. A surplus is not always dead code - before shrinking a collection to match a cap, ask what the collection MEANS. Gemini had flagged 'decouple seat count from palette size' as hygiene; the owner confirmed it was design. The right work was decoupling, and it turned out the sim was already choice-ready.
+
+- #a-readonly-tuple-is-a-forcing-function — Retiring the 7th palette entry could have shipped four silent undefined colours. It could not, because PLAYER_COLORS is declared `as const` - a readonly TUPLE, not number[] - so tsc named every index-6 read (botSetupOverlay x3, titleScreen x1). The same change against a plain array would have compiled clean and broken at runtime. Worth remembering when authoring a palette or lookup table: `as const` buys compiler enforcement for free.
+
+- #the-dashboard-was-lying-in-a-hardcoded-string — The lobby status read 'press Begin Match (up to 6)' as a LITERAL while MAX_PLAYERS became 4, so the UI advertised a seat count the host would refuse. The seat COUNT beside it was derived; only the cap in the prose was not. Interpolating fixed it. Any user-facing sentence containing a number that also exists as a constant is a latent lie - and a test asserting the literal will happily lock the lie in place, which is exactly what had happened.
+
+- #re-pin-derived-not-re-literalled — 14 assertions broke on the cap change. The tempting fix is s/6/4/. The right fix was deriving each from MAX_PLAYERS - an occ(n) helper for rack occupancy, Array.from for seat ranges, fair = SHIPPED / MAX_PLAYERS for the probe - because a literal is what rotted in the first place. The probe test even documented its own literal as 'the plausible hand-typed rounding', which silently stopped being true the moment the cap moved. Re-literalling would have set the same trap for the next cap change.
+
+- #a-canary-test-earned-its-keep — nplayerSeating.test.ts pins the exact palette hexes with a docblock explaining that e2e duplicates them and must be swept in the SAME commit. It fired, and it was right: e2e/nplayer.spec.ts carried its own copy of the array including the retired silver. Without that canary the e2e copy would have drifted silently. When you must duplicate a constant across a bundling boundary, the canary is the cheap half of the deal - and it only works because someone wrote down WHY it exists.
+
+- #my-own-verification-bindings-invalidated-each-other — P1's verification[] asserted PROTOCOL_VERSION = 23. P2 then legitimately bumped it to 24 in the same session, and the MCV verifier hard-failed on P1 - not on a defect, but on history. Bindings assert CURRENT file state, so two priorities editing the same file in one session can invalidate each other. Fix: earlier priorities should pin the DURABLE artefact (its changelog entry) and leave the current-value assertion to whichever priority last moved it.
+
+- #file_lacks-fails-on-your-own-comment-twice — Second time this session: a file_lacks binding failed because the file legitimately MENTIONS the token in a comment explaining its absence - PHASE_CHANGED in P1, 0xc0c8d0 in P2. A file_lacks needle must be the CODE SHAPE, not the word: `type: 'PHASE_CHANGED'` and `, 0xc0c8d0]` rather than the bare identifier. Writing a good comment about a removal will break a lazy binding about that removal.
+
+- #the-repo-has-mixed-line-endings-and-my-audit-was-wrong — After P1 I concluded 'the working tree is LF'. Wrong - it is MIXED: nplayerSeating.test.ts, probeHarness.test.ts and e2e/nplayer.spec.ts are natively CRLF and I never touched them. That is why multi-line python anchors kept failing with count=0 while single-line ones worked. Correct habit: single-line, ASCII-only anchors for programmatic patching, since they are agnostic to both line endings and em-dash mangling through a heredoc.
+
 ## S146 (2026-08-16) — the owner pivoted the game mid-session; two of my confident readings were wrong
 
 Shipped 2/2 code priorities (loose-spark repulsion deleted; the castle inventory became a limitless per-type tally,
@@ -45,80 +92,3 @@ never been wired together. Four self-caught defects, two found by the e2e rather
 - #the-fallthrough-that-kept-an-idle-player-earning-spent-the-slots-an-active-player-had-just-freed — B4 nearest-of-any is correct for an unattended player and a leak for a directed one. A rule ruled for one regime should be suspended in the regime it was never ruled about, not deleted.
 
 - #the-owner-said-it-didnt-work-and-the-deploy-was-perfect — 0 unpushed, live hash byte-identical, verify-deploy 4/4, 0 console errors. Everything the pipeline could check was green; the game was simply unwinnable. Check the GAME, not the delivery, when a playtest fails.
-
-## S144 (2026-08-14) — the castle "blob" became a TD build grid: click a tower, drag it, place it
-
-3 of 3 priorities shipped, live, deploy 4/4. The owner's playtest complaint was not that the castle panel was
-ugly — it contained ZERO towers. Click-to-build now stamps a recipe's REAL geometry from banked shapes and lets
-the existing matcher ignite it, all six recipes, verified igniting AND surviving revalidation. Four self-caught
-defects, two of them found by the e2e test rather than by reasoning, and one mis-attribution corrected on record.
-
-- #a0-killed-the-headline-priority-and-that-was-the-win - the flip was LOCKED, 13 sessions overdue and playtest-passed; measuring first proved it unsafe. A.0 pays most exactly when the priority looks settled.
-
-- #both-seats-proposed-a-broken-fix-again-third-session-running - Grok a provable no-op, Gemini an anti-cheat regression, and the constraint refuting Gemini was IN THE DOCBLOCK BOTH WERE READING. Price the diagnosis and the prescription apart, every time.
-
-- #a-reviewer-asserted-it-had-searched-and-had-not - Grok stated no comment treated those fields as ephemeral; the comment was in the interface it was reasoning about. It also named 12 symbols, 0 of which exist. Grep-verify every cited symbol before triage.
-
-- #i-had-to-refute-my-own-pdr - I claimed hash-oracle divergence; the runtime oracle cannot see spawners at all. PRIME-AUDIT your own severity claims, not only the reviewers'.
-
-- #the-owner-was-doing-a-chore-ci-already-performed - 'CI cannot verify a protocol bump' was false for an unknown number of sessions; both tests pass in CI in 5.6s. Before writing a manual step into a handoff, check whether something already covers it.
-
-- #fully-red-was-half-green-in-both-environments - the quarantine lane was ~50% passing locally AND in CI. A remembered failure string had become a settled fact nobody re-measured.
-
-- #the-instrument-was-hiding-its-own-diagnosis - waitForWorld swallowed every poll error, so a dead page and a slow one produced identical messages. Two competing causal stories survived in-repo for sessions because of one bare catch.
-
-- #the-gating-lane-was-red-on-clean-master-and-nothing-reported-it - e2e.yml has no push trigger. Dispatch it at boot; green-on-your-last-PR is not evidence that master is green now.
-
-- #the-generalised-method-found-a-second-bug-the-specific-fix-would-have-missed - comparing mutable fields against serializer output found a 65-session-old debuff hole. Fix the class, not the instance.
-
-- #cap-the-fan-out-third-consecutive-session - 7 agents died on the spend limit with ZERO recoverable results; 3 tight probes landed 3/3. Read the highest-risk area by hand FIRST.
-
-- #untagged - 
-
-- #untagged - 
-
-- #untagged - 
-
-- #the-call-site-said-structural-the-callee-guard-said-event-driven - Gemini's C2 claimed bypassing the bonding functions would leave stamped shapes inert. I verified it by reading the CALL SITE - runGodlyMatcherCore calls runSpawnerIgnition and runDefenderIgnition unconditionally, before any effects scan - and concluded 'structural scan, only voltkin is affected'. Wrong. Both callees OPEN with their own hasTopologyChange sweep and early-return without one. It was 6 of 6, not 1 of 6, and without the emit the whole feature would have shipped dead with no error anywhere. An unconditional call proves nothing about whether the callee runs.
-
-- #my-pure-geometry-module-silently-rewired-the-whole-codebase - I imported recipe modules into blueprints.ts for their constants and documented the side-effect registration as a deliberate BENEFIT. The real blast radius was the entire repo: world.ts imports the blueprint reducer, so every module got all six recipes registered, which made recipeStillSatisfied's documented unregistered-recipe fallback unreachable and broke a shipped test. I reasoned about the hazard, talked myself into it, and was wrong about its scope. Mirror-plus-cross-check-test was the right answer.
-
-- #the-strongest-challenge-came-from-the-seat-that-voted-adopt - Grok voted REJECT with 5 challenges; 4 were disproportionate (frozen geometry would delete the documented self-healing contract AND make towers immune to creature chewing) and Gemini overruled all 4. But Gemini - which voted ADOPT-WITH-CHANGES - supplied the one critical defect. A REJECT vote is not a proxy for finding real bugs. Read the challenges, not votes.
-
-- #the-blob-was-not-ugly-the-towers-were-simply-absent - The owner said the castle panel 'is a blob' and should 'actually prebuild towers or godlies'. I could have spent the priority restyling. The A.0 probe found the real defect: castlePanel.ts contained ZERO references to any tower or recipe and imported nothing from godlyRecipes/ or codex*. Its six buttons are PRIMITIVES, which reads as ugly recipes. Nothing needed prettifying; the content was missing. Read what the surface actually contains before interpreting an aesthetic complaint as an aesthetic problem.
-
-- #the-render-caught-two-things-thirteen-green-assertions-could-not - 13/13 layout assertions passed and both remaining defects were invisible to them. Screenshotting the real panel showed voltkin's 8-chain rendering as invisible specks at tile scale, and surfaced a gameplay fact no unit test would model: a 7/7 FULL bank of randomly-hauled shapes satisfies NO recipe, and a full bank blocks further deliveries. castlePanel.ts already warned 'Look at the render' from a prior session's overflow bug. Obeying it paid twice.
-
-- #one-pass-and-one-fail-is-not-attribution - A bomb.spec placement test failed, passed without my changes, and failed again with them. I wrote 'confirmed: it IS my regression' on that evidence and started bisecting. It was the repo's known hand-drag placement flake: the same failure then appeared in rainbow.spec, both went green on rerun, and the final gating lane was 39/39. For a timing-sensitive test, one pass plus one fail is noise, not a verdict - and I had already been handed a bisect result that pointed at a file whose diff was provably inert.
-
-- #my-own-safety-cleanup-made-the-feature-i-was-building-impossible - I disarmed the held tower whenever the panel closed, reasoning that a ghost must not outlive its panel. But EVERY click outside the panel closes it - including the placing click and an illegal-spot click. So the 'keep it in hand on an illegal click' rule I had just written for better UX could never fire, and a misjudged drop silently cost the player their selection. A defensive cleanup that sounded obviously right silently deleted a feature; the e2e test caught it, reasoning had not.
-
-- #the-getter-lied-and-the-lie-looked-exactly-like-the-bug - getUiPoints() hardcoded armed:null in its closed-panel early-return. Once carrying could outlive the panel, that made the harness report an empty-handed player while a ghost was visibly following the cursor - and the false report was indistinguishable from the real behaviour bug I had just fixed, so I nearly 'fixed' working behaviour twice. An instrument's early-return branches need the same care as its main path.
-
-## S143 (2026-08-13) — the three flip gates closed; a 3-week "intermittent" CI red was an unsatisfiable assertion
-
-3 of 3 priorities shipped, deployed 4/4, CI-verified with two consecutive green gating runs. The sim-worker flip
-is still deliberately NOT taken, but every measured blocker is closed and the flip is now a one-constant change.
-Four self-corrections this session, three of them caught by instruments I had just written.
-
-- #three-sessions-called-it-throughput-and-it-was-an-unsatisfiable-assertion - the gating red was on record as "CI throughput OR a real stall, unresolved". Both wrong: `primitives.length > sampleA` is a strict-increase test on a counter that FALLS (razing + deliberate MID severs), and one attempt sampled 33 then failed at 32. No timeout, retry or faster runner could ever have passed it. Before blaming an environment, check whether the assertion can be satisfied AT ALL.
-
-- #the-error-message-is-why-it-stayed-unresolved-for-three-sessions - one message covered dead-page, unmet-predicate and out-of-runway, so nobody could choose between hypotheses. The highest-value fix was not the oracle but making the failure SAY which of the three it is — including saying outright when a signal must NOT be read as a product failure.
-
-- #my-own-new-diagnostic-confidently-asserted-a-product-failure-that-did-not-exist - I built the growth oracle on `nextPrimitiveId`, which is host-only and FROZEN on a worker mirror. It printed "INSTRUMENT OK, PREDICATE GENUINELY UNMET: a real product failure" while the game built normally. Caught only by dumping state and seeing cursor 33 against a live primitive with id 38. An assertive diagnostic is not a correct one — I had written the very warning it violated one function above.
-
-- #the-guard-asked-about-a-url-spelling-not-the-state-it-guarded - probeHarness refused to arm on `get('worker') === '1'`. Not a parse bug: it needed "is the worker active?". The two agree today and are OPPOSITE once the default flips, so the harness would arm exactly when it must not. A guard phrased against the spelling of an input silently stops tracking the state it guards when the default moves.
-
-- #the-second-path-was-correct-only-by-accident - two host INTENT apply paths existed and only one was worker-aware. No test could distinguish them because BOTH are correct today (a promoted host has a null driver); the divergence only becomes a bug in a regime that does not exist yet. Behavioural tests cannot see this class — it is a property of the call graph.
-
-- #the-only-thing-that-arms-the-fallback-was-the-flag-a-hang-cannot-set - the driver set `failed` solely from explicit error events, so a worker hanging WITHOUT throwing froze the game permanently while the direct-sim fallback could never fire. A recovery path is only real if the failure it recovers from can actually reach it.
-
-- #a-sum-cannot-see-a-per-family-hole - the guard that existed specifically to stop the wide compare being decorative added TEN family sizes and compared >0, satisfied by any one. Measured: defenders 0 for all 300 frames while it sat green on poops. An aggregate assertion proves something about the aggregate and nothing about any member.
-
-- #my-own-new-guard-caught-my-own-first-version-of-it - the first per-family table read the FINAL frame and failed on rainbows: 0, but only because a rainbow spawns and despawns mid-run, so it WAS compared on every frame it existed. Final-frame reads under-report every transient family. The guard was right and my use of it was wrong — the good failure mode.
-
-- #the-fix-for-an-unforced-site-was-itself-unforced - I added gathererOrders to structuralSignature citing its own docblock about UNFORCED sites, then mutation-tested it: deleting BOTH terms left the entire suite green. My fix for a decorative site was decorative. Mutation-test the guard, never just the code.
-
-- #i-invalidated-my-own-test-run-by-editing-source-during-it - a gating run reported 4 failures; I had edited src/ WHILE it executed against a live vite dev server, including a window where a function was referenced before it existed. The clean rerun was 36/36. I nearly attributed 3 phantom regressions to my own correct changes. Never edit sources while their suite runs, and treat an unexplained multi-failure jump as suspect first.
-
-- SESSION #verify-the-probe-before-you-act-on-it - the A.0 probes were excellent and still wrong in places: one reported "seeds none of the families since S135" which measurement refuted (the real gap was exactly two). Every load-bearing claim was grep-verified before use, and 14/14 symbols cited in new comments were confirmed on disk. Probes are evidence to check, not conclusions to adopt.
