@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1368,
+  "tool_calls_session_total": 1379,
   "session_id": "S148",
   "session_kind": "pdca-batch",
   "session_start": "2026-08-19",
@@ -321,7 +321,80 @@
       "verification": []
     }
   ],
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    {
+      "tag": "#the-owner-redirected-mid-session-and-a-grep-audit-proved-them-right",
+      "text": "Mid-execution the owner cut across my plan: \"you are focusing on minor subspec technicals ... like points per tick or stupid shit that we can always change or tweak in the future! lets focus on the game vision!\" I had a FULL-tier PDR whose P3 was a measured economy sweep. Rather than argue or capitulate, I grep-audited the blueprint against the source: castle HP/attack, tower target preference, FIX/SCRAP and the Wall entity return ZERO non-test files. The owner was straightforwardly right - I was about to spend a third of a session tuning a haul constant while four base specs did not exist as code at all. The lesson is not \"obey the redirect\", it is that an implementation plan drifts toward whatever is MEASURABLE, and measurable is not the same as important. Audit the vision against the code before ranking priorities, not after being told to.",
+      "session": "S148",
+      "priority": 1
+    },
+    {
+      "tag": "#i-measured-and-the-measurement-refuted-my-own-stated-reason",
+      "text": "I raised GATHERER_BASE_SPEED 1.9 -> 2.6 for the 2.71x haul and wrote a docblock that read as if the raise were REQUIRED. Then I actually measured the old value: at 1.9 the quadrant board still banks 6 shapes with the full 1-Square-3-Circle bill, so the owner gate (a first tower affordable un-upgraded) was ALREADY met and my new zoneEconomy test would have passed at either speed. The change is still right - it buys ~2.2x headroom and drops the outbound leg from 70% to 51% of a spark TTL - but the justification I had written was false. Corrected the docblock, and added the ONE assertion that actually discriminates (total >= 7; 6 at 1.9, 8-9 at 2.6). A change can be correct while the reason given for it is not, and a test that would pass either way is not evidence for the change it sits beside.",
+      "session": "S148",
+      "priority": 1
+    },
+    {
+      "tag": "#the-anti-vacuity-guard-caught-a-family-that-was-only-ever-tested-by-ACCIDENT",
+      "text": "workerSim.differential hard-failed with \"family castleBanks is asserted SEEDED but is EMPTY in this run\". Nobody had ever seeded it: a gatherer simply HAPPENED to complete a haul inside the 300-frame window because the old ring put the round trip at ~590 px. At 800.7 px it no longer finishes, so the family went empty - and every hash in the gate still matched, because comparing two empty sets always agrees. Without that assertion the projection loop would have become dead code inside the exact test that exists to prove it. Coverage that arises emergently is not coverage; it is a coincidence with a green tick next to it. Seeded explicitly now.",
+      "session": "S148",
+      "priority": 1
+    },
+    {
+      "tag": "#the-forcing-function-fired-on-cue-and-its-eight-siblings-stayed-silent",
+      "text": "Adding a hashed World scalar is NINE sites. Exactly one - FIELD_COVERAGE in stateHashFull.ts - is tsc-enforced, and it named `layout` the moment I compiled. The other eight (save type + serialize + deserialize, workerSim structural signature, gameMode applyStartGame + RETURN_TO_TITLE, protocol, world init) are completely silent: the build was GREEN with the field missing from the save format entirely. The boot snapshot warned this in one line and it was worth more than any amount of care. Worth generalising: when a registry can fail your build on omission, that is the cheapest correctness tool available - and the corollary is that you must know which of the related sites it does NOT cover, because those look identical when they are wrong.",
+      "session": "S148",
+      "priority": 1
+    },
+    {
+      "tag": "#stamping-order-was-load-bearing-in-BOTH-directions",
+      "text": "world.layout had to be written AFTER seating (the board is chosen from the seat count) and BEFORE seedBotSpawners / seedStartingGatherers / seedStartingUnits (each places entities at castleAnchor(seat, world.layout)). Get it wrong either way and it is not a cosmetic bug: those spawn positions are hashed, so seeding on the previous match board is a desync on tick 0. There was exactly one correct line in applyStartGame and no compiler or test would have named it - the tests seed their own worlds. Wrote the reasoning inline rather than the rule, because the next person to add a seeder needs to know WHY the line sits where it does.",
+      "session": "S148",
+      "priority": 1
+    },
+    {
+      "tag": "#a-hardcoded-board-coordinate-rotted-for-the-SECOND-time",
+      "text": "e2e/click-to-build had `const LEGAL_SITE = { x: 360, y: 780 }`. Moving seat 0 to the goalmouth dragged the castle panel from x[583,851] to x[163,431], so that constant landed INSIDE the open panel, isOverPanel swallowed every click, and the test failed as \"0 primitives placed\" - which reads like a broken build path and is nothing of the kind. helpers.ts:892 records the FIRST time this class of bug hit, when the ring moved to 420 and four tests started clicking empty board. Same failure, same lane, second time. The geometry getters exist precisely so a test can ask the running game where things are; a literal coordinate in an e2e spec is a latent failure with a timer on it. Derived from the live panel rect now, with an assertion that the derivation cleared the panel so the next layout change fails legibly instead of downstream.",
+      "session": "S148",
+      "priority": 1
+    },
+    {
+      "tag": "#the-verifier-op-table-has-ge-not-gte-and-the-difference-is-SILENT",
+      "text": "An MCV grep_count binding with op \"gte\" reported FAIL on a condition that was plainly true (count=10, value=8). _OPS in verify-session-claims.py holds eq/ne/gt/ge/lt/le - \"gte\" is simply absent, and the lookup falls through to the \"==\" DEFAULT rather than erroring. So 10 gte 8 was evaluated as 10 == 8. An unknown operator that degrades quietly into a different operator is worse than one that throws, because the failure looks like a genuine finding. My memory note already said grep_count takes pattern+op+value; it did not record the vocabulary. Now it does.",
+      "session": "S148",
+      "priority": 1
+    },
+    {
+      "tag": "#file_lacks-fired-on-my-own-docblock-for-the-THIRD-time",
+      "text": "Two of my 39 bindings failed on prose I had just written: file_lacks \"Math.sqrt\" broke because zones.ts docblock says \"No `Math.sqrt`.\" explaining why, and a grep_count for KEEP_RING_(SEATS|RADIUS) broke on gatherer.ts prose explaining that both constants are retired. This is the third session it has happened. The rule is now sharp enough to state once: a file_lacks needle must be a CODE SHAPE that cannot occur in English - \"Math.sqrt(\" with the paren, \"Math.cos(angle)\" for the retired ring math. Writing a good comment about a removal will always break a lazy assertion about that removal, because good comments name the thing they removed.",
+      "session": "S148",
+      "priority": 1
+    },
+    {
+      "tag": "#running-the-verifier-is-not-optional-three-for-three",
+      "text": "39 bindings, 3 hard failures, none of them a real defect in the code and ALL of them defects in my evidence. Third session running where actually executing verify-session-claims.py found problems that reading the bindings would not have. The asymmetry is the point: a binding that is wrong in the SAFE direction (asserts something trivially true) is invisible forever, and the only thing that separates a real assertion from a decorative one is watching it run against the real tree.",
+      "session": "S148",
+      "priority": 1
+    },
+    {
+      "tag": "#re-pin-by-DERIVATION-and-rewrite-the-test-that-lost-its-subject",
+      "text": "Retiring KEEP_RING_SEATS broke loop bounds in five test files. The tempting fix is s/KEEP_RING_SEATS/4/. The right one was zoneCount(layout), run over BOTH boards - a literal is what rotted in the first place. Harder case: a whole describe block asserted \"every seat lands exactly on KEEP_RING_RADIUS from the arena centre\". There is no replacement number - the quadrant corners are 925.7 out and the pitch goalmouths 840, and neither is a decision anyone made. Deleting it would have dropped the owner requirement it encoded. So it was rewritten to assert what the owner actually asked for (\"castles at the extremities\", i.e. well clear of the quarry, each inside the zone it defends). When a test loses its subject, find the REQUIREMENT underneath it before deleting.",
+      "session": "S148",
+      "priority": 1
+    },
+    {
+      "tag": "#the-one-pixel-clearance-was-luck-and-is-now-a-test",
+      "text": "Verifying \"the anchors fit the canvas\" is the easy half and was the only half anyone had checked. Measuring the dependent HUD geometry found the bottom-left quadrant keep clears the score progress bar by EXACTLY ONE PIXEL (keep starts x=93, bar ends x=92) - not a designed margin, an accident that any future KEEP_W or bar-width change closes silently. Also found the porch/deposit point at y=1024 sits inside the footer band, survivable only because S136 deleted the footer plate and its click guard. Both are now assertions with the reasoning attached, so the luck is at least monitored.",
+      "session": "S148",
+      "priority": 1
+    },
+    {
+      "tag": "#the-screenshot-was-the-only-thing-that-could-have-caught-a-render-fault",
+      "text": "2498 unit tests and 42 e2e all green tell you the NUMBERS are right. They cannot see a keep drawn over the score HUD, a panel opening across the quarry, or bank glyphs colliding with the progress bar - and this priority moved every castle on screen. Captured both boards through Playwright under the real host loop (the in-app browser pane cannot do it: an undisplayed pane does not composite, so rAF is paused and the Pixi ticker never advances). The quadrant shot is the evidence that four corner keeps in four seat colours actually render with the quarry unclaimed at centre. A green suite is not evidence for render work, and S147 already paid for that lesson once.",
+      "session": "S148",
+      "priority": 1
+    }
+  ],
   "totals": {
     "budget_remaining": 1000000
   },
