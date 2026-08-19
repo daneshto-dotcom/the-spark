@@ -36,6 +36,7 @@
 
 import {
   PRINCESS_DEFENDER_MAX_HP,
+  PRINCESS_SLAP_DAMAGE_VS_CREATURE,
   PRINCESS_MELEE_RANGE,
   PRINCESS_MOVE_ACCEL,
   PRINCESS_SLAP_INTERVAL_TICKS,
@@ -44,10 +45,12 @@ import {
   STINK_THROW_INTERVAL_TICKS,
   STINK_TOWER_ATTACK_RANGE,
   STINK_TOWER_BAGS,
+  STINK_BAG_DAMAGE_VS_CREATURE,
   STINK_TOWER_MAX_HP,
   STINK_TOWER_WINDUP_TICKS,
   TURRET_ATTACK_RANGE,
   TURRET_DEFENDER_MAX_HP,
+  TURRET_BEAM_DAMAGE_VS_CREATURE,
   TURRET_FIRE_INTERVAL_TICKS,
   TURRET_WINDUP_TICKS,
 } from '../../constants.ts';
@@ -174,6 +177,19 @@ export interface DefenderConfig {
    * also what makes `bagsRemaining` inert for them.
    */
   readonly bags: number;
+  /**
+   * ⭐ S148 P2 — SINGLE-TARGET DAMAGE THIS KIND DEALS TO A CREATURE.
+   *
+   * Replaces the shared `CREATURE_HIT_DAMAGE` that every kind used to deal at the one FIRE site. That
+   * shared constant meant no weapon could be stronger than any other: HELGA needed six slaps to kill
+   * a goblin, and the "slow heavy beam" laser also needed six. See the constants block above
+   * `PRINCESS_SLAP_DAMAGE_VS_CREATURE` for the full account of the defect.
+   *
+   * ⚠ Creature hp is a HIT COUNT on its own scale (chewer 1, Voltkin 2, goblin 6) — this number lives
+   * on THAT scale, not the 1000-per-primitive structure scale. A four-digit value here would one-shot
+   * every creature in the game.
+   */
+  readonly damageVsCreature: number;
 }
 
 export const TURRET_DEFENDER_CONFIG: DefenderConfig = {
@@ -185,6 +201,8 @@ export const TURRET_DEFENDER_CONFIG: DefenderConfig = {
   meleeRange: TURRET_ATTACK_RANGE, // strikes at acquisition range → always "in melee" → never WALKs
   hp: TURRET_DEFENDER_MAX_HP, // S138 P1 — real hp (was the 1e9 sentinel)
   bags: 0, // no magazine — the laser is not ammo-limited
+  // ⭐ S148 P2 — THE HEAVY WEAPON, AND IT FINALLY READS AS ONE. One beam fells a goblin.
+  damageVsCreature: TURRET_BEAM_DAMAGE_VS_CREATURE,
 };
 
 /**
@@ -203,6 +221,13 @@ export const STINK_TOWER_DEFENDER_CONFIG: DefenderConfig = {
   meleeRange: STINK_TOWER_ATTACK_RANGE, // lobs at acquisition range → always "in melee" → never WALKs
   hp: STINK_TOWER_MAX_HP,
   bags: STINK_TOWER_BAGS,
+  // ⭐ S148 P2 — deliberately left at the shared single-hit value. The stink tower is the AREA
+  // weapon: its damage comes from splashing several targets at once AND from chewing primitives,
+  // which neither other kind does. Giving it single-target punch too would make it strictly better
+  // than both. (It does not actually read this field — `stinkThrowBag` owns its own splash — but the
+  // config is compile-time exhaustive, and a kind that silently omitted its damage would be the
+  // next bug.)
+  damageVsCreature: STINK_BAG_DAMAGE_VS_CREATURE,
 };
 
 export const PRINCESS_DEFENDER_CONFIG: DefenderConfig = {
@@ -214,6 +239,8 @@ export const PRINCESS_DEFENDER_CONFIG: DefenderConfig = {
   meleeRange: PRINCESS_MELEE_RANGE, // S110 P4 — must be adjacent to slap
   hp: PRINCESS_DEFENDER_MAX_HP, // S138 P1 — real hp (was the 1e9 sentinel)
   bags: 0, // no magazine — she slaps
+  // ⭐ S148 P2 — two slaps fell a goblin: fast and close, but not the heaviest hitter.
+  damageVsCreature: PRINCESS_SLAP_DAMAGE_VS_CREATURE,
 };
 
 export const DEFENDER_CONFIGS: Readonly<Record<DefenderKind, DefenderConfig>> = {

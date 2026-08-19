@@ -42,10 +42,11 @@ import {
 } from './workerSim.ts';
 import { dispatch, makeWorld, type GameAction, type World } from './world.ts';
 import { bankAdd } from './castleBank.ts';
-import { asPlayerId, asSparkId } from '../types.ts';
+import { asPlayerId, asPrimitiveId, asSparkId } from '../types.ts';
 import { applySpawnHunter } from './hunters/hunterLifecycle.ts';
+import { applySpawnCreature } from './creatures/creatureLifecycle.ts';
 // S143 P3 — SparkType feeds the gatherer order queue seeded below; see scriptInputs.
-import { HUNTER_HUNT_TICKS, SparkType } from '../constants.ts';
+import { HUNTER_HUNT_TICKS, PRIMITIVE_MAX_HP, SPARK_VISUAL_SIZE, SparkType } from '../constants.ts';
 
 const P0 = asPlayerId(0);
 const SEED = 0x51220042;
@@ -107,6 +108,51 @@ function buildBotsWorld(): World {
   // relies on.
   bankAdd(world.castleBanks, P0, SparkType.Square);
   bankAdd(world.castleBanks, P0, SparkType.Circle);
+  // ⛔ S148 P2 — SEED BOT-AUTHORED PRIMITIVES EXPLICITLY, FOR THE SAME REASON AS THE BANK ABOVE.
+  //
+  // The scenario asserts `botPlaced > 0` so that the wide per-frame compare provably had bot-owned
+  // entities to compare. That assertion used to be satisfied by ACCIDENT too: `seedBotSpawners` handed
+  // every bot seat a free pentagram, and its five Triangles were the bot-authored primitives. That
+  // seeding is deleted (R50 — it was an unfair opening, not a fixture), so the control now has to be
+  // provided on purpose. Two shapes per bot seat is enough to keep the per-element projection loops
+  // live without re-creating the gameplay unfairness.
+  for (const seat of [...world.botSeats].sort((a, b) => (a as number) - (b as number))) {
+    const player = world.players.get(seat);
+    if (player === undefined) continue;
+    for (let i = 0; i < 2; i++) {
+      const id = asPrimitiveId(world.nextPrimitiveId++);
+      const px = 300 + (seat as number) * 90 + i * 26;
+      const py = 300 + (seat as number) * 40;
+      world.primitives.set(id, {
+        id,
+        type: SparkType.Triangle,
+        placerColor: player.color,
+        placedBy: seat,
+        createdTick: world.tick,
+        pos: { x: px, y: py },
+        prevPos: { x: px, y: py },
+        bonds: new Set(),
+        ownerColor: player.color,
+        lastOwnershipChange: world.tick,
+        hp: PRIMITIVE_MAX_HP,
+        radius: Math.max(8, SPARK_VISUAL_SIZE[SparkType.Triangle] * 0.45),
+      });
+    }
+    // ...and one CREATURE per bot seat, for the third instance of the same story. `creatures` was
+    // seeded by the deleted starter grant (and by chewers the free pentagram emitted); with both gone
+    // the family is empty and its projection loop — the widest per-element hash surface in the file —
+    // stops being compared at all. Spawned through the real reducer so the entity is exactly what
+    // production would mint, and a goblin specifically because that is what the goblin TOWER will
+    // eventually produce (R18/R24), so this fixture matches where the design is going.
+    applySpawnCreature(world, {
+      type: 'SPAWN_CREATURE',
+      creatureType: 'goblinMelee',
+      ownerPlayerId: seat,
+      pos: { x: 420 + (seat as number) * 70, y: 620 },
+      targetPos: { x: 420 + (seat as number) * 70, y: 620 },
+      sourceSpawnerId: null,
+    });
+  }
   return world;
 }
 
@@ -442,7 +488,27 @@ describe('S122 P1 — worker-sim batch envelope differential (HARD GATE)', () =>
       readonly [name: string, size: number, acknowledged: string | null]
     > = [
       ['creatures', peak.creatures, null],
-      ['creatureSpawners', peak.creatureSpawners, null],
+      [
+        'creatureSpawners',
+        peak.creatureSpawners,
+        // ⚠ S148 P2 — A REAL, OPEN HOLE, ACKNOWLEDGED RATHER THAN PAPERED OVER.
+        //
+        // This row was satisfied by the free bots-only PENTAGRAM that `seedBotSpawners` handed every
+        // bot seat, which registered a real spawner over its Triangle ring. That seeding is deleted
+        // (R50) because it was an unfair opening, and the family went empty with it.
+        //
+        // It cannot be fixed by injecting a spawner: the host re-validation poll re-checks each one
+        // against `isPentagramComponent` from its anchor and dispatches removal when the geometry does
+        // not hold, so an injected spawner is torn down within a tick — exactly what the `defenders`
+        // row below already documents. Doing it properly needs five bonded Triangles built as a test
+        // fixture, which is the same ~80 lines of geometry just deleted from production and would
+        // drift from it.
+        //
+        // The right home for this is the GOBLIN TOWER (R18/R24, S153): it is a spawner with real
+        // recipe geometry, and once it exists this row seeds itself from the design rather than from
+        // scaffolding. Logged as CF-S148-b rather than left as a silent zero.
+        'seeded only by the deleted bots-only pentagram (R50); needs real recipe geometry — the goblin tower (S153) is its proper source — CARRY-FORWARD CF-S148-b',
+      ],
       // ⭐ S147 P1 Step 0 (R14/R23) — THESE SIX ROWS WENT FROM NATURALLY-SEEDED TO UNREACHABLE, and
       // that is a deliberate design change, not a regression. `HAZARD_SPAWN_ENABLED = false` gates the
       // four hazard DISPATCH sites in physicsLoop, so the spawner still draws its countdowns (the RNG

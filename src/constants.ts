@@ -1367,6 +1367,49 @@ export const GOBLIN_LIFETIME_TICKS = 60 * 60 * 60; // 60 min — effectively mat
 // exercises them — see the S138 carry-forward on authoring damage as totals over seconds.
 export const TURRET_DEFENDER_MAX_HP = 3000; // a heavy emplacement — 3 primitives' worth
 export const PRINCESS_DEFENDER_MAX_HP = 2000; // mobile and lighter than the turret
+
+/* ────────────────────────────────────────────────────────────────────────────────────────────── *
+ *  ⭐ S148 P2 — PER-KIND DEFENDER DAMAGE. THE FIX FOR "MY LASER DID NO DAMAGE".
+ * ────────────────────────────────────────────────────────────────────────────────────────────── *
+ *
+ * ⛔ THE DEFECT THIS REPLACES. Every defender strike dealt the SHARED `CREATURE_HIT_DAMAGE = 1`,
+ * for every kind, at one call site. Creature hp is a HIT COUNT on its own scale (chewer 1,
+ * Voltkin 2, goblin 6), so the consequences were:
+ *
+ *   · HELGA needed SIX slaps to kill one goblin. The owner counted five and it was still alive.
+ *   · The laser turret ALSO dealt 1 — while its own comment calls it *"a slow heavy beam"*. Against
+ *     a creature it was indistinguishable from a slap. That is the "my laser did like no damage"
+ *     playtest report, and it was accurate.
+ *   · **No weapon in the game could be stronger than any other.** A roster of three towers where
+ *     every tower hits identically is not a roster, and no amount of hp/range tuning fixes it.
+ *
+ * The goblin was not overtuned: `GOBLIN_MELEE_HP = 6` is a faithful reading of the owner's own
+ * "6 attacks to destroy a connector or a UNIT" rule. Nobody ever checked that rule against the
+ * DEFENDER side, so the goblin arrived 6× tougher than a Voltkin against every weapon at once.
+ *
+ * ⚠ THE NUMBERS ARE PINNED BY RELATIONSHIP, NOT BY LITERAL. `defenderDamage.test.ts` asserts
+ * "HELGA fells a goblin in 2", "the laser fells one in 1" and "the laser is the strongest
+ * single-target weapon" — so a later rebalance can move these freely but cannot silently invert the
+ * roster's ORDER, which is the property that was broken. Deriving them from `GOBLIN_MELEE_HP` keeps
+ * the arithmetic honest if the goblin's toughness ever moves.
+ */
+/**
+ * HELGA's slap — two slaps fell a goblin. She is the fast, close, mid-damage answer.
+ *
+ * ⚠ `Math.round` IS LOAD-BEARING, NOT DEFENSIVE. `damageEntity` THROWS on a fractional amount
+ * (damage.ts's integer guard), so a bare `GOBLIN_MELEE_HP / 2` would be a live crash the moment the
+ * goblin's hp became odd — the same trap `GOBLIN_DAMAGE_VS_PRIMITIVE` documents for 1000/6. Rounding
+ * here keeps the derivation honest AND integral for any goblin hp.
+ */
+export const PRINCESS_SLAP_DAMAGE_VS_CREATURE = Math.max(1, Math.round(GOBLIN_MELEE_HP / 2)); // 3
+/** The laser beam — ONE beam fells a goblin. It is the heavy single-target weapon and now reads it. */
+export const TURRET_BEAM_DAMAGE_VS_CREATURE = GOBLIN_MELEE_HP; // 6
+/**
+ * The stink bag stays at the shared single-hit value ON PURPOSE. It is the AREA weapon: its damage
+ * comes from splashing several targets at once (and from chewing primitives, which neither of the
+ * others does), so giving it single-target punch as well would make it strictly better than both.
+ */
+export const STINK_BAG_DAMAGE_VS_CREATURE = CREATURE_HIT_DAMAGE; // 1
 // Laser turret (#9) — slow + heavy; the windup is shown via 5 rings derived from nextFireTick.
 export const TURRET_FIRE_INTERVAL_TICKS = 1800; // 30 s @ 60 Hz (owner spec: "every 30s")
 export const TURRET_WINDUP_TICKS = 18; // brief pre-beam tell after the long charge completes

@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1380,
+  "tool_calls_session_total": 1411,
   "session_id": "S148",
   "session_kind": "pdca-batch",
   "session_start": "2026-08-19",
@@ -97,27 +97,27 @@
         {
           "type": "file_contains",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
-          "needle": "export function zoneOf(pos: Vec2, layout: ZoneLayout): number | null {"
+          "needle": "export function zoneOf(pos: Vec2, layout: ZoneLayout): number | null"
         },
         {
           "type": "file_contains",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
-          "needle": "export function zoneOwner(seat: number, layout: ZoneLayout): number | null {"
+          "needle": "export function zoneOwner(seat: number, layout: ZoneLayout): number | null"
         },
         {
           "type": "file_contains",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
-          "needle": "export function zoneCastleAnchor(seat: number, layout: ZoneLayout): Vec2 {"
+          "needle": "export function zoneCastleAnchor(seat: number, layout: ZoneLayout): Vec2"
         },
         {
           "type": "file_contains",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
-          "needle": "export function canBuildAt(pos: Vec2, seat: number, layout: ZoneLayout): boolean {"
+          "needle": "export function canBuildAt(pos: Vec2, seat: number, layout: ZoneLayout): boolean"
         },
         {
           "type": "file_contains",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
-          "needle": "export function layoutForSeatCount(seatCount: number): ZoneLayout {"
+          "needle": "export function layoutForSeatCount(seatCount: number): ZoneLayout"
         },
         {
           "type": "file_contains",
@@ -132,12 +132,12 @@
         {
           "type": "file_contains",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
-          "needle": "{ x: 120, y: 540 },"
+          "needle": "x: 120, y: 540"
         },
         {
           "type": "file_contains",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
-          "needle": "{ x: 1790, y: 950 },"
+          "needle": "x: 1790, y: 950"
         },
         {
           "type": "file_contains",
@@ -157,7 +157,7 @@
         {
           "type": "file_contains",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/stateHashFull.ts",
-          "needle": "`ly${world.layout}`,"
+          "needle": "S148 P1 — the board. In the WIDE hash so a differential"
         },
         {
           "type": "file_contains",
@@ -192,7 +192,7 @@
         {
           "type": "file_contains",
           "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gatherer.ts",
-          "needle": "export function castleAnchor(seat: number, layout: ZoneLayout): Vec2 {"
+          "needle": "export function castleAnchor(seat: number, layout: ZoneLayout): Vec2"
         },
         {
           "type": "file_contains",
@@ -294,13 +294,43 @@
       "check_method": "P1 THE QUADRANTS shipped at %s. VERIFIED: tsc 0 errors; vitest 2498 passed / 161 files (up from 2459/159 - zones.test.ts 28 cases over both boards, zoneEconomy.test.ts 2); npm run build PASS entry 691.3 KiB, 208.7 KiB headroom; npm run e2e:gating 42/42 in 3.2m; both boards SCREENSHOTTED under the real host loop via Playwright (spark-s148-zones-PITCH_2P.png and -QUADRANTS_4P.png on the OneDrive desktop) - the quadrant shot shows four corner keeps in four seat colours with the quarry unclaimed at centre, the pitch shot one goalmouth keep. ECONOMY MEASURED, and reported honestly: a full 5400-tick BUILD through the real host loop, one un-upgraded gatherer, order queue set to the Stink Tower bill - at the OLD speed 1.9 the quadrant board banks 6 shapes with the full bill, at 2.6 it banks 8-9. The owner gate (a first tower affordable un-upgraded) was ALREADY met at 1.9, so the raise buys headroom and TTL margin, NOT playability; the docblock and the test both say so rather than implying necessity, and the margin assertion (>=7) is the only one that discriminates between the two speeds. TWO REAL DEFECTS CAUGHT BY EXISTING HARNESSES: (1) workerSim.differential anti-vacuity guard fired - castleBanks had only ever been seeded by ACCIDENT via a haul finishing inside the 300-frame window, and at 2.71x haul it no longer does, so the family went silently empty while every hash stayed green; now seeded explicitly via bankAdd before the batch rig adopts the world. (2) e2e click-to-build LEGAL_SITE {360,780} fell INSIDE the castle panel once the keep moved to the goalmouth (panel x[583,851] -> x[163,431]), so isOverPanel swallowed every click and the test failed as \"0 primitives placed\"; now DERIVED from the live panel rect. Also confirmed bomb.spec was an under-load flake, not a regression - it passes in isolation (41.2s) and passed on the clean 42/42 re-run."
     },
     {
+      "id": 0,
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.claude/plans/2026-08-19_SCOPE_AMENDMENT_S148_OPENING_COHERENCE.md",
+          "needle": "THE TWO DAMAGE SCALES WERE NEVER RECONCILED"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.claude/plans/2026-08-19_SCOPE_AMENDMENT_S148_OPENING_COHERENCE.md",
+          "needle": "BOTS ARE HANDED TWO FREE GODLY STRUCTURES AT TICK 0"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defenderLifecycle.ts",
+          "pattern": "CREATURE_HIT_DAMAGE",
+          "op": "ge",
+          "value": 1
+        }
+      ],
+      "name": "S148 P0 REBUILD-VS-ADAPT AUDIT (owner-demanded) - full inventory of the shipped game classified KEEP/CHANGE/DELETE/BUILD-NEW against SPARK_TD_BLUEPRINT.md, then an evidence-backed rebuild-vs-adapt verdict. The S146 ADAPT ruling came from a Council that never read the codebase.",
+      "check_completed": true,
+      "checkpoint_commit": "4620caae (audit is documentation, no code change)",
+      "check_method": "REBUILD-VS-ADAPT AUDIT delivered as an artifact. Method: hand-run measurement on disk at 4620caa - find/wc over 194 non-test source files (51,369 LOC) and 184 test files (45,761 LOC), per-directory and per-file LOC, plus targeted greps to classify each subsystem against SPARK_TD_BLUEPRINT.md. VERDICT: do NOT rebuild, but stop adapting incrementally - run a deliberate demolition pass. Infrastructure a rebuild would forfeit = ~16,491 LOC (net 4,756, save 2,207, hostTick+gameState 884, hash oracles 662, workerSim 545, world+worldTypes 1,252, physics 683, input+game 2,859, lobby shell 2,643), protected by 2,498 unit tests + 42 gating e2e and 25 protocol versions over 989 commits since 2026-05-09. NONE of the four playtest defects live in that layer; all four are content-layer, which a rebuild would rewrite anyway. BUT the owner instinct was correct: ~4,051 LOC is already dead or dormant and the content layer contradicts the blueprint in four measured places. AUDITED THE S146 AUDIT THAT JUSTIFIED ADAPT AND FOUND IT UNRELIABLE: 3 claims wrong (build refusal \"3 sites\" is actually SIX; \"420 -> ~1100px\" is actually 295 -> 800.7px, a figure that propagated through two handoffs; \"~40k lines\" is actually 51,369) and 3 problems invisible to it (the shared CREATURE_HIT_DAMAGE=1 that makes \"the tower substrate is done\" false in the way that matters, the bots-only free pentagram + lightning hub, and the starter goblin contradicting R18/R24). Root cause: that Council never read the codebase - a fact already recorded in S146 reflexion."
+    },
+    {
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "id": 2,
-      "status": "pending",
-      "name": "S148 P2 OWN-ZONE BUILD LEGALITY - one canonical canBuildAt(world, playerId, pos) imported by all SIX refusal/preview sites (placePrimitive, placeFromFree, blueprintLegality, botBrain, controls, dragPreview) so host, drag ghost and bots cannot disagree",
-      "verification": []
+      "status": "in_progress",
+      "verification": [],
+      "name": "S148 P2 THE OPENING IS FAIR AND WEAPONS DIFFER (R49/R50/R51) - delete the starter-goblin seeding and the bots-only free pentagram + lightning hub so every seat opens with a castle, one gatherer and 100 points; retire the shared CREATURE_HIT_DAMAGE for defender strikes in favour of PER-KIND damage so HELGA kills a goblin in 2 and the laser turret in 1. No protocol bump - no World field changes."
     },
     {
       "pdr_approved": true,
@@ -308,8 +338,8 @@
       "unlock_source": "user",
       "id": 3,
       "status": "pending",
-      "name": "S148 P3 THE WALLS (R5/R17/R39, pulled forward from S149 per R48) - zone-border wall entity, invulnerable for the whole BUILD stage, drops at the FIGHT edge, blocks ground units",
-      "verification": []
+      "verification": [],
+      "name": "S148 P3 THE CASTLE BECOMES REAL (R29/R10/R20) - castle HP + elimination + placings. Protocol 25->26."
     },
     {
       "pdr_approved": true,
@@ -317,8 +347,35 @@
       "unlock_source": "user",
       "id": 4,
       "status": "pending",
-      "name": "S148 P4 COLOUR IS A RACE (R45 / CF-S147-e) - pre-game lobby colour/race picker; substrate already choice-ready since every consumer reads player.color and it rides the wire as RosterEntry.color",
-      "verification": []
+      "verification": [],
+      "name": "S148 P4 DEMOLITION (R52) - delete hazards (bomb/potato/rainbow/seagull/hunter ~2,291 LOC), the NONET trial (~1,081) and the dev probe harness (~679), including their ~20 World fields across FIELD_COVERAGE/save/hash/workerSim. Own protocol bump; deferred to next session per R53 bump budget."
+    },
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": 5,
+      "status": "pending",
+      "verification": [],
+      "name": "S148 P2 OWN-ZONE BUILD LEGALITY - one canonical canBuildAt(world, playerId, pos) imported by all SIX refusal/preview sites (placePrimitive, placeFromFree, blueprintLegality, botBrain, controls, dragPreview) so host, drag ghost and bots cannot disagree"
+    },
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": 6,
+      "status": "pending",
+      "verification": [],
+      "name": "S148 P3 THE WALLS (R5/R17/R39, pulled forward from S149 per R48) - zone-border wall entity, invulnerable for the whole BUILD stage, drops at the FIGHT edge, blocks ground units"
+    },
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": 7,
+      "status": "pending",
+      "verification": [],
+      "name": "S148 P4 COLOUR IS A RACE (R45 / CF-S147-e) - pre-game lobby colour/race picker; substrate already choice-ready since every consumer reads player.color and it rides the wire as RosterEntry.color"
     }
   ],
   "reflexion_entries_to_archive": [
@@ -1431,7 +1488,12 @@
     "q3_council": "SKIP - no 3-way Council. Stated as a DEVIATION from the Full-tier mandate.",
     "q4_approval": "GO - all priorities approved.",
     "r47_vision_first": "VISION FIRST, TUNING LATER. Owner verbatim: \"there are base specs that we have defined in the new game blueprint fork that we have defined and you havent even implemented or thought of them yet like that player quadrants walls castle/color races and many other base things. it seems that you are focusing on like minor subspec technicals that might or might not affect the game like points per tick or stupid shit that we can always change or tweak in the future! lets focus on the game vision!\" CONSEQUENCE: P3 changes from the measured economy sweep to THE WALLS; P4 added for COLOUR=RACE lobby picker; the economy becomes a single derived constant, not a priority.",
-    "r48_walls_pulled_forward": "R46 (S147 review gate: walls stay in S149 coupled to the gatherer shelter) is REVERSED by R47. The wall object lands in S148 P3; the gatherer-shelter half (R6/R12) stays behind unless the owner asks for it. Flagged to the owner rather than silently recoupled."
+    "r48_walls_pulled_forward": "R46 (S147 review gate: walls stay in S149 coupled to the gatherer shelter) is REVERSED by R47. The wall object lands in S148 P3; the gatherer-shelter half (R6/R12) stays behind unless the owner asks for it. Flagged to the owner rather than silently recoupled.",
+    "r49_goblin_is_tower_only": "REMOVE THE STARTER GOBLIN ENTIRELY - goblins exist ONLY as goblin-tower output (R18/R24), which lands in S153. EXPLICITLY REVERSES the owner S139 ruling \"each player starts with one goblin of every kind\": that predates the tower-defence pivot, and the TD design is later and more specific. The goblinMelee creature type is RETAINED and still tested - only the seeding goes.",
+    "r50_empty_opening": "EVERY SEAT OPENS WITH NOTHING BUT A CASTLE, ONE GATHERER AND 100 POINTS. Owner verbatim: \"everyone should start with nothing but the castle and one gatherer\". Kills the bots-only free PENTAGRAM (persistent chewer emitter) and LIGHTNING HUB (drone burst) that seedBotSpawners has handed every bot seat since S104/S113 as demo scaffolding.",
+    "r51_weapons_must_differ": "SCOPE PA + PB + PC APPROVED. The damage-scale defect is fixed properly, not papered over: every defender currently deals a shared CREATURE_HIT_DAMAGE = 1, so NO weapon can be stronger than any other. Per-kind damage lands so HELGA kills a goblin in 2 and the laser in 1. Castle HP + elimination (R29/R10/R20) is included - the owner chose the largest option.",
+    "r52_blanket_build_approval": "OWNER APPROVED THE AUDIT AND THE PLAN, with a blanket build mandate: \"i approve - just make the game what its supposed to be based on the latest design. code and develop/engineer it to the best of your abilities and i will help you tweak/change anything that is not good enough!\" Also implicitly answers the R23 question: \"make the game what its supposed to be\" = the dead systems go, so deleting the hazards and NONET outright is authorised rather than leaving them dormant.",
+    "r53_reorder_flagged": "CLAUDE-INITIATED REORDER, FLAGGED NOT SILENT. My own audit proposed demolition FIRST and the owner approved that order. Revised on two grounds: (a) deleting dead hazard code has zero gameplay value, while the empty opening and per-weapon damage are the two things that ruined the playtest; (b) the hazard deletion churns ~20 World fields across hash/save/protocol, and doing it AFTER castle HP would mean adding castle state to a surface about to be rewritten. New order: empty opening + weapons (no bump) -> castle HP + elimination (bump 25->26) -> dead-code demolition (its own bump, next session, since the owner bump policy allows two per session and one is already spent on 25)."
   },
   "vision_gap_audit_s148": [
     "GREP-VERIFIED against master at ef59743. NOT BUILT AT ALL (zero non-test source files): castle HP/defence/attack (R29); tower TARGET PREFERENCE (R8/R31/R40); FIX and SCRAP (R13/R19/R21); the Wall entity (R5/R17/R37/R39 - world.walls returns zero hits).",
@@ -1439,5 +1501,13 @@
     "R22 VIOLATION FOUND: the quarry is supposed to stop producing during FIGHT, but the spawner never reads world.matchPhase - grep for matchPhase over physics/ and the spawner returns nothing. Sparks keep spawning through the whole fight. Logged as a carry-forward, not fixed in this batch.",
     "ALREADY SHIPPED and correct: the BUILD/FIGHT clock (S147); income = complexity x rate gated to FIGHT (R3/R7/R16/R17 - tickScoring at scoring.ts:279 uses computeAllComplexities and has never cared whether shapes form a recipe); the 4-player cap and dashboard (R41/R42); the Stink Tower as a 4-shape buildable defender."
   ],
-  "deploy_verified_s148_p1": "PASS 4/4 at 4620caae - REMOTE/RUN/VERDICT/LIVE all agree; live entry asset index-DKIzActC.js matches the local build by content hash. Protocol 25 is LIVE."
+  "deploy_verified_s148_p1": "PASS 4/4 at 4620caae - REMOTE/RUN/VERDICT/LIVE all agree; live entry asset index-DKIzActC.js matches the local build by content hash. Protocol 25 is LIVE.",
+  "amendment_file_2": ".claude/plans/2026-08-19_SCOPE_AMENDMENT_S148_OPENING_COHERENCE.md",
+  "playtest_findings_s148": [
+    "F1 ROOT CAUSE - TWO DAMAGE SCALES NEVER RECONCILED. Structures use PRIMITIVE_MAX_HP=1000; creatures use a HIT COUNT (chewer 1, Voltkin 2, goblin 6 via GOBLIN_MELEE_HP). Every defender strike deals CREATURE_HIT_DAMAGE=1 at defenderLifecycle.ts:336 - HELGA slap, laser turret beam and Voltkin zap are ALL 1. So HELGA needs SIX slaps to kill one goblin (owner counted five and it lived - correct), and constants.ts:1298 calls the laser \"a slow heavy beam\" while it does exactly what a slap does. Meanwhile GOBLIN_DAMAGE_VS_PRIMITIVE=167 means six swings fells any connector, and a HELGA/laser tower IS connectors - so tower and goblin need the same ~6 s to kill each other and the TOWER dies first. Net: the goblin is 6x tougher than a Voltkin against every weapon in the game, which no design asks for. GOBLIN_MELEE_HP=6 came from the owner S139 \"6 attacks\" rule - right for goblin-vs-goblin, catastrophic against defenders, because the rule was never checked against the defender damage constant.",
+    "F2 - BOTS OPEN WITH TWO FREE GODLY STRUCTURES. seedBotSpawners (state/spawners/botSpawnerSeed.ts:71) gives EVERY bot seat a complete PENTAGRAM (5 bonded Triangles + registered spawner = persistent chewer emitter) AND a complete LIGHTNING HUB (1 Dot + 5 Circles, emits 3 suicide drones, :143). The human seat gets neither. Seeded in S104/S113 as demo scaffolding so the owner could SEE chewers and drones without building them; vs-bots has since become the main way the game is played.",
+    "F3 - AND THOSE BOT STRUCTURES IGNORE THE S148 ZONES. botSpawnerSeed.ts:82-84 still places them with the RETIRED polar-ring math (SPAWNER_CENTER + cos(seat angle) x PENTAGRAM_REACH), so a bot pentagram can land in the quarry, in neutral ground, or inside ANOTHER seat zone. S148 P1 did not cause this but made it incoherent - and it would have broken P2 build legality outright, because the host would refuse a placement it had seeded itself. Resolved by deletion in PA rather than by re-siting.",
+    "F4 - THE STARTER GOBLIN CONTRADICTS THE TD DESIGN. seedStartingUnits (gameMode.ts:324) spawns one goblinMelee per seat, but R18/R24 say goblins are PRODUCED BY THE GOBLIN TOWER (feed it shapes, one goblin per shape, the shape picking which of six kinds). That tower is S153 and unbuilt. Owner ruled R49: remove entirely, tower-only.",
+    "F5 - what the owner asked for was already half true: seedStartingGatherers already gives exactly one gatherer + STARTING_VICTORY_POINTS 100 per seat, human and bot alike. Only F2 and F4 broke it."
+  ]
 }

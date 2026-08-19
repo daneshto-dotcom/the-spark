@@ -198,19 +198,44 @@ describe('S139 P2 — findNearestEnemyPrimitiveFrom', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-describe('S139 P2 — the free starter grant', () => {
-  it('grants exactly ONE goblin to every seated player at START_GAME', () => {
+describe('S148 P2 — the starter grant is GONE: goblins come from the tower (R49)', () => {
+  /**
+   * ⛔ THIS DESCRIBE USED TO ASSERT THE OPPOSITE, AND THE INVERSION IS THE POINT.
+   *
+   * S139 granted every seated player one free `goblinMelee` at START_GAME, from the owner's spec of
+   * the time ("each player starts with one goblin of every kind"). The tower-defence pivot supersedes
+   * that: R18/R24 make goblins the OUTPUT of a goblin tower — feed it shapes from inventory, one
+   * goblin per shape, the shape deciding which of six kinds. That tower is S153 and unbuilt, so until
+   * it exists the correct number of goblins on an opening board is ZERO.
+   *
+   * The owner confirmed the reversal explicitly (R49) after a playtest where one starter goblin
+   * destroyed a HELGA tower and a laser tower. These tests are kept and inverted rather than deleted,
+   * so the absence is asserted rather than merely un-tested — if a future session re-adds a seeder,
+   * this goes red instead of the design quietly regressing.
+   */
+  it('grants NO goblin to any seated player at START_GAME', () => {
     const w = make1v1();
     expect(w.players.size).toBe(2);
-    expect(goblinsOf(w, 0)).toHaveLength(1);
-    expect(goblinsOf(w, 1)).toHaveLength(1);
+    expect(goblinsOf(w, 0)).toHaveLength(0);
+    expect(goblinsOf(w, 1)).toHaveLength(0);
   });
 
-  it('is idempotent — a re-applied START_GAME does not double-mint', () => {
+  it('the opening board carries no creatures at all — castle, one gatherer, 100 points (R50)', () => {
+    const w = make1v1();
+    // The owner's words: "everyone should start with nothing but the castle and one gatherer".
+    expect(w.creatures.size).toBe(0);
+    expect(w.creatureSpawners.size).toBe(0);
+    expect(w.defenders.size).toBe(0);
+    // ...and the positive control, so this cannot pass on a world that failed to start.
+    expect(w.gameState).toBe('PLAYING');
+    expect(w.gatherers.size).toBe(2);
+  });
+
+  it('a re-applied START_GAME still mints nothing', () => {
     const w = make1v1();
     dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
-    expect(goblinsOf(w, 0)).toHaveLength(1);
-    expect(goblinsOf(w, 1)).toHaveLength(1);
+    expect(goblinsOf(w, 0)).toHaveLength(0);
+    expect(goblinsOf(w, 1)).toHaveLength(0);
   });
 
   it('⭐ RUNS IDENTICALLY ON BOTH PEERS — the seed is not host-only', () => {
@@ -267,6 +292,18 @@ describe('S139 P2 — config + the owner\'s "6 attacks" rule', () => {
     // ~300 px push and be unable to close on any shape near the middle of the board.
     const { computeSteeringAccel } = await import('../../physics/creatureVerlet.ts');
     const w = make1v1();
+    // S148 P2 — spawned EXPLICITLY. This used to read the free starter goblin off the opening board;
+    // that grant is gone (R49), so the unit under test is minted here instead. Note the property
+    // being tested is unchanged and still worth pinning: the exemption is keyed on the CONFIG flag,
+    // not on provenance, so it must hold for a tower-minted goblin exactly as it did for a seeded one.
+    applySpawnCreature(w, {
+      type: 'SPAWN_CREATURE',
+      creatureType: 'goblinMelee',
+      ownerPlayerId: asPlayerId(0),
+      pos: { x: SPAWNER_CENTER_X, y: SPAWNER_CENTER_Y },
+      targetPos: { x: SPAWNER_CENTER_X, y: SPAWNER_CENTER_Y },
+      sourceSpawnerId: null,
+    });
     const goblin = goblinsOf(w, 0)[0]!;
     goblin.state = 'SEEKING';
     // Sit it exactly at the repulse origin with its target THERE too: any non-zero accel here can

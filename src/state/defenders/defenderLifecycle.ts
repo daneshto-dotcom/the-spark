@@ -18,7 +18,6 @@
  */
 
 import {
-  CREATURE_HIT_DAMAGE,
   DEFENDER_FIRE_HOLD_TICKS,
   DEFENDER_REACQUIRE_TICKS,
   DEFENDER_RECOVER_TICKS,
@@ -333,7 +332,17 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
           } else {
             // S139 P1 — through the dispatcher (identical behaviour; the creature arm delegates to
             // `damageCreature`), so the turret beam / HELGA slap now carry a `'defender'` source.
-            damageEntity(world, { kind: 'creature', id: victim.id }, CREATURE_HIT_DAMAGE, 'defender');
+            //
+            // ⭐ S148 P2 — PER-KIND DAMAGE. This line used to pass the shared `CREATURE_HIT_DAMAGE`
+            // for every defender in the game, which is why HELGA needed six slaps to fell one goblin
+            // and the laser turret — a "slow heavy beam" — needed six as well. One constant at one
+            // call site made the whole tower roster mechanically identical.
+            damageEntity(
+              world,
+              { kind: 'creature', id: victim.id },
+              config.damageVsCreature,
+              'defender',
+            );
           }
         }
         d.state = 'FIRE';

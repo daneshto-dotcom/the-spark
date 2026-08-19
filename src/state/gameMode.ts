@@ -32,11 +32,9 @@ import {
 import { makeIdlePlayer, type Player } from '../game/player.ts';
 import { castleAnchor, makeGatherer } from './gatherers/gatherer.ts';
 import { layoutForSeatCount } from './zones.ts';
-import { applySpawnCreature } from './creatures/creatureLifecycle.ts';
 import { asGathererId, asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
 import type { GameMode, World } from './world.ts';
 import type { CreatureSpawner } from './spawners/spawner.ts';
-import { seedBotSpawners } from './spawners/botSpawnerSeed.ts';
 
 /* ────────────────────────── Action types ───────────────────────────── */
 
@@ -276,76 +274,34 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   // Stamped ONCE per match and never written again while it runs: see the `layout` field docblock
   // for why a live-roster derivation would move every castle when somebody joins or drops.
   world.layout = layoutForSeatCount(world.players.size);
-  // S104 P2 — vs-bots TD playability: host-seed one chewer-spawner per bot seat so the player's
-  // turret/HELGA/Voltkin have live ENEMY chewers to fire on (deterministic, zero bot-RNG draws).
-  // No-op outside 'bots' mode. MUST run AFTER seating (resolves the owner colour from the player).
-  seedBotSpawners(world);
-  // V6-1.2 — OPENING STATE: every seat starts owning ONE gatherer (the S134 "START AT 1" ruling)
-  // and STARTING_VICTORY_POINTS in the bank. Runs LAST, after every seat exists, so each player
-  // gets exactly one unit at their own keep. 100 points against a 105 gatherer is deliberate: the
-  // opening choice is "two speed upgrades now" vs "save toward a second hauler".
+  /* ⭐ S148 P2 — THE OPENING IS A CASTLE, ONE GATHERER AND 100 POINTS. NOTHING ELSE.
+   *
+   * Owner playtest, verbatim: *"everyone should start with nothing but the castle and one gatherer"*.
+   * Two seeders were deleted here to make that true, and both were unfair or incoherent rather than
+   * merely surplus:
+   *
+   *   ⛔ `seedBotSpawners(world)` — gave EVERY BOT SEAT a complete PENTAGRAM (5 bonded Triangles + a
+   *      registered spawner = a persistent chewer emitter) AND a complete LIGHTNING HUB (which fires
+   *      a burst of 3 suicide drones). The human seat got neither. It was demo scaffolding from
+   *      S104/S113 so the owner could SEE chewers and drones without building them — and vs-bots
+   *      then quietly became the main way the game is played, so the scaffolding became the opening.
+   *      It was ALSO still siting those structures with the retired polar-ring math, so a bot's free
+   *      pentagram could land in the quarry or inside another seat's zone — which would have broken
+   *      own-zone build legality outright, the host refusing a placement it had seeded itself.
+   *
+   *   ⛔ `seedStartingUnits(world)` — granted every seat one `goblinMelee`. R49: goblins are produced
+   *      by the GOBLIN TOWER (R18/R24 — feed it shapes, one goblin per shape, the shape choosing which
+   *      of six kinds), which is S153 and unbuilt. This explicitly reverses the owner's own S139
+   *      ruling ("each player starts with one goblin of every kind"), which predates the tower-defence
+   *      pivot; the owner confirmed the reversal. The `goblinMelee` creature type is RETAINED and still
+   *      fully tested — only the seeding is gone, so its tower can mint it unchanged.
+   *
+   * What remains is symmetric between human and bot, which is the whole point.
+   */
   seedStartingGatherers(world);
-  seedStartingUnits(world);
   return world;
 }
 
-/**
- * S139 P2 — grant every seated player their FREE starter unit.
- *
- * Owner spec: *"each player starts with one goblin of every kind"*. This is the first per-player
- * ENTITY grant in the game; before it, the only match-start grant of any kind was
- * `STARTING_VICTORY_POINTS`.
- *
- * ## ⚠ THE DETERMINISM CONSTRAINT THAT SHAPES EVERY LINE BELOW
- *
- * This seeder does NOT run host-only. `clientHandlers.ts` has the JOINER dispatch its own local
- * `START_GAME`, so **every peer mints these units itself** and the two must agree exactly. The
- * existing gatherer seeder survives that only because it happens to use zero randomness and pure
- * functions. So, deliberately:
- *
- *  - **No RNG.** Not `Math.random`, and not the seeded stream either — drawing from the seeded RNG
- *    here would perturb draw ORDER for every later consumer, which is a documented desync class.
- *  - **No wall-clock.** Position and tick come from `world`.
- *  - **Position from `castleAnchor(seat)` only** — never from live roster size. `castleAnchor` divides
- *    by `KEEP_RING_SEATS`, and its docblock records the exact bug from dividing by a roster count
- *    instead: every keep moved the moment a player joined or dropped.
- *  - **A UNIT, never a recipe or a primitive.** A tower-style grant would consume
- *    `world.nextPrimitiveId` / `nextBondId`, and A.0b measured that divergence in those allocators is
- *    PERMANENT on the joiner rather than self-correcting at the next snapshot.
- *
- * Minting goes through `applySpawnCreature` rather than constructing a `Creature` inline, so there
- * stays exactly ONE mint path — the same principle this session applied to `damageEntity`. That
- * reducer's per-(owner, type) population gate then makes this idempotent for free.
- *
- * The local `owns` check is a genuine guard here, unlike the gatherer seeder's: `applyStartGame`
- * clears hunters, potatoes, bombs, rainbows, seagulls, poops and creatureSpawners but NOT
- * `world.creatures`, so a re-applied START_GAME really can find a live goblin already present.
- */
-function seedStartingUnits(world: World): void {
-  for (const pid of world.players.keys()) {
-    let owns = false;
-    for (const c of world.creatures.values()) {
-      if (c.ownerPlayerId === pid && c.type === 'goblinMelee') {
-        owns = true;
-        break;
-      }
-    }
-    if (owns) continue;
-    const anchor = castleAnchor(pid as unknown as number, world.layout);
-    // Offset onto the porch side of the keep so the unit is not born inside the keep box.
-    const pos = { x: anchor.x, y: anchor.y + GATHERER_DEPOSIT_OFFSET_Y };
-    applySpawnCreature(world, {
-      type: 'SPAWN_CREATURE',
-      creatureType: 'goblinMelee',
-      ownerPlayerId: pid,
-      pos,
-      // Seeded with its birth position as the steering target; the hostTick structure-targeting
-      // branch overwrites this on its first SEEKING tick with the nearest enemy shape.
-      targetPos: { x: pos.x, y: pos.y },
-      sourceSpawnerId: null,
-    });
-  }
-}
 
 /** V6-1.2 — one gatherer + the opening point balance per seated player. Idempotent per seat. */
 function seedStartingGatherers(world: World): void {
