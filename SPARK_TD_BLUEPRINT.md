@@ -142,7 +142,7 @@ Verified on disk this session, not recalled from documentation.
 
 | Conflict | Detail |
 |---|---|
-| **`castleAnchor` is a polar ring** | every keep on a circle of r=420, evenly spaced by seat index, no partition underneath. Must become **zone-derived**. ⚠ Keep-to-spawn distance goes 420 → ~1100px (a corner), i.e. **~2.6× the haul** — an economy-balance change, not a cosmetic one. ⚠ Gatherer spawn positions derived from it are **hashed host-authoritative state**. |
+| **`castleAnchor` is a polar ring** | every keep on a circle of r=420, evenly spaced by seat index, no partition underneath. Must become **zone-derived**. ⚠ Keep-to-spawn distance goes 420 → **925.7px** centre-to-anchor at a corner; the haul that actually matters (quarry RIM to castle) goes **295 → 800.7px, i.e. 2.71×** — figures CORRECTED in S148 after measurement, the original "~1100px" having been no measurement at all — an economy-balance change, not a cosmetic one. ⚠ Gatherer spawn positions derived from it are **hashed host-authoritative state**. |
 | **Territory is radius-influence, not a partition** | `territory.ts` computes per-player influence radii. Zones are a hard partition. The refusal *call sites* survive; the *predicate* is replaced. |
 
 ### 4.3 DOES NOT EXIST — build from scratch
@@ -310,7 +310,7 @@ Each entry states its **exit gate** — the thing that must be true before the n
 
 ---
 
-### S147 · THE MATCH CLOCK  ⭐ build this first, and almost alone
+### S147 · THE MATCH CLOCK  ⭐ build this first, and almost alone ✅ SHIPPED S147 (protocol 23) — live
 
 Both Council seats picked this independently: *if temporal state is unstable, nothing built on top of
 it can be trusted.*
@@ -339,7 +339,7 @@ plus a host migration across a phase edge. Score is 0 during BUILD and rising du
 
 ---
 
-### S148 · ZONES, CASTLE ANCHORS, BUILD LEGALITY
+### S148 · ZONES, CASTLE ANCHORS, BUILD LEGALITY ⚠ PARTLY SHIPPED S148 — zones + anchors + economy LIVE (protocol 25); BUILD LEGALITY NOT WIRED
 
 - `zoneOf(pos, layout)` / `zoneOwner(seat, layout)` as pure functions, with
   `layout ∈ { PITCH_2P, QUADRANTS_4P }`. **Both from the start** — they are different maps for

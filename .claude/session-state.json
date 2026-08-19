@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1415,
+  "tool_calls_session_total": 1436,
   "session_id": "S148",
   "session_kind": "pdca-batch",
   "session_start": "2026-08-19",
@@ -88,6 +88,11 @@
       "id": "CF-S148-c",
       "status": "open",
       "note": "e2e/bomb.spec.ts \"instant self-sever\" is INTERMITTENTLY FLAKY, ~2 failures in 7 runs this session. Evidence it is NOT a P2 regression: it failed on the FIRST gating run of S148 (after P1, before P2), passed on the second, failed on the third, and passes 3/4 in isolation. Runtime is 44 s to 1.2 min for a single test, i.e. marginal against its timeout - the likely cause. Either raise its timeout or find what makes it slow; do NOT bisect a single failure (the standing e2e lesson)."
+    },
+    {
+      "id": "CF-S148-d",
+      "status": "open",
+      "note": "e2e/nplayer.spec.ts 4-PLAYER FFA (@quarantine-flaky) FAILS RELIABLY at the PEER-CONNECTION stage: \"waitForWorld timeout (30000ms): peer 0 PLAYING + 4 players\" - it never gets 4 browser peers joined over real WebRTC, which is upstream of all S148 game logic (layoutForSeatCount runs inside applyStartGame, which needs the roster, which needs the peers). Evidence it is a harness/signalling characteristic rather than an S148 regression: hostmigration.spec PASSED today with 3 real peers and reconnect.spec with 2, and e2e.yml gives this test a dedicated NON-GATING quarantine job precisely because real-WebRTC multi-peer is unreliable. NOT PROVEN pre-existing - that needs a checkout of ef59743 and a re-run, which was not done. FLAGGED, not dismissed. Owner impact is low for the next session: they are testing 2-player, which is the path that passes."
     }
   ],
   "priorities": [
@@ -496,7 +501,7 @@
       "id": 5,
       "status": "pending",
       "verification": [],
-      "name": "S148 P2 OWN-ZONE BUILD LEGALITY - one canonical canBuildAt(world, playerId, pos) imported by all SIX refusal/preview sites (placePrimitive, placeFromFree, blueprintLegality, botBrain, controls, dragPreview) so host, drag ghost and bots cannot disagree"
+      "name": "S148 P5 OWN-ZONE BUILD LEGALITY - one canonical canBuildAt(world, playerId, pos) imported by all SIX refusal/preview sites. ⚠ ATTEMPTED AND REVERTED IN S148: the swap itself is 6 one-line edits and typechecks clean, but it changes real gameplay semantics and breaks 17 tests across 8 files (session7/14/15, world, botBrain, botGameplay, placeFromFree, pentagramBuildability) - all of which encode BUILD-ANYWHERE. Root cause is correct behaviour, not a bug: seat 1 owns the RIGHT half on PITCH_2P, so a 1v1 test placing P1 at x=600 is now rightly refused, as is anything inside the quarry disc. Each of the 17 needs an individual judgement (move the coordinate vs the test is asserting something else). Budget a full priority."
     },
     {
       "pdr_approved": true,
@@ -1697,5 +1702,6 @@
     "F4 - THE STARTER GOBLIN CONTRADICTS THE TD DESIGN. seedStartingUnits (gameMode.ts:324) spawns one goblinMelee per seat, but R18/R24 say goblins are PRODUCED BY THE GOBLIN TOWER (feed it shapes, one goblin per shape, the shape picking which of six kinds). That tower is S153 and unbuilt. Owner ruled R49: remove entirely, tower-only.",
     "F5 - what the owner asked for was already half true: seedStartingGatherers already gives exactly one gatherer + STARTING_VICTORY_POINTS 100 per seat, human and bot alike. Only F2 and F4 broke it."
   ],
-  "deploy_verified_s148_p2": "PASS 4/4 at 59758766 - REMOTE/RUN/VERDICT/LIVE all agree; Actions run 32291459830 concluded success and the live entry asset index-DMU7pb7t.js matches the local build by content hash."
+  "deploy_verified_s148_p2": "PASS 4/4 at 59758766 - REMOTE/RUN/VERDICT/LIVE all agree; Actions run 32291459830 concluded success and the live entry asset index-DMU7pb7t.js matches the local build by content hash.",
+  "rule22_audit_s148": "END-OF-SESSION RUNTIME AUDIT (Rule 22), owner-requested before handoff. INTENDED-VS-LANDED: P1 quadrants + P2 opening/weapons both fully landed and deploy-verified; P5 build legality attempted and DELIBERATELY REVERTED (see below); P3 castle HP and P4 demolition not started. MULTIPLAYER READINESS (the owner tests it next): wrote layoutWire.test.ts because the wire path had ZERO coverage - netSnapshot derives from snapshot() and strips 5 keys, so layout DOES ride the wire, but that was read rather than proven. Now proven: a joiner adopts the host board and every castle position matches, both directions. 3-peer hostmigration and 2-peer reconnect PASS over real WebRTC. 4-peer nplayer fails at connection - CF-S148-d. COHERENCE FIXES: corrected two REFUTED FIGURES that had already propagated through two handoffs - SPARK_TD_SESSION_SPECS.md said build legality is \"three existing refusal sites\" (it is SIX) and that the haul goes \"420 -> ~1100 px\" (measured 295 -> 800.7 px); SPARK_TD_BLUEPRINT.md carried the same 1100 figure. Both corrected in place with the measurement. Stamped S147 SHIPPED and S148 PARTLY SHIPPED in both roadmaps so the next session does not re-plan them. Fixed 3 stale comments pointing at deleted files (botSpawnerSeed.test.ts x2, bank-throughput.spec.ts). SCOPE DISCIPLINE: P5 zone build legality was wired at all six sites and typechecked clean, then REVERTED because it broke 17 tests across 8 files - not a bug, correct new behaviour (seat 1 owns the RIGHT half, so a 1v1 test placing P1 at x=600 is rightly refused, as is anything in the quarry). Each needs individual judgement. Shipping a half-tested gameplay restriction immediately before an owner multiplayer playtest would have been worse than the known gap. Recorded on the P5 entry with the measured blast radius so the next session starts informed. FINAL GREEN: tsc 0 - vitest 2506/162 files - build 689.1 KiB (210.9 KiB headroom) - e2e:gating 45/45."
 }

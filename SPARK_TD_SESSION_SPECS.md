@@ -73,7 +73,7 @@ So no session stalls waiting on a decision.
 
 ---
 
-### S147 · THE MATCH CLOCK
+### S147 · THE MATCH CLOCK ✅ SHIPPED S147 (protocol 23) — live
 
 **Objective.** Give the sim a deterministic two-phase heartbeat, and nothing else. Both Council seats
 picked this first: *if temporal state is unstable, nothing built on it can be trusted.*
@@ -116,7 +116,7 @@ projection is forgotten — that is a feature, and it already caught exactly thi
 
 ---
 
-### S148 · ZONES, CASTLE ANCHORS, BUILD LEGALITY
+### S148 · ZONES, CASTLE ANCHORS, BUILD LEGALITY ⚠ PARTLY SHIPPED S148 — zones + anchors + economy LIVE (protocol 25); BUILD LEGALITY NOT WIRED
 
 **Objective.** Replace the polar ring with a real zone partition, and confine building to your own zone.
 
@@ -140,11 +140,19 @@ export function zoneCastleAnchor(seat: number, layout: ZoneLayout): Vec2;
 so host, worker and a promoted successor must agree bit-for-bit.
 
 **Build legality (R17 scoped).** A new predicate `canBuildAt(world, playerId, pos)` = `zoneOf(pos) ===
-zoneOwner(seat)`. Wire it into the **three existing refusal sites** — `placePrimitive.ts:125`,
+zoneOwner(seat)`. ⛔ **CORRECTED S148 — IT IS SIX SITES, NOT THREE.** Measured on disk: the three
+host refusals `placePrimitive.ts`, `placeFromFree.ts`, `blueprintLegality.ts` **plus**
+`bots/botBrain.ts`, `input/controls.ts` and `input/dragPreview.ts`. Wiring only the first three
+leaves the CLIENT DRAG GHOST and the BOTS on the old territory rule, so the ghost shows "legal"
+exactly where the host refuses — which a player reads as a desync bug, not a rule. Original
+wording, now known wrong, listed only — `placePrimitive.ts:125`,
 `placeFromFree.ts:173`, `blueprintLegality.stampRefusalAt`. The territory-influence predicate is
 retired from those sites; `territory.ts` itself stays for its other consumers.
 
-**Economy re-tune (Q7).** The haul grows 420 → ~1100 px. Instrument one BUILD stage; raise the
+**Economy re-tune (Q7).** ⛔ **CORRECTED S148 — THE ~1100 px FIGURE WAS NEVER A MEASUREMENT.**
+Measured quarry-rim-to-castle: **295 px → 800.7 px on QUADRANTS_4P (2.71×)** and 715 px on
+PITCH_2P (2.42×). The *ratio* in this spec was right; both absolute numbers were not, and the
+wrong one propagated through two handoffs before being caught. Instrument one BUILD stage; raise the
 gatherer base speed until a 4-connector tower is affordable within it. **Measure, do not guess** —
 this is the item Council flagged as unsettled by evidence.
 

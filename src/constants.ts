@@ -546,8 +546,10 @@ export const GATHERER_ORDER_QUEUE_MAX = 24;
  * park-cargo-on-porch release, a decant-to-make-room click, free-slot arithmetic in four modules),
  * every line of which is now gone with it.
  *
- * The `__TEST_CASTLE_BANK_CAP__` measurement seam went too: it existed so `bank-throughput.spec.ts`
- * could compare haul throughput ACROSS caps, and there is nothing left to compare.
+ * The `__TEST_CASTLE_BANK_CAP__` seam went too, and so did the spec that used it: `bank-throughput.spec.ts`
+ * was DELETED in the same commit (it existed to compare haul throughput across caps, and there is
+ * nothing left to compare). ⚠ Do not send a future session looking for it — S148 measured the
+ * zone-partition haul with a headless vitest harness instead (`gatherers/zoneEconomy.test.ts`).
  *
  * ⚠ DO NOT REINTRODUCE A CAP HERE without a new owner ruling. `bankAdd` returns `void` specifically
  * so that a failure branch cannot be added back at a call site by accident (see castleBank.ts).

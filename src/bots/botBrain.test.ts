@@ -47,9 +47,9 @@ function botsWorld(botCount = 2): World {
     roster,
     botSeats: Array.from({ length: botCount }, (_, i) => i + 1),
   });
-  // S104 P2 — START_GAME(bots) now host-seeds a chewer-spawner pentagram per bot seat. These tests
-  // exercise PURE bot-decision logic on hand-built fixtures, so clear the seeded structures to keep
-  // the board clean (the seeding itself is covered by spawners/botSpawnerSeed.test.ts).
+  // ⚠ S148 P2 — NOTHING IS SEEDED ANY MORE. START_GAME used to hand every bot seat a free pentagram
+  // (deleted with seedBotSpawners: it was an unfair opening, R50). These clears are therefore no-ops
+  // today, and are RETAINED only so these fixtures stay independent of whatever START_GAME does next.
   world.primitives.clear();
   world.bonds.clear();
   world.creatureSpawners.clear();

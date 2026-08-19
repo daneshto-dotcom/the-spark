@@ -39,8 +39,8 @@ function botsWorld(seed = 0xabc): World {
     roster: [0, 1, 2].map((seat) => ({ seat, color: PLAYER_COLORS[seat] })),
     botSeats: [1, 2],
   });
-  // S104 P2 — clear the host-seeded bot chewer-spawner pentagrams (see botSpawnerSeed.test.ts) so
-  // these reactive-behavior tests run on the clean board they were written against.
+  // ⚠ S148 P2 — the host-seeded bot pentagrams are GONE (R50), so these clears are no-ops today.
+  // Retained so these reactive-behaviour tests stay independent of whatever START_GAME seeds next.
   world.primitives.clear();
   world.bonds.clear();
   world.creatureSpawners.clear();
