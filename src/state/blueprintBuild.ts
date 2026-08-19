@@ -96,7 +96,7 @@ type Payment =
 export function eligiblePorchSparks(world: World, playerId: PlayerId): Spark[] {
   const seat = playerId as unknown as number;
   return [...world.freeSparks.values()]
-    .filter((s) => s.state.kind === 'Free' && isOwnPorchSpark(seat, s.pos))
+    .filter((s) => s.state.kind === 'Free' && isOwnPorchSpark(seat, s.pos, world.layout))
     .sort((a, b) => (a.id as unknown as number) - (b.id as unknown as number));
 }
 

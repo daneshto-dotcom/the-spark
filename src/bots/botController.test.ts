@@ -52,7 +52,7 @@ function seedSparks(world: World, count: number): void {
     const seat = botSeats[i % botSeats.length];
     if (seat === undefined) break;
     const id = asSparkId(1000 + i);
-    const home = castleAnchor(seat as unknown as number);
+    const home = castleAnchor(seat as unknown as number, world.layout);
     const spark = {
       id,
       type: (i % 6) as SparkType,

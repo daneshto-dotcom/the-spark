@@ -344,7 +344,14 @@ export class Controls {
    */
   private handleCastleClick(): boolean {
     if (this.castlePanel === null || this.world.gameState !== 'PLAYING') return false;
-    if (isPointInKeep(this.cursor.x, this.cursor.y, this.playerId as unknown as number)) {
+    if (
+      isPointInKeep(
+        this.cursor.x,
+        this.cursor.y,
+        this.playerId as unknown as number,
+        this.world.layout,
+      )
+    ) {
       this.castlePanel.toggle(this.playerId as unknown as number);
       return true;
     }

@@ -339,6 +339,11 @@ export function makeWorld(rngSeed: number): World {
     // they have had a chance to build anything. `startMatch` re-stamps both at the PLAYING edge.
     matchPhase: 'BUILD',
     phaseEndsAtTick: PHASE_DURATION_TICKS,
+    // S148 P1 — a fresh world is the SOLO/1v1 pitch. `applyStartGame` re-stamps this from the real
+    // seat count at the PLAYING edge (`layoutForSeatCount`), exactly as it re-stamps the clock above.
+    // The default matters because `makeWorld`'s test contract starts in PLAYING without ever calling
+    // START_GAME, and a `layout` of `undefined` would put every castle anchor at NaN.
+    layout: 'PITCH_2P',
     nextPrimitiveId: 0,
     nextBondId: 0,
     // S146 P2 — descending negative allocator for reducer-minted (pulled) sparks. See worldTypes.

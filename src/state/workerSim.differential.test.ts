@@ -41,6 +41,7 @@ import {
   type WorkerTickBatchMsg,
 } from './workerSim.ts';
 import { dispatch, makeWorld, type GameAction, type World } from './world.ts';
+import { bankAdd } from './castleBank.ts';
 import { asPlayerId, asSparkId } from '../types.ts';
 import { applySpawnHunter } from './hunters/hunterLifecycle.ts';
 // S143 P3 — SparkType feeds the gatherer order queue seeded below; see scriptInputs.
@@ -88,6 +89,24 @@ function buildBotsWorld(): World {
   dispatch(world, { type: 'START_GAME', mode: 'bots', isHost: true, roster, botSeats });
   // S147 P1 — same forced phase edge as buildSoloWorld; see the comment there.
   world.phaseEndsAtTick = world.tick + 200;
+  // ⛔ S148 P1 — SEED THE CASTLE BANK EXPLICITLY. IT USED TO ARRIVE BY ACCIDENT.
+  //
+  // `castleBanks` was never seeded on purpose: a gatherer simply happened to complete a haul inside
+  // the 300-frame window, because the old polar ring put its round trip at ~590 px and 300 frames
+  // covered it. The zone partition moves the haul to 800.7 px each way, so the deposit now lands
+  // AFTER the compared window closes and the family went silently empty — at which point its
+  // projection loop is dead code in the one gate that is supposed to prove it.
+  //
+  // This was caught by the harness's OWN anti-vacuity assertion (SEEDING_COVERAGE below), which is
+  // exactly what that assertion exists for: the run stayed green on every hash while quietly
+  // proving nothing about the bank. Seeding it here rather than lengthening the run keeps the
+  // coverage independent of how far a gatherer happens to walk.
+  //
+  // Symmetric by construction: the batch rig adopts THIS world through its JSON save, and INIT
+  // adoption is asserted bit-exact before any tick — the same argument the forced phase edge above
+  // relies on.
+  bankAdd(world.castleBanks, P0, SparkType.Square);
+  bankAdd(world.castleBanks, P0, SparkType.Circle);
   return world;
 }
 

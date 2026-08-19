@@ -206,7 +206,22 @@ export type { NetSnapshot };
 // entries because it is a RACE/CLASS roster the player will pick from in the pre-game lobby (R45), not
 // a seat-count proxy - so palette length must never be used as a player cap again.
 // Hard-rejected at HELLO, same lockstep posture as every bump above.
-export const PROTOCOL_VERSION = 24 as const;
+// S148 P1 — bumped 24->25: THE ZONE PARTITION. The polar keep ring is replaced by a real partition
+// of the board, and ONE new HASHED, wire-carried World field carries it: `layout: 'PITCH_2P' |
+// 'QUADRANTS_4P'`. Three independent reasons a mixed pair cannot be allowed to run:
+//   (1) EVERY CASTLE MOVES. `castleAnchor` no longer fans seats around a 420px ring; it is a lookup
+//       into the zone table (goalmouths at (120,540)/(1800,540), corners at (130,130) and friends).
+//       protocol.ts has recorded since 16->17 that `castleAnchor` is A SHARED CONSTANT BOTH PEERS
+//       COMPUTE FROM - the client calls it to draw and hit-test every keep - and a bought gatherer's
+//       spawn position is derived from it and HASHED. A v24 peer would put every keep, every porch
+//       slot and every hauler spawn somewhere else.
+//   (2) THE BORDERS BECOME REAL. `canBuildAt` refuses a placement outside your own zone. A v24 peer
+//       has no `layout`, so it cannot even ask the question - it would enforce the old
+//       territorial-influence rule while a v25 host enforces zones, and the two disagree about
+//       whether a given placement is legal.
+//   (3) THE FIELD IS A STRING LITERAL UNION. A stale peer cannot parse a `layout` value it has never
+//       heard of - the same class of change that forced 12->13 for the 'WALK' DefenderState.
+export const PROTOCOL_VERSION = 25 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -303,8 +318,13 @@ export interface HelloMsg {
    * S147 P2: 23->24 (FOUR-PLAYER CAP - MAX_PLAYERS 6->4 and MAX_BOTS 6->3. The wire validators
    * `validateRoster` and `parseHostAttest` both cap on MAX_PLAYERS, so a v23 host's 5-6 seat roster is
    * refused by a v24 peer; and the lobby rack geometry changes 2x3 -> 2x2, so the peers disagree about
-   * how many seats exist. PLAYER_COLORS stays at 6 on purpose - it is a race roster, not a cap.) */
-  readonly protoVersion: 24;
+   * how many seats exist. PLAYER_COLORS stays at 6 on purpose - it is a race roster, not a cap.)
+   *
+   * S148 P1: 24->25 (THE ZONE PARTITION - one new hashed, wire-carried World field, `layout`. The
+   * polar keep ring is gone and `castleAnchor` becomes a zone lookup, so a v24 peer would draw and
+   * hit-test every keep in the wrong place and enforce the old territory rule instead of the new
+   * zone borders. See the changelog above the const for the full three-part argument.) */
+  readonly protoVersion: 25;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

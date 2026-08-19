@@ -115,6 +115,11 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   // deadlines diverges one tick later.
   matchPhase: 'hashed',
   phaseEndsAtTick: 'hashed',
+  // ⭐ S148 P1 — THE BOARD. Every castle anchor derives from it, every gatherer spawn derives from
+  // the anchor, and `canBuildAt` reads it to decide whose ground a pixel is. A peer that disagreed
+  // about the layout would place its keeps somewhere else and enforce different borders — this is
+  // the single highest-consequence scalar in the World, so it is hashed rather than acknowledged.
+  layout: 'hashed',
   lastWinnerId: 'hashed',
   hunterSpawned: 'hashed',
   rainbowSwitchTick: 'hashed',
@@ -357,6 +362,9 @@ export function determinismParts(world: World): string[] {
     // about which half of the cycle they are in, or about when it ends.
     `mp${world.matchPhase}`,
     `pe${world.phaseEndsAtTick}`,
+    // S148 P1 — the board. In the WIDE hash so a differential or worker-parity run fails the moment
+    // two peers disagree about which board they are on, rather than one keep-position later.
+    `ly${world.layout}`,
     `lw${n(world.lastWinnerId)}`,
     `hs${o(world.hunterSpawned)}`,
     `rw${o(world.rainbowSwitchTick)}`,

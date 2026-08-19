@@ -35,6 +35,8 @@ import {
 } from '../../types.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
 import { castleAnchor, gathererSpeed, makeGatherer } from './gatherer.ts';
+// S148 P1 - seat 0 only; the 1v1 pitch is the fixture board.
+const L = 'PITCH_2P' as const;
 import { bankCount, bankCountOf } from '../castleBank.ts';
 import { pickGathererTarget } from './gathererLifecycle.ts';
 
@@ -57,7 +59,7 @@ function haulWorld(sparkType: SparkType = SparkType.Dot, sparkPos?: Vec2): {
   sid: SparkId;
 } {
   const w = baseWorld();
-  const anchor = castleAnchor(0);
+  const anchor = castleAnchor(0, L);
   const gid = asGathererId(0);
   w.gatherers.set(
     gid,
@@ -259,7 +261,7 @@ describe('V6-1.2 — the haul cycle (spawn zone → keep)', () => {
   it('two gatherers never carry the SAME spark', () => {
     const { w, gid, sid } = haulWorld();
     const g2id = asGathererId(1);
-    const anchor = castleAnchor(0);
+    const anchor = castleAnchor(0, L);
     w.gatherers.set(
       g2id,
       makeGatherer({ id: g2id, ownerPlayerId: P0, pos: { x: anchor.x, y: anchor.y }, spawnedAtTick: 0 }),
@@ -278,7 +280,7 @@ describe('V6-1.2 — the haul cycle (spawn zone → keep)', () => {
 describe('V6-1.2 — speed upgrade', () => {
   it('charges the price, steps EVERY owned gatherer, and is demonstrably faster', () => {
     const w = baseWorld(200);
-    const anchor = castleAnchor(0);
+    const anchor = castleAnchor(0, L);
     for (const n of [0, 1]) {
       const id = asGathererId(n);
       w.gatherers.set(
@@ -294,7 +296,7 @@ describe('V6-1.2 — speed upgrade', () => {
   });
 
   it('never charges for nothing: unaffordable, owns none, or already at the cap', () => {
-    const anchor = castleAnchor(0);
+    const anchor = castleAnchor(0, L);
 
     const poor = baseWorld(GATHERER_SPEED_UPGRADE_PRICE - 1);
     const pid = asGathererId(0);
@@ -337,7 +339,7 @@ describe('V6-1.2 — preference cycling + ownership', () => {
     const id = asGathererId(0);
     w.gatherers.set(
       id,
-      makeGatherer({ id, ownerPlayerId: P0, pos: castleAnchor(0), spawnedAtTick: 0 }),
+      makeGatherer({ id, ownerPlayerId: P0, pos: castleAnchor(0, L), spawnedAtTick: 0 }),
     );
     dispatch(w, {
       type: 'SET_GATHERER_PREFERENCE',

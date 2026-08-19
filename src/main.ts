@@ -1055,7 +1055,7 @@ async function bootstrap(): Promise<void> {
       // cos(π)-identical regardless, so it was latent rather than broken; but it is precisely the
       // duplicated-coordinate class that S50 P5 shipped as a real bug (a hardcoded button centre
       // drifting from the screen's own layout) and that S85 P4c introduced these getters to delete.
-      keepCenter(seat: number): { x: number; y: number } { return castleAnchor(seat); },
+      keepCenter(seat: number): { x: number; y: number } { return castleAnchor(seat, world.layout); },
       // S87 — VS-BOTS e2e probes: setup-overlay geometry/state + live manager.
       // S123 P1 — in worker mode this manager is FROZEN (the worker owns the
       // authoritative bots); e2e asserts bot-authored WORLD changes instead of FSM labels.

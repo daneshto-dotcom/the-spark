@@ -110,7 +110,7 @@ export function applyBuyGatherer(world: World, action: BuyGathererAction): World
 
   let owned = 0;
   for (const g of world.gatherers.values()) if (g.ownerPlayerId === action.playerId) owned++;
-  const anchor = castleAnchor(action.playerId as unknown as number);
+  const anchor = castleAnchor(action.playerId as unknown as number, world.layout);
   const id = asGathererId(world.nextGathererId++);
   world.gatherers.set(
     id,
@@ -199,11 +199,11 @@ export function applyPullFromBank(world: World, action: PullFromBankAction): Wor
   // Occupancy is tested against EVERY spark, not just this seat's — a stray spark that drifted onto
   // the porch still physically occupies the spot, and minting into it is the bug being prevented.
   const occupied = [...world.freeSparks.values()].map((s) => s.pos);
-  const slotIndex = firstFreePorchSlot(seat, occupied);
+  const slotIndex = firstFreePorchSlot(seat, occupied, world.layout);
   if (slotIndex === null) return world; // porch full → the shape stays in the inventory
   // Spend FIRST: if the seat holds none of this type there is nothing to mint and nothing changed.
   if (!bankRemove(world.castleBanks, action.playerId, action.sparkType)) return world;
-  const at = porchSlot(seat, slotIndex);
+  const at = porchSlot(seat, slotIndex, world.layout);
   // ⭐ S146 P2 — the shape is MINTED, not returned. A counted inventory holds no entities, so the
   // spark that comes out is a NEW one drawn from the descending negative allocator. See the
   // `nextPulledSparkId` docblock (worldTypes.ts) for why the sign makes a collision with the
@@ -454,7 +454,7 @@ export function applyGathererTick(world: World, action: GathererTickAction): Wor
       g.state = 'SEEKING';
       return world;
     }
-    const home = castleAnchor(g.ownerPlayerId as unknown as number);
+    const home = castleAnchor(g.ownerPlayerId as unknown as number, world.layout);
     const arrived = stepToward(g, { x: home.x, y: home.y + GATHERER_DEPOSIT_OFFSET_Y }, GATHERER_REACH);
     // The cargo rides the gatherer (pos slaved, prevPos kept equal so the physics substeps do not
     // fling it — it is escrowed and therefore skipped by the spawner bounds/reap anyway).

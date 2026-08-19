@@ -191,7 +191,8 @@ export function pickTargetSpark(
   const free: Array<{ id: SparkId; d: number }> = [];
   for (const s of world.freeSparks.values()) {
     if (s.state.kind !== 'Free') continue;
-    if (!isOwnPorchSpark(seatIndex, s.pos)) continue; // S138 P2 — own porch only, never the quarry
+    // S138 P2 — own porch only, never the quarry.
+    if (!isOwnPorchSpark(seatIndex, s.pos, world.layout)) continue;
     const dx = s.pos.x - from.x;
     const dy = s.pos.y - from.y;
     free.push({ id: s.id, d: dx * dx + dy * dy });

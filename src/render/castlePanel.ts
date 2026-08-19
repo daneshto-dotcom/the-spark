@@ -52,6 +52,7 @@ import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { drawSparkGlyph } from './sparkGlyph.ts';
 import { fitTextToWidth } from './textFit.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
+import type { ZoneLayout } from '../state/zones.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
 import type { World } from '../state/world.ts';
 
@@ -544,6 +545,20 @@ export class CastlePanel {
     | null = null;
   /** Render-local selection. null = closed. Never serialized (see the file docblock). */
   private selected: number | null = null;
+  /**
+   * S148 P1 — the board this match is on, LATCHED from `world.layout` every `sync`.
+   *
+   * ⚠ A CACHE, AND IT HAS TO BE. `isOverPanel` and `getUiPoints` are called on the raw pointer path
+   * and by the e2e harness, neither of which carries a `World` — but the panel's position derives
+   * from `castleAnchor`, which now needs the layout. Threading a world into a hit-test would spread
+   * world access into the input path for one scalar.
+   *
+   * SAFE because the value is immutable for the life of a match (`layout` is stamped once at
+   * START_GAME and never written again) and re-latched every frame regardless, so the worst case is
+   * one frame of the previous match's board on the very first sync after a mode change — before
+   * which `selected` is null and both readers return early anyway.
+   */
+  private layout: ZoneLayout = 'PITCH_2P';
   private onBuyGatherer: (() => void) | null = null;
   private onUpgradeSpeed: (() => void) | null = null;
   /** Latched per frame from `castleControlsModel`, so a pointertap cannot fire a disabled row. */
@@ -857,7 +872,7 @@ export class CastlePanel {
    */
   isOverPanel(x: number, y: number): boolean {
     if (this.selected === null) return false;
-    const a = castleAnchor(this.selected);
+    const a = castleAnchor(this.selected, this.layout);
     const r = panelRect(panelOrigin(a.x, a.y, this.rows.length), this.rows.length);
     return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
   }
@@ -893,7 +908,7 @@ export class CastlePanel {
         armed: this.armed,
       };
     }
-    const a = castleAnchor(this.selected);
+    const a = castleAnchor(this.selected, this.layout);
     const o = panelOrigin(a.x, a.y, this.rows.length);
     const keys = ['buyGatherer', 'upgradeSpeed'];
     return {
@@ -951,6 +966,10 @@ export class CastlePanel {
   private structureMissing: Array<ReadonlyArray<{ type: SparkType; need: number; have: number }>> = [];
 
   sync(world: World): void {
+    // S148 P1 — latch the board FIRST, above every early return. `isOverPanel` and `getUiPoints`
+    // read it without a World (see the field docblock), so it must be refreshed on every frame the
+    // panel is synced, not only on the frames where it is open.
+    this.layout = world.layout;
     // The panel is a PLAYING-only affordance; any other state closes it so it cannot survive into
     // the title/win screens (the same scoping the footer had, and the reason its watermark reset).
     // ⚠ A HELD TOWER OUTLIVES THE PANEL, BUT NOT THE MATCH.
@@ -977,7 +996,7 @@ export class CastlePanel {
     this.enabled = model.map((m) => m.enabled);
     this.reasons = model.map((m) => m.reason);
 
-    const a = castleAnchor(this.selected);
+    const a = castleAnchor(this.selected, this.layout);
     const o = panelOrigin(a.x, a.y, this.rows.length);
     const r = panelRect(o, this.rows.length);
     this.container.position.set(o.x, o.y);

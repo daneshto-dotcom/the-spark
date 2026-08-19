@@ -171,8 +171,10 @@ describe('build-grid layout stays inside the plate (the S140 overflow class)', (
   });
 
   it('the panel stays fully on canvas for EVERY seat', () => {
+    // S148 P1 - the quadrant board is the one with a zone per seat at MAX_PLAYERS, and its
+    // corner anchors are the extreme case for an off-canvas panel.
     for (let seat = 0; seat < MAX_PLAYERS; seat++) {
-      const a = castleAnchor(seat);
+      const a = castleAnchor(seat, 'QUADRANTS_4P');
       const r = panelRect(panelOrigin(a.x, a.y, 2), 2);
       expect(r.x).toBeGreaterThanOrEqual(0);
       expect(r.y).toBeGreaterThanOrEqual(0);

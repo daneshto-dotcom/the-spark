@@ -30,6 +30,7 @@ import {
 } from '../constants.ts';
 import { bankOf } from '../state/castleBank.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
+import type { ZoneLayout } from '../state/zones.ts';
 import { drawSparkGlyph } from './sparkGlyph.ts';
 import type { GathererId, SparkId } from '../types.ts';
 import type { World } from '../state/world.ts';
@@ -120,12 +121,18 @@ export class GathererRenderer {
         seat as unknown as number,
         player.color,
       );
-      this.drawKeep(g, seat as unknown as number, keepColor);
+      this.drawKeep(g, seat as unknown as number, keepColor, world.layout);
       // S136 P1 — the shapes HELD INSIDE this castle, drawn in its doorway. Owner item 4 asked for
       // storage to live in the castle rather than on the ground beside it; without a mark on the
       // keep itself, "stored" would be invisible until the panel is opened, and a full bank (which
       // stalls your haulers) has to be readable at a glance from the board.
-      this.drawStoredShapes(g, seat as unknown as number, keepColor, bankOf(world.castleBanks, seat));
+      this.drawStoredShapes(
+        g,
+        seat as unknown as number,
+        keepColor,
+        bankOf(world.castleBanks, seat),
+        world.layout,
+      );
     }
     for (const gatherer of world.gatherers.values()) {
       const owner = world.players.get(gatherer.ownerPlayerId);
@@ -156,8 +163,8 @@ export class GathererRenderer {
   }
 
   /** The placeholder keep: a battlemented box at the seat's fixed anchor, tinted to the seat. */
-  private drawKeep(g: Graphics, seat: number, color: number): void {
-    const { x, y } = castleAnchor(seat);
+  private drawKeep(g: Graphics, seat: number, color: number, layout: ZoneLayout): void {
+    const { x, y } = castleAnchor(seat, layout);
     const left = x - KEEP_W / 2;
     const top = y - KEEP_H / 2;
 
@@ -193,13 +200,14 @@ export class GathererRenderer {
     seat: number,
     color: number,
     counts: readonly number[],
+    layout: ZoneLayout,
   ): void {
     const held: SparkType[] = [];
     for (const t of ALL_SPARK_TYPES) {
       if ((counts[t as number] ?? 0) > 0) held.push(t);
     }
     if (held.length === 0) return;
-    const { x, y } = castleAnchor(seat);
+    const { x, y } = castleAnchor(seat, layout);
     // Pitch is derived from the widest possible row (all six types), so the glyph radius is a
     // constant and never shrinks as the player diversifies — the legibility problem S140 hit when
     // the pitch tracked a growing cap cannot recur.

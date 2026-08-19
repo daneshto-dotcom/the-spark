@@ -53,6 +53,7 @@ import {
 } from '../constants.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
+import type { ZoneLayout } from './zones.ts';
 
 /**
  * A seat's stored shapes as a tally indexed by `SparkType`. Length is always
@@ -136,8 +137,8 @@ export function bankRemove(
 }
 
 /** PURE — the world position of porch slot `i` for `seat`. Deterministic; hashed-state safe. */
-export function porchSlot(seat: number, i: number): Vec2 {
-  const home = castleAnchor(seat);
+export function porchSlot(seat: number, i: number, layout: ZoneLayout): Vec2 {
+  const home = castleAnchor(seat, layout);
   // Centre the row on the gate: slots fan symmetrically either side.
   const offset = (i - (CASTLE_PORCH_SLOTS - 1) / 2) * CASTLE_PORCH_PITCH_X;
   return { x: home.x + offset, y: home.y + CASTLE_PORCH_OFFSET_Y };
@@ -156,10 +157,10 @@ export function porchSlot(seat: number, i: number): Vec2 {
  * slot" and "is a shape I may collect" are the same question asked from opposite sides — they cannot
  * drift apart.
  */
-export function isOwnPorchSpark(seat: number, pos: Vec2): boolean {
+export function isOwnPorchSpark(seat: number, pos: Vec2, layout: ZoneLayout): boolean {
   const r2 = CASTLE_PORCH_SLOT_CLEAR_RADIUS * CASTLE_PORCH_SLOT_CLEAR_RADIUS;
   for (let i = 0; i < CASTLE_PORCH_SLOTS; i++) {
-    const s = porchSlot(seat, i);
+    const s = porchSlot(seat, i, layout);
     const dx = pos.x - s.x;
     const dy = pos.y - s.y;
     if (dx * dx + dy * dy <= r2) return true;
@@ -180,10 +181,11 @@ export function isOwnPorchSpark(seat: number, pos: Vec2): boolean {
 export function firstFreePorchSlot(
   seat: number,
   occupied: readonly Vec2[],
+  layout: ZoneLayout,
 ): number | null {
   const r2 = CASTLE_PORCH_SLOT_CLEAR_RADIUS * CASTLE_PORCH_SLOT_CLEAR_RADIUS;
   for (let i = 0; i < CASTLE_PORCH_SLOTS; i++) {
-    const s = porchSlot(seat, i);
+    const s = porchSlot(seat, i, layout);
     let clear = true;
     for (const p of occupied) {
       const dx = p.x - s.x;

@@ -31,6 +31,7 @@ import {
 } from '../constants.ts';
 import { makeIdlePlayer, type Player } from '../game/player.ts';
 import { castleAnchor, makeGatherer } from './gatherers/gatherer.ts';
+import { layoutForSeatCount } from './zones.ts';
 import { applySpawnCreature } from './creatures/creatureLifecycle.ts';
 import { asGathererId, asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
 import type { GameMode, World } from './world.ts';
@@ -262,6 +263,19 @@ export function applyStartGame(world: World, action: StartGameAction): World {
       world.scoreByPlayer.set(p2.id, 0);
     }
   }
+  // ⭐ S148 P1 — STAMP THE BOARD. This MUST sit between seating and every seeder below it, and the
+  // ordering is load-bearing in BOTH directions:
+  //
+  //   · AFTER seating, because the board is chosen from the seat count (R2: 1-2 seats = the pitch,
+  //     3-4 = the quadrants) and `world.players` is only complete on the line above.
+  //   · BEFORE `seedBotSpawners` / `seedStartingGatherers` / `seedStartingUnits`, because every one
+  //     of those derives a spawn position from `castleAnchor(seat, world.layout)`. Stamping it after
+  //     them would seed the whole opening state on the PREVIOUS match's board — and those positions
+  //     are hashed, so it would not be a cosmetic error, it would be a desync on tick 0.
+  //
+  // Stamped ONCE per match and never written again while it runs: see the `layout` field docblock
+  // for why a live-roster derivation would move every castle when somebody joins or drops.
+  world.layout = layoutForSeatCount(world.players.size);
   // S104 P2 — vs-bots TD playability: host-seed one chewer-spawner per bot seat so the player's
   // turret/HELGA/Voltkin have live ENEMY chewers to fire on (deterministic, zero bot-RNG draws).
   // No-op outside 'bots' mode. MUST run AFTER seating (resolves the owner colour from the player).
@@ -317,7 +331,7 @@ function seedStartingUnits(world: World): void {
       }
     }
     if (owns) continue;
-    const anchor = castleAnchor(pid as unknown as number);
+    const anchor = castleAnchor(pid as unknown as number, world.layout);
     // Offset onto the porch side of the keep so the unit is not born inside the keep box.
     const pos = { x: anchor.x, y: anchor.y + GATHERER_DEPOSIT_OFFSET_Y };
     applySpawnCreature(world, {
@@ -342,7 +356,7 @@ function seedStartingGatherers(world: World): void {
       if (g.ownerPlayerId === pid) { owns = true; break; }
     }
     if (owns) continue;
-    const anchor = castleAnchor(pid as unknown as number);
+    const anchor = castleAnchor(pid as unknown as number, world.layout);
     const id = asGathererId(world.nextGathererId++);
     world.gatherers.set(
       id,
@@ -438,6 +452,10 @@ export function applyReturnToTitle(world: World): World {
   // hazard/combo/NONET teardown around it. Tick-relative for the same reason as applyStartGame.
   world.matchPhase = 'BUILD';
   world.phaseEndsAtTick = world.tick + PHASE_DURATION_TICKS;
+  // S148 P1 — and drop the board back to the solo pitch, mirroring the clock reset above. The next
+  // START_GAME re-stamps it from the real seat count; resetting here means a title-return leaves no
+  // stale quadrant board behind for a solo match to inherit.
+  world.layout = 'PITCH_2P';
   // S88 G3a — drop per-match combo-discovery state on title-return.
   world.discoveredCombos.clear();
   world.comboToastTick = undefined;

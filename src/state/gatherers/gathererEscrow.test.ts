@@ -25,6 +25,9 @@ import type { ControlsLike } from '../../input/controlsCore.ts';
 import { asPlayerId, asSparkId, type SparkId } from '../../types.ts';
 import { makeWorld, type World } from '../world.ts';
 import { castleAnchor } from './gatherer.ts';
+import { zoneCount } from '../zones.ts';
+// S148 P1 - seat-0 fixtures use the 1v1 pitch.
+const L = 'PITCH_2P' as const;
 
 const P0 = asPlayerId(0);
 
@@ -67,7 +70,7 @@ describe('V6-1.2 — escrow survives the three forces that would kill the haul l
     const w = playingWorld();
     const plain = addSpark(w, 1, { x: SPAWNER_CENTER_X + 10, y: SPAWNER_CENTER_Y });
     const hauled = addSpark(w, 2, { x: SPAWNER_CENTER_X + 20, y: SPAWNER_CENTER_Y }, 'hauled');
-    const banked = addSpark(w, 3, { x: castleAnchor(0).x, y: castleAnchor(0).y + 74 }, 'banked');
+    const banked = addSpark(w, 3, { x: castleAnchor(0, L).x, y: castleAnchor(0, L).y + 74 }, 'banked');
 
     runPhysics(w);
 
@@ -105,7 +108,7 @@ describe('V6-1.2 — escrow survives the three forces that would kill the haul l
     const { netSnapshot, applyNetSnapshot, snapshot, restore } = await import('../save.ts');
     const host = playingWorld();
     const hauled = addSpark(host, 6, { x: SPAWNER_CENTER_X, y: SPAWNER_CENTER_Y }, 'hauled');
-    const banked = addSpark(host, 7, { x: castleAnchor(0).x, y: castleAnchor(0).y + 74 }, 'banked');
+    const banked = addSpark(host, 7, { x: castleAnchor(0, L).x, y: castleAnchor(0, L).y + 74 }, 'banked');
 
     const client = makeWorld(0);
     client.gameState = 'PLAYING';
@@ -136,11 +139,13 @@ describe('V6-1.2 — the grab MOVED: spawn zone is gatherers-only, the keep is y
   });
 
   it('a shape banked at the keep IS grabbable (this is what you build from now)', () => {
-    const keep = castleAnchor(0);
+    const keep = castleAnchor(0, L);
     expect(insideSpawnZone({ x: keep.x, y: keep.y + 74 })).toBe(false);
     // Every seat's keep must sit outside the quarry, or that seat could never build.
-    for (let seat = 0; seat < 7; seat++) {
-      const a = castleAnchor(seat);
+    // S148 P1 - derived from the board rather than the retired 7-seat ring, and checked on
+    // the QUADRANT board because its corner castles are the ones furthest from the quarry.
+    for (let seat = 0; seat < zoneCount('QUADRANTS_4P'); seat++) {
+      const a = castleAnchor(seat, 'QUADRANTS_4P');
       expect(insideSpawnZone({ x: a.x, y: a.y + 74 })).toBe(false);
     }
   });

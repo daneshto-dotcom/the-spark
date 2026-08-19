@@ -22,8 +22,26 @@ import { canvasToCss, waitForWorld } from './helpers.ts';
 /** Mirrored from `constants.ts SparkType` — the stink tower's bill is 1 Square + 3 Circles. */
 const SQUARE = 3;
 const CIRCLE = 4;
-/** Clear of the quarry (960,540 r125), inside the arena, away from the seat-0 keep + its panel. */
-const LEGAL_SITE = { x: 360, y: 780 };
+/**
+ * A legal drop site, DERIVED from the live panel rather than hardcoded.
+ *
+ * ⛔ S148 P1 — THIS WAS A HARDCODED `{ x: 360, y: 780 }` AND THE ZONE PARTITION BROKE IT. Seat 0's
+ * keep moved from the old polar ring (540,540) to the `PITCH_2P` goalmouth (120,540), which drags
+ * the castle panel with it: the panel went from x[583,851] to x[163,431], and the old constant sat
+ * squarely inside the new rect. Every click was therefore swallowed by `isOverPanel` and the test
+ * failed with "0 primitives placed" — which reads like a broken build path and is nothing of the
+ * kind.
+ *
+ * This is the SECOND time a hardcoded board coordinate in the e2e lane has rotted when the keeps
+ * moved (`helpers.ts:892` records the first, when the ring went to 420 and four tests started
+ * clicking empty board). So it is derived now: right of the panel, clear of the quarry, above the
+ * footer. The panel geometry getter exists for exactly this (the S85 P4c convention).
+ */
+function legalSiteRightOfPanel(rect: { x: number; y: number; w: number; h: number }): { x: number; y: number } {
+  const x = rect.x + rect.w + 120; // clear of the panel's right edge with margin
+  const y = 800; // below the quarry, above FOOTER_TOP_Y (996)
+  return { x, y };
+}
 
 async function bootSolo(page: import('@playwright/test').Page): Promise<void> {
   await page.goto('/');
@@ -150,7 +168,12 @@ test.describe('S144 — click a tower, drag it, place it (solo, gating)', () => 
     expect((await panelPoints(page)).armed).toBe('stinkTower');
 
     // PLACE: click a legal spot in the world.
-    await clickCanvas(page, LEGAL_SITE.x, LEGAL_SITE.y);
+    const panelRect = (await panelPoints(page)).rect!;
+    const site = legalSiteRightOfPanel(panelRect);
+    // Assert the derivation actually cleared the panel, so a future layout change fails HERE with a
+    // legible message instead of downstream as "the tower never got built".
+    expect(site.x, 'drop site must be right of the open panel').toBeGreaterThan(panelRect.x + panelRect.w);
+    await clickCanvas(page, site.x, site.y);
     await waitForWorld(page, () => true, 'settle', 1_000).catch(() => {});
     await page.waitForTimeout(800);
 

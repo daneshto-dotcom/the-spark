@@ -14,8 +14,6 @@ import {
   CASTLE_PORCH_SLOTS,
   GATHERER_PRICE,
   KEEP_H,
-  KEEP_RING_RADIUS,
-  KEEP_RING_SEATS,
   KEEP_W,
   PLAYER_COLORS,
   SPAWNER_CENTER_X,
@@ -31,6 +29,11 @@ import { hashWorldStateFull } from '../stateHashFull.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
 import { porchSlot } from '../castleBank.ts';
 import { castleAnchor } from './gatherer.ts';
+import { zoneCount, zoneOf, zoneOwner, type ZoneLayout } from '../zones.ts';
+
+/** S148 P1 - the ring is gone; every geometry case now runs against BOTH boards. */
+const LAYOUTS: readonly ZoneLayout[] = ['PITCH_2P', 'QUADRANTS_4P'];
+const L = 'PITCH_2P' as const;
 import { teardownGatherers } from './gathererLifecycle.ts';
 
 const P0 = asPlayerId(0);
@@ -65,7 +68,7 @@ describe('V6-1.1 — BUY_GATHERER (score becomes a currency)', () => {
     expect(g.ownerPlayerId).toBe(P0);
     expect(g.spawnedAtTick).toBe(w.tick);
     // It appears AT ITS OWNER'S KEEP (within the fan-out offset), not at the world origin.
-    const anchor = castleAnchor(0);
+    const anchor = castleAnchor(0, L);
     expect(Math.hypot(g.pos.x - anchor.x, g.pos.y - anchor.y)).toBeLessThan(80);
     expect(w.nextGathererId).toBe(1);
   });
@@ -249,43 +252,52 @@ describe('V6-1.1 — teardown parity', () => {
   });
 });
 
-describe('V6-1.1 — castleAnchor', () => {
-  it('is pure + deterministic and gives every seat a DISTINCT keep', () => {
-    expect(castleAnchor(0)).toEqual(castleAnchor(0));
+describe('S148 P1 — castleAnchor is now a ZONE lookup, not a polar ring', () => {
+  it.each(LAYOUTS)('%s — is pure + deterministic and gives every seat a DISTINCT keep', (layout) => {
+    expect(castleAnchor(0, layout)).toEqual(castleAnchor(0, layout));
     const seen = new Set<string>();
-    // ⚠ LOOPS TO KEEP_RING_SEATS (7), NOT MAX_PLAYERS (6). VS-BOTS seats 1 human + up to 6 bots, and
-    // the original MAX_PLAYERS ring made seat 6's keep land EXACTLY on seat 0's — a collision this
-    // very test was blind to because it stopped at seat 5. Caught by the S135 end-of-session audit.
-    for (let seat = 0; seat < KEEP_RING_SEATS; seat++) {
-      const a = castleAnchor(seat);
+    // ⚠ THE BOUND IS DERIVED, NOT TYPED IN. This loop used to run to a pinned KEEP_RING_SEATS of 7
+    // with a comment explaining that stopping at MAX_PLAYERS would have hidden the S135 collision
+    // (seat 6's keep landing exactly on seat 0's). The ring is gone, but that lesson is not: the
+    // bound now comes from `zoneCount`, so it tracks whatever the widest board actually is.
+    for (let seat = 0; seat < zoneCount(layout); seat++) {
+      const a = castleAnchor(seat, layout);
       expect(Number.isFinite(a.x) && Number.isFinite(a.y)).toBe(true);
       seen.add(`${Math.round(a.x)},${Math.round(a.y)}`);
     }
-    expect(seen.size).toBe(KEEP_RING_SEATS);
+    expect(seen.size).toBe(zoneCount(layout));
+  });
+
+  it.each(LAYOUTS)('%s — every castle stands INSIDE the zone it defends', (layout) => {
+    // The property the ring could never express, and the whole reason for the change: a castle is
+    // not merely near an extremity, it is in the region its owner owns.
+    for (let seat = 0; seat < zoneCount(layout); seat++) {
+      expect(zoneOf(castleAnchor(seat, layout), layout)).toBe(zoneOwner(seat, layout));
+    }
   });
 });
 
-describe('S138 P2 — the keep ring sits at the extremities (owner playtest)', () => {
+describe('S138 P2 — the castles sit at the extremities (owner playtest, re-pinned in S148)', () => {
   // Owner, verbatim: "the castles should all be first put at the extremities of the map of each
   // players zone, so that you cant all build at the middle from the start and make a mess of it."
-  // Was SPAWNER_RADIUS + 150 = 275; now KEEP_RING_RADIUS = 420.
-  it('every seat lands exactly on KEEP_RING_RADIUS from the arena centre', () => {
-    for (let seat = 0; seat < KEEP_RING_SEATS; seat++) {
-      const a = castleAnchor(seat);
+  //
+  // ⭐ S148 P1 — THE ASSERTION CHANGED SHAPE BECAUSE THE MECHANISM DID. This used to assert an exact
+  // distance from the arena centre (`KEEP_RING_RADIUS`, 420), which is the right test for a ring and
+  // a meaningless one for a partition — the quadrant corners are all 925.7 px out while the pitch
+  // goalmouths are 840, and neither number is a design decision anybody made. What the owner
+  // actually asked for is preserved instead: far from the shared quarry, and far from each other.
+  it.each(LAYOUTS)('%s — every castle is well clear of the quarry rim', (layout) => {
+    for (let seat = 0; seat < zoneCount(layout); seat++) {
+      const a = castleAnchor(seat, layout);
       const d = Math.hypot(a.x - SPAWNER_CENTER_X, a.y - SPAWNER_CENTER_Y);
-      expect(d).toBeCloseTo(KEEP_RING_RADIUS, 6);
+      // The old ring put the haul at 295 px (420 - 125). Both new boards more than double it.
+      expect(d - SPAWNER_RADIUS).toBeGreaterThan(2 * 295 * 0.95);
     }
   });
 
-  it('the ring moved OUTWARD from the old 275 and is further from the quarry rim', () => {
-    expect(KEEP_RING_RADIUS).toBeGreaterThan(SPAWNER_RADIUS + 150);
-    // The haul a gatherer must walk each way: quarry rim -> keep. Was 150 px.
-    expect(KEEP_RING_RADIUS - SPAWNER_RADIUS).toBeGreaterThan(2 * 150 * 0.95);
-  });
-
-  it('all 7 keeps (incl. the KEEP box) stay inside the canvas at the new radius', () => {
-    for (let seat = 0; seat < KEEP_RING_SEATS; seat++) {
-      const a = castleAnchor(seat);
+  it.each(LAYOUTS)('%s — all keeps (incl. the KEEP box) stay inside the canvas', (layout) => {
+    for (let seat = 0; seat < zoneCount(layout); seat++) {
+      const a = castleAnchor(seat, layout);
       expect(a.x - KEEP_W / 2).toBeGreaterThanOrEqual(0);
       expect(a.x + KEEP_W / 2).toBeLessThanOrEqual(CANVAS_WIDTH);
       expect(a.y - KEEP_H / 2).toBeGreaterThanOrEqual(0);
@@ -293,10 +305,10 @@ describe('S138 P2 — the keep ring sits at the extremities (owner playtest)', (
     }
   });
 
-  it('the porch slots also stay on-canvas (they hang off the keep)', () => {
-    for (let seat = 0; seat < KEEP_RING_SEATS; seat++) {
+  it.each(LAYOUTS)('%s — the porch slots also stay on-canvas (they hang off the keep)', (layout) => {
+    for (let seat = 0; seat < zoneCount(layout); seat++) {
       for (let i = 0; i < CASTLE_PORCH_SLOTS; i++) {
-        const p = porchSlot(seat, i);
+        const p = porchSlot(seat, i, layout);
         expect(p.x).toBeGreaterThanOrEqual(0);
         expect(p.x).toBeLessThanOrEqual(CANVAS_WIDTH);
         expect(p.y).toBeGreaterThanOrEqual(0);

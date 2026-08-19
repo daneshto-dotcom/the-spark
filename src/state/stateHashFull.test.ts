@@ -76,6 +76,10 @@ const HASHED_NON_FAMILY: ReadonlySet<string> = new Set([
   // gates compare determinismParts in full.
   'matchPhase',
   'phaseEndsAtTick',
+  // S148 P1 — THE BOARD. A world SCALAR for the same reason as the two above: `layout` is a string
+  // literal union projected as the `ly` part, not a collection with a per-element loop. Still fully
+  // covered by the wide hash, so the differential and worker-parity gates fail on any disagreement.
+  'layout',
 ]);
 
 /** Adds one primitive, one bond between two primitives, and one free spark. */

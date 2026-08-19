@@ -434,44 +434,29 @@ export const GATHERER_PRICE = 105;
 // the opening decision is "two speed upgrades now, or save toward another hauler".
 export const STARTING_VICTORY_POINTS = 100;
 /**
- * V6-1.2 — how many keeps the castle ring is divided into. Constant (never a live roster size)
- * because a gatherer's spawn position is hashed host-authoritative state.
+ * ⛔ S148 P1 — `KEEP_RING_SEATS` AND `KEEP_RING_RADIUS` ARE DELETED. THE POLAR RING IS GONE.
  *
- * ⭐ S147 R41/R45 — PINNED TO A LITERAL 7, no longer `PLAYER_COLORS.length`. Two reasons, and the
- * decoupling is the point:
- *   1. Palette size must never drive MECHANICS. `PLAYER_COLORS` is a race/class roster that will grow
- *      or shrink for design reasons (R45); keep geometry must not move when it does.
- *   2. Keeping the literal at 7 preserves the CURRENT keep positions exactly. Deriving it from the
- *      now-6-entry palette would silently re-place every seat's keep — and those positions are hashed
- *      host-authoritative state that gatherer spawns derive from, so it would be a gratuitous
- *      determinism event in a session that is about to replace this function outright.
+ * Both constants existed to fan the seats evenly around the central spawner at a fixed radius. The
+ * tower-defence pivot replaces that with a real ZONE PARTITION (`src/state/zones.ts`): the board is
+ * split (one vertical line on `PITCH_2P`, a cross on `QUADRANTS_4P`) and each castle sits at a
+ * lookup into that partition. Both docblocks predicted this deletion by name; this is that deletion.
  *
- * ⚠ THIS WHOLE CONSTANT DIES IN S148, along with the polar ring, when `castleAnchor` becomes
- * zone-derived (`zoneCastleAnchor`). It is pinned rather than re-tuned precisely so the ring is not
- * moved twice in one session.
+ * WHY THE RING HAD TO GO, RECORDED SO IT IS NOT RE-LITIGATED. A ring is a set of positions. A zone
+ * is a region you OWN — which is what build legality, the border walls (S149) and castle placement
+ * all need to ask about. The owner corrected this reading twice in S146: a keep ring that happens to
+ * sit near the extremities is NOT a zone system, and treating the two as equivalent is exactly the
+ * lazy pattern-match that made the first two readings of the hand-drawn map wrong.
+ *
+ * WHAT THE MOVE COST, MEASURED (S148 A.0 delta D2), so the economy is not re-tuned from memory:
+ * the quarry-rim-to-castle haul goes from 295 px to 715 px on `PITCH_2P` (2.42x) and 800.7 px on
+ * `QUADRANTS_4P` (2.71x). ⚠ The figure "420 -> ~1100 px" that circulated in the S147 handoff is
+ * WRONG in both numbers — 420 was a centre-distance and 1100 was never any measurement. The
+ * gatherer speed below is set against 800.7.
+ *
+ * ⚠ DO NOT REINTRODUCE A RING CONSTANT HERE. `castleAnchor(seat, layout)` takes the board as a
+ * required parameter precisely so that a caller which forgot to thread `world.layout` is a compile
+ * error rather than a silently wrong (and hashed, and therefore desyncing) position.
  */
-export const KEEP_RING_SEATS = 7;
-
-/**
- * S138 P2 — distance from arena centre to each seat's keep, in px.
- *
- * Owner playtest, verbatim: *"the castles should all be first put at the extremities of the map of
- * each players zone, so that you cant all build at the middle from the start and make a mess of
- * it."* This is R4 of `CASTLE_BUILD_SPACE_DESIGN.md` §1b, pulled forward.
- *
- * Was `SPAWNER_RADIUS + 150` = **275**. There is no "starting zone" concept in the code (verified by
- * grep — no `startingZone`/`homeZone`), so the actionable form of "the extremities" is this radius.
- * On-canvas fit was verified for the 7-seat ring: 275 / 360 / 420 / 460 all fit inside 1920×1080.
- * 420 is chosen for a comfortable margin while nearly doubling the quarry-rim→keep gap.
- *
- * ⚠ MEASURED CONSEQUENCE, not a guess (design-doc C2): the quarry rim sits at `SPAWNER_RADIUS` = 125,
- * so the haul goes from **150 px to 295 px — 1.97×**. Gatherer throughput therefore DROPS; at bank
- * cap 5 the economy banked ~5 shapes/60 s before this. A `CASTLE_BANK_CAP` raise is the intended
- * counterweight and was NOT part of this change. ⚠ S140 P1: §1b R2's "12–13" is SUPERSEDED — the owner
- * ruled the cap to **7**, decided together with the recipe-size table (see CASTLE_BANK_CAP below). Re-measure with
- * `e2e/bank-throughput.spec.ts` and retune gatherer speed/count in the build-space session.
- */
-export const KEEP_RING_RADIUS = 420;
 /**
  * S136 P0 — the keep BOX, promoted out of gathererRenderer.ts because it is no longer only a
  * drawing: clicking it is what opens the castle panel (owner playtest, item 2 — "that footer with
@@ -484,8 +469,49 @@ export const KEEP_W = 74;
 export const KEEP_H = 58;
 /** V6-1.2 — flat price of ONE speed upgrade; steps every gatherer the buyer owns. */
 export const GATHERER_SPEED_UPGRADE_PRICE = 50;
-/** Base gatherer travel speed, px/tick. */
-export const GATHERER_BASE_SPEED = 1.9;
+/**
+ * Base gatherer travel speed, px/tick.
+ *
+ * ⭐ S148 P1 — RAISED 1.9 -> 2.6 BECAUSE THE ZONE PARTITION MOVED THE CASTLES. Derived from the
+ * measured geometry, not guessed, and the owner ruled the target: a first tower must be affordable
+ * inside ONE 90 s BUILD with **zero upgrades bought**.
+ *
+ * THE ARITHMETIC, so the next session can re-derive it instead of re-guessing:
+ *   · the haul (quarry rim -> castle) is now 800.7 px on QUADRANTS_4P, up from 295 px — 2.71x;
+ *   · a round trip is therefore `2 * 800.7 / speed` ticks;
+ *   · the first tower is the Stink Tower, `STINK_TOWER_SIZE = 4` (1 Square + 3 Circle), so the
+ *     opening BUILD must fund FOUR type-directed hauls inside `PHASE_DURATION_TICKS` = 5400;
+ *   · the opening BUILD is hard-locked to ONE gatherer — `STARTING_VICTORY_POINTS` 100 is below
+ *     `GATHERER_PRICE` 105, and S147 R3 gated income to FIGHT, so no second hauler is buyable.
+ *
+ * ⚠ MEASURED, AND THE HONEST READING IS NARROWER THAN "IT WAS NECESSARY". `zoneEconomy.test.ts`
+ * runs a full 5400-tick BUILD through the real host loop, one un-upgraded gatherer, order queue set
+ * to the tower's bill. On QUADRANTS_4P, over five seeds:
+ *
+ *     speed 1.9 (the old value) -> 6 shapes banked, always >= 1 Square + 3 Circle
+ *     speed 2.6 (this value)    -> 8-9 shapes banked, always >= 1 Square + 3 Circle
+ *
+ * So the owner's gate — a first tower affordable un-upgraded — was ALREADY met at 1.9, and the raise
+ * is not what makes the board playable. What it actually buys, and the reason it is kept:
+ *   (a) HEADROOM. The margin over the 4-shape tower goes from 1.5x to ~2.2x, so a player who
+ *       mis-orders, or wants a second structure, is not left with a dead BUILD stage.
+ *   (b) THE TTL INTERACTION (S148 A.0 delta D3). `FREE_SPARK_TTL_TICKS` is 600 and an unclaimed
+ *       spark simply dies. At 1.9 the outbound leg alone is 421 ticks — **70 % of a target spark's
+ *       entire lifetime** — so a gatherer spends most of its walk watching its target expire and
+ *       re-aiming. At 2.6 the leg is 308 ticks (51 %). The owner authorised moving the TTL as well;
+ *       it was not needed, and leaving it alone keeps spawn-zone churn exactly as playtested.
+ *
+ * The ordered types always land regardless of speed, because `pickGathererTarget` treats a queue
+ * entry as a priority override at any distance — that, not the speed, is what guarantees the bill.
+ *
+ * ⚠ IT ALSO FIXES A TTL INTERACTION NOBODY HAD NAMED (S148 A.0 delta D3). `FREE_SPARK_TTL_TICKS` is
+ * 600 (10 s) and an unclaimed spark simply dies. At the old 1.9 the outbound leg alone was 421 ticks
+ * — **70 % of a target spark's entire lifetime** — so gatherers spent the walk watching their target
+ * expire and re-aiming. At 2.6 the leg is 308 ticks (51 %), which buys the margin back WITHOUT
+ * touching the TTL. The owner authorised moving `FREE_SPARK_TTL_TICKS` too; it was not needed, and
+ * leaving it alone keeps the spawn-zone churn rate exactly as playtested.
+ */
+export const GATHERER_BASE_SPEED = 2.6;
 /** Added to the base speed per purchased upgrade level. */
 export const GATHERER_SPEED_PER_LEVEL = 0.8;
 /** Upgrade levels are capped so the price stays meaningful and a gatherer cannot outrun its target. */

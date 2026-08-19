@@ -16,6 +16,7 @@ import type { Player } from '../game/player.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { Spark } from '../game/spark.ts';
 import type { SudokuEvent } from './sudoku.ts';
+import type { ZoneLayout } from './zones.ts';
 import type { Bond } from '../physics/bonds.ts';
 import type { Bomb } from './bomb.ts';
 import type { Creature } from './creatures/creature.ts';
@@ -109,6 +110,26 @@ export interface World {
    * evaluation push all future boundaries later and later. See `runHostTick`.
    */
   phaseEndsAtTick: number;
+  /**
+   * ⭐ S148 P1 — WHICH BOARD THIS MATCH IS PLAYED ON. `PITCH_2P` (one vertical split, goalmouth
+   * castles) or `QUADRANTS_4P` (a cross split, corner castles). Decided ONCE at match start from
+   * the seat count (`layoutForSeatCount`) and never touched again while a match runs.
+   *
+   * ⚠ THIS IS THE MOST LOAD-BEARING GEOMETRY FIELD IN THE WORLD, WHICH IS WHY IT IS HASHED.
+   * `zoneCastleAnchor` derives every keep position from it, and a gatherer's spawn position derives
+   * from the keep — so a peer that disagreed about the layout would spawn its haulers somewhere
+   * else and diverge on the very first purchase. It is also what `canBuildAt` reads, so a
+   * disagreement would mean the host and the client's drag ghost enforcing different borders.
+   *
+   * ⚠ WHY A WORLD FIELD RATHER THAN A DERIVATION FROM `players.size`. A live roster size changes
+   * when somebody joins or drops mid-match; deriving the board from it would move every castle
+   * (and every gatherer spawn) at that instant. Stamping it once makes the board immutable for the
+   * life of the match, which is also what lets a promoted successor inherit it from the mirror with
+   * no recomputation — the same argument as `phaseEndsAtTick` above.
+   *
+   * Host-authoritative. A client NEVER computes this; it reads it from the snapshot.
+   */
+  layout: ZoneLayout;
   /** Monotonic counter for primitive IDs. */
   nextPrimitiveId: number;
   /** Monotonic counter for bond IDs. */

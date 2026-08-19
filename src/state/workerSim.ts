@@ -348,6 +348,10 @@ export function structuralSignature(world: World): string {
     // makes the edge itself a structural change, so the mirror updates on the flip tick.
     world.matchPhase,
     world.phaseEndsAtTick,
+    // S148 P1 — the board is a structural term for the same reason the phase is: it changes no
+    // collection size, so without it a mirror could keep drawing every keep on the previous board
+    // for up to the 100 ms floor after a match starts.
+    world.layout,
     benched,
     Math.floor(world.scoreProgress),
   ].join('|');

@@ -249,7 +249,7 @@ describe('applyBuildBlueprint — refuses without spending (NO-OP, never an erro
     const bill: Array<[SparkType, number]> = [...blueprintBill('stinkTower')];
     const porch: Spark[] = [];
     for (const [type, count] of bill) {
-      for (let i = 0; i < count; i++) porch.push(spawnSpark(type, porchSlot(SEAT0, porch.length)));
+      for (let i = 0; i < count; i++) porch.push(spawnSpark(type, porchSlot(SEAT0, porch.length, w.layout)));
     }
     for (const s of porch) w.freeSparks.set(s.id, s);
     w.castleBanks.set(P0, makeCastleBank());

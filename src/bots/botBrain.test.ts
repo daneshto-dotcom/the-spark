@@ -7,7 +7,6 @@ import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   CASTLE_PORCH_SLOTS,
-  KEEP_RING_SEATS,
   PLAYER_COLORS,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
@@ -15,6 +14,7 @@ import {
   SparkType,
 } from '../constants.ts';
 import { bankAdd, porchSlot } from '../state/castleBank.ts';
+import { zoneCount } from '../state/zones.ts';
 import { makeHunter } from '../state/hunters/hunter.ts';
 import { mulberry32 } from '../state/rng.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
@@ -30,6 +30,8 @@ import {
 } from './botBrain.ts';
 
 const SEAT = asPlayerId(1);
+// S148 P1 - bots play the quadrant board (a bots match seats 1 human + up to 3 bots).
+const L = 'QUADRANTS_4P' as const;
 
 function botsWorld(botCount = 2): World {
   const world = makeWorld(11);
@@ -94,7 +96,7 @@ describe('S87 botBrain.chooseGoal — priority arbitration', () => {
   // did before) the bot correctly REFUSES to build, which is the point of the change.
   it('default: BUILD when a shape sits on my own porch and cooldown elapsed', () => {
     const world = botsWorld();
-    const slot = porchSlot(SEAT as unknown as number, 0);
+    const slot = porchSlot(SEAT as unknown as number, 0, L);
     addFreeSpark(world, 1, slot.x, slot.y);
     const goal = chooseGoal(world, SEAT, BOT_CONFIGS.NOOB, mulberry32(1), true);
     expect(goal.kind).toBe('BUILD');
@@ -217,7 +219,7 @@ describe('S87 botBrain — helpers', () => {
     const me = world.players.get(SEAT)!;
     const seatIndex = SEAT as unknown as number;
     // One shape per porch slot, nearest-slot-first relative to the bot.
-    const slots = Array.from({ length: CASTLE_PORCH_SLOTS }, (_, i) => porchSlot(seatIndex, i));
+    const slots = Array.from({ length: CASTLE_PORCH_SLOTS }, (_, i) => porchSlot(seatIndex, i, L));
     const ordered = slots
       .map((p, i) => ({ i, d: (p.x - me.avatarPos.x) ** 2 + (p.y - me.avatarPos.y) ** 2 }))
       .sort((a, b) => a.d - b.d);
@@ -243,8 +245,9 @@ describe('S87 botBrain — helpers', () => {
   it("pickTargetSpark will not take a shape off ANOTHER seat's porch", () => {
     const world = botsWorld();
     const me = world.players.get(SEAT)!;
-    const other = ((SEAT as unknown as number) + 1) % KEEP_RING_SEATS;
-    const theirs = porchSlot(other, 0);
+    // Derived from the board, not from a retired ring constant.
+    const other = ((SEAT as unknown as number) + 1) % zoneCount(L);
+    const theirs = porchSlot(other, 0, L);
     addFreeSpark(world, 300, theirs.x, theirs.y);
     expect(pickTargetSpark(world, me.avatarPos, BOT_CONFIGS.IMBA, mulberry32(5), SEAT)).toBeNull();
   });

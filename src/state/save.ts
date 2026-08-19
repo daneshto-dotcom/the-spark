@@ -59,6 +59,7 @@ import {
   type Vec2,
 } from '../types.ts';
 import { type GameMode, type GameState, type MatchPhase, type World } from './world.ts';
+import type { ZoneLayout } from './zones.ts';
 import { type Player } from '../game/player.ts';
 import type { SpawnerState } from '../game/spawner.ts';
 import type { Bomb } from './bomb.ts';
@@ -105,6 +106,16 @@ export interface WorldSnapshot {
    */
   matchPhase?: MatchPhase;
   phaseEndsAtTick?: number;
+  /**
+   * S148 P1 — WHICH BOARD. Additive-OPTIONAL on the wire, same precedent as the clock above: a
+   * pre-S148 save has no key and rehydrates to `PITCH_2P`.
+   *
+   * ⚠ THE FALLBACK IS A REAL DECISION, NOT A DEFAULT. A restored save with no layout is a
+   * pre-quadrant world whose keeps were on the old polar ring; there is no way to recover which
+   * board it "was", because it was on neither. `PITCH_2P` is chosen because it is what a solo or
+   * 1v1 save — overwhelmingly the common case — would get from `layoutForSeatCount` anyway.
+   */
+  layout?: ZoneLayout;
   lastWinnerId: PlayerId | null;
   nextPrimitiveId: number;
   nextBondId: number;
@@ -803,6 +814,10 @@ export function snapshot(
     // S147 P1 — the match clock rides the snapshot (host-authoritative deadline).
     matchPhase: world.matchPhase,
     phaseEndsAtTick: world.phaseEndsAtTick,
+    // S148 P1 — the board rides the snapshot. A joiner must NEVER derive it from its own view of
+    // the roster: it would compute a different board for one tick during a join and place every
+    // keep somewhere else.
+    layout: world.layout,
     lastWinnerId: world.lastWinnerId,
     nextPrimitiveId: world.nextPrimitiveId,
     nextBondId: world.nextBondId,
@@ -1109,6 +1124,9 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   // tick 900k would flip phase on its very first tick.
   world.matchPhase = snap.matchPhase ?? 'BUILD';
   world.phaseEndsAtTick = snap.phaseEndsAtTick ?? snap.tick + PHASE_DURATION_TICKS;
+  // S148 P1 — the board, rehydrated UNCONDITIONALLY so a joiner and a promoted successor adopt the
+  // host's board exactly. See the `layout` field docblock for why the pre-S148 fallback is PITCH_2P.
+  world.layout = snap.layout ?? 'PITCH_2P';
   world.lastWinnerId = snap.lastWinnerId;
   world.scoreProgress = snap.scoreProgress ?? 0;
   world.gameMode = snap.gameMode ?? 'solo';

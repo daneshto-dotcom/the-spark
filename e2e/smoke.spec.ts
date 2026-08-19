@@ -68,7 +68,7 @@ import {
  * into an older-peer test — the failure mode that survived two bumps behind a @quarantine-flaky
  * tag that the gating lane grep-inverts, so nothing could go red.
  */
-const LOCAL_PROTO_V = 24; // S147 P2 — 23 -> 24 (FOUR-PLAYER CAP: MAX_PLAYERS 6->4, MAX_BOTS 6->3; the wire roster/attest validators cap on it)
+const LOCAL_PROTO_V = 25; // S147 P2 — 23 -> 24 (FOUR-PLAYER CAP: MAX_PLAYERS 6->4, MAX_BOTS 6->3; the wire roster/attest validators cap on it)
 const NEWER_PEER_V = LOCAL_PROTO_V + 1;
 
 /**

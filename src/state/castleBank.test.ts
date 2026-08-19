@@ -37,6 +37,9 @@ import {
   porchSlot,
 } from './castleBank.ts';
 import { castleAnchor, makeGatherer } from './gatherers/gatherer.ts';
+// S148 P1 - the porch/bank geometry is now board-dependent. These cases all use seats 0-1,
+// which both boards have, so the 1v1 pitch is the natural fixture.
+const L = 'PITCH_2P' as const;
 
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
@@ -71,7 +74,7 @@ function fillBank(w: World, n: number, types?: SparkType[]): void {
 
 /** A gatherer standing at its keep, HAULING a shape (about to try to deposit). */
 function loadedGathererAtKeep(w: World): { gid: GathererId; sid: SparkId } {
-  const anchor = castleAnchor(0);
+  const anchor = castleAnchor(0, L);
   const gid = asGathererId(0);
   const g = makeGatherer({
     id: gid,
@@ -189,7 +192,7 @@ describe('S146 P2 — PULL is type-addressed and MINTS the shape', () => {
     expect(out[0]!.state.kind).toBe('Free');
     // The escrow marker is what stops `enforceSpawnerBounds` rim-snapping it back to the quarry.
     expect(out[0]!.escrow).toBe('banked');
-    const slot = porchSlot(0, 0);
+    const slot = porchSlot(0, 0, L);
     expect(Math.hypot(out[0]!.pos.x - slot.x, out[0]!.pos.y - slot.y)).toBeLessThan(
       CASTLE_PORCH_SLOT_CLEAR_RADIUS,
     );
@@ -252,24 +255,24 @@ describe('S136 P1 — THE OWNER-REPORTED BUG, as an invariant', () => {
   });
 
   it('firstFreePorchSlot skips an OCCUPIED slot rather than counting occupants', () => {
-    const occupied = [porchSlot(0, 0)];
-    expect(firstFreePorchSlot(0, occupied)).toBe(1);
+    const occupied = [porchSlot(0, 0, L)];
+    expect(firstFreePorchSlot(0, occupied, L)).toBe(1);
   });
 
   it('returns null when every porch slot is taken', () => {
-    const occupied = Array.from({ length: CASTLE_PORCH_SLOTS }, (_, i) => porchSlot(0, i));
-    expect(firstFreePorchSlot(0, occupied)).toBeNull();
+    const occupied = Array.from({ length: CASTLE_PORCH_SLOTS }, (_, i) => porchSlot(0, i, L));
+    expect(firstFreePorchSlot(0, occupied, L)).toBeNull();
   });
 
   it('occupying ONE slot masks only that slot — the pitch clears the detection radius', () => {
     for (let i = 0; i < CASTLE_PORCH_SLOTS; i++) {
-      expect(firstFreePorchSlot(0, [porchSlot(0, i)])).toBe(i === 0 ? 1 : 0);
+      expect(firstFreePorchSlot(0, [porchSlot(0, i, L)], L)).toBe(i === 0 ? 1 : 0);
     }
   });
 
   it('every seat gets its own porch — two castles cannot share a slot', () => {
-    const a = porchSlot(0, 0);
-    const b = porchSlot(1, 0);
+    const a = porchSlot(0, 0, L);
+    const b = porchSlot(1, 0, L);
     expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(CASTLE_PORCH_SLOT_CLEAR_RADIUS * 2);
   });
 });

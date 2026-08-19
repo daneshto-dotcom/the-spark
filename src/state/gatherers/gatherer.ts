@@ -21,13 +21,10 @@ import {
   GATHERER_MAX_SPEED_LEVEL,
   GATHERER_SPEED_PER_LEVEL,
   KEEP_H,
-  KEEP_RING_RADIUS,
-  KEEP_RING_SEATS,
   KEEP_W,
-  SPAWNER_CENTER_X,
-  SPAWNER_CENTER_Y,
   type SparkType,
 } from '../../constants.ts';
+import { zoneCastleAnchor, type ZoneLayout } from '../zones.ts';
 import type { GathererId, PlayerId, SparkId, Vec2 } from '../../types.ts';
 
 /**
@@ -100,32 +97,25 @@ export function gathererSpeed(speedLevel: number): number {
 }
 
 /**
- * The fixed per-seat KEEP anchor — a deterministic ring around the central spawner. Seat 0 sits
- * to the LEFT of the spawner, matching the P0 avatar start in `makeWorld`; the remaining seats
- * fan evenly around it. This is the single source of truth for BOTH the (render-only) castle box
- * and a bought gatherer's spawn position, so the unit always appears at its owner's keep. Pure +
+ * The per-seat KEEP anchor — the single source of truth for BOTH the (render-only) castle box and a
+ * bought gatherer's spawn position, so the unit always appears at its owner's keep. Pure +
  * deterministic — a gatherer's spawn pos is hashed host-authoritative state and must be
- * replay-stable across the host and the worker/mirror.
+ * replay-stable across the host, the worker and a promoted successor.
+ *
+ * ⭐ S148 P1 — THE POLAR RING IS GONE. This used to fan the seats evenly around the central spawner
+ * at `KEEP_RING_RADIUS`, dividing by a pinned `KEEP_RING_SEATS`. Both constants are retired: the
+ * castle no longer sits on a ring that happens to be near the edges, it sits in a ZONE, and the zone
+ * is the primary object (the owner corrected exactly this reading twice in S146). All the geometry
+ * now lives in `zones.ts`; this stays as the named seam the 13 existing consumers already import, so
+ * the change is one function body rather than 13 import rewrites.
+ *
+ * ⚠ THE `layout` PARAMETER IS NOT OPTIONAL AND MUST NOT BE DEFAULTED. A default would let a caller
+ * that forgot to thread `world.layout` silently compute the WRONG board's anchor — and since these
+ * positions are hashed, "wrong board" means "desync". Making it required turns every missed call
+ * site into a compile error, which is how all 13 were found.
  */
-export function castleAnchor(seat: number): Vec2 {
-  // ⚠ DIVIDE BY KEEP_RING_SEATS, NOT MAX_PLAYERS. MAX_PLAYERS is 6, but VS-BOTS seats SEVEN
-  // (1 human + up to 6 bots — constants.ts documents exactly this, which is why PLAYER_COLORS has a
-  // 7th entry). Dividing by 6 makes castleAnchor(6) numerically identical to castleAnchor(0), so in
-  // a full bots match the 7th seat's keep lands EXACTLY on the human's and its gatherers spawn
-  // inside the human's stockpile. Caught by the S135 end-of-session audit.
-  // The divisor must be a CONSTANT, never a live roster size: a gatherer's spawn pos is hashed
-  // host-authoritative state, so a seat-count-dependent ring would move every keep (and diverge the
-  // hash) the moment a player joins or drops.
-  const angle = Math.PI + (seat / KEEP_RING_SEATS) * Math.PI * 2;
-  // S138 P2 — was `SPAWNER_RADIUS + 150` (275). Now a named constant at 420 so the keeps sit at the
-  // extremities instead of clustered near the quarry (owner playtest: "so that you cant all build at
-  // the middle from the start and make a mess of it"). See KEEP_RING_RADIUS for the measured
-  // throughput consequence — this nearly doubles the haul.
-  const r = KEEP_RING_RADIUS;
-  return {
-    x: SPAWNER_CENTER_X + Math.cos(angle) * r,
-    y: SPAWNER_CENTER_Y + Math.sin(angle) * r,
-  };
+export function castleAnchor(seat: number, layout: ZoneLayout): Vec2 {
+  return zoneCastleAnchor(seat, layout);
 }
 
 /**
@@ -146,8 +136,8 @@ export function castleAnchor(seat: number): Vec2 {
  * never put on the wire (a second player must not see your panel open), so nothing here may be
  * called from a reducer.
  */
-export function isPointInKeep(x: number, y: number, seat: number): boolean {
-  const { x: cx, y: cy } = castleAnchor(seat);
+export function isPointInKeep(x: number, y: number, seat: number, layout: ZoneLayout): boolean {
+  const { x: cx, y: cy } = castleAnchor(seat, layout);
   return (
     x >= cx - KEEP_W / 2 && x <= cx + KEEP_W / 2 && y >= cy - KEEP_H / 2 && y <= cy + KEEP_H / 2
   );

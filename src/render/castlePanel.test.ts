@@ -25,11 +25,11 @@ import {
   GATHERER_MAX_SPEED_LEVEL,
   GATHERER_PRICE,
   GATHERER_SPEED_UPGRADE_PRICE,
-  KEEP_RING_SEATS,
   STARTING_VICTORY_POINTS,
 } from '../constants.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import { castleAnchor, makeGatherer } from '../state/gatherers/gatherer.ts';
+import { zoneCount } from '../state/zones.ts';
 import { makeWorld, type World } from '../state/world.ts';
 import { asGathererId, asPlayerId } from '../types.ts';
 import {
@@ -234,8 +234,10 @@ describe('S136 P0 — panelOrigin / panelRect geometry', () => {
   it('never leaves the canvas for ANY seat on the keep ring', () => {
     // The keeps ring the arena centre, so this is the test that catches an off-screen panel for one
     // unlucky seat rather than leaving it to be discovered in play.
-    for (let seat = 0; seat < KEEP_RING_SEATS; seat++) {
-      const a = castleAnchor(seat);
+    // S148 P1 - the quadrant board's corner anchors are the extreme case for an off-canvas
+    // panel, so the seat bound is derived from that board rather than a retired ring size.
+    for (let seat = 0; seat < zoneCount('QUADRANTS_4P'); seat++) {
+      const a = castleAnchor(seat, 'QUADRANTS_4P');
       const r = panelRect(panelOrigin(a.x, a.y, 2), 2);
       expect(r.x, `seat ${seat} left`).toBeGreaterThanOrEqual(0);
       expect(r.y, `seat ${seat} top`).toBeGreaterThanOrEqual(0);
@@ -380,8 +382,8 @@ describe('S140 P1 — bank strip geometry, swept across caps', () => {
 
   it('I7 — the panel still fits the canvas for EVERY seat at EVERY cap', () => {
     for (const cap of CAPS) {
-      for (let seat = 0; seat < KEEP_RING_SEATS; seat++) {
-        const a = castleAnchor(seat);
+      for (let seat = 0; seat < zoneCount('QUADRANTS_4P'); seat++) {
+        const a = castleAnchor(seat, 'QUADRANTS_4P');
         const r = panelRect(panelOrigin(a.x, a.y, 2, cap), 2, cap);
         expect(r.x, `cap ${cap} seat ${seat} left`).toBeGreaterThanOrEqual(0);
         expect(r.y, `cap ${cap} seat ${seat} top`).toBeGreaterThanOrEqual(0);
