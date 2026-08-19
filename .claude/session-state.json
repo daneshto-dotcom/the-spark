@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1379,
+  "tool_calls_session_total": 1380,
   "session_id": "S148",
   "session_kind": "pdca-batch",
   "session_start": "2026-08-19",
@@ -1439,5 +1439,5 @@
     "R22 VIOLATION FOUND: the quarry is supposed to stop producing during FIGHT, but the spawner never reads world.matchPhase - grep for matchPhase over physics/ and the spawner returns nothing. Sparks keep spawning through the whole fight. Logged as a carry-forward, not fixed in this batch.",
     "ALREADY SHIPPED and correct: the BUILD/FIGHT clock (S147); income = complexity x rate gated to FIGHT (R3/R7/R16/R17 - tickScoring at scoring.ts:279 uses computeAllComplexities and has never cared whether shapes form a recipe); the 4-player cap and dashboard (R41/R42); the Stink Tower as a 4-shape buildable defender."
   ],
-  "deploy_verified_s148_p1": "pending - checked after the Actions run lands"
+  "deploy_verified_s148_p1": "PASS 4/4 at 4620caae - REMOTE/RUN/VERDICT/LIVE all agree; live entry asset index-DKIzActC.js matches the local build by content hash. Protocol 25 is LIVE."
 }
