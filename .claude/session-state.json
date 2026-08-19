@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1411,
+  "tool_calls_session_total": 1415,
   "session_id": "S148",
   "session_kind": "pdca-batch",
   "session_start": "2026-08-19",
@@ -78,6 +78,16 @@
       "id": "CF-S148-a",
       "status": "open",
       "note": "R22 IS VIOLATED ON DISK - the quarry keeps producing sparks during FIGHT because the spawner never reads world.matchPhase. Found by the S148 vision gap audit. One guard at the spawn dispatch site, same shape as the S147 hazard gating. Not fixed in the S148 batch to keep the priorities on the owner-named vision items."
+    },
+    {
+      "id": "CF-S148-b",
+      "status": "open",
+      "note": "creatureSpawners is an ACKNOWLEDGED HOLE in workerSim.differential SEEDING_COVERAGE. It was seeded only by the deleted bots-only pentagram; an injected spawner is torn down within one tick by the host re-validation poll (isPentagramComponent from its anchor), so it needs real recipe geometry. Its proper source is the GOBLIN TOWER (R18/R24, S153) - a spawner with genuine geometry - at which point the row seeds itself from the design instead of from scaffolding. Delete the acknowledged row then."
+    },
+    {
+      "id": "CF-S148-c",
+      "status": "open",
+      "note": "e2e/bomb.spec.ts \"instant self-sever\" is INTERMITTENTLY FLAKY, ~2 failures in 7 runs this session. Evidence it is NOT a P2 regression: it failed on the FIRST gating run of S148 (after P1, before P2), passed on the second, failed on the third, and passes 3/4 in isolation. Runtime is 44 s to 1.2 min for a single test, i.e. marginal against its timeout - the likely cause. Either raise its timeout or find what makes it slow; do NOT bisect a single failure (the standing e2e lesson)."
     }
   ],
   "priorities": [
@@ -328,9 +338,138 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "id": 2,
-      "status": "in_progress",
-      "verification": [],
-      "name": "S148 P2 THE OPENING IS FAIR AND WEAPONS DIFFER (R49/R50/R51) - delete the starter-goblin seeding and the bots-only free pentagram + lightning hub so every seat opens with a castle, one gatherer and 100 points; retire the shared CREATURE_HIT_DAMAGE for defender strikes in favour of PER-KIND damage so HELGA kills a goblin in 2 and the laser turret in 1. No protocol bump - no World field changes."
+      "status": "completed",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defender.ts",
+          "needle": "readonly damageVsCreature: number;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defender.ts",
+          "needle": "damageVsCreature: TURRET_BEAM_DAMAGE_VS_CREATURE,"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defender.ts",
+          "needle": "damageVsCreature: PRINCESS_SLAP_DAMAGE_VS_CREATURE,"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defender.ts",
+          "needle": "damageVsCreature: STINK_BAG_DAMAGE_VS_CREATURE,"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defenderLifecycle.ts",
+          "needle": "config.damageVsCreature,"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defenderLifecycle.ts",
+          "needle": "CREATURE_HIT_DAMAGE, 'defender'"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const TURRET_BEAM_DAMAGE_VS_CREATURE = GOBLIN_MELEE_HP;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const PRINCESS_SLAP_DAMAGE_VS_CREATURE = Math.max(1, Math.round(GOBLIN_MELEE_HP / 2));"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const STINK_BAG_DAMAGE_VS_CREATURE = CREATURE_HIT_DAMAGE;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
+          "needle": "seedStartingUnits(world);"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
+          "needle": "seedBotSpawners(world);"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
+          "needle": "botSpawnerSeed"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
+          "needle": "THE OPENING IS A CASTLE, ONE GATHERER AND 100 POINTS. NOTHING ELSE."
+        },
+        {
+          "type": "file_absent",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/spawners/botSpawnerSeed.ts"
+        },
+        {
+          "type": "file_absent",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/spawners/botSpawnerSeed.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/spawners/pentagramBuildability.test.ts",
+          "needle": "describe"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/creatures/goblin.test.ts",
+          "needle": "grants NO goblin to any seated player at START_GAME"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/creatures/goblin.test.ts",
+          "needle": "the opening board carries no creatures at all"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defenderDamage.test.ts",
+          "needle": "HELGA fells a goblin in TWO slaps"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defenderDamage.test.ts",
+          "needle": "the laser is STRICTLY the strongest single-target weapon"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defenderDamage.test.ts",
+          "needle": "the roster is not FLAT"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/zones-visual.spec.ts",
+          "needle": "the opening board is EMPTY: no free bot structures, no starter goblins"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/workerSim.differential.test.ts",
+          "needle": "SEED BOT-AUTHORED PRIMITIVES EXPLICITLY"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/workerSim.differential.test.ts",
+          "needle": "CARRY-FORWARD CF-S148-b"
+        },
+        {
+          "type": "grep_count",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defenderDamage.test.ts",
+          "pattern": "strikesToFellGoblin",
+          "op": "ge",
+          "value": 3
+        }
+      ],
+      "name": "S148 P2 THE OPENING IS FAIR AND WEAPONS DIFFER (R49/R50/R51) - delete the starter-goblin seeding and the bots-only free pentagram + lightning hub so every seat opens with a castle, one gatherer and 100 points; retire the shared CREATURE_HIT_DAMAGE for defender strikes in favour of PER-KIND damage so HELGA kills a goblin in 2 and the laser turret in 1. No protocol bump - no World field changes.",
+      "checkpoint_commit": "5975876660224184e9433883e9e6d4ec02786331",
+      "check_completed": true,
+      "check_method": "P2 THE OPENING IS FAIR AND WEAPONS DIFFER, shipped at %s. VERIFIED: tsc 0; vitest 2501 passed / 161 files (defenderDamage.test.ts 9 new cases); npm run build PASS entry 689.1 KiB, which SHRANK 2.2 KiB because the bot scaffolding module was deleted; e2e:gating 43 passed / 1 intermittent flake; the empty opening asserted IN A REAL BROWSER and screenshotted (spark-s148-empty-opening.png shows four castles, one gatherer each, an empty quarry and nothing else). THE ROOT DEFECT WAS NOT THE GOBLIN. Every defender dealt a shared CREATURE_HIT_DAMAGE=1 at one call site, so HELGA needed 6 slaps and the \"slow heavy beam\" laser needed 6 as well - no weapon could be stronger than any other. damageVsCreature is now per-kind on the compile-time exhaustive DefenderConfig; the test pins RELATIONSHIPS (HELGA 2 strikes, laser 1, laser strictly strongest, roster not flat) rather than literals so R30 balance work stays free. THREE ANTI-VACUITY GUARDS FIRED AND EACH WAS CORRECT: castleBanks, creatures and bot-authored primitives were ALL seeded by accident by the scaffolding being deleted, so removing it emptied three families the differential HARD GATE claims to compare while every hash stayed green. Each is now a deliberate fixture. creatureSpawners could NOT be fixed that way - an injected spawner is torn down within a tick by the re-validation poll - so it is an acknowledged hole with its real reason plus CF-S148-b. THE DESTRUCTIVE-COMMAND GUARDRAIL PREVENTED A REAL LOSS: my rm -rf of the spawners __snapshots__ directory was blocked, and inspection showed it holds pentagramBuildability.test.ts.snap, which belongs to a test I was NOT deleting. BOMB.SPEC IS A FLAKE, NOT A REGRESSION - stated with evidence rather than assumed: it failed on this session FIRST gating run before P2 existed, and passes 3/4 in isolation at 44 s to 1.2 min, i.e. near its own timeout. Logged CF-S148-c."
     },
     {
       "pdr_approved": true,
@@ -450,6 +589,54 @@
       "text": "2498 unit tests and 42 e2e all green tell you the NUMBERS are right. They cannot see a keep drawn over the score HUD, a panel opening across the quarry, or bank glyphs colliding with the progress bar - and this priority moved every castle on screen. Captured both boards through Playwright under the real host loop (the in-app browser pane cannot do it: an undisplayed pane does not composite, so rAF is paused and the Pixi ticker never advances). The quadrant shot is the evidence that four corner keeps in four seat colours actually render with the quarry unclaimed at centre. A green suite is not evidence for render work, and S147 already paid for that lesson once.",
       "session": "S148",
       "priority": 1
+    },
+    {
+      "tag": "#the-owner-was-right-that-my-adapt-verdict-came-too-fast",
+      "text": "The owner pushed back on a rebuild-vs-adapt ruling I had defended, and demanded an audit before I defended it again. They were right on the process even though the verdict survived. The S146 Council that ruled ADAPT never read the codebase, and its written current-state audit turns out to have THREE checkable errors (build refusal \"3 sites\" is six; \"420 -> ~1100px\" is 295 -> 800.7px, a fabricated figure that then propagated through two handoffs; \"~40k lines\" is 51,369) and THREE blind spots (the shared CREATURE_HIT_DAMAGE, the bots-only free structures, the starter goblin contradicting R18/R24). The measured answer still says do not rebuild - ~16.5k LOC of infrastructure with 2,498 tests and 25 protocol versions, and none of the playtest defects live there. But the owner instinct was tracking something real: ~4,100 LOC is already dead, and I had been finding contradictions one playtest at a time instead of clearing them deliberately. When someone challenges a verdict you inherited, audit the EVIDENCE the verdict rested on before re-asserting it.",
+      "session": "S148",
+      "priority": 2
+    },
+    {
+      "tag": "#the-root-defect-was-not-the-thing-the-owner-named",
+      "text": "The report was \"starter goblins are way too strong - even helga cant kill them with 5 slaps\". The obvious fix is to nerf the goblin. The actual defect is that EVERY defender dealt a shared CREATURE_HIT_DAMAGE = 1 at ONE call site, so HELGA needed six slaps AND the laser turret - documented in its own comment as \"a slow heavy beam\" - also needed six. GOBLIN_MELEE_HP = 6 was a faithful reading of the owner earlier \"6 attacks\" rule; nobody had ever checked that rule against the DEFENDER side. So the goblin was correct and the roster was broken: no weapon in the game could be stronger than any other, which is a design failure that no amount of hp tuning reaches. Take the symptom seriously and then go one level past it - the number the user names is where the pain surfaced, not always where it came from.",
+      "session": "S148",
+      "priority": 2
+    },
+    {
+      "tag": "#three-families-were-only-ever-tested-by-accident",
+      "text": "Deleting the bot scaffolding emptied THREE entity families that the workerSim differential HARD GATE claims to compare: castleBanks, creatures, and bot-authored primitives. None had ever been seeded on purpose - a haul happened to finish inside the 300-frame window, the starter goblin happened to be a creature, the free pentagram happened to author primitives. Remove the accident and the gate keeps passing while comparing empty sets against empty sets. It was caught only because a previous session wrote an explicit anti-vacuity assertion per family (after discovering a SUM could not see a per-family hole). Coverage that arises emergently is not coverage; it is a coincidence with a green tick next to it, and it fails silently the moment anything upstream changes.",
+      "session": "S148",
+      "priority": 2
+    },
+    {
+      "tag": "#the-destructive-guardrail-caught-a-real-loss-not-a-false-positive",
+      "text": "I ran rm -rf on src/state/spawners/__snapshots__ while deleting the bot scaffolding, and the guardrail blocked it. Inspecting the directory showed it contained pentagramBuildability.test.ts.snap - the snapshot for a test I was NOT deleting. The rm would have broken a live test in a way that looks like an unrelated regression later. I had assumed the directory belonged to the module I was removing because it sat beside it. Never rm -rf a directory you have not listed, and treat a guardrail block as information rather than an obstacle.",
+      "session": "S148",
+      "priority": 2
+    },
+    {
+      "tag": "#my-own-verification-needles-broke-the-gate-that-guards-verification",
+      "text": "Six P1 needles were function signatures ending in an unbalanced brace. The PDCA gate finds the in-progress priority with an awk brace-DEPTH counter that counts braces inside JSON string values, so those six skewed the depth permanently, the gate read NO in-progress priority, and it blocked every Edit with \"Deliberation not completed\". The failure presented as a policy violation and was actually a data-format bug I had authored two hours earlier. Two lessons: a text-scanning gate imposes constraints on the CONTENT of the state file, not just its schema; and when a gate accuses you of a process failure you do not recognise, test the gate on the data before assuming you skipped a step.",
+      "session": "S148",
+      "priority": 2
+    },
+    {
+      "tag": "#the-fourth-file_lacks-comment-collision-means-my-rule-was-too-weak",
+      "text": "A file_lacks on seedBotSpawners failed because the docblock I had JUST written explaining its deletion names it. Same class as PHASE_CHANGED (S147), Math.sqrt and KEEP_RING_* (earlier today) - four occurrences. My memory note already said \"assert the CODE SHAPE, not the bare word\", and I still wrote the bare identifier, because \"code shape\" is a judgement call under time pressure. Sharpened it into something mechanical: the needle must be the STATEMENT - seedBotSpawners(world); with the semicolon, Math.sqrt( with the paren - and the test is whether the needle could read naturally inside an English sentence. A rule that requires taste at the moment of writing is a rule that will be broken again.",
+      "session": "S148",
+      "priority": 2
+    },
+    {
+      "tag": "#deleting-code-forced-more-honesty-than-adding-it",
+      "text": "Every deletion in this priority made something previously invisible visible: removing the seeders exposed three vacuous test families; removing the ring constants exposed a describe block asserting a radius that no longer means anything; removing the scaffolding shrank the bundle 2.2 KiB, which is the first time all session a change made the artifact smaller. The reason the owner could feel the incoherence before I could measure it is that added code announces itself and dead code does not. Worth carrying into the demolition pass: budget time for the coverage that turns out to have been resting on the thing being deleted.",
+      "session": "S148",
+      "priority": 2
+    },
+    {
+      "tag": "#i-reported-a-failure-as-a-flake-then-checked-and-it-reproduced",
+      "text": "bomb.spec failed on the gating run, passed in isolation, and I was ready to call it the documented under-load flake. Then it failed in isolation too - so I ran it three more times (pass, pass, pass) and checked the session record: it had ALSO failed on the FIRST gating run, before this priority existed. That is what makes it a flake rather than a regression, and it is a materially different claim from \"passes in isolation\" - which was true and would have been weak evidence. ~2 failures in 7 runs at 44 s to 1.2 min per run, i.e. marginal against its own timeout. Logged as a carry-forward with the evidence rather than waved off; \"flaky\" is a diagnosis that needs a denominator.",
+      "session": "S148",
+      "priority": 2
     }
   ],
   "totals": {
@@ -1509,5 +1696,6 @@
     "F3 - AND THOSE BOT STRUCTURES IGNORE THE S148 ZONES. botSpawnerSeed.ts:82-84 still places them with the RETIRED polar-ring math (SPAWNER_CENTER + cos(seat angle) x PENTAGRAM_REACH), so a bot pentagram can land in the quarry, in neutral ground, or inside ANOTHER seat zone. S148 P1 did not cause this but made it incoherent - and it would have broken P2 build legality outright, because the host would refuse a placement it had seeded itself. Resolved by deletion in PA rather than by re-siting.",
     "F4 - THE STARTER GOBLIN CONTRADICTS THE TD DESIGN. seedStartingUnits (gameMode.ts:324) spawns one goblinMelee per seat, but R18/R24 say goblins are PRODUCED BY THE GOBLIN TOWER (feed it shapes, one goblin per shape, the shape picking which of six kinds). That tower is S153 and unbuilt. Owner ruled R49: remove entirely, tower-only.",
     "F5 - what the owner asked for was already half true: seedStartingGatherers already gives exactly one gatherer + STARTING_VICTORY_POINTS 100 per seat, human and bot alike. Only F2 and F4 broke it."
-  ]
+  ],
+  "deploy_verified_s148_p2": "PASS 4/4 at 59758766 - REMOTE/RUN/VERDICT/LIVE all agree; Actions run 32291459830 concluded success and the live entry asset index-DMU7pb7t.js matches the local build by content hash."
 }
