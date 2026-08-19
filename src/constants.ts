@@ -336,6 +336,64 @@ function readTestWinScore(): number | null {
 // 500/1000, WIN at 1500). HUNTER_TRIGGER_SCORE auto-scales to floor(1500×0.75)=1125. Owner-approved S110.
 export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 1500;
 
+/* ========================================================================== *
+ *          S147 — THE MATCH CLOCK (the tower-defence BUILD/FIGHT cycle)      *
+ * ========================================================================== */
+
+/**
+ * S147 P1 — one phase of the match cycle, in TICKS. The owner's notes: *"90 sec to gather & build.
+ * End of 90 sec 'build' stage you have 'fight' stage."* and *"Fight Stage is also 90 sec (for now)."*
+ * So BUILD and FIGHT are the same length and the cycle repeats forever (R3).
+ *
+ * ⛔ TICKS, NEVER SECONDS OF WALL-CLOCK. The blueprint ranks a wall-clock phase timer as the #1
+ * CRITICAL desync risk in the whole pivot: the host would enter FIGHT while a peer was still in
+ * BUILD, the peer would submit a build command the host rejects, and the state hash would diverge
+ * instantly. `world.matchPhase` / `world.phaseEndsAtTick` are therefore derived from `world.tick`
+ * only, are hashed, and ride the snapshot so a joiner cannot disagree about the deadline.
+ *
+ * ⚠ MUST STAY > 800. `hostTick.differential.test.ts`'s longest frozen-reference scenario is 800
+ * ticks; those 8 scenarios run with `matchPhase` pinned to FIGHT (see that file), so a phase edge
+ * must never land inside one or the frozen reference — which scores unconditionally — would diverge
+ * from the live path. `matchPhase.test.ts` asserts this bound by name so a future re-tune fails
+ * loudly with the reason instead of reddening eight unrelated determinism scenarios.
+ */
+export const PHASE_DURATION_TICKS = 90 * PHYSICS_HZ; // 5400 ticks = 90 s @ 60 Hz
+
+/**
+ * S147 P1 Step 0 (R14 / R23) — the four CUT hazards: potato bomb, regular bomb, seagull, rainbow.
+ * *"CUT FOR NOW … DISABLE (cadence → 0), do not delete — restoring then costs one line instead of
+ * an archaeology session."* This flag IS that one line. **Flip to `true` and all four return.**
+ *
+ * ⛔ WHY THIS IS A DISPATCH-SITE GATE AND NOT A CADENCE OF ZERO. A.0 measured the mechanism and the
+ * ruling's own suggested implementation would have done the OPPOSITE of switching them off:
+ *
+ *   1. The cadence is a **spark COUNTDOWN**, not a tick rate — `spawner.ts` draws
+ *      `MIN + floor(rng() * (MAX - MIN + 1))` sparks-until-next. Setting MIN=MAX=0 makes the span 1
+ *      and the countdown 0, so `--sparksUntilBomb <= 0` fires on the VERY NEXT SPARK. Zero cadence
+ *      means MAXIMUM frequency.
+ *   2. The spawner is **skip-and-redraw**: it mints the request and redraws its countdown regardless
+ *      of whether the dispatch site caps it, each hazard on its own RNG stream. Gating at dispatch
+ *      therefore leaves every spark/bomb/potato/rainbow/seagull RNG sequence **byte-identical**, so
+ *      no replay or differential expectation moves. Editing MIN/MAX would change the draw VALUES.
+ *   3. `*_MAX_ACTIVE = 0` looked equivalent but is not: only the seagull REDUCER self-gates on it
+ *      (`seagullLifecycle.ts`), so that route would silently no-op a determinism test's direct
+ *      `dispatch(SPAWN_SEAGULL)` and quietly delete that coverage.
+ *
+ * ⚠ INVARIANT — GATE **AFTER** THE DRAW, NEVER AT THE DRAW. This flag is consulted in
+ * `physicsLoop.ts` only, downstream of every RNG call. Never move it up into `Spawner.tick`, and
+ * never introduce an RNG call inside a block this flag guards, or hazards-off stops being
+ * RNG-neutral. `spawnerRngInvariance.test.ts` asserts exactly that and will fail if it is violated.
+ */
+export const HAZARD_SPAWN_ENABLED = readTestHazardsEnabled() ?? false;
+
+/**
+ * S147 P1 (R28) — *"Anti-coast LEADER SCORE-DECAY is switched OFF (retained, not deleted)."*
+ * The S107 rubber-band bled the leader's score once past 75% of the win threshold. Under the
+ * tower-defence cycle scoring already stops for half of every match (R3: FIGHT only), so the decay
+ * would double-punish the leader. The code stays in `scoring.ts`; this gates it.
+ */
+export const LEADER_DECAY_ENABLED = false;
+
 // V6-1.1 — the automation FOOTER BAR occupies the bottom strip of the 1920x1080 logical canvas.
 // V6-1.1 ships ONE control in it (the buy button); the shape buttons / build queue / bank meter
 // (V6-1.4) slot into the same reserved strip later without a relayout. SHARED with controls.ts:
@@ -752,6 +810,22 @@ export const KEYSTONE_INCOME_MAX_NEIGHBORS = 3;
 // wipe). Un-grabbed for BOMB_TTL_TICKS → dissipates harmlessly. All tick-based +
 // deterministic (host-authoritative; replay-safe).
 //
+/**
+ * S147 P1 — E2E seam: `window.__TEST_HAZARDS_ENABLED__ = true` re-enables the four hazards that
+ * Step 0 switched off (R14/R23), so the shipped hazard e2e specs keep their coverage instead of
+ * being deleted or quarantined. Mirrors the `__TEST_*_SPAWN_SPARKS__` seams below (read once at
+ * module load; Playwright's `addInitScript` runs before page scripts, so the flag is already set).
+ *
+ * Deliberately boolean-only and deliberately one-way-ish: it can only turn hazards back ON, never
+ * off, so a stray flag can never silently disable a hazard the production build expects.
+ * Returns null when unset so the production default (`false`) wins via `??`.
+ */
+function readTestHazardsEnabled(): boolean | null {
+  if (typeof window === 'undefined') return null;
+  const v = (window as { __TEST_HAZARDS_ENABLED__?: boolean }).__TEST_HAZARDS_ENABLED__;
+  return v === true ? true : null;
+}
+
 // E2E seam: window.__TEST_BOMB_SPAWN_SPARKS__ forces both the min and max cadence
 // to a small fixed value so a Playwright run can trigger a bomb in a couple of
 // spawns (mirror of __TEST_SPAWN_RATE_PER_SECOND__ / __TEST_WIN_SCORE__).

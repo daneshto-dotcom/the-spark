@@ -126,6 +126,23 @@ test.describe('S72 P2 — Pac-Man hunter (solo, gating)', () => {
       // S137 P0b — 250 > the 200 seam (and > the 100 opening balance that silently made the old
       // value of 5 a no-op), and still << __TEST_WIN_SCORE__ (999) so the match cannot end first.
       w.scoreByPlayer.set(0, 250);
+      // ⭐ S147 P1 — AND THE MATCH MUST BE IN **FIGHT** FOR THIS INJECTION TO BE OBSERVED.
+      //
+      // This spec writes `scoreByPlayer` DIRECTLY (deliberately — see the comment above: it covers
+      // the trigger WIRING, not the income rate), then relies on `tickScoring` to re-derive
+      // `scoreProgress = max(scoreByPlayer)` — and `scoreProgress` is the value the hunter trigger
+      // actually reads. S147 gated `tickScoring` to FIGHT (R3: no points during BUILD) and a fresh
+      // match opens in BUILD, so in BUILD that re-derivation never runs, `scoreProgress` stays at the
+      // opening balance, and no hunter ever spawns.
+      //
+      // ⚠ That is correct sim behaviour, NOT a production bug — worth stating so nobody "fixes" the
+      // sim from this line. Production never depends on the re-derivation here: `addScore` and
+      // `spendScore` each recompute `scoreProgress` at their own call sites. Only a DIRECT map write
+      // leans on `tickScoring` to notice, and that is a test-harness shortcut.
+      //
+      // Setting FIGHT is also the faithful framing: the hunter is triggered by SCORE, score exists
+      // only in FIGHT, so FIGHT is the only phase in which this scenario is meaningful at all.
+      (w as unknown as { matchPhase: string }).matchPhase = 'FIGHT';
     });
 
     // (a) main.ts 75% trigger fires once → exactly one hunter, SEEKING, targeting P0.

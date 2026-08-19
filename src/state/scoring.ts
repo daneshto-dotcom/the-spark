@@ -36,6 +36,7 @@ import {
   FUNCTIONAL_BOND_COMPLEXITY,
   KEYSTONE_INCOME_COMPLEXITY,
   KEYSTONE_INCOME_MAX_NEIGHBORS,
+  LEADER_DECAY_ENABLED,
   LEADER_DECAY_RATE_PER_SEC,
   LEADER_DECAY_THRESHOLD_FRACTION,
   PHASE_1_WIN_SCORE,
@@ -241,6 +242,40 @@ export function computeAllComplexities(world: World): Map<PlayerId, number> {
  * (so the WIN check + the hunter 75% trigger see the freshly-accrued scoreProgress).
  * Solo: world.isHost is true (local player IS the authority) → runs locally.
  */
+/**
+ * S107 P1 / S147 P1 — the ANTI-COAST LEADER SCORE-DECAY, extracted verbatim from `tickScoring`.
+ *
+ * ⛔ SWITCHED OFF IN PRODUCTION, RETAINED ON PURPOSE (R28). The owner's ruling was *"Anti-coast
+ * LEADER SCORE-DECAY is switched OFF (retained, not deleted)"*, because under the tower-defence
+ * cycle scoring already stops for half of every match (R3: FIGHT only), so the rubber-band would
+ * double-punish the leader. `tickScoring` calls this only when `LEADER_DECAY_ENABLED`.
+ *
+ * ⚠ WHY THIS IS NOW ITS OWN EXPORTED FUNCTION. "Retained" has to mean more than "the lines are still
+ * in the file". Gating the call site alone would have left the three S107 decay tests asserting
+ * behaviour that no longer happens, and the only ways to keep the suite green would have been to
+ * delete them (losing the model's only coverage) or to weaken them into asserting nothing. Extracting
+ * lets those tests call the mechanic DIRECTLY, so the arithmetic stays fully under test for whenever
+ * a future balance session (S157+, R30) re-enables it, while the production path stays off. The body
+ * is byte-identical to the S107 original — this is a move, not a rewrite.
+ *
+ * Pure fn of (synced score, tick, constants) → replay byte-equivalent. Skipped in solo (zen sandbox).
+ * Self-limiting: floored at the threshold, so it never hard-caps a deserved win.
+ */
+export function applyLeaderDecay(world: World, leaderId: PlayerId | null): void {
+  if (world.gameMode === 'solo' || leaderId === null) return;
+  const threshold = PHASE_1_WIN_SCORE * LEADER_DECAY_THRESHOLD_FRACTION;
+  const leaderScore = world.scoreByPlayer.get(leaderId) ?? 0;
+  if (leaderScore <= threshold) return;
+  const bleed = (LEADER_DECAY_RATE_PER_SEC / PHYSICS_HZ) * (leaderScore - threshold);
+  world.scoreByPlayer.set(leaderId, Math.max(threshold, leaderScore - bleed));
+  // Re-derive scoreProgress as the true post-decay max. Gentle per-tick bleed means
+  // the leader almost always stays the leader, but a near-tie could flip — keep the
+  // WIN gate + HUNTER trigger (which read scoreProgress elsewhere) exactly correct.
+  let decayedMax = 0;
+  for (const v of world.scoreByPlayer.values()) if (v > decayedMax) decayedMax = v;
+  world.scoreProgress = decayedMax;
+}
+
 export function tickScoring(world: World): void {
   const perTickFactor = SCORE_INCOME_PER_COMPLEXITY_PER_SEC / PHYSICS_HZ;
   const oldProgress = world.scoreProgress;
@@ -270,20 +305,12 @@ export function tickScoring(world: World): void {
   // tick, constants) → replay byte-equivalent. Skipped in solo (zen sandbox). The decay
   // is self-limiting (floored at the threshold) and never exceeds a live builder's
   // income above the equilibrium complexity, so it never hard-caps a deserved win.
-  if (world.gameMode !== 'solo' && leaderId !== null) {
-    const threshold = PHASE_1_WIN_SCORE * LEADER_DECAY_THRESHOLD_FRACTION;
-    const leaderScore = world.scoreByPlayer.get(leaderId) ?? 0;
-    if (leaderScore > threshold) {
-      const bleed = (LEADER_DECAY_RATE_PER_SEC / PHYSICS_HZ) * (leaderScore - threshold);
-      world.scoreByPlayer.set(leaderId, Math.max(threshold, leaderScore - bleed));
-      // Re-derive scoreProgress as the true post-decay max. Gentle per-tick bleed means
-      // the leader almost always stays the leader, but a near-tie could flip — keep the
-      // WIN gate + HUNTER trigger (which read scoreProgress elsewhere) exactly correct.
-      let decayedMax = 0;
-      for (const v of world.scoreByPlayer.values()) if (v > decayedMax) decayedMax = v;
-      world.scoreProgress = decayedMax;
-    }
-  }
+  //
+  // S147 P1 (R28) — *"Anti-coast LEADER SCORE-DECAY is switched OFF (retained, not deleted)."*
+  // Under the tower-defence cycle, scoring already stops for half of every match (R3: FIGHT only),
+  // so the rubber-band would double-punish the leader. LEADER_DECAY_ENABLED is the single switch;
+  // every line below it is retained verbatim so restoring the mechanic is a one-token change.
+  if (LEADER_DECAY_ENABLED) applyLeaderDecay(world, leaderId);
 
   // Δ5 — SCORE_TIER pulse: one per SCORE_TIER_STEP boundary the LEADER's scoreProgress
   // crosses this tick, at the leader's avatar. Host-local visual flair (not serialized);

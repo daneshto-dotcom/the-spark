@@ -92,6 +92,7 @@ test.describe('S71 P1 — pickup bomb (solo, gating)', () => {
     const pageErrors: string[] = [];
     page.on('pageerror', (e) => pageErrors.push(String(e)));
     await page.addInitScript({ content: 'window.__TEST_SPAWN_RATE_PER_SECOND__ = 2;' });
+    await page.addInitScript({ content: 'window.__TEST_HAZARDS_ENABLED__ = true;' }); // S147 Step 0 — hazards are OFF by default (R14/R23); this spec re-enables them so its coverage survives
     await page.addInitScript({ content: 'window.__TEST_BOMB_SPAWN_SPARKS__ = 3;' }); // bomb after 3 sparks
     await page.addInitScript({ content: 'window.__TEST_WIN_SCORE__ = 999;' }); // never win first
     await startSolo(page);
@@ -123,6 +124,7 @@ test.describe('S71 P1 — pickup bomb (solo, gating)', () => {
     // build consumes < cadence sparks in EVERY sim-speed regime (fast sim => ~10 sparks in
     // a ~5s build; slow sim => the sim spawns fewer during a longer build), so the first
     // bomb (24 sparks) reliably appears only once the cluster is built. See file header.
+    await page.addInitScript({ content: 'window.__TEST_HAZARDS_ENABLED__ = true;' }); // S147 Step 0 — hazards are OFF by default (R14/R23); this spec re-enables them so its coverage survives
     await page.addInitScript({ content: 'window.__TEST_BOMB_SPAWN_SPARKS__ = 24;' });
     await page.addInitScript({ content: 'window.__TEST_POTATO_SPAWN_SPARKS__ = 999;' });
     await page.addInitScript({ content: 'window.__TEST_WIN_SCORE__ = 999;' });

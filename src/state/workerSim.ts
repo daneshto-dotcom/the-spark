@@ -340,6 +340,14 @@ export function structuralSignature(world: World): string {
     world.lastWinnerId ?? -1,
     world.rainbowSwitchTick ?? -1,
     world.hunterSpawned ? 1 : 0,
+    // S147 P1 — THE MATCH CLOCK IS A STRUCTURAL TERM. Not for hash coverage (determinismParts
+    // already covers both fields) but because this signature is what decides whether a quiet batch
+    // sends a snapshot at all — a batch with no size change otherwise waits for the 100 ms floor.
+    // A phase edge changes no collection size, so without this term the render mirror could show a
+    // stale phase (and a stale HUD countdown) for up to 100 ms after the flip. Including the phase
+    // makes the edge itself a structural change, so the mirror updates on the flip tick.
+    world.matchPhase,
+    world.phaseEndsAtTick,
     benched,
     Math.floor(world.scoreProgress),
   ].join('|');

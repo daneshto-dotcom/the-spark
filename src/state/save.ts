@@ -26,6 +26,7 @@ import {
   SPAWN_INTERVAL_TICKS,
   type StiffnessTier,
   type SparkType,
+  PHASE_DURATION_TICKS,
 } from '../constants.ts';
 import { type GameEffect } from '../game/effects.ts';
 import { makePrimitiveFromSpark, type Primitive } from '../game/primitive.ts';
@@ -57,7 +58,7 @@ import {
   type DefenderId,
   type Vec2,
 } from '../types.ts';
-import { type GameMode, type GameState, type World } from './world.ts';
+import { type GameMode, type GameState, type MatchPhase, type World } from './world.ts';
 import { type Player } from '../game/player.ts';
 import type { SpawnerState } from '../game/spawner.ts';
 import type { Bomb } from './bomb.ts';
@@ -96,6 +97,14 @@ export interface WorldSnapshot {
   tick: number;
   rngSeed: number;
   gameState: GameState;
+  /**
+   * S147 P1 — the match clock. Additive-OPTIONAL on the wire (the `rainbowSwitchTick` precedent, no
+   * schemaVersion bump): a pre-S147 save simply has neither key and rehydrates to a fresh full BUILD
+   * stage. Both ride `NetSnapshot` deliberately — the deadline is host-authoritative, so a joiner
+   * must never compute it locally.
+   */
+  matchPhase?: MatchPhase;
+  phaseEndsAtTick?: number;
   lastWinnerId: PlayerId | null;
   nextPrimitiveId: number;
   nextBondId: number;
@@ -791,6 +800,9 @@ export function snapshot(
     tick: world.tick,
     rngSeed: world.rngSeed,
     gameState: world.gameState,
+    // S147 P1 — the match clock rides the snapshot (host-authoritative deadline).
+    matchPhase: world.matchPhase,
+    phaseEndsAtTick: world.phaseEndsAtTick,
     lastWinnerId: world.lastWinnerId,
     nextPrimitiveId: world.nextPrimitiveId,
     nextBondId: world.nextBondId,
@@ -1090,6 +1102,13 @@ export function applyNetSnapshot(snap: NetSnapshot, world: World): void {
 function applySnapshotCore(snap: NetSnapshot, world: World): void {
   world.tick = snap.tick;
   world.gameState = snap.gameState;
+  // S147 P1 — the match clock. Rehydrated UNCONDITIONALLY so a joiner and a promoted successor adopt
+  // the host's phase and deadline exactly. The `??` fallbacks cover a pre-S147 save only: BUILD plus
+  // a deadline one full phase out from the restored tick, i.e. a clean fresh build stage rather than
+  // an instant flip. Note it must be `snap.tick`-relative, not 0-relative, or an old save restored at
+  // tick 900k would flip phase on its very first tick.
+  world.matchPhase = snap.matchPhase ?? 'BUILD';
+  world.phaseEndsAtTick = snap.phaseEndsAtTick ?? snap.tick + PHASE_DURATION_TICKS;
   world.lastWinnerId = snap.lastWinnerId;
   world.scoreProgress = snap.scoreProgress ?? 0;
   world.gameMode = snap.gameMode ?? 'solo';

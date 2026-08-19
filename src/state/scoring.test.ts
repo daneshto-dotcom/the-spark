@@ -35,7 +35,7 @@ import { asBondId, asPlayerId, asPrimitiveId, type PlayerId } from '../types.ts'
 import { makeGameStateExtras, tickGameState } from './gameState.ts';
 import { makeWorld, type World } from './world.ts';
 import { addScore } from './gameMode.ts';
-import { computeComplexity, leaderPlayerId, tickScoring } from './scoring.ts';
+import { applyLeaderDecay, computeComplexity, leaderPlayerId, tickScoring } from './scoring.ts';
 
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
@@ -376,6 +376,22 @@ describe('S84 P3 — pacing constants coherence', () => {
 });
 
 describe('S107 P1 — anti-coast LEADER SCORE-DECAY', () => {
+  /**
+   * S147 P1 (R28) — the decay is SWITCHED OFF in production (`LEADER_DECAY_ENABLED = false`) but
+   * RETAINED, so `tickScoring` no longer applies it. These tests therefore drive income and decay
+   * together explicitly, which is exactly what `tickScoring` did before S147.
+   *
+   * ⚠ This keeps the S107 model fully covered rather than deleting the tests or weakening them into
+   * asserting nothing — "retained, not deleted" has to mean the arithmetic is still verified, because
+   * a future balance session (R30 / S157+) is expected to re-enable it and will need these green.
+   * The tests that assert the decay does NOT fire (below-threshold, solo-exempt, committed-builder)
+   * deliberately keep calling plain `tickScoring`: they now hold for two independent reasons, and
+   * that is strictly more true than before.
+   */
+  const tickWithDecay = (w: Parameters<typeof tickScoring>[0]): void => {
+    tickScoring(w);
+    applyLeaderDecay(w, leaderPlayerId(w));
+  };
   const THRESHOLD = PHASE_1_WIN_SCORE * LEADER_DECAY_THRESHOLD_FRACTION; // 1125 at WIN=1500
   // Equilibrium complexity at the win line: C_eq = RATE × (1−FRACTION) × WIN / INCOME ≈ 75 at WIN=1500.
   const C_EQ =
@@ -386,7 +402,7 @@ describe('S107 P1 — anti-coast LEADER SCORE-DECAY', () => {
     const w = duel();
     w.scoreByPlayer.set(P0, THRESHOLD + 110); // ~700, the leader (P1 = 0)
     buildMagicPair(w, P0, 200, 200); // complexity 4 ≪ C_eq → income cannot outrun the decay
-    tickScoring(w);
+    tickWithDecay(w);
     expect(w.scoreByPlayer.get(P0)!).toBeLessThan(THRESHOLD + 110);
   });
 
@@ -402,7 +418,7 @@ describe('S107 P1 — anti-coast LEADER SCORE-DECAY', () => {
   it('decay never drops the leader BELOW the threshold (floored, self-limiting)', () => {
     const w = duel();
     w.scoreByPlayer.set(P0, THRESHOLD + 5); // just above, zero standing structure (income 0)
-    for (let t = 0; t < 5000; t++) tickScoring(w);
+    for (let t = 0; t < 5000; t++) tickWithDecay(w);
     expect(w.scoreByPlayer.get(P0)!).toBeGreaterThanOrEqual(THRESHOLD);
     expect(w.scoreByPlayer.get(P0)!).toBeLessThan(THRESHOLD + 5); // it DID bleed toward the floor
   });
@@ -428,7 +444,7 @@ describe('S107 P1 — anti-coast LEADER SCORE-DECAY', () => {
     const w = duel();
     w.scoreByPlayer.set(P0, THRESHOLD + 60); // 649.5
     w.scoreByPlayer.set(P1, THRESHOLD + 110); // 699.5 — P1 is the leader
-    tickScoring(w); // both have zero structure → P1 (leader) decays, P0 is untouched by decay
+    tickWithDecay(w); // both have zero structure → P1 (leader) decays, P0 is untouched by decay
     expect(w.scoreByPlayer.get(P1)!).toBeLessThan(THRESHOLD + 110); // leader bled
     expect(w.scoreByPlayer.get(P0)!).toBe(THRESHOLD + 60); // non-leader unchanged (no income, no decay)
     // scoreProgress (WIN gate + HUNTER read this) is the true post-decay max.
@@ -440,7 +456,7 @@ describe('S107 P1 — anti-coast LEADER SCORE-DECAY', () => {
       const w = duel();
       w.scoreByPlayer.set(P0, THRESHOLD + 90);
       buildMagicPair(w, P0, 200, 200);
-      for (let t = 0; t < 300; t++) tickScoring(w);
+      for (let t = 0; t < 300; t++) tickWithDecay(w);
       return JSON.stringify([...w.scoreByPlayer.entries()]);
     };
     expect(run()).toBe(run());

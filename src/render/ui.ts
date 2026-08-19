@@ -24,10 +24,11 @@ import {
   LEADER_DECAY_THRESHOLD_FRACTION,
   MAX_DISRUPTION_CHARGES,
   PHASE_1_WIN_SCORE,
+  PHYSICS_HZ,
   PLAYER_COLORS,
   SCORE_TIER_STEP,
 } from '../constants.ts';
-import { isNetworked, type World } from '../state/world.ts';
+import { isNetworked, type MatchPhase, type World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
 import { MAGIC_COMBO_KEYS } from '../combos.ts';
 
@@ -52,6 +53,28 @@ export function formatTierBanner(tier: number): string {
 /** V6-0.2 — solo score readout. Floors, matching the leaderboard's own formatting. */
 export function formatSoloScore(score: number): string {
   return `SCORE ${Math.floor(score)}/${PHASE_1_WIN_SCORE}`;
+}
+
+/**
+ * S147 P1 — the match-clock readout: which half of the tower-defence cycle you are in, and how long
+ * is left of it. e.g. `BUILD  1:30` / `FIGHT  0:07`.
+ *
+ * PURE + EXPORTED so it is unit-testable without PIXI (the `formatSoloScore` / `formatTierBanner`
+ * precedent in this file). All the interesting behaviour is the arithmetic, and this keeps it out of
+ * a render class where it could only be tested through a canvas.
+ *
+ * `ticksRemaining` is `phaseEndsAtTick - tick`, computed by the caller. It is CEILED to whole
+ * seconds, so a fresh 5400-tick phase reads "1:30" rather than "1:29", and the display only reaches
+ * 0:00 on the actual final tick. It is also CLAMPED at zero: the value can legitimately go negative
+ * for a frame or two — a client's local tick advances at 60 Hz between 10 Hz snapshots and can pass
+ * the deadline before the host's flip arrives, and the NONET freeze can leave it negative on the
+ * host too. Showing "-0:03" would look broken, so it floors at 0:00 and waits for the flip.
+ */
+export function formatPhaseBanner(phase: MatchPhase, ticksRemaining: number): string {
+  const secs = Math.max(0, Math.ceil(ticksRemaining / PHYSICS_HZ));
+  const mm = Math.floor(secs / 60);
+  const ss = secs % 60;
+  return `${phase}  ${mm}:${String(ss).padStart(2, '0')}`;
 }
 
 /**
@@ -253,6 +276,20 @@ export class HUD {
   private readonly qHintText: Text;
   /** S88 G3a — "Combos N/14" discovered counter (top-center, PLAYING, all modes). */
   private readonly comboCounterText: Text;
+  /** S147 P1 — the BUILD/FIGHT phase + countdown, top-centre under the combo counter. */
+  private readonly phaseBannerText: Text;
+  /**
+   * S147 P1 — the last matchPhase this HUD actually OBSERVED, or null before the first frame.
+   *
+   * This is how the phase EDGE is detected, and it is deliberately render-local rather than a
+   * PHASE_CHANGED sim effect. A transient effect emitted inside the host tick would be LOST to a
+   * joiner and to a post-migration client: they receive a snapshot with matchPhase already
+   * flipped and would silently never see the transition. Diffing what we last rendered works
+   * identically for host, joiner, worker mirror and promoted successor, costs no wire bytes and
+   * adds no hashed state. Same shape as syncRainbowYellAudio's fresh-rainbowSwitchTick watcher
+   * and creatureRenderer's death-watcher.
+   */
+  private lastSeenPhase: MatchPhase | null = null;
   /** V6-0.2 (S129) — milestone banner fired by a SCORE_TIER crossing. */
   private readonly tierBannerText: Text;
   /**
@@ -377,6 +414,17 @@ export class HUD {
     this.comboCounterText.visible = false;
     app.stage.addChild(this.comboCounterText);
 
+    // S147 P1 — the match clock. Sits directly under the combo counter on the top-centre axis, so
+    // the two share one column instead of competing for the same 10px band.
+    this.phaseBannerText = new Text({
+      text: '',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 20, fill: 0xffffff }),
+    });
+    this.phaseBannerText.anchor.set(0.5, 0);
+    this.phaseBannerText.position.set(CANVAS_WIDTH / 2, 30);
+    this.phaseBannerText.visible = false;
+    app.stage.addChild(this.phaseBannerText);
+
     // P3 (S131) — plate FIRST, so child-add order puts it behind the banner text (the
     // betaBadge/betaBadgePlate idiom; no zIndex API needed).
     this.tierBannerPlate = new Graphics();
@@ -421,6 +469,7 @@ export class HUD {
     this.drawWinState(world);
     this.drawMultiplayerHUD(world);
     this.drawComboCounter(world);
+    this.drawPhaseBanner(world);
     // V6-0.3 (S130) — ANIMATE only. The `world.effects` scan that arms this banner lives in
     // `drainTierBanner`, which main.ts calls BEFORE effectsRenderer wipes the array. Do NOT move
     // the scan back in here: `sync` runs after the wipe, which is exactly the V6-0.2 defect.
@@ -564,6 +613,47 @@ export class HUD {
     this.comboCounterText.text = `Combos ${found}/${total}`;
     this.comboCounterText.alpha = found >= total ? 1 : 0.7;
     this.comboCounterText.visible = true;
+  }
+
+  /**
+   * S147 P1 — THE MATCH CLOCK READOUT. `BUILD 1:30` / `FIGHT 0:07`, top-centre.
+   *
+   * Reads only synced state, so it is correct on every surface for free: both `matchPhase` and
+   * `phaseEndsAtTick` ride the host snapshot, while `world.tick` advances locally at 60 Hz on host
+   * AND client. So the countdown ticks down SMOOTHLY on a joiner between 10 Hz snapshots rather than
+   * stepping in 100 ms jumps — no interpolation code required.
+   *
+   * Colour carries the phase at a glance (the owner's framing: build stage is sealed and safe, fight
+   * stage is when it kicks off): calm blue-white in BUILD, hot amber in FIGHT.
+   */
+  private drawPhaseBanner(world: World): void {
+    if (world.gameState !== 'PLAYING') {
+      this.phaseBannerText.visible = false;
+      // Drop the edge memory with the match, so the first frame of the NEXT match is treated as a
+      // fresh observation rather than a phantom transition out of the old match's final phase.
+      this.lastSeenPhase = null;
+      return;
+    }
+    this.phaseBannerText.text = formatPhaseBanner(world.matchPhase, world.phaseEndsAtTick - world.tick);
+    this.phaseBannerText.style.fill = world.matchPhase === 'FIGHT' ? 0xffb347 : 0xcfe8ff;
+    this.phaseBannerText.visible = true;
+
+    // The phase EDGE. Fires once per transition, and deliberately NOT on the very first observation
+    // (lastSeenPhase === null) — joining a match already in progress is not a transition.
+    if (this.lastSeenPhase !== null && this.lastSeenPhase !== world.matchPhase) {
+      this.onPhaseEdge(world.matchPhase);
+    }
+    this.lastSeenPhase = world.matchPhase;
+  }
+
+  /**
+   * S147 P1 — one place for everything that should happen when the cycle turns over. Intentionally
+   * minimal in S147 (the clock ships alone): it pulses the banner so the change is unmissable.
+   * S149+ hangs the wall-drop cue, the gatherer-shelter beat and the phase sting off this seam.
+   */
+  private onPhaseEdge(_phase: MatchPhase): void {
+    this.phaseBannerText.scale.set(1.6);
+    this.phaseBannerText.alpha = 1;
   }
 
   private drawEnergyGauge(world: World): void {

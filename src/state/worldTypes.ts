@@ -40,6 +40,19 @@ import type { BombId, BondId, CreatureId, DefenderId, GathererId, HunterId, Play
 export type GameState = 'TITLE' | 'LOBBY' | 'PLAYING' | 'WIN' | 'POSTGAME';
 
 /**
+ * S147 P1 — the two halves of the tower-defence match cycle (`World.matchPhase`).
+ *
+ * BUILD — gather and build, sealed behind zone walls (S149), no scoring (R3).
+ * FIGHT — walls drop, towers come alive, points tick from live tower complexity (R7/R16).
+ *
+ * ⚠ A SERIALIZED STRING LITERAL UNION. Adding a third arm later is a wire-visible change a stale
+ * peer cannot parse, so it costs a `PROTOCOL_VERSION` bump — the same rule that forced 12→13 when
+ * `DefenderState` gained `'WALK'`. Two arms is the whole design (the owner's notes describe exactly
+ * two stages), so this should not need to grow.
+ */
+export type MatchPhase = 'BUILD' | 'FIGHT';
+
+/**
  * S87 — 'bots' added: VS-BOTS local match (1 human host + 1..MAX_BOTS AI
  * seats). DELIBERATELY non-solo so isNetworked() returns true and the mode
  * inherits the full FFA rule set with zero special-casing: fog of war,
@@ -61,6 +74,41 @@ export interface World {
   bonds: Map<BondId, Bond>;
   players: Map<PlayerId, Player>;
   gameState: GameState;
+  /**
+   * S147 P1 — THE MATCH CLOCK. Which half of the tower-defence cycle the match is in.
+   *
+   * Owner's notes: *"90 sec to gather & build. End of 90 sec 'build' stage you have 'fight' stage."*
+   * BUILD = gather, build, sealed and safe. FIGHT = towers come alive and points accrue (R3/R7).
+   * The cycle repeats forever; a match starts in a full BUILD so nobody is attacked before they can
+   * build anything.
+   *
+   * ⚠ ORTHOGONAL TO `gameState`, NOT A SUB-STATE OF IT. `gameState` is the app-level
+   * TITLE/LOBBY/PLAYING/WIN/POSTGAME machine; `matchPhase` only advances while `gameState` is
+   * PLAYING. Keeping them separate is what lets the phase survive a WIN→POSTGAME→PLAYING cycle
+   * without the app machine having to know the cycle exists.
+   *
+   * Hashed + serialized + on the wire (host-authoritative). A client NEVER computes this — it reads
+   * it from the snapshot, exactly like `gameState`.
+   */
+  matchPhase: MatchPhase;
+  /**
+   * S147 P1 — the ABSOLUTE tick at which the current `matchPhase` ends. Host stamps it; every peer
+   * reads it. The HUD countdown is `(phaseEndsAtTick - tick) / PHYSICS_HZ`.
+   *
+   * ⛔ ABSOLUTE DEADLINE, NOT A COUNTDOWN — and that is a determinism decision, not a style one.
+   * A countdown would have to be decremented every tick on every peer (one more mutation to
+   * disagree about). An absolute deadline is written once per phase edge and is otherwise read-only,
+   * so a promoted successor at a host migration inherits the exact boundary from the mirror with
+   * zero recomputation. This is also why the phase edge is safe across the NONET freeze
+   * (`main.ts`), which advances `world.tick` while skipping the host tick body entirely: the
+   * deadline does not drift because nothing decrements it, and the `>=` comparison absorbs the
+   * elapsed gap on the first tick after the trial ends.
+   *
+   * ⚠ The flip ADVANCES this by exactly `PHASE_DURATION_TICKS` (`phaseEndsAtTick += …`), never
+   * `tick + PHASE_DURATION_TICKS`. Re-stamping from the current tick would let every skipped
+   * evaluation push all future boundaries later and later. See `runHostTick`.
+   */
+  phaseEndsAtTick: number;
   /** Monotonic counter for primitive IDs. */
   nextPrimitiveId: number;
   /** Monotonic counter for bond IDs. */

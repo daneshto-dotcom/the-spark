@@ -60,6 +60,19 @@ function buildSoloWorld(): World {
   const world = makeWorld(SEED);
   world.gameState = 'TITLE';
   dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
+  // ⭐ S147 P1 — FORCE A MATCH-PHASE EDGE INSIDE THE COMPARED WINDOW.
+  //
+  // This is where host-vs-worker phase parity is actually proven. The default deadline is 5400 ticks,
+  // which is beyond this rig's ~500+ tick window, so without shortening it the run would never cross
+  // an edge and the clock would ride along completely unverified across the worker boundary — passing
+  // for the wrong reason. Shortening it here (BEFORE the batch rig adopts this world via its JSON
+  // save) puts the flip squarely inside the compared frames, so the existing per-frame netSnapshot +
+  // WIDE hash equality does all the work: if the worker flipped on a different tick, or inherited a
+  // different deadline, or missed the field in the save round-trip, the run diverges and throws.
+  //
+  // The edge is also what proves the SCORING GATE crosses the boundary identically, since income
+  // starts exactly at the BUILD→FIGHT flip and `scoreProgress` is in the wide hash.
+  world.phaseEndsAtTick = world.tick + 200;
   return world;
 }
 
@@ -73,6 +86,8 @@ function buildBotsWorld(): World {
   }));
   const botSeats = BOT_DIFFS.map((_, i) => i + 1);
   dispatch(world, { type: 'START_GAME', mode: 'bots', isHost: true, roster, botSeats });
+  // S147 P1 — same forced phase edge as buildSoloWorld; see the comment there.
+  world.phaseEndsAtTick = world.tick + 200;
   return world;
 }
 
@@ -261,6 +276,9 @@ describe('S122 P1 — worker-sim batch envelope differential (HARD GATE)', () =>
     // INIT adoption must be bit-exact BEFORE any tick.
     expect(hashWorldStateFull(batch.world)).toBe(hashWorldStateFull(refWorld));
 
+    // S147 P1 — latch for the once-only second phase-edge injection below.
+    let secondEdgeForced = false;
+
     for (let f = 0; f < 300; f++) {
       const inputs = scriptInputs(refWorld, f);
       // Mid-run NONET freeze: force the trial identically on both worlds (same minted
@@ -268,6 +286,26 @@ describe('S122 P1 — worker-sim batch envelope differential (HARD GATE)', () =>
       if (f === 150 && refWorld.sudoku === null) {
         startSudoku(refWorld, P0, mintNonetSeed(refWorld));
         startSudoku(batch.world, P0, mintNonetSeed(batch.world));
+      }
+      // ⭐ S147 P1 — FORCE THE **SECOND** PHASE EDGE, so this run covers a full BUILD→FIGHT→BUILD
+      // cycle host-vs-worker, which is the wording of the session's exit gate.
+      //
+      // The first edge comes from the short deadline stamped in buildSoloWorld. After it fires, the
+      // flip advances the deadline by a full PHASE_DURATION_TICKS (5400) — far beyond this window — so
+      // without a second nudge the run would only ever prove ONE direction of the cycle.
+      //
+      // ⚠ CONDITION-DRIVEN, NOT FRAME-NUMBERED, and that is deliberate: a fixed frame index is
+      // fragile here. My first attempt used `f === 230` and silently never fired, because the NONET
+      // freeze injected at f=150 halts the sim (the host tick is skipped entirely while
+      // `world.sudoku !== null`), so the phase could not flip for the rest of the run. Keying off the
+      // actual state instead — first FIGHT frame with no trial active — is robust to the freeze
+      // window, to the frames-per-tick ratio, and to anyone re-ordering the injections above.
+      // Applied identically to BOTH worlds, exactly like the NONET freeze; they are byte-identical
+      // here (the loop throws otherwise), so the injection itself cannot desync them.
+      if (!secondEdgeForced && refWorld.matchPhase === 'FIGHT' && refWorld.sudoku === null) {
+        refWorld.phaseEndsAtTick = refWorld.tick + 5;
+        batch.world.phaseEndsAtTick = batch.world.tick + 5;
+        secondEdgeForced = true;
       }
       const a = ref.frame(inputs);
       const b = batch.frame(inputs);
@@ -291,6 +329,15 @@ describe('S122 P1 — worker-sim batch envelope differential (HARD GATE)', () =>
     // The run must have actually exercised the interesting paths.
     expect(refWorld.primitives.size).toBeGreaterThan(3); // placements landed
     expect(refWorld.tick).toBeGreaterThan(500);
+    // S147 P1 — and the forced match-phase edge must genuinely have been crossed, on BOTH sides. Without
+    // this the phase-parity coverage above could silently become vacuous the day someone lengthens the
+    // deadline or shortens the rig, and the failure mode would be invisible: a green test proving nothing.
+    // Both forced edges must have fired, giving a full BUILD→FIGHT→BUILD cycle inside the compared
+    // window. Landing back in BUILD is the proof that the SECOND edge fired too — if only the first
+    // had, this would read FIGHT.
+    expect(refWorld.matchPhase, 'a full BUILD→FIGHT→BUILD cycle must have completed on the ref side').toBe('BUILD');
+    expect(batch.world.matchPhase, 'and identically on the worker side').toBe('BUILD');
+    expect(batch.world.phaseEndsAtTick).toBe(refWorld.phaseEndsAtTick);
   });
 
   it('S123 P1 — VS-BOTS: 300 live frames with worker-owned bots are byte-identical to the direct path (HARD GATE)', () => {
@@ -377,12 +424,26 @@ describe('S122 P1 — worker-sim batch envelope differential (HARD GATE)', () =>
     > = [
       ['creatures', peak.creatures, null],
       ['creatureSpawners', peak.creatureSpawners, null],
-      ['bombs', peak.bombs, null],
-      ['potatoes', peak.potatoes, null],
-      ['rainbows', peak.rainbows, null],
-      ['seagulls', peak.seagulls, null],
-      ['poops', peak.poops, null],
-      ['fouledPrimitives', peak.fouledPrimitives, null],
+      // ⭐ S147 P1 Step 0 (R14/R23) — THESE SIX ROWS WENT FROM NATURALLY-SEEDED TO UNREACHABLE, and
+      // that is a deliberate design change, not a regression. `HAZARD_SPAWN_ENABLED = false` gates the
+      // four hazard DISPATCH sites in physicsLoop, so the spawner still draws its countdowns (the RNG
+      // streams are byte-identical by design) but nothing is ever dispatched. `poops` and
+      // `fouledPrimitives` fall with them because both are downstream of the seagull.
+      //
+      // They are ACKNOWLEDGED rather than back-door seeded, on purpose: seeding them here would mean
+      // exercising a path production can no longer reach, which is worse than an honest, reported gap.
+      // The loop below still console.logs each one every run, so the hole cannot go quiet.
+      //
+      // ⚠ WHEN HAZARDS COME BACK (flip HAZARD_SPAWN_ENABLED), DELETE THESE SIX REASONS rather than
+      // leaving stale excuses — exactly as this block's own instruction above says. They will start
+      // arising naturally again the moment the flag flips, because nothing else about the cadence
+      // changed. Logged as carry-forward CF-S147-c.
+      ['bombs', peak.bombs, 'unreachable while HAZARD_SPAWN_ENABLED=false (S147 Step 0, R14/R23) — restore this row with the hazards'],
+      ['potatoes', peak.potatoes, 'unreachable while HAZARD_SPAWN_ENABLED=false (S147 Step 0, R14/R23) — restore this row with the hazards'],
+      ['rainbows', peak.rainbows, 'unreachable while HAZARD_SPAWN_ENABLED=false (S147 Step 0, R14/R23) — restore this row with the hazards'],
+      ['seagulls', peak.seagulls, 'unreachable while HAZARD_SPAWN_ENABLED=false (S147 Step 0, R14/R23) — restore this row with the hazards'],
+      ['poops', peak.poops, 'downstream of the seagull, so unreachable while HAZARD_SPAWN_ENABLED=false (S147 Step 0)'],
+      ['fouledPrimitives', peak.fouledPrimitives, 'downstream of seagull poop, so unreachable while HAZARD_SPAWN_ENABLED=false (S147 Step 0)'],
       ['gatherers', peak.gatherers, null],
       ['castleBanks', peak.castleBanks, null],
       // S143 P3 — seeded for the first time this priority, via ENQUEUE/CANCEL in scriptInputs.

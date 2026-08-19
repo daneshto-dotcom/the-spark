@@ -11,7 +11,7 @@
  * verifies the claim against its stored warrant, re-latches, and resumes at epoch 1.
  *
  * S124 D4 NOTE: __TEST_MIGRATION__ is now a TIMING OVERRIDE only (starvation/grace/ladder
- * ms) — migration itself is PRODUCTION-ON under PROTOCOL_VERSION 15. Test 1 keeps the
+ * ms) — migration itself has been PRODUCTION-ON since PROTOCOL_VERSION 15. Test 1 keeps the
  * compressed-window flow; test 2 runs with NO seam at all, proving the production path
  * fires under the real 15s grace (the D4 activation acceptance gate).
  *

@@ -79,6 +79,7 @@ test.describe('S75 P3 — rainbow color-shuffle (solo, gating)', () => {
     const pageErrors: string[] = [];
     page.on('pageerror', (e) => pageErrors.push(String(e)));
     await page.addInitScript({ content: 'window.__TEST_SPAWN_RATE_PER_SECOND__ = 2;' });
+    await page.addInitScript({ content: 'window.__TEST_HAZARDS_ENABLED__ = true;' }); // S147 Step 0 — hazards are OFF by default (R14/R23); this spec re-enables them so its coverage survives
     await page.addInitScript({ content: 'window.__TEST_RAINBOW_SPAWN_SPARKS__ = 2;' }); // rainbow after 2 sparks
     // Suppress the other two zone hazards so ONLY the rainbow is clickable (race-free by design).
     await page.addInitScript({ content: 'window.__TEST_BOMB_SPAWN_SPARKS__ = 99999;' });

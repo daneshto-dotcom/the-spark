@@ -20,6 +20,7 @@
 
 import {
   GATHERER_DEPOSIT_OFFSET_Y,
+  PHASE_DURATION_TICKS,
   PLAYER_COLORS,
   POOP_CRUISER_MAX_SPEED,
   SPAWNER_CENTER_X,
@@ -189,6 +190,12 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   world.nextRainbowId = 0;
   // S84 P2 — a fresh match must not resume (or re-yell) a previous match's flyover.
   world.rainbowSwitchTick = undefined;
+  // S147 P1 — THE MATCH CLOCK RESTARTS WITH THE MATCH. A fresh match always opens with a FULL BUILD
+  // stage (Q12) so nobody can be attacked before they have had a chance to build. Deadline is stamped
+  // RELATIVE TO world.tick, not to 0: applyStartGame does not reset the tick, so an absolute 5400
+  // would already be in the past on any second match of a session and the phase would flip instantly.
+  world.matchPhase = 'BUILD';
+  world.phaseEndsAtTick = world.tick + PHASE_DURATION_TICKS;
   // S88 G3a — discovery is per-match: a fresh match starts at Combos 0/14, no stale toast.
   world.discoveredCombos.clear();
   world.comboToastTick = undefined;
@@ -427,6 +434,10 @@ export function applyReturnToTitle(world: World): World {
   world.nextRainbowId = 0;
   // S84 P2 — drop any in-flight flyover with the rest of the hazard state.
   world.rainbowSwitchTick = undefined;
+  // S147 P1 — drop the match clock back to a pristine opening BUILD on title-return, mirroring the
+  // hazard/combo/NONET teardown around it. Tick-relative for the same reason as applyStartGame.
+  world.matchPhase = 'BUILD';
+  world.phaseEndsAtTick = world.tick + PHASE_DURATION_TICKS;
   // S88 G3a — drop per-match combo-discovery state on title-return.
   world.discoveredCombos.clear();
   world.comboToastTick = undefined;
@@ -680,6 +691,17 @@ export function spendScore(world: World, playerId: PlayerId, cost: number): void
  * `SPAWNER_KILL_REWARD / enemyCount` share (float — replay-safe, host-authoritative).
  */
 export function awardSpawnerKillReward(world: World, spawner: CreatureSpawner): void {
+  // S147 P1 (R3) — *"Points accrue during the FIGHT stage ONLY."* This is the SECOND score path in
+  // the codebase (the first is tickScoring's complexity income) and it is the one that is easy to
+  // miss, because it is event-driven rather than per-tick: a spawner dying during BUILD would award
+  // a bounty and quietly falsify the "score is 0 across a whole BUILD" invariant.
+  //
+  // ⚠ A DELIBERATE, FLAGGED ADDITION beyond the S147 spec's "one guard, one call site". Gating only
+  // tickScoring would have left the invariant TRUE-BY-COINCIDENCE (it holds in tests only because no
+  // test kills a spawner during BUILD) rather than true by construction. In the target design this
+  // gate is behaviour-neutral anyway — from S149 nothing can attack during BUILD (R5), so a bounty in
+  // BUILD cannot arise; it matters only in the S147 interim where towers are still always-on.
+  if (world.matchPhase !== 'FIGHT') return;
   const enemies: PlayerId[] = [];
   for (const player of world.players.values()) {
     if (player.id !== spawner.ownerPlayerId) enemies.push(player.id);

@@ -469,6 +469,35 @@ function buildScenarioWorld(scen: Scenario): World {
   } else {
     world.gameState = 'PLAYING';
   }
+  // ⭐ S147 P1 — PIN THE MATCH PHASE TO **FIGHT** FOR EVERY SCENARIO. Same reasoning as the S139 P2
+  // goblin removal directly above, and load-bearing for all eight scenarios.
+  //
+  // `referenceHostTick` is a FROZEN transcription of the pre-S147 body, so it calls `tickScoring`
+  // UNCONDITIONALLY. The live `runHostTick` now gates scoring to the FIGHT phase (R3). A world left in
+  // the production default of BUILD therefore accrues NO income on the live side while the reference
+  // accrues it every tick, and the WIDE hash diverges on `scoreProgress`/`scoreByPlayer` within a few
+  // ticks — which says nothing whatsoever about whether the S119 extraction still holds, and that is
+  // the ONLY thing this gate exists to prove.
+  //
+  // ⚠ THIS IS AN EQUIVALENCE STATEMENT, NOT A WORKAROUND. The frozen reference literally encodes the
+  // pre-phase world, which scored on every tick — and the phase in which the live sim scores on every
+  // tick IS `FIGHT`. Pinning FIGHT is what makes the two comparable; it is not hiding a behavioural
+  // change. Laundering would be editing the reference BODY to know about phases, which would destroy
+  // the gate. Nothing here weakens it: with FIGHT pinned, the scoring call is reached identically on
+  // both sides, so every pre-existing divergence this gate could ever catch is still caught.
+  //
+  // ⛔ AND THE PHASE CLOCK IS *NOT* TESTED HERE — deliberately. Phase-cycle determinism is proven in
+  // the harnesses where BOTH sides run the LIVE tick body: `matchPhase.test.ts` (flip arithmetic,
+  // parity across long freezes, score 0 in BUILD / rising in FIGHT) and
+  // `workerSim.differential.test.ts` (host-vs-worker, phase edge inside its 300 frames). Adding a
+  // phase-cycling scenario HERE would be impossible by construction, for the exact reason above.
+  //
+  // Safe because PHASE_DURATION_TICKS (5400) exceeds the longest scenario (800 ticks), so no edge can
+  // land mid-run and silently flip a scenario into BUILD. `matchPhase.test.ts` asserts that bound BY
+  // NAME so a future phase re-tune fails there with the reason, instead of reddening eight unrelated
+  // determinism scenarios and sending the next session hunting a desync that is really a fixture bug.
+  world.matchPhase = 'FIGHT';
+
   // Scattered field + a bonded 3-prim chain (the S107 fixture) so physics,
   // scoring and the creature AI all have real material from tick 0.
   for (let i = 0; i < 12; i++) {

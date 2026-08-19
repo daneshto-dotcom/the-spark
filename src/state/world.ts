@@ -22,7 +22,7 @@
  *         (applySeverBond) — dispatch() is now uniformly 1-line delegations.
  */
 
-import { PLAYER_COLORS, RAID_CREATURE_DAMAGE, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, TERRITORY_SHRINK_DURATION_TICKS } from '../constants.ts';
+import { PHASE_DURATION_TICKS, PLAYER_COLORS, RAID_CREATURE_DAMAGE, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, TERRITORY_SHRINK_DURATION_TICKS } from '../constants.ts';
 import { isBenchDeniedIntent } from './benchGate.ts';
 import { isBenched } from './hunters/hunter.ts';
 import { applySeverBond } from './severBond.ts';
@@ -171,7 +171,7 @@ export { addScore, isNetworked } from './gameMode.ts';
 // S61 P3 — World / GameState / GameMode moved to src/state/worldTypes.ts (§XV
 // de-hypertrophy): world.ts is the dispatch seam, worldTypes.ts the data shape.
 // Direct type-only re-export so consumers keep importing them from './world.ts'.
-export type { GameMode, GameState, World } from './worldTypes.ts';
+export type { GameMode, GameState, MatchPhase, World } from './worldTypes.ts';
 
 export type GameAction =
   | SpawnSparkAction
@@ -335,6 +335,10 @@ export function makeWorld(rngSeed: number): World {
     bonds: new Map(),
     players: new Map(),
     gameState: 'PLAYING', // test contract; main.ts overrides to 'TITLE' at boot
+    // S147 P1 — the match clock starts with a FULL BUILD stage, so nobody can be attacked before
+    // they have had a chance to build anything. `startMatch` re-stamps both at the PLAYING edge.
+    matchPhase: 'BUILD',
+    phaseEndsAtTick: PHASE_DURATION_TICKS,
     nextPrimitiveId: 0,
     nextBondId: 0,
     // S146 P2 — descending negative allocator for reducer-minted (pulled) sparks. See worldTypes.

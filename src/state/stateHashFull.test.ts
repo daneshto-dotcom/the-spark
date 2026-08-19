@@ -68,6 +68,14 @@ const HASHED_NON_FAMILY: ReadonlySet<string> = new Set([
   'nextGathererId',
   // S146 P2 — the descending NEGATIVE allocator for reducer-minted pulls. Also a scalar.
   'nextPulledSparkId',
+  // S147 P1 — THE MATCH CLOCK. Both are world SCALARS, not entity families: `matchPhase` is a string
+  // literal union and `phaseEndsAtTick` an absolute tick, projected as the `mp`/`pe` parts in
+  // determinismParts. They belong here rather than in EXPECTED below, which enumerates only the
+  // families that own a per-element projection LOOP (the thing that test is guarding against
+  // silently deleting). Both are still covered by the wide hash — the differential and worker-parity
+  // gates compare determinismParts in full.
+  'matchPhase',
+  'phaseEndsAtTick',
 ]);
 
 /** Adds one primitive, one bond between two primitives, and one free spark. */

@@ -68,7 +68,7 @@ import {
  * into an older-peer test — the failure mode that survived two bumps behind a @quarantine-flaky
  * tag that the gating lane grep-inverts, so nothing could go red.
  */
-const LOCAL_PROTO_V = 22; // S146 P2 — 21 -> 22 (limitless per-type castle inventory; PULL_FROM_BANK is type-addressed)
+const LOCAL_PROTO_V = 23; // S147 P1 — 22 -> 23 (THE MATCH CLOCK: matchPhase + phaseEndsAtTick, hashed + wire-carried; the phase gates scoring)
 const NEWER_PEER_V = LOCAL_PROTO_V + 1;
 
 /**
@@ -641,7 +641,8 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
       // S58 P0 — disable fog (manual contexts bypass open2Peers).
       await disableFogOn(hostCtx);
       await disableFogOn(joinerCtx);
-      // Joiner announces protoVersion 2 (< current 9). Host has no override → v9.
+      // Joiner announces protoVersion 2 (< current PROTOCOL_VERSION). Host has no override, so it is LOCAL_PROTO_V.
+  // (S147: de-versioned this comment — it said "current 9" for thirteen bumps. Do not re-introduce a literal.)
       // String-content addInitScript (zero function-capture surface), matching
       // the Sym D __TEST_TERRITORY_BASE_RADIUS__ precedent.
       await joinerCtx.addInitScript({ content: 'window.__TEST_PROTO_VERSION_OVERRIDE__ = 2;' });
@@ -655,7 +656,7 @@ test.describe('Protocol mismatch — stale-peer HELLO fires host UX + drop latch
       await waitForWorld(hostPage, (w) => w.peerCount >= 1, 'host sees joiner connected', 60_000);
       await waitForWorld(joinerPage, (w) => w.peerCount >= 1, 'joiner sees host connected', 60_000);
 
-      // Host receives joiner HELLO(v2) → detectProtocolMismatch (2≠8) →
+      // Host receives joiner HELLO(v2) → detectProtocolMismatch (2 ≠ LOCAL_PROTO_V) →
       // emitProtocolMismatch: rejectedCount++ + onProtocolMismatch UX. WAIT for
       // the async HELLO to land (PRIME-AUDIT #2 — never assert synchronously).
       await waitForRejected(hostPage, 1, 'host rejected the joiner v2 HELLO (mismatch latch fired)');

@@ -39,6 +39,7 @@ import {
   HUNTER_TRIGGER_SCORE,
   PEER_DROP_BENCH_TICKS,
   PEER_DROP_GRACE_TICKS,
+  PHASE_DURATION_TICKS,
   REVALIDATE_INTERVAL_TICKS,
   SPAWN_INTERVAL_TICKS,
   STRUCTURE_SELFDESTRUCT_DRONE_COUNT,
@@ -140,11 +141,59 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   } else {
     world.tick++;
   }
+
+  /* ────────────────────── S147 P1 — THE MATCH CLOCK ────────────────────── */
+  // The BUILD/FIGHT heartbeat (owner's notes: 90 s to gather & build, then a 90 s fight; repeat).
+  //
+  // PLACED HERE ON PURPOSE — after the tick has advanced (inside stepPhysics when PLAYING, in the
+  // else-branch otherwise) and BEFORE the tickScoring gate below, so THIS tick's phase is settled
+  // before scoring decides whether to accrue. Putting it after scoring would pay income for a tick
+  // the player was no longer in FIGHT for.
+  //
+  // ⛔ NO WALL-CLOCK. The blueprint ranks a Date.now()-driven phase timer as the #1 CRITICAL desync
+  // risk of the whole tower-defence pivot. This reads world.tick and nothing else.
+  //
+  // ⛔ `phaseEndsAtTick += PHASE_DURATION_TICKS`, NEVER `= world.tick + PHASE_DURATION_TICKS`.
+  // Advancing the boundary RELATIVELY makes the clock drift-free: phase edges stay on their original
+  // cadence no matter how many ticks passed between evaluations. Re-stamping from the current tick
+  // would push every future boundary later each time an evaluation was skipped — and evaluations DO
+  // get skipped, because the NONET-freeze branch in main.ts advances world.tick and `continue`s past
+  // this whole function while a Sudoku trial runs.
+  //
+  // ⚠ WHILE, NOT IF — and the PLAYING guard is hoisted OUT of the loop condition. The loop is what
+  // makes a skip longer than a whole phase correct rather than merely non-crashing: it flips once per
+  // boundary actually crossed, so phase PARITY is preserved (a 2.5-phase freeze lands you in the
+  // right half of the cycle, not an arbitrary one). It always terminates because every pass adds
+  // PHASE_DURATION_TICKS. The guard is hoisted because a condition that can go false mid-loop is a
+  // bug this project has already shipped once (S145: "my loop guard went false after the first
+  // iteration") — gameState cannot change in here, and hoisting makes that structural rather than
+  // something a reader has to verify.
+  //
+  // No PHASE_CHANGED effect is emitted. The renderer and audio derive the edge by diffing the
+  // matchPhase they last observed — the shipped `rainbowSwitchTick` / creatureRenderer death-watcher
+  // pattern. A transient sim effect would be LOST to a joiner and to a post-migration client, who
+  // receive a snapshot with the phase already flipped and would silently never get the transition.
+  if (world.gameState === 'PLAYING') {
+    while (world.tick >= world.phaseEndsAtTick) {
+      world.matchPhase = world.matchPhase === 'BUILD' ? 'FIGHT' : 'BUILD';
+      world.phaseEndsAtTick += PHASE_DURATION_TICKS;
+    }
+  }
   // S76 P3 — host-only complexity-income accrual. Runs BEFORE the WIN check
   // (tickGameState) and the hunter 75% trigger below so both observe this tick's
   // freshly-accrued scoreProgress. The client never accrues (host-authoritative); it
   // reads scoreProgress from the NetSnapshot. Gated on PLAYING.
-  if (world.gameState === 'PLAYING') {
+  // S147 P1 (R3 / R7 / R16) — SCORING IS FIGHT-ONLY. *"Points accrue during the FIGHT stage ONLY —
+  // there is no point tick during BUILD."* One added conjunct, one call site: tickScoring has exactly
+  // ONE production caller (this one), and the income engine itself already does the right thing —
+  // it already scales with structure complexity and already falls as connectors are severed (R16),
+  // and it already counts plain non-recipe structures (R17). So the tower-defence economy needed the
+  // engine GATED, not rewritten.
+  //
+  // ⚠ This is also what switches off the R28 anti-coast leader decay during BUILD for free: the decay
+  // lives INSIDE tickScoring, so gating the call gates the decay. LEADER_DECAY_ENABLED then switches
+  // it off in FIGHT too, which is the actual ruling.
+  if (world.gameState === 'PLAYING' && world.matchPhase === 'FIGHT') {
     tickScoring(world);
   }
   tickGameState(world, deps.gameStateExtras, P1);

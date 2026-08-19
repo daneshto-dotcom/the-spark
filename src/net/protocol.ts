@@ -175,7 +175,25 @@ export type { NetSnapshot };
 //       neither see nor reach anything past the seventh shape — the same reachability soft-lock class
 //       as the 18->19 cap move, which is the precedent this follows.
 // Hard-rejected at HELLO, same lockstep posture as every bump above.
-export const PROTOCOL_VERSION = 22 as const;
+// S147 P1 — bumped 22->23: THE MATCH CLOCK. The tower-defence pivot's two-phase heartbeat lands as
+// TWO new HASHED, wire-carried World fields — `matchPhase: 'BUILD' | 'FIGHT'` and
+// `phaseEndsAtTick: number` — and they are load-bearing for behaviour, not decoration:
+//   (1) THE PHASE GATES SCORING. `tickScoring` now runs only in FIGHT (R3: "points accrue during the
+//       FIGHT stage ONLY"). A v22 peer has no `matchPhase` at all, so it would accrue complexity
+//       income every tick of the build stage while a v23 host accrues none. `scoreByPlayer` and
+//       `scoreProgress` are both hashed, so that is an immediate, permanent divergence — and it is
+//       the worst-flavoured kind, because it silently decides who WINS at 1500 points.
+//   (2) THE DEADLINE IS HOST-AUTHORITATIVE AND MUST BE AGREED. Two peers that agree on the phase but
+//       disagree on `phaseEndsAtTick` diverge one tick later at the flip. A v22 joiner cannot read
+//       the field, so it can never agree about when the phase ends.
+//   (3) A SERIALIZED STRING-LITERAL UNION ENTERED THE WIRE. `MatchPhase` is exactly the class of
+//       change that forced 12->13 when `DefenderState` gained 'WALK': a stale peer cannot parse a
+//       literal it has never heard of.
+// Also in this bump, and NOT a wire change on its own — recorded because the pair must ship together:
+// Step 0 switched the four cut hazards off (R14/R23) at their dispatch sites behind
+// HAZARD_SPAWN_ENABLED, deliberately leaving every spawner RNG stream byte-identical.
+// Hard-rejected at HELLO, same lockstep posture as every bump above.
+export const PROTOCOL_VERSION = 23 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -244,11 +262,31 @@ export interface HelloMsg {
    * GEOMETRY itself needs no wire representation: the reducer stamps ordinary primitives and bonds
    * that already serialize, and the carried-blueprint arming state is render-local by design.)
    *
-   * ⚠ THIS LIST DRIFTS IF YOU LET IT. It has now been caught stale twice: S133 P2 backfilled the
-   * 14→15 entry while the literal already read 15, and S140 P1 backfilled 17→18 for the same reason.
-   * Bumping `PROTOCOL_VERSION` means editing THREE things — the const, this list, and the type
-   * literal below. */
-  readonly protoVersion: 22;
+   * S146 P2: 21->22 (THE CASTLE INVENTORY BECAME A LIMITLESS PER-TYPE TALLY — `castleBanks` changed
+   * snapshot SHAPE from per-seat spark arrays to per-seat type COUNTS, the `PULL_FROM_BANK` intent
+   * became type-addressed rather than index-addressed, and the shared `CASTLE_BANK_CAP` constant was
+   * deleted outright. Backfilled in S147 — see the warning below, which this entry is the third
+   * instance of.)
+   * S147 P1: 22->23 (THE MATCH CLOCK — two new hashed, wire-carried World fields, `matchPhase`
+   * ('BUILD' | 'FIGHT', a serialized string-literal union a stale peer cannot parse) and
+   * `phaseEndsAtTick`. The phase GATES scoring, so a v22 peer would earn build-stage income a v23
+   * host does not and diverge on the hashed score that decides the win.)
+   *
+   * ⚠ THIS LIST DRIFTS IF YOU LET IT. It has now been caught stale THREE times: S133 P2 backfilled
+   * the 14→15 entry while the literal already read 15, S140 P1 backfilled 17→18 for the same reason,
+   * and S147 P1 backfilled 21→22 — again while the literal below already read 22.
+   *
+   * ⛔ SO STOP TRUSTING THIS COMMENT AND USE THE REAL CHECKLIST. Bumping `PROTOCOL_VERSION` means
+   * editing FIVE things, not three. This docblock said THREE for four bumps running, which is
+   * precisely why it kept going stale — the two it omitted are the two that go red:
+   *   1. the `PROTOCOL_VERSION` const above;
+   *   2. the narrative changelog block above that const;
+   *   3. this list;
+   *   4. the `protoVersion` type literal immediately below (a deliberate tsc tripwire);
+   *   5. `protocol.test.ts`'s pinned `expect(PROTOCOL_VERSION).toBe(N)` **and its test title**, plus
+   *      `LOCAL_PROTO_V` at the top of `e2e/smoke.spec.ts`.
+   * `protocolVersionSync.test.ts` enforces the const/e2e pair; nothing enforces this prose. */
+  readonly protoVersion: 23;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

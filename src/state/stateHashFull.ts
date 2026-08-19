@@ -108,6 +108,13 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   /** The canonical desync root. Its absence from every oracle was CHECK finding F8. */
   rngSeed: 'hashed',
   gameState: 'hashed',
+  // S147 P1 — THE MATCH CLOCK. Both hashed: the phase gates scoring (and, from S149 on, walls,
+  // gatherer shelter, tower dormancy and castle guns), so a peer that disagreed about either would
+  // simulate a different game. `phaseEndsAtTick` is hashed as well as the phase because the DEADLINE
+  // is what a joiner and a promoted successor have to agree on — matching phases with mismatched
+  // deadlines diverges one tick later.
+  matchPhase: 'hashed',
+  phaseEndsAtTick: 'hashed',
   lastWinnerId: 'hashed',
   hunterSpawned: 'hashed',
   rainbowSwitchTick: 'hashed',
@@ -345,6 +352,11 @@ export function determinismParts(world: World): string[] {
     // invisible to BOTH channels of the worker HARD GATE before S133).
     `rs${world.rngSeed}`,
     `gs${world.gameState}`,
+    // S147 P1 — the match clock. `mp` is the phase, `pe` the absolute end-of-phase tick. Both are
+    // in the WIDE hash, so a differential or worker-parity run fails the moment two peers disagree
+    // about which half of the cycle they are in, or about when it ends.
+    `mp${world.matchPhase}`,
+    `pe${world.phaseEndsAtTick}`,
     `lw${n(world.lastWinnerId)}`,
     `hs${o(world.hunterSpawned)}`,
     `rw${o(world.rainbowSwitchTick)}`,
