@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1221,
+  "tool_calls_session_total": 1228,
   "session_id": "S147",
   "session_kind": "pdca-batch",
   "session_start": "2026-08-16",
@@ -364,14 +364,72 @@
     }
   ],
   "reflexion_entries_to_archive": [
-    "P0 #s146-council-told-me-to-delete-the-bots-supply-chain: BOTH external seats independently recommended retiring PULL_FROM_BANK as dead weight under a limitless inventory. botBrain.ts:161 + botController.ts:190 make PULL the ENTIRE bot supply chain (gatherer -> bank -> porch -> place); retiring it leaves every bot opponent unable to build, in every mode. Neither seat reads the codebase. Grep the consumers of anything a reviewer calls vestigial BEFORE agreeing.",
-    "P0 #s146-empirical-refutes-plausible-criticals: four confident Council claims about MY codebase, all refuted on disk in minutes — 'spatial-grid degeneration' (the grid had no consumer outside the function being deleted), 'an exact stack becomes unpickable, 65-80%' (pickSpark is a linear nearest-cursor scan that never touched the grid), 'mixed-version host migration corrupts the bank, 1 in 6' (protocol.ts hard-rejects version mismatch at HELLO, so the scenario is unreachable), and the PULL one above. Pattern now at 9 occurrences.",
-    "P1 #s146-the-forcing-function-caught-what-i-forgot: I added nextPulledSparkId to FIELD_COVERAGE as 'hashed' and never added it to the projection. stateHashFull.test.ts failed and NAMED the field. A registry that fails the build on omission is worth more than any amount of care — never route around one.",
-    "P2 #s146-length-is-six-even-when-empty: the e2e helpers read `bank.length` to mean 'how much is stored'. The inventory became a FIXED 6-entry tally indexed by SparkType, so .length is 6 for an EMPTY castle — every wait-for-stock helper would have passed instantly, forever, measuring nothing, all green. Changing a collection's SHAPE silently reinterprets every length/size read of it.",
-    "SESSION #s146-my-own-patch-deleted-the-thing-i-was-documenting: writing the roadmap replaced the span from '## 6. THE ROADMAP' to '## 7. ...' — and the owner's 30 rulings lived at '## 6A', BETWEEN those anchors. The doc still read as complete and coherent afterwards. Anchor-to-anchor replacement silently eats anything that moved in between; verify a span's CONTENTS, not just its endpoints.",
-    "SESSION #s146-an-audit-that-only-checks-rulings-misses-the-notes: audit pass 1 verified all 30 numbered rulings were covered and reported CLEAN, while the CASTLE WEAPON SYSTEM — a headline feature — had no session at all. It came from the owner's prose notes, not a numbered ruling, so the audit was structurally blind to it. An audit inherits the blind spots of whatever index it iterates; add a second lens over the ORIGINAL source.",
-    "SESSION #s146-the-feature-was-already-shipped: the owner specified an income model (scaled by tower complexity, degrading with remaining connectors, plain structures earning too) as if it were new work. scoring.ts has done exactly that since S76 — complexity = #prims + 2x#magicBonds, and it never cared whether the shapes formed a recipe. The 'new' requirement reduced to ONE phase guard. Check whether a requested mechanic already exists before scoping it as a build.",
-    "SESSION #s146-the-owner-corrected-my-reading-twice-and-both-mattered: I read the hand-drawn map as 'castles on a ring, which is what we already ship' (wrong — the ZONE is primary and the castle derives from it, changing haul distance 2.6x) and then as 'two variants of one layout' (wrong — a 1v1 pitch and a 4-player quadrant board). Both readings were confident and both were lazy pattern-matches onto what the code already did. When a drawing resembles the current system, that resemblance is the thing to distrust."
+    {
+      "session": "S147",
+      "date": "2026-08-19",
+      "tag": "#a0-predicted-the-exact-break-and-that-is-the-whole-value",
+      "lesson": "A.0 delta D3 predicted that gating tickScoring to FIGHT would break ALL EIGHT hostTick.differential scenarios, because that harness is live-vs-FROZEN-transcription (which scores unconditionally), not the host-vs-worker gate the spec called it. The build then broke exactly those eight and nothing else. The value was not the fix — it was that a wall of red in the determinism gate arrived as a KNOWN, pre-reasoned event instead of a desync panic. Read what a test harness actually IS before trusting the name a plan gives it."
+    },
+    {
+      "session": "S147",
+      "date": "2026-08-19",
+      "tag": "#cadence-zero-would-have-meant-maximum-frequency",
+      "lesson": "Both the blueprint (R14) and the session spec said to switch the four hazards off by setting \"cadence to zero\". Measuring the mechanism showed that would have shipped the OPPOSITE: the cadence is a spark COUNTDOWN (MIN + floor(rng()*(MAX-MIN+1))), so zero fires on the very next spark. The owner-approved spec was WRONG about its own implementation while being right about its intent. Implement the INTENT, verified against the mechanism — and gating at the dispatch site turned out to be cheaper too, because it leaves every RNG stream byte-identical."
+    },
+    {
+      "session": "S147",
+      "date": "2026-08-19",
+      "tag": "#the-council-rejected-me-on-a-premise-i-could-refute-and-i-took-the-fix-anyway",
+      "lesson": "GEMINI-AUDITOR returned REJECT on a specific desync: the host freezes for NONET while a worker does not, so re-stamping the deadline from the current tick drifts. The premise was empirically FALSE — workerSim.ts:485 implements the same freeze and world.sudoku is hashed, so both freeze symmetrically. But the recommended fix (+= instead of = tick +) was still strictly better, so I adopted it on better grounds than it was argued, and hardened it further (a WHILE loop with the guard hoisted, which Gemini did not propose and which is what actually preserves phase parity across a long freeze). Audit the reasoning, not the verdict: a wrong argument can still point at a real improvement, and a REJECT is not a veto."
+    },
+    {
+      "session": "S147",
+      "date": "2026-08-19",
+      "tag": "#counting-council-verdicts-would-have-shipped-two-defects",
+      "lesson": "R1 came back 1 ADOPT-WITH-CHANGES vs 1 REJECT. Tallying verdicts would have led either to a 9th differential scenario that CANNOT pass (both seats spotted the harness problem; only Gemini gave the correct remedy) or to rewriting a data model the design names for a requirement no ruling asks for (Grok C4, rejected). The two seats agreed from opposite directions and only one supplied a usable fix. Battle Ledgers must record the REASONING per challenge, because that is the part that decides."
+    },
+    {
+      "session": "S147",
+      "date": "2026-08-19",
+      "tag": "#the-owner-scoped-the-council-mid-session-and-it-was-the-right-call",
+      "lesson": "Mid-execution the owner ruled: Council is here to help decide HOW, never to change the game design. That instantly resolved Grok C4 (replace the named phaseEndsAtTick field) as out of bounds regardless of its merits, and it matched where the evidence already pointed. Externally sourced advice drifts toward redesign because redesign is the easiest thing to have an opinion about; the owner's scope rule is the cheapest defence against it. Record it as constitutional for the session, not as a passing remark."
+    },
+    {
+      "session": "S147",
+      "date": "2026-08-19",
+      "tag": "#my-own-anti-vacuity-check-caught-my-own-useless-test",
+      "lesson": "I wrote an e2e asserting no hazards spawn in 2.5 s. At the shipped 0.15 sparks/s rate with cadences measured in SPARKS, the first hazard is ~50-120 s away even ENABLED — so the test was guaranteed to pass regardless of the flag. The only reason it did not ship green-and-worthless is that I had added an anti-vacuity assertion (sparks > 0), which failed honestly. Every negative test needs a positive control proving the thing it watches for was actually POSSIBLE. Rewritten as a real control: 12 sparks/s + 2-spark cadence with the flag withheld, asserting the ID allocators never advanced (so nothing was minted-then-reaped)."
+    },
+    {
+      "session": "S147",
+      "date": "2026-08-19",
+      "tag": "#retained-not-deleted-has-to-mean-still-tested",
+      "lesson": "R28 said the leader decay is \"switched OFF (retained, not deleted)\". Gating the call site alone satisfied the letter of that and quietly broke three S107 tests, whose only green paths would have been deletion or weakening into asserting nothing. Extracting applyLeaderDecay as an export let the tests drive the mechanic directly, so the arithmetic stays verified for the balance session that is expected to re-enable it. \"Retained\" means reachable and still proven, not merely still present in the file."
+    },
+    {
+      "session": "S147",
+      "date": "2026-08-19",
+      "tag": "#i-converted-thirteen-files-to-crlf-and-it-would-have-passed-ci",
+      "lesson": "My python patch writes flipped 13 files LF->CRLF (Windows text-mode newline translation against an LF tree with core.autocrlf=true). Git normalizes on commit, so the diffs looked tiny and CI would have been GREEN while a source-text assertion failed on the developer machine — the worst direction for a defect to point. Write with newline=''. And my first line-ending audit was itself junk: grep -c $'\\r' degenerated to an empty match and reported every line. Verify byte facts with a byte count."
+    },
+    {
+      "session": "S147",
+      "date": "2026-08-19",
+      "tag": "#grep-count-uses-pattern-not-needle",
+      "lesson": "Two of 53 MCV bindings hard-failed with \"assertion missing field 'pattern'\": grep_count takes {path, pattern (a REGEX), op, value}, while file_contains/file_lacks take {path, needle}. My memory said \"the key is needle, there is no pattern key\" — true per-type, wrong as a generalisation. A third binding was logically wrong rather than malformed: file_lacks \"PHASE_CHANGED\" failed because the file legitimately MENTIONS the token in the comment explaining why no such effect is emitted. Running the verifier is not optional; it found 3 real defects."
+    },
+    {
+      "session": "S147",
+      "date": "2026-08-19",
+      "tag": "#the-spend-limit-ate-seven-of-eight-probes-and-hand-work-was-better-anyway",
+      "lesson": "The 8-probe A.0 Workflow lost 7 probes plus synthesis to the individual spend limit — the third session running (S140, S141, now S147). One result was salvageable from journal.jsonl. Re-running the seven by hand with targeted greps cost far less, was fully self-verified, and produced the session's two highest-consequence findings (D1 cadence inversion, D3 frozen harness). For forensic probes on a codebase I can read directly, hand-work beats fan-out; save the fan-out for genuinely parallel breadth."
+    },
+    {
+      "session": "S147",
+      "date": "2026-08-19",
+      "tag": "#two-jobs-in-one-function-made-a-test-regress-for-a-non-bug",
+      "lesson": "tickScoring both accrues income AND re-derives scoreProgress = max(scoreByPlayer). Gating the whole call to FIGHT therefore also gated the derivation, which regressed hunter.spec.ts — it writes scoreByPlayer directly and leaned on tickScoring to notice. Production was never affected (addScore/spendScore each recompute scoreProgress at their own call sites), so the right fix was in the spec, with the reasoning written down so a future session does not \"fix\" the sim from that line. When gating a function, enumerate everything it does, not just the thing you are gating."
+    }
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -446,8 +504,8 @@
     "runtime_verifiability_boot_then_smoke": "THE decisive question for this session, given the headline A.0 finding was a whole subsystem that static-parsed perfectly and was never called. Static parsing is NOT validation here. Mandatory runtime gates before any priority is marked complete: (1) a REAL-PHYSICS acceptance test that runs the actual physics loop and asserts the goblin closes distance and the target primitive's hp actually decreases - a state-only assertion is not evidence (S136); (2) PHYSICS_DT imported from physicsLoop.ts, never re-derived, because constants.ts does not export it and a test once silently ran on NaN (S138); (3) an explicit assertion that damageEntity now HAS production call sites, i.e. the exact grep that exposed the dead substrate becomes a permanent test; (4) LOOK AT THE RENDER - a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches, and no state assertion can see 'nothing was drawn'.",
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
-  "real_context_tokens_at_close": 622712,
-  "real_context_pct_at_close": 62.27,
+  "real_context_tokens_at_close": 428810,
+  "real_context_pct_at_close": 42.9,
   "checkpoint_commit": "599d45ae154ac0dd3fb70fd181fc7a8760d70e00",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
@@ -892,5 +950,6 @@
     ],
     "materially_better_than_r1": "YES, and specifically: R1 would have shipped (a) a 9th differential scenario that cannot pass, (b) a drift-prone absolute-restamp flip, and (c) a PHASE_CHANGED effect invisible to joiners and post-migration clients. All three are corrected. Independently, A.0 had already corrected the SPEC on three further points (cadence-zero inverts the intent; the 5-site protocol bump; the frozen harness is not host-vs-worker)."
   },
-  "rule22_audit_s147": "END-OF-SESSION RUNTIME AUDIT (Rule 22). Re-scanned the S147 commit diff for the BUG-A/B/C patterns: no unrendered ${VAR} placeholders (no deploy/env artifacts touched this session); no references to non-existent files (every path in the diff was opened and read); no mitigation that fails to survive a restart (the clock is snapshot-carried and rebuilt from the mirror at migration, proven by the promoted-successor test on the netSnapshot path); no mount-point divergence (no Docker/entrypoint change); no hallucinated CLI flags (every npm script used was read from package.json verbatim). CI: gh run list showed 5/5 recent Deploy runs success and ZERO cancelled at boot, gh issue list empty; the deploy for this commit is verified separately by verify-deploy 4/4. ONE REAL SELF-INFLICTED DEFECT FOUND AND FIXED IN-SESSION: 13 files were converted LF->CRLF by my own python writes, which broke a source-text assertion locally while git would have normalized it on commit — i.e. it would have PASSED CI and failed only on a developer machine. Normalized back to LF and verified by byte count, not by grep."
+  "rule22_audit_s147": "END-OF-SESSION RUNTIME AUDIT (Rule 22). Re-scanned the S147 commit diff for the BUG-A/B/C patterns: no unrendered ${VAR} placeholders (no deploy/env artifacts touched this session); no references to non-existent files (every path in the diff was opened and read); no mitigation that fails to survive a restart (the clock is snapshot-carried and rebuilt from the mirror at migration, proven by the promoted-successor test on the netSnapshot path); no mount-point divergence (no Docker/entrypoint change); no hallucinated CLI flags (every npm script used was read from package.json verbatim). CI: gh run list showed 5/5 recent Deploy runs success and ZERO cancelled at boot, gh issue list empty; the deploy for this commit is verified separately by verify-deploy 4/4. ONE REAL SELF-INFLICTED DEFECT FOUND AND FIXED IN-SESSION: 13 files were converted LF->CRLF by my own python writes, which broke a source-text assertion locally while git would have normalized it on commit — i.e. it would have PASSED CI and failed only on a developer machine. Normalized back to LF and verified by byte count, not by grep.",
+  "deploy_verified_s147": "PASS 4/4 — remote/run/verdict/live all agree. LIVE carrier confirms the live entry asset is index-BYuoPrLZ.js, content-hash identical to the local build, so THE MATCH CLOCK IS LIVE. Deploy run 32241448736 success (1m38s). Also noted: the scheduled 3-lane E2E run 32005425774 is success (22m40s) — no cancelled runs, so the silent-death pattern did not recur."
 }
