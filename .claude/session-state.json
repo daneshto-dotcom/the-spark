@@ -1,13 +1,13 @@
 {
-  "tool_calls_session_total": 1340,
-  "session_id": "S147",
+  "tool_calls_session_total": 1368,
+  "session_id": "S148",
   "session_kind": "pdca-batch",
-  "session_start": "2026-08-16",
-  "prior_session_note": "S146 closed: limitless per-type castle inventory + loose-spark antimagnet removed, then the owner PIVOTED SPARK to a classical tower defence. S146 produced SPARK_TD_BLUEPRINT.md (40 rulings, unanimous ADAPT-not-rewrite) and SPARK_TD_SESSION_SPECS.md (11 sessions). S147 is the first build session of that roadmap.",
-  "prior_session_archive": ".handoff-archive/HANDOFF_S146.md",
+  "session_start": "2026-08-19",
+  "prior_session_note": "S147 closed: P1 THE MATCH CLOCK (protocol 22->23) and P2 the 4-player cap + dashboard (23->24), both live and deploy-verified 4/4. P3 (S148 zones) planned in full but NOT started at 58 pct YELLOW. S148 executes it, RE-SCOPED mid-session by the owner toward the vision-level base specs.",
+  "prior_session_archive": ".handoff-archive/HANDOFF_S147.md",
   "phase": "DO",
   "tier": "Full",
-  "plan_file": ".claude/plans/2026-08-19_SCOPE_AMENDMENT_S147_R41_4PLAYER_CAP.md",
+  "plan_file": ".claude/plans/2026-08-19_PDR_S148_ZONES.md",
   "session_status": "active",
   "pdr_approved": true,
   "deliberation_completed": true,
@@ -15,14 +15,17 @@
   "protocol_version": 24,
   "boot_preflight": {
     "boot_snapshot_read": true,
-    "handoff_read": "HANDOFF_2026-08-16_S146.md (via boot-snapshot.md + inline handoff prompt)",
+    "handoff_read": "HANDOFF_2026-08-19_S147.md (via boot-snapshot.md + inline handoff prompt)",
+    "plan_read": ".claude/plans-archive/2026-08-19_SCOPE_AMENDMENT_S147_R41_4PLAYER_CAP_IN-PROGRESS.md (P3 = S148, A.0 E1-E12 banked)",
     "unpushed_commits": 0,
-    "build": "PASS - entry assets/index-d98_KqN1.js 689.3 KiB, cap 900 KiB, headroom 210.7 KiB",
-    "verify_deploy": "PASS 4/4 - remote/run/verdict/live all agree; RUN carrier correctly reports \"none OWED\" (docs-only commit since 7da9107c)",
-    "e2e_gating": "PASS 39/39 in 2.3m",
-    "ci_runs_audited": "gh run list: 5 most recent Deploy runs all conclusion=success, ZERO cancelled (the silent-death pattern in memory did NOT recur). gh issue list: empty.",
-    "context_at_boot": "98,979 / 1,000,000 (9.9% GREEN)",
-    "in_progress_plans": "THREE .claude/plans/ files grep-match in-progress. Triaged: S133 = \"COMPLETED\" (false positive); S126 = \"AWAITING APPROVAL\" but S126 shipped and the deploy path is SETTLED (memory) - stale header, not live work; S137 SCOPE_AMENDMENT = genuinely \"IN-PROGRESS - designed + art spiked, NOT implemented\" BUT explicitly SUPERSEDED by the TD pivot per boot-snapshot.md (\"owner-gated leftovers now superseded\"). No live plan competes with S147."
+    "in_sync_at": "ef59743 (both directions 0)",
+    "tsc": "PASS - 0 errors",
+    "vitest": "PASS - 2459 tests / 159 files",
+    "build": "PASS - entry assets/index-CkkN5WRI.js 690.7 KiB, cap 900 KiB, headroom 209.3 KiB",
+    "verify_deploy": "PASS 4/4",
+    "e2e_gating": "PASS 42/42 in 2.6m",
+    "ci_runs_audited": "gh run list: 8 most recent all success, ZERO cancelled. gh issue list: empty.",
+    "context_at_boot": "163,319 / 1,000,000 (16.33 pct GREEN)"
   },
   "owner_rulings_inherited": {
     "date": "2026-08-10",
@@ -70,594 +73,261 @@
     "CF-S147-b OPEN: the authoritative protocol-bump checklist still lives only in a test comment (protocol.test.ts:84-86) and a JSDoc. Promoting it to LOCKED_DECISIONS.md remains recommended - the drift has now recurred FIVE times (S133, S139, S140, S141, and the stale HelloMsg list found this session). Deliberately out of scope for S147; logged so it is not lost.",
     "CF-S147-c OPEN (new, low severity): six hazard families in workerSim.differential.test.ts (bombs, potatoes, rainbows, seagulls, poops, fouledPrimitives) are ACKNOWLEDGED-as-unreachable rather than seeded, because Step 0 gates hazard dispatch. They are console-logged every run so the gap cannot go quiet. WHEN HAZARD_SPAWN_ENABLED is flipped back to true, DELETE those six reasons rather than leaving stale excuses - they will start arising naturally again immediately, since no cadence changed.",
     "CF-S147-e OPEN, FUTURE FEATURE (R45): the pre-game lobby COLOUR/RACE PICKER. Substrate already exists and needs no sim change - every consumer reads player.color and colour rides the wire as RosterEntry.color. Plug-in points: the default assignment at net/lobbyRoster.ts:103/104/126/129, plus one new client intent. PLAYER_COLORS deliberately stays at SIX entries (six races, max four in play) - never shrink it to the seat cap.",
-    "CF-S147-d RESOLVED at the S147 review gate: owner ruled WALLS STAY IN S149 (R46). No longer open."
+    "CF-S147-d RESOLVED at the S147 review gate: owner ruled WALLS STAY IN S149 (R46). No longer open.",
+    {
+      "id": "CF-S148-a",
+      "status": "open",
+      "note": "R22 IS VIOLATED ON DISK - the quarry keeps producing sparks during FIGHT because the spawner never reads world.matchPhase. Found by the S148 vision gap audit. One guard at the spawn dispatch site, same shape as the S147 hazard gating. Not fixed in the S148 batch to keep the priorities on the owner-named vision items."
+    }
   ],
   "priorities": [
     {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
       "id": 1,
-      "name": "S147 THE MATCH CLOCK - BUILD/FIGHT phases, tick-derived, hashed, protocol 22->23; Step 0 hazards OFF",
       "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
+      "name": "S148 P1 THE QUADRANTS - src/state/zones.ts (zoneOf/zoneOwner/zoneCastleAnchor, PITCH_2P + QUADRANTS_4P), layout as a hashed World field (9 sites), castleAnchor becomes zone-derived across 13 consumers, KEEP_RING_SEATS/KEEP_RING_RADIUS retired, protocol 24->25 (5-site bump), plus the derived gatherer-speed setting so the 2.71x haul stays playable",
       "verification": [
         {
           "type": "file_contains",
-          "path": "src/state/worldTypes.ts",
-          "needle": "export type MatchPhase = 'BUILD' | 'FIGHT';"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
+          "needle": "export type ZoneLayout = 'PITCH_2P' | 'QUADRANTS_4P';"
         },
         {
           "type": "file_contains",
-          "path": "src/state/worldTypes.ts",
-          "needle": "matchPhase: MatchPhase;"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
+          "needle": "export function zoneOf(pos: Vec2, layout: ZoneLayout): number | null {"
         },
         {
           "type": "file_contains",
-          "path": "src/state/worldTypes.ts",
-          "needle": "phaseEndsAtTick: number;"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
+          "needle": "export function zoneOwner(seat: number, layout: ZoneLayout): number | null {"
         },
         {
           "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const PHASE_DURATION_TICKS = 90 * PHYSICS_HZ;"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
+          "needle": "export function zoneCastleAnchor(seat: number, layout: ZoneLayout): Vec2 {"
         },
         {
           "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "while (world.tick >= world.phaseEndsAtTick) {"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
+          "needle": "export function canBuildAt(pos: Vec2, seat: number, layout: ZoneLayout): boolean {"
         },
         {
           "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "world.phaseEndsAtTick += PHASE_DURATION_TICKS;"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
+          "needle": "export function layoutForSeatCount(seatCount: number): ZoneLayout {"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
+          "needle": "if (qdx * qdx + qdy * qdy < QUARRY_R2) return null;"
         },
         {
           "type": "file_lacks",
-          "path": "src/state/hostTick.ts",
-          "needle": "world.phaseEndsAtTick = world.tick + PHASE_DURATION_TICKS"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
+          "needle": "Math.sqrt("
         },
         {
           "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "world.gameState === 'PLAYING' && world.matchPhase === 'FIGHT'"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
+          "needle": "{ x: 120, y: 540 },"
         },
         {
           "type": "file_contains",
-          "path": "src/state/gameMode.ts",
-          "needle": "if (world.matchPhase !== 'FIGHT') return;"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
+          "needle": "{ x: 1790, y: 950 },"
         },
         {
           "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const LEADER_DECAY_ENABLED = false;"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/worldTypes.ts",
+          "needle": "layout: ZoneLayout;"
         },
         {
           "type": "file_contains",
-          "path": "src/state/scoring.ts",
-          "needle": "export function applyLeaderDecay("
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/world.ts",
+          "needle": "layout: 'PITCH_2P',"
         },
         {
           "type": "file_contains",
-          "path": "src/state/scoring.ts",
-          "needle": "if (LEADER_DECAY_ENABLED) applyLeaderDecay(world, leaderId);"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/stateHashFull.ts",
+          "needle": "layout: 'hashed',"
         },
         {
           "type": "file_contains",
-          "path": "src/state/stateHashFull.ts",
-          "needle": "matchPhase: 'hashed',"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/stateHashFull.ts",
+          "needle": "`ly${world.layout}`,"
         },
         {
           "type": "file_contains",
-          "path": "src/state/stateHashFull.ts",
-          "needle": "phaseEndsAtTick: 'hashed',"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "layout?: ZoneLayout;"
         },
         {
           "type": "file_contains",
-          "path": "src/state/stateHashFull.ts",
-          "needle": "`mp${world.matchPhase}`,"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "layout: world.layout,"
         },
         {
           "type": "file_contains",
-          "path": "src/state/stateHashFull.ts",
-          "needle": "`pe${world.phaseEndsAtTick}`,"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
+          "needle": "world.layout = snap.layout ?? 'PITCH_2P';"
         },
         {
           "type": "file_contains",
-          "path": "src/state/save.ts",
-          "needle": "matchPhase?: MatchPhase;"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/workerSim.ts",
+          "needle": "world.layout,"
         },
         {
           "type": "file_contains",
-          "path": "src/state/save.ts",
-          "needle": "matchPhase: world.matchPhase,"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
+          "needle": "world.layout = layoutForSeatCount(world.players.size);"
         },
         {
           "type": "file_contains",
-          "path": "src/state/save.ts",
-          "needle": "world.matchPhase = snap.matchPhase ?? 'BUILD';"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
+          "needle": "world.layout = 'PITCH_2P';"
         },
         {
           "type": "file_contains",
-          "path": "src/state/save.ts",
-          "needle": "world.phaseEndsAtTick = snap.phaseEndsAtTick ?? snap.tick + PHASE_DURATION_TICKS;"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gatherer.ts",
+          "needle": "export function castleAnchor(seat: number, layout: ZoneLayout): Vec2 {"
         },
         {
           "type": "file_contains",
-          "path": "src/state/world.ts",
-          "needle": "matchPhase: 'BUILD',"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gatherer.ts",
+          "needle": "return zoneCastleAnchor(seat, layout);"
         },
         {
-          "type": "file_contains",
-          "path": "src/state/world.ts",
-          "needle": "phaseEndsAtTick: PHASE_DURATION_TICKS,"
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const KEEP_RING_SEATS"
+        },
+        {
+          "type": "file_lacks",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const KEEP_RING_RADIUS"
         },
         {
           "type": "grep_count",
-          "path": "src/state/gameMode.ts",
-          "pattern": "world\\.phaseEndsAtTick\\ =\\ world\\.tick\\ \\+\\ PHASE_DURATION_TICKS;",
-          "op": "==",
-          "value": 2
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gatherer.ts",
+          "pattern": "Math\\.cos\\(angle\\)",
+          "op": "eq",
+          "value": 0
         },
         {
           "type": "file_contains",
-          "path": "src/state/workerSim.ts",
-          "needle": "world.matchPhase,"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 25 as const;"
         },
         {
           "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const HAZARD_SPAWN_ENABLED = readTestHazardsEnabled() ?? false;"
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+          "needle": "readonly protoVersion: 25;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
+          "needle": "S148 P1 — bumped 24->25: THE ZONE PARTITION."
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.test.ts",
+          "needle": "expect(PROTOCOL_VERSION).toBe(25);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.test.ts",
+          "needle": "PROTOCOL_VERSION is 25"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/smoke.spec.ts",
+          "needle": "const LOCAL_PROTO_V = 25;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
+          "needle": "export const GATHERER_BASE_SPEED = 2.6;"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/zoneEconomy.test.ts",
+          "needle": "toBeGreaterThanOrEqual(STINK_TOWER_SIZE);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/zoneEconomy.test.ts",
+          "needle": "At GATHERER_BASE_SPEED 1.9 this measured 6."
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.test.ts",
+          "needle": "expect(keepLeft - barRight).toBe(1);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/stateHashFull.test.ts",
+          "needle": "'layout',"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/workerSim.differential.test.ts",
+          "needle": "bankAdd(world.castleBanks, P0, SparkType.Square);"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/click-to-build.spec.ts",
+          "needle": "function legalSiteRightOfPanel("
         },
         {
           "type": "grep_count",
-          "path": "src/physics/physicsLoop.ts",
-          "pattern": "HAZARD_SPAWN_ENABLED\\ \\&\\&",
-          "op": "==",
-          "value": 4
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const BOMB_SPAWN_MIN_SPARKS = _BOMB_TEST_CADENCE ?? 8;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const SEAGULL_SPAWN_MIN_SPARKS = _SEAGULL_TEST_CADENCE ?? 7;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const BOMB_MAX_ACTIVE = 1;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "S147 P1 — bumped 22->23: THE MATCH CLOCK."
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/ui.ts",
-          "needle": "export function formatPhaseBanner(phase: MatchPhase, ticksRemaining: number): string {"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/ui.ts",
-          "needle": "private lastSeenPhase: MatchPhase | null = null;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/state/hostTick.ts",
-          "needle": "type: 'PHASE_CHANGED'"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/game/effects.ts",
-          "needle": "PHASE_CHANGED"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/physics/physicsLoop.ts",
-          "needle": "Date.now("
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/state/gameMode.ts",
-          "needle": "Math.random("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.differential.test.ts",
-          "needle": "world.matchPhase = 'FIGHT';"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/matchPhase.test.ts",
-          "needle": "a PROMOTED SUCCESSOR flips on the same tick"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/matchPhase.test.ts",
-          "needle": "preserves phase PARITY across a skip longer than a whole phase"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/matchPhase.test.ts",
-          "needle": "expect(PHASE_DURATION_TICKS).toBeGreaterThan(800);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/game/spawnerRngInvariance.test.ts",
-          "needle": "STILL mints bomb/potato/rainbow/seagull requests while hazards are disabled"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/match-clock.spec.ts",
-          "needle": "hazards do NOT spawn even on a forced fast cadence"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/workerSim.differential.test.ts",
-          "needle": "a full BUILD→FIGHT→BUILD cycle must have completed on the ref side"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/potato.spec.ts",
-          "needle": "__TEST_HAZARDS_ENABLED__"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/bomb.spec.ts",
-          "needle": "__TEST_HAZARDS_ENABLED__"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/rainbow.spec.ts",
-          "needle": "__TEST_HAZARDS_ENABLED__"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/plans/2026-08-16_PDR_S147_MATCH_CLOCK.md",
-          "needle": "PRIME-AUDIT DELTA TABLE"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "S147 P1 — bumped 22->23: THE MATCH CLOCK."
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.test.ts",
+          "pattern": "it\\.each\\(LAYOUTS\\)",
+          "op": "ge",
+          "value": 8
         }
       ],
-      "checkpoint_commit": "4e586eef1bc55c256d0bf0d19e6221b0c1d0704c",
+      "checkpoint_commit": "4620caae6ff33520497d4fbda2c3427889f160c3",
       "check_completed": true,
-      "check_method": "S147 P1 THE MATCH CLOCK — shipped, pushed as %s. RUNTIME-VERIFIED, not static-parsed (Rule 20 runtime-verifiability): only ONE of the nine per-field serialization sites is tsc-forced, so a green tsc proves almost nothing here and every gate below is an execution gate.\n\nGATES: tsc 0 errors · vitest 2459/2459 across 159 files (was 2425/157 at boot => +34 tests, +2 files) · e2e:gating 42/42 in a real browser (was 39/39 => +3 match-clock specs) · e2e:protocol 2/2 over real WebRTC (the S142 gating lane, no continue-on-error) · npm run build 690.6 KiB entry vs 900 KiB cap (209.4 KiB headroom).\n\nEXIT GATE, all four items met: (1) a full BUILD->FIGHT->BUILD cycle with identical hashes host-vs-worker (workerSim.differential 300 frames, netSnapshot JSON + wide hash compared EVERY frame, both edges forced and asserted to have fired); (2) host migration across a phase edge preserves phase AND deadline, proven on the REAL migration path netSnapshot->applyNetSnapshot (not just snapshot->restore, which is the disk path — the S134 lesson that one path can stay green while the other is broken); (3) score is exactly 0 across a whole BUILD and rises in FIGHT, asserted in unit AND in a live-browser e2e; (4) all four gates above.\n\nWHAT A.0 PREDICTED AND THE BUILD CONFIRMED: gating tickScoring to FIGHT broke ALL EIGHT hostTick.differential scenarios, exactly as delta D3 said it would, because that harness is live-vs-FROZEN transcription (which scores unconditionally), not host-vs-worker. Fixed by pinning matchPhase=FIGHT in the harness factory — an equivalence statement (the frozen body IS the always-scoring phase), following the S139 P2 goblin-removal precedent already in that same file. Phase behaviour is proven only where BOTH sides run the LIVE body.\n\nFIVE BREAKS FOUND AND FIXED DURING EXECUTION, none of them silent: (a) the 8 differential scenarios [predicted]; (b) 3 scoring.test decay tests — fixed by EXTRACTING applyLeaderDecay so R28 \"retained, not deleted\" keeps its arithmetic under test rather than deleting the coverage; (c) stateHashFull drift test — the two fields are SCALARS so they belong in HASHED_NON_FAMILY, not the collection-family EXPECTED list; (d) workerSim.differential asserted six hazard families as SEEDED which Step 0 makes unreachable — ACKNOWLEDGED with reasons (still console-reported every run) rather than back-door seeded, because seeding them would exercise a path production can no longer reach; (e) hunter.spec.ts — a REAL regression: it writes scoreByPlayer directly and relied on tickScoring to re-derive scoreProgress, which the FIGHT gate suppresses in BUILD. Production is unaffected (addScore/spendScore each recompute scoreProgress at their own call sites); fixed in the spec with that reasoning recorded so nobody \"fixes\" the sim from it.\n\nTWO OF MY OWN ERRORS, CAUGHT AND CORRECTED: (i) my python writes converted 13 files LF->CRLF (core.autocrlf is true with an LF working tree), which broke a source-text assertion in ui.tierBanner.test.ts and would have passed CI while failing locally — normalized back to LF and subsequent writes use newline=''. My first grep-based line-ending audit was itself unreliable (the pattern degenerated to an empty match); the authoritative check is a byte count. (ii) my first hazards-off e2e asserted zero hazards after 2.5 s, which was guaranteed regardless of the flag — the shipped spark rate is 0.15/s and hazard cadences are measured in SPARKS, so the first hazard is ~50-120 s away even ENABLED. Its own anti-vacuity check failed honestly and caught it; rewritten as a real negative control (12 sparks/s + 2-spark cadence, flag withheld) that also asserts the ID ALLOCATORS never advanced — proving nothing was minted-then-reaped.\n\nDESIGN FIDELITY: zero design change. Council was held to HOW-only per the owner's mid-session directive; the one proposal that would have altered the named data model (Grok C4, replace phaseEndsAtTick with {phaseStartedAtTick, phaseDurationTicks}) was REJECTED on evidence and on that rule. All 40 owner rulings intact.\n\nPOST-SHIP VISUAL VERIFICATION (and it found a real defect the whole suite could not). Captured the HUD in BOTH phases through Playwright — the in-app Browser pane cannot be used here at all, because an undisplayed pane does not composite frames, so requestAnimationFrame is paused and the Pixi ticker never advances (the same limitation ui.ts docblocks already record as the reason its formatters are pure). Comparing the two frames showed the FIGHT banner visibly LARGER than the BUILD one: onPhaseEdge set scale 1.6 and nothing anywhere decayed it, so after the first transition the readout stayed oversized for the rest of the match. Unreachable by any test in this repo — the formatter is pure and knows nothing about scale. Fixed in 4e586ee with a per-frame ease back to rest plus a named PHASE_EDGE_PULSE_SCALE, because the swell and its decay necessarily live in two methods. Re-captured and confirmed at rest. LESSON: for render work, a green suite is not evidence — look at a real frame.",
-      "verification_note": "S147 P1's five protocol-VALUE bindings were replaced after P2 bumped 23->24 in the SAME session. This is a real methodological lesson, recorded rather than papered over: verification[] assertions describe CURRENT file state, so a later priority that legitimately edits the same file invalidates an earlier priority's bindings and the MCV verifier hard-fails on history rather than on a defect. The durable fact - that P1 performed the 22->23 bump - lives in the narrative changelog entry, which is what is now asserted. The current-value assertions belong to whichever priority last moved the number (P2)."
+      "check_method": "P1 THE QUADRANTS shipped at %s. VERIFIED: tsc 0 errors; vitest 2498 passed / 161 files (up from 2459/159 - zones.test.ts 28 cases over both boards, zoneEconomy.test.ts 2); npm run build PASS entry 691.3 KiB, 208.7 KiB headroom; npm run e2e:gating 42/42 in 3.2m; both boards SCREENSHOTTED under the real host loop via Playwright (spark-s148-zones-PITCH_2P.png and -QUADRANTS_4P.png on the OneDrive desktop) - the quadrant shot shows four corner keeps in four seat colours with the quarry unclaimed at centre, the pitch shot one goalmouth keep. ECONOMY MEASURED, and reported honestly: a full 5400-tick BUILD through the real host loop, one un-upgraded gatherer, order queue set to the Stink Tower bill - at the OLD speed 1.9 the quadrant board banks 6 shapes with the full bill, at 2.6 it banks 8-9. The owner gate (a first tower affordable un-upgraded) was ALREADY met at 1.9, so the raise buys headroom and TTL margin, NOT playability; the docblock and the test both say so rather than implying necessity, and the margin assertion (>=7) is the only one that discriminates between the two speeds. TWO REAL DEFECTS CAUGHT BY EXISTING HARNESSES: (1) workerSim.differential anti-vacuity guard fired - castleBanks had only ever been seeded by ACCIDENT via a haul finishing inside the 300-frame window, and at 2.71x haul it no longer does, so the family went silently empty while every hash stayed green; now seeded explicitly via bankAdd before the batch rig adopts the world. (2) e2e click-to-build LEGAL_SITE {360,780} fell INSIDE the castle panel once the keep moved to the goalmouth (panel x[583,851] -> x[163,431]), so isOverPanel swallowed every click and the test failed as \"0 primitives placed\"; now DERIVED from the live panel rect. Also confirmed bomb.spec was an under-load flake, not a regression - it passes in isolation (41.2s) and passed on the clean 42/42 re-run."
     },
     {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
       "id": 2,
-      "name": "R41 + R42 — cap the game at 4 players + adapt the dashboard (protocol 23->24)",
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const MAX_PLAYERS = 4;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const MAX_BOTS = MAX_PLAYERS - 1;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/constants.ts",
-          "needle": "export const MAX_PLAYERS = 6;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const BOT_ACCENT_COLOR = 0xc0c8d0;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "export const KEEP_RING_SEATS = 7;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/constants.ts",
-          "needle": "export const KEEP_RING_SEATS = PLAYER_COLORS.length;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/constants.ts",
-          "needle": "0xd73bff, // P6 Magenta"
-        },
-        {
-          "type": "grep_count",
-          "path": "src/constants.ts",
-          "pattern": "0xc0c8d0",
-          "op": "==",
-          "value": 1
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/botSetupOverlay.ts",
-          "needle": "PLAYER_COLORS[6]"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/titleScreen.ts",
-          "needle": "PLAYER_COLORS[6]"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/botSetupOverlay.ts",
-          "needle": "BOT_ACCENT_COLOR"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/titleScreen.ts",
-          "needle": "BOT_ACCENT_COLOR"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/rainbowLifecycle.ts",
-          "needle": "const SHUFFLE_PALETTE = PLAYER_COLORS;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/state/rainbowLifecycle.ts",
-          "needle": "const SHUFFLE_PALETTE = PLAYER_COLORS.slice(0, 6);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/lobbyStateMachine.ts",
-          "needle": "press Begin Match (up to ${MAX_PLAYERS})."
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/lobbyStateMachine.ts",
-          "needle": "press Begin Match (up to 6)."
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/lobbyGeometry.ts",
-          "needle": "const SEAT_COLS = 2;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/lobbyGeometry.ts",
-          "needle": "const SEAT_COLS = 3;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/lobbyScreen.test.ts",
-          "needle": "the rack holds EXACTLY MAX_PLAYERS seats, in full rows, with no overflow"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 24 as const;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "readonly protoVersion: 24;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "S147 P2 - bumped 23->24: THE GAME IS CAPPED AT FOUR PLAYERS"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.test.ts",
-          "needle": "expect(PROTOCOL_VERSION).toBe(24);"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/smoke.spec.ts",
-          "needle": "const LOCAL_PROTO_V = 24;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/net/protocol.test.ts",
-          "needle": "expect(PROTOCOL_VERSION).toBe(23);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/render/lobbyStateMachine.test.ts",
-          "needle": "const occ = (n: number): boolean[] ="
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/render/lobbyStateMachine.test.ts",
-          "needle": "[true, true, true, false, false, false]"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/nplayerSeating.test.ts",
-          "needle": "expect(PLAYER_COLORS.length).toBeGreaterThanOrEqual(MAX_PLAYERS);"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/state/nplayerSeating.test.ts",
-          "needle": "expect(PLAYER_COLORS.length).toBe(MAX_PLAYERS + 1);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/botsMode.test.ts",
-          "needle": "the palette is a RACE ROSTER, so it may be LARGER than the seat cap"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/dev/probeHarness.test.ts",
-          "needle": "const fair = SHIPPED / MAX_PLAYERS;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/dev/probeHarness.test.ts",
-          "needle": "seatShareReadout(8, 0.188)"
-        },
-        {
-          "type": "file_lacks",
-          "path": "e2e/nplayer.spec.ts",
-          "needle": ", 0xc0c8d0]"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/nplayer.spec.ts",
-          "needle": "const SEAT_CAP = 4; // mirror of src/constants.ts MAX_PLAYERS"
-        },
-        {
-          "type": "file_lacks",
-          "path": "e2e/lobby-construction.spec.ts",
-          "needle": "[true, true, true, false, false, false]"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/plans/2026-08-19_SCOPE_AMENDMENT_S147_R41_4PLAYER_CAP.md",
-          "needle": "R45"
-        }
-      ],
-      "checkpoint_commit": "a23510debd9e3be7adc4a22fe4ea40a003b1aa60",
-      "check_completed": true,
-      "check_method": "S147 P2 (R41 + R42) shipped at a23510de, deploy verified 4/4; LIVE carrier confirms entry asset index-CkkN5WRI.js. GATES: tsc 0 / vitest 2459 of 2459 (159 files) / e2e:gating 42 of 42 in a real browser / e2e:protocol 2 of 2 over real WebRTC / bundle 690.7 KiB vs 900 KiB cap.\n\nLANDED: MAX_PLAYERS 6->4, MAX_BOTS 6->3, lobby rack 2x3->2x2, bot setup 1..3, protocol 23->24 across all five sites, bots-only 7th Silver retired to a non-seat BOT_ACCENT_COLOR.\n\n*** THE OWNER CORRECTED ME MID-BUILD AND IT CHANGED THE WORK. I proposed cutting PLAYER_COLORS to 4 to match the cap. The owner ruled (R45) each colour is a future CLASS/RACE chosen in the pre-game lobby, so six colours with a four-player cap is CORRECT and the surplus entries are unchosen races, not dead seats. Cutting it would have had to be undone later - exactly what the R44 fidelity directive exists to prevent. The work therefore became DECOUPLING, not shrinking: KEEP_RING_SEATS was PLAYER_COLORS.length, the single place palette SIZE drove MECHANICS, and is now a pinned literal - pinned rather than re-tuned so keep positions (hashed state that gatherer spawns derive from) do not move twice in one session, since P3 deletes the polar ring outright.\n\nMEASURED AND FAVOURABLE: the sim is ALREADY colour-choice-ready. Every consumer reads player.color (blueprintBuild:231, placePrimitive:158/198, placeFromFree:187-199, disruptionManager:126, creatureAI:110, botSpawnerSeed:79) and colour already rides the wire as RosterEntry.color (protocol.ts:240/:438), with gameMode.ts:246 building players from entry.color. So the future picker needs NO sim change; its plug-in points (lobbyRoster default assignment plus one intent) are recorded and nothing here forecloses it.\n\nA REAL USER-FACING BUG FOUND AND FIXED under R42: lobbyStateMachine.ts hardcoded the string (up to 6) while the cap became 4, so the dashboard advertised a seat count the host would refuse. Now interpolated from MAX_PLAYERS. Exactly the class of thing the owner asked me not to miss.\n\nTEST DISCIPLINE: 14 assertions re-pinned and every one DERIVED from MAX_PLAYERS rather than re-literalled, because fixed literals are what rotted - an occ(n) helper for rack occupancy, roster seating re-pinned to the 3 remote seats the cap allows (same hole-filling property, fewer seats), and the probe fair-share derived (0.188 silently stopped being the plausible hand-typed rounding the moment the cap moved). The palette canary now asserts >= MAX_PLAYERS; asserting equality would have quietly forced the palette to shrink and destroyed R45. That canary earned its keep - it forced the duplicated e2e palette literal to be swept in the SAME commit, as its own docblock demands. NEW rack-capacity guard makes lobbyGeometry's comment enforceable (exactly MAX_PLAYERS seats, full rows, symmetric, on-canvas) against the S140 silent-overflow lesson.\n\nTSC DID REAL WORK: PLAYER_COLORS is a readonly TUPLE, so retiring the 7th entry made tsc name all four production index-6 reads (botSetupOverlay x3, titleScreen x1) rather than leaving them to fail as undefined colours at runtime.\n\nBREAKS, ALL PREDICTED BY A.0 E9/E10 AND ALL RE-PINNED RATHER THAN DELETED: lobbyRoster x3, lobbyStateMachine x5, lobbyScreen rack layout, nplayerSeating x2, probeHarness x1, plus the e2e nplayer and lobby-construction occupancy rows. One flake (rainbow.spec under full-suite load) passed in isolation."
+      "status": "pending",
+      "name": "S148 P2 OWN-ZONE BUILD LEGALITY - one canonical canBuildAt(world, playerId, pos) imported by all SIX refusal/preview sites (placePrimitive, placeFromFree, blueprintLegality, botBrain, controls, dragPreview) so host, drag ghost and bots cannot disagree",
+      "verification": []
     },
     {
-      "id": 3,
-      "name": "S148 — zones, zone-derived castle anchors, own-zone build legality at all SIX sites, measured economy re-tune (protocol 24->25)",
-      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
+      "id": 3,
+      "status": "pending",
+      "name": "S148 P3 THE WALLS (R5/R17/R39, pulled forward from S149 per R48) - zone-border wall entity, invulnerable for the whole BUILD stage, drops at the FIGHT edge, blocks ground units",
+      "verification": []
+    },
+    {
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "id": 4,
+      "status": "pending",
+      "name": "S148 P4 COLOUR IS A RACE (R45 / CF-S147-e) - pre-game lobby colour/race picker; substrate already choice-ready since every consumer reads player.color and it rides the wire as RosterEntry.color",
       "verification": []
     }
   ],
-  "reflexion_entries_to_archive": [
-    {
-      "session": "S147",
-      "date": "2026-08-19",
-      "tag": "#a0-predicted-the-exact-break-and-that-is-the-whole-value",
-      "lesson": "A.0 delta D3 predicted that gating tickScoring to FIGHT would break ALL EIGHT hostTick.differential scenarios, because that harness is live-vs-FROZEN-transcription (which scores unconditionally), not the host-vs-worker gate the spec called it. The build then broke exactly those eight and nothing else. The value was not the fix — it was that a wall of red in the determinism gate arrived as a KNOWN, pre-reasoned event instead of a desync panic. Read what a test harness actually IS before trusting the name a plan gives it."
-    },
-    {
-      "session": "S147",
-      "date": "2026-08-19",
-      "tag": "#cadence-zero-would-have-meant-maximum-frequency",
-      "lesson": "Both the blueprint (R14) and the session spec said to switch the four hazards off by setting \"cadence to zero\". Measuring the mechanism showed that would have shipped the OPPOSITE: the cadence is a spark COUNTDOWN (MIN + floor(rng()*(MAX-MIN+1))), so zero fires on the very next spark. The owner-approved spec was WRONG about its own implementation while being right about its intent. Implement the INTENT, verified against the mechanism — and gating at the dispatch site turned out to be cheaper too, because it leaves every RNG stream byte-identical."
-    },
-    {
-      "session": "S147",
-      "date": "2026-08-19",
-      "tag": "#the-council-rejected-me-on-a-premise-i-could-refute-and-i-took-the-fix-anyway",
-      "lesson": "GEMINI-AUDITOR returned REJECT on a specific desync: the host freezes for NONET while a worker does not, so re-stamping the deadline from the current tick drifts. The premise was empirically FALSE — workerSim.ts:485 implements the same freeze and world.sudoku is hashed, so both freeze symmetrically. But the recommended fix (+= instead of = tick +) was still strictly better, so I adopted it on better grounds than it was argued, and hardened it further (a WHILE loop with the guard hoisted, which Gemini did not propose and which is what actually preserves phase parity across a long freeze). Audit the reasoning, not the verdict: a wrong argument can still point at a real improvement, and a REJECT is not a veto."
-    },
-    {
-      "session": "S147",
-      "date": "2026-08-19",
-      "tag": "#counting-council-verdicts-would-have-shipped-two-defects",
-      "lesson": "R1 came back 1 ADOPT-WITH-CHANGES vs 1 REJECT. Tallying verdicts would have led either to a 9th differential scenario that CANNOT pass (both seats spotted the harness problem; only Gemini gave the correct remedy) or to rewriting a data model the design names for a requirement no ruling asks for (Grok C4, rejected). The two seats agreed from opposite directions and only one supplied a usable fix. Battle Ledgers must record the REASONING per challenge, because that is the part that decides."
-    },
-    {
-      "session": "S147",
-      "date": "2026-08-19",
-      "tag": "#the-owner-scoped-the-council-mid-session-and-it-was-the-right-call",
-      "lesson": "Mid-execution the owner ruled: Council is here to help decide HOW, never to change the game design. That instantly resolved Grok C4 (replace the named phaseEndsAtTick field) as out of bounds regardless of its merits, and it matched where the evidence already pointed. Externally sourced advice drifts toward redesign because redesign is the easiest thing to have an opinion about; the owner's scope rule is the cheapest defence against it. Record it as constitutional for the session, not as a passing remark."
-    },
-    {
-      "session": "S147",
-      "date": "2026-08-19",
-      "tag": "#my-own-anti-vacuity-check-caught-my-own-useless-test",
-      "lesson": "I wrote an e2e asserting no hazards spawn in 2.5 s. At the shipped 0.15 sparks/s rate with cadences measured in SPARKS, the first hazard is ~50-120 s away even ENABLED — so the test was guaranteed to pass regardless of the flag. The only reason it did not ship green-and-worthless is that I had added an anti-vacuity assertion (sparks > 0), which failed honestly. Every negative test needs a positive control proving the thing it watches for was actually POSSIBLE. Rewritten as a real control: 12 sparks/s + 2-spark cadence with the flag withheld, asserting the ID allocators never advanced (so nothing was minted-then-reaped)."
-    },
-    {
-      "session": "S147",
-      "date": "2026-08-19",
-      "tag": "#retained-not-deleted-has-to-mean-still-tested",
-      "lesson": "R28 said the leader decay is \"switched OFF (retained, not deleted)\". Gating the call site alone satisfied the letter of that and quietly broke three S107 tests, whose only green paths would have been deletion or weakening into asserting nothing. Extracting applyLeaderDecay as an export let the tests drive the mechanic directly, so the arithmetic stays verified for the balance session that is expected to re-enable it. \"Retained\" means reachable and still proven, not merely still present in the file."
-    },
-    {
-      "session": "S147",
-      "date": "2026-08-19",
-      "tag": "#i-converted-thirteen-files-to-crlf-and-it-would-have-passed-ci",
-      "lesson": "My python patch writes flipped 13 files LF->CRLF (Windows text-mode newline translation against an LF tree with core.autocrlf=true). Git normalizes on commit, so the diffs looked tiny and CI would have been GREEN while a source-text assertion failed on the developer machine — the worst direction for a defect to point. Write with newline=''. And my first line-ending audit was itself junk: grep -c $'\\r' degenerated to an empty match and reported every line. Verify byte facts with a byte count."
-    },
-    {
-      "session": "S147",
-      "date": "2026-08-19",
-      "tag": "#grep-count-uses-pattern-not-needle",
-      "lesson": "Two of 53 MCV bindings hard-failed with \"assertion missing field 'pattern'\": grep_count takes {path, pattern (a REGEX), op, value}, while file_contains/file_lacks take {path, needle}. My memory said \"the key is needle, there is no pattern key\" — true per-type, wrong as a generalisation. A third binding was logically wrong rather than malformed: file_lacks \"PHASE_CHANGED\" failed because the file legitimately MENTIONS the token in the comment explaining why no such effect is emitted. Running the verifier is not optional; it found 3 real defects."
-    },
-    {
-      "session": "S147",
-      "date": "2026-08-19",
-      "tag": "#the-spend-limit-ate-seven-of-eight-probes-and-hand-work-was-better-anyway",
-      "lesson": "The 8-probe A.0 Workflow lost 7 probes plus synthesis to the individual spend limit — the third session running (S140, S141, now S147). One result was salvageable from journal.jsonl. Re-running the seven by hand with targeted greps cost far less, was fully self-verified, and produced the session's two highest-consequence findings (D1 cadence inversion, D3 frozen harness). For forensic probes on a codebase I can read directly, hand-work beats fan-out; save the fan-out for genuinely parallel breadth."
-    },
-    {
-      "session": "S147",
-      "date": "2026-08-19",
-      "tag": "#two-jobs-in-one-function-made-a-test-regress-for-a-non-bug",
-      "lesson": "tickScoring both accrues income AND re-derives scoreProgress = max(scoreByPlayer). Gating the whole call to FIGHT therefore also gated the derivation, which regressed hunter.spec.ts — it writes scoreByPlayer directly and leaned on tickScoring to notice. Production was never affected (addScore/spendScore each recompute scoreProgress at their own call sites), so the right fix was in the spec, with the reasoning written down so a future session does not \"fix\" the sim from that line. When gating a function, enumerate everything it does, not just the thing you are gating."
-    },
-    {
-      "session": "S147",
-      "date": "2026-08-19",
-      "tag": "#the-owner-stopped-me-deleting-a-design-axis",
-      "lesson": "I found PLAYER_COLORS had 7 entries against a new 4-player cap, called it a trap, and proposed cutting the palette to 4. The owner corrected me: each colour is a future CLASS/RACE picked in the pre-game lobby, so six colours with a four-player cap is CORRECT. My 'fix' would have deleted a design axis and had to be undone later. A surplus is not always dead code - before shrinking a collection to match a cap, ask what the collection MEANS. Gemini had flagged 'decouple seat count from palette size' as hygiene; the owner confirmed it was design. The right work was decoupling, and it turned out the sim was already choice-ready."
-    },
-    {
-      "session": "S147",
-      "date": "2026-08-19",
-      "tag": "#a-readonly-tuple-is-a-forcing-function",
-      "lesson": "Retiring the 7th palette entry could have shipped four silent undefined colours. It could not, because PLAYER_COLORS is declared `as const` - a readonly TUPLE, not number[] - so tsc named every index-6 read (botSetupOverlay x3, titleScreen x1). The same change against a plain array would have compiled clean and broken at runtime. Worth remembering when authoring a palette or lookup table: `as const` buys compiler enforcement for free."
-    },
-    {
-      "session": "S147",
-      "date": "2026-08-19",
-      "tag": "#the-dashboard-was-lying-in-a-hardcoded-string",
-      "lesson": "The lobby status read 'press Begin Match (up to 6)' as a LITERAL while MAX_PLAYERS became 4, so the UI advertised a seat count the host would refuse. The seat COUNT beside it was derived; only the cap in the prose was not. Interpolating fixed it. Any user-facing sentence containing a number that also exists as a constant is a latent lie - and a test asserting the literal will happily lock the lie in place, which is exactly what had happened."
-    },
-    {
-      "session": "S147",
-      "date": "2026-08-19",
-      "tag": "#re-pin-derived-not-re-literalled",
-      "lesson": "14 assertions broke on the cap change. The tempting fix is s/6/4/. The right fix was deriving each from MAX_PLAYERS - an occ(n) helper for rack occupancy, Array.from for seat ranges, fair = SHIPPED / MAX_PLAYERS for the probe - because a literal is what rotted in the first place. The probe test even documented its own literal as 'the plausible hand-typed rounding', which silently stopped being true the moment the cap moved. Re-literalling would have set the same trap for the next cap change."
-    },
-    {
-      "session": "S147",
-      "date": "2026-08-19",
-      "tag": "#a-canary-test-earned-its-keep",
-      "lesson": "nplayerSeating.test.ts pins the exact palette hexes with a docblock explaining that e2e duplicates them and must be swept in the SAME commit. It fired, and it was right: e2e/nplayer.spec.ts carried its own copy of the array including the retired silver. Without that canary the e2e copy would have drifted silently. When you must duplicate a constant across a bundling boundary, the canary is the cheap half of the deal - and it only works because someone wrote down WHY it exists."
-    },
-    {
-      "session": "S147",
-      "date": "2026-08-19",
-      "tag": "#my-own-verification-bindings-invalidated-each-other",
-      "lesson": "P1's verification[] asserted PROTOCOL_VERSION = 23. P2 then legitimately bumped it to 24 in the same session, and the MCV verifier hard-failed on P1 - not on a defect, but on history. Bindings assert CURRENT file state, so two priorities editing the same file in one session can invalidate each other. Fix: earlier priorities should pin the DURABLE artefact (its changelog entry) and leave the current-value assertion to whichever priority last moved it."
-    },
-    {
-      "session": "S147",
-      "date": "2026-08-19",
-      "tag": "#file_lacks-fails-on-your-own-comment-twice",
-      "lesson": "Second time this session: a file_lacks binding failed because the file legitimately MENTIONS the token in a comment explaining its absence - PHASE_CHANGED in P1, 0xc0c8d0 in P2. A file_lacks needle must be the CODE SHAPE, not the word: `type: 'PHASE_CHANGED'` and `, 0xc0c8d0]` rather than the bare identifier. Writing a good comment about a removal will break a lazy binding about that removal."
-    },
-    {
-      "session": "S147",
-      "date": "2026-08-19",
-      "tag": "#the-repo-has-mixed-line-endings-and-my-audit-was-wrong",
-      "lesson": "After P1 I concluded 'the working tree is LF'. Wrong - it is MIXED: nplayerSeating.test.ts, probeHarness.test.ts and e2e/nplayer.spec.ts are natively CRLF and I never touched them. That is why multi-line python anchors kept failing with count=0 while single-line ones worked. Correct habit: single-line, ASCII-only anchors for programmatic patching, since they are agnostic to both line endings and em-dash mangling through a heredoc."
-    }
-  ],
+  "reflexion_entries_to_archive": [],
   "totals": {
     "budget_remaining": 1000000
   },
   "budget_total": 1000000,
   "e2e_gating_status": "PASS 42/42 (was 39/39 at boot; +3 match-clock specs). e2e:protocol 2/2 (gating lane, real WebRTC).",
-  "closed": true,
+  "closed": false,
   "a0_deviation": "The A.0 sweep's adversarial re-check stage (24 independent re-verifications of every non-CONFIRMED verdict) and its synthesis agent ALL failed on an individual spend limit after the 10 probes completed. Probe payloads were recovered from journal.jsonl and triaged by Claude directly. STATED AS A DEVIATION, NOT PRESENTED AS COMPLIANCE: single-probe findings carry ONE source. The two highest-consequence findings (damageEntity dead code; CI red) were personally re-verified by Claude with direct greps and gh calls before being reported.",
   "ci_finding": "e2e.yml newest run 31366201100 = FAILURE, all 3 lanes, headSha 33 commits behind HEAD, predates two gating fixes. No push trigger exists so nothing re-runs it. Fresh workflow_dispatch on current HEAD = run 31509968212, result pending. deploy.yml is 3/3 success. gh issue list = empty.",
   "owner_rulings_s139": {
@@ -770,7 +440,7 @@
     "council_advice": "A (the retune) was rejected 5-0 by every seat. Cap itself split: GROK=E, GEMINI=B, game-design=E, engineering-risk=E, owner-intent=C, synthesis=C.",
     "disposition": "Owner reaffirmed after being shown the objections => executed IN FULL. Trade-offs recorded in code (constants.ts + laserTurret.ts docblocks) rather than suppressed. Guards were UPGRADED rather than deleted: the anti-drift emblem test now reads TURRET_HUB_DEGREE instead of the literal it would have had to lose."
   },
-  "mcv_session_nonce": "S141-2026-08-13-stink-tower-order-queue",
+  "mcv_session_nonce": "S148-2026-08-19-quadrants-walls-races",
   "a0_state_discovery_s141": {
     "method": "Workflow fan-out, 7 read-only probes + adversarial verification",
     "outcome": "6/7 probes returned; probe:recipe-and-codex and ALL verifications died on an individual spend limit",
@@ -1223,5 +893,478 @@
     "prime_audit": "Grok's dual-validator and Gemini's integerize-positions were both plausible and both wrong on this codebase — the third and fourth time an external seat has been confidently wrong here. Their CONVERGENT point (one canonical predicate) is the one that was right, and it is the one that changes the implementation. Runtime-verifiability: the six-site swap cannot be proven by static parse — it needs a test asserting host refusal and client preview AGREE on the same position, which is in P3's exit gate."
   },
   "owner_correction_s148_palette": "OWNER CORRECTION, verbatim: \"well its not a trap. its ok to have 6 colors with only 4 players max - remember in the future we said we will make each color a class/race and give players an option to choose.. we just need to make sure the mechanics are aware of that. like during pregame lobby stage be able to chose your color.\"\n\nI HAD IT WRONG. I proposed cutting PLAYER_COLORS to 4 entries to match the seat cap. That would have destroyed a design axis: R45 — THE PALETTE IS A RACE/CLASS ROSTER, NOT A SEAT-COUNT PROXY. Six colours are six future races; at most 4 are in play at once; the player CHOOSES in the pre-game lobby. Cutting it would have had to be undone later, which is exactly what the fidelity directive (R44) exists to prevent. Gemini had flagged \"decouple seat count from palette size\" as code hygiene; the owner confirmed it is DESIGN.\n\nMEASURED CONSEQUENCE, and it is favourable: THE SIM IS ALREADY COLOUR-CHOICE-READY. Every sim consumer reads the authoritative per-player field player.color — blueprintBuild.ts:231, placePrimitive.ts:158/198, placeFromFree.ts:187-199, disruptionManager.ts:126, creatureAI.ts:110, botSpawnerSeed.ts:79 — and colour is ALREADY on the wire per seat as RosterEntry.color (protocol.ts:240, :438), with gameMode.ts:246 constructing players from entry.color rather than a seat lookup. creatureAI.ts:91 even documents the distinction: \"In normal play player.color === PLAYER_COLORS[seat]\" — an equality that holds by DEFAULT, not an invariant. So PLAYER_COLORS[seat] survives only as (a) the default assignment at roster construction and (b) UI chrome.\n\nTHREE REAL COUPLINGS TO BREAK (the \"mechanics are aware\" work): (1) KEEP_RING_SEATS = PLAYER_COLORS.length (constants.ts:421) is the ONE place palette SIZE drives MECHANICS — pin it to an explicit literal so keep geometry stops tracking the palette (P3 deletes it outright when zone anchors land). (2) gathererRenderer.ts:92 seatColor = PLAYER_COLORS[seat % length] would draw the WRONG colour the moment a player picks a non-default — it must prefer player.color, following the shipped lobbyStateMachine.ts:345 pattern (entry !== undefined ? entry.color : PLAYER_COLORS[i]). (3) PLAYER_COLORS[6] is indexed at botSetupOverlay.ts:74/:290/:298 and titleScreen.ts:114; once bots-only Silver retires those read undefined, so they move to a named non-seat BOT_ACCENT_COLOR and keep their look.\n\nNOT BUILT NOW, RECORDED SO IT IS A DECISION: the lobby colour PICKER is a future feature. Its plug-in points are now known — the default assignment at net/lobbyRoster.ts:103/104/126/129 plus one new client intent — and nothing in P2/P3 forecloses it.",
-  "review_gate_s147": "STEP 0 review gate: card presented with P1+P2 completed (check_completed=true), MCV exit 0, deploys verified 4/4, 190 restore points available. Owner chose APPROVE. Also used the gate to resolve the one genuinely owner-gated carry-forward (CF-S147-d / R46, walls stay in S149) rather than carrying an unanswered question into the next session."
+  "review_gate_s147": "STEP 0 review gate: card presented with P1+P2 completed (check_completed=true), MCV exit 0, deploys verified 4/4, 190 restore points available. Owner chose APPROVE. Also used the gate to resolve the one genuinely owner-gated carry-forward (CF-S147-d / R46, walls stay in S149) rather than carrying an unanswered question into the next session.",
+  "priorities_s147_archived": [
+    {
+      "id": 1,
+      "name": "S147 THE MATCH CLOCK - BUILD/FIGHT phases, tick-derived, hashed, protocol 22->23; Step 0 hazards OFF",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/worldTypes.ts",
+          "needle": "export type MatchPhase = 'BUILD' | 'FIGHT';"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/worldTypes.ts",
+          "needle": "matchPhase: MatchPhase;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/worldTypes.ts",
+          "needle": "phaseEndsAtTick: number;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const PHASE_DURATION_TICKS = 90 * PHYSICS_HZ;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "while (world.tick >= world.phaseEndsAtTick) {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "world.phaseEndsAtTick += PHASE_DURATION_TICKS;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/hostTick.ts",
+          "needle": "world.phaseEndsAtTick = world.tick + PHASE_DURATION_TICKS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "world.gameState === 'PLAYING' && world.matchPhase === 'FIGHT'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/gameMode.ts",
+          "needle": "if (world.matchPhase !== 'FIGHT') return;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const LEADER_DECAY_ENABLED = false;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/scoring.ts",
+          "needle": "export function applyLeaderDecay("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/scoring.ts",
+          "needle": "if (LEADER_DECAY_ENABLED) applyLeaderDecay(world, leaderId);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stateHashFull.ts",
+          "needle": "matchPhase: 'hashed',"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stateHashFull.ts",
+          "needle": "phaseEndsAtTick: 'hashed',"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stateHashFull.ts",
+          "needle": "`mp${world.matchPhase}`,"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stateHashFull.ts",
+          "needle": "`pe${world.phaseEndsAtTick}`,"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/save.ts",
+          "needle": "matchPhase?: MatchPhase;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/save.ts",
+          "needle": "matchPhase: world.matchPhase,"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/save.ts",
+          "needle": "world.matchPhase = snap.matchPhase ?? 'BUILD';"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/save.ts",
+          "needle": "world.phaseEndsAtTick = snap.phaseEndsAtTick ?? snap.tick + PHASE_DURATION_TICKS;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/world.ts",
+          "needle": "matchPhase: 'BUILD',"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/world.ts",
+          "needle": "phaseEndsAtTick: PHASE_DURATION_TICKS,"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/gameMode.ts",
+          "pattern": "world\\.phaseEndsAtTick\\ =\\ world\\.tick\\ \\+\\ PHASE_DURATION_TICKS;",
+          "op": "==",
+          "value": 2
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/workerSim.ts",
+          "needle": "world.matchPhase,"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const HAZARD_SPAWN_ENABLED = readTestHazardsEnabled() ?? false;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/physics/physicsLoop.ts",
+          "pattern": "HAZARD_SPAWN_ENABLED\\ \\&\\&",
+          "op": "==",
+          "value": 4
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const BOMB_SPAWN_MIN_SPARKS = _BOMB_TEST_CADENCE ?? 8;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const SEAGULL_SPAWN_MIN_SPARKS = _SEAGULL_TEST_CADENCE ?? 7;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const BOMB_MAX_ACTIVE = 1;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "S147 P1 — bumped 22->23: THE MATCH CLOCK."
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/ui.ts",
+          "needle": "export function formatPhaseBanner(phase: MatchPhase, ticksRemaining: number): string {"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/ui.ts",
+          "needle": "private lastSeenPhase: MatchPhase | null = null;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/hostTick.ts",
+          "needle": "type: 'PHASE_CHANGED'"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/game/effects.ts",
+          "needle": "PHASE_CHANGED"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/physics/physicsLoop.ts",
+          "needle": "Date.now("
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/gameMode.ts",
+          "needle": "Math.random("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.differential.test.ts",
+          "needle": "world.matchPhase = 'FIGHT';"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/matchPhase.test.ts",
+          "needle": "a PROMOTED SUCCESSOR flips on the same tick"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/matchPhase.test.ts",
+          "needle": "preserves phase PARITY across a skip longer than a whole phase"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/matchPhase.test.ts",
+          "needle": "expect(PHASE_DURATION_TICKS).toBeGreaterThan(800);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/game/spawnerRngInvariance.test.ts",
+          "needle": "STILL mints bomb/potato/rainbow/seagull requests while hazards are disabled"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/match-clock.spec.ts",
+          "needle": "hazards do NOT spawn even on a forced fast cadence"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/workerSim.differential.test.ts",
+          "needle": "a full BUILD→FIGHT→BUILD cycle must have completed on the ref side"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/potato.spec.ts",
+          "needle": "__TEST_HAZARDS_ENABLED__"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/bomb.spec.ts",
+          "needle": "__TEST_HAZARDS_ENABLED__"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/rainbow.spec.ts",
+          "needle": "__TEST_HAZARDS_ENABLED__"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/2026-08-16_PDR_S147_MATCH_CLOCK.md",
+          "needle": "PRIME-AUDIT DELTA TABLE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "S147 P1 — bumped 22->23: THE MATCH CLOCK."
+        }
+      ],
+      "checkpoint_commit": "4e586eef1bc55c256d0bf0d19e6221b0c1d0704c",
+      "check_completed": true,
+      "check_method": "S147 P1 THE MATCH CLOCK — shipped, pushed as %s. RUNTIME-VERIFIED, not static-parsed (Rule 20 runtime-verifiability): only ONE of the nine per-field serialization sites is tsc-forced, so a green tsc proves almost nothing here and every gate below is an execution gate.\n\nGATES: tsc 0 errors · vitest 2459/2459 across 159 files (was 2425/157 at boot => +34 tests, +2 files) · e2e:gating 42/42 in a real browser (was 39/39 => +3 match-clock specs) · e2e:protocol 2/2 over real WebRTC (the S142 gating lane, no continue-on-error) · npm run build 690.6 KiB entry vs 900 KiB cap (209.4 KiB headroom).\n\nEXIT GATE, all four items met: (1) a full BUILD->FIGHT->BUILD cycle with identical hashes host-vs-worker (workerSim.differential 300 frames, netSnapshot JSON + wide hash compared EVERY frame, both edges forced and asserted to have fired); (2) host migration across a phase edge preserves phase AND deadline, proven on the REAL migration path netSnapshot->applyNetSnapshot (not just snapshot->restore, which is the disk path — the S134 lesson that one path can stay green while the other is broken); (3) score is exactly 0 across a whole BUILD and rises in FIGHT, asserted in unit AND in a live-browser e2e; (4) all four gates above.\n\nWHAT A.0 PREDICTED AND THE BUILD CONFIRMED: gating tickScoring to FIGHT broke ALL EIGHT hostTick.differential scenarios, exactly as delta D3 said it would, because that harness is live-vs-FROZEN transcription (which scores unconditionally), not host-vs-worker. Fixed by pinning matchPhase=FIGHT in the harness factory — an equivalence statement (the frozen body IS the always-scoring phase), following the S139 P2 goblin-removal precedent already in that same file. Phase behaviour is proven only where BOTH sides run the LIVE body.\n\nFIVE BREAKS FOUND AND FIXED DURING EXECUTION, none of them silent: (a) the 8 differential scenarios [predicted]; (b) 3 scoring.test decay tests — fixed by EXTRACTING applyLeaderDecay so R28 \"retained, not deleted\" keeps its arithmetic under test rather than deleting the coverage; (c) stateHashFull drift test — the two fields are SCALARS so they belong in HASHED_NON_FAMILY, not the collection-family EXPECTED list; (d) workerSim.differential asserted six hazard families as SEEDED which Step 0 makes unreachable — ACKNOWLEDGED with reasons (still console-reported every run) rather than back-door seeded, because seeding them would exercise a path production can no longer reach; (e) hunter.spec.ts — a REAL regression: it writes scoreByPlayer directly and relied on tickScoring to re-derive scoreProgress, which the FIGHT gate suppresses in BUILD. Production is unaffected (addScore/spendScore each recompute scoreProgress at their own call sites); fixed in the spec with that reasoning recorded so nobody \"fixes\" the sim from it.\n\nTWO OF MY OWN ERRORS, CAUGHT AND CORRECTED: (i) my python writes converted 13 files LF->CRLF (core.autocrlf is true with an LF working tree), which broke a source-text assertion in ui.tierBanner.test.ts and would have passed CI while failing locally — normalized back to LF and subsequent writes use newline=''. My first grep-based line-ending audit was itself unreliable (the pattern degenerated to an empty match); the authoritative check is a byte count. (ii) my first hazards-off e2e asserted zero hazards after 2.5 s, which was guaranteed regardless of the flag — the shipped spark rate is 0.15/s and hazard cadences are measured in SPARKS, so the first hazard is ~50-120 s away even ENABLED. Its own anti-vacuity check failed honestly and caught it; rewritten as a real negative control (12 sparks/s + 2-spark cadence, flag withheld) that also asserts the ID ALLOCATORS never advanced — proving nothing was minted-then-reaped.\n\nDESIGN FIDELITY: zero design change. Council was held to HOW-only per the owner's mid-session directive; the one proposal that would have altered the named data model (Grok C4, replace phaseEndsAtTick with {phaseStartedAtTick, phaseDurationTicks}) was REJECTED on evidence and on that rule. All 40 owner rulings intact.\n\nPOST-SHIP VISUAL VERIFICATION (and it found a real defect the whole suite could not). Captured the HUD in BOTH phases through Playwright — the in-app Browser pane cannot be used here at all, because an undisplayed pane does not composite frames, so requestAnimationFrame is paused and the Pixi ticker never advances (the same limitation ui.ts docblocks already record as the reason its formatters are pure). Comparing the two frames showed the FIGHT banner visibly LARGER than the BUILD one: onPhaseEdge set scale 1.6 and nothing anywhere decayed it, so after the first transition the readout stayed oversized for the rest of the match. Unreachable by any test in this repo — the formatter is pure and knows nothing about scale. Fixed in 4e586ee with a per-frame ease back to rest plus a named PHASE_EDGE_PULSE_SCALE, because the swell and its decay necessarily live in two methods. Re-captured and confirmed at rest. LESSON: for render work, a green suite is not evidence — look at a real frame.",
+      "verification_note": "S147 P1's five protocol-VALUE bindings were replaced after P2 bumped 23->24 in the SAME session. This is a real methodological lesson, recorded rather than papered over: verification[] assertions describe CURRENT file state, so a later priority that legitimately edits the same file invalidates an earlier priority's bindings and the MCV verifier hard-fails on history rather than on a defect. The durable fact - that P1 performed the 22->23 bump - lives in the narrative changelog entry, which is what is now asserted. The current-value assertions belong to whichever priority last moved the number (P2)."
+    },
+    {
+      "id": 2,
+      "name": "R41 + R42 — cap the game at 4 players + adapt the dashboard (protocol 23->24)",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const MAX_PLAYERS = 4;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const MAX_BOTS = MAX_PLAYERS - 1;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/constants.ts",
+          "needle": "export const MAX_PLAYERS = 6;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const BOT_ACCENT_COLOR = 0xc0c8d0;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const KEEP_RING_SEATS = 7;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/constants.ts",
+          "needle": "export const KEEP_RING_SEATS = PLAYER_COLORS.length;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "0xd73bff, // P6 Magenta"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/constants.ts",
+          "pattern": "0xc0c8d0",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/botSetupOverlay.ts",
+          "needle": "PLAYER_COLORS[6]"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/titleScreen.ts",
+          "needle": "PLAYER_COLORS[6]"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/botSetupOverlay.ts",
+          "needle": "BOT_ACCENT_COLOR"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/titleScreen.ts",
+          "needle": "BOT_ACCENT_COLOR"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/rainbowLifecycle.ts",
+          "needle": "const SHUFFLE_PALETTE = PLAYER_COLORS;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/rainbowLifecycle.ts",
+          "needle": "const SHUFFLE_PALETTE = PLAYER_COLORS.slice(0, 6);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/lobbyStateMachine.ts",
+          "needle": "press Begin Match (up to ${MAX_PLAYERS})."
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/lobbyStateMachine.ts",
+          "needle": "press Begin Match (up to 6)."
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/lobbyGeometry.ts",
+          "needle": "const SEAT_COLS = 2;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/lobbyGeometry.ts",
+          "needle": "const SEAT_COLS = 3;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/lobbyScreen.test.ts",
+          "needle": "the rack holds EXACTLY MAX_PLAYERS seats, in full rows, with no overflow"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 24 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "readonly protoVersion: 24;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "S147 P2 - bumped 23->24: THE GAME IS CAPPED AT FOUR PLAYERS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.test.ts",
+          "needle": "expect(PROTOCOL_VERSION).toBe(24);"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/smoke.spec.ts",
+          "needle": "const LOCAL_PROTO_V = 24;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/net/protocol.test.ts",
+          "needle": "expect(PROTOCOL_VERSION).toBe(23);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/lobbyStateMachine.test.ts",
+          "needle": "const occ = (n: number): boolean[] ="
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/lobbyStateMachine.test.ts",
+          "needle": "[true, true, true, false, false, false]"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/nplayerSeating.test.ts",
+          "needle": "expect(PLAYER_COLORS.length).toBeGreaterThanOrEqual(MAX_PLAYERS);"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/nplayerSeating.test.ts",
+          "needle": "expect(PLAYER_COLORS.length).toBe(MAX_PLAYERS + 1);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/botsMode.test.ts",
+          "needle": "the palette is a RACE ROSTER, so it may be LARGER than the seat cap"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/dev/probeHarness.test.ts",
+          "needle": "const fair = SHIPPED / MAX_PLAYERS;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/dev/probeHarness.test.ts",
+          "needle": "seatShareReadout(8, 0.188)"
+        },
+        {
+          "type": "file_lacks",
+          "path": "e2e/nplayer.spec.ts",
+          "needle": ", 0xc0c8d0]"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/nplayer.spec.ts",
+          "needle": "const SEAT_CAP = 4; // mirror of src/constants.ts MAX_PLAYERS"
+        },
+        {
+          "type": "file_lacks",
+          "path": "e2e/lobby-construction.spec.ts",
+          "needle": "[true, true, true, false, false, false]"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/2026-08-19_SCOPE_AMENDMENT_S147_R41_4PLAYER_CAP.md",
+          "needle": "R45"
+        }
+      ],
+      "checkpoint_commit": "a23510debd9e3be7adc4a22fe4ea40a003b1aa60",
+      "check_completed": true,
+      "check_method": "S147 P2 (R41 + R42) shipped at a23510de, deploy verified 4/4; LIVE carrier confirms entry asset index-CkkN5WRI.js. GATES: tsc 0 / vitest 2459 of 2459 (159 files) / e2e:gating 42 of 42 in a real browser / e2e:protocol 2 of 2 over real WebRTC / bundle 690.7 KiB vs 900 KiB cap.\n\nLANDED: MAX_PLAYERS 6->4, MAX_BOTS 6->3, lobby rack 2x3->2x2, bot setup 1..3, protocol 23->24 across all five sites, bots-only 7th Silver retired to a non-seat BOT_ACCENT_COLOR.\n\n*** THE OWNER CORRECTED ME MID-BUILD AND IT CHANGED THE WORK. I proposed cutting PLAYER_COLORS to 4 to match the cap. The owner ruled (R45) each colour is a future CLASS/RACE chosen in the pre-game lobby, so six colours with a four-player cap is CORRECT and the surplus entries are unchosen races, not dead seats. Cutting it would have had to be undone later - exactly what the R44 fidelity directive exists to prevent. The work therefore became DECOUPLING, not shrinking: KEEP_RING_SEATS was PLAYER_COLORS.length, the single place palette SIZE drove MECHANICS, and is now a pinned literal - pinned rather than re-tuned so keep positions (hashed state that gatherer spawns derive from) do not move twice in one session, since P3 deletes the polar ring outright.\n\nMEASURED AND FAVOURABLE: the sim is ALREADY colour-choice-ready. Every consumer reads player.color (blueprintBuild:231, placePrimitive:158/198, placeFromFree:187-199, disruptionManager:126, creatureAI:110, botSpawnerSeed:79) and colour already rides the wire as RosterEntry.color (protocol.ts:240/:438), with gameMode.ts:246 building players from entry.color. So the future picker needs NO sim change; its plug-in points (lobbyRoster default assignment plus one intent) are recorded and nothing here forecloses it.\n\nA REAL USER-FACING BUG FOUND AND FIXED under R42: lobbyStateMachine.ts hardcoded the string (up to 6) while the cap became 4, so the dashboard advertised a seat count the host would refuse. Now interpolated from MAX_PLAYERS. Exactly the class of thing the owner asked me not to miss.\n\nTEST DISCIPLINE: 14 assertions re-pinned and every one DERIVED from MAX_PLAYERS rather than re-literalled, because fixed literals are what rotted - an occ(n) helper for rack occupancy, roster seating re-pinned to the 3 remote seats the cap allows (same hole-filling property, fewer seats), and the probe fair-share derived (0.188 silently stopped being the plausible hand-typed rounding the moment the cap moved). The palette canary now asserts >= MAX_PLAYERS; asserting equality would have quietly forced the palette to shrink and destroyed R45. That canary earned its keep - it forced the duplicated e2e palette literal to be swept in the SAME commit, as its own docblock demands. NEW rack-capacity guard makes lobbyGeometry's comment enforceable (exactly MAX_PLAYERS seats, full rows, symmetric, on-canvas) against the S140 silent-overflow lesson.\n\nTSC DID REAL WORK: PLAYER_COLORS is a readonly TUPLE, so retiring the 7th entry made tsc name all four production index-6 reads (botSetupOverlay x3, titleScreen x1) rather than leaving them to fail as undefined colours at runtime.\n\nBREAKS, ALL PREDICTED BY A.0 E9/E10 AND ALL RE-PINNED RATHER THAN DELETED: lobbyRoster x3, lobbyStateMachine x5, lobbyScreen rack layout, nplayerSeating x2, probeHarness x1, plus the e2e nplayer and lobby-construction occupancy rows. One flake (rainbow.spec under full-suite load) passed in isolation."
+    }
+  ],
+  "reflexion_s147_archived_count": 19,
+  "amendment_file": ".claude/plans/2026-08-19_SCOPE_AMENDMENT_S148_VISION_FIRST.md",
+  "owner_rulings_s148": {
+    "date": "2026-08-19",
+    "q1_economy_target": "AFFORDABLE UN-UPGRADED - a first Stink Tower (1 Square + 3 Circle) must land inside one 90 s BUILD with ZERO upgrades bought. SUPERSEDED IN PRIORITY by the vision-first redirect: this is now a one-constant setting derived from arithmetic, not a measured sweep priority.",
+    "q2_ttl_in_scope": "YES - FREE_SPARK_TTL_TICKS may move. Retained as a permitted knob, de-prioritised as work.",
+    "q3_council": "SKIP - no 3-way Council. Stated as a DEVIATION from the Full-tier mandate.",
+    "q4_approval": "GO - all priorities approved.",
+    "r47_vision_first": "VISION FIRST, TUNING LATER. Owner verbatim: \"there are base specs that we have defined in the new game blueprint fork that we have defined and you havent even implemented or thought of them yet like that player quadrants walls castle/color races and many other base things. it seems that you are focusing on like minor subspec technicals that might or might not affect the game like points per tick or stupid shit that we can always change or tweak in the future! lets focus on the game vision!\" CONSEQUENCE: P3 changes from the measured economy sweep to THE WALLS; P4 added for COLOUR=RACE lobby picker; the economy becomes a single derived constant, not a priority.",
+    "r48_walls_pulled_forward": "R46 (S147 review gate: walls stay in S149 coupled to the gatherer shelter) is REVERSED by R47. The wall object lands in S148 P3; the gatherer-shelter half (R6/R12) stays behind unless the owner asks for it. Flagged to the owner rather than silently recoupled."
+  },
+  "vision_gap_audit_s148": [
+    "GREP-VERIFIED against master at ef59743. NOT BUILT AT ALL (zero non-test source files): castle HP/defence/attack (R29); tower TARGET PREFERENCE (R8/R31/R40); FIX and SCRAP (R13/R19/R21); the Wall entity (R5/R17/R37/R39 - world.walls returns zero hits).",
+    "NOT BUILT (partial or absent): src/state/zones.ts absent (R2/R43); no general travelling-projectile system - the only projectile on disk is seagull poop (R35/R37/R38); no goblin TOWER and no six goblin types - one goblinMelee CreatureType exists and one is granted per seat at START_GAME (R18/R24/R25/R32/R34); no lobby colour/race picker (R45); no elimination / last-one-standing / placings (R10/R20); no gatherer shelter or garrison (R6/R12); footer is not indexed by connector count (R36).",
+    "R22 VIOLATION FOUND: the quarry is supposed to stop producing during FIGHT, but the spawner never reads world.matchPhase - grep for matchPhase over physics/ and the spawner returns nothing. Sparks keep spawning through the whole fight. Logged as a carry-forward, not fixed in this batch.",
+    "ALREADY SHIPPED and correct: the BUILD/FIGHT clock (S147); income = complexity x rate gated to FIGHT (R3/R7/R16/R17 - tickScoring at scoring.ts:279 uses computeAllComplexities and has never cared whether shapes form a recipe); the 4-player cap and dashboard (R41/R42); the Stink Tower as a 4-shape buildable defender."
+  ],
+  "deploy_verified_s148_p1": "pending - checked after the Actions run lands"
 }
