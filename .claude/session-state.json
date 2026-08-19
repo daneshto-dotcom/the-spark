@@ -1,18 +1,18 @@
 {
-  "tool_calls_session_total": 1245,
+  "tool_calls_session_total": 1316,
   "session_id": "S147",
   "session_kind": "pdca-batch",
   "session_start": "2026-08-16",
   "prior_session_note": "S146 closed: limitless per-type castle inventory + loose-spark antimagnet removed, then the owner PIVOTED SPARK to a classical tower defence. S146 produced SPARK_TD_BLUEPRINT.md (40 rulings, unanimous ADAPT-not-rewrite) and SPARK_TD_SESSION_SPECS.md (11 sessions). S147 is the first build session of that roadmap.",
   "prior_session_archive": ".handoff-archive/HANDOFF_S146.md",
-  "phase": "CHECK",
+  "phase": "DO",
   "tier": "Full",
-  "plan_file": ".claude/plans/2026-08-16_PDR_S147_MATCH_CLOCK.md",
+  "plan_file": ".claude/plans/2026-08-19_SCOPE_AMENDMENT_S147_R41_4PLAYER_CAP.md",
   "session_status": "active",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "protocol_version": 23,
+  "protocol_version": 24,
   "boot_preflight": {
     "boot_snapshot_read": true,
     "handoff_read": "HANDOFF_2026-08-16_S146.md (via boot-snapshot.md + inline handoff prompt)",
@@ -230,37 +230,7 @@
         {
           "type": "file_contains",
           "path": "src/net/protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 23 as const;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "readonly protoVersion: 23;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
           "needle": "S147 P1 — bumped 22->23: THE MATCH CLOCK."
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.test.ts",
-          "needle": "expect(PROTOCOL_VERSION).toBe(23);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.test.ts",
-          "needle": "it('PROTOCOL_VERSION is 23 — THE ONE DELIBERATE PIN"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/smoke.spec.ts",
-          "needle": "const LOCAL_PROTO_V = 23;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "src/net/protocol.test.ts",
-          "needle": "expect(PROTOCOL_VERSION).toBe(22);"
         },
         {
           "type": "file_contains",
@@ -346,17 +316,217 @@
           "type": "file_contains",
           "path": ".claude/plans/2026-08-16_PDR_S147_MATCH_CLOCK.md",
           "needle": "PRIME-AUDIT DELTA TABLE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "S147 P1 — bumped 22->23: THE MATCH CLOCK."
         }
       ],
       "checkpoint_commit": "4e586eef1bc55c256d0bf0d19e6221b0c1d0704c",
       "check_completed": true,
-      "check_method": "S147 P1 THE MATCH CLOCK — shipped, pushed as %s. RUNTIME-VERIFIED, not static-parsed (Rule 20 runtime-verifiability): only ONE of the nine per-field serialization sites is tsc-forced, so a green tsc proves almost nothing here and every gate below is an execution gate.\n\nGATES: tsc 0 errors · vitest 2459/2459 across 159 files (was 2425/157 at boot => +34 tests, +2 files) · e2e:gating 42/42 in a real browser (was 39/39 => +3 match-clock specs) · e2e:protocol 2/2 over real WebRTC (the S142 gating lane, no continue-on-error) · npm run build 690.6 KiB entry vs 900 KiB cap (209.4 KiB headroom).\n\nEXIT GATE, all four items met: (1) a full BUILD->FIGHT->BUILD cycle with identical hashes host-vs-worker (workerSim.differential 300 frames, netSnapshot JSON + wide hash compared EVERY frame, both edges forced and asserted to have fired); (2) host migration across a phase edge preserves phase AND deadline, proven on the REAL migration path netSnapshot->applyNetSnapshot (not just snapshot->restore, which is the disk path — the S134 lesson that one path can stay green while the other is broken); (3) score is exactly 0 across a whole BUILD and rises in FIGHT, asserted in unit AND in a live-browser e2e; (4) all four gates above.\n\nWHAT A.0 PREDICTED AND THE BUILD CONFIRMED: gating tickScoring to FIGHT broke ALL EIGHT hostTick.differential scenarios, exactly as delta D3 said it would, because that harness is live-vs-FROZEN transcription (which scores unconditionally), not host-vs-worker. Fixed by pinning matchPhase=FIGHT in the harness factory — an equivalence statement (the frozen body IS the always-scoring phase), following the S139 P2 goblin-removal precedent already in that same file. Phase behaviour is proven only where BOTH sides run the LIVE body.\n\nFIVE BREAKS FOUND AND FIXED DURING EXECUTION, none of them silent: (a) the 8 differential scenarios [predicted]; (b) 3 scoring.test decay tests — fixed by EXTRACTING applyLeaderDecay so R28 \"retained, not deleted\" keeps its arithmetic under test rather than deleting the coverage; (c) stateHashFull drift test — the two fields are SCALARS so they belong in HASHED_NON_FAMILY, not the collection-family EXPECTED list; (d) workerSim.differential asserted six hazard families as SEEDED which Step 0 makes unreachable — ACKNOWLEDGED with reasons (still console-reported every run) rather than back-door seeded, because seeding them would exercise a path production can no longer reach; (e) hunter.spec.ts — a REAL regression: it writes scoreByPlayer directly and relied on tickScoring to re-derive scoreProgress, which the FIGHT gate suppresses in BUILD. Production is unaffected (addScore/spendScore each recompute scoreProgress at their own call sites); fixed in the spec with that reasoning recorded so nobody \"fixes\" the sim from it.\n\nTWO OF MY OWN ERRORS, CAUGHT AND CORRECTED: (i) my python writes converted 13 files LF->CRLF (core.autocrlf is true with an LF working tree), which broke a source-text assertion in ui.tierBanner.test.ts and would have passed CI while failing locally — normalized back to LF and subsequent writes use newline=''. My first grep-based line-ending audit was itself unreliable (the pattern degenerated to an empty match); the authoritative check is a byte count. (ii) my first hazards-off e2e asserted zero hazards after 2.5 s, which was guaranteed regardless of the flag — the shipped spark rate is 0.15/s and hazard cadences are measured in SPARKS, so the first hazard is ~50-120 s away even ENABLED. Its own anti-vacuity check failed honestly and caught it; rewritten as a real negative control (12 sparks/s + 2-spark cadence, flag withheld) that also asserts the ID ALLOCATORS never advanced — proving nothing was minted-then-reaped.\n\nDESIGN FIDELITY: zero design change. Council was held to HOW-only per the owner's mid-session directive; the one proposal that would have altered the named data model (Grok C4, replace phaseEndsAtTick with {phaseStartedAtTick, phaseDurationTicks}) was REJECTED on evidence and on that rule. All 40 owner rulings intact.\n\nPOST-SHIP VISUAL VERIFICATION (and it found a real defect the whole suite could not). Captured the HUD in BOTH phases through Playwright — the in-app Browser pane cannot be used here at all, because an undisplayed pane does not composite frames, so requestAnimationFrame is paused and the Pixi ticker never advances (the same limitation ui.ts docblocks already record as the reason its formatters are pure). Comparing the two frames showed the FIGHT banner visibly LARGER than the BUILD one: onPhaseEdge set scale 1.6 and nothing anywhere decayed it, so after the first transition the readout stayed oversized for the rest of the match. Unreachable by any test in this repo — the formatter is pure and knows nothing about scale. Fixed in 4e586ee with a per-frame ease back to rest plus a named PHASE_EDGE_PULSE_SCALE, because the swell and its decay necessarily live in two methods. Re-captured and confirmed at rest. LESSON: for render work, a green suite is not evidence — look at a real frame."
+      "check_method": "S147 P1 THE MATCH CLOCK — shipped, pushed as %s. RUNTIME-VERIFIED, not static-parsed (Rule 20 runtime-verifiability): only ONE of the nine per-field serialization sites is tsc-forced, so a green tsc proves almost nothing here and every gate below is an execution gate.\n\nGATES: tsc 0 errors · vitest 2459/2459 across 159 files (was 2425/157 at boot => +34 tests, +2 files) · e2e:gating 42/42 in a real browser (was 39/39 => +3 match-clock specs) · e2e:protocol 2/2 over real WebRTC (the S142 gating lane, no continue-on-error) · npm run build 690.6 KiB entry vs 900 KiB cap (209.4 KiB headroom).\n\nEXIT GATE, all four items met: (1) a full BUILD->FIGHT->BUILD cycle with identical hashes host-vs-worker (workerSim.differential 300 frames, netSnapshot JSON + wide hash compared EVERY frame, both edges forced and asserted to have fired); (2) host migration across a phase edge preserves phase AND deadline, proven on the REAL migration path netSnapshot->applyNetSnapshot (not just snapshot->restore, which is the disk path — the S134 lesson that one path can stay green while the other is broken); (3) score is exactly 0 across a whole BUILD and rises in FIGHT, asserted in unit AND in a live-browser e2e; (4) all four gates above.\n\nWHAT A.0 PREDICTED AND THE BUILD CONFIRMED: gating tickScoring to FIGHT broke ALL EIGHT hostTick.differential scenarios, exactly as delta D3 said it would, because that harness is live-vs-FROZEN transcription (which scores unconditionally), not host-vs-worker. Fixed by pinning matchPhase=FIGHT in the harness factory — an equivalence statement (the frozen body IS the always-scoring phase), following the S139 P2 goblin-removal precedent already in that same file. Phase behaviour is proven only where BOTH sides run the LIVE body.\n\nFIVE BREAKS FOUND AND FIXED DURING EXECUTION, none of them silent: (a) the 8 differential scenarios [predicted]; (b) 3 scoring.test decay tests — fixed by EXTRACTING applyLeaderDecay so R28 \"retained, not deleted\" keeps its arithmetic under test rather than deleting the coverage; (c) stateHashFull drift test — the two fields are SCALARS so they belong in HASHED_NON_FAMILY, not the collection-family EXPECTED list; (d) workerSim.differential asserted six hazard families as SEEDED which Step 0 makes unreachable — ACKNOWLEDGED with reasons (still console-reported every run) rather than back-door seeded, because seeding them would exercise a path production can no longer reach; (e) hunter.spec.ts — a REAL regression: it writes scoreByPlayer directly and relied on tickScoring to re-derive scoreProgress, which the FIGHT gate suppresses in BUILD. Production is unaffected (addScore/spendScore each recompute scoreProgress at their own call sites); fixed in the spec with that reasoning recorded so nobody \"fixes\" the sim from it.\n\nTWO OF MY OWN ERRORS, CAUGHT AND CORRECTED: (i) my python writes converted 13 files LF->CRLF (core.autocrlf is true with an LF working tree), which broke a source-text assertion in ui.tierBanner.test.ts and would have passed CI while failing locally — normalized back to LF and subsequent writes use newline=''. My first grep-based line-ending audit was itself unreliable (the pattern degenerated to an empty match); the authoritative check is a byte count. (ii) my first hazards-off e2e asserted zero hazards after 2.5 s, which was guaranteed regardless of the flag — the shipped spark rate is 0.15/s and hazard cadences are measured in SPARKS, so the first hazard is ~50-120 s away even ENABLED. Its own anti-vacuity check failed honestly and caught it; rewritten as a real negative control (12 sparks/s + 2-spark cadence, flag withheld) that also asserts the ID ALLOCATORS never advanced — proving nothing was minted-then-reaped.\n\nDESIGN FIDELITY: zero design change. Council was held to HOW-only per the owner's mid-session directive; the one proposal that would have altered the named data model (Grok C4, replace phaseEndsAtTick with {phaseStartedAtTick, phaseDurationTicks}) was REJECTED on evidence and on that rule. All 40 owner rulings intact.\n\nPOST-SHIP VISUAL VERIFICATION (and it found a real defect the whole suite could not). Captured the HUD in BOTH phases through Playwright — the in-app Browser pane cannot be used here at all, because an undisplayed pane does not composite frames, so requestAnimationFrame is paused and the Pixi ticker never advances (the same limitation ui.ts docblocks already record as the reason its formatters are pure). Comparing the two frames showed the FIGHT banner visibly LARGER than the BUILD one: onPhaseEdge set scale 1.6 and nothing anywhere decayed it, so after the first transition the readout stayed oversized for the rest of the match. Unreachable by any test in this repo — the formatter is pure and knows nothing about scale. Fixed in 4e586ee with a per-frame ease back to rest plus a named PHASE_EDGE_PULSE_SCALE, because the swell and its decay necessarily live in two methods. Re-captured and confirmed at rest. LESSON: for render work, a green suite is not evidence — look at a real frame.",
+      "verification_note": "S147 P1's five protocol-VALUE bindings were replaced after P2 bumped 23->24 in the SAME session. This is a real methodological lesson, recorded rather than papered over: verification[] assertions describe CURRENT file state, so a later priority that legitimately edits the same file invalidates an earlier priority's bindings and the MCV verifier hard-fails on history rather than on a defect. The durable fact - that P1 performed the 22->23 bump - lives in the narrative changelog entry, which is what is now asserted. The current-value assertions belong to whichever priority last moved the number (P2)."
     },
     {
       "id": 2,
-      "name": "S148 zones + castle anchors + build legality + measured economy re-tune",
-      "status": "deferred",
-      "reason": "CONDITIONAL / deliberately deferred, not omitted. SPARK_TD_BLUEPRINT.md:313 says S147 ships \"first, and almost alone\", and SPARK_TD_SESSION_SPECS.md §3 makes S148 a HARD dependency on a PROVEN clock. Batching them would build zones on an unverified phase heartbeat - the exact failure the risk-ordered sequencing exists to prevent. Revisit only if P1 clears its full exit gate with context still GREEN.",
+      "name": "R41 + R42 — cap the game at 4 players + adapt the dashboard (protocol 23->24)",
+      "status": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const MAX_PLAYERS = 4;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const MAX_BOTS = MAX_PLAYERS - 1;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/constants.ts",
+          "needle": "export const MAX_PLAYERS = 6;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const BOT_ACCENT_COLOR = 0xc0c8d0;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const KEEP_RING_SEATS = 7;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/constants.ts",
+          "needle": "export const KEEP_RING_SEATS = PLAYER_COLORS.length;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "0xd73bff, // P6 Magenta"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/constants.ts",
+          "pattern": "0xc0c8d0",
+          "op": "==",
+          "value": 1
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/botSetupOverlay.ts",
+          "needle": "PLAYER_COLORS[6]"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/titleScreen.ts",
+          "needle": "PLAYER_COLORS[6]"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/botSetupOverlay.ts",
+          "needle": "BOT_ACCENT_COLOR"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/titleScreen.ts",
+          "needle": "BOT_ACCENT_COLOR"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/rainbowLifecycle.ts",
+          "needle": "const SHUFFLE_PALETTE = PLAYER_COLORS;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/rainbowLifecycle.ts",
+          "needle": "const SHUFFLE_PALETTE = PLAYER_COLORS.slice(0, 6);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/lobbyStateMachine.ts",
+          "needle": "press Begin Match (up to ${MAX_PLAYERS})."
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/lobbyStateMachine.ts",
+          "needle": "press Begin Match (up to 6)."
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/lobbyGeometry.ts",
+          "needle": "const SEAT_COLS = 2;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/lobbyGeometry.ts",
+          "needle": "const SEAT_COLS = 3;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/lobbyScreen.test.ts",
+          "needle": "the rack holds EXACTLY MAX_PLAYERS seats, in full rows, with no overflow"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 24 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "readonly protoVersion: 24;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "S147 P2 - bumped 23->24: THE GAME IS CAPPED AT FOUR PLAYERS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.test.ts",
+          "needle": "expect(PROTOCOL_VERSION).toBe(24);"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/smoke.spec.ts",
+          "needle": "const LOCAL_PROTO_V = 24;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/net/protocol.test.ts",
+          "needle": "expect(PROTOCOL_VERSION).toBe(23);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/lobbyStateMachine.test.ts",
+          "needle": "const occ = (n: number): boolean[] ="
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/lobbyStateMachine.test.ts",
+          "needle": "[true, true, true, false, false, false]"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/nplayerSeating.test.ts",
+          "needle": "expect(PLAYER_COLORS.length).toBeGreaterThanOrEqual(MAX_PLAYERS);"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/nplayerSeating.test.ts",
+          "needle": "expect(PLAYER_COLORS.length).toBe(MAX_PLAYERS + 1);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/botsMode.test.ts",
+          "needle": "the palette is a RACE ROSTER, so it may be LARGER than the seat cap"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/dev/probeHarness.test.ts",
+          "needle": "const fair = SHIPPED / MAX_PLAYERS;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/dev/probeHarness.test.ts",
+          "needle": "seatShareReadout(8, 0.188)"
+        },
+        {
+          "type": "file_lacks",
+          "path": "e2e/nplayer.spec.ts",
+          "needle": ", 0xc0c8d0]"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/nplayer.spec.ts",
+          "needle": "const SEAT_CAP = 4; // mirror of src/constants.ts MAX_PLAYERS"
+        },
+        {
+          "type": "file_lacks",
+          "path": "e2e/lobby-construction.spec.ts",
+          "needle": "[true, true, true, false, false, false]"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/2026-08-19_SCOPE_AMENDMENT_S147_R41_4PLAYER_CAP.md",
+          "needle": "R45"
+        }
+      ],
+      "checkpoint_commit": "a23510debd9e3be7adc4a22fe4ea40a003b1aa60",
+      "check_completed": true,
+      "check_method": "S147 P2 (R41 + R42) shipped at a23510de, deploy verified 4/4; LIVE carrier confirms entry asset index-CkkN5WRI.js. GATES: tsc 0 / vitest 2459 of 2459 (159 files) / e2e:gating 42 of 42 in a real browser / e2e:protocol 2 of 2 over real WebRTC / bundle 690.7 KiB vs 900 KiB cap.\n\nLANDED: MAX_PLAYERS 6->4, MAX_BOTS 6->3, lobby rack 2x3->2x2, bot setup 1..3, protocol 23->24 across all five sites, bots-only 7th Silver retired to a non-seat BOT_ACCENT_COLOR.\n\n*** THE OWNER CORRECTED ME MID-BUILD AND IT CHANGED THE WORK. I proposed cutting PLAYER_COLORS to 4 to match the cap. The owner ruled (R45) each colour is a future CLASS/RACE chosen in the pre-game lobby, so six colours with a four-player cap is CORRECT and the surplus entries are unchosen races, not dead seats. Cutting it would have had to be undone later - exactly what the R44 fidelity directive exists to prevent. The work therefore became DECOUPLING, not shrinking: KEEP_RING_SEATS was PLAYER_COLORS.length, the single place palette SIZE drove MECHANICS, and is now a pinned literal - pinned rather than re-tuned so keep positions (hashed state that gatherer spawns derive from) do not move twice in one session, since P3 deletes the polar ring outright.\n\nMEASURED AND FAVOURABLE: the sim is ALREADY colour-choice-ready. Every consumer reads player.color (blueprintBuild:231, placePrimitive:158/198, placeFromFree:187-199, disruptionManager:126, creatureAI:110, botSpawnerSeed:79) and colour already rides the wire as RosterEntry.color (protocol.ts:240/:438), with gameMode.ts:246 building players from entry.color. So the future picker needs NO sim change; its plug-in points (lobbyRoster default assignment plus one intent) are recorded and nothing here forecloses it.\n\nA REAL USER-FACING BUG FOUND AND FIXED under R42: lobbyStateMachine.ts hardcoded the string (up to 6) while the cap became 4, so the dashboard advertised a seat count the host would refuse. Now interpolated from MAX_PLAYERS. Exactly the class of thing the owner asked me not to miss.\n\nTEST DISCIPLINE: 14 assertions re-pinned and every one DERIVED from MAX_PLAYERS rather than re-literalled, because fixed literals are what rotted - an occ(n) helper for rack occupancy, roster seating re-pinned to the 3 remote seats the cap allows (same hole-filling property, fewer seats), and the probe fair-share derived (0.188 silently stopped being the plausible hand-typed rounding the moment the cap moved). The palette canary now asserts >= MAX_PLAYERS; asserting equality would have quietly forced the palette to shrink and destroyed R45. That canary earned its keep - it forced the duplicated e2e palette literal to be swept in the SAME commit, as its own docblock demands. NEW rack-capacity guard makes lobbyGeometry's comment enforceable (exactly MAX_PLAYERS seats, full rows, symmetric, on-canvas) against the S140 silent-overflow lesson.\n\nTSC DID REAL WORK: PLAYER_COLORS is a readonly TUPLE, so retiring the 7th entry made tsc name all four production index-6 reads (botSetupOverlay x3, titleScreen x1) rather than leaving them to fail as undefined colours at runtime.\n\nBREAKS, ALL PREDICTED BY A.0 E9/E10 AND ALL RE-PINNED RATHER THAN DELETED: lobbyRoster x3, lobbyStateMachine x5, lobbyScreen rack layout, nplayerSeating x2, probeHarness x1, plus the e2e nplayer and lobby-construction occupancy rows. One flake (rainbow.spec under full-suite load) passed in isolation."
+    },
+    {
+      "id": 3,
+      "name": "S148 — zones, zone-derived castle anchors, own-zone build legality at all SIX sites, measured economy re-tune (protocol 24->25)",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
@@ -429,6 +599,54 @@
       "date": "2026-08-19",
       "tag": "#two-jobs-in-one-function-made-a-test-regress-for-a-non-bug",
       "lesson": "tickScoring both accrues income AND re-derives scoreProgress = max(scoreByPlayer). Gating the whole call to FIGHT therefore also gated the derivation, which regressed hunter.spec.ts — it writes scoreByPlayer directly and leaned on tickScoring to notice. Production was never affected (addScore/spendScore each recompute scoreProgress at their own call sites), so the right fix was in the spec, with the reasoning written down so a future session does not \"fix\" the sim from that line. When gating a function, enumerate everything it does, not just the thing you are gating."
+    },
+    {
+      "session": "S147",
+      "date": "2026-08-19",
+      "tag": "#the-owner-stopped-me-deleting-a-design-axis",
+      "lesson": "I found PLAYER_COLORS had 7 entries against a new 4-player cap, called it a trap, and proposed cutting the palette to 4. The owner corrected me: each colour is a future CLASS/RACE picked in the pre-game lobby, so six colours with a four-player cap is CORRECT. My 'fix' would have deleted a design axis and had to be undone later. A surplus is not always dead code - before shrinking a collection to match a cap, ask what the collection MEANS. Gemini had flagged 'decouple seat count from palette size' as hygiene; the owner confirmed it was design. The right work was decoupling, and it turned out the sim was already choice-ready."
+    },
+    {
+      "session": "S147",
+      "date": "2026-08-19",
+      "tag": "#a-readonly-tuple-is-a-forcing-function",
+      "lesson": "Retiring the 7th palette entry could have shipped four silent undefined colours. It could not, because PLAYER_COLORS is declared `as const` - a readonly TUPLE, not number[] - so tsc named every index-6 read (botSetupOverlay x3, titleScreen x1). The same change against a plain array would have compiled clean and broken at runtime. Worth remembering when authoring a palette or lookup table: `as const` buys compiler enforcement for free."
+    },
+    {
+      "session": "S147",
+      "date": "2026-08-19",
+      "tag": "#the-dashboard-was-lying-in-a-hardcoded-string",
+      "lesson": "The lobby status read 'press Begin Match (up to 6)' as a LITERAL while MAX_PLAYERS became 4, so the UI advertised a seat count the host would refuse. The seat COUNT beside it was derived; only the cap in the prose was not. Interpolating fixed it. Any user-facing sentence containing a number that also exists as a constant is a latent lie - and a test asserting the literal will happily lock the lie in place, which is exactly what had happened."
+    },
+    {
+      "session": "S147",
+      "date": "2026-08-19",
+      "tag": "#re-pin-derived-not-re-literalled",
+      "lesson": "14 assertions broke on the cap change. The tempting fix is s/6/4/. The right fix was deriving each from MAX_PLAYERS - an occ(n) helper for rack occupancy, Array.from for seat ranges, fair = SHIPPED / MAX_PLAYERS for the probe - because a literal is what rotted in the first place. The probe test even documented its own literal as 'the plausible hand-typed rounding', which silently stopped being true the moment the cap moved. Re-literalling would have set the same trap for the next cap change."
+    },
+    {
+      "session": "S147",
+      "date": "2026-08-19",
+      "tag": "#a-canary-test-earned-its-keep",
+      "lesson": "nplayerSeating.test.ts pins the exact palette hexes with a docblock explaining that e2e duplicates them and must be swept in the SAME commit. It fired, and it was right: e2e/nplayer.spec.ts carried its own copy of the array including the retired silver. Without that canary the e2e copy would have drifted silently. When you must duplicate a constant across a bundling boundary, the canary is the cheap half of the deal - and it only works because someone wrote down WHY it exists."
+    },
+    {
+      "session": "S147",
+      "date": "2026-08-19",
+      "tag": "#my-own-verification-bindings-invalidated-each-other",
+      "lesson": "P1's verification[] asserted PROTOCOL_VERSION = 23. P2 then legitimately bumped it to 24 in the same session, and the MCV verifier hard-failed on P1 - not on a defect, but on history. Bindings assert CURRENT file state, so two priorities editing the same file in one session can invalidate each other. Fix: earlier priorities should pin the DURABLE artefact (its changelog entry) and leave the current-value assertion to whichever priority last moved it."
+    },
+    {
+      "session": "S147",
+      "date": "2026-08-19",
+      "tag": "#file_lacks-fails-on-your-own-comment-twice",
+      "lesson": "Second time this session: a file_lacks binding failed because the file legitimately MENTIONS the token in a comment explaining its absence - PHASE_CHANGED in P1, 0xc0c8d0 in P2. A file_lacks needle must be the CODE SHAPE, not the word: `type: 'PHASE_CHANGED'` and `, 0xc0c8d0]` rather than the bare identifier. Writing a good comment about a removal will break a lazy binding about that removal."
+    },
+    {
+      "session": "S147",
+      "date": "2026-08-19",
+      "tag": "#the-repo-has-mixed-line-endings-and-my-audit-was-wrong",
+      "lesson": "After P1 I concluded 'the working tree is LF'. Wrong - it is MIXED: nplayerSeating.test.ts, probeHarness.test.ts and e2e/nplayer.spec.ts are natively CRLF and I never touched them. That is why multi-line python anchors kept failing with count=0 while single-line ones worked. Correct habit: single-line, ASCII-only anchors for programmatic patching, since they are agnostic to both line endings and em-dash mangling through a heredoc."
     }
   ],
   "totals": {
@@ -506,7 +724,7 @@
   },
   "real_context_tokens_at_close": 428810,
   "real_context_pct_at_close": 42.9,
-  "checkpoint_commit": "4e586eef1bc55c256d0bf0d19e6221b0c1d0704c",
+  "checkpoint_commit": "a23510debd9e3be7adc4a22fe4ea40a003b1aa60",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -952,5 +1170,53 @@
   },
   "rule22_audit_s147": "END-OF-SESSION RUNTIME AUDIT (Rule 22). Re-scanned the S147 commit diff for the BUG-A/B/C patterns: no unrendered ${VAR} placeholders (no deploy/env artifacts touched this session); no references to non-existent files (every path in the diff was opened and read); no mitigation that fails to survive a restart (the clock is snapshot-carried and rebuilt from the mirror at migration, proven by the promoted-successor test on the netSnapshot path); no mount-point divergence (no Docker/entrypoint change); no hallucinated CLI flags (every npm script used was read from package.json verbatim). CI: gh run list showed 5/5 recent Deploy runs success and ZERO cancelled at boot, gh issue list empty; the deploy for this commit is verified separately by verify-deploy 4/4. ONE REAL SELF-INFLICTED DEFECT FOUND AND FIXED IN-SESSION: 13 files were converted LF->CRLF by my own python writes, which broke a source-text assertion locally while git would have normalized it on commit — i.e. it would have PASSED CI and failed only on a developer machine. Normalized back to LF and verified by byte count, not by grep.",
   "deploy_verified_s147": "PASS 4/4 twice. First at 599d45ae (clock), then again at 4e586ee (pulse-decay fix) with all four carriers agreeing: remote==4e586eef, run 32242483959 success, verdict success, and LIVE entry asset index-DQoaN1vy.js content-hash identical to the local build. THE MATCH CLOCK IS LIVE.",
-  "visual_verification_s147": "Screenshots on the owner desktop: spark-s147-clock-BUILD.png (calm blue-white \"BUILD 1:29\") and spark-s147-clock-FIGHT.png (hot amber \"FIGHT 1:28\", at rest after the decay fix). Debug overlay in both confirms tick advancing under the real host loop, gameState PLAYING, solo."
+  "visual_verification_s147": "Screenshots on the owner desktop: spark-s147-clock-BUILD.png (calm blue-white \"BUILD 1:29\") and spark-s147-clock-FIGHT.png (hot amber \"FIGHT 1:28\", at rest after the decay fix). Debug overlay in both confirms tick advancing under the real host loop, gameState PLAYING, solo.",
+  "owner_rulings_s147_amendment": {
+    "source": "Owner, mid-session 2026-08-19, verbatim: \"remember the quadrants for the different modes of the game. remember that each quadrant also has a wall during the build stage. other than that castles and all other things should be in their correct places. and from now on the game will be only upto 4 players so keep that in mind because the dashboard screen including the game modes and bot modes and multiplayer/single needs to be adapted to this new build\" + \"make sure we stay true to the new game blueprint we have created so we dont have to fix anything that is done incorrectly or anything that we forgot to consider\"",
+    "R41": "THE GAME IS MAX 4 PLAYERS. Today MAX_PLAYERS=6, MAX_BOTS=6, PLAYER_COLORS has SEVEN entries (7th is bots-only Silver), KEEP_RING_SEATS = PLAYER_COLORS.length = 7. All of it comes down to 4.",
+    "R42": "THE DASHBOARD ADAPTS to the cap — title-screen modes, bot modes, multiplayer/single, lobby seat rack.",
+    "R43": "Re-affirmed: quadrants per mode; each quadrant walled during BUILD; castles at their correct extremities. RULING TAKEN: the WALL OBJECT stays S149 (it is coupled to the gatherer-shelter mechanism, both being phase-toggled movement rules) while the zone BORDER becomes visible in P3 so the partition reads on screen. Flagged to the owner rather than silently dropped.",
+    "R44": "FIDELITY DIRECTIVE — stay true to the blueprint; do not build anything incorrectly and do not forget a consideration. Discharged by a pre-build blueprint-completeness pass (see a0_state_discovery_s148), which caught two real traps BEFORE any code was written.",
+    "R45": "THE PALETTE IS A RACE/CLASS ROSTER. PLAYER_COLORS stays at 6 (six future races) even though only 4 players can play; the player picks their colour in the PRE-GAME LOBBY. Mechanics must never treat palette size as a seat cap. Picker itself = future work; substrate already exists (RosterEntry.color on the wire, player.color read by all sim consumers)."
+  },
+  "a0_state_discovery_s148": [
+    "METHOD: hand-run targeted Bash probes, no Workflow fan-out (the S147 lesson — an 8-probe Workflow lost 7 probes plus synthesis to the individual spend limit, and hand-work was cheaper AND fully self-verified). Every finding below cites a line read directly this session.",
+    "*** E1 REFUTED, HIGHEST CONSEQUENCE *** The S148 spec says build legality wires into \"the THREE existing refusal sites\". It is SIX. isInsideEnemyTerritory is imported by state/placePrimitive.ts:39, state/placeFromFree.ts:55, state/blueprintLegality.ts:35 (the three named) PLUS bots/botBrain.ts:24, input/controls.ts:58, and input/dragPreview.ts:31. The last three are CLIENT PREVIEW and BOT AI. Wiring only the three host refusals would make the drag ghost show \"legal\" exactly where the host refuses — which reads to a player as a desync bug — and would leave bots trying to build where the host now says no. Both Council seats independently made the single canonical predicate their highest-value change.",
+    "*** E2 REFUTED *** The 4-player cap is not a one-constant edit. MAX_PLAYERS=6 (constants.ts:68), MAX_BOTS=6 (:71), PLAYER_COLORS has 7 entries (:66-79), KEEP_RING_SEATS = PLAYER_COLORS.length (:421). ~20 non-test consumers across net/ (hostHandlers, lobbyRoster, 4 protocol validators, quickmatch, session), render/ (lobbyScreen, lobbyStateMachine, seatRack, lobbyGeometry, ui.ts:379), state/, dev/probeHarness.",
+    "E3 SUPERSEDED BY OWNER CORRECTION (see owner_correction_s148_palette). I called the 7-entry PLAYER_COLORS a trap and proposed cutting it to 4. WRONG — the owner ruled the palette is a future RACE/CLASS roster with lobby-time player choice (R45), so it stays at 6 and must be DECOUPLED from the seat cap, not shrunk to it. What survives from the probe is the concrete site list: PLAYER_COLORS[6] at botSetupOverlay.ts:74/:290/:298 and titleScreen.ts:114 (move to a named BOT_ACCENT_COLOR when bots-only Silver retires), and rainbowLifecycle.ts:63-66 index-6 exclusion logic that simplifies once all six colours are human-eligible.",
+    "E4 CONFIRMED — the quarry sits EXACTLY on the 4P split intersection. SPAWNER_CENTER_X/Y = CANVAS_WIDTH/2, CANVAS_HEIGHT/2 = (960,540), SPAWNER_RADIUS=125, and the QUADRANTS_4P splits are x=960 / y=540. Blueprint Q6 already rules the quarry shared and belonging to NO zone (walls run from the quarry rim OUTWARD so every zone keeps access to its own slice). So zoneOf returns null inside the disc, evaluated FIRST — which also removes the boundary ambiguity at dead centre for free. Squared-distance compare, no Math.sqrt.",
+    "E5 CONFIRMED-SAFE — the specced castle anchors all fit the field. KEEP_W=74, KEEP_H=58 (constants.ts:451-452), so PITCH_2P (120,540) spans x 83..157 / y 511..569, and QUADRANTS_4P (130,130) spans x 93..167 / y 101..159; (1790,130), (1790,950), (130,950) mirror it. No clipping at any corner. Checked BEFORE coding because a clipped keep is exactly the \"forgot to consider\" class the owner warned about.",
+    "E6 REFUTED (Gemini overstated) — do NOT integerize positions to make zoneOf deterministic. Gatherer/primitive pos is Vec2 FLOAT and is already hashed host-authoritative state, so both peers hold bit-identical values; an IEEE-754 comparison of identical floats is exact and hardware-independent. The FMA/float-drift concern applies to arithmetic that PRODUCES a position, not to comparing one. Rounding positions inside zoneOf would perturb physics and change hashed state for no gain. Mitigation is consistent strict inequality instead: `x < 960` for one side and `>=` for the other, never <= on both, so no pixel can be claimed twice.",
+    "E7 CONFIRMED-FAVOURABLE, and it de-risks the P3 economy re-tune — the gatherer-dependent e2e specs do NOT wait on haul timing. e2e/click-to-build.spec.ts:45 states its fixture outright: \"Put exactly one stink-tower bill in seat 0's bank.\" The specs INJECT bank contents directly rather than waiting for gatherers to walk, so the 2.6x haul growth does not silently time them out. Gemini raised this as its top rot risk; measured, it is largely absent.",
+    "E8 REFUTED — castleAnchor is not a contained sim helper: THIRTEEN non-test consumers, including three in render/castlePanel.ts (:860,896,980), two in render/gathererRenderer.ts (:160,202), state/castleBank.ts:140, state/gameMode.ts:320,345, gathererLifecycle.ts:113,457 and main.ts:1058 (keepCenter). protocol.ts:106-109 already records it as \"A SHARED CONSTANT BOTH PEERS COMPUTE FROM\" and it forced the 16->17 bump for exactly this. Confirms P3 owes a protocol bump. Favourable corollary: the new anchors are literal INTEGER constants with no trig at all, so replacing the polar formula removes a whole float-drift class rather than adding one.",
+    "E9 PARTIAL — the lobby seat rack is 2 rows x 3 cols (lobbyGeometry.ts:22-31, SEAT_COLS=3) and render/lobbyScreen.test.ts:310,338 assert row-major 2x3 BY NAME. It becomes 2x2. Real geometry plus a named test, against a repo with a standing lesson about panel geometry overflowing silently while every test stays green.",
+    "E10 PARTIAL — test blast radius for the cap: 15 files reference the seat constants, with six HARD literals to re-pin deliberately: botsMode.test.ts:139 expect(MAX_PLAYERS).toBe(6), :148 and :161 asserting SEVEN distinct seats, nplayerSeating.test.ts:72 asserting 6, botSpawnerSeed.test.ts:73 asserting 6 spawners, and e2e/nplayer.spec.ts:227,233 asserting 6 players — the last in the GATING lane.",
+    "E11 CONFIRMED — the four modes already exist as the notes describe: titleScreen.ts builds btnSolo (:86), btn1v1 (:98), btnVsBots (:111), btnCodex (:125). R42 adapts these four rather than inventing a flow. DECISION RECORDED: 2v2 / 4-FFA as distinct SELECTABLE modes with teams stay S156 (they need a hashed teamOf field and team-gated targeting); P2 adapts the dashboard to the CAP only. Stated so it is a decision, not an omission.",
+    "E12 CONFIRMED — territory.ts SURVIVES, as the spec says. computeTerritorialInfluence is called from physics/physicsLoop.ts:70 and computeTerritorialRadius/computePlayerComplexity from render/debugOverlay.ts:27. Only the isInsideEnemyTerritory PREDICATE is swapped, at its six call sites."
+  ],
+  "council_s148": {
+    "tier": "Full",
+    "seats": [
+      "Claude (Supervisor)",
+      "GROK-PLAN grok-4.20-0309-reasoning",
+      "GEMINI-AUDITOR gemini-3.1-pro-preview"
+    ],
+    "rounds_run": 1,
+    "scope_rule_enforced": "Both seats were given an explicit HOW-only system prompt per the owner S147 directive. No design proposals were entertained.",
+    "convergence": "BOTH seats independently made the SAME highest-value change: one canonical canBuildAt(pos, seat, layout) in zones.ts, imported by all six sites (host refusals + client preview + bot AI), with zero duplicated boundary logic. Gemini named the failure mode exactly — \"the client previews a valid build but the host rejects it\" rubber-banding. ADOPTED as the core implementation shape.",
+    "adopted": [
+      "HOW-1 (both): a single canonical canBuildAt in zones.ts; the six sites import it and pass world.layout. No site re-derives geometry.",
+      "HOW-2 (both): cap-before-zones ordering CONFIRMED as mandatory, and Grok named the trap precisely — running zones first would need \"temporary seat-modulo hacks that poison migration determinism\", because zoneOwner(5, QUADRANTS_4P) has no defined answer at MAX_PLAYERS=6.",
+      "HOW-3 (Gemini A): evaluate the shared quarry FIRST via squared distance (no Math.sqrt), then partition with consistent strict inequalities (x < 960 one side, >= the other) so no pixel is claimed twice.",
+      "HOW-4 (Gemini B): a migration test that suspends the host at the exact tick a gatherer spawns and asserts the promoted successor hashes identically — because gatherer spawns DERIVE from the anchor.",
+      "HOW-5 (Gemini E3-class): decouple seat count from palette size; never use PLAYER_COLORS.length as a proxy for player count. The probe then located the four concrete PLAYER_COLORS[6] sites."
+    ],
+    "rejected": [
+      "GROK #3 — a \"temporary dual-validator path (23 and 24) in the v24 binary for one release\". REJECTED: it adds wire-compatibility surface and directly contradicts the deliberate hard-reject-at-HELLO posture that every bump entry in protocol.ts records. SPARK has no external playerbase (documented), so the real cost of a bump is the owner reloading — which is cheaper than a dual-validator path nobody will remember to delete. This is also close to a WHAT proposal, which the owner rule puts out of bounds.",
+      "GEMINI A (partial) — \"integerize positions before zoneOf\". REJECTED on evidence: positions are hashed floats already identical on both peers, so an IEEE-754 comparison is exact; rounding would perturb physics and change hashed state for no benefit. The consistent-strict-inequality half of the same challenge was adopted instead.",
+      "GEMINI D1 — \"e2e will silently time out on the 2.6x economy, add an E2E_ECONOMY_MULTIPLIER\". REJECTED as largely inapplicable: measured, the gatherer-dependent specs inject bank contents directly rather than waiting on hauls (E7). Re-checking after the re-tune rather than pre-building a harness knob for a problem that does not exist."
+    ],
+    "prime_audit": "Grok's dual-validator and Gemini's integerize-positions were both plausible and both wrong on this codebase — the third and fourth time an external seat has been confidently wrong here. Their CONVERGENT point (one canonical predicate) is the one that was right, and it is the one that changes the implementation. Runtime-verifiability: the six-site swap cannot be proven by static parse — it needs a test asserting host refusal and client preview AGREE on the same position, which is in P3's exit gate."
+  },
+  "owner_correction_s148_palette": "OWNER CORRECTION, verbatim: \"well its not a trap. its ok to have 6 colors with only 4 players max - remember in the future we said we will make each color a class/race and give players an option to choose.. we just need to make sure the mechanics are aware of that. like during pregame lobby stage be able to chose your color.\"\n\nI HAD IT WRONG. I proposed cutting PLAYER_COLORS to 4 entries to match the seat cap. That would have destroyed a design axis: R45 — THE PALETTE IS A RACE/CLASS ROSTER, NOT A SEAT-COUNT PROXY. Six colours are six future races; at most 4 are in play at once; the player CHOOSES in the pre-game lobby. Cutting it would have had to be undone later, which is exactly what the fidelity directive (R44) exists to prevent. Gemini had flagged \"decouple seat count from palette size\" as code hygiene; the owner confirmed it is DESIGN.\n\nMEASURED CONSEQUENCE, and it is favourable: THE SIM IS ALREADY COLOUR-CHOICE-READY. Every sim consumer reads the authoritative per-player field player.color — blueprintBuild.ts:231, placePrimitive.ts:158/198, placeFromFree.ts:187-199, disruptionManager.ts:126, creatureAI.ts:110, botSpawnerSeed.ts:79 — and colour is ALREADY on the wire per seat as RosterEntry.color (protocol.ts:240, :438), with gameMode.ts:246 constructing players from entry.color rather than a seat lookup. creatureAI.ts:91 even documents the distinction: \"In normal play player.color === PLAYER_COLORS[seat]\" — an equality that holds by DEFAULT, not an invariant. So PLAYER_COLORS[seat] survives only as (a) the default assignment at roster construction and (b) UI chrome.\n\nTHREE REAL COUPLINGS TO BREAK (the \"mechanics are aware\" work): (1) KEEP_RING_SEATS = PLAYER_COLORS.length (constants.ts:421) is the ONE place palette SIZE drives MECHANICS — pin it to an explicit literal so keep geometry stops tracking the palette (P3 deletes it outright when zone anchors land). (2) gathererRenderer.ts:92 seatColor = PLAYER_COLORS[seat % length] would draw the WRONG colour the moment a player picks a non-default — it must prefer player.color, following the shipped lobbyStateMachine.ts:345 pattern (entry !== undefined ? entry.color : PLAYER_COLORS[i]). (3) PLAYER_COLORS[6] is indexed at botSetupOverlay.ts:74/:290/:298 and titleScreen.ts:114; once bots-only Silver retires those read undefined, so they move to a named non-seat BOT_ACCENT_COLOR and keep their look.\n\nNOT BUILT NOW, RECORDED SO IT IS A DECISION: the lobby colour PICKER is a future feature. Its plug-in points are now known — the default assignment at net/lobbyRoster.ts:103/104/126/129 plus one new client intent — and nothing in P2/P3 forecloses it."
 }

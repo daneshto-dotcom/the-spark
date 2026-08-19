@@ -18,6 +18,7 @@ adapted to this new build"*
 |---|---|
 | **R41** | ⭐ **THE GAME IS MAX 4 PLAYERS.** Today `MAX_PLAYERS = 6`, `MAX_BOTS = 6`, and VS-BOTS seats **seven** (human + 6 bots, `PLAYER_COLORS` has a 7th "Silver" entry, `KEEP_RING_SEATS = 7`). All of that comes down to 4. |
 | **R42** | **THE DASHBOARD ADAPTS** — title-screen modes, bot modes, multiplayer/single, and the lobby seat rack all reflect the 4-seat cap. |
+| **R45** | ⭐ **THE PALETTE IS A RACE/CLASS ROSTER, NOT A SEAT-COUNT PROXY.** Owner, correcting me mid-build: *"its ok to have 6 colors with only 4 players max — in the future we said we'll make each color a class/race and give players an option to choose... during pregame lobby stage be able to chose your color."* So `PLAYER_COLORS` **stays at six** while `MAX_PLAYERS` becomes 4; the surplus entries are unchosen races, not dead seats. I had proposed cutting the palette to 4 — that was **wrong** and would have had to be undone later. The work is therefore **decoupling** seat-count from palette-size, never shrinking. Measured: the sim is already choice-ready (every consumer reads `player.color`, which rides the wire as `RosterEntry.color`), so the lobby picker itself is future work that nothing here forecloses. |
 | R43 | Re-affirmed: quadrants per mode (1v1 = pitch, 2v2 / 4-FFA = quadrants); **each quadrant has a wall during BUILD**; castles at their correct extremities. |
 
 **Ruling on R43's wall clause:** the walls stay **S149** as the roadmap has them, because they are
