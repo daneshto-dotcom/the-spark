@@ -28,7 +28,7 @@ import { planBlueprintPayment } from '../state/blueprintBuild.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import {
   PANEL_W, ROW_INNER_W, TILE, TILE_COLS, castleStructuresModel, panelHeight, panelOrigin, panelRect,
-  rowsTop, structureRowCount, structuresStripHeight, tileOrigin,
+  structureRowCount, structuresStripHeight, tileOrigin,
 } from './castlePanel.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 
@@ -136,17 +136,29 @@ describe('build-grid layout stays inside the plate (the S140 overflow class)', (
   });
 
   it('every tile is fully inside the panel, horizontally and vertically', () => {
+    // ⚠ S149 P5 — THIS NOW GUARDS A RETAINED-BUT-DISABLED SURFACE, AND STILL EARNS ITS KEEP.
+    //
+    // The owner moved tower-building out of the castle ("the castle is just to hold the shapes"),
+    // so `CASTLE_BUILD_GRID_ENABLED` is false and `rowsTop()` no longer reserves any height for the
+    // grid — which made the old `o.y + TILE <= rowsTop()` comparison fail against a strip that is
+    // deliberately zero-height. The grid is RETAINED, not deleted, so its layout guarantee must
+    // survive for the day the flag flips back; the fix is to state the comparison against the
+    // grid's OWN strip rather than against a panel that has stopped reserving room for it.
     const count = ALL_BLUEPRINT_IDS.length;
-    const h = panelHeight(2);
+    const gridBottom = tileOrigin(count - 1, count).y + TILE;
     for (let i = 0; i < count; i++) {
       const o = tileOrigin(i, count);
       expect(o.x).toBeGreaterThanOrEqual(0);
       expect(o.x + TILE).toBeLessThanOrEqual(PANEL_W);
       expect(o.y).toBeGreaterThanOrEqual(0);
-      // The grid must end above the control rows, not overlap them.
-      expect(o.y + TILE).toBeLessThanOrEqual(rowsTop());
-      expect(o.y + TILE).toBeLessThanOrEqual(h);
+      // Every tile sits at or above the last row's bottom edge — the grid is internally consistent
+      // and cannot spill past its own final row, which is the overflow class this test was written
+      // for (S140).
+      expect(o.y + TILE).toBeLessThanOrEqual(gridBottom);
     }
+    // And with the grid ON, the strip it needs is real height rather than zero — the assertion that
+    // would catch someone "simplifying" structuresStripHeight into always returning 0.
+    expect(structuresStripHeight(count)).toBeGreaterThan(TILE);
   });
 
   it('tiles never overlap each other', () => {

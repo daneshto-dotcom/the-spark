@@ -14,7 +14,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { LEADER_DECAY_ENABLED, PHASE_DURATION_TICKS, PHYSICS_HZ, SPAWNER_KILL_REWARD } from '../constants.ts';
+import { FIGHT_PHASE_TICKS, LEADER_DECAY_ENABLED, PHASE_DURATION_TICKS, phaseDurationTicks, PHYSICS_HZ, SPAWNER_KILL_REWARD } from '../constants.ts';
 import { DEFAULT_SPAWNER_CONFIG, Spawner } from '../game/spawner.ts';
 import { mulberry32 } from './rng.ts';
 import { makeGameStateExtras } from './gameState.ts';
@@ -100,7 +100,11 @@ describe('S147 P1 — the match clock: the flip', () => {
     w.phaseEndsAtTick = 5;
     run(w, 5);
     expect(w.matchPhase).toBe('FIGHT');
-    expect(w.phaseEndsAtTick).toBe(5 + PHASE_DURATION_TICKS); // exactly one duration on from the first
+    // ⭐ S149 — the phases have DIFFERENT lengths now (owner: "90 build 45 fight"), so the deadline
+    // advances by the length of the phase just ENTERED — FIGHT here, not BUILD. This is the exact
+    // off-by-one the `phaseDurationTicks` docblock warns about: reading the OUTGOING phase would
+    // run every stage for its predecessor's length.
+    expect(w.phaseEndsAtTick).toBe(5 + FIGHT_PHASE_TICKS);
   });
 
   it('cycles BUILD → FIGHT → BUILD → FIGHT forever (R3: the stages repeat)', () => {
@@ -138,7 +142,17 @@ describe('S147 P1 — the match clock: the flip', () => {
       w.phaseEndsAtTick = FIRST_END;
       // Land mid-way inside the crossings-th phase window. `stepPhysics` advances the tick by one
       // before the clock is evaluated, so aim one short.
-      w.tick = FIRST_END + (crossings - 1) * PHASE_DURATION_TICKS + Math.floor(PHASE_DURATION_TICKS / 2) - 1;
+      // ⭐ S149 — BOUNDARIES ARE NO LONGER EVENLY SPACED. With BUILD 5400 and FIGHT 2700 the old
+      // `FIRST_END + k * PHASE_DURATION_TICKS` stride is simply wrong, so walk the real cadence:
+      // starting from BUILD, the k-th window alternates BUILD, FIGHT, BUILD, … Landing mid-way
+      // inside the crossings-th window is what the test means, and now it is what it computes.
+      let at = FIRST_END;
+      let ph: 'BUILD' | 'FIGHT' = 'FIGHT'; // the phase ENTERED at the first boundary
+      for (let k = 1; k < crossings; k++) {
+        at += phaseDurationTicks(ph);
+        ph = ph === 'BUILD' ? 'FIGHT' : 'BUILD';
+      }
+      w.tick = at + Math.floor(phaseDurationTicks(ph) / 2) - 1;
       expect(w.matchPhase).toBe('BUILD'); // every case starts from the same phase
       run(w, 1);
       const expected = crossings % 2 === 0 ? 'BUILD' : 'FIGHT';

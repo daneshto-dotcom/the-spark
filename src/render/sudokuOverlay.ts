@@ -17,6 +17,7 @@
 import { Application, Assets, Container, type FederatedPointerEvent, Graphics, Sprite, Text, Texture, TextStyle } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, SPARK_COLORS, SparkType } from '../constants.ts';
 import type { World } from '../state/worldTypes.ts';
+import type { SudokuEvent } from '../state/sudoku.ts';
 import {
   blinkPulse,
   floodAlpha,
@@ -526,10 +527,30 @@ export class SudokuOverlay {
     }
   }
 
-  /** Per-frame. Shows/hides off world.sudoku and redraws the dynamic board state. */
-  render(world: World): void {
+  /**
+   * Per-frame. Shows/hides off the active trial and redraws the dynamic board state.
+   *
+   * ⭐ S149 P5 — `override` IS THE ARCADE SEAM, and it exists so ARCADE MODE TOUCHES NO SIM STATE.
+   *
+   * `world.sudoku` is a hashed World field: a NONET is a host-authoritative match event. The arcade
+   * is the opposite — a local puzzle played from the title screen, with no match, no host and no
+   * peers. Writing a title-screen puzzle into `world.sudoku` would put render-only intent into the
+   * simulation, where it would ride the next snapshot and be hashed. So the arcade passes its own
+   * event HERE instead, and `world` is left completely alone.
+   *
+   * The in-match path passes nothing and behaves exactly as before.
+   */
+  render(world: World, override: SudokuEvent | null = null): void {
     this.world = world;
-    const ev = world.sudoku;
+    const ev = override ?? world.sudoku;
+
+    // ⛔ S149 P5 — THE BANNER MUST NOT PROMISE SCORING THAT CANNOT HAPPEN. The match banner reads
+    // "first to solve · winner x2 · everyone else halved", which is about beating OPPONENTS. In the
+    // arcade there are none, no score moves, and nothing is halved — leaving that copy up would be
+    // the overlay lying about the stakes. Caught by reading a screenshot, not by a test.
+    this.banner.text = override !== null
+      ? 'arcade · solve it at your own pace · Esc to leave'
+      : 'first to solve · winner x2 · everyone else halved';
     if (ev === null) {
       this.container.visible = false;
       this.setVideosPlaying(false); // pause the realm loops while the overlay is dismissed

@@ -39,7 +39,7 @@ import {
   HUNTER_TRIGGER_SCORE,
   PEER_DROP_BENCH_TICKS,
   PEER_DROP_GRACE_TICKS,
-  PHASE_DURATION_TICKS,
+  phaseDurationTicks,
   REVALIDATE_INTERVAL_TICKS,
   SPAWN_INTERVAL_TICKS,
   STRUCTURE_SELFDESTRUCT_DRONE_COUNT,
@@ -184,7 +184,10 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     let flipped = false;
     while (world.tick >= world.phaseEndsAtTick) {
       world.matchPhase = world.matchPhase === 'BUILD' ? 'FIGHT' : 'BUILD';
-      world.phaseEndsAtTick += PHASE_DURATION_TICKS;
+      // ⭐ S149 — the phases have DIFFERENT lengths (BUILD 90 s, FIGHT 45 s), so the deadline
+      // extends by the length of the phase just ENTERED. `matchPhase` was flipped on the line
+      // above, so reading it here is already the new phase — which is exactly what is wanted.
+      world.phaseEndsAtTick += phaseDurationTicks(world.matchPhase);
       flipped = true;
     }
     // ⭐ S149 P2 — THE PHASE EDGE ACTIONS (R4 / R6 / R12).

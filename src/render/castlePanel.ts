@@ -253,13 +253,42 @@ const CAPTION_H = 32;
 const STRUCTURES_PAD_BOTTOM = 10;
 
 /** PURE — how many tile rows the grid needs. */
+/**
+ * ⭐ S149 P5 — **THE CASTLE NO LONGER BUILDS TOWERS.** Owner, after playing P4:
+ *
+ *   *"the towers are still being built within the castle which is wrong. you should remove the area
+ *   and put it down in the footer … the castle is just to hold the shapes (inventory) and being able
+ *   to pull single shapes to build other random buildings/towers/walls."*
+ *
+ * So the BUILD grid is gone from this panel and lives in the footer band (R36). The castle keeps
+ * what it is actually for: the shape inventory, the porch, the order queue and the gatherer
+ * controls.
+ *
+ * ⚠ RETAINED, NOT DELETED (owner ruling S149: delete nothing this session). Every tile, its art, its
+ * affordability model and its hit-testing stay in this file behind this one flag, so the footer
+ * reuses `castleStructuresModel` and the arming path rather than forking them — and flipping this
+ * back is one line if the surface ever moves again.
+ */
+const CASTLE_BUILD_GRID_ENABLED = false;
+
+/** How many build tiles this panel actually renders — 0 once the grid moved to the footer. */
+function liveTileCount(): number {
+  return CASTLE_BUILD_GRID_ENABLED ? ALL_BLUEPRINT_IDS.length : 0;
+}
+
 export function structureRowCount(count: number = ALL_BLUEPRINT_IDS.length): number {
+  // ⭐ S149 P5 — ZERO TILES MEANS ZERO ROWS. The `Math.max(1, …)` floor was correct while the grid
+  // always existed; now the owner has moved tower-building OUT of the castle ("the castle is just
+  // to hold the shapes"), the panel renders with no grid at all and a phantom empty row would leave
+  // a labelled void where the towers used to be.
+  if (count <= 0) return 0;
   return Math.max(1, Math.ceil(count / TILE_COLS));
 }
 
 /** PURE — total height of the build section, label and caption included. */
 export function structuresStripHeight(count: number = ALL_BLUEPRINT_IDS.length): number {
   const rows = structureRowCount(count);
+  if (rows === 0) return 0; // no grid ⇒ no label, no caption, no padding — see structureRowCount
   return SECTION_LABEL_H + rows * TILE + (rows - 1) * TILE_GAP + CAPTION_H + STRUCTURES_PAD_BOTTOM;
 }
 
@@ -442,7 +471,7 @@ export function panelOrigin(
 export function panelHeight(rows: number, cap: number = INVENTORY_SLOTS): number {
   return (
     TITLE_H + bankStripHeight(cap) + paletteStripHeight() + queueStripHeight() +
-    structuresStripHeight() +
+    structuresStripHeight(liveTileCount()) +
     rows * ROW_H + (rows - 1) * ROW_GAP + PANEL_PAD * 2
   );
 }
@@ -459,7 +488,7 @@ export function panelHeight(rows: number, cap: number = INVENTORY_SLOTS): number
 export function rowsTop(cap: number = INVENTORY_SLOTS): number {
   return (
     PANEL_PAD + TITLE_H + bankStripHeight(cap) + paletteStripHeight() + queueStripHeight()
-    + structuresStripHeight()
+    + structuresStripHeight(liveTileCount())
   );
 }
 
@@ -658,7 +687,8 @@ export class CastlePanel {
     });
     this.container.addChild(this.sectionLabel);
 
-    for (let i = 0; i < ALL_BLUEPRINT_IDS.length; i++) {
+    this.sectionLabel.visible = CASTLE_BUILD_GRID_ENABLED;
+    for (let i = 0; CASTLE_BUILD_GRID_ENABLED && i < ALL_BLUEPRINT_IDS.length; i++) {
       const bg = new Graphics();
       const art = new Graphics();
       const cost = new Text({
@@ -809,6 +839,20 @@ export class CastlePanel {
   /** P3 — main.ts injects this to raise/lower the cursor ghost as tiles are armed. */
   setArmHandler(fn: (id: GodlyId | null) => void): void {
     this.onArm = fn;
+  }
+
+  /**
+   * ⭐ S149 P5 — ARM A TOWER FROM OUTSIDE THE PANEL (the footer band).
+   *
+   * The BUILD grid moved to the footer, but `armed` deliberately stays HERE: `controls.ts` reads
+   * `castlePanel.armedBlueprint()`, the cursor ghost follows it, and the place-commit path is built
+   * on it. Re-homing that state would have meant rewiring the whole carry flow to chase a UI move.
+   * So the footer routes its card click through this one method and every downstream behaviour —
+   * ghost, escape-to-disarm, right-click cancel, commit — is inherited unchanged.
+   */
+  armExternal(id: GodlyId | null): void {
+    this.armed = this.armed === id ? null : id;
+    this.onArm?.(this.armed);
   }
 
   /** The tower currently held on the cursor, or null. Read by the P3 ghost + commit path. */
@@ -1133,7 +1177,8 @@ export class CastlePanel {
     // "NEED 3 MORE" legibly, but the panel's contract that a disabled thing explains itself still
     // has to be met somewhere.
     const capY = PANEL_PAD + TITLE_H + bankStripHeight() + paletteStripHeight() + queueStripHeight()
-      + SECTION_LABEL_H + structureRowCount() * TILE + (structureRowCount() - 1) * TILE_GAP + 6;
+      + SECTION_LABEL_H + structureRowCount(liveTileCount()) * TILE
+      + (structureRowCount(liveTileCount()) - 1) * TILE_GAP + 6;
     this.captionName.position.set(PANEL_PAD, capY);
     this.captionTag.position.set(PANEL_PAD, capY + 14);
     if (captionFor === null) {

@@ -378,7 +378,29 @@ export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 1500;
  * from the live path. `matchPhase.test.ts` asserts this bound by name so a future re-tune fails
  * loudly with the reason instead of reddening eight unrelated determinism scenarios.
  */
-export const PHASE_DURATION_TICKS = 90 * PHYSICS_HZ; // 5400 ticks = 90 s @ 60 Hz
+/**
+ * ⭐ S149 — THE TWO PHASES NO LONGER SHARE A LENGTH. Owner, S149: *"fighting is too long. bring down
+ * to 45 sec from 90. 90 build 45 fight."*
+ *
+ * `PHASE_DURATION_TICKS` is RETAINED as the BUILD length — it is what the name always meant in
+ * practice, it is what every existing consumer wanted, and renaming it would churn nine call sites
+ * for no behavioural gain. Read `phaseDurationTicks(phase)` for the length of a SPECIFIC phase.
+ */
+export const PHASE_DURATION_TICKS = 90 * PHYSICS_HZ; // 5400 ticks = 90 s @ 60 Hz — the BUILD stage
+/** S149 — the FIGHT is half a BUILD: long enough to resolve, short enough not to drag. */
+export const FIGHT_PHASE_TICKS = 45 * PHYSICS_HZ; // 2700 ticks = 45 s @ 60 Hz
+
+/**
+ * ⭐ HOW LONG `phase` LASTS, in ticks. The ONE place the asymmetry is expressed.
+ *
+ * ⚠ CALLERS MUST ASK ABOUT THE PHASE THEY ARE ENTERING, NOT THE ONE THEY ARE LEAVING. The host tick
+ * flips `matchPhase` and only THEN extends the deadline, so it reads this with the new phase — get
+ * that backwards and every stage runs for its predecessor's length, which reads as a clock that
+ * drifts rather than as an off-by-one.
+ */
+export function phaseDurationTicks(phase: 'BUILD' | 'FIGHT'): number {
+  return phase === 'BUILD' ? PHASE_DURATION_TICKS : FIGHT_PHASE_TICKS;
+}
 
 /**
  * ⭐ S149 P2 (R6/R12/Q2) — HOW LONG BEFORE THE WALLS DROP EVERY GATHERER IS SAFE INSIDE.

@@ -38,6 +38,8 @@ export interface TitleScreenCallbacks {
   onVsBotsSelected(): void;
   /** S22 P3 / S104 P3 — open the unified Codex (3 tabs: Godly Combos / Combos / Towers & Structures). */
   onCodexSelected(): void;
+  /** S149 P5 — open ARCADE: standalone minigames, starting with NONET. */
+  onArcadeSelected(): void;
 }
 
 /** S85 P4c — canvas-space button centers for the e2e geometry-getter migration.
@@ -47,6 +49,8 @@ export interface TitleButtonCenters {
   readonly oneVOne: { x: number; y: number };
   readonly vsBots: { x: number; y: number };
   readonly codex: { x: number; y: number };
+  /** S149 P5 — the ARCADE entry, below CODEX. */
+  readonly arcade: { x: number; y: number };
 }
 
 export class TitleScreen {
@@ -132,6 +136,20 @@ export class TitleScreen {
     );
     this.container.addChild(btnCodex);
 
+    // ⭐ S149 P5 — ARCADE (fifth row, BELOW the Codex exactly as the owner asked). Standalone
+    // minigames with no match attached — the home NONET was given when its demolition was
+    // reversed: "you may not delete NONET … we will add ARCADE option to the front page below
+    // the Codex and add bunch of minigames like the NONET SODOKU".
+    const btnArcade = this.makeButton(
+      'ARCADE',
+      'standalone trials · NONET and more to come',
+      0x9b7bff,
+      CANVAS_WIDTH / 2,
+      CANVAS_HEIGHT / 2 + 40 + (BUTTON_HEIGHT + BUTTON_GAP) * 4,
+      callbacks.onArcadeSelected,
+    );
+    this.container.addChild(btnArcade);
+
     // S85 P4c — read the centers back from the LIVE button containers (not a
     // re-derivation of the layout math) so the getter can never drift from
     // what is actually rendered. e2e clicks consume these via __SPARK__
@@ -144,6 +162,7 @@ export class TitleScreen {
         oneVOne: { x: btn1v1.position.x, y: btn1v1.position.y },
         vsBots: { x: btnVsBots.position.x, y: btnVsBots.position.y },
         codex: { x: btnCodex.position.x, y: btnCodex.position.y },
+        arcade: { x: btnArcade.position.x, y: btnArcade.position.y },
       };
       this.getButtonCenters = () => centers;
     }

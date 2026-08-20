@@ -151,6 +151,8 @@ import { StinkTowerRenderer } from './render/stinkTowerRenderer.ts';
 import { SpawnerZoneRenderer } from './render/spawnerZoneRenderer.ts';
 import { WallRenderer } from './render/wallRenderer.ts';
 import { FooterBand } from './render/footerBand.ts';
+import { ArcadeOverlay, makeArcadeNonet } from './render/arcadeOverlay.ts';
+import { isSolved } from './state/sudoku.ts';
 import { BombRenderer } from './render/bombRenderer.ts';
 import { HunterRenderer } from './render/hunterRenderer.ts';
 import { GathererRenderer } from './render/gathererRenderer.ts';
@@ -533,6 +535,25 @@ async function bootstrap(): Promise<void> {
   // rather than a board object, so it must draw over everything including the fog. Contrast the
   // walls one line above, which are ground markings and deliberately sit under every entity.
   const footerBand = new FooterBand(app);
+  // ⭐ S149 P5 — ARCADE. The menu and its live puzzle are RENDER state only: `world.sudoku` is a
+  // hashed, wire-carried field describing a host-authoritative MATCH event, and a title-screen
+  // puzzle is none of those things. The event is handed to the overlay's `override` parameter
+  // instead, so starting a real match afterwards inherits nothing.
+  const arcadeOverlay = new ArcadeOverlay(app, app.stage, (id) => {
+    if (id === 'back') {
+      arcadeOverlay.hide();
+      arcadeNonet = null;
+      return;
+    }
+    if (id === 'nonet') {
+      // A fresh puzzle per launch. `performance.now()` is legitimate here in a way it never is in
+      // sim code: this seed feeds NOTHING host-authoritative and crosses no wire — it exists only so
+      // two consecutive arcade runs are not the same board.
+      arcadeNonet = makeArcadeNonet(Math.floor(performance.now()) >>> 0);
+      arcadeOverlay.hide();
+    }
+  });
+  let arcadeNonet: ReturnType<typeof makeArcadeNonet> | null = null;
   const spawnerZoneRenderer = new SpawnerZoneRenderer(app, aboveFogLayer);
   // S25 P0 — creatureRenderer renders ABOVE prims; S77 P2 reparented to aboveFogLayer (a Voltkin
   // attacks ANY player's bonds — cross-player reach — so it must be visible to all through fog).
@@ -591,6 +612,11 @@ async function bootstrap(): Promise<void> {
   // on WIN. Client-side cosmetic only — no network messages (each peer already
   // holds the full world.primitives via snapshot).
   const fogRenderer = new FogRenderer(app);
+  // ⛔ S149 P5 — UI GOES ABOVE THE FOG. The footer band is constructed long before the fog, so
+  // without this the fog draws over it and the bar reads as missing (owner: "it is hidden behind
+  // the fog"). Re-parenting here, immediately after the last stage-level renderer exists, is the
+  // one place that is guaranteed to be after every competitor.
+  footerBand.bringToFront();
   // S77 P2 — stage the global-reach layer ABOVE the fog (+ memory ghosts) but BELOW the HUD, so
   // potato/rainbow/hunter/Voltkin punch through the fog as bare threat sprites for ALL players.
   app.stage.addChild(aboveFogLayer);
@@ -762,6 +788,19 @@ async function bootstrap(): Promise<void> {
     else chordKeys.delete(key);
     if (!chordKeys.has('g') || !chordKeys.has('c')) codexChordFired = false;
   };
+  // ⭐ S149 P5 — ESCAPE ALWAYS GETS YOU OUT OF THE ARCADE. Without this a launched puzzle could only
+  // be left by SOLVING it, which turns a minigame into a trap. Registered before the codex chord so
+  // it is never swallowed by another handler, and scoped so it does nothing during a real match.
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (arcadeNonet !== null) {
+      arcadeNonet = null;
+      arcadeOverlay.show(); // back to the menu, not all the way to the title
+      return;
+    }
+    if (arcadeOverlay.isOpen()) arcadeOverlay.hide();
+  });
+
   window.addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
     if (k !== 'g' && k !== 'c') return;
@@ -860,6 +899,9 @@ async function bootstrap(): Promise<void> {
     },
     onCodexSelected: () => {
       openCodex();
+    },
+    onArcadeSelected: () => {
+      arcadeOverlay.show();
     },
   });
 
@@ -1118,6 +1160,8 @@ async function bootstrap(): Promise<void> {
       get fogRenderer() { return fogRenderer; },
       // S149 P4 — live footer-band geometry for e2e (the S85 P4c geometry-getter convention).
       get footerBand() { return footerBand; },
+      // S149 P5 — live arcade-menu geometry for e2e.
+      get arcadeOverlay() { return arcadeOverlay; },
       // S77 P2 — fog-exemption e2e: sync a global-reach entity + assert it renders
       // through the fog (aboveFogLayer sits above the fog container).
       get potatoRenderer() { return potatoRenderer; },
@@ -1547,6 +1591,19 @@ async function bootstrap(): Promise<void> {
     import('./render/sudokuOverlay.ts')
       .then((mod) => {
         nonetOverlay = new mod.SudokuOverlay(app, (grid) => {
+          // ⭐ S149 P5 — AN ARCADE SUBMISSION NEVER REACHES THE MATCH REDUCER. `submitSudokuSolve`
+          // awards score, stamps `solvedBy` and resolves a host-authoritative trial on `world`;
+          // none of that has any meaning for a title-screen puzzle, and doing it would write match
+          // state from a screen where no match exists. Checked FIRST, so the arcade path can never
+          // fall through into it.
+          if (arcadeNonet !== null) {
+            const ok = isSolved(grid, arcadeNonet.puzzle.solution);
+            if (ok) {
+              arcadeNonet = null; // solved → drop the puzzle and fall back to the arcade menu
+              arcadeOverlay.show();
+            }
+            return ok;
+          }
           // Host/solo/bots resolve locally (immediate, so the overlay can flash a wrong grid). A 1v1
           // CLIENT instead sends a SUDOKU_SOLVED intent — the host validates first-valid-wins and the
           // result returns via NetSnapshot (no optimistic local resolve → no score desync).
@@ -2597,8 +2654,10 @@ async function bootstrap(): Promise<void> {
       for (const d of world.defenders.values()) unlockGodly(d.recipeId);
     }
     // S93 — draw the NONET trial overlay on top (hidden when world.sudoku is null).
-    if (world.sudoku !== null) ensureNonetOverlay();
-    nonetOverlay?.render(world);
+    // S149 P5 — an ARCADE puzzle drives the same shipped overlay through its `override` seam, so
+    // there is exactly one NONET implementation rather than an arcade fork of it.
+    if (world.sudoku !== null || arcadeNonet !== null) ensureNonetOverlay();
+    nonetOverlay?.render(world, arcadeNonet);
     // S93 — realm-shift audio: rising edge → swap to the trial theme; falling edge → restore the
     // duel track. Edge-driven (the audio fns are idempotent). All modes: the host sets world.sudoku
     // locally; a 1v1 client receives it via NetSnapshot, so both peers hear the realm theme.
@@ -2634,6 +2693,11 @@ async function bootstrap(): Promise<void> {
     // world.creatureSpawners is empty.
     // S149 P3 — border walls first, so everything else draws on top of them.
     wallRenderer.sync(world);
+    // ⭐ S149 P5 — mirror the held tower into the band each frame so the open card shows as
+    // armed. Polled rather than pushed at the arm/disarm sites: there are FOUR ways to let a
+    // tower go (place it, Escape, right-click, a state exit) and a per-frame read cannot miss
+    // one, where four call-site pushes eventually would.
+    footerBand.setArmed(castlePanel.armedBlueprint());
     footerBand.sync(world);
     spawnerZoneRenderer.sync(world);
     // S25 P0 — creature sprite sync. After structureRenderer (z-order: above

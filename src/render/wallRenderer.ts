@@ -48,6 +48,11 @@ export class WallRenderer {
   sync(world: World): void {
     const g = this.graphics;
     g.clear();
+    // ⛔ S149 P5 FIX — PLAYING ONLY. `wallsAreUp` asks about the PHASE, and a world that has never
+    // started a match still reads `matchPhase === 'BUILD'` (the birth default), so the walls were
+    // being drawn straight across the TITLE SCREEN and the lobby. Caught by looking at an arcade
+    // screenshot, not by any test — no unit test asserts what the title screen looks like.
+    if (world.gameState !== 'PLAYING') return;
     if (!wallsAreUp(world)) return; // FIGHT — the walls are down, and drawing nothing IS the state
 
     // A slow breath so a raised wall reads as active rather than as scenery. Tick-driven, so it

@@ -86,6 +86,10 @@ export interface FooterBandLike {
   isOverChip(x: number, y: number): boolean;
   chipAt(x: number, y: number): number | null;
   select(complexity: number | null): number | null;
+  /** S149 P5 — the tower card under a point, or null. */
+  cardAt(x: number, y: number): GodlyId | null;
+  /** S149 P5 — mirror the armed tower so the open card can light up. */
+  setArmed(id: GodlyId | null): void;
 }
 
 export interface CastlePanelLike {
@@ -97,6 +101,8 @@ export interface CastlePanelLike {
   armedBlueprint(): GodlyId | null;
   /** S144 P3 — put a held tower back without building it. */
   disarm(): void;
+  /** S149 P5 — arm a tower chosen from the footer band (the grid moved out of the castle). */
+  armExternal(id: GodlyId | null): void;
 }
 
 /**
@@ -355,6 +361,17 @@ export class Controls {
    */
   private handleFooterChipClick(): boolean {
     if (!this.isPointerOverFooterChip() || this.footerBand === null) return false;
+
+    // ⭐ S149 P5 — A TOWER CARD IS CHECKED FIRST. The open menu floats ABOVE the chips, so testing
+    // chips first would let a card click fall through to the bar behind it and merely toggle the
+    // menu shut — precisely the "it isnt clickable" the owner reported.
+    const card = this.footerBand.cardAt(this.cursor.x, this.cursor.y);
+    if (card !== null) {
+      this.castlePanel?.armExternal(card);
+      this.footerBand.setArmed(this.castlePanel?.armedBlueprint() ?? null);
+      return true;
+    }
+
     const complexity = this.footerBand.chipAt(this.cursor.x, this.cursor.y);
     if (complexity === null) return false;
     this.footerBand.select(complexity);

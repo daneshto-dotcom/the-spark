@@ -269,5 +269,71 @@ test.describe('@visual S149 P4 — the footer band on screen', () => {
     expect(Math.max(...band.chips.map((c) => c.x + c.w))).toBeLessThan(1520);
 
     await page.screenshot({ path: `${DESKTOP}/spark-s149-footer-band.png` });
+
+    // ⭐ S149 P5 — CLICK A TIER AND THE TOWER MENU MUST OPEN. The owner's report on P4 was "it isnt
+    // clickable": the chip toggled a selection and opened nothing, so it read as a dead control.
+    const chip4 = band.chips.find((c) => c.complexity === 4)!;
+    const chipCss = await canvasToCss(page, chip4.x + chip4.w / 2, chip4.y + 23);
+    await page.mouse.click(chipCss.x, chipCss.y);
+    await page.waitForTimeout(600);
+    const opened = await page.evaluate(() => {
+      const s = (window as unknown as {
+        __SPARK__: { footerBand: { getUiPoints: () => { selected: number | null; cards: Array<{ id: string }> } } };
+      }).__SPARK__;
+      return s.footerBand.getUiPoints();
+    });
+    expect(opened.selected).toBe(4);
+    expect(opened.cards.length).toBeGreaterThan(0); // the menu actually opened
+    await page.screenshot({ path: `${DESKTOP}/spark-s149-footer-menu-open.png` });
+  });
+});
+
+/**
+ * S149 P5 — ARCADE, ON SCREEN.
+ *
+ * A title button and a full-screen modal are precisely what a headless suite cannot check: that
+ * the fifth row fits under CODEX, that the menu renders, and that NONET actually launches.
+ */
+test.describe('@visual S149 P5 — arcade mode on screen', () => {
+  test('ARCADE sits below CODEX and opens a menu that launches NONET', async ({ page }) => {
+    await page.goto('/');
+    await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE');
+
+    // The button exists and is BELOW the codex — the owner asked for it there specifically.
+    const codex = await titleButtonCss(page, 'codex');
+    const arcade = await titleButtonCss(page, 'arcade');
+    expect(arcade.y).toBeGreaterThan(codex.y);
+    await page.screenshot({ path: `${DESKTOP}/spark-s149-arcade-title.png` });
+
+    // Open the menu.
+    await page.mouse.click(arcade.x, arcade.y);
+    await page.waitForTimeout(600);
+    const menu = await page.evaluate(() => {
+      const s = (window as unknown as {
+        __SPARK__: { arcadeOverlay: { getUiPoints: () => { open: boolean; rows: Array<{ id: string; x: number; y: number; w: number; h: number }> } } };
+      }).__SPARK__;
+      return s.arcadeOverlay.getUiPoints();
+    });
+    expect(menu.open).toBe(true);
+    expect(menu.rows.map((r) => r.id)).toContain('nonet');
+    await page.screenshot({ path: `${DESKTOP}/spark-s149-arcade-menu.png` });
+
+    // Launch NONET and prove the puzzle came up WITHOUT touching sim state.
+    const row = menu.rows.find((r) => r.id === 'nonet')!;
+    const rowCss = await canvasToCss(page, row.x + row.w / 2, row.y + row.h / 2);
+    await page.mouse.click(rowCss.x, rowCss.y);
+    await page.waitForTimeout(1500);
+
+    // ⭐ THE ASSERTION THAT MATTERS: the board is up, and `world.sudoku` is still null.
+    const after = await page.evaluate(() => {
+      const s = (window as unknown as {
+        __SPARK__: { world: { sudoku: unknown; gameState: string }; arcadeOverlay: { getUiPoints: () => { open: boolean } } };
+      }).__SPARK__;
+      return { sudoku: s.world.sudoku, gameState: s.world.gameState, menuOpen: s.arcadeOverlay.getUiPoints().open };
+    });
+    expect(after.sudoku).toBeNull(); // a title-screen puzzle never enters the simulation
+    expect(after.gameState).toBe('TITLE');
+    expect(after.menuOpen).toBe(false);
+    await page.screenshot({ path: `${DESKTOP}/spark-s149-arcade-nonet.png` });
   });
 });

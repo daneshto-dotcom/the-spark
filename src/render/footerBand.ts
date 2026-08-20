@@ -28,7 +28,8 @@
 
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, FOOTER_TOP_Y } from '../constants.ts';
-import { footerBandModel, type FooterComplexity } from './footerBandModel.ts';
+import { footerBandModel, structuresAtComplexity, type FooterComplexity } from './footerBandModel.ts';
+import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import type { World } from '../state/world.ts';
 
 /** Chip box size. */
@@ -51,6 +52,24 @@ const TINT_ENABLED = 0xffd27a;
 const TINT_DISABLED = 0x93a0b4;
 const TINT_SELECTED = 0x7ef0a0;
 
+/** Tower-card size in the menu that opens above a selected chip. */
+const CARD_W = 190;
+const CARD_H = 62;
+const CARD_GAP = 10;
+/** The menu floats just above the band. */
+const MENU_BOTTOM_GAP = 12;
+
+export interface FooterCardGeom {
+  readonly id: GodlyId;
+  readonly name: string;
+  readonly reason: string;
+  readonly enabled: boolean;
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+}
+
 export interface FooterChipGeom {
   readonly complexity: number;
   readonly x: number;
@@ -65,6 +84,9 @@ export class FooterBand {
   private readonly graphics: Graphics;
   private readonly labels: Text[] = [];
   private chips: FooterChipGeom[] = [];
+  private cards: FooterCardGeom[] = [];
+  /** The tower held on the cursor, mirrored from the castle panel so the card can light up. */
+  private armed: GodlyId | null = null;
   /** The complexity the player has opened, or null. Render-only selection — never world state. */
   private selected: number | null = null;
 
@@ -103,7 +125,37 @@ export class FooterBand {
       label.position.set(c.x + c.w / 2, c.y + c.h / 2);
       label.visible = true;
     }
-    this.hideLabelsFrom(this.chips.length);
+    // ⭐ S149 P5 — THE OPEN MENU. Drawn above the bar, so a chip press has a visible consequence.
+    this.cards = [];
+    if (this.selected !== null) {
+      const chip = this.chips.find((c) => c.complexity === this.selected);
+      if (chip !== undefined) {
+        this.cards = layoutCards(world, this.selected, chip.y);
+        for (const card of this.cards) {
+          const armedHere = this.armed === card.id;
+          const tint = armedHere ? TINT_SELECTED : card.enabled ? TINT_ENABLED : TINT_DISABLED;
+          g.roundRect(card.x, card.y, card.w, card.h, 10).fill({ color: 0x0b0f16, alpha: 0.92 });
+          g.roundRect(card.x, card.y, card.w, card.h, 10)
+            .stroke({ width: armedHere ? 3 : 2, color: tint, alpha: 0.95 });
+
+          const nameLabel = this.labelAt(this.chips.length + this.cards.indexOf(card) * 2);
+          nameLabel.text = card.name;
+          nameLabel.style.fill = tint;
+          nameLabel.style.fontSize = 18;
+          nameLabel.position.set(card.x + card.w / 2, card.y + 22);
+          nameLabel.visible = true;
+
+          const subLabel = this.labelAt(this.chips.length + this.cards.indexOf(card) * 2 + 1);
+          // A disabled card must SAY why — the castle panel's standing contract, carried over.
+          subLabel.text = card.enabled ? 'READY — click, then place' : card.reason;
+          subLabel.style.fill = card.enabled ? TINT_ENABLED : TINT_DISABLED;
+          subLabel.style.fontSize = 13;
+          subLabel.position.set(card.x + card.w / 2, card.y + 44);
+          subLabel.visible = true;
+        }
+      }
+    }
+    this.hideLabelsFrom(this.chips.length + this.cards.length * 2);
   }
 
   /**
@@ -116,7 +168,20 @@ export class FooterBand {
    * got the original footer deleted.
    */
   isOverChip(x: number, y: number): boolean {
-    return this.chipAt(x, y) !== null;
+    return this.chipAt(x, y) !== null || this.cardAt(x, y) !== null;
+  }
+
+  /** The tower card under this point, or null. */
+  cardAt(x: number, y: number): GodlyId | null {
+    for (const c of this.cards) {
+      if (x >= c.x && x <= c.x + c.w && y >= c.y && y <= c.y + c.h && c.enabled) return c.id;
+    }
+    return null;
+  }
+
+  /** main.ts mirrors the armed tower here so the open card can show it as held. */
+  setArmed(id: GodlyId | null): void {
+    this.armed = id;
   }
 
   /** The complexity under this point, or null. */
@@ -138,13 +203,28 @@ export class FooterBand {
   }
 
   /** S85 P4c geometry-getter convention — live click geometry for the e2e harness. */
-  getUiPoints(): { chips: FooterChipGeom[]; selected: number | null } {
-    return { chips: [...this.chips], selected: this.selected };
+  getUiPoints(): { chips: FooterChipGeom[]; cards: FooterCardGeom[]; selected: number | null } {
+    return { chips: [...this.chips], cards: [...this.cards], selected: this.selected };
+  }
+
+  /**
+   * ⛔ S149 P5 FIX — PUT THE BAR BACK ON TOP.
+   *
+   * Owner: *"it is hidden behind the fog"*. The band is constructed at main.ts:537 and `FogRenderer`
+   * at :614, so the fog's container landed LATER in `app.stage.children` and drew straight over the
+   * bar. `addChild` on an existing child MOVES it to the end, so calling this once after every
+   * stage-level renderer exists puts the UI where UI belongs — above the board and above the fog.
+   */
+  bringToFront(): void {
+    const parent = this.container.parent;
+    if (parent !== null) parent.addChild(this.container);
   }
 
   clear(): void {
     this.graphics.clear();
     this.chips = [];
+    this.cards = [];
+    this.armed = null;
     this.selected = null;
     this.hideLabelsFrom(0);
   }
@@ -178,6 +258,37 @@ export class FooterBand {
  *
  * Exported so the clearance from the corner porches can be asserted headlessly, without Pixi.
  */
+/**
+ * PURE — the tower cards for an opened complexity, laid out in a row ABOVE the band.
+ *
+ * ⭐ S149 P5 — THIS IS THE HALF THAT WAS MISSING, and its absence is what the owner reported as
+ * *"it isnt clickable"*: P4 shipped chips that toggled a selection and opened nothing, so pressing
+ * one looked like a dead control. Rows come from `structuresAtComplexity`, i.e. the same
+ * `castleStructuresModel` the reducer's affordability agrees with — the menu cannot offer a tower
+ * the build would refuse.
+ */
+export function layoutCards(
+  world: World,
+  complexity: number,
+  chipTop: number,
+): FooterCardGeom[] {
+  const rows = structuresAtComplexity(world, complexity);
+  if (rows.length === 0) return [];
+  const totalW = rows.length * CARD_W + (rows.length - 1) * CARD_GAP;
+  const left = (CANVAS_WIDTH - totalW) / 2;
+  const top = chipTop - MENU_BOTTOM_GAP - CARD_H;
+  return rows.map((r, i) => ({
+    id: r.id,
+    name: r.name,
+    reason: r.reason,
+    enabled: r.enabled,
+    x: left + i * (CARD_W + CARD_GAP),
+    y: top,
+    w: CARD_W,
+    h: CARD_H,
+  }));
+}
+
 export function layoutChips(model: readonly FooterComplexity[]): FooterChipGeom[] {
   const n = model.length;
   if (n === 0) return [];
