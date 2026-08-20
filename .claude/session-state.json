@@ -95,11 +95,274 @@
       "tier": "Standard",
       "protocol_bump": false,
       "owner_item": "complaint 4a",
-      "status": "in_progress",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "check_method": "P1 ZONES ARE REAL — VERBOSE CHECK. (1) SWAP: all SIX gates moved from isInsideEnemyTerritory to zones.canBuildAt — placePrimitive.ts:124, placeFromFree.ts:172, blueprintLegality.ts:84, controls.ts:600 (with the NEGATION, since the gate field means refuse), dragPreview.ts:109, botBrain.ts:304. grep for the old symbol over src/ excluding tests now returns ONLY the definition plus three comment mentions — zero call sites. (2) THE 17 BROKEN TESTS were resolved INDIVIDUALLY on merit across 8 files, not mechanically re-sited. Three findings that a mechanical fix would have buried: placeFromFree's re-pick tests also failed the 250px avatar-REACH gate once moved (identical-looking assertion failure), so setup1v1Host now takes the avatar as a parameter and the atomicity test keeps the old one because it must refuse on TERRITORY not REACH; world.test's 'exactly on ring' comment was ALREADY STALE (SPAWNER_RADIUS is 125, not the 250 claimed); pentagram's row was re-spaced 300->180 where the BINDING constraint is MERGE_REACH_RADIUS 100, not AUTO_BOND_RADIUS 60. (3) placeFromFree's atomicity test still passes but NO LONGER FOR THE REASON IT CLAIMED — documented in place rather than left a silent coincidence. (4) NEW zones.fixtures.ts derives in-zone points FROM the partition (midpoint anchor->centre), never hardcoded; its guarantees are asserted in zones.test.ts (+28 cases, 77 total). (5) NEW buildLegalityGates.test.ts, 62 cases: every gate x both boards x every seat, plus a 40px full-board sweep carrying ANTI-VACUITY counters (allowed>200 AND refused>200), because 'no disagreements' is also what an all-refusing sweep returns. (6) MUTATION-TESTED: unwiring gate 4 in dragPreview.ts failed EXACTLY the 6 ghost tests and nothing else, then was restored and re-verified — so the probe is both load-bearing and specific. An earlier draft of that sweep read canBuildAt instead of the ghost's real output and would NOT have caught it; found and fixed before commit. (7) E2E: 3 gating specs failed for the SAME defect class and were FIXED, not retried. bomb.spec had copied coords from smoke.spec ('same coords as Sym F') where the placer is the JOINER (seat 1, RIGHT half) while bomb places SOLO (seat 0, LEFT half); hunter/rainbow built at x=960, exactly ON the split, which the border convention awards to the higher-indexed zone. Re-ran: 45/45 including bomb.spec (the CF-S148-c flake). (8) OWNER RULING honoured: isInsideEnemyTerritory RETAINED with a docblock marking it retired and warning against re-wiring; computeTerritorialInfluence is still live with 8 consumers. (9) BUNDLE: entry 689.1 KiB, one byte UNDER baseline; the test fixture is tree-shaken out. ⚠ First verification attempt was a FALSE PASS — dist/ held TWO index-*.js and `head -1` read the 3.7KB one. Re-done against the chunk index.html actually references, with a positive control (PITCH_2P, 7 hits) proving the grep works. GATES: tsc 0 · vitest 2629 passed / 163 files (baseline 2506 / 162) · e2e:gating 45/45 · build under charter · pushed · verify-deploy 4/4 at 316a53f.",
+      "checkpoint_commit": "316a53f50407b5eeea370050077c008f7a22171d",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/placePrimitive.ts",
+          "needle": "if (!canBuildAt(spark.pos, action.playerId, world.layout))"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/placePrimitive.ts",
+          "needle": "if (isInsideEnemyTerritory(spark.pos, action.playerId, world))"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/placeFromFree.ts",
+          "needle": "if (!canBuildAt(action.placementPos, action.playerId, world.layout))"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/placeFromFree.ts",
+          "needle": "if (isInsideEnemyTerritory(action.placementPos, action.playerId, world))"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/blueprintLegality.ts",
+          "needle": "if (!canBuildAt(centre, playerId, world.layout)) return 'ENEMY GROUND';"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/blueprintLegality.ts",
+          "needle": "if (isInsideEnemyTerritory(centre, playerId, world)) return 'ENEMY GROUND';"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/blueprintLegality.ts",
+          "needle": "return 'QUARRY';"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/dragPreview.ts",
+          "needle": "!canBuildAt(refPos, playerId, world.layout)"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/input/dragPreview.ts",
+          "needle": "insideSpawnerZone(refPos) || isInsideEnemyTerritory(refPos, playerId, world)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "!canBuildAt(spark.pos, this.playerId, this.world.layout),"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/input/controls.ts",
+          "needle": ": isInsideEnemyTerritory(spark.pos, this.playerId, this.world),"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "return canBuildAt(pos, seat, world.layout);"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/bots/botBrain.ts",
+          "needle": "return !isInsideEnemyTerritory(pos, seat, world);"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/placePrimitive.ts",
+          "pattern": "canBuildAt",
+          "op": "ge",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/placeFromFree.ts",
+          "pattern": "canBuildAt",
+          "op": "ge",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/blueprintLegality.ts",
+          "pattern": "canBuildAt",
+          "op": "ge",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "src/input/dragPreview.ts",
+          "pattern": "canBuildAt",
+          "op": "ge",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "src/input/controls.ts",
+          "pattern": "canBuildAt",
+          "op": "ge",
+          "value": 2
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/botBrain.ts",
+          "pattern": "canBuildAt",
+          "op": "ge",
+          "value": 2
+        },
+        {
+          "type": "file_exists",
+          "path": "src/state/territory.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/territory.ts",
+          "needle": "export function isInsideEnemyTerritory"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/territory.ts",
+          "needle": "RETIRED AS THE BUILD-LEGALITY RULE. RETAINED, NOT DELETED."
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/territory.ts",
+          "needle": "export function computeTerritorialInfluence"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/state/zones.fixtures.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/zones.fixtures.ts",
+          "needle": "export function ownZonePoint"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/zones.fixtures.ts",
+          "needle": "export function enemyZonePoint"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/zones.fixtures.ts",
+          "needle": "export function nearOwnZonePoint"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/zones.test.ts",
+          "needle": "S149 P1 — zone fixtures are legal on every board, for every seat"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/state/buildLegalityGates.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/buildLegalityGates.test.ts",
+          "needle": "an EMPTY board no longer lets a player build anywhere"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/buildLegalityGates.test.ts",
+          "needle": "gate 4: the drag ghost itself refuses enemy ground"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/buildLegalityGates.test.ts",
+          "needle": "ANTI-VACUITY"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/buildLegalityGates.test.ts",
+          "pattern": "^describe\\(",
+          "op": "ge",
+          "value": 6
+        },
+        {
+          "type": "grep_count",
+          "path": "src/game/session7.test.ts",
+          "pattern": "S149 P1",
+          "op": "ge",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/game/session14.test.ts",
+          "pattern": "S149 P1",
+          "op": "ge",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/game/session15.test.ts",
+          "pattern": "S149 P1",
+          "op": "ge",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/botBrain.test.ts",
+          "pattern": "S149 P1",
+          "op": "ge",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/bots/botGameplay.test.ts",
+          "pattern": "S149 P1",
+          "op": "ge",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/world.test.ts",
+          "pattern": "S149 P1",
+          "op": "ge",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/placeFromFree.test.ts",
+          "pattern": "S149 P1",
+          "op": "ge",
+          "value": 1
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/spawners/pentagramBuildability.test.ts",
+          "pattern": "S149 P1",
+          "op": "ge",
+          "value": 1
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/bomb.spec.ts",
+          "needle": "await placeFreeSparkAndConfirm(page, 420, 400);"
+        },
+        {
+          "type": "file_lacks",
+          "path": "e2e/bomb.spec.ts",
+          "needle": "await placeFreeSparkAndConfirm(page, 1500, 400);"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/hunter.spec.ts",
+          "needle": "await placeFreeSparkAndConfirm(page, CANVAS_WIDTH / 4, CANVAS_HEIGHT / 2 - 360);"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/rainbow.spec.ts",
+          "needle": "await placeFreeSparkAndConfirm(page, CANVAS_WIDTH / 4, CANVAS_HEIGHT / 2 - 360);"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/2026-08-20_SCOPE_AMENDMENT_S149_PLAYTEST_COHERENCE.md",
+          "needle": "STATUS: APPROVED, EXECUTING"
+        }
+      ],
+      "deploy_verified": "4/4 REMOTE+RUN+VERDICT+LIVE at 316a53f",
+      "tests_at_close": "2629 passed / 163 files (baseline 2506 / 162); e2e:gating 45/45"
     },
     {
       "id": "P2",
@@ -107,7 +370,7 @@
       "tier": "Full",
       "protocol_bump": true,
       "owner_item": "complaint 5",
-      "status": "pending",
+      "status": "in_progress",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
@@ -174,7 +437,15 @@
       "check_completed": false
     }
   ],
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    "S149 P1 — THE ROOT CAUSE WAS A DESIGN FROM THE PREVIOUS GAME, NOT A BUG. `isInsideEnemyTerritory` faithfully implemented an influence-bubble rule; it was never broken. The owner's 'players can build wherever' was the correct observation of a rule that had been superseded on paper and never in code. Look for superseded-but-still-running rules, not just defects.",
+    "S149 P1 — MY OWN TEST WAS THE WEAK LINK, AND ONLY MUTATION TESTING FOUND IT. The first draft of the agreement sweep called computePreviewBonds and then read `canBuildAt` for the verdict, so it would have passed with gate 4 completely unwired. Writing the test is not the same as the test working: break the code on purpose and confirm the test screams.",
+    "S149 P1 — 'STILL PASSES' IS NOT 'STILL TESTING WHAT IT SAYS'. placeFromFree's atomicity test stayed green through the swap but its stated cause (an enemy prim's territorial radius) had been replaced by a different one (the zone). A test that passes for a new reason is a comment that has become a lie. Documented it rather than enjoying the green.",
+    "S149 P1 — THE FALSE PASS CAME FROM MY OWN VERIFICATION, NOT THE CODE. `grep dist/assets/index-*.js | head -1` read a 3.7KB chunk instead of the 705KB entry, and reported the fixture stripped. The recorded S132 trap was about grepping dist/ recursively; this was the same trap wearing a new costume. Resolve the artifact from index.html, and always include a positive control.",
+    "S149 P1 — A COPIED COORDINATE CARRIED A HIDDEN ASSUMPTION ACROSS FILES. bomb.spec built at x=1500 with the comment 'same coords as smoke.spec.ts Sym F'. In smoke the placer is the JOINER (right half); in bomb it is SOLO (left half). The comment recorded WHERE the numbers came from but not WHAT made them valid, so the borrowing survived until the rule changed.",
+    "S149 P1 — TWO GATES CAN FAIL IDENTICALLY. Moving placeFromFree's fixtures onto legal ground made them fail the 250px avatar-REACH gate instead, with the same assertion message (primitives.size short by one). Loosening the zone rule would have 'fixed' it and hidden a real second gate. When a fix does not take, check whether a DIFFERENT gate is now the one refusing.",
+    "S149 P1 — THE PLAN SAID 'six one-line edits'. It was six edits plus 17 test repairs plus 3 e2e repairs plus a shared fixture plus 62 new assertions. The prior session measured the 17 and reverted; the e2e blast radius was never measured by anyone and only surfaced by running the lane. A measured blast radius from a revert is a FLOOR, not the total."
+  ],
   "totals": {
     "budget_remaining": 1000000
   },
@@ -248,9 +519,9 @@
     "runtime_verifiability_boot_then_smoke": "THE decisive question for this session, given the headline A.0 finding was a whole subsystem that static-parsed perfectly and was never called. Static parsing is NOT validation here. Mandatory runtime gates before any priority is marked complete: (1) a REAL-PHYSICS acceptance test that runs the actual physics loop and asserts the goblin closes distance and the target primitive's hp actually decreases - a state-only assertion is not evidence (S136); (2) PHYSICS_DT imported from physicsLoop.ts, never re-derived, because constants.ts does not export it and a test once silently ran on NaN (S138); (3) an explicit assertion that damageEntity now HAS production call sites, i.e. the exact grep that exposed the dead substrate becomes a permanent test; (4) LOOK AT THE RENDER - a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches, and no state assertion can see 'nothing was drawn'.",
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
-  "real_context_tokens_at_close": 428810,
-  "real_context_pct_at_close": 42.9,
-  "checkpoint_commit": "a23510debd9e3be7adc4a22fe4ea40a003b1aa60",
+  "real_context_tokens_at_close": 365522,
+  "real_context_pct_at_close": 36.55,
+  "checkpoint_commit": "316a53f50407b5eeea370050077c008f7a22171d",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
