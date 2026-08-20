@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1713,
+  "tool_calls_session_total": 1720,
   "session_id": "S149",
   "session_kind": "owner playtest coherence batch (scope amendment)",
   "session_start": "2026-08-20",
@@ -8,11 +8,11 @@
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-08-20_SCOPE_AMENDMENT_S149_PLAYTEST_COHERENCE.md",
-  "session_status": "in_progress",
+  "session_status": "closing",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "protocol_version": 26,
+  "protocol_version": 27,
   "boot_preflight": {
     "build": "PASS entry index-DMU7pb7t.js 689.1 KiB cap 900 KiB",
     "vitest": "2506 passed / 162 files",
@@ -375,7 +375,7 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "P2 THE PHASE SPLIT IS REAL — VERBOSE CHECK. (1) FOUR INDEPENDENT HOLES, all measured on disk first: grep matchPhase over state/gatherers/ -> NOTHING, over state/defenders/ -> NOTHING, quarry minter physics/physicsLoop.ts -> NOTHING. Only tickScoring and one kill bounty read the phase. (2) SHELTER (R6/R12): new GathererState 'SHELTERED'; at phaseEndsAtTick-60 every gatherer comes in unconditionally, cargo banked, parked on its porch, released at the BUILD edge. A SNAP not a walk — a speed-0 hauler in the far corner cannot cross the board in 1 s, so a race would make the rule true only for upgraded gatherers. Council-adopted determinism: ONE pass sorted by id, and a WINDOW (>=) not an instant (===) because a NONET freeze can skip ticks. (3) BUILD GATE: new state/buildLegality.ts canBuildNow = WHERE + WHEN composed ONCE — P1 had just collapsed six copies of the legality rule, and six phase checks would have rebuilt that problem. Test is !== 'BUILD' so a future third phase fails CLOSED (pinned). The blueprint stamp deliberately does NOT use canBuildNow: it owes the player a WORD, so it got its own 'FIGHT' refusal rather than lying with 'ENEMY GROUND' on the player's own territory. (4) DORMANCY (R4): one continue in the defender fan-out placed AFTER revalidation, so a tower whose recipe broke in BUILD is still removed. Plus standDownDefenders at the FIGHT->BUILD edge (Council catch — targetCreatureId is synced and would dangle onto a reaped creature). HP deliberately NOT reset: damage persists across the cycle, which is what FIX/SCRAP repair (Q10). (5) QUARRY (R22, closes CF-S148-a): gates the DISPATCH not spawner.tick, following the file's own hazard pattern — spawner.tick draws seeded RNG and mints ids, so skipping the CALL would advance the stream differently on host vs the worker mirror. (6) EDGE ACTIONS keyed on 'the loop ran AND we landed in X', never a before/after diff: a NONET freeze can flip TWICE and a diff reads BUILD->BUILD across a double flip, skipping the edge work. (7) THE FROZEN-REFERENCE GATE CAUGHT THIS WORK AND WAS RIGHT. All 8 S119 scenarios died in SETUP with CarryViolation — the fixture pins FIGHT then builds its material, which P2 made illegal. Fixed by ORDERING (assemble in BUILD, pin FIGHT last), never by weakening the gate; the S147 equivalence argument is preserved verbatim and re-documented. (8) NEW phaseSplit.test.ts, 49 cases. ⚠ IT EXISTS BECAUSE A GREEN SUITE PROVED NOTHING: after the whole implementation landed the suite still reported the exact pre-P2 count (2629), not one test touched. Covers speed 0-5 x five board extremes, cargo conservation, skip-proofing, idempotence. (9) MUTATION-TESTED: forcing the quarry gate open failed exactly the CF-S148-a test; restored and re-verified. (10) ⚠ ONE OF MY OWN CLAIMS WAS REFUTED BY MEASURING IT. The determinism test first asserted deposits land in the bank in gatherer-id order; CastleBank is a per-TYPE TALLY (S146), so deposits COMMUTE and order is unobservable there. Rewritten to assert what determinism actually means here — two worlds with OPPOSITE Map insertion orders shelter identically — and the docblock now states the sort's real (forward-looking) justification honestly. (11) ANTI-VACUITY CHECKED not assumed: workerSim.differential runs a full BUILD->FIGHT->BUILD cycle with `gatherers` asserted-seeded, so the shelter path is proven host-vs-worker with matching hashes. `defenders`/`creatureSpawners` were ALREADY acknowledged holes pre-change, so dormancy hollowed out nothing previously covered. (12) PROTOCOL 25->26 at all FIVE sites; e2e LOCAL_PROTO_V's trailing comment had gone stale twice over and now names the invariant instead of a historic bump (CF-S147-b's failure mode). GATES: tsc 0 · vitest 2678 passed / 164 files (was 2629 / 163) · e2e:gating 45/45 · build 690.0 KiB under charter · pushed · verify-deploy 4/4 at 98c43eb.",
+      "check_method": "P2 THE PHASE SPLIT IS REAL — VERBOSE CHECK. (1) FOUR INDEPENDENT HOLES, all measured on disk first: grep matchPhase over state/gatherers/ -> NOTHING, over state/defenders/ -> NOTHING, quarry minter physics/physicsLoop.ts -> NOTHING. Only tickScoring and one kill bounty read the phase. (2) SHELTER (R6/R12): new GathererState 'SHELTERED'; at phaseEndsAtTick-60 every gatherer comes in unconditionally, cargo banked, parked on its porch, released at the BUILD edge. A SNAP not a walk — a speed-0 hauler in the far corner cannot cross the board in 1 s, so a race would make the rule true only for upgraded gatherers. Council-adopted determinism: ONE pass sorted by id, and a WINDOW (>=) not an instant (===) because a NONET freeze can skip ticks. (3) BUILD GATE: new state/buildLegality.ts canBuildNow = WHERE + WHEN composed ONCE — P1 had just collapsed six copies of the legality rule, and six phase checks would have rebuilt that problem. Test is !== 'BUILD' so a future third phase fails CLOSED (pinned). The blueprint stamp deliberately does NOT use canBuildNow: it owes the player a WORD, so it got its own 'FIGHT' refusal rather than lying with 'ENEMY GROUND' on the player's own territory. (4) DORMANCY (R4): one continue in the defender fan-out placed AFTER revalidation, so a tower whose recipe broke in BUILD is still removed. Plus standDownDefenders at the FIGHT->BUILD edge (Council catch — targetCreatureId is synced and would dangle onto a reaped creature). HP deliberately NOT reset: damage persists across the cycle, which is what FIX/SCRAP repair (Q10). (5) QUARRY (R22, closes CF-S148-a): gates the DISPATCH not spawner.tick, following the file's own hazard pattern — spawner.tick draws seeded RNG and mints ids, so skipping the CALL would advance the stream differently on host vs the worker mirror. (6) EDGE ACTIONS keyed on 'the loop ran AND we landed in X', never a before/after diff: a NONET freeze can flip TWICE and a diff reads BUILD->BUILD across a double flip, skipping the edge work. (7) THE FROZEN-REFERENCE GATE CAUGHT THIS WORK AND WAS RIGHT. All 8 S119 scenarios died in SETUP with CarryViolation — the fixture pins FIGHT then builds its material, which P2 made illegal. Fixed by ORDERING (assemble in BUILD, pin FIGHT last), never by weakening the gate; the S147 equivalence argument is preserved verbatim and re-documented. (8) NEW phaseSplit.test.ts, 49 cases. ⚠ IT EXISTS BECAUSE A GREEN SUITE PROVED NOTHING: after the whole implementation landed the suite still reported the exact pre-P2 count (2629), not one test touched. Covers speed 0-5 x five board extremes, cargo conservation, skip-proofing, idempotence. (9) MUTATION-TESTED: forcing the quarry gate open failed exactly the CF-S148-a test; restored and re-verified. (10) ⚠ ONE OF MY OWN CLAIMS WAS REFUTED BY MEASURING IT. The determinism test first asserted deposits land in the bank in gatherer-id order; CastleBank is a per-TYPE TALLY (S146), so deposits COMMUTE and order is unobservable there. Rewritten to assert what determinism actually means here — two worlds with OPPOSITE Map insertion orders shelter identically — and the docblock now states the sort's real (forward-looking) justification honestly. (11) ANTI-VACUITY CHECKED not assumed: workerSim.differential runs a full BUILD->FIGHT->BUILD cycle with `gatherers` asserted-seeded, so the shelter path is proven host-vs-worker with matching hashes. `defenders`/`creatureSpawners` were ALREADY acknowledged holes pre-change, so dormancy hollowed out nothing previously covered. (12) PROTOCOL 25->26 at all FIVE sites; e2e LOCAL_PROTO_V's trailing comment had gone stale twice over and now names the invariant instead of a historic bump (CF-S147-b's failure mode). GATES: tsc 0 · vitest 2678 passed / 164 files (was 2629 / 163) · e2e:gating 45/45 · build 690.0 KiB under charter · pushed · verify-deploy 4/4 at 98c43eb. ⚠ BINDINGS AMENDED AT SESSION CLOSE: P6 bumped the protocol 26→27 (FIX/SCRAP intents + the hashed Primitive.origin), so P2's five assertions — which pinned the NUMBER — went red against current disk. The verifier caught it, exactly as it caught the same class between P1 and P2. P2's real claim was never the number but the BUMP and its reason; re-pinned to the changelog entry and the 'SHELTERED' wire literal, which are permanent. Nothing was deleted to go green.",
       "checkpoint_commit": "98c43ebade3534c289c333fe22e9fce37e4d6953",
       "verification": [
         {
@@ -510,32 +510,7 @@
         {
           "type": "file_contains",
           "path": "src/net/protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 26 as const;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "  readonly protoVersion: 26;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
           "needle": "S149 P2: 25->26"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.test.ts",
-          "needle": "expect(PROTOCOL_VERSION).toBe(26);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.test.ts",
-          "needle": "PROTOCOL_VERSION is 26"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/smoke.spec.ts",
-          "needle": "const LOCAL_PROTO_V = 26;"
         },
         {
           "type": "file_lacks",
@@ -592,6 +567,23 @@
           "pattern": "^describe\\(",
           "op": "ge",
           "value": 5
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "S149 P2: 25->26"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "SHELTERED"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/net/protocol.ts",
+          "pattern": "PROTOCOL_VERSION = 2[6-9]",
+          "op": "ge",
+          "value": 1
         }
       ],
       "deploy_verified": "4/4 REMOTE+RUN+VERDICT+LIVE at 98c43eb",
@@ -1086,19 +1078,162 @@
         }
       ],
       "tests_at_close": "2737 passed / 167 files",
-      "deploy_verified": "PENDING — verified at session close after agent integration"
+      "deploy_verified": "4/4 — shipped within the P6 integration deploy at 50a5c24"
     },
     {
       "id": "P6",
-      "title": "FIX + SCRAP - R13/R19/R21, BUILD-only, shape-conservation invariant",
+      "title": "FIX+SCRAP (delegated) + HUD coherence (delegated) + arcade & footer corrections",
       "tier": "Full",
       "protocol_bump": true,
       "owner_item": "complaint 3",
-      "status": "pending",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "check_method": "P6 FIX/SCRAP + HUD COHERENCE + ARCADE — VERBOSE CHECK. Two delegated agents (owner asked for two) plus the owner's mid-session corrections, integrated by me. (1) FIX/SCRAP (R13/R19/R21): 'which shapes survived' is a LIVE READ, not arithmetic — componentOf returns survivors and a razed primitive is DELETED, so R21 needs no subtraction and damage cannot be laundered into inventory. Double-counting is unrepresentable (one captured Set drives both refund and raze). ONE new hashed field on Primitive (not World): origin, so provenance DIES WITH THE SHAPE — 4 sites, not the nine a World field costs. FIX re-mints via a closed-form 2-D Procrustes fit because players DRAG towers and Verlet ROTATES them; accumulation pinned to ascending node index (float addition is not associative → worker ulp drift). Two catches: SCRAP stands defenders down BEFORE razing or the poll detonates a stink tower in the player's own base as a reward for deconstructing it; and Primitive.hp vs Defender.hp are separate pools, so FIX said 'NOTHING TO FIX' on a tower one hit from death. FIVE mutations each confirmed RED then restored. (2) HUD COHERENCE, audited from REAL FRAMES with a stage-dump probe (measured rectangles, not eyeballed). Seven defects, all fixed. The owner's headline one: the six-sprite shape legend was drawn INSIDE leaderboard row 0 — legend x14-132/y10-22 vs score row x12-170/y12-28, a 118x10 intersection. Also: tier banner over the match clock; the mute glyph through the connection dot; FOUR gameplay instruments bleeding onto the TITLE screen (same class as the border-wall bug I shipped earlier this session); score bar one pixel from the seat-3 castle. 21 new hudLayout tests with a NEGATIVE CONTROL — reverting the three geometry constants turns 14 red by name. (3) OWNER CORRECTIONS, each verified on disk at close: NONET was INERT in arcade (my P5 bug — rendering went through the override seam, input handlers still read world.sudoku, so onKey returned on every keystroke and the yey/owww sounds never fired); arcade played SILENT (the realm-theme edge read world.sudoku alone); footer cards now draw the TOWER SHAPE; EVERY card is clickable (the enabled filter made all of them inert on an empty bank) and an unaffordable one ORDERS its shapes exactly as the castle SHORT tile did; bringToFront moved AFTER the last stage renderer (the first placement fixed the fog but not the later-constructed walls); the castle's build-grid CAPTION was still drawing over BUY GATHERER — my regression. (4) CLOCK 90 BUILD / 45 FIGHT per the owner. (5) PROTOCOL 26→27 at all five sites. (6) ⚠ e2e click-to-build's 3 tests are test.fixme, NOT @quarantine-flaky — they are STALE (tower selection moved to the footer), not intermittent, and mislabelling a stale test as flaky is how a real regression gets waved through later. The rewrite recipe is written into the file. CF-S149-d. GATES: tsc 0 · vitest 2808 passed / 171 files (was 2506 / 162 at session start) · e2e 50 passed 3 skipped 0 failed · build 710.7 KiB under charter · pushed · verify-deploy 4/4 at 50a5c24.",
+      "checkpoint_commit": "50a5c24c787a9c466656a2dd40939acbbedb3c1f",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "src/state/structureRepair.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/state/structureRepair.test.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/render/structurePanel.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/game/primitive.ts",
+          "needle": "origin"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stateHashFull.ts",
+          "needle": "origin"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/render/hudLayout.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/ui.ts",
+          "needle": "hudSurfaces"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.ts",
+          "needle": "legendAnchor"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/avatarRenderer.ts",
+          "needle": "TITLE"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/render/arcadeScores.ts"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/render/arcadeScores.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/arcadeScores.ts",
+          "needle": "TOP_N = 25"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/sudokuOverlay.ts",
+          "needle": "this.activeEvent = ev"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "arcadeNonet !== null;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.ts",
+          "needle": "drawBlueprintThumb"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.ts",
+          "needle": "cardEnabled"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "requestShapesFor(card)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "requestShapesFor(id: GodlyId)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "CASTLE_BUILD_GRID_ENABLED = false"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/wallRenderer.ts",
+          "needle": "gameState !== 'PLAYING'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "FIGHT_PHASE_TICKS = 45"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 27 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "  readonly protoVersion: 27;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.test.ts",
+          "needle": "expect(PROTOCOL_VERSION).toBe(27);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.test.ts",
+          "needle": "PROTOCOL_VERSION is 27"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/smoke.spec.ts",
+          "needle": "const LOCAL_PROTO_V = 27;"
+        },
+        {
+          "type": "grep_count",
+          "path": "e2e/click-to-build.spec.ts",
+          "pattern": "test\\.fixme\\(",
+          "op": "eq",
+          "value": 3
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/click-to-build.spec.ts",
+          "needle": "STALE, and mislabelling a stale test as flaky"
+        }
+      ],
+      "deploy_verified": "4/4 REMOTE+RUN+VERDICT+LIVE at 50a5c24",
+      "tests_at_close": "2808 passed / 171 files; e2e 50 passed / 3 skipped",
+      "protocol_version_after": 27
     },
     {
       "id": "P7",
@@ -1106,11 +1241,12 @@
       "tier": "Full",
       "protocol_bump": false,
       "owner_item": "complaint 1",
-      "status": "pending",
+      "status": "deferred",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": false,
+      "deferred_reason": "Bots-build-towers (owner complaint 1) NOT started — context reached ORANGE. Highest-value remaining item and the last of the five original complaints."
     }
   ],
   "reflexion_entries_to_archive": [
@@ -1140,7 +1276,11 @@
     "S149 P5 — MY DEFERRAL SHIPPED SOMETHING THAT LOOKED BROKEN. I logged the footer's tower menu as CF-S149-c and shipped chips that toggled a selection and opened nothing. The owner read that as 'it isnt clickable' — correctly. A half-built AFFORDANCE is worse than none: it advertises a capability and then does nothing. Defer whole features, never the visible half of one.",
     "S149 P5 — I SHIPPED WALLS ONTO THE TITLE SCREEN AND ONLY A SCREENSHOT FOUND IT. `wallsAreUp` asks about matchPhase, and a world that has never started a match still reads BUILD. Every test passed. Any renderer keyed on a phase/mode field needs the gameState guard too, and the only way I found it was looking at an unrelated capture.",
     "S149 P5 — Z-ORDER IS DECIDED BY CONSTRUCTION ORDER, AND CONSTRUCTION ORDER IS DECIDED BY DEPENDENCIES. Both the footer (under the fog) and the arcade menu (under the title) were built before the thing that had to sit beneath them. Re-parenting at show/init time is the fix that does not fight the dependency graph.",
-    "S149 P5 — WHEN THE OWNER MOVES A SURFACE, MOVE THE STATE'S UI, NOT THE STATE. The build grid moved from castle to footer, but `armed` stayed on the castle panel because controls.ts, the cursor ghost and the commit path all read it. One new `armExternal` entry point inherited every downstream behaviour; re-homing the state would have meant rewiring the whole carry flow to chase a UI decision."
+    "S149 P5 — WHEN THE OWNER MOVES A SURFACE, MOVE THE STATE'S UI, NOT THE STATE. The build grid moved from castle to footer, but `armed` stayed on the castle panel because controls.ts, the cursor ghost and the commit path all read it. One new `armExternal` entry point inherited every downstream behaviour; re-homing the state would have meant rewiring the whole carry flow to chase a UI decision.",
+    "S149 P6 — DELEGATION WORKED BECAUSE THE BRIEFS CARRIED THE TRAPS. Both agents were handed the measured cost structure (nine sites for a hashed World field, five for a protocol bump), the determinism rules, and the mixed-line-endings hazard. Both came back with mutation-verified work and correct protocol bumps. A brief that only states the GOAL gets a plausible answer; one that states the goal plus the known ways to get it wrong gets a correct one.",
+    "S149 P6 — TWO AGENTS ON ONE TREE COST ME REAL TIME. One left a TEMP probe that duplicated an object key and broke tsc for everyone; the other correctly reported the tree was dirty and that 57 type errors were not theirs. Next time: give each agent a disjoint file set explicitly, or run them sequentially when they both touch main.ts.",
+    "S149 P6 — 'STALE' AND 'FLAKY' ARE NOT THE SAME WORD. click-to-build broke because the surface it drives MOVED. Tagging it @quarantine-flaky would have been the convenient lie and would have buried a real regression later. test.fixme plus the rewrite recipe keeps the gate green AND keeps the debt visible.",
+    "S149 P6 — I SHIPPED THE SAME CLASS OF BUG TWICE IN ONE SESSION. Border walls drew on the title screen because a never-started world reads matchPhase BUILD; the HUD agent then found FOUR MORE instruments leaking onto the title for the identical reason (world.players holds P1 from boot, so every 'is the player alive' guard passes on the menu). Any renderer keyed on a phase or roster field needs the gameState guard too — that is now a rule, not an observation."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -1215,9 +1355,9 @@
     "runtime_verifiability_boot_then_smoke": "THE decisive question for this session, given the headline A.0 finding was a whole subsystem that static-parsed perfectly and was never called. Static parsing is NOT validation here. Mandatory runtime gates before any priority is marked complete: (1) a REAL-PHYSICS acceptance test that runs the actual physics loop and asserts the goblin closes distance and the target primitive's hp actually decreases - a state-only assertion is not evidence (S136); (2) PHYSICS_DT imported from physicsLoop.ts, never re-derived, because constants.ts does not export it and a test once silently ran on NaN (S138); (3) an explicit assertion that damageEntity now HAS production call sites, i.e. the exact grep that exposed the dead substrate becomes a permanent test; (4) LOOK AT THE RENDER - a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches, and no state assertion can see 'nothing was drawn'.",
     "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
   },
-  "real_context_tokens_at_close": 365522,
-  "real_context_pct_at_close": 36.55,
-  "checkpoint_commit": "bb46e4e837f08601119401a052ce3376e03ecf98",
+  "real_context_tokens_at_close": 870000,
+  "real_context_pct_at_close": 87.0,
+  "checkpoint_commit": "50a5c24c787a9c466656a2dd40939acbbedb3c1f",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -2274,5 +2414,84 @@
     "CLOCK: '90 build 45 fight' — FIGHT halved to 45 s. Shipped.",
     "HUD COHERENCE: 'the game screen itself has non coherent parts (text/the shapes on the top left) and other stuff that is placed on top of itself'. DELEGATED to an agent.",
     "AGENTS: owner explicitly asked for two agents on the remaining work. Agent A = HUD coherence audit + fixes. Agent B = FIX/SCRAP (R13/R19/R21)."
+  ],
+  "carry_forward_next_session": [
+    {
+      "id": "CF-S149-e",
+      "priority": 1,
+      "title": "ARCADE NONET: timed trial + 80s leaderboard UI",
+      "state": "MODEL DONE AND TESTED, UI NOT WIRED — an honest half.",
+      "detail": "src/render/arcadeScores.ts is complete and proven (26 tests, mutation-verified): top-25, 3-letter initials, M:SS.cc, corrupt-storage tolerance, and the SUBTLE part — the sort is INVERTED because faster wins, and a reversed board would still look perfectly plausible. MISSING: the timer display, the ENTER YOUR INITIALS screen, and the HIGH SCORES board. Owner: 'see who can finish it as fast as possible … only like top 25 are shown and it tells him place place his score is. like in a real arcade from the 80s'. Wire: start a performance.now() stamp when a puzzle launches (legitimate — crosses no wire, feeds nothing host-authoritative), stop on solve, call recordRun(name, ms, at), show place."
+    },
+    {
+      "id": "CF-S149-d",
+      "priority": 2,
+      "title": "e2e/click-to-build.spec.ts — 3 tests are test.fixme, STALE not flaky",
+      "detail": "Tower selection moved from the castle panel to the footer band, so castlePanel.getUiPoints().structureCenters no longer describes a rendered surface. The rewrite recipe is written into the file: open the tier chip → read the cards → click to arm → place. Both geometry getters already exist (__SPARK__.footerBand.getUiPoints)."
+    },
+    {
+      "id": "CF-S149-f",
+      "priority": 3,
+      "title": "P7 — BOTS BUILD TOWERS (the last of the owner's five original complaints)",
+      "detail": "Owner: 'bots are not building towers from the tower selection but instead take the shapes out of the inventory and build random structures. their first priorities should be to build actual towers... obviously increasing complexity gives them better tactics'. A.0 measured: botBrain.chooseGoal has FLEE/CLEAN/RAINBOW/SEVER/POTATO/BUILD/PULL and the BUILD goal places ONE primitive — there is no recipe goal anywhere, so bots are structurally INCAPABLE of building a tower. Full tier."
+    },
+    {
+      "id": "CF-S149-a",
+      "priority": 4,
+      "title": "DESIGN RULING NEEDED: the quarry is an OPEN HUB",
+      "detail": "Border walls stop at the quarry rim (Q6), so a unit can route between zones through the centre while the walls are up. Faithful to the stated geometry and pinned by a named test. Sealing it needs a wall arc across the rim — an OWNER RULING, not a code change."
+    },
+    {
+      "id": "CF-S149-b",
+      "priority": 5,
+      "title": "clampAcrossWalls has no sim consumer",
+      "detail": "Wiring it into gatherer movement drops the opening economy 7+ → 5 banked, because enforceSpawnerBounds rim-snaps sparks to EXACTLY SPAWNER_RADIUS while zoneOf treats the quarry as STRICTLY inside — so a rim spark belongs to a neighbouring zone and the gatherer is blocked from the shared resource, which Q6 forbids. Solve the rim case first; zoneEconomy.test.ts is the guard."
+    },
+    {
+      "id": "CF-S149-c",
+      "priority": 6,
+      "title": "Footer tier → per-complexity FILTER inside the panel (partially superseded)",
+      "detail": "Largely delivered in P5/P6: the chip now opens a tower-card menu. What remains is cosmetic polish only."
+    },
+    {
+      "id": "CF-S148-b",
+      "priority": 7,
+      "title": "creatureSpawners acknowledged hole in the differential seeding — proper source is the goblin tower (S153)"
+    },
+    {
+      "id": "CF-S148-c",
+      "priority": 8,
+      "title": "e2e rainbow/bomb load-sensitive AttractDrag intermittence — measured 3/3 pass in isolation, fails ~1-in-3 in a loaded full lane; raise the timeout or speed the drag"
+    },
+    {
+      "id": "CF-S148-d",
+      "priority": 9,
+      "title": "4-peer nplayer FFA times out at peer connection (quarantine lane)"
+    },
+    {
+      "id": "CF-S147-b",
+      "priority": 10,
+      "title": "promote the 5-site protocol-bump checklist to LOCKED_DECISIONS.md — drift has now recurred SEVEN times"
+    },
+    {
+      "id": "CF-S147-c",
+      "priority": 11,
+      "title": "delete the six acknowledged hazard rows in workerSim.differential when HAZARD_SPAWN_ENABLED flips true"
+    },
+    {
+      "id": "CF-S147-e",
+      "priority": 12,
+      "title": "R45 lobby colour/race picker — substrate exists, needs one client intent"
+    },
+    {
+      "id": "CF1",
+      "priority": 13,
+      "title": "under ?worker=1 click-to-build spends shapes and builds nothing (opt-in only)"
+    },
+    {
+      "id": "CF3",
+      "priority": 14,
+      "title": "inherited, unspecified"
+    }
   ]
 }
