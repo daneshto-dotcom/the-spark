@@ -12,7 +12,7 @@
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "protocol_version": 25,
+  "protocol_version": 26,
   "boot_preflight": {
     "build": "PASS entry index-DMU7pb7t.js 689.1 KiB cap 900 KiB",
     "vitest": "2506 passed / 162 files",
@@ -100,13 +100,13 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": true,
-      "check_method": "P1 ZONES ARE REAL — VERBOSE CHECK. (1) SWAP: all SIX gates moved from isInsideEnemyTerritory to zones.canBuildAt — placePrimitive.ts:124, placeFromFree.ts:172, blueprintLegality.ts:84, controls.ts:600 (with the NEGATION, since the gate field means refuse), dragPreview.ts:109, botBrain.ts:304. grep for the old symbol over src/ excluding tests now returns ONLY the definition plus three comment mentions — zero call sites. (2) THE 17 BROKEN TESTS were resolved INDIVIDUALLY on merit across 8 files, not mechanically re-sited. Three findings that a mechanical fix would have buried: placeFromFree's re-pick tests also failed the 250px avatar-REACH gate once moved (identical-looking assertion failure), so setup1v1Host now takes the avatar as a parameter and the atomicity test keeps the old one because it must refuse on TERRITORY not REACH; world.test's 'exactly on ring' comment was ALREADY STALE (SPAWNER_RADIUS is 125, not the 250 claimed); pentagram's row was re-spaced 300->180 where the BINDING constraint is MERGE_REACH_RADIUS 100, not AUTO_BOND_RADIUS 60. (3) placeFromFree's atomicity test still passes but NO LONGER FOR THE REASON IT CLAIMED — documented in place rather than left a silent coincidence. (4) NEW zones.fixtures.ts derives in-zone points FROM the partition (midpoint anchor->centre), never hardcoded; its guarantees are asserted in zones.test.ts (+28 cases, 77 total). (5) NEW buildLegalityGates.test.ts, 62 cases: every gate x both boards x every seat, plus a 40px full-board sweep carrying ANTI-VACUITY counters (allowed>200 AND refused>200), because 'no disagreements' is also what an all-refusing sweep returns. (6) MUTATION-TESTED: unwiring gate 4 in dragPreview.ts failed EXACTLY the 6 ghost tests and nothing else, then was restored and re-verified — so the probe is both load-bearing and specific. An earlier draft of that sweep read canBuildAt instead of the ghost's real output and would NOT have caught it; found and fixed before commit. (7) E2E: 3 gating specs failed for the SAME defect class and were FIXED, not retried. bomb.spec had copied coords from smoke.spec ('same coords as Sym F') where the placer is the JOINER (seat 1, RIGHT half) while bomb places SOLO (seat 0, LEFT half); hunter/rainbow built at x=960, exactly ON the split, which the border convention awards to the higher-indexed zone. Re-ran: 45/45 including bomb.spec (the CF-S148-c flake). (8) OWNER RULING honoured: isInsideEnemyTerritory RETAINED with a docblock marking it retired and warning against re-wiring; computeTerritorialInfluence is still live with 8 consumers. (9) BUNDLE: entry 689.1 KiB, one byte UNDER baseline; the test fixture is tree-shaken out. ⚠ First verification attempt was a FALSE PASS — dist/ held TWO index-*.js and `head -1` read the 3.7KB one. Re-done against the chunk index.html actually references, with a positive control (PITCH_2P, 7 hits) proving the grep works. GATES: tsc 0 · vitest 2629 passed / 163 files (baseline 2506 / 162) · e2e:gating 45/45 · build under charter · pushed · verify-deploy 4/4 at 316a53f.",
+      "check_method": "P1 ZONES ARE REAL — VERBOSE CHECK. (1) SWAP: all SIX gates moved from isInsideEnemyTerritory to zones.canBuildAt — placePrimitive.ts:124, placeFromFree.ts:172, blueprintLegality.ts:84, controls.ts:600 (with the NEGATION, since the gate field means refuse), dragPreview.ts:109, botBrain.ts:304. grep for the old symbol over src/ excluding tests now returns ONLY the definition plus three comment mentions — zero call sites. (2) THE 17 BROKEN TESTS were resolved INDIVIDUALLY on merit across 8 files, not mechanically re-sited. Three findings that a mechanical fix would have buried: placeFromFree's re-pick tests also failed the 250px avatar-REACH gate once moved (identical-looking assertion failure), so setup1v1Host now takes the avatar as a parameter and the atomicity test keeps the old one because it must refuse on TERRITORY not REACH; world.test's 'exactly on ring' comment was ALREADY STALE (SPAWNER_RADIUS is 125, not the 250 claimed); pentagram's row was re-spaced 300->180 where the BINDING constraint is MERGE_REACH_RADIUS 100, not AUTO_BOND_RADIUS 60. (3) placeFromFree's atomicity test still passes but NO LONGER FOR THE REASON IT CLAIMED — documented in place rather than left a silent coincidence. (4) NEW zones.fixtures.ts derives in-zone points FROM the partition (midpoint anchor->centre), never hardcoded; its guarantees are asserted in zones.test.ts (+28 cases, 77 total). (5) NEW buildLegalityGates.test.ts, 62 cases: every gate x both boards x every seat, plus a 40px full-board sweep carrying ANTI-VACUITY counters (allowed>200 AND refused>200), because 'no disagreements' is also what an all-refusing sweep returns. (6) MUTATION-TESTED: unwiring gate 4 in dragPreview.ts failed EXACTLY the 6 ghost tests and nothing else, then was restored and re-verified — so the probe is both load-bearing and specific. An earlier draft of that sweep read canBuildAt instead of the ghost's real output and would NOT have caught it; found and fixed before commit. (7) E2E: 3 gating specs failed for the SAME defect class and were FIXED, not retried. bomb.spec had copied coords from smoke.spec ('same coords as Sym F') where the placer is the JOINER (seat 1, RIGHT half) while bomb places SOLO (seat 0, LEFT half); hunter/rainbow built at x=960, exactly ON the split, which the border convention awards to the higher-indexed zone. Re-ran: 45/45 including bomb.spec (the CF-S148-c flake). (8) OWNER RULING honoured: isInsideEnemyTerritory RETAINED with a docblock marking it retired and warning against re-wiring; computeTerritorialInfluence is still live with 8 consumers. (9) BUNDLE: entry 689.1 KiB, one byte UNDER baseline; the test fixture is tree-shaken out. ⚠ First verification attempt was a FALSE PASS — dist/ held TWO index-*.js and `head -1` read the 3.7KB one. Re-done against the chunk index.html actually references, with a positive control (PITCH_2P, 7 hits) proving the grep works. GATES: tsc 0 · vitest 2629 passed / 163 files (baseline 2506 / 162) · e2e:gating 45/45 · build under charter · pushed · verify-deploy 4/4 at 316a53f. ⚠ BINDINGS AMENDED AT P2 CLOSE, AND THE AMENDMENT IS THE POINT: P2 rewrote five of these six gates from `canBuildAt(...)` to `canBuildNow(...)` (composing WHERE + WHEN in one predicate), so P1's assertions — which pinned the exact CALL SPELLING — went red against current disk. The MCV verifier caught it rather than a human noticing later. P1's real claim was never the spelling: it was 'the influence bubble is gone and the shared zone rule is in'. The `file_lacks` half proves the bubble is gone and passed untouched throughout; the `file_contains`/`grep_count` half was re-pinned to the DURABLE invariant (`canBuild(At|Now)\\(`). No assertion was deleted to make the suite green — each was replaced by a stronger, less brittle form of the same claim.",
       "checkpoint_commit": "316a53f50407b5eeea370050077c008f7a22171d",
       "verification": [
         {
           "type": "file_contains",
           "path": "src/state/placePrimitive.ts",
-          "needle": "if (!canBuildAt(spark.pos, action.playerId, world.layout))"
+          "needle": "if (!canBuildNow(world, spark.pos, action.playerId))"
         },
         {
           "type": "file_lacks",
@@ -116,7 +116,7 @@
         {
           "type": "file_contains",
           "path": "src/state/placeFromFree.ts",
-          "needle": "if (!canBuildAt(action.placementPos, action.playerId, world.layout))"
+          "needle": "if (!canBuildNow(world, action.placementPos, action.playerId))"
         },
         {
           "type": "file_lacks",
@@ -141,7 +141,7 @@
         {
           "type": "file_contains",
           "path": "src/input/dragPreview.ts",
-          "needle": "!canBuildAt(refPos, playerId, world.layout)"
+          "needle": "!canBuildNow(world, refPos, playerId)"
         },
         {
           "type": "file_lacks",
@@ -151,7 +151,7 @@
         {
           "type": "file_contains",
           "path": "src/input/controls.ts",
-          "needle": "!canBuildAt(spark.pos, this.playerId, this.world.layout),"
+          "needle": "!canBuildNow(this.world, spark.pos, this.playerId),"
         },
         {
           "type": "file_lacks",
@@ -161,7 +161,7 @@
         {
           "type": "file_contains",
           "path": "src/bots/botBrain.ts",
-          "needle": "return canBuildAt(pos, seat, world.layout);"
+          "needle": "return canBuildNow(world, pos, seat);"
         },
         {
           "type": "file_lacks",
@@ -171,16 +171,16 @@
         {
           "type": "grep_count",
           "path": "src/state/placePrimitive.ts",
-          "pattern": "canBuildAt",
+          "pattern": "canBuild(At|Now)\\(",
           "op": "ge",
-          "value": 2
+          "value": 1
         },
         {
           "type": "grep_count",
           "path": "src/state/placeFromFree.ts",
-          "pattern": "canBuildAt",
+          "pattern": "canBuild(At|Now)\\(",
           "op": "ge",
-          "value": 2
+          "value": 1
         },
         {
           "type": "grep_count",
@@ -192,23 +192,23 @@
         {
           "type": "grep_count",
           "path": "src/input/dragPreview.ts",
-          "pattern": "canBuildAt",
+          "pattern": "canBuild(At|Now)\\(",
           "op": "ge",
-          "value": 2
+          "value": 1
         },
         {
           "type": "grep_count",
           "path": "src/input/controls.ts",
-          "pattern": "canBuildAt",
+          "pattern": "canBuild(At|Now)\\(",
           "op": "ge",
-          "value": 2
+          "value": 1
         },
         {
           "type": "grep_count",
           "path": "src/bots/botBrain.ts",
-          "pattern": "canBuildAt",
+          "pattern": "canBuild(At|Now)\\(",
           "op": "ge",
-          "value": 2
+          "value": 1
         },
         {
           "type": "file_exists",
@@ -370,11 +370,233 @@
       "tier": "Full",
       "protocol_bump": true,
       "owner_item": "complaint 5",
-      "status": "in_progress",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "check_method": "P2 THE PHASE SPLIT IS REAL — VERBOSE CHECK. (1) FOUR INDEPENDENT HOLES, all measured on disk first: grep matchPhase over state/gatherers/ -> NOTHING, over state/defenders/ -> NOTHING, quarry minter physics/physicsLoop.ts -> NOTHING. Only tickScoring and one kill bounty read the phase. (2) SHELTER (R6/R12): new GathererState 'SHELTERED'; at phaseEndsAtTick-60 every gatherer comes in unconditionally, cargo banked, parked on its porch, released at the BUILD edge. A SNAP not a walk — a speed-0 hauler in the far corner cannot cross the board in 1 s, so a race would make the rule true only for upgraded gatherers. Council-adopted determinism: ONE pass sorted by id, and a WINDOW (>=) not an instant (===) because a NONET freeze can skip ticks. (3) BUILD GATE: new state/buildLegality.ts canBuildNow = WHERE + WHEN composed ONCE — P1 had just collapsed six copies of the legality rule, and six phase checks would have rebuilt that problem. Test is !== 'BUILD' so a future third phase fails CLOSED (pinned). The blueprint stamp deliberately does NOT use canBuildNow: it owes the player a WORD, so it got its own 'FIGHT' refusal rather than lying with 'ENEMY GROUND' on the player's own territory. (4) DORMANCY (R4): one continue in the defender fan-out placed AFTER revalidation, so a tower whose recipe broke in BUILD is still removed. Plus standDownDefenders at the FIGHT->BUILD edge (Council catch — targetCreatureId is synced and would dangle onto a reaped creature). HP deliberately NOT reset: damage persists across the cycle, which is what FIX/SCRAP repair (Q10). (5) QUARRY (R22, closes CF-S148-a): gates the DISPATCH not spawner.tick, following the file's own hazard pattern — spawner.tick draws seeded RNG and mints ids, so skipping the CALL would advance the stream differently on host vs the worker mirror. (6) EDGE ACTIONS keyed on 'the loop ran AND we landed in X', never a before/after diff: a NONET freeze can flip TWICE and a diff reads BUILD->BUILD across a double flip, skipping the edge work. (7) THE FROZEN-REFERENCE GATE CAUGHT THIS WORK AND WAS RIGHT. All 8 S119 scenarios died in SETUP with CarryViolation — the fixture pins FIGHT then builds its material, which P2 made illegal. Fixed by ORDERING (assemble in BUILD, pin FIGHT last), never by weakening the gate; the S147 equivalence argument is preserved verbatim and re-documented. (8) NEW phaseSplit.test.ts, 49 cases. ⚠ IT EXISTS BECAUSE A GREEN SUITE PROVED NOTHING: after the whole implementation landed the suite still reported the exact pre-P2 count (2629), not one test touched. Covers speed 0-5 x five board extremes, cargo conservation, skip-proofing, idempotence. (9) MUTATION-TESTED: forcing the quarry gate open failed exactly the CF-S148-a test; restored and re-verified. (10) ⚠ ONE OF MY OWN CLAIMS WAS REFUTED BY MEASURING IT. The determinism test first asserted deposits land in the bank in gatherer-id order; CastleBank is a per-TYPE TALLY (S146), so deposits COMMUTE and order is unobservable there. Rewritten to assert what determinism actually means here — two worlds with OPPOSITE Map insertion orders shelter identically — and the docblock now states the sort's real (forward-looking) justification honestly. (11) ANTI-VACUITY CHECKED not assumed: workerSim.differential runs a full BUILD->FIGHT->BUILD cycle with `gatherers` asserted-seeded, so the shelter path is proven host-vs-worker with matching hashes. `defenders`/`creatureSpawners` were ALREADY acknowledged holes pre-change, so dormancy hollowed out nothing previously covered. (12) PROTOCOL 25->26 at all FIVE sites; e2e LOCAL_PROTO_V's trailing comment had gone stale twice over and now names the invariant instead of a historic bump (CF-S147-b's failure mode). GATES: tsc 0 · vitest 2678 passed / 164 files (was 2629 / 163) · e2e:gating 45/45 · build 690.0 KiB under charter · pushed · verify-deploy 4/4 at 98c43eb.",
+      "checkpoint_commit": "98c43ebade3534c289c333fe22e9fce37e4d6953",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const GATHERER_SHELTER_LEAD_TICKS = 1 * PHYSICS_HZ;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/gatherers/gatherer.ts",
+          "needle": "'SEEKING' | 'HAULING' | 'WAITING' | 'SHELTERED'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/gatherers/gathererLifecycle.ts",
+          "needle": "export function tickGathererShelter"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/gatherers/gathererLifecycle.ts",
+          "needle": "export function releaseShelteredGatherers"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/gatherers/gathererLifecycle.ts",
+          "needle": "if (world.tick < world.phaseEndsAtTick - GATHERER_SHELTER_LEAD_TICKS) return;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/gatherers/gathererLifecycle.ts",
+          "needle": ".sort("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/gatherers/gathererLifecycle.ts",
+          "needle": "if (g.state === 'SHELTERED') return world;"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/state/buildLegality.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/buildLegality.ts",
+          "needle": "export function canBuildNow"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/buildLegality.ts",
+          "needle": "if (world.matchPhase !== 'BUILD') return false;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/placePrimitive.ts",
+          "needle": "if (!canBuildNow(world, spark.pos, action.playerId))"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/placeFromFree.ts",
+          "needle": "if (!canBuildNow(world, action.placementPos, action.playerId))"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/dragPreview.ts",
+          "needle": "!canBuildNow(world, refPos, playerId)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "!canBuildNow(this.world, spark.pos, this.playerId),"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "return canBuildNow(world, pos, seat);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/blueprintLegality.ts",
+          "needle": "if (world.matchPhase !== 'BUILD') return 'FIGHT';"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/blueprintLegality.ts",
+          "needle": "| 'FIGHT';"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/defenders/defenderLifecycle.ts",
+          "needle": "export function standDownDefenders"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/defenders/defenderLifecycle.ts",
+          "needle": "d.targetCreatureId = null;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "if (world.matchPhase !== 'FIGHT') continue;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "standDownDefenders(world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "releaseShelteredGatherers(world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "tickGathererShelter(world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/physics/physicsLoop.ts",
+          "needle": "if (world.matchPhase === 'BUILD')"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/physics/physicsLoop.ts",
+          "needle": "CF-S148-a"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/physics/physicsLoop.ts",
+          "needle": "// MUTANT"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 26 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "  readonly protoVersion: 26;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "S149 P2: 25->26"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.test.ts",
+          "needle": "expect(PROTOCOL_VERSION).toBe(26);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.test.ts",
+          "needle": "PROTOCOL_VERSION is 26"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/smoke.spec.ts",
+          "needle": "const LOCAL_PROTO_V = 26;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "e2e/smoke.spec.ts",
+          "needle": "const LOCAL_PROTO_V = 25;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.differential.test.ts",
+          "needle": "WHY IT MOVED (S149 P2)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.differential.test.ts",
+          "needle": "EQUIVALENCE STATEMENT"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/state/phaseSplit.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/phaseSplit.test.ts",
+          "needle": "A GREEN SUITE PROVED NOTHING HERE BEFORE THIS FILE EXISTED"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/phaseSplit.test.ts",
+          "needle": "SKIP-PROOF"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/phaseSplit.test.ts",
+          "needle": "CARGO IS CONSERVED"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/phaseSplit.test.ts",
+          "needle": "HP IS NOT RESET"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/phaseSplit.test.ts",
+          "needle": "ANTI-VACUITY"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/phaseSplit.test.ts",
+          "needle": "HONEST SCOPE"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/phaseSplit.test.ts",
+          "pattern": "^describe\\(",
+          "op": "ge",
+          "value": 5
+        }
+      ],
+      "deploy_verified": "4/4 REMOTE+RUN+VERDICT+LIVE at 98c43eb",
+      "tests_at_close": "2678 passed / 164 files (was 2629 / 163); e2e:gating 45/45",
+      "protocol_version_after": 26
     },
     {
       "id": "P3",
@@ -382,7 +604,7 @@
       "tier": "Standard",
       "protocol_bump": false,
       "owner_item": "complaint 4b",
-      "status": "pending",
+      "status": "in_progress",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
@@ -444,7 +666,13 @@
     "S149 P1 — THE FALSE PASS CAME FROM MY OWN VERIFICATION, NOT THE CODE. `grep dist/assets/index-*.js | head -1` read a 3.7KB chunk instead of the 705KB entry, and reported the fixture stripped. The recorded S132 trap was about grepping dist/ recursively; this was the same trap wearing a new costume. Resolve the artifact from index.html, and always include a positive control.",
     "S149 P1 — A COPIED COORDINATE CARRIED A HIDDEN ASSUMPTION ACROSS FILES. bomb.spec built at x=1500 with the comment 'same coords as smoke.spec.ts Sym F'. In smoke the placer is the JOINER (right half); in bomb it is SOLO (left half). The comment recorded WHERE the numbers came from but not WHAT made them valid, so the borrowing survived until the rule changed.",
     "S149 P1 — TWO GATES CAN FAIL IDENTICALLY. Moving placeFromFree's fixtures onto legal ground made them fail the 250px avatar-REACH gate instead, with the same assertion message (primitives.size short by one). Loosening the zone rule would have 'fixed' it and hidden a real second gate. When a fix does not take, check whether a DIFFERENT gate is now the one refusing.",
-    "S149 P1 — THE PLAN SAID 'six one-line edits'. It was six edits plus 17 test repairs plus 3 e2e repairs plus a shared fixture plus 62 new assertions. The prior session measured the 17 and reverted; the e2e blast radius was never measured by anyone and only surfaced by running the lane. A measured blast radius from a revert is a FLOOR, not the total."
+    "S149 P1 — THE PLAN SAID 'six one-line edits'. It was six edits plus 17 test repairs plus 3 e2e repairs plus a shared fixture plus 62 new assertions. The prior session measured the 17 and reverted; the e2e blast radius was never measured by anyone and only surfaced by running the lane. A measured blast radius from a revert is a FLOOR, not the total.",
+    "S149 P2 — A GREEN SUITE MEANT NOTHING. After landing four behavioural changes (shelter, build gate, dormancy, quarry) the suite reported the EXACT pre-change count: 2629, not one test touched. 163 files and not one would have noticed if the split had been wired backwards. When a change to behaviour moves no test count at all, that is the signal to write the test — not evidence the change was safe.",
+    "S149 P2 — THE FROZEN-REFERENCE GATE FIRED AND IT WAS RIGHT. All 8 differential scenarios died, but NOT on a hash divergence — on CarryViolation during FIXTURE SETUP, because the fixture pins FIGHT and then builds, which P2 had just outlawed. Reading the actual error instead of assuming 'the reference needs re-baselining' was the whole difference between an ordering fix and quietly laundering a real gate.",
+    "S149 P2 — I ASSERTED A DETERMINISM PROPERTY I COULD NOT DEMONSTRATE. My test claimed deposits land in the bank in gatherer-id order; the bank is a per-TYPE TALLY, so deposits commute and order is unobservable there. The test failing is what taught me my own docblock over-claimed. Kept the sort (cheap, forward-looking) but rewrote the justification to what is true.",
+    "S149 P2 — COMPOSE THE RULE ONCE, IMMEDIATELY. P1 spent a whole priority collapsing six copies of build legality onto one predicate. Adding `matchPhase !== BUILD` at those same six sites would have rebuilt the identical problem one priority later. `canBuildNow` composes WHERE and WHEN in one place — and the ONE gate that legitimately differs (the stamp, which owes the player a reason word) is documented as a deliberate exception rather than an oversight.",
+    "S149 P2 — GATE THE DISPATCH, NOT THE SOURCE. The obvious quarry fix was to skip `spawner.tick` during FIGHT. That would have advanced the seeded RNG stream differently on host vs the worker mirror the instant their phases disagreed for one tick. The file already documented the correct pattern for four hazards; reading the neighbouring code beat inventing a fix.",
+    "S149 P2 — A REFUSAL THAT NAMES THE WRONG REASON IS A BUG. Routing the stamp through the shared predicate would have told a player 'ENEMY GROUND' while they stood on their own territory. The panel's own standing contract is that a disabled control says why, so the phase got its own refusal word. Sharing a predicate is right; sharing it at the cost of an honest message is not."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -521,7 +749,7 @@
   },
   "real_context_tokens_at_close": 365522,
   "real_context_pct_at_close": 36.55,
-  "checkpoint_commit": "316a53f50407b5eeea370050077c008f7a22171d",
+  "checkpoint_commit": "98c43ebade3534c289c333fe22e9fce37e4d6953",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -1567,6 +1795,7 @@
       "CF-S148-d",
       "CF1",
       "CF3"
-    ]
+    ],
+    "CF-S148-a": "CLOSED in P2 — the quarry now produces during BUILD only (R22), gated at the dispatch site in physics/physicsLoop.ts and pinned by a mutation-tested case in phaseSplit.test.ts."
   }
 }
