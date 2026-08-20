@@ -604,11 +604,166 @@
       "tier": "Standard",
       "protocol_bump": false,
       "owner_item": "complaint 4b",
-      "status": "in_progress",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "check_method": "P3 BORDER WALLS — VERBOSE CHECK. (1) THE PROBE FOUND WHY THE COMPLAINT WAS LITERALLY TRUE: nothing in src/render/ drew the zone partition at all — a quarry-disc renderer and nothing else. P1 made zones real mechanically; players were being refused on ground they could not SEE they did not own. (2) DERIVED, NEVER STORED: a wall is a pure fn of (layout, matchPhase), both already hashed. Zero of the nine hashed-family sites, zero protocol, zero save surface, and it cannot desync because there is no wall state to disagree about. Pinned by file_lacks on stateHashFull. (3) GEOMETRY (Q6): segments run from the quarry RIM outward — 2 runs on PITCH_2P, 4 arms on QUADRANTS_4P — rendered two-tone so each side of a shared border is its owner's colour, with a neutral grey for an unowned zone (R2's 3-players-on-4-quadrants is ordinary, not defensive). (4) CREATURE DORMANCY — a DELIBERATE, FLAGGED ADDITION beyond spec (S147 bounty-gate precedent). Creatures ticked completely unguarded: during BUILD they sought, closed and dispatched CREATURE_ATTACK, which SEVERS BONDS. The shelter snap's own justification ('nothing can attack during BUILD') was FALSE while a chewer could eat a tower mid-build. Gated the whole block, not movement, because a clamp leaves target re-selection and the attack dispatch running. (5) ⛔ THE MOVEMENT CLAMP HAS NO SIM CONSUMER — A MEASURED FINDING, NOT AN OVERSIGHT. I wired it into gatherer movement and zoneEconomy.test.ts caught it: banked shapes fell 7+ -> 5, below a first tower. Mechanism VERIFIED not guessed: enforceSpawnerBounds rim-snaps sparks to exactly SPAWNER_RADIUS while zoneOf treats the quarry as STRICTLY inside, so a rim spark belongs to whichever ZONE that arc faces, and a seat-0 gatherer was blocked from the shared resource — exactly what Q6 forbids. Conclusion: border walls have NO movement-blocking role (BUILD: gatherers guaranteed access + creatures dormant; FIGHT: walls down). The sealing comes from build legality + dormancy; the wall's job is to make it VISIBLE. Clamp RETAINED + tested per the owner's delete-nothing ruling, with the rim case documented so it is not re-wired blind. (6) ⚠ THE QUARRY IS AN OPEN HUB — pinned in a named describe block rather than hidden. Walls stop at the rim, so a unit could route between zones through the centre while walls are up. Faithful to the stated geometry; sealing it is a DESIGN RULING the owner has not made. (7) VISUAL PROOF, not a green tick: Playwright captures of BUILD (walls up, quarry gap open) and FIGHT (walls completely gone) on the pitch, plus four two-tone arms on the quadrant board. I opened the screenshots and confirmed the two-tone colouring is correct per border. (8) fog.spec's aboveFogLayer ROLL CALL fired exactly as designed and was UPDATED, not bypassed: wallRenderer at index 0 (ground markings, and ABOVE the fog because a zone border is public knowledge derived from `layout` — concealing it would reproduce this complaint in the fogged half of the board). (9) goblin.test's make1v1 pins FIGHT — its acceptance test measures COMBAT and combat happens in FIGHT; an equivalence statement on the S119 precedent, NOT a relaxation of the dormancy guard. (10) The clamp was mutation-tested (forcing it open failed exactly the 6 blocking cases). (11) e2e rainbow.spec failed ONCE in the full lane and I did NOT call it a flake on sight: ran it 3x in isolation (3/3 pass, 16.6s-35.9s runtimes showing the documented load-sensitive AttractDrag variance) and re-ran the full lane clean at 47/47. Same family as CF-S148-c. GATES: tsc 0 · vitest 2710 passed / 165 files (was 2678 / 164) · e2e:gating 47/47 · build 691.2 KiB under charter · pushed · verify-deploy 4/4 at b79a3b0.",
+      "checkpoint_commit": "b79a3b05a6e998c237849695c79698f5c0b191cc",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "src/state/walls.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/walls.ts",
+          "needle": "export function wallSegments"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/walls.ts",
+          "needle": "export function wallsAreUp"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/walls.ts",
+          "needle": "export function crossesWall"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/walls.ts",
+          "needle": "export function clampAcrossWalls"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/walls.ts",
+          "needle": "DERIVED, NEVER STORED"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/walls.ts",
+          "needle": "return world.matchPhase === 'BUILD';"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/walls.ts",
+          "needle": "walls: Map"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/stateHashFull.ts",
+          "needle": "walls:"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/walls.ts",
+          "needle": "THIS HAS NO SIM CONSUMER TODAY, AND THAT IS A MEASURED FINDING"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/walls.ts",
+          "needle": "zoneEconomy.test.ts"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/gatherers/gathererLifecycle.ts",
+          "needle": "clampAcrossWalls"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "world.matchPhase === 'FIGHT' && world.creatures.size > 0"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "CREATURES ARE DORMANT DURING BUILD TOO"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/render/wallRenderer.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/wallRenderer.ts",
+          "needle": "export class WallRenderer"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/wallRenderer.ts",
+          "needle": "export function tintForZone"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/wallRenderer.ts",
+          "needle": "if (!wallsAreUp(world)) return;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "const wallRenderer = new WallRenderer(app, aboveFogLayer);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "wallRenderer.sync(world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "wallRenderer.clear();"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/fog.spec.ts",
+          "needle": "wallRenderer"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/state/walls.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/walls.test.ts",
+          "needle": "THE QUARRY IS AN OPEN HUB"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/walls.test.ts",
+          "needle": "a unit could ROUTE BETWEEN ZONES through the quarry"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/walls.test.ts",
+          "needle": "no segment reaches inside the quarry"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/walls.test.ts",
+          "pattern": "^describe\\(",
+          "op": "ge",
+          "value": 5
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/zones-visual.spec.ts",
+          "needle": "S149 P3 — the border walls on screen"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/zones-visual.spec.ts",
+          "needle": "walls stand during BUILD and are GONE during FIGHT"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/goblin.test.ts",
+          "needle": "AN EQUIVALENCE STATEMENT, NOT A WORKAROUND"
+        }
+      ],
+      "deploy_verified": "4/4 REMOTE+RUN+VERDICT+LIVE at b79a3b0",
+      "tests_at_close": "2710 passed / 165 files (was 2678 / 164); e2e:gating 47/47"
     },
     {
       "id": "P4",
@@ -616,7 +771,7 @@
       "tier": "Standard",
       "protocol_bump": false,
       "owner_item": "complaint 2",
-      "status": "pending",
+      "status": "in_progress",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
@@ -672,7 +827,13 @@
     "S149 P2 — I ASSERTED A DETERMINISM PROPERTY I COULD NOT DEMONSTRATE. My test claimed deposits land in the bank in gatherer-id order; the bank is a per-TYPE TALLY, so deposits commute and order is unobservable there. The test failing is what taught me my own docblock over-claimed. Kept the sort (cheap, forward-looking) but rewrote the justification to what is true.",
     "S149 P2 — COMPOSE THE RULE ONCE, IMMEDIATELY. P1 spent a whole priority collapsing six copies of build legality onto one predicate. Adding `matchPhase !== BUILD` at those same six sites would have rebuilt the identical problem one priority later. `canBuildNow` composes WHERE and WHEN in one place — and the ONE gate that legitimately differs (the stamp, which owes the player a reason word) is documented as a deliberate exception rather than an oversight.",
     "S149 P2 — GATE THE DISPATCH, NOT THE SOURCE. The obvious quarry fix was to skip `spawner.tick` during FIGHT. That would have advanced the seeded RNG stream differently on host vs the worker mirror the instant their phases disagreed for one tick. The file already documented the correct pattern for four hazards; reading the neighbouring code beat inventing a fix.",
-    "S149 P2 — A REFUSAL THAT NAMES THE WRONG REASON IS A BUG. Routing the stamp through the shared predicate would have told a player 'ENEMY GROUND' while they stood on their own territory. The panel's own standing contract is that a disabled control says why, so the phase got its own refusal word. Sharing a predicate is right; sharing it at the cost of an honest message is not."
+    "S149 P2 — A REFUSAL THAT NAMES THE WRONG REASON IS A BUG. Routing the stamp through the shared predicate would have told a player 'ENEMY GROUND' while they stood on their own territory. The panel's own standing contract is that a disabled control says why, so the phase got its own refusal word. Sharing a predicate is right; sharing it at the cost of an honest message is not.",
+    "S149 P3 — HALF THE OWNER'S COMPLAINT WAS A RENDER DEFECT AND I ALMOST MISSED IT. 'There are no walls it seems or player zones' — P1 answered the mechanics and I nearly moved on. Probing for P3 found that NOTHING drew the partition at all, so players were refused on ground they could not see they did not own. When a complaint has two clauses, check whether they have two different causes.",
+    "S149 P3 — I WIRED A FEATURE AND A TEST PROVED IT WAS THE WRONG FEATURE. Wiring the wall clamp into gatherer movement dropped the opening economy below a first tower, because rim-snapped sparks belong to neighbouring zones. Following that through showed border walls have NO blocking role at all — the sealing comes from build legality and dormancy. The right response was to revert the wiring and write down WHY, not to special-case the rim until the test went green.",
+    "S149 P3 — A TESTED FUNCTION WITH NO CALLER IS NOT A FEATURE. `clampAcrossWalls` had eight passing tests and zero consumers, which reads as done and is not. Checking 'who actually calls this?' before closing is what turned a silent gap into a documented carry-forward.",
+    "S149 P3 — THE ROLL-CALL ASSERTION PAID FOR ITSELF. fog.spec names every child of aboveFogLayer in order specifically so an added renderer points at the index that moved; adding the wall renderer failed it instantly and legibly. A bare `length === 16` would have said 'expected 16, received 17' and cost a session, which is exactly why a previous session rewrote it.",
+    "S149 P3 — ONE FAILURE IN A LANE IS NOT A FLAKE UNTIL MEASURED. rainbow.spec failed once. Rather than assert flake, I ran it 3x isolated (3/3, runtimes 16.6-35.9s showing real load variance) and re-ran the full lane clean. The evidence supported intermittence; asserting it without the runs would have been the exact mistake the standing lesson warns about.",
+    "S149 P3 — PIN THE AWKWARD CONSEQUENCE INSTEAD OF HIDING IT. Walls stopping at the quarry rim means a unit can route between zones through the centre. That looks like a hole, and it follows directly from the owner's own Q6 access rule. A named test plus a carry-forward turns 'a bug someone finds in playtest' into 'a design question with the owner's name on it'."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -749,7 +910,7 @@
   },
   "real_context_tokens_at_close": 365522,
   "real_context_pct_at_close": 36.55,
-  "checkpoint_commit": "98c43ebade3534c289c333fe22e9fce37e4d6953",
+  "checkpoint_commit": "b79a3b05a6e998c237849695c79698f5c0b191cc",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -1796,6 +1957,8 @@
       "CF1",
       "CF3"
     ],
-    "CF-S148-a": "CLOSED in P2 — the quarry now produces during BUILD only (R22), gated at the dispatch site in physics/physicsLoop.ts and pinned by a mutation-tested case in phaseSplit.test.ts."
+    "CF-S148-a": "CLOSED in P2 — the quarry now produces during BUILD only (R22), gated at the dispatch site in physics/physicsLoop.ts and pinned by a mutation-tested case in phaseSplit.test.ts.",
+    "CF-S149-a": "OPEN, DESIGN RULING NEEDED: the quarry is an OPEN HUB. Border walls stop at the rim (Q6), so a unit can route between zones through the centre while the walls are up. Faithful to the stated geometry and pinned by a named test; sealing the centre needs an owner ruling (a wall arc across the rim), not a code change.",
+    "CF-S149-b": "OPEN: clampAcrossWalls is exported + tested but has NO sim consumer. Wiring it into gatherer movement drops the opening economy 7+ -> 5 banked because rim-snapped sparks belong to neighbouring zones. Solve the rim case before re-wiring; zoneEconomy.test.ts is the guard."
   }
 }
