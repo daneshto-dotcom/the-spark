@@ -67,6 +67,7 @@ function makePrim(id: number, x: number, y: number, type: SparkType, color: numb
     lastOwnershipChange: 0,
     radius: 8,
     hp: PRIMITIVE_MAX_HP,
+    origin: null,
   };
 }
 

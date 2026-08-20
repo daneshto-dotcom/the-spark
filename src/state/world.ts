@@ -146,6 +146,12 @@ import {
 } from './defenders/defenderLifecycle.ts';
 import { applyBuildBlueprint, type BuildBlueprintAction } from './blueprintBuild.ts';
 import {
+  applyRepairStructure,
+  applyScrapStructure,
+  type RepairStructureAction,
+  type ScrapStructureAction,
+} from './structureRepair.ts';
+import {
   applyBuyGatherer,
   applyGathererTick,
   applyPullFromBank,
@@ -322,6 +328,13 @@ export type GameAction =
   | PullFromBankAction
   // S144 P1 — click-to-build: stamps a recipe's real geometry from banked shapes.
   | BuildBlueprintAction
+  // S152 (R13/R19/R21) — the attrition economy. FIX re-mints exactly the shapes a structure lost;
+  // SCRAP tears it down and returns exactly the shapes still standing. Both are CLIENT INTENTs (a
+  // joiner repairs and scraps its own towers), both are BUILD-stage-only through the shared
+  // `canBuildNow`, and both are NO-OP-never-throw — a joiner acting on a lagged snapshot names a
+  // primitive that may already be rubble, and that must cost the host nothing.
+  | RepairStructureAction
+  | ScrapStructureAction
   // S93 — NONET: a player submits a completed Sudoku grid (client INTENT or host/solo local);
   // the host validates first-valid-wins. playerId is host-stamped to the sender's seat.
   | { readonly type: 'SUDOKU_SOLVED'; readonly playerId: PlayerId; readonly grid: readonly number[] };
@@ -691,6 +704,15 @@ export function dispatch(world: World, action: GameAction): World {
     // joiner can raise it against a stale view of its own bank.
     case 'BUILD_BLUEPRINT':
       return applyBuildBlueprint(world, action);
+
+    // S152 — FIX / SCRAP. Same posture as BUILD_BLUEPRINT above: client INTENTs, host-authoritative,
+    // no-op-never-throw. R19 (BUILD-stage only) is enforced inside, through the shared `canBuildNow`
+    // rather than a second phase check here — see buildLegality.ts for why that matters.
+    case 'REPAIR_STRUCTURE':
+      return applyRepairStructure(world, action);
+
+    case 'SCRAP_STRUCTURE':
+      return applyScrapStructure(world, action);
 
     case 'SET_GATHERER_PREFERENCE':
       return applySetGathererPreference(world, action);

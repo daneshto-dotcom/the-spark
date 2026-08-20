@@ -136,6 +136,7 @@ function buildBotsWorld(): World {
         lastOwnershipChange: world.tick,
         hp: PRIMITIVE_MAX_HP,
         radius: Math.max(8, SPARK_VISUAL_SIZE[SparkType.Triangle] * 0.45),
+        origin: null,
       });
     }
     // ...and one CREATURE per bot seat, for the third instance of the same story. `creatures` was

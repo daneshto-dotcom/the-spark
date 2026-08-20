@@ -43,6 +43,7 @@ function addPrimitive(w: World, id: number, pos: Vec2): void {
     id: asPrimitiveId(id), type: SparkType.Circle, placerColor: PLAYER_COLORS[0], placedBy: P0,
     createdTick: 0, pos, prevPos: pos, bonds: new Set(),
     ownerColor: PLAYER_COLORS[0], lastOwnershipChange: 0, radius: 8, hp: PRIMITIVE_MAX_HP,
+    origin: null,
   };
   w.primitives.set(p.id, p);
 }

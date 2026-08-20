@@ -48,6 +48,7 @@ function addPrim(w: World, id: number, type: SparkType, x: number, y: number): P
     lastOwnershipChange: 0,
     radius: 8,
     hp: PRIMITIVE_MAX_HP,
+    origin: null,
   };
   w.primitives.set(p.id, p);
   return p;

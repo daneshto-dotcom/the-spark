@@ -78,7 +78,7 @@ export interface BuildBlueprintAction {
  * so "the bank pays for this node" is fully described by the TYPE. Only a porch payment names a real
  * spark, because that one has to be deleted out of `world.freeSparks`.
  */
-type Payment =
+export type Payment =
   | { readonly from: 'bank'; readonly sparkType: SparkType }
   | { readonly from: 'porch'; readonly spark: Spark };
 
@@ -139,24 +139,50 @@ export function planBlueprintPayment(
 ): Payment[] | null {
   const bp = blueprintFor(blueprintId);
   if (bp === undefined) return null;
+  return planPaymentForTypes(
+    world,
+    playerId,
+    bp.nodes.map((n) => n.type),
+  );
+}
+
+/**
+ * PURE-ish (reads world, mutates nothing) — resolve who pays for an ARBITRARY list of shape types,
+ * or null if the seat cannot cover all of them.
+ *
+ * S152 — THE GENERALISED CORE, and it is a SPLIT rather than a second copy on purpose. FIX pays for
+ * the SUBSET of a bill that a structure actually lost (R13: "consumes exactly the shapes the
+ * structure lost"), which is the same first-fit search over the same inventory as a full build,
+ * just with a different list. Re-implementing it beside `planBlueprintPayment` would give the two
+ * paths independent opinions about bank-before-porch priority and about porch eligibility — and the
+ * panel readouts that quote them would then be able to promise a repair the reducer refuses.
+ *
+ * Returned payments are POSITIONAL: `payments[i]` funds `types[i]`. Both callers rely on that to
+ * know which paid-for shape becomes which node.
+ */
+export function planPaymentForTypes(
+  world: World,
+  playerId: PlayerId,
+  types: readonly SparkType[],
+): Payment[] | null {
   const bank = bankOf(world.castleBanks, playerId);
   const porch = eligiblePorchSparks(world, playerId);
 
   // How many of each type the inventory has left to commit as we walk the bill. A local copy, so
-  // planning stays PURE — nothing is spent until `applyBuildBlueprint` decides the whole build works.
+  // planning stays PURE — nothing is spent until the caller decides the whole operation works.
   const bankLeft = ALL_SPARK_TYPES.map((t) => bank[t as number] ?? 0);
   const usedPorch = new Set<Spark>();
   const payments: Payment[] = [];
 
-  for (const node of bp.nodes) {
+  for (const type of types) {
     let paid: Payment | null = null;
-    if ((bankLeft[node.type as number] ?? 0) > 0) {
-      bankLeft[node.type as number] = (bankLeft[node.type as number] ?? 0) - 1;
-      paid = { from: 'bank', sparkType: node.type };
+    if ((bankLeft[type as number] ?? 0) > 0) {
+      bankLeft[type as number] = (bankLeft[type as number] ?? 0) - 1;
+      paid = { from: 'bank', sparkType: type };
     }
     if (paid === null) {
       for (const s of porch) {
-        if (usedPorch.has(s) || s.type !== node.type) continue;
+        if (usedPorch.has(s) || s.type !== type) continue;
         usedPorch.add(s);
         paid = { from: 'porch', spark: s };
         break;
@@ -166,6 +192,57 @@ export function planBlueprintPayment(
     payments.push(paid);
   }
   return payments;
+}
+
+/**
+ * Spend a resolved plan. Extracted in S152 so the build and the repair spend IDENTICALLY.
+ *
+ * S146 P2 — no more descending-index splice dance. The old bank was an array and `bankTake`
+ * spliced, so consuming a low index first shifted every higher one and paid the wrong shapes; the
+ * fix was to sort indices descending. A per-type tally has no indices to invalidate, so the whole
+ * hazard is gone and the order of these decrements cannot matter.
+ */
+export function consumePayments(
+  world: World,
+  playerId: PlayerId,
+  payments: readonly Payment[],
+): void {
+  for (const p of payments) {
+    if (p.from === 'bank') bankRemove(world.castleBanks, playerId, p.sparkType);
+    else world.freeSparks.delete(p.spark.id);
+  }
+}
+
+/**
+ * The SOURCE SPARK a payment turns into, positioned at `pos`.
+ *
+ * A porch payment converts the REAL spark that was standing there, which keeps the substrate
+ * honest: the shapes your gatherers hauled home are literally the shapes standing in the tower. A
+ * bank payment has no entity to convert (the inventory is a tally), so a TRANSIENT source is
+ * synthesized for the type. It is never inserted into any collection and its id is never observed —
+ * `makePrimitiveFromSpark` reads only `type` and `pos`, and the primitive is minted with its own
+ * `nextPrimitiveId`. Using the shared allocator here would burn negative ids for objects that do
+ * not survive the statement.
+ *
+ * The position is written BEFORE the caller's `makePrimitiveFromSpark`, which copies `spark.pos`
+ * into BOTH `pos` and `prevPos` (zero implied velocity). Zero velocity + rest-length bonds = zero
+ * initial strain, which is what keeps a fresh stamp from tearing itself apart (blueprintLegality).
+ */
+export function paymentSourceSpark(payment: Payment, pos: Vec2, tick: number): Spark {
+  const spark: Spark =
+    payment.from === 'porch'
+      ? payment.spark
+      : makeFreeSpark({
+          id: asSparkId(0),
+          type: payment.sparkType,
+          pos: { x: pos.x, y: pos.y },
+          velocity: { x: 0, y: 0 },
+          dt: 1,
+          createdTick: tick,
+        });
+  spark.pos.x = pos.x;
+  spark.pos.y = pos.y;
+  return spark;
 }
 
 /**
@@ -189,48 +266,33 @@ export function applyBuildBlueprint(world: World, action: BuildBlueprintAction):
   if (payments === null) return world; // unaffordable → nothing consumed
 
   // ── CONSUME ────────────────────────────────────────────────────────────────────────────────────
-  // ⭐ S146 P2 — no more descending-index splice dance. The old bank was an array and `bankTake`
-  // spliced, so consuming a low index first shifted every higher one and paid the wrong shapes; the
-  // fix was to sort indices descending. A per-type tally has no indices to invalidate, so the whole
-  // hazard is gone and the order of these decrements cannot matter.
-  for (const p of payments) {
-    if (p.from === 'bank') bankRemove(world.castleBanks, action.playerId, p.sparkType);
-    else world.freeSparks.delete(p.spark.id);
-  }
+  // S152 — through the shared spender, so a build and a repair can never diverge on WHERE a shape
+  // was taken from (the bank-before-porch rule now has exactly one implementation).
+  consumePayments(world, action.playerId, payments);
 
   // ── MINT PRIMITIVES ────────────────────────────────────────────────────────────────────────────
   // Each consumed spark BECOMES the primitive at its node, keeping the substrate honest: the shapes
   // your gatherers hauled home are literally the shapes standing in the tower.
   const minted = payments.map((p, i) => {
     const node = bp.nodes[i];
-    // A porch payment converts the REAL spark that was standing there. A bank payment has no entity
-    // to convert (the inventory is a tally), so a TRANSIENT source is synthesized for the node's
-    // type. It is never inserted into any collection and its id is never observed:
-    // `makePrimitiveFromSpark` reads only `type` and `pos`, and the primitive is minted with its own
-    // `nextPrimitiveId`. Using the shared allocator here would burn negative ids for objects that do
-    // not survive the statement.
-    const spark: Spark =
-      p.from === 'porch'
-        ? p.spark
-        : makeFreeSpark({
-            id: asSparkId(0),
-            type: p.sparkType,
-            pos: { x: action.centre.x + node.dx, y: action.centre.y + node.dy },
-            velocity: { x: 0, y: 0 },
-            dt: 1,
-            createdTick: world.tick,
-          });
-    // makePrimitiveFromSpark copies spark.pos into BOTH pos and prevPos (zero implied velocity), so
-    // the position must be set before the call. Zero velocity + rest-length bonds = zero initial
-    // strain, which is what keeps a fresh stamp from tearing itself apart (see blueprintLegality).
-    spark.pos.x = action.centre.x + node.dx;
-    spark.pos.y = action.centre.y + node.dy;
+    const spark = paymentSourceSpark(
+      p,
+      { x: action.centre.x + node.dx, y: action.centre.y + node.dy },
+      world.tick,
+    );
     const prim = makePrimitiveFromSpark({
       id: asPrimitiveId(world.nextPrimitiveId++),
       spark,
       placerColor: player.color,
       placedBy: player.id,
       tick: world.tick,
+      // ⭐ S152 — THE ONE LINE FIX AND SCRAP HANG ON. Without it a stamped tower is
+      // indistinguishable from loose shapes a player happened to bond together, so
+      // REPAIR_STRUCTURE has no bill to restore it TO and refuses. See `PrimitiveOrigin` in
+      // game/primitive.ts for why this cannot be recovered after the fact. `i` is the node index
+      // because `payments[i]` funds `bp.nodes[i]` — the positional contract
+      // `planPaymentForTypes` documents.
+      origin: { blueprintId: action.blueprintId, nodeIndex: i },
     });
     world.primitives.set(prim.id, prim);
     return prim;

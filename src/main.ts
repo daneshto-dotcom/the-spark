@@ -124,7 +124,7 @@ import { StructureRenderer } from './render/structureRenderer.ts';
 import { KeystoneTelegraphRenderer } from './render/keystoneTelegraphRenderer.ts';
 import { DragPreviewRenderer } from './render/dragPreviewRenderer.ts';
 import { TitleScreen } from './render/titleScreen.ts';
-import { HUD } from './render/ui.ts';
+import { AUDIO_ICON_Y, BETA_BADGE_Y, HELP_LINE_X, HELP_LINE_Y, HUD, HUD_RIGHT_X, isOverlayScreen } from './render/ui.ts';
 import { CastlePanel } from './render/castlePanel.ts';
 import { BlueprintGhost } from './render/blueprintGhost.ts';
 // S137 P0c — re-exported through the DEV __SPARK__ global as live keep geometry for e2e. Already in
@@ -151,6 +151,7 @@ import { StinkTowerRenderer } from './render/stinkTowerRenderer.ts';
 import { SpawnerZoneRenderer } from './render/spawnerZoneRenderer.ts';
 import { WallRenderer } from './render/wallRenderer.ts';
 import { FooterBand } from './render/footerBand.ts';
+import { StructurePanel } from './render/structurePanel.ts';
 import { ArcadeOverlay, makeArcadeNonet } from './render/arcadeOverlay.ts';
 import { isSolved } from './state/sudoku.ts';
 import { BombRenderer } from './render/bombRenderer.ts';
@@ -280,7 +281,9 @@ async function bootstrap(): Promise<void> {
     }),
   });
   betaBadge.anchor.set(1, 0);
-  betaBadge.position.set(CANVAS_WIDTH - 12, 12);
+  // S150 P1 — the top-right chrome column is now declared ONCE, in ui.ts, because the half of it
+  // this file owns (badge, ♪, ⚙) was overlapping the half the HUD owns (the connection dot).
+  betaBadge.position.set(HUD_RIGHT_X, BETA_BADGE_Y);
   betaBadge.alpha = 0.6;
 
   // S89 P2 — subtle dark backing plate behind the badge. The badge sits on the
@@ -297,13 +300,17 @@ async function bootstrap(): Promise<void> {
   const betaBadgePlate = new Graphics();
   betaBadgePlate
     .roundRect(
-      CANVAS_WIDTH - 12 - betaBadge.width - BADGE_PLATE_PAD_X,
-      12 - BADGE_PLATE_PAD_Y,
+      HUD_RIGHT_X - betaBadge.width - BADGE_PLATE_PAD_X,
+      BETA_BADGE_Y - BADGE_PLATE_PAD_Y,
       betaBadge.width + BADGE_PLATE_PAD_X * 2,
       betaBadge.height + BADGE_PLATE_PAD_Y * 2,
       7,
     )
     .fill({ color: 0x05070a, alpha: 0.5 });
+  // S150 P1 — NAME THE CHROME. A bare `_Graphics` in a stage dump is indistinguishable from a
+  // leaked gameplay instrument, which is precisely the thing the TITLE-screen audit has to tell
+  // apart. Pixi's `label` costs nothing and makes the dump self-describing.
+  betaBadgePlate.label = 'betaBadgePlate';
 
   // S18 P1 — mute indicator. Small ♪ glyph anchored top-right (y=30),
   // between BETA badge (y=12) and connection dot (y=48). Added AFTER
@@ -319,7 +326,9 @@ async function bootstrap(): Promise<void> {
     }),
   });
   muteIndicator.anchor.set(1, 0);
-  muteIndicator.position.set(CANVAS_WIDTH - 12, 30);
+  // S150 P1 — y 30 → 38. At 30 the glyph band (30–45) ran into the connection dot (41–55) AND sat
+  // flush against the badge plate, which ends at 29. The column now has real gaps at every step.
+  muteIndicator.position.set(HUD_RIGHT_X, AUDIO_ICON_Y);
   muteIndicator.alpha = 0.55;
 
   // S19 P1 — ⚙ settings icon at top-right next to ♪ glyph. Click opens
@@ -334,7 +343,7 @@ async function bootstrap(): Promise<void> {
     }),
   });
   settingsIcon.anchor.set(1, 0);
-  settingsIcon.position.set(CANVAS_WIDTH - 32, 30);
+  settingsIcon.position.set(HUD_RIGHT_X - 20, AUDIO_ICON_Y);
   settingsIcon.alpha = 0.55;
   settingsIcon.eventMode = 'static';
   settingsIcon.cursor = 'pointer';
@@ -535,6 +544,12 @@ async function bootstrap(): Promise<void> {
   // rather than a board object, so it must draw over everything including the fog. Contrast the
   // walls one line above, which are ground markings and deliberately sit under every entity.
   const footerBand = new FooterBand(app);
+  // ⭐ S152 (R13) — THE FIX / SCRAP POPOVER. On `app.stage` for the same reason the band is:
+  // it is UI chrome floating over the board, not a board object, so it must draw over the fog
+  // and the walls. See `structurePanel.ts` for why this is a selected-tower popover rather than
+  // a castle-panel row — short version: the castle is inventory now, and FIX/SCRAP act on ONE
+  // structure among several identical ones, so the player has to be able to point at it.
+  const structurePanel = new StructurePanel(app);
   // ⭐ S149 P5 — ARCADE. The menu and its live puzzle are RENDER state only: `world.sudoku` is a
   // hashed, wire-carried field describing a host-authoritative MATCH event, and a title-screen
   // puzzle is none of those things. The event is handed to the overlay's `override` parameter
@@ -616,7 +631,7 @@ async function bootstrap(): Promise<void> {
   // without this the fog draws over it and the bar reads as missing (owner: "it is hidden behind
   // the fog"). Re-parenting here, immediately after the last stage-level renderer exists, is the
   // one place that is guaranteed to be after every competitor.
-  footerBand.bringToFront();
+  // ⚠ NOT HERE — see the deferred call after the last stage-level renderer is constructed.
   // S77 P2 — stage the global-reach layer ABOVE the fog (+ memory ghosts) but BELOW the HUD, so
   // potato/rainbow/hunter/Voltkin punch through the fog as bare threat sprites for ALL players.
   app.stage.addChild(aboveFogLayer);
@@ -630,6 +645,9 @@ async function bootstrap(): Promise<void> {
   app.stage.addChild(muteIndicator);
   app.stage.addChild(settingsIcon);
   const hud = new HUD(app);
+  // S150 P1 — the shape key joins the connector chips in the bottom strip; the band positions it
+  // from the live chip row (see `legendAnchor`). Visibility stays with the overlay gate below.
+  footerBand.attachLegend(legend);
   // S136 P0 — the automation controls moved OFF the permanent footer and into a panel that opens
   // when you click your castle (owner playtest item 2). Constructed after the HUD so it renders
   // above it (child-add order, the betaBadgePlate idiom — no zIndex needed).
@@ -716,6 +734,26 @@ async function bootstrap(): Promise<void> {
   // S149 P4 — the band needs the same click-guard treatment the panel gets, or a chip press
   // would also act on the board underneath it.
   controls.setFooterBand(footerBand);
+  // S152 — the popover needs the same click-guard treatment the panel and the band get, or a
+  // press on SCRAP would also act on the board underneath it.
+  controls.setStructurePanel(structurePanel);
+  // S152 — FIX / SCRAP commit through the SAME `dispatchFn` seam every other player intent
+  // uses, so they route on all three paths (networked joiner → wire intent; worker mode →
+  // postIntent; solo/host → direct dispatch).
+  //
+  // ⚠ DELIBERATELY NOT IN PREDICTABLE_ACTIONS, and it is the S144 P3 lesson repeated. An
+  // optimistic local FIX would mint primitives and bonds into a RENDER MIRROR on a joiner,
+  // where the next snapshot silently overwrites them — shapes that appear, then vanish, with no
+  // error. A local SCRAP is worse: it would credit the bank locally and then have the host's
+  // snapshot take the shapes back, so the player would watch their inventory tick up and down.
+  // Both land when the authoritative snapshot does, which is also what makes them honest.
+  controls.setStructureActionHandler((kind, primitiveId) => {
+    dispatchFn(
+      kind === 'FIX'
+        ? { type: 'REPAIR_STRUCTURE', playerId: world.localPlayerId, primitiveId }
+        : { type: 'SCRAP_STRUCTURE', playerId: world.localPlayerId, primitiveId },
+    );
+  });
   // S144 P3 — the held tower's ghost. Constructed AFTER the panel so it draws above the board; it is
   // eventMode 'none', so it cannot swallow the click that places it.
   const blueprintGhost = new BlueprintGhost(app);
@@ -735,6 +773,18 @@ async function bootstrap(): Promise<void> {
   // render/codexPresentation.ts: characters keep their art; geometric buildables render their build
   // constellation (this retired the wrong Voltkin placeholder on pentagram/turret/hub tiles).
   const cutsceneOverlay = new CutsceneOverlay(app);
+
+  // ⛔ S149 P6 — LIFT THE FOOTER ABOVE EVERYTHING, AND DO IT LAST.
+  //
+  // Owner: *"it should not be behind the wall but above it (one layer up) so the wall continues
+  // behind it."* My first attempt called this immediately after `FogRenderer`, which fixed the fog
+  // but not the border walls — those live on `aboveFogLayer`, and every renderer constructed AFTER
+  // the call still landed on top of the bar. Z-order in Pixi is child order, so the only placement
+  // that is correct by construction is AFTER the last stage-level child exists. A footer band is UI
+  // chrome: nothing on the board should ever draw over it.
+  footerBand.bringToFront();
+  // S152 — same rule, same reason: UI chrome belongs above every board renderer AND the fog.
+  structurePanel.bringToFront();
   const vignette = makeCinematicVignette(app);
   // S87 P4 — CodexOverlay is created lazily on first open (the botSetupOverlay
   // pattern). recipeHint + listRecipes are cheap + already eager; the heavy
@@ -1077,8 +1127,21 @@ async function bootstrap(): Promise<void> {
     text: 'LMB drag spark → place · RMB click on bond → sever · Q shrink territory · ~ stats · C cinematics',
     style: new TextStyle({ fontFamily: 'monospace', fontSize: 11, fill: 0x444444 }),
   });
-  hint.position.set(10, CANVAS_HEIGHT - 22);
+  hint.position.set(HELP_LINE_X, HELP_LINE_Y);
+  // ⛔ S150 P1 — IN-GAME CONTROLS DO NOT BELONG ON THE MAIN MENU. Measured on the TITLE capture:
+  // this line rendered at y=1058 under the SPARK menu, telling the player to drag sparks and sever
+  // bonds on a screen where none of those inputs exist. Toggled in the frame loop below.
+  hint.visible = false;
   app.stage.addChild(hint);
+  // S150 P1 — hand the HUD the two chrome rects THIS file owns (the BETA stamp and the help line),
+  // so `hud.getUiPoints()` reports the whole screen and the e2e overlap assertion can see every
+  // rectangle at once. Deferred to here rather than beside `new HUD(app)` purely because `hint` is
+  // constructed further down; both texts have measured (Pixi v8 measures synchronously) by now.
+  hud.setChromeMetrics({
+    badgeWidth: betaBadge.width,
+    badgeHeight: betaBadge.height,
+    helpWidth: hint.width,
+  });
 
   if (import.meta.env.DEV) {
     // V6-0.1 (S128) — v0.6 economy probe harness, armed only by ?probe=1. Settles the B3
@@ -1157,9 +1220,15 @@ async function bootstrap(): Promise<void> {
           textures: texSys?.managedTextures?.length ?? -1,
         };
       },
+      // S150 P1 — LIVE HUD rectangles (the S85 P4c geometry-getter convention). The e2e HUD audit
+      // reads these and asserts that no two of them intersect, in a REAL browser with REAL font
+      // metrics — the half `hudLayout.test.ts` cannot reach.
+      get hud() { return hud; },
       get fogRenderer() { return fogRenderer; },
       // S149 P4 — live footer-band geometry for e2e (the S85 P4c geometry-getter convention).
       get footerBand() { return footerBand; },
+      // S152 — live FIX/SCRAP button geometry for e2e (the S85 P4c geometry-getter convention).
+      get structurePanel() { return structurePanel; },
       // S149 P5 — live arcade-menu geometry for e2e.
       get arcadeOverlay() { return arcadeOverlay; },
       // S77 P2 — fog-exemption e2e: sync a global-reach entity + assert it renders
@@ -1798,6 +1867,8 @@ async function bootstrap(): Promise<void> {
         // S149 P3 — drop the border walls on title-return (same one-frame orphan window).
         wallRenderer.clear();
         footerBand.clear();
+        // S152 — drop the FIX/SCRAP popover on title-return, together with its selection.
+        structurePanel.clear();
         // S100 P1 — drop the spawner-zone aura on title-return.
         spawnerZoneRenderer.clear();
         // S71 P1 — drop bomb sprites on title-return (the reducer applyReturnToTitle
@@ -2383,9 +2454,13 @@ async function bootstrap(): Promise<void> {
 
     // S16 P3.b — hide spawner ring + legend during TITLE/LOBBY so they don't
     // bleed through the overlay panes (user-flagged after S15 screenshot review).
-    const inOverlayScreen = showTitle || showLobby;
+    // S150 P1 — one shared predicate (ui.ts), so an element added later has something obvious to
+    // ask. The gauge, the score rail and the avatar glow each grew their own answer to this question
+    // — which is to say, none — and all three ended up drawn on the title screen.
+    const inOverlayScreen = isOverlayScreen(world.gameState);
     spawnerRing.visible = !inOverlayScreen;
     legend.visible = !inOverlayScreen;
+    hint.visible = !inOverlayScreen;
 
     // S15 P2 — connection-lost overlay (networked, PLAYING, no peers).
     // S62 — generalized gameMode==='1v1' → isNetworked() but DELIBERATELY keeps
@@ -2661,7 +2736,11 @@ async function bootstrap(): Promise<void> {
     // S93 — realm-shift audio: rising edge → swap to the trial theme; falling edge → restore the
     // duel track. Edge-driven (the audio fns are idempotent). All modes: the host sets world.sudoku
     // locally; a 1v1 client receives it via NetSnapshot, so both peers hear the realm theme.
-    const nonetActiveNow = world.sudoku !== null;
+    // ⭐ S149 P6 — THE ARCADE GETS THE THEME TOO. Owner: "for NONET in arcade you left the music
+    // out. bring the music back that we have applied to the NONET it was awesome." The realm-shift
+    // edge was computed from `world.sudoku` alone, so a title-screen puzzle played in silence —
+    // the same one-field oversight as the overlay line above, which already considers both.
+    const nonetActiveNow = world.sudoku !== null || arcadeNonet !== null;
     if (nonetActiveNow !== prevNonetActive) {
       if (nonetActiveNow) {
         void enterNonetRealm();
@@ -2699,6 +2778,10 @@ async function bootstrap(): Promise<void> {
     // one, where four call-site pushes eventually would.
     footerBand.setArmed(castlePanel.armedBlueprint());
     footerBand.sync(world);
+    // S152 — re-derived from `world` every frame ON PURPOSE: the structure it describes can be
+    // shot apart between two frames, and the popover must not outlive it. `sync` drops its own
+    // selection when the model comes back null, so there is no stale-selection cleanup here.
+    structurePanel.sync(world, world.localPlayerId);
     spawnerZoneRenderer.sync(world);
     // S25 P0 — creature sprite sync. After structureRenderer (z-order: above
     // prims, blueprint Q1) and before effectsRenderer (so ARC_FLASH effects

@@ -51,6 +51,7 @@ function addPrim(w: World, owner = P1, x = 300, y = 300, type = SparkType.Circle
     createdTick: 0, pos: { x, y }, prevPos: { x, y }, bonds: new Set(),
     ownerColor: PLAYER_COLORS[owner as unknown as number], lastOwnershipChange: 0,
     radius: 8, hp: PRIMITIVE_MAX_HP,
+    origin: null,
   };
   w.primitives.set(p.id, p);
   return p;

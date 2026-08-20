@@ -29,7 +29,9 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, FOOTER_TOP_Y } from '../constants.ts';
 import { footerBandModel, structuresAtComplexity, type FooterComplexity } from './footerBandModel.ts';
+import { LEGEND_SPRITE_STEP, LEGEND_WIDTH } from './renderer.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
+import { drawBlueprintThumb } from './blueprintGlyph.ts';
 import type { World } from '../state/world.ts';
 
 /** Chip box size. */
@@ -53,7 +55,7 @@ const TINT_DISABLED = 0x93a0b4;
 const TINT_SELECTED = 0x7ef0a0;
 
 /** Tower-card size in the menu that opens above a selected chip. */
-const CARD_W = 190;
+const CARD_W = 226; // S149 P6 — widened to seat the tower glyph beside the label
 const CARD_H = 62;
 const CARD_GAP = 10;
 /** The menu floats just above the band. */
@@ -89,6 +91,13 @@ export class FooterBand {
   private armed: GodlyId | null = null;
   /** The complexity the player has opened, or null. Render-only selection — never world state. */
   private selected: number | null = null;
+  /**
+   * S150 P1 — the six-shape type key, handed over by main.ts. The band POSITIONS it (beside the
+   * chips, see `legendAnchor`); main.ts keeps owning its VISIBILITY, because the S16 P3.b overlay
+   * gate there already hides it on TITLE/LOBBY alongside the spawner ring. Two writers to one
+   * `.visible` flag is a race nobody wins, so ownership is split by property, not shared.
+   */
+  private legend: Container | null = null;
 
   constructor(app: Application, parent: Container = app.stage) {
     this.container = new Container();
@@ -110,6 +119,13 @@ export class FooterBand {
 
     const model = footerBandModel(world);
     this.chips = layoutChips(model);
+
+    // S150 P1 — re-anchor the type key every frame, from THIS frame's chip row. Cheap (two number
+    // writes) and it means a registry change can never leave the key sitting on top of a chip.
+    if (this.legend !== null) {
+      const a = legendAnchor(this.chips);
+      this.legend.position.set(a.x, a.y);
+    }
 
     for (let i = 0; i < this.chips.length; i++) {
       const c = this.chips[i];
@@ -138,11 +154,19 @@ export class FooterBand {
           g.roundRect(card.x, card.y, card.w, card.h, 10)
             .stroke({ width: armedHere ? 3 : 2, color: tint, alpha: 0.95 });
 
+          // ⭐ S149 P6 — DRAW THE TOWER'S SHAPE. Owner: *"it should show the tower shape not only
+          // the explanation and name as it did when it was in the castle."* Same `drawBlueprintThumb`
+          // the castle tile used, so the two surfaces cannot draw different art for one recipe.
+          drawBlueprintThumb(g, card.id, card.x + 30, card.y + card.h / 2, card.h - 12, {
+            tint,
+            bondAlpha: card.enabled ? 0.9 : 0.45,
+          });
+
           const nameLabel = this.labelAt(this.chips.length + this.cards.indexOf(card) * 2);
           nameLabel.text = card.name;
           nameLabel.style.fill = tint;
           nameLabel.style.fontSize = 18;
-          nameLabel.position.set(card.x + card.w / 2, card.y + 22);
+          nameLabel.position.set(card.x + 34 + (card.w - 34) / 2, card.y + 22);
           nameLabel.visible = true;
 
           const subLabel = this.labelAt(this.chips.length + this.cards.indexOf(card) * 2 + 1);
@@ -150,7 +174,7 @@ export class FooterBand {
           subLabel.text = card.enabled ? 'READY — click, then place' : card.reason;
           subLabel.style.fill = card.enabled ? TINT_ENABLED : TINT_DISABLED;
           subLabel.style.fontSize = 13;
-          subLabel.position.set(card.x + card.w / 2, card.y + 44);
+          subLabel.position.set(card.x + 34 + (card.w - 34) / 2, card.y + 44);
           subLabel.visible = true;
         }
       }
@@ -173,10 +197,27 @@ export class FooterBand {
 
   /** The tower card under this point, or null. */
   cardAt(x: number, y: number): GodlyId | null {
+    // ⛔ S149 P6 — EVERY CARD IS CLICKABLE, AFFORDABLE OR NOT. The first cut filtered on
+    // `c.enabled`, and since the bank opens EMPTY that made every card inert — which is exactly
+    // what the owner reported twice ("it isnt really clickable"). It also silently destroyed the
+    // mechanic they then named: *"before when it was in castle you could click on the towers you
+    // want built and it already give the priority shapes to the gatherer"*. In the castle a SHORT
+    // tile was actionable — it ORDERED its missing shapes. That behaviour is the reason an
+    // unaffordable card must still take the click.
     for (const c of this.cards) {
-      if (x >= c.x && x <= c.x + c.w && y >= c.y && y <= c.y + c.h && c.enabled) return c.id;
+      if (x >= c.x && x <= c.x + c.w && y >= c.y && y <= c.y + c.h) return c.id;
     }
     return null;
+  }
+
+  /** Is this card affordable right now? Decides ARM vs ORDER-THE-SHAPES at the click site. */
+  cardEnabled(id: GodlyId): boolean {
+    return this.cards.find((c) => c.id === id)?.enabled ?? false;
+  }
+
+  /** S150 P1 — adopt the shape key so the bottom strip lays out as one row. See `legendAnchor`. */
+  attachLegend(legend: Container): void {
+    this.legend = legend;
   }
 
   /** main.ts mirrors the armed tower here so the open card can show it as held. */
@@ -288,6 +329,28 @@ export function layoutCards(
     h: CARD_H,
   }));
 }
+
+/**
+ * ⭐ S150 P1 — PURE: where the six-shape type key sits, DERIVED from the chip row it sits beside.
+ *
+ * See `makeLegend` for the defect this closes (the key was drawn inside the leaderboard's row 0).
+ * The interesting decision here is that the anchor is derived rather than fixed: a hardcoded x that
+ * clears today's five chips would be quietly wrong the day a sixth complexity enters the recipe
+ * registry, because `layoutChips` re-centres the whole row and its left edge marches LEFT by
+ * (CHIP_W + CHIP_GAP) / 2 = 38 px per tier. That is the same "duplicated geometry drifts" failure
+ * `keepCenter` and `layoutChips` already exist to prevent, so the key reads the chips instead of
+ * guessing about them.
+ *
+ * Vertically centred on the chip row, so the whole bottom strip sits on one line. Returns the
+ * container origin, i.e. the CENTRE of the first sprite (they are anchored at 0.5).
+ */
+export function legendAnchor(chips: readonly FooterChipGeom[]): { x: number; y: number } {
+  const leftmost = chips.length > 0 ? Math.min(...chips.map((c) => c.x)) : CANVAS_WIDTH / 2;
+  return { x: leftmost - LEGEND_GAP - LEGEND_WIDTH + LEGEND_SPRITE_STEP, y: CHIP_CY };
+}
+
+/** Breathing room between the type key and the first connector chip. */
+const LEGEND_GAP = 34;
 
 export function layoutChips(model: readonly FooterComplexity[]): FooterChipGeom[] {
   const n = model.length;

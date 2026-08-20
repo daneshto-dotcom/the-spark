@@ -723,6 +723,13 @@ export class CastlePanel {
     });
     this.container.addChild(this.captionName);
     this.container.addChild(this.captionTag);
+    // ⛔ S149 P6 FIX — THE CAPTION GOES WITH THE GRID. Owner screenshot: "PICK A TOWER / costs
+    // shapes from your bank" was drawing straight through "BUY GATHERER  NEED 105". My own
+    // regression from this session: disabling the grid collapsed the strip to zero height but
+    // left its two caption lines visible, so they landed on top of the control rows that moved
+    // up into the space. Hiding the tiles is not enough — everything the strip owned must go.
+    this.captionName.visible = CASTLE_BUILD_GRID_ENABLED;
+    this.captionTag.visible = CASTLE_BUILD_GRID_ENABLED;
 
     // S141 P2 — THE QUEUE CHIPS. ⚠ Built ONCE at a fixed maximum and shown/hidden in sync(), NOT
     // created per frame: the bank strip's children are also constructor-built, and a variable-length
@@ -850,6 +857,26 @@ export class CastlePanel {
    * So the footer routes its card click through this one method and every downstream behaviour —
    * ghost, escape-to-disarm, right-click cancel, commit — is inherited unchanged.
    */
+  /**
+   * ⭐ S149 P6 — ORDER THE SHAPES A TOWER STILL NEEDS, addressed by blueprint id.
+   *
+   * The castle's build tile already did exactly this for a SHORT tile. The footer needs the same
+   * behaviour now that it owns tower selection, and the owner was explicit that the mechanic must
+   * PERSIST rather than be rebuilt: *"we literally just move the tower purchase section to where
+   * classical tower defence footbars are. the mechanics we had should persist!"*
+   *
+   * ⚠ Addressed by ID, not by tile INDEX — the footer has no tiles. And the row is recomputed here
+   * rather than read from `structureMissing[]`, which is only populated while the (now disabled)
+   * grid renders and would therefore be permanently empty.
+   */
+  requestShapesFor(id: GodlyId): void {
+    const row = this.structuresModel.find((r) => r.id === id);
+    if (row === undefined || row.enabled) return; // affordable ⇒ nothing to order
+    if (row.reason === 'LOCKED') return;          // a temporary input lock, not a shortage
+    if (row.missing.length === 0) return;
+    this.onRequestShapes?.(row.missing.map((m) => ({ type: m.type, need: m.need, have: m.have })));
+  }
+
   armExternal(id: GodlyId | null): void {
     this.armed = this.armed === id ? null : id;
     this.onArm?.(this.armed);
@@ -1005,6 +1032,8 @@ export class CastlePanel {
 
   private reasons: string[] = [];
   /** S144 P2 — per-tile blocker, latched in sync() so getUiPoints reports what the caption showed. */
+  /** S149 P6 — the last full build model, latched every sync so the FOOTER can consult it. */
+  private structuresModel: StructureRow[] = [];
   private structureReasons: string[] = [];
   /** S145 P2 — per-tile shortfall, latched per frame beside `structureReasons`. */
   private structureMissing: Array<ReadonlyArray<{ type: SparkType; need: number; have: number }>> = [];
@@ -1123,6 +1152,14 @@ export class CastlePanel {
     // S144 P2 — THE BUILD GRID. Affordability comes from `castleStructuresModel`, which decides it
     // with the SAME `planBlueprintPayment` the reducer uses — so a bright tile is always buildable.
     const structures = castleStructuresModel(world);
+    // ⭐ S149 P6 — LATCH THE WHOLE MODEL, not just the per-tile slices.
+    //
+    // `structureReasons` / `structureMissing` are populated INSIDE the tile loop, which no longer
+    // runs now that the grid moved to the footer — so they are permanently empty and
+    // `requestShapesFor` had nothing to read. Latching the model itself keeps the footer's
+    // order-the-shapes path working off exactly what the panel last computed, with no second
+    // evaluation that could disagree with it.
+    this.structuresModel = structures;
     this.sectionLabel.position.set(
       PANEL_PAD,
       PANEL_PAD + TITLE_H + bankStripHeight() + paletteStripHeight() + queueStripHeight(),

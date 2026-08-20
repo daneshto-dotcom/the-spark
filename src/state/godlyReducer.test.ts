@@ -160,6 +160,7 @@ describe('GODLY_TRIGGER reducer', () => {
       lastOwnershipChange: 0,
       radius: 8,
       hp: PRIMITIVE_MAX_HP,
+      origin: null,
     };
     const primB: Primitive = {
       id: asPrimitiveId(11),
@@ -174,6 +175,7 @@ describe('GODLY_TRIGGER reducer', () => {
       lastOwnershipChange: 0,
       radius: 8,
       hp: PRIMITIVE_MAX_HP,
+      origin: null,
     };
     world.primitives.set(primA.id, primA);
     world.primitives.set(primB.id, primB);
@@ -221,6 +223,7 @@ describe('GODLY_TRIGGER reducer', () => {
       lastOwnershipChange: 0,
       radius: 8,
       hp: PRIMITIVE_MAX_HP,
+      origin: null,
     };
     const primB: Primitive = {
       id: asPrimitiveId(21),
@@ -235,6 +238,7 @@ describe('GODLY_TRIGGER reducer', () => {
       lastOwnershipChange: 0,
       radius: 8,
       hp: PRIMITIVE_MAX_HP,
+      origin: null,
     };
     world.primitives.set(primA.id, primA);
     world.primitives.set(primB.id, primB);

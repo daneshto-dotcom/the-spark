@@ -129,10 +129,44 @@ export function makeSpawnerRing(centerX: number, centerY: number, radius: number
 }
 
 /**
- * Type-presence chip — tiny preview of the 6 shape geometries in the
- * top-left, in their (now-decorative) spec-§ IV colors. This is now a
- * legend/key for "what shape is what type" — useful while learning combos.
+ * Type-presence chip — tiny preview of the 6 shape geometries, in their (now-decorative)
+ * spec-§ IV colors. This is a legend/key for "what shape is what type" — useful while learning
+ * combos.
+ *
+ * ## ⛔ S150 P1 — THIS WAS THE OWNER'S HEADLINE DEFECT, AND IT LIVED FOR TENS OF SESSIONS
+ *
+ * *"the game screen itself has non coherent parts (text/the shapes on the top left)"*. The shapes
+ * are these six, and the text is the leaderboard. MEASURED from a live stage dump: the legend
+ * occupied x 14–132 / y 10–22 and score row 0 occupied x 12–170 / y 12–28 — a 118×10 px
+ * intersection, and the HUD is staged after the legend, so `SCORE 100/1500` was printed straight
+ * over the sprites. Both `spark-s150-hud-BUILD-pitch.png` and `-quadrants.png` show the result: a
+ * coloured square, a green circle and a magenta spiral embedded in the digits, illegible from
+ * either side.
+ *
+ * Neither component was wrong. The legend was placed at (16,16) in S13; the leaderboard was placed
+ * at (12,12) in S62. NOTHING in the repo related the two rectangles, so no test could fail and no
+ * type could complain, and the collision simply sat there being green.
+ *
+ * ## THE MOVE, AND WHY THE BOTTOM STRIP
+ *
+ * The legend is a BUILD REFERENCE — "what shape is what type" — and S149 P4 put the other build
+ * reference, the connector-count chips, in the footer band. Two reference readouts in one strip is
+ * a rule the player can learn once; two references in two opposite corners is not. So the sprites
+ * now lay out from the container's LOCAL origin and `FooterBand` positions them beside the chips
+ * (see `legendAnchor`) — dynamically, so a sixth complexity tier in the recipe registry slides
+ * both together instead of pushing the chips onto the key.
+ *
+ * Laying out from (0,0) rather than the old absolute (16,16) is what makes that possible: the
+ * container's own `position` is now the single thing that decides where the key lives.
  */
+export const LEGEND_SPRITE_STEP = 22;
+/**
+ * Total width of the six-sprite key. The sprites are anchored at 0.5 and scaled 0.6, so the row
+ * overhangs its first and last centres by roughly half a glyph; `LEGEND_SPRITE_STEP` of padding
+ * either side covers the widest of them (the 24 px Line) with room to spare.
+ */
+export const LEGEND_WIDTH = 5 * LEGEND_SPRITE_STEP + LEGEND_SPRITE_STEP * 2;
+
 export function makeLegend(app: Application): Container {
   const c = new Container();
   const textures = makeShapeTextures(app);
@@ -144,8 +178,8 @@ export function makeLegend(app: Application): Container {
     SparkType.Circle,
     SparkType.Spiral,
   ];
-  let x = 16;
-  const y = 16;
+  let x = 0;
+  const y = 0;
   for (const t of types) {
     const s = new Sprite(textures[t]);
     s.anchor.set(0.5);
@@ -154,7 +188,7 @@ export function makeLegend(app: Application): Container {
     s.tint = SPARK_COLORS[t]; // legend keeps type-color for the key only
     s.scale.set(0.6);
     c.addChild(s);
-    x += 22;
+    x += LEGEND_SPRITE_STEP;
   }
   return c;
 }

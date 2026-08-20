@@ -252,6 +252,7 @@ describe('applyCreatureTick — S27 P0 SEEKING ↔ ATTACKING transitions', () =>
       lastOwnershipChange: 0,
       radius: 8,
       hp: PRIMITIVE_MAX_HP,
+      origin: null,
     };
     const primB: Primitive = {
       id: asPrimitiveId(2),
@@ -266,6 +267,7 @@ describe('applyCreatureTick — S27 P0 SEEKING ↔ ATTACKING transitions', () =>
       lastOwnershipChange: 0,
       radius: 8,
       hp: PRIMITIVE_MAX_HP,
+      origin: null,
     };
     w.primitives.set(primA.id, primA);
     w.primitives.set(primB.id, primB);

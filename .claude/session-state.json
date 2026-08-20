@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 1472,
+  "tool_calls_session_total": 1713,
   "session_id": "S149",
   "session_kind": "owner playtest coherence batch (scope amendment)",
   "session_start": "2026-08-20",
@@ -933,11 +933,160 @@
       "tier": "Standard",
       "protocol_bump": false,
       "owner_item": "new owner ask",
-      "status": "in_progress",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "check_method": "P5 ARCADE + THE OWNER'S P4 CORRECTIONS — VERBOSE CHECK. (1) ARCADE: fifth title button BELOW CODEX opens a minigame menu; NONET is the first entry — the home it was promised when its demolition was reversed. (2) ⛔ ZERO SIM STATE: world.sudoku is hashed + wire-carried, so a title-screen puzzle written there would be serialized, hashed and inherited by the next match. Added an `override` seam to SudokuOverlay.render; the arcade passes its own event. Pinned by unit tests AND an e2e assertion that world.sudoku is STILL NULL with the board on screen. Also verified the once-per-match NONET latch (sudokuFiredThisMatch) is untouched, so arcade play cannot rob a real match of its trial. (3) OWNER CORRECTION 'it isnt clickable' — TRUE, AND THE CAUSE WAS MY OWN DEFERRAL. P4 shipped chips that toggled a selection and opened NOTHING (I logged it as CF-S149-c), so a press read as a dead control. The footer now opens a TOWER MENU above the bar, cards from structuresAtComplexity so it can never offer what the reducer refuses, and a disabled card SAYS why. Cards are hit-tested BEFORE chips — the menu floats above the bar, so chips-first would let a card click fall through and toggle the menu shut. (4) OWNER CORRECTION 'hidden behind the fog' — TRUE. Band constructed at main.ts:537, FogRenderer at :614, so fog landed later in stage.children. bringToFront() after the last stage renderer. (5) OWNER CORRECTION 'towers are still being built within the castle' — the BUILD grid is OFF in the castle panel behind CASTLE_BUILD_GRID_ENABLED, and structureRowCount/structuresStripHeight collapse to ZERO so no labelled void remains. RETAINED not deleted: the footer reuses castleStructuresModel and arms through a new armExternal, inheriting the ghost, escape-disarm, right-click cancel and commit paths rather than forking them. The armed tower is mirrored into the band per FRAME, not pushed at the arm/disarm sites — four ways exist to release a tower and a poll cannot miss one. (6) CLOCK RETUNE (owner: '90 build 45 fight'): phaseDurationTicks(phase) is the single place the asymmetry lives; the host tick extends by the length of the phase just ENTERED — reading the outgoing phase would run every stage for its predecessor's length. matchPhase's two clock tests now WALK the alternating cadence instead of assuming an even stride. (7) TWO RENDER BUGS FOUND BY LOOKING, NOT BY TESTS: border walls were drawing across the TITLE SCREEN (wallsAreUp asks about PHASE, and a world that never started a match still reads BUILD) — now PLAYING-only; and the arcade menu rendered UNDER the title screen because it is constructed earlier — re-parented on show(). Plus the NONET banner promised 'winner x2 · everyone else halved' in a mode with no opponents; copy is now mode-aware. (8) castlePanel.structures.test retargeted honestly: it guarded the grid against rowsTop(), which no longer reserves height. The grid is RETAINED so the guarantee must survive — restated against the grid's own strip, plus an assertion that the strip is non-zero when the grid is ON. GATES: tsc 0 · vitest 2737 passed / 167 files · build 698.4 KiB under charter · pushed at bb46e4e. ⚠ e2e:gating and verify-deploy are run at SESSION CLOSE, after the two delegated agents' work is integrated, so the lane is exercised once against the final tree.",
+      "checkpoint_commit": "bb46e4e837f08601119401a052ce3376e03ecf98",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "src/render/arcadeOverlay.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/arcadeOverlay.ts",
+          "needle": "export class ArcadeOverlay"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/arcadeOverlay.ts",
+          "needle": "export function makeArcadeNonet"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/arcadeOverlay.ts",
+          "needle": "THE ARCADE TOUCHES NO SIMULATION STATE"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/titleScreen.ts",
+          "needle": "onArcadeSelected"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "const arcadeOverlay = new ArcadeOverlay"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/sudokuOverlay.ts",
+          "needle": "override: SudokuEvent | null = null"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/sudokuOverlay.ts",
+          "needle": "THE ARCADE SEAM"
+        },
+        {
+          "type": "file_exists",
+          "path": "src/render/arcadeOverlay.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/arcadeOverlay.test.ts",
+          "needle": "the arcade touches NO simulation state"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/sudokuOverlay.ts",
+          "needle": "arcade · solve it at your own pace · Esc to leave"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.ts",
+          "needle": "export function layoutCards"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.ts",
+          "needle": "cardAt(x: number, y: number)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "A TOWER CARD IS CHECKED FIRST"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "armExternal(id: GodlyId | null): void"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "footerBand.setArmed(castlePanel.armedBlueprint());"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.ts",
+          "needle": "bringToFront(): void"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "footerBand.bringToFront();"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "const CASTLE_BUILD_GRID_ENABLED = false;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "THE CASTLE NO LONGER BUILDS TOWERS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/castlePanel.ts",
+          "needle": "if (count <= 0) return 0;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export const FIGHT_PHASE_TICKS = 45 * PHYSICS_HZ;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/constants.ts",
+          "needle": "export function phaseDurationTicks"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "world.phaseEndsAtTick += phaseDurationTicks(world.matchPhase);"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/hostTick.ts",
+          "needle": "world.phaseEndsAtTick += PHASE_DURATION_TICKS;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/wallRenderer.ts",
+          "needle": "if (world.gameState !== 'PLAYING') return;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/arcadeOverlay.ts",
+          "needle": "RE-ADD TO THE PARENT SO IT IS ON TOP"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/zones-visual.spec.ts",
+          "needle": "S149 P5 — arcade mode on screen"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/zones-visual.spec.ts",
+          "needle": "CLICK A TIER AND THE TOWER MENU MUST OPEN"
+        }
+      ],
+      "tests_at_close": "2737 passed / 167 files",
+      "deploy_verified": "PENDING — verified at session close after agent integration"
     },
     {
       "id": "P6",
@@ -987,7 +1136,11 @@
     "S149 P4 — A PROSE WARNING NAMED A SOLUTION, NOT THE REQUIREMENT. zones.test.ts said 'if a footer is ever revived, these anchors move up'. The actual invariant was 'no chip may overlap a porch', which centring the bar satisfies without touching two shipped anchors. Read an inherited warning for the CONSTRAINT it protects, not the fix it happens to suggest — then convert it to an assertion so the next session inherits a test instead of a sentence.",
     "S149 P4 — THE SCREENSHOT FOUND WHAT 166 GREEN FILES COULD NOT. Unaffordable chips were rendered in a tint that was invisible against the board, so the bar existed and communicated nothing. No unit test can assert legibility. For any UI surface, LOOK at it before calling it done.",
     "S149 P4 — I MISCOUNTED MY OWN UI FROM A SCREENSHOT. At 1280x720 a 62px chip is 41px, and I read three where there were five. A photograph is evidence that something rendered; it is not a measurement. Exposing the geometry and asserting it turned a guess into a permanent guard.",
-    "S149 P4 — WHEN A GUARDRAIL BLOCKS A CLEANUP COMMAND, CHANGE THE COMMAND. The destructive guard refused `rm -rf` on a scratch dir. The right response was a non-recursive delete, not an override token — the guard was doing exactly its job on a pattern that is usually catastrophic."
+    "S149 P4 — WHEN A GUARDRAIL BLOCKS A CLEANUP COMMAND, CHANGE THE COMMAND. The destructive guard refused `rm -rf` on a scratch dir. The right response was a non-recursive delete, not an override token — the guard was doing exactly its job on a pattern that is usually catastrophic.",
+    "S149 P5 — MY DEFERRAL SHIPPED SOMETHING THAT LOOKED BROKEN. I logged the footer's tower menu as CF-S149-c and shipped chips that toggled a selection and opened nothing. The owner read that as 'it isnt clickable' — correctly. A half-built AFFORDANCE is worse than none: it advertises a capability and then does nothing. Defer whole features, never the visible half of one.",
+    "S149 P5 — I SHIPPED WALLS ONTO THE TITLE SCREEN AND ONLY A SCREENSHOT FOUND IT. `wallsAreUp` asks about matchPhase, and a world that has never started a match still reads BUILD. Every test passed. Any renderer keyed on a phase/mode field needs the gameState guard too, and the only way I found it was looking at an unrelated capture.",
+    "S149 P5 — Z-ORDER IS DECIDED BY CONSTRUCTION ORDER, AND CONSTRUCTION ORDER IS DECIDED BY DEPENDENCIES. Both the footer (under the fog) and the arcade menu (under the title) were built before the thing that had to sit beneath them. Re-parenting at show/init time is the fix that does not fight the dependency graph.",
+    "S149 P5 — WHEN THE OWNER MOVES A SURFACE, MOVE THE STATE'S UI, NOT THE STATE. The build grid moved from castle to footer, but `armed` stayed on the castle panel because controls.ts, the cursor ghost and the commit path all read it. One new `armExternal` entry point inherited every downstream behaviour; re-homing the state would have meant rewiring the whole carry flow to chase a UI decision."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -1064,7 +1217,7 @@
   },
   "real_context_tokens_at_close": 365522,
   "real_context_pct_at_close": 36.55,
-  "checkpoint_commit": "12ee795f6ff5e072ddef30f242b4d429e442cd7c",
+  "checkpoint_commit": "bb46e4e837f08601119401a052ce3376e03ecf98",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -2114,6 +2267,12 @@
     "CF-S148-a": "CLOSED in P2 — the quarry now produces during BUILD only (R22), gated at the dispatch site in physics/physicsLoop.ts and pinned by a mutation-tested case in phaseSplit.test.ts.",
     "CF-S149-a": "OPEN, DESIGN RULING NEEDED: the quarry is an OPEN HUB. Border walls stop at the rim (Q6), so a unit can route between zones through the centre while the walls are up. Faithful to the stated geometry and pinned by a named test; sealing the centre needs an owner ruling (a wall arc across the rim), not a code change.",
     "CF-S149-b": "OPEN: clampAcrossWalls is exported + tested but has NO sim consumer. Wiring it into gatherer movement drops the opening economy 7+ -> 5 banked because rim-snapped sparks belong to neighbouring zones. Solve the rim case before re-wiring; zoneEconomy.test.ts is the guard.",
-    "CF-S149-c": "OPEN, R36 REFINEMENT: clicking a footer chip selects the complexity (render-only) but the castle panel does NOT yet FILTER its build grid to that complexity. The seam exists and is cheap — structureRowCount/structuresStripHeight/tileOrigin all already take a `count` parameter defaulting to ALL_BLUEPRINT_IDS.length — but the panel constructs a fixed tile array, so filtering means hiding tiles and re-laying out. Deferred at YELLOW context."
-  }
+    "CF-S149-c": "CLOSED in P5 — the footer chip now opens a tower menu (cards from structuresAtComplexity, armed via castlePanel.armExternal). This was the deferral the owner reported as \"it isnt clickable\"; deferring a UI affordance left it looking broken."
+  },
+  "owner_directives_s149_late": [
+    "P4 CORRECTIONS (all three real, all fixed in P5): footer chips were not clickable (my deferred tower menu), the band was hidden behind the fog, and towers were still being built inside the castle. Owner's model: castle = inventory only; footer = tower building.",
+    "CLOCK: '90 build 45 fight' — FIGHT halved to 45 s. Shipped.",
+    "HUD COHERENCE: 'the game screen itself has non coherent parts (text/the shapes on the top left) and other stuff that is placed on top of itself'. DELEGATED to an agent.",
+    "AGENTS: owner explicitly asked for two agents on the remaining work. Agent A = HUD coherence audit + fixes. Agent B = FIX/SCRAP (R13/R19/R21)."
+  ]
 }

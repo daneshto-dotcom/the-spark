@@ -225,7 +225,11 @@ type GathererF = keyof ElemOf<World['gatherers']>;
 // Every field name below is projected by hashWorldStateFull. Keep in lockstep.
 type PrimitiveHashed =
   | 'id' | 'type' | 'pos' | 'prevPos' | 'placerColor' | 'placedBy' | 'ownerColor'
-  | 'lastOwnershipChange' | 'radius' | 'createdTick' | 'bonds' | 'hp';
+  | 'lastOwnershipChange' | 'radius' | 'createdTick' | 'bonds' | 'hp'
+  // S152 — blueprint provenance. HASHED because it is a sim INPUT, not decoration: it decides
+  // whether REPAIR_STRUCTURE can run at all and which bill it pays, so a host and a worker mirror
+  // that disagreed about it would disagree about the next build stage's whole economy.
+  | 'origin';
 type BondHashed =
   | 'id' | 'aId' | 'bId' | 'restLength' | 'stiffnessTier' | 'createdTick'
   | 'stiffnessMultiplier' | 'a' | 'b';
@@ -401,7 +405,11 @@ export function determinismParts(world: World): string[] {
     parts.push(
       `p${n(p.id)}:${p.type}:${p.pos.x},${p.pos.y}:${v2(p.prevPos)}:pc${p.placerColor}` +
         `:pb${n(p.placedBy)}:oc${p.ownerColor}:lo${p.lastOwnershipChange}:r${p.radius}` +
-        `:ct${p.createdTick}:bn${idSet(p.bonds)}:hp${o(p.hp)}`,
+        `:ct${p.createdTick}:bn${idSet(p.bonds)}:hp${o(p.hp)}` +
+        // S152 — `_` for a hand-placed shape, `<blueprintId>#<nodeIndex>` for a stamped one. Named
+        // rather than positional so a future third provenance field cannot silently collide with
+        // this one's encoding.
+        `:og${p.origin === null ? '_' : `${p.origin.blueprintId}#${p.origin.nodeIndex}`}`,
     );
   }
 

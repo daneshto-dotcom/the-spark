@@ -53,6 +53,7 @@ function buildValidChain(world: World, color: number): void {
     lastOwnershipChange: 0,
     radius: 8,
     hp: PRIMITIVE_MAX_HP,
+    origin: null,
   }));
   for (const p of prims) world.primitives.set(p.id, p);
   for (let i = 0; i < prims.length - 1; i++) {

@@ -221,7 +221,7 @@ export type { NetSnapshot };
 //       whether a given placement is legal.
 //   (3) THE FIELD IS A STRING LITERAL UNION. A stale peer cannot parse a `layout` value it has never
 //       heard of - the same class of change that forced 12->13 for the 'WALK' DefenderState.
-export const PROTOCOL_VERSION = 26 as const;
+export const PROTOCOL_VERSION = 27 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -314,6 +314,14 @@ export interface HelloMsg {
    *   5. `protocol.test.ts`'s pinned `expect(PROTOCOL_VERSION).toBe(N)` **and its test title**, plus
    *      `LOCAL_PROTO_V` at the top of `e2e/smoke.spec.ts`.
    * `protocolVersionSync.test.ts` enforces the const/e2e pair; nothing enforces this prose.
+ *
+ * S152: 26->27 (FIX + SCRAP — TWO new client intents, `REPAIR_STRUCTURE` and `SCRAP_STRUCTURE`,
+ * which a v26 peer rejects outright at `parseNetMessage`; AND a new hashed, wire-carried field on
+ * `Primitive`, `origin`. The intents alone would force this — a seat that cannot repair while the
+ * other can diverges on primitives, bonds and defenders within one build stage — but `origin` is
+ * the sharper reason: it is ADDITIVE-OPTIONAL on the wire, so a v26 peer would silently accept a
+ * snapshot and drop it, and every tower it restored would read as freeform rubble that FIX refuses.
+ * A field a stale peer can DROP without erroring is more dangerous than one it cannot parse.)
    *
    * S147 P2: 23->24 (FOUR-PLAYER CAP - MAX_PLAYERS 6->4 and MAX_BOTS 6->3. The wire validators
    * `validateRoster` and `parseHostAttest` both cap on MAX_PLAYERS, so a v23 host's 5-6 seat roster is
@@ -333,7 +341,7 @@ export interface HelloMsg {
    * polar keep ring is gone and `castleAnchor` becomes a zone lookup, so a v24 peer would draw and
    * hit-test every keep in the wrong place and enforce the old territory rule instead of the new
    * zone borders. See the changelog above the const for the full three-part argument.) */
-  readonly protoVersion: 26;
+  readonly protoVersion: 27;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**
@@ -650,6 +658,10 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   // S144 P1 — BUILD_BLUEPRINT is also a CLIENT INTENT (see below). PROTOCOL_VERSION bumped 20->21;
   // an old peer cannot receive this, but its HELLO is already rejected at handshake.
   BUILD_BLUEPRINT: true,
+  // S152 — FIX + SCRAP (R13/R19/R21). Both are also CLIENT INTENTs (see below).
+  // PROTOCOL_VERSION bumped 26->27.
+  REPAIR_STRUCTURE: true,
+  SCRAP_STRUCTURE: true,
   // S141 P2 (V6-1.4) — the gatherer ORDER QUEUE. Both are also CLIENT INTENTs (see below).
   ENQUEUE_GATHERER_ORDER: true,
   CANCEL_GATHERER_ORDER: true,
@@ -816,6 +828,17 @@ const CLIENT_INTENT_TYPES_RECORD = {
   // `planBlueprintPayment` against its own bank/porch. A stale client view therefore no-ops instead of
   // building the wrong thing or paying with shapes it no longer owns.
   BUILD_BLUEPRINT: true,
+  // S152 — a joiner clicks one of ITS OWN towers and presses FIX or SCRAP. The host re-resolves
+  // every gate against its own world: `canBuildNow` (BUILD stage + the seat's own ground, R19),
+  // per-member ownership, blueprint provenance, and — for FIX — `planPaymentForTypes` against its
+  // own bank and porch. Nothing about the client's view is trusted, so a stale click no-ops instead
+  // of repairing a tower that is already rubble or refunding shapes that are already gone.
+  //
+  // ⚠ A row omitted HERE compiles clean and passes every test, then the host SILENTLY DROPS the
+  // intent for a networked joiner while the host seat's own works — the classic seat-asymmetry
+  // desync. The one real cross-check is benchGate.test.ts's set-equality against BENCH_INTENT_POLICY.
+  REPAIR_STRUCTURE: true,
+  SCRAP_STRUCTURE: true,
 } as const satisfies Partial<Record<GameAction['type'], true>>;
 
 export const CLIENT_INTENT_TYPES: ReadonlySet<string> = new Set(

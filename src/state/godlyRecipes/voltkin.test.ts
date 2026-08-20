@@ -35,6 +35,7 @@ function makePrim(
     lastOwnershipChange: 0,
     radius: 8,
     hp: PRIMITIVE_MAX_HP,
+    origin: null,
   };
 }
 

@@ -40,6 +40,7 @@ function makePrim(id: number, placerColor: number): Primitive {
     lastOwnershipChange: 0,
     radius: 8,
     hp: PRIMITIVE_MAX_HP,
+    origin: null,
   };
 }
 

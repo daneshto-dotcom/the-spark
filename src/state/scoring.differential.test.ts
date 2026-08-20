@@ -136,6 +136,7 @@ function randWorld(seed: number): World {
       id, type, placerColor: color, placedBy: owner, createdTick: 0,
       pos: { x: rng() * 1000, y: rng() * 700 }, prevPos: { x: 0, y: 0 },
       bonds: new Set(), ownerColor: color, lastOwnershipChange: 0, radius: 8, hp: PRIMITIVE_MAX_HP,
+      origin: null,
     };
     w.primitives.set(id, prim);
     prims.push(prim);
@@ -202,6 +203,7 @@ describe('S117 P1 (F1a) — computeAllComplexities is BIT-EXACT vs the per-playe
         id, type: SparkType.Dot, placerColor: PLAYER_COLORS[0], placedBy: owner, createdTick: 0,
         pos: { x: i * 20, y: 0 }, prevPos: { x: 0, y: 0 }, bonds: new Set(),
         ownerColor: PLAYER_COLORS[0], lastOwnershipChange: 0, radius: 8, hp: PRIMITIVE_MAX_HP,
+        origin: null,
       };
       w.primitives.set(id, prim);
       prims.push(prim);

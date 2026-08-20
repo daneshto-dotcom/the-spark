@@ -38,6 +38,7 @@ import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { POOP_FOUL_TINT, POOP_FOUL_TINT_STRENGTH } from '../constants.ts';
 import type { Controls } from '../input/controls.ts';
 import { isCruiserDebuffed } from '../state/gameMode.ts';
+import { isOverlayScreen } from './ui.ts';
 import type { World } from '../state/world.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
 import { leaderPlayerId } from '../state/scoring.ts';
@@ -237,6 +238,16 @@ export class AvatarRenderer {
    * unpaused windows. world.tick would freeze the pulse in those states.
    */
   sync(world: World, controls: Controls): void {
+    // ⛔ S150 P1 — NO AVATAR ON THE MAIN MENU. `world.players` holds P1 from boot, so this loop
+    // has always drawn the local player's glow at its default `avatarPos` — which is (0,0). A stage
+    // dump of the TITLE screen measured this container at (−11, −11, 22×22): a pink half-disc
+    // wedged into the very corner of the menu, visible in `spark-s149-arcade-title.png`, that reads
+    // as a rendering artefact because that is exactly what it is.
+    //
+    // Gated on the OVERLAY screens rather than on `PLAYING`, deliberately: avatars must survive
+    // WIN/POSTGAME, where the win banner is up and the board is still on screen. The rest of `sync`
+    // still runs, so the smoothing state stays warm and the first frame back is not a jump.
+    this.container.visible = !isOverlayScreen(world.gameState);
     const localPlayerId = controls.getPlayerId();
     const nowMs = performance.now();
     const tSec = nowMs / 1000;

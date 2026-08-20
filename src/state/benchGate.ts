@@ -94,6 +94,17 @@ export const BENCH_INTENT_POLICY = {
   // punish window, and allowing this would be strictly worse than allowing PULL_FROM_BANK (it skips
   // the porch step entirely). Nothing is lost — the shapes stay banked until the bench lifts.
   BUILD_BLUEPRINT: 'deny',
+  // S152 — FIX IS BUILDING, so it takes BUILD_BLUEPRINT's ruling verbatim: it spends banked shapes
+  // and mints geometry, which is the whole of what the bench exists to stop. Nothing is lost — the
+  // shapes stay banked and the tower stays broken until the bench lifts.
+  REPAIR_STRUCTURE: 'deny',
+  // S152 — SCRAP is denied too, and the reasoning is the PULL_FROM_BANK reasoning rather than the
+  // SET_GATHERER_PREFERENCE one. It looks like pure deconstruction ("acquires nothing"), but it
+  // converts standing structure into SPENDABLE INVENTORY, which is exactly the staging move
+  // PULL_FROM_BANK is denied for: an eaten player could liquidate a dead tower during the punish
+  // window and have the shapes ready the instant it lifts. The structure is not lost — it is still
+  // standing, and still scrappable, one bench later.
+  SCRAP_STRUCTURE: 'deny',
 } as const satisfies Partial<Record<GameAction['type'], BenchPolicy>>;
 
 /**

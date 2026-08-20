@@ -88,6 +88,7 @@ function addPrimBondSpark(w: World): void {
     id: asPrimitiveId(id), type: SparkType.Dot, placerColor: 0xffffff, placedBy: P0,
     createdTick: 0, pos: { x, y: 0 }, prevPos: { x, y: 0 }, bonds: new Set(),
     ownerColor: 0xffffff, lastOwnershipChange: 0, radius: 8, hp: PRIMITIVE_MAX_HP,
+    origin: null,
   });
   const a = mk(101, 10);
   const b = mk(102, 40);

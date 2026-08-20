@@ -337,3 +337,175 @@ test.describe('@visual S149 P5 — arcade mode on screen', () => {
     await page.screenshot({ path: `${DESKTOP}/spark-s149-arcade-nonet.png` });
   });
 });
+
+/**
+ * S150 P1 — THE HUD, PHOTOGRAPHED. (owner: *"the game screen itself has non coherent parts
+ * (text/the shapes on the top left) and other stuff that is placed on top of itself and just not
+ * coherent ... we need to make it all look cleaner and more logical/coherent/consistent"*.)
+ *
+ * ⛔ THIS IS THE ONE CLASS OF DEFECT THE UNIT SUITE STRUCTURALLY CANNOT SEE. Every HUD surface in
+ * this game is an independently-positioned Pixi child; nothing in the type system, and nothing in
+ * `vitest`, relates the legend sprite at (16,16) to the score text at (12,12). Two correct
+ * components can be individually green and still be drawn straight through each other. Earlier this
+ * session the border walls drew across the TITLE screen and the entire suite passed.
+ *
+ * Playwright, never the in-app browser pane: an undisplayed pane does not composite, so rAF pauses
+ * and the Pixi ticker never advances — you get a dead first frame instead of a game.
+ *
+ * BOTH BOARDS × BOTH PHASES, because the HUD is phase-dependent (the match clock recolours, the
+ * walls come and go) and board-dependent (solo shows a single score line; QUADRANTS shows four rows
+ * plus four keeps plus two porches inside the footer band).
+ */
+async function bootSolo(page: import('@playwright/test').Page): Promise<void> {
+  await page.goto('/');
+  await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE');
+  const solo = await titleButtonCss(page, 'solo');
+  await page.mouse.click(solo.x, solo.y);
+  await waitForWorld(page, (w) => w.gameState === 'PLAYING', 'PLAYING');
+  await page.waitForTimeout(4000); // real host-loop frames, not a first frame
+}
+
+async function bootBots(page: import('@playwright/test').Page): Promise<void> {
+  await page.goto('/');
+  await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE');
+  const vsBots = await titleButtonCss(page, 'vsBots');
+  await page.mouse.click(vsBots.x, vsBots.y);
+  await page.waitForFunction(
+    () => {
+      const s = (window as unknown as {
+        __SPARK__: { botSetupOverlay: { getUiPoints?: () => unknown } | null };
+      }).__SPARK__;
+      return s.botSetupOverlay !== null && s.botSetupOverlay.getUiPoints !== undefined;
+    },
+    { timeout: 20_000 },
+  );
+  const startPt = await page.evaluate(() => {
+    const s = (window as unknown as {
+      __SPARK__: { botSetupOverlay: { getUiPoints: () => { start: { x: number; y: number } } } };
+    }).__SPARK__;
+    return s.botSetupOverlay.getUiPoints().start;
+  });
+  const startCss = await canvasToCss(page, startPt.x, startPt.y);
+  await page.mouse.click(startCss.x, startCss.y);
+  await waitForWorld(page, (w) => w.gameState === 'PLAYING', 'PLAYING');
+  await page.waitForTimeout(4000);
+}
+
+/**
+ * ⭐ THE ASSERTION HALF. `hudLayout.test.ts` proves the layout RULE with reconstructed metrics;
+ * this proves the RUNNING GAME obeys it with real Pixi text metrics, through the same exported
+ * `hudSurfaces()` reached via the S85 P4c geometry getter. A font fallback that renders the
+ * leaderboard 40 % wider than monospace breaks this and leaves the unit test green.
+ */
+async function expectNoHudOverlaps(page: import('@playwright/test').Page): Promise<void> {
+  const surfaces = await page.evaluate(() => {
+    const s = (window as unknown as {
+      __SPARK__: {
+        hud: {
+          getUiPoints: () => {
+            surfaces: Array<{ name: string; rect: { x: number; y: number; w: number; h: number } }>;
+          };
+        };
+      };
+    }).__SPARK__;
+    return s.hud.getUiPoints().surfaces;
+  });
+  expect(surfaces.length).toBeGreaterThan(6); // positive control: the getter actually reported a HUD
+  const hits: string[] = [];
+  for (let i = 0; i < surfaces.length; i++) {
+    for (let j = i + 1; j < surfaces.length; j++) {
+      const a = surfaces[i].rect;
+      const b = surfaces[j].rect;
+      if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) {
+        hits.push(`${surfaces[i].name} ∩ ${surfaces[j].name}`);
+      }
+    }
+  }
+  expect(hits, 'HUD surfaces drawn on top of each other, measured in a real browser').toEqual([]);
+}
+
+test.describe('@visual S150 P1 — the HUD audit', () => {
+  test('TITLE: no gameplay instrument survives onto the main menu', async ({ page }) => {
+    // ⛔ THE SAME DEFECT CLASS AS THE BORDER WALLS THAT BLED ONTO TITLE EARLIER THIS SESSION. A
+    // stage dump of the menu measured FOUR live gameplay elements on it: the energy gauge
+    // (x 1896, y 80–989), the score bar (x 11, y 918–962), the controls help line (y 1058) and the
+    // local avatar's glow at (−11, −11). None of them is actionable on a menu; all four read as
+    // rendering artefacts. Asserted through the stage rather than by eye, then photographed.
+    await page.goto('/');
+    await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE');
+    await page.waitForTimeout(2000);
+    const stray = await page.evaluate(() => {
+      const stage = (window as unknown as {
+        __SPARK__: { app: { stage: { children: Array<Record<string, unknown>> } } };
+      }).__SPARK__.app.stage;
+      return stage.children
+        .map((c) => {
+          const o = c as unknown as {
+            visible: boolean;
+            getBounds: () => { x: number; y: number; width: number; height: number };
+            text?: string;
+            label?: string;
+            constructor: { name: string };
+          };
+          let b = { x: 0, y: 0, width: 0, height: 0 };
+          try { b = o.getBounds(); } catch { /* an empty Graphics has no bounds */ }
+          return {
+            label:
+              `${o.constructor.name}` +
+              `${typeof o.label === 'string' && o.label !== '' ? `#${o.label}` : ''}` +
+              `${o.text !== undefined ? ` "${String(o.text).slice(0, 30)}"` : ''}`,
+            x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height),
+            vis: o.visible,
+          };
+        })
+        .filter((r) => r.vis && r.w > 0);
+    });
+    // Everything that legitimately shows on the menu: the title pane itself, the BETA stamp and its
+    // plate, and the ♪/⚙ chrome (audio and settings DO work on the menu). Anything else drawing
+    // here is a gameplay instrument that forgot to ask `isOverlayScreen`.
+    const allowed = /Container|BETA|betaBadgePlate|♪|⚙/;
+    const leaked = stray.filter((r) => !allowed.test(r.label));
+    expect(leaked, `gameplay HUD drawn on the TITLE screen: ${JSON.stringify(leaked)}`).toEqual([]);
+    await page.screenshot({ path: `${DESKTOP}/spark-s150-hud-TITLE.png` });
+  });
+
+  test('PITCH_2P: the whole HUD in BUILD and in FIGHT', async ({ page }) => {
+    await bootSolo(page);
+    expect(await readLayout(page)).toBe('PITCH_2P');
+    await expectNoHudOverlaps(page);
+    await page.screenshot({ path: `${DESKTOP}/spark-s150-hud-BUILD-pitch.png` });
+    await forcePhase(page, 'FIGHT');
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: `${DESKTOP}/spark-s150-hud-FIGHT-pitch.png` });
+  });
+
+  test('QUADRANTS_4P: four leaderboard rows, four keeps, the footer band', async ({ page }) => {
+    await bootBots(page);
+    expect(await readLayout(page)).toBe('QUADRANTS_4P');
+    await expectNoHudOverlaps(page);
+    await page.screenshot({ path: `${DESKTOP}/spark-s150-hud-BUILD-quadrants.png` });
+    await forcePhase(page, 'FIGHT');
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: `${DESKTOP}/spark-s150-hud-FIGHT-quadrants.png` });
+  });
+
+  /**
+   * The TIER banner and the MATCH CLOCK share the top-centre axis. The clock is permanent; the tier
+   * banner fires for ~2 s on a 500/1000 score crossing — so the collision is real but rare, which is
+   * exactly why nobody has ever seen it in a normal capture. Push a SCORE_TIER effect into
+   * `world.effects` and the next frame's `drainTierBanner` arms the banner for real.
+   */
+  test('the tier banner and the match clock, on screen together', async ({ page }) => {
+    await bootSolo(page);
+    await page.evaluate(() => {
+      const w = (window as unknown as {
+        __SPARK__: { world: { effects: unknown[]; tick: number } };
+      }).__SPARK__.world;
+      w.effects.push({ kind: 'SCORE_TIER', tick: w.tick + 1, tier: 2, color: 0x3bd7ff, pos: { x: 960, y: 540 } });
+    });
+    await page.waitForTimeout(400);
+    // The banner is UP in this frame, so the sweep now includes it against the live clock.
+    await expectNoHudOverlaps(page);
+    await page.screenshot({ path: `${DESKTOP}/spark-s150-hud-tier-vs-clock.png` });
+  });
+});

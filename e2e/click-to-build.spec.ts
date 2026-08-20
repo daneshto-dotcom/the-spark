@@ -129,8 +129,31 @@ async function clickCanvas(page: import('@playwright/test').Page, cx: number, cy
   await page.mouse.click(p.x, p.y);
 }
 
+/**
+ * ⛔ S149 P6 — THESE THREE ARE `fixme`, AND THE REASON IS A MOVE, NOT A FLAKE.
+ *
+ * The owner moved tower selection OUT of the castle and into the footer band this session:
+ * *"the towers are still being built within the castle which is wrong. you should remove the area
+ * and put it down in the footer … the castle is just to hold the shapes (inventory)."* So
+ * `castlePanel.getUiPoints().structureCenters` no longer describes a rendered surface — the grid is
+ * off behind `CASTLE_BUILD_GRID_ENABLED`.
+ *
+ * ⚠ TAGGED `fixme`, DELIBERATELY NOT `@quarantine-flaky`. These tests are not intermittent; they
+ * are STALE, and mislabelling a stale test as flaky is how a real regression later gets waved
+ * through. `fixme` is this repo's documented marker for "blocked by an upcoming priority"
+ * (see the smoke.spec header), which is exactly what this is.
+ *
+ * WHAT THE REWRITE NEEDS — the whole behaviour is still live, only the surface moved:
+ *   1. open the tier chip for the recipe's complexity   (`__SPARK__.footerBand.getUiPoints().chips`)
+ *   2. read the tower cards that open above the bar     (`…getUiPoints().cards`)
+ *   3. click a card to ARM it                            (affordable ⇒ arm; short ⇒ orders shapes)
+ *   4. click the world to place, and assert the tower survives — UNCHANGED from here down.
+ * Both geometry getters already exist and are exercised by `zones-visual.spec.ts`.
+ *
+ * CARRY-FORWARD: CF-S149-d.
+ */
 test.describe('S144 — click a tower, drag it, place it (solo, gating)', () => {
-  test('the build grid lists all six recipes, and a funded one becomes clickable', async ({ page }) => {
+  test.fixme('the build grid lists all six recipes, and a funded one becomes clickable', async ({ page }) => {
     await bootSolo(page);
     await openPanel(page);
 
@@ -153,7 +176,7 @@ test.describe('S144 — click a tower, drag it, place it (solo, gating)', () => 
     expect(stink.reason).toBe('');
   });
 
-  test('clicking a tile arms it; clicking the world builds a REAL tower that survives', async ({ page }) => {
+  test.fixme('clicking a tile arms it; clicking the world builds a REAL tower that survives', async ({ page }) => {
     await bootSolo(page);
     await seedBank(page);
     await openPanel(page);
@@ -197,7 +220,7 @@ test.describe('S144 — click a tower, drag it, place it (solo, gating)', () => 
     expect(later.primitives).toBe(after.primitives);
   });
 
-  test('an illegal drop keeps the tower in hand and builds nothing', async ({ page }) => {
+  test.fixme('an illegal drop keeps the tower in hand and builds nothing', async ({ page }) => {
     await bootSolo(page);
     await seedBank(page);
     await openPanel(page);

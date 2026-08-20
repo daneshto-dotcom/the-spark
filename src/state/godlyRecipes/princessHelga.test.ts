@@ -42,6 +42,7 @@ function addPrim(w: World, id: number, type: SparkType, x: number, y: number): P
     id: asPrimitiveId(id), type, placerColor: PLAYER_COLORS[0], placedBy: P0,
     createdTick: 0, pos: { x, y }, prevPos: { x, y }, bonds: new Set(),
     ownerColor: PLAYER_COLORS[0], lastOwnershipChange: 0, radius: 8, hp: PRIMITIVE_MAX_HP,
+    origin: null,
   };
   w.primitives.set(p.id, p);
   return p;

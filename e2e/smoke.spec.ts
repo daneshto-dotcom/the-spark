@@ -72,7 +72,7 @@ import {
 // 23→24 bump while the number read 25). A comment that names ONE historic bump rots at the next
 // one by construction, so it now names the invariant instead: this must equal
 // `src/net/protocol.ts`'s PROTOCOL_VERSION, and `protocolVersionSync.test.ts` enforces the pair.
-const LOCAL_PROTO_V = 26; // S149 P2 — 25 → 26 (the 'SHELTERED' GathererState wire literal)
+const LOCAL_PROTO_V = 27; // S152 — 26 → 27 (FIX/SCRAP intents + the hashed `Primitive.origin`)
 const NEWER_PEER_V = LOCAL_PROTO_V + 1;
 
 /**

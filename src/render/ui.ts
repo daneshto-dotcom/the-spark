@@ -112,7 +112,35 @@ export function tierBannerAlpha(framesRemaining: number, total: number = TIER_BA
  * playtest: glyph band y 34–59, so the banner's bottom edge is ~60 (the V6-0.3 PDR's "bottom ≈68"
  * was a conservative estimate, which is why the sever toast at y=240 clears it easily).
  */
-const TIER_BANNER_Y = 34;
+/**
+ * ⛔ S150 P1 — MOVED 34 → 84, BECAUSE IT WAS DRAWN STRAIGHT THROUGH THE MATCH CLOCK.
+ *
+ * Owner: *"other stuff that is placed on top of itself and just not coherent"*. This is one of the
+ * two literal instances. MEASURED on `spark-s150-hud-tier-vs-clock.png`: the tier plate occupied
+ * y 29–71 and the clock text y 30–52, both centred on x=960 — and the plate is staged AFTER the
+ * clock, so a milestone dimmed the countdown and then printed `TIER 2 — 1000/1500` over the top of
+ * it, with `BUILD 1:26` ghosting through the letterforms.
+ *
+ * Nobody caught it because the collision is RARE: the clock is permanent but the banner fires for
+ * ~2 s on a 500/1000 score crossing, so a routine capture never shows both. The e2e harness now
+ * pushes a synthetic `SCORE_TIER` effect precisely so this pairing is photographed on purpose.
+ *
+ * 84 is derived, not guessed: the clock rests at y=30 with a 22 px glyph band and swells to
+ * `PHASE_EDGE_PULSE_SCALE` (1.6) on a phase edge, so its worst-case bottom is 30 + 22×1.6 ≈ 65,
+ * and the plate adds `BANNER_PLATE_PAD_Y`. 84 − 5 = 79 clears the fully-pulsed clock by 14 px.
+ * `hudSurfaces()` pins the whole stack so it cannot silently drift back together.
+ */
+const TIER_BANNER_Y = 84;
+
+/**
+ * S150 P1 — the top-centre column, top to bottom: combo counter, match clock, milestone banner.
+ *
+ * Named rather than inlined at the two `position.set` calls because `topCentrePlateRect` and
+ * `hudSurfaces` both have to agree with them. Two copies of `30` is exactly how the tier banner
+ * ended up 4 px from the clock in the first place.
+ */
+const COMBO_COUNTER_Y = 10;
+const PHASE_BANNER_Y = 30;
 /** P3 (S131) — banner plate padding. Wider than `betaBadgePlate`'s 9/4 because the font is 26px, not badge-size. */
 const BANNER_PLATE_PAD_X = 14;
 const BANNER_PLATE_PAD_Y = 5;
@@ -150,6 +178,81 @@ export function bannerPlateRect(
     h: textHeight + BANNER_PLATE_PAD_Y * 2,
   };
 }
+
+/**
+ * S150 P1 — PURE: one backing plate under BOTH top-centre readouts (combo counter + match clock).
+ *
+ * ⚠ THE DEFECT THIS CLOSES IS LEGIBILITY, NOT OVERLAP. `spark-s150-hud-BUILD-quadrants.png` shows
+ * `BUILD  1:26` with the red and cyan border walls running vertically THROUGH the glyphs — the
+ * board's own strokes crossing the one HUD line whose entire job is to be read at a glance. S131
+ * already solved exactly this for the tier banner ("thin cyan strokes running through the
+ * letterforms") by adding `tierBannerPlate`; the permanent readouts never got the same treatment,
+ * so the rare banner was legible and the always-on clock was not. Same fill (`HUD_PLATE_FILL`) as
+ * the banner and the BETA badge, so all HUD chrome reads as one system.
+ *
+ * Sized from LIVE text metrics every frame rather than once at construction, because the clock
+ * SWELLS to `PHASE_EDGE_PULSE_SCALE` on a BUILD↔FIGHT edge and Pixi's `.width`/`.height` already
+ * fold in `scale`. A plate measured once would be overflowed by its own label on every transition —
+ * text sticking out of its backing box being precisely the incoherence this session is removing.
+ */
+export function topCentrePlateRect(
+  comboW: number,
+  comboH: number,
+  clockW: number,
+  clockH: number,
+): PlateRect {
+  const w = Math.max(comboW, clockW) + BANNER_PLATE_PAD_X * 2;
+  const top = COMBO_COUNTER_Y - BANNER_PLATE_PAD_Y;
+  const bottom =
+    Math.max(COMBO_COUNTER_Y + comboH, PHASE_BANNER_Y + clockH) + BANNER_PLATE_PAD_Y;
+  return { x: CANVAS_WIDTH / 2 - w / 2, y: top, w, h: bottom - top };
+}
+
+/**
+ * S150 P1 — TITLE and LOBBY are OVERLAY SCREENS: the board is not being played, so no gameplay
+ * instrument belongs on top of them.
+ *
+ * ⛔ WHY THIS IS ONE SHARED PREDICATE AND NOT FOUR INLINE COMPARISONS. main.ts has had
+ * `const inOverlayScreen = showTitle || showLobby` since S16 P3.b, and it correctly hides the
+ * spawner ring and the shape legend — but every element added since then simply forgot to ask.
+ * MEASURED on `spark-s149-arcade-title.png` with a stage dump: the energy gauge (x 1896, y 80–989),
+ * the score-progress bar (x 11, y 918–962), the controls help line (y 1058) and the local player's
+ * avatar glow (a pink blob at −11,−11) were ALL drawn over the main menu. That is the same class of
+ * defect as the border walls that bled onto the title screen earlier this session, and a green
+ * suite says nothing about it either time. One exported predicate means the next element added has
+ * something obvious to call.
+ */
+export function isOverlayScreen(gameState: World['gameState']): boolean {
+  return gameState === 'TITLE' || gameState === 'LOBBY';
+}
+
+/** S150 P1 — the top-left score column. One rhythm, one set of numbers, three consumers. */
+const SCORE_ROW_X = 12;
+const SCORE_ROW_TOP_Y = 12;
+const SCORE_ROW_STEP = 22;
+/** Glyph band of a 16 px monospace row. Measured off a live stage dump (`h=16`), not assumed. */
+const SCORE_ROW_HEIGHT = 16;
+const CHARGE_DOT_X = 260;
+const CHARGE_DOT_STEP = 12;
+const CHARGE_DOT_R = 4;
+const Q_HINT_X = 290;
+/**
+ * ⛔ S150 P1 — WAS y=8, i.e. FOUR PIXELS ABOVE the row it annotates. Every other element in the
+ * top-left band starts at y=12, so this one label floated off the column's rhythm — small, but it
+ * is exactly the kind of near-miss alignment that makes a screen read as *"not coherent"* without
+ * the player being able to say why. Now sits on row 0's optical centre.
+ *
+ * It is also a verbatim DUPLICATE of the always-on help line ("Q shrink territory"), which is the
+ * stale-second-copy class. Kept anyway, per the owner's no-deletions ruling this session: it is the
+ * only 1v1-contextual reminder, and re-aligning it costs nothing.
+ */
+const Q_HINT_Y = 14;
+/** 6 chars of 11 px monospace ≈ 6.6 px/char, rounded up. Measured live at w=36. */
+const Q_HINT_W = 40;
+const Q_HINT_H = 12;
+/** S150 P1 — the controls help line, owned by main.ts but pinned here so `hudSurfaces` can see it. */
+export const HELP_LINE_X = 10;
+export const HELP_LINE_Y = CANVAS_HEIGHT - 22;
 
 /**
  * What a tier-banner drain decided this frame. `text === null` means no crossing was captured and
@@ -213,14 +316,193 @@ const GAUGE_Y_BOTTOM = FOOTER_TOP_Y - 8;
 const GAUGE_WIDTH = 8;
 const ENERGY_GAUGE_FULL = 100;
 
-const PROGRESS_X = 12;
-// V6-1.1 — RELOCATED above the new footer bar. These were CANVAS_HEIGHT-80/-40 (y 1000..1040),
-// which sits ENTIRELY inside the footer strip (FOOTER_TOP_Y = 996): the bar would have been drawn
-// underneath the automation bar and its clicks swallowed by the footer guard. Anchored to
-// FOOTER_TOP_Y so the two can never silently overlap again if the footer height changes.
-const PROGRESS_Y_TOP = FOOTER_TOP_Y - 76;
-const PROGRESS_Y_BOTTOM = FOOTER_TOP_Y - 36;
-const PROGRESS_WIDTH = 80;
+/**
+ * ⛔ S150 P1 — THE SCORE RAIL MOVED OUT OF THE BOTTOM-LEFT CORNER AND ONTO THE RIGHT EDGE, BESIDE
+ * THE ENERGY GAUGE. It is the same instrument; it is no longer parked on top of a castle.
+ *
+ * TWO measured defects, both from `spark-s150-hud-BUILD-quadrants.png`:
+ *
+ *  1. IT TOUCHED THE SEAT-3 KEEP. The bar occupied x 12–93 / y 918–962 and the bottom-left keep in
+ *     `QUADRANTS_4P` starts at x≈93 — one pixel of clearance, on a corner the layout puts a castle
+ *     in by construction. V6-1.1 anchored the bar to `FOOTER_TOP_Y` so it could not slide INTO the
+ *     footer band; nothing ever anchored it away from the keeps that S148 later parked in the same
+ *     corner. It was a collision waiting for one more art tweak.
+ *  2. IT READ AS A BUG. An unlabelled empty outlined rectangle with a lone yellow tick, floating in
+ *     a corner with nothing else near it, looks like a panel that failed to load — the owner's
+ *     *"non coherent parts"*. On the TITLE screen (where it also drew, see `isOverlayScreen`) that
+ *     is all it was: an empty box on the main menu.
+ *
+ * THE FIX IS A PAIRING, NOT A NUDGE. Energy and score-progress are the two continuous per-player
+ * quantities, so they now read as one matched set of vertical rails on the right edge, sharing the
+ * same top and bottom and the same fill-from-the-bottom direction. Colour keeps them apart: energy
+ * is the player's own colour, progress is white (amber while coasting, red on a loss). That is
+ * *"more logical/coherent/consistent"* in the owner's sense — a rule you can state in one line,
+ * rather than four instruments in four corners each following its own convention.
+ *
+ * Deliberately anchored to the gauge rather than to a fresh literal, so the pair cannot drift apart.
+ */
+const PROGRESS_X = GAUGE_X - 14;
+const PROGRESS_Y_TOP = GAUGE_Y_TOP;
+const PROGRESS_Y_BOTTOM = GAUGE_Y_BOTTOM;
+const PROGRESS_WIDTH = 6;
+
+/**
+ * S150 P1 — the top-right chrome column: version stamp, then audio/settings, then the link dot,
+ * then the two rails. Exported because main.ts owns the badge and the two glyphs while this file
+ * owns the dot and the rails, and the ONLY reason `♪` was drawn through the connection dot is that
+ * the two halves each picked their own number.
+ *
+ * MEASURED overlap before this change: `♪` occupied x 1900–1908 / y 30–45 and the connection dot
+ * x 1889–1903 / y 41–55 — a 4×5 px intersection, clearly visible in the top-right crop of
+ * `spark-s150-hud-BUILD-quadrants.png` as the note's tail running into the red no-link ring.
+ * The badge's own backing plate ends at y=29, so `♪` at y=30 was also flush against it.
+ *
+ * The column is now a strict descending stack with real gaps: badge 8–29, glyphs 38–53, dot 62–74,
+ * rails from 80. `hudSurfaces()` asserts it.
+ */
+export const HUD_RIGHT_X = CANVAS_WIDTH - 12;
+export const BETA_BADGE_Y = 12;
+export const AUDIO_ICON_Y = 38;
+const CONNECTION_DOT_CY = 68;
+const CONNECTION_DOT_R = 6;
+
+/** A named rectangle on the HUD. `name` exists so a failing overlap assertion says WHICH pair. */
+export interface HudSurface {
+  readonly name: string;
+  readonly rect: PlateRect;
+}
+
+/**
+ * Live text metrics the caller measured. Everything the HUD lays out is either a fixed constant or
+ * derived from one of these, so a test can reproduce any real frame without a Pixi `Application`.
+ */
+export interface HudMetrics {
+  /** Visible leaderboard rows: 1 in solo, one per seat otherwise (max `PLAYER_COLORS.length`). */
+  readonly rows: number;
+  /** Pixel width of the WIDEST row, e.g. `>*P1 1500/1500 <YOU`. */
+  readonly rowWidth: number;
+  readonly comboWidth: number;
+  readonly comboHeight: number;
+  /** Clock metrics INCLUDING any live phase-edge pulse — Pixi's `.width` already folds in scale. */
+  readonly clockWidth: number;
+  readonly clockHeight: number;
+  /** Tier-banner label metrics; pass 0 when the banner is not showing. */
+  readonly tierWidth: number;
+  readonly tierHeight: number;
+  /** BETA build-stamp metrics, measured by main.ts where the badge is constructed. */
+  readonly badgeWidth: number;
+  readonly badgeHeight: number;
+  /** Help-line width, likewise measured by main.ts. */
+  readonly helpWidth: number;
+}
+
+/**
+ * ⭐ S150 P1 — EVERY FIXED HUD RECTANGLE, AS ONE PURE FUNCTION. This is the whole point of the
+ * priority.
+ *
+ * ## WHY THIS EXISTS
+ *
+ * Owner: *"the game screen itself has non coherent parts (text/the shapes on the top left) and
+ * other stuff that is placed on top of itself"*. Every one of those defects was a pair of
+ * independently-correct components that nothing in the codebase RELATED to each other. The legend
+ * knew it was at (16,16); the leaderboard knew it was at (12,12); no type, no test and no reviewer
+ * ever compared the two, so they were drawn through each other for tens of sessions and the suite
+ * stayed green the entire time.
+ *
+ * A screenshot finds these. A screenshot cannot PREVENT the next one. So the geometry is extracted
+ * the way this repo already extracts `layoutChips` and `progressBarFractions`: pure, exported, and
+ * asserted headlessly. `hudLayout.test.ts` walks every pair in this list and fails on any
+ * intersection, at 1, 4 and 7 seats. Moving any element back on top of another is now a RED test,
+ * not a playtest complaint three sessions later.
+ *
+ * ## WHAT IS AND IS NOT IN HERE
+ *
+ * IN: everything screen-space and permanent. OUT: the world (keeps, sparks, walls — those move),
+ * the transient toasts (combo/sever fly by design), the click-through overlays (codex, castle
+ * panel, bot setup — they are modal and are MEANT to cover the board), and the footer chips +
+ * shape legend, which `footerBand.test.ts` owns because their geometry is derived from the recipe
+ * registry rather than fixed.
+ */
+export function hudSurfaces(m: HudMetrics): HudSurface[] {
+  const out: HudSurface[] = [];
+  for (let i = 0; i < m.rows; i++) {
+    out.push({
+      name: `score-row-${i}`,
+      rect: {
+        x: SCORE_ROW_X,
+        y: SCORE_ROW_TOP_Y + i * SCORE_ROW_STEP,
+        w: m.rowWidth,
+        h: SCORE_ROW_HEIGHT,
+      },
+    });
+  }
+  if (m.rows > 0) {
+    // One block for the whole dot column — they are a single visual object to the player.
+    const left = CHARGE_DOT_X - CHARGE_DOT_R;
+    const right = CHARGE_DOT_X + (MAX_DISRUPTION_CHARGES - 1) * CHARGE_DOT_STEP + CHARGE_DOT_R;
+    const top = SCORE_ROW_TOP_Y + 8 - CHARGE_DOT_R;
+    const bottom = SCORE_ROW_TOP_Y + 8 + (m.rows - 1) * SCORE_ROW_STEP + CHARGE_DOT_R;
+    out.push({ name: 'charge-dots', rect: { x: left, y: top, w: right - left, h: bottom - top } });
+  }
+  out.push({ name: 'q-hint', rect: { x: Q_HINT_X, y: Q_HINT_Y, w: Q_HINT_W, h: Q_HINT_H } });
+  out.push({
+    name: 'top-centre-plate',
+    rect: topCentrePlateRect(m.comboWidth, m.comboHeight, m.clockWidth, m.clockHeight),
+  });
+  if (m.tierWidth > 0) {
+    out.push({
+      name: 'tier-banner',
+      rect: bannerPlateRect(m.tierWidth, m.tierHeight, CANVAS_WIDTH / 2, TIER_BANNER_Y),
+    });
+  }
+  out.push({
+    name: 'beta-badge',
+    rect: {
+      x: HUD_RIGHT_X - m.badgeWidth - 9,
+      y: BETA_BADGE_Y - 4,
+      w: m.badgeWidth + 18,
+      h: m.badgeHeight + 8,
+    },
+  });
+  // ♪ and ⚙ are one 32 px-wide pair right-anchored to the column (main.ts stages them at
+  // HUD_RIGHT_X and HUD_RIGHT_X − 20); a 14 px glyph band covers both.
+  out.push({
+    name: 'audio-glyphs',
+    rect: { x: HUD_RIGHT_X - 34, y: AUDIO_ICON_Y, w: 34, h: 16 },
+  });
+  out.push({
+    name: 'connection-dot',
+    rect: {
+      x: GAUGE_X - CONNECTION_DOT_R,
+      y: CONNECTION_DOT_CY - CONNECTION_DOT_R,
+      w: CONNECTION_DOT_R * 2,
+      h: CONNECTION_DOT_R * 2,
+    },
+  });
+  out.push({
+    name: 'energy-gauge',
+    rect: { x: GAUGE_X, y: GAUGE_Y_TOP, w: GAUGE_WIDTH, h: GAUGE_Y_BOTTOM - GAUGE_Y_TOP },
+  });
+  out.push({
+    name: 'progress-rail',
+    rect: {
+      x: PROGRESS_X,
+      y: PROGRESS_Y_TOP,
+      w: PROGRESS_WIDTH,
+      h: PROGRESS_Y_BOTTOM - PROGRESS_Y_TOP,
+    },
+  });
+  out.push({
+    name: 'help-line',
+    rect: { x: HELP_LINE_X, y: HELP_LINE_Y, w: m.helpWidth, h: 12 },
+  });
+  return out;
+}
+
+/** Do two HUD rectangles intersect? Touching edges are fine; shared area is not. */
+export function rectsOverlap(a: PlateRect, b: PlateRect): boolean {
+  return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+}
 /**
  * S136 P0 — THE FOOTER CONTROLS AND THEIR CLICK GUARD ARE GONE. Both moved to
  * `render/castlePanel.ts` on the owner's playtest ruling: the automation controls are no longer a
@@ -284,6 +566,11 @@ export class HUD {
   private readonly qHintText: Text;
   /** S88 G3a — "Combos N/14" discovered counter (top-center, PLAYING, all modes). */
   private readonly comboCounterText: Text;
+  /**
+   * S150 P1 — one dark plate under the combo counter AND the match clock, so the board's border
+   * walls stop running through the two readouts that exist to be read. See `topCentrePlateRect`.
+   */
+  private readonly topCentrePlate: Graphics;
   /** S147 P1 — the BUILD/FIGHT phase + countdown, top-centre under the combo counter. */
   private readonly phaseBannerText: Text;
   /**
@@ -349,6 +636,8 @@ export class HUD {
   private winTextAlpha = 0;
   /** S15 P2 — set by main.ts each frame; reflects netTransport.peerCount(). */
   private connectedPeers = 0;
+  /** S150 P1 — see `setChromeMetrics`. Zeroes until main.ts measures the badge and the help line. */
+  private chromeMetrics = { badgeWidth: 0, badgeHeight: 0, helpWidth: 0 };
 
   constructor(app: Application) {
     this.gauge = new Graphics();
@@ -384,7 +673,7 @@ export class HUD {
         text: '',
         style: new TextStyle({ fontFamily: 'monospace', fontSize: 16, fill: 0xffffff }),
       });
-      t.position.set(12, 12 + i * 22);
+      t.position.set(SCORE_ROW_X, SCORE_ROW_TOP_Y + i * SCORE_ROW_STEP);
       t.visible = false;
       app.stage.addChild(t);
       this.scoreTexts.push(t);
@@ -408,9 +697,15 @@ export class HUD {
       text: 'Q=ZONE',
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 11, fill: 0xaaaaaa }),
     });
-    this.qHintText.position.set(290, 8);
+    this.qHintText.position.set(Q_HINT_X, Q_HINT_Y);
     this.qHintText.visible = false;
     app.stage.addChild(this.qHintText);
+
+    // S150 P1 — plate FIRST, so child-add order puts it BEHIND both readouts it backs (the
+    // betaBadgePlate/tierBannerPlate idiom — no zIndex API needed). See `topCentrePlateRect`.
+    this.topCentrePlate = new Graphics();
+    this.topCentrePlate.visible = false;
+    app.stage.addChild(this.topCentrePlate);
 
     // S88 G3a — discovered-combo counter (top-center; shown during PLAYING, all modes).
     this.comboCounterText = new Text({
@@ -418,7 +713,7 @@ export class HUD {
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 14, fill: 0xffe066 }),
     });
     this.comboCounterText.anchor.set(0.5, 0);
-    this.comboCounterText.position.set(CANVAS_WIDTH / 2, 10);
+    this.comboCounterText.position.set(CANVAS_WIDTH / 2, COMBO_COUNTER_Y);
     this.comboCounterText.visible = false;
     app.stage.addChild(this.comboCounterText);
 
@@ -429,7 +724,7 @@ export class HUD {
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 20, fill: 0xffffff }),
     });
     this.phaseBannerText.anchor.set(0.5, 0);
-    this.phaseBannerText.position.set(CANVAS_WIDTH / 2, 30);
+    this.phaseBannerText.position.set(CANVAS_WIDTH / 2, PHASE_BANNER_Y);
     this.phaseBannerText.visible = false;
     app.stage.addChild(this.phaseBannerText);
 
@@ -456,6 +751,43 @@ export class HUD {
   }
 
   /**
+   * S150 P1 — the two top-right elements main.ts owns (the BETA stamp and the controls help line),
+   * measured once at boot and handed over so `getUiPoints()` can report the WHOLE HUD rather than
+   * only the part this class happens to construct. Splitting ownership across two files is how the
+   * ♪-through-the-connection-dot overlap survived: neither half could see the other's rectangle.
+   */
+  setChromeMetrics(m: { badgeWidth: number; badgeHeight: number; helpWidth: number }): void {
+    this.chromeMetrics = m;
+  }
+
+  /**
+   * S85 P4c geometry-getter convention — LIVE HUD rectangles for the e2e harness.
+   *
+   * ⚠ This is deliberately the SAME `hudSurfaces()` the unit test drives, fed with real Pixi text
+   * metrics instead of assumed ones. The unit test proves the layout RULE holds; this proves the
+   * running game is actually laid out by that rule — a font fallback that renders the leaderboard
+   * 40 % wider than monospace would break the second check while the first stayed green.
+   */
+  getUiPoints(): { surfaces: HudSurface[] } {
+    const visibleRows = this.scoreTexts.filter((t) => t.visible);
+    return {
+      surfaces: hudSurfaces({
+        rows: visibleRows.length,
+        rowWidth: visibleRows.reduce((m, t) => Math.max(m, t.width), 0),
+        comboWidth: this.comboCounterText.visible ? this.comboCounterText.width : 0,
+        comboHeight: this.comboCounterText.visible ? this.comboCounterText.height : 0,
+        clockWidth: this.phaseBannerText.visible ? this.phaseBannerText.width : 0,
+        clockHeight: this.phaseBannerText.visible ? this.phaseBannerText.height : 0,
+        tierWidth: this.tierBannerText.visible ? this.tierBannerText.width : 0,
+        tierHeight: this.tierBannerText.visible ? this.tierBannerText.height : 0,
+        badgeWidth: this.chromeMetrics.badgeWidth,
+        badgeHeight: this.chromeMetrics.badgeHeight,
+        helpWidth: this.chromeMetrics.helpWidth,
+      }),
+    };
+  }
+
+  /**
    * S136 P0 — arm the one-shot drop-flash suppression for a VOLUNTARY spend.
    *
    * The buy/upgrade buttons moved to `CastlePanel`, so the latch is now armed from outside: main.ts
@@ -478,6 +810,9 @@ export class HUD {
     this.drawMultiplayerHUD(world);
     this.drawComboCounter(world);
     this.drawPhaseBanner(world);
+    // S150 P1 — LAST of the three, deliberately: it measures the two texts above, so it must run
+    // after both have been given this frame's label (and this frame's pulse scale).
+    this.drawTopCentrePlate(world);
     // V6-0.3 (S130) — ANIMATE only. The `world.effects` scan that arms this banner lives in
     // `drainTierBanner`, which main.ts calls BEFORE effectsRenderer wipes the array. Do NOT move
     // the scan back in here: `sync` runs after the wipe, which is exactly the V6-0.2 defect.
@@ -624,6 +959,28 @@ export class HUD {
   }
 
   /**
+   * S150 P1 — resize + toggle the shared top-centre plate.
+   *
+   * Runs every frame rather than on a text change, because the clock's label changes every second
+   * AND its scale changes every frame during a phase-edge pulse. Redrawing a single rounded rect is
+   * the same per-frame cost the energy gauge and the progress rail already pay.
+   */
+  private drawTopCentrePlate(world: World): void {
+    if (world.gameState !== 'PLAYING') {
+      this.topCentrePlate.visible = false;
+      return;
+    }
+    const r = topCentrePlateRect(
+      this.comboCounterText.width,
+      this.comboCounterText.height,
+      this.phaseBannerText.width,
+      this.phaseBannerText.height,
+    );
+    this.topCentrePlate.clear().roundRect(r.x, r.y, r.w, r.h, 8).fill(HUD_PLATE_FILL);
+    this.topCentrePlate.visible = true;
+  }
+
+  /**
    * S147 P1 — THE MATCH CLOCK READOUT. `BUILD 1:30` / `FIGHT 0:07`, top-centre.
    *
    * Reads only synced state, so it is correct on every surface for free: both `matchPhase` and
@@ -685,6 +1042,15 @@ export class HUD {
     // skips this tick rather than crashing (Council R1 Battle Ledger row 3
     // Grok-C3 ADOPT + Gemini-R2 confirmed). Pre-S42 fallback to
     // [...players.values()][0] removed (PRIME-AUDIT Δ4 — unnecessary post-guard).
+    // ⛔ S150 P1 — NOT ON THE MAIN MENU. `world.players` already holds P1 at TITLE, so the guard
+    // below never fired there and the gauge's empty track was drawn down the right edge of the
+    // title screen (measured: x 1896, y 80–989 on `spark-s149-arcade-title.png`). A gameplay
+    // instrument on a menu is chrome the player cannot act on — the same defect class as the border
+    // walls that bled onto TITLE earlier this session.
+    if (isOverlayScreen(world.gameState)) {
+      this.gauge.clear();
+      return;
+    }
     const local = world.players.get(world.localPlayerId);
     if (local === undefined) return;
     const target = Math.min(local.energy, ENERGY_GAUGE_FULL);
@@ -717,6 +1083,17 @@ export class HUD {
     // S106 P4 — the PRIMARY bar tracks YOUR OWN score (own), with the LEADER as a ghost-tick. See
     // progressBarFractions: this makes a NONET halving VISIBLE (your bar drops) where the old shared
     // leader-max bar hid it. The bar also flashes red on any DROP in your own score so the loss is felt.
+    // ⛔ S150 P1 — NOT ON THE MAIN MENU (see `isOverlayScreen`). This bar was the single most
+    // conspicuous piece of the title-screen bleed: an empty outlined box with a lone yellow tick,
+    // sitting in the bottom-left of the menu with nothing to explain it. `lastLocalScore` is reset
+    // with it so the first frame of the next match cannot be read as a score DROP and fire the red
+    // loss-flash at a player who has not lost anything.
+    if (isOverlayScreen(world.gameState)) {
+      this.progress.clear();
+      this.lastLocalScore = -1;
+      this.dropFlash = 0;
+      return;
+    }
     const { own, leader, ownDecaying } = progressBarFractions(world);
     this.displayProgress += (own - this.displayProgress) * 0.18;
 
@@ -745,11 +1122,16 @@ export class HUD {
     // slow per-tick bleed is too small to trip the red flash, so amber signals "you're past
     // 75% and bleeding; keep building to close it out"), else white.
     const barColor = this.dropFlash > 0 ? 0xff5a5a : ownDecaying ? 0xffc04d : 0xffffff;
-    g.rect(PROGRESS_X, PROGRESS_Y_TOP, PROGRESS_WIDTH * this.displayProgress, trackHeight)
+    // S150 P1 — FILLS UPWARD FROM THE BOTTOM, exactly like the energy gauge beside it. The old
+    // horizontal bar grew left-to-right; two adjacent instruments filling in different directions
+    // is precisely the inconsistency the owner asked to be rid of.
+    const fillHeight = trackHeight * this.displayProgress;
+    g.rect(PROGRESS_X, PROGRESS_Y_BOTTOM - fillHeight, PROGRESS_WIDTH, fillHeight)
       .fill({ color: barColor, alpha: 0.6 + this.dropFlash * 0.35 });
-    // leader ghost-tick (max-of-all) so "who's ahead" stays readable
-    const leaderX = PROGRESS_X + PROGRESS_WIDTH * leader;
-    g.rect(leaderX - 1, PROGRESS_Y_TOP - 2, 2, trackHeight + 4)
+    // leader ghost-tick (max-of-all) so "who's ahead" stays readable — now a horizontal tick
+    // across the rail, and it overhangs both edges so it reads against the fill.
+    const leaderY = PROGRESS_Y_BOTTOM - trackHeight * leader;
+    g.rect(PROGRESS_X - 2, leaderY - 1, PROGRESS_WIDTH + 4, 2)
       .fill({ color: 0xffd60a, alpha: 0.85 });
   }
 
@@ -813,7 +1195,7 @@ export class HUD {
         const me = world.players.get(world.localPlayerId);
         t0.text = formatSoloScore(score);
         t0.style.fill = me?.color ?? 0xffffff;
-        t0.position.set(12, 12);
+        t0.position.set(SCORE_ROW_X, SCORE_ROW_TOP_Y);
         t0.visible = true;
       }
       for (let i = 1; i < this.scoreTexts.length; i++) {
@@ -837,7 +1219,7 @@ export class HUD {
       const tag = world.botSeats.has(p.id) ? 'B' : 'P';
       t.text = `${isLocal ? '>' : ' '}${crown}${tag}${seat + 1} ${Math.floor(score)}/${PHASE_1_WIN_SCORE}${isLocal ? ' <YOU' : ''}`;
       t.style.fill = p.color;
-      t.position.set(12, 12 + i * 22);
+      t.position.set(SCORE_ROW_X, SCORE_ROW_TOP_Y + i * SCORE_ROW_STEP);
       t.visible = true;
     });
 
@@ -848,12 +1230,16 @@ export class HUD {
     const g = this.connectionDot;
     g.clear();
     if (isNetworked(world)) {
-      const cx = CANVAS_WIDTH - 24;
-      const cy = 48;
+      // ⛔ S150 P1 — cy 48 → 68. At 48 the ring (y 41–55) intersected the ♪ mute glyph (y 30–45)
+      // by a 4×5 px corner: the note's tail was drawn straight through the top-right of the
+      // no-link ring, which is exactly what a "connection lost" indicator must not look like.
+      // The dot now sits in the top-right column's own step, above the two rails.
+      const cx = GAUGE_X;
+      const cy = CONNECTION_DOT_CY;
       if (this.connectedPeers > 0) {
-        g.circle(cx, cy, 6).fill({ color: 0x3bff7a, alpha: 0.85 });
+        g.circle(cx, cy, CONNECTION_DOT_R).fill({ color: 0x3bff7a, alpha: 0.85 });
       } else {
-        g.circle(cx, cy, 6).stroke({ color: 0xff3b6b, width: 2, alpha: 0.85 });
+        g.circle(cx, cy, CONNECTION_DOT_R).stroke({ color: 0xff3b6b, width: 2, alpha: 0.85 });
         g.moveTo(cx - 3, cy - 3).lineTo(cx + 3, cy + 3)
           .moveTo(cx + 3, cy - 3).lineTo(cx - 3, cy + 3)
           .stroke({ color: 0xff3b6b, width: 2, alpha: 0.85 });
@@ -864,7 +1250,7 @@ export class HUD {
     // leaderboard rows above). Filled when earned, hollow ring otherwise; colored.
     const d = this.chargeDots;
     d.clear();
-    ranked.forEach((p, i) => drawPlayerCharges(d, p, 20 + i * 22));
+    ranked.forEach((p, i) => drawPlayerCharges(d, p, SCORE_ROW_TOP_Y + 8 + i * SCORE_ROW_STEP));
 
     // S49 P1 (Sym F) — Q=ZONE key hint visibility.
     this.qHintText.visible = show1v1;
@@ -897,11 +1283,11 @@ function drawPlayerCharges(g: Graphics, player: { color: number; disruptionCharg
     // S46: x=210 (still tight per user feedback across S46/S47/S48/S49).
     // S50: x=260 (50px additional headroom — score text max ends x≈132 at
     // 12-char "RED  50 / 50" at 9.6px/char monospace 16).
-    const cx = 260 + i * 12;
+    const cx = CHARGE_DOT_X + i * CHARGE_DOT_STEP;
     if (player.disruptionCharges > i) {
-      g.circle(cx, y, 4).fill({ color: player.color, alpha: 0.9 });
+      g.circle(cx, y, CHARGE_DOT_R).fill({ color: player.color, alpha: 0.9 });
     } else {
-      g.circle(cx, y, 4).stroke({ width: 1, color: player.color, alpha: 0.5 });
+      g.circle(cx, y, CHARGE_DOT_R).stroke({ width: 1, color: player.color, alpha: 0.5 });
     }
   }
 }

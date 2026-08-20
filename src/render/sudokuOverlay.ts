@@ -135,13 +135,14 @@ export class SudokuOverlay {
   // video sprites that resolve after the board is built still render BEHIND it, not over the grid.
   private readonly realmLayer = new Container();
 
-  private world: World | null = null;
   private entries: number[] = new Array(CELLS).fill(0);
   private givens: number[] = new Array(CELLS).fill(0);
   private selected = -1;
   private activeSeed: number | null = null;
   private wrongFlash = 0;
   private readonly onSubmit: SubmitFn;
+  /** S149 P6 — the trial currently on screen, from a match OR the arcade. Input reads this. */
+  private activeEvent: SudokuEvent | null = null;
 
   constructor(app: Application, onSubmit: SubmitFn) {
     this.onSubmit = onSubmit;
@@ -541,8 +542,19 @@ export class SudokuOverlay {
    * The in-match path passes nothing and behaves exactly as before.
    */
   render(world: World, override: SudokuEvent | null = null): void {
-    this.world = world;
     const ev = override ?? world.sudoku;
+    // ⛔ S149 P6 — THE INPUT HANDLERS READ **THIS**, NOT `world.sudoku`.
+    //
+    // Owner: *"nonet is not really working like you cant imput anything in the box or even move
+    // around with the keys."* Exactly right, and it was my bug: P5 routed RENDERING through the
+    // `override` seam and left the INPUT handlers reading `this.world.sudoku` directly. In the
+    // arcade that is null, so `onKey` hit its `ev == null` guard and returned on every single
+    // keystroke — no digits, no arrows, and no per-cell yey/owww sounds, because those live
+    // inside that handler too. The board drew perfectly and did nothing.
+    //
+    // Latching the active event here means there is ONE answer to "which trial is live" that
+    // render and input cannot disagree about — the same mistake is not available twice.
+    this.activeEvent = ev;
 
     // ⛔ S149 P5 — THE BANNER MUST NOT PROMISE SCORING THAT CANNOT HAPPEN. The match banner reads
     // "first to solve · winner x2 · everyone else halved", which is about beating OPPONENTS. In the
@@ -720,14 +732,15 @@ export class SudokuOverlay {
   }
 
   private onTap = (e: FederatedPointerEvent): void => {
-    if (!this.container.visible || this.world?.sudoku?.resolvedTick != null) return;
+    if (!this.container.visible || this.activeEvent === null) return;
+    if (this.activeEvent.resolvedTick != null) return;
     const p = e.getLocalPosition(this.container);
     const idx = this.cellAt(p.x, p.y);
     if (idx >= 0 && this.givens[idx] === 0) this.selected = idx;
   };
 
   private onKey = (e: KeyboardEvent): void => {
-    const ev = this.world?.sudoku;
+    const ev = this.activeEvent;
     if (!this.container.visible || ev == null || ev.resolvedTick != null) return;
     if (e.key >= '1' && e.key <= '6') {
       if (this.selected >= 0 && this.givens[this.selected] === 0) {

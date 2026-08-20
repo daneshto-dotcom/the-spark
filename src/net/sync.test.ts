@@ -597,6 +597,7 @@ describe('S15 P2 — interpolatePositions', () => {
       lastOwnershipChange: 0,
       radius: 8,
       hp: PRIMITIVE_MAX_HP,
+      origin: null,
     });
     interpolatePositions(prev, current, 0, w);
     expect(w.primitives.get(primId)!.pos).toEqual({ x: 10, y: 10 });
@@ -635,6 +636,7 @@ describe('S15 P2 — interpolatePositions', () => {
       lastOwnershipChange: 0,
       radius: 8,
       hp: PRIMITIVE_MAX_HP,
+      origin: null,
     });
     interpolatePositions(prev, current, 1, w);
     expect(w.primitives.get(primId)!.pos).toEqual({ x: 100, y: 100 });
@@ -673,6 +675,7 @@ describe('S15 P2 — interpolatePositions', () => {
       lastOwnershipChange: 0,
       radius: 8,
       hp: PRIMITIVE_MAX_HP,
+      origin: null,
     });
     interpolatePositions(prev, current, 0.5, w);
     expect(w.primitives.get(primId)!.pos).toEqual({ x: 50, y: 100 });

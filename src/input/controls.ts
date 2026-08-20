@@ -88,8 +88,22 @@ export interface FooterBandLike {
   select(complexity: number | null): number | null;
   /** S149 P5 — the tower card under a point, or null. */
   cardAt(x: number, y: number): GodlyId | null;
+  /** S149 P6 — is that card affordable? Decides ARM vs ORDER-THE-SHAPES at the click site. */
+  cardEnabled(id: GodlyId): boolean;
   /** S149 P5 — mirror the armed tower so the open card can light up. */
   setArmed(id: GodlyId | null): void;
+}
+
+/**
+ * S152 — the FIX / SCRAP popover, structurally typed for exactly the reason `FooterBandLike` is:
+ * `controls.ts` must not import Pixi. Optional at every call site, so a harness without a popover
+ * behaves precisely as it did before.
+ */
+export interface StructurePanelLike {
+  isOverButtons(x: number, y: number): boolean;
+  buttonAt(x: number, y: number): 'FIX' | 'SCRAP' | null;
+  selection(): PrimitiveId | null;
+  select(primitiveId: PrimitiveId | null): void;
 }
 
 export interface CastlePanelLike {
@@ -103,6 +117,8 @@ export interface CastlePanelLike {
   disarm(): void;
   /** S149 P5 — arm a tower chosen from the footer band (the grid moved out of the castle). */
   armExternal(id: GodlyId | null): void;
+  /** S149 P6 — queue the shapes an unaffordable tower still needs (the castle SHORT-tile path). */
+  requestShapesFor(id: GodlyId): void;
 }
 
 /**
@@ -330,8 +346,21 @@ export class Controls {
     this.castlePanel = panel;
   }
 
+  /** S152 — main.ts injects the FIX / SCRAP popover (built after Controls, like the other two). */
+  setStructurePanel(panel: StructurePanelLike): void {
+    this.structurePanel = panel;
+  }
+
+  /** S152 — main.ts injects the REPAIR_STRUCTURE / SCRAP_STRUCTURE dispatch for the local seat. */
+  setStructureActionHandler(fn: (kind: 'FIX' | 'SCRAP', primitiveId: PrimitiveId) => void): void {
+    this.onStructureAction = fn;
+  }
+
   private castlePanel: CastlePanelLike | null = null;
   private footerBand: FooterBandLike | null = null;
+  private structurePanel: StructurePanelLike | null = null;
+  private onStructureAction: ((kind: 'FIX' | 'SCRAP', primitiveId: PrimitiveId) => void) | null =
+    null;
 
   /**
    * S136 P0 — is the cursor over the open castle panel? Replaces `isPointerOverFooter`.
@@ -367,8 +396,19 @@ export class Controls {
     // menu shut — precisely the "it isnt clickable" the owner reported.
     const card = this.footerBand.cardAt(this.cursor.x, this.cursor.y);
     if (card !== null) {
-      this.castlePanel?.armExternal(card);
-      this.footerBand.setArmed(this.castlePanel?.armedBlueprint() ?? null);
+      // ⭐ S149 P6 — AFFORDABLE ⇒ ARM IT. NOT AFFORDABLE ⇒ ORDER THE SHAPES.
+      //
+      // The castle's shipped two-mode tile behaviour, carried over rather than reinvented. Owner:
+      // "before when it was in castle you could click on the towers you want built and it already
+      // give the priority shapes to the gatherer and shows them in castle but now it is gone. those
+      // mechanics should persist — we literally just move the tower purchase section to where
+      // classical tower defence footbars are."
+      if (this.footerBand.cardEnabled(card)) {
+        this.castlePanel?.armExternal(card);
+        this.footerBand.setArmed(this.castlePanel?.armedBlueprint() ?? null);
+      } else {
+        this.castlePanel?.requestShapesFor(card);
+      }
       return true;
     }
 
@@ -384,6 +424,75 @@ export class Controls {
       this.footerBand !== null &&
       this.footerBand.isOverChip(this.cursor.x, this.cursor.y)
     );
+  }
+
+  /**
+   * S152 — a click on FIX or SCRAP. Returns true when consumed.
+   *
+   * The intent names the SELECTED primitive, not the one under the cursor: the cursor is over a
+   * button floating above the board, and whatever world object happens to lie beneath that button
+   * has nothing to do with the structure being acted on.
+   *
+   * ⚠ THE POPOVER IS NOT DISMISSED ON FIX. A repair usually leaves the tower standing and often
+   * still short of something, so keeping it selected lets the player see the caption change and act
+   * again. SCRAP dismisses implicitly — the panel drops a selection whose structure has stopped
+   * existing, which is `StructurePanel.sync`'s job and not this call site's.
+   */
+  private handleStructureActionClick(): boolean {
+    if (this.structurePanel === null || this.world.gameState !== 'PLAYING') return false;
+    const kind = this.structurePanel.buttonAt(this.cursor.x, this.cursor.y);
+    if (kind === null) return false;
+    const target = this.structurePanel.selection();
+    if (target === null) return false;
+    this.onStructureAction?.(kind, target);
+    return true;
+  }
+
+  /**
+   * S152 — clicking one of YOUR OWN placed shapes aims the FIX / SCRAP popover at its structure.
+   *
+   * ⚠ ORDERED BELOW `pickSpark`, DELIBERATELY. A free spark can be sitting on top of a tower, and
+   * the grab is the older, more frequent gesture; stealing it would be a regression for a feature
+   * nobody asked for. So this only runs when nothing else claimed the click.
+   *
+   * Gated on `canBuildNow` so the popover can only be aimed when it could actually be used — R19
+   * makes both actions BUILD-stage only, and a popover that appears mid-FIGHT with two dead buttons
+   * would read as broken. Clicking empty ground dismisses an open popover and returns false so the
+   * same click still acts on the board: the RTS convention the castle panel already follows.
+   */
+  private handleStructureSelect(): boolean {
+    if (this.structurePanel === null || this.world.gameState !== 'PLAYING') return false;
+    const hit = this.pickOwnPrimitive();
+    if (hit === null) {
+      if (this.structurePanel.selection() !== null) this.structurePanel.select(null);
+      return false;
+    }
+    this.structurePanel.select(hit);
+    return true;
+  }
+
+  /**
+   * The closest of THIS seat's own placed primitives under the cursor, or null.
+   *
+   * Own shapes only, and only where this seat may build: FIX and SCRAP are both refused by the
+   * reducer for anything else, so selecting an enemy tower could only ever produce a popover with
+   * nothing on it.
+   */
+  private pickOwnPrimitive(): PrimitiveId | null {
+    let bestId: PrimitiveId | null = null;
+    let bestDistSq = Infinity;
+    for (const prim of this.world.primitives.values()) {
+      if (prim.placedBy !== this.playerId) continue;
+      const dx = prim.pos.x - this.cursor.x;
+      const dy = prim.pos.y - this.cursor.y;
+      const d2 = dx * dx + dy * dy;
+      const r = prim.radius + 6; // a little forgiveness, like every other pick radius here
+      if (d2 > r * r || d2 >= bestDistSq) continue;
+      if (!canBuildNow(this.world, prim.pos, this.playerId)) continue; // R19: BUILD stage, own ground
+      bestId = prim.id;
+      bestDistSq = d2;
+    }
+    return bestId;
   }
 
   private isPointerOverPanel(): boolean {
@@ -439,6 +548,11 @@ export class Controls {
     // the empty stretches of the band stay live board, which is the lesson that got the
     // original 1920-wide footer plate deleted in S136 P0.
     if (e.button === 0 && this.handleFooterChipClick()) return;
+    // S152 — the FIX / SCRAP popover, same rule and same reason as the two guards above: this
+    // handler hit-tests world objects with no notion of UI, so pressing SCRAP would otherwise ALSO
+    // grab a spark or sever a bond underneath the button. Buttons only — the rest of the board
+    // around the popover stays live.
+    if (e.button === 0 && this.handleStructureActionClick()) return;
     // S136 P0 — then the castle itself: clicking your own keep opens/closes its control panel.
     if (e.button === 0 && this.handleCastleClick()) return;
     // S144 P3 — A HELD TOWER OWNS THE NEXT CLICK. This must sit above every world hit-test: without
@@ -558,7 +672,12 @@ export class Controls {
             };
             this.acquirePointerCapture(e);
           }
+          return;
         }
+        // S152 — nothing else wanted this click, so it may aim the FIX / SCRAP popover at one of
+        // this seat's own structures. See `handleStructureSelect` for why it sits here and not
+        // above the spark grab.
+        if (this.handleStructureSelect()) return;
       }
     } else if (e.button === 2) {
       // RMB-down on a bond → SEVER_BOND (player-cause). S53 P2: simplified.

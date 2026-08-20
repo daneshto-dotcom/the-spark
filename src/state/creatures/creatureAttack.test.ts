@@ -51,6 +51,7 @@ function makePrim(id: number, placerColor: number, x: number, y: number): Primit
     lastOwnershipChange: 0,
     radius: 8,
     hp: PRIMITIVE_MAX_HP,
+    origin: null,
   };
 }
 

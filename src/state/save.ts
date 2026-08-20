@@ -361,6 +361,18 @@ interface SerializedPrimitive {
    * at FULL health, because absence means undamaged. That is correct, not lossy.
    */
   hp?: number;
+  /**
+   * S152 — BLUEPRINT PROVENANCE (R13). ADDITIVE-OPTIONAL, emitted by `serializePrimitive` ONLY for
+   * a shape a blueprint stamp minted, exactly as `hp` is emitted only when damaged — so a board of
+   * hand-placed shapes serializes byte-for-byte as it did pre-S152.
+   *
+   * ⚠ AND IT MUST ROUND-TRIP, unlike a purely cosmetic field. A successor host that dropped this
+   * would see every restored tower as freeform rubble: FIX would refuse (no bill to restore to)
+   * while SCRAP kept working, so the same structure would behave differently either side of a
+   * save/load, a host migration or a `?worker=1` restore. That is the `escrow` lesson, one field
+   * over.
+   */
+  origin?: { blueprintId: GodlyId; nodeIndex: number };
 }
 
 interface SerializedBond {
@@ -1408,6 +1420,13 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       // save/snapshot, which carry no `hp` at all: absent means undamaged. Mirrors the
       // `s.hp ?? getCreatureConfig(s.type).hp` restore used for creatures.
       hp: p.hp ?? PRIMITIVE_MAX_HP,
+      // S152 — absent means "hand-placed", which is also exactly right for every pre-S152 save:
+      // those boards predate provenance, so their towers restore as freeform and FIX refuses them
+      // rather than guessing a bill. Copied, not aliased, for the same reason the writer copies.
+      origin:
+        p.origin !== undefined
+          ? { blueprintId: p.origin.blueprintId, nodeIndex: p.origin.nodeIndex }
+          : null,
     };
     world.primitives.set(prim.id, prim);
   }
@@ -1554,6 +1573,12 @@ function serializePrimitive(p: Primitive): SerializedPrimitive {
     // S138 P1 — emit ONLY when damaged (the serializeCreature trick at the c.hp site below), so an
     // undamaged board is byte-identical to the pre-S138 wire.
     ...(p.hp < PRIMITIVE_MAX_HP ? { hp: p.hp } : {}),
+    // S152 — emit ONLY for a blueprint-stamped shape (the same emit-when-interesting trick as `hp`
+    // just above). A fresh object, not the live reference: a shared reference would let a mutation
+    // of the serialized snapshot reach back into the world.
+    ...(p.origin !== null
+      ? { origin: { blueprintId: p.origin.blueprintId, nodeIndex: p.origin.nodeIndex } }
+      : {}),
   };
 }
 

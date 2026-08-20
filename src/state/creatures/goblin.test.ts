@@ -88,6 +88,7 @@ function addPrimAt(world: World, seat: 0 | 1, x: number, y: number, hp = PRIMITI
     lastOwnershipChange: 0,
     radius: 9,
     hp,
+    origin: null,
   };
   world.primitives.set(id, prim);
   return prim;

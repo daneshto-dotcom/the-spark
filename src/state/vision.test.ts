@@ -65,6 +65,7 @@ function addPrimAt(world: World, playerIndex: 0 | 1, x: number, y: number): Prim
     lastOwnershipChange: 0,
     radius: 9,
     hp: PRIMITIVE_MAX_HP,
+    origin: null,
   };
   world.primitives.set(primId, prim);
   return prim;

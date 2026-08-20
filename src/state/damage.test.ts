@@ -85,6 +85,7 @@ function addPrim(w: World, id: number, x: number, y: number): Primitive {
     lastOwnershipChange: 0,
     radius: 8,
     hp: PRIMITIVE_MAX_HP,
+    origin: null,
   };
   w.primitives.set(p.id, p);
   if (w.nextPrimitiveId <= id) w.nextPrimitiveId = id + 1;

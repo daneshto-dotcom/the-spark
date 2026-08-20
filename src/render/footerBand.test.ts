@@ -19,7 +19,7 @@ import { asPlayerId } from '../types.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
 import { zoneCount, type ZoneLayout } from '../state/zones.ts';
 import { footerBandModel, structuresAtComplexity } from './footerBandModel.ts';
-import { layoutChips } from './footerBand.ts';
+import { layoutChips, legendAnchor } from './footerBand.ts';
 
 const P0 = asPlayerId(0);
 
@@ -161,6 +161,72 @@ describe('S149 P4 — the bar is presentational: no sim state, no wire surface',
 
   it('an empty model lays out no chips rather than throwing', () => {
     expect(layoutChips([])).toEqual([]);
+  });
+});
+
+/**
+ * S150 P1 — THE SHAPE KEY MOVED INTO THIS STRIP, so this file now owns its clearance.
+ *
+ * Owner: *"the game screen itself has non coherent parts (text/the shapes on the top left)"*. Those
+ * shapes are the six-sprite type key, and they were being drawn INSIDE leaderboard row 0 — measured
+ * on a live stage dump as legend x 14–132 / y 10–22 against score-row x 12–170 / y 12–28. It moved
+ * down here because the band is already the build-reference strip: connector counts and "what shape
+ * is what type" are the same kind of information, and one strip is one rule to learn.
+ *
+ * The anchor is DERIVED from the live chip row (`legendAnchor`) rather than fixed, because
+ * `layoutChips` re-centres the row: every complexity tier added to the recipe registry marches the
+ * row's left edge 38 px further LEFT. A hardcoded x that clears five chips would silently sit under
+ * the sixth. These assertions pin the derivation, not a number.
+ */
+describe('S150 P1 — the six-shape type key clears everything else in the bottom strip', () => {
+  const CHIP_ROW = () => layoutChips(footerBandModel(playingWorld()));
+  // Mirrors renderer.ts LEGEND_WIDTH / LEGEND_SPRITE_STEP. Kept local so a change there that
+  // narrows the key cannot silently relax this test.
+  const STEP = 22;
+  const SPAN = 5 * STEP + STEP * 2;
+  const keyRect = (chips: ReturnType<typeof layoutChips>) => {
+    const a = legendAnchor(chips);
+    return { x: a.x - STEP, y: a.y - 12, w: SPAN, h: 24 };
+  };
+
+  it('sits to the LEFT of the first connector chip, with real breathing room', () => {
+    const chips = CHIP_ROW();
+    const key = keyRect(chips);
+    const firstChipX = Math.min(...chips.map((c) => c.x));
+    expect(key.x + key.w).toBeLessThan(firstChipX);
+    expect(firstChipX - (key.x + key.w)).toBeGreaterThanOrEqual(20);
+  });
+
+  it('never overlaps ANY chip, at any registry size the layout can produce', () => {
+    // Sweep 1..8 tiers: the real registry has 5 today, and `layoutChips` re-centres on every
+    // change, so the interesting question is whether the derivation holds as the row grows.
+    for (let n = 1; n <= 8; n++) {
+      const chips = layoutChips(
+        Array.from({ length: n }, (_, i) => ({ complexity: i + 3, total: 1, affordable: 0, enabled: false })),
+      );
+      const key = keyRect(chips);
+      for (const c of chips) {
+        const hit =
+          key.x < c.x + c.w && c.x < key.x + key.w && key.y < c.y + c.h && c.y < key.y + key.h;
+        expect(hit, `${n} tiers: the type key overlaps chip ${c.complexity}`).toBe(false);
+      }
+    }
+  });
+
+  it('clears the bottom-LEFT castle porch and the controls help line', () => {
+    const key = keyRect(CHIP_ROW());
+    // The seat-3 porch sits at (130, 1024) on QUADRANTS_4P — see this file's header.
+    expect(key.x).toBeGreaterThan(130 + 60);
+    // The help line runs x 10–591 at y 1058–1070 (measured live). The key is vertically clear of
+    // it, which is what lets the strip hold both without either moving.
+    expect(key.y + key.h).toBeLessThan(1058);
+  });
+
+  it('stays on canvas even with a single chip in the row', () => {
+    const key = keyRect(layoutChips([{ complexity: 4, total: 1, affordable: 0, enabled: false }]));
+    expect(key.x).toBeGreaterThan(0);
+    expect(key.y).toBeGreaterThan(FOOTER_TOP_Y - 12);
+    expect(key.y + key.h).toBeLessThan(CANVAS_HEIGHT);
   });
 });
 

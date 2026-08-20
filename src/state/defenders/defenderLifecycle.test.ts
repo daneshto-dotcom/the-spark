@@ -48,6 +48,7 @@ function addAnchor(w: World, id: number, x: number, y: number): PrimitiveId {
     id: asPrimitiveId(id), type: SparkType.Triangle, placerColor: PLAYER_COLORS[0], placedBy: P0,
     createdTick: 0, pos: { x, y }, prevPos: { x, y }, bonds: new Set(),
     ownerColor: PLAYER_COLORS[0], lastOwnershipChange: 0, radius: 8, hp: PRIMITIVE_MAX_HP,
+    origin: null,
   };
   w.primitives.set(p.id, p);
   return p.id;
