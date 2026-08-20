@@ -228,7 +228,16 @@ describe('S148 P1 — the anchors clear the HUD, and one of them barely', () => 
 
   it('QUADRANTS_4P — the bottom keeps deposit below the footer line, which is only safe while the footer is empty', () => {
     // S136 P0 deleted the footer plate AND its click guard, so a deposit/porch point inside the
-    // band is drawable and clickable. If a footer control is ever revived, these anchors move up.
+    // band is drawable and clickable.
+    //
+    // ⭐ S149 P4 — A FOOTER CONTROL HAS NOW BEEN REVIVED (R36), AND THESE ANCHORS DID NOT MOVE.
+    // The prose here used to end "If a footer control is ever revived, these anchors move up." That
+    // turned out to be one solution rather than the requirement: the actual invariant is that no
+    // CHIP may overlap a porch, and the band satisfies it by keeping its chips CENTRED (x ≈ 700 →
+    // 1220) instead of by relocating two shipped castle anchors and every gatherer spawn, deposit
+    // and hit-test derived from them. The clearance is now an ASSERTION rather than a warning —
+    // see "THE CHIPS CLEAR THE CASTLE PORCHES" in `render/footerBand.test.ts`, which also pins that
+    // the collision is real so the check cannot quietly become vacuous.
     for (const seat of [2, 3]) {
       const a = zoneCastleAnchor(seat, 'QUADRANTS_4P');
       const depositY = a.y + GATHERER_DEPOSIT_OFFSET_Y;

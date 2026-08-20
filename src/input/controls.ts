@@ -77,6 +77,17 @@ import { isPointInKeep } from '../state/gatherers/gatherer.ts';
  * panel is constructed AFTER Controls in main.ts, so it arrives via `setCastlePanel`, and every call
  * site tolerates it being absent.
  */
+/**
+ * S149 P4 — the footer band (R36), structurally typed for the same reason `CastlePanelLike` is:
+ * `controls.ts` must not import Pixi. Optional at every call site, so a harness without a band
+ * behaves exactly as before.
+ */
+export interface FooterBandLike {
+  isOverChip(x: number, y: number): boolean;
+  chipAt(x: number, y: number): number | null;
+  select(complexity: number | null): number | null;
+}
+
 export interface CastlePanelLike {
   isOpen(): boolean;
   toggle(seat: number): void;
@@ -305,11 +316,16 @@ export class Controls {
     this.onBuildBlueprint = fn;
   }
 
+  setFooterBand(band: FooterBandLike): void {
+    this.footerBand = band;
+  }
+
   setCastlePanel(panel: CastlePanelLike): void {
     this.castlePanel = panel;
   }
 
   private castlePanel: CastlePanelLike | null = null;
+  private footerBand: FooterBandLike | null = null;
 
   /**
    * S136 P0 — is the cursor over the open castle panel? Replaces `isPointerOverFooter`.
@@ -323,6 +339,36 @@ export class Controls {
    * for one physical click. Without the guard, pressing BUY GATHERER would ALSO grab a spark /
    * sever a bond / pop a creature underneath the panel.
    */
+  /**
+   * S149 P4 — is the cursor over a footer CHIP?
+   *
+   * ⚠ CHIPS, NOT THE BAND. The original footer was deleted partly because it was a 1920-wide plate
+   * whose empty region swallowed clicks, making every world object in the bottom 7.8% of the board
+   * inert. `isOverChip` hit-tests only the chip rectangles, so the rest of the band stays board.
+   */
+  /**
+   * S149 P4 — a click on a footer chip selects that complexity. Returns true when consumed.
+   *
+   * Selection is RENDER-ONLY state on the band — it never enters `world`, so it needs no
+   * serialization, no hash entry and no protocol bump, exactly as R36 specifies ("purely
+   * presentational").
+   */
+  private handleFooterChipClick(): boolean {
+    if (!this.isPointerOverFooterChip() || this.footerBand === null) return false;
+    const complexity = this.footerBand.chipAt(this.cursor.x, this.cursor.y);
+    if (complexity === null) return false;
+    this.footerBand.select(complexity);
+    return true;
+  }
+
+  private isPointerOverFooterChip(): boolean {
+    return (
+      this.world.gameState === 'PLAYING' &&
+      this.footerBand !== null &&
+      this.footerBand.isOverChip(this.cursor.x, this.cursor.y)
+    );
+  }
+
   private isPointerOverPanel(): boolean {
     return (
       this.world.gameState === 'PLAYING' &&
@@ -370,6 +416,12 @@ export class Controls {
     // click. Without this early-return, clicking BUY GATHERER would ALSO grab a spark / sever a bond
     // / pop a creature under the cursor. Mirrored in `onUp` so a placement cannot commit onto it.
     if (this.isPointerOverPanel()) return;
+    // ⭐ S149 P4 (R36) — THE FOOTER BAND. Same rule and the same reason as the panel guard
+    // above: this handler hit-tests world objects with no notion of UI, so a chip press would
+    // otherwise ALSO grab a spark or sever a bond underneath it. Only CHIPS consume the click —
+    // the empty stretches of the band stay live board, which is the lesson that got the
+    // original 1920-wide footer plate deleted in S136 P0.
+    if (e.button === 0 && this.handleFooterChipClick()) return;
     // S136 P0 — then the castle itself: clicking your own keep opens/closes its control panel.
     if (e.button === 0 && this.handleCastleClick()) return;
     // S144 P3 — A HELD TOWER OWNS THE NEXT CLICK. This must sit above every world hit-test: without
@@ -621,7 +673,7 @@ export class Controls {
         // DROP_SPARK above has already released the claim, so the spark stays Free where physics
         // put it and the player is Idle. Routing through the existing reject path (rather than an
         // early return) is what guarantees no stuck "glued spark" state — the S52/S58 lesson.
-        if (gates.commit && !this.isPointerOverPanel()) {
+        if (gates.commit && !this.isPointerOverPanel() && !this.isPointerOverFooterChip()) {
           // S52 P1 — atomic PLACE_FROM_FREE single intent replaces the S5-era
           // PICKUP_SPARK+PLACE_PRIMITIVE burst. The burst pattern had a
           // critical defect for the joiner: when PLACE_PRIMITIVE silently

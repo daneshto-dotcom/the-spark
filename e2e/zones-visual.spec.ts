@@ -215,3 +215,59 @@ async function forcePhase(page: import('@playwright/test').Page, phase: string):
     if (w !== undefined) w.matchPhase = ph;
   }, phase);
 }
+
+/**
+ * S149 P4 — THE FOOTER BAND, ON SCREEN (R36).
+ *
+ * ⚠ A UNIT TEST CANNOT SEE A UI SURFACE. `footerBand.test.ts` proves the numbers are derived from
+ * the registry and that no chip overlaps a porch; it cannot tell you whether the bar is legible,
+ * whether it collides with the HUD, or whether it renders at all. This surface was DELETED once
+ * already (S136 P0) for exactly the kind of problem only a real frame shows.
+ */
+test.describe('@visual S149 P4 — the footer band on screen', () => {
+  test('QUADRANTS_4P: the bar of connector counts sits clear of both bottom porches', async ({ page }) => {
+    await page.goto('/');
+    await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE');
+    const vsBots = await titleButtonCss(page, 'vsBots');
+    await page.mouse.click(vsBots.x, vsBots.y);
+    await page.waitForFunction(
+      () => {
+        const s = (window as unknown as {
+          __SPARK__: { botSetupOverlay: { getUiPoints?: () => unknown } | null };
+        }).__SPARK__;
+        return s.botSetupOverlay !== null && s.botSetupOverlay.getUiPoints !== undefined;
+      },
+      { timeout: 20_000 },
+    );
+    const startPt = await page.evaluate(() => {
+      const s = (window as unknown as {
+        __SPARK__: { botSetupOverlay: { getUiPoints: () => { start: { x: number; y: number } } } };
+      }).__SPARK__;
+      return s.botSetupOverlay.getUiPoints().start;
+    });
+    const startCss = await canvasToCss(page, startPt.x, startPt.y);
+    await page.mouse.click(startCss.x, startCss.y);
+    await waitForWorld(page, (w) => w.gameState === 'PLAYING', 'PLAYING');
+    await page.waitForTimeout(3000);
+
+    // ⭐ ASSERT THE BAR, DO NOT JUST PHOTOGRAPH IT. A screenshot at 1280x720 downscales the
+    // 1920x1080 canvas by 2/3, and at that size a chip is 41px wide — small enough that I
+    // miscounted them by eye on the first pass. Reading the live geometry is the only honest check
+    // that every complexity in the registry actually reached the screen.
+    const band = await page.evaluate(() => {
+      const s = (window as unknown as {
+        __SPARK__: { footerBand: { getUiPoints: () => { chips: Array<{ complexity: number; x: number; w: number }> } } };
+      }).__SPARK__;
+      return s.footerBand.getUiPoints();
+    });
+    // The five distinct connector counts in the shipped registry: stink 4, pentagram 5,
+    // lightningHub 6, laserTurret/helga 7, voltkin 8. Derived, so adding a recipe updates the bar
+    // and this assertion together.
+    expect(band.chips.map((c) => c.complexity)).toEqual([4, 5, 6, 7, 8]);
+    // And they clear both bottom-corner porches (x=130 and x=1790) by a wide margin.
+    expect(Math.min(...band.chips.map((c) => c.x))).toBeGreaterThan(400);
+    expect(Math.max(...band.chips.map((c) => c.x + c.w))).toBeLessThan(1520);
+
+    await page.screenshot({ path: `${DESKTOP}/spark-s149-footer-band.png` });
+  });
+});

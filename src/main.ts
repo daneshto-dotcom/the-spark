@@ -150,6 +150,7 @@ import { PrincessRenderer } from './render/princessRenderer.ts';
 import { StinkTowerRenderer } from './render/stinkTowerRenderer.ts';
 import { SpawnerZoneRenderer } from './render/spawnerZoneRenderer.ts';
 import { WallRenderer } from './render/wallRenderer.ts';
+import { FooterBand } from './render/footerBand.ts';
 import { BombRenderer } from './render/bombRenderer.ts';
 import { HunterRenderer } from './render/hunterRenderer.ts';
 import { GathererRenderer } from './render/gathererRenderer.ts';
@@ -528,6 +529,10 @@ async function bootstrap(): Promise<void> {
   // able to see (you cannot respect a boundary you cannot find), the same rule the spawner
   // aura already follows. Cheap no-op the moment the walls drop for the FIGHT.
   const wallRenderer = new WallRenderer(app, aboveFogLayer);
+  // ⭐ S149 P4 (R36) — THE FOOTER BAND. On `app.stage`, NOT `aboveFogLayer`: it is UI chrome
+  // rather than a board object, so it must draw over everything including the fog. Contrast the
+  // walls one line above, which are ground markings and deliberately sit under every entity.
+  const footerBand = new FooterBand(app);
   const spawnerZoneRenderer = new SpawnerZoneRenderer(app, aboveFogLayer);
   // S25 P0 — creatureRenderer renders ABOVE prims; S77 P2 reparented to aboveFogLayer (a Voltkin
   // attacks ANY player's bonds — cross-player reach — so it must be visible to all through fog).
@@ -682,6 +687,9 @@ async function bootstrap(): Promise<void> {
   // pointertap does NOT suppress the raw canvas world hit-test) and the own-castle click that
   // opens it. Injected after construction because Controls is built before the renderers.
   controls.setCastlePanel(castlePanel);
+  // S149 P4 — the band needs the same click-guard treatment the panel gets, or a chip press
+  // would also act on the board underneath it.
+  controls.setFooterBand(footerBand);
   // S144 P3 — the held tower's ghost. Constructed AFTER the panel so it draws above the board; it is
   // eventMode 'none', so it cannot swallow the click that places it.
   const blueprintGhost = new BlueprintGhost(app);
@@ -1108,6 +1116,8 @@ async function bootstrap(): Promise<void> {
         };
       },
       get fogRenderer() { return fogRenderer; },
+      // S149 P4 — live footer-band geometry for e2e (the S85 P4c geometry-getter convention).
+      get footerBand() { return footerBand; },
       // S77 P2 — fog-exemption e2e: sync a global-reach entity + assert it renders
       // through the fog (aboveFogLayer sits above the fog container).
       get potatoRenderer() { return potatoRenderer; },
@@ -1730,6 +1740,7 @@ async function bootstrap(): Promise<void> {
         stinkTowerRenderer.clear();
         // S149 P3 — drop the border walls on title-return (same one-frame orphan window).
         wallRenderer.clear();
+        footerBand.clear();
         // S100 P1 — drop the spawner-zone aura on title-return.
         spawnerZoneRenderer.clear();
         // S71 P1 — drop bomb sprites on title-return (the reducer applyReturnToTitle
@@ -2623,6 +2634,7 @@ async function bootstrap(): Promise<void> {
     // world.creatureSpawners is empty.
     // S149 P3 — border walls first, so everything else draws on top of them.
     wallRenderer.sync(world);
+    footerBand.sync(world);
     spawnerZoneRenderer.sync(world);
     // S25 P0 — creature sprite sync. After structureRenderer (z-order: above
     // prims, blueprint Q1) and before effectsRenderer (so ARC_FLASH effects
