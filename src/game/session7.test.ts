@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { PHYSICS_HZ, SparkType } from '../constants.ts';
 import { makeFreeSpark } from './spark.ts';
 import { dispatch, makeWorld } from '../state/world.ts';
+import { nearOwnZonePoint, ownZonePoint } from '../state/zones.fixtures.ts';
 import {
   asPlayerId,
   asPrimitiveId,
@@ -26,6 +27,15 @@ const PHYSICS_DT = 1 / PHYSICS_HZ;
 // is caught at test time rather than silently reinterpreted.
 const AUTO_BOND_RADIUS = 60;
 const MAX_RELEASE_REACH = 120;
+
+// S149 P1 — these tests are about the RELEASE-REACH gate, not about territory. Their coordinates
+// were only ever "somewhere outside the quarry", and the old influence-bubble legality allowed any
+// such point. `canBuildAt` does not: `makeWorld` opens on PITCH_2P where P1 (seat 0) owns the LEFT
+// half, so the original x=1300 target was enemy ground and the place was rightly refused. Re-sited
+// into seat 0's own ground via the shared fixture; every assertion below is unchanged.
+const TARGET_POS = ownZonePoint(0, 'PITCH_2P'); // (540, 540)
+const DRAGGEE_POS = nearOwnZonePoint(0, 'PITCH_2P', -20, 0); // 20px away → inside AUTO_BOND_RADIUS
+const CURSOR_POS = nearOwnZonePoint(0, 'PITCH_2P', -10, 0); // 10px from the draggee → reachable
 
 function spawnFreeAt(
   world: ReturnType<typeof makeWorld>,
@@ -61,28 +71,28 @@ function placeWithoutBond(world: ReturnType<typeof makeWorld>, sparkId: ReturnTy
 
 describe('S9 P1 — reachability gate for LMB-up-outside-zone place', () => {
   it('reachable + outside-zone ⇒ place commits at spark.pos; bond ≤ AUTO_BOND_RADIUS via spark→target', () => {
-    // Setup: target primitive at (1300, 500) outside the spawner zone.
+    // Setup: target primitive on seat 0's own ground, outside the spawner zone.
     const world = makeWorld(0);
-    const tSparkId = spawnFreeAt(world, 1, 0, { x: 1300, y: 500 });
+    const tSparkId = spawnFreeAt(world, 1, 0, TARGET_POS);
     placeWithoutBond(world, tSparkId);
     const targetPid = [...world.primitives.values()][0].id;
 
     // Draggee spark caught up to within MAX_RELEASE_REACH of cursor —
     // simulating successful attract-drag that finished pulling the spark
     // close to where the player is about to release.
-    const dSparkId = spawnFreeAt(world, 2, 1, { x: 1280, y: 500 });
+    const dSparkId = spawnFreeAt(world, 2, 1, DRAGGEE_POS);
     const draggee = world.freeSparks.get(dSparkId);
     expect(draggee).toBeDefined();
 
     // === S9 P1 behavior: no snap. spark.pos is the placement coord; bond
-    // pick measures from spark.pos. Cursor is at (1290, 500) — 10px from
+    // pick measures from spark.pos. Cursor is at CURSOR_POS — 10px from
     // spark — well within MAX_RELEASE_REACH=120.
-    const cursor = { x: 1290, y: 500 };
+    const cursor = CURSOR_POS;
 
     // Reachability gate would pass: dist(spark, cursor) = 10 ≤ 120.
-    // In-zone check on spark.pos at (1280, 500) — outside the spawner.
-    // Auto-bond pick measured from spark.pos (1280, 500) — target at
-    // (1300, 500) is 20px away, well within AUTO_BOND_RADIUS=60.
+    // In-zone check on spark.pos at DRAGGEE_POS — outside the spawner.
+    // Auto-bond pick measured from spark.pos (DRAGGEE_POS) — target at
+    // TARGET_POS is 20px away, well within AUTO_BOND_RADIUS=60.
     let pickedPid: ReturnType<typeof asPrimitiveId> | null = null;
     let bestDistSq = AUTO_BOND_RADIUS * AUTO_BOND_RADIUS;
     for (const p of world.primitives.values()) {
@@ -94,7 +104,7 @@ describe('S9 P1 — reachability gate for LMB-up-outside-zone place', () => {
         pickedPid = p.id;
       }
     }
-    expect(pickedPid, 'target at (1300,500) within 60 of spark (1280,500)').toBe(targetPid);
+    expect(pickedPid, 'TARGET_POS within 60 of the draggee at DRAGGEE_POS').toBe(targetPid);
 
     const dSp = world.freeSparks.get(dSparkId);
     dispatch(world, { type: 'PICKUP_SPARK', sparkId: dSparkId, playerId: P1, pos: dSp ? { x: dSp.pos.x, y: dSp.pos.y } : { x: 0, y: 0 } });
@@ -126,7 +136,7 @@ describe('S9 P1 — reachability gate for LMB-up-outside-zone place', () => {
     // teleported the spark to the cursor. S9 P1 rejects the place — spark
     // stays where its physics put it; player can re-attempt.
     const world = makeWorld(0);
-    const tSparkId = spawnFreeAt(world, 1, 0, { x: 1300, y: 500 });
+    const tSparkId = spawnFreeAt(world, 1, 0, TARGET_POS);
     placeWithoutBond(world, tSparkId);
 
     const dSparkId = spawnFreeAt(world, 2, 1, { x: 200, y: 500 });

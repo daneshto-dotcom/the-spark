@@ -52,7 +52,7 @@ import {
   pickHostTargetPrimitive,
   placePrimitive,
 } from './placePrimitive.ts';
-import { isInsideEnemyTerritory } from './territory.ts';
+import { canBuildAt } from './zones.ts';
 import { isNetworked, requirePlayer, type World } from './world.ts';
 import type { PlayerId, PrimitiveId, SparkId, Vec2 } from '../types.ts';
 
@@ -169,7 +169,8 @@ export function applyPlaceFromFree(world: World, action: PlaceFromFreeAction): W
 
   // 6 — enemy-territory hard block (Sym F, S49 P1). Same diagnostic bucket
   //     as the legacy placePrimitive territory reject.
-  if (isInsideEnemyTerritory(action.placementPos, action.playerId, world)) {
+  // ⭐ S149 P1 — zone partition, not influence bubble. See placePrimitive.ts for the full rationale.
+  if (!canBuildAt(action.placementPos, action.playerId, world.layout)) {
     world.diagnostics.territoryBlockRejects++;
     return world;
   }

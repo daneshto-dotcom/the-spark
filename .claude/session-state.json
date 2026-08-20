@@ -1,31 +1,24 @@
 {
-  "tool_calls_session_total": 1452,
-  "session_id": "S148",
-  "session_kind": "pdca-batch",
-  "session_start": "2026-08-19",
+  "tool_calls_session_total": 1472,
+  "session_id": "S149",
+  "session_kind": "owner playtest coherence batch (scope amendment)",
+  "session_start": "2026-08-20",
   "prior_session_note": "S147 closed: P1 THE MATCH CLOCK (protocol 22->23) and P2 the 4-player cap + dashboard (23->24), both live and deploy-verified 4/4. P3 (S148 zones) planned in full but NOT started at 58 pct YELLOW. S148 executes it, RE-SCOPED mid-session by the owner toward the vision-level base specs.",
   "prior_session_archive": ".handoff-archive/HANDOFF_S147.md",
   "phase": "DO",
   "tier": "Full",
-  "plan_file": ".claude/plans/2026-08-19_PDR_S148_ZONES.md",
-  "session_status": "active",
+  "plan_file": ".claude/plans/2026-08-20_SCOPE_AMENDMENT_S149_PLAYTEST_COHERENCE.md",
+  "session_status": "in_progress",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "protocol_version": 24,
+  "protocol_version": 25,
   "boot_preflight": {
-    "boot_snapshot_read": true,
-    "handoff_read": "HANDOFF_2026-08-19_S147.md (via boot-snapshot.md + inline handoff prompt)",
-    "plan_read": ".claude/plans-archive/2026-08-19_SCOPE_AMENDMENT_S147_R41_4PLAYER_CAP_IN-PROGRESS.md (P3 = S148, A.0 E1-E12 banked)",
-    "unpushed_commits": 0,
-    "in_sync_at": "ef59743 (both directions 0)",
-    "tsc": "PASS - 0 errors",
-    "vitest": "PASS - 2459 tests / 159 files",
-    "build": "PASS - entry assets/index-CkkN5WRI.js 690.7 KiB, cap 900 KiB, headroom 209.3 KiB",
-    "verify_deploy": "PASS 4/4",
-    "e2e_gating": "PASS 42/42 in 2.6m",
-    "ci_runs_audited": "gh run list: 8 most recent all success, ZERO cancelled. gh issue list: empty.",
-    "context_at_boot": "163,319 / 1,000,000 (16.33 pct GREEN)"
+    "build": "PASS entry index-DMU7pb7t.js 689.1 KiB cap 900 KiB",
+    "vitest": "2506 passed / 162 files",
+    "e2e_gating": "45 passed",
+    "deploy_verify": "PASS 4/4 at 9100277",
+    "unpushed_commits": 0
   },
   "owner_rulings_inherited": {
     "date": "2026-08-10",
@@ -97,553 +90,91 @@
   ],
   "priorities": [
     {
+      "id": "P1",
+      "title": "ZONES ARE REAL - wire canBuildAt into all six gates, zoneFixtures helper, resolve the 17 tests on merit",
+      "tier": "Standard",
+      "protocol_bump": false,
+      "owner_item": "complaint 4a",
+      "status": "in_progress",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "id": 1,
-      "status": "completed",
-      "name": "S148 P1 THE QUADRANTS - src/state/zones.ts (zoneOf/zoneOwner/zoneCastleAnchor, PITCH_2P + QUADRANTS_4P), layout as a hashed World field (9 sites), castleAnchor becomes zone-derived across 13 consumers, KEEP_RING_SEATS/KEEP_RING_RADIUS retired, protocol 24->25 (5-site bump), plus the derived gatherer-speed setting so the 2.71x haul stays playable",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
-          "needle": "export type ZoneLayout = 'PITCH_2P' | 'QUADRANTS_4P';"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
-          "needle": "export function zoneOf(pos: Vec2, layout: ZoneLayout): number | null"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
-          "needle": "export function zoneOwner(seat: number, layout: ZoneLayout): number | null"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
-          "needle": "export function zoneCastleAnchor(seat: number, layout: ZoneLayout): Vec2"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
-          "needle": "export function canBuildAt(pos: Vec2, seat: number, layout: ZoneLayout): boolean"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
-          "needle": "export function layoutForSeatCount(seatCount: number): ZoneLayout"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
-          "needle": "if (qdx * qdx + qdy * qdy < QUARRY_R2) return null;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
-          "needle": "Math.sqrt("
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
-          "needle": "x: 120, y: 540"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.ts",
-          "needle": "x: 1790, y: 950"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/worldTypes.ts",
-          "needle": "layout: ZoneLayout;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/world.ts",
-          "needle": "layout: 'PITCH_2P',"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/stateHashFull.ts",
-          "needle": "layout: 'hashed',"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/stateHashFull.ts",
-          "needle": "S148 P1 — the board. In the WIDE hash so a differential"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
-          "needle": "layout?: ZoneLayout;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
-          "needle": "layout: world.layout,"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/save.ts",
-          "needle": "world.layout = snap.layout ?? 'PITCH_2P';"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/workerSim.ts",
-          "needle": "world.layout,"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
-          "needle": "world.layout = layoutForSeatCount(world.players.size);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
-          "needle": "world.layout = 'PITCH_2P';"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gatherer.ts",
-          "needle": "export function castleAnchor(seat: number, layout: ZoneLayout): Vec2"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gatherer.ts",
-          "needle": "return zoneCastleAnchor(seat, layout);"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const KEEP_RING_SEATS"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const KEEP_RING_RADIUS"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/gatherer.ts",
-          "pattern": "Math\\.cos\\(angle\\)",
-          "op": "eq",
-          "value": 0
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 25 as const;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
-          "needle": "readonly protoVersion: 25;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.ts",
-          "needle": "S148 P1 — bumped 24->25: THE ZONE PARTITION."
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.test.ts",
-          "needle": "expect(PROTOCOL_VERSION).toBe(25);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/net/protocol.test.ts",
-          "needle": "PROTOCOL_VERSION is 25"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/smoke.spec.ts",
-          "needle": "const LOCAL_PROTO_V = 25;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const GATHERER_BASE_SPEED = 2.6;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/zoneEconomy.test.ts",
-          "needle": "toBeGreaterThanOrEqual(STINK_TOWER_SIZE);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gatherers/zoneEconomy.test.ts",
-          "needle": "At GATHERER_BASE_SPEED 1.9 this measured 6."
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.test.ts",
-          "needle": "expect(keepLeft - barRight).toBe(1);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/stateHashFull.test.ts",
-          "needle": "'layout',"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/workerSim.differential.test.ts",
-          "needle": "bankAdd(world.castleBanks, P0, SparkType.Square);"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/click-to-build.spec.ts",
-          "needle": "function legalSiteRightOfPanel("
-        },
-        {
-          "type": "grep_count",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/zones.test.ts",
-          "pattern": "it\\.each\\(LAYOUTS\\)",
-          "op": "ge",
-          "value": 8
-        }
-      ],
-      "checkpoint_commit": "4620caae6ff33520497d4fbda2c3427889f160c3",
-      "check_completed": true,
-      "check_method": "P1 THE QUADRANTS shipped at %s. VERIFIED: tsc 0 errors; vitest 2498 passed / 161 files (up from 2459/159 - zones.test.ts 28 cases over both boards, zoneEconomy.test.ts 2); npm run build PASS entry 691.3 KiB, 208.7 KiB headroom; npm run e2e:gating 42/42 in 3.2m; both boards SCREENSHOTTED under the real host loop via Playwright (spark-s148-zones-PITCH_2P.png and -QUADRANTS_4P.png on the OneDrive desktop) - the quadrant shot shows four corner keeps in four seat colours with the quarry unclaimed at centre, the pitch shot one goalmouth keep. ECONOMY MEASURED, and reported honestly: a full 5400-tick BUILD through the real host loop, one un-upgraded gatherer, order queue set to the Stink Tower bill - at the OLD speed 1.9 the quadrant board banks 6 shapes with the full bill, at 2.6 it banks 8-9. The owner gate (a first tower affordable un-upgraded) was ALREADY met at 1.9, so the raise buys headroom and TTL margin, NOT playability; the docblock and the test both say so rather than implying necessity, and the margin assertion (>=7) is the only one that discriminates between the two speeds. TWO REAL DEFECTS CAUGHT BY EXISTING HARNESSES: (1) workerSim.differential anti-vacuity guard fired - castleBanks had only ever been seeded by ACCIDENT via a haul finishing inside the 300-frame window, and at 2.71x haul it no longer does, so the family went silently empty while every hash stayed green; now seeded explicitly via bankAdd before the batch rig adopts the world. (2) e2e click-to-build LEGAL_SITE {360,780} fell INSIDE the castle panel once the keep moved to the goalmouth (panel x[583,851] -> x[163,431]), so isOverPanel swallowed every click and the test failed as \"0 primitives placed\"; now DERIVED from the live panel rect. Also confirmed bomb.spec was an under-load flake, not a regression - it passes in isolation (41.2s) and passed on the clean 42/42 re-run."
+      "check_completed": false
     },
     {
-      "id": 0,
-      "status": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.claude/plans/2026-08-19_SCOPE_AMENDMENT_S148_OPENING_COHERENCE.md",
-          "needle": "THE TWO DAMAGE SCALES WERE NEVER RECONCILED"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/.claude/plans/2026-08-19_SCOPE_AMENDMENT_S148_OPENING_COHERENCE.md",
-          "needle": "BOTS ARE HANDED TWO FREE GODLY STRUCTURES AT TICK 0"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defenderLifecycle.ts",
-          "pattern": "CREATURE_HIT_DAMAGE",
-          "op": "ge",
-          "value": 1
-        }
-      ],
-      "name": "S148 P0 REBUILD-VS-ADAPT AUDIT (owner-demanded) - full inventory of the shipped game classified KEEP/CHANGE/DELETE/BUILD-NEW against SPARK_TD_BLUEPRINT.md, then an evidence-backed rebuild-vs-adapt verdict. The S146 ADAPT ruling came from a Council that never read the codebase.",
-      "check_completed": true,
-      "checkpoint_commit": "4620caae (audit is documentation, no code change)",
-      "check_method": "REBUILD-VS-ADAPT AUDIT delivered as an artifact. Method: hand-run measurement on disk at 4620caa - find/wc over 194 non-test source files (51,369 LOC) and 184 test files (45,761 LOC), per-directory and per-file LOC, plus targeted greps to classify each subsystem against SPARK_TD_BLUEPRINT.md. VERDICT: do NOT rebuild, but stop adapting incrementally - run a deliberate demolition pass. Infrastructure a rebuild would forfeit = ~16,491 LOC (net 4,756, save 2,207, hostTick+gameState 884, hash oracles 662, workerSim 545, world+worldTypes 1,252, physics 683, input+game 2,859, lobby shell 2,643), protected by 2,498 unit tests + 42 gating e2e and 25 protocol versions over 989 commits since 2026-05-09. NONE of the four playtest defects live in that layer; all four are content-layer, which a rebuild would rewrite anyway. BUT the owner instinct was correct: ~4,051 LOC is already dead or dormant and the content layer contradicts the blueprint in four measured places. AUDITED THE S146 AUDIT THAT JUSTIFIED ADAPT AND FOUND IT UNRELIABLE: 3 claims wrong (build refusal \"3 sites\" is actually SIX; \"420 -> ~1100px\" is actually 295 -> 800.7px, a figure that propagated through two handoffs; \"~40k lines\" is actually 51,369) and 3 problems invisible to it (the shared CREATURE_HIT_DAMAGE=1 that makes \"the tower substrate is done\" false in the way that matters, the bots-only free pentagram + lightning hub, and the starter goblin contradicting R18/R24). Root cause: that Council never read the codebase - a fact already recorded in S146 reflexion."
-    },
-    {
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "id": 2,
-      "status": "completed",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defender.ts",
-          "needle": "readonly damageVsCreature: number;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defender.ts",
-          "needle": "damageVsCreature: TURRET_BEAM_DAMAGE_VS_CREATURE,"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defender.ts",
-          "needle": "damageVsCreature: PRINCESS_SLAP_DAMAGE_VS_CREATURE,"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defender.ts",
-          "needle": "damageVsCreature: STINK_BAG_DAMAGE_VS_CREATURE,"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defenderLifecycle.ts",
-          "needle": "config.damageVsCreature,"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defenderLifecycle.ts",
-          "needle": "CREATURE_HIT_DAMAGE, 'defender'"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const TURRET_BEAM_DAMAGE_VS_CREATURE = GOBLIN_MELEE_HP;"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const PRINCESS_SLAP_DAMAGE_VS_CREATURE = Math.max(1, Math.round(GOBLIN_MELEE_HP / 2));"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/constants.ts",
-          "needle": "export const STINK_BAG_DAMAGE_VS_CREATURE = CREATURE_HIT_DAMAGE;"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
-          "needle": "seedStartingUnits(world);"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
-          "needle": "seedBotSpawners(world);"
-        },
-        {
-          "type": "file_lacks",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
-          "needle": "botSpawnerSeed"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/gameMode.ts",
-          "needle": "THE OPENING IS A CASTLE, ONE GATHERER AND 100 POINTS. NOTHING ELSE."
-        },
-        {
-          "type": "file_absent",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/spawners/botSpawnerSeed.ts"
-        },
-        {
-          "type": "file_absent",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/spawners/botSpawnerSeed.test.ts"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/spawners/pentagramBuildability.test.ts",
-          "needle": "describe"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/creatures/goblin.test.ts",
-          "needle": "grants NO goblin to any seated player at START_GAME"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/creatures/goblin.test.ts",
-          "needle": "the opening board carries no creatures at all"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defenderDamage.test.ts",
-          "needle": "HELGA fells a goblin in TWO slaps"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defenderDamage.test.ts",
-          "needle": "the laser is STRICTLY the strongest single-target weapon"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defenderDamage.test.ts",
-          "needle": "the roster is not FLAT"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/e2e/zones-visual.spec.ts",
-          "needle": "the opening board is EMPTY: no free bot structures, no starter goblins"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/workerSim.differential.test.ts",
-          "needle": "SEED BOT-AUTHORED PRIMITIVES EXPLICITLY"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/workerSim.differential.test.ts",
-          "needle": "CARRY-FORWARD CF-S148-b"
-        },
-        {
-          "type": "grep_count",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/Extension Projects/The Spark/src/state/defenders/defenderDamage.test.ts",
-          "pattern": "strikesToFellGoblin",
-          "op": "ge",
-          "value": 3
-        }
-      ],
-      "name": "S148 P2 THE OPENING IS FAIR AND WEAPONS DIFFER (R49/R50/R51) - delete the starter-goblin seeding and the bots-only free pentagram + lightning hub so every seat opens with a castle, one gatherer and 100 points; retire the shared CREATURE_HIT_DAMAGE for defender strikes in favour of PER-KIND damage so HELGA kills a goblin in 2 and the laser turret in 1. No protocol bump - no World field changes.",
-      "checkpoint_commit": "5975876660224184e9433883e9e6d4ec02786331",
-      "check_completed": true,
-      "check_method": "P2 THE OPENING IS FAIR AND WEAPONS DIFFER, shipped at %s. VERIFIED: tsc 0; vitest 2501 passed / 161 files (defenderDamage.test.ts 9 new cases); npm run build PASS entry 689.1 KiB, which SHRANK 2.2 KiB because the bot scaffolding module was deleted; e2e:gating 43 passed / 1 intermittent flake; the empty opening asserted IN A REAL BROWSER and screenshotted (spark-s148-empty-opening.png shows four castles, one gatherer each, an empty quarry and nothing else). THE ROOT DEFECT WAS NOT THE GOBLIN. Every defender dealt a shared CREATURE_HIT_DAMAGE=1 at one call site, so HELGA needed 6 slaps and the \"slow heavy beam\" laser needed 6 as well - no weapon could be stronger than any other. damageVsCreature is now per-kind on the compile-time exhaustive DefenderConfig; the test pins RELATIONSHIPS (HELGA 2 strikes, laser 1, laser strictly strongest, roster not flat) rather than literals so R30 balance work stays free. THREE ANTI-VACUITY GUARDS FIRED AND EACH WAS CORRECT: castleBanks, creatures and bot-authored primitives were ALL seeded by accident by the scaffolding being deleted, so removing it emptied three families the differential HARD GATE claims to compare while every hash stayed green. Each is now a deliberate fixture. creatureSpawners could NOT be fixed that way - an injected spawner is torn down within a tick by the re-validation poll - so it is an acknowledged hole with its real reason plus CF-S148-b. THE DESTRUCTIVE-COMMAND GUARDRAIL PREVENTED A REAL LOSS: my rm -rf of the spawners __snapshots__ directory was blocked, and inspection showed it holds pentagramBuildability.test.ts.snap, which belongs to a test I was NOT deleting. BOMB.SPEC IS A FLAKE, NOT A REGRESSION - stated with evidence rather than assumed: it failed on this session FIRST gating run before P2 existed, and passes 3/4 in isolation at 44 s to 1.2 min, i.e. near its own timeout. Logged CF-S148-c."
-    },
-    {
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "id": 3,
+      "id": "P2",
+      "title": "THE PHASE SPLIT IS REAL - gatherer shelter snap, no build in FIGHT, tower dormancy in BUILD + target clear, quarry BUILD-only (CF-S148-a)",
+      "tier": "Full",
+      "protocol_bump": true,
+      "owner_item": "complaint 5",
       "status": "pending",
-      "verification": [],
-      "name": "S148 P3 THE CASTLE BECOMES REAL (R29/R10/R20) - castle HP + elimination + placings. Protocol 25->26."
-    },
-    {
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "id": 4,
-      "status": "pending",
-      "verification": [],
-      "name": "S148 P4 DEMOLITION (R52) - delete hazards (bomb/potato/rainbow/seagull/hunter ~2,291 LOC), the NONET trial (~1,081) and the dev probe harness (~679), including their ~20 World fields across FIELD_COVERAGE/save/hash/workerSim. Own protocol bump; deferred to next session per R53 bump budget."
+      "check_completed": false
     },
     {
+      "id": "P3",
+      "title": "BORDER WALLS - derived from (layout, matchPhase), up+invulnerable in BUILD, down in FIGHT, movement clamp",
+      "tier": "Standard",
+      "protocol_bump": false,
+      "owner_item": "complaint 4b",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "id": 5,
-      "status": "pending",
-      "verification": [],
-      "name": "S148 P5 OWN-ZONE BUILD LEGALITY - one canonical canBuildAt(world, playerId, pos) imported by all SIX refusal/preview sites. ⚠ ATTEMPTED AND REVERTED IN S148: the swap itself is 6 one-line edits and typechecks clean, but it changes real gameplay semantics and breaks 17 tests across 8 files (session7/14/15, world, botBrain, botGameplay, placeFromFree, pentagramBuildability) - all of which encode BUILD-ANYWHERE. Root cause is correct behaviour, not a bug: seat 1 owns the RIGHT half on PITCH_2P, so a 1v1 test placing P1 at x=600 is now rightly refused, as is anything inside the quarry disc. Each of the 17 needs an individual judgement (move the coordinate vs the test is asserting something else). Budget a full priority."
+      "check_completed": false
     },
     {
+      "id": "P4",
+      "title": "THE FOOTER BAND - indexed by connector count R36, regrouping castleStructuresModel by cost",
+      "tier": "Standard",
+      "protocol_bump": false,
+      "owner_item": "complaint 2",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "id": 6,
-      "status": "pending",
-      "verification": [],
-      "name": "S148 P3 THE WALLS (R5/R17/R39, pulled forward from S149 per R48) - zone-border wall entity, invulnerable for the whole BUILD stage, drops at the FIGHT edge, blocks ground units"
+      "check_completed": false
     },
     {
+      "id": "P5",
+      "title": "ARCADE + NONET - fifth title button below CODEX, local-only overlay",
+      "tier": "Standard",
+      "protocol_bump": false,
+      "owner_item": "new owner ask",
+      "status": "pending",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "id": 7,
+      "check_completed": false
+    },
+    {
+      "id": "P6",
+      "title": "FIX + SCRAP - R13/R19/R21, BUILD-only, shape-conservation invariant",
+      "tier": "Full",
+      "protocol_bump": true,
+      "owner_item": "complaint 3",
       "status": "pending",
-      "verification": [],
-      "name": "S148 P4 COLOUR IS A RACE (R45 / CF-S147-e) - pre-game lobby colour/race picker; substrate already choice-ready since every consumer reads player.color and it rides the wire as RosterEntry.color"
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false
+    },
+    {
+      "id": "P7",
+      "title": "BOTS BUILD TOWERS - a recipe goal in chooseGoal, complexity-ranked",
+      "tier": "Full",
+      "protocol_bump": false,
+      "owner_item": "complaint 1",
+      "status": "pending",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false
     }
   ],
-  "reflexion_entries_to_archive": [
-    {
-      "tag": "#the-owner-redirected-mid-session-and-a-grep-audit-proved-them-right",
-      "text": "Mid-execution the owner cut across my plan: \"you are focusing on minor subspec technicals ... like points per tick or stupid shit that we can always change or tweak in the future! lets focus on the game vision!\" I had a FULL-tier PDR whose P3 was a measured economy sweep. Rather than argue or capitulate, I grep-audited the blueprint against the source: castle HP/attack, tower target preference, FIX/SCRAP and the Wall entity return ZERO non-test files. The owner was straightforwardly right - I was about to spend a third of a session tuning a haul constant while four base specs did not exist as code at all. The lesson is not \"obey the redirect\", it is that an implementation plan drifts toward whatever is MEASURABLE, and measurable is not the same as important. Audit the vision against the code before ranking priorities, not after being told to.",
-      "session": "S148",
-      "priority": 1
-    },
-    {
-      "tag": "#i-measured-and-the-measurement-refuted-my-own-stated-reason",
-      "text": "I raised GATHERER_BASE_SPEED 1.9 -> 2.6 for the 2.71x haul and wrote a docblock that read as if the raise were REQUIRED. Then I actually measured the old value: at 1.9 the quadrant board still banks 6 shapes with the full 1-Square-3-Circle bill, so the owner gate (a first tower affordable un-upgraded) was ALREADY met and my new zoneEconomy test would have passed at either speed. The change is still right - it buys ~2.2x headroom and drops the outbound leg from 70% to 51% of a spark TTL - but the justification I had written was false. Corrected the docblock, and added the ONE assertion that actually discriminates (total >= 7; 6 at 1.9, 8-9 at 2.6). A change can be correct while the reason given for it is not, and a test that would pass either way is not evidence for the change it sits beside.",
-      "session": "S148",
-      "priority": 1
-    },
-    {
-      "tag": "#the-anti-vacuity-guard-caught-a-family-that-was-only-ever-tested-by-ACCIDENT",
-      "text": "workerSim.differential hard-failed with \"family castleBanks is asserted SEEDED but is EMPTY in this run\". Nobody had ever seeded it: a gatherer simply HAPPENED to complete a haul inside the 300-frame window because the old ring put the round trip at ~590 px. At 800.7 px it no longer finishes, so the family went empty - and every hash in the gate still matched, because comparing two empty sets always agrees. Without that assertion the projection loop would have become dead code inside the exact test that exists to prove it. Coverage that arises emergently is not coverage; it is a coincidence with a green tick next to it. Seeded explicitly now.",
-      "session": "S148",
-      "priority": 1
-    },
-    {
-      "tag": "#the-forcing-function-fired-on-cue-and-its-eight-siblings-stayed-silent",
-      "text": "Adding a hashed World scalar is NINE sites. Exactly one - FIELD_COVERAGE in stateHashFull.ts - is tsc-enforced, and it named `layout` the moment I compiled. The other eight (save type + serialize + deserialize, workerSim structural signature, gameMode applyStartGame + RETURN_TO_TITLE, protocol, world init) are completely silent: the build was GREEN with the field missing from the save format entirely. The boot snapshot warned this in one line and it was worth more than any amount of care. Worth generalising: when a registry can fail your build on omission, that is the cheapest correctness tool available - and the corollary is that you must know which of the related sites it does NOT cover, because those look identical when they are wrong.",
-      "session": "S148",
-      "priority": 1
-    },
-    {
-      "tag": "#stamping-order-was-load-bearing-in-BOTH-directions",
-      "text": "world.layout had to be written AFTER seating (the board is chosen from the seat count) and BEFORE seedBotSpawners / seedStartingGatherers / seedStartingUnits (each places entities at castleAnchor(seat, world.layout)). Get it wrong either way and it is not a cosmetic bug: those spawn positions are hashed, so seeding on the previous match board is a desync on tick 0. There was exactly one correct line in applyStartGame and no compiler or test would have named it - the tests seed their own worlds. Wrote the reasoning inline rather than the rule, because the next person to add a seeder needs to know WHY the line sits where it does.",
-      "session": "S148",
-      "priority": 1
-    },
-    {
-      "tag": "#a-hardcoded-board-coordinate-rotted-for-the-SECOND-time",
-      "text": "e2e/click-to-build had `const LEGAL_SITE = { x: 360, y: 780 }`. Moving seat 0 to the goalmouth dragged the castle panel from x[583,851] to x[163,431], so that constant landed INSIDE the open panel, isOverPanel swallowed every click, and the test failed as \"0 primitives placed\" - which reads like a broken build path and is nothing of the kind. helpers.ts:892 records the FIRST time this class of bug hit, when the ring moved to 420 and four tests started clicking empty board. Same failure, same lane, second time. The geometry getters exist precisely so a test can ask the running game where things are; a literal coordinate in an e2e spec is a latent failure with a timer on it. Derived from the live panel rect now, with an assertion that the derivation cleared the panel so the next layout change fails legibly instead of downstream.",
-      "session": "S148",
-      "priority": 1
-    },
-    {
-      "tag": "#the-verifier-op-table-has-ge-not-gte-and-the-difference-is-SILENT",
-      "text": "An MCV grep_count binding with op \"gte\" reported FAIL on a condition that was plainly true (count=10, value=8). _OPS in verify-session-claims.py holds eq/ne/gt/ge/lt/le - \"gte\" is simply absent, and the lookup falls through to the \"==\" DEFAULT rather than erroring. So 10 gte 8 was evaluated as 10 == 8. An unknown operator that degrades quietly into a different operator is worse than one that throws, because the failure looks like a genuine finding. My memory note already said grep_count takes pattern+op+value; it did not record the vocabulary. Now it does.",
-      "session": "S148",
-      "priority": 1
-    },
-    {
-      "tag": "#file_lacks-fired-on-my-own-docblock-for-the-THIRD-time",
-      "text": "Two of my 39 bindings failed on prose I had just written: file_lacks \"Math.sqrt\" broke because zones.ts docblock says \"No `Math.sqrt`.\" explaining why, and a grep_count for KEEP_RING_(SEATS|RADIUS) broke on gatherer.ts prose explaining that both constants are retired. This is the third session it has happened. The rule is now sharp enough to state once: a file_lacks needle must be a CODE SHAPE that cannot occur in English - \"Math.sqrt(\" with the paren, \"Math.cos(angle)\" for the retired ring math. Writing a good comment about a removal will always break a lazy assertion about that removal, because good comments name the thing they removed.",
-      "session": "S148",
-      "priority": 1
-    },
-    {
-      "tag": "#running-the-verifier-is-not-optional-three-for-three",
-      "text": "39 bindings, 3 hard failures, none of them a real defect in the code and ALL of them defects in my evidence. Third session running where actually executing verify-session-claims.py found problems that reading the bindings would not have. The asymmetry is the point: a binding that is wrong in the SAFE direction (asserts something trivially true) is invisible forever, and the only thing that separates a real assertion from a decorative one is watching it run against the real tree.",
-      "session": "S148",
-      "priority": 1
-    },
-    {
-      "tag": "#re-pin-by-DERIVATION-and-rewrite-the-test-that-lost-its-subject",
-      "text": "Retiring KEEP_RING_SEATS broke loop bounds in five test files. The tempting fix is s/KEEP_RING_SEATS/4/. The right one was zoneCount(layout), run over BOTH boards - a literal is what rotted in the first place. Harder case: a whole describe block asserted \"every seat lands exactly on KEEP_RING_RADIUS from the arena centre\". There is no replacement number - the quadrant corners are 925.7 out and the pitch goalmouths 840, and neither is a decision anyone made. Deleting it would have dropped the owner requirement it encoded. So it was rewritten to assert what the owner actually asked for (\"castles at the extremities\", i.e. well clear of the quarry, each inside the zone it defends). When a test loses its subject, find the REQUIREMENT underneath it before deleting.",
-      "session": "S148",
-      "priority": 1
-    },
-    {
-      "tag": "#the-one-pixel-clearance-was-luck-and-is-now-a-test",
-      "text": "Verifying \"the anchors fit the canvas\" is the easy half and was the only half anyone had checked. Measuring the dependent HUD geometry found the bottom-left quadrant keep clears the score progress bar by EXACTLY ONE PIXEL (keep starts x=93, bar ends x=92) - not a designed margin, an accident that any future KEEP_W or bar-width change closes silently. Also found the porch/deposit point at y=1024 sits inside the footer band, survivable only because S136 deleted the footer plate and its click guard. Both are now assertions with the reasoning attached, so the luck is at least monitored.",
-      "session": "S148",
-      "priority": 1
-    },
-    {
-      "tag": "#the-screenshot-was-the-only-thing-that-could-have-caught-a-render-fault",
-      "text": "2498 unit tests and 42 e2e all green tell you the NUMBERS are right. They cannot see a keep drawn over the score HUD, a panel opening across the quarry, or bank glyphs colliding with the progress bar - and this priority moved every castle on screen. Captured both boards through Playwright under the real host loop (the in-app browser pane cannot do it: an undisplayed pane does not composite, so rAF is paused and the Pixi ticker never advances). The quadrant shot is the evidence that four corner keeps in four seat colours actually render with the quarry unclaimed at centre. A green suite is not evidence for render work, and S147 already paid for that lesson once.",
-      "session": "S148",
-      "priority": 1
-    },
-    {
-      "tag": "#the-owner-was-right-that-my-adapt-verdict-came-too-fast",
-      "text": "The owner pushed back on a rebuild-vs-adapt ruling I had defended, and demanded an audit before I defended it again. They were right on the process even though the verdict survived. The S146 Council that ruled ADAPT never read the codebase, and its written current-state audit turns out to have THREE checkable errors (build refusal \"3 sites\" is six; \"420 -> ~1100px\" is 295 -> 800.7px, a fabricated figure that then propagated through two handoffs; \"~40k lines\" is 51,369) and THREE blind spots (the shared CREATURE_HIT_DAMAGE, the bots-only free structures, the starter goblin contradicting R18/R24). The measured answer still says do not rebuild - ~16.5k LOC of infrastructure with 2,498 tests and 25 protocol versions, and none of the playtest defects live there. But the owner instinct was tracking something real: ~4,100 LOC is already dead, and I had been finding contradictions one playtest at a time instead of clearing them deliberately. When someone challenges a verdict you inherited, audit the EVIDENCE the verdict rested on before re-asserting it.",
-      "session": "S148",
-      "priority": 2
-    },
-    {
-      "tag": "#the-root-defect-was-not-the-thing-the-owner-named",
-      "text": "The report was \"starter goblins are way too strong - even helga cant kill them with 5 slaps\". The obvious fix is to nerf the goblin. The actual defect is that EVERY defender dealt a shared CREATURE_HIT_DAMAGE = 1 at ONE call site, so HELGA needed six slaps AND the laser turret - documented in its own comment as \"a slow heavy beam\" - also needed six. GOBLIN_MELEE_HP = 6 was a faithful reading of the owner earlier \"6 attacks\" rule; nobody had ever checked that rule against the DEFENDER side. So the goblin was correct and the roster was broken: no weapon in the game could be stronger than any other, which is a design failure that no amount of hp tuning reaches. Take the symptom seriously and then go one level past it - the number the user names is where the pain surfaced, not always where it came from.",
-      "session": "S148",
-      "priority": 2
-    },
-    {
-      "tag": "#three-families-were-only-ever-tested-by-accident",
-      "text": "Deleting the bot scaffolding emptied THREE entity families that the workerSim differential HARD GATE claims to compare: castleBanks, creatures, and bot-authored primitives. None had ever been seeded on purpose - a haul happened to finish inside the 300-frame window, the starter goblin happened to be a creature, the free pentagram happened to author primitives. Remove the accident and the gate keeps passing while comparing empty sets against empty sets. It was caught only because a previous session wrote an explicit anti-vacuity assertion per family (after discovering a SUM could not see a per-family hole). Coverage that arises emergently is not coverage; it is a coincidence with a green tick next to it, and it fails silently the moment anything upstream changes.",
-      "session": "S148",
-      "priority": 2
-    },
-    {
-      "tag": "#the-destructive-guardrail-caught-a-real-loss-not-a-false-positive",
-      "text": "I ran rm -rf on src/state/spawners/__snapshots__ while deleting the bot scaffolding, and the guardrail blocked it. Inspecting the directory showed it contained pentagramBuildability.test.ts.snap - the snapshot for a test I was NOT deleting. The rm would have broken a live test in a way that looks like an unrelated regression later. I had assumed the directory belonged to the module I was removing because it sat beside it. Never rm -rf a directory you have not listed, and treat a guardrail block as information rather than an obstacle.",
-      "session": "S148",
-      "priority": 2
-    },
-    {
-      "tag": "#my-own-verification-needles-broke-the-gate-that-guards-verification",
-      "text": "Six P1 needles were function signatures ending in an unbalanced brace. The PDCA gate finds the in-progress priority with an awk brace-DEPTH counter that counts braces inside JSON string values, so those six skewed the depth permanently, the gate read NO in-progress priority, and it blocked every Edit with \"Deliberation not completed\". The failure presented as a policy violation and was actually a data-format bug I had authored two hours earlier. Two lessons: a text-scanning gate imposes constraints on the CONTENT of the state file, not just its schema; and when a gate accuses you of a process failure you do not recognise, test the gate on the data before assuming you skipped a step.",
-      "session": "S148",
-      "priority": 2
-    },
-    {
-      "tag": "#the-fourth-file_lacks-comment-collision-means-my-rule-was-too-weak",
-      "text": "A file_lacks on seedBotSpawners failed because the docblock I had JUST written explaining its deletion names it. Same class as PHASE_CHANGED (S147), Math.sqrt and KEEP_RING_* (earlier today) - four occurrences. My memory note already said \"assert the CODE SHAPE, not the bare word\", and I still wrote the bare identifier, because \"code shape\" is a judgement call under time pressure. Sharpened it into something mechanical: the needle must be the STATEMENT - seedBotSpawners(world); with the semicolon, Math.sqrt( with the paren - and the test is whether the needle could read naturally inside an English sentence. A rule that requires taste at the moment of writing is a rule that will be broken again.",
-      "session": "S148",
-      "priority": 2
-    },
-    {
-      "tag": "#deleting-code-forced-more-honesty-than-adding-it",
-      "text": "Every deletion in this priority made something previously invisible visible: removing the seeders exposed three vacuous test families; removing the ring constants exposed a describe block asserting a radius that no longer means anything; removing the scaffolding shrank the bundle 2.2 KiB, which is the first time all session a change made the artifact smaller. The reason the owner could feel the incoherence before I could measure it is that added code announces itself and dead code does not. Worth carrying into the demolition pass: budget time for the coverage that turns out to have been resting on the thing being deleted.",
-      "session": "S148",
-      "priority": 2
-    },
-    {
-      "tag": "#i-reported-a-failure-as-a-flake-then-checked-and-it-reproduced",
-      "text": "bomb.spec failed on the gating run, passed in isolation, and I was ready to call it the documented under-load flake. Then it failed in isolation too - so I ran it three more times (pass, pass, pass) and checked the session record: it had ALSO failed on the FIRST gating run, before this priority existed. That is what makes it a flake rather than a regression, and it is a materially different claim from \"passes in isolation\" - which was true and would have been weak evidence. ~2 failures in 7 runs at 44 s to 1.2 min per run, i.e. marginal against its own timeout. Logged as a carry-forward with the evidence rather than waved off; \"flaky\" is a diagnosis that needs a denominator.",
-      "session": "S148",
-      "priority": 2
-    }
-  ],
+  "reflexion_entries_to_archive": [],
   "totals": {
     "budget_remaining": 1000000
   },
@@ -1703,5 +1234,68 @@
     "F5 - what the owner asked for was already half true: seedStartingGatherers already gives exactly one gatherer + STARTING_VICTORY_POINTS 100 per seat, human and bot alike. Only F2 and F4 broke it."
   ],
   "deploy_verified_s148_p2": "PASS 4/4 at 59758766 - REMOTE/RUN/VERDICT/LIVE all agree; Actions run 32291459830 concluded success and the live entry asset index-DMU7pb7t.js matches the local build by content hash.",
-  "rule22_audit_s148": "END-OF-SESSION RUNTIME AUDIT (Rule 22), owner-requested before handoff. INTENDED-VS-LANDED: P1 quadrants + P2 opening/weapons both fully landed and deploy-verified; P5 build legality attempted and DELIBERATELY REVERTED (see below); P3 castle HP and P4 demolition not started. MULTIPLAYER READINESS (the owner tests it next): wrote layoutWire.test.ts because the wire path had ZERO coverage - netSnapshot derives from snapshot() and strips 5 keys, so layout DOES ride the wire, but that was read rather than proven. Now proven: a joiner adopts the host board and every castle position matches, both directions. 3-peer hostmigration and 2-peer reconnect PASS over real WebRTC. 4-peer nplayer fails at connection - CF-S148-d. COHERENCE FIXES: corrected two REFUTED FIGURES that had already propagated through two handoffs - SPARK_TD_SESSION_SPECS.md said build legality is \"three existing refusal sites\" (it is SIX) and that the haul goes \"420 -> ~1100 px\" (measured 295 -> 800.7 px); SPARK_TD_BLUEPRINT.md carried the same 1100 figure. Both corrected in place with the measurement. Stamped S147 SHIPPED and S148 PARTLY SHIPPED in both roadmaps so the next session does not re-plan them. Fixed 3 stale comments pointing at deleted files (botSpawnerSeed.test.ts x2, bank-throughput.spec.ts). SCOPE DISCIPLINE: P5 zone build legality was wired at all six sites and typechecked clean, then REVERTED because it broke 17 tests across 8 files - not a bug, correct new behaviour (seat 1 owns the RIGHT half, so a 1v1 test placing P1 at x=600 is rightly refused, as is anything in the quarry). Each needs individual judgement. Shipping a half-tested gameplay restriction immediately before an owner multiplayer playtest would have been worse than the known gap. Recorded on the P5 entry with the measured blast radius so the next session starts informed. FINAL GREEN: tsc 0 - vitest 2506/162 files - build 689.1 KiB (210.9 KiB headroom) - e2e:gating 45/45."
+  "rule22_audit_s148": "END-OF-SESSION RUNTIME AUDIT (Rule 22), owner-requested before handoff. INTENDED-VS-LANDED: P1 quadrants + P2 opening/weapons both fully landed and deploy-verified; P5 build legality attempted and DELIBERATELY REVERTED (see below); P3 castle HP and P4 demolition not started. MULTIPLAYER READINESS (the owner tests it next): wrote layoutWire.test.ts because the wire path had ZERO coverage - netSnapshot derives from snapshot() and strips 5 keys, so layout DOES ride the wire, but that was read rather than proven. Now proven: a joiner adopts the host board and every castle position matches, both directions. 3-peer hostmigration and 2-peer reconnect PASS over real WebRTC. 4-peer nplayer fails at connection - CF-S148-d. COHERENCE FIXES: corrected two REFUTED FIGURES that had already propagated through two handoffs - SPARK_TD_SESSION_SPECS.md said build legality is \"three existing refusal sites\" (it is SIX) and that the haul goes \"420 -> ~1100 px\" (measured 295 -> 800.7 px); SPARK_TD_BLUEPRINT.md carried the same 1100 figure. Both corrected in place with the measurement. Stamped S147 SHIPPED and S148 PARTLY SHIPPED in both roadmaps so the next session does not re-plan them. Fixed 3 stale comments pointing at deleted files (botSpawnerSeed.test.ts x2, bank-throughput.spec.ts). SCOPE DISCIPLINE: P5 zone build legality was wired at all six sites and typechecked clean, then REVERTED because it broke 17 tests across 8 files - not a bug, correct new behaviour (seat 1 owns the RIGHT half, so a 1v1 test placing P1 at x=600 is rightly refused, as is anything in the quarry). Each needs individual judgement. Shipping a half-tested gameplay restriction immediately before an owner multiplayer playtest would have been worse than the known gap. Recorded on the P5 entry with the measured blast radius so the next session starts informed. FINAL GREEN: tsc 0 - vitest 2506/162 files - build 689.1 KiB (210.9 KiB headroom) - e2e:gating 45/45.",
+  "owner_directive_s149": {
+    "source": "mid-session playtest interrupt, verbatim",
+    "complaints": [
+      "1 bots build random structures not towers; should prioritise real towers, complexity gives better tactics",
+      "2 tower selection should be a footer at the bottom of the map",
+      "3 fix and scrap buttons on built towers",
+      "4 no walls or player zones - players can build wherever, inherently wrong vs current designs",
+      "5 no BUILD/FIGHT split - gatherers gather in FIGHT, you can build in FIGHT, towers fight in BUILD"
+    ],
+    "rulings": [
+      "R53 attempt BOTH P6 fix/scrap and P7 bots; cut P8 carry-forwards instead. CF-S148-a NOT deferred - ships inside P2.",
+      "R54 probe harness kept untouched - no code change, no archival switch, no doc pass.",
+      "P4 DEMOLITION CANCELLED - delete nothing. NONET protected explicitly. Hazards paused+archived only.",
+      "ARCADE mode added to title screen below CODEX with NONET as a minigame.",
+      "Castle HP / elimination DEFERRED to a later session."
+    ]
+  },
+  "a0_state_discovery_s149": {
+    "F1_build_legality_is_a_bubble": "state/territory.ts isInsideEnemyTerritory is a complexity-derived RADIUS around own primitives, not a zone partition. R=0 for a player with nothing nearby, so anyone builds anywhere. zones.ts canBuildAt exists + tested + wired into NOTHING. Six sites: placePrimitive.ts:124, placeFromFree.ts:172, blueprintLegality.ts:84, controls.ts:600, dragPreview.ts:109, botBrain.ts:304.",
+    "F2_phase_split_is_three_holes": "grep matchPhase over src/state/gatherers/*.ts -> nothing; over src/state/defenders/*.ts -> nothing; quarry minter physics/physicsLoop.ts:97 -> nothing; the six build gates -> nothing. Only hostTick.ts:196 (scoring) and gameMode.ts:678 (bounty) read the phase.",
+    "F3_footer_reverses_S136": "the permanent footer was DELETED in S136 P0 on the owners own ruling. R36 reinstates it indexed by CONNECTOR COUNT, a different surface. castleStructuresModel already yields id/name/cost/enabled/reason/missing and decides affordability via planBlueprintPayment - the same fn the reducer uses. No new sim state, no protocol bump.",
+    "F4_bots_have_no_tower_concept": "botBrain chooseGoal returns FLEE/CLEAN/RAINBOW/SEVER/POTATO/BUILD/PULL. BUILD places ONE primitive. No recipe goal, no complexity target, no tower notion anywhere.",
+    "F5_fix_scrap_unbuilt": "R13/R19/R21 specified, nothing on disk.",
+    "F6_hazards_ALREADY_paused": "HAZARD_SPAWN_ENABLED=false since S147 Step 0, all code retained, window.__TEST_HAZARDS_ENABLED__ e2e seam. Owner instruction already satisfied - ZERO work.",
+    "F7_arcade_is_cheap": "SudokuOverlay ctor is (app, onSubmit) - already decoupled from net. grep sudokuSync excluding tests returns NOTHING. titleScreen.ts has 4 buttons; ARCADE is a 5th."
+  },
+  "council_s149": {
+    "seats": [
+      "CLAUDE proposer",
+      "GROK-PLAN grok-4.20-0309-reasoning",
+      "GEMINI-AUDITOR gemini-3.1-pro-preview"
+    ],
+    "rounds": 1,
+    "note": "A first Council round ran on the castle-HP batch before the owner interrupt superseded it; a second round ran on the real scope. Both seats independently converged on derived walls and on a cut line the owner then overrode.",
+    "adopted": [
+      "WALLS ARE DERIVED not stored - a pure function of (layout, matchPhase), both already hashed. Zero of the nine hashed-field sites, cannot desync.",
+      "GEMINI: the shelter snap must be ONE discrete pass sorted by gatherer id, not inside the per-gatherer loop - a joiner rebuilding the Map from a snapshot can iterate differently. save.ts already sorts defenders by id for this reason.",
+      "GEMINI: clear Defender.targetCreatureId on the FIGHT->BUILD edge or a dormant defender resumes onto a dead creature id.",
+      "GROK: fix the 17 zone tests with a shared zoneFixtures helper, not 17 individual patches."
+    ],
+    "prime_audit_refuted": [
+      "GROK \"state/hazard.ts contains deletion paths\" - FABRICATED, file does not exist.",
+      "GEMINI \"add a guard to hazardPhysicsLoop.ts\" - FABRICATED, file does not exist.",
+      "GROK \"the 180-tick BUILD window\" - WRONG by 30x, PHASE_DURATION_TICKS is 5400.",
+      "GROK \"isInsideEnemyTerritory still called from botBrain and dragPreview after the swap\" - DOUBLE-COUNTED, those are sites 4 and 6 of the six.",
+      "GEMINI \"gatherer SHELTERED = 9 sites + bump\" - MIS-SIZED. Gatherer already has state: GathererState and is serialized full-fidelity. Union widening, not a new World field.",
+      "GEMINI \"NONET heavily wired into net/sudokuSync.ts, arcade leaks WebRTC\" - REFUTED, grep excluding tests returns nothing and the ctor takes only (app, onSubmit).",
+      "GEMINI \"mock a layout where the whole map is one zone for the 17 tests\" - REJECTED ON MERIT, would make 17 tests assert against a board no match is played on."
+    ]
+  },
+  "carry_forward_deferred_s149": {
+    "ruling": "R53 - owner cut P8 to buy P6+P7. EXPLICIT LOGGED DEFERRAL, not a silent drop.",
+    "still_shipping_this_session": "CF-S148-a (R22 quarry BUILD-only) - folded into P2.",
+    "deferred_to_S150": [
+      "CF-S147-b",
+      "CF-S147-c",
+      "CF-S148-b",
+      "CF-S148-c",
+      "CF-S148-d",
+      "CF1",
+      "CF3"
+    ]
+  }
 }

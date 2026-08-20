@@ -186,12 +186,32 @@ export function computeTerritorialRadius(playerId: PlayerId, world: World): numb
 }
 
 /**
+ * ⛔ S149 P1 — RETIRED AS THE BUILD-LEGALITY RULE. RETAINED, NOT DELETED. HAS NO PRODUCTION CALLER.
+ *
+ * ## Why it was retired
+ *
+ * This is an INFLUENCE BUBBLE, not a partition: an enemy's radius is derived from their structure
+ * complexity, so an enemy who has built nothing near `pos` projects R = 0 and the point is
+ * allowed. On an opening board nobody has built anything, so it allowed EVERY point to EVERY
+ * player. That is precisely the owner's playtest report — *"there are no walls it seems or player
+ * zones, players can build wherever"* — and it was never a bug in this function. It is a rule from
+ * the pre-tower-defence game, still faithfully implementing the design it was written for.
+ *
+ * All six former callers now use `zones.canBuildAt`, which asks the only question the tower-defence
+ * design has: is this the seat's own ground? See `buildLegalityGates.test.ts`, which pins all six.
+ *
+ * ## Why it is still here
+ *
+ * Owner ruling, S149: **delete nothing this session.** Retained deliberately and left exported +
+ * tested. ⚠ TO A FUTURE SESSION: do not "clean up" this function without a ruling, and do NOT wire
+ * it back into a build gate — `buildLegalityGates.test.ts` has a test named for the owner-reported
+ * defect that exists to fail if the bubble ever returns. The rest of this module is NOT retired:
+ * `computeTerritorialInfluence` still runs every tick and has eight live consumers.
+ *
+ * ---
+ *
  * Returns true if `pos` is inside any enemy player's territorial radius.
  * Enemy = any player whose color differs from the player at `localPlayerId`.
- *
- * Called by:
- *   - controls.ts LMB-up path (optimistic client gate, snapshot-lagged)
- *   - placePrimitive.ts (host-authoritative hard block)
  *
  * Performance: O(enemies × enemy_prims) per call. Pre-collects enemy
  * primitive positions once per call (not per distance check) per Council

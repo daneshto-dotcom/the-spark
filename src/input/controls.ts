@@ -55,7 +55,7 @@ import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
 import type { BombId, BondId, CreatureId, GathererId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 } from '../types.ts';
 import { pickRedundantBondTargets } from './redundantBondTargets.ts';
-import { isInsideEnemyTerritory } from '../state/territory.ts';
+import { canBuildAt } from '../state/zones.ts';
 
 /**
  * S15 P2 — dispatcher injection. Solo / host mode passes a fn that calls
@@ -588,7 +588,7 @@ export class Controls {
         // authoritative reach / spawner-zone / enemy-territory checks because
         // its snapshot-lagged world makes the local gates fire unreliably)
         // lives inside the helper. Zone + territory are probed ONLY for the
-        // host here, preserving the original short-circuit — isInsideEnemyTerritory
+        // host here, preserving the original short-circuit — canBuildAt
         // is never called in client mode.
         const gates = computeReleaseGates({
           isClient,
@@ -597,7 +597,10 @@ export class Controls {
           hostInZone: isClient ? false : this.isInsideSpawnerZone(spark.pos),
           hostInTerritory: isClient
             ? false
-            : isInsideEnemyTerritory(spark.pos, this.playerId, this.world),
+            : // ⭐ S149 P1 — zone partition, not influence bubble (see placePrimitive.ts). Note the
+              // NEGATION: the gate field is named `hostInTerritory` and means "refuse", whereas
+              // `canBuildAt` means "allow", so this arm must invert where the old call did not.
+              !canBuildAt(spark.pos, this.playerId, this.world.layout),
         });
         // S58 (#2) — release the LMB-down claim. DROP returns the spark to Free
         // + player to Idle, which (a) GUARANTEES every LMB-up exits the claim

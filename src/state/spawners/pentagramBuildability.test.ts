@@ -435,7 +435,15 @@ describe('pentagram BUILDABILITY via the REAL placement pipeline', () => {
     // Build 5 triangles with EXACTLY the ring bonds, bypassing the auto-bond sweep:
     // place each FAR apart (anchor, no bond), then we manually wire a clean ring.
     for (let i = 0; i < 5; i++) {
-      placeTriangleLikeAPlayer(world, { x: 200 + i * 300, y: 200 }); // 300px apart ⇒ no auto-bond
+      // ⭐ S149 P1 — RE-SPACED 300 → 180 SO THE ROW FITS INSIDE SEAT 0'S OWN HALF.
+      // P0 owns x < 960 on PITCH_2P under the zone partition, and five points 300 apart span
+      // 1200 px — the last two landed on seat 1's ground and were rightly refused, so `ids.length`
+      // came back 3 instead of 5. The spacing is not arbitrary and is not merely "> 60": the
+      // BINDING constraint here is MERGE_REACH_RADIUS (100), not AUTO_BOND_RADIUS (60), because
+      // `placeTriangleLikeAPlayer` also passes `mergeCandidateIds`. 180 clears both with margin and
+      // keeps the whole row at x ∈ [120, 840], well clear of the quarry. The
+      // `expect(world.bonds.size).toBe(0)` two lines below is what actually proves it.
+      placeTriangleLikeAPlayer(world, { x: 120 + i * 180, y: 200 });
     }
     const ids = Array.from(world.primitives.keys()).sort((a, b) => a - b);
     expect(ids.length).toBe(5);

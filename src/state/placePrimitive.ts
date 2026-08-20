@@ -36,7 +36,7 @@ import { bfsHopMap, componentOf, type Structure } from '../game/structure.ts';
 import type { Bond } from '../physics/bonds.ts';
 import { asBondId, asPrimitiveId, type PlayerId, type PrimitiveId, type Vec2 } from '../types.ts';
 import { isNetworked, requirePlayer, type World } from './world.ts';
-import { isInsideEnemyTerritory } from './territory.ts';
+import { canBuildAt } from './zones.ts';
 import { detectComboDiscoveries } from './comboDiscovery.ts';
 
 /** Action payload for PLACE_PRIMITIVE — exported so world.ts can compose GameAction. */
@@ -121,7 +121,12 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
   // radius. Carry is preserved (same pattern as spawner-zone rejection above).
   // controls.ts LMB-up path does an optimistic client-side pre-check that
   // mirrors this logic (snapshot-lagged); this is the authoritative backstop.
-  if (isInsideEnemyTerritory(spark.pos, action.playerId, world)) {
+  // ⭐ S149 P1 — THE ZONE PARTITION REPLACES THE INFLUENCE BUBBLE. `isInsideEnemyTerritory` asked
+  // "is this within an enemy's complexity-derived radius?", which returns FALSE for an enemy who
+  // has built nothing nearby (R = 0) — so on an empty board anyone could build anywhere, which is
+  // exactly the owner's playtest report. `canBuildAt` asks the only question the tower-defence
+  // design has: IS THIS MY GROUND? It fails CLOSED on the shared quarry and on a seat with no zone.
+  if (!canBuildAt(spark.pos, action.playerId, world.layout)) {
     world.diagnostics.territoryBlockRejects++;
     return world;
   }

@@ -132,11 +132,19 @@ test.describe('S71 P1 — pickup bomb (solo, gating)', () => {
 
     // Build a small same-color cluster OUTSIDE the spawner zone. All three points are
     // pairwise within AUTO_BOND_RADIUS=60, so they auto-bond into a >=2-bond structure
-    // (same coords as smoke.spec.ts Sym F). placeFreeSparkAndConfirm waits for an
-    // in-zone spark + confirms each placement landed (host-authoritative round-trip).
-    await placeFreeSparkAndConfirm(page, 1500, 400);
-    await placeFreeSparkAndConfirm(page, 1530, 410);
-    await placeFreeSparkAndConfirm(page, 1490, 380);
+    // placeFreeSparkAndConfirm waits for an in-zone spark + confirms each placement landed
+    // (host-authoritative round-trip).
+    //
+    // ⭐ S149 P1 — MIRRORED FROM x≈1500 TO x≈430. The old comment said "same coords as
+    // smoke.spec.ts Sym F", and that borrowing is exactly how this broke: in smoke.spec the placer
+    // is the JOINER (seat 1), who owns the RIGHT half of the pitch, so x=1500 is its own ground.
+    // Here the placer is SOLO — seat 0 — which owns the LEFT half, so under the zone partition all
+    // three placements were refused and the cluster never bonded. Translated by −1080, so every
+    // pairwise distance (and therefore the AUTO_BOND_RADIUS=60 auto-bonding this test depends on)
+    // is bit-for-bit unchanged.
+    await placeFreeSparkAndConfirm(page, 420, 400);
+    await placeFreeSparkAndConfirm(page, 450, 410);
+    await placeFreeSparkAndConfirm(page, 410, 380);
     await waitForWorld(page, (w) => w.bonds.length >= 2, 'cluster auto-bonded (>=2 bonds)');
     const beforeBonds = (await readWorldState(page)).bonds.length;
 

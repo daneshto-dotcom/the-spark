@@ -92,7 +92,10 @@ test.describe('S75 P3 — rainbow color-shuffle (solo, gating)', () => {
 
     // Place a primitive (outside the spawn zone) so we can prove the STRUCTURE recolours, not just
     // the avatar. In solo the placer is P0, so its placerColor == P0's colour.
-    await placeFreeSparkAndConfirm(page, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 360);
+    // ⭐ S149 P1 — x moved from CANVAS_WIDTH/2 to CANVAS_WIDTH/4: dead centre is ON the pitch split,
+    // which the border convention awards to the HIGHER-indexed zone, so solo P0 (LEFT half) was
+    // refused there. See hunter.spec.ts for the same repair.
+    await placeFreeSparkAndConfirm(page, CANVAS_WIDTH / 4, CANVAS_HEIGHT / 2 - 360);
     const before = await readRainbow(page);
     expect(before.p0Color, 'P0 has a colour').not.toBeUndefined();
     expect(before.firstPrimPlacer, 'the placed prim is owned by P0 (same colour)').toBe(before.p0Color);

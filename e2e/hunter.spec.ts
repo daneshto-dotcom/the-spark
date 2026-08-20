@@ -112,7 +112,11 @@ test.describe('S72 P2 — Pac-Man hunter (solo, gating)', () => {
     await waitForWorld(page, (w) => w.gameState === 'PLAYING' && w.gameMode === 'solo', 'PLAYING (solo)');
 
     // Place one primitive outside the spawner zone (exercises the place wiring + gives P0 complexity).
-    await placeFreeSparkAndConfirm(page, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 360);
+    // ⭐ S149 P1 — x moved from CANVAS_WIDTH/2 to CANVAS_WIDTH/4. Dead centre is ON the pitch split,
+    // and the border convention gives a point exactly on a split line to the HIGHER-indexed zone —
+    // so x=960 is seat 1's ground, and solo P0 (seat 0, LEFT half) was refused. Nothing here cares
+    // where the prim sits, only that it exists and is outside the quarry.
+    await placeFreeSparkAndConfirm(page, CANVAS_WIDTH / 4, CANVAS_HEIGHT / 2 - 360);
 
     // S78 — the income rate was cut 3x (0.15->0.05) for game-length tuning, which tripled the SIM-time
     // for natural accrual to cross the trigger (complexity-1 → score 1 is now ~20s sim, far worse under

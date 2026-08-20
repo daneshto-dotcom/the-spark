@@ -25,9 +25,18 @@ import {
   type PlayerId,
 } from '../types.ts';
 import { BotManager } from './botManager.ts';
+import { ownZonePoint } from '../state/zones.fixtures.ts';
 
 const BOT = asPlayerId(1);
 const ENEMY = asPlayerId(2);
+
+// ⭐ S149 P1 — three seats ⇒ QUADRANTS_4P, and ENEMY (seat 2) owns the BOTTOM-RIGHT quadrant.
+// These fixtures placed its structure at `SPAWNER_CENTER_X - 42x` ("the west side"), which is
+// zone 3 — enemy ground for seat 2 under the zone partition, though the old influence bubble
+// allowed it. The tests are about the bot's SEVER verb and its charge economy, not territory, so
+// the structure simply moves onto its owner's real ground.
+const L = 'QUADRANTS_4P' as const;
+const ENEMY_GROUND = ownZonePoint(ENEMY, L);
 
 function botsWorld(seed = 0xabc): World {
   const world = makeWorld(seed);
@@ -82,8 +91,8 @@ describe('S87 P3 — disruptive/reactive bot behaviors (real pipeline)', () => {
   it('a charged IMBA bot cruises to an enemy bond and SEVERS it', () => {
     const world = botsWorld();
     // Enemy structure: two bonded prims on the west side.
-    placePrimFor(world, ENEMY, SPAWNER_CENTER_X - 420, SPAWNER_CENTER_Y, 60);
-    placePrimFor(world, ENEMY, SPAWNER_CENTER_X - 462, SPAWNER_CENTER_Y, 61);
+    placePrimFor(world, ENEMY, ENEMY_GROUND.x, ENEMY_GROUND.y, 60);
+    placePrimFor(world, ENEMY, ENEMY_GROUND.x - 42, ENEMY_GROUND.y, 61);
     const enemyBonds = [...world.bonds.values()].filter((b) => {
       const a = world.primitives.get(b.aId);
       return a !== undefined && a.placedBy === ENEMY;
@@ -100,8 +109,8 @@ describe('S87 P3 — disruptive/reactive bot behaviors (real pipeline)', () => {
 
   it('an uncharged bot never severs (the charge economy binds bots)', () => {
     const world = botsWorld();
-    placePrimFor(world, ENEMY, SPAWNER_CENTER_X - 420, SPAWNER_CENTER_Y, 60);
-    placePrimFor(world, ENEMY, SPAWNER_CENTER_X - 462, SPAWNER_CENTER_Y, 61);
+    placePrimFor(world, ENEMY, ENEMY_GROUND.x, ENEMY_GROUND.y, 60);
+    placePrimFor(world, ENEMY, ENEMY_GROUND.x - 42, ENEMY_GROUND.y, 61);
     const bondCount = world.bonds.size;
     const manager = new BotManager(['IMBA'], 0xabc);
     run(world, manager, 60 * 10);

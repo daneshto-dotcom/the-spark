@@ -15,6 +15,7 @@ import {
 } from '../constants.ts';
 import { bankAdd, porchSlot } from '../state/castleBank.ts';
 import { zoneCount } from '../state/zones.ts';
+import { nearOwnZonePoint, ownZonePoint } from '../state/zones.fixtures.ts';
 import { makeHunter } from '../state/hunters/hunter.ts';
 import { mulberry32 } from '../state/rng.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
@@ -32,6 +33,18 @@ import {
 const SEAT = asPlayerId(1);
 // S148 P1 - bots play the quadrant board (a bots match seats 1 human + up to 3 bots).
 const L = 'QUADRANTS_4P' as const;
+
+// ⭐ S149 P1 — PLACEMENTS MUST SIT ON THE PLACING SEAT'S OWN GROUND. These fixtures used
+// `SPAWNER_CENTER ± N` offsets, which the old influence-bubble legality allowed for anybody. Under
+// the zone partition those points land in zone 2 (bottom-right) or zone 3 (bottom-left) regardless
+// of who is placing — note `SPAWNER_CENTER_Y` is exactly the split, and the border convention gives
+// a point ON a split line to the HIGHER-indexed side, so y=540 is always "bottom". SEAT 1 owns the
+// TOP-right quadrant, so every one of its placements was enemy ground. None of these tests is about
+// territory; the offsets were only ever "somewhere outside the quarry".
+const SEAT_GROUND = ownZonePoint(SEAT, L);
+/** The enemy these fixtures use — seat 2, the bottom-right quadrant. */
+const ENEMY_SEAT = asPlayerId(2);
+const ENEMY_GROUND = ownZonePoint(ENEMY_SEAT, L);
 
 function botsWorld(botCount = 2): World {
   const world = makeWorld(11);
@@ -142,7 +155,7 @@ describe('S87 botBrain.chooseGoal — priority arbitration', () => {
 
   it('CLEANs its own fouled structure (HARD+), ignores enemy splats', () => {
     const world = botsWorld();
-    placeOwnPrim(world, SEAT, SPAWNER_CENTER_X + 400, SPAWNER_CENTER_Y, 50);
+    placeOwnPrim(world, SEAT, SEAT_GROUND.x, SEAT_GROUND.y, 50);
     const ownPrim = [...world.primitives.values()].find((p) => p.placedBy === SEAT)!;
     world.poops.set(asPoopId(0), {
       id: asPoopId(0),
@@ -159,8 +172,8 @@ describe('S87 botBrain.chooseGoal — priority arbitration', () => {
     const world = botsWorld();
     // Enemy (seat 2) builds two bonded prims.
     const enemy = asPlayerId(2);
-    placeOwnPrim(world, enemy, SPAWNER_CENTER_X - 400, SPAWNER_CENTER_Y, 60);
-    placeOwnPrim(world, enemy, SPAWNER_CENTER_X - 440, SPAWNER_CENTER_Y, 61);
+    placeOwnPrim(world, enemy, ENEMY_GROUND.x, ENEMY_GROUND.y, 60);
+    placeOwnPrim(world, enemy, ENEMY_GROUND.x - 40, ENEMY_GROUND.y, 61);
     expect(world.bonds.size).toBeGreaterThan(0);
     const me = world.players.get(SEAT)!;
     me.disruptionCharges = 1;
@@ -172,8 +185,8 @@ describe('S87 botBrain.chooseGoal — priority arbitration', () => {
   it('never SEVERs without a charge', () => {
     const world = botsWorld();
     const enemy = asPlayerId(2);
-    placeOwnPrim(world, enemy, SPAWNER_CENTER_X - 400, SPAWNER_CENTER_Y, 60);
-    placeOwnPrim(world, enemy, SPAWNER_CENTER_X - 440, SPAWNER_CENTER_Y, 61);
+    placeOwnPrim(world, enemy, ENEMY_GROUND.x, ENEMY_GROUND.y, 60);
+    placeOwnPrim(world, enemy, ENEMY_GROUND.x - 40, ENEMY_GROUND.y, 61);
     const goal = chooseGoal(world, SEAT, BOT_CONFIGS.IMBA, mulberry32(7), false);
     expect(goal.kind).not.toBe('SEVER');
   });
@@ -190,7 +203,7 @@ describe('S87 botBrain — build placement', () => {
 
   it('growth placement lands within bond range of an own prim (smart)', () => {
     const world = botsWorld();
-    placeOwnPrim(world, SEAT, SPAWNER_CENTER_X + 420, SPAWNER_CENTER_Y, 70);
+    placeOwnPrim(world, SEAT, SEAT_GROUND.x, SEAT_GROUND.y, 70);
     const own = [...world.primitives.values()].find((p) => p.placedBy === SEAT)!;
     const pos = chooseBuildPos(world, SEAT, 3, BOT_CONFIGS.IMBA, mulberry32(3));
     const d = Math.hypot(pos.x - own.pos.x, pos.y - own.pos.y);
@@ -254,8 +267,8 @@ describe('S87 botBrain — helpers', () => {
 
   it('nearestEnemyBond skips own bonds', () => {
     const world = botsWorld();
-    placeOwnPrim(world, SEAT, SPAWNER_CENTER_X + 420, SPAWNER_CENTER_Y, 80);
-    placeOwnPrim(world, SEAT, SPAWNER_CENTER_X + 460, SPAWNER_CENTER_Y, 81);
+    placeOwnPrim(world, SEAT, SEAT_GROUND.x, SEAT_GROUND.y, 80);
+    placeOwnPrim(world, SEAT, nearOwnZonePoint(SEAT, L, 40, 0).x, SEAT_GROUND.y, 81);
     expect(world.bonds.size).toBeGreaterThan(0);
     expect(nearestEnemyBond(world, SEAT, { x: 0, y: 0 })).toBeNull();
   });

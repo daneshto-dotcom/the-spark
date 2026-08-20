@@ -27,11 +27,23 @@ import { PHASE_1_WIN_SCORE, PHYSICS_HZ, PLAYER_COLORS, SparkType,
 import { makeFreeSpark } from './spark.ts';
 import { asPlayerId, asSparkId, type PrimitiveId } from '../types.ts';
 import { addScore, dispatch, makeWorld } from '../state/world.ts';
+import { ownZonePoint } from '../state/zones.fixtures.ts';
 import { makeGameStateExtras, tickGameState } from '../state/gameState.ts';
 import { snapshot, restore } from '../state/save.ts';
 
 const P1 = asPlayerId(0);
 const P2 = asPlayerId(1);
+
+// ⭐ S149 P1 — P2 IS SEAT 1, AND SEAT 1 OWNS THE RIGHT HALF OF THE PITCH.
+// These 1v1 fixtures placed P2 at (700, 400) — chosen only as "outside the spawner zone", which
+// was the entire legality bar under the old influence bubble. Under the zone partition x=700 is
+// seat 0's ground, so every P2 placement below was correctly refused. None of these tests is about
+// territory: they assert that a SECOND player can act at all in real time (no active-player gate),
+// that a joiner's own prims auto-bond, and that a stale target id is rejected without throwing.
+// Re-sited onto seat 1's real ground; the A→B offset that drives the auto-bond case is preserved
+// exactly (30, 10) ⇒ 31.6 px, comfortably inside AUTO_BOND_RADIUS = 60.
+const P2_POS_A = { x: ownZonePoint(P2, 'PITCH_2P').x, y: 400 }; // (1380, 400)
+const P2_POS_B = { x: P2_POS_A.x + 30, y: P2_POS_A.y + 10 }; // (1410, 410)
 const PHYSICS_DT = 1 / PHYSICS_HZ;
 
 function placeAnchor(world: ReturnType<typeof makeWorld>, sparkRawId: number, playerId = P1, x = 100, y = 100): PrimitiveId {
@@ -228,7 +240,7 @@ describe('S42 — 1v1 real-time: both players can act simultaneously', () => {
     const s = makeFreeSpark({
       id: asSparkId(0),
       type: SparkType.Dot,
-      pos: { x: 700, y: 400 }, // outside spawner zone
+      pos: { ...P2_POS_A }, // outside the quarry AND on seat 1's own ground
       velocity: { x: 0, y: 0 },
       dt: PHYSICS_DT,
       createdTick: 0,
@@ -257,18 +269,18 @@ describe('S42 — 1v1 real-time: both players can act simultaneously', () => {
     const w = makeWorld(0);
     dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
 
-    // First placement: P2 places a blue prim at (700, 400).
+    // First placement: P2 places a blue prim at P2_POS_A.
     const s1 = makeFreeSpark({
       id: asSparkId(1),
       type: SparkType.Dot,
-      pos: { x: 700, y: 400 },
+      pos: { ...P2_POS_A },
       velocity: { x: 0, y: 0 },
       dt: PHYSICS_DT,
       createdTick: 0,
     });
     dispatch(w, { type: 'SPAWN_SPARK', spark: s1 });
-    dispatch(w, { type: 'UPDATE_AVATAR_POS', playerId: P2, pos: { x: 700, y: 400 } });
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s1.id, playerId: P2, pos: { x: 700, y: 400 } });
+    dispatch(w, { type: 'UPDATE_AVATAR_POS', playerId: P2, pos: { ...P2_POS_A } });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s1.id, playerId: P2, pos: { ...P2_POS_A } });
     dispatch(w, {
       type: 'PLACE_PRIMITIVE',
       playerId: P2,
@@ -278,19 +290,19 @@ describe('S42 — 1v1 real-time: both players can act simultaneously', () => {
     const firstPrimId = [...w.primitives.keys()][0];
     expect(w.primitives.size).toBe(1);
 
-    // Second placement: P2 places a blue prim at (730, 410) — within
-    // AUTO_BOND_RADIUS=60 of (700, 400). Must bond same-color.
+    // Second placement: P2 places a blue prim at P2_POS_B — within
+    // AUTO_BOND_RADIUS=60 of P2_POS_A. Must bond same-color.
     const s2 = makeFreeSpark({
       id: asSparkId(2),
       type: SparkType.Dot,
-      pos: { x: 730, y: 410 },
+      pos: { ...P2_POS_B },
       velocity: { x: 0, y: 0 },
       dt: PHYSICS_DT,
       createdTick: 0,
     });
     dispatch(w, { type: 'SPAWN_SPARK', spark: s2 });
-    dispatch(w, { type: 'UPDATE_AVATAR_POS', playerId: P2, pos: { x: 730, y: 410 } });
-    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s2.id, playerId: P2, pos: { x: 730, y: 410 } });
+    dispatch(w, { type: 'UPDATE_AVATAR_POS', playerId: P2, pos: { ...P2_POS_B } });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: s2.id, playerId: P2, pos: { ...P2_POS_B } });
     dispatch(w, {
       type: 'PLACE_PRIMITIVE',
       playerId: P2,
@@ -634,7 +646,7 @@ describe('S42 — real-time race resolution', () => {
     const s = makeFreeSpark({
       id: asSparkId(0),
       type: SparkType.Dot,
-      pos: { x: 700, y: 400 }, // outside spawner zone
+      pos: { ...P2_POS_A }, // outside the quarry AND on seat 1's own ground
       velocity: { x: 0, y: 0 },
       dt: PHYSICS_DT,
       createdTick: 0,

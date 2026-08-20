@@ -22,6 +22,12 @@ import {
   zoneOwner,
   type ZoneLayout,
 } from './zones.ts';
+import {
+  enemyZonePoint,
+  nearOwnZonePoint,
+  ownZonePoint,
+  QUARRY_POINT,
+} from './zones.fixtures.ts';
 
 const LAYOUTS: readonly ZoneLayout[] = ['PITCH_2P', 'QUADRANTS_4P'];
 const SPLIT_X = CANVAS_WIDTH / 2; // 960
@@ -228,6 +234,78 @@ describe('S148 P1 — the anchors clear the HUD, and one of them barely', () => 
       const depositY = a.y + GATHERER_DEPOSIT_OFFSET_Y;
       expect(depositY).toBeGreaterThan(FOOTER_TOP_Y);
       expect(depositY).toBeLessThan(CANVAS_HEIGHT); // still on the board
+    }
+  });
+});
+
+/**
+ * S149 P1 — THE FIXTURES THAT REPAIR THE 17 BROKEN TESTS ARE THEMSELVES PROVEN HERE.
+ *
+ * `zones.fixtures.ts` exists so eight test files stop hardcoding board coordinates. That only
+ * helps if the fixtures are actually legal — a fixture that quietly sat in the quarry would turn
+ * 17 honest failures into 17 tests passing for the wrong reason, which is strictly worse than the
+ * failures. So every guarantee the fixture docblock claims is asserted below, on every board, for
+ * every seat.
+ */
+describe('S149 P1 — zone fixtures are legal on every board, for every seat', () => {
+  for (const layout of LAYOUTS) {
+    for (let seat = 0; seat < zoneCount(layout); seat++) {
+      it(`${layout} seat ${seat} — ownZonePoint is buildable by its own seat`, () => {
+        expect(canBuildAt(ownZonePoint(seat, layout), seat, layout)).toBe(true);
+      });
+
+      it(`${layout} seat ${seat} — ownZonePoint sits in the seat's OWN zone, not merely a legal one`, () => {
+        expect(zoneOf(ownZonePoint(seat, layout), layout)).toBe(zoneOwner(seat, layout));
+      });
+
+      it(`${layout} seat ${seat} — ownZonePoint clears the quarry with real margin`, () => {
+        const p = ownZonePoint(seat, layout);
+        const dx = p.x - SPAWNER_CENTER_X;
+        const dy = p.y - SPAWNER_CENTER_Y;
+        // Not just outside — outside by more than the radius again, so a test that nudges a
+        // fixture by a bond radius cannot silently fall in.
+        expect(Math.hypot(dx, dy)).toBeGreaterThan(SPAWNER_RADIUS * 2);
+      });
+
+      it(`${layout} seat ${seat} — ownZonePoint is on the board`, () => {
+        const p = ownZonePoint(seat, layout);
+        expect(p.x).toBeGreaterThan(0);
+        expect(p.x).toBeLessThan(CANVAS_WIDTH);
+        expect(p.y).toBeGreaterThan(0);
+        expect(p.y).toBeLessThan(CANVAS_HEIGHT);
+      });
+
+      it(`${layout} seat ${seat} — ownZonePoint is NOT the castle anchor (it would collide with the keep)`, () => {
+        const p = ownZonePoint(seat, layout);
+        const a = zoneCastleAnchor(seat, layout);
+        expect(Math.hypot(p.x - a.x, p.y - a.y)).toBeGreaterThan(KEEP_W);
+      });
+
+      it(`${layout} seat ${seat} — enemyZonePoint is REFUSED to this seat (the positive control)`, () => {
+        expect(canBuildAt(enemyZonePoint(seat, layout), seat, layout)).toBe(false);
+      });
+
+      it(`${layout} seat ${seat} — the quarry is refused (the other positive control)`, () => {
+        expect(canBuildAt(QUARRY_POINT, seat, layout)).toBe(false);
+      });
+
+      it(`${layout} seat ${seat} — a bond-radius nudge in any direction stays legal`, () => {
+        // The reason `nearOwnZonePoint` is safe for the auto-bond tests that need two points
+        // close together. 60 px is comfortably above AUTO_BOND_RADIUS' working range.
+        for (const [dx, dy] of [[60, 0], [-60, 0], [0, 60], [0, -60]] as const) {
+          expect(canBuildAt(nearOwnZonePoint(seat, layout, dx, dy), seat, layout)).toBe(true);
+        }
+      });
+    }
+  }
+
+  it('enemyZonePoint never coincides with ownZonePoint on any board', () => {
+    for (const layout of LAYOUTS) {
+      for (let seat = 0; seat < zoneCount(layout); seat++) {
+        const own = ownZonePoint(seat, layout);
+        const foe = enemyZonePoint(seat, layout);
+        expect(own.x === foe.x && own.y === foe.y).toBe(false);
+      }
     }
   });
 });

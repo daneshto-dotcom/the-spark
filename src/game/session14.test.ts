@@ -653,7 +653,12 @@ describe('S14 P2.1 — DEV invariant validation', () => {
     const c0 = placeAt(world, { sparkRawId: 1, type: SparkType.Dot, pos: { x: 500, y: 500 }, targetId: null });
     const c1 = placeAt(world, { sparkRawId: 2, type: SparkType.Dot, pos: { x: 470, y: 500 }, targetId: c0 });
     // c2 is in a SEPARATE component (placed as anchor far away).
-    const c2 = placeAt(world, { sparkRawId: 3, type: SparkType.Dot, pos: { x: 1000, y: 1000 }, targetId: null });
+    // ⭐ S149 P1 — MOVED (1000,1000) → (200,900). P1_ID is seat 0, which owns x < 960 on PITCH_2P,
+    // so the old x=1000 was seat 1's ground and the anchor was silently never placed — `placeAt`
+    // then failed its own `expect(placedId).toBeDefined()`. All this point has to be is FAR from
+    // the (500,500) cluster so it forms its own component: 500 px away, versus the 100 px
+    // MERGE_REACH_RADIUS that would have joined them.
+    const c2 = placeAt(world, { sparkRawId: 3, type: SparkType.Dot, pos: { x: 200, y: 900 }, targetId: null });
 
     const beforeBonds = world.bonds.size;
     const newP = placeAt(world, {

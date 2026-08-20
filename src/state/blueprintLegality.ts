@@ -32,7 +32,7 @@ import {
   SPAWNER_RADIUS,
 } from '../constants.ts';
 import { blueprintPositions, blueprintRadius } from './blueprints.ts';
-import { isInsideEnemyTerritory } from './territory.ts';
+import { canBuildAt } from './zones.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
 import type { World } from './worldTypes.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
@@ -81,7 +81,12 @@ export function stampRefusalAt(
   // 3. Not inside an opponent's territory — the same gate single-primitive placement enforces
   //    (`computePreviewBonds` returns EMPTY there), so click-to-build cannot become a way to plant
   //    structures somewhere hand-building cannot reach.
-  if (isInsideEnemyTerritory(centre, playerId, world)) return 'ENEMY GROUND';
+  // ⭐ S149 P1 — zone partition, not influence bubble (see placePrimitive.ts). The QUARRY arm above
+  // deliberately stays and stays FIRST: it is footprint-aware (`SPAWNER_RADIUS + r`) where
+  // `canBuildAt` tests the centre only, so it is the stricter test AND it gives the player the
+  // accurate refusal word. Reaching `canBuildAt`'s own quarry arm from here is therefore
+  // unreachable-by-construction rather than redundant.
+  if (!canBuildAt(centre, playerId, world.layout)) return 'ENEMY GROUND';
 
   // 4. Clear of existing geometry, by bond reach rather than by overlap — see the file docblock.
   //    AUTO_BOND_RADIUS is the margin because that is the distance at which a future placement could

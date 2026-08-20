@@ -188,7 +188,13 @@ describe('world dispatch seam (§ 10.2)', () => {
     const s = makeFreeSpark({
       id: asSparkId(0),
       type: SparkType.Dot,
-      pos: { x: SPAWNER_CENTER_X + 250, y: SPAWNER_CENTER_Y }, // exactly on ring
+      // S149 P1 — MIRRORED from +250 to -250. This test is the positive half of the pair above:
+      // dead centre is refused, clear of the quarry is allowed. Only the DISTANCE from the quarry
+      // centre is load-bearing, never the direction — and `makeWorld` opens on PITCH_2P where P1
+      // (seat 0) owns the LEFT half, so +250 became enemy ground under the zone partition.
+      // ⚠ The old trailing comment claimed "exactly on ring"; it was already stale, since
+      // SPAWNER_RADIUS is 125, not 250. 250 is simply comfortably outside.
+      pos: { x: SPAWNER_CENTER_X - 250, y: SPAWNER_CENTER_Y },
       velocity: { x: 0, y: 0 },
       dt: DT,
       createdTick: 0,

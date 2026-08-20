@@ -20,10 +20,22 @@ import type { Spark } from '../game/spark.ts';
 import { asPlayerId, asPrimitiveId, asSparkId, type PrimitiveId } from '../types.ts';
 import { applyPlaceFromFree } from './placeFromFree.ts';
 import { makeWorld } from './world.ts';
+import { ownZonePoint } from './zones.fixtures.ts';
 import { computeComplexity } from './scoring.ts';
 
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
+
+// ⭐ S149 P1 — THE JOINER IS SEAT 1, AND SEAT 1 OWNS THE RIGHT HALF OF THE PITCH.
+// The re-pick fixtures below placed P1 at x=600, which the old influence-bubble legality allowed
+// (nobody had built near it) and which the zone partition correctly refuses. Neither test is about
+// territory — both assert that a HOST re-picks the bond target and ignores the joiner's claim — so
+// the whole cluster moves onto seat 1's own ground, preserving every distance that matters:
+// PLACE→NEAR is 20px (inside AUTO_BOND_RADIUS=60) and PLACE→FAR is 400px (well outside).
+const JOINER_GROUND_X = ownZonePoint(1, 'PITCH_2P').x; // 1380
+const PLACE_POS = { x: JOINER_GROUND_X, y: 400 };
+const NEAR_PRIM_X = JOINER_GROUND_X + 20;
+const FAR_PRIM_X = JOINER_GROUND_X + 400;
 const RED = PLAYER_COLORS[0];
 const CYAN = PLAYER_COLORS[1];
 
@@ -49,14 +61,27 @@ function setupSolo() {
   return { world, spark };
 }
 
-function setup1v1Host() {
+/**
+ * S149 P1 — `joinerAvatar` is now a parameter, defaulting to the historical (600, 400).
+ *
+ * ⚠ WHY A PARAMETER RATHER THAN JUST MOVING IT. A remote-origin placement must pass TWO
+ * independent gates: `isValidPlacementPos` (≤250 px from the joiner's avatar) and, since this
+ * session, `canBuildAt`. The re-pick tests below had to move onto seat 1's ground to clear the
+ * second gate — and moving the placement without the avatar would have made them fail the FIRST
+ * one instead, which looks identical from the assertion (`primitives.size` short by one) and would
+ * have been "fixed" by loosening the wrong thing. Meanwhile the atomicity test further down NEEDS
+ * the old avatar, because it asserts a placement at x=600 is refused specifically as enemy ground
+ * (`territoryBlockRejects === 1`); moving its avatar would have made it refuse on REACH instead
+ * and pass while asserting nothing about territory.
+ */
+function setup1v1Host(joinerAvatar: { x: number; y: number } = { x: 600, y: 400 }) {
   const world = makeWorld(0);
   world.gameMode = '1v1';
   world.gameState = 'PLAYING';
   world.isHost = true;
   world.localPlayerId = P0;
   // Host's P0 already populated by makeWorld; add joiner P1.
-  const p1 = makeIdlePlayer(P1, CYAN, { x: 600, y: 400 });
+  const p1 = makeIdlePlayer(P1, CYAN, { ...joinerAvatar });
   world.players.set(P1, p1);
   world.scoreByPlayer.set(P1, 0);
   const spark = makeFreeSpark(1, 600, 600);
@@ -253,7 +278,7 @@ describe('applyPlaceFromFree — reject paths leave spark Free + player Idle', (
 
 describe('applyPlaceFromFree — remote-origin target/merge re-pick (Council C2)', () => {
   it("ignores joiner's targetPrimitiveId; host picks from authoritative world", () => {
-    const { world, spark } = setup1v1Host();
+    const { world, spark } = setup1v1Host(PLACE_POS); // avatar travels with the placement
     // Plant TWO same-color primitives that joiner doesn't know about. Place
     // close to one of them; host should re-pick that one as the target.
     const hostPrimA = {
@@ -262,8 +287,8 @@ describe('applyPlaceFromFree — remote-origin target/merge re-pick (Council C2)
       placerColor: CYAN,
       placedBy: P1,
       createdTick: 0,
-      pos: { x: 620, y: 400 }, // close to placement (within AUTO_BOND_RADIUS=60)
-      prevPos: { x: 620, y: 400 },
+      pos: { x: NEAR_PRIM_X, y: 400 }, // close to placement (within AUTO_BOND_RADIUS=60)
+      prevPos: { x: NEAR_PRIM_X, y: 400 },
       bonds: new Set<never>(),
       ownerColor: CYAN,
       lastOwnershipChange: 0,
@@ -275,8 +300,8 @@ describe('applyPlaceFromFree — remote-origin target/merge re-pick (Council C2)
       placerColor: CYAN,
       placedBy: P1,
       createdTick: 0,
-      pos: { x: 1000, y: 400 }, // far from placement
-      prevPos: { x: 1000, y: 400 },
+      pos: { x: FAR_PRIM_X, y: 400 }, // far from placement
+      prevPos: { x: FAR_PRIM_X, y: 400 },
       bonds: new Set<never>(),
       ownerColor: CYAN,
       lastOwnershipChange: 0,
@@ -287,12 +312,12 @@ describe('applyPlaceFromFree — remote-origin target/merge re-pick (Council C2)
 
     // Joiner places near hostPrimA but supplies targetPrimitiveId=null
     // (joiner's local map hadn't yet received either prim).
-    spark.pos = { x: 600, y: 400 };
+    spark.pos = { ...PLACE_POS };
     applyPlaceFromFree(world, {
       type: 'PLACE_FROM_FREE',
       sparkId: spark.id,
       playerId: P1, // joiner
-      placementPos: { x: 600, y: 400 },
+      placementPos: { ...PLACE_POS },
       stiffnessTier: 'MID',
       targetPrimitiveId: null,
     });
@@ -307,15 +332,15 @@ describe('applyPlaceFromFree — remote-origin target/merge re-pick (Council C2)
   });
 
   it("remote-origin: even if joiner supplies a STALE targetPrimitiveId, host re-picks", () => {
-    const { world, spark } = setup1v1Host();
+    const { world, spark } = setup1v1Host(PLACE_POS); // avatar travels with the placement
     const hostPrim = {
       id: asPrimitiveId(50),
       type: SparkType.Dot,
       placerColor: CYAN,
       placedBy: P1,
       createdTick: 0,
-      pos: { x: 620, y: 400 },
-      prevPos: { x: 620, y: 400 },
+      pos: { x: NEAR_PRIM_X, y: 400 },
+      prevPos: { x: NEAR_PRIM_X, y: 400 },
       bonds: new Set<never>(),
       ownerColor: CYAN,
       lastOwnershipChange: 0,
@@ -323,14 +348,14 @@ describe('applyPlaceFromFree — remote-origin target/merge re-pick (Council C2)
     };
     world.primitives.set(hostPrim.id, hostPrim as never);
 
-    spark.pos = { x: 600, y: 400 };
+    spark.pos = { ...PLACE_POS };
     // Joiner sends a stale/wrong id (some prim that no longer exists). For
     // remote-origin, host IGNORES this and re-picks against its own world.
     applyPlaceFromFree(world, {
       type: 'PLACE_FROM_FREE',
       sparkId: spark.id,
       playerId: P1,
-      placementPos: { x: 600, y: 400 },
+      placementPos: { ...PLACE_POS },
       stiffnessTier: 'MID',
       targetPrimitiveId: asPrimitiveId(99999), // joiner's stale claim
     });
@@ -349,8 +374,14 @@ describe('applyPlaceFromFree — remote-origin target/merge re-pick (Council C2)
 describe('applyPlaceFromFree — atomicity (the S52 P1 contract)', () => {
   it('territory-rejected placement does NOT leave joiner in Carrying state', () => {
     const { world, spark } = setup1v1Host();
-    // Place a host-color primitive establishing a territorial radius around it
-    // — joiner placing nearby should be inside enemy territory.
+    // ⚠ S149 P1 — THIS TEST STILL PASSES, BUT NO LONGER FOR THE REASON IT ORIGINALLY DID, and
+    // saying so matters more than the green tick. It used to reject because this host-colour prim
+    // projected a territorial RADIUS that the joiner's placement fell inside. Under the zone
+    // partition the rejection comes from the GROUND: x=600 is the LEFT half of the pitch, which
+    // seat 0 owns and seat 1 (the joiner) may not build on — the prim below is now incidental to
+    // the refusal rather than the cause of it. Deliberately left in place: what this test actually
+    // asserts is ATOMICITY (a refused placement leaves nobody stuck in `Carrying`), which is
+    // unchanged and still worth pinning, and x=600 is still genuinely enemy ground for P1.
     const hostTerritoryPrim = {
       id: asPrimitiveId(50),
       type: SparkType.Dot,
