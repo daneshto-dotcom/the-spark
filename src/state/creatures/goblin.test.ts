@@ -58,6 +58,17 @@ function make1v1(): World {
   const w = makeWorld(0x9111);
   dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
   w.gameState = 'PLAYING';
+  // ⭐ S149 P3 — PIN THE FIGHT PHASE. Creatures are now dormant outside FIGHT: during BUILD the
+  // host tick does not fan out CREATURE_TICK at all, so a goblin neither closes on a target nor
+  // dispatches CREATURE_ATTACK, and the acceptance test below ("closes on an enemy shape and
+  // actually REDUCES its hp") measured a creature that was correctly doing nothing.
+  //
+  // ⚠ AN EQUIVALENCE STATEMENT, NOT A WORKAROUND — the same move the S119 differential gate makes
+  // for scoring. `START_GAME` opens every match in BUILD (Q12), but the behaviour these tests
+  // exercise is COMBAT, and the phase in which combat happens IS `FIGHT`. Pinning it is what makes
+  // the fixture describe the situation the assertions are about. Laundering would be relaxing the
+  // dormancy guard so the test passed in BUILD, which would put back the defect P2/P3 just closed.
+  w.matchPhase = 'FIGHT';
   return w;
 }
 

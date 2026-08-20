@@ -184,22 +184,28 @@ test.describe('S57 Fog of War — client-side render mask', () => {
     // leading underscore. Order is main.ts's construction order; keep them in sync.
     expect(r.aboveIdx).toBeGreaterThan(r.fogIdx);
     expect(r.aboveFogChildNames).toEqual([
-      '_Graphics',  //  0 — spawnerZoneRenderer          (main.ts:486, S100 P1)
-      '_Container', //  1 — creatureRenderer.container   (main.ts:489, S25 P0 → S77 P2)
-      '_Graphics',  //  2 — creatureRenderer.cloudGfx    (S103 P1 lightning cloud)
-      '_Graphics',  //  3 — chewerRenderer               (main.ts:493, S100 P1)
-      '_Graphics',  //  4 — goblinRenderer               (S139 P2) ← the 15th child
-      '_Graphics',  //  5 — turretRenderer               (main.ts:495, S103 P3)
-      '_Container', //  6 — princessRenderer.container   (main.ts:496, S103 P4)
-      '_Graphics',  //  7 — stinkTowerRenderer           (S141 P1) ← the 16th child
-      '_Graphics',  //  8 — hunterRenderer               (main.ts:502, S72 P2)
-      '_Graphics',  //  9 — gathererRenderer             (main.ts:506, V6-1.1/S135)
-      '_Graphics',  // 10 — potatoRenderer               (main.ts:509, S72 P3)
-      '_Graphics',  // 11 — rainbowRenderer              (main.ts:512, S75 P3)
-      '_Graphics',  // 12 — rainbowFlyoverRenderer.overlay (main.ts:516, S84 P2)
-      '_Container', // 13 — rainbowFlyoverRenderer.char
-      '_Graphics',  // 14 — seagullRenderer              (main.ts:519, S77 P3)
-      '_Graphics',  // 15 — poopRenderer                 (main.ts:520, S77 P3)
+      '_Graphics',  //  0 — wallRenderer               (S149 P3) — the border walls
+                    //       ⚠ FIRST ON PURPOSE: the walls are ground markings that everything
+                    //       else draws on top of, and they sit ABOVE THE FOG because a zone
+                    //       border is public knowledge derived from `layout` — concealing it
+                    //       would reproduce the very complaint P1/P3 exist to fix, in the
+                    //       fogged half of the board.
+      '_Graphics',  //   1 — spawnerZoneRenderer          (main.ts:486, S100 P1)
+      '_Container', //   2 — creatureRenderer.container   (main.ts:489, S25 P0 → S77 P2)
+      '_Graphics',  //   3 — creatureRenderer.cloudGfx    (S103 P1 lightning cloud)
+      '_Graphics',  //   4 — chewerRenderer               (main.ts:493, S100 P1)
+      '_Graphics',  //   5 — goblinRenderer               (S139 P2) ← the 15th child
+      '_Graphics',  //   6 — turretRenderer               (main.ts:495, S103 P3)
+      '_Container', //   7 — princessRenderer.container   (main.ts:496, S103 P4)
+      '_Graphics',  //   8 — stinkTowerRenderer           (S141 P1) ← the 16th child
+      '_Graphics',  //   9 — hunterRenderer               (main.ts:502, S72 P2)
+      '_Graphics',  //  10 — gathererRenderer             (main.ts:506, V6-1.1/S135)
+      '_Graphics',  // 11 — potatoRenderer               (main.ts:509, S72 P3)
+      '_Graphics',  // 12 — rainbowRenderer              (main.ts:512, S75 P3)
+      '_Graphics',  // 13 — rainbowFlyoverRenderer.overlay (main.ts:516, S84 P2)
+      '_Container', // 14 — rainbowFlyoverRenderer.char
+      '_Graphics',  // 15 — seagullRenderer              (main.ts:519, S77 P3)
+      '_Graphics',  // 16 — poopRenderer                 (main.ts:520, S77 P3)
     ]);
     // The potato punches THROUGH the fog — its brown body (BODY_COLOR 0xb5651d, r≈181) shows on the
     // composited stage as a strong red channel, clearly not the fog's pure black.

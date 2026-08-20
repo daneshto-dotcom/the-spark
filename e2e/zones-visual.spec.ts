@@ -135,3 +135,83 @@ test.describe('@visual S148 P1 — the zone partition on screen', () => {
     await page.screenshot({ path: `${DESKTOP}/spark-s148-empty-opening.png` });
   });
 });
+
+/**
+ * S149 P3 — THE BORDER WALLS, ON SCREEN.
+ *
+ * ⚠ THIS IS THE HALF THE UNIT SUITE CANNOT REACH. `walls.test.ts` proves the segment geometry and
+ * the movement clamp; neither can tell you whether a wall was actually DRAWN, drawn in the right
+ * colour, or drawn at all after the phase flipped. The owner's report was literally *"there are no
+ * walls it seems"* — a render-layer complaint — so a render-layer proof is the one that answers it.
+ *
+ * The phase is forced through `__SPARK__` rather than waited out: a real BUILD lasts 5400 ticks
+ * (90 s), and the renderer reads `world.matchPhase` fresh every frame, so setting it is exactly
+ * what the player would see one second after the clock turned over.
+ */
+test.describe('@visual S149 P3 — the border walls on screen', () => {
+  test('PITCH_2P: walls stand during BUILD and are GONE during FIGHT', async ({ page }) => {
+    await page.goto('/');
+    await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE');
+    const solo = await titleButtonCss(page, 'solo');
+    await page.mouse.click(solo.x, solo.y);
+    await waitForWorld(page, (w) => w.gameState === 'PLAYING', 'PLAYING');
+    await page.waitForTimeout(3000); // let the host loop actually run some frames
+
+    // BUILD — the walls are up.
+    expect(await readPhase(page)).toBe('BUILD');
+    await page.screenshot({ path: `${DESKTOP}/spark-s149-walls-BUILD-pitch.png` });
+
+    // Flip to FIGHT and let a few frames render.
+    await forcePhase(page, 'FIGHT');
+    await page.waitForTimeout(1200);
+    expect(await readPhase(page)).toBe('FIGHT');
+    await page.screenshot({ path: `${DESKTOP}/spark-s149-walls-FIGHT-pitch.png` });
+  });
+
+  test('QUADRANTS_4P: four coloured arms during BUILD', async ({ page }) => {
+    await page.goto('/');
+    await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE');
+    const vsBots = await titleButtonCss(page, 'vsBots');
+    await page.mouse.click(vsBots.x, vsBots.y);
+    // VS-BOTS opens a setup overlay first — clicking the title button alone never reaches PLAYING.
+    // Same flow the S148 capture above uses; START MATCH on the overlay defaults gives the full
+    // 4-seat table, which is what puts four coloured arms on the board.
+    await page.waitForFunction(
+      () => {
+        const s = (window as unknown as {
+          __SPARK__: { botSetupOverlay: { getUiPoints?: () => unknown } | null };
+        }).__SPARK__;
+        return s.botSetupOverlay !== null && s.botSetupOverlay.getUiPoints !== undefined;
+      },
+      { timeout: 20_000 },
+    );
+    const startPt = await page.evaluate(() => {
+      const s = (window as unknown as {
+        __SPARK__: { botSetupOverlay: { getUiPoints: () => { start: { x: number; y: number } } } };
+      }).__SPARK__;
+      return s.botSetupOverlay.getUiPoints().start;
+    });
+    const startCss = await canvasToCss(page, startPt.x, startPt.y);
+    await page.mouse.click(startCss.x, startCss.y);
+    await waitForWorld(page, (w) => w.gameState === 'PLAYING', 'PLAYING');
+    await page.waitForTimeout(3000);
+
+    expect(await readLayout(page)).toBe('QUADRANTS_4P');
+    expect(await readPhase(page)).toBe('BUILD');
+    await page.screenshot({ path: `${DESKTOP}/spark-s149-walls-BUILD-quadrants.png` });
+  });
+});
+
+async function readPhase(page: import('@playwright/test').Page): Promise<string | undefined> {
+  return page.evaluate(
+    () => (window as { __SPARK__?: { world?: { matchPhase?: string } } }).__SPARK__?.world?.matchPhase,
+  );
+}
+
+/** Render-only nudge: the wall renderer reads `matchPhase` fresh each frame. */
+async function forcePhase(page: import('@playwright/test').Page, phase: string): Promise<void> {
+  await page.evaluate((ph) => {
+    const w = (window as { __SPARK__?: { world?: { matchPhase?: string } } }).__SPARK__?.world;
+    if (w !== undefined) w.matchPhase = ph;
+  }, phase);
+}

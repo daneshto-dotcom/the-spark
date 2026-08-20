@@ -149,6 +149,7 @@ import { TurretRenderer } from './render/turretRenderer.ts';
 import { PrincessRenderer } from './render/princessRenderer.ts';
 import { StinkTowerRenderer } from './render/stinkTowerRenderer.ts';
 import { SpawnerZoneRenderer } from './render/spawnerZoneRenderer.ts';
+import { WallRenderer } from './render/wallRenderer.ts';
 import { BombRenderer } from './render/bombRenderer.ts';
 import { HunterRenderer } from './render/hunterRenderer.ts';
 import { GathererRenderer } from './render/gathererRenderer.ts';
@@ -521,6 +522,12 @@ async function bootstrap(): Promise<void> {
   // radiating aura + 'alive' bond overlay sit UNDER the chewers/Voltkin on the aboveFogLayer.
   // Cross-player landmark (everyone must see the high-value target to raid it) → aboveFogLayer,
   // same fog rule as the other global-reach visuals. Cheap no-op when no spawner is live.
+  // ⭐ S149 P3 — BORDER WALLS. Constructed BEFORE the spawner aura so the walls sit UNDERNEATH
+  // every unit and structure: they are ground markings that define the board, not objects on
+  // it. On `aboveFogLayer` deliberately — the borders are a cross-player fact everyone must be
+  // able to see (you cannot respect a boundary you cannot find), the same rule the spawner
+  // aura already follows. Cheap no-op the moment the walls drop for the FIGHT.
+  const wallRenderer = new WallRenderer(app, aboveFogLayer);
   const spawnerZoneRenderer = new SpawnerZoneRenderer(app, aboveFogLayer);
   // S25 P0 — creatureRenderer renders ABOVE prims; S77 P2 reparented to aboveFogLayer (a Voltkin
   // attacks ANY player's bonds — cross-player reach — so it must be visible to all through fog).
@@ -1721,6 +1728,8 @@ async function bootstrap(): Promise<void> {
         princessRenderer.clear();
         // S141 P1 — drop stink-tower graphics + per-tower FSM-edge state on title-return.
         stinkTowerRenderer.clear();
+        // S149 P3 — drop the border walls on title-return (same one-frame orphan window).
+        wallRenderer.clear();
         // S100 P1 — drop the spawner-zone aura on title-return.
         spawnerZoneRenderer.clear();
         // S71 P1 — drop bomb sprites on title-return (the reducer applyReturnToTitle
@@ -2612,6 +2621,8 @@ async function bootstrap(): Promise<void> {
     // 'alive' bond overlay traces over the just-drawn bonds) and before the
     // creatures (so chewers/Voltkin draw on top of the aura). Cheap no-op when
     // world.creatureSpawners is empty.
+    // S149 P3 — border walls first, so everything else draws on top of them.
+    wallRenderer.sync(world);
     spawnerZoneRenderer.sync(world);
     // S25 P0 — creature sprite sync. After structureRenderer (z-order: above
     // prims, blueprint Q1) and before effectsRenderer (so ARC_FLASH effects

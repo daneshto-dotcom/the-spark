@@ -422,7 +422,25 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   //      preserving CQS "no-re-dispatch-in-reducer" for the CREATURE_TICK
   //      action specifically (applyCreatureAttack's re-dispatch of
   //      SEVER_BOND is a separate, Council-sanctioned exception).
-  if (world.gameState === 'PLAYING' && world.creatures.size > 0) {
+  // ⭐ S149 P3 — CREATURES ARE DORMANT DURING BUILD TOO.
+  //
+  // ⚠ A DELIBERATE, FLAGGED ADDITION BEYOND THE P3 SPEC, on the S147 bounty-gate precedent.
+  // P2 shut the tower half of the owner's report (*"your towers can fight during build stage"*),
+  // but the probe for THIS priority found creatures ticking completely unguarded — during BUILD
+  // they were still seeking, closing on enemy structures and dispatching CREATURE_ATTACK, which
+  // SEVERS BONDS. That is the same rule broken by a different entity: R5's premise is that
+  // nothing can be attacked while the walls are up, and the shelter snap's whole justification
+  // ("nothing can attack during BUILD, so the snap is unobservable as unfairness") is FALSE while
+  // a chewer can eat your tower mid-build.
+  //
+  // It is folded in here rather than logged, because shipping walls that stop movement while
+  // creatures still freely attack through the build stage would be incoherent — the owner would
+  // read it as the same defect they already reported once.
+  //
+  // ⛔ WHY THE WHOLE BLOCK AND NOT A MOVEMENT CLAMP. A clamp would freeze them in place but leave
+  // Step 1's target re-selection and Step 3's CREATURE_ATTACK dispatch running, so a creature
+  // already adjacent to a bond would keep chewing it without moving an inch.
+  if (world.gameState === 'PLAYING' && world.matchPhase === 'FIGHT' && world.creatures.size > 0) {
     const creatureIds = Array.from(world.creatures.keys());
     for (const id of creatureIds) {
       // Step 1: AI target re-selection BEFORE the tick. Only during SEEKING —
