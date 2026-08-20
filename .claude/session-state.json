@@ -771,11 +771,161 @@
       "tier": "Standard",
       "protocol_bump": false,
       "owner_item": "complaint 2",
-      "status": "in_progress",
+      "status": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "check_method": "P4 THE FOOTER BAND — VERBOSE CHECK. (1) ⚠ REVERSES THE OWNER'S OWN S136 RULING, flagged not silent: a permanent footer was DELETED in S136 P0 on their ruling; R36 reinstates a DIFFERENT surface (five numbers, not every tower), so it is a refinement. Confirmed with the owner before building. (2) DERIVED FROM THE REGISTRY (Q8): chips are the distinct blueprintCost values that exist — 4 stink, 5 pentagram, 6 lightningHub, 7 laserTurret+helga, 8 voltkin. A hardcoded list would advertise a complexity with nothing in it the first time a recipe changed. (3) AFFORDABILITY IS THE SHIPPED LOGIC: counts come from castleStructuresModel, which decides enabled via planBlueprintPayment — the same fn the reducer calls. A test asserts the band INHERITS that verdict rather than re-deriving it. (4) ⛔ THE CHIPS CLEAR THE PORCHES. zones.test.ts warned since S148 that reviving a footer meant moving the castle anchors. MEASURED: seat-2/3 porches at (1790,1024) and (130,1024) vs FOOTER_TOP_Y 996 — the collision is real. But the prose named ONE solution, not the requirement: the invariant is that no CHIP overlaps a porch, and centring the bar (x 777-1143) satisfies it without relocating two shipped anchors and everything derived from them. The warning is now an ASSERTION plus a companion test proving the collision is real so it cannot go vacuous. (5) ⛔ CLICK GUARD COVERS CHIPS, NOT THE BAND — the other reason the original was deleted (a 1920-wide plate made the bottom 7.8% of the board inert). Guarded on press AND release paths. (6) PURELY PRESENTATIONAL per R36: selection is render-only, never world. No serialization, no hash, no protocol bump. Pinned by a no-mutation test. (7) ⚠ THE SCREENSHOT CAUGHT A DEFECT THE SUITE COULD NOT: unaffordable chips at 0x4a505c were INVISIBLE on the black board, defeating the bar's entire purpose. Raised to 0x93a0b4 — unaffordable must read as unaffordable, never as absent. (8) ⚠ AND THEN I MISCOUNTED THE CHIPS BY EYE — at 1280x720 the canvas downscales 2/3 and a chip is 41px wide; I read three where there are five. So the visual spec now ASSERTS live geometry via a __SPARK__.footerBand getter (S85 P4c convention): complexities [4,5,6,7,8] and clearance from both corner porches. A photograph is evidence, not a measurement. GATES: tsc 0 · vitest 2723 passed / 166 files (was 2710 / 165) · e2e:gating 48/48 · build 693.8 KiB under charter · pushed · verify-deploy 4/4 at 12ee795.",
+      "checkpoint_commit": "12ee795f6ff5e072ddef30f242b4d429e442cd7c",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "src/render/footerBandModel.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBandModel.ts",
+          "needle": "export function footerBandModel"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBandModel.ts",
+          "needle": "export function structuresAtComplexity"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBandModel.ts",
+          "needle": "castleStructuresModel"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/footerBandModel.ts",
+          "needle": "const COMPLEXITIES ="
+        },
+        {
+          "type": "file_exists",
+          "path": "src/render/footerBand.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.ts",
+          "needle": "export class FooterBand"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.ts",
+          "needle": "export function layoutChips"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.ts",
+          "needle": "isOverChip"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.ts",
+          "needle": "const TINT_DISABLED = 0x93a0b4;"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/footerBand.ts",
+          "needle": "const TINT_DISABLED = 0x4a505c;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "export interface FooterBandLike"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "private isPointerOverFooterChip(): boolean"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "private handleFooterChipClick(): boolean"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "if (e.button === 0 && this.handleFooterChipClick()) return;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "!this.isPointerOverPanel() && !this.isPointerOverFooterChip()"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "const footerBand = new FooterBand(app);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "footerBand.sync(world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "footerBand.clear();"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "controls.setFooterBand(footerBand);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "get footerBand() "
+        },
+        {
+          "type": "file_exists",
+          "path": "src/render/footerBand.test.ts"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.test.ts",
+          "needle": "THE CHIPS CLEAR THE CASTLE PORCHES"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.test.ts",
+          "needle": "the collision is real"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/zones.test.ts",
+          "needle": "A FOOTER CONTROL HAS NOW BEEN REVIVED"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/zones.test.ts",
+          "needle": "band is drawable and clickable. If a footer control is ever revived"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/footerBand.test.ts",
+          "pattern": "^describe\\(",
+          "op": "ge",
+          "value": 3
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/zones-visual.spec.ts",
+          "needle": "S149 P4 — the footer band on screen"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/zones-visual.spec.ts",
+          "needle": "ASSERT THE BAR, DO NOT JUST PHOTOGRAPH IT"
+        }
+      ],
+      "deploy_verified": "4/4 REMOTE+RUN+VERDICT+LIVE at 12ee795",
+      "tests_at_close": "2723 passed / 166 files (was 2710 / 165); e2e:gating 48/48"
     },
     {
       "id": "P5",
@@ -783,7 +933,7 @@
       "tier": "Standard",
       "protocol_bump": false,
       "owner_item": "new owner ask",
-      "status": "pending",
+      "status": "in_progress",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
@@ -833,7 +983,11 @@
     "S149 P3 — A TESTED FUNCTION WITH NO CALLER IS NOT A FEATURE. `clampAcrossWalls` had eight passing tests and zero consumers, which reads as done and is not. Checking 'who actually calls this?' before closing is what turned a silent gap into a documented carry-forward.",
     "S149 P3 — THE ROLL-CALL ASSERTION PAID FOR ITSELF. fog.spec names every child of aboveFogLayer in order specifically so an added renderer points at the index that moved; adding the wall renderer failed it instantly and legibly. A bare `length === 16` would have said 'expected 16, received 17' and cost a session, which is exactly why a previous session rewrote it.",
     "S149 P3 — ONE FAILURE IN A LANE IS NOT A FLAKE UNTIL MEASURED. rainbow.spec failed once. Rather than assert flake, I ran it 3x isolated (3/3, runtimes 16.6-35.9s showing real load variance) and re-ran the full lane clean. The evidence supported intermittence; asserting it without the runs would have been the exact mistake the standing lesson warns about.",
-    "S149 P3 — PIN THE AWKWARD CONSEQUENCE INSTEAD OF HIDING IT. Walls stopping at the quarry rim means a unit can route between zones through the centre. That looks like a hole, and it follows directly from the owner's own Q6 access rule. A named test plus a carry-forward turns 'a bug someone finds in playtest' into 'a design question with the owner's name on it'."
+    "S149 P3 — PIN THE AWKWARD CONSEQUENCE INSTEAD OF HIDING IT. Walls stopping at the quarry rim means a unit can route between zones through the centre. That looks like a hole, and it follows directly from the owner's own Q6 access rule. A named test plus a carry-forward turns 'a bug someone finds in playtest' into 'a design question with the owner's name on it'.",
+    "S149 P4 — A PROSE WARNING NAMED A SOLUTION, NOT THE REQUIREMENT. zones.test.ts said 'if a footer is ever revived, these anchors move up'. The actual invariant was 'no chip may overlap a porch', which centring the bar satisfies without touching two shipped anchors. Read an inherited warning for the CONSTRAINT it protects, not the fix it happens to suggest — then convert it to an assertion so the next session inherits a test instead of a sentence.",
+    "S149 P4 — THE SCREENSHOT FOUND WHAT 166 GREEN FILES COULD NOT. Unaffordable chips were rendered in a tint that was invisible against the board, so the bar existed and communicated nothing. No unit test can assert legibility. For any UI surface, LOOK at it before calling it done.",
+    "S149 P4 — I MISCOUNTED MY OWN UI FROM A SCREENSHOT. At 1280x720 a 62px chip is 41px, and I read three where there were five. A photograph is evidence that something rendered; it is not a measurement. Exposing the geometry and asserting it turned a guess into a permanent guard.",
+    "S149 P4 — WHEN A GUARDRAIL BLOCKS A CLEANUP COMMAND, CHANGE THE COMMAND. The destructive guard refused `rm -rf` on a scratch dir. The right response was a non-recursive delete, not an override token — the guard was doing exactly its job on a pattern that is usually catastrophic."
   ],
   "totals": {
     "budget_remaining": 1000000
@@ -910,7 +1064,7 @@
   },
   "real_context_tokens_at_close": 365522,
   "real_context_pct_at_close": 36.55,
-  "checkpoint_commit": "b79a3b05a6e998c237849695c79698f5c0b191cc",
+  "checkpoint_commit": "12ee795f6ff5e072ddef30f242b4d429e442cd7c",
   "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",
   "analyze_completed": true,
   "gitleaks_status": "clean (922 commits scanned, no leaks)",
@@ -1959,6 +2113,7 @@
     ],
     "CF-S148-a": "CLOSED in P2 — the quarry now produces during BUILD only (R22), gated at the dispatch site in physics/physicsLoop.ts and pinned by a mutation-tested case in phaseSplit.test.ts.",
     "CF-S149-a": "OPEN, DESIGN RULING NEEDED: the quarry is an OPEN HUB. Border walls stop at the rim (Q6), so a unit can route between zones through the centre while the walls are up. Faithful to the stated geometry and pinned by a named test; sealing the centre needs an owner ruling (a wall arc across the rim), not a code change.",
-    "CF-S149-b": "OPEN: clampAcrossWalls is exported + tested but has NO sim consumer. Wiring it into gatherer movement drops the opening economy 7+ -> 5 banked because rim-snapped sparks belong to neighbouring zones. Solve the rim case before re-wiring; zoneEconomy.test.ts is the guard."
+    "CF-S149-b": "OPEN: clampAcrossWalls is exported + tested but has NO sim consumer. Wiring it into gatherer movement drops the opening economy 7+ -> 5 banked because rim-snapped sparks belong to neighbouring zones. Solve the rim case before re-wiring; zoneEconomy.test.ts is the guard.",
+    "CF-S149-c": "OPEN, R36 REFINEMENT: clicking a footer chip selects the complexity (render-only) but the castle panel does NOT yet FILTER its build grid to that complexity. The seam exists and is cheap — structureRowCount/structuresStripHeight/tileOrigin all already take a `count` parameter defaulting to ALL_BLUEPRINT_IDS.length — but the panel constructs a fixed tile array, so filtering means hiding tiles and re-laying out. Deferred at YELLOW context."
   }
 }
