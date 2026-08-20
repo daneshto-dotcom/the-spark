@@ -21,7 +21,7 @@ import {
 } from '../constants.ts';
 // S138 P2 — a bot's supply is now its own bank + its own porch, never the shared quarry.
 import { bankCount, isOwnPorchSpark } from '../state/castleBank.ts';
-import { canBuildAt } from '../state/zones.ts';
+import { canBuildNow } from '../state/buildLegality.ts';
 import { componentOf } from '../game/structure.ts';
 import type { World } from '../state/world.ts';
 import type { BondId, PlayerId, PotatoId, RainbowId, SparkId, Vec2 } from '../types.ts';
@@ -303,7 +303,7 @@ export function isLegalBuildPos(pos: Vec2, seat: PlayerId, world: World): boolea
   if (dx * dx + dy * dy < (SPAWNER_RADIUS + 10) * (SPAWNER_RADIUS + 10)) return false;
   // ⭐ S149 P1 — zone partition, not influence bubble (see placePrimitive.ts). A bot that used the
   // old bubble would happily walk into another player's half and have every placement refused.
-  return canBuildAt(pos, seat, world.layout);
+  return canBuildNow(world, pos, seat);
 }
 
 /** Nearest bond NOT owned by `seat` (cross-color bonds are impossible, so a

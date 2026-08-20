@@ -94,7 +94,23 @@ export function stepPhysics(
   const rainbowSpawns: RainbowSpawnRequest[] = [];
   const seagullSpawns: SeagullSpawnRequest[] = [];
   spawner.tick(PHYSICS_DT, world.tick, spawned, bombSpawns, potatoSpawns, rainbowSpawns, seagullSpawns);
-  for (const s of spawned) dispatch(world, { type: 'SPAWN_SPARK', spark: s });
+  // ⭐ S149 P2 / CF-S148-a (R22) — THE QUARRY PRODUCES DURING BUILD ONLY.
+  //
+  // *"The spawner produces during BUILD only."* Found violated on disk by the S148 vision-gap
+  // audit: no spawner anywhere read `matchPhase`, so the quarry kept minting shapes all through the
+  // FIGHT — free economy at the exact moment the design says gathering has stopped and every
+  // gatherer is locked inside its castle.
+  //
+  // ⛔ GATE THE DISPATCH, NOT `spawner.tick`. This is the file's own established pattern (see the
+  // bomb/potato/rainbow/seagull gates immediately below: *"the spawner already redrew its
+  // countdown, so a capped fire is a clean skip"*). It is not stylistic — `spawner.tick` draws from
+  // a seeded RNG stream and mints ids from a monotonic allocator. Skipping the CALL would advance
+  // that stream differently on a host than on the `?worker=1` mirror the moment their phases
+  // disagreed for even one tick, and the differential hash would diverge. Skipping only the
+  // dispatch consumes identical randomness on both sims and merely discards the result.
+  if (world.matchPhase === 'BUILD') {
+    for (const s of spawned) dispatch(world, { type: 'SPAWN_SPARK', spark: s });
+  }
   // S71 P1 — bomb cadence: dispatch SPAWN_BOMB per request, gated on BOMB_MAX_ACTIVE
   // (the spawner already redrew its countdown, so a capped fire is a clean skip).
   for (const req of bombSpawns) {

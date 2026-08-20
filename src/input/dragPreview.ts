@@ -28,7 +28,7 @@ import {
 } from '../constants.ts';
 import { componentOf } from '../game/structure.ts';
 import { collectHostMergeCandidates, pickHostTargetPrimitive } from '../state/placePrimitive.ts';
-import { canBuildAt } from '../state/zones.ts';
+import { canBuildNow } from '../state/buildLegality.ts';
 import type { World } from '../state/worldTypes.ts';
 import type { PlayerId, PrimitiveId, Vec2 } from '../types.ts';
 import { pickRedundantBondTargets } from './redundantBondTargets.ts';
@@ -109,7 +109,7 @@ export function computePreviewBonds(
   // ⭐ S149 P1 — zone partition, not influence bubble (see placePrimitive.ts). This is the DRAG
   // GHOST: it must agree with the host on every pixel, or the player reads a legal-looking ghost
   // that the host refuses as a desync bug. One shared `canBuildAt` is what guarantees that.
-  if (gateLocally && (insideSpawnerZone(refPos) || !canBuildAt(refPos, playerId, world.layout))) {
+  if (gateLocally && (insideSpawnerZone(refPos) || !canBuildNow(world, refPos, playerId))) {
     return EMPTY;
   }
   const primaryId = pickHostTargetPrimitive(world, refPos, playerColor);

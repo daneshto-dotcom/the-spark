@@ -64,7 +64,14 @@ import {
 } from './creatures/creatureAI.ts';
 import { underChewerCaps } from './creatures/creatureLifecycle.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
-import { recipeStillSatisfied as defenderRecipeStillSatisfied } from './defenders/defenderLifecycle.ts';
+import {
+  recipeStillSatisfied as defenderRecipeStillSatisfied,
+  standDownDefenders,
+} from './defenders/defenderLifecycle.ts';
+import {
+  releaseShelteredGatherers,
+  tickGathererShelter,
+} from './gatherers/gathererLifecycle.ts';
 import { underDroneCaps } from './droneLifecycle.ts';
 import { awardSpawnerKillReward } from './gameMode.ts';
 import { tickGameState, type GameStateExtras } from './gameState.ts';
@@ -174,11 +181,31 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   // pattern. A transient sim effect would be LOST to a joiner and to a post-migration client, who
   // receive a snapshot with the phase already flipped and would silently never get the transition.
   if (world.gameState === 'PLAYING') {
+    let flipped = false;
     while (world.tick >= world.phaseEndsAtTick) {
       world.matchPhase = world.matchPhase === 'BUILD' ? 'FIGHT' : 'BUILD';
       world.phaseEndsAtTick += PHASE_DURATION_TICKS;
+      flipped = true;
+    }
+    // ⭐ S149 P2 — THE PHASE EDGE ACTIONS (R4 / R6 / R12).
+    //
+    // Keyed on "the loop ran AND we landed in X", not on a before/after comparison. That matters
+    // because the loop can flip MORE THAN ONCE when a NONET freeze skips past a whole phase: a
+    // before/after diff reads "BUILD → BUILD" across a double flip and would skip the edge work
+    // entirely, even though a full FIGHT elapsed. Both actions are idempotent, so firing them once
+    // per boundary-crossing tick is correct and re-firing is harmless.
+    if (flipped) {
+      if (world.matchPhase === 'BUILD') {
+        // Walls up, guns cold, doors open.
+        standDownDefenders(world);
+        releaseShelteredGatherers(world);
+      }
     }
   }
+  // ⭐ S149 P2 — pull the gatherers in 1 s before this BUILD ends (R6). Deliberately OUTSIDE the
+  // `flipped` branch: it is a WINDOW that must be evaluated every tick, not an edge. Its own guards
+  // handle phase, timing and idempotence — see `tickGathererShelter`.
+  tickGathererShelter(world);
   // S76 P3 — host-only complexity-income accrual. Runs BEFORE the WIN check
   // (tickGameState) and the hunter 75% trigger below so both observe this tick's
   // freshly-accrued scoreProgress. The client never accrues (host-authoritative); it
@@ -360,6 +387,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           continue;
         }
       }
+      // ⭐ S149 P2 (R4) — TOWERS ARE DORMANT OUTSIDE THE FIGHT. The owner's report was *"your
+      // towers can fight during build stage"*; this is the one line that ends it. Placed AFTER the
+      // revalidation above, deliberately: a defender whose recipe was broken during BUILD (the
+      // player severed their own bonds, or is mid-rebuild) must still be REMOVED, or a dead tower
+      // would linger all phase and come back to life at the FIGHT edge. Dormancy suspends the
+      // WEAPON, not the entity's bookkeeping.
+      if (world.matchPhase !== 'FIGHT') continue;
       dispatch(world, { type: 'DEFENDER_TICK', defenderId });
     }
   }

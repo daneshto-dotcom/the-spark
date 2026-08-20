@@ -36,7 +36,7 @@ import { bfsHopMap, componentOf, type Structure } from '../game/structure.ts';
 import type { Bond } from '../physics/bonds.ts';
 import { asBondId, asPrimitiveId, type PlayerId, type PrimitiveId, type Vec2 } from '../types.ts';
 import { isNetworked, requirePlayer, type World } from './world.ts';
-import { canBuildAt } from './zones.ts';
+import { canBuildNow } from './buildLegality.ts';
 import { detectComboDiscoveries } from './comboDiscovery.ts';
 
 /** Action payload for PLACE_PRIMITIVE — exported so world.ts can compose GameAction. */
@@ -126,7 +126,7 @@ export function placePrimitive(world: World, action: PlacePrimitiveAction): Worl
   // has built nothing nearby (R = 0) — so on an empty board anyone could build anywhere, which is
   // exactly the owner's playtest report. `canBuildAt` asks the only question the tower-defence
   // design has: IS THIS MY GROUND? It fails CLOSED on the shared quarry and on a seat with no zone.
-  if (!canBuildAt(spark.pos, action.playerId, world.layout)) {
+  if (!canBuildNow(world, spark.pos, action.playerId)) {
     world.diagnostics.territoryBlockRejects++;
     return world;
   }

@@ -496,7 +496,12 @@ function buildScenarioWorld(scen: Scenario): World {
   // land mid-run and silently flip a scenario into BUILD. `matchPhase.test.ts` asserts that bound BY
   // NAME so a future phase re-tune fails there with the reason, instead of reddening eight unrelated
   // determinism scenarios and sending the next session hunting a desync that is really a fixture bug.
-  world.matchPhase = 'FIGHT';
+  // ⚠ S149 P2 — THE PIN MOVED TO THE **END** OF THIS FUNCTION. See the block below `return`.
+  // It cannot happen here any more: everything after this point BUILDS the fixture material,
+  // and from S149 P2 a placement is refused outside BUILD. Pinning FIGHT first made every
+  // PLACE_PRIMITIVE below a silent no-op, which left the player stuck in `Carrying` and made the
+  // NEXT PICKUP_SPARK throw CarryViolation — all eight scenarios died in SETUP, before a single
+  // differential tick ran.
 
   // Scattered field + a bonded 3-prim chain (the S107 fixture) so physics,
   // scoring and the creature AI all have real material from tick 0.
@@ -529,6 +534,29 @@ function buildScenarioWorld(scen: Scenario): World {
       stiffnessTier: 'MID',
     });
   }
+
+  // ⭐ S147 P1 / MOVED S149 P2 — PIN THE MATCH PHASE TO **FIGHT** FOR EVERY SCENARIO,
+  // and do it LAST, once all the fixture material is already standing.
+  //
+  // WHY PIN AT ALL (S147 P1, unchanged): `referenceHostTick` is a FROZEN transcription of the
+  // pre-S147 body, so it calls `tickScoring` UNCONDITIONALLY, while the live `runHostTick` gates
+  // scoring to FIGHT (R3). Left in the production default of BUILD the live side would accrue no
+  // income while the reference accrued it every tick, and the wide hash would diverge on
+  // `scoreProgress` within a few ticks — which says nothing about whether the S119 extraction
+  // still holds, the only thing this gate exists to prove. This is an EQUIVALENCE STATEMENT, not
+  // a workaround: the phase in which the live sim scores every tick IS `FIGHT`. Laundering would
+  // be editing the reference BODY to know about phases, which would destroy the gate.
+  //
+  // WHY IT MOVED (S149 P2): building is now refused outside BUILD, so the fixture above has to
+  // be assembled while the world is still in its default BUILD phase. Setting up in BUILD and
+  // running in FIGHT costs the gate nothing — not one differential tick observes the setup
+  // phase, because the pin lands before any tick is run.
+  //
+  // ⛔ AND THE PHASE CLOCK IS *NOT* TESTED HERE — deliberately. Phase-cycle determinism is proven
+  // where BOTH sides run the LIVE body: `matchPhase.test.ts` and `workerSim.differential.test.ts`.
+  // Safe because PHASE_DURATION_TICKS (5400) exceeds the longest scenario (800 ticks), so no edge
+  // can land mid-run and silently flip a scenario back into BUILD.
+  world.matchPhase = 'FIGHT';
   return world;
 }
 

@@ -27,6 +27,7 @@ import {
   GATHERER_MAX_SPEED_LEVEL,
   GATHERER_PRICE,
   GATHERER_REACH,
+  GATHERER_SHELTER_LEAD_TICKS,
   GATHERER_SPEED_UPGRADE_PRICE,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
@@ -446,6 +447,11 @@ export function applyGathererTick(world: World, action: GathererTickAction): Wor
   const g = world.gatherers.get(action.gathererId);
   if (g === undefined) return world;
 
+  // ⭐ S149 P2 — SHELTERED gatherers do nothing at all. They are inside the castle for the FIGHT
+  // (R6/R12) and are released by `releaseShelteredGatherers` at the next BUILD edge. Placed FIRST
+  // so no later branch can move, retarget or re-cargo a unit that is supposed to be off the field.
+  if (g.state === 'SHELTERED') return world;
+
   if (g.state === 'HAULING') {
     const carried = g.carriedSparkId !== null ? world.freeSparks.get(g.carriedSparkId) : undefined;
     // The cargo vanished (despawned by any path) — drop the claim and go back to work.
@@ -539,6 +545,89 @@ export function applyGathererTick(world: World, action: GathererTickAction): Wor
  * `firstFreePorchSlot`, which asks whether a spot is actually clear instead of deriving an index
  * from an occupancy total, and it governs the PULL path where exactly one shape appears at a time.
  */
+
+/* ========================================================================== *
+ *          S149 P2 — THE SHELTER (R6 / R12 / blueprint Q2)                    *
+ * ========================================================================== */
+
+/**
+ * ⭐ PULL EVERY GATHERER INSIDE, 1 s BEFORE THE PHASE ENDS. Host-authoritative, idempotent.
+ *
+ * *"a gatherer can never be caught outside — they are built to come in exactly 1 s before the walls
+ * drop, regardless of speed upgrade."*
+ *
+ * ## Why it is a snap and not a walk
+ *
+ * See `GATHERER_SHELTER_LEAD_TICKS`. A race against the clock would satisfy the rule only for
+ * upgraded gatherers, which is the exact speed-dependence the ruling forbids.
+ *
+ * ## Determinism — three deliberate choices, each closing a real divergence
+ *
+ * 1. **ONE DISCRETE PASS, SORTED BY ID.** Deposits go into a shared per-seat bank, so the ORDER of
+ *    deposits is observable in the bank's contents. `world.gatherers` is a `Map` and iterates in
+ *    INSERTION order — which a joiner rebuilding that Map from a snapshot can legitimately differ
+ *    on. Sorting by the integer id makes the order a property of the DATA rather than of how the
+ *    container was built. (`save.ts` sorts defenders by id for exactly this reason.)
+ * 2. **A WINDOW, NOT AN INSTANT.** The condition is `tick >= deadline - LEAD`, never `=== `. A tick
+ *    can be SKIPPED — `main.ts` advances `world.tick` and `continue`s past the whole host tick while
+ *    a NONET trial runs, which is precisely why the phase flip beside it is a `while` and not an
+ *    `if`. An equality test would silently miss the snap and strand gatherers outside for a whole
+ *    FIGHT. Re-running across the window is free: an already-SHELTERED gatherer is skipped.
+ * 3. **IT RUNS IN `BUILD` ONLY.** In FIGHT the deadline belongs to the *next* BUILD edge, and
+ *    without the phase check the window arithmetic would fire again 60 ticks before the fight ends.
+ *
+ * ## Cargo is conserved, never dropped
+ *
+ * A gatherer carrying a shape deposits it into its castle exactly as an arrival would — the same
+ * `depositIntoCastle` call, so the shape lands in the bank rather than being destroyed or left on
+ * the field for the enemy. Cargo the player already paid travel time for is never lost to the
+ * clock.
+ */
+export function tickGathererShelter(world: World): void {
+  if (world.gameState !== 'PLAYING' || world.matchPhase !== 'BUILD') return;
+  if (world.tick < world.phaseEndsAtTick - GATHERER_SHELTER_LEAD_TICKS) return;
+  if (world.gatherers.size === 0) return;
+
+  const ids = [...world.gatherers.keys()].sort(
+    (a, b) => (a as unknown as number) - (b as unknown as number),
+  );
+  for (const id of ids) {
+    const g = world.gatherers.get(id);
+    if (g === undefined || g.state === 'SHELTERED') continue;
+
+    // Carrying something? It comes in with them. Same path an ordinary arrival takes.
+    if (g.carriedSparkId !== null) {
+      const carried = world.freeSparks.get(g.carriedSparkId);
+      if (carried !== undefined && carried.escrow === 'hauled') {
+        depositIntoCastle(world, g.ownerPlayerId, carried);
+      }
+      g.carriedSparkId = null;
+    }
+    g.targetSparkId = null;
+    g.state = 'SHELTERED';
+
+    // Park it on its own porch so the renderer draws it at home rather than frozen mid-field.
+    const home = castleAnchor(g.ownerPlayerId as unknown as number, world.layout);
+    g.pos.x = home.x;
+    g.pos.y = home.y + GATHERER_DEPOSIT_OFFSET_Y;
+  }
+}
+
+/**
+ * ⭐ THE DOORS OPEN AGAIN. Called on the FIGHT→BUILD edge; every sheltered gatherer goes back to
+ * work with a clean slate.
+ *
+ * Idempotent and total: a gatherer in any other state is untouched, so calling this on a world that
+ * never sheltered (a fresh match, a joiner's first snapshot) is a no-op rather than a corruption.
+ */
+export function releaseShelteredGatherers(world: World): void {
+  for (const g of world.gatherers.values()) {
+    if (g.state !== 'SHELTERED') continue;
+    g.state = 'SEEKING';
+    g.targetSparkId = null;
+    g.carriedSparkId = null;
+  }
+}
 
 /** Clear the gatherer population + reset the mint counter (teardown parity, all sites). */
 export function teardownGatherers(world: World): void {

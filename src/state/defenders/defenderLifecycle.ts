@@ -412,3 +412,32 @@ export function teardownDefenders(world: World): void {
   world.defenders.clear();
   world.nextDefenderId = 0;
 }
+
+/**
+ * ⭐ S149 P2 (R4) — TOWERS STAND DOWN AT THE FIGHT→BUILD EDGE.
+ *
+ * *"When the walls drop, enemies fight and towers come alive doing whatever their skill is."* The
+ * corollary the owner reported as broken — *"your towers can fight during build stage"* — is that
+ * outside the FIGHT they must do NOTHING. `hostTick` stops fanning out `DEFENDER_TICK` in BUILD,
+ * which is the dormancy itself; this function handles what dormancy alone would leave behind.
+ *
+ * ⛔ WHY CLEARING THE TARGET IS NOT OPTIONAL. `targetCreatureId` is a SYNCED field. A defender that
+ * goes dormant mid-engagement keeps pointing at a creature id, and that creature will not survive
+ * the BUILD phase it is now frozen through — it gets reaped, or its owner's structure is rebuilt
+ * around it. When FIGHT resumes the defender would resume onto a dangling id. Every read of it is
+ * `world.creatures.get(...)`-guarded so this is not a crash, but it IS a wrong first action:
+ * the tower spends its first windup on a ghost instead of acquiring the nearest real threat.
+ * Standing down means the next FIGHT starts from a clean acquisition for everybody.
+ *
+ * ⚠ HP IS DELIBERATELY NOT RESET (blueprint Q10). Damage persists across the cycle — that is the
+ * whole reason FIX and SCRAP (R13) have anything to repair. This resets INTENT, never CONDITION.
+ *
+ * Idempotent: safe to call on a world with no defenders, or twice on the same edge.
+ */
+export function standDownDefenders(world: World): void {
+  for (const d of world.defenders.values()) {
+    d.targetCreatureId = null;
+    d.state = 'IDLE';
+    d.ticksInState = 0;
+  }
+}

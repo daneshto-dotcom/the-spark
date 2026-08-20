@@ -68,7 +68,11 @@ import {
  * into an older-peer test — the failure mode that survived two bumps behind a @quarantine-flaky
  * tag that the gating lane grep-inverts, so nothing could go red.
  */
-const LOCAL_PROTO_V = 25; // S147 P2 — 23 -> 24 (FOUR-PLAYER CAP: MAX_PLAYERS 6->4, MAX_BOTS 6->3; the wire roster/attest validators cap on it)
+// ⚠ S149 P2 — the trailing note here had gone stale twice over (it still described the S147 P2
+// 23→24 bump while the number read 25). A comment that names ONE historic bump rots at the next
+// one by construction, so it now names the invariant instead: this must equal
+// `src/net/protocol.ts`'s PROTOCOL_VERSION, and `protocolVersionSync.test.ts` enforces the pair.
+const LOCAL_PROTO_V = 26; // S149 P2 — 25 → 26 (the 'SHELTERED' GathererState wire literal)
 const NEWER_PEER_V = LOCAL_PROTO_V + 1;
 
 /**

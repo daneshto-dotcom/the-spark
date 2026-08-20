@@ -46,7 +46,7 @@ const EDGE_PAD = 8;
  * (`castlePanel.ts`: *"A DISABLED CONTROL MUST SAY WHY"*), and a silently-red ghost is the same
  * defect in a different costume.
  */
-export type StampRefusal = 'OFF SCREEN' | 'QUARRY' | 'ENEMY GROUND' | 'BLOCKED';
+export type StampRefusal = 'OFF SCREEN' | 'QUARRY' | 'ENEMY GROUND' | 'BLOCKED' | 'FIGHT';
 
 /**
  * PURE — null when a stamp of `blueprintId` centred at `centre` is legal for `playerId`, otherwise
@@ -61,6 +61,17 @@ export function stampRefusalAt(
   blueprintId: GodlyId,
 ): StampRefusal | null {
   const r = blueprintRadius(blueprintId);
+
+  // 0. ⭐ S149 P2 — BUILDING STOPS WHEN THE FIGHT STARTS. Cheapest check of all (one field read),
+  //    and first because it is true of the WHOLE BOARD at once — no point measuring geometry when
+  //    nowhere is legal.
+  //
+  //    ⚠ THIS IS THE ONE GATE THAT DOES **NOT** USE `canBuildNow`, and deliberately so. The other
+  //    five only need a boolean, but this one owes the player a WORD: the panel's standing contract
+  //    is that a disabled affordance always names its blocker, and answering "ENEMY GROUND" when
+  //    the real reason is "the fight has started" would be a lie on your own territory. So the two
+  //    halves of legality are asked separately HERE and composed everywhere else.
+  if (world.matchPhase !== 'BUILD') return 'FIGHT';
 
   // 1. The whole footprint must be on canvas — a partially off-screen tower is unclickable and
   //    un-defendable, and the arena edge is not a legal build site in any TD.
@@ -86,6 +97,7 @@ export function stampRefusalAt(
   // `canBuildAt` tests the centre only, so it is the stricter test AND it gives the player the
   // accurate refusal word. Reaching `canBuildAt`'s own quarry arm from here is therefore
   // unreachable-by-construction rather than redundant.
+  // ⭐ S149 P2 — the WHEN half is answered by step 0 above, so this is the WHERE half alone.
   if (!canBuildAt(centre, playerId, world.layout)) return 'ENEMY GROUND';
 
   // 4. Clear of existing geometry, by bond reach rather than by overlap — see the file docblock.

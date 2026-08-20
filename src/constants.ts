@@ -381,6 +381,22 @@ export const PHASE_1_WIN_SCORE = readTestWinScore() ?? 1500;
 export const PHASE_DURATION_TICKS = 90 * PHYSICS_HZ; // 5400 ticks = 90 s @ 60 Hz
 
 /**
+ * ⭐ S149 P2 (R6/R12/Q2) — HOW LONG BEFORE THE WALLS DROP EVERY GATHERER IS SAFE INSIDE.
+ *
+ * The owner's rule: *"a gatherer can never be caught outside — they are built to come in exactly
+ * 1 s before the walls drop, regardless of speed upgrade."*
+ *
+ * ⛔ THIS IS A DEADLINE, NOT A HEAD START. The mechanism deliberately does NOT send gatherers
+ * walking home and hope they arrive: a hauler at speed level 0 starting from the far corner cannot
+ * cross the board in a second, so a pathfinding race would make the rule TRUE ONLY FOR FAST
+ * GATHERERS — precisely the speed-dependence the ruling forbids. Instead every gatherer
+ * UNCONDITIONALLY enters `SHELTERED` at `phaseEndsAtTick - GATHERER_SHELTER_LEAD_TICKS`: removed
+ * from the field, cargo auto-deposited, no travel involved. Deterministic, speed-independent, and
+ * impossible to fail. Nothing can attack during BUILD, so the snap is unobservable as unfairness.
+ */
+export const GATHERER_SHELTER_LEAD_TICKS = 1 * PHYSICS_HZ; // 60 ticks = 1 s @ 60 Hz
+
+/**
  * S147 P1 Step 0 (R14 / R23) — the four CUT hazards: potato bomb, regular bomb, seagull, rainbow.
  * *"CUT FOR NOW … DISABLE (cadence → 0), do not delete — restoring then costs one line instead of
  * an archaeology session."* This flag IS that one line. **Flip to `true` and all four return.**

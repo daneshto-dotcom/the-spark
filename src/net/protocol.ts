@@ -221,7 +221,7 @@ export type { NetSnapshot };
 //       whether a given placement is legal.
 //   (3) THE FIELD IS A STRING LITERAL UNION. A stale peer cannot parse a `layout` value it has never
 //       heard of - the same class of change that forced 12->13 for the 'WALK' DefenderState.
-export const PROTOCOL_VERSION = 25 as const;
+export const PROTOCOL_VERSION = 26 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -320,11 +320,20 @@ export interface HelloMsg {
    * refused by a v24 peer; and the lobby rack geometry changes 2x3 -> 2x2, so the peers disagree about
    * how many seats exist. PLAYER_COLORS stays at 6 on purpose - it is a race roster, not a cap.)
    *
-   * S148 P1: 24->25 (THE ZONE PARTITION - one new hashed, wire-carried World field, `layout`. The
+   * S149 P2: 25->26 (THE PHASE SPLIT IS ENFORCED - a new `GathererState` wire literal, 'SHELTERED'.
+ * A v25 peer has never heard of it: `GathererState` is serialized at FULL FIDELITY on both the disk
+ * save and the NetSnapshot, so a v25 joiner receiving a sheltered hauler would either fail to parse
+ * it or fall through every branch of its own haul FSM and strand the unit. Exactly the class of
+ * change as the 'WALK' DefenderState literal that forced 12->13. The behaviour riding with it is
+ * equally divergent even setting the literal aside: from this version the quarry stops producing
+ * during FIGHT, defenders do not tick outside FIGHT, and no placement is accepted outside BUILD -
+ * so a v25 peer and a v26 peer would simulate visibly different games from the first phase edge.)
+ *
+ * S148 P1: 24->25 (THE ZONE PARTITION - one new hashed, wire-carried World field, `layout`. The
    * polar keep ring is gone and `castleAnchor` becomes a zone lookup, so a v24 peer would draw and
    * hit-test every keep in the wrong place and enforce the old territory rule instead of the new
    * zone borders. See the changelog above the const for the full three-part argument.) */
-  readonly protoVersion: 25;
+  readonly protoVersion: 26;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

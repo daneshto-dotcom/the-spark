@@ -38,7 +38,15 @@ import type { GathererId, PlayerId, SparkId, Vec2 } from '../../types.ts';
  * Holding rather than dropping is what turns the cap into strategic pressure — your haulers visibly
  * stall until you spend — instead of silently destroying work the player already paid for.
  */
-export type GathererState = 'SEEKING' | 'HAULING' | 'WAITING';
+/**
+ * ⭐ S149 P2 — `'SHELTERED'` ADDED (R6/R12). A gatherer that has been pulled inside its castle for
+ * the FIGHT: off the field, holding nothing, doing nothing, until the next BUILD releases it.
+ *
+ * ⚠ THIS LITERAL RIDES THE WIRE. `state` is serialized on both the disk save and the NetSnapshot,
+ * so a peer on the old protocol cannot parse a value it has never heard of — the same class of
+ * change as the `'WALK'` DefenderState literal that forced 12→13. PROTOCOL_VERSION 25 → 26.
+ */
+export type GathererState = 'SEEKING' | 'HAULING' | 'WAITING' | 'SHELTERED';
 
 export interface Gatherer {
   readonly id: GathererId;
