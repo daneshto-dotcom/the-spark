@@ -819,11 +819,17 @@ export async function placeFreeSparkAndConfirm(
   const INNER_MS = 8_000;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     try {
-      // ⭐ S150 P5 — NAME THE HAZARD IN THE DIAGNOSTIC. `pickBomb`/`pickPotato` take PRIORITY over
-      // `pickSpark` in `Controls.onDown`, so a free hazard sitting on the board makes every
-      // subsequent mouse-down grab IT instead of the shape — and the placement then fails forever
-      // with a message about a spark, which is how this cost three sessions of misdiagnosis. If a
-      // failure below reports a non-zero hazard count, the drag was never the problem.
+      // ⭐ S150 P5 — NAME THE HAZARD *AND* THE INPUT LOCK. Two distinct ways a mouse-down can do
+      // nothing while the drag itself is perfectly healthy, and this spec's flake turned out to be
+      // the second one:
+      //   (a) PICKER PRIORITY — `onDown` tries pickBomb -> pickRainbow -> pickPotato -> pickSpark
+      //       (controls.ts:611/619/627/633), so a hazard under the cursor claims the click instead
+      //       of the shape;
+      //   (b) INPUT LOCK — `onDown` returns at controls.ts:537 if `isInputLocked()`, which is true
+      //       while a CINEMATIC is playing for this seat. A rainbow spawn starts a flyover cinematic,
+      //       and for its whole duration EVERY click is discarded before any picker runs.
+      // Either way the failure reports a timeout about a SPARK, naming a coordinate, with no hint of
+      // the real cause — which is how this cost three sessions of misdiagnosis.
       const hz = await page.evaluate(() => {
         const w = (window as unknown as {
           __SPARK__?: { world?: Record<string, unknown> };
@@ -831,7 +837,8 @@ export async function placeFreeSparkAndConfirm(
           bombs?: Map<number, unknown>; potatoes?: Map<number, unknown>; rainbows?: Map<number, unknown>;
           seagulls?: Map<number, unknown>; poops?: Map<number, unknown>;
           freeSparks?: Map<number, { state?: { kind: string }; escrow?: string }>;
-          players?: Map<number, { kind: string }>; localPlayerId: number;
+          players?: Map<number, { kind: string; benchedUntilTick?: number }>; localPlayerId: number;
+          sudoku?: unknown; activeCinematicPlayerId?: number | null;
           matchPhase?: string; tick: number;
         } | undefined;
         if (w === undefined) return null;
@@ -843,6 +850,12 @@ export async function placeFreeSparkAndConfirm(
           seagulls: w.seagulls?.size ?? 0,
           poops: w.poops?.size ?? 0,
           porch: [...(w.freeSparks?.values?.() ?? [])].filter((s) => s.state?.kind === 'Free' && s.escrow === 'banked').length,
+          // ⭐ THE THREE isInputLocked() CLAUSES (controls.ts:305-314), reported individually so the
+          // guilty one names itself. `onDown` returns at line 537 BEFORE any picker runs, so when a
+          // lock is on, a mouse-down does literally nothing and the placement fails in total silence.
+          lockedBySudoku: w.sudoku !== null && w.sudoku !== undefined,
+          lockedByCinematic: w.activeCinematicPlayerId === w.localPlayerId,
+          lockedByBench: (me?.benchedUntilTick ?? -1) > w.tick,
           freeSparks: w.freeSparks?.size ?? 0,
           avatarKind: me?.kind ?? 'unknown',
           phase: w.matchPhase,

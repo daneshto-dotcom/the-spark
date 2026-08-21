@@ -1,5 +1,5 @@
 {
- "tool_calls_session_total": 1779,
+ "tool_calls_session_total": 1780,
  "session_id": "S150",
  "session_kind": "truth-restoration + arcade batch (owner R55: all five, arcade kept)",
  "session_start": "2026-08-20",
@@ -607,15 +607,37 @@
      "type": "file_lacks",
      "path": "e2e/perf-snapshot.spec.ts",
      "needle": "holdInBuildPhase"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/helpers.ts",
+     "needle": "lockedByCinematic: w.activeCinematicPlayerId === w.localPlayerId,"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/helpers.ts",
+     "needle": "INPUT LOCK"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/bomb.spec.ts",
+     "needle": "THE REAL MECHANISM IS THE INPUT LOCK"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/bomb.spec.ts",
+     "needle": "THE FIRST EXPLANATION WAS WRONG AND IS CORRECTED HERE"
     }
    ],
-   "check_method": "P5 CHECK, verbose. DIAGNOSED BY MEASUREMENT IN FOUR PASSES, AND THE FIRST TWO HYPOTHESES WERE BOTH WRONG - MINE INCLUDED. (1) The AttractDrag / MAX_RELEASE_REACH theory (the file's own comment, plus GEMINI's headless-throttling variant) was REFUTED by probe: with a real porch shape the carried spark arrives 0-2 px from the cursor and lands 6 times out of 6, and the sim ran at ~62 ticks/sec, so it was not frame-starved. (2) MY OWN phase-boundary theory was refuted next. It is TRUE that a placement at tick 13 lands and one at tick 5407 does not - but the loud guard I shipped for it never fired on a real bomb.spec failure, because those failures sat at tick ~2900, deep inside BUILD. (3) Widening the failure diagnostic to name the hazards found bombs=1 on two failures. Controls.onDown tries pickBomb (:611) then pickRainbow (:619) then pickPotato (:627) then pickSpark (:633), so a bomb on the board makes every mouse-down claim the ORB and the placement fails forever while reporting a message about a SPARK. Suppressing bombs moved the rate from 2/6 to 3/8 - a REAL cause that was not the ONLY cause, which is precisely why partial fixes here keep reading as flakes. (4) The full diagnostic caught the last one: {bombs:0, potatoes:0, RAINBOWS:1, poops:1, porch:1, avatarKind:'Idle', phase:'BUILD', tick:2927} - a grabbable shape on the porch, the player idle, the phase open, and the placement still impossible because the rainbow outranked it. This spec suppressed two of the three pickers that outrank pickSpark and left the third. MEASURED RESULT WITH DENOMINATORS: before = 1 fail in the gating lane plus 1 fail / 3 in isolation at pre-flight, then 2 fail / 6; after bombs alone = 3 fail / 8; after rainbows and seagulls = 0 fail / 8. Full lane: e2e:gating went 49 passed / 1 failed / 3 skipped -> 53 passed / 0 failed / 0 skipped. tsc 0; vitest 173 files / 2848 green; build 717.4 KiB under charter.",
+   "check_method": "P5 CHECK, verbose. DIAGNOSED BY MEASUREMENT IN FOUR PASSES, AND THE FIRST TWO HYPOTHESES WERE BOTH WRONG - MINE INCLUDED. (1) The AttractDrag / MAX_RELEASE_REACH theory (the file's own comment, plus GEMINI's headless-throttling variant) was REFUTED by probe: with a real porch shape the carried spark arrives 0-2 px from the cursor and lands 6 times out of 6, and the sim ran at ~62 ticks/sec, so it was not frame-starved. (2) MY OWN phase-boundary theory was refuted next. It is TRUE that a placement at tick 13 lands and one at tick 5407 does not - but the loud guard I shipped for it never fired on a real bomb.spec failure, because those failures sat at tick ~2900, deep inside BUILD. (3) Widening the failure diagnostic to name the hazards found bombs=1 on two failures. Controls.onDown tries pickBomb (:611) then pickRainbow (:619) then pickPotato (:627) then pickSpark (:633), so a bomb on the board makes every mouse-down claim the ORB and the placement fails forever while reporting a message about a SPARK. Suppressing bombs moved the rate from 2/6 to 3/8 - a REAL cause that was not the ONLY cause, which is precisely why partial fixes here keep reading as flakes. (4) The full diagnostic caught the last one: {bombs:0, potatoes:0, RAINBOWS:1, poops:1, porch:1, avatarKind:'Idle', phase:'BUILD', tick:2927} - a grabbable shape on the porch, the player idle, the phase open, and the placement still impossible because the rainbow outranked it. This spec suppressed two of the three pickers that outrank pickSpark and left the third. MEASURED RESULT WITH DENOMINATORS: before = 1 fail in the gating lane plus 1 fail / 3 in isolation at pre-flight, then 2 fail / 6; after bombs alone = 3 fail / 8; after rainbows and seagulls = 0 fail / 8. Full lane: e2e:gating went 49 passed / 1 failed / 3 skipped -> 53 passed / 0 failed / 0 skipped. tsc 0; vitest 173 files / 2848 green; build 717.4 KiB under charter. ⚠ MECHANISM CORRECTED AFTER THE COMMIT, DURING THE RULE-22 LANDING AUDIT. The fix is unchanged and still measured at 0 fail / 8 then 0 fail / 4 (12/12 total), but the EXPLANATION shipped in commit c2501c2 was wrong and is corrected in the code comments and here. I wrote that the rainbow won by PICKER PRIORITY (onDown tries pickBomb -> pickRainbow -> pickPotato -> pickSpark). That cannot be what happened: pickRainbow requires the cursor within RAINBOW_RADIUS of the orb (controls.ts:1053-1066), and the drag runs from the porch to (420,400), nowhere near the quarry where rainbows spawn. The pickers never ran at all. ⭐ THE REAL MECHANISM IS THE INPUT LOCK. A rainbow spawn starts a FLYOVER CINEMATIC, which sets world.activeCinematicPlayerId; Controls.onDown returns at controls.ts:537 the instant isInputLocked() is true (controls.ts:305-314), BEFORE any picker is consulted. For the whole flyover every mouse-down is discarded in total silence. rainbow.spec already shrinks the flyover to 30 ticks via __TEST_FLYOVER_DURATION_TICKS__ for exactly this reason; bomb.spec never did, so its cinematic ran full length. The bomb half of the diagnosis is unaffected — a bomb DOES spawn in the quarry and the grab in this very spec proves the cursor goes there, so picker priority is a real second mechanism. Two different silent-failure paths, one symptom. The failure diagnostic now prints BOTH the hazard census AND the three isInputLocked() clauses, so the next occurrence names its own cause.",
    "findings": [
     "CF-S148-c's PRESCRIBED FIX WAS THE ONE THING THAT COULD NEVER WORK. It said 'raise the timeout or speed the drag'. The drag was already fine, and a longer wait strictly INCREASES the chance a hazard spawns mid-build. The retry budget had already been raised once in S136 for this same symptom; a second raise would have been the third session spent on a misdiagnosis, and it would have looked like shipped work.",
     "The failure message was actively misleading, which is why this survived so long: a stolen mouse-down produces 'placement landed near (450, 410) (prims 1 -> >=2)' - a sentence about a SPARK, naming a coordinate, with no hint that a rainbow ate the click. The diagnostic now prints every hazard family, the porch count, the avatar state and the phase, so the next occurrence names itself.",
     "Three of the four pickers in Controls.onDown outrank the shape a build needs. Any spec that enables hazards AND builds must suppress ALL THREE. bomb.spec suppressed two - a partial guard that reads as a complete one.",
     "The phase-boundary finding is real and is kept even though it was not this bug: a placement at tick 5407 is silently refused, and placeFreeSparkAndConfirm now says so in words instead of timing out. holdInBuildPhase is applied to the four SOLO building specs (bomb, rainbow, hunter, worker) and deliberately NOT to the networked ones (smoke, perf-snapshot), where writing a hashed field would be a desync.",
-    "__SPARK__.forceBomb is a dev-only sibling of forceNonet, verified absent from the production bundle (grep for forceNonet in dist/ returns 0), so the determinism costs shipped bytes nothing."
+    "__SPARK__.forceBomb is a dev-only sibling of forceNonet, verified absent from the production bundle (grep for forceNonet in dist/ returns 0), so the determinism costs shipped bytes nothing.",
+    "SELF-CORRECTION: the mechanism I committed was wrong. Suppressing rainbows fixed the flake (0/8, then 0/4 after this correction = 12/12), but I attributed it to picker priority when pickRainbow cannot reach a cursor that never approaches the quarry. The real cause is the input lock: a rainbow flyover is a CINEMATIC, and onDown returns before any picker while a cinematic is active. A correct fix with a wrong explanation is a trap for the next session, which is why this is corrected in the code comments rather than left as a plausible story.",
+    "rainbow.spec has the SAME structural exposure — it spawns a rainbow every 2 sparks and then builds — and survives only because it shrinks the flyover to 30 ticks. Its comment claims the design is 'race-free' because the other two hazards are suppressed, which is the same false reasoning bomb.spec carried. Logged as a carry-forward rather than changed, since it currently passes and the batch is closing."
    ],
    "checkpoint_commit": "c2501c2",
    "deploy_verified": "4/4"
@@ -1878,6 +1900,13 @@
    "title": "Footer tier -> per-complexity filter (LARGELY SUPERSEDED)",
    "state": "Delivered in S149 P5/P6 - the chip already opens a tower-card menu. Cosmetic polish only.",
    "detail": "Kept only so the remaining polish is not forgotten. Not a defect. See also CF-S150-a on the axis label."
+  },
+  {
+   "id": "CF-S150-b",
+   "priority": 11,
+   "title": "rainbow.spec has bomb.spec's exposure — a flyover cinematic can eat its build clicks",
+   "state": "LATENT. Currently passes; flagged during the S150 Rule-22 audit, not observed failing.",
+   "detail": "rainbow.spec sets __TEST_RAINBOW_SPAWN_SPARKS__ = 2 (a rainbow almost immediately) and THEN calls placeFreeSparkAndConfirm. A rainbow spawn starts a flyover CINEMATIC, and Controls.onDown returns at controls.ts:537 while isInputLocked() is true — so every mouse-down during the flyover is silently discarded. It survives today only because it shrinks the flyover to 30 ticks via __TEST_FLYOVER_DURATION_TICKS__. ⚠ Its comment says the design is 'race-free by design' because the other two zone hazards are suppressed — the SAME false reasoning bomb.spec carried in its header for three sessions. Cheapest fix: build BEFORE enabling the rainbow cadence, or hold the build until activeCinematicPlayerId is null. The S150 diagnostic in placeFreeSparkAndConfirm will name the cause outright if it ever fires."
   }
  ],
  "priorities_s149_archived": [
@@ -3169,5 +3198,16 @@
   "count_out": 10,
   "closed": 2,
   "new": 1
+ },
+ "rule22_audit_s150": {
+  "trigger": "owner asked explicitly: 'in the end of FULL session batch after commiting and pushing everything run audit to make sure EVERYTHING landed as it should have'",
+  "own_checks": [
+   "dist/ now contains 'spark.arcade.nonet.scores' (2 hits, was 0) — the arcade model genuinely ships instead of being tree-shaken",
+   "'forceBomb' and 'forceNonet' both appear 0 times in the production bundle — dev hooks stripped",
+   "all five priorities carry a real checkpoint_commit; git cat-file confirms each",
+   "verify-deploy 4/4 on P1, P3 and P5; P2 and P4 correctly report 'no run OWED' (no files under deploy.yml's paths filter)",
+   "SELF-FOUND DURING THE AUDIT: P5's committed mechanism was wrong (picker priority vs the real input lock). Corrected in code and here.",
+   "SELF-FOUND DURING THE AUDIT: rainbow.spec carries the same latent exposure — logged as CF-S150-b."
+  ]
  }
 }

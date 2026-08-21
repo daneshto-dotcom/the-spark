@@ -147,17 +147,26 @@ test.describe('S71 P1 — pickup bomb (solo, gating)', () => {
     // one on the board once the build is done. A sequence instead of a race.
     await page.addInitScript({ content: 'window.__TEST_BOMB_SPAWN_SPARKS__ = 999;' });
     await page.addInitScript({ content: 'window.__TEST_POTATO_SPAWN_SPARKS__ = 999;' });
-    // ⛔ S150 P5 — AND RAINBOWS, WHICH WAS THE LAST PIECE AND THE ONE NOBODY HAD SUPPRESSED.
+    // ⛔ S150 P5 — AND RAINBOWS. THE LAST PIECE, AND NOT FOR THE REASON IT FIRST LOOKED.
     //
-    // `Controls.onDown` tries the pickers IN THIS ORDER: pickBomb (:611) -> pickRainbow (:619) ->
-    // pickPotato (:627) -> pickSpark (:633). So THREE different objects outrank the shape the drag
-    // wants, and this spec suppressed only TWO of them. Measured on the surviving failure after
-    // bombs were suppressed: {bombs:0, potatoes:0, RAINBOWS:1, poops:1, porch:1, avatarKind:'Idle',
-    // phase:'BUILD', tick:2927} — a porch shape present and grabbable, the player idle, the phase
-    // open, and the placement still impossible, because every mouse-down was claiming the rainbow.
+    // Measured on the surviving failure after bombs were suppressed:
+    //   {bombs:0, potatoes:0, RAINBOWS:1, poops:1, porch:1, avatarKind:'Idle', phase:'BUILD', tick:2927}
+    // A grabbable shape on the porch, the player idle, the phase open — and the placement still
+    // impossible.
     //
-    // Seagulls go too: they are pure noise for a bomb test, and they mint the poops that foul a
-    // structure and zero its income mid-run.
+    // ⚠ THE FIRST EXPLANATION WAS WRONG AND IS CORRECTED HERE. It looked like picker priority
+    // (`onDown` tries pickBomb -> pickRainbow -> pickPotato -> pickSpark), but `pickRainbow` requires
+    // the cursor within RAINBOW_RADIUS of the orb, and this drag runs from the porch to (420,400) —
+    // nowhere near the quarry where rainbows spawn. The pickers never even ran.
+    //
+    // ⭐ THE REAL MECHANISM IS THE INPUT LOCK. A rainbow spawn starts a FLYOVER CINEMATIC, which sets
+    // `world.activeCinematicPlayerId`; `Controls.onDown` returns at controls.ts:537 the moment
+    // `isInputLocked()` is true (controls.ts:305-314), BEFORE any picker is consulted. So for the
+    // whole flyover every mouse-down is discarded in total silence. rainbow.spec shrinks the flyover
+    // to 30 ticks with __TEST_FLYOVER_DURATION_TICKS__ precisely because of this; bomb.spec never
+    // did, so its cinematic ran full length.
+    //
+    // Seagulls go too: pure noise for a bomb test, and they mint the poops that foul a structure.
     await page.addInitScript({ content: 'window.__TEST_RAINBOW_SPAWN_SPARKS__ = 999;' });
     await page.addInitScript({ content: 'window.__TEST_SEAGULL_SPAWN_SPARKS__ = 999;' });
     await page.addInitScript({ content: 'window.__TEST_WIN_SCORE__ = 999;' });
