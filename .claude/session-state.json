@@ -214,18 +214,63 @@
    "title": "CARRY-FORWARD REMEDIATION - rewrite CF-S148-b/c/d and CF1 to what the code says; restore CF3; reclassify CF-S149-b",
    "tier": "Standard",
    "protocol_bump": false,
-   "status": "in_progress",
-   "check_completed": false,
+   "status": "completed",
+   "check_completed": true,
    "pdr_approved": true,
    "deliberation_completed": true,
-   "unlock_source": "user"
+   "unlock_source": "user",
+   "verification": [
+    {
+     "type": "file_contains",
+     "path": ".claude/session-state.json",
+     "needle": "carry_forward_inherited_from_s149_verbatim"
+    },
+    {
+     "type": "file_contains",
+     "path": ".claude/session-state.json",
+     "needle": "THE ROOT-CAUSE DIAGNOSIS WAS WRONG"
+    },
+    {
+     "type": "file_contains",
+     "path": ".claude/session-state.json",
+     "needle": "CONTENT WAS LOST, THEN CARRIED AS A BARE ID. RECOVERED S150."
+    },
+    {
+     "type": "file_contains",
+     "path": ".claude/session-state.json",
+     "needle": "FIVE DAYS BEFORE THE CF WAS WRITTEN"
+    },
+    {
+     "type": "file_contains",
+     "path": ".claude/session-state.json",
+     "needle": "RECLASSIFIED, NOT FIXED. There was nothing to fix."
+    },
+    {
+     "type": "file_contains",
+     "path": ".claude/session-state.json",
+     "needle": "carry_forward_audit_s150"
+    },
+    {
+     "type": "grep_count",
+     "path": ".claude/session-state.json",
+     "pattern": "\"id\": \"CF-",
+     "op": ">=",
+     "value": 12
+    }
+   ],
+   "check_method": "P2 CHECK, verbose. Every one of the 14 inherited carry-forwards was re-opened against the code on disk instead of being re-copied. Four were REFUTED by the code (CF-S148-b's blocker, CF-S148-c's remedy, CF-S148-d's root cause, CF1's one-line description) and one (CF3) had its content recovered from HANDOFF_2026-08-16_S146.md after degrading to the literal title 'inherited, unspecified'. Two are CLOSED: CF-S147-b by P1, and CF-S149-b by RECLASSIFICATION - walls.ts already contained the argument that it is correct as-is, so filing it as work was the error. One new entry (CF-S150-a) records the owner's R56 deferral of the axis mislabel WITH its evidence, so it cannot decay into a bare id the way CF3 did. The inherited list is preserved verbatim under carry_forward_inherited_from_s149_verbatim, so this remediation is itself auditable rather than a silent overwrite. 14 in, 10 out, 2 closed, 1 new.",
+   "findings": [
+    "In TWO cases the superseding change had already landed when the CF was first written - BUILD_BLUEPRINT shipped five days before CF-S148-b claimed a fixture was impossible, and the retry-budget raise shipped nine days before CF-S148-c prescribed raising it. Acting on CF-S148-c as written would have been a no-op that LOOKED like shipped work.",
+    "CF-S148-d's diagnosis was refuted by an artifact already saved in the repo: all four peers seated, match run to POSTGAME at tick 2212. The failure is in the predicate, not the transport - a completely different fix from the one the CF prescribed.",
+    "CF-S149-b was not a gap at all. Filing 'X has no consumer' as work, when the file explains at length why X correctly has no consumer, is a distinct failure mode from a stale diagnosis: it converts documentation into a to-do."
+   ]
   },
   {
    "id": "P3",
    "title": "ARCADE timed trial + leaderboard UI - timer, initials entry, HIGH SCORES board, declarative gameState guard, pin TOP_N=25, fix the blank-initials row",
    "tier": "Standard",
    "protocol_bump": false,
-   "status": "pending",
+   "status": "in_progress",
    "check_completed": false,
    "pdr_approved": true,
    "deliberation_completed": true,
@@ -1425,81 +1470,86 @@
  ],
  "carry_forward_next_session": [
   {
-   "id": "CF-S149-e",
-   "priority": 1,
-   "title": "ARCADE NONET: timed trial + 80s leaderboard UI",
-   "state": "MODEL DONE AND TESTED, UI NOT WIRED — an honest half.",
-   "detail": "src/render/arcadeScores.ts is complete and proven (26 tests, mutation-verified): top-25, 3-letter initials, M:SS.cc, corrupt-storage tolerance, and the SUBTLE part — the sort is INVERTED because faster wins, and a reversed board would still look perfectly plausible. MISSING: the timer display, the ENTER YOUR INITIALS screen, and the HIGH SCORES board. Owner: 'see who can finish it as fast as possible … only like top 25 are shown and it tells him place place his score is. like in a real arcade from the 80s'. Wire: start a performance.now() stamp when a puzzle launches (legitimate — crosses no wire, feeds nothing host-authoritative), stop on solve, call recordRun(name, ms, at), show place."
-  },
-  {
-   "id": "CF-S149-d",
-   "priority": 2,
-   "title": "e2e/click-to-build.spec.ts — 3 tests are test.fixme, STALE not flaky",
-   "detail": "Tower selection moved from the castle panel to the footer band, so castlePanel.getUiPoints().structureCenters no longer describes a rendered surface. The rewrite recipe is written into the file: open the tier chip → read the cards → click to arm → place. Both geometry getters already exist (__SPARK__.footerBand.getUiPoints)."
-  },
-  {
    "id": "CF-S149-f",
-   "priority": 3,
-   "title": "P7 — BOTS BUILD TOWERS (the last of the owner's five original complaints)",
-   "detail": "Owner: 'bots are not building towers from the tower selection but instead take the shapes out of the inventory and build random structures. their first priorities should be to build actual towers... obviously increasing complexity gives them better tactics'. A.0 measured: botBrain.chooseGoal has FLEE/CLEAN/RAINBOW/SEVER/POTATO/BUILD/PULL and the BUILD goal places ONE primitive — there is no recipe goal anywhere, so bots are structurally INCAPABLE of building a tower. Full tier."
+   "priority": 1,
+   "title": "BOTS BUILD TOWERS - the last of the owner's five playtest complaints",
+   "tier": "Full",
+   "state": "BLOCKED ON FIVE OWNER RULINGS. Scope cannot be locked until they land (Rule 17).",
+   "owner_quote": "bots are not building towers from the tower selection but instead take the shapes out of the inventory and build random structures. their first priorities should be to build actual towers... obviously increasing complexity gives them better tactics",
+   "detail": "S150 A.0 CORRECTED THE S149 SIZING IN BOTH DIRECTIONS. The wiring half is CHEAPER than S149 thought: BUILD_BLUEPRINT is one already-allowlisted client intent (since v21), planBlueprintPayment is a pure affordability oracle, stampRefusalAt already enforces phase + zone + overlap and is the SAME predicate the ghost and reducer share, and BotGoal has no wire surface - so NO PROTOCOL BUMP. But the task is bigger than S149 thought too, and Full tier is CORRECT.",
+   "structural_proof": "A bot cannot build a tower even by accident, and the reason is arithmetic, not a missing goal: GROWTH_STEP = AUTO_BOND_RADIUS * 0.8 = 48, which is INSIDE AUTO_BOND_RADIUS = 60. So every primitive a bot places auto-bonds into its ONE existing component, which grows MONOTONICALLY - while all six recipes gate on an EXACT component size (4/5/6/7/7/8) with strict !== and no upper tolerance. Past the eighth shape ignition is impossible. Worse, smartPlacement (HARD + IMBA) actively weaves REDUNDANCY bonds, which is precisely what blueprintBuild documents itself as avoiding because it kills exact-degree recipes.",
+   "self_sabotage_hazard": "Every primitive a bot has ever placed forbids a 60px clearance disc for any stamp (blueprintLegality.ts). voltkin needs ~212px clear radius inside a 960x540 quadrant. A version that adds ONLY the goal produces bots that select a tower and find nowhere legal to put it - which reads to the owner as the same bug, not a fix. Address littering in the same priority.",
+   "determinism_note": "All THREE determinism gates are SELF-COMPARING (run vs re-run, new vs frozen reference), not golden-hash pins - botController.test.ts:121-144, hostTick.replay.test.ts, hostTick.differential.test.ts. A new bot goal changes behaviour for a given seed and BREAKS NONE OF THEM, so the change lands SILENTLY. Prefer zero-draw selection (deterministic: highest blueprintCost, tie-break by id) and WRITE THE TEST, in the spawnerRngInvariance.test.ts idiom. Note the shift does not come from a new draw - it comes from PREEMPTING the BUILD goal, which skips pickTargetSpark's single sloppy-path draw.",
+   "owner_rulings_needed": [
+    "1. INSTANT STAMP OR TRAVEL-THEN-STAMP? Dispatching BUILD_BLUEPRINT instantly is legal and cheap but invisible, un-interceptible and asymmetric with the human opponent. The owner's own framing was 'then the spark (your cruiser) just drags it to where you want it'.",
+    "2. DO BOTS KEEP SINGLE-PRIMITIVE BUILDING AT ALL? Keeping it litters the zone and drains the bill being saved; deleting it removes their only complexity-income source and changes what botController.test.ts:146-160 and botGameplay.test.ts:185-210 measure.",
+    "3. HOW DOES COMPLEXITY MAP TO DIFFICULTY? Candidate: NOOB <= 4 (stink only), MID <= 5, HARD <= 7, IMBA all.",
+    "4. MAY A BOT DIRECT ITS OWN GATHERER? Without ENQUEUE_GATHERER_ORDER a bot's bank composition is random (preferredType stays null), so it affords a recipe only by luck. With it, bots get materially stronger - a balance change, not just an intelligence change.",
+    "5. 'TOWERS' STRICTLY, OR ALL SIX? Only 3 of 6 registry entries are kind:'defender' (stinkTower, laserTurret, princessHelga). pentagram and lightningHub are 'spawner'; voltkin is 'cinematic'."
+   ]
   },
   {
    "id": "CF-S149-a",
-   "priority": 4,
+   "priority": 2,
    "title": "DESIGN RULING NEEDED: the quarry is an OPEN HUB",
-   "detail": "Border walls stop at the quarry rim (Q6), so a unit can route between zones through the centre while the walls are up. Faithful to the stated geometry and pinned by a named test. Sealing it needs a wall arc across the rim — an OWNER RULING, not a code change."
+   "state": "OWNER RULING, not a code change. Unchanged from S149 and still accurate.",
+   "detail": "Border walls run from the quarry rim OUTWARD per owner rule Q6 ('every zone has unobstructed access to its own slice of the quarry'), so a unit can route between zones THROUGH the centre while the walls are up. This is a faithful consequence of the stated geometry, not a shortcut, and walls.test.ts pins it in a describe block named 'THE QUARRY IS AN OPEN HUB' rather than leaving it to be discovered as a bug. Sealing the centre needs a wall arc across the rim - a design decision."
   },
   {
-   "id": "CF-S149-b",
-   "priority": 5,
-   "title": "clampAcrossWalls has no sim consumer",
-   "detail": "Wiring it into gatherer movement drops the opening economy 7+ → 5 banked, because enforceSpawnerBounds rim-snaps sparks to EXACTLY SPAWNER_RADIUS while zoneOf treats the quarry as STRICTLY inside — so a rim spark belongs to a neighbouring zone and the gatherer is blocked from the shared resource, which Q6 forbids. Solve the rim case first; zoneEconomy.test.ts is the guard."
-  },
-  {
-   "id": "CF-S149-c",
-   "priority": 6,
-   "title": "Footer tier → per-complexity FILTER inside the panel (partially superseded)",
-   "detail": "Largely delivered in P5/P6: the chip now opens a tower-card menu. What remains is cosmetic polish only."
+   "id": "CF-S150-a",
+   "priority": 3,
+   "title": "THE COMPLEXITY AXIS IS MISLABELLED - shape count vs connector count",
+   "state": "OWNER DEFERRED IT THIS SESSION (ruling R56). Logged with evidence, not dropped.",
+   "detail": "footerBandModel.ts's docblock quotes owner R36 as 'indexed by CONNECTOR COUNT', but the code buckets on blueprintCost(id), which is BLUEPRINTS[id].nodes.length - the SHAPE count. So chip '4' is the 4-shape / 3-BOND stink tower. Either R36 meant shape count all along and the docblock is wrong, or the UI has advertised the wrong axis since S149 P4. ⚠ SETTLE THIS BEFORE BUILDING THE BOT COMPLEXITY RAMP (CF-S149-f ruling 3) - the ramp would silently inherit whichever axis is wrong. Bond counts, for reference: stink 4/3, pentagram 5/5, lightningHub 6/5, laserTurret 7/6, helga 7/6, voltkin 8/7."
   },
   {
    "id": "CF-S148-b",
-   "priority": 7,
-   "title": "creatureSpawners acknowledged hole in the differential seeding — proper source is the goblin tower (S153)"
-  },
-  {
-   "id": "CF-S148-c",
-   "priority": 8,
-   "title": "e2e rainbow/bomb load-sensitive AttractDrag intermittence — measured 3/3 pass in isolation, fails ~1-in-3 in a loaded full lane; raise the timeout or speed the drag"
-  },
-  {
-   "id": "CF-S148-d",
-   "priority": 9,
-   "title": "4-peer nplayer FFA times out at peer connection (quarantine lane)"
-  },
-  {
-   "id": "CF-S147-b",
-   "priority": 10,
-   "title": "promote the 5-site protocol-bump checklist to LOCKED_DECISIONS.md — drift has now recurred SEVEN times"
-  },
-  {
-   "id": "CF-S147-c",
-   "priority": 11,
-   "title": "delete the six acknowledged hazard rows in workerSim.differential when HAZARD_SPAWN_ENABLED flips true"
+   "priority": 4,
+   "title": "creatureSpawners + defenders acknowledged rows in workerSim.differential",
+   "state": "⛔ MIS-DESCRIBED BY S148/S149. The stated BLOCKER IS FALSE. Corrected S150.",
+   "detail": "The acknowledged rows are real and on disk. But the CF claimed they can only be seeded by the S153 goblin tower because a fixture would need 'five bonded Triangles built as a test fixture, which is the same ~80 lines of geometry just deleted from production'. THAT IS FALSE: BUILD_BLUEPRINT shipped in S144 P1 - FIVE DAYS BEFORE THE CF WAS WRITTEN - and stamps exact production geometry from a registry that already contains both 'pentagram' and 'stinkTower'. One dispatch seeds either family. The same false blocker invalidates the sibling 'defenders' row, which uses word-for-word the same reasoning and names the stinkTower as its cheapest fixture. ⚠ Acting on the CF as written would have misdirected a whole session toward S153. This is now CHEAP and NOT blocked."
   },
   {
    "id": "CF-S147-e",
-   "priority": 12,
-   "title": "R45 lobby colour/race picker — substrate exists, needs one client intent"
+   "priority": 5,
+   "title": "R45 lobby colour/race picker - substrate exists, needs one client intent",
+   "state": "STILL-REAL, and the ONLY inherited CF whose every file:line still verified exactly.",
+   "detail": "All four cited default-assignment sites verify (lobbyRoster.ts:103-104 among them), PLAYER_COLORS is still six entries (a race roster, not a cap - R45), and no colour/race-picker intent exists anywhere in the codebase."
   },
   {
    "id": "CF1",
-   "priority": 13,
-   "title": "under ?worker=1 click-to-build spends shapes and builds nothing (opt-in only)"
+   "priority": 6,
+   "title": "under ?worker=1 click-to-build stamps primitives and debits the bank but the DEFENDER never ignites",
+   "state": "STILL-REAL (opt-in only). ⛔ THE ONE-LINE DESCRIPTION HAD ROTTED - corrected S150.",
+   "detail": "The inherited wording was 'spends shapes and builds nothing', which would send a debugger to the wrong reducer. The precise S145 original: primitives ARE stamped and the bank IS debited; only `defenders` stays empty. NARROWED THIS SESSION: applyBuildBlueprint is provably ATOMIC - all four gates (player exists, blueprint exists, stamp legality, affordability) return BEFORE consumePayments, and minting happens synchronously in the same call - so 'spends and gets nothing' CANNOT originate inside that reducer. The defect is at the mirror/authority boundary. The worker DOES set isHost and DOES call the matcher (the S146 refutation still holds), so suspect the BOND_FORMED emit reaching the ignition sweep across the worker boundary. Stale refs corrected: the traced file is src/state/godlyMatcherCore.ts (not godlyRecipes/), and the isHost line is workerSim.ts:214, not :218. Needs the runtime probe the CF has always asked for. WORKER_DEFAULT_ON is still false."
   },
   {
    "id": "CF3",
-   "priority": 14,
-   "title": "inherited, unspecified"
+   "priority": 7,
+   "title": "SWEEP: other specs whose seeding hides a real-path failure",
+   "state": "⛔ CONTENT WAS LOST, THEN CARRIED AS A BARE ID. RECOVERED S150.",
+   "detail": "This was NEVER 'inherited, unspecified'. Filed in S145 and restated in S146: a sweep for other specs whose fixture seeding hides a real-path failure - the generalisation of the S145/S146 lesson that a harness can be green because its oracle is looking at an empty set. It degraded to a bare id in the S148 handoff, then to the literal title 'inherited, unspecified' in S149, and was carried forward in that state through an approved deferral. The last file carrying its real text is HANDOFF_2026-08-16_S146.md:110-112. PARTLY SUPERSEDED-IN-KIND: workerSim.differential.test.ts now has exactly the anti-vacuity mechanism CF3 asked for (SEEDING_COVERAGE forces every family to be either asserted-seeded or acknowledged-with-a-reason). What REMAINS open is applying that same discipline to the OTHER specs. ⚠ Carrying an id whose content nobody can state is worse than closing it."
+  },
+  {
+   "id": "CF-S148-d",
+   "priority": 8,
+   "title": "4-peer nplayer FFA times out (quarantine lane)",
+   "state": "STILL-REAL but ⛔ THE ROOT-CAUSE DIAGNOSIS WAS WRONG. Corrected S150. Blast radius nil.",
+   "detail": "The CF asserted the test 'FAILS RELIABLY at the PEER-CONNECTION stage' and 'never gets 4 browser peers joined over real WebRTC'. THE REPO'S OWN SAVED ARTIFACT DISPROVES THAT: test-results-quarantine/nplayer-.../error-context.md shows ALL FOUR peers seated with distinct colours and the match already run to POSTGAME at tick 2212. Only the gameState clause of the predicate failed. Control flow proves the same independently: the peer-connection gate is a SEPARATE waitForWorld with its own message and a 60s budget (nplayer.spec.ts:94), so the 30000ms assertion the CF quotes is UNREACHABLE unless that gate already PASSED. Correctly scoped otherwise: tagged @quarantine-flaky, non-gating lane, so owner blast radius is genuinely nil. Fix the PREDICATE, not the transport."
+  },
+  {
+   "id": "CF-S147-c",
+   "priority": 9,
+   "title": "delete the six acknowledged hazard rows in workerSim.differential",
+   "state": "STILL-REAL, ACCURATELY DESCRIBED, but NOT ACTIONABLE - its trigger has not fired.",
+   "detail": "Exactly six rows are acknowledged (bombs, potatoes, rainbows, seagulls, poops, fouledPrimitives) and HAZARD_SPAWN_ENABLED is still false AND actively pinned false by spawnerRngInvariance.test.ts. Scheduling this as a priority would produce nothing. ⭐ RECLASSIFIED: this belongs as a TRIPWIRE ATTACHED TO THE FLAG FLIP, not as a carry-forward that gets re-copied every session. Whoever flips HAZARD_SPAWN_ENABLED owns it."
+  },
+  {
+   "id": "CF-S149-c",
+   "priority": 10,
+   "title": "Footer tier -> per-complexity filter (LARGELY SUPERSEDED)",
+   "state": "Delivered in S149 P5/P6 - the chip already opens a tower-card menu. Cosmetic polish only.",
+   "detail": "Kept only so the remaining polish is not forgotten. Not a defect. See also CF-S150-a on the axis label."
   }
  ],
  "priorities_s149_archived": [
@@ -2689,5 +2739,107 @@
   "ci": "all completed success, no cancelled runs, no open issues",
   "council_seats": "grok-4.20-0309-reasoning OK; gemini-3.1-pro-preview OK",
   "context_at_pdr": "182817 / 1000000 (18.3% GREEN)"
+ },
+ "carry_forward_inherited_from_s149_verbatim": [
+  {
+   "id": "CF-S149-e",
+   "priority": 1,
+   "title": "ARCADE NONET: timed trial + 80s leaderboard UI",
+   "state": "MODEL DONE AND TESTED, UI NOT WIRED — an honest half.",
+   "detail": "src/render/arcadeScores.ts is complete and proven (26 tests, mutation-verified): top-25, 3-letter initials, M:SS.cc, corrupt-storage tolerance, and the SUBTLE part — the sort is INVERTED because faster wins, and a reversed board would still look perfectly plausible. MISSING: the timer display, the ENTER YOUR INITIALS screen, and the HIGH SCORES board. Owner: 'see who can finish it as fast as possible … only like top 25 are shown and it tells him place place his score is. like in a real arcade from the 80s'. Wire: start a performance.now() stamp when a puzzle launches (legitimate — crosses no wire, feeds nothing host-authoritative), stop on solve, call recordRun(name, ms, at), show place."
+  },
+  {
+   "id": "CF-S149-d",
+   "priority": 2,
+   "title": "e2e/click-to-build.spec.ts — 3 tests are test.fixme, STALE not flaky",
+   "detail": "Tower selection moved from the castle panel to the footer band, so castlePanel.getUiPoints().structureCenters no longer describes a rendered surface. The rewrite recipe is written into the file: open the tier chip → read the cards → click to arm → place. Both geometry getters already exist (__SPARK__.footerBand.getUiPoints)."
+  },
+  {
+   "id": "CF-S149-f",
+   "priority": 3,
+   "title": "P7 — BOTS BUILD TOWERS (the last of the owner's five original complaints)",
+   "detail": "Owner: 'bots are not building towers from the tower selection but instead take the shapes out of the inventory and build random structures. their first priorities should be to build actual towers... obviously increasing complexity gives them better tactics'. A.0 measured: botBrain.chooseGoal has FLEE/CLEAN/RAINBOW/SEVER/POTATO/BUILD/PULL and the BUILD goal places ONE primitive — there is no recipe goal anywhere, so bots are structurally INCAPABLE of building a tower. Full tier."
+  },
+  {
+   "id": "CF-S149-a",
+   "priority": 4,
+   "title": "DESIGN RULING NEEDED: the quarry is an OPEN HUB",
+   "detail": "Border walls stop at the quarry rim (Q6), so a unit can route between zones through the centre while the walls are up. Faithful to the stated geometry and pinned by a named test. Sealing it needs a wall arc across the rim — an OWNER RULING, not a code change."
+  },
+  {
+   "id": "CF-S149-b",
+   "priority": 5,
+   "title": "clampAcrossWalls has no sim consumer",
+   "detail": "Wiring it into gatherer movement drops the opening economy 7+ → 5 banked, because enforceSpawnerBounds rim-snaps sparks to EXACTLY SPAWNER_RADIUS while zoneOf treats the quarry as STRICTLY inside — so a rim spark belongs to a neighbouring zone and the gatherer is blocked from the shared resource, which Q6 forbids. Solve the rim case first; zoneEconomy.test.ts is the guard."
+  },
+  {
+   "id": "CF-S149-c",
+   "priority": 6,
+   "title": "Footer tier → per-complexity FILTER inside the panel (partially superseded)",
+   "detail": "Largely delivered in P5/P6: the chip now opens a tower-card menu. What remains is cosmetic polish only."
+  },
+  {
+   "id": "CF-S148-b",
+   "priority": 7,
+   "title": "creatureSpawners acknowledged hole in the differential seeding — proper source is the goblin tower (S153)"
+  },
+  {
+   "id": "CF-S148-c",
+   "priority": 8,
+   "title": "e2e rainbow/bomb load-sensitive AttractDrag intermittence — measured 3/3 pass in isolation, fails ~1-in-3 in a loaded full lane; raise the timeout or speed the drag"
+  },
+  {
+   "id": "CF-S148-d",
+   "priority": 9,
+   "title": "4-peer nplayer FFA times out at peer connection (quarantine lane)"
+  },
+  {
+   "id": "CF-S147-b",
+   "priority": 10,
+   "title": "promote the 5-site protocol-bump checklist to LOCKED_DECISIONS.md — drift has now recurred SEVEN times"
+  },
+  {
+   "id": "CF-S147-c",
+   "priority": 11,
+   "title": "delete the six acknowledged hazard rows in workerSim.differential when HAZARD_SPAWN_ENABLED flips true"
+  },
+  {
+   "id": "CF-S147-e",
+   "priority": 12,
+   "title": "R45 lobby colour/race picker — substrate exists, needs one client intent"
+  },
+  {
+   "id": "CF1",
+   "priority": 13,
+   "title": "under ?worker=1 click-to-build spends shapes and builds nothing (opt-in only)"
+  },
+  {
+   "id": "CF3",
+   "priority": 14,
+   "title": "inherited, unspecified"
+  }
+ ],
+ "carry_forward_closed_s150": [
+  {
+   "id": "CF-S147-b",
+   "state": "✅ CLOSED S150 P1",
+   "title": "the protocol-bump checklist - promoted AND mechanised",
+   "detail": "Both halves shipped on Council advice: protocolVersionSync.test.ts now asserts both changelog carriers document an unbroken chain ending at PROTOCOL_VERSION in chronological order, AND the checklist is promoted to LOCKED_DECISIONS.md with the bump CRITERION (wire incompatibility, not replay identity). Enumerating the chain rather than reading it found FIVE live drift instances where three were expected - 8->9 and 20->21 had been missing since S93 and S144. The checklist is now SIX items; item 6 is the session label. Proven by running the new gate against HEAD's drifted file."
+  },
+  {
+   "id": "CF-S149-b",
+   "state": "✅ CLOSED S150 P2 - RECLASSIFIED, NOT FIXED. There was nothing to fix.",
+   "title": "clampAcrossWalls has no sim consumer",
+   "detail": "This was filed as a gap. It is CORRECT AS-IS, and walls.ts already contains the whole argument: during BUILD gatherers are GUARANTEED quarry access (Q6) and creatures are dormant, so nothing both moves and ought to be stopped; during FIGHT the walls are down (R5). The sealing players actually feel comes from BUILD LEGALITY and DORMANCY, not from a barrier - the wall's job is to make the rule VISIBLE, which the renderer does. The function is retained, exported and tested as the correct substrate for the day a unit legitimately needs stopping at a border. ⚠ DO NOT WIRE IT WITHOUT SOLVING THE RIM CASE: enforceSpawnerBounds rim-snaps sparks to EXACTLY SPAWNER_RADIUS while zoneOf treats the quarry as STRICTLY inside (< R^2), so a rim spark belongs to a neighbouring zone and a gatherer gets blocked from the shared resource - which Q6 forbids. zoneEconomy.test.ts is the guard that caught it (opening economy 7+ -> 5 banked)."
+  }
+ ],
+ "carry_forward_audit_s150": {
+  "method": "Every inherited carry-forward re-verified against the code on disk rather than re-copied. The inherited list is preserved verbatim under carry_forward_inherited_from_s149_verbatim so the rot stays auditable.",
+  "headline": "FOUR of the eight older carry-forwards (CF-S148-b, CF-S148-c, CF-S148-d, CF1) carried diagnoses or blockers that the code on disk REFUTES, and a fifth (CF3) had lost its content entirely. In two cases (CF-S148-b, CF-S148-c) the superseding change had ALREADY LANDED when the CF was first written - five and nine days earlier respectively.",
+  "meta_pattern": "In every case the text was re-copied forward across sessions without re-verification. A carry-forward is a CLAIM, and claims decay; this list is now dated, evidenced, and each entry says what was verified rather than what was believed.",
+  "count_in": 14,
+  "count_out": 10,
+  "closed": 2,
+  "new": 1
  }
 }
