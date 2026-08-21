@@ -368,7 +368,31 @@ test.describe('Sym D — color-segregated bonds (GREEN post-S46 P3) @quarantine-
   });
 });
 
-test.describe('Sym E — score display layout (placeholder — needs Pixi Graphics bounds inspection helper for full assertion) @quarantine-flaky', () => {
+/**
+ * ⛔ S150 P4 — RULED ON: THIS IS A PLACEHOLDER, NOT A STALE TEST, AND THE DISTINCTION MATTERS.
+ *
+ * The FOURTH `test.fixme` in the repo, and the one no carry-forward ever mentioned — the S149 audit
+ * counted three. Read the body before trusting the title: the `page.evaluate` block ends in a
+ * hardcoded `return null`, and the assertion is `expect(layout).not.toBeNull()`. **It cannot pass by
+ * construction.** Its own comment says so: *"P6 will add label to scoreText + chargeDots Graphics
+ * objects. For now this is a placeholder that returns null -> fixme expected."* That P6 never came.
+ *
+ * It is also asserting against a UI THAT NO LONGER EXISTS. `"/50"` was the win score when this was
+ * written; `PHASE_1_WIN_SCORE` is **1500**, and the HUD has been rebuilt several times since —
+ * including a whole S149 coherence pass over its instruments.
+ *
+ * ⚠ SO IT IS LEFT IN PLACE DELIBERATELY, AND NOT DELETED. Nothing is removed from this repo without
+ * an owner ruling, and the underlying QUESTION is still real: nothing verifies that the score
+ * readout and the charge dots do not overlap. What it would actually take is (a) `label` plumbed
+ * onto the score Text and the charge-dot Graphics so they are findable from `__SPARK__`, (b) a
+ * bounds-intersection assertion, and (c) the expected string re-derived from
+ * `PHASE_1_WIN_SCORE` rather than hardcoded. Logged as a carry-forward with that recipe.
+ *
+ * It blocks nothing meanwhile: the describe is `@quarantine-flaky`, which `npm run e2e:gating`
+ * grep-inverts — though note that is exactly the mechanism by which a sibling assertion in this file
+ * rotted unnoticed across roughly six protocol bumps (see `protocolVersionSync.test.ts`).
+ */
+test.describe('Sym E — score display layout (PLACEHOLDER: asserts null, cannot pass — see block above) @quarantine-flaky', () => {
   test.fixme('Both score readouts show "/50" without charge-dot collision', async ({ browser }) => {
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {

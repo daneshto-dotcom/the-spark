@@ -1,5 +1,5 @@
 {
- "tool_calls_session_total": 1765,
+ "tool_calls_session_total": 1774,
  "session_id": "S150",
  "session_kind": "truth-restoration + arcade batch (owner R55: all five, arcade kept)",
  "session_start": "2026-08-20",
@@ -284,17 +284,17 @@
     {
      "type": "file_contains",
      "path": "src/render/arcadeRun.ts",
-     "needle": "export function startRun(nowMs: number): ArcadeRun {"
+     "needle": "export function startRun(nowMs: number): ArcadeRun"
     },
     {
      "type": "file_contains",
      "path": "src/render/arcadeRun.ts",
-     "needle": "export function finishRun(run: ArcadeRun, nowMs: number): ArcadeRun {"
+     "needle": "export function finishRun(run: ArcadeRun, nowMs: number): ArcadeRun"
     },
     {
      "type": "file_contains",
      "path": "src/render/arcadeRun.ts",
-     "needle": "export function commitRun(run: ArcadeRun, atMs: number): ArcadeRun {"
+     "needle": "export function commitRun(run: ArcadeRun, atMs: number): ArcadeRun"
     },
     {
      "type": "file_contains",
@@ -309,22 +309,22 @@
     {
      "type": "file_contains",
      "path": "src/render/arcadeRunOverlay.ts",
-     "needle": "render(run: ArcadeRun | null, nowMs: number, onTitle: boolean): void {"
+     "needle": "render(run: ArcadeRun | null, nowMs: number, onTitle: boolean): void"
     },
     {
      "type": "file_contains",
      "path": "src/render/arcadeRunOverlay.ts",
-     "needle": "if (run === null || !onTitle) {"
+     "needle": "if (run === null || !onTitle)"
     },
     {
      "type": "file_lacks",
      "path": "src/render/arcadeRunOverlay.ts",
-     "needle": "  show(): void {"
+     "needle": "  show(): void"
     },
     {
      "type": "file_lacks",
      "path": "src/render/arcadeRunOverlay.ts",
-     "needle": "  hide(): void {"
+     "needle": "  hide(): void"
     },
     {
      "type": "file_contains",
@@ -349,7 +349,7 @@
     {
      "type": "file_contains",
      "path": "src/main.ts",
-     "needle": "if (arcadeNonet !== null || arcadeRun !== null) {"
+     "needle": "if (arcadeNonet !== null || arcadeRun !== null)"
     },
     {
      "type": "file_contains",
@@ -405,18 +405,101 @@
    "title": "THE FOUR test.fixme - rewrite the three stale click-to-build tests against the footer band; rule on smoke.spec.ts:372",
    "tier": "Standard",
    "protocol_bump": false,
-   "status": "in_progress",
-   "check_completed": false,
+   "status": "completed",
+   "check_completed": true,
    "pdr_approved": true,
    "deliberation_completed": true,
-   "unlock_source": "user"
+   "unlock_source": "user",
+   "verification": [
+    {
+     "type": "file_lacks",
+     "path": "e2e/click-to-build.spec.ts",
+     "needle": "test.fixme("
+    },
+    {
+     "type": "grep_count",
+     "path": "e2e/click-to-build.spec.ts",
+     "pattern": "^  test\\(",
+     "op": "==",
+     "value": 3
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/click-to-build.spec.ts",
+     "needle": "click a tower on the FOOTER, place it, keep it (solo, gating)"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/click-to-build.spec.ts",
+     "needle": "async function openTier(page:"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/click-to-build.spec.ts",
+     "needle": "async function stinkCard(page:"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/click-to-build.spec.ts",
+     "needle": "footerBand.getUiPoints unavailable"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/click-to-build.spec.ts",
+     "needle": "expect(after.defenders).toContain('stinkTower');"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/click-to-build.spec.ts",
+     "needle": "expect(after.bank).toBe(0);"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/click-to-build.spec.ts",
+     "needle": "expect(later.primitives).toBe(after.primitives);"
+    },
+    {
+     "type": "file_lacks",
+     "path": "e2e/click-to-build.spec.ts",
+     "needle": "pts.structureCenters"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/click-to-build.spec.ts",
+     "needle": ".armed).toBe('stinkTower')"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/smoke.spec.ts",
+     "needle": "RULED ON: THIS IS A PLACEHOLDER, NOT A STALE TEST"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/smoke.spec.ts",
+     "needle": "PLACEHOLDER: asserts null, cannot pass"
+    },
+    {
+     "type": "grep_count",
+     "path": "e2e/smoke.spec.ts",
+     "pattern": "^  test\\.fixme\\(",
+     "op": "==",
+     "value": 1
+    }
+   ],
+   "check_method": "P4 CHECK, verbose. (1) tsc -b --noEmit exit 0. (2) full vitest 173 files / 2848 tests green (unchanged - these are Playwright specs, so a green vitest count proving nothing here is EXPECTED rather than the S149 trap). (3) npm run build OK 717.4 KiB. (4) ⭐ THE NUMBER THAT MATTERS: `npm run e2e:gating` went from 49 passed / 3 SKIPPED to **52 passed / 0 skipped**. The three rewritten tests are not merely un-fixme'd, they RUN and they PASS - verified twice, once in isolation (3 passed in 14.9s) and once in the full loaded lane. (5) The rewrite drives the REAL footer path end to end: open the tier chip, read the cards, click one to arm, click the world to place - and every downstream assertion is unchanged, so ignition (BOND_FORMED reaching the matcher), the spend, the one-pick-one-tower rule and the 3s survival poll are all still covered. (6) Line endings: click-to-build.spec.ts and smoke.spec.ts both stayed pure LF (0 CRLF). (7) The only remaining red in the gating lane is bomb.spec, which is P5's subject and was already failing at pre-flight before this session touched anything.",
+   "findings": [
+    "The gating lane now reports 52 passed / 0 skipped, up from 49 / 3. Un-fixme-ing a test only counts if it then passes, so both numbers are quoted: the skip count going to zero is the claim, and the pass count going up by exactly three is the evidence.",
+    "⭐ THE FOURTH FIXME IS A DIFFERENT ANIMAL AND WAS MIS-CLASSIFIED BY MY OWN PDR. I wrote it up as a fourth stale test. It is not stale - it is a PLACEHOLDER THAT CANNOT PASS BY CONSTRUCTION: its page.evaluate body ends in a hardcoded `return null` and the assertion is `expect(layout).not.toBeNull()`. Its own comment admits it ('a placeholder that returns null -> fixme expected') and names a P6 fix that never came. It also asserts against '/50' when PHASE_1_WIN_SCORE is 1500 and the HUD has been rebuilt several times since.",
+    "Left in place rather than deleted - nothing is removed without an owner ruling - but its documentation now states plainly that it asserts null and cannot pass, and names the three things it would actually take (label plumbing on the score Text and charge-dot Graphics, a bounds-intersection assertion, and the expected string derived from PHASE_1_WIN_SCORE rather than hardcoded). A test that reads as real coverage while asserting nothing is worse than an empty file.",
+    "Worth noting where the quarantine tag cuts both ways: this placeholder is harmless because @quarantine-flaky is grep-inverted out of the gating lane - and that is the EXACT mechanism by which a sibling assertion in the same file rotted unnoticed across roughly six protocol bumps."
+   ]
   },
   {
    "id": "P5",
    "title": "bomb.spec - DIAGNOSE then fix; forbidden from closing by re-labelling or by re-applying the S136 change that already shipped",
    "tier": "Standard",
    "protocol_bump": false,
-   "status": "pending",
+   "status": "in_progress",
    "check_completed": false,
    "pdr_approved": true,
    "deliberation_completed": true,
@@ -459,7 +542,8 @@
   "#my-first-gate-was-wrong-and-the-failure-was-the-most-useful-output - The chain test's first draft asserted both changelog carriers run from version 2, and it went red on the HelloMsg list for 2-6. My instinct was that I had found a sixth drift instance. I had not: that list was simply started later, at 6->7, and the FILE was right while my TEST was wrong. Had I 'fixed' the file to satisfy my gate I would have fabricated four changelog entries for bumps I know nothing about - the exact failure mode I had just finished refuting in two external reviewers. The design that came out of the failure is better than my first: measure each carrier's own floor, assert no gaps above it, pin the floors separately so deletions off the front still fail. When a new gate goes red, the first hypothesis to test is that the gate is wrong.",
   "#i-proved-the-gate-by-breaking-the-file-back - After repairing the drift I could have shipped a green test and called CF-S147-b closed. Green proves nothing about a gate: my assertions might have matched anything, or nothing. So I restored `git show HEAD:src/net/protocol.ts` over the working copy and ran the new block against the drifted file - it failed on exactly the three real classes and named the missing links [9, 21, 26, 27] out loud - then restored the repair and re-ran to 10/10. That round trip costs two commands and converts 'I wrote a test' into 'I watched this catch the specific bug it exists for'.",
   "#the-stubbed-test-was-green-and-the-real-browser-found-the-bug-in-one-frame - Nine unit tests passed against a Pixi stub and told me the overlay was correct. Then I drove the same three screens against real Pixi in the dev server, read back what was actually drawn, and immediately saw a board with two rows both reading 0:07.25 and the highlight on the wrong one. No stub could have shown me that, because the stub had no reason to produce a colliding board - I had written the fixtures, so my fixtures had my blind spot in them. The general lesson is not 'stubs are bad': it is that a stub tests the logic I thought of, and a live surface tests the DATA the system actually produces. When something renders, look at what it rendered.",
-  "#i-could-not-screenshot-so-i-said-so-instead-of-implying-i-had - The browser pane cannot composite in this session and Pixi refuses synthetic pointer events, so two things I would normally verify - contrast and z-order - were genuinely unverifiable. The temptation was to let 'runtime-verified in a real browser' stand and leave the gap implied, since it is true and sounds complete. I wrote the limit into check_method explicitly instead, because this repo's recorded traps are exactly the visual ones and a future session reading 'runtime-verified' would reasonably assume the frame had been looked at. Verification claims should name their axis."
+  "#i-could-not-screenshot-so-i-said-so-instead-of-implying-i-had - The browser pane cannot composite in this session and Pixi refuses synthetic pointer events, so two things I would normally verify - contrast and z-order - were genuinely unverifiable. The temptation was to let 'runtime-verified in a real browser' stand and leave the gap implied, since it is true and sounds complete. I wrote the limit into check_method explicitly instead, because this repo's recorded traps are exactly the visual ones and a future session reading 'runtime-verified' would reasonably assume the frame had been looked at. Verification claims should name their axis.",
+  "#the-fourth-fixme-was-not-a-stale-test-and-i-had-written-it-up-as-one - My own PDR listed 'FOUR test.fixme, not three' as a finding and lumped all four together as stale surfaces. Reading the fourth one's BODY instead of its title changed the classification completely: it hardcodes `return null` and then asserts `not.toBeNull()`, so it has never been capable of passing, and it checks a '/50' readout from an era when the win score was 50 rather than 1500. Three stale tests and one placeholder are different problems with different fixes - the stale ones needed a new surface, the placeholder needs instrumentation that does not exist. The habit worth keeping: a `fixme` inventory built from grep gives you titles, and titles are the least reliable part of a test. Open the body before you size the work."
  ],
  "totals": {
   "budget_remaining": 1000000

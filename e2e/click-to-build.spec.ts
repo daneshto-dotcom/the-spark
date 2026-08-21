@@ -130,75 +130,131 @@ async function clickCanvas(page: import('@playwright/test').Page, cx: number, cy
 }
 
 /**
- * ⛔ S149 P6 — THESE THREE ARE `fixme`, AND THE REASON IS A MOVE, NOT A FLAKE.
+ * S150 P4 — the FOOTER BAND readers, replacing the castle-panel ones for tower selection.
  *
- * The owner moved tower selection OUT of the castle and into the footer band this session:
- * *"the towers are still being built within the castle which is wrong. you should remove the area
- * and put it down in the footer … the castle is just to hold the shapes (inventory)."* So
- * `castlePanel.getUiPoints().structureCenters` no longer describes a rendered surface — the grid is
- * off behind `CASTLE_BUILD_GRID_ENABLED`.
- *
- * ⚠ TAGGED `fixme`, DELIBERATELY NOT `@quarantine-flaky`. These tests are not intermittent; they
- * are STALE, and mislabelling a stale test as flaky is how a real regression later gets waved
- * through. `fixme` is this repo's documented marker for "blocked by an upcoming priority"
- * (see the smoke.spec header), which is exactly what this is.
- *
- * WHAT THE REWRITE NEEDS — the whole behaviour is still live, only the surface moved:
- *   1. open the tier chip for the recipe's complexity   (`__SPARK__.footerBand.getUiPoints().chips`)
- *   2. read the tower cards that open above the bar     (`…getUiPoints().cards`)
- *   3. click a card to ARM it                            (affordable ⇒ arm; short ⇒ orders shapes)
- *   4. click the world to place, and assert the tower survives — UNCHANGED from here down.
- * Both geometry getters already exist and are exercised by `zones-visual.spec.ts`.
- *
- * CARRY-FORWARD: CF-S149-d.
+ * Tower selection moved out of the castle in S149 P6 on the owner's ruling: *"the towers are still
+ * being built within the castle which is wrong. you should remove the area and put it down in the
+ * footer ... the castle is just to hold the shapes (inventory)."* So `structureCenters` no longer
+ * describes a rendered surface — the grid is off behind `CASTLE_BUILD_GRID_ENABLED` — and the three
+ * tests below drive the bar instead. The pattern is lifted from the one place that already exercises
+ * it green, `zones-visual.spec.ts`.
  */
-test.describe('S144 — click a tower, drag it, place it (solo, gating)', () => {
-  test.fixme('the build grid lists all six recipes, and a funded one becomes clickable', async ({ page }) => {
+async function bandPoints(page: import('@playwright/test').Page) {
+  return page.evaluate(() => {
+    const sp = (window as {
+      __SPARK__?: { footerBand?: { getUiPoints?: () => unknown } };
+    }).__SPARK__;
+    if (sp?.footerBand?.getUiPoints === undefined) throw new Error('footerBand.getUiPoints unavailable');
+    // Called IN PLACE — detaching the method loses `this`.
+    return sp.footerBand.getUiPoints() as {
+      chips: Array<{ complexity: number; x: number; y: number; w: number; h: number; enabled: boolean }>;
+      cards: Array<{ id: string; name: string; reason: string; enabled: boolean; x: number; y: number; w: number; h: number }>;
+      selected: number | null;
+    };
+  });
+}
+
+/** Open the tier chip for a complexity, and fail LOUDLY if that complexity is not on the bar. */
+async function openTier(page: import('@playwright/test').Page, complexity: number): Promise<void> {
+  const { chips } = await bandPoints(page);
+  const chip = chips.find((c) => c.complexity === complexity);
+  if (chip === undefined) {
+    throw new Error(
+      `no chip for complexity ${complexity}; bar has [${chips.map((c) => c.complexity).join(', ')}]`,
+    );
+  }
+  await clickCanvas(page, chip.x + chip.w / 2, chip.y + chip.h / 2);
+  await page.waitForTimeout(400);
+}
+
+/** The stink tower's card, once its tier is open. */
+async function stinkCard(page: import('@playwright/test').Page) {
+  const { cards } = await bandPoints(page);
+  const card = cards.find((c) => c.id === 'stinkTower');
+  if (card === undefined) {
+    throw new Error(`stinkTower card absent; open cards are [${cards.map((c) => c.id).join(', ')}]`);
+  }
+  return card;
+}
+
+/**
+ * A legal drop site DERIVED from the seat's own zone, not from the panel.
+ *
+ * Same defence as `legalSiteRightOfPanel` and for the same recorded reason — a hardcoded board
+ * coordinate in this lane has now rotted twice when the keeps moved. Seat 0 owns the LEFT half under
+ * `PITCH_2P`, so this sits well inside its own ground, clear of the quarry disc at (960,540) r=125,
+ * and above the footer bar. These are the same coordinates `bomb.spec.ts` builds its cluster at,
+ * which is independent evidence that seat 0 can legally place here.
+ */
+function legalSiteForSeat0(): { x: number; y: number } {
+  return { x: 420, y: 400 };
+}
+
+/**
+ * ⭐ S150 P4 — THESE THREE WERE `fixme`, AND THEY ARE LIVE AGAIN ON THE FOOTER PATH.
+ *
+ * S149 P6 marked them `fixme` — deliberately NOT `@quarantine-flaky`, because they were STALE, not
+ * intermittent, and mislabelling a stale test as flaky is how a real regression later gets waved
+ * through. Tower selection had moved out of the castle and into the footer band, so
+ * `castlePanel.getUiPoints().structureCenters` stopped describing a rendered surface.
+ *
+ * The rewrite follows the recipe S149 left in this file, unchanged: open the tier chip for the
+ * recipe's complexity, read the cards that open above the bar, click one to ARM it, then click the
+ * world to place. Everything from the placement onward — the stamp, the ignition, the survival poll,
+ * the spend — is what these tests always asserted, which is the point: the BEHAVIOUR never moved,
+ * only the surface that triggers it.
+ *
+ * ⚠ WHAT THESE STILL COVER THAT NO UNIT TEST CAN. Three layers meeting: a real click on a real chip,
+ * an armed ghost, a dispatched BUILD_BLUEPRINT, a host stamp, a snapshot, and a tower the renderer
+ * draws — plus the two silent deaths recorded in this file's header (no `BOND_FORMED` ⇒ perfect
+ * geometry and no ignition; the placing click also grabbing a spark ⇒ a tower plus a phantom drag).
+ */
+test.describe('S150 P4 — click a tower on the FOOTER, place it, keep it (solo, gating)', () => {
+  test('the tier bar is derived from the registry, and a funded card becomes clickable', async ({ page }) => {
     await bootSolo(page);
-    await openPanel(page);
 
-    let pts = await panelPoints(page);
-    expect(pts.open).toBe(true);
-    // Owner: "for now everyone should have all the recipes just to test it all out."
-    expect(pts.structureCenters).toHaveLength(6);
-    // With an empty bank every tile is dim AND names its blocker — an unexplained dim box is
+    // The five distinct complexities in the shipped registry: stink 4, pentagram 5, lightningHub 6,
+    // laserTurret/helga 7, voltkin 8. Derived, so adding a recipe moves the bar and this assertion
+    // together rather than leaving the bar advertising a complexity with nothing in it.
+    const band = await bandPoints(page);
+    expect(band.chips.map((c) => c.complexity)).toEqual([4, 5, 6, 7, 8]);
+
+    // With an EMPTY bank the card is dim AND names its blocker — an unexplained dim box is
     // indistinguishable from a broken one, which was the original S136 complaint.
-    for (const t of pts.structureCenters) {
-      expect(t.enabled).toBe(false);
-      expect(t.reason).not.toBe('');
-    }
+    await openTier(page, 4);
+    const dim = await stinkCard(page);
+    expect(dim.enabled).toBe(false);
+    expect(dim.reason).not.toBe('');
 
+    // Fund exactly its bill and the same card lights up, with nothing left to explain.
     await seedBank(page);
-    await page.waitForTimeout(200);
-    pts = await panelPoints(page);
-    const stink = pts.structureCenters.find((t) => t.id === 'stinkTower')!;
-    expect(stink.enabled).toBe(true);
-    expect(stink.reason).toBe('');
+    await page.waitForTimeout(300);
+    const lit = await stinkCard(page);
+    expect(lit.enabled).toBe(true);
+    expect(lit.reason).toBe('');
   });
 
-  test.fixme('clicking a tile arms it; clicking the world builds a REAL tower that survives', async ({ page }) => {
+  test('clicking a card arms it; clicking the world builds a REAL tower that survives', async ({ page }) => {
     await bootSolo(page);
     await seedBank(page);
-    await openPanel(page);
 
     const before = await counts(page);
     expect(before.bank).toBe(4);
 
-    // ARM: click the stink-tower tile.
-    const stink = (await panelPoints(page)).structureCenters.find((t) => t.id === 'stinkTower')!;
-    expect(stink.enabled).toBe(true);
-    await clickCanvas(page, stink.x, stink.y);
+    // ARM: open the tier, click the stink-tower card.
+    await openTier(page, 4);
+    const card = await stinkCard(page);
+    expect(card.enabled).toBe(true);
+    await clickCanvas(page, card.x + card.w / 2, card.y + card.h / 2);
+    await page.waitForTimeout(250);
+    // The castle panel still owns the ARMED state even though the footer now owns SELECTION, so this
+    // reader is deliberately unchanged — it is the arming contract, not the moved surface.
     expect((await panelPoints(page)).armed).toBe('stinkTower');
 
-    // PLACE: click a legal spot in the world.
-    const panelRect = (await panelPoints(page)).rect!;
-    const site = legalSiteRightOfPanel(panelRect);
-    // Assert the derivation actually cleared the panel, so a future layout change fails HERE with a
-    // legible message instead of downstream as "the tower never got built".
-    expect(site.x, 'drop site must be right of the open panel').toBeGreaterThan(panelRect.x + panelRect.w);
+    // PLACE: a legal spot inside seat 0's own zone.
+    const site = legalSiteForSeat0();
     await clickCanvas(page, site.x, site.y);
-    await waitForWorld(page, () => true, 'settle', 1_000).catch(() => {});
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(900);
 
     const after = await counts(page);
     // The recipe's REAL geometry landed: 4 primitives, 3 bonds (a 1-Square + 3-Circle star).
@@ -212,27 +268,28 @@ test.describe('S144 — click a tower, drag it, place it (solo, gating)', () => 
     // One pick = one tower.
     expect((await panelPoints(page)).armed).toBeNull();
 
-    // ⭐ SURVIVAL. A defender is re-validated every 30 ticks against its recipe; a stamp whose geometry
-    // does not satisfy its own predicate is removed within 0.5 s. 3 s covers ~6 polls.
+    // ⭐ SURVIVAL. A defender is re-validated every 30 ticks against its recipe; a stamp whose
+    // geometry does not satisfy its own predicate is removed within 0.5 s. 3 s covers ~6 polls.
     await page.waitForTimeout(3_000);
     const later = await counts(page);
     expect(later.defenders).toContain('stinkTower');
     expect(later.primitives).toBe(after.primitives);
   });
 
-  test.fixme('an illegal drop keeps the tower in hand and builds nothing', async ({ page }) => {
+  test('an illegal drop keeps the tower in hand and builds nothing', async ({ page }) => {
     await bootSolo(page);
     await seedBank(page);
-    await openPanel(page);
 
-    const stink = (await panelPoints(page)).structureCenters.find((t) => t.id === 'stinkTower')!;
-    await clickCanvas(page, stink.x, stink.y);
+    await openTier(page, 4);
+    const card = await stinkCard(page);
+    await clickCanvas(page, card.x + card.w / 2, card.y + card.h / 2);
+    await page.waitForTimeout(250);
     expect((await panelPoints(page)).armed).toBe('stinkTower');
 
     const before = await counts(page);
     // The shared quarry is refused: geometry stamped there would be rim-snapped out every substep.
     await clickCanvas(page, 960, 540);
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(600);
 
     const after = await counts(page);
     expect(after.primitives).toBe(before.primitives);
