@@ -884,6 +884,16 @@ async function bootstrap(): Promise<void> {
    * machine that has it is cosplay rather than homage.
    */
   window.addEventListener('keydown', (e) => {
+    // ⛔ S150 P5 AUDIT — THE SAME GUARD THE RENDERER HAS. Found by auditing my own P3: the overlay's
+    // visibility is a pure function of (run, gameState) and therefore cannot leak into a match, but
+    // this LISTENER was guarded only on `arcadeRun`, and `arcadeRun` is cleared on just two paths
+    // (BACK and ESC) — never on match start. So a run left non-null while a match began would keep
+    // these keys live, and ENTER on the BOARD screen would mint an arcade puzzle mid-match.
+    //
+    // Reaching that today requires getting past two full-screen modals, so it is a latent asymmetry
+    // rather than an observed bug. It is closed anyway: guarding the renderer and not the input is
+    // exactly the half-guard this repo has shipped twice, and one line is cheaper than finding out.
+    if (world.gameState !== 'TITLE') return;
     const run = arcadeRun;
     if (run === null || run.phase === 'RUNNING') return;
 

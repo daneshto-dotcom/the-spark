@@ -393,6 +393,11 @@
      "pattern": "from './arcadeScores.ts'",
      "op": "==",
      "value": 1
+    },
+    {
+     "type": "file_contains",
+     "path": "src/main.ts",
+     "needle": "if (world.gameState !== 'TITLE') return;"
     }
    ],
    "check_method": "P3 CHECK, verbose. (1) tsc -b --noEmit exit 0. (2) full vitest 173 files / 2848 tests green (from 171/2815: +2 files, +33 tests - 20 run-model, 9 overlay-guard, 4 score-pinning). (3) npm run build OK 717.4 KiB / 900 KiB cap; the entry hash MOVED (index-BkNNmZdm -> index-C_KQJv8x), which is the correct signal that real code shipped, unlike P1 where a byte-identical bundle was correct. (4) ⭐ RUNTIME-VERIFIED IN A REAL BROWSER, not only under the jsdom stub: the dev server was started and all three screens were driven against REAL Pixi via the exposed __SPARK__.arcadeRunOverlay. This is the boot-then-smoke check - a wrong Graphics fill/stroke chain throws only at runtime and the stubbed unit test cannot see it. Confirmed: RUNNING drew ['0:03.50'] with eventMode 'none' (so the clock cannot eat the NONET grid's clicks); ENTER_INITIALS drew ['SOLVED','0:07.25','ENTER YOUR INITIALS','A','A','A', hint] with the clock FROZEN despite nowMs=900000; BOARD drew ['HIGH SCORES', place line, rank/time/name rows, hint]; and rendering with onTitle=false blanked it. Console clean, zero errors. (5) ⭐ THAT RUNTIME PASS FOUND A REAL DEFECT NO TEST HAD: the board highlighted the player's row by (name, time), and the live frame showed two rows both reading 0:07.25 - so it lit whichever sorted first. Fixed by carrying committedAtMs and matching the full identity TRIPLE, pinned by a new test, and re-verified at runtime (secondMine=1, firstMine=0). (6) Synthetic PointerEvents are NOT accepted by Pixi's event system, so the click path could not be driven from the page; the browser pane also cannot composite in this session, so no screenshot was possible. Stated plainly rather than glossed: the VISUAL properties this repo keeps getting bitten by - contrast and z-order - are NOT verified by me this session, only the state machine and the draw calls. The clock plate was given an opaque backing precisely because that is the untested axis.",
@@ -401,7 +406,8 @@
     "TWO real defects in the shipped model, both invisible to its 18 tests. TOP_N was unpinned (every cap test read the imported symbol, so changing 25 to 10 kept them all green - the owner's number was unprotected); and normaliseName('   ') returned three spaces, a BLANK row, because NAME_ALPHABET deliberately ends with a space so 'AB ' is reachable. The old test asserted only length, and three spaces are three characters.",
     "The handoff said 26 tests. There were 18.",
     "A third defect was mine, and only the real frame showed it: the board's 'your row' highlight matched on (name, time). Driving it in the browser produced two rows both at 0:07.25 and the wrong one lit. Two runs sharing a time AND initials is the normal case for a player repeating a memorised board, not a contrived one.",
-    "Gemini's render-guard point was the most valuable thing either Council seat said: for an overlay that BELONGS on the title screen, the failure mode inverts - it is an imperative .show() whose matching .hide() a future exit path forgets. Adopted structurally: render() takes onTitle as an argument, is called with no `if` in front of it, and the class has no show/hide at all. Two MCV bindings are file_lacks on those method signatures so re-adding one fails the gate."
+    "Gemini's render-guard point was the most valuable thing either Council seat said: for an overlay that BELONGS on the title screen, the failure mode inverts - it is an imperative .show() whose matching .hide() a future exit path forgets. Adopted structurally: render() takes onTitle as an argument, is called with no `if` in front of it, and the class has no show/hide at all. Two MCV bindings are file_lacks on those method signatures so re-adding one fails the gate.",
+    "AUDIT SELF-FINDING: the arcade KEY LISTENER was guarded only on arcadeRun while the RENDERER was guarded on gameState, and arcadeRun is cleared on just two paths (BACK, ESC) - never on match start. Guarding the renderer and not the input is the same half-guard this repo has shipped twice. Closed with the identical one-line gameState check."
    ],
    "checkpoint_commit": "c4baa94",
    "deploy_verified": "4/4"
@@ -3207,7 +3213,8 @@
    "all five priorities carry a real checkpoint_commit; git cat-file confirms each",
    "verify-deploy 4/4 on P1, P3 and P5; P2 and P4 correctly report 'no run OWED' (no files under deploy.yml's paths filter)",
    "SELF-FOUND DURING THE AUDIT: P5's committed mechanism was wrong (picker priority vs the real input lock). Corrected in code and here.",
-   "SELF-FOUND DURING THE AUDIT: rainbow.spec carries the same latent exposure — logged as CF-S150-b."
+   "SELF-FOUND DURING THE AUDIT: rainbow.spec carries the same latent exposure — logged as CF-S150-b.",
+   "SELF-FOUND: arcade key listener lacked the gameState guard the renderer has - fixed in ca4d308 follow-up."
   ]
  }
 }
