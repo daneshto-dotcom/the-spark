@@ -1,5 +1,5 @@
 {
- "tool_calls_session_total": 1774,
+ "tool_calls_session_total": 1775,
  "session_id": "S150",
  "session_kind": "truth-restoration + arcade batch (owner R55: all five, arcade kept)",
  "session_start": "2026-08-20",
@@ -207,7 +207,9 @@
     "The S149-vs-S152 label split is NOT an error to correct. Thirteen files cite S152 because it is the roadmap SPEC id in SPARK_TD_SESSION_SPECS.md; the session was S149. Rewriting the labels would destroy spec traceability, so the mapping is stated once in protocol.ts and LOCKED_DECISIONS.md and pinned as checklist item 6 instead.",
     "The nine-site figure undercounts by one for every field it was ever used to size, and understates tsc coverage by one too. It was traced on rainbowSwitchTick (OPTIONAL, so no makeWorld initializer); matchPhase/phaseEndsAtTick/layout are REQUIRED and cost TEN, with TWO tsc-forced because makeWorld's literal is annotated `const w: World`. Corrected in walls.ts, boot-snapshot.md and LOCKED_DECISIONS.md; deliberately NOT rewritten in the reflexion log or archived handoffs, which are dated records of what those sessions believed.",
     "CF-S147-b is CLOSED and both halves shipped: the enforcement test (my reframing) AND the LOCKED_DECISIONS.md promotion (the owner's literal ask). Both Council seats independently said do both rather than choose; they were right."
-   ]
+   ],
+   "checkpoint_commit": "f085746",
+   "deploy_verified": "4/4"
   },
   {
    "id": "P2",
@@ -263,7 +265,9 @@
     "In TWO cases the superseding change had already landed when the CF was first written - BUILD_BLUEPRINT shipped five days before CF-S148-b claimed a fixture was impossible, and the retry-budget raise shipped nine days before CF-S148-c prescribed raising it. Acting on CF-S148-c as written would have been a no-op that LOOKED like shipped work.",
     "CF-S148-d's diagnosis was refuted by an artifact already saved in the repo: all four peers seated, match run to POSTGAME at tick 2212. The failure is in the predicate, not the transport - a completely different fix from the one the CF prescribed.",
     "CF-S149-b was not a gap at all. Filing 'X has no consumer' as work, when the file explains at length why X correctly has no consumer, is a distinct failure mode from a stale diagnosis: it converts documentation into a to-do."
-   ]
+   ],
+   "checkpoint_commit": "98072c1",
+   "deploy_verified": "4/4"
   },
   {
    "id": "P3",
@@ -398,7 +402,9 @@
     "The handoff said 26 tests. There were 18.",
     "A third defect was mine, and only the real frame showed it: the board's 'your row' highlight matched on (name, time). Driving it in the browser produced two rows both at 0:07.25 and the wrong one lit. Two runs sharing a time AND initials is the normal case for a player repeating a memorised board, not a contrived one.",
     "Gemini's render-guard point was the most valuable thing either Council seat said: for an overlay that BELONGS on the title screen, the failure mode inverts - it is an imperative .show() whose matching .hide() a future exit path forgets. Adopted structurally: render() takes onTitle as an argument, is called with no `if` in front of it, and the class has no show/hide at all. Two MCV bindings are file_lacks on those method signatures so re-adding one fails the gate."
-   ]
+   ],
+   "checkpoint_commit": "c4baa94",
+   "deploy_verified": "4/4"
   },
   {
    "id": "P4",
@@ -492,18 +498,125 @@
     "⭐ THE FOURTH FIXME IS A DIFFERENT ANIMAL AND WAS MIS-CLASSIFIED BY MY OWN PDR. I wrote it up as a fourth stale test. It is not stale - it is a PLACEHOLDER THAT CANNOT PASS BY CONSTRUCTION: its page.evaluate body ends in a hardcoded `return null` and the assertion is `expect(layout).not.toBeNull()`. Its own comment admits it ('a placeholder that returns null -> fixme expected') and names a P6 fix that never came. It also asserts against '/50' when PHASE_1_WIN_SCORE is 1500 and the HUD has been rebuilt several times since.",
     "Left in place rather than deleted - nothing is removed without an owner ruling - but its documentation now states plainly that it asserts null and cannot pass, and names the three things it would actually take (label plumbing on the score Text and charge-dot Graphics, a bounds-intersection assertion, and the expected string derived from PHASE_1_WIN_SCORE rather than hardcoded). A test that reads as real coverage while asserting nothing is worse than an empty file.",
     "Worth noting where the quarantine tag cuts both ways: this placeholder is harmless because @quarantine-flaky is grep-inverted out of the gating lane - and that is the EXACT mechanism by which a sibling assertion in the same file rotted unnoticed across roughly six protocol bumps."
-   ]
+   ],
+   "checkpoint_commit": "f27a4ea",
+   "deploy_verified": "inherited (no deploy owed - test/docs only)"
   },
   {
    "id": "P5",
    "title": "bomb.spec - DIAGNOSE then fix; forbidden from closing by re-labelling or by re-applying the S136 change that already shipped",
    "tier": "Standard",
    "protocol_bump": false,
-   "status": "in_progress",
-   "check_completed": false,
+   "status": "completed",
+   "check_completed": true,
    "pdr_approved": true,
    "deliberation_completed": true,
-   "unlock_source": "user"
+   "unlock_source": "user",
+   "verification": [
+    {
+     "type": "file_contains",
+     "path": "e2e/bomb.spec.ts",
+     "needle": "window.__TEST_RAINBOW_SPAWN_SPARKS__ = 999;"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/bomb.spec.ts",
+     "needle": "window.__TEST_SEAGULL_SPAWN_SPARKS__ = 999;"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/bomb.spec.ts",
+     "needle": "window.__TEST_BOMB_SPAWN_SPARKS__ = 999;"
+    },
+    {
+     "type": "file_lacks",
+     "path": "e2e/bomb.spec.ts",
+     "needle": "window.__TEST_BOMB_SPAWN_SPARKS__ = 24;"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/bomb.spec.ts",
+     "needle": "sp.forceBomb(960, 540);"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/bomb.spec.ts",
+     "needle": "bomb placed on purpose after the build"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/main.ts",
+     "needle": "forceBomb(x: number, y: number): void"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/helpers.ts",
+     "needle": "BUILDING IS CLOSED"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/helpers.ts",
+     "needle": "export async function holdInBuildPhase(page: Page): Promise<void>"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/helpers.ts",
+     "needle": "hazards on board at attempt start:"
+    },
+    {
+     "type": "grep_count",
+     "path": "e2e/helpers.ts",
+     "pattern": "rainbows:",
+     "op": ">=",
+     "value": 1
+    },
+    {
+     "type": "grep_count",
+     "path": "e2e/bomb.spec.ts",
+     "pattern": "holdInBuildPhase",
+     "op": "==",
+     "value": 2
+    },
+    {
+     "type": "grep_count",
+     "path": "e2e/rainbow.spec.ts",
+     "pattern": "holdInBuildPhase",
+     "op": "==",
+     "value": 2
+    },
+    {
+     "type": "grep_count",
+     "path": "e2e/hunter.spec.ts",
+     "pattern": "holdInBuildPhase",
+     "op": "==",
+     "value": 2
+    },
+    {
+     "type": "grep_count",
+     "path": "e2e/worker.spec.ts",
+     "pattern": "holdInBuildPhase",
+     "op": "==",
+     "value": 2
+    },
+    {
+     "type": "file_lacks",
+     "path": "e2e/smoke.spec.ts",
+     "needle": "holdInBuildPhase"
+    },
+    {
+     "type": "file_lacks",
+     "path": "e2e/perf-snapshot.spec.ts",
+     "needle": "holdInBuildPhase"
+    }
+   ],
+   "check_method": "P5 CHECK, verbose. DIAGNOSED BY MEASUREMENT IN FOUR PASSES, AND THE FIRST TWO HYPOTHESES WERE BOTH WRONG - MINE INCLUDED. (1) The AttractDrag / MAX_RELEASE_REACH theory (the file's own comment, plus GEMINI's headless-throttling variant) was REFUTED by probe: with a real porch shape the carried spark arrives 0-2 px from the cursor and lands 6 times out of 6, and the sim ran at ~62 ticks/sec, so it was not frame-starved. (2) MY OWN phase-boundary theory was refuted next. It is TRUE that a placement at tick 13 lands and one at tick 5407 does not - but the loud guard I shipped for it never fired on a real bomb.spec failure, because those failures sat at tick ~2900, deep inside BUILD. (3) Widening the failure diagnostic to name the hazards found bombs=1 on two failures. Controls.onDown tries pickBomb (:611) then pickRainbow (:619) then pickPotato (:627) then pickSpark (:633), so a bomb on the board makes every mouse-down claim the ORB and the placement fails forever while reporting a message about a SPARK. Suppressing bombs moved the rate from 2/6 to 3/8 - a REAL cause that was not the ONLY cause, which is precisely why partial fixes here keep reading as flakes. (4) The full diagnostic caught the last one: {bombs:0, potatoes:0, RAINBOWS:1, poops:1, porch:1, avatarKind:'Idle', phase:'BUILD', tick:2927} - a grabbable shape on the porch, the player idle, the phase open, and the placement still impossible because the rainbow outranked it. This spec suppressed two of the three pickers that outrank pickSpark and left the third. MEASURED RESULT WITH DENOMINATORS: before = 1 fail in the gating lane plus 1 fail / 3 in isolation at pre-flight, then 2 fail / 6; after bombs alone = 3 fail / 8; after rainbows and seagulls = 0 fail / 8. Full lane: e2e:gating went 49 passed / 1 failed / 3 skipped -> 53 passed / 0 failed / 0 skipped. tsc 0; vitest 173 files / 2848 green; build 717.4 KiB under charter.",
+   "findings": [
+    "CF-S148-c's PRESCRIBED FIX WAS THE ONE THING THAT COULD NEVER WORK. It said 'raise the timeout or speed the drag'. The drag was already fine, and a longer wait strictly INCREASES the chance a hazard spawns mid-build. The retry budget had already been raised once in S136 for this same symptom; a second raise would have been the third session spent on a misdiagnosis, and it would have looked like shipped work.",
+    "The failure message was actively misleading, which is why this survived so long: a stolen mouse-down produces 'placement landed near (450, 410) (prims 1 -> >=2)' - a sentence about a SPARK, naming a coordinate, with no hint that a rainbow ate the click. The diagnostic now prints every hazard family, the porch count, the avatar state and the phase, so the next occurrence names itself.",
+    "Three of the four pickers in Controls.onDown outrank the shape a build needs. Any spec that enables hazards AND builds must suppress ALL THREE. bomb.spec suppressed two - a partial guard that reads as a complete one.",
+    "The phase-boundary finding is real and is kept even though it was not this bug: a placement at tick 5407 is silently refused, and placeFreeSparkAndConfirm now says so in words instead of timing out. holdInBuildPhase is applied to the four SOLO building specs (bomb, rainbow, hunter, worker) and deliberately NOT to the networked ones (smoke, perf-snapshot), where writing a hashed field would be a desync.",
+    "__SPARK__.forceBomb is a dev-only sibling of forceNonet, verified absent from the production bundle (grep for forceNonet in dist/ returns 0), so the determinism costs shipped bytes nothing."
+   ]
   }
  ],
  "reflexion_entries_to_archive": [
@@ -543,7 +656,10 @@
   "#i-proved-the-gate-by-breaking-the-file-back - After repairing the drift I could have shipped a green test and called CF-S147-b closed. Green proves nothing about a gate: my assertions might have matched anything, or nothing. So I restored `git show HEAD:src/net/protocol.ts` over the working copy and ran the new block against the drifted file - it failed on exactly the three real classes and named the missing links [9, 21, 26, 27] out loud - then restored the repair and re-ran to 10/10. That round trip costs two commands and converts 'I wrote a test' into 'I watched this catch the specific bug it exists for'.",
   "#the-stubbed-test-was-green-and-the-real-browser-found-the-bug-in-one-frame - Nine unit tests passed against a Pixi stub and told me the overlay was correct. Then I drove the same three screens against real Pixi in the dev server, read back what was actually drawn, and immediately saw a board with two rows both reading 0:07.25 and the highlight on the wrong one. No stub could have shown me that, because the stub had no reason to produce a colliding board - I had written the fixtures, so my fixtures had my blind spot in them. The general lesson is not 'stubs are bad': it is that a stub tests the logic I thought of, and a live surface tests the DATA the system actually produces. When something renders, look at what it rendered.",
   "#i-could-not-screenshot-so-i-said-so-instead-of-implying-i-had - The browser pane cannot composite in this session and Pixi refuses synthetic pointer events, so two things I would normally verify - contrast and z-order - were genuinely unverifiable. The temptation was to let 'runtime-verified in a real browser' stand and leave the gap implied, since it is true and sounds complete. I wrote the limit into check_method explicitly instead, because this repo's recorded traps are exactly the visual ones and a future session reading 'runtime-verified' would reasonably assume the frame had been looked at. Verification claims should name their axis.",
-  "#the-fourth-fixme-was-not-a-stale-test-and-i-had-written-it-up-as-one - My own PDR listed 'FOUR test.fixme, not three' as a finding and lumped all four together as stale surfaces. Reading the fourth one's BODY instead of its title changed the classification completely: it hardcodes `return null` and then asserts `not.toBeNull()`, so it has never been capable of passing, and it checks a '/50' readout from an era when the win score was 50 rather than 1500. Three stale tests and one placeholder are different problems with different fixes - the stale ones needed a new surface, the placeholder needs instrumentation that does not exist. The habit worth keeping: a `fixme` inventory built from grep gives you titles, and titles are the least reliable part of a test. Open the body before you size the work."
+  "#the-fourth-fixme-was-not-a-stale-test-and-i-had-written-it-up-as-one - My own PDR listed 'FOUR test.fixme, not three' as a finding and lumped all four together as stale surfaces. Reading the fourth one's BODY instead of its title changed the classification completely: it hardcodes `return null` and then asserts `not.toBeNull()`, so it has never been capable of passing, and it checks a '/50' readout from an era when the win score was 50 rather than 1500. Three stale tests and one placeholder are different problems with different fixes - the stale ones needed a new surface, the placeholder needs instrumentation that does not exist. The habit worth keeping: a `fixme` inventory built from grep gives you titles, and titles are the least reliable part of a test. Open the body before you size the work.",
+  "#two-wrong-hypotheses-then-the-data-and-the-order-mattered - I spent this priority being wrong twice. The file's own comment blamed the AttractDrag; a probe showed the spark lands 0-2 px from the cursor, six times out of six. I then blamed the S149 phase boundary, proved placements really are refused after tick 5400, shipped a guard for it - and the guard never fired, because the real failures were at tick 2900. Only when I stopped proposing causes and instead made the FAILURE MESSAGE carry state did the answer appear in one line: rainbows=1. The lesson is about sequencing rather than humility: with an intermittent bug the cheapest first move is not a hypothesis, it is instrumenting the failure so the next occurrence indicts itself. I had the tooling to do that in five minutes and I did it fourth.",
+  "#a-partial-fix-looked-exactly-like-no-fix-and-nearly-cost-me-the-real-one - Suppressing bombs took the failure rate from 2/6 to 3/8. Read naively that is 'no change, revert it' - and reverting would have been wrong, because bombs WERE genuinely stealing the mouse-down in the two failures I had measured. Two independent causes produced one symptom, and fixing one moved the rate by less than the noise in an n=8 sample. What saved it was the diagnostic printing bombs=0 on the NEXT failures: not a rate, but a direct statement that the first cause was gone and something else remained. When causes are independent and each is sufficient, pass rates cannot tell you whether a fix worked - only per-failure evidence can.",
+  "#the-denominator-is-the-claim - Every number here is quoted with its trial count: 2/6 before, 3/8 after the partial, 0/8 after the full fix, and the lane 49/1/3 -> 53/0/0. That came from a prior session's note that 'flaky is a diagnosis that needs a denominator', and it earned its keep twice: it told me the bomb fix had NOT resolved things when the phrase 'fixed the bomb race' would have implied it had, and it is the only reason '0 fail' means anything now."
  ],
  "totals": {
   "budget_remaining": 1000000
@@ -618,7 +734,7 @@
   "runtime_verifiability_boot_then_smoke": "THE decisive question for this session, given the headline A.0 finding was a whole subsystem that static-parsed perfectly and was never called. Static parsing is NOT validation here. Mandatory runtime gates before any priority is marked complete: (1) a REAL-PHYSICS acceptance test that runs the actual physics loop and asserts the goblin closes distance and the target primitive's hp actually decreases - a state-only assertion is not evidence (S136); (2) PHYSICS_DT imported from physicsLoop.ts, never re-derived, because constants.ts does not export it and a test once silently ran on NaN (S138); (3) an explicit assertion that damageEntity now HAS production call sites, i.e. the exact grep that exposed the dead substrate becomes a permanent test; (4) LOOK AT THE RENDER - a 4th CreatureType is invisible across 8 non-exhaustive branches with zero switches, and no state assertion can see 'nothing was drawn'.",
   "synthesis_vs_r1": "Materially better, and not marginally. R1's plan would have shipped a Stink Tower that nothing in the game could attack - an inert prop whose headline mechanic was unreachable - and would have shipped it under a bump plus a production deploy. The synthesis changed the cut line, added a shared destruction hook so the blast fires on the likely kill path, fixed a call signature that would not have compiled, resolved the integer-damage arithmetic to land exactly on the owner's '6 attacks' at both hp scales, and converted a copy-paste concern into a permanent exhaustiveness guard."
  },
- "real_context_tokens_at_close": 870000,
+ "real_context_tokens_at_close": null,
  "real_context_pct_at_close": 87.0,
  "checkpoint_commit": "50a5c24c787a9c466656a2dd40939acbbedb3c1f",
  "batch_replan_s139": "At P1 close, context was 444,325/1,000,000 = 44.4% GREEN, i.e. ~55K before the YELLOW threshold at 500K. Both remaining build priorities are Full tier. HONEST RE-PLAN, decided by Claude under the owner's explicit delegation of the cut line: land P2 (the melee goblin + structure targeting) and P4 (the 17->18 bump + deploy), and DEFER P3 (the Stink Tower) with its spec intact. Ordering rationale, which is not merely budgetary: the Council's decisive R1 finding was that the Stink Tower shipped alone is an INERT PROP because nothing in the game can attack a defender. The goblin is the thing that makes damage real. Shipping the goblin first therefore means the tower lands next session into a world that can already fight it, which is the correct dependency order regardless of context. The goblin also stands alone as playable new gameplay (units that raid enemy structures), whereas the tower does not.",

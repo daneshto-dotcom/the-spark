@@ -15,7 +15,7 @@
  * transferable plumbing works in a live browser.
  */
 import { test, expect } from '@playwright/test';
-import { canvasToCss, placeFreeSparkAndConfirm, titleButtonCss, waitForWorld } from './helpers';
+import { canvasToCss, holdInBuildPhase, placeFreeSparkAndConfirm, titleButtonCss, waitForWorld } from './helpers';
 
 test.describe('S122 P1 — ?worker=1 sim worker smoke', () => {
   test('solo match adopts the worker: ticks advance, placement lands, 0 hash mismatches', async ({
@@ -42,6 +42,11 @@ test.describe('S122 P1 — ?worker=1 sim worker smoke', () => {
     void c;
     await page.mouse.click(solo.x, solo.y);
     await waitForWorld(page, (w) => w.gameState === 'PLAYING', 'solo PLAYING', 20_000);
+    // ⭐ S150 P5 — HOLD THE MATCH IN BUILD. Measured root cause of the bomb/rainbow intermittence:
+    // once the sim crosses PHASE_DURATION_TICKS (5400 = 90 s) into FIGHT, canBuildNow refuses every
+    // placement SILENTLY, so a slow run's build can never land and no retry budget can save it.
+    // This spec is about hazards, not the match clock, so the edge is held off.
+    await holdInBuildPhase(page);
 
     // The driver must adopt (INIT → READY) and never fail.
     await page.waitForFunction(

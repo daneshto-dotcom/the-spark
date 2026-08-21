@@ -1319,6 +1319,25 @@ async function bootstrap(): Promise<void> {
       // S95 — DEV-only NONET trigger for repro + future overlay e2e (tree-shaken
       // from prod). Mints + starts a trial host-side exactly like the detector path.
       forceNonet(): void { startSudoku(world, world.localPlayerId, mintNonetSeed(world)); },
+      /**
+       * ⭐ S150 P5 — DEV/e2e only: put a bomb on the board ON PURPOSE.
+       *
+       * Sibling of `forceNonet`, and it exists because bomb.spec's flake was a RACE AGAINST THE
+       * SPARK CADENCE that no timeout could win. `pickBomb` outranks `pickSpark` in `Controls.onDown`,
+       * so a bomb that arrives DURING a build makes every later mouse-down grab the orb instead of
+       * the shape — the placement then fails forever, reporting a message about a spark. Measured at
+       * `bombs=1, tick≈2900` on two separate failures.
+       *
+       * With this, a spec can suppress natural bomb spawning entirely
+       * (`__TEST_BOMB_SPAWN_SPARKS__ = 999`, exactly as it already does for potatoes), finish its
+       * build with the board guaranteed clear, and only then ask for a bomb — turning a timing race
+       * into a sequence. The whole grab path stays real: this dispatches the same `SPAWN_BOMB` the
+       * spawner does.
+       *
+       * ⚠ `__SPARK__` is stripped from the production bundle (verified: `forceNonet` appears 0 times
+       * in `dist/`), so this costs shipped bytes nothing.
+       */
+      forceBomb(x: number, y: number): void { dispatch(world, { type: 'SPAWN_BOMB', pos: { x, y } }); },
       // S122 P1 (B2 phase d) — worker-boundary serialization ROI bench (Council ROI rule v2:
       // measure the FULL candidate round-trip — netSnapshot BUILD → structuredClone (the
       // postMessage-dominant cost) → applyNetSnapshot onto a scratch mirror — plus JSON.stringify

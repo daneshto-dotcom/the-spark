@@ -669,6 +669,41 @@ export async function dragSparkTo(
 }
 
 /**
+ * ⭐ S150 P5 — HOLD THE MATCH IN THE BUILD STAGE FOR A SPEC THAT IS NOT ABOUT PHASES.
+ *
+ * Call once after the match is PLAYING. Pushes `phaseEndsAtTick` far beyond any plausible spec
+ * runtime, so the BUILD→FIGHT edge simply never arrives and a slow run cannot silently lose its
+ * ability to build partway through.
+ *
+ * ## Why this is legitimate, and where its limits are
+ *
+ * `phaseEndsAtTick` is a HASHED, wire-carried field, so writing it is not something to do casually.
+ * It is safe here for the same reason `click-to-build.spec.ts` seeds `castleBanks` directly: these
+ * are SOLO specs with no peer to disagree with, and the alternative is worse — a test whose subject
+ * (bomb pickup, rainbow pickup) has nothing to do with the match clock failing intermittently
+ * because of it. The BUILD itself stays entirely real: a genuine drag through the shipped input
+ * path, a genuine host-authoritative placement.
+ *
+ * ⛔ DO NOT USE THIS IN A NETWORKED SPEC, and do not use it in any spec that is ABOUT the phase
+ * split — it would make the thing under test unobservable. `matchClock`-flavoured specs must let the
+ * edge fire.
+ *
+ * ⚠ It also does not extend the BUILD stage forever in a mathematical sense; it moves the edge to
+ * tick 10,000,000, which at 60 Hz is ~46 hours of sim. If a spec ever legitimately runs past that,
+ * the phase guard in `placeFreeSparkAndConfirm` will say so in plain words rather than timing out.
+ */
+export async function holdInBuildPhase(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const w = (window as unknown as {
+      __SPARK__?: { world?: { matchPhase?: string; phaseEndsAtTick?: number } };
+    }).__SPARK__?.world;
+    if (w === undefined) throw new Error('holdInBuildPhase: no world');
+    w.matchPhase = 'BUILD';
+    w.phaseEndsAtTick = 10_000_000;
+  });
+}
+
+/**
  * S55 P1 — deterministic place-from-spawner with availability + landing
  * confirmation. Closes the Sym F spark-starvation flake (recurred S53 + S54).
  *
@@ -697,6 +732,42 @@ export async function placeFreeSparkAndConfirm(
   targetY: number,
   timeoutMs = 15_000,
 ): Promise<number> {
+  // ⛔ S150 P5 — FAIL LOUDLY IF BUILDING IS CLOSED. THIS IS THE MEASURED ROOT CAUSE OF THE
+  // bomb.spec INTERMITTENCE, AND IT WAS NEITHER OF THE TWO THINGS EVERYONE ASSUMED.
+  //
+  // S149 P2 introduced the BUILD/FIGHT split: `canBuildNow` refuses every placement once
+  // `matchPhase` leaves 'BUILD', which happens at `PHASE_DURATION_TICKS` = 5400 = 90 s of SIM time.
+  // The reducer refuses SILENTLY (a no-op, never a throw — that is deliberate, so a raced client
+  // cannot kill the host's dispatch loop). So a spec whose build drifts past the phase edge sees its
+  // placement quietly do nothing, burns all four retry attempts against a wall, and finally throws a
+  // `waitForWorld` timeout that reads exactly like a failed DRAG.
+  //
+  // Measured, not reasoned: a placement at tick 13 (BUILD) lands; the identical placement at tick
+  // 5407 (FIGHT) does not, with no error anywhere. And the drag itself was exonerated in the same
+  // measurement — with a real porch shape the carried spark arrives 0-2 px from the cursor and lands
+  // 6 times out of 6, so `MAX_RELEASE_REACH` (120) was never close to being the binding constraint.
+  //
+  // ⚠ THIS IS WHY "RAISE THE TIMEOUT" COULD NEVER HAVE WORKED, and CF-S148-c prescribed exactly
+  // that. A longer wait crosses the phase edge MORE, not less. The retry budget was already raised
+  // once in S136 for the same symptom; the second raise would have been the third session spent on a
+  // misdiagnosis. A test that cannot pass needs a legible reason, not a longer rope.
+  const phase = await page.evaluate(() => {
+    const w = (window as unknown as {
+      __SPARK__?: { world?: { tick: number; matchPhase?: string; phaseEndsAtTick?: number } };
+    }).__SPARK__?.world;
+    return w === undefined
+      ? null
+      : { tick: w.tick, matchPhase: w.matchPhase ?? 'BUILD', phaseEndsAtTick: w.phaseEndsAtTick ?? 0 };
+  });
+  if (phase !== null && phase.matchPhase !== 'BUILD') {
+    throw new Error(
+      `placeFreeSparkAndConfirm(${targetX}, ${targetY}): BUILDING IS CLOSED — matchPhase is ` +
+        `'${phase.matchPhase}' at tick ${phase.tick}. Every placement is refused outside BUILD ` +
+        `(canBuildNow), silently, so retrying cannot help. The spec spent too long before building: ` +
+        `either build earlier, or hold the match in BUILD (see holdInBuildPhase).`,
+    );
+  }
+
   // S136 — THE PLAYER'S SHAPE SOURCE IS THE CASTLE PORCH, NOT THE QUARRY. Ensure one is standing
   // there before we try to drag anything (see pullFromBank for the full reasoning).
   await pullFromBank(page, timeoutMs);
@@ -748,10 +819,42 @@ export async function placeFreeSparkAndConfirm(
   const INNER_MS = 8_000;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     try {
+      // ⭐ S150 P5 — NAME THE HAZARD IN THE DIAGNOSTIC. `pickBomb`/`pickPotato` take PRIORITY over
+      // `pickSpark` in `Controls.onDown`, so a free hazard sitting on the board makes every
+      // subsequent mouse-down grab IT instead of the shape — and the placement then fails forever
+      // with a message about a spark, which is how this cost three sessions of misdiagnosis. If a
+      // failure below reports a non-zero hazard count, the drag was never the problem.
+      const hz = await page.evaluate(() => {
+        const w = (window as unknown as {
+          __SPARK__?: { world?: Record<string, unknown> };
+        }).__SPARK__?.world as unknown as {
+          bombs?: Map<number, unknown>; potatoes?: Map<number, unknown>; rainbows?: Map<number, unknown>;
+          seagulls?: Map<number, unknown>; poops?: Map<number, unknown>;
+          freeSparks?: Map<number, { state?: { kind: string }; escrow?: string }>;
+          players?: Map<number, { kind: string }>; localPlayerId: number;
+          matchPhase?: string; tick: number;
+        } | undefined;
+        if (w === undefined) return null;
+        const me = w.players?.get?.(w.localPlayerId);
+        return {
+          bombs: w.bombs?.size ?? 0,
+          potatoes: w.potatoes?.size ?? 0,
+          rainbows: w.rainbows?.size ?? 0,
+          seagulls: w.seagulls?.size ?? 0,
+          poops: w.poops?.size ?? 0,
+          porch: [...(w.freeSparks?.values?.() ?? [])].filter((s) => s.state?.kind === 'Free' && s.escrow === 'banked').length,
+          freeSparks: w.freeSparks?.size ?? 0,
+          avatarKind: me?.kind ?? 'unknown',
+          phase: w.matchPhase,
+          tick: w.tick,
+        };
+      });
       await waitForWorld(
         page,
         (w) => w.primitives.length >= before + 1,
-        `placement landed near (${targetX}, ${targetY}) (prims ${before} → >=${before + 1})`,
+        `placement landed near (${targetX}, ${targetY}) (prims ${before} → >=${before + 1})` +
+          ` [attempt ${attempt}/${ATTEMPTS}; hazards on board at attempt start: ` +
+          `${hz === null ? 'unknown' : JSON.stringify(hz)}]`,
         attempt === ATTEMPTS ? timeoutMs : INNER_MS,
       );
       return sparkId;

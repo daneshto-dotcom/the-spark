@@ -30,6 +30,7 @@ import {
   CANVAS_WIDTH,
   canvasToCss,
   titleButtonCss,
+  holdInBuildPhase,
   placeFreeSparkAndConfirm,
   readWorldState,
   waitForWorld,
@@ -84,6 +85,11 @@ async function startSolo(page: Page): Promise<void> {
   const solo = await titleButtonCss(page, 'solo'); // S85 P4c — live title geometry
   await page.mouse.click(solo.x, solo.y);
   await waitForWorld(page, (w) => w.gameState === 'PLAYING' && w.gameMode === 'solo', 'PLAYING (solo)');
+  // ⭐ S150 P5 — HOLD THE MATCH IN BUILD. Measured root cause of the bomb/rainbow intermittence:
+  // once the sim crosses PHASE_DURATION_TICKS (5400 = 90 s) into FIGHT, canBuildNow refuses every
+  // placement SILENTLY, so a slow run's build can never land and no retry budget can save it.
+  // This spec is about hazards, not the match clock, so the edge is held off.
+  await holdInBuildPhase(page);
 }
 
 test.describe('S71 P1 — pickup bomb (solo, gating)', () => {
@@ -125,8 +131,35 @@ test.describe('S71 P1 — pickup bomb (solo, gating)', () => {
     // a ~5s build; slow sim => the sim spawns fewer during a longer build), so the first
     // bomb (24 sparks) reliably appears only once the cluster is built. See file header.
     await page.addInitScript({ content: 'window.__TEST_HAZARDS_ENABLED__ = true;' }); // S147 Step 0 — hazards are OFF by default (R14/R23); this spec re-enables them so its coverage survives
-    await page.addInitScript({ content: 'window.__TEST_BOMB_SPAWN_SPARKS__ = 24;' });
+    // ⛔ S150 P5 — BOMBS ARE SUPPRESSED FOR THE BUILD, THEN PLACED ON PURPOSE.
+    //
+    // This was `= 24`, on the reasoning quoted in the header: "the build consumes < cadence
+    // sparks in EVERY sim-speed regime ... so the first bomb (24 sparks) reliably appears only
+    // once the cluster is built." THAT REASONING IS FALSE, and it was the whole flake. Measured
+    // on two separate failures: a bomb was on the board at tick ~2900 with the cluster still
+    // half-built, because `pullFromBank` waits SECONDS for a gatherer to bank each shape while
+    // the quarry keeps minting sparks toward the cadence. `pickBomb` outranks `pickSpark` in
+    // `Controls.onDown`, so from that moment every mouse-down grabbed the orb and the placement
+    // could never land — reporting a timeout about a SPARK, which is what made it look like a
+    // drag problem for three sessions.
+    //
+    // 999 suppresses them outright, exactly as potatoes already are, and `forceBomb` below puts
+    // one on the board once the build is done. A sequence instead of a race.
+    await page.addInitScript({ content: 'window.__TEST_BOMB_SPAWN_SPARKS__ = 999;' });
     await page.addInitScript({ content: 'window.__TEST_POTATO_SPAWN_SPARKS__ = 999;' });
+    // ⛔ S150 P5 — AND RAINBOWS, WHICH WAS THE LAST PIECE AND THE ONE NOBODY HAD SUPPRESSED.
+    //
+    // `Controls.onDown` tries the pickers IN THIS ORDER: pickBomb (:611) -> pickRainbow (:619) ->
+    // pickPotato (:627) -> pickSpark (:633). So THREE different objects outrank the shape the drag
+    // wants, and this spec suppressed only TWO of them. Measured on the surviving failure after
+    // bombs were suppressed: {bombs:0, potatoes:0, RAINBOWS:1, poops:1, porch:1, avatarKind:'Idle',
+    // phase:'BUILD', tick:2927} — a porch shape present and grabbable, the player idle, the phase
+    // open, and the placement still impossible, because every mouse-down was claiming the rainbow.
+    //
+    // Seagulls go too: they are pure noise for a bomb test, and they mint the poops that foul a
+    // structure and zero its income mid-run.
+    await page.addInitScript({ content: 'window.__TEST_RAINBOW_SPAWN_SPARKS__ = 999;' });
+    await page.addInitScript({ content: 'window.__TEST_SEAGULL_SPAWN_SPARKS__ = 999;' });
     await page.addInitScript({ content: 'window.__TEST_WIN_SCORE__ = 999;' });
     await startSolo(page);
 
@@ -148,10 +181,18 @@ test.describe('S71 P1 — pickup bomb (solo, gating)', () => {
     await waitForWorld(page, (w) => w.bonds.length >= 2, 'cluster auto-bonded (>=2 bonds)');
     const beforeBonds = (await readWorldState(page)).bonds.length;
 
-    // The bomb arrives only after the build (24 sparks). Generous arrival wait for the
-    // sim-clock slowdown; the build is long done (player Idle) so the only click near the
-    // orb is the intentional grab below.
-    await waitForBomb(page, (b) => b.count === 1, 'bomb spawned after the build', 90_000);
+    // ⭐ S150 P5 — NOW ask for the bomb, with the build finished and the board clear.
+    //
+    // Spawned inside the quarry disc so it lands exactly where the natural spawner would have put it
+    // (the sibling test above pins that invariant against the real cadence, so this test does not
+    // need to re-prove it). Everything from here down is unchanged and entirely real: the grab goes
+    // through `pickBomb` -> `TRIGGER_BOMB` -> the locked `SEVER_BOND` path.
+    await page.evaluate(() => {
+      const sp = (window as unknown as { __SPARK__?: { forceBomb?: (x: number, y: number) => void } }).__SPARK__;
+      if (sp?.forceBomb === undefined) throw new Error('__SPARK__.forceBomb unavailable (dev hook)');
+      sp.forceBomb(960, 540);
+    });
+    await waitForBomb(page, (b) => b.count === 1, 'bomb placed on purpose after the build', 20_000);
 
     // Grab it: an LMB-down with the cursor on the (stationary) orb -> pickBomb ->
     // TRIGGER_BOMB. No pointer capture / carry (unlike the potato); the up is a no-op.

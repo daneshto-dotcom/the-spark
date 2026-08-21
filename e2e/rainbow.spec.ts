@@ -17,6 +17,7 @@ import {
   CANVAS_WIDTH,
   canvasToCss,
   titleButtonCss,
+  holdInBuildPhase,
   placeFreeSparkAndConfirm,
   waitForWorld,
 } from './helpers.ts';
@@ -72,6 +73,11 @@ async function startSolo(page: Page): Promise<void> {
   const solo = await titleButtonCss(page, 'solo'); // S85 P4c — live title geometry
   await page.mouse.click(solo.x, solo.y);
   await waitForWorld(page, (w) => w.gameState === 'PLAYING' && w.gameMode === 'solo', 'PLAYING (solo)');
+  // ⭐ S150 P5 — HOLD THE MATCH IN BUILD. Measured root cause of the bomb/rainbow intermittence:
+  // once the sim crosses PHASE_DURATION_TICKS (5400 = 90 s) into FIGHT, canBuildNow refuses every
+  // placement SILENTLY, so a slow run's build can never land and no retry budget can save it.
+  // This spec is about hazards, not the match clock, so the edge is held off.
+  await holdInBuildPhase(page);
 }
 
 test.describe('S75 P3 — rainbow color-shuffle (solo, gating)', () => {
