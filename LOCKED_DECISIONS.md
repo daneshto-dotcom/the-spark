@@ -1637,3 +1637,57 @@ at the SMALLEST window (2 184) while 7 653 gave +11 and 8 150 gave 0.
 - **THREE FREE STARTER DESIGNS** (goblin swordsman / goblin archer / stink tower), non-godly, granted
   free to every player every match. 4 shapes each. Damage authored as TOTALS on a 0.5s cadence, never
   per engine tick. See `.claude/plans/2026-08-10_SCOPE_AMENDMENT_S137_starter_designs.md`.
+
+## S150 (2026-08-21) — THE PROTOCOL-BUMP CHECKLIST, PROMOTED AND MECHANISED (CF-S147-b, CLOSED)
+
+Promoted here from `src/net/protocol.ts` on the owner's carry-forward. ⚠ **A copy of prose is not a
+gate** — the whole reason this drifted seven-plus times is that every carrier of it was prose. The
+authoritative enforcement is `src/net/protocolVersionSync.test.ts`, which runs in the gating vitest
+suite. This section is the human-readable index; the test is the thing that fails.
+
+### Bumping `PROTOCOL_VERSION` means editing SIX things
+
+1. The `PROTOCOL_VERSION` const in `src/net/protocol.ts`.
+2. The **narrative changelog** block above that const — the ARGUMENT for the bump, in the
+   `bumped N->M:` form the rest of the block uses. ✅ *gated*
+3. The compact list on `HelloMsg` — **in chronological order, at its neighbours' indentation.** ✅ *gated*
+4. The `protoVersion` type literal immediately below it (a deliberate tsc tripwire). ✅ *tsc*
+5. `protocol.test.ts`'s pinned `expect(PROTOCOL_VERSION).toBe(N)` **and its test title**, plus
+   `LOCAL_PROTO_V` at the top of `e2e/smoke.spec.ts`. ✅ *gated*
+6. ⭐ **THE SESSION LABEL.** State which SESSION shipped it whenever that differs from the spec id
+   being cited. Thirteen files label the 26→27 work `S152` — its roadmap spec name in
+   `SPARK_TD_SESSION_SPECS.md` — while the session was **S149** (commit `s149-p6`). The labels are
+   deliberately left alone, because they are the feature's traceable spec name; the mapping is
+   recorded so nobody reconstructs a session that never happened.
+
+### The criterion for whether to bump at all
+
+**Wire incompatibility, not replay identity.** Every one of the ~26 recorded bumps justifies itself
+with a *peer-disagreement* story. S133 explicitly did **not** bump for additive-optional creature
+fields. Consequences worth stating, because both were argued the other way by external Council seats
+in S150 and both are wrong:
+
+- **A bot-behaviour change needs no bump.** Bots are host-only (`hostTick.ts`); a client receives
+  their effects via `NetSnapshot` and never simulates them, so two peers on the same build cannot
+  disagree. `BotGoal` has no wire surface at all.
+- **A field a stale peer can silently DROP is more dangerous than one it cannot parse** — the
+  additive-optional case (`Primitive.origin`, 26→27) still forces a bump.
+
+### ⭐ WHAT ACTUALLY CATCHES DRIFT: enumerate the chain, do not read it
+
+S150 stopped reading the changelog and enumerated it instead, and found **five** live instances
+where three were expected. Two of them — **`8→9`** (S93) and **`20→21`** (S144) — had been missing
+from the narrative block for eight and three bumps, in plain sight, through multiple sessions that
+each read the block and believed it complete. A human checks that the LAST entry matches the
+constant. Only a machine checks every link. That asymmetry is the whole finding.
+
+### A REQUIRED hashed World field costs TEN sites, and TWO are tsc-forced
+
+Corrected in S150 from the long-quoted "nine sites, one tsc-forced". That figure was traced on
+`rainbowSwitchTick`, which is **OPTIONAL** and therefore has no `makeWorld` initializer — for an
+optional field, nine is right. Every field the number was actually *used* to size (`matchPhase`,
+`phaseEndsAtTick`, `layout`) is **REQUIRED** and costs **ten**: the tenth is the `makeWorld` object
+literal, which is tsc-forced because it is annotated `const w: World` — so **two** sites are
+compiler-enforced (that literal and `FIELD_COVERAGE` in `stateHashFull.ts`), not one. `netSnapshot`
+is **not** an eleventh site: it derives from `snapshot()` via `Omit`, so a new field rides the wire
+for free. Verified identically against all three fields shipped in S147/S148.

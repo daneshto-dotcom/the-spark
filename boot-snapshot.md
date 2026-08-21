@@ -48,8 +48,16 @@ and will report defects next session — expect an interrupt-driven start, exact
 - **⭐ A GREEN SUITE CAN MEAN NOTHING.** After the entire P2 phase-split implementation landed, the
   suite reported the EXACT pre-change count (2629). 163 files and not one noticed. When a behaviour
   change moves no test count, that is the signal to write the test.
-- **A hashed World field is NINE sites, only ONE tsc-forced.** A protocol bump is FIVE sites; drift
-  has now recurred SEVEN times (CF-S147-b).
+- **A REQUIRED hashed World field is TEN sites, and TWO are tsc-forced** (S150 recount, verified on
+  all three shipped fields). The old "nine sites / one tsc-forced" line was traced on an OPTIONAL
+  field, which needs no `makeWorld` initializer — the tenth site is that object literal, and it is
+  tsc-forced because it is annotated `const w: World`. `netSnapshot` is NOT an eleventh site (it
+  derives via `Omit`). An OPTIONAL field really is nine.
+- **A protocol bump is SIX sites, not five** (S150 added the session-label item), and it is now
+  MECHANICALLY GATED: `protocolVersionSync.test.ts` asserts both changelog carriers document an
+  unbroken chain ending at `PROTOCOL_VERSION`. CF-S147-b is CLOSED. Enumerating that chain instead of
+  reading it found FIVE live drift instances, two of which (`8→9`, `20→21`) had survived eight and
+  three bumps unnoticed.
 - **MCV bindings rot when a later priority supersedes an earlier one.** Happened twice this session
   (P1's `canBuildAt` → P2's `canBuildNow`; P2's protocol 26 → P6's 27). Pin the INVARIANT, not the
   spelling or the number.

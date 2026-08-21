@@ -9,7 +9,12 @@
  * A wall is a pure function of `(layout, matchPhase)`, and **both of those are already hashed World
  * fields**. So the border walls cost:
  *
- *   · ZERO of the nine sites a new hashed World family costs
+ *   · ZERO of the TEN sites a new REQUIRED hashed World field costs (S150 recount — the figure was
+ *     quoted as nine for three sessions because it had been traced on `rainbowSwitchTick`, which is
+ *     OPTIONAL and so needs no `makeWorld` initializer. Every field it was actually used to size —
+ *     `matchPhase`, `phaseEndsAtTick`, `layout` — is REQUIRED and costs ten. Either way the wall's
+ *     cost here is zero, so the argument below is unaffected; the number is corrected so the next
+ *     session budgeting a real field is not short by one.)
  *   · ZERO protocol surface
  *   · ZERO save-format surface
  *

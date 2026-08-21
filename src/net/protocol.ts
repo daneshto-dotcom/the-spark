@@ -65,6 +65,12 @@ export type { NetSnapshot };
 // would stall FOREVER on its silence (Council S87 F4 CONCEDED→GEMINI — the
 // LOBBY_PRESENCE no-bump precedent covers cosmetic kinds, not match-gating
 // ones). The HELLO hard-reject + "please refresh" UX handles the skew.
+// S93 — bumped 8→9: THE NONET TRIAL. Backfilled in S150 — this entry was MISSING from this block
+// entirely while the HelloMsg list below had carried it since S93, which is the same drift the
+// warning below that list describes, just in the other direction. Two carriers: the new
+// SUDOKU_SOLVED client intent (a v8 peer rejects the message, so a benched-but-solving seat could
+// never score its comeback) and the additive-optional `sudoku` snapshot field, which GATES scoring —
+// so a v8 peer would keep earning during a trial a v9 host has frozen.
 // S100 P1 (TD Phase 1a) — bumped 9→10: the tower-defense feature ships
 // REGISTER_SPAWNER/REMOVE_SPAWNER (host-internal) + a new SPAWN_CREATURE
 // sourceSpawnerId field + the additive-optional `creatureSpawners[]` snapshot
@@ -160,6 +166,13 @@ export type { NetSnapshot };
 //       the host's `hashWorldStateFull` the moment anything is queued. `Defender.bagsRemaining` is the
 //       same shape (additive-optional-when-nonzero, hashed).
 // Hard-rejected at HELLO, same lockstep posture as every bump above.
+// S144 P1 — bumped 20->21: CLICK-TO-BUILD. Backfilled in S150 — MISSING from this block while the
+// HelloMsg list below had carried it since S144, the same omission as 8→9 above. One carrier, and it
+// is sufficient: the new `BUILD_BLUEPRINT` client intent, which a v20 peer rejects outright at
+// `parseNetMessage`. That seat could then never build from the panel while the other seat could, and
+// the two worlds diverge on primitives, bonds AND defenders. Note the blueprint GEOMETRY needs no
+// wire representation at all: the reducer stamps ordinary primitives and bonds that already
+// serialize, and the carried-blueprint arming state is render-local by design.
 // S146 P2 — bumped 21->22: THE CASTLE INVENTORY BECAME A LIMITLESS PER-TYPE TALLY. Three independent
 // reasons, any ONE of which alone would force it.
 //   (1) THE SNAPSHOT FIELD CHANGED SHAPE. `castleBanks` went from
@@ -221,6 +234,30 @@ export type { NetSnapshot };
 //       whether a given placement is legal.
 //   (3) THE FIELD IS A STRING LITERAL UNION. A stale peer cannot parse a `layout` value it has never
 //       heard of - the same class of change that forced 12->13 for the 'WALK' DefenderState.
+//
+// S149 P2 — bumped 25->26: THE PHASE SPLIT IS ENFORCED. `GathererState` gains the wire literal
+// 'SHELTERED': at `phaseEndsAtTick - 60` every gatherer unconditionally leaves the field and
+// auto-deposits its cargo (owner Q2 — a deterministic, speed-independent snap rather than a race
+// between pathfinding and the clock). It is a UNION WIDENING on a field that is already serialized
+// at full fidelity, not a new World family, which is why this costs one literal and not ten sites.
+// A v25 peer cannot parse a state it has never heard of, and would additionally keep hauling through
+// a window in which a v26 host has already banked everything - so the two disagree about both unit
+// positions and banked totals within a single build stage.
+//
+// S152 SPEC — bumped 26->27: FIX + SCRAP. ⚠ SHIPPED IN **SESSION S149** (commit `s149-p6`), not in a
+// session numbered 152. Thirteen source files label this work `S152` because they cite the ROADMAP
+// SPEC id in `SPARK_TD_SESSION_SPECS.md` (§S152 "FIX + SCRAP (R13/R19/R21)"), which the owner's plan
+// ordered ahead of where it actually landed. The labels are deliberately left alone — they are the
+// feature's traceable spec name — but the mapping is stated HERE so nobody reconstructs a session
+// that never happened. Two reasons force the bump, either alone sufficient:
+//   (1) TWO NEW CLIENT INTENTS, `REPAIR_STRUCTURE` and `SCRAP_STRUCTURE`, which a v26 peer rejects
+//       outright at `parseNetMessage`. A seat that cannot repair while the other can diverges on
+//       primitives, bonds and defenders inside one build stage.
+//   (2) A NEW HASHED, WIRE-CARRIED FIELD ON `Primitive`: `origin` (blueprint provenance). This is the
+//       SHARPER reason precisely because it is ADDITIVE-OPTIONAL — a v26 peer would silently ACCEPT
+//       the snapshot and DROP the field, and every tower it restored would then read as freeform
+//       rubble that FIX refuses. A field a stale peer can drop without erroring is more dangerous
+//       than one it cannot parse at all.
 export const PROTOCOL_VERSION = 27 as const;
 
 /**
@@ -300,47 +337,67 @@ export interface HelloMsg {
    * `phaseEndsAtTick`. The phase GATES scoring, so a v22 peer would earn build-stage income a v23
    * host does not and diverge on the hashed score that decides the win.)
    *
-   * ⚠ THIS LIST DRIFTS IF YOU LET IT. It has now been caught stale THREE times: S133 P2 backfilled
-   * the 14→15 entry while the literal already read 15, S140 P1 backfilled 17→18 for the same reason,
-   * and S147 P1 backfilled 21→22 — again while the literal below already read 22.
-   *
-   * ⛔ SO STOP TRUSTING THIS COMMENT AND USE THE REAL CHECKLIST. Bumping `PROTOCOL_VERSION` means
-   * editing FIVE things, not three. This docblock said THREE for four bumps running, which is
-   * precisely why it kept going stale — the two it omitted are the two that go red:
-   *   1. the `PROTOCOL_VERSION` const above;
-   *   2. the narrative changelog block above that const;
-   *   3. this list;
-   *   4. the `protoVersion` type literal immediately below (a deliberate tsc tripwire);
-   *   5. `protocol.test.ts`'s pinned `expect(PROTOCOL_VERSION).toBe(N)` **and its test title**, plus
-   *      `LOCAL_PROTO_V` at the top of `e2e/smoke.spec.ts`.
-   * `protocolVersionSync.test.ts` enforces the const/e2e pair; nothing enforces this prose.
- *
- * S152: 26->27 (FIX + SCRAP — TWO new client intents, `REPAIR_STRUCTURE` and `SCRAP_STRUCTURE`,
- * which a v26 peer rejects outright at `parseNetMessage`; AND a new hashed, wire-carried field on
- * `Primitive`, `origin`. The intents alone would force this — a seat that cannot repair while the
- * other can diverges on primitives, bonds and defenders within one build stage — but `origin` is
- * the sharper reason: it is ADDITIVE-OPTIONAL on the wire, so a v26 peer would silently accept a
- * snapshot and drop it, and every tower it restored would read as freeform rubble that FIX refuses.
- * A field a stale peer can DROP without erroring is more dangerous than one it cannot parse.)
-   *
    * S147 P2: 23->24 (FOUR-PLAYER CAP - MAX_PLAYERS 6->4 and MAX_BOTS 6->3. The wire validators
    * `validateRoster` and `parseHostAttest` both cap on MAX_PLAYERS, so a v23 host's 5-6 seat roster is
    * refused by a v24 peer; and the lobby rack geometry changes 2x3 -> 2x2, so the peers disagree about
    * how many seats exist. PLAYER_COLORS stays at 6 on purpose - it is a race roster, not a cap.)
    *
-   * S149 P2: 25->26 (THE PHASE SPLIT IS ENFORCED - a new `GathererState` wire literal, 'SHELTERED'.
- * A v25 peer has never heard of it: `GathererState` is serialized at FULL FIDELITY on both the disk
- * save and the NetSnapshot, so a v25 joiner receiving a sheltered hauler would either fail to parse
- * it or fall through every branch of its own haul FSM and strand the unit. Exactly the class of
- * change as the 'WALK' DefenderState literal that forced 12->13. The behaviour riding with it is
- * equally divergent even setting the literal aside: from this version the quarry stops producing
- * during FIGHT, defenders do not tick outside FIGHT, and no placement is accepted outside BUILD -
- * so a v25 peer and a v26 peer would simulate visibly different games from the first phase edge.)
- *
- * S148 P1: 24->25 (THE ZONE PARTITION - one new hashed, wire-carried World field, `layout`. The
+   * S148 P1: 24->25 (THE ZONE PARTITION - one new hashed, wire-carried World field, `layout`. The
    * polar keep ring is gone and `castleAnchor` becomes a zone lookup, so a v24 peer would draw and
    * hit-test every keep in the wrong place and enforce the old territory rule instead of the new
-   * zone borders. See the changelog above the const for the full three-part argument.) */
+   * zone borders. See the changelog above the const for the full three-part argument.)
+   *
+   * S149 P2: 25->26 (THE PHASE SPLIT IS ENFORCED - a new `GathererState` wire literal, 'SHELTERED'.
+   * A v25 peer has never heard of it: `GathererState` is serialized at FULL FIDELITY on both the disk
+   * save and the NetSnapshot, so a v25 joiner receiving a sheltered hauler would either fail to parse
+   * it or fall through every branch of its own haul FSM and strand the unit. Exactly the class of
+   * change as the 'WALK' DefenderState literal that forced 12->13. The behaviour riding with it is
+   * equally divergent even setting the literal aside: from this version the quarry stops producing
+   * during FIGHT, defenders do not tick outside FIGHT, and no placement is accepted outside BUILD -
+   * so a v25 peer and a v26 peer would simulate visibly different games from the first phase edge.)
+   *
+   * S152 SPEC: 26->27 (FIX + SCRAP — shipped in SESSION S149, commit `s149-p6`; the `S152` label is
+   * the ROADMAP SPEC id, not a session number. See the changelog above the const. TWO new client
+   * intents, `REPAIR_STRUCTURE` and `SCRAP_STRUCTURE`, which a v26 peer rejects outright at
+   * `parseNetMessage`; AND a new hashed, wire-carried field on `Primitive`, `origin`. The intents
+   * alone would force this — a seat that cannot repair while the other can diverges on primitives,
+   * bonds and defenders within one build stage — but `origin` is the sharper reason: it is
+   * ADDITIVE-OPTIONAL on the wire, so a v26 peer would silently accept a snapshot and drop it, and
+   * every tower it restored would read as freeform rubble that FIX refuses. A field a stale peer can
+   * DROP without erroring is more dangerous than one it cannot parse.)
+   *
+   * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
+   * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
+   * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
+   * 14→15, S140 P1 filled in 17→18, S147 P1 filled in 21→22 — each while the literal below already
+   * read the new number); `protocol.test.ts` records FOUR more, as drifted TEST TITLES.
+   *
+   * ⛔ AND S150 FOUND FIVE MORE, LIVE ON DISK, WHICH IS WHY THE PROSE IS NO LONGER TRUSTED WITH
+   * THIS JOB. At 27 the narrative changelog above the const was missing 25→26 and 26→27 — and, once a
+   * completeness check was actually RUN over the chain rather than eyeballed, 8→9 and 20→21 as well,
+   * absent since S93 and S144 respectively while this list had carried both all along. On top of
+   * that, this list had its last four entries out of chronological order with two at the wrong
+   * comment indentation, and this very paragraph still read "THREE".
+   *
+   * ⭐ THE LESSON, AND IT IS THE WHOLE REASON THE TEST BELOW EXISTS: every previous session that
+   * touched this drift READ the block and believed it complete. Two gaps had survived eight and three
+   * bumps respectively in plain sight. A human reading a 200-line comment checks that the LAST entry
+   * matches the constant; only a machine checks that EVERY link in the chain is present. So
+   * `protocolVersionSync.test.ts` now asserts the chain is unbroken from 2 to `PROTOCOL_VERSION` in
+   * BOTH carriers — the prose is a description of a gate, not the gate itself.
+   *
+   * ⛔ THE REAL CHECKLIST. Bumping `PROTOCOL_VERSION` means editing **SIX** things, not three:
+   *   1. the `PROTOCOL_VERSION` const above;
+   *   2. the narrative changelog block above that const;
+   *   3. this list — IN CHRONOLOGICAL ORDER, at this indentation;
+   *   4. the `protoVersion` type literal immediately below (a deliberate tsc tripwire);
+   *   5. `protocol.test.ts`'s pinned `expect(PROTOCOL_VERSION).toBe(N)` **and its test title**, plus
+   *      `LOCAL_PROTO_V` at the top of `e2e/smoke.spec.ts`;
+   *   6. ⭐ S150 — THE SESSION LABEL. State which SESSION shipped it when that differs from the spec
+   *      id you are citing. Thirteen files label the 26→27 work `S152` (its roadmap spec name) while
+   *      the session was S149, and reconstructing history from source labels alone invents a session
+   *      that never happened.
+   * `protocolVersionSync.test.ts` enforces sites 1, 2 and 5. Sites 3, 4 and 6 remain prose + tsc. */
   readonly protoVersion: 27;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
