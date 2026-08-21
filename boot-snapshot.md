@@ -1,72 +1,67 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-08-19 | Session: S148 | Branch: master | Commit: **986b8b5** | PROTOCOL_VERSION: **25**
+Generated: 2026-08-20 | Session: S149 | Branch: master | Commit: **a8028ec** | PROTOCOL_VERSION: **27**
 
-**S148 shipped THREE priorities, all live and deploy-verified 4/4. P1 THE QUADRANTS replaced the polar
-keep ring with a real zone partition (protocol 24→25). P0 was an owner-demanded REBUILD-VS-ADAPT AUDIT
-(verdict: do NOT rebuild, but stop adapting incrementally). P2 fixed what a real playtest found — the
-opening was unfair and every weapon in the game dealt identical damage.**
+**S149 shipped SIX priorities. The owner rebuilt the batch mid-session from a live playtest, so the
+plan I opened with (castle HP) was dropped entirely and replaced by their five complaints. All five
+are now addressed except bots-build-towers. Two agents were delegated (owner's request) for
+FIX/SCRAP and a HUD coherence audit. Deploy 4/4 live.**
 
-⛔ READ FIRST: `.claude/plans-archive/2026-08-19_SCOPE_AMENDMENT_S148_OPENING_COHERENCE_IN-PROGRESS.md`
-(PC castle HP is its unstarted half) and the audit artifact:
-https://claude.ai/code/artifact/cb2ef411-646f-451b-82ee-55dda87e4ecf
+⛔ READ FIRST: `.claude/plans-archive/2026-08-20_SCOPE_AMENDMENT_S149_PLAYTEST_COHERENCE_COMPLETED.md`
+and the 14-entry `carry_forward_next_session[]` in `.claude/session-state.json` — it is ordered.
 
 ## Next Steps
 
-1. **P3 — THE CASTLE BECOMES REAL (R29/R10/R20).** Castle HP + defence + attack, elimination when it
-   falls, last-one-standing with placings. **This is the piece that gives the match stakes** — today
-   nothing can die and nothing can be lost. Protocol 25→26. Biggest remaining item; start fresh.
-2. **P5 — OWN-ZONE BUILD LEGALITY.** ⚠ **ATTEMPTED AND REVERTED IN S148 — read this before starting.**
-   The swap is six one-line edits (`canBuildAt` already exists and is tested in `state/zones.ts`) and
-   typechecks clean, but it **breaks 17 tests across 8 files** (session7/14/15, world, botBrain,
-   botGameplay, placeFromFree, pentagramBuildability). Not a bug — correct new behaviour: seat 1 owns
-   the RIGHT half on PITCH_2P, so a 1v1 test placing P1 at x=600 is rightly refused, as is anything in
-   the quarry disc. Each needs individual judgement. **Budget a full priority.**
-3. **P4 — DEMOLITION (R52).** Delete hazards (~2,291 LOC), the NONET trial (~1,081) and the dev probe
-   harness (~679), including ~20 World fields across FIELD_COVERAGE/save/hash/workerSim. Own protocol
-   bump. Owner authorised outright deletion, not dormancy.
-4. Then **P6 walls** (R5/R17/R39) → **P7 colour-is-a-race lobby picker** (R45) → towers+orders →
-   projectiles → goblin tower → roster → modes → balance.
-5. Carry-forwards: **CF-S148-a** (R22 violated — the quarry keeps producing during FIGHT; the spawner
-   never reads `matchPhase`; one guard) · **CF-S148-b** (`creatureSpawners` acknowledged hole, proper
-   fix is the goblin tower) · **CF-S148-c** (bomb.spec flake) · **CF-S148-d** (4-peer WebRTC timeout)
-   · **CF-S147-b** (promote the 5-site protocol-bump checklist — drift has recurred 5×) · CF-S147-c/e
-   · CF1 · CF3.
+1. **CF-S149-e — ARCADE NONET: timed trial + 80s leaderboard UI.** ⚠ AN HONEST HALF. The model
+   (`src/render/arcadeScores.ts`) is COMPLETE and mutation-tested: top-25, 3-letter initials,
+   `M:SS.cc`, corrupt-storage tolerance, and the subtle part — **the sort is INVERTED because faster
+   wins**, and a reversed board would still look perfectly plausible. MISSING: the timer display,
+   the ENTER-YOUR-INITIALS screen, and the HIGH SCORES board. Wire: stamp `performance.now()` when a
+   puzzle launches (legitimate — crosses no wire, feeds nothing host-authoritative), stop on solve,
+   call `recordRun(name, ms, at)`, show the place. Owner asked for this explicitly.
+2. **CF-S149-d — `e2e/click-to-build.spec.ts`, 3 tests are `test.fixme`.** STALE, not flaky: tower
+   selection moved from the castle to the footer. The rewrite recipe is written into the file (open
+   the tier chip → read the cards → click to arm → place). Both geometry getters already exist.
+3. **CF-S149-f — P7 BOTS BUILD TOWERS.** The last of the owner's five original complaints, and the
+   only one not addressed. A.0 measured: `botBrain.chooseGoal` has FLEE/CLEAN/RAINBOW/SEVER/POTATO/
+   BUILD/PULL, and the BUILD goal places ONE primitive — there is no recipe goal anywhere, so bots
+   are structurally INCAPABLE of building a tower. Full tier.
+4. **CF-S149-a — DESIGN RULING NEEDED (owner):** the quarry is an OPEN HUB. Border walls stop at the
+   rim (Q6), so a unit can route between zones through the centre while the walls are up. Faithful
+   to the stated geometry and pinned by a named test; sealing it needs a wall arc across the rim.
+5. Then CF-S149-b (the wall clamp has no sim consumer — the rim case), CF-S148-b/c/d, CF-S147-b/c/e.
 
 ## Blockers
 
-None blocking P3. ⚠ The owner is playtesting **2-player multiplayer with a friend** next session and
-will report defects mid-build — expect an interrupt-driven session.
+None blocking. ⚠ The owner is playtesting **2-player multiplayer with a friend** after this session
+and will report defects next session — expect an interrupt-driven start, exactly like this one.
 
 ## Traps (still live)
 
-- **Date.now() in sim code IS the desync** — everything is tick-derived. 90 s = 5400 ticks @ 60 Hz.
-- Never Math.random() in sim code — seeded mulberry32 only.
-- **A hashed World scalar is NINE sites and only ONE is tsc-forced.** FIELD_COVERAGE names the field
-  at compile time; save ×3, workerSim structural signature, gameMode ×2, protocol and world-init are
-  all SILENT. The build is green with the field missing from the save format entirely.
-- **A protocol bump is FIVE sites**: the const, the narrative changelog, the `HelloMsg.protoVersion`
-  type literal, `protocol.test.ts`'s pinned assertion AND its title, and `LOCAL_PROTO_V` in e2e.
-- **The repo has MIXED line endings** — `defender.ts` is natively CRLF. Use single-line ASCII anchors
-  with NO trailing newline, detect the file's own EOL, and write with `newline=''`.
-- **Heredocs into `python -` mangle em-dashes.** Write the script to a file instead.
-- ⛔ **Keep braces OUT of MCV verification needles.** The PDCA gate finds the in-progress priority with
-  an awk brace-DEPTH counter that counts braces inside JSON strings; six needles ending in `{` skewed
-  it permanently and the gate blocked every Edit with "Deliberation not completed".
-- ⛔ **A `file_lacks` needle must be the STATEMENT, not the identifier** — `seedBotSpawners(world);`
-  with the semicolon, `Math.sqrt(` with the paren. Broke four times; a good removal comment always
-  names the thing removed.
-- **grep_count ops are `eq ne gt ge lt le`** — there is no `gte`; an unknown op silently falls through
-  to `==` and reports FAIL on a passing condition.
-- **Pipe the MCV verifier to a file, not `| tail`** — `$?` otherwise reports tail's exit code.
-- Anti-vacuity guards in `workerSim.differential.test.ts` are load-bearing: three entity families were
-  only ever seeded BY ACCIDENT and went silently empty when the scaffolding was deleted.
-- **A green suite is NOT evidence for render work.** The in-app Browser pane cannot verify SPARK (an
-  undisplayed pane does not composite, so rAF is paused). Use Playwright.
-- e2e `bomb.spec` and the 4-peer `nplayer` FFA are intermittent — do not bisect a single failure.
-- **PLAYER_COLORS stays at SIX** (a race roster, R45). Never shrink it to the seat cap.
-- Big Workflow fan-outs die on the spend limit. Hand-run probes were cheaper AND better.
+- **⭐ A RENDERER KEYED ON A PHASE OR ROSTER FIELD NEEDS A `gameState` GUARD TOO.** Shipped this bug
+  twice in one session: border walls drew across the TITLE SCREEN (a never-started world reads
+  `matchPhase === 'BUILD'`), and the HUD agent then found FOUR MORE instruments leaking onto the
+  title for the identical reason (`world.players` holds P1 from boot, so every "is the player alive"
+  guard passes on the menu).
+- **⭐ LOOK AT THE FRAME.** Three defects this session were invisible to 171 green test files: walls
+  on the title screen, an arcade menu rendering *under* the title screen, and footer chips whose
+  numbers were unreadable against black. No unit test asserts legibility or z-order.
+- **⭐ A GREEN SUITE CAN MEAN NOTHING.** After the entire P2 phase-split implementation landed, the
+  suite reported the EXACT pre-change count (2629). 163 files and not one noticed. When a behaviour
+  change moves no test count, that is the signal to write the test.
+- **A hashed World field is NINE sites, only ONE tsc-forced.** A protocol bump is FIVE sites; drift
+  has now recurred SEVEN times (CF-S147-b).
+- **MCV bindings rot when a later priority supersedes an earlier one.** Happened twice this session
+  (P1's `canBuildAt` → P2's `canBuildNow`; P2's protocol 26 → P6's 27). Pin the INVARIANT, not the
+  spelling or the number.
+- **`file_lacks` needles**: if a new comment QUOTES the retired text, the needle is still on disk.
+- Mixed line endings — detect the file's own EOL, write with `newline=''`; prefer single-line anchors.
+- Bash eats backticks inside double-quoted strings — use heredocs for comment text.
+- Two agents on one tree cost real time (a TEMP probe broke `tsc` for everyone). Give each a disjoint
+  file set, or run them sequentially when both touch `main.ts`.
+- **PLAYER_COLORS stays at SIX** (a race roster, R45). `bomb`/`rainbow` e2e are load-sensitive.
 
 ## Pending Backlog
 
-BACKLOG.md is superseded as the forward plan by `SPARK_TD_BLUEPRINT.md` + `SPARK_TD_SESSION_SPECS.md`
-(both now stamped with what has shipped) plus the two S148 amendments in `.claude/plans-archive/`.
+`SPARK_TD_BLUEPRINT.md` + `SPARK_TD_SESSION_SPECS.md` remain the forward plan. Castle HP /
+elimination (S150 spec) is still UNSTARTED — the owner deferred it this session to fix the five
+playtest defects first.
