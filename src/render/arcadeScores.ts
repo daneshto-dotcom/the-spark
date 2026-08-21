@@ -107,7 +107,17 @@ export function qualifies(scores: readonly ArcadeScore[], entry: ArcadeScore): b
 export function normaliseName(raw: string): string {
   const kept = [...raw.toUpperCase()].filter((c) => NAME_ALPHABET.includes(c)).slice(0, NAME_LEN);
   while (kept.length < NAME_LEN) kept.push('A');
-  return kept.join('');
+  const name = kept.join('');
+  // ⛔ S150 P3 — THE ALL-SPACE HOLE. `NAME_ALPHABET` deliberately ENDS with a space so that "AB " is
+  // reachable, which means a space is a *mappable* character — so three of them sailed through the
+  // filter above and `normaliseName('   ')` returned three spaces: a visually BLANK row on the high
+  // score table, which is precisely what the docblock above promises cannot happen. The old test
+  // asserted only `toHaveLength(NAME_LEN)`, and three spaces are three characters, so it passed.
+  //
+  // The fix is deliberately narrower than "reject spaces": a name needs at least ONE non-space
+  // character, and beyond that spaces are legal wherever the player put them. "AB " keeps working;
+  // "   " becomes the arcade default.
+  return name.trim().length === 0 ? 'A'.repeat(NAME_LEN) : name;
 }
 
 /** Elapsed ms → the cabinet's `M:SS.cc` readout. Clamped at zero; never negative on screen. */

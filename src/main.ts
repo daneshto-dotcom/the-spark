@@ -153,6 +153,16 @@ import { WallRenderer } from './render/wallRenderer.ts';
 import { FooterBand } from './render/footerBand.ts';
 import { StructurePanel } from './render/structurePanel.ts';
 import { ArcadeOverlay, makeArcadeNonet } from './render/arcadeOverlay.ts';
+import { ArcadeRunOverlay } from './render/arcadeRunOverlay.ts';
+import {
+  commitRun,
+  cycleLetter,
+  finishRun,
+  moveCursor,
+  startRun,
+  typeLetter,
+  type ArcadeRun,
+} from './render/arcadeRun.ts';
 import { isSolved } from './state/sudoku.ts';
 import { BombRenderer } from './render/bombRenderer.ts';
 import { HunterRenderer } from './render/hunterRenderer.ts';
@@ -558,6 +568,7 @@ async function bootstrap(): Promise<void> {
     if (id === 'back') {
       arcadeOverlay.hide();
       arcadeNonet = null;
+      arcadeRun = null;
       return;
     }
     if (id === 'nonet') {
@@ -565,10 +576,18 @@ async function bootstrap(): Promise<void> {
       // sim code: this seed feeds NOTHING host-authoritative and crosses no wire — it exists only so
       // two consecutive arcade runs are not the same board.
       arcadeNonet = makeArcadeNonet(Math.floor(performance.now()) >>> 0);
+      // ⭐ S150 P3 — AND THE CLOCK STARTS. Owner: "we will make it a trial on time." Same
+      // justification as the seed above: a wall clock is a determinism hazard inside the hashed sim
+      // tick and perfectly safe here, because an arcade run touches no sim state at all. A SIM clock
+      // would in fact be wrong — the sim does not advance on the title screen.
+      arcadeRun = startRun(performance.now());
       arcadeOverlay.hide();
     }
   });
   let arcadeNonet: ReturnType<typeof makeArcadeNonet> | null = null;
+  /** S150 P3 — the live timed run: clock, initials entry, board. Null whenever no run is in flight. */
+  let arcadeRun: ArcadeRun | null = null;
+  const arcadeRunOverlay = new ArcadeRunOverlay(app, app.stage);
   const spawnerZoneRenderer = new SpawnerZoneRenderer(app, aboveFogLayer);
   // S25 P0 — creatureRenderer renders ABOVE prims; S77 P2 reparented to aboveFogLayer (a Voltkin
   // attacks ANY player's bonds — cross-player reach — so it must be visible to all through fog).
@@ -843,12 +862,50 @@ async function bootstrap(): Promise<void> {
   // it is never swallowed by another handler, and scoped so it does nothing during a real match.
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (arcadeNonet !== null) {
+    if (arcadeNonet !== null || arcadeRun !== null) {
+      // S150 P3 — abandoning mid-run discards it deliberately: an unfinished trial has no time, so
+      // there is nothing to register. Both are cleared together so no state survives into the menu.
       arcadeNonet = null;
+      arcadeRun = null;
       arcadeOverlay.show(); // back to the menu, not all the way to the title
       return;
     }
     if (arcadeOverlay.isOpen()) arcadeOverlay.hide();
+  });
+
+  /**
+   * ⭐ S150 P3 — THE CABINET'S STICK AND BUTTON.
+   *
+   * Only ever active while `arcadeRun` is on one of its two modal screens, so these keys cannot
+   * shadow anything in a match — during a match `arcadeRun` is null and every branch falls through.
+   * ESC is handled by the listener above, which runs first and returns.
+   *
+   * Typing is accepted alongside the arrows: a cabinet had no keyboard, but refusing one on a
+   * machine that has it is cosplay rather than homage.
+   */
+  window.addEventListener('keydown', (e) => {
+    const run = arcadeRun;
+    if (run === null || run.phase === 'RUNNING') return;
+
+    if (run.phase === 'ENTER_INITIALS') {
+      switch (e.key) {
+        case 'ArrowUp': arcadeRun = cycleLetter(run, 1); break;
+        case 'ArrowDown': arcadeRun = cycleLetter(run, -1); break;
+        case 'ArrowLeft': arcadeRun = moveCursor(run, -1); break;
+        case 'ArrowRight': arcadeRun = moveCursor(run, 1); break;
+        // `at` is a wall-clock stamp used only to break exact-time ties, never to measure the run.
+        case 'Enter': arcadeRun = commitRun(run, Date.now()); break;
+        default: arcadeRun = typeLetter(run, e.key); return; // ignores anything off the alphabet
+      }
+      e.preventDefault(); // arrows scroll the page otherwise
+      return;
+    }
+
+    // BOARD — ENTER starts another run, which is what a cabinet's coin slot amounts to.
+    if (run.phase === 'BOARD' && e.key === 'Enter') {
+      arcadeNonet = makeArcadeNonet(Math.floor(performance.now()) >>> 0);
+      arcadeRun = startRun(performance.now());
+    }
   });
 
   window.addEventListener('keydown', (e) => {
@@ -1231,6 +1288,8 @@ async function bootstrap(): Promise<void> {
       get structurePanel() { return structurePanel; },
       // S149 P5 — live arcade-menu geometry for e2e.
       get arcadeOverlay() { return arcadeOverlay; },
+      // S150 P3 — live timer / initials / board geometry for e2e.
+      get arcadeRunOverlay() { return arcadeRunOverlay; },
       // S77 P2 — fog-exemption e2e: sync a global-reach entity + assert it renders
       // through the fog (aboveFogLayer sits above the fog container).
       get potatoRenderer() { return potatoRenderer; },
@@ -1668,8 +1727,13 @@ async function bootstrap(): Promise<void> {
           if (arcadeNonet !== null) {
             const ok = isSolved(grid, arcadeNonet.puzzle.solution);
             if (ok) {
-              arcadeNonet = null; // solved → drop the puzzle and fall back to the arcade menu
-              arcadeOverlay.show();
+              arcadeNonet = null; // drop the puzzle — the run continues without it
+              // ⭐ S150 P3 — FREEZE THE CLOCK AND ASK FOR A NAME. Before this, solving dropped
+              // straight back to the arcade menu and the run was simply forgotten: no time, no
+              // board, nothing to beat. `finishRun` is idempotent, so a double submit or a render
+              // racing this transition cannot re-time the run or award a second row.
+              if (arcadeRun !== null) arcadeRun = finishRun(arcadeRun, performance.now());
+              else arcadeOverlay.show(); // no run in flight (shouldn't happen) — fail back to the menu
             }
             return ok;
           }
@@ -2733,6 +2797,15 @@ async function bootstrap(): Promise<void> {
     // there is exactly one NONET implementation rather than an arcade fork of it.
     if (world.sudoku !== null || arcadeNonet !== null) ensureNonetOverlay();
     nonetOverlay?.render(world, arcadeNonet);
+    // ⭐ S150 P3 — THE ARCADE RUN, RENDERED UNCONDITIONALLY EVERY FRAME.
+    //
+    // Called with no `if` in front of it on purpose, and handed `gameState === 'TITLE'` rather than
+    // consulting it internally. That is the whole defence against the bug this repo shipped twice in
+    // S149 — a renderer keyed on a phase or roster field leaking onto the title screen — applied to
+    // its inverse: an overlay that BELONGS on the title screen and must never survive into a match.
+    // There is no show()/hide() pair to forget on a new exit path, because visibility is recomputed
+    // from (run, gameState) sixty times a second.
+    arcadeRunOverlay.render(arcadeRun, performance.now(), world.gameState === 'TITLE');
     // S93 — realm-shift audio: rising edge → swap to the trial theme; falling edge → restore the
     // duel track. Edge-driven (the audio fns are idempotent). All modes: the host sets world.sudoku
     // locally; a 1v1 client receives it via NetSnapshot, so both peers hear the realm theme.

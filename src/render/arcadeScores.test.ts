@@ -166,3 +166,46 @@ describe('S149 P6 — recordRun ties it together', () => {
     expect(loadScores()).toEqual(before);
   });
 });
+
+describe("S150 P3 — the owner's numbers are PINNED, and the blank-name hole is shut", () => {
+  it('TOP_N is 25 and NAME_LEN is 3 — the literals, not the symbols', () => {
+    // ⛔ WHY THIS EXISTS. Every cap assertion in this file uses the imported `TOP_N`, so setting
+    // TOP_N to 10 kept all 18 of them green. The owner asked for "only like top 25" and for
+    // three-letter initials; both were therefore completely unprotected. A test that reads a
+    // constant through the same symbol the code does cannot pin that constant's VALUE.
+    expect(TOP_N).toBe(25);
+    expect(NAME_LEN).toBe(3);
+  });
+
+  it('an all-space name becomes AAA rather than a blank row', () => {
+    // NAME_ALPHABET ends with a space on purpose ("AB " must be reachable), so spaces pass the
+    // filter and three of them used to survive as a visually EMPTY row — the exact outcome
+    // normaliseName's docblock says is a bug. The old coverage asserted only the length, and three
+    // spaces have length three.
+    expect(normaliseName('   ')).toBe('AAA');
+    expect(normaliseName('')).toBe('AAA');
+    expect(normaliseName('!!!')).toBe('AAA');
+    // ⚠ A SINGLE space is NOT the same case, and asserting 'AAA' here was my own error before the
+    // test was run: ' ' pads to ' AA', which is a perfectly legible space-led row and NOT the blank
+    // this fix exists to prevent. The invariant is "at least one visible character", not "no spaces".
+    expect(normaliseName(' ')).toBe(' AA');
+  });
+
+  it('a space is still legal ALONGSIDE a real character', () => {
+    // The fix must not become "reject spaces" — that would break the reachability the alphabet's
+    // trailing space exists for.
+    expect(normaliseName('AB ')).toBe('AB ');
+    expect(normaliseName('A')).toBe('AAA');
+    expect(normaliseName(' B')).toBe(' BA');
+  });
+
+  it('every name that reaches the board renders at least one visible character', () => {
+    // The property the two tests above are instances of, asserted over the whole input space that
+    // can produce a row: whatever goes in, the row is never blank.
+    for (const raw of ['', ' ', '  ', '   ', '    ', '!!!', '!@#', 'a', 'ab', 'abc', 'abcdef', ' a ', '  c']) {
+      const name = normaliseName(raw);
+      expect(name).toHaveLength(NAME_LEN);
+      expect(name.trim().length).toBeGreaterThan(0);
+    }
+  });
+});

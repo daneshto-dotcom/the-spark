@@ -1,5 +1,5 @@
 {
- "tool_calls_session_total": 1764,
+ "tool_calls_session_total": 1765,
  "session_id": "S150",
  "session_kind": "truth-restoration + arcade batch (owner R55: all five, arcade kept)",
  "session_start": "2026-08-20",
@@ -270,18 +270,142 @@
    "title": "ARCADE timed trial + leaderboard UI - timer, initials entry, HIGH SCORES board, declarative gameState guard, pin TOP_N=25, fix the blank-initials row",
    "tier": "Standard",
    "protocol_bump": false,
-   "status": "in_progress",
-   "check_completed": false,
+   "status": "completed",
+   "check_completed": true,
    "pdr_approved": true,
    "deliberation_completed": true,
-   "unlock_source": "user"
+   "unlock_source": "user",
+   "verification": [
+    {
+     "type": "file_contains",
+     "path": "src/render/arcadeRun.ts",
+     "needle": "export type ArcadeRunPhase = 'RUNNING' | 'ENTER_INITIALS' | 'BOARD';"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/render/arcadeRun.ts",
+     "needle": "export function startRun(nowMs: number): ArcadeRun {"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/render/arcadeRun.ts",
+     "needle": "export function finishRun(run: ArcadeRun, nowMs: number): ArcadeRun {"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/render/arcadeRun.ts",
+     "needle": "export function commitRun(run: ArcadeRun, atMs: number): ArcadeRun {"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/render/arcadeRun.ts",
+     "needle": "if (run.phase !== 'RUNNING') return run;"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/render/arcadeRun.ts",
+     "needle": "if (run.phase !== 'ENTER_INITIALS' || run.finishedMs === null) return run;"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/render/arcadeRunOverlay.ts",
+     "needle": "render(run: ArcadeRun | null, nowMs: number, onTitle: boolean): void {"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/render/arcadeRunOverlay.ts",
+     "needle": "if (run === null || !onTitle) {"
+    },
+    {
+     "type": "file_lacks",
+     "path": "src/render/arcadeRunOverlay.ts",
+     "needle": "  show(): void {"
+    },
+    {
+     "type": "file_lacks",
+     "path": "src/render/arcadeRunOverlay.ts",
+     "needle": "  hide(): void {"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/main.ts",
+     "needle": "arcadeRunOverlay.render(arcadeRun, performance.now(), world.gameState === 'TITLE');"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/main.ts",
+     "needle": "if (arcadeRun !== null) arcadeRun = finishRun(arcadeRun, performance.now());"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/main.ts",
+     "needle": "arcadeRun = startRun(performance.now());"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/main.ts",
+     "needle": "case 'Enter': arcadeRun = commitRun(run, Date.now()); break;"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/main.ts",
+     "needle": "if (arcadeNonet !== null || arcadeRun !== null) {"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/render/arcadeScores.ts",
+     "needle": "return name.trim().length === 0 ? 'A'.repeat(NAME_LEN) : name;"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/render/arcadeScores.test.ts",
+     "needle": "expect(TOP_N).toBe(25);"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/render/arcadeScores.test.ts",
+     "needle": "expect(normaliseName('   ')).toBe('AAA');"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/render/arcadeRunOverlay.ts",
+     "needle": "s.ms === run.finishedMs && s.name === myName && s.at === run.committedAtMs"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/render/arcadeRunOverlay.test.ts",
+     "needle": "highlights the RIGHT row when another row shares its time AND its initials"
+    },
+    {
+     "type": "grep_count",
+     "path": "src/render/arcadeRun.ts",
+     "pattern": "from './arcadeScores.ts'",
+     "op": "==",
+     "value": 1
+    },
+    {
+     "type": "grep_count",
+     "path": "src/render/arcadeRunOverlay.ts",
+     "pattern": "from './arcadeScores.ts'",
+     "op": "==",
+     "value": 1
+    }
+   ],
+   "check_method": "P3 CHECK, verbose. (1) tsc -b --noEmit exit 0. (2) full vitest 173 files / 2848 tests green (from 171/2815: +2 files, +33 tests - 20 run-model, 9 overlay-guard, 4 score-pinning). (3) npm run build OK 717.4 KiB / 900 KiB cap; the entry hash MOVED (index-BkNNmZdm -> index-C_KQJv8x), which is the correct signal that real code shipped, unlike P1 where a byte-identical bundle was correct. (4) ⭐ RUNTIME-VERIFIED IN A REAL BROWSER, not only under the jsdom stub: the dev server was started and all three screens were driven against REAL Pixi via the exposed __SPARK__.arcadeRunOverlay. This is the boot-then-smoke check - a wrong Graphics fill/stroke chain throws only at runtime and the stubbed unit test cannot see it. Confirmed: RUNNING drew ['0:03.50'] with eventMode 'none' (so the clock cannot eat the NONET grid's clicks); ENTER_INITIALS drew ['SOLVED','0:07.25','ENTER YOUR INITIALS','A','A','A', hint] with the clock FROZEN despite nowMs=900000; BOARD drew ['HIGH SCORES', place line, rank/time/name rows, hint]; and rendering with onTitle=false blanked it. Console clean, zero errors. (5) ⭐ THAT RUNTIME PASS FOUND A REAL DEFECT NO TEST HAD: the board highlighted the player's row by (name, time), and the live frame showed two rows both reading 0:07.25 - so it lit whichever sorted first. Fixed by carrying committedAtMs and matching the full identity TRIPLE, pinned by a new test, and re-verified at runtime (secondMine=1, firstMine=0). (6) Synthetic PointerEvents are NOT accepted by Pixi's event system, so the click path could not be driven from the page; the browser pane also cannot composite in this session, so no screenshot was possible. Stated plainly rather than glossed: the VISUAL properties this repo keeps getting bitten by - contrast and z-order - are NOT verified by me this session, only the state machine and the draw calls. The clock plate was given an opaque backing precisely because that is the untested axis.",
+   "findings": [
+    "The S149 model was not merely unwired - it was tree-shaken out of the shipped bundle entirely (grep for its storage key in dist/ returned 0). It is now imported by real code, so it ships.",
+    "TWO real defects in the shipped model, both invisible to its 18 tests. TOP_N was unpinned (every cap test read the imported symbol, so changing 25 to 10 kept them all green - the owner's number was unprotected); and normaliseName('   ') returned three spaces, a BLANK row, because NAME_ALPHABET deliberately ends with a space so 'AB ' is reachable. The old test asserted only length, and three spaces are three characters.",
+    "The handoff said 26 tests. There were 18.",
+    "A third defect was mine, and only the real frame showed it: the board's 'your row' highlight matched on (name, time). Driving it in the browser produced two rows both at 0:07.25 and the wrong one lit. Two runs sharing a time AND initials is the normal case for a player repeating a memorised board, not a contrived one.",
+    "Gemini's render-guard point was the most valuable thing either Council seat said: for an overlay that BELONGS on the title screen, the failure mode inverts - it is an imperative .show() whose matching .hide() a future exit path forgets. Adopted structurally: render() takes onTitle as an argument, is called with no `if` in front of it, and the class has no show/hide at all. Two MCV bindings are file_lacks on those method signatures so re-adding one fails the gate."
+   ]
   },
   {
    "id": "P4",
    "title": "THE FOUR test.fixme - rewrite the three stale click-to-build tests against the footer band; rule on smoke.spec.ts:372",
    "tier": "Standard",
    "protocol_bump": false,
-   "status": "pending",
+   "status": "in_progress",
    "check_completed": false,
    "pdr_approved": true,
    "deliberation_completed": true,
@@ -333,7 +457,9 @@
   "S149 P6 — I SHIPPED THE SAME CLASS OF BUG TWICE IN ONE SESSION. Border walls drew on the title screen because a never-started world reads matchPhase BUILD; the HUD agent then found FOUR MORE instruments leaking onto the title for the identical reason (world.players holds P1 from boot, so every 'is the player alive' guard passes on the menu). Any renderer keyed on a phase or roster field needs the gameState guard too — that is now a rule, not an observation.",
   "#a-human-checks-the-last-link-a-machine-checks-every-link - I set out to repair two known gaps in the protocol changelog and found four, because I wrote a completeness check instead of reading the block. 8->9 had been missing since S93 and 20->21 since S144 - eight and three bumps, through multiple sessions that each read that comment and pronounced it complete, including two whose whole purpose was fixing this drift. The reason is structural: when a human validates a chain they check that the LAST entry matches the constant, because that is the cheap end-to-end check, and interior links are invisible to that method no matter how carefully you read. So the lesson is not 'read more carefully' - it is that any invariant of the form 'this sequence is complete' should be enumerated by code the first time you touch it, and the cost is fifteen lines.",
   "#my-first-gate-was-wrong-and-the-failure-was-the-most-useful-output - The chain test's first draft asserted both changelog carriers run from version 2, and it went red on the HelloMsg list for 2-6. My instinct was that I had found a sixth drift instance. I had not: that list was simply started later, at 6->7, and the FILE was right while my TEST was wrong. Had I 'fixed' the file to satisfy my gate I would have fabricated four changelog entries for bumps I know nothing about - the exact failure mode I had just finished refuting in two external reviewers. The design that came out of the failure is better than my first: measure each carrier's own floor, assert no gaps above it, pin the floors separately so deletions off the front still fail. When a new gate goes red, the first hypothesis to test is that the gate is wrong.",
-  "#i-proved-the-gate-by-breaking-the-file-back - After repairing the drift I could have shipped a green test and called CF-S147-b closed. Green proves nothing about a gate: my assertions might have matched anything, or nothing. So I restored `git show HEAD:src/net/protocol.ts` over the working copy and ran the new block against the drifted file - it failed on exactly the three real classes and named the missing links [9, 21, 26, 27] out loud - then restored the repair and re-ran to 10/10. That round trip costs two commands and converts 'I wrote a test' into 'I watched this catch the specific bug it exists for'."
+  "#i-proved-the-gate-by-breaking-the-file-back - After repairing the drift I could have shipped a green test and called CF-S147-b closed. Green proves nothing about a gate: my assertions might have matched anything, or nothing. So I restored `git show HEAD:src/net/protocol.ts` over the working copy and ran the new block against the drifted file - it failed on exactly the three real classes and named the missing links [9, 21, 26, 27] out loud - then restored the repair and re-ran to 10/10. That round trip costs two commands and converts 'I wrote a test' into 'I watched this catch the specific bug it exists for'.",
+  "#the-stubbed-test-was-green-and-the-real-browser-found-the-bug-in-one-frame - Nine unit tests passed against a Pixi stub and told me the overlay was correct. Then I drove the same three screens against real Pixi in the dev server, read back what was actually drawn, and immediately saw a board with two rows both reading 0:07.25 and the highlight on the wrong one. No stub could have shown me that, because the stub had no reason to produce a colliding board - I had written the fixtures, so my fixtures had my blind spot in them. The general lesson is not 'stubs are bad': it is that a stub tests the logic I thought of, and a live surface tests the DATA the system actually produces. When something renders, look at what it rendered.",
+  "#i-could-not-screenshot-so-i-said-so-instead-of-implying-i-had - The browser pane cannot composite in this session and Pixi refuses synthetic pointer events, so two things I would normally verify - contrast and z-order - were genuinely unverifiable. The temptation was to let 'runtime-verified in a real browser' stand and leave the gap implied, since it is true and sounds complete. I wrote the limit into check_method explicitly instead, because this repo's recorded traps are exactly the visual ones and a future session reading 'runtime-verified' would reasonably assume the frame had been looked at. Verification claims should name their axis."
  ],
  "totals": {
   "budget_remaining": 1000000
