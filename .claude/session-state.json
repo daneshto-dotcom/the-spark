@@ -1,5 +1,5 @@
 {
- "tool_calls_session_total": 1775,
+ "tool_calls_session_total": 1779,
  "session_id": "S150",
  "session_kind": "truth-restoration + arcade batch (owner R55: all five, arcade kept)",
  "session_start": "2026-08-20",
@@ -8,7 +8,7 @@
  "phase": "DO",
  "tier": "Full",
  "plan_file": ".claude/plans/2026-08-21_PDR_S150_BATCH.md",
- "session_status": "active",
+ "session_status": "auditing",
  "pdr_approved": true,
  "deliberation_completed": true,
  "unlock_source": "user",
@@ -616,7 +616,9 @@
     "Three of the four pickers in Controls.onDown outrank the shape a build needs. Any spec that enables hazards AND builds must suppress ALL THREE. bomb.spec suppressed two - a partial guard that reads as a complete one.",
     "The phase-boundary finding is real and is kept even though it was not this bug: a placement at tick 5407 is silently refused, and placeFreeSparkAndConfirm now says so in words instead of timing out. holdInBuildPhase is applied to the four SOLO building specs (bomb, rainbow, hunter, worker) and deliberately NOT to the networked ones (smoke, perf-snapshot), where writing a hashed field would be a desync.",
     "__SPARK__.forceBomb is a dev-only sibling of forceNonet, verified absent from the production bundle (grep for forceNonet in dist/ returns 0), so the determinism costs shipped bytes nothing."
-   ]
+   ],
+   "checkpoint_commit": "c2501c2",
+   "deploy_verified": "4/4"
   }
  ],
  "reflexion_entries_to_archive": [
