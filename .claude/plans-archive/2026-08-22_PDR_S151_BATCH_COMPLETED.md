@@ -1,3 +1,6 @@
+STATUS: COMPLETED (P1-P3). P4 RAID = SCOPE AMENDMENT R78, DEFERRED — not started, no code in tree.
+Known gap carried forward: FEED_TOWER has no player gesture (see goblinTowerFeed.ts header).
+
 # PDR — S151 BATCH (Full tier)
 
 Session: S151 · Date: 2026-08-22 · Branch: master · Base commit: 7176295 · PROTOCOL_VERSION 28 → **29**
