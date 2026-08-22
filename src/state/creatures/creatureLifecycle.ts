@@ -274,11 +274,13 @@ export function applyDespawnCreature(world: World, action: DespawnCreatureAction
  * client, and it fires for EVERY chewer death — raid, potato, future laser — not just this one
  * path). Returns true if the creature died (caller may award a reward, etc.).
  */
-export function damageCreature(world: World, creatureId: CreatureId, amount: number): boolean {
+export function damageCreature(world: World, creatureId: CreatureId, amountFifths: number): boolean {
   const c = world.creatures.get(creatureId);
   if (c === undefined) return false;
-  c.hp -= amount;
-  if (c.hp <= 0) {
+  // S151 P2 — both sides are in FIFTHS: `ehp` is `hp × (5 + def)` and the amount is
+  // `atk × (5 + pen)`. Same subtraction that has always been here, on one shared scale.
+  c.ehp -= amountFifths;
+  if (c.ehp <= 0) {
     world.creatures.delete(creatureId);
     return true;
   }
@@ -381,7 +383,7 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
   //  (the chewer uses the CHEW_BITE effect instead), so it is gated to the non-chew
   //  (single-fire) path. For Voltkin `config.chewHits === 0`, so this is byte-identical.
   if (
-    config.chewHits === 0 &&
+    !config.chewsConnectors &&
     creature.state === 'ATTACKING' &&
     creature.ticksInState === config.attackChargeEngageTick
   ) {
@@ -453,7 +455,7 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
   //      `chewProgress` resets to 0 (and the creature drops back to SEEKING) ONLY when
   //      the committed bond has vanished — bite-through complete, or another actor
   //      severed it. No `despawnAtTick`/cadence bounce: persistent + commit-to-bond.
-  if (config.chewHits > 0) {
+  if (config.chewsConnectors) {
     if (creature.state === 'ATTACKING') {
       // Bond gone (severed by the final chew elsewhere, by another actor, or
       // physics) → release the commit and re-seek next tick.
@@ -471,12 +473,13 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
       // chewHits) does NOT emit CHEW_BITE — main.ts fires the real CREATURE_ATTACK
       // (→ SEVER_BOND) on that tick, and the bond-gone branch above releases the
       // commit next tick.
-      if (
-        creature.chewProgress < config.chewHits &&
-        creature.ticksInState === CHEW_INTERVAL_TICKS * (creature.chewProgress + 1)
-      ) {
+      // ⭐ S151 P2 (R76) — THE BITE COUNT IS NO LONGER BOUNDED BY THE ATTACKER. It used to stop at
+      // `config.chewHits` (5) because that WAS the connector's durability. Now the chewer keeps
+      // gnawing on its cadence and the CONNECTOR decides when it gives way — so a loose pair falls
+      // fast and a dense structure takes real work. The loop ends via the bond-gone branch above.
+      if (creature.ticksInState === CHEW_INTERVAL_TICKS * (creature.chewProgress + 1)) {
         creature.chewProgress++;
-        if (creature.chewProgress < config.chewHits) {
+        {
           // Non-final chew: graphite-dust bite at the bond midpoint. Host-local
           // (NOT wire-mirrored, like BOND_COMMIT/SEVER_ERASE) so it adds no
           // protocol surface — Layer 7 renders it.

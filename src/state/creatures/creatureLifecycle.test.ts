@@ -279,6 +279,7 @@ describe('applyCreatureTick — S27 P0 SEEKING ↔ ATTACKING transitions', () =>
       b: primB,
       restLength: 32,
       stiffnessTier: 'MID',
+      damageFifths: 0,
       createdTick: 0,
     };
     w.bonds.set(bond.id, bond);

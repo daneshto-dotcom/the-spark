@@ -33,7 +33,6 @@ import {
   CREATURE_DESPAWNING_TICKS,
 } from './creature.ts';
 import {
-  CHEW_HITS,
   CHEW_INTERVAL_TICKS,
   CHEWER_MAX_GLOBAL,
   CHEWER_MAX_PER_SPAWNER,
@@ -48,6 +47,8 @@ import type { Bond } from '../../physics/bonds.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
 import { CHEWER_CONFIG } from './voltkin-config.ts';
 
+import { getCreatureConfig } from './voltkin-config.ts';
+import { attackFifths, connectorCapacityFifths } from '../stats.ts';
 /** Add an enemy (player-1-coloured) bond whose midpoint is at (midX, midY). */
 function addEnemyBond(
   world: World,
@@ -99,6 +100,7 @@ function addEnemyBond(
     b: primB,
     restLength: 32,
     stiffnessTier: 'MID',
+    damageFifths: 0,
     createdTick: 0,
   };
   world.bonds.set(bond.id, bond);
@@ -180,7 +182,17 @@ describe('Chew loop — 5 hits sever exactly on the 5th; no re-seek mid-chew', (
     enemyBondId = addEnemyBond(world, 1, 10, 11, 50, 0, PLAYER_COLORS[1], 1);
   });
 
-  it('chewProgress climbs once per CHEW_INTERVAL_TICKS and reaches CHEW_HITS at attackFireTick', () => {
+  /**
+   * ⭐ S151 P2 (owner R76) — REWRITTEN. This used to assert "5 hits sever exactly on the 5th", which
+   * was true only while a connector's durability lived on the ATTACKER as `chewHits: 5`. That is
+   * exactly the inversion R76 removed: every bond in the game was equally tough, so building a dense
+   * structure bought a defender nothing.
+   *
+   * The property that replaces it is the one the owner actually wants: a chewer gnaws on its cadence
+   * and the CONNECTOR decides when it gives way, so bites-to-sever scales with the structure's
+   * complexity. The commitment behaviour (no re-seek mid-gnaw) is unchanged and still pinned below.
+   */
+  it('⭐ gnaws on the cadence until the CONNECTOR gives way — bites scale with complexity', () => {
     spawnChewer(world, { x: 0, y: 0 }, 0);
     const id = asCreatureId(0);
     const c = world.creatures.get(id)!;
@@ -188,30 +200,34 @@ describe('Chew loop — 5 hits sever exactly on the 5th; no re-seek mid-chew', (
     c.ticksInState = 0;
     c.targetBondId = enemyBondId;
 
+    const chewer = getCreatureConfig('chewer');
+    const bite = attackFifths(chewer.atk, chewer.pen);
+    const capacity = connectorCapacityFifths(world.bonds.size);
+    const expectedBites = Math.ceil(capacity / bite);
+
+    let bites = 0;
     let lastProgress = 0;
-    let sealedSever = false;
-    for (let t = 1; t <= CHEW_HITS * CHEW_INTERVAL_TICKS; t++) {
+    // Run well past the expected break so a failure reads as "never severed" rather than "ran out".
+    for (let t = 1; t <= (expectedBites + 3) * CHEW_INTERVAL_TICKS; t++) {
       applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId: id });
-      const cc = world.creatures.get(id)!;
-      // Target must NOT change while mid-chew (no re-seek): it stays committed.
+      const cc = world.creatures.get(id);
+      if (cc === undefined) break;
+      if (!world.bonds.has(enemyBondId)) break;
+      // Target must NOT change while mid-gnaw: it stays committed.
       expect(cc.targetBondId).toBe(enemyBondId);
-      // chewProgress is monotonic non-decreasing, +1 exactly on each interval boundary.
-      if (cc.ticksInState % CHEW_INTERVAL_TICKS === 0 && cc.chewProgress < CHEW_HITS) {
-        // covered below by the explicit boundary check
-      }
-      expect(cc.chewProgress).toBeGreaterThanOrEqual(lastProgress);
+      expect(cc.chewProgress).toBeGreaterThanOrEqual(lastProgress); // monotonic
       lastProgress = cc.chewProgress;
 
-      // main.ts dispatches the real CREATURE_ATTACK at attackFireTick (= 300 = 5×60).
-      if (cc.ticksInState === CHEW_HITS * CHEW_INTERVAL_TICKS) {
-        expect(cc.chewProgress).toBe(CHEW_HITS); // reached 5 on the 5th interval
+      // The host fires the real CREATURE_ATTACK on EVERY bite now (hostTick gates on
+      // `ticksInState % CHEW_INTERVAL_TICKS === 0`), not once at a fixed attackFireTick.
+      if (cc.ticksInState > 0 && cc.ticksInState % CHEW_INTERVAL_TICKS === 0) {
+        bites++;
         applyCreatureAttack(world, { type: 'CREATURE_ATTACK', creatureId: id, bondId: enemyBondId });
-        sealedSever = true;
       }
     }
-    expect(sealedSever).toBe(true);
-    // The bond is severed exactly on the 5th hit (it no longer exists).
-    expect(world.bonds.has(enemyBondId)).toBe(false);
+
+    expect(world.bonds.has(enemyBondId), 'the connector should have given way').toBe(false);
+    expect(bites, 'bites should match the connector capacity, not a flat 5').toBe(expectedBites);
   });
 
   it('does not re-seek (chewProgress stays committed) — releases only when the bond vanishes', () => {

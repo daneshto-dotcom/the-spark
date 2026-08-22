@@ -268,6 +268,7 @@ describe('strain auto-sever', () => {
       b,
       restLength: 100,
       stiffnessTier: 'MID',
+      damageFifths: 0,
       createdTick: 0,
     };
     const broken = solveBonds([bond]);

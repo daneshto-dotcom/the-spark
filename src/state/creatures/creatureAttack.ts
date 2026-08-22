@@ -40,8 +40,9 @@ import { dispatch } from '../world.ts';
 import type { BondId, CreatureId, Vec2 } from '../../types.ts';
 import { bondMidpoint, distSq } from './creatureAI.ts';
 import { getCreatureConfig } from './voltkin-config.ts';
-import { damageEntity } from '../damage.ts';
-import { CREATURE_HIT_DAMAGE, GOBLIN_DAMAGE_VS_PRIMITIVE } from '../../constants.ts';
+import { damageConnector, damageEntity } from '../damage.ts';
+import { GOBLIN_DAMAGE_VS_PRIMITIVE } from '../../constants.ts';
+import { attackFifths } from '../stats.ts';
 
 /**
  * Action shape — exported for `world.ts` GameAction union composition.
@@ -104,10 +105,14 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
     // S139 P1 — routed through the `damageEntity` dispatcher rather than calling `damageCreature`
     // directly. Behaviour is identical (the dispatcher delegates the creature arm straight to
     // `damageCreature`), but the call now passes through the integer guard and carries attribution.
+    // ⭐ S151 P2 — the attacker's own ATK off the shared ladder, in fifths, instead of the shared
+    // CREATURE_HIT_DAMAGE every creature used to deal. Every shipped unit is atk 1 / pen 0, so this
+    // is 5 fifths against pools that are five times the old hit counts — identical kill counts, and
+    // now a per-unit lever exists where there was one global constant.
     const died = damageEntity(
       world,
       { kind: 'creature', id: action.targetCreatureId },
-      CREATURE_HIT_DAMAGE,
+      attackFifths(getCreatureConfig(creature.type).atk, getCreatureConfig(creature.type).pen),
       'creature',
     );
     if (died) creature.killCount += 1;
@@ -181,15 +186,37 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
   const arcStart: Vec2 = { x: creature.pos.x, y: creature.pos.y };
   const arcEnd: Vec2 = bondMidpoint(bond);
 
+  const isChewer = creature.type === 'chewer';
+
+  // ⭐ S151 P2 (owner R76) — THE STRIKE NO LONGER SEVERS UNCONDITIONALLY. It lands DAMAGE on the
+  // connector, and the connector decides whether it gives way.
+  //
+  // ⛔ WHAT THIS REPLACES. Every creature strike on a bond used to sever it outright, and the
+  // "toughness" of a connector was the attacker's `chewHits` — a flat 5 bites for every bond in the
+  // game, whether it was half of a loose pair or one strut of a forty-connector fortress. Owner R76
+  // moves durability onto the connector, where a structure's complexity can defend it:
+  // `connectorCapacityFifths(count)` = `count + 4` fifths.
+  //
+  // Damage POOLS on the bond, so several attackers now cooperate on one connector instead of each
+  // starting from scratch — and a laser and a chewer can work on the same strut.
+  const attacker = getCreatureConfig(creature.type);
+  const broke = damageConnector(world, action.bondId, attackFifths(attacker.atk, attacker.pen));
+  if (!broke) {
+    // The connector held. A chewer already emits its own CHEW_BITE from the FSM, so there is nothing
+    // to show here — and deliberately no new effect kind (a new GameEffect member costs four
+    // exhaustive switches and rides the wire).
+    return world;
+  }
+
   // Council R1 Q1 UNANIMOUS B: re-dispatch through SEVER_BOND with a creature cause.
   // disruptionManager.canSeverBond bypasses auth for creature-class causes;
-  // computeBaseCharge returns 0 for non-'player'. Net effect: bond severs
-  // unconditionally, SEVER_ERASE + BOND_SEVERED{cause} emit through the canonical path.
+  // computeBaseCharge returns 0 for non-'player'. SEVER_ERASE + BOND_SEVERED{cause} emit through
+  // the canonical path — which is exactly why `damageConnector` reports "should sever" instead of
+  // severing itself: topology splitting has ONE entry point and it is a dispatch.
   //
   // S102 #2 — split the chewer cause off Voltkin's: a pencil chewer's final bite uses
   // cause:'chewer' (the audio drain plays a beaver GNAW, NOT lightning-crackle); a
   // Voltkin keeps cause:'creature' (its lightning zap). `creature.type` is the discriminant.
-  const isChewer = creature.type === 'chewer';
   dispatch(world, {
     type: 'SEVER_BOND',
     bondId: action.bondId,

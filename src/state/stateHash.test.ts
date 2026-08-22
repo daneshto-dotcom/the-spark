@@ -26,7 +26,7 @@ function addPrim(w: World, player: PlayerId, x: number, y: number): Primitive {
 }
 function addBond(w: World, a: Primitive, b: Primitive): void {
   const id = asBondId(nextId++);
-  w.bonds.set(id, { id, aId: a.id, bId: b.id, a, b, restLength: 30, stiffnessTier: 'MID', createdTick: 0 });
+  w.bonds.set(id, { id, aId: a.id, bId: b.id, a, b, restLength: 30, stiffnessTier: 'MID', createdTick: 0, damageFifths: 0 });
   a.bonds.add(id); b.bonds.add(id);
 }
 

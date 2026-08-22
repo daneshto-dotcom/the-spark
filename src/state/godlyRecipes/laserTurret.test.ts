@@ -59,7 +59,7 @@ function addPrim(w: World, id: number, type: SparkType, x: number, y: number): P
 }
 
 function bond(w: World, id: number, a: Primitive, b: Primitive): void {
-  const bd: Bond = { id: asBondId(id), aId: a.id, bId: b.id, a, b, restLength: 30, stiffnessTier: 'MID', createdTick: 0 };
+  const bd: Bond = { id: asBondId(id), aId: a.id, bId: b.id, a, b, restLength: 30, stiffnessTier: 'MID', createdTick: 0, damageFifths: 0 };
   w.bonds.set(bd.id, bd);
   a.bonds.add(bd.id);
   b.bonds.add(bd.id);
@@ -162,7 +162,7 @@ describe('laserTurretPredicate', () => {
     w.defenders.set(asDefenderId(0), {
       id: asDefenderId(0), kind: 'turret', ownerPlayerId: P0, anchorPrimitiveId: asPrimitiveId(1),
       recipeId: 'laserTurret', pos: { x: 200, y: 200 }, prevPos: { x: 200, y: 200 }, walkTargetPos: null,
-      state: 'IDLE', ticksInState: 0, hp: 1, bagsRemaining: 0, // S141 P1 — no magazine on a turret
+      state: 'IDLE', ticksInState: 0, bagsRemaining: 0, // S141 P1 — no magazine on a turret
       nextFireTick: 0, targetCreatureId: null, lastStrikePos: null,
     });
     expect(laserTurretPredicate(w, { x: 0, y: 0 })).toBeNull();

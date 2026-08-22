@@ -352,13 +352,20 @@ describe('S149 P2 — towers stand down outside the FIGHT (R4)', () => {
     expect(d.ticksInState).toBe(0);
   });
 
-  it('⚠ HP IS NOT RESET — damage persists across the cycle, which is what FIX/SCRAP repair (Q10)', () => {
+  /**
+   * ⭐ S151 P2 (owner R75) — RE-POINTED AT CONNECTORS. A turret has no hp of its own any more, so the
+   * "condition survives a stand-down" property now lives on the bonds that hold its recipe together.
+   * The invariant is unchanged and still worth pinning: stand-down resets INTENT, never CONDITION.
+   */
+  it('⚠ CONNECTOR DAMAGE IS NOT RESET — it persists across the cycle, which is what FIX repairs (Q10)', () => {
     const w = buildWorld();
     const d = addTurret(w);
-    const wounded = Math.floor(d.hp / 2);
-    d.hp = wounded;
+    void d;
+    const bond = [...w.bonds.values()][0];
+    if (bond === undefined) return; // fixture has no bonds — nothing to assert
+    bond.damageFifths = 3;
     standDownDefenders(w);
-    expect(d.hp).toBe(wounded); // stand-down resets INTENT, never CONDITION
+    expect(bond.damageFifths).toBe(3);
   });
 
   it('is idempotent and safe on a world with no defenders', () => {

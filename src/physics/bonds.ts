@@ -44,6 +44,34 @@ export interface Bond {
    * is intentionally mutated outside the dispatch cycle.
    */
   stiffnessMultiplier?: number;
+  /**
+   * ⭐ S151 P2 (owner R76) — ACCUMULATED COMBAT DAMAGE ON THIS CONNECTOR, IN FIFTHS.
+   *
+   * Owner R75: *"towers have attack and piercing but not def and hp because they are based on the
+   * connectors that build them. its the connectors that have different hp and def."*
+   *
+   * A connector's DURABILITY is not stored — it is derived every time from the current connector
+   * count of this bond's connected component (`connectorCapacityFifths`, = `count + 4` fifths). Only
+   * the damage taken is state. The bond severs when `damageFifths >= capacity`.
+   *
+   * ⚠ **THIS FIELD REPLACES A COUNTER THAT LIVED ON THE ATTACKER.** Before S151 a connector's
+   * toughness was `CREATURE_CONFIGS[type].chewHits` and its progress was the chewer's own
+   * `chewProgress` — i.e. the DEFENDER'S durability was defined on the ATTACKER. That is the same
+   * inversion owner R72 objected to in the goblin (`PRINCESS_SLAP_DAMAGE = f(GOBLIN_HP)`), and it had
+   * two visible consequences: every bond took exactly 5 chews regardless of what it was part of, and
+   * two chewers on one bond each had to do the FULL work because neither could see the other's
+   * progress. Pooling the damage here fixes both.
+   *
+   * ⚠ NOT `readonly` — it accumulates. Every other field on a Bond is set once at construction.
+   *
+   * ⭐ WHY OMITTING THIS ON THE WIRE WHEN ZERO IS SAFE, where omitting `Creature.hp` was NOT.
+   * The S150/R71 hazard was that an omitted `hp` made the receiving peer rebuild the value from ITS
+   * OWN COMPILED CONSTANT (`VOLTKIN_HP`), which silently turned that constant into shared wire state
+   * and forced three protocol bumps. Here the default is the LITERAL 0 — no constant is consulted —
+   * and the capacity it is compared against is derived from TOPOLOGY, which is itself fully synced.
+   * So there is no local constant either side could disagree about. See `save.ts`.
+   */
+  damageFifths: number;
 }
 
 const EPSILON = 1e-6;

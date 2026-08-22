@@ -64,6 +64,7 @@ import { type Player } from '../game/player.ts';
 import type { SpawnerState } from '../game/spawner.ts';
 import type { Bomb } from './bomb.ts';
 import type { Creature, CreatureState, CreatureType } from './creatures/creature.ts';
+import { unitPoolFifths } from './stats.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import type { Gatherer, GathererState } from './gatherers/gatherer.ts';
 import type { Hunter, HunterState } from './hunters/hunter.ts';
@@ -382,6 +383,14 @@ interface SerializedBond {
   restLength: number;
   stiffnessTier: StiffnessTier;
   createdTick: number;
+  /**
+   * S151 P2 (R76) — accumulated connector damage, in fifths. ADDITIVE-OPTIONAL: absent ⇒ 0, so a
+   * pristine bond (the common case) costs no bytes and a pre-S151 save still loads.
+   *
+   * Only the DAMAGE is state. A connector's CAPACITY is derived from the live connector count of its
+   * component, so it never rides the wire and cannot drift — see `stats.connectorCapacityFifths`.
+   */
+  damageFifths?: number;
 }
 
 interface SerializedPlayer {
@@ -588,15 +597,17 @@ interface SerializedCreature {
    */
   readonly targetPrimitiveId?: PrimitiveId;
   /**
-   * S102 (unified HP model) — remaining creature hit-points.
-   * ⚠ AMENDED S133 — this now RIDES THE WIRE. It was host-save-only and stripped by
-   * trimMirrorCreature, which meant a host-migration successor took over with every
-   * damaged creature healed to full.
-   * Emitted by serializeCreature ONLY when DAMAGED (hp < config.hp) so an undamaged
-   * creature (every creature in normal play until P3's combat) stays byte-identical to
-   * a pre-S102 save. deserializeCreature defaults a missing value to the per-type config.
+   * ⭐ S151 P2 — remaining EFFECTIVE hit-points, **IN FIFTHS**. RENAMED from `hp`, because the field
+   * kept its type and its slot while its UNIT changed: a v28 peer reading `hp: 40` would see forty
+   * hit points where a v29 host means eight. Renaming makes that a hard parse difference rather than
+   * a silent forty-fold buff, and turns every unconverted call site into a compile error.
+   * ⚠ AMENDED S133 — this RIDES THE WIRE. It was host-save-only and stripped by trimMirrorCreature,
+   * which meant a host-migration successor took over with every damaged creature healed to full.
+   * Emitted by serializeCreature ONLY when DAMAGED so an undamaged creature costs no bytes;
+   * deserializeCreature rebuilds a missing value from the per-type config (which is precisely why
+   * those config numbers are shared wire state — see the emit site).
    */
-  readonly hp?: number;
+  readonly ehp?: number;
   /**
    * ⛔ S142 P1 — ADDED. `Creature.poopyUntilTick` existed and was READ at runtime
    * (`creatureVerlet` halves a poop-slowed creature's steering accel while
@@ -679,7 +690,7 @@ interface SerializedDefender {
   readonly pos: Vec2;
   readonly state: DefenderState;
   readonly ticksInState: number;
-  readonly hp: number;
+  /* S151 P2 (R75) — `hp` removed from the wire: a tower has no hit points of its own. */
   readonly nextFireTick: number;
   /** S141 P1 — Stink Tower ammo. Additive-optional: absent ⇒ 0, so no other kind pays a byte. */
   readonly bagsRemaining?: number;
@@ -1445,6 +1456,13 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       b: bb,
       restLength: b.restLength,
       stiffnessTier: b.stiffnessTier,
+      // ⛔ S151 P2 — READ FROM THE WIRE. `?? 0` is the ADDITIVE-OPTIONAL rehydrate for a peer or
+      // save that predates the field, NOT a default to reach for. Hardcoding 0 here compiles clean
+      // and passes every test (nothing damaged this bond in most fixtures) while silently HEALING
+      // every damaged connector on every snapshot apply — i.e. on every client frame and every host
+      // migration. That is the same shape as the `despawnAtTick` defect documented below: a zero
+      // that looks neutral and is not.
+      damageFifths: b.damageFifths ?? 0,
       createdTick: b.createdTick,
     };
     world.bonds.set(bond.id, bond);
@@ -1590,6 +1608,17 @@ function serializeBond(b: Bond): SerializedBond {
     restLength: b.restLength,
     stiffnessTier: b.stiffnessTier,
     createdTick: b.createdTick,
+    // ⭐ S151 P2 (R76) — emitted ONLY when the connector has actually taken damage. Bonds are the
+    // most numerous entity on the wire, and the overwhelming majority are pristine.
+    //
+    // ⚠ AND THIS OMIT IS SAFE WHERE `Creature.hp`'s WAS NOT — the distinction is worth stating,
+    // because the hp one has now forced THREE protocol bumps. Omitting `hp` made the receiving peer
+    // rebuild the value from ITS OWN COMPILED CONSTANT (`VOLTKIN_HP`), which turned that constant
+    // into shared wire state that the two builds could disagree about. Here the fallback is the
+    // LITERAL 0 — no constant is consulted — and the capacity this is compared against is derived
+    // from TOPOLOGY, which is itself fully synced. There is nothing either side could compute
+    // differently.
+    ...(b.damageFifths > 0 ? { damageFifths: b.damageFifths } : {}),
   };
 }
 
@@ -1693,9 +1722,17 @@ function serializeCreature(c: Creature): SerializedCreature {
     // no-creature world stays byte-identical to a pre-S103 save. Stripped from the wire.
     ...(c.targetCreatureId !== null ? { targetCreatureId: c.targetCreatureId } : {}),
     ...(c.targetPrimitiveId !== null ? { targetPrimitiveId: c.targetPrimitiveId } : {}),
-    // S102 — emit hp ONLY when damaged (below the per-type config default) so an undamaged
-    // creature stays byte-identical to a pre-S102 save (every creature until P3 combat).
-    ...(c.hp < getCreatureConfig(c.type).hp ? { hp: c.hp } : {}),
+    // S102/S151 — emit `ehp` ONLY when damaged (below the config-derived full pool) so an undamaged
+    // creature costs no bytes.
+    // ⚠ THIS OMIT IS THE R71 SHARED-CONSTANT HAZARD, KNOWINGLY RETAINED. An absent `ehp` makes the
+    // receiving peer rebuild the pool from ITS OWN compiled `hp`/`def`, so those two values are
+    // shared wire state and ANY change to them forces a PROTOCOL_VERSION bump — exactly as
+    // VOLTKIN_HP 2→8 did (27→28). It is retained because creatures are numerous and nearly always
+    // undamaged; it is DOCUMENTED because the last three bumps were each discovered rather than
+    // predicted. S151's goblin 6→1 is one of the changes 28→29 pays for.
+    ...(c.ehp < unitPoolFifths(getCreatureConfig(c.type).hp, getCreatureConfig(c.type).def)
+      ? { ehp: c.ehp }
+      : {}),
     // ⛔ S142 P1 — the poop slow now round-trips (see the SerializedCreature field docblock).
     // Conditional, so an un-poopy creature — i.e. nearly every creature, nearly always —
     // stays byte-identical to every prior save.
@@ -1782,7 +1819,8 @@ function serializeDefender(d: Defender): SerializedDefender {
     pos: { x: d.pos.x, y: d.pos.y },
     state: d.state,
     ticksInState: d.ticksInState,
-    hp: d.hp,
+    // S151 P2 (R75) — `hp` removed: a tower has no hit points of its own. Its durability lives on
+    // the connectors of the structure it is built from. A REQUIRED wire field leaving = 28→29.
     nextFireTick: d.nextFireTick,
     // S141 P1 — STINK TOWER AMMO. Additive-optional: emitted only when NON-ZERO, so every turret and
     // HELGA on the wire stays byte-identical to pre-S141 (they carry 0 and always will). Only a kind
@@ -1820,7 +1858,6 @@ function deserializeDefender(s: SerializedDefender): Defender {
   });
   d.state = s.state;
   d.ticksInState = s.ticksInState;
-  d.hp = s.hp;
   d.nextFireTick = s.nextFireTick;
   // S141 P1 — absent means ZERO (the additive-optional emit skips 0), NOT the factory's full
   // magazine. `?? 0` rather than `?? config.bags` is the whole point: a spent tower must stay spent.
@@ -2023,12 +2060,12 @@ function deserializeCreature(s: SerializedCreature): Creature {
     // stops `applySpawnCreature` counting a rehydrated chewer as its owner's Voltkin.
     sourceSpawnerId: s.sourceSpawnerId ?? null,
     chewProgress: s.chewProgress ?? 0,
-    // S102 — rehydrate hp from a host save of a damaged creature.
-    // ⚠ CORRECTED S134 — the S133 text here still said "the wire strips it
-    // (trimMirrorCreature)". Untrue since S133 itself un-stripped `hp`; it rides the wire.
-    // The coalesce covers the emit-only-when-damaged case (`hp < config.hp`) and pre-S102
-    // saves, defaulting to the per-type config hp (chewer 1 / Voltkin 2).
-    hp: s.hp ?? getCreatureConfig(s.type).hp,
+    // S102/S151 — rehydrate the effective pool from a host save of a damaged creature. The coalesce
+    // covers the emit-only-when-damaged case and any pre-S151 save, defaulting to the FULL pool
+    // derived from this peer's own config (see the emit site for why that coupling forces a bump).
+    ehp:
+      s.ehp ??
+      unitPoolFifths(getCreatureConfig(s.type).hp, getCreatureConfig(s.type).def),
     // ⛔ S142 P1 — the poop slow survives the round-trip now. `undefined` is the genuinely
     // neutral value here (it means "not poopy"), unlike `despawnAtTick`'s 0 above, because
     // every reader gates on `!== undefined && tick < poopyUntilTick`.

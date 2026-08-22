@@ -35,6 +35,7 @@
  */
 
 import {
+  CHEW_INTERVAL_TICKS,
   DRONE_EMIT_INTERVAL_TICKS,
   HUNTER_TRIGGER_SCORE,
   PEER_DROP_BENCH_TICKS,
@@ -583,10 +584,25 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       // when this fires; the chewer's FSM then releases the commit next tick (the
       // bond-gone branch), Voltkin recovers via its cadence bounce.
       const after = world.creatures.get(id);
+      // ⭐ S151 P2 (owner R76) — A GNAWER FIRES ON EVERY BITE, NOT ONCE AT THE END.
+      //
+      // Before S151 a chewer's `attackFireTick` was `chewHits × CHEW_INTERVAL_TICKS` (300), so it
+      // dispatched a single CREATURE_ATTACK at the end of a fixed five-bite span and that one strike
+      // severed the bond outright. Durability now lives on the CONNECTOR, so each bite has to land
+      // its own damage and the bond decides when it gives way — which means firing on the cadence
+      // rather than at a fixed tick. `ticksInState > 0` excludes the entry tick; the loop ends when
+      // the bond vanishes (the FSM's bond-gone branch releases the commit).
+      const afterCfg = after === undefined ? null : getCreatureConfig(after.type);
+      const firesThisTick =
+        after !== undefined &&
+        afterCfg !== null &&
+        (afterCfg.chewsConnectors
+          ? after.ticksInState > 0 && after.ticksInState % CHEW_INTERVAL_TICKS === 0
+          : after.ticksInState === afterCfg.attackFireTick);
       if (
         after !== undefined &&
         after.state === 'ATTACKING' &&
-        after.ticksInState === getCreatureConfig(after.type).attackFireTick &&
+        firesThisTick &&
         // S139 P2 — a goblin's strike target is a PRIMITIVE, so neither of the two shipped
         // conditions holds for it and without this third clause it would enter ATTACKING, run its
         // whole cadence and never actually hit anything. `applyCreatureAttack` reads the shape from

@@ -36,7 +36,9 @@
  */
 
 import { PRIMITIVE_MAX_HP } from '../constants.ts';
-import type { CreatureId, DefenderId, PlayerId, PrimitiveId } from '../types.ts';
+import { componentOf } from '../game/structure.ts';
+import { connectorCapacityFifths } from './stats.ts';
+import type { BondId, CreatureId, DefenderId, PlayerId, PrimitiveId } from '../types.ts';
 import { damageCreature } from './creatures/creatureLifecycle.ts';
 import type { Defender } from './defenders/defender.ts';
 import { stinkDeathBlast } from './defenders/stinkTower.ts';
@@ -46,8 +48,20 @@ import type { World } from './worldTypes.ts';
 /** What is being damaged. Discriminated so a caller cannot pass a bare number id to the wrong family. */
 export type DamageTarget =
   | { readonly kind: 'creature'; readonly id: CreatureId }
-  | { readonly kind: 'primitive'; readonly id: PrimitiveId }
-  | { readonly kind: 'defender'; readonly id: DefenderId };
+  | { readonly kind: 'primitive'; readonly id: PrimitiveId };
+/*
+ * ⛔ S151 P2 (owner R75) — THE `'defender'` ARM IS GONE. A tower has no hit points of its own, so
+ * there is nothing here to subtract from. Its durability is its connectors' — damage a tower by
+ * damaging the bonds that hold its recipe together (`damageConnector` below), and it dies the way it
+ * always primarily died: recipe-break.
+ *
+ * ⛔ AND CONNECTORS ARE DELIBERATELY *NOT* A `DamageTarget` KIND. `damageEntity`'s contract is
+ * "returns true iff the target DIED — and this function removed it". A bond cannot honour that:
+ * severing must go through the single `SEVER_BOND` path (topology split, SEVER_ERASE ordering,
+ * charge accounting), which is a DISPATCH and cannot happen inside this reducer-level helper.
+ * Folding bonds in here would give one function two different meanings for `true`, and the second
+ * one would silently depend on every caller remembering to finish the job. See `damageConnector`.
+ */
 
 /**
  * Who dealt it. Carried for attribution + future reward/threat rules; it deliberately does NOT
@@ -94,19 +108,80 @@ export function damageEntity(
       return true;
     }
 
-    case 'defender': {
-      const defender = world.defenders.get(target.id);
-      if (defender === undefined) return false;
-      defender.hp -= amount;
-      if (defender.hp > 0) return false;
-      destroyDefender(world, defender, 'damage');
-      return true;
-    }
   }
 }
 
-/** Why a defender is leaving the world. Selects whether its anchor is razed — see `destroyDefender`. */
-export type DefenderDeathCause = 'damage' | 'recipeBreak';
+/**
+ * ⭐ S151 P2 (owner R76) — DAMAGE ONE CONNECTOR. The tower-durability path.
+ *
+ * Owner R76 fixes a connector's durability by its structure's complexity:
+ * *"if there are three shapes connected in a row so with only two connectors … each of those two
+ * connectors are 1.2. now if those three shapes are connected in a triangle form making 3 connectors
+ * … each of those connectors will be 1.4."*
+ *
+ * So capacity is `connectorCapacityFifths(componentConnectorCount)` = `count + 4` fifths, and it is
+ * **derived live, never stored** — which is what makes the collapse accelerate. Only the accumulated
+ * damage is state (`Bond.damageFifths`).
+ *
+ * ⚠ **RETURNS "SHOULD SEVER", AND THE CALLER MUST ACTUALLY SEVER.** This function deliberately does
+ * NOT remove the bond. Severance has to run through the one `SEVER_BOND` path — it splits topology,
+ * emits `SEVER_ERASE` BEFORE the mutation (the effects read live primitives) and `BOND_SEVERED`
+ * after, and settles charges. That is a dispatch, and dispatching from inside a damage helper is the
+ * re-entrancy the codebase has kept out of reducers on purpose. Callers: `creatureAttack.ts`.
+ *
+ * ⚠ **THE DAMAGE PERSISTS ACROSS ATTACKERS, AND THAT IS A REAL BEHAVIOUR CHANGE.** Before S151 the
+ * progress counter lived on the ATTACKER (`Creature.chewProgress`), so two chewers gnawing the same
+ * bond each had to do the whole job and neither saw the other's work. Pooling it on the connector
+ * means they now cooperate — and it is what lets a laser and a chewer damage the same bond at all.
+ *
+ * ⚠ **A SHRINKING STRUCTURE CAN SNAP AN ALREADY-DAMAGED CONNECTOR WITHOUT A NEW HIT.** Capacity
+ * falls as connectors are lost, so damage banked when the structure was large may already exceed the
+ * smaller structure's capacity. That is the owner's intended cascade — *"if you manage to damage its
+ * connectors then it also scales down in defense and will be easier to keep beating down"* — and it
+ * is surfaced on the NEXT hit rather than swept: this function re-reads capacity every call.
+ *
+ * @returns `true` when accumulated damage has reached capacity and the caller must dispatch
+ *          `SEVER_BOND`; `false` while the connector still holds (or the bond is already gone).
+ */
+export function damageConnector(world: World, bondId: BondId, amountFifths: number): boolean {
+  if (!Number.isInteger(amountFifths) || amountFifths < 0) {
+    throw new Error(
+      `damageConnector: amount must be a non-negative INTEGER number of FIFTHS, got ${amountFifths}. ` +
+        `Use stats.attackFifths(atk, pen) — the whole point of fifths is that nothing is fractional.`,
+    );
+  }
+  const bond = world.bonds.get(bondId);
+  if (bond === undefined) return false;
+  if (amountFifths === 0) return false;
+
+  bond.damageFifths += amountFifths;
+
+  // Capacity is a function of the component this bond is CURRENTLY part of, so it is read fresh on
+  // every hit rather than cached. `componentOf` is the established on-demand BFS here (the structure
+  // renderer runs it every frame), so this is not a new cost pattern.
+  const anchor = world.primitives.get(bond.aId) ?? world.primitives.get(bond.bId);
+  if (anchor === undefined) return true; // orphaned bond — nothing holds it up
+  const connectorCount = componentOf(anchor, world.primitives, world.bonds).bondIds.size;
+  return bond.damageFifths >= connectorCapacityFifths(connectorCount);
+}
+
+/*
+ * ⛔ S151 P2 (owner R75) — `DefenderDeathCause` IS DELETED, along with `destroyDefender`'s `cause`
+ * parameter. It discriminated 'damage' from 'recipeBreak', and after R75 removed a tower's hit
+ * points NOTHING CAN PRODUCE 'damage' — there is no arm left that kills a defender by subtraction.
+ *
+ * A one-valued discriminator is worse than none: it reads like a live mechanism, so the next author
+ * plans around a death path that cannot occur. This codebase has been bitten by exactly that before
+ * (`CONNECTOR_HP` was documentation shorthand for a mechanism that did not exist, and `DEFENDER_HP`
+ * was a sentinel whose docblock stayed false for two sessions).
+ *
+ * ⚠ AND THE IMMORTAL-DEFENDER HAZARD THE 'damage' BRANCH GUARDED CANNOT ARISE ON THE SURVIVING PATH.
+ * That branch razed the anchor because deleting a defender whose recipe still MATCHES lets
+ * `runDefenderIgnition` re-mint it on the next topology change anywhere on the board. Under R75/R76 a
+ * tower dies only when its CONNECTORS break — at which point the recipe no longer matches and there
+ * is nothing to re-mint. A player who repairs those bonds SHOULD get the tower back; that is what
+ * FIX is for.
+ */
 
 /**
  * S141 P1 — THE ONE PLACE A DEFENDER LEAVES THE WORLD MID-MATCH.
@@ -135,7 +210,7 @@ export type DefenderDeathCause = 'damage' | 'recipeBreak';
  * an id that has since vanished. A defender whose anchor this blast razed simply falls out on its
  * own poll slot.
  */
-export function destroyDefender(world: World, d: Defender, cause: DefenderDeathCause): void {
+export function destroyDefender(world: World, d: Defender): void {
   // 1. Out of the map first (idempotence + stop it acting on its death tick).
   world.defenders.delete(d.id);
 
@@ -153,19 +228,6 @@ export function destroyDefender(world: World, d: Defender, cause: DefenderDeathC
   // On the recipeBreak path we must NOT raze. Either the anchor is already gone (something destroyed
   // it — nothing to do), or the anchor is alive and the player simply changed the shape, in which
   // case razing would destroy a primitive they still own and are still building with.
-  if (cause === 'damage') {
-    const anchor = world.primitives.get(d.anchorPrimitiveId);
-    if (anchor !== undefined) {
-      world.effects.push({
-        kind: 'SEVER_ERASE',
-        tick: world.tick,
-        pos: { x: anchor.pos.x, y: anchor.pos.y },
-        color: anchor.placerColor,
-        radius: anchor.radius,
-      });
-      razePrimitives(world, [d.anchorPrimitiveId]);
-    }
-  }
 
   // 3. ⭐ THE DESTROYED-vs-DECONSTRUCTED DISCRIMINATOR, and it is the load-bearing line in this file.
   //
@@ -232,12 +294,27 @@ export interface RadialDamageResult {
  * deliberately NOT used: the rainbow hazard REMAPS colours mid-match, so a colour comparison would
  * silently start sparing the wrong player's shapes the moment a rainbow fires.
  */
+/*
+ * ⭐ S151 P2 — TWO AMOUNTS, BECAUSE THERE ARE TWO SCALES AND THERE ALWAYS WERE.
+ *
+ * ⛔ THE PRE-EXISTING DEFECT THIS CLOSES, found by probe during the S151 A.0 and NOT previously
+ * recorded anywhere. This function used to broadcast ONE `amount` to creatures, defenders AND
+ * primitives in the same call. Those families never shared a scale, so one number meant three
+ * different things: `STINK_AURA_DAMAGE = 20` was 2% of a primitive (1000), 0.67% of a turret (3000)
+ * — and instant obliteration of a Voltkin (8). The stink tower is documented as the AREA weapon
+ * whose single-target punch is deliberately the weakest in the game, and it was in fact one-shotting
+ * every unit in its radius.
+ *
+ * `primitiveAmount` stays on the 1000-per-shape scale (where the owner-ruled DoT percentages land on
+ * integers). `unitAmountFifths` is on the stat ladder. Neither can be read as the other.
+ */
 export function applyRadialDamage(
   world: World,
   cx: number,
   cy: number,
   radius: number,
-  amount: number,
+  primitiveAmount: number,
+  unitAmountFifths: number,
   source: DamageSource,
   sparePlayerId: PlayerId | null,
 ): RadialDamageResult {
@@ -271,13 +348,22 @@ export function applyRadialDamage(
   primVictims.sort((a, b) => (a as number) - (b as number));
 
   // ── apply ──
-  // Defenders before primitives: killing a defender RAZES ITS ANCHOR, so doing it first means the
-  // primitive loop never damages a shape that is about to be razed anyway. `damageEntity` no-ops on
-  // a missing id either way, so this is legibility rather than correctness — but it keeps "what did
-  // this blast do" a question with exactly one answer.
-  for (const cid of creatureVictims) damageEntity(world, { kind: 'creature', id: cid }, amount, source);
-  for (const did of defenderVictims) damageEntity(world, { kind: 'defender', id: did }, amount, source);
-  for (const pid of primVictims) damageEntity(world, { kind: 'primitive', id: pid }, amount, source);
+  // ⛔ S151 P2 (owner R75) — THE DEFENDER ARM OF THIS BLAST IS GONE, and AoE deliberately does NOT
+  // gain a connector arm in its place. A tower has no hit points to subtract, and making area damage
+  // sever bonds directly would be a large new behaviour nobody asked for — one potato could shred a
+  // fortress. Structures still take blast damage the way they always have: through their SHAPES.
+  // Razing a primitive removes its incident bonds via `razePrimitives`, so a blast that destroys
+  // shapes still takes the structure apart — it just does it by removing shapes rather than by
+  // cutting connectors. Single-target attacks are what damage connectors (`damageConnector`).
+  //
+  // `defenderVictims` is still COLLECTED, because `defendersHit` is part of this function's reported
+  // result and callers (the stink death blast) count it. It is simply no longer damaged here.
+  for (const cid of creatureVictims) {
+    damageEntity(world, { kind: 'creature', id: cid }, unitAmountFifths, source);
+  }
+  for (const pid of primVictims) {
+    damageEntity(world, { kind: 'primitive', id: pid }, primitiveAmount, source);
+  }
 
   return {
     creaturesHit: creatureVictims.length,

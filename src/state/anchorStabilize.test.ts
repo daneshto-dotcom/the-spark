@@ -69,6 +69,7 @@ function connect(
     b,
     restLength: 40,
     stiffnessTier: 'MID',
+    damageFifths: 0,
     createdTick: 0,
     stiffnessMultiplier,
   };

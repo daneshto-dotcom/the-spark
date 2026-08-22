@@ -70,6 +70,7 @@ function bondPrims(world: World, a: Primitive, b: Primitive): void {
     restLength: Math.max(20, Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y)),
     stiffnessTier: 'MID' as const,
     createdTick: world.tick,
+    damageFifths: 0,
   };
   // Cast: Bond interface requires PhysicsBody for a/b; Primitive satisfies the
   // shape (has pos/prevPos). The cast is safe for territory unit tests which

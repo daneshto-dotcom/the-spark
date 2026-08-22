@@ -34,6 +34,7 @@ import { CHEWER_CONFIG, VOLTKIN_CONFIG } from './creatures/voltkin-config.ts';
 import { asBondId, asCreatureId, asPlayerId, asSpawnerId, type PlayerId } from '../types.ts';
 import type { World } from './worldTypes.ts';
 
+import { unitPoolFifths } from './stats.ts';
 const P0 = asPlayerId(0) as PlayerId;
 const CHEWER = asCreatureId(11);
 const VOLTKIN = asCreatureId(12);
@@ -80,7 +81,7 @@ function hostWorldWithDamage(): World {
     }),
     targetCreatureId: CHEWER, // mid-zap at the chewer
   };
-  voltkin.hp -= 1; // damaged by one hit from VOLTKIN_HP (8 since S150 R71), what damageCreature does
+  voltkin.ehp -= 1; // damaged by one hit from VOLTKIN_HP (8 since S150 R71), what damageCreature does
   w.creatures.set(VOLTKIN, voltkin);
 
   return w;
@@ -106,8 +107,8 @@ describe('S133 P1 — damage survives the mirror wire (host-migration fidelity)'
     // hit — so retuning the constant to 8 broke a test whose actual subject is "damage survives the
     // wire", not "a Voltkin has 1 hp". Pin the INVARIANT (one hit less than full), never the
     // arithmetic result of a constant that is explicitly a playtest dial.
-    expect(v!.hp).toBe(VOLTKIN_CONFIG.hp - 1);
-    expect(v!.hp).not.toBe(VOLTKIN_CONFIG.hp);
+    expect(v!.ehp).toBe(unitPoolFifths(VOLTKIN_CONFIG.hp, VOLTKIN_CONFIG.def) - 1);
+    expect(v!.ehp).not.toBe(unitPoolFifths(VOLTKIN_CONFIG.hp, VOLTKIN_CONFIG.def));
   });
 
   it('chew progress — the bond HP — does not reset across the wire', () => {
@@ -129,7 +130,7 @@ describe('S133 P1 — damage survives the mirror wire (host-migration fidelity)'
     const host = hostWorldWithDamage();
     throughTheMirrorWire(host);
     expect(host.creatures.get(CHEWER)!.chewProgress).toBe(4);
-    expect(host.creatures.get(VOLTKIN)!.hp).toBe(VOLTKIN_CONFIG.hp - 1); // S150 R71 — derived, see above
+    expect(host.creatures.get(VOLTKIN)!.ehp).toBe(unitPoolFifths(VOLTKIN_CONFIG.hp, VOLTKIN_CONFIG.def) - 1); // S150 R71 — derived, see above
   });
 
   it('S134 — the lifecycle fields now SURVIVE; only targeting + the untravelled trio reset', () => {

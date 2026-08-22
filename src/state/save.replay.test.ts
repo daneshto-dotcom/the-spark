@@ -258,6 +258,7 @@ function runChewerStress(world: World, iterations: number): void {
       b,
       restLength: 20,
       stiffnessTier: 'MID',
+      damageFifths: 0,
       createdTick: 0,
     };
     world.bonds.set(bond.id, bond);
@@ -352,6 +353,7 @@ function runVoltkinVsChewerStress(world: World, iterations: number): number {
     const b = world.primitives.get(asPrimitiveId(901 + i))!;
     const bond: import('../physics/bonds.ts').Bond = {
       id: asBondId(900 + i), aId: a.id, bId: b.id, a, b, restLength: 20, stiffnessTier: 'MID', createdTick: 0,
+      damageFifths: 0,
     };
     world.bonds.set(bond.id, bond);
     a.bonds.add(bond.id); b.bonds.add(bond.id);
@@ -671,6 +673,7 @@ describe('S100 P1 — host save/load round-trips a mid-chew chewer (R3)', () => 
     const bond: import('../physics/bonds.ts').Bond = {
       id: asBondId(1), aId: primA.id, bId: primB.id, a: primA, b: primB,
       restLength: 20, stiffnessTier: 'MID', createdTick: 0,
+      damageFifths: 0,
     };
     host.bonds.set(bond.id, bond);
     primA.bonds.add(bond.id);
@@ -744,6 +747,7 @@ describe('S100 P1 — wire byte budget (R1) + TD host-only stripping', () => {
       const b = host.primitives.get(asPrimitiveId(i + 1))!;
       const bond: import('../physics/bonds.ts').Bond = {
         id: asBondId(i), aId: a.id, bId: b.id, a, b, restLength: 30, stiffnessTier: 'MID', createdTick: 0,
+        damageFifths: 0,
       };
       host.bonds.set(bond.id, bond);
       a.bonds.add(bond.id);

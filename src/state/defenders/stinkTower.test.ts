@@ -25,14 +25,18 @@ import {
 } from '../../constants.ts';
 import { asDefenderId, asPlayerId, asPrimitiveId } from '../../types.ts';
 import type { Primitive } from '../../game/primitive.ts';
-import { applyRadialDamage, damageEntity, destroyDefender } from '../damage.ts';
+import { applyRadialDamage, destroyDefender } from '../damage.ts';
 import { applyDefenderTick, applyRemoveDefender, applyRegisterDefender, teardownDefenders } from './defenderLifecycle.ts';
 import { getDefenderConfig, makeDefender, type Defender } from './defender.ts';
 import { stinkBlastFor, stinkShardDir, stinkIsDepleted } from './stinkTower.ts';
 import { snapshot, restore } from '../save.ts';
 import { determinismParts } from '../stateHashFull.ts';
 import { STINK_HUB_TYPE } from '../godlyRecipes/stinkTower.ts';
-
+
+import { attackFifths } from '../stats.ts';
+import { STINK_BAG_ATK, STINK_BAG_PEN } from '../../constants.ts';
+/** S151 P2 — the unit-side half of a splash, on the stat ladder. */
+const UNIT_SPLASH = attackFifths(STINK_BAG_ATK, STINK_BAG_PEN);
 const P0 = asPlayerId(0); // the tower's owner
 const P1 = asPlayerId(1); // the enemy
 
@@ -109,7 +113,7 @@ describe('S141 P1 — applyRadialDamage is NOT applyRadialClear', () => {
     // This is the whole reason the bridge exists. applyRadialClear would have razed this shape.
     const w = setup();
     const victim = addPrim(w, P1, 300, 300);
-    applyRadialDamage(w, 300, 300, 200, STINK_BAG_DAMAGE, 'hazard', P0);
+    applyRadialDamage(w, 300, 300, 200, STINK_BAG_DAMAGE, UNIT_SPLASH, 'hazard', P0);
     expect(w.primitives.has(victim.id)).toBe(true);
     expect(victim.hp).toBe(PRIMITIVE_MAX_HP - STINK_BAG_DAMAGE);
   });
@@ -118,7 +122,7 @@ describe('S141 P1 — applyRadialDamage is NOT applyRadialClear', () => {
     const w = setup();
     const mine = addPrim(w, P0, 300, 300);
     const theirs = addPrim(w, P1, 305, 300);
-    applyRadialDamage(w, 300, 300, 200, STINK_BAG_DAMAGE, 'hazard', P0);
+    applyRadialDamage(w, 300, 300, 200, STINK_BAG_DAMAGE, UNIT_SPLASH, 'hazard', P0);
     expect(mine.hp).toBe(PRIMITIVE_MAX_HP); // untouched
     expect(theirs.hp).toBe(PRIMITIVE_MAX_HP - STINK_BAG_DAMAGE);
   });
@@ -127,7 +131,7 @@ describe('S141 P1 — applyRadialDamage is NOT applyRadialClear', () => {
     const w = setup();
     const near = addPrim(w, P1, 300, 300);
     const far = addPrim(w, P1, 900, 900);
-    applyRadialDamage(w, 300, 300, 100, STINK_BAG_DAMAGE, 'hazard', P0);
+    applyRadialDamage(w, 300, 300, 100, STINK_BAG_DAMAGE, UNIT_SPLASH, 'hazard', P0);
     expect(near.hp).toBeLessThan(PRIMITIVE_MAX_HP);
     expect(far.hp).toBe(PRIMITIVE_MAX_HP);
   });
@@ -136,17 +140,26 @@ describe('S141 P1 — applyRadialDamage is NOT applyRadialClear', () => {
     const w = setup();
     const victim = addPrim(w, P1, 300, 300);
     const hits = Math.ceil(PRIMITIVE_MAX_HP / STINK_BAG_DAMAGE);
-    for (let i = 0; i < hits; i++) applyRadialDamage(w, 300, 300, 200, STINK_BAG_DAMAGE, 'hazard', P0);
+    for (let i = 0; i < hits; i++) applyRadialDamage(w, 300, 300, 200, STINK_BAG_DAMAGE, UNIT_SPLASH, 'hazard', P0);
     expect(w.primitives.has(victim.id)).toBe(false);
   });
 });
 
 describe('S141 P1 — the blast fires from BOTH kill paths, and NOT from deconstruction', () => {
-  it('PATH A — death by damage detonates', () => {
+  /**
+   * ⭐ S151 P2 (owner R75) — PATH A WAS "DEATH BY DAMAGE", AND THAT PATH NO LONGER EXISTS.
+   * A tower has no hit points to subtract: *"towers have attack and piercing but not def and hp
+   * because they are based on the connectors that build them."* So the only way a tower dies is that
+   * its structure comes apart — which is PATH B, and which was always the likelier path anyway (the
+   * S139 Council said so explicitly). What this test now guards is that the blast still fires when a
+   * tower dies with its ANCHOR already destroyed, via `destroyDefender` directly.
+   */
+  it('PATH A — a tower destroyed with its anchor already gone still detonates', () => {
     const w = setup();
     const tower = addTower(w, 300, 300);
     const victim = addPrim(w, P1, 320, 300);
-    damageEntity(w, { kind: 'defender', id: tower.id }, tower.hp, 'creature');
+    w.primitives.delete(tower.anchorPrimitiveId); // the connectors gave way and took the keystone
+    destroyDefender(w, tower);
     expect(w.defenders.has(tower.id)).toBe(false);
     expect(victim.hp).toBeLessThan(PRIMITIVE_MAX_HP); // it blew up
   });
@@ -190,7 +203,7 @@ describe('S141 P1 — the blast fires from BOTH kill paths, and NOT from deconst
     const tower = addTower(w, 300, 300);
     w.primitives.delete(tower.anchorPrimitiveId);
     const victim = addPrim(w, P1, 320, 300);
-    destroyDefender(w, tower, 'recipeBreak');
+    destroyDefender(w, tower);
     const afterFirst = victim.hp;
     // A second call for a defender no longer in the map must find nothing to do.
     applyRemoveDefender(w, { type: 'REMOVE_DEFENDER', defenderId: tower.id });
@@ -206,13 +219,15 @@ describe('S141 P1 — the blast fires from BOTH kill paths, and NOT from deconst
     expect(ownShape.hp).toBe(PRIMITIVE_MAX_HP);
   });
 
-  it('a killed tower does NOT resurrect with a full magazine (the immortal-defender guard)', () => {
-    // damageEntity razes the anchor precisely so runDefenderIgnition can never re-mint it.
+  it('⭐ S151 P2 — the immortal-defender hazard is now UNREACHABLE, not merely defended against', () => {
+    // The old guard relied on the damage path RAZING the anchor so `runDefenderIgnition` could never
+    // re-mint the tower. With no damage path, the hazard has no entry point: a tower dies only when
+    // its connectors break, at which point the recipe stops matching and there is nothing to
+    // re-register. A player who repairs those bonds SHOULD get the tower back — that is FIX.
     const w = setup();
     const tower = addTower(w, 300, 300);
-    const anchorId = tower.anchorPrimitiveId;
-    damageEntity(w, { kind: 'defender', id: tower.id }, tower.hp, 'creature');
-    expect(w.primitives.has(anchorId)).toBe(false); // the keystone shattered
+    w.primitives.delete(tower.anchorPrimitiveId);
+    destroyDefender(w, tower);
     expect(w.defenders.size).toBe(0);
   });
 });

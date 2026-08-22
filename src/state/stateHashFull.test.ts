@@ -97,6 +97,7 @@ function addPrimBondSpark(w: World): void {
   const bondId = asBondId(201);
   w.bonds.set(bondId, {
     id: bondId, aId: a.id, bId: b.id, a, b, restLength: 30, stiffnessTier: 'MID', createdTick: 0,
+    damageFifths: 0,
   });
   a.bonds.add(bondId);
   b.bonds.add(bondId);
@@ -183,7 +184,7 @@ describe('hashWorldStateFull — SENSITIVITY to the families S133 made visible',
     const wideBefore = hashWorldStateFull(w);
 
     // Exactly what `damageCreature` does: the ONE `.hp -=` in the whole tree.
-    w.creatures.get(asCreatureId(1))!.hp -= 1;
+    w.creatures.get(asCreatureId(1))!.ehp -= 1;
 
     expect(hashWorldState(w)).toBe(narrowBefore); // ⚠ narrow cannot see it — characterized, not endorsed
     expect(hashWorldStateFull(w)).not.toBe(wideBefore); // wide catches it
@@ -201,10 +202,14 @@ describe('hashWorldStateFull — SENSITIVITY to the families S133 made visible',
     expect(hashWorldStateFull(w)).not.toBe(wideBefore);
   });
 
-  it('defender hp flips the wide hash (today dead state — this is the tripwire for when it is not)', () => {
+  it('⭐ S151 P2 — CONNECTOR damage flips the wide hash (it replaced defender hp as tower durability)', () => {
     const w = worldWithEntities();
+    // `worldWithEntities` mints no bonds — the connector fixture is its own helper.
+    addPrimBondSpark(w);
     const before = hashWorldStateFull(w);
-    w.defenders.get(asDefenderId(2))!.hp -= 1;
+    // Owner R75 removed `Defender.hp` entirely: a tower has no hit points, its CONNECTORS do. So the
+    // field this tripwire watches is now the bond's accumulated damage.
+    [...w.bonds.values()][0].damageFifths += 1;
     expect(hashWorldStateFull(w)).not.toBe(before);
   });
 

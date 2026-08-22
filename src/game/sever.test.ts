@@ -122,6 +122,7 @@ describe('§ VIII.4 sever rule', () => {
       restLength: 50,
       stiffnessTier: 'MID' as const,
       createdTick: w.tick,
+      damageFifths: 0,
     };
     w.bonds.set(synthBond.id, synthBond);
     w.primitives.get(fourth)!.bonds.add(synthBond.id);

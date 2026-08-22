@@ -47,7 +47,6 @@ import { applyBuildBlueprint, eligiblePorchSparks } from './blueprintBuild.ts';
 import { bankCountOf, makeCastleBank } from './castleBank.ts';
 import { damageEntity } from './damage.ts';
 import { runGodlyMatcherCore } from './godlyMatcherCore.ts';
-import { getDefenderConfig } from './defenders/defender.ts';
 import { recipeStillSatisfied } from './defenders/defenderLifecycle.ts';
 import { hashWorldStateFull } from './stateHashFull.ts';
 import {
@@ -65,6 +64,8 @@ import './godlyRecipes/stinkTower.ts';
 import './godlyRecipes/laserTurret.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
 
+import { connectorCapacityFifths } from './stats.ts';
+import { damageConnector } from './damage.ts';
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
 
@@ -363,18 +364,25 @@ describe('S152 — FIX consumes exactly what was lost (R13)', () => {
     expect(totalShapes(w)).toBe(before); // free, because nothing died
   });
 
-  it('⭐ restores the TOWER\'s own health pool, which is a different number from its shapes\'', () => {
+  /**
+   * ⭐ S151 P2 (owner R75/R76) — REWRITTEN. This used to hurt the TOWER's own hp pool without
+   * touching a shape: the case that reads as "nothing to fix" unless the planner looks at both pools.
+   * A tower no longer HAS an hp pool — "towers have attack and piercing but not def and hp because
+   * they are based on the connectors that build them" — so the equivalent hurt-but-standing state is
+   * a damaged CONNECTOR, and FIX must see it for exactly the same reason: otherwise the owner reports
+   * a button that does nothing on a tower one hit from collapse.
+   */
+  it('restores damaged CONNECTORS, which are a different pool from its shapes', () => {
     const w = setup();
     fund(w, 'laserTurret');
     build(w, 'laserTurret');
     runGodlyMatcherCore(w, { lastMatcherTick: 0 });
-    const defender = [...w.defenders.values()][0];
-    const full = getDefenderConfig(defender.kind).hp;
 
-    // Hurt the TOWER without touching a single shape — the case that reads as "nothing to fix"
-    // unless the planner looks at both pools.
-    damageEntity(w, { kind: 'defender', id: defender.id }, Math.floor(full / 2), 'creature');
-    expect(defender.hp).toBeLessThan(full);
+    // Hurt a CONNECTOR without touching a single shape, and without breaking it.
+    const bondId = [...w.bonds.keys()][0];
+    const capacity = connectorCapacityFifths(w.bonds.size);
+    expect(damageConnector(w, bondId, Math.max(1, Math.floor(capacity / 2)))).toBe(false);
+    expect(w.bonds.get(bondId)!.damageFifths).toBeGreaterThan(0);
     for (const p of w.primitives.values()) expect(p.hp).toBe(PRIMITIVE_MAX_HP);
 
     const seed = anyMember(w, 'laserTurret');
@@ -382,7 +390,7 @@ describe('S152 — FIX consumes exactly what was lost (R13)', () => {
     const before = totalShapes(w);
     applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: seed });
 
-    expect(w.defenders.get(defender.id)!.hp).toBe(full);
+    expect(w.bonds.get(bondId)!.damageFifths).toBe(0); // healed
     expect(totalShapes(w)).toBe(before); // nothing died, so nothing is charged
   });
 

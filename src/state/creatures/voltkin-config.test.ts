@@ -53,9 +53,9 @@ describe('VOLTKIN_CONFIG (per-type config record)', () => {
   // NOT the chew loop), full top speed (hopSpeedMul:1), and the de-hardcoded
   // CREATURE_MAX_ACCEL=200 unchanged. save.replay.test.ts is the empirical guard;
   // this locks the literals so accidental drift surfaces here (R4 / R16).
-  it('locks the S100 TD fields on Voltkin (persistent:false / chewHits:0 / hopSpeedMul:1 / maxAccel:200)', () => {
+  it('locks the S100 TD fields on Voltkin (persistent:false / chewsConnectors:false / hopSpeedMul:1 / maxAccel:200)', () => {
     expect(VOLTKIN_CONFIG.persistent).toBe(false);
-    expect(VOLTKIN_CONFIG.chewHits).toBe(0);
+    expect(VOLTKIN_CONFIG.chewsConnectors).toBe(false); // S151 P2 — was `chewHits: 0`
     expect(VOLTKIN_CONFIG.hopSpeedMul).toBe(1);
     expect(VOLTKIN_CONFIG.maxAccel).toBe(200);
   });
@@ -122,8 +122,10 @@ describe('CHEWER_CONFIG (TD swarm creature)', () => {
     expect(CHEWER_CONFIG.lifetimeTicks).toBe(3000); // 50s @ 60Hz; > seek+travel+5-chew sever (300t) so it completes severs
   });
 
-  it('chews 5 hits, hops at ~0.6× speed, maxAccel = 200 × hopSpeedMul', () => {
-    expect(CHEWER_CONFIG.chewHits).toBe(5);
+  it('gnaws connectors, hops at ~0.6× speed, maxAccel = 200 × hopSpeedMul', () => {
+    // ⭐ S151 P2 (R76) — was `chewHits: 5`, i.e. a CONNECTOR'S durability stored on the ATTACKER.
+    // A chewer now simply gnaws, and the connector decides when it gives way.
+    expect(CHEWER_CONFIG.chewsConnectors).toBe(true);
     expect(CHEWER_CONFIG.hopSpeedMul).toBe(0.6);
     expect(CHEWER_CONFIG.maxAccel).toBe(120); // 200 (CREATURE_MAX_ACCEL) × 0.6
   });

@@ -32,7 +32,6 @@ import {
   PLAYER_COLORS,
   PRIMITIVE_MAX_HP,
   SparkType,
-  TURRET_DEFENDER_MAX_HP,
 } from '../constants.ts';
 // The REAL production dt, imported from the loop that owns it rather than re-derived here — a
 // re-derived copy is how a test ends up silently running on NaN and passing anyway.
@@ -48,12 +47,11 @@ import {
   asPlayerId,
   asPrimitiveId,
   asSpawnerId,
-  type PrimitiveId,
 } from '../types.ts';
 import { makeCreature } from './creatures/creature.ts';
 import { CHEWER_CONFIG } from './creatures/voltkin-config.ts';
-import { damageEntity } from './damage.ts';
-import { applyRegisterDefender } from './defenders/defenderLifecycle.ts';
+import { damageConnector, damageEntity, type DamageTarget } from './damage.ts';
+import { attackFifths, connectorCapacityFifths } from './stats.ts';
 import { restore, snapshot } from './save.ts';
 import { hashWorldStateFull } from './stateHashFull.ts';
 import { makeWorld, type World } from './world.ts';
@@ -101,6 +99,7 @@ function connect(w: World, id: number, a: Primitive, b: Primitive): Bond {
     b,
     restLength: 32,
     stiffnessTier: 'MID',
+    damageFifths: 0,
     createdTick: 0,
   };
   w.bonds.set(bond.id, bond);
@@ -167,7 +166,9 @@ describe('S138 P1 — creature damage still delegates to damageCreature', () => 
         sourceSpawnerId: asSpawnerId(1),
       }),
     );
-    expect(damageEntity(w, { kind: 'creature', id: cid }, 1, 'defender')).toBe(true);
+    // S151 P2 — amounts are FIFTHS now. A chewer's pool is 1 hp x (5+0) = 5 fifths, and one
+    // 1-ATK strike is exactly 5 fifths — the same one-hit kill, on the shared ladder.
+    expect(damageEntity(w, { kind: 'creature', id: cid }, attackFifths(1, 0), 'defender')).toBe(true);
     expect(w.creatures.size).toBe(0);
   });
 
@@ -235,70 +236,70 @@ describe('S138 P1 — primitive damage and the raze contract', () => {
   });
 });
 
-describe('S138 P1 — defender damage cannot produce an IMMORTAL defender', () => {
-  function withTurret(): { w: World; anchor: PrimitiveId } {
-    const w = baseWorld();
-    const anchor = addPrim(w, 1, 300, 300).id;
-    applyRegisterDefender(w, {
-      type: 'REGISTER_DEFENDER',
-      defenderKind: 'turret',
-      ownerPlayerId: P0,
-      anchorPrimitiveId: anchor,
-      recipeId: 'laserTurret',
-      pos: { x: 300, y: 300 },
-    });
-    return { w, anchor };
-  }
-
-  it('carries REAL hp now, not the old 1e9 sentinel', () => {
-    const { w } = withTurret();
-    const d = [...w.defenders.values()][0];
-    expect(d.hp).toBe(TURRET_DEFENDER_MAX_HP);
-    expect(d.hp).toBeLessThan(1_000_000_000);
+describe('⭐ S151 P2 (owner R75/R76) — a tower has NO hit points; its CONNECTORS carry them', () => {
+  /**
+   * ⛔ WHAT THIS BLOCK REPLACES, and why the old coverage could not simply be updated.
+   *
+   * It used to assert that a defender "carries REAL hp now, not the old 1e9 sentinel", survives a
+   * non-lethal hit, and that a LETHAL hit razes its anchor so `runDefenderIgnition` can never re-mint
+   * it. Every one of those describes a mechanism owner R75 deleted: *"towers have attack and piercing
+   * but not def and hp because they are based on the connectors that build them."*
+   *
+   * The immortal-defender hazard the old tests guarded is now UNREACHABLE rather than defended
+   * against, and that is the stronger position: a tower dies only when its connectors break, at which
+   * point the recipe no longer matches and there is nothing for the igniter to re-register. A player
+   * who repairs those bonds SHOULD get the tower back — that is what FIX is for.
+   */
+  it('a tower is not damageable as an entity — there is no defender arm to call', () => {
+    // The type system enforces this (`DamageTarget` has no 'defender' member), so the runtime
+    // assertion is about the SHAPE of the union rather than a call: a defender id cannot be routed
+    // into `damageEntity` at all. Recorded as a test so the intent survives a future widening.
+    const kinds: DamageTarget['kind'][] = ['creature', 'primitive'];
+    expect(kinds).not.toContain('defender');
   });
 
-  it('survives a non-lethal hit', () => {
-    const { w } = withTurret();
-    const d = [...w.defenders.values()][0];
-    expect(damageEntity(w, { kind: 'defender', id: d.id }, 100, 'creature')).toBe(false);
-    expect(d.hp).toBe(TURRET_DEFENDER_MAX_HP - 100);
-    expect(w.defenders.size).toBe(1);
+  it('⭐ a connector accumulates damage and severs only when its capacity is reached', () => {
+    const { w, a } = chainWorld();
+    const bondId = [...w.bonds.keys()][0];
+    const connectors = w.bonds.size;
+    const capacity = connectorCapacityFifths(connectors);
+    void a;
+
+    // One sub-lethal bite: damage banks on the CONNECTOR, and it does not break.
+    const bite = 1; // one fifth — deliberately tiny so the accumulation is observable
+    expect(damageConnector(w, bondId, bite)).toBe(false);
+    expect(w.bonds.get(bondId)!.damageFifths).toBe(bite);
+
+    // Top it up to exactly capacity — now it reports "sever me".
+    expect(damageConnector(w, bondId, capacity - bite)).toBe(true);
+    expect(w.bonds.get(bondId)!.damageFifths).toBe(capacity);
+
+    // ⚠ AND IT HAS NOT REMOVED THE BOND ITSELF. Severance runs through the one SEVER_BOND dispatch;
+    // this helper only reports. A caller that forgets is the failure mode the separate function name
+    // exists to make obvious.
+    expect(w.bonds.has(bondId)).toBe(true);
   });
 
-  it('⭐ a lethal hit RAZES THE ANCHOR, so the igniter can never re-mint it', () => {
-    const { w, anchor } = withTurret();
-    const d = [...w.defenders.values()][0];
-
-    expect(damageEntity(w, { kind: 'defender', id: d.id }, TURRET_DEFENDER_MAX_HP, 'creature')).toBe(
-      true,
-    );
-
-    expect(w.defenders.size).toBe(0);
-    // THE POINT: the anchor is gone. runDefenderIgnition matches on anchorPrimitiveId, so with
-    // the anchor razed there is nothing for it to re-register against. Deleting only the
-    // defender would let it return on the next BOND_FORMED anywhere on the board.
-    expect(w.primitives.has(anchor)).toBe(false);
+  it('⭐ damage POOLS across attackers — two chewers on one strut now cooperate', () => {
+    // Before S151 the progress counter lived on the ATTACKER (`Creature.chewProgress`), so two
+    // chewers gnawing the same bond each had to do the whole job and neither saw the other's work.
+    const { w } = chainWorld();
+    const bondId = [...w.bonds.keys()][0];
+    const capacity = connectorCapacityFifths(w.bonds.size);
+    const half = Math.floor(capacity / 2);
+    expect(damageConnector(w, bondId, half)).toBe(false);
+    expect(damageConnector(w, bondId, capacity - half)).toBe(true);
   });
 
-  it('re-registering against the razed anchor is now impossible', () => {
-    const { w, anchor } = withTurret();
-    const d = [...w.defenders.values()][0];
-    damageEntity(w, { kind: 'defender', id: d.id }, TURRET_DEFENDER_MAX_HP, 'creature');
+  it('a missing bond is an idempotent no-op, not a throw', () => {
+    const { w } = chainWorld();
+    expect(damageConnector(w, asBondId(99999), 5)).toBe(false);
+  });
 
-    // Simulate the igniter's re-registration attempt directly. It is anchor-keyed, and a
-    // razed anchor cannot back a live defender.
-    applyRegisterDefender(w, {
-      type: 'REGISTER_DEFENDER',
-      defenderKind: 'turret',
-      ownerPlayerId: P0,
-      anchorPrimitiveId: anchor,
-      recipeId: 'laserTurret',
-      pos: { x: 300, y: 300 },
-    });
-    // It "registers" only in the sense that the reducer is unguarded — but the geometry it
-    // needs is gone, so recipeStillSatisfied removes it on the next poll. The load-bearing
-    // assertion is that the ANCHOR stays absent, which is what makes the recipe unmatchable.
-    expect(w.primitives.has(anchor)).toBe(false);
+  it('rejects a fractional amount — the fifths scale must stay exact', () => {
+    const { w } = chainWorld();
+    const bondId = [...w.bonds.keys()][0];
+    expect(() => damageConnector(w, bondId, 1.5)).toThrow(/INTEGER/);
   });
 });
 

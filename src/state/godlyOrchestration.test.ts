@@ -65,6 +65,7 @@ function buildValidChain(world: World, color: number): void {
       a: { pos: a.pos, prevPos: a.prevPos },
       b: { pos: b.pos, prevPos: b.prevPos },
       restLength: 30, stiffnessTier: 'MID', createdTick: 0,
+      damageFifths: 0,
     };
     world.bonds.set(id, bond);
     a.bonds.add(id);

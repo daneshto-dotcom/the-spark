@@ -77,6 +77,7 @@ function makeBond(id: number, a: Primitive, b: Primitive): Bond {
     b,
     restLength: 32,
     stiffnessTier: 'MID',
+    damageFifths: 0,
     createdTick: 0,
   };
 }

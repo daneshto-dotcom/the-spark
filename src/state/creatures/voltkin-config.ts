@@ -52,6 +52,19 @@ import {
   GOBLIN_LIFETIME_TICKS,
   GOBLIN_MAX_ACCEL,
   GOBLIN_MELEE_HP,
+  CHEWER_ATK,
+  CHEWER_DEF,
+  CHEWER_PEN,
+  DRONE_ATK,
+  DRONE_DEF,
+  DRONE_HP,
+  DRONE_PEN,
+  GOBLIN_MELEE_ATK,
+  GOBLIN_MELEE_DEF,
+  GOBLIN_MELEE_PEN,
+  VOLTKIN_ATK,
+  VOLTKIN_DEF,
+  VOLTKIN_PEN,
 } from '../../constants.ts';
 
 /**
@@ -70,13 +83,44 @@ export interface CreatureConfig {
   /** Discriminator — matches the `Creature.type` field. */
   readonly type: CreatureType;
   /**
-   * S102 (unified HP model, owner correction OC2) — single-target hit-points. A
-   * "hit" (player RAID, Voltkin zap on a chewer, laser beam, HELGA slap) deals 1
-   * damage via `damageCreature`; the creature despawns at hp ≤ 0. AoE (potato)
-   * passes a lethal amount through the same path. Voltkin = 2 (godly, twice as
-   * tough); chewer = 1. Defaulted onto `Creature.hp` by `makeCreature`.
+   * HIT-POINT POINTS on the shared 1..12 ladder (S151 P2; was a bare hit count).
+   *
+   * S102 established the unified model: a "hit" (player RAID, Voltkin zap, laser beam, HELGA slap)
+   * routes through `damageCreature` and the creature despawns at hp ≤ 0. S151 keeps that path and
+   * re-homes the NUMBER: `hp` is now a point on the ladder, and this unit's effective pool is
+   * `unitPoolFifths(hp, def)` = `hp × (5 + def)` fifths.
+   *
+   * ⚠ Every shipped unit has `def: 0`, so `pool = hp × 5` and the arithmetic is exactly the old hit
+   * count scaled by five — chewer 1, Voltkin 8 (owner R71), goblin 1 (owner R70). Defaulted onto
+   * `Creature.hp` by `makeCreature`.
    */
   readonly hp: number;
+  /**
+   * ⭐ S151 P2 (owner R72) — DEFENCE POINTS. Indexes the linear multiplier ladder `1 + 0.2·DEF`, so
+   * this unit's effective pool is `hp × (1 + 0.2·def)` — see `state/stats.ts` `unitPoolFifths`.
+   *
+   * ⚠ ZERO IS A REAL VALUE, NOT "UNSET". Every shipped unit is `def: 0`, which means `×1.0` and
+   * therefore reproduces the pre-S151 hit-count arithmetic EXACTLY. That is deliberate: this
+   * priority moves where the numbers come from without moving unit-vs-unit balance. Inventing
+   * non-zero defences here would be precisely the unvalidated first-pass tuning R75 just deleted.
+   */
+  readonly def: number;
+  /**
+   * ⭐ S151 P2 (owner R72) — ATTACK POINTS on the shared 1..12 ladder. Damage dealt per hit is
+   * `atk × (1 + 0.2·pen)` fifths (`state/stats.ts` `attackFifths`), and it is compared against the
+   * SAME scale whether the target is a unit or a connector. One scale, one comparison.
+   */
+  readonly atk: number;
+  /**
+   * ⭐ S151 P2 (owner R72) — PENETRATION points, the attacker's mirror of DEF.
+   *
+   * Owner: *"we will consider defence and hp as the exact inverse stat for ATK and PEN … pen = /1.2"*.
+   * Placement is provably free: comparing `atk × (1+0.2·pen)` against `hp × (1+0.2·def)` is
+   * algebraically identical to dividing the defender's rating by `(1+0.2·pen)`, so the multiply form
+   * is used — no division, no zero edge, exact in integers. `stats.test.ts` proves the equivalence
+   * over the whole design range rather than by example.
+   */
+  readonly pen: number;
   /**
    * Total lifetime in ticks. `despawnAtTick = spawnedAtTick + lifetimeTicks`.
    * Blueprint Q5; Voltkin = 480 (8 s @ 60 Hz).
@@ -140,15 +184,19 @@ export interface CreatureConfig {
    */
   readonly persistent: boolean;
   /**
-   * S100 P1 (TD Phase 1a) — number of incremental chew hits a chewer lands on a
-   * single committed bond before that bond severs. The chewer stays in ATTACKING
-   * for the full `chewHits × CHEW_INTERVAL_TICKS`, incrementing `Creature.chewProgress`
-   * once per `CHEW_INTERVAL_TICKS` and dispatching the actual `CREATURE_ATTACK`
-   * (→ `SEVER_BOND`) only on the final hit. `0` for non-chewing creatures
-   * (Voltkin uses its single-fire `attackFireTick` zap, not the chew loop).
-   * Chewer = `CHEW_HITS` (5). See TOWER_DEFENSE_DESIGN.md §2.4 (R9).
+   * ⭐ S151 P2 (owner R76) — DOES THIS CREATURE GNAW CONNECTORS? Replaces the old `chewHits: number`.
+   *
+   * ⛔ WHY THE OLD FIELD HAD TO GO, not just be renamed. `chewHits` was "how many bites sever a
+   * bond" — i.e. A CONNECTOR'S DURABILITY, STORED ON THE ATTACKER. That is the same inversion owner
+   * R72 objected to in the goblin, and it meant every bond in the game took exactly 5 chews whether
+   * it was half of a loose pair or one strut of a forty-connector fortress. Durability now lives on
+   * the connector (`Bond.damageFifths` vs `connectorCapacityFifths`), and how fast a chewer gets
+   * through it is simply its `atk`.
+   *
+   * `true` keeps the chewer's committed, incremental gnaw (one bite per `CHEW_INTERVAL_TICKS`,
+   * glued to `targetBondId` until the bond is gone); `false` is Voltkin's single-fire bounce.
    */
-  readonly chewHits: number;
+  readonly chewsConnectors: boolean;
   /**
    * S100 P1 (TD Phase 1a) — multiplier on `CREATURE_MAX_ACCEL` (= this config's
    * `maxAccel`) for locomotion speed. Voltkin = `1` (unchanged top speed ~208
@@ -216,10 +264,17 @@ export const VOLTKIN_CONFIG: CreatureConfig = {
   // de-hardcoded from creatureVerlet.ts unchanged. These are the byte-identical
   // Voltkin regression guards (save.replay.test.ts / creatureLifecycle.test.ts).
   persistent: false,
-  chewHits: 0,
+  chewsConnectors: false,
   hopSpeedMul: 1,
   maxAccel: 200,
-  hp: VOLTKIN_HP, // 8 — godly; 3 HELGA slaps, above the goblin's 6 (S150 R71; was 2)
+  hp: VOLTKIN_HP, // 8 — godly; owner R71. An HP POINT on the shared ladder since S151 P2.
+  // S151 P2 — DEF 0 keeps the shipped ladder EXACTLY: pool = 8 x (5+0) = 40 fifths, so HELGA
+  // (ATK 3 = 15 fifths) still needs THREE slaps and the laser (ATK 6 = 30) still needs TWO. The
+  // stat system re-homes these numbers; it does not re-tune them.
+  // ⭐ Owner R77: "voltkin - 3 atk (chain lightning …) 6 pierce. 8hp, and 3 def".
+  def: VOLTKIN_DEF,
+  atk: VOLTKIN_ATK,
+  pen: VOLTKIN_PEN,
   selfExplode: false, // a Voltkin zaps; it never self-detonates
   targetsStructures: false, // a Voltkin targets connectors + creatures, never shapes
 };
@@ -270,14 +325,23 @@ export const CHEWER_CONFIG: CreatureConfig = {
   fadeTicks: 15,
   attackRange: 35, // S102 #3: true MELEE — chewer walks right up to the connector before chewing
                    // (was 180 via the VOLTKIN_ATTACK_RANGE_SQ hardcode; now read per-config in isWithinAttackRange)
-  attackCadenceTicks: 300, // chewHits × CHEW_INTERVAL_TICKS (5 × 60) — full chew span
+  attackCadenceTicks: 300, // legacy span; the gnaw now runs until the connector gives way
   attackFireTick: 300, // sever on the final (5th) chew hit
   attackChargeEngageTick: 60, // first chew bite lands one CHEW_INTERVAL_TICKS in
   persistent: false, // S104 P1 — finite lifetime (see lifetimeTicks); routes end-of-life through the Voltkin DESPAWNING FSM
-  chewHits: 5, // = constants.ts CHEW_HITS
+  chewsConnectors: true, // the gnawer — durability lives on the bond now, not here
   hopSpeedMul: 0.6,
   maxAccel: 120, // 200 (CREATURE_MAX_ACCEL) × hopSpeedMul 0.6
-  hp: CHEWER_HP, // 1 — dies in a single hit (S102 unified HP model)
+  hp: CHEWER_HP, // 1 — dies in a single hit (S102 unified HP model; an HP POINT since S151 P2)
+  // ⭐ S151 P2 (R76) — THE CHEWER'S ATK IS WHAT REPLACED `chewHits`. A connector's toughness used to
+  // live HERE, on the attacker, as a flat "5 chews for any bond ever". Now the chewer simply deals
+  // `atk x (5+pen)` = 5 fifths per bite and the CONNECTOR decides how much it can take, which is why
+  // eating a lone pair is quick and eating a 40-connector fortress is not.
+  // ⭐ Owner R77: "pencil chewers - 1 atk 2 pierce, 1hp, 0 def. so 1x1.4 offence, and 1 def" —
+  // and our fifths formula reproduces both of the owner's own figures exactly.
+  def: CHEWER_DEF,
+  atk: CHEWER_ATK,
+  pen: CHEWER_PEN,
   selfExplode: false, // a chewer gnaws bonds; it never self-detonates
   targetsStructures: false, // a chewer commits to a CONNECTOR, not a shape
 };
@@ -309,10 +373,16 @@ export const LIGHTNING_DRONE_CONFIG: CreatureConfig = {
   attackFireTick: 30, // unused
   attackChargeEngageTick: 15, // unused
   persistent: false, // lifetime-bound: lifetimeTicks is the fuse
-  chewHits: 0, // not a chewer
+  chewsConnectors: false, // not a chewer
   hopSpeedMul: 1.2, // a touch faster than Voltkin — a homing missile
   maxAccel: 240, // 200 (Voltkin) × 1.2
-  hp: CHEWER_HP, // 1 — a single hit (raid/laser/slap/potato) shoots it down
+  hp: DRONE_HP, // ⭐ R77 — 2, was CHEWER_HP (1)
+  // S151 P2 — a suicide drone never trades blows: it detonates on arrival. `atk` is stated for table
+  // completeness (the matrix is exhaustive by construction) and its real payload is DRONE_EXPLODE.
+  // ⭐ Owner R77: "the electric drone - 5 damage(atk) and 1 pierce in an area of effect … 2hp, 0 def".
+  def: DRONE_DEF,
+  atk: DRONE_ATK,
+  pen: DRONE_PEN,
   selfExplode: true, // THE drone discriminator
   targetsStructures: false, // a drone detonates on a CONNECTOR
 };
@@ -344,7 +414,14 @@ export const LIGHTNING_DRONE_CONFIG: CreatureConfig = {
  */
 export const GOBLIN_MELEE_CONFIG: CreatureConfig = {
   type: 'goblinMelee',
-  hp: GOBLIN_MELEE_HP,
+  hp: GOBLIN_MELEE_HP, // ⭐ S151 P2 — now 1 (owner R70, "as weak as chewer"); was 6 AND was the
+  // backbone the whole damage scale derived from. See the constant's own docblock.
+  // Its damage against a SHAPE stays on the other scale (GOBLIN_DAMAGE_VS_PRIMITIVE, 1000-based) —
+  // a loose primitive is building material, not a combatant, and never joined this ladder.
+  // ⭐ Owner R77: "melee goblin - 2 atk, 1 pierce, 1hp 2 def".
+  def: GOBLIN_MELEE_DEF,
+  atk: GOBLIN_MELEE_ATK,
+  pen: GOBLIN_MELEE_PEN,
   lifetimeTicks: GOBLIN_LIFETIME_TICKS,
   spawnTicks: 30, // 0.5 s materialize — a swarm-scale unit, not a 1 s godly reveal
   despawningTicks: 30,
@@ -354,7 +431,7 @@ export const GOBLIN_MELEE_CONFIG: CreatureConfig = {
   attackFireTick: GOBLIN_ATTACK_FIRE_TICK,
   attackChargeEngageTick: 0, // no charge-up tell: it just swings
   persistent: true,
-  chewHits: 0, // NOT the chew path — see the docblock above
+  chewsConnectors: false, // NOT the chew path — see the docblock above
   hopSpeedMul: 0.7,
   maxAccel: GOBLIN_MAX_ACCEL,
   selfExplode: false,

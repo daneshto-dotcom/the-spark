@@ -41,9 +41,14 @@ import {
   STINK_DEATH_BLAST_PER_BAG_RADIUS,
   STINK_DEATH_BLAST_SHARDS,
   STINK_TOWER_BAGS,
+  STINK_BAG_ATK,
+  STINK_BAG_PEN,
+  STINK_DEATH_BLAST_ATK,
+  STINK_DEATH_BLAST_PEN,
 } from '../../constants.ts';
 import type { PlayerId, Vec2 } from '../../types.ts';
 import type { DamageSource } from '../damage.ts';
+import { attackFifths } from '../stats.ts';
 import { mix32, pseudoRand } from '../rng.ts';
 import type { World } from '../worldTypes.ts';
 import type { Defender } from './defender.ts';
@@ -59,7 +64,10 @@ export type RadialDamageFn = (
   cx: number,
   cy: number,
   radius: number,
-  amount: number,
+  /** On the 1000-per-shape scale. */
+  primitiveAmount: number,
+  /** On the stat ladder, in fifths — see `state/stats.ts`. NOT interchangeable with the above. */
+  unitAmountFifths: number,
   source: DamageSource,
   sparePlayerId: PlayerId | null,
 ) => unknown;
@@ -129,7 +137,13 @@ export function stinkDeathBlast(world: World, d: Defender, radialDamage: RadialD
     pos: { x: d.pos.x, y: d.pos.y },
     radius,
   });
-  radialDamage(world, d.pos.x, d.pos.y, radius, damage, 'hazard', d.ownerPlayerId);
+  // S151 P2 — the detonation hits UNITS hard (a laser-weight 6 ATK); it is a one-off death blast,
+  // not the tower's chip damage, so it is the one stink effect that is not on the bag's 1 ATK.
+  radialDamage(
+    world, d.pos.x, d.pos.y, radius,
+    damage, attackFifths(STINK_DEATH_BLAST_ATK, STINK_DEATH_BLAST_PEN),
+    'hazard', d.ownerPlayerId,
+  );
 }
 
 /**
@@ -148,7 +162,14 @@ export function stinkThrowBag(world: World, d: Defender, at: Vec2, radialDamage:
     pos: { x: at.x, y: at.y },
     radius: STINK_BAG_RADIUS,
   });
-  radialDamage(world, at.x, at.y, STINK_BAG_RADIUS, STINK_BAG_DAMAGE, 'hazard', d.ownerPlayerId);
+  // ⭐ S151 P2 — the bag finally deals what the roster says it deals. Its `atk` has been 1 since
+  // S148 ("the AREA weapon … giving it single-target punch would make it strictly better than both")
+  // but the splash was passing STINK_BAG_DAMAGE = 150 to creatures, which one-shot everything.
+  radialDamage(
+    world, at.x, at.y, STINK_BAG_RADIUS,
+    STINK_BAG_DAMAGE, attackFifths(STINK_BAG_ATK, STINK_BAG_PEN),
+    'hazard', d.ownerPlayerId,
+  );
   return true;
 }
 
@@ -167,7 +188,11 @@ export function stinkAuraTick(world: World, d: Defender, radialDamage: RadialDam
   if (!stinkIsDepleted(d)) return false;
   const phase = (d.id as unknown as number) % DOT_CADENCE_TICKS;
   if (world.tick % DOT_CADENCE_TICKS !== phase) return false;
-  radialDamage(world, d.pos.x, d.pos.y, STINK_AURA_RADIUS, STINK_AURA_DAMAGE, 'aura', d.ownerPlayerId);
+  radialDamage(
+    world, d.pos.x, d.pos.y, STINK_AURA_RADIUS,
+    STINK_AURA_DAMAGE, attackFifths(STINK_BAG_ATK, STINK_BAG_PEN),
+    'aura', d.ownerPlayerId,
+  );
   return true;
 }
 

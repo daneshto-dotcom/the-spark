@@ -688,5 +688,8 @@ export function makeBond(
     restLength,
     stiffnessTier,
     createdTick: world.tick,
+    // S151 P2 (R76) — a fresh connector is undamaged. Durability is NOT stored: it is derived from
+    // the component's live connector count every time it is needed (`connectorCapacityFifths`).
+    damageFifths: 0,
   };
 }

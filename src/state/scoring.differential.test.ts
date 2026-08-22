@@ -148,7 +148,7 @@ function randWorld(seed: number): World {
     const b = pick(prims);
     if (a.id === b.id) continue;
     const id = asBondId(idc++);
-    w.bonds.set(id, { id, aId: a.id, bId: b.id, a, b, restLength: 30, stiffnessTier: 'MID', createdTick: 0 });
+    w.bonds.set(id, { id, aId: a.id, bId: b.id, a, b, restLength: 30, stiffnessTier: 'MID', createdTick: 0, damageFifths: 0 });
     a.bonds.add(id);
     b.bonds.add(id);
   }
@@ -213,7 +213,7 @@ describe('S117 P1 (F1a) — computeAllComplexities is BIT-EXACT vs the per-playe
     for (let i = 0; i < prims.length; i++) {
       for (let j = i + 1; j < prims.length; j++) {
         const id = asBondId(bid++);
-        w.bonds.set(id, { id, aId: prims[i].id, bId: prims[j].id, a: prims[i], b: prims[j], restLength: 30, stiffnessTier: 'MID', createdTick: 0 });
+        w.bonds.set(id, { id, aId: prims[i].id, bId: prims[j].id, a: prims[i], b: prims[j], restLength: 30, stiffnessTier: 'MID', createdTick: 0, damageFifths: 0 });
       }
     }
     expect(computeAllComplexities(w).get(owner) ?? 0).toBe(referenceComplexity(w, owner));

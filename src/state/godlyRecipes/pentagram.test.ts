@@ -73,6 +73,7 @@ function addBond(world: World, id: number, aId: number, bId: number): void {
     b,
     restLength: 50,
     stiffnessTier: 'MID',
+    damageFifths: 0,
     createdTick: 0,
   };
   world.bonds.set(bond.id, bond);

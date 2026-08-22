@@ -31,7 +31,8 @@ import { CREATURE_CONFIGS, getCreatureConfig } from './voltkin-config.ts';
 import { asPlayerId, asPrimitiveId } from '../../types.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import type { Controls } from '../../input/controls.ts';
-import {
+import { unitPoolFifths } from '../stats.ts';
+import { CHEWER_HP,
   GOBLIN_DAMAGE_VS_PRIMITIVE,
   GOBLIN_MELEE_HP,
   PRIMITIVE_MAX_HP,
@@ -280,10 +281,10 @@ describe('S139 P2 — config + the owner\'s "6 attacks" rule', () => {
     expect(CREATURE_CONFIGS.goblinMelee.type).toBe('goblinMelee');
   });
 
-  it('takes the VOLTKIN cadence path, not the chew path (chewHits === 0)', () => {
+  it('takes the VOLTKIN cadence path, not the gnaw path (chewsConnectors === false)', () => {
     // A.0b: the chew branch handles ONLY bonds and bounces out of ATTACKING when targetBondId is
     // null, so a chewHits>0 goblin would never reach its attackFireTick.
-    expect(getCreatureConfig('goblinMelee').chewHits).toBe(0);
+    expect(getCreatureConfig('goblinMelee').chewsConnectors).toBe(false);
   });
 
   it('SIX strikes fell a full-hp shape, and five do NOT (the owner\'s rule, both directions)', () => {
@@ -293,9 +294,28 @@ describe('S139 P2 — config + the owner\'s "6 attacks" rule', () => {
     expect(Number.isInteger(GOBLIN_DAMAGE_VS_PRIMITIVE)).toBe(true);
   });
 
-  it('SIX single-target hits fell a goblin (the same rule on the creature hp scale)', () => {
-    expect(GOBLIN_MELEE_HP).toBe(6);
+  /**
+   * ⭐ S151 P2 — THE OWNER OVERTURNED THIS RULE, so the test records the overturning rather than
+   * quietly disappearing.
+   *
+   * It used to assert SIX hits, from the S139 spec *"takes them 6 attacks to destroy a connector or
+   * a UNIT"*. Owner R70 replaced the unit half outright: *"why is goblin 6 hp he should be as weak
+   * as chewer"*. The CONNECTOR half of that sentence was overturned separately by R76, which moved
+   * connector durability off the attacker entirely.
+   *
+   * ⚠ The goblin's damage against a SHAPE still honours the original six — `GOBLIN_DAMAGE_VS_PRIMITIVE`
+   * is asserted just above and is unchanged. Shapes are building material, not combatants, and never
+   * joined the stat ladder.
+   */
+  it("⭐ a goblin has a CHEWER'S HIT POINTS (R70) but its own DEF (R77)", () => {
+    expect(GOBLIN_MELEE_HP).toBe(CHEWER_HP);
     expect(getCreatureConfig('goblinMelee').hp).toBe(GOBLIN_MELEE_HP);
+    // ⚠ BUT NOT AN IDENTICAL EFFECTIVE POOL — owner R77 then gave the melee goblin 2 DEF against the
+    // chewer's 0. Both rulings stand because they act on DIFFERENT STATS: R70 set its hit points,
+    // R77 set its defence. That separation is exactly what having a stat SYSTEM buys, and before
+    // S151 it was impossible to express — there was only one number per unit.
+    expect(unitPoolFifths(getCreatureConfig('goblinMelee').hp, getCreatureConfig('goblinMelee').def))
+      .toBeGreaterThan(unitPoolFifths(getCreatureConfig('chewer').hp, getCreatureConfig('chewer').def));
   });
 
   it('is exempt from the canvas-centre repulse, like the chewer', async () => {

@@ -65,14 +65,13 @@ import {
   type Payment,
 } from './blueprintBuild.ts';
 import { canBuildNow } from './buildLegality.ts';
-import { getDefenderConfig } from './defenders/defender.ts';
 import { detectComboDiscoveries } from './comboDiscovery.ts';
 import { destroyDefender } from './damage.ts';
 import { makeBond } from './placePrimitive.ts';
 import { razePrimitives } from './razePrimitives.ts';
 import type { Defender } from './defenders/defender.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
-import type { PlayerId, PrimitiveId, Vec2 } from '../types.ts';
+import type { BondId, PlayerId, PrimitiveId, Vec2 } from '../types.ts';
 import type { World } from './world.ts';
 
 /**
@@ -201,13 +200,13 @@ export interface RepairPlan {
   /** Resolved funding for `cost`, or null when the seat is short. */
   readonly payments: readonly Payment[] | null;
   /**
-   * How many surviving members are below full hp — the free half of the repair.
+   * How many surviving members are below full health — the free half of the repair.
    *
-   * ⚠ COUNTS THE DEFENDER TOO, and that is not a rounding-up of the number. `Primitive.hp` and
-   * `Defender.hp` are two SEPARATE health pools on the same tower: `damageEntity` has a distinct
-   * arm for each, and a tower can sit at 1 defender-hp with all seven shapes at full health. Left
-   * out, FIX would read "NOTHING TO FIX" on a tower that is one hit from dead — the exact case the
-   * owner would report as the button being broken.
+   * ⚠ COUNTS DAMAGED CONNECTORS TOO, and that is not a rounding-up of the number. S151 P2 (owner
+   * R75) removed the tower's own hp pool: a structure's durability now lives on its BONDS. A tower
+   * can therefore sit with all seven shapes at full hp and every connector one hit from snapping.
+   * Left out, FIX would read "NOTHING TO FIX" on a tower that is one hit from collapse — the exact
+   * case the owner would report as the button being broken.
    */
   readonly damagedCount: number;
   /** Blueprint bonds that no longer exist between two SURVIVING members (strain breaks, severs). */
@@ -245,8 +244,15 @@ export function planStructureRepair(
     const p = world.primitives.get(id);
     if (p !== undefined && p.hp < PRIMITIVE_MAX_HP) damagedCount++;
   }
-  for (const d of defendersAnchoredIn(world, new Set(memberIds))) {
-    if (d.hp < getDefenderConfig(d.kind).hp) damagedCount++;
+  // ⭐ S151 P2 (owner R75/R76) — COUNT DAMAGED CONNECTORS, NOT A TOWER HP POOL.
+  // The old code counted a defender sitting below `config.hp`. Towers no longer HAVE hit points —
+  // their durability is their connectors' — so the equivalent "this tower is hurt but standing"
+  // signal is a bond inside the structure carrying accumulated damage. Without this, FIX would read
+  // "NOTHING TO FIX" on a tower one hit from collapse, which is exactly the broken-button report the
+  // original comment here was written to prevent.
+  for (const bondId of bondIdsWithin(world, new Set(memberIds))) {
+    const b = world.bonds.get(bondId);
+    if (b !== undefined && b.damageFifths > 0) damagedCount++;
   }
 
   let missingBondCount = 0;
@@ -378,11 +384,14 @@ export function applyRepairStructure(world: World, action: RepairStructureAction
     const p = world.primitives.get(id);
     if (p !== undefined) p.hp = PRIMITIVE_MAX_HP;
   }
-  // The tower's OWN health pool, which is a different number from its shapes' (see `damagedCount`).
-  // Restored from the kind's config rather than a captured maximum, so a later stat rebalance (R30)
-  // moves the repair ceiling with it instead of quietly healing to a stale figure.
-  for (const d of defendersAnchoredIn(world, new Set(byNode.values()))) {
-    d.hp = getDefenderConfig(d.kind).hp;
+  // ⭐ S151 P2 (owner R76) — HEAL THE CONNECTORS. This replaces restoring a tower hp pool that no
+  // longer exists. Clearing accumulated damage restores FULL durability rather than a captured
+  // maximum, because capacity is DERIVED from the live connector count — so a structure repaired
+  // after losing shapes correctly comes back tougher only once its connectors are rebuilt, not
+  // before. Nothing to rebalance-drift against: there is no stored ceiling to go stale.
+  for (const bondId of bondIdsWithin(world, new Set(byNode.values()))) {
+    const b = world.bonds.get(bondId);
+    if (b !== undefined) b.damageFifths = 0;
   }
 
   // ── ARM THE MATCHER ─────────────────────────────────────────────────────────────────────────
@@ -433,7 +442,7 @@ export function applyScrapStructure(world: World, action: ScrapStructureAction):
 
   // 1 — stand down anything anchored on a doomed shape, WHILE IT STILL STANDS. Ascending id so the
   //     traversal is identical on host and worker regardless of map insertion history.
-  for (const d of defendersAnchoredIn(world, doomed)) destroyDefender(world, d, 'recipeBreak');
+  for (const d of defendersAnchoredIn(world, doomed)) destroyDefender(world, d);
 
   // 2 — REFUND. One shape per surviving member, read from the SAME captured list step 3 razes, so
   //     there is no second read that could disagree with the first. This loop IS R21.
@@ -576,4 +585,17 @@ function bondExistsBetween(world: World, aId: PrimitiveId, bId: PrimitiveId): bo
     if (bond.aId === bId || bond.bId === bId) return true;
   }
   return false;
+}
+
+/**
+ * S151 P2 — every bond whose BOTH endpoints are inside `memberIds`, i.e. the structure's own
+ * connectors. Scoped to the member set rather than to a component so a repaired tower never heals a
+ * neighbouring structure it happens to be bonded to.
+ */
+function bondIdsWithin(world: World, memberIds: ReadonlySet<PrimitiveId>): BondId[] {
+  const out: BondId[] = [];
+  for (const [id, b] of world.bonds) {
+    if (memberIds.has(b.aId) && memberIds.has(b.bId)) out.push(id);
+  }
+  return out;
 }

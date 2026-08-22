@@ -48,6 +48,7 @@ function bond(w: World, a: Primitive, b: Primitive): void {
   const bd: Bond = {
     id: asBondId(nextBond++), aId: a.id, bId: b.id, a, b,
     restLength: 30, stiffnessTier: 'MID', createdTick: 0,
+    damageFifths: 0,
   };
   w.bonds.set(bd.id, bd);
   a.bonds.add(bd.id);
@@ -126,7 +127,7 @@ describe('S141 P1 — the stink-tower predicate', () => {
     w.defenders.set(asPrimitiveId(0) as never, {
       id: asPrimitiveId(0) as never, kind: 'turret', ownerPlayerId: P0, anchorPrimitiveId: hub,
       recipeId: 'laserTurret', pos: { x: 0, y: 0 }, prevPos: { x: 0, y: 0 }, walkTargetPos: null,
-      state: 'IDLE', ticksInState: 0, hp: 1, bagsRemaining: 0,
+      state: 'IDLE', ticksInState: 0, bagsRemaining: 0,
       nextFireTick: 0, targetCreatureId: null, lastStrikePos: null,
     });
     expect(stinkTowerPredicate(w, { x: 0, y: 0 })).toBeNull();

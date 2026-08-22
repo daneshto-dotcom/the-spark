@@ -462,6 +462,7 @@ describe('pentagram BUILDABILITY via the REAL placement pipeline', () => {
         restLength: 50,
         stiffnessTier: 'MID' as const,
         createdTick: 0,
+        damageFifths: 0,
       };
       world.bonds.set(bondId, bond);
       a.bonds.add(bondId);

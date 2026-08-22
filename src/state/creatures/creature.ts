@@ -21,6 +21,7 @@
 import type { BondId, PlayerId, PrimitiveId, Vec2, SpawnerId } from '../../types.ts';
 import type { CreatureId } from '../../types.ts';
 import { VOLTKIN_CONFIG, type CreatureConfig } from './voltkin-config.ts';
+import { unitPoolFifths } from '../stats.ts';
 
 export { asCreatureId, type CreatureId } from '../../types.ts';
 
@@ -288,16 +289,25 @@ export interface Creature {
    */
   chewProgress: number;
   /**
-   * S102 (unified HP model, owner correction OC2) — remaining single-target
-   * hit-points. Defaulted from `config.hp` by `makeCreature` (chewer 1, Voltkin 2).
-   * A "hit" (player RAID, Voltkin zap on a chewer, laser beam, HELGA slap) decrements
-   * this by 1 via `damageCreature` (S102 P3); at hp ≤ 0 the creature despawns with a
-   * death VFX (chewer → green goo; Voltkin → lightning-cloud). AoE (potato) passes a
-   * lethal amount through the same path. Mutable. ROUND-TRIPPED through host save/load
-   * (additive-optional; a pre-S102 save rehydrates hp to the config default) so a
-   * damaged creature survives a save (the SerializedBomb / chewProgress precedent).
+   * ⭐ S151 P2 — REMAINING EFFECTIVE HIT POINTS, **IN FIFTHS**. Renamed from `hp`, and the rename is
+   * load-bearing rather than cosmetic.
+   *
+   * Owner R72 put HP and DEF on one ladder, where a unit's pool is `hp × (1 + 0.2·DEF)`. Since DEF
+   * steps by fifths, the runtime pool has to be stored in fifths for the arithmetic to stay exact —
+   * so this field holds `unitPoolFifths(config.hp, config.def)` (chewer 1×5 = 5, Voltkin 8×5 = 40).
+   *
+   * ⛔ **WHY IT COULD NOT KEEP THE NAME `hp`.** The field kept its type and its position on the wire
+   * while its UNIT changed — a v28 peer reading `hp: 40` would see forty hit points where a v29 host
+   * means eight. Same name, same type, different meaning is the failure mode a version bump alone
+   * does not make visible to a reader, and both Council seats flagged it independently. Renaming
+   * turns every unconverted call site into a COMPILE error instead of a silent forty-fold buff.
+   *
+   * A "hit" (player RAID, Voltkin zap, laser beam, HELGA slap) subtracts `attackFifths(atk, pen)`
+   * via `damageCreature`; at ≤ 0 the creature despawns with its death VFX (chewer → green goo;
+   * Voltkin → lightning-cloud). Mutable. ROUND-TRIPPED through host save/load, emitted only when
+   * damaged (see `serializeCreature`).
    */
-  hp: number;
+  ehp: number;
   /**
    * S109 P2 — tick until which a seagull-pooped creature crawls at POOP_SLOW_MULTIPLIER speed
    * ("still in effect but slowed if poop hits them"). undefined / past = not slowed (self-heals
@@ -354,7 +364,9 @@ export function makeCreature(
     despawnAtTick: args.spawnedAtTick + config.lifetimeTicks,
     sourceSpawnerId: args.sourceSpawnerId ?? null,
     chewProgress: 0,
-    hp: config.hp, // S102 — chewer 1 / Voltkin 2 (unified HP model)
+    // S151 P2 — the pool is HP POINTS x the DEF multiplier, in fifths. def is 0 across the
+    // shipped roster, so this is exactly the old hit count x5 and every kill count is unchanged.
+    ehp: unitPoolFifths(config.hp, config.def),
   };
 }
 

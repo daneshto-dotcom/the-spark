@@ -50,6 +50,7 @@ function makeBond(id: number, aId: number, bId: number): Bond {
     b: { pos, prevPos },
     restLength: 50,
     stiffnessTier: 'MID',
+    damageFifths: 0,
     createdTick: 0,
   };
 }

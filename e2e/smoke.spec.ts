@@ -72,7 +72,7 @@ import {
 // 23→24 bump while the number read 25). A comment that names ONE historic bump rots at the next
 // one by construction, so it now names the invariant instead: this must equal
 // `src/net/protocol.ts`'s PROTOCOL_VERSION, and `protocolVersionSync.test.ts` enforces the pair.
-const LOCAL_PROTO_V = 28; // S150 R71 — 27 → 28 (VOLTKIN_HP 2→8; creature hp is omitted when undamaged, so the constant is shared)
+const LOCAL_PROTO_V = 29; // S151 P2 — 28 → 29 (THE STAT SYSTEM: Creature.hp→ehp in fifths, Defender.hp removed, Bond.damageFifths added, GOBLIN_MELEE_HP 6→1)
 const NEWER_PEER_V = LOCAL_PROTO_V + 1;
 
 /**

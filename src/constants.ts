@@ -1239,8 +1239,16 @@ export const POOP_PICKUP_ARRIVAL_RADIUS = 36;
 // 8× leap past anything the sync/perf substrate has been load-tested against — raise only
 // after a measured playtest, §3.3 R1).
 export const SPAWN_INTERVAL_TICKS = 900; // 15 s @ 60 Hz — chewer emit cadence (user's number)
-export const CHEW_HITS = 5; // chews to sever one connector (user's number; = CHEWER_CONFIG.chewHits)
-export const CHEW_INTERVAL_TICKS = 60; // 1 s/hit → CHEW_HITS × this = 5 s/connector (user's number)
+/*
+ * ⛔ S151 P2 (owner R76) — `CHEW_HITS` (5) IS DELETED. It said "five bites sever one connector",
+ * which made a CONNECTOR'S DURABILITY a property of the ATTACKER — the same inversion owner R72
+ * objected to in the goblin. It also meant every bond in the game was equally tough, whether it was
+ * half of a loose pair or one strut of a forty-connector fortress, so complexity bought a builder
+ * nothing. Durability now lives on the connector: `Bond.damageFifths` measured against
+ * `stats.connectorCapacityFifths(count)` = `count + 4` fifths. How fast a chewer gets through it is
+ * simply its `atk`.
+ */
+export const CHEW_INTERVAL_TICKS = 60; // 1 s per bite — the gnaw CADENCE (its damage is the chewer's atk)
 // S104 P1 — the REAL "constantly produce more every ~15s" fix is the chewer's now-FINITE lifetime
 // (voltkin-config.ts: persistent:false + lifetimeTicks), NOT a big cap raise. Once a chewer ages
 // out and despawns, the spawner's cadence refills the slot — so the population CHURNS instead of
@@ -1282,7 +1290,13 @@ export const CHEWER_MAX_PER_VICTIM = 3; // one swarm can't fully strip a single 
 // Creature death VFX: chewer -> green-goo splat; Voltkin -> discombobulated lightning-cloud (P3).
 // ⚠ DOCUMENTATION SHORTHAND, NOT A MECHANISM — zero code consumers (S139 P1, verified by grep:
 // every reference in src/ is a prose comment). The live ceiling is `CREATURE_CONFIGS[t].chewHits`.
-export const CONNECTOR_HP = CHEW_HITS; // 5 — reads as "a connector withstands 5 chews"
+/*
+ * ⛔ S151 P2 — `CONNECTOR_HP` IS DELETED, and it is worth saying why it existed at all: it was
+ * documentation shorthand with ZERO code consumers (S139 verified by grep — every reference was a
+ * prose comment) for a mechanism that did not exist, because a Bond had no hp field. It now does,
+ * and it is real: see `Bond.damageFifths`. A constant that reads like the mechanism but drives
+ * nothing is how the S137 "5% per tick" footgun happened; this one is replaced rather than renamed.
+ */
 export const CHEWER_HP = 1; // a pencil chewer dies in 1 single-target hit (raid / Voltkin / laser / slap)
 /**
  * ⭐ S150 R71 — 2 → 8. THE GODLY CREATURE WAS THREE TIMES FLIMSIER THAN A GRUNT.
@@ -1305,6 +1319,58 @@ export const CHEWER_HP = 1; // a pencil chewer dies in 1 single-target hit (raid
  * would disagree about when it dies. See the 27→28 entry in `net/protocol.ts`.
  */
 export const VOLTKIN_HP = 8; // a godly Voltkin takes 3 HELGA slaps — tougher than a goblin (6)
+/* ────────────────────────────────────────────────────────────────────────────────────────────── *
+ *  ⭐ S151 P2 — THE OWNER'S UNIT STAT TABLE (R77), TRANSCRIBED
+ * ────────────────────────────────────────────────────────────────────────────────────────────── *
+ *
+ * Owner R77 supplied HP / ATK / DEF / PEN for the whole roster outright: *"i can already give you hp
+ * and def of all units so you wont be so confused."* Every number below is theirs. Nothing here is
+ * derived from anything else — which is the entire point of R72.
+ *
+ * ⭐ AND THE OWNER'S OWN ARITHMETIC CONFIRMS THE FIFTHS MODEL. For the chewer they wrote
+ * *"1 atk 2 pierce, 1hp, 0 def. so 1x1.4 offence, and 1 def"*. Our formula gives
+ * `attackFifths(1, 2) = 1 x (5+2) = 7` fifths = 1.4, and `unitPoolFifths(1, 0) = 5` fifths = 1.0.
+ * Both match exactly, derived independently.
+ */
+/** Chewer — "1 atk 2 pierce, 1hp, 0 def". HP lives in CHEWER_HP above. */
+export const CHEWER_ATK = 1;
+export const CHEWER_PEN = 2;
+export const CHEWER_DEF = 0;
+/** Melee goblin — "2 atk, 1 pierce, 1hp 2 def". HP lives in GOBLIN_MELEE_HP below. */
+export const GOBLIN_MELEE_ATK = 2;
+export const GOBLIN_MELEE_PEN = 1;
+export const GOBLIN_MELEE_DEF = 2;
+/**
+ * Electric drone — "5 damage(atk) and 1 pierce in an area of effect (suicide drones) … 2hp, 0 def".
+ * ⚠ THE AoE SHAPE OF ITS ATTACK IS NOT IMPLEMENTED YET — today the drone detonates via DRONE_EXPLODE,
+ * which SEVERS bonds outright rather than dealing this atk in a radius. Recorded as scope, not
+ * silently absorbed: see the S151 P2 close-out notes.
+ */
+export const DRONE_HP = 2;
+export const DRONE_ATK = 5;
+export const DRONE_PEN = 1;
+export const DRONE_DEF = 0;
+/**
+ * HELGA — "4atk, 4pierce, 6hp, 4 def", and listed by the owner under *"those are all spawned
+ * units"*. She is therefore a UNIT carrying her own durability, not an emplacement drawing it from
+ * connectors — see `DefenderConfig.unitStats`.
+ */
+export const PRINCESS_ATK = 4;
+export const PRINCESS_PEN = 4;
+export const PRINCESS_HP = 6;
+export const PRINCESS_DEF = 4;
+/**
+ * VOLTKIN — "3 atk (chain lightning …) 6 pierce. 8hp, and 3 def". HP lives in VOLTKIN_HP above
+ * (unchanged at 8 since owner R71).
+ * ⚠ CHAIN LIGHTNING IS NOT IMPLEMENTED — the owner describes it hitting *"multiple
+ * connectors/targets that are within range of one another … maybe we do max6"*. Today a Voltkin
+ * zaps ONE target. Recorded as scope.
+ */
+export const VOLTKIN_ATK = 3;
+export const VOLTKIN_PEN = 6;
+export const VOLTKIN_DEF = 3;
+/** Owner's suggested ceiling for the chain, held here so the future implementation has a number. */
+export const VOLTKIN_CHAIN_MAX_TARGETS = 6;
 export const RAID_CREATURE_DAMAGE = 1; // a player raid (right-click a creature) deals 1 (P3)
 // S103 #8 — single-target creature-vs-creature / defender-vs-creature hit. A Voltkin zap on a
 // chewer, a laser beam (P3), and HELGA's slap (P4) all deal this through the SAME `damageCreature`
@@ -1409,7 +1475,22 @@ export const GOBLIN_DAMAGE_VS_PRIMITIVE = 167; // 6 × 167 = 1002 ≥ PRIMITIVE_
 // Unit-vs-unit runs on the OTHER hp scale. Creature hp is a hit COUNT (CHEWER_HP 1, VOLTKIN_HP 8)
 // and every single-target hit deals CREATURE_HIT_DAMAGE = 1, so "6 attacks to destroy a UNIT" is
 // expressed as the goblin's own hp being 6. Two scales, one owner-visible rule, all integers.
-export const GOBLIN_MELEE_HP = 6; // 6 × CREATURE_HIT_DAMAGE(1) — the owner's "6 attacks" for a unit
+/**
+ * ⭐ S151 P2 — 6 → 1. THE GOBLIN STOPS BEING THE BACKBONE, AND BECOMES CHEWER-FRAGILE.
+ *
+ * Owner R70: *"why is goblin 6 hp he should be as weak as chewer"*.
+ *
+ * ⚠ THIS EDIT WAS BLOCKED FOR A WHOLE SESSION, AND THE BLOCKER WAS THE DEFECT. S150 correctly refused
+ * to change this number in isolation, because HELGA's slap and the LASER's beam were both DERIVED
+ * from it — dropping the goblin would have silently nerfed both against every creature in the game.
+ * S150 recorded that as "a constraint to respect". Owner R72 identified it as the thing to delete:
+ * *"a goblins power should not be the backbone for the whole stat system."* With those derivations
+ * gone (see `PRINCESS_SLAP_ATK` / `TURRET_BEAM_ATK`), this is finally a one-number change again.
+ *
+ * Now an HP POINT on the shared 1..12 ladder (`state/stats.ts`), not a private hit count: with DEF 0
+ * its pool is 1 × (5+0) = 5 fifths, identical to a chewer's, which is exactly what R70 asked for.
+ */
+export const GOBLIN_MELEE_HP = 1; // R70 — as fragile as a chewer (was 6, and was the damage backbone)
 export const GOBLIN_ATTACK_CADENCE_TICKS = 60; // 1 s per swing — the Voltkin ATTACKING→SEEKING bounce
 export const GOBLIN_ATTACK_FIRE_TICK = 30; // damage lands mid-cycle (Voltkin's shipped fire tick)
 export const GOBLIN_ATTACK_RANGE = 35; // true melee — same as the chewer, closes onto its target
@@ -1426,51 +1507,71 @@ export const GOBLIN_LIFETIME_TICKS = 60 * 60 * 60; // 60 min — effectively mat
 // ⚠ FIRST-PASS BALANCE. Nothing in the game deals damage to a defender yet, so these numbers are
 // unvalidated by play. They are tuned in the starters session, alongside the attacker that first
 // exercises them — see the S138 carry-forward on authoring damage as totals over seconds.
-export const TURRET_DEFENDER_MAX_HP = 3000; // a heavy emplacement — 3 primitives' worth
-export const PRINCESS_DEFENDER_MAX_HP = 2000; // mobile and lighter than the turret
+/*
+ * ⛔ S151 P2 — `TURRET_DEFENDER_MAX_HP` (3000) AND `PRINCESS_DEFENDER_MAX_HP` (2000) ARE DELETED.
+ *
+ * Owner R75: *"towers have attack and piercing but not def and hp because they are based on the
+ * connectors that build them. its the connectors that have different hp and def (think about it)."*
+ *
+ * ⭐ THIS IS A REVERSION TO THE ORIGINAL DESIGN INTENT, NOT A NEW IDEA. Defenders shipped with
+ * `DEFENDER_HP = 1e9` — a sentinel whose entire meaning was *"defenders die by recipe-break, not
+ * damage (v1)"*. S138 cashed that sentinel in for real hit points, and the comment it shipped with
+ * said plainly: *"⚠ FIRST-PASS BALANCE. Nothing in the game deals damage to a defender yet, so these
+ * numbers are unvalidated by play."* They were never validated, because nothing ever attacked a
+ * tower directly. R75 removes the bolt-on and puts durability back where the structure actually
+ * lives: in its bonds (`physics/bonds.ts` `damageFifths`, `state/stats.ts`
+ * `connectorCapacityFifths`).
+ *
+ * A tower is therefore killed by breaking the connectors that hold its recipe together — which is
+ * what `REMOVE_DEFENDER` recipe-revalidation has always done anyway, and is now the ONLY way.
+ */
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────── *
- *  ⭐ S148 P2 — PER-KIND DEFENDER DAMAGE. THE FIX FOR "MY LASER DID NO DAMAGE".
+ *  ⭐ S151 P2 — TOWER ATK / PEN. THE GOBLIN IS NO LONGER THE BACKBONE OF THE DAMAGE SCALE.
  * ────────────────────────────────────────────────────────────────────────────────────────────── *
  *
- * ⛔ THE DEFECT THIS REPLACES. Every defender strike dealt the SHARED `CREATURE_HIT_DAMAGE = 1`,
- * for every kind, at one call site. Creature hp is a HIT COUNT on its own scale (chewer 1,
- * Voltkin 2, goblin 6), so the consequences were:
+ * Owner R72: *"a goblins power should not be the backbone for the whole stat system - there should
+ * be a system in place that we define."*
  *
- *   · HELGA needed SIX slaps to kill one goblin. The owner counted five and it was still alive.
- *   · The laser turret ALSO dealt 1 — while its own comment calls it *"a slow heavy beam"*. Against
- *     a creature it was indistinguishable from a slap. That is the "my laser did like no damage"
- *     playtest report, and it was accurate.
- *   · **No weapon in the game could be stronger than any other.** A roster of three towers where
- *     every tower hits identically is not a roster, and no amount of hp/range tuning fixes it.
+ * ⛔ THE DEFECT THIS REPLACES — and it is the S148 fix's own success turned into a liability. S148
+ * gave each tower its own damage number, which was right, but expressed TWO of them as functions of
+ * one grunt's hit points:
  *
- * The goblin was not overtuned: `GOBLIN_MELEE_HP = 6` is a faithful reading of the owner's own
- * "6 attacks to destroy a connector or a UNIT" rule. Nobody ever checked that rule against the
- * DEFENDER side, so the goblin arrived 6× tougher than a Voltkin against every weapon at once.
+ *     PRINCESS_SLAP_DAMAGE_VS_CREATURE = max(1, round(GOBLIN_MELEE_HP / 2))   // 3
+ *     TURRET_BEAM_DAMAGE_VS_CREATURE   = GOBLIN_MELEE_HP                      // 6
  *
- * ⚠ THE NUMBERS ARE PINNED BY RELATIONSHIP, NOT BY LITERAL. `defenderDamage.test.ts` asserts
- * "HELGA fells a goblin in 2", "the laser fells one in 1" and "the laser is the strongest
- * single-target weapon" — so a later rebalance can move these freely but cannot silently invert the
- * roster's ORDER, which is the property that was broken. Deriving them from `GOBLIN_MELEE_HP` keeps
- * the arithmetic honest if the goblin's toughness ever moves.
+ * The S148 comment defended this as keeping "the arithmetic honest if the goblin's toughness ever
+ * moves". It did the opposite: it meant the goblin's toughness could NOT move. Owner R70 asked for a
+ * weaker goblin and the derivation silently re-tuned HELGA and the LASER against every creature in
+ * the game. A balance lever that moves three unrelated numbers is not a lever, it is a trap.
+ *
+ * ⭐ THE NUMBERS BELOW ARE THE SAME 6 / 3 / 1 THAT SHIPPED. Nothing about tower-vs-unit balance
+ * changes in this priority — only where the numbers COME FROM. They are now stated outright, on the
+ * shared 1..12 ATK ladder (`state/stats.ts`), derived from nothing.
+ *
+ * ⚠ TOWERS HAVE NO HP AND NO DEF (owner R75) — *"towers have attack and piercing but not def and hp
+ * because they are based on the connectors that build them"*. `TURRET_DEFENDER_MAX_HP` and
+ * `PRINCESS_DEFENDER_MAX_HP` are DELETED, not moved. A tower's durability is its connectors'.
  */
+/* ⛔ S151 P2 — `PRINCESS_SLAP_ATK` (3) removed: it was a Claude placeholder that reproduced the
+ * shipped damage, and owner R77 superseded it outright with HELGA's real numbers (4 atk / 4 pen).
+ * See `PRINCESS_ATK` below. */
+/** The laser beam — the heavy single-target weapon, and the top of the roster. */
+export const TURRET_BEAM_ATK = 6;
 /**
- * HELGA's slap — two slaps fell a goblin. She is the fast, close, mid-damage answer.
- *
- * ⚠ `Math.round` IS LOAD-BEARING, NOT DEFENSIVE. `damageEntity` THROWS on a fractional amount
- * (damage.ts's integer guard), so a bare `GOBLIN_MELEE_HP / 2` would be a live crash the moment the
- * goblin's hp became odd — the same trap `GOBLIN_DAMAGE_VS_PRIMITIVE` documents for 1000/6. Rounding
- * here keeps the derivation honest AND integral for any goblin hp.
+ * The stink bag stays at the floor of the ladder ON PURPOSE. It is the AREA weapon: its damage comes
+ * from splashing several targets at once (and from chewing primitives, which neither of the others
+ * does), so giving it single-target punch as well would make it strictly better than both.
  */
-export const PRINCESS_SLAP_DAMAGE_VS_CREATURE = Math.max(1, Math.round(GOBLIN_MELEE_HP / 2)); // 3
-/** The laser beam — ONE beam fells a goblin. It is the heavy single-target weapon and now reads it. */
-export const TURRET_BEAM_DAMAGE_VS_CREATURE = GOBLIN_MELEE_HP; // 6
+export const STINK_BAG_ATK = 1; // ⭐ R77 — a bag deals "1atk 1pierce when destroyed"
 /**
- * The stink bag stays at the shared single-hit value ON PURPOSE. It is the AREA weapon: its damage
- * comes from splashing several targets at once (and from chewing primitives, which neither of the
- * others does), so giving it single-target punch as well would make it strictly better than both.
+ * PENETRATION for all three towers. Zero today, and stated rather than omitted so that the roster
+ * reads as a deliberate row of the matrix instead of an unfinished one. PEN is the lever that lets a
+ * weapon ignore a target's DEF; nothing in the shipped roster needed it yet, and inventing non-zero
+ * values here would be exactly the unvalidated first-pass balance R75 just deleted.
  */
-export const STINK_BAG_DAMAGE_VS_CREATURE = CREATURE_HIT_DAMAGE; // 1
+export const TURRET_BEAM_PEN = 0; // owner R77 gave no turret PEN; unchanged
+export const STINK_BAG_PEN = 1; // ⭐ R77 — was 0
 // Laser turret (#9) — slow + heavy; the windup is shown via 5 rings derived from nextFireTick.
 export const TURRET_FIRE_INTERVAL_TICKS = 1800; // 30 s @ 60 Hz (owner spec: "every 30s")
 export const TURRET_WINDUP_TICKS = 18; // brief pre-beam tell after the long charge completes
@@ -1501,7 +1602,10 @@ export const TURRET_ATTACK_RANGE = 420; // long reach (it's a turret)
 // playtest anyway — it is the single most likely thing to feel wrong.
 export const STINK_TOWER_SIZE = 4; // 1 Square hub + 3 Circle leaves
 export const STINK_TOWER_HUB_DEGREE = 3;
-export const STINK_TOWER_MAX_HP = 1200; // flimsier than either godly tower — it is cheap and early
+/*
+ * ⛔ S151 P2 — `STINK_TOWER_MAX_HP` (1200) IS DELETED, for the same reason as its two siblings.
+ * Owner R75: a tower has no hit points of its own. See the note above `TURRET_FIRE_INTERVAL_TICKS`.
+ */
 // Ammo. Bags are a SERIALIZED count, never derived: throwing is target-gated, so the number thrown
 // is not a pure function of elapsed time, and the analogous spawner counter (`spawnedCount`) resets
 // to 0 on every load — which would refill a derived magazine on every save, host migration and
@@ -1525,6 +1629,14 @@ export const STINK_AURA_RADIUS = 120;
 // killed while full is a bomb; one killed after it has spent its magazine is nearly harmless. That
 // is the whole tactical read: starve it first, or eat the blast.
 export const STINK_DEATH_BLAST_BASE_DAMAGE = 100;
+/**
+ * S151 P2 — the death blast's ATK against UNITS, on the shared ladder. Laser-weight (6) because a
+ * detonation is a one-off event, not the tower's chip damage — the bag and the aura stay at the
+ * area weapon's deliberate 1. Its damage to SHAPES remains on the 1000-scale constants below.
+ */
+export const STINK_DEATH_BLAST_ATK = 1; // ⭐ R77 — the tree "blows up with 1atk and 4pierce"
+/** ⭐ R77 — the death blast's PENETRATION. 4, which is what makes a low-atk blast still bite. */
+export const STINK_DEATH_BLAST_PEN = 4;
 export const STINK_DEATH_BLAST_PER_BAG_DAMAGE = 60; // full 5 bags => 100 + 300 = 400
 export const STINK_DEATH_BLAST_BASE_RADIUS = 110;
 export const STINK_DEATH_BLAST_PER_BAG_RADIUS = 26; // full 5 bags => 110 + 130 = 240

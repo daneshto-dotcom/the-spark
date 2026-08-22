@@ -23,6 +23,7 @@ import {
   PRIMITIVE_MAX_HP,
 } from './constants.ts';
 import { CREATURE_CONFIGS } from './state/creatures/voltkin-config.ts';
+import { attackFifths, connectorCapacityFifths } from './state/stats.ts';
 
 describe('USER-LOCKED constants (LOCKED_DECISIONS.md)', () => {
   it('MEMORY_FOG_COLOR is pure black — LOCKED_DECISIONS.md §14, user decided twice (S63 + S86 round-6)', () => {
@@ -63,15 +64,42 @@ describe('S139 P1 — damage-substrate INVARIANTS (relationships, not values)', 
     expect(Number.isInteger(DOT_CADENCE_TICKS)).toBe(true);
   });
 
-  it('every chewing creature: attackFireTick === chewHits × CHEW_INTERVAL_TICKS', () => {
-    // ⚠ THE COUPLING THAT WAS ONLY A COMMENT. A.0b measured that breaking it makes the sever
-    // dispatch at hostTick.ts:451 never fire: the chew loop caps at chewHits forever with the bond
-    // left intact. Both values are hardcoded literals in voltkin-config.ts, so nothing but this
-    // test connects them. Asserted across ALL configs so a new chewing type inherits the guard.
-    const chewers = Object.entries(CREATURE_CONFIGS).filter(([, c]) => c.chewHits > 0);
-    expect(chewers.length).toBeGreaterThan(0); // else this test would pass vacuously
-    for (const [type, cfg] of chewers) {
-      expect(cfg.attackFireTick, `${type}.attackFireTick`).toBe(cfg.chewHits * CHEW_INTERVAL_TICKS);
+  /**
+   * ⭐ S151 P2 (owner R76) — THIS INVARIANT IS GONE BECAUSE THE COUPLING IT GUARDED IS GONE.
+   *
+   * It used to assert `attackFireTick === chewHits × CHEW_INTERVAL_TICKS`, because a chewer fired
+   * ONCE at the end of a fixed five-bite span and that single strike severed the bond outright — so
+   * if the two literals drifted, the sever dispatch never fired and the chew loop capped forever
+   * with the bond intact.
+   *
+   * Neither half survives. `chewHits` is deleted (it was a CONNECTOR'S durability stored on the
+   * ATTACKER — the same inversion owner R72 objected to in the goblin), and a gnawer now fires on
+   * EVERY bite via the cadence, with the connector deciding when it gives way. The replacement
+   * guard is the one below: the gnaw must be able to make progress at all.
+   */
+  it('every gnawing creature can actually get through a connector (the R76 replacement guard)', () => {
+    const gnawers = Object.entries(CREATURE_CONFIGS).filter(([, c]) => c.chewsConnectors);
+    expect(gnawers.length).toBeGreaterThan(0); // else this test would pass vacuously
+    for (const [type, cfg] of gnawers) {
+      // A bite must deal SOMETHING, or the chewer gnaws forever and the FSM never releases.
+      expect(attackFifths(cfg.atk, cfg.pen), `${type} bite`).toBeGreaterThan(0);
+      // And the cadence must be a positive integer number of ticks, since the fire gate is
+      // `ticksInState % CHEW_INTERVAL_TICKS === 0` — a zero or fractional cadence would either
+      // divide by zero or never align.
+      expect(Number.isInteger(CHEW_INTERVAL_TICKS)).toBe(true);
+      expect(CHEW_INTERVAL_TICKS).toBeGreaterThan(0);
     }
+  });
+
+  it('⭐ R76 — a connector in a COMPLEX structure genuinely outlasts one in a simple structure', () => {
+    // The owner's whole reason for the change: "this will make people want to build complex
+    // structures with as many connectors as possible". If bites-to-break stopped scaling with
+    // complexity, the feature would be inert while every unit test still passed.
+    const chewer = CREATURE_CONFIGS.chewer;
+    const bite = attackFifths(chewer.atk, chewer.pen);
+    const bitesFor = (connectors: number): number =>
+      Math.ceil(connectorCapacityFifths(connectors) / bite);
+    expect(bitesFor(2)).toBeGreaterThanOrEqual(bitesFor(1));
+    expect(bitesFor(40)).toBeGreaterThan(bitesFor(2));
   });
 });

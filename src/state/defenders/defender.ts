@@ -35,8 +35,6 @@
  */
 
 import {
-  PRINCESS_DEFENDER_MAX_HP,
-  PRINCESS_SLAP_DAMAGE_VS_CREATURE,
   PRINCESS_MELEE_RANGE,
   PRINCESS_MOVE_ACCEL,
   PRINCESS_SLAP_INTERVAL_TICKS,
@@ -45,14 +43,18 @@ import {
   STINK_THROW_INTERVAL_TICKS,
   STINK_TOWER_ATTACK_RANGE,
   STINK_TOWER_BAGS,
-  STINK_BAG_DAMAGE_VS_CREATURE,
-  STINK_TOWER_MAX_HP,
+  STINK_BAG_ATK,
+  STINK_BAG_PEN,
   STINK_TOWER_WINDUP_TICKS,
   TURRET_ATTACK_RANGE,
-  TURRET_DEFENDER_MAX_HP,
-  TURRET_BEAM_DAMAGE_VS_CREATURE,
+  TURRET_BEAM_ATK,
+  TURRET_BEAM_PEN,
   TURRET_FIRE_INTERVAL_TICKS,
   TURRET_WINDUP_TICKS,
+  PRINCESS_HP,
+  PRINCESS_DEF,
+  PRINCESS_ATK,
+  PRINCESS_PEN,
 } from '../../constants.ts';
 import type { CreatureId, DefenderId, PlayerId, PrimitiveId, Vec2 } from '../../types.ts';
 import type { GodlyId } from '../godlyRecipes/types.ts';
@@ -109,14 +111,20 @@ export interface Defender {
   state: DefenderState;
   /** Ticks since entering `state`. */
   ticksInState: number;
-  /**
-   * Real hp. ⚠ S141 P1 — this comment used to read "Sentinel hp (… a FUTURE direct-attack lever
-   * routes through here)", which S138 P1 had already made false: `state/damage.ts` kills defenders
-   * through this field today, and the file header thirty lines above says so. The stale wording
-   * survived because nothing links a field's doc to its consumers. Reading it would have produced a
-   * design that assumes hp is inert.
+  /*
+   * ⛔ S151 P2 (owner R75) — `hp` IS REMOVED FROM THE DEFENDER RECORD, AND FROM THE WIRE.
+   *
+   * A tower has no hit points of its own; its durability is its connectors'. See the `DefenderConfig`
+   * note above for the full account. Removing it takes `SerializedDefender.hp` and `DefenderHashed`'s
+   * `'hp'` with it — a REQUIRED wire field leaving, which is part of what PROTOCOL_VERSION 28→29
+   * pays for.
+   *
+   * ⚠ THE FIELD'S OWN HISTORY IS THE ARGUMENT FOR DELETING IT. It began as `DEFENDER_HP = 1e9`, a
+   * sentinel meaning "defenders die by recipe-break, not damage". S138 made it real hp, and S141
+   * had to correct this very docblock because it still described the sentinel behaviour while
+   * `damage.ts` was already killing defenders through it. Two sessions of drift on one field, and
+   * the numbers behind it were never validated by play because nothing ever attacked a tower.
    */
-  hp: number;
   /**
    * S141 P1 — STINK TOWER AMMO. How many stink bags remain unthrown. Meaningless for the other kinds
    * (seeded 0 and never read), which is why it is a plain non-optional number rather than a
@@ -170,26 +178,66 @@ export interface DefenderConfig {
    * princess meleeRange is small (must be adjacent).
    */
   readonly meleeRange: number;
-  /** S138 P1 — real max hp for this kind (was the shared DEFENDER_HP sentinel). */
-  readonly hp: number;
+  /**
+   * ⭐ S151 P2 (owner R75 + R77) — WHERE THIS KIND'S DURABILITY COMES FROM, as an explicit choice.
+   *
+   * `null` ⇒ **its CONNECTORS carry it** (owner R75: *"towers have attack and piercing but not def
+   * and hp because they are based on the connectors that build them"*). That is the laser turret and
+   * the stink tree, and the stink tree in the owner's own words: *"it has hp based on its connectors
+   * as based on current system we are creating."*
+   *
+   * An object ⇒ this kind is a **UNIT that happens to be implemented on the defender substrate**, and
+   * carries its own HP/DEF on the shared ladder.
+   *
+   * ⭐ WHY THIS FIELD EXISTS AT ALL — R77 CORRECTED AN OVER-READING OF R75. S151 first removed `hp`
+   * from EVERY defender kind, because R75 said "towers" have none. Then the owner's full stat table
+   * listed HELGA at *"4atk, 4pierce, 6hp, 4 def"* and closed with *"those are all spawned units"* —
+   * she was never in the "towers" R75 was talking about. She walks, chases and slaps; the turret and
+   * the tree are emplacements. Only the emplacements draw durability from their structure.
+   *
+   * ⚠ NULL IS A DECLARED CASE, NOT AN ABSENT FIELD. Making it a required nullable rather than an
+   * optional `hp?` is deliberate: an omitted field would mean "I forgot" and "connectors carry it"
+   * with the same syntax, and this codebase has been bitten repeatedly by absent-means-default (see
+   * the `serializeCreature` hp omission, which has now forced three protocol bumps).
+   */
+  readonly unitStats: { readonly hp: number; readonly def: number } | null;
+  /*
+   * ⛔ The old required `hp` is gone — see above.
+   *
+   * *"towers have attack and piercing but not def and hp because they are based on the connectors
+   * that build them. its the connectors that have different hp and def (think about it)."*
+   *
+   * A tower's durability is the durability of the bonds holding its recipe together — see
+   * `physics/bonds.ts` `damageFifths` and `state/stats.ts` `connectorCapacityFifths`. This is a
+   * REVERSION, not an invention: defenders shipped with `DEFENDER_HP = 1e9`, a sentinel meaning
+   * "defenders die by recipe-break, not damage", and the real hp that replaced it in S138 shipped
+   * admitting it was "FIRST-PASS BALANCE … unvalidated by play". It never was validated, because
+   * nothing in the game ever attacked a tower directly.
+   */
   /**
    * S141 P1 — how many bags this kind starts with. 0 for every kind that has no magazine, which is
    * also what makes `bagsRemaining` inert for them.
    */
   readonly bags: number;
   /**
-   * ⭐ S148 P2 — SINGLE-TARGET DAMAGE THIS KIND DEALS TO A CREATURE.
+   * ⭐ S151 P2 (owner R72) — ATTACK POINTS on the shared 1..12 ladder, replacing `damageVsCreature`.
    *
-   * Replaces the shared `CREATURE_HIT_DAMAGE` that every kind used to deal at the one FIRE site. That
-   * shared constant meant no weapon could be stronger than any other: HELGA needed six slaps to kill
-   * a goblin, and the "slow heavy beam" laser also needed six. See the constants block above
-   * `PRINCESS_SLAP_DAMAGE_VS_CREATURE` for the full account of the defect.
+   * ⛔ WHY THE RENAME MATTERS AND IS NOT COSMETIC. The old field's two shipped values were
+   * `round(GOBLIN_MELEE_HP / 2)` and `GOBLIN_MELEE_HP` — one grunt's toughness WAS the tower roster's
+   * damage scale, so the goblin could not be retuned without silently retuning every tower.
+   * Owner R72: *"a goblins power should not be the backbone for the whole stat system."*
+   * The values are unchanged (6 / 3 / 1); only their provenance is.
    *
-   * ⚠ Creature hp is a HIT COUNT on its own scale (chewer 1, Voltkin 2, goblin 6) — this number lives
-   * on THAT scale, not the 1000-per-primitive structure scale. A four-digit value here would one-shot
-   * every creature in the game.
+   * ⚠ AND IT IS NO LONGER "VS CREATURE". Under R75 a tower with `structures` in its targeting row
+   * deals this same `atk` to a CONNECTOR, compared on the same scale. One number, both target
+   * families — which is the entire point of one shared ladder.
    */
-  readonly damageVsCreature: number;
+  readonly atk: number;
+  /**
+   * PENETRATION points — the attacker's mirror of DEF. Zero across the shipped roster; stated rather
+   * than omitted so the table reads as a deliberate row instead of an unfinished one.
+   */
+  readonly pen: number;
 }
 
 export const TURRET_DEFENDER_CONFIG: DefenderConfig = {
@@ -199,10 +247,12 @@ export const TURRET_DEFENDER_CONFIG: DefenderConfig = {
   attackRange: TURRET_ATTACK_RANGE,
   moveAccel: 0, // stationary — a turret never walks (its FSM stays byte-identical to pre-S110)
   meleeRange: TURRET_ATTACK_RANGE, // strikes at acquisition range → always "in melee" → never WALKs
-  hp: TURRET_DEFENDER_MAX_HP, // S138 P1 — real hp (was the 1e9 sentinel)
+  unitStats: null, // an emplacement — its connectors carry its durability (R75)
   bags: 0, // no magazine — the laser is not ammo-limited
-  // ⭐ S148 P2 — THE HEAVY WEAPON, AND IT FINALLY READS AS ONE. One beam fells a goblin.
-  damageVsCreature: TURRET_BEAM_DAMAGE_VS_CREATURE,
+  // ⭐ THE HEAVY WEAPON, top of the roster. The same 6 it has dealt since S148 — now STATED on the
+  // shared ladder rather than DERIVED from a goblin's hit points (owner R72).
+  atk: TURRET_BEAM_ATK,
+  pen: TURRET_BEAM_PEN,
 };
 
 /**
@@ -219,7 +269,9 @@ export const STINK_TOWER_DEFENDER_CONFIG: DefenderConfig = {
   attackRange: STINK_TOWER_ATTACK_RANGE,
   moveAccel: 0, // stationary — a tower does not walk
   meleeRange: STINK_TOWER_ATTACK_RANGE, // lobs at acquisition range → always "in melee" → never WALKs
-  hp: STINK_TOWER_MAX_HP,
+  // Owner R77, verbatim: "it has hp based on its connectors as based on current system we are
+  // creating." A true emplacement, like the turret.
+  unitStats: null,
   bags: STINK_TOWER_BAGS,
   // ⭐ S148 P2 — deliberately left at the shared single-hit value. The stink tower is the AREA
   // weapon: its damage comes from splashing several targets at once AND from chewing primitives,
@@ -227,7 +279,8 @@ export const STINK_TOWER_DEFENDER_CONFIG: DefenderConfig = {
   // than both. (It does not actually read this field — `stinkThrowBag` owns its own splash — but the
   // config is compile-time exhaustive, and a kind that silently omitted its damage would be the
   // next bug.)
-  damageVsCreature: STINK_BAG_DAMAGE_VS_CREATURE,
+  atk: STINK_BAG_ATK,
+  pen: STINK_BAG_PEN,
 };
 
 export const PRINCESS_DEFENDER_CONFIG: DefenderConfig = {
@@ -237,10 +290,14 @@ export const PRINCESS_DEFENDER_CONFIG: DefenderConfig = {
   attackRange: PRINCESS_SLAP_RANGE, // S110 P4 — acquisition + chase-leash radius (from her hub)
   moveAccel: PRINCESS_MOVE_ACCEL, // S110 P4 — she walks to her target
   meleeRange: PRINCESS_MELEE_RANGE, // S110 P4 — must be adjacent to slap
-  hp: PRINCESS_DEFENDER_MAX_HP, // S138 P1 — real hp (was the 1e9 sentinel)
+  // ⭐ Owner R77 — HELGA IS A SPAWNED UNIT, not an emplacement, so she carries her own durability:
+  // "Helga - 4atk, 4pierce, 6hp, 4 def … those are all spawned units."
+  unitStats: { hp: PRINCESS_HP, def: PRINCESS_DEF },
   bags: 0, // no magazine — she slaps
-  // ⭐ S148 P2 — two slaps fell a goblin: fast and close, but not the heaviest hitter.
-  damageVsCreature: PRINCESS_SLAP_DAMAGE_VS_CREATURE,
+  // ⭐ Fast, close, mid-damage — the middle rung. The same 3 as always, but no longer expressed as
+  // half a goblin's hit points, so the goblin can finally be retuned without moving her (owner R70).
+  atk: PRINCESS_ATK, // ⭐ R77 — 4 (was 3)
+  pen: PRINCESS_PEN, // ⭐ R77 — 4 (was 0)
 };
 
 export const DEFENDER_CONFIGS: Readonly<Record<DefenderKind, DefenderConfig>> = {
@@ -280,7 +337,6 @@ export function makeDefender(args: {
     walkTargetPos: null, // S110 P4 — not pursuing on ignition
     state: 'IDLE',
     ticksInState: 0,
-    hp: config.hp,
     bagsRemaining: config.bags, // S141 P1 — 0 for every kind without a magazine
     nextFireTick: args.registeredAtTick + config.fireIntervalTicks,
     targetCreatureId: null,

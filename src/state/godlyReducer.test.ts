@@ -187,6 +187,7 @@ describe('GODLY_TRIGGER reducer', () => {
       b: primB,
       restLength: 32,
       stiffnessTier: 'MID',
+      damageFifths: 0,
       createdTick: 0,
     };
     world.bonds.set(bond.id, bond);
@@ -250,6 +251,7 @@ describe('GODLY_TRIGGER reducer', () => {
       b: primB,
       restLength: 32,
       stiffnessTier: 'MID',
+      damageFifths: 0,
       createdTick: 0,
     };
     world.bonds.set(bond.id, bond);

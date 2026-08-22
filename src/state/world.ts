@@ -23,6 +23,7 @@
  */
 
 import { PHASE_DURATION_TICKS, PLAYER_COLORS, RAID_CREATURE_DAMAGE, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, TERRITORY_SHRINK_DURATION_TICKS } from '../constants.ts';
+import { attackFifths } from './stats.ts';
 import { isBenchDeniedIntent } from './benchGate.ts';
 import { isBenched } from './hunters/hunter.ts';
 import { applySeverBond } from './severBond.ts';
@@ -592,10 +593,13 @@ export function dispatch(world: World, action: GameAction): World {
       raider.disruptionCharges--;
       // S139 P1 — through the dispatcher; source `'player'` distinguishes a raid from a creature
       // zap or a defender strike for future threat/reward rules.
+      // S151 P2 — a raid is an ATK on the shared ladder like any other hit, so it goes through
+      // `attackFifths`. RAID_CREATURE_DAMAGE is now read as the raid's ATK POINTS (1), not as raw
+      // damage — passing it unconverted would deal one FIFTH of a point and effectively do nothing.
       damageEntity(
         world,
         { kind: 'creature', id: action.creatureId },
-        RAID_CREATURE_DAMAGE,
+        attackFifths(RAID_CREATURE_DAMAGE, 0),
         'player',
       );
       return world;

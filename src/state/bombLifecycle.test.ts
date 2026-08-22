@@ -73,6 +73,7 @@ function connect(world: World, id: number, a: Primitive, b: Primitive): Bond {
     b,
     restLength: 32,
     stiffnessTier: 'MID',
+    damageFifths: 0,
     createdTick: 0,
   };
   world.bonds.set(bond.id, bond);

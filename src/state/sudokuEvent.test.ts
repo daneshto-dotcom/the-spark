@@ -39,7 +39,7 @@ function makePrim(id: number, type: SparkType, placedBy: PlayerId): Primitive {
 }
 
 function makeBond(id: number, a: Primitive, b: Primitive): Bond {
-  return { id: asBondId(id), aId: a.id, bId: b.id, a, b, restLength: 32, stiffnessTier: 'MID', createdTick: 0 };
+  return { id: asBondId(id), aId: a.id, bId: b.id, a, b, restLength: 32, stiffnessTier: 'MID', createdTick: 0, damageFifths: 0 };
 }
 
 function link(world: World, a: Primitive, b: Primitive, bondId: number): void {

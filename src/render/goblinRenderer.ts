@@ -33,7 +33,8 @@ import { Application, Container, Graphics } from 'pixi.js';
 import type { World } from '../state/world.ts';
 import type { CreatureId } from '../types.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
-import { GOBLIN_MELEE_HP, PLAYER_COLORS } from '../constants.ts';
+import { PLAYER_COLORS } from '../constants.ts';
+import { multiplierFifths } from '../state/stats.ts';
 
 const OUTLINE = 0x2b2b2b;
 const SKIN = 0x7fae4e;
@@ -88,7 +89,7 @@ export class GoblinRenderer {
         c.state === 'SPAWNING' ? Math.min(1, c.ticksInState / Math.max(1, cfg.spawnTicks)) : 1;
 
       this.drawGoblin(g, c.pos.x, c.pos.y, face, alpha, tint, this.swing(c.state, c.ticksInState), nowSec, c.id);
-      this.drawHpPips(g, c.pos.x, c.pos.y, c.hp, alpha);
+      this.drawHpPips(g, c.pos.x, c.pos.y, c.ehp, cfg.hp, cfg.def, alpha);
     }
 
     // Drop bookkeeping for goblins that died, so the Maps cannot grow without bound across a match.
@@ -179,19 +180,36 @@ export class GoblinRenderer {
   }
 
   /**
-   * `hp` pips above the head. Cheap, and it makes the owner's rule ("6 attacks to destroy a UNIT")
-   * legible in play instead of being an invisible constant.
+   * HP pips above the head — one pip per HP POINT, filled by how many points remain.
+   *
+   * ⭐ S151 P2 — THIS USED TO READ `GOBLIN_MELEE_HP` AS ITS DENOMINATOR, which made the renderer the
+   * third consumer of the goblin-as-backbone defect (owner R72) and, worse, hard-coded ONE unit's
+   * toughness into a function drawing ANY unit. Now every number comes from the drawn creature's own
+   * config, so the six goblin kinds arriving with the goblin tower each get a correct bar for free.
+   *
+   * `ehp` is in FIFTHS; one HP point is `5 + def` fifths, so remaining points is that division
+   * rounded UP — a unit on its last sliver still shows one pip rather than reading as already dead.
    */
-  private drawHpPips(g: Graphics, x: number, y: number, hp: number, alpha: number): void {
-    if (hp >= GOBLIN_MELEE_HP) return; // undamaged: no clutter
-    const total = GOBLIN_MELEE_HP;
+  private drawHpPips(
+    g: Graphics,
+    x: number,
+    y: number,
+    ehp: number,
+    hpPoints: number,
+    def: number,
+    alpha: number,
+  ): void {
+    const perPoint = multiplierFifths(def);
+    const remaining = Math.ceil(ehp / perPoint);
+    if (remaining >= hpPoints) return; // undamaged: no clutter
+    const total = hpPoints;
     const w = 1.6;
     const gap = 0.9;
     const span = total * w + (total - 1) * gap;
     const x0 = x - span / 2;
     const py = y - BODY_R * 2.5;
     for (let i = 0; i < total; i++) {
-      const filled = i < hp;
+      const filled = i < remaining;
       g.rect(x0 + i * (w + gap), py, w, 2.4).fill({
         color: filled ? 0x8ce06a : 0x000000,
         alpha: (filled ? 0.95 : 0.28) * alpha,

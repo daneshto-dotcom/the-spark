@@ -134,7 +134,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         despawnAtTick: 490,
         sourceSpawnerId: null,
         chewProgress: 0,
-        hp: 2,
+        ehp: 10,
       },
     );
     const snap = snapshot(w1);
@@ -181,7 +181,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         despawnAtTick: 530,
         sourceSpawnerId: null,
         chewProgress: 0,
-        hp: 2,
+        ehp: 10,
       },
     );
     const snap = snapshot(w1);
@@ -213,7 +213,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
       despawnAtTick: 1200,
       sourceSpawnerId: null,
       chewProgress: 0,
-      hp: 2,
+      ehp: 10,
     });
 
     // HOST save emits it (a mid-zap Voltkin resumes its target) ...
@@ -238,7 +238,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
       id: CID, type: 'voltkin', ownerPlayerId: P1,
       pos: { x: 1, y: 2 }, prevPos: { x: 1, y: 2 }, targetPos: { x: 1, y: 2 },
       targetBondId: null, targetCreatureId: null, targetPrimitiveId: null, state: 'SEEKING', ticksInState: 0,
-      killCount: 0, spawnedAtTick: 0, despawnAtTick: 1200, sourceSpawnerId: null, chewProgress: 0, hp: 2,
+      killCount: 0, spawnedAtTick: 0, despawnAtTick: 1200, sourceSpawnerId: null, chewProgress: 0, ehp: 10,
     });
     expect(snapshot(w1).creatures?.[0].targetCreatureId).toBeUndefined();
   });
@@ -264,7 +264,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         despawnAtTick: 530,
         sourceSpawnerId: null,
         chewProgress: 0,
-        hp: 2,
+        ehp: 10,
       },
     );
     const snap = snapshot(w1);
@@ -319,7 +319,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         despawnAtTick: 480,
         sourceSpawnerId: null,
         chewProgress: 0,
-        hp: 2,
+        ehp: 10,
       },
     );
     w1.creatures.set(
@@ -341,7 +341,7 @@ describe('WorldSnapshot creatures field (S28 P0 NetSnapshot v2)', () => {
         despawnAtTick: 580,
         sourceSpawnerId: null,
         chewProgress: 0,
-        hp: 2,
+        ehp: 10,
       },
     );
     w1.nextCreatureId = 4;

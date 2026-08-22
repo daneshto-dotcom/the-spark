@@ -232,14 +232,18 @@ type PrimitiveHashed =
   | 'origin';
 type BondHashed =
   | 'id' | 'aId' | 'bId' | 'restLength' | 'stiffnessTier' | 'createdTick'
-  | 'stiffnessMultiplier' | 'a' | 'b';
+  | 'stiffnessMultiplier' | 'a' | 'b'
+  // S151 P2 (R76) — accumulated connector damage in fifths. MUST be hashed: it is the only
+  // persistent half of connector durability (the capacity half is derived from live topology), so
+  // two peers disagreeing about it would disagree about exactly when a structure falls apart.
+  | 'damageFifths';
 type SparkHashed =
   | 'id' | 'type' | 'pos' | 'prevPos' | 'radius' | 'createdTick' | 'state' | 'poopyUntilTick'
   | 'escrow';
 type CreatureHashed =
   | 'id' | 'type' | 'ownerPlayerId' | 'pos' | 'prevPos' | 'targetPos' | 'targetBondId'
   | 'targetCreatureId' | 'targetPrimitiveId' | 'state' | 'ticksInState' | 'killCount' | 'spawnedAtTick'
-  | 'despawnAtTick' | 'sourceSpawnerId' | 'chewProgress' | 'hp' | 'poopyUntilTick';
+  | 'despawnAtTick' | 'sourceSpawnerId' | 'chewProgress' | 'ehp' | 'poopyUntilTick';
 type SpawnerHashed =
   | 'id' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'nextSpawnTick'
   | 'lastValidatedTick' | 'spawnedCount' | 'ignitedAtTick';
@@ -250,7 +254,8 @@ type SpawnerHashed =
 // together, and `stateHashFull.test.ts` now carries a per-field contribution test for exactly this.
 type DefenderHashed =
   | 'id' | 'kind' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'pos' | 'prevPos'
-  | 'walkTargetPos' | 'state' | 'ticksInState' | 'hp' | 'nextFireTick' | 'targetCreatureId'
+  // S151 P2 (R75) — 'hp' removed: a tower has no hit points of its own.
+  | 'walkTargetPos' | 'state' | 'ticksInState' | 'nextFireTick' | 'targetCreatureId'
   | 'lastStrikePos' | 'bagsRemaining';
 type BombHashed = 'id' | 'pos' | 'radius' | 'spawnedAtTick' | 'dissipateAtTick';
 type HunterHashed =
@@ -419,7 +424,11 @@ export function determinismParts(world: World): string[] {
     // captured by aId/bId, so they are covered without a second traversal.
     parts.push(
       `b${n(b.id)}:${n(b.aId)}-${n(b.bId)}:rl${b.restLength}:st${b.stiffnessTier}` +
-        `:ct${b.createdTick}:sm${o(b.stiffnessMultiplier)}`,
+        // ⚠ S151 P2 — `:dmg` IS THE SECOND HALF OF ADDING `damageFifths` TO `BondHashed` ABOVE, and
+        // the union alone would NOT have covered it. This template is hand-written with no
+        // executable link to that union (see this file's own warning), so a field named there but
+        // absent here compiles clean, passes every test, and silently hashes nothing.
+        `:ct${b.createdTick}:sm${o(b.stiffnessMultiplier)}:dmg${b.damageFifths}`,
     );
   }
 
@@ -436,7 +445,7 @@ export function determinismParts(world: World): string[] {
   for (const c of creatures) {
     parts.push(
       `c${n(c.id)}:${c.type}:${c.pos.x},${c.pos.y}:${v2(c.prevPos)}:${v2(c.targetPos)}` +
-        `:${c.state}:${c.ticksInState}:hp${o(c.hp)}:cw${o(c.chewProgress)}` +
+        `:${c.state}:${c.ticksInState}:ehp${o(c.ehp)}:cw${o(c.chewProgress)}` +
         `:tb${n(c.targetBondId)}:tc${n(c.targetCreatureId)}:tp${n(c.targetPrimitiveId)}` +
         `:ss${n(c.sourceSpawnerId)}` +
         `:ow${n(c.ownerPlayerId)}:sa${o(c.spawnedAtTick)}:da${o(c.despawnAtTick)}` +
@@ -457,7 +466,7 @@ export function determinismParts(world: World): string[] {
     parts.push(
       `d${n(d.id)}:${d.kind}:${n(d.ownerPlayerId)}:${n(d.anchorPrimitiveId)}:${d.recipeId}` +
         `:${d.pos.x},${d.pos.y}:${v2(d.prevPos)}:${v2(d.walkTargetPos)}` +
-        `:${d.state}:${d.ticksInState}:hp${o(d.hp)}:nf${o(d.nextFireTick)}` +
+        `:${d.state}:${d.ticksInState}:nf${o(d.nextFireTick)}` +
         `:tc${n(d.targetCreatureId)}:ls${v2(d.lastStrikePos)}:bg${o(d.bagsRemaining)}`,
     );
   }

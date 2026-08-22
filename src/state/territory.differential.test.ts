@@ -79,6 +79,7 @@ function bondPrims(world: World, a: Primitive, b: Primitive): void {
     restLength: Math.max(20, Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y)),
     stiffnessTier: 'MID' as const,
     createdTick: world.tick,
+    damageFifths: 0,
   };
   world.bonds.set(bondId, bond as Parameters<typeof world.bonds.set>[1]);
   a.bonds.add(bondId);

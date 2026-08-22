@@ -275,7 +275,30 @@ export type { NetSnapshot };
 // Owner ruling R71, from the measured table: at 2 hp a Voltkin died to ONE of HELGA's slaps (damage
 // 3) while a plain goblin (6 hp) took two, so the godly unit was strictly weaker than the grunt.
 // 8 restores the ladder chewer(1) < goblin(6) < voltkin(8).
-export const PROTOCOL_VERSION = 28 as const;
+// S151 P2 — bumped 28->29: THE STAT SYSTEM (owner R72/R74/R75/R76). The widest wire change since
+// the defender family landed, and it is FOUR distinct breaks at once, any ONE of which would force
+// a bump on its own:
+//   (a) `Creature.hp` -> `Creature.ehp`, AND ITS UNIT CHANGED. It now holds EFFECTIVE hit points in
+//       FIFTHS (`hp x (5 + def)`), so a v28 peer reading the old key would find nothing and a peer
+//       reading the number raw would see 40 where the host means 8. The RENAME is deliberate: same
+//       name + same type + different unit is a silent forty-fold buff, whereas a missing key is a
+//       loud one. Both Council seats flagged this independently.
+//   (b) `Defender.hp` REMOVED from the wire entirely (owner R75: "towers have attack and piercing
+//       but not def and hp because they are based on the connectors that build them"). A REQUIRED
+//       field leaving is a hard parse break for a stale peer.
+//   (c) `Bond.damageFifths` ADDED and hashed — connectors now carry the durability towers lost.
+//       Additive-optional (absent => 0), so this one is the mildest of the four; it is listed
+//       because it changes what `hashWorldStateFull` covers.
+//   (d) THE THIRD INSTANCE OF THE SHARED-CONSTANT RULE BELOW, AGAIN. `serializeCreature` still emits
+//       `ehp` only when damaged, so `CreatureConfig.hp`/`.def` remain values both peers compute
+//       from — and S151 moved one of them: GOBLIN_MELEE_HP 6 -> 1 (owner R70, "he should be as weak
+//       as chewer"). That edit alone would have forced a bump exactly as VOLTKIN_HP 2->8 did.
+//
+// ⚠ THE GOBLIN EDIT WAS BLOCKED FOR A SESSION BY THE DEFECT R72 NAMED. HELGA's slap damage and the
+// laser's beam damage were both DERIVED from GOBLIN_MELEE_HP, so S150 correctly refused to touch it
+// in isolation. S151 deletes those derivations (PRINCESS_SLAP_ATK / TURRET_BEAM_ATK are now stated
+// on the shared ladder at the same 3 and 6 they always were), which is what finally unblocked it.
+export const PROTOCOL_VERSION = 29 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -390,6 +413,11 @@ export interface HelloMsg {
    * — so a v27 peer would give a fresh Voltkin 2 hp against the host's 8 and the two would disagree
    * about the hit that kills it.)
    *
+   * S151 P2: 28->29 (THE STAT SYSTEM — owner R72/R74/R75/R76. FOUR breaks at once: `Creature.hp`
+   * renamed to `ehp` AND re-scaled into fifths; `Defender.hp` REMOVED from the wire (a tower has no
+   * hit points — its connectors do); `Bond.damageFifths` added + hashed; and GOBLIN_MELEE_HP 6->1,
+   * which is the shared-constant rule below firing for the third time.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -422,7 +450,7 @@ export interface HelloMsg {
    *      the session was S149, and reconstructing history from source labels alone invents a session
    *      that never happened.
    * `protocolVersionSync.test.ts` enforces sites 1, 2 and 5. Sites 3, 4 and 6 remain prose + tsc. */
-  readonly protoVersion: 28;
+  readonly protoVersion: 29;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

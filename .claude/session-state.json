@@ -1,5 +1,5 @@
 {
- "tool_calls_session_total": 1848,
+ "tool_calls_session_total": 1986,
  "session_id": "S151",
  "session_kind": "PDCA batch — hazard archive + the stat system + the goblin tower",
  "session_start": "2026-08-22",
@@ -83,8 +83,14 @@
    "id": "P1",
    "title": "Archive the four hazard families (R73)",
    "tier": "Standard",
-   "status": "in_progress",
-   "scope": "Copy bombs/potatoes/rainbows/seagulls+poops WHOLE into archive/hazards/ with a RESTORE.md; tag the five hazard e2e specs out of the gating lane. Live code stays dormant (owner-selected sequencing)."
+   "status": "completed",
+   "scope": "Copy bombs/potatoes/rainbows/seagulls+poops WHOLE into archive/hazards/ with a RESTORE.md; tag the five hazard e2e specs out of the gating lane. Live code stays dormant (owner-selected sequencing).",
+   "check_completed": true,
+   "checkpoint_commit": "4acd7395d8ea43de5af7b6b08362a7e4aaf4d1c7",
+   "real_context_tokens_at_close": 326315,
+   "real_context_pct_at_close": 32.63,
+   "real_context_level_at_close": "GREEN",
+   "check_method": "RALPH:PATROL + empirical verification, every claim measured rather than asserted. (1) ARCHIVE FIDELITY: all 26 files verified byte-identical to source with `cmp` in a loop over the enumerated set — not spot-checked. The set was built by FILENAME ENUMERATION (find -iname), which is what caught src/render/effects/bombExplode.ts: it does not sit beside the other bomb files and reading imports by eye would have missed it. This is the boot snapshot's 'enumerate a chain, do not read it' trap applied deliberately. (2) ARCHIVE INERTNESS PROVEN, NOT ASSUMED: tsconfig.json include=['src'] so tsc never sees the copies; vite.config.ts test.include=['src/**/*.test.ts'] so vitest never collects them; playwright.config.ts testDir='./e2e' so the archived specs cannot run twice. Three independent configs checked individually. (3) NO LIVE-CODE DRIFT: the built entry asset hash is IDENTICAL before and after (index-CPfPN4k_.js), which is positive evidence that nothing under src/ changed, stronger than `git status` alone. (4) COVERAGE ACCOUNTING BY DENOMINATOR (the S150 'a partial fix looks identical to no fix' trap): `playwright --list` counted 44 gating + 9 archived = 53 = the pre-change total exactly. No test was lost, 9 were retired to a runnable `e2e:archived` lane. (5) GATES: build PASS (720.1 KiB, 179.9 KiB headroom) - vitest 2855/2855 across 173 files - e2e:gating 44 passed 0 failed with EXIT=0 READ DIRECTLY. (6) LINE-ENDING DISCIPLINE: all five specs and package.json are CRLF; CR count verified unchanged before/after every edit (235/179/163/172/84), and package.json re-parsed as JSON after repair. (7) SELF-CAUGHT DEFECT: my first sed chain contained a stray exploratory expression that corrupted package.json line 17 to `XXX`. Caught immediately by reading the result back rather than trusting the command, and repaired via python with newline='' to preserve CRLF (the known LF->CRLF flip trap). (8) PREFLIGHT DELTA SURFACED NOT BURIED: the handoff's claimed 53/0/0 was measured as 52/1/0; flakiness quantified (2 failures in 4 observations) and non-regression PROVEN by `git diff --name-only 3bc8a7e..HEAD` showing no src/ or e2e/ file changed since the CF was written."
   },
   {
    "pdr_approved": true,
@@ -149,7 +155,24 @@
   "#a-partial-fix-looked-exactly-like-no-fix-and-nearly-cost-me-the-real-one - Suppressing bombs took the failure rate from 2/6 to 3/8. Read naively that is 'no change, revert it' - and reverting would have been wrong, because bombs WERE genuinely stealing the mouse-down in the two failures I had measured. Two independent causes produced one symptom, and fixing one moved the rate by less than the noise in an n=8 sample. What saved it was the diagnostic printing bombs=0 on the NEXT failures: not a rate, but a direct statement that the first cause was gone and something else remained. When causes are independent and each is sufficient, pass rates cannot tell you whether a fix worked - only per-failure evidence can.",
   "#the-denominator-is-the-claim - Every number here is quoted with its trial count: 2/6 before, 3/8 after the partial, 0/8 after the full fix, and the lane 49/1/3 -> 53/0/0. That came from a prior session's note that 'flaky is a diagnosis that needs a denominator', and it earned its keep twice: it told me the bomb fix had NOT resolved things when the phrase 'fixed the bomb race' would have implied it had, and it is the only reason '0 fail' means anything now.",
   "#normalising-on-write-without-normalising-on-read-is-a-two-line-bug-in-one-commit - My P3 fix made recordRun store normaliseName(name) so a blank row could never reach the board. The overlay's highlight kept matching on the RAW initials, so a player who spelled three spaces had 'AAA' stored and '   ' searched for, and their own row silently stopped lighting up. Both halves were in the same commit and I wrote both. The shape to watch for is not 'normalisation is risky' - it is that adding a transform to a WRITE path creates an obligation on every READ path that matches on the written value, and nothing in the type system or the tests represents that obligation. The audit found it in one pass by asking what five keystrokes could produce.",
-  "#a-one-constant-edit-crossed-the-wire-and-the-diff-gave-no-hint - VOLTKIN_HP 2 to 8 looked like a balance dial. It owed a protocol bump, because serializeCreature omits creature hp when the creature is UNDAMAGED - so an undamaged Voltkin carries no hp at all and the peer rebuilds it from its own compiled constant. An optimisation made in a different session for unrelated reasons (save bytes on the common case) had quietly turned that constant into shared state. The general rule, now written into the changelog with its three instances named: an additive-optional field whose ABSENCE means 'use your own default' makes that default a shared constant both peers compute from. Omitting a field to save bytes does not make its value private. The satisfying part is that P1's gate, built four priorities earlier in the same session, is what made the six-site bump mechanical instead of another drift instance."
+  "#a-one-constant-edit-crossed-the-wire-and-the-diff-gave-no-hint - VOLTKIN_HP 2 to 8 looked like a balance dial. It owed a protocol bump, because serializeCreature omits creature hp when the creature is UNDAMAGED - so an undamaged Voltkin carries no hp at all and the peer rebuilds it from its own compiled constant. An optimisation made in a different session for unrelated reasons (save bytes on the common case) had quietly turned that constant into shared state. The general rule, now written into the changelog with its three instances named: an additive-optional field whose ABSENCE means 'use your own default' makes that default a shared constant both peers compute from. Omitting a field to save bytes does not make its value private. The satisfying part is that P1's gate, built four priorities earlier in the same session, is what made the six-site bump mechanical instead of another drift instance.",
+  {
+   "session": "S151",
+   "priority": "P1",
+   "commit": "4acd739",
+   "title": "Archiving a feature is worth more than the copy — the value is the excision checklist",
+   "what_happened": "Owner R73 asked for the four hazard families archived whole. The copy itself was 20 minutes of work. What actually mattered was the 10-point EXCISION CHECKLIST in RESTORE.md, because A.0 showed the hazard-OWNED files (26) are the small half: the real cost is the hazard-shaped holes in SHARED files — 5 World Maps, 5 NetSnapshot arrays, 5 hashed unions, 16 action types of which 4 are client intents, 5 id brands, an RNG-neutrality invariant, and poop's separate debuff reach into placeFromFree.",
+   "lessons": [
+    "⭐ ENUMERATE BY FILENAME, NOT BY IMPORT-READING. `find -iname` caught src/render/effects/bombExplode.ts, which does not sit beside the other bomb files. Reading the import graph by eye would have shipped a 25-file archive that LOOKED complete. This is the S150 'enumerate a chain, do not read it' trap in a new costume.",
+    "⭐ PROVE INERTNESS ACROSS EVERY RUNNER SEPARATELY. A copied test tree is only harmless if tsc, vitest AND playwright each ignore it. Three configs, three independent checks (include=['src'], test.include=['src/**/*.test.ts'], testDir='./e2e'). Checking one and assuming the others is how a duplicated spec suite starts failing in a lane nobody was watching.",
+    "⭐ AN UNCHANGED BUILD HASH IS POSITIVE EVIDENCE, not just a null result. index-CPfPN4k_.js identical before and after proves no src/ drift more strongly than `git status`, because it is derived from the actual compiled output rather than from what git happened to notice.",
+    "⭐ QUOTE THE DENOMINATOR (S150 trap, applied prospectively). 44 gating + 9 archived = 53 = the original count. Without that arithmetic, 'the lane is green now' is indistinguishable from 'I deleted the failing tests'.",
+    "⛔ NEVER READ A TEST RUNNER'S EXIT CODE THROUGH A PIPE. `npm run e2e:gating | tail` printed 'exited with code 0' while Playwright had 1 failure — the pipeline returns tail's status. This nearly let a red lane read as green during preflight, and it is now recorded in the PDR and the commit message.",
+    "⛔ DO NOT LEAVE EXPLORATORY COMMANDS IN A MUTATING CHAIN. A stray speculative sed corrupted package.json to 'XXX'. It was caught only because I read the result back instead of trusting the command's silence. Mutation and exploration should never share a shell invocation.",
+    "A carry-forward's PREDICTED CAUSE deserves the same distrust as any other unverified claim. CF-S150-b named the flyover cinematic; the instrument S150 itself added reports lockedByCinematic:FALSE in both failures. The prediction was recorded confidently and was wrong — so the archive records the EVIDENCE and marks the new hypothesis explicitly unconfirmed, rather than replacing one confident guess with another."
+   ],
+   "outcome": "Archive 26/26 byte-identical. Gating lane 52/1/0 -> 44/0/0 with zero coverage lost. No src/ change."
+  }
  ],
  "totals": {
   "budget_remaining": 1000000
@@ -2925,6 +2948,92 @@
     "PARTIAL-DAMAGE RULE NEEDED: store accumulated damage on the bond; compare against CURRENT capacity (connectors+4 fifths). If a structure shrinks, capacity drops and an already-damaged connector can snap immediately. Emergent cascade - state it, do not let it be discovered as a bug.",
     "Structure death rule needs NO code: game/structure.ts severSplit ALREADY deletes the smaller side on an acyclic cut and deletes NOTHING on a cycle cut. The owner's 'less than half (49%)' IS 'the smaller side'. Verified S151."
    ]
+  },
+  "R77": {
+   "title": "THE FULL UNIT STAT TABLE — owner-supplied, and it RECLASSIFIES HELGA",
+   "owner": "i can already give you hp and def of all units so you wont be so confused. pencil chewers - 1 atk 2 pierce, 1hpm o def. so 1x1.4 offence, and 1 def. goblins: 1) ranged goblin 2atk, 2pierce, 1hp, 1 def. melee goblin - 2 atk, 1 pierce, 1hp 2 def. shield goblin 1 atk, 0 pierce, 2hp, 3def. flying goblin 1 atk, 3 pierce, 2hp, 0 def. goblin hound - 3 atk 2 pierce, 1 hp, 0 def. and terrorist goblin - 2hp 0def, only one attack that deals 4atk and 0 pierce in an area of effect. then we got the electric drone - 5 damage(atk) and 1 pierce in an area of effect (suicide drones) the area of effect on the drones is larger then terrorist goblin. 2hp, 0 def. Helga - 4atk, 4pierce, 6hp, 4 def. and voltkin - 3 atk (chain lightning hitting multiple connectors/targets that are within range of one another. i dont remember how many targets it is currently maywe we do max6 or something... 6 pierce. 8hp, and 3 def. those are all spawned units. there is also the stink tree which throws poop bags (up to 5, one every 15 sec). poop bags deal 0.2atk every sec within a radius for like 10 sec making anyone in range target it as aggro. and they deal 1atk 1pierce when destroyed. after no more bags they dont regenerate, the tree stands there dealing 0.2 atk every sec within a radius as long as it lives pulling aggro. it has hp based on its connectors as based on current system we are creating. but when it is destroyed it blows up with 1atk and 4pierce dmg to all units within radius. all the rest are towers and their health points and defence is based on what we have already decided in pdr",
+   "table_units": {
+    "chewer": {
+     "atk": 1,
+     "pen": 2,
+     "hp": 1,
+     "def": 0,
+     "owner_check": "'1x1.4 offence, and 1 def' — 1*(1+0.2*2)=1.4 and 1*(1+0)=1. CONFIRMS the fifths formula against the owner's own arithmetic."
+    },
+    "goblin_ranged_LINE_archer": {
+     "atk": 2,
+     "pen": 2,
+     "hp": 1,
+     "def": 1
+    },
+    "goblin_melee_TRIANGLE_swordsman": {
+     "atk": 2,
+     "pen": 1,
+     "hp": 1,
+     "def": 2
+    },
+    "goblin_shield_SQUARE": {
+     "atk": 1,
+     "pen": 0,
+     "hp": 2,
+     "def": 3
+    },
+    "goblin_flying_SPIRAL_batrider": {
+     "atk": 1,
+     "pen": 3,
+     "hp": 2,
+     "def": 0
+    },
+    "goblin_hound_CIRCLE": {
+     "atk": 3,
+     "pen": 2,
+     "hp": 1,
+     "def": 0
+    },
+    "goblin_terrorist_DOT_suicide": {
+     "atk": 4,
+     "pen": 0,
+     "hp": 2,
+     "def": 0,
+     "note": "ONE attack only, AREA OF EFFECT"
+    },
+    "lightningDrone": {
+     "atk": 5,
+     "pen": 1,
+     "hp": 2,
+     "def": 0,
+     "note": "AoE, suicide; radius LARGER than the terrorist goblin's"
+    },
+    "princessHelga": {
+     "atk": 4,
+     "pen": 4,
+     "hp": 6,
+     "def": 4,
+     "note": "⭐ OWNER LISTS HER UNDER 'those are all spawned units' — she is a UNIT with her own HP/DEF, NOT a tower. This REFINES R75."
+    },
+    "voltkin": {
+     "atk": 3,
+     "pen": 6,
+     "hp": 8,
+     "def": 3,
+     "note": "CHAIN LIGHTNING across multiple targets within range of one another; owner suggests max ~6. NEW MECHANIC — currently single-target."
+    }
+   },
+   "stink_tree": {
+    "durability": "CONNECTOR-BASED (a true tower — 'it has hp based on its connectors as based on current system we are creating')",
+    "bags": "up to 5, one every 15s, DO NOT regenerate once spent",
+    "bag_aura": "0.2 atk per second in a radius for ~10s, and PULLS AGGRO (anyone in range targets it)",
+    "bag_on_destroy": "1 atk, 1 pen",
+    "tree_aura_when_empty": "0.2 atk/sec in a radius for as long as it lives, still pulling aggro",
+    "tree_death_blast": "1 atk, 4 pen to all units in radius"
+   },
+   "towers": "'all the rest are towers and their health points and defence is based on what we have already decided in pdr' — i.e. laserTurret + stinkTower take durability from their CONNECTORS (R75/R76). Unchanged.",
+   "implications": [
+    "⭐ RECLASSIFICATION: princessHelga must get her own HP/DEF back. S151 P2 had removed hp from EVERY DefenderConfig under R75; R77 shows R75's 'towers' did not include her. Implemented as `unitStats: {hp,def} | null` on DefenderConfig — null means 'durability comes from my connectors', which is explicit rather than an absent-field default.",
+    "⭐ 0.2 ATK VALIDATES THE FIFTHS SCALE AND ALSO STRESSES IT. 0.2 atk x (5+0 pen) = exactly 1 fifth — integral. But 0.2 x (5+pen) is integral ONLY when pen is a multiple of 5, so a sub-point ATK with non-zero PEN would go fractional and trip damageEntity's integer guard. The stink aura is 0 pen so it is safe today; authored as a fifths constant rather than a fractional atk point.",
+    "⚠ THE R71 SLAP LADDER MOVES. With Helga at 4 atk/4 pen (36 fifths) and voltkin at 8 hp/3 def (64 fifths), a voltkin now takes TWO slaps, not the three R71 set. R71 fixed VOLTKIN_HP=8 (unchanged); the count moved because Helga got much stronger. Owner-supplied numbers supersede.",
+    "⚠ NEW MECHANICS NOT IN P2 SCOPE, flagged not silently absorbed: voltkin CHAIN LIGHTNING (multi-target, ~6), terrorist-goblin AoE, drone AoE sizing, destructible stink BAGS as entities with aggro + on-destroy damage, and the stink tree's per-second aura model."
+   ]
   }
  },
  "preflight_s151": {
@@ -2936,5 +3045,6 @@
   "e2e_delta": "rainbow.spec.ts:84 fails ~50% of the time. Re-ran 3x in isolation: pass/fail/pass. With the lane run = 2 failures in 4 observations. NOT a regression: git diff --name-only 3bc8a7e..HEAD touches only .claude/, boot-snapshot.md and the handoff archive - no src/ or e2e/ change since CF-S150-b was written calling it 'currently passes'. S150 observed one lucky run of a coin-flip.",
   "e2e_cause": "⛔ CF-S150-b's PREDICTED CAUSE IS REFUTED by the S150 instrument. It predicted the flyover cinematic eating build clicks; both failures report lockedByCinematic:FALSE (and bombs:0). Invariant across both failures is poops:10. Hypothesis (NOT confirmed): the pooped-cruiser arrival gate at placeFromFree.ts:150, which increments rejectReasons.pickupPoopedTooFar - a counter placeFreeSparkAndConfirm does NOT sample. MOOT under R73: archiving the rainbow retires the spec.",
   "harness_trap": "`npm run e2e:gating | tail` reports 'exited with code 0' even with 1 failed - the pipeline returns tail's status, not playwright's. Do not read exit code through a pipe."
- }
+ },
+ "deploy_verified_s151_p1": "verify-deploy 3/4 immediately post-push: REMOTE PASS (4acd7395), RUN PASS (1 run, event=push), LIVE PASS (live entry asset == local build, content-hash equality), VERDICT pending on a QUEUED run. LIVE already matching is expected and is the meaningful signal: P1 changed no src/, so the bundle is byte-identical and the deploy is a content no-op. Run conclusion polled to completion separately — a `cancelled` conclusion is a SILENT death (no mail, no artifacts) and must be read explicitly, never inferred from absence of failure."
 }

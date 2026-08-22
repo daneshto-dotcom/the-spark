@@ -38,6 +38,7 @@ import { getDefenderRecipe } from '../godlyRecipes/index.ts';
 import { findNearestEnemyCreatureFrom } from '../creatures/creatureAI.ts';
 import { getCreatureConfig } from '../creatures/voltkin-config.ts';
 import { applyRadialDamage, damageEntity, destroyDefender } from '../damage.ts';
+import { attackFifths } from '../stats.ts';
 import { stinkAggroTargets, stinkAuraTick, stinkIsDepleted, stinkThrowBag } from './stinkTower.ts';
 import type { World } from '../worldTypes.ts';
 import { getDefenderConfig, makeDefender, type Defender, type DefenderConfig, type DefenderKind } from './defender.ts';
@@ -108,7 +109,7 @@ export function applyRegisterDefender(world: World, action: RegisterDefenderActi
 export function applyRemoveDefender(world: World, action: RemoveDefenderAction): World {
   const d = world.defenders.get(action.defenderId);
   if (d === undefined) return world;
-  destroyDefender(world, d, 'recipeBreak');
+  destroyDefender(world, d);
   return world;
 }
 
@@ -337,10 +338,14 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
             // for every defender in the game, which is why HELGA needed six slaps to fell one goblin
             // and the laser turret — a "slow heavy beam" — needed six as well. One constant at one
             // call site made the whole tower roster mechanically identical.
+            // ⭐ S151 P2 (owner R72) — the damage is now `atk × (1 + 0.2·pen)` FIFTHS off the shared
+            // ladder, not a per-kind constant that happened to be a function of a goblin's hit
+            // points. Same 6 / 3 / 1 the roster has always dealt (creature pools are five times the
+            // old hit counts, so every kill count is unchanged) — but derived from nothing.
             damageEntity(
               world,
               { kind: 'creature', id: victim.id },
-              config.damageVsCreature,
+              attackFifths(config.atk, config.pen),
               'defender',
             );
           }
