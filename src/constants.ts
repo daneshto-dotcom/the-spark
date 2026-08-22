@@ -1284,11 +1284,32 @@ export const CHEWER_MAX_PER_VICTIM = 3; // one swarm can't fully strip a single 
 // every reference in src/ is a prose comment). The live ceiling is `CREATURE_CONFIGS[t].chewHits`.
 export const CONNECTOR_HP = CHEW_HITS; // 5 — reads as "a connector withstands 5 chews"
 export const CHEWER_HP = 1; // a pencil chewer dies in 1 single-target hit (raid / Voltkin / laser / slap)
-export const VOLTKIN_HP = 2; // a godly Voltkin takes 2 hits — twice as tough as a chewer
+/**
+ * ⭐ S150 R71 — 2 → 8. THE GODLY CREATURE WAS THREE TIMES FLIMSIER THAN A GRUNT.
+ *
+ * Owner: *"Voltkin hp should be 8"*, after seeing the measured table. At 2 hp a Voltkin died to ONE
+ * of HELGA's slaps (`PRINCESS_SLAP_DAMAGE_VS_CREATURE` = 3) while a plain goblin at
+ * `GOBLIN_MELEE_HP` = 6 survived to take two — so the summoned, cinematic, hard-to-build godly unit
+ * was strictly weaker than the basic melee unit it is supposed to outclass. Nothing in the fiction
+ * or the build cost justified that ordering; it was an artifact of two tunings done in different
+ * sessions against different scales.
+ *
+ * At 8 it takes THREE slaps (3+3+3 ≥ 8), which puts it above the goblin's two and restores the
+ * ladder chewer(1) < goblin(6) < voltkin(8).
+ *
+ * ⚠ AND THIS IS WHY IT COST A PROTOCOL BUMP. `serializeCreature` emits `hp` ONLY when a creature is
+ * DAMAGED (`hp < config.hp`) — an undamaged one omits the field entirely and the receiving peer
+ * rebuilds it from ITS OWN copy of this constant. That makes `VOLTKIN_HP` a SHARED CONSTANT BOTH
+ * PEERS COMPUTE FROM, exactly like `KEEP_RING_RADIUS` (16→17) and `CASTLE_BANK_CAP` (18→19) before
+ * it: a v27 peer would give a freshly-spawned Voltkin 2 hp while a v28 host gives it 8, and the two
+ * would disagree about when it dies. See the 27→28 entry in `net/protocol.ts`.
+ */
+export const VOLTKIN_HP = 8; // a godly Voltkin takes 3 HELGA slaps — tougher than a goblin (6)
 export const RAID_CREATURE_DAMAGE = 1; // a player raid (right-click a creature) deals 1 (P3)
 // S103 #8 — single-target creature-vs-creature / defender-vs-creature hit. A Voltkin zap on a
 // chewer, a laser beam (P3), and HELGA's slap (P4) all deal this through the SAME `damageCreature`
-// path: 1 → a chewer (CHEWER_HP=1) dies in one, a Voltkin (VOLTKIN_HP=2) in two → lightning-cloud.
+// path: 1 → a chewer (CHEWER_HP=1) dies in one; a Voltkin (VOLTKIN_HP=8, S150 R71) takes eight of
+// THESE, or three of HELGA's heavier slaps, before the lightning-cloud.
 // Same value as RAID_CREATURE_DAMAGE by design (one coherent damage scale, OC2); named separately
 // so the creature-combat call sites read intentionally and a future tuning of one needn't move both.
 export const CREATURE_HIT_DAMAGE = 1;
@@ -1385,7 +1406,7 @@ export const DOT_CADENCE_TICKS = 0.5 * PHYSICS_HZ; // 30 — one damage applicat
 // The lock test pins the RELATIONSHIP (6 hits fells a full-hp shape), not the literal 167 — because
 // if PRIMITIVE_MAX_HP ever moves, 167 silently stops meaning six.
 export const GOBLIN_DAMAGE_VS_PRIMITIVE = 167; // 6 × 167 = 1002 ≥ PRIMITIVE_MAX_HP 1000
-// Unit-vs-unit runs on the OTHER hp scale. Creature hp is a hit COUNT (CHEWER_HP 1, VOLTKIN_HP 2)
+// Unit-vs-unit runs on the OTHER hp scale. Creature hp is a hit COUNT (CHEWER_HP 1, VOLTKIN_HP 8)
 // and every single-target hit deals CREATURE_HIT_DAMAGE = 1, so "6 attacks to destroy a UNIT" is
 // expressed as the goblin's own hp being 6. Two scales, one owner-visible rule, all integers.
 export const GOBLIN_MELEE_HP = 6; // 6 × CREATURE_HIT_DAMAGE(1) — the owner's "6 attacks" for a unit

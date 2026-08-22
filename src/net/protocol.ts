@@ -258,7 +258,24 @@ export type { NetSnapshot };
 //       the snapshot and DROP the field, and every tower it restored would then read as freeform
 //       rubble that FIX refuses. A field a stale peer can drop without erroring is more dangerous
 //       than one it cannot parse at all.
-export const PROTOCOL_VERSION = 27 as const;
+// S150 R71 — bumped 27->28: THE VOLTKIN GOT TOUGHER (2 hp -> 8). A one-constant change, and it
+// forces a bump for the subtlest reason on this whole list: `serializeCreature` emits a creature's
+// `hp` ONLY WHEN IT IS DAMAGED (`hp < config.hp`). An UNDAMAGED creature therefore carries no hp on
+// the wire at all, and the receiving peer reconstructs it from its OWN `CREATURE_CONFIGS` — i.e.
+// from its own compiled `VOLTKIN_HP`. So a v27 peer watching a v28 host's freshly-summoned Voltkin
+// would hand it 2 hp locally while the host holds 8, and the two would disagree about the exact hit
+// that kills it — and therefore about `world.creatures`, the lightning-cloud that follows, and every
+// hash downstream of both.
+//
+// ⚠ THE GENERAL RULE THIS IS THE THIRD INSTANCE OF: an ADDITIVE-OPTIONAL wire field whose absence
+// means "use your own default" turns that default into A SHARED CONSTANT BOTH PEERS COMPUTE FROM.
+// `KEEP_RING_RADIUS` forced 16->17 and `CASTLE_BANK_CAP` forced 18->19 for the identical reason.
+// Omitting a field to save bytes does not make its value private.
+//
+// Owner ruling R71, from the measured table: at 2 hp a Voltkin died to ONE of HELGA's slaps (damage
+// 3) while a plain goblin (6 hp) took two, so the godly unit was strictly weaker than the grunt.
+// 8 restores the ladder chewer(1) < goblin(6) < voltkin(8).
+export const PROTOCOL_VERSION = 28 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -366,6 +383,13 @@ export interface HelloMsg {
    * every tower it restored would read as freeform rubble that FIX refuses. A field a stale peer can
    * DROP without erroring is more dangerous than one it cannot parse.)
    *
+   * S150 R71: 27->28 (THE VOLTKIN GOT TOUGHER — `VOLTKIN_HP` 2 -> 8. `serializeCreature` emits
+   * creature `hp` only when DAMAGED, so an undamaged Voltkin crosses the wire with no hp at all and
+   * the peer rebuilds it from its own compiled constant. That makes this a SHARED CONSTANT BOTH
+   * PEERS COMPUTE FROM — the same class as KEEP_RING_RADIUS at 16->17 and CASTLE_BANK_CAP at 18->19
+   * — so a v27 peer would give a fresh Voltkin 2 hp against the host's 8 and the two would disagree
+   * about the hit that kills it.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -398,7 +422,7 @@ export interface HelloMsg {
    *      the session was S149, and reconstructing history from source labels alone invents a session
    *      that never happened.
    * `protocolVersionSync.test.ts` enforces sites 1, 2 and 5. Sites 3, 4 and 6 remain prose + tsc. */
-  readonly protoVersion: 27;
+  readonly protoVersion: 28;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

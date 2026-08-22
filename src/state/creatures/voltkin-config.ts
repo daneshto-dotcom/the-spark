@@ -219,7 +219,7 @@ export const VOLTKIN_CONFIG: CreatureConfig = {
   chewHits: 0,
   hopSpeedMul: 1,
   maxAccel: 200,
-  hp: VOLTKIN_HP, // 2 — godly, takes 2 hits (S102 unified HP model)
+  hp: VOLTKIN_HP, // 8 — godly; 3 HELGA slaps, above the goblin's 6 (S150 R71; was 2)
   selfExplode: false, // a Voltkin zaps; it never self-detonates
   targetsStructures: false, // a Voltkin targets connectors + creatures, never shapes
 };

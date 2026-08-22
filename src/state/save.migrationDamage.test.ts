@@ -80,7 +80,7 @@ function hostWorldWithDamage(): World {
     }),
     targetCreatureId: CHEWER, // mid-zap at the chewer
   };
-  voltkin.hp -= 1; // 1 — damaged from VOLTKIN_HP = 2, what damageCreature does
+  voltkin.hp -= 1; // damaged by one hit from VOLTKIN_HP (8 since S150 R71), what damageCreature does
   w.creatures.set(VOLTKIN, voltkin);
 
   return w;
@@ -102,7 +102,11 @@ describe('S133 P1 — damage survives the mirror wire (host-migration fidelity)'
     const v = client.creatures.get(VOLTKIN);
     expect(v).toBeDefined();
     // Pre-S133 this was VOLTKIN_CONFIG.hp (2) — a full heal on every host handoff.
-    expect(v!.hp).toBe(1);
+    // ⭐ S150 R71 — DERIVED, NOT A LITERAL. This read `toBe(1)`, which was VOLTKIN_HP(2) minus one
+    // hit — so retuning the constant to 8 broke a test whose actual subject is "damage survives the
+    // wire", not "a Voltkin has 1 hp". Pin the INVARIANT (one hit less than full), never the
+    // arithmetic result of a constant that is explicitly a playtest dial.
+    expect(v!.hp).toBe(VOLTKIN_CONFIG.hp - 1);
     expect(v!.hp).not.toBe(VOLTKIN_CONFIG.hp);
   });
 
@@ -125,7 +129,7 @@ describe('S133 P1 — damage survives the mirror wire (host-migration fidelity)'
     const host = hostWorldWithDamage();
     throughTheMirrorWire(host);
     expect(host.creatures.get(CHEWER)!.chewProgress).toBe(4);
-    expect(host.creatures.get(VOLTKIN)!.hp).toBe(1);
+    expect(host.creatures.get(VOLTKIN)!.hp).toBe(VOLTKIN_CONFIG.hp - 1); // S150 R71 — derived, see above
   });
 
   it('S134 — the lifecycle fields now SURVIVE; only targeting + the untravelled trio reset', () => {

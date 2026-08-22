@@ -1,5 +1,5 @@
 {
- "tool_calls_session_total": 1807,
+ "tool_calls_session_total": 1816,
  "session_id": "S150",
  "session_kind": "truth-restoration + arcade batch (owner R55: all five, arcade kept)",
  "session_start": "2026-08-20",
@@ -12,7 +12,7 @@
  "pdr_approved": true,
  "deliberation_completed": true,
  "unlock_source": "user",
- "protocol_version": 27,
+ "protocol_version": 28,
  "boot_preflight": {
   "build": "PASS entry index-DMU7pb7t.js 689.1 KiB cap 900 KiB",
   "vitest": "2506 passed / 162 files",
@@ -666,9 +666,9 @@
   },
   {
    "id": "P6",
-   "title": "OWNER RULINGS R57-R69 — record all thirteen, implement the four that are fully specified",
+   "title": "OWNER RULINGS R57-R69 — record all thirteen, implement the four that are fully specified + R70/R71 (VOLTKIN_HP 2->8, protocol 27->28)",
    "tier": "Standard",
-   "protocol_bump": false,
+   "protocol_bump": true,
    "status": "completed",
    "check_completed": true,
    "pdr_approved": true,
@@ -736,13 +736,60 @@
      "type": "file_contains",
      "path": "src/render/arcadeRunOverlay.test.ts",
      "needle": "a run that MISSES the board gets its place, and no confetti"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/constants.ts",
+     "needle": "export const VOLTKIN_HP = 8;"
+    },
+    {
+     "type": "file_lacks",
+     "path": "src/constants.ts",
+     "needle": "export const VOLTKIN_HP = 2;"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/net/protocol.ts",
+     "needle": "export const PROTOCOL_VERSION = 28 as const;"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/net/protocol.ts",
+     "needle": "readonly protoVersion: 28;"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/net/protocol.ts",
+     "needle": "// S150 R71 — bumped 27->28: THE VOLTKIN GOT TOUGHER"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/net/protocol.ts",
+     "needle": "S150 R71: 27->28 (THE VOLTKIN GOT TOUGHER"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/net/protocol.test.ts",
+     "needle": "expect(PROTOCOL_VERSION).toBe(28);"
+    },
+    {
+     "type": "file_contains",
+     "path": "e2e/smoke.spec.ts",
+     "needle": "const LOCAL_PROTO_V = 28;"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/state/save.migrationDamage.test.ts",
+     "needle": "expect(v!.hp).toBe(VOLTKIN_CONFIG.hp - 1);"
     }
    ],
-   "check_method": "P6 CHECK, verbose. RECORDED all thirteen rulings (R57-R69) into owner_rulings_s150_late with the owner's verbatim words alongside what each one MEANS operationally - two of them OVERRIDE what S150 proposed (R57 rejects travel-then-stamp for bots; R58/R59 reject the per-difficulty tower whitelist) and R63 dissolves the quarry question without the wall arc S150 offered. IMPLEMENTED the four that were fully specified and self-contained: R62 (fog is a BUILD-only mechanic) turned out to be ONE CLAUSE in fogActive, because the existing stepFogAlpha tween already snaps ON when the target rises and fades OFF when it falls - so the BUILD->FIGHT reveal and the FIGHT->BUILD re-hide both came free, and are now pinned by two tests. R66 corrected the footer WORDING only, with an explicit do-not-re-bucket warning, since moving the buckets would change every chip a player has learned. R67 added a fourth clause to chordBlocked (the existing three could never fire, because an arcade run keeps world.sudoku null on purpose) plus a NARROW fix to the 'M' mute key - deliberately not routed through chordBlocked, which would also have blocked mute during cinematics and NONET. R68 reuses nonetCelebration.ts wholesale rather than inventing a second effect: it is already pure, unit-tested, and carries the photosensitivity charter (glow breathes at ~0.95 Hz, capped under the 0.30 ceiling). RUNTIME-VERIFIED against real Pixi, not just the stub: the particle curve ramps 0 -> 62 at peak -> 0 and the celebration ends at 4.5 s, with no throw. That runtime check earned its keep - the jsdom stub was missing Graphics.circle and went red on a stub gap rather than a real defect, which is exactly the class of thing a stub hides. DEFERRED with reasons: R57-R61 (bots, Full tier, now unblocked), R63 (four sim rules, hashed state), R64 (RAID economy), R69 (NONET progression). R65 is NOT actioned - see below. tsc 0; vitest 173 files / 2855 (+7); build 720.1 KiB under the 900 KiB charter; e2e:gating 53 passed / 0 failed / 0 skipped.",
+   "check_method": "P6 CHECK, verbose. RECORDED all thirteen rulings (R57-R69) into owner_rulings_s150_late with the owner's verbatim words alongside what each one MEANS operationally - two of them OVERRIDE what S150 proposed (R57 rejects travel-then-stamp for bots; R58/R59 reject the per-difficulty tower whitelist) and R63 dissolves the quarry question without the wall arc S150 offered. IMPLEMENTED the four that were fully specified and self-contained: R62 (fog is a BUILD-only mechanic) turned out to be ONE CLAUSE in fogActive, because the existing stepFogAlpha tween already snaps ON when the target rises and fades OFF when it falls - so the BUILD->FIGHT reveal and the FIGHT->BUILD re-hide both came free, and are now pinned by two tests. R66 corrected the footer WORDING only, with an explicit do-not-re-bucket warning, since moving the buckets would change every chip a player has learned. R67 added a fourth clause to chordBlocked (the existing three could never fire, because an arcade run keeps world.sudoku null on purpose) plus a NARROW fix to the 'M' mute key - deliberately not routed through chordBlocked, which would also have blocked mute during cinematics and NONET. R68 reuses nonetCelebration.ts wholesale rather than inventing a second effect: it is already pure, unit-tested, and carries the photosensitivity charter (glow breathes at ~0.95 Hz, capped under the 0.30 ceiling). RUNTIME-VERIFIED against real Pixi, not just the stub: the particle curve ramps 0 -> 62 at peak -> 0 and the celebration ends at 4.5 s, with no throw. That runtime check earned its keep - the jsdom stub was missing Graphics.circle and went red on a stub gap rather than a real defect, which is exactly the class of thing a stub hides. DEFERRED with reasons: R57-R61 (bots, Full tier, now unblocked), R63 (four sim rules, hashed state), R64 (RAID economy), R69 (NONET progression). R65 is NOT actioned - see below. tsc 0; vitest 173 files / 2855 (+7); build 720.1 KiB under the 900 KiB charter; e2e:gating 53 passed / 0 failed / 0 skipped. R71 SHIPPED IN THE SAME PRIORITY, AND IT EXERCISED P1's OWN MACHINERY. VOLTKIN_HP 2->8 looked like a one-constant edit and turned out to owe a PROTOCOL BUMP: serializeCreature emits creature hp ONLY when damaged, so an undamaged Voltkin crosses the wire with no hp and the peer rebuilds it from its own compiled constant - making VOLTKIN_HP a shared constant both peers compute from, the same class as KEEP_RING_RADIUS (16->17) and CASTLE_BANK_CAP (18->19). All SIX checklist sites updated, and the gate P1 built accepted the bump (51 tests green across protocolVersionSync + protocol). The change also broke two tests that had hardcoded toBe(1) - VOLTKIN_HP(2) minus one hit - which is the 'pin the invariant, not the spelling' lesson landing on a real case: both now assert VOLTKIN_CONFIG.hp - 1 and survive the next retune.",
    "findings": [
     "R65 (unit HP/ATK balance) is recorded VERBATIM and deliberately NOT acted on. 'Helga cant kill voltkin within two slaps but goblin within like 5' can be read two opposite ways - either the big creature dies too fast, or the small one takes too long - and guessing a balance number is strictly worse than asking. The owner needs to see the measured numbers first.",
     "R63 is the most valuable ruling in the set and the one that cancels prior work: the owner rejected the wall-arc framing for the quarry outright and replaced it with four peace rules for the BUILD phase. That is both simpler and better - it makes the build stage genuinely safe instead of patching geometry.",
-    "R62 cost one clause because a previous session built the fog tween to ease-out on falling targets for the victory reveal. A feature added for one reason paid for an unrelated one three sessions later."
+    "R62 cost one clause because a previous session built the fog tween to ease-out on falling targets for the victory reveal. A feature added for one reason paid for an unrelated one three sessions later.",
+    "R70 is deferred DELIBERATELY and the reason matters: the owner is right that a goblin at 6 hp is too tough, but GOBLIN_MELEE_HP is not a free constant - PRINCESS_SLAP_DAMAGE_VS_CREATURE is DERIVED from it as round(hp/2). Dropping the goblin toward chewer-fragility would silently nerf Helga against every creature in the game. That derivation has to be broken as an explicit decision, and the goblin's stats are downstream of a tower that does not exist yet, so tuning now would be tuning the wrong end.",
+    "The protocol bump was NOT obvious from the diff. A one-line constant change with no wire field in sight still crossed the wire boundary, via an optimisation (omit hp when undamaged) made in a different session for unrelated reasons. Omitting a field to save bytes does not make its value private - that is now written into the changelog as the general rule, with its three instances named."
    ],
    "checkpoint_commit": "456c394",
    "deploy_verified": "4/4"
@@ -1924,6 +1971,13 @@
   "AGENTS: owner explicitly asked for two agents on the remaining work. Agent A = HUD coherence audit + fixes. Agent B = FIX/SCRAP (R13/R19/R21)."
  ],
  "carry_forward_next_session": [
+  {
+   "id": "CF-S150-d",
+   "priority": 0,
+   "title": "THE GOBLIN TOWER + the unit stat pass — owner's named headline for next session",
+   "state": "OWNER-DIRECTED, unstarted. Design partly settled, stats entirely open.",
+   "detail": "Owner R70: *\"look again at the goblin tower that we have thought about but havnt built yet. its a basic like 4 or 5 shape tower that takes one shape to feed to then spawn a goblin of different kinds - we have predefined the types of goblins but not their stats. maybe we should work on that and the goblin tower amongst other things first thing next session.\"* ALREADY SETTLED: one tower, six outputs (roadmap Q9/R24 - R24 supersedes R15's 'several simple towers'). The shape->unit map is Q1: Dot=suicide, Line=archer, Triangle=swordsman, Square=shield, Circle=hound, Spiral=bat rider. Feed ONE shape, get ONE goblin of that type. OPEN: every stat, and the tower's own recipe (4 or 5 shapes - owner said 'like 4 or 5'). ⚠ THE TRAP TO AVOID: GOBLIN_MELEE_HP is not a free constant. PRINCESS_SLAP_DAMAGE_VS_CREATURE = round(GOBLIN_MELEE_HP / 2), so dropping the goblin toward chewer-fragility (owner R70) silently nerfs HELGA against EVERY creature unless the derivation is broken first. Do the derivation as an explicit decision, not as a side effect. Reference numbers as of S150: CHEWER_HP 1 - GOBLIN_MELEE_HP 6 - VOLTKIN_HP 8 (R71) - PRINCESS_SLAP_DAMAGE_VS_CREATURE 3 - CREATURE_HIT_DAMAGE 1 - RAID_CREATURE_DAMAGE 1."
+  },
   {
    "id": "CF-S149-f",
    "priority": 1,
@@ -3405,7 +3459,7 @@
    "title": "UNIT HP / ATK / DEFENCE NEED A BALANCE PASS",
    "owner": "Unit HP and ATK/DEFENCE needs to be tweaked and worked on. Helga cant kill voltkin within two slaps but goblin within like 5....",
    "means": "⚠ RECORDED VERBATIM AND NOT ACTED ON - the intent is genuinely ambiguous and guessing a balance number is worse than asking. Needs the owner to confirm the direction before any constant moves. The measured current numbers should be put in front of them first.",
-   "status": "NEEDS CLARIFICATION"
+   "status": "SUPERSEDED IN PART by R70 + R71. R71 settled the Voltkin half concretely (8, shipped). The rest of the unit stat pass is folded into R70 and deferred to next session, where it belongs - alongside the goblin tower that the goblin's stats are downstream of."
   },
   "R66": {
    "title": "THE FOOTER NUMBER IS THE SHAPE COUNT - CORRECT AS SHIPPED",
@@ -3427,6 +3481,19 @@
    "title": "NONET BECOMES A PROGRESSION, NOT A SINGLE PUZZLE",
    "owner": "we need to keep developing the NONET/SODOKU. maybe there will be 10 sodokus they have to pass in a certain time per soduku and then they reach a second tier of difficulty - where we will have different art and style and stuff and maybe even music",
    "means": "A ladder: ~10 puzzles, each with its own time limit, and clearing the set unlocks a SECOND TIER with distinct art, styling and possibly its own music. The S150 timed-run state machine (arcadeRun.ts) and the top-25 board are the substrate this builds on. Exploratory - the owner said 'maybe' twice."
+  },
+  "R70": {
+   "title": "THE GOBLIN IS TOO TOUGH - it should be chewer-weak, and the GOBLIN TOWER is the real subject",
+   "owner": "why is goblin 6 hp he should be as weak as chewer - look again at the goblin tower that we have thought about but havnt built yet. its a basic like 4 or 5 shape tower that takes one shape to feed to then spawn a goblin of different kinds - we have predefined the types of goblins but not their stats. maybe we should work on that and the goblin tower amongst other things first thing next session.",
+   "means": "TWO things. (1) GOBLIN_MELEE_HP = 6 is wrong - a goblin should be roughly as fragile as a chewer (CHEWER_HP = 1). ⚠ DO NOT just set it to 1 in isolation: HELGA's slap damage is DERIVED from it (PRINCESS_SLAP_DAMAGE_VS_CREATURE = round(GOBLIN_MELEE_HP / 2) = 3), so dropping the goblin also silently nerfs Helga against everything else. The two have to move together, which is why this is a balance PASS and not a constant edit. (2) The goblin's stats are downstream of a feature that does not exist yet - THE GOBLIN TOWER - so tuning the goblin before the tower exists is tuning the wrong end. NEXT SESSION'S HEADLINE.",
+   "goblin_tower_spec_so_far": "A basic 4-5 shape tower. You FEED IT ONE SHAPE and it spawns a goblin of the type that shape maps to. The six types are already predefined (roadmap Q1): Dot -> suicide, Line -> archer, Triangle -> swordsman, Square -> shield goblin, Circle -> hound, Spiral -> bat rider. Their STATS are not defined - that is the open work. Roadmap Q9/R24 already settled the shape of it: ONE tower with six outputs, not six towers.",
+   "status": "NEXT SESSION - headline item, together with the unit stat pass"
+  },
+  "R71": {
+   "title": "VOLTKIN_HP 2 -> 8",
+   "owner": "Voltkin hp should be 8",
+   "means": "SHIPPED THIS SESSION. At 2 hp a Voltkin died to ONE of HELGA's slaps (damage 3) while a plain goblin at 6 hp took two - the godly unit was strictly weaker than the grunt. 8 makes it three slaps and restores the ladder chewer(1) < goblin(6) < voltkin(8). ⚠ It cost a PROTOCOL BUMP 27->28, and the reason is worth remembering: serializeCreature emits creature hp ONLY when DAMAGED, so an undamaged creature carries no hp on the wire and the peer rebuilds it from its own compiled constant. An additive-optional field whose absence means 'use your own default' turns that default into a shared constant both peers compute from - the third time this has forced a bump (KEEP_RING_RADIUS 16->17, CASTLE_BANK_CAP 18->19).",
+   "status": "SHIPPED"
   }
  },
  "owner_rulings_s150_late_note": "Eleven rulings given at S150 close, in response to the \"NEEDING YOU\" summary. R57-R61 unblock BOTS BUILD TOWERS (the last of the five S149 playtest complaints) and OVERRIDE two things S150 proposed: no travel-then-stamp (R57) and no per-difficulty tower whitelist (R58/R59). R63 dissolves the quarry open-hub question without the wall arc S150 offered. R62, R64, R68 and R69 are NEW scope. R65 is recorded but deliberately NOT acted on - ambiguous intent."
