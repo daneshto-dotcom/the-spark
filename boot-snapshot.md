@@ -1,75 +1,91 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-08-20 | Session: S149 | Branch: master | Commit: **a8028ec** | PROTOCOL_VERSION: **27**
+Generated: 2026-08-22 | Session: S150 | Branch: master | Commit: **10827c2** | PROTOCOL_VERSION: **28**
 
-**S149 shipped SIX priorities. The owner rebuilt the batch mid-session from a live playtest, so the
-plan I opened with (castle HP) was dropped entirely and replaced by their five complaints. All five
-are now addressed except bots-build-towers. Two agents were delegated (owner's request) for
-FIX/SCRAP and a HUD coherence audit. Deploy 4/4 live.**
+**S150 shipped SIX priorities, all deploy-verified 4/4. Then the owner asked for a landing audit,
+which found 11 defects — including a regression P3 had shipped — and 10 were fixed before close.
+Thirteen owner rulings (R57–R71) were recorded at the end; four implemented, the rest queued.**
 
-⛔ READ FIRST: `.claude/plans-archive/2026-08-20_SCOPE_AMENDMENT_S149_PLAYTEST_COHERENCE_COMPLETED.md`
-and the 14-entry `carry_forward_next_session[]` in `.claude/session-state.json` — it is ordered.
+⛔ READ FIRST: the ordered 13-entry `carry_forward_next_session[]` in `.claude/session-state.json`,
+and `owner_rulings_s150_late` in the same file — R57–R71 are the owner's own words plus what each
+means operationally. **The live carry-forward list is `carry_forward_next_session`**; the legacy
+`carry_forward` key is now a synced mirror (it used to be a frozen S147/S148 list that the review
+gate read, which is why the gate was showing closed items as open).
 
 ## Next Steps
 
-1. **CF-S149-e — ARCADE NONET: timed trial + 80s leaderboard UI.** ⚠ AN HONEST HALF. The model
-   (`src/render/arcadeScores.ts`) is COMPLETE and mutation-tested: top-25, 3-letter initials,
-   `M:SS.cc`, corrupt-storage tolerance, and the subtle part — **the sort is INVERTED because faster
-   wins**, and a reversed board would still look perfectly plausible. MISSING: the timer display,
-   the ENTER-YOUR-INITIALS screen, and the HIGH SCORES board. Wire: stamp `performance.now()` when a
-   puzzle launches (legitimate — crosses no wire, feeds nothing host-authoritative), stop on solve,
-   call `recordRun(name, ms, at)`, show the place. Owner asked for this explicitly.
-2. **CF-S149-d — `e2e/click-to-build.spec.ts`, 3 tests are `test.fixme`.** STALE, not flaky: tower
-   selection moved from the castle to the footer. The rewrite recipe is written into the file (open
-   the tier chip → read the cards → click to arm → place). Both geometry getters already exist.
-3. **CF-S149-f — P7 BOTS BUILD TOWERS.** The last of the owner's five original complaints, and the
-   only one not addressed. A.0 measured: `botBrain.chooseGoal` has FLEE/CLEAN/RAINBOW/SEVER/POTATO/
-   BUILD/PULL, and the BUILD goal places ONE primitive — there is no recipe goal anywhere, so bots
-   are structurally INCAPABLE of building a tower. Full tier.
-4. **CF-S149-a — DESIGN RULING NEEDED (owner):** the quarry is an OPEN HUB. Border walls stop at the
-   rim (Q6), so a unit can route between zones through the centre while the walls are up. Faithful
-   to the stated geometry and pinned by a named test; sealing it needs a wall arc across the rim.
-5. Then CF-S149-b (the wall clamp has no sim consumer — the rim case), CF-S148-b/c/d, CF-S147-b/c/e.
+1. **THE GOBLIN TOWER + THE UNIT STAT PASS (CF-S150-d, priority 0).** The owner named this the
+   headline: *"look again at the goblin tower that we have thought about but havnt built yet… maybe
+   we should work on that and the goblin tower amongst other things first thing next session."*
+   ALREADY SETTLED: one tower, six outputs (Q9/R24 — R24 supersedes R15). Feed ONE shape, get ONE
+   goblin of that type. Shape→unit map (Q1): Dot=suicide · Line=archer · Triangle=swordsman ·
+   Square=shield · Circle=hound · Spiral=bat rider. OPEN: every stat, plus the tower's own recipe
+   ("like 4 or 5" shapes).
+   ⚠ **THE TRAP:** `GOBLIN_MELEE_HP` is not a free constant —
+   `PRINCESS_SLAP_DAMAGE_VS_CREATURE = round(GOBLIN_MELEE_HP / 2)`. The owner wants the goblin near
+   chewer-fragile (R70), and doing that naively **silently nerfs Helga against every creature**.
+   Break the derivation as an explicit decision first. Reference numbers: CHEWER_HP 1 ·
+   GOBLIN_MELEE_HP 6 · VOLTKIN_HP **8** (R71, shipped) · slap damage 3 · CREATURE_HIT_DAMAGE 1.
+2. **BOTS BUILD TOWERS (CF-S149-f) — now UNBLOCKED.** The last of the owner's five S149 playtest
+   complaints. All five open rulings answered: R57 bots get the player's shortcut *including saving
+   until affordable* (not travel-then-stamp) · R58/R59 loose-shape building stays, difficulty is a
+   PREFERENCE weighting not a whitelist · R60 choosing a tower auto-prioritises its shapes for the
+   gatherer, per-shape ordering for high-level bots only · R61 all six recipes count as "towers".
+   Full tier. **No protocol bump** (bots are host-only, `BotGoal` has no wire surface).
+   ⚠ A bot cannot build a tower today for an arithmetic reason: `GROWTH_STEP` (48) is inside
+   `AUTO_BOND_RADIUS` (60), so its shapes merge into one ever-growing blob while every recipe gates
+   on an EXACT size. And its own litter blocks stamp clearance — fix littering in the same priority
+   or the result reads as the same bug.
+3. **R63 — THE BUILD PHASE BECOMES GENUINELY PEACEFUL.** Four rules the owner gave, which together
+   dissolve the old "quarry is an open hub" problem with no wall geometry at all: (a) the quarry/spawn
+   disc is CLOSED to units during BUILD; (b) towers do not shoot or attack during BUILD; (c) they may
+   still PRODUCE units, which stand passive near their tower until the FIGHT edge; (d) ~2–3 s before
+   FIGHT ends, every surviving unit rushes back to its tower and waits.
+4. **R64 — RAID.** A left-click charge that undoes one connection, earned 1 per 5 hand-made
+   connectors OR 1 per 3 blueprint buildings — deliberately asymmetric so hand-building outearns
+   click-to-build. ⚠ OPEN: whether this replaces the existing `disruptionCharges`/SEVER economy or
+   is a second currency. Look at what ships before designing.
+5. **R69 — NONET progression.** ~10 puzzles, a time limit each, then a second tier with its own art,
+   styling and possibly music. Builds on S150's `arcadeRun.ts` state machine and the top-25 board.
+6. **R68's other half.** The arcade high-score fireworks shipped; the WIN-SCREEN fireworks the owner
+   remembers from an older version did NOT. I found no surviving code to "add back" — that is
+   archaeology someone still owes.
+7. Then CF-S147-e (R45 lobby colour/race picker — the only inherited CF whose every file:line still
+   verified) · CF1 (`?worker=1` ignition, needs a runtime probe) · CF3 (seeding-vacuity sweep) ·
+   CF-S148-b/d (both now correctly diagnosed, so both cheap) · CF-S150-b/c.
 
 ## Blockers
 
-None blocking. ⚠ The owner is playtesting **2-player multiplayer with a friend** after this session
-and will report defects next session — expect an interrupt-driven start, exactly like this one.
+None blocking. R65's goblin half is deliberately unactioned pending the derivation decision above.
 
 ## Traps (still live)
 
-- **⭐ A RENDERER KEYED ON A PHASE OR ROSTER FIELD NEEDS A `gameState` GUARD TOO.** Shipped this bug
-  twice in one session: border walls drew across the TITLE SCREEN (a never-started world reads
-  `matchPhase === 'BUILD'`), and the HUD agent then found FOUR MORE instruments leaking onto the
-  title for the identical reason (`world.players` holds P1 from boot, so every "is the player alive"
-  guard passes on the menu).
-- **⭐ LOOK AT THE FRAME.** Three defects this session were invisible to 171 green test files: walls
-  on the title screen, an arcade menu rendering *under* the title screen, and footer chips whose
-  numbers were unreadable against black. No unit test asserts legibility or z-order.
-- **⭐ A GREEN SUITE CAN MEAN NOTHING.** After the entire P2 phase-split implementation landed, the
-  suite reported the EXACT pre-change count (2629). 163 files and not one noticed. When a behaviour
-  change moves no test count, that is the signal to write the test.
-- **A REQUIRED hashed World field is TEN sites, and TWO are tsc-forced** (S150 recount, verified on
-  all three shipped fields). The old "nine sites / one tsc-forced" line was traced on an OPTIONAL
-  field, which needs no `makeWorld` initializer — the tenth site is that object literal, and it is
-  tsc-forced because it is annotated `const w: World`. `netSnapshot` is NOT an eleventh site (it
-  derives via `Omit`). An OPTIONAL field really is nine.
-- **A protocol bump is SIX sites, not five** (S150 added the session-label item), and it is now
-  MECHANICALLY GATED: `protocolVersionSync.test.ts` asserts both changelog carriers document an
-  unbroken chain ending at `PROTOCOL_VERSION`. CF-S147-b is CLOSED. Enumerating that chain instead of
-  reading it found FIVE live drift instances, two of which (`8→9`, `20→21`) had survived eight and
-  three bumps unnoticed.
-- **MCV bindings rot when a later priority supersedes an earlier one.** Happened twice this session
-  (P1's `canBuildAt` → P2's `canBuildNow`; P2's protocol 26 → P6's 27). Pin the INVARIANT, not the
-  spelling or the number.
-- **`file_lacks` needles**: if a new comment QUOTES the retired text, the needle is still on disk.
-- Mixed line endings — detect the file's own EOL, write with `newline=''`; prefer single-line anchors.
-- Bash eats backticks inside double-quoted strings — use heredocs for comment text.
-- Two agents on one tree cost real time (a TEMP probe broke `tsc` for everyone). Give each a disjoint
-  file set, or run them sequentially when both touch `main.ts`.
-- **PLAYER_COLORS stays at SIX** (a race roster, R45). `bomb`/`rainbow` e2e are load-sensitive.
+- **⭐ NORMALISING A WRITE PATH CREATES AN OBLIGATION ON EVERY READ PATH.** P3 made `recordRun` store
+  `normaliseName(name)` and left the board's highlight matching the RAW initials — both halves in one
+  commit, both mine. Found by the audit, not by 2848 tests.
+- **⭐ ENUMERATE A CHAIN, DO NOT READ IT.** Repairing two known changelog gaps found FOUR: `8→9`
+  (missing since S93) and `20→21` (since S144) had survived multiple sessions whose purpose was
+  fixing that drift. A human checks the LAST link; only code checks every link.
+- **⭐ INSTRUMENT THE FAILURE BEFORE PROPOSING A CAUSE.** bomb.spec cost two wrong hypotheses (the
+  drag; then the phase boundary — I even shipped a guard for it). Making the failure message carry
+  state produced the answer in one line: `rainbows=1`.
+- **⭐ A PARTIAL FIX LOOKS IDENTICAL TO NO FIX.** Suppressing bombs moved 2/6 → 3/8 — inside the
+  noise of n=8. Only per-failure evidence (`bombs=0` on the next failures) showed cause one was gone
+  and another remained. Quote denominators, always.
+- **⭐ THE PDCA GATE'S BRACE-DEPTH HAZARD IS REAL AND I TRIPPED IT TWICE.** Any verification needle
+  with an unbalanced `{` skews the awk counter and silently disables the gate. Strip trailing braces
+  from needles; check the depth is 0 before committing.
+- **A dev-only optimisation can turn a constant into shared state.** `VOLTKIN_HP` 2→8 owed a protocol
+  bump because `serializeCreature` omits `hp` when undamaged, so the peer rebuilds from its own
+  constant. Additive-optional-whose-absence-means-your-default = a shared constant. Third instance.
+- Only 3 of 6 recipes are `kind:'defender'`; pentagram/lightningHub are spawners, voltkin cinematic.
+  Owner R61 says all six still count as "towers" (a form with a function).
+- `placeOf` can never report worse than 26th — it ranks against stored rows and storage caps at 25.
+- Mixed line endings per file (protocol.ts LF, LOCKED_DECISIONS.md CRLF) — respect each.
+- Bash heredocs here are unreliable for long content; write a script file and run it.
 
 ## Pending Backlog
 
-`SPARK_TD_BLUEPRINT.md` + `SPARK_TD_SESSION_SPECS.md` remain the forward plan. Castle HP /
-elimination (S150 spec) is still UNSTARTED — the owner deferred it this session to fix the five
-playtest defects first.
+`SPARK_TD_BLUEPRINT.md` + `SPARK_TD_SESSION_SPECS.md` remain the forward plan. **Castle HP / guns /
+elimination / placings** (roadmap S150) is still UNSTARTED and is now the largest remaining roadmap
+item — Full tier, a new hashed `castles` family, and per the S150 recount a REQUIRED hashed World
+field costs **TEN** sites with **TWO** tsc-forced (not the long-quoted nine/one).
