@@ -44,11 +44,15 @@ vi.mock('pixi.js', () => {
     clear() { return this; }
     rect() { return this; }
     roundRect() { return this; }
+    // Added when the R68 celebration went red on a MISSING stub method rather than a real bug — the
+    // stub has to keep pace with the Graphics surface the renderer actually uses.
+    circle() { return this; }
     fill() { return this; }
     stroke() { return this; }
   }
   class FakeText extends FakeContainer {
     text: string;
+    alpha = 1;
     style: { fontSize: number; fill: number };
     constructor(o: { text: string; style: { fontSize: number; fill: number } }) {
       super();
@@ -61,6 +65,7 @@ vi.mock('pixi.js', () => {
 
 const { ArcadeRunOverlay } = await import('./arcadeRunOverlay.ts');
 const { startRun, finishRun, commitRun, typeLetter } = await import('./arcadeRun.ts');
+const { TOP_N } = await import('./arcadeScores.ts');
 
 function installStorage(): void {
   const map = new Map<string, string>();
@@ -204,6 +209,43 @@ describe('S150 P3 — each phase reports what it drew', () => {
     const o2 = make();
     o2.render({ ...first, scores: second.scores }, 0, true);
     expect(o2.getUiPoints().mineIndex).toBe(0);
+  });
+
+  it('⭐ R68 — a run that MAKES the board gets fireworks and a congratulations', () => {
+    const o = make();
+    const run = commitRun(finishRun(startRun(0), 5_000), 1);
+    expect(run.onBoard).toBe(true);
+    o.render(run, 0, true);              // frame 0 latches the celebration clock
+    expect(o.getUiPoints().celebrating).toBe(true);
+    o.render(run, 500, true);            // ~0.5 s in, rockets are up
+    expect(o.getUiPoints().particles).toBeGreaterThan(0);
+  });
+
+  it('⭐ R68 — a run that MISSES the board gets its place, and no confetti', () => {
+    // Celebrating a miss is how a reward stops meaning anything. Fill the table with faster runs,
+    // then come 26th.
+    for (let i = 0; i < TOP_N; i++) commitRun(finishRun(startRun(0), 1_000 + i), i);
+    const missed = commitRun(finishRun(startRun(0), 900_000), 999);
+    expect(missed.onBoard).toBe(false);
+    const o = make();
+    o.render(missed, 0, true);
+    o.render(missed, 500, true);
+    expect(o.getUiPoints().celebrating).toBe(false);
+    expect(o.getUiPoints().particles).toBe(0);
+    expect(o.getUiPoints().place).toBe('26TH — NOT ON THE BOARD'); // still TOLD, per the owner
+  });
+
+  it('R68 — the celebration ENDS, and a fresh run starts it over', () => {
+    const o = make();
+    const run = commitRun(finishRun(startRun(0), 5_000), 1);
+    o.render(run, 0, true);
+    // CELEBRATION_DURATION_TICKS is 270 ticks = 4.5 s; well past it there is nothing left.
+    o.render(run, 10_000, true);
+    expect(o.getUiPoints().celebrating).toBe(false);
+    // Leaving the board and coming back must NOT inherit the expired clock.
+    o.render(null, 10_000, true);
+    o.render(run, 10_100, true);
+    expect(o.getUiPoints().celebrating).toBe(true);
   });
 
   it('an empty board still renders rather than throwing', () => {

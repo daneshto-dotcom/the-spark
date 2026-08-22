@@ -248,6 +248,32 @@ describe('fogActive / fogTargetAlpha', () => {
     expect(fogTargetAlpha(world)).toBe(1);
   });
 
+  it('⭐ R62 — LIFTS the fog for the whole FIGHT stage, and slams it back on in BUILD', () => {
+    // Owner ruling R62: "Fog of war should be lifted during fight stage and kept only during build
+    // phase." Fog exists so nobody can scout what their neighbours are ASSEMBLING — a build-stage
+    // concern. Once the walls drop you cannot make a tactical decision about an army you cannot see.
+    const world = make1v1(0);
+    expect(world.matchPhase).toBe('BUILD');
+    expect(fogActive(world)).toBe(true);
+
+    world.matchPhase = 'FIGHT';
+    expect(fogActive(world)).toBe(false);
+    expect(fogTargetAlpha(world)).toBe(0);
+
+    // And back: the next build stage is hidden again. stepFogAlpha snaps ON when the target rises,
+    // so there is no free peek at what was built during the fight.
+    world.matchPhase = 'BUILD';
+    expect(fogActive(world)).toBe(true);
+    expect(fogTargetAlpha(world)).toBe(1);
+  });
+
+  it('R62 — the FIGHT lift is a FADE, not a cut (the same treatment the victory reveal gets)', () => {
+    // The reveal quality comes free from the existing tween rather than from new code: falling
+    // targets ease down, rising targets snap. Pinned so an "optimisation" to a hard cut is caught.
+    expect(stepFogAlpha(1, 0, 0.1)).toBeCloseTo(0.9); // FIGHT edge — eases
+    expect(stepFogAlpha(0, 1, 0.1)).toBe(1);          // BUILD edge — instant
+  });
+
   it('is inactive in solo (no opponent to hide from)', () => {
     const world = makeWorld(0x1); // solo, PLAYING by default
     expect(world.gameMode).toBe('solo');

@@ -1,5 +1,5 @@
 {
- "tool_calls_session_total": 1787,
+ "tool_calls_session_total": 1805,
  "session_id": "S150",
  "session_kind": "truth-restoration + arcade batch (owner R55: all five, arcade kept)",
  "session_start": "2026-08-20",
@@ -663,6 +663,88 @@
    ],
    "checkpoint_commit": "c2501c2",
    "deploy_verified": "4/4"
+  },
+  {
+   "id": "P6",
+   "title": "OWNER RULINGS R57-R69 — record all thirteen, implement the four that are fully specified",
+   "tier": "Standard",
+   "protocol_bump": false,
+   "status": "completed",
+   "check_completed": true,
+   "pdr_approved": true,
+   "deliberation_completed": true,
+   "unlock_source": "user",
+   "verification": [
+    {
+     "type": "file_contains",
+     "path": ".claude/session-state.json",
+     "needle": "owner_rulings_s150_late"
+    },
+    {
+     "type": "grep_count",
+     "path": ".claude/session-state.json",
+     "pattern": "\"R6[0-9]\"",
+     "op": ">=",
+     "value": 9
+    },
+    {
+     "type": "file_contains",
+     "path": "src/state/vision.ts",
+     "needle": "world.matchPhase === 'BUILD';"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/state/vision.test.ts",
+     "needle": "LIFTS the fog for the whole FIGHT stage"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/render/footerBandModel.ts",
+     "needle": "DO NOT \"FIX\" THIS BY RE-BUCKETING ON BONDS"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/render/footerBandModel.ts",
+     "needle": "const bucket = byComplexity.get(row.cost)"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/main.ts",
+     "needle": "const enteringArcadeInitials = ()"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/main.ts",
+     "needle": "if (enteringArcadeInitials()) return true;"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/main.ts",
+     "needle": "!enteringArcadeInitials())"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/render/arcadeRunOverlay.ts",
+     "needle": "from './nonetCelebration.ts'"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/render/arcadeRunOverlay.ts",
+     "needle": "private drawCelebration(run: ArcadeRun, nowMs: number): void"
+    },
+    {
+     "type": "file_contains",
+     "path": "src/render/arcadeRunOverlay.test.ts",
+     "needle": "a run that MISSES the board gets its place, and no confetti"
+    }
+   ],
+   "check_method": "P6 CHECK, verbose. RECORDED all thirteen rulings (R57-R69) into owner_rulings_s150_late with the owner's verbatim words alongside what each one MEANS operationally - two of them OVERRIDE what S150 proposed (R57 rejects travel-then-stamp for bots; R58/R59 reject the per-difficulty tower whitelist) and R63 dissolves the quarry question without the wall arc S150 offered. IMPLEMENTED the four that were fully specified and self-contained: R62 (fog is a BUILD-only mechanic) turned out to be ONE CLAUSE in fogActive, because the existing stepFogAlpha tween already snaps ON when the target rises and fades OFF when it falls - so the BUILD->FIGHT reveal and the FIGHT->BUILD re-hide both came free, and are now pinned by two tests. R66 corrected the footer WORDING only, with an explicit do-not-re-bucket warning, since moving the buckets would change every chip a player has learned. R67 added a fourth clause to chordBlocked (the existing three could never fire, because an arcade run keeps world.sudoku null on purpose) plus a NARROW fix to the 'M' mute key - deliberately not routed through chordBlocked, which would also have blocked mute during cinematics and NONET. R68 reuses nonetCelebration.ts wholesale rather than inventing a second effect: it is already pure, unit-tested, and carries the photosensitivity charter (glow breathes at ~0.95 Hz, capped under the 0.30 ceiling). RUNTIME-VERIFIED against real Pixi, not just the stub: the particle curve ramps 0 -> 62 at peak -> 0 and the celebration ends at 4.5 s, with no throw. That runtime check earned its keep - the jsdom stub was missing Graphics.circle and went red on a stub gap rather than a real defect, which is exactly the class of thing a stub hides. DEFERRED with reasons: R57-R61 (bots, Full tier, now unblocked), R63 (four sim rules, hashed state), R64 (RAID economy), R69 (NONET progression). R65 is NOT actioned - see below. tsc 0; vitest 173 files / 2855 (+7); build 720.1 KiB under the 900 KiB charter; e2e:gating 53 passed / 0 failed / 0 skipped.",
+   "findings": [
+    "R65 (unit HP/ATK balance) is recorded VERBATIM and deliberately NOT acted on. 'Helga cant kill voltkin within two slaps but goblin within like 5' can be read two opposite ways - either the big creature dies too fast, or the small one takes too long - and guessing a balance number is strictly worse than asking. The owner needs to see the measured numbers first.",
+    "R63 is the most valuable ruling in the set and the one that cancels prior work: the owner rejected the wall-arc framing for the quarry outright and replaced it with four peace rules for the BUILD phase. That is both simpler and better - it makes the build stage genuinely safe instead of patching geometry.",
+    "R62 cost one clause because a previous session built the fog tween to ease-out on falling targets for the victory reveal. A feature added for one reason paid for an unrelated one three sessions later."
+   ],
+   "checkpoint_commit": "pending"
   }
  ],
  "reflexion_entries_to_archive": [
@@ -1846,7 +1928,7 @@
    "priority": 1,
    "title": "BOTS BUILD TOWERS - the last of the owner's five playtest complaints",
    "tier": "Full",
-   "state": "BLOCKED ON FIVE OWNER RULINGS. Scope cannot be locked until they land (Rule 17).",
+   "state": "UNBLOCKED - all five rulings answered by R57-R61. Ready for a Full-tier PDR next session.",
    "owner_quote": "bots are not building towers from the tower selection but instead take the shapes out of the inventory and build random structures. their first priorities should be to build actual towers... obviously increasing complexity gives them better tactics",
    "detail": "S150 A.0 CORRECTED THE S149 SIZING IN BOTH DIRECTIONS. The wiring half is CHEAPER than S149 thought: BUILD_BLUEPRINT is one already-allowlisted client intent (since v21), planBlueprintPayment is a pure affordability oracle, stampRefusalAt already enforces phase + zone + overlap and is the SAME predicate the ghost and reducer share, and BotGoal has no wire surface - so NO PROTOCOL BUMP. But the task is bigger than S149 thought too, and Full tier is CORRECT.",
    "structural_proof": "A bot cannot build a tower even by accident, and the reason is arithmetic, not a missing goal: GROWTH_STEP = AUTO_BOND_RADIUS * 0.8 = 48, which is INSIDE AUTO_BOND_RADIUS = 60. So every primitive a bot places auto-bonds into its ONE existing component, which grows MONOTONICALLY - while all six recipes gate on an EXACT component size (4/5/6/7/7/8) with strict !== and no upper tolerance. Past the eighth shape ignition is impossible. Worse, smartPlacement (HARD + IMBA) actively weaves REDUNDANCY bonds, which is precisely what blueprintBuild documents itself as avoiding because it kills exact-degree recipes.",
@@ -1858,20 +1940,27 @@
     "3. HOW DOES COMPLEXITY MAP TO DIFFICULTY? Candidate: NOOB <= 4 (stink only), MID <= 5, HARD <= 7, IMBA all.",
     "4. MAY A BOT DIRECT ITS OWN GATHERER? Without ENQUEUE_GATHERER_ORDER a bot's bank composition is random (preferredType stays null), so it affords a recipe only by luck. With it, bots get materially stronger - a balance change, not just an intelligence change.",
     "5. 'TOWERS' STRICTLY, OR ALL SIX? Only 3 of 6 registry entries are kind:'defender' (stinkTower, laserTurret, princessHelga). pentagram and lightningHub are 'spawner'; voltkin is 'cinematic'."
+   ],
+   "owner_rulings_resolved": [
+    "R57 same shortcut + saving",
+    "R58 loose shapes kept, preference by difficulty",
+    "R59 no whitelist",
+    "R60 gatherer direction via chosen tower",
+    "R61 all six recipes count as towers"
    ]
   },
   {
    "id": "CF-S149-a",
    "priority": 2,
    "title": "DESIGN RULING NEEDED: the quarry is an OPEN HUB",
-   "state": "OWNER RULING, not a code change. Unchanged from S149 and still accurate.",
+   "state": "SUPERSEDED by owner ruling R63. The owner rejected the wall-arc framing outright (\"a stupid problem with a simple solution\") and instead closes the quarry to units during BUILD. No wall geometry changes.",
    "detail": "Border walls run from the quarry rim OUTWARD per owner rule Q6 ('every zone has unobstructed access to its own slice of the quarry'), so a unit can route between zones THROUGH the centre while the walls are up. This is a faithful consequence of the stated geometry, not a shortcut, and walls.test.ts pins it in a describe block named 'THE QUARRY IS AN OPEN HUB' rather than leaving it to be discovered as a bug. Sealing the centre needs a wall arc across the rim - a design decision."
   },
   {
    "id": "CF-S150-a",
    "priority": 3,
    "title": "THE COMPLEXITY AXIS IS MISLABELLED - shape count vs connector count",
-   "state": "OWNER DEFERRED IT THIS SESSION (ruling R56). Logged with evidence, not dropped.",
+   "state": "CLOSED by owner ruling R66 - the footer number IS the shape count and is correct as shipped. Only the docblock WORDING (\"connector count\") needs correcting; the buckets must not move.",
    "detail": "footerBandModel.ts's docblock quotes owner R36 as 'indexed by CONNECTOR COUNT', but the code buckets on blueprintCost(id), which is BLUEPRINTS[id].nodes.length - the SHAPE count. So chip '4' is the 4-shape / 3-BOND stink tower. Either R36 meant shape count all along and the docblock is wrong, or the UI has advertised the wrong axis since S149 P4. ⚠ SETTLE THIS BEFORE BUILDING THE BOT COMPLEXITY RAMP (CF-S149-f ruling 3) - the ramp would silently inherit whichever axis is wrong. Bond counts, for reference: stink 4/3, pentagram 5/5, lightningHub 6/5, laserTurret 7/6, helga 7/6, voltkin 8/7."
   },
   {
@@ -3269,5 +3358,75 @@
  },
  "real_context_level_at_close": "YELLOW",
  "checkpoint_provenance_s150": "⚠ HONEST CORRECTION, forced by the Rule-22 audit. Commit 099a7f2 says the checkpoint SHAs were written \"proactively rather than reactively (the constitutional rule)\". THE AUDIT TRACED THE FILE PER COMMIT AND THAT IS FALSE: all five checkpoint_commit slots read \"-\" at f085746, 98072c1, c4baa94 AND f27a4ea. P1-P4 first appear at c2501c2 and P5 at 099a7f2 - i.e. they were BACKFILLED IN BULK from git log, after the [CHECKPOINT] hook warned, which is precisely the reactive path the rule exists to prevent. The SHAs themselves are correct and every one resolves (git cat-file -t). What was wrong was the claim about WHEN they were written. Recorded rather than quietly amended, because a rule about proactivity is worth nothing if its own compliance note is written retroactively too. FOR THE NEXT SESSION: write checkpoint_commit in the SAME edit that flips status to completed, before announcing the priority done.",
- "checkpoint_drift_s150": "P3 and P5 shipped further work AFTER their checkpoint SHAs were recorded: ca4d308 corrected P5s mechanism and guarded P3s key listener, and the landing-audit commit fixes a P3 regression. Their checkpoint_commit values (c4baa94, c2501c2) therefore pin the state at first completion, not final state. Disclosed rather than rewritten - the final state is simply HEAD."
+ "checkpoint_drift_s150": "P3 and P5 shipped further work AFTER their checkpoint SHAs were recorded: ca4d308 corrected P5s mechanism and guarded P3s key listener, and the landing-audit commit fixes a P3 regression. Their checkpoint_commit values (c4baa94, c2501c2) therefore pin the state at first completion, not final state. Disclosed rather than rewritten - the final state is simply HEAD.",
+ "owner_rulings_s150_late": {
+  "R57": {
+   "title": "BOTS GET THE PLAYER'S SHORTCUT, INCLUDING THE WAITING",
+   "owner": "either you add the same shortcut option for the bots that they can literally chose a tower and wait to have enough for the recipe, then build it from their own bot library. the more complex bots are the better tactics they will have - we can expand on that later",
+   "means": "A bot CHOOSES a target tower up front, then SAVES for it - it holds the recipe as a standing goal until its bank can pay the bill, then builds it from its own library. This is goal persistence, which the bot architecture has never had (BotController holds five fields and re-decides from scratch every think). Answers S150 Q1: same shortcut as the human, not a travel-then-stamp variant."
+  },
+  "R58": {
+   "title": "BOTS STILL PLACE LOOSE SHAPES - PREFERENCE SCALES WITH DIFFICULTY",
+   "owner": "bots can plan single shapes just like human player can - if its a noob bot then he will probably only build those. its if imba then hell probably prefer towers and only build loose buildings if he has extra shapes before the fight part",
+   "means": "NOT a hard cap per difficulty (which is what S150 proposed and the owner overrode). It is a PREFERENCE WEIGHTING: NOOB mostly loose shapes; IMBA towers first and loose shapes only with leftovers, and only before the FIGHT. Answers S150 Q2 and Q3 together."
+  },
+  "R59": {
+   "title": "COMPLEXITY = TACTICS, EXPANDED LATER",
+   "owner": "the more complex bots are the better tactics they will have - we can expand on that later / i explained that",
+   "means": "The difficulty ramp is about the SOPHISTICATION of the choice, not a whitelist of buildable ids. Do not ship a per-difficulty tower whitelist. Deeper tactics are a later session."
+  },
+  "R60": {
+   "title": "BOTS DIRECT THEIR GATHERERS, VIA THE TOWER THEY CHOSE",
+   "owner": "bot can tell gatherer what to fetch by selecting the building he wants to build priuoritizing certain shapes or if they are reall high level bots then they can direct to get individual shapes too to be able to fix broked towers etc",
+   "means": "TWO tiers. (a) Ordinary: choosing a target tower AUTOMATICALLY prioritises that recipe's shapes for the gatherer - the bot does not order shapes directly, the goal implies the order. (b) High-level bots only: direct per-shape ordering, so they can source the exact shapes a damaged tower needs for FIX. Answers S150 Q4 - yes, and it is the same seam humans use (ENQUEUE_GATHERER_ORDER)."
+  },
+  "R61": {
+   "title": "A TOWER IS ANY GEOMETRIC FORM WITH A FUNCTION",
+   "owner": "tower is a geometric form that has a function - shoots/produces soldiers/defends/etc",
+   "means": "ALL SIX recipes count, not the 3 that shoot. stinkTower / laserTurret / princessHelga (defenders), pentagram / lightningHub (creature spawners) and voltkin all qualify. Answers S150 Q5 and settles the naming: 'tower' in this project means a functional structure, not specifically a gun."
+  },
+  "R62": {
+   "title": "FOG OF WAR IS A BUILD-PHASE MECHANIC ONLY",
+   "owner": "Fog of war should be lifted during fight stage and kept only during build phase.",
+   "means": "Fog covers the board during BUILD so nobody can scout what their neighbours are assembling, and LIFTS at the BUILD->FIGHT edge so the fight is fully visible. Currently fog is not phase-aware."
+  },
+  "R63": {
+   "title": "THE BUILD PHASE IS GENUINELY PEACEFUL - and that is what seals the quarry",
+   "owner": "make the spawn zone inaccessible to units during build phase. also all towers stop shooting and attacking during build phase... they can still produce units but the units stay passive near tower and only go into attack during fight phase. 2-3 sec before end of fight phase all alive spawn(soldiers) rush back to their towers and wait near it.",
+   "means": "FOUR rules, and together they dissolve the 'quarry is an open hub' problem without any wall arc: (1) the quarry/spawn disc is CLOSED to units during BUILD - so routing through the centre is impossible while walls are up; (2) towers do not shoot or attack during BUILD; (3) towers may still PRODUCE units during BUILD, but those units stand PASSIVE near their tower and only engage at the FIGHT edge; (4) ~2-3 s before FIGHT ends, every surviving unit RUSHES BACK to its tower and waits there. Supersedes S150 CF-S149-a: the owner rejected the wall-arc framing outright ('a stupid problem with a simple solution')."
+  },
+  "R64": {
+   "title": "RAID - a sever charge EARNED by hand-building, not by click-to-build",
+   "owner": "players/bots get RAID - left click that undoes one connection either every 5 connectors they make from loose shapes, or every 3 buildings. this adds importance to trying to build by urself and not just do ready towers - which is easier and takes less skill. i mean players can build the towers by connecting loose shapes but they need to be quick and know the recipes. this is smart.",
+   "means": "A charge that undoes ONE connection on left click. Accrual is deliberately ASYMMETRIC to reward skill: 1 charge per 5 connectors made BY HAND from loose shapes, OR 1 charge per 3 blueprint buildings. Hand-building a 4-shape tower makes 3 connectors, so hand-play earns roughly 1 charge per ~1.7 towers versus 1 per 3 for click-to-build. ⚠ OPEN: whether this REPLACES the existing disruptionCharges/SEVER economy or is a second currency - needs a look at what already ships before it is designed."
+  },
+  "R65": {
+   "title": "UNIT HP / ATK / DEFENCE NEED A BALANCE PASS",
+   "owner": "Unit HP and ATK/DEFENCE needs to be tweaked and worked on. Helga cant kill voltkin within two slaps but goblin within like 5....",
+   "means": "⚠ RECORDED VERBATIM AND NOT ACTED ON - the intent is genuinely ambiguous and guessing a balance number is worse than asking. Needs the owner to confirm the direction before any constant moves. The measured current numbers should be put in front of them first.",
+   "status": "NEEDS CLARIFICATION"
+  },
+  "R66": {
+   "title": "THE FOOTER NUMBER IS THE SHAPE COUNT - CORRECT AS SHIPPED",
+   "owner": "Footer number i mean number of shapes so it is correct count. leave it as is.",
+   "means": "Settles CF-S150-a. blueprintCost = nodes.length = shape count is what R36 always meant. The footerBandModel docblock's phrase 'indexed by CONNECTOR COUNT' is the wrong WORD for the right behaviour - fix the wording only, never the buckets.",
+   "status": "CLOSED"
+  },
+  "R67": {
+   "title": "FIX THE ARCADE INITIALS / HOTKEY COLLISION",
+   "owner": "fix Arcade initials vs hotkeys and make sure it all works as it should",
+   "means": "G, C and M are members of NAME_ALPHABET and also live game hotkeys, so typing them as initials trips the codex chord. Settles CF-S150-c."
+  },
+  "R68": {
+   "title": "FIREWORKS AND CONGRATULATIONS - restored for the win, and NEW for every high score",
+   "owner": "end of game also add back the fireworks that we had back before in the old version (when a player won he had fireworks and congratz) we need to add fireworks and congratz for every HIGH score",
+   "means": "TWO placements. (1) RESTORE the win-screen fireworks + congratulations that shipped in an older version and have since been lost. (2) NEW: the same celebration fires whenever a run earns a place on the arcade high-score board."
+  },
+  "R69": {
+   "title": "NONET BECOMES A PROGRESSION, NOT A SINGLE PUZZLE",
+   "owner": "we need to keep developing the NONET/SODOKU. maybe there will be 10 sodokus they have to pass in a certain time per soduku and then they reach a second tier of difficulty - where we will have different art and style and stuff and maybe even music",
+   "means": "A ladder: ~10 puzzles, each with its own time limit, and clearing the set unlocks a SECOND TIER with distinct art, styling and possibly its own music. The S150 timed-run state machine (arcadeRun.ts) and the top-25 board are the substrate this builds on. Exploratory - the owner said 'maybe' twice."
+  }
+ },
+ "owner_rulings_s150_late_note": "Eleven rulings given at S150 close, in response to the \"NEEDING YOU\" summary. R57-R61 unblock BOTS BUILD TOWERS (the last of the five S149 playtest complaints) and OVERRIDE two things S150 proposed: no travel-then-stamp (R57) and no per-difficulty tower whitelist (R58/R59). R63 dissolves the quarry open-hub question without the wall arc S150 offered. R62, R64, R68 and R69 are NEW scope. R65 is recorded but deliberately NOT acted on - ambiguous intent."
 }

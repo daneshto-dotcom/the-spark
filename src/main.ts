@@ -850,8 +850,30 @@ async function bootstrap(): Promise<void> {
     if (tag === 'INPUT' || tag === 'TEXTAREA') return true;
     if (world.sudoku !== null) return true;
     if (world.activeCinematicPlayerId !== null) return true;
+    // ⭐ S150 R67 — the fourth clause. See `enteringArcadeInitials` below for why the existing three
+    // could never catch this: an arcade run keeps `world.sudoku` null on purpose, so a player
+    // spelling "GCM" as their initials was also issuing two live game commands.
+    if (enteringArcadeInitials()) return true;
     return false;
   };
+  /**
+   * ⭐ S150 R67 — IS THE PLAYER SPELLING THEIR ARCADE INITIALS RIGHT NOW?
+   *
+   * Owner: *"fix Arcade initials vs hotkeys and make sure it all works as it should"*.
+   *
+   * `G`, `C` and `M` are all members of `NAME_ALPHABET`, so they are simultaneously legal initials
+   * and live game commands — typing "GCM" as your name also tried to open the codex. `chordBlocked`
+   * could not see this: it gates on INPUT/TEXTAREA focus, on `world.sudoku !== null`, and on an
+   * active cinematic, and an arcade run deliberately keeps `world.sudoku` NULL for its entire life
+   * (that decoupling is the whole reason the arcade touches no match state), so not one of its three
+   * clauses fired.
+   *
+   * This is the fourth clause, and it belongs with the other three rather than as a special case at
+   * each hotkey: the question "is the player typing text at the moment" has exactly one answer and
+   * every keyboard command should ask it the same way.
+   */
+  const enteringArcadeInitials = (): boolean => arcadeRun !== null && arcadeRun.phase === 'ENTER_INITIALS';
+
   const resetChord = (key?: string): void => {
     if (key === undefined) chordKeys.clear();
     else chordKeys.delete(key);
@@ -1450,7 +1472,13 @@ async function bootstrap(): Promise<void> {
     // toggle mute (PRIME-AUDIT A).
     if (e.key === 'm' || e.key === 'M') {
       const focusedTag = document.activeElement?.tagName;
-      if (focusedTag !== 'INPUT' && focusedTag !== 'TEXTAREA') {
+      // ⭐ S150 R67 — ...and not while the player is spelling their arcade initials, where 'M' is a
+      // perfectly ordinary letter. Deliberately NOT switched to `chordBlocked()`, even though that
+      // now carries this clause: chordBlocked also blocks during a NONET trial and during a
+      // cinematic, and muting is a comfort control a player may well WANT during either. The narrow
+      // addition keeps this key's existing behaviour everywhere except the one screen that is
+      // literally a text field.
+      if (focusedTag !== 'INPUT' && focusedTag !== 'TEXTAREA' && !enteringArcadeInitials()) {
         toggleMute();
       }
     }

@@ -32,6 +32,16 @@ import { Application, Container, Graphics, Text } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import { elapsedMs, placeLine, type ArcadeRun } from './arcadeRun.ts';
 import { formatTime, NAME_LEN, normaliseName, TOP_N } from './arcadeScores.ts';
+import {
+  bannerPose,
+  CELEBRATION_DURATION_TICKS,
+  fireworkParticles,
+  jackpotGlowAlpha,
+  jackpotGlowColor,
+  makeFireworks,
+  type Firework,
+} from './nonetCelebration.ts';
+import { mulberry32 } from '../state/rng.ts';
 
 /** Rows shown per column on the board. 25 rows in one column would not fit 1080px of height. */
 const BOARD_ROWS_PER_COL = 13;
@@ -57,6 +67,10 @@ export interface ArcadeRunUiPoints {
    * zero coverage.
    */
   readonly eventMode: string;
+  /** True while the high-score celebration is playing. Exposed so the R68 behaviour is assertable. */
+  readonly celebrating: boolean;
+  /** Firework particles drawn this frame — 0 when the celebration is over or was never earned. */
+  readonly particles: number;
 }
 
 export class ArcadeRunOverlay {
@@ -66,9 +80,23 @@ export class ArcadeRunOverlay {
   private used = 0;
   /** Which board row was highlighted this frame, or -1. Set by drawBoard, reported by getUiPoints. */
   private mineIndex = -1;
+  /**
+   * ⭐ S150 R68 — CELEBRATION STATE. Owner: *"we need to add fireworks and congratz for every HIGH
+   * score"*.
+   *
+   * Latched HERE rather than added to `ArcadeRun`, so the run model stays a pure state machine with
+   * no animation concerns in it. Two things must be stable across frames or the display tears: the
+   * moment the board appeared (or the clock restarts every frame and nothing ever finishes), and the
+   * firework layout (or every rocket teleports at 60 Hz). Both are computed ONCE on the transition
+   * into BOARD.
+   */
+  private boardStartedMs: number | null = null;
+  private fireworks: readonly Firework[] = [];
+  /** Particles drawn this frame; reported so a test can prove the effect actually ran. */
+  private particleCount = 0;
   private last: ArcadeRunUiPoints = {
     visible: false, phase: null, clock: '', initials: '', cursor: 0, place: '', rows: 0,
-    mineIndex: -1, eventMode: 'auto',
+    mineIndex: -1, eventMode: 'auto', celebrating: false, particles: 0,
   };
 
   constructor(app: Application, parent: Container = app.stage) {
@@ -95,9 +123,12 @@ export class ArcadeRunOverlay {
     if (run === null || !onTitle) {
       this.container.visible = false;
       this.hideFrom(0);
+      // Drop the latch: a NEW run that reaches the board must celebrate from zero, not inherit a
+      // clock that has already expired.
+      this.boardStartedMs = null;
       this.last = {
         visible: false, phase: null, clock: '', initials: '', cursor: 0, place: '', rows: 0,
-        mineIndex: -1, eventMode: String(this.container.eventMode),
+        mineIndex: -1, eventMode: String(this.container.eventMode), celebrating: false, particles: 0,
       };
       return;
     }
@@ -109,13 +140,23 @@ export class ArcadeRunOverlay {
     const parent = this.container.parent;
     if (parent !== null) parent.addChild(this.container);
 
+    if (run.phase !== 'BOARD') this.boardStartedMs = null;
+    else if (this.boardStartedMs === null) {
+      this.boardStartedMs = nowMs;
+      // Seeded off the run's own time so a replay of the same run lays its rockets out identically —
+      // and so the layout cannot shimmer between frames.
+      this.fireworks = run.onBoard
+        ? makeFireworks(9, CANVAS_WIDTH, CANVAS_HEIGHT, mulberry32((run.finishedMs ?? 1) >>> 0))
+        : [];
+    }
+
     if (run.phase === 'RUNNING') {
       this.container.eventMode = 'none';
       this.drawClock(run, nowMs);
     } else {
       this.container.eventMode = 'static';
       if (run.phase === 'ENTER_INITIALS') this.drawInitials(run, nowMs);
-      else this.drawBoard(run);
+      else this.drawBoard(run, nowMs);
     }
 
     this.hideFrom(this.used);
@@ -129,6 +170,8 @@ export class ArcadeRunOverlay {
       rows: run.scores.length,
       mineIndex: this.mineIndex,
       eventMode: String(this.container.eventMode),
+      celebrating: this.celebrationElapsed(run, nowMs) !== null,
+      particles: this.particleCount,
     };
   }
 
@@ -190,7 +233,7 @@ export class ArcadeRunOverlay {
     );
   }
 
-  private drawBoard(run: ArcadeRun): void {
+  private drawBoard(run: ArcadeRun, nowMs: number): void {
     this.backdrop();
     this.text('HIGH SCORES', CANVAS_WIDTH / 2, 96, 48, 0xffd60a);
     const line = placeLine(run);
@@ -247,6 +290,62 @@ export class ArcadeRunOverlay {
     }
 
     this.text('ESC to leave    ENTER for another run', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 54, 18, 0x8f9bb0);
+
+    this.drawCelebration(run, nowMs);
+  }
+
+  /**
+   * Ticks since the board appeared, or `null` when no celebration is owed or it has finished.
+   *
+   * ⚠ DRIVEN BY WALL CLOCK, CONVERTED TO TICKS. `nonetCelebration`'s math is written in ticks because
+   * its original caller rides `world.tick` — but the sim does not advance at all on the title screen,
+   * so a tick-driven celebration here would simply never move. Converting at 60/s keeps the shared
+   * math untouched and correct: the same easing, the same photosensitivity ceiling, one source.
+   */
+  private celebrationElapsed(run: ArcadeRun, nowMs: number): number | null {
+    if (run.phase !== 'BOARD' || !run.onBoard || this.boardStartedMs === null) return null;
+    const elapsed = ((nowMs - this.boardStartedMs) / 1000) * 60;
+    return elapsed >= 0 && elapsed < CELEBRATION_DURATION_TICKS ? elapsed : null;
+  }
+
+  /**
+   * ⭐ S150 R68 — FIREWORKS AND CONGRATULATIONS FOR EVERY HIGH SCORE.
+   *
+   * Reuses `nonetCelebration.ts` wholesale rather than inventing a second effect: that module is
+   * already pure, already unit-tested, and already carries this project's PHOTOSENSITIVITY CHARTER —
+   * the full-screen glow breathes at ~0.95 Hz and is capped under the 0.30 alpha ceiling, with the
+   * "flashy" feel coming from small-area particles rather than a strobe. A hand-rolled second
+   * celebration would have had to re-derive all of that, and would drift from it.
+   *
+   * Fires only when the run actually EARNED a row (`onBoard`). A player who came 26th gets their
+   * place told to them plainly and no confetti — celebrating a miss is how a reward stops meaning
+   * anything.
+   */
+  private drawCelebration(run: ArcadeRun, nowMs: number): void {
+    this.particleCount = 0;
+    const elapsed = this.celebrationElapsed(run, nowMs);
+    if (elapsed === null) return;
+
+    const glow = jackpotGlowAlpha(elapsed);
+    if (glow > 0) {
+      this.graphics.rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+        .fill({ color: jackpotGlowColor(elapsed), alpha: glow });
+    }
+
+    for (const fw of this.fireworks) {
+      for (const pt of fireworkParticles(fw, elapsed, CANVAS_HEIGHT)) {
+        this.graphics.circle(pt.x, pt.y, pt.r).fill({ color: pt.color, alpha: pt.alpha });
+        this.particleCount++;
+      }
+    }
+
+    const pose = bannerPose(elapsed);
+    if (pose.alpha > 0) {
+      // 1st place earns the louder word; anything else on the table is still worth a shout.
+      const word = run.place === 1 ? 'NEW RECORD!' : 'HIGH SCORE!';
+      this.text(word, CANVAS_WIDTH / 2, 168, Math.round(40 * pose.scale), 0xffd60a, pose.alpha);
+      this.text('CONGRATULATIONS', CANVAS_WIDTH / 2, 168 + Math.round(34 * pose.scale), 20, 0xffffff, pose.alpha);
+    }
   }
 
   private backdrop(): void {
@@ -260,15 +359,17 @@ export class ArcadeRunOverlay {
    * recycled by index and the surplus is hidden rather than destroyed — the same pattern
    * `footerBand.ts` uses for exactly the same reason.
    */
-  private text(str: string, x: number, y: number, size: number, fill: number): void {
-    this.place(str, x, y, size, fill, 0.5);
+  private text(str: string, x: number, y: number, size: number, fill: number, alpha = 1): void {
+    this.place(str, x, y, size, fill, 0.5, alpha);
   }
 
   private textLeft(str: string, x: number, y: number, size: number, fill: number): void {
-    this.place(str, x, y, size, fill, 0);
+    this.place(str, x, y, size, fill, 0, 1);
   }
 
-  private place(str: string, x: number, y: number, size: number, fill: number, anchorX: number): void {
+  private place(
+    str: string, x: number, y: number, size: number, fill: number, anchorX: number, alpha = 1,
+  ): void {
     let t = this.labels[this.used];
     if (t === undefined) {
       t = new Text({ text: str, style: { fontFamily: 'monospace', fontSize: size, fill } });
@@ -280,6 +381,7 @@ export class ArcadeRunOverlay {
     t.style.fill = fill;
     t.anchor.set(anchorX, 0.5);
     t.position.set(x, y);
+    t.alpha = alpha;
     t.visible = true;
     this.used++;
   }

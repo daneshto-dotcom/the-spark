@@ -96,9 +96,24 @@ export function isPointVisible(
  * Fog renders only during networked 1v1 active play. Solo has no opponent to
  * hide from (Blueprint Phase 1 excludes fog from single-player); TITLE / LOBBY
  * show the board pre-match; WIN / POSTGAME lift the fog for the reveal.
+ *
+ * ⭐ S150 — AND ONLY DURING THE BUILD STAGE (owner ruling R62: *"Fog of war should be lifted during
+ * fight stage and kept only during build phase."*).
+ *
+ * The reasoning the ruling encodes: fog exists so nobody can scout what their neighbours are
+ * assembling. That is a BUILD-stage concern. Once the walls drop and the fight starts, hiding the
+ * board stops being tension and starts being frustration — you cannot make a tactical decision about
+ * an army you cannot see, and every target-preference and range decision the fight is built on
+ * assumes you can read the field.
+ *
+ * ⚠ THE TWEEN ALREADY DOES THE RIGHT THING IN BOTH DIRECTIONS, which is why this is one clause and
+ * not a new mechanic. `stepFogAlpha` snaps ON instantly when the target rises and fades OFF
+ * gradually when it falls — so BUILD→FIGHT gets a graceful REVEAL (the same treatment the victory
+ * lift gets), and FIGHT→BUILD slams the fog back with no free peek at what was built during the
+ * fight. Neither edge needed a line of new code.
  */
 export function fogActive(world: World): boolean {
-  return isNetworked(world) && world.gameState === 'PLAYING';
+  return isNetworked(world) && world.gameState === 'PLAYING' && world.matchPhase === 'BUILD';
 }
 
 /**

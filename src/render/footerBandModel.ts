@@ -7,6 +7,17 @@
  * shows just the numbers in the world's current range (4, 5, 6, 7 …); clicking a number opens the
  * build menu for towers of that complexity. Keeps the bar clean instead of messy from the start."*
  *
+ * ⭐ S150 — "CONNECTOR COUNT" IS THE WRONG WORD FOR THE RIGHT NUMBER, AND THE OWNER SETTLED IT (R66:
+ * *"Footer number i mean number of shapes so it is correct count. leave it as is."*). The chips are
+ * bucketed on `blueprintCost`, which is `nodes.length` — the SHAPE count. So chip "4" is the
+ * 4-SHAPE / 3-bond stink tower, and that is what R36 meant all along.
+ *
+ * ⛔ DO NOT "FIX" THIS BY RE-BUCKETING ON BONDS. The S150 audit flagged the mismatch between the
+ * quoted wording and the code, and the correct resolution was to change the SENTENCE, not the
+ * numbers — re-bucketing would move every chip on the bar (stink 4→3, turret 7→6, voltkin 8→7) and
+ * break the one thing players have already learned to read. The bond counts, for reference only:
+ * stink 4/3 · pentagram 5/5 · lightningHub 6/5 · laserTurret 7/6 · helga 7/6 · voltkin 8/7.
+ *
  * ## ⚠ THIS REVERSES THE OWNER'S OWN S136 RULING, AND THAT IS DELIBERATE
  *
  * A permanent footer existed and was DELETED in S136 P0 on the owner's ruling: *"that footer with
