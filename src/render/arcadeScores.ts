@@ -83,8 +83,15 @@ export function insertScore(
  * PURE — the 1-based place `entry` would take, ignoring the cap.
  *
  * ⚠ RETURNS A PLACE EVEN WHEN IT IS WORSE THAN 25th. That is the point: the owner wants the player
- * TOLD where they landed, and "you came 61st" is information a cabinet would have given you. Use
- * `qualifies` to decide whether the row actually goes on the board.
+ * TOLD where they landed, not just shown a table they missed. Use `qualifies` to decide whether the
+ * row actually goes on the board.
+ *
+ * ⛔ BUT THE CEILING IS `TOP_N + 1`, AND THE ORIGINAL WORDING HERE OVERSOLD IT. This docblock used to
+ * promise "you came 61st"; it cannot. `placeOf` counts how many STORED rows beat you, storage never
+ * holds more than `TOP_N`, so the worst place expressible is **26th** — "26th" means "off the board"
+ * rather than a true global rank. Ranking beyond the table would need every run persisted, which is
+ * a different feature and a different storage cost. Corrected during the S150 landing audit, which
+ * caught the prose and the code disagreeing.
  */
 export function placeOf(scores: readonly ArcadeScore[], entry: ArcadeScore): number {
   let better = 0;

@@ -131,8 +131,34 @@ describe('S150 P3 — each phase reports what it drew', () => {
     const ui = o.getUiPoints();
     expect(ui.phase).toBe('RUNNING');
     expect(ui.clock).toBe('0:03.50');
-    // The clock floats over the NONET grid; eating its clicks would make the puzzle unplayable.
+    // ⭐ THE TITLE'S SECOND CLAUSE, NOW ACTUALLY ASSERTED. The audit caught this test promising
+    // 'swallows no pointers' while checking nothing of the kind — eventMode appeared nowhere in the
+    // file. The clock floats over the NONET grid, so eating its clicks makes the puzzle unplayable.
+    expect(ui.eventMode).toBe('none');
     expect(ui.place).toBe('');
+  });
+
+  it('the two MODAL screens do swallow pointers', () => {
+    // The complement, and the reason 'none' above is a deliberate choice rather than a default:
+    // there is no board underneath these two, so a click must not fall through to the title.
+    const o = make();
+    o.render(finishRun(startRun(0), 5_000), 0, true);
+    expect(o.getUiPoints().eventMode).toBe('static');
+    o.render(commitRun(finishRun(startRun(0), 5_000), 1), 0, true);
+    expect(o.getUiPoints().eventMode).toBe('static');
+  });
+
+  it('⭐ highlights an ALL-SPACE name, which the P3 blank-name fix had silently broken', () => {
+    // REGRESSION GUARD, found by the S150 landing audit. recordRun stores normaliseName(name), so a
+    // player who spells '   ' has 'AAA' on the board — while the overlay hunted for the RAW '   '
+    // and matched nothing. Reachable in five keystrokes: the alphabet ends with a space and
+    // cycleLetter wraps backward from 'A' straight onto it.
+    const spaces = { ...finishRun(startRun(0), 5_000), initials: [' ', ' ', ' '] };
+    const done = commitRun(spaces, 7);
+    expect(done.scores[0].name).toBe('AAA'); // what STORAGE holds
+    const o = make();
+    o.render(done, 0, true);
+    expect(o.getUiPoints().mineIndex).toBe(0); // and the board still finds the player's row
   });
 
   it('ENTER_INITIALS shows the frozen time and the cursor', () => {

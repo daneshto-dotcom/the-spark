@@ -1344,8 +1344,12 @@ async function bootstrap(): Promise<void> {
        * into a sequence. The whole grab path stays real: this dispatches the same `SPAWN_BOMB` the
        * spawner does.
        *
-       * ⚠ `__SPARK__` is stripped from the production bundle (verified: `forceNonet` appears 0 times
-       * in `dist/`), so this costs shipped bytes nothing.
+       * ⚠ `__SPARK__` is stripped from the production bundle, so this costs shipped bytes nothing.
+       * Verified precisely, because the sloppy version of this sentence was itself caught by the S150
+       * landing audit: `forceBomb` and `forceNonet` each appear **0 times across all 18 executable
+       * `dist/assets/*.js` chunks**. A bare `grep -ro forceNonet dist/` returns 3 — every one of them
+       * inside `index-*.js.map`, which ships only for debugging and is not loaded at runtime. Quote
+       * the executable count, not the directory count.
        */
       forceBomb(x: number, y: number): void { dispatch(world, { type: 'SPAWN_BOMB', pos: { x, y } }); },
       // S122 P1 (B2 phase d) — worker-boundary serialization ROI bench (Council ROI rule v2:

@@ -137,6 +137,25 @@ describe('S150 P1 — the bump changelog is complete in both carriers, mechanica
    * below, so entries silently disappearing off the FRONT still fails.
    */
   const chainFrom = (found: Set<number>): number[] => {
+    // ⛔ S150 LANDING AUDIT — FAIL LOUDLY ON AN EMPTY SET, RATHER THAN RETURNING ONE.
+    //
+    // The audit caught this and it is the sharpest finding against my own gate: `Math.min(...∅)` is
+    // `Infinity`, so `PROTOCOL_VERSION - Infinity + 1` is `-Infinity`, and
+    // `Array.from({length: -Infinity})` normalises to `[]`. Every assertion built on this would then
+    // compare `[]` to `[]` and pass — FOUR of them, including both headline "unbroken chain" tests.
+    //
+    // They were protected only by the separate anti-vacuity test below asserting the link sets are
+    // non-empty. That is real protection but it is NON-LOCAL: deleting or weakening that one test
+    // would silently convert four assertions into permanent green with no other signal. A gate whose
+    // teeth live in a different test is one refactor away from being decoration — which is precisely
+    // the class of failure this whole file exists to stop.
+    if (found.size === 0) {
+      throw new Error(
+        'chainFrom: no bump links matched at all. Either a carrier region is empty (the constant or ' +
+          '`protoVersion` moved and the region split broke) or the changelog phrasing changed and the ' +
+          'regex no longer matches. Both are gate failures, not passes.',
+      );
+    }
     const floor = Math.min(...found);
     return Array.from({ length: PROTOCOL_VERSION - floor + 1 }, (_, i) => floor + i);
   };

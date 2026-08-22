@@ -31,7 +31,7 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import { elapsedMs, placeLine, type ArcadeRun } from './arcadeRun.ts';
-import { formatTime, NAME_LEN, TOP_N } from './arcadeScores.ts';
+import { formatTime, NAME_LEN, normaliseName, TOP_N } from './arcadeScores.ts';
 
 /** Rows shown per column on the board. 25 rows in one column would not fit 1080px of height. */
 const BOARD_ROWS_PER_COL = 13;
@@ -50,6 +50,13 @@ export interface ArcadeRunUiPoints {
    * testable: a highlight on the wrong line is invisible to every other assertion here.
    */
   readonly mineIndex: number;
+  /**
+   * The container's Pixi `eventMode` this frame. Exposed because the audit caught a test NAMED
+   * 'swallows no pointers' that asserted nothing of the kind: during RUNNING the clock floats over
+   * the NONET grid and must be `'none'`, or the puzzle becomes unplayable, and that property had
+   * zero coverage.
+   */
+  readonly eventMode: string;
 }
 
 export class ArcadeRunOverlay {
@@ -60,7 +67,8 @@ export class ArcadeRunOverlay {
   /** Which board row was highlighted this frame, or -1. Set by drawBoard, reported by getUiPoints. */
   private mineIndex = -1;
   private last: ArcadeRunUiPoints = {
-    visible: false, phase: null, clock: '', initials: '', cursor: 0, place: '', rows: 0, mineIndex: -1,
+    visible: false, phase: null, clock: '', initials: '', cursor: 0, place: '', rows: 0,
+    mineIndex: -1, eventMode: 'auto',
   };
 
   constructor(app: Application, parent: Container = app.stage) {
@@ -88,7 +96,8 @@ export class ArcadeRunOverlay {
       this.container.visible = false;
       this.hideFrom(0);
       this.last = {
-        visible: false, phase: null, clock: '', initials: '', cursor: 0, place: '', rows: 0, mineIndex: -1,
+        visible: false, phase: null, clock: '', initials: '', cursor: 0, place: '', rows: 0,
+        mineIndex: -1, eventMode: String(this.container.eventMode),
       };
       return;
     }
@@ -119,6 +128,7 @@ export class ArcadeRunOverlay {
       place: placeLine(run),
       rows: run.scores.length,
       mineIndex: this.mineIndex,
+      eventMode: String(this.container.eventMode),
     };
   }
 
@@ -193,7 +203,15 @@ export class ArcadeRunOverlay {
     // either. Caught by looking at the real frame: two rows sharing a time and a set of initials is
     // not a contrived case, it is what happens when the same player repeats a board they have
     // memorised — and the pair alone highlighted whichever of them sorted first.
-    const myName = run.initials.join('');
+    // ⛔ S150 LANDING AUDIT — NORMALISE BEFORE COMPARING. This was `run.initials.join('')`, the RAW
+    // initials, and P3's own blank-name fix turned that into a bug in the same commit: `recordRun`
+    // stores `normaliseName(name)`, so a player who spells '   ' has 'AAA' on the board while the
+    // overlay hunted for '   ' and highlighted nothing. Reachable in five keystrokes — the alphabet
+    // ends with a space and `cycleLetter` wraps backward from 'A' straight onto it.
+    //
+    // The lesson generalises past this line: when a WRITE path normalises, every READ path that
+    // matches on the written value has to apply the same function, or the two silently disagree.
+    const myName = normaliseName(run.initials.join(''));
     const mine = run.scores.findIndex(
       (s) => s.ms === run.finishedMs && s.name === myName && s.at === run.committedAtMs,
     );
