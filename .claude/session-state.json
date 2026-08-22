@@ -1,5 +1,5 @@
 {
- "tool_calls_session_total": 1816,
+ "tool_calls_session_total": 1825,
  "session_id": "S150",
  "session_kind": "truth-restoration + arcade batch (owner R55: all five, arcade kept)",
  "session_start": "2026-08-20",
@@ -60,33 +60,20 @@
   "GOOD NEWS WORTH RECORDING (claims that CONFIRMED cleanly). damageEntity's guard/return semantics/anchor-raze all verified by running its 22 tests green. razePrimitives IS the single primitive-removal path - world.primitives.delete appears EXACTLY ONCE in src/ (razePrimitives.ts:78) and world.bonds.delete exactly once (:75); only 3 whole-world clear() resets bypass it. Widening DamageTarget is a 1-switch 3-arm->4-arm edit with ZERO external type consumers (DamageTarget/DamageSource have no importers outside damage.ts). DefenderKind's Record IS compile-time exhaustive. pickGathererTarget is ALREADY per-unit preference-aware so R3 needs zero changes there. pickGatherer hit-testing ALREADY EXISTS and is already own-units-gated (controls.ts:276-290). BotGoal has NO wire surface. Registry join is 3 LOC. Codex tab wiring needs NO change (main.ts:611-618 filters by r.kind automatically)."
  ],
  "carry_forward": [
-  "CF1 OPEN (inherited, unrelated to S147): under ?worker=1 click-to-build spends shapes and builds nothing. Opt-in only (WORKER_DEFAULT_ON=false), zero live blast radius. S146 REFUTED its leading theory (workerSim.ts:218 does set world.isHost=true; netSnapshot does carry defenders; applySnapshotCore does rehydrate them). Needs a runtime probe. Blocks the worker flip, not the TD roadmap.",
-  "CF3 OPEN (inherited).",
-  "CF-S147-a RESOLVED IN P1 - not a carry-forward any more. The three stale protocol comments were swept (smoke.spec.ts:644 and :658 de-versioned, hostmigration.spec.ts:14 reworded) AND the already-stale HelloMsg JSDoc changelog was backfilled with the missing S146 21->22 entry, then extended with S147 P1 (22->23) and S147 P2 (23->24). The docblock's own 'THREE things' checklist was also corrected to the real FIVE sites, since saying THREE for four bumps running is why it kept going stale.",
-  "CF-S147-b OPEN: the authoritative protocol-bump checklist still lives only in a test comment (protocol.test.ts:84-86) and a JSDoc. Promoting it to LOCKED_DECISIONS.md remains recommended - the drift has now recurred FIVE times (S133, S139, S140, S141, and the stale HelloMsg list found this session). Deliberately out of scope for S147; logged so it is not lost.",
-  "CF-S147-c OPEN (new, low severity): six hazard families in workerSim.differential.test.ts (bombs, potatoes, rainbows, seagulls, poops, fouledPrimitives) are ACKNOWLEDGED-as-unreachable rather than seeded, because Step 0 gates hazard dispatch. They are console-logged every run so the gap cannot go quiet. WHEN HAZARD_SPAWN_ENABLED is flipped back to true, DELETE those six reasons rather than leaving stale excuses - they will start arising naturally again immediately, since no cadence changed.",
-  "CF-S147-e OPEN, FUTURE FEATURE (R45): the pre-game lobby COLOUR/RACE PICKER. Substrate already exists and needs no sim change - every consumer reads player.color and colour rides the wire as RosterEntry.color. Plug-in points: the default assignment at net/lobbyRoster.ts:103/104/126/129, plus one new client intent. PLAYER_COLORS deliberately stays at SIX entries (six races, max four in play) - never shrink it to the seat cap.",
-  "CF-S147-d RESOLVED at the S147 review gate: owner ruled WALLS STAY IN S149 (R46). No longer open.",
-  {
-   "id": "CF-S148-a",
-   "status": "open",
-   "note": "R22 IS VIOLATED ON DISK - the quarry keeps producing sparks during FIGHT because the spawner never reads world.matchPhase. Found by the S148 vision gap audit. One guard at the spawn dispatch site, same shape as the S147 hazard gating. Not fixed in the S148 batch to keep the priorities on the owner-named vision items."
-  },
-  {
-   "id": "CF-S148-b",
-   "status": "open",
-   "note": "creatureSpawners is an ACKNOWLEDGED HOLE in workerSim.differential SEEDING_COVERAGE. It was seeded only by the deleted bots-only pentagram; an injected spawner is torn down within one tick by the host re-validation poll (isPentagramComponent from its anchor), so it needs real recipe geometry. Its proper source is the GOBLIN TOWER (R18/R24, S153) - a spawner with genuine geometry - at which point the row seeds itself from the design instead of from scaffolding. Delete the acknowledged row then."
-  },
-  {
-   "id": "CF-S148-c",
-   "status": "open",
-   "note": "e2e/bomb.spec.ts \"instant self-sever\" is INTERMITTENTLY FLAKY, ~2 failures in 7 runs this session. Evidence it is NOT a P2 regression: it failed on the FIRST gating run of S148 (after P1, before P2), passed on the second, failed on the third, and passes 3/4 in isolation. Runtime is 44 s to 1.2 min for a single test, i.e. marginal against its timeout - the likely cause. Either raise its timeout or find what makes it slow; do NOT bisect a single failure (the standing e2e lesson)."
-  },
-  {
-   "id": "CF-S148-d",
-   "status": "open",
-   "note": "e2e/nplayer.spec.ts 4-PLAYER FFA (@quarantine-flaky) FAILS RELIABLY at the PEER-CONNECTION stage: \"waitForWorld timeout (30000ms): peer 0 PLAYING + 4 players\" - it never gets 4 browser peers joined over real WebRTC, which is upstream of all S148 game logic (layoutForSeatCount runs inside applyStartGame, which needs the roster, which needs the peers). Evidence it is a harness/signalling characteristic rather than an S148 regression: hostmigration.spec PASSED today with 3 real peers and reconnect.spec with 2, and e2e.yml gives this test a dedicated NON-GATING quarantine job precisely because real-WebRTC multi-peer is unreliable. NOT PROVEN pre-existing - that needs a checkout of ef59743 and a re-run, which was not done. FLAGGED, not dismissed. Owner impact is low for the next session: they are testing 2-player, which is the path that passes."
-  }
+  "STALE-KEY REPAIRED S150. This key held a FROZEN S147/S148-era list that the pre-handoff REVIEW CARD reads - so the gate meant to inform a human decision was showing CF-S147-b as OPEN (closed by S150 P1), CF-S148-a as open (closed in S149) and CF-S148-c prescribing raise-the-timeout (root-caused and fixed in S150 P5). Old content preserved verbatim under carry_forward_legacy_s147_s148_archived. THE LIVE LIST IS carry_forward_next_session.",
+  "CF-S150-d :: OWNER-DIRECTED, unstarted. Design partly settled, stats entirely open. :: THE GOBLIN TOWER + the unit stat pass — owner's named headline for next session",
+  "CF-S149-f :: UNBLOCKED - all five rulings answered by R57-R61. Ready for a Full-tier PDR next session. :: BOTS BUILD TOWERS - the last of the owner's five playtest complaints",
+  "CF-S149-a :: SUPERSEDED by owner ruling R63. The owner rejected the wall-arc framing outright (\"a stupid problem with a simple solution\") and instead closes the quarry to units during BUILD. No wall geometry changes. :: DESIGN RULING NEEDED: the quarry is an OPEN HUB",
+  "CF-S150-a :: CLOSED by owner ruling R66 - the footer number IS the shape count and is correct as shipped. Only the docblock WORDING (\"connector count\") needs correcting; the buckets must not move. :: THE COMPLEXITY AXIS IS MISLABELLED - shape count vs connector count",
+  "CF-S148-b :: ⛔ MIS-DESCRIBED BY S148/S149. The stated BLOCKER IS FALSE. Corrected S150. :: creatureSpawners + defenders acknowledged rows in workerSim.differential",
+  "CF-S147-e :: STILL-REAL, and the ONLY inherited CF whose every file:line still verified exactly. :: R45 lobby colour/race picker - substrate exists, needs one client intent",
+  "CF1 :: STILL-REAL (opt-in only). ⛔ THE ONE-LINE DESCRIPTION HAD ROTTED - corrected S150. :: under ?worker=1 click-to-build stamps primitives and debits the bank but the DEFENDER never ignites",
+  "CF3 :: ⛔ CONTENT WAS LOST, THEN CARRIED AS A BARE ID. RECOVERED S150. :: SWEEP: other specs whose seeding hides a real-path failure",
+  "CF-S148-d :: STILL-REAL but ⛔ THE ROOT-CAUSE DIAGNOSIS WAS WRONG. Corrected S150. Blast radius nil. :: 4-peer nplayer FFA times out (quarantine lane)",
+  "CF-S147-c :: STILL-REAL, ACCURATELY DESCRIBED, but NOT ACTIONABLE - its trigger has not fired. :: delete the six acknowledged hazard rows in workerSim.differential",
+  "CF-S149-c :: Delivered in S149 P5/P6 - the chip already opens a tower-card menu. Cosmetic polish only. :: Footer tier -> per-complexity filter (LARGELY SUPERSEDED)",
+  "CF-S150-b :: LATENT. Currently passes; flagged during the S150 Rule-22 audit, not observed failing. :: rainbow.spec has bomb.spec's exposure — a flyover cinematic can eat its build clicks",
+  "CF-S150-c :: REAL, found by the S150 landing audit. Low blast radius; not fixed because the batch was closing. :: chordBlocked has no arcadeRun awareness - game hotkeys fire while typing arcade initials"
  ],
  "priorities": [
   {
@@ -3496,5 +3483,34 @@
    "status": "SHIPPED"
   }
  },
- "owner_rulings_s150_late_note": "Eleven rulings given at S150 close, in response to the \"NEEDING YOU\" summary. R57-R61 unblock BOTS BUILD TOWERS (the last of the five S149 playtest complaints) and OVERRIDE two things S150 proposed: no travel-then-stamp (R57) and no per-difficulty tower whitelist (R58/R59). R63 dissolves the quarry open-hub question without the wall arc S150 offered. R62, R64, R68 and R69 are NEW scope. R65 is recorded but deliberately NOT acted on - ambiguous intent."
+ "owner_rulings_s150_late_note": "Eleven rulings given at S150 close, in response to the \"NEEDING YOU\" summary. R57-R61 unblock BOTS BUILD TOWERS (the last of the five S149 playtest complaints) and OVERRIDE two things S150 proposed: no travel-then-stamp (R57) and no per-difficulty tower whitelist (R58/R59). R63 dissolves the quarry open-hub question without the wall arc S150 offered. R62, R64, R68 and R69 are NEW scope. R65 is recorded but deliberately NOT acted on - ambiguous intent.",
+ "carry_forward_legacy_s147_s148_archived": [
+  "CF1 OPEN (inherited, unrelated to S147): under ?worker=1 click-to-build spends shapes and builds nothing. Opt-in only (WORKER_DEFAULT_ON=false), zero live blast radius. S146 REFUTED its leading theory (workerSim.ts:218 does set world.isHost=true; netSnapshot does carry defenders; applySnapshotCore does rehydrate them). Needs a runtime probe. Blocks the worker flip, not the TD roadmap.",
+  "CF3 OPEN (inherited).",
+  "CF-S147-a RESOLVED IN P1 - not a carry-forward any more. The three stale protocol comments were swept (smoke.spec.ts:644 and :658 de-versioned, hostmigration.spec.ts:14 reworded) AND the already-stale HelloMsg JSDoc changelog was backfilled with the missing S146 21->22 entry, then extended with S147 P1 (22->23) and S147 P2 (23->24). The docblock's own 'THREE things' checklist was also corrected to the real FIVE sites, since saying THREE for four bumps running is why it kept going stale.",
+  "CF-S147-b OPEN: the authoritative protocol-bump checklist still lives only in a test comment (protocol.test.ts:84-86) and a JSDoc. Promoting it to LOCKED_DECISIONS.md remains recommended - the drift has now recurred FIVE times (S133, S139, S140, S141, and the stale HelloMsg list found this session). Deliberately out of scope for S147; logged so it is not lost.",
+  "CF-S147-c OPEN (new, low severity): six hazard families in workerSim.differential.test.ts (bombs, potatoes, rainbows, seagulls, poops, fouledPrimitives) are ACKNOWLEDGED-as-unreachable rather than seeded, because Step 0 gates hazard dispatch. They are console-logged every run so the gap cannot go quiet. WHEN HAZARD_SPAWN_ENABLED is flipped back to true, DELETE those six reasons rather than leaving stale excuses - they will start arising naturally again immediately, since no cadence changed.",
+  "CF-S147-e OPEN, FUTURE FEATURE (R45): the pre-game lobby COLOUR/RACE PICKER. Substrate already exists and needs no sim change - every consumer reads player.color and colour rides the wire as RosterEntry.color. Plug-in points: the default assignment at net/lobbyRoster.ts:103/104/126/129, plus one new client intent. PLAYER_COLORS deliberately stays at SIX entries (six races, max four in play) - never shrink it to the seat cap.",
+  "CF-S147-d RESOLVED at the S147 review gate: owner ruled WALLS STAY IN S149 (R46). No longer open.",
+  {
+   "id": "CF-S148-a",
+   "status": "open",
+   "note": "R22 IS VIOLATED ON DISK - the quarry keeps producing sparks during FIGHT because the spawner never reads world.matchPhase. Found by the S148 vision gap audit. One guard at the spawn dispatch site, same shape as the S147 hazard gating. Not fixed in the S148 batch to keep the priorities on the owner-named vision items."
+  },
+  {
+   "id": "CF-S148-b",
+   "status": "open",
+   "note": "creatureSpawners is an ACKNOWLEDGED HOLE in workerSim.differential SEEDING_COVERAGE. It was seeded only by the deleted bots-only pentagram; an injected spawner is torn down within one tick by the host re-validation poll (isPentagramComponent from its anchor), so it needs real recipe geometry. Its proper source is the GOBLIN TOWER (R18/R24, S153) - a spawner with genuine geometry - at which point the row seeds itself from the design instead of from scaffolding. Delete the acknowledged row then."
+  },
+  {
+   "id": "CF-S148-c",
+   "status": "open",
+   "note": "e2e/bomb.spec.ts \"instant self-sever\" is INTERMITTENTLY FLAKY, ~2 failures in 7 runs this session. Evidence it is NOT a P2 regression: it failed on the FIRST gating run of S148 (after P1, before P2), passed on the second, failed on the third, and passes 3/4 in isolation. Runtime is 44 s to 1.2 min for a single test, i.e. marginal against its timeout - the likely cause. Either raise its timeout or find what makes it slow; do NOT bisect a single failure (the standing e2e lesson)."
+  },
+  {
+   "id": "CF-S148-d",
+   "status": "open",
+   "note": "e2e/nplayer.spec.ts 4-PLAYER FFA (@quarantine-flaky) FAILS RELIABLY at the PEER-CONNECTION stage: \"waitForWorld timeout (30000ms): peer 0 PLAYING + 4 players\" - it never gets 4 browser peers joined over real WebRTC, which is upstream of all S148 game logic (layoutForSeatCount runs inside applyStartGame, which needs the roster, which needs the peers). Evidence it is a harness/signalling characteristic rather than an S148 regression: hostmigration.spec PASSED today with 3 real peers and reconnect.spec with 2, and e2e.yml gives this test a dedicated NON-GATING quarantine job precisely because real-WebRTC multi-peer is unreliable. NOT PROVEN pre-existing - that needs a checkout of ef59743 and a re-run, which was not done. FLAGGED, not dismissed. Owner impact is low for the next session: they are testing 2-player, which is the path that passes."
+  }
+ ]
 }
