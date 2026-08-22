@@ -80,7 +80,7 @@ async function startSolo(page: Page): Promise<void> {
   await holdInBuildPhase(page);
 }
 
-test.describe('S75 P3 — rainbow color-shuffle (solo) @archived-hazard', () => {
+test.describe('S75 P3 — rainbow color-shuffle (solo, gating)', () => {
   test('spawns on its cadence; clicking it shuffles the player AND their structure colour in lockstep', async ({ page }) => {
     const pageErrors: string[] = [];
     page.on('pageerror', (e) => pageErrors.push(String(e)));

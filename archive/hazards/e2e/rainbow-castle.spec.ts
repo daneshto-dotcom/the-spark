@@ -30,7 +30,7 @@ interface Sample {
   rgb: [number, number, number];
 }
 
-test.describe('S137 P2 — the rainbow makes the castle party (visual) @archived-hazard', () => {
+test.describe('S137 P2 — the rainbow makes the castle party (visual)', () => {
   test('the keep visibly cycles the palette during the flyover window and returns to its own colour', async ({
     page,
   }, testInfo) => {

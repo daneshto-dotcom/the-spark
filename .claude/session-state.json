@@ -1,14 +1,14 @@
 {
- "tool_calls_session_total": 1832,
- "session_id": "S150",
- "session_kind": "truth-restoration + arcade batch (owner R55: all five, arcade kept)",
- "session_start": "2026-08-20",
- "prior_session_note": "S149 closed at f799bfe; 14 carry-forwards inherited, 4 of them proven mis-described by the S150 A.0 probe.",
- "prior_session_archive": ".handoff-archive/HANDOFF_S147.md",
+ "tool_calls_session_total": 1848,
+ "session_id": "S151",
+ "session_kind": "PDCA batch — hazard archive + the stat system + the goblin tower",
+ "session_start": "2026-08-22",
+ "prior_session_note": "S150 closed at 7176295; protocol 28; e2e claimed 53/0/0 but measured 52/1/0 (pre-existing ~50% rainbow flake)",
+ "prior_session_archive": ".handoff-archive/HANDOFF_S150.md",
  "phase": "DO",
  "tier": "Full",
- "plan_file": ".claude/plans/2026-08-21_PDR_S150_BATCH.md",
- "session_status": "batch complete + Rule-22 audited",
+ "plan_file": ".claude/plans/2026-08-22_PDR_S151_BATCH.md",
+ "session_status": "in_progress",
  "pdr_approved": true,
  "deliberation_completed": true,
  "unlock_source": "user",
@@ -26,7 +26,7 @@
   "bump_policy": "ALLOW TWO BUMPS, spread out. Each bump gets its own deploy + 2-peer check. SPARK has no external playerbase so the real cost is the owner reloading. Claude flagged that dispatcher-first actually implies THREE bumps (17 dispatcher / 18 build space / 19 starters) and offered a 2-bump re-sequence; owner said go without re-sequencing.",
   "build_space_scope": "EVERYTHING including the R4 keep-ring move (~R420). Warning accepted: C2 measured this nearly doubles the haul (150->295px), so throughput drops while the bank grows — needs re-measurement and gatherer retuning in the same session. This is a LATER session, not S138."
  },
- "bump_allowance_analysis": "The S138 ruling recorded at owner_rulings_s138.bump_policy says Claude flagged that dispatcher-first implies THREE bumps (17 dispatcher / 18 build space / 19 starters) and the owner said go WITHOUT re-sequencing. Bump 17 was consumed by S138 P2 (keep-ring move). Therefore bumps 18 AND 19 are ALREADY inside the authorised allowance, and splitting starters from the build space across two sessions needs no new ruling. HANDOFF_S138's 'ONE bump covers both' is an optimisation, not a constraint. Surfaced to the owner rather than assumed either way.",
+ "bump_allowance_analysis": "28->29 REQUIRED and paid ONCE for P2+P3 together. Drivers: (a) six new CreatureType wire discriminants with no unknown-value guard in getCreatureConfig; (b) creature hp constants are shared constants both peers compute from (serializeCreature omits hp when undamaged - the R71 mechanism); (c) Defender.hp REMOVED from SerializedDefender/DefenderHashed; (d) new required hashed Bond damage field; (e) new FEED_TOWER client intent. Splitting P2/P3 would cost TWO bumps.",
  "a0_state_discovery": [
   "METHOD: Workflow sweep, 10 parallel on-disk probes, 422 tool calls, 1.95M subagent tokens. 105 claims checked: 65 CONFIRMED / 19 PARTIAL / 17 REFUTED / 4 NOT_FOUND. The adversarial re-check + synthesis stages DIED on a spend limit; probe payloads survived in journal.jsonl and were triaged by Claude directly. STATED AS A DEVIATION: the 24 planned independent re-checks did NOT run, so single-probe findings carry one source unless marked SELF-VERIFIED.",
   "*** SELF-VERIFIED, HIGHEST CONSEQUENCE *** damageEntity IS DEAD CODE. grep for damageEntity( over src/ excluding tests returns EXACTLY ONE LINE: its own definition at src/state/damage.ts:56. Zero production call sites; the only importer in the repo is src/state/damage.test.ts:55. Meanwhile THREE live damage callers bypass it and call damageCreature directly: creatures/creatureAttack.ts:103 (Voltkin zap), defenders/defenderLifecycle.ts:245 (turret beam / HELGA slap), world.ts:559 (RAID_CREATURE). CONSEQUENCE: boot-snapshot.md:29 'The blocker is GONE (P1 built it)' is true only in the sense that the function EXISTS. S139 is not building on a live substrate - it is switching the substrate ON for the first time, and becomes the first real play-validation of PRIMITIVE_MAX_HP / TURRET_DEFENDER_MAX_HP=3000 / PRINCESS_DEFENDER_MAX_HP=2000 (constants.ts:1197-1199 admits these are unvalidated). The integer guard at damage.ts:63-68 has never fired in production.",
@@ -77,711 +77,34 @@
  ],
  "priorities": [
   {
+   "pdr_approved": true,
+   "deliberation_completed": true,
+   "unlock_source": "user",
    "id": "P1",
-   "title": "PROTOCOL DRIFT - repair the three live instances, correct nine->TEN sites, add the enforcement test, promote the checklist to LOCKED_DECISIONS.md",
+   "title": "Archive the four hazard families (R73)",
    "tier": "Standard",
-   "protocol_bump": false,
-   "status": "completed",
-   "check_completed": true,
+   "status": "in_progress",
+   "scope": "Copy bombs/potatoes/rainbows/seagulls+poops WHOLE into archive/hazards/ with a RESTORE.md; tag the five hazard e2e specs out of the gating lane. Live code stays dormant (owner-selected sequencing)."
+  },
+  {
    "pdr_approved": true,
    "deliberation_completed": true,
    "unlock_source": "user",
-   "verification": [
-    {
-     "type": "file_contains",
-     "path": "src/net/protocol.ts",
-     "needle": "// S93 — bumped 8→9: THE NONET TRIAL."
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/protocol.ts",
-     "needle": "// S144 P1 — bumped 20->21: CLICK-TO-BUILD."
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/protocol.ts",
-     "needle": "// S149 P2 — bumped 25->26: THE PHASE SPLIT IS ENFORCED."
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/protocol.ts",
-     "needle": "// S152 SPEC — bumped 26->27: FIX + SCRAP."
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/protocol.ts",
-     "needle": "means editing **SIX** things, not three"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/protocol.ts",
-     "needle": "THE SESSION LABEL"
-    },
-    {
-     "type": "file_lacks",
-     "path": "src/net/protocol.ts",
-     "needle": "caught stale THREE times"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/protocolVersionSync.test.ts",
-     "needle": "the NARRATIVE block documents an unbroken chain up to PROTOCOL_VERSION"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/protocolVersionSync.test.ts",
-     "needle": "the HelloMsg entries are in CHRONOLOGICAL ORDER"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/protocolVersionSync.test.ts",
-     "needle": "neither carrier has lost entries off the FRONT of its history"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/protocolVersionSync.test.ts",
-     "needle": "const floor = Math.min(...found);"
-    },
-    {
-     "type": "grep_count",
-     "path": "src/net/protocolVersionSync.test.ts",
-     "pattern": "^describe\\(",
-     "op": "==",
-     "value": 2
-    },
-    {
-     "type": "grep_count",
-     "path": "src/net/protocolVersionSync.test.ts",
-     "pattern": "^\\s+it\\(",
-     "op": "==",
-     "value": 10
-    },
-    {
-     "type": "file_contains",
-     "path": "LOCKED_DECISIONS.md",
-     "needle": "THE PROTOCOL-BUMP CHECKLIST, PROMOTED AND MECHANISED"
-    },
-    {
-     "type": "file_contains",
-     "path": "LOCKED_DECISIONS.md",
-     "needle": "Wire incompatibility, not replay identity."
-    },
-    {
-     "type": "file_contains",
-     "path": "LOCKED_DECISIONS.md",
-     "needle": "A REQUIRED hashed World field costs TEN sites, and TWO are tsc-forced"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/state/walls.ts",
-     "needle": "ZERO of the TEN sites a new REQUIRED hashed World field costs"
-    },
-    {
-     "type": "file_lacks",
-     "path": "src/state/walls.ts",
-     "needle": "ZERO of the nine sites a new hashed World family costs"
-    },
-    {
-     "type": "file_contains",
-     "path": "LOCKED_DECISIONS.md",
-     "needle": "A REQUIRED hashed World field costs TEN sites, and TWO are tsc-forced",
-     "note": "RE-POINTED at the S150 close. This bound the ten-sites correction to boot-snapshot.md — a file whose documented contract is \"ephemeral, overwritten each handoff\". My own STEP 2.95 then rewrote it and the binding failed, which the Stop hook caught. No content was lost (the correction lives verbatim in LOCKED_DECISIONS.md and state/walls.ts, and reworded in the new snapshot) — the BINDING was the defect. RULE: never bind a durable claim to an ephemeral artifact."
-    }
-   ],
-   "check_method": "P1 CHECK, verbose. (1) tsc -b --noEmit exit 0. (2) full vitest 171 files / 2815 tests green (was 2808 - the +7 are the new gate's assertions; the 3 pre-existing tests in protocolVersionSync.test.ts still pass). (3) npm run build OK, 710.8 KiB / 900 KiB cap, and the entry hash is UNCHANGED at index-BkNNmZdm.js - correct, because every src/ edit in this priority is a comment. (4) THE GATE WAS PROVEN AGAINST THE DRIFTED FILE, not just the repaired one: `git show HEAD:src/net/protocol.ts` was restored over the working copy and the new describe block failed on exactly the three real drift classes - narrative chain missing [9, 21, 26, 27], HelloMsg out of chronological order, and the stale checklist count - then passed 10/10 once the repair was restored. A gate never seen to fail is not known to be a gate. (5) The first draft of the gate was WRONG and the failure taught the design: it asserted both carriers start at 2, and the HelloMsg one legitimately starts at 6->7 because that list was begun later. Fixed by MEASURING each carrier's floor and pinning the floors separately, so a deletion off the front still fails. (6) Line endings verified per file: protocol.ts and walls.ts stayed pure LF (0 CRLF); LOCKED_DECISIONS.md stayed pure CRLF (1693 CRLF, 0 bare LF) - appended with newline='' and explicit CRLF.",
-   "findings": [
-    "FIVE live drift instances, not the three the carry-forward implied. Beyond 25->26 and 26->27 missing from the narrative block, ENUMERATING the chain rather than reading it found 8->9 (missing since S93, eight bumps) and 20->21 (missing since S144, three bumps), plus the HelloMsg list's last four entries scrambled to 27/24/26/25 with two at the wrong comment indentation, plus the drift counter itself still reading THREE.",
-    "The two long-invisible gaps are the whole argument for mechanising this. Every prior session that touched the drift read the same block and believed it complete, because a human verifies that the LAST entry matches the constant. Only a machine verifies every link.",
-    "The S149-vs-S152 label split is NOT an error to correct. Thirteen files cite S152 because it is the roadmap SPEC id in SPARK_TD_SESSION_SPECS.md; the session was S149. Rewriting the labels would destroy spec traceability, so the mapping is stated once in protocol.ts and LOCKED_DECISIONS.md and pinned as checklist item 6 instead.",
-    "The nine-site figure undercounts by one for every field it was ever used to size, and understates tsc coverage by one too. It was traced on rainbowSwitchTick (OPTIONAL, so no makeWorld initializer); matchPhase/phaseEndsAtTick/layout are REQUIRED and cost TEN, with TWO tsc-forced because makeWorld's literal is annotated `const w: World`. Corrected in walls.ts, boot-snapshot.md and LOCKED_DECISIONS.md; deliberately NOT rewritten in the reflexion log or archived handoffs, which are dated records of what those sessions believed.",
-    "CF-S147-b is CLOSED and both halves shipped: the enforcement test (my reframing) AND the LOCKED_DECISIONS.md promotion (the owner's literal ask). Both Council seats independently said do both rather than choose; they were right.",
-    "BINDING DEFECT, caught by the Stop hook after the handoff had already been written: P1 bound the ten-sites correction to boot-snapshot.md, which /handoff STEP 2.95 rewrites from scratch every session. The claim was true and is still true in two durable carriers; the binding pointed at a file guaranteed to lose it. Re-pointed at LOCKED_DECISIONS.md. The general rule now recorded: an MCV binding must target a DURABLE artifact — pinning one to a file whose own docblock says it is overwritten each handoff guarantees a false failure at the next close."
-   ],
-   "checkpoint_commit": "f085746",
-   "deploy_verified": "4/4"
-  },
-  {
    "id": "P2",
-   "title": "CARRY-FORWARD REMEDIATION - rewrite CF-S148-b/c/d and CF1 to what the code says; restore CF3; reclassify CF-S149-b",
-   "tier": "Standard",
-   "protocol_bump": false,
-   "status": "completed",
-   "check_completed": true,
+   "title": "The stat system (R72 + R74 + R75 + R76)",
+   "tier": "Full",
+   "status": "pending",
+   "scope": "Three stat families: units HP/DEF/ATK/PEN, towers ATK/PEN only, connectors HP/DEF. Delete FIVE accidental backbones (3x GOBLIN_MELEE_HP derivations + TURRET_DEFENDER_MAX_HP + PRINCESS_DEFENDER_MAX_HP). Exact-integer fifths. Connector durability = connectorCount + 4 fifths, component-scoped and DYNAMIC. New required hashed Bond damage field; Defender.hp leaves the wire. Explicit targeting matrix. Protocol 28->29."
+  },
+  {
    "pdr_approved": true,
    "deliberation_completed": true,
    "unlock_source": "user",
-   "verification": [
-    {
-     "type": "file_contains",
-     "path": ".claude/session-state.json",
-     "needle": "carry_forward_inherited_from_s149_verbatim"
-    },
-    {
-     "type": "file_contains",
-     "path": ".claude/session-state.json",
-     "needle": "THE ROOT-CAUSE DIAGNOSIS WAS WRONG"
-    },
-    {
-     "type": "file_contains",
-     "path": ".claude/session-state.json",
-     "needle": "CONTENT WAS LOST, THEN CARRIED AS A BARE ID. RECOVERED S150."
-    },
-    {
-     "type": "file_contains",
-     "path": ".claude/session-state.json",
-     "needle": "FIVE DAYS BEFORE THE CF WAS WRITTEN"
-    },
-    {
-     "type": "file_contains",
-     "path": ".claude/session-state.json",
-     "needle": "RECLASSIFIED, NOT FIXED. There was nothing to fix."
-    },
-    {
-     "type": "file_contains",
-     "path": ".claude/session-state.json",
-     "needle": "carry_forward_audit_s150"
-    },
-    {
-     "type": "file_contains",
-     "path": ".claude/session-state.json",
-     "needle": "\"id\": \"CF-S150-a\""
-    },
-    {
-     "type": "file_contains",
-     "path": ".claude/session-state.json",
-     "needle": "\"id\": \"CF-S150-b\""
-    },
-    {
-     "type": "file_contains",
-     "path": ".claude/session-state.json",
-     "needle": "carry_forward_closed_s150"
-    },
-    {
-     "type": "grep_count",
-     "path": ".claude/session-state.json",
-     "pattern": "\"id\": \"CF-",
-     "op": ">=",
-     "value": 24
-    }
-   ],
-   "check_method": "P2 CHECK, verbose. Every one of the 14 inherited carry-forwards was re-opened against the code on disk instead of being re-copied. Four were REFUTED by the code (CF-S148-b's blocker, CF-S148-c's remedy, CF-S148-d's root cause, CF1's one-line description) and one (CF3) had its content recovered from HANDOFF_2026-08-16_S146.md after degrading to the literal title 'inherited, unspecified'. Two are CLOSED: CF-S147-b by P1, and CF-S149-b by RECLASSIFICATION - walls.ts already contained the argument that it is correct as-is, so filing it as work was the error. One new entry (CF-S150-a) records the owner's R56 deferral of the axis mislabel WITH its evidence, so it cannot decay into a bare id the way CF3 did. The inherited list is preserved verbatim under carry_forward_inherited_from_s149_verbatim, so this remediation is itself auditable rather than a silent overwrite. 14 in, 10 out, 2 closed, 1 new.",
-   "findings": [
-    "In TWO cases the superseding change had already landed when the CF was first written - BUILD_BLUEPRINT shipped five days before CF-S148-b claimed a fixture was impossible, and the retry-budget raise shipped nine days before CF-S148-c prescribed raising it. Acting on CF-S148-c as written would have been a no-op that LOOKED like shipped work.",
-    "CF-S148-d's diagnosis was refuted by an artifact already saved in the repo: all four peers seated, match run to POSTGAME at tick 2212. The failure is in the predicate, not the transport - a completely different fix from the one the CF prescribed.",
-    "CF-S149-b was not a gap at all. Filing 'X has no consumer' as work, when the file explains at length why X correctly has no consumer, is a distinct failure mode from a stale diagnosis: it converts documentation into a to-do.",
-    "AUDIT SELF-FINDING: P2s original bindings were self-referential - all seven targeted the one file P2 edited, five asserted strings P2 had just authored there, and the single counting binding (grep_count \"id\": \"CF-\" >= 12) was satisfied by carry_forward_inherited_from_s149_verbatim ALONE, an immutable frozen copy. Deleting the entire live carry-forward list would have left it green. Replaced with a floor that counts BOTH lists plus explicit anchors on the two entries this session actually added."
-   ],
-   "checkpoint_commit": "98072c1",
-   "deploy_verified": "4/4"
-  },
-  {
    "id": "P3",
-   "title": "ARCADE timed trial + leaderboard UI - timer, initials entry, HIGH SCORES board, declarative gameState guard, pin TOP_N=25, fix the blank-initials row",
-   "tier": "Standard",
-   "protocol_bump": false,
-   "status": "completed",
-   "check_completed": true,
-   "pdr_approved": true,
-   "deliberation_completed": true,
-   "unlock_source": "user",
-   "verification": [
-    {
-     "type": "file_contains",
-     "path": "src/render/arcadeRun.ts",
-     "needle": "export type ArcadeRunPhase = 'RUNNING' | 'ENTER_INITIALS' | 'BOARD';"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/render/arcadeRun.ts",
-     "needle": "export function startRun(nowMs: number): ArcadeRun"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/render/arcadeRun.ts",
-     "needle": "export function finishRun(run: ArcadeRun, nowMs: number): ArcadeRun"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/render/arcadeRun.ts",
-     "needle": "export function commitRun(run: ArcadeRun, atMs: number): ArcadeRun"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/render/arcadeRun.ts",
-     "needle": "if (run.phase !== 'RUNNING') return run;"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/render/arcadeRun.ts",
-     "needle": "if (run.phase !== 'ENTER_INITIALS' || run.finishedMs === null) return run;"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/render/arcadeRunOverlay.ts",
-     "needle": "render(run: ArcadeRun | null, nowMs: number, onTitle: boolean): void"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/render/arcadeRunOverlay.ts",
-     "needle": "if (run === null || !onTitle)"
-    },
-    {
-     "type": "file_lacks",
-     "path": "src/render/arcadeRunOverlay.ts",
-     "needle": "  show(): void"
-    },
-    {
-     "type": "file_lacks",
-     "path": "src/render/arcadeRunOverlay.ts",
-     "needle": "  hide(): void"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/main.ts",
-     "needle": "arcadeRunOverlay.render(arcadeRun, performance.now(), world.gameState === 'TITLE');"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/main.ts",
-     "needle": "if (arcadeRun !== null) arcadeRun = finishRun(arcadeRun, performance.now());"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/main.ts",
-     "needle": "arcadeRun = startRun(performance.now());"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/main.ts",
-     "needle": "case 'Enter': arcadeRun = commitRun(run, Date.now()); break;"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/main.ts",
-     "needle": "if (arcadeNonet !== null || arcadeRun !== null)"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/render/arcadeScores.ts",
-     "needle": "return name.trim().length === 0 ? 'A'.repeat(NAME_LEN) : name;"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/render/arcadeScores.test.ts",
-     "needle": "expect(TOP_N).toBe(25);"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/render/arcadeScores.test.ts",
-     "needle": "expect(normaliseName('   ')).toBe('AAA');"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/render/arcadeRunOverlay.ts",
-     "needle": "s.ms === run.finishedMs && s.name === myName && s.at === run.committedAtMs"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/render/arcadeRunOverlay.test.ts",
-     "needle": "highlights the RIGHT row when another row shares its time AND its initials"
-    },
-    {
-     "type": "grep_count",
-     "path": "src/render/arcadeRun.ts",
-     "pattern": "from './arcadeScores.ts'",
-     "op": "==",
-     "value": 1
-    },
-    {
-     "type": "grep_count",
-     "path": "src/render/arcadeRunOverlay.ts",
-     "pattern": "from './arcadeScores.ts'",
-     "op": "==",
-     "value": 1
-    },
-    {
-     "type": "file_contains",
-     "path": "src/main.ts",
-     "needle": "if (world.gameState !== 'TITLE') return;"
-    }
-   ],
-   "check_method": "P3 CHECK, verbose. (1) tsc -b --noEmit exit 0. (2) full vitest 173 files / 2848 tests green (from 171/2815: +2 files, +33 tests - 20 run-model, 9 overlay-guard, 4 score-pinning). (3) npm run build OK 717.4 KiB / 900 KiB cap; the entry hash MOVED (index-BkNNmZdm -> index-C_KQJv8x), which is the correct signal that real code shipped, unlike P1 where a byte-identical bundle was correct. (4) ⭐ RUNTIME-VERIFIED IN A REAL BROWSER, not only under the jsdom stub: the dev server was started and all three screens were driven against REAL Pixi via the exposed __SPARK__.arcadeRunOverlay. This is the boot-then-smoke check - a wrong Graphics fill/stroke chain throws only at runtime and the stubbed unit test cannot see it. Confirmed: RUNNING drew ['0:03.50'] with eventMode 'none' (so the clock cannot eat the NONET grid's clicks); ENTER_INITIALS drew ['SOLVED','0:07.25','ENTER YOUR INITIALS','A','A','A', hint] with the clock FROZEN despite nowMs=900000; BOARD drew ['HIGH SCORES', place line, rank/time/name rows, hint]; and rendering with onTitle=false blanked it. Console clean, zero errors. (5) ⭐ THAT RUNTIME PASS FOUND A REAL DEFECT NO TEST HAD: the board highlighted the player's row by (name, time), and the live frame showed two rows both reading 0:07.25 - so it lit whichever sorted first. Fixed by carrying committedAtMs and matching the full identity TRIPLE, pinned by a new test, and re-verified at runtime (secondMine=1, firstMine=0). (6) Synthetic PointerEvents are NOT accepted by Pixi's event system, so the click path could not be driven from the page; the browser pane also cannot composite in this session, so no screenshot was possible. Stated plainly rather than glossed: the VISUAL properties this repo keeps getting bitten by - contrast and z-order - are NOT verified by me this session, only the state machine and the draw calls. The clock plate was given an opaque backing precisely because that is the untested axis.",
-   "findings": [
-    "The S149 model was not merely unwired - it was tree-shaken out of the shipped bundle entirely (grep for its storage key in dist/ returned 0). It is now imported by real code, so it ships.",
-    "TWO real defects in the shipped model, both invisible to its 18 tests. TOP_N was unpinned (every cap test read the imported symbol, so changing 25 to 10 kept them all green - the owner's number was unprotected); and normaliseName('   ') returned three spaces, a BLANK row, because NAME_ALPHABET deliberately ends with a space so 'AB ' is reachable. The old test asserted only length, and three spaces are three characters.",
-    "The handoff said 26 tests. There were 18.",
-    "A third defect was mine, and only the real frame showed it: the board's 'your row' highlight matched on (name, time). Driving it in the browser produced two rows both at 0:07.25 and the wrong one lit. Two runs sharing a time AND initials is the normal case for a player repeating a memorised board, not a contrived one.",
-    "Gemini's render-guard point was the most valuable thing either Council seat said: for an overlay that BELONGS on the title screen, the failure mode inverts - it is an imperative .show() whose matching .hide() a future exit path forgets. Adopted structurally: render() takes onTitle as an argument, is called with no `if` in front of it, and the class has no show/hide at all. Two MCV bindings are file_lacks on those method signatures so re-adding one fails the gate.",
-    "AUDIT SELF-FINDING: the arcade KEY LISTENER was guarded only on arcadeRun while the RENDERER was guarded on gameState, and arcadeRun is cleared on just two paths (BACK, ESC) - never on match start. Guarding the renderer and not the input is the same half-guard this repo has shipped twice. Closed with the identical one-line gameState check."
-   ],
-   "checkpoint_commit": "c4baa94",
-   "deploy_verified": "4/4"
-  },
-  {
-   "id": "P4",
-   "title": "THE FOUR test.fixme - rewrite the three stale click-to-build tests against the footer band; rule on smoke.spec.ts:372",
-   "tier": "Standard",
-   "protocol_bump": false,
-   "status": "completed",
-   "check_completed": true,
-   "pdr_approved": true,
-   "deliberation_completed": true,
-   "unlock_source": "user",
-   "verification": [
-    {
-     "type": "file_lacks",
-     "path": "e2e/click-to-build.spec.ts",
-     "needle": "test.fixme("
-    },
-    {
-     "type": "grep_count",
-     "path": "e2e/click-to-build.spec.ts",
-     "pattern": "^  test\\(",
-     "op": "==",
-     "value": 3
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/click-to-build.spec.ts",
-     "needle": "click a tower on the FOOTER, place it, keep it (solo, gating)"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/click-to-build.spec.ts",
-     "needle": "async function openTier(page:"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/click-to-build.spec.ts",
-     "needle": "async function stinkCard(page:"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/click-to-build.spec.ts",
-     "needle": "footerBand.getUiPoints unavailable"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/click-to-build.spec.ts",
-     "needle": "expect(after.defenders).toContain('stinkTower');"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/click-to-build.spec.ts",
-     "needle": "expect(after.bank).toBe(0);"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/click-to-build.spec.ts",
-     "needle": "expect(later.primitives).toBe(after.primitives);"
-    },
-    {
-     "type": "file_lacks",
-     "path": "e2e/click-to-build.spec.ts",
-     "needle": "pts.structureCenters"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/click-to-build.spec.ts",
-     "needle": ".armed).toBe('stinkTower')"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/smoke.spec.ts",
-     "needle": "RULED ON: THIS IS A PLACEHOLDER, NOT A STALE TEST"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/smoke.spec.ts",
-     "needle": "PLACEHOLDER: asserts null, cannot pass"
-    },
-    {
-     "type": "grep_count",
-     "path": "e2e/smoke.spec.ts",
-     "pattern": "^  test\\.fixme\\(",
-     "op": "==",
-     "value": 1
-    }
-   ],
-   "check_method": "P4 CHECK, verbose. (1) tsc -b --noEmit exit 0. (2) full vitest 173 files / 2848 tests green (unchanged - these are Playwright specs, so a green vitest count proving nothing here is EXPECTED rather than the S149 trap). (3) npm run build OK 717.4 KiB. (4) ⭐ THE NUMBER THAT MATTERS: `npm run e2e:gating` went from 49 passed / 3 SKIPPED to **52 passed / 0 skipped**. The three rewritten tests are not merely un-fixme'd, they RUN and they PASS - verified twice, once in isolation (3 passed in 14.9s) and once in the full loaded lane. (5) The rewrite drives the REAL footer path end to end: open the tier chip, read the cards, click one to arm, click the world to place - and every downstream assertion is unchanged, so ignition (BOND_FORMED reaching the matcher), the spend, the one-pick-one-tower rule and the 3s survival poll are all still covered. (6) Line endings: click-to-build.spec.ts and smoke.spec.ts both stayed pure LF (0 CRLF). (7) The only remaining red in the gating lane is bomb.spec, which is P5's subject and was already failing at pre-flight before this session touched anything.",
-   "findings": [
-    "The gating lane now reports 52 passed / 0 skipped, up from 49 / 3. Un-fixme-ing a test only counts if it then passes, so both numbers are quoted: the skip count going to zero is the claim, and the pass count going up by exactly three is the evidence.",
-    "⭐ THE FOURTH FIXME IS A DIFFERENT ANIMAL AND WAS MIS-CLASSIFIED BY MY OWN PDR. I wrote it up as a fourth stale test. It is not stale - it is a PLACEHOLDER THAT CANNOT PASS BY CONSTRUCTION: its page.evaluate body ends in a hardcoded `return null` and the assertion is `expect(layout).not.toBeNull()`. Its own comment admits it ('a placeholder that returns null -> fixme expected') and names a P6 fix that never came. It also asserts against '/50' when PHASE_1_WIN_SCORE is 1500 and the HUD has been rebuilt several times since.",
-    "Left in place rather than deleted - nothing is removed without an owner ruling - but its documentation now states plainly that it asserts null and cannot pass, and names the three things it would actually take (label plumbing on the score Text and charge-dot Graphics, a bounds-intersection assertion, and the expected string derived from PHASE_1_WIN_SCORE rather than hardcoded). A test that reads as real coverage while asserting nothing is worse than an empty file.",
-    "Worth noting where the quarantine tag cuts both ways: this placeholder is harmless because @quarantine-flaky is grep-inverted out of the gating lane - and that is the EXACT mechanism by which a sibling assertion in the same file rotted unnoticed across roughly six protocol bumps."
-   ],
-   "checkpoint_commit": "f27a4ea",
-   "deploy_verified": "inherited (no deploy owed - test/docs only)"
-  },
-  {
-   "id": "P5",
-   "title": "bomb.spec - DIAGNOSE then fix; forbidden from closing by re-labelling or by re-applying the S136 change that already shipped",
-   "tier": "Standard",
-   "protocol_bump": false,
-   "status": "completed",
-   "check_completed": true,
-   "pdr_approved": true,
-   "deliberation_completed": true,
-   "unlock_source": "user",
-   "verification": [
-    {
-     "type": "file_contains",
-     "path": "e2e/bomb.spec.ts",
-     "needle": "window.__TEST_RAINBOW_SPAWN_SPARKS__ = 999;"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/bomb.spec.ts",
-     "needle": "window.__TEST_SEAGULL_SPAWN_SPARKS__ = 999;"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/bomb.spec.ts",
-     "needle": "window.__TEST_BOMB_SPAWN_SPARKS__ = 999;"
-    },
-    {
-     "type": "file_lacks",
-     "path": "e2e/bomb.spec.ts",
-     "needle": "window.__TEST_BOMB_SPAWN_SPARKS__ = 24;"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/bomb.spec.ts",
-     "needle": "sp.forceBomb(960, 540);"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/bomb.spec.ts",
-     "needle": "bomb placed on purpose after the build"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/main.ts",
-     "needle": "forceBomb(x: number, y: number): void"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/helpers.ts",
-     "needle": "BUILDING IS CLOSED"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/helpers.ts",
-     "needle": "export async function holdInBuildPhase(page: Page): Promise<void>"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/helpers.ts",
-     "needle": "hazards on board at attempt start:"
-    },
-    {
-     "type": "grep_count",
-     "path": "e2e/helpers.ts",
-     "pattern": "rainbows:",
-     "op": ">=",
-     "value": 1
-    },
-    {
-     "type": "grep_count",
-     "path": "e2e/bomb.spec.ts",
-     "pattern": "holdInBuildPhase",
-     "op": "==",
-     "value": 2
-    },
-    {
-     "type": "grep_count",
-     "path": "e2e/rainbow.spec.ts",
-     "pattern": "holdInBuildPhase",
-     "op": "==",
-     "value": 2
-    },
-    {
-     "type": "grep_count",
-     "path": "e2e/hunter.spec.ts",
-     "pattern": "holdInBuildPhase",
-     "op": "==",
-     "value": 2
-    },
-    {
-     "type": "grep_count",
-     "path": "e2e/worker.spec.ts",
-     "pattern": "holdInBuildPhase",
-     "op": "==",
-     "value": 2
-    },
-    {
-     "type": "file_lacks",
-     "path": "e2e/smoke.spec.ts",
-     "needle": "holdInBuildPhase"
-    },
-    {
-     "type": "file_lacks",
-     "path": "e2e/perf-snapshot.spec.ts",
-     "needle": "holdInBuildPhase"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/helpers.ts",
-     "needle": "lockedByCinematic: w.activeCinematicPlayerId === w.localPlayerId,"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/helpers.ts",
-     "needle": "INPUT LOCK"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/bomb.spec.ts",
-     "needle": "THE REAL MECHANISM IS THE INPUT LOCK"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/bomb.spec.ts",
-     "needle": "THE FIRST EXPLANATION WAS WRONG AND IS CORRECTED HERE"
-    }
-   ],
-   "check_method": "P5 CHECK, verbose. DIAGNOSED BY MEASUREMENT IN FOUR PASSES, AND THE FIRST TWO HYPOTHESES WERE BOTH WRONG - MINE INCLUDED. (1) The AttractDrag / MAX_RELEASE_REACH theory (the file's own comment, plus GEMINI's headless-throttling variant) was REFUTED by probe: with a real porch shape the carried spark arrives 0-2 px from the cursor and lands 6 times out of 6, and the sim ran at ~62 ticks/sec, so it was not frame-starved. (2) MY OWN phase-boundary theory was refuted next. It is TRUE that a placement at tick 13 lands and one at tick 5407 does not - but the loud guard I shipped for it never fired on a real bomb.spec failure, because those failures sat at tick ~2900, deep inside BUILD. (3) Widening the failure diagnostic to name the hazards found bombs=1 on two failures. Controls.onDown tries pickBomb (:611) then pickRainbow (:619) then pickPotato (:627) then pickSpark (:633), so a bomb on the board makes every mouse-down claim the ORB and the placement fails forever while reporting a message about a SPARK. Suppressing bombs moved the rate from 2/6 to 3/8 - a REAL cause that was not the ONLY cause, which is precisely why partial fixes here keep reading as flakes. (4) The full diagnostic caught the last one: {bombs:0, potatoes:0, RAINBOWS:1, poops:1, porch:1, avatarKind:'Idle', phase:'BUILD', tick:2927} - a grabbable shape on the porch, the player idle, the phase open, and the placement still impossible. [RETRACTED IN THE SAME BREATH - SEE THE CORRECTION BELOW: the rainbow did NOT win by picker priority. It won by INPUT LOCK.] MEASURED RESULT WITH DENOMINATORS: before = 1 fail in the gating lane plus 1 fail / 3 in isolation at pre-flight, then 2 fail / 6; after bombs alone = 3 fail / 8; after rainbows and seagulls = 0 fail / 8. Full lane: e2e:gating went 49 passed / 1 failed / 3 skipped -> 53 passed / 0 failed / 0 skipped. tsc 0; vitest 173 files / 2848 green; build 717.4 KiB under charter. ⚠ MECHANISM CORRECTED AFTER THE COMMIT, DURING THE RULE-22 LANDING AUDIT. The fix is unchanged and still measured at 0 fail / 8 then 0 fail / 4 (12/12 total), but the EXPLANATION shipped in commit c2501c2 was wrong and is corrected in the code comments and here. I wrote that the rainbow won by PICKER PRIORITY (onDown tries pickBomb -> pickRainbow -> pickPotato -> pickSpark). That cannot be what happened: pickRainbow requires the cursor within RAINBOW_RADIUS of the orb (controls.ts:1053-1066), and the drag runs from the porch to (420,400), nowhere near the quarry where rainbows spawn. The pickers never ran at all. ⭐ THE REAL MECHANISM IS THE INPUT LOCK. A rainbow spawn starts a FLYOVER CINEMATIC, which sets world.activeCinematicPlayerId; Controls.onDown returns at controls.ts:537 the instant isInputLocked() is true (controls.ts:305-314), BEFORE any picker is consulted. For the whole flyover every mouse-down is discarded in total silence. rainbow.spec already shrinks the flyover to 30 ticks via __TEST_FLYOVER_DURATION_TICKS__ for exactly this reason; bomb.spec never did, so its cinematic ran full length. The bomb half of the diagnosis is unaffected — a bomb DOES spawn in the quarry and the grab in this very spec proves the cursor goes there, so picker priority is a real second mechanism. Two different silent-failure paths, one symptom. The failure diagnostic now prints BOTH the hazard census AND the three isInputLocked() clauses, so the next occurrence names its own cause.",
-   "findings": [
-    "CF-S148-c's PRESCRIBED FIX WAS THE ONE THING THAT COULD NEVER WORK. It said 'raise the timeout or speed the drag'. The drag was already fine, and a longer wait strictly INCREASES the chance a hazard spawns mid-build. The retry budget had already been raised once in S136 for this same symptom; a second raise would have been the third session spent on a misdiagnosis, and it would have looked like shipped work.",
-    "The failure message was actively misleading, which is why this survived so long: a stolen mouse-down produces 'placement landed near (450, 410) (prims 1 -> >=2)' - a sentence about a SPARK, naming a coordinate, with no hint that a rainbow ate the click. The diagnostic now prints every hazard family, the porch count, the avatar state and the phase, so the next occurrence names itself.",
-    "Three of the four pickers in Controls.onDown outrank the shape a build needs, so a spec that enables hazards AND builds must suppress all three - TRUE, and the reason the BOMB half of this bug worked. ⚠ It is NOT why the rainbow half worked: pickRainbow needs the cursor within RAINBOW_RADIUS and this drag never nears the quarry. The rainbow won by INPUT LOCK (a flyover cinematic), not by picker priority. Two mechanisms, one symptom.",
-    "The phase-boundary finding is real and is kept even though it was not this bug: a placement at tick 5407 is silently refused, and placeFreeSparkAndConfirm now says so in words instead of timing out. holdInBuildPhase is applied to the four SOLO building specs (bomb, rainbow, hunter, worker) and deliberately NOT to the networked ones (smoke, perf-snapshot), where writing a hashed field would be a desync.",
-    "__SPARK__.forceBomb is a dev-only sibling of forceNonet, verified absent from the production bundle (grep for forceNonet in dist/ returns 0), so the determinism costs shipped bytes nothing.",
-    "SELF-CORRECTION: the mechanism I committed was wrong. Suppressing rainbows fixed the flake (0/8, then 0/4 after this correction = 12/12), but I attributed it to picker priority when pickRainbow cannot reach a cursor that never approaches the quarry. The real cause is the input lock: a rainbow flyover is a CINEMATIC, and onDown returns before any picker while a cinematic is active. A correct fix with a wrong explanation is a trap for the next session, which is why this is corrected in the code comments rather than left as a plausible story.",
-    "rainbow.spec has the SAME structural exposure — it spawns a rainbow every 2 sparks and then builds — and survives only because it shrinks the flyover to 30 ticks. Its comment claims the design is 'race-free' because the other two hazards are suppressed, which is the same false reasoning bomb.spec carried. Logged as a carry-forward rather than changed, since it currently passes and the batch is closing."
-   ],
-   "checkpoint_commit": "c2501c2",
-   "deploy_verified": "4/4"
-  },
-  {
-   "id": "P6",
-   "title": "OWNER RULINGS R57-R69 — record all thirteen, implement the four that are fully specified + R70/R71 (VOLTKIN_HP 2->8, protocol 27->28)",
-   "tier": "Standard",
-   "protocol_bump": true,
-   "status": "completed",
-   "check_completed": true,
-   "pdr_approved": true,
-   "deliberation_completed": true,
-   "unlock_source": "user",
-   "verification": [
-    {
-     "type": "file_contains",
-     "path": ".claude/session-state.json",
-     "needle": "owner_rulings_s150_late"
-    },
-    {
-     "type": "grep_count",
-     "path": ".claude/session-state.json",
-     "pattern": "\"R6[0-9]\"",
-     "op": ">=",
-     "value": 9
-    },
-    {
-     "type": "file_contains",
-     "path": "src/state/vision.ts",
-     "needle": "world.matchPhase === 'BUILD';"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/state/vision.test.ts",
-     "needle": "LIFTS the fog for the whole FIGHT stage"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/render/footerBandModel.ts",
-     "needle": "DO NOT \"FIX\" THIS BY RE-BUCKETING ON BONDS"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/render/footerBandModel.ts",
-     "needle": "const bucket = byComplexity.get(row.cost)"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/main.ts",
-     "needle": "const enteringArcadeInitials = ()"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/main.ts",
-     "needle": "if (enteringArcadeInitials()) return true;"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/main.ts",
-     "needle": "!enteringArcadeInitials())"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/render/arcadeRunOverlay.ts",
-     "needle": "from './nonetCelebration.ts'"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/render/arcadeRunOverlay.ts",
-     "needle": "private drawCelebration(run: ArcadeRun, nowMs: number): void"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/render/arcadeRunOverlay.test.ts",
-     "needle": "a run that MISSES the board gets its place, and no confetti"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/constants.ts",
-     "needle": "export const VOLTKIN_HP = 8;"
-    },
-    {
-     "type": "file_lacks",
-     "path": "src/constants.ts",
-     "needle": "export const VOLTKIN_HP = 2;"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/protocol.ts",
-     "needle": "export const PROTOCOL_VERSION = 28 as const;"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/protocol.ts",
-     "needle": "readonly protoVersion: 28;"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/protocol.ts",
-     "needle": "// S150 R71 — bumped 27->28: THE VOLTKIN GOT TOUGHER"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/protocol.ts",
-     "needle": "S150 R71: 27->28 (THE VOLTKIN GOT TOUGHER"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/net/protocol.test.ts",
-     "needle": "expect(PROTOCOL_VERSION).toBe(28);"
-    },
-    {
-     "type": "file_contains",
-     "path": "e2e/smoke.spec.ts",
-     "needle": "const LOCAL_PROTO_V = 28;"
-    },
-    {
-     "type": "file_contains",
-     "path": "src/state/save.migrationDamage.test.ts",
-     "needle": "expect(v!.hp).toBe(VOLTKIN_CONFIG.hp - 1);"
-    }
-   ],
-   "check_method": "P6 CHECK, verbose. RECORDED all thirteen rulings (R57-R69) into owner_rulings_s150_late with the owner's verbatim words alongside what each one MEANS operationally - two of them OVERRIDE what S150 proposed (R57 rejects travel-then-stamp for bots; R58/R59 reject the per-difficulty tower whitelist) and R63 dissolves the quarry question without the wall arc S150 offered. IMPLEMENTED the four that were fully specified and self-contained: R62 (fog is a BUILD-only mechanic) turned out to be ONE CLAUSE in fogActive, because the existing stepFogAlpha tween already snaps ON when the target rises and fades OFF when it falls - so the BUILD->FIGHT reveal and the FIGHT->BUILD re-hide both came free, and are now pinned by two tests. R66 corrected the footer WORDING only, with an explicit do-not-re-bucket warning, since moving the buckets would change every chip a player has learned. R67 added a fourth clause to chordBlocked (the existing three could never fire, because an arcade run keeps world.sudoku null on purpose) plus a NARROW fix to the 'M' mute key - deliberately not routed through chordBlocked, which would also have blocked mute during cinematics and NONET. R68 reuses nonetCelebration.ts wholesale rather than inventing a second effect: it is already pure, unit-tested, and carries the photosensitivity charter (glow breathes at ~0.95 Hz, capped under the 0.30 ceiling). RUNTIME-VERIFIED against real Pixi, not just the stub: the particle curve ramps 0 -> 62 at peak -> 0 and the celebration ends at 4.5 s, with no throw. That runtime check earned its keep - the jsdom stub was missing Graphics.circle and went red on a stub gap rather than a real defect, which is exactly the class of thing a stub hides. DEFERRED with reasons: R57-R61 (bots, Full tier, now unblocked), R63 (four sim rules, hashed state), R64 (RAID economy), R69 (NONET progression). R65 is NOT actioned - see below. tsc 0; vitest 173 files / 2855 (+7); build 720.1 KiB under the 900 KiB charter; e2e:gating 53 passed / 0 failed / 0 skipped. R71 SHIPPED IN THE SAME PRIORITY, AND IT EXERCISED P1's OWN MACHINERY. VOLTKIN_HP 2->8 looked like a one-constant edit and turned out to owe a PROTOCOL BUMP: serializeCreature emits creature hp ONLY when damaged, so an undamaged Voltkin crosses the wire with no hp and the peer rebuilds it from its own compiled constant - making VOLTKIN_HP a shared constant both peers compute from, the same class as KEEP_RING_RADIUS (16->17) and CASTLE_BANK_CAP (18->19). All SIX checklist sites updated, and the gate P1 built accepted the bump (51 tests green across protocolVersionSync + protocol). The change also broke two tests that had hardcoded toBe(1) - VOLTKIN_HP(2) minus one hit - which is the 'pin the invariant, not the spelling' lesson landing on a real case: both now assert VOLTKIN_CONFIG.hp - 1 and survive the next retune.",
-   "findings": [
-    "R65 (unit HP/ATK balance) is recorded VERBATIM and deliberately NOT acted on. 'Helga cant kill voltkin within two slaps but goblin within like 5' can be read two opposite ways - either the big creature dies too fast, or the small one takes too long - and guessing a balance number is strictly worse than asking. The owner needs to see the measured numbers first.",
-    "R63 is the most valuable ruling in the set and the one that cancels prior work: the owner rejected the wall-arc framing for the quarry outright and replaced it with four peace rules for the BUILD phase. That is both simpler and better - it makes the build stage genuinely safe instead of patching geometry.",
-    "R62 cost one clause because a previous session built the fog tween to ease-out on falling targets for the victory reveal. A feature added for one reason paid for an unrelated one three sessions later.",
-    "R70 is deferred DELIBERATELY and the reason matters: the owner is right that a goblin at 6 hp is too tough, but GOBLIN_MELEE_HP is not a free constant - PRINCESS_SLAP_DAMAGE_VS_CREATURE is DERIVED from it as round(hp/2). Dropping the goblin toward chewer-fragility would silently nerf Helga against every creature in the game. That derivation has to be broken as an explicit decision, and the goblin's stats are downstream of a tower that does not exist yet, so tuning now would be tuning the wrong end.",
-    "The protocol bump was NOT obvious from the diff. A one-line constant change with no wire field in sight still crossed the wire boundary, via an optimisation (omit hp when undamaged) made in a different session for unrelated reasons. Omitting a field to save bytes does not make its value private - that is now written into the changelog as the general rule, with its three instances named."
-   ],
-   "checkpoint_commit": "456c394",
-   "deploy_verified": "4/4"
+   "title": "The goblin tower (R70)",
+   "tier": "Full",
+   "status": "pending",
+   "scope": "Size-5 Circle-hub-degree-4 recipe (uniqueness proven by exhaustive test). Feed one shape -> one goblin. Six new CreatureType members + FEED_TOWER client intent. Stats from P2. Shares the 28->29 bump."
   }
  ],
  "reflexion_entries_to_archive": [
@@ -859,12 +182,12 @@
  },
  "council_rounds": 2,
  "council_seats": [
-  "CLAUDE",
-  "GROK-ANALYST(grok-4.20-0309-reasoning)",
-  "GEMINI-AUDITOR(gemini-3.1-pro-preview)"
+  "CLAUDE-SUPERVISOR",
+  "GROK-ANALYST",
+  "GEMINI-AUDITOR"
  ],
  "council_deviation": "None - full 3-way, 2 rounds. gemini-3.1-pro-preview passed explicitly (2.5-pro is retired per memory); grok-4.20-0309-reasoning default (strongest tier).",
- "unlock_evidence": "Owner, this session, verbatim: \"after full methodical and pedantic session boot continue working top priority session batch and top value top leverage priorities in batch. approve full run!\" then \"full session priority pdr approved!\" — explicit approval, user-path, same-turn execution permitted.",
+ "unlock_evidence": "Owner, 2026-08-22, verbatim: \"i approve full session priority batch - work in the absolute best interests of this project and vision to produce the highest possible best possible output. Get cooking!\" Preceded by explicit sign-off on the emergent accelerating-collapse behaviour: \"i understand about the emergent behavior and that was intended.\"",
  "council_battle_ledger_s139": {
   "round1_challenges": 8,
   "adopted": [
@@ -3552,5 +2875,66 @@
    "status": "open",
    "note": "e2e/nplayer.spec.ts 4-PLAYER FFA (@quarantine-flaky) FAILS RELIABLY at the PEER-CONNECTION stage: \"waitForWorld timeout (30000ms): peer 0 PLAYING + 4 players\" - it never gets 4 browser peers joined over real WebRTC, which is upstream of all S148 game logic (layoutForSeatCount runs inside applyStartGame, which needs the roster, which needs the peers). Evidence it is a harness/signalling characteristic rather than an S148 regression: hostmigration.spec PASSED today with 3 real peers and reconnect.spec with 2, and e2e.yml gives this test a dedicated NON-GATING quarantine job precisely because real-WebRTC multi-peer is unreliable. NOT PROVEN pre-existing - that needs a checkout of ef59743 and a re-run, which was not done. FLAGGED, not dismissed. Owner impact is low for the next session: they are testing 2-player, which is the path that passes."
   }
- ]
+ ],
+ "owner_rulings_s151": {
+  "R73": {
+   "title": "THE FOUR HAZARDS ARE ARCHIVED, NOT DEVELOPED",
+   "owner": "dude seagull, rainbow, potato bomb and regular bomb just archive them for now and leave it inactive. i will let you know how and when to implement them if at all. you can remove their code from the current game we are building but keep it whole somewhere in a spec archive folder so we can bring them back as they are now or tweaked later if we wish to...",
+   "means": "Five families (bombs, potatoes, rainbows, seagulls, poops) are FROZEN. Archive them WHOLE into a spec-archive folder so they can be restored as-is or tweaked. Removal from live code is PERMITTED but not mandated ('you can'). ⭐ A.0 FOUND THEY ARE ALREADY DORMANT: HAZARD_SPAWN_ENABLED = false since S147 (owner R14/R23), pinned by spawnerRngInvariance.test.ts:84. Only e2e specs re-enable them via __TEST_HAZARDS_ENABLED__. So 'leave it inactive' was already true.",
+   "owner_sequencing": "ARCHIVE NOW, REMOVE LATER (owner-selected). P1 archives whole + pulls the five hazard e2e specs from the gating lane; the surgical extraction of 2669 lines / 5 World Maps / 5 NetSnapshot arrays is its OWN later session.",
+   "size": "2669 lines dedicated src (state+renderers), 892 lines unit tests, 5 e2e specs, 5 World Maps + 5 additive-optional NetSnapshot arrays + stateHashFull entries; 12 non-test files read world.rainbows alone.",
+   "side_effect": "Dissolves the rainbow.spec flake without instrumenting it."
+  },
+  "R74": {
+   "title": "ATK IS A DAMAGE POOL, NOT A THRESHOLD — R72's one open question, answered",
+   "owner": "Damage pool",
+   "means": "Hits ACCUMULATE. Settles the question the S150 boot snapshot called blocking. ⭐ A.0 SHOWED THE QUESTION WAS ALREADY DISSOLVED BY THE OWNER'S OWN EXAMPLES: a pool reproduces BOTH — the laser one-shot (3 ATK vs 2.8 effective, 3 >= 2.8, dies in one) AND 'attack = -1 hp point'. A threshold satisfies only the first. Every damage path in the repo is already a pool (damageCreature subtracts; damageEntity subtracts behind an integer guard).",
+   "implementation": "⭐ EXACT INTEGER ARITHMETIC IN FIFTHS. 1 + 0.2n = (5+n)/5, so effHP_fifths = HP * (5 + DEF) and effATK_fifths = ATK * (5 + PEN) are both INTEGERS. Owner's example: 2 HP/2 DEF = 2*7 = 14 fifths; 3 ATK/0 PEN = 3*5 = 15 fifths; 15 >= 14 -> dies in one. Satisfies damageEntity's integer guard and removes float-determinism risk from the host/worker differential outright.",
+   "rainbow_visuals": "Owner ruled the rainbow FLYOVER CINEMATIC and the S137 rainbow-castle recolour are ARCHIVED WITH THE RAINBOW - the feature stays whole."
+  },
+  "R75": {
+   "title": "TOWERS HAVE NO HP OR DEF — THE CONNECTORS DO",
+   "owner": "towers have attack and piercing but not def and hp because they are based on the connectors that build them . its the connectors that have different hp and def (think about it)",
+   "means": "THREE stat families, each taking the subset that matches what it physically is. UNITS (creatures) = HP/DEF/ATK/PEN, full combatants. TOWERS (defenders) = ATK/PEN only; their durability is EMERGENT from the connectors they are built of. CONNECTORS (bonds) = HP/DEF; they ARE the structure's body. Dissolves the §5 question the S151 PDR put to the owner, and dissolves BOTH Council objections with it — Gemini's fractional-DoT-on-a-12-HP-tower cannot arise (no tower HP pool) and Grok's '3000->12 destroys granularity' cannot arise either. Neither Council seat considered this.",
+   "evidence_codebase_already_leans_this_way": [
+    "1. Bond has NO hp field. BondHashed = id/aId/bId/restLength/stiffnessTier/createdTick/stiffnessMultiplier/a/b. The slot the owner wants is genuinely empty.",
+    "2. A connector's identity is ALREADY per-shape-pair: combos.ts assigns stiffnessTier to each of 36 combo entries (14 magic names, 3 tiers), and SerializedBond ALREADY carries stiffnessTier on the wire. If connector HP/DEF derive from combo or tier, that half costs ZERO new wire fields. ComboOutcome.areaMultiplier is existing precedent for a reserved per-combo stat slot.",
+    "3. Tower HP was an unvalidated bolt-on and constants.ts says so verbatim: 'FIRST-PASS BALANCE. Nothing in the game deals damage to a defender yet, so these numbers are unvalidated by play.' TURRET/PRINCESS_DEFENDER_MAX_HP replaced a DEFENDER_HP = 1e9 sentinel meaning 'defenders die by recipe-break, not damage'. R75 REVERTS TO THE ORIGINAL DESIGN INTENT.",
+    "4. chewHits is the SAME DEFECT CLASS as the goblin backbone: a connector's durability lives on the ATTACKER (CREATURE_CONFIGS[type].chewHits), not the connector. R75 fixes it."
+   ],
+   "consequences": [
+    "DELETE TURRET_DEFENDER_MAX_HP + PRINCESS_DEFENDER_MAX_HP alongside the three goblin derivations.",
+    "Defender.hp is a REQUIRED serialized+hashed field (SerializedDefender.hp, DefenderHashed) — removing it is a WIRE REMOVAL, clean under the 28->29 bump already being paid.",
+    "damageEntity's 'defender' arm and applyRadialDamage's defender loop re-point at BONDS; destroyDefender(...,'damage') disappears, leaving recipe-break as the sole death path as S103 originally designed.",
+    "⚠ THE ONE REAL NEW COST: a REQUIRED hashed Bond field for accumulated damage. Today damage state is the attacker's chewProgress (on CreatureHashed); under connector-HP it must pool on the bond — the TEN-site / TWO-tsc-forced trap. It also improves behaviour: two chewers on one bond currently track separately and each does full work; pooled on the bond they cooperate.",
+    "R72's 'laserTurret attacks BOTH' now means a turret shoots the enemy tower's CONNECTORS. Makes recipe choice matter for durability (a HIGH-tier recipe is physically tougher) — real emergent depth."
+   ],
+   "open": "GRANULARITY: do connector HP/DEF derive from stiffnessTier (3 classes) or per-COMBO (up to 36)? Both cost zero wire — tier already rides SerializedBond, and the combo is derivable from the two endpoint primitive types which also ride the wire."
+  },
+  "R76": {
+   "title": "CONNECTOR DEFENCE = (connectors - 1), UNCAPPED — and complexity is a real tactic",
+   "owner": "its very simple DEFENCE of a structure matters on the ammount of connectors or bonds. the first two shapes interconnected do not have any def (this is why you think its the number of connectors - 1 which is somewhat correct) but only 1 HP. if there are three shapes connected in a row so with only two connectors the shapes overall defensive strength is 2HPx1.2DEF which makes it 2.4 and each of those two connectors are 1.2. simple. now if those three shapes are connected in a triangle form making 3 connectors the overall shape strength will be 3hpx1.4 = 4.2 and each of those connectors will be 1.4. this will make people want to build complex structures with as many connectors as possible and not just active towers that build soldiers or shoot.",
+   "owner_cap": "No cap - def climbs with the structure complexity. the reason players wont want to do only that though that super complex towers dont have powers. you they are just building geometric score making towers while other players building armies or whatever.... youd have to chose the tactic....",
+   "formula": "DEF = connectorCount - 1, CONFIRMED by all three owner data points: 1 connector -> DEF 0 (x1.0); 2 connectors -> DEF 1 (x1.2); 3 connectors -> DEF 2 (x1.4). Structure HP = connectorCount. Total defensive score = connectors x (1 + 0.2 x (connectors-1)). Per-connector = total/connectors = THE MULTIPLIER ITSELF (the HP term cancels exactly).",
+   "fifths": "⭐ THE WHOLE CONNECTOR-DEFENCE SYSTEM IS ONE EXACT-INTEGER EXPRESSION: per-connector durability in fifths = connectorCount + 4. Check: 1->5 (x1.0), 2->6 (x1.2), 3->7 (x1.4), 11->15 (x3.0). No floats anywhere; damageEntity's integer guard can never fire.",
+   "revision": "⚠ The owner's earlier 10-shape example said 11 connectors -> x3.2 and '2 laser attacks'. Under the CONFIRMED connectors-1 rule it is x3.0 (15 fifths) and a 3-ATK laser (15 fifths) destroys a connector in ONE hit. Flagged to the owner; formula is theirs, outcome moved.",
+   "cap": "NONE. Uncapped by owner ruling. Balance comes from OPPORTUNITY COST, not from an arithmetic ceiling: hyper-complex structures have no powers (they neither shoot nor produce units), so a player who maxes geometric defence has no army. That is the intended tactical trade.",
+   "implementation_consequences": [
+    "⭐ DEF IS DYNAMIC, not static. It depends on the CURRENT connector count of the connected COMPONENT. Destroy a connector -> component connector count drops -> DEF drops -> every REMAINING connector gets weaker. Structures crumble at an ACCELERATING rate. Excellent game feel, but it is a real mechanic to name, and it means component-scoped connector counting must be recomputed as topology changes.",
+    "Component-scoped, NOT global: a connector's durability derives from ITS component's connector count. The BFS/component machinery already exists (game/structure.ts severSplit/bfsExcluding).",
+    "PARTIAL-DAMAGE RULE NEEDED: store accumulated damage on the bond; compare against CURRENT capacity (connectors+4 fifths). If a structure shrinks, capacity drops and an already-damaged connector can snap immediately. Emergent cascade - state it, do not let it be discovered as a bug.",
+    "Structure death rule needs NO code: game/structure.ts severSplit ALREADY deletes the smaller side on an acyclic cut and deletes NOTHING on a cycle cut. The owner's 'less than half (49%)' IS 'the smaller side'. Verified S151."
+   ]
+  }
+ },
+ "preflight_s151": {
+  "git_unpushed": 0,
+  "build": "PASS 720.1 KiB, headroom 179.9 KiB",
+  "verify_deploy": "PASS 4/4 carriers (live asset index-CPfPN4k_.js == local build)",
+  "vitest": "2855 passed / 173 files",
+  "e2e_gating": "⛔ 52 passed, 1 FAILED - NOT the 53/0/0 the S150 handoff claims",
+  "e2e_delta": "rainbow.spec.ts:84 fails ~50% of the time. Re-ran 3x in isolation: pass/fail/pass. With the lane run = 2 failures in 4 observations. NOT a regression: git diff --name-only 3bc8a7e..HEAD touches only .claude/, boot-snapshot.md and the handoff archive - no src/ or e2e/ change since CF-S150-b was written calling it 'currently passes'. S150 observed one lucky run of a coin-flip.",
+  "e2e_cause": "⛔ CF-S150-b's PREDICTED CAUSE IS REFUTED by the S150 instrument. It predicted the flyover cinematic eating build clicks; both failures report lockedByCinematic:FALSE (and bombs:0). Invariant across both failures is poops:10. Hypothesis (NOT confirmed): the pooped-cruiser arrival gate at placeFromFree.ts:150, which increments rejectReasons.pickupPoopedTooFar - a counter placeFreeSparkAndConfirm does NOT sample. MOOT under R73: archiving the rainbow retires the spec.",
+  "harness_trap": "`npm run e2e:gating | tail` reports 'exited with code 0' even with 1 failed - the pipeline returns tail's status, not playwright's. Do not read exit code through a pipe."
+ }
 }

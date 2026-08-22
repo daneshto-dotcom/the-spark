@@ -65,7 +65,7 @@ async function startSolo(page: Page): Promise<void> {
   await waitForWorld(page, (w) => w.gameState === 'PLAYING' && w.gameMode === 'solo', 'PLAYING (solo)');
 }
 
-test.describe('S72 P3 — potato bomb (solo) @archived-hazard', () => {
+test.describe('S72 P3 — potato bomb (solo, gating)', () => {
   test('spawns on its cadence then a FREE potato AUTO-DISSIPATES harmlessly on the from-SPAWN fuse (S78 — no random blast; host poll wiring)', async ({ page }) => {
     const pageErrors: string[] = [];
     page.on('pageerror', (e) => pageErrors.push(String(e)));

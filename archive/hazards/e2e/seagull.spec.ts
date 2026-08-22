@@ -21,7 +21,7 @@ async function waitForSpark(page: Page): Promise<void> {
   );
 }
 
-test.describe('S77 P3 — seagull hazard (host-loop smoke) @archived-hazard', () => {
+test.describe('S77 P3 — seagull hazard (host-loop smoke)', () => {
   test('the gull drops poop and a poop fouls a structure (income-halt wiring) — live, no throw', async ({
     page,
   }) => {

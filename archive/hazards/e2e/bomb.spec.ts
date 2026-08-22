@@ -92,7 +92,7 @@ async function startSolo(page: Page): Promise<void> {
   await holdInBuildPhase(page);
 }
 
-test.describe('S71 P1 — pickup bomb (solo) @archived-hazard', () => {
+test.describe('S71 P1 — pickup bomb (solo, gating)', () => {
   test('spawns into world.bombs in the spawn zone on its cadence (host SPAWN_BOMB wiring)', async ({ page }) => {
     // pageerror = uncaught JS exception = a real crash (spawner / renderer wiring).
     const pageErrors: string[] = [];
