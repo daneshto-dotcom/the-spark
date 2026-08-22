@@ -275,8 +275,13 @@ const BLUEPRINTS: Readonly<Record<GodlyId, Blueprint>> = {
  * Panel display order: cheapest first, so the list reads as a progression the player can climb and
  * the affordable rows cluster at the top.
  */
+// ⚠ HAND-WRITTEN AND NOT DERIVED FROM `BLUEPRINTS`, WHICH IS A TRAP THIS LIST HAS ALREADY SPRUNG.
+// S151 P3 added `goblinTower` to `BLUEPRINTS` (so `blueprintFor` resolved it, and every test passed)
+// while this list still had six entries — so the tower was fully implemented, ignitable and
+// tear-downable, and simply NEVER APPEARED IN THE BUILD PANEL. A `Record<GodlyId, …>` is
+// exhaustiveness-checked by tsc; an array literal of the same ids is not.
 export const ALL_BLUEPRINT_IDS: readonly GodlyId[] = [
-  'stinkTower', 'pentagram', 'lightningHub', 'laserTurret', 'helga', 'voltkin',
+  'stinkTower', 'goblinTower', 'pentagram', 'lightningHub', 'laserTurret', 'helga', 'voltkin',
 ];
 
 /** PURE — the blueprint for `id`. */

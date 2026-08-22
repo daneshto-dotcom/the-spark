@@ -26,6 +26,23 @@
  * `FEED_TOWER` is a CLIENT INTENT: a 1v1 joiner must be able to feed their own tower. The host
  * re-checks ownership, the spawner's recipe and affordability, so a modified client can at worst ask
  * for something it already owns and can already pay for.
+ *
+ * ## ⛔ THE ONE THING S151 P3 DID NOT SHIP — READ THIS BEFORE ASSUMING THE FEATURE IS LIVE
+ *
+ * **Nothing dispatches this action yet.** The tower can be BUILT (it is in `ALL_BLUEPRINT_IDS`, and
+ * `blueprints.test.ts` stamps it through the live reducer and matcher), it IGNITES, it TEARS DOWN
+ * when its star breaks (`recipeStillSatisfied`), its six outputs exist with owner-supplied stats,
+ * and this reducer is fully gated and tested. What is missing is the PLAYER GESTURE: a way to pick
+ * a shape and hand it over.
+ *
+ * The natural home is the S152 FIX/SCRAP structure popover — a player already clicks a structure and
+ * gets a panel — so this wants a FEED row of six shape buttons alongside those two. That is UI work
+ * (panel layout, hit-testing, the affordability readout), deliberately deferred rather than
+ * half-wired at the end of a session.
+ *
+ * ⚠ Until it lands, this reducer is REACHABLE ONLY BY A DIRECT DISPATCH (tests, or a peer sending
+ * the intent). It is not dead code and it is not wired — say so plainly rather than letting a reader
+ * infer either.
  */
 
 import { SparkType } from '../constants.ts';

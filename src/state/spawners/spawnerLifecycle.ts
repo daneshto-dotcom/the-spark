@@ -27,6 +27,7 @@ import { SPAWN_INTERVAL_TICKS } from '../../constants.ts';
 import { asSpawnerId, type PlayerId, type PrimitiveId, type SpawnerId } from '../../types.ts';
 import type { GodlyId } from '../godlyRecipes/types.ts';
 import { isPentagramComponent } from '../godlyRecipes/pentagram.ts';
+import { isGoblinTowerComponent } from '../goblinKinds.ts';
 import { isLightningHubComponent } from '../godlyRecipes/lightningHub.ts';
 import type { World } from '../worldTypes.ts';
 import { makeSpawner, type CreatureSpawner } from './spawner.ts';
@@ -112,6 +113,16 @@ export function recipeStillSatisfied(world: World, spawner: CreatureSpawner): bo
     // + 5-Circle star (a chewer/drone eating a Circle leaf drops the size/degree -> teardown).
     case 'lightningHub':
       return isLightningHubComponent(world, spawner.anchorPrimitiveId);
+    // ⭐ S151 P3 — a goblin tower survives only while its Circle hub still anchors a
+    // 1-Circle(deg 4) + 4-Circle star. Without this case it would fall to `default:` below, which
+    // checks ONLY that the anchor exists — so a tower whose four leaves were eaten would keep
+    // producing goblins off one lone Circle, forever, with no error anywhere.
+    //
+    // ⚠ IMPORTED FROM `state/goblinKinds.ts`, NOT from the recipe module. `world.ts` reaches this
+    // file, and every recipe module calls `registerRecipe` at its tail — see the leaf's header for
+    // the S144 trap and the ?worker=1 boot failure it caused in this very priority.
+    case 'goblinTower':
+      return isGoblinTowerComponent(world, spawner.anchorPrimitiveId);
     default:
       // A spawner minted by a recipe with no re-validation rule (none today) is
       // kept alive only while its anchor primitive exists — the minimal contract.

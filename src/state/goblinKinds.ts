@@ -25,7 +25,10 @@
  * Pixi-free, DOM-free, World-free, and it registers nothing.
  */
 
-import { SparkType } from '../constants.ts';
+import { GOBLIN_TOWER_HUB_DEGREE, GOBLIN_TOWER_SIZE, SparkType } from '../constants.ts';
+import { componentOf } from '../game/structure.ts';
+import type { PrimitiveId } from '../types.ts';
+import type { World } from './worldTypes.ts';
 import type { CreatureType } from './creatures/creature.ts';
 
 /**
@@ -49,3 +52,32 @@ export const GOBLIN_FEED_MAP: Readonly<Record<SparkType, CreatureType>> = {
   [SparkType.Circle]: 'goblinHound',
   [SparkType.Spiral]: 'goblinBat',
 };
+
+/**
+ * Is the component anchored at `circleId` a 1-Circle(deg 4) + 4-Circle star — i.e. a live goblin
+ * tower?
+ *
+ * ⚠ THIS LIVES IN THE LEAF, NOT IN THE RECIPE MODULE, FOR THE SAME REASON THE MAP DOES.
+ * `spawnerLifecycle.recipeStillSatisfied` must call it every poll, and `world.ts` reaches
+ * `spawnerLifecycle` — so importing it from `godlyRecipes/goblinTower.ts` would fire that module's
+ * `registerRecipe` for essentially the whole codebase (the S144 trap; see this file's header).
+ *
+ * ⛔ AND WITHOUT THIS BEING CALLED, THE TOWER IS IMMORTAL. `recipeStillSatisfied`'s `default:` arm
+ * only checks that the anchor primitive still exists, so a tower whose four leaves were eaten would
+ * keep producing goblins off a single lone Circle — with no error anywhere.
+ */
+export function isGoblinTowerComponent(world: World, circleId: PrimitiveId): boolean {
+  const hub = world.primitives.get(circleId);
+  if (hub === undefined) return false;
+  if (hub.type !== SparkType.Circle) return false;
+  if (hub.bonds.size !== GOBLIN_TOWER_HUB_DEGREE) return false;
+  const comp = componentOf(hub, world.primitives, world.bonds);
+  if (comp.primitiveIds.size !== GOBLIN_TOWER_SIZE) return false;
+  for (const id of comp.primitiveIds) {
+    if (id === circleId) continue;
+    const p = world.primitives.get(id);
+    if (p === undefined) return false;
+    if (p.type !== SparkType.Circle) return false; // every non-hub member must be a Circle
+  }
+  return true;
+}

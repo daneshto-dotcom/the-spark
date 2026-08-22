@@ -93,6 +93,15 @@ export const CODEX_COPY: Readonly<Record<string, CodexCopy>> = {
       'Bond 3 Circles to 1 Square — the cheapest tower there is. It lobs stink bags that splash; spent, it festers. Kill it full and it takes the block.',
     emblem: { kind: 'star', hubType: SparkType.Square, nodes: 3, nodeType: SparkType.Circle, radius: 38 },
   },
+  // ⭐ S151 P3 — THE GOBLIN TOWER (owner R70). The only ALL-ONE-TYPE recipe in the registry, and the
+  // only structure whose OUTPUT the player chooses AFTER it is built.
+  goblinTower: {
+    name: 'GOBLIN TOWER',
+    power: 'Feed it a shape, get a goblin.', // 30 chars, inside the 34 budget
+    recipe:
+      'Bond 4 Circles to 1 Circle hub — five of a kind. Feed it ONE shape and it makes the goblin that shape maps to. One tower, six different units.',
+    emblem: { kind: 'star', hubType: SparkType.Circle, nodes: 4, nodeType: SparkType.Circle, radius: 38 },
+  },
   helga: {
     name: 'HELGA',
     power: 'The princess answers in slaps.',

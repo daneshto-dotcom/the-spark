@@ -40,37 +40,17 @@
  * else — which suits the roster's entry-level unit factory.
  */
 
-import { SparkType, GOBLIN_TOWER_HUB_DEGREE, GOBLIN_TOWER_SIZE } from '../../constants.ts';
-import { componentOf } from '../../game/structure.ts';
+import { SparkType } from '../../constants.ts';
+import { isGoblinTowerComponent } from '../goblinKinds.ts';
 import { registerRecipe } from './index.ts';
 // Re-exported for the Codex and the tests; the map itself lives in a side-effect-free leaf so
 // that `world.ts` can reach it WITHOUT transitively registering every recipe (see goblinKinds.ts).
-export { GOBLIN_FEED_MAP } from '../goblinKinds.ts';
+export { GOBLIN_FEED_MAP, isGoblinTowerComponent } from '../goblinKinds.ts';
 import type { World } from '../worldTypes.ts';
 import type { PlayerId, PrimitiveId } from '../../types.ts';
 import type { SpawnerGodlyRecipe, SpawnerRecipePredicate } from './types.ts';
 
 
-/**
- * Read-only check: is the component anchored at `circleId` a 1-Circle(deg 4) + 4-Circle star?
- * Exported so `spawnerLifecycle.recipeStillSatisfied` can re-validate a live tower's CURRENT
- * component each poll — a chewer eating a leaf drops the size, and the tower tears down.
- */
-export function isGoblinTowerComponent(world: World, circleId: PrimitiveId): boolean {
-  const hub = world.primitives.get(circleId);
-  if (hub === undefined) return false;
-  if (hub.type !== SparkType.Circle) return false;
-  if (hub.bonds.size !== GOBLIN_TOWER_HUB_DEGREE) return false;
-  const comp = componentOf(hub, world.primitives, world.bonds);
-  if (comp.primitiveIds.size !== GOBLIN_TOWER_SIZE) return false;
-  for (const id of comp.primitiveIds) {
-    if (id === circleId) continue;
-    const p = world.primitives.get(id);
-    if (p === undefined) return false;
-    if (p.type !== SparkType.Circle) return false;
-  }
-  return true;
-}
 
 /**
  * Every valid goblin-tower hub in the world, ascending id (deterministic seed scan). Mirrors

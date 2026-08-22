@@ -24,7 +24,7 @@ import {
   STINK_TOWER_SIZE,
 } from '../../constants.ts';
 import { makeWorld } from '../world.ts';
-import { asBondId, asPlayerId, asPrimitiveId } from '../../types.ts';
+import { asBondId, asPlayerId, asPrimitiveId, asSpawnerId } from '../../types.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import type { Bond } from '../../physics/bonds.ts';
 import type { World } from '../worldTypes.ts';
@@ -34,6 +34,7 @@ import {
   isGoblinTowerComponent,
 } from './goblinTower.ts';
 import { isLightningHubComponent } from './lightningHub.ts';
+import { recipeStillSatisfied } from '../spawners/spawnerLifecycle.ts';
 import { CREATURE_CONFIGS } from '../creatures/voltkin-config.ts';
 
 const P0 = asPlayerId(0);
@@ -195,5 +196,46 @@ describe('S151 P3 — the shape → goblin map (owner R70 / roadmap Q1)', () => 
       expect(CREATURE_CONFIGS[type], `${type} has no config`).toBeDefined();
       expect(CREATURE_CONFIGS[type].type).toBe(type);
     }
+  });
+});
+
+describe('⭐ S151 P3 — the tower TEARS DOWN when its star breaks (not immortal)', () => {
+  /**
+   * ⛔ THE BUG THIS CLOSES, found by auditing P3 for open pathways rather than by a failing test.
+   * `recipeStillSatisfied` switches on `spawner.recipeId` and its `default:` arm checks ONLY that
+   * the anchor primitive still exists. The goblin tower had no case, so it fell through — meaning a
+   * tower whose four leaves were all eaten would keep producing goblins off one lone Circle,
+   * forever, with no error anywhere. Exactly the silent double-failure `main.ts` warns about for a
+   * missing recipe registration.
+   */
+  it('a tower that loses a leaf no longer satisfies its recipe', () => {
+    const w = makeWorld(0);
+    const hub = circleStar(w, GOBLIN_TOWER_HUB_DEGREE);
+    expect(isGoblinTowerComponent(w, hub.id)).toBe(true);
+
+    // A chewer eats one leaf: drop the primitive AND its bond, as razePrimitives would.
+    const leaf = [...w.primitives.values()].find((p) => p.id !== hub.id)!;
+    for (const bid of [...leaf.bonds]) { w.bonds.delete(bid); hub.bonds.delete(bid); }
+    w.primitives.delete(leaf.id);
+
+    expect(isGoblinTowerComponent(w, hub.id)).toBe(false);
+  });
+
+  it('and `recipeStillSatisfied` reports that, rather than falling through to the anchor check', () => {
+    // The anchor SURVIVES in this scenario — which is precisely why the `default:` arm would have
+    // said "still fine". This asserts the goblinTower case is actually wired, not just present.
+    const w = makeWorld(0);
+    const hub = circleStar(w, GOBLIN_TOWER_HUB_DEGREE);
+    const leaf = [...w.primitives.values()].find((p) => p.id !== hub.id)!;
+    for (const bid of [...leaf.bonds]) { w.bonds.delete(bid); hub.bonds.delete(bid); }
+    w.primitives.delete(leaf.id);
+    expect(w.primitives.has(hub.id)).toBe(true); // the anchor is still there…
+
+    const spawner = {
+      id: asSpawnerId(1), ownerPlayerId: P0, anchorPrimitiveId: hub.id,
+      recipeId: 'goblinTower' as const, nextSpawnTick: 1e9,
+      lastValidatedTick: 0, spawnedCount: 0, ignitedAtTick: 0,
+    };
+    expect(recipeStillSatisfied(w, spawner)).toBe(false); // …and the tower is STILL torn down
   });
 });

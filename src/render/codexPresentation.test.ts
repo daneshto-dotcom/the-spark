@@ -23,10 +23,11 @@ import { STINK_TOWER_HUB_DEGREE, STINK_TOWER_SIZE } from '../constants.ts';
 const ALL_IDS = [
   'voltkin', 'nonet', 'pentagram', 'lightningHub', 'laserTurret', 'helga',
   'stinkTower', // S141 P1 — the first NON-GODLY entry
+  'goblinTower', // S151 P3 — one tower, six outputs (owner R70)
 ] as const;
 
 describe('S121 P4 — codex copy budgets (the anti-overflow contract)', () => {
-  it('covers every codex entry (2 godly + 5 towers)', () => {
+  it('covers every codex entry (2 godly + 6 towers)', () => {
     for (const id of ALL_IDS) expect(CODEX_COPY[id], id).toBeDefined();
     expect(Object.keys(CODEX_COPY).sort()).toEqual([...ALL_IDS].sort());
   });
